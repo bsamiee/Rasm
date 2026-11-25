@@ -1,34 +1,45 @@
 import type { Policy } from '@rasm/policy';
-import { Array, Effect, FileSystem, Option, Path, Stream } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { Array, Effect, FileSystem, Function, Option, Path, Stream } from 'effect';
+import { ChildProcess, type CommandLine } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Table = typeof Policy extends new (...tables: infer T extends readonly unknown[]) => unknown ? T[number] : never;
-type Whole = Extract<NonNullable<Table[string]>, { readonly action: 'Shell'; readonly decide: unknown }>;
-type Script = Parameters<Whole['decide']>[0];
-type Call = Parameters<Whole['decide']>[1];
-type Invocation = Effect.Success<Script['invocations']>[number];
-type Written = Invocation['words'][number];
-type Verdict = Extract<ReturnType<Whole['decide']>, readonly unknown[]>[number];
-type Editor = Parameters<Extract<Verdict, { readonly edit: unknown }>['edit']>[0];
-type Word = Parameters<Editor['before']>[0];
+type Table = ConstructorParameters<typeof Policy>[number];
+type ScriptRow = Extract<Table[string], { readonly action: 'Shell'; readonly decide: unknown }>;
+type Script = Parameters<ScriptRow['decide']>[0];
+type Call = Parameters<ScriptRow['decide']>[1];
+type Invocation = Call['invocations'][number];
+type Verdict = Extract<ReturnType<ScriptRow['decide']>, readonly unknown[]>[number];
+type Piece = Invocation['reads'][number]['pieces'][number];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const feeds = (producer: Invocation, { stdin, source }: Invocation): boolean => stdin._tag === 'Piped' && producer.source === source && Option.exists(producer.stage, ({ pipeline, index }) => stdin.pipeline === pipeline && stdin.index === index);
-const ancestors = (path: Path.Path, folder: string): readonly string[] => (path.dirname(folder) === folder ? [folder] : [folder, ...ancestors(path, path.dirname(folder))]);
-const nearest = Effect.fnUntraced(function* (cwd: string, marker: string) {
+const covers = (folder: string, path: string) => {
+    const base = folder.replace(/\/+$/u, '');
+    return base === '' || path === base || path.startsWith(`${base}/`);
+};
+const patternOf = (pieces: readonly Piece[]) => Option.map(Option.all(pieces.map((piece) => (piece._tag === 'Text' || piece._tag === 'Wild' ? Option.some(piece.text) : Option.none()))), Array.join(''));
+const roots = (walker: Invocation, cwd: string): readonly string[] => Array.match(Array.getSomes(walker.reads.map(({ text }) => text)), { onEmpty: () => [cwd], onNonEmpty: Function.identity });
+const rewrite = (invocation: Invocation, words: Array.NonEmptyReadonlyArray<string>): readonly Verdict[] => Option.toArray(invocation.span).map((span) => ({ edit: (editor) => [editor.replace(span, words)] }));
+const findUp = Effect.fnUntraced(function* (cwd: string, marker: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    return yield* Effect.findFirst(ancestors(path, path.resolve(cwd)), (folder) => Effect.orElseSucceed(fs.exists(path.join(folder, marker)), () => false));
+    const ancestors = Array.unfold(
+        Option.some(path.resolve(cwd)),
+        Option.map((folder) => [folder, Option.liftPredicate(path.dirname(folder), (parent) => parent !== folder)] as const),
+    );
+    return yield* Effect.findFirst(ancestors, (folder) => Effect.orElseSucceed(fs.exists(path.join(folder, marker)), () => false));
 });
-const ran = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, cwd: string) {
-    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-    const handle = yield* spawner.spawn(ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { cwd, stdin: 'ignore' }));
-    const [printed, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), handle.exitCode], { concurrency: 'unbounded' });
-    return { printed, code };
-}, Effect.scoped);
+const run =
+    (cwd: string) =>
+    (strings: TemplateStringsArray, ...words: readonly CommandLine.TemplateExpression[]) =>
+        Effect.scoped(
+            Effect.gen(function* () {
+                const handle = yield* ChildProcess.make({ cwd, stdin: 'ignore' })(strings, ...words);
+                const [printed, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), handle.exitCode], { concurrency: 'unbounded' });
+                return { printed, code };
+            }),
+        );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Call, type Editor, feeds, type Invocation, nearest, ran, type Script, type Table, type Verdict, type Word, type Written };
+export { type Call, covers, findUp, type Invocation, patternOf, rewrite, roots, run, type Script, type Table, type Verdict };

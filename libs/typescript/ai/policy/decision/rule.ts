@@ -40,6 +40,7 @@ type Verdict<K extends Kind> = { readonly note: string; readonly once: Note['onc
 interface Call extends Pick<Move, 'run'> {
     readonly action: typeof Action.cases.Shell.Type;
     readonly script: Script;
+    readonly invocations: readonly Invocation[];
     readonly cwd: string;
     readonly shell: Shell['Service'];
 }
@@ -61,13 +62,9 @@ interface Tally extends Pick<typeof Action.cases.Task.Type, 'again'>, Pick<typeo
     readonly rename: Readonly<Record<string, string>>;
     readonly ensure: readonly Ensure[];
 }
-interface Round {
-    readonly call: Call;
-    readonly invocations: readonly Invocation[];
-}
 interface Compiled {
     readonly kinds: readonly Kind[];
-    readonly shell: readonly ((round: Round) => Effect.Effect<Tally, never, Requirements>)[];
+    readonly shell: readonly ((call: Call) => Effect.Effect<Tally, never, Requirements>)[];
     readonly others: readonly ((action: Action) => Effect.Effect<Tally, never, Requirements>)[];
 }
 
@@ -175,11 +172,11 @@ const compileProgram = (rule: string, { program, aliases = [], path = [], ...row
         }),
         Match.orElse((flagEdit) => () => [flagEdit]),
     );
-    return ({ call, invocations }) =>
+    return (call) =>
         Effect.map(
             Effect.forEach(
                 Array.filterMap(
-                    invocations,
+                    call.invocations,
                     Filter.fromPredicateOption((invocation) => Option.map(select(invocation), (stated) => ({ invocation, stated }))),
                 ),
                 ({ invocation, stated }) =>
@@ -200,7 +197,7 @@ const compileProgram = (rule: string, { program, aliases = [], path = [], ...row
 };
 const compileScript = (rule: string, row: ScriptRow): Compiled['shell'][number] => {
     const [decide, toTally] = ['decide' in row ? row.decide : () => [row], evaluate(rule)];
-    return ({ call }) => toTally(() => decide(call.script, call));
+    return (call) => toTally(() => decide(call.script, call));
 };
 const compileAction = <K extends NonShell>(rule: string, row: ActionRow<K>): Compiled['others'][number] => {
     const [is, toTally] = [Action.guards[row.action], evaluate(rule)];
@@ -216,4 +213,4 @@ const compile = (rule: string, row: NonNullable<Table[string]>): Compiled =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { compile, type Compiled, compiled, message, type ProgramRow, type Requirements, type Round, type Table, type Tally, tally };
+export { type Call, compile, type Compiled, compiled, message, type ProgramRow, type Requirements, type Table, type Tally, tally };

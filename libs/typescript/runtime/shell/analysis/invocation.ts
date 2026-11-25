@@ -1,4 +1,4 @@
-import { Array, Data, Match, Option } from 'effect';
+import { Array, Data, Equal, Match, Option } from 'effect';
 import { RedirOperator, type Stmt, type Word } from 'sh-syntax';
 import type { Arguments } from '#/analysis/binding';
 import { Binding, Field, Origin } from '#/evaluation/value';
@@ -127,6 +127,10 @@ class Invocation extends Data.Class<{
         return Option.all([this.head, Option.flatMap(Array.last(this.words), ({ node }) => node)]);
     }
 
+    get argv(): Option.Option<readonly string[]> {
+        return Option.all(this.words.map(({ text }) => text));
+    }
+
     // --- [ARGUMENTS]
 
     get usage(): Arguments['usage'] {
@@ -161,6 +165,10 @@ class Invocation extends Data.Class<{
         return this.flags.some(({ flag }) => flag.spellings.some((spelling) => spellings.includes(spelling)));
     }
 
+    only(...spellings: readonly string[]): boolean {
+        return this.flags.every(({ flag }) => flag.spellings.some((spelling) => spellings.includes(spelling)));
+    }
+
     values(...spellings: readonly string[]): readonly Written[] {
         return this.flags.filter(({ flag }) => flag.spellings.some((spelling) => spellings.includes(spelling))).flatMap(({ values }) => values);
     }
@@ -177,6 +185,12 @@ class Invocation extends Data.Class<{
 
     get deletes(): readonly Field[] {
         return this.arguments.effects.deletes;
+    }
+
+    // --- [PIPELINE]
+
+    feeds(that: Invocation): boolean {
+        return this.source === that.source && Option.exists(this.stage, ({ pipeline, index }) => Equal.equals(that.stdin, Stdin.Piped({ pipeline, index })));
     }
 }
 

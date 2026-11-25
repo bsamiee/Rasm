@@ -1,12 +1,12 @@
 import { Shell } from '@rasm/shell';
 import { Array, ConfigProvider, Duration, Effect, Equal, Exit, HashSet, Match, Number, Option, Predicate, Record, Ref, Stream } from 'effect';
 import { Action, byRun, Decision, Scope, scopes } from '#/decision/action';
-import { compile, type Compiled, compiled, message, type Requirements, type Round, type Table, type Tally, tally } from '#/decision/rule';
+import { type Call, compile, type Compiled, compiled, message, type Requirements, type Table, type Tally, tally } from '#/decision/rule';
 import { git } from '#/rules/git';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Script = Round['call']['script'];
+type Script = Call['script'];
 type Environment = Required<Pick<Parameters<Shell['Service']['read']>[1], 'cwd' | 'dialect'>>;
 type Outcome = Pick<Tally, 'faults' | 'move' | 'notes' | 'reasons'> & { readonly script: Script };
 interface Progress extends Pick<Tally, 'faults' | 'move' | 'notes'> {
@@ -96,7 +96,7 @@ class Policy {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const decideShell = Effect.fnUntraced(function* <E, R>(action: Round['call']['action'], rounds: Compiled['shell'], environment: Effect.Effect<Environment, E, R>) {
+const decideShell = Effect.fnUntraced(function* <E, R>(action: Call['action'], rounds: Compiled['shell'], environment: Effect.Effect<Environment, E, R>) {
     const [shell, { dialect, cwd }] = yield* Effect.all([Shell, environment]);
     const written = yield* shell.read(action.command, { dialect, cwd });
     const [asked, words] = [{ run: action.run, notes: [] }, Number.sumAll((yield* written.invocations).flatMap(({ leaves }) => leaves).map((invocation) => invocation.words.length))];
@@ -115,7 +115,7 @@ const decideShell = Effect.fnUntraced(function* <E, R>(action: Round['call']['ac
     const round = Effect.fnUntraced(function* ({ trail, move: reached, notes: told, faults: failed, written: first }: Progress): Effect.fn.Return<readonly [readonly Outcome[], Option.Option<Progress>], Effect.Error<Script['invocations']>, Requirements> {
         const { script } = Array.lastNonEmpty(trail);
         const invocations = (yield* script.invocations).flatMap(({ leaves }) => leaves);
-        const sum = tally.combineAll(yield* Effect.forEach(rounds, (decide) => decide({ call: { action, script, cwd, shell, run: reached.run }, invocations })));
+        const sum = tally.combineAll(yield* Effect.forEach(rounds, (decide) => decide({ action, script, invocations, cwd, shell, run: reached.run })));
         const edited = yield* Effect.reduce(Array.isReadonlyArrayNonEmpty(sum.reasons) ? [] : sum.edits, (): Edits => ({ edits: [], rules: [], script: Option.none(), faults: [] }), apply(script));
         const before = Array.dedupe(trail.flatMap(({ by }) => by));
         const editors = Array.dedupe([...before, ...edited.rules]);

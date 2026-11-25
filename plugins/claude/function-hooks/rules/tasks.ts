@@ -1,418 +1,343 @@
-import { tasks as graphed } from '@rasm/nx/graph';
-import { Array, Effect, Equal, FileSystem, Match, Option, Path, Predicate, Record, Schema, String, Struct } from 'effect';
-import { RedirOperator, type Stmt, walk } from 'sh-syntax';
-import { type Call, type Editor, feeds, type Invocation, nearest, ran, type Script, type Table, type Verdict, type Word } from '#/rules/rule';
+import { tasks as projectGraph } from '@rasm/nx/graph';
+import { Array, Effect, Equal, FileSystem, Function, Match, Option, Path, Predicate, Record, Schema, String } from 'effect';
+import { RedirOperator, type Stmt, type Word } from 'sh-syntax';
+import { covers, findUp, type Invocation, run, type Script, type Table, type Verdict } from '#/rules/rule';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Graph = Effect.Success<ReturnType<typeof graphed>> & { readonly root: string };
-type Row = Graph['tasks'] extends ReadonlyMap<string, infer R> ? R : never;
+type Graph = Effect.Success<ReturnType<typeof projectGraph>> & { readonly root: string };
+type Row = NonNullable<ReturnType<Graph['tasks']['get']>>;
 type Steps = (typeof Hooks.Type)['steps'];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const shared = 'Leave it running; nx reset --only-cache empties the cache alone.';
+const daemonAdvice = 'Leave it running; nx reset --only-cache empties the cache alone.';
 const launchers: ReadonlySet<string> = new Set(['', 'pnpm exec', 'npx', 'uv run', 'mise exec', 'pixi run', 'npm exec']);
-const wrapped: ReadonlySet<string> = new Set([...launchers].flatMap((launcher) => launcher.split(' ').slice(0, 1).filter(String.isNonEmpty)));
-const bounded: ReadonlySet<string> = new Set([...wrapped, 'timeout']);
-const plain = /^[\w./:@%+=,-]+$/u;
-const ending: ReadonlySet<string> = new Set(['sync', 'sync:check', 'conformance:check']);
-const operations: Readonly<Record<string, { readonly aggregate: string; readonly args: readonly string[]; readonly applies: boolean }>> = {
+const launcherPrograms: ReadonlySet<string> = new Set([...launchers].flatMap((launcher) => launcher.split(' ').slice(0, 1).filter(String.isNonEmpty)));
+const boundedPrograms: ReadonlySet<string> = new Set([...launcherPrograms, 'timeout']);
+const plainWord = /^[\w./:@%+=,-]+$/u;
+const finiteVerbs: ReadonlySet<string> = new Set(['sync', 'sync:check', 'conformance:check']);
+const stackOperations: Readonly<Record<string, { readonly aggregate: string; readonly args: readonly string[]; readonly applies: boolean }>> = {
     up: { aggregate: 'deploy', args: [], applies: true },
     preview: { aggregate: 'dry-run', args: [], applies: false },
     refresh: { aggregate: 'dry-run', args: [], applies: false },
     destroy: { aggregate: 'deploy', args: ['--operation=destroy'], applies: true },
 };
-const pulumied: ReadonlySet<string> = new Set(['--stack', '-s', '--yes', '-y', '--skip-preview', '--non-interactive', '--cwd', '-C']);
+const stackFlags = ['--stack', '-s', '--yes', '-y', '--skip-preview', '--non-interactive', '--cwd', '-C'];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Argv = Schema.Struct({ command: Schema.Union([Schema.String, Schema.Struct({ argv: Schema.Array(Schema.String) })]) });
-const Hooks = Schema.fromJsonString(Schema.Struct({ steps: Schema.Record(Schema.String, Schema.Struct({ check: Schema.optionalKey(Schema.NullOr(Argv)), check_diff: Schema.optionalKey(Schema.NullOr(Argv)), check_list_files: Schema.optionalKey(Schema.NullOr(Argv)), fix: Schema.optionalKey(Schema.NullOr(Argv)) })) }));
+const Words = Schema.Array(Schema.String);
+const Command = Schema.optionalKey(Schema.NullOr(Schema.Struct({ command: Schema.Union([Schema.String, Schema.Struct({ argv: Words })]) })));
+const Hooks = Schema.fromJsonString(Schema.Struct({ steps: Schema.Record(Schema.String, Schema.Struct({ check: Command, check_diff: Command, check_list_files: Command, fix: Command })) }));
 const Plan = Schema.fromJsonString(Schema.Struct({ steps: Schema.Array(Schema.Struct({ status: Schema.String, fileCount: Schema.optionalKey(Schema.Finite) })) }));
 const Metadata = Schema.fromJsonString(Schema.Struct({ workspace_root: Schema.String, packages: Schema.Array(Schema.Struct({ name: Schema.String, manifest_path: Schema.String })) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const workspace = Effect.fnUntraced(function* (cwd: string) {
-    const root = yield* nearest(cwd, 'nx.json');
-    const graph = yield* Option.match(root, { onNone: () => Effect.succeedNone, onSome: (folder) => Effect.option(graphed(folder)) });
-    return Option.map(Option.all([root, graph]), ([folder, held]): Graph => ({ ...held, root: folder }));
-});
-const addressed = (invocation: Invocation, graph: Graph): readonly Row[] => {
-    const [first = '', second = ''] = [Option.getOrUndefined(invocation.operand()), Option.getOrUndefined(invocation.operand(1))];
-    const listed = (flag: string) =>
-        invocation
-            .values(flag)
-            .flatMap((value) => Option.toArray(value.text))
-            .flatMap((value) => value.split(','));
-    const asked = listed('-p');
-    const projects = Array.isReadonlyArrayEmpty(asked) ? Array.dedupe(Array.fromIterable(graph.tasks.values()).map(({ project }) => project)) : asked;
-    const keys = Match.value(first).pipe(
-        Match.when('run', () => [second.split(':').slice(0, 2).join(':')]),
-        Match.when(Match.is('run-many', 'affected'), () => Array.cartesianWith(projects, listed('-t'), (project, target) => `${project}:${target}`)),
-        Match.orElse(() => [`${second}:${first}`]),
-    );
-    return keys.flatMap((key) => Array.fromNullishOr(graph.tasks.get(key)));
-};
-const members = (graph: Graph, row: Row): readonly Row[] => [row, ...(row.runs._tag === 'Aggregate' ? row.runs.members.flatMap((member) => Array.fromNullishOr(graph.tasks.get(`${row.project}:${member}`))).flatMap((held) => members(graph, held)) : [])];
-const aggregate = (graph: Graph, row: Row) => Array.findFirst(Array.fromIterable(graph.tasks.values()), (held) => held.project === row.project && Option.isNone(held.configuration) && held.runs._tag === 'Aggregate' && held.runs.members.includes(row.target));
-const launched = (invocation: Invocation): Option.Option<readonly [Word, Word]> =>
-    Option.flatMap(Option.all([invocation.node, Option.flatMap(Array.head(invocation.words), ({ node }) => node)]), ([stmt, word]) => {
+const cwdOf = (invocation: Invocation, cwd: string): string => Option.getOrElse(invocation.place._tag === 'Local' ? invocation.place.cwd.text : Option.none(), () => cwd);
+const launcherOf = (invocation: Invocation): Option.Option<readonly [Word, Word]> =>
+    Option.flatMap(Option.all([invocation.node, invocation.head]), ([stmt, word]) => {
         const args = stmt.cmd?.type === 'CallExpr' ? stmt.cmd.args : [];
         return Option.all([Array.head(args), Array.get(args, args.indexOf(word) - 1)]);
     });
-const here = (invocation: Invocation, cwd: string): string => Option.getOrElse(invocation.place._tag === 'Local' ? invocation.place.cwd.text : Option.none(), () => cwd);
-const placed = Effect.fnUntraced(function* (invocation: Invocation, cwd: string, root: string, words: readonly Invocation['words'][number][] = invocation.operands.map(({ word }) => word)) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const base = here(invocation, cwd);
-    const paths = words.map((word) => ({ word, text: word.text, path: Option.map(word.text, (text) => path.resolve(base, text)) }));
-    const present = yield* Effect.forEach(paths, ({ path: file }) => Option.match(file, { onNone: () => Effect.succeed(false), onSome: (held) => Effect.orElseSucceed(fs.exists(held), () => false) }));
-    return Array.zipWith(paths, present, ({ word, text, path: file }, exists) => ({ word, text, file: Option.filter(file, (held) => exists && (held === root || held.startsWith(`${root}/`))) }));
-});
-const helps = (graph: Graph) =>
-    Array.fromIterable(graph.tasks.values())
-        .flatMap((row) => {
-            const words = Option.getOrElse(
-                Option.filter(
-                    Option.map(row.help, (help) => help.split(' ')),
-                    (all) => all.every((word) => plain.test(word)),
-                ),
-                Array.empty<string>,
-            );
-            return Option.isNone(row.configuration)
-                ? words.flatMap((program, at) =>
-                      launchers.has(words.slice(0, at).join(' '))
-                          ? [
-                                {
-                                    row,
-                                    program,
-                                    stated: words
-                                        .slice(at + 1)
-                                        .filter((word) => !word.startsWith('-'))
-                                        .join(' '),
-                                },
-                            ]
-                          : [],
-                  )
-                : [];
-        })
-        .map((entry) => {
-            const lines = commanded(entry);
-            return { ...entry, lines, configured: new Set(lines.flatMap((line) => [...line])) };
-        });
-const arrays = (value: unknown): readonly (readonly string[])[] =>
-    Match.value(value).pipe(
+const extentOf = (invocation: Invocation): Option.Option<readonly [Word, Word]> => (invocation.within.length === 0 ? invocation.span : Option.all([Option.map(launcherOf(invocation), ([first]) => first), Option.map(invocation.span, ([, last]) => last)]));
+const isLaunchedBy = (invocation: Invocation, programs: ReadonlySet<string>) => invocation.within.every((within) => within._tag === 'Wrapper' && programs.has(within.name));
+const isRaw = (invocation: Invocation, programs: ReadonlySet<string>) => invocation.inner.length === 0 && Option.isNone(invocation.repeated) && invocation.assigns.length === 0 && !invocation.runs('nx', 'hk') && isLaunchedBy(invocation, programs);
+const loopOf = ({ tree }: Script, invocation: Invocation): Option.Option<Stmt> =>
+    Option.flatMap(invocation.node, (body) => {
+        const [stmt, clause] = Array.takeRight(tree.path(body), 3).map(({ node }) => node);
+        const sole = clause?.type === 'ForClause' && clause.loop?.type === 'WordIter' && clause.do.length === 1 && clause.do[0] === body;
+        const bare = body.redirs.length === 0 && body.cmd?.type === 'CallExpr' && body.cmd.assigns.length === 0 && !body.background && !body.negated;
+        return stmt?.type === 'Stmt' && stmt.redirs.length === 0 && sole && bare ? Option.some(stmt) : Option.none();
+    });
+const readGraph = Effect.fnUntraced(function* (cwd: string) {
+    const root = yield* Effect.fromOption(yield* findUp(cwd, 'nx.json'));
+    return { ...(yield* projectGraph(root)), root };
+}, Effect.option);
+const resolveRows = (nx: Invocation, { tasks: rows }: Graph): readonly Row[] => {
+    const [verb, subject] = [Option.getOrElse(nx.operand(), () => ''), Option.getOrElse(nx.operand(1), () => '')];
+    const list = (flag: string) => Array.getSomes(nx.values(flag).map(({ text }) => text)).flatMap((value) => value.split(','));
+    const projects = Array.match(list('-p'), { onEmpty: () => Array.dedupe(rows.values().map(({ project }) => project)), onNonEmpty: Function.identity });
+    const keys = Match.value(verb).pipe(
+        Match.when('run', () => [subject.split(':').slice(0, 2).join(':')]),
+        Match.when(Match.is('run-many', 'affected'), () => Array.cartesianWith(projects, list('-t'), (project, target) => `${project}:${target}`)),
+        Match.orElse(() => [`${subject}:${verb}`]),
+    );
+    return keys.flatMap((key) => Array.fromNullishOr(rows.get(key)));
+};
+const expandRow = (graph: Graph, row: Row): readonly Row[] => [row, ...(row.runs._tag === 'Aggregate' ? row.runs.members.flatMap((member) => Array.fromNullishOr(graph.tasks.get(`${row.project}:${member}`))).flatMap((member) => expandRow(graph, member)) : [])];
+const folderOf = (graph: Graph, path: Path.Path, row: Row): string => path.join(graph.root, row.runs._tag === 'Commands' ? row.runs.cwd : Option.getOrElse(Option.liftPredicate(row.options['cwd'], Predicate.isString), () => row.root));
+const collectLines = (options: unknown): readonly (readonly string[])[] =>
+    Match.value(options).pipe(
         Match.when(Predicate.isString, (text) => [text.split(/\s+/u)]),
-        Match.when(
-            (held: unknown): held is readonly string[] => Array.isArray(held) && held.every(Predicate.isString),
-            (held) => [held],
-        ),
-        Match.when(Predicate.isObjectOrArray, (held) => Object.values(held).flatMap(arrays)),
+        Match.when(Schema.is(Words), (words) => [words]),
+        Match.when(Predicate.isObjectOrArray, (nested) => Object.values(nested).flatMap(collectLines)),
         Match.orElse(() => []),
     );
-const commanded = ({ row, program, stated }: { readonly row: Row; readonly program: string; readonly stated: string }): readonly ReadonlySet<string>[] => {
-    const anchor = stated.split(' ')[0] ?? '';
-    const lines = arrays(row.options).flatMap((line) => {
-        const at = line.findIndex((word) => word === program || (anchor !== '' && word === anchor));
-        return at === -1 ? [] : [new Set(line.slice(line[at] === program ? at + 1 : at))];
+const helpsOf = (row: Row) => {
+    const commands = collectLines(row.options);
+    const help = Option.filter(
+        Option.map(row.help, (command) => command.split(' ')),
+        (words) => Option.isNone(row.configuration) && words.every((word) => plainWord.test(word)),
+    );
+    return Option.getOrElse(help, Array.empty<string>).flatMap((program, at, words) => {
+        const stated = words.slice(at + 1).filter((word) => !word.startsWith('-'));
+        const found = commands.flatMap((line) => {
+            const index = line.findIndex((word) => word === program || word === stated[0]);
+            return index === -1 ? [] : [new Set(line.slice(line[index] === program ? index + 1 : index))];
+        });
+        const lines = Array.isReadonlyArrayEmpty(found) ? [new Set<string>()] : found;
+        const configured = lines.reduce((all, line) => all.union(line), new Set<string>());
+        return launchers.has(words.slice(0, at).join(' ')) ? [{ row, program, stated: stated.join(' '), lines, configured }] : [];
     });
-    return Array.isReadonlyArrayEmpty(lines) ? [new Set<string>()] : lines;
 };
-const based = (graph: Graph, path: Path.Path, row: Row): string => path.join(graph.root, row.runs._tag === 'Commands' ? row.runs.cwd : Option.getOrElse(Option.filter(Option.some(row.options['cwd']), Predicate.isString), () => row.root));
-const extent = (invocation: Invocation): Option.Option<readonly [Word, Word]> => (invocation.within.length === 0 ? invocation.span : Option.all([Option.map(launched(invocation), ([first]) => first), Option.map(invocation.span, ([, last]) => last)]));
-const routable = (call: Call, wrappers: ReadonlySet<string>) => (invocation: Invocation) =>
-    call.action.run !== 'monitored' &&
-    invocation.inner.length === 0 &&
-    Option.isNone(invocation.repeated) &&
-    invocation.assigns.length === 0 &&
-    invocation.rest.length === 0 &&
-    !invocation.runs('nx', 'hk') &&
-    !Option.exists(invocation.stage, ({ index, count }) => index < count - 1) &&
-    invocation.within.every((within) => within._tag === 'Wrapper' && wrappers.has(within.name));
-const routed = (graph: Graph, picks: Array.NonEmptyReadonlyArray<Row>, forwarded: readonly string[], everywhere: boolean): Array.NonEmptyReadonlyArray<string> => {
+const listHelps = Function.memoize((rows: Graph['tasks']) => Array.fromIterable(rows.values()).flatMap(helpsOf));
+const locate = Effect.fnUntraced(function* (words: Invocation['words'], cwd: string, root: string) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    return yield* Effect.forEach(
+        words,
+        Effect.fnUntraced(function* (word) {
+            const inside = Option.filter(
+                Option.map(word.text, (text) => path.resolve(cwd, text)),
+                (file) => covers(root, file),
+            );
+            const exists = yield* Option.match(inside, { onNone: () => Effect.succeed(false), onSome: (file) => Effect.orElseSucceed(fs.exists(file), () => false) });
+            return { word, file: Option.filter(inside, () => exists) };
+        }),
+    );
+});
+const restate = (graph: Graph, picks: Array.NonEmptyReadonlyArray<Row>, forwarded: readonly string[], everywhere: boolean): Array.NonEmptyReadonlyArray<string> => {
     const [first] = picks;
+    const aggregate = Array.findFirst(graph.tasks.values(), ({ project, target, configuration, runs }) => (project === first.project && Option.isNone(configuration) && runs._tag === 'Aggregate' && runs.members.includes(first.target) ? Option.some({ target, members: runs.members }) : Option.none()));
     const projects = everywhere ? [] : ['-p', picks.map(({ project }) => project).join(',')];
-    const sole = Option.filter(aggregate(graph, first), ({ runs }) => runs._tag === 'Aggregate' && runs.members.length === 1 && Array.isReadonlyArrayEmpty(forwarded));
     const forward = Array.isReadonlyArrayEmpty(forwarded) ? [] : ['--', ...forwarded];
-    return picks.length > 1 ? Array.make('nx', 'run-many', '-t', first.target, ...projects) : Option.match(sole, { onNone: () => Array.make('nx', 'run', `${first.project}:${first.target}`, ...forward), onSome: ({ target }) => Array.make('nx', target, first.project) });
+    return picks.length > 1
+        ? Array.make('nx', 'run-many', '-t', first.target, ...projects)
+        : Option.match(
+              Option.filter(aggregate, ({ members }) => members.length === 1 && Array.isReadonlyArrayEmpty(forwarded)),
+              { onNone: () => Array.make('nx', 'run', `${first.project}:${first.target}`, ...forward), onSome: ({ target }) => Array.make('nx', target, first.project) },
+          );
 };
-const route = Effect.fnUntraced(function* (invocation: Invocation, graph: Graph, helped: ReturnType<typeof helps>, cwd: string) {
+const route = Effect.fnUntraced(function* (invocation: Invocation, graph: Graph, cwd: string) {
     const path = yield* Path.Path;
-    const operands = yield* placed(invocation, cwd, graph.root);
-    const program = Option.getOrUndefined(invocation.name);
-    const spoken = [...invocation.path, ...operands.flatMap(({ text, file }) => (Option.isSome(file) ? [] : Option.toArray(text)))].join(' ');
-    const files = operands.flatMap(({ file }) => Option.toArray(file));
-    const valued = yield* Effect.forEach(invocation.flags, (bound) => placed(invocation, cwd, graph.root, bound.values));
-    const flags = Array.zipWith(invocation.flags, valued, (bound, values) => ({ spelling: bound.spelled.text, words: Option.all([bound.spelled, ...bound.values.filter(({ node }) => Option.isSome(node))].map(Struct.get('text'))), paths: Array.getSomes(values.map(({ file }) => file)) }));
-    const located = flags.flatMap(({ paths }) => paths);
-    const unplaced = Array.isReadonlyArrayEmpty(files) && Array.isReadonlyArrayEmpty(located);
-    const matching = helped.filter(({ program: helping, stated }) => helping === program && stated === spoken);
-    const direct = Array.dedupe(unplaced ? Option.toArray(graph.owner(cwd)) : [...files, ...located].flatMap((file) => Option.toArray(graph.owner(file))));
-    const nested = unplaced && !matching.some(({ row }) => row.cached && direct.includes(row.project)) ? Array.dedupe(matching.filter(({ row }) => row.cached && `${path.join(graph.root, row.root)}/`.startsWith(`${cwd}/`)).map(({ row }) => row.project)) : [];
-    const widened = Array.isReadonlyArrayNonEmpty(nested);
-    const owners = widened ? nested : direct;
-    const peers = matching.filter(({ row }) => owners.includes(row.project));
+    const operands = yield* locate(
+        invocation.operands.map(({ word }) => word),
+        cwd,
+        graph.root,
+    );
+    const values = yield* Effect.forEach(invocation.flags, (flag) => locate(flag.values, cwd, graph.root));
+    const flags = Array.zipWith(invocation.flags, values, ({ spelled, values: given }, located) => {
+        const written = Option.all([spelled, ...given.filter(({ node }) => Option.isSome(node))].map(({ text }) => text));
+        return { spelling: spelled.text, known: Option.isSome(written), words: Option.getOrElse(written, Array.empty<string>), paths: Array.getSomes(located.map(({ file }) => file)) };
+    });
+    const files = Array.getSomes(operands.map(({ file }) => file));
+    const paths = [...files, ...flags.flatMap(({ paths: given }) => given)];
+    const stated = [...invocation.path, ...operands.flatMap(({ word, file }) => (Option.isSome(file) ? [] : Option.toArray(word.text)))].join(' ');
+    const helps = listHelps(graph.tasks).filter((help) => invocation.runs(help.program) && help.stated === stated);
+    const direct = Array.dedupe((Array.isReadonlyArrayEmpty(paths) ? [cwd] : paths).flatMap((at) => Option.toArray(graph.owner(at))));
+    const below = Array.isReadonlyArrayEmpty(paths) && !helps.some(({ row }) => row.cached && direct.includes(row.project)) ? Array.dedupe(helps.filter(({ row }) => row.cached && covers(cwd, path.join(graph.root, row.root))).map(({ row }) => row.project)) : [];
+    const widened = Array.isReadonlyArrayNonEmpty(below);
+    const owners = widened ? below : direct;
+    const peers = helps.filter(({ row }) => owners.includes(row.project));
     const asked = new Set(flags.flatMap(({ spelling }) => Option.toArray(spelling)));
-    const written = new Set(flags.flatMap(({ words }) => Option.getOrElse(words, Array.empty<string>)));
-    const fitting = (held: (typeof peers)[number]) => {
-        const others = peers.filter(({ row }) => row.project === held.row.project && row.target !== held.row.target);
-        const foreign = flags.filter(({ words }) => !Option.getOrElse(words, Array.empty<string>).every((word) => held.configured.has(word)));
-        const base = based(graph, path, held.row);
-        const consumed = foreign.every(({ paths }) => paths.every((file) => file === base || file === path.join(graph.root, held.row.root) || held.configured.has(path.relative(base, file))));
-        const excluded = [...asked].some((word) => !held.configured.has(word) && others.some(({ configured }) => configured.has(word)));
-        const writers = others.filter(({ row }) => !row.cached);
-        const loose = new Set(writers.flatMap(({ configured }) => [...configured]));
-        const same = held.lines.some((line) => [...line].every((word) => !word.startsWith('-') || written.has(word) || Array.isReadonlyArrayEmpty(writers) || loose.has(word)));
-        return held.row.cached && flags.every(({ words }) => Option.isSome(words)) && consumed && !excluded && same;
+    const written = new Set(flags.flatMap(({ words }) => words));
+    const fits = (help: (typeof peers)[number]) => {
+        const others = peers.filter(({ row }) => row.project === help.row.project && row.target !== help.row.target);
+        const uncached = others.filter(({ row }) => !row.cached);
+        const loose = uncached.reduce((all, { configured }) => all.union(configured), new Set<string>());
+        const folder = folderOf(graph, path, help.row);
+        const consumed = flags.filter(({ words }) => !words.every((word) => help.configured.has(word))).every(({ paths: given }) => given.every((file) => file === folder || file === path.join(graph.root, help.row.root) || help.configured.has(path.relative(folder, file))));
+        const excluded = [...asked].some((word) => !help.configured.has(word) && others.some(({ configured }) => configured.has(word)));
+        const same = help.lines.some((line) => [...line].every((word) => !word.startsWith('-') || written.has(word) || Array.isReadonlyArrayEmpty(uncached) || loose.has(word)));
+        return help.row.cached && flags.every(({ known }) => known) && consumed && !excluded && same;
     };
-    const fit = peers.filter(fitting);
+    const fit = peers.filter(fits);
     const rows = fit.map(({ row }) => row);
     const absorbed = Array.match(fit, { onEmpty: () => new Set<string>(), onNonEmpty: ([first, ...others]) => others.reduce((common, { configured }) => common.intersection(configured), first.configured) });
-    const picks = owners.flatMap((owner) => (rows.filter(({ project }) => project === owner).length === 1 ? rows.filter(({ project }) => project === owner) : []));
+    const owned = owners.map((owner) => [owner, rows.filter(({ project }) => project === owner)] as const);
+    const picks = owned.flatMap(([, own]) => (own.length === 1 ? own : []));
     const inner = files.filter((file) => !picks.some(({ root }) => file === path.join(graph.root, root)));
+    const forwarded = [...flags.flatMap(({ words, paths: given }) => (Array.isReadonlyArrayNonEmpty(given) ? [] : words)).filter((word) => !absorbed.has(word)), ...Array.take(picks, 1).flatMap((pick) => inner.map((file) => path.relative(folderOf(graph, path, pick), file) || '.'))];
     const narrowed = Array.isReadonlyArrayNonEmpty(inner) && (picks.length !== 1 || widened);
-    const forwarded = [
-        ...flags.flatMap(({ words, paths }) => (Array.isReadonlyArrayNonEmpty(paths) ? [] : Option.getOrElse(words, Array.empty<string>))).filter((word) => !absorbed.has(word)),
-        ...Option.toArray(Array.head(picks)).flatMap((pick) => inner.map((file) => path.relative(based(graph, path, pick), file) || '.')),
-    ];
-    const several = Array.findFirst(owners, (owner) => rows.filter(({ project }) => project === owner).length > 1);
     const ready = Option.filter(
-        Option.all([Array.match(picks, { onEmpty: Option.none, onNonEmpty: Option.some }), extent(invocation)]),
-        ([held]) => (widened || held.length === owners.length) && held.every(({ target: name }) => name === held[0].target) && !narrowed && ((held.length === 1 && !widened) || Array.isReadonlyArrayEmpty(forwarded)),
+        Option.all([Option.liftPredicate(picks, Array.isArrayNonEmpty), extentOf(invocation)]),
+        ([chosen]) => (widened || chosen.length === owners.length) && chosen.every(({ target }) => target === chosen[0].target) && !narrowed && ((chosen.length === 1 && !widened) || Array.isReadonlyArrayEmpty(forwarded)),
     );
-    return Match.value({ several: Option.getOrUndefined(several), ready: Option.getOrUndefined(ready) }).pipe(
-        Match.when({ several: Match.string }, ({ several: owner }) => [
-            {
-                deny: `${invocation.label} matches several targets of ${owner}.`,
-                advice: `Run one of: ${rows
-                    .filter(({ project }) => project === owner)
-                    .map((row) => `nx run ${row.project}:${row.target}`)
-                    .join(', ')}.`,
-            },
-        ]),
-        Match.when({ ready: Match.defined }, ({ ready: [chosen, words] }) => [{ edit: (editor: Editor) => [editor.replace(words, routed(graph, chosen, forwarded, widened && cwd === graph.root))] }]),
+    return Match.value({ several: Option.getOrUndefined(Array.findFirst(owned, ([, own]) => own.length > 1)), ready: Option.getOrUndefined(ready) }).pipe(
+        Match.when({ several: Match.defined }, ({ several: [owner, own] }): readonly Verdict[] => [{ deny: `${invocation.label} matches several targets of ${owner}.`, advice: `Run one of: ${own.map((row) => `nx run ${row.project}:${row.target}`).join(', ')}.` }]),
+        Match.when({ ready: Match.defined }, ({ ready: [chosen, span] }): readonly Verdict[] => [{ edit: (editor) => [editor.replace(span, restate(graph, chosen, forwarded, widened && cwd === graph.root))] }]),
         Match.orElse((): readonly Verdict[] => []),
     );
 });
-const looping = (script: Script, invocation: Invocation): Option.Option<Stmt> => {
-    const loops: Stmt[] = [];
-    walk(script.syntax, (node) => {
-        loops.push(...(node.type === 'Stmt' && node.cmd?.type === 'ForClause' && node.cmd.loop?.type === 'WordIter' && node.redirs.length === 0 && Option.exists(invocation.repeated, ({ start }) => node.cmd !== null && script.located(node.cmd.start) === start) ? [node] : []));
-    });
-    return Option.filter(Array.head(loops), ({ cmd }) => {
-        const [body, ...others] = cmd?.type === 'ForClause' ? cmd.do : [];
-        return others.length === 0 && body?.redirs.length === 0 && body.cmd?.type === 'CallExpr' && body.cmd.assigns.length === 0 && !body.background && !body.negated && Option.exists(invocation.node, (stmt) => stmt === body);
-    });
-};
-const steps = Effect.fnUntraced(function* (root: string) {
+const readSteps = Effect.fnUntraced(function* (root: string) {
     const path = yield* Path.Path;
-    const { printed, code } = yield* ran(['pkl', 'eval', '--format', 'json', path.join(root, '.config/hk.pkl')], root);
-    return code === 0
-        ? Option.getOrElse(
-              Option.map(Schema.decodeOption(Hooks)(printed), ({ steps: held }) => held),
-              (): Steps => ({}),
-          )
-        : {};
+    const { printed, code } = yield* run(root)`pkl eval --format json ${path.join(root, '.config/hk.pkl')}`;
+    return Option.match(
+        Option.filter(Schema.decodeOption(Hooks)(printed), () => code === 0),
+        { onNone: (): Steps => ({}), onSome: ({ steps }) => steps },
+    );
 });
-const argv = (mode: typeof Argv.Type | null | undefined): readonly string[] => (mode === null || mode === undefined || typeof mode.command === 'string' ? [] : mode.command.argv);
-const fits = (configured: Steps, program: string, asked: readonly string[]) =>
+const argvOf = (mode: Steps[string]['check']): readonly string[] => (mode === null || mode === undefined || Predicate.isString(mode.command) ? [] : mode.command.argv);
+const matchSteps = (steps: Steps, invocation: Invocation, asked: readonly string[]) =>
     Array.dedupeWith(
-        Record.toEntries(configured).flatMap(([step, modes]) => {
-            const checking = [argv(modes.check), argv(modes.check_diff), argv(modes.check_list_files)];
-            const sides = [...checking.map((own) => ({ mode: 'check' as const, own, other: argv(modes.fix) })), { mode: 'fix' as const, own: argv(modes.fix), other: checking.flat() }];
+        Record.toEntries(steps).flatMap(([step, modes]) => {
+            const checks = [argvOf(modes.check), argvOf(modes.check_diff), argvOf(modes.check_list_files)];
+            const sides = [...checks.map((own) => ({ mode: 'check' as const, own, other: argvOf(modes.fix) })), { mode: 'fix' as const, own: argvOf(modes.fix), other: checks.flat() }];
             return sides.flatMap(({ mode, own, other }) => {
-                const words = own.slice(1).filter((word) => word !== '{{files}}');
+                const [program = '', ...given] = own;
+                const words = given.filter((word) => word !== '{{files}}');
                 const distinct = other.length === 0 ? [] : words.filter((word) => !other.includes(word));
-                return own[0] === program && own.includes('{{files}}') && asked.every((word) => words.includes(word)) && distinct.every((word) => asked.includes(word)) ? [{ step, mode }] : [];
+                return invocation.runs(program) && own.includes('{{files}}') && asked.every((word) => words.includes(word)) && distinct.every((word) => asked.includes(word)) ? [{ step, mode }] : [];
             });
         }),
         (left, right) => left.step === right.step && left.mode === right.mode,
     );
-const stepped = Effect.fnUntraced(function* (invocation: Invocation, configured: Steps, root: string, cwd: string) {
+const routeStep = Effect.fnUntraced(function* (invocation: Invocation, steps: Steps, root: string, cwd: string) {
     const path = yield* Path.Path;
-    const operands = yield* placed(invocation, cwd, root, invocation.words.slice(1));
-    const files = operands.flatMap(({ file }) => Option.toArray(file));
-    const asked = Option.all(
-        invocation.words
-            .slice(1)
-            .filter((written) => !operands.some(({ word, file }) => word === written && Option.isSome(file)))
-            .map(Struct.get('text')),
-    );
-    const fitting = Option.match(asked, {
-        onNone: () => [],
-        onSome: (words) =>
-            fits(
-                configured,
-                Option.getOrElse(invocation.name, () => ''),
-                words,
-            ),
-    });
-    const relative = files.map((file) => path.relative(cwd, file) || '.');
-    const fit = Option.filter(Array.head(fitting), () => fitting.length === 1 && Array.isReadonlyArrayNonEmpty(files));
-    const plan = yield* Option.match(fit, { onNone: () => Effect.succeed({ printed: '', code: 1 }), onSome: ({ mode, step }) => ran(Array.make('hk', mode, '--step', step, '--plan', '--json', ...relative), cwd) });
-    const included = Option.exists(Schema.decodeOption(Plan)(plan.printed), ({ steps: planned }) => planned.some(({ status, fileCount }) => status === 'included' && fileCount === files.length));
-    return Option.match(
-        Option.filter(Option.all([fit, extent(invocation)]), () => included),
-        {
-            onNone: (): readonly Verdict[] => [],
-            onSome: ([{ step, mode }, words]) => [{ edit: (editor: Editor) => [editor.replace(words, Array.make('hk', mode, '--step', step, ...relative))] }],
-        },
-    );
+    const words = yield* locate(invocation.words.slice(1), cwd, root);
+    const files = Array.getSomes(words.map(({ file }) => file)).map((file) => path.relative(cwd, file) || '.');
+    const asked = Option.all(words.filter(({ file }) => Option.isNone(file)).map(({ word }) => word.text));
+    const matches = Option.match(asked, { onNone: () => [], onSome: (given) => matchSteps(steps, invocation, given) });
+    const match = Option.filter(Array.head(matches), () => matches.length === 1 && Array.isReadonlyArrayNonEmpty(files));
+    const plan = yield* Option.match(match, { onNone: () => Effect.succeed(''), onSome: ({ mode, step }) => Effect.map(run(cwd)`hk ${mode} --step ${step} --plan --json ${files}`, ({ printed }) => printed) });
+    const included = Option.exists(Schema.decodeOption(Plan)(plan), ({ steps: planned }) => planned.some(({ status, fileCount }) => status === 'included' && fileCount === files.length));
+    return Option.toArray(Option.filter(Option.all([match, extentOf(invocation)]), () => included)).map(([{ step, mode }, span]): Verdict => ({ edit: (editor) => [editor.replace(span, Array.make('hk', mode, '--step', step, ...files))] }));
 });
-const crates = Effect.fnUntraced(function* (invocation: Invocation, cwd: string) {
+const resolveCrates = Effect.fnUntraced(function* (cargo: Invocation, cwd: string) {
     const path = yield* Path.Path;
-    const packages = invocation.values('-p', '--package').flatMap((value) => Option.toArray(value.text));
-    const metadata = Schema.decodeOption(Metadata)((yield* ran(['cargo', 'metadata', '--no-deps', '--format-version', '1'], cwd)).printed);
-    const listed = Option.getOrElse(
-        Option.map(metadata, ({ packages: held }) => held.map(({ name, manifest_path }) => ({ name, folder: path.dirname(manifest_path) }))),
-        Array.empty<{ readonly name: string; readonly folder: string }>,
-    );
+    const named = Array.getSomes(cargo.values('-p', '--package').map(({ text }) => text));
+    const metadata = Schema.decodeOption(Metadata)((yield* run(cwd)`cargo metadata --no-deps --format-version 1`).printed);
+    const crates = Option.match(metadata, { onNone: () => [], onSome: ({ packages }) => packages.map(({ name, manifest_path }) => ({ name, folder: path.dirname(manifest_path) })) });
     const owning = Array.findFirst(
-        listed.toSorted((left, right) => right.folder.length - left.folder.length),
-        ({ folder }) => cwd === folder || cwd.startsWith(`${folder}/`),
+        crates.toSorted((left, right) => right.folder.length - left.folder.length),
+        ({ folder }) => covers(folder, cwd),
     );
     const chosen = Option.all(
-        packages.map((name) =>
+        named.map((name) =>
             Option.map(
-                Array.findFirst(listed, (held) => held.name === name),
+                Array.findFirst(crates, (crate) => crate.name === name),
                 ({ folder }) => path.relative(cwd, folder) || '.',
             ),
         ),
     );
-    return Match.value({ all: invocation.has('--all') || Option.exists(metadata, ({ workspace_root }) => cwd === workspace_root && Array.isReadonlyArrayEmpty(packages)), named: Array.isReadonlyArrayNonEmpty(packages) }).pipe(
+    return Match.value({ all: cargo.has('--all') || Option.exists(metadata, ({ workspace_root }) => cwd === workspace_root && Array.isReadonlyArrayEmpty(named)), named: Array.isReadonlyArrayNonEmpty(named) }).pipe(
         Match.when({ all: true }, () => Option.some(['--all'])),
         Match.when({ named: true }, () => chosen),
         Match.orElse(() => Option.map(owning, ({ folder }) => [path.relative(cwd, folder) || '.'])),
     );
 });
 
+// --- [RULES] ---------------------------------------------------------------------------
+
 const tasks: Table = {
     'worktree.isolated': {
         action: 'Isolate',
         decide: ({ worker }) => Option.match(worker, { onSome: () => [{ apart: false as const }], onNone: () => [{ deny: 'A worktree is a second checkout that every build repeats and the guards of this checkout never see.', advice: 'Work in place.' }] }),
     },
-    'nx.publish': { program: 'nx', decide: (invocation) => (invocation.words.some((written) => written.test(/(?:^|[:,=])nx-release-publish(?:,|$)/u)) ? [{ deny: 'nx-release-publish publishes dependencies for real.', advice: 'Run nx release.' }] : []) },
+    'nx.publish': { program: 'nx', decide: (nx) => (nx.words.some((word) => word.test(/(?:^|[:,=])nx-release-publish(?:,|$)/u)) ? [{ deny: 'nx-release-publish publishes dependencies for real.', advice: 'Run nx release.' }] : []) },
     'nx.daemon': {
         program: 'nx',
-        decide: Effect.fnUntraced(function* (invocation, { script }) {
-            const verb = Option.getOrElse(invocation.operand(), () => '');
-            const stops = (verb === 'daemon' && invocation.has('--stop')) || (verb === 'reset' && invocation.has('--only-daemon'));
-            const later = (yield* script.invocations).flatMap(Struct.get('leaves')).some((other) => other.start > invocation.end && other.runs('nx') && !Option.exists(other.operand(), (next) => next === 'daemon' || next === 'reset'));
-            const spoken = Option.getOrElse(
-                Option.map(Option.all(invocation.words.map(Struct.get('text'))), (words) => words.join(' ')),
-                () => `nx ${verb}`,
-            );
-            return Match.value({ stops, stmt: Option.getOrUndefined(Option.filter(invocation.node, () => later)) }).pipe(
+        decide: (nx, { invocations }) => {
+            const verb = Option.getOrElse(nx.operand(), () => '');
+            const stops = (verb === 'daemon' && nx.has('--stop')) || (verb === 'reset' && nx.has('--only-daemon'));
+            const later = invocations.some((other) => other.start > nx.end && other.runs('nx') && !Option.exists(other.operand(), (next) => next === 'daemon' || next === 'reset'));
+            const spoken = Option.match(nx.argv, { onNone: () => `nx ${verb}`, onSome: Array.join(' ') });
+            return Match.value({ stops, stmt: Option.getOrUndefined(Option.filter(nx.node, () => later)) }).pipe(
                 Match.when({ stops: false }, () => []),
-                Match.when({ stmt: Match.defined }, ({ stmt }) => [{ edit: (editor: Editor) => [editor.remove(stmt)] }, { note: `${spoken} left the call, as every session shares the daemon.`, once: 'call' as const }]),
-                Match.orElse(() => [{ deny: `${spoken} stops the daemon every session shares.`, advice: shared }]),
+                Match.when({ stmt: Match.defined }, ({ stmt }): readonly Verdict[] => [{ edit: (editor) => [editor.remove(stmt)] }, { note: `${spoken} left the call, as every session shares the daemon.`, once: 'call' as const }]),
+                Match.orElse(() => [{ deny: `${spoken} stops the daemon every session shares.`, advice: daemonAdvice }]),
             );
-        }),
+        },
     },
     'nx.reset': {
         program: 'nx',
         path: ['reset'],
-        decide: (invocation) => (invocation.has('--only-workspace-data') || !invocation.has('--only-cache', '--only-daemon') ? [{ deny: 'nx reset stops the daemon and deletes the workspace data every session shares.', advice: 'Run nx reset --only-cache.' }] : []),
+        decide: (nx) => (nx.has('--only-workspace-data') || !nx.has('--only-cache', '--only-daemon') ? [{ deny: 'nx reset stops the daemon and deletes the workspace data every session shares.', advice: 'Run nx reset --only-cache.' }] : []),
     },
     'nx.skip-sync': {
         program: 'nx',
-        decide: Effect.fnUntraced(function* (invocation, { shell, script }) {
-            const sync = invocation.has('--skip-sync') ? Option.some(yield* shell.script(script.dialect)`nx sync`) : Option.none();
-            return Option.match(Option.all([sync, invocation.node]), {
-                onNone: () => [],
-                onSome: ([synced, stmt]) => [{ drop: ['--skip-sync'] }, { edit: (editor: Editor) => [editor.precede(synced, '&&', stmt)] }, { note: '--skip-sync became nx sync before the command, as a skipped sync leaves tsconfig references stale.', once: 'agent' as const }],
-            });
+        decide: Effect.fnUntraced(function* (nx, { shell, script }) {
+            const stmt = Option.filter(nx.node, () => nx.has('--skip-sync'));
+            const sync = yield* Effect.transposeOption(Option.map(stmt, () => shell.script(script.dialect)`nx sync`));
+            return Option.toArray(Option.all([sync, stmt])).flatMap(([command, skipped]) => [
+                { drop: ['--skip-sync'] },
+                { edit: (editor) => [editor.precede(command, '&&', skipped)] },
+                { note: '--skip-sync became nx sync before the command, as a skipped sync leaves tsconfig references stale.', once: 'agent' as const },
+            ]);
         }),
     },
     'nx.daemonless': {
         program: 'nx',
-        decide: (invocation) => {
-            const assigns = Option.toArray(invocation.node).flatMap(({ cmd }) => (cmd?.type === 'CallExpr' ? cmd.assigns : []));
-            return assigns.filter(({ name }) => name?.value === 'NX_DAEMON').map((assign) => ({ edit: (editor: Editor) => [editor.remove(assign)] }));
-        },
+        decide: (nx) =>
+            Option.toArray(nx.node)
+                .flatMap(({ cmd }) => (cmd?.type === 'CallExpr' ? cmd.assigns : []))
+                .filter(({ name }) => name?.value === 'NX_DAEMON')
+                .map((assign) => ({ edit: (editor) => [editor.remove(assign)] })),
     },
     'nx.launcher': {
         program: 'nx',
-        decide: (invocation) => (Array.isReadonlyArrayNonEmpty(invocation.within) && invocation.within.every((within) => within._tag === 'Wrapper' && wrapped.has(within.name)) ? Option.toArray(launched(invocation)).map((pair) => ({ edit: (editor: Editor) => [editor.remove(pair)] })) : []),
+        decide: (nx) => (Array.isReadonlyArrayNonEmpty(nx.within) && isLaunchedBy(nx, launcherPrograms) ? Option.toArray(launcherOf(nx)).map((launcher) => ({ edit: (editor) => [editor.remove(launcher)] })) : []),
     },
     'nx.quieted': {
         program: 'nx',
-        decide: Effect.fnUntraced(function* (invocation, { script }) {
-            const parsed = (yield* script.invocations).flatMap(Struct.get('leaves')).some((next) => next.runs('jq') && feeds(invocation, next));
-            const redirects = Option.getOrElse(
-                Option.map(invocation.node, ({ redirs }) => redirs),
-                Array.empty,
-            );
-            const targets = redirects.map((redirect) => {
-                const expansion = Option.map(Option.fromNullishOr(redirect.word), (word) => script.expand(word)[0]);
-                return { redirect, target: Option.flatMap(expansion, (held) => (held._tag === 'Expanded' ? held.text : Option.none())) };
-            });
-            const nulled = targets.filter(({ target: aimed }) => Option.contains(aimed, '/dev/null'));
-            const silenced = nulled.some(({ redirect }) => redirect.n === null && redirect.op === RedirOperator.RdrOut);
-            const merged = targets.filter(({ redirect, target: aimed }) => (parsed || silenced) && Option.contains(aimed, '1') && redirect.n?.value === '2' && redirect.op === RedirOperator.DplOut);
-            const hidden = [...nulled, ...merged];
-            return Option.exists(invocation.operand(), (verb) => verb === 'show' || verb === 'graph') && Array.isReadonlyArrayNonEmpty(hidden) ? [{ edit: (editor: Editor) => hidden.map(({ redirect }) => editor.remove(redirect)) }] : [];
-        }),
+        decide: (nx, { invocations, script }) => {
+            const parsed = invocations.some((next) => next.runs('jq') && nx.feeds(next));
+            const redirects = Option.toArray(nx.node).flatMap(({ redirs }) => redirs.map((redirect) => ({ redirect, target: Option.flatMap(Option.fromNullOr(redirect.word), (word) => script.expanded(word)) })));
+            const discarded = redirects.filter(({ target }) => Option.contains(target, '/dev/null'));
+            const silent = discarded.some(({ redirect }) => redirect.n === null && redirect.op === RedirOperator.RdrOut);
+            const merged = redirects.filter(({ redirect, target }) => (parsed || silent) && Option.contains(target, '1') && redirect.n?.value === '2' && redirect.op === RedirOperator.DplOut);
+            const hidden = [...discarded, ...merged];
+            return Option.exists(nx.operand(), (verb) => verb === 'show' || verb === 'graph') && Array.isReadonlyArrayNonEmpty(hidden) ? [{ edit: (editor) => hidden.map(({ redirect }) => editor.remove(redirect)) }] : [];
+        },
     },
     'nx.bounded': {
         program: 'nx',
-        decide: Effect.fnUntraced(function* (invocation, { cwd: session }) {
-            const cwd = here(invocation, session);
-            const timed = invocation.within.length === 1 && invocation.within.every((within) => within._tag === 'Wrapper' && within.name === 'timeout');
-            const graph = timed ? yield* workspace(cwd) : Option.none();
-            const rows = Option.getOrElse(
-                Option.map(graph, (held) => addressed(invocation, held).flatMap((row) => members(held, row))),
-                Array.empty,
-            );
-            const verb = Option.getOrElse(invocation.operand(), () => '');
-            const printed = (verb === 'show' && !invocation.has('--web')) || (verb === 'graph' && invocation.words.some((written) => written.test(/^--(?:file|print)(?:=|$)/u)));
-            const finite = printed || ending.has(verb) || (Array.isReadonlyArrayNonEmpty(rows) && rows.every(({ continuous }) => !continuous));
-            return timed && finite
-                ? Option.toArray(launched(invocation)).flatMap((pair) => [
-                      { edit: (editor: Editor) => [editor.remove(pair)] },
-                      { note: 'timeout before nx left the call, as its kill loses unfinished tasks of a run that ends by itself; a foreground call past its timeout moves to the background and notifies, and TaskStop ends a hung run.', once: 'agent' as const },
-                  ])
-                : [];
+        decide: Effect.fnUntraced(function* (nx, { cwd }) {
+            const timed = nx.within.length === 1 && nx.within.every((within) => within._tag === 'Wrapper' && within.name === 'timeout');
+            const graph = timed ? yield* readGraph(cwdOf(nx, cwd)) : Option.none();
+            const rows = Option.toArray(graph).flatMap((found) => resolveRows(nx, found).flatMap((row) => expandRow(found, row)));
+            const verb = Option.getOrElse(nx.operand(), () => '');
+            const prints = (verb === 'show' && !nx.has('--web')) || (verb === 'graph' && nx.words.some((word) => word.test(/^--(?:file|print)(?:=|$)/u)));
+            const finite = prints || finiteVerbs.has(verb) || (Array.isReadonlyArrayNonEmpty(rows) && rows.every(({ continuous }) => !continuous));
+            return Option.toArray(Option.filter(launcherOf(nx), () => timed && finite)).flatMap((launcher) => [
+                { edit: (editor) => [editor.remove(launcher)] },
+                { note: 'timeout before nx left the call, as its kill loses unfinished tasks of a run that ends by itself; a foreground call past its timeout moves to the background and notifies, and TaskStop ends a hung run.', once: 'agent' as const },
+            ]);
         }),
     },
     'nx.aggregate': {
         program: 'nx',
-        decide: Effect.fnUntraced(function* (invocation, { cwd: session }) {
-            const cwd = here(invocation, session);
-            const graph = invocation.rest.length > 0 ? yield* workspace(cwd) : Option.none();
-            const rows = Option.getOrElse(
-                Option.map(graph, (held) => addressed(invocation, held).filter(({ runs }) => runs._tag === 'Aggregate')),
-                Array.empty,
-            );
-            const tools = Array.dedupe(rows.flatMap(({ runs }) => (runs._tag === 'Aggregate' ? runs.members : [])));
-            const many = Option.contains(invocation.operand(), 'run-many') || Option.contains(invocation.operand(), 'affected');
-            const pointed = Option.flatMap(many ? Array.head(invocation.values('-t')) : Option.none(), ({ node }) => node);
-            const address = Option.all([Option.flatMap(Array.get(invocation.operands, 0), ({ word }) => word.node), Option.flatMap(Array.get(invocation.operands, 1), ({ word }) => word.node)]);
-            const sole = rows.every(({ runs }) => runs._tag === 'Aggregate' && runs.members.length === 1) ? Array.head(tools) : Option.none();
-            return Option.match(Array.head(rows), {
+        decide: Effect.fnUntraced(function* (nx, { cwd }) {
+            const graph = nx.rest.length > 0 ? yield* readGraph(cwdOf(nx, cwd)) : Option.none();
+            const aggregates = Option.toArray(graph).flatMap((found) => resolveRows(nx, found).flatMap(({ project, target, runs }) => (runs._tag === 'Aggregate' ? [{ project, target, tools: runs.members }] : [])));
+            const tools = Array.dedupe(aggregates.flatMap(({ tools: members }) => members));
+            const many = Option.exists(nx.operand(), (verb) => verb === 'run-many' || verb === 'affected');
+            const sole = Option.filter(Array.head(tools), () => aggregates.every(({ tools: members }) => members.length === 1));
+            const target = Option.flatMap(many ? Array.head(nx.values('-t')) : Option.none(), ({ node }) => node);
+            const address = Option.all([Option.flatMap(Array.get(nx.operands, 0), ({ word }) => word.node), Option.flatMap(Array.get(nx.operands, 1), ({ word }) => word.node)]);
+            return Option.match(Array.head(aggregates), {
                 onNone: () => [],
                 onSome: ({ project, target: name }) =>
-                    Match.value({ tool: Option.getOrUndefined(sole), named: Option.getOrUndefined(pointed), address: Option.getOrUndefined(address) }).pipe(
-                        Match.when({ tool: Match.string, named: Match.defined }, ({ tool, named: word }) => [{ edit: (editor: Editor) => [editor.replace(word, Array.of(tool))] }]),
-                        Match.when({ tool: Match.string, address: Match.defined }, ({ tool, address: words }) => (many ? [] : [{ edit: (editor: Editor) => [editor.replace(words, Array.make('run', `${project}:${tool}`))] }])),
-                        Match.orElse(() => [{ deny: `nx ${name} runs ${tools.length} tools, so arguments after -- reach none of them.`, advice: `Pass them to one of: ${tools.map((tool) => `nx run ${project}:${tool}`).join(', ')}.` }]),
+                    Match.value({ tool: Option.getOrUndefined(sole), target: Option.getOrUndefined(target), address: Option.getOrUndefined(address) }).pipe(
+                        Match.when({ tool: Match.string, target: Match.defined }, ({ tool, target: word }): readonly Verdict[] => [{ edit: (editor) => [editor.replace(word, [tool])] }]),
+                        Match.when({ tool: Match.string, address: Match.defined }, ({ tool, address: span }): readonly Verdict[] => (many ? [] : [{ edit: (editor) => [editor.replace(span, ['run', `${project}:${tool}`])] }])),
+                        Match.orElse((): readonly Verdict[] => [{ deny: `nx ${name} runs ${tools.length} tools, so arguments after -- reach none of them.`, advice: `Pass them to one of: ${tools.map((tool) => `nx run ${project}:${tool}`).join(', ')}.` }]),
                     ),
             });
         }),
     },
     'nx.loop': {
         program: 'nx',
-        decide: Effect.fnUntraced(function* (invocation, { script, shell }) {
-            const found = yield* script.invocations;
-            const cycle = looping(script, invocation);
-            const looped = found.flatMap(Struct.get('leaves')).filter((other) => other.runs('nx') && Option.isSome(invocation.repeated) && Equal.equals(other.repeated, invocation.repeated));
-            const spelled = Option.getOrElse(Option.all(looped.map((other) => Option.all(other.words.map(Struct.get('text'))))), (): readonly (readonly string[])[] => []);
+        decide: Effect.fnUntraced(function* (nx, { invocations, script, shell }) {
+            const runs = invocations.filter((other) => other.runs('nx') && Option.isSome(nx.repeated) && Equal.equals(other.repeated, nx.repeated));
+            const spelled = Option.getOrElse(Option.all(runs.map(({ argv }) => argv)), Array.empty<readonly string[]>);
             const [first = [], ...rest] = spelled;
             const varying = first.flatMap((word, at) => (rest.some((other) => other[at] !== word) ? [at] : []));
             const items = Array.dedupe(spelled.map((words) => words[varying[0] ?? 0] ?? ''));
             const verb = first[1] ?? '';
-            const plan = Match.value({ verb, at: varying.length === 1 && rest.every((other) => other.length === first.length) && !['show', 'graph'].includes(verb) && !first.includes('--graph') ? varying[0] : undefined }).pipe(
+            const single = varying.length === 1 && rest.every((other) => other.length === first.length) && verb !== 'show' && verb !== 'graph' && !first.includes('--graph');
+            const plan = Match.value({ verb, at: single ? varying[0] : undefined }).pipe(
                 Match.when({ at: Match.undefined }, () => Option.none()),
                 Match.when({ verb: 'run', at: 2 }, () => Option.some({ targets: Array.dedupe(items.map((item) => item.split(':')[1] ?? '')), projects: Array.dedupe(items.map((item) => item.split(':')[0] ?? '')) })),
                 Match.when({ verb: 'run' }, () => Option.none()),
@@ -420,103 +345,87 @@ const tasks: Table = {
                 Match.when({ at: 1 }, () => Option.some({ targets: items, projects: [first[2] ?? ''] })),
                 Match.orElse(() => Option.none()),
             );
-            const product = Option.filter(Option.all([plan, cycle]), ([{ targets, projects }]) => invocation === looped[0] && targets.length * projects.length === items.length);
-            const written = yield* Effect.forEach(Option.toArray(product), ([{ targets, projects }, stmt]) => Effect.map(shell.script(script.dialect)`nx run-many -t ${targets.join(',')} -p ${projects.join(',')} ${first.slice(3)}`, (built) => [built, stmt] as const));
-            return written.flatMap(([built, stmt]) => [{ edit: (editor: Editor) => [editor.command(stmt, built)] }, { note: 'A loop over nx became one nx run-many, which shares the cache and parallelism of one run.', once: 'agent' as const }]);
+            const folded = Option.filter(Option.all([plan, loopOf(script, nx)]), ([{ targets, projects }]) => nx === runs[0] && targets.length * projects.length === items.length);
+            const command = yield* Effect.transposeOption(Option.map(folded, ([{ targets, projects }]) => shell.script(script.dialect)`nx run-many -t ${targets.join(',')} -p ${projects.join(',')} ${first.slice(3)}`));
+            return Option.toArray(Option.all([command, folded])).flatMap(([many, [, stmt]]) => [{ edit: (editor) => [editor.command(stmt, many)] }, { note: 'A loop over nx became one nx run-many, which shares the cache and parallelism of one run.', once: 'agent' as const }]);
         }),
     },
     'nx.target': {
         action: 'Shell',
-        decide: Effect.fnUntraced(function* (script, call) {
-            const candidates = (yield* script.invocations).flatMap(Struct.get('leaves')).filter(routable(call, bounded));
-            const verdicts = yield* Effect.forEach(candidates, (invocation) => Effect.flatMap(workspace(here(invocation, call.cwd)), Option.match({ onNone: () => Effect.succeed([]), onSome: (graph) => route(invocation, graph, helps(graph), here(invocation, call.cwd)) })));
+        decide: Effect.fnUntraced(function* (_, { invocations, action, cwd }) {
+            const raw = invocations.filter((invocation) => action.run !== 'monitored' && isRaw(invocation, boundedPrograms) && invocation.rest.length === 0 && !Option.exists(invocation.stage, ({ index, count }) => index < count - 1));
+            const verdicts = yield* Effect.forEach(
+                raw.map((invocation) => [invocation, cwdOf(invocation, cwd)] as const),
+                ([invocation, folder]) => Effect.flatMap(readGraph(folder), Option.match({ onNone: () => Effect.succeed<readonly Verdict[]>([]), onSome: (graph) => route(invocation, graph, folder) })),
+            );
             return verdicts.flat();
         }),
     },
     'hk.step': {
         action: 'Shell',
-        decide: Effect.fnUntraced(function* (script, call) {
-            const candidates = (yield* script.invocations)
-                .flatMap(Struct.get('leaves'))
-                .filter(
-                    (invocation) =>
-                        call.action.run !== 'monitored' &&
-                        invocation.inner.length === 0 &&
-                        Option.isNone(invocation.repeated) &&
-                        invocation.assigns.length === 0 &&
-                        Option.isNone(invocation.stage) &&
-                        invocation.within.every((within) => within._tag === 'Wrapper' && wrapped.has(within.name)) &&
-                        !invocation.runs('hk', 'nx'),
-                );
+        decide: Effect.fnUntraced(function* (_, { invocations, action, cwd }) {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-            const root = Array.isReadonlyArrayNonEmpty(candidates) ? yield* nearest(call.cwd, '.git') : Option.none();
-            const declared = yield* Option.match(root, { onNone: () => Effect.succeed(''), onSome: (top) => Effect.orElseSucceed(fs.readFileString(path.join(top, '.config/hk.pkl')), () => '') });
-            const listed = candidates.filter((invocation) => Option.exists(invocation.name, (name) => declared.includes(`"${name}"`)));
-            const configured = Option.isSome(root) && Array.isReadonlyArrayNonEmpty(listed) ? yield* steps(Option.getOrElse(root, () => call.cwd)) : {};
-            const verdicts = yield* Effect.forEach(
-                Option.toArray(root).flatMap((held) => listed.map((invocation) => [invocation, held] as const)),
-                ([invocation, top]) => stepped(invocation, configured, top, here(invocation, call.cwd)),
+            const raw = invocations.filter((invocation) => action.run !== 'monitored' && isRaw(invocation, launcherPrograms) && Option.isNone(invocation.stage));
+            const root = Array.isReadonlyArrayNonEmpty(raw) ? yield* findUp(cwd, '.git') : Option.none();
+            const declared = yield* Option.match(root, { onNone: () => Effect.succeed(''), onSome: (folder) => Effect.orElseSucceed(fs.readFileString(path.join(folder, '.config/hk.pkl')), () => '') });
+            const named = raw.filter((invocation) => Option.exists(invocation.name, (name) => declared.includes(`"${name}"`)));
+            const steps = yield* Option.match(
+                Option.filter(root, () => Array.isReadonlyArrayNonEmpty(named)),
+                { onNone: () => Effect.succeed<Steps>({}), onSome: readSteps },
             );
+            const verdicts = yield* Effect.forEach(Array.cartesian(Option.toArray(root), named), ([folder, invocation]) => routeStep(invocation, steps, folder, cwdOf(invocation, cwd)));
             return verdicts.flat();
         }),
     },
     'cargo.fmt': {
         program: 'cargo',
         aliases: ['cargo-fmt'],
-        decide: Effect.fnUntraced(function* (invocation, { cwd: session }) {
-            const cwd = here(invocation, session);
-            const formatting = invocation.runs('cargo-fmt') || invocation.path[0] === 'fmt' || Option.contains(invocation.operand(), 'fmt');
-            const root = formatting ? yield* nearest(cwd, '.git') : Option.none();
-            const mode = invocation.has('--check') ? 'check' : 'fix';
-            const configured = Option.isSome(root) ? yield* steps(Option.getOrElse(root, () => cwd)) : {};
-            const step = Array.findFirst(Record.toEntries(configured), ([, modes]) => argv(modes[mode])[0] === 'rustfmt');
-            const folders = Option.isSome(step) ? yield* crates(invocation, cwd) : Option.none();
-            const known = invocation.flags.every(({ flag }) => flag.spellings.some((spelling) => ['--check', '-p', '--package', '--all'].includes(spelling))) && invocation.rest.length === 0 && invocation.operands.length <= 1;
-            return Match.value({ step: Option.getOrUndefined(step), routed: Option.getOrUndefined(Option.all([step, folders, extent(invocation)])) }).pipe(
-                Match.when({ routed: Match.defined }, ({ routed: [[name], targets, words] }) =>
-                    known ? [{ edit: (editor: Editor) => [editor.replace(words, Array.make('hk', mode, '--step', name, ...targets))] }] : [{ deny: 'cargo fmt option has no hk form.', advice: `Run hk ${mode} --step ${name} ${targets.join(' ')}.` }],
+        decide: Effect.fnUntraced(function* (cargo, call) {
+            const cwd = cwdOf(cargo, call.cwd);
+            const formats = cargo.runs('cargo-fmt') || cargo.path[0] === 'fmt' || Option.contains(cargo.operand(), 'fmt');
+            const mode = cargo.has('--check') ? 'check' : 'fix';
+            const root = formats ? yield* findUp(cwd, '.git') : Option.none();
+            const steps = yield* Option.match(root, { onNone: () => Effect.succeed<Steps>({}), onSome: readSteps });
+            const step = Array.findFirst(Record.toEntries(steps), ([, modes]) => argvOf(modes[mode])[0] === 'rustfmt');
+            const folders = Option.isSome(step) ? yield* resolveCrates(cargo, cwd) : Option.none();
+            const known = cargo.only('--check', '-p', '--package', '--all') && cargo.rest.length === 0 && cargo.operands.length <= 1;
+            return Match.value({ step: Option.getOrUndefined(step), routed: Option.getOrUndefined(Option.all([step, folders, extentOf(cargo)])) }).pipe(
+                Match.when({ routed: Match.defined }, ({ routed: [[name], crates, span] }): readonly Verdict[] =>
+                    known ? [{ edit: (editor) => [editor.replace(span, Array.make('hk', mode, '--step', name, ...crates))] }] : [{ deny: 'cargo fmt option has no hk form.', advice: `Run hk ${mode} --step ${name} ${crates.join(' ')}.` }],
                 ),
-                Match.when({ step: Match.defined }, () => [{ deny: 'cargo fmt resolves no crate here.', advice: 'Pass --package <crate>, or run it in the crate folder.' }]),
+                Match.when({ step: Match.defined }, (): readonly Verdict[] => [{ deny: 'cargo fmt resolves no crate here.', advice: 'Pass --package <crate>, or run it in the crate folder.' }]),
                 Match.orElse((): readonly Verdict[] => []),
             );
         }),
     },
     'pulumi.deploy': {
         program: 'pulumi',
-        decide: Effect.fnUntraced(function* (invocation, { cwd: session }) {
-            const cwd = here(invocation, session);
+        decide: Effect.fnUntraced(function* (pulumi, call) {
+            const cwd = cwdOf(pulumi, call.cwd);
             const verb = Option.getOrElse(
-                Option.orElse(Array.head(invocation.path), () => invocation.operand()),
+                Option.orElse(Array.head(pulumi.path), () => pulumi.operand()),
                 () => '',
             );
-            const operation = Option.fromUndefinedOr(operations[verb]);
-            const graph = Option.isSome(operation) ? yield* workspace(cwd) : Option.none();
-            return Option.match(Option.all([operation, graph]), {
-                onNone: () => [],
-                onSome: ([{ aggregate: wanted, args, applies }, held]) => {
-                    const stage = `${wanted}--pulumi`;
-                    const deployable = Array.dedupe(
-                        Array.fromIterable(held.tasks.values())
-                            .filter((row) => row.target === stage)
-                            .map(({ project }) => project),
-                    );
-                    const project = Option.getOrElse(
-                        Option.orElse(
-                            Option.filter(held.owner(cwd), (owner) => deployable.includes(owner)),
-                            () => Option.filter(Array.head(deployable), () => deployable.length === 1),
-                        ),
-                        () => `<${deployable.join('|')}>`,
-                    );
-                    const stack = Option.flatMap(Array.head(invocation.values('--stack')), Struct.get('text'));
-                    const foreign = invocation.flags.some(({ flag }) => !flag.spellings.some((spelling) => pulumied.has(spelling)));
-                    const words = Array.isReadonlyArrayEmpty(args) && Option.isNone(stack) ? Array.make('nx', wanted, project) : Array.make('nx', 'run', `${project}:${stage}`, ...args, ...Option.toArray(Option.map(stack, (name) => `--stack=${name}`)));
-                    const derived = !project.startsWith('<') && !foreign && (!applies || (invocation.has('--yes', '-y', '--skip-preview') && Option.isSome(stack)));
-                    return derived ? Option.toArray(invocation.span).map((written) => ({ edit: (editor: Editor) => [editor.replace(written, words)] })) : [{ deny: `pulumi ${verb} skips the stack programs Nx builds first.`, advice: `Run ${words.join(' ')}.` }];
-                },
+            const operation = Record.get(stackOperations, verb);
+            const graph = Option.isSome(operation) ? yield* readGraph(cwd) : Option.none();
+            return Option.toArray(Option.all([operation, graph])).flatMap(([{ aggregate, args, applies }, found]): readonly Verdict[] => {
+                const target = `${aggregate}--pulumi`;
+                const deployable = Array.dedupe(
+                    found.tasks
+                        .values()
+                        .filter((row) => row.target === target)
+                        .map(({ project }) => project),
+                );
+                const owner = Option.firstSomeOf([Option.filter(found.owner(cwd), (project) => deployable.includes(project)), Option.filter(Array.head(deployable), () => deployable.length === 1)]);
+                const project = Option.getOrElse(owner, () => `<${deployable.join('|')}>`);
+                const stack = Option.flatMap(Array.head(pulumi.values('--stack')), ({ text }) => text);
+                const words = Array.isReadonlyArrayEmpty(args) && Option.isNone(stack) ? Array.make('nx', aggregate, project) : Array.make('nx', 'run', `${project}:${target}`, ...args, ...Option.toArray(Option.map(stack, (name) => `--stack=${name}`)));
+                const derived = Option.isSome(owner) && pulumi.only(...stackFlags) && (!applies || (pulumi.has('--yes', '-y', '--skip-preview') && Option.isSome(stack)));
+                return derived ? Option.toArray(pulumi.span).map((span) => ({ edit: (editor) => [editor.replace(span, words)] })) : [{ deny: `pulumi ${verb} skips the stack programs Nx builds first.`, advice: `Run ${words.join(' ')}.` }];
             });
         }),
     },
-} satisfies Table;
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
