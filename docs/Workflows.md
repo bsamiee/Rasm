@@ -159,13 +159,15 @@ Workflow `Release` credentials and jobs:
 
 ## [08]-[MAINTENANCE]
 
-Workflow `Maintenance` and its jobs on instances `host` and `container`:
+Workflow `Maintenance` and its jobs on instances `host`, `container`, and `graph`:
 - Workflow `Maintenance` runs weekly before the machine update hour
 - Job `host` keeps ignored files and prunes package stores, Docker objects, and week-old build cache
 - Job `host` prunes unused mise tools of its machine, and job `container` those of instance `container`'s tool cache in the Playwright image
+- Jobs `container` and `graph` prune the pnpm store and uv cache of their own checkout, as each instance's checkout holds both
+- `uv cache prune` keeps each archive its cache names, and an environment linked to one stays linked
 - Both prunes pass `--yes`, as `mise prune` refuses with no terminal attached
 - Job `container` prunes inside a job container, as tool receipts there name container paths, and a prune from the machine refuses them
-- Jobs `host` and `container` take their instance's queue, and a prune never overlaps a job there as a machine timer can
+- Each job takes its instance's queue, and a prune never overlaps a job there as a machine timer can
 - Job `host` runs `check--cargo-deny-advisories` past the Nx cache, as an advisory can name a crate of an unchanged lock
 
 ## [09]-[TIMINGS]

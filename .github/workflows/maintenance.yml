@@ -28,8 +28,10 @@ jobs:
                   clean: false
             - &tools
               uses: $/.github/actions/tools
-            - run: pnpm store prune
-            - run: uv cache prune
+            - &packages
+              run: pnpm store prune
+            - &wheels
+              run: uv cache prune
             - &prune
               run: mise prune --yes
             - run: docker container prune --force --filter until=1h
@@ -58,4 +60,16 @@ jobs:
         steps:
             - *checkout
             - *tools
+            - *packages
+            - *wheels
             - *prune
+
+    graph:
+        name: Graph runner
+        runs-on: [self-hosted, graph]
+        timeout-minutes: 60
+        steps:
+            - *checkout
+            - *tools
+            - *packages
+            - *wheels
