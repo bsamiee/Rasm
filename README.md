@@ -240,7 +240,7 @@ Products deliver through the same targets in every ecosystem, development builds
 - Targets write every deliverable from the built product, store screenshots and promo tiles included, with no hand-made file
 - `install` puts a development build where its host loads it, replacing the last and skipping packaging where allowed, or starts local services
 - `pack` writes release files that differ from build output, in its host or ecosystem's form, a folder product in a `.zip` or `.dmg`
-- `doppler run --config release --command 'nx pack <app>'` packs a Mac app with release signing, notarized as a `.dmg` where `ASC_API_*` rows are set
+- `doppler run --config release --command 'nx pack <app>'` packs a Mac app with release signing, notarized as a `.dmg` holding the stapled ticket where `ASC_API_*` rows are set
 - Mac apps whose Info.plist states `SUFeedURL` take a Sparkle feed of their `.dmg` from `nx release publish`, and other Mac apps release through `attach` alone
 - Commit scopes name one project as `nx show projects` prints it, or none, as `nx release` refuses a scope matching more than one `release` project
 - `nx release --skip-publish` versions each `release` project alone from commits since its `<project>@<version>` tag, tags it, and patches dependents
