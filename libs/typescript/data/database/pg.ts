@@ -2,7 +2,7 @@ import { PgClient, PgTypes } from '@effect/sql-pg';
 import { traverse } from '@pgsql/traverse';
 import type { Node } from '@pgsql/types';
 import { Array, Config, Duration, Effect, Equal, Equivalence, Exit, Filter, Formatter, Function, HashSet, Layer, Option, Record, Result, Schedule, Schema, Struct } from 'effect';
-import { SqlClient, SqlSchema, Statement } from 'effect/sql';
+import { SqlClient, type SqlConnection, SqlSchema, Statement } from 'effect/sql';
 import { deparseSync, loadModule, parseSync } from 'pgsql-parser';
 import type { Catalog } from '#/catalog';
 import type { Kind } from '#/column';
@@ -244,13 +244,16 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
     static readonly role: NonNullable<Dialect['role']> = (sql) => Effect.map(SqlSchema.findOne({ Request: Schema.Void, Result: Role, execute: () => sql`SELECT current_user AS role` })(undefined), Struct.get('role'));
     static readonly execute = Engine.transaction;
     static readonly transactional = true;
+    static readonly #held = (sql: SqlClient.SqlClient, connection: SqlConnection.Connection) =>
+        Effect.acquireRelease(Effect.repeat(connection.executeUnprepared(...sql`SELECT 1 WHERE pg_try_advisory_lock(hashtextextended(current_schema(), 0))`.compile(true), undefined), { until: Array.isReadonlyArrayNonEmpty, schedule: Schedule.exponential(Duration.millis(1)) }), () =>
+            Effect.orDie(connection.executeUnprepared(...sql`SELECT pg_advisory_unlock(hashtextextended(current_schema(), 0))`.compile(true), undefined)),
+        );
+    static readonly exclusive: NonNullable<Dialect['exclusive']> = (sql, effect) => Effect.scoped(Effect.flatMap(sql.reserve, (connection) => Effect.andThen(Pg.#held(sql, connection), effect)));
     static readonly #concurrently = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, session: readonly { readonly name: string; readonly value: string }[], steps: Array.NonEmptyReadonlyArray<{ readonly statement: Statement.Statement<object>; readonly observed: readonly Statement.Statement<object>[] }>) {
         const connection = yield* Effect.acquireRelease(sql.reserve, (reserved) => Effect.orDie(reserved.executeUnprepared(...sql`SELECT set_config(name, reset_val, false) FROM pg_settings WHERE name = ANY(${session.map(Struct.get('name'))})`.compile(true), undefined)));
         const run = (statement: Statement.Statement<object>) => connection.executeUnprepared(...statement.compile(true), undefined);
         yield* Effect.forEach(session, ({ name, value }) => run(sql`SELECT set_config(${name}, ${value}, false)`), { discard: true });
-        yield* Effect.acquireRelease(Effect.repeat(run(sql`SELECT 1 WHERE pg_try_advisory_lock(hashtextextended(current_schema(), 1))`), { until: Array.isReadonlyArrayNonEmpty, schedule: Schedule.exponential(Duration.millis(1)) }), () =>
-            Effect.orDie(run(sql`SELECT pg_advisory_unlock(hashtextextended(current_schema(), 1))`)),
-        );
+        yield* Pg.#held(sql, connection);
         return yield* Effect.forEach(steps, ({ statement, observed }) => Effect.when(run(statement), Effect.map(Effect.forEach(observed, run), Array.every(Array.isReadonlyArrayNonEmpty))), { discard: true });
     }, Effect.scoped);
     static readonly #block = (sql: SqlClient.SqlClient, statements: readonly Statement.Statement<object>[]) => sql`DO ${sql.literal(literal(['BEGIN', ...statements.map((statement) => [statement.compile(true)[0], ';'].join('')), 'END'].join(' ')))}`;
@@ -509,7 +512,7 @@ const located = SqlSchema.findOne({
     Result: Schema.Struct({ path: Schema.String }),
     execute: (names) =>
         SqlClient.SqlClient.use(
-            (sql) => sql`SELECT pg_advisory_xact_lock(hashtextextended(current_schema(), 0))::text AS lock, set_config('search_path', concat_ws(', ', quote_ident(current_schema()),
+            (sql) => sql`SELECT set_config('search_path', concat_ws(', ', quote_ident(current_schema()),
                 (SELECT string_agg(quote_ident(n.nspname), ', ' ORDER BY n.nspname) FROM pg_namespace n WHERE n.oid NOT IN (current_schema()::regnamespace, 'pg_catalog'::regnamespace)
                     AND (EXISTS (SELECT 1 FROM pg_extension e WHERE e.extnamespace = n.oid AND e.extname = ANY(${names.required}::text[])) OR EXISTS (SELECT 1 FROM pg_ts_dict d WHERE d.dictnamespace = n.oid AND d.dictname = ANY(${names.filters}::text[])))), 'pg_temp'), true) AS path`,
         ),

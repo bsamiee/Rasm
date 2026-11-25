@@ -61,7 +61,8 @@ const converge = Effect.fnUntraced(function* (catalog: Catalog, runtime: Option.
                 return yield* left.size < failed.size && left.isSubsetOf(failed) ? settled(next) : error;
             }),
         );
-    return yield* engine.transactional ? client.withTransaction(Effect.tap(steps, (planned) => after(planned, engine))) : Effect.flatMap(steps, settled);
+    const converged = engine.transactional ? client.withTransaction(Effect.tap(steps, (planned) => after(planned, engine))) : Effect.flatMap(steps, settled);
+    return yield* engine.exclusive?.(client, converged) ?? converged;
 });
 const start = Effect.fnUntraced(function* <M, N>(catalog: Catalog, migrator: Option.Option<Layer.Layer<SqlClient.SqlClient, M, N>>) {
     const [engine, client] = yield* Effect.all([Engine, SqlClient.SqlClient]);

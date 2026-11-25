@@ -47,6 +47,7 @@ interface Dialect {
     readonly plan: (sql: SqlClient.SqlClient, catalog: Catalog, runtime: Option.Option<string>) => Effect.Effect<Effect.Success<ReturnType<ReturnType<typeof diff>['plan']>>, SqlError.SqlError | Schema.SchemaError | Cause.NoSuchElementError | ReconcileError>;
     readonly execute: (statements: Array.NonEmptyReadonlyArray<Statement.Statement<object>>) => Effect.Effect<unknown, SqlError.SqlError, SqlClient.SqlClient>;
     readonly transactional: boolean;
+    readonly exclusive?: <A, E, R>(sql: SqlClient.SqlClient, effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E | SqlError.SqlError, R>;
 }
 interface RowDialect {
     readonly member: (sql: SqlClient.SqlClient, field: string) => Statement.Fragment;

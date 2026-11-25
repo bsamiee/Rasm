@@ -3,8 +3,8 @@ import { assert, layer, type Vitest } from '@effect/vitest';
 import { Catalog, Relation, Tokenizer } from '@rasm/database';
 import { Pg } from '@rasm/database/pg';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
-import { Array, Context, Deferred, Effect, Function, Layer, Number, Option, Predicate, Redacted, Ref, Schema, Struct } from 'effect';
-import { SqlClient, SqlError, SqlSchema } from 'effect/sql';
+import { Array, Context, Deferred, Effect, Fiber, Function, Layer, Number, Option, Predicate, Redacted, Ref, Schedule, Schema, Struct } from 'effect';
+import { SqlClient, SqlError, SqlSchema, type Statement } from 'effect/sql';
 import { declared, pending, reconciling, stored } from '#/reconciling';
 import { type Relational, rows, values } from '#/rows';
 
@@ -341,6 +341,60 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Postgres.database>
             const blocked = yield* Effect.flip(Catalog.reconcile(Catalog.make({ tables: [widened], timeouts: { lock: '100 millis', transaction: '1 minute' } })));
             yield* Deferred.succeed(released, undefined);
             assert.deepStrictEqual({ fault: store.fault(blocked), columns: (yield* columns('lookups')).map(Struct.get('name')) }, { fault: '55P03', columns: ['id', 'label'] });
+        }),
+    );
+    it.effect(
+        'waits past its lock limit behind a concurrent reconcile that waits within its own, as the wait queues no other session',
+        Effect.fnUntraced(function* () {
+            const [sql, { connected }, { container }] = yield* Effect.all([SqlClient.SqlClient, Database, Postgres]);
+            const [locked, released] = yield* Effect.all([Deferred.make<void>(), Deferred.make<void>()]);
+            const polled = (condition: Statement.Fragment) => Effect.repeat(sql`SELECT 1 WHERE ${condition}`, { until: Array.isReadonlyArrayNonEmpty, schedule: Schedule.spaced('10 millis') });
+            yield* Catalog.reconcile(declared([lookups]));
+            yield* SqlClient.SqlClient.use((holder) => holder.withTransaction(holder`LOCK TABLE lookups IN ACCESS EXCLUSIVE MODE`.pipe(Effect.andThen(Deferred.succeed(locked, undefined)), Effect.andThen(Deferred.await(released))))).pipe(
+                Effect.provide(Pg.layer({ url: connected(container.getUsername(), container.getPassword()) })),
+                Effect.forkScoped,
+            );
+            yield* Deferred.await(locked);
+            const patient = yield* Effect.forkScoped(Effect.result(Catalog.reconcile(declared([lookups]))));
+            yield* polled(sql`EXISTS (SELECT 1 FROM pg_locks l JOIN pg_database d ON d.oid = l.database WHERE d.datname = current_database() AND l.relation = 'lookups'::regclass AND NOT l.granted)`);
+            const brief = yield* Catalog.reconcile(Catalog.make({ tables: [lookups], timeouts: { lock: '100 millis', transaction: '1 minute' } })).pipe(Effect.result, Effect.provide(Pg.layer({ url: connected(container.getUsername(), container.getPassword()), applicationName: 'brief' })), Effect.forkScoped);
+            yield* Effect.raceFirst(Effect.asVoid(Fiber.join(brief)), polled(sql`EXISTS (SELECT 1 FROM pg_stat_activity a WHERE a.datname = current_database() AND a.application_name = 'brief' AND a.state = 'idle' AND a.query <> '')`));
+            yield* Deferred.succeed(released, undefined);
+            const settled = yield* Effect.all([Fiber.join(patient), Fiber.join(brief)]);
+            assert.deepStrictEqual<unknown>({ raised: Array.map(Array.getFailures(settled), store.fault), pending: yield* pending(declared([lookups])) }, { raised: [], pending: { statements: [], concurrent: [] } });
+        }),
+    );
+    it.effect(
+        'builds an index past its lock limit while a concurrent reconcile waits behind the build, as the build waits on no peer',
+        Effect.fnUntraced(function* () {
+            const [sql, { connected }, { container }] = yield* Effect.all([SqlClient.SqlClient, Database, Postgres]);
+            const client = (name: string) => Pg.layer({ url: connected(container.getUsername(), container.getPassword()), applicationName: name });
+            const polled = (condition: Statement.Fragment) => Effect.repeat(sql`SELECT 1 WHERE ${condition}`, { until: Array.isReadonlyArrayNonEmpty, schedule: Schedule.spaced('10 millis') });
+            const waited = (relation: string) => sql`EXISTS (SELECT 1 FROM pg_locks l JOIN pg_database d ON d.oid = l.database WHERE d.datname = current_database() AND l.relation = ${relation}::regclass AND NOT l.granted)`;
+            const holding = Effect.fnUntraced(function* (relation: string) {
+                const [locked, released] = yield* Effect.all([Deferred.make<void>(), Deferred.make<void>()]);
+                yield* SqlClient.SqlClient.use((holder) => holder.withTransaction(holder`LOCK TABLE ${holder.literal(relation)} IN ACCESS EXCLUSIVE MODE`.pipe(Effect.andThen(Deferred.succeed(locked, undefined)), Effect.andThen(Deferred.await(released))))).pipe(Effect.provide(client(relation)), Effect.forkScoped);
+                yield* Deferred.await(locked);
+                return released;
+            });
+            yield* Catalog.reconcile(declared([lookups]));
+            yield* Effect.all([sql`CREATE SCHEMA gates`, sql`CREATE TABLE gates.gate (id text)`, sql`CREATE TABLE other (id text NOT NULL PRIMARY KEY)`], { discard: true });
+            yield* sql`CREATE FUNCTION gated() RETURNS event_trigger LANGUAGE plpgsql AS 'BEGIN IF current_query() LIKE ''CREATE INDEX CONCURRENTLY%'' THEN PERFORM set_config(''lock_timeout'', ''0'', true); LOCK TABLE gates.gate IN SHARE MODE; END IF; END'`;
+            yield* sql`CREATE EVENT TRIGGER gated ON ddl_command_start WHEN TAG IN ('CREATE INDEX') EXECUTE FUNCTION gated()`;
+            const opened = yield* holding('gates.gate');
+            const building = yield* Effect.forkScoped(Effect.result(Catalog.reconcile(Catalog.make({ tables: [sought], timeouts: { lock: '100 millis', transaction: '1 minute' } }))));
+            yield* polled(waited('gates.gate'));
+            const freed = yield* holding('other');
+            const queued = yield* Catalog.reconcile(declared([sought])).pipe(Effect.result, Effect.provide(client('peer')), Effect.forkScoped);
+            yield* polled(sql`${waited('other')} OR EXISTS (SELECT 1 FROM pg_stat_activity a WHERE a.datname = current_database() AND a.application_name = 'peer' AND a.state = 'idle' AND a.query <> '')`);
+            yield* Deferred.succeed(opened, undefined);
+            const built = yield* Fiber.join(building);
+            yield* Deferred.succeed(freed, undefined);
+            const settled = [built, yield* Fiber.join(queued)];
+            assert.deepStrictEqual<unknown>(
+                { raised: Array.map(Array.getFailures(settled), store.fault), indexes: yield* sql`SELECT x.indisvalid::text AS valid FROM pg_index x WHERE x.indrelid = 'lookups'::regclass AND NOT x.indisprimary`, pending: yield* pending(declared([sought])) },
+                { raised: [], indexes: [{ valid: 'true' }], pending: { statements: [], concurrent: [] } },
+            );
         }),
     );
     it.effect(
