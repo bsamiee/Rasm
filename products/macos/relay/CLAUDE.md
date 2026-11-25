@@ -6,19 +6,19 @@ Relay shows Claude and OpenAI weekly subscription usage in the menu bar and swit
 
 One store owns every trigger and account state change, views call it and provider clients return results to it:
 - Views hold presentation state alone, sign-in and login item state outlive the Settings window
-- Credential reads and writes reserve each live and private store they touch for the whole operation
-- Selection follows each provider's live store, actions re-read selection in place of setting it
+- Credential reads and writes reserve each active and private store they touch for the whole operation
+- Active accounts follow each provider's active store, actions re-read them in place of setting them
 - Account identity is account id with organization id, every identity check compares both
 - Failures needing a new sign-in mark the account for sign-in and its reading stale, every other failure logs and leaves its card connected
 - Accounts marked for sign-in read no usage until their own store holds a matching login that has not expired
-- Selected accounts read usage at most every 3 minutes, parked accounts every 30 minutes, and every account at its next window reset
+- Active accounts read usage at most every 3 minutes, inactive accounts every 30 minutes, and every account at its next window reset
 - Log metadata marks account ids public and emails and paths private, errors pass as `error:`, failures hold no token
 - Pending and failed `accounts.json` loads start no trigger, a failed load leaves the file unwritten
 
 ## [02]-[CLAUDE]
 
 Claude stores are Claude Code config directories, each with an account file and a login Keychain item:
-- Selected account uses the shared store Claude Code resolves, every other account a private config directory under `Accounts/<id>/Claude`
+- Active account uses the active store Claude Code resolves, every other account a private config directory under `Accounts/<id>/Claude`
 - Relay sends no request to Anthropic, and `claude auth status --json` reports a store's login
 - `claude -p "/usage" --output-format stream-json --verbose` reports a store's usage, as print-mode stream JSON requires `--verbose`
 - Claude Code alone refreshes tokens, since refresh tokens are single use and a second refresher revokes the token family
@@ -35,18 +35,18 @@ Claude stores are Claude Code config directories, each with an account file and 
 - Claude Code signs out by revoking the refresh token and deleting the item, a blanked item reads as signed out
 - `claude` children point at one store and drop variables that redirect their credential or API
 - Claude Code refreshes under `.oauth_refresh.lock` and `<realpath>.lock` and writes credentials under `.storage-write.lock` in its store
-- Relay re-reads selection when Claude Code releases those locks
+- Relay re-reads the active account when Claude Code releases those locks
 - Claude Code writes `.credentials.json` when a Keychain write fails and reads it only while the item is absent
 - While `.credentials.json` exists, running sessions detect outside writes by its mtime alone, Relay's Keychain writes delete it
 - Switch holds Claude Code's locks on every store it touches and runs no `claude` child inside
 - Switch records its target after reading every store it moves, a failed move and launch finish a recorded switch
-- Outside sign-ins replace the shared credential, Relay saves the credential its last selection read into the outgoing private store
+- Outside sign-ins replace the active credential, Relay saves the credential of its last active store read into the outgoing private store
 
 ## [03]-[CODEX]
 
 Relay drives `codex app-server` over JSON lines on stdio, one server per `CODEX_HOME`:
 - `codex` resolves from the login shell's `PATH`, then from the Codex desktop app's bundled `codex-cli`
-- Selected account uses the live `CODEX_HOME`, every other account a private home under `Accounts/<id>/Codex`
+- Active account uses the active `CODEX_HOME`, every other account a private home under `Accounts/<id>/Codex`
 - Switch requires `config/read` to report `cli_auth_credentials_store` unset or `file` and `forced_chatgpt_workspace_id` unset
 - Switch refuses to run while the desktop app runs, otherwise stops each affected server and moves `auth.json`
 - Sign-in subscribes to `account/login/completed` before `account/login/start`, so the notification cannot arrive unheard
@@ -58,11 +58,11 @@ Relay drives `codex app-server` over JSON lines on stdio, one server per `CODEX_
 Relay spawns one login shell at launch, `claude`, `codex app-server`, and `security` alone:
 - Every child except `codex app-server` runs under a timeout, the server puts one on each request
 - Later children and file locations take the login shell's exports in place of the launch environment
-- Failed login shell reads stop launch and show in the panel and Settings
+- Failed login shell reads stop launch and show in the menu bar extra and Settings
 
 ## [05]-[INTERFACE]
 
-Panel and Settings use system controls, semantic colors, and fonts:
+Menu bar extra and Settings use system controls, semantic colors, and fonts:
 - Cards name their provider after the email, as one email can hold a Claude and an OpenAI account
 - Readings dim after a failed read alone, a reading `accounts.json` holds loads as current
 - Windows past their reset show no reading and block nothing until the next read
@@ -70,7 +70,7 @@ Panel and Settings use system controls, semantic colors, and fonts:
 
 ## [06]-[TELEMETRY]
 
-Relay logs through swift-log to `~/Library/Logs/relay/Relay.log`, or `<output.dir>/relay/logs/Relay.log`, one logger label per owning type:
+Relay logs through swift-log to `~/Library/Logs/app.rasm.relay/Relay.log`, or `<output.dir>/relay/logs/Relay.log`, one logger label per owning type:
 - File records are OpenTelemetry log records as JSON lines, `info` and above for `Relay` scopes and `warn` and above for every other scope
 - Files rotate to `.1` through `.7` at 8 MiB or 1 day, and a rotated file older than 1 day is deleted
 - Records hold every value whole in a file readable by its owner alone, and OTLP log export writes `<private>` for each value not marked public
@@ -80,7 +80,7 @@ Relay logs through swift-log to `~/Library/Logs/relay/Relay.log`, or `<output.di
 - MetricKit crash and daily metric reports log those fields and the whole report under `report`
 - Crash reports of `app.rasm.relay` written since the last launch log one `FATAL` record each at launch
 - `codex app-server` standard error logs at `debug` under `Relay.CodexClient`, drained after the connection ends to keep a failing server's last lines
-- Account state sits in `Application Support/Relay`, named by `CFBundleName`
+- Account state sits in `Application Support/app.rasm.relay`, named by the bundle identifier
 - Defaults keys `log.level`, `log.filter`, `log.target`, `output.dir`, `log.size`, `log.age`, `log.files`, and `state.dir` set each value
 - `defaults write app.rasm.relay <key> <value>` or environment variable `RELAY_<KEY>` (`RELAY_LOG_LEVEL`) sets a key
 - `log.level` and `log.filter` apply while Relay runs
