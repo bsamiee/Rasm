@@ -1,6 +1,6 @@
 {
     "extends": "./tsconfig.json",
-    "include": ["**/*"],
+    "include": ["**/*", "../../../libs/typescript/ai/policy/claude/types/*.d.ts"],
     "exclude": ["vite.config.ts"],
     "references": [
         {

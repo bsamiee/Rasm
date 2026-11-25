@@ -1,50 +1,60 @@
 import { assert, it } from '@effect/vitest';
 import { Policy } from '@rasm/policy';
-import { Effect, Formatter } from 'effect';
-import { environment, services, shell } from '#/fixtures';
+import { Effect, Equal, Formatter } from 'effect';
+import { environment, folder, printed, services, shell } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const restore = 'Read the committed text with `git diff -- <path>` or `git show HEAD:./<path>` and put back only your own lines with your file edit tool.';
-const policy = new Policy();
-const rows = [
-    { command: 'git stash', denied: true, restoring: false },
-    { command: 'git stash list', denied: false, restoring: false },
-    { command: 'git revert HEAD', denied: true, restoring: true },
-    { command: 'git restore a.txt', denied: true, restoring: true },
-    { command: 'git restore --staged a.txt', denied: false, restoring: false },
-    { command: 'git restore -SW a.txt', denied: true, restoring: true },
-    { command: 'git() { echo "$@"; }; git stash', denied: false, restoring: false },
-    { command: 'git checkout -- a.txt', denied: true, restoring: true },
-    { command: 'git checkout main', denied: false, restoring: false },
-    { command: 'git checkout -f main', denied: true, restoring: true },
-    { command: 'git switch --discard-changes main', denied: true, restoring: true },
-    { command: 'git switch -c topic', denied: false, restoring: false },
-    { command: 'git reset --hard HEAD~1', denied: true, restoring: true },
-    { command: 'git reset --soft HEAD~1', denied: false, restoring: false },
-    { command: 'git clean -fd', denied: true, restoring: false },
-    { command: 'git clean -n -d', denied: false, restoring: false },
-    { command: 'git checkout-index -a -f', denied: true, restoring: true },
-    { command: 'git checkout-index -- a.txt', denied: false, restoring: false },
-    { command: 'git update-index --assume-unchanged a.txt', denied: true, restoring: false },
-    { command: 'git update-index --refresh', denied: false, restoring: false },
-    { command: 'git status && git -C sub reset --hard', denied: true, restoring: true },
-    { command: 'echo "$(git stash)"', denied: true, restoring: false },
-    { command: 'git log --oneline', denied: false, restoring: false },
+const prepare = 'git init -q -b main . && echo one > tracked && git add tracked && git commit -qm one && echo two >> tracked && git commit -qam two && git branch side && git tag v1 && echo mine >> tracked && echo new > untracked';
+const work = "cat tracked untracked; git for-each-ref --format='%(refname) %(objectname)'; git stash list";
+const local = [
+    'git checkout .',
+    'git checkout tracked',
+    'git checkout -- tracked',
+    'git checkout HEAD tracked',
+    'git checkout side',
+    'git checkout -h .',
+    'git checkout -f -h',
+    'git restore tracked',
+    'git restore -h tracked',
+    'git reset --hard',
+    'git reset --hard -h',
+    'git clean -f',
+    'git clean -f -h',
+    'git clean -n',
+    'git stash',
+    'git stash -h',
+    'git revert --quit',
+    'git rm -f tracked',
+    'git rm -f -n tracked',
+    'git rm -f --dry-run tracked',
+    'git branch -D side',
+    'git branch -D -h side',
+    'git branch -f side HEAD~1',
+    'git tag -d v1',
+    'git tag -d -h v1',
+    'git tag -f v1 HEAD~1',
+    'git update-ref -d refs/heads/side',
+    'git push -f -n origin main',
 ] as const;
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const restores = (decision: Effect.Success<ReturnType<Policy['decide']>>) => decision._tag === 'Deny' && decision.reasons.every((reason) => reason.endsWith(restore));
+const remote = [
+    { command: 'git push origin main', denied: false },
+    { command: 'git push --repo=origin +main', denied: true },
+    { command: 'git push origin :"$B"', denied: true },
+    { command: 'git push --delete origin refs/tags/v1', denied: true },
+    { command: 'git push origin +refs/tags/v1', denied: true },
+    { command: 'git update-ref --stdin', denied: true },
+] as const;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 it.layer(services, { excludeTestServices: true })('git', (suite) => {
-    suite.effect.each(rows)('$command', ({ command, denied, restoring }) =>
+    suite.effect.each(local)('%s is refused exactly when git itself loses work in a checkout', (command) =>
         Effect.gen(function* () {
-            const decision = yield* policy.decide(shell(command), environment);
-            assert.strictEqual(decision._tag, denied ? 'Deny' : 'Allow', Formatter.format(decision));
-            assert.strictEqual(restores(decision), restoring, Formatter.format(decision));
-        }),
+            const cwd = yield* folder({});
+            const [, before, , after, decision] = [yield* printed(prepare, cwd), yield* printed(work, cwd), yield* printed(command, cwd), yield* printed(work, cwd), yield* new Policy().decide(shell(command), environment(cwd))];
+            assert.strictEqual(decision._tag, Equal.equals(before, after) ? 'Allow' : 'Deny', Formatter.format({ decision, before, after }));
+        }).pipe(Effect.scoped),
     );
+    suite.effect.each(remote)('$command', ({ command, denied }) => Effect.map(new Policy().decide(shell(command), environment()), (decision) => assert.strictEqual(decision._tag, denied ? 'Deny' : 'Allow', Formatter.format(decision))));
 });

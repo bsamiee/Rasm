@@ -288,7 +288,10 @@ const crates = Effect.fnUntraced(function* (invocation: Invocation, cwd: string)
 });
 
 const tasks: Table = {
-    'worktree.isolated': { action: 'Isolate', deny: 'A worktree is a second checkout that every build repeats and the guards of this checkout never see.', advice: 'Work in place.' },
+    'worktree.isolated': {
+        action: 'Isolate',
+        decide: ({ worker }) => Option.match(worker, { onSome: () => [{ apart: false as const }], onNone: () => [{ deny: 'A worktree is a second checkout that every build repeats and the guards of this checkout never see.', advice: 'Work in place.' }] }),
+    },
     'nx.publish': { program: 'nx', decide: (invocation) => (invocation.words.some((written) => written.test(/(?:^|[:,=])nx-release-publish(?:,|$)/u)) ? [{ deny: 'nx-release-publish publishes dependencies for real.', advice: 'Run nx release.' }] : []) },
     'nx.daemon': {
         program: 'nx',
