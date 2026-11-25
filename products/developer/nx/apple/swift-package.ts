@@ -1,7 +1,7 @@
 import { join, matchesGlob, relative } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
-import { EXECUTORS, removable, type Verbs } from '@rasm/nx';
-import { Array, Effect, Graph, Option, Record, Schema, Struct, UndefinedOr } from 'effect';
+import { EXECUTORS, inside, removable, type Verbs } from '@rasm/nx';
+import { Array, Effect, Graph, Option, Predicate, Record, Schema, Struct, UndefinedOr } from 'effect';
 import { ATTACH, INPUTS, type Options, type Part, PLUGIN, SWIFTPM, sequenced } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -11,6 +11,7 @@ interface Package {
     readonly root: string;
     readonly plists: Readonly<Record<string, string>>;
     readonly entitled: Readonly<Record<string, string>>;
+    readonly exclusions: (typeof Exclusions.Type)['targets'];
     readonly bins: Readonly<Record<'debug' | 'release', string>>;
     readonly shipped: readonly string[];
     readonly manifest: Described;
@@ -39,14 +40,18 @@ class Described extends Schema.Opaque<Described, unknown>()(
         }),
     ),
 ) {}
+const Exclusions = Schema.fromJsonString(Schema.Struct({ targets: Schema.Array(Schema.Struct({ name: Schema.String, exclude: Listed })) })).annotate({
+    description: 'The targets of swift package dump-package with the exclude rows of each, the files and folders inside a target folder SwiftPM never compiles, which swift package describe omits',
+});
 const Shipped = Schema.fromJsonString(Schema.Struct({ files: Listed })).annotate({ description: 'The files row of the package.json beside a Package.swift, the paths npm publishes, a release product among them making release the default configuration of its build' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const locals = (manifest: Described, described: ReadonlyMap<string, Package>) => manifest.dependencies.flatMap(({ path }) => Array.fromNullishOr(UndefinedOr.map(path, (at) => described.get(at))));
 
-const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Package>, products: Option.Option<readonly string[]>): readonly string[] => {
+const sources = ({ root, manifest, exclusions }: Package, described: ReadonlyMap<string, Package>, products: Option.Option<readonly string[]>): readonly string[] => {
     const indexed = new Map(manifest.targets.map(({ name }, index) => [name, index] as const));
+    const excluded = new Map(exclusions.map(({ name, exclude }) => [name, exclude] as const));
     const graph = Graph.fromSnapshot({
         type: 'directed',
         nodes: manifest.targets.map((data, index) => ({ index, data })),
@@ -56,7 +61,7 @@ const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Pac
     const reached = Array.fromIterable(Graph.values(Graph.dfs(graph, { start: Graph.findNodes(graph, ({ name }) => Option.match(linked, { onNone: () => true, onSome: (held) => held.has(name) })) })));
     const used = reached.flatMap(({ product_dependencies }) => product_dependencies);
     return [
-        ...reached.map((module) => join('{workspaceRoot}', root, module.path, '**/*')),
+        ...reached.flatMap((module) => [join('{workspaceRoot}', root, module.path, '**/*'), ...(excluded.get(module.name) ?? []).flatMap((row) => [row, join(row, '**/*')].map((path) => `!${join('{workspaceRoot}', root, module.path, path)}`))]),
         ...[MANIFEST, 'Package@swift-*.swift', RESOLVED, '.swiftpm/configuration/*.json'].map((file) => join('{workspaceRoot}', root, file)),
         ...locals(manifest, described)
             .flatMap((local) => sources(local, described, Option.as(products, Array.intersection(local.manifest.products.map(Struct.get('name')), used))))
@@ -64,12 +69,18 @@ const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Pac
     ];
 };
 
+const pruneExclusions = <A>(inputs: readonly (string | A)[]) => {
+    const negated = (input: string | A): input is string => Predicate.isString(input) && input.startsWith('!');
+    const named = inputs.filter((input): input is string => Predicate.isString(input) && !negated(input));
+    return inputs.filter((input) => !negated(input) || !named.some(inside(input.slice(1).replace(/\/\*\*\/\*$/u, ''))));
+};
+
 const packageParts = (options: Options, local: Package, described: ReadonlyMap<string, Package>, owners: ReadonlyMap<Package, Part>): readonly Part[] => {
     const { file, root, plists, entitled, manifest, bins, shipped } = local;
     const whole = Array.isReadonlyArrayNonEmpty(manifest.products) && manifest.products.every(({ type }) => 'executable' in type) && manifest.targets.every(({ resources }) => resources.length === 0);
     const suites = manifest.targets.filter(({ type }) => Schema.is(Tests)(type));
     const modules = manifest.targets.filter(({ name, type }) => !Schema.is(Tests)(type) && name !== manifest.name);
-    const inputs = [...sources(local, described, Option.none()), ...INPUTS];
+    const inputs = pruneExclusions([...sources(local, described, Option.none()), ...INPUTS]);
     const build = ['swift', 'build', '--package-path', root, ...SWIFTPM] as const;
     const test = ['swift', 'test', '--package-path', root, ...SWIFTPM] as const;
     const written = (folder: string) => (whole ? manifest.products.map(({ name }) => join('{workspaceRoot}', folder, name)) : []);
@@ -154,7 +165,7 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
                         ditto: {
                             executor: `${PLUGIN}:package`,
                             dependsOn: Record.keys(own['build'] ?? {}).map((tool) => `build--${tool}`),
-                            inputs: [join('{workspaceRoot}', plist), ...inputs],
+                            inputs: pruneExclusions([join('{workspaceRoot}', plist), ...inputs]),
                             options: { products: [{ package: root, product: held, folder, bin: bins.release, ...signing }] },
                             outputs: [join('{workspaceRoot}', folder, `${held}.zip`)],
                             metadata: { technologies: ['swift'], description: `Signs the release build of ${held} and zips it with ditto for a GitHub release`, help: { command: 'man ditto', example: { args: ['--norsrc'] } } },
@@ -199,4 +210,4 @@ const packageEdges = (local: Package, described: ReadonlyMap<string, Package>, o
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Described, ENTITLEMENTS, INFO, MANIFEST, PACKAGED, type Package, packageEdges, packageParts, RESOLVED, Shipped, sources };
+export { Described, ENTITLEMENTS, Exclusions, INFO, MANIFEST, PACKAGED, type Package, packageEdges, packageParts, pruneExclusions, RESOLVED, Shipped, sources };

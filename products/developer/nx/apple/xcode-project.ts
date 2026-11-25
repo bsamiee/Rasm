@@ -3,7 +3,7 @@ import type { TargetConfiguration } from '@nx/devkit';
 import { EXECUTORS, inside, removable, type Verbs } from '@rasm/nx';
 import { Array, Option, Predicate, Record, Schema, Struct } from 'effect';
 import type { Run } from '#/executors/run/executor';
-import { RESOLVED } from '#/swift-package';
+import { pruneExclusions, RESOLVED } from '#/swift-package';
 import { APPCAST, ATTACH, INPUTS, NOTARY, type Options, type Part, PLUGIN, sequenced, tokened } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -48,7 +48,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
         return { feed, folder, archive, base: inside(root)(folder) ? join('{projectRoot}', relative(root, folder)) : join('{workspaceRoot}', folder), run: invoke('archive', scheme, ['-archivePath', archive, '-configuration', configuration]) };
     });
     const referenced = container.buildFiles.flatMap((at) => tokened(at).flatMap((input) => [input, join(input, '**/*'), ...[at, join(at, '**/*')].map((output) => ({ dependentTasksOutputFiles: output }))]));
-    const read = Array.dedupe(['{projectRoot}/**/*', ...inputs, ...referenced, ...[lock, ...Option.toArray(seed)].flatMap(tokened), ...(workspace ? tokened(join(built, 'contents.xcworkspacedata')) : []), { runtime: 'xcodebuild -version' }, ...INPUTS]);
+    const read = pruneExclusions(Array.dedupe(['{projectRoot}/**/*', ...inputs, ...referenced, ...[lock, ...Option.toArray(seed)].flatMap(tokened), ...(workspace ? tokened(join(built, 'contents.xcworkspacedata')) : []), { runtime: 'xcodebuild -version' }, ...INPUTS]));
     const released = extname(dirname(file)) === '.xcodeproj' && Array.isReadonlyArrayNonEmpty(archived);
     const fed = released ? archived.filter(Struct.get('feed')) : [];
     const runs = schemes.filter(({ tests }) => tests).flatMap((scheme) => (scheme.plans.length === 0 ? [[]] : scheme.plans.map((plan) => ['-testPlan', plan])).map((planned) => invoke('test', scheme.name, planned)));

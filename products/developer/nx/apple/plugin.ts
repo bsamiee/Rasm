@@ -5,7 +5,7 @@ import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations
 import { aggregated, anchored, fingerprinted, inferring, inside, manifested, runner, spawned, stamped, type Verbs, within } from '@rasm/nx';
 import { Array, Cause, Config, Context, Effect, FileSystem, Glob, Layer, Option, Predicate, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import which from 'which';
-import { Described, ENTITLEMENTS, INFO, MANIFEST, PACKAGED, type Package, packageEdges, packageParts, RESOLVED, Shipped, sources } from '#/swift-package';
+import { Described, ENTITLEMENTS, Exclusions, INFO, MANIFEST, PACKAGED, type Package, packageEdges, packageParts, RESOLVED, Shipped, sources } from '#/swift-package';
 import { analyzer, BUILDER, CORE, Options, type Part, PLUGIN, tokened } from '#/targets';
 import { Analyzed, xcodeParts } from '#/xcode-project';
 
@@ -84,9 +84,17 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
                 Effect.flatMap(Schema.decodeEffect(Shipped)),
                 Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed({ files: [] })),
             );
-            const shown = (...argv: readonly string[]) => Effect.map(spawned(['swift', ...argv, '--package-path', swiftPackage.root, '--experimental-skip-acquiring-lock'], { cwd: workspaceRoot }), (at) => relative(workspaceRoot, at.trim()));
-            const bins = yield* Effect.all({ debug: shown('build', '--show-bin-path'), release: shown('build', '--configuration', 'release', '--show-bin-path') }, { concurrency: 'unbounded' });
-            return { ...swiftPackage, bins, plists, entitled, shipped } satisfies Package;
+            const swift = (...argv: readonly string[]) => spawned(['swift', ...argv, '--package-path', swiftPackage.root, '--experimental-skip-acquiring-lock'], { cwd: workspaceRoot });
+            const shown = (...argv: readonly string[]) => Effect.map(swift(...argv), (at) => relative(workspaceRoot, at.trim()));
+            const { exclusions, ...bins } = yield* Effect.all(
+                {
+                    debug: shown('build', '--show-bin-path'),
+                    release: shown('build', '--configuration', 'release', '--show-bin-path'),
+                    exclusions: swift('package', 'dump-package').pipe(Effect.flatMap(Schema.decodeEffect(Exclusions)), Effect.map(Struct.get('targets'))),
+                },
+                { concurrency: 'unbounded' },
+            );
+            return { ...swiftPackage, bins, plists, entitled, exclusions, shipped } satisfies Package;
         }),
     );
     const described = new Map(packages.map((swiftPackage) => [resolve(workspaceRoot, swiftPackage.root), swiftPackage] as const));

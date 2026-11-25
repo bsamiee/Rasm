@@ -6,7 +6,7 @@ import { env } from 'node:process';
 import { createDependencies, createNodes } from '@rasm/nx-apple';
 import { Install } from '@rasm/nx-apple/executors/install';
 import { execute, Run } from '@rasm/nx-apple/executors/run';
-import { it as nx, outputs, targetOptions, taskGraph, unaggregated, unportable } from '@rasm/testing/nx';
+import { it as nx, outputs, targetOptions, taskGraph, unaggregated, unportable, type Workspace } from '@rasm/testing/nx';
 import { Array, Effect, Option, Predicate, Record, Schema } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
@@ -26,12 +26,13 @@ const VERSIONED = '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0">
 const REFERENCE = '<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="A10000000000000000000002" BuildableName="Viewer.app" BlueprintName="Viewer" ReferencedContainer="container:Viewer.xcodeproj"/>';
 const PACKAGED = (target: string) => `<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="${target}" BuildableName="${target}" BlueprintName="${target}" ReferencedContainer="container:"/>`;
 const PACKAGES = {
-    'Package.swift': `${TOOLS}let package = Package(\n    name: "Fixture",\n    platforms: [.macOS(.v27)],\n    products: [.library(name: "Middle", targets: ["Middle"])],\n    targets: [\n        .target(name: "Core", path: "libs/Core"),\n        .target(name: "Middle", dependencies: ["Core"], path: "libs/Middle"),\n        .target(name: "Loose", path: "libs/Loose"),\n        .executableTarget(name: "Tool", dependencies: ["Middle"], path: "apps/Tool", exclude: ["Info.plist"]),\n        .testTarget(name: "CoreTests", dependencies: ["Core"], path: "libs/tests/CoreTests"),\n    ]\n)\n`,
+    'Package.swift': `${TOOLS}let package = Package(\n    name: "Fixture",\n    platforms: [.macOS(.v27)],\n    products: [.library(name: "Middle", targets: ["Middle"])],\n    targets: [\n        .target(name: "Core", path: "libs/Core"),\n        .target(name: "Middle", dependencies: ["Core"], path: "libs/Middle"),\n        .target(name: "Loose", path: "libs/Loose"),\n        .executableTarget(name: "Tool", dependencies: ["Middle"], path: "apps/Tool", exclude: ["Info.plist", "server"]),\n        .testTarget(name: "CoreTests", dependencies: ["Core"], path: "libs/tests/CoreTests"),\n    ]\n)\n`,
     'libs/Core/Core.swift': 'public func one() -> Int { 1 }\n',
     'libs/Middle/Middle.swift': 'import Core\n\npublic func two() -> Int { one() + 1 }\n',
     'libs/Loose/Loose.swift': 'public let loose = 0\n',
     'apps/Tool/main.swift': 'import Middle\n\nprint(two())\n',
     'apps/Tool/Info.plist': VERSIONED,
+    'apps/Tool/server/main.ts': 'console.log("server");\n',
     'libs/tests/CoreTests/CoreTests.swift': 'import Core\nimport Testing\n\n@Test func oneIsOne() { #expect(one() == 1) }\n',
     'packages/kit/Package.swift': `${TOOLS}let package = Package(name: "KitPackage", products: [.executable(name: "Kit", targets: ["Kit"])], targets: [.executableTarget(name: "Kit")])\n`,
     'packages/kit/Sources/Kit/main.swift': 'print("kit")\n',
@@ -101,6 +102,17 @@ const compiledBy =
     (folder: string) =>
     ({ targets }: typeof Described.Type) =>
         targets.flatMap(({ path, sources }) => sources.map((source) => join(folder, path, source)));
+
+const hashTask = async (workspace: Workspace, project: string, target: string, configuration?: string) => {
+    const graph = await workspace.graph({ createNodes, createDependencies });
+    const tasks = taskGraph(graph, [project], [target], configuration);
+    const id = [project, target, ...Array.fromNullishOr(configuration)].join(':');
+    const task = tasks.tasks[id];
+    assert(task !== undefined, `${id} is a task of the graph`);
+    const { value } = await createTaskHasher(graph, readNxJson(workspace.root)).hashTask(task, tasks, env);
+    return value;
+};
+const modular = (workspace: Workspace, nested: Record.ReadonlyRecord<string, string>) => workspace.write({ '.gitignore': '.build\n', ...Record.filter(PACKAGES, (_, at) => !at.startsWith('packages/') && !at.startsWith(SHELL)), ...XCODE, ...nested });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -237,19 +249,11 @@ describe('Xcode projects and their shared schemes', () => {
         { case: 'inside the folder of a project another plugin infers nested in its own', nested: { 'apps/Viewer/Sources/project.json': '{"name":"ViewerSources"}' } },
         { case: 'in a folder of its own', nested: {} },
     ])('hashes build--xcodebuild again after an edit to a source of a build file folder $case', async ({ nested }, { workspace }) => {
-        workspace.write({ '.gitignore': '.build\n', ...Record.filter(PACKAGES, (_, at) => !at.startsWith('packages/') && !at.startsWith(SHELL)), ...XCODE, ...nested });
-        const hashed = async () => {
-            const graph = await workspace.graph({ createNodes, createDependencies });
-            const tasks = taskGraph(graph, ['Viewer'], ['build--xcodebuild'], 'debug');
-            const task = tasks.tasks['Viewer:build--xcodebuild:debug'];
-            assert(task !== undefined, 'Viewer:build--xcodebuild:debug is a task of the graph');
-            const { value } = await createTaskHasher(graph, readNxJson(workspace.root)).hashTask(task, tasks, env);
-            return value;
-        };
-        const before = await hashed();
+        modular(workspace, nested);
+        const before = await hashTask(workspace, 'Viewer', 'build--xcodebuild', 'debug');
 
         workspace.write({ 'apps/Viewer/Sources/ViewerApp.swift': 'import SwiftUI\n\n@main\nstruct ViewerApp: App {\n    var body: some Scene {\n        WindowGroup { Text("edited") }\n    }\n}\n' });
-        const after = await hashed();
+        const after = await hashTask(workspace, 'Viewer', 'build--xcodebuild', 'debug');
 
         expect(after).not.toBe(before);
     });
@@ -307,6 +311,26 @@ describe('a package a workspace scheme lists', () => {
             'check--xcodebuild': ['{workspaceRoot}/libs/Core/**/*', '{workspaceRoot}/libs/Loose/**/*', '{workspaceRoot}/libs/Middle/**/*', '{workspaceRoot}/apps/Tool/**/*'],
             'test--xcodebuild': ['{workspaceRoot}/libs/Core/**/*', '{workspaceRoot}/libs/Loose/**/*', '{workspaceRoot}/libs/Middle/**/*', '{workspaceRoot}/apps/Tool/**/*'],
         });
+    });
+
+    it('hashes build--xcodebuild of the scheme alike after an edit to a file and a folder a module excludes, which SwiftPM never compiles', async ({ workspace }) => {
+        modular(workspace, {});
+        const before = await hashTask(workspace, 'Fixture-Package', 'build--xcodebuild');
+
+        workspace.write({ 'apps/Tool/Info.plist': PLIST, 'apps/Tool/server/main.ts': 'console.log("edited");\n' });
+        const after = await hashTask(workspace, 'Fixture-Package', 'build--xcodebuild');
+
+        expect(after).toBe(before);
+    });
+
+    it('hashes pack--ditto of an executable module again after an edit to the Info.plist the module excludes, which versions the pack', async ({ workspace }) => {
+        modular(workspace, {});
+        const before = await hashTask(workspace, 'Tool', 'pack--ditto');
+
+        workspace.write({ 'apps/Tool/Info.plist': VERSIONED.replace('1.0.0', '1.0.1') });
+        const after = await hashTask(workspace, 'Tool', 'pack--ditto');
+
+        expect(after).not.toBe(before);
     });
 
     it('gives an executable module its install, its pack, the attach of the pack, and a clean of the pack output, and a library module no target', ({ fixture: { graph } }) => {
