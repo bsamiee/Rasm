@@ -282,8 +282,6 @@ const opened = (finished: (cleanup: () => void) => void) => {
     return workspace;
 };
 
-vi.setConfig({ testTimeout: 60_000 });
-
 const it = test.extend('workspace', ({ onTestFinished: finished }) => opened(finished)).extend('fileWorkspace', { scope: 'file' }, ({}, { onCleanup }) => opened(onCleanup));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
