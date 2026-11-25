@@ -15,7 +15,7 @@
 
     <PropertyGroup Label="Coverage" Condition="'$(Configuration)' == 'Coverage'">
         <PathMap>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))=$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)').Replace('\', '/'))/,$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)'))=$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(ArtifactsPath)').Replace('\', '/'))/</PathMap> <!-- PDBs and coverlet's lcov report name each source by its path from this folder: the project's own and those its build generates -->
-        <PathMap Condition="'$(NuGetPackageRoot)' != ''">$(PathMap),$([MSBuild]::NormalizeDirectory('$(NuGetPackageRoot)'))=$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(NuGetPackageRoot)').Replace('\', '/'))/</PathMap> <!-- Package content files, from the restore output a restore's own evaluation precedes -->
+        <TestingPlatformCommandLineArguments Condition="'$(NuGetPackageRoot)' != ''">$(TestingPlatformCommandLineArguments) --coverlet-exclude-by-file &quot;$([MSBuild]::EnsureTrailingSlash('$(NuGetPackageRoot)'))**&quot;</TestingPlatformCommandLineArguments> <!-- coverlet's lcov report leaves out each content file a package compiles into a project's assembly, from the restore output a restore's own evaluation precedes -->
         <CreateHardLinksForCopyLocalIfPossible>false</CreateHardLinksForCopyLocalIfPossible> <!-- coverlet rewrites each assembly of the test output in place, and a hard link carries that rewrite into the NuGet packages folder and each referenced project's own output -->
     </PropertyGroup>
 

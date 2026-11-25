@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { env } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
-import { it, outputs } from '@rasm/testing/nx';
+import { it } from '@rasm/testing/nx';
 import { expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
@@ -22,10 +22,12 @@ const FILES = {
 const COVERED = {
     'global.json': FILES['global.json'],
     'NuGet.config': FILES['NuGet.config'],
-    'Directory.Build.props': `<Project>\n  <PropertyGroup>\n    <ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet'))</ArtifactsPath>\n    <TargetFramework>net10.0</TargetFramework>\n    <RollForward>Major</RollForward>\n    <Configurations>Release;Debug;Coverage</Configurations>\n    <Configuration>Release</Configuration>\n  </PropertyGroup>\n  <PropertyGroup Condition="'$(Configuration)' == 'Coverage'">\n    <Optimize>true</Optimize>\n    <DeterministicSourcePaths>false</DeterministicSourcePaths>\n  </PropertyGroup>\n  <PropertyGroup Condition="'$(CI)' == 'true'">\n    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>\n  </PropertyGroup>\n</Project>\n`,
-    'Directory.Build.targets': `<Project>\n  <PropertyGroup Condition="'$(Configuration)' == 'Coverage'">\n    <PathMap>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))=$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)').Replace('\\', '/'))/,$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)'))=$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(ArtifactsPath)').Replace('\\', '/'))/</PathMap>\n  </PropertyGroup>\n</Project>\n`,
-    'libs/Kit/Kit.csproj': '<Project Sdk="Microsoft.NET.Sdk" />\n',
-    'libs/Kit/Halves.cs': 'namespace Kit;\n\npublic static partial class Halves {\n    public static int Of(int value) => value % 2 == 0 ? value / 2 : -1;\n\n    [System.Text.RegularExpressions.GeneratedRegex("^[0-9]+$")]\n    public static partial System.Text.RegularExpressions.Regex Digits();\n}\n',
+    'Directory.Build.props': `<Project>\n  <PropertyGroup>\n    <ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet'))</ArtifactsPath>\n    <TargetFramework>net10.0</TargetFramework>\n    <RollForward>Major</RollForward>\n    <Configurations>Release;Debug;Coverage</Configurations>\n    <Configuration>Release</Configuration>\n    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>\n  </PropertyGroup>\n  <PropertyGroup Condition="'$(Configuration)' == 'Coverage'">\n    <Optimize>true</Optimize>\n    <DeterministicSourcePaths>false</DeterministicSourcePaths>\n  </PropertyGroup>\n  <PropertyGroup Condition="'$(CI)' == 'true'">\n    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>\n  </PropertyGroup>\n</Project>\n`,
+    'Directory.Build.targets': `<Project>\n  <PropertyGroup Condition="'$(Configuration)' == 'Coverage'">\n    <PathMap>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))=$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)').Replace('\\', '/')),$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)'))=$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(ArtifactsPath)').Replace('\\', '/'))/</PathMap>\n    <TestingPlatformCommandLineArguments Condition="'$(NuGetPackageRoot)' != ''">$(TestingPlatformCommandLineArguments) --coverlet-exclude-by-file &quot;$([MSBuild]::EnsureTrailingSlash('$(NuGetPackageRoot)'))**&quot;</TestingPlatformCommandLineArguments>\n  </PropertyGroup>\n</Project>\n`,
+    'libs/Kit/Kit.csproj':
+        '<Project Sdk="Microsoft.NET.Sdk">\n  <ItemGroup>\n    <PackageReference Include="HiraokaHyperTools.sqlite-vec" Version="0.1.10-alpha.4" />\n    <PackageReference Include="Microsoft.Data.Sqlite" Version="11.0.0" />\n    <PackageReference Include="Thinktecture.Runtime.Extensions" Version="10.6.0" />\n  </ItemGroup>\n</Project>\n',
+    'libs/Kit/Halves.cs':
+        'namespace Kit;\n\npublic static partial class Halves {\n    public static int Of(int value) => value % 2 == 0 ? value / 2 : -1;\n\n    [System.Text.RegularExpressions.GeneratedRegex("^[0-9]+$")]\n    public static partial System.Text.RegularExpressions.Regex Digits();\n}\n\n[Thinktecture.SmartEnum]\npublic sealed partial class Side {\n    public static readonly Side Left = new(-1);\n\n    public int Sign { get; }\n}\n',
     'products/Tool/Tool.csproj': '<Project Sdk="Microsoft.NET.Sdk" />\n',
     'products/Tool/Scales.cs': 'namespace Tool;\n\npublic static class Scales {\n    public static int Twice(int value) => value * 2;\n}\n',
     'tests/Kit.Tests/Kit.Tests.csproj': `<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <OutputType>Exe</OutputType>\n    <IsTestProject>true</IsTestProject>\n  </PropertyGroup>\n  ${TESTED}\n  <ItemGroup>\n    <PackageReference Include="Humanizer.Core" Version="3.0.10" />\n    <ProjectReference Include="../../libs/Kit/Kit.csproj" />\n    <ProjectReference Include="../../products/Tool/Tool.csproj" />\n  </ItemGroup>\n</Project>\n`,
@@ -42,19 +44,25 @@ it('runs the tests of a Microsoft Testing Platform project under configuration c
 
     const { success } = await workspace.run(graph, 'Tests', 'test--dotnet', 'coverage');
 
-    const declared = outputs(graph, 'Tests', 'test--dotnet', 'coverage');
+    const declared = workspace.cached(graph, 'Tests', 'test--dotnet', 'coverage');
     const written = [...workspace.files().difference(before)];
-    expect({ success, reports: written.filter((file) => /^coverage\/Tests\/coverage\.\d+\.info$/u.test(file)).length, outside: written.filter((file) => !declared.some((output) => file.startsWith(`${output}/`))) }).toStrictEqual({ success: true, reports: 1, outside: [] });
+    expect({ success, reports: written.filter((file) => /^coverage\/Tests\/coverage\.\d+\.info$/u.test(file)).length, outside: written.filter((file) => !declared.has(file)) }).toStrictEqual({ success: true, reports: 1, outside: [] });
 });
 
-it.for(['false', 'true'])('runs configuration coverage under the Coverage configuration a workspace declares, its lcov report naming each workspace source by its path from the workspace root and no source of a package assembly with CI=%s', async (ci, { workspace }) => {
-    const graph = await workspace.write(COVERED).graph({ createNodes, createDependencies }, { coveragePath: 'coverage/{projectName}' });
-    execFileSync('dotnet', ['build', 'tests/Kit.Tests/Kit.Tests.csproj', '--configuration', 'Coverage'], { cwd: workspace.root, stdio: 'ignore', env: { ...env, CI: ci } });
-    const before = workspace.files();
+it.for(['false', 'true'])(
+    'runs configuration coverage under the Coverage configuration a workspace declares, its lcov report naming each workspace source and each file its build generates by its path from the workspace root, and no source of a package assembly or of a content file a package compiles into a workspace assembly with CI=%s',
+    async (ci, { workspace }) => {
+        const graph = await workspace.write(COVERED).graph({ createNodes, createDependencies }, { coveragePath: 'coverage/{projectName}' });
+        execFileSync('dotnet', ['build', 'tests/Kit.Tests/Kit.Tests.csproj', '--configuration', 'Coverage'], { cwd: workspace.root, stdio: 'ignore', env: { ...env, CI: ci } });
+        const before = workspace.files();
 
-    const { success } = await workspace.run(graph, 'Kit.Tests', 'test--dotnet', 'coverage');
+        const { success } = await workspace.run(graph, 'Kit.Tests', 'test--dotnet', 'coverage');
 
-    const reports = [...workspace.files().difference(before)].filter((file) => /^coverage\/Kit\.Tests\/coverage\.\d+\.info$/u.test(file));
-    const sources = reports.flatMap((file) => readFileSync(join(workspace.root, file), 'utf-8').split('\n')).filter((row) => row.startsWith('SF:'));
-    expect({ success, sources: sources.toSorted() }).toStrictEqual({ success: true, sources: ['SF:libs/Kit/Halves.cs', 'SF:products/Tool/Scales.cs'] });
-});
+        const reports = [...workspace.files().difference(before)].filter((file) => /^coverage\/Kit\.Tests\/coverage\.\d+\.info$/u.test(file));
+        const sources = reports.flatMap((file) => readFileSync(join(workspace.root, file), 'utf-8').split('\n')).filter((row) => row.startsWith('SF:'));
+        expect({ success, sources: sources.toSorted() }).toStrictEqual({
+            success: true,
+            sources: ['SF:.artifacts/dotnet/obj/Kit/coverage/generated/Thinktecture.Runtime.Extensions.SourceGenerator/Thinktecture.CodeAnalysis.SmartEnums.SmartEnumSourceGenerator/Kit.Side.SmartEnum.g.cs', 'SF:libs/Kit/Halves.cs', 'SF:products/Tool/Scales.cs'],
+        });
+    },
+);
