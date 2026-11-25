@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, type TargetConfiguration } from '@nx/devkit';
 import { getReadyCheckReadyWhen, hashObject, quoteShellArg } from '@nx/devkit/internal';
-import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, parsed, run, tokened, within } from '@rasm/nx';
+import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, parsed, type Pass, run, tokened, within } from '@rasm/nx';
 import { Array, Cause, Effect, FileSystem, Option, Record, Schema, UndefinedOr } from 'effect';
 import type { parseSync } from 'vite';
 
@@ -76,7 +76,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
     };
 });
 
-const inferred = Effect.fnUntraced(function* (pass: { readonly recall: (key: string, fresh: ReturnType<typeof read>) => ReturnType<typeof read>; readonly exec: string }, anchor: Anchor, { outputPath }: typeof Options.Type, context: CreateNodesContext, file: string) {
+const inferred = Effect.fnUntraced(function* (pass: Pass<Effect.Success<ReturnType<typeof read>>>, anchor: Anchor, { outputPath }: typeof Options.Type, context: CreateNodesContext, file: string) {
     const root = posix.dirname(file);
     const outDir = UndefinedOr.map(outputPath, (folder) => posix.relative(root, folder));
     const { type, folders, signals, served, loaded, packages, env } = yield* pass.recall(file, read(context.workspaceRoot, file, outDir));

@@ -1,12 +1,15 @@
+import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { CreateNodes, ProjectGraph } from '@nx/devkit';
 import { resetWorkspaceContext } from '@nx/devkit/internal';
-import { aggregated, anchored, EXECUTORS, stamped } from '@rasm/nx';
+import { aggregated, anchored, EXECUTORS, fingerprinted, inferring, run, stamped } from '@rasm/nx';
 import { it, type Workspace } from '@rasm/testing/nx';
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
 import { HashPlanInspector } from 'nx/src/hasher/hash-plan-inspector';
-import { assert, describe, expect } from 'vitest';
+import { assert, describe, expect, vi } from 'vitest';
+
+vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -50,6 +53,20 @@ const executing = (executor: string): { readonly createNodes: CreateNodes } => (
             ]),
     ],
 });
+
+const caching: { readonly createNodes: CreateNodes } = {
+    createNodes: [
+        'tool.lock',
+        inferring(Schema.Struct({}), run, function* (files, _, { workspaceRoot }, cached) {
+            const pass = yield* cached<{ readonly sources: readonly string[]; readonly read: string }>('suite.hash', 'suite');
+            const { read } = yield* pass.recall(
+                'tool.lock',
+                Effect.sync(() => ({ sources: [], read: readFileSync(join(workspaceRoot, 'read.txt'), 'utf-8') })),
+            );
+            return files.map((file) => [file, { projects: { lib: { root: 'lib', name: 'lib', metadata: { description: read } } } }] as const);
+        }),
+    ],
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -101,6 +118,30 @@ describe('source stamps', () => {
         const before = await stamp(provider);
 
         const after = await stamp(edited);
+
+        expect(before === after).toBe(!changes);
+    });
+});
+
+describe('cache passes', () => {
+    it('reads a cached entry anew after an edit of the package manager lock', async ({ workspace }) => {
+        await workspace.write({ 'package.json': '{ "name": "repo", "private": true }', 'nx.json': '{}', 'pnpm-lock.yaml': 'lockfileVersion: 9.0\n', 'tool.lock': 'first\n', 'read.txt': 'first', 'lib/index.ts': '' }).graph(caching);
+        const kept = await workspace.write({ 'read.txt': 'second' }).graph(caching);
+
+        const graph = await workspace.write({ 'pnpm-lock.yaml': 'lockfileVersion: 9.1\n' }).graph(caching);
+
+        expect([kept.nodes['lib']?.data.metadata?.description, graph.nodes['lib']?.data.metadata?.description]).toStrictEqual(['first', 'second']);
+    });
+});
+
+describe('plugin fingerprints', () => {
+    it.for([
+        { edited: { 'plugin/nested/index.ts': 'export const nested = 1;\n' }, changes: false },
+        { edited: { 'plugin/index.ts': 'export const plugin = 2;\n' }, changes: true },
+    ])('fingerprints the plugin folder anew ($changes) after writing $edited', async ({ edited, changes }, { workspace }) => {
+        const before = await Effect.runPromise(fingerprinted(join(workspace.write({ 'plugin/index.ts': 'export const plugin = 1;\n' }).root, 'plugin')));
+
+        const after = await Effect.runPromise(fingerprinted(join(workspace.write(edited).root, 'plugin')));
 
         expect(before === after).toBe(!changes);
     });

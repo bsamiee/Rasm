@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, readJsonFile } from '@nx/devkit';
 import { emitPluginWorkerLog, getDaemonClientEnvGeneration, globWithWorkspaceContext, hashObject, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
-import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, PLATFORM, run, tokened, within } from '@rasm/nx';
+import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, type Pass, PLATFORM, run, tokened, within } from '@rasm/nx';
 import { Array, Cause, Effect, Filter, flow, Option, Record, Result, Schema, String, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -84,7 +84,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, r
     };
 });
 
-const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(key: string, fresh: Effect.Effect<Resolved, E, R>) => Effect.Effect<Resolved, E, R>; readonly exec: string }, anchor: Anchor, context: CreateNodesContext, outputPath: string | undefined, file: string) {
+const inferred = Effect.fnUntraced(function* (pass: Pass<Resolved>, anchor: Anchor, context: CreateNodesContext, outputPath: string | undefined, file: string) {
     const home = posix.dirname(file);
     const { loaded, scanned, packages, servers, reported, routes, suites } = yield* pass.recall(file, read(context.workspaceRoot, file, outputPath !== undefined));
     const routed = Option.fromUndefinedOr(outputPath).pipe(

@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { loadConfig } from '@cloudflare/config';
 import { hashArray, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { getCatalogManager, getLockFileName, hashFile, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { type Anchor, aggregated, EXEC, EXECUTORS, manifested, recalled, spawned, type Stated, stamped, tokened, type Verbs, within } from '@rasm/nx';
+import { type Anchor, aggregated, EXEC, EXECUTORS, manifested, type Pass, recalled, spawned, type Stated, stamped, tokened, type Verbs, within } from '@rasm/nx';
 import { Array, Cause, Effect, FileSystem, Option, Record, Schema, UndefinedOr } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -156,7 +156,7 @@ const workspace = Effect.fnUntraced(function* (anchor: Anchor, manager: PackageM
     );
 });
 
-const worker = Effect.fnUntraced(function* (anchor: Anchor, manager: PackageManager, stated: Stated, file: string, recall: <E, R>(key: string, fresh: Effect.Effect<{ readonly sources: readonly string[] }, E, R>) => Effect.Effect<{ readonly sources: readonly string[] }, E, R>) {
+const worker = Effect.fnUntraced(function* (anchor: Anchor, manager: PackageManager, stated: Stated, file: string, recall: Pass<{ readonly sources: readonly string[] }>['recall']) {
     const fs = yield* FileSystem.FileSystem;
     const [root, at] = [dirname(file), join(anchor.workspaceRoot, file)];
     const unresolved = (cause: unknown) => new Cause.UnknownError(cause, `${file} resolves no @cloudflare/config through cf`);

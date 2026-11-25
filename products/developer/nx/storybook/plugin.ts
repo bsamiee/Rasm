@@ -7,7 +7,7 @@ import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, normal
 import { quoteShellArg } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import web from '@nx/web/package.json' with { type: 'json' };
-import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, run, tokened, type Verbs, within } from '@rasm/nx';
+import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, type Pass, run, tokened, type Verbs, within } from '@rasm/nx';
 import { Array, Cause, Effect, Option, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -121,7 +121,7 @@ const targets = (root: string, { packages, linked, globs, runner, sources }: Res
     };
 };
 
-const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(key: string, fresh: Effect.Effect<Resolved, E, R>) => Effect.Effect<Resolved, E, R>; readonly exec: string }, anchor: Anchor, context: CreateNodesContext, output: Option.Option<string>, file: string) {
+const inferred = Effect.fnUntraced(function* (pass: Pass<Resolved>, anchor: Anchor, context: CreateNodesContext, output: Option.Option<string>, file: string) {
     const root = dirname(dirname(file));
     const resolved = yield* pass.recall(file, read(context.workspaceRoot, file));
     const stated = yield* manifested(context.workspaceRoot, root);

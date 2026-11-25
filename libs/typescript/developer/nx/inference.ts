@@ -2,11 +2,12 @@ import { ChildProcess as NodeChildProcess } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import { findPackageJSON } from 'node:module';
 import { dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
+import { cwd } from 'node:process';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateNodesContext, detectPackageManager, type ExecutorContext, hashArray, normalizePath, type NxJsonConfiguration, type PackageManager, readJsonFile, type TargetConfiguration, type TaskGraph } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getLockFileName, getNamedInputs, hashFile, hashWithWorkspaceContext, killChildOnHostExit, mergeTargetConfigurations, type PackageJson, PluginCache, parseExecutor, readModulePackageJson, workspaceDataDirectory } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
-import { Array, Cause, Config, ConfigProvider, Effect, Equal, FileSystem, Formatter, Function, identity, Layer, ManagedRuntime, Match, MutableRef, Option, Predicate, pipe, Record, Result, Schema, type Scope, Stream, String, Struct, Tuple, UndefinedOr } from 'effect';
+import { Array, Cause, Config, ConfigProvider, Context, Effect, Equal, FileSystem, Formatter, Function, identity, Layer, ManagedRuntime, Match, MutableRef, Option, Predicate, pipe, Record, Result, Schema, type Scope, Stream, String, Struct, Tuple, UndefinedOr } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
 import collection from '#/executors.json' with { type: 'json' };
 import plugin from '#/package.json' with { type: 'json' };
@@ -14,8 +15,9 @@ import plugin from '#/package.json' with { type: 'json' };
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Verbs = Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>>;
-type Stated = Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>;
+type Stated = typeof Stated.Type;
 type Anchor = ReturnType<typeof anchored>;
+type Pass<C extends { readonly sources: readonly string[] }> = Effect.Success<ReturnType<typeof caching<C>>>;
 type Run<R> = <A, E>(effect: Effect.Effect<A, E, R | NodeServices | Scope.Scope>) => Promise<A>;
 type Parse = (file: string, text: string) => { readonly module: { readonly staticImports: readonly { readonly moduleRequest: { readonly value: string }; readonly entries: readonly { readonly isType: boolean }[] }[] } };
 
@@ -28,14 +30,18 @@ const EXECUTORS = Record.map(collection.executors, (_, executor) => `${plugin.na
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
-const Targets = Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) })).annotate({
+const Stated = Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) })).annotate({
     description: "The target rows of a project's package.json nx field or project.json, whose inputs Nx merges over the inferred targets after every plugin",
 });
-const Overrides = Schema.fromJsonString(Schema.Struct({ targets: Schema.optionalKey(Targets), nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Targets) })) })).annotate({
+const Overrides = Schema.fromJsonString(Schema.Struct({ targets: Schema.optionalKey(Stated), nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Stated) })) })).annotate({
     description: 'The nx.targets of a package.json and the targets of a project.json, which Nx merges over the inferred targets in that order',
 });
 const Named = Schema.fromJsonString(Schema.Struct({ name: Schema.String })).annotate({ description: 'The name field of a package.json' });
 const Words = Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' });
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+const Root = Context.Reference<string>('@rasm/nx/Root', { defaultValue: cwd });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -66,7 +72,7 @@ const batched = <S extends Schema.Decoder<unknown>, A, E>(options: S, body: (gra
     return (graph: TaskGraph, raw: unknown, _: unknown, context: ExecutorContext) => Stream.toReadableStream(Stream.provide(Stream.unwrap(Effect.map(decode(raw), (inputs) => body(graph, inputs, context))), layer)).values();
 };
 
-const fingerprinted = (folder: string) => Effect.succeed(hashArray([...Array.fromNullishOr(hashFile(import.meta.filename)), ...Array.flatMap(readdirSync(folder).toSorted(), (name) => [name, ...Array.fromNullishOr(hashFile(join(folder, name)))])]));
+const fingerprinted = (folder: string) => Effect.succeed(hashArray([...Array.fromNullishOr(hashFile(import.meta.filename)), ...Array.flatMap(readdirSync(folder).toSorted(), (name) => Array.fromNullishOr(hashFile(join(folder, name))).flatMap((hash) => [name, hash]))]));
 
 const ran = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
     const invoked = CommandLine.display(argv);
@@ -126,44 +132,30 @@ const recalled = Effect.fnUntraced(function* <A extends { readonly sources: read
     });
 });
 
-const inferring = <S extends Schema.Decoder<unknown>, A, R>(
-    options: S,
-    entered: <B, E>(effect: Effect.Effect<B, E, R>) => Promise<B>,
-    body: (
-        files: readonly string[],
-        settings: S['Type'],
-        context: CreateNodesContext,
-        cached: <C extends { readonly sources: readonly string[] }>(
-            name: string,
-            digest: string,
-            extra?: (entry: C) => Effect.Effect<readonly string[]>,
-            steady?: () => unknown,
-        ) => Effect.Effect<{ readonly recall: <E2, R2>(key: string, fresh: Effect.Effect<C, E2, R2>) => Effect.Effect<C & { readonly stamp: string }, E2, R2>; readonly exec: string }, never, Scope.Scope>,
-    ) => Effect.fn.Return<A, Error, NoInfer<R>>,
-) => {
-    const inferred = Effect.fnUntraced(body);
-    return (files: readonly string[], raw: unknown, context: CreateNodesContext) => {
-        const cached = Effect.fnUntraced(function* <C extends { readonly sources: readonly string[] }>(name: string, digest: string, extra: (entry: C) => Effect.Effect<readonly string[]> = () => Effect.succeed([]), steady: () => unknown = Function.constUndefined) {
-            const manager = detectPackageManager(context.workspaceRoot);
-            const [stored, lock, reading] = [MutableRef.make(false), getLockFileName(manager), steady()];
-            const cache = yield* Effect.acquireRelease(
-                Effect.sync(() => new PluginCache<C & { readonly stamp: string }>(join(workspaceDataDirectory, name))),
-                (opened) => Effect.sync(() => opened.writeToDisk()).pipe(Effect.when(Effect.sync(() => MutableRef.get(stored) && steady() === reading))),
-            );
-            return {
-                recall: <E2, R2>(key: string, fresh: Effect.Effect<C, E2, R2>) =>
-                    recalled(
-                        cache,
-                        hashArray([digest, key]),
-                        (sources, entry) => Effect.zipWith(stamped(context.workspaceRoot)([lock, ...sources]), extra(entry), (held, more) => hashArray([held, ...more])),
-                        fresh,
-                        () => MutableRef.set(stored, true),
-                    ),
-                exec: EXEC[manager],
-            };
-        });
-        return entered(Effect.flatMap(Schema.decodeEffect(options)(raw ?? {}), (settings) => inferred(files, settings, context, cached)));
+const caching = Effect.fnUntraced(function* <C extends { readonly sources: readonly string[] }>(name: string, digest: string, extra: (entry: C) => Effect.Effect<readonly string[]> = () => Effect.succeed([]), steady: () => unknown = Function.constUndefined) {
+    const root = yield* Root;
+    const manager = detectPackageManager(root);
+    const [stored, lock, reading] = [MutableRef.make(false), getLockFileName(manager), steady()];
+    const cache = yield* Effect.acquireRelease(
+        Effect.sync(() => new PluginCache<C & { readonly stamp: string }>(join(workspaceDataDirectory, name))),
+        (opened) => Effect.sync(() => opened.writeToDisk()).pipe(Effect.when(Effect.sync(() => MutableRef.get(stored) && steady() === reading))),
+    );
+    return {
+        recall: <E, R>(key: string, fresh: Effect.Effect<C, E, R>) =>
+            recalled(
+                cache,
+                hashArray([digest, key]),
+                (sources, entry) => Effect.zipWith(stamped(root)([lock, ...sources]), extra(entry), (held, more) => hashArray([held, ...more])),
+                fresh,
+                () => MutableRef.set(stored, true),
+            ),
+        exec: EXEC[manager],
     };
+});
+
+const inferring = <S extends Schema.Decoder<unknown>, A, R>(options: S, entered: <B, E>(effect: Effect.Effect<B, E, R>) => Promise<B>, body: (files: readonly string[], settings: S['Type'], context: CreateNodesContext, cached: typeof caching) => Effect.fn.Return<A, Error, NoInfer<R>>) => {
+    const inferred = Effect.fnUntraced(body);
+    return (files: readonly string[], raw: unknown, context: CreateNodesContext) => entered(Effect.flatMap(Schema.decodeEffect(options)(raw ?? {}), (settings) => inferred(files, settings, context, caching)).pipe(Effect.provideService(Root, context.workspaceRoot)));
 };
 
 const manifested = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
@@ -249,4 +241,4 @@ const aggregated = (verbs: Verbs, stated: Stated, technology: string, { workspac
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { above, aggregated, type Anchor, anchored, batched, dried, EXEC, EXECUTORS, executor, extended, fingerprinted, inferring, manifested, namedInput, packaged, parsed, PLATFORM, ran, recalled, type Run, run, runner, spawned, type Stated, stamped, tagged, tokened, type Verbs, Words, within };
+export { above, aggregated, type Anchor, anchored, batched, dried, EXEC, EXECUTORS, executor, extended, fingerprinted, inferring, manifested, namedInput, packaged, parsed, type Pass, PLATFORM, ran, recalled, type Run, run, runner, spawned, Stated, stamped, tagged, tokened, type Verbs, Words, within };
