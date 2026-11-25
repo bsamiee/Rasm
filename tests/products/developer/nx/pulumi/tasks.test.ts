@@ -43,7 +43,7 @@ const STACKS = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const hashed = (workspace: Workspace, graph: ProjectGraph, task: string, versions: Readonly<Record<string, string>>) => {
+const hashed = async (workspace: Workspace, graph: ProjectGraph, task: string, versions: Readonly<Record<string, string>>) => {
     const [project = '', target = ''] = task.split(':');
     const planned = taskGraph(graph, [project], [target]);
     const installed: ProjectGraph = {
@@ -65,11 +65,8 @@ const hashed = (workspace: Workspace, graph: ProjectGraph, task: string, version
         },
     };
     const found = planned.tasks[task];
-    return found === undefined
-        ? Promise.resolve(undefined)
-        : createTaskHasher(installed, readNxJson(workspace.root))
-              .hashTask(found, planned, {})
-              .then(({ value }) => value);
+    const hash = found === undefined ? undefined : await createTaskHasher(installed, readNxJson(workspace.root)).hashTask(found, planned, {});
+    return hash?.value;
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
