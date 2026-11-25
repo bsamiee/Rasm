@@ -15,14 +15,16 @@ public struct LogEvent: Codable, Sendable {
         case executable(URL)
 
         var predicate: String {
-            switch self {
-                case .process(let pid): NSPredicate(format: "%K == %d", CodingKeys.processID.stringValue, pid).predicateFormat
-                case .executable(let url): NSPredicate(format: "%K == %@", CodingKeys.processImagePath.stringValue, url.path(percentEncoded: false)).predicateFormat
-            }
+            let (key, value): (CodingKeys, Any) =
+                switch self {
+                    case .process(let pid): (.processID, pid)
+                    case .executable(let url): (.processImagePath, url.path(percentEncoded: false))
+                }
+            return NSPredicate(format: "%K == %@", argumentArray: [key.stringValue, value]).predicateFormat
         }
     }
 
-    private enum CodingKeys: CodingKey {
+    fileprivate enum CodingKeys: CodingKey {
         case timestamp, processID, processImagePath, messageType, subsystem, category, eventMessage, senderImagePath
     }
 
@@ -61,14 +63,10 @@ public struct LogEvent: Codable, Sendable {
 }
 
 private struct Printed: Decodable {
-    private enum CodingKeys: CodingKey {
-        case timestamp
-    }
-
     let event: LogEvent?
 
     init(from decoder: any Decoder) throws {
-        event = try decoder.container(keyedBy: CodingKeys.self).contains(.timestamp) ? LogEvent(from: decoder) : nil
+        event = try decoder.container(keyedBy: LogEvent.CodingKeys.self).contains(.timestamp) ? LogEvent(from: decoder) : nil
     }
 }
 
@@ -103,32 +101,32 @@ extension LogEvent {
 
     public static func stream(of source: Source) -> AsyncStream<Result<Self, ProcessFailure>> {
         let format = source.predicate
-        return AsyncStream { continuation in
-            let following = Task {
-                let decoder = JSONDecoder()
-                let subject = "log stream --predicate \(format)"
-                do {
-                    _ = try await Subprocess.run(
-                        Configuration(executable: .name("log"), arguments: ["stream", "--predicate", format, "--style", "ndjson"]),
-                        input: .none,
-                        output: .sequence,
-                        error: .discarded,
-                    ) { execution in
-                        let printed = execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"])).filter { line in line.hasPrefix("{") }
-                        let decoded = printed.compactMap { line -> Result<Self, ProcessFailure>? in
-                            switch Result(catching: { try decoder.decode(Printed.self, from: Data(line.utf8)).event }) {
-                                case .success(let event): event.map(Result.success)
-                                case .failure(let error): .failure(ProcessFailure(subject: line, error))
-                            }
+        let (events, continuation) = AsyncStream<Result<Self, ProcessFailure>>.makeStream()
+        let following = Task {
+            let decoder = JSONDecoder()
+            let subject = "log stream --predicate \(format)"
+            do {
+                let ended = try await Subprocess.run(
+                    Configuration(executable: .name("log"), arguments: ["stream", "--predicate", format, "--style", "ndjson"]),
+                    input: .none,
+                    output: .sequence,
+                    error: .string(limit: 1 << 16),
+                ) { execution in
+                    for try await line in execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"])) where line.hasPrefix("{") {
+                        switch Result(catching: { try decoder.decode(Printed.self, from: Data(line.utf8)).event }) {
+                            case .success(let event?): continuation.yield(.success(event))
+                            case .success(nil): continue
+                            case .failure(let error): continuation.yield(.failure(ProcessFailure(subject: line, error)))
                         }
-                        for try await outcome in decoded { continuation.yield(outcome) }
                     }
-                } catch  where !Task.isCancelled {
-                    continuation.yield(.failure(ProcessFailure(subject: subject, error)))
-                } catch {}
-                continuation.finish()
-            }
-            continuation.onTermination = { _ in following.cancel() }
+                }
+                if !ended.terminationStatus.isSuccess { continuation.yield(.failure(ProcessFailure(subject: subject, reason: .exit(ended.terminationStatus, standardError: ended.standardError)))) }
+            } catch  where !Task.isCancelled {
+                continuation.yield(.failure(ProcessFailure(subject: subject, error)))
+            } catch {}
+            continuation.finish()
         }
+        continuation.onTermination = { _ in following.cancel() }
+        return events
     }
 }

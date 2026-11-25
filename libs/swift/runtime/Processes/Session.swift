@@ -4,10 +4,10 @@ public import Subprocess
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension PlatformOptions {
-    public static func session(grace: Duration = .seconds(2)) -> Self {
+    public static func session() -> Self {
         var options = Self()
         options.createSession = true
-        options.teardownSequence = [.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: grace)]
+        options.teardownSequence = [.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: .seconds(2))]
         return options
     }
 }

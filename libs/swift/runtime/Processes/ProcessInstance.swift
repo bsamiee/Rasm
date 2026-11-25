@@ -82,19 +82,17 @@ extension ProcessInstance {
             count = Int(max(unsafe proc_listallpids(buffer.baseAddress, Int32(buffer.count * MemoryLayout<pid_t>.size)), 0))
         }
         guard !listed.isEmpty else { throw Errno(rawValue: errno) }
-        return try listed.filter { pid in
-            var path = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
-            return unsafe proc_pidpath(pid, &path, UInt32(path.count)) > 0 && matching(FilePath(platformString: path))
-        }
-        .map { pid throws(Errno) -> Self? in
-            do throws(Errno) {
-                let instance = try Self(of: pid)
-                return matching(try instance.executable()) ? instance : nil
-            } catch  where [.noSuchProcess, .notPermitted].contains(error) {
-                return nil
+        var path = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
+        return try listed.filter { pid in unsafe proc_pidpath(pid, &path, UInt32(path.count)) > 0 && matching(FilePath(platformString: path)) }
+            .map { pid throws(Errno) -> Self? in
+                do throws(Errno) {
+                    let instance = try Self(of: pid)
+                    return matching(try instance.executable()) ? instance : nil
+                } catch  where [.noSuchProcess, .notPermitted].contains(error) {
+                    return nil
+                }
             }
-        }
-        .compactMap(\.self)
+            .compactMap(\.self)
     }
 
     // --- [KERNEL_TOKEN]
@@ -148,7 +146,9 @@ extension ProcessInstance {
         var code: SecCode?
         let attributes = [kSecGuestAttributeAudit: withUnsafeBytes(of: token) { bytes in unsafe Data(bytes) }] as CFDictionary
         let found = unsafe SecCodeCopyGuestWithAttributes(nil, attributes, [], &code)
-        return code.map { code in SecCodeCheckValidity(code, [], nil) } ?? found == errSecSuccess
+        let validity = code.map { code in SecCodeCheckValidity(code, [], nil) } ?? found
+        guard !hasExited else { throw .noSuchProcess }
+        return validity == errSecSuccess
     }
 }
 

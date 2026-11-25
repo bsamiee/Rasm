@@ -1,5 +1,4 @@
 import CasePathsCore
-import Encoding
 import Files
 public import Foundation
 import Results
@@ -22,11 +21,7 @@ public struct DiagnosticReport: Encodable, Hashable, Sendable {
     }
 
     private struct Header: Decodable {
-        enum BugType: String {
-            case crash = "309"
-        }
-
-        let bugType: Lenient<BugType>
+        let bugType: String
         let bundleID: String?
         let isSimulated: Int?
     }
@@ -69,6 +64,27 @@ public struct DiagnosticReport: Encodable, Hashable, Sendable {
     public let signal: String?
     public let termination: Termination?
 
+    public func encode(to encoder: any Encoder) throws {
+        var fields = encoder.container(keyedBy: CodingKeys.self)
+        try fields.encode(url, forKey: .url)
+        try fields.encode(kind, forKey: .kind)
+        try fields.encode(date.formatted(Date.ISO8601FormatStyle()), forKey: .date)
+        try fields.encode(pid, forKey: .pid)
+        try fields.encodeIfPresent(instance, forKey: .instance)
+        try fields.encodeIfPresent(name, forKey: .name)
+        try fields.encodeIfPresent(executable, forKey: .executable)
+        try fields.encodeIfPresent(service, forKey: .service)
+        try fields.encodeIfPresent(bundleIdentifier, forKey: .bundleIdentifier)
+        try fields.encodeIfPresent(event, forKey: .event)
+        try fields.encodeIfPresent(exception, forKey: .exception)
+        try fields.encodeIfPresent(signal, forKey: .signal)
+        try fields.encodeIfPresent(termination, forKey: .termination)
+    }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+extension DiagnosticReport {
     init?(_ file: URL, written date: Date) throws {
         switch (file.pathExtension, Kind(rawValue: file.pathExtension)) {
             case ("ips", _):
@@ -77,9 +93,8 @@ public struct DiagnosticReport: Encodable, Hashable, Sendable {
                 decoder.keyDecodingStrategy = .convertFromSnakeCase
                 let end = data.firstIndex(of: UInt8(ascii: "\n")) ?? data.endIndex
                 let header = try decoder.decode(Header.self, from: data[..<end])
-                guard case .known(.crash) = header.bugType, header.isSimulated != 1 else { return nil }
+                guard header.bugType == "309", header.isSimulated != 1 else { return nil }
                 let body = try decoder.decode(Body.self, from: data[end...].dropFirst())
-                let identifier = [header.bundleID, body.bundleInfo?[kCFBundleIdentifierKey as String]].lazy.compactMap(\.self).first { identifier in !["", "unknown"].contains(identifier) }
                 self.init(
                     url: file,
                     kind: .crash,
@@ -89,7 +104,7 @@ public struct DiagnosticReport: Encodable, Hashable, Sendable {
                     name: body.procName,
                     executable: body.procPath,
                     service: body.coalitionName,
-                    bundleIdentifier: identifier,
+                    bundleIdentifier: header.bundleID ?? body.bundleInfo?[kCFBundleIdentifierKey as String],
                     event: nil,
                     exception: body.exception?.type,
                     signal: body.exception?.signal,
@@ -126,46 +141,6 @@ public struct DiagnosticReport: Encodable, Hashable, Sendable {
         }
     }
 
-    private init(
-        url: URL,
-        kind: Kind,
-        date: Date,
-        pid: pid_t,
-        instance: ProcessInstance?,
-        name: String?,
-        executable: String?,
-        service: String?,
-        bundleIdentifier: String?,
-        event: String?,
-        exception: String?,
-        signal: String?,
-        termination: Termination?,
-    ) {
-        (self.url, self.kind, self.date, self.pid, self.instance, self.name, self.executable) = (url, kind, date, pid, instance, name, executable)
-        (self.service, self.bundleIdentifier, self.event, self.exception, self.signal, self.termination) = (service, bundleIdentifier, event, exception, signal, termination)
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var fields = encoder.container(keyedBy: CodingKeys.self)
-        try fields.encode(url, forKey: .url)
-        try fields.encode(kind, forKey: .kind)
-        try fields.encode(date.formatted(Date.ISO8601FormatStyle()), forKey: .date)
-        try fields.encode(pid, forKey: .pid)
-        try fields.encodeIfPresent(instance, forKey: .instance)
-        try fields.encodeIfPresent(name, forKey: .name)
-        try fields.encodeIfPresent(executable, forKey: .executable)
-        try fields.encodeIfPresent(service, forKey: .service)
-        try fields.encodeIfPresent(bundleIdentifier, forKey: .bundleIdentifier)
-        try fields.encodeIfPresent(event, forKey: .event)
-        try fields.encodeIfPresent(exception, forKey: .exception)
-        try fields.encodeIfPresent(signal, forKey: .signal)
-        try fields.encodeIfPresent(termination, forKey: .termination)
-    }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-extension DiagnosticReport {
     public func written(by process: ProcessInstance) -> Bool { instance.map { instance in instance == process } ?? (pid == process.pid) }
 
     public func written(by bundle: Bundle) -> Bool {
@@ -204,15 +179,9 @@ extension DiagnosticReport {
         let subject = "Crash report of process \(process.pid)"
         return await Result { () async throws(ProcessFailure) in
             try await withTimeout(limit, expired: ProcessFailure(subject: subject, reason: .timedOut(limit)), clock: clock) { () async throws(ProcessFailure) in
-                var listed = false
                 for await change in FileEvent.events(of: directory) {
-                    let batch =
-                        switch change {
-                            case .success(let events): events
-                            case .failure(let failure): throw ProcessFailure(subject: failure.subject, reason: .io(failure))
-                        }
-                    let files = listed ? dated(batch.map(\.url), since: launch).files : listing(directory, since: launch).files
-                    listed = true
+                    let batch = try change.mapError { failure in ProcessFailure(subject: failure.subject, reason: .io(failure)) }.get()
+                    let files = (batch.isEmpty ? listing(directory, since: launch) : dated(batch.map(\.url), since: launch)).files.sorted(using: KeyPathComparator(\.date, order: .reverse))
                     if let report = files.lazy.compactMap({ file in read(file)[case: \.success].flatMap(\.self) }).first(where: { report in report.kind == .crash && report.written(by: process) }) {
                         return report
                     }
@@ -233,12 +202,10 @@ extension DiagnosticReport {
     }
 
     private static func dated(_ entries: [URL], since earliest: Date) -> (files: [(url: URL, date: Date)], failures: [ProcessFailure]) {
-        let stamped = entries.filter { url in url.pathExtension == "ips" || Kind(rawValue: url.pathExtension) != nil }.map { url in
-            (url: url, date: Result { try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate })
-        }
+        let stamped = entries.map { url in (url: url, date: Result { try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate }) }
         let files = stamped.compactMap { entry in entry.date[case: \.success].map { date in (url: entry.url, date: date ?? earliest) } }.filter { file in file.date >= earliest }
         let failures = stamped.compactMap { entry in entry.date[case: \.failure].map { error in ProcessFailure(subject: entry.url.path(percentEncoded: false), reason: .io(error)) } }
-        return (files.sorted(using: KeyPathComparator(\.date, order: .reverse)), failures)
+        return (files, failures)
     }
 
     private static func read(_ file: (url: URL, date: Date)) -> Result<Self?, ProcessFailure> {
