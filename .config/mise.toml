@@ -1,4 +1,4 @@
-# --- [VERSION] --------------------------------------------------------------------------
+# --- [MIN_VERSION] ----------------------------------------------------------------------
 
 min_version = "2026.11.1"
 
@@ -43,17 +43,16 @@ python.uv_venv_auto                 = "source"
 
 _.path = "node_modules/.bin"
 
-# --- [ROOTS]
+# --- [WORKSPACE_DIRECTORIES]
 
 ARTIFACTS_DIR = "{{config_root}}/.artifacts"
 CACHE_DIR     = "{{config_root}}/.cache"
 
-# --- [OUTPUTS]
+# --- [ARTIFACTS]
 
 CLAUDE_CODE_PLUGIN_DIRS = "{{ env.ARTIFACTS_DIR }}/vite/@rasm/function-hooks"
 DOTNET_DbgMiniDumpName  = "{{ env.ARTIFACTS_DIR }}/dotnet/dumps/%e-%p.dmp"
 FOUNDRY_OUTPUT_DIR      = "{{ env.ARTIFACTS_DIR }}/foundry"
-WATCH_APP_OUTPUT_DIR    = "{{ env.ARTIFACTS_DIR }}/watch-app"
 
 # --- [CACHES]
 
@@ -92,7 +91,7 @@ NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN = { default = '''{% if env?.CI != "true
 NX_SELF_HOSTED_REMOTE_CACHE_SERVER       = { default = '''{% if env?.CI != "true" %}{% set login = get_env(name="DOPPLER_CONFIG_DIR", default=get_env(name="HOME", default="") ~ "/.doppler") ~ "/.doppler.yaml" %}{% set key = "NX_SELF_HOSTED_REMOTE_CACHE_SERVER" ~ env.DOPPLER_PROJECT ~ env.DOPPLER_CONFIG %}{% if login is file %}{% set key = key ~ (login | hash_file) %}{% endif %}{% set read = "doppler secrets get NX_SELF_HOSTED_REMOTE_CACHE_SERVER --plain --attempts 1 --timeout 3s --dns-resolver-timeout 1s 2>/dev/null || true" %}{{ exec(command=read, cache_key=key, cache_duration="15m") or exec(command=read, cache_key=key ~ "-empty", cache_duration="1m") }}{% endif %}''', tools = true }
 TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE    = "/var/run/docker.sock"
 
-# --- [BEHAVIOR]
+# --- [OPTIONS]
 
 BUILDX_EXPERIMENTAL         = "1"
 CF_QUIET                    = "1"
@@ -111,6 +110,8 @@ VCPKG_FORCE_SYSTEM_BINARIES = "1"
 
 # --- [DEPS] -----------------------------------------------------------------------------
 
+# --- [PROJECTS]
+
 [deps.blender]
 dir = "libs/python/blender"
 run = "uv sync --locked --no-active --all-packages"
@@ -124,6 +125,8 @@ dir     = "products/developer/nx/dotnet/analyzer"
 outputs = ["dist/*"]
 run     = "dotnet publish -p:RestoreLockedMode=true --output dist"
 sources = ["*.cs", "MsbuildAnalyzer.csproj", "packages.lock.json"]
+
+# --- [WORKSPACE]
 
 [deps.playwright]
 depends = ["pnpm"]
@@ -158,12 +161,14 @@ final = "mise exec -- hk install"
 [vars]
 docker_plugin = 'plugins="$${DOCKER_CONFIG:-$$HOME/.docker}/cli-plugins" && mkdir -p "$$plugins" && for bin in "$$MISE_TOOL_INSTALL_PATH"/docker-*; do ln -sf "$$bin" "$$plugins/"; done'
 
-# --- [TOOLS] ----------------------------------------------------------------------------
+# --- [TOOL_ALIAS] -----------------------------------------------------------------------
 
 [tool_alias]
 resvg      = "github:linebender/resvg"
 svg_to_ico = "github:Ortham/svg_to_ico"
 usvg       = "github:linebender/resvg"
+
+# --- [TOOLS] ----------------------------------------------------------------------------
 
 [tools]
 # --- [SHELL]
@@ -254,11 +259,11 @@ git-lfs                                     = "latest"
 "github:sparkle-project/Sparkle"            = { os = ["macos"], version = "latest" }
 pulumi                                      = "latest"
 
-# --- [AGENTS]
+# --- [AGENT_TOOLS]
 
 "dotnet:Microsoft.AITools.BinlogMcp"                                         = "latest"
 "dotnet:RoslynCodeLens.Mcp"                                                  = "latest"
-"http:claude-code-types"                                                     = { os = ["unix"], postinstall = { run = 'ln -sfn "$MISE_TOOL_INSTALL_PATH" "$MISE_CONFIG_ROOT/libs/typescript/ai/policy/claude/types/claude-code"', when = "always" }, url = "https://raw.githubusercontent.com/anthropics/claude-code/v{{ version }}/mods/types/claude-code.d.ts", version = "latest", version_list_url = "https://api.github.com/repos/anthropics/claude-code/tags", version_order = "semver" }
+"http:claude-code-types"                                                     = { os = ["unix"], postinstall = { run = 'ln -sfn "$MISE_TOOL_INSTALL_PATH" "$MISE_CONFIG_ROOT/libs/typescript/ai/policy/claude/types"', when = "always" }, url = "https://raw.githubusercontent.com/anthropics/claude-code/v{{ version }}/mods/types/claude-code.d.ts", version = "latest", version_list_url = "https://api.github.com/repos/anthropics/claude-code/tags", version_order = "semver" }
 "npm:@aredotna/cli"                                                          = "latest"
 "npm:@modelcontextprotocol/conformance"                                      = "latest"
 "npm:@tavily/cli"                                                            = { allow_low_downloads = true, os = ["macos"], version = "latest" }
@@ -266,7 +271,7 @@ pulumi                                      = "latest"
 "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp" = { os = ["macos"], version = "v1" }
 "pypi:mcp-for-blender"                                                       = { os = ["macos"], version = "latest" }
 
-# --- [HOSTS]
+# --- [HOST_UTILITIES]
 
 "http:blender-ext"       = { url = "https://raw.githubusercontent.com/blender/blender/v{{ version }}/scripts/addons_core/bl_pkg/cli/blender_ext.py", version = "latest", version_list_url = "https://api.github.com/repos/blender/blender/tags", version_order = "semver" }
 "http:yak"               = { bin = "yak", url = 'https://files.mcneel.com/yak/tools/{{ version }}/{{ os(macos="osx", linux="linux", windows="win") }}-{{ arch(x64="x64", arm64="arm64") }}/yak{{ os(macos="", linux="", windows=".exe") }}', version = "latest", version_list_url = "https://s3.amazonaws.com/files.na.mcneel.com/?prefix=yak/tools/", version_regex = "<Key>yak/tools/([^/]+)/osx-arm64/yak</Key>" }
@@ -280,6 +285,8 @@ pulumi                                      = "latest"
 resvg              = { os = ["macos", "windows"], version = "latest" }
 svg_to_ico         = { matching = "svg_to_ico.7z", os = ["windows"], version = "latest" }
 usvg               = { matching = "usvg", os = ["macos", "windows"], version = "latest" }
+
+# --- [GHIDRA]
 
 [tools."github:NationalSecurityAgency/ghidra"]
 bin_path         = "support"

@@ -1,4 +1,4 @@
-/// <reference path="./types/claude-code/claude-code.d.ts" preserve="true" />
+/// <reference path="./types/claude-code.d.ts" preserve="true" />
 import type { EngineInterface, Next, On, ToolCallInput, ToolCallResult, VcsIsolateInput } from 'claude-code';
 import { Duration, Effect, Match, MutableRef, Option, Record, Schedule, Schema, SchemaTransformation } from 'effect';
 import { runtime, Session } from '#/claude/runtime';
