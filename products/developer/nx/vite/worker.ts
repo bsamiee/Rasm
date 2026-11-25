@@ -17,14 +17,14 @@ const Task = Schema.Struct({ at: Schema.String, outDir: Schema.optional(Schema.S
 const read = Effect.fnUntraced(function* ({ at, outDir }: typeof Task.Type) {
     const vite = yield* Effect.promise((): Promise<{ readonly resolveConfig: typeof resolveConfig; readonly resolveEnvPrefix: typeof resolveEnvPrefix }> => import(pathToFileURL(createRequire(at).resolve('vite')).href));
     const imported = new Set<string>();
-    const registration = Effect.succeed({
+    const hooks = {
         resolve: (specifier, context, nextResolve) => {
             const module = nextResolve(specifier, context);
             imported.add(module.url);
             return module;
         },
-    } satisfies Parameters<typeof registerHooks>[0]).pipe(Effect.map(registerHooks));
-    yield* Effect.acquireRelease(registration, (hooks) => Effect.sync(() => hooks.deregister()));
+    } satisfies Parameters<typeof registerHooks>[0];
+    yield* Effect.sync(() => registerHooks(hooks));
     yield* Effect.sync(() => Object.assign(process, { cwd: () => dirname(at) }));
     const resolved = (command: Parameters<typeof resolveConfig>[1], inline: UserConfig, mode?: string) => {
         const stated = MutableRef.make(false);
@@ -33,20 +33,20 @@ const read = Effect.fnUntraced(function* ({ at, outDir }: typeof Task.Type) {
             enforce: 'post',
             config: {
                 order: 'post',
-                handler: ({ server, preview }: UserConfig) => {
+                handler: ({ server, preview }) => {
                     MutableRef.set(stated, server !== undefined || preview !== undefined);
                 },
             },
-        } as const;
+        } satisfies Plugin;
         return Effect.tryPromise({
             try: () =>
                 vite.resolveConfig({ configFile: at, plugins: [capture], ...inline, ...(outDir !== undefined && { build: { outDir } }) }, command, mode, mode, false, undefined, (plugins) => {
-                    plugins.splice(0, plugins.length, ...plugins.map(Struct.omit<Plugin, ['configResolved']>(['configResolved'])));
+                    plugins.splice(0, plugins.length, ...plugins.map((plugin) => Struct.omit(plugin, ['configResolved'])));
                 }),
             catch: (cause) => new Cause.UnknownError(cause, `${at} does not load for vite ${command}`),
         }).pipe(Effect.map((config) => ({ config, stated: MutableRef.get(stated) })));
     };
-    const { config, stated } = yield* Effect.orDie(resolved('build', {}, 'production'));
+    const { config, stated } = yield* resolved('build', {}, 'production');
     const built = config.builder === undefined ? Array.fromNullishOr(config.environments[config.build.ssr === false ? 'client' : 'ssr']) : Object.values(config.environments);
     const library = config.build.lib !== false;
     const entry = existsSync(join(config.root, 'index.html'));
@@ -59,12 +59,12 @@ const read = Effect.fnUntraced(function* ({ at, outDir }: typeof Task.Type) {
         library,
         buildable,
         signals,
-        served: buildable && (implied || Option.exists(serve, ({ stated: declared }) => declared)),
+        served: buildable && (implied || Option.exists(serve, (held) => held.stated)),
         written: built.map(({ build }) => build.outDir),
-        env: { directory: config.envDir === false ? null : config.envDir, prefixes: vite.resolveEnvPrefix(config.envPrefix === undefined ? {} : { envPrefix: config.envPrefix }) },
-        dependencies: Array.dedupe([...config.configFileDependencies, ...Option.toArray(serve).flatMap(({ config: { configFileDependencies } }) => configFileDependencies), ...Array.filterMap(imported, (url) => Result.try(() => fileURLToPath(url)))]),
+        env: { directory: config.envDir === false ? null : config.envDir, prefixes: vite.resolveEnvPrefix(Struct.pick(config, ['envPrefix'])) },
+        dependencies: [...config.configFileDependencies, ...Option.toArray(serve).flatMap((held) => held.config.configFileDependencies), ...Array.filterMap(imported, (url) => Result.try(() => fileURLToPath(url)))],
     };
-}, Effect.scoped);
+});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

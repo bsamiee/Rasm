@@ -1,7 +1,7 @@
 import { createNodes } from '@rasm/nx-vite';
 import { Clean, execute } from '@rasm/nx/executors/clean';
 import { it as nx, taskGraph } from '@rasm/testing/nx';
-import { Schema } from 'effect';
+import { Record, Schema } from 'effect';
 import { assert, describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
@@ -30,7 +30,7 @@ describe('projects the Vite targets join', { timeout: 60_000 }, () => {
             })
             .graph({ createNodes });
 
-        expect(Object.fromEntries(Object.values(graph.nodes).map(({ data: { root, targets = {} } }) => [root, 'build--vite' in targets]))).toStrictEqual({ 'apps/listed': true, 'tools/marked': true });
+        expect(Record.mapEntries(graph.nodes, ({ data }) => [data.root, 'build--vite' in (data.targets ?? {})])).toStrictEqual({ 'apps/listed': true, 'tools/marked': true });
     });
 
     it.for([
