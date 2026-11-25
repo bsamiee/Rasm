@@ -1,9 +1,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import type { ProjectGraph, TaskGraph } from '@nx/devkit';
+import type { ProjectGraph } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-vitest';
 import { batch, execute, Test } from '@rasm/nx-vitest/executors/test';
-import { spanned, targetOptions, type Workspace } from '@rasm/testing/nx';
+import { spanned, targetOptions, taskGraph, type Workspace } from '@rasm/testing/nx';
 import { Record } from 'effect';
 import { describe, expect, vi } from 'vitest';
 import { it } from '#/installed';
@@ -108,13 +108,7 @@ describe('batched test--vitest tasks', { timeout: 60_000 }, () => {
                 'packages/b/b.test.ts': "import { expect, test } from 'vitest';\n\ntest('breaks', () => { void Promise.reject(new Error('stray')); expect(1).toBe(2); });\n",
             })
             .graph({ createNodes }, { outputPath: '.artifacts/vitest/{projectName}' });
-        const names = ['a', 'b'];
-        const tasks: TaskGraph = {
-            tasks: Record.fromIterableWith(names, (name) => [`${name}:test--vitest`, { id: `${name}:test--vitest`, target: { project: name, target: 'test--vitest' }, outputs: [], overrides: {}, projectRoot: `packages/${name}`, parallelism: true, cache: true }]),
-            dependencies: Record.fromIterableWith(names, (name) => [`${name}:test--vitest`, []]),
-            continuousDependencies: {},
-            roots: names.map((name) => `${name}:test--vitest`),
-        };
+        const tasks = taskGraph(graph, ['a', 'b'], ['test--vitest']);
 
         const results = await Array.fromAsync(batch(tasks, { 'a:test--vitest': await targetOptions(Test, graph, 'a', 'test--vitest'), 'b:test--vitest': await targetOptions(Test, graph, 'b', 'test--vitest') }, {}, workspace.context(graph, 'a', 'test--vitest')));
 
@@ -141,12 +135,7 @@ describe('batched test--vitest tasks', { timeout: 60_000 }, () => {
             })
             .graph({ createNodes }, { coveragePath: '.artifacts/coverage/{projectName}' });
         const names = ['a', 'b'];
-        const tasks: TaskGraph = {
-            tasks: Record.fromIterableWith(names, (name) => [`${name}:test--vitest`, { id: `${name}:test--vitest`, target: { project: name, target: 'test--vitest' }, outputs: [], overrides: {}, projectRoot: `packages/${name}`, parallelism: true, cache: true }]),
-            dependencies: Record.fromIterableWith(names, (name) => [`${name}:test--vitest`, []]),
-            continuousDependencies: {},
-            roots: names.map((name) => `${name}:test--vitest`),
-        };
+        const tasks = taskGraph(graph, names, ['test--vitest']);
         const covered = async (name: string) => ({ ...(await targetOptions(Test, graph, name, 'test--vitest')), __unparsed__: ['--coverage'] });
 
         const results = await Array.fromAsync(batch(tasks, { 'a:test--vitest': await covered('a'), 'b:test--vitest': await covered('b') }, {}, workspace.context(graph, 'a', 'test--vitest')));
@@ -165,12 +154,7 @@ describe('batched test--vitest tasks', { timeout: 60_000 }, () => {
                 'packages/b/package.json': '{"name":"b","type":"module"}',
             })
             .graph({ createNodes });
-        const tasks: TaskGraph = {
-            tasks: Record.fromIterableWith(['a', 'b'], (name) => [`${name}:test--vitest`, { id: `${name}:test--vitest`, target: { project: name, target: 'test--vitest' }, outputs: [], overrides: {}, projectRoot: `packages/${name}`, parallelism: true, cache: true }]),
-            dependencies: { 'a:test--vitest': [], 'b:test--vitest': [] },
-            continuousDependencies: {},
-            roots: ['a:test--vitest', 'b:test--vitest'],
-        };
+        const tasks = taskGraph(graph, ['a', 'b'], ['test--vitest']);
         const before = vi.getRealSystemTime();
 
         const results = Record.fromIterableWith(

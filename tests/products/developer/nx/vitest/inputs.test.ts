@@ -42,6 +42,7 @@ describe('test--vitest inference reused across graph runs', () => {
         },
         { case: 'a manifest joins the workspace a root config lists projects from', before: { 'vitest.config.ts': LISTED, 'packages/a/package.json': '{"name":"a"}' }, files: { 'packages/b/package.json': '{"name":"b"}' }, options: {} },
         { case: 'the plugin options change', before: { 'libs/lib/vitest.config.ts': 'export default {};\n' }, files: {}, options: { outputPath: '.artifacts/second' } },
+        { case: 'a project.json joins the folder of a config that held no project', before: { 'tools/a/vitest.config.ts': 'export default {};\n' }, files: { 'tools/a/project.json': '{"name":"a"}' }, options: {} },
     ])('infers from a warm cache what a cold read infers after $case', async ({ before, files, options }, { workspace }) => {
         workspace.write({ ...LIB, ...before });
         const initial = targets(await workspace.graph({ createNodes }, { outputPath: '.artifacts/first' }));

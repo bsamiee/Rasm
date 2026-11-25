@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parentPort, workerData } from 'node:worker_threads';
 import { retryOnRequireEsmRace } from '@nx/devkit/internal';
-import { Array, Cause, Effect, Option, Predicate, Schema } from 'effect';
+import { Array, Cause, Effect, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import type { configDefaults } from 'vitest/config';
 import type { resolveConfig, Vite } from 'vitest/node';
 
@@ -12,7 +12,7 @@ import type { resolveConfig, Vite } from 'vitest/node';
 const Task = Schema.Struct({ file: Schema.String, entry: Schema.String, name: Schema.String, suite: Schema.Boolean, attachmentsDir: Schema.optionalKey(Schema.String) }).annotate({
     description: 'A Vite or Vitest config by its workspace and absolute path, the name of the plugin its root hook runs under, whether its file name marks a Vitest config, and the attachmentsDir the run writes under outputPath',
 });
-const Reported = Schema.Struct({ outputFile: Schema.optionalKey(Schema.String), outputDir: Schema.optionalKey(Schema.String) }).annotate({ description: 'The file and folder options of a resolved [reporter, options] Vitest entry' });
+const Reported = Schema.Struct({ outputFile: Schema.OptionFromOptionalKey(Schema.String), outputDir: Schema.OptionFromOptionalKey(Schema.String) }).annotate({ description: 'The file and folder options of a resolved [reporter, options] Vitest entry' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -34,7 +34,7 @@ const surveyed = Effect.fnUntraced(function* ({ file, entry, name, attachmentsDi
     const { root, coverage, attachmentsDir: attached, outputFile, reporters, forceRerunTriggers, projects: listed, resolvedProjects } = config.test;
     const declared = resolvedProjects.filter(({ inline, viteConfig: { configFile } }) => inline === true || configFile === undefined || configFile === entry);
     const parents = new Map(declared.filter(({ hidden }) => hidden === true).map(({ viteConfig, projectConfig }) => [viteConfig, projectConfig.name] as const));
-    const keyed: Readonly<Record<string, string | undefined>> = Predicate.isObject(outputFile) ? outputFile : {};
+    const keyed: Readonly<Record<string, string>> = Predicate.isObject(outputFile) ? outputFile : {};
     const entries = reporters.map((reporter) => (Array.isArray(reporter) ? reporter : [reporter, {}])).map(([named, options]) => [named, Schema.decodeUnknownOption(Reported)(options)] as const);
     return {
         _tag: 'Suite' as const,
@@ -44,13 +44,10 @@ const surveyed = Effect.fnUntraced(function* ({ file, entry, name, attachmentsDi
         providers: coverage.provider === 'custom' ? Array.fromNullishOr(coverage.customProviderModule) : [`@vitest/coverage-${coverage.provider}`],
         attachmentsDir: attached,
         reports: entries.flatMap(([named, decoded]) =>
-            Array.getSomes([
-                Option.firstSomeOf([Option.flatMap(decoded, ({ outputFile: direct }) => Option.fromUndefinedOr(direct)), Option.liftPredicate(outputFile, Predicate.isString), Option.flatMap(Option.liftPredicate(named, Predicate.isString), (key) => Option.fromUndefinedOr(keyed[key]))]),
-                Option.flatMap(decoded, ({ outputDir }) => Option.fromUndefinedOr(outputDir)),
-            ]),
+            Array.getSomes([Option.firstSomeOf([Option.flatMap(decoded, Struct.get('outputFile')), Option.liftPredicate(outputFile, Predicate.isString), Option.flatMap(Option.liftPredicate(named, Predicate.isString), (key) => Record.get(keyed, key))]), Option.flatMap(decoded, Struct.get('outputDir'))]),
         ),
         triggers: Array.difference(forceRerunTriggers, defaults.configDefaults.forceRerunTriggers),
-        listed: Option.isSome(Option.fromNullishOr(listed)),
+        listed: Predicate.isNotNullish(listed),
         dependencies: Array.dedupe([entry, ...config.configFileDependencies, ...declared.flatMap(({ viteConfig }) => viteConfig.configFileDependencies)]),
         projects: declared
             .filter(({ hidden }) => hidden !== true)
@@ -58,7 +55,7 @@ const surveyed = Effect.fnUntraced(function* ({ file, entry, name, attachmentsDi
                 project: parents.get(viteConfig) ?? stated,
                 base,
                 setup: [...setupFiles, ...Array.ensure(globalSetup)],
-                written: browser.enabled ? Array.getSomes([Option.fromUndefinedOr(browser.trace.tracesDir), Option.fromNullishOr(browser.screenshotDirectory)]) : [],
+                written: browser.enabled ? Array.filter([browser.trace.tracesDir, browser.screenshotDirectory], Predicate.isNotNullish) : [],
                 providers: browser.enabled ? Array.fromNullishOr(browser.provider?.name) : [],
             })),
     };
@@ -78,31 +75,13 @@ const read = Effect.fnUntraced(function* (task: typeof Task.Type) {
         ),
         (hooks) => Effect.sync(() => hooks.deregister()),
     );
-    const plain = yield* Effect.when(
-        Effect.flatMap(loaded<typeof Vite>(task.file, task.entry, 'vite'), (vite) =>
-            Effect.tryPromise({ try: () => retryOnRequireEsmRace(() => vite.resolveConfig({ configFile: task.entry, root: dirname(task.entry), logLevel: 'silent' }, 'serve', 'test')), catch: (cause) => new Cause.UnknownError(cause, `${task.file} does not load for vite serve`) }),
-        ),
-        Effect.succeed(!task.suite),
+    const plain = yield* loaded<typeof Vite>(task.file, task.entry, 'vite').pipe(
+        Effect.flatMap((vite) => Effect.tryPromise({ try: () => retryOnRequireEsmRace(() => vite.resolveConfig({ configFile: task.entry, root: dirname(task.entry), logLevel: 'silent' }, 'serve', 'test')), catch: (cause) => new Cause.UnknownError(cause, `${task.file} does not load for vite serve`) })),
+        Effect.when(Effect.succeed(!task.suite)),
+        Effect.map(Option.filter((config) => !Object.hasOwn(config, 'test'))),
     );
-    const report = yield* Option.match(
-        Option.filter(plain, (config) => !Object.hasOwn(config, 'test')),
-        {
-            onSome: ({ configFileDependencies }) => Effect.succeed({ _tag: 'Plain' as const, dependencies: configFileDependencies }),
-            onNone: () => surveyed(task),
-        },
-    );
-    return {
-        ...report,
-        dependencies: Array.dedupe([
-            ...report.dependencies,
-            ...Array.getSomes(
-                Array.map(
-                    Array.fromIterable(resolved),
-                    Option.liftThrowable((url: string) => fileURLToPath(url)),
-                ),
-            ),
-        ]),
-    };
+    const report = yield* Option.match(plain, { onSome: ({ configFileDependencies }) => Effect.succeed({ _tag: 'Plain' as const, dependencies: configFileDependencies }), onNone: () => surveyed(task) });
+    return { ...report, dependencies: Array.dedupe([...report.dependencies, ...Array.filterMap(resolved, (url) => Result.try(() => fileURLToPath(url)))]) };
 }, Effect.scoped);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

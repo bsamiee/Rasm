@@ -5,10 +5,10 @@ import { basename, dirname, isAbsolute, join, matchesGlob, posix, relative, reso
 import { env } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, findProjectForPath, globWithWorkspaceContext, hashObject, type PackageJson } from '@nx/devkit/internal';
-import { above, type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, parsed, run, tokened, type Verbs, within } from '@rasm/nx';
-import { Array, Cause, Effect, FileSystem, Option, Record, Schema } from 'effect';
+import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { buildPackageJsonPatterns, findProjectForPath, globWithWorkspaceContext, hashObject, type PackageJson } from '@nx/devkit/internal';
+import { above, type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, parsed, run, tokened, within } from '@rasm/nx';
+import { Array, Cause, Effect, Option, Record, Schema } from 'effect';
 import type { Vite } from 'vitest/node';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -56,22 +56,17 @@ const Surveyed = Schema.TaggedUnion({
 
 const loaded = <A>(file: string, entry: string, specifier: string) => Effect.tryPromise({ try: (): Promise<A> => import(pathToFileURL(createRequire(entry).resolve(specifier)).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no ${specifier}`) });
 
-const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: string, { root, reportsDirectory, covered, providers, attachmentsDir, reports, triggers, listed, dependencies, projects }: typeof Surveyed.cases.Suite.Type) {
-    const fs = yield* FileSystem.FileSystem;
+const surveyed = Effect.fnUntraced(function* ({ workspaceRoot, holds }: Anchor, file: string, { root, reportsDirectory, covered, providers, attachmentsDir, reports, triggers, listed, dependencies, projects }: typeof Surveyed.cases.Suite.Type) {
     const entry = join(workspaceRoot, file);
     const local = (at: string) => normalizePath(relative(workspaceRoot, at));
     const workspaces = buildPackageJsonPatterns(workspaceRoot, (at) => readJsonFile<PackageJson>(join(workspaceRoot, at)));
-    const member = buildPackageJsonWorkspacesMatcher(workspaces);
     const probes = yield* Effect.forEach(
         projects,
         Effect.fnUntraced(function* ({ project, base, setup, written, providers: hosted }) {
-            const manifests = (listed ? above(posix.join(local(base), '.')) : [dirname(file)]).flatMap((at) => [posix.join(at, 'package.json'), posix.join(at, 'project.json')]);
-            const manifest = yield* Effect.findFirst(
-                manifests.filter((at) => basename(at) === 'project.json' || member(at)),
-                (at) => fs.exists(join(workspaceRoot, at)),
-            );
-            yield* Effect.when(new Cause.UnknownError(base, `${file} declares a project under ${local(base)}, which no project root holds`), Effect.succeed(listed && Option.isNone(manifest)));
-            return Option.map(manifest, (at) => ({ owner: dirname(at), project, manifests, setup: setup.map(local).filter(within), written, providers: hosted }));
+            const folders = listed ? above(posix.join(local(base), '.')) : [dirname(file)];
+            const owner = Array.findFirst(folders, holds);
+            yield* Effect.when(new Cause.UnknownError(base, `${file} declares a project under ${local(base)}, which no project root holds`), Effect.succeed(listed && Option.isNone(owner)));
+            return Option.map(owner, (at) => ({ owner: at, project, folders, setup: setup.map(local).filter(within), written, providers: hosted }));
         }),
     ).pipe(Effect.map(Array.getSomes));
     const selectable = Array.dedupe(probes.map(({ project }) => project));
@@ -101,81 +96,71 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
     );
     return {
         suites,
-        triggers: triggers.map((glob) => (isAbsolute(glob) ? local(glob) : glob)),
+        triggers: triggers.map((glob) => posix.join('{workspaceRoot}', isAbsolute(glob) ? local(glob) : glob)),
         shared: Array.dedupe([attachmentsDir, ...reports].map((at) => local(resolve(root, at)))),
-        sources: Array.dedupe([...depended, 'package.json', 'pnpm-workspace.yaml', 'lerna.json', ...(listed ? workspaces.positive : []), ...probes.flatMap((probe) => probe.manifests)]),
+        sources: Array.dedupe([...depended, 'package.json', 'pnpm-workspace.yaml', 'lerna.json', ...(listed ? workspaces.positive : []), ...[dirname(file), ...probes.flatMap(({ folders }) => folders)].flatMap((at) => [posix.join(at, 'package.json'), posix.join(at, 'project.json')])]),
     };
 });
 
-const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, outputPath: string | undefined) {
+const read = (anchor: Anchor, file: string, outputPath: string | undefined) => {
     const failed = (cause: unknown) => new Cause.UnknownError(cause, `${file} does not load as a Vitest config`);
-    const workerData = { file, entry: join(workspaceRoot, file), name: PLUGIN, suite: matchesGlob(basename(file), SUITE), ...(outputPath !== undefined && { attachmentsDir: join(workspaceRoot, outputPath, ATTACHMENTS) }) };
-    const config = yield* Effect.acquireDisposable(Effect.sync(() => new Worker(WORKER, { workerData, env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV } }))).pipe(
+    const workerData = { file, entry: join(anchor.workspaceRoot, file), name: PLUGIN, suite: matchesGlob(basename(file), SUITE), ...(outputPath !== undefined && { attachmentsDir: join(anchor.workspaceRoot, outputPath, ATTACHMENTS) }) };
+    return Effect.acquireDisposable(Effect.sync(() => new Worker(WORKER, { workerData, env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV } }))).pipe(
         Effect.flatMap((worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), failed))),
         Effect.flatMap(([message]) => Schema.decodeUnknownEffect(Surveyed)(message)),
         Effect.scoped,
+        Effect.flatMap(
+            Surveyed.match({
+                Plain: ({ dependencies }): ReturnType<typeof surveyed> => Effect.succeed({ suites: [], triggers: [], shared: [], sources: dependencies.map((at) => normalizePath(relative(anchor.workspaceRoot, at))).filter(within) }),
+                Suite: (suite) => surveyed(anchor, file, suite),
+            }),
+        ),
     );
-    return yield* Surveyed.match(config, {
-        Plain: ({ dependencies }): ReturnType<typeof surveyed> => Effect.succeed({ suites: [], triggers: [], shared: [], sources: dependencies.map((at) => normalizePath(relative(workspaceRoot, at))).filter(within) }),
-        Suite: (suite) => surveyed(workspaceRoot, file, suite),
-    });
-});
-
-const targets = (file: string, { triggers, shared, suites }: Resolved, { root, projects, setup, providers, coverage, covered, written, loaded: configs, packages }: Resolved['suites'][number], chain: readonly string[], upstream: string, { outputPath, coveragePath }: Options, exec: string): Verbs => {
-    const outside = Record.filter(
-        { ...Record.fromIterableWith(chain, (at) => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] }]), ...Record.fromIterableWith([...configs, ...setup], (at) => [at, posix.join('{workspaceRoot}', at)]) },
-        (_input, at) => root !== '.' && !at.startsWith(`${root}/`),
-    );
-    const directed = { ...(covered && { enabled: true }), ...(coveragePath !== undefined && { reportsDirectory: coveragePath }) };
-    const test = {
-        vitest: {
-            executor: `${PLUGIN}:${Array.isReadonlyArrayNonEmpty(providers) ? 'browser' : 'test'}`,
-            options: { config: file, projects, ...Option.getOrUndefined(Option.map(Option.fromUndefinedOr(outputPath), (at) => ({ attachmentsDir: posix.join(at, ATTACHMENTS) }))), ...(covered || coveragePath !== undefined ? { coverage: directed } : {}) },
-            dependsOn: ['codegen--*', '^codegen--*'],
-            cache: true,
-            inputs: ['default', upstream, ...Object.values(outside), ...triggers.map((at) => posix.join('{workspaceRoot}', at)), { externalDependencies: Array.dedupe(['vitest', ...packages]) }, { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true }],
-            outputs: [...Array.dedupe([...Array.fromNullishOr(outputPath), ...written, ...(suites.length === 1 ? shared : [])]).filter((at, _index, all) => !all.some((folder) => at.startsWith(`${folder}/`))), posix.join(coveragePath ?? coverage, 'lcov.info')].map(tokened(root)),
-            configurations: {
-                coverage: { coverage: { ...directed, enabled: true, reporter: 'lcovonly' } },
-            },
-            metadata: {
-                description: 'Runs every Vitest project of the suite with vitest run, a suite without a browser provider in one run with every other such suite of the configuration the same nx run tests, as a batch holds every other Nx task until it ends',
-                help: { command: `${exec} vitest run --help`, example: { args: ['--reporter', 'verbose'] } },
-            },
-        },
-    } satisfies Record<string, TargetConfiguration>;
-    const removed = Record.collect(test, (tool) => `test--${tool}`);
-    return {
-        test,
-        clean: {
-            vitest: {
-                executor: EXECUTORS.clean,
-                options: { targets: removed, commands: [['vitest', '--clearCache']], cwd: dirname(file) },
-                inputs: ['default', '^default', { externalDependencies: ['vitest'] }],
-                metadata: { description: `Removes the outputs ${removed.join(', ')} declare and every Vitest cache with vitest --clearCache`, help: { command: `${exec} vitest --help`, example: { args: ['--clearCache'] } } },
-            },
-        },
-    };
 };
 
-const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(key: string, fresh: Effect.Effect<Resolved, E, R>) => Effect.Effect<Resolved, E, R>; readonly exec: string }, anchor: Anchor, context: CreateNodesContext, settings: Options, file: string) {
-    const resolved = yield* pass.recall(file, read(context.workspaceRoot, file, settings.outputPath));
+const inferred = Effect.fnUntraced(function* (pass: { readonly recall: <E, R>(key: string, fresh: Effect.Effect<Resolved, E, R>) => Effect.Effect<Resolved, E, R>; readonly exec: string }, anchor: Anchor, context: CreateNodesContext, { outputPath, coveragePath }: Options, file: string) {
+    const { suites, triggers, shared } = yield* pass.recall(file, read(anchor, file, outputPath));
     const projects = yield* Effect.forEach(
-        resolved.suites,
-        Effect.fnUntraced(function* (suite) {
-            const stated = yield* manifested(context.workspaceRoot, suite.root);
-            const setup = suite.setup.filter((at) => existsSync(join(context.workspaceRoot, at)));
-            const chain = [suite.root, ...setup.map(dirname)].flatMap((at) => extended(context.workspaceRoot, at));
-            const project: ProjectConfiguration = {
-                root: suite.root,
-                ...(suite.providers.length > 0 && { tags: ['host:browser'] }),
-                metadata: { technologies: ['vitest', ...suite.providers] },
-                targets: aggregated(targets(file, resolved, { ...suite, setup }, chain, `^${namedInput(suite.root, context)}`, settings, pass.exec), stated, 'vitest', anchor),
+        suites,
+        Effect.fnUntraced(function* ({ root, projects: selected, setup: declared, providers, coverage, covered, written, loaded: configs, packages }) {
+            const stated = yield* manifested(context.workspaceRoot, root);
+            const setup = declared.filter((at) => existsSync(join(context.workspaceRoot, at)));
+            const chain = [root, ...setup.map(dirname)].flatMap((at) => extended(context.workspaceRoot, at));
+            const outside = Record.filter(
+                { ...Record.fromIterableWith(chain, (at) => [at, { json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] }]), ...Record.fromIterableWith([...configs, ...setup], (at) => [at, posix.join('{workspaceRoot}', at)]) },
+                (_input, at) => root !== '.' && !at.startsWith(`${root}/`),
+            );
+            const directed = { ...(covered && { enabled: true }), ...(coveragePath !== undefined && { reportsDirectory: coveragePath }) };
+            const test = {
+                vitest: {
+                    executor: `${PLUGIN}:${providers.length > 0 ? 'browser' : 'test'}`,
+                    options: { config: file, projects: selected, ...(outputPath !== undefined && { attachmentsDir: posix.join(outputPath, ATTACHMENTS) }), ...((covered || coveragePath !== undefined) && { coverage: directed }) },
+                    dependsOn: ['codegen--*', '^codegen--*'],
+                    cache: true,
+                    inputs: ['default', `^${namedInput(root, context)}`, ...Object.values(outside), ...triggers, { externalDependencies: Array.dedupe(['vitest', ...packages]) }, { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true }],
+                    outputs: [...Array.dedupe([...Array.fromNullishOr(outputPath), ...written, ...(suites.length === 1 ? shared : [])]).filter((at, _index, all) => Array.intersection(above(posix.dirname(at)), all).length === 0), posix.join(coveragePath ?? coverage, 'lcov.info')].map(tokened(root)),
+                    configurations: {
+                        coverage: { coverage: { ...directed, enabled: true, reporter: 'lcovonly' } },
+                    },
+                    metadata: {
+                        description: 'Runs every Vitest project of the suite with vitest run, a suite without a browser provider in one run with every other such suite of the configuration the same nx run tests, as a batch holds every other Nx task until it ends',
+                        help: { command: `${pass.exec} vitest run --help`, example: { args: ['--reporter', 'verbose'] } },
+                    },
+                },
+            } satisfies Record<string, TargetConfiguration>;
+            const removed = Record.collect(test, (tool) => `test--${tool}`);
+            const clean = {
+                vitest: {
+                    executor: EXECUTORS.clean,
+                    options: { targets: removed, commands: [['vitest', '--clearCache']], cwd: dirname(file) },
+                    inputs: ['default', '^default', { externalDependencies: ['vitest'] }],
+                    metadata: { description: `Removes the outputs ${removed.join(', ')} declare and every Vitest cache with vitest --clearCache`, help: { command: `${pass.exec} vitest --help`, example: { args: ['--clearCache'] } } },
+                },
             };
-            return [suite.root, project] as const;
+            return { root, ...(providers.length > 0 && { tags: ['host:browser'] }), metadata: { technologies: ['vitest', ...providers] }, targets: aggregated({ test, clean }, stated, 'vitest', anchor) };
         }),
     );
-    return { projects: Record.fromEntries(projects) };
+    return { projects: Record.fromIterableBy(projects, ({ root }) => root) };
 });
 
 const nodes = inferring(Options, run, function* (matched, settings, context, cached) {

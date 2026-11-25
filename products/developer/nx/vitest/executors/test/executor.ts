@@ -51,7 +51,6 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
     const { config, coverage, attachmentsDir, __unparsed__: words = [] } = Array.headNonEmpty(group).options;
     const entry = resolve(root, config);
     const node = yield* loaded<{ readonly createVitest: (options: CliOptions) => Promise<Vitest>; readonly parseCLI: typeof parseCLI; readonly TestsNotFoundError: typeof TestsNotFoundError }>(config, entry, 'vitest/node');
-    const alone = Option.filter(Option.fromUndefinedOr(attachmentsDir), () => group.length === 1);
     const parsed = node.parseCLI(['vitest', 'run', ...words]).options;
     const stated: CliOptions = {
         allowOnly: false,
@@ -60,8 +59,8 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
         config: entry,
         watch: false,
         project: group.some(({ options }) => options.projects.length === 0) ? [] : Array.dedupe(group.flatMap(({ options }) => options.projects)),
-        ...Option.getOrUndefined(Option.map(alone, (at) => ({ attachmentsDir: resolve(root, at) }))),
-        ...(coverage === undefined ? {} : { coverage: { ...parsed.coverage, ...coverage, ...(coverage.reportsDirectory === undefined ? {} : { reportsDirectory: resolve(root, coverage.reportsDirectory) }) } }),
+        ...(attachmentsDir !== undefined && group.length === 1 && { attachmentsDir: resolve(root, attachmentsDir) }),
+        ...(coverage !== undefined && { coverage: { ...parsed.coverage, ...coverage, ...(coverage.reportsDirectory !== undefined && { reportsDirectory: resolve(root, coverage.reportsDirectory) }) } }),
     };
     const vitest = yield* Effect.acquireRelease(Effect.tryPromise({ try: () => node.createVitest(stated), catch: (cause) => new Cause.UnknownError(cause, `${config} does not start Vitest`) }), (started) => Effect.promise(() => started.close()));
     const homes = new Map(group.map(({ home, task }) => [home, task] as const));
@@ -82,11 +81,10 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
         ...(Exit.isFailure(started) && !Option.exists(Cause.findErrorOption(started.cause), (error) => error.cause instanceof node.TestsNotFoundError) ? [`vitest run over ${config} stops before it reports: ${Cause.pretty(started.cause)}`] : []),
         ...Option.toArray(Option.map(signalled, (code) => `vitest run over ${config} sets exit code ${code} with every test module passing, as a run-level check such as a coverage threshold or the import duration limit failed`)),
     ];
-    const files = new Map(vitest.state.getFiles().map((file) => [file.id, file] as const));
     const held = Array.groupBy(
         modules.flatMap((module) => {
             const { prepareDuration, environmentSetupDuration, setupDuration, collectDuration, duration } = module.diagnostic();
-            const span = Option.map(Option.fromUndefinedOr(files.get(module.id)?.result?.startTime), (begun) => [Math.round(begun - prepareDuration - environmentSetupDuration - setupDuration - collectDuration), Math.round(begun + duration)] as const);
+            const span = Option.map(Option.fromUndefinedOr(vitest.state.idMap.get(module.id)?.result?.startTime), (begun) => [Math.round(begun - prepareDuration - environmentSetupDuration - setupDuration - collectDuration), Math.round(begun + duration)] as const);
             return Option.toArray(Option.map(owner(module.project.config.root), (task) => ({ task, module, span })));
         }),
         Struct.get('task'),
