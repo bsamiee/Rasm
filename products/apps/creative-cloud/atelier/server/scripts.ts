@@ -100,7 +100,7 @@ const scripts = Effect.fnUntraced(function* (links: { readonly peers: Effect.Eff
             Array.findFirst(listed, (each) => each.url.href === url.href),
             () => new Cause.NoSuchElementError(`${name} left the installed Adobe applications`),
         );
-        const serving = Predicate.and(Link.hosted(row), Link.serves(EvaluationRpcs.requests.keys()));
+        const serving = Predicate.and(Link.runsIn(row), Link.serves(EvaluationRpcs.requests.keys()));
         const declared = yield* Option.match(Array.findFirst(peers, serving), { onSome: () => Effect.succeedSome<Route>({ _tag: 'Linked' }), onNone: () => read(row) });
         const found = yield* Effect.fromOption(declared, () => new Cause.NoSuchElementError(`${row.name} declares no script command and links no extension`));
         const scriptPlan = plan(found);

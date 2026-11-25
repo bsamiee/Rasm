@@ -125,8 +125,8 @@ class Inventory extends Context.Service<Inventory>()('@rasm/applications/workspa
             return { row: aim.row, live };
         });
         const blocking = (row: Pick<Entry, 'url' | 'name'>, instance?: RunningInstance['instance']) =>
-            Context.make(Server.Ends, SubscriptionRef.changes(running).pipe(Stream.map(Array.findFirst((each: RunningInstance) => (instance === undefined ? Installation.runs(row)(each) : each.instance === instance))), Stream.filterMap(blocked(row.name)), Stream.map(Effect.succeed)));
-        const ends = Context.make(Server.Ends, Stream.unwrap(Effect.map(resolved, ({ sole }) => Option.match(sole, { onNone: () => Stream.never, onSome: ({ row, instance }) => Context.get(blocking(row, instance), Server.Ends) }))));
+            Context.make(Server.EarlyReturn, SubscriptionRef.changes(running).pipe(Stream.map(Array.findFirst((each: RunningInstance) => (instance === undefined ? Installation.runs(row)(each) : each.instance === instance))), Stream.filterMap(blocked(row.name)), Stream.map(Effect.succeed)));
+        const ends = Context.make(Server.EarlyReturn, Stream.unwrap(Effect.map(resolved, ({ sole }) => Option.match(sole, { onNone: () => Stream.never, onSome: ({ row, instance }) => Context.get(blocking(row, instance), Server.EarlyReturn) }))));
         return { catalog, running, target, aimed, found, located, current, ends, blocking };
     }),
 }) {

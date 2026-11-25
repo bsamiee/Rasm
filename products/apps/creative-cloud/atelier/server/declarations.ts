@@ -3,7 +3,7 @@ import process from 'node:process';
 import { isSea } from 'node:sea';
 import type { Application } from '@rasm/creative-cloud-desktop';
 import { readCoreOmv } from '@rasm/extendscript/node';
-import { registerTemplate, Server } from '@rasm/mcp';
+import { registerResourceTemplate, Server } from '@rasm/mcp';
 import { Output } from '@rasm/mcp/cli';
 import { Declaration } from '@rasm/object-model';
 import { readDocuments, readManifest, readOmv, readTypeScript } from '@rasm/object-model/node';
@@ -100,7 +100,7 @@ const declarations = Effect.gen(function* () {
             onUndefined: () => Effect.succeed(Array.empty<string>()),
             onDefined: (given) => Effect.map(index(given), ({ classes, enumerations }) => [...Unmatched.rank(input, [...classes, ...enumerations])]),
         });
-    yield* registerTemplate`object-model/${McpSchema.param('host', Host)}`({
+    yield* registerResourceTemplate`object-model/${McpSchema.param('host', Host)}`({
         name: 'object-model',
         description: 'Class and enumeration names one host declares, read from its vendor declarations, installed omv.xml with the core classes of the ExtendScript Toolkit, scripting API manifest (Media Encoder lists internal classes too, as only its binary names the public set), or UXP reference pages',
         schema: Declaration,
@@ -108,7 +108,7 @@ const declarations = Effect.gen(function* () {
         completion: { host: () => Effect.succeed([...Host.literals]) },
         content: (_, host) => index(host),
     });
-    yield* registerTemplate`object-model/${McpSchema.param('host', Host)}/${McpSchema.param('name', Schema.String)}`({
+    yield* registerResourceTemplate`object-model/${McpSchema.param('host', Host)}/${McpSchema.param('name', Schema.String)}`({
         name: 'object-model-declaration',
         description: 'One class with its fields and methods or one enumeration with its members, as its declared source states them, name in any case',
         schema: Declaration,

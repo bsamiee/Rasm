@@ -35,8 +35,8 @@ const nudge = Effect.fnUntraced(function* (deltas: Option.Option<(steps: Steps) 
 
 const [dom, permit] = Effect.runSync(Effect.all([Dom.make(declarations), Semaphore.make(1)]));
 const runScript = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.scopedWith((scope) => Effect.andThen(Scope.provide(suppressDialogs, scope), effect)).pipe(Semaphore.withPermit(permit), Effect.provideService(Dom, dom));
-const notices = (plugin: string) =>
-    Stream.callback<Stream.Success<Upstream['notices']>>((queue) =>
+const events = (plugin: string) =>
+    Stream.callback<Stream.Success<Upstream['events']>>((queue) =>
         listen([dom.Document.AFTER_OPEN, dom.Document.AFTER_SAVE, dom.Document.BEFORE_CLOSE], plugin, (event) => {
             const [name, target] = [read(event, 'eventType'), read(event, 'target')];
             if (Predicate.isString(name) && dom.document(target)) {
@@ -48,12 +48,12 @@ const link = (plugin: string, root: Effect.Effect<URL, HostError, Path.Path>) =>
     Link.dial(
         RenderRpcs.merge(TypesettingRpcs),
         Layer.mergeAll(
-            Link.serve(Tools, { notices: notices(plugin) }).pipe(Layer.provide(Tools.toLayer({ read: flow(inspect, runScript), change: flow(change, runScript), call: flow(call, runScript), find_change: flow(findChange, runScript), adjust: flow(adjust, runScript), preflight: flow(preflight, runScript) }))),
+            Link.serve(Tools, { events: events(plugin) }).pipe(Layer.provide(Tools.toLayer({ read: flow(inspect, runScript), change: flow(change, runScript), call: flow(call, runScript), find_change: flow(findChange, runScript), adjust: flow(adjust, runScript), preflight: flow(preflight, runScript) }))),
             RenderRpcs.toLayer({ render: ({ target }) => runScript(Uxp.renderFile((file) => render(target, file.nativePath), 'rendered.png')) }),
             TypesettingRpcs.toLayer({ runs: flow(runs, runScript), kerns: flow(kerns, runScript), typeset: flow(typeset, runScript), font: flow(font, runScript) }),
         ),
         new URL(UxpManifest.link),
-        Effect.all([Effect.tryPromise({ try: () => dom.app.fullName, catch: HostError.refused('application fullName') }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Uxp.Application))), root]).pipe(Effect.map(([{ url }, folder]) => Link.make({ application: url, extension: plugin, root: Option.some(folder) }))),
+        Effect.all([Effect.tryPromise({ try: () => dom.app.fullName, catch: HostError.refused('application fullName') }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Uxp.Application))), root]).pipe(Effect.map(([{ url }, folder]) => Link.make({ application: url, plugin, root: Option.some(folder) }))),
     );
 const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X>) => void) {
     const { id } = yield* Plugin;

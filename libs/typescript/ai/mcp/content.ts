@@ -16,7 +16,7 @@ const make = <S extends Schema.Top>(schema: S, description: string, blocks: (val
     );
 const Content = Object.assign(make, {
     image: (mimeType: string) => make(Schema.Uint8Array, 'Media type of image content block', (data) => [[McpSchema.ImageContent.make({ data, mimeType })], mimeType]),
-    embedded: <S extends Schema.Schema<{ readonly uri: string; readonly mimeType: Option.Option<string>; readonly data: Uint8Array }>>(schema: S) =>
+    embeddedResource: <S extends Schema.Schema<{ readonly uri: string; readonly mimeType: Option.Option<string>; readonly data: Uint8Array }>>(schema: S) =>
         make(schema, 'URI of file content block', ({ uri, mimeType, data }) => [
             [
                 Option.match(Option.filter(mimeType, String.startsWith('image/')), {

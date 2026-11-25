@@ -16,7 +16,7 @@ const BUNDLES: readonly Bundle[] = [
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Minted = Schema.TemplateLiteralParser(['handle ', Schema.String, ' holds your state, pass it on each later call']);
+const Issued = Schema.TemplateLiteralParser(['handle ', Schema.String, ' holds your state, pass it on each later call']);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -29,7 +29,7 @@ const called = Effect.fnUntraced(function* (client: Effect.Success<Suite['Servic
     const result = yield* client.callTool({ tool, arguments: given });
     return { failed: result.isError === true, text: text(result) };
 });
-const handle = (lines: string) => Effect.map(Effect.flatMap(Effect.fromOption(Array.head(lines.split('\n'))), Schema.decodeUnknownEffect(Minted)), ([, minted]) => minted);
+const handle = (lines: string) => Effect.map(Effect.flatMap(Effect.fromOption(Array.head(lines.split('\n'))), Schema.decodeUnknownEffect(Issued)), ([, issued]) => issued);
 const naming = (value: unknown, name: string): readonly unknown[] => (Predicate.isObjectOrArray(value) ? [...(Object.values(value).includes(name) && !Array.isArray(value) ? [value] : []), ...Object.values(value).flatMap((each) => naming(each, name))] : []);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

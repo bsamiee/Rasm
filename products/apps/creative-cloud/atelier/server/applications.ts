@@ -67,7 +67,7 @@ const routed = Effect.map(Inventory, ({ target }) =>
         const { held } = yield* target;
         const refused = McpSchema.InvalidParams.make({ message: `Linked in ${peers.map((peer) => peer.application.toString()).join(', ')}, applications open makes one the target` });
         return yield* Effect.fromOption(
-            Option.flatMap(held, ({ row }) => Array.findFirst(peers, Link.hosted(row))),
+            Option.flatMap(held, ({ row }) => Array.findFirst(peers, Link.runsIn(row))),
             () => refused,
         );
     }),

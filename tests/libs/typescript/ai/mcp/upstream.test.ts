@@ -134,7 +134,7 @@ describe('upstream session', () => {
         'lists nothing at once while its endpoint has not answered',
         Effect.fnUntraced(
             function* () {
-                const first = yield* Stream.runHead(Upstream.mcp({ peer: PEER, enabled: true, endpoint: Effect.never, poll: SETTLED })).pipe(Effect.timeout(SETTLED));
+                const first = yield* Stream.runHead(Upstream.fromHttp({ peer: PEER, enabled: true, endpoint: Effect.never, poll: SETTLED })).pipe(Effect.timeout(SETTLED));
                 assert.deepStrictEqual(first, Option.some([]));
             },
             Effect.provide([FetchHttpClient.layer, layerSecureRandom]),

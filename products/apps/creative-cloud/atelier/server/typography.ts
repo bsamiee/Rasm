@@ -82,7 +82,7 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
     const files = yield* FileSystem.FileSystem;
     const serving = Link.serves(TypesettingRpcs.requests.keys());
     const client = links.call(serving, 'linked application serving typesetting');
-    const visible = Context.make(Server.Visible, Effect.map(links.peers, Array.some(serving)));
+    const visible = Context.make(Server.Visibility, Effect.map(links.peers, Array.some(serving)));
     const sourced = Effect.fnUntraced(function* (name: string, characters: string) {
         const file = yield* files.makeTempFileScoped({ suffix: '.otf' });
         const { font, source } = yield* Effect.flatMap(client, (linked) => linked('font', { name, text: characters, file }));

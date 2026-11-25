@@ -25,17 +25,17 @@ const OUTPUT = 'output.dir';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const present = <A>(schema: Schema.Codec<A, string>) => schema.pipe(Schema.decodeTo(Schema.Option(Schema.toType(schema)), { decode: SchemaGetter.transform(Option.some<A>), encode: SchemaGetter.forbiddenEncoding }));
+const optional = <A>(schema: Schema.Codec<A, string>) => schema.pipe(Schema.decodeTo(Schema.Option(Schema.toType(schema)), { decode: SchemaGetter.transform(Option.some<A>), encode: SchemaGetter.forbiddenEncoding }));
 const setting = <const Name extends string, A>(name: Name, key: string, schema: Schema.Codec<A, string>, fallback: A, description: string) =>
     GlobalFlag.Setting(name)({ flag: Flag.String(name).pipe(Flag.withSchema(schema), Flag.withFallbackConfig(Config.schema(schema, key.split('.'))), Flag.withDefault(fallback), Flag.withDescription(description)) });
 const Settings = {
-    output: setting('output', OUTPUT, present(Schema.String), Option.none(), 'Folder holding logs, captures, media, and fetched declarations per application, the platform log and cache folders when absent'),
+    output: setting('output', OUTPUT, optional(Schema.String), Option.none(), 'Folder holding logs, captures, media, and fetched declarations per application, the platform log and cache folders when absent'),
     hosts: setting('allowed-hosts', 'allowed.hosts', Schema.String.pipe(Schema.decodeTo(Schema.Array(Schema.String), { decode: SchemaGetter.split(), encode: SchemaGetter.forbiddenEncoding })), [], 'Comma-separated Host headers accepted beyond loopback and the bound address'),
     retention: setting('retention', 'retention', Schema.DurationFromString, Duration.hours(1), 'How long an idle handle and a finished execution stay'),
     limit: setting('events', 'events', Schema.FiniteFromString.pipe(Schema.decodeTo(Schema.Int.check(Schema.isGreaterThan(0)))), 256, 'Events a handle can fall behind by before the oldest drop'),
     budget: setting('event-characters', 'event.characters', Schema.FiniteFromString.pipe(Schema.decodeTo(Schema.Int.check(Schema.isGreaterThan(0)))), 8000, 'Characters of events a result leads with, the rest waiting for the next call'),
 };
-const Called = { tool: Argument.String('tool'), given: Argument.String('json').pipe(Argument.withSchema(Schema.fromJsonString(Schema.Record(Schema.String, Schema.Json))), Argument.withDefault({})), handle: Flag.optional(Flag.String('handle')) };
+const CallArguments = { tool: Argument.String('tool'), given: Argument.String('json').pipe(Argument.withSchema(Schema.fromJsonString(Schema.Record(Schema.String, Schema.Json))), Argument.withDefault({})), handle: Flag.optional(Flag.String('handle')) };
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -50,28 +50,28 @@ const serve = Effect.fnUntraced(function* <E, R, E2, R2, const Declared extends 
     ending: Effect.Effect<never, E2, R2>,
 ) {
     const named = { ...manifest, name: yield* Server.scheme(manifest.name) };
-    const Listen = setting('listen', 'listen', present(Schema.HostPortFromString), listen, 'Endpoint as host:port or [IPv6]:port, a host name binding every address it resolves to');
+    const Listen = setting('listen', 'listen', optional(Schema.HostPortFromString), listen, 'Endpoint as host:port or [IPv6]:port, a host name binding every address it resolves to');
     const defaults = yield* process.platform === 'darwin' ? run(['defaults', 'export', domain, '-']).pipe(Effect.flatMap(({ stdout: text }) => Effect.try({ try: (): unknown => plist(text), catch: (cause) => new Cause.UnknownError(cause, `defaults export of ${domain} printed no property list`) }))) : Effect.succeed({});
     const provider = ConfigProvider.fromEnv().pipe(ConfigProvider.constantCase, ConfigProvider.nested(String.constantCase(named.name)), ConfigProvider.orElse(ConfigProvider.fromUnknown(defaults).pipe(ConfigProvider.mapInput((path) => [path.join('.')]))), ConfigProvider.orElse(ConfigProvider.fromEnv()));
-    const listened = Effect.fnUntraced(
-        function* (transport: Parameters<typeof Server.layerHttp>[1], served: Layer.Layer<never, E, Exclude<R, Output>>) {
-            const [handler, addresses] = yield* Effect.all([HttpRouter.toHttpEffect(Server.layerHttp(named, transport, served)), AddressResolver.AddressResolver.use((resolver) => resolver.resolve(transport.address))]);
+    const serveHttp = Effect.fnUntraced(
+        function* (transport: Parameters<typeof Server.layerHttp>[1], appLayer: Layer.Layer<never, E, Exclude<R, Output>>) {
+            const [handler, addresses] = yield* Effect.all([HttpRouter.toHttpEffect(Server.layerHttp(named, transport, appLayer)), AddressResolver.AddressResolver.use((resolver) => resolver.resolve(transport.address))]);
             yield* Effect.forEach(addresses, (resolved) => HttpServer.serve(handler).pipe(HttpServer.withLogAddress, Layer.provide(layerServer(createServer, { host: NetAddress.formatHost(resolved), port: resolved.port, disablePreemptiveShutdown: true })), Layer.build), { discard: true });
         },
         Layer.effectDiscard,
         Layer.provide(Layer.provide(layer, layerConfig({}))),
         Layer.launch,
     );
-    const located = Effect.map(Settings.output, (output) => {
+    const folders = Effect.map(Settings.output, (output) => {
         const folder: Output['Service']['folder'] = (target, kind) => Option.match(output, { onNone: () => join(envPaths(named.name, { suffix: '' })[FOLDERS[kind][0]], FOLDERS[kind][1]), onSome: (root) => join(root, target, kind) });
         return { folder, logs: folder(named.name, 'logs') };
     });
-    const telemetry = Effect.map(Effect.all([located, GlobalFlag.LogLevel]), ([{ logs }, level]) =>
+    const telemetry = Effect.map(Effect.all([folders, GlobalFlag.LogLevel]), ([{ logs }, level]) =>
         layerNodeFromConfig({ resource: { serviceName: named.name, serviceVersion: manifest.version }, target: 'file', file: join(logs, `${parse(process.execPath).name}.log`), ...Option.getOrUndefined(Option.map(level, (minimum) => ({ level: minimum }))) }),
     );
     const call = Command.make(
         'call',
-        Called,
+        CallArguments,
         Effect.fnUntraced(
             function* ({ tool: wanted, given, handle }) {
                 const bound = yield* Effect.fromOption(yield* Listen, () => new Cause.NoSuchElementError('call reaches a server over HTTP, name its address with --listen'));
@@ -90,12 +90,12 @@ const serve = Effect.fnUntraced(function* <E, R, E2, R2, const Declared extends 
         {},
         Effect.fnUntraced(
             function* () {
-                const [address, { output, hosts, ...transport }, folders] = yield* Effect.all([Listen, Effect.all(Settings), located]);
+                const [address, { output, hosts, ...transport }, outputFolders] = yield* Effect.all([Listen, Effect.all(Settings), folders]);
                 yield* Effect.sync(() => Object.assign(process.env, Record.getSomes({ [String.constantCase(`${named.name}.${OUTPUT}`)]: output })));
-                const served = Layer.provide(app, Layer.succeed(Output)(folders));
+                const appLayer = Layer.provide(app, Layer.succeed(Output)(outputFolders));
                 return yield* Option.match(address, {
-                    onNone: () => Layer.launch(Layer.effectDiscard(HttpRouter.toHttpEffect(Server.layerStdio(named, { ...transport, instructions }, served)))),
-                    onSome: (bound) => listened({ ...transport, instructions, hosts, address: bound }, served),
+                    onNone: () => Layer.launch(Layer.effectDiscard(HttpRouter.toHttpEffect(Server.layerStdio(named, { ...transport, instructions }, appLayer)))),
+                    onSome: (bound) => serveHttp({ ...transport, instructions, hosts, address: bound }, appLayer),
                 });
             },
             Effect.raceFirst(ending),

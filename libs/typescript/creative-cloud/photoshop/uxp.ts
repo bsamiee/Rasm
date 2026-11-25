@@ -34,7 +34,7 @@ const Stored = Schema.declare((input: unknown): input is globalThis.File => Sche
 const Closing = Schema.Struct({ registerAutoCloseDocument: Schema.declare((input: unknown): input is (documentID: number) => Promise<void> => Predicate.isFunction(input)) }).annotate({ description: 'hostControl member Photoshop holds and @types/photoshop omits' });
 const Rejected = Schema.Struct({ number: Schema.Union(Record.collect(REJECTIONS, (tag, code) => Schema.Literal(code).transform(tag))) });
 const Hosted = Schema.Tuple([Schema.Struct({ hostName: Schema.NonEmptyString.annotate({ description: 'Application name, the bundle name of the installation' }) })]);
-const Notified = Schema.Struct({ documentID: Schema.Int }).annotate({ description: 'Descriptor of a document event' });
+const DocumentEvent = Schema.Struct({ documentID: Schema.Int }).annotate({ description: 'Descriptor of a document event' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -95,14 +95,14 @@ const render = Effect.fnUntraced(function* ({ target, label }: Render, written: 
         }),
     );
 });
-const notices = Stream.callback<Stream.Success<Upstream['notices']>, HostError>((queue) => {
-    const events = ['open', 'save', 'close'];
+const events = Stream.callback<Stream.Success<Upstream['events']>, HostError>((queue) => {
+    const names = ['open', 'save', 'close'];
     const listener = (name: string, descriptor: unknown): void => {
-        const target = Option.map(Schema.decodeUnknownOption(Notified)(descriptor), ({ documentID }) => format({ steps: [{ separator: '/', kind: 'document', selector: { _tag: 'Key', key: 'id', value: documentID } }] }));
+        const target = Option.map(Schema.decodeUnknownOption(DocumentEvent)(descriptor), ({ documentID }) => format({ steps: [{ separator: '/', kind: 'document', selector: { _tag: 'Key', key: 'id', value: documentID } }] }));
         Queue.offerUnsafe(queue, { name, target, detail: Option.none() });
     };
-    return Effect.acquireRelease(Effect.tryPromise({ try: () => Promise.resolve(action.addNotificationListener(events, listener)), catch: HostError.refused(`addNotificationListener of ${events.join(', ')}`) }), () =>
-        Effect.orDie(Effect.tryPromise({ try: () => Promise.resolve(action.removeNotificationListener(events, listener)), catch: HostError.refused(`removeNotificationListener of ${events.join(', ')}`) })),
+    return Effect.acquireRelease(Effect.tryPromise({ try: () => Promise.resolve(action.addNotificationListener(names, listener)), catch: HostError.refused(`addNotificationListener of ${names.join(', ')}`) }), () =>
+        Effect.orDie(Effect.tryPromise({ try: () => Promise.resolve(action.removeNotificationListener(names, listener)), catch: HostError.refused(`removeNotificationListener of ${names.join(', ')}`) })),
     );
 });
 const application = Effect.tryPromise({
@@ -115,4 +115,4 @@ const application = Effect.tryPromise({
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { application, containment, execute, notices, render };
+export { application, containment, events, execute, render };

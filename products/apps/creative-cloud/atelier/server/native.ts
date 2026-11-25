@@ -55,8 +55,8 @@ const native = Stream.unwrap(
     Effect.gen(function* () {
         const [rows, { running, blocking }] = yield* Effect.all([Installed, Inventory]);
         const served = (row: Application, entry: Served) =>
-            Upstream.mcp({
-                peer: Link.make({ application: row.url, extension: 'mcp', root: Option.none() }),
+            Upstream.fromHttp({
+                peer: Link.make({ application: row.url, plugin: 'mcp', root: Option.none() }),
                 enabled: true,
                 prefix: entry.prefix,
                 endpoint: Effect.gen(function* () {

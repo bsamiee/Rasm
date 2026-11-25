@@ -248,13 +248,13 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
         application,
         execute,
         render,
-        notices = Stream.empty,
+        events = Stream.empty,
         commands = {},
     }: {
         readonly application: Effect.Effect<Link['application'], EA, Uxp | Path.Path | Scope.Scope>;
         readonly execute: (code: string, label: string) => Effect.Effect<Option.Option<Schema.Json>, EX, Uxp | Path.Path | Scope.Scope>;
         readonly render: (request: Render, file: File) => Effect.Effect<void, ER, Uxp | Path.Path | Scope.Scope>;
-        readonly notices?: Stream.Stream<Stream.Success<Upstream['notices']>, EN>;
+        readonly events?: Stream.Stream<Stream.Success<Upstream['events']>, EN>;
         readonly commands?: Record.ReadonlyRecord<string, Effect.Effect<void, F, Uxp | Plugin>>;
     }): void => {
         const permit = Semaphore.makeUnsafe(1);
@@ -270,15 +270,15 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
                 render: (request: Render) => hosted(Uxp.renderFile((file) => render(request, file), 'rendered.png')),
             })),
         );
-        const reporting = Stream.catchCause(notices, (cause) => Stream.drain(Stream.fromEffect(Effect.logError('Host notices ended', cause))));
+        const hostEvents = Stream.catchCause(events, (cause) => Stream.drain(Stream.fromEffect(Effect.logError('Host events ended', cause))));
         Plugin.serve({
             commands,
             link: (plugin, root) =>
                 Link.dial(
                     Requests,
-                    Layer.merge(Link.serve(Toolkit.empty, { notices: reporting }), requests),
+                    Layer.merge(Link.serve(Toolkit.empty, { events: hostEvents }), requests),
                     new URL(UxpManifest.link),
-                    Effect.flatMap(hostScope, (hosted) => Effect.all([hosted(application), root])).pipe(Effect.map(([named, folder]) => Link.make({ application: named, extension: plugin, root: Option.some(folder) }))),
+                    Effect.flatMap(hostScope, (hosted) => Effect.all([hosted(application), root])).pipe(Effect.map(([named, folder]) => Link.make({ application: named, plugin, root: Option.some(folder) }))),
                 ),
         });
     };

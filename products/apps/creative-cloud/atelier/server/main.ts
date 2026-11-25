@@ -24,12 +24,12 @@ import { typography } from '#/typography';
 
 const tools = Effect.gen(function* () {
     const links = yield* Link.listen(EvaluationRpcs.merge(RenderRpcs).merge(TypesettingRpcs), UxpManifest.origin);
-    yield* Upstream.serve([Upstream.linked(links), native], { route: yield* routed });
+    yield* Upstream.serve([Upstream.fromLinks(links), native], { route: yield* routed });
     yield* Tools.register({
         descriptions: { ...DESCRIPTIONS, execute_script: DESCRIPTION },
         scripts: yield* scripts(links),
         render: Effect.fnUntraced(function* (row, id) {
-            const [target, client] = yield* Effect.all([Schema.decodeEffect(Specifier.FromString)(id), links.call(Predicate.and(Link.hosted(row), Link.serves(RenderRpcs.requests.keys())), `linked extension of ${row.name} rendering objects`)]);
+            const [target, client] = yield* Effect.all([Schema.decodeEffect(Specifier.FromString)(id), links.call(Predicate.and(Link.runsIn(row), Link.serves(RenderRpcs.requests.keys())), `linked extension of ${row.name} rendering objects`)]);
             return { image: (yield* client('render', { target })).image, title: target.leaf };
         }),
         logs: logged,

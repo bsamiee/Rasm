@@ -1,5 +1,5 @@
 import { layerAead, layerSecureRandom } from '@effect/platform-node/NodeCrypto';
-import { Content, Handle, Link, registerResource, registerTemplate, Server, Upstream } from '@rasm/mcp';
+import { Content, Handle, Link, registerResource, registerResourceTemplate, Server, Upstream } from '@rasm/mcp';
 import { Array, Cause, Context, Deferred, Duration, Effect, Latch, Layer, MutableRef, Option, Predicate, Queue, Record, Ref, Result, Schedule, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpProtocol, McpSchema, McpServer, McpTest, Tool, Toolkit } from 'effect/ai';
 import { FetchHttpClient, HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
@@ -40,7 +40,7 @@ const CLIENT = { name: 'conformance-client', version: '1.0.0' } as const;
 const SESSION = 'Mcp-Session-Id';
 const SETTINGS = { retention: Duration.minutes(1), limit: 64, budget: 8000 } as const;
 const SETTLED = Duration.seconds(5);
-const PEER = Link.make({ application: 'Upstream', extension: 'mcp', root: Option.none() });
+const PEER = Link.make({ application: 'Upstream', plugin: 'mcp', root: Option.none() });
 const ROUTED: Record.ReadonlyRecord<string, string> = { 'resources/read': 'uri', 'tools/call': 'name', 'prompts/get': 'name' };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -98,7 +98,7 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
     yield* Server.registerTool(Tool.make('test_simple_text', { description: 'Returns simple text', success: Schema.String }).annotate(Tool.Readonly, true).annotate(Server.Instructions, [INSTRUCTIONS.shown]), () => called('test_simple_text', Effect.succeed(TEXT)));
     yield* Server.registerTool(Tool.make('test_value', { description: 'Returns the value it is given', parameters: Valued, success: Schema.String }).annotate(Tool.Readonly, true), ({ value }) => called('test_value', Effect.succeed(value)));
     yield* Server.registerTool(Tool.make('test_image_content', { description: 'Returns an image', success: Content.image('image/png') }).annotate(Tool.Readonly, true), () => called('test_image_content', Effect.succeed(Uint8Array.fromBase64(PNG))));
-    yield* Server.registerTool(Tool.make('test_embedded_resource', { description: 'Returns an embedded resource', success: Content.embedded(Attachment) }).annotate(Tool.Readonly, true), () =>
+    yield* Server.registerTool(Tool.make('test_embedded_resource', { description: 'Returns an embedded resource', success: Content.embeddedResource(Attachment) }).annotate(Tool.Readonly, true), () =>
         called('test_embedded_resource', Effect.succeed({ uri: 'test://embedded-resource', mimeType: Option.some('text/plain'), data: new TextEncoder().encode(EMBEDDED) })),
     );
     yield* Server.registerTool(
@@ -110,7 +110,7 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
     );
     yield* Server.registerTool(Tool.make('test_structured', { description: 'Returns a structured result', success: Weather }).annotate(Tool.Readonly, true), () => called('test_structured', Effect.succeed({ temperature: 22.5, conditions: 'Partly cloudy' })));
     yield* Server.registerTool(Tool.make('test_error_handling', { description: 'Fails on every call', success: Schema.String }).annotate(Tool.Readonly, true), () => called('test_error_handling', Effect.fail(new Cause.IllegalArgumentError(FAILURE))));
-    yield* Server.registerTool(Tool.make('test_hidden', { description: 'Hidden from every caller', success: Schema.String }).annotate(Tool.Readonly, true).annotate(Server.Visible, Effect.succeed(false)).annotate(Server.Instructions, [INSTRUCTIONS.hidden]), () => called('test_hidden', Effect.succeed(TEXT)));
+    yield* Server.registerTool(Tool.make('test_hidden', { description: 'Hidden from every caller', success: Schema.String }).annotate(Tool.Readonly, true).annotate(Server.Visibility, Effect.succeed(false)).annotate(Server.Instructions, [INSTRUCTIONS.hidden]), () => called('test_hidden', Effect.succeed(TEXT)));
     yield* Server.registerTool(Tool.make('test_tool_with_progress', { description: 'Reports progress in three steps', success: Schema.String }).annotate(Tool.Readonly, true), () =>
         called(
             'test_tool_with_progress',
@@ -131,7 +131,7 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
     yield* Server.registerTool(Tool.make('gated_write', { description: 'Waits for release, changes state', success: Schema.String }), () => gated('gated_write'));
     yield* Server.registerTool(
         Tool.make('gated_early', { description: 'Waits for release, returning early while blocked', success: Schema.String }).annotate(
-            Server.Ends,
+            Server.EarlyReturn,
             Stream.filterMap(SubscriptionRef.changes(blocked), (held) => (held ? Result.succeed(Effect.succeed(ASKED)) : Result.failVoid)),
         ),
         () => gated('gated_early'),
@@ -147,11 +147,11 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
             discard: true,
         }),
     );
-    yield* Server.registerTool(Tool.make('test_settle', { description: 'Settles the calls of its handle that returned early', success: Schema.String }), () => called('test_settle', Effect.as(Server.ToolCall.use(Struct.get('settle')), 'settled')));
+    yield* Server.registerTool(Tool.make('test_await_running', { description: 'Awaits the calls of its handle that returned early', success: Schema.String }), () => called('test_await_running', Effect.as(Server.ToolCall.use(Struct.get('awaitRunning')), 'settled')));
     yield* registerResource({ name: 'static-text', description: 'A static text resource for testing', mimeType: 'text/plain', schema: Schema.String, changes: Stream.empty, content: Effect.succeed(STATIC) });
     yield* registerResource({ name: 'static-binary', description: 'A static binary resource for testing', mimeType: 'image/png', schema: Schema.Uint8Array, changes: Stream.empty, content: Effect.succeed(Uint8Array.fromBase64(PNG)) });
     yield* registerResource({ name: 'watched-resource', description: 'A resource whose value changes', mimeType: 'text/plain', schema: Schema.String, changes: SubscriptionRef.changes(watched), content: SubscriptionRef.get(watched) });
-    yield* registerTemplate`template/${McpSchema.param('id', Schema.String)}/data`({
+    yield* registerResourceTemplate`template/${McpSchema.param('id', Schema.String)}/data`({
         name: 'template',
         description: 'A resource template with one variable',
         schema: Templated,
@@ -253,12 +253,12 @@ const connected = Effect.fnUntraced(function* <E, R>(beside: Layer.Layer<never, 
 
 const proxied = Effect.fnUntraced(function* (
     protocol: McpProtocol.ProtocolAdapter,
-    { poll = Duration.millis(50), presence = Stream.succeed(true), filters = { tools: { deny: ['secret'] } } }: { readonly poll?: Duration.Duration; readonly presence?: Stream.Stream<boolean>; readonly filters?: Parameters<typeof Upstream.mcp>[0]['filters'] } = {},
+    { poll = Duration.millis(50), presence = Stream.succeed(true), filters = { tools: { deny: ['secret'] } } }: { readonly poll?: Duration.Duration; readonly presence?: Stream.Stream<boolean>; readonly filters?: Parameters<typeof Upstream.fromHttp>[0]['filters'] } = {},
 ) {
     const [token, rejected] = [MutableRef.make('first'), MutableRef.make(0)];
     const handler = MutableRef.make((yield* upstream(protocol, token, rejected)).handler);
     const fetch: typeof globalThis.fetch = (input, init) => MutableRef.get(handler)(new Request(input, init));
-    const proxy = Layer.effectDiscard(Upstream.serve([Upstream.mcp({ peer: PEER, enabled: true, endpoint: Effect.sync(() => ({ url: UPSTREAM, headers: { authorization: `Bearer ${MutableRef.get(token)}` } })), filters, presence, poll })], { route: (peers) => Effect.succeed(Array.headNonEmpty(peers)) })).pipe(
+    const proxy = Layer.effectDiscard(Upstream.serve([Upstream.fromHttp({ peer: PEER, enabled: true, endpoint: Effect.sync(() => ({ url: UPSTREAM, headers: { authorization: `Bearer ${MutableRef.get(token)}` } })), filters, presence, poll })], { route: (peers) => Effect.succeed(Array.headNonEmpty(peers)) })).pipe(
         Layer.provide([FetchHttpClient.layer, Layer.succeed(FetchHttpClient.Fetch, fetch), layerSecureRandom]),
     );
     const { client } = yield* connected(proxy);

@@ -311,7 +311,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                 running,
                 Array.map((each) => (each.instance === live.instance ? RunningInstance.make({ ...each, state: acted.state }) : each)),
             );
-            yield* Server.ToolCall.use(Struct.get('settle'));
+            yield* Server.ToolCall.use(Struct.get('awaitRunning'));
             return acted;
         }),
     );

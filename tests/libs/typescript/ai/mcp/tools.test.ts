@@ -7,7 +7,7 @@ import { ASKED, Called, lines, opened, RAISED, SETTINGS, STATE, settled, TEXT } 
 
 const PROTOCOL = McpProtocol.v2026_07_28;
 const WEATHER = '{"temperature":22.5,"conditions":"Partly cloudy"}';
-const MINTED = /^handle [\da-f]{8}-[\da-f]{4}-7[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12} holds your state, pass it on each later call$/u;
+const ISSUED = /^handle [\da-f]{8}-[\da-f]{4}-7[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12} holds your state, pass it on each later call$/u;
 const INVALID_PARAMS = -32_602;
 const CALLS = {
     test_simple_text: [{}, ['text']],
@@ -49,10 +49,10 @@ describe('tool calls through the server', () => {
         'leads the JSON of a structured result with a new handle for a call without one, and with no handle line for a call passing it back',
         Effect.fnUntraced(function* () {
             const { called } = yield* opened(PROTOCOL);
-            const [minted, , body] = lines(yield* called('test_structured'));
-            const handle = named(minted);
+            const [issued, , body] = lines(yield* called('test_structured'));
+            const handle = named(issued);
             const [again, other] = yield* Effect.all([Effect.map(called('test_structured', { handle }), lines), Effect.map(called('test_structured'), lines)]);
-            assert.deepStrictEqual([MINTED.test(minted ?? ''), body, again, MINTED.test(other[0] ?? ''), other[0] === minted], [true, WEATHER, [WEATHER], true, false]);
+            assert.deepStrictEqual([ISSUED.test(issued ?? ''), body, again, ISSUED.test(other[0] ?? ''), other[0] === issued], [true, WEATHER, [WEATHER], true, false]);
         }),
     );
 
@@ -67,7 +67,7 @@ describe('tool calls through the server', () => {
     );
 
     it.live(
-        'leads results with the minted handle, the events its handle owns in one sequence with one raised during the call that claims its source, an early return with its pending call, and its finished result once in a later call that waits to settle it',
+        'leads results with the issued handle, the events its handle owns in one sequence with one raised during the call that claims its source, an early return with its pending call, and its finished result once in a later call that waits to settle it',
         Effect.fnUntraced(function* () {
             const { probe, called } = yield* opened(PROTOCOL);
             const text = (name: string, given: Record.ReadonlyRecord<string, unknown> = {}) => Effect.map(called(name, given), (result) => lines(result).join('\n'));
@@ -87,15 +87,15 @@ describe('tool calls through the server', () => {
             yield* SubscriptionRef.set(probe.blocked, false);
             const pending = yield* text('test_simple_text', { handle: claimer });
             yield* Queue.clear(probe.entered);
-            const settling = yield* Effect.forkScoped(text('test_settle', { handle: claimer }));
+            const running = yield* Effect.forkScoped(text('test_await_running', { handle: claimer }));
             const entered = yield* Queue.take(probe.entered);
-            const waiting = Option.isNone(yield* Effect.timeoutOption(Fiber.await(settling), '100 millis'));
+            const waiting = Option.isNone(yield* Effect.timeoutOption(Fiber.await(running), '100 millis'));
             yield* probe.release.open;
-            const [finished, after] = [yield* Fiber.join(settling), yield* text('test_simple_text', { handle: claimer })];
+            const [finished, after] = [yield* Fiber.join(running), yield* text('test_simple_text', { handle: claimer })];
             assert.deepStrictEqual(
-                { minted: [MINTED.test(owner.split('\n')[0] ?? ''), MINTED.test(other.split('\n')[0] ?? ''), claimer === bystander], bodies: [owner.split('\n').slice(1), other.split('\n').slice(1)], owned, shared, early, pending, entered, waiting, finished, after },
+                { issued: [ISSUED.test(owner.split('\n')[0] ?? ''), ISSUED.test(other.split('\n')[0] ?? ''), claimer === bystander], bodies: [owner.split('\n').slice(1), other.split('\n').slice(1)], owned, shared, early, pending, entered, waiting, finished, after },
                 {
-                    minted: [true, true, false],
+                    issued: [true, true, false],
                     bodies: [
                         [`! #1 ${RAISED.owned}`, '', 'claimed'],
                         ['', TEXT],
@@ -104,7 +104,7 @@ describe('tool calls through the server', () => {
                     shared: ['! #4 shared one'],
                     early: `! #4 shared one\nearly: call 1 keeps running, its result arrives under finished\n\n${ASKED}`,
                     pending: `pending: calls 1\n\n${TEXT}`,
-                    entered: 'test_settle',
+                    entered: 'test_await_running',
                     waiting: true,
                     finished: 'finished: call 1 gated_early released\n\nsettled',
                     after: TEXT,
@@ -158,7 +158,7 @@ describe('client input of a stateless client', () => {
             const { result: answered } = yield* Effect.flatMap(tool('test_input', {}, { requestState: asked.requestState }), Schema.decodeUnknownEffect(Called));
             const [line, , body] = lines(answered);
             const resumed = yield* called('test_value', { value: 'kept', handle: named(line) });
-            assert.deepStrictEqual([asked.requestState.split('.').some((part) => new TextDecoder().decode(Uint8Array.fromBase64(part, { alphabet: 'base64url' })).includes(STATE)), answered.isError, MINTED.test(line ?? ''), body, resumed.isError, lines(resumed)], [false, false, true, STATE, false, ['kept']]);
+            assert.deepStrictEqual([asked.requestState.split('.').some((part) => new TextDecoder().decode(Uint8Array.fromBase64(part, { alphabet: 'base64url' })).includes(STATE)), answered.isError, ISSUED.test(line ?? ''), body, resumed.isError, lines(resumed)], [false, false, true, STATE, false, ['kept']]);
         }),
     );
 
