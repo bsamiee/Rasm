@@ -5,7 +5,7 @@ import { above } from '@rasm/nx';
 import { inc, major, minor, minSatisfying, RANGE_PATTERN } from '@renovatebot/pep440';
 import { Array, Cause, Effect, Equivalence, FileSystem, Graph, Option, Predicate, Record, Result, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
-import { CHECKERS, CONFIGS, PIXI } from '#/targets';
+import { CHECKERS, CONFIGS } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -32,7 +32,6 @@ const Declared = Schema.Struct({
     }),
 });
 const Indexed = Schema.Struct({ tool: Schema.Struct({ uv: Schema.Struct({ index: Schema.Array(Schema.Struct({ name: Schema.optionalKey(Schema.String), 'publish-url': Schema.optionalKey(Schema.String) })) }) }) });
-const Pixi = Schema.Struct({ tool: Schema.Struct({ pixi: Schema.Record(Schema.String, Schema.Unknown) }) });
 const Table = Schema.Record(Schema.String, Schema.Unknown);
 const Patterns = Schema.Struct({
     python_files: Schema.optionalKey(
@@ -126,7 +125,6 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
             )
         ]?.dependency_groups ?? [];
     const index = Option.getOrUndefined(Option.flatMap(Schema.decodeUnknownOption(Indexed)(stated(workspace)), ({ tool }) => Array.findFirst(tool.uv.index, (row) => row['publish-url'] !== undefined)))?.name;
-    const pixi = documented.has(posix.join(workspace, PIXI)) || Schema.is(Pixi)(stated(workspace));
     const manifests = documented
         .keys()
         .filter((file) => posix.basename(file) === MANIFEST)
@@ -187,7 +185,6 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
             packaged,
             manifests,
             index,
-            pixi,
             scripted: packaged && project !== undefined && !Record.isEmptyRecord(project.scripts),
             locals: named([...reach([member.id])]),
             python: project?.['requires-python'],

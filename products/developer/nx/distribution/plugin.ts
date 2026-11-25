@@ -68,6 +68,25 @@ const ACTIONS: Verbs = {
         },
     },
 };
+const PIXI: Verbs = {
+    upgrade: {
+        pixi: {
+            executor: EXECUTORS.upgrade,
+            options: { cwd: '.', commands: [{ apply: ['pixi', 'update'], preview: ['pixi', 'update', '--dry-run'] }] },
+            inputs: ['{projectRoot}/pixi.toml', '{projectRoot}/pyproject.toml', '{projectRoot}/pixi.lock', { externalDependencies: [] }],
+            metadata: {
+                technologies: ['pixi'],
+                description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock with pixi update',
+                help: { command: 'pixi update --help', example: { options: { dryRun: true } } },
+            },
+        },
+    },
+};
+const HELD = [
+    [MISE, ROOT],
+    ['.github/workflows', ACTIONS],
+    ['pixi.lock', PIXI],
+] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -273,8 +292,8 @@ const projects = (declared: Effect.Success<ReturnType<typeof read>>['declared'],
 
 const workspace = Effect.fnUntraced(function* (files: readonly string[], anchor: Anchor) {
     const fs = yield* FileSystem.FileSystem;
-    const [mise, actions] = yield* Effect.all([fs.exists(join(anchor.workspaceRoot, MISE)), fs.exists(join(anchor.workspaceRoot, '.github/workflows'))]);
-    const verbs: Verbs = Record.union(mise ? ROOT : {}, actions ? ACTIONS : {}, (tools, more) => ({ ...tools, ...more }));
+    const held = yield* Effect.filter(HELD, ([at]) => fs.exists(join(anchor.workspaceRoot, at)));
+    const verbs = held.reduce<Verbs>((all, [, more]) => Record.union(all, more, Struct.assign<Verbs[string], Verbs[string]>), {});
     return yield* Effect.forEach(Record.isEmptyRecord(verbs) ? [] : files.filter((file) => file === PACKAGE), (file) => Effect.map(manifested(anchor.workspaceRoot, '.'), (stated) => [file, { projects: { '.': { root: '.', targets: aggregated(verbs, stated, 'mise', anchor) } } }] as const));
 });
 

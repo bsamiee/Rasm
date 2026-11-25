@@ -2,13 +2,13 @@ import { posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { type PackageJson, quoteShellArg } from '@nx/devkit/internal';
-import { type Anchor, above, aggregated, EXECUTORS, PLATFORM, type Verbs } from '@rasm/nx';
+import { type Anchor, above, aggregated, EXECUTORS, PLATFORM, type Stated, type Verbs } from '@rasm/nx';
 import { Array, identity, Option, pipe, Record, Schema, Struct, UndefinedOr } from 'effect';
 import type { Member } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Stated = Readonly<Record<'config' | 'floor' | 'cache' | 'store', string | undefined>>;
+type Flags = Readonly<Record<'config' | 'floor' | 'cache' | 'store', string | undefined>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -43,7 +43,7 @@ const CHECKERS = {
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
         folder: (_: string, base: string) => base,
-        command: (paths: readonly string[], { floor, cache }: Stated) => ['mypy', ...paths, ...flagged('--python-version', floor), ...flagged('--cache-dir', cache)],
+        command: (paths: readonly string[], { floor, cache }: Flags) => ['mypy', ...paths, ...flagged('--python-version', floor), ...flagged('--cache-dir', cache)],
         coverage: undefined,
         description: 'Type-checks the member with mypy and the plugins its configuration loads',
         help: 'mypy --help',
@@ -59,7 +59,7 @@ const CHECKERS = {
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
         folder: (_: string, base: string) => base,
-        command: (paths: readonly string[], { config, floor, cache }: Stated) => ['refurb', ...flagged('--config-file', config), ...flagged('--python-version', floor), ...paths, ...(cache === undefined ? [] : ['--', '--cache-dir', cache])],
+        command: (paths: readonly string[], { config, floor, cache }: Flags) => ['refurb', ...flagged('--config-file', config), ...flagged('--python-version', floor), ...paths, ...(cache === undefined ? [] : ['--', '--cache-dir', cache])],
         coverage: undefined,
         description: 'Reports the findings of the member with refurb over a mypy build',
         help: 'refurb --help',
@@ -75,7 +75,7 @@ const CHECKERS = {
         matches: ['test_*.py', '*_test.py'],
         sources: ['*'],
         folder: identity<string>,
-        command: (paths: readonly string[], { store }: Stated) => [
+        command: (paths: readonly string[], { store }: Flags) => [
             'pytest',
             ...paths,
             ...flagged(
@@ -88,10 +88,9 @@ const CHECKERS = {
         help: 'pytest --help',
     },
 } as const;
-const PIXI = 'pixi.toml';
 const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const UV = { version: { runtime: 'uv self version --short' }, settings: 'uv.toml', pins: ['.python-version', '.python-versions'] } as const;
-const CONFIGS = [...Record.keys(PYTEST), PIXI];
+const CONFIGS = Record.keys(PYTEST);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -108,7 +107,7 @@ const flagged = (flag: string, value: string | undefined): readonly string[] => 
 
 const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
-const targets = (member: Member, { outputPath, coveragePath, environmentPath }: Options, manifest: Readonly<Record<string, Pick<TargetConfiguration, 'inputs'>>>, anchor: Anchor): Record<string, TargetConfiguration> => {
+const targets = (member: Member, { outputPath, coveragePath, environmentPath }: Options, manifest: Stated, anchor: Anchor): Record<string, TargetConfiguration> => {
     const distributions = Option.fromUndefinedOr(outputPath);
     const folder = Option.getOrElse(distributions, () => posix.join(member.workspace, 'dist'));
     const environed = Option.fromUndefinedOr(environmentPath);
@@ -201,14 +200,6 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                               help: { command: 'uv lock --help', example: { options: { dryRun: true } } },
                           },
                       },
-                      ...(member.pixi && {
-                          pixi: {
-                              executor: EXECUTORS.upgrade,
-                              options: { cwd: member.root, commands: [{ apply: ['pixi', 'update'], preview: ['pixi', 'update', '--dry-run'] }] },
-                              inputs: [...[PIXI, 'pyproject.toml', 'pixi.lock'].map((file) => posix.join('{projectRoot}', file)), { externalDependencies: [] }],
-                              metadata: { description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock with pixi update', help: { command: 'pixi update --help', example: { options: { dryRun: true } } } },
-                          },
-                      }),
                   },
               }
             : {};
@@ -293,4 +284,4 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CHECKERS, CONFIGS, Options, PIXI, PLUGIN, targets, UV };
+export { CHECKERS, CONFIGS, Options, PLUGIN, targets, UV };

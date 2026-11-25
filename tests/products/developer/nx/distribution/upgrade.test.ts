@@ -17,6 +17,19 @@ const repository = {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+describe('upgrade--pixi', () => {
+    it.for([
+        { case: 'a run', options: {}, ran: ['update'] },
+        { case: 'a dry run', options: { dryRun: true }, ran: ['update', '--dry-run'] },
+    ])('runs pixi $ran at the workspace root holding pixi.lock, under $case', async ({ options, ran }, { workspace }) => {
+        shimmed(join(workspace.root, '.bin'), { pixi: `printf '%s\\n' "$PWD" "$@" > "${join(workspace.root, 'ran.txt')}"` });
+        const graph = await workspace.write({ 'package.json': '{ "name": "repo" }', 'pixi.lock': 'version: 6\n' }).graph({ createNodes });
+        await execute({ ...(await targetOptions(Upgrade, graph, 'repo', 'upgrade--pixi')), ...options }, workspace.context(graph, 'repo', 'upgrade--pixi'));
+
+        expect(readFileSync(join(workspace.root, 'ran.txt'), 'utf-8').trim().split('\n')).toStrictEqual([workspace.root, ...ran]);
+    });
+});
+
 describe('upgrade--jactionlint', () => {
     it.for([
         { case: 'a run', options: {}, mode: '--apply' },

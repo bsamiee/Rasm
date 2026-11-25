@@ -57,6 +57,7 @@ describe('workspace root', () => {
     it.for([
         { case: '.github/workflows', files: { '.github/workflows/ci.yml': 'on: push\n' }, upgrades: ['upgrade', 'upgrade--jactionlint'] },
         { case: '.config/mise.toml', files: { '.config/mise.toml': '[tools]\n' }, upgrades: ['upgrade', 'upgrade--mise'] },
+        { case: 'pixi.lock', files: { 'pixi.lock': 'version: 6\n' }, upgrades: ['upgrade', 'upgrade--pixi'] },
         { case: 'both', files: { '.github/workflows/ci.yml': 'on: push\n', '.config/mise.toml': '[tools]\n' }, upgrades: ['upgrade', 'upgrade--jactionlint', 'upgrade--mise'] },
         { case: 'neither', files: {}, upgrades: [] },
     ])('gives the root package.json project holding $case the upgrade targets $upgrades', async ({ files, upgrades }, { workspace }) => {
