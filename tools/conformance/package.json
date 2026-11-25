@@ -10,6 +10,7 @@
     "dependencies": {
         "@nx/conformance": "catalog:",
         "@nx/devkit": "catalog:",
+        "@rasm/nx": "workspace:*",
         "ajv": "catalog:",
         "effect": "catalog:",
         "nx": "catalog:"

@@ -1,8 +1,9 @@
 import { homedir, hostname, tmpdir, userInfo } from 'node:os';
-import { isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
+import { isAbsolute, join, posix, resolve } from 'node:path';
 import { createConformanceRule } from '@nx/conformance';
 import { getOutputsForTargetAndConfiguration, readNxJson } from '@nx/devkit';
 import { createTaskId } from '@nx/devkit/internal';
+import { above, below, inside } from '@rasm/nx';
 import { Array, Config, ConfigProvider, Effect, Formatter, Function, Match, Option, Predicate, pipe, Record, Result, Struct } from 'effect';
 import { getInputs } from 'nx/src/hasher/task-hasher';
 import { createTaskGraph } from 'nx/src/tasks-runner/create-task-graph';
@@ -31,7 +32,7 @@ const machined = (root: string, text: string) => [root, ...FOLDERS].some((folder
 const outside = (root: string, project: string, text: string) =>
     text.split(WORD).filter((word) => {
         const path = word.replaceAll('{workspaceRoot}', root).replaceAll('{projectRoot}', project);
-        return (path.split('/').includes('..') || isAbsolute(path)) && [root, project].every((base) => relative(root, resolve(base, path)).split(sep)[0] === '..');
+        return [root, project].every((base) => !inside(root)(resolve(base, path)));
     });
 
 const reaching = (edges: Record.ReadonlyRecord<string, readonly string[]>, held: ReadonlySet<string>): ReadonlySet<string> => {
@@ -55,9 +56,10 @@ export default createConformanceRule<{ readonly clean: string }>({
         const bases = pipe(
             cached,
             Array.flatMap(({ node, target, configuration }) => Record.collect({ '': {}, ...configuration.configurations }, (named, options) => ({ node, target, label: createTaskId(node.name, target, named), options }))),
-            Array.flatMap(({ node, target, label, options }) => getOutputsForTargetAndConfiguration({ project: node.name, target }, options, node).map((output) => ({ owner: `${node.name}:${target}`, project: node.name, label, base: normalize(output.replace(GLOBBED, '')).replace(/\/$/u, '') }))),
+            Array.flatMap(({ node, target, label, options }) => getOutputsForTargetAndConfiguration({ project: node.name, target }, options, node).map((output) => ({ owner: `${node.name}:${target}`, project: node.name, label, base: posix.normalize(output.replace(GLOBBED, '')).replace(/\/$/u, '') }))),
             Array.filter(({ base }) => !base.startsWith('!')),
         );
+        const writers = Array.groupBy(bases, Struct.get('base'));
         const caching = new Set(cached.map(({ node }) => node.name));
         const texts = declared.filter(({ node }) => caching.has(node.name)).flatMap(({ node, target, configuration }) => strings(Struct.pick(configuration, ['inputs', 'outputs', 'options', 'configurations']), `${node.name}:${target}`).map(([at, text]) => ({ node, cached: configuration.cache === true, at, text })));
         const graph = createTaskGraph(projectGraph, {}, Array.dedupe(declared.map(({ node }) => node.name)), Array.dedupe(declared.map(({ target }) => target)), undefined, {});
@@ -71,12 +73,14 @@ export default createConformanceRule<{ readonly clean: string }>({
                 .filter(({ id, cache }) => cache && !cleaning.has(id) && reached.has(id))
                 .map(({ id, target }) => ({ sourceProject: target.project, message: `${id} is cached and depends on a ${clean} task, which deletes outputs before every replay, drop that dependsOn entry` })),
             ...bases
-                .filter(({ base }) => !(isAbsolute(base) || base.split('/')[0] === '..' || (base !== '.' && (ignored.isIgnoredDirectory(base) || ignored.isIgnoredFile(base)))))
+                .filter(({ base }) => !isAbsolute(base) && inside('.')(base) && !(below('.')(base) && (ignored.isIgnoredDirectory(base) || ignored.isIgnoredFile(base))))
                 .map(({ project, label, base }) => ({ sourceProject: project, message: `${label} writes ${base}, which git does not ignore, so a replay deletes workspace files there, write it under an ignored folder` })),
-            ...pipe(
-                Array.cartesian(bases, bases),
-                Array.filter(([outer, inner]) => inner.owner !== outer.owner && `${inner.base}/`.startsWith(`${outer.base}/`)),
-                Array.map(([outer, inner]) => ({ sourceProject: outer.project, message: `${outer.label} writes ${outer.base}, which holds ${inner.base} of ${inner.label}` })),
+            ...bases.flatMap((inner) =>
+                above(inner.base)
+                    .filter((folder) => inside(folder)(inner.base))
+                    .flatMap((folder) => writers[folder] ?? [])
+                    .filter((outer) => outer.owner !== inner.owner)
+                    .map((outer) => ({ sourceProject: outer.project, message: `${outer.label} writes ${outer.base}, which holds ${inner.base} of ${inner.label}` })),
             ),
             ...nodes.filter(({ data: { targets = {} } }) => !(clean in targets) && Object.values(targets).some(({ outputs = [] }) => Array.isReadonlyArrayNonEmpty(outputs))).map(({ name }) => ({ sourceProject: name, message: `${name} declares outputs and no ${clean} target, give it ${clean}` })),
             ...texts.filter(({ text }) => machined(root, text)).map(({ node, at, text }) => ({ sourceProject: node.name, message: `${at} holds ${text}, which names this machine or this run, state it relative to {workspaceRoot} or {projectRoot}` })),

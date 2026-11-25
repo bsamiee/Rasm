@@ -37,6 +37,27 @@ describe('tasks', () => {
         await expect(checked(lib, host)).resolves.toStrictEqual([]);
     });
 
+    it('accepts cached outputs in sibling folders sharing a name prefix and a path leaving its project for another workspace folder', async () => {
+        const lib = cleaned('lib', {
+            'build--tsc': run({ cache: true, inputs: ['{projectRoot}/../shared/**'], outputs: ['{workspaceRoot}/.artifacts/tsc/lib'], options: { command: 'node ../../tools/build.js' } }),
+            'check--tsc': run({ cache: true, outputs: ['{workspaceRoot}/.artifacts/tsc/lib-types'] }),
+        });
+        await expect(checked(lib)).resolves.toStrictEqual([]);
+    });
+
+    it('reports two cached targets writing one folder as each holding the other, and a cached target writing the workspace root as holding every other cached output inside the workspace', async () => {
+        const rows = [
+            'lib | lib:build--tsc writes .artifacts/tsc/lib, which holds .artifacts/tsc/lib of lib:check--tsc',
+            'lib | lib:check--tsc writes .artifacts/tsc/lib, which holds .artifacts/tsc/lib of lib:build--tsc',
+            'root | root:build--tsc writes ., which git does not ignore',
+            'root | root:build--tsc writes ., which holds .artifacts/tsc/lib of lib:build--tsc',
+            'root | root:build--tsc writes ., which holds .artifacts/tsc/lib of lib:check--tsc',
+            'lib | lib:check--tsc.outputs.1 names {workspaceRoot}/../../escaped outside the workspace',
+        ];
+        const lib = cleaned('lib', { 'build--tsc': run({ cache: true, outputs: ['{workspaceRoot}/.artifacts/tsc/lib'] }), 'check--tsc': run({ cache: true, outputs: ['{workspaceRoot}/.artifacts/tsc/lib', '{workspaceRoot}/../../escaped'] }) });
+        expect(reported(await checked(lib, project('root', { root: '.', targets: { clean: { executor: 'nx:noop' }, 'build--tsc': run({ cache: true, outputs: ['{projectRoot}'] }) } })), rows)).toStrictEqual(rows);
+    });
+
     it('reports a task cycle and a cached task depending on clean', async () => {
         const rows = ['workspace | Task cycle lib:', 'lib | lib:build--tsc is cached and depends on a clean task'];
         expect(reported(await checked(cleaned('lib', { first: run({ dependsOn: ['second'] }), second: run({ dependsOn: ['first'] }), 'build--tsc': run({ cache: true, dependsOn: ['clean'] }) })), rows)).toStrictEqual(rows);

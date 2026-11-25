@@ -9,6 +9,7 @@ import { basename, delimiter, dirname, join, relative } from 'node:path';
 import { chdir, cwd, env } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { type ExecutorContext, getOutputsForTargetAndConfiguration, type NxPlugin, type ProjectGraph, readJsonFile, readProjectsConfigurationFromProjectGraph } from '@nx/devkit';
+import { below } from '@rasm/nx';
 import { Array, Cause, type Duration, Effect, Function, Match, Option, Predicate, Record, Schema, UndefinedOr } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { LoadedNxPlugin, resolveNxTokensInOptions, retrieveProjectConfigurations } from 'nx/src/devkit-internals';
@@ -231,7 +232,7 @@ class Workspace {
             readdirSync(this.root, { recursive: true, withFileTypes: true })
                 .filter((entry) => entry.isFile())
                 .map((entry) => relative(this.root, join(entry.parentPath, entry.name)))
-                .filter((file) => !ignored.some((folder) => file.startsWith(`${folder}/`))),
+                .filter((file) => !ignored.some((folder) => below(folder)(file))),
         );
     }
 

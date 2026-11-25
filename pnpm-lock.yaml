@@ -3305,6 +3305,9 @@ importers:
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.66.0-alpha-2026-11-22
+      '@rasm/nx':
+        specifier: workspace:*
+        version: link:../../../libs/typescript/developer/nx
       '@storybook/addon-a11y':
         specifier: 'catalog:'
         version: 11.0.0-beta.3(storybook@11.0.0-beta.3(@types/react@19.3.0)(react@19.3.1))
@@ -3362,6 +3365,9 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(nx@24.1.0-beta.2)
+      '@rasm/nx':
+        specifier: workspace:*
+        version: link:../../libs/typescript/developer/nx
       ajv:
         specifier: 'catalog:'
         version: 8.20.0

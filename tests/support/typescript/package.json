@@ -48,6 +48,7 @@
     "devDependencies": {
         "@nx/devkit": "catalog:",
         "@playwright/test": "catalog:",
+        "@rasm/nx": "workspace:*",
         "@storybook/addon-a11y": "catalog:",
         "@types/chrome": "catalog:",
         "@types/node": "catalog:",
@@ -61,6 +62,7 @@
     "peerDependencies": {
         "@nx/devkit": "catalog:peers",
         "@playwright/test": "catalog:peers",
+        "@rasm/nx": "workspace:*",
         "@storybook/addon-a11y": "catalog:peers",
         "@vitejs/plugin-react": "catalog:peers",
         "effect": "catalog:peers",
@@ -74,6 +76,9 @@
             "optional": true
         },
         "@playwright/test": {
+            "optional": true
+        },
+        "@rasm/nx": {
             "optional": true
         },
         "@storybook/addon-a11y": {

@@ -7,6 +7,9 @@
     "references": [
         {
             "path": "../../../libs/typescript/web/vite"
+        },
+        {
+            "path": "../../../libs/typescript/developer/nx"
         }
     ]
 }
