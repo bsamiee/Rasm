@@ -49,9 +49,7 @@ class Node extends Schema.Opaque<Node, unknown>()(
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Edges extends Context.Service<Edges, Ref.Ref<readonly RawProjectGraphDependency[]>>()(`${PLUGIN}/targets/Edges`) {
-    static readonly layer = Layer.effect(Edges, Ref.make<readonly RawProjectGraphDependency[]>([]));
-}
+class Edges extends Context.Service<Edges, Ref.Ref<readonly RawProjectGraphDependency[]>>()(`${PLUGIN}/targets/Edges`) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -61,7 +59,7 @@ const metadata = (verb: string, description: string) => ({ description, help: { 
 
 const written = (...modes: readonly { readonly outputs: readonly string[] }[]) => Array.makeBy(Math.max(0, ...modes.map(({ outputs }) => outputs.length)), (index) => `{options.outputs.${index}}`);
 
-const targets = (node: Node, coverage: Option.Option<string>, solution: (configuration: string) => Option.Option<Readonly<Record<string, string>>>, listed: Option.Option<string>): Verbs => {
+const targets = (node: Node, coverage: string | undefined, solution: (configuration: string) => Option.Option<Readonly<Record<string, string>>>, listed: Option.Option<string>): Verbs => {
     const root = dirname(node.file);
     const project = posix.join('{projectRoot}', basename(node.file));
     const hashed = (upstream: NonNullable<TargetConfiguration['inputs']>[number], files: readonly string[], ...hosts: NonNullable<TargetConfiguration['inputs']>): NonNullable<TargetConfiguration['inputs']> => [
@@ -89,7 +87,7 @@ const targets = (node: Node, coverage: Option.Option<string>, solution: (configu
         commands: [{ command: line(['dotnet', 'restore', '--no-dependencies', ...(node.locks.length > 0 ? ['--locked-mode'] : []), `-p:Configuration=${configuration}`]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', '--configuration', configuration, ...flags])],
     });
     const coverable = node.referenced.some((id) => id.toLowerCase() === 'coverlet.mtp');
-    const covered = { ...tested(node.evaluated, '--coverlet', '--coverlet-output-format', 'lcov', ...Option.toArray(coverage).flatMap((at) => ['--results-directory', posix.relative(root, at)])), outputs: Option.toArray(coverage).map((at) => posix.join('{workspaceRoot}', at)) };
+    const covered = { ...tested(node.evaluated, '--coverlet', '--coverlet-output-format', 'lcov', ...Array.fromNullishOr(coverage).flatMap((at) => ['--results-directory', posix.relative(root, at)])), outputs: Array.fromNullishOr(coverage).map((at) => posix.join('{workspaceRoot}', at)) };
     const formatted = (commands: Array.NonEmptyReadonlyArray<Array.NonEmptyReadonlyArray<string>>, description: string): TargetConfiguration => ({
         executor: `${PLUGIN}:format`,
         options: { commands, project },
@@ -208,7 +206,7 @@ const publishing = (node: Node): Readonly<Record<string, TargetConfiguration>> =
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const run = runner(Edges.layer);
+const run = runner(Layer.effect(Edges, Ref.make<readonly RawProjectGraphDependency[]>([])));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

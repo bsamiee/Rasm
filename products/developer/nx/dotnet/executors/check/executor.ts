@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { batched, executor } from '@rasm/nx';
-import { Array, Cause, Clock, Console, Effect, Exit, FileSystem, Path, Record, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Clock, Console, Effect, FileSystem, Path, Record, Schema, Stream, Struct } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -27,7 +27,7 @@ const findings = Effect.fnUntraced(function* (root: string, reports: readonly st
         .flatMap(Struct.get('runs'))
         .flatMap(Struct.get('results'))
         .filter((result) => result.suppressions === undefined && Schema.is(Failing)(result.level))
-        .map(({ ruleId, level, message, locations }) => [...Array.take(locations ?? [], 1).map(({ physicalLocation: { artifactLocation, region } }) => `${fileURLToPath(artifactLocation.uri)}(${region.startLine},${region.startColumn})`), `${level} ${ruleId}`, message.text].join(': '));
+        .map(({ ruleId, level, message, locations = [] }) => [...Array.take(locations, 1).map(({ physicalLocation: at }) => `${fileURLToPath(at.artifactLocation.uri)}(${at.region.startLine},${at.region.startColumn})`), `${level} ${ruleId}`, message.text].join(': '));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -42,14 +42,10 @@ const batch = batched(Check, (_, inputs, context) =>
     Stream.mapEffect(
         Stream.fromIterable(Record.toEntries(inputs)),
         ([task, { reports }]) =>
-            Effect.map(Effect.all([Clock.currentTimeMillis, Effect.exit(findings(context.root, reports)), Clock.currentTimeMillis]), ([startTime, read, endTime]) => ({
-                task,
-                result: {
-                    startTime,
-                    endTime,
-                    ...Exit.match(read, { onSuccess: (lines) => ({ success: lines.length === 0, terminalOutput: lines.join('\n') }), onFailure: (cause) => ({ success: false, terminalOutput: Cause.pretty(cause) }) }),
-                },
-            })),
+            Effect.map(
+                Effect.all([Clock.currentTimeMillis, Effect.matchCause(findings(context.root, reports), { onSuccess: (lines) => ({ success: lines.length === 0, terminalOutput: lines.join('\n') }), onFailure: (cause) => ({ success: false, terminalOutput: Cause.pretty(cause) }) }), Clock.currentTimeMillis]),
+                ([startTime, read, endTime]) => ({ task, result: { startTime, endTime, ...read } }),
+            ),
         { concurrency: 'unbounded' },
     ),
 );

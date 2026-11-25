@@ -2,7 +2,7 @@ import { joinPathFragments, type Tree } from '@nx/devkit';
 import { spawned } from '@rasm/nx';
 import ast from '@xml-tools/ast';
 import xml, { type DocumentCstNode } from '@xml-tools/parser';
-import { Array, Cause, Effect, identity, Option, Result, Schema, SemVer, String, Struct } from 'effect';
+import { Array, Cause, Effect, flow, identity, Option, Result, Schema, SemVer, String, Struct } from 'effect';
 import { VersionActions } from 'nx/release';
 import { run } from '#/targets';
 
@@ -36,17 +36,16 @@ const shipped = Effect.fnUntraced(function* (tree: Tree, version: string, files:
         pending.split('\n'),
         Result.liftPredicate((row: string) => !row.trimStart().startsWith(';'), identity),
     );
-    const moved = Option.filter(Option.liftPredicate(rows.join('\n').trim(), String.isNonEmpty), () => !SemVer.isPrerelease(release));
-    return yield* Option.match(moved, {
-        onNone: () => Effect.succeed([]),
-        onSome: (lines) =>
-            Effect.sync(() => {
-                const section = `## Release ${SemVer.format(SemVer.release(release))}\n\n${lines}\n`;
-                tree.write(files.shipped, Option.match(Option.liftPredicate(recorded.trimEnd(), String.isNonEmpty), { onNone: () => section, onSome: (existing) => `${existing}\n\n${section}` }));
-                tree.write(files.unshipped, comments.map((comment) => `${comment}\n`).join(''));
-                return [`Unshipped rules of ${files.unshipped} moved to ${files.shipped} under release ${version}`];
-            }),
-    });
+    const lines = rows.join('\n').trim();
+    const moved = yield* Effect.when(
+        Effect.sync(() => {
+            tree.write(files.shipped, [recorded.trimEnd(), `## Release ${SemVer.format(SemVer.release(release))}\n\n${lines}\n`].filter(String.isNonEmpty).join('\n\n'));
+            tree.write(files.unshipped, comments.map((comment) => `${comment}\n`).join(''));
+            return `Unshipped rules of ${files.unshipped} moved to ${files.shipped} under release ${version}`;
+        }),
+        Effect.succeed(String.isNonEmpty(lines) && !SemVer.isPrerelease(release)),
+    );
+    return Option.toArray(moved);
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -68,10 +67,7 @@ class DotnetVersionActions extends VersionActions {
     }
 
     override calculateNewVersion(currentVersion: string | null, newVersionInput: string, newVersionInputReason: string, newVersionInputReasonData: Record<string, unknown>, preid: string) {
-        const held = Option.exists(
-            Option.flatMap(Option.fromNullOr(currentVersion), (current) => Result.getSuccess(SemVer.parse(current))),
-            SemVer.isPrerelease,
-        );
+        const held = Option.fromNullOr(currentVersion).pipe(Option.flatMap(flow(SemVer.parse, Result.getSuccess)), Option.exists(SemVer.isPrerelease));
         return super.calculateNewVersion(currentVersion, held && newVersionInputReason === 'DEPENDENCY_WAS_BUMPED' ? 'prerelease' : newVersionInput, newVersionInputReason, newVersionInputReasonData, preid);
     }
 

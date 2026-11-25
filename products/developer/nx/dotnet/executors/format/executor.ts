@@ -23,25 +23,22 @@ const Report = Schema.fromJsonString(Schema.Array(Schema.Struct({ FilePath: Sche
 
 const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyReadonlyArray<Planned>) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
-    const [[, { commands, __unparsed__: words = [] }], ...rest] = group;
+    const [, { commands, __unparsed__: words = [] }] = Array.headNonEmpty(group);
     const members = Array.map(group, ([task, { project }]) => ({ task, project: path.resolve(root, project), folder: `${path.dirname(path.resolve(root, project))}${path.sep}` }));
-    const nested = Array.sort(
-        members,
-        Order.mapInput(Order.flip(Order.Number), (member: (typeof members)[number]) => member.folder.length),
-    );
+    const nested = Array.sortWith(members, (member) => member.folder.length, Order.flip(Order.Number));
     const owner = ({ FilePath }: { readonly FilePath: string }) => Array.findFirst(nested, (member) => FilePath.startsWith(member.folder));
     const [startTime, folder] = yield* Effect.all([Clock.currentTimeMillis, fs.makeTempDirectoryScoped()]);
-    const target = rest.length === 0 ? Array.headNonEmpty(members).project : path.join(folder, 'batch.slnx');
-    yield* rest.length === 0 ? Effect.void : Stream.fromIterable(Xml.toEvents({ name: 'Solution', attributes: {}, children: members.map(({ project }) => ({ name: 'Project', attributes: { Path: project }, children: [] })) })).pipe(Stream.pipeThroughChannel(Xml.encode()), Stream.run(fs.sink(target)));
+    const target = group.length === 1 ? Array.headNonEmpty(members).project : path.join(folder, 'batch.slnx');
+    yield* group.length === 1 ? Effect.void : Stream.fromIterable(Xml.toEvents({ name: 'Solution', attributes: {}, children: members.map(({ project }) => ({ name: 'Project', attributes: { Path: project }, children: [] })) })).pipe(Stream.pipeThroughChannel(Xml.encode()), Stream.run(fs.sink(target)));
     const runs = yield* Effect.forEach(
         commands,
         Effect.fnUntraced(function* (command, index) {
             const report = path.join(folder, `${index}.json`);
             const { invoked, stdout, said: stderr, code } = yield* ran(['dotnet', ...command, target, '--report', report, ...words], { cwd: root });
             const changed = yield* Effect.option(Effect.flatMap(fs.readFileString(report), Schema.decodeEffect(Report)));
-            const owners = Option.flatMap(
-                Option.filter(changed, () => code === 2),
-                flow(Array.map(owner), Option.all),
+            const owners = changed.pipe(
+                Option.filter(() => code === 2),
+                Option.flatMap(flow(Array.map(owner), Option.all)),
             );
             const blamed = code === 0 ? Option.some(new Set<string>()) : Option.map(owners, (found) => new Set(found.map(Struct.get('task'))));
             return { command: invoked, lines: [stdout, stderr].join('').split('\n'), blamed };

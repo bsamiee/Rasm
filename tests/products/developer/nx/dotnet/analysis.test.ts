@@ -34,11 +34,7 @@ const hashed = (root: string, command: string) => execSync(command, { cwd: root,
 
 const referencing = (dll: string) => `<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <TargetFramework>net10.0</TargetFramework>\n  </PropertyGroup>\n  <ItemGroup>\n    <Reference Include="Host" HintPath="${dll}" />\n  </ItemGroup>\n</Project>\n`;
 
-const runtime = (inputs: readonly unknown[] = []) =>
-    Array.findLast(
-        inputs.flatMap((input) => (Predicate.hasProperty(input, 'runtime') && Predicate.isString(input.runtime) ? [input.runtime] : [])),
-        (command) => command.startsWith('git '),
-    );
+const runtime = (inputs: readonly unknown[] = []) => Array.findLast(inputs, (input) => (Predicate.hasProperty(input, 'runtime') && Predicate.isString(input.runtime) && input.runtime.startsWith('git ') ? Option.some(input.runtime) : Option.none()));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
