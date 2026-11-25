@@ -1,10 +1,8 @@
-import { findPackageJSON } from 'node:module';
 import { join, posix, relative, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { type CreateNodes, type CreateNodesResultArray, detectPackageManager, hashArray, normalizePath, type TargetConfiguration } from '@nx/devkit';
-import { getLockFileName, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { type Anchor, aggregated, anchored, EXECUTORS, fingerprinted, recalled, run, stamped, within } from '@rasm/nx';
-import { Array, Config, Effect, FileSystem, flow, Option, Record, Schema } from 'effect';
+import { type CreateNodes, type CreateNodesResultArray, hashArray, normalizePath } from '@nx/devkit';
+import { readModulePackageJson } from '@nx/devkit/internal';
+import { aggregated, anchored, EXECUTORS, fingerprinted, inferring, run, within } from '@rasm/nx';
+import { Array, Config, Effect, FileSystem, Option, Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -22,77 +20,64 @@ const Required = Schema.fromJsonString(
     }),
 ).annotate({ description: 'The dependencies and devDependencies of a package.json, a package requiring an engine client of CLIENTS, itself or through one of its dependencies, taking tag host:docker' });
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const engine = (anchor: Anchor) => {
-    const started = ['colima', 'start', '--activate=false', '--ssh-config=false', '--mount', 'none', '--port-forwarder', 'grpc', '--memory', '8', '--disk', '20'];
-    const install: TargetConfiguration = {
-        command: `mkdir -p "$COLIMA_HOME" && ${started.map(quoteShellArg).join(' ')} --cpus "$(($(getconf _NPROCESSORS_ONLN) / 2))"`,
-        inputs: [{ externalDependencies: [] }],
-        metadata: {
-            description:
-                'Starts the Colima VM holding the container engine DOCKER_HOST names on half the cores of this machine with a data disk capped at 20 GiB, in the COLIMA_HOME folder it creates first as Colima reads that variable only once the folder exists, returning once the engine answers and leaving the VM up after the run, with colima start',
-            help: { command: 'colima start --help', example: { args: ['--verbose'] } },
-        },
-    };
-    const clean: TargetConfiguration = {
-        executor: EXECUTORS.clean,
-        dependsOn: ['install--colima'],
-        options: {
-            commands: [
-                ['docker', 'image', 'prune', '--force'],
-                ['docker', 'builder', 'prune', '--force'],
-                ['colima', 'ssh', '--', 'sudo', 'fstrim', '--all', '--verbose'],
-            ],
-        },
-        configurations: { cache: { commands: [['colima', 'delete', '--data', '--force']] } },
-        inputs: [{ externalDependencies: [] }],
-        metadata: {
-            description: 'Removes dangling images and build cache with docker image prune and docker builder prune, then discards the freed blocks of the VM disks with fstrim so their files shrink on this machine, and under configuration cache deletes the VM with its data with colima delete --data',
-            help: { command: 'colima delete --help', example: { args: [] } },
-        },
-    };
-    return Effect.map(
-        Config.option(Config.String('COLIMA_HOME')),
-        flow(
-            Option.map((home) => normalizePath(relative(anchor.workspaceRoot, resolve(anchor.workspaceRoot, home)))),
-            Option.filter(within),
-            Option.map((root) => [MANIFEST, { projects: { [root]: { root, name: ENGINE, targets: aggregated({ install: { [ENGINE]: install }, clean: { [ENGINE]: clean } }, {}, ENGINE, anchor) } } }] as const),
-            Option.toArray,
-        ),
-    );
-};
-
-const required = Effect.fnUntraced(function* ({ workspaceRoot, holds }: Anchor, files: readonly string[]) {
-    const manifests = files.filter((file) => posix.basename(file) === MANIFEST && holds(posix.dirname(file)));
-    const cache = new PluginCache<{ readonly sources: readonly string[]; readonly tagged: CreateNodesResultArray } & { readonly stamp: string }>(join(workspaceDataDirectory, 'docker.hash'));
-    const read = (manifest: string) => FileSystem.FileSystem.use((fs) => fs.readFileString(resolve(workspaceRoot, manifest))).pipe(Effect.flatMap(Schema.decodeEffect(Required)));
-    const tagging = Effect.forEach(
-        manifests,
-        Effect.fnUntraced(function* (file) {
-            const { dependencies, devDependencies } = yield* read(file);
-            const named = Record.keys({ ...dependencies, ...devDependencies });
-            const located = Array.getSomes(named.map((name) => Option.flatMap(Option.liftThrowable(findPackageJSON)(name, pathToFileURL(join(workspaceRoot, file))), Option.fromUndefinedOr)));
-            const reached = yield* Effect.forEach(located, read, { concurrency: 'unbounded' });
-            const root = posix.dirname(file);
-            return Option.map(
-                Option.liftPredicate(new Set([...named, ...reached.flatMap((held) => Record.keys(held.dependencies))]), (requires) => !CLIENTS.isDisjointFrom(requires)),
-                (): CreateNodesResultArray[number] => [file, { projects: { [root]: { root, tags: ['host:docker'] } } }],
-            );
-        }),
-        { concurrency: 'unbounded' },
-    ).pipe(Effect.map((found) => ({ sources: [...manifests, getLockFileName(detectPackageManager(workspaceRoot))], tagged: Array.getSomes(found) })));
-    return (yield* recalled(cache, hashArray([yield* OWN, ...manifests]), stamped(workspaceRoot), tagging, () => cache.writeToDisk())).tagged;
-});
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const createNodes: CreateNodes = [
     `**/${MANIFEST}`,
-    (files, _, { workspaceRoot }) => {
-        const anchor = anchored(workspaceRoot);
-        return run(Effect.map(Effect.all([engine(anchor), required(anchor, files)]), Array.flatten));
-    },
+    inferring(Schema.Struct({}), run, function* (files, _, { workspaceRoot }, cached) {
+        const [fs, anchor] = [yield* FileSystem.FileSystem, anchored(workspaceRoot)];
+        const verbs = {
+            install: {
+                [ENGINE]: {
+                    command: `mkdir -p "$COLIMA_HOME" && colima start --activate=false --ssh-config=false --mount none --port-forwarder grpc --memory 8 --disk 20 --cpus "$(($(getconf _NPROCESSORS_ONLN) / 2))"`,
+                    inputs: [{ externalDependencies: [] }],
+                    metadata: {
+                        description:
+                            'Starts the Colima VM holding the container engine DOCKER_HOST names on half the cores of this machine with a data disk capped at 20 GiB, in the COLIMA_HOME folder it creates first as Colima reads that variable only once the folder exists, returning once the engine answers and leaving the VM up after the run, with colima start',
+                        help: { command: 'colima start --help', example: { args: ['--verbose'] } },
+                    },
+                },
+            },
+            clean: {
+                [ENGINE]: {
+                    executor: EXECUTORS.clean,
+                    dependsOn: ['install--colima'],
+                    options: {
+                        commands: [
+                            ['docker', 'image', 'prune', '--force'],
+                            ['docker', 'builder', 'prune', '--force'],
+                            ['colima', 'ssh', '--', 'sudo', 'fstrim', '--all', '--verbose'],
+                        ],
+                    },
+                    configurations: { cache: { commands: [['colima', 'delete', '--data', '--force']] } },
+                    inputs: [{ externalDependencies: [] }],
+                    metadata: {
+                        description: 'Removes dangling images and build cache with docker image prune and docker builder prune, then discards the freed blocks of the VM disks with fstrim so their files shrink on this machine, and under configuration cache deletes the VM with its data with colima delete --data',
+                        help: { command: 'colima delete --help', example: { args: [] } },
+                    },
+                },
+            },
+        };
+        const engine = (yield* Config.option(Config.String('COLIMA_HOME'))).pipe(
+            Option.map((home) => normalizePath(relative(workspaceRoot, resolve(workspaceRoot, home)))),
+            Option.filter(within),
+            Option.map((root) => [MANIFEST, { projects: { [root]: { root, name: ENGINE, targets: aggregated(verbs, {}, ENGINE, anchor) } } }] as const),
+        );
+        const manifests = files.filter((file) => anchor.holds(posix.dirname(file)));
+        const pass = yield* cached<{ readonly sources: readonly string[]; readonly tagged: readonly string[] }>('docker.hash', yield* OWN);
+        const tagging = Effect.filter(
+            manifests,
+            Effect.fnUntraced(function* (file) {
+                const { dependencies, devDependencies } = yield* Effect.flatMap(fs.readFileString(join(workspaceRoot, file)), Schema.decodeEffect(Required));
+                const named = Record.keys({ ...dependencies, ...devDependencies });
+                const reached = Array.getSomes(named.map((name) => Option.liftThrowable(readModulePackageJson)(name, [join(workspaceRoot, posix.dirname(file))])));
+                return !CLIENTS.isDisjointFrom(new Set([...named, ...reached.flatMap(({ packageJson }) => Record.keys(packageJson.dependencies ?? {}))]));
+            }),
+            { concurrency: 'unbounded' },
+        ).pipe(Effect.map((tagged) => ({ sources: manifests, tagged })));
+        const { tagged } = yield* pass.recall(hashArray(manifests), tagging);
+        return [...Option.toArray(engine), ...tagged.map((file): CreateNodesResultArray[number] => [file, { projects: { [posix.dirname(file)]: { root: posix.dirname(file), tags: ['host:docker'] } } }])];
+    }),
 ];
 
 // --- [EXPORTS] -------------------------------------------------------------------------

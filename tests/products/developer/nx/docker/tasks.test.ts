@@ -5,7 +5,6 @@ import { pathToFileURL } from 'node:url';
 import type { NxPlugin } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-docker';
 import { it, taskGraph, type Workspace } from '@rasm/testing/nx';
-import { Option } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
 import { workspaceRoot } from 'nx/src/utils/workspace-root';
@@ -30,12 +29,10 @@ const SUITE = (folder: string, required: object, targets: readonly string[] = ['
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const hashed = async (workspace: Workspace, plugin: Pick<NxPlugin, 'createNodes'>, id: string) => {
+const hashed = async (workspace: Workspace, plugin: Pick<NxPlugin, 'createNodes'>, project: string, target: string) => {
     const graph = await workspace.graph(plugin);
-    const [project = '', target = ''] = id.split(':');
     const tasks = taskGraph(graph, [project], [target]);
-    const task = Option.getOrThrow(Option.fromUndefinedOr(tasks.tasks[id]));
-    const { value } = await createTaskHasher(graph, readNxJson(workspace.root)).hashTask(task, tasks, env);
+    const { value } = await createTaskHasher(graph, readNxJson(workspace.root)).hashTask(tasks.tasks[`${project}:${target}`] ?? expect.unreachable(`${project}:${target} is no task`), tasks, env);
     return value;
 };
 
@@ -56,9 +53,9 @@ describe('root project', () => {
         homed(at(workspace.root));
         workspace.write(HOSTED);
 
-        const bare = await hashed(workspace, {}, 'workspace:check--lint');
+        const bare = await hashed(workspace, {}, 'workspace', 'check--lint');
 
-        await expect(hashed(workspace, { createNodes }, 'workspace:check--lint')).resolves.toBe(bare);
+        await expect(hashed(workspace, { createNodes }, 'workspace', 'check--lint')).resolves.toBe(bare);
     });
 });
 
@@ -80,7 +77,7 @@ describe('engine project', () => {
         homed(at());
         const graph = await workspace.write(HOSTED).graph({ createNodes });
 
-        expect(Object.values(graph.nodes).map(({ name, data: { targets = {} } }) => [name, Object.keys(targets)])).toStrictEqual([['workspace', ['check--lint']]]);
+        expect(Object.values(graph.nodes).map((node) => [node.name, Object.keys(node.data.targets ?? {})])).toStrictEqual([['workspace', ['check--lint']]]);
     });
 });
 
@@ -153,10 +150,10 @@ describe('engine edges', () => {
     it('hashes a tagged suite alike with and without the engine project', async ({ workspace }) => {
         workspace.write({ ...HOSTED, ...SUITE('suite', { devDependencies: { testcontainers: '12.2.2' } }) });
         homed(undefined);
-        const apart = await hashed(workspace, { createNodes }, 'suite:test--vitest');
+        const apart = await hashed(workspace, { createNodes }, 'suite', 'test--vitest');
         homed(join(workspace.root, '.cache/colima'));
 
-        await expect(hashed(workspace, { createNodes }, 'suite:test--vitest')).resolves.toBe(apart);
+        await expect(hashed(workspace, { createNodes }, 'suite', 'test--vitest')).resolves.toBe(apart);
     });
 });
 
