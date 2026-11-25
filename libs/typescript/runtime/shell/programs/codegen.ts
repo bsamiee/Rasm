@@ -34,8 +34,8 @@ runMain(
         });
         const chunks = yield* Effect.forEach(Record.toEntries(Array.groupBy(placed, ({ file }) => file)), ([file, held]) => Effect.map(Schema.encodeEffect(Written)({ carapace, groups, programs: Record.fromEntries(held.map(({ name, usage }) => [name, usage])) }), (text) => ({ file, text: `${text}\n` })));
         const index = [...chunks.map(({ file }) => `import ${file} from '#/usage/${file}.json' with { type: 'json' };`), '', divider('CONSTANTS'), '', `const chunks = [${chunks.map(({ file }) => file).join(', ')}] as const;`, '', divider('EXPORTS'), '', 'export { chunks };', ''].join('\n');
-        const stale = (yield* fs.readDirectory('usage')).filter((file) => file.endsWith('.json'));
-        yield* Effect.forEach(stale, (file) => fs.remove(path.join('usage', file)), { discard: true });
+        yield* fs.remove('usage', { recursive: true, force: true });
+        yield* fs.makeDirectory('usage', { recursive: true });
         yield* Effect.forEach([...chunks.map(({ file, text }) => [`${file}.json`, text] as const), ['chunks.ts', index] as const], ([file, text]) => fs.writeFileString(path.join('usage', file), text), { discard: true });
         yield* Effect.logInfo(`${carapace} [${groups.join(' ')}]: ${rows.length} completers in ${chunks.map(({ file, text }) => `${file} ${text.length}`).join(', ')}`);
     }).pipe(Effect.provide(layer)),
