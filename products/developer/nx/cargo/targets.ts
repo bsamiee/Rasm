@@ -20,7 +20,8 @@ const SOURCES: NonNullable<TargetConfiguration['inputs']> = ['default', '^defaul
 
 class Options extends Schema.Opaque<Options, unknown>()(
     Schema.Struct({ coveragePath: Schema.optionalKey(Schema.String) }).annotate({
-        description: 'coveragePath: workspace folder the coverage configuration of a crate writes its lcov.info report to through cargo llvm-cov --output-path, {projectName} naming the project, absent leaves the report on stdout',
+        description:
+            'coveragePath: workspace folder the coverage configuration of a crate writes its lcov.info report to through cargo llvm-cov --output-path, {projectName} naming the project, absent leaves the report on stdout, and a Cargo workspace at the Nx workspace root names each source by its path from that root through --remap-path-prefix',
     }),
 ) {}
 
@@ -72,7 +73,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
         const files = report.map(tokened);
         return {
             outputs: files.map((_, index) => `{options.outputs.${index}}`),
-            configurations: { coverage: { commands: [{ ...run(['--lcov', ...report.flatMap((file) => ['--output-path', posix.relative(workspace.root, file)])]), packages: direct }], outputs: files } },
+            configurations: { coverage: { commands: [{ ...run(['--lcov', ...(workspace.root === '.' ? ['--remap-path-prefix'] : []), ...report.flatMap((file) => ['--output-path', posix.relative(workspace.root, file)])]), packages: direct }], outputs: files } },
         };
     };
     const libtest = (run: Array.NonEmptyReadonlyArray<string>): Command => ({ args: Array.appendAll(run, [...(plain ? [] : ['--doc']), LOCKED]) });

@@ -42,15 +42,18 @@ describe('test tools', () => {
 });
 
 describe('coverage', () => {
-    it('writes the lcov report of the crate and its direct workspace dependencies to <coveragePath>/lcov.info', async ({ workspace }) => {
-        const graph = await workspace.write(crates).graph(cargo, { coveragePath: '.artifacts/coverage/{projectName}' });
-        execFileSync('cargo', ['generate-lockfile'], { cwd: join(workspace.root, 'rust') });
+    it.for([
+        { case: 'at the Nx workspace root, each source by its path from that root', at: '.', based: (_: string, file: string) => file },
+        { case: 'in a folder below the Nx workspace root, each source by its absolute path, as cargo llvm-cov remaps the Cargo workspace root alone', at: 'rust', based: join },
+    ])('writes the lcov report of the crate and its direct workspace dependencies to <coveragePath>/lcov.info for a Cargo workspace $case', async ({ at, based }, { workspace }) => {
+        const graph = await workspace.write(Object.fromEntries(Object.entries(crates).map(([file, text]) => [file.replace(/^rust(?=\/)/u, at), text]))).graph(cargo, { coveragePath: '.artifacts/coverage/{projectName}' });
+        execFileSync('cargo', ['generate-lockfile'], { cwd: join(workspace.root, at) });
 
         const { success } = await execute(await targetOptions(Cargo, graph, 'app', 'test--cargo', 'coverage'), workspace.context(graph, 'app', 'test--cargo', 'coverage'));
 
-        const report = readFileSync(join(workspace.root, '.artifacts/coverage/app/lcov.info'), 'utf-8');
+        const report = readFileSync(join(workspace.root, '.artifacts/coverage/app/lcov.info'), 'utf-8').split('\n');
         expect(outputs(graph, 'app', 'test--cargo', 'coverage')).toStrictEqual(['.artifacts/coverage/app/lcov.info']);
         expect(success).toBe(true);
-        expect([report.includes(`SF:${join(workspace.root, 'rust/crates/app/src/main.rs')}\n`), report.includes(`SF:${join(workspace.root, 'rust/crates/kit/src/lib.rs')}\n`)]).toStrictEqual([true, true]);
+        expect(report.filter((row) => row.startsWith('SF:')).toSorted()).toStrictEqual(['crates/app/src/main.rs', 'crates/kit/src/lib.rs'].map((file) => `SF:${based(workspace.root, join(at, file))}`));
     });
 });
