@@ -13,6 +13,10 @@ const OWN = fingerprinted(import.meta.dirname);
 const METADATA = ['uv', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--output-version', SCHEMA, '--quiet'] as const;
 const LISTED = ['uv', 'workspace', 'list'] as const;
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Named = Schema.fromJsonString(Schema.Struct({ name: Schema.String })).annotate({ description: 'The name field of a package.json, which Nx gives a project no plugin names' });
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const asked = (cwd: string) =>
@@ -50,13 +54,17 @@ const createNodes: CreateNodes = [
         const held = new Set(patterns.filter((pattern) => listed.some((file) => Glob.match(Glob.make(pattern, { dot: true }), file))));
         const [roots, anchor] = [new Set(members.map(({ root }) => root)), anchored(context.workspaceRoot)];
         const stated = yield* Effect.forEach(members, ({ root }) => manifested(context.workspaceRoot, root), { concurrency: 'unbounded' });
+        const supplied = yield* Effect.filter(
+            members.filter(({ listed: uv }) => !uv),
+            ({ root }) => Effect.zipWith(fs.exists(join(context.workspaceRoot, root, 'project.json')), Effect.option(Effect.flatMap(fs.readFileString(join(context.workspaceRoot, root, 'package.json')), Schema.decodeEffect(Named))), (project, manifest) => project || Option.isSome(manifest)),
+        );
         const results = Array.zipWith(members, stated, (member, manifest): [string, { readonly projects: Record<string, ProjectConfiguration> }] => [
             member.lock,
             {
                 projects: {
                     [member.root]: {
                         root: member.root,
-                        ...((member.listed || !anchor.holds(member.root)) && { name: member.name }),
+                        ...(!supplied.includes(member) && { name: member.name }),
                         metadata: { technologies: ['python'] },
                         ...(member.packaged && { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock: member.lock } } } }),
                         implicitDependencies: member.linked.filter((root) => roots.has(root)).map((root) => `directory:${root}`),

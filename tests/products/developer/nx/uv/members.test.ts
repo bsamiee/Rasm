@@ -66,6 +66,7 @@ describe('uv roots without a project table', { timeout: 60_000 }, () => {
     it.for([
         { case: 'a nested folder, by the folder', folder: 'nested/proj', files: {}, name: 'proj' },
         { case: 'the Nx workspace root, by the project.json beside it', folder: '.', files: { 'project.json': '{ "name": "named" }' }, name: 'named' },
+        { case: 'the Nx workspace root, by the package.json beside it', folder: '.', files: { 'package.json': '{ "name": "packaged" }' }, name: 'packaged' },
     ])('are a project owning the lock check and upgrade, named in $case', async ({ folder, files, name }, { workspace }) => {
         locked(workspace.write({ ...Record.mapKeys(VIRTUAL, (file) => posix.join(folder, file)), ...files }).root, folder);
 
