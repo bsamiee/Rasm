@@ -64,7 +64,7 @@
             "plutil -insert 'com\\.apple\\.security\\.cs\\.allow-jit' -bool YES \"$SCRIPT_OUTPUT_FILE_0\"",
             "codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --identifier \"$label\" --options runtime --entitlements \"$SCRIPT_OUTPUT_FILE_0\" \"$SCRIPT_INPUT_FILE_0\"",
             "mkdir -p \"${SCRIPT_OUTPUT_FILE_1%/*}\"",
-            "printf '{\"Label\":\"%s\",\"ProcessType\":\"Interactive\",\"KeepAlive\":true,\"BundleProgram\":\"Contents/Helpers/server\",\"SpawnConstraint\":{\"signing-identifier\":\"%s\",\"team-identifier\":\"%s\"}}' \"$label\" \"$label\" \"$DEVELOPMENT_TEAM\" | plutil -convert xml1 -o \"$SCRIPT_OUTPUT_FILE_1\" -",
+            "printf '{\"Label\":\"%s\",\"ProcessType\":\"Interactive\",\"KeepAlive\":true,\"ExitTimeOut\":30,\"BundleProgram\":\"Contents/Helpers/server\",\"SpawnConstraint\":{\"signing-identifier\":\"%s\",\"team-identifier\":\"%s\"}}' \"$label\" \"$label\" \"$DEVELOPMENT_TEAM\" | plutil -convert xml1 -o \"$SCRIPT_OUTPUT_FILE_1\" -",
             "",
           ],
         }, {
