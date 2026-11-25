@@ -22,11 +22,11 @@ struct Read: Hashable {
 struct FixtureTests {
     @Test
     func reportsEveryMemberOnScreenAsAnOutsideAccessibilityReadOfTheProcessFindsIt() async throws {
-        let documented = Set(
-            [NSAccessibility.Role.button, .checkBox, .radioButton, .popUpButton, .comboBox, .tabGroup, .radioGroup, .table, .outline, .slider, .incrementor, .textField, .colorWell, .dateTimeArea]
-                .map(\.rawValue)
-        )
-        let (report, outside) = try await FixtureSession.launched { fixture in
+        let roles: [NSAccessibility.Role] = [
+            .button, .checkBox, .radioButton, .popUpButton, .comboBox, .tabGroup, .radioGroup, .table, .outline, .slider, .incrementor, .textField, .colorWell, .dateTimeAreaRole,
+        ]
+        let documented: Set<String> = Set(roles.map(\.rawValue))
+        let (report, outside): (Report, [Read]) = try await FixtureSession.launched { fixture in
             try await fixture.send(.show(surface: .panel))
             try await fixture.send(.report)
             let report = try await fixture.next(\.report).value
@@ -35,9 +35,8 @@ struct FixtureTests {
                 return unsafe AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success ? value : nil
             }
             func elements(_ slot: CFTypeRef?) -> [AXUIElement] {
-                ((slot as? [CFTypeRef]) ?? slot.map { single in [single] } ?? []).compactMap { held in
-                    CFGetTypeID(held) == AXUIElementGetTypeID() ? unsafe unsafeDowncast(held, to: AXUIElement.self) : nil
-                }
+                let held: [CFTypeRef] = (slot as? [CFTypeRef]) ?? slot.map { single in [single] } ?? []
+                return held.compactMap { one in CFGetTypeID(one) == AXUIElementGetTypeID() ? unsafe unsafeDowncast(one, to: AXUIElement.self) : nil }
             }
             let attributes = [kAXRoleAttribute, kAXSubroleAttribute, kAXPositionAttribute, kAXSizeAttribute, kAXParentAttribute, kAXHelpAttribute, kAXTitleUIElementAttribute, kAXChildrenAttribute]
             let height = CGDisplayBounds(CGMainDisplayID()).height
@@ -46,7 +45,7 @@ struct FixtureTests {
             while let element = pending.popLast() {
                 var copied: CFArray?
                 _ = unsafe AXUIElementCopyMultipleAttributeValues(element, attributes as CFArray, [], &copied)
-                let slots = Dictionary(uniqueKeysWithValues: zip(attributes, copied as? [CFTypeRef] ?? []))
+                let slots: [String: CFTypeRef] = Dictionary(uniqueKeysWithValues: zip(attributes, copied as? [CFTypeRef] ?? []))
                 pending += elements(slots[kAXChildrenAttribute])
                 var origin = CGPoint.zero
                 var size = CGSize.zero
@@ -66,15 +65,16 @@ struct FixtureTests {
             }
             return (report, outside)
         }
-        let visible = Set(report.windows.filter(\.visible).map(\.number))
-        let reported = report.controls.filter { control in control.window.map(visible.contains) ?? false }.compactMap { control in
+        let visible: Set<Int> = Set(report.windows.filter(\.visible).map(\.number))
+        let reported: [Read] = report.controls.filter { control in control.window.map { number throws(Never) in visible.contains(number) } ?? false }.compactMap { control in
             control.frame.map { frame in Read(role: control.role, subrole: control.subrole, frame: frame, parent: control.parent, help: control.help, caption: control.caption) }
         }
-        let frames = Set(reported.map(\.frame))
-        expectNoDifference(
-            Set(outside.filter { read in frames.contains(read.frame) && read.role.map(documented.contains) ?? false }),
-            Set(reported.filter { read in read.role.map(documented.contains) ?? false }),
-        )
-        #expect(Set(reported.compactMap(\.role)).isSuperset(of: documented))
+        let frames: Set<CGRect> = Set(reported.map(\.frame))
+        let seen: Set<Read> = Set(outside.filter { read in frames.contains(read.frame) && read.role.map { role throws(Never) in documented.contains(role) } ?? false })
+        let stated: Set<Read> = Set(reported.filter { read in read.role.map { role throws(Never) in documented.contains(role) } ?? false })
+        expectNoDifference(seen, stated)
+        let shown: Set<String> = Set(reported.compactMap(\.role))
+        let covered: Bool = shown.isSuperset(of: documented)
+        #expect(covered)
     }
 }
