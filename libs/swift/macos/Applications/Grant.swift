@@ -1,4 +1,5 @@
 @unsafe @preconcurrency import ApplicationServices
+package import Darwin
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -15,8 +16,13 @@ public enum Grant: String, Encodable, Sendable {
         }
     }
 
+    var missing: ApplicationFailure {
+        let (process, responsible) = (getpid(), responsiblePID(getpid()))
+        return ApplicationFailure(subject: ProcessInfo.processInfo.processName, reason: responsible == process ? .noGrant(self) : .notResponsible(self, responsible))
+    }
+
     public func check() throws(ApplicationFailure) {
-        guard held else { throw ApplicationFailure(subject: ProcessInfo.processInfo.processName, reason: .noGrant(self)) }
+        guard held else { throw missing }
     }
 
     public func request() {
@@ -27,3 +33,8 @@ public enum Grant: String, Encodable, Sendable {
         }
     }
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+@_silgen_name("responsibility_get_pid_responsible_for_pid")
+package func responsiblePID(_: pid_t) -> pid_t

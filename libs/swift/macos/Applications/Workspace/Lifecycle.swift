@@ -38,48 +38,26 @@ public struct Lifecycle: Encodable, Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Lifecycle {
-    public init(of name: String, reports limit: Int) async throws(ApplicationFailure) {
-        let exited = ProcessInstance(rawValue: name)
-        let named: ProcessInstance?
-        do throws(Errno) { named = try ProcessInstance(named: name) } catch  where error == .noSuchProcess && exited != nil { named = exited } catch {
-            throw ApplicationFailure(error, process: name)
-        }
-        let file: URL?
-        do throws(Errno) { file = named == nil && !FilePath(name).removingLastComponent().isEmpty ? try ifPresent { () throws(Errno) in try URL(filePath: name).canonical() } : nil } catch {
-            throw ApplicationFailure(subject: name, reason: .system(error))
-        }
-        let regular: Bool
-        do { regular = try file?.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true } catch { throw ApplicationFailure(subject: name, reason: .host(error as NSError)) }
-        let executable = regular ? file.map { file in FilePath(file.path(percentEncoded: false)) } : nil
-        let installations = named == nil && executable == nil ? try await Installation.installed(named: name) : []
-        let agents = Array(try installations.map { installation throws(ApplicationFailure) in try installation.agents() }.joined())
-        let bundles: [FilePath]
-        do throws(Errno) { bundles = try installations.map { installation throws(Errno) in FilePath(try installation.url.canonical().path(percentEncoded: false)) } } catch {
-            throw ApplicationFailure(subject: name, reason: .system(error))
-        }
-        let scoped: (FilePath) -> Bool = { path in path == executable || bundles.contains(where: path.starts(with:)) }
-        let installed = installations.compactMap { installation in Bundle(url: installation.url) }
-        let owned: (DiagnosticReport) -> Bool = { report in
-            report.executable.map { path in scoped(FilePath(path)) } == true || installed.contains { bundle in report.written(by: bundle) }
-                || agents.contains { agent in agent.label == report.service }
-        }
-        let running: [ProcessInstance]
+    public init(of installation: Installation, reports limit: Int) throws(ApplicationFailure) {
+        let agents = try installation.agents()
+        let (bundle, running): (FilePath, [ProcessInstance])
         do throws(Errno) {
-            running =
-                switch named {
-                    case .some(let named) where named.hasExited: []
-                    case .some(let named): [named]
-                    case .none: try ProcessInstance.executing(scoped)
-                }
+            bundle = FilePath(try installation.url.canonical().path(percentEncoded: false))
+            running = try ProcessInstance.executing { path in path.starts(with: bundle) }
         } catch {
-            throw ApplicationFailure(subject: name, reason: .system(error))
+            throw ApplicationFailure(subject: installation.name, reason: .system(error))
         }
+        let installed = Bundle(url: installation.url)
         self.init(
             agents: agents,
             processes: running.map { instance in
                 Row(instance: instance, executable: Result { () throws(Errno) in try instance.executable() }, replaced: Result { () throws(Errno) in try !instance.runsInstalledCode() })
             },
-            reports: DiagnosticReport.reports(limit: limit) { report in named.map { named in report.instance == named } ?? owned(report) }.reports,
+            reports: DiagnosticReport.reports(limit: limit) { report in
+                report.executable.map { path in FilePath(path).starts(with: bundle) } == true || installed.map(report.written(by:)) == true
+                    || agents.contains { agent in agent.label == report.service }
+            }
+            .reports,
         )
     }
 }

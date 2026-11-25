@@ -37,8 +37,7 @@ private struct Fixture: ~Copyable {
 
 private let requests: [(String, [String: JSONValue])] = [
     ("terms", [:]),
-    ("definition", ["kind": .string("command"), "name": .string("open")]),
-    ("launch", ["documents": .array([]), "arguments": .array([]), "environment": .object([:]), "new": .bool(true)]),
+    ("launch", ["documents": .array([]), "arguments": .array([]), "environment": .object([:]), "new": .bool(true), "opening": .object([:]), "wait": .bool(false)]),
 ]
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -65,7 +64,7 @@ struct PreviewTests {
             do { try FileManager.default.removeItem(at: file) } catch { Issue.record(error) }
         }
         let request = try JSONDecoder().decode(Request.self, from: Data(#"{"preview":{"file":"\#(file.absoluteString)","longestSide":\#(longestSide)}}"#.utf8))
-        guard case .value(let value?) = try await request.perform(admitting: { NSPredicate(value: false) }, refusing: { _ in [] }, definitions: ScriptingDefinitions(cached: { _ in nil })) else {
+        guard case .value(let value?) = try await request.perform(admitting: { NSPredicate(value: false) }, definitions: ScriptingDefinitions(cached: { _ in nil })) else {
             Issue.record("No preview value")
             return
         }
@@ -94,7 +93,6 @@ struct AdmissionTests {
             try await JSONDecoder().decode(Request.self, from: JSONEncoder().encode(request))
                 .perform(
                     admitting: { NSPredicate(format: "kMDItemCFBundleIdentifier == %@", "app.rasm.other") },
-                    refusing: { _ in [] },
                     definitions: ScriptingDefinitions(cached: { _ in
                         read.yield()
                         return nil
@@ -120,7 +118,6 @@ struct AdmissionTests {
         let response = try await JSONDecoder().decode(Request.self, from: Data(#"{"terms":{"url":"\#(bundle.url.absoluteString)"}}"#.utf8))
             .perform(
                 admitting: { NSPredicate(format: "kMDItemCFBundleIdentifier == %@", "app.rasm.fixture") },
-                refusing: { _ in [] },
                 definitions: ScriptingDefinitions(cached: { installation in
                     ask.yield(installation.identifier)
                     return cached

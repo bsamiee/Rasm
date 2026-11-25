@@ -2,6 +2,17 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>ApplicationServerClaim</key>
+	<dict>
+		<key>prefixes</key>
+		<array>
+			<string>com.adobe.</string>
+		</array>
+		<key>scope</key>
+		<string>drives Adobe applications through their scripts, object models, and linked extensions</string>
+		<key>server</key>
+		<string>atelier</string>
+	</dict>
 	<key>SUAutomaticallyUpdate</key>
 	<true/>
 	<key>SUEnableAutomaticChecks</key>

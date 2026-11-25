@@ -1,9 +1,11 @@
 public import AppKit
+public import AppleEvents
 import AsyncAlgorithms
 import CasePathsCore
 public import Encoding
 import Files
 import Processes
+import Results
 import System
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -61,6 +63,7 @@ public enum Launching: CaseKeyed, Sendable {
     case launched(Launched)
     case state(RunningInstance)
     case prompts([RunningInstance])
+    case opened(AppleEventValue)
     case failed(ApplicationFailure)
 }
 
@@ -87,8 +90,11 @@ extension NSWorkspace {
     ) async throws(ApplicationFailure) -> (instance: Instance, created: Bool) {
         let url = installation.url
         let running = instances(of: installation.runs)
-        let creating = newInstance || running.isEmpty
-        if let reused = running.first, !creating, documents.isEmpty { return (reused, false) }
+        switch (newInstance ? nil : running.first, arguments.isEmpty && environment.isEmpty, documents.isEmpty) {
+            case (.some(let reused), false, _): throw ApplicationFailure(subject: installation.name, reason: .reused(reused.process.pid))
+            case (.some(let reused), true, true): return (reused, false)
+            case (.some, true, false), (.none, _, _): break
+        }
         let listing: (URL) throws(ApplicationFailure) -> Set<ProcessInstance> = { executable throws(ApplicationFailure) in
             do throws(Errno) {
                 let path = FilePath(try executable.canonical().path(percentEncoded: false))
@@ -134,7 +140,9 @@ extension NSWorkspace {
 
     public func launching(
         _ installation: Installation,
+        in definitions: ScriptingDefinitions,
         opening documents: [URL] = [],
+        with parameters: [String: AppleEventValue] = [:],
         arguments: [String] = [],
         environment: [String: String] = [:],
         newInstance: Bool = false,
@@ -151,26 +159,62 @@ extension NSWorkspace {
                         }
                     }
                     do throws(ApplicationFailure) {
-                        let (instance, created) = try await Self.shared.launch(installation, opening: documents, arguments: arguments, environment: environment, newInstance: newInstance)
+                        let (instance, created) = try await Self.shared.launch(
+                            installation,
+                            opening: parameters.isEmpty ? documents : [],
+                            arguments: arguments,
+                            environment: environment,
+                            newInstance: newInstance,
+                        )
                         group.cancelAll()
                         let replaced = !created && Result(catching: { () throws(Errno) in try instance.process.runsInstalledCode() }) == .success(false)
                         output.yield(.launched(Launched(instance: instance, identifier: installation.identifier, created: created, replaced: replaced)))
-                        var grace: Int?
-                        for await next in merge(instance.states(clock: clock).map(Optional.some), AsyncTimerSequence(interval: messagingTimeout, clock: clock).map { _ in InstanceState?.none }) {
-                            if let next, let running = RunningInstance(instance, state: next) { output.yield(.state(running)) }
-                            switch next {
-                                case .some(.exited(let ended)) where ended.report != nil || ended.exit[case: \.success]?.reports != true: return
-                                case .some(.running(let running)) where !waiting && (!created || !running.asking.isEmpty): return
-                                case .some(.running(let running))
-                                where !waiting && running.status.settled && (running.status != .unresponsive(.sleeping) || instance.application.isFinishedLaunching):
-                                    if running.windows.contains(where: \.presented) { return }
-                                    grace = grace ?? 0
-                                case .some(.failed) where !waiting: return
-                                case .some: grace = nil
-                                case .none where grace == 1: return
-                                case .none: grace = grace.map { ticks in ticks + 1 }
+                        let followed = { (waiting: Bool) async -> InstanceState? in
+                            var (grace, last): (Int?, InstanceState?) = (nil, nil)
+                            for await next in merge(instance.states(clock: clock).map(Optional.some), AsyncTimerSequence(interval: messagingTimeout, clock: clock).map { _ in InstanceState?.none }) {
+                                if let next, let running = RunningInstance(instance, state: next) { output.yield(.state(running)) }
+                                last = next ?? last
+                                switch next {
+                                    case .some(.exited(let ended)) where ended.report != nil || ended.exit[case: \.success]?.reports != true: return last
+                                    case .some(.running(let running)) where !waiting && (!created || !running.asking.isEmpty): return last
+                                    case .some(.running(let running))
+                                    where !waiting && running.status.settled && (running.status != .unresponsive(.sleeping) || instance.application.isFinishedLaunching):
+                                        if running.windows.contains(where: \.presented) { return last }
+                                        grace = grace ?? 0
+                                    case .some(.failed) where !waiting: return last
+                                    case .some: grace = nil
+                                    case .none where grace == 1: return last
+                                    case .none: grace = grace.map { ticks in ticks + 1 }
+                                }
                             }
+                            return last
                         }
+                        guard let settled = await followed(waiting && parameters.isEmpty)?[case: \.running], settled.asking.isEmpty, !parameters.isEmpty else { return }
+                        let files = AppleEventValue.list(documents.map { document in document.isFileURL ? .file(document) : .text(document.absoluteString) })
+                        let events: [Launching] = await race {
+                            let failed = { (failure: AppleEventFailure) in Launching.failed(ApplicationFailure(subject: installation.name, reason: .event(failure))) }
+                            do throws(AppleEventFailure) {
+                                let dictionary = try await definitions.dictionary(of: installation)
+                                let reply = await Result { () async throws(AggregateError<AppleEventFailure>) in
+                                    try await dictionary.reply(
+                                        to: (UInt64(kCoreEventClass) << 32 | UInt64(kAEOpenDocuments)).sdef,
+                                        arguments: parameters.merging(["direct": files]) { _, documents in documents },
+                                        target: NSAppleEventDescriptor(processIdentifier: instance.process.pid),
+                                    )
+                                }
+                                return switch reply {
+                                    case .success(let value): [.opened(value)]
+                                    case .failure(let failures): failures.errors.map(failed)
+                                }
+                            } catch {
+                                return [failed(error)]
+                            }
+                        } against: {
+                            let interrupting = await instance.states(clock: clock).first { state in state.is(\.exited) || state[case: \.running]?.asking.isEmpty == false }
+                            return [interrupting.flatMap { state in RunningInstance(instance, state: state) }.map(Launching.state)].compactMap(\.self)
+                        }
+                        for event in events { output.yield(event) }
+                        if waiting { _ = await followed(true) }
                     } catch {
                         output.yield(.failed(error))
                     }

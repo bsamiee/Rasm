@@ -44,27 +44,25 @@ const TermKind = Schema.Literals(['suite', 'command', 'class', 'record-type', 'v
 const Term = Schema.Struct({ name: Schema.String, code: Schema.String.annotate({ description: 'Code as scripting definition spells it' }) });
 const Command = Term.mapFields(
     Struct.assign({
-        parameters: Schema.Array(Term.mapFields(Struct.assign({ list: Schema.Boolean.annotate({ description: 'Takes a list' }), enumerators: Schema.Array(Term).annotate({ description: 'Enumerators of the enumeration typing it' }) }))),
+        parameters: Schema.Array(
+            Term.mapFields(
+                Struct.assign({
+                    types: Schema.Array(Schema.String).annotate({ description: 'Types the scripting definition declares for it' }),
+                    list: Schema.Boolean.annotate({ description: 'Takes a list' }),
+                    enumerators: Schema.Array(Term).annotate({ description: 'Enumerators of the enumeration typing it' }),
+                }),
+            ),
+        ),
     }),
 );
-class Execute extends Schema.Class<Execute, { readonly brand: unique symbol }>('Execute')({
-    command: Schema.optionalKey(Schema.String.annotate({ description: 'Dictionary command name or code, get and set included, absent for the script command of the dictionary' })),
-    arguments: defaulted(Schema.Record(Schema.String, AppleEventValue).annotate({ description: 'Parameters by name or code, direct for direct parameter, accepts reply values' }), {}),
-    artifacts: defaulted(Schema.Array(Schema.URLFromString).annotate({ description: 'Files command writes, returned with reply' }), []),
-}) {
-    static readonly Artifact = Schema.Struct({ uri: Schema.String, mimeType: Schema.OptionFromOptionalKey(Schema.String), data: Schema.Uint8Array });
-    static readonly Result = Schema.Struct({
-        reply: AppleEventValue,
-        artifacts: Schema.Array(Schema.Result(Execute.Artifact, Schema.ErrorInstance())).annotate({ description: 'File contents with media type, or read error' }),
-    });
-}
 class Terms extends Schema.Class<Terms, { readonly brand: unique symbol }>('Terms')(
     {
         ...Struct.Record(TermKind.literals, Schema.Array(Term)),
         command: Schema.Array(Command),
         script: Schema.OptionFromOptionalKey(Command.annotate({ description: 'Command a direct text parameter runs as source: the one taking a list of text arguments, else the do script event' })),
+        open: Schema.OptionFromOptionalKey(Command.annotate({ description: 'Command of the open documents event, its parameters the names launch takes in opening' })),
     },
-    { description: 'Every declaration by kind, name, and code, commands with their parameters, and the script command' },
+    { description: 'Every declaration by kind, name, and code, commands with their parameters, and the script and open commands' },
 ) {}
 const Pid = Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Running process ID' });
 const WindowID = Schema.Finite.check(Schema.isUint32()).annotate({ description: 'CGWindowID' });
@@ -200,11 +198,6 @@ const Act = Schema.Struct({
                     modifiers: defaulted(Schema.Array(Modifier), []).annotate({ description: 'Held while the key posts' }),
                 }).annotate({ description: 'Posted to the instance process with no activation, the focused window settling it' }),
             }),
-            Schema.Struct({
-                click: Schema.Struct({ point: Schema.Tuple([Schema.Finite, Schema.Finite]).annotate({ description: 'Screen point, as a window frame origin reads' }) }).annotate({
-                    description: 'An element with a press action under the point pressed in the background, else its window raised, the app brought to the front, and a system click posted once the window is topmost there',
-                }),
-            }),
         ]),
     ).annotate({ description: 'Run in order until one fails, then the instance settles once' }),
 });
@@ -218,7 +211,10 @@ const Launch = Schema.Struct({
     arguments: defaulted(Schema.Array(Schema.String), []).annotate({ description: 'Process arguments' }),
     environment: defaulted(Schema.Record(Schema.String, Schema.String), {}),
     new: defaulted(Schema.Boolean, false).annotate({ description: 'Beside running instances' }),
+    opening: defaulted(Schema.Record(Schema.String, AppleEventValue), {}).annotate({ description: 'Parameters of the open command by name or code, sent with the documents to the instance once it settles behind the frontmost application' }),
+    wait: defaulted(Schema.Boolean, false).annotate({ description: 'Events continue until the instance exits' }),
 });
+const QuitMode = Schema.Literals(['asking', 'saving', 'discarding', 'forcing']).annotate({ description: 'Save option the quit event states where the scripting definition declares one on quit, forcing ending the process with no event' });
 const Pressure = Schema.Struct({ memory: Schema.Literals(['normal', 'warning', 'critical']), thermal: Schema.Literals(['nominal', 'fair', 'serious', 'critical', 'unknown']) }).annotate({ description: 'Kernel memory pressure level and thermal state, unknown for a state this build names no case for' });
 const ActivationPolicy = Schema.Literals(['regular', 'accessory', 'prohibited']).annotate({ description: 'Regular in Dock, accessory for menu bar or helper process, prohibited for background only' });
 const Launched = Schema.Struct({
@@ -238,8 +234,8 @@ class RunningInstance extends Schema.Class<RunningInstance, { readonly brand: un
     listening: Schema.Array(Schema.Int).annotate({ description: 'TCP ports the process listens on, read at each state, empty unless running or on a failed read' }),
     listeningFailure: Schema.optionalKey(Schema.String.annotate({ description: 'Listening ports read failure' })),
 }) {}
-const Launching = Schema.Union([keyed('launched', Launched), keyed('state', RunningInstance), keyed('prompts', Schema.Array(RunningInstance)), keyed('failed', Failed)])
-    .annotate({ description: 'Launch events: launched first, then states and system prompts, ending settled or asking' })
+const Launching = Schema.Union([keyed('launched', Launched), keyed('state', RunningInstance), keyed('prompts', Schema.Array(RunningInstance)), keyed('opened', AppleEventValue), keyed('failed', Failed)])
+    .annotate({ description: 'Launch events: launched first, then states and system prompts, the reply of the open command once sent, ending settled or asking' })
     .pipe(Schema.toTaggedUnion('_tag'));
 const happened = {
     instance: ProcessInstance,
@@ -285,6 +281,21 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
     scriptable: Schema.Boolean,
     scriptingDefinitionFile: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'OSAScriptingDefinition file in bundle Resources' })),
     activationPolicy: ActivationPolicy.annotate({ description: 'From LSBackgroundOnly and LSUIElement' }),
+    documentTypes: Schema.OptionFromOptionalKey(
+        Schema.Array(Schema.Struct({ role: Schema.optionalKey(Schema.String.annotate({ description: 'CFBundleTypeRole' })), extensions: Schema.Array(Schema.String) })).annotate({
+            description: 'CFBundleDocumentTypes by role, extensions as declared and as the system states them for each declared content type',
+        }),
+    ),
+    urlSchemes: Schema.OptionFromOptionalKey(Schema.Array(Schema.String).annotate({ description: 'CFBundleURLSchemes of every CFBundleURLTypes entry' })),
+    exportedTypes: Schema.OptionFromOptionalKey(Schema.Array(Schema.Struct({ identifier: Schema.String, extensions: Schema.Array(Schema.String) })).annotate({ description: 'UTExportedTypeDeclarations' })),
+    multipleInstancesProhibited: Schema.OptionFromOptionalKey(Schema.Boolean.annotate({ description: 'LSMultipleInstancesProhibited' })),
+    environment: Schema.OptionFromOptionalKey(Schema.Record(Schema.String, Schema.String).annotate({ description: 'LSEnvironment' })),
+    architectures: Schema.OptionFromOptionalKey(Schema.Array(Schema.String).annotate({ description: 'Architectures of the main executable' })),
+    claim: Schema.OptionFromOptionalKey(
+        Schema.Struct({ prefixes: Schema.Array(Schema.String).annotate({ description: 'Bundle identifier prefixes' }), server: Schema.String.annotate({ description: 'MCP server name' }), scope: Schema.String }).annotate({
+            description: 'ApplicationServerClaim: applications the server of this bundle drives',
+        }),
+    ),
 }) {
     static readonly runs =
         ({ url }: Pick<Installation, 'url'>) =>
@@ -354,12 +365,16 @@ const Automation = RpcGroup.make(
         success: Node,
         error: Failure,
     }),
+    Rpc.make('handler', { payload: { document: Schema.URL.annotate({ description: 'File or URL' }) }, success: Installation.annotate({ description: 'Application the system opens the document with' }), error: Failure }),
     Rpc.make('launch', { payload: Launch.fields, success: Launching, error: Failure, stream: true }),
     Rpc.make('act', { payload: { instance: ProcessInstance, ...Act.fields }, success: Acted, error: Failure }),
-    Rpc.make('quit', { payload: { instance: ProcessInstance, force: Schema.Boolean.pipe(Schema.withConstructorDefault(Effect.succeed(false))) }, success: State.annotate({ description: 'Last state, a dialog or unresponsive instance stays running' }), error: Failure }),
+    Rpc.make('quit', { payload: { instance: ProcessInstance, mode: defaulted(QuitMode, 'asking') }, success: State.annotate({ description: 'Last state, a dialog or unresponsive instance stays running' }), error: Failure }),
     Rpc.make('terms', { payload: { url: Schema.URL }, success: Terms, error: Failure }),
-    Rpc.make('definition', { payload: { url: Schema.URL, kind: TermKind, name: Schema.String }, success: Schema.String, error: Failure }),
-    Rpc.make('execute', { payload: { instance: ProcessInstance, ...Execute.fields }, success: Execute.Result, error: Failure }),
+    Rpc.make('execute', {
+        payload: { instance: ProcessInstance, arguments: defaulted(Schema.Record(Schema.String, AppleEventValue).annotate({ description: 'Parameters of the script command by name or code, direct for direct parameter, accepts reply values' }), {}) },
+        success: AppleEventValue.annotate({ description: 'Reply' }),
+        error: Failure,
+    }),
     Rpc.make('capture', { payload: { instance: ProcessInstance, ...Capture.fields }, success: Capture.Result, error: Failure }),
     Rpc.make('preview', {
         payload: { file: Schema.URL.annotate({ description: 'PNG file' }), longestSide: LongestSide.annotate({ description: 'Longest side in pixels of the preview, never upscaled' }) },
@@ -375,4 +390,4 @@ const Automation = RpcGroup.make(
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Act, Acted, AppleEventValue, Capture, Automation, Diagnostics, type Dialog, ElementID, Event, Execute, Installation, Launch, Launched, Launching, LongestSide, Node, Pid, Pressure, ProcessInstance, RunningInstance, State, TermKind, Terms, WindowID };
+export { Act, Acted, AppleEventValue, Capture, Automation, Diagnostics, type Dialog, ElementID, Event, Installation, Launch, Launched, Launching, LongestSide, Node, Pid, Pressure, ProcessInstance, QuitMode, RunningInstance, State, TermKind, Terms, WindowID };

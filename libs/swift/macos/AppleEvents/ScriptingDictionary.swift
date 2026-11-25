@@ -10,7 +10,7 @@ import Synchronization
 // --- [MODELS] --------------------------------------------------------------------------
 
 public final class ScriptingDictionary: Encodable, Sendable {
-    public enum Kind: String, CaseIterable, CodingKey, Decodable {
+    public enum Kind: String, CaseIterable, CodingKey {
         case suite
         case command
         case `class`
@@ -104,7 +104,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
     }
 
     private enum Key: CodingKey {
-        case script
+        case script, open
     }
 
     public let commands: [Command]
@@ -213,6 +213,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
         for kind in Kind.allCases where kind != .command { try listing.encode(declarations[kind, default: []].filter { term in !term.hidden }, forKey: kind) }
         var derived = encoder.container(keyedBy: Key.self)
         try derived.encodeIfPresent(script, forKey: .script)
+        try derived.encodeIfPresent(commands.first { command in command.eventClass == AEEventClass(kCoreEventClass) && command.eventID == AEEventID(kAEOpenDocuments) }, forKey: .open)
     }
 
     public func text(of kind: Kind, named name: String) throws(AppleEventFailure) -> String {
@@ -283,7 +284,6 @@ extension ScriptingDictionary {
         _ command: Command,
         arguments: [String: AppleEventValue],
         target: NSAppleEventDescriptor,
-        refusing activating: Set<UInt64> = [],
     ) throws(AggregateError<AppleEventFailure>) -> NSAppleEventDescriptor {
         let event = try record(
             arguments,
@@ -304,7 +304,7 @@ extension ScriptingDictionary {
                     true
                 case (AEEventClass(kAECoreSuite), AEEventID(kAESetData), FourCharCode(formPropertyID), FourCharCode(pProperties)):
                     event.paramDescriptor(forKeyword: AEKeyword(keyAEData))?.forKeyword(FourCharCode(pIsFrontProcess)) != nil
-                default: activating.contains(command.code)
+                default: false
             }
         guard !activates else {
             throw AggregateError(first: AppleEventFailure(subject: "\(command.name) (\(command.code.sdef))", reason: .activating))
@@ -316,11 +316,10 @@ extension ScriptingDictionary {
         to query: String?,
         arguments: [String: AppleEventValue],
         target: sending NSAppleEventDescriptor,
-        refusing activating: Set<UInt64> = [],
     ) async throws(AggregateError<AppleEventFailure>) -> AppleEventValue {
         let command = try Result { () throws(Unmatched) in try command(query, taking: Set(arguments.keys)) }
             .aggregated { miss in AppleEventFailure(subject: query ?? miss.subject, reason: .unmatched(miss)) }.get()
-        let event = try event(command, arguments: arguments, target: target, refusing: activating)
+        let event = try event(command, arguments: arguments, target: target)
         do { return try await NSAppleEventDescriptor.send(event) { reply in AppleEventValue(reply, in: self) } } catch { throw AggregateError(first: error) }
     }
 

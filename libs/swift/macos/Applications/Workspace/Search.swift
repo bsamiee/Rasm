@@ -1,9 +1,7 @@
 public import AppKit
 import AsyncAlgorithms
 import CasePathsCore
-import Processes
 public import Results
-import System
 import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -26,59 +24,6 @@ extension Installation {
         listings(predicate, in: directories)
             .map { listed in AggregateError(listed.failures).map(Result.failure) ?? .success(listed.installations) }
             .removeDuplicates { previous, next in if case (.success(let previous), .success(let next)) = (previous, next) { previous == next } else { false } }
-    }
-
-    @MainActor
-    public static func installed(named name: String, in directories: [URL] = []) async throws(ApplicationFailure) -> [Self] {
-        func readable(_ listed: (installations: [Self], failures: [ApplicationFailure])) throws(ApplicationFailure) -> [Self] {
-            if let failure = listed.failures.first, listed.installations.isEmpty { throw failure }
-            return listed.installations
-        }
-        func listing(_ key: String, _ comparison: NSComparisonPredicate.Operator, _ values: [String]) async throws(ApplicationFailure) -> [Self] {
-            let matching = NSCompoundPredicate(
-                andPredicateWithSubpredicates: values.map { value in
-                    NSComparisonPredicate(
-                        leftExpression: NSExpression(forKeyPath: key),
-                        rightExpression: NSExpression(forConstantValue: value),
-                        modifier: .direct,
-                        type: comparison,
-                        options: [.caseInsensitive, .diacriticInsensitive],
-                    )
-                }
-            )
-            guard let listed = await listings(matching, in: directories).first(where: { @Sendable _ in true }) else {
-                throw ApplicationFailure(subject: "Spotlight query for \(name)", reason: .cancelled)
-            }
-            return try readable(listed)
-        }
-        let path = FilePath(name)
-        let located =
-            URL(string: name).flatMap { url in url.isFileURL ? url : nil }
-            ?? (path.removingLastComponent().isEmpty && path.lastComponent?.kind == .regular ? nil : URL(filePath: name, directoryHint: .isDirectory))
-        if let located { return [try Self(at: located)] }
-        let process: ProcessInstance?
-        do throws(Errno) { process = try ProcessInstance(named: name) } catch { throw ApplicationFailure(error, process: name) }
-        if let process {
-            let executable: FilePath
-            do throws(Errno) { executable = try process.executable() } catch { throw ApplicationFailure(error, process: name) }
-            let enclosing: URL?
-            do {
-                enclosing = try sequence(first: URL(filePath: executable.string)) { url in url.pathComponents.count > 1 ? url.deletingLastPathComponent() : nil }
-                    .first { url in try url.resourceValues(forKeys: [.contentTypeKey]).contentType?.conforms(to: .applicationBundle) == true }
-            } catch {
-                throw ApplicationFailure(subject: executable.string, reason: .host(error as NSError))
-            }
-            guard let bundle = NSRunningApplication(processIdentifier: process.pid)?.bundleURL ?? enclosing else { throw ApplicationFailure(subject: executable.string, reason: .noIdentifier) }
-            return [try Self(at: bundle)]
-        }
-        let registered = try readable(await listed(NSWorkspace.shared.urlsForApplications(withBundleIdentifier: name).map { url in url.path(percentEncoded: false) }))
-        guard registered.isEmpty else { return registered }
-        let filed = try await listing(NSMetadataItemFSNameKey, .equalTo, [URL(filePath: name).appendingPathExtension(for: .applicationBundle).lastPathComponent])
-        let named = try await filed.isEmpty ? listing(NSMetadataItemDisplayNameKey, .equalTo, [name]) : filed
-        guard named.isEmpty else { return named }
-        var words: [String] = []
-        name.enumerateSubstrings(in: name.startIndex..., options: [.byWords, .substringNotRequired]) { _, range, _, _ in words.append(String(name[range])) }
-        throw ApplicationFailure(subject: name, reason: .unnamed(try await words.isEmpty ? [] : listing(NSMetadataItemDisplayNameKey, .contains, words).map(\.url)))
     }
 
     private static func metadataForm(of predicate: NSPredicate) -> NSPredicate? {
@@ -128,22 +73,5 @@ extension Installation {
                 ?? .failure(ApplicationFailure(subject: "Spotlight result \(index)", reason: .noPath))
         }
         return (reads.compactMap { read in read[case: \.success] }, reads.compactMap { read in read[case: \.failure] })
-    }
-}
-
-extension NSWorkspace {
-    @MainActor
-    public func instances(named name: String) async throws(ApplicationFailure) -> [Instance] {
-        switch Result(catching: { () throws(Errno) in try ProcessInstance(named: name) }) {
-            case .success(.some(let process)):
-                return [NSRunningApplication(processIdentifier: process.pid)].compactMap(\.self).compactMap { application in try? Instance(application) }.filter { instance in
-                    instance.process == process
-                }
-            case .failure(.noSuchProcess): return []
-            case .failure(let error): throw ApplicationFailure(error, process: name)
-            case .success(.none): break
-        }
-        let found = try await Installation.installed(named: name)
-        return instances { instance in found.contains { installation in installation.runs(instance) } }
     }
 }

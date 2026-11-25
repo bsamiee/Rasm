@@ -13,7 +13,7 @@ import Telemetry
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-private let identifierKey = kMDItemCFBundleIdentifier as String
+let identifierKey = kMDItemCFBundleIdentifier as String
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -28,12 +28,12 @@ public enum Request: Decodable, Sendable {
     case events(identifiers: [String])
     case pressure
     case nodes(instance: ProcessInstance, root: Element.ID?, depth: Int)
-    case launch(url: URL, documents: [URL], arguments: [String], environment: [String: String], new: Bool)
+    case handler(document: URL)
+    case launch(url: URL, documents: [URL], arguments: [String], environment: [String: String], new: Bool, opening: [String: AppleEventValue], wait: Bool)
     case act(instance: ProcessInstance, actions: [ElementAction])
-    case quit(instance: ProcessInstance, force: Bool)
+    case quit(instance: ProcessInstance, mode: Instance.Quit)
     case terms(url: URL)
-    case definition(url: URL, kind: ScriptingDictionary.Kind, name: String)
-    case execute(instance: ProcessInstance, command: String?, arguments: [String: AppleEventValue], artifacts: [URL])
+    case execute(instance: ProcessInstance, arguments: [String: AppleEventValue])
     case capture(instance: ProcessInstance, source: Source?, longestSide: LongestSide?)
     case preview(file: URL, longestSide: LongestSide)
     case diagnostics(application: Subject?, folders: [LogFolder], since: Double?, limit: Int)
@@ -98,7 +98,7 @@ private func selected(_ identifiers: [String], admitting: () -> NSPredicate) -> 
 }
 
 extension Request {
-    func perform(admitting: @escaping @Sendable () -> NSPredicate, refusing: @Sendable (Installation) -> Set<UInt64>, definitions: ScriptingDefinitions) async throws -> Response {
+    func perform(admitting: @escaping @Sendable () -> NSPredicate, definitions: ScriptingDefinitions) async throws -> Response {
         switch self {
             case .installations(let identifiers, let prefix):
                 let selected =
@@ -119,29 +119,40 @@ extension Request {
                 return .stream(SystemPressure.changes().map { pressure -> any Encodable & Sendable in Outcome(pressure) })
             case .nodes(let process, let root, let depth):
                 return try await .value(running(process, admitting: admitting).nodes(from: root, depth: depth))
-            case .launch(let url, let documents, let arguments, let environment, let new):
+            case .handler(let document):
+                return try .value(installation(at: Installation(opening: document).url, admitting: admitting))
+            case .launch(let url, let documents, let arguments, let environment, let new, let opening, let wait):
                 return try .stream(
-                    NSWorkspace.shared.launching(installation(at: url, admitting: admitting), opening: documents, arguments: arguments, environment: environment, newInstance: new)
-                        .map(\.self)
+                    NSWorkspace.shared.launching(
+                        installation(at: url, admitting: admitting),
+                        in: definitions,
+                        opening: documents,
+                        with: opening,
+                        arguments: arguments,
+                        environment: environment,
+                        newInstance: new,
+                        waiting: wait,
+                    )
+                    .map(\.self)
                 )
             case .act(let process, let actions):
                 let acted = try await running(process, admitting: admitting).act(actions)
                 return .value(Acted(outcomes: acted.outcomes.map(Outcome.init), state: acted.state))
-            case .quit(let process, let force):
+            case .quit(let process, let mode):
+                let instance = try running(process, admitting: admitting)
+                let scripted =
+                    try [.saving, .discarding].contains(mode) ? instance.application.bundleURL.map { url throws(ApplicationFailure) in try installation(at: url, admitting: admitting) } : nil
+                let dictionary: ScriptingDictionary? = if let scripted, scripted.scriptable { try await definitions.dictionary(of: scripted) } else { nil }
                 var last: InstanceState?
-                for await outcome in try running(process, admitting: admitting).quit(force ? .forcing : .asking) { last = try outcome.get() }
+                for await outcome in instance.quit(mode, in: dictionary) { last = try outcome.get() }
                 return .value(last)
             case .terms(let url):
                 return try await .value(definitions.dictionary(of: installation(at: url, admitting: admitting)))
-            case .definition(let url, let kind, let name):
-                return try await .value(definitions.dictionary(of: installation(at: url, admitting: admitting)).text(of: kind, named: name))
-            case .execute(let process, let command, let arguments, let artifacts):
-                let instance = try running(process, admitting: admitting)
-                guard let url = instance.application.bundleURL else { throw ApplicationFailure(subject: process.rawValue, reason: .noPath) }
-                let scripted = try installation(at: url, admitting: admitting)
-                let reply = try await definitions.dictionary(of: scripted)
-                    .reply(to: command, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: process.pid), refusing: refusing(scripted))
-                return .value(Executed(reply: reply, reading: artifacts))
+            case .execute(let process, let arguments):
+                guard let url = try running(process, admitting: admitting).application.bundleURL else { throw ApplicationFailure(subject: process.rawValue, reason: .noPath) }
+                return try await .value(
+                    definitions.dictionary(of: installation(at: url, admitting: admitting)).reply(to: nil, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: process.pid))
+                )
             case .capture(let process, let source, let longestSide):
                 let instance = try running(process, admitting: admitting)
                 let shots = try await instance.capture(source, to: Program.current.directory(.captures, of: instance.application.localizedName), preview: longestSide)
@@ -188,7 +199,6 @@ public func serve<Extra: Decodable & Sendable>(
     reading lines: @autoclosure @escaping @Sendable () -> any AsyncSequence<Data, any Error>,
     writing write: @escaping @Sendable (Data) throws -> Void,
     admitting: @escaping @Sendable () -> NSPredicate,
-    refusing: @escaping @Sendable (Installation) -> Set<UInt64>,
     cached: @escaping @Sendable (Installation) -> URL?,
     extending: @escaping @Sendable (Extra) async throws -> Response = { (_: Never) -> Response in },
 ) async throws(JSONRPCFailure) {
@@ -204,7 +214,7 @@ public func serve<Extra: Decodable & Sendable>(
             try await withTaskExecutorPreference(calls) {
                 switch served {
                     case .extra(let extra): try await extending(extra)
-                    case .request(let request): try await request.perform(admitting: admitting, refusing: refusing, definitions: definitions)
+                    case .request(let request): try await request.perform(admitting: admitting, definitions: definitions)
                 }
             }
         },

@@ -1,5 +1,5 @@
 public import AppKit
-import AppleEvents
+public import AppleEvents
 import AsyncAlgorithms
 public import CasePaths
 import CasePathsCore
@@ -13,7 +13,7 @@ public import System
 // --- [MODELS] --------------------------------------------------------------------------
 
 public struct Instance: Hashable, Sendable {
-    public enum Quit: Sendable {
+    public enum Quit: String, Decodable, Sendable {
         case asking
         case saving
         case discarding
@@ -290,16 +290,22 @@ extension Instance {
 
     public func quit(
         _ ending: Quit = .asking,
+        in dictionary: ScriptingDictionary? = nil,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> any AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable {
         let states = states(clock: clock)
-        guard let saving = ending.saveOptions else {
+        guard ending != .forcing else {
             return if application.forceTerminate() {
                 states.map(Result<InstanceState, ApplicationFailure>.success)
             } else {
                 [Result<InstanceState, ApplicationFailure>.failure(ApplicationFailure(subject: String(process.pid), reason: process.hasExited ? .noProcess : .refused(nil)))].async
             }
         }
+        let declared = dictionary?.commands.contains { command in
+            command.eventClass == AEEventClass(kCoreEventClass) && command.eventID == AEEventID(kAEQuitApplication)
+                && command.parameters.contains { parameter in parameter.code == AEKeyword(keyAESaveOptions) }
+        }
+        let saving = declared == true ? ending.saveOptions : nil
         return AsyncStream { output in
             let following = Task {
                 let (replies, reply) = AsyncStream<Result<InstanceState, ApplicationFailure>>.makeStream()
@@ -327,7 +333,7 @@ extension Instance {
         return await state { element in element.id == id }
     }
 
-    private func requestQuit(saving: OSType, answering reply: AsyncStream<Result<InstanceState, ApplicationFailure>>.Continuation, clock: some Clock<Duration> & Sendable) async {
+    private func requestQuit(saving: OSType?, answering reply: AsyncStream<Result<InstanceState, ApplicationFailure>>.Continuation, clock: some Clock<Duration> & Sendable) async {
         defer { reply.finish() }
         let request = NSAppleEventDescriptor(
             eventClass: AEEventClass(kCoreEventClass),
@@ -336,7 +342,7 @@ extension Instance {
             returnID: AEReturnID(kAutoGenerateReturnID),
             transactionID: AETransactionID(kAnyTransactionID),
         )
-        request.setParam(NSAppleEventDescriptor(enumCode: saving), forKeyword: keyAESaveOptions)
+        if let saving { request.setParam(NSAppleEventDescriptor(enumCode: saving), forKeyword: keyAESaveOptions) }
         let subject = String(process.pid)
         let outcome: Result<InstanceState, ApplicationFailure>?
         do throws(AppleEventFailure) {

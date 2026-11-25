@@ -28,14 +28,13 @@ private let properties = AppleEventValue.specifier(want: "prop", form: .property
 private let name = AppleEventValue.specifier(want: "prop", form: .property, seld: .type("name"), from: .null)
 private let raised: [String: AppleEventValue] = ["frontmost": .bool(true), "name": .text("Front")]
 private let renamed: [String: AppleEventValue] = ["name": .text("Front")]
-private let events: [(String, [String: AppleEventValue], [String], [String])] = [
-    ("set", ["direct": frontmost, "to": .bool(true)], [], ["activating"]),
-    ("set", ["direct": frontmost, "to": .bool(false)], [], ["activating"]),
-    ("set", ["direct": properties, "to": .record(type: DescType(typeAERecord), fields: raised)], [], ["activating"]),
-    ("set", ["direct": properties, "to": .record(type: DescType(typeAERecord), fields: renamed)], [], ["coresetd", "pALL"]),
-    ("set", ["direct": name, "to": .text("Front")], [], ["coresetd", "pnam"]),
-    ("set", ["direct": name, "to": .text("Front")], ["coresetd"], ["activating"]),
-    ("activate", [:], [], ["activating"]),
+private let events: [(String, [String: AppleEventValue], [String])] = [
+    ("set", ["direct": frontmost, "to": .bool(true)], ["activating"]),
+    ("set", ["direct": frontmost, "to": .bool(false)], ["activating"]),
+    ("set", ["direct": properties, "to": .record(type: DescType(typeAERecord), fields: raised)], ["activating"]),
+    ("set", ["direct": properties, "to": .record(type: DescType(typeAERecord), fields: renamed)], ["coresetd", "pALL"]),
+    ("set", ["direct": name, "to": .text("Front")], ["coresetd", "pnam"]),
+    ("activate", [:], ["activating"]),
 ]
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -47,11 +46,10 @@ struct EventTests {
     init() throws { dictionary = try ScriptingDictionary(definition: definition) }
 
     @Test(arguments: events)
-    func refusesEveryEventThatActivatesWritesTheFrontmostStateOrIsListedAsActivating(command: String, arguments: [String: AppleEventValue], refused: [String], outcome: [String]) throws {
-        let codes = Set(try refused.map { code in try #require(UInt64(sdef: code)) })
+    func refusesEveryEventThatActivatesOrWritesTheFrontmostState(command: String, arguments: [String: AppleEventValue], outcome: [String]) throws {
         let resolved = try dictionary.command(command, taking: Set(arguments.keys))
         let built = Result { () throws(AggregateError<AppleEventFailure>) in
-            try dictionary.event(resolved, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: getpid()), refusing: codes)
+            try dictionary.event(resolved, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: getpid()))
         }
         let observed: [String] =
             switch built {

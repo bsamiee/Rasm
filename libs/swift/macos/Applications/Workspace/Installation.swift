@@ -1,5 +1,7 @@
 public import AppKit
 import Files
+import OrderedCollections
+import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -15,6 +17,30 @@ private struct InfoFlag: Decodable {
 }
 
 private struct BundleInfo: Decodable {
+    struct DocumentType: Decodable {
+        private enum CodingKeys: String, CodingKey {
+            case role = "CFBundleTypeRole"
+            case extensions = "CFBundleTypeExtensions"
+            case contentTypes = "LSItemContentTypes"
+        }
+
+        let role: String?
+        let extensions: [String]?
+        let contentTypes: [String]?
+    }
+
+    struct URLType: Decodable {
+        private enum CodingKeys: String, CodingKey { case schemes = "CFBundleURLSchemes" }
+
+        let schemes: [String]?
+    }
+
+    struct ExportedType: Decodable {
+        private enum CodingKeys: String, CodingKey { case identifier = "UTTypeIdentifier" }
+
+        let identifier: String
+    }
+
     private enum CodingKeys: String, CodingKey {
         case identifier = "CFBundleIdentifier"
         case bundleName = "CFBundleName"
@@ -24,6 +50,12 @@ private struct BundleInfo: Decodable {
         case scriptingDefinitionIsDynamic = "OSAScriptingDefinitionIsDynamic"
         case agent = "LSUIElement"
         case backgroundOnly = "LSBackgroundOnly"
+        case documentTypes = "CFBundleDocumentTypes"
+        case urlTypes = "CFBundleURLTypes"
+        case exportedTypes = "UTExportedTypeDeclarations"
+        case multipleInstancesProhibited = "LSMultipleInstancesProhibited"
+        case environment = "LSEnvironment"
+        case claim = "ApplicationServerClaim"
     }
 
     let identifier: String?
@@ -34,6 +66,12 @@ private struct BundleInfo: Decodable {
     let scriptingDefinitionIsDynamic: InfoFlag?
     let agent: InfoFlag?
     let backgroundOnly: InfoFlag?
+    let documentTypes: [DocumentType]?
+    let urlTypes: [URLType]?
+    let exportedTypes: [ExportedType]?
+    let multipleInstancesProhibited: InfoFlag?
+    let environment: [String: String]?
+    let claim: Installation.Claim?
 
     var activationPolicy: NSApplication.ActivationPolicy {
         switch (backgroundOnly?.value, agent?.value) {
@@ -45,6 +83,22 @@ private struct BundleInfo: Decodable {
 }
 
 public struct Installation: Encodable, Hashable, Sendable {
+    public struct DocumentType: Encodable, Hashable, Sendable {
+        public let role: String?
+        public let extensions: [String]
+    }
+
+    public struct ExportedType: Encodable, Hashable, Sendable {
+        public let identifier: String
+        public let extensions: [String]
+    }
+
+    public struct Claim: Codable, Hashable, Sendable {
+        public let prefixes: [String]
+        public let server: String
+        public let scope: String
+    }
+
     public let url: URL
     public let executable: URL?
     public let identifier: String
@@ -56,6 +110,13 @@ public struct Installation: Encodable, Hashable, Sendable {
     public let scriptingDefinitionFile: String?
     public let scriptingDefinitionIsDynamic: Bool
     public let activationPolicy: String
+    public let documentTypes: [DocumentType]?
+    public let urlSchemes: [String]?
+    public let exportedTypes: [ExportedType]?
+    public let multipleInstancesProhibited: Bool?
+    public let environment: [String: String]?
+    public let architectures: [String]?
+    public let claim: Claim?
 }
 
 extension NSApplication.ActivationPolicy {
@@ -83,9 +144,11 @@ extension Installation {
             throw ApplicationFailure(subject: path, reason: .host(error as NSError))
         }
         guard let identifier = info?.identifier else { throw ApplicationFailure(subject: path, reason: .noIdentifier) }
+        let extensions: (String) -> [String] = { type in UTType(type)?.tags[.filenameExtension] ?? [] }
+        let loaded = Bundle(url: bundle)
         self.init(
             url: bundle,
-            executable: Bundle(url: bundle)?.executableURL,
+            executable: loaded?.executableURL,
             identifier: identifier,
             name: FileManager.default.displayName(atPath: path),
             bundleName: info?.bundleName,
@@ -95,18 +158,27 @@ extension Installation {
             scriptingDefinitionFile: info?.scriptingDefinitionFile,
             scriptingDefinitionIsDynamic: info?.scriptingDefinitionIsDynamic?.value == true,
             activationPolicy: (info?.activationPolicy ?? .regular).name,
+            documentTypes: info?.documentTypes.map { types in
+                OrderedDictionary<String?, [BundleInfo.DocumentType]>(grouping: types, by: \.role).map { role, declared in
+                    DocumentType(
+                        role: role,
+                        extensions: OrderedSet(declared.flatMap { type in (type.extensions ?? []) + (type.contentTypes ?? []).flatMap(extensions) }.map { tag in tag.lowercased() }).elements,
+                    )
+                }
+            },
+            urlSchemes: info?.urlTypes.map { types in OrderedSet(types.flatMap { type in type.schemes ?? [] }).elements },
+            exportedTypes: info?.exportedTypes?.map { type in ExportedType(identifier: type.identifier, extensions: extensions(type.identifier)) },
+            multipleInstancesProhibited: info?.multipleInstancesProhibited?.value,
+            environment: info?.environment,
+            architectures: loaded?.executableArchitectures?.map { architecture in
+                switch architecture.intValue {
+                    case NSBundleExecutableArchitectureARM64: "arm64"
+                    case NSBundleExecutableArchitectureX86_64: "x86_64"
+                    case let other: String(other)
+                }
+            },
+            claim: info?.claim,
         )
-    }
-
-    public static func preferred(of name: String, among installations: [Self]) throws(ApplicationFailure) -> Self {
-        let shared = Set(installations.map(\.identifier))
-        let registered =
-            installations.count > 1 && shared.count == 1
-            ? shared.first.flatMap(NSWorkspace.shared.urlForApplication(withBundleIdentifier:))?.resolvingSymlinksInPath().pathComponents : nil
-        guard let chosen = installations.count == 1 ? installations.first : installations.first(where: { installation in installation.url.pathComponents == registered }) else {
-            throw ApplicationFailure(subject: name, reason: .unnamed(installations.map(\.url)))
-        }
-        return chosen
     }
 
     public func runs(_ instance: NSRunningApplication) -> Bool {

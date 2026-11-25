@@ -14,8 +14,10 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
     @CasePathable
     public enum Reason: CaseLabeled, Equatable, Sendable {
         case noGrant(Grant)
+        case notResponsible(Grant, pid_t)
         case unanswered(ElementAction?)
         case noProcess
+        case reused(pid_t)
         case unreadable(FailedRead)
         case unresolved
         case foreign(pid_t)
@@ -34,7 +36,6 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
         case host(NSError)
         case cancelled
         case unmatched(Unmatched)
-        case unnamed([URL])
         case unwatched(FileFailure)
         case malformed(String)
     }
@@ -50,9 +51,12 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch reason {
             case .noGrant(let grant): "\(subject) lacks the \(grant.rawValue) grant, allow it in System Settings > Privacy & Security"
+            case .notResponsible(let grant, let process):
+                "\(subject) lacks the \(grant.rawValue) grant as process \(process) is responsible for it and holds none, start \(subject) responsible for itself"
             case .unanswered(.none): "\(subject) did not answer within messaging timeout"
             case .unanswered(.some): "\(subject) got no answer within messaging timeout, the action may have run"
             case .noProcess: "Process \(subject) exited"
+            case .reused(let process): "Arguments and environment reach a new process alone and \(subject) runs as process \(process), close it first"
             case .unreadable(let read):
                 "\(read.reads.joined(separator: ", ")) on \(read.role ?? "element")\(read.label.map { label in " \(String(reflecting: label))" } ?? "") failed with AXError \(read.error.rawValue)"
             case .unresolved: "\(subject) no longer exists in its app, read the app again for a current id"
@@ -73,9 +77,6 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .host(let error): "\(subject): \(error.localizedDescription)"
             case .cancelled: "Canceled \(subject)"
             case .unmatched(let miss): miss.errorDescription
-            case .unnamed(let candidates) where candidates.isEmpty: "\(subject) names no application"
-            case .unnamed(let candidates) where candidates.count == 1: "\(subject) names no application whole, pass the candidate holding its words"
-            case .unnamed: "\(subject) names no single application, pass one candidate"
             case .unwatched(let failure): failure.errorDescription
             case .malformed(let message): message
         }
@@ -89,8 +90,8 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .host(let error): [NSUnderlyingErrorKey: error]
             case .unwatched(let failure): [NSUnderlyingErrorKey: failure]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
-            case .noGrant, .unanswered, .unreadable, .unresolved, .foreign, .disabled, .unchanged, .refused, .noIdentifier, .noPath, .noHandler, .noWindow, .noImage,
-                .noExtension, .noEncoder, .cancelled, .unnamed, .malformed:
+            case .noGrant, .notResponsible, .unanswered, .reused, .unreadable, .unresolved, .foreign, .disabled, .unchanged, .refused, .noIdentifier, .noPath, .noHandler, .noWindow,
+                .noImage, .noExtension, .noEncoder, .cancelled, .malformed:
                 [:]
         }
     }
@@ -108,12 +109,14 @@ extension ApplicationFailure: Encodable {
         try fields.encodeIfPresent(errorDescription, forKey: .message)
         switch reason {
             case .noGrant(let grant): try fields.encode(grant, forKey: .grant)
-            case .foreign(let process): try fields.encode(process, forKey: .pid)
+            case .notResponsible(let grant, let process):
+                try fields.encode(grant, forKey: .grant)
+                try fields.encode(process, forKey: .pid)
+            case .foreign(let process), .reused(let process): try fields.encode(process, forKey: .pid)
             case .refused(.some(let error)): try fields.encode(error.rawValue, forKey: .error)
             case .unchanged(let value): try fields.encodeIfPresent(value, forKey: .value)
             case .unreadable(let read): try read.encode(to: encoder)
             case .unmatched(let miss): try fields.encode(miss.candidates, forKey: .candidates)
-            case .unnamed(let candidates): try fields.encode(candidates, forKey: .candidates)
             case .event(let failure): try fields.encodeIfPresent(failure.status, forKey: .status)
             case .system(let error): try fields.encode(error.rawValue, forKey: .error)
             case .unanswered, .noProcess, .unresolved, .disabled, .refused(.none), .noIdentifier, .noPath, .noHandler, .noWindow, .noImage, .noExtension, .noEncoder,
@@ -129,7 +132,7 @@ extension ApplicationFailure {
         let exited = process.flatMap { process in Result(catching: { () throws(Errno) in try ProcessInstance(of: process) }).is(\.failure) ? process : nil }
         self =
             switch (error, exited) {
-                case (.apiDisabled, _) where !Grant.accessibility.held: Self(subject: ProcessInfo.processInfo.processName, reason: .noGrant(.accessibility))
+                case (.apiDisabled, _) where !Grant.accessibility.held: Grant.accessibility.missing
                 case (.cannotComplete, .some(let process)), (.invalidUIElement, .some(let process)): Self(subject: String(process), reason: .noProcess)
                 case (.cannotComplete, .none): Self(subject: subject, reason: .unanswered(action))
                 case (_, _): otherwise()
