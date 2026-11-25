@@ -1,0 +1,93 @@
+{
+  "default-configuration": "Release",
+  "configurations": [
+    { "name": "Debug", "file": "Xcode.xcconfig" },
+    { "name": "Release", "file": "Xcode.xcconfig" },
+  ],
+  "localizations": {
+    "development": "en",
+    "supported": [
+      "Base",
+    ],
+  },
+  "packages": [
+    {
+      "kind": "local",
+      "path": "../../../..",
+    },
+  ],
+  "files": [
+    { "path": "../../../../.artifacts/vite/@rasm/rasad/server", "target-membership": [ "Rasad/copy/Embed Server" ] },
+    { "path": "<PROJECT>/../../../../Xcode.xcconfig" },
+    { "path": "AppIcon.icon", "target-membership": [ "Rasad/resources" ] },
+    {
+      "kind": "group",
+      "name": "Products",
+      "children": [
+        { "path": "<PRODUCTS>/Rasad.app", "id": "0242207610F3F1C0ED7B4216", "type": "wrapper.application", "index": false },
+      ],
+    },
+  ],
+  "targets": [
+    {
+      "name": "Rasad",
+      "id": "B158CBC0756D3517706F0FB7",
+      "product": "Products/Rasad.app",
+      "product-type": "application",
+      "build-phases": [
+        "compile-sources",
+        "frameworks",
+        "resources",
+        {
+          "kind": "copy",
+          "name": "Embed Server",
+          "bundle-base-path": "contents-directory",
+          "relative-path": "Helpers",
+        }, {
+          "kind": "script",
+          "name": "Sign Server",
+          "input-paths": [
+            "$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/server",
+            "$(SRCROOT)/$(CODE_SIGN_ENTITLEMENTS)",
+          ],
+          "output-paths": [
+            "$(DERIVED_FILE_DIR)/server.entitlements",
+            "$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LaunchAgents/$(PRODUCT_BUNDLE_IDENTIFIER).server.plist",
+          ],
+          "shell": "/bin/sh",
+          "script": [
+            "set -eu",
+            "label=\"$PRODUCT_BUNDLE_IDENTIFIER.server\"",
+            "plutil -convert xml1 -o \"$SCRIPT_OUTPUT_FILE_0\" \"$SCRIPT_INPUT_FILE_1\"",
+            "plutil -insert 'com\\.apple\\.security\\.cs\\.allow-jit' -bool YES \"$SCRIPT_OUTPUT_FILE_0\"",
+            "codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --identifier \"$label\" --options runtime --entitlements \"$SCRIPT_OUTPUT_FILE_0\" \"$SCRIPT_INPUT_FILE_0\"",
+            "mkdir -p \"${SCRIPT_OUTPUT_FILE_1%/*}\"",
+            "printf '{\"Label\":\"%s\",\"ProcessType\":\"Interactive\",\"KeepAlive\":true,\"ExitTimeOut\":30,\"BundleProgram\":\"Contents/Helpers/server\",\"SpawnConstraint\":{\"signing-identifier\":\"%s\",\"team-identifier\":\"%s\"}}' \"$label\" \"$label\" \"$DEVELOPMENT_TEAM\" | plutil -convert xml1 -o \"$SCRIPT_OUTPUT_FILE_1\" -",
+            "",
+          ],
+        },
+      ],
+      "package-product-members": [
+        {
+          "package": "..",
+          "product-name": "Rasad",
+          "build-phase": { "build-phase": "frameworks" },
+        },
+      ],
+      "build-settings": {
+        "AUTOMATION_APPLE_EVENTS": "YES",
+        "CODE_SIGN_ENTITLEMENTS": "Rasad.entitlements",
+        "INFOPLIST_FILE": "Info.plist",
+        "INFOPLIST_KEY_LSBackgroundOnly": "YES",
+        "INFOPLIST_KEY_NSAppleEventsUsageDescription": "Rasad sends scripting commands to apps when an MCP client requests them.",
+        "OTHER_CODE_SIGN_FLAGS": "--requirements \"=designated => identifier \\\"$(PRODUCT_BUNDLE_IDENTIFIER)\\\" and anchor apple generic and certificate leaf[subject.OU] = \\\"$(DEVELOPMENT_TEAM)\\\"\"",
+        "PRODUCT_BUNDLE_IDENTIFIER": "app.rasm.rasad",
+      },
+    },
+  ],
+  "build-settings": {
+    "MARKETING_VERSION": "0.1.0",
+  },
+  "last-upgrade": "27.2",
+  "last-swift-update": "27.2",
+}

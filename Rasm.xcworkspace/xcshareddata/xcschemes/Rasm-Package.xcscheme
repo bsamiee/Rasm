@@ -48,7 +48,7 @@
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Relay" BuildableName="Relay" BlueprintName="Relay" ReferencedContainer="container:"/>
             </BuildActionEntry>
             <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="watch-app" BuildableName="watch-app" BlueprintName="watch-app" ReferencedContainer="container:"/>
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Rasad" BuildableName="Rasad" BlueprintName="Rasad" ReferencedContainer="container:"/>
             </BuildActionEntry>
             <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Fixture" BuildableName="Fixture" BlueprintName="Fixture" ReferencedContainer="container:"/>
@@ -77,9 +77,6 @@
             </TestableReference>
             <TestableReference skipped="NO">
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ApplicationServerTests" BuildableName="ApplicationServerTests" BlueprintName="ApplicationServerTests" ReferencedContainer="container:"/>
-            </TestableReference>
-            <TestableReference skipped="NO">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="watch-appTests" BuildableName="watch-appTests" BlueprintName="watch-appTests" ReferencedContainer="container:"/>
             </TestableReference>
             <TestableReference skipped="NO">
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="FixtureTests" BuildableName="FixtureTests" BlueprintName="FixtureTests" ReferencedContainer="container:"/>

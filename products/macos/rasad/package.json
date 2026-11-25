@@ -1,0 +1,24 @@
+{
+    "name": "@rasm/rasad",
+    "private": true,
+    "description": "MCP server driving the installed Mac applications no specialised server claims through six universal tools, applications, view, inspect, act, execute_script, and diagnostics, with their events in every result",
+    "os": [
+        "darwin"
+    ],
+    "type": "module",
+    "imports": {
+        "#/*.json": "./*.json"
+    },
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@rasm/applications": "workspace:*",
+        "@rasm/mcp": "workspace:*",
+        "@rasm/telemetry": "workspace:*",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@rasm/vite": "workspace:*",
+        "@types/node": "catalog:",
+        "vite": "catalog:"
+    }
+}

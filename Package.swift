@@ -59,7 +59,8 @@ let modules: [Target] = [
         name: "Telemetry",
         dependencies: [
             "Encoding", "Files", .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"),
-            .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"), .product(name: "Tracing", package: "swift-distributed-tracing"),
+            .product(name: "OTelSemanticConventions", package: "swift-otel-semantic-conventions"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
+            .product(name: "Tracing", package: "swift-distributed-tracing"),
         ],
         path: "libs/swift/runtime/Telemetry",
     ),
@@ -70,7 +71,7 @@ let modules: [Target] = [
 
     // --- [DISTRIBUTION]
 
-    .target(name: "Updater", dependencies: [.product(name: "Sparkle", package: "Sparkle")], path: "libs/swift/distribution/Updater"),
+    .target(name: "Updater", dependencies: [.product(name: "Logging", package: "swift-log"), .product(name: "Sparkle", package: "Sparkle")], path: "libs/swift/distribution/Updater"),
 
     // --- [MACOS]
 
@@ -87,7 +88,7 @@ let modules: [Target] = [
         dependencies: [
             "AppleEvents", "Encoding", "Files", "Processes", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
             .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "OrderedCollections", package: "swift-collections"),
-            .product(name: "Logging", package: "swift-log"), .product(name: "Subprocess", package: "swift-subprocess"),
+            .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "libs/swift/macos/Applications",
     ),
@@ -96,7 +97,8 @@ let modules: [Target] = [
         dependencies: [
             "Applications", "Files", "Processes", "Telemetry", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Configuration", package: "swift-configuration"),
             .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"), .product(name: "OTel", package: "swift-otel"),
-            .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"), .product(name: "SystemMetrics", package: "swift-system-metrics"),
+            .product(name: "OTelSemanticConventions", package: "swift-otel-semantic-conventions"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
+            .product(name: "SystemMetrics", package: "swift-system-metrics"),
         ],
         path: "libs/swift/macos/CurrentProcess",
     ),
@@ -104,8 +106,9 @@ let modules: [Target] = [
     .target(
         name: "ApplicationServer",
         dependencies: [
-            "AppleEvents", "Applications", "CurrentProcess", "Files", "JSONRPC", "Processes", "Results", "ScreenCapture", "Telemetry",
-            .product(name: "Logging", package: "swift-log"),
+            "AppleEvents", "Applications", "CurrentProcess", "Encoding", "Files", "JSONRPC", "Processes", "Results", "ScreenCapture", "Telemetry", "Updater",
+            .product(name: "Logging", package: "swift-log"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
+            .product(name: "Tracing", package: "swift-distributed-tracing"), .product(name: "UnixSignals", package: "swift-service-lifecycle"),
         ],
         path: "libs/swift/macos/ApplicationServer",
     ),
@@ -113,11 +116,7 @@ let modules: [Target] = [
 let applications: [Target] = [
     .target(
         name: "Atelier",
-        dependencies: [
-            "ApplicationServer", "Applications", "CurrentProcess", "Encoding", "JSONRPC", "Results", "Telemetry", "Updater",
-            .product(name: "Logging", package: "swift-log"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
-            .product(name: "Tracing", package: "swift-distributed-tracing"), .product(name: "UnixSignals", package: "swift-service-lifecycle"),
-        ],
+        dependencies: ["ApplicationServer", "Applications"],
         path: "products/apps/creative-cloud/multi-app/atelier/macos",
         exclude: ["AppIcon.icon", "Atelier.entitlements", "Atelier.xcodeproj", "Info.plist"],
     ),
@@ -135,18 +134,10 @@ let applications: [Target] = [
         swiftSettings: [.defaultIsolation(MainActor.self)],
     ),
     .target(
-        name: "watch-app",
-        dependencies: [
-            "Applications", "CurrentProcess", "Encoding", "Files", "Processes", "ScreenCapture", "Telemetry",
-            .product(name: "ArgumentParser", package: "swift-argument-parser"), .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
-            .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "Configuration", package: "swift-configuration"),
-            .product(name: "Logging", package: "swift-log"), .product(name: "OrderedCollections", package: "swift-collections"),
-            .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"), .product(name: "Subprocess", package: "swift-subprocess"),
-            .product(name: "Tracing", package: "swift-distributed-tracing"), .product(name: "UnixSignals", package: "swift-service-lifecycle"),
-        ],
-        path: "products/macos/watch-app",
-        exclude: ["AppIcon.icon", "watch-app.entitlements", "watch-app.xcodeproj"],
-        swiftSettings: [.unsafeFlags(["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "watch_app_main"])],
+        name: "Rasad",
+        dependencies: ["ApplicationServer"],
+        path: "products/macos/rasad/macos",
+        exclude: ["AppIcon.icon", "Info.plist", "Rasad.entitlements", "Rasad.xcodeproj"],
     ),
 ]
 let support: [Target] = [
@@ -212,13 +203,6 @@ let tests: [Target] = [
         ],
         path: "tests/libs/swift/macos/ApplicationServer",
     ),
-    .testTarget(
-        name: "watch-appTests",
-        dependencies: [
-            "ScreenCapture", "watch-app", .product(name: "ArgumentParser", package: "swift-argument-parser"), .product(name: "CustomDump", package: "swift-custom-dump"),
-        ],
-        path: "tests/products/macos/watch-app",
-    ),
 ]
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -237,7 +221,6 @@ let package = Package(
 
         // --- [SYSTEM]
 
-        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.8.2"),
         .package(url: "https://github.com/apple/swift-configuration", from: "1.5.0"),
         .package(url: "https://github.com/swift-server/swift-service-lifecycle", from: "2.13.0"),
         .package(url: "https://github.com/swiftlang/swift-subprocess", from: "1.0.2"),
@@ -247,6 +230,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-distributed-tracing", from: "1.7.4"),
         .package(url: "https://github.com/apple/swift-log", from: "1.17.2"),
         .package(url: "https://github.com/swift-otel/swift-otel", from: "1.6.1", traits: ["OTLPHTTP"]),
+        .package(url: "https://github.com/swift-otel/swift-otel-semantic-conventions", from: "1.44.0"),
         .package(url: "https://github.com/apple/swift-system-metrics", from: "1.3.1"),
 
         // --- [DISTRIBUTION]

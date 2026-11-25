@@ -11,6 +11,6 @@
       location = "group:products/macos/relay/Relay.xcodeproj">
    </FileRef>
    <FileRef
-      location = "group:products/macos/watch-app/watch-app.xcodeproj">
+      location = "group:products/macos/rasad/macos/Rasad.xcodeproj">
    </FileRef>
 </Workspace>
