@@ -87,9 +87,11 @@ const ran = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<strin
 const spawned = (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) =>
     Effect.flatMap(ran(argv, options), ({ invoked, stdout, said, code }) => (code === 0 ? Effect.succeed(stdout) : new Cause.UnknownError(code, [`${invoked} exits ${code}`, ...Option.toArray(Array.findFirst([said.trim(), stdout.trim()], String.isNonEmpty))].join(': '))));
 
-const within = (at: string) => !(at.startsWith('..') || at.split('/').includes('node_modules'));
+const inside = (folder: string) => (file: string) => Predicate.and(Predicate.not(isAbsolute), (at: string) => Array.headNonEmpty(String.split(normalizePath(at), '/')) !== '..')(relative(folder, file));
 
-const tokened = (root: string) => (at: string) => (root === '.' || posix.relative(root, at).startsWith('..') ? posix.join('{workspaceRoot}', at) : posix.join('{projectRoot}', posix.relative(root, at)));
+const within = (at: string) => inside('.')(at) && !at.split('/').includes('node_modules');
+
+const tokened = (root: string) => (at: string) => (root !== '.' && inside(root)(at) ? posix.join('{projectRoot}', posix.relative(root, at)) : posix.join('{workspaceRoot}', at));
 
 const namedInput = (root: string, context: CreateNodesContext) => ('production' in getNamedInputs(root, context) ? 'production' : 'default');
 
@@ -223,4 +225,4 @@ const aggregated = (verbs: Verbs, stated: Stated, technology: string, { workspac
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { above, aggregated, type Anchor, anchored, batched, dried, EXEC, EXECUTORS, executor, extended, fingerprinted, inferring, manifested, Named, namedInput, packaged, parsed, type Pass, PLATFORM, ran, recalled, type Run, run, runner, spawned, Stated, stamped, tagged, tokened, type Verbs, Words, within };
+export { above, aggregated, type Anchor, anchored, batched, dried, EXEC, EXECUTORS, executor, extended, fingerprinted, inferring, inside, manifested, Named, namedInput, packaged, parsed, type Pass, PLATFORM, ran, recalled, type Run, run, runner, spawned, Stated, stamped, tagged, tokened, type Verbs, Words, within };

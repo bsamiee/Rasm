@@ -1,5 +1,5 @@
 import { homedir, hostname, tmpdir, userInfo } from 'node:os';
-import { isAbsolute, join, normalize, relative, resolve } from 'node:path';
+import { isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
 import { createConformanceRule } from '@nx/conformance';
 import { getOutputsForTargetAndConfiguration, readNxJson } from '@nx/devkit';
 import { createTaskId } from '@nx/devkit/internal';
@@ -31,7 +31,7 @@ const machined = (root: string, text: string) => [root, ...FOLDERS].some((folder
 const outside = (root: string, project: string, text: string) =>
     text.split(WORD).filter((word) => {
         const path = word.replaceAll('{workspaceRoot}', root).replaceAll('{projectRoot}', project);
-        return (path.split('/').includes('..') || isAbsolute(path)) && [root, project].every((base) => relative(root, resolve(base, path)).startsWith('..'));
+        return (path.split('/').includes('..') || isAbsolute(path)) && [root, project].every((base) => relative(root, resolve(base, path)).split(sep)[0] === '..');
     });
 
 const reaching = (edges: Record.ReadonlyRecord<string, readonly string[]>, held: ReadonlySet<string>): ReadonlySet<string> => {

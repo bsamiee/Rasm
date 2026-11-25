@@ -99,6 +99,30 @@ describe('inferred projects', () => {
         expect(Record.map(graph.nodes, ({ data }) => data.root)).toStrictEqual({ fixture_core: 'libs/core', fixture_tool: 'apps/tool' });
     });
 
+    it('infers a member whose folder name starts with two dots as its own project, owning its sources and the links naming it', async ({ workspace }) => {
+        const graph = await workspace
+            .write({
+                'cpp/CMakePresets.json': presets,
+                'cpp/CMakeLists.txt': 'cmake_minimum_required(VERSION 4.5)\nproject(Fixture LANGUAGES CXX)\nadd_subdirectory(..core)\nadd_subdirectory(tool)\n',
+                'cpp/..core/CMakeLists.txt': 'project(fixture_core LANGUAGES CXX)\nadd_library(fixture_core STATIC core.cpp)\n',
+                'cpp/..core/core.cpp': 'int one() { return 1; }\n',
+                'cpp/tool/CMakeLists.txt': 'project(fixture_tool LANGUAGES CXX)\ninclude(..cmake/flags.cmake)\nadd_executable(fixture_tool main.cpp)\ntarget_link_libraries(fixture_tool PRIVATE fixture_core)\n',
+                'cpp/tool/..cmake/flags.cmake': 'set(CMAKE_CXX_STANDARD 20)\n',
+                'cpp/tool/main.cpp': 'int one();\n\nint main() { return one() == 1 ? 0 : 1; }\n',
+            })
+            .graph(cmake);
+
+        expect({
+            roots: Record.map(graph.nodes, ({ data }) => data.root),
+            sources: graph.nodes['fixture_core']?.data.namedInputs?.['default']?.filter(Predicate.isString).toSorted(),
+            links: graph.dependencies['fixture_tool'],
+        }).toStrictEqual({
+            roots: { fixture_core: 'cpp/..core', fixture_tool: 'cpp/tool' },
+            sources: ['{projectRoot}/**/*', '{workspaceRoot}/cpp/..core/CMakeLists.txt', '{workspaceRoot}/cpp/CMakeLists.txt', '{workspaceRoot}/cpp/CMakePresets.json'],
+            links: [{ source: 'fixture_tool', target: 'fixture_core', type: 'static' }],
+        });
+    });
+
     it('infers the same projects, targets, and dependencies with no cmake, ninja, or compiler on PATH', async ({ workspace }) => {
         pathed(join(workspace.root, '.bin'), {});
         const bare = await workspace.write(rich).graph(cmake, { outputPath: '.artifacts/cmake/{projectName}', coveragePath: '.artifacts/coverage/{projectName}' });

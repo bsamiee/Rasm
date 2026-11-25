@@ -54,6 +54,14 @@ describe('clean executor', () => {
         expect(['lib/packed', 'lib'].filter((file) => existsSync(join(workspace.root, file)))).toStrictEqual(['lib']);
     });
 
+    it('removes a folder under the project root a removal left empty whose name starts with two dots', async ({ workspace }) => {
+        const graph = await workspace.write({ ...lib, '.gitignore': `${lib['.gitignore']}..cache\n`, 'lib/..cache/out/built.txt': 'built', 'lib/project.json': JSON.stringify({ name: 'lib', targets: { cache: { executor: 'nx:noop', outputs: ['{projectRoot}/..cache/out'] } } }) }).graph({});
+
+        await execute({ targets: ['cache'], commands: [], cwd: '.', folders: [] }, workspace.context(graph, 'lib', 'clean'));
+
+        expect(['lib/..cache/out', 'lib/..cache', 'lib'].filter((file) => existsSync(join(workspace.root, file)))).toStrictEqual(['lib']);
+    });
+
     it('removes the outputs of every configuration of a target', async ({ workspace }) => {
         const graph = await workspace.write(lib).graph({});
 

@@ -41,6 +41,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
         '.gitignore': '.env*\n',
         'docs/guide.md': '# Guide\n',
         'tools/vite/base.ts': "export const outDir = 'dist';\n",
+        '..tools/vite/served.ts': "export const base = '/';\n",
         'libs/plugin/package.json': '{"name":"plugin","type":"module","exports":"./index.js"}',
         'libs/plugin/index.js': "export const named = 'plugin';\n",
         'node_modules/dep/package.json': '{"name":"dep","type":"module","exports":"./index.js"}',
@@ -50,7 +51,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
         'apps/web/index.html': '<!doctype html>\n',
         'apps/web/main.ts': 'export {};\n',
         'apps/web/main.spec.ts': 'export {};\n',
-        'apps/web/vite.config.ts': "import { define } from 'dep';\nimport { named } from 'plugin';\nimport { outDir } from '../../tools/vite/base';\n\nexport default { define, build: { outDir }, plugins: [{ name: named }] };\n",
+        'apps/web/vite.config.ts': "import { define } from 'dep';\nimport { named } from 'plugin';\nimport { outDir } from '../../tools/vite/base';\nimport { base } from '../../..tools/vite/served';\n\nexport default { base, define, build: { outDir }, plugins: [{ name: named }] };\n",
     });
     symlinkSync(join(workspace.root, 'libs/plugin'), join(workspace.root, 'node_modules/plugin'), 'dir');
 });
@@ -60,6 +61,7 @@ describe('what build--vite hashes', () => {
         { case: 'a project source file', edit: { 'apps/web/main.ts': 'export const changed = 1;\n' }, changes: true },
         { case: 'a project spec file the production input leaves out', edit: { 'apps/web/main.spec.ts': 'export const changed = 1;\n' }, changes: false },
         { case: 'a workspace file the config imports from outside the project', edit: { 'tools/vite/base.ts': "export const outDir = 'dist';\nexport const unused = 1;\n" }, changes: true },
+        { case: 'a workspace file the config imports from a two-dot folder outside the project', edit: { '..tools/vite/served.ts': "export const base = '/';\nexport const unused = 1;\n" }, changes: true },
         { case: 'the source of a workspace package the config imports', edit: { 'libs/plugin/index.js': "export const named = 'plugin';\nexport const unused = 1;\n" }, changes: true },
         { case: 'the compilerOptions of a tsconfig outside the project its extends chain reaches', edit: { 'tsconfig.shared.json': '{"extends":"./tsconfig.base.json","compilerOptions":{"jsx":"preserve"}}' }, changes: true },
         { case: 'the include list of that tsconfig, which vite build never reads', edit: { 'tsconfig.shared.json': '{"extends":"./tsconfig.base.json","compilerOptions":{"jsx":"react-jsx"},"include":["src"]}' }, changes: false },

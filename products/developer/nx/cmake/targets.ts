@@ -1,7 +1,7 @@
 import { posix } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
-import { above, type Anchor, aggregated, EXECUTORS, PLATFORM, type Stated, tokened, type Verbs } from '@rasm/nx';
+import { above, type Anchor, aggregated, EXECUTORS, inside, PLATFORM, type Stated, tokened, type Verbs } from '@rasm/nx';
 import { Array, Option, Record, UndefinedOr } from 'effect';
 import { configured, PACKAGING, REGISTRY, type Tree, WORKING, type Workflow } from '#/workspace';
 
@@ -18,7 +18,7 @@ const line = (argv: readonly string[]) => argv.map(shelled).join(' ');
 
 const memberInputs = (tree: Tree, member: Tree['members'][number], head: Workflow, stated: TargetConfiguration['inputs']) => [
     ...(stated ?? ['{projectRoot}/**/*']),
-    ...tree.inputs.filter((file) => !tree.members.some(({ root }) => root !== tree.root && root !== member.root && !posix.relative(root, file).startsWith('..'))).map(tokened('.')),
+    ...tree.inputs.filter((file) => !tree.members.some(({ root }) => root !== tree.root && root !== member.root && inside(root)(file))).map(tokened('.')),
     { runtime: 'cmake --version' },
     ...Array.fromNullishOr(head.toolchain).map((file) => ({ runtime: line(['cmake', `-DTOOLCHAIN=${file}`, '-P', tree.identifier]) })),
     ...(tree.inputs.some((file) => posix.basename(file) === REGISTRY.manifest) ? [{ runtime: 'vcpkg version' }] : []),

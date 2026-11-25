@@ -2,7 +2,7 @@ import { isAbsolute, join } from 'node:path';
 import { arch, platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import type { ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
-import { EXECUTORS, PLATFORM, type Verbs } from '@rasm/nx';
+import { EXECUTORS, inside, PLATFORM, type Verbs } from '@rasm/nx';
 import { type Array, Cause, Effect, FileSystem, Schema } from 'effect';
 import type { Run } from '#/executors/run/executor';
 import plugin from '#/package.json' with { type: 'json' };
@@ -59,7 +59,7 @@ const analyzer = Effect.try({ try: () => fileURLToPath(import.meta.resolve(`${CO
     Effect.catchReason('PlatformError', 'NotFound', (cause) => new Cause.UnknownError(cause, `the ${CORE} core is absent, ${BUILDER} builds it`)),
 );
 
-const tokened = (at: string) => (isAbsolute(at) || at.startsWith('..') ? [] : [join('{workspaceRoot}', at)]);
+const tokened = (at: string) => (!isAbsolute(at) && inside('.')(at) ? [join('{workspaceRoot}', at)] : []);
 
 const sequenced = (runs: Run['runs'], metadata: NonNullable<TargetConfiguration['metadata']>, { options, ...extra }: Partial<TargetConfiguration<Partial<Run>>> = {}): TargetConfiguration => ({
     executor: `${PLUGIN}:run`,

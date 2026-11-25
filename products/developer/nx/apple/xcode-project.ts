@@ -1,6 +1,6 @@
 import { basename, dirname, extname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
-import { EXECUTORS, type Verbs } from '@rasm/nx';
+import { EXECUTORS, inside, type Verbs } from '@rasm/nx';
 import { Array, Option, Predicate, Record, Schema, Struct, UndefinedOr } from 'effect';
 import type { Run } from '#/executors/run/executor';
 import { RESOLVED } from '#/swift-package';
@@ -45,10 +45,9 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
     const archived = Array.cartesianWith(Array.fromNullishOr(options.outputPath), archives, (at, { scheme, configuration, feed }) => {
         const folder = join(at, scheme);
         const archive = join(folder, `${scheme}.xcarchive`);
-        const placed = relative(root, folder);
-        return { feed, folder, archive, base: placed.startsWith('..') ? join('{workspaceRoot}', folder) : join('{projectRoot}', placed), run: invoke('archive', scheme, ['-archivePath', archive, '-configuration', configuration]) };
+        return { feed, folder, archive, base: inside(root)(folder) ? join('{projectRoot}', relative(root, folder)) : join('{workspaceRoot}', folder), run: invoke('archive', scheme, ['-archivePath', archive, '-configuration', configuration]) };
     });
-    const referenced = container.buildFiles.filter((at) => relative(root, at).startsWith('..')).flatMap((at) => tokened(at).flatMap((input) => [input, join(input, '**/*'), ...[at, join(at, '**/*')].map((output) => ({ dependentTasksOutputFiles: output }))]));
+    const referenced = container.buildFiles.filter(Predicate.not(inside(root))).flatMap((at) => tokened(at).flatMap((input) => [input, join(input, '**/*'), ...[at, join(at, '**/*')].map((output) => ({ dependentTasksOutputFiles: output }))]));
     const read = Array.dedupe(['{projectRoot}/**/*', ...inputs, ...referenced, ...[lock, ...Option.toArray(seed)].flatMap(tokened), ...(workspace ? tokened(join(built, 'contents.xcworkspacedata')) : []), { runtime: 'xcodebuild -version' }, ...INPUTS]);
     const released = extname(dirname(file)) === '.xcodeproj' && Array.isReadonlyArrayNonEmpty(archived);
     const fed = released ? archived.filter(Struct.get('feed')) : [];

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, normalizePath, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, type TargetConfiguration, type TaskResult } from '@nx/devkit';
 import { combineGlobPatterns, emitPluginWorkerLog, quoteShellArg } from '@nx/devkit/internal';
-import { above, type Anchor, aggregated, anchored, EXEC, EXECUTORS, inferring, manifested, namedInput, run, tagged, type Verbs } from '@rasm/nx';
+import { above, type Anchor, aggregated, anchored, EXEC, EXECUTORS, inferring, inside, manifested, namedInput, run, tagged, type Verbs } from '@rasm/nx';
 import { Array, Config, Duration, Effect, FileSystem, Formatter, Function, Option, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http';
 import { FOLDERS, HOSTS, type Host, routed } from '#/host-packages';
@@ -154,7 +154,7 @@ const placed = (operation: keyof typeof FOLDERS) => `{options.outputPath}/${FOLD
 const projects = (declared: Effect.Success<ReturnType<typeof read>>['declared'], settings: Options, context: CreateNodesContext, anchor: Anchor) => {
     const identified = ['node', normalizePath(relative(anchor.workspaceRoot, fileURLToPath(import.meta.resolve('#/host-packages'))))];
     const hosts = Function.memoize((item: (typeof declared)[number]) =>
-        item.fields.folders === undefined ? declared.filter((other) => (other.fields.folders ?? []).some((folder) => !posix.relative(posix.join(other.root, folder), item.root).startsWith('..')) && !(other.fields.references ?? []).some((reference) => reference.name === item.fields.name && !reference.enabled)) : [item],
+        item.fields.folders === undefined ? declared.filter((other) => (other.fields.folders ?? []).some((folder) => inside(posix.join(other.root, folder))(item.root)) && !(other.fields.references ?? []).some((reference) => reference.name === item.fields.name && !reference.enabled)) : [item],
     );
     const uses = Function.memoize((item: (typeof declared)[number]) => declared.filter((other) => other !== item && (item.fields.references ?? []).some((reference) => reference.enabled && reference.name === other.fields.name)));
     const [ran, release] = [`${EXEC[detectPackageManager(context.workspaceRoot)]} nx run --help`, tagged(context.nxJsonConfiguration)];

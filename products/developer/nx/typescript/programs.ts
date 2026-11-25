@@ -3,9 +3,9 @@ import { basename, dirname, extname, join, posix, relative, resolve } from 'node
 import { pathToFileURL } from 'node:url';
 import { hashArray, normalizePath, type PackageManager, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { findProjectForPath, getFilesInDirectoryUsingContext, getLockFileName, globWithWorkspaceContext, hashFile, hashWithWorkspaceContext, PluginCache, type ProjectRootMappings, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { type Anchor, EXEC, EXECUTORS, type Stated, tokened, type Verbs, within } from '@rasm/nx';
+import { type Anchor, EXEC, EXECUTORS, inside, type Stated, tokened, type Verbs, within } from '@rasm/nx';
 import type { API, ParsedCommandLine } from '@typescript/native/sync';
-import { Array, Cause, Effect, FileSystem, Function, Option, Result, UndefinedOr } from 'effect';
+import { Array, Cause, Effect, FileSystem, Function, Option, Predicate, Result, UndefinedOr } from 'effect';
 import { MANIFEST, projected } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -61,7 +61,7 @@ const resolved = (workspaceRoot: string, solution: Effect.Success<ReturnType<typ
         const configs = checked.map(({ file }) => relative(folder, file));
         const placed = holding.map(({ file, loaded, parsed: { options, projectReferences = [] } }) => {
             const offset = options.outDir === undefined || options.rootDir === undefined ? '.' : relative(options.rootDir, dirname(file));
-            const base = join(options.outDir ?? dirname(file), offset.startsWith('..') ? '.' : offset);
+            const base = join(options.outDir ?? dirname(file), inside('.')(offset) ? offset : '.');
             const scripts = options.emitDeclarationOnly === true ? [] : [join(base, `**/*.{js,cjs,mjs,jsx}${options.sourceMap === true ? '{,.map}' : ''}`), ...(loaded.some((at) => extname(at) === '.json') ? [join(base, '**/*.json')] : [])];
             const declarations = options.declaration === true || options.composite === true ? [join(options.declarationDir ?? base, `**/*.{d.ts,d.cts,d.mts}${options.declarationMap === true ? '{,.map}' : ''}`)] : [];
             return {
@@ -80,7 +80,7 @@ const resolved = (workspaceRoot: string, solution: Effect.Success<ReturnType<typ
     });
 
 const keyed = Effect.fnUntraced(function* (workspaceRoot: string, row: string, lock: string, rows: readonly (readonly [config: string, sources: readonly string[]])[]) {
-    const folders = rows.map(([config, sources]) => [dirname(config), ...Array.dedupe(sources.filter((at) => posix.relative(dirname(config), at).startsWith('..')).map(posix.dirname))] as const);
+    const folders = rows.map(([config, sources]) => [dirname(config), ...Array.dedupe(sources.filter(Predicate.not(inside(dirname(config)))).map(posix.dirname))] as const);
     const listed = Array.dedupe(folders.flat());
     const [listings, stamps, tracked] = yield* Effect.all(
         [

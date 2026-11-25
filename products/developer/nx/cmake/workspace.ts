@@ -3,7 +3,7 @@ import { basename, delimiter, join, posix, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { normalizePath } from '@nx/devkit';
-import { runner } from '@rasm/nx';
+import { inside, runner } from '@rasm/nx';
 import { Array, Cause, Combiner, Context, Effect, Equal, FileSystem, Function, Graph, Layer, Match, Option, Predicate, Record, Result, Schema, SchemaTransformation, SemVer } from 'effect';
 import plugin from '#/package.json' with { type: 'json' };
 
@@ -56,8 +56,6 @@ class Linked extends Context.Service<Linked, Map<string, Tree['members']>>()(`${
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const inside = (folder: string) => (file: string) => !posix.relative(folder, file).startsWith('..');
 
 const commands = (text: string) => {
     const [, tokens] = Array.mapAccum(

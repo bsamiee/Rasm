@@ -3,7 +3,7 @@ import { getOutputsForTargetAndConfiguration } from '@nx/devkit';
 import { globWithWorkspaceContext, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Config, Effect, FileSystem, Filter, Glob, Order, Path, Record, Schema } from 'effect';
 import { getFilesForOutputsBatch } from 'nx/src/native';
-import { above, executor, spawned, Words } from '#/inference';
+import { above, executor, inside, spawned, Words } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -47,7 +47,7 @@ const execute = executor(Clean, function* ({ targets, commands, cwd, folders, pa
             return [base, ...swept];
         }),
     );
-    const parents = Array.dedupe(removed.flat().flatMap((at) => above(posix.dirname(at)))).filter((parent) => parent !== node.data.root && !posix.relative(node.data.root, parent).startsWith('..'));
+    const parents = Array.dedupe(removed.flat().flatMap((at) => above(posix.dirname(at)))).filter((parent) => parent !== node.data.root && inside(node.data.root)(parent));
     yield* Effect.forEach(
         Array.sort(parents, Order.flip(Order.String)),
         Effect.fnUntraced(function* (parent) {
@@ -60,7 +60,7 @@ const execute = executor(Clean, function* ({ targets, commands, cwd, folders, pa
         folders,
         Effect.fnUntraced(function* ([variable, ...segments]) {
             const folder = path.join(yield* Config.String(variable), ...segments);
-            const entries = (yield* fs.glob('*', { root: folder, dot: true })).map((entry) => path.join(folder, entry)).filter((entry) => path.relative(entry, workspaceDataDirectory).startsWith('..'));
+            const entries = (yield* fs.glob('*', { root: folder, dot: true })).map((entry) => path.join(folder, entry)).filter((entry) => !inside(entry)(workspaceDataDirectory));
             yield* Effect.forEach(entries, (entry) => Effect.andThen(fs.remove(entry, { recursive: true, force: true }), Effect.logInfo(`Removed ${entry}`)), { discard: true });
         }),
         { discard: true },

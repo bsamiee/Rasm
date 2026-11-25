@@ -1,7 +1,7 @@
 import { posix } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
-import { type Anchor, above, aggregated, EXECUTORS, PLATFORM, type Stated, type Verbs } from '@rasm/nx';
+import { type Anchor, above, aggregated, EXECUTORS, inside, PLATFORM, type Stated, type Verbs } from '@rasm/nx';
 import { Array, Function, identity, Option, pipe, Record, Schema, Struct, UndefinedOr } from 'effect';
 import type { Member } from '#/workspace';
 
@@ -109,13 +109,13 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
     const distributions = Option.fromUndefinedOr(outputPath);
     const folder = Option.getOrElse(distributions, () => posix.join(member.workspace, 'dist'));
     const environed = Option.fromUndefinedOr(environmentPath);
-    const built = [posix.relative(member.root, folder)].filter((held) => !held.startsWith('..')).map((held) => `!${posix.join('{projectRoot}', held, '**', '*')}`);
+    const built = [folder].filter(inside(member.root)).map((held) => `!${posix.join('{projectRoot}', posix.relative(member.root, held), '**', '*')}`);
     const settings = [...UV.pins, UV.settings].map((file) => posix.join('{workspaceRoot}', member.workspace, file));
     const project = [...settings, posix.join('{workspaceRoot}', member.lock)];
     const checked = member.checks.map((stated) => {
         const row = CHECKERS[stated.key];
         const { cwd } = stated;
-        const outside = posix.relative(member.workspace, cwd).startsWith('..');
+        const outside = !inside(member.workspace)(cwd);
         const config = UndefinedOr.map(stated.config, (file) => posix.relative(cwd, file));
         const [environment, kept] = [Option.map(environed, (at) => posix.join(at, stated.group ?? '.venv')), Option.map(environed, (at) => posix.join(at, `.${stated.key}_cache`))];
         const argv = [

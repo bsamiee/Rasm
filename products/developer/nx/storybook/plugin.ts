@@ -7,7 +7,7 @@ import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, normal
 import { quoteShellArg } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import web from '@nx/web/package.json' with { type: 'json' };
-import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, type Pass, run, tokened, type Verbs, within } from '@rasm/nx';
+import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, inside, manifested, namedInput, packaged, type Pass, run, tokened, type Verbs, within } from '@rasm/nx';
 import { Array, Cause, Effect, Option, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -47,7 +47,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
     return {
         packages: [...framed, ...reached],
         linked,
-        globs: Array.dedupe(stories.map(({ directory, files }) => posix.join(directory, braced(files)))).filter((at) => !at.startsWith('..')),
+        globs: Array.dedupe(stories.map(({ directory, files }) => posix.join(directory, braced(files)))).filter(inside('.')),
         runner: Option.isSome(Option.liftThrowable(findPackageJSON)(RUNNER, main)),
         sources: Array.dedupe(Array.getSomes(loaded.map(([url]) => local(url)))).filter(within),
     };

@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { detectPackageManager } from '@nx/devkit';
-import { dried, executor, spawned } from '@rasm/nx';
+import { dried, executor, inside, spawned } from '@rasm/nx';
 import { Array, Boolean, Cause, DateTime, Effect, FileSystem, Match, Option, Order, Predicate, Record, Result, Schema, SemVer, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
 import npa from 'npm-package-arg';
@@ -151,7 +151,7 @@ const execute = executor(Upgrade, function* ({ catalogs, supported, dryRun }, co
     );
     yield* Match.value({ store, dry }).pipe(
         Match.when({ store: Option.isNone }, () => Effect.void),
-        Match.when({ store: { value: (at: string) => !(at.startsWith('..') || isAbsolute(at)) } }, ({ store: { value } }) => Effect.logInfo(`Keeps ${value} whole, as ${manager} registers no workspace holding its store and ${CommandLine.display(pruning)} there removes every package the workspace installed`)),
+        Match.when({ store: { value: (at: string) => !isAbsolute(at) && inside('.')(at) } }, ({ store: { value } }) => Effect.logInfo(`Keeps ${value} whole, as ${manager} registers no workspace holding its store and ${CommandLine.display(pruning)} there removes every package the workspace installed`)),
         Match.when({ dry: true }, () => Effect.logInfo(`Would run ${CommandLine.display(pruning)}`)),
         Match.orElse(() => spawned(pruning, shell)),
     );

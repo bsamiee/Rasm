@@ -1,7 +1,7 @@
-import { basename, dirname, isAbsolute, join, posix, relative, resolve } from 'node:path';
+import { basename, dirname, join, posix, relative, resolve } from 'node:path';
 import { parse } from '@decimalturn/toml-patch';
 import { normalizePath } from '@nx/devkit';
-import { above, runner, Stated, spawned } from '@rasm/nx';
+import { above, inside, runner, Stated, spawned } from '@rasm/nx';
 import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Function, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
 import plugin from '#/package.json' with { type: 'json' };
 
@@ -172,7 +172,6 @@ const variable = (key: string) => key.toUpperCase().replaceAll(/[-.]/gu, '_');
 
 const resolved = (workspaceRoot: string, { metadata, profile, host, configs, clippy, unstable, unification, layouts, deny }: Reading, files: ReadonlySet<string>) => {
     const within = (at: string) => normalizePath(relative(workspaceRoot, at)) || '.';
-    const inside = (at: string) => Option.liftPredicate(within(at), (folder) => !(folder.startsWith('..') || isAbsolute(folder)));
     const root = within(metadata.workspace_root);
     const profiles = Record.keys(Record.filter(profile, ({ inherits }) => inherits !== undefined));
     const strategy = (name: string): string => profile[name]?.panic ?? UndefinedOr.map(profile[name]?.inherits, strategy) ?? 'unwind';
@@ -220,7 +219,7 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
         profiles,
         strategies: Array.dedupeWith(['release', ...profiles], (left, right) => strategy(left) === strategy(right)).filter((name) => strategy(name) !== strategy('dev')),
         deny,
-        placed: inside(metadata.target_directory),
+        placed: Option.map(Option.liftPredicate(metadata.target_directory, inside(workspaceRoot)), within),
         uplifted: (target: Target) => layouts.flatMap(({ folder, uplifted }) => Array.filterMap(target.crate_types, (type) => Result.map(Result.fromNullishOr(uplifted[type], Function.constVoid), (file) => ({ folder, file: file.replace(CRATE, target.name) })))),
     };
 };
