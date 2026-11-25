@@ -13,7 +13,7 @@ const presets = {
     version: 10,
     configurePresets: [
         { name: 'default', generator: 'Ninja', binaryDir: `\${sourceDir}/build/\${presetName}` },
-        { name: 'coverage', inherits: 'default', cacheVariables: { CMAKE_CXX_COMPILER: 'clang++', CMAKE_CXX_FLAGS: '-fprofile-instr-generate -fcoverage-mapping' } },
+        { name: 'coverage', inherits: 'default', cacheVariables: { CMAKE_CXX_COMPILER: 'clang++', CMAKE_CXX_FLAGS: `-fprofile-instr-generate -fcoverage-mapping -fcoverage-prefix-map=\${sourceDir}/= -fcoverage-compilation-dir=.` } },
     ],
     buildPresets: [
         { name: 'default', configurePreset: 'default' },
@@ -125,7 +125,7 @@ describe('test--ctest', () => {
         const report = readFileSync(join(workspace.root, '.artifacts/coverage/passing/lcov.info'), 'utf-8');
         expect(success).toBe(true);
         expect(declared).toStrictEqual(['.artifacts/coverage/passing/lcov.info']);
-        expect(report).toContain(`SF:${join(workspace.root, 'passing/test.cpp')}\n`);
+        expect(report.split('\n').filter((row) => row.startsWith('SF:'))).toStrictEqual(['SF:passing/test.cpp']);
         expect(report).toMatch(/^DA:1,1$/mu);
     });
 });

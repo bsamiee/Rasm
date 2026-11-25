@@ -39,7 +39,7 @@ if(RASM_SANITIZERS)
     list(APPEND RASM_FLAGS -fsanitize=${sanitizers} -fno-sanitize-recover=all -fno-omit-frame-pointer)
 endif()
 if(RASM_COVERAGE)
-    list(APPEND RASM_FLAGS -fprofile-instr-generate -fcoverage-mapping)
+    list(APPEND RASM_FLAGS -fprofile-instr-generate -fcoverage-mapping -fcoverage-prefix-map=${CMAKE_SOURCE_DIR}/= -fcoverage-compilation-dir=.)
 endif()
 
 # --- [LANGUAGES]

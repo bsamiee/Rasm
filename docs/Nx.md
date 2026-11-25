@@ -26,6 +26,8 @@ Task hash contents:
 - Target `dependsOn` and inputs stay out of other tasks' hashes
 - Inputs belong to a target and never to a configuration, and a task hash holds its configuration name and overrides
 - Coverage tools join their test target's inputs, as each ecosystem keeps coverage a configuration of that target
+- `lcov.info` reports name each source by its path from the workspace root, as Nx restores them on other machines
+- Vitest and pytest name sources so from that root, `cargo llvm-cov --remap-path-prefix` for a Cargo workspace there, clang through `RASM_COVERAGE`
 - `{ fileset, includeIgnored: true }` hashes a gitignored or linked path from disk, and a linked file where it points
 - `includeIgnored` filesets count toward `nx affected` only where they overlap a task's declared outputs
 - Projects owning no tracked file hold no entry in Nx's file map, and a task with inputs reaching one through a graph edge fails to hash
