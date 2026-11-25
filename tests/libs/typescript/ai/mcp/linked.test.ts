@@ -30,7 +30,7 @@ const linked = Effect.fnUntraced(function* (silent: readonly Stream.Stream<reado
     const { client } = yield* connected(proxy);
     yield* settled(names(client), Array.contains('unique'));
     const [minted] = lines(yield* client.callTool({ name: 'test_simple_text', arguments: {} }));
-    const read = client.callTool({ name: 'test_simple_text', arguments: { handle: minted?.slice('handle '.length) } }).pipe(Effect.flatMap((result) => Ref.updateAndGet(seen, Array.appendAll(Array.filter(lines(result), (line) => line.startsWith('! #'))))));
+    const read = client.callTool({ name: 'test_simple_text', arguments: { handle: minted?.split(' ')[1] } }).pipe(Effect.flatMap((result) => Ref.updateAndGet(seen, Array.appendAll(Array.filter(lines(result), (line) => line.startsWith('! #'))))));
     return { notices, late, own, lists, subscribed: Ref.get(subscribed), offers: (name: string) => settled(names(client), Array.contains(name)), events: (count: number) => settled(read, (events) => events.length >= count) };
 });
 

@@ -1,13 +1,13 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Array, Effect, Fiber, Option, Queue, Record, Ref, Schema, String, Struct, SubscriptionRef } from 'effect';
 import { McpProtocol } from 'effect/ai';
-import { ASKED, Called, lines, opened, STATE, settled, TEXT } from '#/fixtures';
+import { ASKED, Called, lines, opened, RAISED, STATE, settled, TEXT } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PROTOCOL = McpProtocol.v2026_07_28;
 const WEATHER = '{"temperature":22.5,"conditions":"Partly cloudy"}';
-const MINTED = /^handle [\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/u;
+const MINTED = /^handle \S+ holds your state, pass it on each later call$/u;
 const INVALID_PARAMS = -32_602;
 const CALLS = {
     test_simple_text: [{}, ['text']],
@@ -28,6 +28,7 @@ const Listed = Schema.Struct({ result: Schema.Struct({ tools: Schema.Array(Schem
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const refusal = (message: unknown) => Effect.map(Schema.decodeUnknownEffect(Refused)(message), ({ error }) => error.code);
+const named = (line: string | undefined) => line?.split(' ')[1];
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -49,7 +50,7 @@ describe('tool calls through the server', () => {
         Effect.fnUntraced(function* () {
             const { called } = yield* opened(PROTOCOL);
             const [minted, body] = lines(yield* called('test_structured'));
-            const handle = minted?.slice('handle '.length);
+            const handle = named(minted);
             const [again, other] = yield* Effect.all([Effect.map(called('test_structured', { handle }), lines), Effect.map(called('test_structured'), lines)]);
             assert.deepStrictEqual([MINTED.test(minted ?? ''), body, again, MINTED.test(other[0] ?? ''), other[0] === minted], [true, WEATHER, [WEATHER], true, false]);
         }),
@@ -66,7 +67,7 @@ describe('tool calls through the server', () => {
     );
 
     it.live(
-        'leads results with the minted handle, the events its handle owns in one sequence, an early return with its pending call, and its finished result once in a later call that waits to settle it',
+        'leads results with the minted handle, the events its handle owns in one sequence with one raised during the call that claims its source, an early return with its pending call, and its finished result once in a later call that waits to settle it',
         Effect.fnUntraced(function* () {
             const { probe, called } = yield* opened(PROTOCOL);
             const text = (name: string, given: Record.ReadonlyRecord<string, unknown> = {}) => Effect.map(called(name, given), (result) => lines(result).join('\n'));
@@ -76,7 +77,7 @@ describe('tool calls through the server', () => {
                     Array.isReadonlyArrayNonEmpty,
                 );
             const [owner, other] = [yield* text('test_claim'), yield* text('test_simple_text')];
-            const [claimer, bystander] = [owner.slice('handle '.length, owner.indexOf('\n')), other.slice('handle '.length, other.indexOf('\n'))];
+            const [claimer = '', bystander = ''] = [named(owner), named(other)];
             yield* Queue.offer(probe.owned, 'owned one');
             const owned = yield* seen(claimer);
             yield* Queue.offer(probe.shared, 'shared one');
@@ -92,13 +93,13 @@ describe('tool calls through the server', () => {
             yield* probe.release.open;
             const [finished, after] = [yield* Fiber.join(settling), yield* text('test_simple_text', { handle: claimer })];
             assert.deepStrictEqual(
-                { minted: [MINTED.test(owner.split('\n')[0] ?? ''), MINTED.test(other.split('\n')[0] ?? ''), claimer === bystander], bodies: [owner.split('\n')[1], other.split('\n')[1]], owned, shared, early, pending, entered, waiting, finished, after },
+                { minted: [MINTED.test(owner.split('\n')[0] ?? ''), MINTED.test(other.split('\n')[0] ?? ''), claimer === bystander], bodies: [owner.split('\n').slice(1), other.split('\n').slice(1)], owned, shared, early, pending, entered, waiting, finished, after },
                 {
                     minted: [true, true, false],
-                    bodies: ['claimed', TEXT],
-                    owned: ['! #1 owned one'],
-                    shared: ['! #2 shared one'],
-                    early: `! #2 shared one\nearly: call 1 keeps running, its result arrives under finished\n${ASKED}`,
+                    bodies: [[`! #1 ${RAISED.owned}`, 'claimed'], [TEXT]],
+                    owned: ['! #3 owned one'],
+                    shared: ['! #4 shared one'],
+                    early: `! #4 shared one\nearly: call 1 keeps running, its result arrives under finished\n${ASKED}`,
                     pending: `pending: calls 1\n${TEXT}`,
                     entered: 'test_settle',
                     waiting: true,
@@ -122,12 +123,14 @@ describe('tool calls through the server', () => {
 
 describe('client input of a stateless client', () => {
     it.live(
-        'seals the state of an input request so the client cannot read it, and opens it on the retry of the same tool',
+        'seals the state of an input request so the client cannot read it, opens it on the retry of the same tool, and names on the retry the handle the first call started',
         Effect.fnUntraced(function* () {
-            const { tool } = yield* opened(PROTOCOL);
+            const { tool, called } = yield* opened(PROTOCOL);
             const { result: asked } = yield* Effect.flatMap(tool('test_input'), Schema.decodeUnknownEffect(Asked));
             const { result: answered } = yield* Effect.flatMap(tool('test_input', {}, { requestState: asked.requestState }), Schema.decodeUnknownEffect(Called));
-            assert.deepStrictEqual([new TextDecoder().decode(Uint8Array.fromBase64(asked.requestState, { alphabet: 'base64url' })).includes(STATE), answered.isError, answered.content], [false, false, [{ type: 'text', text: STATE }]]);
+            const [line, body] = lines(answered);
+            const resumed = yield* called('test_value', { value: 'kept', handle: named(line) });
+            assert.deepStrictEqual([new TextDecoder().decode(Uint8Array.fromBase64(asked.requestState, { alphabet: 'base64url' })).includes(STATE), answered.isError, MINTED.test(line ?? ''), body, resumed.isError, lines(resumed)], [false, false, true, STATE, false, ['kept']]);
         }),
     );
 

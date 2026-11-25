@@ -1,6 +1,6 @@
 import { layerAead, layerSecureRandom } from '@effect/platform-node/NodeCrypto';
 import { Content, Handle, Link, registerResource, registerTemplate, Server, Upstream } from '@rasm/mcp';
-import { Array, Cause, Context, Duration, Effect, Latch, Layer, MutableRef, Option, Predicate, Queue, Record, Ref, Result, Schedule, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Deferred, Duration, Effect, Latch, Layer, MutableRef, Option, Predicate, Queue, Record, Ref, Result, Schedule, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpProtocol, McpSchema, McpServer, McpTest, Tool, Toolkit } from 'effect/ai';
 import { FetchHttpClient, HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Host } from 'effect/net';
@@ -30,6 +30,7 @@ const STEPS = [0, 50, 100] as const;
 const IDS = ['beta', 'opal', 'alpha'] as const;
 const STATE = 'asked once';
 const ASKED = 'a dialog asks';
+const RAISED = { owned: 'raised during the claim', judged: 'judged after it' } as const;
 const PATH = '/mcp';
 const UPSTREAM = new URL(PATH, 'http://upstream.test');
 const ENDPOINT = 'http://localhost/';
@@ -66,7 +67,7 @@ const Claimed = Context.Reference<boolean>('@rasm/test-mcp/fixtures/Claimed', { 
 
 class Probe extends Context.Service<Probe>()('@rasm/test-mcp/fixtures/Probe', {
     make: Effect.gen(function* () {
-        const [calls, entered, interrupted, release, watched, blocked, versions, shared, owned] = yield* Effect.all([
+        const [calls, entered, interrupted, release, watched, blocked, versions, shared, owned, judged] = yield* Effect.all([
             Ref.make<readonly string[]>([]),
             Queue.unbounded<string>(),
             Queue.unbounded<string>(),
@@ -76,14 +77,15 @@ class Probe extends Context.Service<Probe>()('@rasm/test-mcp/fixtures/Probe', {
             SubscriptionRef.make<Record.ReadonlyRecord<string, number>>({}),
             Queue.unbounded<string>(),
             Queue.unbounded<string>(),
+            Deferred.make<void>(),
         ]);
-        return { calls, entered, interrupted, release, watched, blocked, versions, shared, owned };
+        return { calls, entered, interrupted, release, watched, blocked, versions, shared, owned, judged };
     }),
 }) {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, release, watched, blocked, versions, shared, owned }: Probe['Service']) {
+const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, release, watched, blocked, versions, shared, owned, judged }: Probe['Service']) {
     const called = <A, E, R>(name: string, answer: Effect.Effect<A, E, R>) => Ref.update(calls, (held) => [...held, name]).pipe(Effect.andThen(Queue.offer(entered, name)), Effect.andThen(answer));
     const gated = (name: string) =>
         called(
@@ -134,16 +136,18 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
         ),
         () => gated('gated_early'),
     );
-    yield* Server.registerTool(Tool.make('test_claim', { description: 'Claims the events of the owned source for its handle', success: Schema.String }), () =>
-        called(
-            'test_claim',
-            Effect.as(
-                Effect.flatMap(Handle, (handle) => handle.set(Claimed, true)),
-                'claimed',
-            ),
+    yield* Server.registerTool(Tool.make('test_claim', { description: 'Raises an event of the owned source, then claims the source for its handle once every handle judged the event', success: Schema.String }), () =>
+        called('test_claim', Queue.offerAll(owned, [RAISED.owned, RAISED.judged]).pipe(Effect.andThen(Deferred.await(judged)), Effect.andThen(Effect.flatMap(Handle, (handle) => handle.set(Claimed, true))), Effect.as('claimed'))),
+    );
+    yield* Server.use((server) =>
+        Effect.all(
+            [
+                server.events({ stream: Stream.fromQueue(shared), render: Effect.succeed }),
+                server.events({ stream: Stream.fromQueue(owned), render: Effect.succeed, owns: (event) => (event === RAISED.judged ? Effect.as(Deferred.succeed(judged, undefined), false) : Effect.flatMap(Handle, (handle) => handle.get(Claimed))) }),
+            ],
+            { discard: true },
         ),
     );
-    yield* Server.use((server) => Effect.all([server.events({ stream: Stream.fromQueue(shared), render: Effect.succeed }), server.events({ stream: Stream.fromQueue(owned), render: Effect.succeed, owns: () => Effect.flatMap(Handle, (handle) => handle.get(Claimed)) })], { discard: true }));
     yield* Server.registerTool(Tool.make('test_settle', { description: 'Settles the calls of its handle that returned early', success: Schema.String }), () => called('test_settle', Effect.as(Server.ToolCall.use(Struct.get('settle')), 'settled')));
     yield* registerResource({ name: 'static-text', description: 'A static text resource for testing', mimeType: 'text/plain', schema: Schema.String, changes: Stream.empty, content: Effect.succeed(STATIC) });
     yield* registerResource({ name: 'static-binary', description: 'A static binary resource for testing', mimeType: 'image/png', schema: Schema.Uint8Array, changes: Stream.empty, content: Effect.succeed(Uint8Array.fromBase64(PNG)) });
@@ -265,4 +269,4 @@ const proxied = Effect.fnUntraced(function* (
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ASKED, Called, connected, hosted, INSTRUCTIONS, lines, names, opened, PEER, proxied, SETTLED, settled, STATE, TEXT };
+export { ASKED, Called, connected, hosted, INSTRUCTIONS, lines, names, opened, PEER, proxied, RAISED, SETTLED, settled, STATE, TEXT };

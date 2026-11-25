@@ -176,7 +176,7 @@ const ran = Effect.fnUntraced(function* (name: string, code: string) {
     const [minted = '', ...rest] = lines(yield* suite.call('applications', { action: 'open', application: name }));
     const { instance } = yield* Schema.decodeUnknownEffect(Opened)(rest.at(-1));
     const before = (yield* suite.executed).length;
-    const result = yield* suite.call('execute_script', { code, handle: minted.slice('handle '.length) });
+    const result = yield* suite.call('execute_script', { code, handle: minted.split(' ')[1] });
     const text = lines(result);
     return { instance, sent: Array.drop(yield* suite.executed, before), failed: result.isError === true, text: text.join('\n'), answer: Schema.decodeUnknownOption(Answered)(text.at(-1)) };
 });
