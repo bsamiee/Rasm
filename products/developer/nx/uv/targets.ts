@@ -2,7 +2,7 @@ import { posix } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
 import { type Anchor, above, aggregated, EXECUTORS, PLATFORM, type Stated, type Verbs } from '@rasm/nx';
-import { Array, identity, Option, pipe, Record, Schema, Struct, UndefinedOr } from 'effect';
+import { Array, Function, identity, Option, pipe, Record, Schema, Struct, UndefinedOr } from 'effect';
 import type { Member } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -73,7 +73,7 @@ const CHECKERS = {
         table: 'coverage',
         matches: ['test_*.py', '*_test.py'],
         sources: ['*'],
-        folder: identity<string>,
+        folder: Function.constant('.'),
         command: (paths: readonly string[], { store }: Flags) => [
             'pytest',
             ...paths,
@@ -95,7 +95,7 @@ const CONFIGS = Record.keys(PYTEST);
 class Options extends Schema.Opaque<Options, unknown>()(
     Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), coveragePath: Schema.optionalKey(Schema.String), environmentPath: Schema.optionalKey(Schema.String) }).annotate({
         description:
-            "outputPath: workspace folder uv build writes a member's distributions to, {projectName} naming the project, absent leaves uv its own dist folder of the uv workspace. coveragePath: workspace folder the coverage configuration of pytest writes its lcov.info report to through --cov-report=lcov:<path> and its .coverage data file to through COVERAGE_FILE, {projectName} naming the project, absent writes both to the folder pytest runs from. environmentPath: workspace folder holding what the checkers and tests of a project keep between runs, {projectName} naming the project: one environment per dependency group offering a tool, in a folder named for the group, or .venv where the project's own dependencies hold the tool, each selected through UV_PROJECT_ENVIRONMENT and kept at its locked selection by uv run --exact, beside the cache folder of each tool (.mypy_cache, .refurb_cache, .pytest_cache), absent builds a temporary environment per run through uv run --isolated and leaves each tool its own cache folder. The tasks of a uv root select every package of its workspace (--all-packages), so a uv root that is itself a checked member checks in that wider environment",
+            "outputPath: workspace folder uv build writes a member's distributions to, {projectName} naming the project, absent leaves uv its own dist folder of the uv workspace. coveragePath: workspace folder the coverage configuration of pytest writes its lcov.info report to through --cov-report=lcov:<path> and its .coverage data file to through COVERAGE_FILE, {projectName} naming the project, absent writes both to the folder of the uv root. environmentPath: workspace folder holding what the checkers and tests of a project keep between runs, {projectName} naming the project: one environment per dependency group offering a tool, in a folder named for the group, or .venv where the project's own dependencies hold the tool, each selected through UV_PROJECT_ENVIRONMENT and kept at its locked selection by uv run --exact, beside the cache folder of each tool (.mypy_cache, .refurb_cache, .pytest_cache), absent builds a temporary environment per run through uv run --isolated and leaves each tool its own cache folder. The tasks of a uv root select every package of its workspace (--all-packages), so a uv root that is itself a checked member checks in that wider environment",
     }),
 ) {}
 
@@ -139,7 +139,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
                 },
             ),
         ];
-        const reported = coveragePath ?? cwd;
+        const reported = coveragePath ?? member.workspace;
         const selected = Option.match(environment, { onNone: () => ({}), onSome: (at) => ({ UV_PROJECT_ENVIRONMENT: posix.relative(member.workspace, at) }) });
         const covered = {
             command: line([...argv, '--cov', ...flagged('--cov-config', config), `--cov-report=lcov:${posix.join(posix.relative(cwd, reported), 'lcov.info')}`]),
@@ -153,7 +153,7 @@ const targets = (member: Member, { outputPath, coveragePath, environmentPath }: 
             inputs: [
                 ...row.sources.map((glob) => posix.join('{projectRoot}', '**', glob)),
                 ...built,
-                ...Array.cartesianWith(Array.dedupe([cwd, ...stated.paths].flatMap(above)), row.configs, (at, file) => posix.join('{workspaceRoot}', at, file)),
+                ...Array.cartesianWith(Array.dedupe([cwd, ...stated.paths, ...Array.fromNullishOr(stated.config).map(posix.dirname)].flatMap(above)), row.configs, (at, file) => posix.join('{workspaceRoot}', at, file)),
                 ...row.variables.map((env) => ({ env })),
                 PLATFORM,
                 { runtime: line(['uv', 'python', 'find', '--show-version', '--directory', member.workspace]) },

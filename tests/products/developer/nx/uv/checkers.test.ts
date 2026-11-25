@@ -294,6 +294,18 @@ describe('checker targets', () => {
         const result = await workspace.run(graph, 'library', 'test--pytest', 'coverage');
 
         const report = readFileSync(join(workspace.root, '.artifacts/coverage/library/lcov.info'), 'utf-8').split('\n');
-        expect([result.success, report.some((row) => row.startsWith('SF:')), report.some((row) => row.startsWith('BRDA:'))]).toStrictEqual([true, true, true]);
+        expect([result.success, report.filter((row) => row.startsWith('SF:')), report.some((row) => row.startsWith('BRDA:'))]).toStrictEqual([true, ['SF:nested/proj/library/src/library/__init__.py', 'SF:nested/proj/library/tests/test_library.py'], true]);
+    });
+
+    it('measures a member outside the folder of its uv root under the coverage table of that root, each source of the report relative to the Nx workspace root', async ({ workspace }) => {
+        const { 'pyproject.toml': manifest, ...library } = Record.mapKeys({ ...workspaced(['pytest>=8', 'pytest-cov']), ...TESTED, 'proj/library/src/library/__init__.py': BRANCHED }, (file) => file.replace('proj/', 'apart/'));
+        workspace.write({ ...library, 'nested/pyproject.toml': `${manifest?.replace('proj/*', '../apart/*')}\n[tool.coverage.run]\nbranch = true\n` });
+        execFileSync('uv', ['lock', '--quiet'], { cwd: join(workspace.root, 'nested') });
+        const graph = await workspace.graph(uv, { coveragePath: '.artifacts/coverage/{projectName}' });
+
+        const result = await workspace.run(graph, 'library', 'test--pytest', 'coverage');
+
+        const report = readFileSync(join(workspace.root, '.artifacts/coverage/library/lcov.info'), 'utf-8').split('\n');
+        expect([result.success, report.filter((row) => row.startsWith('SF:')), report.some((row) => row.startsWith('BRDA:'))]).toStrictEqual([true, ['SF:apart/library/src/library/__init__.py', 'SF:apart/library/tests/test_library.py'], true]);
     });
 });
