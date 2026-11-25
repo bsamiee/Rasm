@@ -2,12 +2,12 @@ import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { detectPackageManager } from '@nx/devkit';
 import { dried, executor, spawned } from '@rasm/nx';
-import { Array, Boolean, Cause, DateTime, Effect, FileSystem, Match, Option, Order, Predicate, Record, Result, Schema, SemVer } from 'effect';
+import { Array, Boolean, Cause, DateTime, Effect, FileSystem, Match, Option, Order, Predicate, Record, Result, Schema, SemVer, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
 import npa from 'npm-package-arg';
 import { packageRegistryView, parseRegistryViewJson } from 'nx/src/utils/package-manager';
 import { Composer, CST, Parser, Scalar, YAMLMap } from 'yaml';
-import { MANAGERS } from '#/workspace';
+import { MANAGERS, MANIFEST } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -72,22 +72,18 @@ const eligible = (current: SemVer.SemVer, time: Readonly<Record<string, DateTime
 };
 
 const viewed = <S extends Schema.Top>(registry: string, version: string, fields: readonly string[], schema: S) =>
-    Effect.flatMap(Effect.tryPromise({ try: () => packageRegistryView(registry, version, [...fields, '--json']), catch: (cause) => new Cause.UnknownError(cause, `The registry answers no ${fields.join(', ')} of ${registry}@${version || 'latest'}`) }), (raw) =>
-        Schema.decodeUnknownEffect(schema)(parseRegistryViewJson(raw)),
+    Effect.tryPromise({ try: () => packageRegistryView(registry, version, [...fields, '--json']), catch: (cause) => new Cause.UnknownError(cause, `The registry answers no ${fields.join(', ')} of ${registry}@${version || 'latest'}`) }).pipe(
+        Effect.map(parseRegistryViewJson),
+        Effect.flatMap(Schema.decodeUnknownEffect(schema)),
     );
 
 const listed = Effect.fnUntraced(function* (root: string, owner: string, file: string, path: readonly string[]) {
     const fs = yield* FileSystem.FileSystem;
-    const manifest = yield* Effect.try({ try: () => createRequire(join(root, 'package.json')).resolve(`${owner}/package.json`), catch: (cause) => new Cause.UnknownError(cause, `${root} resolves no ${owner}/package.json`) });
+    const manifest = yield* Effect.try({ try: () => createRequire(join(root, MANIFEST)).resolve(`${owner}/package.json`), catch: (cause) => new Cause.UnknownError(cause, `${root} resolves no ${owner}/package.json`) });
     const { optionalDependencies = {} } = yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeUnknownEffect(Lister));
-    const folders = [dirname(manifest), ...Array.getSomes(Record.keys(optionalDependencies).map((name) => Result.getSuccess(Result.try(() => dirname(createRequire(manifest).resolve(`${name}/package.json`))))))];
-    const at = yield* Effect.flatMap(
-        Effect.findFirst(
-            folders.map((folder) => join(folder, file)),
-            (candidate) => fs.exists(candidate),
-        ),
-        (found) => Effect.fromOption(found, () => new Cause.UnknownError(folders, `${owner} and its installed optional dependencies hold no ${file}`)),
-    );
+    const folders = [dirname(manifest), ...Array.filterMap(Record.keys(optionalDependencies), (name) => Result.try(() => dirname(createRequire(manifest).resolve(`${name}/package.json`))))];
+    const folder = yield* Effect.fromOption(yield* Effect.findFirst(folders, (candidate) => fs.exists(join(candidate, file))), () => new Cause.UnknownError(folders, `${owner} and its installed optional dependencies hold no ${file}`));
+    const at = join(folder, file);
     const document = yield* Effect.flatMap(fs.readFileString(at), Schema.decodeUnknownEffect(Listed));
     const object = path.reduce((node, key) => Option.flatMap(Option.flatMap(node, Record.get(key)), Schema.decodeUnknownOption(Listing)), Option.some(document));
     const versions = yield* Effect.fromOption(object, () => new Cause.UnknownError(document, `${at} holds no object at ${path.join('.')}`));
@@ -96,14 +92,7 @@ const listed = Effect.fnUntraced(function* (root: string, owner: string, file: s
 
 const resolved = Effect.fnUntraced(function* <P extends { readonly name: string; readonly version: SemVer.SemVer; readonly render: (to: SemVer.SemVer) => string }>(registry: string, pins: readonly P[], bounds: Readonly<Record<string, readonly (readonly [string, string])[]>>) {
     const { 'dist-tags': tags, time } = yield* viewed(registry, '', ['dist-tags', 'time'], Packument);
-    const candidates = pins.map((pin) => ({
-        pin,
-        heads: eligible(
-            pin.version,
-            time,
-            Option.getOrElse(Record.get(bounds, pin.name), () => Record.toEntries(tags)),
-        ),
-    }));
+    const candidates = pins.map((pin) => ({ pin, heads: eligible(pin.version, time, Record.get(bounds, pin.name).pipe(Option.getOrElse(() => Record.toEntries(tags)))) }));
     const versions = Array.dedupe(candidates.flatMap(({ heads }) => heads.map(({ version }) => SemVer.format(version))));
     const releases = yield* Effect.forEach(versions, (version) => viewed(registry, version, ['deprecated', 'version'], Release), { concurrency: 4 });
     const deprecated = new Set(releases.filter(({ deprecated: message }) => message !== undefined).map(({ version }) => version));
@@ -123,8 +112,7 @@ const resolved = Effect.fnUntraced(function* <P extends { readonly name: string;
 const opened = Effect.fnUntraced(function* (root: string, file: string) {
     const fs = yield* FileSystem.FileSystem;
     const tokens = Array.fromIterable(new Parser().parse(yield* fs.readFileString(join(root, file))));
-    const [document] = Array.fromIterable(new Composer({ keepSourceTokens: true }).compose(tokens));
-    const composed = yield* Effect.fromNullishOr(document);
+    const composed = yield* Effect.fromOption(Array.head(Array.fromIterable(new Composer({ keepSourceTokens: true }).compose(tokens))));
     const rows = SECTIONS.flatMap((pattern) => sections(composed.value, pattern))
         .flatMap((section) => Array.fromIterable(section.pairs()))
         .flatMap(({ key, value }) => (key instanceof Scalar && value instanceof Scalar && Predicate.isString(key.value) && Predicate.isString(value.value) && value.srcToken !== undefined ? [{ name: key.value, spec: value.value, token: value.srcToken }] : []))
@@ -143,12 +131,9 @@ const execute = executor(Upgrade, function* ({ catalogs, supported, dryRun }, co
             { concurrency: 'unbounded' },
         ),
     ]);
-    const held = yield* Effect.filter(Array.dedupe([...catalogs, ...Object.values(context.projectsConfigurations.projects).map(({ root }) => join(root, 'package.json'))]), (at) => fs.exists(join(context.root, at)));
+    const held = yield* Effect.filter(Array.dedupe([...catalogs, ...Object.values(context.projectsConfigurations.projects).map(({ root }) => join(root, MANIFEST))]), (at) => fs.exists(join(context.root, at)));
     const files = yield* Effect.forEach(held, (file) => opened(context.root, file));
-    const grouped = Array.groupBy(
-        files.flatMap(({ rows }) => rows),
-        ({ registry }) => registry,
-    );
+    const grouped = Array.groupBy(files.flatMap(Struct.get('rows')), Struct.get('registry'));
     const [resolutions, failures] = yield* Effect.partition(Record.toEntries(grouped), ([registry, pins]) => resolved(registry, pins, bounds), { concurrency: 16 });
     const moves = resolutions.flat();
     const moved = new Set(moves.map(({ file }) => file));
@@ -158,14 +143,11 @@ const execute = executor(Upgrade, function* ({ catalogs, supported, dryRun }, co
     const { lock, prune, stored } = MANAGERS[manager];
     const shell = { cwd: context.root, stdout: 'inherit', stderr: 'inherit' } as const;
     const pruning = [manager, ...prune] as const;
-    const relocked = Effect.andThen(
-        Effect.forEach(moves, ({ token, spec }) => Effect.sync(() => CST.setScalarValue(token, spec)), { discard: true }),
-        Effect.forEach(
-            files.filter(({ file }) => moved.has(file)),
-            ({ file, tokens }) => fs.writeFileString(join(context.root, file), tokens.map((token) => CST.stringify(token)).join('')),
-            { discard: true },
-        ),
-    ).pipe(Effect.andThen(Effect.forEach(lock, (step) => spawned([manager, step], shell), { discard: true })));
+    const written = files.filter(({ file }) => moved.has(file));
+    const relocked = Effect.forEach(moves, ({ token, spec }) => Effect.sync(() => CST.setScalarValue(token, spec)), { discard: true }).pipe(
+        Effect.andThen(Effect.forEach(written, ({ file, tokens }) => fs.writeFileString(join(context.root, file), tokens.map((token) => CST.stringify(token)).join('')), { discard: true })),
+        Effect.andThen(Effect.forEach(lock, (step) => spawned([manager, step], shell), { discard: true })),
+    );
     const freed = Array.match(stored, {
         onEmpty: () => Effect.void,
         onNonEmpty: (args) =>

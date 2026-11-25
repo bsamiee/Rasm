@@ -94,58 +94,27 @@ const keyed = Effect.fnUntraced(function* (workspaceRoot: string, row: string, l
         { concurrency: 'unbounded' },
     );
     const beneath = new Map(Array.zipWith(listed, listings, (at, files) => [at, { files, direct: files.filter((file) => posix.dirname(file) === at) }] as const));
-    return Array.zipWith(folders, Array.zip(rows, stamps), ([folder, ...outside], [[, sources], stamp]) => {
+    return Array.zipWith(folders, Array.zip(rows, stamps), ([folder, ...outside], [[config, sources], stamp]) => {
         const ignored = [...new Set(sources).difference(tracked)];
-        return { digest: hashArray([row, ...(beneath.get(folder)?.files ?? []), ...outside.flatMap((at) => beneath.get(at)?.direct ?? [])]), stamp: hashArray([stamp, ...ignored.map((at) => hashFile(join(workspaceRoot, at)))]), ignored };
+        return { config, digest: hashArray([row, ...(beneath.get(folder)?.files ?? []), ...outside.flatMap((at) => beneath.get(at)?.direct ?? [])]), stamp: hashArray([stamp, ...ignored.map((at) => hashFile(join(workspaceRoot, at)))]), ignored };
     });
 });
 
 const programmed = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, row: string, manager: PackageManager, roots: ReadonlySet<string>, files: readonly string[]) {
     const cache = new PluginCache<Resolved & { readonly digest: string; readonly stamp: string }>(join(workspaceDataDirectory, 'typescript.hash'));
     const [lock, owners, configs] = [getLockFileName(manager), new Map(roots.values().map((root) => [root, root] as const)), files.filter((file) => basename(file) === CONFIG)];
-    const keys = yield* keyed(
-        workspaceRoot,
-        row,
-        lock,
-        configs.map((config) => [config, cache.get(config)?.sources ?? []]),
-    );
-    const current = Array.zipWith(
-        configs,
-        keys,
-        (config, { digest, stamp, ignored }) =>
-            [
-                config,
-                Option.map(
-                    Option.filter(Option.fromNullishOr(cache.get(config)), (entry) => entry.digest === digest && entry.stamp === stamp),
-                    (entry): Program => ({ ...entry, ignored }),
-                ),
-            ] as const,
-    );
-    const fresh = yield* Array.match(
-        current.filter(([, held]) => Option.isNone(held)).map(([config]) => config),
-        {
-            onEmpty: () => Effect.succeed([]),
-            onNonEmpty: (missed) =>
-                Effect.map(
-                    solved(workspaceRoot, compiler, owners, missed),
-                    Array.map(([config, solution]) => [config, resolved(workspaceRoot, solution)] as const),
-                ),
-        },
-    );
+    const known = configs.map((config) => [config, cache.get(config)?.sources ?? []] as const);
+    const [held, missed] = Array.partition(yield* keyed(workspaceRoot, row, lock, known), ({ config, digest, stamp, ignored }) => {
+        const entry = cache.get(config);
+        return entry?.digest === digest && entry.stamp === stamp ? Result.succeed([config, Result.succeed({ ...entry, ignored })] as const) : Result.fail(config);
+    });
+    const fresh = yield* Array.match(missed, { onEmpty: () => Effect.succeed([]), onNonEmpty: (unread) => solved(workspaceRoot, compiler, owners, unread).pipe(Effect.map(Array.map(([config, solution]) => [config, resolved(workspaceRoot, solution)] as const))) });
     const [stored, failed] = Array.partition(fresh, ([config, program]) => Result.mapBoth(program, { onFailure: (error) => [config, error] as const, onSuccess: (value) => [config, value] as const }));
-    const renewed = yield* keyed(
-        workspaceRoot,
-        row,
-        lock,
-        stored.map(([config, { sources }]) => [config, sources]),
-    );
+    const listed = stored.map(([config, value]) => [config, value.sources] as const);
+    const renewed = yield* keyed(workspaceRoot, row, lock, listed);
     yield* Effect.forEach(Array.zip(stored, renewed), ([[config, value], { digest, stamp }]) => Effect.sync(() => cache.set(config, { ...value, digest, stamp })), { discard: true });
     yield* Array.isReadonlyArrayNonEmpty(stored) ? Effect.sync(() => cache.writeToDisk()) : Effect.void;
-    return new Map<string, Result.Result<Program, Cause.UnknownError>>([
-        ...Array.getSomes(current.map(([config, held]) => Option.map(held, (cached) => [config, Result.succeed(cached)] as const))),
-        ...failed.map(([config, error]) => [config, Result.fail(error)] as const),
-        ...Array.zipWith(stored, renewed, ([config, value], { ignored }) => [config, Result.succeed({ ...value, ignored })] as const),
-    ]);
+    return new Map<string, Result.Result<Program, Cause.UnknownError>>([...held, ...failed.map(([config, error]) => [config, Result.fail(error)] as const), ...Array.zipWith(stored, renewed, ([config, value], { ignored }) => [config, Result.succeed({ ...value, ignored })] as const)]);
 });
 
 const compiled =

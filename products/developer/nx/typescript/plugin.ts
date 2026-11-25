@@ -1,6 +1,6 @@
 import { basename, dirname, join, posix } from 'node:path';
-import { type CreateNodes, createNodesFromFiles, detectPackageManager, hashArray, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
-import { hashObject, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { type CreateNodes, createNodesFromFiles, detectPackageManager, hashArray, type ProjectConfiguration } from '@nx/devkit';
+import { hashObject } from '@nx/devkit/internal';
 import { anchored, fingerprinted, inferring, run, tagged, tokened } from '@rasm/nx';
 import { Array, Combiner, Effect, FileSystem, Match, Option, Order, Predicate, Record, type Result, Schema } from 'effect';
 import { linted } from '#/eslint';
@@ -28,7 +28,7 @@ const own = fingerprinted(import.meta.dirname);
 
 const looked = <A, E>(table: ReadonlyMap<string, Result.Result<A, E>>, at: string) => Effect.flatMap(Effect.fromNullishOr(table.get(at)), Effect.fromResult);
 
-const nodes = inferring(Options, run, function* (files, settings, context) {
+const nodes = inferring(Options, run, function* (files, settings, context, cached) {
     const { workspaceRoot } = context;
     const [listed, anchor] = [new Set(files), anchored(workspaceRoot)];
     const held = new Set(Array.dedupe(files.map(dirname)).filter(Predicate.and((root: string) => root !== '.', anchor.holds)));
@@ -37,13 +37,11 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
     const manager = detectPackageManager(workspaceRoot);
     const synced = installed('@nx/js', join(workspaceRoot, MANIFEST));
     const row = hashArray([yield* own, hashObject(settings)]);
-    const configured = new PluginCache<{ readonly sources: readonly string[]; readonly stamp: string }>(join(workspaceDataDirectory, 'typescript-cloudflare.hash'));
+    const configured = yield* cached<{ readonly sources: readonly string[] }>('typescript-cloudflare.hash', row);
     const manifests = new Map(yield* Effect.forEach(Array.dedupe(nested.map(dirname)), (root) => loaded(workspaceRoot, root), { concurrency: 'unbounded' }));
     const programs = yield* programmed(workspaceRoot, Array.headNonEmpty(settings.compilerPackages), row, manager, held, nested);
     const standalone = yield* Effect.findFirst(listed.has(MANIFEST) ? ['src', 'lib'] : [], (at) => FileSystem.FileSystem.use((fs) => fs.exists(join(workspaceRoot, at))));
-    const lints = installed('eslint', join(workspaceRoot, MANIFEST))
-        ? yield* linted(workspaceRoot, Array.headNonEmpty(settings.compilerPackages), manager, [...held.values().map((root) => ({ root, scope: root })), ...Option.toArray(Option.map(standalone, (scope) => ({ root: '.', scope })))], row)
-        : new Map<string, { readonly target: TargetConfiguration; readonly typed: boolean }>();
+    const lints = yield* linted(workspaceRoot, Array.headNonEmpty(settings.compilerPackages), manager, installed('eslint', join(workspaceRoot, MANIFEST)) ? [...held.values().map((root) => ({ root, scope: root })), ...Option.toArray(Option.map(standalone, (scope) => ({ root: '.', scope })))] : [], row);
     const chained = (root: string) => Array.fromOption(Option.flatMap(Option.fromUndefinedOr(programs.get(posix.join(root, CONFIG))), Option.getSuccess)).flatMap(({ chain }) => chain.filter((at) => posix.relative(root, at).startsWith('..')).map(tokened(root)));
     const read = Effect.fnUntraced(function* (file: string) {
         const root = dirname(file);
@@ -56,7 +54,7 @@ const nodes = inferring(Options, run, function* (files, settings, context) {
             Match.when({ file: MANIFEST }, () => Effect.asSome(workspace(anchor, manager, settings.knipConfig, row, described))),
             Match.when({ name: PROJECT }, () => Effect.succeedNone),
             Match.when({ name: CONFIG }, () => Effect.map(looked(programs, file), compiled(root, described.stated, settings.compilerPackages, described.manifest.version !== undefined && installed('publint', join(workspaceRoot, file)), synced, manager, anchor))),
-            Match.when({ name: WORKER }, () => Effect.when(worker(anchor, manager, described.stated, file, configured), Effect.succeed(installed('cf', join(workspaceRoot, file))))),
+            Match.when({ name: WORKER }, () => Effect.when(worker(anchor, manager, described.stated, file, configured.recall), Effect.succeed(installed('cf', join(workspaceRoot, file))))),
             Match.orElse(() => Effect.succeed(tarball(manager, settings.outputPath, described, root, tagged(context.nxJsonConfiguration), anchor))),
         );
         return { projects: Record.getSomes({ [root]: Option.makeReducer(Combiner.make<ProjectConfiguration>((prior, next) => ({ ...prior, ...next, targets: { ...prior.targets, ...next.targets } }))).combine(linting, branch) }) };

@@ -94,18 +94,13 @@ const tarball = (manager: PackageManager, outputPath: string | undefined, { mani
     });
 };
 
-const plugins = Effect.fnUntraced(function* (row: string, manifest: string) {
-    const [cache, key] = [new PluginCache<{ readonly configs: readonly string[] }>(join(workspaceDataDirectory, 'typescript-knip.hash')), hashArray([row, manifest, hashFile(manifest)])];
-    return yield* UndefinedOr.match(cache.get(key), {
-        onDefined: ({ configs }) => Effect.succeed(configs),
-        onUndefined: Effect.fnUntraced(function* () {
-            const { Plugins } = yield* Effect.flatMap(Effect.tryPromise({ try: (): Promise<unknown> => import(new URL('dist/plugins.js', pathToFileURL(manifest)).href), catch: (cause) => new Cause.UnknownError(cause, `${manifest} holds no knip plugin map at dist/plugins.js`) }), Schema.decodeUnknownEffect(Plugged));
-            const configs = Array.dedupe(Object.values(Plugins).flatMap(({ config, isRootOnly = false }) => Array.cartesianWith([isRootOnly ? '{workspaceRoot}' : '{workspaceRoot}/**'], Schema.is(Globs)(config) ? config : [], posix.join)));
-            cache.set(key, { configs });
-            cache.writeToDisk();
-            return configs;
-        }),
-    });
+const plugins = Effect.fnUntraced(function* (workspaceRoot: string, row: string, manifest: string) {
+    const cache = new PluginCache<{ readonly sources: readonly string[]; readonly configs: readonly string[] } & { readonly stamp: string }>(join(workspaceDataDirectory, 'typescript-knip.hash'));
+    const read = Effect.tryPromise({ try: (): Promise<unknown> => import(new URL('dist/plugins.js', pathToFileURL(manifest)).href), catch: (cause) => new Cause.UnknownError(cause, `${manifest} holds no knip plugin map at dist/plugins.js`) }).pipe(
+        Effect.flatMap(Schema.decodeUnknownEffect(Plugged)),
+        Effect.map(({ Plugins }) => ({ sources: [], configs: Array.dedupe(Object.values(Plugins).flatMap(({ config, isRootOnly = false }) => Array.cartesianWith([isRootOnly ? '{workspaceRoot}' : '{workspaceRoot}/**'], Schema.is(Globs)(config) ? config : [], posix.join))) })),
+    );
+    return (yield* recalled(cache, hashArray([row, manifest, hashFile(manifest)]), stamped(workspaceRoot), read, () => cache.writeToDisk())).configs;
 });
 
 const workspace = Effect.fnUntraced(function* (anchor: Anchor, manager: PackageManager, knipConfig: string | undefined, row: string, { manifest: { jscpd }, stated }: { readonly manifest: typeof Manifest.Type; readonly stated: Stated }) {
@@ -120,7 +115,7 @@ const workspace = Effect.fnUntraced(function* (anchor: Anchor, manager: PackageM
         const scanned = Effect.map(spawned(['jscpd', '--debug', '.'], { cwd: workspaceRoot }).pipe(Effect.flatMap(Schema.decodeEffect(Scanned))), (read) => ({ sources: [config, ...(installed('jscpd', join(workspaceRoot, MANIFEST)) ? [lock] : [])], ...read }));
         return yield* recalled(cache, hashArray([row, config]), stamped(workspaceRoot), scanned, () => cache.writeToDisk());
     }).pipe(Effect.catchNoSuchElement);
-    const plugged = yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(UndefinedOr.liftThrowable(findPackageJSON)('knip', pathToFileURL(join(workspaceRoot, MANIFEST)))), (manifest) => plugins(row, manifest)));
+    const plugged = yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(UndefinedOr.liftThrowable(findPackageJSON)('knip', pathToFileURL(join(workspaceRoot, MANIFEST)))), (manifest) => plugins(workspaceRoot, row, manifest)));
     const checks = Record.getSomes<string, TargetConfiguration>({
         jscpd: Option.zipWith(configured, current, (config, { pattern, ignore }) => ({
             command: 'jscpd .',
@@ -161,18 +156,18 @@ const workspace = Effect.fnUntraced(function* (anchor: Anchor, manager: PackageM
     );
 });
 
-const worker = Effect.fnUntraced(function* (anchor: Anchor, manager: PackageManager, stated: Stated, file: string, cache: PluginCache<{ readonly sources: readonly string[] } & { readonly stamp: string }>) {
+const worker = Effect.fnUntraced(function* (anchor: Anchor, manager: PackageManager, stated: Stated, file: string, recall: <E, R>(key: string, fresh: Effect.Effect<{ readonly sources: readonly string[] }, E, R>) => Effect.Effect<{ readonly sources: readonly string[] }, E, R>) {
     const fs = yield* FileSystem.FileSystem;
-    const [root, at, lock] = [dirname(file), join(anchor.workspaceRoot, file), getLockFileName(manager)];
+    const [root, at] = [dirname(file), join(anchor.workspaceRoot, file)];
     const unresolved = (cause: unknown) => new Cause.UnknownError(cause, `${file} resolves no @cloudflare/config through cf`);
     const read = Effect.gen(function* () {
         const configured = yield* Effect.try({ try: () => findPackageJSON('@cloudflare/config', pathToFileURL(createRequire(at).resolve('cf/package.json'))), catch: unresolved }).pipe(Effect.flatMap(Effect.fromNullishOr));
         const { exports } = yield* fs.readFileString(configured).pipe(Effect.flatMap(Schema.decodeEffect(Exported)));
         const cloudflare = yield* Effect.tryPromise({ try: (): Promise<{ readonly loadConfig: typeof loadConfig }> => import(pathToFileURL(join(dirname(configured), exports['.'].import)).href), catch: unresolved });
         const { dependencies } = yield* Effect.tryPromise({ try: () => cloudflare.loadConfig(at), catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Cloudflare config`) });
-        return { sources: [lock, ...Array.dedupe([file, ...dependencies.values().map((dependency) => normalizePath(relative(anchor.workspaceRoot, dependency)))]).filter(within)] };
+        return { sources: Array.dedupe([file, ...dependencies.values().map((dependency) => normalizePath(relative(anchor.workspaceRoot, dependency)))]).filter(within) };
     });
-    const { sources } = yield* recalled(cache, file, stamped(anchor.workspaceRoot), read, () => cache.writeToDisk());
+    const { sources } = yield* recall(file, read);
     const typed = installed('@cloudflare/workers-types', at);
     return projected(
         root,
@@ -183,7 +178,7 @@ const worker = Effect.fnUntraced(function* (anchor: Anchor, manager: PackageMana
                     command: typed ? 'cf workers types --include-runtime=false' : 'cf workers types',
                     options: { cwd: root },
                     cache: true,
-                    inputs: [...sources.filter((dependency) => dependency !== lock).map(tokened(root)), { externalDependencies: ['cf'] }],
+                    inputs: [...sources.map(tokened(root)), { externalDependencies: ['cf'] }],
                     outputs: ['{projectRoot}/.cloudflare/types'],
                     metadata: {
                         description: typed ? `Generates the Worker binding types from ${WORKER} with cf workers types, runtime types coming from @cloudflare/workers-types` : `Generates the Worker binding and runtime types from ${WORKER} with cf workers types`,

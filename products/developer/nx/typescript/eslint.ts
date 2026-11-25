@@ -49,9 +49,9 @@ const inspected = Effect.fnUntraced(function* (workspaceRoot: string, compiler: 
     const eslint = new Linter({ cwd: workspaceRoot });
     const linting = (file: string) => Effect.map(Effect.tryPromise({ try: () => eslint.isPathIgnored(join(workspaceRoot, file)), catch: unanswered }), (ignored) => !ignored);
     const reading = (file: string) =>
-        Effect.map(
-            Effect.flatMap(Effect.tryPromise({ try: (): Promise<unknown> => eslint.calculateConfigForFile(join(workspaceRoot, file)), catch: unanswered }), Schema.decodeUnknownEffect(Calculated)),
-            ({ languageOptions: { parserOptions }, settings }) => [parserOptions['project'], parserOptions['projectService']].some(Boolean) || !Record.isEmptyRecord(settings),
+        Effect.tryPromise({ try: (): Promise<unknown> => eslint.calculateConfigForFile(join(workspaceRoot, file)), catch: unanswered }).pipe(
+            Effect.flatMap(Schema.decodeUnknownEffect(Calculated)),
+            Effect.map(({ languageOptions, settings }) => [languageOptions.parserOptions['project'], languageOptions.parserOptions['projectService']].some(Boolean) || !Record.isEmptyRecord(settings)),
         );
     const governed = yield* Effect.forEach(
         rows,
