@@ -33,9 +33,10 @@ const Full = Schema.Struct({
     globalTeardowns: Schema.Array(Schema.String),
     webServers: Schema.Array(Server),
     config: Schema.Struct({ reporter: Schema.Array(Schema.Tuple([Schema.String, Schema.optionalKey(Schema.Unknown)])) }),
-    projects: Schema.Array(Schema.Struct({ project: Schema.Struct({ name: Schema.String, outputDir: Schema.String, testDir: Schema.String, webServer: Schema.Array(Server) }) })),
-}).annotate({ description: 'The FullConfigInternal loadConfigFromFile returns: config folder, global setup and teardown scripts, webServer rows, resolved reporters, and the name, output folder, test folder, and webServer rows of each project' });
-const Listed = Schema.Struct({ projects: Schema.Array(Schema.Unknown) }).annotate({ description: 'The FullProjectInternal rows of a loaded config, each passed whole to collectFilesForProject' });
+    projects: Schema.Array(Schema.declare(Schema.is(Schema.Struct({ project: Schema.Struct({ name: Schema.String, outputDir: Schema.String, testDir: Schema.String, webServer: Schema.Array(Server) }) })))),
+}).annotate({
+    description: 'The FullConfigInternal loadConfigFromFile returns: config folder, global setup and teardown scripts, webServer rows, resolved reporters, and each FullProjectInternal row kept whole for collectFilesForProject, holding the name, output folder, test folder, and webServer rows of its project',
+});
 const Reported = Schema.Struct({ outputFile: Schema.optionalKey(Schema.String), outputDir: Schema.optionalKey(Schema.String), outputFolder: Schema.optionalKey(Schema.String) }).annotate({
     description: 'The file and folder options of a resolved [reporter, options] Playwright entry',
 });
@@ -44,15 +45,11 @@ const Reported = Schema.Struct({ outputFile: Schema.optionalKey(Schema.String), 
 
 const read = Effect.fnUntraced(function* (entry: string, routed: boolean) {
     const playwright = createRequire(createRequire(entry).resolve('@playwright/test'));
-    const { configLoader, resolveReporterOutputPath, projectUtils } = yield* Effect.flatMap(
-        Effect.forEach(['playwright/lib/common', 'playwright/lib/util', 'playwright/lib/runner'], (at) => Effect.promise((): Promise<unknown> => import(pathToFileURL(playwright.resolve(at)).href))),
-        (modules) => Schema.decodeUnknownEffect(Loader)(Object.assign({}, ...modules)),
-    );
-    const [edges, environment]: [(readonly [url: string, specifier: string, parent: string])[], Set<string>] = [[], new Set()];
+    const modules = yield* Effect.forEach(['playwright/lib/common', 'playwright/lib/util', 'playwright/lib/runner'], (at) => Effect.promise((): Promise<unknown> => import(pathToFileURL(playwright.resolve(at)).href)));
+    const { configLoader, resolveReporterOutputPath, projectUtils } = yield* Schema.decodeUnknownEffect(Loader)(Object.assign({}, ...modules));
+    const [edges, environment]: [(readonly [url: string, specifier: string, parent: string])[], Set<string | symbol>] = [[], new Set()];
     const noted = (key: string | symbol) => {
-        if (Predicate.isString(key)) {
-            environment.add(key);
-        }
+        environment.add(key);
         return key;
     };
     yield* Effect.sync(() => {
@@ -69,7 +66,7 @@ const read = Effect.fnUntraced(function* (entry: string, routed: boolean) {
             registerHooks({
                 resolve: (specifier, context, nextResolve) => {
                     const resolved = nextResolve(specifier, context);
-                    edges.push(...(context.parentURL === undefined ? [] : [[resolved.url, specifier, context.parentURL] as const]));
+                    edges.push(...Array.fromNullishOr(context.parentURL).map((parent) => [resolved.url, specifier, parent] as const));
                     return resolved;
                 },
             }),
@@ -77,30 +74,18 @@ const read = Effect.fnUntraced(function* (entry: string, routed: boolean) {
         () => Effect.promise(() => configLoader.loadConfigFromFile(entry)),
         (hooks) => Effect.sync(() => hooks.deregister()),
     );
-    const [{ configDir, globalSetups, globalTeardowns, webServers, config, projects }, listed] = yield* Effect.all([Schema.decodeUnknownEffect(Full)(full), Schema.decodeUnknownEffect(Listed)(full)]);
+    const { configDir, globalSetups, globalTeardowns, webServers, config, projects } = yield* Schema.decodeUnknownEffect(Full)(full);
     const walked = new Map<string, unknown>();
-    const found = yield* Effect.forEach(listed.projects, (project) => Effect.promise(() => projectUtils.collectFilesForProject(project, walked)));
+    const found = yield* Effect.forEach(projects, (project) => Effect.promise(() => projectUtils.collectFilesForProject(project, walked)));
     const reports = config.reporter.map(([name, options]) => {
-        const { outputFile, outputDir, outputFolder } = Option.getOrElse(Schema.decodeUnknownOption(Reported)(options), () => Reported.make({}));
-        const [stated, routes] = [outputDir ?? outputFolder, routed && ROUTED.has(name)];
-        const folder = Option.map(
-            Option.orElse(Record.get(REPORTS, name), () => Option.fromUndefinedOr(stated)),
-            (fallback) => resolveReporterOutputPath(fallback, configDir, stated),
-        );
-        return {
-            name,
-            routes,
-            written: Option.toArray(
-                Option.orElse(
-                    Option.map(Option.fromUndefinedOr(outputFile), (at) => resolve(configDir, at)),
-                    () => (routes ? Option.none() : folder),
-                ),
-            ),
-        };
+        const { outputFile, outputFolder, outputDir = outputFolder } = Option.getOrElse(Schema.decodeUnknownOption(Reported)(options), () => Reported.make({}));
+        const routes = routed && ROUTED.has(name);
+        const folder = Option.map(Option.firstSomeOf([Record.get(REPORTS, name), Option.fromUndefinedOr(outputDir)]), (fallback) => resolveReporterOutputPath(fallback, configDir, outputDir));
+        return { name, routes, written: Option.toArray(Option.firstSomeOf([Option.map(Option.fromUndefinedOr(outputFile), (at) => resolve(configDir, at)), routes ? Option.none() : folder])) };
     });
     return {
         edges,
-        environment: [...environment],
+        environment: environment.values().filter(Predicate.isString).toArray(),
         scripts: [...globalSetups, ...globalTeardowns],
         routes: reports.filter(({ routes }) => routes).map(({ name }) => name),
         reported: reports.flatMap(({ written }) => written),

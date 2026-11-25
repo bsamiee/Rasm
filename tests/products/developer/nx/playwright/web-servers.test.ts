@@ -1,7 +1,7 @@
 import type { ProjectGraph } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-playwright';
 import { it as nx } from '@rasm/testing/nx';
-import { Order, Predicate, Record } from 'effect';
+import { Array, Filter, Option, Order, pipe, Predicate, Record } from 'effect';
 import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
@@ -17,13 +17,11 @@ const projects = (servers: Record.ReadonlyRecord<string, string>) =>
     );
 
 const waits = (graph: ProjectGraph) =>
-    Record.map(
-        Record.filter(graph.nodes, ({ data: { targets = {} } }) => 'test--playwright' in targets),
-        ({ data: { targets = {} } }) =>
-            (targets['test--playwright']?.dependsOn ?? [])
-                .flatMap((on) => (Predicate.isString(on) ? [] : [on]))
-                .flatMap(({ projects: named = [], target, waitFor = 'started' }) => [named].flat().map((project) => `${project}:${target}:${waitFor}`))
-                .toSorted(Order.String),
+    pipe(
+        graph.nodes,
+        Record.filterMap(Filter.fromPredicateOption(({ data }) => Option.fromUndefinedOr(data.targets?.['test--playwright']))),
+        Record.map(({ dependsOn = [] }) => dependsOn.flatMap((on) => (Predicate.isString(on) ? [] : Array.ensure(on.projects ?? []).map((project) => `${project}:${on.target}:${on.waitFor ?? 'started'}`)))),
+        Record.map((rows) => rows.toSorted(Order.String)),
     );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

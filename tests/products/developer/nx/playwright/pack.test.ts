@@ -15,8 +15,8 @@ const drawn = (name: string) =>
     `const { mkdirSync, writeFileSync } = require('node:fs');\nconst { dirname } = require('node:path');\nconst { test } = require('@playwright/test');\n\ntest('draws', ({}, info) => {\n    const at = info.outputPath('${name}.png');\n    mkdirSync(dirname(at), { recursive: true });\n    writeFileSync(at, '${name}');\n});\n`;
 const routed = { outputPath: '.artifacts/playwright/{projectName}' };
 const COVERED =
-    "const { test } = require('@playwright/test');\n\ntest('covers', async ({ page }) => {\n    await page.route('http://app.test/', (route) => route.fulfill({ contentType: 'text/html', body: '<script>window.__coverage__ = { \"/app.js\": { path: \"/app.js\", statementMap: { 0: { start: { line: 1, column: 0 }, end: { line: 1, column: 9 } } }, fnMap: {}, branchMap: {}, s: { 0: 1 }, f: {}, b: {} } };</script>' }));\n    await page.goto('http://app.test/');\n});\n";
-const config = (outputDir: string, reporter = "[['list']]", use = '{}') => `module.exports = { reporter: ${reporter}, use: ${use}, projects: [{ name: 'suite' }, { name: 'media', testMatch: '**/*.media.js', outputDir: '${outputDir}' }] };\n`;
+    "const { writeFile } = require('node:fs/promises');\nconst { createRequire } = require('node:module');\nconst { test } = require('@playwright/test');\nconst { yazl } = createRequire(createRequire(require.resolve('@playwright/test')).resolve('playwright'))('playwright-core/lib/utilsBundle');\n\ntest('covers', async ({}, info) => {\n    const zip = new yazl.ZipFile();\n    zip.addBuffer(Buffer.from(JSON.stringify({ '/app.js': { path: '/app.js', statementMap: { 0: { start: { line: 1, column: 0 }, end: { line: 1, column: 9 } } }, fnMap: {}, branchMap: {}, s: { 0: 1 }, f: {}, b: {} } })), 'trace.coverage');\n    zip.end();\n    await writeFile(info.outputPath('trace.zip'), Buffer.concat(await zip.outputStream.toArray()));\n    await info.attach('trace', { path: info.outputPath('trace.zip'), contentType: 'application/zip' });\n});\n";
+const config = (outputDir: string, reporter = "[['list']]") => `module.exports = { reporter: ${reporter}, projects: [{ name: 'suite' }, { name: 'media', testMatch: '**/*.media.js', outputDir: '${outputDir}' }] };\n`;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -144,16 +144,16 @@ describe('clean--playwright', { timeout: 60_000 }, () => {
 
 describe('declared outputs of test--playwright', { timeout: 60_000 }, () => {
     it.for([
-        { case: 'in the folders the config states, one outside the project', options: {}, reporter: "[['html', { open: 'never', outputFolder: 'reports/html' }], ['blob', { outputDir: '../../reports/blob' }], ['junit', { outputFile: 'reports/junit.xml' }]]", use: '{}', files: {}, writes: 'junit.xml' },
-        { case: 'in the default folders of the html and blob reporters', options: {}, reporter: "[['html', { open: 'never' }], ['blob']]", use: '{}', files: {}, writes: 'index.html' },
-        { case: 'under outputPath, whatever folders the config states', options: routed, reporter: "[['html', { open: 'never', outputFolder: 'reports/html' }], ['blob']]", use: '{}', files: {}, writes: 'index.html' },
-        { case: 'under outputPath and in the file a reporter states', options: routed, reporter: "[['junit', { outputFile: 'reports/junit.xml' }]]", use: '{}', files: {}, writes: 'junit.xml' },
-        { case: 'in the default file of the perfetto reporter', options: {}, reporter: "[['perfetto']]", use: '{}', files: {}, writes: 'perfetto.json' },
-        { case: 'under outputPath for the perfetto reporter', options: routed, reporter: "[['perfetto']]", use: '{}', files: {}, writes: 'perfetto.json' },
-        { case: 'in the default folder of the coverage reporter', options: {}, reporter: "[['coverage']]", use: "{ trace: { mode: 'on', _coverage: true } }", files: { 'apps/e2e/covered.spec.js': COVERED }, writes: 'lcov.info' },
-        { case: 'in the folder the coverage reporter states', options: routed, reporter: "[['coverage', { outputDir: 'reports/coverage' }]]", use: "{ trace: { mode: 'on', _coverage: true } }", files: { 'apps/e2e/covered.spec.js': COVERED }, writes: 'lcov.info' },
-    ])('hold every file a passing run writes $case', async ({ options, reporter, use, files, writes }, { workspace }) => {
-        const graph = await workspace.write({ ...files, 'apps/e2e/playwright.config.js': config('media', reporter, use) }).graph({ createNodes }, options);
+        { case: 'in the folders the config states, one outside the project', options: {}, reporter: "[['html', { open: 'never', outputFolder: 'reports/html' }], ['blob', { outputDir: '../../reports/blob' }], ['junit', { outputFile: 'reports/junit.xml' }]]", files: {}, writes: 'junit.xml' },
+        { case: 'in the default folders of the html and blob reporters', options: {}, reporter: "[['html', { open: 'never' }], ['blob']]", files: {}, writes: 'index.html' },
+        { case: 'under outputPath, whatever folders the config states', options: routed, reporter: "[['html', { open: 'never', outputFolder: 'reports/html' }], ['blob']]", files: {}, writes: 'index.html' },
+        { case: 'under outputPath and in the file a reporter states', options: routed, reporter: "[['junit', { outputFile: 'reports/junit.xml' }]]", files: {}, writes: 'junit.xml' },
+        { case: 'in the default file of the perfetto reporter', options: {}, reporter: "[['perfetto']]", files: {}, writes: 'perfetto.json' },
+        { case: 'under outputPath for the perfetto reporter', options: routed, reporter: "[['perfetto']]", files: {}, writes: 'perfetto.json' },
+        { case: 'in the default folder of the coverage reporter', options: {}, reporter: "[['coverage']]", files: { 'apps/e2e/covered.spec.js': COVERED }, writes: 'lcov.info' },
+        { case: 'in the folder the coverage reporter states', options: routed, reporter: "[['coverage', { outputDir: 'reports/coverage' }]]", files: { 'apps/e2e/covered.spec.js': COVERED }, writes: 'lcov.info' },
+    ])('hold every file a passing run writes $case', async ({ options, reporter, files, writes }, { workspace }) => {
+        const graph = await workspace.write({ ...files, 'apps/e2e/playwright.config.js': config('media', reporter) }).graph({ createNodes }, options);
         const before = workspace.files('node_modules', 'tmp');
 
         const { success } = await workspace.run(graph, 'e2e', 'test--playwright');
