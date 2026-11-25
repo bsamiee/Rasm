@@ -50,7 +50,7 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
             if state.terminal == nil { state.endings[id] = end }
             return state.terminal
         }
-        return if let terminal { terminal } else { await ends.first { _ in true } ?? failure(JSONRPCFailure(subject: "connection", reason: .cancelled(CancellationError()))) }
+        return if let terminal { terminal } else { await ends.first { _ in true } ?? failure(JSONRPCFailure(subject: "connection", reason: .cancelled)) }
     }
 
     // --- [REQUESTS]
@@ -72,7 +72,7 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
         try await send(Envelope<_, Never>(id: id, method: subject, params: params), subject: subject)
         let answer = try await withTimeout(timeout, expired: failure(JSONRPCFailure(subject: subject, reason: .timedOut(timeout)))) {
             () async throws(Failure) in
-            try await (replies.first { _ in true } ?? .failure(failure(JSONRPCFailure(subject: subject, reason: .cancelled(CancellationError()))))).get()
+            try await (replies.first { _ in true } ?? .failure(failure(JSONRPCFailure(subject: subject, reason: .cancelled)))).get()
         }
         if let error = answer.error { throw failure(JSONRPCFailure(subject: subject, reason: .refused(error))) }
         return try Result { try (answer.result ?? .null).decode(Value.self) }.mapError { error in failure(JSONRPCFailure(subject: subject, reason: .unreadable(error))) }.get()

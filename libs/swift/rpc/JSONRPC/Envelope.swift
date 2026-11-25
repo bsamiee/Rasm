@@ -17,10 +17,6 @@ struct Envelope<Payload: Sendable, Fault: Sendable>: Sendable {
     var traceId: String?
     var spanId: String?
     var sampled: Bool?
-
-    init(id: JSONValue? = nil, method: String? = nil, params: Payload? = nil, chunk: Bool? = nil, result: Payload? = nil, error: Fault? = nil) {
-        (self.id, self.method, self.params, self.chunk, self.result, self.error) = (id, method, params, chunk, result, error)
-    }
 }
 
 extension Envelope: Decodable where Payload: Decodable, Fault: Decodable {
@@ -30,7 +26,6 @@ extension Envelope: Decodable where Payload: Decodable, Fault: Decodable {
         id = try fields.decodeIfPresent(JSONValue.self, forKey: .id)
         method = try fields.decodeIfPresent(String.self, forKey: .method)
         params = try fields.decodeIfPresent(Payload.self, forKey: .params)
-        chunk = try fields.decodeIfPresent(Bool.self, forKey: .chunk)
         result = fields.contains(.result) ? try fields.decode(Payload.self, forKey: .result) : nil
         error = fields.contains(.error) ? try fields.decode(Fault.self, forKey: .error) : nil
         traceId = try fields.decodeIfPresent(String.self, forKey: .traceId)

@@ -10,7 +10,7 @@ public struct JSONRPCFailure: CustomNSError, LocalizedError {
         case unencodable(any Error)
         case refused(JSONRPCError)
         case timedOut(Duration)
-        case cancelled(CancellationError)
+        case cancelled
     }
 
     public let subject: String
@@ -37,5 +37,5 @@ public struct JSONRPCFailure: CustomNSError, LocalizedError {
 }
 
 extension JSONRPCFailure {
-    init(subject: String, transport error: any Error) { self.init(subject: subject, reason: (error as? CancellationError).map(Reason.cancelled) ?? .transport(error)) }
+    init(subject: String, transport error: any Error) { self.init(subject: subject, reason: error is CancellationError ? .cancelled : .transport(error)) }
 }

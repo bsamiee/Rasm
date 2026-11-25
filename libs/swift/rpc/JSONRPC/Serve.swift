@@ -26,35 +26,31 @@ enum Reason: Encodable, Sendable {
     case fail(any Error)
     case die(any Error)
 
-    private enum Key: String, CodingKey {
-        case tag = "_tag"
-        case error, defect
-    }
-
     func encode(to encoder: any Encoder) throws {
+        let (tag, key, error): (String, Key, any Error) =
+            switch self {
+                case .fail(let error): ("Fail", .error, error)
+                case .die(let error): ("Die", .defect, error)
+            }
         var fields = encoder.container(keyedBy: Key.self)
-        switch self {
-            case .fail(let error):
-                try fields.encode("Fail", forKey: .tag)
-                try fields.encode(EncodedError(error: error), forKey: .error)
-            case .die(let error):
-                try fields.encode("Die", forKey: .tag)
-                try fields.encode(EncodedError(error: error), forKey: .defect)
-        }
+        try fields.encode(tag, forKey: .tag)
+        try fields.encode(EncodedError(error: error), forKey: key)
     }
 }
 
 struct Cause: Encodable, Sendable {
-    let code: Int = 0
-    let message: String
-    let data: [Reason]
+    let reasons: AggregateError<Reason>
 
-    init(_ reasons: AggregateError<Reason>) {
-        let error: any Error =
+    func encode(to encoder: any Encoder) throws {
+        let first: any Error =
             switch reasons.first {
                 case .fail(let error), .die(let error): error
             }
-        (message, data) = (error.localizedDescription, reasons.errors)
+        var fields = encoder.container(keyedBy: Key.self)
+        try fields.encode("Cause", forKey: .tag)
+        try fields.encode(0, forKey: .code)
+        try fields.encode(first.localizedDescription, forKey: .message)
+        try fields.encode(reasons.errors, forKey: .data)
     }
 }
 
@@ -110,10 +106,10 @@ actor Server<Request: Decodable & Sendable, Failure: Error> {
 
     private func finished(_ id: JSONValue) { running[id] = nil }
 
-    func close(interrupting selected: (_ streaming: Bool) -> Bool) async {
+    func close(failed: Bool) async {
         closed = true
         let pending = running.map { id, call in
-            if selected(call.streaming) { interrupt(id) }
+            if call.streaming || failed || Task.isCancelled { interrupt(id) }
             return call.task
         }
         for task in pending { await task.value }
@@ -128,7 +124,7 @@ actor Server<Request: Decodable & Sendable, Failure: Error> {
             InstrumentationSystem.instrument.extract(["traceparent": "00-\(trace)-\(span)-\(envelope.sampled == false ? "00" : "01")"], into: &context, using: Headers())
         }
         let outcome = await Result { [context] () async throws -> Response in
-            let request = try Result { try JSONValue.object([method: envelope.params ?? .object([:])]).decode(Request.self) }.mapError { error in AggregateError(first: Reason.die(error)) }.get()
+            let request = try Result { try JSONValue.object([method: envelope.params ?? .object([:])]).decode(Request.self) }.aggregated(Reason.die).get()
             return try await withSpan(method, context: context, ofKind: .server) { span in
                 span.attributes["rpc.system"] = "jsonrpc"
                 span.attributes["rpc.method"] = method
@@ -137,8 +133,7 @@ actor Server<Request: Decodable & Sendable, Failure: Error> {
         }
         .mapError { error in error as? AggregateError<Reason> ?? AggregateError(failing: error) }
         switch outcome {
-            case .success(.value(let value?)): await send(id, answering: method) { try result(id, value) }
-            case .success(.value(nil)): await send(id, answering: method) { try result(id, JSONValue.null) }
+            case .success(.value(let value)): await send(id, answering: method) { try value.map { value in try result(id, value) } ?? result(id, JSONValue.null) }
             case .success(.stream(let chunks)) where await streaming(id):
                 var acknowledgements = acks.makeAsyncIterator()
                 let interrupted = await chunks.contains { chunk in
@@ -163,7 +158,7 @@ actor Server<Request: Decodable & Sendable, Failure: Error> {
     }
 
     private nonisolated func exit(_ id: JSONValue, _ reasons: AggregateError<Reason>) throws -> Data {
-        try encoder.encodeLine(Envelope<Never, Tagged<Cause>>(id: id, error: Tagged(tag: "Cause", value: Cause(reasons))))
+        try encoder.encodeLine(Envelope<Never, Cause>(id: id, error: Cause(reasons: reasons)))
     }
 }
 
@@ -184,7 +179,7 @@ public func serve<Request: Decodable & Sendable, Failure: Error>(
         group.addTask {
             let read = await Result { () async throws in try await lines().reduce(()) { _, line in await server.receive(line) } }
             let failed: Bool = if case .failure = read { true } else { false }
-            await server.close { streaming in streaming || failed || Task.isCancelled }
+            await server.close(failed: failed)
             server.output.finish()
             return read
         }
