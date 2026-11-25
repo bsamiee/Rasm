@@ -158,12 +158,12 @@ describe('client input of a stateless client', () => {
             const { result: answered } = yield* Effect.flatMap(tool('test_input', {}, { requestState: asked.requestState }), Schema.decodeUnknownEffect(Called));
             const [line, , body] = lines(answered);
             const resumed = yield* called('test_value', { value: 'kept', handle: named(line) });
-            assert.deepStrictEqual([new TextDecoder().decode(Uint8Array.fromBase64(asked.requestState, { alphabet: 'base64url' })).includes(STATE), answered.isError, MINTED.test(line ?? ''), body, resumed.isError, lines(resumed)], [false, false, true, STATE, false, ['kept']]);
+            assert.deepStrictEqual([asked.requestState.split('.').some((part) => new TextDecoder().decode(Uint8Array.fromBase64(part, { alphabet: 'base64url' })).includes(STATE)), answered.isError, MINTED.test(line ?? ''), body, resumed.isError, lines(resumed)], [false, false, true, STATE, false, ['kept']]);
         }),
     );
 
     it.live.each([
-        { label: 'altered in one sealed byte', tool: 'test_input', altered: (state: string) => `${state.slice(0, 40)}${state.at(40) === 'A' ? 'B' : 'A'}${state.slice(41)}` },
+        { label: 'altered in one sealed byte', tool: 'test_input', altered: (state: string) => state.replace(/(?<=\.)[^.](?=[^.]*$)/u, (sealed) => (sealed === 'A' ? 'B' : 'A')) },
         { label: 'sealed for another tool', tool: 'test_value', altered: (state: string) => state },
     ] as const)(
         'refuses a request state $label as invalid params without running the tool',

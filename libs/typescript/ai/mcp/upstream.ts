@@ -9,16 +9,14 @@ import { Server } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Pattern = string | RegExp;
 interface Filter {
-    readonly allow?: readonly Pattern[];
-    readonly deny?: readonly Pattern[];
+    readonly allow?: readonly (string | RegExp)[];
+    readonly deny?: readonly (string | RegExp)[];
 }
 type Route = (peers: Array.NonEmptyReadonlyArray<Link>, given: Record.ReadonlyRecord<string, unknown>) => Effect.Effect<Link, McpSchema.InvalidParams>;
 interface Kind<A> {
     readonly items: (source: Upstream) => readonly A[];
     readonly key: (item: A) => string;
-    readonly same: (self: A, that: A) => boolean;
     readonly registered: () => readonly (readonly [string, Context.Context<never>])[];
     readonly add: (forward: <B, E, R>(at: string, given: Record.ReadonlyRecord<string, unknown>, use: (source: Upstream) => Effect.Effect<B, E, R>) => Effect.Effect<B, E | McpSchema.InternalError | McpSchema.InvalidParams, R>, item: A, annotations: Context.Context<never>) => Effect.Effect<void>;
 }
@@ -49,21 +47,18 @@ class Upstream extends Data.Class<
             kind<McpSchema.Tool>(route, {
                 items: Struct.get('tools'),
                 key: Struct.get('name'),
-                same: Schema.toEquivalence(McpSchema.Tool),
                 registered: () => Array.map(server.tools, ({ tool, annotations }) => [tool.name, annotations] as const),
                 add: (forward, tool, annotations) => server.addTool({ tool, annotations, handle: (given: Record.ReadonlyRecord<string, unknown>) => forward(tool.name, given, (source) => source.call(tool.name, given)) }),
             }),
             kind<McpSchema.Resource>(route, {
                 items: Struct.get('resources'),
                 key: Struct.get('uri'),
-                same: Schema.toEquivalence(McpSchema.Resource),
                 registered: () => Array.map(server.resources, ({ resource, annotations }) => [resource.uri, annotations] as const),
                 add: (forward, resource, annotations) => server.addResource({ resource, annotations, handle: Server.orInternalError(forward(resource.uri, { uri: resource.uri }, (source) => source.read(resource.uri))) }),
             }),
             kind<McpSchema.ResourceTemplate>(route, {
                 items: Struct.get('templates'),
                 key: Struct.get('uriTemplate'),
-                same: Schema.toEquivalence(McpSchema.ResourceTemplate),
                 registered: () => Array.map(server.resourceTemplates, ({ template, annotations }) => [template.uriTemplate, annotations] as const),
                 add: (forward, template, annotations) => {
                     const { routerPath, names } = compiled(template.uriTemplate);
@@ -79,7 +74,6 @@ class Upstream extends Data.Class<
             kind<McpSchema.Prompt>(route, {
                 items: Struct.get('prompts'),
                 key: Struct.get('name'),
-                same: Schema.toEquivalence(McpSchema.Prompt),
                 registered: () => Array.map(server.prompts, ({ prompt, annotations }) => [prompt.name, annotations] as const),
                 add: (forward, prompt, annotations) =>
                     server.addPrompt({
@@ -157,11 +151,13 @@ class Upstream extends Data.Class<
         );
         const connected = Effect.gen(function* () {
             const [connections, services] = yield* Effect.all([Pool.make({ acquire: connect, size: 1, concurrency: Number.POSITIVE_INFINITY }), Effect.context<SecureRandom.SecureRandom>()]);
-            const attempt = Effect.fnUntraced(function* <A, E2>(use: (connection: Parameters<typeof listed>[0]) => Effect.Effect<A, E2, SecureRandom.SecureRandom>) {
-                const connection = yield* Pool.get(connections);
-                return yield* Effect.tapError(use(connection), (error) => (Option.isSome(lost(error)) ? Pool.invalidate(connections, connection) : Effect.void));
-            }, Effect.scoped);
-            const run = <A, E2>(use: (connection: Parameters<typeof listed>[0]) => Effect.Effect<A, E2, SecureRandom.SecureRandom>) => Effect.retry(attempt(use), { times: 1, while: flow(lost, Option.contains(true)) }).pipe(Effect.updateContext((request: Context.Context<never>) => Context.merge(services, request)));
+            const run = <A, E2>(use: (connection: Parameters<typeof listed>[0]) => Effect.Effect<A, E2, SecureRandom.SecureRandom>) =>
+                Pool.get(connections).pipe(
+                    Effect.flatMap((connection) => Effect.tapError(use(connection), (error) => (Option.isSome(lost(error)) ? Pool.invalidate(connections, connection) : Effect.void))),
+                    Effect.scoped,
+                    Effect.retry({ times: 1, while: flow(lost, Option.contains(true)) }),
+                    Effect.updateContext((request: Context.Context<never>) => Context.merge(services, request)),
+                );
             const served = (listing: Listing) => {
                 const tools = Record.fromEntries(Array.filterMap(listing.tools, (tool) => (admits(tool.name, filters.tools) ? Result.succeed([named(tool.name), tool] as const) : Result.failVoid)));
                 const prompts = Record.fromEntries(Array.filterMap(listing.prompts, (prompt) => (admits(prompt.name, filters.prompts) ? Result.succeed([named(prompt.name), prompt] as const) : Result.failVoid)));
@@ -212,7 +208,7 @@ const listed = ({ client, transport }: { readonly client: McpClient.McpClient; r
         prompts: client.listPrompts(),
     });
 const admits = (key: string, { allow, deny = [] }: Filter = {}) => {
-    const hits = (pattern: Pattern) => (Predicate.isString(pattern) ? pattern === key : pattern.test(key));
+    const hits = (pattern: string | RegExp) => (Predicate.isString(pattern) ? pattern === key : pattern.test(key));
     return (allow?.some(hits) ?? true) && !deny.some(hits);
 };
 const lost = (error: unknown) =>
@@ -253,7 +249,7 @@ const ask = Effect.fnUntraced(function* <S extends Schema.Top>(transport: McpCli
     );
     return yield* Effect.mapError(Schema.decodeUnknownEffect(rpc.successSchema)(result), invalid);
 });
-const kind = Effect.fnUntraced(function* <A>(route: Route, { items, key, same, registered, add }: Kind<A>) {
+const kind = Effect.fnUntraced(function* <A>(route: Route, { items, key, registered, add }: Kind<A>) {
     const [shown, routes] = yield* Effect.all([Ref.make<Record.ReadonlyRecord<string, { readonly item: A; readonly annotations: Context.Context<never> }>>({}), Ref.make<Record.ReadonlyRecord<string, Array.NonEmptyReadonlyArray<Upstream>>>({})]);
     const forward = Effect.fnUntraced(function* <B, E, R>(at: string, given: Record.ReadonlyRecord<string, unknown>, use: (source: Upstream) => Effect.Effect<B, E, R>) {
         const rows = yield* Effect.fromOption(Record.get(yield* Ref.get(routes), at), () => McpSchema.InternalError.make({ message: `${at} has no reachable upstream` }));
@@ -275,7 +271,7 @@ const kind = Effect.fnUntraced(function* <A>(route: Route, { items, key, same, r
         );
         yield* Record.isEmptyRecord(shadowed) ? Effect.void : Effect.logError(`Upstream ${Record.keys(shadowed).join(', ')} share a key with the server's own registrations and stay unregistered`);
         const fresh = Record.filterMap(byKey, ([[source, item]], at) =>
-            Option.containsWith(same)(Option.map(Record.get(previous, at), Struct.get('item')), item) ? Result.failVoid : Result.succeed({ item, annotations: Context.merge(source.annotations, Context.make(Server.Visible, Effect.map(Ref.get(routes), Record.has(at)))) }),
+            Option.contains(Option.map(Record.get(previous, at), Struct.get('item')), item) ? Result.failVoid : Result.succeed({ item, annotations: Context.merge(source.annotations, Context.make(Server.Visible, Effect.map(Ref.get(routes), Record.has(at)))) }),
         );
         yield* Effect.all([Ref.set(routes, Record.map(byKey, Array.map(Tuple.get(0)))), Ref.update(shown, (kept) => ({ ...kept, ...fresh }))]);
         yield* Effect.forEach(Object.values(fresh), ({ item, annotations }) => add(forward, item, annotations), { discard: true });

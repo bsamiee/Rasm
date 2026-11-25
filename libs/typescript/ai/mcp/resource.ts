@@ -18,21 +18,7 @@ const encodeJsonText = Schema.encodeEffect(Schema.fromJsonString(Schema.Json));
 const make = Effect.fnUntraced(function* <A, I, R, D extends Partial<Record<'uri' | 'mimeType' | 'description', string | undefined>>>({ schema, changes, uri, mimeType, description, ...descriptor }: D & { readonly schema: Schema.Codec<A, I>; readonly changes: Stream.Stream<unknown, never, R> }) {
     const [server, store] = yield* Effect.all([McpServer.McpServer, SubscriptionRef.make(HashMap.empty<string, Entry<A>>())]);
     const codec = Schema.toCodecJson(schema);
-    const encoded = Schema.encodeEffect(codec);
     const media = SchemaAST.isString(SchemaAST.toEncoded(codec.ast)) ? mimeType : 'application/json';
-    const observe = (key: string, read: Effect.Effect<A, Error>, at: string) =>
-        read.pipe(
-            Effect.tap((value) => SubscriptionRef.update(store, HashMap.modifyAt(key, Option.match({ onNone: () => Option.some({ read, value, uris: HashSet.make(key, at) }), onSome: ({ uris }) => Option.some({ read, value, uris: HashSet.add(uris, at) }) })))),
-            Effect.tapCauseIf(flow(Cause.findErrorOption, Option.exists(Cause.isNoSuchElementError)), () => SubscriptionRef.update(store, HashMap.remove(key))),
-        );
-    const reply = (at: string, value: A) =>
-        value instanceof Uint8Array
-            ? Effect.succeed(McpSchema.ReadResourceResult.make({ contents: [McpSchema.BlobResourceContents.make({ uri: at, mimeType: media, blob: value })] }))
-            : encoded(value).pipe(
-                  Effect.filterOrElse(Predicate.isString, encodeJsonText),
-                  Effect.orDie,
-                  Effect.map((text) => McpSchema.ReadResourceResult.make({ contents: [McpSchema.TextResourceContents.make({ uri: at, mimeType: media, text })] })),
-              );
     const updated = (at: string) => server.notifications['notifications/resources/updated']({ uri: at });
     yield* changes.pipe(
         Stream.mapEffect(() => SubscriptionRef.get(store)),
@@ -59,7 +45,18 @@ const make = Effect.fnUntraced(function* <A, I, R, D extends Partial<Record<'uri
     return {
         descriptor: { ...descriptor, mimeType: media, description: description ?? SchemaAST.resolveDescription(schema.ast) },
         read: (key: string, at: string, content: Effect.Effect<A, Error>) =>
-            observe(key, content, at).pipe(Effect.catchNoSuchElement, Server.orInternalError, Effect.flatMap(Option.match({ onNone: () => Effect.fail(McpSchema.InvalidParams.make({ message: `Resource '${at}' not found` })), onSome: (value) => reply(at, value) }))),
+            content.pipe(
+                Effect.tap((value) => SubscriptionRef.update(store, HashMap.modifyAt(key, Option.match({ onNone: () => Option.some({ read: content, value, uris: HashSet.make(key, at) }), onSome: ({ uris }) => Option.some({ read: content, value, uris: HashSet.add(uris, at) }) })))),
+                Effect.tapCauseIf(flow(Cause.findErrorOption, Option.exists(Cause.isNoSuchElementError)), () => SubscriptionRef.update(store, HashMap.remove(key))),
+                Effect.catchNoSuchElement,
+                Server.orInternalError,
+                Effect.flatMap(Effect.fromOption(() => McpSchema.InvalidParams.make({ message: `Resource '${at}' not found` }))),
+                Effect.flatMap((value) =>
+                    value instanceof Uint8Array
+                        ? Effect.succeed(McpSchema.ReadResourceResult.make({ contents: [McpSchema.BlobResourceContents.make({ uri: at, mimeType: media, blob: value })] }))
+                        : Effect.map(Effect.orDie(Effect.filterOrElse(Schema.encodeEffect(codec)(value), Predicate.isString, encodeJsonText)), (text) => McpSchema.ReadResourceResult.make({ contents: [McpSchema.TextResourceContents.make({ uri: at, mimeType: media, text })] })),
+                ),
+            ),
     };
 });
 const registerResource = Effect.fnUntraced(function* <A, I, E extends Error, R>({

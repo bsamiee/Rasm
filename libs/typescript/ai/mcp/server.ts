@@ -1,9 +1,10 @@
 import { ATTR_ERROR_TYPE, ATTR_GEN_AI_OPERATION_NAME, ATTR_GEN_AI_PROMPT_NAME, ATTR_GEN_AI_TOOL_NAME, ATTR_MCP_METHOD_NAME, ATTR_MCP_RESOURCE_URI, ERROR_TYPE_VALUE_OTHER, GEN_AI_OPERATION_NAME_VALUE_EXECUTE_TOOL, METRIC_MCP_SERVER_OPERATION_DURATION } from '@opentelemetry/semantic-conventions/incubating';
 import { Unmatched } from '@rasm/search';
-import { Array, Cause, Context, Data, Deferred, Duration, Effect, Exit, Fiber, FiberSet, Function, flow, Layer, Match, Metric, Number, Option, Order, Predicate, RcMap, Record, Ref, Result, Schema, SchemaGetter, type Scope, Stream, String, Struct, SubscriptionRef, TxRef, UndefinedOr } from 'effect';
+import { Array, Boolean, Cause, Context, Deferred, Duration, Effect, Exit, Fiber, FiberSet, Function, Layer, Match, Metric, Number, Option, Order, Predicate, RcMap, Record, Redacted, Ref, Result, Schema, SchemaGetter, type Scope, Stream, Struct, SubscriptionRef, TxRef, UndefinedOr } from 'effect';
 import { McpProtocol, McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
-import { Aead, SecureRandom } from 'effect/crypto';
+import { type Aead, SecureRandom } from 'effect/crypto';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { Jwk, Jwt } from 'effect/jose';
 import { Host, NetAddress } from 'effect/net';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -19,27 +20,14 @@ interface Slot {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PROTOCOLS = Option.getOrThrow(Array.match(Array.sort(Object.values(McpProtocol), Order.flip(Order.mapInput(Order.String, (adapter: McpProtocol.ProtocolAdapter) => adapter.protocolVersion))), { onEmpty: Option.none, onNonEmpty: Option.some }));
-const SEALING = Aead.xchacha20Poly1305;
+const PROTOCOLS = Option.getOrThrow(Option.liftPredicate(Array.sort(Object.values(McpProtocol), Order.flip(Order.mapInput(Order.String, (adapter: McpProtocol.ProtocolAdapter) => adapter.protocolVersion))), Array.isArrayNonEmpty));
 const FRESH: Slot = { state: Context.empty(), dropped: 0, entries: [], held: [], calls: 0, running: [] };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Tagged = Schema.Struct({ _tag: Schema.String });
-class Resumed extends Schema.Opaque<Resumed, unknown>()(Schema.Struct({ handle: Schema.String, state: Schema.optional(Schema.String) })) {
-    static readonly json = Schema.fromJsonString(this);
-}
-const Lead = Data.taggedEnum<
-    Data.TaggedEnum<{
-        Minted: { readonly handle: string };
-        Dropped: { readonly events: number };
-        Event: { readonly sequence: number; readonly text: string };
-        Waiting: { readonly events: number };
-        Early: { readonly call: number };
-        Pending: { readonly calls: readonly number[] };
-        Finished: { readonly call: number; readonly tool: string; readonly failed: boolean; readonly texts: readonly string[]; readonly blocks: readonly McpSchema.ContentBlock[] };
-    }>
->();
+const Resumed = Schema.Struct({ handle: Schema.String, state: Schema.OptionFromOptionalKey(Schema.String), aud: Schema.String });
+const Minted = Schema.is(Schema.String.check(Schema.isUUID(7)));
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -100,28 +88,17 @@ class Server extends Context.Service<
         yield* McpServer.registerToolkit(toolkit).pipe(Effect.provide(toolkit.toLayer({ [tool.name]: Function.identity })));
     });
     static readonly layer = Effect.fnUntraced(function* ({ scheme, retention, limit, budget }: { readonly scheme: Effect.Success<ReturnType<typeof Server.scheme>>; readonly retention: Duration.Duration; readonly limit: number; readonly budget: number }) {
-        const [server, scope, live, sequence, aead, random] = yield* Effect.all([McpServer.McpServer, Effect.scope, TxRef.make<Record.ReadonlyRecord<string, TxRef.TxRef<Slot>>>({}), TxRef.make(0), Aead.Aead, SecureRandom.SecureRandom]);
-        const key = yield* Effect.orDie(aead.generateKey(SEALING));
+        const [server, scope, live, sequence, random, crypto] = yield* Effect.all([McpServer.McpServer, Effect.scope, TxRef.make<Record.ReadonlyRecord<string, TxRef.TxRef<Slot>>>({}), TxRef.make(0), SecureRandom.SecureRandom, Effect.context<Aead.Aead | SecureRandom.SecureRandom>()]);
+        const [key, epoch] = yield* Effect.all([Effect.orDie(Effect.flatMap(Jwk.generateSecret('dir'), (secret) => Jwk.importSecret(secret, 'dir'))), random.uuidV7()]);
         const handles = yield* RcMap.make({
             lookup: (id: string) => Effect.tap(Effect.all({ id: Effect.succeed(id), row: TxRef.make(FRESH), fibers: FiberSet.make() }), ({ row }) => Effect.acquireRelease(TxRef.update(live, Record.set(id, row)), () => TxRef.update(live, Record.remove(id)))),
             idleTimeToLive: retention,
         });
-        const Given = Schema.Struct({ handle: Schema.optionalKey(Schema.String.annotate({ description: `Handle from an earlier result, holding your state and your place in the events; omit it to start one; it expires after ${Duration.format(retention)} without a call` })) });
+        const kept = Duration.format(retention);
+        const Given = Schema.Struct({ handle: Schema.optionalKey(Schema.String.annotate({ description: `Handle from an earlier result, holding your state and your place in the events; omit it to start one; it expires after ${kept} without a call` })) });
         const added = Record.map(Given.fields, (field) => Schema.toJsonSchemaDocument(field).schema);
-        const uri = (path: string) => `${scheme}://${path}`;
-        const seal = Effect.fnUntraced(function* (tool: string, resumed: Resumed) {
-            const [nonce, plain] = yield* Effect.all([random.randomBytes(SEALING.nonceLength), Effect.orDie(Schema.encodeEffect(Resumed.json)(resumed))]);
-            const sealed = yield* Effect.orDie(aead.encrypt(key, new TextEncoder().encode(plain), { nonce, aad: new TextEncoder().encode(tool) }));
-            return yield* Effect.orDie(Schema.encodeEffect(Schema.Uint8ArrayFromBase64Url)(new Uint8Array([...nonce, ...sealed])));
-        });
-        const open = Effect.fnUntraced(
-            function* (tool: string, state: string) {
-                const bytes = yield* Schema.decodeEffect(Schema.Uint8ArrayFromBase64Url)(state);
-                const plain = yield* aead.decrypt(key, bytes.subarray(SEALING.nonceLength), { nonce: bytes.subarray(0, SEALING.nonceLength), aad: new TextEncoder().encode(tool) });
-                return yield* Effect.orDie(Schema.decodeEffect(Resumed.json)(new TextDecoder().decode(plain)));
-            },
-            Effect.mapError(() => McpSchema.InvalidParams.make({ message: 'requestState came from no input request of this server and tool, call again without it' })),
-        );
+        const open = (tool: string, sealed: string) =>
+            Effect.provideContext(Effect.mapBoth(Jwt.decrypt(Resumed, sealed, key, { audience: tool }), { onFailure: () => McpSchema.InvalidParams.make({ message: 'requestState came from no input request of this server and tool, call again without it' }), onSuccess: ({ claims }) => claims }), crypto);
         const gate = (subject: Readonly<Record<string, string>>, { annotations, services = Context.empty() }: Pick<Parameters<McpServer.McpServer['Service']['addResource']>[0], 'annotations' | 'services'>) =>
             Effect.map(Layer.buildWithScope(McpServer.visibility(() => Server.orInternalError(Effect.tapCause(Context.get(annotations, Server.Visible), (cause) => Effect.annotateLogs(Effect.logError('Visibility check failed', cause), subject)))).layer, scope), (gated) => Context.merge(services, gated));
         const listed = yield* Ref.make<Record.ReadonlyRecord<'tools' | 'resources' | 'prompts', Record.ReadonlyRecord<string, boolean>>>({ tools: {}, resources: {}, prompts: {} });
@@ -135,7 +112,7 @@ class Server extends Context.Service<
                 prompts: Effect.all(Record.fromIterableWith(server.prompts, ({ prompt, annotations }) => [prompt.name, Context.get(annotations, Server.Visible)])),
             });
             const before = yield* Ref.getAndSet(listed, now);
-            yield* Effect.forEach(Record.keys(now), (kind) => (Record.some(now[kind], flipped(before[kind])) ? server.notifications[`notifications/${kind}/list_changed`]({}) : Effect.void), { discard: true });
+            yield* Effect.forEach(Record.keys(now), (kind) => (Record.some(Record.intersection(now[kind], before[kind], Boolean.xor), Function.identity) ? server.notifications[`notifications/${kind}/list_changed`]({}) : Effect.void), { discard: true });
         });
         yield* Layer.build(metered.layerGlobal);
         const guarded = McpServer.McpServer.of({
@@ -149,7 +126,8 @@ class Server extends Context.Service<
                         const resumed = yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(request.requestState), (sealed) => open(options.tool.name, sealed)));
                         const { id, row, fibers } = yield* Option.match(Option.firstSomeOf([Option.map(resumed, Struct.get('handle')), Option.fromUndefinedOr(given)]), {
                             onNone: () => Effect.flatMap(random.uuidV7(), (minted) => RcMap.get(handles, minted)),
-                            onSome: (known) => RcMap.getOption(handles, known).pipe(Effect.flatMap(Effect.fromOption(() => new Cause.NoSuchElementError(`Handle ${known} is unknown or expired after ${Duration.format(retention)} without a call, call again without handle to start one`)))),
+                            onSome: (known) =>
+                                RcMap.getOption(handles, known).pipe(Effect.flatMap(Effect.fromOption(() => new Cause.NoSuchElementError(`Handle ${known} ${Minted(known) && known < epoch ? 'predates a restart' : `is unknown or expired after ${kept} without a call`}, call again without handle to start one`)))),
                         });
                         const [blocks, asked, pace, frozen] = yield* Effect.all([Ref.make(Array.empty<McpSchema.ContentBlock>()), Deferred.make<McpSchema.InputRequired>(), SubscriptionRef.make({ last: -1, offset: 0 }), Effect.flatMap(TxRef.get(row), TxRef.make)]);
                         const [bound, ending, token] = [held(row), Stream.provideService(ends, Handle, held(frozen)), Schema.decodeUnknownOption(McpSchema.ProgressToken)(request.requestMetadata?.progressToken)];
@@ -165,7 +143,7 @@ class Server extends Context.Service<
                                 settle: Effect.map(TxRef.get(row), Struct.get('running')).pipe(Effect.flatMap(Effect.forEach((each) => Effect.raceFirst(Fiber.await(each.fiber), Stream.runHead(each.ends)), { concurrency: 'unbounded', discard: true }))),
                             }),
                             Effect.provideService(Handle, bound),
-                            Effect.updateService(McpSchema.McpRequestContext, (context) => ({ ...context, requestState: Option.getOrUndefined(resumed)?.state })),
+                            Effect.updateService(McpSchema.McpRequestContext, (context) => ({ ...context, requestState: Option.getOrUndefined(Option.flatMap(resumed, Struct.get('state'))) })),
                             Effect.scoped,
                         );
                         const fiber = yield* FiberSet.run(fibers)(Effect.flatMap(TxRef.get(sequence), (from) => Effect.ensuring(answer, TxRef.update(row, judged(limit, from, [])))));
@@ -176,7 +154,10 @@ class Server extends Context.Service<
                             Effect.onInterrupt(() => Fiber.interrupt(fiber)),
                         );
                         return yield* outcome instanceof McpSchema.InputRequired
-                            ? Effect.map(seal(options.tool.name, { handle: id, state: outcome.requestState }), (requestState) => new McpSchema.InputRequired({ inputRequests: outcome.inputRequests, requestState }))
+                            ? Effect.map(
+                                  Effect.provideContext(Effect.orDie(Jwt.encrypt(Resumed, { handle: id, state: Option.fromUndefinedOr(outcome.requestState), aud: options.tool.name }, key)), crypto),
+                                  (sealed) => new McpSchema.InputRequired({ inputRequests: outcome.inputRequests, requestState: Redacted.value(sealed) }),
+                              )
                             : delivered(outcome, { row, limit, budget, minted: given === undefined ? Option.some(id) : Option.none(), early: early ? Option.some({ tool: options.tool.name, fiber, ends: ending }) : Option.none() });
                     },
                     Effect.catchTag('NoSuchElementError', ({ message }) => Effect.succeed(McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: message })] }))),
@@ -200,7 +181,7 @@ class Server extends Context.Service<
                 ),
         });
         const service = Server.of({
-            uri,
+            uri: (path) => `${scheme}://${path}`,
             events: ({ stream, render, owns = Function.constTrue }) =>
                 Stream.runForEach(stream, (event) =>
                     Effect.tx(
@@ -236,12 +217,11 @@ const served = Effect.fnUntraced(function* <E, R>(
     const shown = yield* Effect.filter([...server.tools, ...server.resources, ...server.resourceTemplates, ...server.prompts], ({ annotations }) => Context.get(annotations, Server.Visible));
     return { ...manifest, protocols: PROTOCOLS, instructions: Array.dedupe([...instructions, ...Array.flatMap(shown, ({ annotations }) => Context.get(annotations, Server.Instructions))]).join('\n') };
 });
-const flipped = (before: Record.ReadonlyRecord<string, boolean>) => (shown: boolean, at: string) => before[at] === !shown;
 const iconed = (annotations: Context.Context<never>, own: readonly McpSchema.Icon[] | undefined) => Array.match(Context.get(annotations, Server.Icons), { onEmpty: () => own, onNonEmpty: Function.identity });
 const operationDuration = Metric.mapInput(
     Metric.histogram(METRIC_MCP_SERVER_OPERATION_DURATION, {
         description: 'Duration of MCP server operations',
-        boundaries: Array.map(['10 millis', '20 millis', '50 millis', '100 millis', '200 millis', '500 millis', '1 second', '2 seconds', '5 seconds', '10 seconds', '30 seconds', '1 minute', '2 minutes', '5 minutes'] as const, Duration.toSeconds),
+        boundaries: [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 30, 60, 120, 300],
     }),
     Duration.toSeconds,
 );
@@ -278,18 +258,6 @@ const split = ({ content, structuredContent }: McpSchema.CallToolResult) => {
     const shown = UndefinedOr.map(structuredContent, (json) => [JSON.stringify(json), Predicate.isString(json) ? json : JSON.stringify(json)] as const);
     return { blocks, texts: UndefinedOr.match(shown, { onUndefined: () => texts, onDefined: ([mirror, text]) => (Array.contains(texts, mirror) ? Array.map(texts, (each) => (each === mirror ? text : each)) : Array.append(texts, text)) }) };
 };
-const lined = flow(
-    Lead.$match({
-        Minted: ({ handle }) => `handle ${handle} holds your state, pass it on each later call`,
-        Dropped: ({ events }) => `! ${events} older events dropped`,
-        Event: ({ sequence, text }) => `! #${sequence} ${text}`,
-        Waiting: ({ events }) => `! ${events} more events next call`,
-        Early: ({ call }) => `early: call ${call} keeps running, its result arrives under finished`,
-        Pending: ({ calls }) => `pending: calls ${calls.join(', ')}`,
-        Finished: ({ call, tool, failed, texts, blocks }) => [`finished: call ${call} ${tool}${blocks.length > 0 ? ` +${blocks.length} blocks` : ''}${failed ? ' failed:' : ''}`, ...texts].join(' '),
-    }),
-    String.replaceAll('\n', '\n  '),
-);
 const owing = (limit: number, owned: Slot['entries']) => (slot: Slot) => {
     const merged = Array.sortWith([...slot.entries, ...owned], (each) => each.sequence, Number.Order);
     const [gone, entries] = Array.splitAt(merged, merged.length - limit);
@@ -310,24 +278,27 @@ const delivered = Effect.fnUntraced(function* (outcome: McpSchema.CallToolResult
             { ...slot, dropped: 0, entries: [], calls: slot.calls + started.length, running: [...pending, ...started] },
         ];
     });
-    const lines = yield* Effect.forEach(taken.entries, ({ sequence, text }) => Effect.map(text, (line) => lined(Lead.Event({ sequence, text: line })))).pipe(Effect.provideService(Handle, held(row)));
+    const lines = yield* Effect.forEach(taken.entries, ({ sequence, text }) => Effect.map(text, (line) => `! #${sequence} ${line}`.replaceAll('\n', '\n  '))).pipe(Effect.provideService(Handle, held(row)));
     const [, fitted] = Array.mapAccum(Array.zip(taken.entries, lines), budget, (left, [entry, line], index) => [left - line.length - 1, index === 0 || left > line.length ? Result.succeed(line) : Result.fail(entry)]);
     const [shown, later] = Array.separate(fitted);
     yield* TxRef.update(row, owing(limit, later));
-    const finished = Array.map(taken.ended, ({ call, tool, exit }) =>
-        Lead.Finished({
-            call,
-            tool,
-            ...Exit.match(exit, {
-                onSuccess: (result) => (result instanceof McpSchema.InputRequired ? { failed: true, texts: ['Asked for client input, call the tool again'], blocks: [] } : { failed: result.isError === true, ...split(result) }),
-                onFailure: (cause) => ({ failed: true, texts: Array.map(Cause.prettyErrors(cause), Struct.get('message')), blocks: [] }),
-            }),
-        }),
-    );
+    const finished = Array.map(taken.ended, ({ call, tool, exit }) => {
+        const { failed, texts, blocks } = Exit.match(exit, {
+            onSuccess: (result) => (result instanceof McpSchema.InputRequired ? { failed: true, texts: ['Asked for client input, call the tool again'], blocks: [] } : { failed: result.isError === true, ...split(result) }),
+            onFailure: (cause) => ({ failed: true, texts: Array.map(Cause.prettyErrors(cause), Struct.get('message')), blocks: [] }),
+        });
+        return { blocks, line: [`finished: call ${call} ${tool}${blocks.length > 0 ? ` +${blocks.length} blocks` : ''}${failed ? ' failed:' : ''}`, ...texts].join(' ').replaceAll('\n', '\n  ') };
+    });
     const { texts: body, blocks } = split(outcome);
-    const head = [...Option.toArray(Option.map(minted, (handle) => Lead.Minted({ handle }))), ...(taken.dropped > 0 ? [Lead.Dropped({ events: taken.dropped })] : [])];
-    const tail = [...(later.length > 0 ? [Lead.Waiting({ events: later.length })] : []), ...Array.map(taken.started, ({ call }) => Lead.Early({ call })), ...(taken.pending.length > 0 ? [Lead.Pending({ calls: Array.map(taken.pending, Struct.get('call')) })] : []), ...finished];
-    const leading = [...Array.map(head, lined), ...shown, ...Array.map(tail, lined)];
+    const leading = [
+        ...Option.toArray(Option.map(minted, (handle) => `handle ${handle} holds your state, pass it on each later call`)),
+        ...(taken.dropped > 0 ? [`! ${taken.dropped} older events dropped`] : []),
+        ...shown,
+        ...(later.length > 0 ? [`! ${later.length} more events next call`] : []),
+        ...Array.map(taken.started, ({ call }) => `early: call ${call} keeps running, its result arrives under finished`),
+        ...(taken.pending.length > 0 ? [`pending: calls ${Array.map(taken.pending, Struct.get('call')).join(', ')}`] : []),
+        ...Array.map(finished, Struct.get('line')),
+    ];
     const text = [...leading, ...(Array.isReadonlyArrayNonEmpty(leading) && Array.isReadonlyArrayNonEmpty(body) ? [''] : []), ...body];
     return McpSchema.CallToolResult.make({ ...Struct.omit(outcome, ['structuredContent']), content: [...Array.match(text, { onEmpty: () => [], onNonEmpty: (rows) => [McpSchema.TextContent.make({ text: rows.join('\n') })] }), ...blocks, ...Array.flatMap(finished, Struct.get('blocks'))] });
 });

@@ -7,14 +7,8 @@ import { Server } from '#/server';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PATH = '/link';
-const REDIAL = Duration.seconds(1);
 
 // --- [MODELS] --------------------------------------------------------------------------
-
-const Call = Schema.Struct({
-    ...McpSchema.CallTool.payloadSchema.fields,
-    context: Schema.Struct({ clientId: Schema.Int, protocolVersion: Schema.String, clientCapabilities: McpSchema.ClientCapabilities }).annotate({ description: 'Request context of the linked server call' }),
-});
 
 class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')({
     application: Schema.Union([Schema.URLFromString.annotate({ description: 'Host application bundle URL with trailing slash' }), Schema.String.annotate({ description: 'Host application name, from a host that reports no bundle path' })]),
@@ -29,7 +23,11 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
         target: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Specifier of the object the event concerns' })),
         detail: Schema.OptionFromOptionalKey(Schema.Json),
     });
-    static readonly Rpcs = RpcGroup.make(McpSchema.ListTools, McpSchema.CallTool.setPayload(Call), Rpc.make('notices', { success: Link.Notice, stream: true }));
+    static readonly Rpcs = RpcGroup.make(
+        McpSchema.ListTools,
+        McpSchema.CallTool.setPayload(Schema.Struct({ ...McpSchema.CallTool.payloadSchema.fields, context: Schema.Struct({ clientId: Schema.Int, protocolVersion: Schema.String, clientCapabilities: McpSchema.ClientCapabilities }).annotate({ description: 'Request context of the linked server call' }) })),
+        Rpc.make('notices', { success: Link.Notice, stream: true }),
+    );
     static readonly key = ({ application, extension }: Link) => `${extension} in ${String(application)}`;
     static readonly serves = (tags: Iterable<string>) => {
         const wanted = [...tags];
@@ -40,7 +38,7 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
         ({ application }: Link) =>
             typeof application === 'string' ? application === name : application.href === url.href;
     static readonly dial = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rpcs>, handlers: Layer.Layer<H, EH, RH>, url: URL, peer: Effect.Effect<Link, E, R>) =>
-        dial(Link.Rpcs.merge(group), handlers, { url: new URL(PATH, url), redial: REDIAL, peer: Effect.flatMap(peer, (identity) => Effect.orDie(Schema.encodeEffect(Link)(Link.make({ ...identity, requests: group.requests.keys().toArray() })))) });
+        dial(Link.Rpcs.merge(group), handlers, { url: new URL(PATH, url), redial: Duration.seconds(1), peer: Effect.flatMap(peer, (identity) => Effect.orDie(Schema.encodeEffect(Link)(Link.make({ ...identity, requests: group.requests.keys().toArray() })))) });
     static readonly listen = <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>, origin: string) => listen(Link.Rpcs.merge(group), { path: PATH, origin, peer: Link, key: Link.key });
     static readonly serve = <Served extends Record.ReadonlyRecord<string, Tool.Any>, R = never>(toolkit: Toolkit.Toolkit<Served>, { notices = Stream.empty }: { readonly notices?: Stream.Stream<typeof Link.Notice.Type, never, R> } = {}) =>
         Link.Rpcs.toLayer(
