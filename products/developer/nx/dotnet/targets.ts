@@ -59,7 +59,7 @@ const metadata = (verb: string, description: string) => ({ description, help: { 
 
 const written = (...modes: readonly { readonly outputs: readonly string[] }[]) => Array.makeBy(Math.max(0, ...modes.map(({ outputs }) => outputs.length)), (index) => `{options.outputs.${index}}`);
 
-const targets = (node: Node, coverage: string | undefined, solution: (configuration: string) => Option.Option<Readonly<Record<string, string>>>, listed: Option.Option<string>): Verbs => {
+const targets = (node: Node, coverage: string | undefined, solution: (configuration: string) => Readonly<Record<string, string>>, listed: Option.Option<string>): Verbs => {
     const root = dirname(node.file);
     const project = posix.join('{projectRoot}', basename(node.file));
     const hashed = (upstream: NonNullable<TargetConfiguration['inputs']>[number], files: readonly string[], ...hosts: NonNullable<TargetConfiguration['inputs']>): NonNullable<TargetConfiguration['inputs']> => [
@@ -80,7 +80,7 @@ const targets = (node: Node, coverage: string | undefined, solution: (configurat
         project,
         command: [verb, '--configuration', configuration],
         outputs: [...outputs, ...published, ...reports, ...documents],
-        ...Record.getSomes({ solution: solution(configuration) }),
+        solution: solution(configuration),
     }));
     const packed = moded(({ configuration, packed: folder }) => ({ project, command: ['pack', '--no-build', '-restore', '--configuration', configuration], outputs: [posix.join(folder, '*.nupkg')] }));
     const tested =

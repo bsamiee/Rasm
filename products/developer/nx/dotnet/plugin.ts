@@ -104,7 +104,7 @@ const listing = (node: Node) => join(workspaceDataDirectory, 'dotnet-external', 
 
 const solution = (closure: readonly Node[]) => (configuration: string) => {
     const assigned = closure.map((each) => [each.file, [each.evaluated, ...each.declared].find((mode) => mode.configuration.toLowerCase() === configuration.toLowerCase())?.configuration ?? each.evaluated.configuration, each.platform] as const);
-    return assigned.every(([, held]) => held === configuration) ? Option.none() : Option.some(Record.fromIterableWith(assigned, ([file, held, pair]) => [file, `${held}|${pair}`] as const));
+    return assigned.every(([, held]) => held === configuration) ? {} : Record.fromIterableWith(assigned, ([file, held, pair]) => [file, `${held}|${pair}`] as const);
 };
 
 const projected = (nodes: readonly Node[], { coveragePath }: Options, manifests: readonly Stated[], anchor: Anchor) => {

@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
 import { Build, execute } from '@rasm/nx-dotnet/executors/build';
-import { it, outputs, targetOptions } from '@rasm/testing/nx';
+import { it, targetOptions } from '@rasm/testing/nx';
 import { Array, Result } from 'effect';
 import { expect, vi } from 'vitest';
 
@@ -26,19 +26,37 @@ it.for([
             'apps/App/Views.cs': 'namespace App;\n\npublic static class Views;\n',
         })
         .graph({ createNodes, createDependencies });
-    const declared = [...outputs(graph, 'App', 'build--dotnet', 'interface'), ...outputs(graph, 'Core', 'build--dotnet')];
     execFileSync('dotnet', ['restore', 'apps/App/App.csproj'], { cwd: workspace.root, stdio: 'ignore' });
     const before = workspace.files();
 
     const { success } = await execute(await targetOptions(Build, graph, 'App', 'build--dotnet', 'interface'), workspace.context(graph, 'App', 'build--dotnet', 'interface'));
 
+    const declared = workspace.cached(graph, 'App', 'build--dotnet', 'interface').union(workspace.cached(graph, 'Core', 'build--dotnet'));
     const written = [...workspace.files().difference(before)];
-    const [inside, outside] = Array.partition(written, (file) => (declared.some((output) => file.startsWith(`${output}/`)) ? Result.succeed(file) : Result.fail(file)));
+    const [inside, outside] = Array.partition(written, (file) => (declared.has(file) ? Result.succeed(file) : Result.fail(file)));
     expect({ success, inside: new Set(inside.map((file) => file.split('/').slice(0, 4).join('/'))), outside: new Set(outside.map((file) => file.split('/').slice(0, 4).join('/'))) }).toStrictEqual({
         success: true,
         inside: new Set(['apps/App/bin/Interface', `${folder}/bin/Debug`]),
         outside: new Set(['apps/App/obj/Interface', `${folder}/obj/Debug`]),
     });
+});
+
+it('builds a reference in the configuration it shares with a project whose default configuration it lacks', async ({ workspace }) => {
+    const graph = await workspace
+        .write({
+            'libs/Core/Core.csproj': project('    <Configurations>Debug;Release;Coverage</Configurations>\n'),
+            'libs/Core/Shapes.cs': 'namespace Core;\n\npublic static class Shapes;\n',
+            'apps/App/App.csproj': project('    <Configurations>Interface;Coverage</Configurations>\n    <Configuration>Interface</Configuration>\n', ['../../libs/Core/Core.csproj']),
+            'apps/App/Views.cs': 'namespace App;\n\npublic static class Views;\n',
+        })
+        .graph({ createNodes, createDependencies });
+    execFileSync('dotnet', ['restore', 'apps/App/App.csproj'], { cwd: workspace.root, stdio: 'ignore' });
+    const before = workspace.files();
+
+    const { success } = await execute(await targetOptions(Build, graph, 'App', 'build--dotnet', 'coverage'), workspace.context(graph, 'App', 'build--dotnet', 'coverage'));
+
+    const built = [...workspace.files().difference(before)].filter((file) => file.includes('/bin/')).map((file) => file.split('/').slice(0, 4).join('/'));
+    expect({ success, built: new Set(built) }).toStrictEqual({ success: true, built: new Set(['apps/App/bin/Coverage', 'libs/Core/bin/Coverage']) });
 });
 
 it.for([
