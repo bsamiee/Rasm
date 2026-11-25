@@ -21,7 +21,7 @@
     "bgIsolation": "none"
   },
   "enabledPlugins": {
-    "function-hooks@rasm-local": true,
+    "function-hooks@rasm": true,
     "blender@rasm": true,
     "dotnet@rasm": true,
     "msbuild@rasm": true,
@@ -52,12 +52,6 @@
         ]
       },
       "autoUpdate": true
-    },
-    "rasm-local": {
-      "source": {
-        "source": "directory",
-        "path": "/Users/bardiasamiee/Developer/Rasm/plugins/claude"
-      }
     }
   },
   "effortLevel": "high",

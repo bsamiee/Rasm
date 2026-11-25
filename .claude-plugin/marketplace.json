@@ -55,6 +55,18 @@
             }
         },
         {
+            "name": "function-hooks",
+            "source": {
+                "source": "archive",
+                "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/function-hooks%400.2.0/function-hooks.zip",
+                "sha256": "9d19926588ef00daae5a4272903efbc98f0169a8c4533fc5d2b318a9ff5de566"
+            },
+            "description": "Hooks that rewrite or refuse agent tool calls inside the Claude Code engine",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
             "name": "media",
             "source": "./plugins/shared/media",
             "description": "Audio work through the Voicebox voice studio MCP server",
