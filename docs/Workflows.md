@@ -179,7 +179,8 @@ Sources of run, job, and task times and cache hits:
 - `duckdb` reads the task database through `ATTACH '<file>' (TYPE sqlite)`, times in milliseconds
 - Batch executors stamp each task with its own start and end, and the critical path of a batch holds task times
 - First `nx` commands of a job create the project graph, and their time holds graph creation, longest after a plugin change
-- `gh api repos/<owner>/<repository>/actions/runs/<run>/jobs` returns start and end of each job and step, and `created_at` to `started_at` is queue time
+- `gh api repos/<owner>/<repository>/actions/runs/<run>/jobs` returns start and end of each job and step, a job's `created_at` to `started_at` its runner pickup
+- Runs wait in a concurrency queue from their own `created_at` to the earliest `created_at` of their jobs
 - Manual CI runs take input `uncached`, the jobs running every task of their `nx affected` step past the Nx cache over state their tools keep
 - `NX_PERF_LOGGING=true` prints each task's time and graph creation times, and `NX_PROFILE=<file>` writes a trace of a run's tasks
 - `vitest bench workspace.bench.ts --reporter=verbose` in `tests/products/developer/nx/distribution` times graph creation and one task per ecosystem
