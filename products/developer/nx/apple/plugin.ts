@@ -75,11 +75,10 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
     const packages = yield* Effect.forEach(
         listed,
         Effect.fnUntraced(function* (swiftPackage: Pick<Package, 'file' | 'root' | 'manifest'>) {
-            const held = (named: (module: string) => string) =>
-                Effect.filter(
-                    swiftPackage.manifest.targets.map((module) => [module.name, join(swiftPackage.root, module.path, named(module.name))] as const),
-                    ([, at]) => fs.exists(join(workspaceRoot, at)),
-                ).pipe(Effect.map(Record.fromEntries));
+            const held = (named: (module: string) => string) => {
+                const expected = swiftPackage.manifest.targets.map((module) => [module.name, join(swiftPackage.root, module.path, named(module.name))] as const);
+                return Effect.filter(expected, ([, at]) => fs.exists(join(workspaceRoot, at))).pipe(Effect.map(Record.fromEntries));
+            };
             const [plists, entitled] = yield* Effect.all([held(() => INFO), held((module) => `${module}${ENTITLEMENTS}`)]);
             const { files: shipped } = yield* fs.readFileString(join(workspaceRoot, swiftPackage.root, PACKAGED)).pipe(
                 Effect.flatMap(Schema.decodeEffect(Shipped)),
@@ -118,7 +117,8 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
         .flatMap((owner) => owner.manifest.targets.map((module) => ({ owner: owner.file, folder: `${join(owner.root, module.path)}/` })))
         .flatMap(({ owner, folder }) => manifests.filter((other) => other !== owner && `${dirname(other)}/`.startsWith(folder)).map((inner) => `${inner} sits inside a target folder of ${owner}, so SwiftPM compiles it into that target`));
     yield* Effect.forEach([...unread, ...nested], (warning) => Effect.sync(() => emitPluginWorkerLog('warn', warning)), { discard: true });
-    const linkedSources = (container: Analyzed['containers'][number]) => container.projects.flatMap((at) => Option.match(local(at), { onNone: () => [], onSome: (swiftPackage) => sources(swiftPackage, described, Record.get(container.products, at)) }));
+    const configured = Option.toArray(xcconfig).flatMap((at) => tokened(relative(workspaceRoot, at)));
+    const linkedSources = (container: Analyzed['containers'][number]) => container.projects.flatMap((at) => Option.match(local(at), { onNone: () => [], onSome: (swiftPackage) => sources(swiftPackage, described, Record.get(container.products, at)) })).filter((input) => !input.endsWith(RESOLVED));
     const titled = (container: Analyzed['containers'][number]) => {
         const packaging = extname(container.path) === '.xcworkspace' ? Array.dedupe(container.schemes.filter((scheme) => scheme.containers.some((at) => Option.isSome(local(at)))).map(Struct.get('name'))) : [];
         return Predicate.isTupleOf(packaging, 1) ? packaging[0] : basename(container.path, extname(container.path));
@@ -127,20 +127,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
     const packaged = (at: string) => Option.map(local(at), (swiftPackage) => UndefinedOr.map(owning.get(swiftPackage), titled) ?? swiftPackage.manifest.name);
     const xcode = new Map(
         analyzed.containers.map(
-            (container) =>
-                [
-                    container,
-                    xcodeParts(
-                        options,
-                        marker(container.path),
-                        container,
-                        titled(container),
-                        Array.dedupe([...[...container.inputs, ...Option.toArray(Option.map(xcconfig, (at) => relative(workspaceRoot, at)))].flatMap(tokened), ...linkedSources(container).filter((input) => !input.endsWith(RESOLVED))]),
-                        built(container.path),
-                        packaged,
-                        relative(workspaceRoot, workspaceDataDirectory),
-                    ),
-                ] as const,
+            (container) => [container, xcodeParts(options, marker(container.path), container, titled(container), Array.dedupe([...container.inputs.flatMap(tokened), ...configured, ...linkedSources(container)]), built(container.path), packaged, relative(workspaceRoot, workspaceDataDirectory))] as const,
         ),
     );
     const covered = new Map(owning.entries().flatMap(([swiftPackage, container]) => Array.fromNullishOr(xcode.get(container)).map((part) => [swiftPackage, part] as const)));

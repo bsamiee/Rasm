@@ -1,7 +1,7 @@
 import { dirname, join, matchesGlob, relative } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
 import { EXECUTORS, type Verbs } from '@rasm/nx';
-import { Array, Effect, Graph, Option, Record, Schema, UndefinedOr } from 'effect';
+import { Array, Effect, Graph, Option, Record, Schema, Struct, UndefinedOr } from 'effect';
 import { ATTACH, INPUTS, type Options, type Part, PLUGIN, SWIFTPM, sequenced } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -54,21 +54,12 @@ const sources = ({ root, manifest }: Package, described: ReadonlyMap<string, Pac
     });
     const linked = Option.map(products, (names) => new Set(manifest.products.filter(({ name }) => names.includes(name)).flatMap(({ targets }) => targets)));
     const reached = Array.fromIterable(Graph.values(Graph.dfs(graph, { start: Graph.findNodes(graph, ({ name }) => Option.match(linked, { onNone: () => true, onSome: (held) => held.has(name) })) })));
-    const used = new Set(reached.flatMap(({ product_dependencies }) => product_dependencies));
+    const used = reached.flatMap(({ product_dependencies }) => product_dependencies);
     return [
         ...reached.map((module) => join('{workspaceRoot}', root, module.path, '**/*')),
         ...[MANIFEST, 'Package@swift-*.swift', RESOLVED, '.swiftpm/configuration/*.json'].map((file) => join('{workspaceRoot}', root, file)),
         ...locals(manifest, described)
-            .flatMap((local) =>
-                sources(
-                    local,
-                    described,
-                    Option.as(
-                        products,
-                        local.manifest.products.map(({ name }) => name).filter((name) => used.has(name)),
-                    ),
-                ),
-            )
+            .flatMap((local) => sources(local, described, Option.as(products, Array.intersection(local.manifest.products.map(Struct.get('name')), used))))
             .filter((input) => !input.endsWith(RESOLVED)),
     ];
 };
