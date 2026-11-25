@@ -1,7 +1,7 @@
 {
     "name": "@rasm/rasad",
     "private": true,
-    "description": "MCP server driving the installed Mac applications no specialised server claims through six universal tools, applications, view, inspect, act, execute_script, and diagnostics, with their events in every result",
+    "description": "MCP server driving the installed Mac applications no dedicated server claims through six universal tools, applications, view, inspect, act, execute_script, and diagnostics, with their events in every result",
     "os": [
         "darwin"
     ],

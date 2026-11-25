@@ -201,7 +201,7 @@ const ActParameters = Schema.Struct({
                 }).annotate({ description: 'Posted to the instance process with no activation, the focused window settling it' }),
             }),
         ]),
-    ).annotate({ description: 'Run in order until one fails, then the instance settles once' }),
+    ).annotate({ description: 'Run in order until one fails, then the instance turns idle once' }),
 });
 const ActResult = Schema.Struct({
     outcomes: Schema.Array(Schema.Result(Schema.NullOr(WindowID).annotate({ description: 'Window the action reached' }), Schema.ErrorInstance())).annotate({ description: 'One per action run, the first failure ending the run' }),
@@ -214,7 +214,7 @@ const Launch = Schema.Struct({
     arguments: withDefault(Schema.Array(Schema.String), []).annotate({ description: 'Process arguments' }),
     environment: withDefault(Schema.Record(Schema.String, Schema.String), {}),
     new: withDefault(Schema.Boolean, false).annotate({ description: 'Beside running instances' }),
-    opening: withDefault(Schema.Record(Schema.String, AppleEventValue), {}).annotate({ description: 'Parameters of the open command by name or code, sent with the documents to the instance once it settles behind the frontmost application' }),
+    opening: withDefault(Schema.Record(Schema.String, AppleEventValue), {}).annotate({ description: 'Parameters of the open command by name or code, sent with the documents to the instance once it turns idle behind the frontmost application' }),
     wait: withDefault(Schema.Boolean, false).annotate({ description: 'Events continue until the instance exits' }),
 });
 const QuitMode = Schema.Literals(['asking', 'saving', 'discarding', 'forcing']).annotate({ description: 'Save option the quit event states where the scripting definition declares one on quit, forcing ending the process with no event' });
@@ -238,7 +238,7 @@ class InstanceSnapshot extends Schema.Class<InstanceSnapshot, { readonly brand: 
     listeningFailure: Schema.optionalKey(Schema.String.annotate({ description: 'Listening ports read failure' })),
 }) {}
 const LaunchEvent = Schema.Union([tagByKey('launched', LaunchedInstance), tagByKey('state', InstanceSnapshot), tagByKey('prompts', Schema.Array(InstanceSnapshot)), tagByKey('opened', AppleEventValue), tagByKey('failed', Failed)])
-    .annotate({ description: 'Launch events: launched first, then states and system prompts, the reply of the open command once sent, ending settled or asking' })
+    .annotate({ description: 'Launch events: launched first, then states and system prompts, the reply of the open command once sent, ending idle or asking' })
     .pipe(Schema.toTaggedUnion('_tag'));
 const eventFields = {
     instance: ProcessInstance,
@@ -345,13 +345,13 @@ class Diagnostics extends Schema.Class<Diagnostics, { readonly brand: unique sym
         unreadable: Schema.Array(Schema.String).annotate({ description: 'Report files and log folders that failed to read, with cause' }),
     });
 }
-const Identifiers = { identifiers: Schema.NonEmptyArray(Schema.String).annotate({ description: 'Bundle identifiers of the instances monitored, each admitted by the server' }) };
+const Identifiers = { identifiers: Schema.NonEmptyArray(Schema.String).annotate({ description: "Bundle identifiers of the instances monitored, each matching the server's applications" }) };
 const Failure = Schema.Union([Unmatched, Schema.ErrorInstance()]);
 const ApplicationRpcs = RpcGroup.make(
     Rpc.make('installations', {
         payload: {
             identifiers: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Bundle identifiers' })),
-            prefix: Schema.optionalKey(Schema.String.annotate({ description: 'Bundle identifier prefix, joined with identifiers by or, every admitted application when both are absent' })),
+            prefix: Schema.optionalKey(Schema.String.annotate({ description: 'Bundle identifier prefix, joined with identifiers by or, every application the server matches when both are absent' })),
         },
         success: Schema.Result(Schema.Array(Installation), Schema.ErrorInstance()).annotate({ description: 'On subscribe and each Spotlight update, or discovery error' }),
         stream: true,

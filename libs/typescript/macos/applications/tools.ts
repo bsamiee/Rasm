@@ -44,7 +44,7 @@ const TOOLS = {
             environment: Schema.optionalKey(Schema.Record(Schema.String, Schema.String).annotate({ description: 'Environment variables of a new instance, open failing as it does for arguments' })),
             new: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Open an instance beside the running ones' })),
             opening: Schema.optionalKey(
-                Schema.Record(Schema.String, Schema.Union([Schema.Boolean, Schema.Finite, Schema.String])).annotate({ description: 'Parameters of the open command by the names a listing of the application states, sent with the documents once the instance settles behind the frontmost application' }),
+                Schema.Record(Schema.String, Schema.Union([Schema.Boolean, Schema.Finite, Schema.String])).annotate({ description: 'Parameters of the open command by the names a listing of the application states, sent with the documents once the instance turns idle behind the frontmost application' }),
             ),
             mode: Schema.optionalKey(QuitMode),
             wait: Schema.optionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Seconds: open follows the instance until it exits or they pass and states its last state, close returns after them at the latest' })),
@@ -83,7 +83,7 @@ const TOOLS = {
     }).annotate(Tool.Readonly, true),
     act: Tool.make('act', {
         description:
-            'Runs Accessibility actions on element ids of the target application in order, without focus: press, set a value, choose a menu item, or post a key with modifiers, then returns each outcome and the settled state, after each call that returned early finishes or its application asks again or stops responding',
+            'Runs Accessibility actions on element ids of the target application in order, without focus: press, set a value, choose a menu item, or post a key with modifiers, then returns each outcome and the idle state, after each call that returned early finishes or its application asks again or stops responding',
         parameters: Act,
         success: Act.Result,
     }).annotateMerge(Context.make(Tool.Destructive, false).pipe(Context.add(Tool.OpenWorld, false))),

@@ -9,7 +9,7 @@
 			<string>com.adobe.</string>
 		</array>
 		<key>scope</key>
-		<string>drives Adobe applications through their scripts, object models, and linked extensions</string>
+		<string>drives Adobe applications through their scripts, object models, and linked plugins</string>
 		<key>server</key>
 		<string>atelier</string>
 	</dict>

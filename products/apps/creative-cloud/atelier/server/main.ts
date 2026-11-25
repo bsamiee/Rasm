@@ -29,7 +29,7 @@ const tools = Effect.gen(function* () {
         descriptions: { ...DESCRIPTIONS, execute_script: DESCRIPTION },
         scripts: yield* scripts(links),
         render: Effect.fnUntraced(function* (row, id) {
-            const [target, client] = yield* Effect.all([Schema.decodeEffect(Specifier.FromString)(id), links.call(Predicate.and(Link.runsIn(row), Link.serves(RenderRpcs.requests.keys())), `linked extension of ${row.name} rendering objects`)]);
+            const [target, client] = yield* Effect.all([Schema.decodeEffect(Specifier.FromString)(id), links.call(Predicate.and(Link.runsIn(row), Link.serves(RenderRpcs.requests.keys())), `linked plugin of ${row.name} rendering objects`)]);
             return { image: (yield* client('render', { target })).image, title: target.leaf };
         }),
         logs: readLogs,
@@ -48,7 +48,7 @@ Effect.gen(function* () {
                 "Change document content through scripts in the application's own object model, and drive the interface through its Accessibility tree only where scripts cannot reach, such as dialogs and panels.",
                 Declarations.instruction,
                 "Opening an application launches it in the background or targets its running instance; closing it reports each unsaved document's save dialog as an event, and an application comes forward by itself to show one, so save or close its documents through a script first.",
-                "An Adobe extension linked from a running application adds tools of its own, reports host events among the events, and renders its documents for view of object while that application runs, and a running application's own MCP server adds its tools under the prefix illustrator_, aftereffects_, premiere_, or mediaencoder_.",
+                "An Adobe plugin linked from a running application adds tools of its own, reports host events among the events, and renders its documents for view of object while that application runs, and a running application's own MCP server adds its tools under the prefix illustrator_, aftereffects_, premiere_, or mediaencoder_.",
             ],
             settings: [...Tools.settings, RegistryPath],
         },
