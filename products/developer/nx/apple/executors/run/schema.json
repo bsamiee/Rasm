@@ -51,7 +51,21 @@
                 },
                 "results": {
                     "type": "array",
-                    "description": "Patterns of the result bundles the invocations write, each match removed before the invocations, the build product of each target xcrun xccov reports in one joining objects",
+                    "description": "Patterns of the result bundles the invocations write, each match removed before the invocations, the build product of each target xcrun xccov reports in one joining objects where the build wrote it",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "built": {
+                    "type": "array",
+                    "description": "Workspace folders the builds write, the dependency and generated sources inside each left out of the report",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mapping": {
+                    "type": "array",
+                    "description": "Arguments each invocation ends with before <workspace root>/=, the coverage prefix map of a build reading no XCODE_XCCONFIG_FILE",
                     "items": {
                         "type": "string"
                     }
@@ -63,7 +77,7 @@
             },
             "required": ["profiles", "file"],
             "additionalProperties": true,
-            "description": "lcov report written once every invocation passes: the profiles matching profiles merge with xcrun llvm-profdata merge, then export over objects and the targets of each matching result bundle with xcrun llvm-cov export"
+            "description": "lcov report written once every invocation passes: the profiles matching profiles merge with xcrun llvm-profdata merge, then export over objects and the targets of each matching result bundle with xcrun llvm-cov export, sources named from the workspace root"
         },
         "dryRun": {
             "type": "boolean",

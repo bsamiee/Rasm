@@ -259,6 +259,13 @@ describe('Xcode projects and their shared schemes', () => {
     it('releases an application whose Info.plist states no SUFeedURL through attach alone, with no Sparkle feed to publish', ({ fixture: { graph } }) => {
         expect(Array.intersection(['attach--gh', 'nx-release-publish'], Record.keys(graph.nodes['Viewer']?.data.targets ?? {}))).toStrictEqual(['attach--gh']);
     });
+
+    it('attaches the disk image and the zip a pack writes, and no file of the archive the pack keeps beside them', ({ fixture: { graph } }) => {
+        const [glob = ''] = (graph.nodes['Viewer']?.data.targets?.['attach--gh']?.inputs ?? []).flatMap((input) => (Predicate.hasProperty(input, 'dependentTasksOutputFiles') && Predicate.isString(input.dependentTasksOutputFiles) ? [input.dependentTasksOutputFiles] : []));
+        const written = ['Viewer.dmg', 'Viewer.zip', 'Viewer.xcarchive/Info.plist', 'Viewer.xcarchive/Products/Applications/Viewer.app/Contents/MacOS/Viewer'].map((file) => join('apple/Viewer', file));
+
+        expect(written.filter((file) => matchesGlob(file, glob))).toStrictEqual(written.slice(0, 2));
+    });
 });
 
 describe('a package a workspace scheme lists', () => {

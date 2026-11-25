@@ -50,7 +50,7 @@ const execute = executor(Package, function* ({ exports, products, __unparsed__: 
                 ['codesign', '--sign', SIGNED.distribution, '--timestamp', image],
                 ['xcrun', 'notarytool', 'submit', image, '--wait', '--key', key, '--key-id', id, '--issuer', issuer],
                 ['xcrun', 'stapler', 'staple', image],
-                ['spctl', '--assess', '--type', 'open', '--context', 'context:primary-signature', '--verbose', image],
+                ['syspolicy_check', 'distribution', image],
             ],
         });
     });

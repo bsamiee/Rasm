@@ -32,9 +32,9 @@ const INPUTS: NonNullable<TargetConfiguration['inputs']> = [{ runtime: 'swift -p
 const ATTACH: TargetConfiguration = {
     executor: EXECUTORS.attach,
     dependsOn: ['pack--ditto'],
-    inputs: [{ dependentTasksOutputFiles: '**/*' }, { externalDependencies: [] }],
+    inputs: [{ dependentTasksOutputFiles: '**/*.{dmg,zip}' }, { externalDependencies: [] }],
     metadata: {
-        description: 'Uploads the files pack--ditto wrote to the GitHub release of the tag nx release made for the project at the checked-out commit with gh release upload, creating that release with gh release create where none exists',
+        description: 'Uploads the disk images and zips pack--ditto wrote to the GitHub release of the tag nx release made for the project at the checked-out commit with gh release upload, creating that release with gh release create where none exists',
         help: { command: 'gh release upload --help', example: { options: { dryRun: true } } },
     },
 };
