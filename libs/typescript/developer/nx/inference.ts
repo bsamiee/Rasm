@@ -223,4 +223,4 @@ const aggregated = (verbs: Verbs, stated: Stated, technology: string, { workspac
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { above, aggregated, type Anchor, anchored, batched, dried, EXEC, EXECUTORS, executor, extended, fingerprinted, inferring, manifested, namedInput, packaged, parsed, type Pass, PLATFORM, ran, recalled, type Run, run, runner, spawned, Stated, stamped, tagged, tokened, type Verbs, Words, within };
+export { above, aggregated, type Anchor, anchored, batched, dried, EXEC, EXECUTORS, executor, extended, fingerprinted, inferring, manifested, Named, namedInput, packaged, parsed, type Pass, PLATFORM, ran, recalled, type Run, run, runner, spawned, Stated, stamped, tagged, tokened, type Verbs, Words, within };

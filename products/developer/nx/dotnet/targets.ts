@@ -1,13 +1,13 @@
 import { basename, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { type PackageJson, quoteShellArg } from '@nx/devkit/internal';
+import type { RawProjectGraphDependency, TargetConfiguration } from '@nx/devkit';
+import { quoteShellArg } from '@nx/devkit/internal';
 import { EXECUTORS, PLATFORM, runner, tokened, type Verbs } from '@rasm/nx';
 import { Array, Context, Layer, Option, Record, Ref, Schema } from 'effect';
+import plugin from '#/package.json' with { type: 'json' };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const { name: PLUGIN } = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json')));
 const CREDENTIAL = 'NUGET_API_KEY';
 const ANALYZER = fileURLToPath(import.meta.resolve('#/analyzer/dist/MsbuildAnalyzer.dll'));
 const ENVIRONMENT = { DOTNET_ROLL_FORWARD_TO_PRERELEASE: '1', DOTNET_DbgEnableMiniDump: '1', DOTNET_DbgMiniDumpType: '1', DOTNET_EnableCrashReport: '1' } as const;
@@ -49,7 +49,7 @@ class Node extends Schema.Opaque<Node, unknown>()(
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Edges extends Context.Service<Edges, Ref.Ref<readonly RawProjectGraphDependency[]>>()(`${PLUGIN}/targets/Edges`) {}
+class Edges extends Context.Service<Edges, Ref.Ref<readonly RawProjectGraphDependency[]>>()(`${plugin.name}/targets/Edges`) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -89,7 +89,7 @@ const targets = (node: Node, coverage: string | undefined, solution: (configurat
     const coverable = node.referenced.some((id) => id.toLowerCase() === 'coverlet.mtp');
     const covered = { ...tested(node.evaluated, '--coverlet', '--coverlet-output-format', 'lcov', ...Array.fromNullishOr(coverage).flatMap((at) => ['--results-directory', posix.relative(root, at)])), outputs: Array.fromNullishOr(coverage).map((at) => posix.join('{workspaceRoot}', at)) };
     const formatted = (commands: Array.NonEmptyReadonlyArray<Array.NonEmptyReadonlyArray<string>>, description: string): TargetConfiguration => ({
-        executor: `${PLUGIN}:format`,
+        executor: `${plugin.name}:format`,
         options: { commands, project },
         dependsOn: ['build--dotnet'],
         inputs,
@@ -98,7 +98,7 @@ const targets = (node: Node, coverage: string | undefined, solution: (configurat
     const tools: Verbs = {
         build: {
             dotnet: {
-                executor: `${PLUGIN}:build`,
+                executor: `${plugin.name}:build`,
                 ...built,
                 outputs: written(built.options, ...Object.values(built.configurations)),
                 dependsOn: ['^build--dotnet'],
@@ -110,7 +110,7 @@ const targets = (node: Node, coverage: string | undefined, solution: (configurat
         pack: {
             ...(node.packable && {
                 dotnet: {
-                    executor: `${PLUGIN}:build`,
+                    executor: `${plugin.name}:build`,
                     ...packed,
                     outputs: written(packed.options, ...Object.values(packed.configurations)),
                     dependsOn: ['build--dotnet'],
@@ -122,7 +122,7 @@ const targets = (node: Node, coverage: string | undefined, solution: (configurat
         },
         check: {
             'dotnet-build': {
-                executor: `${PLUGIN}:check`,
+                executor: `${plugin.name}:check`,
                 ...moded(({ reports }) => ({ reports })),
                 dependsOn: ['build--dotnet'],
                 cache: true,
@@ -210,4 +210,4 @@ const run = runner(Layer.effect(Edges, Ref.make<readonly RawProjectGraphDependen
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ANALYZER, Edges, ENVIRONMENT, line, Node, PLUGIN, publishing, run, targets };
+export { ANALYZER, Edges, ENVIRONMENT, line, Node, publishing, run, targets };

@@ -1,7 +1,7 @@
 import { join, posix } from 'node:path';
 import { AggregateCreateNodesError, type CreateNodes, type ProjectConfiguration } from '@nx/devkit';
 import { emitPluginWorkerLog } from '@nx/devkit/internal';
-import { anchored, fingerprinted, inferring, manifested, run, spawned } from '@rasm/nx';
+import { anchored, fingerprinted, inferring, manifested, Named, run, spawned } from '@rasm/nx';
 import { Array, Effect, FileSystem, Option, type Record, Schema, String, Struct } from 'effect';
 import { multiGlobWithWorkspaceContext } from 'nx/src/utils/workspace-context';
 import which from 'which';
@@ -14,10 +14,6 @@ import { LOCK, located, Metadata, SCHEMA } from '#/workspace';
 const OWN = fingerprinted(import.meta.dirname);
 const METADATA = ['uv', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--output-version', SCHEMA, '--quiet'] as const;
 const LISTED = ['uv', 'workspace', 'list'] as const;
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Named = Schema.fromJsonString(Schema.Struct({ name: Schema.String })).annotate({ description: 'The name field of a package.json, which Nx gives a project no plugin names' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

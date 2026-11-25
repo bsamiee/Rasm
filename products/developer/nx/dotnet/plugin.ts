@@ -3,11 +3,12 @@ import { basename, dirname, extname, format, join, parse, posix, relative } from
 import { env, platform } from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, globWithWorkspaceContext, hashFile, hashObject, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { type Anchor, aggregated, anchored, EXECUTORS, fingerprinted, inferring, manifested, type Stated, spawned, stamped } from '@rasm/nx';
+import { type Anchor, aggregated, anchored, EXECUTORS, fingerprinted, inferring, manifested, Named, type Stated, spawned, stamped } from '@rasm/nx';
 import { Array, Cause, Config, Duration, Effect, Equal, Equivalence, FileSystem, Function, Graph, Option, Record, Ref, Result, Schema, Stream, String, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
 import which from 'which';
-import { ANALYZER, Edges, ENVIRONMENT, line, Node, PLUGIN, publishing, run, targets } from '#/targets';
+import plugin from '#/package.json' with { type: 'json' };
+import { ANALYZER, Edges, ENVIRONMENT, line, Node, publishing, run, targets } from '#/targets';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -25,7 +26,6 @@ class Report extends Schema.Opaque<Report, unknown>()(Schema.Struct({ nodes: Sch
     static readonly empty: Report = { nodes: [], failures: [], evaluated: [], probed: [], variables: [] };
 }
 const Reported = Schema.fromJsonString(Report);
-const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
 class Options extends Schema.Opaque<Options, unknown>()(
     Schema.Struct({
         coveragePath: Schema.optionalKey(Schema.String),
@@ -131,7 +131,7 @@ const projected = (nodes: readonly Node[], { coveragePath }: Options, manifests:
             name: node.name,
             metadata: { technologies: ['dotnet', node.language] },
             targets: aggregated(targets({ ...node, inputs: Array.dedupe(closure.flatMap(({ inputs }) => inputs)), test: limited ? supported.some((held) => held === platform) : node.test }, coveragePath, solution(closure), listed), manifest, 'dotnet', anchor, publishing(node)),
-            ...(releasable(node) && { release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: basename(node.file), releases: Array.dedupeWith(carried(node), Equivalence.mapInput(Equivalence.String, Struct.get('unshipped'))) } } } }),
+            ...(releasable(node) && { release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { manifest: basename(node.file), releases: Array.dedupeWith(carried(node), Equivalence.mapInput(Equivalence.String, Struct.get('unshipped'))) } } } }),
             ...(tags.length > 0 && { tags }),
             ...(node.implicit.length > 0 && { implicitDependencies: [...node.implicit] }),
         };
@@ -163,7 +163,7 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
     const solutions = yield* Effect.forEach(
         matched.filter((file) => SOLUTIONS.includes(extname(file))),
         (file) =>
-            Effect.map(Effect.all([Effect.option(Effect.flatMap(fs.readFileString(join(workspaceRoot, dirname(file), 'package.json')), Schema.decodeEffect(Manifest))), manifested(workspaceRoot, dirname(file))]), ([named, manifest]): [string, CreateNodesResult] => {
+            Effect.map(Effect.all([Effect.option(Effect.flatMap(fs.readFileString(join(workspaceRoot, dirname(file), 'package.json')), Schema.decodeEffect(Named))), manifested(workspaceRoot, dirname(file))]), ([named, manifest]): [string, CreateNodesResult] => {
                 const moved = ['dotnet', relative(join(workspaceRoot, dirname(file)), ANALYZER), 'upgrade', basename(file)] as const;
                 const cleared = ['dotnet', 'nuget', 'locals', 'global-packages', '--clear'] as const;
                 const locked = ['dotnet', 'restore', basename(file), '--force-evaluate'] as const;

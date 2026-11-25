@@ -1,11 +1,11 @@
 import { isAbsolute, join } from 'node:path';
 import { arch, platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import type { PackageJson } from '@nx/devkit/internal';
+import type { ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
 import { EXECUTORS, PLATFORM, type Verbs } from '@rasm/nx';
 import { type Array, Cause, Effect, FileSystem, Schema } from 'effect';
 import type { Run } from '#/executors/run/executor';
+import plugin from '#/package.json' with { type: 'json' };
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -21,7 +21,7 @@ interface Part {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
+const PLUGIN = plugin.name;
 const CORE = `${PLUGIN}-${platform}-${arch}`;
 const BUILDER = 'mise deps install nx-apple';
 const NOTARY = { key: 'ASC_API_KEY_P8', keyId: 'ASC_API_KEY_ID', issuer: 'ASC_API_ISSUER_ID' } as const;

@@ -1,17 +1,17 @@
 import { createRequire, findPackageJSON } from 'node:module';
 import { dirname, join, posix, relative } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import type { loadConfig } from '@cloudflare/config';
-import { hashArray, normalizePath, type PackageManager, type ProjectConfiguration, readJsonFile, type TargetConfiguration } from '@nx/devkit';
-import { getCatalogManager, getLockFileName, hashFile, type PackageJson, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { hashArray, normalizePath, type PackageManager, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
+import { getCatalogManager, getLockFileName, hashFile, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { type Anchor, aggregated, EXEC, EXECUTORS, manifested, type Pass, recalled, spawned, type Stated, stamped, tokened, type Verbs, within } from '@rasm/nx';
 import { Array, Cause, Effect, FileSystem, Option, Record, Schema, UndefinedOr } from 'effect';
+import plugin from '#/package.json' with { type: 'json' };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MANIFEST = 'package.json';
 const WORKER = 'cloudflare.config.ts';
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const UNPACKAGED: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
 const MANAGERS = {
     npm: { argv: ['npm', 'pack'], to: (at: string) => ['--pack-destination', at], lock: ['install', 'dedupe'], prune: ['cache', 'verify'], stored: [] },
@@ -56,7 +56,7 @@ const tarball = (manager: PackageManager, outputPath: string | undefined, { mani
     const verbs: Verbs = {
         pack: {
             [manager]: {
-                executor: `${PLUGIN}:pack`,
+                executor: `${plugin.name}:pack`,
                 options: UndefinedOr.match(outputPath, { onUndefined: () => ({ argv }), onDefined: (at) => ({ argv: [...argv, ...to(posix.relative(root, at))], outputPath: at }) }),
                 dependsOn: ['build--*'],
                 cache: true,
@@ -135,7 +135,7 @@ const workspace = Effect.fnUntraced(function* (anchor: Anchor, manager: PackageM
         {
             upgrade: {
                 [manager]: {
-                    executor: `${PLUGIN}:upgrade`,
+                    executor: `${plugin.name}:upgrade`,
                     options: { catalogs: getCatalogManager(workspaceRoot)?.getCatalogDefinitionFilePaths() ?? [] },
                     inputs: [{ externalDependencies: [] }],
                     metadata: { description: `Moves every exact version of the catalogs and package manifests to the newest dist-tag head published since, then installs and deduplicates the lockfile with ${manager}`, help: { command: `${EXEC[manager]} nx run --help`, example: { options: { dryRun: true } } } },

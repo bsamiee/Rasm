@@ -3,6 +3,7 @@
     "compilerOptions": {
         "types": ["node"]
     },
+    "include": ["**/*", "package.json"],
     "references": [
         {
             "path": "../../../../libs/typescript/creative-cloud/uxp"

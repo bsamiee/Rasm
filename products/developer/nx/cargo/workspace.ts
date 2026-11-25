@@ -1,10 +1,9 @@
 import { basename, dirname, isAbsolute, join, posix, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parse } from '@decimalturn/toml-patch';
-import { normalizePath, readJsonFile } from '@nx/devkit';
-import type { PackageJson } from '@nx/devkit/internal';
+import { normalizePath } from '@nx/devkit';
 import { above, runner, Stated, spawned } from '@rasm/nx';
 import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Function, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
+import plugin from '#/package.json' with { type: 'json' };
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -17,8 +16,7 @@ type Member = Workspace['members'][number];
 const MANIFEST = 'Cargo.toml';
 const LOCK = 'Cargo.lock';
 const CRATE = 'nx_cargo';
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
-const ACTIONS = `${PLUGIN}/release/version-actions`;
+const ACTIONS = `${plugin.name}/release/version-actions`;
 const SETTINGS = ['.cargo/config.toml', '.cargo/config'] as const;
 const CONFIG = [...SETTINGS, 'rust-toolchain.toml', 'rust-toolchain'] as const;
 const CLIPPY = ['.clippy.toml', 'clippy.toml'] as const;
@@ -87,7 +85,7 @@ const Settings = Schema.Struct({
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Links extends Context.Service<Links, Map<string, ReadonlyMap<string, Member>>>()(`${PLUGIN}/workspace/Links`) {
+class Links extends Context.Service<Links, Map<string, ReadonlyMap<string, Member>>>()(`${plugin.name}/workspace/Links`) {
     static readonly layer = Layer.sync(Links, () => new Map());
 }
 
@@ -243,4 +241,4 @@ const run = runner(Links.layer);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ACTIONS, CLIPPY, CONFIG, Crate, DENY, Links, LOCK, MANIFEST, type Member, NEXTEST, parsed, PLUGIN, placed, type Reading, resolved, run, Table, Target, tokened, toml, Unification, type Workspace, workspaces };
+export { ACTIONS, CLIPPY, CONFIG, Crate, DENY, Links, LOCK, MANIFEST, type Member, NEXTEST, parsed, placed, type Reading, resolved, run, Table, Target, tokened, toml, Unification, type Workspace, workspaces };

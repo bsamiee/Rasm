@@ -3,10 +3,11 @@ import { join, posix, relative } from 'node:path';
 import { env } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
-import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, readJsonFile } from '@nx/devkit';
-import { emitPluginWorkerLog, getDaemonClientEnvGeneration, globWithWorkspaceContext, hashObject, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
+import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath } from '@nx/devkit';
+import { emitPluginWorkerLog, getDaemonClientEnvGeneration, globWithWorkspaceContext, hashObject, quoteShellArg } from '@nx/devkit/internal';
 import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, type Pass, PLATFORM, run, tokened, within } from '@rasm/nx';
 import { Array, Cause, Effect, Filter, flow, Option, Record, Result, Schema, String, Struct } from 'effect';
+import plugin from '#/package.json' with { type: 'json' };
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -17,7 +18,6 @@ type Resolved = Effect.Success<ReturnType<typeof read>>;
 const WORKER = fileURLToPath(import.meta.resolve('#/worker'));
 const RUN = /^(?:(?:npx|yarn|bunx?|bun x|pnpm(?: exec)?|pnpx) )?nx (?:run (?<project>[^\s:]+):(?<target>[^\s:]+)|(?<target>\S+) (?<project>[^\s:]+))$/u;
 const NX = /(?:^|\s)nx(?:@\S+)?\s/u;
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const OWN = fingerprinted(import.meta.dirname);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -70,7 +70,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, r
     );
     const [tasks, unparsed] = Array.partition(commands, (command) => Result.mapError(Schema.decodeUnknownResult(Task)(RUN.exec(command)?.groups), () => command));
     const unread = unparsed.filter((command) => NX.test(command));
-    yield* Effect.forEach(unread, (command) => Effect.sync(() => emitPluginWorkerLog('warn', `${PLUGIN} reads no Nx task from webServer command "${command}" in ${file}, so test--playwright waits on no server task`)), { discard: true });
+    yield* Effect.forEach(unread, (command) => Effect.sync(() => emitPluginWorkerLog('warn', `${plugin.name} reads no Nx task from webServer command "${command}" in ${file}, so test--playwright waits on no server task`)), { discard: true });
     return {
         packages,
         environment,

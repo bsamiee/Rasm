@@ -10,6 +10,7 @@ import { buildPackageJsonPatterns, findProjectForPath, globWithWorkspaceContext,
 import { above, type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, packaged, parsed, type Pass, run, tokened, within } from '@rasm/nx';
 import { Array, Cause, Effect, Option, Record, Schema } from 'effect';
 import type { Vite } from 'vitest/node';
+import plugin from '#/package.json' with { type: 'json' };
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -21,7 +22,6 @@ const EXTENSIONS = '{js,mjs,ts,cjs,mts,cts}';
 const SUITE = `vitest.config.${EXTENSIONS}`;
 const MODE = { TEST: 'true', VITEST: 'true', NODE_ENV: 'test' } as const;
 const ATTACHMENTS = 'attachments';
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const WORKER = fileURLToPath(import.meta.resolve('#/worker'));
 const OWN = fingerprinted(import.meta.dirname);
 
@@ -104,7 +104,7 @@ const surveyed = Effect.fnUntraced(function* ({ workspaceRoot, holds }: Anchor, 
 
 const read = (anchor: Anchor, file: string, outputPath: string | undefined) => {
     const failed = (cause: unknown) => new Cause.UnknownError(cause, `${file} does not load as a Vitest config`);
-    const workerData = { file, entry: join(anchor.workspaceRoot, file), name: PLUGIN, suite: matchesGlob(basename(file), SUITE), ...(outputPath !== undefined && { attachmentsDir: join(anchor.workspaceRoot, outputPath, ATTACHMENTS) }) };
+    const workerData = { file, entry: join(anchor.workspaceRoot, file), name: plugin.name, suite: matchesGlob(basename(file), SUITE), ...(outputPath !== undefined && { attachmentsDir: join(anchor.workspaceRoot, outputPath, ATTACHMENTS) }) };
     return Effect.acquireDisposable(Effect.sync(() => new Worker(WORKER, { workerData, env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV } }))).pipe(
         Effect.flatMap((worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), failed))),
         Effect.flatMap(([message]) => Schema.decodeUnknownEffect(Surveyed)(message)),
@@ -131,7 +131,7 @@ const inferred = Effect.fnUntraced(function* (pass: Pass<Resolved>, anchor: Anch
         const directed = { ...(covered && { enabled: true }), ...(coveragePath !== undefined && { reportsDirectory: coveragePath }) };
         const test = {
             vitest: {
-                executor: `${PLUGIN}:${providers.length > 0 ? 'browser' : 'test'}`,
+                executor: `${plugin.name}:${providers.length > 0 ? 'browser' : 'test'}`,
                 options: { config: file, projects: selected, ...(outputPath !== undefined && { attachmentsDir: posix.join(outputPath, ATTACHMENTS) }), ...((covered || coveragePath !== undefined) && { coverage: directed }) },
                 dependsOn: ['codegen--*', '^codegen--*'],
                 cache: true,

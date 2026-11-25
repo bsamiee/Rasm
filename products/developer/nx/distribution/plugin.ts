@@ -2,16 +2,16 @@ import { join, posix, relative } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, normalizePath, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, readJsonFile, type TargetConfiguration, type TaskResult } from '@nx/devkit';
-import { combineGlobPatterns, emitPluginWorkerLog, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
+import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, normalizePath, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, type TargetConfiguration, type TaskResult } from '@nx/devkit';
+import { combineGlobPatterns, emitPluginWorkerLog, quoteShellArg } from '@nx/devkit/internal';
 import { above, type Anchor, aggregated, anchored, EXEC, EXECUTORS, inferring, manifested, namedInput, run, tagged, type Verbs } from '@rasm/nx';
 import { Array, Config, Duration, Effect, FileSystem, Formatter, Function, Option, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http';
 import { FOLDERS, HOSTS, type Host, routed } from '#/host-packages';
+import plugin from '#/package.json' with { type: 'json' };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PLUGIN = readJsonFile<PackageJson>(fileURLToPath(import.meta.resolve('#/package.json'))).name;
 const SERVER = 'NX_SELF_HOSTED_REMOTE_CACHE_SERVER';
 const UNCACHED = { flags: ['skip-nx-cache', 'skipNxCache', 'skip-remote-cache', 'skipRemoteCache'], variables: ['NX_SKIP_NX_CACHE', 'NX_DISABLE_NX_CACHE', 'NX_SKIP_REMOTE_CACHE', 'NX_DISABLE_REMOTE_CACHE'] } as const;
 const ANNOTATED = Config.withDefault(Config.Boolean('GITHUB_ACTIONS'), false);
@@ -193,7 +193,7 @@ const projects = (declared: Effect.Success<ReturnType<typeof read>>['declared'],
         );
         const operated = (verb: keyof NonNullable<Host['operations']>, extra: TargetConfiguration<Readonly<Record<string, unknown>>>) =>
             Option.zipWith(Option.fromUndefinedOr(build), Option.fromUndefinedOr(operations[verb]), ({ executor }, command): TargetConfiguration => ({
-                executor: `${PLUGIN}:${executor}`,
+                executor: `${plugin.name}:${executor}`,
                 parallelism: false,
                 ...extra,
                 options: { ...options, operation: verb, ...extra.options },
@@ -208,7 +208,7 @@ const projects = (declared: Effect.Success<ReturnType<typeof read>>['declared'],
         ];
         const installed = Option.firstSomeOf([
             Option.map(Option.fromUndefinedOr(install), ({ command, help = ran, unpacked = false }): TargetConfiguration => ({
-                executor: `${PLUGIN}:install`,
+                executor: `${plugin.name}:install`,
                 dependsOn: [unpacked ? `build--!(${technology})` : builder],
                 inputs: RECEIVED,
                 ...forwarded,
@@ -219,7 +219,7 @@ const projects = (declared: Effect.Success<ReturnType<typeof read>>['declared'],
         ]);
         const own: Record<string, TargetConfiguration> = Record.getSomes({
             build: Option.map(Option.fromUndefinedOr(build), ({ executor, command, help = ran, pack }): TargetConfiguration => ({
-                executor: `${PLUGIN}:${executor}`,
+                executor: `${plugin.name}:${executor}`,
                 ...Array.match([...Array.fromNullishOr(pack).map(() => 'build--*'), ...required], { onEmpty: () => ({}), onNonEmpty: (dependsOn) => ({ dependsOn }) }),
                 options,
                 ...(standalone && { parallelism: false }),
@@ -261,7 +261,7 @@ const projects = (declared: Effect.Success<ReturnType<typeof read>>['declared'],
         const released = Option.filter(Option.fromUndefinedOr(write), () => item.fields.version !== undefined);
         const stored = Option.map(Option.fromUndefinedOr(publish), ({ store, command, credential }) => ({ store, command, variable: settings.storeCredentials?.[technology] ?? credential }));
         const published = Option.map(stored, ({ store, command, variable }): TargetConfiguration => ({
-            executor: `${PLUGIN}:release-publish`,
+            executor: `${plugin.name}:release-publish`,
             dependsOn: [packer, '^nx-release-publish'],
             inputs: RECEIVED,
             options: { credential: variable },
@@ -273,7 +273,7 @@ const projects = (declared: Effect.Success<ReturnType<typeof read>>['declared'],
             metadata: { technologies: [technology] },
             tags: [...(Option.isSome(released) ? release : []), ...platforms.map((os) => `os:${os}`), ...(item.host.hosted === true ? [`host:${technology}`] : [])],
             ...Array.match(standalone ? linked : [], { onEmpty: () => ({}), onNonEmpty: (implicitDependencies) => ({ implicitDependencies }) }),
-            ...Option.getOrUndefined(Option.map(released, () => ({ release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest } } } }))),
+            ...Option.getOrUndefined(Option.map(released, () => ({ release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { manifest } } } }))),
             targets: aggregated(verbs, item.stated, technology, anchor, Record.getSomes({ 'nx-release-publish': published })),
         };
         return [item.file, { projects: { [item.root]: configuration } }] as const;

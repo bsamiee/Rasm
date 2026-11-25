@@ -3,7 +3,8 @@ import { normalizePath, type TargetConfiguration } from '@nx/devkit';
 import { type Anchor, aggregated, EXECUTORS, type Verbs } from '@rasm/nx';
 import { Array, Option, Record, Schema } from 'effect';
 import type { Cargo, Command } from '#/executors/cargo/executor';
-import { ACTIONS, LOCK, MANIFEST, type Member, PLUGIN, Target, tokened, type Workspace } from '#/workspace';
+import plugin from '#/package.json' with { type: 'json' };
+import { ACTIONS, LOCK, MANIFEST, type Member, Target, tokened, type Workspace } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -30,7 +31,7 @@ const version = (tool: string) => ({ runtime: `cargo ${tool} --version` });
 const suites = (run: Array.NonEmptyReadonlyArray<string>): Command => ({ args: Array.appendAll(run, [LOCKED, '--cargo-message-format', 'json-diagnostic-rendered-ansi', '--message-format', 'libtest-json-plus', '--message-format-version', '0.1']), env: { NEXTEST_EXPERIMENTAL_LIBTEST_JSON: '1' } });
 
 const cargoTarget = (help: string, description: string, options: Cargo, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
-    executor: `${PLUGIN}:cargo`,
+    executor: `${plugin.name}:cargo`,
     options,
     inputs: SOURCES,
     metadata: { description, help: { command: `cargo ${help} --help`, example: { args: ['--verbose'] } } },
@@ -118,7 +119,7 @@ const crateTargets = (workspace: Workspace, coverage: Option.Option<string>, { c
                                 ...covered((exported) => suites(['llvm-cov', 'nextest', ...exported])),
                             },
                         ),
-                        executor: `${PLUGIN}:nextest`,
+                        executor: `${plugin.name}:nextest`,
                     },
                 }),
             ...((plain ? tested || documented : documented) && {
@@ -169,7 +170,7 @@ const workspaceTargets = (workspace: Workspace): Verbs => {
         check,
         upgrade: {
             cargo: {
-                executor: `${PLUGIN}:upgrade`,
+                executor: `${plugin.name}:upgrade`,
                 inputs: [...graph, { externalDependencies: [] }],
                 options: { cwd: workspace.root },
                 metadata: { description: 'Moves every dependency requirement to its newest release, prereleases above a stable line included, with cargo upgrade, then the lock with cargo update', help: { command: 'cargo upgrade --help', example: { options: { dryRun: true } } } },
@@ -237,7 +238,7 @@ const released = ({ crate, versioned, packages }: Member, cwd: string) => {
             ? {}
             : {
                   'nx-release-publish': {
-                      executor: `${PLUGIN}:release-publish`,
+                      executor: `${plugin.name}:release-publish`,
                       options: { cwd, package: crate.name, packages, ...named },
                       dependsOn: ['^nx-release-publish'],
                       inputs: SOURCES,

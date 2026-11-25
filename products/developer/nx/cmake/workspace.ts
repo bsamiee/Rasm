@@ -4,7 +4,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { normalizePath } from '@nx/devkit';
 import { runner } from '@rasm/nx';
-import { Array, Cause, Combiner, Context, Effect, Equal, FileSystem, Function, Graph, Layer, Match, Option, Order, pipe, Predicate, Record, Result, Schema, SchemaTransformation, SemVer } from 'effect';
+import { Array, Cause, Combiner, Context, Effect, Equal, FileSystem, Function, Graph, Layer, Match, Option, Predicate, Record, Result, Schema, SchemaTransformation, SemVer } from 'effect';
 import plugin from '#/package.json' with { type: 'json' };
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -173,12 +173,8 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
         (one, other) => one.folder === other.folder,
     );
     const placed = declared.filter(({ folder }) => folder === root || !declared.some((outer) => outer.folder !== root && outer.folder !== folder && inside(outer.folder)(folder)));
-    const owner = (folder: string) =>
-        pipe(
-            placed.map((held) => held.folder).filter((at) => inside(at)(folder)),
-            Array.prepend(root),
-            Array.min(Order.mapInput(Order.Number, (at: string) => posix.relative(at, folder).length)),
-        );
+    const folders = new Set(placed.map((held) => held.folder));
+    const owner = (folder: string) => Array.findLast(Array.scan(posix.relative(root, folder).split('/'), root, posix.join), (at) => folders.has(at) && inside(at)(folder)).pipe(Option.getOrElse(() => root));
     const defined = Record.fromEntries(invoked.filter(({ name }) => DEFINING.has(name)).flatMap(({ folder, args }) => Array.take(args, 1).map(({ value }) => [value, owner(folder)] as const)));
     const linked = Map.groupBy(
         invoked.flatMap(({ file, folder, args }) => {
