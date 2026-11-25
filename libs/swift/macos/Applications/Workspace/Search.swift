@@ -1,6 +1,7 @@
 public import AppKit
 import AsyncAlgorithms
 import CasePathsCore
+import OrderedCollections
 public import Results
 import UniformTypeIdentifiers
 
@@ -53,12 +54,21 @@ extension Installation {
                 query.start()
                 defer { query.stop() }
                 guard await gathered.next(isolation: #isolation) != nil else { return continuation.finish() }
-                var updates = NotificationCenter.default.messages(of: query, for: NSMetadataQuery.DidUpdateMessage.self, bufferSize: 1).makeAsyncIterator()
+                let (launches, launch) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+                let observation = NSWorkspace.shared.observe(\.runningApplications, options: [.old, .new]) { _, change in
+                    if [change.oldValue, change.newValue].compactMap(\.self).joined().contains(where: { application in application.activationPolicy == .regular }) { launch.yield() }
+                }
+                defer { observation.invalidate() }
+                var updates = merge(NotificationCenter.default.messages(of: query, for: NSMetadataQuery.DidUpdateMessage.self, bufferSize: 1).map { _ in }, launches).makeAsyncIterator()
                 repeat {
                     query.disableUpdates()
                     let paths = (0..<query.resultCount).map { index in (query.result(at: index) as? NSMetadataItem)?.value(forAttribute: NSMetadataItemPathKey) as? String }
                     query.enableUpdates()
-                    continuation.yield(await Self.read(paths))
+                    let running = NSWorkspace.shared.runningApplications.filter { application in
+                        application.activationPolicy == .regular
+                            && application.bundleIdentifier.map { identifier in predicate.evaluate(with: [NSMetadataItemCFBundleIdentifierKey: identifier]) } == true
+                    }
+                    continuation.yield(await Self.read(paths + running.compactMap(\.bundleURL).map { url -> String? in url.path(percentEncoded: false) }))
                 } while await updates.next(isolation: #isolation) != nil
                 continuation.finish()
             }
@@ -72,6 +82,6 @@ extension Installation {
             path.map { path in Result { () throws(ApplicationFailure) in try Self(at: URL(filePath: path, directoryHint: .isDirectory)) } }
                 ?? .failure(ApplicationFailure(subject: "Spotlight result \(index)", reason: .noPath))
         }
-        return (reads.compactMap { read in read[case: \.success] }, reads.compactMap { read in read[case: \.failure] })
+        return (OrderedSet(reads.compactMap { read in read[case: \.success] }).elements, reads.compactMap { read in read[case: \.failure] })
     }
 }

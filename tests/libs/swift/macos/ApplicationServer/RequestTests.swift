@@ -1,3 +1,4 @@
+import AppKit
 import Applications
 import CasePaths
 import CoreImage
@@ -16,6 +17,14 @@ private struct Previewed: Decodable {
     let width: Int
     let height: Int
     let preview: Data
+}
+
+private struct Listed: Decodable {
+    struct Row: Decodable {
+        let url: URL
+    }
+
+    let success: [Row]
 }
 
 private struct Fixture: ~Copyable {
@@ -79,6 +88,31 @@ struct PreviewTests {
         }
         let path: [String]? = if case .dataCorrupted(let context)? = refusal { context.codingPath.map(\.stringValue) } else { nil }
         expectNoDifference(path, ["preview", "longestSide"])
+    }
+}
+
+@Suite(.timeLimit(.minutes(1)))
+struct InstallationsTests {
+    @Test
+    func listsTheBundleOfEveryRegularApplicationRunningThroughoutTheListing() async throws {
+        let running = {
+            Set(
+                NSWorkspace.shared.runningApplications.filter { application in application.activationPolicy == .regular }.compactMap { application in
+                    application.bundleURL?.resolvingSymlinksInPath().pathComponents
+                }
+            )
+        }
+        let before = running()
+        let request = try JSONDecoder().decode(Request.self, from: Data(#"{"installations":{}}"#.utf8))
+        guard case .stream(let listings) = try await request.perform(matching: { NSPredicate(value: true) }, dictionaries: ScriptingDictionaries(cachedDefinition: { _ in nil })) else {
+            Issue.record("No installations stream")
+            return
+        }
+        let listing = try #require(await listings.first { _ in true })
+        let listed = try JSONDecoder().decode(Listed.self, from: JSONEncoder().encode(listing))
+        let throughout = before.intersection(running())
+        try #require(!throughout.isEmpty)
+        expectNoDifference(throughout.subtracting(listed.success.map(\.url.pathComponents)), [])
     }
 }
 

@@ -353,7 +353,7 @@ const ApplicationRpcs = RpcGroup.make(
             identifiers: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Bundle identifiers' })),
             prefix: Schema.optionalKey(Schema.String.annotate({ description: 'Bundle identifier prefix, joined with identifiers by or, every application the server matches when both are absent' })),
         },
-        success: Schema.Result(Schema.Array(Installation), Schema.ErrorInstance()).annotate({ description: 'On subscribe and each Spotlight update, or discovery error' }),
+        success: Schema.Result(Schema.Array(Installation), Schema.ErrorInstance()).annotate({ description: 'Applications folders and running regular applications, on subscribe, each Spotlight update, and each regular launch or exit, or discovery error' }),
         stream: true,
     }),
     Rpc.make('instances', { payload: Identifiers, success: Schema.Array(InstanceSnapshot).annotate({ description: 'On subscribe and each change, exited instances kept until next change' }), stream: true }),
