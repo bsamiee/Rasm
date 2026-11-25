@@ -4,9 +4,9 @@ import { Uxp } from '@rasm/uxp/plugin';
 import type { Application, CellStyle, CharacterStyle, Document, Event, Font, InDesignDOMObject, MasterSpread, ObjectStyle, Page, PageItem, ParagraphStyle, PreflightProcess, Spread, TableStyle, Text, TextFrame, TextPath, TextStyleRange } from 'adobe:indesign';
 import { Array, Cause, Effect, Formatter, Function, flow, identity, Match, Number, Option, Predicate, Record, Result, Schema, SchemaGetter, String, Struct } from 'effect';
 import type { FontSource } from '#/typesetting';
-import { Model } from '#/uxp/dom';
+import { Dom } from '#/uxp/dom';
 import { InDesignSettings } from '#/uxp/settings';
-import { type Call, Called, type Change, type FindChange, type Inspect, Inspection, type Issue, type Preflight, Search, type Slice } from '#/views';
+import { Call, type Change, type FindChange, type Inspect, Inspection, type Issue, type Preflight, FindChangeMode, type Slice } from '#/views';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -18,44 +18,44 @@ class Flat extends Schema.Opaque<Flat, { readonly brand: unique symbol }>()(Sche
 // --- [SEARCH]
 
 const search = Effect.fnUntraced(function* (payload: Pick<FindChange, 'mode' | 'find' | 'change' | 'options'>, located: unknown) {
-    const members = Search.members(payload.mode);
-    const model = yield* Model;
-    const { app, enumerator } = model;
+    const members = FindChangeMode.members(payload.mode);
+    const dom = yield* Dom;
+    const { app, enumerator } = dom;
     yield* Effect.forEach(
         Record.values(members.preferences),
         Effect.fnUntraced(function* (member) {
-            const saved = yield* Model.saved(app[member]);
-            const reset = Effect.try({ try: () => Object.assign(app, { [member]: model.NothingEnum.NOTHING })[member], catch: HostError.refused(`reset of ${member}`) });
+            const saved = yield* Dom.saved(app[member]);
+            const reset = Effect.try({ try: () => Object.assign(app, { [member]: dom.NothingEnum.NOTHING })[member], catch: HostError.refused(`reset of ${member}`) });
             return yield* Effect.acquireRelease(Effect.as(reset, saved), Function.constant(Effect.flatMap(Effect.orDie(reset), (cleared) => Uxp.restore(cleared, saved))));
         }),
         { discard: true },
     );
-    const counted = Match.type<number | readonly unknown[]>().pipe(Match.when(Predicate.isNumber, identity<number>), Match.orElse(Array.length));
-    const spelled = Match.type<unknown>().pipe(
+    const countItems = Match.type<number | readonly unknown[]>().pipe(Match.when(Predicate.isNumber, identity<number>), Match.orElse(Array.length));
+    const spellText = Match.type<unknown>().pipe(
         Match.when(enumerator, (special) => `<${special.toString()}>`),
         Match.when(Predicate.isString, identity<string>),
         Match.orElse(Formatter.format),
     );
-    const scopes = yield* Effect.forEach(Array.ensure(located), (each) => (model.owning(members.change)(each) ? Effect.succeed(each) : Unmatched.of({ subject: `${payload.mode} search target`, query: model.domObject(located) ? Option.some(located.toSpecifier()) : Option.none() })));
-    yield* Effect.forEach(Record.toEntries(members.preferences), ([field, target]) => Effect.transposeOption(Option.map(payload[field], (values) => Effect.flatten(Model.write(app[target], values)))), { discard: true });
+    const scopes = yield* Effect.forEach(Array.ensure(located), (each) => (dom.owning(members.change)(each) ? Effect.succeed(each) : Unmatched.of({ subject: `${payload.mode} search target`, query: dom.domObject(located) ? Option.some(located.toSpecifier()) : Option.none() })));
+    yield* Effect.forEach(Record.toEntries(members.preferences), ([field, target]) => Effect.transposeOption(Option.map(payload[field], (values) => Effect.flatten(Dom.write(app[target], values)))), { discard: true });
     const describe = (hit: Text | PageItem) => {
-        const placed = model.text(hit) ? Option.filter(Array.head(hit.parentTextFrames), model.item) : Option.liftPredicate(hit, model.item);
+        const placed = dom.text(hit) ? Option.filter(Array.head(hit.parentTextFrames), dom.item) : Option.liftPredicate(hit, dom.item);
         return {
             specifier: hit.toSpecifier(),
-            text: model.text(hit) ? Option.some(Array.ensure<unknown>(hit.contents).map(spelled).join('')) : Option.none(),
+            text: dom.text(hit) ? Option.some(Array.ensure<unknown>(hit.contents).map(spellText).join('')) : Option.none(),
             page: Option.map(Option.flatMapNullishOr(placed, Struct.get('parentPage')), Struct.get('name')),
         };
     };
     const found = yield* Effect.forEach(
         scopes,
         Effect.fnUntraced(function* (each) {
-            const owner = model.owner(each);
+            const owner = dom.owner(each);
             yield* Effect.transposeOption(Option.as(owner, Uxp.preserve(app, Record.getSomes({ activeDocument: owner }))));
             const refused = HostError.refused(`${payload.mode} search of ${each.toSpecifier()}`);
             const hits = yield* Effect.try({ try: () => each[members.find](), catch: refused });
             const matches = yield* Effect.try({ try: () => (Predicate.isNumber(hits) ? [] : hits.map(describe)), catch: refused });
-            const changes = yield* Effect.transposeOption(Option.as(payload.change, Effect.try({ try: () => counted(each[members.change]()), catch: refused })));
-            return { count: { matches: counted(hits), changes }, matches };
+            const changes = yield* Effect.transposeOption(Option.as(payload.change, Effect.try({ try: () => countItems(each[members.change]()), catch: refused })));
+            return { count: { matches: countItems(hits), changes }, matches };
         }, Effect.scoped),
     );
     const changes = Array.getSomes(found.map(({ count }) => count.changes));
@@ -64,50 +64,50 @@ const search = Effect.fnUntraced(function* (payload: Pick<FindChange, 'mode' | '
 
 // --- [READS]
 
-const nested: (rows: readonly Flat[]) => readonly Issue[] = Array.match({
+const nestIssues: (rows: readonly Flat[]) => readonly Issue[] = Array.match({
     onEmpty: Array.empty,
     onNonEmpty: ([[depth, label, page, , details], ...rest]) => {
         const [under, after] = Array.span(rest, ([below]) => below > depth);
-        return [{ label, ...Record.getSomes({ page: Option.liftPredicate(page, String.isNonEmpty) }), details: Record.fromEntries(details), rows: nested(under) }, ...nested(after)];
+        return [{ label, ...Record.getSomes({ page: Option.liftPredicate(page, String.isNonEmpty) }), details: Record.fromEntries(details), rows: nestIssues(under) }, ...nestIssues(after)];
     },
 });
-const Aggregated = Schema.Tuple([Schema.String, Schema.String, Schema.Array(Flat)]).pipe(Schema.decodeTo(Inspection.Issues, { decode: SchemaGetter.transform((aggregate) => nested(aggregate[2])), encode: SchemaGetter.forbiddenEncoding }));
-const aggregated = (process: PreflightProcess) => Result.try(() => process.aggregatedResults).pipe(Result.flatMap(Schema.decodeUnknownResult(Aggregated)));
+const AggregatedResults = Schema.Tuple([Schema.String, Schema.String, Schema.Array(Flat)]).pipe(Schema.decodeTo(Inspection.Issues, { decode: SchemaGetter.transform((aggregate) => nestIssues(aggregate[2])), encode: SchemaGetter.forbiddenEncoding }));
+const readAggregated = (process: PreflightProcess) => Result.try(() => process.aggregatedResults).pipe(Result.flatMap(Schema.decodeUnknownResult(AggregatedResults)));
 const overset = ({ stories }: Document): readonly string[] => Array.filterMap(Array.zip(stories.everyItem().overflows, stories.everyItem().id), ([overflows, id]) => (overflows ? Result.succeed(stories.itemByID(id).toSpecifier()) : Result.failVoid));
-const savedPath = (document: Document) => Effect.flatMap(Effect.try({ try: () => document.saved, catch: HostError.refused(`saved of ${document.toSpecifier()}`) }), (saved) => (saved ? Model.file(document, 'fullName') : Effect.succeedNone));
+const savedPath = (document: Document) => Effect.flatMap(Effect.try({ try: () => document.saved, catch: HostError.refused(`saved of ${document.toSpecifier()}`) }), (saved) => (saved ? Dom.file(document, 'fullName') : Effect.succeedNone));
 const overrides = (text: Pick<Text, 'textHasOverrides' | 'toSpecifier'>) =>
-    Model.use(({ StyleType }) => Effect.try({ try: () => ({ paragraph: text.textHasOverrides(StyleType.PARAGRAPH_STYLE_TYPE), character: text.textHasOverrides(StyleType.CHARACTER_STYLE_TYPE) }), catch: HostError.refused(`overrides of ${text.toSpecifier()}`) }));
-const differing = Effect.fnUntraced(function* (object: InDesignDOMObject<unknown>, properties: Record.ReadonlyRecord<string, unknown>, base: Record.ReadonlyRecord<string, unknown>, except: Schema.Struct.Fields) {
-    const [{ declaration }, encoded] = yield* Effect.all([Model, Model.encoder]);
+    Dom.use(({ StyleType }) => Effect.try({ try: () => ({ paragraph: text.textHasOverrides(StyleType.PARAGRAPH_STYLE_TYPE), character: text.textHasOverrides(StyleType.CHARACTER_STYLE_TYPE) }), catch: HostError.refused(`overrides of ${text.toSpecifier()}`) }));
+const readDiffering = Effect.fnUntraced(function* (object: InDesignDOMObject<unknown>, properties: Record.ReadonlyRecord<string, unknown>, base: Record.ReadonlyRecord<string, unknown>, except: Schema.Struct.Fields) {
+    const [{ declaration }, encoded] = yield* Effect.all([Dom, Dom.encoder]);
     const { fields } = declaration(object.constructorName);
     return Record.filter(properties, (value, name) => Option.exists(Record.get(fields, name), Struct.get('settable')) && !Object.hasOwn(except, name) && encoded(value) !== encoded(base[name]));
 });
 const readings = Effect.fn('readings')(function* (found: InDesignDOMObject<unknown>, wanted: Option.Option<readonly string[]>) {
-    const { declaration } = yield* Model;
+    const { declaration } = yield* Dom;
     const missing = Option.getOrElse(wanted, Array.empty<string>).filter((name) => !Predicate.hasProperty(found, name));
     yield* Array.isReadonlyArrayEmpty(missing) ? Effect.void : Unmatched.of({ subject: `field of ${found.toSpecifier()}`, query: Option.some(missing.join(', ')), candidates: Record.keys(declaration(found.constructorName).fields) });
     const entries = yield* Option.match(wanted, {
-        onNone: () => Model.properties(found).pipe(Effect.map(Record.collect((name, held): readonly [string, Effect.Effect<unknown, HostError>] => [name, Effect.succeed(held)]))),
+        onNone: () => Dom.properties(found).pipe(Effect.map(Record.collect((name, held): readonly [string, Effect.Effect<unknown, HostError>] => [name, Effect.succeed(held)]))),
         onSome: (names) => {
             const listed = Array.map(names, (name): readonly [string, Effect.Effect<unknown, HostError>] => {
                 const refused = HostError.refused(`${found.toSpecifier()} ${name}`);
-                return [name, Effect.andThen(Effect.transposeOption(Option.map(Model.unavailable(found, name, false), refused)), Effect.try({ try: (): unknown => Reflect.get(found, name), catch: refused }))];
+                return [name, Effect.andThen(Effect.transposeOption(Option.map(Dom.unavailable(found, name, false), refused)), Effect.try({ try: (): unknown => Reflect.get(found, name), catch: refused }))];
             });
             return Effect.succeed(listed);
         },
     });
     return yield* Effect.forEach(entries, ([name, read]) =>
         read.pipe(
-            Effect.flatMap((held) => (Predicate.isPromise(held) ? Effect.map(Model.file(found, name), Option.getOrNull) : Effect.succeed(held ?? null))),
+            Effect.flatMap((held) => (Predicate.isPromise(held) ? Effect.map(Dom.file(found, name), Option.getOrNull) : Effect.succeed(held ?? null))),
             Effect.result,
             Effect.map((value) => ({ name, value })),
         ),
     );
 });
 const fontView = Effect.fnUntraced(function* (face: Font) {
-    const model = yield* Model;
-    const specifier = yield* Effect.orDie(Schema.decodeEffect(Specifier.Path)(face.toSpecifier()));
-    const open = Option.toArray(yield* Effect.option(Model.current));
+    const dom = yield* Dom;
+    const specifier = yield* Effect.orDie(Schema.decodeEffect(Specifier.FromString)(face.toSpecifier()));
+    const open = Option.toArray(yield* Effect.option(Dom.current));
     const searched = yield* Effect.forEach(open, (document) =>
         search({ mode: 'Text', find: Option.some({ appliedFont: { specifier } }), options: Option.some({ includeFootnotes: true, includeHiddenLayers: true, includeLockedLayersForFind: true, includeLockedStoriesForFind: true, includeMasterPages: true }), change: Option.none() }, document),
     );
@@ -120,38 +120,38 @@ const fontView = Effect.fnUntraced(function* (face: Font) {
     });
     const installed = yield* Effect.try({
         try: () => {
-            const every = model.app.fonts.everyItem();
+            const every = dom.app.fonts.everyItem();
             return {
-                ...model.picked(Inspection.View.cases.Font.fields.installed, face, ['styles', 'axes', 'features']),
+                ...dom.picked(Inspection.View.cases.Font.fields.installed, face, ['styles', 'axes', 'features']),
                 styles: Array.dedupe(Array.filterMap(Array.zip(every.fontFamily, every.fontStyleName), ([family, named]) => (family === face.fontFamily ? Result.succeed(named) : Result.failVoid))),
                 axes: Option.liftThrowable(() => Array.zip(face.designAxesName, face.designAxesValues).map(([name, value]) => ({ name, value })))(),
-                features: Array.filterMap(model.members(model.OpenTypeFeature), (feature) => (face.checkOpenTypeFeature(feature) ? Result.succeed(feature.toString()) : Result.failVoid)),
+                features: Array.filterMap(dom.members(dom.OpenTypeFeature), (feature) => (face.checkOpenTypeFeature(feature) ? Result.succeed(feature.toString()) : Result.failVoid)),
             };
         },
         catch: HostError.refused(`styles and features of ${face.name}`),
-    }).pipe(Effect.when(Effect.succeed(face.status.equals(model.FontStatus.INSTALLED))));
-    return yield* Model.picked(Inspection.View.cases.Font, face, () => ({ uses: [...Array.flatMap(searched, ({ matches }) => Array.map(matches, Struct.get('specifier'))), ...styled], installed }));
+    }).pipe(Effect.when(Effect.succeed(face.status.equals(dom.FontStatus.INSTALLED))));
+    return yield* Dom.pick(Inspection.View.cases.Font, face, () => ({ uses: [...Array.flatMap(searched, ({ matches }) => Array.map(matches, Struct.get('specifier'))), ...styled], installed }));
 });
-const view = (model: Model['Service'], found: unknown, slice: Slice) => {
-    const { picked } = model;
+const view = (dom: Dom['Service'], found: unknown, slice: Slice) => {
+    const { picked } = dom;
     return Match.value(found).pipe(
         Match.when(
-            model.application,
+            dom.application,
             Effect.fnUntraced(function* (app: Application) {
-                const opened = yield* Effect.option(Model.current);
+                const opened = yield* Effect.option(Dom.current);
                 const documents = yield* Effect.forEach(app.documents.everyItem().getElements(), (document) => savedPath(document).pipe(Effect.bindTo('fullName'), Effect.map(Struct.assign({ document }))));
                 const window = Option.liftThrowable(() => app.activeWindow.toSpecifier())();
                 const selection = yield* Effect.forEach(Option.match(opened, { onNone: Array.empty, onSome: () => app.selection }), (item) =>
-                    Effect.map(Effect.transposeOption(Option.map(Option.liftPredicate(item, model.overridable), overrides)), (overridden) => ({
-                        ...Model.referenceUnsafe(item),
+                    Effect.map(Effect.transposeOption(Option.map(Option.liftPredicate(item, dom.overridable), overrides)), (overridden) => ({
+                        ...Dom.referenceUnsafe(item),
                         contents: Option.map(Schema.decodeUnknownOption(Contents)(item), Struct.get('contents')),
-                        parentStory: Option.map(Option.liftPredicate(item, model.storied), Struct.get('parentStory')),
+                        parentStory: Option.map(Option.liftPredicate(item, dom.storied), Struct.get('parentStory')),
                         overrides: overridden,
                     })),
                 );
                 const panels = Array.getSomes(globalThis.Array.from({ length: app.panels.length }, (_, index) => Option.map(Option.filter(Option.fromUndefinedOr(app.panels.item(index)), Struct.get('visible')), Struct.get('name'))));
-                return yield* Model.picked(Inspection.View.cases.Application, app, () => ({
-                    toolBoxTools: { ...picked(Inspection.View.cases.Application.fields.toolBoxTools, app.toolBoxTools), tools: Array.map(model.members(model.UITools), (tool) => tool.toString()) },
+                return yield* Dom.pick(Inspection.View.cases.Application, app, () => ({
+                    toolBoxTools: { ...picked(Inspection.View.cases.Application.fields.toolBoxTools, app.toolBoxTools), tools: Array.map(dom.members(dom.UITools), (tool) => tool.toString()) },
                     panels,
                     documents: Array.map(documents, ({ document, fullName }) => ({ ...picked(Inspection.View.cases.Application.fields.documents.value, document, ['fullName']), fullName })),
                     current: Option.map(opened, (document) => ({ document: document.toSpecifier(), window, selection, overset: overset(document), undo: { mode: app.activeScriptUndoMode, name: document.undoName, history: document.undoHistory } })),
@@ -159,10 +159,10 @@ const view = (model: Model['Service'], found: unknown, slice: Slice) => {
             }),
         ),
         Match.when(
-            model.document,
+            dom.document,
             Effect.fnUntraced(function* (document: Document) {
                 const [fullName, settings] = yield* Effect.all([savedPath(document), InDesignSettings.read(document.textDefaults)]);
-                return yield* Model.picked(Inspection.View.cases.Document, document, () => ({
+                return yield* Dom.pick(Inspection.View.cases.Document, document, () => ({
                     fullName,
                     overset: overset(document),
                     links: Record.map(Array.groupBy(document.links.everyItem().status, globalThis.String), Array.length),
@@ -170,49 +170,49 @@ const view = (model: Model['Service'], found: unknown, slice: Slice) => {
                 }));
             }),
         ),
-        Match.when(model.page, (page) => Effect.flatMap(Model.extent(page), (extent) => Model.picked(Inspection.View.cases.Page, page, Function.constant({ extent })))),
+        Match.when(dom.page, (page) => Effect.flatMap(Dom.extent(page), (extent) => Dom.pick(Inspection.View.cases.Page, page, Function.constant({ extent })))),
         Match.whenOr(
-            model.spread,
-            model.masterSpread,
+            dom.spread,
+            dom.masterSpread,
             Effect.fnUntraced(function* (spread: Spread | MasterSpread) {
-                const pages = yield* Effect.forEach(spread.pages.everyItem().getElements(), (page) => Model.extent(page).pipe(Effect.bindTo('extent'), Effect.map(Struct.assign({ page }))));
-                return yield* Model.picked(Inspection.Spread, spread, () => ({ pages: Array.map(pages, ({ page, extent }) => ({ ...picked(Inspection.Spread.cases.Spread.fields.pages.value, page, ['extent']), extent })) }));
+                const pages = yield* Effect.forEach(spread.pages.everyItem().getElements(), (page) => Dom.extent(page).pipe(Effect.bindTo('extent'), Effect.map(Struct.assign({ page }))));
+                return yield* Dom.pick(Inspection.Spread, spread, () => ({ pages: Array.map(pages, ({ page, extent }) => ({ ...picked(Inspection.Spread.cases.Spread.fields.pages.value, page, ['extent']), extent })) }));
             }),
         ),
-        Match.when(model.layer, (layer) => Model.picked(Inspection.View.cases.Layer, layer)),
+        Match.when(dom.layer, (layer) => Dom.pick(Inspection.View.cases.Layer, layer)),
         Match.when(
-            model.style,
+            dom.style,
             Effect.fnUntraced(function* (style: ParagraphStyle | CharacterStyle | ObjectStyle | TableStyle | CellStyle) {
-                const ancestors = model.ancestors(style.parent);
-                const properties = yield* Model.properties(style);
+                const ancestors = dom.ancestors(style.parent);
+                const properties = yield* Dom.properties(style);
                 const { basedOn } = properties;
-                const container = Option.getOrElse(Array.findFirst(ancestors, model.document), (): Application => model.app);
-                const [own, above] = yield* Effect.all([Schema.decodeEffect(Specifier.Path)(style.toSpecifier()), Schema.decodeEffect(Specifier.Path)(container.toSpecifier())]);
-                const base: unknown = Predicate.isString(basedOn) ? yield* Model.resolve(Specifier.make({ steps: [...above.steps, ...Array.map(Array.takeRight(own.steps, 1), ({ kind }) => ({ separator: '/' as const, kind, selector: Selector.cases.Key.make({ key: 'name', value: basedOn }) }))] })) : basedOn;
-                const baseProperties = model.domObject(base) ? yield* Model.properties(base) : Record.empty<string, unknown>();
-                const differs = yield* differing(style, properties, baseProperties, Inspection.Style.cases.ParagraphStyle.fields);
-                const settings = yield* Effect.transposeOption(Option.map(Option.liftPredicate(style, model.paragraphStyle), InDesignSettings.read));
-                return yield* Model.picked(Inspection.Style, style, () => ({
-                    group: Array.filterMap(ancestors, (ancestor) => (model.named(ancestor) && !model.document(ancestor) ? Result.succeed(ancestor.name) : Result.failVoid)),
-                    basedOn: model.ancestors(basedOn, 'basedOn'),
+                const container = Option.getOrElse(Array.findFirst(ancestors, dom.document), (): Application => dom.app);
+                const [own, above] = yield* Effect.all([Schema.decodeEffect(Specifier.FromString)(style.toSpecifier()), Schema.decodeEffect(Specifier.FromString)(container.toSpecifier())]);
+                const base: unknown = Predicate.isString(basedOn) ? yield* Dom.resolve(Specifier.make({ steps: [...above.steps, ...Array.map(Array.takeRight(own.steps, 1), ({ kind }) => ({ separator: '/' as const, kind, selector: Selector.cases.Key.make({ key: 'name', value: basedOn }) }))] })) : basedOn;
+                const baseProperties = dom.domObject(base) ? yield* Dom.properties(base) : Record.empty<string, unknown>();
+                const differs = yield* readDiffering(style, properties, baseProperties, Inspection.Style.cases.ParagraphStyle.fields);
+                const settings = yield* Effect.transposeOption(Option.map(Option.liftPredicate(style, dom.paragraphStyle), InDesignSettings.read));
+                return yield* Dom.pick(Inspection.Style, style, () => ({
+                    group: Array.filterMap(ancestors, (ancestor) => (dom.named(ancestor) && !dom.document(ancestor) ? Result.succeed(ancestor.name) : Result.failVoid)),
+                    basedOn: dom.ancestors(basedOn, 'basedOn'),
                     differing: differs,
                     settings,
                 }));
             }),
         ),
-        Match.when(model.swatch, (swatch) => Model.picked(Inspection.Swatch, swatch)),
-        Match.when(model.link, (linked) => Model.picked(Inspection.View.cases.Link, linked)),
-        Match.when(model.story, (story) =>
-            Model.picked(Inspection.View.cases.Story, story, () => ({
+        Match.when(dom.swatch, (swatch) => Dom.pick(Inspection.Swatch, swatch)),
+        Match.when(dom.link, (linked) => Dom.pick(Inspection.View.cases.Link, linked)),
+        Match.when(dom.story, (story) =>
+            Dom.pick(Inspection.View.cases.Story, story, () => ({
                 overset: story.length - Number.sumAll(Array.map(story.textContainers, ({ characters }) => characters.length)),
                 styles: Array.dedupe(Array.map(story.paragraphs.everyItem().appliedParagraphStyle, ({ name }) => name)),
             })),
         ),
         Match.whenOr(
-            model.text,
-            model.frame,
+            dom.text,
+            dom.frame,
             Effect.fnUntraced(function* (source: Text | TextFrame | TextPath) {
-                const text = model.frame(source) ? source.texts.item(0) : source;
+                const text = dom.frame(source) ? source.texts.item(0) : source;
                 const [overridden, settings] = yield* Effect.all([overrides(text), InDesignSettings.read(text)]);
                 const ranges = slice.of(text.textStyleRanges.everyItem().getElements());
                 const run = Inspection.View.cases.Text.fields.runs.value;
@@ -220,16 +220,16 @@ const view = (model: Model['Service'], found: unknown, slice: Slice) => {
                     ranges,
                     Effect.fnUntraced(function* (range: TextStyleRange) {
                         const refused = HostError.refused(range.toSpecifier());
-                        const [properties, base] = yield* Effect.all([Model.properties(range), Effect.try({ try: () => ({ ...range.appliedParagraphStyle.properties, ...Record.filter(range.appliedCharacterStyle.properties, (value) => !(value === null || value === '' || model.nothing(value))) }), catch: refused })]);
-                        const [own, held] = yield* Effect.all([differing(range, properties, base, { ...run.fields, ...Inspection.View.cases.Text.fields }), InDesignSettings.read(range)]);
+                        const [properties, base] = yield* Effect.all([Dom.properties(range), Effect.try({ try: () => ({ ...range.appliedParagraphStyle.properties, ...Record.filter(range.appliedCharacterStyle.properties, (value) => !(value === null || value === '' || dom.nothing(value))) }), catch: refused })]);
+                        const [own, held] = yield* Effect.all([readDiffering(range, properties, base, { ...run.fields, ...Inspection.View.cases.Text.fields }), InDesignSettings.read(range)]);
                         return yield* Effect.try({ try: () => ({ ...picked(run, range, ['designAxes', 'settings', 'differing']), designAxes: Result.try(() => range.designAxes), settings: held, differing: own }), catch: refused });
                     }),
                 );
-                return yield* Model.picked(Inspection.View.cases.Text, text, () => ({ overrides: overridden, runs, settings }));
+                return yield* Dom.pick(Inspection.View.cases.Text, text, () => ({ overrides: overridden, runs, settings }));
             }),
         ),
-        Match.when(model.font, fontView),
-        Match.when(model.preflightProcess, (process) => Model.picked(Inspection.View.cases.PreflightProcess, process, () => ({ aggregatedResults: aggregated(process) }))),
+        Match.when(dom.font, fontView),
+        Match.when(dom.preflightProcess, (process) => Dom.pick(Inspection.View.cases.PreflightProcess, process, () => ({ aggregatedResults: readAggregated(process) }))),
         Match.option,
         Effect.transposeOption,
     );
@@ -237,8 +237,8 @@ const view = (model: Model['Service'], found: unknown, slice: Slice) => {
 
 // --- [COMMANDS]
 
-const checked = Effect.fn('checked')(function* (document: Document, named: Option.Option<string>) {
-    const { app } = yield* Model;
+const checkDocument = Effect.fn('checkDocument')(function* (document: Document, named: Option.Option<string>) {
+    const { app } = yield* Dom;
     const { preflightOff, preflightWorkingProfile } = document.preflightOptions;
     const profiles = [...app.preflightProfiles.everyItem().getElements(), ...document.preflightProfiles.everyItem().getElements()];
     const live = preflightOff ? Option.none() : Option.some(document.activeProcess);
@@ -246,77 +246,77 @@ const checked = Effect.fn('checked')(function* (document: Document, named: Optio
     const requested = Option.orElse(named, () => applied).pipe(Option.getOrElse(() => preflightWorkingProfile));
     const chosen = yield* Predicate.isString(requested) ? Unmatched.single(profiles, 'preflight profile', Option.some(requested), (each) => [each.name]) : Effect.succeed(requested);
     const refused = HostError.refused(`preflight of ${document.toSpecifier()} under ${chosen.name}`);
-    const finished = Option.isNone(named) ? Option.flatMap(live, flow(aggregated, Result.getSuccess)) : Option.none();
+    const finished = Option.isNone(named) ? Option.flatMap(live, flow(readAggregated, Result.getSuccess)) : Option.none();
     const waited = Effect.acquireRelease(Effect.try({ try: () => app.preflightProcesses.add(document, chosen), catch: refused }), (process) => Effect.orDie(Effect.try({ try: () => process.remove(), catch: refused }))).pipe(
         Effect.tap((process) => Effect.try({ try: () => process.waitForProcess(), catch: refused })),
-        Effect.flatMap((process) => Effect.fromResult(Result.mapError(aggregated(process), refused))),
+        Effect.flatMap((process) => Effect.fromResult(Result.mapError(readAggregated(process), refused))),
         Effect.scoped,
     );
-    return yield* Effect.all({ targetObject: Model.reference(document), appliedProfile: Model.reference(chosen), aggregatedResults: Option.match(finished, { onSome: Effect.succeed, onNone: () => waited }) });
+    return yield* Effect.all({ targetObject: Dom.reference(document), appliedProfile: Dom.reference(chosen), aggregatedResults: Option.match(finished, { onSome: Effect.succeed, onNone: () => waited }) });
 });
 
 // --- [REQUESTS]
 
 const inspect = Effect.fn('inspect')(function* ({ target, fields, slice }: Inspect) {
-    const [found, model] = yield* Effect.all([Model.resolve(target), Model]);
-    if (!model.domObject(found)) {
-        const items = yield* Effect.forEach(slice.of(found), (item) => Effect.zipWith(Model.reference(item), readings(item, Option.orElseSome(fields, Array.empty)).pipe(Effect.bindTo('fields')), Struct.assign));
-        return yield* Model.read(Inspection.Items, target.path, () => ({ _tag: 'Items', specifier: target.path, total: found.length, items }));
+    const [found, dom] = yield* Effect.all([Dom.resolve(target), Dom]);
+    if (!dom.domObject(found)) {
+        const items = yield* Effect.forEach(slice.of(found), (item) => Effect.zipWith(Dom.reference(item), readings(item, Option.orElseSome(fields, Array.empty)).pipe(Effect.bindTo('fields')), Struct.assign));
+        return yield* Dom.read(Inspection.Items, target.path, () => ({ _tag: 'Items', specifier: target.path, total: found.length, items }));
     }
-    const shown = yield* view(model, found, slice);
+    const shown = yield* view(dom, found, slice);
     const entries = yield* readings(
         found,
-        Option.orElse(fields, () => Option.as(shown, Record.keys(Record.filter(model.declaration(found.constructorName).fields, ({ collection }, name) => Option.isSome(collection) && Predicate.hasProperty(found, name))))),
+        Option.orElse(fields, () => Option.as(shown, Record.keys(Record.filter(dom.declaration(found.constructorName).fields, ({ collection }, name) => Option.isSome(collection) && Predicate.hasProperty(found, name))))),
     );
     const [collections, scalars] = Array.partition(
         entries,
         Match.type<(typeof entries)[number]>().pipe(
-            Match.when({ value: { _tag: 'Success', success: model.collection } }, ({ name, value }) => ({ name, ...Model.collected(value.success) })),
+            Match.when({ value: { _tag: 'Success', success: dom.collection } }, ({ name, value }) => ({ name, ...Dom.collect(value.success) })),
             Match.result,
         ),
     );
-    return Inspection.Object.make({ ...(yield* Model.reference(found)), view: shown, fields: yield* Model.read(Inspection.Readings, found.toSpecifier(), () => scalars), collections });
+    return Inspection.Object.make({ ...(yield* Dom.reference(found)), view: shown, fields: yield* Dom.read(Inspection.Readings, found.toSpecifier(), () => scalars), collections });
 });
 const change = Effect.fn('change')(function* ({ label, target, values }: Change) {
-    const located = yield* Model.located(target);
-    return yield* Model.written(label, located, yield* Model.write(located, values));
+    const located = yield* Dom.locate(target);
+    return yield* Dom.commitWrite(label, located, yield* Dom.write(located, values));
 });
 const call = Effect.fn('call')(function* (payload: Call) {
-    const [model, found] = yield* Effect.all([Model, Model.located(payload.target)]);
-    const before = yield* Model.reference(found);
+    const [dom, found] = yield* Effect.all([Dom, Dom.locate(payload.target)]);
+    const before = yield* Dom.reference(found);
     const { method } = payload;
     const { receiver, kind } = yield* Option.match(payload.collection, {
         onNone: () => Effect.succeed({ receiver: found, kind: before.type }),
         onSome: (field) => {
             const member: unknown = Reflect.get(found, field);
-            return model.collection(member)
+            return dom.collection(member)
                 ? Effect.succeed({ receiver: member, kind: member.constructor.name })
-                : Unmatched.of({ subject: `collection of ${before.specifier}`, query: Option.some(field), candidates: Record.keys(Record.filter(model.declaration(before.type).fields, ({ collection }) => Option.isSome(collection))) });
+                : Unmatched.of({ subject: `collection of ${before.specifier}`, query: Option.some(field), candidates: Record.keys(Record.filter(dom.declaration(before.type).fields, ({ collection }) => Option.isSome(collection))) });
         },
     });
-    const { methods } = model.declaration(kind);
+    const { methods } = dom.declaration(kind);
     const refused = HostError.refused(`${kind} ${method}`);
     const invoked = yield* Effect.try({ try: (): unknown => Reflect.get(receiver, method), catch: refused }).pipe(Effect.filterOrFail(Predicate.isFunction, () => Unmatched.of({ subject: `method of ${kind}`, query: Option.some(method), candidates: Record.keys(methods) })));
     const parameters = Option.getOrElse(Record.get(methods, method), Array.empty<readonly string[]>);
-    const positioned = yield* Effect.forEach(payload.arguments, (value, index) => Model.decode(found, Option.getOrElse(Array.get(parameters, index), Array.empty<string>))(value));
-    const properties = Option.map(payload.properties, (supplied) => flow(Array.ensure<unknown>, Array.findFirst(model.domObject), Effect.fromOption(Function.constant(new Cause.IllegalArgumentError(`${kind} ${method} returned no object for properties`))), Effect.flatMap(flow(Model.write(supplied), Effect.flatten))));
-    return yield* Model.commit(
+    const positioned = yield* Effect.forEach(payload.arguments, (value, index) => Dom.decode(found, Option.getOrElse(Array.get(parameters, index), Array.empty<string>))(value));
+    const properties = Option.map(payload.properties, (supplied) => flow(Array.ensure<unknown>, Array.findFirst(dom.domObject), Effect.fromOption(Function.constant(new Cause.IllegalArgumentError(`${kind} ${method} returned no object for properties`))), Effect.flatMap(flow(Dom.write(supplied), Effect.flatten))));
+    return yield* Dom.commit(
         payload.label,
         Effect.try({ try: (): unknown => Reflect.apply(invoked, receiver, positioned), catch: refused }).pipe(
             Effect.tap((returned) => Effect.transposeOption(Option.map(properties, Function.apply(returned)))),
-            Effect.flatMap((returned) => Model.read(Called, payload.label, () => ({ ...before, result: Option.fromUndefinedOr(returned), valid: found.isValid }))),
+            Effect.flatMap((returned) => Dom.read(Call.Result, payload.label, () => ({ ...before, result: Option.fromUndefinedOr(returned), valid: found.isValid }))),
         ),
     );
 });
 const findChange = (payload: FindChange) =>
-    Option.match(payload.scope, { onSome: Model.resolve, onNone: () => Model.current }).pipe(
-        Effect.flatMap((found: unknown) => (Option.isSome(payload.change) ? Model.commit(payload.label, search(payload, found)) : search(payload, found))),
+    Option.match(payload.scope, { onSome: Dom.resolve, onNone: () => Dom.current }).pipe(
+        Effect.flatMap((found: unknown) => (Option.isSome(payload.change) ? Dom.commit(payload.label, search(payload, found)) : search(payload, found))),
         Effect.map(({ count, matches }) => ({ count, matches: payload.slice.of(matches) })),
     );
 const font = Effect.fn('font')(function* ({ name, text, file }: FontSource) {
-    const [face, model, { fs }] = yield* Effect.all([Effect.flatMap(Model.fonts, (lookup) => lookup(name)), Model, Uxp]);
+    const [face, dom, { fs }] = yield* Effect.all([Effect.flatMap(Dom.fonts, (lookup) => lookup(name)), Dom, Uxp]);
     const subset = Effect.as(Effect.try({ try: () => face.createSubsetFont(text, file), catch: HostError.refused(`subset of ${face.name}`) }), Option.some({ file, postscriptName: Option.none<string>() }));
-    const source = face.status.equals(model.FontStatus.INSTALLED)
+    const source = face.status.equals(dom.FontStatus.INSTALLED)
         ? yield* Effect.try({ try: () => fs.lstatSync(face.location), catch: HostError.refused(face.location) }).pipe(
               Effect.as(Option.some({ file: face.location, postscriptName: Option.some(face.postscriptName) })),
               Effect.catchIf((error) => Schema.is(Uxp.Missing)(error.cause), Function.constant(subset)),
@@ -325,30 +325,30 @@ const font = Effect.fn('font')(function* ({ name, text, file }: FontSource) {
     return { font: yield* fontView(face), source };
 });
 const preflight = Effect.fn('preflight')(function* ({ document, profile }: Preflight) {
-    const model = yield* Model;
-    const open = model.app.documents.everyItem().getElements();
+    const dom = yield* Dom;
+    const open = dom.app.documents.everyItem().getElements();
     const targets = yield* Option.match(document, {
         onNone: () => Effect.succeed(open.filter((each) => !each.preflightOptions.preflightOff)),
         onSome: (specifier) =>
             Effect.map(
-                Effect.filterOrElse(Model.resolve(specifier), model.document, () => Unmatched.of({ subject: 'open document', query: Option.some(specifier.path), candidates: Array.map(open, (each) => each.toSpecifier()) })),
+                Effect.filterOrElse(Dom.resolve(specifier), dom.document, () => Unmatched.of({ subject: 'open document', query: Option.some(specifier.path), candidates: Array.map(open, (each) => each.toSpecifier()) })),
                 Array.of,
             ),
     });
-    return yield* Effect.forEach(targets, (target) => checked(target, profile));
+    return yield* Effect.forEach(targets, (target) => checkDocument(target, profile));
 });
 const render = Effect.fn('render')(function* (target: Specifier, path: string) {
-    const model = yield* Model;
-    const { app, ExportFormat, PNGExportRangeEnum, PNGColorSpaceEnum, PNGQualityEnum } = model;
+    const dom = yield* Dom;
+    const { app, ExportFormat, PNGExportRangeEnum, PNGColorSpaceEnum, PNGQualityEnum } = dom;
     const found = yield* Effect.filterOrFail(
-        Model.resolve(target),
-        (value): value is Document | Page | Spread | PageItem => model.document(value) || (model.page(value) && model.spread(value.parent)) || model.spread(value) || model.item(value),
+        Dom.resolve(target),
+        (value): value is Document | Page | Spread | PageItem => dom.document(value) || (dom.page(value) && dom.spread(value.parent)) || dom.spread(value) || dom.item(value),
         () => Unmatched.of({ subject: 'document, document page, spread, or page item', query: Option.some(target.path) }),
     );
     const { source, range } = Match.value(found).pipe(
-        Match.when(model.document, (each) => ({ source: each, range: { pageString: '+1', exportingSpread: true } })),
-        Match.when(model.page, (each) => ({ source: each.parent.parent, range: { pageString: `+${each.documentOffset + 1}`, exportingSpread: false } })),
-        Match.when(model.spread, (each) => ({ source: each.parent, range: { pageString: `+${each.pages.firstItem().documentOffset + 1}`, exportingSpread: true } })),
+        Match.when(dom.document, (each) => ({ source: each, range: { pageString: '+1', exportingSpread: true } })),
+        Match.when(dom.page, (each) => ({ source: each.parent.parent, range: { pageString: `+${each.documentOffset + 1}`, exportingSpread: false } })),
+        Match.when(dom.spread, (each) => ({ source: each.parent, range: { pageString: `+${each.pages.firstItem().documentOffset + 1}`, exportingSpread: true } })),
         Match.orElse((each) => ({ source: each, range: {} })),
     );
     const pointsPerInch = 72;
@@ -367,9 +367,9 @@ const render = Effect.fn('render')(function* (target: Specifier, path: string) {
     yield* Uxp.preserve(app.pngExportPreferences, defaults);
     yield* Effect.try({ try: () => source.exportFile(ExportFormat.PNG_FORMAT, path), catch: HostError.refused(`PNG export of ${target.path} to ${path}`) });
 }, Effect.scoped);
-const session = Model.use(({ app, MeasurementUnits, UserInteractionLevels }) => Uxp.preserve(app.scriptPreferences, { enableRedraw: false, measurementUnit: MeasurementUnits.POINTS, userInteractionLevel: UserInteractionLevels.NEVER_INTERACT }));
-const listened = (events: readonly string[], name: string, handler: (event: Event) => void) =>
-    Model.useSync(({ app }) => {
+const suppressDialogs = Dom.use(({ app, MeasurementUnits, UserInteractionLevels }) => Uxp.preserve(app.scriptPreferences, { enableRedraw: false, measurementUnit: MeasurementUnits.POINTS, userInteractionLevel: UserInteractionLevels.NEVER_INTERACT }));
+const listen = (events: readonly string[], name: string, handler: (event: Event) => void) =>
+    Dom.useSync(({ app }) => {
         events.forEach((event) => {
             const named = `${name}:${event}`;
             const stale = app.eventListeners.itemByName(named);
@@ -382,4 +382,4 @@ const listened = (events: readonly string[], name: string, handler: (event: Even
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { call, change, findChange, font, inspect, listened, preflight, render, session };
+export { call, change, findChange, font, inspect, listen, preflight, render, suppressDialogs };

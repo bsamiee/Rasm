@@ -79,9 +79,9 @@ const history = <A, E, R>(label: string, { hostControl }: ExecutionContext, body
             ),
         body,
     );
-const execute = (code: string, label: string) => modal(label, (context) => history(label, context, Uxp.executed(containment, code)));
+const execute = (code: string, label: string) => modal(label, (context) => history(label, context, Uxp.execute(containment, code)));
 const render = Effect.fnUntraced(function* ({ target, label }: Render, written: File) {
-    const [found, stored] = yield* Effect.all([Uxp.located(containment, target).pipe(Effect.filterOrFail(Schema.is(Exportable), () => Unmatched.of({ subject: 'document, layer, or artboard', query: Option.some(target.path) }))), Effect.orDie(Schema.decodeUnknownEffect(Stored)(written))]);
+    const [found, stored] = yield* Effect.all([Uxp.locate(containment, target).pipe(Effect.filterOrFail(Schema.is(Exportable), () => Unmatched.of({ subject: 'document, layer, or artboard', query: Option.some(target.path) }))), Effect.orDie(Schema.decodeUnknownEffect(Stored)(written))]);
     return yield* modal(
         label,
         Effect.fnUntraced(function* ({ hostControl }) {

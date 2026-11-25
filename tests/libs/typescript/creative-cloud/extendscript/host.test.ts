@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Completion } from '@rasm/extendscript';
-import { assign, illegalArgument, preserve, reply, written } from '@rasm/extendscript/host';
+import { assign, illegalArgument, preserve, reply, stringify } from '@rasm/extendscript/host';
 import { HostError } from '@rasm/object-model';
 import { Unmatched } from '@rasm/search';
 import { Arbitrary, Cause, Effect, flow, Option, Schema, Struct } from 'effect';
@@ -23,22 +23,22 @@ const Refusal = Schema.TaggedStruct('IllegalArgument', { message: Schema.String 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const answered = flow(Schema.decodeEffect(Schema.fromJsonString(Completion)), Effect.flatMap(Completion.answered(Schema.Json, SUBJECT)));
+const answered = flow(Schema.decodeEffect(Schema.fromJsonString(Completion)), Effect.flatMap(Completion.decode(Schema.Json, SUBJECT)));
 const raising = (error: unknown) => (): never => {
     throw error;
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe(written, () => {
+describe(stringify, () => {
     it.prop('writes every JSON value as printable ASCII that JSON.parse reads back as JSON.stringify writes it', { value: Arbitrary.map(Arbitrary.schema(Schema.Json), structuredClone) }, ({ value }) => {
-        const [text, reference] = [written(value), JSON.stringify(value)];
+        const [text, reference] = [stringify(value), JSON.stringify(value)];
         assert.match(text, /^[ -~]*$/u);
         assert.deepStrictEqual(JSON.parse(text), JSON.parse(reference));
     });
 
     it('writes a record holding a constructor key as that record', () => {
-        assert.strictEqual(written({ constructor: 'Swatch', tint: 40 }), '{"constructor":"Swatch","tint":40}');
+        assert.strictEqual(stringify({ constructor: 'Swatch', tint: 40 }), '{"constructor":"Swatch","tint":40}');
     });
 });
 

@@ -1,6 +1,6 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, describe, it } from '@effect/vitest';
-import { declared, documents, manifest, omv } from '@rasm/object-model/node';
+import { readDocuments, readManifest, readOmv, readTypeScript } from '@rasm/object-model/node';
 import { Array, Effect, FileSystem, Option, Path, Schema, Stream, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -43,7 +43,7 @@ const Json = Schema.fromJsonString(Schema.Unknown);
 
 const pieces = (text: string, size: number) => Stream.fromIterable(Array.map(Array.chunksOf(Array.fromIterable(new TextEncoder().encode(text)), size), (chunk) => Uint8Array.from(chunk)));
 const read = Effect.fnUntraced(function* (texts: Array.NonEmptyReadonlyArray<string>, name: string) {
-    const { page } = yield* omv(texts);
+    const { page } = yield* readOmv(texts);
     const found = yield* page(name);
     return found._tag === 'Class'
         ? { constructible: found.constructible, fields: Array.map(found.fields, Struct.get('name')), methods: Array.map(found.methods, ({ name: method, parameters }) => [method, ...Array.map(parameters, ({ type }) => Option.getOrUndefined(type))]) }
@@ -52,7 +52,7 @@ const read = Effect.fnUntraced(function* (texts: Array.NonEmptyReadonlyArray<str
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe(omv, () => {
+describe(readOmv, () => {
     it.effect.each([
         { behavior: 'reads a class with a constructor group as constructible, keeps its constructor out of its methods, and joins the datatypes a parameter states', texts: [CORE], name: 'File', page: { constructible: true, fields: ['length'], methods: [['write', 'String | Number[]']] } },
         { behavior: 'reads a class without a constructor group as not constructible in a file stating constructors', texts: [CORE], name: 'Math', page: { constructible: false, fields: ['PI'], methods: [] } },
@@ -62,7 +62,7 @@ describe(omv, () => {
     ] as const)('$behavior', ({ texts, name, page }) => Effect.map(read(texts, name), (found) => assert.deepStrictEqual<unknown>(found, page)));
 });
 
-it.layer(layer)('declared', (methods) => {
+it.layer(layer)('readTypeScript', (methods) => {
     methods.effect(
         'refuses a member its declarations lack and names the class declaring the object read',
         Effect.fnUntraced(function* () {
@@ -71,7 +71,7 @@ it.layer(layer)('declared', (methods) => {
             yield* fs.makeDirectory(path.join(modules, 'press'));
             yield* fs.writeFileString(path.join(modules, 'press', 'package.json'), yield* Schema.encodeEffect(Json)({ name: 'press', types: 'index.d.ts' }));
             yield* fs.writeFileString(path.join(modules, 'press', 'index.d.ts'), PRESS);
-            const open = yield* declared(Option.none(), modules);
+            const open = yield* readTypeScript(Option.none(), modules);
             const { check, catalog } = yield* open({ root: 'press', types: [], lib: ['es2024'], preamble: "declare function require(id: 'press'): typeof import('press');", enumeration: Option.none() });
             const [refused, accepted, { index }] = yield* Effect.all([check("const held = require('press').app.activeDocument;\nheld.margin;"), check("require('press').app.activeDocument.close(1);"), catalog]);
             assert.deepStrictEqual([Array.map(refused, Struct.pick(['code', 'line', 'declared'])), accepted, index.classes, index.enumerations], [[{ code: 2339, line: Option.some(2), declared: Option.some('Document') }], [], ['Document'], ['SaveOptions']]);
@@ -79,12 +79,12 @@ it.layer(layer)('declared', (methods) => {
     );
 });
 
-describe(documents, () => {
+describe(readDocuments, () => {
     it.effect.prop(
         'reads each NDJSON page with members as a class whatever byte boundaries split its rows and characters, and indexes no page without members',
         { size: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 64 })) },
         Effect.fnUntraced(function* ({ size }) {
-            const { index, page } = yield* documents(pieces(DOCUMENTED, size));
+            const { index, page } = yield* readDocuments(pieces(DOCUMENTED, size));
             const [layered, composed] = yield* Effect.all([page('Layer'), page('Comp')]);
             assert.deepStrictEqual(
                 [index.classes, Array.map(layered.fields, Struct.pick(['name', 'readonly', 'version', 'description'])), Array.map(composed.methods, Struct.get('name'))],
@@ -94,11 +94,11 @@ describe(documents, () => {
     );
 });
 
-describe(manifest, () => {
+describe(readManifest, () => {
     it.effect(
         'reads a class with a constructor entry as constructible and names an unnamed parameter by its position',
         Effect.fnUntraced(function* () {
-            const { page } = yield* manifest(SCRIPTED);
+            const { page } = yield* readManifest(SCRIPTED);
             const { constructible, methods } = yield* page('EncoderManager');
             assert.deepStrictEqual(
                 [constructible, Array.map(methods, Struct.get('name')), Array.map(methods[0]?.parameters ?? [], Struct.pick(['name', 'type', 'optional']))],

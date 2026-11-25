@@ -1,4 +1,4 @@
-import { Reference, request, Written } from '@rasm/object-model';
+import { makeRpc, Reference, WriteResult } from '@rasm/object-model';
 import { Settings, Source } from '@rasm/typography';
 import { Option, Schema, Struct } from 'effect';
 import { RpcGroup } from 'effect/rpc';
@@ -22,7 +22,7 @@ class Adjust extends Schema.Class<Adjust, { readonly brand: unique symbol }>('Ad
         .check(Schema.isMinProperties(1))
         .annotate({ description: 'Added to each style run value' }),
 }) {
-    static readonly Result = Written;
+    static readonly Result = WriteResult;
 
     get label(): string {
         return `Adjust ${Struct.keys(this.deltas).join(', ')} of ${this.target}`;
@@ -70,8 +70,8 @@ class FontSource extends Schema.Class<FontSource, { readonly brand: unique symbo
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Typesetting = RpcGroup.make(request('runs', Runs), request('kerns', Kerns), request('typeset', Typeset), request('font', FontSource));
+const TypesettingRpcs = RpcGroup.make(makeRpc('runs', Runs), makeRpc('kerns', Kerns), makeRpc('typeset', Typeset), makeRpc('font', FontSource));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Adjust, FontSource, Kerns, Runs, Typeset, Typesetting };
+export { Adjust, FontSource, Kerns, Runs, Typeset, TypesettingRpcs };

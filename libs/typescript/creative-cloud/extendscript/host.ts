@@ -13,26 +13,26 @@ const UNREFERENCED: Encoder = { reference: () => undefined };
 
 const illegalArgument = (message: string) => ({ _tag: 'IllegalArgument', message }) as const;
 const keys = (value: Fields): string[] => Object.keys(value).filter((key) => value[key] !== undefined);
-const quoted = (text: string) => `"${text.replace(UNESCAPED, (character) => `\\u${`000${character.charCodeAt(0).toString(16)}`.slice(-4)}`)}"`;
-const written = (tree: unknown): string => {
+const quote = (text: string) => `"${text.replace(UNESCAPED, (character) => `\\u${`000${character.charCodeAt(0).toString(16)}`.slice(-4)}`)}"`;
+const stringify = (tree: unknown): string => {
     const items: string[] = [];
     for (const item of isList(tree) ? tree : []) {
-        items.push(written(item));
+        items.push(stringify(item));
     }
     for (const key of isPlain(tree) ? keys(tree) : []) {
-        items.push(`${quoted(key)}:${written(read(tree, key))}`);
+        items.push(`${quote(key)}:${stringify(read(tree, key))}`);
     }
-    return typeof tree === 'string' ? quoted(tree) : typeof tree === 'number' || typeof tree === 'boolean' ? String(tree) : isList(tree) ? `[${items.join(',')}]` : isPlain(tree) ? `{${items.join(',')}}` : 'null';
+    return typeof tree === 'string' ? quote(tree) : typeof tree === 'number' || typeof tree === 'boolean' ? String(tree) : isList(tree) ? `[${items.join(',')}]` : isPlain(tree) ? `{${items.join(',')}}` : 'null';
 };
 const reply = (answer: () => unknown, encoder: Encoder = UNREFERENCED): string => {
     try {
-        return written({ _tag: 'Value', value: encode(answer(), encoder) });
+        return stringify({ _tag: 'Value', value: encode(answer(), encoder) });
     } catch (error) {
         const [tag, line, number] = [read(error, '_tag'), read(error, 'line') ?? read(error, 'lineNumber'), read(error, 'number')];
-        return written(tag === 'Unmatched' || tag === 'IllegalArgument' ? error : { _tag: 'Thrown', message: String(isRecord(error) ? read(error, 'message') : error), number: typeof number === 'number' ? number : undefined, line: typeof line === 'number' ? line : undefined });
+        return stringify(tag === 'Unmatched' || tag === 'IllegalArgument' ? error : { _tag: 'Thrown', message: String(isRecord(error) ? read(error, 'message') : error), number: typeof number === 'number' ? number : undefined, line: typeof line === 'number' ? line : undefined });
     }
 };
-const within = <A>(acquire: () => () => void, body: () => A): A => {
+const bracket = <A>(acquire: () => () => void, body: () => A): A => {
     const release = acquire();
     try {
         return body();
@@ -40,7 +40,7 @@ const within = <A>(acquire: () => () => void, body: () => A): A => {
         release();
     }
 };
-const replaced = (target: unknown, values: Fields, prefix: string): { readonly held: Fields; readonly refused: readonly string[] } => {
+const replace = (target: unknown, values: Fields, prefix: string): { readonly held: Fields; readonly refused: readonly string[] } => {
     const named = keys(values);
     const held: Record<string, unknown> = {};
     let refused: readonly string[] = [];
@@ -50,7 +50,7 @@ const replaced = (target: unknown, values: Fields, prefix: string): { readonly h
     for (const key of named) {
         const [value, prior] = [values[key], held[key]];
         if (isPlain(value) && isRecord(prior)) {
-            const nested = replaced(prior, value, `${prefix}${key}.`);
+            const nested = replace(prior, value, `${prefix}${key}.`);
             [held[key], refused] = [nested.held, refused.concat(nested.refused)];
         } else {
             try {
@@ -63,7 +63,7 @@ const replaced = (target: unknown, values: Fields, prefix: string): { readonly h
     return { held, refused };
 };
 const assign = (target: object, values: Fields): Fields => {
-    const { held, refused } = replaced(target, values, '');
+    const { held, refused } = replace(target, values, '');
     if (refused.length > 0) {
         throw illegalArgument(`${Object.prototype.toString.call(target)} refused ${refused.join(', ')}`);
     }
@@ -78,4 +78,4 @@ const preserve = (target: object, values: Fields): (() => void) => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assign, illegalArgument, keys, preserve, reply, within, written };
+export { assign, bracket, illegalArgument, keys, preserve, reply, stringify };

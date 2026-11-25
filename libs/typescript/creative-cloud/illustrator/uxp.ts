@@ -32,18 +32,18 @@ const Globals = Schema.Struct({ UserInteractionLevel: Schema.Struct({ DONTDISPLA
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const opened = (value: unknown) => Array.findFirst([value, read(value, 'parentDocument')], Schema.is(Document));
-const hosted = Effect.all([Effect.flatMap(Uxp.required('illustrator'), Schema.decodeUnknownEffect(Module)), Schema.decodeUnknownEffect(Globals)(globalThis)]);
+const hosted = Effect.all([Effect.flatMap(Uxp.require('illustrator'), Schema.decodeUnknownEffect(Module)), Schema.decodeUnknownEffect(Globals)(globalThis)]);
 const application = Effect.flatMap(Effect.all([hosted, Path.Path]), ([[{ app }], path]) => path.toFileUrl(`${app.path}/${app.name}.app/`));
 const containment = Effect.map(hosted, ([{ app }]): Containment => ({
     root: app,
     type: (value) => Option.match(Schema.decodeUnknownOption(Typed)(value), { onNone: () => value.constructor.name, onSome: Struct.get('typename') }),
     kinds: { document: { collection: 'documents', keys: ['fullName'], is: Schema.is(Document) }, ...Record.map(OWNED, Struct.assign({ owner: (value: object): unknown => Option.getOrUndefined(opened(value)) })) },
 }));
-const session = Effect.flatMap(hosted, ([{ app }, { UserInteractionLevel }]) => Uxp.preserve(app, { userInteractionLevel: UserInteractionLevel.DONTDISPLAYALERTS }));
-const execute = (code: string) => Effect.flatMap(containment, (held) => Uxp.executed(held, code, (call) => Effect.scoped(Effect.andThen(session, call))));
+const suppressDialogs = Effect.flatMap(hosted, ([{ app }, { UserInteractionLevel }]) => Uxp.preserve(app, { userInteractionLevel: UserInteractionLevel.DONTDISPLAYALERTS }));
+const execute = (code: string) => Effect.flatMap(containment, (held) => Uxp.execute(held, code, (call) => Effect.scoped(Effect.andThen(suppressDialogs, call))));
 const render = Effect.fnUntraced(function* ({ target }: Render, written: File) {
-    const [held, [, { ExportType, ExportOptionsPNG24 }]] = yield* Effect.all([containment, hosted, session]);
-    const [found, first] = yield* Effect.all([Uxp.located(held, target), Uxp.located(held, { steps: Array.take(target.steps, 1) })]);
+    const [held, [, { ExportType, ExportOptionsPNG24 }]] = yield* Effect.all([containment, hosted, suppressDialogs]);
+    const [found, first] = yield* Effect.all([Uxp.locate(held, target), Uxp.locate(held, { steps: Array.take(target.steps, 1) })]);
     const bounds = Option.orElse(Option.map(Schema.decodeUnknownOption(Artboard)(found), Struct.get('artboardRect')), () => Option.map(Schema.decodeUnknownOption(Bounded)(found), Struct.get('visibleBounds')));
     const unmatched = () => Unmatched.of({ subject: 'document, artboard, or page item', query: Option.some(target.path) });
     const [document, rect] = yield* Effect.all([Effect.fromOption(opened(first), unmatched), Effect.fromOption(bounds, unmatched)]);
@@ -60,4 +60,4 @@ const render = Effect.fnUntraced(function* ({ target }: Render, written: File) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { application, containment, execute, render, session };
+export { application, containment, execute, render, suppressDialogs };

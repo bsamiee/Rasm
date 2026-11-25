@@ -13,7 +13,7 @@ const HOSTS = {
     AI: { product: 'ILST', since: SemVer.make({ major: 31, minor: 1, patch: 0 }), registry: false, runs: false, opacity: 0.65 },
 } as const;
 const THEMES = { lightest: 'light', light: 'light', medium: 'dark', dark: 'dark', darkest: 'dark' } as const;
-const SIDES = { toolbar: 23, pluginList: 24 } as const;
+const ICON_SIZES = { toolbar: 23, pluginList: 24 } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -28,10 +28,10 @@ const Icon = Schema.Struct({
     path: Schema.String,
     scale: Schema.optionalKey(Schema.Array(Schema.Finite)),
     theme: Schema.optionalKey(Schema.Array(Schema.Literals([...Struct.keys(THEMES), 'all']))),
-    species: Schema.optionalKey(Schema.Array(Schema.Literals(['generic', ...Struct.keys(SIDES)]))),
+    species: Schema.optionalKey(Schema.Array(Schema.Literals(['generic', ...Struct.keys(ICON_SIZES)]))),
 }).check(
     Schema.makeFilter(({ width, height, species = [] }) => {
-        const refused = Array.filterMap(species, (kind) => (kind === 'generic' || (SIDES[kind] === width && SIDES[kind] === height) ? Result.failVoid : Result.succeed(`${kind} takes ${SIDES[kind]} x ${SIDES[kind]}`)));
+        const refused = Array.filterMap(species, (kind) => (kind === 'generic' || (ICON_SIZES[kind] === width && ICON_SIZES[kind] === height) ? Result.failVoid : Result.succeed(`${kind} takes ${ICON_SIZES[kind]} x ${ICON_SIZES[kind]}`)));
         return Array.isReadonlyArrayEmpty(refused) || `species ${refused.join(', ')} at 1x, received ${String(width)} x ${String(height)}`;
     }),
 );
@@ -93,19 +93,19 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
     static readonly Theme = Schema.Literals(Struct.keys(THEMES));
     static readonly fills = Record.map(HOSTS, ({ opacity }) => Record.map(THEMES, (tone): Rgb => ({ mode: 'rgb', ...Struct.Record(['r', 'g', 'b'], tone === 'light' ? 0 : 1), alpha: opacity })));
     static readonly json = Schema.fromJsonString(UxpManifest);
-    static readonly identity = Schema.fromJsonString(Schema.Struct({ id: Schema.String, host: Schema.Struct({ app: App }) })).annotate({ description: 'Plugin id and host app, the manifest fields a running plugin reads' });
+    static readonly Identity = Schema.fromJsonString(Schema.Struct({ id: Schema.String, host: Schema.Struct({ app: App }) })).annotate({ description: 'Plugin id and host app, the manifest fields a running plugin reads' });
     static readonly file = 'manifest.json';
     static readonly engine = { chrome: '118' } as const;
     static readonly scriptLanguage = 'USLg';
-    static readonly script = Object.assign(
-        (body: string, { runtime, host, label }: { readonly runtime: string; readonly host: { readonly module: string; readonly around: string; readonly reference: string }; readonly label: string }) =>
+    static readonly wrapScript = Object.assign(
+        (body: string, { host, script, label }: { readonly host: string; readonly script: { readonly module: string; readonly around: string; readonly reference: string }; readonly label: string }) =>
             [
                 `(() => { const { script } = require('uxp'); const answer = (reply) => script.setResult(encodeURIComponent(reply)); try {`,
-                `const around = ${host.around}; const hosted = require(${JSON.stringify(host.module)}); const prepare = Error.prepareStackTrace; const lines = [];`,
-                runtime,
+                `const around = ${script.around}; const hosted = require(${JSON.stringify(script.module)}); const prepare = Error.prepareStackTrace; const lines = [];`,
+                host,
                 `Error.prepareStackTrace = (error, frames) => { lines.push(...frames.filter((frame) => frame.getScriptNameOrSourceURL() === ${JSON.stringify(UxpManifest.body)}).map((frame) => frame.getLineNumber())); return String(error); };`,
-                `try { answer(runtime.reply(() => around(hosted, () => { let value; try { value = new Function(${JSON.stringify(`return ${body}\n//# sourceURL=${UxpManifest.body}`)})()(); } catch (error) { void error?.stack; throw { message: String(error?.message ?? error), line: lines[0] }; }`,
-                `if (typeof value?.then === 'function') { value.then(undefined, () => undefined); throw { _tag: 'IllegalArgument', message: 'body returned a promise, a do script body runs synchronously' }; } return { result: value }; }, ${JSON.stringify(label)}), { reference: ${host.reference} }));`,
+                `try { answer(host.reply(() => around(hosted, () => { let value; try { value = new Function(${JSON.stringify(`return ${body}\n//# sourceURL=${UxpManifest.body}`)})()(); } catch (error) { void error?.stack; throw { message: String(error?.message ?? error), line: lines[0] }; }`,
+                `if (typeof value?.then === 'function') { value.then(undefined, () => undefined); throw { _tag: 'IllegalArgument', message: 'body returned a promise, a do script body runs synchronously' }; } return { result: value }; }, ${JSON.stringify(label)}), { reference: ${script.reference} }));`,
                 `} finally { Error.prepareStackTrace = prepare; } } catch (error) { answer(JSON.stringify({ _tag: 'Thrown', message: String(error?.message ?? error) })); } })();`,
             ].join('\n'),
         { offset: 2 },
@@ -113,9 +113,9 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
     static readonly body = 'body.js';
     static readonly origin = 'file://';
     static readonly link = 'ws://localhost:7490';
-    static readonly logs = (folder: string) => ({ folder: `Library/Logs/Adobe/${folder}`, glob: 'UXPLogs_*.log' });
+    static readonly logFolder = (folder: string) => ({ folder: `Library/Logs/Adobe/${folder}`, glob: 'UXPLogs_*.log' });
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { HOSTS, MANIFEST_VERSIONS, SIDES, THEMES, UxpManifest };
+export { HOSTS, ICON_SIZES, MANIFEST_VERSIONS, THEMES, UxpManifest };

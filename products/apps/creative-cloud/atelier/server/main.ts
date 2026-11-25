@@ -5,10 +5,10 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { ApplicationServer } from '@rasm/applications/client';
 import { Tools } from '@rasm/applications/tools';
 import { Inventory } from '@rasm/applications/workspace';
-import { Typesetting } from '@rasm/indesign';
+import { TypesettingRpcs } from '@rasm/indesign';
 import { Link, Upstream } from '@rasm/mcp';
 import { serve } from '@rasm/mcp/cli';
-import { Rendering, Script, Specifier } from '@rasm/object-model';
+import { EvaluationRpcs, RenderRpcs, Specifier } from '@rasm/object-model';
 import { teardown } from '@rasm/telemetry/node';
 import { UxpManifest } from '@rasm/uxp';
 import { Effect, Layer, Option, Predicate, Schema } from 'effect';
@@ -23,13 +23,13 @@ import { typography } from '#/typography';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const tools = Effect.gen(function* () {
-    const links = yield* Link.listen(Script.merge(Rendering).merge(Typesetting), UxpManifest.origin);
+    const links = yield* Link.listen(EvaluationRpcs.merge(RenderRpcs).merge(TypesettingRpcs), UxpManifest.origin);
     yield* Upstream.serve([Upstream.linked(links), native], { route: yield* routed });
     yield* Tools.register({
         descriptions: { ...DESCRIPTIONS, execute_script: DESCRIPTION },
         scripts: yield* scripts(links),
         render: Effect.fnUntraced(function* (row, id) {
-            const [target, client] = yield* Effect.all([Schema.decodeEffect(Specifier.Path)(id), links.call(Predicate.and(Link.hosted(row), Link.serves(Rendering.requests.keys())), `linked extension of ${row.name} rendering objects`)]);
+            const [target, client] = yield* Effect.all([Schema.decodeEffect(Specifier.FromString)(id), links.call(Predicate.and(Link.hosted(row), Link.serves(RenderRpcs.requests.keys())), `linked extension of ${row.name} rendering objects`)]);
             return { image: (yield* client('render', { target })).image, title: target.leaf };
         }),
         logs: logged,

@@ -56,8 +56,8 @@ const Declaration = Object.assign(Declared, {
     Parameter,
     Page,
     Model,
-    catalog: <A, P>(table: Record.ReadonlyRecord<string, A>, page: (entry: A) => P, enumerated: (entry: A) => boolean) => {
-        const [enumerations, classes] = Record.partition(table, (entry) => (enumerated(entry) ? Result.succeed(entry) : Result.fail(entry)));
+    catalog: <A, P>(table: Record.ReadonlyRecord<string, A>, page: (entry: A) => P, isEnumeration: (entry: A) => boolean) => {
+        const [enumerations, classes] = Record.partition(table, (entry) => (isEnumeration(entry) ? Result.succeed(entry) : Result.fail(entry)));
         return {
             index: Declared.cases.Index.make(Record.map({ classes, enumerations }, (held) => Array.sort(Record.keys(held), Order.String))),
             page: (name: string) => Unmatched.single(Record.toEntries(table), 'class or enumeration', Option.some(name), ([key]) => [key]).pipe(Effect.map(([, found]) => page(found))),
@@ -72,7 +72,7 @@ const Step = Schema.Struct({ separator: Schema.Literals(['/', '//']), kind: Sche
 const Steps = Schema.Array(Step);
 
 class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol }>('Specifier')({ steps: Steps, end: Schema.optionalKey(Schema.NonEmptyArray(Step).annotate({ description: 'Range end' })) }) {
-    static readonly Path: Schema.Codec<Specifier, string> = Schema.String.annotate({ description: 'Object specifier, / for the application' }).pipe(
+    static readonly FromString: Schema.Codec<Specifier, string> = Schema.String.annotate({ description: 'Object specifier, / for the application' }).pipe(
         Schema.decodeTo(Specifier, {
             decode: SchemaGetter.transformEffect((text: string, options) => Effect.fromNullishOr(parse(text)).pipe(Effect.mapError(() => new SchemaIssue.InvalidValue({ message: `No object specifier ${text}` }, text, options)))),
             encode: SchemaGetter.transform(format),
@@ -92,10 +92,10 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
     get parent(): string {
         return format({ steps: Array.dropRight(this.steps, 1) });
     }
-    get unselected(): string {
+    get withoutSelector(): string {
         return format({ steps: Array.map(this.steps, (step, index) => (index === this.steps.length - 1 ? Struct.omit(step, ['selector']) : step)) });
     }
-    get property(): boolean {
+    get isProperty(): boolean {
         return Option.exists(Array.last(this.steps), ({ kind }) => kind.startsWith('@'));
     }
     get name(): Option.Option<string> {

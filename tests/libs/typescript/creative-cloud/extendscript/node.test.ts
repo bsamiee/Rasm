@@ -3,8 +3,8 @@ import { runInNewContext } from 'node:vm';
 import { layerDigest } from '@effect/platform-node/NodeCrypto';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, describe, it } from '@effect/vitest';
-import { core, lower, traced } from '@rasm/extendscript/node';
-import { script } from '@rasm/extendscript/vite';
+import { lower, originalLine, readCoreOmv } from '@rasm/extendscript/node';
+import { inlineScript } from '@rasm/extendscript/vite';
 import { parse } from 'acorn';
 import { Array, Cause, Effect, FileSystem, Formatter, Layer, Match, Option, Path, PlatformError, Predicate, Ref, Schema, Struct } from 'effect';
 import { ChildProcessSpawner } from 'effect/process';
@@ -47,7 +47,7 @@ const Expression: Schema.Codec<Expression> = Schema.Union([
     Schema.Struct({ test: Schema.suspend(() => Expression), consequent: Schema.suspend(() => Expression), alternate: Schema.suspend(() => Expression) }),
 ]);
 const Inlined = Schema.Struct({ output: Schema.NonEmptyArray(Schema.Struct({ code: Schema.String })) });
-const Runtime = Schema.Struct({ default: Schema.String });
+const InlineModule = Schema.Struct({ default: Schema.String });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -104,26 +104,26 @@ describe(lower, () => {
         Effect.fnUntraced(function* () {
             const { code, map } = yield* lower("const first: number = 1; const second = first + 1; throw new Error('marked ' + second);", lower.extendscript, 'typescript');
             const line = code.slice(0, code.indexOf('marked')).split('\n').length;
-            const original = yield* traced(map);
+            const original = yield* originalLine(map);
             assert.notStrictEqual(line, 1);
             assert.deepStrictEqual([Option.map(original(line), Struct.get('line')), original(code.split('\n').length + 1)], [Option.some(1), Option.none()]);
         }),
     );
 });
 
-describe(script, () => {
+describe(inlineScript, () => {
     it.effect(
-        'builds the host runtime as a strict ES3 script whose writer answers JSON',
+        'builds the host script as a strict ES3 script whose writer answers JSON',
         Effect.fnUntraced(function* () {
             const host = fileURLToPath(import.meta.resolve('@rasm/extendscript/host'));
             const built = yield* Effect.tryPromise({
-                try: () => build({ configFile: false, logLevel: 'silent', plugins: [script(host, 'runtime')], build: { write: false, rolldownOptions: { input: `${host}?inline`, preserveEntrySignatures: 'exports-only', output: { format: 'es' } } } }),
+                try: () => build({ configFile: false, logLevel: 'silent', plugins: [inlineScript(host, 'host')], build: { write: false, rolldownOptions: { input: `${host}?inline`, preserveEntrySignatures: 'exports-only', output: { format: 'es' } } } }),
                 catch: (cause) => new Cause.UnknownError(cause, Formatter.format(cause)),
             });
             const { code } = Array.headNonEmpty((yield* Schema.decodeUnknownEffect(Inlined)(built)).output);
-            const runtime = yield* Effect.promise((): Promise<unknown> => import(`data:text/javascript,${encodeURIComponent(code)}`)).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Runtime)));
-            yield* Effect.try({ try: () => parse(runtime.default, ES3), catch: (cause) => new Cause.UnknownError(cause, runtime.default) });
-            assert.strictEqual(runInNewContext(`${runtime.default}\nruntime.written({ ink: [1, "two"] });`), '{"ink":[1,"two"]}');
+            const script = yield* Effect.promise((): Promise<unknown> => import(`data:text/javascript,${encodeURIComponent(code)}`)).pipe(Effect.flatMap(Schema.decodeUnknownEffect(InlineModule)));
+            yield* Effect.try({ try: () => parse(script.default, ES3), catch: (cause) => new Cause.UnknownError(cause, script.default) });
+            assert.strictEqual(runInNewContext(`${script.default}\nhost.stringify({ ink: [1, "two"] });`), '{"ink":[1,"two"]}');
         }),
     );
 });
@@ -135,7 +135,7 @@ it.layer(Layer.mergeAll(layer, layerDigest))('core declarations', (methods) => {
             const [fs, path, requested] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Ref.make<readonly string[]>([])]);
             const [folder, refused] = [yield* fs.makeTempDirectoryScoped(), PlatformError.systemError({ _tag: 'NotFound', module: 'ChildProcess', method: 'spawn' })];
             yield* Effect.forEach(['javascript.xml', 'scriptui.xml'], (name) => fs.writeFileString(path.join(folder, name), '<dictionary/>'), { discard: true });
-            const failed = yield* Effect.flip(Effect.provideService(core(folder), ChildProcessSpawner.ChildProcessSpawner, unspawned(requested, refused)));
+            const failed = yield* Effect.flip(Effect.provideService(readCoreOmv(folder), ChildProcessSpawner.ChildProcessSpawner, unspawned(requested, refused)));
             assert.deepStrictEqual([failed, Array.map(yield* Ref.get(requested), (argv) => argv.endsWith('.dmg'))], [refused, [true]]);
         }, Effect.scoped),
     );

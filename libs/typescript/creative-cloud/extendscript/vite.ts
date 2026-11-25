@@ -12,7 +12,7 @@ const Quoted = Schema.fromJsonString(Schema.String);
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const extendscript = (): Rolldown.Plugin => ({ name: 'extendscript', renderChunk: (code) => Effect.runPromise(lower(code, lower.extendscript)) });
-const script = (entry: string, name: string): Plugin => {
+const inlineScript = (entry: string, name: string): Plugin => {
     const refused = HostError.refused(`Build of ${entry}`);
     const compiled = Effect.tryPromise({
         try: () =>
@@ -41,4 +41,4 @@ const script = (entry: string, name: string): Plugin => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { extendscript, script };
+export { extendscript, inlineScript };

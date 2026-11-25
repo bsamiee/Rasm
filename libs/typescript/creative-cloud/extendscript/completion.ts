@@ -13,7 +13,7 @@ const Completions = Schema.Union([
     .annotate({ description: 'Reply of an ExtendScript evaluation, the value it returned or the failure it threw' })
     .pipe(Schema.toTaggedUnion('_tag'));
 const Completion = Object.assign(Completions, {
-    answered: <S extends Schema.Top>(success: S, subject: string) =>
+    decode: <S extends Schema.Top>(success: S, subject: string) =>
         Completions.match({
             Value: ({ value }) => Schema.decodeEffect(success)(value),
             Unmatched: Effect.fail<Unmatched>,

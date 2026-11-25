@@ -22,7 +22,7 @@ const Deferred = Schema.declare(Schema.is(Schema.Struct({ wait: Method }))).anno
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const hosted = Effect.flatMap(Uxp.required('aftereffects'), Schema.decodeUnknownEffect(Module));
+const hosted = Effect.flatMap(Uxp.require('aftereffects'), Schema.decodeUnknownEffect(Module));
 const containment = Effect.map(hosted, ({ app, Project, CompItem, FolderItem, FootageItem }): Containment => ({
     root: app,
     type: (value) => value.constructor.name,
@@ -34,12 +34,12 @@ const containment = Effect.map(hosted, ({ app, Project, CompItem, FolderItem, Fo
 }));
 const paired = (subject: string, { begin, end }: Record.ReadonlyRecord<'begin' | 'end', (app: Application) => unknown>) =>
     Effect.flatMap(hosted, ({ app }) => Effect.acquireRelease(Effect.try({ try: () => begin(app), catch: HostError.refused(subject) }), () => Effect.orDie(Effect.try({ try: () => end(app), catch: HostError.refused(subject) }))));
-const session = paired('dialog suppression', { begin: (app) => app.beginSuppressDialogs(), end: (app) => app.endSuppressDialogs(false) });
-const undo = (label: string) => paired(`undo group ${label}`, { begin: (app) => app.beginUndoGroup(label), end: (app) => app.endUndoGroup() });
-const execute = (code: string, label: string) => Effect.flatMap(containment, (held) => Uxp.executed(held, code, (call) => Effect.scoped(Effect.andThen(Effect.all([session, undo(label)]), call))));
+const suppressDialogs = paired('dialog suppression', { begin: (app) => app.beginSuppressDialogs(), end: (app) => app.endSuppressDialogs(false) });
+const undoGroup = (label: string) => paired(`undo group ${label}`, { begin: (app) => app.beginUndoGroup(label), end: (app) => app.endUndoGroup() });
+const execute = (code: string, label: string) => Effect.flatMap(containment, (held) => Uxp.execute(held, code, (call) => Effect.scoped(Effect.andThen(Effect.all([suppressDialogs, undoGroup(label)]), call))));
 const render = Effect.fnUntraced(function* ({ target, label }: Render, written: File) {
-    const [held, { CompItem }] = yield* Effect.all([containment, hosted, session, undo(label)]);
-    const found = yield* Uxp.located(held, target);
+    const [held, { CompItem }] = yield* Effect.all([containment, hosted, suppressDialogs, undoGroup(label)]);
+    const found = yield* Uxp.locate(held, target);
     const composition = yield* Effect.mapError(Schema.decodeUnknownEffect(Frame)(found instanceof CompItem ? found : undefined), () => Unmatched.of({ subject: CompItem.name, query: Option.some(target.path) }));
     yield* Uxp.preserve(composition, { resolutionFactor: [1, 1] });
     const deferred = yield* Effect.try({ try: (): unknown => composition.saveFrameToPng(composition.time, written.nativePath), catch: HostError.refused(`saveFrameToPng to ${written.nativePath}`) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Deferred)));
@@ -48,4 +48,4 @@ const render = Effect.fnUntraced(function* ({ target, label }: Render, written: 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { containment, execute, render, session, undo };
+export { containment, execute, render, suppressDialogs, undoGroup };

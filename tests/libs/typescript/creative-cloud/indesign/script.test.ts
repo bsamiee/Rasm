@@ -2,8 +2,8 @@ import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 import { assert, it } from '@effect/vitest';
 import { Completion } from '@rasm/extendscript';
-import { script } from '@rasm/extendscript/vite';
-import { ScriptHost } from '@rasm/indesign';
+import { inlineScript } from '@rasm/extendscript/vite';
+import { HostScript } from '@rasm/indesign';
 import { UxpManifest } from '@rasm/uxp';
 import { Array, Cause, Context, Effect, Formatter, Layer, Option, Schema, Struct } from 'effect';
 import { build } from 'vite';
@@ -21,23 +21,23 @@ const Answer = Schema.fromJsonString(Completion);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Runtime extends Context.Service<Runtime, string>()('@rasm/test-indesign/script.test/Runtime') {
+class HostLibrary extends Context.Service<HostLibrary, string>()('@rasm/test-indesign/script.test/HostLibrary') {
     static readonly layer = Effect.gen(function* () {
         const host = fileURLToPath(import.meta.resolve('@rasm/extendscript/host'));
         const built = yield* Effect.tryPromise({
-            try: () => build({ configFile: false, logLevel: 'silent', plugins: [script(host, 'runtime')], build: { write: false, rolldownOptions: { input: `${host}?inline`, preserveEntrySignatures: 'exports-only', output: { format: 'es' } } } }),
+            try: () => build({ configFile: false, logLevel: 'silent', plugins: [inlineScript(host, 'host')], build: { write: false, rolldownOptions: { input: `${host}?inline`, preserveEntrySignatures: 'exports-only', output: { format: 'es' } } } }),
             catch: (cause) => new Cause.UnknownError(cause, Formatter.format(cause)),
         });
         const { code } = Array.headNonEmpty((yield* Schema.decodeUnknownEffect(Inlined)(built)).output);
         const inlined = yield* Effect.promise((): Promise<{ readonly default: unknown }> => import(`data:text/javascript,${encodeURIComponent(code)}`));
         return yield* Schema.decodeUnknownEffect(Schema.String)(inlined.default);
-    }).pipe(Layer.effect(Runtime));
+    }).pipe(Layer.effect(HostLibrary));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const scripted = Effect.fnUntraced(function* (body: string, ran: (step: () => void) => void) {
-    const runtime = yield* Runtime;
+    const host = yield* HostLibrary;
     const steps: { readonly language: unknown; readonly mode: unknown; readonly name: unknown; readonly level: unknown }[] = [];
     const replies: string[] = [];
     const scriptPreferences = { userInteractionLevel: 'INTERACT_WITH_ALL' };
@@ -47,7 +47,7 @@ const scripted = Effect.fnUntraced(function* (body: string, ran: (step: () => vo
     };
     const indesign = { app: { scriptPreferences, doScript, page: PAGE, closed: CLOSED }, ScriptLanguage: { UXPSCRIPT: 'UXPSCRIPT' }, UndoModes: { ENTIRE_SCRIPT: 'ENTIRE_SCRIPT' }, UserInteractionLevels: { NEVER_INTERACT: 'NEVER_INTERACT' } };
     const uxp = { script: { setResult: (reply: string) => replies.push(decodeURIComponent(reply)) } };
-    runInNewContext(UxpManifest.script(`(function body() {\n${body}\n})`, { runtime, host: ScriptHost, label: LABEL }), { require: (id: string) => ({ uxp, indesign })[id] ?? raising(new Error(`Cannot find module '${id}'`)) });
+    runInNewContext(UxpManifest.wrapScript(`(function body() {\n${body}\n})`, { host, script: HostScript, label: LABEL }), { require: (id: string) => ({ uxp, indesign })[id] ?? raising(new Error(`Cannot find module '${id}'`)) });
     const answers = yield* Effect.forEach(replies, (reply) => Schema.decodeEffect(Answer)(reply));
     return { steps, answers, level: scriptPreferences.userInteractionLevel };
 });
@@ -71,7 +71,7 @@ const skipped = (): void => undefined;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(Runtime.layer)('InDesign do script body', (methods) => {
+it.layer(HostLibrary.layer)('InDesign do script body', (methods) => {
     methods.effect(
         'runs as one undo step under its caller label with dialogs off, restores the interaction level, and answers its value',
         Effect.fnUntraced(function* () {
@@ -99,7 +99,7 @@ it.layer(Runtime.layer)('InDesign do script body', (methods) => {
         Effect.fnUntraced(function* () {
             const seen: unknown[] = [];
             const { answers, level } = yield* scripted("const first = 1;\nthrow new Error('boom ' + first);", rolledBack(seen));
-            assert.deepStrictEqual([answers, level, seen.length], [[{ _tag: 'Thrown', message: 'boom 1', number: Option.none(), line: Option.some(3 + UxpManifest.script.offset) }], 'INTERACT_WITH_ALL', 1]);
+            assert.deepStrictEqual([answers, level, seen.length], [[{ _tag: 'Thrown', message: 'boom 1', number: Option.none(), line: Option.some(3 + UxpManifest.wrapScript.offset) }], 'INTERACT_WITH_ALL', 1]);
         }),
     );
 

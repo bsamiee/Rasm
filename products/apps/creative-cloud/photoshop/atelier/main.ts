@@ -3,4 +3,4 @@ import { Plugin } from '@rasm/uxp/plugin';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-Plugin.extension({ application, execute, render, notices });
+Plugin.link({ application, execute, render, notices });

@@ -1,7 +1,7 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, describe, it } from '@effect/vitest';
 import { UxpManifest } from '@rasm/uxp';
-import { uxp } from '@rasm/uxp/vite';
+import { pluginConfig } from '@rasm/uxp/vite';
 import { Array, Cause, Effect, FileSystem, Formatter, Path, Predicate, Result, Schema, Struct } from 'effect';
 import sharp from 'sharp';
 import { build, mergeConfig } from 'vite';
@@ -46,7 +46,7 @@ const built = Effect.fnUntraced(function* (manifest: object, main: string) {
     yield* Effect.all([fs.writeFileString(path.join(folder, 'manifest.json'), yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(manifest)), fs.writeFileString(path.join(folder, 'main.ts'), main), fs.writeFileString(path.join(folder, 'icons', `${PANEL.id}.svg`), GLYPH)], { discard: true });
     const out = path.join(folder, 'out');
     yield* Effect.tryPromise({
-        try: () => build(mergeConfig(uxp(), { configFile: false, root: folder, logLevel: 'silent', build: { outDir: out } })),
+        try: () => build(mergeConfig(pluginConfig(), { configFile: false, root: folder, logLevel: 'silent', build: { outDir: out } })),
         catch: (cause) => new Cause.UnknownError(cause, Formatter.format(cause)),
     });
     return { out, text: yield* fs.readFileString(path.join(out, UxpManifest.file)) };

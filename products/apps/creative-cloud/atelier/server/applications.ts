@@ -57,7 +57,7 @@ const logged = Effect.fnUntraced(function* ({ name }: Pick<Entry, 'name'>) {
     const folder = Array.findFirst(Array.sort(vendored, Order.flip(Order.mapInput(Order.Number, String.length))), (each) => name.startsWith(each));
     return Option.toArray(
         Option.map(folder, (each) => {
-            const { folder: logs, glob } = UxpManifest.logs(each);
+            const { folder: logs, glob } = UxpManifest.logFolder(each);
             return { url: pathToFileURL(`${path.join(home, logs)}/`), glob };
         }),
     );

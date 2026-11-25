@@ -1,6 +1,6 @@
-import { uxp } from '@rasm/uxp/vite';
+import { pluginConfig } from '@rasm/uxp/vite';
 import { defineConfig } from 'vite';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineConfig(uxp());
+export default defineConfig(pluginConfig());

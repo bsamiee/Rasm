@@ -1,4 +1,4 @@
-import { Inspection, Kerns, Typeset, Typesetting } from '@rasm/indesign';
+import { Inspection, Kerns, Typeset, TypesettingRpcs } from '@rasm/indesign';
 import { Link, Server } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
 import { Settings, type Source } from '@rasm/typography';
@@ -78,9 +78,9 @@ const specimen = Effect.fnUntraced(function* (data: Source, { coordinates, varia
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.Effect<readonly Link[]>; readonly call: (holds: (peer: Link) => boolean, subject: string) => Effect.Effect<RpcClient.RpcClient.Flat<RpcGroup.Rpcs<typeof Typesetting>, RpcClientError.RpcClientError>, Unmatched> }) {
+const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.Effect<readonly Link[]>; readonly call: (holds: (peer: Link) => boolean, subject: string) => Effect.Effect<RpcClient.RpcClient.Flat<RpcGroup.Rpcs<typeof TypesettingRpcs>, RpcClientError.RpcClientError>, Unmatched> }) {
     const files = yield* FileSystem.FileSystem;
-    const serving = Link.serves(Typesetting.requests.keys());
+    const serving = Link.serves(TypesettingRpcs.requests.keys());
     const client = links.call(serving, 'linked application serving typesetting');
     const visible = Context.make(Server.Visible, Effect.map(links.peers, Array.some(serving)));
     const sourced = Effect.fnUntraced(function* (name: string, characters: string) {

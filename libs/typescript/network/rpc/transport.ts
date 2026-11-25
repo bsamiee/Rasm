@@ -8,13 +8,13 @@ import { Socket, SocketServer } from 'effect/socket';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Listening<Peer, RD> {
+interface ListenOptions<Peer, RD> {
     readonly path: HttpRouter.PathInput;
     readonly origin: string;
     readonly peer: Schema.ConstraintCodec<Peer, Record.ReadonlyRecord<string, string | readonly string[] | undefined>, RD, unknown>;
     readonly key: (peer: Peer) => string;
 }
-interface Linked<Rpcs extends Rpc.Any, Peer> {
+interface Connection<Rpcs extends Rpc.Any, Peer> {
     readonly peer: Peer;
     readonly client: RpcClient.RpcClient.Flat<Rpcs, RpcClientError.RpcClientError>;
     readonly superseded: Effect.Effect<void>;
@@ -22,19 +22,19 @@ interface Linked<Rpcs extends Rpc.Any, Peer> {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const UNRETRIED = { pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) };
+const NO_RETRY = { pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) };
 const SUPERSEDED = new Socket.CloseEvent(4000, 'Superseded by a newer peer of its key');
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const child = ({ stdin, stdout }: Pick<ChildProcessSpawner.ChildProcessHandle, 'stdin' | 'stdout'>) =>
+const layerProtocolChildProcess = ({ stdin, stdout }: Pick<ChildProcessSpawner.ChildProcessHandle, 'stdin' | 'stdout'>) =>
     Effect.gen(function* () {
         const requests = new TransformStream<Uint8Array, Uint8Array>();
         yield* Stream.fromReadableStream({ evaluate: Function.constant(requests.readable), onError: Function.identity }).pipe(Stream.orDie, Stream.run(stdin), Effect.forkScoped);
         const socket = yield* Socket.fromTransformStream(Effect.succeed({ readable: Stream.toReadableStream(stdout), writable: requests.writable }));
-        return yield* RpcClient.makeProtocolSocket(UNRETRIED).pipe(Effect.provideService(Socket.Socket, socket), Effect.provide(RpcSerialization.layerNdJsonRpc({ maxBufferSize: 'unbounded' })));
+        return yield* RpcClient.makeProtocolSocket(NO_RETRY).pipe(Effect.provideService(Socket.Socket, socket), Effect.provide(RpcSerialization.layerNdJsonRpc({ maxBufferSize: 'unbounded' })));
     }).pipe(Layer.effect(RpcClient.Protocol));
-const linked = Effect.fnUntraced(
+const connect = Effect.fnUntraced(
     function* <A, X, Y>(href: string, handler: (socket: Socket.Socket) => Effect.Effect<A, X, Y>) {
         const { reader, writer } = yield* Socket.makeWebSocket(href);
         const [opened, superseded] = yield* Effect.all([reader, Ref.make(false)]);
@@ -50,7 +50,7 @@ const dial = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rp
         address: NetAddress.inetAddressUnsafe(NetAddress.ipv4Loopback, Number(url.port)),
         run: <A, X, Y>(handler: (socket: Socket.Socket) => Effect.Effect<A, X, Y>) =>
             Stream.fromEffectSchedule(peer, Schedule.spaced(redial)).pipe(
-                Stream.mapEffect((identity) => linked(Url.setUrlParams(url, identity).href, handler)),
+                Stream.mapEffect((identity) => connect(Url.setUrlParams(url, identity).href, handler)),
                 Stream.takeUntil((exit) => Exit.isSuccess(exit) && exit.value),
                 Stream.map((exit) => Option.map(Option.filter(Exit.getCause(exit), Predicate.not(Cause.hasInterruptsOnly)), Cause.pretty)),
                 Stream.changes,
@@ -63,8 +63,8 @@ const dial = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rp
     }));
     return RpcServer.layer(group, { concurrency: 1, disableFatalDefects: true }).pipe(Layer.provide([handlers, RpcServer.layerProtocolSocketServer]), Layer.provide([Layer.effect(SocketServer.SocketServer)(server), RpcSerialization.layerJson]));
 };
-const accept = Effect.fnUntraced(function* <Rpcs extends Rpc.Any, Peer, RD>(group: RpcGroup.RpcGroup<Rpcs>, { peer: codec, key }: Listening<Peer, RD>, links: SubscriptionRef.SubscriptionRef<Record.ReadonlyRecord<string, Linked<Rpcs, Peer>>>, request: HttpServerRequest.HttpServerRequest) {
-    const [peer, identity, socket, made, ended] = yield* Effect.all([HttpServerRequest.schemaSearchParams(codec), HttpServerRequest.ParsedSearchParams, request.upgrade, Deferred.make<Linked<Rpcs, Peer>>(), Latch.make()]);
+const accept = Effect.fnUntraced(function* <Rpcs extends Rpc.Any, Peer, RD>(group: RpcGroup.RpcGroup<Rpcs>, { peer: codec, key }: ListenOptions<Peer, RD>, links: SubscriptionRef.SubscriptionRef<Record.ReadonlyRecord<string, Connection<Rpcs, Peer>>>, request: HttpServerRequest.HttpServerRequest) {
+    const [peer, identity, socket, made, ended] = yield* Effect.all([HttpServerRequest.schemaSearchParams(codec), HttpServerRequest.ParsedSearchParams, request.upgrade, Deferred.make<Connection<Rpcs, Peer>>(), Latch.make()]);
     const [writer, name] = [yield* socket.writer, key(peer)];
     const hooks = {
         onConnect: Effect.gen(function* () {
@@ -79,13 +79,13 @@ const accept = Effect.fnUntraced(function* <Rpcs extends Rpc.Any, Peer, RD>(grou
             Effect.andThen(ended.open),
         ),
     };
-    const protocol = yield* RpcClient.makeProtocolSocket(UNRETRIED).pipe(Effect.provideService(RpcClient.ConnectionHooks, hooks), Effect.provideService(Socket.Socket, socket), Effect.provide(RpcSerialization.layerJson), Effect.annotateLogs(identity));
+    const protocol = yield* RpcClient.makeProtocolSocket(NO_RETRY).pipe(Effect.provideService(RpcClient.ConnectionHooks, hooks), Effect.provideService(Socket.Socket, socket), Effect.provide(RpcSerialization.layerJson), Effect.annotateLogs(identity));
     const client = yield* Effect.provideService(RpcClient.make(group, { flatten: true }), RpcClient.Protocol, protocol);
     yield* Deferred.succeed(made, { peer, client, superseded: Effect.ignore(writer.write(SUPERSEDED)) });
     return yield* Effect.as(ended.await, HttpServerResponse.empty());
 });
-const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, RD>(group: RpcGroup.RpcGroup<Rpcs>, options: Listening<Peer, RD>) {
-    const [router, links, services] = yield* Effect.all([HttpRouter.HttpRouter, SubscriptionRef.make<Record.ReadonlyRecord<string, Linked<Rpcs, Peer>>>({}), Effect.context<Rpc.MiddlewareClient<Rpcs>>()]);
+const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, RD>(group: RpcGroup.RpcGroup<Rpcs>, options: ListenOptions<Peer, RD>) {
+    const [router, links, services] = yield* Effect.all([HttpRouter.HttpRouter, SubscriptionRef.make<Record.ReadonlyRecord<string, Connection<Rpcs, Peer>>>({}), Effect.context<Rpc.MiddlewareClient<Rpcs>>()]);
     yield* router.add('GET', options.path, (request) => (Option.contains(Headers.get(request.headers, 'origin'), options.origin) ? Effect.provideContext(accept(group, options, links, request), services) : Effect.succeed(HttpServerResponse.empty({ status: 403 }))));
     return {
         peers: Effect.map(SubscriptionRef.get(links), (held) => Record.collect(held, (_, { peer }) => peer)),
@@ -96,4 +96,4 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, RD>(gr
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { child, dial, listen };
+export { dial, layerProtocolChildProcess, listen };

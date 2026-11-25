@@ -2,7 +2,7 @@
     "name": "@rasm/extendscript",
     "version": "0.1.0",
     "private": true,
-    "description": "ExtendScript runtime, reply protocol, ES3 lowering, and Vite builds for scripts Adobe hosts run",
+    "description": "ExtendScript host script, reply protocol, ES3 lowering, and Vite builds for scripts Adobe hosts run",
     "license": "MIT",
     "repository": {
         "type": "git",

@@ -12,7 +12,7 @@ const MODES = ['Text', 'Grep', 'Glyph', 'Object', 'Color', 'Transliterate'] as c
 // --- [MEMBERS]
 
 class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Extent')(Struct.Record(['top', 'left', 'bottom', 'right'], Schema.Finite), { description: 'Outer stroke bounds in spread points, x 0 at spine or spread center' }) {}
-const Search = Object.assign(Schema.Literals(MODES).annotate({ description: 'Find/change kind, each with its find and change methods and preference objects' }), {
+const FindChangeMode = Object.assign(Schema.Literals(MODES).annotate({ description: 'Find/change kind, each with its find and change methods and preference objects' }), {
     members: <M extends (typeof MODES)[number]>(mode: M) => ({ find: `find${mode}` as const, change: `change${mode}` as const, preferences: { find: `find${mode}Preferences`, options: `findChange${mode}Options`, change: `change${mode}Preferences` } as const }),
 });
 
@@ -61,7 +61,7 @@ class Link extends Schema.TaggedClass<Link, { readonly brand: unique symbol }>()
     date: Schema.String.annotate({ description: 'Source file modification date' }),
     parent: Reference.annotate({ description: 'Placed graphic or story' }),
 }) {}
-const grouped = { parentColorGroup: Schema.OptionFromOptionalKey(Reference) };
+const groupFields = { parentColorGroup: Schema.OptionFromOptionalKey(Reference) };
 class Page extends Schema.TaggedClass<Page, { readonly brand: unique symbol }>()('Page', {
     documentOffset: Schema.Int,
     side: Schema.String,
@@ -80,7 +80,7 @@ const spread = {
     pages: Schema.Array(Reference.mapFields(Struct.assign(Struct.pick(Page.fields, ['side', 'extent'])))).annotate({ description: 'In order' }),
     pageItems: Collection,
 };
-const styled = { group: Schema.Array(Schema.String).annotate({ description: 'Group names, nearest first' }), basedOn: Schema.Array(Reference).annotate({ description: 'Nearest first, root style excluded' }), differing: Schema.JsonObject.annotate({ description: 'Attributes differing from base or root style' }) };
+const styleFields = { group: Schema.Array(Schema.String).annotate({ description: 'Group names, nearest first' }), basedOn: Schema.Array(Reference).annotate({ description: 'Nearest first, root style excluded' }), differing: Schema.JsonObject.annotate({ description: 'Attributes differing from base or root style' }) };
 class Story extends Schema.TaggedClass<Story, { readonly brand: unique symbol }>()('Story', {
     length: Schema.Int,
     overflows: Schema.Boolean,
@@ -137,7 +137,7 @@ class Document extends Schema.TaggedClass<Document, { readonly brand: unique sym
     fonts: Schema.Array(Schema.Struct({ name: Schema.String, status: Schema.String })),
     swatches: Schema.Array(Reference),
     placeGuns: Schema.Struct({ loaded: Schema.Boolean, pageItems: Collection }),
-    ...Struct.Record(['allParagraphStyles', 'allCharacterStyles', 'allObjectStyles', 'allTableStyles', 'allCellStyles'], Count.annotate({ description: 'Count with grouped styles' })),
+    ...Struct.Record(['allParagraphStyles', 'allCharacterStyles', 'allObjectStyles', 'allTableStyles', 'allCellStyles'], Count.annotate({ description: 'Count with groupFields styles' })),
     preflightOptions: Schema.Struct({
         ...Struct.Record(['preflightOff', 'preflightIncludeObjectsOnPasteboard', 'preflightIncludeNonprintingObjects'], Schema.Boolean),
         ...Struct.Record(['preflightProfilePolicy', 'preflightScope', 'preflightWhichLayers'], Schema.String),
@@ -187,42 +187,38 @@ class PreflightProcess extends Schema.TaggedClass<PreflightProcess, { readonly b
     aggregatedResults: Schema.Result(Schema.Array(Issue), Schema.Defect()).annotate({ description: 'Issues of finished process, empty without issues, refusal while checking' }),
 }) {}
 
-// --- [RESULTS]
-
-const Called = Reference.mapFields(Struct.assign({ result: Schema.OptionFromOptionalKey(Schema.Json) }));
-
 // --- [INSPECTION]
 
 const Readings = Schema.Array(Schema.Struct({ name: Schema.String, value: Schema.Result(Schema.Json, Schema.Defect()) }));
 const View = Schema.Union([Application, Document, Page, Layer, Link, Story, Text, Font, PreflightProcess]).pipe(Schema.toTaggedUnion('_tag'));
 const Spread = Schema.TaggedUnion({ Spread: { ...spread, allowPageShuffle: Schema.Boolean }, MasterSpread: { ...spread, namePrefix: Schema.String, baseName: Schema.String } });
-const Style = Schema.TaggedUnion({ ParagraphStyle: { ...styled, nextStyle: Reference, ...ParagraphAttributes }, CharacterStyle: styled, ObjectStyle: styled, TableStyle: styled, CellStyle: styled });
+const Style = Schema.TaggedUnion({ ParagraphStyle: { ...styleFields, nextStyle: Reference, ...ParagraphAttributes }, CharacterStyle: styleFields, ObjectStyle: styleFields, TableStyle: styleFields, CellStyle: styleFields });
 const Swatch = Schema.TaggedUnion({
-    Swatch: grouped,
-    Color: { ...grouped, model: Schema.String, space: Schema.String, colorValue: Schema.Array(Schema.Finite) },
-    Tint: { ...grouped, baseColor: Reference, tintValue: Schema.Finite },
-    Gradient: { ...grouped, type: Schema.String, gradientStops: Schema.Array(Schema.Struct({ stopColor: Reference, location: Schema.Finite, midpoint: Schema.Finite })) },
-    MixedInk: { ...grouped, baseColor: Reference, inkPercentages: Schema.Array(Schema.Finite) },
-    MixedInkGroup: grouped,
+    Swatch: groupFields,
+    Color: { ...groupFields, model: Schema.String, space: Schema.String, colorValue: Schema.Array(Schema.Finite) },
+    Tint: { ...groupFields, baseColor: Reference, tintValue: Schema.Finite },
+    Gradient: { ...groupFields, type: Schema.String, gradientStops: Schema.Array(Schema.Struct({ stopColor: Reference, location: Schema.Finite, midpoint: Schema.Finite })) },
+    MixedInk: { ...groupFields, baseColor: Reference, inkPercentages: Schema.Array(Schema.Finite) },
+    MixedInkGroup: groupFields,
 });
-const Viewed = Schema.TaggedStruct('Object', Reference.fields).mapFields(Struct.assign({ view: Schema.OptionFromOptionalKey(Schema.Union([View, Spread, Style, Swatch])), fields: Readings, collections: Schema.Array(Collection.mapFields(Struct.assign({ name: Schema.String }))) }));
+const ObjectView = Schema.TaggedStruct('Object', Reference.fields).mapFields(Struct.assign({ view: Schema.OptionFromOptionalKey(Schema.Union([View, Spread, Style, Swatch])), fields: Readings, collections: Schema.Array(Collection.mapFields(Struct.assign({ name: Schema.String }))) }));
 const Items = Schema.TaggedStruct('Items', { specifier: Schema.String, total: Schema.Int, items: Schema.Array(Reference.mapFields(Struct.assign({ fields: Readings }))) });
-const Inspection = Object.assign(Schema.Union([Viewed, Items]), { Readings, View, Spread, Style, Swatch, Object: Viewed, Items, Collection, Issues: Schema.Array(Issue) });
+const Inspection = Object.assign(Schema.Union([ObjectView, Items]), { Readings, View, Spread, Style, Swatch, Object: ObjectView, Items, Collection, Issues: Schema.Array(Issue) });
 
 // --- [REQUESTS]
 
 class Inspect extends Schema.Class<Inspect, { readonly brand: unique symbol }>('Inspect')({
-    target: Specifier.Path.annotate({ description: 'Object or collection specifier, / for application' }),
+    target: Specifier.FromString.annotate({ description: 'Object or collection specifier, / for application' }),
     fields: Schema.OptionFromOptionalKey(Schema.NonEmptyArray(Schema.String).annotate({ description: 'Fields to read, collections of viewed objects or every field when absent' })),
     slice: Slice.Every,
 }) {}
-class Change extends Schema.Class<Change, { readonly brand: unique symbol }>('Change')({ target: Specifier.Path, values: Value.Fields }) {
+class Change extends Schema.Class<Change, { readonly brand: unique symbol }>('Change')({ target: Specifier.FromString, values: Value.Fields }) {
     get label(): string {
         return `Change ${Record.keys(this.values).join(', ')} of ${this.target.leaf}`;
     }
 }
 class Call extends Schema.Class<Call, { readonly brand: unique symbol }>('Call')({
-    target: Specifier.Path.annotate({ description: 'Object, or owner of collection' }),
+    target: Specifier.FromString.annotate({ description: 'Object, or owner of collection' }),
     collection: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Collection field of target, its method called in place of the object method' })),
     method: Schema.String.annotate({ description: 'Method name (add, remove, place, duplicate, move, save, close, exportFile)' }),
     arguments: Schema.Array(Value)
@@ -230,16 +226,18 @@ class Call extends Schema.Class<Call, { readonly brand: unique symbol }>('Call')
         .annotate({ description: 'Positional arguments' }),
     properties: Schema.OptionFromOptionalKey(Value.Fields.annotate({ description: 'Fields written onto returned object' })),
 }) {
+    static readonly Result = Reference.mapFields(Struct.assign({ result: Schema.OptionFromOptionalKey(Schema.Json) }));
+
     get label(): string {
         return `Call ${[...Option.toArray(this.collection), this.method].join(' ')} of ${this.target.leaf}`;
     }
 }
 class FindChange extends Schema.Class<FindChange, { readonly brand: unique symbol }>('FindChange')({
-    mode: Search,
+    mode: FindChangeMode,
     find: Schema.OptionFromOptionalKey(Value.Fields.annotate({ description: 'Find preference fields (pattern, format criteria)' })),
     change: Schema.OptionFromOptionalKey(Value.Fields.annotate({ description: 'Change preference fields for every match, absent to find only' })),
     options: Schema.OptionFromOptionalKey(Value.Fields.annotate({ description: 'Find/change option fields' })),
-    scope: Schema.OptionFromOptionalKey(Specifier.Path.annotate({ description: 'Document, story, text, or page item to search, current document when absent' })),
+    scope: Schema.OptionFromOptionalKey(Specifier.FromString.annotate({ description: 'Document, story, text, or page item to search, current document when absent' })),
     slice: Slice.Every,
 }) {
     static readonly Result = Schema.Struct({
@@ -252,7 +250,7 @@ class FindChange extends Schema.Class<FindChange, { readonly brand: unique symbo
     }
 }
 class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol }>('Preflight')({
-    document: Schema.OptionFromOptionalKey(Specifier.Path.annotate({ description: 'Open document, every document with live preflight when absent' })),
+    document: Schema.OptionFromOptionalKey(Specifier.FromString.annotate({ description: 'Open document, every document with live preflight when absent' })),
     profile: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Profile name in any case, panel profile when absent' })),
 }) {
     static readonly Result = Schema.Array(Schema.Struct({ targetObject: Reference, appliedProfile: Reference, aggregatedResults: Inspection.Issues }));
@@ -260,4 +258,4 @@ class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Application, Call, Called, Change, Document, Extent, FindChange, Font, Inspect, Inspection, type Issue, Layer, Link, Page, Preflight, PreflightProcess, Search, Slice, Story, Text };
+export { Application, Call, Change, Document, Extent, FindChange, FindChangeMode, Font, Inspect, Inspection, type Issue, Layer, Link, Page, Preflight, PreflightProcess, Slice, Story, Text };

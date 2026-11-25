@@ -11,10 +11,10 @@ class Evaluation extends Schema.Class<Evaluation, { readonly brand: unique symbo
 }) {
     static readonly Result = Schema.Struct({ result: Schema.OptionFromOptionalKey(Schema.Json) });
     static readonly expression = (body: string, awaits: boolean) => `(${awaits ? 'async ' : ''}function body() {\n${body}\n})`;
-    static readonly labelled = (body: string) => `Run ${Array.findFirst(body.split('\n'), (line) => Option.liftPredicate(line.trim(), String.isNonEmpty)).pipe(Option.getOrElse(() => 'script'))}`;
+    static readonly formatLabel = (body: string) => `Run ${Array.findFirst(body.split('\n'), (line) => Option.liftPredicate(line.trim(), String.isNonEmpty)).pipe(Option.getOrElse(() => 'script'))}`;
 }
 class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Render')({
-    target: Specifier.Path.annotate({ description: 'Document, page, spread, artboard, layer, composition, or sequence specifier' }),
+    target: Specifier.FromString.annotate({ description: 'Document, page, spread, artboard, layer, composition, or sequence specifier' }),
 }) {
     static readonly Result = Schema.Struct({ image: Schema.Uint8Array, width: Schema.Int, height: Schema.Int });
 
@@ -22,7 +22,7 @@ class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Re
         return `Render ${this.target.leaf}`;
     }
 }
-const Written = Reference.mapFields(Struct.assign({ written: Schema.Array(Schema.String).annotate({ description: 'Member names' }) }));
+const WriteResult = Reference.mapFields(Struct.assign({ written: Schema.Array(Schema.String).annotate({ description: 'Member names' }) }));
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -34,13 +34,13 @@ const Failure = Schema.Union([Unmatched, HostError, IllegalArgument, Schema.Erro
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const request = <const Tag extends string, Payload extends Schema.Top & { readonly Result: Schema.Top }>(tag: Tag, payload: Payload) => Rpc.make<Tag, Payload, Payload['Result'], typeof Failure>(tag, { payload, success: payload.Result, error: Failure });
+const makeRpc = <const Tag extends string, Payload extends Schema.Top & { readonly Result: Schema.Top }>(tag: Tag, payload: Payload) => Rpc.make<Tag, Payload, Payload['Result'], typeof Failure>(tag, { payload, success: payload.Result, error: Failure });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Script = RpcGroup.make(request('evaluate', Evaluation));
-const Rendering = RpcGroup.make(request('render', Render));
+const EvaluationRpcs = RpcGroup.make(makeRpc('evaluate', Evaluation));
+const RenderRpcs = RpcGroup.make(makeRpc('render', Render));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Evaluation, Failure, Render, Rendering, request, Script, Written };
+export { Evaluation, EvaluationRpcs, Failure, makeRpc, Render, RenderRpcs, WriteResult };

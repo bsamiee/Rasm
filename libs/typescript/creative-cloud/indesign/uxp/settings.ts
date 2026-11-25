@@ -4,7 +4,7 @@ import { Settings } from '@rasm/typography';
 import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDesignDOMObject, Justification, KashidasOptions, Leading, PageSideOptions, ParagraphDirectionOptions, ParagraphJustificationOptions, SingleWordJustification, Text, TextDefault } from 'adobe:indesign';
 import { Array, type Cause, Effect, Equal, identity, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
 import type { Typeset } from '#/typesetting';
-import { Model, STYLISTIC_SETS } from '#/uxp/dom';
+import { Dom, STYLISTIC_SETS } from '#/uxp/dom';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -66,8 +66,8 @@ const SPACING = Record.map({ word: 'WordSpacing', letter: 'LetterSpacing', glyph
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const scaled = (factor: number) => Schema.Finite.pipe(Schema.decodeTo(Schema.Finite, SchemaTransformation.transform({ decode: (value: number) => value / factor, encode: (value: number) => value * factor })));
-const { thousandths, percent } = Record.map({ thousandths: 1000, percent: 100 }, scaled);
+const scale = (factor: number) => Schema.Finite.pipe(Schema.decodeTo(Schema.Finite, SchemaTransformation.transform({ decode: (value: number) => value / factor, encode: (value: number) => value * factor })));
+const { thousandths, percent } = Record.map({ thousandths: 1000, percent: 100 }, scale);
 const ParagraphDirection = Schema.Literals(['LEFT_TO_RIGHT_DIRECTION', 'RIGHT_TO_LEFT_DIRECTION'] as const satisfies readonly Members<typeof ParagraphDirectionOptions>[]).transform(['LTR', 'RTL']);
 class Placement extends Schema.Opaque<Placement, unknown>()(Schema.Struct({ pointSize: Schema.Finite.check(Schema.isGreaterThan(0)), paragraphDirection: ParagraphDirection, side: Schema.optionalKey(Schema.Literals(Struct.keys(SPINES))) })) {}
 const direction = Schema.Struct({ paragraphDirection: Schema.optionalKey(ParagraphDirection), characterDirection: Schema.optionalKey(Schema.Literals(['DEFAULT_DIRECTION', 'LEFT_TO_RIGHT_DIRECTION', 'RIGHT_TO_LEFT_DIRECTION'] satisfies Members<typeof CharacterDirectionOptions>[])) }).pipe(
@@ -94,8 +94,8 @@ const alignment = (sided: Sides) =>
         }),
     );
 const leading = (size: number) => {
-    const spaces = Struct.Record(['spaceBefore', 'spaceAfter'], scaled(size));
-    return Schema.Union([Schema.Struct({ leading: Schema.Literal('AUTO' satisfies Members<typeof Leading>), autoLeading: percent, ...spaces }), Schema.Struct({ leading: scaled(size), ...spaces })]).pipe(
+    const spaces = Struct.Record(['spaceBefore', 'spaceAfter'], scale(size));
+    return Schema.Union([Schema.Struct({ leading: Schema.Literal('AUTO' satisfies Members<typeof Leading>), autoLeading: percent, ...spaces }), Schema.Struct({ leading: scale(size), ...spaces })]).pipe(
         Schema.decodeTo(Schema.toType(Settings.fields.leading), {
             decode: SchemaGetter.transform((line) => ({ height: line.leading === 'AUTO' ? { _tag: 'Auto' as const, ratio: line.autoLeading } : { _tag: 'Fixed' as const, em: line.leading }, before: line.spaceBefore, after: line.spaceAfter })),
             encode: SchemaGetter.transformEffect(({ height, before, after }) =>
@@ -114,7 +114,7 @@ const numberingSystem = Schema.Struct({ digitsType: Schema.Literals(Struct.keys(
     }),
 );
 const kashidaWidth = Schema.Literals(Object.values(KASHIDA_WIDTHS)).annotate({ description: 'Fixed elongation read as the point interval [width, width]' });
-const elongated = Effect.fnUntraced(function* (elongation: Exclude<Settings['kashida'], { readonly _tag: 'None' }>) {
+const elongate = Effect.fnUntraced(function* (elongation: Exclude<Settings['kashida'], { readonly _tag: 'None' }>) {
     const width = Option.filter(Option.liftPredicate(elongation.lower, Schema.is(kashidaWidth)), (lower) => lower === elongation.upper);
     const paragraphKashidaWidth = yield* Effect.fromOption(width, () => new SchemaIssue.InvalidValue({ message: `No paragraphKashidaWidth for [${elongation.lower}, ${elongation.upper}]` }, elongation));
     const paragraphJustification = yield* inverse(JUSTIFICATIONS, (row) => Predicate.isTagged(row, elongation._tag) && row.fractional === elongation.fractional, elongation, elongation.fractional ? `No paragraphJustification for ${elongation._tag} fractional` : `No paragraphJustification for ${elongation._tag}`);
@@ -127,7 +127,7 @@ const kashida = Schema.Struct({ kashidas: Schema.Literals(['DEFAULT_KASHIDAS', '
                 ? Settings.fields.kashida.schema.cases.None.make({})
                 : Settings.fields.kashida.schema.cases[JUSTIFICATIONS[paragraphJustification]._tag].make({ fractional: JUSTIFICATIONS[paragraphJustification].fractional, lower: paragraphKashidaWidth, upper: paragraphKashidaWidth }),
         ),
-        encode: SchemaGetter.transformEffect(Match.valueTags({ None: () => Effect.succeed({ kashidas: 'KASHIDAS_OFF' as const, paragraphKashidaWidth: KASHIDA_WIDTHS.None }), Tatweel: elongated, Stretched: elongated })),
+        encode: SchemaGetter.transformEffect(Match.valueTags({ None: () => Effect.succeed({ kashidas: 'KASHIDAS_OFF' as const, paragraphKashidaWidth: KASHIDA_WIDTHS.None }), Tatweel: elongate, Stretched: elongate })),
     }),
 );
 const marks = Schema.Struct(Struct.Record(['x', 'y'], thousandths)).pipe(Schema.encodeKeys({ x: 'xOffsetDiacritic', y: 'yOffsetDiacritic' }));
@@ -139,10 +139,10 @@ const features = Schema.Struct({ otfStylisticSets: Schema.Int, ...Record.map(FEA
             Record.fromEntries([...[...STYLISTIC_TAGS.filter((_, bit) => Math.floor(otfStylisticSets / 2 ** bit) % 2 === 1), ...CAPITALIZATIONS[capitalization]].map((tag) => [tag, 1] as const), ...Record.collect(FEATURE_FLAGS, (flag, tag) => [tag, flags[flag] ? 1 : 0] as const), ...opentypeFeatures]),
         ),
         encode: SchemaGetter.transform((chosen) => {
-            const flagged = (tag: string) => Option.exists(Record.get(chosen, tag), Number.isGreaterThan(0));
-            const capitalization = Array.findFirst(Struct.keys(CAPITALIZATIONS), (member) => Array.isReadonlyArrayNonEmpty(CAPITALIZATIONS[member]) && CAPITALIZATIONS[member].every(flagged)).pipe(Option.getOrElse(() => 'NORMAL' as const));
+            const isFlagged = (tag: string) => Option.exists(Record.get(chosen, tag), Number.isGreaterThan(0));
+            const capitalization = Array.findFirst(Struct.keys(CAPITALIZATIONS), (member) => Array.isReadonlyArrayNonEmpty(CAPITALIZATIONS[member]) && CAPITALIZATIONS[member].every(isFlagged)).pipe(Option.getOrElse(() => 'NORMAL' as const));
             const memberTags = new Set<string>([...STYLISTIC_TAGS, ...Object.values(FEATURE_FLAGS), ...CAPITALIZATIONS[capitalization]]);
-            return { otfStylisticSets: Number.sumAll(STYLISTIC_TAGS.map((tag, bit) => (flagged(tag) ? 2 ** bit : 0))), ...Record.map(FEATURE_FLAGS, flagged), capitalization, opentypeFeatures: Record.toEntries(Record.filter(chosen, (_, tag) => !memberTags.has(tag))) };
+            return { otfStylisticSets: Number.sumAll(STYLISTIC_TAGS.map((tag, bit) => (isFlagged(tag) ? 2 ** bit : 0))), ...Record.map(FEATURE_FLAGS, isFlagged), capitalization, opentypeFeatures: Record.toEntries(Record.filter(chosen, (_, tag) => !memberTags.has(tag))) };
         }),
     }),
 );
@@ -153,13 +153,13 @@ const spacing = Schema.Struct(Struct.Record(Array.flatMap(Object.values(SPACING)
     }),
 );
 class InDesignSettings extends Schema.Class<InDesignSettings, { readonly brand: unique symbol }>('InDesignSettings')({ direction, numberingSystem, kashida, marks, features, spacing }) {
-    static readonly read: (target: Placed) => Effect.Effect<Settings, HostError | Cause.IllegalArgumentError, Model> = (target) => Effect.flatMap(placement(target), (placed) => held(target, placed));
-    static readonly write: (target: Text | TextDefault, change: Option.Option.Value<Typeset['settings']>) => Effect.Effect<readonly string[], Cause.IllegalArgumentError | HostError | Schema.SchemaError | Unmatched, Model> = Effect.fnUntraced(function* (
+    static readonly read: (target: Placed) => Effect.Effect<Settings, HostError | Cause.IllegalArgumentError, Dom> = (target) => Effect.flatMap(placement(target), (placed) => readSettings(target, placed));
+    static readonly write: (target: Text | TextDefault, change: Option.Option.Value<Typeset['settings']>) => Effect.Effect<readonly string[], Cause.IllegalArgumentError | HostError | Schema.SchemaError | Unmatched, Dom> = Effect.fnUntraced(function* (
         target: Text | TextDefault,
         change: Option.Option.Value<Typeset['settings']>,
     ) {
         const placed = yield* placement(target);
-        const merged = yield* Effect.flatMap(held(target, placed), (settings) => Settings.merge(settings, change));
+        const merged = yield* Effect.flatMap(readSettings(target, placed), (settings) => Settings.merge(settings, change));
         const { trips, schema } = sections({ ...placed, paragraphDirection: Option.getOrElse(merged.direction, () => placed.paragraphDirection) });
         const written = Struct.pick(merged, [...Struct.keys(change), ...('direction' in change ? (['alignment'] as const) : [])]);
         const encoded = yield* Schema.encodeEffect(schema.mapFields(Struct.map(Schema.optionalKey)))(written);
@@ -168,7 +168,7 @@ class InDesignSettings extends Schema.Class<InDesignSettings, { readonly brand: 
             Option.map(
                 Option.fromUndefinedOr(encoded.features),
                 Effect.fnUntraced(function* ({ capitalization, opentypeFeatures = [], ...flags }) {
-                    const { capitalization: current, existing } = yield* Model.read(heldFeatures, `features of ${target.toSpecifier()}`, () => ({ capitalization: target.capitalization, existing: 'opentypeFeatures' in target ? target.opentypeFeatures : [] }));
+                    const { capitalization: current, existing } = yield* Dom.read(heldFeatures, `features of ${target.toSpecifier()}`, () => ({ capitalization: target.capitalization, existing: 'opentypeFeatures' in target ? target.opentypeFeatures : [] }));
                     const replaced = Record.toEntries({ ...Record.map(Record.fromEntries(existing), () => 0), ...Record.fromEntries(opentypeFeatures) });
                     return { ...flags, ...(capitalization === 'NORMAL' && Option.exists(Record.get<string, readonly string[]>(CAPITALIZATIONS, current), Array.isReadonlyArrayEmpty) ? {} : { capitalization }), ...(Array.isReadonlyArrayEmpty(replaced) ? {} : { opentypeFeatures: replaced }) };
                 }),
@@ -179,7 +179,7 @@ class InDesignSettings extends Schema.Class<InDesignSettings, { readonly brand: 
             const decoded = Option.flatMap(Record.get(trips, name), Record.get(current));
             return Predicate.isString(member) && Option.isSome(decoded) && Equal.equals(decoded, Option.flatMap(Record.get(trips, name), Record.get(member))) ? current : member;
         });
-        return yield* yield* Model.write(target, { ...retained, ...Option.getOrElse(featured, Record.empty) });
+        return yield* yield* Dom.write(target, { ...retained, ...Option.getOrElse(featured, Record.empty) });
     });
 }
 
@@ -200,14 +200,14 @@ const sections = ({ pointSize, paragraphDirection, side = 'SINGLE_SIDED' }: Plac
     return { trips, schema: InDesignSettings.mapFields(Struct.assign({ alignment: alignment(sided), leading: leading(pointSize) })) };
 };
 const placement = Effect.fnUntraced(function* (target: Placed) {
-    const { text, item } = yield* Model;
+    const { text, item } = yield* Dom;
     const page = () => Option.flatMap(text(target) ? Array.head(target.parentTextFrames) : Option.none(), (holder) => Option.fromNullishOr(item(holder) ? holder.parentPage : holder.parent.parentPage));
-    return yield* Model.picked(Placement, target, () => Record.getSomes({ side: Option.map(page(), Struct.get('side')) }));
+    return yield* Dom.pick(Placement, target, () => Record.getSomes({ side: Option.map(page(), Struct.get('side')) }));
 });
-const held = Effect.fnUntraced(function* (target: Placed, placed: Placement) {
-    const { picked } = yield* Model;
+const readSettings = Effect.fnUntraced(function* (target: Placed, placed: Placement) {
+    const { picked } = yield* Dom;
     const { schema } = sections(placed);
-    return Settings.make(yield* Model.read(schema, `settings of ${target.toSpecifier()}`, () => Record.map(schema.fields, (row: Schema.Top) => picked(row, target))));
+    return Settings.make(yield* Dom.read(schema, `settings of ${target.toSpecifier()}`, () => Record.map(schema.fields, (row: Schema.Top) => picked(row, target))));
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

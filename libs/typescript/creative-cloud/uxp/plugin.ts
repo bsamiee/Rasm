@@ -1,7 +1,7 @@
 import 'core-js/modules/web.url.can-parse.js';
 import { Link, type Upstream } from '@rasm/mcp';
-import { type Evaluation, HostError, type Render, Rendering, Script, Specifier } from '@rasm/object-model';
-import { type Containment, encode, reference, walk } from '@rasm/object-model/host';
+import { type Evaluation, EvaluationRpcs, HostError, type Render, RenderRpcs, Specifier } from '@rasm/object-model';
+import { type Containment, encode, reference, resolve } from '@rasm/object-model/host';
 import { Unmatched } from '@rasm/search';
 import { layer } from '@rasm/telemetry';
 import fs from 'adobe:fs';
@@ -61,15 +61,15 @@ const BUNDLE = /(?<=\.app)(?:\/.*)?$|(?<=[^/])$/u;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Thrown = Schema.Struct({ message: Schema.Unknown });
-const Measured = Schema.Struct({ width: Schema.Int, height: Schema.Int }).annotate({ description: 'Image size in pixels' });
+const ImageSize = Schema.Struct({ width: Schema.Int, height: Schema.Int }).annotate({ description: 'Image size in pixels' });
 const Chunk = Schema.Union([Schema.String, Schema.Uint8Array.pipe(Schema.decodeTo(Schema.String, { decode: SchemaGetter.transform((bytes) => new TextDecoder().decode(bytes)), encode: SchemaGetter.forbiddenEncoding }))]);
 const Callable = Schema.declare((value): value is (...args: readonly unknown[]) => unknown => Predicate.isFunction(value));
 const Scripting = Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Callable }))) });
 const Entrypoints = Schema.Struct({ setup: Callable });
-const Themed = Schema.Struct({ theme: Schema.declare(Schema.is(Schema.Struct({ getCurrent: Callable, onUpdated: Schema.Struct({ addListener: Callable, removeListener: Callable }) }))) });
-const Requiring = Schema.Struct({ require: Callable }).annotate({ description: 'Global require a UXP host resolves its own modules through by name' });
-const Hosted = Schema.Struct({ applicationPath: Schema.NonEmptyString.annotate({ description: 'Bundle path of the running installation' }) });
-const Requests = Script.merge(Rendering);
+const ThemeDocument = Schema.Struct({ theme: Schema.declare(Schema.is(Schema.Struct({ getCurrent: Callable, onUpdated: Schema.Struct({ addListener: Callable, removeListener: Callable }) }))) });
+const GlobalRequire = Schema.Struct({ require: Callable }).annotate({ description: 'Global require a UXP host resolves its own modules through by name' });
+const HostInfo = Schema.Struct({ applicationPath: Schema.NonEmptyString.annotate({ description: 'Bundle path of the running installation' }) });
+const Requests = EvaluationRpcs.merge(RenderRpcs);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -104,7 +104,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
             Path.layer,
             Socket.layerWebSocketConstructorGlobal,
         );
-    static readonly thrown = Effect.acquireRelease(
+    static readonly toHostError = Effect.acquireRelease(
         Effect.sync(() => {
             const prepare: unknown = Reflect.get(Error, 'prepareStackTrace');
             const lines = new WeakMap<object, number>();
@@ -124,41 +124,41 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
             return HostError.thrown(Inspectable.toStringUnknown(Option.match(Schema.decodeUnknownOption(Thrown)(cause), { onNone: () => cause, onSome: Struct.get('message') }), 0), line)(cause);
         }),
     );
-    static readonly required = (module: string) => {
+    static readonly require = (module: string) => {
         const refused = HostError.refused(`require('${module}')`);
-        return Schema.decodeUnknownEffect(Requiring)(globalThis).pipe(
+        return Schema.decodeUnknownEffect(GlobalRequire)(globalThis).pipe(
             Effect.mapError(refused),
             Effect.flatMap(({ require: resolved }) => Effect.try({ try: (): unknown => resolved(module), catch: refused })),
         );
     };
-    static readonly application = Uxp.use(({ uxp: modules }) => Schema.decodeUnknownEffect(Hosted)(modules.host)).pipe(Effect.flatMap(({ applicationPath }) => Path.Path.use((path) => path.toFileUrl(`${applicationPath}/`))));
-    static readonly located = (held: Containment, specifier: Pick<Specifier, 'steps' | 'end'>): Effect.Effect<unknown, Unmatched> => {
-        const found = walk(held, specifier);
+    static readonly application = Uxp.use(({ uxp: modules }) => Schema.decodeUnknownEffect(HostInfo)(modules.host)).pipe(Effect.flatMap(({ applicationPath }) => Path.Path.use((path) => path.toFileUrl(`${applicationPath}/`))));
+    static readonly locate = (held: Containment, specifier: Pick<Specifier, 'steps' | 'end'>): Effect.Effect<unknown, Unmatched> => {
+        const found = resolve(held, specifier);
         return Option.match(Schema.decodeUnknownOption(Unmatched.stated)(found), { onNone: () => Effect.succeed(found), onSome: Effect.fail });
     };
     static readonly evaluate = Effect.fnUntraced(function* (scope: Record.ReadonlyRecord<string, unknown>, code: string) {
-        const thrown = yield* Uxp.thrown;
+        const toHostError = yield* Uxp.toHostError;
         const body = yield* Effect.try({
             try: (): unknown => new globalThis.Function(`{ ${Record.keys(scope).join(', ')} }`, 'return eval(arguments[1])')(scope, `${code}\n//# sourceURL=${UxpManifest.body}`),
-            catch: thrown,
+            catch: toHostError,
         }).pipe(Effect.filterOrFail(Schema.is(Callable), (value) => new Cause.IllegalArgumentError(`code evaluates to ${typeof value}, not a body function`)));
         return {
-            ran: Effect.try({ try: (): unknown => body(), catch: thrown }),
-            settled: (value: unknown) => Effect.tryPromise({ try: (): Promise<unknown> => Promise.resolve(value), catch: thrown }),
+            ran: Effect.try({ try: (): unknown => body(), catch: toHostError }),
+            settled: (value: unknown) => Effect.tryPromise({ try: (): Promise<unknown> => Promise.resolve(value), catch: toHostError }),
         };
     });
-    static readonly executed = Effect.fnUntraced(function* <E = never, R = never>(held: Containment, code: string, stepped: (call: Effect.Effect<unknown, HostError>) => Effect.Effect<unknown, HostError | E, R> = Function.identity) {
+    static readonly execute = Effect.fnUntraced(function* <E = never, R = never>(held: Containment, code: string, step: (call: Effect.Effect<unknown, HostError>) => Effect.Effect<unknown, HostError | E, R> = Function.identity) {
         const services = yield* Effect.context<never>();
-        const resolve = flow(
-            Schema.decodeEffect(Specifier.Path),
-            Effect.flatMap((specifier) => Uxp.located(held, specifier)),
+        const resolveSpecifier = flow(
+            Schema.decodeEffect(Specifier.FromString),
+            Effect.flatMap((specifier) => Uxp.locate(held, specifier)),
             Effect.runSyncWith(services),
         );
-        const { ran, settled } = yield* Uxp.evaluate({ resolve }, code);
-        const result = yield* settled(yield* stepped(ran));
+        const { ran, settled } = yield* Uxp.evaluate({ resolve: resolveSpecifier }, code);
+        const result = yield* settled(yield* step(ran));
         return yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(result), (each) => Schema.decodeUnknownEffect(Schema.Json)(encode(each, { reference: (object) => reference(held, object) }))));
     }, Effect.scoped);
-    static readonly rendered = Effect.fnUntraced(function* <E, R>(write: (file: File) => Effect.Effect<void, E, R>, name: string) {
+    static readonly renderFile = Effect.fnUntraced(function* <E, R>(write: (file: File) => Effect.Effect<void, E, R>, name: string) {
         const { uxp: host, fs: files } = yield* Uxp;
         const folder = yield* Effect.tryPromise({ try: () => host.storage.localFileSystem.getTemporaryFolder(), catch: HostError.refused('temporary folder') });
         const file = yield* Effect.acquireRelease(Effect.tryPromise({ try: () => folder.createFile(name, { overwrite: true }), catch: HostError.refused(`${name} in ${folder.nativePath}`) }), (entry) =>
@@ -171,33 +171,33 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
         yield* write(file);
         const image = yield* Effect.try({ try: () => new Uint8Array(files.readFileSync(file.nativePath)), catch: HostError.refused(`read of ${file.nativePath}`) });
         const size = yield* Effect.try({ try: () => imageSize(image), catch: HostError.refused(`image size of ${file.nativePath}`) });
-        return { image, ...(yield* Schema.decodeEffect(Measured)(size)) };
+        return { image, ...(yield* Schema.decodeEffect(ImageSize)(size)) };
     }, Effect.scoped);
     static readonly restore = (target: object, saved: Record.ReadonlyRecord<string, unknown>) => Effect.validate(Record.toEntries(saved), ([key, value]) => Effect.try({ try: () => Object.assign(target, { [key]: value }), catch: HostError.refused(`restore of ${key}`) }), { discard: true }).pipe(Effect.orDie);
     static readonly preserve = <T extends object>(target: T, replacements: Partial<T>, keys: readonly string[] = Struct.keys(replacements)) => {
         const refused = HostError.refused(`preferences ${keys.join(', ')}`);
         return Effect.acquireRelease(Effect.try({ try: () => Record.fromIterableWith(keys, (key): readonly [string, unknown] => [key, Reflect.get(target, key)]), catch: refused }), (saved) => Uxp.restore(target, saved)).pipe(Effect.tap(Effect.try({ try: () => Object.assign(target, replacements), catch: refused })));
     };
-    static readonly script = <E>(modules: Uxp['Service'], server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): void => {
+    static readonly serveScript = <E>(modules: Uxp['Service'], server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): void => {
         Effect.gen(function* () {
             const [{ script }, context, done] = yield* Effect.all([Schema.decodeUnknownEffect(Scripting)(modules.uxp), Effect.context<Uxp>(), Deferred.make<undefined>()]);
-            const answered = flow(
+            const answer = flow(
                 Schema.decodeEffect(Chunk),
                 Effect.orDie,
                 Effect.flatMap((text) => Effect.sync(script.setResult.bind(script, text))),
                 Effect.andThen(Deferred.succeed(done, undefined)),
             );
-            const failed = Effect.fnUntraced(function* (cause: Cause.Cause<E>) {
+            const reportDefect = Effect.fnUntraced(function* (cause: Cause.Cause<E>) {
                 yield* Effect.logError(cause);
                 const defect = yield* Effect.orDie(Schema.encodeEffect(Schema.Defect())(Cause.squash(cause)));
                 const encoded = RpcSerialization.json.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect));
-                return yield* encoded === undefined ? Effect.void : answered(encoded);
+                return yield* encoded === undefined ? Effect.void : answer(encoded);
             });
-            const stdio = Layer.succeed(Stdio.Stdio)(Stdio.make({ args: Effect.succeed(script.args), stdin: Stream.encodeText(Stream.fromIterable(script.args)), stdout: () => Sink.forEach(answered), stderr: () => Sink.forEach(Console.error) }));
-            const exit = Layer.launch(server).pipe(Effect.provide(RpcServer.layerProtocolStdio.pipe(Layer.provide([stdio, RpcSerialization.layerJson]))), Effect.catchCauseIf(Predicate.not(Cause.hasInterruptsOnly), failed), Effect.runSyncExitWith(context));
+            const stdio = Layer.succeed(Stdio.Stdio)(Stdio.make({ args: Effect.succeed(script.args), stdin: Stream.encodeText(Stream.fromIterable(script.args)), stdout: () => Sink.forEach(answer), stderr: () => Sink.forEach(Console.error) }));
+            const exit = Layer.launch(server).pipe(Effect.provide(RpcServer.layerProtocolStdio.pipe(Layer.provide([stdio, RpcSerialization.layerJson]))), Effect.catchCauseIf(Predicate.not(Cause.hasInterruptsOnly), reportDefect), Effect.runSyncExitWith(context));
             const pending = Option.filter(Result.getSuccess(Exit.findDefect(exit)), Cause.isAsyncFiberError);
             yield* Effect.sync(() => Option.getOrUndefined(pending)?.fiber.interruptUnsafe());
-            return yield* Option.isSome(pending) && !(yield* Deferred.isDone(done)) ? failed(Cause.die(pending.value)) : Effect.void;
+            return yield* Option.isSome(pending) && !(yield* Deferred.isDone(done)) ? reportDefect(Cause.die(pending.value)) : Effect.void;
         }).pipe(Effect.tapCause(Effect.logError), Effect.provide(Uxp.layer(modules)), Effect.runSyncExit);
     };
 }
@@ -207,7 +207,7 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
             const listener = (current: unknown): void => {
                 Queue.offerUnsafe(queue, current);
             };
-            const { theme } = yield* Schema.decodeUnknownEffect(Themed)(document);
+            const { theme } = yield* Schema.decodeUnknownEffect(ThemeDocument)(document);
             yield* Effect.acquireRelease(
                 Effect.sync(() => {
                     theme.onUpdated.addListener(listener);
@@ -222,29 +222,29 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
         commands = {},
         panels = {},
     }: {
-        readonly link?: (extension: string, root: Effect.Effect<URL, HostError, Path.Path>) => Layer.Layer<never, E, Uxp | Plugin | Path.Path | Socket.WebSocketConstructor>;
+        readonly link?: (plugin: string, root: Effect.Effect<URL, HostError, Path.Path>) => Layer.Layer<never, E, Uxp | Plugin | Path.Path | Socket.WebSocketConstructor>;
         readonly commands?: Record.ReadonlyRecord<string, Effect.Effect<void, F, Uxp | Plugin>>;
         readonly panels?: Record.ReadonlyRecord<string, Panel<F>>;
     }): void => {
-        const hosted = Uxp.layer({ uxp, fs });
+        const hostLayer = Uxp.layer({ uxp, fs });
         Effect.gen(function* () {
             const [manifest, { setup }] = yield* Effect.all([
-                Effect.try({ try: () => fs.readFileSync(MANIFEST, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: MANIFEST, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(UxpManifest.identity))),
+                Effect.try({ try: () => fs.readFileSync(MANIFEST, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: MANIFEST, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(UxpManifest.Identity))),
                 Schema.decodeUnknownEffect(Entrypoints)(entrypoints),
             ]);
             const refused = HostError.refused('UXP plugin folder');
             const root = Effect.all([Effect.tryPromise({ try: () => uxp.storage.localFileSystem.getPluginFolder(), catch: refused }), Path.Path]).pipe(Effect.flatMap(([{ nativePath }, path]) => Effect.mapError(path.toFileUrl(nativePath), refused)));
-            const linked = link === undefined ? Layer.empty : Layer.launch(link(manifest.id, root)).pipe(reported, Effect.forkScoped, Layer.effectDiscard);
+            const linkLayer = link === undefined ? Layer.empty : Layer.launch(link(manifest.id, root)).pipe(logFailure, Effect.forkScoped, Layer.effectDiscard);
             const rejections = Stream.runForEach(Stream.fromEventListener<PromiseRejectionEvent>(globalThis, 'unhandledrejection'), ({ reason }) => Effect.logError('Unhandled rejection', Cause.die(reason))).pipe(Effect.forkScoped, Layer.effectDiscard);
-            const runtime = ManagedRuntime.make(Layer.merge(linked, rejections).pipe(Layer.provideMerge(Layer.succeed(Plugin)(manifest)), Layer.provideMerge(Layer.provide(layer({ serviceName: manifest.id }), FetchHttpClient.layer)), Layer.provideMerge(hosted)));
-            const [handled, shown] = yield* Effect.all([
-                Effect.all(Record.map(commands, (command) => Effect.map(FiberHandle.make<unknown, F>(), (running) => ({ run: () => runtime.runPromise(Effect.flatMap(FiberHandle.run(running, reported(command)), Fiber.join)), cancel: () => runtime.runPromise(FiberHandle.clear(running)) })))),
+            const runtime = ManagedRuntime.make(Layer.merge(linkLayer, rejections).pipe(Layer.provideMerge(Layer.succeed(Plugin)(manifest)), Layer.provideMerge(Layer.provide(layer({ serviceName: manifest.id }), FetchHttpClient.layer)), Layer.provideMerge(hostLayer)));
+            const [commandHandlers, panelHandlers] = yield* Effect.all([
+                Effect.all(Record.map(commands, (command) => Effect.map(FiberHandle.make<unknown, F>(), (running) => ({ run: () => runtime.runPromise(Effect.flatMap(FiberHandle.run(running, logFailure(command)), Fiber.join)), cancel: () => runtime.runPromise(FiberHandle.clear(running)) })))),
                 Effect.all(Record.map(panels, (each) => panel(runtime, each))),
             ]).pipe(Scope.provide(runtime.scope));
-            yield* Effect.sync(() => setup.call(entrypoints, { plugin: { create: () => runtime.runPromise(Effect.void) }, commands: handled, panels: shown } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>));
-        }).pipe(Effect.tapCause(Effect.logError), Effect.provide(hosted), Effect.runFork);
+            yield* Effect.sync(() => setup.call(entrypoints, { plugin: { create: () => runtime.runPromise(Effect.void) }, commands: commandHandlers, panels: panelHandlers } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>));
+        }).pipe(Effect.tapCause(Effect.logError), Effect.provide(hostLayer), Effect.runFork);
     };
-    static readonly extension = <EA, EX extends Error, ER extends Error, EN = never, F = never>({
+    static readonly link = <EA, EX extends Error, ER extends Error, EN = never, F = never>({
         application,
         execute,
         render,
@@ -258,27 +258,27 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
         readonly commands?: Record.ReadonlyRecord<string, Effect.Effect<void, F, Uxp | Plugin>>;
     }): void => {
         const permit = Semaphore.makeUnsafe(1);
-        const hosting = Effect.map(
+        const hostScope = Effect.map(
             Effect.context<Uxp | Path.Path>(),
             (services) =>
                 <A, E>(effect: Effect.Effect<A, E, Uxp | Path.Path | Scope.Scope>) =>
                     Effect.scoped(effect).pipe(Semaphore.withPermit(permit), Effect.provideContext(services)),
         );
         const requests = Requests.toLayer(
-            Effect.map(hosting, (hosted) => ({
+            Effect.map(hostScope, (hosted) => ({
                 evaluate: ({ code, label }: Evaluation) => hosted(Effect.map(execute(code, label), (result) => ({ result }))),
-                render: (request: Render) => hosted(Uxp.rendered((file) => render(request, file), 'rendered.png')),
+                render: (request: Render) => hosted(Uxp.renderFile((file) => render(request, file), 'rendered.png')),
             })),
         );
         const reporting = Stream.catchCause(notices, (cause) => Stream.drain(Stream.fromEffect(Effect.logError('Host notices ended', cause))));
         Plugin.serve({
             commands,
-            link: (extension, root) =>
+            link: (plugin, root) =>
                 Link.dial(
                     Requests,
                     Layer.merge(Link.serve(Toolkit.empty, { notices: reporting }), requests),
                     new URL(UxpManifest.link),
-                    Effect.flatMap(hosting, (hosted) => Effect.all([hosted(application), root])).pipe(Effect.map(([named, folder]) => Link.make({ application: named, extension, root: Option.some(folder) }))),
+                    Effect.flatMap(hostScope, (hosted) => Effect.all([hosted(application), root])).pipe(Effect.map(([named, folder]) => Link.make({ application: named, extension: plugin, root: Option.some(folder) }))),
                 ),
         });
     };
@@ -286,23 +286,23 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const reported = <A, X, R>(effect: Effect.Effect<A, X, R>) => effect.pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly<X>), Effect.logError));
-const themed = Effect.fnUntraced(function* (root: HTMLElement) {
+const logFailure = <A, X, R>(effect: Effect.Effect<A, X, R>) => effect.pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly<X>), Effect.logError));
+const applyTheme = Effect.fnUntraced(function* (root: HTMLElement) {
     const { host } = yield* Plugin;
     yield* Stream.runForEach(Plugin.theme, (theme) => Effect.sync(() => Object.assign(root.style, { color: formatHex8(UxpManifest.fills[host.app][theme]) })));
 });
 const panel = Effect.fnUntraced(function* <E, F>(runtime: ManagedRuntime.ManagedRuntime<Uxp | Plugin, E>, body: Panel<F>) {
     const held = yield* ScopedRef.fromAcquire(Effect.void);
-    const run = <X>(effect: Effect.Effect<unknown, X, Uxp | Plugin>): Promise<void> => runtime.runPromise(Effect.asVoid(reported(effect)));
+    const run = <X>(effect: Effect.Effect<unknown, X, Uxp | Plugin>): Promise<void> => runtime.runPromise(Effect.asVoid(logFailure(effect)));
     const fork = Effect.fnUntraced(
         function* (element: HTMLElement) {
-            const forked = yield* FiberSet.makeRuntime<Uxp | Plugin, unknown, never>();
-            yield* Effect.forkScoped(reported(themed(element)));
+            const runFork = yield* FiberSet.makeRuntime<Uxp | Plugin, unknown, never>();
+            yield* Effect.forkScoped(logFailure(applyTheme(element)));
             return yield* body(element, (work) => {
-                forked(Effect.ignore(reported(work)));
+                runFork(Effect.ignore(logFailure(work)));
             });
         },
-        (effect) => Effect.asVoid(Effect.forkScoped(reported(effect))),
+        (effect) => Effect.asVoid(Effect.forkScoped(logFailure(effect))),
     );
     return {
         show: (root?: unknown): Promise<void> => run(Effect.flatMap(Schema.decodeUnknownEffect(Schema.instanceOf(HTMLElement))(root), (element) => ScopedRef.set(held, fork(element)))),

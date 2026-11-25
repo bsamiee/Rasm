@@ -40,7 +40,7 @@ const Entry = Schema.Struct({ generatedLine: Schema.Int, originalSource: Schema.
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const grouped = (code: string): string => {
+const es3Syntax = (code: string): string => {
     const tokens: Token[] = [];
     const tree = parse(code, { ecmaVersion: 'latest', allowReturnOutsideFunction: true, onToken: tokens });
     const wraps: (readonly [number, number, string, number, string])[] = Array.filterMap(Array.window(tokens, 2), ([dot, member]) => (dot.type === tokTypes.dot && RESERVED.test(code.slice(member.start, member.end)) ? Result.succeed([dot.start, member.start, '["', member.end, '"]'] as const) : Result.failVoid));
@@ -72,14 +72,14 @@ const lower = Object.assign(
             try: () => Struct.evolve(transformSync(code, { isModule: false, env, jsc: { parser: { syntax }, ...ASSUMED }, sourceMaps: true }), { code: emitted }),
             catch: (cause) => Option.match(Schema.decodeUnknownOption(Diagnostic)(cause), { onNone: () => HostError.refused(`${syntax} transform`), onSome: ([, text, , line]) => HostError.thrown(text, Option.some(line)) })(cause),
         }),
-    { extendscript: { targets: { ie: '6' }, exclude: ['transform-typeof-symbol'], emitted: grouped } },
+    { extendscript: { targets: { ie: '6' }, exclude: ['transform-typeof-symbol'], emitted: es3Syntax } },
 );
-const traced = (map: string | undefined) =>
+const originalLine = (map: string | undefined) =>
     Effect.map(Effect.orDie(Schema.decodeUnknownEffect(Mapping)(map)), (mapping) => {
         const source = new SourceMap({ file: '', sourceRoot: '', ...mapping });
         return (line: number) => Option.flatMap(Schema.decodeUnknownOption(Entry)(source.findEntry(line - 1, Number.MAX_SAFE_INTEGER)), (entry) => Option.liftPredicate({ file: entry.originalSource, line: entry.originalLine + 1 }, () => entry.generatedLine === line - 1));
     });
-const core = Effect.fn('core')(function* (folder: string) {
+const readCoreOmv = Effect.fn('readCoreOmv')(function* (folder: string) {
     const [fs, path, digest] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Digest.Digest]);
     const files = Record.map(CORE.members, (member) => path.join(folder, path.basename(member.path)));
     const verified = Effect.fnUntraced(function* <E, R>(member: (typeof CORE.members)[keyof typeof CORE.members], read: Effect.Effect<Uint8Array, E, R>) {
@@ -110,4 +110,4 @@ const core = Effect.fn('core')(function* (folder: string) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { core, lower, traced };
+export { lower, originalLine, readCoreOmv };

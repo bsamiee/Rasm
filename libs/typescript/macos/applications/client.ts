@@ -1,6 +1,6 @@
 import process from 'node:process';
 import { spawn } from '@rasm/process';
-import { child } from '@rasm/rpc';
+import { layerProtocolChildProcess } from '@rasm/rpc';
 import { Array, Cause, Context, Deferred, type Duration, Effect, Fiber, FileSystem, Formatter, flow, Layer, Option, Path, Schema, SchemaIssue, Sink, Stream, Struct, SubscriptionRef } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { RpcClient } from 'effect/rpc';
@@ -40,7 +40,7 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
         };
     }),
 }) {
-    static readonly layer = <E, R>(spawned: Effect.Effect<ChildProcessSpawner.ChildProcessHandle, E, R>) => Layer.unwrap(Effect.map(spawned, (handle) => Layer.effect(ApplicationServer, ApplicationServer.make(handle)).pipe(Layer.provideMerge(child(handle)))));
+    static readonly layer = <E, R>(spawned: Effect.Effect<ChildProcessSpawner.ChildProcessHandle, E, R>) => Layer.unwrap(Effect.map(spawned, (handle) => Layer.effect(ApplicationServer, ApplicationServer.make(handle)).pipe(Layer.provideMerge(layerProtocolChildProcess(handle)))));
     static readonly bundled = Effect.gen(function* () {
         const [path, files, started] = yield* Effect.all([Path.Path, FileSystem.FileSystem, Deferred.make<ApplicationServer['Service']>()]);
         const contents = path.join(path.dirname(process.execPath), '..');

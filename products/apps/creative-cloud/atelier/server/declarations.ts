@@ -2,11 +2,11 @@ import { dirname, join } from 'node:path';
 import process from 'node:process';
 import { isSea } from 'node:sea';
 import type { Application } from '@rasm/creative-cloud-desktop';
-import { core } from '@rasm/extendscript/node';
+import { readCoreOmv } from '@rasm/extendscript/node';
 import { registerTemplate, Server } from '@rasm/mcp';
 import { Output } from '@rasm/mcp/cli';
 import { Declaration } from '@rasm/object-model';
-import { declared, documents, manifest, omv } from '@rasm/object-model/node';
+import { readDocuments, readManifest, readOmv, readTypeScript } from '@rasm/object-model/node';
 import { Unmatched } from '@rasm/search';
 import { HOSTS } from '@rasm/uxp';
 import base from '@rasm/uxp/tsconfig.base.json' with { type: 'json' };
@@ -16,7 +16,7 @@ import { Installed } from '#/applications';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Finding = Effect.Success<ReturnType<Effect.Success<ReturnType<Effect.Success<ReturnType<typeof declared>>>>['check']>>[number];
+type Finding = Effect.Success<ReturnType<Effect.Success<ReturnType<Effect.Success<ReturnType<typeof readTypeScript>>>>['check']>>[number];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -37,8 +37,8 @@ const Host = Schema.Literals([...Record.keys(CHECKED), 'illustrator', 'aftereffe
 class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declarations', {
     make: Effect.gen(function* () {
         const [rows, server, { folder: stored }, files, posix, scope] = yield* Effect.all([Installed, Server, Output, FileSystem.FileSystem, Path.Path, Effect.scope]);
-        const shared = Effect.provideContext(core(stored('ExtendScript', 'declarations')), yield* Effect.context<Effect.Services<ReturnType<typeof core>>>());
-        const opened = yield* Effect.cached(Scope.provide(declared(Option.liftPredicate({ executable: join(dirname(process.execPath), 'tsc'), library: join(import.meta.dirname, 'typescript') }, isSea), join(import.meta.dirname, 'node_modules')), scope));
+        const shared = Effect.provideContext(readCoreOmv(stored('ExtendScript', 'declarations')), yield* Effect.context<Effect.Services<ReturnType<typeof readCoreOmv>>>());
+        const opened = yield* Effect.cached(Scope.provide(readTypeScript(Option.liftPredicate({ executable: join(dirname(process.execPath), 'tsc'), library: join(import.meta.dirname, 'typescript') }, isSea), join(import.meta.dirname, 'node_modules')), scope));
         const compiled = yield* Effect.all(Record.map(CHECKED, (row) => Effect.cached(Effect.flatMap(opened, (open) => open(Struct.omit(row, ['product']))))));
         const installed = Effect.gen(function* () {
             const dictionaries = '/Library/Application Support/Adobe/Scripting Dictionaries CC';
@@ -48,10 +48,10 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
         });
         const [whole, partial] = yield* Effect.all([
             Effect.cachedWithTTL(
-                Effect.flatMap(Effect.all([installed, shared]), ([text, { javascript, scriptui }]) => omv([javascript, scriptui, text])),
+                Effect.flatMap(Effect.all([installed, shared]), ([text, { javascript, scriptui }]) => readOmv([javascript, scriptui, text])),
                 (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero),
             ),
-            Effect.cached(Effect.flatMap(installed, (text) => omv([text]))),
+            Effect.cached(Effect.flatMap(installed, (text) => readOmv([text]))),
         ]);
         const illustrator = whole.pipe(
             Effect.tapCause((cause) => Effect.logWarning('Illustrator pages lack the core ExtendScript classes', cause)),
@@ -63,9 +63,9 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
                 Array.findFirst(yield* SubscriptionRef.get(rows), (row) => row.product === HOSTS.ame.product),
                 () => new Cause.NoSuchElementError(`No installed application with product code ${HOSTS.ame.product}`),
             );
-            return yield* manifest(yield* files.readFileString(yield* posix.fromFileUrl(new URL('Contents/Resources/json/ScriptingAPIManifest.json', url))));
+            return yield* readManifest(yield* files.readFileString(yield* posix.fromFileUrl(new URL('Contents/Resources/json/ScriptingAPIManifest.json', url))));
         });
-        const paged = { illustrator, ...(yield* Effect.all({ mediaencoder: Effect.cached(mediaencoder), aftereffects: Effect.cached(documents(files.stream(join(import.meta.dirname, 'aftereffects.jsonl')))) })) };
+        const paged = { illustrator, ...(yield* Effect.all({ mediaencoder: Effect.cached(mediaencoder), aftereffects: Effect.cached(readDocuments(files.stream(join(import.meta.dirname, 'aftereffects.jsonl')))) })) };
         const resolved: Record.ReadonlyRecord<typeof Host.Type, Effect.Effect<Effect.Success<typeof paged.illustrator>, Effect.Error<(typeof paged)[keyof typeof paged]>>> = { ...Record.map(compiled, Effect.flatMap(Struct.get('catalog'))), ...paged };
         const refused = Effect.fnUntraced(function* (row: Application, line: (at: number) => Option.Option<number>, { host, listed }: { readonly host: keyof typeof CHECKED; readonly listed: Array.NonEmptyReadonlyArray<Finding> }) {
             const { index } = yield* resolved[host];

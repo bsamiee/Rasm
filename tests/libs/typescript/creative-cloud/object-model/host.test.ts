@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { type Containment, encode, format, parse, reference, walk } from '@rasm/object-model/host';
+import { type Containment, encode, format, parse, reference, resolve } from '@rasm/object-model/host';
 import { Arbitrary, Effect, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -38,7 +38,7 @@ const Plain = Arbitrary.schema(Schema.Json).pipe(Arbitrary.map(structuredClone))
 const walked = (specifier: string) => {
     const path = parse(specifier);
     assert.isDefined(path, specifier);
-    return walk(HELD, path);
+    return resolve(HELD, path);
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

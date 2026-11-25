@@ -4,4 +4,4 @@ import { Effect } from 'effect';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-Plugin.extension({ application, execute, render, commands: { atelier: Effect.void } });
+Plugin.link({ application, execute, render, commands: { atelier: Effect.void } });

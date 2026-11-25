@@ -16,25 +16,25 @@ declare global {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const widget = <K extends keyof HTMLElementTagNameMap>(tag: K, fields: Partial<HTMLElementTagNameMap[K]>, ...children: readonly HTMLElement[]): HTMLElementTagNameMap[K] => {
-    const element = document.createElement(tag);
-    children.forEach((child) => element.append(child));
-    return Object.assign(element, fields);
+const element = <K extends keyof HTMLElementTagNameMap>(tag: K, fields: Partial<HTMLElementTagNameMap[K]>, ...children: readonly HTMLElement[]): HTMLElementTagNameMap[K] => {
+    const node = document.createElement(tag);
+    children.forEach((child) => node.append(child));
+    return Object.assign(node, fields);
 };
-const slotted = (slot: string, element: HTMLElement) => {
-    element.setAttribute('slot', slot);
-    return element;
+const assignSlot = (slot: string, child: HTMLElement) => {
+    child.setAttribute('slot', slot);
+    return child;
 };
 const picker = <A>(label: string, options: readonly (readonly [string, A])[]) => {
-    const [shown, values] = [MutableRef.make(0), Array.map(options, ([, value]) => value)];
-    const element = widget('sp-picker', { selectedIndex: MutableRef.get(shown) }, slotted('label', widget('sp-label', { textContent: label })), slotted('options', widget('sp-menu', {}, ...Array.map(options, ([textContent]) => widget('sp-menu-item', { textContent })))));
+    const [selection, values] = [MutableRef.make(0), Array.map(options, ([, value]) => value)];
+    const menu = element('sp-picker', { selectedIndex: MutableRef.get(selection) }, assignSlot('label', element('sp-label', { textContent: label })), assignSlot('options', element('sp-menu', {}, ...Array.map(options, ([textContent]) => element('sp-menu-item', { textContent })))));
     return {
-        element,
-        read: () => Array.get(values, element.selectedIndex),
-        show: (value: unknown) => Object.assign(element, { selectedIndex: MutableRef.setAndGet(shown, values.findIndex(Equal.equals(value))) }),
-        picked: (work: () => void) =>
-            element.addEventListener('change', () => {
-                if (MutableRef.getAndSet(shown, element.selectedIndex) !== element.selectedIndex) {
+        element: menu,
+        read: () => Array.get(values, menu.selectedIndex),
+        show: (value: unknown) => Object.assign(menu, { selectedIndex: MutableRef.setAndGet(selection, values.findIndex(Equal.equals(value))) }),
+        onChange: (work: () => void) =>
+            menu.addEventListener('change', () => {
+                if (MutableRef.getAndSet(selection, menu.selectedIndex) !== menu.selectedIndex) {
                     work();
                 }
             }),
@@ -43,4 +43,4 @@ const picker = <A>(label: string, options: readonly (readonly [string, A])[]) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { picker, widget };
+export { element, picker };

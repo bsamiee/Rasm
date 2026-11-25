@@ -3,7 +3,7 @@ import { dirname, join, relative } from 'node:path';
 import process from 'node:process';
 import { layer } from '@effect/platform-node/NodeServices';
 import { helper } from '@rasm/applications/vite';
-import { script } from '@rasm/extendscript/vite';
+import { inlineScript } from '@rasm/extendscript/vite';
 import { run } from '@rasm/process';
 import { checks } from '@rasm/vite';
 import { Array, Effect, FileSystem, Struct } from 'effect';
@@ -55,7 +55,7 @@ export default Effect.fnUntraced(
         } satisfies Plugin;
         return {
             build: { rolldownOptions: { output: { codeSplitting: false } } },
-            plugins: [checks(), declarations, script(resolved('@rasm/extendscript/host'), 'runtime'), script(resolved('es5-shim'), 'shim'), script(resolved('es5-shim/es5-sham.js'), 'sham'), yield* helper(join(directory, 'main.ts'), 'server')],
+            plugins: [checks(), declarations, inlineScript(resolved('@rasm/extendscript/host'), 'host'), inlineScript(resolved('es5-shim'), 'shim'), inlineScript(resolved('es5-shim/es5-sham.js'), 'sham'), yield* helper(join(directory, 'main.ts'), 'server')],
         };
     },
     Effect.provide(layer),

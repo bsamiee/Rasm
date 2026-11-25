@@ -32,7 +32,7 @@ class Model extends Context.Service<Model>()('@app/indesign/Model', {
     static readonly resolve = Effect.fn('Model.resolve')(function* (specifier: Specifier) {
         const [{ app, ScriptLanguage, host }, written] = yield* Effect.all([Model, specifier.path]);
         const identified = (path: string): Option.Option<string> =>
-            Option.flatMap(Schema.decodeUnknownOption(Specifier.Path)(path), ({ kind, selector, end }) => Option.as(Option.filter(selector, (each) => Option.isNone(end) && Selector.guards.Identified(each)), kind));
+            Option.flatMap(Schema.decodeUnknownOption(Specifier.FromString)(path), ({ kind, selector, end }) => Option.as(Option.filter(selector, (each) => Option.isNone(end) && Selector.guards.Identified(each)), kind));
         const located = (path: string): Option.Option<InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[]> => {
             const requested = identified(path);
             return Option.filter(Option.liftThrowable((): unknown => app.doScript('resolve(arguments[0])', ScriptLanguage.JAVASCRIPT, [path]))(), (found): found is InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[] =>
@@ -79,12 +79,12 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
         return this.kind === '';
     }
     get path(): Effect.Effect<string> {
-        return Effect.orDie(Schema.encodeEffect(Specifier.Path)(this));
+        return Effect.orDie(Schema.encodeEffect(Specifier.FromString)(this));
     }
 }
 ```
 
-`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign, and `owning` reads no getter: `Predicate.hasProperty` tests membership through the prototype chain, `toSpecifier` for a DOM object (`host`) and `everyItem` for a collection. `Predicate.hasProperty` alone holds wherever an ancestor prototype holds the name (`name` on any function or `Error`), and `owning` pairs it with `toSpecifier`. Guards for one kind take a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `Specifier.Path` decodes a saved specifier into container, separator, and last step, or into a start and an end step for the `(<A> to <B>)` range that `findText` hits, `textStyleRanges` members, and `itemByRange` return, the application root `/` into an empty step `root` names, and refuses any other text. `Reference.Selector`, the tagged union every host's specifier steps share, decodes `[@id=<n>]`, `[<n>]`, and `[@name="<name>"]` into `Identified`, `Indexed`, and `Named`. `Model.resolve` passes the path to ExtendScript's `resolve` as an argument, compares the `kind` of a lone `[@id=<n>]` step, answers a collection step without a selector as an array, and fails `Unmatched` with sibling specifiers as candidates or, for a missed `[<n>]`, the index span. Empty collections resolve as `undefined`, and `everyItem().getElements()` on a known collection reads an empty array. Supplied source calls native collection methods without computed-member rewriting.
+`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign, and `owning` reads no getter: `Predicate.hasProperty` tests membership through the prototype chain, `toSpecifier` for a DOM object (`host`) and `everyItem` for a collection. `Predicate.hasProperty` alone holds wherever an ancestor prototype holds the name (`name` on any function or `Error`), and `owning` pairs it with `toSpecifier`. Guards for one kind take a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `Specifier.FromString` decodes a saved specifier into container, separator, and last step, or into a start and an end step for the `(<A> to <B>)` range that `findText` hits, `textStyleRanges` members, and `itemByRange` return, the application root `/` into an empty step `root` names, and refuses any other text. `Reference.Selector`, the tagged union every host's specifier steps share, decodes `[@id=<n>]`, `[<n>]`, and `[@name="<name>"]` into `Identified`, `Indexed`, and `Named`. `Model.resolve` passes the path to ExtendScript's `resolve` as an argument, compares the `kind` of a lone `[@id=<n>]` step, answers a collection step without a selector as an array, and fails `Unmatched` with sibling specifiers as candidates or, for a missed `[<n>]`, the index span. Empty collections resolve as `undefined`, and `everyItem().getElements()` on a known collection reads an empty array. Supplied source calls native collection methods without computed-member rewriting.
 
 | [INDEX] | [NEED]                     | [FORM]                                                 | [REASON]                                      |
 | :-----: | :------------------------- | :----------------------------------------------------- | :-------------------------------------------- |
@@ -93,7 +93,7 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
 |  [03]   | One field of every member  | `everyItem().<field>`, one call per field              | Array at any count, `properties` reads all    |
 |  [04]   | Same object across reads   | `equals`                                               | Repeated reads differ under `===`             |
 |  [05]   | Address held across calls  | `id`, or `toSpecifier()` after `getElements()`         | `item(index)` specifiers shift on insert      |
-|  [06]   | Address of a text range    | `toSpecifier()` through `Specifier.Path` and `resolve` | `Character`, `Word`, `Paragraph` have no `id` |
+|  [06]   | Address of a text range    | `toSpecifier()` through `Specifier.FromString` and `resolve` | `Character`, `Word`, `Paragraph` have no `id` |
 |  [07]   | Style inside a group       | Specifier steps per group                              | Groups can repeat one style name              |
 |  [08]   | Active document            | `Effect.try` over `app.activeDocument`                 | Throws with only windowless documents open    |
 
