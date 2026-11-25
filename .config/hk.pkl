@@ -230,6 +230,15 @@ steps {
     }
   }
   ["tombi-format"] = (Builtins.tombi_format) { depends = "ast-grep" }
+  ["vulture"] {
+    glob = "**/*.py"
+    workspace_indicator = "pyproject.toml"
+    depends = "ruff-format"
+    check = new CommandSpec {
+      command = #"vulture {% if workspace == "." %}{{files}}{% else %}{{workspace}}{% endif %}"#
+      effect = "read"
+    }
+  }
   when (platform.current.operatingSystem.name == "macOS") {
     ["plutil"] {
       glob = "**/*.{plist,entitlements}"

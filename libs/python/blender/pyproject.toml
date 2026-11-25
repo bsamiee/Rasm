@@ -40,7 +40,6 @@ dev     = [
     "rasm-refurb",               # Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin
     "refurb",                    # FURB checks Ruff lacks, over a mypy build
     "ty",                        # Type checker of every member
-    "vulture",                   # Private functions, classes, methods, and attributes nothing reads
 
     # --- [STUBS]
 
