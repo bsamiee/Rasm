@@ -7,7 +7,7 @@ import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateNodesContext, detectPackageManager, type ExecutorContext, hashArray, normalizePath, type NxJsonConfiguration, type PackageManager, readJsonFile, type TargetConfiguration, type TaskGraph } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getLockFileName, getNamedInputs, hashFile, hashWithWorkspaceContext, killChildOnHostExit, mergeTargetConfigurations, type PackageJson, PluginCache, parseExecutor, readModulePackageJson, workspaceDataDirectory } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
-import { Array, Cause, Config, ConfigProvider, Context, Effect, Equal, FileSystem, Formatter, Function, identity, Layer, ManagedRuntime, Match, MutableRef, Option, Predicate, pipe, Record, Result, Schema, type Scope, Stream, String, Struct, Tuple, UndefinedOr } from 'effect';
+import { Array, Cause, Config, ConfigProvider, Context, Effect, Equal, FileSystem, Filter, Formatter, Function, identity, Layer, ManagedRuntime, Match, MutableRef, Option, Predicate, pipe, Record, Result, Schema, type Scope, Stream, String, Struct, Tuple, UndefinedOr } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
 import collection from '#/executors.json' with { type: 'json' };
 import plugin from '#/package.json' with { type: 'json' };
@@ -195,43 +195,25 @@ const aggregated = (verbs: Verbs, stated: Stated, technology: string, { workspac
         Option.fromUndefinedOr(target.executor).pipe(
             Option.map(parseExecutor),
             Option.flatMap(([provider]) => held(provider, workspaceRoot)),
-            Option.match({
-                onNone: () => target,
-                onSome: ({ packageJson, folder }) => ({
-                    ...target,
-                    inputs: [...(target.inputs ?? unstated), { input: 'default', projects: [packageJson.name, ...Array.getSomes(Record.keys(packageJson.dependencies ?? {}).map((name) => Option.map(held(name, folder), (linked) => linked.packageJson.name)))] }],
-                }),
-            }),
+            Option.map(({ packageJson, folder }) => [packageJson.name, ...pipe(Record.keys(packageJson.dependencies ?? {}), Array.filterMap(Filter.fromPredicateOption((name: string) => Option.map(held(name, folder), (linked) => linked.packageJson.name))))]),
+            Option.match({ onNone: () => target, onSome: (projects) => ({ ...target, inputs: [...(target.inputs ?? unstated), { input: 'default', projects }] }) }),
         );
     return {
         ...pipe(
             verbs,
-            Record.map(Record.map(provided)),
             Record.filter(Predicate.not(Record.isEmptyRecord)),
-            Record.collect((verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
-                [
-                    verb,
-                    {
-                        dependsOn: [{ target: `${verb}--*`, params: 'forward' }],
-                        inputs: [
-                            '...',
-                            ...Array.dedupe(
-                                Record.collect(tools, (tool, target) =>
-                                    (mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? unstated }).inputs ?? []).map((entry) => (Predicate.hasProperty(entry, 'dependentTasksOutputFiles') ? { ...entry, transitive: true } : entry)),
-                                ).flat(),
-                            ),
-                        ],
-                    },
-                ],
-                ...Record.collect(tools, (tool, target): readonly [string, TargetConfiguration] => [
-                    `${verb}--${tool}`,
-                    {
+            Record.map((tools, verb) =>
+                Record.collect(Record.map(tools, provided), (tool, target) => ({
+                    name: `${verb}--${tool}`,
+                    target: {
                         ...target,
                         ...(verb === 'clean' && { configurations: { ...target.configurations, cache: { targets: [], commands: [], folders: [], ...Option.getOrUndefined(Option.liftPredicate(Predicate.isObject)(target.configurations?.['cache'])) } } }),
                         metadata: { technologies: [technology], ...target.metadata },
                     },
-                ]),
-            ]),
+                    inputs: (mergeTargetConfigurations(stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? unstated }).inputs ?? []).map((entry) => (Predicate.hasProperty(entry, 'dependentTasksOutputFiles') ? { ...entry, transitive: true } : entry)),
+                })),
+            ),
+            Record.collect((verb, rows): readonly (readonly [string, TargetConfiguration])[] => [[verb, { dependsOn: [{ target: `${verb}--*`, params: 'forward' }], inputs: ['...', ...Array.dedupe(rows.flatMap(Struct.get('inputs')))] }], ...rows.map(({ name, target }) => [name, target] as const)]),
             Array.flatten,
             Record.fromEntries,
         ),
