@@ -1,0 +1,5 @@
+{
+    "name": "varasi",
+    "version": "0.1.0",
+    "description": "Keeps a question the agent can settle by checking from the person until it is checked, and asks for a fresh check of a report's pick"
+}

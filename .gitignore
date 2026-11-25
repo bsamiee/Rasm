@@ -23,7 +23,7 @@ __pycache__/
 /plugins/**/evals/results/
 coverage/
 dist/
-plugins/claude/function-hooks/types/claude-code
+plugins/claude/*/types/claude-code
 storybook-static/
 
 # --- [SNAPSHOTS]

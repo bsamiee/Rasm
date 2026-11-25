@@ -1,0 +1,6 @@
+{
+    "name": "@rasm/varasi",
+    "private": true,
+    "description": "Claude Code hooks that keep a question the agent can settle by checking from the person until it is checked, and ask for a fresh check of a report's pick",
+    "type": "module"
+}
