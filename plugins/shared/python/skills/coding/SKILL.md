@@ -5,7 +5,7 @@ description: "Use when writing or reviewing Python, covering functional design w
 
 # [PYTHON_CODING]
 
-Code targets Python 3.15 (`lazy` imports, `frozendict`, `TypeForm`, t-strings, comprehension unpacking), or the release of the embedded interpreter running it. Examples use Expression, msgspec, anyio, and numpy types as standard library.
+Code targets Python 3.15 (`lazy` imports, `frozendict`, `TypeForm`, t-strings, comprehension unpacking), or the lowest release its member's `requires-python` accepts where older (3.13 for members a Blender root installs). Examples use Expression, msgspec, anyio, and numpy types as standard library.
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Functions as values, from partial application and dispatch to iteration, topological order, and pipelines
