@@ -95,7 +95,7 @@
         "Package.swift": "Package.resolved, Xcode.xcconfig",
         "pyproject.toml": "hatch_build.py, pixi.lock, uv.lock",
         "README.md": "LICENSE",
-        "swiftlint.yml": "swift-format.json"
+        "swiftlint.yml": "sparkle.xcconfig, swift-format.json, xcode.xcconfig"
     },
 
     // --- [CLANGD] ----------------------------------------------------------------------
