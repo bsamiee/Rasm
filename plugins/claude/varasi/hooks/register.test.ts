@@ -59,7 +59,6 @@ const worldOf = (on: On, labels: readonly string[], history: readonly SessionMes
     });
     on('session.messages', () => ({ value: [...history] }));
     on('agent.report', (_, e) => ({ text: e.text, review: 'off' }));
-    on('classic.Stop', () => ({}));
     on('ui.toast', (_, e) => {
         seen.toasts.push(e.text);
         return { value: undefined };
@@ -92,11 +91,6 @@ const rowOf = async ($: Engine, requestId = '', surface: (typeof SURFACES)[numbe
     const row = await ui.find({ type: 'Text', text: ROW });
     await ui.unmount();
     return row?.text;
-};
-
-const stopped = async ($: Engine, stop_hook_active = false): Promise<string | undefined> => {
-    const { block } = await $.classic.Stop({ stop_hook_active });
-    return block;
 };
 
 const words = (text = ''): number => text.split(/\s+/u).filter(Boolean).length;
@@ -202,33 +196,6 @@ test('a report to the main conversation that picks arrives as written, a note be
         const { text } = await $.agent.report(report);
         expect([text, world.notes(), world.toasts]).toEqual([report.text, [], []]);
     });
-});
-
-test('a turn that ends with nothing run since a hold, the question moved to prose, is sent back once in under 100 words', async ($, on) => {
-    worldOf(on, [], [...heldThen([]), { role: 'assistant', text: 'Which do you want, App database or Separate Redis?', toolUses: [] }]);
-    const block = await stopped($);
-    expect(block).toStartWith('varasi: the turn ends with nothing run since a question was kept from the person');
-    expect(words(block)).toBeLessThanOrEqual(100);
-    expect(await stopped($, true)).toBeUndefined();
-});
-
-[
-    { name: 'a check ran since the hold', history: heldThen(['Agent']) },
-    { name: 'the person spoke since the hold', history: [...heldThen([]), { role: 'user', text: 'Separate Redis', toolUses: [] }] satisfies SessionMessage[] },
-    { name: 'no question was held', history: [{ role: 'assistant', text: 'Done.', toolUses: [] }] satisfies SessionMessage[] },
-].forEach(({ name, history }) => {
-    test(`a turn ends untouched when ${name}`, async ($, on) => {
-        worldOf(on, [], history);
-        expect(await stopped($)).toBeUndefined();
-    });
-});
-
-test('a turn ends untouched when the held question was asked again with the question tool', async ($, on) => {
-    const history = [...heldThen([])];
-    const world = worldOf(on, ['1 WORK'], history);
-    await asked($, 3);
-    history.push({ role: 'assistant', text: '', toolUses: [{ tool_use_id: world.asked[0] ?? '', tool: 'AskUserQuestion', input: {}, text: 'The person answered.' }] });
-    expect(await stopped($)).toBeUndefined();
 });
 
 test('a report that picks after the held question went back to the person by the question tool asks for a fresh check', async ($, on) => {

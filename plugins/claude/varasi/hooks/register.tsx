@@ -10,7 +10,6 @@ const KIND = /^[ \t]*(?<at>\d+)[^\w\n]+(?<kind>CONSENT|TASTE|WORK)\b/gmu;
 const PICK = /\b(?:I (?:would |'d )?recommend|\(recommended\)|recommendation:|I(?: would|'d) (?:take|pick|go with|choose|keep)|my (?:pick|recommendation)|I suggest|the better (?:option|choice|form))\b/iu;
 const LAST = 200;
 const LEAD = 'varasi kept';
-const UNCHECKED = 'varasi: the turn ends with nothing run since a question was kept from the person, so it is still unchecked. Asking it in prose skips the check. Do what the hold said, then ask it with the question tool.';
 const HOLDS = atom({ plugin: 'varasi', key: 'holds' } as const, { held: [], rows: {} }, { shape: 'holds-1' });
 const SORT = {
     model: 'sonnet',
@@ -89,15 +88,6 @@ const register: Register = (on) => {
         const row = ran === undefined ? undefined : `Kept from you by varasi, asked again ${ran.length === 0 ? 'with nothing run since' : `after ${ran.join(', ')}`}`;
         await (row === undefined ? undefined : update($, HOLDS, (now) => ({ ...now, rows: { ...now.rows, [e.tool_use_id]: row } })));
         return next(e);
-    });
-    on('classic.Stop', async ($, e, next) => {
-        const answer = await next(e);
-        if (e.stop_hook_active || answer.block !== undefined) {
-            return answer;
-        }
-        const [messages, { rows }] = await Promise.all([$.session.messages({ last: LAST }), read($, HOLDS)]);
-        const uses = Array.isArray(messages) ? pending(messages, rows) : undefined;
-        return uses?.every(({ tool }) => tool === 'AskUserQuestion') === true ? { ...answer, block: UNCHECKED } : answer;
     });
     on('agent.report', async ($, e, next) => {
         const report = await next(e);
