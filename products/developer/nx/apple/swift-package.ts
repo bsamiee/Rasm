@@ -1,4 +1,4 @@
-import { dirname, join, matchesGlob, relative } from 'node:path';
+import { dirname, join, matchesGlob, relative, sep } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
 import { EXECUTORS, removable, type Verbs } from '@rasm/nx';
 import { Array, Effect, Graph, Option, Record, Schema, Struct, UndefinedOr } from 'effect';
@@ -73,12 +73,13 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
     const build = ['swift', 'build', '--package-path', root, ...SWIFTPM] as const;
     const test = ['swift', 'test', '--package-path', root, ...SWIFTPM] as const;
     const lcov = Option.map(Option.fromUndefinedOr(options.coveragePath), (folder) => join(folder, 'lcov.info'));
-    const covered = [bins.codecov, ...Option.toArray(lcov)];
+    const covered = Option.getOrElse(lcov, () => bins.codecov);
     const written = (folder: string) => (whole ? manifest.products.map(({ name }) => join('{workspaceRoot}', folder, name)) : []);
     const released = written(bins.release);
-    const report = Option.map(lcov, (at) => ({ report: { profiles: [join(dirname(bins.codecov), 'default.profdata')], objects: Array.map(suites, ({ name }) => join(bins.debug, `${name}.xctest`, 'Contents', 'MacOS', name)), file: at } }));
-    const coverage = { runs: [[...test, '--enable-code-coverage']], outputs: covered.map((at) => join('{workspaceRoot}', at)), ...Option.getOrUndefined(report) };
-    const testing = { cache: true, dependsOn: ['build--swift-build'], inputs, outputs: covered.map((_, index) => `{options.outputs.${index}}`), configurations: { coverage } };
+    const scratch = join(root, ...relative(root, bins.debug).split(sep, 1));
+    const report = Option.map(lcov, (at) => ({ report: { profiles: [join(dirname(bins.codecov), 'default.profdata')], objects: Array.map(suites, ({ name }) => join(bins.debug, `${name}.xctest`, 'Contents', 'MacOS', name)), built: [scratch], mapping: ['-Xswiftc', '-coverage-prefix-map', '-Xswiftc'], file: at } }));
+    const coverage = { runs: [[...test, '--enable-code-coverage']], outputs: [join('{workspaceRoot}', covered)], ...Option.getOrUndefined(report) };
+    const testing = { cache: true, dependsOn: ['build--swift-build'], inputs, outputs: ['{options.outputs.0}'], configurations: { coverage } };
     const work: Verbs = {
         build: {
             'swift-build': sequenced(

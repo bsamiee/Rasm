@@ -5,3 +5,10 @@ COMPILATION_CACHE_ENABLE_CACHING = YES
 // --- [BUILD_OPTIONS] ---------------------------------------------------------------------
 
 LM_SKIP_METADATA_EXTRACTION = YES
+
+// --- [COVERAGE] --------------------------------------------------------------------------
+
+COVERAGE_C_FLAGS_YES = "-fcoverage-prefix-map=$(WORKSPACE_DIR)/="
+COVERAGE_SWIFT_FLAGS_YES = -coverage-prefix-map "$(WORKSPACE_DIR)/="
+OTHER_CFLAGS = $(inherited) $(COVERAGE_C_FLAGS_$(CLANG_COVERAGE_MAPPING))
+OTHER_SWIFT_FLAGS = $(inherited) $(COVERAGE_SWIFT_FLAGS_$(CLANG_COVERAGE_MAPPING))

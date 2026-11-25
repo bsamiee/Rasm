@@ -53,7 +53,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
     const fed = released ? archived.filter(Struct.get('feed')) : [];
     const runs = schemes.filter(({ tests }) => tests).flatMap((scheme) => (scheme.plans.length === 0 ? [[]] : scheme.plans.map((plan) => ['-testPlan', plan])).map((planned) => invoke('test', scheme.name, planned)));
     const derived = Option.filter(Option.fromUndefinedOr(options.derivedDataPath ?? UndefinedOr.map(options.outputPath, (at) => join(at, 'DerivedData'))), () => Array.isReadonlyArrayNonEmpty(runs));
-    const report = Option.zipWith(Option.fromUndefinedOr(options.coveragePath), derived, (coverage, folder) => ({ profiles: [join(folder, 'Build/ProfileData/*/Coverage.profdata')], results: [join(folder, 'Logs/Test/*.xcresult')], file: join(coverage, 'lcov.info') }));
+    const report = Option.zipWith(Option.fromUndefinedOr(options.coveragePath), derived, (coverage, folder) => ({ profiles: [join(folder, 'Build/ProfileData/*/Coverage.profdata')], results: [join(folder, 'Logs/Test/*.xcresult')], built: [folder], file: join(coverage, 'lcov.info') }));
     const covered = Option.toArray(Option.map(report, ({ file: at }) => at));
     const builds: Run['runs'] = schemes.map((scheme) => invoke('build', scheme.name, []));
     const installs = archives.map(({ scheme, configuration }) => invoke('install', scheme, ['-configuration', configuration, 'DSTROOT=$(LOCAL_APPS_DIR)', 'INSTALL_PATH=/']));

@@ -2,7 +2,7 @@ import { glob } from 'node:fs/promises';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import { env } from 'node:process';
 import { executor, spawned, Words } from '@rasm/nx';
-import { Array, Cause, Config, Effect, FileSystem, Function, Option, Record, Schema } from 'effect';
+import { Array, Cause, Config, Effect, FileSystem, Function, Option, Record, RegExp, Schema } from 'effect';
 import { ChildProcess, ChildProcessSpawner, CommandLine } from 'effect/process';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -13,10 +13,16 @@ const Report = Schema.Struct({
         .annotate({ description: 'Instrumented binaries llvm-cov reads the coverage mapping of' })
         .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
     results: Schema.Array(Schema.String)
-        .annotate({ description: 'Patterns of the result bundles the invocations write, each match removed before the invocations, the build product of each target xcrun xccov reports in one joining objects' })
+        .annotate({ description: 'Patterns of the result bundles the invocations write, each match removed before the invocations, the build product of each target xcrun xccov reports in one joining objects where the build wrote it' })
+        .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+    built: Schema.Array(Schema.String)
+        .annotate({ description: 'Workspace folders the builds write, the dependency and generated sources inside each left out of the report' })
+        .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+    mapping: Schema.Array(Schema.String)
+        .annotate({ description: 'Arguments each invocation ends with before <workspace root>/=, the coverage prefix map of a build reading no XCODE_XCCONFIG_FILE' })
         .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
     file: Schema.String.annotate({ description: 'File the lcov report is written to' }),
-}).annotate({ description: 'lcov report written once every invocation passes: the profiles matching profiles merge with xcrun llvm-profdata merge, then export over objects and the targets of each matching result bundle with xcrun llvm-cov export' });
+}).annotate({ description: 'lcov report written once every invocation passes: the profiles matching profiles merge with xcrun llvm-profdata merge, then export over objects and the targets of each matching result bundle with xcrun llvm-cov export, sources named from the workspace root' });
 const Covered = Schema.fromJsonString(Schema.Array(Schema.Struct({ buildProductPath: Schema.String })));
 class Run extends Schema.Opaque<Run, unknown>()(
     Schema.Struct({
@@ -35,23 +41,25 @@ const configured = Config.map(Config.withDefault(Config.Int('GIT_CONFIG_COUNT'),
 
 const matched = (patterns: readonly string[], root: string) => Effect.promise(() => globalThis.Array.fromAsync(glob(patterns, { cwd: root }), (at) => resolve(root, at)));
 
-const lcov = Effect.fnUntraced(function* ({ profiles, objects, results }: NonNullable<Run['report']>, root: string) {
+const lcov = Effect.fnUntraced(function* ({ profiles, objects, results, built }: NonNullable<Run['report']>, root: string) {
     const fs = yield* FileSystem.FileSystem;
     const written = yield* Effect.filterOrFail(matched(profiles, root), Array.isReadonlyArrayNonEmpty, () => new Cause.UnknownError(profiles, `No profile matches ${profiles.join(' or ')} after the invocations`));
     const reported = Effect.flatMap(matched(results, root), (bundles) => Effect.forEach(bundles, (bundle) => Effect.flatMap(spawned(['xcrun', 'xccov', 'view', '--report', '--only-targets', '--json', bundle], { cwd: root }), Schema.decodeEffect(Covered))));
     const instrumented = yield* Effect.filterOrFail(
-        Effect.map(reported, (targets) => Array.dedupe([...objects, ...targets.flat().map(({ buildProductPath }) => buildProductPath)])),
+        Effect.flatMap(reported, (targets) => Effect.filter(Array.dedupe([...objects, ...targets.flat().map(({ buildProductPath }) => buildProductPath)]), (at) => fs.exists(resolve(root, at)))),
         Array.isReadonlyArrayNonEmpty,
         () => new Cause.UnknownError(results, `No instrumented binary is stated or reported by a result bundle matching ${results.join(' or ')} after the invocations`),
     );
     const merged = join(yield* fs.makeTempDirectoryScoped(), 'merged.profdata');
     yield* spawned(['xcrun', 'llvm-profdata', 'merge', '--sparse', `--output=${merged}`, ...written], { cwd: root });
-    return yield* spawned(['xcrun', 'llvm-cov', 'export', '--format=lcov', `--instr-profile=${merged}`, ...instrumented.flatMap((object) => ['--object', object])], { cwd: root });
+    const ignored = built.map((folder) => `--ignore-filename-regex=^${RegExp.escape(folder)}/`);
+    return yield* spawned(['xcrun', 'llvm-cov', 'export', '--format=lcov', '--compilation-dir=.', '--skip-functions', ...ignored, `--instr-profile=${merged}`, ...instrumented.flatMap((object) => ['--object', object])], { cwd: root });
 }, Effect.scoped);
 
 const commands = Effect.fnUntraced(function* ({ runs, applications = [], report, dryRun: dry = false, __unparsed__: words = [] }: Run, root: string) {
     const [fs, spawner, stated] = yield* Effect.all([FileSystem.FileSystem, ChildProcessSpawner.ChildProcessSpawner, configured]);
     const reported = Option.filter(Option.fromUndefinedOr(report), () => !dry);
+    const appended = [...Array.match(report?.mapping ?? [], { onEmpty: () => [], onNonEmpty: (given) => [...given, `${root}/=`] }), ...words];
     const cleared = Record.map(
         Record.filter(env, (_, name) => name.startsWith('NX_') || name === 'LERNA_PACKAGE_NAME'),
         Function.constUndefined,
@@ -63,7 +71,7 @@ const commands = Effect.fnUntraced(function* ({ runs, applications = [], report,
         (): boolean => true,
         (passed, invocation) =>
             passed && !dry
-                ? Effect.map(spawner.exitCode(ChildProcess.make(Array.headNonEmpty(invocation), Array.appendAll(Array.tailNonEmpty(invocation), words), { cwd: root, env: { ...cleared, ...stated }, extendEnv: true, detached: false, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' })), (code) => code === 0)
+                ? Effect.map(spawner.exitCode(ChildProcess.make(Array.headNonEmpty(invocation), Array.appendAll(Array.tailNonEmpty(invocation), appended), { cwd: root, env: { ...cleared, ...stated }, extendEnv: true, detached: false, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' })), (code) => code === 0)
                 : Effect.as(dry ? Effect.logInfo(`Would run ${CommandLine.display(invocation)}`) : Effect.void, passed),
     );
     yield* Effect.transposeOption(

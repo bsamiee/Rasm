@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, realpathSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, matchesGlob, relative, resolve } from 'node:path';
 import { env } from 'node:process';
 import { createDependencies, createNodes } from '@rasm/nx-apple';
@@ -32,6 +33,9 @@ const PACKAGES = {
     'libs/tests/CoreTests/CoreTests.swift': 'import Core\nimport Testing\n\n@Test func oneIsOne() { #expect(one() == 1) }\n',
     'packages/kit/Package.swift': `${TOOLS}let package = Package(name: "KitPackage", products: [.executable(name: "Kit", targets: ["Kit"])], targets: [.executableTarget(name: "Kit")])\n`,
     'packages/kit/Sources/Kit/main.swift': 'print("kit")\n',
+    'packages/gauge/Package.swift': `${TOOLS}let package = Package(name: "Gauge", platforms: [.macOS(.v27)], targets: [.target(name: "Gauge"), .testTarget(name: "GaugeTests", dependencies: ["Gauge"])])\n`,
+    'packages/gauge/Sources/Gauge/Gauge.swift': 'public func three() -> Int { 3 }\n',
+    'packages/gauge/Tests/GaugeTests/GaugeTests.swift': 'import Gauge\nimport Testing\n\n@Test func threeIsThree() { #expect(three() == 3) }\n',
     'packages/consumer/Package.swift': `${TOOLS}let package = Package(name: "Consumer", dependencies: [.package(path: "../kit")], targets: [.executableTarget(name: "Consumer")])\n`,
     'packages/consumer/Sources/Consumer/main.swift': 'print("consumer")\n',
     'packages/remote/Package.swift': `${TOOLS}let package = Package(name: "Remote", dependencies: [.package(url: "https://github.com/apple/swift-argument-parser", from: "1.5.0")], targets: [.executableTarget(name: "Remote", dependencies: [.product(name: "ArgumentParser", package: "swift-argument-parser")])])\n`,
@@ -101,9 +105,14 @@ const compiledBy =
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+const cache = join(homedir(), 'Library/Caches/rasm');
+mkdirSync(cache, { recursive: true });
+vi.stubEnv('TMPDIR', cache);
+
 const it = nx.extend('fixture', { scope: 'file' }, async ({ fileWorkspace }) => {
+    vi.unstubAllEnvs();
     vi.stubEnv('XCODE_XCCONFIG_FILE', join(fileWorkspace.root, SHARED));
-    const graph = await fileWorkspace.write({ ...PACKAGES, ...XCODE, [SHARED]: 'SWIFT_TREAT_WARNINGS_AS_ERRORS = NO\n' }).graph({ createNodes, createDependencies }, { outputPath: 'dist' });
+    const graph = await fileWorkspace.write({ ...PACKAGES, ...XCODE, [SHARED]: 'SWIFT_TREAT_WARNINGS_AS_ERRORS = NO\n' }).graph({ createNodes, createDependencies }, { outputPath: 'dist', coveragePath: 'coverage/{projectName}' });
     vi.unstubAllEnvs();
     const fetched = ['packages/remote/Package.resolved', 'packages/remote/.build/workspace-state.json', 'packages/remote/.build/checkouts'].filter((at) => existsSync(join(fileWorkspace.root, at)));
     const described = await Effect.runPromise(Effect.forEach(['packages/consumer', 'packages/kit'], (folder) => Effect.map(Schema.decodeEffect(Described)(execFileSync('swift', ['package', '--package-path', folder, 'describe', '--type', 'json'], { cwd: fileWorkspace.root, encoding: 'utf-8' })), compiledBy(folder))));
@@ -120,6 +129,7 @@ describe('SwiftPM packages as swift package describe reports them', () => {
             'Consumer@packages/consumer',
             'Core@libs/Core',
             'Fixture-Package@Fixture.xcworkspace',
+            'Gauge@packages/gauge',
             'Kit@packages/kit/Sources/Kit',
             'KitPackage@packages/kit',
             'Loose@libs/Loose',
@@ -309,16 +319,29 @@ describe('a package a workspace scheme lists', () => {
             Viewer: [{ projects: ['Fixture-Package'], target: 'upgrade--swift-package', params: 'forward' }],
         });
     });
+});
 
-    it('passes every test the scheme lists through the run executor', async ({ fixture: { root, graph, workspace }, onTestFinished }) => {
+describe('coverage reports', () => {
+    it.for([
+        { route: 'swift test of a SwiftPM package', project: 'Gauge', target: 'test--swift', report: 'coverage/Gauge/lcov.info', sources: ['packages/gauge/Sources/Gauge/Gauge.swift', 'packages/gauge/Tests/GaugeTests/GaugeTests.swift'] },
+        { route: 'xcodebuild test of every test the workspace scheme lists', project: 'Fixture-Package', target: 'test--xcodebuild', report: 'coverage/Fixture-Package/lcov.info', sources: ['libs/Core/Core.swift', 'libs/tests/CoreTests/CoreTests.swift'] },
+    ])('writes the lcov report of $route naming its own sources alone by their paths from the workspace root, with no function record', async ({ project, target, report, sources }, { fixture: { root, graph, workspace }, onTestFinished }) => {
         vi.stubEnv('CFFIXED_USER_HOME', root);
         onTestFinished(() => {
             vi.unstubAllEnvs();
         });
 
-        const { success } = await execute(await targetOptions(Run, graph, 'Fixture-Package', 'test--xcodebuild'), workspace.context(graph, 'Fixture-Package', 'test--xcodebuild'));
+        const { success } = await execute(await targetOptions(Run, graph, project, target, 'coverage'), workspace.context(graph, project, target, 'coverage'));
 
-        expect(success).toBe(true);
+        const written = readFileSync(join(root, report), 'utf-8');
+        const rows = written.split('\n');
+        expect({ success, outputs: outputs(graph, project, target, 'coverage'), sources: rows.filter((row) => row.startsWith('SF:')).toSorted(), functions: rows.filter((row) => /^FN(?:DA)?:/u.test(row)), machine: written.includes(root) }).toStrictEqual({
+            success: true,
+            outputs: [report],
+            sources: sources.map((file) => `SF:${file}`),
+            functions: [],
+            machine: false,
+        });
     });
 });
 
