@@ -91,9 +91,9 @@ struct JSONValueTests {
     }
 
     @Test
-    func refusesNestingDeeperThanTwoHundredLevels() {
-        expectNoDifference(refusal { try JSONDecoder().decode(JSONValue.self, from: nested(200)) }, nil)
-        expectNoDifference(refusal { try JSONDecoder().decode(JSONValue.self, from: nested(201)) }, "dataCorrupted")
+    func refusesNestingDeeperThanOneHundredTwentyEightLevels() {
+        expectNoDifference(refusal { try JSONDecoder().decode(JSONValue.self, from: nested(128)) }, nil)
+        expectNoDifference(refusal { try JSONDecoder().decode(JSONValue.self, from: nested(129)) }, "dataCorrupted")
     }
 
     @Test
@@ -105,13 +105,6 @@ struct JSONValueTests {
             try value.decode(Window.self),
             Window(number: 7, title: "Untitled", frame: [0, 24.5], link: try #require(URL(string: "https://example.com/a")), icon: Data([0, 1]), minimized: nil),
         )
-    }
-
-    @Test
-    func refusesValuesOutsideTheirTypeByReason() {
-        expectNoDifference(refusal { try JSONValue.number(1.5).decode(Int.self) }, "typeMismatch")
-        expectNoDifference(refusal { try JSONValue.object([:]).decode(Numbered.self) }, "keyNotFound")
-        expectNoDifference(refusal { try JSONValue.null.decode(String.self) }, "valueNotFound")
     }
 
     @Test

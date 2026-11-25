@@ -25,10 +25,7 @@ extension JSONEncoder {
     public static var lines: JSONEncoder {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        encoder.dateEncodingStrategy = .custom { date, target in
-            var value = target.singleValueContainer()
-            try value.encode(date.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true)))
-        }
+        encoder.dateEncodingStrategy = .custom { date, target in try date.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true)).encode(to: target) }
         return encoder
     }
 

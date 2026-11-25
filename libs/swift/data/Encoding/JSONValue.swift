@@ -1,3 +1,5 @@
+import Foundation
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 public enum JSONValue: Codable, Hashable, Sendable {
@@ -9,59 +11,35 @@ public enum JSONValue: Codable, Hashable, Sendable {
     case object([String: Self])
 
     public init(from decoder: any Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        if container.decodeNil() {
-            self = .null
-        } else if let flag = try Self.unlessMismatched({ try container.decode(Bool.self) }) {
-            self = .bool(flag)
-        } else if let number = try Self.unlessMismatched({ try container.decode(Double.self) }) {
-            self = .number(number)
-        } else if let text = try Self.unlessMismatched({ try container.decode(String.self) }) {
-            self = .string(text)
-        } else if var elements = try Self.unlessMismatched(decoder.unkeyedContainer) {
-            try Self.checkNesting(at: decoder.codingPath)
-            var decoded: [Self] = []
-            while !elements.isAtEnd { decoded.append(try Self(from: elements.superDecoder())) }
-            self = .array(decoded)
-        } else {
-            try Self.checkNesting(at: decoder.codingPath)
-            self = .object(try container.decode([String: Self].self))
+        guard decoder.codingPath.count < 128 else {
+            throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "JSON nests deeper than 128 levels"))
         }
+        let container = try decoder.singleValueContainer()
+        self =
+            if container.decodeNil() {
+                .null
+            } else {
+                try Self.unlessMismatched { Self.bool(try container.decode(Bool.self)) } ?? Self.unlessMismatched { Self.number(try container.decode(Double.self)) }
+                    ?? Self.unlessMismatched { Self.string(try container.decode(String.self)) } ?? Self.unlessMismatched { Self.array(try container.decode([Self].self)) }
+                    ?? Self.object(try container.decode([String: Self].self))
+            }
     }
 
-    private static func unlessMismatched<Value>(_ read: () throws -> Value) throws -> Value? {
+    private static func unlessMismatched(_ read: () throws -> Self) throws -> Self? {
         do { return try read() } catch DecodingError.typeMismatch { return nil }
     }
 
-    private static func checkNesting(at path: [any CodingKey]) throws(DecodingError) {
-        guard path.count < 200 else {
-            throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: path, debugDescription: "JSON nests deeper than 200 levels"))
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+            case .null: try container.encodeNil()
+            case .bool(let flag): try container.encode(flag)
+            case .number(let number): try container.encode(number)
+            case .string(let text): try container.encode(text)
+            case .array(let elements): try container.encode(elements)
+            case .object(let fields): try container.encode(fields)
         }
     }
 
-    public func encode(to encoder: any Encoder) throws {
-        switch self {
-            case .null:
-                var container = encoder.singleValueContainer()
-                try container.encodeNil()
-            case .bool(let flag): try flag.encode(to: encoder)
-            case .number(let number): try number.encode(to: encoder)
-            case .string(let text): try text.encode(to: encoder)
-            case .array(let elements):
-                var container = encoder.unkeyedContainer()
-                for element in elements {
-                    switch element {
-                        case .null: try container.encodeNil()
-                        case .bool(let flag): try container.encode(flag)
-                        case .number(let number): try container.encode(number)
-                        case .string(let text): try container.encode(text)
-                        case .array: try element.encode(to: container.superEncoder())
-                        case .object(let fields): try container.encode(fields)
-                    }
-                }
-            case .object(let fields):
-                var container = encoder.singleValueContainer()
-                try container.encode(fields)
-        }
-    }
+    public func decode<Value: Decodable>(_: Value.Type = Value.self) throws -> Value { try JSONDecoder().decode(Value.self, from: JSONEncoder().encode(self)) }
 }

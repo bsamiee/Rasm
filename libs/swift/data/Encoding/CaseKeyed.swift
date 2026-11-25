@@ -22,8 +22,5 @@ extension CaseKeyed {
 extension CaseLabeled {
     public var caseLabel: String { Mirror(reflecting: self).children.first?.label ?? String(describing: self) }
 
-    public func encode(to encoder: any Encoder) throws {
-        var label = encoder.singleValueContainer()
-        try label.encode(caseLabel)
-    }
+    public func encode(to encoder: any Encoder) throws { try caseLabel.encode(to: encoder) }
 }
