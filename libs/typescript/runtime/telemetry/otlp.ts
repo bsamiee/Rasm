@@ -22,16 +22,16 @@ const severityNumber = Match.type<LogLevel.LogLevel>().pipe(
     Match.orElse((severity) => SeverityNumber[String.toUpperCase(severity)]),
 );
 const scope = (fiber: Fiber.Fiber<unknown, unknown>) => Option.flatMap(Context.getOption(fiber.context, Tracer.ParentSpan), Match.valueTags({ Span: (span) => Option.some(span.name), ExternalSpan: () => Option.none<string>() }));
-const formatLogRecord = (resource?: Record.ReadonlyRecord<string, unknown>) =>
+const formatLogRecord = (resource: NonNullable<Parameters<typeof layerOtlp>[0]>) =>
     Logger.make(({ cause, date, fiber, logLevel, message }: Logger.Options<unknown>) => {
         const errors = Cause.prettyErrors(cause, { includeCauseInStack: true });
         const text = Array.map(Array.ensure(message), (part) => (Predicate.isString(part) ? part : Formatter.format(part)));
-        return {
+        return Formatter.formatJson({
             timestamp: String.replace('Z', '000Z')(date.toISOString()),
             severity_text: String.toUpperCase(logLevel),
             severity_number: severityNumber(logLevel),
             body: (Array.isReadonlyArrayNonEmpty(text) ? text : Array.map(errors, Struct.get('message'))).join(' '),
-            ...UndefinedOr.map(Option.getOrUndefined(scope(fiber)) ?? resource?.[ATTR_SERVICE_NAME], (name) => ({ scope: name })),
+            ...UndefinedOr.map(Option.getOrUndefined(scope(fiber)) ?? resource.serviceName, (name) => ({ scope: name })),
             ...UndefinedOr.map(Context.getOrUndefined(fiber.context, Tracer.ParentSpan), (span) => ({ trace_id: span.traceId, span_id: span.spanId, trace_flags: span.sampled ? '01' : '00' })),
             attributes: {
                 ...fiber.getRef(References.CurrentLogAnnotations),
@@ -39,8 +39,8 @@ const formatLogRecord = (resource?: Record.ReadonlyRecord<string, unknown>) =>
                 ...(Array.isReadonlyArrayNonEmpty(errors) ? { [ATTR_EXCEPTION_TYPE]: errors[0].name, [ATTR_EXCEPTION_MESSAGE]: errors[0].message, [ATTR_EXCEPTION_STACKTRACE]: Array.map(errors, (error) => error.stack ?? error.message).join('\n') } : {}),
                 ...(LogLevel.isGreaterThanOrEqualTo(logLevel, 'Warn') ? UndefinedOr.map(fiber.getRef(References.CurrentStackFrame), (frame) => ({ [ATTR_CODE_FUNCTION_NAME]: frame.name, [ATTR_CODE_STACKTRACE]: frame.stack() })) : {}),
             },
-            ...(resource === undefined ? {} : { resource }),
-        };
+            resource: { [ATTR_SERVICE_NAME]: resource.serviceName, [ATTR_SERVICE_VERSION]: resource.serviceVersion, ...resource.attributes },
+        });
     });
 const errorReporter = ErrorReporter.make(({ error, severity, attributes, fiber }) => Effect.runSyncWith(fiber.context)(Effect.annotateLogs(Effect.logWithLevel(Predicate.hasProperty(error, ErrorReporter.severity) ? severity : 'Error')(Cause.fail(error)), attributes)));
 
@@ -64,11 +64,7 @@ const layerOtlp = (resource?: NonNullable<Parameters<typeof Otlp.layerFromConfig
     );
 
 const layer = (resource: NonNullable<Parameters<typeof layerOtlp>[0]> = {}) =>
-    Layer.mergeAll(
-        Logger.layer([Logger.withLeveledConsole(Logger.map(formatLogRecord({ [ATTR_SERVICE_NAME]: resource.serviceName, [ATTR_SERVICE_VERSION]: resource.serviceVersion }), Formatter.formatJson))], { mergeWithExisting: true }).pipe(Layer.provide(layerWithoutDefaultLogger)),
-        ErrorReporter.layer([errorReporter], { mergeWithExisting: true }),
-        layerOtlp(resource),
-    );
+    Layer.mergeAll(Logger.layer([Logger.withLeveledConsole(formatLogRecord(resource))], { mergeWithExisting: true }).pipe(Layer.provide(layerWithoutDefaultLogger)), ErrorReporter.layer([errorReporter], { mergeWithExisting: true }), layerOtlp(resource));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

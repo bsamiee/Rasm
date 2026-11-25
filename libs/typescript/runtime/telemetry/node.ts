@@ -6,11 +6,9 @@ import { layerGlobal, makeExternalSpan, OtelTraceState } from '@effect/opentelem
 import { configToAttributes, layerEmpty } from '@effect/opentelemetry/Resource';
 import { type DiagLogger, DiagLogLevel, diag, logs, propagation, ROOT_CONTEXT, TraceFlags, trace } from '@opentelemetry/api';
 import { CompositePropagator, diagLogLevelFromString, getStringFromEnv, W3CBaggagePropagator, W3CTraceContextPropagator } from '@opentelemetry/core';
-import type { Instrumentation } from '@opentelemetry/instrumentation';
 import { EnvironmentGetter, EnvironmentSetter } from '@opentelemetry/propagator-env-carrier';
-import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { ATTR_PROCESS_PID } from '@opentelemetry/semantic-conventions/incubating';
-import { Array, Cause, Config, Context, Effect, ErrorReporter, Exit, Formatter, type Function, flow, Layer, Logger, LogLevel, Match, Metric, MutableRef, Option, Predicate, Record, Ref, Runtime, Schema, SchemaTransformation, String, Struct, Tracer, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Context, Effect, ErrorReporter, Exit, Formatter, flow, Layer, Logger, LogLevel, Match, Metric, MutableRef, Option, Predicate, Record, Ref, Runtime, Schema, SchemaTransformation, String, Struct, Tracer, UndefinedOr } from 'effect';
 import envPaths from 'env-paths';
 import { createStream, type FileSize, type Interval, type OptionsWithoutRotate } from 'rotating-file-stream';
 import { errorReporter, exporters, formatLogRecord, layerMinimumLogLevels, layerWithoutDefaultLogger } from '#/otlp';
@@ -88,7 +86,7 @@ const toRotatingFile = Effect.fnUntraced(function* <Message>(self: Logger.Logger
                     }),
             catch: TelemetryError.of('Refused', `rotation options of ${filename}`),
         }),
-        (rotated) => Effect.ignore(Effect.tryPromise({ try: () => finished(rotated.end()), catch: TelemetryError.of('Unavailable', `log flush of ${filename}`) })),
+        (rotated) => Effect.ignore(Effect.tryPromise({ try: () => finished(rotated.end()), catch: TelemetryError.of('Unavailable', filename) })),
     );
     return Logger.make((entry: Logger.Options<Message>) => {
         const line = `${self.log(entry)}\n`;
@@ -103,14 +101,10 @@ const metricReader = Effect.gen(function* () {
     const { makeProducer } = yield* Effect.promise(() => import('@effect/opentelemetry/OtelMetrics'));
     return new PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter(), metricProducers: [yield* makeProducer()], ...Record.getSomes(timing) });
 }).pipe(Effect.provide(layerEmpty));
-const started = Effect.fnUntraced(function* (named: Config.Success<typeof exporters>, resource: Parameters<typeof configToAttributes>[0], instrumentations?: Function.LazyArg<Instrumentation[]>) {
+const started = Effect.fnUntraced(function* (named: Config.Success<typeof exporters>, resource: Parameters<typeof configToAttributes>[0]) {
     const local = yield* Effect.context<never>();
     const { startNodeSdk } = yield* Effect.promise(() => import('@opentelemetry/sdk-node'));
-    const instrumented = yield* UndefinedOr.match(instrumentations, {
-        onDefined: Effect.sync,
-        onUndefined: () =>
-            Effect.map(Effect.all([Effect.promise(() => import('@opentelemetry/instrumentation-runtime-node')), Effect.promise(() => import('@opentelemetry/instrumentation-host-metrics'))]), ([runtime, host]): Instrumentation[] => [new runtime.RuntimeNodeInstrumentation(), new host.HostMetricsInstrumentation()]),
-    });
+    const [{ RuntimeNodeInstrumentation }, { HostMetricsInstrumentation }] = yield* Effect.all([Effect.promise(() => import('@opentelemetry/instrumentation-runtime-node')), Effect.promise(() => import('@opentelemetry/instrumentation-host-metrics'))]);
     const diagnostics = Record.map(DIAGNOSTICS, (severity) => flow(Effect.logWithLevel(severity), Effect.runSyncWith(local)<void, never>));
     const level = diagLogLevelFromString(getStringFromEnv('OTEL_LOG_LEVEL')) ?? DiagLogLevel.WARN;
     const metrics = yield* Match.value(named.metrics).pipe(
@@ -121,7 +115,7 @@ const started = Effect.fnUntraced(function* (named: Config.Success<typeof export
     const options = {
         logLevel: DiagLogLevel[Math.min(level, DiagLogLevel.WARN)],
         resourceAttributes: configToAttributes(resource),
-        instrumentations: instrumented,
+        instrumentations: [new RuntimeNodeInstrumentation(), new HostMetricsInstrumentation()],
         ...metrics,
         ...(Array.isReadonlyArrayEmpty(named.traces) ? { spanProcessors: [] } : {}),
         ...(Array.isReadonlyArrayEmpty(named.logs) ? { logRecordProcessors: [] } : {}),
@@ -137,14 +131,14 @@ const layerFromEnvironment = Effect.sync(() => propagator.extract(ROOT_CONTEXT, 
     Effect.map((context) => Layer.merge(UndefinedOr.match(trace.getSpanContext(context), { onUndefined: () => Layer.empty, onDefined: flow(makeExternalSpan, Layer.parentSpan) }), Layer.succeed(Baggage, propagation.getBaggage(context)))),
     Layer.unwrap,
 );
-const layerNodeSdk = Effect.fnUntraced(function* (resource: Parameters<typeof started>[1], instrumentations?: Function.LazyArg<Instrumentation[]>) {
+const layerNodeSdk = Effect.fnUntraced(function* (resource: Parameters<typeof started>[1]) {
     const named = yield* exporters;
     const logged = Effect.all([Effect.promise(() => import('@opentelemetry/sdk-logs')), Effect.promise(() => import('@effect/opentelemetry/OtelLogger'))]).pipe(
         Effect.map(([{ LoggerProvider }, { layer, OtelLoggerProvider }]) => Option.match(Option.liftPredicate(logs.getLoggerProvider(), Schema.is(Schema.instanceOf(LoggerProvider))), { onNone: () => Layer.empty, onSome: (provider) => Layer.provide(layer({}), Layer.succeed(OtelLoggerProvider, provider)) })),
         Layer.unwrap,
     );
     const bridged = Layer.mergeAll(Array.isReadonlyArrayEmpty(named.traces) ? Layer.empty : layerGlobal, Array.isReadonlyArrayEmpty(named.metrics) ? Layer.empty : Metric.enableRuntimeMetricsLayer, logged);
-    return Object.values(named).every(Array.isReadonlyArrayEmpty) ? Layer.empty : Layer.provide(bridged, Layer.effectDiscard(started(named, resource, instrumentations)));
+    return Object.values(named).every(Array.isReadonlyArrayEmpty) ? Layer.empty : Layer.provide(bridged, Layer.effectDiscard(started(named, resource)));
 }, Layer.unwrap);
 const layerUncaughtExceptionMonitor = Effect.gen(function* () {
     const services = yield* Effect.context<never>();
@@ -157,10 +151,10 @@ const layerUncaughtExceptionMonitor = Effect.gen(function* () {
 const layerErrorReported = Effect.addFinalizer((exit) =>
     Exit.isFailure(exit) && !interrupted(exit) ? Effect.logError(exit.cause).pipe(Effect.andThen(Effect.sync(() => Option.map(Option.liftPredicate(Cause.squash(exit.cause), Predicate.isObject), (error) => Object.assign(error, { [Runtime.errorReported]: false }))))) : Effect.void,
 ).pipe(Layer.effectDiscard);
-const layerNode = ({ resource, file, instrumentations }: { readonly resource: Parameters<typeof layerNodeSdk>[0]; readonly file?: readonly [filename: string, options: OptionsWithoutRotate<Interval, FileSize, FileSize>]; readonly instrumentations?: Function.LazyArg<Instrumentation[]> }) => {
-    const json = Logger.map(formatLogRecord({ [ATTR_SERVICE_NAME]: resource.serviceName, [ATTR_SERVICE_VERSION]: resource.serviceVersion, [ATTR_PROCESS_PID]: process.pid }), Formatter.formatJson);
+const layerNode = ({ resource, file }: { readonly resource: Parameters<typeof layerNodeSdk>[0]; readonly file?: readonly [filename: string, options: OptionsWithoutRotate<Interval, FileSize, FileSize>] }) => {
+    const json = formatLogRecord({ ...resource, attributes: { [ATTR_PROCESS_PID]: process.pid } });
     return Layer.merge(layerUncaughtExceptionMonitor, layerErrorReported).pipe(
-        Layer.provideMerge(layerNodeSdk(resource, instrumentations)),
+        Layer.provideMerge(layerNodeSdk(resource)),
         Layer.provideMerge([
             Logger.layer(file === undefined ? [Logger.withConsoleError(json)] : [toRotatingFile(json, ...file), stderrWarnings], { mergeWithExisting: true }).pipe(Layer.provide(layerWithoutDefaultLogger)),
             ErrorReporter.layer([errorReporter], { mergeWithExisting: true }),
