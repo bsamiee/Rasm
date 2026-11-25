@@ -22,7 +22,7 @@
         "max-params": ["error", { "max": 10 }],
         "max-statements": "off", // Counts push one-caller helper extraction CLAUDE.md forbids
         "new-cap": ["error", { "capIsNew": false }],
-        "no-bitwise": ["error", { "allow": ["&"] }],
+        "no-bitwise": "off", // Flags the operators that binary formats and shell arithmetic are defined in
         "no-magic-numbers": "off", // Constants stay only where they remove logic, CLAUDE.md
         "no-param-reassign": ["error", { "props": true }],
         "no-redeclare": "off", // Flags value and type pairs of one name, `tsc` reports redeclarations
