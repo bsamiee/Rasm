@@ -1,5 +1,5 @@
 import { dial, listen } from '@rasm/rpc';
-import { Array, Context, Duration, Effect, Layer, Record, Ref, Schema, Stream, Struct } from 'effect';
+import { Array, Context, Duration, Effect, type Layer, Record, Ref, Schema, Stream, Struct } from 'effect';
 import { McpSchema, McpServer, type Tool, type Toolkit } from 'effect/ai';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { Server } from '#/server';
@@ -41,7 +41,7 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
             typeof application === 'string' ? application === name : application.href === url.href;
     static readonly dial = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rpcs>, handlers: Layer.Layer<H, EH, RH>, url: URL, peer: Effect.Effect<Link, E, R>) =>
         dial(Link.Rpcs.merge(group), handlers, { url: new URL(PATH, url), redial: REDIAL, peer: Effect.flatMap(peer, (identity) => Effect.orDie(Schema.encodeEffect(Link)(Link.make({ ...identity, requests: group.requests.keys().toArray() })))) });
-    static readonly listen = <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>, origin: string) => listen(Link.Rpcs.merge(group), { path: PATH, origin, peer: Link, key: Link.key, middleware: Layer.empty });
+    static readonly listen = <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>, origin: string) => listen(Link.Rpcs.merge(group), { path: PATH, origin, peer: Link, key: Link.key });
     static readonly serve = <Served extends Record.ReadonlyRecord<string, Tool.Any>, R = never>(toolkit: Toolkit.Toolkit<Served>, { notices = Stream.empty }: { readonly notices?: Stream.Stream<typeof Link.Notice.Type, never, R> } = {}) =>
         Link.Rpcs.toLayer(
             Effect.gen(function* () {

@@ -25,7 +25,7 @@ const Closed = Schema.Tuple([Schema.Struct({ code: Schema.Int })]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const linked = listen(Asked, { path: PATH, origin: ORIGIN, peer: Peer, key: Struct.get('name'), middleware: Layer.empty });
+const linked = listen(Asked, { path: PATH, origin: ORIGIN, peer: Peer, key: Struct.get('name') });
 const listening = Effect.fnUntraced(function* (port: number) {
     const ready = yield* Deferred.make<Effect.Success<typeof linked>>();
     const routes = Layer.effectDiscard(Effect.flatMap(linked, (links) => Deferred.succeed(ready, links)));
