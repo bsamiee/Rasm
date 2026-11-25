@@ -66,7 +66,7 @@ const compile = Effect.fnUntraced(function* (body: string, scriptPlan: Plan) {
     return { code, label, direct: scriptPlan.direct(code, label), declared: scriptPlan.declared, relined: reline((line) => Option.map(original(line - scriptPlan.offset), (entry) => entry.line - 1)) };
 });
 const route = Effect.fnUntraced(
-    function* <E, R>(terms: (target: Pick<Application, 'url'>) => Effect.Effect<Pick<ScriptingDictionary, 'script'>, E, R>, { url, product, version }: Pick<Application, 'url' | 'product' | 'version'>) {
+    function* <E, R>(readDictionary: (target: Pick<Application, 'url'>) => Effect.Effect<Pick<ScriptingDictionary, 'script'>, E, R>, { url, product, version }: Pick<Application, 'url' | 'product' | 'version'>) {
         const released = Option.flatMap(Option.fromNullishOr(RELEASE.exec(version)?.[0]), Schema.decodeOption(Schema.SemVerFromString));
         const plugged = Option.exists(Record.get(BY_PRODUCT, product), ({ runs, since }) => runs && Option.exists(released, (at) => SemVer.isGreaterThanOrEqualTo(at, since)));
         const unlinked = Option.liftPredicate<Route>({ _tag: 'Unlinked' }, () => plugged);
@@ -74,7 +74,7 @@ const route = Effect.fnUntraced(
         if (plugged && Option.isNone(uxpScript)) {
             return unlinked;
         }
-        const { script } = yield* terms({ url });
+        const { script } = yield* readDictionary({ url });
         const language = Option.flatMap(script, ({ parameters }) => Array.findFirst(parameters, ({ enumerators }) => Array.contains(Array.map(enumerators, Struct.get('code')), UxpManifest.scriptLanguage)));
         const around = Option.getOrElse(Option.map(Record.get(EXTENDSCRIPT, product), Struct.get('around')), () => String(<A>(_: unknown, body: () => A): A => body()));
         return Option.map(Option.all({ parameter: language, script: uxpScript }), ({ parameter: { name }, script: hostScript }): Route => ({ _tag: 'Uxp', parameter: name, script: hostScript })).pipe(
@@ -91,7 +91,7 @@ const scripts = Effect.fnUntraced(function* (links: { readonly peers: Effect.Eff
     const [server, rows, dictionaries, declarations] = yield* Effect.all([ApplicationServer, RegistryApplications, Ref.make<Record.ReadonlyRecord<string, Option.Option<Route>>>({}), Declarations]);
     const read = Effect.fnUntraced(function* (row: Application) {
         const known = Record.get(yield* Ref.get(dictionaries), row.url.href);
-        const fresh = Effect.tap(route(server.terms, row), (found) => Ref.update(dictionaries, Record.set(row.url.href, found)));
+        const fresh = Effect.tap(route(server.dictionary, row), (found) => Ref.update(dictionaries, Record.set(row.url.href, found)));
         return yield* Option.match(known, { onSome: Effect.succeed, onNone: () => fresh });
     });
     return Effect.fnUntraced(function* ({ row: { url, name }, live }: { readonly row: Entry; readonly live: InstanceSnapshot }, code: string) {

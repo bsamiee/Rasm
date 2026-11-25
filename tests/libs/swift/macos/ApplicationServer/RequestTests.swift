@@ -36,7 +36,7 @@ private struct Fixture: ~Copyable {
 }
 
 private let requests: [(String, [String: JSONValue])] = [
-    ("terms", [:]),
+    ("dictionary", [:]),
     ("launch", ["documents": .array([]), "arguments": .array([]), "environment": .object([:]), "new": .bool(true), "opening": .object([:]), "wait": .bool(false)]),
 ]
 
@@ -115,7 +115,7 @@ struct MatchingTests {
         let bundle = try Fixture()
         let cached = bundle.url.appending(components: "Contents", "Resources", "Cached.sdef")
         let (asked, ask) = AsyncStream<String>.makeStream()
-        let response = try await JSONDecoder().decode(Request.self, from: Data(#"{"terms":{"url":"\#(bundle.url.absoluteString)"}}"#.utf8))
+        let response = try await JSONDecoder().decode(Request.self, from: Data(#"{"dictionary":{"url":"\#(bundle.url.absoluteString)"}}"#.utf8))
             .perform(
                 matching: { NSPredicate(format: "kMDItemCFBundleIdentifier == %@", "app.rasm.fixture") },
                 dictionaries: ScriptingDictionaries(cachedDefinition: { installation in
@@ -127,7 +127,7 @@ struct MatchingTests {
         let identifiers = await asked.reduce(into: [String]()) { identifiers, identifier in identifiers.append(identifier) }
         expectNoDifference(identifiers, ["app.rasm.fixture"])
         guard case .value(let value?) = response else {
-            Issue.record("No terms value")
+            Issue.record("No dictionary value")
             return
         }
         let listing = try JSONDecoder().decode([String: JSONValue].self, from: JSONEncoder().encode(value))

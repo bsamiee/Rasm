@@ -122,7 +122,7 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
             ],
             { discard: true },
         );
-        const served = ApplicationRpcs.omit('nodes', 'handler', 'launch', 'act', 'quit', 'capture', 'preview', 'diagnostics');
+        const served = ApplicationRpcs.omit('element', 'handler', 'launch', 'act', 'quit', 'capture', 'preview', 'diagnostics');
         yield* Layer.build(
             RpcServer.layer(served).pipe(
                 Layer.provide([
@@ -131,7 +131,7 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
                         instances: () => Stream.concat(Stream.succeed(instances), Stream.never),
                         events: () => Stream.never,
                         pressure: () => Stream.never,
-                        terms: ({ url }) => Effect.orDie(Effect.fromNullishOr(dictionaries[url.href])),
+                        dictionary: ({ url }) => Effect.orDie(Effect.fromNullishOr(dictionaries[url.href])),
                         execute: (payload) => executing(executed, payload),
                     }),
                     RpcServer.layerProtocolSocketServer,

@@ -359,7 +359,7 @@ const ApplicationRpcs = RpcGroup.make(
     Rpc.make('instances', { payload: Identifiers, success: Schema.Array(InstanceSnapshot).annotate({ description: 'On subscribe and each change, exited instances kept until next change' }), stream: true }),
     Rpc.make('events', { payload: Identifiers, success: Event, stream: true }),
     Rpc.make('pressure', { success: Schema.Result(Pressure, Schema.ErrorInstance()).annotate({ description: 'On subscribe and each kernel change, or read error' }), stream: true }),
-    Rpc.make('nodes', {
+    Rpc.make('element', {
         payload: {
             instance: ProcessInstance,
             root: Schema.optionalKey(ElementID.annotate({ description: 'Element read, the application when absent' })),
@@ -372,7 +372,7 @@ const ApplicationRpcs = RpcGroup.make(
     Rpc.make('launch', { payload: Launch.fields, success: LaunchEvent, error: Failure, stream: true }),
     Rpc.make('act', { payload: { instance: ProcessInstance, ...Act.fields }, success: Act.Result, error: Failure }),
     Rpc.make('quit', { payload: { instance: ProcessInstance, mode: withDefault(QuitMode, 'asking') }, success: InstanceState.annotate({ description: 'Last state, a dialog or unresponsive instance stays running' }), error: Failure }),
-    Rpc.make('terms', { payload: { url: Schema.URL }, success: ScriptingDictionary, error: Failure }),
+    Rpc.make('dictionary', { payload: { url: Schema.URL }, success: ScriptingDictionary, error: Failure }),
     Rpc.make('execute', {
         payload: { instance: ProcessInstance, arguments: withDefault(Schema.Record(Schema.String, AppleEventValue).annotate({ description: 'Parameters of the script command by name or code, direct for direct parameter, accepts reply values' }), {}) },
         success: AppleEventValue.annotate({ description: 'Reply' }),

@@ -27,12 +27,12 @@ public enum Request: Decodable, Sendable {
     case instances(identifiers: [String])
     case events(identifiers: [String])
     case pressure
-    case nodes(instance: ProcessInstance, root: Element.ID?, depth: Int)
+    case element(instance: ProcessInstance, root: Element.ID?, depth: Int)
     case handler(document: URL)
     case launch(url: URL, documents: [URL], arguments: [String], environment: [String: String], new: Bool, opening: [String: AppleEventValue], wait: Bool)
     case act(instance: ProcessInstance, actions: [ElementAction])
     case quit(instance: ProcessInstance, mode: Instance.QuitMode)
-    case terms(url: URL)
+    case dictionary(url: URL)
     case execute(instance: ProcessInstance, arguments: [String: AppleEventValue])
     case capture(instance: ProcessInstance, source: Source?, longestSide: LongestSide?)
     case preview(file: URL, longestSide: LongestSide)
@@ -117,7 +117,7 @@ extension Request {
                 return .stream(NSWorkspace.shared.instanceEvents(of: selection(of: identifiers, matching: matching)).map(\.self))
             case .pressure:
                 return .stream(SystemPressure.changes().map { pressure -> any Encodable & Sendable in Exit(pressure) })
-            case .nodes(let process, let root, let depth):
+            case .element(let process, let root, let depth):
                 return try await .value(instance(of: process, matching: matching).element(from: root, depth: depth))
             case .handler(let document):
                 return try .value(installation(at: Installation(opening: document).url, matching: matching))
@@ -146,7 +146,7 @@ extension Request {
                 var last: InstanceState?
                 for await outcome in instance.quit(mode, in: dictionary) { last = try outcome.get() }
                 return .value(last)
-            case .terms(let url):
+            case .dictionary(let url):
                 return try await .value(dictionaries.dictionary(of: installation(at: url, matching: matching)))
             case .execute(let process, let arguments):
                 guard let url = try instance(of: process, matching: matching).application.bundleURL else { throw ApplicationFailure(subject: process.rawValue, reason: .noPath) }

@@ -68,7 +68,7 @@ const served = Effect.fnUntraced(function* (product: string, executable: string,
         yield* Effect.forEach(Array.fromNullishOr(bundle.window), (title) => reported(bundle.identifier, pid, title), { discard: true });
         return yield* Effect.orDie(Schema.decodeEffect(Launch)({ launched: { pid, instance: row.instance, identifier: bundle.identifier, created: true } }));
     });
-    const fake = ApplicationRpcs.omit('nodes', 'handler', 'act', 'quit', 'terms', 'execute', 'capture', 'preview', 'diagnostics');
+    const fake = ApplicationRpcs.omit('element', 'handler', 'act', 'quit', 'dictionary', 'execute', 'capture', 'preview', 'diagnostics');
     yield* Layer.build(
         RpcServer.layer(fake).pipe(
             Layer.provide([

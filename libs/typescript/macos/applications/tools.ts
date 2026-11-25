@@ -153,7 +153,7 @@ const listEntry = (instances: readonly InstanceSnapshot[]) => (row: Entry) => ({
 });
 const runScript = Effect.fnUntraced(function* ({ row, live }: Parameters<Scripting<never, never>>[0], code: string) {
     const server = yield* ApplicationServer;
-    const { script, command } = yield* server.terms({ url: row.url });
+    const { script, command } = yield* server.dictionary({ url: row.url });
     yield* Effect.fromOption(script, () => Unmatched.of({ subject: `script command in the dictionary of ${row.name}`, candidates: command.map(Struct.get('name')) }));
     const reply = yield* server.execute({ instance: live.instance, arguments: { direct: code } });
     return { result: Option.some(yield* Schema.encodeEffect(Reply)(reply)) };
@@ -174,8 +174,8 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
 } = {}) {
     const [server, { catalog, running, target, setTarget, find, resolve, current, ends }, side, output, files, path, random] = yield* Effect.all([ApplicationServer, Workspace, Preview, Output, FileSystem.FileSystem, Path.Path, SecureRandom.SecureRandom]);
     const listInstallation = Effect.fnUntraced(function* (row: Entry, instances: readonly InstanceSnapshot[]) {
-        const [installations, terms] = yield* Effect.all([server.currentInstallations, Effect.option(Effect.tapError(server.terms({ url: row.url }), (cause) => Effect.logDebug('Scripting dictionary unread', cause)))]);
-        const launch = yield* Schema.encodeEffect(ApplicationListing)({ installation: Array.findFirst(installations, (each) => each.url.href === row.url.href), open: Option.flatMap(terms, Struct.get('open')) });
+        const [installations, dictionary] = yield* Effect.all([server.currentInstallations, Effect.option(Effect.tapError(server.dictionary({ url: row.url }), (cause) => Effect.logDebug('Scripting dictionary unread', cause)))]);
+        const launch = yield* Schema.encodeEffect(ApplicationListing)({ installation: Array.findFirst(installations, (each) => each.url.href === row.url.href), open: Option.flatMap(dictionary, Struct.get('open')) });
         return { ...listEntry(instances)(row), launch };
     });
     const list = Effect.fnUntraced(function* (given: string | undefined) {
@@ -299,7 +299,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
         describeTool(TOOLS.inspect, descriptions.inspect),
         Effect.fnUntraced(function* ({ id, depth = 1 }) {
             const { live } = yield* current;
-            return yield* server.nodes({ instance: live.instance, ...(id === undefined ? {} : { root: id }), depth });
+            return yield* server.element({ instance: live.instance, ...(id === undefined ? {} : { root: id }), depth });
         }),
     );
     yield* Server.registerTool(
