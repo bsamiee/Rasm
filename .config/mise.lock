@@ -1372,15 +1372,6 @@ checksum_source = "mise-versions"
 url = "https://github.com/pulumi/pulumi/releases/download/v3.276.0/pulumi-v3.276.0-windows-x64.zip"
 url_api = "https://api.github.com/repos/pulumi/pulumi/releases/assets/739645734"
 
-[[tools."pypi:check-jsonschema"]]
-version = "0.39.0"
-backend = "pypi:check-jsonschema"
-specifiers = ["latest"]
-uv = { path = "mise/locks/pypi-check-jsonschema/0.39.0~0066ecd7", digest = "sha256:90456934055b5d6da07ba321d825972202414b68cf879437dad94a04f588aac2" }
-
-[tools."pypi:check-jsonschema".options]
-python = "3.15"
-
 [[tools."pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp"]]
 version = "v1.0.3"
 backend = "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp"
@@ -1391,23 +1382,6 @@ version = "2.3.0"
 backend = "pypi:mcp-for-blender"
 specifiers = ["latest"]
 uv = { path = "mise/locks/pypi-mcp-for-blender/2.3.0", digest = "sha256:3fdc43b6d0ed639bda041e187b3683a6e7e0d7bca8326873cc38c5162d0af026" }
-
-[[tools.python]]
-version = "3.15.2"
-backend = "core:python"
-specifiers = ["3.15"]
-
-[tools.python."platforms.linux-x64"]
-checksum = "sha256:ad23d1b73fac26440b0306ae06911031344c49a90ec19716c8362e7fa40cae43"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.15.2+20261110-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
-
-[tools.python."platforms.macos-arm64"]
-checksum = "sha256:7e58607647b5b4832092a339ff1c55eeeccee128221232509b8fc8d27957065e"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.15.2+20261110-aarch64-apple-darwin-install_only_stripped.tar.gz"
-
-[tools.python."platforms.windows-x64"]
-checksum = "sha256:ecd90d78accb906e3d47f6cdb409a610da10475f94d15ebdd8cb2e0561b71df6"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.15.2+20261110-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
 
 [[tools.resvg]]
 version = "0.50.0"

@@ -119,27 +119,6 @@ steps {
       effect = "read"
     }
   }
-  ["issue-config"] {
-    glob = ".github/ISSUE_TEMPLATE/config.yml"
-    check = new CommandSpec {
-      command = new Command {
-        argv =
-          List("check-jsonschema", "--builtin-schema", "vendor.github-issue-config", "{{files}}")
-      }
-      effect = "read"
-    }
-  }
-  ["issue-forms"] {
-    glob = ".github/ISSUE_TEMPLATE/*.yml"
-    exclude = ".github/ISSUE_TEMPLATE/config.yml"
-    check = new CommandSpec {
-      command = new Command {
-        argv =
-          List("check-jsonschema", "--builtin-schema", "vendor.github-issue-forms", "{{files}}")
-      }
-      effect = "read"
-    }
-  }
   ["jactionlint"] = (Builtins.jactionlint) {
     local jactionlint = List("jactionlint", "--strict-exit")
     depends = "ast-grep"

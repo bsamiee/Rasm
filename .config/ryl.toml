@@ -37,3 +37,13 @@ tags           = { forbid-removed-types = true, forbid-unsafe-tags = true }     
 
 schema-dependent-values = { forbid-single-letter-booleans = false } # ast-grep reads metavariable keys (`Y`) as YAML 1.2 strings
 truthy                  = { check-keys = false }                    # GitHub Actions reads the `on` key by name
+
+# --- [SCHEMAS]
+
+[[lint.rules.schema.schemas]]
+files = [".github/ISSUE_TEMPLATE/config.yml"]
+url   = "https://www.schemastore.org/github-issue-config.json"
+
+[[lint.rules.schema.schemas]]
+files = [".github/ISSUE_TEMPLATE/*.yml", "!.github/ISSUE_TEMPLATE/config.yml"]
+url   = "https://www.schemastore.org/github-issue-forms.json"
