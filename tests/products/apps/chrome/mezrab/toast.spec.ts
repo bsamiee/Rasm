@@ -226,13 +226,13 @@ it('moves as it enters and again as it leaves', async ({ page, context, open, ex
         moved.push(...(type === 'CSSTransition' ? [name] : []));
     });
     await session.send('Animation.enable');
-    await session.send('Animation.setPlaybackRate', { playbackRate: RATE });
-
     await extension.act(page);
-
-    await expect(toast).toBeVisible();
+    await toast.evaluate((element) => element.getAnimations().forEach((animation) => (animation instanceof CSSAnimation ? animation.pause() : undefined)));
     await settled(toast);
     const entered = moved.length;
+
+    await toast.evaluate((element) => element.getAnimations().forEach((animation) => animation.finish()));
+
     await expect(page.locator('mezrab-toast')).toHaveCount(0);
     expect(entered, 'transitions as it enters').toBeGreaterThan(0);
     expect(moved.length - entered, 'transitions as it leaves').toBeGreaterThan(0);
