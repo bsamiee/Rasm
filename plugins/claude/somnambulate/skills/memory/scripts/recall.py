@@ -206,7 +206,15 @@ async def recall(memory: Path, /) -> int:
     if (root := next(_roots(name, Path(folder.anchor)), None)) is None:
         sys.stderr.write(f"no folder's path sanitizes to {name}, the project folder holding this memory\n")
         return 1
-    rows = msgspec.json.Decoder(_Should | _Near).decode_lines(await anyio.Path(folder, ".recall.jsonl").read_bytes())
+    try:
+        rows, held = msgspec.json.Decoder(_Should | _Near).decode_lines(await anyio.Path(folder, ".recall.jsonl").read_bytes()), ""
+    except FileNotFoundError:
+        rows, held = [], ", and the folder holds no rows, as .recall.jsonl is absent"
+    script = await anyio.Path(__file__).resolve()
+    indexed = await anyio.run_process(
+        ("uv", "run", "--locked", "--script", str(script.with_name("index.py")), str(folder)), env={key: value for key, value in os.environ.items() if key != "CLAUDE_CODE_SESSION_ID"}, check=False
+    )
+    sys.stderr.write(f"index: {indexed.stdout.decode().strip().rpartition(chr(10))[2] or indexed.stderr.decode().strip()}\n")
     match await _git(folder, "rev-parse", "-q", "--verify", f"refs/tags/{_TAG}"):
         case 0, tag:
             changed = "\n".join([(await _git(folder, "diff", "--name-only", "--no-renames", _TAG, "--"))[1], (await _git(folder, "ls-files", "--others", "--exclude-standard"))[1]])
@@ -218,10 +226,11 @@ async def recall(memory: Path, /) -> int:
     present = frozenset([path.stem async for path in anyio.Path(folder).glob("[!.]*.md")])
     stale = tuple(case for case in cases if not case.files <= present)
     jobs = [(case, run) for case in cases if case.files <= present for run in range(1, _RUNS + 1)]
-    sys.stderr.write(f"scope: {scope}\n{len(cases) - len(stale)} requests, {_RUNS} runs each, {len(jobs)} sessions from {root}, {len(stale)} stale rows skipped\n")
+    sys.stderr.write(f"scope: {scope}{held}\n{len(cases) - len(stale)} requests, {_RUNS} runs each, {len(jobs)} sessions from {root}, {len(stale)} stale rows skipped\n")
     settings = msgspec.json.encode({"autoMemoryDirectory": str(folder)}).decode()
-    plugin = (await anyio.Path(__file__).resolve()).parents[3]
-    launch = _Launcher(anyio.CapacityLimiter(os.process_cpu_count() or 1), root, folder, ("--tools", "Read", "--max-turns", str(_TURNS), "--settings", settings, "--plugin-dir", str(plugin)))
+    launch = _Launcher(
+        anyio.CapacityLimiter(os.process_cpu_count() or 1), root, folder, ("--tools", "Read", "--max-turns", str(_TURNS), "--settings", settings, "--plugin-dir", str(script.parents[3]))
+    )
     first = [await launch.opened(job) for job in jobs[:1]]
     sys.stderr.writelines(f"first session ${session.cost:.2f}, about ${session.cost * len(jobs):.2f} for {len(jobs)}\n" for session in first)
     sessions = [*first, *await anyio.amap(launch.opened, jobs[1:])]

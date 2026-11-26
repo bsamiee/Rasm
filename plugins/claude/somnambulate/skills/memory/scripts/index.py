@@ -166,12 +166,12 @@ def index(memory: Path, /) -> int:
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=memory, prefix=f".{_INDEX}.", delete=False) as staged:
             staged.write(text)
         Path(staged.name).replace(target)
-    status = _git(memory, "status", "--porcelain", "-z", "--untracked-files=all", "--no-renames")
+    status = _git(memory, "--no-optional-locks", "status", "--porcelain", "-z", "--untracked-files=all", "--no-renames")
     changed = frozenset(entry[3:] for entry in status.split("\0") if entry)
     if changed:
         _git(memory, "add", "-A")
         trailer = (f"--trailer=Session: {session}",) if (session := os.environ.get("CLAUDE_CODE_SESSION_ID", "")) else ()
-        named = frozenset(Path(name).stem for name in changed - {_INDEX})
+        named = frozenset(name.removesuffix(".md") for name in changed - {_INDEX})
         _git(memory, "commit", "-q", *trailer, "-m", f"Update {f'{len(named)} files' if len(named) > 1 else next(iter(named), _INDEX)}")
     graded = [(finding.blocking and not fresh and finding.path in changed, finding) for finding in sorted((*foreign, *(finding for _, found in entries for finding in found), *_measured(text)))]
     errors = sum(error for error, _ in graded)
