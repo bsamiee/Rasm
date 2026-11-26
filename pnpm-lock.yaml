@@ -1195,6 +1195,9 @@ importers:
       '@nx/js':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2)
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../system/process
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -1941,6 +1944,9 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../../../libs/typescript/system/process
       cf:
         specifier: 'catalog:'
         version: 1.0.0-rc.2(@types/node@26.6.6)
@@ -1978,6 +1984,9 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../../../libs/typescript/system/process
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -2172,6 +2181,9 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../../../libs/typescript/system/process
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)

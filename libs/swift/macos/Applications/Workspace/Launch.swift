@@ -202,7 +202,7 @@ extension NSWorkspace {
                             let reply = await Result { () async throws(AggregateError<AppleEventFailure>) in
                                 let dictionary = try await Result { () async throws(AppleEventFailure) in try await dictionaries.dictionary(of: installation) }.aggregated(\.self).get()
                                 return try await dictionary.send(
-                                    (UInt64(kCoreEventClass) << 32 | UInt64(kAEOpenDocuments)).sdef,
+                                    .code(UInt64(kCoreEventClass) << 32 | UInt64(kAEOpenDocuments)),
                                     arguments: parameters.merging(["direct": files]) { _, documents in documents },
                                     target: NSAppleEventDescriptor(processIdentifier: instance.process.pid),
                                     within: deadline,

@@ -1,4 +1,3 @@
-public import Applications
 public import CoreGraphics
 public import Foundation
 import Vision
@@ -24,11 +23,11 @@ extension CGImage {
 }
 
 extension Watch {
-    public func recognizeText(in window: CGWindowID) async throws(ApplicationFailure) -> [(text: String, frame: CGRect)] {
+    public nonisolated func recognizeText(in window: CGWindowID, customWords: [String]) async throws(ApplicationFailure) -> [(text: String, frame: CGRect)] {
         var found: [(text: String, frame: CGRect)] = []
-        for captured in try await instance.capture(.windows(numbers: [window]), in: self) {
+        for captured in try await capture(.windows(numbers: [window])) {
             let screenshot: Screenshot = try captured.get()
-            found += try await screenshot.image.recognizeText(at: screenshot.frame, in: language, customWords: [])
+            found += try await screenshot.image.recognizeText(at: screenshot.frame, in: language, customWords: customWords)
         }
         return found
     }

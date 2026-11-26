@@ -1,6 +1,7 @@
 package import AppKit
 package import Darwin
 import Dispatch
+public import Encoding
 import Foundation
 import OrderedCollections
 import Results
@@ -9,17 +10,35 @@ import System
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-enum WindowNotification: UInt32, CaseIterable, Sendable {
+public enum WindowNotification: UInt32, CaseIterable, CaseLabeled, Sendable {
+    case closed = 804
+    case moved = 806
+    case resized = 807
     case reordered = 808
+    case levelChanged = 811
     case shown = 815
+    case hidden = 816
     case created = 1325
+    case destroyed = 1326
+    case activeSpaceChanged = 1401
 
-    var windowOffset: Int {
-        switch self {
-            case .reordered, .shown: 0
-            case .created: MemoryLayout<UInt64>.stride
-        }
+    func window(in payload: UnsafeRawBufferPointer) -> CGWindowID? {
+        let offset: Int? =
+            switch self {
+                case .created, .destroyed: MemoryLayout<UInt64>.size
+                case .closed, .moved, .resized, .reordered, .levelChanged, .shown, .hidden: 0
+                case .activeSpaceChanged: nil
+            }
+        return offset.flatMap { offset in payload.count >= offset + MemoryLayout<CGWindowID>.size ? unsafe payload.loadUnaligned(fromByteOffset: offset, as: CGWindowID.self) : nil }
     }
+}
+
+struct SpaceMask: OptionSet, Sendable {
+    let rawValue: Int32
+
+    static let current = Self(rawValue: 1 << 0)
+    static let others = Self(rawValue: 1 << 1)
+    static let user = Self(rawValue: 1 << 2)
 }
 
 extension ProcessSerialNumber {
@@ -82,7 +101,7 @@ package final class PermittedFrontList: Sendable {
                 let low = notification.userInfo?["NSApplicationProcessSerialNumberLow"] as? UInt32
                 guard let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication, let high, let low else { return }
                 let serial = ProcessSerialNumber(highLongOfPSN: high, lowLongOfPSN: low)
-                PermittedFrontList.shared.held.withLock { (held: inout Held?) in
+                Self.shared.held.withLock { (held: inout Held?) in
                     guard let joining = held, joining.permits(application), joining.listed[serial.number] == nil else { return }
                     let added: Result<Void, ApplicationFailure> = Result { () throws(ApplicationFailure) in try Self.add([serial], to: joining.journal) }
                     held?.listed[serial.number] = serial
@@ -241,47 +260,82 @@ package final class PermittedFrontList: Sendable {
     }
 }
 
-struct WindowServerConnection: ~Copyable {
-    private let id: Int32
-    private let port: CFMachPort
-    private let source: RunLoopSource
+final class WindowServerConnection: Sendable {
+    struct Notice: Sendable {
+        let notification: WindowNotification
+        let window: CGWindowID?
+        let owner: pid_t?
+    }
 
-    init(
-        notifying notifications: [WindowNotification],
-        context: UnsafeMutableRawPointer,
-        _ callback: @escaping @convention(c) (UInt32, UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Void,
-    ) throws(ApplicationFailure) {
+    private let id: Int32
+    private let source: Mutex<RunLoopSource?> = Mutex(nil)
+    private let held: Mutex<(owners: [CGWindowID: pid_t], subscribers: [UUID: (notifications: Set<WindowNotification>, continuation: AsyncStream<Result<Notice, ApplicationFailure>>.Continuation)])>
+
+    init() throws(ApplicationFailure) {
         var (id, events): (Int32, mach_port_t) = (0, 0)
         let opened: CGError = unsafe newConnection(0, &id)
         guard opened == .success else { throw ApplicationFailure(subject: "window server connection", reason: .windowServer(opened)) }
-        let answers: [CGError] = unsafe [eventPort(id, &events)] + notifications.map { notification in unsafe registerNotifyProc(id, callback, notification.rawValue, context) }
-        var described = unsafe CFMachPortContext(version: 0, info: UnsafeMutableRawPointer(bitPattern: Int(id)), retain: nil, release: nil, copyDescription: nil)
-        let drain: CFMachPortCallBack = { _, _, _, info in
-            let connection = Int32(Int(bitPattern: info))
-            while let event = unsafe nextEvent(connection) { unsafe event.release() }
-        }
-        let refused: CGError? = answers.first { answer in answer != .success }
-        guard refused == nil, let port = unsafe CFMachPortCreateWithPort(nil, events, drain, &described, nil), let source = CFMachPortCreateRunLoopSource(nil, port, 0) else {
-            _ = releaseConnection(id)
-            throw ApplicationFailure(subject: "window server notifications of connection \(id)", reason: .windowServer(refused ?? .failure))
-        }
+        let rows: [[String: Any]] = CGWindowListCopyWindowInfo(.optionAll, kCGNullWindowID) as? [[String: Any]] ?? []
+        let owners: [CGWindowID: pid_t] = Dictionary(
+            rows.compactMap { row in (row[kCGWindowNumber as String] as? CGWindowID).flatMap { number in (row[kCGWindowOwnerPID as String] as? pid_t).map { owner in (number, owner) } } }
+        ) { first, _ in first }
         self.id = id
-        self.port = port
-        self.source = RunLoopSource(source)
+        held = Mutex((owners, [:]))
+        let callback: @convention(c) (UInt32, UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Void = { type, data, length, context in
+            guard let notification = WindowNotification(rawValue: type),
+                let connection = unsafe context.map({ context in unsafe Unmanaged<WindowServerConnection>.fromOpaque(context).takeUnretainedValue() })
+            else { return }
+            connection.deliver(notification, window: unsafe data.flatMap { data in unsafe notification.window(in: UnsafeRawBufferPointer(start: data, count: length)) })
+        }
+        let context = unsafe Unmanaged.passUnretained(self).toOpaque()
+        let answers: [CGError] =
+            unsafe [eventPort(id, &events)] + WindowNotification.allCases.map { notification in unsafe registerNotifyProc(id, callback, notification.rawValue, context) }
+            + [request(Array(owners.keys))]
+        let refused: CGError? = answers.first { answer in answer != .success }
+        let drained: Bool = source.withLock { source in
+            var described = unsafe CFMachPortContext(version: 0, info: UnsafeMutableRawPointer(bitPattern: Int(id)), retain: nil, release: nil, copyDescription: nil)
+            let drain: CFMachPortCallBack = { _, _, _, info in
+                let connection = Int32(Int(bitPattern: info))
+                while let event = unsafe nextEvent(connection) { unsafe event.release() }
+            }
+            source = unsafe CFMachPortCreateWithPort(nil, events, drain, &described, nil).flatMap { port in CFMachPortCreateRunLoopSource(nil, port, 0) }.map(RunLoopSource.init)
+            return source != nil
+        }
+        guard refused == nil, drained else { throw ApplicationFailure(subject: "window server notifications of connection \(id)", reason: .windowServer(refused ?? .failure)) }
     }
 
-    deinit { _ = releaseConnection(id) }
-
-    func request(_ windows: [CGWindowID]) throws(ApplicationFailure) {
-        let answer: CGError = unsafe requestNotifications(id, windows, Int32(windows.count))
-        guard answer == .success else { throw ApplicationFailure(subject: "notifications of \(windows.count) windows on connection \(id)", reason: .windowServer(answer)) }
+    deinit {
+        _ = releaseConnection(id)
+        let ending: [AsyncStream<Result<Notice, ApplicationFailure>>.Continuation] = held.withLock { held in held.subscribers.values.map(\.continuation) }
+        for subscriber in ending { subscriber.finish() }
     }
 
-    func owner(of window: CGWindowID) -> pid_t? {
-        var (connection, process): (Int32, pid_t) = (0, 0)
-        guard unsafe windowOwner(id, window, &connection) == .success, unsafe processOfConnection(connection, &process) == .success else { return nil }
-        return process
+    func notices(of notifications: Set<WindowNotification>) -> AsyncStream<Result<Notice, ApplicationFailure>> {
+        let (stream, continuation) = AsyncStream<Result<Notice, ApplicationFailure>>.makeStream()
+        let id = UUID()
+        continuation.onTermination = { _ in self.held.withLock { held in held.subscribers[id] = nil } }
+        held.withLock { held in held.subscribers[id] = (notifications, continuation) }
+        return stream
     }
+
+    private func deliver(_ notification: WindowNotification, window: CGWindowID?) {
+        held.withLock { held in
+            var (connection, process): (Int32, pid_t) = (0, 0)
+            let known: pid_t? = window.flatMap { window in held.owners[window] }
+            let unread: CGWindowID? = known == nil && notification != .destroyed && notification != .closed ? window : nil
+            let read: pid_t? = unread.flatMap { window in unsafe windowOwner(id, window, &connection) == .success && processOfConnection(connection, &process) == .success ? process : nil }
+            if let window, let read { held.owners[window] = read }
+            let requested: CGError = read == nil ? .success : request(Array(held.owners.keys))
+            let notice: Result<Notice, ApplicationFailure> =
+                requested == .success
+                ? .success(Notice(notification: notification, window: window, owner: known ?? read))
+                : .failure(ApplicationFailure(subject: "notifications of \(held.owners.count) windows on connection \(id)", reason: .windowServer(requested)))
+            for subscriber in held.subscribers.values where requested != .success || subscriber.notifications.contains(notification) { subscriber.continuation.yield(notice) }
+            if notification == .destroyed, let window { held.owners[window] = nil }
+        }
+    }
+
+    private func request(_ windows: [CGWindowID]) -> CGError { unsafe requestNotifications(id, windows, Int32(windows.count)) }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -345,6 +399,27 @@ private func requestNotifications(_: Int32, _: UnsafePointer<CGWindowID>, _: Int
 
 @_silgen_name("SLSGetWindowOwner")
 private func windowOwner(_: Int32, _: CGWindowID, _: UnsafeMutablePointer<Int32>) -> CGError
+
+@_silgen_name("SLSWindowQueryWindows")
+func queryWindows(_: Int32, _: CFArray, _: Int32) -> Unmanaged<CFTypeRef>?
+
+@_silgen_name("SLSWindowQueryResultCopyWindows")
+func queriedWindows(_: CFTypeRef) -> Unmanaged<CFTypeRef>?
+
+@_silgen_name("SLSWindowIteratorAdvance")
+func advance(_: CFTypeRef) -> Bool
+
+@_silgen_name("SLSWindowIteratorGetWindowID")
+func iteratedWindow(_: CFTypeRef) -> CGWindowID
+
+@_silgen_name("SLSWindowIteratorGetParentID")
+func iteratedParent(_: CFTypeRef) -> CGWindowID
+
+@_silgen_name("SLSCopySpaces")
+func copySpaces(_: Int32, _: SpaceMask) -> Unmanaged<CFArray>?
+
+@_silgen_name("SLSCopySpacesForWindows")
+func copySpacesForWindows(_: Int32, _: SpaceMask, _: CFArray) -> Unmanaged<CFArray>?
 
 @_extern(c, "_kLSPermittedFrontASNsArrayKey")
 private nonisolated(unsafe) var permittedFrontKey: UnsafeRawPointer

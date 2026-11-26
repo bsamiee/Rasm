@@ -91,6 +91,17 @@
             }
         },
         {
+            "name": "dreamweave",
+            "source": "./plugins/claude/dreamweave",
+            "description": "Claude Code auto-memory system: a skill for writing, editing, and auditing memories and a generated MEMORY.md index with git history",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "policy": {
+                "installation": "NOT_AVAILABLE"
+            }
+        },
+        {
             "name": "function-hooks",
             "source": {
                 "source": "archive",
@@ -211,17 +222,6 @@
                 "displayName": "Search",
                 "shortDescription": "Research dependencies, the web, Are.na, and NotebookLM. Search code structure with ast-grep",
                 "brandColor": "#090909"
-            }
-        },
-        {
-            "name": "somnambulate",
-            "source": "./plugins/claude/somnambulate",
-            "description": "Claude Code auto-memory system: a skill for writing, editing, and auditing memories and a generated MEMORY.md index with git history",
-            "author": {
-                "name": "Bardia Samiee"
-            },
-            "policy": {
-                "installation": "NOT_AVAILABLE"
             }
         },
         {

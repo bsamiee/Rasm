@@ -6,7 +6,7 @@ import { InterfaceMap } from '@rasm/applications/interface-map';
 import { Description, FacetControl } from '@rasm/applications/source';
 import { Catalog } from '@rasm/database/catalog';
 import { Sqlite } from '@rasm/database/sqlite';
-import { Array, DateTime, Duration, Effect, FileSystem, Layer, Option, Predicate, Record, Schema, Struct } from 'effect';
+import { Array, DateTime, Duration, Effect, FileSystem, Layer, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { SqlClient } from 'effect/sql';
 import { TestClock, TestConsole } from 'effect/testing';
 
@@ -30,6 +30,7 @@ const DIALOG = '["AXDialog","New Document"]';
 const UNITS = '["AXPopUpButton","Units"]';
 const WIDTH = '["AXButton","Width"]';
 const START = Date.UTC(2026, 10, 25, 9);
+const OWNER = { username: 'owner', homedir: '/Users/owner' } as const;
 const BUILDS = ['22.1.0.19', '22.2.0.4'] as const;
 const TOOLBAR: FacetControl['locator'] = [['toolbar', 'tool']];
 const RECTANGLE: FacetControl['locator'] = [...TOOLBAR, ['tool', 'RECTANGLE_TOOL']];
@@ -410,5 +411,83 @@ describe(InterfaceMap, () => {
             assert.deepStrictEqual((yield* TestConsole.logLines).filter(Predicate.isObject), Array.replicate({ bundle: 'com.adobe.InDesign', language: 'en', stale: 1 }, 2), 'both opens before the rewrite log one line naming the bundle and the count dropped, the open after it none');
             assert.deepStrictEqual(rewritten.containers[DIALOG]?.controls[UNITS]?.label, Option.some({ text: 'Units', attribute: 'AXTitle' }), 'the dialog sighted again reads back with its label in the current shape');
         }, Effect.provide(services)),
+    );
+    it.effect(
+        'starts a write at the rung that last passed read-back in this build, keeps every rung that failed there, and starts over once the build changes',
+        Effect.fnUntraced(function* () {
+            const observed = yield* newDocument;
+            const read = observed.reduce((map, each) => map.fold(each, OWNER).map, InterfaceMap.empty);
+            const at = { container: DIALOG, control: UNITS };
+            const passed = read.prove({
+                at,
+                from: 'accessibility',
+                outcome: Result.succeed({
+                    route: { _tag: 'window', number: 7 },
+                    tried: [
+                        { rung: 'accessibility', failure: 'value unchanged' },
+                        { rung: 'process', failure: 'value unchanged' },
+                    ],
+                }),
+            });
+            const failed = passed.prove({ at, from: 'window', outcome: Result.fail(new Error('every rung from window failed read-back')) });
+            const dialog = yield* Effect.fromOption(Array.last(observed));
+            const rebuilt = passed.fold({ ...dialog, build: BUILDS[1], opened: DateTime.add(dialog.at, { minutes: 5 }), at: DateTime.add(dialog.at, { minutes: 5 }) }, OWNER).map;
+            const failures = (map: InterfaceMap) =>
+                Record.get(map.containers, DIALOG).pipe(
+                    Option.flatMap(({ controls }) => Record.get(controls, UNITS)),
+                    Option.flatMap(({ route }) => route),
+                    Option.match({ onNone: (): readonly string[] => [], onSome: (route) => route.failed }),
+                );
+            assert.deepStrictEqual({ unread: read.route(at), passed: passed.route(at), failed: failed.route(at), rebuilt: rebuilt.route(at) }, { unread: Option.none(), passed: Option.some('window'), failed: Option.none(), rebuilt: Option.none() });
+            assert.deepStrictEqual({ passed: failures(passed), failed: failures(failed) }, { passed: ['accessibility', 'process'], failed: ['accessibility', 'process', 'window', 'focused', 'system'] });
+            assert.strictEqual(passed.prove({ at: { container: DIALOG, control: '["AXButton","Missing"]' }, from: 'accessibility', outcome: Result.fail(new Error('gone')) }), passed, 'a proof for a control the map never read leaves the map as it was');
+        }),
+    );
+
+    it.effect(
+        'serves a menu level only while the item opening it read it in the current build, and states the containers verified in this build with the menu labels as recognition words',
+        Effect.fnUntraced(function* () {
+            const menu = yield* Schema.decodeEffect(Observation)({
+                build: BUILDS[0],
+                container: MENU,
+                kind: 'menu',
+                modal: false,
+                opened: instant(2),
+                at: instant(2),
+                truncated: false,
+                documents: [],
+                opener: { container: LAYOUT, control: NEW },
+                conditions: [],
+                controls: { [RECENT]: { kind: 'item', role: 'AXMenuItem', label: { text: 'Recent', attribute: 'AXTitle' }, positional: false }, [CLOSE]: { kind: 'item', role: 'AXMenuItem', label: { text: 'Close', attribute: 'AXTitle' }, positional: false } },
+                layout: {},
+                values: {},
+            });
+            const layout = yield* Effect.fromOption(Array.head(yield* newDocument));
+            const read = [layout, menu].reduce((map, each) => map.fold(each, OWNER).map, InterfaceMap.empty);
+            const later = read.fold({ ...layout, build: BUILDS[1], opened: DateTime.add(layout.at, { minutes: 9 }), at: DateTime.add(layout.at, { minutes: 9 }) }, OWNER).map;
+            assert.deepStrictEqual(Option.map(read.level(NEW), Struct.get('locator')), Option.some(MENU), 'the level its opener read in this build is served');
+            assert.isTrue(Option.isNone(read.level(RECENT)), 'an item that opened nothing serves no level');
+            assert.isTrue(Option.isNone(later.level(NEW)), 'a level read under an earlier build is read again');
+            assert.deepStrictEqual(
+                Option.map(read.known, ({ build, containers, customWords }) => ({ build, containers: containers.toSorted(), customWords: customWords.toSorted() })),
+                Option.some({ build: BUILDS[0], containers: [LAYOUT, MENU].toSorted(), customWords: ['Close', 'Recent'] }),
+            );
+            assert.deepStrictEqual(Option.map(later.known, Struct.get('containers')), Option.some([LAYOUT]), 'a new build verifies only what it read again');
+        }),
+    );
+
+    it.effect(
+        'describes a container read for the first time by what it holds, and a later read by each control that appeared, changed, was relabelled, or went',
+        Effect.fnUntraced(function* () {
+            const observed = yield* newDocument;
+            const [layout, dialog] = yield* Effect.all([Effect.fromOption(Array.get(observed, 0)), Effect.fromOption(Array.get(observed, 1))]);
+            const first = InterfaceMap.empty.fold(dialog, OWNER);
+            const relabelled = first.map.fold({ ...dialog, at: DateTime.add(dialog.at, { seconds: 30 }), controls: Record.map(dialog.controls, (control, at) => (at === UNITS ? { ...control, label: Option.some({ text: 'Unit', attribute: 'AXTitle' }) } : control)) }, OWNER);
+            const again = first.map.fold({ ...dialog, at: DateTime.add(dialog.at, { seconds: 30 }) }, OWNER);
+            assert.deepStrictEqual(
+                { first: first.described, relabelled: relabelled.described, again: again.described, window: InterfaceMap.empty.fold(layout, OWNER).described },
+                { first: Option.some('map learned dialog "New Document", 2 controls'), relabelled: Option.some('map of dialog "New Document": relabelled "Units" → "Unit"'), again: Option.none(), window: Option.some('map learned window, 1 controls') },
+            );
+        }),
     );
 });

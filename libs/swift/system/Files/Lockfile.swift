@@ -36,12 +36,10 @@ public struct Lockfile: Sendable {
         let (date, start) = (Date(), clock.now)
         let now: @Sendable () -> Duration = { .seconds(date.timeIntervalSince1970) + start.duration(to: clock.now) }
         let holder: Holder<Failure> = try await acquire(lockfiles, clock: clock, now: now)
-        let work: @Sendable () async throws(Failure) -> Value = lockfiles.indices.reduce(body) { work, index in
-            { @Sendable () async throws(Failure) -> Value in
-                try await race(work) { () async throws(Failure) -> Value in try await holder.heartbeat(index, every: lockfiles[index].update, clock: clock, now: now) }
-            }
+        let outcome = await Result { () async throws(Failure) -> Value in
+            guard let interval = lockfiles.map(\.update).min() else { return try await body() }
+            return try await race(body) { () async throws(Failure) -> Value in try await holder.heartbeat(every: interval, clock: clock, now: now) }
         }
-        let outcome = await Result(catching: work)
         let released: Result<Void, Failure> = release(await holder.locks)
         return try outcome.mapError { error in error.releasing(released) }.flatMap { value in released.map { _ in value } }.get()
     }
@@ -162,9 +160,9 @@ private actor Holder<Failure: LockFailure> {
 
     // --- [HEARTBEAT]
 
-    func heartbeat(_ index: Int, every interval: Duration, clock: some Clock<Duration> & Sendable, now: @Sendable () -> Duration) async throws(Failure) -> Never {
+    func heartbeat(every interval: Duration, clock: some Clock<Duration> & Sendable, now: @Sendable () -> Duration) async throws(Failure) -> Never {
         for await _ in AsyncTimerSequence(interval: interval, clock: clock) {
-            do throws(FileFailure) { locks[index] = try locks[index].update(at: now()) } catch { throw .lock(error) }
+            do throws(FileFailure) { locks = try locks.map { lock throws(FileFailure) in try lock.update(at: now()) } } catch { throw .lock(error) }
         }
         throw .cancelled
     }

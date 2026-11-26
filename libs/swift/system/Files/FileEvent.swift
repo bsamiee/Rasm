@@ -12,11 +12,11 @@ public struct FileEvent: Sendable {
     public var mustScanSubDirs: Bool { flags & FSEventStreamEventFlags(kFSEventStreamEventFlagMustScanSubDirs) != 0 }
 
     public static func events(of file: URL) -> AsyncStream<Result<[Self], FileFailure>> {
-        AsyncStream { continuation in
-            let watcher = Watcher(continuation: continuation)
-            watcher.enqueue { watcher in watcher.start(file) }
-            continuation.onTermination = { _ in watcher.enqueue { watcher in watcher.stream = nil } }
-        }
+        let (events, continuation) = AsyncStream<Result<[Self], FileFailure>>.makeStream()
+        let watcher = Watcher(continuation: continuation)
+        watcher.enqueue { watcher in watcher.start(file) }
+        continuation.onTermination = { _ in watcher.enqueue { watcher in watcher.stream = nil } }
+        return events
     }
 
     public static func presence(of file: URL) -> some AsyncSequence<Result<Bool, FileFailure>, Never> & Sendable {

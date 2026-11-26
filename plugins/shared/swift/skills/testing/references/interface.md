@@ -60,8 +60,8 @@ extension WindowServerTests {
 }
 ```
 
-- `WindowServerTests` in `ApplicationsTests` holds `KeyboardTests`, `LaunchTests`, `MenuTests`, `ModelTests`, and `RouteTests`, each in its own file as an extension
-- Fixture suites of `FixtureTests` and `ScreenCaptureTests` sit in their own bundles, so they never overlap `ApplicationsTests`
+- `WindowServerTests` in `ApplicationsTests` holds `KeyboardTests`, `LaunchTests`, `MenuTests`, `ModelTests`, `RecordingTests`, `RouteTests`, and `ScreenshotTests`, each in its own file as an extension
+- Fixture suites of `FixtureTests` sit in their own bundle, so they never overlap `ApplicationsTests`
 - Suites reading no session state stay outside it (`PasteboardTests` on unique pasteboards, `InputTests` and `PointerTests` on values)
 
 ## [05]-[EVENT_ORDER]
@@ -105,7 +105,7 @@ final class Captures: Sendable {
         let numbers: [CGWindowID] = await watch.current[case: \.running]?.windows.filter(\.onScreen).map(\.number) ?? []
         let taken: [Result<Screenshot, ApplicationFailure>]
         do throws(ApplicationFailure) {
-            taken = try await watch.instance.capture(.windows(numbers: numbers), in: watch)
+            taken = try await watch.capture(.windows(numbers: numbers))
         } catch {
             taken = [.failure(error)]
         }
@@ -145,7 +145,7 @@ struct CapturesOnFailure: SuiteTrait, TestScoping {
 struct WindowServerTests {}
 ```
 
-`Mutex` and `Atomic` come from `Synchronization`, `Screenshot` from `ScreenCapture`:
+`Mutex` and `Atomic` come from `Synchronization`, `Screenshot` from `Applications`:
 - Traits of one suite provide scopes in listed order, outermost first, so `CapturesOnFailure` binds `Captures.current` around the issue handler
 - `.compactMapIssues` runs synchronously for each issue the test records, inside every scope listed before it, and returns each issue unchanged
 - Errors a test throws pass through `provideScope`, and its `catch` marks them failed whether or not the handler saw them

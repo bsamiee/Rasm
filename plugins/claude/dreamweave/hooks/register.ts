@@ -41,7 +41,7 @@ function register(on: On) {
     on('prompt.section', { name: 'memory' }, (_, e, next) =>
         next(e).then((answer) => {
             const text = answer.text === null ? null : POINTER.reduce((swapped, [pattern, replacement]) => swapped.replace(pattern, replacement), answer.text);
-            return { ...answer, text: text !== null && text === answer.text ? `${text}\n\nThis Claude Code release words the memory section above in a form the somnambulate plugin does not recognize, so its steps may still name \`${INDEX}\`. ${GENERATED}` : text };
+            return { ...answer, text: text !== null && text === answer.text ? `${text}\n\nThis Claude Code release words the memory section above in a form the dreamweave plugin does not recognize, so its steps may still name \`${INDEX}\`. ${GENERATED}` : text };
         }),
     );
     on('prompt.context', async ($, e, next) => {

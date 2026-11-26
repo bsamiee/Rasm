@@ -6,7 +6,6 @@ import CasePathsCore
 import CustomDump
 import Encoding
 import Fixture
-import ScreenCapture
 import System
 import Testing
 
@@ -24,12 +23,12 @@ extension WindowServerTests {
             let (presented, images, lines, focus, delivered, chosen):
                 (
                     [String: (levels: [Container], presentation: Watch.Presentation?)], [(size: CGSize, frame: CGRect)], [Line], (fixture: pid_t, before: pid_t?, during: Set<pid_t?>),
-                    [Result<ElementAction.Delivery, ApplicationFailure>], JSONValue?
+                    [Result<Step.Delivery, ApplicationFailure>], JSONValue?
                 ) =
                     try await FixtureSession.launched { fixture in
                         let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
                         let instance = try Instance(application)
-                        let watch: Watch = await Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }).watch(instance)
+                        let watch: Watch = await Watches().watch(instance)
                         let model: Model = try await watch.model(.application)
                         let region: Control = try #require(model.containers.first { container in container.title == "Covered" }?.controls.first { control in control.kind == .region })
                         let pageSize: Control = try #require(model.containers.flatMap(\.controls).first { control in control.role == kAXPopUpButtonRole && control.label?.text == "Page Size" })
@@ -62,10 +61,11 @@ extension WindowServerTests {
                                 held.insert(holder)
                             }
                         }
-                        let outcomes: [Result<ElementAction.Delivery, ApplicationFailure>] = try await instance.act([.choose(ref: pageSize.ref, item: "Tabloid")], in: watch).outcomes
+                        let choosing: [Step] = try JSONDecoder().decode([Step].self, from: Data(#"[{"at":\#(pageSize.ref),"to":"Tabloid"}]"#.utf8))
+                        let outcomes: [Result<Step.Delivery, ApplicationFailure>] = try await watch.act(choosing).outcomes
                         sampling.cancel()
                         let during: Set<pid_t?> = await sampling.value
-                        let shots: [Screenshot] = try await instance.capture(.element(ref: align), in: watch).map { shot in try shot.get() }
+                        let shots: [Screenshot] = try await watch.capture(.element(ref: align)).map { shot in try shot.get() }
                         try await fixture.send(.report)
                         let reported: (value: Report, before: [Line]) = try await fixture.next(\.report)
                         await Captures.current?.take(in: watch)
@@ -119,7 +119,7 @@ extension WindowServerTests {
         func holdsThePermittedFrontListOverEveryFrontableApplicationButTheFixtureAcrossThePresentation() async throws {
             let (changes, frontable): ([Int], Int) = try await FixtureSession.launched { fixture in
                 let instance = try Instance(try #require(NSRunningApplication(processIdentifier: fixture.process)))
-                let watch: Watch = await Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }).watch(instance)
+                let watch: Watch = await Watches().watch(instance)
                 let model: Model = try await watch.model(.application)
                 let pageSize: Control = try #require(model.containers.flatMap(\.controls).first { control in control.role == kAXPopUpButtonRole && control.label?.text == "Page Size" })
                 let sampling = Task {
@@ -143,7 +143,7 @@ extension WindowServerTests {
             let journal = FilePath(URL.temporaryDirectory.appending(component: String(reflecting: PermittedFrontList.self)).path(percentEncoded: false))
             let (refusal, lines): (ApplicationFailure.Reason?, [Line]) = try await FixtureSession.launched { fixture in
                 let instance = try Instance(try #require(NSRunningApplication(processIdentifier: fixture.process)))
-                let watch: Watch = await Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }).watch(instance)
+                let watch: Watch = await Watches().watch(instance)
                 let model: Model = try await watch.model(.application)
                 let pageSize: Control = try #require(model.containers.flatMap(\.controls).first { control in control.role == kAXPopUpButtonRole && control.label?.text == "Page Size" })
                 let holder: FileDescriptor = try FileDescriptor.open(journal, .readWrite, options: [.create, .exclusiveLock, .nonBlocking, .closeOnExec], permissions: .ownerReadWrite)

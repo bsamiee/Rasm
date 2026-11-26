@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { detectPackageManager } from '@nx/devkit';
 import { dried, executor, inside, spawned } from '@rasm/nx/inference';
-import { Array, Boolean, Cause, DateTime, Effect, FileSystem, Match, Option, Order, Predicate, Record, Result, Schema, SemVer, Struct } from 'effect';
+import { Array, Boolean, Cause, DateTime, Effect, FileSystem, Filter, Match, Option, Order, Predicate, Record, Result, Schema, SemVer, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
 import npa from 'npm-package-arg';
 import { packageRegistryView, parseRegistryViewJson } from 'nx/src/utils/package-manager';
@@ -81,7 +81,7 @@ const listed = Effect.fnUntraced(function* (root: string, owner: string, file: s
     const fs = yield* FileSystem.FileSystem;
     const manifest = yield* Effect.try({ try: () => createRequire(join(root, MANIFEST)).resolve(`${owner}/package.json`), catch: (cause) => new Cause.UnknownError(cause, `${root} resolves no ${owner}/package.json`) });
     const { optionalDependencies = {} } = yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeUnknownEffect(Lister));
-    const folders = [dirname(manifest), ...Array.filterMap(Record.keys(optionalDependencies), (name) => Result.try(() => dirname(createRequire(manifest).resolve(`${name}/package.json`))))];
+    const folders = [dirname(manifest), ...Array.filterMap(Record.keys(optionalDependencies), Filter.try((name) => dirname(createRequire(manifest).resolve(`${name}/package.json`))))];
     const folder = yield* Effect.fromOption(yield* Effect.findFirst(folders, (candidate) => fs.exists(join(candidate, file))), () => new Cause.UnknownError(folders, `${owner} and its installed optional dependencies hold no ${file}`));
     const at = join(folder, file);
     const document = yield* Effect.flatMap(fs.readFileString(at), Schema.decodeUnknownEffect(Listed));

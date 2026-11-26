@@ -9,7 +9,7 @@ public struct RotatingFile: Sendable {
     public var size: Int = 8 << 20
     public var age: Duration = .seconds(86_400)
     public var files: Int = 7
-    private let state = OSAllocatedUnfairLock<(handle: FileHandle?, failure: FileFailure?)>(initialState: (nil, nil))
+    private let state = OSAllocatedUnfairLock<(descriptor: FileDescriptor?, failure: FileFailure?)>(initialState: (nil, nil))
 
     public init(_ url: URL) { self.url = url }
 }
@@ -50,20 +50,22 @@ extension RotatingFile {
         let expiry: Duration = .seconds(now.timeIntervalSince1970) - age
         try state.withLock { held -> Result<Void, FileFailure> in
             do {
-                let inode = try ifPresent { () throws(Errno) in try path.stat().inode }
-                if let replaced = held.handle, try FileDescriptor(rawValue: replaced.fileDescriptor).stat().inode != inode {
-                    held.handle = nil
-                    try replaced.close()
+                let opened = try held.descriptor ?? open(path)
+                let (stat, inode) = (try opened.stat(), try ifPresent { () throws(Errno) in try path.stat().inode })
+                held.descriptor = nil
+                let current: FileDescriptor
+                switch (stat.inode == inode, needsRotation(stat, before: expiry)) {
+                    case (true, false): current = opened
+                    case (false, _):
+                        try opened.close()
+                        current = try open(path)
+                    case (true, true):
+                        try opened.close()
+                        try rotate(path, before: expiry)
+                        current = try open(path)
                 }
-                var current = try held.handle ?? FileHandle(fileDescriptor: open(path).rawValue, closeOnDealloc: true)
-                if try needsRotation(FileDescriptor(rawValue: current.fileDescriptor).stat(), before: expiry) {
-                    held.handle = nil
-                    try current.close()
-                    try rotate(path, before: expiry)
-                    current = try FileHandle(fileDescriptor: open(path).rawValue, closeOnDealloc: true)
-                }
-                held.handle = current
-                try current.write(contentsOf: data)
+                held.descriptor = current
+                try current.writeAll(data)
                 held.failure = nil
                 return .success(())
             } catch {

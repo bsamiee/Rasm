@@ -15,22 +15,30 @@ extension PlatformOptions {
 }
 
 extension Configuration {
+    public func run<Input: InputProtocol, Output: OutputProtocol>(
+        input: Input,
+        output: Output,
+        body: (Execution<Input, Output, StringOutput<UTF8>>) async throws -> Void = { _ in },
+    ) async throws(ProcessFailure) -> Output.OutputType {
+        let subject = "\(executable) \(arguments)"
+        let result: ExecutionResult<Void, Output, StringOutput<UTF8>>
+        do {
+            result = try await Subprocess.run(self, input: input, output: output, error: .string(limit: 1 << 20), body: body)
+            try Task.checkCancellation()
+        } catch {
+            throw ProcessFailure(subject: subject, error)
+        }
+        guard result.terminationStatus.isSuccess else { throw ProcessFailure(subject: subject, reason: .exit(result.terminationStatus, standardError: result.standardError)) }
+        return result.standardOutput
+    }
+
     public func run<Output: OutputProtocol>(
         output: Output,
         within timeout: Duration,
         input: some InputProtocol = .none,
     ) async throws(ProcessFailure) -> Output.OutputType {
-        let subject = executable.description
-        return try await withTimeout(timeout, expired: ProcessFailure(subject: subject, reason: .timedOut(timeout))) { () async throws(ProcessFailure) in
-            let result: ExecutionResult<Void, Output, StringOutput<UTF8>>
-            do {
-                result = try await Subprocess.run(self, input: input, output: output, error: .string(limit: 1 << 20))
-                try Task.checkCancellation()
-            } catch {
-                throw ProcessFailure(subject: subject, error)
-            }
-            guard result.terminationStatus.isSuccess else { throw ProcessFailure(subject: subject, reason: .exit(result.terminationStatus, standardError: result.standardError)) }
-            return result.standardOutput
+        try await withTimeout(timeout, expired: ProcessFailure(subject: "\(executable) \(arguments)", reason: .timedOut(timeout))) { () async throws(ProcessFailure) in
+            try await run(input: input, output: output)
         }
     }
 }

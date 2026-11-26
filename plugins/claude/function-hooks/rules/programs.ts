@@ -1,11 +1,13 @@
 import { Array, Effect, Equal, FileSystem, Match, Option, Path, Record, String } from 'effect';
+import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { RedirOperator } from 'sh-syntax';
-import { type Call, covers, type Invocation, rewrite, run, type Script, type Table, type Verdict } from '#/rules/rule';
+import { type Call, covers, type Invocation, rewrite, type Script, type Table, type Verdict } from '#/rules/rule';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Idiom = readonly [RegExp, (groups: Readonly<Record<string, string | undefined>>, invocation: Invocation) => Option.Option<Array.NonEmptyReadonlyArray<string>>];
 interface Language {
+    readonly aliases: readonly string[];
     readonly idioms: readonly Idiom[];
     readonly effects?: RegExp;
     readonly inPlace?: boolean;
@@ -29,6 +31,7 @@ const filesOf = (invocation: Invocation) => Option.all(invocation.operands.filte
 const sleep: Idiom[1] = ({ seconds = '' }) => Option.some(Array.make('sleep', seconds));
 const languages = {
     awk: {
+        aliases: ['gawk', 'mawk'],
         idioms: [
             [
                 /^\s*NR\s*(?:==\s*(?<line>\d+)|>=\s*(?<first>\d+)\s*&&\s*NR\s*<=\s*(?<last>\d+))\s*(?:\{\s*print(?:\s+\$0)?\s*;?\s*\})?\s*$/u,
@@ -60,10 +63,12 @@ const languages = {
         effects: /\bprintf?\b[^;}\n]*\||\|\s*getline\b|\bsystem\s*\(/u,
     },
     python: {
+        aliases: ['python3'],
         idioms: [[/^\s*(?:import time\s*[;\n]\s*time|__import__\(['"]time['"]\))\.sleep\(\s*(?<seconds>\d+(?:\.\d+)?)\s*\)\s*;?\s*$/u, sleep]],
         effects: /\bsubprocess\.|\bshutil\.rmtree\(|\bos\.(?:system|popen|exec\w*|spawn\w*|remove|removedirs)\(|\.(?:unlink|rmdir)\(/u,
     },
     node: {
+        aliases: [],
         idioms: [
             [/^(?:console\.log\()?require\(['"](?<name>[^'"./][^'"]*)\/package\.json['"]\)\.(?<field>\w+)\)?;?$/u, ({ name = '', field = '' }) => Option.some(Array.make('jq', '-r', `.${field}`, `node_modules/${name}/package.json`))],
             [/^(?:console\.log\()?require\.resolve\(['"](?<name>[^'"./][^'"]*)\/package\.json['"]\)\)?;?$/u, ({ name = '' }) => Option.some(Array.make('realpath', `node_modules/${name}/package.json`))],
@@ -71,9 +76,9 @@ const languages = {
         ],
         effects: /\bchild_process\b|\b(?:unlink|rm|rmdir)(?:Sync)?\(/u,
     },
-    perl: { idioms: [[/^\s*(?:select\(\s*undef\s*,\s*undef\s*,\s*undef\s*,\s*|sleep\(?\s*)(?<seconds>\d+(?:\.\d+)?)\s*\)?\s*;?\s*$/u, sleep]], inPlace: true },
-    ruby: { idioms: [], inPlace: true },
-    osascript: { idioms: [[/^\s*delay\s+(?<seconds>\d+(?:\.\d+)?)\s*$/u, sleep]] },
+    perl: { aliases: [], idioms: [[/^\s*(?:select\(\s*undef\s*,\s*undef\s*,\s*undef\s*,\s*|sleep\(?\s*)(?<seconds>\d+(?:\.\d+)?)\s*\)?\s*;?\s*$/u, sleep]], inPlace: true },
+    ruby: { aliases: [], idioms: [], inPlace: true },
+    osascript: { aliases: [], idioms: [[/^\s*delay\s+(?<seconds>\d+(?:\.\d+)?)\s*$/u, sleep]] },
 } satisfies Record<string, Language>;
 const codeOf = (invocation: Invocation) => invocation.arguments.collect('code').flatMap(({ words }) => Array.take(words, 1));
 const takesScript = ({ flag, values }: Invocation['flags'][number]) => flag.spellings.includes('-i') && values.some((value) => value.test(/^-/u) || value.test(sedSubstitution));
@@ -138,12 +143,7 @@ const programs: Table = {
             );
         }),
     },
-    'code.awk': { program: 'awk', aliases: ['gawk', 'mawk'], decide: judgeCode('awk') },
-    'code.python': { program: 'python', aliases: ['python3'], decide: judgeCode('python') },
-    'code.node': { program: 'node', decide: judgeCode('node') },
-    'code.perl': { program: 'perl', decide: judgeCode('perl') },
-    'code.ruby': { program: 'ruby', decide: judgeCode('ruby') },
-    'code.osascript': { program: 'osascript', decide: judgeCode('osascript') },
+    ...Record.fromEntries(Record.collect(languages, (program, { aliases }) => [`code.${program}`, { program, aliases, decide: judgeCode(program) }] as const)),
     'sed.suffix': {
         program: 'sed',
         decide: (sed) =>
@@ -189,8 +189,8 @@ const programs: Table = {
     'sdef.launch': {
         program: 'sdef',
         decide: Effect.fnUntraced(function* (sdef, { cwd }) {
-            const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-            const read = (plist: string, key: string) => Effect.map(run(cwd)`plutil -extract ${key} raw -o - ${plist}`, ({ printed, code }) => Option.liftPredicate(printed.trim(), () => code === 0));
+            const [fs, path, spawner] = yield* Effect.all([FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
+            const read = (plist: string, key: string) => Effect.map(spawner.string(ChildProcess.make({ cwd, stdin: 'ignore' })`plutil -extract ${key} raw -o - ${plist}`), (printed) => Option.liftPredicate(printed.trim(), String.isNonEmpty));
             const launching = yield* Effect.filter(
                 Array.getSomes(sdef.operands.map(({ word }) => word.text)).map((given) => path.resolve(cwd, given)),
                 Effect.fnUntraced(function* (bundle) {
@@ -235,7 +235,7 @@ const programs: Table = {
     'sd.unmatched': {
         program: 'sd',
         decide: Effect.fnUntraced(function* (sd, { invocations, cwd }) {
-            const fs = yield* FileSystem.FileSystem;
+            const [fs, spawner] = yield* Effect.all([FileSystem.FileSystem, ChildProcessSpawner.ChildProcessSpawner]);
             const letters = Array.fromIterable(
                 Option.getOrElse(
                     Option.flatMap(Array.head(sd.values('--flags')), ({ text }) => text),
@@ -257,7 +257,7 @@ const programs: Table = {
                                   Effect.forEach(paths, (path) => Effect.orElseSucceed(fs.readFileString(path), () => find)),
                                   (texts) => texts.some((text) => text.includes(find)),
                               )
-                            : Effect.map(run(cwd)`rg --no-config --quiet --text ${options} ${given} --regexp ${find} -- ${paths}`, ({ code }) => code !== 1),
+                            : Effect.map(spawner.exitCode(ChildProcess.make({ cwd, stdin: 'ignore' })`rg --no-config --quiet --text ${options} ${given} --regexp ${find} -- ${paths}`), (code) => code !== 1),
                 },
             );
             return matches ? [] : [{ deny: `sd pattern matches nothing in ${paths.join(' ')}.`, advice: 'Read the current text, then match what it holds.' }];

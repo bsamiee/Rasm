@@ -1,8 +1,8 @@
 import { basename, dirname, join, posix, relative, resolve } from 'node:path';
-import { parse } from '@decimalturn/toml-patch';
 import { normalizePath } from '@nx/devkit';
 import { above, below, inside, runner, Stated, spawned } from '@rasm/nx/inference';
 import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Function, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
+import { Toml } from 'effect/encoding';
 import plugin from '#/package.json' with { type: 'json' };
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -95,7 +95,7 @@ const tokened = (file: string) => posix.join('{workspaceRoot}', file);
 
 const nearest = (files: ReadonlySet<string>, folder: string, names: readonly string[]) => Array.findFirst(above(folder), (at) => Array.findFirst(names, (name) => Option.liftPredicate(posix.join(at, name), (file) => files.has(file))));
 
-const parsed = (text: string, subject: string) => Effect.try({ try: (): unknown => parse(text), catch: (cause) => new Cause.UnknownError(cause, `${subject} does not read as TOML`) });
+const parsed = (text: string, subject: string) => Effect.mapError(Effect.fromResult(Toml.parse(text)), (cause) => new Cause.UnknownError(cause, `${subject} does not read as TOML`));
 
 const toml = <S extends Schema.Decoder<unknown>>(schema: S, file: string) =>
     FileSystem.FileSystem.use((fs) => fs.readFileString(file)).pipe(

@@ -3,6 +3,7 @@ public import AppKit
 import Files
 import MachO.dyld.utils
 import OrderedCollections
+import System
 import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -45,6 +46,7 @@ private struct BundleInfo: Decodable {
 
     private enum CodingKeys: String, CodingKey {
         case identifier = "CFBundleIdentifier"
+        case executable = "CFBundleExecutable"
         case bundleName = "CFBundleName"
         case version = "CFBundleShortVersionString"
         case build = "CFBundleVersion"
@@ -61,6 +63,7 @@ private struct BundleInfo: Decodable {
     }
 
     let identifier: String?
+    let executable: String?
     let bundleName: String?
     let version: String?
     let build: String?
@@ -236,14 +239,17 @@ extension Installation {
         }
         guard let info, let identifier = info.identifier else { throw ApplicationFailure(subject: path, reason: .noIdentifier) }
         let extensions: (String) -> [String] = { type in UTType(type)?.tags[.filenameExtension] ?? [] }
-        let main = Bundle(url: bundle)
-        let executable = main?.executableURL
-        let architectures: [String]? = executable.flatMap { executable in
+        let executable: URL? = info.executable.map { name in bundle.appending(components: "Contents", "MacOS", name) }
+        let architectures: [String]? = try executable.map { executable throws(ApplicationFailure) in
             var slices: [String] = []
             let status: Int32 = unsafe macho_for_each_slice(executable.path(percentEncoded: false)) { slice, _, _, _ in
                 if let name = unsafe macho_arch_name_for_mach_header(slice) { slices.append(unsafe String(cString: name)) }
             }
-            return status == 0 ? slices : nil
+            switch status {
+                case 0: return slices
+                case EFTYPE: return []
+                default: throw ApplicationFailure(subject: executable.path(percentEncoded: false), reason: .system(Errno(rawValue: status)))
+            }
         }
         let documentTypes: [DocumentType]? = info.documentTypes.map { (types: [BundleInfo.DocumentType]) -> [DocumentType] in
             OrderedDictionary<String?, [BundleInfo.DocumentType]>(grouping: types, by: \.role).map { (role: String?, declared: [BundleInfo.DocumentType]) -> DocumentType in
@@ -279,12 +285,12 @@ extension Installation {
             architectures: architectures,
             quarantine: quarantine,
             claim: info.claim,
-            appIntents: try main.map { main throws(ApplicationFailure) in try AppIntent.declared(by: main) } ?? [],
+            appIntents: try Bundle(url: bundle).map { application throws(ApplicationFailure) in try AppIntent.declared(by: application) } ?? [],
         )
     }
 
     public func runs(_ instance: NSRunningApplication) -> Bool {
-        instance.bundleURL?.resolvingSymlinksInPath().pathComponents == url.pathComponents
+        instance.bundleIdentifier == identifier && instance.bundleURL?.resolvingSymlinksInPath().pathComponents == url.pathComponents
     }
 }
 

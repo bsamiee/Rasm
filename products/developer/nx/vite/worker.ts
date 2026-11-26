@@ -5,7 +5,7 @@ import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parentPort, workerData } from 'node:worker_threads';
 import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
-import { Array, Cause, Effect, MutableRef, Option, Predicate, Result, Schema, Struct } from 'effect';
+import { Array, Cause, Effect, Filter, MutableRef, Option, Predicate, Schema, Struct } from 'effect';
 import type { Plugin, resolveConfig, resolveEnvPrefix, UserConfig } from 'vite';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -62,7 +62,7 @@ const read = Effect.fnUntraced(function* ({ at, outDir }: typeof Task.Type) {
         served: buildable && (implied || Option.exists(serve, (held) => held.stated)),
         written: built.map(({ build }) => build.outDir),
         env: { directory: config.envDir === false ? null : config.envDir, prefixes: vite.resolveEnvPrefix(Struct.pick(config, ['envPrefix'])) },
-        dependencies: [...config.configFileDependencies, ...Option.toArray(serve).flatMap((held) => held.config.configFileDependencies), ...Array.filterMap(imported, (url) => Result.try(() => fileURLToPath(url)))],
+        dependencies: [...config.configFileDependencies, ...Option.toArray(serve).flatMap((held) => held.config.configFileDependencies), ...Array.filterMap(imported, Filter.try(fileURLToPath))],
     };
 });
 

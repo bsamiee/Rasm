@@ -16,10 +16,11 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
         case notResponsible(Grant, pid_t)
         case reused(pid_t)
         case quarantined(Installation.Quarantine, NSError)
-        case unanswered(ElementAction?)
+        case unanswered(Step?)
         case stale(reached: Int, candidates: [String])
         case disabled
         case unchanged(Fact.Scalar?)
+        case unseen
         case refused
         case permittedFrontHeld
         case noIdentifier
@@ -62,7 +63,9 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .stale(let reached, let candidates) where candidates.isEmpty: "Reference \(subject) matches nothing open after \(reached) steps of its locator, read the application again"
             case .stale(let reached, let candidates): "Reference \(subject) matches nothing open after \(reached) steps of its locator, where \(candidates.formatted()) are, read the application again"
             case .disabled: "Element \(subject) is disabled"
+            case .unchanged(.some(.rect(let frame))): "\(subject) left \(frameAttribute) at \(frame)"
             case .unchanged(let value): "\(subject) left \(kAXValueAttribute) at \(value.map { value in "\(value)" } ?? "unset")"
+            case .unseen: "\(subject) changed nothing the application shows within its answer time"
             case .refused: "\(subject) refused"
             case .permittedFrontHeld:
                 "\(subject) refused, a system prompt such as the lock screen or an authorization dialog holds the window server's permitted front list, finish that prompt and retry"
@@ -92,7 +95,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .system(let error): [NSUnderlyingErrorKey: error]
             case .foundation(let error), .quarantined(_, let error): [NSUnderlyingErrorKey: error]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
-            case .noGrant, .notResponsible, .reused, .unanswered, .stale, .disabled, .unchanged, .refused, .permittedFrontHeld, .noIdentifier, .noPath, .noExecutable,
+            case .noGrant, .notResponsible, .reused, .unanswered, .stale, .disabled, .unchanged, .unseen, .refused, .permittedFrontHeld, .noIdentifier, .noPath, .noExecutable,
                 .noWindow, .noImage, .noEncoder, .notOnConsole, .screenLocked, .displayAsleep, .requiresApproval, .accessibility, .windowServer, .cancelled:
                 [:]
         }
@@ -127,7 +130,7 @@ extension ApplicationFailure: Encodable {
             case .event(let failure): try fields.encodeIfPresent(failure.status, forKey: .status)
             case .system(let error): try fields.encode(error.rawValue, forKey: .error)
             case .unmatched(let miss): try fields.encode(miss.candidates, forKey: .candidates)
-            case .unanswered, .disabled, .refused, .permittedFrontHeld, .noIdentifier, .noPath, .noExecutable, .noWindow, .noImage, .noEncoder, .notOnConsole, .screenLocked,
+            case .unanswered, .unseen, .disabled, .refused, .permittedFrontHeld, .noIdentifier, .noPath, .noExecutable, .noWindow, .noImage, .noEncoder, .notOnConsole, .screenLocked,
                 .displayAsleep, .requiresApproval, .foundation, .cancelled:
                 break
         }
@@ -135,7 +138,7 @@ extension ApplicationFailure: Encodable {
 }
 
 extension ApplicationFailure {
-    init(_ error: AXError, subject: String, process: pid_t?, answering action: ElementAction? = nil, otherwise: () -> Self) {
+    init(_ error: AXError, subject: String, process: pid_t?, answering action: Step? = nil, otherwise: () -> Self) {
         let exited: pid_t? = process.flatMap { process in Result(catching: { () throws(Errno) in try ProcessInstance(of: process) }) == .failure(.noSuchProcess) ? process : nil }
         self =
             switch (error, exited) {

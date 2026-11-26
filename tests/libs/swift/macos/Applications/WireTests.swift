@@ -5,7 +5,6 @@ import CustomDump
 import Encoding
 import Foundation
 import Processes
-import ScreenCapture
 import Testing
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -61,11 +60,15 @@ struct WireTests {
     func readsEachScopeTheTypeScriptSideWritesByItsTag() throws {
         let scopes: [Model.Scope] = try read(
             [Model.Scope].self,
-            #"[{"_tag":"application"},{"_tag":"container","ref":4},{"_tag":"menu","ref":6},{"_tag":"rows","ref":8,"from":20,"count":10},{"_tag":"search","text":"Export","limit":3},{"_tag":"menus"}]"#,
+            #"[{"_tag":"application"},{"_tag":"container","ref":4},{"_tag":"menu","ref":6},{"_tag":"rows","ref":8,"from":20,"count":10},{"_tag":"text","ref":5},{"_tag":"search","text":"Export","key":"AXHeadingSearchKey","limit":3},{"_tag":"search","text":"","limit":2},{"_tag":"menus"}]"#,
         )
         expectNoDifference(
             scopes.map(String.init(describing:)),
-            ["application", "container(ref: 4)", "menu(ref: 6)", "rows(ref: 8, from: 20, count: 10)", #"search(text: "Export", limit: 3)"#, "menus"],
+            [
+                "application", "container(ref: 4)", "menu(ref: 6)", "rows(ref: 8, from: 20, count: 10)", "text(ref: 5)",
+                #"search(text: "Export", key: __C.NSAccessibilitySearchKey(_rawValue: AXHeadingSearchKey), limit: 3)"#,
+                #"search(text: "", key: __C.NSAccessibilitySearchKey(_rawValue: AXAnyTypeSearchKey), limit: 2)"#, "menus",
+            ],
         )
     }
 

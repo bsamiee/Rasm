@@ -44,8 +44,8 @@ extension Installation {
     func scriptingDefinition(cachedDefinition: URL?) async throws(AppleEventFailure) -> Data {
         let path = url.path(percentEncoded: false)
         func read(_ file: URL?, named name: String) throws(AppleEventFailure) -> Data {
+            guard let file else { throw AppleEventFailure(subject: "\(name) of \(path)", reason: .undeclared) }
             do {
-                guard let file else { throw CocoaError(.fileReadNoSuchFile, userInfo: [NSFilePathErrorKey: name]) }
                 return try Data(contentsOf: file)
             } catch {
                 throw AppleEventFailure(subject: "\(name) of \(path)", reason: .foundation(error as NSError))

@@ -13,6 +13,8 @@ let frameAttribute: String = "AXFrame"
 let userInputLabelsAttribute: String = "AXUserInputLabels"
 let fullScreenAttribute: String = "AXFullScreen"
 let sectionsAttribute: String = "AXSections"
+let contentSizeAttribute: String = "AXContentSize"
+let manualAccessibilityAttribute: String = "AXManualAccessibility"
 let frameAttributes: [String] = [frameAttribute, NSAccessibility.Attribute.activationPoint.rawValue]
 let elementAttributes: [String] = [
     kAXRoleAttribute, kAXSubroleAttribute, kAXRoleDescriptionAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXHelpAttribute, kAXIdentifierAttribute, kAXDOMIdentifierAttribute,
@@ -23,6 +25,13 @@ let windowAttributes: [String] =
     elementAttributes + [
         kAXModalAttribute, kAXMainAttribute, kAXDocumentAttribute, kAXDefaultButtonAttribute, kAXCancelButtonAttribute, kAXCloseButtonAttribute, fullScreenAttribute, sectionsAttribute,
     ]
+let webAttributes: [String] = [
+    kAXInvalidAttribute, NSAccessibility.Attribute.required.rawValue, kAXARIACurrentAttribute, kAXARIARowCountAttribute, kAXLoadedAttribute, kAXLoadingProgressAttribute,
+]
+let declaredActions: Set<String> = [
+    kAXPressAction, kAXIncrementAction, kAXDecrementAction, kAXConfirmAction, kAXPickAction, kAXCancelAction, kAXRaiseAction, kAXShowMenuAction, kAXShowAlternateUIAction,
+    kAXShowDefaultUIAction, NSAccessibility.Action.delete.rawValue, NSAccessibility.Action.scrollToVisibleAction.rawValue,
+]
 let menuAttributes: [String] = [
     kAXRoleAttribute, kAXSubroleAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXHelpAttribute, kAXIdentifierAttribute, kAXEnabledAttribute, kAXSelectedAttribute,
     kAXMenuItemCmdCharAttribute, kAXMenuItemCmdVirtualKeyAttribute, kAXMenuItemCmdGlyphAttribute, kAXMenuItemCmdModifiersAttribute, kAXMenuItemMarkCharAttribute, kAXURLAttribute,
@@ -39,10 +48,13 @@ public enum Fact: CaseTagged, Hashable, Sendable {
         case number(Double)
         case text(String)
         case date(Date)
+        case rect(CGRect)
 
         public init(from decoder: any Decoder) throws {
             let value = try decoder.singleValueContainer()
-            self = try value.decodeIfMatching(Bool.self).map(Self.bool) ?? value.decodeIfMatching(Double.self).map(Self.number) ?? .text(value.decode(String.self))
+            self =
+                try value.decodeIfMatching(Bool.self).map(Self.bool) ?? value.decodeIfMatching(Double.self).map(Self.number) ?? value.decodeIfMatching(CGRect.self).map(Self.rect)
+                ?? .text(value.decode(String.self))
         }
 
         public func encode(to encoder: any Encoder) throws {
@@ -52,6 +64,7 @@ public enum Fact: CaseTagged, Hashable, Sendable {
                 case .number(let number): try value.encode(number)
                 case .text(let text): try value.encode(text)
                 case .date(let date): try value.encode(date)
+                case .rect(let frame): try value.encode(frame)
             }
         }
     }
@@ -65,6 +78,7 @@ public enum Fact: CaseTagged, Hashable, Sendable {
     case point(value: CGPoint)
     case size(value: CGSize)
     case rect(value: CGRect)
+    case color(red: Double, green: Double, blue: Double, alpha: Double)
     case range(location: Int, length: Int)
     case element(id: Int)
     case list(values: [Self])
@@ -83,7 +97,7 @@ public enum Fact: CaseTagged, Hashable, Sendable {
             case .text(let text): .text(text)
             case .url(let url): .text(url.absoluteString)
             case .date(let date): .date(date)
-            case .point, .size, .rect, .range, .element, .list, .record, .refused: nil
+            case .point, .size, .rect, .color, .range, .element, .list, .record, .refused: nil
         }
     }
 }
@@ -93,6 +107,8 @@ public struct Element: Hashable, Sendable {
     public let facts: [String: Fact]
     public let actions: [String]
     public let window: CGWindowID?
+    public var descriptions: [String: String] = [:]
+    public var counts: [String: Int] = [:]
 
     public func text(_ attribute: String) -> String? { facts[attribute]?.text.flatMap { text in text.isEmpty ? nil : text } }
 
@@ -119,6 +135,9 @@ extension Fact {
                 case CFArrayGetTypeID(): (value as? [AnyObject]).map { (items: [AnyObject]) -> Self in .list(values: items.compactMap { item in Self(item, interning: intern) }) }
                 case CFDictionaryGetTypeID():
                     (value as? [String: AnyObject]).map { (fields: [String: AnyObject]) -> Self in .record(fields: fields.compactMapValues { field in Self(field, interning: intern) }) }
+                case CGColor.typeID:
+                    CGColorSpace(name: CGColorSpace.sRGB).flatMap { space in unsafe unsafeDowncast(value, to: CGColor.self).converted(to: space, intent: .defaultIntent, options: nil)?.components }
+                        .flatMap { (parts: [CGFloat]) -> Self? in parts.count == 4 ? .color(red: parts[0], green: parts[1], blue: parts[2], alpha: parts[3]) : nil }
                 case AXUIElementGetTypeID(): .element(id: intern(unsafe unsafeDowncast(value, to: AXUIElement.self)))
                 case AXValueGetTypeID():
                     switch AXValueGetType(unsafe unsafeDowncast(value, to: AXValue.self)) {
@@ -145,7 +164,7 @@ extension Fact.Scalar {
         switch self {
             case .number(let number): number
             case .text(let text): Double(text.trimmingCharacters(in: .whitespaces))
-            case .bool, .date: nil
+            case .bool, .date, .rect: nil
         }
     }
 
@@ -153,16 +172,17 @@ extension Fact.Scalar {
         switch self {
             case .text(let text): text
             case .number(let number): number.formatted(FloatingPointFormatStyle<Double>(locale: Locale(identifier: "en_US_POSIX")).grouping(.never).precision(.significantDigits(1...17)))
-            case .bool, .date: nil
+            case .bool, .date, .rect: nil
         }
     }
 
-    var accessibility: CFTypeRef {
+    var accessibility: CFTypeRef? {
         switch self {
             case .bool(let flag): flag as NSNumber
             case .number(let number): number as NSNumber
             case .text(let text): text as CFString
             case .date(let date): date as CFDate
+            case .rect(var frame): unsafe AXValueCreate(.cgRect, &frame)
         }
     }
 }
@@ -205,11 +225,27 @@ extension AXUIElement {
         let (answer, facts) = copy(attributes, interning: intern)
         let acted: AXError = answer == .success ? unsafe AXUIElementCopyActionNames(self, &names) : answer
         let read = Element(id: id, facts: facts, actions: names as? [String] ?? [], window: window)
-        let wanted: [String] = answered.contains(acted) ? read.supplementary.filter { attribute in !attributes.contains(attribute) } : []
-        let (extended, added) = wanted.isEmpty ? (AXError.success, [:]) : copy(wanted, interning: intern)
+        let (wanted, counted): (read: [String], counted: [String]) = answered.contains(acted) ? read.supplementary : ([], [])
+        let missing: [String] = wanted.filter { attribute in !attributes.contains(attribute) }
+        let (extended, added) = missing.isEmpty ? (AXError.success, [:]) : copy(missing, interning: intern)
+        let descriptions: [(String, String)] = read.actions.filter { action in !declaredActions.contains(action) }.compactMap { action in
+            var text: CFString?
+            return unsafe AXUIElementCopyActionDescription(self, action as CFString, &text) == .success ? (text as String?).map { text in (action, text) } : nil
+        }
+        let counts: [(String, Int)] = counted.compactMap { attribute in
+            var total: CFIndex = 0
+            return unsafe AXUIElementGetAttributeValueCount(self, attribute as CFString, &total) == .success ? (attribute, total) : nil
+        }
         return (
             [acted, extended].first { error in !answered.contains(error) } ?? answer,
-            Element(id: id, facts: facts.merging(added) { first, _ in first }, actions: read.actions, window: read.window),
+            Element(
+                id: id,
+                facts: facts.merging(added) { first, _ in first },
+                actions: read.actions,
+                window: read.window,
+                descriptions: Dictionary(descriptions) { first, _ in first },
+                counts: Dictionary(counts) { first, _ in first },
+            ),
         )
     }
 
@@ -231,16 +267,46 @@ extension AXUIElement {
         }
     }
 
-    func search(_ text: String, limit: Int) throws(ApplicationFailure) -> [AXUIElement] {
-        let attribute: String = NSAccessibility.ParameterizedAttribute.uiElementsForSearchPredicateParameterizedAttribute.rawValue
+    func parameterized(_ attribute: String, _ parameter: CFTypeRef) throws(ApplicationFailure) -> CFTypeRef? {
+        var value: CFTypeRef?
+        return switch unsafe AXUIElementCopyParameterizedAttributeValue(self, attribute as CFString, parameter, &value) {
+            case .success, .noValue: value
+            case let error: throw failure(error, reading: attribute)
+        }
+    }
+
+    func search(_ text: String, key: NSAccessibilitySearchKey, limit: Int) throws(ApplicationFailure) -> [AXUIElement] {
         let predicate: [String: Any] = [
-            NSAccessibilitySearchIdentifiersKey: NSAccessibilitySearchKey.anyTypeSearchKey.rawValue, NSAccessibilitySearchTextKey: text, NSAccessibilitySearchResultsLimitKey: limit,
-            NSAccessibilitySearchDirectionKey: NSAccessibilitySearchDirectionNext,
+            NSAccessibilitySearchIdentifiersKey: key.rawValue, NSAccessibilitySearchResultsLimitKey: limit, NSAccessibilitySearchDirectionKey: NSAccessibilitySearchDirectionNext,
         ]
-        var found: CFTypeRef?
-        let answer = unsafe AXUIElementCopyParameterizedAttributeValue(self, attribute as CFString, predicate as CFDictionary, &found)
-        guard answer == .success else { throw failure(answer, reading: attribute) }
+        let found = try parameterized(
+            NSAccessibility.ParameterizedAttribute.uiElementsForSearchPredicateParameterizedAttribute.rawValue,
+            predicate.merging(text.isEmpty ? [:] : [NSAccessibilitySearchTextKey: text]) { first, _ in first } as CFDictionary,
+        )
         return (found as? [AnyObject] ?? []).compactMap(Self.cast)
+    }
+
+    func runs(interning intern: (AXUIElement) -> Int) throws(ApplicationFailure) -> [Control.Run] {
+        guard case .range(let start, let length) = copy([kAXVisibleCharacterRangeAttribute], interning: intern).facts[kAXVisibleCharacterRangeAttribute] else { return [] }
+        var (runs, index): ([Control.Run], Int) = ([], start)
+        while index < start + length, let style = try parameterized(kAXStyleRangeForIndexParameterizedAttribute, index as CFNumber).flatMap({ value in Fact(value, interning: intern)?.range }),
+            case let end = min(style.location + style.length, start + length), end > index
+        {
+            var range = CFRange(location: index, length: end - index)
+            guard let span: AXValue = unsafe AXValueCreate(.cfRange, &range) else { break }
+            let styled: NSAttributedString? = try parameterized(kAXAttributedStringForRangeParameterizedAttribute, span) as? NSAttributedString
+            let attributes: [NSAttributedString.Key: Any] = styled.map { styled in styled.length == 0 ? [:] : unsafe styled.attributes(at: 0, effectiveRange: nil) } ?? [:]
+            runs.append(
+                Control.Run(
+                    range: Control.TextRange(location: range.location, length: range.length),
+                    text: styled?.string ?? "",
+                    attributes: Dictionary(uniqueKeysWithValues: attributes.compactMap { key, value in Fact(value as AnyObject, interning: intern).map { fact in (key.rawValue, fact) } }),
+                    frame: try parameterized(kAXBoundsForRangeParameterizedAttribute, span).flatMap { value in Fact(value, interning: intern)?.rect },
+                )
+            )
+            index = end
+        }
+        return runs
     }
 
     func settable(_ attribute: String) throws(ApplicationFailure) -> Bool {

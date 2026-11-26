@@ -84,12 +84,18 @@ extension LogLine {
                 do {
                     let path = FilePath(file.path(percentEncoded: false))
                     guard let descriptor = try ifPresent({ try FileDescriptor.open(path, .readOnly, options: [.nonBlocking, .closeOnExec]) }) else { continue }
-                    let handle = FileHandle(fileDescriptor: descriptor.rawValue, closeOnDealloc: true)
-                    let stat = try descriptor.stat()
+                    let (stat, from, fresh): (Stat, Int64, [UInt8]) = try descriptor.closeAfter {
+                        let stat = try descriptor.stat()
+                        let from = prior.map { (read: [Inode: Int64]) -> Int64 in read[stat.inode].flatMap { offset in offset <= stat.size ? offset : nil } ?? 0 } ?? stat.size
+                        guard stat.type == .regular else { return (stat, from, []) }
+                        return (
+                            stat, from,
+                            try unsafe [UInt8](unsafeUninitializedCapacity: Int(stat.size - from)) { buffer, read in
+                                read = try unsafe descriptor.read(fromAbsoluteOffset: from, into: UnsafeMutableRawBufferPointer(buffer))
+                            },
+                        )
+                    }
                     guard stat.type == .regular else { continue }
-                    let from = prior.map { (read: [Inode: Int64]) -> Int64 in read[stat.inode].flatMap { offset in offset <= stat.size ? offset : nil } ?? 0 } ?? stat.size
-                    try descriptor.seek(offset: from, from: .start)
-                    let fresh = try handle.readToEnd() ?? Data()
                     let whole = fresh.lastIndex(of: UInt8(ascii: "\n")).map { end in fresh[...end] } ?? fresh.prefix(0)
                     guard let lines = String(validating: whole, as: UTF8.self) else { throw CocoaError(.fileReadInapplicableStringEncoding) }
                     held.read?[stat.inode] = from + Int64(whole.count)

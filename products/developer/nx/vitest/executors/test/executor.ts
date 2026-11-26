@@ -5,7 +5,7 @@ import { dirname, relative, resolve } from 'node:path';
 import process, { env } from 'node:process';
 import { normalizePath } from '@nx/devkit';
 import { type BatchExecutorTaskResult, findProjectForPath, hashObject } from '@nx/devkit/internal';
-import { batched, executor } from '@rasm/nx/inference';
+import { batched, executor, request } from '@rasm/nx/inference';
 import { Array, Cause, Clock, Effect, Exit, Formatter, Option, Predicate, Record, Result, Schema, Stream, Struct } from 'effect';
 import type { CliOptions, parseCLI, TestModule, TestsNotFoundError, Vitest } from 'vitest/node';
 import { loaded, MODE } from '#/plugin';
@@ -105,14 +105,11 @@ const settled = Effect.fnUntraced(function* (group: Array.NonEmptyReadonlyArray<
 
 const forked = (root: string, group: Array.NonEmptyReadonlyArray<Planned>) => {
     const { config } = Array.headNonEmpty(group).options;
-    const failed = (cause: unknown) => new Cause.UnknownError(cause, `vitest run over ${config} stops before it reports`);
-    const replied = Effect.acquireDisposable(Effect.sync(() => fork(import.meta.filename, { cwd: dirname(resolve(root, config)), env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV }, serialization: 'advanced' }))).pipe(
-        Effect.tap((child) => Effect.sync(() => child.send({ root, group }))),
-        Effect.flatMap((child) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(child, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(child, 'exit', { signal }), catch: failed }), failed))),
-        Effect.flatMap(([message]) => Schema.decodeUnknownEffect(Settled)(message)),
-        Effect.scoped,
+    const started = Effect.tap(
+        Effect.sync(() => fork(import.meta.filename, { cwd: dirname(resolve(root, config)), env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV }, serialization: 'advanced' })),
+        (child) => Effect.sync(() => child.send({ root, group })),
     );
-    return settled(group, replied);
+    return settled(group, request(started, Settled, `vitest run over ${config} stops before it reports`));
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

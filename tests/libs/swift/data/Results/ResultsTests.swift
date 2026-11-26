@@ -87,8 +87,7 @@ struct AccumulationTests {
 
 private func pending(_ value: Int, cancelled: AsyncStream<Int>.Continuation) -> @Sendable () async throws(Refusal) -> Int {
     { () async throws(Refusal) -> Int in
-        try? await Task.sleep(for: .seconds(3600))
-        if Task.isCancelled { cancelled.yield(value) }
+        do { try await Task.sleep(for: .seconds(3600)) } catch { cancelled.yield(value) }
         return value
     }
 }
@@ -113,6 +112,24 @@ struct RaceTests {
         expectNoDifference(ended, .failure(Refusal(field: "timeout")))
         expectNoDifference(clock.now, ImmediateClock<Duration>.Instant(offset: .seconds(5)))
         expectNoDifference(cancelled, [1])
+    }
+
+    @Test
+    func expiresACallbackThatNeverAnswersAtTheTimeout() async {
+        let clock = ImmediateClock<Duration>()
+        let outcome = await Result { () async throws(Refusal) -> Int in
+            try await withTimeout(.seconds(5), expired: Refusal(field: "timeout"), cancelled: Refusal(field: "cancelled"), clock: clock) { _ in }
+        }
+        expectNoDifference(outcome, .failure(Refusal(field: "timeout")))
+        expectNoDifference(clock.now, ImmediateClock<Duration>.Instant(offset: .seconds(5)))
+    }
+
+    @Test(arguments: [Result<Int, Refusal>.success(1), .failure(Refusal(field: "host"))])
+    func answersWithTheCallbackOutcomeBeforeTheTimeout(answered: Result<Int, Refusal>) async {
+        let outcome = await Result { () async throws(Refusal) -> Int in
+            try await withTimeout(.seconds(5), expired: Refusal(field: "timeout"), cancelled: Refusal(field: "cancelled"), clock: TestClock<Duration>()) { answer in answer(answered) }
+        }
+        expectNoDifference(outcome, answered)
     }
 
     @Test(arguments: [(true, 1, 2), (false, 2, 1)])

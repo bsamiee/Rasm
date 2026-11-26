@@ -12,7 +12,6 @@ public import System
 
 public enum Directory: Sendable {
     case logs
-    case media
     case state
 }
 
@@ -60,18 +59,20 @@ public struct Program: Sendable {
         version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
         stored = MutableInMemoryProvider(name: identifier, initialValues: Self.values(UserDefaults.standard.persistentDomain(forName: identifier) ?? [:]))
         let providers: [any ConfigProvider] = [EnvironmentVariablesProvider().prefixKeys(with: ConfigKey([name])), stored]
-        unrecognized = UnrecognizedValues(accepted: ["log.target": LogTarget.allCases.map(\.rawValue)], raw: ConfigReader(providers: providers))
+        unrecognized = UnrecognizedValues(
+            accepted: ["log.target": LogTarget.allCases.map(\.rawValue), "log.size": ["greater than 0"], "log.age": ["greater than 0"], "log.files": ["greater than 0"]],
+            raw: ConfigReader(providers: providers),
+        )
         settings = ConfigReader(providers: providers, accessReporter: unrecognized)
     }
 
-    public func directory(_ kind: Directory, of application: String? = nil) -> URL {
+    public func directory(_ kind: Directory) -> URL {
         let configured = settings.string(forKey: kind == .state ? "state.dir" : "output.dir").map { path in URL(filePath: path, directoryHint: .isDirectory) }
         return switch (kind, configured) {
             case (.state, .some(let state)): state
             case (.state, .none): .applicationSupportDirectory.appending(path: identifier, directoryHint: .isDirectory)
-            case (_, .some(let output)): output.appending(components: application ?? name, String(describing: kind), directoryHint: .isDirectory)
+            case (.logs, .some(let output)): output.appending(components: name, String(describing: kind), directoryHint: .isDirectory)
             case (.logs, .none): .libraryDirectory.appending(components: "Logs", identifier, directoryHint: .isDirectory)
-            case (_, .none): .cachesDirectory.appending(components: identifier, String(describing: kind), directoryHint: .isDirectory)
         }
     }
 

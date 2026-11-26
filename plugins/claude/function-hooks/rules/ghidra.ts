@@ -33,7 +33,7 @@ const listProjects = Effect.fnUntraced(function* (folder: string) {
 });
 const chain = Effect.fnUntraced(function* ({ shell, script }: Call, lines: readonly (readonly string[])[]) {
     const [first, ...others] = yield* Effect.forEach(lines, (line) => shell.script(script.dialect)`${line}`);
-    const start = yield* Effect.fromOption(Option.fromUndefinedOr(first));
+    const start = yield* Effect.fromNullishOr(first);
     const stmt = yield* Effect.fromOption(Array.head(start.syntax.stmts));
     return yield* shell.edit(start, (editor) => others.map((next) => editor.follow(stmt, '&&', next)));
 }, Effect.catchNoSuchElement);

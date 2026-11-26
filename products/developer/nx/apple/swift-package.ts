@@ -1,7 +1,7 @@
-import { join, matchesGlob, relative } from 'node:path';
+import { join, relative } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
 import { EXECUTORS, inside, removable, type Verbs } from '@rasm/nx/inference';
-import { Array, Effect, Graph, Option, Predicate, Record, Schema, Struct, UndefinedOr } from 'effect';
+import { Array, Effect, Glob, Graph, Option, Predicate, Record, Schema, Struct, UndefinedOr } from 'effect';
 import { ATTACH, INPUTS, type Options, type Part, PLUGIN, SWIFTPM, sequenced } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -100,7 +100,7 @@ const packageParts = (options: Options, local: Package, described: ReadonlyMap<s
                     options: { outputs: written(bins.debug) },
                     outputs: released.map((_, index) => `{options.outputs.${index}}`),
                     configurations: { release: { runs: [[...build, '--configuration', 'release']], outputs: released } },
-                    ...(manifest.products.some(({ name }) => shipped.some((entry) => matchesGlob(relative(root, join(bins.release, name)), entry))) && { defaultConfiguration: 'release' }),
+                    ...(manifest.products.some(({ name }) => shipped.some((entry) => Glob.match(Glob.make(entry), relative(root, join(bins.release, name))))) && { defaultConfiguration: 'release' }),
                 },
             ),
         },

@@ -5,13 +5,13 @@ import Foundation
 
 public struct Locator: Codable, Hashable, Sendable {
     struct Step: Codable, Hashable, Sendable {
-        indirect enum Key: Codable, Hashable, Sendable {
+        enum Key: Codable, Hashable, Sendable {
             case identifier(value: String)
             case document(value: URL)
             case label(value: String)
             case sole
             case members
-            case offset(from: Step?, by: Int)
+            indirect case offset(from: Step?, by: Int)
 
             static func label(folding text: String) -> Self? {
                 let folded: String = text.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil).filter { character in

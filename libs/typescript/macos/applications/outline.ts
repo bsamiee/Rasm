@@ -120,7 +120,11 @@ const controlNode =
         const last = Option.getOrElse(Array.findFirstIndex(listed, Struct.get('pinned')), () => -1) + KEPT.options;
         const leveling = new Set(nested.filter(({ entry }) => entry.control.kind === 'row').map(({ entry }) => entry.control.level)).size > 1;
         const lines = Array.isReadonlyArrayNonEmpty(nested) ? Array.groupWith(nested, (each, head) => each.entry.control.row === head.entry.control.ref) : [];
+        const runs = (control.runs ?? []).map(({ range, text, attributes, frame }) =>
+            node(facts(JSON.stringify(text), [`characters ${range.location}+${range.length}`, ...Record.collect(attributes, (key, value) => `${key} ${Address.fact('text', value)}`), ...Array.fromNullishOr(frame).map((at) => `frame ${at[0].join(',')} ${at[1].join('×')}`)]), []),
+        );
         const nodes = [
+            ...runs,
             ...listed.map((each, at) => ({ ...each, cut: at > last ? CUTS.indexOf('options') : NEVER })),
             ...lines.map((group, at) => ({ ...controlNode(index, container, changed, leveling, item.name)({ ...Array.headNonEmpty(group), nested: Array.tailNonEmpty(group) }).node, cut: at < KEPT.rows ? NEVER : CUTS.indexOf('rows') })),
         ];
@@ -139,6 +143,22 @@ const controlNode =
             ...Array.fromNullishOr(control.placeholder).map((text) => `placeholder ${JSON.stringify(text)}`),
             ...Array.fromNullishOr(control.level).flatMap((level) => (leveled ? [`level ${level}`] : [])),
             ...Array.fromNullishOr(control.expanded).map((open) => (open ? 'expanded' : 'collapsed')),
+            ...Array.fromNullishOr(control.disclosedBy).flatMap((up) => Option.toArray(Option.map(Option.flatMap(Record.get(index.live, `${up}`), Struct.get('token')), (token) => `under ${token}`))),
+            ...Array.fromNullishOr(control.total).map((total) => `${total} rows`),
+            ...Array.fromNullishOr(control.sort).map((order) => `sorted ${order}`),
+            ...Array.fromNullishOr(control.column).map((column) => `column ${JSON.stringify(column)}`),
+            ...Array.fromNullishOr(control.cells).map((cells) => cells.map(({ column, text }) => [...Array.fromNullishOr(column), JSON.stringify(text)].join(' ')).join(' | ')),
+            ...Array.fromNullishOr(control.scroll).map(({ contentSize, horizontalScrollBar, verticalScrollBar }) =>
+                ['scroll', ...Array.fromNullishOr(verticalScrollBar).map((at) => `vertical ${at}`), ...Array.fromNullishOr(horizontalScrollBar).map((at) => `horizontal ${at}`), ...Array.fromNullishOr(contentSize).map((size) => `of ${size.join('×')}`)].join(' '),
+            ),
+            ...Array.fromNullishOr(control.selectedTextRanges).flatMap((ranges) => (control.focused === true || ranges.some(({ length }) => length > 0) ? [`selection ${ranges.map(({ location, length }) => `${location}+${length}`).join(', ')}`] : [])),
+            ...Array.fromNullishOr(control.numberOfCharacters).flatMap((count) => (control.value?._tag === 'text' && control.value.value.length === count ? [] : [`${count} characters`])),
+            ...Array.fromNullishOr(control.insertionPointLineNumber).flatMap((line) => (control.focused === true ? [`line ${line}`] : [])),
+            ...Array.fromNullishOr(control.actions).map((actions) => `actions ${actions.map((each) => JSON.stringify(each)).join(', ')}`),
+            ...Array.fromNullishOr(control.alternateUIVisible).map((shown) => (shown ? 'hover controls shown' : 'hover controls hidden')),
+            ...Array.fromNullishOr(control.invalid).map((invalid) => `invalid ${invalid}`),
+            ...(control.required === true ? ['required'] : []),
+            ...Array.fromNullishOr(control.current).map((current) => `current ${current}`),
             ...(control.kind === 'choice' && control.options === undefined ? ['options listed only while open'] : []),
             ...help(control.help, control.label?.text),
             ...Array.fromNullishOr(control.labels).map((labels) => `also ${labels.map((each) => JSON.stringify(each)).join(', ')}`),
@@ -168,7 +188,8 @@ const tree = (index: Index, changed: HashSet.HashSet<Control['ref']>): readonly 
         });
         const nodes = [...folded.map((each) => ({ ...each, cut: primary.has(container.ref) ? NEVER : CUTS.indexOf('containers') })), ...remembered(index, container.locator), ...container.text.map((text) => node(JSON.stringify(text), [], { cut: CUTS.indexOf('text') }))];
         const line = facts([...Option.toArray(item.token), container.kind, ...Option.toArray(Option.map(item.name, (title) => JSON.stringify(title)))].join(' '), [
-            ...flags({ asking: container.asking, modal: container.modal, focused: container.focused === true, unsaved: container.edited === true, 'full screen': container.fullScreen === true }),
+            ...flags({ asking: container.asking, modal: container.modal, focused: container.focused === true, unsaved: container.edited === true, 'full screen': container.fullScreen === true, loading: container.loaded === false }),
+            ...Array.fromNullishOr(container.loadingProgress).flatMap((progress) => (progress < 1 ? [`loaded ${Math.round(progress * 100)}%`] : [])),
             ...Array.fromNullishOr(container.parent)
                 .flatMap((parent) => Option.toArray(Option.flatMap(Record.get(index.live, `${parent}`), Struct.get('token'))))
                 .map((parent) => `in ${parent}`),
@@ -269,22 +290,33 @@ const render = (
     });
     return Result.flatMap(page, (held) => Result.map(start(held, after), (from) => fit(held, from, budget)));
 };
-const hits = (found: readonly Item[], held: readonly string[], { after = Option.none(), budget = BUDGET }: { readonly after?: Option.Option<Item>; readonly budget?: typeof BUDGET } = {}) => {
+const hits = (found: readonly Item[], held: readonly string[], { after = Option.none(), budget = BUDGET, opening = Option.none() }: { readonly after?: Option.Option<Item>; readonly budget?: typeof BUDGET; readonly opening?: Option.Option<Index> } = {}) => {
+    const opener = (item: Item) =>
+        Option.flatMap(opening, (index) =>
+            (item.target._tag === 'RememberedContainer' || item.target._tag === 'RememberedControl' ? Option.some(item.target.entry) : Option.none()).pipe(
+                Option.flatMap(({ container }) => Array.head(container.openers)),
+                Option.flatMap(({ control }) => Record.get(index.located, control)),
+                Option.flatMap(Struct.get('token')),
+            ),
+        );
     const page: Page = {
         nodes: found.map((item) =>
             node(
-                [
-                    ...(item.live ? Option.toArray(item.token) : ['▸']),
-                    Address.path(item).join(Address.separator),
-                    ...Option.toArray(Option.map(item.value, (value) => (item.live ? value : `was ${value}`))),
-                    Address.Target.$match(item.target, {
-                        Container: ({ container }) => container.kind,
-                        Control: ({ control }) => control.kind,
-                        Option: () => 'option',
-                        RememberedContainer: ({ entry }) => entry.container.kind,
-                        RememberedControl: ({ control }) => control.kind,
-                    }),
-                ].join(' '),
+                facts(
+                    [
+                        ...(item.live ? Option.toArray(item.token) : ['▸']),
+                        Address.path(item).join(Address.separator),
+                        ...Option.toArray(Option.map(item.value, (value) => (item.live ? value : `was ${value}`))),
+                        Address.Target.$match(item.target, {
+                            Container: ({ container }) => container.kind,
+                            Control: ({ control }) => control.kind,
+                            Option: () => 'option',
+                            RememberedContainer: ({ entry }) => entry.container.kind,
+                            RememberedControl: ({ control }) => control.kind,
+                        }),
+                    ].join(' '),
+                    Option.toArray(Option.map(opener(item), (token) => `opened by ${token}`)),
+                ),
                 Option.toArray(item.token),
             ),
         ),

@@ -24,6 +24,17 @@ private let unsupported: [String: Set<Substring>] = [
     "OTEL_TRACES_SAMPLER": ["parentbased_jaeger_remote", "jaeger_remote", "xray"],
 ]
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+struct Positive: ExpressibleByConfigInt {
+    let configInt: Int
+
+    init?(configInt: Int) {
+        guard configInt > 0 else { return nil }
+        self.configInt = configInt
+    }
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 extension Program {
@@ -34,15 +45,6 @@ extension Program {
         let severities = Logging.Logger.Level.allCases.map { level in level.severity.text.lowercased() }.filter { text in Logging.Logger.Level(rawValue: text) == nil }
         if level == nil { unrecognized.add(variable: key.description, value: entry, accepted: Logging.Logger.Level.allCases.map(\.rawValue) + severities) }
         return level
-    }
-
-    private func positive(_ key: ConfigKey) -> Int? {
-        switch settings.int(forKey: key) {
-            case .some(let value) where value <= 0:
-                unrecognized.add(variable: key.description, value: "\(value)", accepted: ["greater than 0"])
-                return nil
-            case let value: return value
-        }
     }
 
     private func rules() -> LogFilter.Rules {
@@ -119,9 +121,9 @@ extension Program {
         ]
         .compactMapValues(\.self)
         var file = RotatingFile(directory(.logs).appending(path: "\(process.processName).log", directoryHint: .notDirectory))
-        file.size = positive("log.size") ?? file.size
-        file.age = positive("log.age").map { seconds in .seconds(seconds) } ?? file.age
-        file.files = positive("log.files") ?? file.files
+        file.size = settings.int(forKey: "log.size", as: Positive.self)?.configInt ?? file.size
+        file.age = settings.int(forKey: "log.age", as: Positive.self).map { seconds in .seconds(seconds.configInt) } ?? file.age
+        file.files = settings.int(forKey: "log.files", as: Positive.self)?.configInt ?? file.files
         let target = settings.string(forKey: "log.target", as: LogTarget.self, default: .file)
         let interactive = target == .file && isatty(STDERR_FILENO) == 1
         let keys = OTel.Configuration.LoggingMetadataProviderConfiguration.default

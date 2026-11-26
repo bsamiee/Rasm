@@ -1,6 +1,5 @@
 import type { Policy } from '@rasm/policy/policy';
-import { Array, Effect, FileSystem, Function, Option, Path, Stream } from 'effect';
-import { ChildProcess, type CommandLine } from 'effect/process';
+import { Array, Effect, FileSystem, Function, Option, Path } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -29,17 +28,7 @@ const findUp = Effect.fnUntraced(function* (cwd: string, marker: string) {
     );
     return yield* Effect.findFirst(ancestors, (folder) => Effect.orElseSucceed(fs.exists(path.join(folder, marker)), () => false));
 });
-const run =
-    (cwd: string) =>
-    (strings: TemplateStringsArray, ...words: readonly CommandLine.TemplateExpression[]) =>
-        Effect.scoped(
-            Effect.gen(function* () {
-                const handle = yield* ChildProcess.make({ cwd, stdin: 'ignore' })(strings, ...words);
-                const [printed, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), handle.exitCode], { concurrency: 'unbounded' });
-                return { printed, code };
-            }),
-        );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Call, covers, findUp, type Invocation, patternOf, rewrite, roots, run, type Script, type Table, type Verdict };
+export { type Call, covers, findUp, type Invocation, patternOf, rewrite, roots, type Script, type Table, type Verdict };

@@ -28,7 +28,7 @@ public func main(cachedDefinition: @escaping @Sendable (Installation) -> URL?) a
             var registered: [Result<Void, ApplicationFailure>] = []
             for agent in try Installation(at: Bundle.main.bundleURL).agents() { registered.append(await Result { () async throws(ApplicationFailure) in try await agent.register() }) }
             let outcome = traverse(registered) { outcome in outcome.aggregated(\.self) }
-            if case .failure(let refused) = outcome, refused.errors.contains(where: { failure in failure.reason == .requiresApproval }) { SMAppService.openSystemSettingsLoginItems() }
+            if case .failure(let refused) = outcome, refused.errors.contains(where: { failure in failure.reason.is(\.requiresApproval) }) { SMAppService.openSystemSettingsLoginItems() }
             _ = try outcome.get()
         } catch {
             logger.critical("Server agent registration failed", error: error)

@@ -1,5 +1,5 @@
-import AppKit
-@unsafe @preconcurrency public import ApplicationServices
+public import AppKit
+@unsafe @preconcurrency import ApplicationServices
 import CasePathsCore
 public import CoreGraphics
 public import Foundation
@@ -9,6 +9,7 @@ import RegexBuilder
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let recognizedAttribute: String = "recognized"
+private let pressActions: Set<String> = [kAXPressAction, kAXPickAction, kAXConfirmAction]
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -21,6 +22,7 @@ public struct Hierarchy: Sendable {
     public let truncated: [Int]
     public let extras: Int?
     var recognized: [CGWindowID: [(text: String, frame: CGRect)]] = [:]
+    var runs: [Int: [Control.Run]] = [:]
 
     var undescribed: [InstanceState.Window] {
         let described: Set<CGWindowID> = Set(elements.compactMap(\.window))
@@ -56,9 +58,10 @@ public struct Control: Encodable, Equatable, Sendable {
             let value: Fact? = element.facts[kAXValueAttribute]
             let bare: Bool = element.children.isEmpty && value == nil && element.label == nil && element.frame != nil && element.actions.allSatisfy { action in action == kAXShowMenuAction }
             switch (element.role ?? kAXUnknownRole, element.text(kAXSubroleAttribute)) {
-                case (kAXMenuItemRole, _), (kAXMenuBarItemRole, _):
+                case (kAXMenuItemRole, _):
                     guard element.label != nil else { return nil }
                     self = .item
+                case (kAXMenuBarItemRole, _): self = .item
                 case (kAXTextFieldRole, _) where measured, (kAXButtonRole, _) where measured: self = .measure
                 case (_, kAXSwitchSubrole), (_, kAXToggleSubrole), (kAXCheckBoxRole, _), (kAXRadioButtonRole, _), (kAXDisclosureTriangleRole, _): self = .toggle
                 case (_, kAXSearchFieldSubrole), (_, kAXSecureTextFieldSubrole), (kAXTextFieldRole, _), (kAXTextAreaRole, _): self = .text
@@ -72,7 +75,7 @@ public struct Control: Encodable, Equatable, Sendable {
                 case (kAXColorWellRole, _): self = .color
                 case (kAXDateFieldRole, _), (kAXTimeFieldRole, _), (NSAccessibility.Role.dateTimeAreaRole.rawValue, _): self = .date
                 case (_, _) where value?.date != nil: self = .date
-                case (_, _) where element.actions.contains(where: [kAXPressAction, kAXPickAction, kAXConfirmAction].contains): self = .action
+                case (_, _) where element.actions.contains(where: pressActions.contains): self = .action
                 case (kAXUnknownRole, _) where bare: self = .region
                 case (_, _): return nil
             }
@@ -107,6 +110,57 @@ public struct Control: Encodable, Equatable, Sendable {
         public let modifiers: [Modifier]
     }
 
+    public enum Invalid: String, Encodable, Sendable {
+        case `true`
+        case grammar
+        case spelling
+    }
+
+    public enum Current: String, Encodable, Sendable {
+        case `true`
+        case page
+        case step
+        case location
+        case date
+        case time
+    }
+
+    public enum Sort: String, Encodable, Sendable {
+        case ascending
+        case descending
+
+        init?(_ direction: String?) {
+            switch direction {
+                case .some(kAXAscendingSortDirectionValue): self = .ascending
+                case .some(kAXDescendingSortDirectionValue): self = .descending
+                case .some, .none: return nil
+            }
+        }
+    }
+
+    public struct Cell: Encodable, Equatable, Sendable {
+        public let column: String?
+        public let text: String
+    }
+
+    public struct TextRange: Encodable, Equatable, Sendable {
+        public let location: Int
+        public let length: Int
+    }
+
+    public struct Run: Encodable, Equatable, Sendable {
+        public let range: TextRange
+        public let text: String
+        public let attributes: [String: Fact]
+        public let frame: CGRect?
+    }
+
+    public struct Scroll: Encodable, Equatable, Sendable {
+        public let contentSize: CGSize?
+        public let horizontalScrollBar: Double?
+        public let verticalScrollBar: Double?
+    }
+
     public let ref: Int
     public let locator: Locator
     public let kind: Kind
@@ -134,6 +188,21 @@ public struct Control: Encodable, Equatable, Sendable {
     public let index: Int?
     public let row: Int?
     public let expanded: Bool?
+    public let actions: [String]?
+    public let alternateUIVisible: Bool?
+    public let disclosedBy: Int?
+    public let total: Int?
+    public let sort: Sort?
+    public let cells: [Cell]?
+    public let column: String?
+    public let scroll: Scroll?
+    public let selectedTextRanges: [TextRange]?
+    public let numberOfCharacters: Int?
+    public let insertionPointLineNumber: Int?
+    public let runs: [Run]?
+    public let invalid: Invalid?
+    public let required: Bool?
+    public let current: Current?
 }
 
 public struct Container: Encodable, Equatable, Sendable {
@@ -149,12 +218,13 @@ public struct Container: Encodable, Equatable, Sendable {
         case statusItem
         case menu
         case toolbar
+        case web
 
         func asking(modal: Bool) -> Bool {
             switch self {
                 case .sheet, .prompt: true
                 case .dialog: modal
-                case .window, .panel, .popover, .drawer, .menuBar, .statusItem, .menu, .toolbar: false
+                case .window, .panel, .popover, .drawer, .menuBar, .statusItem, .menu, .toolbar, .web: false
             }
         }
 
@@ -166,6 +236,7 @@ public struct Container: Encodable, Equatable, Sendable {
                 case (_, kAXPopoverRole, _, _): self = .popover
                 case (_, kAXDrawerRole, _, _): self = .drawer
                 case (_, kAXToolbarRole, _, _): self = .toolbar
+                case (_, NSAccessibility.Role.webAreaRole.rawValue, _, _): self = .web
                 case (true, _, kAXDialogSubrole, _), (true, _, kAXSystemDialogSubrole, _), (true, _, _, true): self = hierarchy.regular ? .dialog : .prompt
                 case (_, kAXLayoutAreaRole, _, _) where root || !element.children.isEmpty, (true, _, kAXFloatingWindowSubrole, _), (true, _, kAXSystemFloatingWindowSubrole, _): self = .panel
                 case (true, _, _, _): self = .window
@@ -182,6 +253,8 @@ public struct Container: Encodable, Equatable, Sendable {
     public let document: URL?
     public let edited: Bool?
     public let fullScreen: Bool?
+    public let loaded: Bool?
+    public let loadingProgress: Double?
     public let window: CGWindowID?
     public let frame: CGRect?
     public let layer: Int?
@@ -203,12 +276,13 @@ public struct Model: Encodable, Sendable {
         case container(ref: Int)
         case menu(ref: Int)
         case rows(ref: Int, from: Int, count: Int)
-        case search(text: String, limit: Int)
+        case text(ref: Int)
+        case search(text: String, key: NSAccessibilitySearchKey, limit: Int)
         case menus
 
         private enum Key: String, CodingKey {
             case tag = "_tag"
-            case ref, from, count, text, limit
+            case ref, from, count, text, key, limit
         }
 
         public init(from decoder: any Decoder) throws {
@@ -219,11 +293,23 @@ public struct Model: Encodable, Sendable {
                     case "container": try .container(ref: fields.decode(Int.self, forKey: .ref))
                     case "menu": try .menu(ref: fields.decode(Int.self, forKey: .ref))
                     case "rows": try .rows(ref: fields.decode(Int.self, forKey: .ref), from: fields.decode(Int.self, forKey: .from), count: fields.decode(Int.self, forKey: .count))
-                    case "search": try .search(text: fields.decode(String.self, forKey: .text), limit: fields.decode(Int.self, forKey: .limit))
+                    case "text": try .text(ref: fields.decode(Int.self, forKey: .ref))
+                    case "search":
+                        try .search(
+                            text: fields.decode(String.self, forKey: .text),
+                            key: NSAccessibilitySearchKey(rawValue: fields.decodeIfPresent(String.self, forKey: .key) ?? NSAccessibilitySearchKey.anyTypeSearchKey.rawValue),
+                            limit: fields.decode(Int.self, forKey: .limit),
+                        )
                     case "menus": .menus
                     case let tag: throw DecodingError.dataCorruptedError(forKey: .tag, in: fields, debugDescription: "\(tag) names no scope")
                 }
         }
+    }
+
+    public struct Known: Decodable, Sendable {
+        public let build: String
+        public let containers: Set<Locator>
+        public let customWords: [String]
     }
 
     private enum CodingKeys: CodingKey {
@@ -246,28 +332,36 @@ extension Element {
 
     fileprivate var inputLabels: [String] { facts[userInputLabelsAttribute]?.list?.compactMap(\.text).filter { text in !text.isEmpty } ?? [] }
 
-    var supplementary: [String] {
+    var supplementary: (read: [String], counted: [String]) {
         switch (Control.Kind(self, measured: false), role, text(kAXSubroleAttribute)) {
-            case (.number, _, _): [kAXMinValueAttribute, kAXMaxValueAttribute, kAXValueIncrementAttribute, kAXValueWrapsAttribute]
-            case (.multi, _, _): [kAXVisibleRowsAttribute, kAXVisibleChildrenAttribute]
-            case (.row, _, _): [kAXDisclosingAttribute, kAXDisclosureLevelAttribute, kAXIndexAttribute, kAXURLAttribute, kAXFilenameAttribute]
-            case (.choice, kAXTabGroupRole, _): [kAXTabsAttribute]
-            case (_, _, kAXCloseButtonSubrole): [kAXEditedAttribute]
-            case (_, _, _): []
+            case (.number, _, _): ([kAXMinValueAttribute, kAXMaxValueAttribute, kAXValueIncrementAttribute, kAXValueWrapsAttribute], [])
+            case (.multi, _, _): ([kAXVisibleRowsAttribute, kAXVisibleChildrenAttribute, kAXHeaderAttribute, kAXVisibleColumnsAttribute], [kAXRowsAttribute])
+            case (.row, _, _):
+                ([kAXDisclosingAttribute, kAXDisclosureLevelAttribute, kAXIndexAttribute, kAXURLAttribute, kAXFilenameAttribute, kAXDisclosedByRowAttribute, kAXAlternateUIVisibleAttribute], [])
+            case (.text, _, _): ([kAXSelectedTextRangeAttribute, kAXSelectedTextRangesAttribute, kAXNumberOfCharactersAttribute, kAXInsertionPointLineNumberAttribute], [])
+            case (.choice, kAXTabGroupRole, _): ([kAXTabsAttribute], [])
+            case (_, kAXColumnRole, _): ([kAXHeaderAttribute, kAXIndexAttribute], [])
+            case (_, kAXCellRole, _): ([kAXColumnIndexRangeAttribute], [])
+            case (_, kAXScrollAreaRole, _): ([kAXVerticalScrollBarAttribute, kAXHorizontalScrollBarAttribute, contentSizeAttribute], [])
+            case (_, NSAccessibility.Role.webAreaRole.rawValue, _): ([kAXLoadedAttribute, kAXLoadingProgressAttribute], [])
+            case (_, _, kAXSortButtonSubrole): ([kAXSortDirectionAttribute], [])
+            case (_, _, kAXCloseButtonSubrole): ([kAXEditedAttribute], [])
+            case (_, _, _): ([], [])
         }
     }
 
     fileprivate var optionText: String? { label?.text ?? text(kAXValueAttribute) }
 
     var children: [Int] {
-        let listed: Fact? =
-            switch role {
-                case kAXTableRole, kAXOutlineRole: facts[kAXVisibleRowsAttribute] ?? facts[kAXChildrenAttribute]
-                case kAXListRole: facts[kAXVisibleChildrenAttribute] ?? facts[kAXChildrenAttribute]
-                default: facts[kAXChildrenAttribute]
-            }
-        return listed?.elements ?? []
+        switch role {
+            case kAXTableRole, kAXOutlineRole: facts[kAXVisibleRowsAttribute].map { rows in rows.elements + columns } ?? facts[kAXChildrenAttribute]?.elements ?? []
+            case kAXListRole: (facts[kAXVisibleChildrenAttribute] ?? facts[kAXChildrenAttribute])?.elements ?? []
+            case kAXColumnRole: []
+            default: facts[kAXChildrenAttribute]?.elements ?? []
+        }
     }
+
+    var columns: [Int] { (facts[kAXHeaderAttribute]?.elements ?? []) + (facts[kAXVisibleColumnsAttribute]?.elements ?? []) }
 
     fileprivate func labelled(_ attribute: String) -> Control.Label? {
         let stated: [Fact] = facts[attribute].map { fact in fact.list ?? [fact] } ?? []
@@ -373,6 +467,7 @@ extension Model {
                 measured: measured,
                 sections: sections,
                 focused: hierarchy.focused,
+                runs: hierarchy.runs,
                 intern: intern,
             )
             let located: [(ref: Int, element: Int)] = [(ref: intern(locator), element: element.id)] + controls.flatMap(\.located)
@@ -390,6 +485,8 @@ extension Model {
                 document: element.text(kAXDocumentAttribute).flatMap(URL.init(string:)),
                 edited: element.facts[kAXCloseButtonAttribute]?.element.flatMap { button in held[button]?.flag(kAXEditedAttribute) },
                 fullScreen: element.flag(fullScreenAttribute),
+                loaded: element.flag(kAXLoadedAttribute),
+                loadingProgress: element.facts[kAXLoadingProgressAttribute]?.number,
                 window: window,
                 frame: element.frame,
                 layer: layer,
@@ -433,6 +530,7 @@ extension Model {
         measured: Set<Int>,
         sections: [Int: String],
         focused: Int?,
+        runs: [Int: [Control.Run]],
         intern: (Locator) -> Int,
     ) -> (controls: [(control: Control, located: [(ref: Int, element: Int)])], consumed: Set<Int>) {
         let own: [Int: Control.Kind] = Dictionary(
@@ -445,7 +543,21 @@ extension Model {
             member.role == kAXTabGroupRole ? (member.facts[kAXTabsAttribute]?.elements ?? []).map { (tab: Int) -> (tab: Int, group: Int) in (tab: tab, group: member.id) } : []
         }
         let tabs: [Int: Int] = Dictionary(tabbed) { first, _ in first }
-        let lineage: [(element: Element, row: Int?, consumer: Int?)] = members.map { member in
+        let headers: [Int: [Int: Element]] = Dictionary(grouping: members.filter { member in member.role == kAXColumnRole }) { column in parents[column.id] ?? column.id }.mapValues { columns in
+            Dictionary(
+                columns.compactMap { (column: Element) -> (Int, Element)? in
+                    guard let index = column.facts[kAXIndexAttribute]?.integer, let header = column.facts[kAXHeaderAttribute]?.element.flatMap({ header in held[header] }) else { return nil }
+                    return (index, header)
+                }
+            ) { first, _ in first }
+        }
+        let headed: [Int: String] = Dictionary(
+            uniqueKeysWithValues: members.compactMap { (cell: Element) -> (Int, String)? in
+                guard cell.role == kAXCellRole, let index = cell.facts[kAXColumnIndexRangeAttribute]?.range?.location, let table = parents[cell.id].flatMap({ row in parents[row] }) else { return nil }
+                return headers[table]?[index]?.label.map { label in (cell.id, label.text) }
+            }
+        )
+        let lineage: [(element: Element, row: Int?, consumer: Int?, column: String?)] = members.map { member in
             let ancestors: [Int] = Array(Swift.sequence(first: member.id) { child in parents[child] }.dropFirst().prefix(held.count))
             let row: Int? = ancestors.first { scope in kinds[scope] == .row }
             let consumer: Int? =
@@ -453,8 +565,9 @@ extension Model {
                     let role: String? = held[scope]?.role
                     return kinds[scope] == .choice && role != kAXTabGroupRole || role == kAXScrollBarRole || scope == row && kinds[member.id] == nil
                 } ?? tabs[member.id]
-            return (element: member, row: row, consumer: consumer)
+            return (element: member, row: row, consumer: consumer, column: ancestors.lazy.compactMap { scope in headed[scope] }.first)
         }
+        let columned: [Int: String] = Dictionary(uniqueKeysWithValues: lineage.compactMap { entry in entry.column.map { column in (entry.element.id, column) } })
         let enclosed: [(element: Element, consumer: Int)] = lineage.compactMap { entry in entry.consumer.map { consumer in (element: entry.element, consumer: consumer) } }
         let inside: [Int: [Element]] = Dictionary(grouping: enclosed, by: \.consumer).mapValues { pairs in pairs.map(\.element) }
         let rowed: [(element: Element, row: Int)] = lineage.compactMap { entry in entry.row.map { row in (element: entry.element, row: row) } }
@@ -546,6 +659,16 @@ extension Model {
                 listed.map { option in (role: option.role ?? kAXUnknownRole, keys: [option.optionText.flatMap(Locator.Step.Key.label(folding:))].compactMap(\.self)) }
             )
             let optionRefs: [Int] = optionSteps.map { step in intern(locator.appending(step)) }
+            let shownCells: [Control.Cell] = (cells[element.id] ?? []).filter { cell in cell.role == kAXStaticTextRole }.compactMap { cell in
+                cell.text(kAXValueAttribute).map { text in Control.Cell(column: columned[cell.id], text: text) }
+            }
+            let area: Element? = parents[element.id].flatMap { parent in held[parent] }.flatMap { parent in parent.role == kAXScrollAreaRole ? parent : nil }
+            let bars: [Double?] = [kAXHorizontalScrollBarAttribute, kAXVerticalScrollBarAttribute].map { attribute in
+                area?.facts[attribute]?.element.flatMap { bar in held[bar]?.facts[kAXValueAttribute]?.number }
+            }
+            let performed: Set<String> = pressActions.union([kAXRaiseAction, NSAccessibility.Action.scrollToVisibleAction.rawValue] + (kind.valued ? [kAXIncrementAction, kAXDecrementAction] : []))
+            let actions: [String] = element.actions.filter { action in !performed.contains(action) }.map { action in element.descriptions[action] ?? action }
+            let ranges: [Fact]? = element.facts[kAXSelectedTextRangesAttribute]?.list ?? element.facts[kAXSelectedTextRangeAttribute].map { range in [range] }
             let options: [Control.Option] = zip(listed, optionRefs).compactMap { option, ref in
                 option.optionText.map { text in Control.Option(label: text, ref: ref, help: option.text(kAXHelpAttribute)) }
             }
@@ -613,6 +736,21 @@ extension Model {
                 index: kind == .row ? element.facts[kAXIndexAttribute]?.integer : nil,
                 row: rows[element.id].flatMap { row in refs[row] },
                 expanded: element.flag(kAXExpandedAttribute) ?? (kind == .row ? element.flag(kAXDisclosingAttribute).flatMap { open in open || disclosable ? open : nil } : nil),
+                actions: actions.isEmpty ? nil : actions,
+                alternateUIVisible: element.actions.contains(kAXShowAlternateUIAction) ? element.flag(kAXAlternateUIVisibleAttribute) : nil,
+                disclosedBy: element.facts[kAXDisclosedByRowAttribute]?.element.flatMap { row in refs[row] },
+                total: kind == .multi ? element.facts[kAXARIARowCountAttribute]?.integer ?? element.counts[kAXRowsAttribute] : nil,
+                sort: Control.Sort(element.text(kAXSortDirectionAttribute)),
+                cells: shownCells.contains { cell in cell.column != nil } ? shownCells : nil,
+                column: columned[element.id],
+                scroll: area.map { area in Control.Scroll(contentSize: area.facts[contentSizeAttribute]?.size, horizontalScrollBar: bars[0], verticalScrollBar: bars[1]) },
+                selectedTextRanges: ranges?.compactMap { range in range.range.map { range in Control.TextRange(location: range.location, length: range.length) } },
+                numberOfCharacters: element.facts[kAXNumberOfCharactersAttribute]?.integer,
+                insertionPointLineNumber: element.facts[kAXInsertionPointLineNumberAttribute]?.integer,
+                runs: runs[element.id],
+                invalid: element.text(kAXInvalidAttribute).flatMap(Control.Invalid.init(rawValue:)),
+                required: element.flag(NSAccessibility.Attribute.required.rawValue),
+                current: element.text(kAXARIACurrentAttribute).flatMap(Control.Current.init(rawValue:)),
             )
             return (control, [(ref: control.ref, element: element.id)] + zip(optionRefs, listed.map(\.id)).map { ref, member in (ref: ref, element: member) })
         }

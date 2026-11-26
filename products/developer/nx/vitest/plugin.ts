@@ -1,14 +1,13 @@
-import { once } from 'node:events';
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { basename, dirname, isAbsolute, join, matchesGlob, posix, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, posix, relative, resolve } from 'node:path';
 import { env } from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { buildPackageJsonPatterns, findProjectForPath, globWithWorkspaceContext, hashObject, type PackageJson } from '@nx/devkit/internal';
-import { above, type Anchor, aggregated, anchored, below, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, owned, packaged, parsed, type Pass, run, tokened, within } from '@rasm/nx/inference';
-import { Array, Cause, Effect, Function, Option, Predicate, Record, Schema } from 'effect';
+import { above, type Anchor, aggregated, anchored, below, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, owned, packaged, parsed, type Pass, request, run, tokened, within } from '@rasm/nx/inference';
+import { Array, Cause, Effect, Function, Glob, Option, Predicate, Record, Schema } from 'effect';
 import type { Vite } from 'vitest/node';
 import plugin from '#/package.json' with { type: 'json' };
 
@@ -19,7 +18,7 @@ type Resolved = Effect.Success<ReturnType<typeof read>>;
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const EXTENSIONS = '{js,mjs,ts,cjs,mts,cts}';
-const SUITE = `vitest.config.${EXTENSIONS}`;
+const SUITE = Glob.make(`vitest.config.${EXTENSIONS}`);
 const MODE = { TEST: 'true', VITEST: 'true', NODE_ENV: 'test' } as const;
 const ATTACHMENTS = 'attachments';
 const WORKER = fileURLToPath(import.meta.resolve('#/worker'));
@@ -94,12 +93,8 @@ const surveyed = Effect.fnUntraced(function* ({ workspaceRoot, holds }: Anchor, 
 });
 
 const read = (anchor: Anchor, file: string, outputPath: string | undefined) => {
-    const failed = (cause: unknown) => new Cause.UnknownError(cause, `${file} does not load as a Vitest config`);
-    const workerData = { file, entry: join(anchor.workspaceRoot, file), name: plugin.name, suite: matchesGlob(basename(file), SUITE), ...(outputPath !== undefined && { attachmentsDir: join(anchor.workspaceRoot, outputPath, ATTACHMENTS) }) };
-    return Effect.acquireDisposable(Effect.sync(() => new Worker(WORKER, { workerData, env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV } }))).pipe(
-        Effect.flatMap((worker) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(worker, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(worker, 'exit', { signal }), catch: failed }), failed))),
-        Effect.flatMap(([message]) => Schema.decodeUnknownEffect(Surveyed)(message)),
-        Effect.scoped,
+    const workerData = { file, entry: join(anchor.workspaceRoot, file), name: plugin.name, suite: Glob.match(SUITE, basename(file)), ...(outputPath !== undefined && { attachmentsDir: join(anchor.workspaceRoot, outputPath, ATTACHMENTS) }) };
+    return request(Effect.sync(() => new Worker(WORKER, { workerData, env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV } })), Surveyed, `${file} does not load as a Vitest config`).pipe(
         Effect.flatMap(
             Surveyed.match({
                 Plain: ({ dependencies }): ReturnType<typeof surveyed> => Effect.succeed({ suites: [], triggers: [], shared: [], sources: dependencies.map((at) => normalizePath(relative(anchor.workspaceRoot, at))).filter(within) }),
@@ -147,8 +142,8 @@ const inferred = Effect.fnUntraced(function* (pass: Pass<Resolved>, anchor: Anch
 });
 
 const nodes = inferring(Options, run, function* (matched, settings, context, cached) {
-    const files = Array.dedupe([...matched, ...(yield* Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, [`**/${SUITE}`])))]);
-    const configs = files.filter((file) => matchesGlob(basename(file), SUITE) || !files.some((other) => dirname(other) === dirname(file) && matchesGlob(basename(other), SUITE)));
+    const files = Array.dedupe([...matched, ...(yield* Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, [`**/${SUITE.pattern}`])))]);
+    const configs = files.filter((file) => Glob.match(SUITE, basename(file)) || !files.some((other) => dirname(other) === dirname(file) && Glob.match(SUITE, basename(other))));
     const [pass, anchor] = [yield* cached<Resolved>('vitest.hash', hashArray([hashObject(settings), yield* OWN])), anchored(context.workspaceRoot)];
     return yield* Effect.promise(() => createNodesFromFiles((file) => run(inferred(pass, anchor, context, settings, file)), configs, settings, context));
 });

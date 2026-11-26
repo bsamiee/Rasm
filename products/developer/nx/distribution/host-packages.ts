@@ -1,7 +1,7 @@
 import { hash } from 'node:crypto';
 import { constants, openAsBlob } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, join, matchesGlob, posix, resolve } from 'node:path';
+import { basename, dirname, join, posix, resolve } from 'node:path';
 import { arch, argv, platform } from 'node:process';
 import { patch } from '@decimalturn/toml-patch';
 import { runMain } from '@effect/platform-node/NodeRuntime';
@@ -11,7 +11,7 @@ import { globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
 import { packaged } from '@rasm/nx/executor';
 import { above, below, PLATFORM, spawned } from '@rasm/nx/inference';
 import { PluginsInfo, HOSTS as UXP } from '@rasm/uxp/manifest';
-import { Array, Cause, Config, Console, Duration, Effect, FileSystem, Option, Path, pipe, Record, Result, Schedule, Schema, SemVer, Stream, String, Struct, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Console, Duration, Effect, FileSystem, Glob, Option, Path, pipe, Record, Result, Schedule, Schema, SemVer, Stream, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml, Yaml, Zip } from 'effect/encoding';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import type { ChildProcessSpawner } from 'effect/process';
@@ -162,7 +162,7 @@ const webstore = Effect.fnUntraced(function* ({ at, text, version }: Found, stor
 
 const routed = (file: string, text: string) =>
     Effect.findFirstFilter(
-        HOSTS.filter(({ manifest }) => posix.matchesGlob(file, `**/${manifest}`)),
+        HOSTS.filter(({ manifest }) => Glob.match(Glob.make(`**/${manifest}`), file)),
         (host) => Effect.map(host.read(text, file), Option.match({ onNone: () => Result.failVoid, onSome: (fields) => Result.succeed({ file, host, fields }) })),
     );
 
@@ -180,7 +180,7 @@ const zipped = Effect.fnUntraced(function* ({ at, names }: Pick<Found, 'at' | 'n
 const entry = (file: string, name: string) =>
     Stream.unwrap(FileSystem.FileSystem.useSync((fs) => fs.stream(file))).pipe(
         Stream.pipeThroughChannel(Zip.decode()),
-        Stream.filter(({ header }) => matchesGlob(header.path, name)),
+        Stream.filter(({ header }) => Glob.match(Glob.make(name), header.path)),
         Stream.mapEffect(({ header, body }) => Effect.map(Stream.mkString(Stream.decodeText(body)), (text) => ({ at: header.path, text }))),
         Stream.runHead,
         Effect.mapError((cause) => new Cause.UnknownError(cause, `${file} does not read as a zip archive`)),
@@ -227,7 +227,7 @@ const located = Effect.fnUntraced(function* (context: ExecutorContext) {
     );
     const under = (folder: string) => sources.filter(below(folder)).map((other) => path.relative(folder, other));
     const folders = yield* Effect.forEach(
-        Array.cartesianWith(sources, rows, (file, host) => ({ host, file, folder: path.join(file, path.relative(host.manifest, '.')) })).filter(({ host, file, folder }) => (host.build?.pack !== undefined || host.install?.unpacked === true) && matchesGlob(path.relative(folder, file), host.manifest)),
+        Array.cartesianWith(sources, rows, (file, host) => ({ host, file, folder: path.join(file, path.relative(host.manifest, '.')) })).filter(({ host, file, folder }) => (host.build?.pack !== undefined || host.install?.unpacked === true) && Glob.match(Glob.make(host.manifest), path.relative(folder, file).split(path.sep).join('/'))),
         ({ host, file, folder }) => Effect.flatMap(fs.readFileString(file), (text) => stated(host, folder, text, file, under(folder))),
     );
     return { project, target, outputs, packages: Array.getSomes(packages), folders: Array.getSomes(folders) };

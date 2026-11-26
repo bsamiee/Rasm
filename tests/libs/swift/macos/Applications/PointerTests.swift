@@ -18,11 +18,19 @@ private let unnamed: [(label: String, image: Pointer.Cursor.Image?)] = [
 ]
 private let drags: [(label: String, rows: String, draggingFrame: CGRect?)] = [
     (
-        label: "a row at the dragging window level", rows: #"[{"number":41,"frame":[[100,200],[64,48]],"layer":500,"onScreen":true,"asking":false,"presented":true}]"#,
+        label: "a row at the dragging window level",
+        rows: #"[{"number":41,"frame":[[100,200],[64,48]],"layer":500,"band":"dragging","spaces":[1],"onScreen":true,"hidden":false,"shared":true,"asking":false,"presented":true}]"#,
         draggingFrame: CGRect(x: 100, y: 200, width: 64, height: 48),
     ),
-    (label: "a row above the dragging window level", rows: #"[{"number":42,"frame":[[0,0],[1512,982]],"layer":2147483630,"onScreen":true,"asking":false,"presented":true}]"#, draggingFrame: nil),
-    (label: "a document window", rows: #"[{"number":43,"frame":[[10,30],[800,600]],"layer":0,"onScreen":true,"asking":false,"presented":true}]"#, draggingFrame: nil),
+    (
+        label: "a row above the dragging window level",
+        rows: #"[{"number":42,"frame":[[0,0],[1512,982]],"layer":2147483630,"band":"cursor","spaces":[1],"onScreen":true,"hidden":false,"shared":true,"asking":false,"presented":true}]"#,
+        draggingFrame: nil,
+    ),
+    (
+        label: "a document window",
+        rows: #"[{"number":43,"frame":[[10,30],[800,600]],"layer":0,"band":"normal","spaces":[1],"onScreen":true,"hidden":false,"shared":true,"asking":false,"presented":true}]"#, draggingFrame: nil,
+    ),
 ]
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

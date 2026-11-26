@@ -52,6 +52,7 @@
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@nx/js": "catalog:",
+        "@rasm/process": "workspace:*",
         "effect": "catalog:",
         "minimatch": "catalog:"
     },

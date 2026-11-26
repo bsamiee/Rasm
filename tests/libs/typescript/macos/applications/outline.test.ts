@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Address } from '@rasm/applications/address';
-import { Model } from '@rasm/applications/contract';
+import { Model, Observation } from '@rasm/applications/contract';
 import { InterfaceMap } from '@rasm/applications/interface-map';
 import { Outline } from '@rasm/applications/outline';
 import { Array, Effect, Option, Record, Result, Schema, Struct } from 'effect';
@@ -122,7 +122,7 @@ describe('Outline.render of a tool choice', () => {
     it.effect(
         'prints each option with the shortcut a menu item of the same key step prints and its help, and an option stating neither with its label alone',
         Effect.fnUntraced(function* () {
-            const lines = (yield* Effect.fromResult(Outline.render(Address.index(TOOLS, InterfaceMap.empty)))).map((line) => line.trim());
+            const lines = (yield* Effect.fromResult(Outline.render(Address.index(TOOLS)))).map((line) => line.trim());
             const item = yield* Effect.fromOption(Array.findFirst(lines, (line) => line.startsWith('@i6 ')));
             assert.deepStrictEqual(
                 { brush: lines.find((line) => line.startsWith('@o3 ')), eraser: lines.find((line) => line.startsWith('@o4 ')), item },
@@ -136,13 +136,54 @@ describe('Outline.render of a tool choice', () => {
     );
 });
 
+describe(Address.recall, () => {
+    it.effect(
+        'keeps remembered containers off the live page, and find over the recalled index names the live item that opens each',
+        Effect.fnUntraced(function* () {
+            const brushes = yield* Schema.decodeEffect(Observation)({
+                build: '27.1',
+                container: '[["AXWindow","Brushes"]]',
+                kind: 'panel',
+                title: 'Brushes',
+                modal: false,
+                opened: '2026-11-26T09:00:00Z',
+                at: '2026-11-26T09:00:00Z',
+                truncated: false,
+                documents: [],
+                opener: { container: '[["AXMenu","Window"]]', control: '[["AXMenu","Window"],["AXMenuItem","Brushes"]]' },
+                conditions: [],
+                controls: { '[["AXWindow","Brushes"],["AXSlider","Size"]]': { kind: 'number', role: 'AXSlider', label: { text: 'Size', attribute: 'AXTitle' }, positional: false } },
+                layout: {},
+                values: { '[["AXWindow","Brushes"],["AXSlider","Size"]]': 12 },
+            });
+            const { map } = InterfaceMap.empty.fold(brushes, { username: 'owner', homedir: '/Users/owner' });
+            const live = Address.index(TOOLS);
+            const recalled = Address.recall(live, map);
+            const printed = yield* Effect.fromResult(Outline.render(live));
+            const found = Address.find(recalled, 'Size', Option.none());
+            const hits = yield* Effect.fromResult(Outline.hits(found, [], { opening: Option.some(recalled) }));
+            assert.deepStrictEqual(
+                {
+                    remembered: live.remembered.containers.length,
+                    marked: printed.filter((line) => line.trimStart().startsWith('▸')),
+                    recalled: recalled.remembered.containers.map(({ token }) => token),
+                    hits,
+                    opening: found.flatMap((item) => Address.opening(recalled, item)).map(({ token }) => token),
+                    located: found.map(Address.locate),
+                },
+                { remembered: 0, marked: [], recalled: [Option.some('Brushes > Brushes')], hits: ['▸ Brushes > Brushes > Size was 12 number · opened by @i6'], opening: [Option.some('@i6')], located: [Option.some({ container: '[["AXWindow","Brushes"]]', control: '[["AXWindow","Brushes"],["AXSlider","Size"]]' })] },
+            );
+        }),
+    );
+});
+
 describe(Outline.render, () => {
     it.effect.prop(
         'joins the pages each continuation names into the unbounded render, and every reference a line leads with resolves to the thing it prints',
         Generated,
         Effect.fnUntraced(function* ({ model: generated, copies, page: characters }) {
             const model = interned(generated, copies);
-            const index = Address.index(model, InterfaceMap.empty);
+            const index = Address.index(model);
             const budget = { page: characters, ceiling: characters * 2 };
             const whole = yield* Effect.fromResult(Outline.render(index, { budget: { page: Number.POSITIVE_INFINITY, ceiling: Number.POSITIVE_INFINITY } }));
             const first = yield* Effect.fromResult(Outline.render(index, { budget }));

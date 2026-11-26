@@ -141,7 +141,7 @@ extension ProcessInstance {
     // --- [PROFILE]
 
     public func sample(for duration: Duration, within timeout: Duration) async throws(ProcessFailure) -> String {
-        guard !hasExited else { throw ProcessFailure(subject: rawValue, reason: .io(Errno.noSuchProcess)) }
+        guard !hasExited else { throw ProcessFailure(subject: rawValue, reason: .system(.noSuchProcess)) }
         return try await Configuration(executable: .name("sample"), arguments: [String(pid), String(Int((duration / .seconds(1)).rounded(.up))), "-mayDie", "-file", "/dev/stdout"])
             .run(output: .string(limit: .max), within: timeout)
     }

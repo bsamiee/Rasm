@@ -121,23 +121,16 @@ extension LogEntry {
         }
         let textClause: NSPredicate? = text.map { text in NSPredicate(format: "%K CONTAINS[c] %@", argumentArray: [CodingKeys.composedMessage.stringValue, text]) }
         let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [NSPredicate(format: "%K == %@", argumentArray: [key.stringValue, value]), levelClause, textClause].compactMap(\.self))
-        let arguments = command + ["--predicate", predicate.predicateFormat, "--style", "ndjson"]
-        let subject = "log \(arguments.joined(separator: " "))"
         let decoder = JSONDecoder()
-        let ended: ExecutionResult<Void, SequenceOutput, StringOutput<UTF8>>
-        do {
-            ended = try await Subprocess.run(.name("log"), arguments: Arguments(arguments), input: .none, output: .sequence, error: .string(limit: 1 << 16)) { execution in
-                for try await line in execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"])) where line.hasPrefix("{") {
-                    switch Result(catching: { try decoder.decode(Line.self, from: Data(line.utf8)).entry }) {
-                        case .success(let entry?): try sink(.success(entry))
-                        case .success(nil): continue
-                        case .failure(let error): try sink(.failure(ProcessFailure(subject: line, error)))
-                    }
+        try await Configuration(executable: .name("log"), arguments: Arguments(command + ["--predicate", predicate.predicateFormat, "--style", "ndjson"])).run(input: .none, output: .sequence) {
+            execution in
+            for try await line in execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"])) where line.hasPrefix("{") {
+                switch Result(catching: { try decoder.decode(Line.self, from: Data(line.utf8)).entry }) {
+                    case .success(let entry?): try sink(.success(entry))
+                    case .success(nil): continue
+                    case .failure(let error): try sink(.failure(ProcessFailure(subject: line, error)))
                 }
             }
-        } catch {
-            throw ProcessFailure(subject: subject, error)
         }
-        guard ended.terminationStatus.isSuccess else { throw ProcessFailure(subject: subject, reason: .exit(ended.terminationStatus, standardError: ended.standardError)) }
     }
 }

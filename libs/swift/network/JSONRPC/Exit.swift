@@ -1,11 +1,7 @@
 import Foundation
-public import Results
+import Results
 
 // --- [TYPES] ---------------------------------------------------------------------------
-
-public protocol TaggedError: Error, Encodable {}
-
-extension Unmatched: TaggedError {}
 
 enum Key: String, CodingKey {
     case tag = "_tag"
@@ -38,7 +34,7 @@ struct EncodedError: Encodable, Sendable {
     func encode(to encoder: any Encoder) throws {
         let bridged = error as NSError
         var fields = encoder.container(keyedBy: Key.self)
-        switch error as? any TaggedError ?? bridged.underlyingErrors.first as? any TaggedError {
+        switch error as? any Encodable & Error ?? bridged.underlyingErrors.first as? any Encodable & Error {
             case .some(let tagged):
                 try fields.encode(String(describing: type(of: tagged)), forKey: .tag)
                 try fields.encode(tagged.localizedDescription, forKey: .message)

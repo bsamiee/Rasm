@@ -51,7 +51,7 @@ enum AbsoluteOrdinal: String, CaseIterable, Sendable {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public indirect enum AppleEventValue: Sendable {
+public enum AppleEventValue: Sendable {
     case null
     case bool(Bool)
     case number(Double)
@@ -62,7 +62,7 @@ public indirect enum AppleEventValue: Sendable {
     case enumerator(String)
     case date(Date)
     case file(URL)
-    case specifier(want: String, form: KeyForm, seld: Self, from: Self)
+    indirect case specifier(want: String, form: KeyForm, seld: Self, from: Self)
     case opaque(type: DescType, data: Data, value: String?)
 }
 

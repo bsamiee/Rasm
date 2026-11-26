@@ -32,7 +32,10 @@ public struct MetricKitReports: Service {
         }
     }
 
-    private func log<Report: Encodable>(_ reports: some AsyncSequence<Report, Never>, as entry: (Report) -> (Logging.Logger.Level, Logging.Logger.Message, String?, String?, pid_t?)) async {
+    private func log<Report: Encodable>(
+        _ reports: some AsyncSequence<Report, Never>,
+        as entry: (Report) -> (level: Logging.Logger.Level, message: Logging.Logger.Message, service: String?, version: String?, pid: pid_t?),
+    ) async {
         for await report in reports {
             let (level, message, service, version, pid) = entry(report)
             let fields: Logging.Logger.Metadata = [

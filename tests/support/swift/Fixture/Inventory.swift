@@ -300,6 +300,9 @@ extension Inventory {
             shortcut: item.flatMap { item in item.keyEquivalent.isEmpty ? nil : Report.Shortcut(key: item.keyEquivalent, modifiers: .known(item.keyEquivalentModifierMask)) },
             window: unsafe (object as? NSView)?.window?.windowNumber,
             frame: unsafe (object as? NSView)?.window.map { _ in element.accessibilityFrame() },
+            customActions: element.accessibilityCustomActions()?.map(\.name),
+            columns: (object as? NSTableView)?.tableColumns.map(\.title),
+            rows: (object as? NSTableView)?.numberOfRows,
         )
     }
 }

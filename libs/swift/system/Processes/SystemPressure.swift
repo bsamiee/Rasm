@@ -135,7 +135,7 @@ extension SystemPressure {
             NotificationCenter.default.messages(of: process, for: .thermalStateDidChange).map { _ in () },
             NotificationCenter.default.messages(of: process, for: .powerStateDidChange).map { _ in () },
         )
-        .map { _ in Result { () throws(Errno) in try current() }.mapError { error in ProcessFailure(subject: "system pressure", reason: .io(error)) } }
+        .map { _ in Result { () throws(Errno) in try current() }.mapError { error in ProcessFailure(subject: "system pressure", reason: .system(error)) } }
         return chain(refused.async, readings).removeDuplicates()
     }
 }

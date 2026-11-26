@@ -22,6 +22,7 @@ public struct InstanceEvent: Encodable, Sendable {
         case value(control: Int, kind: Control.Kind, fact: Fact)
         case selection(control: Int, kind: Control.Kind, evidence: Control.Evidence)
         case moved(container: Int, kind: Container.Kind, frame: CGRect)
+        case window(change: WindowNotification, window: InstanceState.Window)
         case frontmost(active: Bool)
         case hidden(hidden: Bool)
         case status(status: InstanceState.Activity.Status)

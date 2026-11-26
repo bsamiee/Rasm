@@ -1,11 +1,11 @@
 import { toEnvironment } from '@rasm/telemetry/node';
-import { Array, Effect, Schema, Stream } from 'effect';
+import { Array, Effect, Option, Schema, Stream, String } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
 class ExitError extends Schema.TaggedError<ExitError, { readonly brand: unique symbol }>()('ExitError', { command: Schema.String, code: Schema.Int, stdout: Schema.String, stderr: Schema.String, message: Schema.String }) {
-    static readonly of = (exited: Pick<ExitError, 'command' | 'code' | 'stdout' | 'stderr'>) => ExitError.make({ ...exited, message: `${exited.command} exited ${exited.code}: ${exited.stderr.trim()}` });
+    static readonly of = (exited: Pick<ExitError, 'command' | 'code' | 'stdout' | 'stderr'>) => ExitError.make({ ...exited, message: [`${exited.command} exited ${exited.code}`, ...Option.toArray(Array.findFirst([exited.stderr.trim(), exited.stdout.trim()], String.isNonEmpty))].join(': ') });
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

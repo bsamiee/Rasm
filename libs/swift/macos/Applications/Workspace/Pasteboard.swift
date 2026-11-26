@@ -43,6 +43,8 @@ public struct Pasteboard: Encodable, Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Pasteboard {
+    static func locator(of name: NSPasteboard.Name) -> Locator { Locator(steps: [Locator.Step(role: String(describing: NSPasteboard.self), key: .identifier(value: name.rawValue))]) }
+
     public init(_ name: NSPasteboard.Name, writing text: String? = nil) async throws(ApplicationFailure) {
         let board = NSPasteboard(name: name)
         if let text {
@@ -78,7 +80,7 @@ extension Pasteboard {
                 case (true, _): .withheld
             }
         self.init(
-            locator: Locator(steps: [Locator.Step(role: String(describing: NSPasteboard.self), key: .identifier(value: board.name.rawValue))]),
+            locator: Self.locator(of: board.name),
             changeCount: changeCount,
             types: types.map(\.rawValue),
             access: access,

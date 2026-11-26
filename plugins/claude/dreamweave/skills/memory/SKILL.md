@@ -3,7 +3,7 @@ name: memory
 description: "Use when saving, changing, or auditing a Claude Code auto-memory file, its MEMORY.md line, or the memory set, covering admission, kinds, general and specific memories, links, names, descriptions that double as index lines, and evidence marks"
 ---
 
-# [SOMNAMBULATE_MEMORY]
+# [DREAMWEAVE_MEMORY]
 
 This skill is loaded. Your next call Reads the reference for the work, before any read, search, or write in the memory folder, and its steps replace your own plan; Read it again after a compaction: a memory that does not exist yet -> `references/create.md`, a change inside one existing memory -> `references/edit.md`, the set or any merge, split, rename, or delete -> `references/evaluate.md`. `MEMORY.md` is generated from each file's `description` after every memory write, so no step writes it, even when it looks stale, and a folder holding none gets it from `scripts/index.py <memory-dir>` before any other step.
 

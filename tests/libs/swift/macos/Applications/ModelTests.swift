@@ -1,11 +1,11 @@
 import AppKit
 @unsafe @preconcurrency import ApplicationServices
 import Applications
+import AsyncAlgorithms
 import CasePathsCore
 import CustomDump
 import Encoding
 import Fixture
-import ScreenCapture
 import Testing
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -59,7 +59,7 @@ extension WindowServerTests {
         func modelsEachReportedControlWithItsKindAndLabelAndKeepsItsRefWhenItsWindowShowsAgainOrItsLinesReorder() async throws {
             let passes: [(report: Report, model: Model)] = try await FixtureSession.launched { fixture in
                 let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
-                let watch: Watch = await Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }).watch(try Instance(application))
+                let watch: Watch = await Watches().watch(try Instance(application))
                 var passes: [(report: Report, model: Model)] = []
                 for command: Command in [.show(surface: .panel), .dismiss(surface: .controls), .show(surface: .controls), .reorder(from: 0, to: 2)] {
                     try await fixture.send(command)
@@ -104,7 +104,7 @@ extension WindowServerTests {
         func readsEachMenuItemShortcutAsTheKeyStepThatPressesIt() async throws {
             let (report, levels): (Report, [Model]) = try await FixtureSession.launched { fixture in
                 let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
-                let watch: Watch = await Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }).watch(try Instance(application))
+                let watch: Watch = await Watches().watch(try Instance(application))
                 try await fixture.send(.report)
                 let report: Report = try await fixture.next(\.report).value
                 let bar: Container = try #require(try await watch.model(.application).containers.first { container in container.kind == .menuBar })
@@ -136,7 +136,7 @@ extension WindowServerTests {
         func readsUnsavedChangesOfEachDocumentWindowAsTheFixtureReportsThem() async throws {
             let (report, model): (Report, Model) = try await FixtureSession.launched { fixture in
                 let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
-                let watch: Watch = await Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }).watch(try Instance(application))
+                let watch: Watch = await Watches().watch(try Instance(application))
                 try await fixture.send(.show(surface: .save))
                 try await fixture.send(.report)
                 let report: Report = try await fixture.next(\.report).value
@@ -158,7 +158,7 @@ extension WindowServerTests {
         func carriesEachInputLabelBeyondTheTitleAsAFurtherLabel() async throws {
             let (report, model): (Report, Model) = try await FixtureSession.launched { fixture in
                 let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
-                let watch: Watch = await Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }).watch(try Instance(application))
+                let watch: Watch = await Watches().watch(try Instance(application))
                 try await fixture.send(.report)
                 let report: Report = try await fixture.next(\.report).value
                 let model: Model = try await watch.model(.application)
@@ -175,7 +175,7 @@ extension WindowServerTests {
         func readsEachToolbarToolWithItsTooltipAndStatesTheSelectedToolAsThePointerTool() async throws {
             let passes: [Model] = try await FixtureSession.launched { fixture in
                 let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
-                let watch: Watch = await Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }).watch(try Instance(application))
+                let watch: Watch = await Watches().watch(try Instance(application))
                 var passes: [Model] = []
                 for segment in Inventory.toolSegments.indices.reversed() {
                     try await fixture.send(.select(entry: .tools, member: 0, segment: segment))
@@ -194,10 +194,69 @@ extension WindowServerTests {
         }
 
         @Test(.enabled(if: AXIsProcessTrusted(), "Reading the fixture from outside needs this test process to hold the Accessibility grant"))
+        func readsEachTableRowCellsUnderTheirColumnHeaderAndCountsTheRowsTheTableHolds() async throws {
+            let (report, model): (Report, Model) = try await FixtureSession.launched { fixture in
+                let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
+                let watch: Watch = await Watches().watch(try Instance(application))
+                try await fixture.send(.report)
+                let report: Report = try await fixture.next(\.report).value
+                let model: Model = try await watch.model(.application)
+                await Captures.current?.take(in: watch)
+                return (report, model)
+            }
+            let reported: Report.Control = try #require(report.controls.first { control in control.entry == .table })
+            let table: Control = try #require(Self.found(reported, in: model))
+            let rows: [Control] = model.containers.flatMap(\.controls).filter { control in
+                control.kind == .row && control.frame.map { frame in table.frame?.contains(frame) == true } == true
+            }
+            expectNoDifference(table.total, reported.rows)
+            expectNoDifference(rows.map { row in row.cells?.compactMap(\.column) }, Array(repeating: reported.columns, count: reported.rows ?? 0))
+        }
+
+        @Test(.enabled(if: AXIsProcessTrusted(), "Reading the fixture from outside needs this test process to hold the Accessibility grant"))
+        func listsEachCustomActionOfAControlByTheNameItsViewGivesIt() async throws {
+            let (report, model): (Report, Model) = try await FixtureSession.launched { fixture in
+                let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
+                let watch: Watch = await Watches().watch(try Instance(application))
+                try await fixture.send(.report)
+                let report: Report = try await fixture.next(\.report).value
+                let model: Model = try await watch.model(.application)
+                await Captures.current?.take(in: watch)
+                return (report, model)
+            }
+            let reported: Report.Control = try #require(report.controls.first { control in control.entry == .color })
+            let named: [String] = try #require(reported.customActions)
+            let listed: [String] = try #require(Self.found(reported, in: model)?.actions)
+            #expect(!named.isEmpty && Set(named).isSubset(of: Set(listed)), "The view names \(named), the model lists \(listed)")
+        }
+
+        @Test(.enabled(if: AXIsProcessTrusted(), "Acting on the fixture from outside needs this test process to hold the Accessibility grant"))
+        func replacesTheRangeOfAFieldItsTextNamesAndLeavesTheRestAsTheFixtureReportsIt() async throws {
+            let (before, after, outcomes): (Report, Report, [Result<Step.Delivery, ApplicationFailure>]) = try await FixtureSession.launched { fixture in
+                let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
+                let watch: Watch = await Watches().watch(try Instance(application))
+                try await fixture.send(.report)
+                let before: Report = try await fixture.next(\.report).value
+                let reported: Report.Control = try #require(before.controls.first { control in control.entry == .text })
+                let field: Control = try #require(Self.found(reported, in: try await watch.model(.application)))
+                let steps: [Step] = try JSONDecoder().decode([Step].self, from: Data(#"[{"at":\#(field.ref),"range":"titled","to":"TITLED"}]"#.utf8))
+                let acted = try await watch.act(steps)
+                try await fixture.send(.report)
+                let after: Report = try await fixture.next(\.report).value
+                await Captures.current?.take(in: watch)
+                return (before, after, acted.outcomes)
+            }
+            let value: (Report) -> JSONValue? = { report in report.controls.first { control in control.entry == .text }?.value }
+            expectNoDifference(value(before), .string("Untitled"))
+            expectNoDifference(value(after), .string("UnTITLED"))
+            #expect(outcomes.allSatisfy { outcome in outcome.is(\.success) }, "\(outcomes)")
+        }
+
+        @Test(.enabled(if: AXIsProcessTrusted(), "Reading the fixture from outside needs this test process to hold the Accessibility grant"))
         func readsAProgressBarAsANumberControl() async throws {
             let (report, model): (Report, Model) = try await FixtureSession.launched { fixture in
                 let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
-                let watch: Watch = await Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }).watch(try Instance(application))
+                let watch: Watch = await Watches().watch(try Instance(application))
                 try await fixture.send(.show(surface: .progress))
                 try await fixture.send(.report)
                 let report: Report = try await fixture.next(\.report).value
@@ -214,17 +273,60 @@ extension WindowServerTests {
         func searchesTheApplicationForAControlByItsTitleAndFindsNothingForTextNoElementHolds() async throws {
             let (title, found, missing): (String, Model, Model) = try await FixtureSession.launched { fixture in
                 let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
-                let watch: Watch = await Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }).watch(try Instance(application))
+                let watch: Watch = await Watches().watch(try Instance(application))
                 try await fixture.send(.report)
                 let report: Report = try await fixture.next(\.report).value
                 let title: String = try #require(report.controls.first { control in control.entry == .toggle }?.title)
-                let (found, missing): (Model, Model) = (try await watch.model(.search(text: title, limit: 8)), try await watch.model(.search(text: UUID().uuidString, limit: 8)))
+                let (found, missing): (Model, Model) = (
+                    try await watch.model(.search(text: title, key: .anyTypeSearchKey, limit: 8)), try await watch.model(.search(text: UUID().uuidString, key: .anyTypeSearchKey, limit: 8)),
+                )
                 await Captures.current?.take(in: watch)
                 return (title, found, missing)
             }
             let labels: Set<String> = Set(found.containers.flatMap(\.controls).compactMap(\.label?.text))
             #expect(labels.contains(title), "Searching \(String(reflecting: title)) found \(labels)")
             expectNoDifference(missing.containers.map(\.ref), [])
+        }
+
+        @Test(.enabled(if: AXIsProcessTrusted(), "Reading the fixture from outside needs this test process to hold the Accessibility grant"))
+        func readsAStatusItemShowingOnlyAnImageAsAnItemWhoseClosedMenuReads() async throws {
+            let (items, menu): ([Control], Model) = try await FixtureSession.launched { fixture in
+                let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
+                let watch: Watch = await Watches().watch(try Instance(application))
+                try await fixture.send(.show(surface: .status))
+                try await fixture.send(.report)
+                _ = try await fixture.next(\.report)
+                let items: [Control] = try await watch.model(.application).containers.filter { container in container.kind == .statusItem }.flatMap(\.controls)
+                let item: Control = try #require(items.first)
+                let menu: Model = try await watch.model(.menu(ref: item.ref))
+                await Captures.current?.take(in: watch)
+                return (items, menu)
+            }
+            expectNoDifference(items.map(\.kind), [.item])
+            #expect(items.allSatisfy { item in item.opens != nil }, "The status item names no menu it opens: \(items)")
+            expectNoDifference(menu.containers.map { container in container.controls.compactMap(\.label?.text) }, [["Pause", "Resume"]])
+        }
+
+        @Test(.enabled(if: AXIsProcessTrusted(), "Reading the menu bar agent from outside needs this test process to hold the Accessibility grant"))
+        func countsTheStatusItemOfTheFixtureInItsListedStateWhileItShows() async throws {
+            let seen: [Result<Int, ApplicationFailure>] = try await FixtureSession.launched { fixture in
+                let process: pid_t = fixture.process
+                let counts = Watches().states { application in application.processIdentifier == process }.compactMap { listed in
+                    listed[case: \.success]?.values.first?[case: \.running]?.statusItems
+                }
+                var seen: [Result<Int, ApplicationFailure>] = []
+                reading: for await count in counts.removeDuplicates() {
+                    seen.append(count)
+                    switch (seen.count, count) {
+                        case (1, _): try await fixture.send(.show(surface: .status))
+                        case (_, .success(1)): try await fixture.send(.dismiss(surface: .status))
+                        case (_, .success(0)): break reading
+                        case (_, _): continue
+                    }
+                }
+                return seen
+            }
+            expectNoDifference(seen, [.success(0), .success(1), .success(0)])
         }
     }
 }

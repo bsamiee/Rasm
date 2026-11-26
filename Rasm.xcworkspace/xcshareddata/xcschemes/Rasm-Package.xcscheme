@@ -33,9 +33,6 @@
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="CurrentProcess" BuildableName="CurrentProcess" BlueprintName="CurrentProcess" ReferencedContainer="container:"/>
             </BuildActionEntry>
             <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ScreenCapture" BuildableName="ScreenCapture" BlueprintName="ScreenCapture" ReferencedContainer="container:"/>
-            </BuildActionEntry>
-            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ApplicationServer" BuildableName="ApplicationServer" BlueprintName="ApplicationServer" ReferencedContainer="container:"/>
             </BuildActionEntry>
             <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">

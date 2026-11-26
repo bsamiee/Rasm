@@ -108,11 +108,10 @@ let modules: [Target] = [
         ],
         path: "libs/swift/macos/CurrentProcess",
     ),
-    .target(name: "ScreenCapture", dependencies: ["Applications", "Processes", "Results"], path: "libs/swift/macos/ScreenCapture"),
     .target(
         name: "ApplicationServer",
         dependencies: [
-            "AppleEvents", "Applications", "CurrentProcess", "Encoding", "Files", "JSONRPC", "Processes", "Results", "ScreenCapture", "Telemetry", "Updater",
+            "AppleEvents", "Applications", "CurrentProcess", "Encoding", "Files", "JSONRPC", "Processes", "Results", "Telemetry", "Updater",
             .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Logging", package: "swift-log"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
             .product(name: "Tracing", package: "swift-distributed-tracing"), .product(name: "UnixSignals", package: "swift-service-lifecycle"),
         ],
@@ -214,7 +213,7 @@ let tests: [Target] = [
     .testTarget(
         name: "ApplicationsTests",
         dependencies: [
-            "AppleEvents", "Applications", "Encoding", "Fixture", "Processes", "ScreenCapture", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+            "AppleEvents", "Applications", "Encoding", "Fixture", "Processes", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump"),
             .product(name: "PropertyBased", package: "swift-property-based"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],
@@ -229,17 +228,9 @@ let tests: [Target] = [
         path: "tests/libs/swift/macos/CurrentProcess",
     ),
     .testTarget(
-        name: "ScreenCaptureTests",
-        dependencies: [
-            "Applications", "Fixture", "ScreenCapture", .product(name: "CasePathsCore", package: "swift-case-paths"),
-            .product(name: "CustomDump", package: "swift-custom-dump"),
-        ],
-        path: "tests/libs/swift/macos/ScreenCapture",
-    ),
-    .testTarget(
         name: "ApplicationServerTests",
         dependencies: [
-            "AppleEvents", "ApplicationServer", "Applications", "Encoding", "JSONRPC", "Results", "ScreenCapture", .product(name: "CasePaths", package: "swift-case-paths"),
+            "AppleEvents", "ApplicationServer", "Applications", "Encoding", "JSONRPC", "Results", .product(name: "CasePaths", package: "swift-case-paths"),
             .product(name: "CustomDump", package: "swift-custom-dump"),
         ],
         path: "tests/libs/swift/macos/ApplicationServer",

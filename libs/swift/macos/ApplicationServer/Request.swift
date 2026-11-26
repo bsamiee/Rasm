@@ -7,7 +7,6 @@ import JSONRPC
 import Logging
 import Processes
 import Results
-import ScreenCapture
 import System
 import Telemetry
 
@@ -32,22 +31,22 @@ enum Request: Decodable, Sendable {
     case session
     case pasteboard(text: String?)
     case watch(instance: ProcessInstance)
-    case model(instance: ProcessInstance, scope: Model.Scope)
+    case model(instance: ProcessInstance, scope: Model.Scope, known: Model.Known?)
     case intern(instance: ProcessInstance, locators: [Locator])
     case handlers(document: URL)
     case launch(url: URL, documents: [URL], arguments: [String], environment: [String: String], new: Bool, opening: [String: AppleEventValue], wait: Bool)
-    case act(instance: ProcessInstance, actions: [ElementAction])
+    case act(instance: ProcessInstance, steps: [Step])
     case quit(instance: ProcessInstance, mode: Watch.QuitMode)
     case dictionary(url: URL)
     case execute(instance: ProcessInstance, arguments: [String: AppleEventValue])
-    case capture(instance: ProcessInstance, source: Source, longestSide: LongestSide?)
+    case capture(instance: ProcessInstance, source: Source, longestSide: LongestSide?, marks: [Mark])
     case record(instance: ProcessInstance, source: Source, seconds: Double, longestSide: LongestSide?)
     case scale(image: Data, longestSide: LongestSide)
     case diagnostics(application: Application?, folders: [LogFolder], since: Double?, limit: Int, find: String?)
 }
 
 private struct ActResult: Encodable, Sendable {
-    let outcomes: [EncodedResult<ElementAction.Delivery>]
+    let outcomes: [EncodedResult<Step.Delivery>]
     let state: InstanceState
     let usage: EncodedResult<ResourceUsage.Interval>
     let load: EncodedResult<SystemLoad>
@@ -137,8 +136,8 @@ extension Request {
                     throw ApplicationFailure(subject: process.rawValue, reason: .noPath)
                 }
                 return .value(snapshot)
-            case .model(let process, let scope):
-                return try await .value(watches.watch(instance(of: process, matching: matching)).model(scope))
+            case .model(let process, let scope, let known):
+                return try await .value(watches.watch(instance(of: process, matching: matching)).model(scope, known: known))
             case .intern(let process, let locators):
                 return try await .value(watches.watch(instance(of: process, matching: matching)).intern(locators))
             case .handlers(let document):
@@ -159,7 +158,7 @@ extension Request {
                     )
                     .map(\.self)
                 )
-            case .act(let process, let actions):
+            case .act(let process, let steps):
                 let instance = try instance(of: process, matching: matching)
                 try Session.current().require(process.rawValue)
                 let watch = await watches.watch(instance)
@@ -167,7 +166,7 @@ extension Request {
                 let loaded = Result { () throws(NSError) in try SystemLoad.current() }
                 let outcome = await Result { () async throws(ApplicationFailure) in
                     try await FileEvent.written(await watch.documentFiles) { () async throws(ApplicationFailure) in
-                        try await PermittedFrontList.shared.holding(excluding: process.pid) { () async throws(ApplicationFailure) in try await instance.act(actions, in: watch) }.get()
+                        try await PermittedFrontList.shared.holding(excluding: process.pid) { () async throws(ApplicationFailure) in try await watch.act(steps) }.get()
                     }
                 }
                 let load = Result { () throws(NSError) in try SystemLoad.current() }.flatMap { after in loaded.map(after.since) }
@@ -211,14 +210,14 @@ extension Request {
                 }
                 .get()
                 return .value(ExecuteResult(reply: reply, written: EncodedResult(written)))
-            case .capture(let process, let source, let longestSide):
+            case .capture(let process, let source, let longestSide, let marks):
                 let instance = try instance(of: process, matching: matching)
                 try Session.current().require(process.rawValue)
-                return try await .value(instance.capture(source, in: watches.watch(instance), longestSide: longestSide).map(EncodedResult.init))
+                return try await .value(watches.watch(instance).capture(source, longestSide: longestSide, marks: marks).map(EncodedResult.init))
             case .record(let process, let source, let seconds, let longestSide):
                 let instance = try instance(of: process, matching: matching)
                 try Session.current().require(process.rawValue)
-                return try await .value(instance.recording(source, in: watches.watch(instance), for: .seconds(seconds), longestSide: longestSide))
+                return try await .value(watches.watch(instance).record(source, for: .seconds(seconds), longestSide: longestSide))
             case .scale(let image, let longestSide):
                 let scaled = try image.image(longestSide: longestSide)
                 return try .value(Scaled(png: scaled.png(), width: scaled.width, height: scaled.height))
@@ -260,7 +259,7 @@ func serve(
 ) async throws(JSONRPCFailure) {
     let logger = Logger(label: String(reflecting: Request.self))
     let dictionaries = ScriptingDictionaries(cachedDefinition: cachedDefinition)
-    let watches = Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) })
+    let watches = Watches()
     let calls = DispatchQueue(label: "\(Request.self).calls", attributes: .concurrent)
     let output = DispatchSerialQueue(label: "\(Request.self).output")
     try await JSONRPC.serve(

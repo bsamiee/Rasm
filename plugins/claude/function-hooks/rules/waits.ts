@@ -1,5 +1,7 @@
-import { Array, Duration, Effect, Function, Match, Option, Path } from 'effect';
-import { type Invocation, rewrite, run, type Table, type Verdict } from '#/rules/rule';
+import { Array, Duration, Effect, Function, Match, Option, Path, Result } from 'effect';
+import { Host, NetAddress } from 'effect/net';
+import { ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { type Invocation, rewrite, type Table, type Verdict } from '#/rules/rule';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -10,7 +12,6 @@ const checkers = ['sleep', 'wait', 'read', 'jq', 'grep', 'rg', 'echo', 'printf',
 const pollers = ['sleep', 'jq', 'grep', 'rg', 'echo', 'printf', 'test', '[', 'true', ':', 'date', 'read'];
 const printers = ['cat', 'tail', 'head', 'echo', 'printf', 'rg', 'jq', 'ls'];
 const following = ['-f', '-F', '--follow'];
-const loopback: ReadonlySet<string> = new Set(['127.0.0.1', 'localhost', '::1']);
 const endless: ReadonlySet<string> = new Set(['/dev/zero', '/dev/urandom', '/dev/random']);
 const zeroDuration = /^(?:0+(?:\.0*)?|\.0+)[smhd]?$/u;
 const taskOutput = /\/tasks\/(?<id>[^/\s]+)\.output$/u;
@@ -63,19 +64,17 @@ const groupLoops = (invocations: readonly Invocation[]) =>
     });
 const spins = ({ tested, until }: ReturnType<typeof groupLoops>[number]) => Array.isReadonlyArrayNonEmpty(tested) && tested.every((invocation) => invocation.runs(...fixed) && invocation.runs('false') === until);
 const probes = ({ tested }: ReturnType<typeof groupLoops>[number]) => Array.isReadonlyArrayNonEmpty(tested) && !tested.every((invocation) => invocation.runs(...fixed));
-const print = <E, R>(ran: Effect.Effect<{ readonly printed: string }, E, R>) =>
-    Effect.orElseSucceed(
-        Effect.map(ran, ({ printed }) => printed),
-        () => '',
-    );
 const findWriters = Effect.fnUntraced(function* (file: string, cwd: string) {
-    const [open, processes] = yield* Effect.all([print(run(cwd)`lsof -F pa -- ${file}`), print(run(cwd)`ps -A -o pid=,ppid=`)], { concurrency: 'unbounded' });
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const command = ChildProcess.make({ cwd, stdin: 'ignore' });
+    const [open, processes] = yield* Effect.all([spawner.string(command`lsof -F pa -- ${file}`), spawner.string(command`ps -A -o pid=,ppid=`)], { concurrency: 'unbounded' });
     const parents = new Map(processes.split('\n').flatMap((line) => Option.toArray(Option.map(Option.fromNullishOr(/^\s*(?<pid>\d+)\s+(?<parent>\d+)/u.exec(line)?.groups), ({ pid = '', parent = '' }) => [pid, parent] as const))));
     const holders = new Set(open.split(/^p/mu).flatMap((listing) => (/^a[uw]$/mu.test(listing) ? [listing.split('\n', 1).join('')] : [])));
     return [...holders].filter((pid) => parents.has(pid) && !holders.has(parents.get(pid) ?? ''));
 });
 const findRepeat = Effect.fnUntraced(function* (file: string, cwd: string) {
-    const lines = (yield* print(run(cwd)`tail -n 10 -- ${file}`))
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const lines = (yield* spawner.string(ChildProcess.make({ cwd, stdin: 'ignore' })`tail -n 10 -- ${file}`))
         .split('\n')
         .filter((line) => line.trim() !== '')
         .map((line) => line.replaceAll(/\d+/gu, '#'));
@@ -288,7 +287,7 @@ const waits: Table = {
             const count = Option.match(readNumber(ping, '-c'), { onNone: () => Number.NaN, onSome: Number });
             const interval = Option.match(readNumber(ping, '-i'), { onNone: () => 1, onSome: Number });
             const seconds = (count - 1) * interval;
-            const local = Option.exists(ping.operand(), (host) => loopback.has(host)) && Option.isNone(ping.stage) && !ping.within.some(({ _tag }) => _tag === 'Substitution');
+            const local = Option.exists(Option.flatMap(ping.operand(), (host) => Result.getSuccess(Host.hostFromString(host))), (host) => (NetAddress.isIpAddress(host) ? NetAddress.isLoopback(host) : host === 'localhost')) && Option.isNone(ping.stage) && !ping.within.some(({ _tag }) => _tag === 'Substitution');
             return local && seconds > 0 ? rewrite(ping, ['sleep', `${seconds}`]) : [];
         },
     },

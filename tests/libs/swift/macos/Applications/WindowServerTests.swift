@@ -2,7 +2,6 @@ import Applications
 import CasePathsCore
 import CoreGraphics
 import Foundation
-import ScreenCapture
 import Synchronization
 import Testing
 
@@ -19,7 +18,7 @@ final class Captures: Sendable {
         guard !numbers.isEmpty else { return }
         let taken: [Result<Screenshot, ApplicationFailure>]
         do throws(ApplicationFailure) {
-            taken = try await watch.instance.capture(.windows(numbers: numbers), in: watch)
+            taken = try await watch.capture(.windows(numbers: numbers))
         } catch {
             taken = [.failure(error)]
         }

@@ -1,7 +1,7 @@
 import AppKit
+import Applications
 import CustomDump
 import Foundation
-import ScreenCapture
 import Testing
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

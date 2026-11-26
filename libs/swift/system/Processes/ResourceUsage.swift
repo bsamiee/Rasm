@@ -1,5 +1,5 @@
 import Darwin
-public import Foundation
+import Foundation
 import IOKit.pwr_mgt
 public import System
 
@@ -58,7 +58,7 @@ public struct ResourceUsage: Encodable, Equatable, Sendable {
     public let diskBytesWritten: UInt64
     public let footprint: Int
     public let threads: Int
-    public let assertions: Result<[String], NSError>
+    public let assertions: Result<[String], ProcessFailure>
     public let at: SuspendingClock.Instant
 
     public func encode(to encoder: any Encoder) throws {
@@ -78,6 +78,12 @@ public struct ResourceUsage: Encodable, Equatable, Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension ResourceUsage {
+    private static let timebase: mach_timebase_info_data_t = {
+        var timebase = mach_timebase_info_data_t()
+        _ = unsafe mach_timebase_info(&timebase)
+        return timebase
+    }()
+
     public init(of instance: ProcessInstance) throws(Errno) {
         let threads = Result { () throws(Errno) in try information(of: instance.pid, PROC_PIDTASKINFO, proc_taskinfo()).pti_threadnum }
         var usage = rusage_info_current()
@@ -87,9 +93,7 @@ extension ResourceUsage {
         let failure = Errno(rawValue: errno)
         guard !instance.hasExited else { throw .noSuchProcess }
         guard status == 0 else { throw failure }
-        var timebase = mach_timebase_info_data_t()
-        _ = unsafe mach_timebase_info(&timebase)
-        let elapsed = { (ticks: UInt64) -> Duration in .nanoseconds(ticks * UInt64(timebase.numer) / UInt64(timebase.denom)) }
+        let elapsed = { (ticks: UInt64) -> Duration in .nanoseconds(ticks * UInt64(Self.timebase.numer) / UInt64(Self.timebase.denom)) }
         var table: Unmanaged<CFDictionary>?
         let read = unsafe IOPMCopyAssertionsByProcess(&table)
         let held: [[String: Any]] = unsafe (table?.takeRetainedValue() as? [NSNumber: [[String: Any]]])?[NSNumber(value: instance.pid)] ?? []
@@ -102,7 +106,7 @@ extension ResourceUsage {
             diskBytesWritten: usage.ri_diskio_byteswritten,
             footprint: Int(usage.ri_phys_footprint),
             threads: Int(try threads.get()),
-            assertions: read == kIOReturnSuccess ? .success(names.sorted()) : .failure(NSError(domain: NSMachErrorDomain, code: Int(read))),
+            assertions: read == kIOReturnSuccess ? .success(names.sorted()) : .failure(ProcessFailure(subject: "IOPMCopyAssertionsByProcess", reason: .ioKit(read))),
             at: .now,
         )
     }

@@ -1,5 +1,5 @@
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Data, HashMap, Match, Option, Order, pipe, Record, Result, Schema, String, Struct } from 'effect';
+import { Array, Data, HashMap, HashSet, Match, Option, Order, pipe, Record, Result, Schema, String, Struct } from 'effect';
 import type { Container, Control, Fact, Model, Observation } from '#/contract';
 import type { Entry, InterfaceMap } from '#/interface-map';
 
@@ -10,7 +10,7 @@ type Target = Data.TaggedEnum<{
     Control: { readonly control: Control; readonly container: Container };
     Option: { readonly option: NonNullable<Control['options']>[number] };
     RememberedContainer: { readonly locator: string; readonly entry: Entry };
-    RememberedControl: { readonly locator: string; readonly control: Entry['controls'][string]; readonly entry: Entry };
+    RememberedControl: { readonly locator: string; readonly container: string; readonly control: Entry['controls'][string]; readonly entry: Entry };
 }>;
 interface Item {
     readonly target: Target;
@@ -69,6 +69,7 @@ const printFact: (fact: Fact) => string = Match.type<Fact>().pipe(
         point: ({ value }) => value.join(','),
         size: ({ value }) => value.join('×'),
         rect: ({ value }) => `${value[0].join(',')} ${value[1].join('×')}`,
+        color: ({ red, green, blue, alpha }) => `sRGB ${[red, green, blue, alpha].join(' ')}`,
         range: ({ location, length }) => `${location}+${length}`,
         element: ({ id }) => `element ${id}`,
         refused: ({ error }) => `unread, AXError ${error}`,
@@ -108,7 +109,7 @@ const locatorOf = (target: Target) =>
     Target.$match(target, { Container: ({ container }) => Option.some(container.locator), Control: ({ control }) => Option.some(control.locator), Option: () => Option.none(), RememberedContainer: ({ locator }) => Option.some(locator), RememberedControl: ({ locator }) => Option.some(locator) });
 const located = (items: readonly Item[]) => Record.fromEntries(items.flatMap((item) => Option.toArray(Option.map(locatorOf(item.target), (locator) => [locator, item] as const))));
 const candidateOf = (item: Item) => (item.live ? [...Option.toArray(item.token), JSON.stringify(path(item).join(SEPARATOR))] : Option.toArray(Option.map(item.token, (held) => JSON.stringify(held)))).join(' ');
-const index = (model: Model, map: InterfaceMap): Index => {
+const index = (model: Model): Index => {
     const parsed = model.containers.map((container) => ({ container, steps: stepsOf(container.locator) }));
     const names = Record.fromEntries(
         parsed.flatMap(({ container, steps }) => [[steps, container.title] as const, ...container.controls.map((control) => [stepsOf(control.locator), control.label?.text] as const)]).flatMap(([steps, text]) => Option.toArray(Option.map(label(text), (name) => [JSON.stringify(steps), name] as const))),
@@ -144,27 +145,47 @@ const index = (model: Model, map: InterfaceMap): Index => {
     const interned = Record.fromEntries(refs);
     const unread = shown.flatMap(({ controls }) => controls.flatMap(({ control, item }) => (control.opens === undefined || Record.has(interned, `${control.opens}`) ? [] : [[`${control.opens}`, { ...item, token: Option.some(token('menu', control.opens)) }] as const])));
     const live = refs.map(([, item]) => item);
-    const opened = located(live);
+    return {
+        model,
+        items: live,
+        shown,
+        tokens: Record.fromEntries([...live, ...unread.map(([, item]) => item)].flatMap((item) => Option.toArray(Option.map(item.token, (at) => [at, item] as const)))),
+        live: { ...Record.fromEntries(unread), ...interned },
+        located: located(live),
+        remembered: { containers: [], controls: {} },
+    };
+};
+const recall = (held: Index, map: InterfaceMap): Index => {
     const [, groups] = Array.mapAccum(Record.toEntries(map.containers), HashMap.empty<Option.Option<string>, number>(), (seen, [locator, entry]) => {
         const open = Option.map(
-            Option.filter(Record.get(opened, locator), ({ target }) => target._tag === 'Container'),
+            Option.filter(Record.get(held.located, locator), ({ target }) => target._tag === 'Container'),
             path,
         );
         const opener = pipe(
             Array.head(entry.container.openers),
             Option.flatMap(({ container, control }) =>
-                Option.orElse(Option.map(Record.get(opened, control), path), () => pipe(Record.get(map.containers, container), Option.map(Struct.get('controls')), Option.flatMap(Record.get(control)), Option.flatMap(Struct.get('label')), Option.map(Struct.get('text')), Option.flatMap(label), Option.map(Array.of))),
+                Option.orElse(Option.map(Record.get(held.located, control), path), () =>
+                    pipe(Record.get(map.containers, container), Option.map(Struct.get('controls')), Option.flatMap(Record.get(control)), Option.flatMap(Struct.get('label')), Option.map(Struct.get('text')), Option.flatMap(label), Option.map(Array.of)),
+                ),
             ),
             Option.getOrElse(Array.empty<string>),
         );
         const whole = [...opener, ...Option.toArray(Option.flatMap(entry.container.title, label))];
         const controls = (ancestors: readonly string[]) =>
             Record.toEntries(entry.controls)
-                .filter(([at, control]) => Option.isNone(control.retired) && !Record.has(opened, at))
+                .filter(([at, control]) => Option.isNone(control.retired) && !Record.has(held.located, at))
                 .map(([at, control]): Item => {
                     const name = Option.flatMap(control.label, ({ text }) => label(text));
                     const within = [...ancestors, ...Option.toArray(control.section)];
-                    return { target: Target.RememberedControl({ locator: at, control, entry }), token: Option.map(name, (held) => [...within, held].join(SEPARATOR)), name, ancestors: within, value: Option.map(control.value, (held) => printStored(control.kind, held)), kind: Option.some(control.kind), live: false };
+                    return {
+                        target: Target.RememberedControl({ locator: at, container: locator, control, entry }),
+                        token: Option.map(name, (named) => [...within, named].join(SEPARATOR)),
+                        name,
+                        ancestors: within,
+                        value: Option.map(control.value, (was) => printStored(control.kind, was)),
+                        kind: Option.some(control.kind),
+                        live: false,
+                    };
                 });
         const items = Option.match(open, {
             onSome: controls,
@@ -176,21 +197,39 @@ const index = (model: Model, map: InterfaceMap): Index => {
         });
         const [counted, numbered] = Array.mapAccum(items, seen, (counts, item) => {
             const count = Option.getOrElse(HashMap.get(counts, item.token), () => 0) + 1;
-            return [HashMap.set(counts, item.token, count), { ...item, token: Option.map(item.token, (held) => (count === 1 ? held : `${held} #${count}`)) }] as const;
+            return [HashMap.set(counts, item.token, count), { ...item, token: Option.map(item.token, (numberless) => (count === 1 ? numberless : `${numberless} #${count}`)) }] as const;
         });
         return [counted, { locator, items: numbered }] as const;
     });
     const remembered = groups.flatMap(Struct.get('items'));
-    const items = [...live, ...remembered];
     return {
-        model,
-        items,
-        shown,
-        tokens: Record.fromEntries([...items, ...unread.map(([, item]) => item)].flatMap((item) => Option.toArray(Option.map(item.token, (at) => [at, item] as const)))),
-        live: { ...Record.fromEntries(unread), ...interned },
-        located: { ...opened, ...located(remembered) },
-        remembered: { containers: remembered.filter(({ target }) => target._tag === 'RememberedContainer'), controls: Record.fromEntries(groups.map(({ locator, items: held }) => [locator, held.filter(({ target }) => target._tag === 'RememberedControl')] as const)) },
+        ...held,
+        items: [...held.items, ...remembered],
+        tokens: { ...held.tokens, ...Record.fromEntries(remembered.flatMap((item) => Option.toArray(Option.map(item.token, (at) => [at, item] as const)))) },
+        located: { ...held.located, ...located(remembered) },
+        remembered: { containers: remembered.filter(({ target }) => target._tag === 'RememberedContainer'), controls: Record.fromEntries(groups.map(({ locator, items }) => [locator, items.filter(({ target }) => target._tag === 'RememberedControl')] as const)) },
     };
+};
+const locate = ({ target }: Item) =>
+    Target.$match(target, {
+        Container: () => Option.none(),
+        Control: ({ control: held, container }) => Option.some({ container: container.locator, control: held.locator }),
+        Option: () => Option.none(),
+        RememberedContainer: () => Option.none(),
+        RememberedControl: ({ locator, container }) => Option.some({ container, control: locator }),
+    });
+const opening = (held: Index, item: Item): readonly Item[] => {
+    const chain = Array.reverse(
+        Array.unfold({ at: item, seen: HashSet.empty<string>() }, ({ at, seen }) =>
+            pipe(
+                at.target._tag === 'RememberedContainer' || at.target._tag === 'RememberedControl' ? Array.head(at.target.entry.container.openers) : Option.none(),
+                Option.filter(({ control }) => !HashSet.has(seen, control)),
+                Option.flatMap(({ control }) => Option.map(Record.get(held.located, control), (opener) => [opener, { at: opener, seen: HashSet.add(seen, control) }] as const)),
+            ),
+        ),
+    );
+    const menu = ({ target }: Item) => (target._tag === 'Control' && target.container.kind === 'menu') || (target._tag === 'RememberedControl' && target.entry.container.kind === 'menu');
+    return chain.filter((_, at) => !Option.exists(Array.get(chain, at + 1), menu));
 };
 const resolve = (held: Index, at: string): Result.Result<Item, Unmatched> => {
     const segments = Array.map(String.split(at, SEPARATOR.trim()), String.trim);
@@ -233,7 +272,7 @@ const find = (held: Index, query: string, kind: Option.Option<Control['kind']>) 
         Struct.get('live'),
         Order.flip(Order.Boolean),
     );
-const Address = { At, Target, index, resolve, find, path, token, fact: printValue, value: printStored, separator: SEPARATOR } as const;
+const Address = { At, Target, index, recall, opening, locate, resolve, find, path, token, fact: printValue, value: printStored, separator: SEPARATOR } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

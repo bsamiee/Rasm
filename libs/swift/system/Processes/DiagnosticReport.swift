@@ -155,7 +155,7 @@ extension DiagnosticReport {
                 switch change {
                     case .success(let batch) where batch.isEmpty || batch.contains(where: \.mustScanSubDirs): list(directory, since: earliest)
                     case .success(let batch): modified(Set(batch.map(\.url)), since: earliest)
-                    case .failure(let failure): ([], [ProcessFailure(subject: failure.subject, reason: .io(failure))])
+                    case .failure(let failure): ([], [ProcessFailure(subject: failure.subject, failure)])
                 }
             let reads: [(url: URL, report: Result<Self, ProcessFailure>?)] = listed.files.filter { file in !held.read.contains(file) }.map { file in (file, read(file, since: earliest)) }
             held.read.formUnion(reads.filter { entry in entry.report?[case: \.failure] == nil }.map(\.url))
@@ -181,7 +181,7 @@ extension DiagnosticReport {
                     case .failure(let failure): ended = failure
                 }
             }
-            throw (Task.isCancelled ? nil : ended) ?? ProcessFailure(subject: subject, reason: .cancelled(CancellationError()))
+            throw (Task.isCancelled ? nil : ended) ?? ProcessFailure(subject: subject, reason: .cancelled)
         }
     }
 
@@ -189,7 +189,7 @@ extension DiagnosticReport {
         do {
             return modified(try ifPresent { try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: Array(keys)) } ?? [], since: earliest)
         } catch {
-            return ([], [ProcessFailure(subject: directory.path(percentEncoded: false), reason: .io(error))])
+            return ([], [ProcessFailure(subject: directory.path(percentEncoded: false), error)])
         }
     }
 
@@ -199,14 +199,14 @@ extension DiagnosticReport {
             guard case .success(let values?) = values, values.isRegularFile == true, values.isHidden == false, let modified = values.contentModificationDate, modified >= earliest else { return nil }
             return url
         }
-        return (files, read.compactMap { url, values in values[case: \.failure].map { error in ProcessFailure(subject: url.path(percentEncoded: false), reason: .io(error)) } })
+        return (files, read.compactMap { url, values in values[case: \.failure].map { error in ProcessFailure(subject: url.path(percentEncoded: false), error) } })
     }
 
     private static func read(_ file: URL, since earliest: Date) -> Result<Self, ProcessFailure>? {
         do {
             return try ifPresent { try Self(file) }.flatMap(\.self).flatMap { report in report.date >= earliest ? .success(report) : nil }
         } catch {
-            return .failure(ProcessFailure(subject: file.path(percentEncoded: false), reason: .io(error)))
+            return .failure(ProcessFailure(subject: file.path(percentEncoded: false), error))
         }
     }
 }

@@ -68,8 +68,8 @@ const environment = (root: string, set: Record.ReadonlyRecord<string, string> = 
 });
 
 const refusing = (tool: string) => [
-    { case: 'a missing executable', scripts: {}, refusal: new RegExp(`^${RegExp.escape(tool)} .*cannot start: `, 'u') },
-    { case: 'a non-zero exit', scripts: { [tool]: 'echo refused >&2\nexit 3' }, refusal: new RegExp(`^${RegExp.escape(tool)} .*exits 3: refused$`, 'u') },
+    { case: 'a missing executable', scripts: {}, refusal: new RegExp(`^NotFound: ChildProcess\\.spawn \\(${RegExp.escape(tool)}[ )]`, 'u') },
+    { case: 'a non-zero exit', scripts: { [tool]: 'echo refused >&2\nexit 3' }, refusal: new RegExp(`^${RegExp.escape(tool)} .*exited 3: refused$`, 'u') },
 ];
 
 const scripted = (folder: string, scripts: Record.ReadonlyRecord<string, string>, path: string) => {

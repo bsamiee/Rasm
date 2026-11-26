@@ -1,9 +1,11 @@
 import AppKit
 import AsyncAlgorithms
+import CasePathsCore
 import CustomDump
 import Foundation
 import Processes
 import Subprocess
+import System
 import Testing
 
 @testable import Applications
@@ -24,16 +26,16 @@ struct LifetimeTests {
             [probe].async,
             AsyncStream<InstanceState>(unfolding: {
                 do { try process.signal(SIGTERM) } catch { Issue.record(error) }
-                if outlived { try? await Task.sleep(for: .seconds(3600)) }
+                if outlived {
+                    do { try await Task.sleep(for: .seconds(3600)) } catch { return nil }
+                    Issue.record("running sequence outlived the process exit uncancelled")
+                }
                 return nil
             }),
         )
         let states = await Instance(application: .current, process: process).lifetime(running, clock: ContinuousClock()).reduce(into: [InstanceState]()) { states, state in states.append(state) }
         expectNoDifference(states.first, probe)
-        let ends: [TerminationStatus?] = states.dropFirst().map { state -> TerminationStatus? in
-            guard case .exited(let ended) = state else { return nil }
-            return try? ended.exit.get().status
-        }
-        expectNoDifference(ends, [.signaled(SIGTERM)])
+        let ends: [Result<TerminationStatus, Errno>?] = states.dropFirst().map { state in state[case: \.exited]?.exit.map(\.status) }
+        expectNoDifference(ends, [.success(.signaled(SIGTERM))])
     }
 }

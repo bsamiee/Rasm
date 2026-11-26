@@ -50,15 +50,6 @@ private enum Phase: CaseLabeled {
 
 private func nested(_ depth: Int) -> Data { Data((String(repeating: "[", count: depth) + String(repeating: "]", count: depth)).utf8) }
 
-private func refusal(_ decode: () throws -> Any) -> String? {
-    do {
-        _ = try decode()
-        return nil
-    } catch {
-        return Mirror(reflecting: error).children.first?.label
-    }
-}
-
 @Suite
 struct HexTests {
     @Test
@@ -98,15 +89,21 @@ struct JSONValueTests {
     }
 
     @Test
-    func refusesNestingDeeperThanOneHundredTwentyEightLevels() {
-        expectNoDifference(refusal { try JSONDecoder().decode(JSONValue.self, from: nested(128)) }, nil)
-        expectNoDifference(refusal { try JSONDecoder().decode(JSONValue.self, from: nested(129)) }, "dataCorrupted")
+    func refusesNestingDeeperThanOneHundredTwentyEightLevels() throws {
+        _ = try JSONDecoder().decode(JSONValue.self, from: nested(128))
+        switch #expect(throws: DecodingError.self, performing: { try JSONDecoder().decode(JSONValue.self, from: nested(129)) }) {
+            case .dataCorrupted, nil: break
+            case let error?: Issue.record("nesting of 129 levels refused as \(error) in place of dataCorrupted")
+        }
     }
 
     @Test
     func decodesOnlyAMatchingType() throws {
         expectNoDifference(try JSONDecoder().decode([Matched].self, from: Data(#"[1.5,"x",true,[2],{}]"#.utf8)).map(\.number), [1.5, nil, nil, nil, nil])
-        expectNoDifference(refusal { try JSONDecoder().decode([Matched].self, from: Data("[null]".utf8)) }, "valueNotFound")
+        switch #expect(throws: DecodingError.self, performing: { try JSONDecoder().decode([Matched].self, from: Data("[null]".utf8)) }) {
+            case .valueNotFound, nil: break
+            case let error?: Issue.record("null refused as \(error) in place of valueNotFound")
+        }
     }
 
     @Test

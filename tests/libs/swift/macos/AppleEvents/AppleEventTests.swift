@@ -29,13 +29,15 @@ private let properties = AppleEventValue.specifier(want: "prop", form: .property
 private let name = AppleEventValue.specifier(want: "prop", form: .property, seld: .type("name"), from: .null)
 private let raised: [String: AppleEventValue] = ["frontmost": .bool(true), "name": .text("Front")]
 private let renamed: [String: AppleEventValue] = ["name": .text("Front")]
-private let events: [(String, [String: AppleEventValue], [String])] = [
-    ("set", ["direct": frontmost, "to": .bool(true)], ["activating"]),
-    ("set", ["direct": frontmost, "to": .bool(false)], ["activating"]),
-    ("set", ["direct": properties, "to": .record(type: DescType(typeAERecord), fields: raised)], ["activating"]),
+private let activating: [(String, [String: AppleEventValue])] = [
+    ("set", ["direct": frontmost, "to": .bool(true)]),
+    ("set", ["direct": frontmost, "to": .bool(false)]),
+    ("set", ["direct": properties, "to": .record(type: DescType(typeAERecord), fields: raised)]),
+    ("activate", [:]),
+]
+private let built: [(String, [String: AppleEventValue], [String])] = [
     ("set", ["direct": properties, "to": .record(type: DescType(typeAERecord), fields: renamed)], ["coresetd", "pALL"]),
     ("set", ["direct": name, "to": .text("Front")], ["coresetd", "pnam"]),
-    ("activate", [:], ["activating"]),
 ]
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -46,19 +48,22 @@ struct AppleEventTests {
 
     init() throws { dictionary = try ScriptingDictionary(definition: definition) }
 
-    @Test(arguments: events)
-    func refusesEveryEventThatActivatesOrWritesTheFrontmostState(command: String, arguments: [String: AppleEventValue], outcome: [String]) throws {
-        let resolved = try dictionary.command(command, taking: Set(arguments.keys))
-        let built = Result { () throws(AggregateError<AppleEventFailure>) in
+    @Test(arguments: activating)
+    func refusesEveryEventThatActivatesOrWritesTheFrontmostState(command: String, arguments: [String: AppleEventValue]) throws {
+        let resolved = try dictionary.command(.name(command), taking: Set(arguments.keys))
+        let refusal = #expect(throws: AggregateError<AppleEventFailure>.self) {
             try dictionary.event(resolved, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: getpid()))
         }
+        expectNoDifference(refusal?.errors.map(\.reason), [.activating])
+    }
+
+    @Test(arguments: built)
+    func buildsEveryEventThatLeavesTheFrontmostStateAlone(command: String, arguments: [String: AppleEventValue], outcome: [String]) throws {
+        let resolved = try dictionary.command(.name(command), taking: Set(arguments.keys))
+        let event = try dictionary.event(resolved, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: getpid()))
         let observed: [String] =
-            switch built {
-                case .success(let event):
-                    [(UInt64(event.eventClass) << 32 | UInt64(event.eventID)).sdef]
-                        + [event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.forKeyword(AEKeyword(keyAEKeyData))?.typeCodeValue.sdef].compactMap(\.self)
-                case .failure(let failure): failure.errors.map { failure in failure.reason.is(\.activating) ? "activating" : failure.localizedDescription }
-            }
+            [(UInt64(event.eventClass) << 32 | UInt64(event.eventID)).sdef]
+            + [event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.forKeyword(AEKeyword(keyAEKeyData))?.typeCodeValue.sdef].compactMap(\.self)
         expectNoDifference(observed, outcome)
     }
 

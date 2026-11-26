@@ -306,7 +306,10 @@ final class Delegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSToolbar
             case (.status, true):
                 status = status ?? NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
                 status?.menu = menus[.status]
-                status?.button?.title = surface.rawValue.capitalized
+                status?.button?.image = NSImage(size: NSSize(width: 16, height: 16), flipped: false) { frame in
+                    NSBezierPath(ovalIn: frame).fill()
+                    return true
+                }
             case (.status, false):
                 status.map(NSStatusBar.system.removeStatusItem)
                 status = nil
@@ -391,6 +394,7 @@ final class Delegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSToolbar
                 Report.Window(
                     surface: surfaces[ObjectIdentifier(window)],
                     number: window.windowNumber,
+                    parent: (window.parent ?? window.sheetParent)?.windowNumber,
                     className: String(describing: type(of: window)),
                     title: window.title,
                     role: window.isAccessibilityElement() ? window.accessibilityRole()?.rawValue : nil,

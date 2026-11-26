@@ -7,7 +7,6 @@ import Encoding
 import Foundation
 import JSONRPC
 import Results
-import ScreenCapture
 import Testing
 
 @testable import ApplicationServer
@@ -70,7 +69,7 @@ struct ScaleTests {
         let response = try await request.perform(
             matching: { NSPredicate(value: false) },
             dictionaries: ScriptingDictionaries(cachedDefinition: { _ in nil }),
-            watches: Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }),
+            watches: Watches(),
         )
         let value = try #require(response[case: \.value.some])
         let answer = try JSONDecoder().decode(Scaled.self, from: try JSONEncoder().encode(value))
@@ -105,7 +104,7 @@ struct InstallationsTests {
         let response = try await request.perform(
             matching: { NSPredicate(value: true) },
             dictionaries: ScriptingDictionaries(cachedDefinition: { _ in nil }),
-            watches: Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }),
+            watches: Watches(),
         )
         let listings = try #require(response[case: \.stream])
         let listing = try #require(await listings.first { _ in true })
@@ -131,7 +130,7 @@ struct MatchingTests {
                         read.yield()
                         return nil
                     }),
-                    watches: Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }),
+                    watches: Watches(),
                 )
         }
         read.finish()
@@ -157,7 +156,7 @@ struct MatchingTests {
                     ask.yield(installation.identifier)
                     return cached
                 }),
-                watches: Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }),
+                watches: Watches(),
             )
         ask.finish()
         let identifiers = await asked.reduce(into: [String]()) { identifiers, identifier in identifiers.append(identifier) }

@@ -1,9 +1,10 @@
 import { dirname, join } from 'node:path';
-import { parse, patch } from '@decimalturn/toml-patch';
+import { patch } from '@decimalturn/toml-patch';
 import { joinPathFragments, type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit';
 import { run, spawned } from '@rasm/nx/inference';
 import { clean, explain, RANGE_PATTERN, satisfies } from '@renovatebot/pep440';
 import { Array, Cause, Effect, FileSystem, Function, Option, Predicate, Record, Schema, SemVer, Stream, String, Struct } from 'effect';
+import { Toml } from 'effect/encoding';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
 import { MANIFEST, normalized } from '#/workspace';
 
@@ -70,7 +71,7 @@ const raised = (floors: ReadonlyMap<string, string>, row: string) =>
 
 const project = Effect.fnUntraced(function* (tree: Tree, at: string) {
     const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), () => new Cause.NoSuchElementError(`${at} does not exist`));
-    const parsed = yield* Effect.try({ try: (): unknown => parse(text), catch: (cause) => new Cause.UnknownError(cause, `${at} does not read as TOML`) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Table)));
+    const parsed = yield* Effect.mapError(Effect.fromResult(Toml.parse(text)), (cause) => new Cause.UnknownError(cause, `${at} does not read as TOML`)).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Table)));
     const [decoded, raw] = yield* Effect.all([Schema.decodeUnknownEffect(Project)(parsed), Schema.decodeUnknownEffect(Raw)(parsed)]);
     const rows = [...decoded.project.dependencies, ...Object.values(decoded.project['optional-dependencies']).flat(), ...Object.values(decoded['dependency-groups']).flat().filter(Predicate.isString)];
     return { text, parsed, project: decoded.project, groups: decoded['dependency-groups'], table: raw.project, names: new Set(Array.getSomes(rows.map(required)).map(({ name }) => name)) };
@@ -90,7 +91,7 @@ const released = Effect.fnUntraced(function* (tree: Tree, manifest: string, opti
     const [{ lock }, { project: stated }] = yield* Effect.all([Schema.decodeUnknownEffect(Options)(options), project(tree, manifest)]);
     const compile = ['uv', 'pip', 'compile', '-', '--no-deps', '--quiet', '--format', 'pylock.toml'] as const;
     const stdout = yield* spawned(compile, { cwd: join(tree.root, dirname(lock)), stdin: Stream.encodeText(Stream.make(stated.name)) });
-    const { packages } = yield* Effect.flatMap(Effect.try({ try: (): unknown => parse(stdout), catch: (cause) => new Cause.UnknownError(cause, `${compile.join(' ')} prints no TOML`) }), Schema.decodeUnknownEffect(Pylock));
+    const { packages } = yield* Effect.mapError(Effect.fromResult(Toml.parse(stdout)), (cause) => new Cause.UnknownError(cause, `${compile.join(' ')} prints no TOML`)).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Pylock)));
     const found = Array.findFirst(packages, ({ name, version }) => (normalized(name) === normalized(stated.name) ? Option.fromUndefinedOr(version) : Option.none()));
     const latest = yield* Effect.fromOption(found, () => new Cause.NoSuchElementError(`${compile.join(' ')} locks no version of ${stated.name}`));
     return { currentVersion: yield* semver(latest), logText: compile.join(' ') };

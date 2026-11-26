@@ -14,7 +14,7 @@ struct Input: Hashable, Sendable {
         case key(Key)
     }
 
-    enum Edge: CaseIterable, Hashable, Sendable {
+    enum Edge: String, CaseIterable, Decodable, Hashable, Sendable {
         case down
         case up
     }
@@ -183,10 +183,16 @@ extension Input {
         return try bracket(Modifier.allCases.filter(modifiers.contains), holding: [], around: proximity[0] + course + proximity[1], edges: edges)
     }
 
-    private func bracket(_ added: [Modifier], holding base: Set<Modifier>, around inner: [(offset: Duration, event: CGEvent)], edges: Set<Edge>) throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] {
+    private func bracket(
+        _ added: [Modifier],
+        holding base: Set<Modifier>,
+        around inner: [(offset: Duration, event: CGEvent)],
+        edges: Set<Edge>,
+    ) throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] {
         let (start, end): (Duration, Duration) = (inner.first?.offset ?? .zero, inner.last?.offset ?? .zero)
         let opening: [(offset: Duration, modifier: Modifier, held: Set<Modifier>)] = edges.contains(.down) ? added.indices.map { index in (start, added[index], base.union(added[...index])) } : []
-        let closing: [(offset: Duration, modifier: Modifier, held: Set<Modifier>)] = edges.contains(.up) ? added.indices.reversed().map { index in (end, added[index], base.union(added[..<index])) } : []
+        let closing: [(offset: Duration, modifier: Modifier, held: Set<Modifier>)] =
+            edges.contains(.up) ? added.indices.reversed().map { index in (end, added[index], base.union(added[..<index])) } : []
         let changed = try (opening + closing).map { offset, modifier, held throws(ApplicationFailure) -> (offset: Duration, event: CGEvent) in
             let made = CGEvent(keyboardEventSource: nil, virtualKey: modifier.key.code, keyDown: held.contains(modifier))
             return (offset, try event(.flagsChanged, from: made, at: path.first, flags: CGEventFlags(held.map(\.key.flag)), fields: [], text: nil))

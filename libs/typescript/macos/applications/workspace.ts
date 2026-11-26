@@ -97,7 +97,7 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
             served.events({
                 stream: events,
                 render: (event) => ('system' in event ? Effect.succeed(event.system) : Effect.map(target, (aim) => `${event.application} ${describeEvent(event, aim)}`)),
-                owns: (event, state) => 'system' in event || prompting(event.event.change) || HashSet.has(Context.get(state, Target).followed, event.event.instance),
+                owns: (event, state) => 'system' in event || prompting(event.event.change) || follows(event.event.instance, state),
             }),
         );
         const setTarget = Effect.fnUntraced(function* (aim: { readonly row: Entry; readonly instance: InstanceSnapshot['instance'] }) {
@@ -155,6 +155,7 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const follows = (instance: InstanceSnapshot['instance'], state: Context.Context<never>) => HashSet.has(Context.get(state, Target).followed, instance);
 const bundleAt = (given: string) => (URL.canParse(given) ? Option.filter(Option.some(new URL(given)), ({ protocol }) => protocol === 'file:') : Option.map(Option.liftPredicate(given, isAbsolute), pathToFileURL));
 const covers =
     (identifier: string) =>
@@ -225,6 +226,13 @@ const describeEvent = ({ application, event: { instance, change } }: { readonly 
         moved: (moved) => `moved ${moved.kind} ${Address.token(moved.kind, moved.container)} to ${moved.frame[0].join(',')} ${moved.frame[1].join('×')}`,
         frontmost: (frontmost) => (frontmost.active ? 'came to the front' : 'went behind'),
         hidden: (hidden) => (hidden.hidden ? 'was hidden' : 'was unhidden'),
+        window: ({ change: notification, window }) =>
+            [
+                `${{ created: 'opened', destroyed: 'closed', moved: 'moved', resized: 'resized', levelChanged: 'moved to its level', shown: 'showed', hidden: 'hid' }[notification]} ${window.band} window ${window.number}${titled(window.title)}`,
+                `at ${window.frame[0].join(',')} ${window.frame[1].join('×')}`,
+                ...Array.fromNullishOr(window.parent).map((parent) => `child of window ${parent}`),
+                ...(window.shared ? [] : ['refuses capture']),
+            ].join(', '),
         status: ({ status }) => InstanceState.Status.matchOrElse(status, { unresponsive: ({ thread }) => `unresponsive, main thread ${thread}` }, ({ _tag }) => _tag),
         exited: ({ termination }) => describeExit(termination),
     });
@@ -250,4 +258,4 @@ const refuseBlocked = (name: string) => (found: Option.Option<InstanceSnapshot>)
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { describeUsage, type Entry, Workspace };
+export { describeUsage, type Entry, follows, Workspace };

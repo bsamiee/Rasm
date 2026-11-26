@@ -1,7 +1,8 @@
 import { tasks as projectGraph } from '@rasm/nx/graph';
 import { Array, Effect, Equal, FileSystem, Function, Match, Option, Path, Predicate, Record, Schema, String } from 'effect';
+import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { RedirOperator, type Stmt, type Word } from 'sh-syntax';
-import { covers, findUp, type Invocation, run, type Script, type Table, type Verdict } from '#/rules/rule';
+import { covers, findUp, type Invocation, type Script, type Table, type Verdict } from '#/rules/rule';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -171,12 +172,9 @@ const route = Effect.fnUntraced(function* (invocation: Invocation, graph: Graph,
     );
 });
 const readSteps = Effect.fnUntraced(function* (root: string) {
-    const path = yield* Path.Path;
-    const { printed, code } = yield* run(root)`pkl eval --format json ${path.join(root, '.config/hk.pkl')}`;
-    return Option.match(
-        Option.filter(Schema.decodeOption(Hooks)(printed), () => code === 0),
-        { onNone: (): Steps => ({}), onSome: ({ steps }) => steps },
-    );
+    const [path, spawner] = yield* Effect.all([Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
+    const printed = yield* spawner.string(ChildProcess.make({ cwd: root, stdin: 'ignore' })`pkl eval --format json ${path.join(root, '.config/hk.pkl')}`);
+    return Option.match(Schema.decodeOption(Hooks)(printed), { onNone: (): Steps => ({}), onSome: ({ steps }) => steps });
 });
 const argvOf = (mode: Steps[string]['check']): readonly string[] => (mode === null || mode === undefined || Predicate.isString(mode.command) ? [] : mode.command.argv);
 const matchSteps = (steps: Steps, invocation: Invocation, asked: readonly string[]) =>
@@ -194,20 +192,20 @@ const matchSteps = (steps: Steps, invocation: Invocation, asked: readonly string
         (left, right) => left.step === right.step && left.mode === right.mode,
     );
 const routeStep = Effect.fnUntraced(function* (invocation: Invocation, steps: Steps, root: string, cwd: string) {
-    const path = yield* Path.Path;
+    const [path, spawner] = yield* Effect.all([Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
     const words = yield* locate(invocation.words.slice(1), cwd, root);
     const files = Array.getSomes(words.map(({ file }) => file)).map((file) => path.relative(cwd, file) || '.');
     const asked = Option.all(words.filter(({ file }) => Option.isNone(file)).map(({ word }) => word.text));
     const matches = Option.match(asked, { onNone: () => [], onSome: (given) => matchSteps(steps, invocation, given) });
     const match = Option.filter(Array.head(matches), () => matches.length === 1 && Array.isReadonlyArrayNonEmpty(files));
-    const plan = yield* Option.match(match, { onNone: () => Effect.succeed(''), onSome: ({ mode, step }) => Effect.map(run(cwd)`hk ${mode} --step ${step} --plan --json ${files}`, ({ printed }) => printed) });
+    const plan = yield* Option.match(match, { onNone: () => Effect.succeed(''), onSome: ({ mode, step }) => spawner.string(ChildProcess.make({ cwd, stdin: 'ignore' })`hk ${mode} --step ${step} --plan --json ${files}`) });
     const included = Option.exists(Schema.decodeOption(Plan)(plan), ({ steps: planned }) => planned.some(({ status, fileCount }) => status === 'included' && fileCount === files.length));
     return Option.toArray(Option.filter(Option.all([match, extentOf(invocation)]), () => included)).map(([{ step, mode }, span]): Verdict => ({ edit: (editor) => [editor.replace(span, Array.make('hk', mode, '--step', step, ...files))] }));
 });
 const resolveCrates = Effect.fnUntraced(function* (cargo: Invocation, cwd: string) {
-    const path = yield* Path.Path;
+    const [path, spawner] = yield* Effect.all([Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
     const named = Array.getSomes(cargo.values('-p', '--package').map(({ text }) => text));
-    const metadata = Schema.decodeOption(Metadata)((yield* run(cwd)`cargo metadata --no-deps --format-version 1`).printed);
+    const metadata = Schema.decodeOption(Metadata)(yield* spawner.string(ChildProcess.make({ cwd, stdin: 'ignore' })`cargo metadata --no-deps --format-version 1`));
     const crates = Option.match(metadata, { onNone: () => [], onSome: ({ packages }) => packages.map(({ name, manifest_path }) => ({ name, folder: path.dirname(manifest_path) })) });
     const owning = Array.findFirst(
         crates.toSorted((left, right) => right.folder.length - left.folder.length),

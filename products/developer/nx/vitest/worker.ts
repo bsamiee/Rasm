@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parentPort, workerData } from 'node:worker_threads';
 import { retryOnRequireEsmRace } from '@nx/devkit/internal';
-import { Array, Cause, Effect, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { Array, Cause, Effect, Filter, Option, Predicate, Record, Schema, Struct } from 'effect';
 import type { configDefaults } from 'vitest/config';
 import type { resolveConfig, Vite } from 'vitest/node';
 
@@ -78,7 +78,7 @@ const read = Effect.fnUntraced(function* (task: typeof Task.Type) {
         Effect.map(Option.filter((config) => !Object.hasOwn(config, 'test'))),
     );
     const report = yield* Option.match(plain, { onSome: ({ configFileDependencies }) => Effect.succeed({ _tag: 'Plain' as const, dependencies: configFileDependencies }), onNone: () => surveyed(task) });
-    return { ...report, dependencies: Array.dedupe([...report.dependencies, ...Array.filterMap(resolved, (url) => Result.try(() => fileURLToPath(url)))]) };
+    return { ...report, dependencies: Array.dedupe([...report.dependencies, ...Array.filterMap(resolved, Filter.try(fileURLToPath))]) };
 }, Effect.scoped);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

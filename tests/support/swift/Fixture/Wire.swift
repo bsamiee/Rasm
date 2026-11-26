@@ -85,11 +85,15 @@ public struct Report: Codable, Equatable, Sendable {
         public let shortcut: Shortcut?
         public let window: Int?
         public let frame: CGRect?
+        public let customActions: [String]?
+        public let columns: [String]?
+        public let rows: Int?
     }
 
     public struct Window: Codable, Equatable, Sendable {
         public let surface: Surface?
         public let number: Int
+        public let parent: Int?
         public let className: String
         public let title: String
         public let role: String?

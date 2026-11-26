@@ -92,7 +92,7 @@ struct ScriptingDictionaryTests {
 
     @Test
     func resolvesCommandsByName() throws {
-        expectNoDifference(try dictionary.command("launch file", taking: []).name, "open")
+        expectNoDifference(try dictionary.command(.name("launch file"), taking: []).name, "open")
         expectNoDifference(try dictionary.command(nil, taking: ["runtime"]).name, "do script")
     }
 
@@ -102,7 +102,6 @@ struct ScriptingDictionaryTests {
         expectNoDifference(try desiredClass(document, in: dictionary), "docu")
         expectNoDifference(try desiredClass(.specifier(want: "page list", form: .index, seld: .number(1), from: document), in: dictionary), "Fpag")
         expectNoDifference(try desiredClass(.specifier(want: "spread", form: .index, seld: .number(1), from: document), in: dictionary), "Fspr")
-        expectNoDifference(try dictionary.text(of: .class, named: "document").contains("file document"), true)
         expectNoDifference(try AppleEventValue.type("file document").descriptor(as: [], in: dictionary).typeCodeValue.sdef, "docu")
     }
 

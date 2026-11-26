@@ -91,6 +91,6 @@ Function parameters that callers fill alike are the callee's own logic:
 
 | [INDEX] | [FORM]                            | [REPLACEMENT]                                           | [SITE]                                     |
 | :-----: | :-------------------------------- | :------------------------------------------------------ | :----------------------------------------- |
-|  [01]   | Closure every caller writes alike | Callee calls the member, merging targets a split forced | `Watches(recognize:)`                      |
+|  [01]   | Closure every caller writes alike | Callee calls the member, merging targets a split forced | `Watches(recognize:)` to `Watches()`       |
 |  [02]   | Closure one caller wrote          | Plain value the callee's expression reads               | `close(interrupting:)` to `close(failed:)` |
 |  [03]   | Parameter no caller sets          | Deleted with every reader                               | `serve(…extra:)` and `Call<Extra>`         |

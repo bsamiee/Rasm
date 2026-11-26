@@ -1,6 +1,5 @@
 import AppKit
 import AppleEvents
-import CasePathsCore
 import CustomDump
 import Foundation
 import Testing
@@ -17,7 +16,7 @@ private struct Fixture: ~Copyable {
         let (contents, resources) = (url.appending(component: "Contents"), url.appending(components: "Contents", "Resources"))
         try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: contents.appending(component: "MacOS"), withIntermediateDirectories: true)
-        let info: [String: Any] = ["CFBundleIdentifier": "app.rasm.fixture", "CFBundleExecutable": "Fixture", "OSAScriptingDefinitionIsDynamic": dynamic].merging(
+        let info: [String: Any] = [kCFBundleIdentifierKey as String: "app.rasm.fixture", kCFBundleExecutableKey as String: "Fixture", "OSAScriptingDefinitionIsDynamic": dynamic].merging(
             name.map { name in ["OSAScriptingDefinition": name] } ?? [:]
         ) { kept, _ in kept }
         try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0).write(to: contents.appending(component: "Info.plist"))
@@ -44,7 +43,6 @@ struct ScriptingDictionariesTests {
             ("Fixture.sdef", true, false, false, "static"),
             ("Fixture.sdef", true, false, true, "cached"),
             (nil, true, true, true, "cached"),
-            (nil, false, false, false, "undeclared"),
         ] as [(String?, Bool, Bool, Bool, String)]
     )
     func readsTheCachedDefinitionOfADynamicApplicationNotRunningBeforeItsStaticFiles(declared: String?, dynamic: Bool, terminology: Bool, cached: Bool, read: String) async throws {
@@ -52,13 +50,16 @@ struct ScriptingDictionariesTests {
         let bundle = try Fixture(declaring: declared, dynamic: dynamic, terminology: terminology ? speech : nil)
         let cache = cached ? bundle.url.appending(components: "Contents", "Resources", "Cached.sdef") : nil
         let installation = try Installation(at: bundle.url)
-        let outcome: String?
-        do throws(AppleEventFailure) {
-            outcome = String(bytes: try await installation.scriptingDefinition(cachedDefinition: cache), encoding: .utf8)
-        } catch {
-            outcome = error.reason.is(\.undeclared) ? "undeclared" : error.localizedDescription
-        }
-        expectNoDifference(outcome, read)
+        let definition = try await installation.scriptingDefinition(cachedDefinition: cache)
+        expectNoDifference(String(bytes: definition, encoding: .utf8), read)
+    }
+
+    @Test(arguments: [nil, "Missing.sdef"] as [String?])
+    func refusesAnApplicationWhoseDeclaredDefinitionIsAbsentAndThatRunsNoInstance(declared: String?) async throws {
+        let bundle = try Fixture(declaring: declared, dynamic: false)
+        let installation = try Installation(at: bundle.url)
+        let refusal = await #expect(throws: AppleEventFailure.self) { try await installation.scriptingDefinition(cachedDefinition: nil) }
+        expectNoDifference(refusal?.reason, .undeclared)
     }
 
     @Test
