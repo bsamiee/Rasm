@@ -2,6 +2,9 @@
 # /// script
 # requires-python = ">=3.15"
 # dependencies = ["anyio", "msgspec"]
+#
+# [tool.uv]
+# prerelease = "allow"
 # ///
 """Replays recall requests through live sessions and scores which memory files each one opens."""
 
@@ -71,8 +74,8 @@ class _Opened(_Session, frozen=True, kw_only=True):
     verdict: _Verdict
 
     @property
-    def counted(self) -> Iterator[tuple[str | type[msgspec.Struct] | None, str]]:
-        return iter(((self.case.owner, self.verdict), (type(self.case), self.verdict), *((stem, "stray") for stem in self.stems if stem != self.case.owner)))
+    def counted(self) -> tuple[tuple[str | type[msgspec.Struct] | None, str], ...]:
+        return ((self.case.owner, self.verdict), (type(self.case), self.verdict), *((stem, "stray") for stem in self.stems if stem != self.case.owner))
 
 
 class _Failed(_Session, frozen=True, kw_only=True):
@@ -212,8 +215,10 @@ async def recall(memory: Path, /) -> int:
             scope = f"rows naming {', '.join(sorted(stems)) or 'no file'}, changed since tag {_TAG} at {tag[:7]}, committed or not"
         case _:
             cases, scope = tuple(rows), f"every row, as tag {_TAG} is absent"
-    jobs = [(case, run) for case in cases for run in range(1, _RUNS + 1)]
-    sys.stderr.write(f"scope: {scope}\n{len(cases)} requests, {_RUNS} runs each, {len(jobs)} sessions from {root}\n")
+    present = frozenset([path.stem async for path in anyio.Path(folder).glob("[!.]*.md")])
+    stale = tuple(case for case in cases if not case.files <= present)
+    jobs = [(case, run) for case in cases if case.files <= present for run in range(1, _RUNS + 1)]
+    sys.stderr.write(f"scope: {scope}\n{len(cases) - len(stale)} requests, {_RUNS} runs each, {len(jobs)} sessions from {root}, {len(stale)} stale rows skipped\n")
     settings = msgspec.json.encode({"autoMemoryDirectory": str(folder)}).decode()
     plugin = (await anyio.Path(__file__).resolve()).parents[3]
     launch = _Launcher(anyio.CapacityLimiter(os.process_cpu_count() or 1), root, folder, ("--tools", "Read", "--max-turns", str(_TURNS), "--settings", settings, "--plugin-dir", str(plugin)))
@@ -229,7 +234,7 @@ async def recall(memory: Path, /) -> int:
     tally = Counter(key for session in scored for key in session.counted)
     columns = (*_Verdict, "stray")
     findings = Counter((session.verdict, session.case, session.stems) for session in scored if session.verdict is not _Verdict.HIT)
-    passed = not failed and not any(verdict in {_Verdict.MISS, _Verdict.STEAL} for verdict, _, _ in findings)
+    passed = not failed and not stale and not any(verdict in {_Verdict.MISS, _Verdict.STEAL} for verdict, _, _ in findings)
     moved = passed and (await _git(folder, "tag", "--no-sign", "--force", _TAG, "HEAD"))[0] == 0
     with tempfile.NamedTemporaryFile(prefix="recall-", suffix=".json", delete=False) as results:
         results.write(msgspec.json.encode({"sessions": sessions, "baselines": baselines}))
@@ -239,6 +244,7 @@ async def recall(memory: Path, /) -> int:
             for (verdict, case, stems), count in sorted(findings.items(), key=lambda item: (item[0][0], item[0][1].owner or ""))
         ),
         *(f"failed: {session.case.request!r} run {session.run}: {session.cause.strip()}\n" for session in failed),
+        *(f"stale: {case.request!r} names {', '.join(sorted(case.files - present))}, which no memory file holds\n" for case in stale),
         *(
             f"{stem or 'no owner'}: {', '.join(f'{column} {tally[stem, column]}' for column in columns if tally[stem, column])}\n"
             for stem in sorted({subject for subject, _ in tally if not isinstance(subject, type)}, key=lambda stem: stem or "")
@@ -252,7 +258,7 @@ async def recall(memory: Path, /) -> int:
         f"baselines: {len(baselines)} missed requests, {len(answered)} answered with no memory\n",
         f"cost: ${sum(session.cost for session in sessions) + sum(baseline.cost for baseline in baselines):.2f} over {len(sessions)} sessions and {len(baselines)} baselines\n",
         f"results: {results.name}\n",
-        f"tag {_TAG}: {'moved to HEAD' if moved else 'stays, as a run missed, stole, or failed'}\n",
+        f"tag {_TAG}: {'moved to HEAD' if moved else 'stays, as a row is stale or a run missed, stole, or failed'}\n",
     ))
     return int(not passed)
 

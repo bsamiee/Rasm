@@ -107,7 +107,7 @@ Every fact ends with one mark, and a mark opening a group covers each line under
 - Lines: `- [<stem>](<stem>.md) — <description>`, flat and sorted by stem, written only when the bytes change, then committed to the folder's git repository
 - Budget: the index loads 200 lines or 25,000 characters, the set stays under 160 lines and 20,000, and merges free space before trims
 - Validation: a refused file keeps its last good line, or a bare `- [<stem>](<stem>.md)` line, and the plugin reports it back to the session
-- Requests: `.recall.jsonl` rows hold `request`, `kind` (`should` or `near`), and `owner`, the stem that answers it, and the memory scan never reads them
-- Scope: a run covers rows touching files changed since git tag `recall` and their field siblings, 3 sessions each beside a no-memory baseline
+- Requests: `.recall.jsonl` rows hold `request`, `kind`, `owner` (the stem answering it), and on near rows `near` (the file tested), unread by the memory scan
+- Scope: a run covers rows naming a file changed since git tag `recall`, 3 sessions each, a no-memory baseline grading each miss
 - Verdicts: hit (owner opened), miss (owner unopened), co-load (another file beside the owner), steal (another file in its place)
 - Pass: no miss and no steal, as a co-load costs one extra read and its pairs feed the `[04]` merge test

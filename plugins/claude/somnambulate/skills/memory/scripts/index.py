@@ -2,6 +2,9 @@
 # /// script
 # requires-python = ">=3.15"
 # dependencies = ["markdown-it-py", "mdit-py-plugins", "msgspec", "pyyaml"]
+#
+# [tool.uv]
+# prerelease = "allow"
 # ///
 """Validates memory files, regenerates MEMORY.md from their descriptions, and commits the folder."""
 
