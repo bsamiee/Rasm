@@ -10,8 +10,6 @@ type Denial = Extract<Verdict, { readonly deny: string }>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const scratchpad = /\/claude-\d+(?:\/-[^/]*(?:\/[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}(?:\/scratchpad)?)?)?$/u;
-const sessions = /\/claude-\d+(?:\/-[^/]*)?$/u;
 const alphanumeric = /[\p{L}\p{N}]/u;
 const wildcard = /[*?[]/u;
 const removers = ['rm', 'rimraf', 'trash', 'unlink', 'shred'];
@@ -19,7 +17,6 @@ const walkers = ['find', 'gfind', 'fd', 'fdfind'];
 const recursion = ['-r', '-R', '--recursive'];
 const nameTests = ['-name', '-iname', '-path', '-ipath', '-regex', '-iregex', '-wholename', '-iwholename'];
 const nullSeparators = ['-print0', '--print0', '-0'];
-const ownSubfolder = 'Delete only the subfolder you made, by name.';
 const eachPath = 'Name each path you made, in full.';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -42,15 +39,7 @@ const refuse =
     (invocation: Invocation): readonly Denial[] => {
         const subject = invocation.label;
         const [recursive, removes, walks] = [invocation.has(...recursion) || invocation.runs('rimraf', 'trash'), invocation.runs(...removers), invocation.runs(...walkers)];
-        const swept = Option.toArray(Option.filter(walker, sweeps)).flatMap((outer) =>
-            roots(outer, cwd).flatMap((root) =>
-                Match.value({ shared: scratchpad.test(root), working: covers(root, cwd) }).pipe(
-                    Match.when({ shared: true }, () => [{ deny: `${outer.label} ${root} runs ${subject} on the scratchpad the session and every subagent share.`, advice: ownSubfolder }]),
-                    Match.when({ working: true }, () => [{ deny: `${outer.label} ${root} runs ${subject} on everything under it.`, advice: 'Add a pattern that selects only what to delete.' }]),
-                    Match.orElse(() => []),
-                ),
-            ),
-        );
+        const swept = Option.toArray(Option.filter(walker, sweeps)).flatMap((outer) => roots(outer, cwd).flatMap((root) => (covers(root, cwd) ? [{ deny: `${outer.label} ${root} runs ${subject} on everything under it.`, advice: 'Add a pattern that selects only what to delete.' }] : [])));
         const args = Option.toArray(invocation.node).flatMap(({ cmd }) => (cmd?.type === 'CallExpr' ? cmd.args.slice(1) : []));
         const emptied = Array.getSomes(args.map(literal)).flatMap((text) => {
             const cut = text.lastIndexOf('/', text.search(wildcard)) + 1;
@@ -61,12 +50,10 @@ const refuse =
             const unknown = field.pieces.flatMap((piece) => (piece._tag === 'Unknown' ? [piece.origin._tag] : []));
             const folder = Option.getOrElse(field.text, () => field.prefix.slice(0, field.prefix.lastIndexOf('/'))) || '/';
             const unnamed = Option.isSome(field.text) || !alphanumeric.test(render(field).slice(field.prefix.lastIndexOf('/') + 1));
-            const wild = field.pieces.some(({ _tag }) => _tag === 'Wild');
-            return Match.value({ fed: unknown.includes('Input'), temporary: isUnderMktemp(field), late: unknown.length > 0, shared: (unnamed && scratchpad.test(folder)) || (wild && sessions.test(folder)), working: unnamed && covers(folder, cwd) }).pipe(
+            return Match.value({ fed: unknown.includes('Input'), temporary: isUnderMktemp(field), late: unknown.length > 0, working: unnamed && covers(folder, cwd) }).pipe(
                 Match.when({ fed: true }, () => swept),
                 Match.when({ temporary: true }, () => []),
                 Match.when({ late: true }, () => (recursive && covers(folder, cwd) ? [{ deny: `${subject} ${render(field)} deletes a path that expands only when it runs.`, advice: 'Pass the path literally.' }] : [])),
-                Match.when({ shared: true }, () => [{ deny: `${subject} ${folder} empties the scratchpad the session and every subagent share.`, advice: ownSubfolder }]),
                 Match.when({ working: true }, () => [walks ? { deny: `${subject} ${folder} deletes everything under the working folder.`, advice: 'Add a -name pattern that selects only what to delete.' } : { deny: `${subject} ${folder} ${folder === cwd ? 'is' : 'holds'} the working folder.`, advice: eachPath }]),
                 Match.orElse(() => []),
             );
