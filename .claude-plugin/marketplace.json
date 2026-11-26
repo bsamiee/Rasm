@@ -160,6 +160,18 @@
             }
         },
         {
+            "name": "rasad",
+            "source": {
+                "source": "archive",
+                "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/rasad-plugin%400.1.0/rasad.zip",
+                "sha256": "b66f13275259378027543d3ed860a432657eaedf3ec1666e4843e68e36bd8c81"
+            },
+            "description": "Claude Code hooks that bind each agent to its handle on Rasad and Atelier and deliver the events of the applications it drove between tool calls",
+            "author": {
+                "name": "Bardia Samiee"
+            }
+        },
+        {
             "name": "rhino",
             "source": "./plugins/shared/rhino",
             "description": "Rhino sessions, Grasshopper 2 canvases, and tests over RhinoCommon and Grasshopper",
@@ -202,6 +214,17 @@
             }
         },
         {
+            "name": "somnambulate",
+            "source": "./plugins/claude/somnambulate",
+            "description": "Claude Code auto-memory system: admission, kinds, file boundaries, names, recall descriptions, evidence marks, and selector checks",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "policy": {
+                "installation": "NOT_AVAILABLE"
+            }
+        },
+        {
             "name": "swift",
             "source": "./plugins/shared/swift",
             "description": "Swift typed throws, value types, and structured concurrency",
@@ -227,7 +250,7 @@
         {
             "name": "tool",
             "source": "./plugins/shared/tool",
-            "description": "Ghidra analysis, host inspection, and debugging for Python, .NET, C++, and JavaScript. Access Raycast, Parallels Desktop, Superhuman Mail and Docs, and Google services",
+            "description": "Ghidra analysis, host inspection, and debugging for Python, .NET, C++, and JavaScript. Drive Mac applications through Rasad, and access Raycast, Parallels Desktop, Superhuman Mail and Docs, and Google services",
             "author": {
                 "name": "Bardia Samiee"
             },

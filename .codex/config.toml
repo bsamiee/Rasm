@@ -49,9 +49,11 @@ sparse_paths = [".claude-plugin", "plugins"]
 "msbuild@rasm"        = { enabled = true }
 "orchestration@rasm"  = { enabled = true }
 "python@rasm"         = { enabled = true }
+"rasad@rasm"          = { enabled = true }
 "rhino@rasm"          = { enabled = true }
 "rust@rasm"           = { enabled = true }
 "search@rasm"         = { enabled = true }
+"somnambulate@rasm"   = { enabled = false }
 "swift@rasm"          = { enabled = true }
 "tool@rasm"           = { enabled = true }
 "typescript@rasm"     = { enabled = true }
