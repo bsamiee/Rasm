@@ -53,7 +53,6 @@ Values come from the code, host, or package that already states them:
 - ALWAYS make invalid states unrepresentable at construction, every consumer receives a validated value without re-validating it
 - ALWAYS reference members by compiler-checked symbol or generated accessor, never a name string, hand-written lookup per member, or custom generator
 - ALWAYS derive values from the operation and its target, a caller passing what the operation knows (value, flag, description) is a defect
-- ALWAYS set a per-user host setting through that host's API at plug-in load
 
 ## [03]-[DEPENDENCY_POLICY]
 
