@@ -96,6 +96,7 @@ class _Baseline(msgspec.Struct, frozen=True, kw_only=True):
 class _Result(msgspec.Struct, frozen=True, kw_only=True):
     files: frozendict[str, frozendict[str, int]]
     total: frozendict[str, int]
+    pairs: frozendict[str, int] = frozendict()
 
 
 class _Input(msgspec.Struct, frozen=True):
@@ -301,6 +302,7 @@ async def recall(memory: Path, /) -> int:
             for stem in sorted({stem for stem, _ in tally if stem is not None} | set(reads))
         }),
         total=frozendict(sum((Counter({column: count}) for (_, column), count in tally.items()), Counter({"reads": reads.total()}))),
+        pairs=frozendict(Counter(f"{owner} {stem}" for session in scored if (owner := session.case.owner) is not None for stem in session.stems if stem != owner)),
     )
     broad = [stem for stem, row in result.files.items() if row.get("near opened", 0) * 2 > row.get("near", 0)]
     findings = Counter((session.verdict, session.case, session.stems) for session in scored if session.verdict is not _Verdict.HIT)
