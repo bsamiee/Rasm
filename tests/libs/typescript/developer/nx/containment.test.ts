@@ -1,4 +1,4 @@
-import { below, inside, owned, tokened, within } from '@rasm/nx';
+import { below, inside, owned, tokened, within } from '@rasm/nx/inference';
 import { describe, expect, it } from 'vitest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

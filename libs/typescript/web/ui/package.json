@@ -20,7 +20,13 @@
         "#/*.tsx": "./*.tsx"
     },
     "exports": {
-        ".": "./index.ts",
+        "./choice": "./choice.tsx",
+        "./field": "./field.tsx",
+        "./format": "./format.ts",
+        "./issues": "./issues.tsx",
+        "./menu-button": "./menu-button.tsx",
+        "./modal-dialog": "./modal-dialog.tsx",
+        "./reorderable-list": "./reorderable-list.tsx",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -29,7 +35,13 @@
             "#/*.tsx": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/index.js",
+            "./choice": "./dist/choice.js",
+            "./field": "./dist/field.js",
+            "./format": "./dist/format.js",
+            "./issues": "./dist/issues.js",
+            "./menu-button": "./dist/menu-button.js",
+            "./modal-dialog": "./dist/modal-dialog.js",
+            "./reorderable-list": "./dist/reorderable-list.js",
             "./package.json": "./package.json"
         },
         "access": "public"

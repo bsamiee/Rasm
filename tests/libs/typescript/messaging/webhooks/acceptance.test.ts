@@ -1,6 +1,6 @@
 import { layer as crypto } from '@effect/platform-node/NodeCrypto';
 import { assert, it } from '@effect/vitest';
-import { Scheme } from '@rasm/webhooks';
+import { Scheme } from '@rasm/webhooks/scheme';
 import { Duration, Effect, Function, Record } from 'effect';
 import { Headers } from 'effect/http';
 import { TestClock } from 'effect/testing';

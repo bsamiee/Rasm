@@ -1,6 +1,6 @@
 import { useAtomSet } from '@effect/atom-react';
 import { Identity } from '@rasm/hosting/identity';
-import { Field } from '@rasm/ui';
+import { Field } from '@rasm/ui/field';
 import { Optic } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import type { Ref } from 'react';

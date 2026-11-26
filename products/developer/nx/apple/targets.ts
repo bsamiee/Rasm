@@ -2,7 +2,7 @@ import { isAbsolute, join } from 'node:path';
 import { arch, platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import type { ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
-import { EXECUTORS, inside, PLATFORM, type Verbs } from '@rasm/nx';
+import { EXECUTORS, inside, PLATFORM, type Verbs } from '@rasm/nx/inference';
 import { type Array, Cause, Effect, FileSystem, Schema } from 'effect';
 import type { Run } from '#/executors/run/executor';
 import plugin from '#/package.json' with { type: 'json' };
@@ -41,10 +41,10 @@ const ATTACH: TargetConfiguration = {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Options extends Schema.Opaque<Options, unknown>()(
+class Options extends Schema.Opaque<Options>()(
     Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({
         description:
-            'outputPath: workspace folder holding each scheme archive under <outputPath>/<scheme> and each product zip under <outputPath>/<product>, {projectName} naming the project, absent zips products in the SwiftPM release bin folder and gives no Xcode pack target, since xcodebuild archives outside the workspace',
+            "outputPath: workspace folder holding each scheme archive under <outputPath>/<scheme>, each product zip under <outputPath>/<product>, and each Xcode test run's result bundle at <outputPath>/<scheme>[-<plan>][-<configuration>].xcresult, {projectName} naming the project, absent zips products in the SwiftPM release bin folder and gives no Xcode pack target, since xcodebuild archives outside the workspace, and writes no result bundle",
     }),
 ) {}
 

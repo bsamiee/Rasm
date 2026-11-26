@@ -2,7 +2,7 @@ import { basename, dirname, extname, join, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, globWithWorkspaceContext, hashFile, hashObject, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { aggregated, anchored, fingerprinted, inferring, inside, manifested, runner, spawned, stamped, type Verbs, within } from '@rasm/nx';
+import { aggregated, anchored, fingerprinted, inferring, inside, manifested, runner, spawned, stamped, type Verbs, within } from '@rasm/nx/inference';
 import { Array, Cause, Config, Context, Effect, FileSystem, Glob, Layer, Option, Predicate, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import which from 'which';
 import { Described, ENTITLEMENTS, Exclusions, INFO, MANIFEST, PACKAGED, type Package, packageEdges, packageParts, RESOLVED, Shipped, sources } from '#/swift-package';

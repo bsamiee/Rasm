@@ -1,7 +1,7 @@
 import { posix } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
-import { type Anchor, above, aggregated, EXECUTORS, inside, PLATFORM, removable, type Stated, type Verbs } from '@rasm/nx';
+import { type Anchor, above, aggregated, EXECUTORS, inside, PLATFORM, removable, type Stated, type Verbs } from '@rasm/nx/inference';
 import { Array, identity, Option, pipe, Record, Schema, Struct, UndefinedOr } from 'effect';
 import type { Member } from '#/workspace';
 
@@ -88,7 +88,7 @@ const CONFIGS = Record.keys(PYTEST);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Options extends Schema.Opaque<Options, unknown>()(
+class Options extends Schema.Opaque<Options>()(
     Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), environmentPath: Schema.optionalKey(Schema.String) }).annotate({
         description:
             "outputPath: workspace folder uv build writes a member's distributions to, {projectName} naming the project, absent leaves uv its own dist folder of the uv workspace. environmentPath: workspace folder holding what the checkers and tests of a project keep between runs, {projectName} naming the project: one environment per dependency group offering a tool, in a folder named for the group, or .venv where the project's own dependencies hold the tool, each selected through UV_PROJECT_ENVIRONMENT and kept at its locked selection by uv run --exact, beside the cache folder of each tool (.mypy_cache, .refurb_cache, .pytest_cache), absent builds a temporary environment per run through uv run --isolated and leaves each tool its own cache folder. The tasks of a uv root select every package of its workspace (--all-packages), so a uv root that is itself a checked member checks in that wider environment",

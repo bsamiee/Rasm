@@ -1,3 +1,4 @@
+public import AppIntents
 public import AppKit
 import Files
 import MachO.dyld.utils
@@ -83,6 +84,41 @@ private struct BundleInfo: Decodable {
     }
 }
 
+private struct ActionsData: Decodable {
+    struct LocalizedString: Decodable {
+        let key: String
+        let table: String?
+        let defaultValue: String?
+    }
+
+    struct Parameter: Decodable {
+        let name: String
+        let title: LocalizedString?
+        let parameterDescription: LocalizedString?
+        let isOptional: Bool
+    }
+
+    struct Action: Decodable {
+        struct DescriptionMetadata: Decodable {
+            let descriptionText: LocalizedString?
+        }
+
+        let identifier: String
+        let title: LocalizedString?
+        let descriptionMetadata: DescriptionMetadata?
+        let openAppWhenRun: Bool
+        let supportedModes: Int?
+        let isDiscoverable: Bool?
+        let parameters: [Parameter]
+    }
+
+    let actions: [String: Action]
+}
+
+private struct PackageData: Decodable {
+    let includes: [String]
+}
+
 public struct Installation: Encodable, Hashable, Sendable {
     public struct DocumentType: Encodable, Hashable, Sendable {
         public let role: String?
@@ -95,13 +131,15 @@ public struct Installation: Encodable, Hashable, Sendable {
     }
 
     public struct Quarantine: CustomStringConvertible, Encodable, Hashable, Sendable {
-        public let agent: String?
+        public let agentName: String?
         public let type: String?
-        public let origin: URL?
-        public let date: Date?
+        public let originURL: URL?
+        public let timeStamp: Date?
 
         public var description: String {
-            let facts: [String?] = [type, agent.map { agent in "from \(agent)" }, origin.map { origin in "of \(origin)" }, date.map { date in "at \(date.ISO8601Format())" }]
+            let facts: [String?] = [
+                type, agentName.map { agent in "from \(agent)" }, originURL.map { origin in "of \(origin)" }, timeStamp.map { stamp in "at \(stamp.ISO8601Format())" },
+            ]
             return facts.compactMap(\.self).joined(separator: " ")
         }
     }
@@ -110,6 +148,44 @@ public struct Installation: Encodable, Hashable, Sendable {
         public let prefixes: [String]
         public let server: String
         public let scope: String
+
+        public var predicate: NSPredicate {
+            NSCompoundPredicate(orPredicateWithSubpredicates: prefixes.map { prefix in NSPredicate(format: "%K BEGINSWITH %@", NSMetadataItemCFBundleIdentifierKey, prefix) })
+        }
+    }
+
+    public struct AppIntent: Encodable, Hashable, Sendable {
+        public struct Parameter: Encodable, Hashable, Sendable {
+            public let name: String
+            public let title: String?
+            public let description: String?
+            public let isOptional: Bool
+        }
+
+        private enum CodingKeys: CodingKey {
+            case identifier, title, description, openAppWhenRun, supportedModes, isDiscoverable, parameters
+        }
+
+        private static let modes: KeyValuePairs<String, IntentModes> = ["background": .background, "foreground": .foreground, "deferred": .foreground(.deferred), "dynamic": .foreground(.dynamic)]
+
+        public let identifier: String
+        public let title: String?
+        public let description: String?
+        public let openAppWhenRun: Bool
+        public let supportedModes: IntentModes
+        public let isDiscoverable: Bool
+        public let parameters: [Parameter]
+
+        public func encode(to encoder: any Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(identifier, forKey: .identifier)
+            try container.encodeIfPresent(title, forKey: .title)
+            try container.encodeIfPresent(description, forKey: .description)
+            try container.encode(openAppWhenRun, forKey: .openAppWhenRun)
+            try container.encode(Self.modes.filter { _, mode in supportedModes.contains(mode) }.map(\.key), forKey: .supportedModes)
+            try container.encode(isDiscoverable, forKey: .isDiscoverable)
+            try container.encode(parameters, forKey: .parameters)
+        }
     }
 
     public let url: URL
@@ -131,6 +207,7 @@ public struct Installation: Encodable, Hashable, Sendable {
     public let architectures: [String]?
     public let quarantine: Quarantine?
     public let claim: Claim?
+    public let appIntents: [AppIntent]
 }
 
 extension NSApplication.ActivationPolicy {
@@ -157,59 +234,116 @@ extension Installation {
         } catch {
             throw ApplicationFailure(subject: path, reason: .foundation(error as NSError))
         }
-        guard let identifier = info?.identifier else { throw ApplicationFailure(subject: path, reason: .noIdentifier) }
+        guard let info, let identifier = info.identifier else { throw ApplicationFailure(subject: path, reason: .noIdentifier) }
         let extensions: (String) -> [String] = { type in UTType(type)?.tags[.filenameExtension] ?? [] }
-        let executable = Bundle(url: bundle)?.executableURL
-        var slices: [String] = []
+        let main = Bundle(url: bundle)
+        let executable = main?.executableURL
         let architectures: [String]? = executable.flatMap { executable in
+            var slices: [String] = []
             let status: Int32 = unsafe macho_for_each_slice(executable.path(percentEncoded: false)) { slice, _, _, _ in
-                slices += unsafe macho_arch_name_for_mach_header(slice).map { name in [unsafe String(cString: name)] } ?? []
+                if let name = unsafe macho_arch_name_for_mach_header(slice) { slices.append(unsafe String(cString: name)) }
             }
             return status == 0 ? slices : nil
         }
-        let name: String = values.localizedName ?? path
-        let documentTypes: [DocumentType]? = info?.documentTypes.map { (types: [BundleInfo.DocumentType]) -> [DocumentType] in
+        let documentTypes: [DocumentType]? = info.documentTypes.map { (types: [BundleInfo.DocumentType]) -> [DocumentType] in
             OrderedDictionary<String?, [BundleInfo.DocumentType]>(grouping: types, by: \.role).map { (role: String?, declared: [BundleInfo.DocumentType]) -> DocumentType in
                 let tags: [String] = declared.flatMap { (type: BundleInfo.DocumentType) -> [String] in (type.extensions ?? []) + (type.contentTypes ?? []).flatMap(extensions) }
                 return DocumentType(role: role, extensions: OrderedSet(tags.map { tag in tag.lowercased() }).elements)
             }
         }
-        let urlSchemes: [String]? = info?.urlTypes.map { (types: [BundleInfo.URLType]) -> [String] in OrderedSet(types.flatMap { type in type.schemes ?? [] }).elements }
-        let exportedTypes: [ExportedType]? = info?.exportedTypes?.map { (type: BundleInfo.ExportedType) -> ExportedType in
-            ExportedType(identifier: type.identifier, extensions: extensions(type.identifier))
-        }
         let quarantine: Quarantine? = values.quarantineProperties.map { (properties: [String: Any]) -> Quarantine in
             Quarantine(
-                agent: properties[kLSQuarantineAgentNameKey as String] as? String,
+                agentName: properties[kLSQuarantineAgentNameKey as String] as? String,
                 type: properties[kLSQuarantineTypeKey as String] as? String,
-                origin: properties[kLSQuarantineOriginURLKey as String] as? URL,
-                date: properties[kLSQuarantineTimeStampKey as String] as? Date,
+                originURL: properties[kLSQuarantineOriginURLKey as String] as? URL,
+                timeStamp: properties[kLSQuarantineTimeStampKey as String] as? Date,
             )
         }
         self.init(
             url: bundle,
             executable: executable,
             identifier: identifier,
-            name: name,
-            bundleName: info?.bundleName,
-            version: info?.version,
-            build: info?.build,
+            name: values.localizedName ?? path,
+            bundleName: info.bundleName,
+            version: info.version,
+            build: info.build,
             scriptable: values.applicationIsScriptable == true,
-            scriptingDefinitionFile: info?.scriptingDefinitionFile,
-            scriptingDefinitionIsDynamic: info?.scriptingDefinitionIsDynamic?.value == true,
-            activationPolicy: (info?.activationPolicy ?? .regular).name,
+            scriptingDefinitionFile: info.scriptingDefinitionFile,
+            scriptingDefinitionIsDynamic: info.scriptingDefinitionIsDynamic?.value == true,
+            activationPolicy: info.activationPolicy.name,
             documentTypes: documentTypes,
-            urlSchemes: urlSchemes,
-            exportedTypes: exportedTypes,
-            multipleInstancesProhibited: info?.multipleInstancesProhibited?.value,
-            environment: info?.environment,
+            urlSchemes: info.urlTypes.map { (types: [BundleInfo.URLType]) -> [String] in OrderedSet(types.flatMap { type in type.schemes ?? [] }).elements },
+            exportedTypes: info.exportedTypes?.map { (type: BundleInfo.ExportedType) -> ExportedType in ExportedType(identifier: type.identifier, extensions: extensions(type.identifier)) },
+            multipleInstancesProhibited: info.multipleInstancesProhibited?.value,
+            environment: info.environment,
             architectures: architectures,
             quarantine: quarantine,
-            claim: info?.claim,
+            claim: info.claim,
+            appIntents: try main.map { main throws(ApplicationFailure) in try AppIntent.declared(by: main) } ?? [],
         )
     }
 
     public func runs(_ instance: NSRunningApplication) -> Bool {
         instance.bundleURL?.resolvingSymlinksInPath().pathComponents == url.pathComponents
+    }
+}
+
+extension Installation.AppIntent {
+    static func declared(by application: Bundle) throws(ApplicationFailure) -> [Self] {
+        let embedded: (URL?, UTType) throws(ApplicationFailure) -> [URL] = { folder, type throws(ApplicationFailure) in
+            do {
+                let entries: [URL] = try folder.flatMap { folder in try ifPresent { try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentTypeKey]) } } ?? []
+                return try entries.filter { entry in try entry.resourceValues(forKeys: [.contentTypeKey]).contentType?.conforms(to: type) == true }
+            } catch {
+                throw ApplicationFailure(subject: folder?.path(percentEncoded: false) ?? application.bundlePath, reason: .foundation(error as NSError))
+            }
+        }
+        let extensions: [URL] = try [application.builtInPlugInsURL, application.bundleURL.appending(components: "Contents", "Extensions")].map { folder throws(ApplicationFailure) in
+            try embedded(folder, .applicationExtension)
+        }.flatMap(\.self)
+        let frameworks: [String: URL] = try Dictionary(
+            [application.privateFrameworksURL, application.sharedFrameworksURL].map { folder throws(ApplicationFailure) in try embedded(folder, .framework) }.flatMap(\.self).map { framework in
+                (framework.deletingPathExtension().lastPathComponent, framework)
+            },
+            uniquingKeysWith: { first, _ in first },
+        )
+        var pending = OrderedSet([application.bundleURL] + extensions)
+        var declared = OrderedSet<Self>()
+        var next = pending.startIndex
+        while next < pending.endIndex {
+            let (intents, includes) = try read(pending[next])
+            declared.append(contentsOf: intents)
+            pending.append(contentsOf: includes.compactMap { include in Scanner(string: include).scanInt().flatMap { length in frameworks[String(include.drop(while: \.isNumber).prefix(length))] } })
+            next += 1
+        }
+        return declared.elements
+    }
+
+    private static func read(_ bundle: URL) throws(ApplicationFailure) -> (intents: [Self], includes: [String]) {
+        guard let owner = Bundle(url: bundle), let folder = owner.resourceURL?.appending(component: "Metadata.appintents") else { return ([], []) }
+        let (actions, package): (ActionsData?, PackageData?)
+        do {
+            (actions, package) = try (
+                ifPresent { try Data(contentsOf: folder.appending(component: "extract.actionsdata")) }.map { data in try JSONDecoder().decode(ActionsData.self, from: data) },
+                ifPresent { try Data(contentsOf: folder.appending(component: "extract.packagedata")) }.map { data in try JSONDecoder().decode(PackageData.self, from: data) },
+            )
+        } catch {
+            throw ApplicationFailure(subject: folder.path(percentEncoded: false), reason: .foundation(error as NSError))
+        }
+        let localized: (ActionsData.LocalizedString) -> String = { string in owner.localizedString(forKey: string.key, value: string.defaultValue, table: string.table) }
+        let intents: [Self] = (actions?.actions.values.sorted(using: KeyPathComparator(\.identifier)) ?? []).map { (action: ActionsData.Action) -> Self in
+            Self(
+                identifier: action.identifier,
+                title: action.title.map(localized),
+                description: action.descriptionMetadata?.descriptionText.map(localized),
+                openAppWhenRun: action.openAppWhenRun,
+                supportedModes: action.supportedModes.map(IntentModes.init(rawValue:)) ?? (action.openAppWhenRun ? .foreground : .background),
+                isDiscoverable: action.isDiscoverable ?? true,
+                parameters: action.parameters.map { parameter in
+                    Parameter(name: parameter.name, title: parameter.title.map(localized), description: parameter.parameterDescription.map(localized), isOptional: parameter.isOptional)
+                },
+            )
+        }
+        return (intents, package?.includes ?? [])
     }
 }

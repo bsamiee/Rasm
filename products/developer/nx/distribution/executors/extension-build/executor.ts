@@ -2,7 +2,7 @@ import { hash } from 'node:crypto';
 import { patch } from '@decimalturn/toml-patch';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { executor, spawned, Words } from '@rasm/nx';
+import { executor, spawned, Words } from '@rasm/nx/inference';
 import { Array, Cause, Config, Effect, Equivalence, FileSystem, Function, Option, Path, Record, Result, Schema, Struct } from 'effect';
 import { Toml } from 'effect/encoding';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
@@ -29,7 +29,7 @@ const Build = Schema.Struct({
     description:
         "Builds the Blender extension archives the project's blender_manifest.toml declares through Blender's blender_ext.py, with no Blender installed, one archive per platform the manifest lists and one for every platform where it lists none, or for a check validates the manifest and files of the source folder with blender_ext.py validate; a project holding pyproject.toml builds one staged copy per platform the manifest lists, or one for every platform where it lists none, that bundles its local dependencies as subpackages and as wheels the registry dependencies uv installs from the exported lock for its platforms at the one Python minor its requires-python pins as ==<major>.<minor>.*, leaving out each package its blender dependency group pins as one Blender bundles",
 });
-class Manifest extends Schema.Opaque<Manifest, unknown>()(Schema.Struct({ id: Schema.String, platforms: Schema.optionalKey(Schema.Array(Schema.String)) })) {}
+class Manifest extends Schema.Opaque<Manifest>()(Schema.Struct({ id: Schema.String, platforms: Schema.optionalKey(Schema.Array(Schema.String)) })) {}
 const Minor = Schema.TemplateLiteralParser(['==', Schema.Natural, '.', Schema.Natural, '.*']);
 const Locked = Schema.Struct({
     'requires-python': Schema.String,

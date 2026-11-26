@@ -1,4 +1,4 @@
-import type { WebhookError } from '@rasm/webhooks';
+import type { WebhookError } from '@rasm/webhooks/scheme';
 import { TailscaleEvent } from '@rasm/webhooks/tailscale';
 import { Config, Effect, type Layer, Record, type Redacted, Schema, String } from 'effect';
 import type { CryptoError, Digest, Mac, Signature } from 'effect/crypto';

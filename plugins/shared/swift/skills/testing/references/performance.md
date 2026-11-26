@@ -63,14 +63,15 @@ Baselines record one Mac's accepted averages, and Xcode writes them from a test 
 - `<UUID>.plist` keys `classNames` by class, test method, and metric identifier to a `baselineAverage` with optional `maxPercentRegression`, `maxPercentRelativeStandardDeviation`, `maxRegression`, and `maxStandardDeviation`
 - Builds copy a target's baselines into its test bundle at `Contents/Resources/xcbaselines`, and the test harness takes the record matching the running Mac and architecture
 - Runs matching no record measure, report, and pass, as build setting `TREAT_MISSING_BASELINES_AS_TEST_FAILURES` defaults to `NO`
-- `TREAT_MISSING_BASELINES_AS_TEST_FAILURES = YES` in `Xcode.xcconfig` fails such a case with "No baseline average for" its metric, so no performance case passes on a Mac lacking its baseline
+- `TREAT_MISSING_BASELINES_AS_TEST_FAILURES = YES` in `.config/xcode.xcconfig`, the file `XCODE_XCCONFIG_FILE` applies to package targets, fails such a case with "No baseline average for" its metric, so no performance case passes on a Mac lacking its baseline
 - Macs of another model or CPU match no record and fail until a baseline of their own is set
 
 ## [05]-[HOSTED_RUNS]
 
 Hosted runners match no baseline, so performance targets stay out of every hosted run and its cached result:
-- Scheme `Rasm-Package` references `Performance.xctestplan`, holding each `<Module>PerformanceTests` target, beside default plan `Rasm-Package.xctestplan`
-- `test--xcodebuild` runs the default plan, and each other plan runs under the Nx configuration of its name, so `nx test Rasm-Package -c performance` measures on the owner's Mac and CI's `nx affected -t test` never selects it
+- Scheme `Rasm-Package` references `.config/Performance.xctestplan`, holding each `<Module>PerformanceTests` target, beside default plan `.config/Rasm-Package.xctestplan`
+- `test--xcodebuild` runs the default plan and caches its result, and `test--xcodebuild-plans` runs each other plan under the Nx configuration of its name with no cache, so `nx test Rasm-Package -c performance` measures on the owner's Mac on every run and CI's `nx affected -t test` runs no other plan
+- Test targets join a plan by name, so a target absent from both plans never runs
 
 Other forms of leaving cases out fail one of those conditions:
 

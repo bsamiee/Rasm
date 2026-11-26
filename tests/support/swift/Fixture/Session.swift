@@ -15,6 +15,9 @@ public struct FixtureFailure: LocalizedError, Sendable {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public struct FixtureSession: Sendable {
+    public static let executable = Bundle(for: Delegate.self).bundleURL.deletingLastPathComponent().appending(component: "Fixture")
+    public static let ordersFrontAtLaunch = "OrdersFrontAtLaunch"
+
     public let process: pid_t
     private let writer: StandardInputWriter
     private let lines: AsyncThrowingStream<Line, any Error>
@@ -33,8 +36,7 @@ public struct FixtureSession: Sendable {
     }
 
     public static func launched<Value: Sendable>(_ body: (Self) async throws -> Value) async throws -> Value {
-        let executable = Bundle(for: Delegate.self).bundleURL.deletingLastPathComponent().appending(component: "Fixture")
-        return try await run(.path(FilePath(executable.path(percentEncoded: false))), input: .inputWriter, output: .sequence, error: .currentStandardError) { execution in
+        try await run(.path(FilePath(executable.path(percentEncoded: false))), input: .inputWriter, output: .sequence, error: .currentStandardError) { execution in
             let (lines, continuation) = AsyncThrowingStream.makeStream(of: Line.self)
             async let drained: Void = drain(execution.standardOutput, into: continuation)
             let session = Self(process: execution.processIdentifier.value, writer: execution.standardInputWriter, lines: lines)

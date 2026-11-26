@@ -36,10 +36,15 @@ struct Archive: Encodable, Equatable {
     let feed: Bool
 }
 
+struct TestPlan: Encodable, Equatable {
+    let name: String
+    let `default`: Bool
+}
+
 struct Scheme: Encodable, Equatable {
     let name: String
     let containers: [String]
-    let plans: [String]
+    let plans: [TestPlan]
     let tests: Bool
     let launch: String?
     let archive: Archive?

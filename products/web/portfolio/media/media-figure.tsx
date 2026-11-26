@@ -1,4 +1,4 @@
-import { ModalDialog } from '@rasm/ui';
+import { ModalDialog } from '@rasm/ui/modal-dialog';
 import { Match } from 'effect';
 import { Expand, X } from 'lucide-react';
 import { motion, useReducedMotion } from 'motion/react';

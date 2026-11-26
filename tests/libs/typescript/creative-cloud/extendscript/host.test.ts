@@ -1,8 +1,8 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Completion } from '@rasm/extendscript';
-import { assign, illegalArgument, preserve, reply, stringify } from '@rasm/extendscript/host';
-import { HostError } from '@rasm/object-model';
-import { Unmatched } from '@rasm/search';
+import { Completion } from '@rasm/extendscript/completion';
+import { assign, preserve, reply, stringify } from '@rasm/extendscript/host';
+import { HostError } from '@rasm/object-model/model';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Arbitrary, Cause, Effect, flow, Option, Schema, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -40,6 +40,11 @@ describe(stringify, () => {
     it('writes a record holding a constructor key as that record', () => {
         assert.strictEqual(stringify({ constructor: 'Swatch', tint: 40 }), '{"constructor":"Swatch","tint":40}');
     });
+
+    it('writes a non-finite number and an undefined item as the null JSON.stringify writes', () => {
+        const value = [Number.NaN, Number.POSITIVE_INFINITY, undefined, { at: Number.NEGATIVE_INFINITY }];
+        assert.strictEqual(stringify(value), JSON.stringify(value));
+    });
 });
 
 describe(reply, () => {
@@ -56,7 +61,7 @@ describe(reply, () => {
     it.effect(
         'answers an argument the host refused as IllegalArgumentError with its message',
         Effect.fnUntraced(function* () {
-            const failed = yield* Effect.flip(answered(reply(raising(illegalArgument('Expected Unit, got String')))));
+            const failed = yield* Effect.flip(answered(reply(raising({ _tag: 'IllegalArgument', message: 'Expected Unit, got String' }))));
             assert.instanceOf(failed, Cause.IllegalArgumentError);
             assert.strictEqual(failed.message, 'Expected Unit, got String');
         }),
@@ -74,24 +79,30 @@ describe(reply, () => {
 
 describe(assign, () => {
     it.effect(
-        'sets every value the host accepts, into nested records too, and refuses once naming every key the host refused',
+        'refuses once naming every key the host refused, into nested records too, and leaves every value as it held',
         Effect.fnUntraced(function* () {
             const held: Record<string, unknown> = Object.defineProperties({ kept: 0, nested: { depth: 1, width: 2 } }, { locked: READ_ONLY, frozen: READ_ONLY });
             const { cause } = yield* Effect.flip(Effect.try({ try: () => assign(held, { kept: 4, locked: 1, nested: { width: 3 }, frozen: 2 }), catch: (error) => new Cause.UnknownError(error) }));
             const { message } = yield* Schema.decodeUnknownEffect(Refusal)(cause);
             assert.include(message, 'locked');
             assert.include(message, 'frozen');
-            assert.deepStrictEqual([held['kept'], held['nested']], [4, { depth: 1, width: 3 }]);
+            assert.deepStrictEqual([held['kept'], held['nested']], [0, { depth: 1, width: 2 }]);
         }),
     );
 });
 
 describe(preserve, () => {
-    it.prop('replaces any subset of preferences, the empty one included, then restores each to the value it held', { held: Schema.Struct(Struct.Record(PREFERENCES, Scalar)), values: Schema.Struct(Struct.Record(PREFERENCES, Schema.optionalKey(Scalar))) }, ({ held, values }) => {
-        const target = { ...held };
-        const restore = preserve(target, values);
-        assert.deepStrictEqual(target, { ...held, ...values });
-        restore();
-        assert.deepStrictEqual(target, held);
-    });
+    it.prop(
+        'holds any subset of preferences, the empty one included, while the body runs, then restores each to the value it held, after a throwing body too',
+        { held: Schema.Struct(Struct.Record(PREFERENCES, Scalar)), values: Schema.Struct(Struct.Record(PREFERENCES, Schema.optionalKey(Scalar))) },
+        ({ held, values }) => {
+            const target = { ...held };
+            assert.deepStrictEqual(
+                preserve(target, values, () => ({ ...target })),
+                { ...held, ...values },
+            );
+            assert.throws(() => preserve(target, values, raising(new Error('Body failed'))), 'Body failed');
+            assert.deepStrictEqual(target, held);
+        },
+    );
 });

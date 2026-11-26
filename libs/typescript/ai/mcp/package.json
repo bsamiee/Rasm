@@ -19,7 +19,10 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
+        "./link": "./link.ts",
+        "./resource": "./resource.ts",
+        "./server": "./server.ts",
+        "./upstream": "./upstream.ts",
         "./cli": "./cli.ts",
         "./handles": "./handles.ts",
         "./package.json": "./package.json"
@@ -29,7 +32,10 @@
             "#/*": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/index.js",
+            "./link": "./dist/link.js",
+            "./resource": "./dist/resource.js",
+            "./server": "./dist/server.js",
+            "./upstream": "./dist/upstream.js",
             "./cli": "./dist/cli.js",
             "./handles": "./dist/handles.js",
             "./package.json": "./package.json"

@@ -1,6 +1,6 @@
 import type { TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { batched, executor, ran, spawned, Words } from '@rasm/nx';
+import { batched, executor, ran, spawned, Words } from '@rasm/nx/inference';
 import { Array, Console, DateTime, Effect, Equal, FileSystem, Option, Path, Record, Schema, Stream, String, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
 import { ANALYZER, ENVIRONMENT } from '#/targets';
@@ -15,7 +15,7 @@ const ENTRY_TARGETS = ['Build', 'Rebuild', 'Clean', 'Publish', 'Pack'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Build extends Schema.Opaque<Build, unknown>()(
+class Build extends Schema.Opaque<Build>()(
     Schema.Struct({
         project: Schema.String.annotate({ description: 'Project file to build' }),
         command: Schema.NonEmptyArray(Schema.String).annotate({ description: 'dotnet verb and its switches for the configuration, which the plugin infers' }),

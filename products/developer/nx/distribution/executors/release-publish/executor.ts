@@ -1,5 +1,5 @@
-import { dried, executor, Words } from '@rasm/nx';
 import { credentialed, Dry, forwarded, released } from '@rasm/nx/executor';
+import { dried, executor, Words } from '@rasm/nx/inference';
 import { Array, Cause, Effect, Option, Schema, Struct } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { located } from '#/host-packages';

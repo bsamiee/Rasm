@@ -1,4 +1,4 @@
-import { App } from '@rasm/hosting';
+import { App } from '@rasm/hosting/app';
 import { ByteSize, Duration } from 'effect';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

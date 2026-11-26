@@ -5,17 +5,24 @@ import struct os.OSAllocatedUnfairLock
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public struct OnceLogHandler: LogHandler {
-    public var metadata: Logger.Metadata = [:] { didSet { handler.metadata = metadata } }
-    public var metadataProvider: Logger.MetadataProvider? { didSet { handler.metadataProvider = metadataProvider } }
     public var logLevel: Logger.Level = .trace
     private var handler: any LogHandler
     private let seen = OSAllocatedUnfairLock(initialState: Set<String>())
 
     public init(_ handler: any LogHandler) { self.handler = handler }
 
+    public var metadata: Logger.Metadata {
+        get { handler.metadata }
+        set { handler.metadata = newValue }
+    }
+    public var metadataProvider: Logger.MetadataProvider? {
+        get { handler.metadataProvider }
+        set { handler.metadataProvider = newValue }
+    }
+
     public subscript(metadataKey key: String) -> Logger.Metadata.Value? {
-        get { metadata[key] }
-        set { metadata[key] = newValue }
+        get { handler[metadataKey: key] }
+        set { handler[metadataKey: key] = newValue }
     }
 
     public func log(event: LogEvent) {

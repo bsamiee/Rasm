@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Effect, Equal, Function, flow, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, Struct } from 'effect';
 import { create } from 'fontkit';
 import { AxisFlags, Blob, Font, Variation } from 'harfbuzzjs';

@@ -19,8 +19,15 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
-        "./uxp": "./uxp/index.ts",
+        "./script": "./script.ts",
+        "./typesetting": "./typesetting.ts",
+        "./value": "./value.ts",
+        "./views": "./views.ts",
+        "./uxp/dom": "./uxp/dom.ts",
+        "./uxp/operations": "./uxp/operations.ts",
+        "./uxp/source": "./uxp/source.ts",
+        "./uxp/settings": "./uxp/settings.ts",
+        "./uxp/typesetting": "./uxp/typesetting.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -28,8 +35,15 @@
             "#/*": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/index.js",
-            "./uxp": "./dist/uxp/index.js",
+            "./script": "./dist/script.js",
+            "./typesetting": "./dist/typesetting.js",
+            "./value": "./dist/value.js",
+            "./views": "./dist/views.js",
+            "./uxp/dom": "./dist/uxp/dom.js",
+            "./uxp/operations": "./dist/uxp/operations.js",
+            "./uxp/source": "./dist/uxp/source.js",
+            "./uxp/settings": "./dist/uxp/settings.js",
+            "./uxp/typesetting": "./dist/uxp/typesetting.js",
             "./package.json": "./package.json"
         },
         "access": "public"

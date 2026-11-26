@@ -8,7 +8,12 @@ import Logging
 import Processes
 import Results
 import ScreenCapture
+import System
 import Telemetry
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+let replyDeadline: Duration = .seconds(120)
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -32,7 +37,7 @@ enum Request: Decodable, Sendable {
     case handlers(document: URL)
     case launch(url: URL, documents: [URL], arguments: [String], environment: [String: String], new: Bool, opening: [String: AppleEventValue], wait: Bool)
     case act(instance: ProcessInstance, actions: [ElementAction])
-    case quit(instance: ProcessInstance, mode: Instance.QuitMode)
+    case quit(instance: ProcessInstance, mode: Watch.QuitMode)
     case dictionary(url: URL)
     case execute(instance: ProcessInstance, arguments: [String: AppleEventValue])
     case capture(instance: ProcessInstance, source: Source, longestSide: LongestSide?)
@@ -42,15 +47,17 @@ enum Request: Decodable, Sendable {
 }
 
 private struct ActResult: Encodable, Sendable {
-    let outcomes: [Exit<ElementAction.Delivery>]
+    let outcomes: [EncodedResult<ElementAction.Delivery>]
     let state: InstanceState
-    let written: Exit<[URL]>
+    let usage: EncodedResult<ResourceUsage.Interval>
+    let load: EncodedResult<SystemLoad>
+    let written: EncodedResult<[URL]>
     let diagnostics: Diagnostics
 }
 
 private struct ExecuteResult: Encodable, Sendable {
     let reply: AppleEventValue
-    let written: Exit<[URL]>
+    let written: EncodedResult<[URL]>
 }
 
 private struct Scaled: Encodable, Sendable {
@@ -62,7 +69,7 @@ private struct Scaled: Encodable, Sendable {
 private struct Diagnostics: Encodable, Sendable {
     let reports: [DiagnosticReport]
     let logs: [LogLine]
-    let unified: Exit<[LogEntry]>
+    let unified: EncodedResult<[LogEntry]>
     let unreadable: [String]
 }
 
@@ -83,7 +90,7 @@ private func readInstallation(at url: URL, matching: () -> NSPredicate) throws(A
 
 private func instance(of process: ProcessInstance, matching: () -> NSPredicate) throws(ApplicationFailure) -> Instance {
     let running = try NSRunningApplication(processIdentifier: process.pid).map { application throws(ApplicationFailure) in try Instance(application) }
-    guard let running, running.process == process else { throw ApplicationFailure(subject: process.rawValue, reason: .noProcess) }
+    guard let running, running.process == process else { throw ApplicationFailure(subject: process.rawValue, reason: .system(.noSuchProcess)) }
     try admit(running.application.bundleIdentifier, as: process.rawValue, matching: matching)
     return running
 }
@@ -108,21 +115,27 @@ extension Request {
             case .instances(let identifiers):
                 return .stream(
                     watches.states(of: selection(of: identifiers, matching: matching))
-                        .map { states -> any Encodable & Sendable in states.compactMap { instance, state in InstanceSnapshot(instance, state: state) } }
+                        .map { states -> any Encodable & Sendable in EncodedResult(states.map { states in states.compactMap { instance, state in InstanceSnapshot(instance, state: state) } }) }
                 )
             case .events(let identifiers):
-                return .stream(watches.events(of: selection(of: identifiers, matching: matching)).map(\.self))
+                return .stream(watches.events(of: selection(of: identifiers, matching: matching)).map { event -> any Encodable & Sendable in EncodedResult(event) })
             case .observations(let identifiers):
                 return .stream(watches.observations(of: selection(of: identifiers, matching: matching)).map(\.self))
             case .pressure:
-                return .stream(SystemPressure.changes().map { pressure -> any Encodable & Sendable in Exit(pressure) })
+                return .stream(SystemPressure.changes().map { pressure -> any Encodable & Sendable in EncodedResult(pressure) })
             case .session:
                 return .stream(Session.changes().map(\.self))
             case .pasteboard(let text):
                 return try await .value(Pasteboard(.general, writing: text))
             case .watch(let process):
-                let watch = try await watches.watch(instance(of: process, matching: matching))
-                guard let snapshot = InstanceSnapshot(watch.instance, state: await watch.current, language: watch.language) else { throw ApplicationFailure(subject: process.rawValue, reason: .noPath) }
+                let instance = try instance(of: process, matching: matching)
+                let watch = await watches.watch(instance)
+                if try instance.application.bundleURL.map({ url throws(ApplicationFailure) in try Installation(at: url) })?.scriptable == true {
+                    Task { await NSAppleEventDescriptor(processIdentifier: process.pid).consent(to: AEEventClass(kAECoreSuite), AEEventID(kAEGetData), asking: true) }
+                }
+                guard let snapshot = InstanceSnapshot(watch.instance, state: await watch.current, language: watch.language) else {
+                    throw ApplicationFailure(subject: process.rawValue, reason: .noPath)
+                }
                 return .value(snapshot)
             case .model(let process, let scope):
                 return try await .value(watches.watch(instance(of: process, matching: matching)).model(scope))
@@ -136,6 +149,7 @@ extension Request {
                         readInstallation(at: url, matching: matching),
                         in: dictionaries,
                         watches: watches,
+                        within: replyDeadline,
                         opening: documents,
                         with: opening,
                         arguments: arguments,
@@ -150,38 +164,57 @@ extension Request {
                 try Session.current().require(process.rawValue)
                 let watch = await watches.watch(instance)
                 let began = await watch.recordFaults()
+                let loaded = Result { () throws(NSError) in try SystemLoad.current() }
                 let outcome = await Result { () async throws(ApplicationFailure) in
-                    try await FileEvent.written(await watch.documentFiles) { () async throws(ApplicationFailure) in try await instance.act(actions, in: watch) }
+                    try await FileEvent.written(await watch.documentFiles) { () async throws(ApplicationFailure) in
+                        try await PermittedFrontList.shared.holding(excluding: process.pid) { () async throws(ApplicationFailure) in try await instance.act(actions, in: watch) }.get()
+                    }
                 }
+                let load = Result { () throws(NSError) in try SystemLoad.current() }.flatMap { after in loaded.map(after.since) }
                 let (faults, reports) = (await watch.recordedFaults(since: began), DiagnosticReport.reports(since: began) { report in report.isWritten(by: process) })
                 let (acted, written) = try outcome.get()
                 let diagnostics = Diagnostics(
                     reports: reports.reports,
                     logs: [],
-                    unified: Exit(Result<[LogEntry], Never>.success(faults.entries)),
+                    unified: EncodedResult(Result<[LogEntry], Never>.success(faults.entries)),
                     unreadable: (reports.failures + faults.failures).compactMap(\.errorDescription),
                 )
-                return .value(ActResult(outcomes: acted.outcomes.map(Exit.init), state: acted.state, written: Exit(written), diagnostics: diagnostics))
+                return .value(
+                    ActResult(
+                        outcomes: acted.outcomes.map(EncodedResult.init),
+                        state: acted.state,
+                        usage: EncodedResult(acted.usage),
+                        load: EncodedResult(load),
+                        written: EncodedResult(written),
+                        diagnostics: diagnostics,
+                    )
+                )
             case .quit(let process, let mode):
                 let instance = try instance(of: process, matching: matching)
                 let scripted = try [.saving, .discarding].contains(mode) ? instance.application.bundleURL.map { url throws(ApplicationFailure) in try Installation(at: url) } : nil
                 let dictionary: ScriptingDictionary? = if let scripted, scripted.scriptable { try await dictionaries.dictionary(of: scripted) } else { nil }
-                let states = await instance.quit(mode, watch: watches.watch(instance), in: dictionary)
-                return try await .value(states.reduce(nil as InstanceState?) { _, outcome in try outcome.get() })
+                let watch = await watches.watch(instance)
+                return try await .value(
+                    PermittedFrontList.shared.holding(excluding: process.pid) { () async throws(ApplicationFailure) in try await watch.quit(mode, within: replyDeadline, in: dictionary) }.get()
+                )
             case .dictionary(let url):
                 return try await .value(dictionaries.dictionary(of: readInstallation(at: url, matching: matching)))
             case .execute(let process, let arguments):
                 let instance = try instance(of: process, matching: matching)
                 guard let url = instance.application.bundleURL else { throw ApplicationFailure(subject: process.rawValue, reason: .noPath) }
                 let dictionary = try await dictionaries.dictionary(of: Installation(at: url))
-                let (reply, written) = try await FileEvent.written(await watches.watch(instance).documentFiles) { () async throws(AggregateError<AppleEventFailure>) in
-                    try await dictionary.send(nil, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: process.pid))
+                let documents = await watches.watch(instance).documentFiles
+                let (reply, written) = try await PermittedFrontList.shared.holding(excluding: process.pid) { () async throws(AggregateError<AppleEventFailure>) in
+                    try await FileEvent.written(documents) { () async throws(AggregateError<AppleEventFailure>) in
+                        try await dictionary.send(nil, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: process.pid), within: replyDeadline)
+                    }
                 }
-                return .value(ExecuteResult(reply: reply, written: Exit(written)))
+                .get()
+                return .value(ExecuteResult(reply: reply, written: EncodedResult(written)))
             case .capture(let process, let source, let longestSide):
                 let instance = try instance(of: process, matching: matching)
                 try Session.current().require(process.rawValue)
-                return try await .value(instance.capture(source, in: watches.watch(instance), longestSide: longestSide).map(Exit.init))
+                return try await .value(instance.capture(source, in: watches.watch(instance), longestSide: longestSide).map(EncodedResult.init))
             case .record(let process, let source, let seconds, let longestSide):
                 let instance = try instance(of: process, matching: matching)
                 try Session.current().require(process.rawValue)
@@ -209,7 +242,7 @@ extension Request {
                     Diagnostics(
                         reports: reports.reports,
                         logs: logs.lines,
-                        unified: Exit(unified),
+                        unified: EncodedResult(unified),
                         unreadable: reports.failures.compactMap(\.errorDescription) + logs.failures.compactMap(\.errorDescription),
                     )
                 )

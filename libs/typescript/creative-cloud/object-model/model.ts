@@ -1,4 +1,4 @@
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Effect, ErrorReporter, Formatter, type LogLevel, Option, Order, Record, Result, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
 import { format, parse } from '#/host';
 

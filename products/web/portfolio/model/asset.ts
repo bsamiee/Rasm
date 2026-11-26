@@ -10,7 +10,7 @@ const AssetId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand('AssetId'
 const extent = Schema.Finite.check(Schema.isGreaterThan(0));
 const dimensions = { width: extent, height: extent };
 const page = { ...dimensions, label: Schema.optionalKey(Schema.String) };
-class Sheet extends Schema.Opaque<Sheet, unknown>()(Schema.Struct({ ...page, number: Schema.Int.check(Schema.isGreaterThan(0)) })) {}
+class Sheet extends Schema.Opaque<Sheet>()(Schema.Struct({ ...page, number: Schema.Int.check(Schema.isGreaterThan(0)) })) {}
 const file = { id: AssetId, name: Schema.NonEmptyString, size: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: ByteSize.toNumberUnsafe(uploadLimit) })) };
 const Rendition = Schema.Struct({ width: Schema.Int.check(Schema.isGreaterThan(0)), size: file.size, mime: Schema.Literals(['image/jpeg', 'image/png']) });
 class ImageAsset extends Schema.Class<ImageAsset, { readonly brand: unique symbol }>('ImageAsset')({

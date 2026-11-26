@@ -1,6 +1,6 @@
 import { basename, dirname, extname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
-import { EXECUTORS, inside, removable, type Verbs } from '@rasm/nx';
+import { EXECUTORS, inside, removable, type Verbs } from '@rasm/nx/inference';
 import { Array, Option, Predicate, Record, Schema, Struct } from 'effect';
 import type { Run } from '#/executors/run/executor';
 import { pruneExclusions, RESOLVED } from '#/swift-package';
@@ -14,7 +14,7 @@ const Container = Schema.Struct({
         Schema.Struct({
             name: Schema.String,
             containers: Schema.Array(Schema.String),
-            plans: Schema.Array(Schema.String),
+            plans: Schema.Array(Schema.Struct({ name: Schema.String, default: Schema.Boolean.annotate({ description: 'Whether the scheme marks the plan default="YES", the plan xcodebuild test runs with no -testPlan' }) })),
             tests: Schema.Boolean,
             launch: Schema.optionalKey(Schema.String),
             archive: Schema.optionalKey(Schema.Struct({ configuration: Schema.String, bundles: Schema.NonEmptyArray(Schema.String), feed: Schema.Boolean.annotate({ description: 'Whether an archived application states SUFeedURL in its Info.plist, the feed Sparkle checks for updates' }) })),
@@ -26,7 +26,7 @@ const Container = Schema.Struct({
     products: Schema.Record(Schema.String, Schema.Array(Schema.String)),
     buildFiles: Schema.Array(Schema.String),
 });
-class Analyzed extends Schema.Opaque<Analyzed, unknown>()(Schema.fromJsonString(Schema.Struct({ containers: Schema.Array(Container), failures: Schema.Record(Schema.String, Schema.String) }))) {}
+class Analyzed extends Schema.Opaque<Analyzed>()(Schema.fromJsonString(Schema.Struct({ containers: Schema.Array(Container), failures: Schema.Record(Schema.String, Schema.String) }))) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -51,7 +51,22 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
     const read = pruneExclusions(Array.dedupe(['{projectRoot}/**/*', ...inputs, ...referenced, ...[lock, ...Option.toArray(seed)].flatMap(tokened), ...(workspace ? tokened(join(built, 'contents.xcworkspacedata')) : []), { runtime: 'xcodebuild -version' }, ...INPUTS]));
     const released = extname(dirname(file)) === '.xcodeproj' && Array.isReadonlyArrayNonEmpty(archived);
     const fed = released ? archived.filter(Struct.get('feed')) : [];
-    const runs = schemes.filter(({ tests }) => tests).flatMap((scheme) => (scheme.plans.length === 0 ? [[]] : scheme.plans.map((plan) => ['-testPlan', plan])).map((planned) => invoke('test', scheme.name, planned)));
+    const testing = schemes.filter(({ tests }) => tests);
+    const primary = testing.flatMap(({ name: scheme, plans }) => (plans.length === 0 ? [{ scheme, plan: Array.empty<string>() }] : plans.filter(Struct.get('default')).map(({ name: plan }) => ({ scheme, plan: [plan] }))));
+    const planned = Array.groupBy(
+        testing.flatMap(({ name: scheme, plans }) => plans.filter(Predicate.not(Struct.get('default'))).map(({ name: plan }) => ({ scheme, plan: [plan] }))),
+        ({ plan }) => plan.join('').toLowerCase(),
+    );
+    const ran = (rows: typeof primary) =>
+        rows.map(({ scheme, plan }) =>
+            invoke(
+                'test',
+                scheme,
+                plan.flatMap((named) => ['-testPlan', named]),
+            ),
+        );
+    const bundled = (rows: typeof primary) => Option.map(Option.fromUndefinedOr(options.outputPath), (at) => (configuration: readonly string[]) => rows.map(({ scheme, plan }) => join(at, `${[scheme, ...plan, ...configuration].join('-')}.xcresult`)));
+    const runs = ran(primary);
     const builds: Run['runs'] = schemes.map((scheme) => invoke('build', scheme.name, []));
     const installs = archives.flatMap(({ scheme, configuration }) => [
         invoke('archive', scheme, ['-configuration', configuration]),
@@ -75,8 +90,11 @@ done)
         ] as const,
     ]);
     const launches = Array.dedupe(schemes.flatMap(({ launch }) => Array.fromNullishOr(launch)));
-    const modes = (planned: Run['runs']): Partial<TargetConfiguration> => ({
-        configurations: Record.fromIterableWith(container.configurations, (configuration) => [configuration.toLowerCase(), { runs: planned.map((run) => [...run, '-configuration', configuration]) }]),
+    const modes = (performed: Run['runs'], results: ReturnType<typeof bundled>, idle: readonly string[] = []): Partial<TargetConfiguration> => ({
+        configurations: {
+            ...Record.fromIterableWith(container.configurations, (configuration) => [configuration.toLowerCase(), { runs: performed.map((run) => [...run, '-configuration', configuration]), ...Option.getOrUndefined(Option.map(results, (named) => ({ results: named([configuration]) }))) }]),
+            ...Record.fromIterableWith(idle, (configuration) => [configuration, { runs: [], results: [] }]),
+        },
         ...(Predicate.isTupleOf(launches, 1) && { defaultConfiguration: launches[0].toLowerCase() }),
     });
     const purged = Array.findFirst(schemes, ({ containers }) => containers.some((at) => Option.isNone(packaged(at))));
@@ -90,7 +108,7 @@ done)
                         description: 'Builds each shared scheme with xcodebuild build for the destination xcodebuild picks on this Mac, as app builds do, so a package scheme reuses the modules app builds compiled, pack--ditto archiving the schemes with installed products',
                         help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } },
                     },
-                    { cache: true, parallelism: false, ...(!listing && { dependsOn: ['^build--*'] }), inputs: read, ...modes(builds) },
+                    { cache: true, parallelism: false, ...(!listing && { dependsOn: ['^build--*'] }), inputs: read, ...modes(builds, Option.none()) },
                 ),
             },
             check: { xcodebuild: { dependsOn: ['build--xcodebuild'], inputs: read, metadata: { technologies: ['xcode'], description: 'Type-checks each shared scheme with xcodebuild build', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } } } },
@@ -134,11 +152,38 @@ done)
                     runs,
                     {
                         technologies: ['xcode'],
-                        description: 'Tests each test plan of a shared scheme with xcodebuild',
+                        description:
+                            "Tests the default test plan of each shared scheme with xcodebuild, or the scheme's own testables where it references no plan, each run first removing the result bundle an earlier run or cache restore left at <outputPath>/<scheme>[-<plan>][-<configuration>].xcresult, then writing its own there, and runs nothing under the configuration of another plan's name, which test--xcodebuild-plans runs",
                         help: { command: 'xcodebuild -help', example: { args: ['-parallel-testing-enabled', 'YES'] } },
                     },
-                    { cache: true, parallelism: false, dependsOn: ['build--xcodebuild'], inputs: read, ...modes(runs) },
+                    {
+                        cache: true,
+                        parallelism: false,
+                        dependsOn: ['build--xcodebuild'],
+                        inputs: read,
+                        ...Option.getOrUndefined(Option.map(bundled(primary), (named) => ({ options: { results: named([]) }, outputs: primary.map((_, index) => `{options.results.${index}}`) }))),
+                        ...modes(runs, bundled(primary), Record.keys(planned)),
+                    },
                 ),
+                ...(!Record.isEmptyRecord(planned) && {
+                    'xcodebuild-plans': sequenced(
+                        [],
+                        {
+                            technologies: ['xcode'],
+                            description:
+                                "Tests each test plan a shared scheme references beside its default one with xcodebuild -testPlan, under the configuration of the plan's name in lowercase and never cached, as performance plans measure against baselines of this Mac alone, writing <outputPath>/<scheme>-<plan>.xcresult, and runs nothing with no configuration",
+                            help: { command: 'xcodebuild -help', example: { args: ['-test-iterations', '3'] } },
+                        },
+                        {
+                            cache: false,
+                            parallelism: false,
+                            dependsOn: ['build--xcodebuild'],
+                            inputs: read,
+                            ...Option.getOrUndefined(Option.as(Option.fromUndefinedOr(options.outputPath), { outputs: Array.makeBy(Math.max(...Record.values(planned).map((rows) => rows.length)), (index) => `{options.results.${index}}`) })),
+                            configurations: Record.map(planned, (rows) => ({ runs: ran(rows), ...Option.getOrUndefined(Option.map(bundled(rows), (named) => ({ results: named([]) }))) })),
+                        },
+                    ),
+                }),
             },
         }),
         ...(installs.length > 0 && {
@@ -148,7 +193,7 @@ done)
                     {
                         technologies: ['xcode'],
                         description:
-                            "Builds each shared scheme archiving an application that installs, under -configuration set to the scheme's archive configuration, with xcodebuild archive into a temporary archive, then swaps each application of the archive's Products over the one at its INSTALL_PATH, the LOCAL_APPS_DIR xcodebuild evaluates on this Mac, only once every scheme built, signed, and archived, after each install writing every installed application's PRODUCT_BUNDLE_IDENTIFIER row into replayd's ScreenCaptureApprovals.plist under the HOME xcodebuild -showBuildSettings states, both alert dates at 4000-01-01, and signaling a running replayd to read it where that HOME is the HOME replayd runs under, so the application's first screen capture raises no alert",
+                            "Builds each shared scheme archiving an application that installs, under -configuration set to the scheme's archive configuration, with xcodebuild archive into a temporary archive, then swaps each application of the archive's Products over the one at its INSTALL_PATH, the LOCAL_APPS_DIR xcodebuild evaluates on this Mac, only once every scheme built, signed, and archived, then launches each one declaring launch agents in a new instance behind the user's windows so its SMAppService registration replaces the agents running the swapped-out build, after each install writing every installed application's PRODUCT_BUNDLE_IDENTIFIER row into replayd's ScreenCaptureApprovals.plist under the HOME xcodebuild -showBuildSettings states, both alert dates at 4000-01-01, and signaling a running replayd to read it where that HOME is the HOME replayd runs under, so the application's first screen capture raises no alert",
                         help: { command: 'xcodebuild -help', example: { args: ['-jobs', '4'] } },
                     },
                     { parallelism: false, dependsOn: ['^build--*'], inputs: read, options: { applications: Array.dedupe(archives.flatMap(({ bundles }) => bundles)) } },

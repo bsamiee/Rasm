@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { singleExecutable } from '@rasm/applications/vite';
-import { checks } from '@rasm/vite';
+import { checks } from '@rasm/vite/checks';
 import { Effect } from 'effect';
 import type { UserConfigFnPromise } from 'vite';
 

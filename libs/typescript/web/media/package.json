@@ -20,7 +20,9 @@
         "#/*.tsx": "./*.tsx"
     },
     "exports": {
-        ".": "./index.ts",
+        "./error": "./error.ts",
+        "./inspection": "./inspection.ts",
+        "./uploads": "./uploads.ts",
         "./pdf-document": "./pdf-document.ts",
         "./pdf-viewer": "./pdf-viewer.tsx",
         "./vite": "./vite.ts",
@@ -33,7 +35,9 @@
             "#/*.tsx": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/index.js",
+            "./error": "./dist/error.js",
+            "./inspection": "./dist/inspection.js",
+            "./uploads": "./dist/uploads.js",
             "./pdf-document": "./dist/pdf-document.js",
             "./pdf-viewer": "./dist/pdf-viewer.js",
             "./vite": "./dist/vite.js",

@@ -28,7 +28,7 @@ Emit and bundle rules:
 - Published rows of every other kind serve files at their source path, and `files` lists each one
 - Vite library mode writes no `.d.ts`, and a typed library builds with `tsc`
 - Vite bundles through Rolldown and transforms and minifies through Oxc
-- Rolldown `checks` emit warnings, and every Vite build includes plugin `checks` of `@rasm/vite`
+- Rolldown `checks` emit warnings, and every Vite build includes plugin `checks` of `@rasm/vite/checks`
 - Plugin `checks` fails a build on each warning that marks wrong output, and `PLUGIN_TIMINGS` stays a warning
 - Server and CLI bundles set `noExternal: true`, and the runtime libraries Rolldown inlines sit in `devDependencies`
 - Targets reading another package's `dist` depend on its build (`^build`)

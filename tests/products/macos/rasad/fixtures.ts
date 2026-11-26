@@ -1,14 +1,13 @@
-import { once } from 'node:events';
-import { createServer } from 'node:net';
 import { pathToFileURL } from 'node:url';
 import { layer as sockets } from '@effect/platform-node/NodeSocketServer';
-import { ApplicationRpcs, Event, Installation, LaunchEvent, InstanceSnapshot } from '@rasm/applications';
+import { ApplicationRpcs, Event, Installation, LaunchEvent, InstanceSnapshot } from '@rasm/applications/contract';
 import { routed } from '@rasm/testing/playwright';
-import { Array, Cause, Config, Deferred, Effect, FileSystem, Layer, MutableRef, Path, Schedule, Schema, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Config, Deferred, Effect, FileSystem, Layer, MutableRef, Path, Result, Schedule, Schema, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpClient, McpProtocol } from 'effect/ai';
 import { HttpClient } from 'effect/http';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { RpcSerialization, RpcServer } from 'effect/rpc';
+import getPort from 'get-port';
 import { build } from 'plist';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -27,7 +26,6 @@ interface Logged {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Bound = Schema.Struct({ port: Schema.Int });
 const Installations = Schema.Array(Schema.toCodecJson(Installation));
 const Instance = Schema.toCodecJson(InstanceSnapshot);
 const Happened = Schema.toCodecJson(Event);
@@ -36,26 +34,17 @@ const Text = Schema.Struct({ text: Schema.String });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const free = Effect.gen(function* () {
-    const probe = yield* Effect.sync(() => createServer().listen(0, '127.0.0.1'));
-    yield* Effect.promise(() => once(probe, 'listening'));
-    const { port } = yield* Schema.decodeUnknownEffect(Bound)(probe.address());
-    yield* Effect.callback<void>((resume) => {
-        probe.close(() => resume(Effect.void));
-    });
-    return port;
-});
 const text = ({ content }: { readonly content: readonly unknown[] }) => Array.map(Array.getSomes(Array.map(content, (block) => Schema.decodeUnknownOption(Text)(block))), Struct.get('text')).join('\n');
 const served = Effect.fnUntraced(function* (product: string, executable: string, bundles: readonly Bundle[], settings: readonly string[]) {
     const [fs, path, spawner, http, searched] = yield* Effect.all([FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner, HttpClient.HttpClient, Config.String('PATH')]);
     const built = yield* Effect.fromOption(routed('@rasm/nx-vite', product), () => new Cause.NoSuchElementError(`nx.json states no Vite outputPath to run ${product} from`));
-    const [root, port] = yield* Effect.all([fs.makeTempDirectoryScoped({ prefix: 'rasad-' }), free]);
+    const [root, port] = yield* Effect.all([fs.makeTempDirectoryScoped({ prefix: 'rasad-' }), Effect.promise(() => getPort())]);
     const [contents, socket] = [path.join(root, `${executable}.app`, 'Contents'), path.join(root, 'server.sock')];
     const located = (name: string) => pathToFileURL(path.join(root, 'Applications', `${name}.app/`)).href;
-    const installations = yield* Schema.decodeEffect(Installations)(bundles.map(({ name, identifier, declared }) => ({ url: located(name), identifier, name, scriptable: false, activationPolicy: 'regular', ...declared })));
+    const installations = yield* Schema.decodeEffect(Installations)(bundles.map(({ name, identifier, declared }) => ({ url: located(name), identifier, name, scriptable: false, activationPolicy: 'regular', appIntents: [], ...declared })));
     const [running, log, launches] = [yield* SubscriptionRef.make<readonly InstanceSnapshot[]>([]), yield* SubscriptionRef.make<readonly Logged[]>([]), MutableRef.make<readonly string[]>([])];
     const reported = Effect.fnUntraced(function* (identifier: string, pid: number, title: string) {
-        const [event, taken] = yield* Effect.all([Effect.orDie(Schema.decodeEffect(Happened)({ instance: `${pid}@1`, sequence: 1, at: '2026-11-25T09:30:00Z', change: { opened: { container: 7000 + pid, kind: 'window', title } } })), Deferred.make<void>()]);
+        const [event, taken] = yield* Effect.all([Effect.orDie(Schema.decodeEffect(Happened)({ instance: `${pid}@1`, sequence: 1, at: '2026-11-25T09:30:00Z', change: { _tag: 'opened', container: 7000 + pid, kind: 'window', title } })), Deferred.make<void>()]);
         yield* SubscriptionRef.update(log, Array.append({ identifier, event, taken }));
         yield* Deferred.await(taken);
     });
@@ -63,10 +52,10 @@ const served = Effect.fnUntraced(function* (product: string, executable: string,
         const bundle = yield* Effect.orDie(Effect.fromNullishOr(bundles.find(({ name }) => located(name) === url.href)));
         const pid = 400 + MutableRef.get(launches).length;
         yield* Effect.sync(() => MutableRef.update(launches, Array.append(url.href)));
-        const row = yield* Effect.orDie(Schema.decodeEffect(Instance)({ pid, instance: `${pid}@1`, identifier: bundle.identifier, url: url.href, activationPolicy: 'regular', state: { running: { active: false, status: 'responding', windows: [] } }, listening: [] }));
+        const row = yield* Effect.orDie(Schema.decodeEffect(Instance)({ pid, instance: `${pid}@1`, identifier: bundle.identifier, url: url.href, activationPolicy: 'regular', state: { _tag: 'running', active: false, status: { _tag: 'responding' }, windows: [] }, listening: [] }));
         yield* SubscriptionRef.update(running, Array.append(row));
         yield* Effect.forEach(Array.fromNullishOr(bundle.window), (title) => reported(bundle.identifier, pid, title), { discard: true });
-        return yield* Effect.orDie(Schema.decodeEffect(Launch)({ launched: { pid, instance: row.instance, identifier: bundle.identifier, created: true } }));
+        return yield* Effect.orDie(Schema.decodeEffect(Launch)({ _tag: 'launched', pid, instance: row.instance, identifier: bundle.identifier, created: true }));
     });
     const fake = ApplicationRpcs.omit('pasteboard', 'model', 'intern', 'handlers', 'act', 'quit', 'dictionary', 'execute', 'capture', 'record', 'scale', 'diagnostics');
     yield* Layer.build(
@@ -75,11 +64,7 @@ const served = Effect.fnUntraced(function* (product: string, executable: string,
                 fake.toLayer({
                     installations: ({ identifiers, prefix }) =>
                         Stream.concat(Stream.succeed({ unreadable: [], installations: installations.filter((each) => (identifiers === undefined && prefix === undefined) || identifiers?.includes(each.identifier) === true || (prefix !== undefined && each.identifier.startsWith(prefix))) }), Stream.never),
-                    instances: ({ identifiers }) =>
-                        Stream.map(
-                            SubscriptionRef.changes(running),
-                            Array.filter((row) => identifiers?.includes(row.identifier) !== false),
-                        ),
+                    instances: ({ identifiers }) => Stream.map(SubscriptionRef.changes(running), (rows) => Result.succeed(Array.filter(rows, (row) => identifiers?.includes(row.identifier) !== false))),
                     events: ({ identifiers }) =>
                         SubscriptionRef.changes(log).pipe(
                             Stream.mapAccum(
@@ -88,10 +73,12 @@ const served = Effect.fnUntraced(function* (product: string, executable: string,
                             ),
                             Stream.filter(({ identifier }) => identifiers?.includes(identifier) !== false),
                             Stream.tap(({ taken }) => Deferred.succeed(taken, undefined)),
-                            Stream.map(Struct.get('event')),
+                            Stream.map(({ event }) => Result.succeed(event)),
                         ),
+                    installation: ({ url }) => Effect.orDie(Effect.fromOption(Array.findFirst(installations, (each) => each.url.href === url.href))),
                     observations: () => Stream.never,
                     pressure: () => Stream.never,
+                    session: () => Stream.concat(Stream.succeed({ onConsole: true, locked: false, asleep: false, secureInput: false, space: 1 }), Stream.never),
                     watch: ({ instance }) => Effect.flatMap(SubscriptionRef.get(running), (rows) => Effect.orDie(Effect.fromOption(Array.findFirst(rows, (row) => row.instance === instance)))),
                     launch: (payload) => Stream.fromEffect(launch(payload)),
                 }),

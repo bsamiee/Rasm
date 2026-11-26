@@ -1,7 +1,7 @@
 import { join, posix } from 'node:path';
 import { AggregateCreateNodesError, type CreateNodes, type ProjectConfiguration } from '@nx/devkit';
 import { emitPluginWorkerLog } from '@nx/devkit/internal';
-import { anchored, fingerprinted, inferring, manifested, Named, run, spawned } from '@rasm/nx';
+import { anchored, fingerprinted, inferring, manifested, Named, run, spawned } from '@rasm/nx/inference';
 import { Array, Effect, FileSystem, Option, type Record, Schema, String, Struct } from 'effect';
 import { multiGlobWithWorkspaceContext } from 'nx/src/utils/workspace-context';
 import which from 'which';

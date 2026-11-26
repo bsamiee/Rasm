@@ -1,6 +1,6 @@
 import process from 'node:process';
 import { assert, it } from '@effect/vitest';
-import { Ssh } from '@rasm/ssh';
+import { Ssh } from '@rasm/ssh/client';
 import { Array, Effect, Fiber, Option, Path, Schema } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { Asked, Reached } from '#/peer';

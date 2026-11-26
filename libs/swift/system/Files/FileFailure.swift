@@ -3,13 +3,13 @@ public import Foundation
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public struct FileFailure: CustomNSError, Equatable, LocalizedError {
+public struct FileFailure: CustomNSError, LocalizedError {
     @CasePathable
-    public enum Reason: Equatable, Sendable {
+    public enum Reason: Sendable {
         case unwatched
         case held
         case compromised
-        case filesystem(NSError)
+        case filesystem(any Error)
     }
 
     public let subject: String

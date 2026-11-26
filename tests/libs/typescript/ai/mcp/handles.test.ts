@@ -24,19 +24,19 @@ const followedLines = (response: Response, count: number) =>
     Stream.fromReadableStream({ evaluate: () => response.body ?? new ReadableStream(), onError: (cause) => new Cause.UnknownError(cause, 'follow body failed') }).pipe(
         Stream.decodeText,
         Stream.splitLines,
-        Stream.mapEffect((line) => Schema.decodeEffect(Schema.fromJsonString(Handles.Followed))(line)),
+        Stream.mapEffect((line) => Schema.decodeEffect(Schema.fromJsonString(Handles.Event))(line)),
         Stream.take(count),
         Stream.runCollect,
     );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-describe('handle routes a session link reaches', () => {
+describe('handle routes a harness plugin reaches', () => {
     it.live(
         'streams each event a bound handle owns as the line its results lead with, and leaves an acknowledged event out of the next result while a later one stays',
         Effect.fnUntraced(function* () {
             const { probe, request, called } = yield* opened(PROTOCOL);
-            const { handle, server } = yield* Effect.flatMap(request(urls.bind(), { method: 'POST' }), decoded(Handles.Bound));
+            const { handle, server } = yield* Effect.flatMap(request(urls.bind(), { method: 'POST' }), decoded(Handles.Binding));
             const followed = yield* request(urls.follow({ params: { handle } }));
             yield* Queue.offerAll(probe.shared, EVENTS);
             const streamed = yield* followedLines(followed, EVENTS.length);
@@ -61,7 +61,7 @@ describe('handle routes a session link reaches', () => {
         'leaves an event raised while a call of the handle runs to that call result alone, and streams the next event once the call returned',
         Effect.fnUntraced(function* () {
             const { probe, request, called } = yield* opened(PROTOCOL);
-            const { handle } = yield* Effect.flatMap(request(urls.bind(), { method: 'POST' }), decoded(Handles.Bound));
+            const { handle } = yield* Effect.flatMap(request(urls.bind(), { method: 'POST' }), decoded(Handles.Binding));
             const followed = yield* request(urls.follow({ params: { handle } }));
             const running = yield* Effect.forkScoped(called('gated_write', { handle }));
             yield* Queue.take(probe.entered);

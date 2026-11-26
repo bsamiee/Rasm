@@ -1,6 +1,6 @@
 import { d1Engine } from '@rasm/database/d1';
 import { r2Storage } from '@rasm/object-storage/r2';
-import { layer } from '@rasm/telemetry';
+import { layer } from '@rasm/telemetry/otlp';
 import { env, tracing } from 'cloudflare:workers';
 import { Config, ConfigProvider, Context, DateTime, Duration, Effect, Exit, Formatter, Layer, Predicate, Record, Redacted, Scheduler, Schema, Scope, Struct, Tracer } from 'effect';
 import { FetchHttpClient, HttpEffect, HttpRouter, HttpServer, type HttpServerRequest } from 'effect/http';

@@ -3,7 +3,7 @@
     "id": "app.rasm.atelier.photoshop",
     "name": "Atelier Photoshop",
     "version": "0.1.0",
-    "host": { "app": "PS", "data": { "loadEvent": "startup" } },
+    "host": { "app": "PS", "minVersion": "27.11.0", "data": { "loadEvent": "startup" } },
     "entrypoints": [],
-    "requiredPermissions": { "localFileSystem": "fullAccess", "allowCodeGenerationFromStrings": true }
+    "requiredPermissions": { "localFileSystem": "fullAccess", "network": { "domains": ["ws://localhost:7490"] }, "allowCodeGenerationFromStrings": true }
 }

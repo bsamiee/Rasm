@@ -23,6 +23,7 @@
                 "allowedExperimentalApis": ["effect", "@effect"],
                 "barrelImportPackages": ["effect"],
                 "effectFn": ["span", "untraced"],
+                "brandedSchemaClasses": ["Class", "TaggedClass", "Error", "TaggedError"],
                 "ignoreEffectSuggestionsInTscExitCode": false,
                 "keyPatterns": [{ "target": "service" }, { "target": "custom" }, { "target": "error", "pattern": "identifier" }, { "target": "taggedClass", "pattern": "identifier" }],
                 "diagnosticSeverity": {
@@ -68,10 +69,7 @@
                     "unnecessaryArrowBlock": "error",
                     "unnecessaryFailYieldableError": "error"
                 },
-                "overrides": [
-                    { "include": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.stories.tsx"], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } },
-                    { "include": ["libs/typescript/ai/policy/claude/*.ts"], "options": { "diagnosticSeverity": { "effectFnOpportunity": "off" } } }
-                ]
+                "overrides": [{ "include": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.stories.tsx"], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } }]
             }
         ]
     }

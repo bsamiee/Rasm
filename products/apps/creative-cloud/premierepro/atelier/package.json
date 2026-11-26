@@ -1,0 +1,16 @@
+{
+    "name": "@rasm/atelier-premierepro-plugin",
+    "private": true,
+    "description": "UXP plugin linking Premiere Pro to Atelier's MCP server",
+    "type": "module",
+    "dependencies": {
+        "@rasm/premierepro": "workspace:*",
+        "@rasm/uxp": "workspace:*",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@adobe-uxp-types/uxp": "catalog:",
+        "@types/node": "catalog:",
+        "vite": "catalog:"
+    }
+}

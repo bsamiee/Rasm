@@ -1,5 +1,6 @@
-import { Adjust, Call, Change, FindChange, Inspect, Inspection, Preflight } from '@rasm/indesign';
-import { Failure, WriteResult } from '@rasm/object-model';
+import { Adjust } from '@rasm/indesign/typesetting';
+import { Call, Change, FindChange, Inspect, Inspection, Preflight } from '@rasm/indesign/views';
+import { Failure, WriteResult } from '@rasm/object-model/rpcs';
 import { Tool, Toolkit } from 'effect/ai';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

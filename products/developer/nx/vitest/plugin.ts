@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { buildPackageJsonPatterns, findProjectForPath, globWithWorkspaceContext, hashObject, type PackageJson } from '@nx/devkit/internal';
-import { above, type Anchor, aggregated, anchored, below, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, owned, packaged, parsed, type Pass, run, tokened, within } from '@rasm/nx';
+import { above, type Anchor, aggregated, anchored, below, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, owned, packaged, parsed, type Pass, run, tokened, within } from '@rasm/nx/inference';
 import { Array, Cause, Effect, Function, Option, Predicate, Record, Schema } from 'effect';
 import type { Vite } from 'vitest/node';
 import plugin from '#/package.json' with { type: 'json' };
@@ -27,7 +27,7 @@ const OWN = fingerprinted(import.meta.dirname);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Options extends Schema.Opaque<Options, unknown>()(Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({ description: 'outputPath: workspace folder a suite writes its reports to, {projectName} naming the project, absent leaves each reporter its own folder' })) {}
+class Options extends Schema.Opaque<Options>()(Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({ description: 'outputPath: workspace folder a suite writes its reports to, {projectName} naming the project, absent leaves each reporter its own folder' })) {}
 const Surveyed = Schema.TaggedUnion({
     Plain: { dependencies: Schema.Array(Schema.String) },
     Suite: {

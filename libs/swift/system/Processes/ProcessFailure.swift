@@ -15,6 +15,7 @@ public struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
         case cancelled(CancellationError)
         case unlisted
         case noMarker
+        case notify(UInt32)
     }
 
     public let subject: String
@@ -30,6 +31,7 @@ public struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
             case .cancelled: "\(subject) canceled"
             case .unlisted: "getpwuid found no user database entry for \(subject)"
             case .noMarker: "Login shell \(subject) printed no environment"
+            case .notify(let status): "\(subject) failed with notify status \(status)"
         }
     }
 
@@ -40,7 +42,7 @@ public struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
     public var errorUserInfo: [String: Any] {
         switch reason {
             case .subprocess(let error as any Error), .io(let error): [NSUnderlyingErrorKey: error]
-            case .exit, .timedOut, .cancelled, .unlisted, .noMarker: [:]
+            case .exit, .timedOut, .cancelled, .unlisted, .noMarker, .notify: [:]
         }
     }
 

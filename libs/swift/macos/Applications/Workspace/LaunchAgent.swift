@@ -1,3 +1,4 @@
+public import Encoding
 import Files
 public import Foundation
 public import Processes
@@ -6,7 +7,7 @@ import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct LaunchAgent: Encodable, Hashable, Sendable {
+public struct LaunchAgent: Sendable {
     private struct Declaration: Decodable {
         private enum CodingKeys: String, CodingKey {
             case label = "Label"
@@ -20,22 +21,13 @@ public struct LaunchAgent: Encodable, Hashable, Sendable {
         let bundleProgram: String?
         let program: String?
         let arguments: [String]?
-        let keepAlive: Bool
-
-        init(from decoder: any Decoder) throws {
-            let fields = try decoder.container(keyedBy: CodingKeys.self)
-            label = try fields.decode(String.self, forKey: .label)
-            bundleProgram = try fields.decodeIfPresent(String.self, forKey: .bundleProgram)
-            program = try fields.decodeIfPresent(String.self, forKey: .program)
-            arguments = try fields.decodeIfPresent([String].self, forKey: .arguments)
-            do { keepAlive = try fields.decodeIfPresent(Bool.self, forKey: .keepAlive) ?? false } catch DecodingError.typeMismatch { keepAlive = false }
-        }
+        let keepAlive: JSONValue?
     }
 
     public let label: String
     public let program: URL
     public let plist: URL
-    public let keepAlive: Bool
+    public let keepAlive: JSONValue?
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

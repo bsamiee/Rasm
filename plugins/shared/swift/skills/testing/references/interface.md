@@ -60,7 +60,7 @@ extension WindowServerTests {
 }
 ```
 
-- Parents in `ApplicationsTests` hold `KeyboardTests`, `MenuTests`, `ModelTests`, and `RouteTests`, each in its own file as an extension
+- `WindowServerTests` in `ApplicationsTests` holds `KeyboardTests`, `LaunchTests`, `MenuTests`, `ModelTests`, and `RouteTests`, each in its own file as an extension
 - Fixture suites of `FixtureTests` and `ScreenCaptureTests` sit in their own bundles, so they never overlap `ApplicationsTests`
 - Suites reading no session state stay outside it (`PasteboardTests` on unique pasteboards, `InputTests` and `PointerTests` on values)
 
@@ -100,16 +100,28 @@ final class Captures: Sendable {
 
     let shots = Mutex<[Screenshot]>([])
     let failed = Atomic<Bool>(false)
+
+    func take(in watch: Watch) async {
+        let numbers: [CGWindowID] = await watch.current[case: \.running]?.windows.filter(\.onScreen).map(\.number) ?? []
+        let taken: [Result<Screenshot, ApplicationFailure>]
+        do throws(ApplicationFailure) {
+            taken = try await watch.instance.capture(.windows(numbers: numbers), in: watch)
+        } catch {
+            taken = [.failure(error)]
+        }
+        shots.withLock { shots in shots += taken.compactMap { shot in shot[case: \.success] } }
+        for refusal in taken.compactMap({ shot in shot[case: \.failure] }) { Issue.record("Capturing windows \(numbers) answered \(refusal.localizedDescription)", severity: .warning) }
+    }
 }
 
-struct CapturesOnFailure: SuiteTrait, TestTrait, TestScoping {
+struct CapturesOnFailure: SuiteTrait, TestScoping {
     var isRecursive: Bool { true }
 
-    func provideScope(for test: Test, testCase: Test.Case?, performing function: @Sendable () async throws -> Void) async throws {
+    func provideScope(for _: Test, testCase _: Test.Case?, performing function: @concurrent @Sendable () async throws -> Void) async throws {
         let captures = Captures()
         let outcome: Result<Void, any Error>
         do {
-            outcome = .success(try await Captures.$current.withValue(captures, operation: function))
+            outcome = .success(try await Captures.$current.withValue(captures) { try await function() })
         } catch {
             captures.failed.store(true, ordering: .relaxed)
             outcome = .failure(error)
@@ -137,7 +149,8 @@ struct WindowServerTests {}
 - Traits of one suite provide scopes in listed order, outermost first, so `CapturesOnFailure` binds `Captures.current` around the issue handler
 - `.compactMapIssues` runs synchronously for each issue the test records, inside every scope listed before it, and returns each issue unchanged
 - Errors a test throws pass through `provideScope`, and its `catch` marks them failed whether or not the handler saw them
-- Tests append `instance.capture(.windows(numbers:), in: watch)` results to `Captures.current?.shots` inside the session, as fixture windows close with it
+- Tests call `Captures.current?.take(in: watch)` inside the session, as fixture windows close with it, and a refused capture records a warning issue that leaves the verdict alone
+- `NonisolatedNonsendingByDefault` makes `provideScope` take its function as `@concurrent @Sendable`, and `withValue` takes a closure calling it, as the function passed whole selects a deprecated overload
 
 ## [08]-[INTERFACE_AUDITS]
 

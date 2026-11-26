@@ -1,5 +1,5 @@
 import { useAtom, useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import { ModalDialog } from '@rasm/ui';
+import { ModalDialog } from '@rasm/ui/modal-dialog';
 import { Array, Result } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { RequestAlert } from '#/editor/request-alert.tsx';

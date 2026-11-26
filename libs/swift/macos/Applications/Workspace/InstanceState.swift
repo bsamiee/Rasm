@@ -10,17 +10,17 @@ public import System
 // --- [MODELS] --------------------------------------------------------------------------
 
 @CasePathable
-public enum InstanceState: CaseKeyed, Equatable, Sendable {
+public enum InstanceState: CaseTagged, Equatable, Sendable {
     public struct Activity: Equatable, Sendable {
         @CasePathable
-        public enum Status: CaseLabeled, Equatable, Sendable {
+        public enum Status: CaseTagged, Equatable, Sendable {
             case launching
             case responding
-            case unresponsive(ProcessStatus)
+            case unresponsive(thread: ProcessStatus)
 
             public var isIdle: Bool {
                 switch self {
-                    case .launching, .unresponsive(.running), .unresponsive(.runnable): false
+                    case .launching, .unresponsive(.running), .unresponsive(.runnable), .unresponsive(.throttled), .unresponsive(.uninterruptible): false
                     case .responding, .unresponsive(.sleeping), .unresponsive(.stopped): true
                 }
             }
@@ -55,7 +55,7 @@ public enum InstanceState: CaseKeyed, Equatable, Sendable {
 
     case running(Activity)
     case failed(ApplicationFailure)
-    case exited(Termination)
+    case exited(termination: Termination)
 }
 
 extension InstanceState.Window {
@@ -100,18 +100,22 @@ extension InstanceState.Window {
 }
 
 extension InstanceState.Termination: Encodable {
-    private enum Key: CodingKey {
+    private enum Key: String, CodingKey {
+        case tag = "_tag"
         case status, signal, detail, statusFailure, report, reportFailure, reporting
     }
 
     public func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: Key.self)
         let ended: ProcessExit? = exit[case: \.success]
-        switch exit.map(\.status) {
-            case .success(.exited(let status)): try fields.encode(status, forKey: .status)
-            case .success(.signaled(let signal)): try fields.encode(signal, forKey: .signal)
-            case .failure(let error): try fields.encode(error.description, forKey: .statusFailure)
-        }
+        let (field, value): (Key, any Encodable) =
+            switch exit.map(\.status) {
+                case .success(.exited(let status)): (.status, status)
+                case .success(.signaled(let signal)): (.signal, signal)
+                case .failure(let error): (.statusFailure, error.description)
+            }
+        try fields.encode(field.stringValue, forKey: .tag)
+        try fields.encode(value, forKey: field)
         if let ended, !ended.detail.isEmpty { try fields.encode(ended.detail, forKey: .detail) }
         if report == nil, ended?.producesReport == true { try fields.encode(true, forKey: .reporting) }
         try fields.encodeIfPresent(report?[case: \.success], forKey: .report)
@@ -122,14 +126,13 @@ extension InstanceState.Termination: Encodable {
 
 extension InstanceState.Activity: Encodable {
     private enum Key: CodingKey {
-        case active, process, status, usage, usageFailure, windows
+        case active, status, usage, usageFailure, windows
     }
 
     public func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: Key.self)
         try fields.encode(active, forKey: .active)
         try fields.encode(status, forKey: .status)
-        try fields.encodeIfPresent(status[case: \.unresponsive], forKey: .process)
         try fields.encodeIfPresent(usage?[case: \.success], forKey: .usage)
         let usageFailure: String? = usage?[case: \.failure]?.description
         try fields.encodeIfPresent(usageFailure, forKey: .usageFailure)
@@ -144,30 +147,31 @@ extension Instance {
         _ running: some AsyncSequence<InstanceState, Never> & Sendable,
         clock: some Clock<Duration> & Sendable,
     ) -> some AsyncSequence<InstanceState, Never> & Sendable {
-        let cut = process.exits().map { _ in InstanceState?.none }
+        let (ended, ending) = AsyncStream<Result<ProcessExit, Errno>>.makeStream()
+        let cut = process.exits().map { exit in
+            ending.yield(exit)
+            ending.finish()
+            return InstanceState?.none
+        }
         let lived = merge(running.map(InstanceState?.some), cut).prefix { (state: InstanceState?) in state != nil }.compactMap(\.self)
-        return chain(lived, process.exits().flatMap { exit in self.terminations(after: exit, clock: clock) }).removeDuplicates()
+        return chain(lived, ended.flatMap { exit in self.terminations(after: exit, clock: clock) }).removeDuplicates()
     }
 
     private func terminations(after exit: Result<ProcessExit, Errno>, clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
         [false, true].async.compactMap { reported -> InstanceState? in
             switch (exit, reported) {
-                case (_, false): .exited(InstanceState.Termination(exit: exit, report: nil))
+                case (_, false): .exited(termination: InstanceState.Termination(exit: exit, report: nil))
                 case (.success(let ended), true) where ended.producesReport:
                     .exited(
-                        InstanceState.Termination(
+                        termination: InstanceState.Termination(
                             exit: exit,
-                            report: await DiagnosticReport.first(writtenBy: self.process, since: self.application.launchDate ?? .distantPast, clock: clock),
+                            report: await Result { () async throws(ProcessFailure) in
+                                try await DiagnosticReport.first(writtenBy: self.process, since: self.application.launchDate ?? .distantPast, clock: clock)
+                            },
                         )
                     )
                 case (_, true): nil
             }
         }
-    }
-}
-
-extension NSWorkspace {
-    public func instances(of matching: (NSRunningApplication) -> Bool) -> [Instance] {
-        runningApplications.filter(matching).compactMap { application in try? Instance(application) }
     }
 }

@@ -51,6 +51,7 @@ catalog:
 
     '@decimalturn/toml-patch': 3.3.3 # TOML edits keeping layout and comments
     '@plist/parse': 1.1.0 # Binary, XML, and OpenStep property-list parser
+    ag-psd: 34.2.3 # Photoshop action descriptor reader for settings files
     acorn: 8.19.0 # JavaScript parser to ESTree syntax trees
     acorn-walk: 8.3.5 # ESTree syntax tree walker
     astring: 1.9.0 # JavaScript source text from ESTree syntax trees
@@ -590,7 +591,7 @@ catalog:
     '@vitest/ui': 5.1.1
     ajv: 8.20.0 # JSON Schema validation of resolved Nx project configuration against Nx's own schema
     axe-core: 4.14.1
-    fast-check: 4.11.0
+    get-port: 7.2.0
     playwright: 1.66.0-alpha-2026-11-22
     selenium-webdriver: 4.53.0 # W3C WebDriver client that drives a stable Firefox through `geckodriver`, which no Playwright or Vitest provider reaches
     storybook: 11.0.0-beta.3

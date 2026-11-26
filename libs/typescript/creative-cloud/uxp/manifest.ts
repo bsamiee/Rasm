@@ -3,14 +3,13 @@ import { Array, Record, Result, Schema, SemVer, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const MANIFEST_VERSIONS = { current: 5, addon: 6 } as const;
 const HOSTS = {
-    ID: { product: 'IDSN', since: SemVer.make({ major: 20, minor: 0, patch: 0 }), registry: true, runs: true, opacity: 0.65 },
-    PS: { product: 'PHSP', since: SemVer.make({ major: 27, minor: 11, patch: 0 }), registry: true, runs: true, opacity: 0.8 },
-    aftereffects: { product: 'AEFT', since: SemVer.make({ major: 27, minor: 1, patch: 0 }), registry: true, runs: true, opacity: 0.65 },
-    premierepro: { product: 'PPRO', since: SemVer.make({ major: 27, minor: 1, patch: 0 }), registry: true, runs: true, opacity: 0.65 },
-    ame: { product: 'AME', since: SemVer.make({ major: 27, minor: 0, patch: 0 }), registry: true, runs: true, opacity: 0.65 },
-    AI: { product: 'ILST', since: SemVer.make({ major: 31, minor: 1, patch: 0 }), registry: false, runs: false, opacity: 0.65 },
+    ID: { product: 'IDSN', pluginsInfo: true, opacity: 0.65 },
+    PS: { product: 'PHSP', pluginsInfo: true, opacity: 0.8 },
+    aftereffects: { product: 'AEFT', pluginsInfo: true, opacity: 0.65 },
+    premierepro: { product: 'PPRO', pluginsInfo: true, opacity: 0.65 },
+    ame: { product: 'AME', pluginsInfo: true, opacity: 0.65 },
+    AI: { product: 'ILST', pluginsInfo: false, opacity: 0.65 },
 } as const;
 const THEMES = { lightest: 'light', light: 'light', medium: 'dark', dark: 'dark', darkest: 'dark' } as const;
 const ICON_SIZES = { toolbar: 23, pluginList: 24 } as const;
@@ -20,23 +19,24 @@ const ICON_SIZES = { toolbar: 23, pluginList: 24 } as const;
 const Version = Schema.SemVerFromString.check(Schema.makeFilter((version) => !(SemVer.isPrerelease(version) || SemVer.hasBuild(version)), { description: 'major.minor.patch' }));
 const Flag = Schema.optionalKey(Schema.Boolean);
 const Size = Schema.optionalKey(Schema.Struct({ width: Schema.Finite, height: Schema.Finite }));
-const App = Schema.Literals(Struct.keys(HOSTS));
-const Localized = Schema.Union([Schema.String, Schema.StructWithRest(Schema.Struct({ default: Schema.String }), [Schema.Record(Schema.String, Schema.String)])]);
+const Side = Schema.Int.check(Schema.isGreaterThan(0));
+const Localized = Schema.Union([Schema.NonEmptyString, Schema.StructWithRest(Schema.Struct({ default: Schema.NonEmptyString }), [Schema.Record(Schema.String, Schema.NonEmptyString)])]);
 const Icon = Schema.Struct({
-    width: Schema.Finite,
-    height: Schema.Finite,
+    width: Side,
+    height: Side,
     path: Schema.String,
     scale: Schema.optionalKey(Schema.Array(Schema.Finite)),
     theme: Schema.optionalKey(Schema.Array(Schema.Literals([...Struct.keys(THEMES), 'all']))),
     species: Schema.optionalKey(Schema.Array(Schema.Literals(['generic', ...Struct.keys(ICON_SIZES)]))),
 }).check(
-    Schema.makeFilter(({ width, height, species = [] }) => {
-        const refused = Array.filterMap(species, (kind) => (kind === 'generic' || (ICON_SIZES[kind] === width && ICON_SIZES[kind] === height) ? Result.failVoid : Result.succeed(`${kind} takes ${ICON_SIZES[kind]} x ${ICON_SIZES[kind]}`)));
-        return Array.isReadonlyArrayEmpty(refused) || `species ${refused.join(', ')} at 1x, received ${String(width)} x ${String(height)}`;
+    Schema.makeFilter(({ width, height }) => width === height || `one side for width and height, received ${String(width)} x ${String(height)}`),
+    Schema.makeFilter(({ width, species = [] }) => {
+        const refused = Array.filterMap(species, (kind) => (kind === 'generic' || ICON_SIZES[kind] === width ? Result.failVoid : Result.succeed(`${kind} takes ${ICON_SIZES[kind]}`)));
+        return Array.isReadonlyArrayEmpty(refused) || `species ${refused.join(', ')} at 1x, received ${String(width)}`;
     }),
 );
 const Entrypoint = Schema.Struct({
-    id: Schema.String,
+    id: Schema.NonEmptyString,
     label: Localized,
     description: Schema.optionalKey(Localized),
     hostUIContext: Schema.optionalKey(Schema.Struct(Struct.Record(['hideFromMenu', 'hideFromPluginsPanel', 'shouldReanimateAsFloatingPanel', 'allowViewPersistence'], Flag))),
@@ -44,19 +44,20 @@ const Entrypoint = Schema.Struct({
 
 class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique symbol }>('UxpManifest')(
     Schema.Struct({
-        manifestVersion: Schema.Literals([MANIFEST_VERSIONS.current, MANIFEST_VERSIONS.addon]),
-        id: Schema.String,
-        name: Schema.String,
+        manifestVersion: Schema.Literals([5, 6]),
+        id: Schema.NonEmptyString,
+        name: Schema.NonEmptyString,
         version: Version,
         main: Schema.optionalKey(Schema.String),
         host: Schema.Struct({
-            app: App,
+            app: Schema.Literals(Struct.keys(HOSTS)),
+            minVersion: Version,
             maxVersion: Schema.optionalKey(Version),
             data: Schema.optionalKey(Schema.Struct({ apiVersion: Schema.optionalKey(Schema.Literals([1, 2])), loadEvent: Schema.optionalKey(Schema.Literals(['use', 'startup'])), enableMenuRecording: Flag })),
         }),
         icons: Schema.optionalKey(Schema.Array(Icon)),
         strings: Schema.optionalKey(Schema.Union([Schema.String, Schema.Record(Schema.String, Localized)])),
-        addon: Schema.optionalKey(Schema.Struct({ name: Schema.String })),
+        addon: Schema.optionalKey(Schema.Struct({ name: Schema.NonEmptyString })),
         entrypoints: Schema.Array(
             Schema.Union([
                 Entrypoint.pipe(Schema.fieldsAssign({ type: Schema.Literal('command'), shortcut: Schema.optionalKey(Schema.Struct({ mac: Schema.optionalKey(Schema.String), win: Schema.optionalKey(Schema.String) })) })),
@@ -68,7 +69,7 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
             network: Schema.optionalKey(Schema.Struct({ domains: Schema.Union([Schema.NonEmptyArray(Schema.String), Schema.Literal('all')]) })),
             clipboard: Schema.optionalKey(Schema.Literals(['read', 'readAndWrite'])),
             launchProcess: Schema.optionalKey(Schema.Struct({ schemes: Schema.optionalKey(Schema.NonEmptyArray(Schema.String)), extensions: Schema.optionalKey(Schema.NonEmptyArray(Schema.String)) })),
-            ipc: Schema.optionalKey(Schema.Struct({ enablePluginCommunication: Schema.Boolean })),
+            ipc: Schema.optionalKey(Schema.Struct({ enablePluginCommunication: Schema.Boolean, enableHostCommunication: Flag })),
             webview: Schema.optionalKey(
                 Schema.Struct({
                     allow: Schema.Literal('yes'),
@@ -78,44 +79,32 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
                     allowAutomation: Flag,
                 }),
             ),
+            fonts: Schema.optionalKey(Schema.Literal('readInstalled')),
             allowCodeGenerationFromStrings: Flag,
             enableUserInfo: Flag,
             enableAddon: Flag,
         }),
         featureFlags: Schema.optionalKey(Schema.Struct(Struct.Record(['unhandledRejection', 'uncaughtException', 'enableFillAsCustomAttribute', 'enableSWCSupport', 'enableAlerts', 'allowFocusOnClickForPanels', 'enableResizeObserver', 'enableUpdatedResizeBehavior'], Flag))),
-    }).check(
-        Schema.makeFilter(
-            ({ addon, manifestVersion, requiredPermissions: { enableAddon } }) =>
-                addon === undefined || (manifestVersion === MANIFEST_VERSIONS.addon && enableAddon === true) || `addon needs manifestVersion ${MANIFEST_VERSIONS.addon} and requiredPermissions.enableAddon, received ${String(manifestVersion)} and ${String(enableAddon)}`,
-        ),
-    ),
+    }).check(Schema.makeFilter(({ addon, manifestVersion, requiredPermissions: { enableAddon } }) => addon === undefined || (manifestVersion === 6 && enableAddon === true) || `addon needs manifestVersion 6 and requiredPermissions.enableAddon, received ${String(manifestVersion)} and ${String(enableAddon)}`)),
 ) {
     static readonly Theme = Schema.Literals(Struct.keys(THEMES));
     static readonly fills = Record.map(HOSTS, ({ opacity }) => Record.map(THEMES, (tone): Rgb => ({ mode: 'rgb', ...Struct.Record(['r', 'g', 'b'], tone === 'light' ? 0 : 1), alpha: opacity })));
     static readonly json = Schema.fromJsonString(UxpManifest);
-    static readonly Identity = Schema.fromJsonString(Schema.Struct({ id: Schema.String, host: Schema.Struct({ app: App }) })).annotate({ description: 'Plugin id and host app, the manifest fields a running plugin reads' });
+    static readonly Identity = Schema.fromJsonString(Schema.Struct({ id: UxpManifest.fields.id, host: UxpManifest.fields.host.mapFields(Struct.pick(['app'])), requiredPermissions: UxpManifest.fields.requiredPermissions.mapFields(Struct.pick(['network'])) })).annotate({
+        description: 'Plugin id, host app, and permitted network domains, the manifest fields a running plugin reads',
+    });
     static readonly file = 'manifest.json';
     static readonly engine = { chrome: '118' } as const;
-    static readonly scriptLanguage = 'USLg';
-    static readonly wrapScript = Object.assign(
-        (body: string, { host, script, label }: { readonly host: string; readonly script: { readonly module: string; readonly around: string; readonly reference: string }; readonly label: string }) =>
-            [
-                `(() => { const { script } = require('uxp'); const answer = (reply) => script.setResult(encodeURIComponent(reply)); try {`,
-                `const around = ${script.around}; const hosted = require(${JSON.stringify(script.module)}); const prepare = Error.prepareStackTrace; const lines = [];`,
-                host,
-                `Error.prepareStackTrace = (error, frames) => { lines.push(...frames.filter((frame) => frame.getScriptNameOrSourceURL() === ${JSON.stringify(UxpManifest.body)}).map((frame) => frame.getLineNumber())); return String(error); };`,
-                `try { answer(host.reply(() => around(hosted, () => { let value; try { value = new Function(${JSON.stringify(`return ${body}\n//# sourceURL=${UxpManifest.body}`)})()(); } catch (error) { void error?.stack; throw { message: String(error?.message ?? error), line: lines[0] }; }`,
-                `if (typeof value?.then === 'function') { value.then(undefined, () => undefined); throw { _tag: 'IllegalArgument', message: 'body returned a promise, a do script body runs synchronously' }; } return { result: value }; }, ${JSON.stringify(label)}), { reference: ${script.reference} }));`,
-                `} finally { Error.prepareStackTrace = prepare; } } catch (error) { answer(JSON.stringify({ _tag: 'Thrown', message: String(error?.message ?? error) })); } })();`,
-            ].join('\n'),
-        { offset: 2 },
-    );
-    static readonly body = 'body.js';
     static readonly origin = 'file://';
-    static readonly link = 'ws://localhost:7490';
-    static readonly logFolder = (folder: string) => ({ folder: `Library/Logs/Adobe/${folder}`, glob: 'UXPLogs_*.log' });
 }
+
+const PluginsInfo = Object.assign(
+    Schema.fromJsonString(Schema.Struct({ plugins: Schema.Array(Schema.StructWithRest(Schema.Struct({ pluginId: UxpManifest.fields.id, path: Schema.optionalKey(Schema.String) }), [Schema.Record(Schema.String, Schema.Unknown)])) })).annotate({
+        description: 'PluginsInfo registry a UXP host reads from its machine, then its per-user, Adobe folder, one row per installed plugin',
+    }),
+    { file: (app: UxpManifest['host']['app']) => ['UXP', 'PluginsInfo', 'v1', `${app}.json`] as const },
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { HOSTS, ICON_SIZES, MANIFEST_VERSIONS, THEMES, UxpManifest };
+export { HOSTS, ICON_SIZES, PluginsInfo, THEMES, UxpManifest };

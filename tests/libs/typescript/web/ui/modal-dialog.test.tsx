@@ -1,4 +1,4 @@
-import { ModalDialog } from '@rasm/ui';
+import { ModalDialog } from '@rasm/ui/modal-dialog';
 import { expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-react';
 

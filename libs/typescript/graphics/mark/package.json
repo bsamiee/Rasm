@@ -15,19 +15,13 @@
     ],
     "type": "module",
     "sideEffects": false,
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "exports": {
-        ".": "./index.ts",
+        ".": "./paint.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
-        "imports": {
-            "#/*": "./dist/*.js"
-        },
         "exports": {
-            ".": "./dist/index.js",
+            ".": "./dist/paint.js",
             "./package.json": "./package.json"
         },
         "access": "public"

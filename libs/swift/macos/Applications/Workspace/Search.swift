@@ -39,8 +39,7 @@ extension Installation {
             let following = Task { @MainActor in
                 defer { continuation.finish() }
                 let query = NSMetadataQuery()
-                let application = NSPredicate(format: "%K == %@", NSMetadataItemContentTypeKey, UTType.applicationBundle.identifier)
-                query.predicate = metadataForm(of: predicate).map { form in NSCompoundPredicate(andPredicateWithSubpredicates: [application, form]) } ?? application
+                query.predicate = NSPredicate(format: "%K == %@", NSMetadataItemContentTypeKey, UTType.applicationBundle.identifier)
                 query.searchScopes = directories
                 query.sortDescriptors = [NSSortDescriptor(key: NSMetadataItemDisplayNameKey, ascending: true)]
                 query.operationQueue = .main
@@ -56,8 +55,10 @@ extension Installation {
                 var updates = merge(NotificationCenter.default.messages(of: query, for: NSMetadataQuery.DidUpdateMessage.self, bufferSize: 1).map { _ in }, changes).makeAsyncIterator()
                 repeat {
                     query.disableUpdates()
-                    let indexed: [URL?] = (0..<query.resultCount).map { index in
-                        ((query.result(at: index) as? NSMetadataItem)?.value(forAttribute: NSMetadataItemPathKey) as? String).map { path in URL(filePath: path, directoryHint: .isDirectory) }
+                    let indexed: [URL?] = (0..<query.resultCount).compactMap { index in query.result(at: index) as? NSMetadataItem }.filter { item in
+                        predicate.evaluate(with: item.values(forAttributes: item.attributes))
+                    }.map { item in
+                        (item.value(forAttribute: NSMetadataItemPathKey) as? String).map { path in URL(filePath: path, directoryHint: .isDirectory) }
                     }
                     query.enableUpdates()
                     let running = OrderedSet(
@@ -88,17 +89,6 @@ extension Installation {
             )
         }
         return Listing(installations: matched, unreadable: listing.unreadable)
-    }
-
-    private static func metadataForm(of predicate: NSPredicate) -> NSPredicate? {
-        guard predicate != NSPredicate(value: true) else { return nil }
-        guard let compound = predicate as? NSCompoundPredicate, compound.compoundPredicateType != .not else { return predicate }
-        let clauses = compound.subpredicates.compactMap { clause in (clause as? NSPredicate).flatMap(metadataForm(of:)) }
-        return switch (compound.compoundPredicateType, clauses.count) {
-            case (.or, ..<compound.subpredicates.count), (_, 0): nil
-            case (_, 1): clauses.first
-            default: NSCompoundPredicate(type: compound.compoundPredicateType, subpredicates: clauses)
-        }
     }
 
     @concurrent

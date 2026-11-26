@@ -19,14 +19,10 @@ public enum JSONValue: Codable, Hashable, Sendable {
             if container.decodeNil() {
                 .null
             } else {
-                try Self.decodeIfMatching { Self.bool(try container.decode(Bool.self)) } ?? Self.decodeIfMatching { Self.number(try container.decode(Double.self)) }
-                    ?? Self.decodeIfMatching { Self.string(try container.decode(String.self)) } ?? Self.decodeIfMatching { Self.array(try container.decode([Self].self)) }
-                    ?? Self.object(try container.decode([String: Self].self))
+                try container.decodeIfMatching(Bool.self).map(Self.bool) ?? container.decodeIfMatching(Double.self).map(Self.number)
+                    ?? container.decodeIfMatching(String.self).map(Self.string) ?? container.decodeIfMatching([Self].self).map(Self.array)
+                    ?? .object(container.decode([String: Self].self))
             }
-    }
-
-    private static func decodeIfMatching(_ read: () throws -> Self) throws -> Self? {
-        do { return try read() } catch DecodingError.typeMismatch { return nil }
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -42,4 +38,12 @@ public enum JSONValue: Codable, Hashable, Sendable {
     }
 
     public func decode<Value: Decodable>(_: Value.Type = Value.self) throws -> Value { try JSONDecoder().decode(Value.self, from: JSONEncoder().encode(self)) }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+extension SingleValueDecodingContainer {
+    public func decodeIfMatching<Value: Decodable>(_: Value.Type) throws -> Value? {
+        do { return try decode(Value.self) } catch DecodingError.typeMismatch { return nil }
+    }
 }

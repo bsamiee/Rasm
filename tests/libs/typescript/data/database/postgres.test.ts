@@ -1,7 +1,8 @@
 import { PgClient } from '@effect/sql-pg';
 import { assert, layer, type Vitest } from '@effect/vitest';
-import { Catalog, Relation, Tokenizer } from '@rasm/database';
+import { Catalog } from '@rasm/database/catalog';
 import { Pg } from '@rasm/database/pg';
+import { Relation, Tokenizer } from '@rasm/database/relation';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Array, Context, Deferred, Effect, Fiber, Function, Layer, Number, Option, Predicate, Redacted, Ref, Schedule, Schema, Struct } from 'effect';
 import { SqlClient, SqlError, SqlSchema, type Statement } from 'effect/sql';

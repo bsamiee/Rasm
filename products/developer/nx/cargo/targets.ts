@@ -1,6 +1,6 @@
 import { dirname, posix, relative } from 'node:path';
 import { normalizePath, type TargetConfiguration } from '@nx/devkit';
-import { type Anchor, aggregated, EXECUTORS, removable, type Verbs } from '@rasm/nx';
+import { type Anchor, aggregated, EXECUTORS, removable, type Verbs } from '@rasm/nx/inference';
 import { Array, Option, Record } from 'effect';
 import type { Cargo, Command } from '#/executors/cargo/executor';
 import plugin from '#/package.json' with { type: 'json' };

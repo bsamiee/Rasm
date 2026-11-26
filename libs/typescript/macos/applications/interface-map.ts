@@ -1,13 +1,15 @@
 import { type UserInfo, userInfo } from 'node:os';
 import { basename, extname, join } from 'node:path';
 import { layer as sqlite } from '@effect/sql-sqlite-node/SqliteClient';
-import { Catalog, Relation } from '@rasm/database';
+import { Catalog } from '@rasm/database/catalog';
+import { Relation } from '@rasm/database/relation';
 import { Sqlite } from '@rasm/database/sqlite';
 import { Output } from '@rasm/mcp/cli';
-import { Array, Context, Data, Duration, Effect, Equal, FileSystem, Function, HashSet, Layer, Option, Order, Predicate, pipe, RcMap, Record, Ref, Schedule, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Context, Data, Duration, Effect, Equal, FileSystem, Function, HashMap, HashSet, Layer, Option, Order, Predicate, pipe, RcMap, Record, Ref, Schedule, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { SqlClient } from 'effect/sql';
 import { ApplicationServer } from '#/client';
 import { Build, Condition, Frame, Instant, type InstanceSnapshot, InstanceState, Locator, Observation, Opener, Shape, Value } from '#/contract';
+import { Description, FacetControl } from '#/source';
 import { Workspace } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -19,13 +21,13 @@ type Opened = Effect.Success<ReturnType<typeof InterfaceMap.open>>;
 
 const LIMITS = { builds: 8, openers: 4, misses: 3, epochs: 2, pairing: 8, interval: '2 seconds' } as const;
 const REDACTED = { home: '~', other: '<private>' } as const;
-const STATIC = ['kind', 'role', 'subrole', 'help', 'range', 'shortcut', 'mark', 'separated', 'alternate', 'parent', 'positional'] as const;
+const STATIC = ['kind', 'role', 'subrole', 'labels', 'section', 'help', 'range', 'shortcut', 'mark', 'separated', 'alternate', 'parent', 'positional'] as const;
 const PAIRED = ['parent', 'role', 'kind', 'help'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const subject = Condition.match({ Value: ({ _tag, at }) => ({ _tag, at }), Documents: ({ _tag }) => ({ _tag }), Modal: ({ _tag }) => ({ _tag }) });
-class Tally extends Schema.Opaque<Tally, unknown>()(
+class Tally extends Schema.Opaque<Tally>()(
     Schema.Struct({
         seen: Schema.Natural.annotate({ description: 'Epochs it was seen in' }),
         missed: Schema.Natural.annotate({ description: 'Complete reads that lacked it' }),
@@ -39,8 +41,15 @@ class Tally extends Schema.Opaque<Tally, unknown>()(
     }),
 ) {}
 const Presence = Schema.Struct({ with: Schema.Array(Condition), against: Schema.Array(Condition) });
-class Application extends Schema.Opaque<Application, unknown>()(Schema.Struct({ builds: Schema.Array(Build).annotate({ description: 'Builds read, newest first' }) })) {}
-class Container extends Schema.Opaque<Container, unknown>()(
+class Application extends Schema.Opaque<Application>()(
+    Schema.Struct({
+        builds: Schema.Array(Build).annotate({ description: 'Builds read, newest first' }),
+        options: Schema.Record(Build, Schema.Array(Schema.Tuple([Description.Locator, FacetControl.fields.options.schema.value.mapFields(Struct.omit(['locator']))])))
+            .annotate({ description: 'Label, shortcut, and help a host source stated for each facet option while the option was selected, per build, served over what the source lists for the option' })
+            .pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+    }),
+) {}
+class Container extends Schema.Opaque<Container>()(
     Schema.Struct({
         ...Struct.pick(Observation.fields, ['kind', 'title', 'modal', 'layer', 'size', 'default', 'cancel', 'close']),
         openers: Schema.Array(Schema.Struct({ ...Opener.fields, tally: Tally })),
@@ -57,21 +66,21 @@ const Control = Schema.Struct({
     tally: Tally,
     retired: Schema.OptionFromOptionalKey(Build),
 });
-class Entry extends Schema.Opaque<Entry, unknown>()(Schema.Struct({ container: Container, controls: Schema.Record(Locator, Control) }).annotate({ description: 'One container and every control read in it, keyed by locator' })) {}
+class Entry extends Schema.Opaque<Entry>()(Schema.Struct({ container: Container, controls: Schema.Record(Locator, Control) }).annotate({ description: 'One container and every control read in it, keyed by locator' })) {}
 const Change = Schema.TaggedUnion({
     Appeared: { at: Locator },
     Changed: { at: Locator },
     Relabelled: { at: Locator, from: Schema.OptionFromOptionalKey(Schema.String), to: Schema.OptionFromOptionalKey(Schema.String) },
     Gone: { at: Locator },
 });
-class Key extends Schema.Opaque<Key, unknown>()(Schema.Struct({ bundle: Schema.String, language: Schema.String })) {}
+class Key extends Schema.Opaque<Key>()(Schema.Struct({ bundle: Schema.String, language: Schema.String })) {}
 const Stored = <S extends Schema.Constraint>(document: S) => Schema.fromJsonString(Schema.OptionFromNullOr(document).pipe(Schema.catchDecoding(() => Effect.succeedSome(Option.none()))));
 const applications = Relation.make('applications', { ...Key.fields, body: Stored(Application) }, { key: ['bundle', 'language'], withoutRowid: true });
 const containers = Relation.make('containers', { ...Key.fields, locator: Locator, body: Stored(Entry) }, { key: ['bundle', 'language', 'locator'], withoutRowid: true });
 
 class InterfaceMap extends Data.Class<{ readonly application: Application; readonly containers: Readonly<Record<string, Entry>> }> {
     static readonly Change = Change;
-    static readonly empty = new InterfaceMap({ application: { builds: [] }, containers: {} });
+    static readonly empty = new InterfaceMap({ application: { builds: [], options: {} }, containers: {} });
     static readonly catalog = Catalog.make({ tables: [applications, containers] });
     static readonly open = Effect.fn('InterfaceMap.open')(function* (bundle: string, language: string) {
         const where = { bundle: [bundle], language: [language] } as const;
@@ -113,6 +122,11 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
                     const { map: next, changes } = map.fold(read, user);
                     return [changes, next] as const;
                 }),
+            learn: (described: Description) =>
+                Ref.modify(state, (map) => {
+                    const { map: next, described: completed } = map.learn(described);
+                    return [completed, next] as const;
+                }),
         };
     });
 
@@ -120,15 +134,50 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
         return Option.map(Array.head(this.application.builds), (build) => ({ build, containers: Record.keys(Record.filter(this.containers, ({ container }) => container.tally.verified === build)) }));
     }
 
+    learn(described: Description): { readonly map: InterfaceMap; readonly described: Description } {
+        const { builds, options: stored } = this.application;
+        const seen = Array.flatMap(
+            Array.flatMap(described.containers, ({ controls }) => controls),
+            ({ value, options = [] }: FacetControl) => {
+                const chosen = value?._tag === 'text' ? Option.some(value.value) : Option.none<string>();
+                return options.filter(({ label }) => Option.contains(chosen, label)).map(({ locator, ...stated }) => [locator, stated] as const);
+            },
+        );
+        const held = HashMap.fromIterable(
+            Option.getOrElse(
+                Option.flatMap(Array.head(builds), (build) => Record.get(stored, build)),
+                Array.empty,
+            ),
+        );
+        const learned = HashMap.union(held, HashMap.fromIterable(seen));
+        const map = Option.match(
+            Option.filter(Array.head(builds), () => Array.some(seen, ([locator, stated]) => !Option.contains(HashMap.get(held, locator), stated))),
+            {
+                onNone: () => this,
+                onSome: (build) => new InterfaceMap({ containers: this.containers, application: { builds, options: { ...Record.filter(stored, (_, at) => builds.includes(at)), [build]: Array.fromIterable(learned) } } }),
+            },
+        );
+        return {
+            map,
+            described: Description.make({
+                ...described,
+                containers: Array.map(described.containers, ({ controls, ...container }) => ({
+                    ...container,
+                    controls: Array.map(controls, ({ options, ...control }) => ({ ...control, ...(options === undefined ? {} : { options: Array.map(options, (option) => ({ ...option, ...Option.getOrUndefined(HashMap.get(learned, option.locator)) })) }) })),
+                })),
+            }),
+        };
+    }
+
     fold(read: Observation, { username, homedir }: Pick<UserInfo<string>, 'username' | 'homedir'>) {
-        const { build, opened, at, complete } = read;
+        const { build, opened, at, truncated } = read;
         const texts = Array.sort(Array.dedupe([...read.documents.flatMap((path) => [path, basename(path), basename(path, extname(path))]), homedir, username]), Order.mapInput(Order.flip(Order.Number), String.length));
         const pattern = new RegExp(`(?<![\\p{L}\\p{N}])(?:${texts.map(RegExp.escape).join('|')})(?![\\p{L}\\p{N}])`, 'gu');
         const hide = (text: string) => text.replaceAll(pattern, (found) => (found === homedir ? REDACTED.home : REDACTED.other));
         const shown = (value: Observation['values'][string]) => (Predicate.isString(value) ? hide(value) : value);
         const container = hide(read.container);
-        const scope: Observation['scope'] = read.scope.map(Condition.match({ Value: (atom) => ({ ...atom, at: hide(atom.at), value: shown(atom.value) }), Documents: (atom) => atom, Modal: (atom) => ({ ...atom, at: atom.at === null ? null : hide(atom.at) }) }));
-        const cause = Option.map(read.cause, Struct.evolve({ container: hide, control: hide }));
+        const scope: Observation['conditions'] = read.conditions.map(Condition.match({ Value: (atom) => ({ ...atom, at: hide(atom.at), value: shown(atom.value) }), Documents: (atom) => atom, Modal: (atom) => ({ ...atom, at: atom.at === null ? null : hide(atom.at) }) }));
+        const cause = Option.map(read.opener, Struct.evolve({ container: hide, control: hide }));
         const shapes = pipe(
             read.controls,
             Record.filter(({ kind }) => kind !== 'row'),
@@ -141,7 +190,7 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
                 },
             ]),
         );
-        const application = Option.contains(Array.head(this.application.builds), build) ? this.application : { builds: [build, ...Array.take(this.application.builds, LIMITS.builds - 1)] };
+        const application = Option.contains(Array.head(this.application.builds), build) ? this.application : { ...this.application, builds: [build, ...Array.take(this.application.builds, LIMITS.builds - 1)] };
         const entry = Option.fromUndefinedOr(this.containers[container]);
         const fresh = !Option.exists(entry, ({ container: held }) => Equal.equals(held.tally.epoch, opened));
         const sight = (tally: Option.Option<Tally>): Tally =>
@@ -193,7 +242,7 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
             const explained = scope.some((atom) => seeded.with.some((held) => Equal.equals(subject(held), subject(atom))) && !seeded.with.some((held) => Equal.equals(held, atom)));
             const unexplained = explained ? control.tally.unexplained : Array.take(Array.prepend(control.tally.unexplained, opened), LIMITS.misses);
             const retiring = !explained && (control.tally.verified !== build || (!control.tally.persistent && unexplained.length >= LIMITS.misses && Array.dedupe(unexplained).length >= LIMITS.epochs));
-            return Option.isSome(control.retired) || !complete
+            return Option.isSome(control.retired) || truncated
                 ? { control, changes: [] }
                 : {
                       control: { ...control, presence: Option.some(explained ? { ...seeded, against: Array.union(seeded.against, scope) } : seeded), tally: { ...control.tally, missed: control.tally.missed + 1, unexplained }, retired: retiring ? Option.some(build) : Option.none() },
@@ -211,7 +260,7 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
             container: {
                 ...Struct.pick(read, ['kind', 'modal', 'layer', 'size']),
                 ...Record.map(Struct.pick(read, ['default', 'cancel', 'close']), Option.map(hide)),
-                title: read.document ? Option.none() : Option.map(read.title, hide),
+                title: Option.map(read.title, hide),
                 openers: Option.match(
                     Option.filter(cause, () => fresh),
                     {
@@ -249,7 +298,13 @@ const settled = Function.memoize(({ container, controls }: Entry) => ({
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class InterfaceMaps extends Context.Service<InterfaceMaps, { readonly recall: (snapshot: InstanceSnapshot) => Effect.Effect<InterfaceMap, Effect.Error<ReturnType<typeof InterfaceMap.open>>> }>()('@rasm/applications/interface-map/InterfaceMaps') {
+class InterfaceMaps extends Context.Service<
+    InterfaceMaps,
+    {
+        readonly recall: (snapshot: InstanceSnapshot) => Effect.Effect<InterfaceMap, Effect.Error<ReturnType<typeof InterfaceMap.open>>>;
+        readonly learn: (snapshot: InstanceSnapshot, described: Description) => Effect.Effect<Description, Effect.Error<ReturnType<typeof InterfaceMap.open>>>;
+    }
+>()('@rasm/applications/interface-map/InterfaceMaps') {
     static readonly layer = Layer.effect(
         InterfaceMaps,
         Effect.gen(function* () {
@@ -282,8 +337,10 @@ class InterfaceMaps extends Context.Service<InterfaceMaps, { readonly recall: (s
                 Effect.tapCause((cause) => Effect.logError('Interface map observations ended', cause)),
                 Effect.forkScoped,
             );
+            const known = <A>({ instance, identifier, language }: InstanceSnapshot, absent: A, use: (opened: Opened) => Effect.Effect<A>) => UndefinedOr.match(language, { onUndefined: () => Effect.succeed(absent), onDefined: (held) => using({ instance, bundle: identifier, language: held }, use) });
             return {
-                recall: ({ instance, identifier, language }) => UndefinedOr.match(language, { onUndefined: () => Effect.succeed(InterfaceMap.empty), onDefined: (held) => using({ instance, bundle: identifier, language: held }, Struct.get('present')) }),
+                recall: (snapshot) => known(snapshot, InterfaceMap.empty, Struct.get('present')),
+                learn: (snapshot, described) => known(snapshot, described, ({ learn }) => learn(described)),
             };
         }),
     ).pipe(

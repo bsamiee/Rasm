@@ -1,6 +1,6 @@
 import { useAtom, useAtomMount, useAtomSet, useAtomValue } from '@effect/atom-react';
 import { Identity } from '@rasm/hosting/identity';
-import { ModalDialog } from '@rasm/ui';
+import { ModalDialog } from '@rasm/ui/modal-dialog';
 import { Match, Option } from 'effect';
 import { UrlParams } from 'effect/http';
 import { ArrowDown, ArrowUp, LucideProvider, Plus } from 'lucide-react';

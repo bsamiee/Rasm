@@ -3,8 +3,8 @@ import { isAbsolute, join, posix, resolve } from 'node:path';
 import { createConformanceRule } from '@nx/conformance';
 import { getOutputsForTargetAndConfiguration, readNxJson } from '@nx/devkit';
 import { createTaskId } from '@nx/devkit/internal';
-import { above, below, inside } from '@rasm/nx';
-import { Array, Config, ConfigProvider, Effect, Formatter, Function, Match, Option, Predicate, pipe, Record, Result, Struct } from 'effect';
+import { above, below, inside } from '@rasm/nx/inference';
+import { Array, Config, ConfigProvider, DateTime, Effect, Formatter, Function, Match, Option, Predicate, pipe, Record, Result, Struct } from 'effect';
 import { getInputs } from 'nx/src/hasher/task-hasher';
 import { createTaskGraph } from 'nx/src/tasks-runner/create-task-graph';
 import { assertTaskGraphDoesNotContainInvalidTargets, findCycle } from 'nx/src/tasks-runner/task-graph-utils';
@@ -12,7 +12,7 @@ import { createGitIgnoreChecker } from 'nx/src/utils/ignore';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const STAMP = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/u;
+const STAMP = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?/gu;
 const WORD = /[\s'"=]+/u;
 const GLOBBED = /\/[^/]*[*?[{].*$/u;
 const FOLDERS = [homedir(), tmpdir()];
@@ -27,7 +27,7 @@ const strings = (value: unknown, at: string): readonly (readonly [at: string, te
         Match.orElse(() => []),
     );
 
-const machined = (root: string, text: string) => [root, ...FOLDERS].some((folder) => text.includes(folder)) || text.split('/').some((segment) => NAMES.has(segment)) || STAMP.test(text);
+const machined = (root: string, text: string) => [root, ...FOLDERS].some((folder) => text.includes(folder)) || text.split('/').some((segment) => NAMES.has(segment)) || text.matchAll(STAMP).some(([stamp]) => Option.exists(DateTime.make(stamp), DateTime.isPastUnsafe));
 
 const outside = (root: string, project: string, text: string) =>
     text.split(WORD).filter((word) => {
@@ -46,7 +46,7 @@ export default createConformanceRule<{ readonly clean: string }>({
     name: 'tasks',
     category: 'reliability',
     description:
-        'Plans every target of every project as Nx runs it with no task cycle; keeps each output of a cached target, under each configuration, in a folder git ignores and apart from the outputs of every other cached target, as a replay deletes and restores it; gives every project declaring outputs a `clean` target no cached task depends on; and keeps the checkout, home, or temporary folder, a user or host name segment, and a timestamp out of every project caching a target and out of every variable a cached task hashes, and a path outside the workspace out of every cached target, as one remote cache serves every runner',
+        'Plans every target of every project as Nx runs it with no task cycle; keeps each output of a cached target, under each configuration, in a folder git ignores and apart from the outputs of every other cached target, as a replay deletes and restores it; gives every project declaring outputs a `clean` target no cached task depends on; and keeps the checkout, home, or temporary folder, a user or host name segment, and a past timestamp out of every project caching a target and out of every variable a cached task hashes, and a path outside the workspace out of every cached target, as one remote cache serves every runner',
     implementation: ({ tree, projectGraph, ruleOptions: { clean } }) => {
         const { root } = tree;
         const ignored = createGitIgnoreChecker(tree);

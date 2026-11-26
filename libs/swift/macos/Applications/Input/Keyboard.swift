@@ -5,6 +5,12 @@ import Results
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+struct Stroke: Equatable, Sendable {
+    let code: CGKeyCode
+    let flags: CGEventFlags
+    let text: String?
+}
+
 public enum Modifier: String, CaseIterable, Codable, Sendable {
     case command
     case shift
@@ -12,23 +18,23 @@ public enum Modifier: String, CaseIterable, Codable, Sendable {
     case control
     case function
 
-    var key: (code: CGKeyCode, flag: CGEventFlags) {
-        let (code, flag): (Int, CGEventFlags) =
+    var key: (code: CGKeyCode, flag: CGEventFlags, state: UInt32) {
+        let (code, flag, state): (Int, CGEventFlags, Int) =
             switch self {
-                case .command: (kVK_Command, .maskCommand)
-                case .shift: (kVK_Shift, .maskShift)
-                case .option: (kVK_Option, .maskAlternate)
-                case .control: (kVK_Control, .maskControl)
-                case .function: (kVK_Function, .maskSecondaryFn)
+                case .command: (kVK_Command, .maskCommand, cmdKey)
+                case .shift: (kVK_Shift, .maskShift, shiftKey)
+                case .option: (kVK_Option, .maskAlternate, optionKey)
+                case .control: (kVK_Control, .maskControl, controlKey)
+                case .function: (kVK_Function, .maskSecondaryFn, 0)
             }
-        return (CGKeyCode(code), flag)
+        return (CGKeyCode(code), flag, UInt32(state >> 8))
     }
 }
 
 public enum Key: Codable, Hashable, Sendable {
     public enum Special: String, CaseIterable, Codable, Sendable {
-        case `return`, enter, tab, space, delete, forwardDelete, escape, home, end, pageUp, pageDown, left, right, down, up, help
-        case f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12
+        case `return`, enter, tab, space, delete, forwardDelete, escape, clear, home, end, pageUp, pageDown, left, right, down, up, help, contextualMenu, eisu, kana
+        case f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19
 
         private static let glyphs: [Int: Self] = Dictionary(uniqueKeysWithValues: allCases.map { special in (special.codes.glyph, special) })
 
@@ -47,6 +53,7 @@ public enum Key: Codable, Hashable, Sendable {
                     case .delete: (kVK_Delete, kMenuDeleteLeftGlyph)
                     case .forwardDelete: (kVK_ForwardDelete, kMenuDeleteRightGlyph)
                     case .escape: (kVK_Escape, kMenuEscapeGlyph)
+                    case .clear: (kVK_ANSI_KeypadClear, kMenuClearGlyph)
                     case .home: (kVK_Home, kMenuNorthwestArrowGlyph)
                     case .end: (kVK_End, kMenuSoutheastArrowGlyph)
                     case .pageUp: (kVK_PageUp, kMenuPageUpGlyph)
@@ -56,6 +63,9 @@ public enum Key: Codable, Hashable, Sendable {
                     case .down: (kVK_DownArrow, kMenuDownArrowGlyph)
                     case .up: (kVK_UpArrow, kMenuUpArrowGlyph)
                     case .help: (kVK_Help, kMenuHelpGlyph)
+                    case .contextualMenu: (kVK_ContextualMenu, kMenuContextualMenuGlyph)
+                    case .eisu: (kVK_JIS_Eisu, kMenuEisuGlyph)
+                    case .kana: (kVK_JIS_Kana, kMenuKanaGlyph)
                     case .f1: (kVK_F1, kMenuF1Glyph)
                     case .f2: (kVK_F2, kMenuF2Glyph)
                     case .f3: (kVK_F3, kMenuF3Glyph)
@@ -68,6 +78,13 @@ public enum Key: Codable, Hashable, Sendable {
                     case .f10: (kVK_F10, kMenuF10Glyph)
                     case .f11: (kVK_F11, kMenuF11Glyph)
                     case .f12: (kVK_F12, kMenuF12Glyph)
+                    case .f13: (kVK_F13, kMenuF13Glyph)
+                    case .f14: (kVK_F14, kMenuF14Glyph)
+                    case .f15: (kVK_F15, kMenuF15Glyph)
+                    case .f16: (kVK_F16, kMenuF16Glyph)
+                    case .f17: (kVK_F17, kMenuF17Glyph)
+                    case .f18: (kVK_F18, kMenuF18Glyph)
+                    case .f19: (kVK_F19, kMenuF19Glyph)
                 }
             return (CGKeyCode(key), glyph)
         }
@@ -99,55 +116,81 @@ public enum Key: Codable, Hashable, Sendable {
         }
     }
 
-    func strokes(holding modifiers: Set<Modifier>, on layout: KeyboardLayout) throws(ApplicationFailure) -> [(code: CGKeyCode, flags: CGEventFlags, text: String?)] {
-        let typed: [(code: CGKeyCode, flags: CGEventFlags, text: String?)]
+    func strokes(holding modifiers: Set<Modifier>, on layout: KeyboardLayout) throws(ApplicationFailure) -> [Stroke] {
+        let typed: [Stroke]
         switch self {
-            case .code(let code): typed = [(code, [], nil)]
-            case .special(let special): typed = [(special.codes.key, [], nil)]
+            case .code(let code): typed = [Stroke(code: code, flags: [], text: nil)]
+            case .special(let special): typed = [Stroke(code: special.codes.key, flags: [], text: nil)]
             case .character(let character):
-                guard let strokes = layout.strokes[character] else {
+                let tables: [(key: Set<Modifier>, value: [Character: [Stroke]])] = layout.strokes
+                    .filter { held, _ in held.isSubset(of: modifiers) }
+                    .sorted { first, second in first.key.count > second.key.count }
+                guard let strokes = tables.lazy.compactMap({ table in table.value[character] }).first else {
                     let keyboard: String = layout.name.map { name in "key of keyboard layout \(name)" } ?? "key of the current keyboard layout"
                     throw ApplicationFailure(subject: "key \(character)", reason: .unmatched(Unmatched(subject: keyboard, query: String(character), candidates: [])))
                 }
                 typed = strokes
         }
         let held = CGEventFlags(modifiers.map(\.key.flag))
-        return typed.map { stroke in (stroke.code, stroke.flags.union(held), stroke.text) }
+        return typed.map { stroke in Stroke(code: stroke.code, flags: stroke.flags.union(held), text: stroke.text) }
     }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 struct KeyboardLayout: Sendable {
+    private struct Press {
+        let held: Set<Modifier>
+        let code: CGKeyCode
+        let state: UInt32
+        let flags: CGEventFlags
+    }
+
+    private struct Typed {
+        let held: Set<Modifier>
+        let character: Character
+        let strokes: [Stroke]
+    }
+
     let name: String?
-    let strokes: [Character: [(code: CGKeyCode, flags: CGEventFlags, text: String?)]]
+    let strokes: [Set<Modifier>: [Character: [Stroke]]]
 
     @MainActor
-    static func current(typing keyboardType: CGEventSourceKeyboardType) -> Self {
+    static func current(keyboardType: CGEventSourceKeyboardType) -> Self {
         let source = unsafe TISCopyCurrentKeyboardLayoutInputSource().takeRetainedValue()
         let name: String? = unsafe TISGetInputSourceProperty(source, kTISPropertyLocalizedName).map { name in unsafe Unmanaged<CFString>.fromOpaque(name).takeUnretainedValue() as String }
         let data: CFData? = unsafe TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData).map { data in unsafe Unmanaged<CFData>.fromOpaque(data).takeUnretainedValue() }
         guard let data, let bytes = unsafe CFDataGetBytePtr(data) else { return Self(name: name, strokes: [:]) }
         let layout = unsafe UnsafeRawPointer(bytes).assumingMemoryBound(to: UCKeyboardLayout.self)
-        let states: [(state: Int, flags: CGEventFlags)] = [(0, []), (shiftKey, .maskShift), (optionKey, .maskAlternate), (shiftKey | optionKey, [.maskShift, .maskAlternate])]
-        let keys: [(code: CGKeyCode, state: UInt32, flags: CGEventFlags)] = (CGKeyCode(0)...CGKeyCode(keyCodeMask >> 8)).flatMap { code in
-            states.map { held in (code, UInt32(held.state >> 8), held.flags) }
+        let info: UInt32 = unsafe layout.pointee.keyLayoutFeatureInfoOffset
+        let longest: Int = info == 0 ? Int(UInt8.max) : Int(unsafe UnsafeRawPointer(bytes).load(fromByteOffset: Int(info), as: UCKeyLayoutFeatureInfo.self).maxOutputStringLength)
+        let typing: [Set<Modifier>] = [[], [.shift], [.option], [.shift, .option]]
+        let states: [(held: Set<Modifier>, typing: Set<Modifier>)] = [[], [.command]].flatMap { (held: Set<Modifier>) in typing.map { set in (held, set) } }
+        let presses: [Press] = (CGKeyCode(0)...CGKeyCode(keyCodeMask >> 8)).flatMap { (code: CGKeyCode) -> [Press] in
+            states.map { held, set in
+                Press(held: held, code: code, state: held.union(set).reduce(UInt32.zero) { state, modifier in state | modifier.key.state }, flags: CGEventFlags(set.map(\.key.flag)))
+            }
         }
-        let translate = { (key: (code: CGKeyCode, state: UInt32, flags: CGEventFlags), dead: UInt32) -> (typed: Character?, dead: UInt32)? in
-            var (state, length, characters): (UInt32, Int, [UniChar]) = (dead, 0, [0, 0, 0, 0])
-            let status = unsafe UCKeyTranslate(layout, key.code, UInt16(kUCKeyActionDown), key.state, keyboardType, 0, &state, characters.count, &length, &characters)
+        var characters = [UniChar](repeating: 0, count: longest)
+        let translate: (Press, UInt32) -> (typed: Character?, dead: UInt32)? = { press, dead in
+            var (state, length): (UInt32, Int) = (dead, 0)
+            let status = unsafe UCKeyTranslate(layout, press.code, UInt16(kUCKeyActionDown), press.state, keyboardType, 0, &state, characters.count, &length, &characters)
             let text = String(decoding: characters.prefix(length), as: UTF16.self)
             return status == noErr ? (text.count == 1 ? text.first : nil, text.isEmpty ? state : 0) : nil
         }
-        let pressed: [(key: (code: CGKeyCode, state: UInt32, flags: CGEventFlags), typed: Character?, dead: UInt32)] = keys.compactMap { key in
-            translate(key, 0).map { output in (key, output.typed, output.dead) }
+        let translated: [(press: Press, typed: Character?, dead: UInt32)] = presses.compactMap { press in translate(press, 0).map { output in (press, output.typed, output.dead) } }
+        let single: [Typed] = translated.compactMap { entry in
+            entry.typed.map { character in Typed(held: entry.press.held, character: character, strokes: [Stroke(code: entry.press.code, flags: entry.press.flags, text: String(character))]) }
         }
-        let single: [(Character, [(code: CGKeyCode, flags: CGEventFlags, text: String?)])] = pressed.compactMap { press in
-            press.typed.map { character in (character, [(press.key.code, press.key.flags, String(character))]) }
+        let sharing: [Set<Modifier>: [Press]] = Dictionary(grouping: presses) { press in press.held }
+        let composed: [Typed] = translated.filter { entry in entry.dead != 0 }.flatMap { (entry: (press: Press, typed: Character?, dead: UInt32)) -> [Typed] in
+            (sharing[entry.press.held] ?? []).compactMap { (press: Press) -> Typed? in
+                guard let character: Character = translate(press, entry.dead)?.typed else { return nil }
+                let lead = Stroke(code: entry.press.code, flags: entry.press.flags, text: "")
+                return Typed(held: press.held, character: character, strokes: [lead, Stroke(code: press.code, flags: press.flags, text: String(character))])
+            }
         }
-        let composed: [(Character, [(code: CGKeyCode, flags: CGEventFlags, text: String?)])] = pressed.filter { press in press.dead != 0 }.flatMap { press in
-            keys.compactMap { key in translate(key, press.dead)?.typed.map { character in (character, [(press.key.code, press.key.flags, ""), (key.code, key.flags, String(character))]) } }
-        }
-        return Self(name: name, strokes: Dictionary(single + composed) { first, _ in first })
+        let tables = Dictionary(grouping: single + composed) { entry in entry.held }
+        return Self(name: name, strokes: tables.mapValues { entries in Dictionary(entries.map { entry in (entry.character, entry.strokes) }) { first, _ in first } })
     }
 }

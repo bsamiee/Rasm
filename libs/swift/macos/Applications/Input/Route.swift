@@ -1,9 +1,11 @@
 import AppKit
 public import CoreGraphics
+public import Encoding
+import System
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public enum Route: Codable, Hashable, Sendable {
+public enum Route: CaseTagged, Hashable, Sendable {
     case process
     case window(number: CGWindowID)
     case focused(number: CGWindowID)
@@ -49,9 +51,9 @@ extension Route {
             }
         }
         var serial = ProcessSerialNumber()
-        guard unsafe marks.isEmpty || findProcess(process, &serial) else { throw ApplicationFailure(subject: String(process), reason: .noProcess) }
+        guard unsafe marks.isEmpty || findProcess(process, &serial) else { throw ApplicationFailure(subject: String(process), reason: .system(.noSuchProcess)) }
         guard self != .system || NSWorkspace.shared.frontmostApplication?.processIdentifier == process else {
-            throw ApplicationFailure(subject: "\(subject), which posts to the frontmost process alone", reason: .refused(nil))
+            throw ApplicationFailure(subject: "\(subject), which posts to the frontmost process alone", reason: .refused)
         }
         for state in [CGEventSuppressionState.eventSuppressionStateSuppressionInterval, .eventSuppressionStateRemoteMouseDrag] {
             source.setLocalEventsFilterDuringSuppressionState([.permitLocalMouseEvents, .permitLocalKeyboardEvents, .permitSystemDefinedEvents], state: state)
@@ -59,8 +61,8 @@ extension Route {
         let keys: Set<CGEventType> = [.keyDown, .keyUp, .flagsChanged]
         let signed: Bool = self != .system && timeline.allSatisfy { _, event in keys.contains(event.type) && !event.flags.contains(.maskCommand) }
         let authentication: AnyClass? = NSClassFromString("SLSEventAuthenticationMessage")
-        let opened: Int32? = marks.first.map { mark in unsafe postEventRecord(&serial, mark) }
-        guard opened ?? 0 == 0 else { throw ApplicationFailure(subject: "focus record of \(subject) answered \(opened ?? 0)", reason: .refused(nil)) }
+        let opened: CGError? = marks.first.map { mark in unsafe postEventRecord(&serial, mark) }
+        if let opened, opened != .success { throw ApplicationFailure(subject: "focus record of \(subject)", reason: .windowServer(opened)) }
         let start = clock.now
         var copied = [UInt8](repeating: 0, count: record.size)
         let walked: ApplicationFailure?
@@ -70,7 +72,7 @@ extension Route {
                 event.setSource(source)
                 let read: Int32? = unsafe signed ? getEventRecord(event, &copied, copied.count) : nil
                 let message: AnyObject? = unsafe read == 0 ? (authentication?.message?(eventRecord: copied, pid: process, version: 0)).flatMap(\.self) : nil
-                guard read == nil || message != nil else { throw ApplicationFailure(subject: "signing key event \(event.type.rawValue) of \(subject)", reason: .refused(nil)) }
+                guard read == nil || message != nil else { throw ApplicationFailure(subject: "signing key event \(event.type.rawValue) of \(subject)", reason: .refused) }
                 let aimed: (number: CGWindowID, origin: CGPoint)? = keys.contains(event.type) ? nil : target
                 let stamps: [(CGEventField?, Int64)] =
                     aimed.map { number, _ in
@@ -88,17 +90,14 @@ extension Route {
         } catch {
             walked = error
         }
-        let closed: Int32? = marks.last.map { mark in unsafe postEventRecord(&serial, mark) }
+        let closed: CGError? = marks.last.map { mark in unsafe postEventRecord(&serial, mark) }
         if let walked { throw walked }
-        guard closed ?? 0 == 0 else { throw ApplicationFailure(subject: "defocus record of \(subject) answered \(closed ?? 0)", reason: .refused(nil)) }
+        if let closed, closed != .success { throw ApplicationFailure(subject: "defocus record of \(subject)", reason: .windowServer(closed)) }
     }
 }
 
-@_silgen_name("CPSFindProcessByPID")
-private func findProcess(_: pid_t, _: UnsafeMutablePointer<ProcessSerialNumber>) -> Bool
-
 @_silgen_name("SLPSPostEventRecordTo")
-private func postEventRecord(_: UnsafePointer<ProcessSerialNumber>, _: UnsafePointer<UInt8>) -> Int32
+private func postEventRecord(_: UnsafePointer<ProcessSerialNumber>, _: UnsafePointer<UInt8>) -> CGError
 
 @_silgen_name("SLEventGetEventRecord")
 private func getEventRecord(_: CGEvent, _: UnsafeMutableRawPointer, _: Int) -> Int32

@@ -10,10 +10,11 @@ import Testing
 struct Read: Hashable {
     let role: String?
     let subrole: String?
-    let frame: CGRect
+    let frame: CGRect?
     let parent: String?
     let help: String?
     let caption: String?
+    let refused: [String: AXError]
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -30,9 +31,20 @@ struct FixtureTests {
             try await fixture.send(.show(surface: .panel))
             try await fixture.send(.report)
             let report = try await fixture.next(\.report).value
-            func read(_ element: AXUIElement, _ attribute: String) -> (answer: AXError, value: CFTypeRef?) {
+            func read(_ element: AXUIElement, _ attribute: String) throws -> CFTypeRef? {
                 var value: CFTypeRef?
-                return (unsafe AXUIElementCopyAttributeValue(element, attribute as CFString, &value), value)
+                let answer: AXError = unsafe AXUIElementCopyAttributeValue(element, attribute as CFString, &value)
+                let answered: Bool = answer == .success
+                let refusal: Comment = "Reading \(attribute) of the fixture answered AXError \(answer.rawValue)"
+                try #require(answered, refusal)
+                return value
+            }
+            func decoded<Value: BitwiseCopyable>(_ slot: CFTypeRef, as type: AXValueType, from start: Value) throws -> Value {
+                var value: Value = start
+                let typed: Bool = unsafe CFGetTypeID(slot) == AXValueGetTypeID() && AXValueGetValue(unsafeDowncast(slot, to: AXValue.self), type, &value)
+                let mistyped: Comment = "The fixture answered \(slot) where an AXValue of type \(type.rawValue) belongs"
+                try #require(typed, mistyped)
+                return value
             }
             func elements(_ slot: CFTypeRef?) -> [AXUIElement] {
                 let held: [CFTypeRef] = (slot as? [CFTypeRef]) ?? slot.map { single in [single] } ?? []
@@ -40,30 +52,30 @@ struct FixtureTests {
             }
             let attributes = [kAXRoleAttribute, kAXSubroleAttribute, kAXPositionAttribute, kAXSizeAttribute, kAXParentAttribute, kAXHelpAttribute, kAXTitleUIElementAttribute, kAXChildrenAttribute]
             let height = CGDisplayBounds(CGMainDisplayID()).height
-            let windows = read(AXUIElementCreateApplication(fixture.process), kAXWindowsAttribute)
-            let readable: Bool = windows.answer == AXError.success
-            let refusal: Comment = "Reading the fixture's windows answered \(windows.answer.rawValue)"
-            try #require(readable, refusal)
-            var pending = elements(windows.value)
+            var pending = elements(try read(AXUIElementCreateApplication(fixture.process), kAXWindowsAttribute))
             var outside: [Read] = []
             while let element = pending.popLast() {
                 var copied: CFArray?
-                _ = unsafe AXUIElementCopyMultipleAttributeValues(element, attributes as CFArray, [], &copied)
-                let slots: [String: CFTypeRef] = Dictionary(uniqueKeysWithValues: zip(attributes, copied as? [CFTypeRef] ?? []))
-                pending += elements(slots[kAXChildrenAttribute])
-                var origin = CGPoint.zero
-                var size = CGSize.zero
-                guard let position = slots[kAXPositionAttribute], let extent = slots[kAXSizeAttribute], CFGetTypeID(position) == AXValueGetTypeID(), CFGetTypeID(extent) == AXValueGetTypeID(),
-                    unsafe AXValueGetValue(unsafeDowncast(position, to: AXValue.self), .cgPoint, &origin), unsafe AXValueGetValue(unsafeDowncast(extent, to: AXValue.self), .cgSize, &size)
-                else { continue }
+                let answer: AXError = unsafe AXUIElementCopyMultipleAttributeValues(element, attributes as CFArray, [], &copied)
+                let answered: Bool = answer == .success
+                let refusal: Comment = "Reading \(attributes) of a fixture element answered AXError \(answer.rawValue)"
+                try #require(answered, refusal)
+                let slots: [String: CFTypeRef] = Dictionary(uniqueKeysWithValues: zip(attributes, try #require(copied as? [CFTypeRef])))
+                let errors: [String: AXError] = try slots.filter { _, slot in CFGetTypeID(slot) == AXValueGetTypeID() && AXValueGetType(unsafe unsafeDowncast(slot, to: AXValue.self)) == .axError }
+                    .mapValues { slot in try decoded(slot, as: .axError, from: AXError.success) }
+                let values: [String: CFTypeRef] = slots.filter { attribute, slot in errors[attribute] == nil && CFGetTypeID(slot) != CFNullGetTypeID() }
+                pending += elements(values[kAXChildrenAttribute])
+                let origin: CGPoint? = try values[kAXPositionAttribute].map { slot in try decoded(slot, as: .cgPoint, from: CGPoint.zero) }
+                let size: CGSize? = try values[kAXSizeAttribute].map { slot in try decoded(slot, as: .cgSize, from: CGSize.zero) }
                 outside.append(
                     Read(
-                        role: slots[kAXRoleAttribute] as? String,
-                        subrole: slots[kAXSubroleAttribute] as? String,
-                        frame: CGRect(x: origin.x, y: height - origin.y - size.height, width: size.width, height: size.height),
-                        parent: elements(slots[kAXParentAttribute]).first.flatMap { parent in read(parent, kAXRoleAttribute).value as? String },
-                        help: slots[kAXHelpAttribute] as? String,
-                        caption: elements(slots[kAXTitleUIElementAttribute]).first.flatMap { title in read(title, kAXValueAttribute).value as? String },
+                        role: values[kAXRoleAttribute] as? String,
+                        subrole: values[kAXSubroleAttribute] as? String,
+                        frame: origin.flatMap { origin in size.map { size in CGRect(x: origin.x, y: height - origin.y - size.height, width: size.width, height: size.height) } },
+                        parent: try elements(values[kAXParentAttribute]).first.flatMap { parent in try read(parent, kAXRoleAttribute) as? String },
+                        help: values[kAXHelpAttribute] as? String,
+                        caption: try elements(values[kAXTitleUIElementAttribute]).first.flatMap { title in try read(title, kAXValueAttribute) as? String },
+                        refused: errors.filter { _, error in ![AXError.noValue, .attributeUnsupported].contains(error) },
                     )
                 )
             }
@@ -71,14 +83,16 @@ struct FixtureTests {
         }
         let visible: Set<Int> = Set(report.windows.filter(\.visible).map(\.number))
         let reported: [Read] = report.controls.filter { control in control.window.map { number throws(Never) in visible.contains(number) } ?? false }.compactMap { control in
-            control.frame.map { frame in Read(role: control.role, subrole: control.subrole, frame: frame, parent: control.parent, help: control.help, caption: control.caption) }
+            control.frame.map { frame in Read(role: control.role, subrole: control.subrole, frame: frame, parent: control.parent, help: control.help, caption: control.caption, refused: [:]) }
         }
-        let frames: Set<CGRect> = Set(reported.map(\.frame))
-        let seen: Set<Read> = Set(outside.filter { read in frames.contains(read.frame) && read.role.map { role throws(Never) in documented.contains(role) } ?? false })
+        let frames: Set<CGRect> = Set(reported.compactMap(\.frame))
+        let seen: Set<Read> = Set(
+            outside.filter { read in
+                !read.refused.isEmpty || (read.frame.map { frame throws(Never) in frames.contains(frame) } ?? false && read.role.map { role throws(Never) in documented.contains(role) } ?? false)
+            }
+        )
         let stated: Set<Read> = Set(reported.filter { read in read.role.map { role throws(Never) in documented.contains(role) } ?? false })
         expectNoDifference(seen, stated)
-        let shown: Set<String> = Set(reported.compactMap(\.role))
-        let covered: Bool = shown.isSuperset(of: documented)
-        #expect(covered)
+        expectNoDifference(documented.subtracting(reported.compactMap(\.role)), [])
     }
 }

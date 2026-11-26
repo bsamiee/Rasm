@@ -1,12 +1,16 @@
 import { Description } from '@rasm/applications/source';
-import { Adjust, Typeset, TypesettingRpcs } from '@rasm/indesign';
-import { adjust, call, change, Dom, findChange, font, inspect, KASHIDA_WIDTHS, kerns, listen, preflight, render, runs, STYLISTIC_TAGS, suppressDialogs, thousandths, toolbar, typeset, workspace } from '@rasm/indesign/uxp';
-import type { Upstream } from '@rasm/mcp';
-import { HostError, RenderRpcs } from '@rasm/object-model';
-import { Settings } from '@rasm/typography';
+import { Adjust, Typeset, TypesettingRpcs } from '@rasm/indesign/typesetting';
+import { Dom } from '@rasm/indesign/uxp/dom';
+import { call, change, findChange, font, inspect, preflight, render, suppressDialogs } from '@rasm/indesign/uxp/operations';
+import { KASHIDA_WIDTHS, STYLISTIC_TAGS, thousandths } from '@rasm/indesign/uxp/settings';
+import { toolbar, workspace } from '@rasm/indesign/uxp/source';
+import { adjust, kerns, runs, typeset } from '@rasm/indesign/uxp/typesetting';
+import { HostError } from '@rasm/object-model/model';
+import { RenderRpcs } from '@rasm/object-model/rpcs';
+import { Settings } from '@rasm/typography/settings';
 import { Plugin, Uxp } from '@rasm/uxp/plugin';
-import { element, picker } from '@rasm/uxp/spectrum';
-import { Array, Cause, Effect, Function, flow, Layer, Match, Number, Option, pipe, Queue, Record, Schema, Scope, Semaphore, Stream, Struct } from 'effect';
+import { createElement, createPicker } from '@rasm/uxp/spectrum';
+import { Array, Cause, Effect, Function, flow, Layer, Match, Number, Option, pipe, Record, Result, Schema, Scope, Semaphore, Stream, Struct } from 'effect';
 import declarations from 'indesign-uxp-types/flat?inline';
 import { Tools } from '#/tools';
 
@@ -16,7 +20,7 @@ const SHORTCUT_MULTIPLE = 5;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Steps extends Schema.Opaque<Steps, unknown>()(Schema.Struct({ kerning: thousandths, baselineShift: Schema.Finite })) {}
+class Steps extends Schema.Opaque<Steps>()(Schema.Struct({ kerning: thousandths, baselineShift: Schema.Finite })) {}
 const isElongated = Settings.fields.kashida.schema.isAnyOf(['Tatweel', 'Stretched']);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -33,28 +37,17 @@ const nudge = Effect.fnUntraced(function* (deltas: Option.Option<(steps: Steps) 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const [dom, permit] = Effect.runSync(Effect.all([Dom.make(declarations), Semaphore.make(1)]));
-const runScript = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.scopedWith((scope) => Effect.andThen(Scope.provide(suppressDialogs, scope), effect)).pipe(Semaphore.withPermit(permit), Effect.provideService(Dom, dom));
-const events = Stream.unwrap(
-    Plugin.useSync(({ id }) =>
-        Stream.callback<Stream.Success<Upstream['events']>>((queue) =>
-            listen(
-                ({ app }) => app,
-                [dom.Document.AFTER_OPEN, dom.Document.AFTER_SAVE, dom.Document.BEFORE_CLOSE],
-                id,
-                ({ eventType, target }) => {
-                    if (dom.document(target)) {
-                        Queue.offerUnsafe(queue, { name: eventType, target: Option.some(target.toSpecifier()), detail: Option.none() });
-                    }
-                },
-            ).pipe(Effect.provideService(Dom, dom)),
-        ),
-    ),
+const hosted = Effect.provideService(Dom, dom);
+const scripting = hosted(Effect.andThen(Semaphore.takeScoped(permit, 1), suppressDialogs));
+const runScript = <A, E, R>(effect: Effect.Effect<A, E, R>) => hosted(Effect.scopedWith((scope) => Effect.andThen(Scope.provide(scripting, scope), effect)));
+const events = Dom.events(({ app, Document }) => [app, [Document.AFTER_OPEN, Document.AFTER_SAVE, Document.BEFORE_CLOSE]]).pipe(
+    Stream.filterMap(({ eventType, target }) => (dom.document(target) ? Result.succeed({ name: eventType, target: Option.some(target.toSpecifier()), detail: Option.none() }) : Result.failVoid)),
+    Stream.provideService(Dom, dom),
 );
 const source = pipe(Description.tools(toolbar), Description.merge(workspace), Description.merge({ changes: events }));
 const application = Effect.tryPromise({ try: () => dom.app.fullName, catch: HostError.refused('application fullName') }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Uxp.Application)), Effect.map(Struct.get('url')));
-const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X>) => void) {
-    const { id } = yield* Plugin;
-    const mode = picker(
+const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X, Plugin>) => void) {
+    const mode = createPicker(
         'Mode',
         Record.toEntries({
             Marks: { horizontal: ({ kerning }) => ({ marks: { x: kerning, y: 0 } }), vertical: ({ kerning }) => ({ marks: { x: 0, y: kerning } }) },
@@ -62,16 +55,19 @@ const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work:
             Tracking: { horizontal: ({ kerning }) => ({ tracking: kerning }), vertical: ({ baselineShift }) => ({ baselineShift }) },
         } as const satisfies Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, (steps: Steps) => Adjust['deltas']>>),
     );
-    const elongation = picker(
+    const elongation = createPicker(
         'Elongation',
         Array.map(Struct.keys(Settings.fields.kashida.schema.cases), (tag) => [tag, tag] as const),
     );
-    const width = picker('Width', Record.toEntries(Struct.omit(KASHIDA_WIDTHS, ['None'])));
-    const sets = Array.map(STYLISTIC_TAGS, (tag) => [tag, element('sp-checkbox', { textContent: tag })] as const);
-    const buttons = Record.collect({ '←': { axis: 'horizontal', sign: -1 }, '→': { axis: 'horizontal', sign: 1 }, '↑': { axis: 'vertical', sign: 1 }, '↓': { axis: 'vertical', sign: -1 } } as const, (textContent, arrow) => [arrow, element('sp-action-button', { quiet: true, textContent })] as const);
+    const width = createPicker('Width', Record.toEntries(Struct.omit(KASHIDA_WIDTHS, ['None'])));
+    const sets = Array.map(STYLISTIC_TAGS, (tag) => [tag, createElement('sp-checkbox', { textContent: tag })] as const);
+    const buttons = Record.collect({ '←': { axis: 'horizontal', sign: -1 }, '→': { axis: 'horizontal', sign: 1 }, '↑': { axis: 'vertical', sign: 1 }, '↓': { axis: 'vertical', sign: -1 } } as const, (textContent, arrow) => [arrow, createElement('sp-action-button', { quiet: true, textContent })] as const);
     const groups: Record.ReadonlyRecord<string, readonly HTMLElement[]> = { Nudge: [mode.element, ...Array.map(buttons, ([, button]) => button)], Kashida: [elongation.element, width.element], 'Stylistic sets': Array.map(sets, ([, box]) => box) };
     const inputs = Array.flatten(Object.values(groups));
-    const disableInputs = (held: readonly HTMLElement[]) => inputs.forEach((input) => (held.includes(input) ? input.setAttribute('disabled', '') : input.removeAttribute('disabled')));
+    const disableInputs = (held: readonly HTMLElement[]) =>
+        inputs.forEach((input) => {
+            Object.assign(input, { disabled: held.includes(input) });
+        });
     const displaySettings = ({ kashida, features }: Settings) =>
         Effect.sync(() => {
             disableInputs(isElongated(kashida) ? [] : [width.element]);
@@ -99,8 +95,13 @@ const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work:
     sets.forEach(([tag, box]) => box.addEventListener('change', () => act(Effect.succeedSome({ features: { [tag]: box.checked ? 1 : null } }))));
     buttons.forEach(([{ axis, sign }, button]) => button.addEventListener('click', ({ metaKey, ctrlKey }) => act(nudge(Option.map(mode.read(), Struct.get(axis)), sign * (metaKey || ctrlKey ? SHORTCUT_MULTIPLE : 1)))));
     Object.assign(root, { textContent: '' });
-    Record.collect(groups, (textContent, children) => element('div', {}, element('sp-detail', { textContent }), ...children)).forEach((child) => root.append(child));
-    yield* listen(({ app }) => app, ['afterSelectionChanged', 'afterSelectionAttributeChanged', 'afterContextChanged'], id, refresh);
+    root.append(...Record.collect(groups, (textContent, children) => createElement('div', {}, createElement('sp-detail', { textContent }), ...children)));
+    fork(
+        Stream.runForEach(
+            Dom.events(({ app, Application }) => [app, [Application.AFTER_SELECTION_CHANGED, Application.AFTER_SELECTION_ATTRIBUTE_CHANGED, Application.AFTER_CONTEXT_CHANGED]]),
+            () => Effect.sync(refresh),
+        ).pipe(Effect.provideService(Dom, dom)),
+    );
     yield* Effect.sync(refresh);
 }, runScript);
 
@@ -110,11 +111,12 @@ Plugin.serve({
         group: RenderRpcs.merge(TypesettingRpcs),
         toolkit: Tools,
         handlers: Layer.mergeAll(
-            Tools.toLayer({ read: flow(inspect, runScript), change: flow(change, runScript), call: flow(call, runScript), find_change: flow(findChange, runScript), adjust: flow(adjust, runScript), preflight: flow(preflight, runScript) }),
-            RenderRpcs.toLayer({ render: ({ target }) => runScript(Uxp.renderFile((file) => render(target, file.nativePath))) }),
-            TypesettingRpcs.toLayer({ runs: flow(runs, runScript), kerns: flow(kerns, runScript), typeset: flow(typeset, runScript), font: flow(font, runScript) }),
+            Tools.toLayer({ read: flow(inspect, hosted), change: flow(change, hosted), call: flow(call, hosted), find_change: flow(findChange, hosted), adjust: flow(adjust, hosted), preflight: flow(preflight, hosted) }),
+            RenderRpcs.toLayer({ render: ({ target }) => hosted(Uxp.renderFile((file) => render(target, file.nativePath))) }),
+            TypesettingRpcs.toLayer({ runs: flow(runs, hosted), kerns: flow(kerns, hosted), typeset: flow(typeset, hosted), font: flow(font, hosted) }),
         ),
-        source: { describe: flow(source.describe, runScript), operate: flow(source.operate, runScript), changes: Stream.provideService(source.changes, Dom, dom) },
+        source: { describe: flow(source.describe, hosted), operate: flow(source.operate, hosted), changes: Stream.provideService(source.changes, Dom, dom) },
+        dialogs: scripting,
     }),
     panels: { typesetting: panel },
 });

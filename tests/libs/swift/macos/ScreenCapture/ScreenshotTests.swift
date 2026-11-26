@@ -1,6 +1,8 @@
 import AppKit
 @unsafe @preconcurrency import ApplicationServices
 import Applications
+import CasePathsCore
+import CustomDump
 import Fixture
 import Testing
 
@@ -66,12 +68,10 @@ struct ScreenshotTests {
         }
         for (window, shot) in zip(windows, shots) {
             let image: CGImage = try shot.get().image
-            let scale: CGFloat = try #require(NSScreen.screens.first { screen in screen.frame.contains(CGPoint(x: window.frame.midX, y: window.frame.midY)) }?.backingScaleFactor)
-            let wanted: (width: Int, height: Int) = (Int((window.frame.width * scale).rounded()), Int((window.frame.height * scale).rounded()))
-            #expect(
-                (image.width, image.height) == wanted,
-                "window \(window.number) frame \(String(describing: window.frame)) at scale \(scale): got \(image.width)x\(image.height), want \(wanted.width)x\(wanted.height)",
-            )
+            let screen: NSScreen? = NSScreen.screens.first { (screen: NSScreen) -> Bool in screen.frame.contains(CGPoint(x: window.frame.midX, y: window.frame.midY)) }
+            let scale: CGFloat = try #require(screen?.backingScaleFactor)
+            let wanted = CGSize(width: (window.frame.width * scale).rounded(), height: (window.frame.height * scale).rounded())
+            expectNoDifference(CGSize(width: image.width, height: image.height), wanted, "window \(window.number) frame \(String(describing: window.frame)) at scale \(scale)")
         }
     }
 }

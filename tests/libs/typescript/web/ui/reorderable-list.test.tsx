@@ -1,4 +1,4 @@
-import { ReorderableList } from '@rasm/ui';
+import { ReorderableList } from '@rasm/ui/reorderable-list';
 import { Array } from 'effect';
 import { useState } from 'react';
 import { expect, it } from 'vitest';

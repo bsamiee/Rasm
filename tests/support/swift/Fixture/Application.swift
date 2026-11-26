@@ -96,6 +96,7 @@ final class Delegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSToolbar
     private var captions: [Inventory: NSTextField] = [:]
     private var menus: [Inventory: NSMenu] = [:]
     private var status: NSStatusItem?
+    private var termination: Hang?
 
     override init() {
         let document: NSWindow.StyleMask = [.titled, .closable, .miniaturizable, .resizable]
@@ -159,6 +160,12 @@ final class Delegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSToolbar
             }
         }
         for surface in [Surface.unlisted, .covered, .lists, .controls] { windows[surface]?.orderBack(nil) }
+        if UserDefaults.standard.bool(forKey: FixtureSession.ordersFrontAtLaunch), let window = windows[.controls] {
+            window.level = .normal
+            window.orderFrontRegardless()
+        }
+        var input = stat()
+        guard unsafe fstat(FileHandle.standardInput.fileDescriptor, &input) == 0, input.st_mode & S_IFMT == S_IFIFO else { return }
         atexit {
             do {
                 try FileManager.default.removeItem(at: Layout.folder)
@@ -181,6 +188,12 @@ final class Delegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSToolbar
             }
         }
         emit(Line.ready)
+    }
+
+    func applicationWillTerminate(_: Notification) {
+        guard let termination else { return }
+        for window in windows.values { window.close() }
+        handle(.hang(kind: termination))
     }
 
     func applicationDidBecomeActive(_: Notification) { emit(Line.active(active: true)) }
@@ -242,6 +255,7 @@ final class Delegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSToolbar
         switch command {
             case .report: emit(Line.report(report: report()))
             case .show(let surface): present(surface, shown: true)
+            case .raise(let surface): windows[surface]?.orderFrontRegardless()
             case .dismiss(let surface): present(surface, shown: false)
             case .retitle(let entry, let member, let title):
                 switch built[entry]?.members.dropFirst(member).first {
@@ -250,15 +264,20 @@ final class Delegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSToolbar
                     case let region as Region: region.text = title
                     default: captions[entry]?.stringValue = title
                 }
+            case .select(let entry, let member, let segment): (built[entry]?.members.dropFirst(member).first as? NSSegmentedControl)?.selectedSegment = segment
             case .reorder(let from, let to):
                 guard let form = windows[.controls]?.contentView as? NSStackView else { return }
                 form.insertArrangedSubview(form.arrangedSubviews[from], at: to)
                 form.layoutSubtreeIfNeeded()
             case .fault(let nonce): Logger().fault("\(nonce, privacy: .public)")
-            case .hang(.sleeping(let duration)): Thread.sleep(forTimeInterval: duration / .seconds(1))
+            case .hang(.sleeping(let duration)):
+                emit(Line.hanging(kind: .sleeping(duration)))
+                Thread.sleep(forTimeInterval: duration / .seconds(1))
             case .hang(.spinning(let duration)):
+                emit(Line.hanging(kind: .spinning(duration)))
                 let end = ContinuousClock.now + duration
                 while ContinuousClock.now < end {}
+            case .hangOnTermination(let kind): termination = kind
             case .abort: abort()
         }
     }

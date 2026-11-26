@@ -1,10 +1,10 @@
 import { layerSecureRandom } from '@effect/platform-node/NodeCrypto';
 import { assert, describe, it } from '@effect/vitest';
-import { Upstream } from '@rasm/mcp';
+import { Upstream } from '@rasm/mcp/upstream';
 import { Array, Duration, Effect, Function, HashSet, MutableRef, Option, Queue, Result, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpProtocol, type McpTest } from 'effect/ai';
 import { FetchHttpClient } from 'effect/http';
-import { lines, names, PEER, proxied, SETTLED, settled, TEXT } from '#/fixtures';
+import { lines, names, PEER, proxied, relisted, SETTLED, TEXT } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -79,7 +79,7 @@ describe('upstream session', () => {
 
         Effect.fnUntraced(function* ({ filter, listed: admitted, secret }) {
             const { client } = yield* proxied(PROTOCOL, { filters: { tools: filter } });
-            const shown = yield* settled(names(client), Array.contains<string>(Array.headNonEmpty(admitted)));
+            const shown = yield* relisted(client, names(client), Array.contains<string>(Array.headNonEmpty(admitted)));
             const answer = yield* Effect.result(client.callTool({ name: 'secret', arguments: {} }));
             assert.deepStrictEqual([Array.filter(shown, (name) => name === 'echo' || name === 'secret').toSorted(), Result.match(answer, { onFailure: Struct.get('code'), onSuccess: (result) => Array.last(lines(result)) })], [admitted, secret]);
         }),
@@ -89,7 +89,7 @@ describe('upstream session', () => {
         'answers a tool sharing a name with a tool of the server from the server, never the upstream',
         Effect.fnUntraced(function* () {
             const { client } = yield* proxied(PROTOCOL);
-            yield* settled(names(client), Array.contains('echo'));
+            yield* relisted(client, names(client), Array.contains('echo'));
             assert.deepStrictEqual(Array.last(lines(yield* client.callTool({ name: 'test_simple_text', arguments: {} }))), Option.some(TEXT));
         }),
     );
@@ -106,7 +106,7 @@ describe('upstream session', () => {
             yield* Queue.clear(client.notifications);
             yield* SubscriptionRef.set(present, true);
             const shown = yield* heard(client);
-            const back = yield* settled(listed(client), Array.every(Boolean));
+            const back = yield* relisted(client, listed(client), Array.every(Boolean));
             assert.deepStrictEqual([hidden, gone, shown, back], [true, [false, false, false, false], true, [true, true, true, true]]);
         }),
     );
@@ -134,7 +134,7 @@ describe('upstream session', () => {
         'lists nothing at once while its endpoint has not answered',
         Effect.fnUntraced(
             function* () {
-                const first = yield* Stream.runHead(Upstream.fromHttp({ peer: PEER, enabled: true, endpoint: Effect.never, poll: SETTLED })).pipe(Effect.timeout(SETTLED));
+                const first = yield* Stream.runHead(Upstream.fromHttp({ peer: PEER, endpoint: Effect.never, poll: SETTLED })).pipe(Effect.timeout(SETTLED));
                 assert.deepStrictEqual(first, Option.some([]));
             },
             Effect.provide([FetchHttpClient.layer, layerSecureRandom]),

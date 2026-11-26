@@ -1,0 +1,190 @@
+{
+    "items": [
+        {
+            "name": "Background",
+            "id": "rec7EbHtXJ6e4oH1I",
+            "sortflag": 1,
+            "cmInAppLearn": [
+                {
+                    "id": "photoshop/how-to/in-app/make-a-portrait-standout-against-a-distracting-background",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/how-to/in-app/replace-a-product-shot-background-and-keep-the-shadows",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/how-to/in-app/background-lighting-effect",
+                    "locale": "en_US"
+                }
+            ],
+            "itemId": "",
+            "templateId": "T14SearchResultsViewCurated",
+            "context": {
+                "experienceState": [3, 8, 6],
+                "trigger": "search"
+            },
+            "synonyms": [
+                "background",
+                "blur background",
+                "desktop wallpaper",
+                "how to blur background",
+                "how to create a wallpaper",
+                "how to design wallpaper",
+                "how to make a background",
+                "how to make a wallpaper",
+                "how to make a zoom background",
+                "how to make custom wallpaper",
+                "how to make desktop wallpaper",
+                "how to make iphone wallpaper",
+                "how to make your own background",
+                "how to make your own wallpaper",
+                "iphone wallpaper",
+                "wallpaper",
+                "zoom background"
+            ]
+        },
+        {
+            "name": "Brush Tool",
+            "id": "recLkauyB5g1Vw0VV",
+            "sortflag": 63,
+            "cmHelpx": [
+                {
+                    "id": "photoshop/using/tool-techniques/brush-tool",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/how-to/gradient-tool",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/how-to/retouch-remove-background",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/how-to/spray-painted-type",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/how-to/animated-gradient",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/how-to/cutout-collage",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/using/painting-tools",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/using/creating-modifying-brushes",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/how-to/face-paint",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/how-to/make-painted-video-loop",
+                    "locale": "en_US"
+                }
+            ],
+            "cmHelpXDetail": [
+                {
+                    "id": "photoshop/using/tool-techniques/brush-tool",
+                    "locale": "en_US"
+                }
+            ],
+            "itemId": "paintbrushTool",
+            "templateId": "T65DetailViewToolTech",
+            "context": {
+                "experienceState": [3, 6, 8],
+                "trigger": "tool_technique"
+            },
+            "synonyms": []
+        },
+        {
+            "name": "Brush Tool",
+            "id": "rec60vdKVu7qn3Jmy",
+            "sortflag": 65,
+            "cmHelpx": [
+                {
+                    "id": "photoshop/using/tool-techniques/brush-tool",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/how-to/gradient-tool",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/how-to/retouch-remove-background",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/how-to/spray-painted-type",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/how-to/animated-gradient",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/how-to/cutout-collage",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/using/painting-tools",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/using/creating-modifying-brushes",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/how-to/face-paint",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "photoshop/how-to/make-painted-video-loop",
+                    "locale": "en_US"
+                }
+            ],
+            "cmHelpXDetail": [
+                {
+                    "id": "photoshop/using/tool-techniques/brush-tool",
+                    "locale": "en_US"
+                }
+            ],
+            "itemId": "paintbrushTool",
+            "templateId": "T14SearchResultsViewCurated",
+            "context": {
+                "experienceState": [3, 6, 8],
+                "trigger": "search"
+            },
+            "synonyms": []
+        },
+        {
+            "name": "Ruler Tool",
+            "id": "recyaLVRUKzswIfjw",
+            "sortflag": 181,
+            "itemId": "rulerTool",
+            "templateId": "T18SearchResultsNoToolTech",
+            "context": {
+                "experienceState": [3, 6, 8],
+                "trigger": "tool_technique"
+            },
+            "synonyms": []
+        }
+    ],
+    "meta": {
+        "version": "1.0",
+        "app": "Discover Panel",
+        "appId": "com.adobe.unifiedpanel",
+        "minAppVersion": "2407.105.0",
+        "host": "PHXS",
+        "minHostVersion": "26.9",
+        "assetVersion": "2604.140.0-2",
+        "asset": "Curated Content"
+    }
+}

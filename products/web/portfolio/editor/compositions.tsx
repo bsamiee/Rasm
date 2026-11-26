@@ -1,5 +1,8 @@
 import { useAtomSet } from '@effect/atom-react';
-import { Choice, MenuButton, ModalDialog, ReorderableList } from '@rasm/ui';
+import { Choice } from '@rasm/ui/choice';
+import { MenuButton } from '@rasm/ui/menu-button';
+import { ModalDialog } from '@rasm/ui/modal-dialog';
+import { ReorderableList } from '@rasm/ui/reorderable-list';
 import { Array, Optic, Option, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { type Ref, useState } from 'react';

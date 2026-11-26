@@ -1,5 +1,6 @@
-import { MediaError, processUploads, selectUploadState } from '@rasm/media';
-import { Presignable } from '@rasm/object-storage';
+import { MediaError } from '@rasm/media/error';
+import { processUploads, selectUploadState } from '@rasm/media/uploads';
+import { Presignable } from '@rasm/object-storage/storage';
 import AwsS3 from '@uppy/aws-s3';
 import Uppy, { type Body, type Meta, type UppyEventMap, type UppyFile } from '@uppy/core';
 import { Array, ByteSize, Data, Effect, Equivalence, Function, Layer, Match, Optic, Record, Result, Schema, Struct } from 'effect';

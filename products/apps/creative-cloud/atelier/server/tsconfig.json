@@ -40,6 +40,9 @@
             "path": "../../../../../libs/typescript/macos/applications"
         },
         {
+            "path": "../../../../../libs/typescript/creative-cloud/acrobat"
+        },
+        {
             "path": "../../../../../libs/typescript/web/vite"
         },
         {

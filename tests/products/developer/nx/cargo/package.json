@@ -4,12 +4,12 @@
     "description": "@rasm/nx-cargo suites over Cargo workspaces in temporary folders and their inferred targets",
     "type": "module",
     "devDependencies": {
+        "@effect/vitest": "catalog:",
         "@nx/devkit": "catalog:",
         "@rasm/nx-cargo": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
-        "fast-check": "catalog:",
         "nx": "catalog:",
         "vitest": "catalog:"
     },

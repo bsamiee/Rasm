@@ -1,4 +1,4 @@
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Data, HashMap, Match, Option, Order, pipe, Record, Result, Schema, String, Struct } from 'effect';
 import type { Container, Control, Fact, Model, Observation } from '#/contract';
 import type { Entry, InterfaceMap } from '#/interface-map';
@@ -59,29 +59,34 @@ const label = (text: string | undefined) =>
         Option.filter(String.isNonEmpty),
     );
 const printFact: (fact: Fact) => string = Match.type<Fact>().pipe(
-    Match.when({ bool: Match.defined }, ({ bool }) => (bool.value ? 'on' : 'off')),
-    Match.when({ integer: Match.defined }, ({ integer }) => `${integer.value}`),
-    Match.when({ real: Match.defined }, ({ real }) => `${real.value}`),
-    Match.when({ text: Match.defined }, ({ text }) => JSON.stringify(text.value)),
-    Match.when({ date: Match.defined }, ({ date }) => date.value),
-    Match.when({ url: Match.defined }, ({ url }) => url.value),
-    Match.when({ point: Match.defined }, ({ point }) => point.value.join(',')),
-    Match.when({ size: Match.defined }, ({ size }) => size.value.join('×')),
-    Match.when({ rect: Match.defined }, ({ rect }) => `${rect.value[0].join(',')} ${rect.value[1].join('×')}`),
-    Match.when({ range: Match.defined }, ({ range }) => `${range.location}+${range.length}`),
-    Match.when({ element: Match.defined }, ({ element }) => `element ${element.id}`),
-    Match.when({ refused: Match.defined }, ({ refused }) => `unread, AXError ${refused.error}`),
-    Match.when({ list: Match.defined }, ({ list }) => `[${list.values.map((each) => printFact(each)).join(', ')}]`),
-    Match.exhaustive,
+    Match.tagsExhaustive({
+        bool: ({ value }) => (value ? 'on' : 'off'),
+        integer: ({ value }) => `${value}`,
+        real: ({ value }) => `${value}`,
+        text: ({ value }) => JSON.stringify(value),
+        date: ({ value }) => value,
+        url: ({ value }) => value,
+        point: ({ value }) => value.join(','),
+        size: ({ value }) => value.join('×'),
+        rect: ({ value }) => `${value[0].join(',')} ${value[1].join('×')}`,
+        range: ({ location, length }) => `${location}+${length}`,
+        element: ({ id }) => `element ${id}`,
+        refused: ({ error }) => `unread, AXError ${error}`,
+        list: ({ values }) => `[${values.map((each) => printFact(each)).join(', ')}]`,
+        record: ({ fields }) =>
+            `{${Object.entries(fields)
+                .map(([field, each]) => `${field}: ${printFact(each)}`)
+                .join(', ')}}`,
+    }),
 );
-const printValue = (kind: Control['kind'], fact: Fact) => (kind === 'toggle' && 'integer' in fact ? (STATES[fact.integer.value] ?? printFact(fact)) : printFact(fact));
+const printValue = (kind: Control['kind'], fact: Fact) => (kind === 'toggle' && fact._tag === 'integer' ? (STATES[fact.value] ?? printFact(fact)) : printFact(fact));
 const printStored = (kind: Control['kind'], value: Observation['values'][string]) =>
     printValue(
         kind,
         Match.value(value).pipe(
-            Match.when(Match.boolean, (bool): Fact => ({ bool: { value: bool } })),
-            Match.when(Match.number, (number): Fact => (Number.isInteger(number) ? { integer: { value: number } } : { real: { value: number } })),
-            Match.orElse((text): Fact => ({ text: { value: text } })),
+            Match.when(Match.boolean, (bool): Fact => ({ _tag: 'bool', value: bool })),
+            Match.when(Match.number, (number): Fact => (Number.isInteger(number) ? { _tag: 'integer', value: number } : { _tag: 'real', value: number })),
+            Match.orElse((text): Fact => ({ _tag: 'text', value: text })),
         ),
     );
 const token = (kind: string, ref: number) => `@${kind.charAt(0)}${ref}`;
@@ -126,7 +131,7 @@ const index = (model: Model, map: InterfaceMap): Index => {
                     target: Target.Control({ control, container }),
                     token: Option.some(token(control.kind, control.ref)),
                     name: label(control.label?.text),
-                    ancestors: path(item),
+                    ancestors: [...path(item), ...Array.fromNullishOr(control.section)],
                     value: Option.map(Option.fromUndefinedOr(control.value), (fact) => printValue(control.kind, fact)),
                     kind: Option.some(control.kind),
                     live: true,
@@ -158,7 +163,8 @@ const index = (model: Model, map: InterfaceMap): Index => {
                 .filter(([at, control]) => Option.isNone(control.retired) && !Record.has(opened, at))
                 .map(([at, control]): Item => {
                     const name = Option.flatMap(control.label, ({ text }) => label(text));
-                    return { target: Target.RememberedControl({ locator: at, control, entry }), token: Option.map(name, (held) => [...ancestors, held].join(SEPARATOR)), name, ancestors, value: Option.map(control.value, (held) => printStored(control.kind, held)), kind: Option.some(control.kind), live: false };
+                    const within = [...ancestors, ...Option.toArray(control.section)];
+                    return { target: Target.RememberedControl({ locator: at, control, entry }), token: Option.map(name, (held) => [...within, held].join(SEPARATOR)), name, ancestors: within, value: Option.map(control.value, (held) => printStored(control.kind, held)), kind: Option.some(control.kind), live: false };
                 });
         const items = Option.match(open, {
             onSome: controls,
@@ -215,12 +221,12 @@ const find = (held: Index, query: string, kind: Option.Option<Control['kind']>) 
                 [
                     ...path(item),
                     ...Option.toArray(item.value),
-                    ...Option.toArray(
-                        Match.value(item.target).pipe(
-                            Match.tag('Control', ({ control }) => Option.fromUndefinedOr(control.help)),
-                            Match.tag('RememberedControl', ({ control }) => control.help),
-                            Match.orElse(() => Option.none()),
-                        ),
+                    ...Match.value(item.target).pipe(
+                        Match.tag('Container', ({ container }) => Array.fromNullishOr(container.help)),
+                        Match.tag('Control', ({ control }) => [...Array.fromNullishOr(control.help), ...(control.labels ?? [])]),
+                        Match.tag('Option', ({ option }) => Array.fromNullishOr(option.help)),
+                        Match.tag('RememberedControl', ({ control }) => [...Option.toArray(control.help), ...Option.getOrElse(control.labels, Array.empty)]),
+                        Match.orElse(Array.empty<string>),
                     ),
                 ].join(' '),
         ),

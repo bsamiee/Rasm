@@ -224,7 +224,7 @@ nonisolated struct AccountFailure: LocalizedError, CustomNSError, LockFailure {
 
     static func lock(_ failure: FileFailure) -> Self { Self(subject: failure.subject, reason: .lock(failure)) }
 
-    static func cancelled(_: CancellationError) -> Self { Self(subject: "Lock", reason: .cancelled) }
+    static var cancelled: Self { Self(subject: "Lock", reason: .cancelled) }
 
     func releasing(_ release: Result<Void, Self>) -> Self {
         switch release {

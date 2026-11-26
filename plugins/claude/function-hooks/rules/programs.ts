@@ -186,6 +186,25 @@ const programs: Table = {
     'screencapture.interactive': { program: 'screencapture', drop: ['-i', '-W', '-U', '-P', '-M'] },
     'pnpm.patch': { program: 'pnpm', path: ['patch'], deny: 'copies a package into the tree', advice: patchAdvice },
     'pnpm.patch-commit': { program: 'pnpm', path: ['patch-commit'], deny: 'writes a patched package into the tree', advice: patchAdvice },
+    'sdef.launch': {
+        program: 'sdef',
+        decide: Effect.fnUntraced(function* (sdef, { cwd }) {
+            const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+            const read = (plist: string, key: string) => Effect.map(run(cwd)`plutil -extract ${key} raw -o - ${plist}`, ({ printed, code }) => Option.liftPredicate(printed.trim(), () => code === 0));
+            const launching = yield* Effect.filter(
+                Array.getSomes(sdef.operands.map(({ word }) => word.text)).map((given) => path.resolve(cwd, given)),
+                Effect.fnUntraced(function* (bundle) {
+                    const plist = path.join(bundle, 'Contents', 'Info.plist');
+                    const [present, kind, file, dynamic] = yield* Effect.all([Effect.orElseSucceed(fs.exists(plist), () => false), read(plist, 'CFBundlePackageType'), read(plist, 'OSAScriptingDefinition'), read(plist, 'OSAScriptingDefinitionIsDynamic')]);
+                    return present && !Option.exists(kind, (type) => type !== 'APPL') && (Option.isNone(file) || Option.contains(dynamic, 'true'));
+                }),
+            );
+            return launching.map((bundle) => ({
+                deny: `sdef ${bundle} launches the application, as its Info.plist names no static OSAScriptingDefinition.`,
+                advice: 'Read the .scriptSuite and .scriptTerminology pair or the aete .rsrc file under Contents/Resources, or the command list execute_script returns for a running instance.',
+            }));
+        }),
+    },
     'sd.dashed': {
         program: 'sd',
         decide: (sd) =>

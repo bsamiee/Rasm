@@ -1,0 +1,21 @@
+{
+    "extends": "../../../../../libs/typescript/creative-cloud/uxp/tsconfig.base.json",
+    "compilerOptions": {
+        "noEmit": true
+    },
+    "exclude": ["vite.config.ts"],
+    "references": [
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/uxp/tsconfig.lib.json"
+        },
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/object-model/tsconfig.lib.json"
+        },
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/mediaencoder"
+        },
+        {
+            "path": "../../../../../libs/typescript/macos/applications"
+        }
+    ]
+}

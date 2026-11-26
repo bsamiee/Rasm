@@ -1,6 +1,6 @@
 import { join, matchesGlob, relative } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
-import { EXECUTORS, inside, removable, type Verbs } from '@rasm/nx';
+import { EXECUTORS, inside, removable, type Verbs } from '@rasm/nx/inference';
 import { Array, Effect, Graph, Option, Predicate, Record, Schema, Struct, UndefinedOr } from 'effect';
 import { ATTACH, INPUTS, type Options, type Part, PLUGIN, SWIFTPM, sequenced } from '#/targets';
 
@@ -30,7 +30,7 @@ const RESOLVED = 'Package.resolved';
 const Listed = Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
 const Tests = Schema.Literal('test');
 const Executable = Schema.Literal('executable');
-class Described extends Schema.Opaque<Described, unknown>()(
+class Described extends Schema.Opaque<Described>()(
     Schema.fromJsonString(
         Schema.Struct({
             name: Schema.String,

@@ -19,7 +19,9 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
+        "./client": "./client.ts",
+        "./forward": "./forward.ts",
+        "./host": "./host.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -27,7 +29,9 @@
             "#/*": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/index.js",
+            "./client": "./dist/client.js",
+            "./forward": "./dist/forward.js",
+            "./host": "./dist/host.js",
             "./package.json": "./package.json"
         },
         "access": "public"

@@ -1,6 +1,6 @@
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Cause, Option, Schema, SchemaTransformation, String, Struct } from 'effect';
-import { Rpc, RpcGroup } from 'effect/rpc';
+import { Rpc, RpcGroup, RpcMiddleware } from 'effect/rpc';
 import { HostError, Reference, Specifier } from '#/model';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -10,7 +10,7 @@ class Evaluation extends Schema.Class<Evaluation, { readonly brand: unique symbo
     label: Schema.String.annotate({ description: 'Name of the undo step the evaluation runs in' }),
 }) {
     static readonly Result = Schema.Struct({ result: Schema.OptionFromOptionalKey(Schema.Json) });
-    static readonly expression = (body: string, awaits: boolean) => `(${awaits ? 'async ' : ''}function body() {\n${body}\n})`;
+    static readonly expression = (body: string, awaits: boolean) => `((alert, confirm, prompt) => ${awaits ? 'async ' : ''}function body() {\n${body}\n})((...message) => undefined, (...message) => false, (...message) => null)`;
     static readonly formatLabel = (body: string) => `Run ${Array.findFirst(body.split('\n'), (line) => Option.liftPredicate(line.trim(), String.isNonEmpty)).pipe(Option.getOrElse(() => 'script'))}`;
 }
 class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Render')({
@@ -32,6 +32,10 @@ const IllegalArgument = Schema.declare(Cause.isIllegalArgumentError, {
 });
 const Failure = Schema.Union([Unmatched, HostError, IllegalArgument, Schema.ErrorInstance()]);
 
+// --- [SERVICES] ------------------------------------------------------------------------
+
+class Dialogs extends RpcMiddleware.Service<Dialogs>()('@rasm/object-model/Dialogs', { error: HostError }) {}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const makeRpc = <const Tag extends string, Payload extends Schema.Top & { readonly Result: Schema.Top }>(tag: Tag, payload: Payload) => Rpc.make<Tag, Payload, Payload['Result'], typeof Failure>(tag, { payload, success: payload.Result, error: Failure });
@@ -43,4 +47,4 @@ const RenderRpcs = RpcGroup.make(makeRpc('render', Render));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Evaluation, EvaluationRpcs, Failure, makeRpc, Render, RenderRpcs, WriteResult };
+export { Dialogs, Evaluation, EvaluationRpcs, Failure, makeRpc, Render, RenderRpcs, WriteResult };

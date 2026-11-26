@@ -160,18 +160,6 @@
             }
         },
         {
-            "name": "rasad",
-            "source": {
-                "source": "archive",
-                "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/rasad-plugin%400.1.0/rasad.zip",
-                "sha256": "b66f13275259378027543d3ed860a432657eaedf3ec1666e4843e68e36bd8c81"
-            },
-            "description": "Claude Code hooks that bind each agent to its handle on Rasad and Atelier and deliver the events of the applications it drove between tool calls",
-            "author": {
-                "name": "Bardia Samiee"
-            }
-        },
-        {
             "name": "rhino",
             "source": "./plugins/shared/rhino",
             "description": "Rhino sessions, Grasshopper 2 canvases, and tests over RhinoCommon and Grasshopper",
@@ -183,6 +171,18 @@
                 "displayName": "Rhino",
                 "shortDescription": "Rhino sessions, Grasshopper 2 canvases, and tests over RhinoCommon and Grasshopper",
                 "brandColor": "#090909"
+            }
+        },
+        {
+            "name": "risman",
+            "source": {
+                "source": "archive",
+                "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/risman%400.1.0/risman.zip",
+                "sha256": "7659adf31c4b2b066f229c3e0fdaa0152a28d9727235246b8e28c80bd8c63148"
+            },
+            "description": "Claude Code hooks that bind each agent to its handle on every local MCP server built on @rasm/mcp and deliver the events of the applications it drove between tool calls",
+            "author": {
+                "name": "Bardia Samiee"
             }
         },
         {

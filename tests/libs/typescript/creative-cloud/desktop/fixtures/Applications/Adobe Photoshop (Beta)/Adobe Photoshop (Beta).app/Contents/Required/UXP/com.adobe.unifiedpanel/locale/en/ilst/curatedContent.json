@@ -1,0 +1,74 @@
+{
+    "items": [
+        {
+            "name": "Paintbrush Tool",
+            "id": "recZpJGGg72E0X65v",
+            "sortflag": 76,
+            "cmHelpx": [
+                {
+                    "id": "illustrator/using/tool-techniques/paintbrush-tool",
+                    "locale": "en_US"
+                }
+            ],
+            "cmHelpXDetail": [
+                {
+                    "id": "illustrator/using/tool-techniques/paintbrush-tool",
+                    "locale": "en_US"
+                }
+            ],
+            "itemId": "Adobe Brush Tool",
+            "templateId": "T47SearchResultsViewToolTech",
+            "context": {
+                "experienceState": [3, 6, 8],
+                "trigger": "tool_technique"
+            },
+            "synonyms": []
+        },
+        {
+            "name": "Paintbrush Tool",
+            "id": "recS4JTgxgvOACpvc",
+            "sortflag": 77,
+            "cmHelpx": [
+                {
+                    "id": "illustrator/using/tool-techniques/paintbrush-tool",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "illustrator/how-to/drawing-basics",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "illustrator/how-to/digital-lettering",
+                    "locale": "en_US"
+                },
+                {
+                    "id": "illustrator/how-to/character-design",
+                    "locale": "en_US"
+                }
+            ],
+            "cmHelpXDetail": [
+                {
+                    "id": "illustrator/using/tool-techniques/paintbrush-tool",
+                    "locale": "en_US"
+                }
+            ],
+            "itemId": "Adobe Brush Tool",
+            "templateId": "T48SearchResultsViewCurated",
+            "context": {
+                "experienceState": [3, 6, 8],
+                "trigger": "search"
+            },
+            "synonyms": []
+        }
+    ],
+    "meta": {
+        "version": "1.0",
+        "app": "Discover Panel",
+        "appId": "com.adobe.unifiedpanel",
+        "minAppVersion": "2407.105.1",
+        "host": "ILST",
+        "minHostVersion": "31",
+        "assetVersion": "2609.151.0-14",
+        "asset": "Curated Content"
+    }
+}

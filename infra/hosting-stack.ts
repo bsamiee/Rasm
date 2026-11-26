@@ -2,7 +2,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getOutputsForTargetAndConfiguration, type ProjectGraphProjectNode, workspaceRoot } from '@nx/devkit';
 import { all, getOrganization, getProject, secret, StackReference } from '@pulumi/pulumi';
-import { App } from '@rasm/hosting';
+import { App } from '@rasm/hosting/app';
 import { deploy } from '@rasm/hosting/deploy';
 import { Access, Enrollment } from '@rasm/hosting/identity';
 import { Array, ByteSize, Cause, ConfigProvider, Effect, Option, Record, Redacted, Schema, Struct } from 'effect';

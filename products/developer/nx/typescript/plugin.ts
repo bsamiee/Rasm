@@ -1,7 +1,7 @@
 import { basename, dirname, join, posix } from 'node:path';
 import { type CreateNodes, createNodesFromFiles, detectPackageManager, hashArray, type ProjectConfiguration } from '@nx/devkit';
 import { hashObject } from '@nx/devkit/internal';
-import { anchored, fingerprinted, inferring, owned, run, tagged } from '@rasm/nx';
+import { anchored, fingerprinted, inferring, owned, run, tagged } from '@rasm/nx/inference';
 import { Array, Combiner, Effect, FileSystem, Match, Option, Order, Predicate, Record, type Result, Schema } from 'effect';
 import { linted } from '#/eslint';
 import { compiled, CONFIG, programmed } from '#/programs';

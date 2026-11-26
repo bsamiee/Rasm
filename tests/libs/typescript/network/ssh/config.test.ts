@@ -1,6 +1,8 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
-import { Forward, Host, Ssh } from '@rasm/ssh';
+import { Ssh } from '@rasm/ssh/client';
+import { Forward } from '@rasm/ssh/forward';
+import { Host } from '@rasm/ssh/host';
 import { Array, Cause, Effect, FileSystem, Path, Predicate, Record, Result, Schema, Stream, Struct } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 

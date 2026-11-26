@@ -1,7 +1,7 @@
 import { posix } from 'node:path';
 import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, findProjectForPath, getNamedInputs, globWithWorkspaceContext } from '@nx/devkit/internal';
-import { type Anchor, anchored, inferring, manifested } from '@rasm/nx';
+import { type Anchor, anchored, inferring, manifested } from '@rasm/nx/inference';
 import { Array, Effect, Record, Schema } from 'effect';
 import plugin from '#/package.json' with { type: 'json' };
 import { memberInputs, memberTargets } from '#/targets';
@@ -9,7 +9,7 @@ import { Linked, MANIFEST, PRESETS, REGISTRY, resolved, run, type Tree } from '#
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Options extends Schema.Opaque<Options, unknown>()(
+class Options extends Schema.Opaque<Options>()(
     Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({
         description: 'outputPath: workspace folder each member writes its CPack archives under as <outputPath>/cpack, {projectName} naming the member, absent writes archives under packages in the member build folder',
     }),

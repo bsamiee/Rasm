@@ -22,7 +22,7 @@ Builds derive every host form from masters into build output, and no painted or 
 - Release archives supply both CLIs on macOS and Windows
 - Build theming writes each host tone over `currentColor` and part classes as a stylesheet both CLIs read, for all hosts but Grasshopper 2
 - `@rasm/mark` paints a `Tone` into a wrapper SVG placing a canvas at a whole pixel scale or artwork inside a padding for `resvg`
-- Tones come from a host library (`HOSTS` of `@rasm/uxp`, `Rasm.Rhino.props`), a web app's theme, or a product's own value (Chrome `config.brand`)
+- Tones come from a host library (`HOSTS` of `@rasm/uxp/manifest`, `Rasm.Rhino.props`), a web app's theme, or a product's own value (Chrome `config.brand`)
 - `@rasm/hosting/head` rasterizes web favicons, touch icons, and PWA icons through `@vite-pwa/assets-generator`
 - `svg_to_ico` renders a themed SVG through resvg into one PNG frame per ICO size, from a release archive on Windows and its crate elsewhere
 - Hosts theming at run time (Blender preview tint, Apple template rendering) read an untinted master
@@ -57,7 +57,7 @@ UXP plugins draw every icon in Spectrum 2 outline, whatever set a host's own gly
 - Marks draw on Spectrum 2's 20-unit canvas inside its 1-unit safe area, panel glyphs on the host's 23-unit grid around it
 - Plugin list icons are `pluginList` PNGs at 24 and 48 pixels of the mark, its 20-unit canvas centred at 1 and 2 pixels per unit
 - Panel icons are `toolbar` PNGs at 23 and 46 pixels from `icons/<entrypoint id>.svg` of the plugin package, and a panel without one fails its build
-- Icons paint black for light themes and white for dark themes at the opacity of each host's own glyphs, stated in `HOSTS` of `@rasm/uxp`
+- Icons paint black for light themes and white for dark themes at the opacity of each host's own glyphs, stated in `HOSTS` of `@rasm/uxp/manifest`
 - Brand tiles, colored list icons, and copies of host glyphs stay out of every host form
 - Acrobat add-ons run no UXP and register one 20 x 20 ARGB outline glyph per `app.addToolButton`, gray between theme icons `0x6F6F6F` and `0xC2C2C2`
 

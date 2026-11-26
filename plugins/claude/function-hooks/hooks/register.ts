@@ -1,5 +1,5 @@
-import { Policy } from '@rasm/policy';
 import { hooks } from '@rasm/policy/claude';
+import { Policy } from '@rasm/policy/policy';
 import { ghidra } from '#/rules/ghidra';
 import { programs } from '#/rules/programs';
 import { removal } from '#/rules/removal';

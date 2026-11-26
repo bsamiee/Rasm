@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { Declaration } from '@rasm/object-model';
+import { Declaration } from '@rasm/object-model/model';
 import { readTypeScript } from '@rasm/object-model/node';
 import base from '@rasm/uxp/tsconfig.base.json' with { type: 'json' };
 import { pluginConfig } from '@rasm/uxp/vite';

@@ -1,5 +1,6 @@
 import { useAtom, useAtomMount, useAtomValue } from '@effect/atom-react';
-import { Choice, MenuButton } from '@rasm/ui';
+import { Choice } from '@rasm/ui/choice';
+import { MenuButton } from '@rasm/ui/menu-button';
 import { useUppyState } from '@uppy/react';
 import Dashboard from '@uppy/react/dashboard';
 import { Array, Predicate, Result, String, Struct } from 'effect';

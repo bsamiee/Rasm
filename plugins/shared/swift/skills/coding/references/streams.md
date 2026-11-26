@@ -7,7 +7,7 @@ Host APIs delivering values over time return their own async sequence (`Notifica
 ```swift
 static func changes() -> some AsyncSequence<Result<Self, Errno>, Never> & Sendable {
     let (memory, signal) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
-    let source = DispatchSource.makeMemoryPressureSource(eventMask: [.normal, .warning, .critical], queue: .global())
+    let source = DispatchSource.makeMemoryPressureSource(eventMask: .all, queue: .global())
     source.setEventHandler { signal.yield() }
     signal.onTermination = { _ in source.cancel() }
     source.activate()

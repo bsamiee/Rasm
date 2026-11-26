@@ -22,7 +22,7 @@ const methods = ['btree', 'gin', 'gist', 'brin'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Identity extends Schema.Opaque<Identity, unknown>()(Schema.Struct({ origin: Schema.String, generation: Schema.Int, digest: Schema.optionalKey(Schema.String.pipe(Schema.catchDecoding(() => Effect.succeedNone))) })) {}
+class Identity extends Schema.Opaque<Identity>()(Schema.Struct({ origin: Schema.String, generation: Schema.Int, digest: Schema.optionalKey(Schema.String.pipe(Schema.catchDecoding(() => Effect.succeedNone))) })) {}
 const Stamp = Schema.fromJsonString(Identity);
 const Populated = Schema.Struct({ populated: Schema.BooleanFromBit });
 

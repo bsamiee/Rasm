@@ -1,0 +1,40 @@
+{
+    "name": "@rasm/acrobat",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Acrobat JavaScript do script envelope for SpiderMonkey 24, its bodies reaching every host object through ES5 stand-ins answering each dialog the reference states as dismissed or refusing it",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/creative-cloud/acrobat"
+    },
+    "files": [
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        "./host": "./host.ts",
+        "./script": "./script.ts",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            "./host": "./dist/host.js",
+            "./script": "./dist/script.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
+    "engines": {
+        "node": ">=27"
+    }
+}

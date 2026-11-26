@@ -2,7 +2,7 @@ import { dirname, join, posix } from 'node:path';
 import { arch, platform } from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { type Anchor, anchored, fingerprinted, inferring, manifested } from '@rasm/nx';
+import { type Anchor, anchored, fingerprinted, inferring, manifested } from '@rasm/nx/inference';
 import { Array, Config, Effect, identity, Option, Record, Schema, String, Struct } from 'effect';
 import { crateInputs, projectTargets, released } from '#/targets';
 import { CLIPPY, CONFIG, DENY, Links, MANIFEST, type Member, NEXTEST, placed, type Reading, resolved, run, type Workspace, workspaces } from '#/workspace';

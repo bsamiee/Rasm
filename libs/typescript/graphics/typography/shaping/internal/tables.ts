@@ -15,7 +15,7 @@ const Items = decoded(LazyArray, Schema.Array(Schema.Unknown), (lazy) => lazy.to
 const Coverage = decoded(Schema.Union([Schema.Struct({ version: Schema.Literal(1), glyphs: Glyphs }), Schema.Struct({ version: Schema.Literal(2), rangeRecords: Schema.Array(Schema.Struct(Struct.Record(['start', 'end'], Schema.Int))) })]), Glyphs, (coverage) =>
     coverage.version === 1 ? coverage.glyphs : coverage.rangeRecords.flatMap(({ start, end }) => Array.range(start, end)),
 );
-class Substitution extends Schema.Opaque<Substitution, unknown>()(Schema.Struct({ coverage: Glyphs, alternates: Schema.Array(Glyphs).annotate({ description: 'Alternates by coverage index, empty for lookups choosing none' }) })) {}
+class Substitution extends Schema.Opaque<Substitution>()(Schema.Struct({ coverage: Glyphs, alternates: Schema.Array(Glyphs).annotate({ description: 'Alternates by coverage index, empty for lookups choosing none' }) })) {}
 const Subtable: Schema.Codec<Substitution, unknown> = Schema.Union([
     decoded(Schema.Struct({ coverage: Coverage, deltaGlyphID: Schema.Int }), Substitution, ({ coverage, deltaGlyphID }) => ({ coverage, alternates: coverage.map((glyph) => [(glyph + deltaGlyphID) & GLYPH_ID_MASK]) })),
     decoded(Schema.Struct({ coverage: Coverage, substitute: Items.pipe(Schema.decodeTo(Schema.Array(Schema.Int))) }), Substitution, ({ coverage, substitute }) => ({ coverage, alternates: substitute.map(Array.of) })),

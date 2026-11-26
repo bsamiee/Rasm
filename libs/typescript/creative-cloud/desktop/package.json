@@ -2,7 +2,7 @@
     "name": "@rasm/creative-cloud-desktop",
     "version": "0.1.0",
     "private": true,
-    "description": "Adobe applications installed on this Mac, read from the Creative Cloud registry and Adobe installer receipts, with product, channel, and version",
+    "description": "Adobe applications installed on this Mac, each installation the application server lists joined to the Creative Cloud registry for its product, channel, and build, and the tool names, shortcuts, and help pages each build declares in its shortcut sets, toolbar settings, and curated catalogs",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -18,21 +18,29 @@
     ],
     "type": "module",
     "sideEffects": false,
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "exports": {
-        ".": "./application.ts",
+        "./application": "./application.ts",
+        "./tools": "./tools.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
         "exports": {
-            ".": "./dist/application.js",
+            "./application": "./dist/application.js",
+            "./tools": "./dist/tools.js",
             "./package.json": "./package.json"
         },
         "access": "public"
     },
     "dependencies": {
         "@effect/sql-sqlite-node": "catalog:",
-        "@plist/parse": "catalog:",
-        "@rasm/process": "workspace:*"
+        "@rasm/applications": "workspace:*",
+        "ag-psd": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",

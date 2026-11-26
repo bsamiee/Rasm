@@ -20,6 +20,12 @@ private struct Numbered: Codable, Equatable, Sendable {
     let number: Int
 }
 
+private struct Matched: Decodable {
+    let number: Double?
+
+    init(from decoder: any Decoder) throws { number = try decoder.singleValueContainer().decodeIfMatching(Double.self) }
+}
+
 private struct Stamp: Encodable {
     let path: String
     let at: Date
@@ -29,8 +35,9 @@ private enum Role: String, Sendable {
     case button = "AXButton"
 }
 
-private enum Event: CaseKeyed {
-    case opened(Int)
+private enum Event: CaseTagged {
+    case opened(Numbered)
+    case moved(window: Int, title: String?)
     case closed
 }
 
@@ -97,6 +104,12 @@ struct JSONValueTests {
     }
 
     @Test
+    func decodesOnlyAMatchingType() throws {
+        expectNoDifference(try JSONDecoder().decode([Matched].self, from: Data(#"[1.5,"x",true,[2],{}]"#.utf8)).map(\.number), [1.5, nil, nil, nil, nil])
+        expectNoDifference(refusal { try JSONDecoder().decode([Matched].self, from: Data("[null]".utf8)) }, "valueNotFound")
+    }
+
+    @Test
     func decodesModels() throws {
         let value: JSONValue = .object([
             "number": .number(7), "title": .string("Untitled"), "frame": .array([.number(0), .number(24.5)]), "link": .string("https://example.com/a"), "icon": .string("AAE="),
@@ -125,9 +138,14 @@ struct JSONValueTests {
 @Suite
 struct CaseEncodingTests {
     @Test
-    func keysEachValueByItsCase() throws {
-        expectNoDifference(String(data: try JSONEncoder().encode(Event.opened(3)), encoding: .utf8), #"{"opened":3}"#)
-        #expect(throws: EncodingError.self) { try JSONEncoder().encode(Event.closed) }
+    func tagsEachValueWithItsCaseBesideItsFieldsAndOmitsAbsentOnes() throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let events: [Event] = [.opened(Numbered(number: 3)), .moved(window: 7, title: "Untitled"), .moved(window: 7, title: nil), .closed]
+        expectNoDifference(
+            String(data: try encoder.encode(events), encoding: .utf8),
+            #"[{"_tag":"opened","number":3},{"_tag":"moved","title":"Untitled","window":7},{"_tag":"moved","window":7},{"_tag":"closed"}]"#,
+        )
     }
 
     @Test

@@ -1,7 +1,7 @@
 import { dirname, join } from 'node:path';
 import { parse, patch } from '@decimalturn/toml-patch';
 import { joinPathFragments, type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit';
-import { run, spawned } from '@rasm/nx';
+import { run, spawned } from '@rasm/nx/inference';
 import { clean, explain, RANGE_PATTERN, satisfies } from '@renovatebot/pep440';
 import { Array, Cause, Effect, FileSystem, Function, Option, Predicate, Record, Schema, SemVer, Stream, String, Struct } from 'effect';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';

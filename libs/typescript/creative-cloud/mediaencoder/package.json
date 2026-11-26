@@ -1,0 +1,44 @@
+{
+    "name": "@rasm/mediaencoder",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Media Encoder object model for UXP plugins, with its render queue, job groups, jobs, progress, and presets as containment, script evaluation, and render queue and watch folder events",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/creative-cloud/mediaencoder"
+    },
+    "files": [
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        "./uxp": "./uxp.ts",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "exports": {
+            "./uxp": "./dist/uxp.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
+    "dependencies": {
+        "@rasm/object-model": "workspace:*",
+        "@rasm/uxp": "workspace:*"
+    },
+    "devDependencies": {
+        "@adobe-uxp-types/uxp": "catalog:",
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
+    },
+    "engines": {
+        "node": ">=27"
+    }
+}

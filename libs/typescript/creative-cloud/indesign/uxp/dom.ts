@@ -1,8 +1,8 @@
-import { Declaration, HostError, Reference, Selector, Specifier } from '@rasm/object-model';
 import { encode, isPlain } from '@rasm/object-model/host';
-import { Unmatched } from '@rasm/search';
-import { Settings } from '@rasm/typography';
-import { Uxp } from '@rasm/uxp/plugin';
+import { Declaration, HostError, Reference, Selector, Specifier } from '@rasm/object-model/model';
+import { Unmatched } from '@rasm/search/unmatched';
+import { Settings } from '@rasm/typography/settings';
+import { Plugin, Uxp } from '@rasm/uxp/plugin';
 import indesign, {
     type AnySwatch,
     type Application,
@@ -12,8 +12,11 @@ import indesign, {
     type Document,
     type Enumeration,
     type Enumerator,
+    type Event,
+    type EventTargetDOMObject,
     type Font,
     type InDesignDOMObject,
+    type InDesignEventMap,
     type Layer,
     type Link,
     type MasterSpread,
@@ -33,7 +36,7 @@ import indesign, {
     type TextPath,
     type XmlStory,
 } from 'adobe:indesign';
-import { Array, Cause, Context, Deferred, Effect, Equal, Equivalence, Function, flow, identity, Match, Number, Option, Predicate, Record, Result, Schema, SchemaAST, Struct } from 'effect';
+import { Array, Cause, Context, Deferred, Effect, Equal, Equivalence, Function, flow, identity, Match, Number, Option, Predicate, PubSub, Record, Result, Schema, SchemaAST, Stream, Struct } from 'effect';
 import { Value } from '#/value';
 import { Extent, type FindChange } from '#/views';
 
@@ -70,7 +73,7 @@ type Owned = {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const AGGREGATE_FIELD = 'properties';
+const PROPERTIES = 'properties' satisfies keyof InDesignDOMObject<unknown>;
 const STYLISTIC_SETS = 20;
 const STYLISTIC_SET_ACTIONS = { minimum: 0x69_74, maximum: 0x69_74 + STYLISTIC_SETS - 1 };
 
@@ -82,7 +85,7 @@ const DeclarationJson = Schema.fromJsonString(Declaration.Model);
 
 class Dom extends Context.Service<Dom>()('@rasm/indesign/uxp/dom', {
     make: (text: string) =>
-        Effect.map(Schema.decodeEffect(DeclarationJson)(text), (declared) => {
+        Effect.zipWith(Schema.decodeEffect(DeclarationJson)(text), PubSub.unbounded<readonly [string, Event]>(), (declared, hub) => {
             const inherit: <T extends object>(prototype: T) => T = Object.create;
             const domObject = owning('toSpecifier');
             const document = owning('createTOC');
@@ -94,18 +97,14 @@ class Dom extends Context.Service<Dom>()('@rasm/indesign/uxp/dom', {
                     SchemaAST.isObjects(member) ? Predicate.isObject(value) && !Array.isArray(value) && Option.match(readTag(member), { onNone: () => true, onSome: (tag) => domObject(value) && value.constructorName === tag }) : SchemaAST.isArrays(member) && (Array.isArray(value) || collection(value));
             const record = (node: SchemaAST.Objects, value: object, skipped: readonly PropertyKey[]) => {
                 const isReferenced = domObject(value) && node.propertySignatures.some(({ name }) => name === 'specifier');
-                const read = ({ name, type }: SchemaAST.PropertySignature) => {
-                    if (name === '_tag' && SchemaAST.isLiteral(type)) {
-                        return Option.some([name, type.literal] as const);
-                    }
-                    if (skipped.includes(name) || (isReferenced && Object.hasOwn(Reference.fields, name))) {
-                        return Option.none();
-                    }
-                    return Option.liftThrowable((): unknown => Reflect.get(value, name))().pipe(
-                        Option.filter((property) => !(Predicate.isNullish(property) || nothing(property))),
-                        Option.map((property) => [name, pickValue(type, property)] as const),
-                    );
-                };
+                const read = ({ name, type }: SchemaAST.PropertySignature) =>
+                    name === '_tag' && SchemaAST.isLiteral(type)
+                        ? Option.some([name, type.literal] as const)
+                        : Option.liftPredicate(name, (field) => !(skipped.includes(field) || (isReferenced && Object.hasOwn(Reference.fields, field)))).pipe(
+                              Option.flatMap(Option.liftThrowable((field): unknown => Reflect.get(value, field))),
+                              Option.filter((property) => !(Predicate.isNullish(property) || nothing(property))),
+                              Option.map((property) => [name, pickValue(type, property)] as const),
+                          );
                 return Object.fromEntries([...(isReferenced ? Object.entries(Dom.referenceUnsafe(value)) : []), ...Array.getSomes(Array.map(node.propertySignatures, read))]);
             };
             const list = (node: SchemaAST.Arrays, value: unknown) => {
@@ -120,7 +119,30 @@ class Dom extends Context.Service<Dom>()('@rasm/indesign/uxp/dom', {
                     Match.when(SchemaAST.isObjects, (node) => (Predicate.isObjectOrArray(value) && !collection(value) && Array.isReadonlyArrayNonEmpty(node.propertySignatures) ? record(node, value, skipped) : value)),
                     Match.orElse(() => value),
                 );
+            const attached = new Set<string>();
             return Object.assign(inherit(indesign), {
+                subscribe: PubSub.subscribe(hub),
+                listen: (target: EventTargetDOMObject<unknown>, type: keyof InDesignEventMap, plugin: string) => {
+                    const name = `${plugin}:${type}`;
+                    const key = `${target.toSpecifier()} ${name}`;
+                    if (attached.has(key)) {
+                        return key;
+                    }
+                    const stale = target.eventListeners.itemByName(name);
+                    if (stale.isValid) {
+                        stale.remove();
+                    }
+                    target.eventListeners.add(
+                        type,
+                        (event: Event) => {
+                            PubSub.publishUnsafe(hub, [key, event]);
+                        },
+                        false,
+                        { name },
+                    );
+                    attached.add(key);
+                    return key;
+                },
                 owning,
                 domObject,
                 collection,
@@ -138,7 +160,7 @@ class Dom extends Context.Service<Dom>()('@rasm/indesign/uxp/dom', {
                 story: owning('textContainers'),
                 textContainer: owning('texts'),
                 text: owning('parentTextFrames'),
-                textDefault: (value: unknown): value is TextDefault => domObject(value) && value.constructorName === 'TextDefault',
+                textDefault: (value: unknown): value is TextDefault => domObject(value) && value.constructorName === ('TextDefault' satisfies TextDefault['constructorName']),
                 frame: owning('textFrameIndex'),
                 style: owning('basedOn'),
                 paragraphStyle: owning('nestedGrepStyles'),
@@ -184,16 +206,16 @@ class Dom extends Context.Service<Dom>()('@rasm/indesign/uxp/dom', {
         return yield* Option.match(listed, { onNone: () => Effect.succeed<unknown>(name), onSome: (members) => Unmatched.single(members.filter(dom.named), kind, Option.some(name), (each) => [each.toSpecifier(), each.name]) });
     });
     static readonly unavailable = (object: InDesignDOMObject<unknown>, field: string, writing: boolean): Option.Option<string> =>
-        Match.value({ kind: object.constructorName, field, writing, stylistic: Option.liftPredicate(object, (each): each is MenuAction => each.constructorName === 'MenuAction').pipe(Option.exists(({ id }) => Number.between(id, STYLISTIC_SET_ACTIONS))) }).pipe(
-            Match.when({ kind: Match.is('FindChangeDropShadowSetting', 'FindChangeInnerShadowSetting'), field: Match.is('angle', 'distance', 'xOffset', 'yOffset', AGGREGATE_FIELD) }, () => 'Shadow fields crash native Transparency provider'),
-            Match.when({ kind: 'EventListener', field: Match.is('handler', AGGREGATE_FIELD), writing: false }, () => 'Ended UXP context handlers crash InDesign'),
-            Match.when({ kind: 'MenuAction', field: Match.is('enabled', 'checked', AGGREGATE_FIELD), writing: false, stylistic: true }, () => 'Stylistic Set state crashes native CharacterPanel provider'),
+        Match.value({ kind: object.constructorName, field, writing, stylistic: Option.liftPredicate(object, owning('invoke')).pipe(Option.exists(({ id }) => Number.between(id, STYLISTIC_SET_ACTIONS))) }).pipe(
+            Match.when({ kind: Match.is('FindChangeDropShadowSetting', 'FindChangeInnerShadowSetting'), field: Match.is('angle', 'distance', 'xOffset', 'yOffset', PROPERTIES) }, () => 'Shadow fields crash native Transparency provider'),
+            Match.when({ kind: 'EventListener', field: Match.is('handler', PROPERTIES), writing: false }, () => 'Ended UXP context handlers crash InDesign'),
+            Match.when({ kind: 'MenuAction', field: Match.is('enabled', 'checked', PROPERTIES), writing: false, stylistic: true }, () => 'Stylistic Set state crashes native CharacterPanel provider'),
             Match.option,
         );
     static readonly properties = Effect.fnUntraced(function* (object: InDesignDOMObject<unknown>) {
         const [{ fields }, specifier] = [(yield* Dom).declaration(object.constructorName), object.toSpecifier()];
-        return yield* Option.match(Dom.unavailable(object, AGGREGATE_FIELD, false), {
-            onNone: () => Effect.try({ try: (): Record.ReadonlyRecord<string, unknown> => object.properties, catch: HostError.refused(`${specifier} ${AGGREGATE_FIELD}`) }),
+        return yield* Option.match(Dom.unavailable(object, PROPERTIES, false), {
+            onNone: () => Effect.try({ try: (): Record.ReadonlyRecord<string, unknown> => object.properties, catch: HostError.refused(`${specifier} ${PROPERTIES}`) }),
             onSome: () =>
                 Effect.all(Record.filterMap(fields, ({ collection }, name) => (Option.isSome(collection) || Option.isSome(Dom.unavailable(object, name, false)) ? Result.failVoid : Result.succeed(Effect.try({ try: (): unknown => Reflect.get(object, name), catch: HostError.refused(`${specifier} ${name}`) }))))),
         });
@@ -201,7 +223,7 @@ class Dom extends Context.Service<Dom>()('@rasm/indesign/uxp/dom', {
     static readonly saved = (object: InDesignDOMObject<unknown>) =>
         Dom.useSync(({ declaration }) =>
             Record.filterMap(declaration(object.constructorName).fields, ({ settable }, name) =>
-                settable && name !== AGGREGATE_FIELD && Option.isNone(Dom.unavailable(object, name, false)) ? Result.fromOption(Option.filter(Option.liftThrowable((): unknown => Reflect.get(object, name))(), Predicate.not(nothing)), Function.constVoid) : Result.failVoid,
+                settable && name !== PROPERTIES && Option.isNone(Dom.unavailable(object, name, false)) ? Result.fromOption(Option.filter(Option.liftThrowable((): unknown => Reflect.get(object, name))(), Predicate.not(nothing)), Function.constVoid) : Result.failVoid,
             ),
         );
     static readonly fonts = Dom.use(({ app, FontStatus }) => {
@@ -318,6 +340,19 @@ class Dom extends Context.Service<Dom>()('@rasm/indesign/uxp/dom', {
         (values: Record.ReadonlyRecord<string, unknown>): (target: InDesignDOMObject<unknown>) => Effect.Effect<Effect.Effect<readonly string[], HostError>, Failure, Dom>;
         (target: InDesignDOMObject<unknown>, values: Record.ReadonlyRecord<string, unknown>): Effect.Effect<Effect.Effect<readonly string[], HostError>, Failure, Dom>;
     } = Function.dual(2, (target: InDesignDOMObject<unknown>, values: Record.ReadonlyRecord<string, unknown>) => Effect.map(decodeWrites(target, values), (writes) => Effect.validate(writes, ([name, write]) => Effect.sandbox(Effect.as(write, name))).pipe(Effect.catch(failAll))));
+    static readonly events = (select: (dom: Dom['Service']) => readonly [EventTargetDOMObject<unknown>, readonly (keyof InDesignEventMap)[]]) =>
+        Stream.callback<Event, HostError, Dom | Plugin>(
+            Effect.fnUntraced(function* (queue) {
+                const [dom, { id }] = yield* Effect.all([Dom, Plugin]);
+                const [target, types] = select(dom);
+                const subscription = yield* dom.subscribe;
+                const keys = yield* Effect.try({ try: () => Array.map(types, (type) => dom.listen(target, type, id)), catch: HostError.refused(`listeners of ${types.join(', ')}`) });
+                yield* Stream.fromSubscription(subscription).pipe(
+                    Stream.filterMap(([key, event]) => (keys.includes(key) ? Result.succeed(event) : Result.failVoid)),
+                    Stream.runIntoQueue(queue),
+                );
+            }),
+        );
     static readonly extent = Effect.fn('Dom.extent')(function* (...placed: readonly (Page | PageItem)[]) {
         const { AnchorPoint, BoundingBoxLimits, CoordinateSpaces } = yield* Dom;
         return yield* Effect.try({

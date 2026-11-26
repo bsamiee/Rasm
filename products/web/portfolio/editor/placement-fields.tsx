@@ -1,4 +1,6 @@
-import { Choice, Field, MenuButton } from '@rasm/ui';
+import { Choice } from '@rasm/ui/choice';
+import { Field } from '@rasm/ui/field';
+import { MenuButton } from '@rasm/ui/menu-button';
 import { Match, Option, Record, String, Struct } from 'effect';
 import type { ReactNode } from 'react';
 import { choiceLayout, descriptionLabel, joinDetails, sheetLabel } from '#/media/labels';

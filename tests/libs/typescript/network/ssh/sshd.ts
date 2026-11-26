@@ -1,7 +1,8 @@
 import { connect, type NetConnectOpts } from 'node:net';
 import { layer } from '@effect/platform-node/NodeServices';
 import { fromReadable } from '@effect/platform-node/NodeStream';
-import { Host, Ssh, SshError } from '@rasm/ssh';
+import { Ssh, SshError } from '@rasm/ssh/client';
+import { Host } from '@rasm/ssh/host';
 import { Array, Cause, Context, Deferred, Effect, Fiber, FileSystem, Formatter, Layer, Option, Path, pipe, Queue, Record, Schema, Stream, String } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { GenericContainer, Wait } from 'testcontainers';

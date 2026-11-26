@@ -1,5 +1,6 @@
 import { useAtomSet } from '@effect/atom-react';
-import { Field, MenuButton } from '@rasm/ui';
+import { Field } from '@rasm/ui/field';
+import { MenuButton } from '@rasm/ui/menu-button';
 import { Array, Function, Option, Record, Result, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { useState } from 'react';

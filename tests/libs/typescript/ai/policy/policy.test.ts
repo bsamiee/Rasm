@@ -1,5 +1,5 @@
 import { assert, it } from '@effect/vitest';
-import { Policy } from '@rasm/policy';
+import { Policy } from '@rasm/policy/policy';
 import { Array, Duration, Effect, MutableRef, Option } from 'effect';
 import { environment, folder, printed, services, shell } from '#/fixtures';
 

@@ -22,7 +22,7 @@
   },
   "enabledPlugins": {
     "function-hooks@rasm": true,
-    "rasad@rasm": true,
+    "risman@rasm": true,
     "blender@rasm": true,
     "dotnet@rasm": true,
     "msbuild@rasm": true,
@@ -71,7 +71,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "nx run-many -t build--vite -p @rasm/function-hooks @rasm/rasad-plugin",
+            "command": "nx run-many -t build--vite -p @rasm/function-hooks @rasm/risman",
             "async": true
           }
         ]

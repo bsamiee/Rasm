@@ -37,10 +37,10 @@ extension Session {
             distributed.notifications(named: Notification.Name("com.apple.screenIsLocked")),
             distributed.notifications(named: Notification.Name("com.apple.screenIsUnlocked")),
         ]
-        let (changed, continuation) = AsyncStream.makeStream(of: Void.self, bufferingPolicy: .bufferingNewest(1))
-        let observing: [Task<Void, Never>] = notices.map { notice in Task { for await _ in notice { continuation.yield() } } }
-        continuation.onTermination = { _ in for task in observing { task.cancel() } }
-        return chain([current()].async, changed.map { current() }).removeDuplicates()
+        let (changed, change) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let observing: [Task<Void, Never>] = notices.map { notice in Task { for await _ in notice { change.yield() } } }
+        change.onTermination = { _ in for task in observing { task.cancel() } }
+        return chain([()].async, changed).map { current() }.removeDuplicates()
     }
 
     public func require(_ subject: String) throws(ApplicationFailure) {

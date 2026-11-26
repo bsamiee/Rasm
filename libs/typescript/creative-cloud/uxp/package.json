@@ -24,7 +24,7 @@
         "#/*.svg": "./*.svg"
     },
     "exports": {
-        ".": "./index.ts",
+        "./manifest": "./manifest.ts",
         "./plugin": "./plugin.ts",
         "./spectrum": "./spectrum.ts",
         "./vite": "./vite.ts",
@@ -37,7 +37,7 @@
             "#/*.svg": "./*.svg"
         },
         "exports": {
-            ".": "./dist/index.js",
+            "./manifest": "./dist/manifest.js",
             "./plugin": "./dist/plugin.js",
             "./spectrum": "./dist/spectrum.js",
             "./vite": "./dist/vite.js",

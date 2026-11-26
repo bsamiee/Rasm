@@ -3,19 +3,19 @@ import { HttpApi, HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiSchema } f
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Bound = Schema.Struct({ handle: Schema.String, server: Schema.String });
-const Followed = Schema.Struct({ sequence: Schema.Int, line: Schema.String });
-const params = { handle: Bound.fields.handle };
+const Binding = Schema.Struct({ handle: Schema.String, server: Schema.String });
+const Event = Schema.Struct({ sequence: Schema.Int, line: Schema.String });
+const params = { handle: Binding.fields.handle };
 
 class Handles extends HttpApi.make('handles').add(
     HttpApiGroup.make('handles', { topLevel: true }).add(
-        HttpApiEndpoint.post('bind', '/handles', { success: Bound }),
-        HttpApiEndpoint.get('follow', '/handles/:handle/events', { params, success: HttpApiSchema.StreamNdjson({ schema: Followed }), error: HttpApiError.NotFoundNoContent }),
-        HttpApiEndpoint.delete('ack', '/handles/:handle/events', { params, query: { through: Followed.fields.sequence }, success: HttpApiSchema.NoContent, error: HttpApiError.NotFoundNoContent }),
+        HttpApiEndpoint.post('bind', '/handles', { success: Binding }),
+        HttpApiEndpoint.get('follow', '/handles/:handle/events', { params, success: HttpApiSchema.StreamNdjson({ schema: Event }), error: HttpApiError.NotFoundNoContent }),
+        HttpApiEndpoint.delete('ack', '/handles/:handle/events', { params, query: { through: Event.fields.sequence }, success: HttpApiSchema.NoContent, error: HttpApiError.NotFoundNoContent }),
     ),
 ) {
-    static readonly Bound = Bound;
-    static readonly Followed = Followed;
+    static readonly Binding = Binding;
+    static readonly Event = Event;
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

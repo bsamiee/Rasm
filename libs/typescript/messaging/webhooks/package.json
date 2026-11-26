@@ -19,7 +19,8 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
+        "./scheme": "./scheme.ts",
+        "./webhook": "./webhook.ts",
         "./tailscale": "./tailscale.ts",
         "./package.json": "./package.json"
     },
@@ -28,7 +29,8 @@
             "#/*": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/index.js",
+            "./scheme": "./dist/scheme.js",
+            "./webhook": "./dist/webhook.js",
             "./tailscale": "./dist/tailscale.js",
             "./package.json": "./package.json"
         },

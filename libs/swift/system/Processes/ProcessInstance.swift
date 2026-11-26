@@ -9,8 +9,6 @@ public import System
 public struct ProcessInstance: Codable, Hashable, Sendable {
     public let pid: pid_t
     public let started: UInt64
-
-    public init(pid: pid_t, started: UInt64) { (self.pid, self.started) = (pid, started) }
 }
 
 extension ProcessInstance: RawRepresentable, CustomStringConvertible {
@@ -27,13 +25,14 @@ extension ProcessInstance: RawRepresentable, CustomStringConvertible {
 public enum ProcessStatus: String, Encodable, Sendable {
     case running
     case runnable
+    case throttled
+    case uninterruptible
     case sleeping
     case stopped
 }
 
 public struct MainThread: Sendable {
-    public let stopped: Bool
-    public let runnable: Bool
+    public let state: ProcessStatus
     public let time: Duration
     public let at: SuspendingClock.Instant
 }
@@ -46,32 +45,17 @@ func information<Info: BitwiseCopyable>(of process: pid_t, _ flavor: Int32, _ em
     return info
 }
 
-func usage(of process: pid_t) throws(Errno) -> rusage_info_current {
-    var usage = rusage_info_current()
-    let read = withUnsafeMutablePointer(to: &usage) { usage in
-        unsafe usage.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) { buffer in unsafe proc_pid_rusage(process, RUSAGE_INFO_CURRENT, buffer) }
-    }
-    guard read == 0 else { throw Errno(rawValue: errno) }
-    return usage
-}
-
 extension ProcessInstance {
     // --- [IDENTITY]
 
     public init(of pid: pid_t) throws(Errno) {
-        let usage = try usage(of: pid)
-        guard usage.ri_proc_exit_abstime == 0 else { throw .noSuchProcess }
-        self.init(pid: pid, started: usage.ri_proc_start_abstime)
-    }
-
-    public init?(named name: String) throws(Errno) {
-        switch (pid_t(name), Self(rawValue: name)) {
-            case (.some(let pid), _): try self.init(of: pid)
-            case (.none, .some(let named)):
-                guard Result(catching: { () throws(Errno) in try Self(of: named.pid) }) == .success(named) else { throw .noSuchProcess }
-                self = named
-            case (.none, .none): return nil
-        }
+        var name: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
+        var process = unsafe kinfo_proc()
+        var size = unsafe MemoryLayout<kinfo_proc>.stride
+        guard unsafe sysctl(&name, u_int(name.count), &process, &size, nil, 0) == 0 else { throw Errno(rawValue: errno) }
+        let (status, start) = unsafe (process.kp_proc.p_stat, process.kp_proc.p_starttime)
+        guard size > 0, Int32(status) != SZOMB else { throw .noSuchProcess }
+        self.init(pid: pid, started: UInt64(start.tv_sec) * USEC_PER_SEC + UInt64(start.tv_usec))
     }
 
     public var hasExited: Bool { Result(catching: { () throws(Errno) in try Self(of: pid) }) != .success(self) }
@@ -83,17 +67,26 @@ extension ProcessInstance {
             count = Int(max(unsafe proc_listallpids(buffer.baseAddress, Int32(buffer.count * MemoryLayout<pid_t>.size)), 0))
         }
         guard !listed.isEmpty else { throw Errno(rawValue: errno) }
-        var path = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
-        return try listed.filter { pid in unsafe proc_pidpath(pid, &path, UInt32(path.count)) > 0 && matching(FilePath(platformString: path)) }
+        return
+            try listed
             .map { pid throws(Errno) -> Self? in
                 do throws(Errno) {
                     let instance = try Self(of: pid)
                     return matching(try instance.executable()) ? instance : nil
-                } catch  where [.noSuchProcess, .notPermitted].contains(error) {
+                } catch  where [.noSuchProcess, .noSuchFileOrDirectory].contains(error) {
                     return nil
                 }
             }
             .compactMap(\.self)
+    }
+
+    public func executable() throws(Errno) -> FilePath {
+        var path = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
+        let read = unsafe proc_pidpath(pid, &path, UInt32(path.count))
+        let failure = Errno(rawValue: errno)
+        guard !hasExited else { throw .noSuchProcess }
+        guard read > 0 else { throw failure }
+        return FilePath(platformString: path)
     }
 
     // --- [KERNEL_TOKEN]
@@ -110,13 +103,6 @@ extension ProcessInstance {
         guard !hasExited else { throw .noSuchProcess }
         guard read == KERN_SUCCESS else { throw .notPermitted }
         return token
-    }
-
-    public func executable() throws(Errno) -> FilePath {
-        var token = try auditToken()
-        var path = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
-        guard unsafe proc_pidpath_audittoken(&token, &path, UInt32(path.count)) > 0 else { throw Errno(rawValue: errno) }
-        return FilePath(platformString: path)
     }
 
     public func signal(_ signal: Int32) throws(Errno) {
@@ -158,7 +144,6 @@ extension ProcessInstance {
         guard !hasExited else { throw ProcessFailure(subject: rawValue, reason: .io(Errno.noSuchProcess)) }
         return try await Configuration(executable: .name("sample"), arguments: [String(pid), String(Int((duration / .seconds(1)).rounded(.up))), "-mayDie", "-file", "/dev/stdout"])
             .run(output: .string(limit: .max), within: timeout)
-            .standardOutput
     }
 }
 
@@ -167,21 +152,29 @@ extension MainThread {
         let process = instance.pid
         let read = Result { () throws(Errno) in
             (
-                state: Int32(try information(of: process, PROC_PIDTBSDINFO, proc_bsdinfo()).pbi_status),
+                process: try information(of: process, PROC_PIDTBSDINFO, proc_bsdinfo()),
                 thread: try information(of: process, PROC_PIDTHREADINFO, proc_threadinfo(), argument: information(of: process, PROC_PIDLISTTHREADS, UInt64.zero)),
             )
         }
         guard !instance.hasExited else { throw .noSuchProcess }
-        let (state, thread) = try read.get()
-        self.init(stopped: state == SSTOP, runnable: thread.pth_run_state == TH_STATE_RUNNING, time: .nanoseconds(thread.pth_user_time + thread.pth_system_time), at: .now)
+        let (bsd, thread) = try read.get()
+        let starved: Bool = bsd.pbi_flags & UInt32(PROC_FLAG_PA_THROTTLE | PROC_FLAG_PA_SUSP) != 0
+        let state: ProcessStatus =
+            switch (Int32(bsd.pbi_status), starved, thread.pth_run_state) {
+                case (SSTOP, _, _), (_, false, TH_STATE_STOPPED): .stopped
+                case (_, true, _): .throttled
+                case (_, false, TH_STATE_UNINTERRUPTIBLE): .uninterruptible
+                case (_, false, TH_STATE_RUNNING): .running
+                case (_, false, _): .sleeping
+            }
+        self.init(state: state, time: .nanoseconds(thread.pth_user_time + thread.pth_system_time), at: .now)
     }
 
     public func status(since earlier: Self) -> ProcessStatus {
-        switch (stopped, runnable, time - earlier.time) {
-            case (true, _, _): .stopped
-            case (false, false, .zero): .sleeping
-            case (false, true, let ran) where ran * 2 < earlier.at.duration(to: at): .runnable
-            case (false, _, _): .running
+        switch (state, time - earlier.time) {
+            case (.running, let ran) where ran * 2 < earlier.at.duration(to: at): .runnable
+            case (.sleeping, let ran) where ran > .zero: .running
+            case (let state, _): state
         }
     }
 }

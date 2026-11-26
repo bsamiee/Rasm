@@ -17,9 +17,6 @@
             "path": "../../../../../libs/typescript/creative-cloud/object-model/tsconfig.lib.json"
         },
         {
-            "path": "../../../../../libs/typescript/ai/mcp"
-        },
-        {
             "path": "../../../../../libs/typescript/creative-cloud/indesign/tsconfig.lib.json"
         },
         {

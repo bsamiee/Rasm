@@ -1,6 +1,6 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, describe, it } from '@effect/vitest';
-import { UxpManifest } from '@rasm/uxp';
+import { UxpManifest } from '@rasm/uxp/manifest';
 import { pluginConfig } from '@rasm/uxp/vite';
 import { Array, Cause, Effect, FileSystem, Formatter, Path, Predicate, Result, Schema, Struct } from 'effect';
 import sharp from 'sharp';
@@ -11,7 +11,7 @@ import { build, mergeConfig } from 'vite';
 const ADOBE = { toolbar: 23, pluginList: 24 } as const;
 const SCALES = [1, 2] as const;
 const TONES = { lightest: '0,0,0', light: '0,0,0', medium: '255,255,255', dark: '255,255,255', darkest: '255,255,255' } as const;
-const STATED = { manifestVersion: 5, id: 'app.rasm.test', name: 'Test', version: '0.1.0', host: { app: 'PS' }, requiredPermissions: {} } as const;
+const STATED = { manifestVersion: 5, id: 'app.rasm.test', name: 'Test', version: '0.1.0', host: { app: 'PS', minVersion: '27.11.0' }, requiredPermissions: {} } as const;
 const COMMAND = { id: 'reset', label: 'Reset', type: 'command' } as const;
 const PANEL = { id: 'typesetting', label: 'Typesetting', type: 'panel' } as const;
 const GLYPH = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.25 11.5H18.75"/></svg>';
@@ -70,16 +70,20 @@ describe(UxpManifest, () => {
         { species: ['pluginList'], width: 24, height: 23, accepted: false },
         { species: ['toolbar', 'pluginList'], width: 23, height: 23, accepted: false },
         { species: ['generic'], width: 48, height: 48, accepted: true },
+        { species: ['generic'], width: 48, height: 47, accepted: false },
+        { species: ['generic'], width: 0, height: 0, accepted: false },
+        { species: ['generic'], width: 23.5, height: 23.5, accepted: false },
     ] as const)('decides a $species icon at $width x $height as accepted $accepted', ({ species, width, height, accepted }) => {
         assert.strictEqual(Result.isSuccess(Schema.decodeResult(UxpManifest)({ ...STATED, entrypoints: [], icons: [{ width, height, path: 'icons/plugin.png', species }] })), accepted);
     });
 
-    it.prop('accepts an icon exactly when every species it lists takes its width and height', { width: Side, height: Side, species: Schema.NonEmptyArray(Schema.Literals(['generic', 'toolbar', 'pluginList'])) }, ({ width, height, species }) => {
+    it.prop('accepts an icon exactly when it is square and every species it lists takes its side', { width: Side, height: Side, species: Schema.NonEmptyArray(Schema.Literals(['generic', 'toolbar', 'pluginList'])) }, ({ width, height, species }) => {
         const decoded = Schema.decodeResult(UxpManifest)({ ...STATED, entrypoints: [], icons: [{ width, height, path: 'icons/plugin.png', species }] });
-        assert.strictEqual(
-            Result.isSuccess(decoded),
-            species.every((kind) => kind === 'generic' || (width === ADOBE[kind] && height === ADOBE[kind])),
-        );
+        assert.strictEqual(Result.isSuccess(decoded), width === height && species.every((kind) => kind === 'generic' || width === ADOBE[kind]));
+    });
+
+    it('refuses a host naming no minVersion, the floor each plugin manifest states', () => {
+        assert.isTrue(Result.isFailure(Schema.decodeUnknownResult(UxpManifest)({ ...STATED, host: { app: STATED.host.app }, entrypoints: [] })));
     });
 
     it.each(ADDONS)('decides addon $addon under manifest version $manifestVersion with permissions $requiredPermissions as accepted $accepted', ({ manifestVersion, requiredPermissions, addon, accepted }) => {
@@ -90,7 +94,7 @@ describe(UxpManifest, () => {
 
 it.layer(layer, { excludeTestServices: true })('uxp', (methods) => {
     methods.effect(
-        'writes the entry file, a host floor, both icon roles at 1x and 2x in black for light and white for dark themes, the link origin beside stated domains, and the rejection flag',
+        'writes the entry file, a host floor, both icon roles at 1x and 2x in black for light and white for dark themes, the stated network domains alone, and the rejection flag',
         Effect.fnUntraced(function* () {
             const { out, text } = yield* built({ ...STATED, entrypoints: [COMMAND, PANEL], requiredPermissions: { network: { domains: ['https://example.com'] } } }, 'export {};\n');
             const written = yield* Schema.decodeEffect(Written)(text);
@@ -105,8 +109,20 @@ it.layer(layer, { excludeTestServices: true })('uxp', (methods) => {
             for (const { file, drawn: read, expected } of yield* misdrawn(out, rows)) {
                 assert.deepStrictEqual(read, expected, file);
             }
-            assert.deepStrictEqual(written.requiredPermissions.network.domains, ['https://example.com', new URL(UxpManifest.link).origin]);
+            assert.deepStrictEqual(written.requiredPermissions.network.domains, ['https://example.com']);
             assert.isTrue(written.featureFlags.unhandledRejection);
+        }, Effect.scoped),
+    );
+
+    methods.effect(
+        'requires an adobe: host module by its bare UXP name and bundles the WHATWG encoding globals in place of the host ones',
+        Effect.fnUntraced(function* () {
+            const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+            const { out } = yield* built({ ...STATED, entrypoints: [] }, "import { entrypoints } from 'adobe:uxp';\nexport const ready = entrypoints;\nexport const decode = (bytes: Uint8Array) => new TextDecoder('windows-1252').decode(bytes);\n");
+            const [code, map] = yield* Effect.all([fs.readFileString(path.join(out, 'main.js')), Effect.flatMap(fs.readFileString(path.join(out, 'main.js.map')), Schema.decodeEffect(Schema.fromJsonString(Schema.Struct({ sources: Schema.Array(Schema.String) }))))]);
+            assert.include(code, 'require("uxp")');
+            assert.notInclude(code, 'adobe:');
+            assert.isTrue(Array.some(map.sources, (source) => source.includes('@exodus/bytes/')));
         }, Effect.scoped),
     );
 

@@ -2,7 +2,9 @@ import AVFoundation
 import AppKit
 @unsafe @preconcurrency import ApplicationServices
 import Applications
+import CasePathsCore
 import CoreMedia
+import CustomDump
 import Fixture
 import Testing
 import UniformTypeIdentifiers
@@ -32,9 +34,10 @@ struct RecordingTests {
         let asset = AVURLAsset(url: movie)
         let track: AVAssetTrack = try #require(try await asset.loadTracks(withMediaType: .video).first)
         let (size, duration): (CGSize, CMTime) = (try await track.load(.naturalSize), try await asset.load(.duration))
-        let scale: CGFloat = try #require(NSScreen.screens.first { screen in screen.frame.contains(CGPoint(x: window.frame.midX, y: window.frame.midY)) }?.backingScaleFactor)
-        #expect(recording.type == UTType.mpeg4Movie.identifier)
-        #expect(size == CGSize(width: (window.frame.width * scale).rounded(), height: (window.frame.height * scale).rounded()), "window \(window.number) at scale \(scale): got \(size)")
+        let screen: NSScreen? = NSScreen.screens.first { (screen: NSScreen) -> Bool in screen.frame.contains(CGPoint(x: window.frame.midX, y: window.frame.midY)) }
+        let scale: CGFloat = try #require(screen?.backingScaleFactor)
+        expectNoDifference(recording.type, UTType.mpeg4Movie.identifier)
+        expectNoDifference(size, CGSize(width: (window.frame.width * scale).rounded(), height: (window.frame.height * scale).rounded()), "window \(window.number) at scale \(scale)")
         #expect(duration.seconds > 0 && duration.seconds <= span / .seconds(1) + 0.5, "recorded \(duration.seconds) s for a \(span) span")
     }
 }

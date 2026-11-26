@@ -1,7 +1,7 @@
 import { posix } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
-import { above, type Anchor, aggregated, EXECUTORS, inside, PLATFORM, removable, type Stated, tokened, type Verbs } from '@rasm/nx';
+import { above, type Anchor, aggregated, EXECUTORS, inside, PLATFORM, removable, type Stated, tokened, type Verbs } from '@rasm/nx/inference';
 import { Array, Option, Record, UndefinedOr } from 'effect';
 import { configured, PACKAGING, REGISTRY, type Tree, WORKING, type Workflow } from '#/workspace';
 

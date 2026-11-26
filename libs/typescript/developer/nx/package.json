@@ -22,7 +22,7 @@
         "#/*.json": "./*.json"
     },
     "exports": {
-        ".": "./inference.ts",
+        "./inference": "./inference.ts",
         "./executor": "./executor.ts",
         "./graph": "./graph.ts",
         "./executors.json": "./executors.json",
@@ -37,7 +37,7 @@
             "#/*.json": "./*.json"
         },
         "exports": {
-            ".": "./dist/inference.js",
+            "./inference": "./dist/inference.js",
             "./executor": "./dist/executor.js",
             "./graph": "./dist/graph.js",
             "./executors.json": "./executors.json",

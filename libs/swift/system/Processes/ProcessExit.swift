@@ -30,56 +30,50 @@ public struct ProcessExit: Equatable, Sendable {
     public var producesReport: Bool { detail.contains(.codeSigning) || Self.reportingSignals.contains(status) }
 }
 
-extension TerminationStatus {
-    init(waitStatus status: Int32) {
-        self = status & _WSTOPPED == 0 ? .exited(status >> 8 & 0xff) : .signaled(status & _WSTOPPED)
-    }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension ProcessInstance {
     public func exits() -> AsyncStream<Result<ProcessExit, Errno>> {
-        AsyncStream { continuation in
-            let registered = Result { () throws(Errno) in
-                guard !hasExited else { throw .noSuchProcess }
-                let descriptor = kqueue()
-                guard descriptor >= 0 else { throw Errno(rawValue: errno) }
-                let queue = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
-                var exit = unsafe kevent(
-                    ident: UInt(pid),
-                    filter: Int16(EVFILT_PROC),
-                    flags: UInt16(EV_ADD | EV_ONESHOT),
-                    fflags: NOTE_EXIT | UInt32(NOTE_EXITSTATUS) | UInt32(NOTE_EXIT_DETAIL),
-                    data: 0,
-                    udata: nil,
-                )
-                guard unsafe kevent(descriptor, &exit, 1, nil, 0, nil) == 0 else { throw Errno(rawValue: errno) }
-                return queue
-            }
-            @Sendable func drain(_ descriptor: Int32) -> Result<ProcessExit, Errno>? {
-                var exited = unsafe kevent()
-                var now = timespec()
-                let read = unsafe kevent(descriptor, nil, 0, &exited, 1, &now)
-                guard read != 0 else { return nil }
-                let data = Int32(truncatingIfNeeded: unsafe exited.data)
-                return read < 0 ? .failure(Errno(rawValue: errno)) : .success(ProcessExit(status: TerminationStatus(waitStatus: data), detail: ExitDetail(rawValue: data & NOTE_EXIT_DETAIL_MASK)))
-            }
-            switch registered {
-                case .success(let queue) where hasExited:
-                    continuation.yield(drain(queue.fileDescriptor) ?? .failure(.noSuchProcess))
-                    continuation.finish()
-                case .success(let queue):
-                    queue.readabilityHandler = { queue in
-                        guard let outcome = drain(queue.fileDescriptor) else { return }
-                        continuation.yield(outcome)
-                        continuation.finish()
-                    }
-                    continuation.onTermination = { _ in queue.readabilityHandler = nil }
-                case .failure(let error):
-                    continuation.yield(.failure(error))
-                    continuation.finish()
-            }
+        let (exits, exit) = AsyncStream<Result<ProcessExit, Errno>>.makeStream()
+        let deliver: @Sendable (FileHandle) -> Void = { queue in
+            var event = unsafe kevent()
+            var now = timespec()
+            let read = unsafe kevent(queue.fileDescriptor, nil, 0, &event, 1, &now)
+            let data = Int32(truncatingIfNeeded: unsafe event.data)
+            let status: TerminationStatus = data & _WSTOPPED == 0 ? .exited(data >> 8 & 0xff) : .signaled(data & _WSTOPPED)
+            let outcome: Result<ProcessExit, Errno> =
+                switch read {
+                    case 1: .success(ProcessExit(status: status, detail: ExitDetail(rawValue: data & NOTE_EXIT_DETAIL_MASK)))
+                    case 0: .failure(.noSuchProcess)
+                    default: .failure(Errno(rawValue: errno))
+                }
+            exit.yield(outcome)
+            exit.finish()
         }
+        let registered = Result { () throws(Errno) -> FileHandle in
+            let descriptor = kqueue()
+            guard descriptor >= 0 else { throw Errno(rawValue: errno) }
+            let queue = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+            var change = unsafe kevent(
+                ident: UInt(pid),
+                filter: Int16(EVFILT_PROC),
+                flags: UInt16(EV_ADD | EV_ONESHOT),
+                fflags: NOTE_EXIT | UInt32(NOTE_EXITSTATUS) | UInt32(NOTE_EXIT_DETAIL),
+                data: 0,
+                udata: nil,
+            )
+            guard unsafe kevent(descriptor, &change, 1, nil, 0, nil) == 0 else { throw Errno(rawValue: errno) }
+            return queue
+        }
+        switch registered {
+            case .success(let queue) where hasExited: deliver(queue)
+            case .success(let queue):
+                exit.onTermination = { _ in queue.readabilityHandler = nil }
+                queue.readabilityHandler = deliver
+            case .failure(let error):
+                exit.yield(.failure(error))
+                exit.finish()
+        }
+        return exits
     }
 }

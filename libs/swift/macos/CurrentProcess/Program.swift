@@ -80,24 +80,32 @@ public struct Program: Sendable {
         stored.setValue(value.flatMap { value in Self.values([key.description: value]).values.first }, forKey: AbsoluteConfigKey(key))
     }
 
-    public func require() throws(AggregateError<ApplicationFailure>) {
-        let missing = Grant.allCases.filter { grant in !grant.isHeld }
-        guard !missing.isEmpty else { return }
-        var (code, requirement, identity): (SecStaticCode?, SecRequirement?, CFData?) = (nil, nil, nil)
-        let found = unsafe SecStaticCodeCreateWithPath(Bundle.main.bundleURL as CFURL, [], &code)
-        let designated = code.map { code in unsafe SecCodeCopyDesignatedRequirement(code, [], &requirement) } ?? found
-        let read = requirement.map { requirement in unsafe SecRequirementCopyData(requirement, [], &identity) } ?? designated
-        let identified = Result { () throws(AggregateError<ApplicationFailure>) in
-            guard let identity else { throw AggregateError(first: ApplicationFailure(subject: identifier, reason: .foundation(NSError(domain: NSOSStatusErrorDomain, code: Int(read))))) }
-            return identity as Data
+    var signature: (requirement: Data?, unique: Data?) {
+        get throws(ApplicationFailure) {
+            var (code, information, requirement): (SecStaticCode?, CFDictionary?, CFData?) = (nil, nil, nil)
+            let found = unsafe SecStaticCodeCreateWithPath(Bundle.main.bundleURL as CFURL, [], &code)
+            let read = code.map { code in unsafe SecCodeCopySigningInformation(code, SecCSFlags(rawValue: kSecCSRequirementInformation), &information) } ?? found
+            let fields: [CFString: CFTypeRef] = information as? [CFString: CFTypeRef] ?? [:]
+            let designated = fields[kSecCodeInfoDesignatedRequirement].flatMap { value in
+                CFGetTypeID(value) == SecRequirementGetTypeID() ? unsafe unsafeDowncast(value, to: SecRequirement.self) : nil
+            }
+            let copied = designated.map { designated in unsafe SecRequirementCopyData(designated, [], &requirement) } ?? read
+            guard copied == errSecSuccess else { throw ApplicationFailure(subject: identifier, reason: .foundation(NSError(domain: NSOSStatusErrorDomain, code: Int(copied)))) }
+            return (requirement as Data?, fields[kSecCodeInfoUnique] as? Data)
         }
+    }
+
+    public func require() throws(AggregateError<ApplicationFailure>) {
+        let missing = Grant.allCases.filter { grant in !grant.isHeld(asking: false) }
+        guard !missing.isEmpty else { return }
+        let signed = Result { () throws(ApplicationFailure) in try signature.requirement }.aggregated(\.self)
         for grant in missing {
             let requested: ConfigKey = ["grants", "requested", grant.rawValue]
-            guard case .success(let identity) = identified, settings.bytes(forKey: requested).map(Data.init) != identity else { continue }
-            grant.request()
-            store(identity, forKey: requested)
+            guard case .success(let requirement) = signed, settings.bytes(forKey: requested).map(Data.init) != requirement else { continue }
+            _ = grant.isHeld(asking: true)
+            store(requirement, forKey: requested)
         }
-        _ = try combine(identified, traverse(missing) { grant in Result { () throws(ApplicationFailure) in try grant.check() }.aggregated(\.self) }).get()
+        _ = try combine(signed, traverse(missing) { grant in Result { () throws(ApplicationFailure) in try grant.check() }.aggregated(\.self) }).get()
     }
 
     static func values(_ domain: [String: Any]) -> [AbsoluteConfigKey: ConfigValue] {

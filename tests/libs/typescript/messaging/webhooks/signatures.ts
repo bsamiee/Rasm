@@ -1,5 +1,5 @@
 import { assert, it } from '@effect/vitest';
-import { Scheme, WebhookError } from '@rasm/webhooks';
+import { Scheme, WebhookError } from '@rasm/webhooks/scheme';
 import { Bytes, DateTime, Duration, Effect, Function, Option, Record } from 'effect';
 import { Headers } from 'effect/http';
 import { TestClock } from 'effect/testing';

@@ -35,6 +35,7 @@ func schemes(in container: FilePath, built: [String: Built]) throws(AnalyzerErro
         let ids = try values("//BuildAction//BuildableReference/@BlueprintIdentifier", in: parsed, at: file)
         let owners = try values("//BuildAction//BuildableReference/@ReferencedContainer", in: parsed, at: file).map { owner in place(owner).string }
         let plans = try values("//TestAction/TestPlans/TestPlanReference/@reference", in: parsed, at: file).map(place)
+        let primary = Set(try values("//TestAction/TestPlans/TestPlanReference[@default='YES']/@reference", in: parsed, at: file).map(place))
         let testables = try values("//TestAction/Testables/TestableReference", in: parsed, at: file)
         let launch = try values("/Scheme/LaunchAction/@buildConfiguration", in: parsed, at: file).first
         let archiving = "//BuildAction//BuildActionEntry[@buildForArchiving='YES']/BuildableReference"
@@ -50,7 +51,7 @@ func schemes(in container: FilePath, built: [String: Built]) throws(AnalyzerErro
             Scheme(
                 name: name,
                 containers: owners,
-                plans: plans.compactMap(\.stem),
+                plans: plans.compactMap { plan in plan.stem.map { stem in TestPlan(name: stem, default: primary.contains(plan)) } },
                 tests: !plans.isEmpty || !testables.isEmpty,
                 launch: launch,
                 archive: archive.flatMap { held in held.bundles.isEmpty ? nil : held },

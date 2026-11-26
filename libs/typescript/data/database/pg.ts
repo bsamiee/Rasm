@@ -58,7 +58,7 @@ const opclasses: Readonly<Record<Relation['indexes'][number]['method'], { readon
 
 const Role = Schema.Struct({ role: Schema.String });
 const ColumnRef = Schema.Struct({ fields: Schema.Array(Schema.Unknown) });
-class Configuration extends Schema.Opaque<Configuration, unknown>()(Schema.Struct({ name: Schema.String, configuration: Schema.String, filters: Schema.Array(Schema.String) })) {}
+class Configuration extends Schema.Opaque<Configuration>()(Schema.Struct({ name: Schema.String, configuration: Schema.String, filters: Schema.Array(Schema.String) })) {}
 const Prelude = Schema.Struct({ required: Schema.Array(Schema.String), filters: Schema.Array(Schema.String), declared: Schema.fromJsonString(Schema.Array(Configuration)) });
 class Configurations extends Schema.Opaque<Configurations, { readonly brand: unique symbol }>()(
     Schema.Struct({

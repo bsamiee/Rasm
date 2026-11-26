@@ -1,10 +1,9 @@
 import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 import { assert, it } from '@effect/vitest';
-import { Completion } from '@rasm/extendscript';
+import { Completion } from '@rasm/extendscript/completion';
 import { inlineScript } from '@rasm/extendscript/vite';
-import { HostScript } from '@rasm/indesign';
-import { UxpManifest } from '@rasm/uxp';
+import { HostScript } from '@rasm/indesign/script';
 import { Array, Cause, Context, Effect, Formatter, Layer, Option, Schema, Struct } from 'effect';
 import { build } from 'vite';
 
@@ -47,7 +46,7 @@ const scripted = Effect.fnUntraced(function* (body: string, ran: (step: () => vo
     };
     const indesign = { app: { scriptPreferences, doScript, page: PAGE, closed: CLOSED }, ScriptLanguage: { UXPSCRIPT: 'UXPSCRIPT' }, UndoModes: { ENTIRE_SCRIPT: 'ENTIRE_SCRIPT' }, UserInteractionLevels: { NEVER_INTERACT: 'NEVER_INTERACT' } };
     const uxp = { script: { setResult: (reply: string) => replies.push(decodeURIComponent(reply)) } };
-    runInNewContext(UxpManifest.wrapScript(`(function body() {\n${body}\n})`, { host, script: HostScript, label: LABEL }), { require: (id: string) => ({ uxp, indesign })[id] ?? raising(new Error(`Cannot find module '${id}'`)) });
+    runInNewContext(HostScript.wrap(`(function body() {\n${body}\n})`, host, LABEL), { require: (id: string) => ({ uxp, indesign })[id] ?? raising(new Error(`Cannot find module '${id}'`)) });
     const answers = yield* Effect.forEach(replies, (reply) => Schema.decodeEffect(Answer)(reply));
     return { steps, answers, level: scriptPreferences.userInteractionLevel };
 });
@@ -99,7 +98,7 @@ it.layer(HostLibrary.layer)('InDesign do script body', (methods) => {
         Effect.fnUntraced(function* () {
             const seen: unknown[] = [];
             const { answers, level } = yield* scripted("const first = 1;\nthrow new Error('boom ' + first);", rolledBack(seen));
-            assert.deepStrictEqual([answers, level, seen.length], [[{ _tag: 'Thrown', message: 'boom 1', number: Option.none(), line: Option.some(3 + UxpManifest.wrapScript.offset) }], 'INTERACT_WITH_ALL', 1]);
+            assert.deepStrictEqual([answers, level, seen.length], [[{ _tag: 'Thrown', message: 'boom 1', number: Option.none(), line: Option.some(3 + HostScript.offset) }], 'INTERACT_WITH_ALL', 1]);
         }),
     );
 

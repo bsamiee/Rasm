@@ -7,7 +7,7 @@ import type { ShapedText } from '#/shaping/shaped-text';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Extents = Schema.Struct(Struct.Record(['ascender', 'descender', 'lineGap'], Schema.Finite));
-class Stroke extends Schema.Opaque<Stroke, unknown>()(Schema.Struct({ position: Schema.Finite.annotate({ description: 'Stroke center, negative below baseline' }), thickness: Schema.Finite })) {}
+class Stroke extends Schema.Opaque<Stroke>()(Schema.Struct({ position: Schema.Finite.annotate({ description: 'Stroke center, negative below baseline' }), thickness: Schema.Finite })) {}
 const Shift = Schema.Struct(Struct.Record(['size', 'offset'], Schema.Struct(Struct.Record(['x', 'y'], Schema.Finite))));
 class Metrics extends Schema.Class<Metrics, { readonly brand: unique symbol }>('Metrics')({
     extents: Schema.Struct({

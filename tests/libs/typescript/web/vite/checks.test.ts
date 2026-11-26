@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { checks } from '@rasm/vite';
+import { checks } from '@rasm/vite/checks';
 import { build, createLogger, type Plugin, type Rolldown } from 'vite';
 import { describe, expect, it, onTestFinished } from 'vitest';
 

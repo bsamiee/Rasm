@@ -5,7 +5,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { singleExecutable } from '@rasm/applications/vite';
 import { inlineScript } from '@rasm/extendscript/vite';
 import { run } from '@rasm/process';
-import { checks } from '@rasm/vite';
+import { checks } from '@rasm/vite/checks';
 import { Array, Effect, FileSystem, Struct } from 'effect';
 import type { Plugin, Rolldown, UserConfigFnPromise } from 'vite';
 
@@ -55,7 +55,15 @@ export default Effect.fnUntraced(
         } satisfies Plugin;
         return {
             build: { rolldownOptions: { output: { codeSplitting: false } } },
-            plugins: [checks(), declarations, inlineScript(resolved('@rasm/extendscript/host'), 'host'), inlineScript(resolved('es5-shim'), 'shim'), inlineScript(resolved('es5-shim/es5-sham.js'), 'sham'), yield* singleExecutable(join(directory, 'main.ts'), 'server')],
+            plugins: [
+                checks(),
+                declarations,
+                inlineScript(resolved('@rasm/extendscript/host'), 'host'),
+                inlineScript(resolved('@rasm/acrobat/host'), 'dialogs'),
+                inlineScript(resolved('es5-shim'), 'shim'),
+                inlineScript(resolved('es5-shim/es5-sham.js'), 'sham'),
+                yield* singleExecutable(join(directory, 'main.ts'), 'server'),
+            ],
         };
     },
     Effect.provide(layer),

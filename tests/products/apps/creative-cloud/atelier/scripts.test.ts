@@ -1,5 +1,3 @@
-import { once } from 'node:events';
-import { createServer } from 'node:net';
 import { DatabaseSync } from 'node:sqlite';
 import { pathToFileURL } from 'node:url';
 import { runInNewContext } from 'node:vm';
@@ -7,13 +5,14 @@ import { layerUndici } from '@effect/platform-node/NodeHttpClient';
 import { layer as services } from '@effect/platform-node/NodeServices';
 import { layer as sockets } from '@effect/platform-node/NodeSocketServer';
 import { assert, layer } from '@effect/vitest';
-import { ApplicationRpcs, InstanceSnapshot, ScriptingDictionary } from '@rasm/applications';
+import { ApplicationRpcs, Installation, InstanceSnapshot, ScriptingDictionary } from '@rasm/applications/contract';
 import { routed } from '@rasm/testing/playwright';
 import { parse } from 'acorn';
-import { Array, Cause, Config, Context, Effect, FileSystem, Layer, MutableRef, Option, Order, Path, Record, Result, Schedule, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Context, Effect, FileSystem, Layer, MutableRef, Option, Order, Path, Predicate, Record, Result, Schedule, Schema, Stream, Struct } from 'effect';
 import { McpClient, McpProtocol } from 'effect/ai';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { RpcSerialization, RpcServer } from 'effect/rpc';
+import getPort from 'get-port';
 import { build } from 'plist';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -36,28 +35,36 @@ const DISTILL = {
         { name: 'adobePDFSettingsPath', code: 'DAPS', types: [], list: false, enumerators: [] },
     ],
 };
-const INSTALLED = [
-    { receipt: 'com.adobe.acrobat.DC.scamini.app.pkg.MUI', name: 'Adobe Acrobat', identifier: 'com.adobe.Acrobat.Pro', version: '26.003.22110', dictionary: { command: [SCRIPT], script: SCRIPT } },
-    { receipt: 'com.adobe.acrobat.DC.scafull.app.pkg.MUI', name: 'Acrobat Distiller', identifier: 'com.adobe.distiller', version: '26.003.22110', dictionary: { command: [DISTILL] } },
+const APPLICATIONS = [
+    { name: 'Adobe Acrobat', identifier: 'com.adobe.Acrobat.Pro', version: '26.003.22110', dictionary: { suite: [{ name: 'Acrobat Viewer Suite', code: 'CARO' }], command: [SCRIPT], script: SCRIPT } },
+    { name: 'Acrobat Distiller', identifier: 'com.adobe.distiller', version: '26.003.22110', dictionary: { command: [DISTILL] } },
+    { name: 'Adobe Photoshop 2027', identifier: 'com.adobe.Photoshop', version: '28.2.0', dictionary: { command: [SCRIPT], script: SCRIPT } },
+    { name: 'Adobe After Effects 2027', identifier: 'com.adobe.AfterEffects.application', version: '27.1.0', dictionary: { command: [SCRIPT], script: SCRIPT } },
 ] as const;
-const REGISTERED = [
-    { code: 'IDSN', version: '21.0', name: 'Adobe InDesign 2027', identifier: 'com.adobe.InDesign', shortVersion: '21.0.1', build: '21.0.1.52', visible: 'true' },
-    { code: 'KBRG', version: '16.0', name: 'Adobe Bridge 2027', identifier: 'com.adobe.bridge16', shortVersion: '16.0.2', build: '16.0.2.11', visible: 'false' },
-] as const;
+const REGISTERED = { 'Adobe Photoshop 2027': { code: 'PHSP', version: '28.2', build: '28.2.0.36' }, 'Adobe After Effects 2027': { code: 'AEFT', version: '27.1', build: '27.1.0.12' } } as const;
+const PLUGINS_INFO = { PS: '28.0.0', aftereffects: '27.2.0' } as const;
+const FOREIGN = { pluginId: 'com.example.panel', status: 'enabled', type: 'uxp', hostMinVersion: '1.0.0' } as const;
 const REGISTRY = [
     'CREATE TABLE product_installation_info ( SAPCode varchar(36), ProductVersion varchar(36), ProcessorFamily varchar(36), Status INT, constraint pk PRIMARY KEY (SAPCode, ProductVersion, ProcessorFamily) );',
     'CREATE TABLE product_installation_meta_info ( SAPCode varchar(36), ProductVersion varchar(36), ProcessorFamily varchar(36), Key TEXT, Value TEXT, constraint pk PRIMARY KEY (SAPCode, ProductVersion, ProcessorFamily, Key) );',
 ].join('\n');
 const MARK = 'marked';
 const ES3 = { ecmaVersion: 3, allowReserved: 'never' } as const;
+const ES5 = { ecmaVersion: 5 } as const;
+const DIALOGS = Record.fromIterableWith(['alert', 'confirm', 'prompt'], (name) => [
+    name,
+    () => {
+        throw new Error(`host ${name}`);
+    },
+]);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Bound = Schema.Struct({ port: Schema.Int });
 const Instances = Schema.Array(Schema.toCodecJson(InstanceSnapshot));
+const Installations = Schema.Array(Schema.toCodecJson(Installation));
 const Opened = Schema.fromJsonString(Schema.Struct({ instance: Schema.String }));
 const Text = Schema.Struct({ text: Schema.String });
-const Answered = Schema.fromJsonString(Schema.Struct({ result: Schema.Finite }));
+const Answered = Schema.fromJsonString(Schema.Struct({ result: Schema.Json }));
 const Listing = Schema.fromJsonString(Schema.Struct({ installed: Schema.Array(Schema.Struct({ name: Schema.String, product: Schema.String, channel: Schema.String, version: Schema.String, build: Schema.optionalKey(Schema.String) })) }));
 const Reply = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.Unknown)));
 
@@ -65,40 +72,33 @@ const Reply = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJson
 
 class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Suite', {
     make: Effect.gen(function* () {
-        const [fs, path, spawner, searched] = yield* Effect.all([FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner, Config.String('PATH')]);
+        const [fs, path, spawner] = yield* Effect.all([FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
         const built = yield* Effect.fromOption(routed('@rasm/nx-vite', '@rasm/atelier'), () => new Cause.NoSuchElementError('nx.json states no Vite outputPath to run @rasm/atelier from'));
         const root = yield* fs.makeTempDirectoryScoped({ prefix: 'atelier-' });
-        const probe = yield* Effect.sync(() => createServer().listen(0, '127.0.0.1'));
-        yield* Effect.promise(() => once(probe, 'listening'));
-        const { port } = yield* Schema.decodeUnknownEffect(Bound)(probe.address());
-        yield* Effect.callback<void>((resume) => {
-            probe.close(() => resume(Effect.void));
-        });
-        const location = 'Applications/Adobe Acrobat DC';
-        const [contents, receipts, bin, socket] = [path.join(root, 'Atelier.app', 'Contents'), path.join(root, 'receipts'), path.join(root, 'bin'), path.join(root, 'server.sock')];
+        const port = yield* Effect.promise(() => getPort());
+        const [contents, socket, home] = [path.join(root, 'Atelier.app', 'Contents'), path.join(root, 'server.sock'), path.join(root, 'home')];
         const [registry, installs] = [path.join(root, 'hdpim.db'), path.join(root, 'Applications')];
-        const bundle = (name: string) => path.join(root, location, `${name}.app`);
+        const bundle = (name: string) => path.join(installs, name, `${name}.app`);
         const located = (name: string) => pathToFileURL(`${bundle(name)}/`).href;
         const empty = Struct.Record(ScriptingDictionary.Kind.literals, []);
-        const dictionaries = Record.fromEntries(yield* Effect.forEach(INSTALLED, ({ name, dictionary }) => Effect.map(Schema.decodeEffect(ScriptingDictionary)({ ...empty, ...dictionary }), (terms) => [located(name), terms] as const)));
-        const instances = yield* Schema.decodeEffect(Instances)(INSTALLED.map(({ name, identifier }, at) => ({ pid: 100 + at, instance: `${100 + at}@1`, identifier, url: located(name), activationPolicy: 'regular', state: { running: { active: false, status: 'responding', windows: [] } }, listening: [] })));
+        const dictionaries = Record.fromEntries(yield* Effect.forEach(APPLICATIONS, ({ name, dictionary }) => Effect.map(Schema.decodeEffect(ScriptingDictionary)({ ...empty, ...dictionary }), (terms) => [located(name), terms] as const)));
+        const installations = yield* Schema.decodeEffect(Installations)(
+            APPLICATIONS.map(({ name, identifier, version }) => ({ url: located(name), executable: pathToFileURL(path.join(bundle(name), 'Contents', 'MacOS', name)).href, identifier, name, version, scriptable: true, activationPolicy: 'regular', appIntents: [] })),
+        );
+        const instances = yield* Schema.decodeEffect(Instances)(
+            APPLICATIONS.map(({ name, identifier }, at) => ({ pid: 100 + at, instance: `${100 + at}@1`, identifier, url: located(name), activationPolicy: 'regular', state: { _tag: 'running', active: false, status: { _tag: 'responding' }, windows: [] }, listening: [] })),
+        );
         const executed = MutableRef.make<readonly Sent[]>([]);
         const files: Record<string, string> = {
             [path.join(contents, 'Info.plist')]: build({ CFBundleExecutable: 'Atelier', CFBundleIdentifier: 'app.rasm.atelier.suite', CFBundleShortVersionString: '0.0.0' }),
             [path.join(contents, 'MacOS', 'Atelier')]: `#!/bin/sh\nexec /usr/bin/nc -U '${socket}'\n`,
-            [path.join(bin, 'pkgutil')]: `#!/bin/sh\ncase "$1" in\n--pkgs) printf '%s\\n' ${INSTALLED.map(({ receipt }) => receipt).join(' ')} ;;\n--pkg-info-plist) cat '${receipts}/'"$2".plist ;;\n--only-dirs) cat '${receipts}/'"$3".txt ;;\nesac\n`,
             ...Record.fromEntries(
-                INSTALLED.flatMap(({ receipt, name, identifier, version }) => [
-                    [path.join(receipts, `${receipt}.plist`), build({ pkgid: receipt, 'pkg-version': version, volume: root, 'install-location': location })],
-                    [path.join(receipts, `${receipt}.txt`), `${name}.app\n${name}.app/Contents\n`],
-                    [path.join(bundle(name), 'Contents', 'Info.plist'), build({ CFBundleIdentifier: identifier, CFBundleShortVersionString: version })],
-                ]),
+                Record.collect(PLUGINS_INFO, (app, hostMinVersion) => [path.join(home, 'Library', 'Application Support', 'Adobe', 'UXP', 'PluginsInfo', 'v1', `${app}.json`), JSON.stringify({ plugins: [{ pluginId: `app.rasm.atelier.suite.${app}`, status: 'enabled', type: 'uxp', hostMinVersion }, FOREIGN] })]),
             ),
-            ...Record.fromEntries(REGISTERED.map(({ name, identifier, shortVersion }) => [path.join(installs, name, `${name}.app`, 'Contents', 'Info.plist'), build({ CFBundleIdentifier: identifier, CFBundleShortVersionString: shortVersion })])),
         };
-        const products = REGISTERED.map(({ code, version }) => [code, version, 'arm64', 1] as const);
-        const facts = REGISTERED.flatMap(({ code, version, name, build: registered, visible }) =>
-            Record.toEntries({ InstallDir: path.join(installs, name), AppLaunch: `[InstallDir]/${name}.app/Contents/MacOS/${name}`, BuildVersion: registered, isVisibleProduct: visible }).map(([key, value]) => [code, version, 'arm64', key, value] as const),
+        const products = Record.collect(REGISTERED, (_, { code, version }) => [code, version, 'arm64', 1] as const);
+        const facts = Array.flatten(
+            Record.collect(REGISTERED, (name, { code, version, build: registered }) => Record.collect({ InstallDir: path.dirname(bundle(name)), AppLaunch: `[InstallDir]/${name}.app/Contents/MacOS/${name}`, BuildVersion: registered }, (key, value) => [code, version, 'arm64', key, value] as const)),
         );
         const database = yield* Effect.acquireRelease(
             Effect.sync(() => new DatabaseSync(registry)),
@@ -111,7 +111,7 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
         yield* Effect.forEach(products, (row) => Effect.sync(() => product.run(...row)), { discard: true });
         yield* Effect.forEach(facts, (row) => Effect.sync(() => fact.run(...row)), { discard: true });
         yield* Effect.forEach(Record.toEntries(files), ([file, text]) => Effect.andThen(fs.makeDirectory(path.dirname(file), { recursive: true }), fs.writeFileString(file, text)), { discard: true });
-        yield* Effect.forEach([path.join(contents, 'MacOS', 'Atelier'), path.join(bin, 'pkgutil')], (file) => fs.chmod(file, 0o755), { discard: true });
+        yield* fs.chmod(path.join(contents, 'MacOS', 'Atelier'), 0o755);
         yield* Effect.forEach(['Helpers', 'Resources'], (folder) => fs.makeDirectory(path.join(contents, folder)), { discard: true });
         yield* Effect.all(
             [
@@ -122,16 +122,17 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
             ],
             { discard: true },
         );
-        const served = ApplicationRpcs.omit('pasteboard', 'model', 'intern', 'handlers', 'launch', 'act', 'quit', 'capture', 'record', 'scale', 'diagnostics');
+        const served = ApplicationRpcs.omit('installation', 'pasteboard', 'model', 'intern', 'handlers', 'launch', 'act', 'quit', 'capture', 'record', 'scale', 'diagnostics');
         yield* Layer.build(
             RpcServer.layer(served).pipe(
                 Layer.provide([
                     served.toLayer({
-                        installations: () => Stream.concat(Stream.succeed({ installations: [], unreadable: [] }), Stream.never),
-                        instances: () => Stream.concat(Stream.succeed(instances), Stream.never),
+                        installations: () => Stream.concat(Stream.succeed({ installations, unreadable: [] }), Stream.never),
+                        instances: () => Stream.concat(Stream.succeed(Result.succeed(instances)), Stream.never),
                         events: () => Stream.never,
                         observations: () => Stream.never,
                         pressure: () => Stream.never,
+                        session: () => Stream.concat(Stream.succeed({ onConsole: true, locked: false, asleep: false, secureInput: false, space: 1 }), Stream.never),
                         watch: ({ instance }) => Effect.orDie(Effect.fromOption(Array.findFirst(instances, (row) => row.instance === instance))),
                         dictionary: ({ url }) => Effect.orDie(Effect.fromNullishOr(dictionaries[url.href])),
                         execute: (payload) => executing(executed, payload),
@@ -141,9 +142,7 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
                 Layer.provide([sockets({ path: socket }), RpcSerialization.layerNdJsonRpc()]),
             ),
         );
-        const server = yield* spawner.spawn(
-            ChildProcess.make(path.join(contents, 'Helpers', 'server'), ['--listen', `127.0.0.1:${port}`, '--output-dir', path.join(root, 'output'), '--registry', registry], { env: { HOME: path.join(root, 'home'), PATH: `${bin}:${searched}` }, extendEnv: true, stdout: 'ignore', stderr: 'inherit' }),
-        );
+        const server = yield* spawner.spawn(ChildProcess.make(path.join(contents, 'Helpers', 'server'), ['--listen', `127.0.0.1:${port}`, '--output-dir', path.join(root, 'output'), '--registry', registry], { env: { HOME: home }, extendEnv: true, stdout: 'ignore', stderr: 'inherit' }));
         const connected = McpClient.make({ name: 'atelier-suite', version: '1.0.0' }).pipe(Effect.provideServiceEffect(McpClient.Transport, McpClient.http({ url: `http://127.0.0.1:${port}/`, protocol: McpProtocol.v2025_11_25 })));
         const client = yield* Effect.raceFirst(
             connected.pipe(Effect.retry({ schedule: Schedule.spaced('100 millis') }), Effect.timeout('20 seconds')),
@@ -159,12 +158,55 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const shown = (names: readonly string[]) =>
+    Record.fromIterableWith(names, (name) => [
+        name,
+        () => {
+            throw new Error(`host ${name}`);
+        },
+    ]);
+const host = () => {
+    const field = { fileSelect: true, ...shown(['browseForFileToSubmit', 'buttonImportIcon']) };
+    const doc = {
+        path: '/tmp/a.pdf',
+        dirty: true,
+        info: { Title: 'probe' },
+        getField: () => field,
+        closeDoc(this: unknown, discard: unknown) {
+            if (this !== doc || discard !== true) {
+                throw new Error('host closeDoc prompt or a wrapper as this');
+            }
+            return 'closed';
+        },
+        ...shown(['importIcon', 'importTextData', 'importDataObject', 'exportAsFDF', 'saveAs']),
+    };
+    const app = {
+        viewerVersion: 26.003,
+        runtimeHighlight: true,
+        activeDocs: [doc],
+        openDoc(this: unknown, given: unknown) {
+            const [path, base] = Predicate.hasProperty(given, 'cPath') ? [given.cPath, Predicate.hasProperty(given, 'oDoc') ? given.oDoc : undefined] : [given, doc];
+            if (this !== app || base !== doc) {
+                throw new Error('openDoc received a wrapper of app or of a Doc');
+            }
+            return path;
+        },
+        trustedFunction:
+            (body: (...args: readonly unknown[]) => unknown) =>
+            (...args: readonly unknown[]) =>
+                body(...args),
+        trustPropagatorFunction: (body: unknown) => body,
+        execMenuItem: (item: string) => `ran ${item}`,
+        ...shown(['alert', 'response', 'browseForDoc', 'popUpMenu', 'popUpMenuEx', 'execDialog', 'mailGetAddrs', 'mailMsg']),
+    };
+    return { app, event: { target: doc }, spell: shown(['check']), util: shown(['readFileIntoStream']) };
+};
 const executing = (executed: MutableRef.MutableRef<readonly Sent[]>, { instance, arguments: given }: { readonly instance: string; readonly arguments: Record.ReadonlyRecord<string, unknown> }) =>
     Effect.orDie(Schema.decodeUnknownEffect(Schema.String)(given['direct'])).pipe(
         Effect.tap((direct) => Effect.sync(() => MutableRef.update(executed, Array.append({ instance, arguments: Record.keys(given), direct })))),
         Effect.flatMap((direct) => {
             const line = direct.split('\n').findIndex((text) => text.includes(MARK)) + 1;
-            return line > 0 ? Effect.orDie(Schema.encodeEffect(Reply)({ _tag: 'Thrown', message: MARK, line })) : Effect.orDie(Schema.decodeUnknownEffect(Schema.String)(runInNewContext(direct, {})));
+            return line > 0 ? Effect.orDie(Schema.encodeEffect(Reply)({ _tag: 'Thrown', message: MARK, line })) : Effect.orDie(Schema.decodeUnknownEffect(Schema.String)(runInNewContext(direct, { ...DIALOGS, ...host() })));
         }),
         Effect.map((reply) => ({ reply, written: Result.succeed([]) })),
     );
@@ -186,26 +228,48 @@ const ran = Effect.fnUntraced(function* (name: string, code: string) {
 
 layer(Layer.effect(Suite, Suite.make).pipe(Layer.provide([services, layerUndici])), { excludeTestServices: true })('built server', (it) => {
     it.effect(
-        'lists exactly the applications its registry shows and its installer receipts name, leaving out a registered product hidden from view',
+        'lists each installation the application server offers, joined to the product and build of its Creative Cloud registry row',
         Effect.fnUntraced(function* () {
             const suite = yield* Suite;
             const { installed } = yield* Effect.flatMap(suite.call('applications', {}), (result) => Schema.decodeUnknownEffect(Listing)(lines(result).at(-1)));
             assert.deepStrictEqual(Array.sort(installed, Order.Struct({ name: Order.String })), [
                 { name: 'Acrobat Distiller', product: 'com.adobe.distiller', channel: 'release', version: '26.003.22110' },
                 { name: 'Adobe Acrobat', product: 'com.adobe.Acrobat.Pro', channel: 'release', version: '26.003.22110' },
-                { name: 'Adobe InDesign 2027', product: 'IDSN', channel: 'release', version: '21.0.1', build: '21.0.1.52' },
+                { name: 'Adobe After Effects 2027', product: 'AEFT', channel: 'release', version: '27.1.0', build: '27.1.0.12' },
+                { name: 'Adobe Photoshop 2027', product: 'PHSP', channel: 'release', version: '28.2.0', build: '28.2.0.36' },
             ]);
         }),
     );
 
     it.effect(
-        'runs a body through the do script of an application no UXP host lists, sending to its instance one strict ES3 script as the direct parameter alone, and answers what that script returns',
+        'refuses a body for a host whose PluginsInfo lists an enabled Atelier plugin at or below its version, naming the unlinked plugin and sending nothing',
+        Effect.fnUntraced(function* () {
+            const { sent, failed, text } = yield* ran('Adobe Photoshop 2027', 'return 7;');
+            assert.deepStrictEqual([sent, failed, text.includes('linked Atelier plugin')], [[], true, true], text);
+        }),
+    );
+
+    it.effect(
+        'runs a body through do script for a host whose Atelier plugin floor sits above its version, an enabled plugin of another vendor counting for none',
+        Effect.fnUntraced(function* () {
+            const { sent, failed, answer, text } = yield* ran('Adobe After Effects 2027', 'return 7;');
+            assert.deepStrictEqual([sent.length, failed, answer], [1, false, Option.some({ result: 7 })], text);
+            for (const { direct } of sent) {
+                assert.doesNotThrow(() => {
+                    parse(direct, ES3);
+                });
+            }
+        }),
+    );
+
+    it.effect(
+        'runs a body through the do script of an application declaring the Acrobat Viewer Suite, sending to its instance one ES5 script SpiderMonkey 24 parses as the direct parameter alone, and answers what that script returns',
         Effect.fnUntraced(function* () {
             const { instance, sent, failed, answer } = yield* ran('Adobe Acrobat', 'const doubled: number = [3.5].map((each) => each * 2)[0];\nreturn doubled;');
             assert.deepStrictEqual([Array.map(sent, Struct.pick(['instance', 'arguments'])), failed, answer], [[{ instance, arguments: ['direct'] }], false, Option.some({ result: 7 })]);
             for (const { direct } of sent) {
                 assert.doesNotThrow(() => {
-                    parse(direct, ES3);
+                    parse(direct, ES5);
                 });
             }
         }),
@@ -219,6 +283,62 @@ layer(Layer.effect(Suite, Suite.make).pipe(Layer.provide([services, layerUndici]
         Effect.fnUntraced(function* ({ code, line, sends }) {
             const { sent, failed, text } = yield* ran('Adobe Acrobat', code);
             assert.deepStrictEqual([sent.length, failed, new RegExp(`\\bline ${line}\\b`, 'u').test(text), text.includes(MARK)], [sends, true, true, sends > 0], text);
+        }),
+    );
+
+    it.effect(
+        'answers alert with undefined, confirm with false, and prompt with null in a do script body, reaching no host dialog',
+        Effect.fnUntraced(function* () {
+            const { failed, answer, text } = yield* ran('Adobe Acrobat', "return Number(alert('saved') === undefined) + Number(confirm('replace?')) * 2 + Number(prompt('name', 'untitled') === null) * 4;");
+            assert.deepStrictEqual([failed, answer], [false, Option.some({ result: 5 })], text);
+        }),
+    );
+
+    it.effect(
+        'answers each Acrobat app dialog as its dismissal without reaching the host member, leaving the check box as it began',
+        Effect.fnUntraced(function* () {
+            const { failed, answer, text } = yield* ran(
+                'Adobe Acrobat',
+                "const checkbox = { cMsg: 'again?', bInitialValue: true, bAfterValue: false };\nreturn [app.alert('saved'), app.alert({ cMsg: 'replace?', nType: 1 }), app.alert('keep?', 2, 2), app.alert({ cMsg: 'quit?', nType: 3, oCheckbox: checkbox }), checkbox.bAfterValue, app.response('name'), app.browseForDoc(), app.popUpMenu('one'), app.popUpMenuEx({ cName: 'one' }), app.execDialog({ description: {} })];",
+            );
+            assert.deepStrictEqual([failed, answer], [false, Option.some({ result: [1, 2, 3, 2, true, null, null, null, null, 'cancel'] })], text);
+        }),
+    );
+
+    it.effect(
+        'reaches every other Acrobat app member on app itself, its methods called with app as this and its writes landing on app',
+        Effect.fnUntraced(function* () {
+            const { failed, answer, text } = yield* ran('Adobe Acrobat', "app.runtimeHighlight = false;\nreturn [app.openDoc('/tmp/a.pdf'), app.viewerVersion, app.runtimeHighlight, 'openDoc' in app];");
+            assert.deepStrictEqual([failed, answer], [false, Option.some({ result: ['/tmp/a.pdf', 26.003, false, true] })], text);
+        }),
+    );
+
+    it.effect(
+        'answers dialogs reached through this, event.target, activeDocs, getField, and callbacks the host calls, as each member states its dismissal, passing the host its own objects',
+        Effect.fnUntraced(function* () {
+            const { failed, answer, text } = yield* ran(
+                'Adobe Acrobat',
+                [
+                    'const doc = event.target;',
+                    'const field = doc.getField("file");',
+                    "return [this.app.alert('this.app'), this.app === app, app.activeDocs[0] === doc, field.browseForFileToSubmit(), field.buttonImportIcon(), doc.importIcon('icon'), doc.importTextData(), doc.importTextData('/tmp/rows.txt'), doc.exportAsFDF(), app.openDoc({ cPath: '/tmp/b.pdf', oDoc: doc }), app.trustedFunction((given) => given.importIcon('icon'))(doc), app.trustPropagatorFunction((given) => given.importIcon('icon'))(doc), doc.info, spell.check(), app.mailGetAddrs(), app.mailMsg(true), app.execMenuItem('FitPage'), doc.closeDoc(true)];",
+                ].join('\n'),
+            );
+            assert.deepStrictEqual([failed, answer], [false, Option.some({ result: [1, true, true, null, 1, 1, -1, -2, null, '/tmp/b.pdf', 1, 1, { Title: 'probe' }, false, null, null, 'ran FitPage', 'closed'] })], text);
+        }),
+    );
+
+    it.effect.each([
+        { named: 'a dialog menu item', code: "return app.execMenuItem('SaveAs');", names: 'SaveAs' },
+        { named: 'closing a dirty document', code: 'return event.target.closeDoc();', names: '/tmp/a.pdf' },
+        { named: 'a picker returning only a success value', code: "return event.target.importDataObject('data');", names: 'cDIPath' },
+        { named: 'an overwrite prompt', code: "return event.target.saveAs({ cPath: '/tmp/c.pdf', bPromptToOverwrite: true });", names: 'bPromptToOverwrite' },
+        { named: 'a global object picker', code: 'return util.readFileIntoStream();', names: 'readFileIntoStream' },
+    ])(
+        'refuses $named with a reply naming it, reaching no host member',
+        Effect.fnUntraced(function* ({ code, names }) {
+            const { sent, failed, text } = yield* ran('Adobe Acrobat', code);
+            assert.deepStrictEqual([sent.length, failed, text.includes(names), text.includes('host ')], [1, true, true, false], text);
         }),
     );
 

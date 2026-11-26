@@ -3,13 +3,7 @@ public import Results
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public protocol TaggedError: Error, Encodable {
-    static var tag: String { get }
-}
-
-extension TaggedError {
-    public static var tag: String { String(describing: Self.self) }
-}
+public protocol TaggedError: Error, Encodable {}
 
 extension Unmatched: TaggedError {}
 
@@ -20,7 +14,7 @@ enum Key: String, CodingKey {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct Exit<Success: Encodable & Sendable>: Encodable, Sendable {
+public struct EncodedResult<Success: Encodable & Sendable>: Encodable, Sendable {
     let result: Result<Success, any Error>
 
     public init(_ result: Result<Success, some Error>) { self.result = result.mapError { error -> any Error in error } }
@@ -46,7 +40,8 @@ struct EncodedError: Encodable, Sendable {
         var fields = encoder.container(keyedBy: Key.self)
         switch error as? any TaggedError ?? bridged.underlyingErrors.first as? any TaggedError {
             case .some(let tagged):
-                try fields.encode(type(of: tagged).tag, forKey: .tag)
+                try fields.encode(String(describing: type(of: tagged)), forKey: .tag)
+                try fields.encode(tagged.localizedDescription, forKey: .message)
                 try tagged.encode(to: encoder)
             case .none:
                 try fields.encode(bridged.domain, forKey: .name)

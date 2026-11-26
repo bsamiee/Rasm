@@ -19,7 +19,10 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
+        "./address": "./address.ts",
+        "./contract": "./contract.ts",
+        "./interface-map": "./interface-map.ts",
+        "./outline": "./outline.ts",
         "./client": "./client.ts",
         "./source": "./source.ts",
         "./tools": "./tools.ts",
@@ -32,7 +35,10 @@
             "#/*": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/index.js",
+            "./address": "./dist/address.js",
+            "./contract": "./dist/contract.js",
+            "./interface-map": "./dist/interface-map.js",
+            "./outline": "./dist/outline.js",
             "./client": "./dist/client.js",
             "./source": "./dist/source.js",
             "./tools": "./dist/tools.js",

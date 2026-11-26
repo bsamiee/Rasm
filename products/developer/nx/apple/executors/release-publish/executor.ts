@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
-import { dried, executor, spawned, Words } from '@rasm/nx';
 import { packaged, released } from '@rasm/nx/executor';
+import { dried, executor, spawned, Words } from '@rasm/nx/inference';
 import cf from 'cf/package.json' with { type: 'json' };
 import { Array, Cause, Config, Effect, FileSystem, Function, Option, Path, Record, Result, Schema, Stream, Struct } from 'effect';
 import { APPCAST, NOTARY } from '#/targets';

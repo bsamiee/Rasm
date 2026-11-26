@@ -12,10 +12,9 @@ Services carry the `kTCCService` prefix, and each System Settings pane sits unde
 |  [02]   | `PostEvent`     | Device Control and Data Access  | System     | `KeyboardTests`, `MenuTests`, `RouteTests`                          |
 |  [03]   | `ScreenCapture` | Screen & System Audio Recording | System     | `ScreenshotTests`, `RecordingTests`, `MenuTests`, `recognizeText`   |
 |  [04]   | `ListenEvent`   | Input Monitoring                | System     | None, a listen-only tap (`.listenOnly`) joins                       |
-|  [05]   | `AppleEvents`   | Automation                      | Per-user   | None, `EventTests` sends to its own process, which needs no consent |
+|  [05]   | `AppleEvents`   | Automation                      | Per-user   | None, `AppleEventTests` sends to its own process, which needs no consent |
 
 - Accessibility rows answer PostEvent and ListenEvent requests too: tccd allows both for a client holding an Accessibility row alone
-- `Watch` fences key focus with active event taps (`CGEvent.tapCreateForPid`, `.defaultTap`), which need root or Accessibility (`CGEvent.h`)
 - `TextRecognition` captures a window before reading it, so `Watch.recognizeText(in:)` reads ScreenCapture while an image read needs no grant
 
 Each service has one check and one request call, and `Grant` wraps Accessibility, PostEvent, and ScreenCapture:

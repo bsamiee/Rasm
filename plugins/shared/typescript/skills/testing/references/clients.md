@@ -26,6 +26,8 @@ Contract clients run a family's own server and client code in one process, and e
 - `protocolVersion` selects one adapter of `protocols`, the first by default, and a version outside them fails with `IllegalArgumentError`
 - Stateful versions send `initialize` and `notifications/initialized` before the client returns, and the stateless version attaches client metadata to every request
 - `client.notifications` queues server notifications in wire encoding and delivery order, read through `Stream.fromQueue` and a schema decode (`resources.test.ts` `updated`)
+- Lists a test awaits read once, then again at each `notifications/<kind>/list_changed` until they hold the awaited entry (`fixtures.ts` `relisted`), as a server sends one only after a change
+- Events a test awaits arrive through `follow(handle)` of the `Server` service, a stream of each line the handle holds (`fixtures.ts` `placed`)
 - `McpRequestContext` reaches every handler and `McpServerClient` only when every adapter in `protocols` is stateful, and another `McpRequest` requirement takes MCP middleware
 - Server-to-client requests (elicitation, sampling, roots) answer method-not-found, so a tool asking its client for input tests over HTTP
 - `fixtures.ts` `opened` posts JSON-RPC to `HttpRouter.toWebHandler(layer)`, reaching session headers, protocol headers, and DNS-rebinding checks with no socket

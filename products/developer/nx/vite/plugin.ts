@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, type TargetConfiguration } from '@nx/devkit';
 import { getReadyCheckReadyWhen, hashObject, quoteShellArg } from '@nx/devkit/internal';
-import { type Anchor, aggregated, anchored, below, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, owned, packaged, parsed, type Pass, run, tokened, within } from '@rasm/nx';
+import { type Anchor, aggregated, anchored, below, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, owned, packaged, parsed, type Pass, run, tokened, within } from '@rasm/nx/inference';
 import { Array, Cause, Effect, FileSystem, Option, Predicate, Record, Schema, UndefinedOr } from 'effect';
 import type { parseSync } from 'vite';
 

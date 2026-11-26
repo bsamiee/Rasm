@@ -1,4 +1,4 @@
-import { Catalog } from '@rasm/database';
+import { Catalog } from '@rasm/database/catalog';
 import { serve } from '@rasm/hosting/server';
 import { Layer } from 'effect';
 import hosting from '#/hosting.config';

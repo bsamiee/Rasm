@@ -1,4 +1,4 @@
-import type { Policy } from '@rasm/policy';
+import type { Policy } from '@rasm/policy/policy';
 import { Array, Effect, FileSystem, Function, Option, Path, Stream } from 'effect';
 import { ChildProcess, type CommandLine } from 'effect/process';
 

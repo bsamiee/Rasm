@@ -46,7 +46,7 @@ const placements = Schema.Union([
 ]);
 const Scale = Schema.Literals(['full', 'medium', 'small']);
 const Alignment = Schema.Literals(['left', 'center', 'right']);
-class Composition extends Schema.Opaque<Composition, unknown>()(
+class Composition extends Schema.Opaque<Composition>()(
     Schema.Struct({
         id: Schema.String.check(Schema.isUUID()).pipe(Schema.brand('CompositionId')),
         items: Schema.Union([Schema.Tuple([placements]), Schema.Tuple([placements, placements])]),

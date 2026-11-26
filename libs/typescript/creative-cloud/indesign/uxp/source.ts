@@ -1,13 +1,12 @@
-import type { Observation } from '@rasm/applications';
-import { Description } from '@rasm/applications/source';
-import { HostError, Specifier } from '@rasm/object-model';
-import { Unmatched } from '@rasm/search';
-import { Plugin } from '@rasm/uxp/plugin';
-import type { MenuAction, Panel, ToolBox } from 'adobe:indesign';
-import { Array, Cause, Effect, Formatter, Match, Option, Predicate, pipe, Queue, Result, Schema, Stream, String, Struct } from 'effect';
+import type { Observation } from '@rasm/applications/contract';
+import { Description, type FacetContainer, FacetControl } from '@rasm/applications/source';
+import { HostError, Specifier } from '@rasm/object-model/model';
+import { Unmatched } from '@rasm/search/unmatched';
+import type { Plugin } from '@rasm/uxp/plugin';
+import type { Event, MenuAction, Panel } from 'adobe:indesign';
+import { Array, Cause, Effect, Formatter, Match, Option, Predicate, pipe, Result, Schema, Stream, String, Struct } from 'effect';
 import { type DefaultTreeAdapterMap, defaultTreeAdapter, html, parseFragment } from 'parse5';
 import { Dom } from '#/uxp/dom';
-import { listen } from '#/uxp/operations';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -17,7 +16,7 @@ const describe = Effect.fn('describe')(function* ({ within }: { readonly within?
     const [{ app }, [bar, shelf]] = yield* Effect.all([Dom, roots]);
     const { panels, menuActions } = app;
     const areaAt = (named: string) => Array.append(bar, [menuActions.constructorName, named] as const);
-    const levelAt = (named: string) => Array.append(areaAt(named), ['menu' satisfies (typeof Description.Container.Type)['kind'], named] as const);
+    const levelAt = (named: string) => Array.append(areaAt(named), ['menu' satisfies FacetContainer['kind'], named] as const);
     if (within === undefined) {
         return yield* Effect.try({
             try: () =>
@@ -30,13 +29,13 @@ const describe = Effect.fn('describe')(function* ({ within }: { readonly within?
                                 Array.makeBy(panels.length, (index) => Option.fromUndefinedOr(panels.item(index))),
                                 Array.getSomes,
                                 Array.filter(({ name }) => name.length > 0),
-                                Array.map(({ constructorName, name, visible }) => Description.Control.make({ locator: Array.append(shelf, [constructorName, name] as const), kind: 'toggle', role: constructorName, label: { text: name, attribute: 'name' satisfies keyof Panel }, value: { bool: { value: visible } } })),
+                                Array.map(({ constructorName, name, visible }) => FacetControl.make({ locator: Array.append(shelf, [constructorName, name] as const), kind: 'toggle', role: constructorName, label: { text: name, attribute: 'name' satisfies keyof Panel }, value: { _tag: 'bool', value: visible } })),
                             ),
                         },
                         {
                             locator: bar,
                             kind: 'menuBar',
-                            controls: Array.map(Array.dedupe(menuActions.everyItem().area), (area) => Description.Control.make({ locator: areaAt(area), kind: 'item', role: menuActions.constructorName, label: { text: area, attribute: 'area' satisfies keyof MenuAction }, opens: levelAt(area) })),
+                            controls: Array.map(Array.dedupe(menuActions.everyItem().area), (area) => FacetControl.make({ locator: areaAt(area), kind: 'item', role: menuActions.constructorName, label: { text: area, attribute: 'area' satisfies keyof MenuAction }, opens: levelAt(area) })),
                         },
                     ],
                 }),
@@ -58,7 +57,7 @@ const describe = Effect.fn('describe')(function* ({ within }: { readonly within?
                         controls: Array.map(
                             Array.filterMap(Array.zip(areas, ids), ([named, id]) => (named === area ? Result.succeed(menuActions.itemByID(id)) : Result.failVoid)),
                             (action) =>
-                                Description.Control.make({
+                                FacetControl.make({
                                     locator: Array.append(areaAt(area), [action.constructorName, action.toSpecifier()] as const),
                                     kind: 'item',
                                     role: action.constructorName,
@@ -85,7 +84,7 @@ const operate = Effect.fn('operate')(function* ({ locator, to }: { readonly loca
                     ({ isValid }) => isValid,
                     () => Unmatched.of({ subject: 'panel', query: Option.some(name) }),
                 ),
-                Effect.flatMap((panel) => Effect.try({ try: () => Object.assign(panel, { visible: Predicate.isBoolean(to) ? to : !panel.visible } satisfies Partial<Panel>), catch: refused })),
+                Effect.flatMap((panel) => Effect.flatten(Dom.write(panel, { visible: Predicate.isBoolean(to) ? to : !panel.visible } satisfies Partial<Panel>))),
             ),
         ),
         Match.when([menuActions.constructorName, Match.string, Match.string], (identifiers) =>
@@ -104,39 +103,26 @@ const operate = Effect.fn('operate')(function* ({ locator, to }: { readonly loca
 });
 const renderText = (markup: string) => {
     const rendered = (node: DefaultTreeAdapterMap['childNode']): string =>
-        Match.value(node).pipe(
-            Match.when(defaultTreeAdapter.isTextNode, ({ value }) => value),
-            Match.when((each) => defaultTreeAdapter.isElementNode(each) && each.tagName === html.TAG_NAMES.BR, () => '\n'),
-            Match.when(defaultTreeAdapter.isElementNode, ({ childNodes }) => childNodes.map(rendered).join('')),
-            Match.orElse(() => ''),
-        );
+        Option.match(Option.liftPredicate(node, defaultTreeAdapter.isElementNode), {
+            onNone: () => (defaultTreeAdapter.isTextNode(node) ? node.value : ''),
+            onSome: ({ tagName, childNodes }) => (html.getTagID(tagName) === html.TAG_ID.BR ? '\n' : childNodes.map(rendered).join('')),
+        });
     const lines = parseFragment(markup).childNodes.map(rendered).join('').split('\n');
-    return Option.liftPredicate(lines.map((line) => line.replaceAll(/\s+/gu, ' ').trim()).join('\n').trim(), String.isNonEmpty);
+    return Option.liftPredicate(
+        lines
+            .map((line) => line.replaceAll(/\s+/gu, ' ').trim())
+            .join('\n')
+            .trim(),
+        String.isNonEmpty,
+    );
 };
-const tools = Dom.useSync(({ UITools, members }) => Array.filter(members(UITools), (tool) => !UITools.NONE.equals(tool)));
 const toolbar = {
-    current: Dom.use(({ app: { toolBoxTools } }) =>
-        Effect.try({ try: () => ({ id: toolBoxTools.currentTool.toString(), label: toolBoxTools.currentToolName, ...Option.getOrUndefined(Option.map(renderText(toolBoxTools.currentToolHint), (help) => ({ help }))) }), catch: HostError.refused('current tool') }),
-    ),
-    listed: Effect.map(
-        tools,
-        Array.map((tool) => ({ id: tool.toString(), label: tool.toString() })),
-    ),
-    select: (id: string) =>
-        Effect.all([tools.pipe(Effect.flatMap(Unmatched.single('tool', Option.some(id), (tool) => [tool.toString()]))), Dom]).pipe(Effect.flatMap(([tool, { app }]) => Effect.try({ try: () => Object.assign(app.toolBoxTools, { currentTool: tool } satisfies Partial<ToolBox>), catch: HostError.refused(`tool ${id}`) }))),
-    changes: Stream.unwrap(
-        Effect.map(Effect.all([Plugin, Dom]), ([{ id }, dom]) =>
-            Stream.callback<void, never, Dom>((queue) =>
-                listen(
-                    ({ app }) => app.toolBoxTools,
-                    [dom.ToolBox.AFTER_ATTRIBUTE_CHANGED],
-                    id,
-                    () => {
-                        Queue.offerUnsafe(queue, undefined);
-                    },
-                ),
-            ),
-        ),
+    current: Dom.use(({ app: { toolBoxTools } }) => Effect.try({ try: () => ({ id: toolBoxTools.currentTool.toString(), label: toolBoxTools.currentToolName, ...Option.getOrUndefined(Option.map(renderText(toolBoxTools.currentToolHint), (help) => ({ help }))) }), catch: HostError.refused('current tool') })),
+    listed: Dom.useSync(({ UITools, members }) => Array.filterMap(members(UITools), (tool) => (UITools.NONE.equals(tool) ? Result.failVoid : Result.succeed({ id: tool.toString(), label: tool.toString() })))),
+    select: (id: string) => Dom.use(({ app }) => Effect.flatten(Dom.write(app.toolBoxTools, { currentTool: id }))),
+    changes: Stream.merge<Event, HostError, Dom | Plugin, Event, HostError, Dom | Plugin>(
+        Dom.events(({ app, ToolBox }) => [app.toolBoxTools, [ToolBox.AFTER_ATTRIBUTE_CHANGED]]),
+        Dom.events(({ app, Application, Document, PageItem }) => [app, [Application.AFTER_CONTEXT_CHANGED, Document.AFTER_IMPORT, PageItem.AFTER_PLACE]]),
     ),
     pointer: Effect.flatMap(Effect.option(Dom.current), (document) =>
         Effect.try({

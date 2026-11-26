@@ -173,7 +173,7 @@ actor CodexClient: ProviderClient {
                 "CODEX_HOME": FilePath(home.path(percentEncoded: false)).string
             ]
             ),
-            platformOptions: .session(),
+            platformOptions: .session,
         )
         let subject = "Codex app server"
         let ready = AsyncStream<Result<Connection, AccountFailure>>.makeStream()
@@ -197,7 +197,7 @@ actor CodexClient: ProviderClient {
                         timeout: .seconds(60),
                         handler: { _, _ throws(JSONRPCError) in throw JSONRPCError(code: -32601, message: "Relay provides no agent tools") },
                         failure: { failure in
-                            if case .cancelled = failure.reason { AccountFailure(subject: subject, reason: .cancelled) } else { AccountFailure(subject: subject, reason: .rpc(failure)) }
+                            AccountFailure(subject: subject, reason: failure.reason.is(\.cancelled) ? .cancelled : .rpc(failure))
                         },
                     ) { connection in
                         ready.continuation.yield(

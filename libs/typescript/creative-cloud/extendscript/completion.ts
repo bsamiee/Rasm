@@ -1,5 +1,5 @@
-import { HostError } from '@rasm/object-model';
-import { Unmatched } from '@rasm/search';
+import { HostError } from '@rasm/object-model/model';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Cause, Effect, Option, Schema } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------

@@ -19,9 +19,20 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
-        "./arabic": "./arabic/index.ts",
-        "./shaping": "./shaping/index.ts",
+        "./error": "./error.ts",
+        "./settings": "./settings.ts",
+        "./source": "./source.ts",
+        "./arabic/joining": "./arabic/joining.ts",
+        "./arabic/kashida": "./arabic/kashida.ts",
+        "./arabic/kerning": "./arabic/kerning.ts",
+        "./arabic/quran/symbols": "./arabic/quran/symbols.ts",
+        "./arabic/quran/text": "./arabic/quran/text.ts",
+        "./arabic/verse": "./arabic/verse.ts",
+        "./shaping/face": "./shaping/face.ts",
+        "./shaping/justification": "./shaping/justification.ts",
+        "./shaping/shaped-text": "./shaping/shaped-text.ts",
+        "./shaping/text-column": "./shaping/text-column.ts",
+        "./shaping/word": "./shaping/word.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -29,9 +40,20 @@
             "#/*": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/index.js",
-            "./arabic": "./dist/arabic/index.js",
-            "./shaping": "./dist/shaping/index.js",
+            "./error": "./dist/error.js",
+            "./settings": "./dist/settings.js",
+            "./source": "./dist/source.js",
+            "./arabic/joining": "./dist/arabic/joining.js",
+            "./arabic/kashida": "./dist/arabic/kashida.js",
+            "./arabic/kerning": "./dist/arabic/kerning.js",
+            "./arabic/quran/symbols": "./dist/arabic/quran/symbols.js",
+            "./arabic/quran/text": "./dist/arabic/quran/text.js",
+            "./arabic/verse": "./dist/arabic/verse.js",
+            "./shaping/face": "./dist/shaping/face.js",
+            "./shaping/justification": "./dist/shaping/justification.js",
+            "./shaping/shaped-text": "./dist/shaping/shaped-text.js",
+            "./shaping/text-column": "./dist/shaping/text-column.js",
+            "./shaping/word": "./dist/shaping/word.js",
             "./package.json": "./package.json"
         },
         "access": "public"

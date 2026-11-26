@@ -1,8 +1,11 @@
-import { Array, Equal, MutableRef } from 'effect';
+import { Array, Equal, MutableRef, Record } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 declare global {
+    interface Element {
+        disabled: boolean;
+    }
     interface HTMLElementTagNameMap {
         readonly 'sp-action-button': HTMLElement & { quiet: boolean };
         readonly 'sp-checkbox': HTMLElement & { checked: boolean };
@@ -16,25 +19,24 @@ declare global {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const element = <K extends keyof HTMLElementTagNameMap>(tag: K, fields: Partial<HTMLElementTagNameMap[K]>, ...children: readonly HTMLElement[]): HTMLElementTagNameMap[K] => {
+const createElement = <K extends keyof HTMLElementTagNameMap>(tag: K, fields: Partial<HTMLElementTagNameMap[K]>, ...children: readonly HTMLElement[]): HTMLElementTagNameMap[K] => {
     const node = document.createElement(tag);
-    children.forEach((child) => node.append(child));
+    node.append(...children);
     return Object.assign(node, fields);
 };
-const assignSlot = (slot: string, child: HTMLElement) => {
-    child.setAttribute('slot', slot);
-    return child;
-};
-const picker = <A>(label: string, options: readonly (readonly [string, A])[]) => {
-    const [selection, values] = [MutableRef.make(0), Array.map(options, ([, value]) => value)];
-    const menu = element('sp-picker', { selectedIndex: MutableRef.get(selection) }, assignSlot('label', element('sp-label', { textContent: label })), assignSlot('options', element('sp-menu', {}, ...Array.map(options, ([textContent]) => element('sp-menu-item', { textContent })))));
+const createPicker = <A>(label: string, options: readonly (readonly [string, A])[]) => {
+    const values = Array.map(options, ([, value]) => value);
+    const selection = MutableRef.make(0);
+    const slots = { label: createElement('sp-label', { textContent: label }), options: createElement('sp-menu', {}, ...Array.map(options, ([textContent]) => createElement('sp-menu-item', { textContent }))) };
+    Record.toEntries(slots).forEach(([slot, child]) => child.setAttribute('slot', slot));
+    const picker = createElement('sp-picker', { selectedIndex: MutableRef.get(selection) }, ...Record.values(slots));
     return {
-        element: menu,
-        read: () => Array.get(values, menu.selectedIndex),
-        show: (value: unknown) => Object.assign(menu, { selectedIndex: MutableRef.setAndGet(selection, values.findIndex(Equal.equals(value))) }),
+        element: picker,
+        read: () => Array.get(values, picker.selectedIndex),
+        show: (value: unknown) => Object.assign(picker, { selectedIndex: MutableRef.setAndGet(selection, values.findIndex(Equal.equals(value))) }),
         onChange: (work: () => void) =>
-            menu.addEventListener('change', () => {
-                if (MutableRef.getAndSet(selection, menu.selectedIndex) !== menu.selectedIndex) {
+            picker.addEventListener('change', () => {
+                if (MutableRef.getAndSet(selection, picker.selectedIndex) !== picker.selectedIndex) {
                     work();
                 }
             }),
@@ -43,4 +45,4 @@ const picker = <A>(label: string, options: readonly (readonly [string, A])[]) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { element, picker };
+export { createElement, createPicker };

@@ -1,0 +1,15 @@
+{
+    "extends": "../../../../../libs/typescript/creative-cloud/uxp/tsconfig.base.json",
+    "compilerOptions": {
+        "noEmit": true,
+        "types": ["node", "@adobe-uxp-types/uxp/with-protocol"]
+    },
+    "references": [
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/mediaencoder"
+        },
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/object-model"
+        }
+    ]
+}

@@ -89,11 +89,16 @@ final class Layout: NSDocument {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Inventory {
+    public static let toolSegments: [(label: String, help: String)] = [("Select", "Selection Tool (V)"), ("Type", "Type Tool (T)"), ("Frame", "Frame Tool (F)")]
+
     @MainActor
     func row(rows: Rows) -> (surface: Surface?, caption: String?, members: [any NSObject & NSAccessibilityProtocol]) {
         let action = #selector(Delegate.acted(_:))
         switch self {
-            case .action: return (.controls, "Document", [NSButton(title: "Apply", target: nil, action: action)])
+            case .action:
+                let apply = NSButton(title: "Apply", target: nil, action: action)
+                apply.setAccessibilityUserInputLabels(["Apply", "Commit Changes"])
+                return (.controls, "Document", [apply])
             case .toggle: return (.controls, "Grid", [NSButton(checkboxWithTitle: "Snap to Grid", target: nil, action: action)])
             case .popup, .deferred:
                 let (titles, selected, caption) = self == .popup ? (["Letter", "A4", "Tabloid"], 1, "Page Size") : (["100%"], 0, "Zoom")
@@ -122,7 +127,8 @@ extension Inventory {
                 segmented.selectedSegment = 0
                 return (.controls, "Align", [segmented])
             case .tools:
-                let tools = NSSegmentedControl(labels: ["Select", "Type", "Frame"], trackingMode: .selectOne, target: nil, action: action)
+                let tools = NSSegmentedControl(labels: Self.toolSegments.map(\.label), trackingMode: .selectOne, target: nil, action: action)
+                for (segment, tool) in Self.toolSegments.enumerated() { tools.setToolTip(tool.help, forSegment: segment) }
                 let grouped = NSMenu(title: "Frame Tools")
                 grouped.items = ["Rectangle Frame", "Ellipse Frame", "Polygon Frame"].map { title in NSMenuItem(title: title, action: action, keyEquivalent: "") }
                 tools.selectedSegment = 0
@@ -284,6 +290,7 @@ extension Inventory {
             title: element.accessibilityTitle(),
             description: element.accessibilityLabel(),
             caption: (element.accessibilityTitleUIElement() as? any NSAccessibilityProtocol)?.accessibilityValue() as? String,
+            inputs: element.accessibilityUserInputLabels(),
             help: element.accessibilityHelp(),
             value: value,
             enabled: element.isAccessibilityEnabled(),

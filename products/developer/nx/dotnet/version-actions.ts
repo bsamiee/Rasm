@@ -1,5 +1,5 @@
 import { joinPathFragments, type Tree } from '@nx/devkit';
-import { spawned } from '@rasm/nx';
+import { spawned } from '@rasm/nx/inference';
 import ast from '@xml-tools/ast';
 import xml, { type DocumentCstNode } from '@xml-tools/parser';
 import { Array, Cause, Effect, flow, identity, Option, Result, Schema, SemVer, String, Struct } from 'effect';
@@ -8,7 +8,7 @@ import { run } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Options extends Schema.Opaque<Options, unknown>()(Schema.Struct({ manifest: Schema.String, releases: Schema.Array(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })) })) {}
+class Options extends Schema.Opaque<Options>()(Schema.Struct({ manifest: Schema.String, releases: Schema.Array(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })) })) {}
 const Found = Schema.fromJsonString(Schema.Struct({ searchResult: Schema.Array(Schema.Struct({ packages: Schema.Array(Schema.Struct({ version: Schema.String })) })) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

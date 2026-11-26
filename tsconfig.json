@@ -198,6 +198,9 @@
             "path": "./libs/typescript/creative-cloud/illustrator"
         },
         {
+            "path": "./libs/typescript/creative-cloud/mediaencoder"
+        },
+        {
             "path": "./libs/typescript/network/rpc"
         },
         {
@@ -219,6 +222,9 @@
             "path": "./products/apps/creative-cloud/illustrator/atelier"
         },
         {
+            "path": "./products/apps/creative-cloud/mediaencoder/atelier"
+        },
+        {
             "path": "./tests/products/apps/chrome/mezrab"
         },
         {
@@ -238,6 +244,9 @@
         },
         {
             "path": "./tests/libs/typescript/creative-cloud/uxp"
+        },
+        {
+            "path": "./tests/libs/typescript/creative-cloud/mediaencoder"
         },
         {
             "path": "./tests/libs/typescript/web/hosting"
@@ -279,7 +288,22 @@
             "path": "./tests/libs/typescript/macos/applications"
         },
         {
-            "path": "./plugins/claude/rasad"
+            "path": "./tests/libs/typescript/creative-cloud/desktop"
+        },
+        {
+            "path": "./plugins/claude/risman"
+        },
+        {
+            "path": "./products/apps/creative-cloud/premierepro/atelier"
+        },
+        {
+            "path": "./tests/libs/typescript/creative-cloud/premierepro"
+        },
+        {
+            "path": "./libs/typescript/creative-cloud/premierepro"
+        },
+        {
+            "path": "./libs/typescript/creative-cloud/acrobat"
         }
     ]
 }

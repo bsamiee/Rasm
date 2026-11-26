@@ -65,7 +65,9 @@ Each kind of case takes the form that observes it:
 
 - Suite settings merge through `defineConfig(config(import.meta.dirname), { use })` (`contextOptions.permissions: ['clipboard-read']` in mezrab)
 - `test--playwright` runs projects with an `outputDir` outside `outputPath` under `--forbid-only` and `--output=<outputPath>/test-results`, after `^build--vite`, codegen, and each reused `webServer` task
-- `pack--playwright` runs projects with an `outputDir` under `outputPath` with `--no-deps --reporter=list` after `test--playwright`, and outputs each `outputDir`, which Playwright empties first
+- `test--playwright` writes html, blob, and perfetto reports under `outputPath` through `PLAYWRIGHT_<REPORTER>_OUTPUT_DIR`, over folders a config states
+- `pack--playwright` runs projects with an `outputDir` under `outputPath` with `--forbid-only --no-deps --reporter=list` after `test--playwright`, and outputs each `outputDir`, which Playwright empties first, so `attach--gh` uploads no earlier file
+- Mise `[deps.playwright]` installs Chromium for the locked Playwright before `mise exec`, for Vitest browser projects and Playwright suites alike
 - Suites name their product as a `workspace:*` dev dependency or in `nx.implicitDependencies`, so `^build--vite` builds it before a run
 
 ## [04]-[FIXTURES]
@@ -87,7 +89,8 @@ const blank = site.extend<{ readonly blank: void }>({ blank: [({ site: { reset }
 - Overrides of built-ins (`baseURL`, `context`) are plain functions, as `Fixtures` refuses `auto` and `option` on a key Playwright declares
 - `baseURL` derived from a worker fixture points `page.goto('/')` and `request` at the served product
 - Resets are `auto` fixtures: `blank` empties state before each test, and `shown` publishes content once per worker
-- `served` acquires a temporary folder, a Miniflare bucket, a free port, and the product's process, and races readiness against its exit code
+- `served` acquires a temporary folder, a Miniflare R2 bucket on its S3 route, a free port, and the product's process, racing readiness against its exit
+- Suites sign in through an `ACCESS` source `Forwarded`, as the headers of a request state its user
 - Fixture contexts acquire through `Effect.acquireDisposable(Effect.promise(() => browser.newContext(...)))`, and contexts a test opens take `await using`, as `BrowserContext` implements `Symbol.asyncDispose`
 - `mergeTests(it, blank)` joins fixture sets of separate modules into one test function
 - Variants extend one set per variant in place of a branch: `rendering.spec.ts` maps each viewer to a `shown.extend` binding `viewed` to `page` or `owner`
@@ -122,6 +125,7 @@ it('serves the published site with its landmarks and no WCAG A or AA violation',
 |  [04]   | `extension` | Test    | `worker`, `act`, `toolbar`, `stop`, and `evaluate` once the service worker is `activated`                |
 
 - `launched` drops Playwright's `--disable-extensions` through `ignoreDefaultArgs` and adds `--enable-unsafe-extension-debugging` to `launchOptions.args`
+- `extension` waits for an `activated` service worker, as Chrome drops an action pressed before the worker registers listeners, and fails a test whose worker turns `redundant`
 - `launched` passes `viewport`, `deviceScaleFactor`, `colorScheme`, `locale`, `timezoneId`, and `contextOptions` of project `use` to the launch, as `loaded` replaces built-in `context`
 - Suites extend `loaded` in `fixtures.ts` with routed pages, stubs, and settings writes, each released in its fixture
 - Use `chrome:extensions` for extension suites: CDP methods, switches, routed pages, stubs, and oracles
@@ -142,6 +146,7 @@ it('serves the published site with its landmarks and no WCAG A or AA violation',
 - Captures wait for transitions of the `shows` element to end, pause its animations, then wait for fonts and images
 - Tiles `small-promo-tile` (440 by 280) and `marquee-promo-tile` (1400 by 560) draw the built manifest's name, resolving `__MSG_<key>__` through `default_locale`, over `config.brand` with `icons/mark.svg` of the product root
 - `hosted(import.meta.resolve('<package>'))` serves a local file at `https://files.test/<path>`, the form scene bodies load fonts through
+- `attach--gh` of a host package depends on `pack--*` of each workspace package depending on it and uploads the visible files they write
 
 ## [08]-[WEBDRIVER]
 

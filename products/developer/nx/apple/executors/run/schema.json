@@ -21,7 +21,14 @@
         },
         "applications": {
             "type": "array",
-            "description": "Bundle names of the applications the invocations archive, each invocation taking -archivePath <n>.xcarchive in a temporary folder, once every invocation succeeds each bundle under an archive's Products taking its path below / in one renamex_np, swapped with the bundle installed there, so a failed invocation leaves the installed bundle untouched, and a running executable inside one named in the last line as needing a relaunch",
+            "description": "Bundle names of the applications the invocations archive, each invocation taking -archivePath <n>.xcarchive in a temporary folder, once every invocation succeeds each bundle under an archive's Products taking its path below / in one renamex_np, swapped with the bundle installed there, so a failed invocation leaves the installed bundle untouched, then each one holding Contents/Library/LaunchAgents launched once more with open -n -g -j -W, behind the user's windows, so its SMAppService registration replaces the agents still running the build it swapped out, and a running executable inside one named in the last line as needing a relaunch",
+            "items": {
+                "type": "string"
+            }
+        },
+        "results": {
+            "type": "array",
+            "description": "Result bundle paths, the one at an invocation's index passed to it as -resultBundlePath, each removed before the first invocation runs, as xcodebuild refuses a result bundle path that exists",
             "items": {
                 "type": "string"
             }

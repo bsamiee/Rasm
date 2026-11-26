@@ -1,5 +1,5 @@
 import { nodeBundle } from '@rasm/hosting/bundle';
-import { checks } from '@rasm/vite';
+import { checks } from '@rasm/vite/checks';
 import { defineConfig } from 'vite';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

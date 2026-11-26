@@ -9,7 +9,7 @@ import System
 
 public protocol LockFailure: Error {
     static func lock(_ failure: FileFailure) -> Self
-    static func cancelled(_ error: CancellationError) -> Self
+    static var cancelled: Self { get }
     func releasing(_ release: Result<Void, Self>) -> Self
 }
 
@@ -42,40 +42,39 @@ public struct Lockfile: Sendable {
             }
         }
         let outcome = await Result(catching: work)
-        let released: Result<Void, Failure> = release(await holder.held)
+        let released: Result<Void, Failure> = release(await holder.locks)
         return try outcome.mapError { error in error.releasing(released) }.flatMap { value in released.map { _ in value } }.get()
     }
 
     private static func acquire<Failure: LockFailure>(_ lockfiles: [Self], clock: some Clock<Duration> & Sendable, now: () -> Duration) async throws(Failure) -> Holder<Failure> {
         var generator = SystemRandomNumberGenerator()
-        var delays: [[Duration]] = lockfiles.map { (lockfile: Self) -> [Duration] in lockfile.retry?.delays(using: &generator) ?? [] }
+        var delays: [IndexingIterator<[Duration]>] = lockfiles.map { (lockfile: Self) -> IndexingIterator<[Duration]> in (lockfile.retry?.delays(using: &generator) ?? []).makeIterator() }
         while true {
-            var held: [Held] = []
+            var locks: [Lock] = []
             let failure: FileFailure
             do throws(FileFailure) {
-                for lockfile in lockfiles { held.append(try Held.acquire(lockfile, at: now())) }
-                return Holder(held)
+                for lockfile in lockfiles { locks.append(try Lock.acquire(lockfile, at: now())) }
+                return Holder(locks)
             } catch { failure = error }
-            let (blocked, released): (URL, Result<Void, Failure>) = (lockfiles[held.count].url, release(held))
-            guard failure.reason.is(\.held), case .success = released, let delay = delays[held.count].first else { throw Failure.lock(failure).releasing(released) }
-            delays[held.count].removeFirst()
+            let (blocked, released): (URL, Result<Void, Failure>) = (lockfiles[locks.count].url, release(locks))
+            guard failure.reason.is(\.held), case .success = released, let delay = delays[locks.count].next() else { throw Failure.lock(failure).releasing(released) }
             Logger.current.debug("Waiting for held lock", metadata: ["lock": .string(blocked.path(percentEncoded: false)), "delay": .stringConvertible(delay)])
             try await race {
                 () async throws(Failure) in
                 switch await FileEvent.presence(of: blocked).first(where: { presence in presence[case: \.success] != true }) {
                     case .some(.failure(let error)): throw .lock(error)
                     case .some(.success): return
-                    case .none: throw .cancelled(CancellationError())
+                    case .none: throw .cancelled
                 }
             } against: {
                 () async throws(Failure) in
-                do { try await clock.sleep(for: delay) } catch { throw .cancelled(CancellationError()) }
+                do { try await clock.sleep(for: delay) } catch { throw .cancelled }
             }
         }
     }
 
-    private static func release<Failure: LockFailure>(_ held: [Held]) -> Result<Void, Failure> {
-        held.reversed().reduce(.success(())) { released, lock in
+    private static func release<Failure: LockFailure>(_ locks: [Lock]) -> Result<Void, Failure> {
+        locks.reversed().reduce(.success(())) { released, lock in
             let current = Result { () throws(FileFailure) in try lock.release() }.mapError(Failure.lock)
             return released.mapError { error in error.releasing(current) }.flatMap { _ in current }
         }
@@ -84,7 +83,7 @@ public struct Lockfile: Sendable {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-private struct Held: Equatable, Sendable {
+private struct Lock: Equatable, Sendable {
     let url: URL
     let inode: Inode
     let modified: Duration
@@ -96,7 +95,7 @@ private struct Held: Equatable, Sendable {
             } catch CocoaError.fileWriteFileExists {
                 throw FileFailure(file: lockfile.url, reason: .held)
             } catch {
-                throw FileFailure(file: lockfile.url, reason: .filesystem(error as NSError))
+                throw FileFailure(file: lockfile.url, reason: .filesystem(error))
             }
         }
         do throws(FileFailure) {
@@ -113,7 +112,7 @@ private struct Held: Equatable, Sendable {
         }
         do throws(FileFailure) { return try current(lockfile.url) } catch {
             try Result { () throws(FileFailure) in try remove(at: lockfile.url) }
-                .mapError { cleanup in FileFailure(file: lockfile.url, reason: .filesystem(AggregateError(first: error, remaining: [cleanup]) as NSError)) }.get()
+                .mapError { cleanup in FileFailure(file: lockfile.url, reason: .filesystem(AggregateError(first: error, remaining: [cleanup]))) }.get()
             throw error
         }
     }
@@ -136,8 +135,8 @@ private struct Held: Equatable, Sendable {
     }
 
     private static func current(_ url: URL) throws(FileFailure) -> Self {
-        guard let held = try read(url) else { throw FileFailure(file: url, reason: .compromised) }
-        return held
+        guard let lock = try read(url) else { throw FileFailure(file: url, reason: .compromised) }
+        return lock
     }
 
     private static func read(_ url: URL) throws(FileFailure) -> Self? {
@@ -155,18 +154,18 @@ private struct Held: Equatable, Sendable {
 private actor Holder<Failure: LockFailure> {
     // --- [STATE]
 
-    private(set) var held: [Held]
+    private(set) var locks: [Lock]
 
-    init(_ held: [Held]) {
-        self.held = held
+    init(_ locks: [Lock]) {
+        self.locks = locks
     }
 
     // --- [HEARTBEAT]
 
     func heartbeat(_ index: Int, every interval: Duration, clock: some Clock<Duration> & Sendable, now: @Sendable () -> Duration) async throws(Failure) -> Never {
         for await _ in AsyncTimerSequence(interval: interval, clock: clock) {
-            do throws(FileFailure) { held[index] = try held[index].update(at: now()) } catch { throw .lock(error) }
+            do throws(FileFailure) { locks[index] = try locks[index].update(at: now()) } catch { throw .lock(error) }
         }
-        throw .cancelled(CancellationError())
+        throw .cancelled
     }
 }

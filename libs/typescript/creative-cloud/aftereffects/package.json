@@ -2,7 +2,7 @@
     "name": "@rasm/aftereffects",
     "version": "0.1.0",
     "private": true,
-    "description": "After Effects object model for UXP plugins, with dialog suppression, undo groups, script evaluation, and frame renders",
+    "description": "After Effects object model for UXP plugins, with dialog suppression, undo groups, script evaluation, frame renders, and the active tool",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -27,7 +27,6 @@
         "access": "public"
     },
     "dependencies": {
-        "@rasm/applications": "workspace:*",
         "@rasm/object-model": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/uxp": "workspace:*"

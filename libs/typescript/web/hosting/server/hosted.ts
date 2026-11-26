@@ -1,5 +1,5 @@
-import type { Engine, Rows } from '@rasm/database';
-import type { ObjectStorage } from '@rasm/object-storage';
+import type { Engine, Rows } from '@rasm/database/engine';
+import type { ObjectStorage } from '@rasm/object-storage/storage';
 import { Config, Effect, Layer, Record, Schema, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { HttpRouter, type HttpServer } from 'effect/http';

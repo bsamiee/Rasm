@@ -1,5 +1,5 @@
 import { platform } from 'node:process';
-import { executor, Words } from '@rasm/nx';
+import { executor, Words } from '@rasm/nx/inference';
 import { Array, Cause, Effect, Schema } from 'effect';
 import { located } from '#/host-packages';
 

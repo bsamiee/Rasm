@@ -1,4 +1,5 @@
-import { Scheme, Webhook } from '@rasm/webhooks';
+import { Scheme } from '@rasm/webhooks/scheme';
+import { Webhook } from '@rasm/webhooks/webhook';
 import { Array, Duration, Effect, Function, type Layer, Redacted, Schema } from 'effect';
 import type { Digest, Mac, Signature } from 'effect/crypto';
 

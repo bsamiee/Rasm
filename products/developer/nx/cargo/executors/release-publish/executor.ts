@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
-import { dried, executor, spawned, Words } from '@rasm/nx';
 import { credentialed, released } from '@rasm/nx/executor';
+import { dried, executor, spawned, Words } from '@rasm/nx/inference';
 import { Array, Effect, Option, Path, Schema, String } from 'effect';
 import { Crate } from '#/workspace';
 

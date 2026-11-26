@@ -1,6 +1,8 @@
 import { assert, layer } from '@effect/vitest';
-import { Catalog, Relation, Rows } from '@rasm/database';
+import { Catalog } from '@rasm/database/catalog';
 import { d1Engine } from '@rasm/database/d1';
+import { Rows } from '@rasm/database/engine';
+import { Relation } from '@rasm/database/relation';
 import { reset } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { Array, Effect, Layer, Predicate, Schema } from 'effect';

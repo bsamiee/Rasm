@@ -1,10 +1,11 @@
 import 'core-js/modules/web.url.can-parse.js';
 import { type Source, SourceRpcs } from '@rasm/applications/source';
-import { Link } from '@rasm/mcp';
-import { type Evaluation, EvaluationRpcs, HostError, type Render, RenderRpcs, Specifier } from '@rasm/object-model';
+import { Link } from '@rasm/mcp/link';
 import { type Containment, encode, reference, resolve } from '@rasm/object-model/host';
-import { Unmatched } from '@rasm/search';
-import { layer } from '@rasm/telemetry';
+import { HostError, Specifier } from '@rasm/object-model/model';
+import { Dialogs, type Evaluation, EvaluationRpcs, type Render, RenderRpcs } from '@rasm/object-model/rpcs';
+import { Unmatched } from '@rasm/search/unmatched';
+import { layer } from '@rasm/telemetry/otlp';
 import fs from 'adobe:fs';
 import uxp, { entrypoints, type File } from 'adobe:uxp';
 import { formatHex8 } from 'culori/fn';
@@ -25,11 +26,11 @@ type Panel<F> = (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X, Uxp |
 const MANIFEST = `plugin:/${UxpManifest.file}`;
 const BUNDLE = /(?<=\.app)(?:\/.*)?$|(?<=[^/])$/u;
 const RENDERED = 'rendered.png';
+const BODY = 'body.js';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Thrown = Schema.Struct({ message: Schema.Unknown });
-const Typed = Schema.Struct({ typename: Schema.String }).annotate({ description: 'DOM object stating its class name' });
 const ImageSize = Schema.Struct({ width: Schema.Int, height: Schema.Int }).annotate({ description: 'Image size in pixels' });
 const Callable = Schema.declare((value): value is (...args: readonly unknown[]) => unknown => Predicate.isFunction(value));
 const Entrypoints = Schema.Struct({ setup: Callable });
@@ -37,6 +38,7 @@ const ThemeDocument = Schema.Struct({ theme: Schema.declare(Schema.is(Schema.Str
 const GlobalRequire = Schema.Struct({ require: Callable }).annotate({ description: 'Global require a UXP host resolves its own modules through by name' });
 const HostInfo = Schema.Struct({ applicationPath: Schema.NonEmptyString.annotate({ description: 'Bundle path of the running installation' }) });
 const Requests = EvaluationRpcs.merge(RenderRpcs);
+const WebSocketUrl = Schema.URLFromString.check(Schema.makeFilter(({ protocol }) => protocol === 'ws:' || protocol === 'wss:', { description: 'ws: or wss: URL a WebSocket opens' }));
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -77,7 +79,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
             const prepare: unknown = Reflect.get(Error, 'prepareStackTrace');
             const lines = new WeakMap<object, number>();
             Error.prepareStackTrace = (error, frames) => {
-                const line = frames.find((frame) => frame.getScriptNameOrSourceURL() === UxpManifest.body)?.getLineNumber();
+                const line = frames.find((frame) => frame.getScriptNameOrSourceURL() === BODY)?.getLineNumber();
                 if (Predicate.isNumber(line)) {
                     lines.set(error, line);
                 }
@@ -107,7 +109,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
     static readonly evaluate = Effect.fnUntraced(function* (scope: Record.ReadonlyRecord<string, unknown>, code: string) {
         const toHostError = yield* Uxp.toHostError;
         const body = yield* Effect.try({
-            try: (): unknown => new globalThis.Function(`{ ${Record.keys(scope).join(', ')} }`, 'return eval(arguments[1])')(scope, `${code}\n//# sourceURL=${UxpManifest.body}`),
+            try: (): unknown => new globalThis.Function(`{ ${Record.keys(scope).join(', ')} }`, 'return eval(arguments[1])')(scope, `${code}\n//# sourceURL=${BODY}`),
             catch: toHostError,
         }).pipe(Effect.filterOrFail(Schema.is(Callable), (value) => new Cause.IllegalArgumentError(`code evaluates to ${typeof value}, not a body function`)));
         return {
@@ -124,7 +126,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
         );
         const { ran, settled } = yield* Uxp.evaluate({ resolve: resolveSpecifier }, code);
         const result = yield* settled(yield* step(ran));
-        return yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(result), (each) => Schema.decodeUnknownEffect(Schema.Json)(encode(each, { reference: (object) => reference(held, object, Option.match(Schema.decodeUnknownOption(Typed)(object), { onNone: () => object.constructor.name, onSome: ({ typename }) => typename })) }))));
+        return yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(result), (each) => Schema.decodeUnknownEffect(Schema.Json)(encode(each, { reference: (object) => reference(held, object) }))));
     }, Effect.scoped);
     static readonly renderFile = Effect.fnUntraced(function* <E, R>(write: (file: File) => Effect.Effect<void, E, R>) {
         const { uxp: host, fs: files } = yield* Uxp;
@@ -147,7 +149,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
         return Effect.acquireRelease(Effect.try({ try: () => Record.fromIterableWith(keys, (key): readonly [string, unknown] => [key, Reflect.get(target, key)]), catch: refused }), (saved) => Uxp.restore(target, saved)).pipe(Effect.tap(Effect.try({ try: () => Object.assign(target, replacements), catch: refused })));
     };
 }
-class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonly host: Pick<UxpManifest['host'], 'app'> }>()('@rasm/uxp/plugin') {
+class Plugin extends Context.Service<Plugin, typeof UxpManifest.Identity.Type>()('@rasm/uxp/plugin') {
     static readonly theme = Stream.callback<unknown, Schema.SchemaError>(
         Effect.fnUntraced(function* (queue) {
             const listener = (current: unknown): void => {
@@ -163,7 +165,7 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
             );
         }),
     ).pipe(Stream.mapEffect((theme) => Schema.decodeUnknownEffect(UxpManifest.Theme)(theme)));
-    static readonly scripting = <EX extends Error, ER extends Error>({ execute, render }: { readonly execute: (code: string, label: string) => Effect.Effect<Option.Option<Schema.Json>, EX, Uxp | Path.Path>; readonly render: (request: Render, file: File) => Effect.Effect<void, ER, Uxp | Path.Path | Scope.Scope> }) => ({
+    static readonly scripting = <EX extends Error, ER extends Error, RX, RR>({ execute, render }: { readonly execute: (code: string, label: string) => Effect.Effect<Option.Option<Schema.Json>, EX, RX>; readonly render: (request: Render, file: File) => Effect.Effect<void, ER, RR> }) => ({
         group: Requests,
         handlers: Requests.toLayer({ evaluate: ({ code, label }: Evaluation) => Effect.map(execute(code, label), (result) => ({ result })), render: (request: Render) => Uxp.renderFile((file) => render(request, file)) }),
     });
@@ -191,29 +193,36 @@ class Plugin extends Context.Service<Plugin, Pick<UxpManifest, 'id'> & { readonl
             yield* Effect.sync(() => setup.call(entrypoints, { plugin: { create: () => runtime.runPromise(Effect.void) }, commands: commandHandlers, panels: panelHandlers } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>));
         }).pipe(Effect.tapCause(Effect.logError), Effect.provide(hostLayer), Effect.runFork);
     };
-    static readonly dial = <Rpcs extends Rpc.Any, EA, EH, RH, ES extends Error, RS, EC, RC, Tools extends Record.ReadonlyRecord<string, Tool.Any> = Toolkit.Tools<typeof Toolkit.empty>>({
+    static readonly dial = <Rpcs extends Rpc.Any, EA, RA, EH, RH, ES extends Error, RS, EC, RC, RD, Tools extends Record.ReadonlyRecord<string, Tool.Any> = Toolkit.Tools<typeof Toolkit.empty>>({
         application,
         group,
         handlers,
         toolkit,
         source,
+        dialogs,
     }: {
-        readonly application: Effect.Effect<Link['application'], EA, Uxp | Path.Path>;
+        readonly application: Effect.Effect<Link['application'], EA, RA>;
         readonly group: RpcGroup.RpcGroup<Rpcs>;
         readonly handlers: Layer.Layer<Rpc.ToHandler<Rpcs> | Tool.HandlersFor<Tools>, EH, RH>;
         readonly toolkit?: Toolkit.Toolkit<Tools>;
         readonly source: Omit<Source<ES, RS, EC, RC>, 'roots'>;
+        readonly dialogs: Effect.Effect<unknown, HostError, Scope.Scope | RD>;
     }) => {
-        const refused = HostError.refused('UXP plugin folder');
-        const peer = Effect.gen(function* () {
-            const [named, { id }, { uxp: modules }, path] = yield* Effect.all([application, Plugin, Uxp, Path.Path]);
-            const { nativePath } = yield* Effect.tryPromise({ try: () => modules.storage.localFileSystem.getPluginFolder(), catch: refused });
-            return Link.make({ application: named, plugin: id, root: Option.some(yield* Effect.mapError(path.toFileUrl(nativePath), refused)) });
-        });
-        const served = Link.serve(Toolkit.merge(Toolkit.empty, ...Array.fromNullishOr(toolkit)), { events: Stream.ignoreCause(source.changes, { log: 'Error' }) }).pipe(
-            Layer.provideMerge(Layer.merge(handlers, SourceRpcs.toLayer(Struct.pick(source, ['describe', 'operate'])))),
+        const peer = Effect.all({ application, plugin: Plugin.useSync(Struct.get('id')) });
+        const suppressed = Layer.effect(Dialogs)(
+            Effect.map(Effect.context<RD>(), (services) => {
+                const held = Effect.updateContext(dialogs, (scope: Context.Context<Scope.Scope>) => Context.merge(services, scope));
+                return (request) => Effect.scoped(Effect.andThen(held, request));
+            }),
         );
-        return Layer.launch(Link.dial(group.merge(SourceRpcs), served, new URL(UxpManifest.link), peer)).pipe(logFailure, Effect.forkScoped, Layer.effectDiscard);
+        const served = Link.serve(Toolkit.merge(Toolkit.empty, ...Array.fromNullishOr(toolkit)), Stream.ignoreCause(source.changes, { log: 'Error' })).pipe(Layer.provideMerge(Layer.mergeAll(handlers, SourceRpcs.toLayer(Struct.pick(source, ['describe', 'operate'])), suppressed)));
+        const link = Plugin.use(({ id, requiredPermissions: { network } }) =>
+            Effect.fromOption(
+                Array.findFirst(Array.ensure(network?.domains ?? []), (domain) => Schema.decodeOption(WebSocketUrl)(domain)),
+                () => new Cause.NoSuchElementError(`${id} manifest permits no WebSocket domain to link through`),
+            ),
+        );
+        return Effect.flatMap(link, (url) => Layer.launch(Link.dial(group.merge(SourceRpcs, Link.Rpcs.omit('tools/list', 'events')).middleware(Dialogs), served, url, peer))).pipe(logFailure, Effect.forkScoped, Layer.effectDiscard);
     };
 }
 

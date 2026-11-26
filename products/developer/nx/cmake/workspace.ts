@@ -3,7 +3,7 @@ import { basename, delimiter, join, posix, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { normalizePath } from '@nx/devkit';
-import { below, inside, runner } from '@rasm/nx';
+import { below, inside, runner } from '@rasm/nx/inference';
 import { Array, Cause, Combiner, Context, Effect, Equal, FileSystem, Function, Graph, Layer, Match, Option, Predicate, Record, Result, Schema, SchemaTransformation, SemVer } from 'effect';
 import plugin from '#/package.json' with { type: 'json' };
 
@@ -29,7 +29,7 @@ const TOKEN = /#\[(?<comment>=*)\[[\s\S]*?\]\k<comment>\]|#[^\n]*|\[(?<bracket>=
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Launcher = Schema.Union([Schema.String, Schema.Struct({ value: Schema.String }).pipe(Schema.decodeTo(Schema.String, SchemaTransformation.transform({ decode: ({ value }) => value, encode: (value) => ({ value }) })))]);
-class Presets extends Schema.Opaque<Presets, unknown>()(
+class Presets extends Schema.Opaque<Presets>()(
     Schema.fromJsonString(
         Schema.Struct({
             configurePresets: Schema.Array(

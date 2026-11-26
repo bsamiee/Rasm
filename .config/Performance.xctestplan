@@ -1,0 +1,20 @@
+{
+  "configurations": [
+    {
+      "id": "CF2AB76E-483A-4656-BF39-8988DE05F0FD",
+      "name": "Test Scheme Action",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {},
+  "testTargets": [
+    {
+      "target": {
+        "containerPath": "container:",
+        "identifier": "FilesPerformanceTests",
+        "name": "FilesPerformanceTests"
+      }
+    }
+  ],
+  "version": 1
+}

@@ -8,29 +8,24 @@ public enum Grant: String, CaseIterable, Encodable, Sendable {
     case screenCapture
     case postEvent
 
-    public var isHeld: Bool {
-        switch self {
-            case .accessibility: AXIsProcessTrusted()
-            case .screenCapture: CGPreflightScreenCaptureAccess()
-            case .postEvent: CGPreflightPostEventAccess()
+    public func isHeld(asking: Bool) -> Bool {
+        switch (self, asking) {
+            case (.accessibility, _): unsafe AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue(): asking] as CFDictionary)
+            case (.screenCapture, false): CGPreflightScreenCaptureAccess()
+            case (.screenCapture, true): CGRequestScreenCaptureAccess()
+            case (.postEvent, false): CGPreflightPostEventAccess()
+            case (.postEvent, true): CGRequestPostEventAccess()
         }
     }
 
-    var missing: ApplicationFailure {
+    var missing: ApplicationFailure? {
+        guard !isHeld(asking: false) else { return nil }
         let (process, responsible) = (getpid(), responsiblePID(getpid()))
         return ApplicationFailure(subject: ProcessInfo.processInfo.processName, reason: responsible == process ? .noGrant(self) : .notResponsible(self, responsible))
     }
 
     public func check() throws(ApplicationFailure) {
-        guard isHeld else { throw missing }
-    }
-
-    public func request() {
-        switch self {
-            case .accessibility: _ = unsafe AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary)
-            case .screenCapture: _ = CGRequestScreenCaptureAccess()
-            case .postEvent: _ = CGRequestPostEventAccess()
-        }
+        if let missing { throw missing }
     }
 }
 

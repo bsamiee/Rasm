@@ -9,7 +9,6 @@
     "dependencies": {
         "@rasm/applications": "workspace:*",
         "@rasm/indesign": "workspace:*",
-        "@rasm/mcp": "workspace:*",
         "@rasm/object-model": "workspace:*",
         "@rasm/typography": "workspace:*",
         "@rasm/uxp": "workspace:*",

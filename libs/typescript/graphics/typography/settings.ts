@@ -1,4 +1,4 @@
-import { Digits } from '@rasm/search';
+import { Digits } from '@rasm/search/digits';
 import { Effect, Option, Predicate, Record, Schema, SchemaTransformation, String, Struct } from 'effect';
 import { Elongation } from '#/arabic/elongation';
 

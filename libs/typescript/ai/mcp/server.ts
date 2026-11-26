@@ -1,5 +1,5 @@
 import { ATTR_ERROR_TYPE, ATTR_GEN_AI_OPERATION_NAME, ATTR_GEN_AI_PROMPT_NAME, ATTR_GEN_AI_TOOL_NAME, ATTR_MCP_METHOD_NAME, ATTR_MCP_RESOURCE_URI, ERROR_TYPE_VALUE_OTHER, GEN_AI_OPERATION_NAME_VALUE_EXECUTE_TOOL, METRIC_MCP_SERVER_OPERATION_DURATION } from '@opentelemetry/semantic-conventions/incubating';
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Boolean, Cause, Context, Deferred, Duration, Effect, Exit, Fiber, FiberSet, Function, Layer, Match, Metric, Number, Option, Order, Predicate, RcMap, Record, Redacted, Ref, Result, Schema, SchemaGetter, type Scope, Stream, Struct, SubscriptionRef, TxRef, TxSubscriptionRef, UndefinedOr } from 'effect';
 import { McpProtocol, McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
 import { type Aead, SecureRandom } from 'effect/crypto';
@@ -27,7 +27,7 @@ const FRESH: HandleState = { state: Context.empty(), dropped: 0, entries: [], he
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Tagged = Schema.Struct({ _tag: Schema.String });
+const Coded = Schema.Struct({ code: McpSchema.McpErrorBase.fields.code });
 const Resumed = Schema.Struct({ handle: Schema.String, state: Schema.OptionFromOptionalKey(Schema.String), aud: Schema.String });
 const isUuidV7 = Schema.is(Schema.String.check(Schema.isUUID(7)));
 
@@ -45,8 +45,8 @@ class Server extends Context.Service<
         readonly uri: (path: string) => string;
         readonly events: <A>(source: { readonly stream: Stream.Stream<A>; readonly render: (event: A) => Effect.Effect<string>; readonly owns?: (event: A, state: Context.Context<never>) => boolean }) => Effect.Effect<void, never, Scope.Scope>;
         readonly notifyListChanged: Effect.Effect<void, Error>;
-        readonly bind: Effect.Effect<typeof Handles.Bound.Type>;
-        readonly follow: (handle: string) => Effect.Effect<Stream.Stream<typeof Handles.Followed.Type, Cause.NoSuchElementError>, Cause.NoSuchElementError>;
+        readonly bind: Effect.Effect<typeof Handles.Binding.Type>;
+        readonly follow: (handle: string) => Effect.Effect<Stream.Stream<typeof Handles.Event.Type, Cause.NoSuchElementError>, Cause.NoSuchElementError>;
         readonly ack: (handle: string, through: number) => Effect.Effect<void, Cause.NoSuchElementError>;
     }
 >()('@rasm/mcp/server') {
@@ -80,9 +80,10 @@ class Server extends Context.Service<
     static readonly registerTool = Effect.fnUntraced(function* <P extends Schema.Top, S extends Schema.Top, R>(
         tool: Tool.Tool<string, { readonly parameters: P; readonly success: S; readonly failure: Schema.Never; readonly failureMode: Tool.FailureMode }>,
         handle: (parameters: P['Type']) => Effect.Effect<S['Type'], Error, R>,
+        content?: (success: S['Type']) => McpSchema.CallToolResult['content'],
     ) {
         const context = yield* Effect.context<Exclude<R, McpSchema.McpRequestContext>>();
-        const [parameters, success]: readonly [Schema.Codec<Effect.Effect<unknown, Error, McpSchema.McpRequestContext>, unknown, P['DecodingServices'], P['EncodingServices']>, Schema.Codec<unknown, unknown, S['DecodingServices'], S['EncodingServices']>] = [
+        const [parameters, success]: readonly [Schema.Codec<Effect.Effect<S['Type'], Error, McpSchema.McpRequestContext>, unknown, P['DecodingServices'], P['EncodingServices']>, Schema.Codec<S['Type'], unknown, S['DecodingServices'], S['EncodingServices']>] = [
             tool.parametersSchema.pipe(
                 Schema.decodeTo(Schema.Any, {
                     decode: SchemaGetter.transform((given: P['Type']) => Effect.flatMap(Effect.context<McpSchema.McpRequestContext>(), (request) => Effect.provideContext(handle(given), Context.merge(context, request)))),
@@ -92,7 +93,7 @@ class Server extends Context.Service<
             tool.successSchema,
         ];
         const toolkit = Toolkit.make(Tool.make(tool.name, { description: Tool.getDescription(tool), parameters, success, failure: Schema.ErrorInstance(), dependencies: [McpSchema.McpRequestContext] }).annotateMerge(tool.annotations));
-        yield* McpServer.registerToolkit(toolkit).pipe(Effect.provide(toolkit.toLayer({ [tool.name]: Function.identity })));
+        yield* McpServer.registerToolkit(toolkit, { content: { [tool.name]: content } }).pipe(Effect.provide(toolkit.toLayer({ [tool.name]: Function.identity })));
     });
     static readonly layer = Effect.fnUntraced(function* ({ scheme, retention, limit, budget }: { readonly scheme: Effect.Success<ReturnType<typeof Server.scheme>>; readonly retention: Duration.Duration; readonly limit: number; readonly budget: number }) {
         const [server, scope, live, sequence, random, crypto] = yield* Effect.all([McpServer.McpServer, Effect.scope, TxRef.make<Record.ReadonlyRecord<string, TxSubscriptionRef.TxSubscriptionRef<HandleState>>>({}), TxRef.make(0), SecureRandom.SecureRandom, Effect.context<Aead.Aead | SecureRandom.SecureRandom>()]);
@@ -149,7 +150,7 @@ class Server extends Context.Service<
                         const [bound, ending, token] = [handleOf(row), Stream.provideService(ends, Handle, handleOf(frozen)), Schema.decodeUnknownOption(McpSchema.ProgressToken)(request.requestMetadata?.progressToken)];
                         const notify = (report: Parameters<(typeof Server.ToolCall)['Service']['progress']>[0]) => Option.match(token, { onNone: () => Effect.void, onSome: (progressToken) => server.notifications['notifications/progress']({ progressToken, ...report }) });
                         const poll = SubscriptionRef.updateAndGet(pace, Struct.evolve({ last: Number.increment, offset: Number.increment })).pipe(Effect.flatMap(({ last }) => notify({ progress: last })));
-                        const ended = Stream.runHead(Stream.merge(ending, Option.match(token, { onNone: () => Stream.empty, onSome: () => Stream.drain(Stream.mapEffect(Stream.debounce(SubscriptionRef.changes(pace), Duration.minutes(1)), () => poll)) })));
+                        const ended = Stream.runHead(Stream.merge(ending, Option.match(token, { onNone: () => Stream.empty, onSome: () => Stream.drain(Stream.mapEffect(Stream.prepend(Stream.debounce(SubscriptionRef.changes(pace), Duration.minutes(1)), [undefined]), () => poll)) })));
                         const answer = Effect.zipWith(options.handle(Record.remove(payload, 'handle')), Effect.all([Ref.get(stated), Ref.get(blocks)]), (outcome, [state, more]) =>
                             outcome instanceof McpSchema.InputRequired ? outcome : McpSchema.CallToolResult.make({ ...outcome, content: [...state, ...outcome.content, ...more] }),
                         ).pipe(
@@ -284,13 +285,14 @@ const operationDuration = Metric.mapInput(
 const failureAttributes = Match.type<Exit.Exit<unknown, unknown>>().pipe(
     Match.when({ _tag: 'Success', value: Schema.is(Schema.Struct({ isError: Schema.Literal(true) })) }, () => ({ [ATTR_ERROR_TYPE]: 'tool_error' })),
     Match.when({ _tag: 'Failure', cause: Cause.hasInterruptsOnly }, () => ({ [ATTR_ERROR_TYPE]: 'cancelled' })),
-    Match.when({ _tag: 'Failure' }, ({ cause }) => ({ [ATTR_ERROR_TYPE]: Option.match(Schema.decodeUnknownOption(Tagged)(Cause.squash(cause)), { onNone: () => ERROR_TYPE_VALUE_OTHER, onSome: (failure) => failure._tag }) })),
+    Match.when({ _tag: 'Failure' }, ({ cause }) => Option.match(Option.filter(Cause.findErrorOption(cause), Schema.is(Coded)), { onNone: () => ({ [ATTR_ERROR_TYPE]: ERROR_TYPE_VALUE_OTHER }), onSome: ({ code }) => ({ [ATTR_ERROR_TYPE]: `${code}` }) })),
     Match.orElse(() => ({})),
 );
 const operations: Readonly<Partial<Record<McpServer.MiddlewareMethod, (target: string) => Readonly<Record<string, string>>>>> = {
     'tools/call': (target) => ({ [ATTR_GEN_AI_TOOL_NAME]: target, [ATTR_GEN_AI_OPERATION_NAME]: GEN_AI_OPERATION_NAME_VALUE_EXECUTE_TOOL }),
     'resources/read': (target) => ({ [ATTR_MCP_RESOURCE_URI]: target }),
     'prompts/get': (target) => ({ [ATTR_GEN_AI_PROMPT_NAME]: target }),
+    'completion/complete': () => ({}),
 };
 const metrics = McpServer.middleware((effect, { method, target }) =>
     UndefinedOr.match(operations[method], {

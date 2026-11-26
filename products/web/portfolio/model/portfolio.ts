@@ -5,7 +5,7 @@ import { Composition, defaulted, Placement, Prose } from '#/model/placement';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Entry extends Schema.Opaque<Entry, unknown>()(
+class Entry extends Schema.Opaque<Entry>()(
     Schema.Struct({
         id: Schema.String.check(Schema.isUUID()).pipe(Schema.brand('EntryId')),
         kind: Schema.Literals(['project', 'study']),
@@ -24,7 +24,7 @@ const uniqueIds = Schema.makeFilter(({ entries = [] }: { readonly entries?: read
         Result.map(Result.liftPredicate(Record.keys(Record.filter(Array.groupBy(values, Struct.get('id')), Predicate.not(Predicate.isTupleOf(1)))), Array.isReadonlyArrayNonEmpty, Function.constVoid), (repeated) => ({ path, issue: `IDs repeat: ${repeated.join(', ')}` })),
     ),
 );
-class Portfolio extends Schema.Opaque<Portfolio, unknown>()(
+class Portfolio extends Schema.Opaque<Portfolio>()(
     Schema.Struct({
         name: Prose,
         introduction: Prose,
@@ -41,7 +41,7 @@ class Portfolio extends Schema.Opaque<Portfolio, unknown>()(
             ]),
         );
 }
-class StoredPortfolio extends Schema.Opaque<StoredPortfolio, unknown>()(Schema.toEncoded(Portfolio).check(uniqueIds)) {}
+class StoredPortfolio extends Schema.Opaque<StoredPortfolio>()(Schema.toEncoded(Portfolio).check(uniqueIds)) {}
 const PortfolioData = Schema.Struct({ portfolio: Schema.Unknown, assets: Assets.schema }).pipe(
     Schema.decodeTo(Schema.Struct({ portfolio: Schema.toType(Portfolio), assets: Schema.toType(Assets.schema) }), {
         decode: SchemaGetter.transformEffect(({ portfolio, assets }, options) =>

@@ -1,5 +1,5 @@
 import { SourceMap } from 'node:module';
-import { HostError } from '@rasm/object-model';
+import { HostError } from '@rasm/object-model/model';
 import { run } from '@rasm/process';
 import { type EnvConfig, transformSync } from '@swc/wasm';
 import { parse, type Token, tokTypes } from 'acorn';
@@ -32,15 +32,15 @@ const Mapping = Schema.fromJsonString(
         sourcesContent: Schema.mutable(Schema.Array(Schema.String)).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
         names: Schema.mutable(Schema.Array(Schema.String)),
         mappings: Schema.String,
-        file: Schema.optionalKey(Schema.String),
-        sourceRoot: Schema.optionalKey(Schema.String),
+        file: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),
+        sourceRoot: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),
     }),
 );
-const Entry = Schema.Struct({ generatedLine: Schema.Int, originalSource: Schema.String, originalLine: Schema.Int });
+const Entry = Schema.Struct({ generatedLine: Schema.Int, originalLine: Schema.Int });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const es3Syntax = (code: string): string => {
+const toExtendScript = (code: string): string => {
     const tokens: Token[] = [];
     const tree = parse(code, { ecmaVersion: 'latest', allowReturnOutsideFunction: true, onToken: tokens });
     const wraps: (readonly [number, number, string, number, string])[] = Array.filterMap(Array.window(tokens, 2), ([dot, member]) => (dot.type === tokTypes.dot && RESERVED.test(code.slice(member.start, member.end)) ? Result.succeed([dot.start, member.start, '["', member.end, '"]'] as const) : Result.failVoid));
@@ -59,30 +59,34 @@ const es3Syntax = (code: string): string => {
             }
         },
     });
-    const edits = Array.flatMap(wraps, ([at, skipped, open, end, close]) => [
-        { at, end: skipped, text: open, key: [at, true, at - end] as const },
-        { at: end, end, text: close, key: [end, false, end - at] as const },
+    const edits = Array.flatMap(wraps, ([from, start, open, end, close]) => [
+        { at: from, end: start, text: open, key: [from, true, from - end] as const },
+        { at: end, end, text: close, key: [end, false, end - from] as const },
     ]);
     const [rest, pieces] = Array.mapAccum(Array.sortWith(edits, Struct.get('key'), Order.Tuple([Order.Number, Order.Boolean, Order.Number])), 0, (from, { at, end, text }) => [end, `${code.slice(from, at)}${text}`]);
     return `${pieces.join('')}${code.slice(rest)}`;
 };
 const lower = Object.assign(
-    (code: string, { emitted = Function.identity, ...env }: EnvConfig & { readonly emitted?: (code: string) => string }, syntax: 'typescript' | 'ecmascript' = 'ecmascript') =>
+    (code: string, { rewrite = Function.identity, ...env }: EnvConfig & { readonly rewrite?: (code: string) => string }, syntax: 'typescript' | 'ecmascript' = 'ecmascript') =>
         Effect.try({
-            try: () => Struct.evolve(transformSync(code, { isModule: false, env, jsc: { parser: { syntax }, ...ASSUMED }, sourceMaps: true }), { code: emitted }),
+            try: () => Struct.evolve(transformSync(code, { isModule: false, env, jsc: { parser: { syntax }, ...ASSUMED }, sourceMaps: true }), { code: rewrite }),
             catch: (cause) => Option.match(Schema.decodeUnknownOption(Diagnostic)(cause), { onNone: () => HostError.refused(`${syntax} transform`), onSome: ([, text, , line]) => HostError.thrown(text, Option.some(line)) })(cause),
         }),
-    { extendscript: { targets: { ie: '6' }, exclude: ['transform-typeof-symbol'], emitted: es3Syntax } },
+    { extendscript: { targets: { ie: '6' }, exclude: ['transform-typeof-symbol'], rewrite: toExtendScript } },
 );
 const originalLine = (map: string | undefined) =>
     Effect.map(Effect.orDie(Schema.decodeUnknownEffect(Mapping)(map)), (mapping) => {
-        const source = new SourceMap({ file: '', sourceRoot: '', ...mapping });
-        return (line: number) => Option.flatMap(Schema.decodeUnknownOption(Entry)(source.findEntry(line - 1, Number.MAX_SAFE_INTEGER)), (entry) => Option.liftPredicate({ file: entry.originalSource, line: entry.originalLine + 1 }, () => entry.generatedLine === line - 1));
+        const source = new SourceMap(mapping);
+        return (line: number) =>
+            Schema.decodeUnknownOption(Entry)(source.findEntry(line - 1, Number.MAX_SAFE_INTEGER)).pipe(
+                Option.filter((entry) => entry.generatedLine === line - 1),
+                Option.map((entry) => entry.originalLine + 1),
+            );
     });
 const readCoreOmv = Effect.fn('readCoreOmv')(function* (folder: string) {
     const [fs, path, digest] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Digest.Digest]);
     const files = Record.map(CORE.members, (member) => path.join(folder, path.basename(member.path)));
-    const verified = Effect.fnUntraced(function* <E, R>(member: (typeof CORE.members)[keyof typeof CORE.members], read: Effect.Effect<Uint8Array, E, R>) {
+    const verify = Effect.fnUntraced(function* <E, R>(member: (typeof CORE.members)[keyof typeof CORE.members], read: Effect.Effect<Uint8Array, E, R>) {
         const bytes = yield* read;
         const received = yield* digest.digestHex(Digest.sha256, bytes);
         return received === member.sha256 ? bytes : yield* new Cause.UnknownError(received, `${member.path} hashes to sha256 ${received} in place of ${member.sha256}`);
@@ -94,17 +98,21 @@ const readCoreOmv = Effect.fn('readCoreOmv')(function* (folder: string) {
         const held = yield* fs.stream(path.join(mount, CORE.payload)).pipe(
             Stream.pipeThroughChannel(Zip.decode()),
             Stream.filter(({ header }) => paths.has(header.path)),
-            Stream.mapEffect(({ header, body }) => Effect.all([Effect.succeed(header.path), Stream.mkUint8Array(body)])),
+            Stream.mapEffect(
+                Effect.fnUntraced(function* ({ header, body }) {
+                    return [header.path, yield* Stream.mkUint8Array(body)] as const;
+                }),
+            ),
             Stream.take(paths.size),
             Stream.runCollect,
             Effect.map(Record.fromEntries),
         );
-        const bytes = yield* Effect.all(Record.map(CORE.members, (member) => verified(member, Effect.fromOption(Record.get(held, member.path)))));
+        const bytes = yield* Effect.all(Record.map(CORE.members, (member) => verify(member, Effect.fromOption(Record.get(held, member.path)))));
         yield* fs.makeDirectory(folder, { recursive: true });
         yield* Effect.forEach(Record.toEntries(bytes), ([key, each]) => fs.writeFile(files[key], each), { discard: true });
         return bytes;
     }).pipe(Effect.scoped);
-    const bytes = yield* Effect.catch(Effect.all(Record.map(CORE.members, (member, key) => verified(member, fs.readFile(files[key])))), () => fetched);
+    const bytes = yield* Effect.catch(Effect.all(Record.map(CORE.members, (member, key) => verify(member, fs.readFile(files[key])))), () => fetched);
     return Record.map(bytes, (each) => new TextDecoder().decode(each));
 });
 

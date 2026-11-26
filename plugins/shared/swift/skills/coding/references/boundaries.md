@@ -72,7 +72,7 @@ extension AppleEventValue: Decodable {
 - Nested values decode through `decode(Self.self, forKey:)` on the same decoder, one parse at every depth
 - Hand `init(from:)` also states a fact synthesis loses: `contains(.result)` tells `"result": null` from a missing key, and a cross-field rule throws `dataCorrupted` in the same initializer
 - `encodeIfPresent(usage?[case: \.success], forKey: .usage)` writes an optional `Result` field's success and omits absence and failure
-- `CaseKeyed` and `CaseLabeled` from `Encoding` write a single-payload enum as `{"<case>": payload}` and a case as its label, where synthesis nests the payload under `_0`
+- `CaseTagged` and `CaseLabeled` from `Encoding` write a case as `{"_tag": "<case>", <fields>}` and as its label, where synthesis keys the payload by case and nests an unlabeled one under `_0`
 
 ## [02]-[FILES]
 
@@ -139,7 +139,7 @@ func history(_ arguments: [String], limit: Int) async throws(ProcessFailure) -> 
 - `strings()` splits on `.lineBreaks`, U+2028 and U+2029 included, and JSON lines split on `.unicodeScalarSequence(["\n"])`, as a JSON string holds both unescaped
 - `.name` searches the child environment's `PATH` and never a working directory, a missing program throws `executableNotFound`, and `.path` takes a `FilePath`
 - Arguments reach the child as separate values, and `.inherit.updating([...])` changes variables for one run, `nil` removing one
-- Children starting processes of their own run under `createSession` with a `.gracefulShutDown(toProcessGroup: true, …)` teardown step (`PlatformOptions.session()` from `Processes`)
+- Children starting processes of their own run under `createSession` with a `.gracefulShutDown(toProcessGroup: true, …)` teardown step (`PlatformOptions.session` from `Processes`)
 - Teardown runs when the caller is cancelled or the body throws, sends `SIGTERM` to the group, then `SIGKILL`, and without a session the group holds the caller
 - Subprocess sets no deadline, and a run with a budget races it through `withTimeout` from `Results` into a `timedOut` reason
 

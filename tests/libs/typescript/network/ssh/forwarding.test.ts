@@ -1,9 +1,9 @@
 import process from 'node:process';
 import { assert, it } from '@effect/vitest';
-import { Forward } from '@rasm/ssh';
+import { Forward } from '@rasm/ssh/forward';
 import { Cause, Effect, Exit, FileSystem, Option, Path, Schema, Scope } from 'effect';
 import { ChildProcess } from 'effect/process';
-import { RandomPortGenerator } from 'testcontainers';
+import getPort from 'get-port';
 import { Asked } from '#/peer';
 import { heard, held, printed, reasoned, Sshd, served } from '#/sshd';
 
@@ -16,7 +16,7 @@ const sshd = `127.0.0.1:${served}`;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const wanted = Schema.decodeEffect(Forward);
-const vacant = Effect.promise(() => new RandomPortGenerator().generatePort());
+const vacant = Effect.promise(() => getPort());
 const greeted = Option.map((text: string) => text.slice(0, banner.length));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

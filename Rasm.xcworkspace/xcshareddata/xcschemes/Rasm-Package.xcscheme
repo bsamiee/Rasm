@@ -21,9 +21,6 @@
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Telemetry" BuildableName="Telemetry" BlueprintName="Telemetry" ReferencedContainer="container:"/>
             </BuildActionEntry>
             <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Typography" BuildableName="Typography" BlueprintName="Typography" ReferencedContainer="container:"/>
-            </BuildActionEntry>
-            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Updater" BuildableName="Updater" BlueprintName="Updater" ReferencedContainer="container:"/>
             </BuildActionEntry>
             <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
@@ -56,37 +53,9 @@
         </BuildActionEntries>
     </BuildAction>
     <TestAction buildConfiguration="Debug">
-        <Testables>
-            <TestableReference skipped="NO">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="EncodingTests" BuildableName="EncodingTests" BlueprintName="EncodingTests" ReferencedContainer="container:"/>
-            </TestableReference>
-            <TestableReference skipped="NO">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ResultsTests" BuildableName="ResultsTests" BlueprintName="ResultsTests" ReferencedContainer="container:"/>
-            </TestableReference>
-            <TestableReference skipped="NO">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="JSONRPCTests" BuildableName="JSONRPCTests" BlueprintName="JSONRPCTests" ReferencedContainer="container:"/>
-            </TestableReference>
-            <TestableReference skipped="NO">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="FilesTests" BuildableName="FilesTests" BlueprintName="FilesTests" ReferencedContainer="container:"/>
-            </TestableReference>
-            <TestableReference skipped="NO">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ProcessesTests" BuildableName="ProcessesTests" BlueprintName="ProcessesTests" ReferencedContainer="container:"/>
-            </TestableReference>
-            <TestableReference skipped="NO">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="AppleEventsTests" BuildableName="AppleEventsTests" BlueprintName="AppleEventsTests" ReferencedContainer="container:"/>
-            </TestableReference>
-            <TestableReference skipped="NO">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ApplicationsTests" BuildableName="ApplicationsTests" BlueprintName="ApplicationsTests" ReferencedContainer="container:"/>
-            </TestableReference>
-            <TestableReference skipped="NO">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ScreenCaptureTests" BuildableName="ScreenCaptureTests" BlueprintName="ScreenCaptureTests" ReferencedContainer="container:"/>
-            </TestableReference>
-            <TestableReference skipped="NO">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ApplicationServerTests" BuildableName="ApplicationServerTests" BlueprintName="ApplicationServerTests" ReferencedContainer="container:"/>
-            </TestableReference>
-            <TestableReference skipped="NO">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="FixtureTests" BuildableName="FixtureTests" BlueprintName="FixtureTests" ReferencedContainer="container:"/>
-            </TestableReference>
-        </Testables>
+        <TestPlans>
+            <TestPlanReference reference="container:.config/Rasm-Package.xctestplan" default="YES"/>
+            <TestPlanReference reference="container:.config/Performance.xctestplan"/>
+        </TestPlans>
     </TestAction>
 </Scheme>

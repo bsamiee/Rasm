@@ -1,4 +1,4 @@
-import { Inspection } from '@rasm/media';
+import { Inspection } from '@rasm/media/inspection';
 import { Array, Effect, Schema, String, Struct } from 'effect';
 import { Asset, Rendition } from '#/model/asset';
 

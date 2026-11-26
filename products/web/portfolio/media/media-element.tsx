@@ -1,4 +1,4 @@
-import { Inspection } from '@rasm/media';
+import { Inspection } from '@rasm/media/inspection';
 import { Match } from 'effect';
 import { useInView } from 'motion/react';
 import { lazy, type RefObject, Suspense, useEffect, useRef, useState } from 'react';

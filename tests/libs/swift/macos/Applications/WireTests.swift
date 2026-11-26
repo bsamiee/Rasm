@@ -1,0 +1,95 @@
+@unsafe @preconcurrency import ApplicationServices
+import Applications
+import CoreGraphics
+import CustomDump
+import Encoding
+import Foundation
+import Processes
+import ScreenCapture
+import Testing
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+private func written(_ value: some Encodable) throws -> String? {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = .sortedKeys
+    return String(data: try encoder.encode(value), encoding: .utf8)
+}
+
+private func read<Value: Decodable>(_: Value.Type, _ text: String) throws -> Value { try JSONDecoder().decode(Value.self, from: Data(text.utf8)) }
+
+@Suite
+struct WireTests {
+    @Test
+    func writesEachAccessibilityFactWithItsTypeAsTag() throws {
+        let facts: [Fact] = [.bool(value: false), .range(location: 2, length: 5), .list(values: [.element(id: 9), .text(value: "Untitled")]), .refused(error: Lenient(rawValue: -25_204))]
+        expectNoDifference(
+            try written(facts),
+            #"[{"_tag":"bool","value":false},{"_tag":"range","length":5,"location":2},{"_tag":"list","values":[{"_tag":"element","id":9},{"_tag":"text","value":"Untitled"}]},{"_tag":"refused","error":-25204}]"#,
+        )
+    }
+
+    @Test
+    func readsEachValueTheTypeScriptSideWritesAsItsJSONType() throws {
+        expectNoDifference(try read([Fact.Scalar].self, #"[true,1,1.5,"1.5"]"#), [.bool(true), .number(1), .number(1.5), .text("1.5")])
+    }
+
+    @Test(arguments: ["null", "[true]", #"{"value":true}"#])
+    func refusesAValueThatIsNotABooleanNumberOrString(text: String) {
+        #expect(throws: DecodingError.self) { try read(Fact.Scalar.self, text) }
+    }
+
+    @Test
+    func writesRoutesPresentationsAndPasteboardContentWithTheirCaseAsTag() throws {
+        expectNoDifference(try written([Route.window(number: 41), .system]), #"[{"_tag":"window","number":41},{"_tag":"system"}]"#)
+        expectNoDifference(try written([Watch.Presentation.forward, .behind]), #"[{"_tag":"forward"},{"_tag":"behind"}]"#)
+        expectNoDifference(try written([Pasteboard.Content.text(value: "copied"), .withheld]), #"[{"_tag":"text","value":"copied"},{"_tag":"withheld"}]"#)
+    }
+
+    @Test
+    func writesEachInstanceChangeWithItsLabelsBesideItsTag() throws {
+        let changes: [InstanceEvent.Change] = [
+            .frontmost(active: false), .hidden(hidden: true), .started(identifier: nil, name: "Finder"), .status(status: .unresponsive(thread: .sleeping)), .status(status: .launching),
+        ]
+        expectNoDifference(
+            try written(changes),
+            #"[{"_tag":"frontmost","active":false},{"_tag":"hidden","hidden":true},{"_tag":"started","name":"Finder"},{"_tag":"status","status":{"_tag":"unresponsive","thread":"sleeping"}},{"_tag":"status","status":{"_tag":"launching"}}]"#,
+        )
+    }
+
+    @Test
+    func readsEachScopeTheTypeScriptSideWritesByItsTag() throws {
+        let scopes: [Model.Scope] = try read(
+            [Model.Scope].self,
+            #"[{"_tag":"application"},{"_tag":"container","ref":4},{"_tag":"menu","ref":6},{"_tag":"rows","ref":8,"from":20,"count":10},{"_tag":"search","text":"Export","limit":3},{"_tag":"menus"}]"#,
+        )
+        expectNoDifference(
+            scopes.map(String.init(describing:)),
+            ["application", "container(ref: 4)", "menu(ref: 6)", "rows(ref: 8, from: 20, count: 10)", #"search(text: "Export", limit: 3)"#, "menus"],
+        )
+    }
+
+    @Test
+    func readsEachCaptureSourceTheTypeScriptSideWritesByItsTag() throws {
+        expectNoDifference(
+            try read([Source].self, #"[{"_tag":"windows","numbers":[12,13]},{"_tag":"element","ref":5},{"_tag":"region","frame":[[10,20],[300,200]]}]"#),
+            [.windows(numbers: [12, 13]), .element(ref: 5), .region(frame: CGRect(x: 10, y: 20, width: 300, height: 200))],
+        )
+    }
+
+    @Test
+    func writesEachStoredLocatorBackAsTheTextTheInterfaceMapKeysItBy() throws {
+        let stored: [String] = [
+            #"[{"key":{"identifier":{"value":"toolbar"}},"role":"AXWindow"},{"key":{"document":{"value":"file:///Users/Shared/Untitled.txt"}},"role":"AXTextArea"}]"#,
+            #"[{"key":{"label":{"value":"saveas"}},"role":"AXMenuItem"},{"key":{"sole":{}},"role":"AXMenu"},{"key":{"members":{}},"role":"AXRadioButton"}]"#,
+            #"[{"key":{"offset":{"by":2}},"role":"AXButton"},{"key":{"offset":{"by":1,"from":{"key":{"sole":{}},"role":"AXGroup"}}},"role":"AXRow"}]"#,
+        ]
+        let locators: [Locator] = try read([Locator].self, String(decoding: try JSONEncoder().encode(stored), as: UTF8.self))
+        expectNoDifference(try read([String].self, written(locators) ?? ""), stored)
+    }
+
+    @Test(arguments: [#"{"_tag":"window","ref":4}"#, #"{"container":{"ref":4}}"#])
+    func refusesAScopeWithNoTagNamingOneOfItsCases(text: String) {
+        #expect(throws: DecodingError.self) { try read(Model.Scope.self, text) }
+    }
+}

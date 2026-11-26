@@ -1,9 +1,9 @@
-import { createServer, type Server } from 'node:net';
+import { make as socketServer } from '@effect/platform-node/NodeSocketServer';
 import { assert, it } from '@effect/vitest';
-import { SshError } from '@rasm/ssh';
-import { Array, Effect, Exit, FileSystem, Path, Schema, Scope } from 'effect';
+import { SshError } from '@rasm/ssh/client';
+import { Array, Effect, Exit, FileSystem, Path, Schema, Scope, Struct } from 'effect';
+import { NetAddress } from 'effect/net';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
-import { RandomPortGenerator } from 'testcontainers';
 import { principal, printed, reasoned, Sshd, served } from '#/sshd';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -12,16 +12,11 @@ const listener = Array.make('sh', '-c', 'set -- $SSH_CONNECTION; echo "$4"');
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const silent = Effect.gen(function* () {
-    const port = yield* Effect.promise(() => new RandomPortGenerator().generatePort());
-    yield* Effect.acquireRelease(
-        Effect.callback<Server>((resume) => {
-            const server = createServer().listen(port, '127.0.0.1', () => resume(Effect.succeed(server)));
-        }),
-        (server) => Effect.sync(() => server.close()),
-    );
-    return { host: '127.0.0.1', port };
-});
+const silent = socketServer({ host: '127.0.0.1', port: 0 }).pipe(
+    Effect.map(Struct.get('address')),
+    Effect.filterOrFail(NetAddress.isInetAddress),
+    Effect.map(({ port }) => ({ host: '127.0.0.1', port })),
+);
 const ending = Effect.flatMap(Effect.scope, Scope.fork);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

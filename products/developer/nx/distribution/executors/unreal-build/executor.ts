@@ -1,7 +1,7 @@
 import { posix } from 'node:path';
 import { runExecutor } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { executor, inside, spawned, Words } from '@rasm/nx';
+import { executor, inside, spawned, Words } from '@rasm/nx/inference';
 import { Array, Cause, Effect, Equivalence, FileSystem, Function, Option, Path, Predicate, pipe, Record, Result, Schema, Stream, String, Struct } from 'effect';
 import { applyEdits, modify } from 'jsonc-parser';
 import { ANALYSIS, engine, FOLDERS, Linked, zipped } from '#/host-packages';

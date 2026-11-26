@@ -18,12 +18,28 @@ private let rendering = CIContext(options: [.workingColorSpace: NSNull()])
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public enum Source: Codable, Hashable, Sendable {
+public enum Source: Decodable, Hashable, Sendable {
     case windows(numbers: [CGWindowID])
     case element(ref: Int)
     case region(frame: CGRect)
 
+    private enum Key: String, CodingKey {
+        case tag = "_tag"
+        case numbers, ref, frame
+    }
+
     var ref: Int? { if case .element(let ref) = self { ref } else { nil } }
+
+    public init(from decoder: any Decoder) throws {
+        let fields = try decoder.container(keyedBy: Key.self)
+        self =
+            switch try fields.decode(String.self, forKey: .tag) {
+                case "windows": try .windows(numbers: fields.decode([CGWindowID].self, forKey: .numbers))
+                case "element": try .element(ref: fields.decode(Int.self, forKey: .ref))
+                case "region": try .region(frame: fields.decode(CGRect.self, forKey: .frame))
+                case let tag: throw DecodingError.dataCorruptedError(forKey: .tag, in: fields, debugDescription: "\(tag) names no capture source")
+            }
+    }
 }
 
 public struct LongestSide: RawRepresentable, Decodable, Sendable {

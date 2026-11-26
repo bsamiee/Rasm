@@ -1,0 +1,15 @@
+{
+    "name": "@rasm/test-mediaencoder",
+    "private": true,
+    "description": "@rasm/mediaencoder suites over job references, render queue events, and refused event subscriptions against a host module double",
+    "type": "module",
+    "devDependencies": {
+        "@adobe-uxp-types/uxp": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@rasm/mediaencoder": "workspace:*",
+        "@rasm/object-model": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vitest": "catalog:"
+    }
+}

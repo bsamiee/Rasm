@@ -7,7 +7,7 @@ import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, normal
 import { quoteShellArg } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import web from '@nx/web/package.json' with { type: 'json' };
-import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, inside, manifested, namedInput, owned, packaged, type Pass, run, tokened, type Verbs, within } from '@rasm/nx';
+import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, inside, manifested, namedInput, owned, packaged, type Pass, run, tokened, type Verbs, within } from '@rasm/nx/inference';
 import { Array, Cause, Effect, Option, Predicate, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------

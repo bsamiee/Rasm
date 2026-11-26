@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { executor, spawned } from '@rasm/nx';
+import { executor, spawned } from '@rasm/nx/inference';
 import { Effect, FileSystem, Schema, UndefinedOr } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------

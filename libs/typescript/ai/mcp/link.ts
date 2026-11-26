@@ -1,5 +1,5 @@
 import { dial, listen } from '@rasm/rpc';
-import { Array, Context, Duration, Effect, type Layer, Record, Ref, Schema, Stream, Struct } from 'effect';
+import { Array, Context, Duration, Effect, type Layer, Record, Ref, Schema, type Stream, Struct } from 'effect';
 import { McpSchema, McpServer, type Tool, type Toolkit } from 'effect/ai';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { Server } from '#/server';
@@ -13,10 +13,9 @@ const PATH = '/link';
 class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')({
     application: Schema.Union([Schema.URLFromString.annotate({ description: 'Host application bundle URL with trailing slash' }), Schema.String.annotate({ description: 'Host application name, from a host that reports no bundle path' })]),
     plugin: Schema.String.annotate({ description: 'Plugin identifier inside its host application' }),
-    root: Schema.OptionFromOptionalKey(Schema.URLFromString).annotate({ description: 'Directory the host loaded the plugin from' }),
-    requests: Schema.fromJsonString(Schema.Array(Schema.String))
+    requests: Schema.fromJsonString(Schema.toCodecJson(Schema.ReadonlySet(Schema.String)))
         .annotate({ description: 'Requests the plugin serves beside tool calls' })
-        .pipe(Schema.withDecodingDefaultKey(Effect.succeed('[]')), Schema.withConstructorDefault(Effect.succeed([]))),
+        .pipe(Schema.withConstructorDefault(Effect.succeed(new Set<string>()))),
 }) {
     static readonly Event = Schema.Struct({
         name: Schema.String.annotate({ description: 'Host event name as the host API states it' }),
@@ -29,18 +28,20 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
         Rpc.make('events', { success: Link.Event, stream: true }),
     );
     static readonly key = ({ application, plugin }: Link) => `${plugin} in ${String(application)}`;
-    static readonly serves = (tags: Iterable<string>) => {
-        const wanted = [...tags];
-        return ({ requests }: Link) => wanted.every((tag) => requests.includes(tag));
-    };
+    static readonly serves =
+        <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>) =>
+        ({ requests }: Link) =>
+            requests.isSupersetOf(group.requests);
     static readonly runsIn =
         ({ url, name }: { readonly url: URL; readonly name: string }) =>
         ({ application }: Link) =>
             typeof application === 'string' ? application === name : application.href === url.href;
-    static readonly dial = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rpcs>, handlers: Layer.Layer<H, EH, RH>, url: URL, peer: Effect.Effect<Link, E, R>) =>
-        dial(Link.Rpcs.merge(group), handlers, { url: new URL(PATH, url), redial: Duration.seconds(1), peer: Effect.flatMap(peer, (identity) => Effect.orDie(Schema.encodeEffect(Link)(Link.make({ ...identity, requests: group.requests.keys().toArray() })))) });
+    static readonly dial = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rpcs>, handlers: Layer.Layer<H, EH, RH>, url: URL, peer: Effect.Effect<Pick<Link, 'application' | 'plugin'>, E, R>) => {
+        const requests = new Set(Array.filter(group.requests.keys(), (tag) => !Link.Rpcs.requests.has(tag)));
+        return dial(Link.Rpcs.merge(group), handlers, { url: new URL(PATH, url), redial: Duration.seconds(1), peer: Effect.flatMap(peer, (identity) => Effect.orDie(Schema.encodeEffect(Link)(Link.make({ ...identity, requests })))) });
+    };
     static readonly listen = <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>, origin: string) => listen(Link.Rpcs.merge(group), { path: PATH, origin, peer: Link, key: Link.key });
-    static readonly serve = <Served extends Record.ReadonlyRecord<string, Tool.Any>, R = never>(toolkit: Toolkit.Toolkit<Served>, { events = Stream.empty }: { readonly events?: Stream.Stream<typeof Link.Event.Type, never, R> } = {}) =>
+    static readonly serve = <Served extends Record.ReadonlyRecord<string, Tool.Any>, R>(toolkit: Toolkit.Toolkit<Served>, events: Stream.Stream<typeof Link.Event.Type, never, R>) =>
         Link.Rpcs.toLayer(
             Effect.gen(function* () {
                 const [server, registered] = yield* Effect.all([McpServer.McpServer.make, Ref.make<Record.ReadonlyRecord<string, Parameters<McpServer.McpServer['Service']['addTool']>[0]>>({})]);

@@ -19,7 +19,7 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
+        "./app": "./app/app.ts",
         "./bundle": "./vite/bundle.ts",
         "./deploy": "./deploy/deploy.ts",
         "./head": "./vite/site-head.ts",
@@ -38,7 +38,7 @@
             "#/*": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/index.js",
+            "./app": "./dist/app/app.js",
             "./bundle": "./dist/vite/bundle.js",
             "./deploy": "./dist/deploy/deploy.js",
             "./head": "./dist/vite/site-head.js",

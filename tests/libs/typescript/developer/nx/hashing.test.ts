@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { CreateNodes, ProjectGraph } from '@nx/devkit';
 import { resetWorkspaceContext } from '@nx/devkit/internal';
-import { aggregated, anchored, EXECUTORS, fingerprinted, inferring, removable, run, stamped } from '@rasm/nx';
+import { aggregated, anchored, EXECUTORS, fingerprinted, inferring, removable, run, stamped } from '@rasm/nx/inference';
 import { it, type Workspace } from '@rasm/testing/nx';
 import { Effect, Schema } from 'effect';
 import { HashPlanInspector } from 'nx/src/hasher/hash-plan-inspector';

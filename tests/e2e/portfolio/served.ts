@@ -1,17 +1,16 @@
-import { once } from 'node:events';
-import { createServer } from 'node:net';
 import { join } from 'node:path';
 import process from 'node:process';
 import { DatabaseSync } from 'node:sqlite';
 import { layerUndici } from '@effect/platform-node/NodeHttpClient';
 import { layer } from '@effect/platform-node/NodeServices';
-import { App } from '@rasm/hosting';
+import { App } from '@rasm/hosting/app';
 import { Access, Enrollment } from '@rasm/hosting/identity';
-import { Presigned } from '@rasm/object-storage';
+import { Presigned } from '@rasm/object-storage/storage';
 import { routed } from '@rasm/testing/playwright';
 import { Cause, Effect, FileSystem, Function, Layer, Schedule, Schema } from 'effect';
 import { HttpBody, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { ChildProcess } from 'effect/process';
+import getPort from 'get-port';
 import { CorePaths, Miniflare } from 'miniflare';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -36,13 +35,6 @@ const Allowed = Schema.fromJsonString(Schema.Array(Schema.String)).annotate({ de
 const Cleared = Schema.Struct({ script: Schema.String }).annotate({ description: 'The one statement list SQLite builds to delete every row of every table the product created' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const allocated = Effect.acquireDisposable(Effect.sync(() => createServer().listen(0, '127.0.0.1'))).pipe(
-    Effect.tap((probe) => Effect.promise(() => once(probe, 'listening'))),
-    Effect.map((probe) => probe.address()),
-    Effect.map((address) => (typeof address === 'object' && address !== null ? address.port : 0)),
-    Effect.scoped,
-);
 
 const published = Effect.fnUntraced(function* (origin: string, { files, portfolio }: Published) {
     const client = HttpClient.filterStatusOk(yield* HttpClient.HttpClient);
@@ -88,7 +80,7 @@ const served = Effect.gen(function* () {
         Effect.sync(() => new Miniflare(emulated)),
         (held) => Effect.promise(() => held.dispose()),
     );
-    const [stored, port, access, allowed] = yield* Effect.all([Effect.promise(() => storage.ready), allocated, Schema.encodeEffect(Access.json)(Access.make({ source: { _tag: 'Forwarded', ...FORWARDED }, logout: '/' })), Schema.encodeEffect(Allowed)([OWNER[FORWARDED.email]])]);
+    const [stored, port, access, allowed] = yield* Effect.all([Effect.promise(() => storage.ready), Effect.promise(() => getPort()), Schema.encodeEffect(Access.json)(Access.make({ source: { _tag: 'Forwarded', ...FORWARDED }, logout: '/' })), Schema.encodeEffect(Allowed)([OWNER[FORWARDED.email]])]);
     const origin = `http://127.0.0.1:${port}`;
     const database = join(state, 'portfolio.sqlite');
     const server = yield* ChildProcess.make(process.execPath, [join(bundle, App.bundle.environment, `${App.bundle.entry}.js`)], {

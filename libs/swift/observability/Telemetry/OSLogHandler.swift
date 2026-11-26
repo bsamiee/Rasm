@@ -33,15 +33,7 @@ public struct OSLogHandler: LogHandler {
             }
         guard logger.isEnabled(type: type) else { return }
         let fields = Dictionary(grouping: attributes(of: event).sorted { first, second in first.key < second.key }) { field in Privacy.of(field.value) == .public }
-            .mapValues { marked in marked.map { field in "\(field.key)=\(field.value)" }.joined(separator: " ") }
-        logger.log(level: type, "\(event.message.description, privacy: .public) \(fields[true] ?? "", privacy: .public) \(fields[false] ?? "", privacy: .private(mask: .hash))")
-    }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-extension LogHandler {
-    func attributes(of event: LogEvent) -> Logging.Logger.Metadata {
-        [metadataProvider?.get() ?? [:], event.metadata ?? [:], event.attributes].reduce(into: metadata) { merged, next in merged.merge(next) { _, last in last } }
+            .mapValues { marked in marked.map { field in " \(field.key)=\(field.value)" }.joined() }
+        logger.log(level: type, "\(event.message.description, privacy: .public)\(fields[true] ?? "", privacy: .public)\(fields[false] ?? "", privacy: .private(mask: .hash))")
     }
 }

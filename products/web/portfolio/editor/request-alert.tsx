@@ -1,4 +1,4 @@
-import { Issues } from '@rasm/ui';
+import { Issues } from '@rasm/ui/issues';
 import { Match, type Schema } from 'effect';
 import type { HttpClientError } from 'effect/http';
 import type { HttpApi, HttpApiEndpoint, HttpApiGroup } from 'effect/http-api';

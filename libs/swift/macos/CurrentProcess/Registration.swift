@@ -1,8 +1,8 @@
 public import Applications
 import Configuration
+import Encoding
 import Foundation
 import Logging
-import Security
 public import ServiceManagement
 import Telemetry
 
@@ -13,15 +13,10 @@ extension LaunchAgent {
 
     @concurrent
     public func register() async throws(ApplicationFailure) {
-        var code: SecStaticCode?
-        var signing: CFDictionary?
-        let found = unsafe SecStaticCodeCreateWithPath(Bundle.main.bundleURL as CFURL, [], &code)
-        let read = code.map { code in unsafe SecCodeCopySigningInformation(code, [], &signing) } ?? found
-        guard read == errSecSuccess else { throw ApplicationFailure(subject: label, reason: .foundation(NSError(domain: NSOSStatusErrorDomain, code: Int(read)))) }
-        let installed = (signing as? [CFString: Any])?[kSecCodeInfoUnique] as? Data
+        let installed = try Program.current.signature.unique
         let key = ConfigKey("agents.registered.\(label)")
         let replaced = Program.current.settings.bytes(forKey: key).map(Data.init) != installed
-        let stopped = keepAlive ? try !runsInstalledProgram() : false
+        let stopped = keepAlive == .bool(true) ? try !runsInstalledProgram() : false
         let service = service
         let again = service.status == .enabled && (replaced || stopped)
         let registered = await Result { () async throws in

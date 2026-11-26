@@ -1,10 +1,10 @@
+import { assert, describe, expect, it } from '@effect/vitest';
 import type { ProjectGraphProjectNode } from '@nx/devkit';
 import { createTreeWithEmptyWorkspace } from '@nx/devkit/testing';
 import CmakeVersionActions from '@rasm/nx-cmake/release/version-actions';
-import { assert, asyncProperty, nat, tuple } from 'fast-check';
+import { Effect, Schema } from 'effect';
 import type { ReleaseGroupWithName } from 'nx/src/command-line/release/config/filter-release-groups';
 import type { FinalConfigForProject } from 'nx/src/command-line/release/utils/release-graph';
-import { describe, expect, it } from 'vitest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -67,20 +67,18 @@ describe('project(VERSION) in CMakeLists.txt', () => {
         expect(tree.read(MANIFEST, 'utf-8')).toBe(text);
     });
 
-    it('writes any major.minor.patch version into project(VERSION) and reads that version back', async () => {
-        expect.hasAssertions();
-        await assert(
-            asyncProperty(tuple(nat(), nat(), nat()), async (parts) => {
-                const version = parts.join('.');
-                const { tree, actions } = await manifested('project(my_lib VERSION 0.0.1 LANGUAGES CXX)\n');
+    it.effect.prop(
+        'writes any major.minor.patch version into project(VERSION) and reads that version back',
+        [Schema.Natural, Schema.Natural, Schema.Natural],
+        Effect.fnUntraced(function* (parts) {
+            const version = parts.join('.');
+            const { tree, actions } = yield* Effect.promise(() => manifested('project(my_lib VERSION 0.0.1 LANGUAGES CXX)\n'));
 
-                await actions.updateProjectVersion(tree, version);
+            yield* Effect.promise(() => actions.updateProjectVersion(tree, version));
 
-                expect(tree.read(MANIFEST, 'utf-8')).toBe(`project(my_lib VERSION ${version} LANGUAGES CXX)\n`);
-                await expect(actions.readCurrentVersionFromSourceManifest(tree)).resolves.toStrictEqual({ currentVersion: version, manifestPath: MANIFEST });
-            }),
-        );
-    });
+            assert.deepStrictEqual([tree.read(MANIFEST, 'utf-8'), yield* Effect.promise(() => actions.readCurrentVersionFromSourceManifest(tree))], [`project(my_lib VERSION ${version} LANGUAGES CXX)\n`, { currentVersion: version, manifestPath: MANIFEST }]);
+        }),
+    );
 
     it('reads the current version from the VERSION of the project() call, not of an earlier command', async () => {
         const { tree, actions } = await manifested('cmake_minimum_required(VERSION 4.5)\nproject(my_lib VERSION 2.3.4 LANGUAGES CXX)\n');

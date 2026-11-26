@@ -102,11 +102,11 @@ describe(lower, () => {
     it.effect(
         'maps a lowered line back to the TypeScript line it came from, and a line past the lowered code to none',
         Effect.fnUntraced(function* () {
-            const { code, map } = yield* lower("const first: number = 1; const second = first + 1; throw new Error('marked ' + second);", lower.extendscript, 'typescript');
+            const { code, map } = yield* lower("const first: number = 1; const second = first + 1;\nthrow new Error('marked ' + second);", lower.extendscript, 'typescript');
             const line = code.slice(0, code.indexOf('marked')).split('\n').length;
             const original = yield* originalLine(map);
-            assert.notStrictEqual(line, 1);
-            assert.deepStrictEqual([Option.map(original(line), Struct.get('line')), original(code.split('\n').length + 1)], [Option.some(1), Option.none()]);
+            assert.notStrictEqual(line, 2);
+            assert.deepStrictEqual([original(line), original(code.split('\n').length + 1)], [Option.some(2), Option.none()]);
         }),
     );
 });

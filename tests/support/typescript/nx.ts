@@ -9,7 +9,7 @@ import { basename, delimiter, dirname, join, relative } from 'node:path';
 import { chdir, cwd, env } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { type ExecutorContext, getOutputsForTargetAndConfiguration, type NxPlugin, type ProjectGraph, readJsonFile, readProjectsConfigurationFromProjectGraph } from '@nx/devkit';
-import { below } from '@rasm/nx';
+import { below } from '@rasm/nx/inference';
 import { Array, Cause, type Duration, Effect, Function, Match, Option, Predicate, Record, Schema, UndefinedOr } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { LoadedNxPlugin, resolveNxTokensInOptions, retrieveProjectConfigurations } from 'nx/src/devkit-internals';
@@ -201,6 +201,11 @@ const unportable = (graph: ProjectGraph) => {
 class Workspace {
     readonly root = realpathSync(mkdtempSync(join(tmpdir(), 'nx-workspace-')));
 
+    static readonly scoped = Effect.acquireRelease(
+        Effect.sync(() => entered()),
+        ({ close }) => Effect.sync(close),
+    ).pipe(Effect.map(({ workspace }) => workspace));
+
     // --- [FILES]
 
     write(files: Readonly<Record<string, string>>) {
@@ -269,17 +274,25 @@ class Workspace {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const opened = (finished: (cleanup: () => void) => void) => {
+const entered = () => {
     const [previous, workspace] = [{ cwd: cwd(), root: workspaceRoot }, new Workspace()];
     chdir(workspace.root);
     setWorkspaceRoot(workspace.root);
     env['NX_DAEMON'] = 'false';
-    finished(() => {
-        chdir(previous.cwd);
-        setWorkspaceRoot(previous.root);
-        rmSync(workspace.root, { recursive: true, force: true, maxRetries: 5 });
-        resetWorkspaceContext();
-    });
+    return {
+        workspace,
+        close: () => {
+            chdir(previous.cwd);
+            setWorkspaceRoot(previous.root);
+            rmSync(workspace.root, { recursive: true, force: true, maxRetries: 5 });
+            resetWorkspaceContext();
+        },
+    };
+};
+
+const opened = (finished: (close: () => void) => void) => {
+    const { workspace, close } = entered();
+    finished(close);
     return workspace;
 };
 

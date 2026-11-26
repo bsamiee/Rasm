@@ -1,4 +1,4 @@
-import { ModalDialog } from '@rasm/ui';
+import { ModalDialog } from '@rasm/ui/modal-dialog';
 import { Array, Option, Predicate } from 'effect';
 import { Grid2x2, X } from 'lucide-react';
 import { Button, DialogTrigger, GridLayout, GridList, GridListItem, Heading, Size, Virtualizer } from 'react-aria-components';

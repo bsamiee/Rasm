@@ -3,7 +3,7 @@
     "id": "app.rasm.atelier.aftereffects",
     "name": "Atelier After Effects",
     "version": "0.1.0",
-    "host": { "app": "aftereffects", "data": { "loadEvent": "startup" } },
+    "host": { "app": "aftereffects", "minVersion": "27.1.0", "data": { "loadEvent": "startup" } },
     "entrypoints": [],
-    "requiredPermissions": { "localFileSystem": "fullAccess", "allowCodeGenerationFromStrings": true }
+    "requiredPermissions": { "localFileSystem": "fullAccess", "network": { "domains": ["ws://localhost:7490"] }, "allowCodeGenerationFromStrings": true }
 }

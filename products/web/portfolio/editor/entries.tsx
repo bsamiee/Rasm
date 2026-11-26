@@ -1,5 +1,8 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { Choice, Field, ModalDialog, ReorderableList } from '@rasm/ui';
+import { Choice } from '@rasm/ui/choice';
+import { Field } from '@rasm/ui/field';
+import { ModalDialog } from '@rasm/ui/modal-dialog';
+import { ReorderableList } from '@rasm/ui/reorderable-list';
 import { Array, Optic, Option, Struct } from 'effect';
 import { type Ref, useState } from 'react';
 import { Button } from 'react-aria-components';

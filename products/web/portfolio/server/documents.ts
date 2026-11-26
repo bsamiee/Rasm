@@ -1,7 +1,7 @@
-import { Rows } from '@rasm/database';
+import { Rows } from '@rasm/database/engine';
 import { Enrollment } from '@rasm/hosting/identity';
 import { Template } from '@rasm/hosting/template';
-import { ObjectStorage } from '@rasm/object-storage';
+import { ObjectStorage } from '@rasm/object-storage/storage';
 import { Array, Effect, Function, Match, Schema, SchemaGetter } from 'effect';
 import { HttpRouter } from 'effect/http';
 import { HttpApiBuilder, HttpApiSchema } from 'effect/http-api';

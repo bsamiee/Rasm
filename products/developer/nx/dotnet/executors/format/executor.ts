@@ -1,5 +1,5 @@
 import type { TaskResult } from '@nx/devkit/internal';
-import { batched, executor, inside, ran, Words } from '@rasm/nx';
+import { batched, executor, inside, ran, Words } from '@rasm/nx/inference';
 import { Array, Clock, Console, Effect, FileSystem, flow, Option, Order, Path, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
 import { grouped } from '#/executors/build/executor';
@@ -10,7 +10,7 @@ type Planned = readonly [string, Format];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Format extends Schema.Opaque<Format, unknown>()(
+class Format extends Schema.Opaque<Format>()(
     Schema.Struct({
         commands: Schema.NonEmptyArray(Schema.NonEmptyArray(Schema.String)).annotate({ description: 'dotnet format subcommands and their switches, run in order, which the plugin infers' }),
         project: Schema.String.annotate({ description: 'Project file the commands run on' }),

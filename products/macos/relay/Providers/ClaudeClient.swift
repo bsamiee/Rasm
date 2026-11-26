@@ -306,10 +306,10 @@ actor ClaudeClient: ProviderClient {
             executable: .name("claude"),
             arguments: arguments,
             environment: .custom(environment.filter { key, _ in !["ANTHROPIC_", "CLAUDE_", "CCR_"].contains(where: key.rawValue.hasPrefix) }).updating(store.variables),
-            platformOptions: .session(),
+            platformOptions: .session,
         )
         do throws(ProcessFailure) {
-            return try await invocation.run(output: output, within: timeout, input: input).standardOutput
+            return try await invocation.run(output: output, within: timeout, input: input)
         } catch {
             throw AccountFailure(.claude, child: error)
         }

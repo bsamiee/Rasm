@@ -1,6 +1,6 @@
 import { assert, layer } from '@effect/vitest';
-import { ObjectStorage, ObjectStorageError } from '@rasm/object-storage';
 import { r2Storage } from '@rasm/object-storage/r2';
+import { ObjectStorage, ObjectStorageError } from '@rasm/object-storage/storage';
 import { env } from 'cloudflare:workers';
 import { Array, ByteSize, ConfigProvider, Effect, Layer, Option, Record } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';

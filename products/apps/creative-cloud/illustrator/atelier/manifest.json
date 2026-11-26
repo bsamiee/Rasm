@@ -3,7 +3,7 @@
     "id": "app.rasm.atelier.illustrator",
     "name": "Atelier Illustrator",
     "version": "0.1.0",
-    "host": { "app": "AI", "data": { "loadEvent": "startup" } },
+    "host": { "app": "AI", "minVersion": "31.1.0", "data": { "loadEvent": "startup" } },
     "entrypoints": [{ "type": "command", "id": "atelier", "label": { "default": "Atelier" } }],
-    "requiredPermissions": { "localFileSystem": "fullAccess", "allowCodeGenerationFromStrings": true }
+    "requiredPermissions": { "localFileSystem": "fullAccess", "network": { "domains": ["ws://localhost:7490"] }, "allowCodeGenerationFromStrings": true }
 }

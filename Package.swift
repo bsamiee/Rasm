@@ -32,7 +32,11 @@ let modules: [Target] = [
 
     .target(
         name: "JSONRPC",
-        dependencies: ["Encoding", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "Tracing", package: "swift-distributed-tracing")],
+        dependencies: [
+            "Encoding", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
+            .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "OTelSemanticConventions", package: "swift-otel-semantic-conventions"),
+            .product(name: "Tracing", package: "swift-distributed-tracing"),
+        ],
         path: "libs/swift/network/JSONRPC",
     ),
 
@@ -62,19 +66,15 @@ let modules: [Target] = [
         name: "Telemetry",
         dependencies: [
             "Encoding", "Files", .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"),
-            .product(name: "OTelSemanticConventions", package: "swift-otel-semantic-conventions"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
-            .product(name: "Tracing", package: "swift-distributed-tracing"),
+            .product(name: "OTel", package: "swift-otel"), .product(name: "OTelSemanticConventions", package: "swift-otel-semantic-conventions"),
+            .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
         ],
         path: "libs/swift/observability/Telemetry",
     ),
 
-    // --- [GRAPHICS]
-
-    .target(name: "Typography", dependencies: ["Results"], path: "libs/swift/graphics/Typography"),
-
     // --- [DISTRIBUTION]
 
-    .target(name: "Updater", dependencies: [.product(name: "Logging", package: "swift-log"), .product(name: "Sparkle", package: "Sparkle")], path: "libs/swift/distribution/Updater"),
+    .target(name: "Updater", dependencies: ["Processes", .product(name: "Logging", package: "swift-log"), .product(name: "Sparkle", package: "Sparkle")], path: "libs/swift/distribution/Updater"),
 
     // --- [MACOS]
 
@@ -94,12 +94,13 @@ let modules: [Target] = [
             .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "libs/swift/macos/Applications",
+        swiftSettings: [.enableExperimentalFeature("Extern")],
         linkerSettings: [.unsafeFlags(["-Xlinker", "-F/System/Library/PrivateFrameworks"]), .linkedFramework("SkyLight")],
     ),
     .target(
         name: "CurrentProcess",
         dependencies: [
-            "Applications", "Files", "Processes", "Results", "Telemetry", .product(name: "CasePathsCore", package: "swift-case-paths"),
+            "Applications", "Encoding", "Files", "Processes", "Results", "Telemetry", .product(name: "CasePathsCore", package: "swift-case-paths"),
             .product(name: "Configuration", package: "swift-configuration"),
             .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"), .product(name: "OTel", package: "swift-otel"),
             .product(name: "OTelSemanticConventions", package: "swift-otel-semantic-conventions"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
@@ -112,7 +113,7 @@ let modules: [Target] = [
         name: "ApplicationServer",
         dependencies: [
             "AppleEvents", "Applications", "CurrentProcess", "Encoding", "Files", "JSONRPC", "Processes", "Results", "ScreenCapture", "Telemetry", "Updater",
-            .product(name: "Logging", package: "swift-log"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
+            .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Logging", package: "swift-log"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
             .product(name: "Tracing", package: "swift-distributed-tracing"), .product(name: "UnixSignals", package: "swift-service-lifecycle"),
         ],
         path: "libs/swift/macos/ApplicationServer",
@@ -179,16 +180,34 @@ let tests: [Target] = [
     ),
     .testTarget(
         name: "JSONRPCTests",
-        dependencies: ["Encoding", "JSONRPC", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CustomDump", package: "swift-custom-dump")],
+        dependencies: [
+            "Encoding", "JSONRPC", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePathsCore", package: "swift-case-paths"),
+            .product(name: "CustomDump", package: "swift-custom-dump"),
+        ],
         path: "tests/libs/swift/network/JSONRPC",
     ),
     .testTarget(name: "FilesTests", dependencies: ["Files", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/libs/swift/system/Files"),
+    .testTarget(name: "FilesPerformanceTests", dependencies: ["Files"], path: "tests/libs/swift/system/FilesPerformance"),
     .testTarget(name: "ProcessesTests", dependencies: ["Processes", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/libs/swift/system/Processes"),
+    .testTarget(
+        name: "TelemetryTests",
+        dependencies: [
+            "Encoding", "Files", "Telemetry", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "InMemoryLogging", package: "swift-log"),
+            .product(name: "InMemoryTracing", package: "swift-distributed-tracing"), .product(name: "Instrumentation", package: "swift-distributed-tracing"),
+            .product(name: "Logging", package: "swift-log"), .product(name: "OTel", package: "swift-otel"),
+        ],
+        path: "tests/libs/swift/observability/Telemetry",
+    ),
+    .testTarget(
+        name: "UpdaterTests",
+        dependencies: ["Updater", .product(name: "InMemoryLogging", package: "swift-log"), .product(name: "Logging", package: "swift-log")],
+        path: "tests/libs/swift/distribution/Updater",
+    ),
     .testTarget(
         name: "AppleEventsTests",
         dependencies: [
-            "AppleEvents", "Encoding", "Results", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump"),
-            .product(name: "PropertyBased", package: "swift-property-based"),
+            "AppleEvents", "Encoding", "Fixture", "Results", .product(name: "CasePathsCore", package: "swift-case-paths"),
+            .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "PropertyBased", package: "swift-property-based"),
         ],
         path: "tests/libs/swift/macos/AppleEvents",
     ),
@@ -202,8 +221,19 @@ let tests: [Target] = [
         path: "tests/libs/swift/macos/Applications",
     ),
     .testTarget(
+        name: "CurrentProcessTests",
+        dependencies: [
+            "CurrentProcess", .product(name: "Configuration", package: "swift-configuration"), .product(name: "CustomDump", package: "swift-custom-dump"),
+            .product(name: "InMemoryLogging", package: "swift-log"), .product(name: "Logging", package: "swift-log"),
+        ],
+        path: "tests/libs/swift/macos/CurrentProcess",
+    ),
+    .testTarget(
         name: "ScreenCaptureTests",
-        dependencies: ["Applications", "Fixture", "ScreenCapture", .product(name: "CustomDump", package: "swift-custom-dump")],
+        dependencies: [
+            "Applications", "Fixture", "ScreenCapture", .product(name: "CasePathsCore", package: "swift-case-paths"),
+            .product(name: "CustomDump", package: "swift-custom-dump"),
+        ],
         path: "tests/libs/swift/macos/ScreenCapture",
     ),
     .testTarget(

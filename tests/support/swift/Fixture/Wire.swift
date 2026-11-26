@@ -75,6 +75,7 @@ public struct Report: Codable, Equatable, Sendable {
         public let title: String?
         public let description: String?
         public let caption: String?
+        public let inputs: [String]?
         public let help: String?
         public let value: JSONValue?
         public let enabled: Bool
@@ -111,17 +112,21 @@ public struct Report: Codable, Equatable, Sendable {
 public enum Command: Codable, Sendable {
     case report
     case show(surface: Surface)
+    case raise(surface: Surface)
     case dismiss(surface: Surface)
     case retitle(entry: Inventory, member: Int, to: String)
+    case select(entry: Inventory, member: Int, segment: Int)
     case reorder(from: Int, to: Int)
     case fault(nonce: String)
     case hang(kind: Hang)
+    case hangOnTermination(kind: Hang)
     case abort
 }
 
 @CasePathable
 public enum Line: Codable, Sendable {
     case ready
+    case hanging(kind: Hang)
     case report(report: Report)
     case action(selector: String, control: Report.Control?, cause: Lenient<NSEvent.EventType>?)
     case pointer(

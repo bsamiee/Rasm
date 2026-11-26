@@ -10,7 +10,9 @@ import XcodeProjectFormat
 private let reference =
     #"<BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="A10000000000000000000002" "#
     + #"BuildableName="Viewer.app" BlueprintName="Viewer" ReferencedContainer="container:Viewer.xcodeproj"/>"#
-private let plans = #"<TestAction buildConfiguration="Debug"><TestPlans><TestPlanReference reference="container:Viewer.xctestplan" default="YES"/></TestPlans></TestAction>"#
+private let plans =
+    #"<TestAction buildConfiguration="Debug"><TestPlans><TestPlanReference reference="container:Viewer.xctestplan" default="YES"/>"#
+    + #"<TestPlanReference reference="container:Performance.xctestplan"/></TestPlans></TestAction>"#
 private let configs = #"{ "kind": "group", "name": "Configs", "path": "Configs", "children": [ { "path": "Base.xcconfig" } ] },"#
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -124,20 +126,23 @@ struct AnalyzerSmokeTests {
     }
 
     @Test
-    func testPlans_makeTheSchemeTest() throws {
+    func testPlans_makeTheSchemeTestAndMarkItsDefault() throws {
         let workspace = try Workspace([
             "Viewer.xcodeproj/project.xcproj": Workspace.project(), "Viewer.xcodeproj/xcshareddata/xcschemes/Viewer.xcscheme": Workspace.scheme([plans]), "Viewer.xctestplan": "{}",
+            "Performance.xctestplan": "{}",
         ])
         let scheme = Scheme(
             name: "Viewer",
             containers: [workspace["Viewer.xcodeproj"]],
-            plans: ["Viewer"],
+            plans: [TestPlan(name: "Viewer", default: true), TestPlan(name: "Performance", default: false)],
             tests: true,
             launch: "Debug",
             archive: Archive(configuration: "Release", bundles: ["Viewer.app"], feed: false),
         )
 
-        #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer(schemes: [scheme], inputs: [workspace["Viewer.xctestplan"]])], failures: [:]))
+        let inputs = ["Performance.xctestplan", "Viewer.xctestplan"].map { file in workspace[file] }
+
+        #expect(report([workspace.root.appending("Viewer.xcodeproj")]) == Report(containers: [workspace.viewer(schemes: [scheme], inputs: inputs)], failures: [:]))
     }
 
     @Test

@@ -2,10 +2,10 @@ import Encoding
 public import Files
 import Foundation
 public import Logging
+public import OTel
 import OTelSemanticConventions
 import Runtime
 import System
-import Tracing
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -34,7 +34,7 @@ private struct LogRecord: Encodable {
         }
     }
 
-    let timestamp: String
+    let timestamp: Date
     let severityText: String
     let severityNumber: Int
     let body: String
@@ -60,7 +60,7 @@ public struct JSONLogHandler: LogHandler {
     private let export: any LogHandler?
     private let filter: LogFilter
     private let resource: [String: LogRecord.Attribute]
-    private let trace: (id: String, span: String, flags: String)
+    private let trace: OTel.Configuration.LoggingMetadataProviderConfiguration
     private let encoder = JSONEncoder.jsonLines
 
     public init(
@@ -68,7 +68,7 @@ public struct JSONLogHandler: LogHandler {
         to sinks: (file: RotatingFile?, export: any LogHandler?, terminal: any LogHandler?),
         filter: LogFilter,
         resource: Logger.Metadata,
-        trace: (id: String, span: String, flags: String),
+        trace: OTel.Configuration.LoggingMetadataProviderConfiguration,
         metadataProvider: Logger.MetadataProvider? = nil,
     ) {
         (scope, (file, export, terminal), self.filter, self.trace, self.metadataProvider) = (label, sinks, filter, trace, metadataProvider)
@@ -88,17 +88,17 @@ public struct JSONLogHandler: LogHandler {
     // --- [RECORDS]
 
     public func log(event: LogEvent) {
-        let instant = DefaultTracerClock.now.nanosecondsSinceEpoch
+        let now = Date.now
         var attributes = attributes(of: event)
         let record = LogRecord(
-            timestamp: "\(Date(timeIntervalSince1970: TimeInterval(instant / 1_000_000_000)).formatted(.iso8601).dropLast()).\(String(1_000_000 + instant / 1000 % 1_000_000).dropFirst())Z",
+            timestamp: now,
             severityText: event.level.severity.text,
             severityNumber: event.level.severity.number,
             body: event.message.description,
             scope: scope,
-            traceID: attributes.removeValue(forKey: trace.id).map(LogRecord.Attribute.init),
-            spanID: attributes.removeValue(forKey: trace.span).map(LogRecord.Attribute.init),
-            traceFlags: attributes.removeValue(forKey: trace.flags).map(LogRecord.Attribute.init),
+            traceID: attributes.removeValue(forKey: trace.traceIDKey).map(LogRecord.Attribute.init),
+            spanID: attributes.removeValue(forKey: trace.spanIDKey).map(LogRecord.Attribute.init),
+            traceFlags: attributes.removeValue(forKey: trace.traceFlagsKey).map(LogRecord.Attribute.init),
             attributes: attributes.isEmpty ? nil : attributes.mapValues(LogRecord.Attribute.init),
             resource: resource,
         )
@@ -111,7 +111,7 @@ public struct JSONLogHandler: LogHandler {
         let reported = file?.failure != nil
         do {
             let line = try encoder.encodeLine(record)
-            if let file { try file.append(line) } else { try FileDescriptor.standardError.writeAll(line) }
+            if let file { try file.append(line, at: now) } else { try FileDescriptor.standardError.writeAll(line) }
         } catch {
             guard !reported else { return }
             StreamLogHandler.standardError(label: scope).log(
@@ -164,5 +164,11 @@ extension LogEvent {
             OTelAttribute.exception.stacktrace: stack.isEmpty ? nil : .attributed(stack.joined(separator: "\n"), attributes: [Privacy.public]),
         ]
         return location.merging(exception.compactMapValues(\.self)) { _, stated in stated }
+    }
+}
+
+extension LogHandler {
+    func attributes(of event: LogEvent) -> Logger.Metadata {
+        [metadataProvider?.get() ?? [:], event.metadata ?? [:], event.attributes].reduce(into: metadata) { merged, next in merged.merge(next) { _, last in last } }
     }
 }

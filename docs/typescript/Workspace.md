@@ -52,14 +52,14 @@ Library manifest:
     "sideEffects": false,
     "imports": { "#/*": "./*.ts" },
     "exports": {
-        ".": "./index.ts",
+        "./<module>": "./<module>.ts",
         "./node": "./node.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
         "imports": { "#/*": "./dist/*.js" },
         "exports": {
-            ".": "./dist/index.js",
+            "./<module>": "./dist/<module>.js",
             "./node": "./dist/node.js",
             "./package.json": "./package.json"
         },
@@ -81,7 +81,7 @@ Library manifest fields:
 |  [04]   | `type`          | `"module"`                        | Node treats `.js` files as CommonJS without it           |
 |  [05]   | `sideEffects`   | `false`, or files that register   | Bundlers drop modules consumers leave unused             |
 |  [06]   | `imports`       | Rows its specifiers use           | Package files reach each other through `#/`              |
-|  [07]   | `exports`       | `.` and one entry per runtime     | Closed entry map, unlisted paths stay unimportable       |
+|  [07]   | `exports`       | One entry per public module       | Closed entry map, unlisted paths stay unimportable       |
 |  [08]   | `publishConfig` | `imports` and `exports` to `dist` | Both replace source entries at pack                      |
 |  [09]   | `engines.node`  | `>=<major>`                       | Node major mise installs                                 |
 |  [10]   | `nx`            | Facts no manifest row states      | Holds tags and target options in place of `project.json` |
@@ -97,8 +97,10 @@ Manifest rules:
 Entry points across packages:
 - `exports` to source give TypeScript, Vite, and Node one resolver answer per runtime with no alias or build step
 - Node strips types only outside `node_modules`, and a workspace link resolves to its real folder, where sibling source runs as written
-- `.` resolves to `index.ts`, a file forwarding exports with no logic
-- Entries beyond `.` exist per runtime or optional dependency family (`./node`, `./browser`), each with an optional peer where it adds one
+- Each public module takes one entry named after its file (`./contract`, `./arabic/joining`), and consumers import that entry directly
+- `.` exists only in a package with one public module and names that module's file, as consumers then import the package name alone
+- No `index.ts` forwards exports, as CLAUDE.md forbids a re-export, a forward gives each member two import paths, and `tsc` and the Vite dev server load every module a forward names
+- Entries per runtime or optional dependency family (`./node`, `./browser`) carry an optional peer where they add one
 - Entries callers import alike on every runtime take one key with a condition per runtime resolver (`workerd`), `default` serving Node
 - `"./package.json"` stays exported, as `exports` hides every path it omits from tools reading the manifest
 - Conditional entries list `types` first and `default` last, as Node orders conditions by key position
@@ -115,7 +117,7 @@ Specifiers inside one package:
 - TSX modules keep their extension, as one row appends one extension, Node runs no `.tsx` file, and Node and Vite refuse a row with a list target
 - TypeScript accepts a `.tsx` specifier only where its row's target spells the extension
 - Specifiers with a Vite query (`#/toast.css?inline`) match row `#/*` alone, and its target appends `.ts` after their query
-- Plugin `checks` of `@rasm/vite` resolves a queried `#/` specifier by its path and restores its query
+- Plugin `checks` of `@rasm/vite/checks` resolves a queried `#/` specifier by its path and restores its query
 - Rule `import/extensions` of oxlint enforces both extension forms on `#/` specifiers, and `no-restricted-imports` refuses every relative one
 
 ## [07]-[LINKING]

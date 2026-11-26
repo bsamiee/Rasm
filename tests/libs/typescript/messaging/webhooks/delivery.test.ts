@@ -1,8 +1,9 @@
 import { layer as crypto } from '@effect/platform-node/NodeCrypto';
 import { assert, it } from '@effect/vitest';
 import { transport } from '@rasm/testing/http';
-import { Scheme, Webhook } from '@rasm/webhooks';
+import { Scheme } from '@rasm/webhooks/scheme';
 import { TailscaleEvent } from '@rasm/webhooks/tailscale';
+import { Webhook } from '@rasm/webhooks/webhook';
 import { Array, Effect, Exit, Fiber, Function, Layer, Option, Queue, Record, Redacted, Ref, Schedule, Schema } from 'effect';
 import { Headers, HttpClient, HttpClientRequest, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { PersistedQueue } from 'effect/persistence';

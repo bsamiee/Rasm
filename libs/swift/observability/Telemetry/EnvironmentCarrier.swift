@@ -6,7 +6,7 @@ public struct EnvironmentCarrier: Extractor, Injector {
     public init() {}
 
     private func variable(_ key: String) -> String {
-        let name = String(key.uppercased().map { character in character.isASCII && (character.isLetter || character.isNumber) ? character : "_" })
+        let name = key.map { character in character.isASCII && (character.isLetter || character.isNumber) ? character.uppercased() : "_" }.joined()
         return name.first?.isNumber ?? true ? "_\(name)" : name
     }
 

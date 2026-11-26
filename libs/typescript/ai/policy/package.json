@@ -19,7 +19,7 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./policy.ts",
+        "./policy": "./policy.ts",
         "./claude": "./claude/hooks.ts",
         "./package.json": "./package.json"
     },
@@ -28,7 +28,7 @@
             "#/*": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/policy.js",
+            "./policy": "./dist/policy.js",
             "./claude": "./dist/claude/hooks.js",
             "./package.json": "./package.json"
         },

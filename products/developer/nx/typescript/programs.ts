@@ -3,7 +3,7 @@ import { basename, dirname, extname, join, posix, relative, resolve } from 'node
 import { pathToFileURL } from 'node:url';
 import { hashArray, normalizePath, type PackageManager, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { findProjectForPath, getFilesInDirectoryUsingContext, getLockFileName, globWithWorkspaceContext, hashFile, hashWithWorkspaceContext, PluginCache, type ProjectRootMappings, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { type Anchor, EXEC, EXECUTORS, inside, type Stated, tokened, type Verbs, within } from '@rasm/nx';
+import { type Anchor, EXEC, EXECUTORS, inside, type Stated, tokened, type Verbs, within } from '@rasm/nx/inference';
 import type { API, ParsedCommandLine } from '@typescript/native/sync';
 import { Array, Cause, Effect, FileSystem, Function, Option, Predicate, Result, UndefinedOr } from 'effect';
 import { MANIFEST, projected } from '#/workspace';

@@ -1,6 +1,6 @@
 ---
 name: testing
-description: "Use when writing, running, or debugging TypeScript tests, covering Vitest and @effect/vitest, controlled time, in-memory contract clients, service doubles, generated inputs, fixtures, browser and Workers suites, containers, and Playwright"
+description: "Use when writing, running, or debugging TypeScript tests, covering Vitest and @effect/vitest, isolation options, type tests, benchmarks, controlled time, in-memory contract clients, service doubles, generated inputs, fixtures, browser and Workers suites, containers, and Playwright"
 ---
 
 # [TYPESCRIPT_TESTING]
@@ -22,7 +22,8 @@ Tests use each module below before a hand form:
 |  [09]   | Chromium                    | `@vitest/browser-playwright`, `vitest-browser-react`, `@playwright/test`, `@axe-core/playwright`       |
 |  [10]   | Firefox                     | `selenium-webdriver`                                                                                   |
 |  [11]   | Workers runtime             | `@cloudflare/vitest-plugin` (`cloudflare:test`, `cloudflare:workers`)                                  |
-|  [12]   | Shared harnesses            | `@rasm/testing`                                                                                        |
+|  [12]   | Free ports                  | `get-port`                                                                                             |
+|  [13]   | Shared harnesses            | `@rasm/testing`                                                                                        |
 
 [REFERENCES]:
 - [01]-[CLIENTS](references/clients.md): In-memory contract clients, servers on an ephemeral port, routed `fetch`, and what each client encodes
@@ -30,6 +31,7 @@ Tests use each module below before a hand form:
 - [03]-[GENERATED](references/generated.md): Schema-derived arbitraries, property checks, seeds, replay tokens, shrinking, and codec round trips
 - [04]-[BROWSER](references/browser.md): Vitest browser mode, Storybook, Playwright fixtures, extensions, accessibility, store media, and WebDriver
 - [05]-[ENVIRONMENTS](references/environments.md): Containers, Workers bindings, conformance programs, reference implementations, and Nx workspaces
+- [06]-[VITEST](references/vitest.md): Isolation options, type tests, and benchmarks
 
 ## [01]-[RUNNING]
 
@@ -38,6 +40,7 @@ Tests use each module below before a hand form:
 - Node suites sharing a configuration and options run in one `vitest run` batch, and a browser suite runs alone
 - Words after `--` join `vitest run` (`nx test <project> -- -t '<title>'`)
 - Suites run with `CI=false`, and suites depending on Nx with `NX_DAEMON=false` and color off
+- `test--vitest` sets `allowOnly: false` and `update: 'none'` unless words after `--` set them, so a `.only` test or a missing snapshot fails
 - `testTimeout` and `hookTimeout` hold 15 minutes as a hang bound alone, so each wait a test makes states its own deadline
 - `silent: 'passed-only'` prints the console of failing tests, and `truncateThreshold: 0` prints each compared value whole
 - `flakyTest` of `@effect/vitest` and the Vitest `retry` option turn a flaky failure green and stay out of every suite

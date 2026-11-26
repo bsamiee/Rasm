@@ -9,9 +9,6 @@
         },
         {
             "path": "../object-model"
-        },
-        {
-            "path": "../../macos/applications"
         }
     ]
 }

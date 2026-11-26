@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<shortcut-set platform="mac" file-version="4" application-version="4.0" build-number="50">
+  <shortcut>
+    <action-id value="0x5F00 + 30" name="kPageToolActionID"></action-id>
+    <context>DefaultContext</context>
+    <string>Shift+P</string>
+  </shortcut>
+  <shortcut>
+    <action-id value="0xa500 + 8" name="kTrackChangesNextMenuMAID"></action-id>
+    <context>TextContext</context>
+    <string>Cmd+#Keyboard_Page Down</string>
+  </shortcut>
+  <shortcut>
+		<action-id value="0x5900 + 2" name="kGoBackActionID"></action-id>
+		<context>DefaultContext</context>
+		<string>Cmd+#Keyboard_Page Up</string>
+	</shortcut>
+	<shortcut>
+		<action-id value="0x2b00 + 16" name="kClearFillStrokeToolActionID"></action-id>
+		<context>DefaultContext</context>
+		<string>/</string>
+	</shortcut>
+	<shortcut>
+		<action-id value="0x2b00 + 16" name="kClearFillStrokeToolActionID"></action-id>
+		<context>DefaultContext</context>
+		<string>#Keyboard_Num /</string>
+	</shortcut>
+	<shortcut>
+		<action-id value="0x100 + 16" name="kClearActionID"></action-id>
+		<context>DefaultContext</context>
+		<string>#Keyboard_Del_Mac</string>
+	</shortcut>
+	<shortcut>
+		<action-id value="0x100 + 16" name="kClearActionID"></action-id>
+		<context>DefaultContext</context>
+		<string>Cmd+#Keyboard_Del_Mac</string>
+	</shortcut>
+	<shortcut>
+		<action-id value="0x5f00 + 11" name="kShowFrameEdgeActionID"></action-id>
+		<context>DefaultContext</context>
+		<string>Ctrl+Cmd+H</string>
+	</shortcut>
+	<shortcut>
+		<action-id value="0x1d000 + 38" name="kPointerToolActionID"></action-id>
+		<context>DefaultContext</context>
+		<string>V</string>
+	</shortcut>
+  <shortcut>
+		<action-id value="0x1d000 + 38" name="kPointerToolActionID"></action-id>
+		<context>TextContext</context>
+		<string>#Keyboard_Escape</string>
+	</shortcut>
+</shortcut-set>

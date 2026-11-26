@@ -1,5 +1,7 @@
-import { makeRpc, Reference, WriteResult } from '@rasm/object-model';
-import { Settings, Source } from '@rasm/typography';
+import { Reference } from '@rasm/object-model/model';
+import { makeRpc, WriteResult } from '@rasm/object-model/rpcs';
+import { Settings } from '@rasm/typography/settings';
+import { Source } from '@rasm/typography/source';
 import { Option, Schema, Struct } from 'effect';
 import { RpcGroup } from 'effect/rpc';
 import { Inspection } from '#/views';

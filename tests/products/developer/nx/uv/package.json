@@ -4,13 +4,13 @@
     "description": "@rasm/nx-uv suites over uv workspaces in temporary folders, inferred targets, and release version actions",
     "type": "module",
     "devDependencies": {
+        "@effect/vitest": "catalog:",
         "@nx/devkit": "catalog:",
         "@rasm/nx": "workspace:*",
         "@rasm/nx-uv": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
-        "fast-check": "catalog:",
         "nx": "catalog:",
         "vitest": "catalog:"
     }

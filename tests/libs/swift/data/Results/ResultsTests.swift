@@ -71,6 +71,18 @@ struct AccumulationTests {
     func singlesOutOneMatch(matches: [Int], query: String?, candidates: [String], expected: Result<Int, Unmatched>) {
         expectNoDifference(Unmatched.single(matches, subject: "window", query: query, candidates: candidates, named: { match in "#\(match)" }), expected)
     }
+
+    @Test(
+        arguments: [
+            ("9", [], "No window matching 9"),
+            ("9", ["a"], "No window matching 9, candidates: a"),
+            (nil, [], "No window"),
+            (nil, ["a"], "No window, candidates: a"),
+        ] as [(String?, [String], String)]
+    )
+    func describesTheMissFromItsQueryAndCandidates(query: String?, candidates: [String], expected: String) {
+        expectNoDifference(Unmatched(subject: "window", query: query, candidates: candidates).localizedDescription, expected)
+    }
 }
 
 private func pending(_ value: Int, cancelled: AsyncStream<Int>.Continuation) -> @Sendable () async throws(Refusal) -> Int {

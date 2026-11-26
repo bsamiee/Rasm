@@ -28,7 +28,7 @@ Tests use each module below before a hand form:
 
 ## [01]-[RUNNING]
 
-`nx test Rasm-Package` runs `xcodebuild test` of shared scheme `Rasm-Package`, which lists every root test target:
+`nx test Rasm-Package` runs `xcodebuild test` of shared scheme `Rasm-Package`, whose default plan `.config/Rasm-Package.xctestplan` lists every functional test target:
 - Bundles load one after another, each into its own `xctest` agent of the selected Xcode, and Swift Testing runs a bundle's tests in parallel
 - Builds before testing compile every scheme target, so one target that fails to compile fails every test
 - Words after `--` join each `xcodebuild` run, `-only-testing:<id>` and `-skip-testing:<id>` running or excluding a target, suite, or test (`nx test Rasm-Package -- -only-testing:<target>/<suite>/<test>()`)
@@ -112,7 +112,7 @@ private struct TemporaryBundle: ~Copyable {
 }
 ```
 
-`ScriptingDefinitionTests` and `RequestTests` hold this shape over bundles with scripting definitions:
+`ScriptingDictionariesTests` and `RequestTests` hold this shape over bundles with scripting definitions:
 - `~Copyable` gives the resource one owner, and its `deinit` runs at the end of the binding's scope, after any await past its last use
 - Cleanup failures reach `Issue.record` in place of `try?`
 - Shared namespaces take a unique instance: a `UUID` folder under `temporaryDirectory`, or `.itemReplacementDirectory`

@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import type { loadConfig } from '@cloudflare/config';
 import { hashArray, normalizePath, type PackageManager, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { getCatalogManager, getLockFileName, hashFile, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { type Anchor, aggregated, EXEC, EXECUTORS, manifested, type Pass, recalled, spawned, type Stated, stamped, tokened, type Verbs, within } from '@rasm/nx';
+import { type Anchor, aggregated, EXEC, EXECUTORS, manifested, type Pass, recalled, spawned, type Stated, stamped, tokened, type Verbs, within } from '@rasm/nx/inference';
 import { Array, Cause, Effect, FileSystem, Option, Record, Schema, UndefinedOr } from 'effect';
 import plugin from '#/package.json' with { type: 'json' };
 

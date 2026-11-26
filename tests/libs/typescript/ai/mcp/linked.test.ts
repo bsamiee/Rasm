@@ -1,14 +1,16 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Link, Server, Upstream } from '@rasm/mcp';
+import { Link } from '@rasm/mcp/link';
+import { Server } from '@rasm/mcp/server';
+import { Upstream } from '@rasm/mcp/upstream';
 import { Array, Effect, Layer, Number, Option, Queue, Ref, Schema, Stream } from 'effect';
 import { Tool, Toolkit } from 'effect/ai';
 import { RpcTest } from 'effect/rpc';
-import { connected, lines, names, settled } from '#/fixtures';
+import { connected, lines, names, placed, relisted } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const LINKED = Link.make({ application: 'Host', plugin: 'ext', root: Option.none() });
-const JOINED = Link.make({ application: 'Host', plugin: 'joined', root: Option.none() });
+const LINKED = Link.make({ application: 'Host', plugin: 'ext' });
+const JOINED = Link.make({ application: 'Host', plugin: 'joined' });
 const HOST_EVENT = { name: 'documentOpened', target: Option.some('/document[1]'), detail: Option.none() };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -22,16 +24,18 @@ const linked = Effect.fnUntraced(function* (silent: readonly Stream.Stream<reado
     const [hostEvents, late, own, lists, subscribed, seen] = yield* Effect.all([Queue.unbounded<Stream.Success<Upstream['events']>>(), Queue.unbounded<Stream.Success<Upstream['events']>>(), Queue.unbounded<string>(), Queue.unbounded<Link[]>(), Ref.make(0), Ref.make<readonly string[]>([])]);
     const counted = Stream.unwrap(Effect.as(Ref.update(subscribed, Number.increment), Stream.fromQueue(hostEvents)));
     const [plugin, joined] = yield* Effect.all([
-        RpcTest.makeClient(Link.Rpcs, { flatten: true }).pipe(Effect.provide(Link.serve(Plugin, { events: counted }).pipe(Layer.provide(Plugin.toLayer({ unique: () => Effect.succeed('own') }))))),
-        RpcTest.makeClient(Link.Rpcs, { flatten: true }).pipe(Effect.provide(Link.serve(Joined, { events: Stream.fromQueue(late) }).pipe(Layer.provide(Joined.toLayer({ late: () => Effect.succeed('joined') }))))),
+        RpcTest.makeClient(Link.Rpcs, { flatten: true }).pipe(Effect.provide(Link.serve(Plugin, counted).pipe(Layer.provide(Plugin.toLayer({ unique: () => Effect.succeed('own') }))))),
+        RpcTest.makeClient(Link.Rpcs, { flatten: true }).pipe(Effect.provide(Link.serve(Joined, Stream.fromQueue(late)).pipe(Layer.provide(Joined.toLayer({ late: () => Effect.succeed('joined') }))))),
     ]);
     const links = { changes: Stream.concat(Stream.succeed([LINKED]), Stream.fromQueue(lists)), call: (holds: (peer: Link) => boolean) => Effect.succeed(holds(JOINED) ? joined : plugin) };
     const proxy = Server.use((server) => server.events({ stream: Stream.fromQueue(own), render: Effect.succeed })).pipe(Effect.andThen(Upstream.serve(Array.append(silent, Upstream.fromLinks(links)), { route: (peers) => Effect.succeed(Array.headNonEmpty(peers)) })), Layer.effectDiscard);
-    const { client } = yield* connected(proxy);
-    yield* settled(names(client), Array.contains('unique'));
+    const { probe, client } = yield* connected(proxy);
+    const offers = (name: string) => relisted(client, names(client), Array.contains(name));
+    yield* offers('unique');
     const [issued] = lines(yield* client.callTool({ name: 'test_simple_text', arguments: {} }));
-    const read = client.callTool({ name: 'test_simple_text', arguments: { handle: issued?.split(' ')[1] } }).pipe(Effect.flatMap((result) => Ref.updateAndGet(seen, Array.appendAll(Array.filter(lines(result), (line) => line.startsWith('! #'))))));
-    return { hostEvents, late, own, lists, subscribed: Ref.get(subscribed), offers: (name: string) => settled(names(client), Array.contains(name)), events: (count: number) => settled(read, (events) => events.length >= count) };
+    const handle = yield* Effect.fromNullishOr(issued?.split(' ')[1]);
+    const read = client.callTool({ name: 'test_simple_text', arguments: { handle } }).pipe(Effect.flatMap((result) => Ref.updateAndGet(seen, Array.appendAll(Array.filter(lines(result), (line) => line.startsWith('! #'))))));
+    return { hostEvents, late, own, lists, subscribed: Ref.get(subscribed), offers, events: (count: number) => placed(probe, handle, ({ sequence }) => sequence >= count).pipe(Effect.andThen(read)) };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

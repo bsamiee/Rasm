@@ -3,7 +3,7 @@ import { basename, dirname, extname, format, join, parse, posix, relative } from
 import { env, platform } from 'node:process';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, globWithWorkspaceContext, hashFile, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { type Anchor, aggregated, anchored, EXECUTORS, fingerprinted, inferring, manifested, Named, type Stated, spawned, stamped } from '@rasm/nx';
+import { type Anchor, aggregated, anchored, EXECUTORS, fingerprinted, inferring, manifested, Named, type Stated, spawned, stamped } from '@rasm/nx/inference';
 import { Array, Cause, Config, Duration, Effect, Equal, Equivalence, FileSystem, Function, Graph, Option, Record, Ref, Result, Schema, Stream, String, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
 import which from 'which';
@@ -22,7 +22,7 @@ const SUMS = format({ dir: dirname(ANALYZER), name: parse(ANALYZER).name, ext: '
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Report extends Schema.Opaque<Report, unknown>()(Schema.Struct({ nodes: Schema.Array(Node), failures: Schema.Array(Schema.Struct({ file: Schema.String, message: Schema.String })), evaluated: Schema.Array(Schema.String), probed: Schema.Array(Schema.String), variables: Schema.Array(Schema.String) })) {
+class Report extends Schema.Opaque<Report>()(Schema.Struct({ nodes: Schema.Array(Node), failures: Schema.Array(Schema.Struct({ file: Schema.String, message: Schema.String })), evaluated: Schema.Array(Schema.String), probed: Schema.Array(Schema.String), variables: Schema.Array(Schema.String) })) {
     static readonly empty: Report = { nodes: [], failures: [], evaluated: [], probed: [], variables: [] };
 }
 const Reported = Schema.fromJsonString(Report);

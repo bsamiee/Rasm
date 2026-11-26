@@ -28,7 +28,7 @@ const quoted = flow(literal, String.replaceAll('\\', '$&$&'));
 
 const Part = Schema.Struct({ kind: Schema.Literals(Struct.keys(kinds)), name: Schema.String, digest: Schema.String, columns: Schema.Array(Schema.String) });
 const MergeTree = Schema.Struct({ key: Schema.Array(Schema.String), version: Schema.optionalKey(Schema.String), partition: Schema.optionalKey(Schema.String) });
-class TableStamp extends Schema.Opaque<TableStamp, unknown>()(Identity.mapFields(Struct.assign({ mergeTree: MergeTree, expires: Schema.optionalKey(Schema.Int), codecs: Schema.Record(Schema.String, Schema.NonEmptyArray(Schema.String)), parts: Schema.Array(Part) }))) {}
+class TableStamp extends Schema.Opaque<TableStamp>()(Identity.mapFields(Struct.assign({ mergeTree: MergeTree, expires: Schema.optionalKey(Schema.Int), codecs: Schema.Record(Schema.String, Schema.NonEmptyArray(Schema.String)), parts: Schema.Array(Part) }))) {}
 const recorded = <S extends Schema.Codec<unknown, string>>(stamp: S) => Schema.String.pipe(Schema.decodeTo(Schema.Option(Schema.toType(stamp)), { decode: SchemaGetter.transform(Schema.decodeOption(stamp)), encode: SchemaGetter.forbiddenEncoding }));
 const Table = Schema.Struct({
     name: Schema.String,

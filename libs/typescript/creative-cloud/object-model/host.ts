@@ -1,4 +1,4 @@
-import type { Unmatched } from '@rasm/search';
+import type { Unmatched } from '@rasm/search/unmatched';
 import type { Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -14,11 +14,12 @@ interface Specifier {
 }
 interface Elements {
     items(owner: object): { readonly length: number } | null | undefined;
+    find(owner: object, key: string, value: number | string): unknown;
     readonly key?: Pick<Schema.Struct<Schema.Struct.Fields>, 'fields'>;
     readonly base?: number;
-    readonly nested?: boolean;
 }
 type Kind = { is?(value: object): boolean; owner?(value: object): unknown } & (Elements | { property(owner: object): unknown });
+type Keys<F, T> = { readonly [K in keyof F]: K extends keyof T ? (F[K] extends Schema.Top ? (T[K] extends F[K]['Type'] | undefined ? F[K] : never) : never) : never };
 interface Containment {
     readonly root: object;
     readonly kinds: Readonly<Record<string, Kind>>;
@@ -47,6 +48,10 @@ const attempt = <A, B>(get: (value: A) => B, value: A): B | undefined => {
     }
 };
 const read = (value: unknown, key: string): unknown => (isRecord(value) ? attempt((held) => held[key], value) : undefined);
+const classOf = (value: object): string => {
+    const named = attempt(({ typename, constructor }: { readonly typename?: unknown; readonly constructor?: unknown }) => (typeof typename === 'string' ? typename : read(constructor, 'name')), value);
+    return typeof named === 'string' ? named : '';
+};
 const quote = (text: string) => `"${text.replace(/["\\]/g, (character) => `\\${character}`)}"`;
 const unquote = (text: string) => text.replace(/\\(?:u([\dA-Fa-f]{4})|([\s\S]))/g, (_, code?: string, character?: string) => (code === undefined ? String(character) : String.fromCharCode(parseInt(code, 16))));
 const formatSteps = (steps: Specifier['steps']): string =>
@@ -75,20 +80,23 @@ const parse = (text: string): Specifier | undefined => {
     }
     return end?.at === text.length - 1 && text.charAt(end.at) === ')' && isNonEmpty(start.steps) && isNonEmpty(end.steps) ? { steps: start.steps, end: end.steps } : undefined;
 };
-const elements = (container: unknown, row: Elements) => {
-    const collection = isRecord(container) ? attempt(row.items, container) : undefined;
-    return { length: Number(attempt((held) => held?.length, collection)), item: (index: number) => read(collection, String(index + (row.base ?? 0))) };
+const elements = (container: unknown, row: Pick<Elements, 'items' | 'base'> | undefined) => {
+    const collection = row !== undefined && isRecord(container) ? attempt(row.items, container) : undefined;
+    const length = Number(read(collection, 'length') ?? 0);
+    return { length, item: (index: number) => (index >= 0 && index < length ? read(collection, String(index + (row?.base ?? 0))) : undefined) };
 };
-const items = (container: unknown, row: Elements): unknown[] => {
+const items = (container: unknown, row: Pick<Elements, 'items' | 'base'>): unknown[] => {
     const [{ length, item }, listed] = [elements(container, row), [] as unknown[]];
     for (let at = 0; at < length; at += 1) {
         listed.push(item(at));
     }
     return listed;
 };
-const findByKey = (container: unknown, row: Elements, key: string, value: number | string): unknown => {
-    for (const item of items(container, row)) {
-        const found = String(read(item, key)) === String(value) ? item : row.nested === true ? findByKey(item, row, key, value) : undefined;
+const findByKey = (container: unknown, row: Pick<Elements, 'items' | 'base'> & { readonly nested?: boolean }, key: string, value: number | string): unknown => {
+    const { length, item } = elements(container, row);
+    for (let at = 0; at < length; at += 1) {
+        const each = item(at);
+        const found = String(read(each, key)) === String(value) ? each : row.nested === true ? findByKey(each, row, key, value) : undefined;
         if (found !== undefined) {
             return found;
         }
@@ -96,33 +104,19 @@ const findByKey = (container: unknown, row: Elements, key: string, value: number
     return undefined;
 };
 const resolve = ({ root, kinds }: Containment, path: Specifier): unknown => {
-    if (path.end !== undefined) {
-        return { _tag: 'Unmatched', subject: 'range', query: format(path), candidates: [] } satisfies Pick<Unmatched, '_tag' | 'subject' | 'candidates'> & { readonly query: string };
-    }
-    let at: object = root;
-    for (const { kind, selector: chosen } of path.steps) {
+    let [at, missed]: [object, { readonly subject: string; readonly candidates: readonly string[] } | undefined] = [root, path.end === undefined ? undefined : { subject: 'range', candidates: [] }];
+    for (const { kind, selector } of missed === undefined ? path.steps : []) {
         const row = kinds[kind];
         const listed = row !== undefined && 'items' in row ? row : undefined;
-        const { length, item } = chosen?._tag === 'Index' && listed !== undefined ? elements(at, listed) : { length: 0, item: (): unknown => undefined };
-        const found =
-            chosen === undefined
-                ? row !== undefined && 'property' in row
-                    ? attempt(row.property, at)
-                    : read(at, kind.replace(/^@/, ''))
-                : listed === undefined
-                  ? undefined
-                  : chosen._tag === 'Key'
-                    ? findByKey(at, listed, chosen.key, chosen.value)
-                    : chosen.index >= -length && chosen.index < length
-                      ? item(chosen.index < 0 ? length + chosen.index : chosen.index)
-                      : undefined;
+        const { length, item } = elements(at, selector?._tag === 'Index' ? listed : undefined);
+        const found = selector === undefined ? attempt(row !== undefined && 'property' in row ? row.property : (owner: object) => read(owner, kind.replace(/^@/, '')), at) : selector._tag === 'Key' ? listed?.find(at, selector.key, selector.value) : item(selector.index < 0 ? length + selector.index : selector.index);
         if (!isRecord(found)) {
-            const candidates = row === undefined ? Object.keys(kinds) : chosen?._tag === 'Key' && listed !== undefined ? items(at, listed).map((each) => String(read(each, chosen.key))) : [];
-            return { _tag: 'Unmatched', subject: length > 0 ? `${kind} among indexes 0 to ${length - 1}` : kind, query: format(path), candidates } satisfies Pick<Unmatched, '_tag' | 'subject' | 'candidates'> & { readonly query: string };
+            missed = { subject: length > 0 ? `${kind} among indexes 0 to ${length - 1}` : kind, candidates: row === undefined ? Object.keys(kinds) : selector?._tag === 'Key' && listed !== undefined ? items(at, listed).map((each) => String(read(each, selector.key))) : [] };
+            break;
         }
         at = found;
     }
-    return at;
+    return missed === undefined ? at : ({ _tag: 'Unmatched', query: format(path), ...missed } satisfies Pick<Unmatched, '_tag' | 'subject' | 'candidates'> & { readonly query: string });
 };
 const identify = (row: Elements, owner: unknown, value: object): Step['selector'] => {
     for (const key of row.key === undefined ? [] : Object.keys(row.key.fields)) {
@@ -134,25 +128,47 @@ const identify = (row: Elements, owner: unknown, value: object): Step['selector'
     const index = items(owner, row).indexOf(value);
     return index === -1 ? undefined : { _tag: 'Index', index };
 };
-const specify = (containment: Containment, value: unknown): Step[] | undefined => {
+const specify = (containment: Containment, value: object): Step[] | undefined => {
     if (value === containment.root) {
         return [];
     }
-    for (const kind in isRecord(value) ? containment.kinds : {}) {
+    const named = classOf(value);
+    const own = named.charAt(0).toLowerCase() + named.slice(1);
+    for (const kind in containment.kinds) {
         const row = containment.kinds[kind];
-        const owner = isRecord(value) && row?.is?.(value) === true ? (row.owner === undefined ? containment.root : attempt(row.owner, value)) : undefined;
-        const above = owner === undefined ? undefined : specify(containment, owner);
+        const owner = row !== undefined && (row.is === undefined ? kind === own : row.is(value)) ? (row.owner === undefined ? containment.root : attempt(row.owner, value)) : undefined;
+        const above = isRecord(owner) ? specify(containment, owner) : undefined;
         const listed = row !== undefined && 'items' in row ? row : undefined;
-        const chosen = above === undefined || listed === undefined || !isRecord(value) ? undefined : identify(listed, owner, value);
+        const chosen = above !== undefined && listed !== undefined ? identify(listed, owner, value) : undefined;
         if (above !== undefined && (listed === undefined || chosen !== undefined)) {
             return above.concat([{ separator: '/', kind, ...(chosen === undefined ? {} : { selector: chosen }) }]);
         }
     }
     return undefined;
 };
-const reference = (containment: Containment, value: object, type: string) => {
-    const [steps, name] = [specify(containment, value), attempt(({ name: held }: { readonly name?: unknown }) => held, value)];
-    return steps === undefined ? undefined : { type, specifier: formatSteps(steps), valid: true, ...(typeof name === 'string' ? { name } : {}) };
+const Containment = {
+    kind: <O extends object, T extends object, const F extends Keys<F, T> = Record<never, never>>(
+        row: { readonly is?: (value: object) => value is T; owner?(value: NoInfer<T>): unknown } & (
+            | {
+                  items(owner: O): ArrayLike<T> | { readonly length: number } | null | undefined;
+                  readonly key?: { readonly fields: F };
+                  readonly by?: { readonly [K in keyof NoInfer<F>]?: (owner: O, value: number | string) => unknown };
+                  readonly base?: number;
+                  readonly nested?: boolean;
+              }
+            | { property(owner: O): T | null | undefined }
+        ),
+    ): Kind => {
+        if (!('items' in row)) {
+            return row;
+        }
+        const lookups: Readonly<Record<string, ((owner: O, value: number | string) => unknown) | undefined>> = row.by ?? {};
+        return { ...row, find: (owner: O, key: string, value: number | string) => attempt((held) => (lookups[key] ?? ((each: O) => findByKey(each, row, key, value)))(held, value), owner) };
+    },
+};
+const reference = (containment: Containment, value: object) => {
+    const [steps, name] = [specify(containment, value), read(value, 'name')];
+    return steps === undefined ? undefined : { type: classOf(value), specifier: formatSteps(steps), valid: true, ...(typeof name === 'string' ? { name } : {}) };
 };
 const encode = (value: unknown, host: Encoder): unknown => {
     if (!isRecord(value)) {
@@ -166,22 +182,28 @@ const encode = (value: unknown, host: Encoder): unknown => {
         return encoded;
     }
     const described = host.enumerator?.(value) ?? host.collection?.(value) ?? host.reference(value);
-    const replaced = described !== undefined || host.replace === undefined ? value : host.replace(value);
+    if (described !== undefined) {
+        return described;
+    }
+    const replaced = host.replace === undefined ? value : host.replace(value);
     const serializer = read(value, 'toJSON');
-    const serialized: unknown = described === undefined && replaced === value && typeof serializer === 'function' ? serializer.call(value, '') : replaced;
-    if (described !== undefined || serialized !== value) {
-        return described ?? (serialized === undefined ? undefined : encode(serialized, host));
+    const serialized: unknown = replaced === value && typeof serializer === 'function' ? serializer.call(value, '') : replaced;
+    if (serialized !== value) {
+        return serialized === undefined ? undefined : encode(serialized, host);
+    }
+    if (!isPlain(value)) {
+        return String(value);
     }
     const record: Record<string, unknown> = {};
-    for (const key in isPlain(value) ? value : {}) {
+    for (const key in value) {
         const field = Object.prototype.hasOwnProperty.call(value, key) ? encode(read(value, key), host) : undefined;
         if (field !== undefined) {
             Object.defineProperty(record, key, { value: field, enumerable: true, writable: true, configurable: true });
         }
     }
-    return isPlain(value) ? record : String(value);
+    return record;
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Containment, type Encoder, encode, format, isList, isPlain, isRecord, parse, read, reference, resolve };
+export { Containment, type Encoder, encode, format, isList, isPlain, isRecord, type Kind, parse, read, reference, resolve };

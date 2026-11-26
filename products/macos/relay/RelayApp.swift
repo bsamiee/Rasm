@@ -5,7 +5,6 @@ import Logging
 import Observation
 import Processes
 import ServiceLifecycle
-import Sparkle
 import SwiftUI
 import Telemetry
 import Updater
@@ -18,11 +17,11 @@ struct RelayApp: App {
 
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate: AppDelegate
     @SwiftUI.Environment(\.openWindow) private var openWindow: OpenWindowAction
-    private let updater = Updater(activationPolicy: .accessory)
+    private let updater = Updater()
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarExtraContent(store: delegate.store, updater: updater.controller.updater)
+            MenuBarExtraContent(store: delegate.store, updater: updater.updater)
         } label: {
             Image(.mark)
                 .accessibilityLabel("Relay")
@@ -69,7 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             do { try await services.run() } catch { logger.error("Telemetry services failed", error: error) }
         }
         launch = Task(name: "Launch Relay") { [self] in
-            switch await Result(catching: { () async throws(ProcessFailure) in try await loginShellEnvironment(within: .seconds(5)) }).map(AccountStore.init(environment:)) {
+            switch await Result(catching: { () async throws(ProcessFailure) in try await readLoginShellEnvironment(within: .seconds(5)) }).map(AccountStore.init(environment:)) {
                 case .failure(let failure) where failure.reason.is(\.cancelled): logger.info("Quit canceled launch during login shell read")
                 case .failure(let failure):
                     store = .failure(failure)

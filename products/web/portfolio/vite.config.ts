@@ -3,7 +3,7 @@ import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
 import { nodeBundle, worker } from '@rasm/hosting/bundle';
 import { siteHead } from '@rasm/hosting/head';
 import { pdfjs } from '@rasm/media/vite';
-import { checks } from '@rasm/vite';
+import { checks } from '@rasm/vite/checks';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import hosting from '#/hosting.config';

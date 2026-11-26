@@ -1,0 +1,13 @@
+{
+    "name": "@rasm/risman",
+    "private": true,
+    "description": "Claude Code hooks that bind each agent to a handle of every MCP server built on @rasm/mcp and deliver its events between tool calls",
+    "type": "module",
+    "devDependencies": {
+        "@rasm/mcp": "workspace:*",
+        "@rasm/vite": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vite": "catalog:"
+    }
+}

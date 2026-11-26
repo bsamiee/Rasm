@@ -1,7 +1,8 @@
 import { layer as services } from '@effect/platform-node/NodeServices';
 import { SqliteClient } from '@effect/sql-sqlite-node';
 import { assert, layer } from '@effect/vitest';
-import { Catalog, Relation } from '@rasm/database';
+import { Catalog } from '@rasm/database/catalog';
+import { Relation } from '@rasm/database/relation';
 import { Sqlite } from '@rasm/database/sqlite';
 import { Effect, FileSystem, Function, Layer, Predicate, Schema } from 'effect';
 import { SqlError } from 'effect/sql';

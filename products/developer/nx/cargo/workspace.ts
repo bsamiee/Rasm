@@ -1,7 +1,7 @@
 import { basename, dirname, join, posix, relative, resolve } from 'node:path';
 import { parse } from '@decimalturn/toml-patch';
 import { normalizePath } from '@nx/devkit';
-import { above, below, inside, runner, Stated, spawned } from '@rasm/nx';
+import { above, below, inside, runner, Stated, spawned } from '@rasm/nx/inference';
 import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Function, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
 import plugin from '#/package.json' with { type: 'json' };
 
@@ -33,7 +33,7 @@ const DENY = Record.map({ config: 'deny', exceptions: 'deny.exceptions' }, (stem
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Target extends Schema.Opaque<Target, unknown>()(Schema.Struct({ kind: Schema.Array(Schema.String), crate_types: Schema.Array(Schema.String), name: Schema.String, src_path: Schema.String, test: Schema.Boolean, doctest: Schema.Boolean })) {
+class Target extends Schema.Opaque<Target>()(Schema.Struct({ kind: Schema.Array(Schema.String), crate_types: Schema.Array(Schema.String), name: Schema.String, src_path: Schema.String, test: Schema.Boolean, doctest: Schema.Boolean })) {
     static readonly own = ({ kind, crate_types }: Target) => Array.makeEquivalence(Equivalence.String)(kind, crate_types);
     static readonly binary = ({ kind }: Target) => kind.includes('bin');
     static readonly example = ({ kind }: Target) => kind.includes('example');

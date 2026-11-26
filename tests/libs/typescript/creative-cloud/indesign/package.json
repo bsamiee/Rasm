@@ -10,6 +10,7 @@
         "@rasm/applications": "workspace:*",
         "@rasm/extendscript": "workspace:*",
         "@rasm/indesign": "workspace:*",
+        "@rasm/object-model": "workspace:*",
         "@rasm/process": "workspace:*",
         "@rasm/uxp": "workspace:*",
         "@types/node": "catalog:",

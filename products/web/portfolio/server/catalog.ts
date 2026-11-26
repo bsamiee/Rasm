@@ -1,4 +1,5 @@
-import { Catalog, Relation } from '@rasm/database';
+import { Catalog } from '@rasm/database/catalog';
+import { Relation } from '@rasm/database/relation';
 import { Cause, Effect, Schema } from 'effect';
 import { HttpApiError } from 'effect/http-api';
 import { type SqlClient, Statement } from 'effect/sql';

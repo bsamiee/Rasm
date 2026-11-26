@@ -1,5 +1,5 @@
 import { Enrollment } from '@rasm/hosting/identity';
-import { Presignable, Presigned } from '@rasm/object-storage';
+import { Presignable, Presigned } from '@rasm/object-storage/storage';
 import { Array, Option, Result, Schema, SchemaTransformation } from 'effect';
 import { HttpApi, HttpApiClient, HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiMiddleware, HttpApiSchema } from 'effect/http-api';
 import { Asset, AssetId, type Assets } from '#/model/asset';
@@ -10,7 +10,7 @@ import { PortfolioData, StoredPortfolio } from '#/model/portfolio';
 class Recovery extends Schema.Opaque<Recovery, { readonly brand: unique symbol }>()(Schema.Struct({ id: AssetId, name: Schema.NonEmptyString, status: Schema.Literals(['incomplete', 'cleanup', 'removing']) })) {}
 const Revision = Schema.TemplateLiteralParser(['"', Schema.Natural, '"']).pipe(Schema.decodeTo(Schema.Natural, SchemaTransformation.transform({ decode: ([, revision]) => revision, encode: (revision) => ['"', revision, '"'] as const })));
 const draftEtag = { 'draft-etag': Revision };
-class Bootstrap extends Schema.Opaque<Bootstrap, unknown>()(Schema.Struct({ published: PortfolioData, session: Enrollment.Session })) {}
+class Bootstrap extends Schema.Opaque<Bootstrap>()(Schema.Struct({ published: PortfolioData, session: Enrollment.Session })) {}
 const Upload = Schema.Struct({ attempt: Schema.String, objects: Schema.Array(Schema.Struct({ key: Schema.String, width: Schema.optionalKey(Schema.Int) })) });
 const Refusal = Schema.TaggedUnion({ Unknown: { key: Schema.String }, Size: { key: Schema.String }, Missing: { keys: Schema.NonEmptyArray(Schema.String) } });
 

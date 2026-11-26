@@ -26,6 +26,7 @@ extension Message: Decodable where Payload: Decodable, Fault: Decodable {
         id = try fields.decodeIfPresent(JSONValue.self, forKey: .id)
         method = try fields.decodeIfPresent(String.self, forKey: .method)
         params = try fields.decodeIfPresent(Payload.self, forKey: .params)
+        chunk = try fields.decodeIfPresent(Bool.self, forKey: .chunk)
         result = fields.contains(.result) ? try fields.decode(Payload.self, forKey: .result) : nil
         error = fields.contains(.error) ? try fields.decode(Fault.self, forKey: .error) : nil
         traceId = try fields.decodeIfPresent(String.self, forKey: .traceId)

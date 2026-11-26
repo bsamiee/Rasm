@@ -1,0 +1,104 @@
+{
+  "configurations": [
+    {
+      "id": "8A3D0F1B-5EE1-4F75-A629-83045EAA2BD4",
+      "name": "Test Scheme Action",
+      "options": {}
+    }
+  ],
+  "defaultOptions": {},
+  "testTargets": [
+    {
+      "target": {
+        "containerPath": "container:",
+        "identifier": "EncodingTests",
+        "name": "EncodingTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:",
+        "identifier": "ResultsTests",
+        "name": "ResultsTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:",
+        "identifier": "JSONRPCTests",
+        "name": "JSONRPCTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:",
+        "identifier": "FilesTests",
+        "name": "FilesTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:",
+        "identifier": "ProcessesTests",
+        "name": "ProcessesTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:",
+        "identifier": "TelemetryTests",
+        "name": "TelemetryTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:",
+        "identifier": "UpdaterTests",
+        "name": "UpdaterTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:",
+        "identifier": "AppleEventsTests",
+        "name": "AppleEventsTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:",
+        "identifier": "ApplicationsTests",
+        "name": "ApplicationsTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:",
+        "identifier": "CurrentProcessTests",
+        "name": "CurrentProcessTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:",
+        "identifier": "ScreenCaptureTests",
+        "name": "ScreenCaptureTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:",
+        "identifier": "ApplicationServerTests",
+        "name": "ApplicationServerTests"
+      }
+    },
+    {
+      "target": {
+        "containerPath": "container:",
+        "identifier": "FixtureTests",
+        "name": "FixtureTests"
+      }
+    }
+  ],
+  "version": 1
+}

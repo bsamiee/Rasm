@@ -1,5 +1,6 @@
 import { AYAH_MARK, ayahMark, type MarkKind, Mushaf } from '@quran.ws/text';
-import { Digits, Unmatched } from '@rasm/search';
+import { Digits } from '@rasm/search/digits';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Effect, Equivalence, flow, Number, Option, Order, Record, Schema, Stream, Struct } from 'effect';
 import { Csv } from 'effect/encoding';
 import { ayahsInPart, formatSurahAyah, generatePartBlocks, getListsOfRiwaya, isValidSurah, isValidSurahAyah, partNames, type RiwayaData, type RiwayaName, type RiwayasNames, type SurahAyah, type SurahNames, surahNamesAr, surahNamesEn } from 'quran-meta';
@@ -19,7 +20,7 @@ const AyahRow = Schema.Struct({ surah: Digits.Numeral, number: Digits.Numeral, t
 const SurahRow = Schema.Struct({ number: Digits.Numeral, name: Schema.String });
 const Ordinal = Schema.Int.check(Schema.isGreaterThanOrEqualTo(1));
 const Riwayah = Schema.Literals(['Bazzi', 'Douri', 'Hafs', 'Qalun', 'Qunbul', 'Shuba', 'Sousi', 'Warsh'] as const satisfies Readonly<RiwayasNames>).annotate({ description: 'Riwayah counting surah and ayah numbers and divisions' });
-class Bounds extends Schema.Opaque<Bounds, unknown>()(
+class Bounds extends Schema.Opaque<Bounds>()(
     Schema.Struct({
         from: Schema.OptionFromOptionalKey(Ordinal.annotate({ description: 'First ayah counted within the division, its start when absent' })),
         to: Schema.OptionFromOptionalKey(Ordinal.annotate({ description: 'Last ayah counted within the division, its end when absent' })),

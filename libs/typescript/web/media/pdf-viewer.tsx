@@ -25,7 +25,7 @@ const rotations = { UPRIGHT: 0, CLOCKWISE: 90, INVERTED: 180, COUNTERCLOCKWISE: 
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class View extends Schema.Opaque<View, unknown>()(
+class View extends Schema.Opaque<View>()(
     Schema.Struct({
         pagesRotation: Schema.Enum(rotations),
         scrollMode: Schema.Enum(ScrollMode),
@@ -34,7 +34,7 @@ class View extends Schema.Opaque<View, unknown>()(
         currentScaleValue: Schema.Union([Schema.Literals(['auto', 'page-actual', 'page-fit', 'page-height', 'page-width']), Schema.TemplateLiteral([Schema.Finite])]),
     }),
 ) {}
-class Found extends Schema.Opaque<Found, unknown>()(Schema.Struct({ matchesCount: Schema.Struct({ current: Schema.Int, total: Schema.Int }), findState: Schema.optionalKey(Schema.Enum(FindState)) }).pipe(Schema.encodeKeys({ findState: 'state' }))) {}
+class Found extends Schema.Opaque<Found>()(Schema.Struct({ matchesCount: Schema.Struct({ current: Schema.Int, total: Schema.Int }), findState: Schema.optionalKey(Schema.Enum(FindState)) }).pipe(Schema.encodeKeys({ findState: 'state' }))) {}
 const Rendered = Schema.Struct({ pageNumber: Schema.Int, error: Schema.Unknown });
 const useViewer = (document: NonNullable<Parameters<PDFViewer['setDocument']>[0]>, { pinch, ...options }: Options & { readonly pinch?: { readonly drawingDelay: Duration.Input } }) => {
     const [container, setContainer] = useState<HTMLDivElement | null>(null);

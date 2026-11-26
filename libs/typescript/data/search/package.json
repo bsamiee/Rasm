@@ -19,7 +19,8 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
+        "./digits": "./digits.ts",
+        "./unmatched": "./unmatched.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -27,7 +28,8 @@
             "#/*": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/index.js",
+            "./digits": "./dist/digits.js",
+            "./unmatched": "./dist/unmatched.js",
             "./package.json": "./package.json"
         },
         "access": "public"

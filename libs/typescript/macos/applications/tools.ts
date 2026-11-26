@@ -1,17 +1,18 @@
 import { pathToFileURL } from 'node:url';
-import { Content, Handle, Server } from '@rasm/mcp';
 import { Output, setting } from '@rasm/mcp/cli';
-import { Unmatched } from '@rasm/search';
-import { Array, Cause, Context, Duration, Effect, Function, Hash, HashSet, Match, Option, Predicate, pipe, Record, Ref, Result, Schema, Stream, Struct, SubscriptionRef, Tuple, UndefinedOr } from 'effect';
-import { Tool } from 'effect/ai';
+import { Handle, Server } from '@rasm/mcp/server';
+import { Unmatched } from '@rasm/search/unmatched';
+import { Array, Cause, Context, Duration, Effect, Function, Hash, HashMap, HashSet, Match, Option, Predicate, pipe, Record, Ref, Result, Schema, Stream, Struct, SubscriptionRef, Tuple, UndefinedOr } from 'effect';
+import { McpSchema, Tool } from 'effect/ai';
+import { Flag } from 'effect/cli';
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
 import { Address, type Index, type Item, type Shown } from '#/address';
 import { ApplicationServer } from '#/client';
 import { Act, AppleEventValue, type Capture, type Control, Cursor, Diagnostics, Event, Installation, InstanceSnapshot, InstanceState, Kind, type Model, QuitMode, type Running, Scope, ScriptingDictionary, Written } from '#/contract';
 import { InterfaceMaps } from '#/interface-map';
 import { Outline } from '#/outline';
-import { Description, type SourceRpcs } from '#/source';
-import { declared, type Entry, Workspace } from '#/workspace';
+import { type Declaration, Description, type SourceRpcs } from '#/source';
+import { describeUsage, type Entry, Workspace } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -25,10 +26,9 @@ const INSTRUCTIONS = ['Start with applications: it lists what is installed and r
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Side = setting('longest-side', Schema.FiniteFromString.pipe(Schema.decodeTo(Schema.Int.check(Schema.isGreaterThan(0)))), 1568, 'Longest side in pixels of each image a view returns');
+const Side = setting('longest-side', Schema.FiniteFromString.pipe(Schema.decodeTo(Schema.Int.check(Schema.isGreaterThan(0)))), Flag.withDefault(1568), 'Longest side in pixels of each image a view returns');
 const ApplicationListing = Schema.toCodecJson(Schema.Struct({ installation: Schema.OptionFromOptionalKey(Installation), open: ScriptingDictionary.fields.open }));
 const Reply = Schema.toCodecJson(AppleEventValue);
-const Image = Content.image('image/png');
 const Title = Schema.fromJsonString(Schema.String);
 const LogRecord = Schema.fromJsonString(
     Schema.Struct({ timestamp: Schema.String, severity_text: Schema.String, scope: Schema.optionalKey(Schema.String), body: Schema.String, attributes: Schema.optionalKey(Schema.Record(Schema.String, Schema.Json)) }).annotate({ description: 'OpenTelemetry log record a server process writes as one JSON line' }),
@@ -36,7 +36,7 @@ const LogRecord = Schema.fromJsonString(
 const TOOLS = {
     applications: Tool.make('applications', {
         description:
-            'Lists installed applications and their running instances, each one another MCP server drives naming that server, or one application with its installation and open command; open launches an application in the background or targets its running instance for later calls; close quits it, or every application this handle opened, each save dialog arriving as an event',
+            'Lists installed applications and their running instances, each one another MCP server drives naming that server, or one application with its installation, its App Intents actions with whether each opens it, and open command; open launches an application in the background or targets its running instance for later calls; close quits it, or every application this handle opened, each save dialog arriving as an event',
         parameters: Schema.Struct({
             action: Schema.optionalKey(Schema.Literals(['list', 'open', 'close']).annotate({ description: 'list when absent' })),
             application: Schema.optionalKey(Schema.String.annotate({ description: 'Listed name, alias, or bundle URL; open without it takes the application the system opens the documents with, close without it quits every application this handle opened' })),
@@ -65,7 +65,7 @@ const TOOLS = {
     }).annotate(Tool.Readonly, true),
     inspect: Tool.make('inspect', {
         description:
-            'Reads the interface of the target as an outline: a state line, then each container and its controls, each led by a reference such as @a12 with its label, value, kind, and what it takes, and under ▸ what was shown before and is gone, with its last value. A menu item leads with its mark (✓ checked), names after › the menu it opens, which in reads, its shortcut as the act key action pressing it, a separator above it, and the item an option or other modifier puts in its place. A cut ends with the call that continues it, a dialog asking for an answer with the act call that gives it. A read of every container counts the containers remembered and not open, which find searches, and ends with the clipboard once it changed since this handle last read it: its change count, types, the kinds the system detects in it, and its text where the Paste from Other Apps setting of the owner allows the read, else why it is withheld',
+            'Reads the interface of the target as an outline: a state line, then each container and its controls, each led by a reference such as @a12 with its label, value, kind, and what it takes, and under ▸ what was shown before and is gone, with its last value. A menu item leads with its mark (✓ checked), names after › the menu it opens, which in reads, its shortcut as the act key action pressing it, a separator above it, and the item an option or other modifier puts in its place. An option of a choice, a tool among them, names its shortcut the same way and its help, and the state line names the current tool with its shortcut, its help on the line below. A cut ends with the call that continues it, a dialog asking for an answer with the act call that gives it. A read of every container counts the containers remembered and not open, which find searches, and ends with the clipboard once it changed since this handle last read it: its change count, types, the kinds the system detects in it, and its text where the Paste from Other Apps setting of the owner allows the read, else why it is withheld',
         parameters: Schema.Struct({
             in: Schema.optionalKey(Address.At.annotate({ description: 'Container, choice, multi, menu item, or remembered container read alone, a menu item reading its menu and a multi its rows; every container when absent' })),
             find: Schema.optionalKey(Schema.String.annotate({ description: 'Text searched in labels, values, and help of every container shown and remembered, best match and live hits first' })),
@@ -105,7 +105,7 @@ const Clipboard = Context.Reference<Option.Option<number>>('@rasm/applications/t
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const locate = (document: string) => (URL.canParse(document) ? new URL(document) : pathToFileURL(document));
-const presentedWindows = (state: InstanceSnapshot['state']) => InstanceState.matchOrElse(state, { running: ({ running }) => running.windows.filter((window) => window.presented && window.kind !== 'menu') }, () => []);
+const presentedWindows = (state: InstanceSnapshot['state']) => InstanceState.matchOrElse(state, { running: ({ windows }) => windows.filter((window) => window.presented && window.kind !== 'menu') }, () => []);
 const describeTool = <const Name extends string, P extends Schema.Top, S extends Schema.Top>(tool: Tool.Tool<Name, { readonly parameters: P; readonly success: S; readonly failure: Schema.Never; readonly failureMode: 'error' }>, description = tool.description) =>
     Tool.make(tool.name, { description, parameters: tool.parametersSchema, success: tool.successSchema }).annotateMerge(tool.annotations);
 const listEntry = (instances: readonly InstanceSnapshot[]) => (row: Entry) => ({
@@ -114,7 +114,7 @@ const listEntry = (instances: readonly InstanceSnapshot[]) => (row: Entry) => ({
     ...Option.getOrUndefined(Option.map(row.claim, (claim) => ({ claimed: Struct.pick(claim, ['server', 'scope']) }))),
     ...Option.getOrUndefined(
         Option.map(Array.findFirst(instances, Installation.runs(row)), ({ instance, state }) => ({
-            running: { instance, status: InstanceState.matchOrElse(state, { running: ({ running }) => running.status }, ({ _tag }) => _tag), windows: presentedWindows(state).length },
+            running: { instance, status: InstanceState.matchOrElse(state, { running: ({ status }) => status }, ({ _tag }) => _tag), windows: presentedWindows(state).length },
         })),
     ),
 });
@@ -130,22 +130,20 @@ const answerOf = ({ container, item, controls }: Shown) =>
     });
 const scopeOf = (start: Option.Option<Item>) =>
     Match.type<Item>().pipe(
-        Match.when({ target: { _tag: 'Container' } }, ({ target: { container } }) => Result.succeedSome<typeof Scope.Type>({ _tag: 'container', container: { ref: container.ref } })),
+        Match.when({ target: { _tag: 'Container' } }, ({ target: { container } }) => Result.succeedSome<typeof Scope.Type>({ _tag: 'container', ref: container.ref })),
         Match.when({ target: { _tag: 'Control', control: { kind: 'multi' } } }, ({ target: { control } }) =>
             Result.succeedSome<typeof Scope.Type>({
                 _tag: 'rows',
-                rows: {
-                    ref: control.ref,
-                    from: pipe(
-                        Option.flatMap(start, ({ target }) => (target._tag === 'Control' ? Option.fromUndefinedOr(target.control.index) : Option.none())),
-                        Option.match({ onNone: () => 0, onSome: (index) => index + 1 }),
-                    ),
-                    count: Outline.rows,
-                },
+                ref: control.ref,
+                from: pipe(
+                    Option.flatMap(start, ({ target }) => (target._tag === 'Control' ? Option.fromUndefinedOr(target.control.index) : Option.none())),
+                    Option.match({ onNone: () => 0, onSome: (index) => index + 1 }),
+                ),
+                count: Outline.rows,
             }),
         ),
         Match.when({ target: { _tag: 'Control', control: { kind: 'choice' } } }, () => Result.succeedNone),
-        Match.when({ target: { _tag: 'Control', control: { opens: Match.number } } }, ({ target: { control } }) => Result.succeedSome<typeof Scope.Type>({ _tag: 'menu', menu: { ref: control.ref } })),
+        Match.when({ target: { _tag: 'Control', control: { opens: Match.number } } }, ({ target: { control } }) => Result.succeedSome<typeof Scope.Type>({ _tag: 'menu', ref: control.ref })),
         Match.when({ target: { _tag: 'RememberedContainer' } }, () => Result.succeedNone),
         Match.orElse(({ token, name, kind, live }) =>
             Result.fail(
@@ -180,21 +178,23 @@ const runScript = Effect.fnUntraced(function* ({ row, live }: Parameters<Scripti
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = never, E2 extends Error = never, R2 = never, E3 extends Error = never, R3 = never, E4 extends Error = never, R4 = never>({
+const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = never, E2 extends Error = never, R2 = never, E3 extends Error = never, R3 = never, E4 extends Error = never, R4 = never, E5 extends Error = never, R5 = never>({
     descriptions = {},
     scripts,
     render,
     logs,
     sourceOf,
+    toolsOf = () => Effect.succeed({ tools: HashMap.empty(), toolbar: [] }),
 }: {
     readonly descriptions?: Readonly<Partial<Record<keyof typeof TOOLS, string>>>;
     readonly scripts?: Scripting<E1, R1>;
     readonly render?: (row: Entry, id: string) => Effect.Effect<{ readonly image: Uint8Array; readonly title: string }, E2, R2>;
     readonly logs?: (row: Entry) => Effect.Effect<Diagnostics['folders'], E3, R3>;
     readonly sourceOf?: (row: Entry) => Effect.Effect<Linked, E4, R4>;
+    readonly toolsOf?: (row: Entry) => Effect.Effect<Declaration, E5, R5>;
 } = {}) {
     const [server, workspace, maps, side, output] = yield* Effect.all([ApplicationServer, Workspace, InterfaceMaps, Side, Output]);
-    const { catalog, running, changes, session, target, setTarget, resolve, current, ends } = workspace;
+    const { catalog, running, changes, session, pressure, target, setTarget, resolve, current, ends } = workspace;
     const [routed, clipboards] = yield* Effect.all([Ref.make(Record.empty<string, Record.ReadonlyRecord<string, Description['containers'][number]['locator']>>()), Ref.make(Record.empty<string, Control['ref']>())]);
     const linked = (row: Entry) => Effect.flatMap(Effect.fromNullishOr(sourceOf), (from) => from(row));
     const routeOf = (instance: InstanceSnapshot['instance']) => Effect.map(Ref.get(routed), (held) => (ref: number) => Option.flatMap(Record.get(held, instance), Record.get(`${ref}`)));
@@ -259,21 +259,22 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
         const states = yield* Effect.forEach(quit, (each) => Effect.timeoutOption(server.quit({ instance: each.instance, ...quitting }), bound), { concurrency: 'unbounded' });
         return { closed: Array.zipWith(quit, states, (each, state) => ({ application: named(each.url.href), instance: each.instance, state })) };
     });
-    const facets = Effect.fnUntraced(function* (instance: InstanceSnapshot['instance'], from: Linked, model: Model, payload: { readonly within?: Description['containers'][number]['locator'] }) {
-        const { model: composed, routes } = yield* Description.compose(model, yield* from('describe', payload), (locators) => server.intern({ instance, locators }));
+    const facets = Effect.fnUntraced(function* ({ row, live, live: { instance } }: Effect.Success<typeof current>, from: Linked, model: Model, payload: { readonly within?: Description['containers'][number]['locator'] }) {
+        const [described, tools] = yield* Effect.all([from('describe', payload), toolsOf(row)]);
+        const { model: composed, routes } = yield* Description.compose(model, yield* maps.learn(live, Description.fold(described, tools)), (locators) => server.intern({ instance, locators }));
         yield* Ref.update(routed, (held) => Record.set(held, instance, { ...held[instance], ...routes }));
         return composed;
     });
     const modelled = Effect.fnUntraced(function* ({ row, live, live: { instance } }: Effect.Success<typeof current>) {
         const read = (scope: typeof Scope.Type) => server.model({ instance, scope });
-        const [accessible, menus, map, client] = yield* Effect.all([read({ _tag: 'application', application: {} }), read({ _tag: 'menus', menus: {} }), maps.recall(live), Effect.option(linked(row))], { concurrency: 'unbounded' });
-        const application = yield* Option.match(client, { onNone: () => Effect.succeed(accessible), onSome: (from) => facets(instance, from, accessible, {}) });
+        const [accessible, menus, map, client] = yield* Effect.all([read({ _tag: 'application' }), read({ _tag: 'menus' }), maps.recall(live), Effect.option(linked(row))], { concurrency: 'unbounded' });
+        const application = yield* Option.match(client, { onNone: () => Effect.succeed(accessible), onSome: (from) => facets({ row, live }, from, accessible, {}) });
         const route = yield* routeOf(instance);
         const indexed = (containers: Model['containers']) => Address.index({ ...application, containers }, map);
         const level = (scope: typeof Scope.Type) =>
-            Option.match(Option.all({ from: client, within: Option.flatMap(Scope.matchOrElse(scope, { container: ({ container }) => Option.some(container.ref), menu: ({ menu }) => Option.some(menu.ref), rows: ({ rows }) => Option.some(rows.ref) }, Option.none<number>), route) }), {
+            Option.match(Option.all({ from: client, within: Option.flatMap(Scope.matchOrElse(scope, { container: ({ ref }) => Option.some(ref), menu: ({ ref }) => Option.some(ref), rows: ({ ref }) => Option.some(ref) }, Option.none<number>), route) }), {
                 onNone: () => read(scope),
-                onSome: ({ from, within }) => facets(instance, from, { sequence: application.sequence, containers: [] }, { within }),
+                onSome: ({ from, within }) => facets({ row, live }, from, { sequence: application.sequence, containers: [] }, { within }),
             });
         return { application, indexed, level, base: indexed(Array.unionWith(application.containers, menus.containers, (left, right) => left.ref === right.ref)) };
     });
@@ -313,7 +314,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
     const shown = Effect.fnUntraced(function* (keep: (window: Running['windows'][number]) => boolean) {
         const [instances, named] = yield* Effect.all([SubscriptionRef.get(running), naming]);
         const windowed = instances.flatMap((each) => Array.match(presentedWindows(each.state).filter(keep).map(Struct.get('number')), { onEmpty: Array.empty, onNonEmpty: (numbers) => [{ each, numbers }] }));
-        return Array.flatten(yield* Effect.forEach(windowed, ({ each, numbers }) => capture(named(each.url.href), each, { windows: { numbers } }), { concurrency: 'unbounded' }));
+        return Array.flatten(yield* Effect.forEach(windowed, ({ each, numbers }) => capture(named(each.url.href), each, { _tag: 'windows', numbers }), { concurrency: 'unbounded' }));
     });
     const front = Effect.gen(function* () {
         const { row, live } = yield* current;
@@ -325,7 +326,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             ),
             () => new Cause.NoSuchElementError(`${row.name} presents no window, applications open with documents shows one`),
         );
-        return yield* capture(row.name, live, { windows: { numbers: [number] } });
+        return yield* capture(row.name, live, { _tag: 'windows', numbers: [number] });
     });
     const element = Effect.fnUntraced(function* (reference: string) {
         const aimed = yield* current;
@@ -338,8 +339,8 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             RememberedContainer: ({ locator }) => intern(aimed.live.instance, locator),
             RememberedControl: ({ locator }) => intern(aimed.live.instance, locator),
         });
-        const shots = yield* capture(aimed.row.name, aimed.live, { element: { ref } });
-        const opened = yield* Effect.when(level({ _tag: 'menu', menu: { ref } }), Effect.succeed(item.target._tag === 'Control' && item.target.control.opens !== undefined));
+        const shots = yield* capture(aimed.row.name, aimed.live, { _tag: 'element', ref });
+        const opened = yield* Effect.when(level({ _tag: 'menu', ref }), Effect.succeed(item.target._tag === 'Control' && item.target.control.opens !== undefined));
         const containers = Option.match(opened, { onNone: Array.empty, onSome: Struct.get('containers') });
         const fresh = indexed(containers);
         const levels = [...menuPath(base, item).map((each) => ({ index: base, item: each })), ...(item.target._tag === 'RememberedContainer' ? [{ index: base, item }] : []), ...Array.getSomes(containers.map((container) => Record.get(fresh.live, `${container.ref}`))).map((each) => ({ index: fresh, item: each }))];
@@ -375,7 +376,8 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                 Match.orElse(element),
             );
             yield* Array.isReadonlyArrayEmpty(taken) ? new Cause.NoSuchElementError(`Nothing to view for ${[of, ...Array.fromNullishOr(id)].join(' ')}, view all shows every presented window`) : Effect.void;
-            yield* Effect.forEach(Array.getSomes(taken.map(Struct.get('image'))), (png) => Schema.encodeEffect(Image)(png), { discard: true });
+            const { add } = yield* Server.ToolCall;
+            yield* Effect.forEach(Array.getSomes(taken.map(Struct.get('image'))), (data) => add(McpSchema.ImageContent.make({ data, mimeType: 'image/png' })), { discard: true });
             return taken.map(Struct.get('line')).join('\n');
         }),
     );
@@ -396,10 +398,8 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                         Effect.map(Option.flatten),
                     ),
             });
-            const changed = HashSet.fromIterable(
-                Option.toArray(Option.flatMap(first, ({ change }) => Event.fields.change.matchOrElse(change, { focused: ({ focused }) => Option.some(focused.control), value: ({ value }) => Option.some(value.control), selection: ({ selection }) => Option.some(selection.control) }, Option.none<Control['ref']>))),
-            );
-            const [{ application, indexed, level, base }, clipboard, stated] = yield* Effect.all([modelled(aimed), whole ? clipboardLine(live.instance) : Effect.succeedNone, session], { concurrency: 'unbounded' });
+            const changed = HashSet.fromIterable(Option.toArray(Option.flatMap(first, ({ change }) => (Event.fields.change.isAnyOf(['focused', 'value', 'selection'])(change) ? Option.some(change.control) : Option.none()))));
+            const [{ application, indexed, level, base }, clipboard, stated, strained] = yield* Effect.all([modelled(aimed), whole ? clipboardLine(live.instance) : Effect.succeedNone, session, pressure], { concurrency: 'unbounded' });
             const lookup = (at: string | undefined) => Result.transposeMapOption(Option.fromUndefinedOr(at), (held) => Address.resolve(base, held));
             const [scope, start] = yield* Effect.fromResult(Result.all([lookup(within), lookup(after)]));
             const reading = yield* Effect.fromResult(Option.match(scope, { onNone: () => Result.succeedNone, onSome: scopeOf(start) }));
@@ -437,16 +437,17 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                 Array.findFirst(index.shown, ({ container }) => container.asking),
                 answerOf,
             );
-            const status = InstanceState.matchOrElse(live.state, { running: ({ running: activity }) => [`${activity.status}${declared(activity)}`, activity.active ? 'front' : 'behind'] }, Array.empty);
-            const { tool, help, holding = [], operations = [], cursor, dragging } = application.pointer ?? {};
+            const status = InstanceState.matchOrElse(live.state, { running: (activity) => [`${InstanceState.Status.matchOrElse(activity.status, { unresponsive: ({ thread }) => `unresponsive, main thread ${thread}` }, ({ _tag }) => _tag)}${describeUsage(activity)}`, activity.active ? 'front' : 'behind'] }, Array.empty);
+            const { tool, shortcut, help, holding = [], operations = [], cursor, draggingFrame } = application.pointer ?? {};
             const pointed = [
                 ...Array.fromNullishOr(tool).map((named) => `tool ${named}`),
+                ...Array.fromNullishOr(shortcut).map(Outline.shortcut),
                 ...(Array.isReadonlyArrayNonEmpty(holding) ? [`holding ${holding.join(', ')}`] : []),
                 ...(Array.isReadonlyArrayNonEmpty(operations) ? [`operations ${operations.join(' > ')}`] : []),
-                ...Array.fromNullishOr(cursor).map((held) => Cursor.match(held, { system: ({ system }) => `cursor ${system.name}`, custom: ({ custom }) => `cursor custom ${custom.digest.slice(0, 8)} ${custom.size.join('×')}` })),
-                ...(dragging === undefined ? [] : ['dragging']),
+                ...Array.fromNullishOr(cursor).map((held) => Cursor.match(held, { system: ({ name }) => `cursor ${name}`, custom: ({ digest, size }) => `cursor custom ${digest.slice(0, 8)} ${size.join('×')}` })),
+                ...(draggingFrame === undefined ? [] : ['dragging']),
             ];
-            yield* Server.ToolCall.use((call) => call.state([[row.name, ...status, ...pointed, ...stated].join(' · '), ...Array.fromNullishOr(help)].join('\n')));
+            yield* Server.ToolCall.use((call) => call.state([[row.name, ...status, ...pointed, ...stated, ...strained].join(' · '), ...Array.fromNullishOr(help)].join('\n')));
             return [
                 ...lines,
                 ...(whole && !Record.isEmptyReadonlyRecord(unopened) ? [`▸ not open: ${Record.collect(unopened, (each, all) => `${each} ×${all.length}`).join(', ')} · find searches them`] : []),

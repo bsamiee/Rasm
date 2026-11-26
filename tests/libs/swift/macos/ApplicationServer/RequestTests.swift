@@ -67,16 +67,12 @@ struct ScaleTests {
         let encoded: Data? = CIContext().pngRepresentation(of: drawn, format: .RGBA8, colorSpace: space)
         let image: Data = try #require(encoded)
         let request = try JSONDecoder().decode(Request.self, from: Data(#"{"scale":{"image":"\#(image.base64EncodedString())","longestSide":\#(longestSide)}}"#.utf8))
-        guard
-            case .value(let value?) = try await request.perform(
-                matching: { NSPredicate(value: false) },
-                dictionaries: ScriptingDictionaries(cachedDefinition: { _ in nil }),
-                watches: Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }),
-            )
-        else {
-            Issue.record("No scaled value")
-            return
-        }
+        let response = try await request.perform(
+            matching: { NSPredicate(value: false) },
+            dictionaries: ScriptingDictionaries(cachedDefinition: { _ in nil }),
+            watches: Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }),
+        )
+        let value = try #require(response[case: \.value.some])
         let answer = try JSONDecoder().decode(Scaled.self, from: try JSONEncoder().encode(value))
         let decoded: CIImage? = CIImage(data: answer.png)
         let drawnSize: CGSize = try #require(decoded).extent.size
@@ -106,16 +102,12 @@ struct InstallationsTests {
         }
         let before = running()
         let request = try JSONDecoder().decode(Request.self, from: Data(#"{"installations":{}}"#.utf8))
-        guard
-            case .stream(let listings) = try await request.perform(
-                matching: { NSPredicate(value: true) },
-                dictionaries: ScriptingDictionaries(cachedDefinition: { _ in nil }),
-                watches: Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }),
-            )
-        else {
-            Issue.record("No installations stream")
-            return
-        }
+        let response = try await request.perform(
+            matching: { NSPredicate(value: true) },
+            dictionaries: ScriptingDictionaries(cachedDefinition: { _ in nil }),
+            watches: Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }),
+        )
+        let listings = try #require(response[case: \.stream])
         let listing = try #require(await listings.first { _ in true })
         let listed = try JSONDecoder().decode(Listed.self, from: JSONEncoder().encode(listing))
         let throughout = before.intersection(running())
@@ -170,10 +162,7 @@ struct MatchingTests {
         ask.finish()
         let identifiers = await asked.reduce(into: [String]()) { identifiers, identifier in identifiers.append(identifier) }
         expectNoDifference(identifiers, ["app.rasm.fixture"])
-        guard case .value(let value?) = response else {
-            Issue.record("No dictionary value")
-            return
-        }
+        let value = try #require(response[case: \.value.some])
         let listing = try JSONDecoder().decode([String: JSONValue].self, from: JSONEncoder().encode(value))
         expectNoDifference(listing["suite"], .array([.object(["name": .string("Fixture"), "code": .string("Fixt")])]))
     }

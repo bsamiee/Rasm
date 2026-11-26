@@ -26,7 +26,7 @@ Extensions are products at `products/apps/chrome/<name>/`, a private `@rasm/<nam
 - `icons/mark.svg` and `icons/mark-16.svg` hold the drawing, and `package.json` `config.brand` its color
 - `README.md` holds name, one line per behavior a test proves, and Web Store dashboard answers
 - `tsconfig.app.json` takes `types: ["chrome", "vite/client", "web"]`, and `tsconfig.node.json` holds `vite.config.ts`
-- Use `docs/typescript/Workspace.md` for `imports` rows, `docs/typescript/Testing.md` for suite targets, and `docs/Icons.md` for marks
+- Use `docs/typescript/Workspace.md` for `imports` rows, `typescript:testing` for suite targets, and `docs/Icons.md` for marks
 
 Code calls `browser.<api>`, the same objects `chrome.<api>` names, and type names keep `chrome.` (`chrome.runtime.PlatformInfo`).
 
@@ -37,7 +37,7 @@ Code calls `browser.<api>`, the same objects `chrome.<api>` names, and type name
 - `icons` PNGs paint from `icons/mark.svg` and each `icons/mark-<grid>.svg` in `config.brand`, 128px padding 16px around its drawing
 - Imported assets inline as data URLs, as injected code reaches no package file
 - Chunks shared with the service worker load through static `import`
-- `checks()` of `@rasm/vite` fails a build on Rolldown warnings of output that runs wrong and resolves `#/` imports carrying a Vite query
+- `checks()` of `@rasm/vite/checks` fails a build on Rolldown warnings of output that runs wrong and resolves `#/` imports carrying a Vite query
 
 Each change builds, loads, and tests in order:
 1. `nx build @rasm/<name>` writes the unpacked extension to `.artifacts/vite/@rasm/<name>`
@@ -329,4 +329,4 @@ Suites load the built extension in Chrome for Testing and assert what a user rec
 Nx targets build, version, and publish an extension from its manifest:
 - `build--chrome` zips the build folder, and `nx release` writes `version` in `manifest.json`
 - `nx release publish` uploads each zip to the Chrome Web Store API, waits for its upload state, and submits it for review
-- Use `docs/Workflows.md` for release credentials and `docs/typescript/Testing.md` for store media
+- Use `docs/Workflows.md` for release credentials and `typescript:testing` for store media

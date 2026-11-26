@@ -1,4 +1,4 @@
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, DateTime, Equal, HashSet, Number, Option, Order, Record, Result, type Schema, Struct } from 'effect';
 import { Address, type Index, type Item, type Shown } from '#/address';
 import { Condition, type Container, type Control, type KeyStep, type Pasteboard } from '#/contract';
@@ -39,6 +39,7 @@ const facts = (head: string, rest: readonly string[]) => [head, ...rest].join(' 
 const flags = (held: Readonly<Record<string, boolean>>) => Record.keys(Record.filter(held, (on) => on));
 const quoted = (key: string, value: Schema.Json) => `${key}:${JSON.stringify(value)}`;
 const shortcut = ({ key, modifiers }: KeyStep) => `shortcut {key:{${quoted('key', key)},${quoted('modifiers', modifiers)}}}`;
+const help = (text: string | undefined, label: string | undefined) => Array.fromNullishOr(text).flatMap((held) => (held === label ? [] : [`help ${JSON.stringify(held)}`]));
 const call = (held: readonly string[]) => `inspect {${held.join(', ')}}`;
 const node = (line: string, tokens: readonly string[], rest: Partial<Node> = {}): Node => ({ line, tokens, pinned: false, cut: NEVER, children: Option.none(), ...rest });
 const alternation = <A>(entries: readonly A[], key: (entry: A) => string, alternate: (entry: A) => Option.Option<string>) => {
@@ -111,10 +112,10 @@ const controlNode =
         };
         const besides = alternates.map((each) => controlNode(index, container, changed, leveled, Option.none())({ entry: each, alternates: [], nested: [] }).node);
         const pinned = marks.default || marks.cancel || marks.close || marks.focused || marks.changed || control.selected !== undefined || (container.asking && control.kind === 'action') || besides.some(Struct.get('pinned'));
-        const chosen = control.value !== undefined && 'text' in control.value ? Option.some(control.value.text.value) : Option.none();
+        const chosen = control.value?._tag === 'text' ? Option.some(control.value.value) : Option.none();
         const listed = options.map(({ option, item: each }) => {
             const selected = Option.contains(chosen, option.label);
-            return node(facts([...Option.toArray(each.token), Option.getOrElse(each.name, () => 'unlabelled')].join(' '), selected ? ['selected'] : []), Option.toArray(each.token), { pinned: selected });
+            return node(facts([...Option.toArray(each.token), Option.getOrElse(each.name, () => 'unlabelled')].join(' '), [...(selected ? ['selected'] : []), ...Array.fromNullishOr(option.shortcut).map(shortcut), ...help(option.help, option.label)]), Option.toArray(each.token), { pinned: selected });
         });
         const last = Option.getOrElse(Array.findFirstIndex(listed, Struct.get('pinned')), () => -1) + KEPT.options;
         const leveling = new Set(nested.filter(({ entry }) => entry.control.kind === 'row').map(({ entry }) => entry.control.level)).size > 1;
@@ -133,15 +134,14 @@ const controlNode =
         const described = facts(head.join(' '), [
             ...flags(marks),
             ...Array.fromNullishOr(control.selected).flatMap((evidence) => Array.fromNullishOr(SELECTED[evidence][control.kind])),
-            ...Array.fromNullishOr(control.range).flatMap(({ minimum, maximum, step }) => [...(minimum === undefined && maximum === undefined ? [] : [`range ${minimum ?? '-∞'}–${maximum ?? '∞'}`]), ...Array.fromNullishOr(step).map((by) => `step ${by}`)]),
+            ...Array.fromNullishOr(control.range).flatMap(({ minimum, maximum, step, wraps }) => [...(minimum === undefined && maximum === undefined ? [] : [`range ${minimum ?? '-∞'}–${maximum ?? '∞'}`]), ...Array.fromNullishOr(step).map((by) => `step ${by}`), ...(wraps === true ? ['wraps'] : [])]),
             ...Array.fromNullishOr(control.shortcut).map(shortcut),
             ...Array.fromNullishOr(control.placeholder).map((text) => `placeholder ${JSON.stringify(text)}`),
             ...Array.fromNullishOr(control.level).flatMap((level) => (leveled ? [`level ${level}`] : [])),
             ...Array.fromNullishOr(control.expanded).map((open) => (open ? 'expanded' : 'collapsed')),
             ...(control.kind === 'choice' && control.options === undefined ? ['options listed only while open'] : []),
-            ...Array.fromNullishOr(control.help)
-                .filter((help) => help !== control.label?.text)
-                .map((help) => `help ${JSON.stringify(help)}`),
+            ...help(control.help, control.label?.text),
+            ...Array.fromNullishOr(control.labels).map((labels) => `also ${labels.map((each) => JSON.stringify(each)).join(', ')}`),
             ...besides.map(({ line }) => `alternate (${line})`),
         ]);
         return {
@@ -168,11 +168,12 @@ const tree = (index: Index, changed: HashSet.HashSet<Control['ref']>): readonly 
         });
         const nodes = [...folded.map((each) => ({ ...each, cut: primary.has(container.ref) ? NEVER : CUTS.indexOf('containers') })), ...remembered(index, container.locator), ...container.text.map((text) => node(JSON.stringify(text), [], { cut: CUTS.indexOf('text') }))];
         const line = facts([...Option.toArray(item.token), container.kind, ...Option.toArray(Option.map(item.name, (title) => JSON.stringify(title)))].join(' '), [
-            ...flags({ asking: container.asking, modal: container.modal, focused: container.focused === true }),
+            ...flags({ asking: container.asking, modal: container.modal, focused: container.focused === true, unsaved: container.edited === true, 'full screen': container.fullScreen === true }),
             ...Array.fromNullishOr(container.parent)
                 .flatMap((parent) => Option.toArray(Option.flatMap(Record.get(index.live, `${parent}`), Struct.get('token'))))
                 .map((parent) => `in ${parent}`),
             ...Array.fromNullishOr(container.document).map((document) => `document ${document}`),
+            ...help(container.help, container.title),
             ...(container.truncated ? Option.toArray(item.token).map((at) => `partly read, ${call([quoted('in', at)])} reads more`) : []),
         ]);
         return node(line, Option.toArray(item.token), { pinned: container.asking || nodes.some(Struct.get('pinned')), children: Option.map(item.token, (at) => ({ at, nodes })) });
@@ -293,15 +294,15 @@ const hits = (found: readonly Item[], held: readonly string[], { after = Option.
     return Result.map(start(page, after), (from) => fit(page, from, budget));
 };
 const clipboard = ({ changeCount, types, access, patterns, contentType, content }: Pasteboard, ref: Control['ref']) =>
-    facts([Address.token('clipboard', ref), 'clipboard', ...(content?._tag === 'text' ? [JSON.stringify(content.text.value.slice(0, BUDGET.page).toWellFormed())] : [])].join(' '), [
+    facts([Address.token('clipboard', ref), 'clipboard', ...(content?._tag === 'text' ? [JSON.stringify(content.value.slice(0, BUDGET.page).toWellFormed())] : [])].join(' '), [
         `change ${changeCount}`,
         Array.isReadonlyArrayNonEmpty(types) ? `types ${types.join(', ')}` : 'empty',
         ...(Array.isReadonlyArrayNonEmpty(patterns) ? [`detects ${patterns.join(', ')}`] : []),
         ...Array.fromNullishOr(contentType).map((type) => `file of type ${type}`),
-        ...(content?._tag === 'text' && content.text.value.length > BUDGET.page ? [`first ${BUDGET.page} of ${content.text.value.length} characters`] : []),
+        ...(content?._tag === 'text' && content.value.length > BUDGET.page ? [`first ${BUDGET.page} of ${content.value.length} characters`] : []),
         ...(content?._tag === 'withheld' ? [`text withheld as Paste from Other Apps is ${access} for this server, System Settings > Privacy & Security > Paste from Other Apps allows it and lists the server once a read raised the paste alert`] : []),
     ]);
-const Outline = { render, hits, clipboard, budget: BUDGET, rows: KEPT.rows, call, quoted } as const;
+const Outline = { render, hits, clipboard, budget: BUDGET, rows: KEPT.rows, call, quoted, shortcut } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

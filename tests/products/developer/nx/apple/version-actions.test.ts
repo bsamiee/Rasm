@@ -1,13 +1,15 @@
+import { assert, describe, expect, it } from '@effect/vitest';
 import type { Tree } from '@nx/devkit';
 import { createTreeWithEmptyWorkspace } from '@nx/devkit/testing';
 import AppleVersionActions from '@rasm/nx-apple/release/version-actions';
-import { assert, asyncProperty, nat, tuple } from 'fast-check';
-import { describe, expect, it } from 'vitest';
+import { Effect, Schema, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MANIFESTS = {
-    'Info.plist': `<?xml version="1.0" encoding="UTF-8"?>
+    'Info.plist': {
+        stated: '<string>1.0.0</string>',
+        text: `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -18,7 +20,10 @@ const MANIFESTS = {
 </dict>
 </plist>
 `,
-    'Viewer.xcodeproj/project.xcproj': `{
+    },
+    'Viewer.xcodeproj/project.xcproj': {
+        stated: '"MARKETING_VERSION": "1.0.0"',
+        text: `{
   "default-configuration": "Release",
   "configurations": [
     "Debug",
@@ -49,6 +54,7 @@ const MANIFESTS = {
   },
 }
 `,
+    },
 };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -75,30 +81,25 @@ const createVersionActions = async (tree: Tree, manifest: string): Promise<Apple
 };
 
 describe(AppleVersionActions, () => {
-    it.each([
-        { name: 'Info.plist', manifest: 'Info.plist', input: MANIFESTS['Info.plist'], stated: '<string>1.0.0</string>' },
-        { name: 'project.xcproj', manifest: 'Viewer.xcodeproj/project.xcproj', input: MANIFESTS['Viewer.xcodeproj/project.xcproj'], stated: '"MARKETING_VERSION": "1.0.0"' },
-    ])('writes any major.minor.patch version into $name, keeping the rest of its text, and reads that version back', async ({ manifest, input, stated }) => {
-        expect.hasAssertions();
-        await assert(
-            asyncProperty(tuple(nat(), nat(), nat()), async (parts) => {
-                const version = parts.join('.');
-                const tree = createTreeWithEmptyWorkspace();
-                tree.write(`packages/my-lib/${manifest}`, input);
-                const versionActions = await createVersionActions(tree, manifest);
+    it.effect.prop(
+        'writes any major.minor.patch version into each manifest, keeping the rest of its text, and reads that version back',
+        { manifest: Schema.Literals(Struct.keys(MANIFESTS)), parts: Schema.Tuple([Schema.Natural, Schema.Natural, Schema.Natural]) },
+        Effect.fnUntraced(function* ({ manifest, parts }) {
+            const [version, { stated, text }] = [parts.join('.'), MANIFESTS[manifest]];
+            const tree = createTreeWithEmptyWorkspace();
+            tree.write(`packages/my-lib/${manifest}`, text);
+            const versionActions = yield* Effect.promise(() => createVersionActions(tree, manifest));
 
-                await versionActions.updateProjectVersion(tree, version);
+            yield* Effect.promise(() => versionActions.updateProjectVersion(tree, version));
 
-                expect(tree.read(`packages/my-lib/${manifest}`, 'utf-8')).toBe(input.replace(stated, stated.replace('1.0.0', version)));
-                await expect(versionActions.readCurrentVersionFromSourceManifest(tree)).resolves.toStrictEqual({ currentVersion: version, manifestPath: `packages/my-lib/${manifest}` });
-            }),
-            { numRuns: 20 },
-        );
-    });
+            assert.deepStrictEqual([tree.read(`packages/my-lib/${manifest}`, 'utf-8'), yield* Effect.promise(() => versionActions.readCurrentVersionFromSourceManifest(tree))], [text.replace(stated, stated.replace('1.0.0', version)), { currentVersion: version, manifestPath: `packages/my-lib/${manifest}` }]);
+        }),
+        { arbitrary: { runs: 40 } },
+    );
 
     it.each([
-        { name: 'Info.plist', manifest: 'Info.plist', input: MANIFESTS['Info.plist'].replace('</dict>\n', '') },
-        { name: 'project.xcproj', manifest: 'Viewer.xcodeproj/project.xcproj', input: MANIFESTS['Viewer.xcodeproj/project.xcproj'].slice(0, -3) },
+        { name: 'Info.plist', manifest: 'Info.plist', input: MANIFESTS['Info.plist'].text.replace('</dict>\n', '') },
+        { name: 'project.xcproj', manifest: 'Viewer.xcodeproj/project.xcproj', input: MANIFESTS['Viewer.xcodeproj/project.xcproj'].text.slice(0, -3) },
     ])('rejects a malformed $name without changing it', async ({ manifest, input }) => {
         const tree = createTreeWithEmptyWorkspace();
         tree.write(`packages/my-lib/${manifest}`, input);
@@ -110,7 +111,7 @@ describe(AppleVersionActions, () => {
 
     it('rejects a version update shadowed by a duplicate key', async () => {
         const tree = createTreeWithEmptyWorkspace();
-        const manifest = MANIFESTS['Viewer.xcodeproj/project.xcproj'].replace('"MARKETING_VERSION": "1.0.0",', '"MARKETING_VERSION": "1.0.0",\n    "MARKETING_VERSION": "5.5.5",');
+        const manifest = MANIFESTS['Viewer.xcodeproj/project.xcproj'].text.replace('"MARKETING_VERSION": "1.0.0",', '"MARKETING_VERSION": "1.0.0",\n    "MARKETING_VERSION": "5.5.5",');
         tree.write('packages/my-lib/Viewer.xcodeproj/project.xcproj', manifest);
         const versionActions = await createVersionActions(tree, 'Viewer.xcodeproj/project.xcproj');
 

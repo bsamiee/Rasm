@@ -1,14 +1,15 @@
 import { dirname, join } from 'node:path';
 import process from 'node:process';
 import { isSea } from 'node:sea';
-import type { Application } from '@rasm/creative-cloud-desktop';
+import type { Application } from '@rasm/creative-cloud-desktop/application';
 import { readCoreOmv } from '@rasm/extendscript/node';
-import { registerResourceTemplate, Server } from '@rasm/mcp';
 import { Output } from '@rasm/mcp/cli';
-import { Declaration } from '@rasm/object-model';
+import { registerResourceTemplate } from '@rasm/mcp/resource';
+import { Server } from '@rasm/mcp/server';
+import { Declaration } from '@rasm/object-model/model';
 import { readDocuments, readManifest, readOmv, readTypeScript } from '@rasm/object-model/node';
-import { Unmatched } from '@rasm/search';
-import { HOSTS } from '@rasm/uxp';
+import { Unmatched } from '@rasm/search/unmatched';
+import { HOSTS } from '@rasm/uxp/manifest';
 import base from '@rasm/uxp/tsconfig.base.json' with { type: 'json' };
 import { Array, Cause, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Order, Path, Record, Schema, Scope, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpSchema } from 'effect/ai';
@@ -23,7 +24,7 @@ type Finding = Effect.Success<ReturnType<Effect.Success<ReturnType<Effect.Succes
 const UXP = { types: ['@adobe/cc-ext-uxp-types/uxp'], lib: base.compilerOptions.lib.filter((name) => name !== 'dom') };
 const CHECKED = {
     photoshop: { product: HOSTS.PS.product, root: '@types/photoshop', ...UXP, preamble: "declare function require(id: 'photoshop'): typeof import('photoshop');\ndeclare function resolve(specifier: string): unknown;", enumeration: Option.none<string>() },
-    premierepro: { product: HOSTS.premierepro.product, root: '@adobe/premierepro', ...UXP, preamble: "declare function require(id: 'premierepro'): import('@adobe/premierepro').premierepro;", enumeration: Option.none<string>() },
+    premierepro: { product: HOSTS.premierepro.product, root: '@adobe/premierepro', ...UXP, preamble: "declare function require(id: 'premierepro'): import('@adobe/premierepro').premierepro;\ndeclare function resolve(specifier: string): unknown;", enumeration: Option.none<string>() },
     indesign: { product: HOSTS.ID.product, root: 'indesign-uxp-types/flat', ...UXP, types: [...UXP.types, 'indesign-uxp-types'], preamble: "declare function require(id: 'indesign'): typeof import('indesign');", enumeration: Option.some('Enumeration') },
 } as const;
 const PRODUCTS = Record.fromIterableWith(Record.toEntries(CHECKED), ([host, { product }]) => [product, host] as const);

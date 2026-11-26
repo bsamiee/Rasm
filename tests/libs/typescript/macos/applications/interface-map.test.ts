@@ -1,8 +1,10 @@
 import { layer as services } from '@effect/platform-node/NodeServices';
 import { SqliteClient } from '@effect/sql-sqlite-node';
 import { assert, describe, it } from '@effect/vitest';
-import { InterfaceMap, Observation } from '@rasm/applications';
-import { Catalog } from '@rasm/database';
+import { type KeyStep, Observation } from '@rasm/applications/contract';
+import { InterfaceMap } from '@rasm/applications/interface-map';
+import { Description, FacetControl } from '@rasm/applications/source';
+import { Catalog } from '@rasm/database/catalog';
 import { Sqlite } from '@rasm/database/sqlite';
 import { Array, DateTime, Duration, Effect, FileSystem, Layer, Option, Predicate, Record, Schema, Struct } from 'effect';
 import { SqlClient } from 'effect/sql';
@@ -28,6 +30,10 @@ const DIALOG = '["AXDialog","New Document"]';
 const UNITS = '["AXPopUpButton","Units"]';
 const WIDTH = '["AXButton","Width"]';
 const START = Date.UTC(2026, 10, 25, 9);
+const BUILDS = ['22.1.0.19', '22.2.0.4'] as const;
+const TOOLBAR: FacetControl['locator'] = [['toolbar', 'tool']];
+const RECTANGLE: FacetControl['locator'] = [...TOOLBAR, ['tool', 'RECTANGLE_TOOL']];
+const PEN: FacetControl['locator'] = [...TOOLBAR, ['tool', 'PEN_TOOL']];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -68,15 +74,14 @@ const newDocument = Effect.forEach(
             build: '22.1.0.19',
             container: LAYOUT,
             kind: 'window',
-            document: false,
             modal: false,
             layer: 0,
             size: [1440, 900],
             opened: instant(0),
             at: instant(0),
-            complete: true,
+            truncated: false,
             documents: [],
-            scope: [
+            conditions: [
                 { _tag: 'Documents', held: false },
                 { _tag: 'Modal', at: null },
             ],
@@ -89,16 +94,15 @@ const newDocument = Effect.forEach(
             container: DIALOG,
             kind: 'dialog',
             title: 'New Document',
-            document: false,
             modal: true,
             layer: 8,
             size: [720, 480],
             opened: instant(1),
             at: instant(1),
-            complete: true,
+            truncated: false,
             documents: [],
-            cause: { container: LAYOUT, control: NEW },
-            scope: [
+            opener: { container: LAYOUT, control: NEW },
+            conditions: [
                 { _tag: 'Value', at: UNITS, value: 'Millimeters' },
                 { _tag: 'Documents', held: false },
                 { _tag: 'Modal', at: DIALOG },
@@ -146,15 +150,14 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
             container: JSON.stringify(['AXWindow', stem]),
             kind: 'window',
             title: `${name} @ 50%`,
-            document: false,
             modal: false,
             layer: 0,
             size: [800, 600],
             opened: instant(opener(read)),
             at: instant(read),
-            complete: complete !== 0,
+            truncated: complete === 0,
             documents: [`${home}/Briefs/${name}`],
-            scope: [
+            conditions: [
                 { _tag: 'Value', at: TOGGLE, value: toggle },
                 { _tag: 'Documents', held: true },
                 { _tag: 'Modal', at: null },
@@ -178,15 +181,14 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
         build: build(read),
         container: MENU,
         kind: 'menu',
-        document: false,
         modal: false,
         layer: 101,
         size: [0, 0],
         opened: instant(opener(read)),
         at: instant(at),
-        complete: true,
+        truncated: false,
         documents: [],
-        scope: [
+        conditions: [
             { _tag: 'Documents', held: true },
             { _tag: 'Modal', at: null },
         ],
@@ -201,7 +203,7 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
     const submenu = (read: number): typeof Observation.Encoded => ({
         ...level(read, read),
         container: SUBMENU,
-        cause: { container: MENU, control: RECENT },
+        opener: { container: MENU, control: RECENT },
         controls: { '["AXMenuItem","Clear Menu"]': { kind: 'item', role: 'AXMenuItem', label: { text: 'Clear Menu', attribute: 'AXTitle' }, positional: false } },
     });
     const oracle = (index: number) => {
@@ -218,6 +220,29 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
     return { user: { username: user, homedir: home }, stem, readings, present, generation, build, observation, level, submenu, opener, oracle, stored: (index: number) => JSON.stringify(['AXButton', `Item ${index} of ${PRIVATE}`]), window: JSON.stringify(['AXWindow', PRIVATE]) };
 };
 
+const toolbar = (current: string, [rectangle, pen]: readonly [{ readonly label: string; readonly shortcut?: KeyStep; readonly help?: string }, { readonly label: string; readonly shortcut?: KeyStep; readonly help?: string }]) =>
+    Description.make({
+        containers: [
+            {
+                locator: TOOLBAR,
+                kind: 'toolbar',
+                controls: [
+                    FacetControl.make({
+                        locator: [...TOOLBAR, ['choice', 'tool']],
+                        kind: 'choice',
+                        role: 'tool',
+                        value: { _tag: 'text', value: current },
+                        options: [
+                            { ...rectangle, locator: RECTANGLE },
+                            { ...pen, locator: PEN },
+                        ],
+                    }),
+                ],
+            },
+        ],
+    });
+const optionLabels = ({ containers }: Description) => Array.flatMap(containers, ({ controls }) => Array.flatMap(controls, ({ options = [] }) => Array.map(options, ({ label }) => label)));
+const optionFacts = ({ containers }: Description) => Array.flatMap(containers, ({ controls }) => Array.flatMap(controls, ({ options = [] }) => Array.map(options, (option) => Struct.omit(option, ['locator']))));
 const stored = (locator: string) => Effect.flatMap(SqlClient.SqlClient, (sql) => sql`SELECT body ->> '$.container.tally.last' AS last FROM containers WHERE locator = ${locator}`);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -301,6 +326,25 @@ describe(InterfaceMap, () => {
         }),
         { arbitrary: { seed: 2026, runs: 300 } },
     );
+
+    it('learns the label a facet gives its selected option under the newest build, serves it while the facet lists the option under another, and serves nothing a build before the newest learned', () => {
+        const first = new InterfaceMap({ application: { builds: [BUILDS[0]], options: {} }, containers: {} });
+        const learned = first.learn(toolbar('Rectangle Tool', [{ label: 'Rectangle Tool' }, { label: 'PEN_TOOL' }]));
+        const served = learned.map.learn(toolbar('Pen Tool', [{ label: 'RECTANGLE_TOOL' }, { label: 'Pen Tool' }]));
+        const again = served.map.learn(toolbar('Pen Tool', [{ label: 'RECTANGLE_TOOL' }, { label: 'Pen Tool' }]));
+        const updated = new InterfaceMap({ application: { builds: [BUILDS[1], BUILDS[0]], options: served.map.application.options }, containers: {} }).learn(toolbar('SELECTION_TOOL', [{ label: 'RECTANGLE_TOOL' }, { label: 'PEN_TOOL' }]));
+        assert.deepStrictEqual(
+            { learned: optionLabels(learned.described), served: optionLabels(served.described), updated: optionLabels(updated.described), kept: again.map === served.map, unlearned: first.learn(toolbar('SELECTION_TOOL', [{ label: 'RECTANGLE_TOOL' }, { label: 'PEN_TOOL' }])).map === first },
+            { learned: ['Rectangle Tool', 'PEN_TOOL'], served: ['Rectangle Tool', 'Pen Tool'], updated: ['RECTANGLE_TOOL', 'PEN_TOOL'], kept: true, unlearned: true },
+        );
+    });
+
+    it('learns the shortcut and help beside the label a facet gives its selected option, and serves all three while the facet lists the option with its id alone', () => {
+        const pen = { label: 'Pen Tool', shortcut: { key: 'p', modifiers: [] }, help: 'Click to add an anchor point, drag to pull its direction handles' } as const;
+        const learned = new InterfaceMap({ application: { builds: [BUILDS[0]], options: {} }, containers: {} }).learn(toolbar('Pen Tool', [{ label: 'RECTANGLE_TOOL' }, pen]));
+        const served = learned.map.learn(toolbar('RECTANGLE_TOOL', [{ label: 'RECTANGLE_TOOL' }, { label: 'PEN_TOOL' }]));
+        assert.deepStrictEqual<unknown>({ learned: optionFacts(learned.described), served: optionFacts(served.described) }, { learned: [{ label: 'RECTANGLE_TOOL' }, pen], served: [{ label: 'RECTANGLE_TOOL' }, pen] });
+    });
 
     it.effect(
         'reads back on a second start, after the catalog reconciles, every document the first start wrote',

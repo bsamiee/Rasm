@@ -1,5 +1,6 @@
 import { useAtom, useAtomMount, useAtomRefresh, useAtomSet, useAtomSubscribe, useAtomValue } from '@effect/atom-react';
-import { Issues, ModalDialog } from '@rasm/ui';
+import { Issues } from '@rasm/ui/issues';
+import { ModalDialog } from '@rasm/ui/modal-dialog';
 import { Array, Filter, Function, Match, Option, Predicate, Schema, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { AsyncResult, Atom } from 'effect/reactivity';

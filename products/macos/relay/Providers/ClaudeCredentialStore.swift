@@ -180,10 +180,9 @@ nonisolated struct ClaudeCredentialStore: Sendable {
                 arguments: arguments,
                 environment: .custom([:]),
                 workingDirectory: FilePath(URL.homeDirectory.path(percentEncoded: false)),
-                platformOptions: .session(),
+                platformOptions: .session,
             )
             .run(output: .string(limit: 1 << 20), within: .seconds(15), input: input)
-            .standardOutput
         } catch {
             return switch error.reason {
                 case .exit(.exited(code(errSecItemNotFound)), _): nil

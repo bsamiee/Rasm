@@ -10,9 +10,6 @@
         },
         {
             "path": "../object-model/tsconfig.lib.json"
-        },
-        {
-            "path": "../../macos/applications"
         }
     ],
     "nx": {

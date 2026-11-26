@@ -1,7 +1,7 @@
 import { basename, join, posix, relative } from 'node:path';
 import { normalizePath } from '@nx/devkit';
 import { combineGlobPatterns, globWithWorkspaceContext } from '@nx/devkit/internal';
-import { above, below } from '@rasm/nx';
+import { above, below } from '@rasm/nx/inference';
 import { inc, major, minor, minSatisfying, RANGE_PATTERN } from '@renovatebot/pep440';
 import { Array, Cause, Effect, Equivalence, FileSystem, Function, Graph, Option, pipe, Record, Result, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
@@ -49,7 +49,7 @@ const Node = Schema.Struct({
     dependency_groups: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.Struct({ name: Schema.String, id: Schema.String })))),
     optional_dependencies: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.Struct({ name: Schema.String, id: Schema.String })))),
 });
-class Metadata extends Schema.Opaque<Metadata, unknown>()(
+class Metadata extends Schema.Opaque<Metadata>()(
     Schema.fromJsonString(
         Schema.Struct({
             schema: Schema.Struct({ version: Schema.Literal(SCHEMA) }),

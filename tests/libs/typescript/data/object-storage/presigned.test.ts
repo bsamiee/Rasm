@@ -1,7 +1,7 @@
 import { CreateBucketCommand, S3Client } from '@aws-sdk/client-s3';
 import { assert, layer } from '@effect/vitest';
-import { ObjectStorage, Presignable } from '@rasm/object-storage';
 import { s3Storage } from '@rasm/object-storage/s3';
+import { ObjectStorage, Presignable } from '@rasm/object-storage/storage';
 import { ByteSize, ConfigProvider, Effect, Layer, Option, Record, Schema } from 'effect';
 import { FetchHttpClient, Headers, HttpClient, HttpClientRequest } from 'effect/http';
 import { GenericContainer, Wait } from 'testcontainers';

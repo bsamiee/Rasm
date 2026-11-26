@@ -54,7 +54,7 @@ struct PasteboardTests {
         defer { board.releaseGlobally() }
         let file = URL(filePath: #filePath)
         board.clearContents()
-        #expect(board.setString(file.absoluteString, forType: .fileURL))
+        expectNoDifference(board.setString(file.absoluteString, forType: .fileURL), true)
         let read = try await Pasteboard(board.name)
         expectNoDifference(read.contentType, UTType(filenameExtension: file.pathExtension)?.identifier)
         expectNoDifference(read.content, nil)

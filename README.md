@@ -175,7 +175,8 @@ Roots split, nest, or hold more where a host or tool decides:
 - Projects reach ImageSharp through `Rasm.Imaging`, as ImageSharp fails unsigned Release builds and `.config/licenses/sixlabors.lic` signs it alone
 - Swift modules, app code included, are root `Package.swift` targets, and Xcode app targets hold bundle, icon, and signing over their app module
 - Xcode app projects build through root `Rasm.xcworkspace`, as projects built apart each clone every package and compile it again
-- Root `Package.swift` builds and tests in that workspace through shared scheme `Rasm-Package`, which lists every target, in place of SwiftPM
+- Root `Package.swift` builds and tests in that workspace through shared scheme `Rasm-Package`, which lists every module, in place of SwiftPM
+- Scheme `Rasm-Package` tests through default plan `.config/Rasm-Package.xctestplan` and measures through `.config/Performance.xctestplan`, each listing its test targets by name
 - Nx project `Rasm-Package` at `Rasm.xcworkspace` holds the root package's Swift and Xcode targets, and root project `rasm` holds none
 - Workspace `Package.resolved` links to the root one, which `swift package update` moves and `xcodebuild` reads and writes through the link
 - User default `IDEPackageOnlyUseVersionsFromResolvedFile` of mise `[bootstrap]` holds Xcode windows to resolved versions, as builds are
@@ -226,6 +227,7 @@ Suites sit in `tests/` except where their tool fixes the place:
 - Suites stay inside a nested tool root that stops discovery at its root (SwiftPM analyzer) or a plugin folder published whole
 - Projects needing no host run on every platform, and tags `os:<platform>` and `host:<host>` mark projects a toolchain, framework, or host limits
 - C++ projects take one Nx configuration per CMake workflow preset (`nx test <project> -c asan`), and the first preset is the default
+- Swift suites reading another process fail where `xctest` lacks its grant, which CI writes and a Mac takes once per Xcode build
 
 Rhino suites boot Rhino once per test process, one run per machine, as concurrent processes opening views on one Cloud Zoo license each raise a prompt:
 - Local runs on a machine with Rhino open views, or none under `nx test <project> -c headless`, in a scratch profile seeded with license files

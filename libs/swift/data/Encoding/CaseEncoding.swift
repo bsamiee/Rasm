@@ -1,21 +1,46 @@
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public protocol CaseKeyed: Encodable {}
+public protocol CaseTagged: Encodable {}
 
 public protocol CaseLabeled: Encodable {}
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+private struct Field: CodingKey {
+    static let tag = Self(stringValue: "_tag")
+
+    let stringValue: String
+    let intValue: Int? = nil
+
+    init(stringValue: String) { self.stringValue = stringValue }
+
+    init?(intValue _: Int) { nil }
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-extension CaseKeyed {
+extension CaseTagged {
     public func encode(to encoder: any Encoder) throws {
-        guard let held = Mirror(reflecting: self).children.first, let label = held.label, let value = held.value as? any Encodable else {
-            throw EncodingError.invalidValue(self, EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "\(Self.self) case \(self) holds no Encodable value"))
+        let held: Mirror.Child? = Mirror(reflecting: self).children.first
+        let payload: Mirror? = held.map { held in Mirror(reflecting: held.value) }
+        let refused = { (value: Any) in
+            EncodingError.invalidValue(value, EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "\(Self.self) case \(self) holds no Encodable value"))
         }
-        func encodeKeyed(_ value: some Encodable) throws {
-            var fields = encoder.singleValueContainer()
-            try fields.encode([label: value])
+        var fields = encoder.container(keyedBy: Field.self)
+        try fields.encode(held?.label ?? String(describing: self), forKey: .tag)
+        switch (held?.value, payload) {
+            case (.none, _): return
+            case (.some, .some(let parts)) where parts.displayStyle == .tuple:
+                for child in parts.children {
+                    let wrapped = Mirror(reflecting: child.value)
+                    let present: Any? = wrapped.displayStyle == .optional ? wrapped.children.first?.value : child.value
+                    guard let present else { continue }
+                    guard let value = present as? any Encodable else { throw refused(present) }
+                    try fields.encode(value, forKey: Field(stringValue: child.label ?? ""))
+                }
+            case (.some(let value as any Encodable), _): try value.encode(to: encoder)
+            case (.some(let value), _): throw refused(value)
         }
-        try encodeKeyed(value)
     }
 }
 

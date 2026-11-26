@@ -1,7 +1,7 @@
 import { posix } from 'node:path';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, type CreateNodesResult, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, getFilesInDirectoryUsingContext, globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
-import { aggregated, anchored, EXECUTORS, manifested, namedInput, run } from '@rasm/nx';
+import { aggregated, anchored, EXECUTORS, manifested, namedInput, run } from '@rasm/nx/inference';
 import { Array, Effect, FileSystem, Option, Predicate, pipe, Record, Schema, String } from 'effect';
 import { exports as resolved } from 'resolve.exports';
 

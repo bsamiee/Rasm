@@ -1,0 +1,16 @@
+{
+    "name": "@rasm/test-creative-cloud-desktop",
+    "private": true,
+    "description": "@rasm/creative-cloud-desktop suites over trimmed copies of the shortcut sets, toolbar settings, preferences, and curated catalogs installed Adobe builds keep",
+    "type": "module",
+    "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@rasm/applications": "workspace:*",
+        "@rasm/creative-cloud-desktop": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

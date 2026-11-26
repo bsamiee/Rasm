@@ -1,0 +1,11 @@
+{
+    "extends": "../uxp/tsconfig.base.json",
+    "references": [
+        {
+            "path": "../uxp"
+        },
+        {
+            "path": "../object-model"
+        }
+    ]
+}

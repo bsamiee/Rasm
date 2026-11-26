@@ -84,7 +84,7 @@ Family errors are one class holding a tagged `reason` union: `HttpClientError`, 
 
 ## [05]-[TELEMETRY]
 
-Libraries emit logs, spans, and metrics and export nothing. Each host entry provides one telemetry layer, `layer` of `@rasm/telemetry` in browser, Worker, and plug-in runtimes and `layerNodeFromConfig` of `@rasm/telemetry/node` in a Node process, and Node roots pass its `teardown` to `runMain`. A collector's transport selects the export member that layer composes:
+Libraries emit logs, spans, and metrics and export nothing. Each host entry provides one telemetry layer, `layer` of `@rasm/telemetry/otlp` in browser, Worker, and plug-in runtimes and `layerNodeFromConfig` of `@rasm/telemetry/node` in a Node process, and Node roots pass its `teardown` to `runMain`. A collector's transport selects the export member that layer composes:
 
 | [INDEX] | [TRANSPORT]                     | [LAYER]                                                                    |
 | :-----: | :------------------------------ | :------------------------------------------------------------------------- |

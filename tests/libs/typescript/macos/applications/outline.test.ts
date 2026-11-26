@@ -1,5 +1,8 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Address, InterfaceMap, Model, Outline } from '@rasm/applications';
+import { Address } from '@rasm/applications/address';
+import { Model } from '@rasm/applications/contract';
+import { InterfaceMap } from '@rasm/applications/interface-map';
+import { Outline } from '@rasm/applications/outline';
 import { Array, Effect, Option, Record, Result, Schema, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -12,6 +15,46 @@ const CONTINUATION = /^(?<indent> *)\+(?<count>\d+) more · inspect \{(?<call>.*
 const ARGUMENT = /(?<key>in|after):(?<value>"(?:[^"\\]|\\.)*")/gu;
 const ALTERNATE = /alternate \((?<token>@\p{Ll}\p{Nd}+)/gu;
 const DEPTH = 1000;
+const BRUSH = { key: 'b', modifiers: ['shift'] } as const;
+const TOOLS: Model = {
+    sequence: 1,
+    containers: [
+        {
+            ref: 1,
+            locator: '[["toolbar","tool"]]',
+            kind: 'toolbar',
+            modal: false,
+            asking: false,
+            text: [],
+            truncated: false,
+            controls: [
+                {
+                    ref: 2,
+                    locator: '[["toolbar","tool"],["choice","tool"]]',
+                    kind: 'choice',
+                    role: 'tool',
+                    positional: false,
+                    label: { text: 'tool', attribute: 'tool' },
+                    value: { _tag: 'text', value: 'Eraser Tool' },
+                    options: [
+                        { ref: 3, label: 'Brush Tool', shortcut: BRUSH, help: 'Click and drag to paint with the foreground color' },
+                        { ref: 4, label: 'Eraser Tool' },
+                    ],
+                },
+            ],
+        },
+        {
+            ref: 5,
+            locator: '[["AXMenu","Window"]]',
+            kind: 'menu',
+            modal: false,
+            asking: false,
+            text: [],
+            truncated: false,
+            controls: [{ ref: 6, locator: '[["AXMenu","Window"],["AXMenuItem","Brushes"]]', kind: 'item', role: 'AXMenuItem', positional: false, label: { text: 'Brushes', attribute: 'AXTitle' }, shortcut: BRUSH }],
+        },
+    ],
+};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -74,6 +117,24 @@ const spliced = (index: Index, lines: readonly string[], budget: typeof Outline.
     );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
+describe('Outline.render of a tool choice', () => {
+    it.effect(
+        'prints each option with the shortcut a menu item of the same key step prints and its help, and an option stating neither with its label alone',
+        Effect.fnUntraced(function* () {
+            const lines = (yield* Effect.fromResult(Outline.render(Address.index(TOOLS, InterfaceMap.empty)))).map((line) => line.trim());
+            const item = yield* Effect.fromOption(Array.findFirst(lines, (line) => line.startsWith('@i6 ')));
+            assert.deepStrictEqual(
+                { brush: lines.find((line) => line.startsWith('@o3 ')), eraser: lines.find((line) => line.startsWith('@o4 ')), item },
+                {
+                    brush: '@o3 Brush Tool · shortcut {key:{key:"b",modifiers:["shift"]}} · help "Click and drag to paint with the foreground color"',
+                    eraser: '@o4 Eraser Tool · selected',
+                    item: '@i6 Brushes item · shortcut {key:{key:"b",modifiers:["shift"]}}',
+                },
+            );
+        }),
+    );
+});
 
 describe(Outline.render, () => {
     it.effect.prop(

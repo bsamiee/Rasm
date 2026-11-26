@@ -19,7 +19,11 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
+        "./catalog": "./catalog.ts",
+        "./column": "./column.ts",
+        "./engine": "./engine.ts",
+        "./error": "./error.ts",
+        "./relation": "./relation.ts",
         "./clickhouse": "./clickhouse.ts",
         "./d1": "./d1.ts",
         "./pg": "./pg.ts",
@@ -31,7 +35,11 @@
             "#/*": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/index.js",
+            "./catalog": "./dist/catalog.js",
+            "./column": "./dist/column.js",
+            "./engine": "./dist/engine.js",
+            "./error": "./dist/error.js",
+            "./relation": "./dist/relation.js",
             "./clickhouse": "./dist/clickhouse.js",
             "./d1": "./dist/d1.js",
             "./pg": "./dist/pg.js",

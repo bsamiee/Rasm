@@ -1,0 +1,15 @@
+{
+    "extends": "../../../../../tsconfig.base.json",
+    "compilerOptions": {
+        "noEmit": true,
+        "types": ["node"]
+    },
+    "references": [
+        {
+            "path": "../../../../../libs/typescript/creative-cloud/desktop"
+        },
+        {
+            "path": "../../../../../libs/typescript/macos/applications"
+        }
+    ]
+}

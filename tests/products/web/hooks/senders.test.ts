@@ -1,18 +1,18 @@
 import { createHash, createHmac } from 'node:crypto';
-import { createServer } from 'node:net';
 import { join } from 'node:path';
 import process from 'node:process';
 import { layerUndici } from '@effect/platform-node/NodeHttpClient';
 import { layer as services } from '@effect/platform-node/NodeServices';
 import { PgClient } from '@effect/sql-pg';
 import { assert, layer } from '@effect/vitest';
-import { App } from '@rasm/hosting';
+import { App } from '@rasm/hosting/app';
 import { routed } from '@rasm/testing/playwright';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { Cause, DateTime, Effect, Layer, Redacted, Schedule, Schema } from 'effect';
 import { HttpBody, HttpClient, HttpClientRequest } from 'effect/http';
 import { ChildProcess } from 'effect/process';
 import { SqlClient, SqlSchema } from 'effect/sql';
+import getPort from 'get-port';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -22,12 +22,6 @@ const sender = { secret: 'tskey-webhook-kExample1CNTRL-0123456789abcdef', header
 
 const event = (message: string) => JSON.stringify([{ timestamp: '2022-09-21T13:37:51.658918-04:00', version: 1, type: 'test', tailnet: 'example.com', message, data: null }]);
 const signed = (at: number, body: string, secret: string = sender.secret) => ({ [sender.header]: [`t=${at}`, createHmac('sha256', secret).update(`${at}.${body}`).digest('hex')].join(',v1=') });
-const allocated = Effect.callback<number>((resume) => {
-    const probe = createServer().listen(0, '127.0.0.1', () => {
-        const address = probe.address();
-        probe.close(() => resume(Effect.succeed(typeof address === 'object' && address !== null ? address.port : 0)));
-    });
-});
 const posted = (body: string, headers: Readonly<Record<string, string>>) => Effect.map(HttpClient.post(sender.path, { headers, body: HttpBody.text(body, 'application/json') }), ({ status }) => status);
 const digest = (body: string) => createHash('sha256').update(body).digest('hex');
 const settled = SqlSchema.findAll({
@@ -46,7 +40,7 @@ const added = Effect.fnUntraced(function* <A, E, R>(post: Effect.Effect<A, E, R>
 const receiver = Layer.unwrap(
     Effect.gen(function* () {
         const bundle = yield* Effect.fromOption(routed('@rasm/nx-vite', '@rasm/hooks'), () => new Cause.UnknownError('@rasm/hooks', 'nx.json states no Vite outputPath to run @rasm/hooks from'));
-        const [database, port] = yield* Effect.all([Effect.acquireDisposable(Effect.promise(() => new PostgreSqlContainer('postgres:19.0-alpine3.24').start())), allocated]);
+        const [database, port] = yield* Effect.all([Effect.acquireDisposable(Effect.promise(() => new PostgreSqlContainer('postgres:19.0-alpine3.24').start())), Effect.promise(() => getPort())]);
         const server = yield* ChildProcess.make(process.execPath, [join(bundle, App.bundle.environment, `${App.bundle.entry}.js`)], { env: { [App.bundle.portVariable]: `${port}`, POSTGRES_URL: database.getConnectionUri(), TAILSCALE_WEBHOOK_SECRET: sender.secret }, extendEnv: true, stdout: 'ignore', stderr: 'ignore' });
         const client = HttpClient.mapRequest(yield* HttpClient.HttpClient, HttpClientRequest.prependUrl(`http://127.0.0.1:${port}`));
         const exited = Effect.flatMap(server.exitCode, (code) => new Cause.UnknownError(code, `@rasm/hooks exits ${code} before it answers ${App.bundle.readiness}`));

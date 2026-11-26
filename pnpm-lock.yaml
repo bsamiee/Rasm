@@ -159,9 +159,6 @@ catalogs:
     '@playwright/test':
       specifier: 1.66.0-alpha-2026-11-22
       version: 1.66.0-alpha-2026-11-22
-    '@plist/parse':
-      specifier: 1.1.0
-      version: 1.1.0
     '@projectwallace/stylelint-plugin':
       specifier: 1.1.0
       version: 1.1.0
@@ -303,6 +300,9 @@ catalogs:
     acorn-walk:
       specifier: 8.3.5
       version: 8.3.5
+    ag-psd:
+      specifier: 34.2.3
+      version: 34.2.3
     ajv:
       specifier: 8.20.0
       version: 8.20.0
@@ -339,15 +339,15 @@ catalogs:
     eslint:
       specifier: 10.15.0
       version: 10.15.0
-    fast-check:
-      specifier: 4.11.0
-      version: 4.11.0
     fast-xml-parser:
       specifier: 5.12.1
       version: 5.12.1
     fontkit:
       specifier: 3.0.0
       version: 3.0.0
+    get-port:
+      specifier: 7.2.0
+      version: 7.2.0
     harfbuzzjs:
       specifier: 1.6.4
       version: 1.6.4
@@ -830,11 +830,10 @@ importers:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
 
+  libs/typescript/creative-cloud/acrobat: {}
+
   libs/typescript/creative-cloud/aftereffects:
     dependencies:
-      '@rasm/applications':
-        specifier: workspace:*
-        version: link:../../macos/applications
       '@rasm/object-model':
         specifier: workspace:*
         version: link:../object-model
@@ -860,12 +859,12 @@ importers:
       '@effect/sql-sqlite-node':
         specifier: 'catalog:'
         version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))
-      '@plist/parse':
-        specifier: 'catalog:'
-        version: 1.1.0
-      '@rasm/process':
+      '@rasm/applications':
         specifier: workspace:*
-        version: link:../../system/process
+        version: link:../../macos/applications
+      ag-psd:
+        specifier: 'catalog:'
+        version: 34.2.3
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -910,9 +909,6 @@ importers:
 
   libs/typescript/creative-cloud/illustrator:
     dependencies:
-      '@rasm/applications':
-        specifier: workspace:*
-        version: link:../../macos/applications
       '@rasm/extendscript':
         specifier: workspace:*
         version: link:../extendscript
@@ -970,6 +966,25 @@ importers:
         specifier: 'catalog:'
         version: 2.0.0(@adobe/cc-ext-uxp-types@7.3.1)
 
+  libs/typescript/creative-cloud/mediaencoder:
+    dependencies:
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../object-model
+      '@rasm/uxp':
+        specifier: workspace:*
+        version: link:../uxp
+    devDependencies:
+      '@adobe-uxp-types/uxp':
+        specifier: 'catalog:'
+        version: 0.1.4
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+
   libs/typescript/creative-cloud/object-model:
     dependencies:
       '@rasm/search':
@@ -1016,6 +1031,37 @@ importers:
       '@types/photoshop':
         specifier: 'catalog:'
         version: 27.11.0
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+
+  libs/typescript/creative-cloud/premierepro:
+    dependencies:
+      '@rasm/applications':
+        specifier: workspace:*
+        version: link:../../macos/applications
+      '@rasm/mcp':
+        specifier: workspace:*
+        version: link:../../ai/mcp
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../object-model
+      '@rasm/search':
+        specifier: workspace:*
+        version: link:../../data/search
+      '@rasm/uxp':
+        specifier: workspace:*
+        version: link:../uxp
+    devDependencies:
+      '@adobe-uxp-types/uxp':
+        specifier: 'catalog:'
+        version: 0.1.4
+      '@adobe/premierepro':
+        specifier: 'catalog:'
+        version: 27.1.0-beta.23
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -1606,7 +1652,7 @@ importers:
         specifier: 'catalog:'
         version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
 
-  plugins/claude/rasad:
+  plugins/claude/risman:
     devDependencies:
       '@rasm/mcp':
         specifier: workspace:*
@@ -1679,6 +1725,9 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(redis@6.3.1(@opentelemetry/api@1.10.0))
+      '@rasm/acrobat':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/acrobat
       '@rasm/applications':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/macos/applications
@@ -1783,9 +1832,6 @@ importers:
       '@rasm/indesign':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/indesign
-      '@rasm/mcp':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/ai/mcp
       '@rasm/object-model':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/object-model
@@ -1812,6 +1858,34 @@ importers:
         specifier: 'catalog:'
         version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
 
+  products/apps/creative-cloud/mediaencoder/atelier:
+    dependencies:
+      '@rasm/applications':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/macos/applications
+      '@rasm/mediaencoder':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/mediaencoder
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/object-model
+      '@rasm/uxp':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/uxp
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+    devDependencies:
+      '@adobe-uxp-types/uxp':
+        specifier: 'catalog:'
+        version: 0.1.4
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      vite:
+        specifier: 'catalog:'
+        version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+
   products/apps/creative-cloud/photoshop/atelier:
     dependencies:
       '@rasm/applications':
@@ -1820,6 +1894,28 @@ importers:
       '@rasm/photoshop':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/photoshop
+      '@rasm/uxp':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/uxp
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+    devDependencies:
+      '@adobe-uxp-types/uxp':
+        specifier: 'catalog:'
+        version: 0.1.4
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      vite:
+        specifier: 'catalog:'
+        version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+
+  products/apps/creative-cloud/premierepro/atelier:
+    dependencies:
+      '@rasm/premierepro':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/premierepro
       '@rasm/uxp':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/uxp
@@ -2410,6 +2506,9 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+      get-port:
+        specifier: 'catalog:'
+        version: 7.2.0
       miniflare:
         specifier: 'catalog:'
         version: 5.20261119.0-beta(@types/node@26.6.6)
@@ -2495,6 +2594,33 @@ importers:
         specifier: 'catalog:'
         version: 5.1.1(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.1)(@vitest/ui@5.1.1)(vite@8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
 
+  tests/libs/typescript/creative-cloud/desktop:
+    devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(redis@6.3.1(@opentelemetry/api@1.10.0))
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
+      '@rasm/applications':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/macos/applications
+      '@rasm/creative-cloud-desktop':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/desktop
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+      vite:
+        specifier: 'catalog:'
+        version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.1(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.1)(@vitest/ui@5.1.1)(vite@8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
+
   tests/libs/typescript/creative-cloud/extendscript:
     devDependencies:
       '@effect/platform-node':
@@ -2548,6 +2674,9 @@ importers:
       '@rasm/indesign':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/indesign
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/object-model
       '@rasm/process':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/system/process
@@ -2566,6 +2695,30 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.1(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.1)(@vitest/ui@5.1.1)(vite@8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
+
+  tests/libs/typescript/creative-cloud/mediaencoder:
+    devDependencies:
+      '@adobe-uxp-types/uxp':
+        specifier: 'catalog:'
+        version: 0.1.4
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
+      '@rasm/mediaencoder':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/mediaencoder
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/object-model
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.1(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.1)(@vitest/ui@5.1.1)(vite@8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
@@ -2591,6 +2744,33 @@ importers:
         specifier: 'catalog:'
         version: 5.1.1(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.1)(@vitest/ui@5.1.1)(vite@8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
 
+  tests/libs/typescript/creative-cloud/premierepro:
+    devDependencies:
+      '@adobe-uxp-types/uxp':
+        specifier: 'catalog:'
+        version: 0.1.4
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
+      '@rasm/object-model':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/object-model
+      '@rasm/premierepro':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/creative-cloud/premierepro
+      '@rasm/search':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/data/search
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.1(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.1)(@vitest/ui@5.1.1)(vite@8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
+
   tests/libs/typescript/creative-cloud/uxp:
     devDependencies:
       '@adobe-uxp-types/uxp':
@@ -2602,6 +2782,12 @@ importers:
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
+      '@rasm/applications':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/macos/applications
+      '@rasm/mcp':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/ai/mcp
       '@rasm/object-model':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/object-model
@@ -2872,6 +3058,9 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+      get-port:
+        specifier: 'catalog:'
+        version: 7.2.0
       testcontainers:
         specifier: 'catalog:'
         version: 12.2.2(bare-buffer@3.7.3)(supports-color@10.2.2)
@@ -3037,6 +3226,9 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+      get-port:
+        specifier: 'catalog:'
+        version: 7.2.0
       plist:
         specifier: 'catalog:'
         version: 5.1.2
@@ -3049,6 +3241,9 @@ importers:
 
   tests/products/developer/nx/apple:
     devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(nx@24.1.0-beta.2)
@@ -3067,9 +3262,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
-      fast-check:
-        specifier: 'catalog:'
-        version: 4.11.0
       nx:
         specifier: 'catalog:'
         version: 24.1.0-beta.2
@@ -3079,6 +3271,9 @@ importers:
 
   tests/products/developer/nx/cargo:
     devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(nx@24.1.0-beta.2)
@@ -3094,9 +3289,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
-      fast-check:
-        specifier: 'catalog:'
-        version: 4.11.0
       nx:
         specifier: 'catalog:'
         version: 24.1.0-beta.2
@@ -3106,6 +3298,9 @@ importers:
 
   tests/products/developer/nx/cmake:
     devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(nx@24.1.0-beta.2)
@@ -3121,9 +3316,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
-      fast-check:
-        specifier: 'catalog:'
-        version: 4.11.0
       nx:
         specifier: 'catalog:'
         version: 24.1.0-beta.2
@@ -3133,6 +3325,9 @@ importers:
 
   tests/products/developer/nx/distribution:
     devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(nx@24.1.0-beta.2)
@@ -3151,9 +3346,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
-      fast-check:
-        specifier: 'catalog:'
-        version: 4.11.0
       nx:
         specifier: 'catalog:'
         version: 24.1.0-beta.2
@@ -3238,6 +3430,9 @@ importers:
 
   tests/products/developer/nx/pulumi:
     devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
       '@rasm/nx-pulumi':
         specifier: workspace:*
         version: link:../../../../../products/developer/nx/pulumi
@@ -3247,9 +3442,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
-      fast-check:
+      effect:
         specifier: 'catalog:'
-        version: 4.11.0
+        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
       nx:
         specifier: 'catalog:'
         version: 24.1.0-beta.2
@@ -3334,6 +3529,9 @@ importers:
 
   tests/products/developer/nx/uv:
     devDependencies:
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(nx@24.1.0-beta.2)
@@ -3352,9 +3550,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
-      fast-check:
-        specifier: 'catalog:'
-        version: 4.11.0
       nx:
         specifier: 'catalog:'
         version: 24.1.0-beta.2
@@ -3445,6 +3640,9 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+      get-port:
+        specifier: 'catalog:'
+        version: 7.2.0
       plist:
         specifier: 'catalog:'
         version: 5.1.2
@@ -3481,6 +3679,9 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+      get-port:
+        specifier: 'catalog:'
+        version: 7.2.0
       vite:
         specifier: 'catalog:'
         version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
@@ -6443,21 +6644,6 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
 
-  '@plist/binary.parse@1.1.0':
-    resolution: {integrity: sha512-0Bkyt9rCZnlEHQghafWStePBMquIne+9Z9nFTns8OF3ku4QsQ2HMdSSM1MvQfc+6JOU0Q5JlGvAPEUtP9meFsw==}
-
-  '@plist/common@1.1.0':
-    resolution: {integrity: sha512-zZAx3dLVsDaW/ulxCbHS3ptVUnO5XEPQ75UPyNJpwPdv9ViWLYXQmbYNmFR8thKpw067RAORuQpBWHvKPffvIg==}
-
-  '@plist/openstep.parse@1.1.1':
-    resolution: {integrity: sha512-ZUDkVGVy4MIoq4D8WDD+Bb10W8rnNopSoF9JBNmaEZuJY3KeNSZvj9to1TkZo99EqEP9OM5bcUR5wzFrrqlbGg==}
-
-  '@plist/parse@1.1.0':
-    resolution: {integrity: sha512-s/8zU3ryJCJGLjd0KWZYaM07+05Y5V4JmPM7F5I1o53a5qXh0iaZ7n1nyxZ/viXgN6Qrk7OxtY5mYoRwjvuhbQ==}
-
-  '@plist/xml.parse@1.1.0':
-    resolution: {integrity: sha512-g3FIK0LjizCi4lIDjtvJY6rQxGQHBlcZP56K3jGHkD2plmNYn9hs1rhtigDbyBfCmIQhqLNWtl3e2JJiL9h3Vw==}
-
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
 
@@ -7306,6 +7492,9 @@ packages:
     resolution: {integrity: sha512-XNAb/a6TCqou+TufU8/u11HCu9x1gYvOoxLwtlXgIqmkrYQADVv6ljyW2zwiPhHz9R1gItAWpuDrdJMmrOBFEA==}
     engines: {node: '>= 16.0.0'}
 
+  ag-psd@34.2.3:
+    resolution: {integrity: sha512-jSkiiHatGEk/jyc1sTCOlH7kynnjQqmHiA9xjfD1Gf7nnLkKH/Sl3q/qnELOaxRV7enyDRBty3WO26gUOkzYpQ==}
+
   ajv@6.15.0:
     resolution: {integrity: sha512-fgFx7Hfoq60ytK2c7DhnF8jIvzYgOMxfugjLOSMHjLIPgenqa7S7oaagATUq99mV6IYvN2tRmC0wnTYX6iPbMw==}
 
@@ -7983,10 +8172,6 @@ packages:
     resolution: {integrity: sha512-KfYbmpRm0VbLjEvVa9yGwCi9GI34xvi7A/HXYWQO65CSD2u3MczUJSuwXKFIxlGsgBQizV9q5J9NHj4VG0n+pA==}
     engines: {node: '>=12.0.0'}
 
-  fast-check@4.11.0:
-    resolution: {integrity: sha512-V4Uc238rhQOdQlc+Gz7JG6SGBtrWnWL8d/6RyiBeCMcNKMhF6DZ0KkAVHJSyNV5r4lA0PmIpZ6iRpTVoz4qjoA==}
-    engines: {node: '>=12.17.0'}
-
   fast-deep-equal@3.1.3:
     resolution: {integrity: sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==}
 
@@ -8016,10 +8201,6 @@ packages:
 
   fast-xml-builder@1.3.2:
     resolution: {integrity: sha512-OX91VSlShLPDgRZV7tk/YQ4l8tT75QziF5Ixg8g4PFbCVPjuTWwN+yQfAxLJ0dufJpprdOd6HlM74Jhd39TcBQ==}
-
-  fast-xml-parser@4.5.7:
-    resolution: {integrity: sha512-a6Qh1RMCNbSrU1+sAyAAZH3rTe+OaWJbNZIq0S+ifZciUUOQtlVxBJwoTUE2bYhysmG/RYyI5WJFIKdBahJdrQ==}
-    hasBin: true
 
   fast-xml-parser@5.12.1:
     resolution: {integrity: sha512-wR8dO/fx+z8C5exuem1e7BKOWvjsuzvjS/tvA/Xu3Z1zQqJGcXrPzXbcAiaMgp2KjreEROcTkmnnisrcmJ2hYQ==}
@@ -8122,6 +8303,10 @@ packages:
   get-port@5.1.1:
     resolution: {integrity: sha512-g/Q1aTSDOxFpchXC4i8ZWvxA1lnPqx/JHqcpIw0/LX9T8x/GBbi6YnlN5nhaKIFkT8oFsscUKgDJYxfwfS6QsQ==}
     engines: {node: '>=8'}
+
+  get-port@7.2.0:
+    resolution: {integrity: sha512-afP4W205ONCuMoPBqcR6PSXnzX35KTcJygfJfcp+QY+uwm3p20p1YczWXhlICIzGMCxYBQcySEcOgsJcrkyobg==}
+    engines: {node: '>=16'}
 
   get-proto@1.0.1:
     resolution: {integrity: sha512-sTSfBjoXBp89JvIKIefqw7U2CCebsc74kiY6awiGogKtoSGbgjYE/G/+l9sF3MWFPNc9IcoOC4ODfKHfxFmp0g==}
@@ -8828,6 +9013,9 @@ packages:
   pako@1.0.11:
     resolution: {integrity: sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==}
 
+  pako@2.1.0:
+    resolution: {integrity: sha512-w+eufiZ1WuJYgPXbV/PO3NCMEc3xqylkKHzp8bxp1uW4qaSNQUkwmLLEc3kKsfz8lpV1F8Ht3U1Cm+9Srog2ug==}
+
   parent-module@1.0.1:
     resolution: {integrity: sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==}
     engines: {node: '>=6'}
@@ -9012,9 +9200,6 @@ packages:
   punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
-
-  pure-rand@8.4.2:
-    resolution: {integrity: sha512-vvuOGgcuPJAirlHvuQw1TrOiw7ptaIXXmIbNuiNOY6lNGJJH49PQ1Kj4nd783nPdQhQdicgOjVI2yI/9BD6/Ng==}
 
   qified@0.10.1:
     resolution: {integrity: sha512-+Owyggi9IxT1ePKGafcI87ubSmxol6smwJ+RAHDQlx9+9cPwFWDiKFFCPuWhr9ignlGpZ9vDQLw67N4dcTVFEA==}
@@ -9376,9 +9561,6 @@ packages:
     peerDependenciesMeta:
       '@types/node':
         optional: true
-
-  strnum@1.1.2:
-    resolution: {integrity: sha512-vrN+B7DBIoTTZjnPNewwhx6cBA/H+IS7rfW68n7XxC1y7uoiGQBxaKzqucGUgavX15dJgiGztLJ8vxuEzwqBdA==}
 
   strnum@2.5.1:
     resolution: {integrity: sha512-UM4nTLWzQiDBseVxUGxN0wJzIk0UU89Qi7pKXz9qISo+lhviJikTuikBsK/oFRlpvYHvSdz0TVoLyQ+sEpYwxA==}
@@ -12592,29 +12774,6 @@ snapshots:
     dependencies:
       playwright: 1.66.0-alpha-2026-11-22
 
-  '@plist/binary.parse@1.1.0':
-    dependencies:
-      '@plist/common': 1.1.0
-
-  '@plist/common@1.1.0': {}
-
-  '@plist/openstep.parse@1.1.1':
-    dependencies:
-      '@plist/common': 1.1.0
-
-  '@plist/parse@1.1.0':
-    dependencies:
-      '@plist/binary.parse': 1.1.0
-      '@plist/common': 1.1.0
-      '@plist/openstep.parse': 1.1.1
-      '@plist/xml.parse': 1.1.0
-
-  '@plist/xml.parse@1.1.0':
-    dependencies:
-      '@plist/common': 1.1.0
-      base64-js: 1.5.1
-      fast-xml-parser: 4.5.7
-
   '@polka/url@1.0.0-next.29': {}
 
   '@poppinss/colors@4.1.6':
@@ -13477,6 +13636,11 @@ snapshots:
 
   address@2.0.3: {}
 
+  ag-psd@34.2.3:
+    dependencies:
+      base64-js: 1.5.1
+      pako: 2.1.0
+
   ajv@6.15.0:
     dependencies:
       fast-deep-equal: 3.1.3
@@ -14220,10 +14384,6 @@ snapshots:
 
   expect-type@1.4.0: {}
 
-  fast-check@4.11.0:
-    dependencies:
-      pure-rand: 8.4.2
-
   fast-deep-equal@3.1.3: {}
 
   fast-fifo@1.3.2: {}
@@ -14250,10 +14410,6 @@ snapshots:
     dependencies:
       path-expression-matcher: 1.6.2
       xml-naming: 0.3.0
-
-  fast-xml-parser@4.5.7:
-    dependencies:
-      strnum: 1.1.2
 
   fast-xml-parser@5.12.1:
     dependencies:
@@ -14356,6 +14512,8 @@ snapshots:
       math-intrinsics: 1.1.0
 
   get-port@5.1.1: {}
+
+  get-port@7.2.0: {}
 
   get-proto@1.0.1:
     dependencies:
@@ -15188,6 +15346,8 @@ snapshots:
 
   pako@1.0.11: {}
 
+  pako@2.1.0: {}
+
   parent-module@1.0.1:
     dependencies:
       callsites: 3.1.0
@@ -15356,8 +15516,6 @@ snapshots:
       once: 1.4.0
 
   punycode@2.3.1: {}
-
-  pure-rand@8.4.2: {}
 
   qified@0.10.1:
     dependencies:
@@ -15781,8 +15939,6 @@ snapshots:
   stripe@23.3.0-alpha.1(@types/node@26.6.6):
     optionalDependencies:
       '@types/node': 26.6.6
-
-  strnum@1.1.2: {}
 
   strnum@2.5.1:
     dependencies:

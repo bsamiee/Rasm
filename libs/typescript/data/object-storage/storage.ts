@@ -24,7 +24,7 @@ const Presignable = Schema.Union([
     Schema.Struct({ _tag: Schema.tagDefaultOmit('ListParts'), method: Schema.tag('GET'), key: Schema.String, uploadId: Schema.String }),
     Schema.Struct({ _tag: Schema.tagDefaultOmit('AbortMultipartUpload'), method: Schema.tag('DELETE'), key: Schema.String, uploadId: Schema.String }),
 ]).pipe(Schema.toTaggedUnion('_tag'));
-class Presigned extends Schema.Opaque<Presigned, unknown>()(Schema.Struct({ url: Schema.String, headers: Schema.Record(Schema.String, Schema.String) })) {}
+class Presigned extends Schema.Opaque<Presigned>()(Schema.Struct({ url: Schema.String, headers: Schema.Record(Schema.String, Schema.String) })) {}
 
 // --- [ERRORS] --------------------------------------------------------------------------
 

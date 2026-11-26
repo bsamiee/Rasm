@@ -1,7 +1,7 @@
 import process from 'node:process';
 import { spawn } from '@rasm/process';
 import { layerProtocolChildProcess } from '@rasm/rpc';
-import { Array, Cause, Context, Deferred, type Duration, Effect, Fiber, FileSystem, Formatter, flow, Layer, Option, Path, Schema, SchemaIssue, Sink, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Context, Deferred, type Duration, Effect, Fiber, FileSystem, Formatter, Layer, Option, Path, Schema, SchemaIssue, Sink, Stream, Struct, SubscriptionRef } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { RpcClient } from 'effect/rpc';
 import { parse } from 'plist';
@@ -23,14 +23,14 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
             ...client,
             runLaunch: (launch: Omit<Parameters<typeof client.launch>[0], 'wait'>, wait: Option.Option<Duration.Input>) =>
                 client.launch({ ...launch, wait: Option.isSome(wait) }).pipe(
-                    Stream.mapEffect(LaunchEvent.matchOrElse({ failed: ({ failed }) => new Cause.UnknownError(failed, [`${failed.subject} ${failed.reason}`, ...Array.fromNullishOr(failed.message)].join(': ')) }, Effect.succeed)),
+                    Stream.mapEffect(LaunchEvent.matchOrElse({ failed: (failed) => new Cause.UnknownError(failed, [`${failed.subject} ${failed.reason}`, ...Array.fromNullishOr(failed.message)].join(': ')) }, Effect.succeed)),
                     Stream.interruptWhen(Option.match(wait, { onNone: () => Effect.never, onSome: Effect.sleep })),
                     Stream.runCollect,
                     Effect.flatMap((events) =>
-                        Effect.map(Effect.fromOption(Array.findLast(events, LaunchEvent.guards.launched)), ({ launched }) => ({
+                        Effect.map(Effect.fromOption(Array.findLast(events, LaunchEvent.guards.launched)), (launched) => ({
                             ...launched,
-                            state: Option.map(Array.findLast(events, LaunchEvent.guards.state), flow(Struct.get('state'), Struct.get('state'))),
-                            opened: Option.map(Array.findLast(events, LaunchEvent.guards.opened), Struct.get('opened')),
+                            state: Option.map(Array.findLast(events, LaunchEvent.guards.state), Struct.get('state')),
+                            opened: Option.map(Array.findLast(events, LaunchEvent.guards.opened), Struct.get('reply')),
                         })),
                     ),
                 ),

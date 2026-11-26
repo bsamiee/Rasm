@@ -2,7 +2,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readJsonFile, workspaceRoot } from '@nx/devkit';
 import { getExecutorInformation, getGeneratorInformation, type PackageJson, parseExecutor } from '@nx/devkit/internal';
-import { EXECUTORS } from '@rasm/nx';
+import { EXECUTORS } from '@rasm/nx/inference';
 import { Array, Option, Order, Predicate, Record, Schema, SchemaAST, Struct } from 'effect';
 import { describe, expect, it } from 'vitest';
 

@@ -1,11 +1,12 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { assert, effect } from '@effect/vitest';
 import { type ProjectGraph, type readCachedProjectGraph, type Tree, workspaceRoot } from '@nx/devkit';
 import { createTreeWithEmptyWorkspace } from '@nx/devkit/testing';
 import CargoVersionActions, { afterAllProjectsVersioned } from '@rasm/nx-cargo/release/version-actions';
 import { it } from '@rasm/testing/nx';
-import { array, assert, asyncProperty, constantFrom, nat, option, stringMatching, tuple } from 'fast-check';
+import { Arbitrary, Effect, Schema } from 'effect';
 import type { ReleaseGroupWithName } from 'nx/src/command-line/release/config/filter-release-groups';
 import type { FinalConfigForProject } from 'nx/src/command-line/release/utils/release-graph';
 import { describe, expect, vi } from 'vitest';
@@ -80,39 +81,37 @@ const requiring = (padding: string, comment: string) =>
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('requirement edits', () => {
-    it('moves only the version literal of each requirement on the released crate, whatever its spacing and comments', async () => {
-        expect.hasAssertions();
-        await assert(
-            asyncProperty(constantFrom(' ', '  ', '    '), option(stringMatching(/^ # [a-z ]{0,12}$/u), { nil: '' }), async (padding, comment) => {
-                const before = requiring(padding, comment);
-                const tree = written({ 'packages/dependency/Cargo.toml': '[package]\nname = "dependency"\nversion = "1.0.0"\n', [MANIFEST]: before });
-                const actions = await actioned(tree, { lock: 'Cargo.lock' });
+    effect.prop(
+        'moves only the version literal of each requirement on the released crate, whatever its spacing and comments',
+        { padding: Schema.Literals([' ', '  ', '    ']), comment: Schema.Union([Schema.Literal(''), Schema.String.check(Schema.isPattern(/^ # [a-z ]{0,12}$/u))]) },
+        Effect.fnUntraced(function* ({ padding, comment }) {
+            const before = requiring(padding, comment);
+            const tree = written({ 'packages/dependency/Cargo.toml': '[package]\nname = "dependency"\nversion = "1.0.0"\n', [MANIFEST]: before });
+            const actions = yield* Effect.promise(() => actioned(tree, { lock: 'Cargo.lock' }));
 
-                await actions.updateProjectDependencies(tree, graph, { dependency: '2.0.0' });
+            yield* Effect.promise(() => actions.updateProjectDependencies(tree, graph, { dependency: '2.0.0' }));
 
-                const after = tree.read(MANIFEST, 'utf-8') ?? '';
-                expect([after.split('"2.0.0"').length - 1, after.replaceAll('"2.0.0"', '"1.0.0"'), after.includes(`serde${padding}= "1.0.0"`)]).toStrictEqual([4, before, true]);
-            }),
-        );
-    });
+            const after = tree.read(MANIFEST, 'utf-8') ?? '';
+            assert.deepStrictEqual([after.split('"2.0.0"').length - 1, after.replaceAll('"2.0.0"', '"1.0.0"'), after.includes(`serde${padding}= "1.0.0"`)], [4, before, true]);
+        }),
+        { arbitrary: { size: 15 } },
+    );
 });
 
 describe('package versions', () => {
-    it('writes any version, prerelease included, into the package table alone and reads that version back', async () => {
-        expect.hasAssertions();
-        await assert(
-            asyncProperty(tuple(nat(), nat(), nat()), array(stringMatching(/^[a-z][a-z\d]{0,7}$/u), { maxLength: 2 }), async (parts, prerelease) => {
-                const version = [parts.join('.'), ...(prerelease.length === 0 ? [] : [prerelease.join('.')])].join('-');
-                const tree = written({ 'Cargo.toml': '[workspace]\nmembers = ["packages/*"]\n', [MANIFEST]: '# kept\n[package]\nname = "my-lib"\nversion = "1.0.0"\n\n[dependencies]\nserde = "1.0.0"\n' });
-                const actions = await actioned(tree, { lock: 'Cargo.lock' });
+    effect.prop(
+        'writes any version, prerelease included, into the package table alone and reads that version back',
+        { parts: Schema.Tuple([Schema.Natural, Schema.Natural, Schema.Natural]), prerelease: Arbitrary.array(Arbitrary.schema(Schema.String.check(Schema.isPattern(/^[a-z][a-z\d]{0,7}$/u))), { maxLength: 2 }) },
+        Effect.fnUntraced(function* ({ parts, prerelease }) {
+            const version = [parts.join('.'), ...(prerelease.length === 0 ? [] : [prerelease.join('.')])].join('-');
+            const tree = written({ 'Cargo.toml': '[workspace]\nmembers = ["packages/*"]\n', [MANIFEST]: '# kept\n[package]\nname = "my-lib"\nversion = "1.0.0"\n\n[dependencies]\nserde = "1.0.0"\n' });
+            const actions = yield* Effect.promise(() => actioned(tree, { lock: 'Cargo.lock' }));
 
-                await actions.updateProjectVersion(tree, version);
+            yield* Effect.promise(() => actions.updateProjectVersion(tree, version));
 
-                expect(tree.read(MANIFEST, 'utf-8')).toBe(`# kept\n[package]\nname = "my-lib"\nversion = "${version}"\n\n[dependencies]\nserde = "1.0.0"\n`);
-                await expect(actions.readCurrentVersionFromSourceManifest(tree)).resolves.toStrictEqual({ manifestPath: MANIFEST, currentVersion: version });
-            }),
-        );
-    });
+            assert.deepStrictEqual([tree.read(MANIFEST, 'utf-8'), yield* Effect.promise(() => actions.readCurrentVersionFromSourceManifest(tree))], [`# kept\n[package]\nname = "my-lib"\nversion = "${version}"\n\n[dependencies]\nserde = "1.0.0"\n`, { manifestPath: MANIFEST, currentVersion: version }]);
+        }),
+    );
 
     it('reads the version a crate inherits from the workspace manifest, and refuses an independent release group for it', async () => {
         const tree = written({ 'Cargo.toml': '[workspace]\nmembers = ["packages/*"]\n\n[workspace.package]\nversion = "3.2.1"\n', [MANIFEST]: '[package]\nname = "my-lib"\nversion.workspace = true\n' });

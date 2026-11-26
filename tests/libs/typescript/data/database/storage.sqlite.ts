@@ -1,5 +1,8 @@
 import { assert, type Vitest } from '@effect/vitest';
-import { Catalog, Column, type Engine, Relation, type Rows, Tokenizer } from '@rasm/database';
+import { Catalog } from '@rasm/database/catalog';
+import { Column } from '@rasm/database/column';
+import type { Engine, Rows } from '@rasm/database/engine';
+import { Relation, Tokenizer } from '@rasm/database/relation';
 import { Array, Effect, Schema, Struct } from 'effect';
 import { SqlClient } from 'effect/sql';
 import { declared, pending, type Store, stored } from '#/reconciling';

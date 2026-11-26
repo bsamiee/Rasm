@@ -1,4 +1,6 @@
+public import CasePaths
 public import CoreGraphics
+public import Encoding
 public import Foundation
 public import Processes
 
@@ -10,7 +12,8 @@ public struct InstanceEvent: Encodable, Sendable {
         public let label: String?
     }
 
-    public enum Change: Encodable, Sendable {
+    @CasePathable
+    public enum Change: CaseTagged, Sendable {
         case started(identifier: String?, name: String?)
         case opened(container: Int, kind: Container.Kind, title: String?)
         case closed(container: Int, kind: Container.Kind, title: String?)
@@ -20,7 +23,8 @@ public struct InstanceEvent: Encodable, Sendable {
         case selection(control: Int, kind: Control.Kind, evidence: Control.Evidence)
         case moved(container: Int, kind: Container.Kind, frame: CGRect)
         case frontmost(active: Bool)
-        case status(status: InstanceState.Activity.Status, thread: ProcessStatus?)
+        case hidden(hidden: Bool)
+        case status(status: InstanceState.Activity.Status)
         case exited(termination: InstanceState.Termination)
     }
 

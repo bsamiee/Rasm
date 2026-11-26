@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { type Containment, encode, format, parse, reference, resolve } from '@rasm/object-model/host';
+import { Containment, encode, format, parse, reference, resolve } from '@rasm/object-model/host';
 import { Arbitrary, Effect, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -13,12 +13,34 @@ const PROOF = { kind: 'document', name: 'Plan "B" to print]', pages: { length: 0
 const OWNERS = new Map<object, object>([[INK, ART], [ART, COVER], ...PAGES.map((page) => [page, COVER] as const)]);
 const ROOT = { documents: { length: 2, 0: COVER, 1: PROOF } };
 const NAMED = Schema.Struct({ name: Schema.String });
+class Swatch {
+    readonly name: string;
+    constructor(name: string) {
+        this.name = name;
+    }
+}
+const INKED = new Swatch('Ink');
+const WARM = { typename: 'Tint', name: 'Warm' };
+const PALETTE = { swatches: { length: 1, 0: INKED }, tints: { length: 1, 0: WARM } };
+const CLASSED: Containment = {
+    root: PALETTE,
+    kinds: {
+        swatch: Containment.kind({ items: ({ swatches }: typeof PALETTE) => swatches, key: NAMED }),
+        tint: Containment.kind({ items: ({ tints }: typeof PALETTE) => tints, key: NAMED }),
+    },
+};
 const HELD: Containment = {
     root: ROOT,
     kinds: {
-        document: { items: ({ documents }: typeof ROOT) => documents, key: NAMED, is: Schema.is(Schema.Struct({ kind: Schema.Literal('document') })) },
-        page: { items: ({ pages }: typeof COVER) => pages, base: 1, key: NAMED, is: Schema.is(Schema.Struct({ kind: Schema.Literal('page') })), owner: (value) => OWNERS.get(value) },
-        layer: { items: ({ layers }: typeof ART) => layers, nested: true, key: NAMED, is: Schema.is(Schema.Struct({ kind: Schema.Literal('layer') })), owner: (value) => OWNERS.get(value) },
+        document: Containment.kind({ items: ({ documents }: typeof ROOT): { readonly length: number } => documents, key: NAMED, is: Schema.is(Schema.Struct({ kind: Schema.Literal('document'), name: Schema.String }))<object> }),
+        page: Containment.kind({
+            items: ({ pages }: typeof COVER): { readonly length: number } => pages,
+            base: 1,
+            key: NAMED,
+            is: Schema.is(Schema.Struct({ kind: Schema.Literal('page'), name: Schema.optionalKey(Schema.String) }))<object>,
+            owner: (value) => OWNERS.get(value),
+        }),
+        layer: Containment.kind({ items: ({ layers }: typeof ART): { readonly length: number } => layers, nested: true, key: NAMED, is: Schema.is(Schema.Struct({ kind: Schema.Literal('layer'), name: Schema.String }))<object>, owner: (value) => OWNERS.get(value) }),
     },
 };
 
@@ -97,11 +119,53 @@ describe('object specifier', () => {
         { held: 'a page with no key', object: PAGES[2], name: undefined },
         { held: 'a layer inside a layer', object: INK, name: 'Ink' },
     ])('names $held by a specifier that walks back to it, with its validity and name', ({ object, name }) => {
-        const named = reference(HELD, object, object.kind);
+        const named = reference(HELD, object);
         assert.isDefined(named);
         assert.deepStrictEqual([named.valid, named.name], [true, name]);
         assert.strictEqual(walked(named.specifier), object);
     });
+
+    it.each([
+        { held: 'an object whose typename names the kind', object: WARM, named: { type: 'Tint', specifier: '/tint[@name="Warm"]', valid: true, name: 'Warm' } },
+        { held: 'a class instance with no typename, by its constructor name', object: INKED, named: { type: 'Swatch', specifier: '/swatch[@name="Ink"]', valid: true, name: 'Ink' } },
+        { held: 'an object whose class names no kind', object: { typename: 'Gradient', name: 'Dusk' }, named: undefined },
+    ])('names $held by the kind its class names when that kind states no test of its own', ({ object, named }) => {
+        assert.deepStrictEqual(reference(CLASSED, object), named);
+    });
+
+    it('accepts a kind key naming members its items hold and refuses one naming a member they lack or another type', () => {
+        const swatch = Containment.kind({ items: ({ swatches }: typeof PALETTE) => swatches, key: NAMED });
+        // @ts-expect-error a swatch holds no tint member
+        Containment.kind({ items: ({ swatches }: typeof PALETTE) => swatches, key: Schema.Struct({ tint: Schema.String }) });
+        // @ts-expect-error a swatch name is text, not a number
+        Containment.kind({ items: ({ swatches }: typeof PALETTE) => swatches, key: Schema.Struct({ name: Schema.Int }) });
+        // @ts-expect-error a lookup answers a key field the kind states
+        Containment.kind({ items: ({ swatches }: typeof PALETTE) => swatches, key: NAMED, by: { tint: () => INKED } });
+        assert.strictEqual(resolve({ root: PALETTE, kinds: { swatch } }, { steps: [{ separator: '/', kind: 'swatch', selector: { _tag: 'Key', key: 'name', value: 'Ink' } }] }), INKED);
+    });
+
+    it('finds a keyed item through the lookup its kind states, not by scanning the items', () => {
+        const looked = new Swatch('Ink');
+        const swatch = Containment.kind({ items: ({ swatches }: typeof PALETTE) => swatches, key: NAMED, by: { name: () => looked } });
+        assert.strictEqual(resolve({ root: PALETTE, kinds: { swatch } }, { steps: [{ separator: '/', kind: 'swatch', selector: { _tag: 'Key', key: 'name', value: 'Ink' } }] }), looked);
+    });
+
+    it.effect.each([
+        { lookup: 'answers nothing', by: () => undefined },
+        {
+            lookup: 'throws',
+            by: () => {
+                throw new RangeError('no swatch');
+            },
+        },
+    ])(
+        'answers a key whose lookup $lookup as unmatched with the names the items hold, never as the item a scan finds',
+        Effect.fnUntraced(function* ({ by }) {
+            const swatch = Containment.kind({ items: ({ swatches }: typeof PALETTE) => swatches, key: NAMED, by: { name: by } });
+            const refused = yield* Schema.decodeUnknownEffect(Refusal)(resolve({ root: PALETTE, kinds: { swatch } }, { steps: [{ separator: '/', kind: 'swatch', selector: { _tag: 'Key', key: 'name', value: 'Ink' } }] }));
+            assert.deepStrictEqual(refused.candidates, ['Ink']);
+        }),
+    );
 });
 
 describe(encode, () => {

@@ -56,7 +56,7 @@ extension LogLine {
                 var kept = 0
                 for (position, text) in lines.lazy.filter({ (line: Data) -> Bool in !line.isEmpty }).enumerated() {
                     guard kept < limit else { break }
-                    guard let decoded = String(validating: text, as: UTF8.self) else { throw FileFailure(file: file, reason: .filesystem(CocoaError(.fileReadInapplicableStringEncoding) as NSError)) }
+                    guard let decoded = String(validating: text, as: UTF8.self) else { throw FileFailure(file: file, reason: .filesystem(CocoaError(.fileReadInapplicableStringEncoding))) }
                     let line = Self(file: file, text: decoded)
                     let at = line.timestamp ?? modified
                     guard at >= floor else { break }
@@ -95,7 +95,7 @@ extension LogLine {
                     held.read?[stat.inode] = from + Int64(whole.count)
                     held.lines += lines.split(whereSeparator: \.isNewline).map { line in Self(file: file, text: String(line)) }
                 } catch {
-                    held.failures.append(FileFailure(file: file, reason: .filesystem(error as NSError)))
+                    held.failures.append(FileFailure(file: file, reason: .filesystem(error)))
                 }
             }
         }

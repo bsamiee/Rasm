@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<photoshop-keyboard-shortcuts version="4" filename="macOS Minimize" modified="0" multi-undo="1">
+	<command kind="dynamic" name="Vanishing Point">
+		<shortcut>Opt+Cmd+V</shortcut>
+	</command>
+	<command kind="dynamic" name="Liquify">
+		<shortcut>Shift+Cmd+X</shortcut>
+	</command>
+	<tool name="Move Tool" type="1" key="1819113074">V</tool>
+	<tool name="Single Row Marquee Tool" type="1" key="1936878964"></tool>
+	<tool name="Selection Brush Tool" type="1" key="1936482930">L</tool>
+	<tool name="Brush Tool" type="1" key="1886286946">B</tool>
+	<tool name="Default Foreground/Background Colors" type="2">D</tool>
+	<taskspace name="Select and Mask">
+		<taskspace-tool name="Refine Edge Brush Tool" type="1" key="1397518949">R</taskspace-tool>
+	</taskspace>
+</photoshop-keyboard-shortcuts>

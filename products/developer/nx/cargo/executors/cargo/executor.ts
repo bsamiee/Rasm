@@ -2,7 +2,7 @@ import { stderr, stdout } from 'node:process';
 import { pathToFileURL } from 'node:url';
 import type { ExecutorContext, Task } from '@nx/devkit';
 import { findAllProjectNodeDependencies, type TaskResult } from '@nx/devkit/internal';
-import { batched, executor, Words } from '@rasm/nx';
+import { batched, executor, Words } from '@rasm/nx/inference';
 import { Array, Clock, Effect, Equal, FileSystem, HashSet, Option, Path, Record, Result, Schema, Stream, Struct } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { Crate, Unification } from '#/workspace';
@@ -14,7 +14,7 @@ type Judged = (run: { readonly messages: readonly unknown[]; readonly compiled: 
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Command extends Schema.Opaque<Command, unknown>()(
+class Command extends Schema.Opaque<Command>()(
     Schema.Struct({
         args: Schema.NonEmptyArray(Schema.String).annotate({ description: 'Subcommand and its arguments, a JSON message format among them where each task is decided from the messages of its own package' }),
         trailing: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments after --' }),
@@ -22,7 +22,7 @@ class Command extends Schema.Opaque<Command, unknown>()(
         packages: Schema.optionalKey(Schema.Array(Crate)).annotate({ description: 'Further packages the command selects' }),
     }),
 ) {}
-class Cargo extends Schema.Opaque<Cargo, unknown>()(
+class Cargo extends Schema.Opaque<Cargo>()(
     Schema.Struct({
         cwd: Schema.String.annotate({ description: 'Cargo workspace root, relative to the Nx workspace root' }),
         commands: Schema.NonEmptyArray(Command).annotate({ description: 'Cargo invocations in order, a task stopping at its first failure' }),

@@ -1,6 +1,6 @@
 import { extname } from 'node:path';
 import type { Tree } from '@nx/devkit';
-import { run, spawned } from '@rasm/nx';
+import { run, spawned } from '@rasm/nx/inference';
 import { Array, Cause, Effect, Option, Schema, Stream } from 'effect';
 import { VersionActions } from 'nx/release';
 import { analyzer } from '#/targets';

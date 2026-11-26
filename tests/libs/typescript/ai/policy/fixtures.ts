@@ -1,5 +1,5 @@
 import { layer as platform } from '@effect/platform-node/NodeServices';
-import type { Policy } from '@rasm/policy';
+import type { Policy } from '@rasm/policy/policy';
 import { Shell } from '@rasm/shell';
 import { Effect, FileSystem, Layer, Option, Path, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';

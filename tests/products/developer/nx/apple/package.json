@@ -7,13 +7,13 @@
     ],
     "type": "module",
     "devDependencies": {
+        "@effect/vitest": "catalog:",
         "@nx/devkit": "catalog:",
         "@rasm/nx": "workspace:*",
         "@rasm/nx-apple": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
-        "fast-check": "catalog:",
         "nx": "catalog:",
         "vitest": "catalog:"
     }

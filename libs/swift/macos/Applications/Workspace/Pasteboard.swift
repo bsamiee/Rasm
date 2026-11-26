@@ -1,10 +1,11 @@
 public import AppKit
+public import Encoding
 import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 public struct Pasteboard: Encodable, Sendable {
-    public enum Content: Encodable, Equatable, Sendable {
+    public enum Content: CaseTagged, Equatable, Sendable {
         case text(value: String)
         case withheld
     }
@@ -46,7 +47,7 @@ extension Pasteboard {
         let board = NSPasteboard(name: name)
         if let text {
             board.clearContents()
-            guard board.setString(text, forType: .string) else { throw ApplicationFailure(subject: "\(board.name.rawValue) text \(String(reflecting: text))", reason: .refused(nil)) }
+            guard board.setString(text, forType: .string) else { throw ApplicationFailure(subject: "\(board.name.rawValue) text \(String(reflecting: text))", reason: .refused) }
         }
         let changeCount = board.changeCount
         let access = board.accessBehavior

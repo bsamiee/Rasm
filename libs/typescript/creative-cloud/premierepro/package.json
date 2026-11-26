@@ -1,0 +1,48 @@
+{
+    "name": "@rasm/premierepro",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Premiere Pro object model for UXP plugins, with project and sequence containment, script evaluation, sequence frame renders, and project and sequence events",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/creative-cloud/premierepro"
+    },
+    "files": [
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        "./uxp": "./uxp.ts",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "exports": {
+            "./uxp": "./dist/uxp.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
+    "dependencies": {
+        "@rasm/applications": "workspace:*",
+        "@rasm/mcp": "workspace:*",
+        "@rasm/object-model": "workspace:*",
+        "@rasm/search": "workspace:*",
+        "@rasm/uxp": "workspace:*"
+    },
+    "devDependencies": {
+        "@adobe-uxp-types/uxp": "catalog:",
+        "@adobe/premierepro": "catalog:",
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
+    },
+    "engines": {
+        "node": ">=27"
+    }
+}

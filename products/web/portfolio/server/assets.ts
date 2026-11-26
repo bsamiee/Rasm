@@ -1,5 +1,5 @@
-import { Rows } from '@rasm/database';
-import { ObjectStorage } from '@rasm/object-storage';
+import { Rows } from '@rasm/database/engine';
+import { ObjectStorage } from '@rasm/object-storage/storage';
 import { Array, ByteSize, Cause, Duration, Effect, Function, Option, Record, Schema, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { HttpApiBuilder, HttpApiError } from 'effect/http-api';
@@ -11,7 +11,7 @@ import { OwnerAccount } from '#/server/owner';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Release extends Schema.Opaque<Release, unknown>()(Schema.Struct({ assetId: assets.schema.fields.id, action: Schema.Literals(['discard', 'delete']) })) {}
+class Release extends Schema.Opaque<Release>()(Schema.Struct({ assetId: assets.schema.fields.id, action: Schema.Literals(['discard', 'delete']) })) {}
 const AssetRead = Schema.Struct({ id: assets.schema.fields.id, width: Schema.OptionFromNullOr(Schema.Int) });
 const AssetObject = Schema.Struct({ mime: Schema.String, name: Schema.OptionFromNullOr(Schema.String), published: Schema.BooleanFromBit, objectKey: Schema.String });
 const Released = Schema.Struct({ objects: Schema.fromJsonString(UploadAttempt.fields.objects) });

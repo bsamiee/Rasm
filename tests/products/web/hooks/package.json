@@ -12,6 +12,7 @@
         "@testcontainers/postgresql": "catalog:",
         "@types/node": "catalog:",
         "effect": "catalog:",
+        "get-port": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
     },

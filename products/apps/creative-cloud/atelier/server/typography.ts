@@ -1,9 +1,18 @@
-import { Inspection, Kerns, Typeset, TypesettingRpcs } from '@rasm/indesign';
-import { Link, Server } from '@rasm/mcp';
-import { Unmatched } from '@rasm/search';
-import { Settings, type Source } from '@rasm/typography';
-import { drawsKashida, Kerning, Quran, Symbols, TATWEEL } from '@rasm/typography/arabic';
-import { expandToWords, Face, Justification, ShapedText, Span } from '@rasm/typography/shaping';
+import { Kerns, Typeset, TypesettingRpcs } from '@rasm/indesign/typesetting';
+import { Inspection } from '@rasm/indesign/views';
+import { Link } from '@rasm/mcp/link';
+import { Server } from '@rasm/mcp/server';
+import { Unmatched } from '@rasm/search/unmatched';
+import { drawsKashida, TATWEEL } from '@rasm/typography/arabic/kashida';
+import { Kerning } from '@rasm/typography/arabic/kerning';
+import { Symbols } from '@rasm/typography/arabic/quran/symbols';
+import { Quran } from '@rasm/typography/arabic/quran/text';
+import { Settings } from '@rasm/typography/settings';
+import { Face } from '@rasm/typography/shaping/face';
+import { Justification } from '@rasm/typography/shaping/justification';
+import { ShapedText } from '@rasm/typography/shaping/shaped-text';
+import { expandToWords, Span } from '@rasm/typography/shaping/word';
+import type { Source } from '@rasm/typography/source';
 import { Array, Cause, Context, Effect, Equivalence, FileSystem, Number, Option, Predicate, Record, Schema, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
@@ -80,7 +89,7 @@ const specimen = Effect.fnUntraced(function* (data: Source, { coordinates, varia
 
 const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.Effect<readonly Link[]>; readonly call: (holds: (peer: Link) => boolean, subject: string) => Effect.Effect<RpcClient.RpcClient.Flat<RpcGroup.Rpcs<typeof TypesettingRpcs>, RpcClientError.RpcClientError>, Unmatched> }) {
     const files = yield* FileSystem.FileSystem;
-    const serving = Link.serves(TypesettingRpcs.requests.keys());
+    const serving = Link.serves(TypesettingRpcs);
     const client = links.call(serving, 'linked application serving typesetting');
     const visible = Context.make(Server.Visibility, Effect.map(links.peers, Array.some(serving)));
     const readSource = Effect.fnUntraced(function* (name: string, characters: string) {

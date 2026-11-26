@@ -8,14 +8,14 @@ import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
-import { above, below, PLATFORM, spawned } from '@rasm/nx';
 import { packaged } from '@rasm/nx/executor';
-import { HOSTS as UXP } from '@rasm/uxp';
+import { above, below, PLATFORM, spawned } from '@rasm/nx/inference';
+import { PluginsInfo, HOSTS as UXP } from '@rasm/uxp/manifest';
 import { Array, Cause, Config, Console, Duration, Effect, FileSystem, Option, Path, pipe, Record, Result, Schedule, Schema, SemVer, Stream, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml, Yaml, Zip } from 'effect/encoding';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import type { ChildProcessSpawner } from 'effect/process';
-import { applyEdits, modify, parse } from 'jsonc-parser';
+import { applyEdits, modify } from 'jsonc-parser';
 import { parseDocument, Scalar } from 'yaml';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -99,20 +99,19 @@ const Extension = Schema.Struct({ schema_version: Schema.String, id: Schema.Stri
 const Listed = Schema.Struct({ data: Schema.Array(Schema.Struct({ id: Schema.String, version: Schema.String, platforms: Platforms })) });
 const Yak = Schema.Struct({ name: Schema.String, version: Schema.String, authors: Schema.Array(Schema.String), description: Schema.String });
 const Pushed = Schema.Struct({ distributions: Schema.Array(Schema.Struct({ filename: Schema.String })) });
-const Uxp = Schema.fromJsonString(Schema.Struct({ manifestVersion: Schema.Finite, id: Schema.String, name: Schema.String, version: Schema.String, host: Schema.Struct({ app: Schema.Literals(Struct.keys(UXP)) }) }));
+const Uxp = Schema.fromJsonString(Schema.Struct({ manifestVersion: Schema.Finite, id: Schema.String, name: Schema.String, version: Schema.String, host: Schema.Struct({ app: Schema.Literals(Struct.keys(UXP)), minVersion: Schema.String }) }));
 const Chrome = Schema.fromJsonString(Schema.Struct({ manifest_version: Schema.Literal(3), version: Schema.String, key: Schema.optionalKey(Schema.Uint8ArrayFromBase64) }));
 const Claude = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String }));
 const Revision = Schema.Struct({ distributionChannels: Schema.Array(Schema.Struct({ crxVersion: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
 const Upload = Schema.optionalKey(Schema.Literals(['UPLOAD_STATE_UNSPECIFIED', 'SUCCEEDED', 'IN_PROGRESS', 'FAILED', 'NOT_FOUND']));
 const Status = Schema.Struct({ publishedItemRevisionStatus: Revision, submittedItemRevisionStatus: Revision, lastAsyncUploadState: Upload });
 const Uploaded = Schema.Struct({ uploadState: Upload });
-const Registry = Schema.Struct({ plugins: Schema.Array(Schema.StructWithRest(Schema.Struct({ pluginId: Schema.String, path: Schema.optionalKey(Schema.String) }), [Schema.Record(Schema.String, Schema.Unknown)])) });
 const References = Schema.Array(Schema.Struct({ name: Schema.String, enabled: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))) }).pipe(Schema.encodeKeys({ name: 'Name', enabled: 'Enabled' }))).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
 const Project = Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Plugins: References, AdditionalPluginDirectories: Schema.optionalKey(Schema.Array(Schema.String)) }));
 const Linked = Schema.Record(Schema.String, Schema.Struct({ project: Schema.String, target: Schema.String, configuration: Schema.optionalKey(Schema.String) })).annotate({
     description: 'Folders of a .uplugin, each mapped to the Nx target that installs a package under it in a folder named for the engine platform',
 });
-class Plugin extends Schema.Opaque<Plugin, unknown>()(
+class Plugin extends Schema.Opaque<Plugin>()(
     Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Version: Schema.optionalKey(Schema.Int), VersionName: Schema.optionalKey(Schema.String), Installed: Schema.optionalKey(Schema.Boolean), Plugins: References, nx: Schema.optionalKey(Schema.Struct({ packages: Linked })) })),
 ) {}
 const Association = Schema.Struct({ EngineAssociation: Schema.OptionFromOptionalKey(Schema.String) });
@@ -345,12 +344,12 @@ const HOSTS: readonly Host[] = [
             run: Effect.fnUntraced(function* (found) {
                 const [fs, path, root] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Effect.mapError(Effect.flatten(Effect.fromNullishOr(ADOBE[platform])), (cause) => new Cause.UnknownError(cause, `${platform} holds no per-user Adobe folder`))]);
                 const { id, name, version, host } = yield* Effect.mapError(Schema.decodeEffect(Uxp)(found.text), (cause) => new Cause.UnknownError(cause, `${found.at} holds no UXP manifest`));
-                const [registry, external, placed] = [path.join(root, 'UXP', 'PluginsInfo', 'v1', `${host.app}.json`), path.join(root, 'UXP', 'Plugins', 'External'), `$localPlugins/External/${id}_${version}`];
+                const [registry, external, placed] = [path.join(root, ...PluginsInfo.file(host.app)), path.join(root, 'UXP', 'Plugins', 'External'), `$localPlugins/External/${id}_${version}`];
                 const before = yield* fs.readFileString(registry).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed('{"plugins":[]}')));
                 const folders = yield* fs.readDirectory(external).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(Array.empty<string>())));
-                const rows = (yield* Effect.mapError(Schema.decodeUnknownEffect(Registry)(parse(before)), (cause) => new Cause.UnknownError(cause, `${registry} holds no plugins array`))).plugins;
+                const rows = (yield* Effect.mapError(Schema.decodeEffect(PluginsInfo)(before), (cause) => new Cause.UnknownError(cause, `${registry} holds no plugins array`))).plugins;
                 const held = rows.findIndex(({ pluginId }) => pluginId === id);
-                const row = { ...rows[held], hostMinVersion: SemVer.format(UXP[host.app].since), name, path: placed, pluginId: id, status: 'enabled', type: 'uxp', versionString: version };
+                const row = { ...rows[held], hostMinVersion: host.minVersion, name, path: placed, pluginId: id, status: 'enabled', type: 'uxp', versionString: version };
                 const earlier = [...folders.filter((folder) => folder.startsWith(`${id}_`)).map((folder) => path.join(external, folder)), ...Array.fromNullishOr(rows[held]?.path).map((at) => at.replace('$localPlugins', path.dirname(external))), path.join(root, 'CEP', 'extensions', id)];
                 yield* Effect.forEach(Array.dedupe(earlier), (at) => fs.remove(at, { recursive: true, force: true }), { discard: true });
                 yield* Effect.forEach(
@@ -358,7 +357,7 @@ const HOSTS: readonly Host[] = [
                     ([from, to]) => Effect.andThen(fs.makeDirectory(path.dirname(to), { recursive: true }), fs.copyFile(from, to)),
                     { discard: true },
                 );
-                yield* UXP[host.app].registry ? Effect.andThen(fs.makeDirectory(path.dirname(registry), { recursive: true }), fs.writeFileString(registry, applyEdits(before, modify(before, ['plugins', held === -1 ? rows.length : held], row, {})))) : Effect.void;
+                yield* UXP[host.app].pluginsInfo ? Effect.andThen(fs.makeDirectory(path.dirname(registry), { recursive: true }), fs.writeFileString(registry, applyEdits(before, modify(before, ['plugins', held === -1 ? rows.length : held], row, {})))) : Effect.void;
             }),
         },
     },

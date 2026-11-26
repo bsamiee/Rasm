@@ -1,4 +1,4 @@
-import { dried, executor, spawned } from '@rasm/nx';
+import { dried, executor, spawned } from '@rasm/nx/inference';
 import { Array, DateTime, Effect, Option, Order, Path, Record, Result, Schema, SchemaGetter, SemVer, SemVerRange, String } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
 import { MANIFEST, toml } from '#/workspace';
@@ -26,7 +26,7 @@ const Shared = Schema.Struct({
         dependencies: Schema.Record(Schema.String, Schema.Union([Schema.String.pipe(Schema.decodeTo(Row, { decode: SchemaGetter.transform((version) => ({ version })), encode: SchemaGetter.transform((row) => row.version ?? '*') })), Row])).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({ dependencies: {} }))),
 });
-class Release extends Schema.Opaque<Release, unknown>()(Schema.fromJsonString(Schema.Struct({ vers: Schema.SemVerFromString, yanked: Schema.Boolean, pubtime: Schema.DateTimeUtcFromString }))) {}
+class Release extends Schema.Opaque<Release>()(Schema.fromJsonString(Schema.Struct({ vers: Schema.SemVerFromString, yanked: Schema.Boolean, pubtime: Schema.DateTimeUtcFromString }))) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

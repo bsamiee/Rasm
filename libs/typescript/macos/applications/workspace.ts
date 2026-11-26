@@ -1,7 +1,7 @@
 import { isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { Handle, Server } from '@rasm/mcp';
-import { Unmatched } from '@rasm/search';
+import { Handle, Server } from '@rasm/mcp/server';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Cause, Context, Effect, Function, HashSet, Layer, Option, Predicate, Record, Result, Schema, Sink, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { Address } from '#/address';
 import { ApplicationServer } from '#/client';
@@ -41,7 +41,7 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
             const installed = yield* server.currentInstallations;
             return claimed(installed, yield* cataloguer(installed.filter(Predicate.not(backgroundOnly))));
         });
-        const [first, rest] = yield* Stream.peel(server.instances({}), Sink.head());
+        const [first, rest] = yield* Stream.peel(server.instances({}).pipe(successes('Instance listing')), Sink.head());
         const [catalog, running] = yield* Effect.all([
             Effect.flatMap(listEntries, (rows) => SubscriptionRef.make(rows)),
             Effect.flatMap(
@@ -61,7 +61,7 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
             ),
         );
         yield* Effect.forkScoped(Stream.runForEach(rest, (rows) => SubscriptionRef.set(running, rows)));
-        const changes = yield* Stream.share(server.events({}).pipe(logEnd('Application events')), { capacity: 'unbounded' });
+        const changes = yield* Stream.share(server.events({}).pipe(successes('Modal panel scan'), logEnd('Application events')), { capacity: 'unbounded' });
         const named = yield* Stream.share(
             Stream.mapAccumEffect(changes, Record.empty<string, string>, (started, event) => Effect.map(Effect.all([SubscriptionRef.get(running), SubscriptionRef.get(catalog)]), ([rows, entries]) => nameEvent(rows, entries, started, event))),
             { capacity: 'unbounded' },
@@ -70,7 +70,7 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
             Stream.filterMap(Function.identity),
             Stream.changesWith(Schema.toEquivalence(Pressure)),
             Stream.drop(1),
-            Stream.map((pressure) => ({ system: `memory pressure ${pressure.memory}, thermal state ${pressure.thermal}` })),
+            Stream.map((pressure) => ({ system: strains(pressure).map(Struct.get('text')).join(', ') })),
             logEnd('Pressure readings'),
         );
         const sessions = server.session().pipe(
@@ -81,6 +81,16 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
             logEnd('Session readings'),
         );
         const session = Effect.map(Stream.runHead(server.session()), Option.match({ onNone: Array.empty, onSome: (held) => said(held, (key) => held[key] !== SESSION[key].normal) }));
+        const pressure = Effect.map(
+            Stream.runHead(Stream.filterMap(server.pressure(), Function.identity)),
+            Option.match({
+                onNone: Array.empty,
+                onSome: (held) =>
+                    strains(held)
+                        .filter(({ normal }) => !normal)
+                        .map(Struct.get('text')),
+            }),
+        );
         const target = Effect.flatMap(Handle, (handle) => handle.get(Target));
         const events = Stream.merge(named, Stream.merge(pressures, sessions));
         yield* Server.use((served) =>
@@ -115,7 +125,7 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
                 entries.filter(({ claim }) => Option.isNone(claim)),
                 (each) => each.url.href,
             );
-            const presenting = Array.getSomes(rows.filter((each) => InstanceState.matchOrElse(each.state, { running: ({ running: live }) => live.windows.some(Struct.get('presented')) }, Function.constFalse)).map((each) => Option.all({ row: Record.get(driven, each.url.href), instance: Option.some(each.instance) })));
+            const presenting = Array.getSomes(rows.filter((each) => InstanceState.matchOrElse(each.state, { running: ({ windows }) => windows.some(Struct.get('presented')) }, Function.constFalse)).map((each) => Option.all({ row: Record.get(driven, each.url.href), instance: Option.some(each.instance) })));
             return { presenting, sole: Option.orElse(held, () => (presenting.length === 1 ? Array.head(presenting) : Option.none())) };
         });
         const current = Effect.gen(function* () {
@@ -130,13 +140,13 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
             return { row: aim.row, live };
         });
         const prompted = Stream.filterMap(named, ({ application, event }) =>
-            Event.fields.change.matchOrElse(event.change, { asking: ({ asking }) => (asking.kind === 'prompt' ? Result.succeed(Effect.succeed(`${application} prompt ${Address.token(asking.kind, asking.container)}${titled(asking.title)} asks for an answer`)) : Result.failVoid) }, () => Result.failVoid),
+            Event.fields.change.matchOrElse(event.change, { asking: ({ kind, container, title }) => (kind === 'prompt' ? Result.succeed(Effect.succeed(`${application} prompt ${Address.token(kind, container)}${titled(title)} asks for an answer`)) : Result.failVoid) }, () => Result.failVoid),
         );
         const blocked = (row: Pick<Entry, 'url' | 'name'>, instance?: InstanceSnapshot['instance']) =>
             SubscriptionRef.changes(running).pipe(Stream.map(Array.findFirst((each: InstanceSnapshot) => (instance === undefined ? Installation.runs(row)(each) : each.instance === instance))), Stream.filterMap(refuseBlocked(row.name)), Stream.map(Effect.succeed));
         const blocking = (row: Pick<Entry, 'url' | 'name'>) => Context.make(Server.EarlyReturn, Stream.merge(blocked(row), prompted));
         const ends = Context.make(Server.EarlyReturn, Stream.merge(prompted, Stream.unwrap(Effect.map(targetState, ({ sole }) => Option.match(sole, { onNone: () => Stream.never, onSome: ({ row, instance }) => blocked(row, instance) })))));
-        return { catalog, running, changes, session, target, setTarget, find, resolve, current, ends, blocking };
+        return { catalog, running, changes, session, pressure, target, setTarget, find, resolve, current, ends, blocking };
     }),
 }) {
     static readonly layer = <E, R>(cataloguer: Cataloguer<E, R>) => Layer.effect(Workspace, Workspace.make(cataloguer));
@@ -160,8 +170,15 @@ const logEnd =
     (subject: string) =>
     <A, X>(self: Stream.Stream<A, X>) =>
         Stream.catchCause(self, (cause) => Stream.fromEffect(Effect.andThen(Effect.logError(`${subject} ended`, cause), Effect.never)));
+const successes =
+    (subject: string) =>
+    <A, E, X>(self: Stream.Stream<Result.Result<A, E>, X>) =>
+        self.pipe(
+            Stream.tap((read) => Result.match(read, { onSuccess: () => Effect.void, onFailure: (failure) => Effect.logWarning(`${subject} failed, the last value stands`, failure) })),
+            Stream.filterMap(Function.identity),
+        );
 const nameEvent = (rows: readonly InstanceSnapshot[], entries: readonly Entry[], started: Record.ReadonlyRecord<string, string>, event: Event) => {
-    const announced = Event.fields.change.matchOrElse(event.change, { started: ({ started: { name } }) => Option.fromUndefinedOr(name) }, Option.none);
+    const announced = Event.fields.change.matchOrElse(event.change, { started: ({ name }) => Option.fromUndefinedOr(name) }, Option.none);
     const application = Array.findFirst(rows, (row) => row.instance === event.instance).pipe(
         Option.flatMap(({ url }) => Array.findFirst(entries, (entry) => entry.url.href === url.href)),
         Option.map(Struct.get('name')),
@@ -172,21 +189,27 @@ const nameEvent = (rows: readonly InstanceSnapshot[], entries: readonly Entry[],
     const kept = Event.fields.change.guards.exited(event.change) ? Record.remove(started, event.instance) : Option.match(announced, { onNone: () => started, onSome: (name) => Record.set(started, event.instance, name) });
     return [kept, [{ application, event }]] as const;
 };
-const declared = ({ usage }: Running) => Array.match(usage?.assertions ?? [], { onEmpty: () => '', onNonEmpty: (names) => `, declares ${names.join(', ')}` });
+const describeUsage = ({ usage }: Running) => Array.match(usage?.assertions ?? [], { onEmpty: () => '', onNonEmpty: (names) => `, declares ${names.join(', ')}` });
+const strains = ({ memory, available, thermal, lowPower, advisory }: typeof Pressure.Type) => [
+    { normal: memory === 'normal', text: `memory pressure ${memory} with ${available}% available` },
+    { normal: thermal === 'nominal', text: `thermal state ${thermal}` },
+    { normal: !lowPower, text: `low power mode ${lowPower ? 'on' : 'off'}` },
+    ...Record.collect(advisory, (key, level) => ({ normal: level !== 'bad', text: `load advisory ${key} ${level}` })),
+];
 const said = (session: Session, keep: (key: keyof typeof SESSION) => boolean) =>
     Struct.keys(SESSION)
         .filter(keep)
         .map((key) => SESSION[key][`${session[key]}`]);
-const prompting = Event.fields.change.matchOrElse({ asking: ({ asking }) => asking.kind === 'prompt', closed: ({ closed }) => closed.kind === 'prompt' }, Function.constFalse);
+const prompting = Event.fields.change.matchOrElse({ asking: ({ kind }) => kind === 'prompt', closed: ({ kind }) => kind === 'prompt' }, Function.constFalse);
 const titled = (title: string | undefined) => UndefinedOr.match(title, { onUndefined: () => '', onDefined: (named) => ` "${named}"` });
-const describeExitStatus = InstanceState.Exited.match({ Status: ({ status }) => `with status ${status}`, Signal: ({ signal }) => `on signal ${signal}`, Unread: () => 'with unread status' });
-const describeExit = (exit: Extract<InstanceSnapshot['state'], { readonly _tag: 'exited' }>['exited']) => `exited ${describeExitStatus(exit)}${UndefinedOr.match(exit.report, { onUndefined: () => '', onDefined: (report) => `, ${report.kind} report ${report.url.href}` })}`;
+const describeExitStatus = InstanceState.Exited.match({ status: ({ status }) => `with status ${status}`, signal: ({ signal }) => `on signal ${signal}`, statusFailure: () => 'with unread status' });
+const describeExit = (exit: typeof InstanceState.Exited.Type) => `exited ${describeExitStatus(exit)}${UndefinedOr.match(exit.report, { onUndefined: () => '', onDefined: (report) => `, ${report.kind} report ${report.url.href}` })}`;
 const describeEvent = ({ application, event: { instance, change } }: { readonly application: string; readonly event: Event }, { held, followed }: Context.Service.Shape<typeof Target>) =>
     Event.fields.change.match(change, {
         started: () => 'started',
-        opened: ({ opened }) => `opened ${opened.kind} ${Address.token(opened.kind, opened.container)}${titled(opened.title)}`,
-        closed: ({ closed }) => `closed ${closed.kind} ${Address.token(closed.kind, closed.container)}${titled(closed.title)}`,
-        asking: ({ asking }) => {
+        opened: (opened) => `opened ${opened.kind} ${Address.token(opened.kind, opened.container)}${titled(opened.title)}`,
+        closed: (closed) => `closed ${closed.kind} ${Address.token(closed.kind, closed.container)}${titled(closed.title)}`,
+        asking: (asking) => {
             const driven = HashSet.has(followed, instance);
             const answers = asking.answers.flatMap(({ ref, label }) => (driven ? [[...Array.fromNullishOr(label), Address.token('action', ref)].join(' ')] : Array.fromNullishOr(label)));
             const reach = Option.exists(held, (aim) => aim.instance === instance) ? '' : ` once applications open ${application} makes it the target`;
@@ -196,29 +219,30 @@ const describeEvent = ({ application, event: { instance, change } }: { readonly 
             });
             return `${asking.kind} ${Address.token(asking.kind, asking.container)}${titled(asking.title)} asks${Array.match(asking.text, { onEmpty: () => '', onNonEmpty: (lines) => `: ${lines.join(' ')}` })}; ${answering}`;
         },
-        focused: ({ focused }) => `focused ${Address.token(focused.kind, focused.control)}`,
-        value: ({ value }) => `${Address.token(value.kind, value.control)} now ${Address.fact(value.kind, value.fact)}`,
-        selection: ({ selection }) => `${Address.token(selection.kind, selection.control)} ${{ attribute: 'selected', marked: 'selected (inferred)' }[selection.evidence]}`,
-        moved: ({ moved }) => `moved ${moved.kind} ${Address.token(moved.kind, moved.container)} to ${moved.frame[0].join(',')} ${moved.frame[1].join('×')}`,
-        frontmost: ({ frontmost }) => (frontmost.active ? 'came to the front' : 'went behind'),
-        status: ({ status }) => UndefinedOr.match(status.thread, { onUndefined: () => status.status, onDefined: (thread) => `${status.status}, main thread ${thread}` }),
-        exited: ({ exited }) => describeExit(exited.termination),
+        focused: (focused) => `focused ${Address.token(focused.kind, focused.control)}`,
+        value: (value) => `${Address.token(value.kind, value.control)} now ${Address.fact(value.kind, value.fact)}`,
+        selection: (selection) => `${Address.token(selection.kind, selection.control)} ${{ attribute: 'selected', marked: 'selected (inferred)' }[selection.evidence]}`,
+        moved: (moved) => `moved ${moved.kind} ${Address.token(moved.kind, moved.container)} to ${moved.frame[0].join(',')} ${moved.frame[1].join('×')}`,
+        frontmost: (frontmost) => (frontmost.active ? 'came to the front' : 'went behind'),
+        hidden: (hidden) => (hidden.hidden ? 'was hidden' : 'was unhidden'),
+        status: ({ status }) => InstanceState.Status.matchOrElse(status, { unresponsive: ({ thread }) => `unresponsive, main thread ${thread}` }, ({ _tag }) => _tag),
+        exited: ({ termination }) => describeExit(termination),
     });
 const refuseBlocked = (name: string) => (found: Option.Option<InstanceSnapshot>) =>
     Option.match(found, {
         onNone: () => Result.succeed(`${name} no longer runs`),
         onSome: ({ state }) =>
             InstanceState.match(state, {
-                exited: ({ exited: exit }) => Result.succeed(`${name} ${describeExit(exit)}`),
+                exited: ({ termination }) => Result.succeed(`${name} ${describeExit(termination)}`),
                 failed: () => Result.failVoid,
-                running: ({ running }) =>
+                running: (running) =>
                     Array.match(
                         running.windows
                             .filter(Struct.get('asking'))
                             .map(({ kind = 'window', container, number, title }) => `${name} ${kind} ${UndefinedOr.match(container, { onUndefined: () => `${number}`, onDefined: (ref) => Address.token(kind, ref) })}${titled(title)} asks for an answer: inspect reads it and act answers it`),
                         {
                             onNonEmpty: (dialogs) => Result.succeed(dialogs.join('; ')),
-                            onEmpty: () => (running.status === 'unresponsive' ? Result.succeed(`${name} stopped responding${UndefinedOr.match(running.process, { onUndefined: () => '', onDefined: (thread) => `, main thread ${thread}` })}${declared(running)}`) : Result.failVoid),
+                            onEmpty: () => InstanceState.Status.matchOrElse(running.status, { unresponsive: ({ thread }) => Result.succeed(`${name} stopped responding, main thread ${thread}${describeUsage(running)}`) }, () => Result.failVoid),
                         },
                     ),
             }),
@@ -226,4 +250,4 @@ const refuseBlocked = (name: string) => (found: Option.Option<InstanceSnapshot>)
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { declared, type Entry, Workspace };
+export { describeUsage, type Entry, Workspace };

@@ -1,4 +1,4 @@
-import { Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search/unmatched';
 import { Cause, Deferred, Duration, Effect, Equal, Exit, Function, Latch, Layer, Option, Predicate, Record, Ref, Schedule, Schema, Stream, Struct, SubscriptionRef } from 'effect';
 import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse, Url, type UrlParams } from 'effect/http';
 import { NetAddress } from 'effect/net';

@@ -33,7 +33,8 @@ extension RotatingFile {
     private func rotate(_ path: FilePath, before expiry: Duration) throws {
         let locked = try open(path, .exclusiveLock)
         try locked.closeAfter {
-            guard try needsRotation(locked.stat(), before: expiry), try ifPresent({ () throws(Errno) in try path.stat().inode }) == locked.stat().inode else { return }
+            let stat = try locked.stat()
+            guard needsRotation(stat, before: expiry), try ifPresent({ () throws(Errno) in try path.stat().inode }) == stat.inode else { return }
             for index in stride(from: files, to: 0, by: -1) {
                 let (source, target) = (file(index - 1).path(percentEncoded: false), file(index))
                 if unsafe rename(source, target.path(percentEncoded: false)) != 0, errno != ENOENT { throw Errno(rawValue: errno) }
@@ -50,24 +51,23 @@ extension RotatingFile {
         try state.withLock { held -> Result<Void, FileFailure> in
             do {
                 let inode = try ifPresent { () throws(Errno) in try path.stat().inode }
-                if let stale = held.handle, try FileDescriptor(rawValue: stale.fileDescriptor).stat().inode != inode {
+                if let replaced = held.handle, try FileDescriptor(rawValue: replaced.fileDescriptor).stat().inode != inode {
                     held.handle = nil
-                    try stale.close()
+                    try replaced.close()
                 }
-                let opened = try held.handle ?? FileHandle(fileDescriptor: open(path).rawValue, closeOnDealloc: true)
-                let full = try needsRotation(FileDescriptor(rawValue: opened.fileDescriptor).stat(), before: expiry)
-                if full {
+                var current = try held.handle ?? FileHandle(fileDescriptor: open(path).rawValue, closeOnDealloc: true)
+                if try needsRotation(FileDescriptor(rawValue: current.fileDescriptor).stat(), before: expiry) {
                     held.handle = nil
-                    try opened.close()
+                    try current.close()
                     try rotate(path, before: expiry)
+                    current = try FileHandle(fileDescriptor: open(path).rawValue, closeOnDealloc: true)
                 }
-                let current = full ? try FileHandle(fileDescriptor: open(path).rawValue, closeOnDealloc: true) : opened
                 held.handle = current
                 try current.write(contentsOf: data)
                 held.failure = nil
                 return .success(())
             } catch {
-                let failure = FileFailure(file: url, reason: .filesystem(error as NSError))
+                let failure = FileFailure(file: url, reason: .filesystem(error))
                 held.failure = failure
                 return .failure(failure)
             }

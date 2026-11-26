@@ -2,7 +2,7 @@ import { basename, dirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { RawProjectGraphDependency, TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
-import { below, EXECUTORS, PLATFORM, removable, runner, tokened, type Verbs } from '@rasm/nx';
+import { below, EXECUTORS, PLATFORM, removable, runner, tokened, type Verbs } from '@rasm/nx/inference';
 import { Array, Context, Layer, Option, Record, Ref, Schema } from 'effect';
 import plugin from '#/package.json' with { type: 'json' };
 
@@ -15,7 +15,7 @@ const ENVIRONMENT = { DOTNET_ROLL_FORWARD_TO_PRERELEASE: '1', DOTNET_DbgEnableMi
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Mode = Schema.Struct({ configuration: Schema.String, outputs: Schema.Array(Schema.String), published: Schema.Array(Schema.String), reports: Schema.Array(Schema.String), documents: Schema.Array(Schema.String), packed: Schema.String });
-class Node extends Schema.Opaque<Node, unknown>()(
+class Node extends Schema.Opaque<Node>()(
     Schema.Struct({
         file: Schema.String,
         name: Schema.String,

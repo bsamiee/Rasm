@@ -24,24 +24,23 @@ public struct Locator: Codable, Hashable, Sendable {
         let role: String
         let key: Key
 
-        static func keyed(_ members: [(role: String, keys: [Key])]) -> [Self] {
-            let counts: [Self: Int] = members.flatMap { (member: (role: String, keys: [Key])) -> [Self] in member.keys.map { (key: Key) -> Self in Self(role: member.role, key: key) } }
-                .reduce(into: [:]) { (counts: inout [Self: Int], step: Self) in counts[step, default: 0] += 1 }
-            return members.reduce(into: (steps: [Self](), anchor: Self?.none, offsets: [String: Int]())) { walk, member in
-                switch member.keys.lazy.map({ key in Self(role: member.role, key: key) }).first(where: { step in counts[step] == 1 }) {
+        static func distinguish(_ siblings: [(role: String, keys: [Key])]) -> [Self] {
+            let candidates: [(Self, Int)] = siblings.flatMap { sibling in sibling.keys.map { (key: Key) -> (Self, Int) in (Self(role: sibling.role, key: key), 1) } }
+            let counts: [Self: Int] = Dictionary(candidates, uniquingKeysWith: +)
+            return siblings.reduce(into: (steps: [Self](), anchor: Self?.none, offsets: [String: Int]())) { walk, sibling in
+                switch sibling.keys.lazy.map({ key in Self(role: sibling.role, key: key) }).first(where: { step in counts[step] == 1 }) {
                     case .some(let step):
                         walk.steps.append(step)
                         (walk.anchor, walk.offsets) = (step, [:])
                     case .none:
-                        walk.offsets[member.role, default: 0] += 1
-                        walk.steps.append(Self(role: member.role, key: .offset(from: walk.anchor, by: walk.offsets[member.role, default: 0])))
+                        walk.offsets[sibling.role, default: 0] += 1
+                        walk.steps.append(Self(role: sibling.role, key: .offset(from: walk.anchor, by: walk.offsets[sibling.role, default: 0])))
                 }
             }.steps
         }
     }
 
     private static let encoder: JSONEncoder = .jsonLines
-    private static let decoder = JSONDecoder()
 
     let steps: [Step]
 
@@ -49,7 +48,7 @@ public struct Locator: Codable, Hashable, Sendable {
 
     init(steps: [Step]) { self.steps = steps }
 
-    public init(from decoder: any Decoder) throws { steps = try Self.decoder.decode([Step].self, from: Data(decoder.singleValueContainer().decode(String.self).utf8)) }
+    public init(from decoder: any Decoder) throws { steps = try JSONDecoder().decode([Step].self, from: Data(decoder.singleValueContainer().decode(String.self).utf8)) }
 
     func appending(_ step: Step) -> Self { Self(steps: steps + [step]) }
 

@@ -16,20 +16,19 @@
     "type": "module",
     "sideEffects": false,
     "exports": {
-        ".": "./script.ts",
+        "./script": "./script.ts",
         "./uxp": "./uxp.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
         "exports": {
-            ".": "./dist/script.js",
+            "./script": "./dist/script.js",
             "./uxp": "./dist/uxp.js",
             "./package.json": "./package.json"
         },
         "access": "public"
     },
     "dependencies": {
-        "@rasm/applications": "workspace:*",
         "@rasm/extendscript": "workspace:*",
         "@rasm/object-model": "workspace:*",
         "@rasm/search": "workspace:*",

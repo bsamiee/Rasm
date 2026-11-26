@@ -1,6 +1,8 @@
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
-import { Forward, Host, Ssh } from '@rasm/ssh';
+import { Ssh } from '@rasm/ssh/client';
+import { Forward } from '@rasm/ssh/forward';
+import { Host } from '@rasm/ssh/host';
 import { Array, Console, Effect, Layer, Option, Schema, Stdio } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------

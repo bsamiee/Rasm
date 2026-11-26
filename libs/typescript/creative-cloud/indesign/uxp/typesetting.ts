@@ -1,5 +1,5 @@
-import { HostError, Reference, Specifier } from '@rasm/object-model';
-import { Unmatched } from '@rasm/search';
+import { HostError, Reference, Specifier } from '@rasm/object-model/model';
+import { Unmatched } from '@rasm/search/unmatched';
 import type { InsertionPoint, Text, TextDefault, TextStyleRange } from 'adobe:indesign';
 import { Array, Effect, flow, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import type { Adjust, Kerns, Runs, Typeset } from '#/typesetting';

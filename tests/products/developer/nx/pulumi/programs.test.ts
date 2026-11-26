@@ -1,7 +1,8 @@
+import { assert, effect } from '@effect/vitest';
 import { createNodes } from '@rasm/nx-pulumi';
 import { refused } from '@rasm/testing/errors';
-import { it } from '@rasm/testing/nx';
-import { asyncProperty, assert, constant, constantFrom, dictionary, oneof, record, string } from 'fast-check';
+import { it, Workspace } from '@rasm/testing/nx';
+import { Effect, Predicate, Record, Schema } from 'effect';
 import { describe, expect } from 'vitest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -9,31 +10,28 @@ import { describe, expect } from 'vitest';
 const WORKSPACES = { 'package.json': '{"name":"root","workspaces":["packages/*"]}' };
 const PROGRAM = { name: 'infra', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*' } };
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Json = Schema.fromJsonString(Schema.Unknown);
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('Pulumi programs and the packages running them', () => {
-    it('runs a package as a program exactly when it declares @pulumi/pulumi and one bin command', async ({ workspace }) => {
-        await assert(
-            asyncProperty(
-                record({
-                    stated: oneof(
-                        constant({ bin: {}, commands: 0 }),
-                        string({ minLength: 1 }).map((path) => ({ bin: { bin: `./${path}.mjs` }, commands: 1 })),
-                        dictionary(string({ minLength: 1 }), constant('./stacks.mjs'), { maxKeys: 3 }).map((bin) => ({ bin: { bin }, commands: Object.keys(bin).length })),
-                    ),
-                    declared: constantFrom('none', 'dependencies', 'devDependencies'),
-                }),
-                async ({ stated: { bin, commands }, declared }) => {
-                    const manifest = { name: 'program', ...bin, ...(declared === 'none' ? {} : { [declared]: { '@pulumi/pulumi': '*' } }) };
+    effect.prop(
+        'runs a package as a program exactly when it declares @pulumi/pulumi and one bin command',
+        {
+            bin: Schema.Union([Schema.Undefined, Schema.String.check(Schema.isPattern(/^\.\/.+\.mjs$/u)), Schema.Record(Schema.NonEmptyString, Schema.Literal('./stacks.mjs')).check(Schema.isMaxProperties(3))]),
+            declared: Schema.UndefinedOr(Schema.Literals(['dependencies', 'devDependencies'])),
+        },
+        Effect.fnUntraced(function* ({ bin, declared }) {
+            const [workspace, manifest] = yield* Effect.all([Workspace.scoped, Schema.encodeEffect(Json)({ name: 'program', ...(bin === undefined ? {} : { bin }), ...(declared === undefined ? {} : { [declared]: { '@pulumi/pulumi': '*' } }) })]);
 
-                    const graph = await workspace.write({ ...WORKSPACES, 'packages/program/package.json': JSON.stringify(manifest) }).graph({ createNodes });
+            const graph = yield* Effect.promise(() => workspace.write({ ...WORKSPACES, 'packages/program/package.json': manifest }).graph({ createNodes }));
 
-                    expect({ manifest, program: 'deploy--pulumi' in (graph.nodes['program']?.data.targets ?? {}) }).toStrictEqual({ manifest, program: declared !== 'none' && commands === 1 });
-                },
-            ),
-            { numRuns: 60 },
-        );
-    });
+            assert.strictEqual('deploy--pulumi' in (graph.nodes['program']?.data.targets ?? {}), declared !== undefined && (Predicate.isString(bin) ? 1 : Record.size(bin ?? {})) === 1);
+        }),
+        { arbitrary: { runs: 60 } },
+    );
 
     it('runs the program for each package holding at its root the file the program manifest names, where a project.json or the workspaces anchor it', async ({ workspace }) => {
         const graph = await workspace

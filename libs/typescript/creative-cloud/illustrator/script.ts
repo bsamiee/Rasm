@@ -1,4 +1,4 @@
-import type { bracket, preserve } from '@rasm/extendscript/host';
+import type { preserve } from '@rasm/extendscript/host';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -9,7 +9,7 @@ interface Scripting {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const suppressAlerts = <A>({ app, UserInteractionLevel }: Scripting, body: () => A, host: { readonly bracket: typeof bracket; readonly preserve: typeof preserve }): A => host.bracket(() => host.preserve(app, { userInteractionLevel: UserInteractionLevel.DONTDISPLAYALERTS }), body);
+const suppressAlerts = <A>({ app, UserInteractionLevel }: Scripting, body: () => A, host: { readonly preserve: typeof preserve }): A => host.preserve(app, { userInteractionLevel: UserInteractionLevel.DONTDISPLAYALERTS }, body);
 const HostScript = { around: String(suppressAlerts) } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------

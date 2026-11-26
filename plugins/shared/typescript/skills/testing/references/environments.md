@@ -54,7 +54,8 @@ Servers that listen before they serve take the signal they print when serving (`
 
 Ports follow who binds them:
 - Container ports declared through `withExposedPorts(port)` map to a free host port the engine chooses, and tests dial `container.getHost()` at `container.getMappedPort(port)`
-- Programs a test starts that bind a port it names take a free number from `new RandomPortGenerator().generatePort()` (the `ssh -L` bind address), and listeners the test opens listen on port 0
+- Programs a test starts that bind a port it names take a free number from `getPort()` of `get-port` (an `ssh -L` bind address, a served product)
+- Listeners a test opens listen on port 0 and read the bound port from their address
 - Concurrent tests binding ports inside one container lease them from a fixed exposed range through a `Queue` under `Effect.acquireRelease`, returning each at release
 - Images a suite builds pass `{ deleteOnExit: false }` to `build`, keeping the image cached across runs outside the reaper's session
 

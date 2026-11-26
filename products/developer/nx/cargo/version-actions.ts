@@ -1,7 +1,7 @@
 import { dirname, join, posix } from 'node:path';
 import { patch } from '@decimalturn/toml-patch';
 import { type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit';
-import { spawned } from '@rasm/nx';
+import { spawned } from '@rasm/nx/inference';
 import { Array, Cause, Effect, FileSystem, flow, Option, Record, Result, Schema, String, Struct } from 'effect';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
 import { ACTIONS, MANIFEST, parsed, run, Table } from '#/workspace';

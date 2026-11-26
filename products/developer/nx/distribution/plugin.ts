@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, detectPackageManager, normalizePath, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, type TargetConfiguration, type TaskResult } from '@nx/devkit';
 import { combineGlobPatterns, emitPluginWorkerLog, quoteShellArg } from '@nx/devkit/internal';
-import { above, type Anchor, aggregated, anchored, EXEC, EXECUTORS, inferring, inside, manifested, namedInput, removable, run, tagged, type Verbs } from '@rasm/nx';
+import { above, type Anchor, aggregated, anchored, EXEC, EXECUTORS, inferring, inside, manifested, namedInput, removable, run, tagged, type Verbs } from '@rasm/nx/inference';
 import { Array, Config, Duration, Effect, FileSystem, Formatter, Function, Option, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http';
 import { FOLDERS, HOSTS, type Host, routed } from '#/host-packages';
@@ -90,7 +90,7 @@ const HELD = [
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Options extends Schema.Opaque<Options, unknown>()(
+class Options extends Schema.Opaque<Options>()(
     Schema.Struct({
         outputPath: Schema.optionalKey(Schema.String),
         storeCredentials: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),

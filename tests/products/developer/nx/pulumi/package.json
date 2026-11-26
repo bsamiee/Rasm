@@ -4,10 +4,11 @@
     "description": "@rasm/nx-pulumi suites over project and task graphs in temporary workspaces, with inferred commands run",
     "type": "module",
     "devDependencies": {
+        "@effect/vitest": "catalog:",
         "@rasm/nx-pulumi": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
-        "fast-check": "catalog:",
+        "effect": "catalog:",
         "nx": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"

@@ -1,0 +1,16 @@
+{
+    "name": "@rasm/test-premierepro",
+    "private": true,
+    "description": "@rasm/premierepro suites over sequence references, frame exports, and refused exports against a host module double",
+    "type": "module",
+    "devDependencies": {
+        "@adobe-uxp-types/uxp": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@rasm/object-model": "workspace:*",
+        "@rasm/premierepro": "workspace:*",
+        "@rasm/search": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vitest": "catalog:"
+    }
+}

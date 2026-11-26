@@ -28,8 +28,9 @@ public final class LogFilter: Sendable {
     public func level(for scope: String) -> Logger.Level {
         state.withLock { state in
             if let resolved = state.resolved[scope] { return resolved }
-            let stated = sequence(first: scope[...]) { name in name.lastIndex(of: ".").map { end in name[..<end] } }.lazy.compactMap { name in state.rules.scopes[String(name)] }.first
-            let level = stated ?? (roots.contains(scope.prefix { character in character != "." }) ? state.rules.level : state.rules.others)
+            let level =
+                sequence(first: scope[...]) { name in name.lastIndex(of: ".").map { end in name[..<end] } }.lazy
+                .compactMap { (name: Substring) -> Logger.Level? in state.rules.scopes[String(name)] ?? (roots.contains(name) ? state.rules.level : nil) }.first ?? state.rules.others
             state.resolved[scope] = level
             return level
         }

@@ -3,8 +3,9 @@ import AppKit
 import AsyncAlgorithms
 import CasePathsCore
 public import CoreGraphics
-import Processes
+public import Processes
 import Results
+public import System
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -16,6 +17,7 @@ public enum ElementAction: Codable, Hashable, Sendable, CustomStringConvertible 
     public struct Delivery: Encodable, Equatable, Sendable {
         public let window: CGWindowID?
         public let route: Route?
+        public let presentation: Watch.Presentation?
     }
 
     case press(ref: Int, action: String)
@@ -59,8 +61,9 @@ public enum ElementAction: Codable, Hashable, Sendable, CustomStringConvertible 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension ElementAction {
-    fileprivate func run(in process: pid_t, on element: AXUIElement?) throws(ApplicationFailure) -> (window: CGWindowID?, posting: (route: Route, inputs: [Input])?) {
-        if case .press(_, kAXRaiseAction) = self { throw ApplicationFailure(subject: "\(description), raising a window takes focus from the frontmost application", reason: .refused(nil)) }
+    fileprivate func run(in process: pid_t, on element: AXUIElement?, presented: Bool) throws(ApplicationFailure) -> (window: CGWindowID?, posting: (route: Route, inputs: [Input])?, opening: String?)
+    {
+        if case .press(_, kAXRaiseAction) = self { throw ApplicationFailure(subject: "\(description), raising a window takes focus from the frontmost application", reason: .refused) }
         guard let element else {
             let focused: CGWindowID?
             do throws(ApplicationFailure) {
@@ -68,32 +71,35 @@ extension ElementAction {
             } catch  where error.reason.is(\.unanswered) {
                 focused = nil
             }
-            return (focused, (.process, try Self.typing(keys)))
+            return (focused, (.process, try Self.typing(keys)), nil)
         }
         let read = try element.read([kAXEnabledAttribute, kAXRoleAttribute, kAXFocusedAttribute, kAXWindowAttribute] + frameAttributes)
-        let outcome: (answer: AXError, posting: (route: Route, inputs: [Input])?) =
+        let outcome: (answer: AXError, posting: (route: Route, inputs: [Input])?, opening: String?) =
             switch (self, read.element.facts[kAXEnabledAttribute]?.bool) {
                 case (.press, false), (.choose, false): throw ApplicationFailure(subject: description, reason: .disabled)
-                case (.press(_, let action), _): (AXUIElementPerformAction(element, action as CFString), nil)
-                case (.set(_, let value), _): try assign(value, to: element, read: read)
-                case (.choose(_, let item), _): try assign(.text(item), to: element, read: read)
-                case (.key, _): (.success, try aim(Self.typing(keys), at: element, read: read))
+                case (.press, _) where presented: (.success, nil, nil)
+                case (.press(_, let action), _) where action == kAXShowMenuAction || action == kAXPressAction && read.element.role.map(pressOpened.contains) == true: (.success, nil, action)
+                case (.press(_, let action), _): (AXUIElementPerformAction(element, action as CFString), nil, nil)
+                case (.set(_, let value), _): try assign(value, to: element, read: read, presented: presented)
+                case (.choose(_, let item), _): try assign(.text(item), to: element, read: read, presented: presented)
+                case (.key, _): (.success, try aim(Self.typing(keys), at: element, read: read), nil)
             }
-        guard outcome.answer != .success else { return (read.element.window, outcome.posting) }
+        guard outcome.answer != .success else { return (read.element.window, outcome.posting, outcome.opening) }
         throw ApplicationFailure(outcome.answer, subject: description, process: element.process ?? process, answering: self) {
-            ApplicationFailure(subject: description, reason: outcome.answer == .invalidUIElement ? .stale(reached: 0, candidates: []) : .refused(outcome.answer))
+            ApplicationFailure(subject: description, reason: outcome.answer == .invalidUIElement ? .stale(reached: 0, candidates: []) : .accessibility(outcome.answer))
         }
     }
 
     private static func typing(_ keys: [(key: Key, modifiers: Set<Modifier>)]) throws(ApplicationFailure) -> [Input] {
-        try keys.map { key, modifiers throws(ApplicationFailure) -> Input in try Input(contact: .key(key), path: [], hold: .zero, modifiers: modifiers, schedule: once) }
+        try keys.map { key, modifiers throws(ApplicationFailure) -> Input in try Input(contact: .key(key), path: [], hold: .zero, modifiers: modifiers, schedule: once, edges: [.down, .up]) }
     }
 
     private func assign(
         _ target: Fact.Scalar,
         to element: AXUIElement,
         read: (element: Element, handles: [AXUIElement]),
-    ) throws(ApplicationFailure) -> (answer: AXError, posting: (route: Route, inputs: [Input])?) {
+        presented: Bool,
+    ) throws(ApplicationFailure) -> (answer: AXError, posting: (route: Route, inputs: [Input])?, opening: String?) {
         let attribute = read.element.role == kAXRowRole ? kAXSelectedAttribute : kAXValueAttribute
         let current = { () throws(ApplicationFailure) -> Fact.Scalar? in try element.read([attribute]).element.facts[attribute]?.scalar }
         let (shown, settable): (Fact.Scalar?, Bool) = (try current(), try element.settable(attribute))
@@ -118,8 +124,8 @@ extension ElementAction {
                 guard answer != .success || after == value || value.number.map({ number in after?.number == number }) == true else {
                     throw ApplicationFailure(subject: description, reason: .unchanged(after))
                 }
-                return (answer, nil)
-            case (false, .some(let item), true, _): return try choose(item, on: element, listing: menus, opening: opening, read: read)
+                return (answer, nil, nil)
+            case (false, .some(let item), true, _): return try choose(item, on: element, listing: menus, opening: opening, read: read, presented: presented)
             case (false, _, _, .some(let goal)):
                 var (value, answer) = (shown?.number, AXError.success)
                 while let reached = value, reached != goal, answer == .success {
@@ -128,8 +134,8 @@ extension ElementAction {
                     value = answer != .success || abs(goal - next) < abs(goal - reached) ? next : nil
                 }
                 guard answer != .success || value == goal else { throw ApplicationFailure(subject: description, reason: .unchanged(try current())) }
-                return (answer, nil)
-            case (false, .some, false, .none): return (.success, try aim(Self.typing(keys), at: element, read: read))
+                return (answer, nil, nil)
+            case (false, .some, false, .none): return (.success, try aim(Self.typing(keys), at: element, read: read), nil)
             case (false, .none, _, .none): throw ApplicationFailure(subject: description, reason: .unchanged(shown))
         }
     }
@@ -140,7 +146,8 @@ extension ElementAction {
         listing menus: [AXUIElement],
         opening action: String?,
         read: (element: Element, handles: [AXUIElement]),
-    ) throws(ApplicationFailure) -> (answer: AXError, posting: (route: Route, inputs: [Input])?) {
+        presented: Bool,
+    ) throws(ApplicationFailure) -> (answer: AXError, posting: (route: Route, inputs: [Input])?, opening: String?) {
         let labeled = { (entries: [AXUIElement]) throws(ApplicationFailure) -> [(element: AXUIElement, label: String?)] in
             try entries.map { entry throws(ApplicationFailure) in
                 let fields = try entry.read([kAXTitleAttribute, kAXDescriptionAttribute, kAXTitleUIElementAttribute, kAXValueAttribute])
@@ -155,21 +162,22 @@ extension ElementAction {
         }
         let items = { (menus: [AXUIElement]) throws(ApplicationFailure) in try labeled(menus.map { menu throws(ApplicationFailure) in try menu.elements(kAXChildrenAttribute) }.flatMap(\.self)) }
         let listed = try items(menus)
-        let opening: String? = listed.isEmpty ? action : nil
+        let opening: String? = listed.isEmpty && !presented ? action : nil
+        if let opening, opening == kAXShowMenuAction || read.element.role.map(pressOpened.contains) == true { return (.success, nil, opening) }
         if let opening {
             AXUIElementSetMessagingTimeout(element, Float(messagingTimeout / 2 / .seconds(1)))
             let opened = AXUIElementPerformAction(element, opening as CFString)
             AXUIElementSetMessagingTimeout(element, Float(messagingTimeout / .seconds(1)))
-            guard [.success, .cannotComplete].contains(opened) else { return (opened, nil) }
+            guard [.success, .cannotComplete].contains(opened) else { return (opened, nil, nil) }
         }
         let opened = try opening == nil ? menus : element.menus()
         let shown = try opening == nil ? listed : items(opened)
         guard shown.isEmpty else {
             guard let match = shown.first(where: { entry in entry.label == item }) else {
-                for menu in opened { _ = AXUIElementPerformAction(menu, kAXCancelAction as CFString) }
+                for menu in opening == nil ? [] : opened { _ = AXUIElementPerformAction(menu, kAXCancelAction as CFString) }
                 throw ApplicationFailure(subject: description, reason: .unmatched(Unmatched(subject: "item of \(description)", query: item, candidates: shown.compactMap(\.label))))
             }
-            return (AXUIElementPerformAction(match.element, kAXPressAction as CFString), nil)
+            return (AXUIElementPerformAction(match.element, kAXPressAction as CFString), nil, nil)
         }
         let state = try element.read([kAXChildrenAttribute, kAXSelectedChildrenAttribute, kAXValueAttribute])
         let owned = try labeled((state.element.facts[kAXChildrenAttribute]?.elements ?? []).map { id in state.handles[id] }).filter { entry in entry.label != nil }
@@ -182,7 +190,7 @@ extension ElementAction {
         let step: (key: Key, modifiers: Set<Modifier>) = (Key.special(goal > from ? .down : .up), [])
         let moving: [(key: Key, modifiers: Set<Modifier>)] = Array(repeating: step, count: abs(goal - from))
         let returning: [(key: Key, modifiers: Set<Modifier>)] = [(Key.special(.return), [])]
-        return (.success, try aim(Self.typing(moving + returning), at: element, read: read))
+        return (.success, try aim(Self.typing(moving + returning), at: element, read: read), nil)
     }
 
     private func aim(_ typed: [Input], at element: AXUIElement, read: (element: Element, handles: [AXUIElement])) throws(ApplicationFailure) -> (route: Route, inputs: [Input]) {
@@ -195,9 +203,11 @@ extension ElementAction {
         let written: AXError = main == .success ? AXUIElementSetAttributeValue(element, kAXFocusedAttribute as CFString, kCFBooleanTrue) : main
         let kept: Bool? = written == .success ? try element.read([kAXFocusedAttribute]).element.facts[kAXFocusedAttribute]?.bool : nil
         guard kept != true else { return (.process, typed) }
-        guard let number = read.element.window, let frame = read.element.frame else { throw ApplicationFailure(subject: "\(kAXFocusedAttribute) for \(description)", reason: .refused(written)) }
+        guard let number = read.element.window, let frame = read.element.frame else {
+            throw ApplicationFailure(subject: "\(kAXFocusedAttribute) for \(description)", reason: written == .success ? .refused : .accessibility(written))
+        }
         let center: [Input.Sample] = [Input.Sample(at: SIMD2(frame.midX, frame.midY), pressure: nil, tilt: nil)]
-        return (.window(number: number), [try Input(contact: .button(.left), path: center, hold: .zero, modifiers: [], schedule: once)] + typed)
+        return (.window(number: number), [try Input(contact: .button(.left), path: center, hold: .zero, modifiers: [], schedule: once, edges: [.down, .up])] + typed)
     }
 }
 
@@ -220,15 +230,16 @@ extension Instance {
         _ actions: [ElementAction],
         in watch: Watch,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
-    ) async throws(ApplicationFailure) -> (outcomes: [Result<ElementAction.Delivery, ApplicationFailure>], state: InstanceState) {
+    ) async throws(ApplicationFailure) -> (outcomes: [Result<ElementAction.Delivery, ApplicationFailure>], state: InstanceState, usage: Result<ResourceUsage.Interval, Errno>) {
+        let began = Result { () throws(Errno) in try ResourceUsage(of: process) }
         var (outcomes, acted, blind, deferred): ([Result<ElementAction.Delivery, ApplicationFailure>], Set<CGWindowID>, Bool, Bool) = ([], [], false, false)
-        guard let source = CGEventSource(stateID: .privateState) else { throw ApplicationFailure(subject: "private event source for process \(process.pid)", reason: .refused(nil)) }
+        guard let source = CGEventSource(stateID: .privateState) else { throw ApplicationFailure(subject: "private event source for process \(process.pid)", reason: .refused) }
         let activity = ProcessInfo.processInfo.beginActivity(options: [.idleDisplaySleepDisabled, .userInitiated], reason: "Acting on process \(process.pid)")
         defer { ProcessInfo.processInfo.endActivity(activity) }
         let keyboardType: CGEventSourceKeyboardType = source.keyboardType
         let host = await MainActor.run {
             (
-                layout: KeyboardLayout.current(typing: keyboardType),
+                layout: KeyboardLayout.current(keyboardType: keyboardType),
                 rate: NSScreen.main?.maximumFramesPerSecond ?? 0,
                 doubleClick: Duration.seconds(NSEvent.doubleClickInterval),
                 keyRepeat: (delay: Duration.seconds(NSEvent.keyRepeatDelay), interval: Duration.seconds(NSEvent.keyRepeatInterval)),
@@ -238,19 +249,23 @@ extension Instance {
         for action in actions where outcomes.last?.is(\.failure) != true {
             let outcome: Result<ElementAction.Delivery, ApplicationFailure>
             do throws(ApplicationFailure) {
-                let step = try await watch.perform(on: action.ref) { element throws(ApplicationFailure) in try action.run(in: process.pid, on: element) }
+                let pending = try await watch.perform(on: action.ref) { element throws(ApplicationFailure) in try action.run(in: process.pid, on: element, presented: false) }
+                let (step, presentation) = try await watch.presenting(pending.opening.flatMap { _ in action.ref }, by: pending.opening, clock: clock) {
+                    (_: [Container]) async throws(ApplicationFailure) in
+                    try await pending.opening == nil ? pending : watch.perform(on: action.ref) { element throws(ApplicationFailure) in try action.run(in: process.pid, on: element, presented: true) }
+                }
                 let pressed = [CGEventType.leftMouseDown, .rightMouseDown, .otherMouseDown].map { type in CGEventSource.counterForEventType(source.sourceStateID, eventType: type) }.reduce(0, +)
                 let timelines = try (step.posting?.inputs ?? []).map { input throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] in
-                    try input.timeline(doubleClick: host.doubleClick, keyRepeat: host.keyRepeat, frames: host.rate, layout: host.layout, numbering: Int64(pressed) + 1, using: &generator)
+                    try input.timeline(doubleClick: host.doubleClick, keyRepeat: host.keyRepeat, frames: host.rate, layout: host.layout, firstPress: (Int64(pressed) + 1, 1), using: &generator)
                 }
                 let timeline = timelines.reduce(into: [(offset: Duration, event: CGEvent)]()) { walk, next in
                     let shift: Duration = walk.last?.offset ?? .zero
                     walk += next.map { offset, event in (shift + offset, event) }
                 }
                 try await (step.posting?.route ?? .process).post(timeline, to: process.pid, from: source, clock: clock)
-                outcome = .success(ElementAction.Delivery(window: step.window, route: step.posting?.route))
-            } catch  where error.reason.is(\.noProcess) || error.reason == .unanswered(action) {
-                outcome = .success(ElementAction.Delivery(window: nil, route: nil))
+                outcome = .success(ElementAction.Delivery(window: step.window, route: step.posting?.route, presentation: presentation))
+            } catch  where [.system(.noSuchProcess), .unanswered(action)].contains(error.reason) {
+                outcome = .success(ElementAction.Delivery(window: nil, route: nil, presentation: nil))
             } catch {
                 outcome = .failure(error)
             }
@@ -260,14 +275,18 @@ extension Instance {
             blind = blind || (action.ref == nil && reached == .some(nil))
             deferred = deferred || (action.ref != nil && reached == .some(nil))
         }
-        var last: InstanceState?
+        var (last, held): (InstanceState?, Result<ResourceUsage, Errno>) = (nil, began)
         let states = await watch.states().dropFirst()
         for await next in merge(states.map(Optional.some), AsyncTimerSequence(interval: messagingTimeout * 2, clock: clock).map { _ in InstanceState?.none }) {
             if let next, !Self.isIdle(next, acting: acted, blind: blind, deferred: deferred && last == nil) {
                 last = next
                 continue
             }
-            if let state = next ?? last { return (outcomes, state) }
+            let read = Result { () throws(Errno) in try ResourceUsage(of: process) }
+            let cause: ResourceUsage.Interval.Cause? = read.flatMap { after in held.map(after.since) }[case: \.success]?.cause
+            held = read
+            if next == nil, let cause, [.paging, .runnable].contains(cause) { continue }
+            if let state = next ?? last { return (outcomes, state, read.flatMap { after in began.map(after.since) }) }
         }
         throw ApplicationFailure(subject: actions.map(\.description).joined(separator: ", "), reason: .cancelled)
     }

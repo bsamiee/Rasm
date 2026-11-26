@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Array, Deferred, Effect, Fiber, Option, Queue, Record, Ref, Schema, String, Struct, SubscriptionRef } from 'effect';
 import { McpProtocol } from 'effect/ai';
-import { ASKED, Called, lines, opened, RAISED, SETTINGS, STATE, STATED, settled, TEXT } from '#/fixtures';
+import { ASKED, Called, lines, opened, placed, RAISED, SETTINGS, STATE, STATED, TEXT } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -28,7 +28,7 @@ const Listed = Schema.Struct({ result: Schema.Struct({ tools: Schema.Array(Schem
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const refusal = (message: unknown) => Effect.map(Schema.decodeUnknownEffect(Refused)(message), ({ error }) => error.code);
-const named = (line: string | undefined) => line?.split(' ')[1];
+const named = (line: string | undefined) => line?.split(' ')[1] ?? '';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -71,17 +71,12 @@ describe('tool calls through the server', () => {
         Effect.fnUntraced(function* () {
             const { probe, called } = yield* opened(PROTOCOL);
             const text = (name: string, given: Record.ReadonlyRecord<string, unknown> = {}) => Effect.map(called(name, given), (result) => lines(result).join('\n'));
-            const seen = (handle: string) =>
-                settled(
-                    Effect.map(called('test_simple_text', { handle }), (result) => Array.filter(lines(result), String.startsWith('! '))),
-                    Array.isReadonlyArrayNonEmpty,
-                );
+            const seen = (source: Queue.Queue<string>, handle: string, event: string) =>
+                Queue.offer(source, event).pipe(Effect.andThen(placed(probe, handle, ({ line }) => line.endsWith(event))), Effect.andThen(Effect.map(called('test_simple_text', { handle }), (result) => Array.filter(lines(result), String.startsWith('! ')))));
             const [owner, other] = [yield* text('test_claim'), yield* text('test_simple_text')];
-            const [claimer = '', bystander = ''] = [named(owner), named(other)];
-            yield* Queue.offer(probe.owned, 'owned one');
-            const owned = yield* seen(claimer);
-            yield* Queue.offer(probe.shared, 'shared one');
-            const shared = yield* seen(bystander);
+            const [claimer, bystander] = [named(owner), named(other)];
+            const owned = yield* seen(probe.owned, claimer, 'owned one');
+            const shared = yield* seen(probe.shared, bystander, 'shared one');
             yield* SubscriptionRef.set(probe.blocked, true);
             const early = yield* text('gated_early', { handle: claimer });
             yield* SubscriptionRef.set(probe.blocked, false);
@@ -132,9 +127,10 @@ describe('tool calls through the server', () => {
                 probe.owned,
                 Array.makeBy(SETTINGS.limit + 1, (index) => `unowned ${index}`),
             );
-            yield* settled(text('test_simple_text', { handle }), (shown) => shown.some(String.endsWith(`unowned ${SETTINGS.limit}`)));
+            yield* placed(probe, handle, ({ line }) => line.endsWith(`unowned ${SETTINGS.limit}`));
+            const latest = Array.some(yield* text('test_simple_text', { handle }), String.endsWith(`unowned ${SETTINGS.limit}`));
             yield* probe.release.open;
-            assert.deepStrictEqual({ claimed, beside, released: yield* Fiber.join(gated) }, { claimed: [`! #1 ${RAISED.owned}`, '', 'claimed'], beside: [TEXT], released: ['released'] });
+            assert.deepStrictEqual({ claimed, beside, latest, released: yield* Fiber.join(gated) }, { claimed: [`! #1 ${RAISED.owned}`, '', 'claimed'], beside: [TEXT], latest: true, released: ['released'] });
         }),
     );
 
@@ -144,7 +140,8 @@ describe('tool calls through the server', () => {
             const { probe, called } = yield* opened(PROTOCOL);
             const [issued, handle] = [lines(yield* called('test_stated')), named(lines(yield* called('test_simple_text'))[0])];
             yield* Queue.offer(probe.shared, 'shared one');
-            const evented = yield* settled(Effect.map(called('test_stated', { handle }), lines), (shown) => shown.some(String.startsWith('! ')));
+            yield* placed(probe, handle, ({ line }) => line.endsWith('shared one'));
+            const evented = lines(yield* called('test_stated', { handle }));
             assert.deepStrictEqual({ issued: [issued[0], ISSUED.test(issued[1] ?? ''), ...issued.slice(2)], evented }, { issued: [STATED, true, '', TEXT], evented: [STATED, '! #1 shared one', '', TEXT] });
         }),
     );

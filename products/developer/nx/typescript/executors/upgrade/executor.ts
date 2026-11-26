@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, relative } from 'node:path';
 import { detectPackageManager } from '@nx/devkit';
-import { dried, executor, inside, spawned } from '@rasm/nx';
+import { dried, executor, inside, spawned } from '@rasm/nx/inference';
 import { Array, Boolean, Cause, DateTime, Effect, FileSystem, Match, Option, Order, Predicate, Record, Result, Schema, SemVer, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
 import npa from 'npm-package-arg';

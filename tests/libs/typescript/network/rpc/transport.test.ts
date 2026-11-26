@@ -18,7 +18,7 @@ const ROUND_TRIPS = 5;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Peer extends Schema.Opaque<Peer, unknown>()(Schema.Struct({ name: Schema.String, instance: Schema.String })) {}
+class Peer extends Schema.Opaque<Peer>()(Schema.Struct({ name: Schema.String, instance: Schema.String })) {}
 const Asked = RpcGroup.make(Rpc.make('instance', { success: Schema.String }));
 const Bound = Schema.Struct({ port: Schema.Int });
 const Closed = Schema.Tuple([Schema.Struct({ code: Schema.Int })]);

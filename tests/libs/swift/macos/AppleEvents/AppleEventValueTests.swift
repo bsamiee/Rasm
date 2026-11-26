@@ -8,7 +8,14 @@ import Testing
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-private let dictionary = Result { try ScriptingDictionary(definition: Data(#"<dictionary title="Fixture"><suite name="Fixture" code="Fixt"/></dictionary>"#.utf8)) }
+private let dictionary = Result {
+    try ScriptingDictionary(
+        definition: Data(
+            #"<dictionary title="Fixture"><suite name="Fixture" code="Fixt"><enumeration name="script language" code="Fsla"><enumerator name="javascript" code="Fjvs"/></enumeration></suite></dictionary>"#
+                .utf8
+        )
+    )
+}
 
 private let scalar = Gen<AppleEventValue>.oneOf(
     Gen.always(AppleEventValue.null),
@@ -28,6 +35,8 @@ private let wire: [(AppleEventValue, String)] = [
     (.opaque(type: 0x0000_0001, data: Data("A4".utf8), value: nil), #"{"_tag":"opaque","data":"QTQ=","type":"0x00000001"}"#),
     (.specifier(want: "page", form: .index, seld: .number(2), from: .null), #"{"_tag":"specifier","form":"index","from":null,"seld":2,"want":"page"}"#),
 ]
+
+private let texts: [(String, DescType)] = [("javascript", DescType(typeEnumerated)), ("Fjvs", DescType(typeEnumerated)), ("Fred", DescType(typeUnicodeText))]
 
 private let integers: [(DescType, [UInt8], Double?)] = [
     (DescType(typeSInt64), [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0x00], 0x1p53),
@@ -78,5 +87,27 @@ struct AppleEventValueTests {
             case .opaque(type, data, _): expectNoDifference(nil, number)
             default: Issue.record("Read \(String(customDumping: read))")
         }
+    }
+
+    @Test(arguments: texts)
+    func sendsTextAsAnEnumeratorOnlyWhenItsParameterTypeDeclaresIt(text: String, type: DescType) throws {
+        expectNoDifference(try AppleEventValue.text(text).descriptor(as: ["script language", "text"], in: dictionary.get()).descriptorType, type)
+    }
+
+    @Test
+    func sendsAFileToAnAliasParameterAsAnAliasReadBackAsThatFile() throws {
+        let file = URL(filePath: #filePath)
+        let sent = try AppleEventValue.file(file).descriptor(as: ["alias"], in: dictionary.get())
+        expectNoDifference(sent.descriptorType, DescType(typeAlias))
+        expectNoDifference(try json(AppleEventValue(sent, in: dictionary.get())), try json(.file(file)))
+    }
+
+    @Test
+    func readsKeywordAndBookmarkDescriptorsAsTheTypeAndFileTheyHold() throws {
+        let file = URL(filePath: #filePath)
+        let keyword = try #require(NSAppleEventDescriptor(descriptorType: DescType(typeKeyword), data: NSAppleEventDescriptor(typeCode: AEKeyword(pName)).data))
+        let bookmark = try #require(NSAppleEventDescriptor(descriptorType: DescType(typeBookmarkData), data: file.bookmarkData()))
+        expectNoDifference(try json(AppleEventValue(keyword, in: dictionary.get())), try json(.type("pnam")))
+        expectNoDifference(try json(AppleEventValue(bookmark, in: dictionary.get())), try json(.file(file)))
     }
 }

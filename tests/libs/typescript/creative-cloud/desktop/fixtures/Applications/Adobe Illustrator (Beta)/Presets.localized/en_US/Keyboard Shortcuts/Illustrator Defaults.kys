@@ -1,0 +1,46 @@
+/Menus {
+	/cut2 {
+		/Context 0
+		/Modifiers 0
+		/Represent 15
+		/Key 15
+	}
+	/AdobeTransformObjects1 {
+		/Context 0
+		/Modifiers 32
+		/Represent 21
+		/Key 21
+	}
+}
+/Tools {
+	/Adobe\ Toggle\ Drawing\ Mode {
+		/Context 0
+		/Modifiers 32
+		/Represent 68
+		/Key 68
+	}
+	/Adobe\ Brush\ Tool {
+		/Context 0
+		/Modifiers 0
+		/Represent 66
+		/Key 66
+	}
+	/Adobe\ Direct\ Object\ Select\ Tool {
+		/Context 0
+		/Modifiers 0
+		/Represent 0
+		/Key 0
+	}
+	/Adobe\ Select\ Tool {
+		/Context 0
+		/Modifiers 0
+		/Represent 86
+		/Key 86
+	}
+	/Adobe\ Width\ Tool {
+		/Context 0
+		/Modifiers 32
+		/Represent 87
+		/Key 87
+	}
+}

@@ -1,9 +1,8 @@
+import { assert, describe, expect, it } from '@effect/vitest';
 import type { ProjectGraph, Tree } from '@nx/devkit';
 import { createTreeWithEmptyWorkspace } from '@nx/devkit/testing';
 import UvVersionActions from '@rasm/nx-uv/release/version-actions';
-import { Option } from 'effect';
-import { assert, asyncProperty, constantFrom, nat, option, tuple } from 'fast-check';
-import { describe, expect, it } from 'vitest';
+import { Arbitrary, Effect, Option, Schema, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -17,10 +16,19 @@ const GRAPH: ProjectGraph = {
     dependencies: {},
 };
 const SPELLED = { alpha: 'a', beta: 'b', rc: 'rc' } as const;
-const RELEASES = tuple(tuple(nat(99), nat(99), nat(99)), option(tuple(constantFrom('alpha', 'beta', 'rc'), nat(9)), { nil: undefined })).map(([release, pre]) => ({
-    semver: [release.join('.'), ...Option.toArray(Option.map(Option.fromUndefinedOr(pre), (held) => held.join('.')))].join('-'),
-    pep440: [release.join('.'), ...Option.toArray(Option.map(Option.fromUndefinedOr(pre), ([id, number]) => `${SPELLED[id]}${number}`))].join(''),
-}));
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Release = Schema.Struct({
+    release: Schema.Tuple([Schema.Natural, Schema.Natural, Schema.Natural]),
+    pre: Schema.UndefinedOr(Schema.Tuple([Schema.Literals(Struct.keys(SPELLED)), Schema.Natural])),
+});
+const RELEASES = Arbitrary.schema(Release).pipe(
+    Arbitrary.map(({ release, pre }) => ({
+        semver: [release.join('.'), ...Option.toArray(Option.map(Option.fromUndefinedOr(pre), (held) => held.join('.')))].join('-'),
+        pep440: [release.join('.'), ...Option.toArray(Option.map(Option.fromUndefinedOr(pre), ([id, number]) => `${SPELLED[id]}${number}`))].join(''),
+    })),
+);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -57,20 +65,18 @@ const read = async (version: string): Promise<unknown> => {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('project version', () => {
-    it('writes any SemVer release or alpha, beta, or rc prerelease in its PEP 440 spelling into the version field alone and reads the same version back', async () => {
-        expect.hasAssertions();
-        await assert(
-            asyncProperty(RELEASES, constantFrom('\n', '\r\n'), async ({ semver, pep440 }, ending) => {
-                const before = ['# manifest', '[project]', 'name    = "my-lib"', 'version = "1.0.0" # moved by nx release', 'dependencies = ["requests>=2.31"]', ''].join(ending);
-                const { tree, actions } = await versioned({ [MANIFEST]: before });
+    it.effect.prop(
+        'writes any SemVer release or alpha, beta, or rc prerelease in its PEP 440 spelling into the version field alone and reads the same version back',
+        { version: RELEASES, ending: Schema.Literals(['\n', '\r\n']) },
+        Effect.fnUntraced(function* ({ version: { semver, pep440 }, ending }) {
+            const before = ['# manifest', '[project]', 'name    = "my-lib"', 'version = "1.0.0" # moved by nx release', 'dependencies = ["requests>=2.31"]', ''].join(ending);
+            const { tree, actions } = yield* Effect.promise(() => versioned({ [MANIFEST]: before }));
 
-                await actions.updateProjectVersion(tree, semver);
+            yield* Effect.promise(() => actions.updateProjectVersion(tree, semver));
 
-                expect(tree.read(MANIFEST, 'utf-8')).toBe(before.replace('"1.0.0"', `"${pep440}"`));
-                await expect(actions.readCurrentVersionFromSourceManifest(tree)).resolves.toStrictEqual({ currentVersion: semver, manifestPath: MANIFEST });
-            }),
-        );
-    });
+            assert.deepStrictEqual([tree.read(MANIFEST, 'utf-8'), yield* Effect.promise(() => actions.readCurrentVersionFromSourceManifest(tree))], [before.replace('"1.0.0"', `"${pep440}"`), { currentVersion: semver, manifestPath: MANIFEST }]);
+        }),
+    );
 
     it('refuses to read a source version SemVer cannot state, naming it', async () => {
         expect.hasAssertions();

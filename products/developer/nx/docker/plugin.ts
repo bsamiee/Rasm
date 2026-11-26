@@ -1,7 +1,7 @@
 import { join, posix, relative, resolve } from 'node:path';
 import { type CreateNodes, type CreateNodesResultArray, hashArray, normalizePath } from '@nx/devkit';
 import { readModulePackageJson } from '@nx/devkit/internal';
-import { aggregated, anchored, EXECUTORS, fingerprinted, inferring, run, within } from '@rasm/nx';
+import { aggregated, anchored, EXECUTORS, fingerprinted, inferring, run, within } from '@rasm/nx/inference';
 import { Array, Config, Effect, FileSystem, Option, Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

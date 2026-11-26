@@ -1,5 +1,8 @@
 import { assert, type Vitest } from '@effect/vitest';
-import { Catalog, Column, type Engine, type Fields, Relation } from '@rasm/database';
+import { Catalog } from '@rasm/database/catalog';
+import { Column, type Fields } from '@rasm/database/column';
+import type { Engine } from '@rasm/database/engine';
+import { Relation } from '@rasm/database/relation';
 import { Array, DateTime, Effect, Record, Schema, Struct } from 'effect';
 import { SqlClient, type SqlError } from 'effect/sql';
 
@@ -165,7 +168,7 @@ const kinds = {
     state: Schema.Literals(['open', 'closed']),
     code: Schema.String.check(Schema.isBetweenCodePoints(1, 2)),
 } as const;
-class Sketch extends Schema.Opaque<Sketch, unknown>()(Schema.Struct({ columns: Schema.Array(Schema.Struct({ kind: Schema.Literals(Record.keys(kinds)), nullable: Schema.Boolean, indexed: Schema.Boolean })).check(Schema.isMaxLength(5)) })) {}
+class Sketch extends Schema.Opaque<Sketch>()(Schema.Struct({ columns: Schema.Array(Schema.Struct({ kind: Schema.Literals(Record.keys(kinds)), nullable: Schema.Boolean, indexed: Schema.Boolean })).check(Schema.isMaxLength(5)) })) {}
 const Sketches = Schema.NonEmptyArray(Sketch).check(Schema.isMaxLength(3));
 const bounded = Relation.make('bounded', {
     id: Schema.String,

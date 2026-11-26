@@ -1,5 +1,5 @@
-import AppKit
 public import Applications
+import CasePathsCore
 import CurrentProcess
 import Encoding
 public import Foundation
@@ -21,53 +21,46 @@ public func main(cachedDefinition: @escaping @Sendable (Installation) -> URL?) a
     let disclaimed = Result { () throws(Errno) in if serving { try disclaimResponsibility() } }
     let telemetry = Program.current.telemetry(scopes: [Request.self])
     let logger = Logger(label: String(reflecting: Request.self))
-    let work = ClosureService { @MainActor in
+    var context = InstrumentationContext.topLevel
+    InstrumentationSystem.instrument.extract(ProcessInfo.processInfo.environment, into: &context, using: EnvironmentCarrier())
+    let registration = ClosureService {
+        do {
+            var registered: [Result<Void, ApplicationFailure>] = []
+            for agent in try Installation(at: Bundle.main.bundleURL).agents() { registered.append(await Result { () async throws(ApplicationFailure) in try await agent.register() }) }
+            let outcome = traverse(registered) { outcome in outcome.aggregated(\.self) }
+            if case .failure(let refused) = outcome, refused.errors.contains(where: { failure in failure.reason == .requiresApproval }) { SMAppService.openSystemSettingsLoginItems() }
+            _ = try outcome.get()
+        } catch {
+            logger.critical("Server agent registration failed", error: error)
+            throw error
+        }
+    }
+    let requests = ClosureService { @MainActor in
         do {
             try disclaimed.get()
-            let installation = try Installation(at: Bundle.main.bundleURL)
-            guard serving else {
-                let agents = try installation.agents()
-                var registered: [Result<Void, ApplicationFailure>] = []
-                for agent in agents {
-                    registered.append(await Result { () async throws(ApplicationFailure) in try await agent.register() })
-                }
-                let unapproved = registered.contains { outcome in
-                    if case .failure(let failure) = outcome { failure.reason == .requiresApproval } else { false }
-                }
-                if unapproved { SMAppService.openSystemSettingsLoginItems() }
-                _ = try traverse(registered) { outcome in outcome.aggregated(\.self) }.get()
-                return
-            }
+            let claim = try Installation(at: Bundle.main.bundleURL).claim
             do { try Program.current.require() } catch { logger.notice("Started without every privacy grant", error: error) }
-            let updater = Updater(activationPolicy: .prohibited)
+            do { try PermittedFrontList.recover() } catch { logger.error("Permitted front list recovery failed", error: error) }
+            let updater = Updater()
             defer { extendLifetime(updater) }
-            var context = InstrumentationContext.topLevel
-            InstrumentationSystem.instrument.extract(ProcessInfo.processInfo.environment, into: &context, using: EnvironmentCarrier())
-            let claimed = installation.claim?.prefixes
-            try await cancelWhenGracefulShutdown { [context] in
-                try await InstrumentationContext.withValue(context) {
-                    try await serve(
-                        reading: FileHandle.standardInput.bytes.jsonLines,
-                        writing: { line in try FileDescriptor.standardOutput.writeAll(line) },
-                        matching: {
-                            claimed.map { prefixes in
-                                NSCompoundPredicate(orPredicateWithSubpredicates: prefixes.map { prefix in NSPredicate(format: "%K BEGINSWITH %@", NSMetadataItemCFBundleIdentifierKey, prefix) })
-                            } ?? NSPredicate(value: true)
-                        },
-                        cachedDefinition: cachedDefinition,
-                    )
-                }
+            try await cancelWhenGracefulShutdown {
+                try await serve(
+                    reading: FileHandle.standardInput.bytes.jsonLines,
+                    writing: { line in try FileDescriptor.standardOutput.writeAll(line) },
+                    matching: { claim?.predicate ?? NSPredicate(value: true) },
+                    cachedDefinition: cachedDefinition,
+                )
             }
-        } catch {
-            guard case .cancelled? = (error as? JSONRPCFailure)?.reason else {
-                logger.critical(serving ? "Request serving failed" : "Server agent registration failed", error: error)
-                throw error
-            }
+        } catch let failure as JSONRPCFailure where failure.reason.is(\.cancelled) {
             logger.info("Request serving canceled")
+        } catch {
+            logger.critical("Request serving failed", error: error)
+            throw error
         }
     }
     let services =
         [ServiceGroupConfiguration.ServiceConfiguration(service: telemetry)] + (serving ? [.init(service: MetricKitReports(to: logger))] : [])
-        + [.init(service: work, successTerminationBehavior: .gracefullyShutdownGroup, failureTerminationBehavior: .gracefullyShutdownGroup)]
-    do { try await ServiceGroup(configuration: ServiceGroupConfiguration(services: services, gracefulShutdownSignals: [.sigterm, .sigint], logger: logger)).run() } catch { exit(EXIT_FAILURE) }
+        + [.init(service: serving ? requests : registration, successTerminationBehavior: .gracefullyShutdownGroup, failureTerminationBehavior: .gracefullyShutdownGroup)]
+    let group = ServiceGroup(configuration: ServiceGroupConfiguration(services: services, gracefulShutdownSignals: [.sigterm, .sigint], logger: logger))
+    do { try await InstrumentationContext.withValue(context) { try await group.run() } } catch { exit(EXIT_FAILURE) }
 }

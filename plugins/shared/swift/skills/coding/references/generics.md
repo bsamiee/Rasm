@@ -82,24 +82,25 @@ extension AsyncSequence where Element == UInt8 {
 Requirements dispatch through the conformance and other extension members bind statically, so an operation a conformer replaces is a requirement with its default in an extension. A protocol refining `Encodable` supplies `encode(to:)` in its extension, that witness stands in place of synthesis, and a conformer states the protocol alone:
 
 ```swift
-public protocol CaseKeyed: Encodable {}
+public protocol CaseTagged: Encodable {}
 
-extension CaseKeyed {
+extension CaseTagged {
     public func encode(to encoder: any Encoder) throws {
-        guard let held = Mirror(reflecting: self).children.first, let label = held.label, let value = held.value as? any Encodable else {
-            throw EncodingError.invalidValue(self, EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "\(Self.self) case \(self) holds no Encodable value"))
+        let held: Mirror.Child? = Mirror(reflecting: self).children.first
+        var fields = encoder.container(keyedBy: Field.self)
+        try fields.encode(held?.label ?? String(describing: self), forKey: .tag)
+        switch held?.value {
+            case .none: return
+            case .some(let value as any Encodable): try value.encode(to: encoder)
+            case .some(let value): throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "\(Self.self) case \(self) holds no Encodable value"))
         }
-        func encodeKeyed(_ value: some Encodable) throws {
-            var fields = encoder.singleValueContainer()
-            try fields.encode([label: value])
-        }
-        try encodeKeyed(value)
     }
 }
 ```
 
-- `Mirror` reads the label at run time, and a labeled or multi-value payload reads as a tuple and throws at encode
-- `any P` opens at a `some P` parameter, and `encodeKeyed` makes `[label: value]` a conforming `[String: T]` where `[String: any Encodable]` fails
+- `Mirror` reads the case label and payload at run time, `Field` is a `CodingKey` built from any string, and a keyed payload's own `encode(to:)` writes its fields beside `_tag`
+- Labeled payloads read as a tuple whose `Mirror` children carry each label, so each child encodes under its label and an absent optional goes
+- `any P` opens at a `some P` or generic parameter, so `value.encode(to:)` and `fields.encode(value, forKey:)` take an `any Encodable` directly
 - Existentials in `??`, a ternary, or a literal open nothing, and a value opens once inside `map` or a local function
 
 ## [05]-[CONDITIONAL_CONFORMANCES]

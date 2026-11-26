@@ -1,7 +1,9 @@
 import { ClickhouseClient } from '@effect/sql-clickhouse';
 import { assert, layer, type Vitest } from '@effect/vitest';
-import { Catalog, Column, Relation, Tokenizer } from '@rasm/database';
+import { Catalog } from '@rasm/database/catalog';
 import { Clickhouse } from '@rasm/database/clickhouse';
+import { Column } from '@rasm/database/column';
+import { Relation, Tokenizer } from '@rasm/database/relation';
 import { ClickHouseContainer, type StartedClickHouseContainer } from '@testcontainers/clickhouse';
 import { Array, BigDecimal, Context, Effect, Layer, Number, Option, Predicate, Ref, Schema, Struct } from 'effect';
 import { SqlClient, SqlError } from 'effect/sql';

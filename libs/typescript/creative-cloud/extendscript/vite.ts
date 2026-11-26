@@ -1,5 +1,5 @@
-import { HostError } from '@rasm/object-model';
-import { checks } from '@rasm/vite';
+import { HostError } from '@rasm/object-model/model';
+import { checks } from '@rasm/vite/checks';
 import { Array, Effect, flow, Schema } from 'effect';
 import { build, type Plugin, type Rolldown } from 'vite';
 import { lower } from '#/node';

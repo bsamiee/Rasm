@@ -1,5 +1,6 @@
 import { useAtom, useAtomSet, useAtomValue } from '@effect/atom-react';
-import { MenuButton, ModalDialog } from '@rasm/ui';
+import { MenuButton } from '@rasm/ui/menu-button';
+import { ModalDialog } from '@rasm/ui/modal-dialog';
 import { Array, ByteSize, Optic, Option, Record } from 'effect';
 import { FileText, Film } from 'lucide-react';
 import { useRef } from 'react';

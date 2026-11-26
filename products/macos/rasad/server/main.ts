@@ -1,7 +1,7 @@
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
-import { InterfaceMaps } from '@rasm/applications';
 import { ApplicationServer } from '@rasm/applications/client';
+import { InterfaceMaps } from '@rasm/applications/interface-map';
 import { Tools } from '@rasm/applications/tools';
 import { Workspace } from '@rasm/applications/workspace';
 import { serve } from '@rasm/mcp/cli';

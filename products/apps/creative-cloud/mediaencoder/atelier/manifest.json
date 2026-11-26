@@ -1,0 +1,9 @@
+{
+    "manifestVersion": 5,
+    "id": "app.rasm.atelier.mediaencoder",
+    "name": "Atelier Media Encoder",
+    "version": "0.1.0",
+    "host": { "app": "ame", "minVersion": "27.0.0", "data": { "loadEvent": "startup" } },
+    "entrypoints": [],
+    "requiredPermissions": { "localFileSystem": "fullAccess", "network": { "domains": ["ws://localhost:7490"] }, "allowCodeGenerationFromStrings": true }
+}

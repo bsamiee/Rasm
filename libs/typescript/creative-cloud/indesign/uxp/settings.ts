@@ -1,7 +1,8 @@
-import type { HostError } from '@rasm/object-model';
-import { Digits, type Unmatched } from '@rasm/search';
-import { Settings } from '@rasm/typography';
-import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDesignDOMObject, Justification, KashidasOptions, Leading, PageSideOptions, ParagraphDirectionOptions, ParagraphJustificationOptions, SingleWordJustification, Text, TextDefault } from 'adobe:indesign';
+import type { HostError } from '@rasm/object-model/model';
+import { Digits } from '@rasm/search/digits';
+import type { Unmatched } from '@rasm/search/unmatched';
+import { Settings } from '@rasm/typography/settings';
+import type { Capitalization, CharacterDirectionOptions, DigitsTypeOptions, InDesignDOMObject, Justification, KashidasOptions, Leading, OTFFigureStyle, PageSideOptions, ParagraphDirectionOptions, ParagraphJustificationOptions, Position, SingleWordJustification, Text, TextDefault } from 'adobe:indesign';
 import { Array, type Cause, Effect, Equal, identity, Match, Number, Option, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation, Struct } from 'effect';
 import type { Typeset } from '#/typesetting';
 import { Dom, STYLISTIC_SETS } from '#/uxp/dom';
@@ -60,16 +61,36 @@ const JUSTIFICATIONS = {
     NASKH_JUSTIFICATION: { _tag: 'Stretched', fractional: false },
 } as const satisfies Record<Members<typeof ParagraphJustificationOptions>, { readonly _tag: Exclude<Settings['kashida']['_tag'], 'None'>; readonly fractional: boolean }>;
 const KASHIDA_WIDTHS = { None: 0, Short: 1, Medium: 2, Long: 3 } as const;
-const FEATURE_FLAGS = { otfTitling: 'titl', otfContextualAlternate: 'calt', otfDiscretionaryLigature: 'dlig', otfStylisticAlternate: 'salt', otfJustificationAlternate: 'jalt' } as const;
-const CAPITALIZATIONS = { CAP_TO_SMALL_CAP: ['c2sc', 'smcp'], SMALL_CAPS: ['smcp'], NORMAL: [], ALL_CAPS: [], LOWER_CASE: [] } as const satisfies Record<Members<typeof Capitalization>, readonly string[]>;
-const SPACING = Record.map({ word: 'WordSpacing', letter: 'LetterSpacing', glyph: 'GlyphScaling' } as const, (suffix) => Record.map({ min: 'minimum', desired: 'desired', max: 'maximum' } as const, (prefix) => `${prefix}${suffix}` as const));
+const FEATURE_FLAGS = {
+    otfTitling: 'titl',
+    otfContextualAlternate: 'calt',
+    otfDiscretionaryLigature: 'dlig',
+    otfStylisticAlternate: 'salt',
+    otfJustificationAlternate: 'jalt',
+    ligatures: 'liga',
+    otfLocale: 'locl',
+    otfFraction: 'frac',
+    otfOrdinal: 'ordn',
+    otfSwash: 'swsh',
+    otfHistorical: 'hist',
+    otfSlashedZero: 'zero',
+} as const satisfies { readonly [K in keyof TextDefault as TextDefault[K] extends boolean ? K : never]?: string };
+const FEATURE_MEMBERS: Readonly<Record<keyof Pick<TextDefault, 'capitalization' | 'otfFigureStyle' | 'position'>, Record.ReadonlyRecord<string, readonly string[]>>> = {
+    capitalization: { CAP_TO_SMALL_CAP: ['c2sc', 'smcp'], SMALL_CAPS: ['smcp'], NORMAL: [], ALL_CAPS: [], LOWER_CASE: [] } satisfies Record<Members<typeof Capitalization>, readonly string[]>,
+    otfFigureStyle: { TABULAR_LINING: ['tnum', 'lnum'], PROPORTIONAL_OLDSTYLE: ['pnum', 'onum'], PROPORTIONAL_LINING: ['pnum', 'lnum'], TABULAR_OLDSTYLE: ['tnum', 'onum'], DEFAULT_VALUE: [] } satisfies Record<Members<typeof OTFFigureStyle>, readonly string[]>,
+    position: { OT_SUPERSCRIPT: ['sups'], OT_SUBSCRIPT: ['subs'], OT_NUMERATOR: ['numr'], OT_DENOMINATOR: ['dnom'], NORMAL: [], SUPERSCRIPT: [], SUBSCRIPT: [] } satisfies Record<Members<typeof Position>, readonly string[]>,
+};
+const SPACING = Record.map({ word: 'WordSpacing', letter: 'LetterSpacing', glyph: 'GlyphScaling' } as const, (suffix) => Record.map({ min: 'minimum', desired: 'desired', max: 'maximum' } as const, (prefix) => `${prefix}${suffix}` as const)) satisfies Record.ReadonlyRecord<
+    string,
+    Record.ReadonlyRecord<string, keyof TextDefault>
+>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const scale = (factor: number) => Schema.Finite.pipe(Schema.decodeTo(Schema.Finite, SchemaTransformation.transform({ decode: (value: number) => value / factor, encode: (value: number) => value * factor })));
 const { thousandths, percent } = Record.map({ thousandths: 1000, percent: 100 }, scale);
 const ParagraphDirection = Schema.Literals(['LEFT_TO_RIGHT_DIRECTION', 'RIGHT_TO_LEFT_DIRECTION'] as const satisfies readonly Members<typeof ParagraphDirectionOptions>[]).transform(['LTR', 'RTL']);
-class Placement extends Schema.Opaque<Placement, unknown>()(Schema.Struct({ pointSize: Schema.Finite.check(Schema.isGreaterThan(0)), paragraphDirection: ParagraphDirection, side: Schema.optionalKey(Schema.Literals(Struct.keys(SPINES))) })) {}
+class Placement extends Schema.Opaque<Placement>()(Schema.Struct({ pointSize: Schema.Finite.check(Schema.isGreaterThan(0)), paragraphDirection: ParagraphDirection, side: Schema.optionalKey(Schema.Literals(Struct.keys(SPINES))) })) {}
 const direction = Schema.Struct({ paragraphDirection: Schema.optionalKey(ParagraphDirection), characterDirection: Schema.optionalKey(Schema.Literals(['DEFAULT_DIRECTION', 'LEFT_TO_RIGHT_DIRECTION', 'RIGHT_TO_LEFT_DIRECTION'] satisfies Members<typeof CharacterDirectionOptions>[])) }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.direction), {
         decode: SchemaGetter.transform(({ paragraphDirection }) => Option.fromUndefinedOr(paragraphDirection)),
@@ -86,9 +107,9 @@ const alignment = (sided: Sides) =>
             encode: SchemaGetter.transformEffect(
                 Effect.fnUntraced(function* (aligned: Settings['alignment']) {
                     const { side, single } = Match.valueTags(aligned, { Aligned: (each) => ({ side: each.side, single: Option.none() }), Justified: (each) => ({ side: each.last, single: Option.some(each.single) }) });
-                    const justification = yield* inverse(ALIGNMENTS, (row) => Predicate.isTagged(row, aligned._tag) && sided[row.edge] === side, aligned, `No justification member for ${aligned._tag} ${side}`);
+                    const [justification] = yield* inverse(ALIGNMENTS, (row) => Predicate.isTagged(row, aligned._tag) && sided[row.edge] === side, aligned, `No justification member for ${aligned._tag} ${side}`);
                     const singleWordJustification = yield* Effect.transposeOption(Option.map(single, (each) => inverse(SINGLE_WORDS, (edge) => sided[edge] === each, aligned, `No singleWordJustification member for ${each}`)));
-                    return { justification, ...Option.getOrUndefined(Option.map(singleWordJustification, (member) => ({ singleWordJustification: member }))) };
+                    return { justification, ...Option.getOrUndefined(Option.map(singleWordJustification, ([member]) => ({ singleWordJustification: member }))) };
                 }),
             ),
         }),
@@ -110,14 +131,17 @@ const leading = (size: number) => {
 const numberingSystem = Schema.Struct({ digitsType: Schema.Literals(Struct.keys(NUMBERING)) }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.numberingSystem), {
         decode: SchemaGetter.transform(({ digitsType }) => Option.flatMap(Option.fromNullOr(NUMBERING[digitsType]), Digits.of)),
-        encode: SchemaGetter.transformEffect((system) => inverse(NUMBERING, (digits) => digits === Option.getOrNull(Option.map(system, Struct.get('system'))), system, `No digitsType member for ${Option.getOrNull(Option.map(system, Struct.get('system')))}`).pipe(Effect.map((digitsType) => ({ digitsType })))),
+        encode: SchemaGetter.transformEffect((system) => {
+            const digits = Option.getOrNull(Option.map(system, Struct.get('system')));
+            return Effect.map(inverse(NUMBERING, Equal.equals(digits), system, `No digitsType member for ${digits}`), ([digitsType]) => ({ digitsType }));
+        }),
     }),
 );
 const kashidaWidth = Schema.Literals(Object.values(KASHIDA_WIDTHS)).annotate({ description: 'Fixed elongation read as the point interval [width, width]' });
 const elongate = Effect.fnUntraced(function* (elongation: Exclude<Settings['kashida'], { readonly _tag: 'None' }>) {
     const width = Option.filter(Option.liftPredicate(elongation.lower, Schema.is(kashidaWidth)), (lower) => lower === elongation.upper);
     const paragraphKashidaWidth = yield* Effect.fromOption(width, () => new SchemaIssue.InvalidValue({ message: `No paragraphKashidaWidth for [${elongation.lower}, ${elongation.upper}]` }, elongation));
-    const paragraphJustification = yield* inverse(JUSTIFICATIONS, (row) => Predicate.isTagged(row, elongation._tag) && row.fractional === elongation.fractional, elongation, elongation.fractional ? `No paragraphJustification for ${elongation._tag} fractional` : `No paragraphJustification for ${elongation._tag}`);
+    const [paragraphJustification] = yield* inverse(JUSTIFICATIONS, (row) => Predicate.isTagged(row, elongation._tag) && row.fractional === elongation.fractional, elongation, elongation.fractional ? `No paragraphJustification for ${elongation._tag} fractional` : `No paragraphJustification for ${elongation._tag}`);
     return { kashidas: 'DEFAULT_KASHIDAS' as const, paragraphJustification, paragraphKashidaWidth };
 });
 const kashida = Schema.Struct({ kashidas: Schema.Literals(['DEFAULT_KASHIDAS', 'KASHIDAS_OFF'] satisfies Members<typeof KashidasOptions>[]), paragraphJustification: Schema.optionalKey(Schema.Literals(Struct.keys(JUSTIFICATIONS))), paragraphKashidaWidth: kashidaWidth }).pipe(
@@ -130,20 +154,27 @@ const kashida = Schema.Struct({ kashidas: Schema.Literals(['DEFAULT_KASHIDAS', '
         encode: SchemaGetter.transformEffect(Match.valueTags({ None: () => Effect.succeed({ kashidas: 'KASHIDAS_OFF' as const, paragraphKashidaWidth: KASHIDA_WIDTHS.None }), Tatweel: elongate, Stretched: elongate })),
     }),
 );
-const marks = Schema.Struct(Struct.Record(['x', 'y'], thousandths)).pipe(Schema.encodeKeys({ x: 'xOffsetDiacritic', y: 'yOffsetDiacritic' }));
-const featureValues = Schema.Array(Schema.Tuple([Schema.String, Schema.Finite]));
-const heldFeatures = Schema.Struct({ capitalization: Schema.String, existing: featureValues });
-const features = Schema.Struct({ otfStylisticSets: Schema.Int, ...Record.map(FEATURE_FLAGS, () => Schema.Boolean), capitalization: Schema.Literals(Struct.keys(CAPITALIZATIONS)), opentypeFeatures: Schema.optionalKey(featureValues) }).pipe(
+const marks = Schema.Struct(Struct.Record(['x', 'y'], thousandths)).pipe(Schema.encodeKeys({ x: 'xOffsetDiacritic', y: 'yOffsetDiacritic' } as const satisfies Record<'x' | 'y', keyof TextDefault>));
+const features = Schema.Struct({
+    otfStylisticSets: Schema.Int,
+    ...Record.map(FEATURE_FLAGS, () => Schema.Boolean),
+    ...Record.map(FEATURE_MEMBERS, (table) => Schema.Literals(Record.keys(table))),
+    opentypeFeatures: Schema.optionalKey(Schema.Array(Schema.Tuple([Schema.String, Schema.Finite]))),
+}).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.features), {
-        decode: SchemaGetter.transform(({ otfStylisticSets, capitalization, opentypeFeatures = [], ...flags }) =>
-            Record.fromEntries([...[...STYLISTIC_TAGS.filter((_, bit) => Math.floor(otfStylisticSets / 2 ** bit) % 2 === 1), ...CAPITALIZATIONS[capitalization]].map((tag) => [tag, 1] as const), ...Record.collect(FEATURE_FLAGS, (flag, tag) => [tag, flags[flag] ? 1 : 0] as const), ...opentypeFeatures]),
-        ),
-        encode: SchemaGetter.transform((chosen) => {
-            const isFlagged = (tag: string) => Option.exists(Record.get(chosen, tag), Number.isGreaterThan(0));
-            const capitalization = Array.findFirst(Struct.keys(CAPITALIZATIONS), (member) => Array.isReadonlyArrayNonEmpty(CAPITALIZATIONS[member]) && CAPITALIZATIONS[member].every(isFlagged)).pipe(Option.getOrElse(() => 'NORMAL' as const));
-            const memberTags = new Set<string>([...STYLISTIC_TAGS, ...Object.values(FEATURE_FLAGS), ...CAPITALIZATIONS[capitalization]]);
-            return { otfStylisticSets: Number.sumAll(STYLISTIC_TAGS.map((tag, bit) => (isFlagged(tag) ? 2 ** bit : 0))), ...Record.map(FEATURE_FLAGS, isFlagged), capitalization, opentypeFeatures: Record.toEntries(Record.filter(chosen, (_, tag) => !memberTags.has(tag))) };
+        decode: SchemaGetter.transform(({ otfStylisticSets, opentypeFeatures = [], ...held }) => {
+            const applied = [...STYLISTIC_TAGS.filter((_, bit) => Math.floor(otfStylisticSets / 2 ** bit) % 2 === 1), ...Record.collect(FEATURE_MEMBERS, (name, table) => Option.getOrElse(Record.get(table, held[name]), Array.empty)).flat()];
+            return Record.fromEntries([...applied.map((tag) => [tag, 1] as const), ...Record.collect(FEATURE_FLAGS, (flag, tag) => [tag, held[flag] ? 1 : 0] as const), ...opentypeFeatures]);
         }),
+        encode: SchemaGetter.transformEffect(
+            Effect.fnUntraced(function* (chosen: Settings['features']) {
+                const isFlagged = (tag: string) => Option.exists(Record.get(chosen, tag), Number.isGreaterThan(0));
+                const members = yield* Effect.all(Record.map(FEATURE_MEMBERS, (table, name) => inverse(table, (tags) => tags.every(isFlagged), chosen, `No ${name} member for the chosen features`)));
+                const owned = new Set<string>([...STYLISTIC_TAGS, ...Object.values(FEATURE_FLAGS), ...Record.collect(members, (_, [, tags]) => tags).flat()]);
+                const opentypeFeatures = Record.toEntries(Record.filter(chosen, (_, tag) => !owned.has(tag)));
+                return { otfStylisticSets: Number.sumAll(STYLISTIC_TAGS.map((tag, bit) => (isFlagged(tag) ? 2 ** bit : 0))), ...Record.map(FEATURE_FLAGS, isFlagged), ...Record.map(members, ([member]) => member), ...(Array.isReadonlyArrayNonEmpty(opentypeFeatures) ? { opentypeFeatures } : {}) };
+            }),
+        ),
     }),
 );
 const spacing = Schema.Struct(Struct.Record(Array.flatMap(Object.values(SPACING), Record.values), percent)).pipe(
@@ -153,61 +184,66 @@ const spacing = Schema.Struct(Struct.Record(Array.flatMap(Object.values(SPACING)
     }),
 );
 class InDesignSettings extends Schema.Class<InDesignSettings, { readonly brand: unique symbol }>('InDesignSettings')({ direction, numberingSystem, kashida, marks, features, spacing }) {
-    static readonly read: (target: Placed) => Effect.Effect<Settings, HostError | Cause.IllegalArgumentError, Dom> = (target) => Effect.flatMap(placement(target), (placed) => readSettings(target, placed));
+    static readonly read: (target: Placed) => Effect.Effect<Settings, HostError | Cause.IllegalArgumentError, Dom> = (target) =>
+        placement(target).pipe(
+            Effect.flatMap((placed) => readSettings(target, placed)),
+            Effect.map(({ settings }) => settings),
+        );
     static readonly write: (target: Text | TextDefault, change: Option.Option.Value<Typeset['settings']>) => Effect.Effect<readonly string[], Cause.IllegalArgumentError | HostError | Schema.SchemaError | Unmatched, Dom> = Effect.fnUntraced(function* (
         target: Text | TextDefault,
         change: Option.Option.Value<Typeset['settings']>,
     ) {
         const placed = yield* placement(target);
-        const merged = yield* Effect.flatMap(readSettings(target, placed), (settings) => Settings.merge(settings, change));
-        const { trips, schema } = sections({ ...placed, paragraphDirection: Option.getOrElse(merged.direction, () => placed.paragraphDirection) });
-        const written = Struct.pick(merged, [...Struct.keys(change), ...('direction' in change ? (['alignment'] as const) : [])]);
-        const encoded = yield* Schema.encodeEffect(schema.mapFields(Struct.map(Schema.optionalKey)))(written);
-        const members: Record.ReadonlyRecord<string, unknown> = Object.fromEntries(Object.values(Struct.omit(encoded, ['features'])).flatMap(Object.entries));
-        const featured = yield* Effect.transposeOption(
-            Option.map(
-                Option.fromUndefinedOr(encoded.features),
-                Effect.fnUntraced(function* ({ capitalization, opentypeFeatures = [], ...flags }) {
-                    const { capitalization: current, existing } = yield* Dom.read(heldFeatures, `features of ${target.toSpecifier()}`, () => ({ capitalization: target.capitalization, existing: 'opentypeFeatures' in target ? target.opentypeFeatures : [] }));
-                    const replaced = Record.toEntries({ ...Record.map(Record.fromEntries(existing), () => 0), ...Record.fromEntries(opentypeFeatures) });
-                    return { ...flags, ...(capitalization === 'NORMAL' && Option.exists(Record.get<string, readonly string[]>(CAPITALIZATIONS, current), Array.isReadonlyArrayEmpty) ? {} : { capitalization }), ...(Array.isReadonlyArrayEmpty(replaced) ? {} : { opentypeFeatures: replaced }) };
-                }),
-            ),
+        const { held, settings } = yield* readSettings(target, placed);
+        const merged = yield* Settings.merge(settings, change);
+        const { meanings, schema } = sections({ ...placed, paragraphDirection: Option.getOrElse(merged.direction, () => placed.paragraphDirection) });
+        const replaced = { ...merged, features: { ...Record.map(Record.fromEntries(held.features.opentypeFeatures ?? []), () => 0), ...merged.features } };
+        const encoded = yield* Schema.encodeEffect(schema.mapFields(Struct.map(Schema.optionalKey)))(Struct.pick(replaced, [...Struct.keys(change), ...('direction' in change ? (['alignment'] as const) : [])]));
+        const current = flatten(held);
+        return yield* yield* Dom.write(
+            target,
+            Record.map(flatten(encoded), (member, name) => {
+                const kept = current[name];
+                return Predicate.isString(member) && Predicate.isString(kept) && Option.exists(Record.get(meanings, name), (table) => Equal.equals(Record.get(table, member), Record.get(table, kept))) ? kept : member;
+            }),
         );
-        const retained = Record.map(members, (member, name) => {
-            const current = String(Reflect.get(target, name));
-            const decoded = Option.flatMap(Record.get(trips, name), Record.get(current));
-            return Predicate.isString(member) && Option.isSome(decoded) && Equal.equals(decoded, Option.flatMap(Record.get(trips, name), Record.get(member))) ? current : member;
-        });
-        return yield* yield* Dom.write(target, { ...retained, ...Option.getOrElse(featured, Record.empty) });
     });
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inverse = <K extends string, V>(table: Readonly<Record<K, V>>, wanted: (row: V) => boolean, actual: unknown, message: string) => Array.findFirst(Struct.keys(table), (key) => wanted(table[key])).pipe(Effect.fromOption(() => new SchemaIssue.InvalidValue({ message }, actual)));
+const flatten = (grouped: object): Record.ReadonlyRecord<string, unknown> => Object.fromEntries(Object.values(grouped).flatMap(Object.entries));
+const inverse = <K extends string, V>(table: Readonly<Record<K, V>>, wanted: (row: V) => boolean, actual: unknown, message: string) => Effect.fromOption(Record.findFirst(table, wanted), () => new SchemaIssue.InvalidValue({ message }, actual));
 const sides = (paragraph: Placement['paragraphDirection'], spine: (typeof SPINES)[keyof typeof SPINES]) => {
     const toward = (edge: 'left' | 'right'): Exclude<ReturnType<Settings['lineAlignment']>, 'center' | 'justified'> => (edge === (paragraph === 'LTR' ? 'left' : 'right') ? 'start' : 'end');
     return { left: toward('left'), center: 'center', right: toward('right'), justified: 'justified', spine: toward(spine), fore: toward(spine === 'left' ? 'right' : 'left') } as const;
 };
 const sections = ({ pointSize, paragraphDirection, side = 'SINGLE_SIDED' }: Placement) => {
     const sided = sides(paragraphDirection, SPINES[side]);
-    const trips: Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, string>> = {
-        digitsType: Record.map(NUMBERING, String),
-        paragraphJustification: Record.map(JUSTIFICATIONS, ({ _tag, fractional }) => `${_tag} ${fractional}`),
-        justification: Record.map(ALIGNMENTS, ({ _tag, edge }) => `${_tag} ${sided[edge]}`),
+    const meanings: Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, unknown>> = {
+        digitsType: NUMBERING,
+        paragraphJustification: JUSTIFICATIONS,
+        justification: Record.map(ALIGNMENTS, ({ _tag, edge }) => ({ _tag, side: sided[edge] })),
+        ...FEATURE_MEMBERS,
     };
-    return { trips, schema: InDesignSettings.mapFields(Struct.assign({ alignment: alignment(sided), leading: leading(pointSize) })) };
+    return { meanings, schema: InDesignSettings.mapFields(Struct.assign({ alignment: alignment(sided), leading: leading(pointSize) })) };
 };
 const placement = Effect.fnUntraced(function* (target: Placed) {
     const { text, item } = yield* Dom;
-    const page = () => Option.flatMap(text(target) ? Array.head(target.parentTextFrames) : Option.none(), (holder) => Option.fromNullishOr(item(holder) ? holder.parentPage : holder.parent.parentPage));
-    return yield* Dom.pick(Placement, target, () => Record.getSomes({ side: Option.map(page(), Struct.get('side')) }));
+    return yield* Dom.pick(Placement, target, () =>
+        Record.getSomes({
+            side: (text(target) ? Array.head(target.parentTextFrames) : Option.none()).pipe(
+                Option.flatMap((holder) => Option.fromNullishOr(item(holder) ? holder.parentPage : holder.parent.parentPage)),
+                Option.map(Struct.get('side')),
+            ),
+        }),
+    );
 });
 const readSettings = Effect.fnUntraced(function* (target: Placed, placed: Placement) {
     const { picked } = yield* Dom;
     const { schema } = sections(placed);
-    return Settings.make(yield* Dom.read(schema, `settings of ${target.toSpecifier()}`, () => Record.map(schema.fields, (row: Schema.Top) => picked(row, target))));
+    const held = yield* Dom.read(Schema.toEncoded(schema), `settings of ${target.toSpecifier()}`, () => Record.map(schema.fields, (row: Schema.Top) => picked(row, target)));
+    return { held, settings: Settings.make(yield* Effect.orDie(Schema.decodeEffect(schema)(held))) };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

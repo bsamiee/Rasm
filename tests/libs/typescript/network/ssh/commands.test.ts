@@ -1,6 +1,7 @@
 import { hash } from 'node:crypto';
 import { assert, it } from '@effect/vitest';
-import { Forward, SshError } from '@rasm/ssh';
+import { SshError } from '@rasm/ssh/client';
+import { Forward } from '@rasm/ssh/forward';
 import { Effect, FileSystem, Option, Path, pipe, Schema, Struct } from 'effect';
 import { reasoned, Sshd } from '#/sshd';
 

@@ -4,12 +4,12 @@
     "description": "@rasm/nx-cmake suites over CMake trees in temporary workspaces and their inferred targets",
     "type": "module",
     "devDependencies": {
+        "@effect/vitest": "catalog:",
         "@nx/devkit": "catalog:",
         "@rasm/nx-cmake": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
-        "fast-check": "catalog:",
         "nx": "catalog:",
         "vitest": "catalog:"
     }

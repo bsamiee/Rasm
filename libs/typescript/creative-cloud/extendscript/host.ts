@@ -1,19 +1,13 @@
 import { type Encoder, encode, isList, isPlain, isRecord, read } from '@rasm/object-model/host';
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Fields = Readonly<Record<string, unknown>>;
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const UNESCAPED = /[^ !#-[\]-~]/g;
 const UNREFERENCED: Encoder = { reference: () => undefined };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const illegalArgument = (message: string) => ({ _tag: 'IllegalArgument', message }) as const;
-const keys = (value: Fields): string[] => Object.keys(value).filter((key) => value[key] !== undefined);
-const quote = (text: string) => `"${text.replace(UNESCAPED, (character) => `\\u${`000${character.charCodeAt(0).toString(16)}`.slice(-4)}`)}"`;
+const keys = (value: Readonly<Record<string, unknown>>): string[] => Object.keys(value).filter((key) => value[key] !== undefined);
+const quote = (text: string) => `"${text.replace(/[^ !#-[\]-~]/g, (character) => `\\u${(character.charCodeAt(0) + 0x1_00_00).toString(16).slice(1)}`)}"`;
 const stringify = (tree: unknown): string => {
     const items: string[] = [];
     for (const item of isList(tree) ? tree : []) {
@@ -22,25 +16,17 @@ const stringify = (tree: unknown): string => {
     for (const key of isPlain(tree) ? keys(tree) : []) {
         items.push(`${quote(key)}:${stringify(read(tree, key))}`);
     }
-    return typeof tree === 'string' ? quote(tree) : typeof tree === 'number' || typeof tree === 'boolean' ? String(tree) : isList(tree) ? `[${items.join(',')}]` : isPlain(tree) ? `{${items.join(',')}}` : 'null';
+    return isList(tree) ? `[${items.join(',')}]` : isPlain(tree) ? `{${items.join(',')}}` : typeof tree === 'string' ? quote(tree) : (typeof tree === 'number' && isFinite(tree)) || typeof tree === 'boolean' ? String(tree) : 'null';
 };
 const reply = (answer: () => unknown, encoder: Encoder = UNREFERENCED): string => {
     try {
         return stringify({ _tag: 'Value', value: encode(answer(), encoder) });
     } catch (error) {
         const [tag, line, number] = [read(error, '_tag'), read(error, 'line') ?? read(error, 'lineNumber'), read(error, 'number')];
-        return stringify(tag === 'Unmatched' || tag === 'IllegalArgument' ? error : { _tag: 'Thrown', message: String(isRecord(error) ? read(error, 'message') : error), number: typeof number === 'number' ? number : undefined, line: typeof line === 'number' ? line : undefined });
+        return stringify(tag === 'Unmatched' || tag === 'IllegalArgument' ? error : { _tag: 'Thrown', message: String(read(error, 'message') ?? error), number: typeof number === 'number' ? number : undefined, line: typeof line === 'number' ? line : undefined });
     }
 };
-const bracket = <A>(acquire: () => () => void, body: () => A): A => {
-    const release = acquire();
-    try {
-        return body();
-    } finally {
-        release();
-    }
-};
-const replace = (target: unknown, values: Fields, prefix: string): { readonly held: Fields; readonly refused: readonly string[] } => {
+const replace = (target: unknown, values: Readonly<Record<string, unknown>>, prefix: string): { readonly held: Readonly<Record<string, unknown>>; readonly refused: readonly string[] } => {
     const named = keys(values);
     const held: Record<string, unknown> = {};
     let refused: readonly string[] = [];
@@ -56,26 +42,28 @@ const replace = (target: unknown, values: Fields, prefix: string): { readonly he
             try {
                 (target as Record<string, unknown>)[key] = value;
             } catch (error) {
-                refused = refused.concat([`${prefix}${key}: ${String(read(error, 'message'))}`]);
+                [held[key], refused] = [undefined, refused.concat([`${prefix}${key}: ${String(read(error, 'message') ?? error)}`])];
             }
         }
     }
     return { held, refused };
 };
-const assign = (target: object, values: Fields): Fields => {
-    const { held, refused } = replace(target, values, '');
-    if (refused.length > 0) {
-        throw illegalArgument(`${Object.prototype.toString.call(target)} refused ${refused.join(', ')}`);
+const assign = (target: object, values: Readonly<Record<string, unknown>>): Readonly<Record<string, unknown>> => {
+    const applied = replace(target, values, '');
+    if (applied.refused.length > 0) {
+        throw { _tag: 'IllegalArgument', message: `${Object.prototype.toString.call(target)} refused ${applied.refused.concat(replace(target, applied.held, '').refused).join(', ')}` };
     }
-    return held;
+    return applied.held;
 };
-const preserve = (target: object, values: Fields): (() => void) => {
+const preserve = <A>(target: object, values: Readonly<Record<string, unknown>>, body: () => A): A => {
     const held = assign(target, values);
-    return () => {
+    try {
+        return body();
+    } finally {
         assign(target, held);
-    };
+    }
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assign, bracket, illegalArgument, keys, preserve, reply, stringify };
+export { assign, preserve, reply, stringify };

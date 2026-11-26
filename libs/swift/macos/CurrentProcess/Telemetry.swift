@@ -47,15 +47,13 @@ extension Program {
 
     private func rules() -> LogFilter.Rules {
         let (levelKey, filterKey): (ConfigKey, ConfigKey) = ("log.level", "log.filter")
-        let defaults = LogFilter.Rules()
         let scopes = settings.stringArray(forKey: filterKey, default: []).compactMap { entry in
             let parts = entry.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false).map { part in part.trimmingCharacters(in: .whitespaces) }
             let (scope, text) = parts.count == 2 ? (parts[0], parts[1]) : (entry, "")
             return level(text, in: entry, of: filterKey).map { level in (scope, level) }
         }
         return LogFilter.Rules(
-            level: settings.string(forKey: levelKey).flatMap { text in level(text, in: text, of: levelKey) } ?? defaults.level,
-            others: defaults.others,
+            level: settings.string(forKey: levelKey).flatMap { text in level(text, in: text, of: levelKey) } ?? LogFilter.Rules().level,
             scopes: Dictionary(scopes) { _, last in last },
         )
     }
@@ -142,7 +140,7 @@ extension Program {
                 to: (target == .file ? file : nil, export, interactive ? terminal : nil),
                 filter: filter,
                 resource: resource,
-                trace: (keys.traceIDKey, keys.spanIDKey, keys.traceFlagsKey),
+                trace: keys,
                 metadataProvider: provider,
             )
         }

@@ -19,7 +19,7 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./otlp.ts",
+        "./otlp": "./otlp.ts",
         "./node": "./node.ts",
         "./package.json": "./package.json"
     },
@@ -28,7 +28,7 @@
             "#/*": "./dist/*.js"
         },
         "exports": {
-            ".": "./dist/otlp.js",
+            "./otlp": "./dist/otlp.js",
             "./node": "./dist/node.js",
             "./package.json": "./package.json"
         },

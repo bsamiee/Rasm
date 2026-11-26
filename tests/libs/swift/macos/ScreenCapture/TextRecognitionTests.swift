@@ -38,16 +38,18 @@ struct TextRecognitionTests {
         context.fill(CGRect(x: 0, y: 0, width: context.width, height: context.height))
         context.translateBy(x: 0, y: CGFloat(context.height))
         context.scaleBy(x: CGFloat(scale), y: -CGFloat(scale))
+        NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: true)
         for label in labels { NSAttributedString(string: label.text, attributes: [.font: NSFont.menuFont(ofSize: 13)]).draw(in: label.rect) }
+        NSGraphicsContext.restoreGraphicsState()
         let image: CGImage = try #require(context.makeImage())
         let found: [(text: String, frame: CGRect)] = try await image.recognizeText(at: frame, in: Locale.Language(identifier: language), customWords: [])
         expectNoDifference(Set(found.map(\.text)), Set(labels.map(\.text)))
-        for label in labels {
-            let drawn: CGRect = label.rect.offsetBy(dx: frame.minX, dy: frame.minY)
-            let read: CGPoint? = found.first { recognized in recognized.text == label.text }.map { recognized in CGPoint(x: recognized.frame.midX, y: recognized.frame.midY) }
-            let inside: Bool = read.map { point in drawn.contains(point) } ?? false
-            #expect(inside, "\(label.text) read at \(String(describing: read)), drawn in \(String(describing: drawn))")
-        }
+        let drawn: [String: CGRect] = Dictionary(uniqueKeysWithValues: labels.map { label in (label.text, label.rect.offsetBy(dx: frame.minX, dy: frame.minY)) })
+        let centers: [String: CGPoint] = Dictionary(found.map { recognized in (recognized.text, CGPoint(x: recognized.frame.midX, y: recognized.frame.midY)) }) { first, _ in first }
+        let misplaced: [String: CGPoint?] = Dictionary(
+            uniqueKeysWithValues: drawn.compactMap { (text: String, rect: CGRect) -> (String, CGPoint?)? in centers[text].map(rect.contains) == true ? nil : (text, centers[text]) }
+        )
+        expectNoDifference(misplaced, [:], "Each label's recognized center falls inside its drawn rectangle \(drawn)")
     }
 }

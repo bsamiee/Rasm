@@ -1,0 +1,20 @@
+{
+    "extends": "../uxp/tsconfig.base.json",
+    "references": [
+        {
+            "path": "../uxp"
+        },
+        {
+            "path": "../../data/search"
+        },
+        {
+            "path": "../object-model"
+        },
+        {
+            "path": "../../ai/mcp"
+        },
+        {
+            "path": "../../macos/applications"
+        }
+    ]
+}
