@@ -1,4 +1,5 @@
 import AppKit
+import CasePathsCore
 import CustomDump
 import PropertyBased
 import Testing
@@ -26,13 +27,12 @@ private let modifierKeys: [Modifier: (code: Int64, flag: CGEventFlags)] = [
 ]
 private let keys: [(key: Key, strokes: Int)] = [(.character("a"), 1), (.character("A"), 1), (.character("é"), 2), (.code(48), 1)]
 private let layout = KeyboardLayout(
-    name: "Test",
     strokes: [
         []: [
             "a": [Stroke(code: 0, flags: [], text: "a")], "A": [Stroke(code: 0, flags: .maskShift, text: "A")],
             "é": [Stroke(code: 14, flags: .maskAlternate, text: ""), Stroke(code: 14, flags: [], text: "é")],
         ]
-    ],
+    ]
 )
 private let buttons: [CGMouseButton] = [.left, .right, .center]
 private let pressureStep: Double = 1.0 / 255
@@ -54,7 +54,7 @@ struct Host: Sendable {
     let interval: Duration
     let delay: Duration
     let repeatInterval: Duration
-    let rate: Int
+    let frame: Duration
     let first: Int64
     let seed: UInt64
 }
@@ -72,9 +72,9 @@ private let draws = zip(
     Draw(variant: draw.0, hold: draw.1, count: draw.2, extra: draw.3, jitter: draw.4, points: draw.5, modifiers: draw.6)
 }
 
-private let hosts = zip(Gen.int(in: 100...900), Gen.int(in: 100...600), Gen.int(in: 15...100), Gen.int(in: 0...160), Gen.int64(in: 0...10_000), Gen.uint64())
+private let hosts = zip(Gen.int(in: 100...900), Gen.int(in: 100...600), Gen.int(in: 15...100), Gen.int(in: 4...34), Gen.int64(in: 0...10_000), Gen.uint64())
     .map { (host: (Int, Int, Int, Int, Int64, UInt64)) -> Host in
-        Host(interval: .milliseconds(host.0), delay: .milliseconds(host.1), repeatInterval: .milliseconds(host.2), rate: host.3, first: host.4, seed: host.5)
+        Host(interval: .milliseconds(host.0), delay: .milliseconds(host.1), repeatInterval: .milliseconds(host.2), frame: .milliseconds(host.3), first: host.4, seed: host.5)
     }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -106,39 +106,23 @@ private func input(_ shape: Shape, _ draw: Draw, edges: Set<Input.Edge> = [.down
     }
     let button: CGMouseButton = buttons[draw.variant % buttons.count]
     let unit: CGScrollEventUnit = draw.variant.isMultiple(of: 2) ? .pixel : .line
+    let by: SIMD2<Double> = draw.points[1] + SIMD2(0, draw.points[1].y < 0 ? -1 : 1)
     return switch shape {
         case .clicks: try Input(contact: .button(button), path: point, hold: hold, modifiers: draw.modifiers, schedule: run, edges: edges)
         case .stroke: try Input(contact: .button(.left), path: pen, hold: hold, modifiers: draw.modifiers, schedule: single, edges: edges)
         case .drag: try Input(contact: .button(button), path: line, hold: hold, modifiers: draw.modifiers, schedule: single, edges: edges)
         case .hover: try Input(contact: .hover, path: line, hold: hold, modifiers: draw.modifiers, schedule: single, edges: edges)
-        case .wheel: try Input(contact: .wheel(by: draw.points[1], unit: unit), path: point, hold: hold, modifiers: draw.modifiers, schedule: run, edges: edges)
+        case .wheel: try Input(contact: .wheel(by: by, unit: unit), path: point, hold: hold, modifiers: draw.modifiers, schedule: run, edges: edges)
         case .key: try Input(contact: .key(keys[draw.variant % keys.count].key), path: [], hold: hold, modifiers: draw.modifiers, schedule: run, edges: edges)
     }
 }
 
 private func timeline(of input: Input, _ host: Host) throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] {
     var generator = Xoshiro(seed: (host.seed, 1, 2, 3))
-    return try input.timeline(doubleClick: host.interval, keyRepeat: (host.delay, host.repeatInterval), frames: host.rate, layout: layout, firstPress: (host.first, 1), using: &generator)
+    return try input.timeline(doubleClick: host.interval, keyRepeat: (host.delay, host.repeatInterval), frame: host.frame, layout: layout, numbering: (host.first, 1), using: &generator)
 }
 
-private func frames(of input: Input, rate: Int) -> Int {
-    let seconds: Double = input.hold / .seconds(1)
-    return max(1, Int((seconds * Double(rate)).rounded(.down)))
-}
-
-private func along(_ points: [SIMD2<Double>], fraction: Double) -> SIMD2<Double> {
-    let lengths: [Double] = zip(points, points.dropFirst()).map { (from: SIMD2<Double>, to: SIMD2<Double>) -> Double in
-        let step: SIMD2<Double> = to - from
-        return (step * step).sum().squareRoot()
-    }
-    let ends: [Double] = lengths.indices.map { (index: Int) -> Double in lengths[...index].reduce(0, +) }
-    let target: Double = (ends.last ?? 0) * fraction
-    let index: Int = ends.firstIndex { (end: Double) -> Bool in end >= target } ?? lengths.count - 1
-    let start: Double = index == 0 ? 0 : ends[index - 1]
-    let share: Double = lengths[index] > 0 ? (target - start) / lengths[index] : 1
-    let step: SIMD2<Double> = points[index + 1] - points[index]
-    return points[index] + step * share
-}
+private func at(_ event: CGEvent) -> SIMD2<Double> { SIMD2(event.location.x, event.location.y) }
 
 private func field(_ field: CGEventField, of events: [CGEvent]) -> [Int64] { events.map { (event: CGEvent) -> Int64 in event.getIntegerValueField(field) } }
 
@@ -151,7 +135,7 @@ private let refusals: [(contact: Input.Contact, path: [Input.Sample], hold: Dura
     base(points: [SIMD2(10, 20), SIMD2(30, 5)], pressures: [nil, nil], count: 2, every: .milliseconds(200)),
     base(.wheel(by: SIMD2(0, 40), unit: .pixel), points: [SIMD2(10, 20), SIMD2(30, 5)], pressures: [nil, nil]), base(.wheel(by: SIMD2(0, 1e10), unit: .pixel)),
     base(.button(.right), pressures: [0.5]), base(pressures: [1.5]), base(points: [SIMD2(10, 20), SIMD2(30, 5)], pressures: [0.5, nil]), base(points: [SIMD2(.nan, 20)]),
-    base(.key(.code(48)), points: [], pressures: [], edges: []),
+    base(.key(.code(48)), points: [], pressures: [], edges: []), base(.wheel(by: SIMD2(0.3, -0.4), unit: .line)), base(points: [SIMD2(1e10, 20)]),
 ]
 
 private let edgeSets: [Set<Input.Edge>] = [[], [.down], [.up], [.down, .up]]
@@ -165,30 +149,6 @@ struct InputTests {
         expectNoDifference(made.path.count, 1)
     }
 
-    @Test
-    func resolvesACharacterHeldWithCommandThroughTheCommandTableOfTheLayout() throws {
-        let commanded = KeyboardLayout(
-            name: "Dvorak - QWERTY ⌘",
-            strokes: [[]: ["c": [Stroke(code: 34, flags: [], text: "c")], "ф": [Stroke(code: 0, flags: [], text: "ф")]], [.command]: ["c": [Stroke(code: 8, flags: [], text: "c")]]],
-        )
-        let typed = try Key.character("c").strokes(holding: [.shift], on: commanded)
-        let shortcut = try Key.character("c").strokes(holding: [.command, .shift], on: commanded)
-        let unshared = try Key.character("ф").strokes(holding: [.command], on: commanded)
-        expectNoDifference(typed.map(\.code), [34])
-        expectNoDifference(shortcut.map(\.code), [8])
-        expectNoDifference(shortcut.map(\.flags), [[.maskCommand, .maskShift]])
-        expectNoDifference(unshared.map(\.code), [0])
-    }
-
-    @Test
-    @MainActor
-    func readsCommandATheSelectAllStepFromTheCommandTableOfTheCurrentLayout() throws {
-        let source = try #require(CGEventSource(stateID: .privateState))
-        let current = KeyboardLayout.current(keyboardType: source.keyboardType)
-        let typesA: Bool = current.strokes[[.command]]?["a"] != nil
-        #expect(typesA, "The current layout \(current.name ?? "unnamed") yields no command table typing a")
-    }
-
     @Test(arguments: refusals)
     func refusesAnInputOneRuleFromTheBase(contact: Input.Contact, path: [Input.Sample], hold: Duration, schedule: Input.Schedule, edges: Set<Input.Edge>) {
         let refusal = #expect(throws: ApplicationFailure.self) { try Input(contact: contact, path: path, hold: hold, modifiers: [], schedule: schedule, edges: edges) }
@@ -200,7 +160,14 @@ struct InputTests {
         let row = base(points: [SIMD2(40, 25)], count: 3, every: every)
         let clicks = try Input(contact: row.contact, path: row.path, hold: row.hold, modifiers: [], schedule: row.schedule, edges: row.edges)
         var generator = Xoshiro(seed: (1, 2, 3, 4))
-        let timed = try clicks.timeline(doubleClick: .milliseconds(500), keyRepeat: (.milliseconds(250), .milliseconds(33)), frames: 120, layout: layout, firstPress: (7, 1), using: &generator)
+        let timed = try clicks.timeline(
+            doubleClick: .milliseconds(500),
+            keyRepeat: (.milliseconds(250), .milliseconds(33)),
+            frame: .seconds(1) / 120,
+            layout: layout,
+            numbering: (7, 1),
+            using: &generator,
+        )
         expectNoDifference(field(.mouseEventClickState, of: events(timed, among: downs).map(\.event)), states)
     }
 
@@ -209,7 +176,14 @@ struct InputTests {
         let row = base(points: [SIMD2(40, 25)], edges: [.up])
         let release = try Input(contact: row.contact, path: row.path, hold: row.hold, modifiers: [], schedule: row.schedule, edges: row.edges)
         var generator = Xoshiro(seed: (1, 2, 3, 4))
-        let timed = try release.timeline(doubleClick: .milliseconds(500), keyRepeat: (.milliseconds(250), .milliseconds(33)), frames: 120, layout: layout, firstPress: (9, 2), using: &generator)
+        let timed = try release.timeline(
+            doubleClick: .milliseconds(500),
+            keyRepeat: (.milliseconds(250), .milliseconds(33)),
+            frame: .seconds(1) / 120,
+            layout: layout,
+            numbering: (9, 2),
+            using: &generator,
+        )
         let released: [CGEvent] = events(timed, among: ups).map(\.event)
         expectNoDifference(events(timed, among: downs).count, 0)
         expectNoDifference(field(.mouseEventClickState, of: released), [2])
@@ -300,6 +274,7 @@ struct InputTests {
             let tilt: SIMD2<Double> = try #require(first.tilt)
             expectNoDifference([enter.type, leave.type], [.tabletProximity, .tabletProximity])
             expectNoDifference(field(.tabletProximityEventEnterProximity, of: [enter, leave]), [1, 0])
+            expectNoDifference([at(enter), at(leave)], [first.at, try #require(stroke.path.last).at])
             expectNoDifference(enter.getIntegerValueField(.tabletProximityEventPointerType), 1)
             expectNoDifference(Set(field(.mouseEventSubtype, of: touching)), [1])
             let pressed: Double = abs(down.getDoubleValueField(.mouseEventPressure) - pressure)
@@ -342,45 +317,84 @@ struct InputTests {
     }
 
     @Test(arguments: [Shape.stroke, .drag, .hover])
-    func spacesMovesAlongThePathAtTheFrameRate(shape: Shape) async {
+    func movesThroughEveryPointOfThePathNoTwoMovesInsideOneFrame(shape: Shape) async {
         await propertyCheck(input: draws, hosts) { (draw: Draw, host: Host) in
             let moving = try input(shape, draw)
-            let moved: [(offset: Duration, event: CGEvent)] = Array(events(try timeline(of: moving, host), among: moves).dropFirst(shape == .hover ? 1 : 0))
-            let count: Int = frames(of: moving, rate: host.rate)
-            let points: [SIMD2<Double>] = (1...count).map { (frame: Int) -> SIMD2<Double> in along(moving.path.map(\.at), fraction: Double(frame) / Double(count)) }
-            let reached: [SIMD2<Double>] = moved.map { (_: Duration, event: CGEvent) -> SIMD2<Double> in SIMD2(event.location.x, event.location.y) }
-            let misses: [Double] = zip(reached, points).map { (at: SIMD2<Double>, point: SIMD2<Double>) -> Double in
-                let miss: SIMD2<Double> = at - point
-                return (miss * miss).sum()
+            let pointed: [(offset: Duration, event: CGEvent)] = events(try timeline(of: moving, host), among: downs.union(moves))
+            let reached: [SIMD2<Double>] = pointed.map { (_: Duration, event: CGEvent) -> SIMD2<Double> in at(event) }
+            let visits: [Int?] = moving.path.map { (sample: Input.Sample) -> Int? in
+                reached.firstIndex { (point: SIMD2<Double>) -> Bool in ((point - sample.at) * (point - sample.at)).sum() < 1e-12 }
             }
-            let spacing: Duration = host.rate == 0 ? .zero : .seconds(1) / host.rate - .nanoseconds(1)
-            let offsets: [Duration] = moved.map(\.offset)
+            let offsets: [Duration] = pointed.map(\.offset)
             let gaps: [Duration] = zip(offsets.dropFirst(), offsets).map { (later: Duration, earlier: Duration) -> Duration in later - earlier }
-            expectNoDifference(moved.count, count)
-            #expect(misses.allSatisfy { (miss: Double) -> Bool in miss < 1e-12 })
-            #expect(gaps.allSatisfy { (gap: Duration) -> Bool in gap >= spacing })
+            #expect(visits.allSatisfy { (visit: Int?) -> Bool in visit != nil }, "path \(moving.path.map(\.at)) against moves \(reached)")
+            expectNoDifference(visits.compactMap(\.self), visits.compactMap(\.self).sorted())
+            #expect(gaps.allSatisfy { (gap: Duration) -> Bool in gap >= host.frame - .nanoseconds(1) }, "gaps \(gaps) under the frame \(host.frame)")
+        }
+    }
+
+    @Test(arguments: [Shape.stroke, .drag, .hover])
+    func carriesThePointerDeltaOfEachMoveSummingToThePath(shape: Shape) async {
+        await propertyCheck(input: draws, hosts) { (draw: Draw, host: Host) in
+            let moving = try input(shape, draw)
+            let pointed: [CGEvent] = events(try timeline(of: moving, host), among: downs.union(moves).union(ups)).map(\.event)
+            let ends: (first: SIMD2<Double>, last: SIMD2<Double>) = (try #require(moving.path.first).at, try #require(moving.path.last).at)
+            let travelled: SIMD2<Double> = ends.last.rounded(.toNearestOrAwayFromZero) - ends.first.rounded(.toNearestOrAwayFromZero)
+            let summed: [Int64] = [field(.mouseEventDeltaX, of: pointed).reduce(0, +), field(.mouseEventDeltaY, of: pointed).reduce(0, +)]
+            expectNoDifference(summed, [Int64(travelled.x), Int64(travelled.y)])
+        }
+    }
+
+    @Test(arguments: [Shape.clicks, .drag])
+    func pressesAMouseButtonAtFullPressureAndReleasesItAtNone(shape: Shape) async {
+        await propertyCheck(input: draws, hosts) { (draw: Draw, host: Host) in
+            let posted: [CGEvent] = try timeline(of: input(shape, draw), host).map(\.event)
+            let pressing: [Double] = posted.filter { (event: CGEvent) -> Bool in downs.union(moves).contains(event.type) }.map { (event: CGEvent) -> Double in
+                event.getDoubleValueField(.mouseEventPressure)
+            }
+            let released: [Double] = posted.filter { (event: CGEvent) -> Bool in ups.contains(event.type) }.map { (event: CGEvent) -> Double in event.getDoubleValueField(.mouseEventPressure) }
+            expectNoDifference(Set(pressing), [1])
+            expectNoDifference(Set(released), [0])
         }
     }
 
     @Test
-    func spreadsTheWheelDeltaAcrossEachPress() async {
+    func pacesPressesOfAKeyAtTheKeyRepeatIntervalWhereNoEveryIsGiven() throws {
+        let tab = try Input(contact: .key(.special(.tab)), path: [], hold: .zero, modifiers: [], schedule: Input.Schedule(count: 3, every: nil, jitter: .zero), edges: [.down, .up])
+        var generator = Xoshiro(seed: (1, 2, 3, 4))
+        let timed = try tab.timeline(
+            doubleClick: .milliseconds(500),
+            keyRepeat: (.milliseconds(250), .milliseconds(33)),
+            frame: .seconds(1) / 120,
+            layout: layout,
+            numbering: (1, 1),
+            using: &generator,
+        )
+        let pressed: [Duration] = events(timed, among: [.keyDown]).map(\.offset)
+        expectNoDifference(zip(pressed.dropFirst(), pressed).map { (later: Duration, earlier: Duration) -> Duration in later - earlier }, [.milliseconds(33), .milliseconds(33)])
+    }
+
+    @Test
+    func spreadsTheWheelDeltaAcrossEachPressInWholeUnitsAndPhases() async {
         await propertyCheck(input: draws, hosts) { (draw: Draw, host: Host) in
             let wheel = try input(.wheel, draw)
+            let by: SIMD2<Double> = try #require(wheel.contact[case: \.wheel]).by
             let scrolled: [CGEvent] = try timeline(of: wheel, host).map(\.event).filter { (event: CGEvent) -> Bool in event.type == .scrollWheel }
             let pixel: Bool = draw.variant.isMultiple(of: 2)
-            let count: Int = frames(of: wheel, rate: host.rate)
-            let each: Int = count + (pixel ? 1 : 0)
+            let each: Int = scrolled.count / wheel.schedule.count
             let axes: (vertical: CGEventField, horizontal: CGEventField) =
                 pixel ? (.scrollWheelEventPointDeltaAxis1, .scrollWheelEventPointDeltaAxis2) : (.scrollWheelEventDeltaAxis1, .scrollWheelEventDeltaAxis2)
-            let presses: [[CGEvent]] = stride(from: 0, to: scrolled.count, by: each).map { (start: Int) -> [CGEvent] in Array(scrolled[start..<min(start + each, scrolled.count)]) }
-            let changed: [Int64] = Array(repeating: 2, count: count - 1)
-            let phases: [Int64] = pixel ? [1] + changed + [4] : Array(repeating: 0, count: count)
-            let vertical: [Int64] = presses.map { (press: [CGEvent]) -> Int64 in field(axes.vertical, of: press).reduce(0, +) }
-            let horizontal: [Int64] = presses.map { (press: [CGEvent]) -> Int64 in field(axes.horizontal, of: press).reduce(0, +) }
+            let presses: [[CGEvent]] = stride(from: 0, to: scrolled.count, by: max(each, 1)).map { (start: Int) -> [CGEvent] in Array(scrolled[start..<min(start + each, scrolled.count)]) }
+            let moving: [[CGEvent]] = presses.map { (press: [CGEvent]) -> [CGEvent] in Array(press.dropLast(pixel ? 1 : 0)) }
+            let still: [CGEvent] = moving.flatMap(\.self).filter { (event: CGEvent) -> Bool in event.getIntegerValueField(axes.vertical) == 0 && event.getIntegerValueField(axes.horizontal) == 0 }
+            let phases: [[Int64]] = presses.map { (press: [CGEvent]) -> [Int64] in field(.scrollWheelEventScrollPhase, of: press) }
+            let expected: [Int64] = pixel ? [1] + Array(repeating: 2, count: max(each - 2, 0)) + [4] : Array(repeating: 0, count: each)
             expectNoDifference(scrolled.count, wheel.schedule.count * each)
-            expectNoDifference(vertical, Array(repeating: Int64(draw.points[1].y.rounded()), count: presses.count))
-            expectNoDifference(horizontal, Array(repeating: Int64(draw.points[1].x.rounded()), count: presses.count))
-            expectNoDifference(presses.map { (press: [CGEvent]) -> [Int64] in field(.scrollWheelEventScrollPhase, of: press) }, Array(repeating: phases, count: presses.count))
+            #expect(each <= Int(max(by.x.magnitude, by.y.magnitude).rounded()) + (pixel ? 1 : 0), "\(each) events for a delta of \(by)")
+            expectNoDifference(still.count, 0)
+            expectNoDifference(presses.map { (press: [CGEvent]) -> Int64 in field(axes.vertical, of: press).reduce(0, +) }, Array(repeating: Int64(by.y.rounded()), count: presses.count))
+            expectNoDifference(presses.map { (press: [CGEvent]) -> Int64 in field(axes.horizontal, of: press).reduce(0, +) }, Array(repeating: Int64(by.x.rounded()), count: presses.count))
+            expectNoDifference(phases, Array(repeating: expected, count: presses.count))
         }
     }
 }

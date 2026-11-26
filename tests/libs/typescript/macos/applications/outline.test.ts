@@ -127,9 +127,9 @@ describe('Outline.render of a tool choice', () => {
             assert.deepStrictEqual(
                 { brush: lines.find((line) => line.startsWith('@o3 ')), eraser: lines.find((line) => line.startsWith('@o4 ')), item },
                 {
-                    brush: '@o3 Brush Tool · shortcut {key:{key:"b",modifiers:["shift"]}} · help "Click and drag to paint with the foreground color"',
+                    brush: '@o3 Brush Tool · shortcut {key:"b",modifiers:["shift"]} · help "Click and drag to paint with the foreground color"',
                     eraser: '@o4 Eraser Tool · selected',
-                    item: '@i6 Brushes item · shortcut {key:{key:"b",modifiers:["shift"]}}',
+                    item: '@i6 Brushes item · shortcut {key:"b",modifiers:["shift"]}',
                 },
             );
         }),
@@ -158,7 +158,7 @@ describe(Address.recall, () => {
             });
             const { map } = InterfaceMap.empty.fold(brushes, { username: 'owner', homedir: '/Users/owner' });
             const live = Address.index(TOOLS);
-            const recalled = Address.recall(live, map);
+            const recalled = Address.recall(live)(map);
             const printed = yield* Effect.fromResult(Outline.render(live));
             const found = Address.find(recalled, 'Size', Option.none());
             const hits = yield* Effect.fromResult(Outline.hits(found, [], { opening: Option.some(recalled) }));
@@ -174,8 +174,8 @@ describe(Address.recall, () => {
                 {
                     remembered: 0,
                     marked: [],
-                    recalled: [Option.some('Brushes > Brushes')],
-                    hits: ['▸ Brushes > Brushes > Size was 12 number · opened by @i6'],
+                    recalled: [Option.some('Brushes')],
+                    hits: ['▸ Brushes > Size was 12 number · opened by @i6'],
                     opening: [Result.succeed([Option.some('@i6')])],
                     located: [Option.some({ container: '[["AXWindow","Brushes"]]', control: '[["AXWindow","Brushes"],["AXSlider","Size"]]' })],
                 },
@@ -206,7 +206,7 @@ describe(Address.opening, () => {
             });
             const { map } = InterfaceMap.empty.fold(brushes, { username: 'owner', homedir: '/Users/owner' });
             const reach = (model: Model) => {
-                const recalled = Address.recall(Address.index(model), map);
+                const recalled = Address.recall(Address.index(model))(map);
                 return Address.find(recalled, 'Size', Option.none()).map((item) => Result.map(Address.opening(recalled, item), Array.map(Struct.get('token'))));
             };
             assert.deepStrictEqual(

@@ -6,10 +6,11 @@ import Testing
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-private let members: [(type: Int32, name: String)] = [
-    (0, "arrowCursor"), (1, "IBeamCursor"), (2, "dragLinkCursor"), (3, "operationNotAllowedCursor"), (5, "dragCopyCursor"), (11, "closedHandCursor"),
-    (12, "openHandCursor"), (13, "pointingHandCursor"), (19, "columnResizeCursor"), (20, "crosshairCursor"), (23, "rowResizeCursor"), (24, "contextualMenuCursor"),
-    (25, "disappearingItemCursor"), (26, "IBeamCursorForVerticalLayout"), (42, "zoomInCursor"), (43, "zoomOutCursor"),
+private let members: [(type: Int32, names: Set<String>)] = [
+    (0, ["arrowCursor"]), (1, ["IBeamCursor"]), (2, ["dragLinkCursor"]), (3, ["operationNotAllowedCursor"]), (5, ["dragCopyCursor"]), (11, ["closedHandCursor"]),
+    (12, ["openHandCursor"]), (13, ["pointingHandCursor"]), (17, ["resizeLeftCursor"]), (18, ["resizeRightCursor"]), (19, ["columnResizeCursor", "resizeLeftRightCursor"]),
+    (20, ["crosshairCursor"]), (21, ["resizeUpCursor"]), (22, ["resizeDownCursor"]), (23, ["rowResizeCursor", "resizeUpDownCursor"]), (24, ["contextualMenuCursor"]),
+    (25, ["disappearingItemCursor"]), (26, ["IBeamCursorForVerticalLayout"]), (42, ["zoomInCursor"]), (43, ["zoomOutCursor"]),
 ]
 private let drawn = Data((0..<4480).map { (index: Int) -> UInt8 in UInt8(index * 7 % 251) })
 private let unnamed: [(label: String, image: Pointer.Cursor.Image?)] = [
@@ -31,6 +32,11 @@ private let drags: [(label: String, rows: String, draggingFrame: CGRect?)] = [
         label: "a document window",
         rows: #"[{"number":43,"frame":[[10,30],[800,600]],"layer":0,"band":"normal","spaces":[1],"onScreen":true,"hidden":false,"shared":true,"asking":false,"presented":true}]"#, draggingFrame: nil,
     ),
+    (
+        label: "a row at the dragging window level no longer on screen",
+        rows: #"[{"number":44,"frame":[[100,200],[64,48]],"layer":500,"band":"dragging","spaces":[1],"onScreen":false,"hidden":false,"shared":true,"asking":false,"presented":false}]"#,
+        draggingFrame: nil,
+    ),
 ]
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -38,11 +44,10 @@ private let drags: [(label: String, rows: String, draggingFrame: CGRect?)] = [
 @Suite(.timeLimit(.minutes(1)))
 struct PointerTests {
     @Test(arguments: members)
-    func namesTheImageOfEachStandardCursorByItsAppKitClassProperty(type: Int32, name: String) throws {
+    func namesTheImageOfEachStandardCursorByAnAppKitClassPropertyOfItsCoreTypeAliasesIncluded(type: Int32, names: Set<String>) throws {
         let image: Pointer.Cursor.Image = try #require(Pointer.Cursor.Image(.core(type)), "CoreCursor type \(type) gives no image")
         let named = Pointer.Cursor(image)
-        let expected: Pointer.Cursor = .system(name: name)
-        expectNoDifference(named, expected)
+        #expect(names.map { (name: String) -> Pointer.Cursor in .system(name: name) }.contains(named), "CoreCursor type \(type) is named \(named)")
     }
 
     @Test
@@ -63,7 +68,7 @@ struct PointerTests {
     }
 
     @Test(arguments: drags)
-    func statesADragOnlyWhileTheApplicationOwnsAWindowAtTheDraggingLevel(label: String, rows: String, draggingFrame: CGRect?) throws {
+    func statesADragOnlyWhileTheApplicationShowsAWindowAtTheDraggingLevel(label: String, rows: String, draggingFrame: CGRect?) throws {
         let windows: [InstanceState.Window] = try JSONDecoder().decode([InstanceState.Window].self, from: Data(rows.utf8))
         let stated: CGRect? = Pointer(of: .current, windows: windows, containers: [])?.draggingFrame
         expectNoDifference(stated, draggingFrame, label)

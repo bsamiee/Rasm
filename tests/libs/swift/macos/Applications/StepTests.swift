@@ -18,7 +18,8 @@ private func enabledChords() -> [(code: CGKeyCode, modifiers: Set<Modifier>)] {
         guard row[kHISymbolicHotKeyEnabled as String] as? Bool == true, let code = row[kHISymbolicHotKeyCode as String] as? Int, let state = row[kHISymbolicHotKeyModifiers as String] as? Int else {
             return nil
         }
-        return (CGKeyCode(code), Set(Modifier.allCases.filter { modifier in state & Int(modifier.key.state) << 8 != 0 }))
+        let function: Set<Modifier> = state & kEventKeyModifierFnMask != 0 ? [.function] : []
+        return (CGKeyCode(code), function.union(Modifier.allCases.filter { modifier in state & Int(modifier.key.state) << 8 != 0 }))
     }
 }
 
@@ -110,7 +111,7 @@ struct StepTests {
 
     @Test(.enabled(if: CGPreflightPostEventAccess(), "The system rung checks the PostEvent grant before the shortcut table"))
     func refusesAtTheSystemRungEveryChordTheSystemTakesAsAnEnabledShortcut() async throws {
-        let layout = KeyboardLayout(name: nil, strokes: [:])
+        let layout = KeyboardLayout(strokes: [:])
         let source: CGEventSource = try #require(CGEventSource(stateID: .privateState))
         var generator = SystemRandomNumberGenerator()
         for chord in enabledChords() {
@@ -122,7 +123,14 @@ struct StepTests {
                 schedule: Input.Schedule(count: 1, every: nil, jitter: .zero),
                 edges: [.down, .up],
             )
-            let timeline = try input.timeline(doubleClick: .milliseconds(500), keyRepeat: (.milliseconds(250), .milliseconds(33)), frames: 60, layout: layout, firstPress: (1, 1), using: &generator)
+            let timeline = try input.timeline(
+                doubleClick: .milliseconds(500),
+                keyRepeat: (.milliseconds(250), .milliseconds(33)),
+                frame: .seconds(1) / 60,
+                layout: layout,
+                numbering: (1, 1),
+                using: &generator,
+            )
             let refusal = await #expect(throws: ApplicationFailure.self) { try await Route.system.post(timeline, to: getpid(), from: source, frame: .milliseconds(16), clock: ContinuousClock()) }
             let shortcut: Bool = refusal?.subject.contains("as its own shortcut") == true
             #expect(shortcut, "key code \(chord.code) with \(chord.modifiers): \(String(describing: refusal))")

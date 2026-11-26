@@ -1,3 +1,4 @@
+import { createServer } from 'node:http';
 import { DatabaseSync } from 'node:sqlite';
 import { pathToFileURL } from 'node:url';
 import { runInNewContext } from 'node:vm';
@@ -8,11 +9,11 @@ import { assert, layer } from '@effect/vitest';
 import { ApplicationRpcs, Installation, InstanceSnapshot, ScriptingDictionary } from '@rasm/applications/contract';
 import { routed } from '@rasm/testing/playwright';
 import { parse } from 'acorn';
-import { Array, Cause, Context, Effect, FileSystem, Layer, MutableRef, Option, Order, Path, Predicate, Record, Result, Schedule, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Context, Effect, Equal, FileSystem, Layer, MutableRef, Option, Order, Path, Predicate, Record, Result, Schedule, Schema, Stream, Struct } from 'effect';
 import { McpClient, McpProtocol } from 'effect/ai';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { RpcSerialization, RpcServer } from 'effect/rpc';
-import getPort from 'get-port';
+import getPort, { portNumbers } from 'get-port';
 import { build } from 'plist';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -40,8 +41,25 @@ const APPLICATIONS = [
     { name: 'Acrobat Distiller', identifier: 'com.adobe.distiller', version: '26.003.22110', dictionary: { command: [DISTILL] } },
     { name: 'Adobe Photoshop 2027', identifier: 'com.adobe.Photoshop', version: '28.2.0', dictionary: { command: [SCRIPT], script: SCRIPT } },
     { name: 'Adobe After Effects 2027', identifier: 'com.adobe.AfterEffects.application', version: '27.1.0', dictionary: { command: [SCRIPT], script: SCRIPT } },
+    { name: 'Adobe Illustrator 2027 (Beta)', identifier: 'com.adobe.illustratorBeta', version: '31.1.0', dictionary: { command: [SCRIPT], script: SCRIPT } },
+    { name: 'Adobe Illustrator 2027', identifier: 'com.adobe.illustrator', version: '31.0.0', dictionary: { command: [SCRIPT], script: SCRIPT } },
+    { name: 'Adobe Media Encoder (Beta)', identifier: 'com.adobe.amebeta.application.27', version: '27.1.0', dictionary: { command: [SCRIPT], script: SCRIPT } },
 ] as const;
-const REGISTERED = { 'Adobe Photoshop 2027': { code: 'PHSP', version: '28.2', build: '28.2.0.36' }, 'Adobe After Effects 2027': { code: 'AEFT', version: '27.1', build: '27.1.0.12' } } as const;
+const REGISTERED = {
+    'Adobe Photoshop 2027': { code: 'PHSP', version: '28.2', build: '28.2.0.36' },
+    'Adobe After Effects 2027': { code: 'AEFT', version: '27.1', build: '27.1.0.12' },
+    'Adobe Illustrator 2027 (Beta)': { code: 'ILSTBETA', version: '31.1', build: '31.1.0.127' },
+    'Adobe Illustrator 2027': { code: 'ILST', version: '31.0', build: '31.0.0.84' },
+    'Adobe Media Encoder (Beta)': { code: 'AMEBETA', version: '27.1', build: '27.1.0.57' },
+} as const;
+const BUNDLES: Record.ReadonlyRecord<string, { readonly folder: string; readonly file: string; readonly bundleName: string }> = {
+    'Adobe Illustrator 2027 (Beta)': { folder: 'Adobe Illustrator (Beta)', file: 'Adobe Illustrator', bundleName: 'Illustrator (Beta)' },
+    'Adobe Illustrator 2027': { folder: 'Adobe Illustrator 2027', file: 'Adobe Illustrator', bundleName: 'Illustrator' },
+};
+const ILLUSTRATOR_PREFERENCES = {
+    'Adobe Illustrator 31.1.0 Beta Settings': { version: '31.1.0', plugin: '/plugin {\t/AIMCPServer {\t\t/AuthToken [ 9\t\t\t696c73745f62657461\t\t]\t\t/ServerEnabled 1\t}}' },
+    'Adobe Illustrator 31 Settings': { version: '31.0.0', plugin: '/plugin {}' },
+} as const;
 const PLUGINS_INFO = { PS: '28.0.0', aftereffects: '27.2.0' } as const;
 const FOREIGN = { pluginId: 'com.example.panel', status: 'enabled', type: 'uxp', hostMinVersion: '1.0.0' } as const;
 const REGISTRY = [
@@ -76,29 +94,52 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
         const built = yield* Effect.fromOption(routed('@rasm/nx-vite', '@rasm/atelier'), () => new Cause.NoSuchElementError('nx.json states no Vite outputPath to run @rasm/atelier from'));
         const root = yield* fs.makeTempDirectoryScoped({ prefix: 'atelier-' });
         const port = yield* Effect.promise(() => getPort());
+        const listening = yield* Effect.all(Record.map(BUNDLES, () => Effect.promise(() => getPort({ port: portNumbers(18_412, 18_422) }))));
         const [contents, socket, home] = [path.join(root, 'Atelier.app', 'Contents'), path.join(root, 'server.sock'), path.join(root, 'home')];
         const [registry, installs] = [path.join(root, 'hdpim.db'), path.join(root, 'Applications')];
-        const bundle = (name: string) => path.join(installs, name, `${name}.app`);
+        const placed = (name: string) => Option.getOrElse(Record.get(BUNDLES, name), () => ({ folder: name, file: name }));
+        const bundle = (name: string) => path.join(installs, placed(name).folder, `${placed(name).file}.app`);
         const located = (name: string) => pathToFileURL(`${bundle(name)}/`).href;
         const empty = Struct.Record(ScriptingDictionary.Kind.literals, []);
         const dictionaries = Record.fromEntries(yield* Effect.forEach(APPLICATIONS, ({ name, dictionary }) => Effect.map(Schema.decodeEffect(ScriptingDictionary)({ ...empty, ...dictionary }), (terms) => [located(name), terms] as const)));
         const installations = yield* Schema.decodeEffect(Installations)(
-            APPLICATIONS.map(({ name, identifier, version }) => ({ url: located(name), executable: pathToFileURL(path.join(bundle(name), 'Contents', 'MacOS', name)).href, identifier, name, version, scriptable: true, activationPolicy: 'regular', appIntents: [] })),
+            APPLICATIONS.map(({ name, identifier, version }) => ({
+                url: located(name),
+                executable: pathToFileURL(path.join(bundle(name), 'Contents', 'MacOS', placed(name).file)).href,
+                identifier,
+                name,
+                ...Option.getOrUndefined(Option.map(Record.get(BUNDLES, name), Struct.pick(['bundleName']))),
+                version,
+                scriptable: true,
+                activationPolicy: 'regular',
+                appIntents: [],
+            })),
         );
         const instances = yield* Schema.decodeEffect(Instances)(
-            APPLICATIONS.map(({ name, identifier }, at) => ({ pid: 100 + at, instance: `${100 + at}@1`, identifier, url: located(name), activationPolicy: 'regular', state: { _tag: 'running', active: false, status: { _tag: 'responding' }, windows: [] }, listening: [] })),
+            APPLICATIONS.map(({ name, identifier }, at) => ({ pid: 100 + at, instance: `${100 + at}@1`, identifier, url: located(name), activationPolicy: 'regular', state: { _tag: 'running', active: false, status: { _tag: 'responding' }, windows: [] }, listening: Option.toArray(Record.get(listening, name)) })),
         );
-        const executed = MutableRef.make<readonly Sent[]>([]);
+        const [executed, heard, folders] = [MutableRef.make<readonly Sent[]>([]), MutableRef.make<readonly { readonly port: Option.Option<number>; readonly authorization: string | undefined }[]>([]), MutableRef.make<readonly { readonly url: string; readonly glob?: string }[]>([])];
         const files: Record<string, string> = {
             [path.join(contents, 'Info.plist')]: build({ CFBundleExecutable: 'Atelier', CFBundleIdentifier: 'app.rasm.atelier.suite', CFBundleShortVersionString: '0.0.0' }),
             [path.join(contents, 'MacOS', 'Atelier')]: `#!/bin/sh\nexec /usr/bin/nc -U '${socket}'\n`,
             ...Record.fromEntries(
                 Record.collect(PLUGINS_INFO, (app, hostMinVersion) => [path.join(home, 'Library', 'Application Support', 'Adobe', 'UXP', 'PluginsInfo', 'v1', `${app}.json`), JSON.stringify({ plugins: [{ pluginId: `app.rasm.atelier.suite.${app}`, status: 'enabled', type: 'uxp', hostMinVersion }, FOREIGN] })]),
             ),
+            ...Record.fromEntries(
+                Array.flatten(
+                    Record.collect(ILLUSTRATOR_PREFERENCES, (settings, { version, plugin }) => [
+                        [path.join(home, 'Library', 'Preferences', settings, 'en_US', '.runConfig'), JSON.stringify({ [version]: {} })] as const,
+                        [path.join(home, 'Library', 'Preferences', settings, 'en_US', 'Adobe Illustrator Prefs'), plugin] as const,
+                    ]),
+                ),
+            ),
+            ...Record.fromEntries(Array.map(['Adobe Adobe Media Encoder (Beta)', 'Adobe Illustrator', 'AdobeCRCommon'], (folder) => [path.join(home, 'Library', 'Logs', 'Adobe', folder, 'UXPLogs_2026-11-26_05-12-31_259536.log'), 'upic::Upic version 2.7.0 is initialized\n'])),
         };
         const products = Record.collect(REGISTERED, (_, { code, version }) => [code, version, 'arm64', 1] as const);
         const facts = Array.flatten(
-            Record.collect(REGISTERED, (name, { code, version, build: registered }) => Record.collect({ InstallDir: path.dirname(bundle(name)), AppLaunch: `[InstallDir]/${name}.app/Contents/MacOS/${name}`, BuildVersion: registered }, (key, value) => [code, version, 'arm64', key, value] as const)),
+            Record.collect(REGISTERED, (name, { code, version, build: registered }) =>
+                Record.collect({ InstallDir: path.dirname(bundle(name)), AppLaunch: `[InstallDir]/${placed(name).file}.app/Contents/MacOS/${placed(name).file}`, BuildVersion: registered }, (key, value) => [code, version, 'arm64', key, value] as const),
+            ),
         );
         const database = yield* Effect.acquireRelease(
             Effect.sync(() => new DatabaseSync(registry)),
@@ -122,7 +163,21 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
             ],
             { discard: true },
         );
-        const served = ApplicationRpcs.omit('installation', 'pasteboard', 'model', 'intern', 'handlers', 'launch', 'act', 'quit', 'capture', 'record', 'scale', 'diagnostics');
+        const answering = Record.values(listening).map((listened) =>
+            createServer((request, response) => {
+                MutableRef.update(heard, Array.append({ port: Option.fromUndefinedOr(request.socket.localPort), authorization: request.headers.authorization }));
+                response.writeHead(401, { 'content-type': 'application/json' }).end('{}');
+            }).listen(listened, '127.0.0.1'),
+        );
+        yield* Effect.addFinalizer(() =>
+            Effect.sync(() => {
+                for (const server of answering) {
+                    server.closeAllConnections();
+                    server.close();
+                }
+            }),
+        );
+        const served = ApplicationRpcs.omit('installation', 'pasteboard', 'model', 'intern', 'handlers', 'launch', 'act', 'quit', 'capture', 'record', 'scale');
         yield* Layer.build(
             RpcServer.layer(served).pipe(
                 Layer.provide([
@@ -132,10 +187,18 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
                         events: () => Stream.never,
                         observations: () => Stream.never,
                         pressure: () => Stream.never,
-                        session: () => Stream.concat(Stream.succeed({ onConsole: true, locked: false, asleep: false, secureInput: false, space: 1 }), Stream.never),
-                        watch: ({ instance }) => Effect.orDie(Effect.fromOption(Array.findFirst(instances, (row) => row.instance === instance))),
+                        session: () => Stream.concat(Stream.succeed(Result.succeed({ onConsole: true, locked: false, asleep: false, secureInput: false, spaces: [1] })), Stream.never),
+                        watch: ({ instance }) => Effect.orDie(Effect.map(Effect.fromOption(Array.findFirst(instances, (row) => row.instance === instance)), (row) => ({ ...row, language: 'en' }))),
                         dictionary: ({ url }) => Effect.orDie(Effect.fromNullishOr(dictionaries[url.href])),
                         execute: (payload) => executing(executed, payload),
+                        diagnostics: (payload) =>
+                            Effect.sync(() => {
+                                MutableRef.set(
+                                    folders,
+                                    payload.folders.map(({ url, glob }) => ({ url: url.href, ...Record.getSomes({ glob: Option.fromUndefinedOr(glob) }) })),
+                                );
+                                return { reports: [], logs: [], unified: Result.succeed([]), unreadable: [] };
+                            }),
                     }),
                     RpcServer.layerProtocolSocketServer,
                 ]),
@@ -152,7 +215,24 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
             const tool = yield* client.listTools().pipe(Effect.map(Array.findFirst((listed) => listed.name === name)), Effect.flatMap(Effect.fromOption));
             return yield* client.callTool({ tool, arguments: given });
         });
-        return { call, executed: Effect.sync(() => MutableRef.get(executed)) };
+        const logged = (text: string) =>
+            fs.readFileString(path.join(root, 'output', 'suite', 'logs', 'server.log')).pipe(
+                Effect.filterOrFail((read) => read.includes(text)),
+                Effect.retry({ schedule: Schedule.spaced('200 millis') }),
+                Effect.timeout('20 seconds'),
+            );
+        return {
+            call,
+            logged,
+            executed: Effect.sync(() => MutableRef.get(executed)),
+            heard: (name: string) =>
+                Effect.sync(() =>
+                    MutableRef.get(heard)
+                        .filter((each) => Equal.equals(each.port, Record.get(listening, name)))
+                        .map(Struct.get('authorization')),
+                ),
+            folders: Effect.sync(() => MutableRef.get(folders)),
+        };
     }),
 }) {}
 
@@ -236,8 +316,55 @@ layer(Layer.effect(Suite, Suite.make).pipe(Layer.provide([services, layerUndici]
                 { name: 'Acrobat Distiller', product: 'com.adobe.distiller', channel: 'release', version: '26.003.22110' },
                 { name: 'Adobe Acrobat', product: 'com.adobe.Acrobat.Pro', channel: 'release', version: '26.003.22110' },
                 { name: 'Adobe After Effects 2027', product: 'AEFT', channel: 'release', version: '27.1.0', build: '27.1.0.12' },
+                { name: 'Adobe Illustrator 2027', product: 'ILST', channel: 'release', version: '31.0.0', build: '31.0.0.84' },
+                { name: 'Adobe Illustrator 2027 (Beta)', product: 'ILST', channel: 'beta', version: '31.1.0', build: '31.1.0.127' },
+                { name: 'Adobe Media Encoder (Beta)', product: 'AME', channel: 'beta', version: '27.1.0', build: '27.1.0.57' },
                 { name: 'Adobe Photoshop 2027', product: 'PHSP', channel: 'release', version: '28.2.0', build: '28.2.0.36' },
             ]);
+        }),
+    );
+
+    it.effect(
+        'opens the Beta of a product its product code or a name short of every listed one reaches, and the year release by its listed name alone',
+        Effect.fnUntraced(function* () {
+            const suite = yield* Suite;
+            const opened = (application: string) => Effect.flatMap(suite.call('applications', { action: 'open', application }), (result) => Schema.decodeUnknownEffect(Opened)(lines(result).at(-1)));
+            const [beta, release] = yield* Effect.all([opened('Adobe Illustrator 2027 (Beta)'), opened('Adobe Illustrator 2027')]);
+            const reached = yield* Effect.forEach(['ILST', 'Illustrator', 'Adobe Illustrator'], opened);
+            assert.notStrictEqual(beta.instance, release.instance);
+            assert.deepStrictEqual(Array.map(reached, Struct.get('instance')), [beta.instance, beta.instance, beta.instance]);
+        }),
+    );
+
+    it.effect(
+        "sends Illustrator's MCP server the bearer token the preferences of its build hold",
+        Effect.fnUntraced(function* () {
+            const suite = yield* Suite;
+            const heard = yield* suite.heard('Adobe Illustrator 2027 (Beta)').pipe(
+                Effect.filterOrFail((held) => held.length > 0),
+                Effect.retry({ schedule: Schedule.spaced('200 millis') }),
+                Effect.timeout('20 seconds'),
+            );
+            assert.deepStrictEqual(Array.dedupe(heard), ['Bearer ilst_beta']);
+        }),
+    );
+
+    it.effect(
+        "sends nothing to Illustrator's MCP server while its build's preferences hold no token, logging the missing AIMCPServer AuthToken in place of a refused login",
+        Effect.fnUntraced(function* () {
+            const suite = yield* Suite;
+            yield* suite.logged('Adobe Illustrator 2027 preferences hold no AIMCPServer AuthToken');
+            assert.deepStrictEqual(yield* suite.heard('Adobe Illustrator 2027'), []);
+        }),
+    );
+
+    it.effect(
+        'reads the UXP logs of an application from the log folder whose words its name holds, a folder doubling the vendor word included',
+        Effect.fnUntraced(function* () {
+            const suite = yield* Suite;
+            const result = yield* suite.call('diagnostics', { application: 'Adobe Media Encoder (Beta)' });
+            const [folder] = yield* suite.folders;
+            assert.deepStrictEqual([result.isError === true, folder?.url.endsWith('/Library/Logs/Adobe/Adobe%20Adobe%20Media%20Encoder%20(Beta)/'), folder?.glob], [false, true, 'UXPLogs_*.log'], lines(result).join('\n'));
         }),
     );
 

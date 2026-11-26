@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'node:url';
 import { layer as services } from '@effect/platform-node/NodeServices';
 import { SqliteClient } from '@effect/sql-sqlite-node';
 import { assert, describe, it } from '@effect/vitest';
@@ -35,6 +36,7 @@ const BUILDS = ['22.1.0.19', '22.2.0.4'] as const;
 const TOOLBAR: FacetControl['locator'] = [['toolbar', 'tool']];
 const RECTANGLE: FacetControl['locator'] = [...TOOLBAR, ['tool', 'RECTANGLE_TOOL']];
 const PEN: FacetControl['locator'] = [...TOOLBAR, ['tool', 'PEN_TOOL']];
+const DOCUMENT = JSON.stringify([{ key: { document: { type: 'com.adobe.indesign-document' } }, role: 'AXWindow' }]);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -61,6 +63,13 @@ const Truth = {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const instant = (minute: number) => DateTime.formatIso(DateTime.makeUnsafe(START + minute * 60_000));
+const folding = (text: string) =>
+    text
+        .normalize('NFKD')
+        .replaceAll(/[\p{M}\p{P}\p{White_Space}]/gu, '')
+        .toLowerCase();
+const labelled = (role: string, text: string) => JSON.stringify([{ key: { label: { value: folding(text) } }, role }]);
+const flushed = Effect.andThen(TestClock.adjust(Duration.seconds(2)), TestClock.adjust(Duration.seconds(2)));
 const store = Effect.map(
     FileSystem.FileSystem.use((fs) => fs.makeTempFileScoped({ suffix: '.sqlite' })),
     (filename) =>
@@ -148,7 +157,7 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
         const { toggle, complete } = reads[read] ?? reads[0];
         return {
             build: build(read),
-            container: JSON.stringify(['AXWindow', stem]),
+            container: DOCUMENT,
             kind: 'window',
             title: `${name} @ 50%`,
             modal: false,
@@ -157,7 +166,7 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
             opened: instant(opener(read)),
             at: instant(read),
             truncated: complete === 0,
-            documents: [`${home}/Briefs/${name}`],
+            documents: [`${home}/Briefs/${name}`, pathToFileURL(`${home}/Briefs/${name}`).href],
             conditions: [
                 { _tag: 'Value', at: TOGGLE, value: toggle },
                 { _tag: 'Documents', held: true },
@@ -171,7 +180,7 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
                         Array.makeBy(conditions.length, (index) => index),
                         (index) => present(read, index),
                     ),
-                    (index) => [JSON.stringify(['AXButton', label(index)]), { kind: 'action', role: 'AXButton', label: { text: label(index), attribute: 'AXDescription' }, positional: false }],
+                    (index) => [labelled('AXButton', label(index)), { kind: 'action', role: 'AXButton', label: { text: label(index), attribute: 'AXDescription' }, positional: false }],
                 ),
             },
             layout: {},
@@ -218,7 +227,7 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
                 : Option.none();
         return { condition: conditions[index]?._tag, sightings, retirement, epochs: new Set(sightings.map(opener)).size };
     };
-    return { user: { username: user, homedir: home }, stem, readings, present, generation, build, observation, level, submenu, opener, oracle, stored: (index: number) => JSON.stringify(['AXButton', `Item ${index} of ${PRIVATE}`]), window: JSON.stringify(['AXWindow', PRIVATE]) };
+    return { user: { username: user, homedir: home }, stem, readings, present, generation, build, observation, level, submenu, opener, oracle, stored: (index: number) => JSON.stringify([{ key: { label: { value: `item${index}of${PRIVATE}` } }, role: 'AXButton' }]), window: DOCUMENT };
 };
 
 const toolbar = (current: string, [rectangle, pen]: readonly [{ readonly label: string; readonly shortcut?: KeyStep; readonly help?: string }, { readonly label: string; readonly shortcut?: KeyStep; readonly help?: string }]) =>
@@ -308,6 +317,7 @@ describe(InterfaceMap, () => {
             assert.include(written, PRIVATE);
             assert.notInclude(written, world.user.username);
             assert.notInclude(written, world.stem);
+            assert.notInclude(written, folding(world.stem), 'a locator key folding a document name holds it redacted');
             const opening = yield* Schema.decodeEffect(Observation)(world.submenu(0));
             const menus = yield* Effect.forEach(world.readings, (read) => Effect.all([Schema.decodeEffect(Observation)(world.level(read, read)), Schema.decodeEffect(Observation)(world.level(read, read + 0.5))]));
             const leveled = menus.reduce((map, [first, again], read) => {
@@ -365,7 +375,7 @@ describe(InterfaceMap, () => {
     );
 
     it.effect(
-        'writes a re-read that changes only when the container was read at close, and leaves the opener unwritten when a reopening finds its link held',
+        'writes each changed container within one interval of its change, a re-read included, the close writing what changed since, and leaves the opener unwritten when a reopening finds its link held',
         Effect.fnUntraced(function* () {
             const [opened, observed] = yield* Effect.all([store, newDocument]);
             const again = observed.map((read) => ({ ...read, at: DateTime.add(read.at, { minutes: 1 }) }));
@@ -373,19 +383,25 @@ describe(InterfaceMap, () => {
             const between = yield* Effect.scoped(
                 Effect.gen(function* () {
                     const map = yield* InterfaceMap.open('com.adobe.InDesign', 'en');
-                    yield* Effect.forEach(observed, map.observe);
-                    yield* TestClock.adjust(Duration.seconds(2));
-                    yield* Effect.forEach(again, map.observe);
-                    yield* TestClock.adjust(Duration.seconds(2));
-                    const [layoutRead, dialogRead, linked] = yield* Effect.all([stored(LAYOUT), stored(DIALOG), map.present]);
+                    yield* Effect.andThen(Effect.forEach(observed, map.observe), flushed);
+                    const first = yield* Effect.all({ layout: stored(LAYOUT), dialog: stored(DIALOG) });
+                    yield* Effect.andThen(Effect.forEach(again, map.observe), flushed);
+                    const [reread, linked] = yield* Effect.all([Effect.all({ layout: stored(LAYOUT), dialog: stored(DIALOG) }), map.present]);
                     yield* Effect.forEach(reopening, map.observe);
                     const reopened = yield* map.present;
-                    return { layout: layoutRead, dialog: dialogRead, opener: linked.containers[LAYOUT], held: reopened.containers[LAYOUT] };
+                    return { first, reread, opener: linked.containers[LAYOUT], held: reopened.containers[LAYOUT] };
                 }),
             ).pipe(Effect.provide(opened));
             const closed = yield* Effect.all({ layout: stored(LAYOUT), dialog: stored(DIALOG) }).pipe(Effect.provide(Layer.fresh(opened)));
-            assert.deepStrictEqual({ layout: between.layout, dialog: between.dialog }, { layout: [{ last: instant(0) }], dialog: [{ last: instant(1) }] }, 'a re-read in the same opening with the same shape waits for close');
-            assert.deepStrictEqual(closed, { layout: [{ last: instant(1) }], dialog: [{ last: instant(3) }] }, 'closing writes the last read of every container');
+            assert.deepStrictEqual(
+                { first: between.first, reread: between.reread, closed },
+                {
+                    first: { layout: [{ last: instant(0) }], dialog: [{ last: instant(1) }] },
+                    reread: { layout: [{ last: instant(1) }], dialog: [{ last: instant(2) }] },
+                    closed: { layout: [{ last: instant(1) }], dialog: [{ last: instant(3) }] },
+                },
+                'each change reaches the store one interval after it with the map still open, and the close writes the reopening read since',
+            );
             assert.deepStrictEqual(between.opener?.controls[NEW]?.opens, Option.some(DIALOG), 'the opener links the dialog it opened');
             assert.strictEqual(between.held, between.opener, 'a reopening whose opener already links it leaves the opener as it was');
         }, Effect.provide(services)),
@@ -428,6 +444,7 @@ describe(InterfaceMap, () => {
                         { rung: 'accessibility', failure: 'value unchanged' },
                         { rung: 'process', failure: 'value unchanged' },
                     ],
+                    popUps: [],
                 }),
             });
             const failed = passed.prove({ at, from: 'window', outcome: Result.fail(new Error('every rung from window failed read-back')) });
@@ -450,13 +467,13 @@ describe(InterfaceMap, () => {
             const observed = yield* newDocument;
             const read = observed.reduce((map, each) => map.fold(each, OWNER).map, InterfaceMap.empty);
             const at = { container: DIALOG, control: UNITS };
-            const unproven = (['unanswered', 'exit'] as const).map((proof) => read.prove({ at, from: 'accessibility', outcome: Result.succeed({ proof, tried: [] }) }));
+            const unproven = (['unanswered', 'exit'] as const).map((proof) => read.prove({ at, from: 'accessibility', outcome: Result.succeed({ proof, tried: [], popUps: [] }) }));
             assert.deepStrictEqual(unproven, [read, read]);
         }),
     );
 
     it.effect(
-        'serves a menu level only while the item opening it read it in the current build, and states the containers verified in this build with the menu labels as recognition words',
+        'serves a menu level only while the item opening it read it in the current build, and states the containers verified in this build with the labels Accessibility read for their menu items, never one text recognition read',
         Effect.fnUntraced(function* () {
             const menu = yield* Schema.decodeEffect(Observation)({
                 build: BUILDS[0],
@@ -469,7 +486,11 @@ describe(InterfaceMap, () => {
                 documents: [],
                 opener: { container: LAYOUT, control: NEW },
                 conditions: [],
-                controls: { [RECENT]: { kind: 'item', role: 'AXMenuItem', label: { text: 'Recent', attribute: 'AXTitle' }, positional: false }, [CLOSE]: { kind: 'item', role: 'AXMenuItem', label: { text: 'Close', attribute: 'AXTitle' }, positional: false } },
+                controls: {
+                    [RECENT]: { kind: 'item', role: 'AXMenuItem', label: { text: 'Recent', attribute: 'AXTitle' }, positional: false },
+                    [CLOSE]: { kind: 'item', role: 'AXMenuItem', label: { text: 'Close', attribute: 'AXTitle' }, positional: false },
+                    [CLOSE_ALL]: { kind: 'item', role: 'AXMenuItem', label: { text: 'C1ose A11', attribute: 'recognized' }, positional: false },
+                },
                 layout: {},
                 values: {},
             });
@@ -480,10 +501,10 @@ describe(InterfaceMap, () => {
             assert.isTrue(Option.isNone(read.level(RECENT)), 'an item that opened nothing serves no level');
             assert.isTrue(Option.isNone(later.level(NEW)), 'a level read under an earlier build is read again');
             assert.deepStrictEqual(
-                Option.map(read.known, ({ build, containers, customWords }) => ({ build, containers: containers.toSorted(), customWords: customWords.toSorted() })),
-                Option.some({ build: BUILDS[0], containers: [LAYOUT, MENU].toSorted(), customWords: ['Close', 'Recent'] }),
+                Option.map(read.known, ({ build, containers, labels }) => ({ build, containers: containers.toSorted(), labels: labels.toSorted() })),
+                Option.some({ build: BUILDS[0], containers: [LAYOUT, MENU].toSorted(), labels: ['Close', 'Recent'] }),
             );
-            assert.deepStrictEqual(Option.map(later.known, Struct.get('containers')), Option.some([LAYOUT]), 'a new build verifies only what it read again');
+            assert.deepStrictEqual(Option.map(later.known, Struct.pick(['containers', 'labels'])), Option.some({ containers: [LAYOUT], labels: [] }), 'a new build verifies only what it read again, and holds no label of a menu it has not read');
         }),
     );
 
@@ -497,7 +518,7 @@ describe(InterfaceMap, () => {
             const again = first.map.fold({ ...dialog, at: DateTime.add(dialog.at, { seconds: 30 }) }, OWNER);
             assert.deepStrictEqual(
                 { first: first.described, relabelled: relabelled.described, again: again.described, window: InterfaceMap.empty.fold(layout, OWNER).described },
-                { first: Option.some('map learned dialog "New Document", 2 controls'), relabelled: Option.some('map of dialog "New Document": relabelled "Units" → "Unit"'), again: Option.none(), window: Option.some('map learned window, 1 controls') },
+                { first: Option.some('map learned dialog "New Document", controls ×2'), relabelled: Option.some('map of dialog "New Document": relabelled "Units" → "Unit"'), again: Option.none(), window: Option.some('map learned window, controls ×1') },
             );
         }),
     );
@@ -539,6 +560,25 @@ describe(InterfaceMap, () => {
                 'an item ending in an ellipsis stays unopened until the dialog it opens is read, a menu item until its menu is, a choice until its options list, and a container read only in an earlier build counts apart',
             );
             assert.deepStrictEqual(InterfaceMap.empty.coverage, { build: Option.none(), known: {}, earlier: 0, unopened: { opens: [], ellipsis: [], options: [] } }, 'an application never read holds no build and no opener');
+        }),
+    );
+
+    it.effect(
+        'holds each build once, newest first, when an earlier build runs again',
+        Effect.fnUntraced(function* () {
+            const layout = yield* Effect.fromOption(Array.head(yield* newDocument));
+            const read = [BUILDS[0], BUILDS[1], BUILDS[0]].reduce((map, build, minute) => map.fold({ ...layout, build, opened: DateTime.add(layout.at, { minutes: minute }), at: DateTime.add(layout.at, { minutes: minute }) }, OWNER).map, InterfaceMap.empty);
+            assert.deepStrictEqual(read.application.builds, [BUILDS[0], BUILDS[1]]);
+        }),
+    );
+
+    it.effect(
+        'counts one epoch per opening when reads alternate between two open documents of one type',
+        Effect.fnUntraced(function* () {
+            const layout = yield* Effect.fromOption(Array.head(yield* newDocument));
+            const read = [0, 1, 0, 1].reduce((map, opening, minute) => map.fold({ ...layout, container: DOCUMENT, opened: DateTime.add(layout.at, { minutes: opening }), at: DateTime.add(layout.at, { minutes: minute }) }, OWNER).map, InterfaceMap.empty);
+            const entry = yield* Effect.fromNullishOr(read.containers[DOCUMENT]);
+            assert.deepStrictEqual({ container: entry.container.tally.seen, control: entry.controls[NEW]?.tally.seen }, { container: 2, control: 2 });
         }),
     );
 });

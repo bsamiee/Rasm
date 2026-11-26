@@ -152,6 +152,7 @@ final class Delegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSToolbar
         layout.fileURL = Layout.folder.appending(component: "Layout").appendingPathExtension(for: .plainText)
         layout.fileType = UTType.plainText.identifier
         layout.addWindowController(NSWindowController(window: windows[.lists]))
+        windows[.covered]?.representedURL = Layout.folder.appending(component: "Covered").appendingPathExtension(for: .plainText)
         for object in built.values.flatMap(\.members) { (unsafe (object as? NSMenuItem)?.menu ?? (object as? NSView)?.menu)?.delegate = self }
         for (name, selector) in [
             (NSWindow.didBecomeKeyNotification, #selector(keyed(_:))), (NSWindow.didResignKeyNotification, #selector(keyed(_:))),
@@ -287,6 +288,9 @@ final class Delegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSToolbar
                 let end = ContinuousClock.now + duration
                 while ContinuousClock.now < end {}
             case .hangOnTermination(let kind): termination = kind
+            case .edit:
+                NSDocumentController.shared.addDocument(layout)
+                layout.updateChangeCount(.changeDone)
             case .abort: abort()
         }
     }

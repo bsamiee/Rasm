@@ -73,6 +73,8 @@ public struct Screenshot: Encodable, Sendable {
     public let document: URL?
     public let presentation: Watch.Presentation?
 
+    // --- [ENCODING]
+
     public func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: CodingKeys.self)
         try fields.encode(image.png(), forKey: .png)
@@ -84,6 +86,8 @@ public struct Screenshot: Encodable, Sendable {
         try fields.encodeIfPresent(document, forKey: .document)
         try fields.encodeIfPresent(presentation, forKey: .presentation)
     }
+
+    // --- [DIFFERENCE]
 
     public func changed(from earlier: Self) -> CGRect? {
         guard frame == earlier.frame, (image.width, image.height) == (earlier.image.width, earlier.image.height) else { return frame.union(earlier.frame) }
@@ -103,6 +107,12 @@ public struct Screenshot: Encodable, Sendable {
     }
 }
 
+private struct WindowCaptureOptions: OptionSet {
+    let rawValue: UInt32
+    static let bestResolution = Self(rawValue: 1 << 8)
+    static let ignoreGlobalClipShape = Self(rawValue: 1 << 11)
+}
+
 struct Framing {
     let filter: SCContentFilter
     let width: Int
@@ -110,12 +120,43 @@ struct Framing {
     let frame: CGRect
     let windows: [SCWindow]
     let display: SCDisplay?
-}
+    let subject: String
 
-private struct WindowCaptureOptions: OptionSet {
-    let rawValue: UInt32
-    static let bestResolution = Self(rawValue: 1 << 8)
-    static let ignoreGlobalClipShape = Self(rawValue: 1 << 11)
+    var backingStore: Bool { windows.count == 1 && windows.allSatisfy { window in !window.isOnScreen } }
+
+    // --- [CAPTURE]
+
+    func capture() async throws(ApplicationFailure) -> CGImage {
+        let configuration = SCScreenshotConfiguration()
+        (configuration.showsCursor, configuration.width, configuration.height) = (false, width, height)
+        configuration.sourceRect = frame.offsetBy(dx: -filter.contentRect.minX, dy: -filter.contentRect.minY)
+        let (filter, stored, size, subject): (SCContentFilter, SCWindow?, CGSize, String) = (self.filter, backingStore ? windows.first : nil, CGSize(width: width, height: height), self.subject)
+        let blank = ApplicationFailure(subject: subject, reason: .noImage)
+        return try await withTimeout(
+            messagingTimeout * 2,
+            expired: ApplicationFailure(subject: subject, reason: .unanswered(nil)),
+            cancelled: ApplicationFailure(subject: subject, reason: .cancelled),
+        ) { (answer: @escaping @Sendable (Result<CGImage, ApplicationFailure>) -> Void) in
+            guard let stored else {
+                return SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: configuration) { (output: SCScreenshotOutput?, error: (any Error)?) in
+                    answer(output?.sdrImage.map(Result.success) ?? .failure(error.map { error in ApplicationFailure(subject: subject, reason: .foundation(error as NSError)) } ?? blank))
+                }
+            }
+            let backing: CGImage? = (unsafe captureWindowList(mainConnection(), [stored.windowID], 1, [.ignoreGlobalClipShape, .bestResolution]) as? [CGImage])?.first
+            let cropped: CGImage? = backing.flatMap { backing in
+                backing.cropping(to: configuration.sourceRect.applying(CGAffineTransform(scaleX: CGFloat(backing.width) / stored.frame.width, y: CGFloat(backing.height) / stored.frame.height)))
+            }
+            let scaled: CGImage? = cropped.flatMap { cropped in
+                rendering.createCGImage(
+                    CIImage(cgImage: cropped).transformed(by: CGAffineTransform(scaleX: size.width / CGFloat(cropped.width), y: size.height / CGFloat(cropped.height)), highQualityDownsample: true),
+                    from: CGRect(origin: .zero, size: size),
+                    format: .RGBA8,
+                    colorSpace: cropped.colorSpace,
+                )
+            }
+            answer(scaled.map(Result.success) ?? .failure(blank))
+        }
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -127,7 +168,7 @@ extension CGImage {
             throw ApplicationFailure(subject: UTType.png.identifier, reason: .noEncoder)
         }
         CGImageDestinationAddImage(destination, self, [kCGImageDestinationOptimizeColorForSharing: true] as CFDictionary)
-        guard CGImageDestinationFinalize(destination) else { throw ApplicationFailure(subject: UTType.png.identifier, reason: .noEncoder) }
+        guard CGImageDestinationFinalize(destination) else { throw ApplicationFailure(subject: "\(UTType.png.identifier) encoding of a \(width)×\(height) image", reason: .noImage) }
         return encoded as Data
     }
 
@@ -148,17 +189,20 @@ extension CGImage {
         else {
             throw ApplicationFailure(subject: subject, reason: .noImage)
         }
-        let scale: CGFloat = CGFloat(width) / area.width
-        let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.smallSystemFontSize * max(1, scale) / scale, weight: .semibold)
+        let scale: (x: CGFloat, y: CGFloat) = (CGFloat(width) / area.width, CGFloat(height) / area.height)
+        let pixel: CGFloat = min(scale.x, scale.y)
+        let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.smallSystemFontSize * max(1, pixel) / pixel, weight: .semibold)
+        let frames: [CGRect] = meeting.map(\.frame)
         context.draw(self, in: CGRect(x: 0, y: 0, width: width, height: height))
         context.translateBy(x: 0, y: CGFloat(height))
-        context.scaleBy(x: scale, y: -scale)
+        context.scaleBy(x: scale.x, y: -scale.y)
         context.translateBy(x: -area.minX, y: -area.minY)
         context.textMatrix = CGAffineTransform(scaleX: 1, y: -1)
-        context.setLineWidth(max(1, scale) / scale)
+        context.setLineWidth(max(1, pixel) / pixel)
         context.setStrokeColor(NSColor.systemRed.cgColor)
-        context.addRects(meeting.map(\.frame))
+        context.addRects(frames)
         context.strokePath()
+        var placed: [CGRect] = []
         for mark in meeting {
             let line = CTLineCreateWithAttributedString(
                 NSAttributedString(string: mark.label, attributes: [.font: font, NSAttributedString.Key(kCTForegroundColorFromContextAttributeName as String): true])
@@ -166,10 +210,19 @@ extension CGImage {
             var (ascent, descent): (CGFloat, CGFloat) = (0, 0)
             let advance = CGFloat(unsafe CTLineGetTypographicBounds(line, &ascent, &descent, nil))
             let size = CGSize(width: advance + ascent / 2, height: ascent + descent)
-            let label = CGRect(
-                origin: CGPoint(x: min(max(mark.frame.minX, area.minX), area.maxX - size.width), y: min(max(mark.frame.minY, area.minY), area.maxY - size.height)),
-                size: size,
-            )
+            let beside: [CGRect] = [
+                CGRect(origin: CGPoint(x: mark.frame.minX, y: mark.frame.minY - size.height), size: size),
+                CGRect(origin: CGPoint(x: mark.frame.minX, y: mark.frame.maxY), size: size),
+                CGRect(origin: CGPoint(x: mark.frame.maxX, y: mark.frame.minY), size: size),
+                CGRect(origin: CGPoint(x: mark.frame.minX - size.width, y: mark.frame.minY), size: size),
+            ]
+            let corner = CGPoint(x: min(max(mark.frame.minX, area.minX), area.maxX - size.width), y: min(max(mark.frame.minY, area.minY), area.maxY - size.height))
+            let label: CGRect =
+                beside.first { (spot: CGRect) -> Bool in
+                    area.contains(spot) && placed.allSatisfy { (held: CGRect) -> Bool in !spot.intersects(held) }
+                        && frames.allSatisfy { (other: CGRect) -> Bool in other.contains(mark.frame) || !spot.intersects(other) }
+                } ?? CGRect(origin: corner, size: size)
+            placed.append(label)
             context.setFillColor(NSColor.systemRed.cgColor)
             context.fill(label)
             context.setFillColor(NSColor.white.cgColor)
@@ -194,21 +247,6 @@ extension Data {
 @_silgen_name("CGSHWCaptureWindowList")
 private func captureWindowList(_: Int32, _: UnsafePointer<UInt32>, _: Int32, _: WindowCaptureOptions) -> CFArray?
 
-extension SCWindow {
-    func captureBackingStore(_ configuration: SCScreenshotConfiguration) -> CGImage? {
-        guard let backing = (unsafe captureWindowList(mainConnection(), [windowID], 1, [.ignoreGlobalClipShape, .bestResolution]) as? [CGImage])?.first,
-            let cropped = backing.cropping(to: configuration.sourceRect.applying(CGAffineTransform(scaleX: CGFloat(backing.width) / frame.width, y: CGFloat(backing.height) / frame.height)))
-        else { return nil }
-        let scale = CGAffineTransform(scaleX: CGFloat(configuration.width) / CGFloat(cropped.width), y: CGFloat(configuration.height) / CGFloat(cropped.height))
-        return rendering.createCGImage(
-            CIImage(cgImage: cropped).transformed(by: scale, highQualityDownsample: true),
-            from: CGRect(x: 0, y: 0, width: configuration.width, height: configuration.height),
-            format: .RGBA8,
-            colorSpace: cropped.colorSpace,
-        )
-    }
-}
-
 extension Watch {
     private nonisolated func shareable(listing named: Set<CGWindowID>, after delays: ArraySlice<Duration>) async throws(ApplicationFailure) -> (windows: [SCWindow], displays: [SCDisplay]) {
         let process: pid_t = instance.process.pid
@@ -225,29 +263,29 @@ extension Watch {
         }
         let owned = content.windows.filter { window in window.owningApplication?.processID == process }
         guard let delay = delays.first, !named.isSubset(of: owned.map(\.windowID)) else { return (owned, content.displays) }
-        do { try await Task.sleep(for: delay) } catch { throw ApplicationFailure(subject: String(process), reason: .cancelled) }
+        do { try await Task.sleep(for: delay) } catch { throw ApplicationFailure(subject: subject, reason: .cancelled) }
         return try await shareable(listing: named, after: delays.dropFirst())
     }
 
     nonisolated func framings(_ source: Source, showing menus: [Container], longestSide: LongestSide?) async throws(ApplicationFailure) -> [Result<Framing, ApplicationFailure>] {
-        let targets: [(named: [CGWindowID], crop: CGRect?)] =
+        let process: pid_t = instance.process.pid
+        let targets: [(named: [CGWindowID], crop: CGRect?, subject: String)] =
             switch (source, menus.isEmpty) {
-                case (.windows(let numbers), _): numbers.map { number in ([number], nil) }
-                case (.element(let ref), true): [try await frame(of: ref)].map { element in ([element.window], element.frame) }
-                case (.element, false): menus.compactMap { menu in menu.window.flatMap { window in menu.frame.map { frame in ([window], frame) } } }
-                case (.region(let frame), _): [([], frame)]
+                case (.windows(let numbers), _): numbers.map { number in ([number], nil, "capture of window \(number)") }
+                case (.element(let ref), true): [try await frame(of: ref)].map { element in ([element.window], element.frame, "capture of element \(ref)") }
+                case (.element, false): menus.compactMap { menu in menu.window.flatMap { window in menu.frame.map { frame in ([window], frame, "capture of menu \(menu.ref)") } } }
+                case (.region(let frame), _): [([], frame, "capture of region \(frame)")]
             }
         var generator = SystemRandomNumberGenerator()
         await NSApplication.loadApplication()
         let (owned, displays) = try await shareable(listing: Set(targets.flatMap(\.named)), after: listing.delays(using: &generator)[...])
-        let rows: [InstanceState.Window] = InstanceState.Window.all(.optionAll)[instance.process.pid, default: []]
+        let rows: [InstanceState.Window] = InstanceState.Window.all(.optionAll, of: process)[process, default: []]
         let parents: [CGWindowID: CGWindowID] = Dictionary(rows.compactMap { row in row.parent.map { parent in (row.number, parent) } }) { first, _ in first }
         let withheld: Set<CGWindowID> = Set(rows.filter { row in !row.shared }.map(\.number))
         return targets.map { target in
             Result { () throws(ApplicationFailure) -> Framing in
-                let subject: String = target.crop.map { crop in String(describing: crop) } ?? target.named.map { number in String(number) }.joined(separator: ",")
                 guard withheld.isDisjoint(with: target.named) else {
-                    throw ApplicationFailure(subject: "\(subject), whose \(kCGWindowSharingState as String) is none", reason: .refused)
+                    throw ApplicationFailure(subject: "\(target.subject), whose \(kCGWindowSharingState as String) is none", reason: .refused)
                 }
                 let named: [SCWindow] = owned.filter { window in target.named.contains(window.windowID) }
                 let floor: Int = named.map(\.windowLayer).min() ?? .min
@@ -257,17 +295,17 @@ extension Watch {
                     return window.isOnScreen && (descends || above)
                 }
                 let windows: [SCWindow] = named + joined
-                guard named.count == target.named.count, let first = windows.first else { throw ApplicationFailure(subject: subject, reason: .noWindow) }
+                guard named.count == target.named.count, let first = windows.first else { throw ApplicationFailure(subject: target.subject, reason: .noWindow) }
                 let frame: CGRect = target.crop ?? windows.map(\.frame).reduce(first.frame) { joint, next in joint.union(next) }
                 let display: SCDisplay? = displays.first { display in display.frame.contains(CGPoint(x: frame.midX, y: frame.midY)) }
                 let filter: SCContentFilter =
                     switch (windows.count, display) {
                         case (1, _): SCContentFilter(desktopIndependentWindow: first)
                         case (_, .some(let display)): SCContentFilter(display: display, including: windows)
-                        case (_, .none): throw ApplicationFailure(subject: subject, reason: .noWindow)
+                        case (_, .none): throw ApplicationFailure(subject: target.subject, reason: .noWindow)
                     }
                 let shown: CGRect = frame.intersection(filter.contentRect)
-                guard !shown.isEmpty else { throw ApplicationFailure(subject: subject, reason: .noWindow) }
+                guard !shown.isEmpty else { throw ApplicationFailure(subject: target.subject, reason: .noWindow) }
                 let scale = CGFloat(filter.pointPixelScale)
                 let factor: CGFloat = scale * min(1, longestSide.map { limit in CGFloat(limit.rawValue) / (max(shown.width, shown.height) * scale) } ?? 1)
                 return Framing(
@@ -277,6 +315,7 @@ extension Watch {
                     frame: shown,
                     windows: windows,
                     display: display,
+                    subject: target.subject,
                 )
             }
         }
@@ -284,43 +323,29 @@ extension Watch {
 
     public nonisolated func capture(_ source: Source, longestSide: LongestSide? = nil, marks: [Mark] = []) async throws(ApplicationFailure) -> [Result<Screenshot, ApplicationFailure>] {
         try Grant.screenCapture.check()
-        let documents: [CGWindowID: URL] = await self.documents()
-        let (shots, presentation) = try await presenting(source.ref) {
-            (menus: [Container]) async throws(ApplicationFailure) -> [Result<(image: CGImage, framing: Framing, backingStore: Bool), ApplicationFailure>] in
-            await Array(
-                try await framings(source, showing: menus, longestSide: longestSide).async.map { framing in
-                    await Result { () async throws(ApplicationFailure) -> (image: CGImage, framing: Framing, backingStore: Bool) in
+        async let documents: [CGWindowID: URL] = self.documents()
+        let (taken, presentation) = try await presenting(source.ref) { (menus: [Container]) async throws(ApplicationFailure) -> [Result<(image: CGImage, framing: Framing), ApplicationFailure>] in
+            var captured: [Result<(image: CGImage, framing: Framing), ApplicationFailure>] = []
+            for framing in try await framings(source, showing: menus, longestSide: longestSide) {
+                captured.append(
+                    await Result { () async throws(ApplicationFailure) -> (image: CGImage, framing: Framing) in
                         let framed: Framing = try framing.get()
-                        let subject: String = framed.windows.map { window in String(window.windowID) }.joined(separator: ",")
-                        let offScreen: SCWindow? = framed.windows.count == 1 ? framed.windows.first { window in !window.isOnScreen } : nil
-                        let configuration = SCScreenshotConfiguration()
-                        (configuration.showsCursor, configuration.width, configuration.height) = (false, framed.width, framed.height)
-                        configuration.sourceRect = framed.frame.offsetBy(dx: -framed.filter.contentRect.minX, dy: -framed.filter.contentRect.minY)
-                        let blank = ApplicationFailure(subject: subject, reason: .noImage)
-                        let image: CGImage = try await withTimeout(
-                            messagingTimeout * 2,
-                            expired: ApplicationFailure(subject: subject, reason: .unanswered(nil)),
-                            cancelled: ApplicationFailure(subject: subject, reason: .cancelled),
-                        ) { (answer: @escaping @Sendable (Result<CGImage, ApplicationFailure>) -> Void) in
-                            if let offScreen { return answer(offScreen.captureBackingStore(configuration).map(Result.success) ?? .failure(blank)) }
-                            SCScreenshotManager.captureScreenshot(contentFilter: framed.filter, configuration: configuration) { (output: SCScreenshotOutput?, error: (any Error)?) in
-                                answer(output?.sdrImage.map(Result.success) ?? .failure(error.map { error in ApplicationFailure(subject: subject, reason: .foundation(error as NSError)) } ?? blank))
-                            }
-                        }
-                        return (try image.marking(marks, in: framed.frame), framed, offScreen != nil)
+                        return (try await framed.capture().marking(marks, in: framed.frame), framed)
                     }
-                }
-            )
+                )
+            }
+            return captured
         }
-        return shots.map { shot in
-            shot.map { taken in
-                let numbers: [CGWindowID] = taken.framing.windows.map(\.windowID)
+        let shown: [CGWindowID: URL] = await documents
+        return taken.map { result in
+            result.map { shot in
+                let numbers: [CGWindowID] = shot.framing.windows.map(\.windowID)
                 return Screenshot(
-                    image: taken.image,
-                    frame: taken.framing.frame,
+                    image: shot.image,
+                    frame: shot.framing.frame,
                     windows: numbers,
-                    backingStore: taken.backingStore,
-                    document: numbers.lazy.compactMap { number in documents[number] }.first,
+                    backingStore: shot.framing.backingStore,
+                    document: numbers.lazy.compactMap { number in shown[number] }.first,
                     presentation: presentation,
                 )
             }

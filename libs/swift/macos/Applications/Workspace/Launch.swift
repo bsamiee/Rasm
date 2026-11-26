@@ -22,7 +22,7 @@ public struct InstanceSnapshot: Encodable, Sendable {
     public let state: InstanceState
 
     public init?(_ instance: Instance, state: InstanceState, language: Locale.Language? = nil) {
-        guard let url = instance.application.bundleURL, let identifier = instance.application.bundleIdentifier else { return nil }
+        guard let url = instance.application.bundleURL?.resolvedDirectory, let identifier = instance.application.bundleIdentifier else { return nil }
         (self.instance, self.identifier, self.url, self.language, self.state) = (instance, identifier, url, language, state)
     }
 

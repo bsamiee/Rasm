@@ -1,7 +1,7 @@
 import { layerUndici } from '@effect/platform-node/NodeHttpClient';
 import { layer as services } from '@effect/platform-node/NodeServices';
 import { assert, layer } from '@effect/vitest';
-import { Array, Context, Effect, Layer, Option, Predicate, Schema } from 'effect';
+import { Array, Context, Effect, Layer, Option, Predicate, Schema, Struct } from 'effect';
 import { type Bundle, served, text } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -65,6 +65,20 @@ layer(Layer.effect(Suite, Suite.make).pipe(Layer.provide([services, layerUndici]
                 { listed: { claimed: true, unclaimed: false }, refused: { failed: true, server: true, scope: true }, launched: [] },
                 `${listed.text}\n---\n${refused.text}`,
             );
+        }, Effect.scoped),
+    );
+
+    it.effect(
+        'watches the instance a handle opens once, and reads it from the running listing on each later tool call',
+        Effect.fnUntraced(function* () {
+            const { connect, watched } = yield* Suite;
+            const client = yield* connect;
+            const issued = yield* Effect.flatMap(called(client, 'applications', {}), ({ text: lines }) => handle(lines));
+            yield* called(client, 'applications', { action: 'open', application: 'Tidewater', handle: issued });
+            const opened = yield* watched;
+            const later = yield* Effect.all([called(client, 'view', { of: 'object', id: 'ledger', handle: issued }), called(client, 'view', { of: 'object', id: 'ledger', handle: issued })]);
+            const after = yield* watched;
+            assert.deepStrictEqual({ opened: opened.length > 0, later: Array.drop(after, opened.length), refused: later.map(({ text: lines }) => lines.includes('No linked source renders objects of Tidewater')) }, { opened: true, later: [], refused: [true, true] }, later.map(Struct.get('text')).join('\n---\n'));
         }, Effect.scoped),
     );
 });

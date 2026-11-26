@@ -9,7 +9,7 @@ import Synchronization
 
 public struct Pointer: Encodable, Equatable, Sendable {
     public enum Cursor: CaseTagged, Equatable, Sendable {
-        package struct Image: Equatable, Sendable {
+        package struct Image: Sendable {
             package enum Source: Sendable {
                 case global
                 case system(Int32)
@@ -40,35 +40,34 @@ public struct Pointer: Encodable, Equatable, Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Pointer {
+    private static let shown: Mutex<(seed: Int32, cursor: Cursor)?> = Mutex(nil)
+
     package init?(of application: NSRunningApplication, windows: [InstanceState.Window], containers: [Container]) {
-        let focused: Set<Int> = Set(containers.compactMap { (container: Container) -> Int? in container.focused ?? false ? container.ref : nil })
-        let toolbars: [Container] = containers.filter { (container: Container) -> Bool in container.kind == Container.Kind.toolbar }
+        let focused: Set<Int> = Set(containers.lazy.filter { (container: Container) -> Bool in container.focused == true }.map(\.ref))
+        let toolbars: [Container] = containers.filter { (container: Container) -> Bool in container.kind == .toolbar }
         let choices: [(focused: Bool, control: Control)] = toolbars.flatMap { (toolbar: Container) -> [(focused: Bool, control: Control)] in
-            let within: Bool = toolbar.parent.map { (parent: Int) -> Bool in focused.contains(parent) } ?? false
-            let named: [Control] = toolbar.controls.filter { (control: Control) -> Bool in
-                let text: String? = control.value?.text
-                return control.kind == Control.Kind.choice && control.selected != nil && text != nil
-            }
-            return named.map { (control: Control) -> (focused: Bool, control: Control) in (focused: within, control: control) }
+            let within: Bool = toolbar.parent.map(focused.contains) == true
+            return toolbar.controls.filter { (control: Control) -> Bool in control.kind == .choice && control.value?.text != nil }.map { (control: Control) in (focused: within, control: control) }
         }
-        let anyFocused: Bool = choices.contains(where: \.focused)
-        let candidates: [Control] = choices.compactMap { (choice: (focused: Bool, control: Control)) -> Control? in choice.focused || !anyFocused ? choice.control : nil }
-        let chosen: Control? = candidates.count == 1 ? candidates.first : nil
+        let preferred: Bool = choices.contains(where: \.focused)
+        let candidates: [(focused: Bool, control: Control)] = choices.filter { (choice: (focused: Bool, control: Control)) -> Bool in choice.focused == preferred }
+        let chosen: Control? = candidates.count == 1 ? candidates.first?.control : nil
         let tool: String? = chosen?.value?.text
         let help: String? = chosen?.options?.first { (option: Control.Option) -> Bool in option.label == tool }?.help
-        let seed: Int32 = currentCursorSeed()
-        let point: CGPoint? = application.isActive ? CGEvent(source: nil)?.location : nil
-        let under: CGWindowID? = point.flatMap { (point: CGPoint) -> CGWindowID? in
-            var (screen, local, window, connection): (CGPoint, CGPoint, CGWindowID, Int32) = (point, .zero, 0, 0)
-            let answer: CGError = unsafe findWindowAndOwner(mainConnection(), 0, 1, 0, &screen, &local, &window, &connection)
-            return answer == .success ? window : nil
+        let connection: Int32 = mainConnection()
+        var (point, local, window, owner): (CGPoint, CGPoint, CGWindowID, Int32) = (.zero, .zero, kCGNullWindowID, 0)
+        let located: Bool = unsafe application.isActive && currentCursorLocation(connection, &point) == .success
+        let found: Bool = unsafe located && findWindowAndOwner(connection, 0, 1, 0, &point, &local, &window, &owner) == .success
+        let owned: Bool = found && windows.contains { (row: InstanceState.Window) -> Bool in row.number == window }
+        let cursor: Cursor? = Self.shown.withLock { shown -> Cursor? in
+            guard owned else { return nil }
+            let seed: Int32 = currentCursorSeed()
+            guard shown?.seed != seed else { return shown?.cursor }
+            guard let image = Cursor.Image(.global), currentCursorSeed() == seed else { return nil }
+            shown = (seed: seed, cursor: Cursor(image))
+            return shown?.cursor
         }
-        let owned: Bool = under.map { (number: CGWindowID) -> Bool in windows.contains { (row: InstanceState.Window) -> Bool in row.number == number } } ?? false
-        let shown: Cursor.Image? = owned ? Cursor.Image(.global) : nil
-        let steady: Bool = shown != nil && Cursor.Image(.global) == shown && currentCursorSeed() == seed
-        let cursor: Cursor? = steady ? shown.map { (image: Cursor.Image) -> Cursor in Cursor(image) } : nil
-        let level = Int(CGWindowLevelForKey(.draggingWindow))
-        let draggingFrame: CGRect? = windows.first { (row: InstanceState.Window) -> Bool in row.layer == level }?.frame
+        let draggingFrame: CGRect? = windows.first { (row: InstanceState.Window) -> Bool in row.band == .dragging && row.onScreen }?.frame
         guard tool != nil || cursor != nil || draggingFrame != nil else { return nil }
         self.init(tool: tool, help: help, cursor: cursor, draggingFrame: draggingFrame)
     }
@@ -80,28 +79,33 @@ extension Pointer.Cursor {
     package init(_ image: Image) {
         var scale: Float = 0
         let scaled: Float? = unsafe cursorScale(mainConnection(), &scale) == .success ? scale : nil
-        let names: [SHA256.Digest: String] = Self.catalogs.withLock { held in
-            if let built = held[scaled] { return built }
-            _ = NSCursor.current
+        let names: [SHA256.Digest: String] = Self.catalogs.withLock { catalogs in
+            if let built = catalogs[scaled] { return built }
+            let coreType: String = "_coreCursorType"
             var count: UInt32 = 0
             let properties: UnsafeMutablePointer<objc_property_t>? = unsafe class_copyPropertyList(object_getClass(NSCursor.self), &count)
             defer { unsafe free(properties) }
-            let appKit: [(digest: SHA256.Digest, name: String)] = unsafe UnsafeBufferPointer(start: properties, count: Int(count)).compactMap { property in
+            let typed: [(type: Int32, name: String)] = unsafe UnsafeBufferPointer(start: properties, count: Int(count)).compactMap { property in
                 let name: String = unsafe String(cString: property_getName(property))
-                let type: Int32? = Selector(name) == #selector(getter: NSCursor.current) ? nil : (NSCursor.value(forKey: name) as? NSCursor)?.value(forKey: "_coreCursorType") as? Int32
-                return type.flatMap { type in Image(.core(type)) }.map { image in (digest: SHA256.hash(data: image.data), name: name) }
+                let cursor: NSCursor? = Selector(name) == #selector(getter: NSCursor.current) ? nil : NSCursor.value(forKey: name) as? NSCursor
+                let type: Int32? = cursor?.responds(to: Selector(coreType)) == true ? cursor?.value(forKey: coreType) as? Int32 : nil
+                return type.map { type in (type: type, name: name) }
             }
-            let defined: [(id: Int32, name: String)] = Array(
+            let appKit: [(digest: SHA256.Digest, name: String)] = Dictionary(grouping: typed, by: \.type).compactMap { type, aliases -> (digest: SHA256.Digest, name: String)? in
+                guard let name = aliases.map(\.name).min(), let image = Image(.core(type)) else { return nil }
+                return (digest: SHA256.hash(data: image.data), name: name)
+            }
+            let system: [(digest: SHA256.Digest, name: String)] = Array(
                 (Int32(0)...).lazy
                     .map { id in unsafe systemCursorName(id).map { name in (id: id, name: unsafe String(cString: name)) } }
                     .prefix { cursor in cursor != nil }
                     .compactMap(\.self)
+                    .compactMap { cursor in Image(.system(cursor.id)).map { image in (digest: SHA256.hash(data: image.data), name: cursor.name) } }
             )
-            let system: [(digest: SHA256.Digest, name: String)] = defined.compactMap { cursor in Image(.system(cursor.id)).map { image in (digest: SHA256.hash(data: image.data), name: cursor.name) } }
             let built: [SHA256.Digest: String] = [system, appKit].reduce(into: [:]) { built, tier in
                 built.merge(Dictionary(grouping: tier, by: \.digest).compactMapValues { named in named.count == 1 ? named.first?.name : nil }) { _, appKit in appKit }
             }
-            held[scaled] = built
+            catalogs[scaled] = built
             return built
         }
         let digest: SHA256.Digest = SHA256.hash(data: image.data)
@@ -137,8 +141,11 @@ extension Pointer.Cursor.Image {
 @_silgen_name("CGSCurrentCursorSeed")
 private func currentCursorSeed() -> Int32
 
+@_silgen_name("CGSGetCurrentCursorLocation")
+private func currentCursorLocation(_: Int32, _: UnsafeMutablePointer<CGPoint>) -> CGError
+
 @_silgen_name("SLSFindWindowAndOwner")
-private func findWindowAndOwner(
+func findWindowAndOwner(
     _: Int32,
     _: Int32,
     _: Int32,

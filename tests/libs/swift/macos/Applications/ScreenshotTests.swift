@@ -20,8 +20,8 @@ extension WindowServerTests {
             (CGRect(x: 0, y: 120, width: 260, height: 20), CGRect(x: 731, y: 332, width: 260, height: 20)),
         ]
         static let placed: [(mark: CGRect, changed: CGRect?)] = [
-            (CGRect(x: 771, y: 242, width: 60, height: 20), CGRect(x: 771, y: 242, width: 60, height: 20)),
-            (CGRect(x: 960, y: 330, width: 60, height: 40), CGRect(x: 954.5, y: 330, width: 36.5, height: 22)),
+            (CGRect(x: 771, y: 242, width: 60, height: 20), CGRect(x: 771, y: 229, width: 60, height: 33)),
+            (CGRect(x: 960, y: 330, width: 60, height: 40), CGRect(x: 923.5, y: 330, width: 67.5, height: 22)),
             (CGRect(x: 700, y: 180, width: 60, height: 40), CGRect(x: 731, y: 212, width: 36.5, height: 13)),
             (CGRect(x: 0, y: 0, width: 40, height: 40), nil),
         ]
@@ -68,7 +68,7 @@ extension WindowServerTests {
         }
 
         @Test(arguments: placed)
-        func marksDrawAtTheirScreenFrameInsideTheImageAndNowhereElse(mark: CGRect, changed: CGRect?) throws {
+        func marksDrawTheirFrameWithTheLabelBesideItInsideTheImageAndNowhereElse(mark: CGRect, changed: CGRect?) throws {
             let before = Screenshot(image: try Self.drawn(nil), frame: Self.frame, windows: [], backingStore: false, document: nil, presentation: nil)
             let marked: CGImage = try before.image.marking([Mark(frame: mark, label: "@a12")], in: Self.frame)
             let found: CGRect? = Screenshot(image: marked, frame: Self.frame, windows: [], backingStore: false, document: nil, presentation: nil).changed(from: before)
@@ -102,14 +102,17 @@ extension WindowServerTests {
         }
 
         @Test
-        func labelsDrawOverEveryFrameSoNoLaterFrameCrossesAnEarlierLabel() throws {
-            let (under, over): (Mark, Mark) = (
-                Mark(frame: CGRect(x: 771, y: 242, width: 60, height: 20), label: "@a12"), Mark(frame: CGRect(x: 790, y: 200, width: 30, height: 70), label: "@a13"),
+        func labelsCoverNoOtherMarkedControlWhereTheImageHasRoomBesideTheirFrame() throws {
+            let (pressed, above, beside): (Mark, Mark, Mark) = (
+                Mark(frame: CGRect(x: 771, y: 242, width: 20, height: 20), label: "@a12"),
+                Mark(frame: CGRect(x: 771, y: 222, width: 20, height: 20), label: "@a13"),
+                Mark(frame: CGRect(x: 791, y: 242, width: 20, height: 20), label: "@a14"),
             )
-            let label = CGRect(x: 773, y: 244, width: 30, height: 9)
-            let alone: CGImage = try Self.drawn(nil).marking([under], in: Self.frame)
-            let crossed: CGImage = try Self.drawn(nil).marking([under, over], in: Self.frame)
-            expectNoDifference(try Self.cropped(crossed, to: label).changed(from: try Self.cropped(alone, to: label)), nil)
+            let every: CGImage = try Self.drawn(nil).marking([pressed, above, beside], in: Self.frame)
+            let others: CGImage = try Self.drawn(nil).marking([above, beside], in: Self.frame)
+            for interior in [above.frame.insetBy(dx: 1, dy: 1), beside.frame.insetBy(dx: 1, dy: 1)] {
+                expectNoDifference(try Self.cropped(every, to: interior).changed(from: try Self.cropped(others, to: interior)), nil, "label \(pressed.label) covers \(interior)")
+            }
         }
 
         @Test

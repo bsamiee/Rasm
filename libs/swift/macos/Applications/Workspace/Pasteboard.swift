@@ -1,5 +1,6 @@
 public import AppKit
 public import Encoding
+import Synchronization
 import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -43,17 +44,24 @@ public struct Pasteboard: Encodable, Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Pasteboard {
+    private static let reads: Mutex<[NSPasteboard.Name: Pasteboard]> = Mutex([:])
+
     static func locator(of name: NSPasteboard.Name) -> Locator { Locator(steps: [Locator.Step(role: String(describing: NSPasteboard.self), key: .identifier(value: name.rawValue))]) }
 
-    public init(_ name: NSPasteboard.Name, writing text: String? = nil) async throws(ApplicationFailure) {
+    public static func write(_ text: String, to name: NSPasteboard.Name) throws(ApplicationFailure) {
         let board = NSPasteboard(name: name)
-        if let text {
-            board.clearContents()
-            guard board.setString(text, forType: .string) else { throw ApplicationFailure(subject: "\(board.name.rawValue) text \(String(reflecting: text))", reason: .refused) }
+        board.clearContents()
+        guard board.setString(text, forType: .string) else { throw ApplicationFailure(subject: "\(name.rawValue) text \(String(reflecting: text))", reason: .refused) }
+    }
+
+    public init(_ name: NSPasteboard.Name) async throws(ApplicationFailure) {
+        let board = NSPasteboard(name: name)
+        let (changeCount, access): (Int, NSPasteboard.AccessBehavior) = (board.changeCount, board.accessBehavior)
+        if let last = Self.reads.withLock({ reads in reads[name] }), last.changeCount == changeCount, last.access == access {
+            self = last
+            return
         }
-        let changeCount = board.changeCount
-        let access = board.accessBehavior
-        let types = board.types ?? []
+        let types: [NSPasteboard.PasteboardType] = board.types ?? []
         let detected: Set<__NSPasteboardDetectionPattern>
         let contentType: UTType?
         do {
@@ -64,14 +72,14 @@ extension Pasteboard {
         } catch let error as CocoaError where error.code.rawValue == NSPasteboardContentsNotAvailableError {
             detected = []
         } catch {
-            throw ApplicationFailure(subject: board.name.rawValue, reason: .foundation(error as NSError))
+            throw ApplicationFailure(subject: name.rawValue, reason: .foundation(error as NSError))
         }
         do {
-            contentType = try await board.detectedMetadata(for: [\.contentType]).contentType
+            contentType = try await types.contains(.fileURL) ? board.detectedMetadata(for: [\.contentType]).contentType : nil
         } catch let error as CocoaError where error.code.rawValue == NSPasteboardContentsNotAvailableError {
             contentType = nil
         } catch {
-            throw ApplicationFailure(subject: board.name.rawValue, reason: .foundation(error as NSError))
+            throw ApplicationFailure(subject: name.rawValue, reason: .foundation(error as NSError))
         }
         let content: Content? =
             switch (types.contains(.string), access) {
@@ -80,7 +88,7 @@ extension Pasteboard {
                 case (true, _): .withheld
             }
         self.init(
-            locator: Self.locator(of: board.name),
+            locator: Self.locator(of: name),
             changeCount: changeCount,
             types: types.map(\.rawValue),
             access: access,
@@ -88,5 +96,6 @@ extension Pasteboard {
             contentType: contentType?.identifier,
             content: content,
         )
+        Self.reads.withLock { reads in reads[name] = self }
     }
 }

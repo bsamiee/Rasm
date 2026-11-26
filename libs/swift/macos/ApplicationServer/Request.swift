@@ -135,7 +135,8 @@ extension Request {
             case .session:
                 return .stream(Session.changes().map { session -> any Encodable & Sendable in EncodedResult(session) })
             case .pasteboard(let text):
-                return try await .value(Pasteboard(.general, writing: text))
+                if let text { try Pasteboard.write(text, to: .general) }
+                return try await .value(Pasteboard(.general))
             case .watch(let process):
                 let watch = try await watches.watch(Instance(process, admittedBy: predicate))
                 let scriptable: Bool?
@@ -146,7 +147,7 @@ extension Request {
                     Task { await NSAppleEventDescriptor(processIdentifier: process.pid).consent(to: AEEventClass(kAECoreSuite), AEEventID(kAEGetData), asking: true) }
                 }
                 guard let snapshot = InstanceSnapshot(watch.instance, state: await watch.current, language: watch.language) else {
-                    throw ApplicationFailure(subject: process.rawValue, reason: .noPath)
+                    throw ApplicationFailure(subject: process.rawValue, reason: watch.instance.application.bundleURL == nil ? .noPath : .noIdentifier)
                 }
                 return .value(snapshot)
             case .model(let process, let scope, let known):
@@ -177,10 +178,10 @@ extension Request {
                 let watch = await watches.watch(instance)
                 let began = await watch.recordFaults()
                 let loaded = Result { () throws(ProcessFailure) in try SystemLoad() }
-                let acting = { () async throws(ApplicationFailure) in
+                let acting = { (stepping: @escaping @Sendable (Int) -> Void) async throws(ApplicationFailure) in
                     try await FileEvent.written(await watch.documentFiles) { () async throws(ApplicationFailure) in
                         try await PermittedFrontList.shared.holding(excluding: { application in application.processIdentifier == process.pid }, for: replyDeadline) {
-                            () async throws(ApplicationFailure) in try await watch.act(steps)
+                            () async throws(ApplicationFailure) in try await watch.act(steps, stepping: stepping)
                         }.get()
                     }
                 }
@@ -188,7 +189,7 @@ extension Request {
                     if let record {
                         await watch.record(record.source, keyFrames: record.frames, longestSide: record.longestSide, while: acting)
                     } else {
-                        (await Result(catching: acting), nil)
+                        (await Result { () async throws(ApplicationFailure) in try await acting { _ in } }, nil)
                     }
                 let load = loaded.flatMap { earlier in Result { () throws(ProcessFailure) in try SystemLoad.Interval(since: earlier) } }
                 let (faults, reports) = (await watch.recordedFaults(since: began), DiagnosticReport.reports(since: began) { report in report.isWritten(by: process) })
@@ -242,7 +243,8 @@ extension Request {
             case .record(let process, let source, let longestSide, let frames, let seconds, let movie):
                 let instance = try Instance(process, admittedBy: predicate)
                 try Session.current().require(process.rawValue)
-                let recorded = await watches.watch(instance).record(source, keyFrames: frames, longestSide: longestSide, movie: movie) { () async throws(ApplicationFailure) in
+                let recorded = await watches.watch(instance).record(source, keyFrames: frames, longestSide: longestSide, movie: movie) {
+                    (_: @escaping @Sendable (Int) -> Void) async throws(ApplicationFailure) in
                     do { try await Task.sleep(for: .seconds(seconds)) } catch { throw ApplicationFailure(subject: "recording of \(source) in process \(process.pid)", reason: .cancelled) }
                 }
                 try recorded.value.get()

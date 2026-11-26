@@ -49,7 +49,7 @@ Effect.gen(function* () {
         {
             listen: Option.some(Host.hostPortFromStringUnsafe('localhost:7490')),
             instructions: [
-                'Atelier drives the Adobe applications installed on this Mac (InDesign, Photoshop, Illustrator, After Effects, Premiere Pro, Media Encoder, Acrobat): their documents, windows, dialogs, scripts, and typography. Search for its tools for any task in one of those applications.',
+                'Atelier drives the Adobe applications installed on this Mac (InDesign, Photoshop, Illustrator, After Effects, Premiere Pro, Media Encoder, Acrobat): their documents, windows, dialogs, scripts, and typography. Search for its tools for any task in one of those applications, and work in the Beta of each, which a product code or name opens, opening a year release by its listed name only for a file that needs it.',
                 ...Tools.instructions,
                 "Change document content through scripts in the application's own object model, and drive the interface through its Accessibility tree only where scripts cannot reach, such as dialogs and panels.",
                 Declarations.instruction,

@@ -126,6 +126,7 @@ public enum Command: Codable, Sendable {
     case fault(nonce: String)
     case hang(kind: Hang)
     case hangOnTermination(kind: Hang)
+    case edit
     case abort
 }
 

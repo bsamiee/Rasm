@@ -1,11 +1,15 @@
 import type { Link } from '@rasm/mcp/link';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Cause, Effect, Exit, Formatter, Function, HashMap, Match, Option, Predicate, Record, Result, Schema, SchemaTransformation, Stream, Struct, Tuple } from 'effect';
+import { Array, Cause, Effect, Exit, Filter, Formatter, Function, HashMap, Match, Option, Predicate, Record, Result, Schema, SchemaTransformation, Stream, Struct, Tuple } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { Container, Control, Failure, type Model, type Observation, Pointer, Value } from '#/contract';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
+interface Polled {
+    readonly known: Option.Option<FacetPointer>;
+    readonly failing: boolean;
+}
 interface Tool extends Omit<NonNullable<FacetControl['options']>[number], 'locator'> {
     readonly id: string;
 }
@@ -81,7 +85,7 @@ class Description extends Schema.Class<Description, { readonly brand: unique sym
         const state = Effect.map(Effect.all([current, pointer]), ([tool, held]) => ({ tool, pointer: { ...held, ...Struct.pick(tool, ['shortcut', 'help']), tool: tool.label } satisfies FacetPointer }));
         const stated = Effect.gen(function* () {
             const [{ tool, pointer: held }, tools] = yield* Effect.all([state, Effect.transposeOption(Option.fromUndefinedOr(listed))]);
-            const settings = yield* Option.match(Option.fromUndefinedOr(options), { onNone: () => Effect.succeed([]), onSome: ({ describe }) => describe(toolAt(tool.id)) });
+            const settings = yield* options?.describe(toolAt(tool.id)) ?? Effect.succeed([]);
             const chosen = FacetControl.make({
                 locator: CHOICE,
                 kind: 'choice',
@@ -99,26 +103,22 @@ class Description extends Schema.Class<Description, { readonly brand: unique sym
             return yield* taken.id === id ? Effect.void : Unmatched.of({ subject: 'tool the host took', query: Option.some(id), candidates: [taken.id, taken.label] });
         });
         const resolve = (to: string) =>
-            Option.match(Option.fromUndefinedOr(listed), {
-                onNone: () => Effect.succeed(to),
-                onSome: (tools) =>
-                    Effect.map(
-                        Effect.flatMap(
-                            tools,
-                            Unmatched.single('tool', Option.some(to), ({ id, label }: Tool) => [label, id]),
-                        ),
-                        Struct.get('id'),
-                    ),
-            });
+            listed === undefined
+                ? Effect.succeed(to)
+                : listed.pipe(
+                      Effect.flatMap(Unmatched.single('tool', Option.some(to), ({ id, label }: Tool) => [label, id])),
+                      Effect.map(({ id }) => id),
+                  );
         const configure = (key: string, path: Array.NonEmptyReadonlyArray<string>, to: Observation['values'][string] | undefined) =>
-            current.pipe(
-                Effect.filterOrFail(
-                    ({ id }) => id === key,
-                    ({ id }) => Unmatched.of({ subject: 'option of the current tool', query: Option.some(key), candidates: [id] }),
-                ),
-                Effect.andThen(Effect.fromOption(Option.fromUndefinedOr(options), () => Unmatched.of({ subject: 'option of a tool', query: Option.some(key) }))),
-                Effect.flatMap((held) => held.operate(key, path, to)),
-            );
+            options === undefined
+                ? Effect.fail(Unmatched.of({ subject: 'option of a tool', query: Option.some(key) }))
+                : current.pipe(
+                      Effect.filterOrFail(
+                          ({ id }) => id === key,
+                          ({ id }) => Unmatched.of({ subject: 'option of the current tool', query: Option.some(key), candidates: [id] }),
+                      ),
+                      Effect.andThen(options.operate(key, path, to)),
+                  );
         const route = ([role, key]: readonly [string, string], below: readonly string[], to: Observation['values'][string] | undefined) =>
             Match.value({ role, path: Array.isReadonlyArrayNonEmpty(below) ? below : undefined, to }).pipe(
                 Match.withReturnType<Effect.Effect<unknown, E | Unmatched | Cause.IllegalArgumentError, R>>(),
@@ -127,30 +127,36 @@ class Description extends Schema.Class<Description, { readonly brand: unique sym
                 Match.when({ role: 'tool', path: Match.defined }, ({ path }) => configure(key, path, to)),
                 Match.orElse(() => Effect.fail(new Cause.IllegalArgumentError(`the tool choice takes the name of a tool, a tool takes no value, and a tool option takes the value it holds, received ${typeof to} at ${role} ${key}`))),
             );
+        const reading = Effect.result(Effect.map(state, ({ pointer: held }) => held));
         return {
             roots: Effect.succeed([TOOLBAR]),
-            describe: ({ within }: { readonly within?: FacetControl['locator'] }) =>
-                Option.match(
-                    Option.filter(Option.fromUndefinedOr(within), (at) => !same(at, TOOLBAR)),
-                    { onNone: () => stated, onSome: (at) => Effect.fail(Unmatched.of({ subject: 'facet item', query: Option.some(Formatter.format(at)) })) },
-                ),
+            describe: ({ within }: { readonly within?: FacetControl['locator'] }) => (within === undefined || same(within, TOOLBAR) ? stated : Effect.fail(Unmatched.of({ subject: 'facet item', query: Option.some(Formatter.format(within)) }))),
             operate: Effect.fnUntraced(function* ({ locator, to }: { readonly locator: FacetControl['locator']; readonly to?: Observation['values'][string] }): Effect.fn.Return<void, E | Unmatched | Cause.IllegalArgumentError, R> {
-                const [root, ...steps] = locator;
-                yield* Option.match(
-                    Option.filter(Array.head(steps), () => same([root], TOOLBAR)),
-                    { onNone: () => Effect.fail(Unmatched.of({ subject: 'facet control', query: Option.some(Formatter.format(locator)) })), onSome: (step) => route(step, Array.map(Array.drop(steps, 1), Tuple.get(1)), to) },
+                const step = yield* Effect.fromOption(
+                    Option.filter(Array.get(locator, 1), () => same([Array.headNonEmpty(locator)], TOOLBAR)),
+                    () => Unmatched.of({ subject: 'facet control', query: Option.some(Formatter.format(locator)) }),
                 );
+                yield* route(step, Array.map(Array.drop(locator, 2), Tuple.get(1)), to);
             }),
-            changes: changes.pipe(
-                Stream.prepend([undefined]),
-                Stream.mapEffect(() => Effect.result(Effect.map(state, Struct.get('pointer')))),
-                Stream.changesWith(Result.makeEquivalence(Schema.toEquivalence(FacetPointer), Function.constTrue)),
-                Stream.drop(1),
-                Stream.filterMapEffect(
-                    Result.match({
-                        onFailure: (error) => Effect.as(Effect.logWarning('Pointer unread', Cause.fail(error)), Result.failVoid),
-                        onSuccess: (read) => Effect.map(Effect.orDie(Schema.encodeEffect(Schema.toCodecJson(FacetPointer))(read)), (detail) => Result.succeed({ name: 'pointer' satisfies keyof Model, target: Option.none<string>(), detail: Option.some(detail) })),
-                    }),
+            changes: Stream.unwrap(
+                Effect.map(reading, (seed) =>
+                    changes.pipe(
+                        Stream.mapEffect(() => reading),
+                        Stream.mapAccum(
+                            (): Polled => ({ known: Result.getSuccess(seed), failing: Result.isFailure(seed) }),
+                            ({ known, failing }: Polled, read: Effect.Success<typeof reading>): readonly [Polled, readonly Effect.Success<typeof reading>[]] =>
+                                Result.match(read, {
+                                    onFailure: (error) => [{ known, failing: true }, failing ? [] : [Result.fail(error)]],
+                                    onSuccess: (held) => [{ known: Option.some(held), failing: false }, Option.exists(known, (last) => samePointer(last, held)) ? [] : [Result.succeed(held)]],
+                                }),
+                        ),
+                        Stream.filterMapEffect(
+                            Result.match({
+                                onFailure: (error) => Effect.as(Effect.logWarning('Pointer unread', Cause.fail(error)), Result.failVoid),
+                                onSuccess: (held) => Effect.map(Effect.orDie(Schema.encodeEffect(Schema.toCodecJson(FacetPointer))(held)), (detail) => Result.succeed({ name: 'pointer' satisfies keyof Model, target: Option.none<string>(), detail: Option.some(detail) })),
+                            }),
+                        ),
+                    ),
                 ),
             ),
         };
@@ -173,19 +179,17 @@ class Description extends Schema.Class<Description, { readonly brand: unique sym
         return {
             roots: Effect.map(Effect.forEach(facets, Struct.get('roots')), Array.flatten),
             describe: ({ within }) =>
-                Option.match(Option.fromUndefinedOr(within), {
-                    onSome: (at) => Effect.flatMap(owner(at), (facet) => facet.describe({ within: at })),
-                    onNone: () =>
-                        Effect.forEach(facets, (facet) => Effect.exit(facet.describe({}))).pipe(
-                            Effect.flatMap((exits) => Effect.as(Exit.asVoidAll(exits), Array.getSomes(Array.map(exits, Exit.getSuccess)))),
-                            Effect.map((described) =>
-                                Description.make({
-                                    containers: Array.flatMap(described, Struct.get('containers')),
-                                    ...Array.reduce(described, {}, (held: Pick<Description, 'pointer'>, { pointer }) => (pointer === undefined ? held : { pointer: { ...held.pointer, ...pointer } })),
-                                }),
-                            ),
-                        ),
-                }),
+                within === undefined
+                    ? Effect.forEach(facets, (facet) => Effect.exit(facet.describe({}))).pipe(
+                          Effect.flatMap((exits) => Effect.as(Exit.asVoidAll(exits), Array.filterMap(exits, Exit.filterValue))),
+                          Effect.map((described) =>
+                              Description.make({
+                                  containers: Array.flatMap(described, Struct.get('containers')),
+                                  ...Array.reduce(described, {}, (held: Pick<Description, 'pointer'>, { pointer }) => (pointer === undefined ? held : { pointer: layered(held.pointer ?? pointer, pointer) })),
+                              }),
+                          ),
+                      )
+                    : Effect.flatMap(owner(within), (facet) => facet.describe({ within })),
             operate: (payload) => Effect.flatMap(owner(payload.locator), (facet) => facet.operate(payload)),
             changes: Stream.mergeAll(
                 Array.flatMap([self, that], (part) => ('changes' in part ? [Stream.ignoreCause(part.changes, { log: 'Error' })] : [])),
@@ -194,9 +198,9 @@ class Description extends Schema.Class<Description, { readonly brand: unique sym
         };
     });
     static readonly fold = (described: Description, { tools, toolbar }: Declaration): Description => {
-        const known = (id: string, label: string | undefined, stated: Partial<Omit<Tool, 'id'>>) => {
+        const known = (id: string, stated: Partial<Omit<Tool, 'id'>>) => {
             const declared = Option.getOrElse(HashMap.get(tools, id), (): Partial<Omit<Tool, 'id'>> => ({}));
-            return { ...declared, ...stated, label: label === undefined || label === id ? (declared.label ?? id) : label };
+            return { ...declared, ...stated, label: stated.label === undefined || stated.label === id ? (declared.label ?? id) : stated.label };
         };
         return Option.match(
             Array.findFirst(Array.flatMap(described.containers, Struct.get('controls')), ({ locator }) => same(locator, CHOICE)),
@@ -204,36 +208,23 @@ class Description extends Schema.Class<Description, { readonly brand: unique sym
                 onNone: () => described,
                 onSome: ({ options = [], value }) => {
                     const keyOf = ({ locator }: (typeof options)[number]) => Array.lastNonEmpty(locator)[1];
-                    const stated = HashMap.fromIterable(Array.map(options, (option) => [keyOf(option), option] as const));
-                    const shown = Option.flatMap(
-                        Option.fromUndefinedOr(value),
-                        Match.type<NonNullable<FacetControl['value']>>().pipe(
-                            Match.tag('text', ({ value: text }) => text),
-                            Match.option,
-                        ),
-                    );
+                    const byId = Record.fromIterableWith(options, (option) => [keyOf(option), option] as const);
+                    const shown = Option.fromUndefinedOr(value).pipe(Option.filterMap(Filter.tagged<NonNullable<FacetControl['value']>>()('text')), Option.map(Struct.get('value')));
                     const chosen = Option.flatMap(shown, (text) => Array.findFirst(options, ({ label }) => label === text));
-                    const listed = Array.map(Array.dedupe([...Array.map(options, keyOf), ...Array.flatten(toolbar)]), (id) => {
-                        const option = HashMap.get(stated, id);
-                        return {
-                            ...known(
-                                id,
-                                Option.getOrUndefined(Option.map(option, Struct.get('label'))),
-                                Option.getOrElse(option, () => ({})),
-                            ),
-                            locator: toolAt(id),
-                        };
-                    });
+                    const listed = Array.map(Array.dedupe([...Array.map(options, keyOf), ...Array.flatten(toolbar)]), (id) => ({
+                        ...known(
+                            id,
+                            Option.getOrElse(Record.get(byId, id), () => ({})),
+                        ),
+                        locator: toolAt(id),
+                    }));
                     const held = described.pointer ?? FacetPointer.make({});
                     const pointer = Option.map(
                         Option.orElse(Option.map(chosen, keyOf), () => shown),
-                        (id) => {
-                            const { label, ...facts } = known(id, held.tool, Struct.pick(held, ['shortcut', 'help']));
-                            return { ...held, ...facts, tool: label };
-                        },
+                        (id) => ({ ...held, ...Struct.renameKeys(known(id, Struct.renameKeys(Struct.pick(held, ['tool', 'shortcut', 'help']), { tool: 'label' })), { label: 'tool' }) }),
                     );
                     const choice = {
-                        ...Option.getOrUndefined(Option.map(chosen, (option) => ({ value: { _tag: 'text' as const, value: known(keyOf(option), option.label, option).label } }))),
+                        ...Option.getOrUndefined(Option.map(chosen, (option) => ({ value: { _tag: 'text' as const, value: known(keyOf(option), option).label } }))),
                         ...(Array.isReadonlyArrayNonEmpty(listed) ? { options: listed } : {}),
                     };
                     return Description.make({
@@ -250,11 +241,7 @@ class Description extends Schema.Class<Description, { readonly brand: unique sym
         );
     };
     static readonly compose = Effect.fnUntraced(function* <E, R>(model: Model, description: Description, intern: (locators: readonly string[]) => Effect.Effect<readonly Control['ref'][], E, R>) {
-        const paths = Array.dedupe([
-            ...located(description.containers),
-            ...Array.filterMap(description.containers, ({ parent }) => Result.fromNullishOr(parent, Function.constVoid)),
-            ...Array.flatMap(description.containers, ({ controls }) => Array.filterMap(controls, ({ opens }) => Result.fromNullishOr(opens, Function.constVoid))),
-        ]);
+        const paths = Array.dedupe([...located(description.containers), ...Array.flatMap(description.containers, ({ parent, controls }) => [...Array.fromNullishOr(parent), ...Array.flatMap(controls, ({ opens }) => Array.fromNullishOr(opens))])]);
         const texts = yield* Effect.forEach(paths, (path) => Effect.orDie(Schema.encodeEffect(Locator)(path)));
         const interned = yield* intern(texts);
         const placed = HashMap.fromIterable(
@@ -293,12 +280,11 @@ class Description extends Schema.Class<Description, { readonly brand: unique sym
         });
         const composed = yield* Effect.forEach(description.containers, placeContainer);
         const replaced = new Set(Array.flatMap(composed, ({ folded }) => Option.toArray(folded)));
-        const system = Option.map(Option.fromUndefinedOr(model.pointer), (pointer) => (description.pointer?.tool === undefined ? pointer : Struct.omit(pointer, ['tool', 'shortcut', 'help'])));
         return {
             model: {
                 ...model,
                 containers: [...model.containers.filter((read) => !replaced.has(read)), ...Array.map(composed, Struct.get('container'))],
-                ...Option.getOrUndefined(Option.map(Option.fromUndefinedOr(description.pointer ?? model.pointer), () => ({ pointer: { ...Option.getOrUndefined(system), ...description.pointer } }))),
+                ...(description.pointer === undefined ? {} : { pointer: layered<NonNullable<Model['pointer']>>(model.pointer ?? description.pointer, description.pointer) }),
             } satisfies Model,
             routes: Record.fromIterableWith(Array.zip(interned, paths), ([ref, path]) => [`${ref}`, path] as const),
         };
@@ -308,6 +294,8 @@ class Description extends Schema.Class<Description, { readonly brand: unique sym
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const same = Schema.toEquivalence(Locator);
+const samePointer = Schema.toEquivalence(FacetPointer);
+const layered = <A extends FacetPointer>(under: A, over: FacetPointer) => ({ ...(over.tool === undefined ? under : Struct.omit(under, ['tool', 'shortcut', 'help'])), ...over });
 const toolAt = (id: string) => Array.append(TOOLBAR, ['tool', id] as const);
 const located = (containers: readonly FacetContainer[]): readonly FacetControl['locator'][] => Array.flatMap(containers, ({ locator, controls }) => [locator, ...Array.flatMap(controls, ({ locator: control, options = [] }) => [control, ...Array.map(options, Struct.get('locator'))])]);
 

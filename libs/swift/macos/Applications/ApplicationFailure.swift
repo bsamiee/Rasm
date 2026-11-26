@@ -63,8 +63,8 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .stale(let reached, let candidates) where candidates.isEmpty: "Reference \(subject) matches nothing open after \(reached) steps of its locator, read the application again"
             case .stale(let reached, let candidates): "Reference \(subject) matches nothing open after \(reached) steps of its locator, where \(candidates.formatted()) are, read the application again"
             case .disabled: "Element \(subject) is disabled"
-            case .unchanged(.some(.rect(let frame))): "\(subject) left \(frameAttribute) at \(frame)"
-            case .unchanged(let value): "\(subject) left \(kAXValueAttribute) at \(value.map { value in "\(value)" } ?? "unset")"
+            case .unchanged(.some(let value)): "\(subject) read back \(value) in place of the written value"
+            case .unchanged(.none): "\(subject) read back a value other than the written one"
             case .unseen: "\(subject) changed nothing the application shows within its answer time"
             case .refused: "\(subject) refused"
             case .permittedFrontHeld:
@@ -73,7 +73,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .noPath: "\(subject) has no file path"
             case .noExecutable: "\(subject) names no executable"
             case .noWindow: "\(subject) has no window"
-            case .noImage: "\(subject) holds no SDR image"
+            case .noImage: "\(subject) yielded no image"
             case .noEncoder: "No encoder writes \(subject)"
             case .notOnConsole: "\(subject) refused, the session is not on the console"
             case .screenLocked: "\(subject) refused, the screen is locked"
@@ -139,12 +139,15 @@ extension ApplicationFailure: Encodable {
 
 extension ApplicationFailure {
     init(_ error: AXError, subject: String, process: pid_t?, answering action: Step? = nil, otherwise: () -> Self) {
-        let exited: pid_t? = process.flatMap { process in Result(catching: { () throws(Errno) in try ProcessInstance(of: process) }) == .failure(.noSuchProcess) ? process : nil }
+        let exited: pid_t? = process.flatMap { process in
+            [.cannotComplete, .invalidUIElement].contains(error) && Result(catching: { () throws(Errno) in try ProcessInstance(of: process) }) == .failure(.noSuchProcess) ? process : nil
+        }
         self =
             switch (error, exited) {
                 case (.apiDisabled, _): Grant.accessibility.missing ?? otherwise()
                 case (.cannotComplete, .some(let process)), (.invalidUIElement, .some(let process)): Self(subject: String(process), reason: .system(.noSuchProcess))
                 case (.cannotComplete, .none): Self(subject: subject, reason: .unanswered(action))
+                case (.invalidUIElement, .none): Self(subject: subject, reason: .stale(reached: 0, candidates: []))
                 case (_, _): otherwise()
             }
     }

@@ -317,7 +317,16 @@ public actor Watch {
 
     private func intern(_ locator: Locator) -> Int { locators.append(locator).index + 1 }
 
-    public func intern(_ locators: [Locator]) -> [Int] { locators.map(intern) }
+    public func intern(_ locators: [Locator]) -> [Int] {
+        let opened: [Locator] = open.values.map(\.locator)
+        let documented: [Locator] = opened.filter { (held: Locator) -> Bool in held != held.stored }
+        let documents: [Locator: [Locator]] = Dictionary(grouping: documented) { (held: Locator) -> Locator in held.stored }
+        return locators.map { (locator: Locator) -> Int in
+            let index: Int? = locator.steps.firstIndex { step in step.key.is(\.document) }
+            let live: [Locator] = index.flatMap { index in documents[Locator(steps: Array(locator.steps[...index]))] } ?? []
+            return intern(live.count == 1 ? Locator(steps: live[0].steps + locator.steps.dropFirst((index ?? 0) + 1)) : locator)
+        }
+    }
 
     private func root(of locator: Locator) -> Int? { locators.firstIndex(of: Locator(steps: Array(locator.steps.prefix(1)))).flatMap { index in located[index + 1] } }
 
@@ -402,7 +411,7 @@ public actor Watch {
         return Hierarchy(
             elements: Array(elements.values),
             roots: windows + bars,
-            windows: rows,
+            windows: self.windows(blocking: false),
             regular: instance.application.activationPolicy == .regular,
             focused: app.facts[kAXFocusedUIElementAttribute]?.element,
             truncated: truncated + windows.filter { window in !full.contains(window) },
@@ -470,9 +479,7 @@ public actor Watch {
     }
 
     private func observe(_ container: Container, opener: (control: Control, container: Int)?) throws(ApplicationFailure) {
-        let (now, last): (Date, Observation?) = (.now, sent[container.ref])
-        let observation = try Observation(container, in: open, build: build, opener: opener, opened: last?.opened ?? now, at: now) { ref in locators[ref - 1] }
-        guard last.map({ last in (last.kind, last.title, last.controls) != (observation.kind, observation.title, observation.controls) }) ?? true else { return }
+        guard let observation = try Observation(container, in: open, build: build, opener: opener, after: sent[container.ref], at: .now, locator: { ref in locators[ref - 1] }) else { return }
         sent[container.ref] = observation
         send(.observation(Report(instance: instance.process, identifier: instance.application.bundleIdentifier, language: language.minimalIdentifier, observation: observation)))
     }
@@ -577,7 +584,7 @@ public actor Watch {
                 }
                 let (walked, kept): (Hierarchy, Set<Int>) = if menus { try await spaced(clock: clock, walk) } else { try walk() }
                 var read: Hierarchy = walked
-                read.recognized = try await recognizeText(in: read.flyouts.map(\.number), customWords: known?.customWords ?? [])
+                read.recognized = try await recognizeText(in: read.flyouts.map(\.number), labels: known?.labels ?? [])
                 let model: Model = try merged(read, full: Set(read.roots).subtracting(kept))
                 let fresh: [Container] = model.containers.filter { (container: Container) -> Bool in root(of: container.locator).map(kept.contains) != true }
                 let held: [Container] = open.values.filter { (container: Container) -> Bool in container.kind != .menu && root(of: container.locator).map(kept.contains) == true }
@@ -690,11 +697,12 @@ public actor Watch {
             excluding: { application in application.processIdentifier == process },
             for: lifetime,
             clock: clock,
-        ) { () async throws(ApplicationFailure) -> Value in
-            while let level = try await self.popUp(toward: ref, by: opening, past: levels.count, clock: clock) { levels.append(level) }
-            let menus: [Container] = levels.map { level in level.menu }
-            return try await body(menus)
-        }
+            { () async throws(ApplicationFailure) -> Value in
+                while let level = try await self.popUp(toward: ref, by: opening, past: levels.count, clock: clock) { levels.append(level) }
+                let menus: [Container] = levels.map(\.menu)
+                return try await body(menus)
+            },
+        )
         let opened: Int? = levels.first { level in level.presentation != nil }?.menu.ref
         let closed: Result<Void, ApplicationFailure> = await withTaskCancellationShield { await Result { () async throws(ApplicationFailure) in try await self.cancel(opened, clock: clock) } }
         let presented: Value = try value.get()
@@ -732,7 +740,10 @@ public actor Watch {
                 let raised = AXUIElementSetAttributeValue(applicationElement, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
                 let activated: Void? = try await next({ (change: InstanceEvent.Change) -> Void? in change[case: \.frontmost] == true ? () : nil }, in: activations, clock: clock)
                 guard raised == .success, activated != nil else {
-                    throw ApplicationFailure(subject: "\(kAXFrontmostAttribute) of process \(instance.process.pid)", reason: raised == .success ? .unanswered(nil) : .accessibility(raised))
+                    let subject = "\(kAXFrontmostAttribute) of process \(instance.process.pid)"
+                    throw raised == .success
+                        ? ApplicationFailure(subject: subject, reason: .unseen)
+                        : ApplicationFailure(raised, subject: subject, process: instance.process.pid) { ApplicationFailure(subject: subject, reason: .accessibility(raised)) }
                 }
             }
             let events = messages()
@@ -768,7 +779,10 @@ public actor Watch {
         let events = messages()
         let answer = AXUIElementPerformAction(element, kAXCancelAction as CFString)
         guard try await next({ (change: InstanceEvent.Change) -> Void? in change[case: \.closed]?.container == level ? () : nil }, in: events, clock: clock) != nil else {
-            throw ApplicationFailure(subject: "\(kAXCancelAction) on \(level)", reason: answer == .success ? .unanswered(nil) : .accessibility(answer))
+            let subject = "\(kAXCancelAction) on \(level)"
+            throw answer == .success
+                ? ApplicationFailure(subject: subject, reason: .unseen)
+                : ApplicationFailure(answer, subject: subject, process: instance.process.pid) { ApplicationFailure(subject: subject, reason: .accessibility(answer)) }
         }
     }
 

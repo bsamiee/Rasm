@@ -75,7 +75,9 @@ public enum InstanceState: CaseTagged, Equatable, Sendable {
                 return Int(CGWindowLevelForKey(key))
             }
 
-            init(layer: Int) { self = Self.allCases.filter { band in band.level <= layer }.max { first, second in first.level < second.level } ?? .normal }
+            private static let floors: [(level: Int, band: Self)] = allCases.map { band in (band.level, band) }.sorted { first, second in first.level > second.level }
+
+            init(layer: Int) { self = Self.floors.first { floor in floor.level <= layer }?.band ?? .normal }
         }
 
         public let number: CGWindowID
@@ -88,11 +90,11 @@ public enum InstanceState: CaseTagged, Equatable, Sendable {
         public let onScreen: Bool
         public let hidden: Bool
         public let shared: Bool
-        public let container: Int?
-        public let kind: Container.Kind?
-        public let document: URL?
-        public let asking: Bool
-        public let presented: Bool
+        public internal(set) var container: Int?
+        public internal(set) var kind: Container.Kind?
+        public internal(set) var document: URL?
+        public internal(set) var asking: Bool
+        public internal(set) var presented: Bool
     }
 
     public struct Termination: Equatable, Sendable {
@@ -116,55 +118,42 @@ extension InstanceState.Window {
         let parents: [CGWindowID: CGWindowID] = Dictionary(
             iterator.map { iterator in Array(sequence(state: iterator) { iterator in advance(iterator) ? (iteratedWindow(iterator), iteratedParent(iterator)) : nil }) } ?? []
         ) { first, _ in first }
+        let spaces: [UInt64] = (unsafe copySpaces(connection, [.current, .others, .user])?.takeRetainedValue() as? [UInt64]) ?? []
+        let assigned: [CGWindowID: [UInt64]] = spaces.reduce(into: [:]) { (assigned: inout [CGWindowID: [UInt64]], space: UInt64) in
+            var (setTags, clearTags): (UInt64, UInt64) = (0, 0)
+            let placed: [CGWindowID] = (unsafe copyWindowsWithOptionsAndTags(connection, 0, [space] as CFArray, 0x7, &setTags, &clearTags)?.takeRetainedValue() as? [CGWindowID]) ?? []
+            for number in placed { assigned[number, default: []].append(space) }
+        }
         let current: Set<UInt64> = Set((unsafe copySpaces(connection, [.current, .user])?.takeRetainedValue() as? [UInt64]) ?? [])
-        return Dictionary(
-            rows.compactMap { (row: [String: Any]) -> (pid_t, [Self])? in
-                guard let owner = row[kCGWindowOwnerPID as String] as? pid_t, let number = row[kCGWindowNumber as String] as? CGWindowID, let layer = row[kCGWindowLayer as String] as? Int, layer >= 0,
-                    let frame = (row[kCGWindowBounds as String] as? [String: Any]).flatMap({ bounds in CGRect(dictionaryRepresentation: bounds as CFDictionary) }), !frame.isEmpty
-                else { return nil }
-                let onScreen: Bool = row[kCGWindowIsOnscreen as String] as? Bool ?? false
-                let assigned: [UInt64] = (unsafe copySpacesForWindows(connection, [.current, .others, .user], [number] as CFArray)?.takeRetainedValue() as? [UInt64]) ?? []
-                let window = Self(
+        return rows.reduce(into: [:]) { (windows: inout [pid_t: [Self]], row: [String: Any]) in
+            guard let owner = row[kCGWindowOwnerPID as String] as? pid_t, let number = row[kCGWindowNumber as String] as? CGWindowID, let layer = row[kCGWindowLayer as String] as? Int, layer >= 0,
+                let frame = (row[kCGWindowBounds as String] as? [String: Any]).flatMap({ bounds in CGRect(dictionaryRepresentation: bounds as CFDictionary) }), !frame.isEmpty
+            else { return }
+            let (onScreen, placed): (Bool, [UInt64]) = (row[kCGWindowIsOnscreen as String] as? Bool ?? false, assigned[number] ?? [])
+            windows[owner, default: []].append(
+                Self(
                     number: number,
                     title: (row[kCGWindowName as String] as? String).flatMap { title in title.isEmpty ? nil : title },
                     frame: frame,
                     layer: layer,
                     band: Band(layer: layer),
                     parent: parents[number].flatMap { parent in parent == kCGNullWindowID ? nil : parent },
-                    spaces: assigned,
+                    spaces: placed,
                     onScreen: onScreen,
-                    hidden: !onScreen && !current.isDisjoint(with: assigned),
+                    hidden: !onScreen && !current.isDisjoint(with: placed),
                     shared: row[kCGWindowSharingState as String] as? UInt32 != CGWindowSharingType.none.rawValue,
-                    container: nil,
-                    kind: nil,
-                    document: nil,
                     asking: false,
                     presented: onScreen,
                 )
-                return (owner, [window])
-            },
-            uniquingKeysWith: +,
-        )
+            )
+        }
     }
 
     func described(by container: Container?, blocking: Bool) -> Self {
-        Self(
-            number: number,
-            title: title,
-            frame: frame,
-            layer: layer,
-            band: band,
-            parent: parent,
-            spaces: spaces,
-            onScreen: onScreen,
-            hidden: hidden,
-            shared: shared,
-            container: container?.ref,
-            kind: container?.kind,
-            document: container?.document,
-            asking: container?.asking ?? blocking,
-            presented: container != nil || onScreen,
-        )
+        var described = self
+        (described.container, described.kind, described.document) = (container?.ref, container?.kind, container?.document)
+        (described.asking, described.presented) = (container?.asking ?? blocking, container != nil || onScreen)
+        return described
     }
 }
 

@@ -368,7 +368,7 @@ private func frontSerial(_: UnsafeMutablePointer<ProcessSerialNumber>) -> CGErro
 private func connectionOfSerial(_: Int32, _: UnsafePointer<ProcessSerialNumber>, _: UnsafeMutablePointer<Int32>) -> CGError
 
 @_silgen_name("CGSConnectionGetPID")
-private func processOfConnection(_: Int32, _: UnsafeMutablePointer<pid_t>) -> CGError
+func processOfConnection(_: Int32, _: UnsafeMutablePointer<pid_t>) -> CGError
 
 @_silgen_name("SLPSAddToPermittedFrontPSNList")
 private func addToPermittedFrontList(_: UnsafePointer<ProcessSerialNumber>) -> CGError
@@ -418,8 +418,8 @@ func iteratedParent(_: CFTypeRef) -> CGWindowID
 @_silgen_name("SLSCopySpaces")
 func copySpaces(_: Int32, _: SpaceMask) -> Unmanaged<CFArray>?
 
-@_silgen_name("SLSCopySpacesForWindows")
-func copySpacesForWindows(_: Int32, _: SpaceMask, _: CFArray) -> Unmanaged<CFArray>?
+@_silgen_name("SLSCopyWindowsWithOptionsAndTags")
+func copyWindowsWithOptionsAndTags(_: Int32, _: UInt32, _: CFArray, _: UInt32, _: UnsafeMutablePointer<UInt64>, _: UnsafeMutablePointer<UInt64>) -> Unmanaged<CFArray>?
 
 @_extern(c, "_kLSPermittedFrontASNsArrayKey")
 private nonisolated(unsafe) var permittedFrontKey: UnsafeRawPointer

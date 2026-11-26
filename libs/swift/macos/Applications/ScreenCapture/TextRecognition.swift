@@ -1,15 +1,37 @@
+import AppKit
+import CasePathsCore
 public import CoreGraphics
+import CoreImage.CIFilterBuiltins
 public import Foundation
 import Vision
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+public struct RecognizedLine: Equatable, Sendable {
+    public let text: String
+    public let frame: CGRect
+    public let keyEquivalentTranscript: String?
+    public let isTitle: Bool
+    public let enabled: Bool
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension CGImage {
-    public func recognizeText(at frame: CGRect, in language: Locale.Language, customWords: [String]) async throws(ApplicationFailure) -> [(text: String, frame: CGRect)] {
+    public func recognizeText(
+        at frame: CGRect,
+        in language: Locale.Language,
+        labels: Set<String>,
+    ) async throws(ApplicationFailure) -> [RecognizedLine] {
         var request = RecognizeTextRequest()
-        let supported: Bool = request.supportedRecognitionLanguages.contains { listed in listed.languageCode == language.languageCode }
-        (request.recognitionLanguages, request.automaticallyDetectsLanguage) = (supported ? [language] : request.recognitionLanguages, !supported)
-        (request.customWords, request.minimumTextHeightFraction) = (customWords, 0)
+        let languages: [Locale.Language] = request.supportedRecognitionLanguages
+        let supported: [String] = languages.map(\.minimalIdentifier)
+        let listed: [String: Locale.Language] = Dictionary(zip(supported, languages)) { first, _ in first }
+        let matched: Locale.Language? = Bundle.preferredLocalizations(from: supported, forPreferences: [language.minimalIdentifier]).first
+            .flatMap { identifier in listed[identifier] }
+            .flatMap { match in match.languageCode == language.languageCode ? match : nil }
+        (request.recognitionLanguages, request.automaticallyDetectsLanguage) = (matched.map { match in [match] } ?? request.recognitionLanguages, matched == nil)
+        request.minimumTextHeightFraction = 0
         let subject = "text recognition at \(frame)"
         let observations: [RecognizedTextObservation]
         do { observations = try await request.perform(on: self) } catch VisionError.requestCancelled, is CancellationError {
@@ -17,23 +39,66 @@ extension CGImage {
         } catch {
             throw ApplicationFailure(subject: subject, reason: .foundation(error as NSError))
         }
-        let known: Set<String> = Set(customWords)
-        return observations.map { observation in
-            (
-                observation.topCandidates(10).first { candidate in known.contains(candidate.string) }?.string ?? observation.transcript,
-                observation.boundingBox.toImageCoordinates(frame.size, origin: .upperLeft).offsetBy(dx: frame.minX, dy: frame.minY),
+        guard !observations.isEmpty else { return [] }
+        let lines: [[RecognizedTextObservation]] =
+            observations
+            .sorted { first, second in first.boundingBox.cgRect.midY > second.boundingBox.cgRect.midY }
+            .reduce(into: []) { lines, observation in
+                let band: ClosedRange<CGFloat>? = lines.last?.first.map { leading in leading.boundingBox.cgRect.minY...leading.boundingBox.cgRect.maxY }
+                if band?.contains(observation.boundingBox.cgRect.midY) == true { lines[lines.count - 1].append(observation) } else { lines.append([observation]) }
+            }
+        let rows: [(title: RecognizedTextObservation, label: String?, trailing: [String])] = lines.map { line in
+            let ordered: [RecognizedTextObservation] = line.sorted { first, second in first.boundingBox.cgRect.minX < second.boundingBox.cgRect.minX }
+            let labelled: [String?] = ordered.map { observation in observation.topCandidates(10).first { candidate in labels.contains(candidate.string) }?.string }
+            let title: Int = labelled.firstIndex { label in label != nil } ?? 0
+            return (ordered[title], labelled[title], ordered[(title + 1)...].map(\.transcript))
+        }
+        let tone = CIFilter.colorControls()
+        (tone.inputImage, tone.saturation) = (CIImage(cgImage: self), 0)
+        let pixels = CGSize(width: width, height: height)
+        let reductions: CIImage = rows.enumerated().reduce(CIImage.empty()) { joined, row in
+            let range = CIFilter.areaMinMaxRed()
+            (range.inputImage, range.extent) = (tone.outputImage, row.element.title.boundingBox.toImageCoordinates(pixels))
+            let reduced: CIImage = range.outputImage ?? CIImage.empty()
+            return reduced.transformed(by: CGAffineTransform(translationX: CGFloat(row.offset) - reduced.extent.minX, y: -reduced.extent.minY)).composited(over: joined)
+        }
+        var extremes: [Float] = Array(repeating: 0, count: 4 * rows.count)
+        unsafe rendering.render(
+            reductions,
+            toBitmap: &extremes,
+            rowBytes: MemoryLayout<Float>.stride * extremes.count,
+            bounds: CGRect(x: 0, y: 0, width: rows.count, height: 1),
+            format: .RGBAf,
+            colorSpace: nil,
+        )
+        let contrasts: [Float] = rows.indices.map { index in extremes[4 * index + 1] - extremes[4 * index] }
+        let full: CGFloat = NSColor.controlTextColor.alphaComponent
+        let threshold: Float = (contrasts.max() ?? 0) * Float((full + NSColor.disabledControlTextColor.alphaComponent) / (2 * full))
+        return zip(rows, contrasts).map { row, contrast in
+            RecognizedLine(
+                text: row.label ?? row.title.transcript,
+                frame: row.title.boundingBox.toImageCoordinates(frame.size, origin: .upperLeft).offsetBy(dx: frame.minX, dy: frame.minY),
+                keyEquivalentTranscript: row.trailing.isEmpty ? nil : row.trailing.joined(separator: " "),
+                isTitle: row.title.isTitle,
+                enabled: contrast >= threshold,
             )
         }
     }
 }
 
 extension Watch {
-    public nonisolated func recognizeText(in windows: [CGWindowID], customWords: [String]) async throws(ApplicationFailure) -> [CGWindowID: [(text: String, frame: CGRect)]] {
+    public nonisolated func recognizeText(
+        in windows: [CGWindowID],
+        labels: Set<String>,
+    ) async throws(ApplicationFailure) -> [CGWindowID: [RecognizedLine]] {
         guard !windows.isEmpty else { return [:] }
-        var found: [CGWindowID: [(text: String, frame: CGRect)]] = [:]
+        var found: [CGWindowID: [RecognizedLine]] = [:]
         for (window, captured) in zip(windows, try await capture(.windows(numbers: windows))) {
-            let screenshot: Screenshot = try captured.get()
-            found[window] = try await screenshot.image.recognizeText(at: screenshot.frame, in: language, customWords: customWords)
+            switch captured {
+                case .success(let screenshot): found[window] = try await screenshot.image.recognizeText(at: screenshot.frame, in: language, labels: labels)
+                case .failure(let failure) where failure.reason.is(\.noWindow): continue
+                case .failure(let failure): throw failure
+            }
         }
         return found
     }

@@ -42,7 +42,7 @@ const served = Effect.fnUntraced(function* (product: string, executable: string,
     const [contents, socket] = [path.join(root, `${executable}.app`, 'Contents'), path.join(root, 'server.sock')];
     const located = (name: string) => pathToFileURL(path.join(root, 'Applications', `${name}.app/`)).href;
     const installations = yield* Schema.decodeEffect(Installations)(bundles.map(({ name, identifier, declared }) => ({ url: located(name), identifier, name, scriptable: false, activationPolicy: 'regular', appIntents: [], ...declared })));
-    const [running, log, launches] = [yield* SubscriptionRef.make<readonly InstanceSnapshot[]>([]), yield* SubscriptionRef.make<readonly Logged[]>([]), MutableRef.make<readonly string[]>([])];
+    const [running, log, launches, watched] = [yield* SubscriptionRef.make<readonly InstanceSnapshot[]>([]), yield* SubscriptionRef.make<readonly Logged[]>([]), MutableRef.make<readonly string[]>([]), MutableRef.make<readonly string[]>([])];
     const reported = Effect.fnUntraced(function* (identifier: string, pid: number, title: string) {
         const [event, taken] = yield* Effect.all([Effect.orDie(Schema.decodeEffect(Happened)({ instance: `${pid}@1`, sequence: 1, at: '2026-11-25T09:30:00Z', change: { _tag: 'opened', container: 7000 + pid, kind: 'window', title } })), Deferred.make<void>()]);
         yield* SubscriptionRef.update(log, Array.append({ identifier, event, taken }));
@@ -52,7 +52,7 @@ const served = Effect.fnUntraced(function* (product: string, executable: string,
         const bundle = yield* Effect.orDie(Effect.fromNullishOr(bundles.find(({ name }) => located(name) === url.href)));
         const pid = 400 + MutableRef.get(launches).length;
         yield* Effect.sync(() => MutableRef.update(launches, Array.append(url.href)));
-        const row = yield* Effect.orDie(Schema.decodeEffect(Instance)({ pid, instance: `${pid}@1`, identifier: bundle.identifier, url: url.href, activationPolicy: 'regular', state: { _tag: 'running', active: false, status: { _tag: 'responding' }, windows: [] }, listening: [] }));
+        const row = yield* Effect.orDie(Schema.decodeEffect(Instance)({ pid, instance: `${pid}@1`, identifier: bundle.identifier, url: url.href, activationPolicy: 'regular', language: 'en', state: { _tag: 'running', active: false, status: { _tag: 'responding' }, windows: [] }, listening: [] }));
         yield* SubscriptionRef.update(running, Array.append(row));
         yield* Effect.forEach(Array.fromNullishOr(bundle.window), (title) => reported(bundle.identifier, pid, title), { discard: true });
         return yield* Effect.orDie(Schema.decodeEffect(Launch)({ _tag: 'launched', pid, instance: row.instance, identifier: bundle.identifier, created: true }));
@@ -78,8 +78,19 @@ const served = Effect.fnUntraced(function* (product: string, executable: string,
                     installation: ({ url }) => Effect.orDie(Effect.fromOption(Array.findFirst(installations, (each) => each.url.href === url.href))),
                     observations: () => Stream.never,
                     pressure: () => Stream.never,
-                    session: () => Stream.concat(Stream.succeed({ onConsole: true, locked: false, asleep: false, secureInput: false, space: 1 }), Stream.never),
-                    watch: ({ instance }) => Effect.flatMap(SubscriptionRef.get(running), (rows) => Effect.orDie(Effect.fromOption(Array.findFirst(rows, (row) => row.instance === instance)))),
+                    session: () => Stream.concat(Stream.succeed(Result.succeed({ onConsole: true, locked: false, asleep: false, secureInput: false, spaces: [1] })), Stream.never),
+                    watch: ({ instance }) =>
+                        Effect.andThen(
+                            Effect.sync(() => MutableRef.update(watched, Array.append(instance))),
+                            SubscriptionRef.get(running),
+                        ).pipe(
+                            Effect.flatMap((rows) => Effect.fromOption(Array.findFirst(rows, (row) => row.instance === instance))),
+                            Effect.filterOrFail(
+                                (row): row is InstanceSnapshot & { readonly language: string } => row.language !== undefined,
+                                () => new Cause.NoSuchElementError(`${instance} states no interface language`),
+                            ),
+                            Effect.orDie,
+                        ),
                     launch: (payload) => Stream.fromEffect(launch(payload)),
                 }),
                 RpcServer.layerProtocolSocketServer,
@@ -100,7 +111,7 @@ const served = Effect.fnUntraced(function* (product: string, executable: string,
         McpClient.make({ name: `${executable}-suite`, version: '1.0.0' }).pipe(Effect.provideServiceEffect(McpClient.Transport, McpClient.http({ url, protocol: McpProtocol.v2025_11_25 })), Effect.retry({ schedule: Schedule.spaced('100 millis') }), Effect.timeout('20 seconds')),
         Effect.flatMap(helper.exitCode, (code) => Effect.fail(new Cause.UnknownError(code, `${product} exits ${code} before it answers MCP`))),
     ).pipe(Effect.provideService(HttpClient.HttpClient, http));
-    return { url, connect, launches: Effect.sync(() => MutableRef.get(launches)) };
+    return { url, connect, launches: Effect.sync(() => MutableRef.get(launches)), watched: Effect.sync(() => MutableRef.get(watched)) };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

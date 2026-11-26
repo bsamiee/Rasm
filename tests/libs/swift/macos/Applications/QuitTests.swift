@@ -50,5 +50,36 @@ extension WindowServerTests {
             expectNoDifference(state[case: \.running]?.status, .unresponsive(thread: .sleeping))
             #expect(waited < Duration.seconds(10), "quit waited \(waited) on an instance hung for 20 s under a 30 s reply deadline")
         }
+
+        @Test
+        func returnsTheRunningStateOnceTheSaveSheetItsQuitRaisedAsksBeforeTheReplyDeadline() async throws {
+            let (state, asked, waited): (InstanceState, Bool, Duration) = try await FixtureSession.launched { fixture in
+                let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
+                let watch: Watch = await Watches().watch(try Instance(application))
+                try await fixture.send(.edit)
+                let messages = await watch.messages()
+                let asking = Task { await messages.contains { message in message[case: \.event]?.change.is(\.asking) == true } }
+                let started = ContinuousClock.now
+                let state = try await watch.quit(.asking, within: .seconds(30))
+                let waited = ContinuousClock.now - started
+                asking.cancel()
+                return (state, await asking.value, waited)
+            }
+            #expect(state.is(\.running), "quit returned \(state) while the save sheet of its edited document asks")
+            #expect(asked, "no asking event reported the save sheet the quit raised")
+            #expect(waited < Duration.seconds(10), "quit waited \(waited) on a save sheet under a 30 s reply deadline")
+        }
+
+        @Test
+        func endsAHungInstanceWithTheKillSignalWhenForcing() async throws {
+            let state: InstanceState = try await FixtureSession.launched { fixture in
+                let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
+                let watch: Watch = await Watches().watch(try Instance(application))
+                try await fixture.send(.hang(kind: .sleeping(.seconds(20))))
+                _ = try await fixture.next(\.hanging)
+                return try await watch.quit(.forcing, within: .seconds(10))
+            }
+            expectNoDifference(state[case: \.exited]?.exit.map(\.status), .success(.signaled(SIGKILL)))
+        }
     }
 }

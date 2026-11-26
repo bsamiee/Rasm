@@ -6,7 +6,7 @@ import { Relation } from '@rasm/database/relation';
 import { Sqlite } from '@rasm/database/sqlite';
 import { Output } from '@rasm/mcp/cli';
 import { Server } from '@rasm/mcp/server';
-import { Array, Context, Data, Duration, Effect, Equal, FileSystem, Function, HashMap, HashSet, Layer, Option, Order, Predicate, pipe, RcMap, Record, Ref, Result, Schedule, Schema, Stream, String, Struct, SubscriptionRef } from 'effect';
+import { Array, Context, Data, DateTime, Duration, Effect, Equal, Equivalence, FileSystem, Function, HashMap, HashSet, Layer, Option, Order, Predicate, pipe, RcMap, Record, Ref, Result, Schedule, Schema, Sink, Stream, String, Struct, SubscriptionRef } from 'effect';
 import { SqlClient } from 'effect/sql';
 import { ApplicationServer } from '#/client';
 import { Act, Build, Condition, Frame, Instant, type InstanceSnapshot, InstanceState, Locator, Observation, Opener, Shape, Value } from '#/contract';
@@ -34,7 +34,6 @@ const ELLIPSIS = /(?:…|\.{3})$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const subject = Condition.match({ Value: ({ _tag, at }) => ({ _tag, at }), Documents: ({ _tag }) => ({ _tag }), Modal: ({ _tag }) => ({ _tag }) });
 class Tally extends Schema.Opaque<Tally>()(
     Schema.Struct({
         seen: Schema.Natural.annotate({ description: 'Epochs it was seen in' }),
@@ -92,90 +91,67 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
     static readonly empty = new InterfaceMap({ application: { builds: [], options: {} }, containers: {} });
     static readonly catalog = Catalog.make({ tables: [applications, containers] });
     static readonly languages = (bundle: string) => Effect.map(Relation.select(applications, { bundle: [bundle] }), Array.map(Struct.get('language')));
-    static readonly open = Effect.fn('InterfaceMap.open')(function* (bundle: string, language: string) {
+    static readonly read = Effect.fn('InterfaceMap.read')(function* (bundle: string, language: string) {
         const where = { bundle: [bundle], language: [language] } as const;
-        const [held, entries, user, sql] = yield* Effect.all([Relation.select(applications, where), Relation.select(containers, where), Effect.sync(() => userInfo()), SqlClient.SqlClient]);
+        const [held, entries] = yield* Effect.all([Relation.select(applications, where), Relation.select(containers, where)]);
         const stale = Array.countBy([...held, ...entries], ({ body }) => Option.isNone<unknown>(body));
         yield* stale > 0 ? Effect.annotateLogs(Effect.logInfo('Interface map dropped stored documents this build no longer reads'), { bundle, language, stale }) : Effect.void;
-        const loaded = new InterfaceMap({
-            application: Array.head(held).pipe(
+        return new InterfaceMap({
+            application: pipe(
+                Array.head(held),
                 Option.flatMap(Struct.get('body')),
                 Option.getOrElse(() => InterfaceMap.empty.application),
             ),
             containers: Record.getSomes(Record.fromIterableWith(entries, ({ locator, body }) => [locator, body])),
         });
-        const [state, written] = yield* Effect.all([Ref.make(loaded), Ref.make(loaded)]);
-        const flush = Effect.fnUntraced(
-            function* (closing: boolean) {
-                const [current, stored] = yield* Effect.all([Ref.get(state), Ref.get(written)]);
-                const changed = Record.filter(current.containers, (entry, locator) => entry !== stored.containers[locator] && (closing || !Option.contains(Option.map(Record.get(stored.containers, locator), settled), settled(entry))));
-                const writes = [
-                    ...(current.application === stored.application ? [] : [Relation.upsert(applications, [{ bundle, language, body: Option.some(current.application) }])]),
-                    ...Array.match(
-                        Record.collect(changed, (locator, body) => ({ bundle, language, locator, body: Option.some(body) })),
-                        { onEmpty: Array.empty, onNonEmpty: (rows) => [Relation.upsert(containers, rows)] },
+    });
+    static readonly open = Effect.fn('InterfaceMap.open')(function* (bundle: string, language: string) {
+        const [loaded, user, sql] = yield* Effect.all([InterfaceMap.read(bundle, language), Effect.sync(() => userInfo()), SqlClient.SqlClient]);
+        const [state, written] = yield* Effect.all([SubscriptionRef.make(loaded), Ref.make(loaded)]);
+        const flush = Effect.gen(function* () {
+            const [current, stored] = yield* Effect.all([SubscriptionRef.get(state), Ref.get(written)]);
+            const writes = [
+                ...(current.application === stored.application ? [] : [Relation.upsert(applications, [{ bundle, language, body: Option.some(current.application) }])]),
+                ...Array.match(
+                    Record.collect(
+                        Record.filter(current.containers, (entry, locator) => entry !== stored.containers[locator]),
+                        (locator, body) => ({ bundle, language, locator, body: Option.some(body) }),
                     ),
-                ];
-                yield* Array.match(writes, {
-                    onEmpty: () => Effect.void,
-                    onNonEmpty: (statements) => Effect.andThen(sql.withTransaction(Effect.all(statements)), Ref.set(written, new InterfaceMap({ application: current.application, containers: { ...stored.containers, ...changed } }))),
-                });
-            },
-            Effect.catch((error) => Effect.annotateLogs(Effect.logWarning('Interface map flush failed', error), { bundle, language })),
+                    { onEmpty: Array.empty, onNonEmpty: (rows) => [Relation.upsert(containers, rows)] },
+                ),
+            ];
+            yield* Array.match(writes, { onEmpty: () => Effect.void, onNonEmpty: (statements) => Effect.andThen(sql.withTransaction(Effect.all(statements)), Ref.set(written, current)) });
+        }).pipe(Effect.catch((error) => Effect.annotateLogs(Effect.logWarning('Interface map flush failed', error), { bundle, language })));
+        yield* Effect.addFinalizer(() => flush);
+        yield* SubscriptionRef.changes(state).pipe(
+            Stream.changesWith(Equivalence.strictEqual()),
+            Stream.drop(1),
+            Stream.aggregateWithin(Sink.drain, Schedule.spaced(LIMITS.interval)),
+            Stream.runForEach(() => flush),
+            Effect.forkScoped,
         );
-        yield* Effect.addFinalizer(() => flush(true));
-        yield* Effect.forkScoped(Effect.repeat(flush(false), Schedule.spaced(LIMITS.interval)));
         return {
-            present: Ref.get(state),
+            present: SubscriptionRef.get(state),
             observe: (read: Observation) =>
-                Ref.modify(state, (map) => {
+                SubscriptionRef.modify(state, (map) => {
                     const { map: next, described } = map.fold(read, user);
                     return [described, next] as const;
                 }),
             learn: (described: Description) =>
-                Ref.modify(state, (map) => {
+                SubscriptionRef.modify(state, (map) => {
                     const { map: next, described: completed } = map.learn(described);
                     return [completed, next] as const;
                 }),
-            prove: (proofs: readonly Proof[]) => Ref.update(state, (map) => proofs.reduce((proven, proof) => proven.prove(proof), map)),
+            prove: (proofs: readonly Proof[]) => SubscriptionRef.update(state, (map) => proofs.reduce((proven, proof) => proven.prove(proof), map)),
         };
     });
 
     get known() {
-        return Option.map(Array.head(this.application.builds), (build) => ({
-            build,
-            containers: Record.keys(Record.filter(this.containers, ({ container }) => container.tally.verified === build)),
-            customWords: Array.dedupe(
-                Record.values(this.containers)
-                    .filter(({ container }) => container.kind === 'menu')
-                    .flatMap(({ controls }) => Array.getSomes(Record.values(controls).map(({ label }) => Option.map(label, Struct.get('text'))))),
-            ),
-        }));
+        return known(this);
     }
 
     get coverage() {
-        const build = Array.head(this.application.builds);
-        const [current, earlier] = Array.partition(Record.toEntries(this.containers), (entry) => (Option.contains(build, entry[1].container.tally.verified) ? Result.succeed(entry) : Result.fail(entry)));
-        const openers = current.flatMap(([container, { controls }]) =>
-            Record.collect(
-                Record.filter(controls, ({ retired }) => Option.isNone(retired)),
-                (control, held) => ({ at: { container, control }, held }),
-            ),
-        );
-        const gaps = {
-            opens: ({ opens }: Entry['controls'][string]) => Option.exists(opens, (opened) => !Record.has(this.containers, opened)),
-            ellipsis: ({ opens, label }: Entry['controls'][string]) => Option.isNone(opens) && Option.exists(label, ({ text }) => ELLIPSIS.test(text)),
-            options: ({ kind, options }: Entry['controls'][string]) => kind === 'choice' && Option.isNone(options),
-        };
-        return {
-            build,
-            known: Record.map(
-                Array.groupBy(current, ([, { container }]): string => container.kind),
-                (group) => group.length,
-            ),
-            earlier: earlier.length,
-            unopened: Record.map(gaps, (lacks) => openers.filter(({ held }) => lacks(held)).map(({ at }): typeof Opener.Type => at)),
-        };
+        return coverage(this);
     }
 
     level(opener: string) {
@@ -251,32 +227,38 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
 
     fold(read: Observation, { username, homedir }: Pick<UserInfo<string>, 'username' | 'homedir'>) {
         const { build, opened, at, truncated } = read;
-        const texts = Array.sort(Array.dedupe([...read.documents.flatMap((path) => [path, basename(path), basename(path, extname(path))]), homedir, username]), Order.mapInput(Order.flip(Order.Number), String.length));
+        const longest = Order.mapInput(Order.flip(Order.Number), String.length);
+        const texts = Array.sort(Array.dedupe([...read.documents.flatMap((path) => [path, basename(path), basename(path, extname(path))]), homedir, username].filter(String.isNonEmpty)), longest);
+        const keyed = Record.fromIterableWith(texts, (text) => [
+            text
+                .normalize('NFKD')
+                .replaceAll(/[\p{M}\p{P}\p{White_Space}]/gu, '')
+                .toLowerCase(),
+            text,
+        ]);
         const pattern = new RegExp(`(?<![\\p{L}\\p{N}])(?:${texts.map(RegExp.escape).join('|')})(?![\\p{L}\\p{N}])`, 'gu');
+        const within = new RegExp(Array.sort(Record.keys(keyed).filter(String.isNonEmpty), longest).map(RegExp.escape).join('|'), 'gu');
         const hide = (text: string) => text.replaceAll(pattern, (found) => (found === homedir ? REDACTED.home : REDACTED.other));
+        const key = (locator: string) => locator.replaceAll(/(?<="value":")(?:[^"\\]|\\.)*(?=")/gu, (value) => value.replaceAll(within, (found) => (keyed[found] === homedir ? REDACTED.home : REDACTED.other)));
         const shown = (value: Observation['values'][string]) => (Predicate.isString(value) ? hide(value) : value);
-        const container = hide(read.container);
-        const scope: Observation['conditions'] = read.conditions.map(Condition.match({ Value: (atom) => ({ ...atom, at: hide(atom.at), value: shown(atom.value) }), Documents: (atom) => atom, Modal: (atom) => ({ ...atom, at: atom.at === null ? null : hide(atom.at) }) }));
-        const cause = Option.map(read.opener, Struct.evolve({ container: hide, control: hide }));
-        const shapes = pipe(
-            read.controls,
-            Record.filter(({ kind }) => kind !== 'row'),
-            Record.mapEntries((shape, locator) => [
-                hide(locator),
-                {
-                    ...Struct.evolve(shape, { label: Option.map(Struct.evolve({ text: hide })), help: Option.map(hide), options: Option.map(Array.map(hide)), opens: Option.map(hide), alternate: Option.map(hide), parent: Option.map(hide) }),
-                    frame: Record.get(read.layout, locator),
-                    value: Option.map(Record.get(read.values, locator), shown),
-                },
-            ]),
-        );
-        const application = Option.contains(Array.head(this.application.builds), build) ? this.application : { ...this.application, builds: [build, ...Array.take(this.application.builds, LIMITS.builds - 1)] };
+        const container = key(read.container);
+        const scope: Observation['conditions'] = read.conditions.map(Condition.match({ Value: (atom) => ({ ...atom, at: key(atom.at), value: shown(atom.value) }), Documents: (atom) => atom, Modal: (atom) => ({ ...atom, at: atom.at === null ? null : key(atom.at) }) }));
+        const cause = Option.map(read.opener, Struct.evolve({ container: key, control: key }));
+        const shapes = Record.mapEntries(read.controls, (shape, locator) => [
+            key(locator),
+            {
+                ...Struct.evolve(shape, { label: Option.map(Struct.evolve({ text: hide })), help: Option.map(hide), options: Option.map(Array.map(hide)), opens: Option.map(key), alternate: Option.map(key), parent: Option.map(key) }),
+                frame: Record.get(read.layout, locator),
+                value: Option.map(Record.get(read.values, locator), shown),
+            },
+        ]);
+        const application = Option.contains(Array.head(this.application.builds), build) ? this.application : { ...this.application, builds: Array.take(Array.dedupe([build, ...this.application.builds]), LIMITS.builds) };
         const entry = Option.fromUndefinedOr(this.containers[container]);
-        const fresh = !Option.exists(entry, ({ container: held }) => Equal.equals(held.tally.epoch, opened));
+        const fresh = !Option.exists(entry, ({ container: held }) => !DateTime.isGreaterThan(opened, held.tally.epoch));
         const sight = (tally: Option.Option<Tally>): Tally =>
             Option.match(tally, {
                 onNone: () => ({ seen: 1, missed: 0, first: at, last: at, epoch: opened, since: build, verified: build, persistent: false, unexplained: [] }),
-                onSome: (held) => ({ ...held, seen: held.seen + (Equal.equals(held.epoch, opened) ? 0 : 1), last: at, epoch: opened, verified: build }),
+                onSome: (held) => ({ ...held, seen: held.seen + (DateTime.isGreaterThan(opened, held.epoch) ? 1 : 0), last: at, epoch: DateTime.max(held.epoch, opened), verified: build }),
             });
         const [stored, openers, scopes] = Option.match(entry, {
             onNone: (): readonly [Entry['controls'], Container['openers'], Container['scopes']] => [{}, [], []],
@@ -337,10 +319,10 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
                 .filter((control) => Option.isNone(control.presence) && Option.isNone(control.retired))
                 .map((control) => control.tally.last),
         );
-        const next = Record.set(this.containers, container, {
+        const kept: Entry = {
             container: {
                 ...Struct.pick(read, ['kind', 'modal', 'layer', 'size']),
-                ...Record.map(Struct.pick(read, ['default', 'cancel', 'close']), Option.map(hide)),
+                ...Record.map(Struct.pick(read, ['default', 'cancel', 'close']), Option.map(key)),
                 title: Option.map(read.title, hide),
                 openers: Option.match(
                     Option.filter(cause, () => fresh),
@@ -356,7 +338,8 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
                 scopes: [{ at, atoms: scope }, ...scopes].filter((reading) => HashSet.has(pending, reading.at)),
             },
             controls,
-        });
+        };
+        const next = Record.set(this.containers, container, kept);
         const linked = Option.gen(function* () {
             const by = yield* Option.filter(cause, ({ container: from }) => fresh && from !== container);
             const from = yield* Record.get(next, by.container);
@@ -365,39 +348,70 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
         });
         const map = new InterfaceMap({ application, containers: Option.getOrElse(linked, () => next) });
         const changes = [...(Option.isNone(entry) ? [{ _tag: 'Appeared', at: container } as const] : []), ...Record.values(folded).flatMap(({ changes: each }): readonly (typeof Change.Type)[] => each)];
-        return { map, changes, described: Option.flatMap(Record.get(map.containers, container), (held) => describeChanges(changes, held, container)) };
+        return { map, changes, described: describe(changes, kept, Option.isNone(entry)) };
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const settled = Function.memoize(({ container, controls }: Entry) => ({
-    container: { ...container, tally: { ...container.tally, last: container.tally.epoch }, scopes: container.scopes.map(Struct.get('atoms')) },
-    controls: Record.map(controls, (control) => ({ ...control, tally: { ...control.tally, last: control.tally.epoch } })),
-}));
+const subject = Condition.matchOrElse({ Value: ({ _tag, at }) => ({ _tag, at }) }, ({ _tag }) => ({ _tag }));
 const openedBy = Function.memoize((map: InterfaceMap) => Record.fromEntries(Record.toEntries(map.containers).flatMap(([locator, { container }]) => (container.kind === 'menu' ? container.openers.map(({ control }) => [control, locator] as const) : []))));
-const describeChanges = (changes: readonly (typeof Change.Type)[], { container, controls }: Entry, at: string) => {
+const known = Function.memoize((map: InterfaceMap) =>
+    Option.map(Array.head(map.application.builds), (build) => {
+        const current = Record.filter(map.containers, ({ container }) => container.tally.verified === build);
+        const labels = Iterator.from(Record.values(current))
+            .filter(({ container }) => container.kind === 'menu')
+            .flatMap(({ controls }) => Record.values(controls))
+            .filter(({ retired }) => Option.isNone(retired))
+            .flatMap(({ label }) => Option.toArray(label))
+            .filter(({ attribute }) => attribute !== 'recognized')
+            .map(({ text }) => text);
+        return { build, containers: Record.keys(current), labels: new Set(labels).values().toArray() };
+    }),
+);
+const coverage = Function.memoize((map: InterfaceMap) => {
+    const build = Array.head(map.application.builds);
+    const [current, earlier] = Array.partition(Record.toEntries(map.containers), (entry) => (Option.contains(build, entry[1].container.tally.verified) ? Result.succeed(entry) : Result.fail(entry)));
+    const openers = current.flatMap(([container, { controls }]) =>
+        Record.collect(
+            Record.filter(controls, ({ retired }) => Option.isNone(retired)),
+            (control, held) => ({ at: { container, control }, held }),
+        ),
+    );
+    const gaps = {
+        opens: ({ opens }: Entry['controls'][string]) => Option.exists(opens, (opened) => !Record.has(map.containers, opened)),
+        ellipsis: ({ opens, label }: Entry['controls'][string]) => Option.isNone(opens) && Option.exists(label, ({ text }) => ELLIPSIS.test(text)),
+        options: ({ kind, options }: Entry['controls'][string]) => kind === 'choice' && Option.isNone(options),
+    };
+    return {
+        build,
+        known: Record.map(
+            Array.groupBy(current, ([, { container }]): string => container.kind),
+            (group) => group.length,
+        ),
+        earlier: earlier.length,
+        unopened: Record.map(gaps, (lacks) => openers.filter(({ held }) => lacks(held)).map(({ at }): typeof Opener.Type => at)),
+    };
+});
+const describe = (changes: readonly (typeof Change.Type)[], { container, controls }: Entry, learned: boolean) => {
     const shown = Option.match(container.title, { onNone: () => container.kind, onSome: (title) => `${container.kind} ${JSON.stringify(title)}` });
-    const named = (locator: string) =>
-        Option.getOrElse(
-            Option.flatMap(Record.get(controls, locator), ({ label, kind }) =>
-                Option.orElse(
-                    Option.map(label, ({ text }) => JSON.stringify(text)),
-                    () => Option.some(kind),
-                ),
-            ),
-            () => 'a control',
-        );
+    const named = (locator: string) => Option.match(Record.get(controls, locator), { onNone: () => 'a control', onSome: ({ label, kind }) => Option.match(label, { onNone: () => kind, onSome: ({ text }) => JSON.stringify(text) }) });
     const labelled = Option.match({ onNone: () => 'unlabelled', onSome: (label: string) => JSON.stringify(label) });
-    const parts = [
-        { verb: 'appeared', held: Array.filter(changes, Change.guards.Appeared).map(({ at: each }) => named(each)) },
-        { verb: 'changed', held: Array.filter(changes, Change.guards.Changed).map(({ at: each }) => named(each)) },
-        { verb: 'relabelled', held: Array.filter(changes, Change.guards.Relabelled).map(({ from, to }) => `${labelled(from)} → ${labelled(to)}`) },
-        { verb: 'gone', held: Array.filter(changes, Change.guards.Gone).map(({ at: each }) => named(each)) },
-    ].flatMap(({ verb, held }) => (Array.isReadonlyArrayNonEmpty(held) ? [`${verb} ${[...Array.take(held, LIMITS.named), ...(held.length > LIMITS.named ? [`+${held.length - LIMITS.named} more`] : [])].join(', ')}`] : []));
-    return changes.some((change) => change._tag === 'Appeared' && change.at === at)
-        ? Option.some(`map learned ${shown}, ${Record.size(Record.filter(controls, ({ retired }) => Option.isNone(retired)))} controls`)
-        : Array.match(parts, { onEmpty: Option.none, onNonEmpty: (held) => Option.some(`map of ${shown}: ${held.join('; ')}`) });
+    const grouped: Readonly<Record<string, Array.NonEmptyReadonlyArray<(typeof changes)[number]>>> = Array.groupBy(changes, (change): string => change._tag);
+    return learned
+        ? Option.some(`map learned ${shown}, controls ×${Record.size(controls)}`)
+        : Array.match(
+              Struct.keys(Change.cases).flatMap((tag) =>
+                  Option.match(Record.get(grouped, tag), {
+                      onNone: Array.empty,
+                      onSome: (held) => {
+                          const listed = held.map(Change.matchOrElse({ Relabelled: ({ from, to }) => `${labelled(from)} → ${labelled(to)}` }, ({ at }) => named(at)));
+                          return [`${String.toLowerCase(tag)} ${[...Array.take(listed, LIMITS.named), ...(listed.length > LIMITS.named ? [`+${listed.length - LIMITS.named} more`] : [])].join(', ')}`];
+                      },
+                  }),
+              ),
+              { onEmpty: Option.none, onNonEmpty: (parts) => Option.some(`map of ${shown}: ${parts.join('; ')}`) },
+          );
 };
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -468,11 +482,16 @@ class InterfaceMaps extends Context.Service<
             return {
                 recall: (contact) => using(contact, Struct.get('present')),
                 learn: (contact, described) => using(contact, ({ learn }) => learn(described)),
-                held: Effect.fnUntraced(function* (bundle) {
-                    const languages = yield* Effect.provideContext(InterfaceMap.languages(bundle), stored);
-                    const held = yield* Effect.forEach(languages, (language) => Effect.scoped(Effect.flatMap(RcMap.get(maps, { bundle, language }), Struct.get('present'))));
-                    return Record.fromEntries(Array.zip(languages, held));
-                }),
+                held: Effect.fnUntraced(
+                    function* (bundle) {
+                        const languages = yield* InterfaceMap.languages(bundle);
+                        const opened = yield* Effect.forEach(languages, (language) => RcMap.getOption(maps, { bundle, language }));
+                        const held = yield* Effect.forEach(Array.zip(languages, opened), ([language, open]) => Option.match(open, { onNone: Function.constant(InterfaceMap.read(bundle, language)), onSome: Struct.get('present') }));
+                        return Record.fromEntries(Array.zip(languages, held));
+                    },
+                    Effect.scoped,
+                    Effect.provideContext(stored),
+                ),
                 prove: (contact, proofs) => using(contact, ({ prove }) => prove(proofs)),
             };
         }),

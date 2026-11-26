@@ -142,7 +142,7 @@ extension WindowServerTests {
             let pressed: [String: Chord] = Dictionary(
                 uniqueKeysWithValues: report.controls.compactMap { (control: Report.Control) -> (String, Chord)? in
                     guard let title = control.title, let shortcut = control.shortcut, case .known(let mask) = shortcut.modifiers, let scalar = shortcut.key.unicodeScalars.first else { return nil }
-                    let key: Key = specials[NSEvent.SpecialKey(rawValue: Int(scalar.value))].map(Key.special) ?? .character(Character(shortcut.key))
+                    let key: Key = specials[NSEvent.SpecialKey(rawValue: Int(scalar.value))].map(Key.special) ?? .character(Character(shortcut.key.uppercased()))
                     return (title, Chord(key: key, modifiers: Set(held.filter { flag, _ in mask.contains(flag) }.map(\.modifier))))
                 }
             )
@@ -154,6 +154,47 @@ extension WindowServerTests {
             ) { first, _ in first }
             #expect(!pressed.isEmpty, "The fixture reports no menu item with a shortcut")
             expectNoDifference(read, pressed)
+        }
+
+        static func documents(in model: Model) throws -> [URL: (ref: Int, locator: Data)] {
+            Dictionary(
+                uniqueKeysWithValues: try model.containers.compactMap { (container: Container) -> (URL, (ref: Int, locator: Data))? in
+                    try container.document.map { url in (url, (ref: container.ref, locator: try JSONEncoder().encode(container.locator))) }
+                }
+            )
+        }
+
+        @Test(.enabled(if: AXIsProcessTrusted(), "Reading the fixture from outside needs this test process to hold the Accessibility grant"))
+        func keysDocumentWindowsOfOneTypeByThatTypeAndKeepsEachRefOnItsOwnDocumentAcrossReorders() async throws {
+            let (reads, answers): ([(model: Model, interned: [Int])], [URL: URL?]) = try await FixtureSession.launched { fixture in
+                let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
+                let watch: Watch = await Watches().watch(try Instance(application))
+                var (reads, answers): ([(model: Model, interned: [Int])], [URL: URL?]) = ([], [:])
+                for (command, answering): (Command, Bool) in [(.raise(surface: .lists), false), (.raise(surface: .covered), true), (.dismiss(surface: .covered), false)] {
+                    try await fixture.send(command)
+                    try await fixture.send(.report)
+                    _ = try await fixture.next(\.report)
+                    let model: Model = try await watch.model(.application)
+                    let stored: [Locator] = try JSONDecoder().decode([Locator].self, from: JSONEncoder().encode(model.containers.filter { container in container.document != nil }.map(\.locator)))
+                    reads.append((model: model, interned: await watch.intern(stored)))
+                    if answering {
+                        for (url, held) in try Self.documents(in: reads[0].model) {
+                            answers[url] = try await watch.model(.container(ref: held.ref)).containers.first { container in container.parent == nil }?.document
+                        }
+                    }
+                }
+                await Captures.current?.take(in: watch)
+                return (reads, answers)
+            }
+            let (first, second): ([URL: (ref: Int, locator: Data)], [URL: (ref: Int, locator: Data)]) = (try Self.documents(in: reads[0].model), try Self.documents(in: reads[1].model))
+            let live: Set<Int> = Set(first.values.map(\.ref))
+            expectNoDifference(first.count, 2, "The fixture shows two plain-text document windows")
+            expectNoDifference(Set(first.values.map(\.locator)).count, 1, "Both document windows print one locator, their type alone")
+            expectNoDifference(live.count, 2, "Each document window holds its own ref")
+            expectNoDifference(second.mapValues(\.ref), first.mapValues(\.ref))
+            expectNoDifference(answers, Dictionary(uniqueKeysWithValues: first.keys.map { url in (url, Optional(url)) }))
+            #expect(reads[1].interned.allSatisfy { ref in !live.contains(ref) }, "A stored locator two open documents share binds to neither")
+            expectNoDifference(reads[2].interned, [try #require(try Self.documents(in: reads[2].model).values.first?.ref)])
         }
 
         @Test(.enabled(if: AXIsProcessTrusted(), "Reading the fixture from outside needs this test process to hold the Accessibility grant"))

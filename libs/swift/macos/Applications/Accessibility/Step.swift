@@ -256,9 +256,7 @@ extension Step {
                     case (.actionUnsupported, kAXPressAction, .some(let click)), (.failure, kAXPressAction, .some(let click)):
                         return (read.element.window, click, [Delivery.Attempt(rung: .accessibility, failure: "\(named) answered AXError \(answer.rawValue)")])
                     case (_, _, _):
-                        throw ApplicationFailure(answer, subject: description, process: element.process, answering: self) {
-                            ApplicationFailure(subject: description, reason: answer == .invalidUIElement ? .stale(reached: 0, candidates: []) : .accessibility(answer))
-                        }
+                        throw ApplicationFailure(answer, subject: description, process: element.process, answering: self) { ApplicationFailure(subject: description, reason: .accessibility(answer)) }
                 }
             case (.press(_, kAXPressAction), _):
                 guard let click else { throw ApplicationFailure(subject: "\(frameAttribute) of \(description)", reason: .accessibility(.noValue)) }
@@ -565,7 +563,7 @@ extension Step {
         var (presentation, pointer): (Watch.Presentation?, SIMD2<Double>?) = (nil, nil)
         switch action {
             case .set(clipboard, .text(let text)):
-                _ = try await Pasteboard(.general, writing: text)
+                try Pasteboard.write(text, to: .general)
                 return Delivery(proof: .answer)
             case .set(clipboard, _): throw ApplicationFailure(subject: "\(description), the clipboard takes text alone", reason: .refused)
             case .press(let ref, _), .set(let ref, _), .select(let ref, _), .replace(let ref, _, _), .input(_, _, .some(let ref), _, _, _, _, _):
@@ -625,7 +623,10 @@ extension Step {
                     let raised = AXUIElementSetAttributeValue(AXUIElementCreateApplication(process), kAXFrontmostAttribute as CFString, kCFBooleanTrue)
                     let fronted: Void? = try await watch.next({ (change: InstanceEvent.Change) -> Void? in change[case: \.frontmost] == true ? () : nil }, in: activations, clock: clock)
                     guard raised == .success, fronted != nil else {
-                        throw ApplicationFailure(subject: "\(kAXFrontmostAttribute) of process \(process)", reason: raised == .success ? .unanswered(nil) : .accessibility(raised))
+                        let subject = "\(kAXFrontmostAttribute) of process \(process)"
+                        throw raised == .success
+                            ? ApplicationFailure(subject: subject, reason: .unseen)
+                            : ApplicationFailure(raised, subject: subject, process: process) { ApplicationFailure(subject: subject, reason: .accessibility(raised)) }
                     }
                     presentation = .forward
                 }
@@ -636,7 +637,7 @@ extension Step {
                 var (timeline, pressed): ([(offset: Duration, event: CGEvent)], Int64) = ([], 0)
                 for input in inputs {
                     let first: (number: Int64, clickState: Int64) = lifted.map { lifted in (lifted.number, lifted.clickState) } ?? (base + pressed, 1)
-                    let next = try input.timeline(doubleClick: host.doubleClick, keyRepeat: host.keyRepeat, frames: host.rate, layout: host.layout, firstPress: first, using: &generator)
+                    let next = try input.timeline(doubleClick: host.doubleClick, keyRepeat: host.keyRepeat, frame: .seconds(1) / host.rate, layout: host.layout, numbering: first, using: &generator)
                     let shift: Duration = timeline.last?.offset ?? .zero
                     (timeline, pressed) = (timeline + next.map { offset, event in (shift + offset, event) }, pressed + (input.contact.is(\.button) ? Int64(input.schedule.count) : 0))
                 }
@@ -701,6 +702,7 @@ extension Watch {
     @concurrent
     public nonisolated func act(
         _ steps: [Step],
+        stepping: @Sendable (_ index: Int) -> Void = { _ in },
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) async throws(ApplicationFailure) -> (outcomes: [Result<Step.Delivery, ApplicationFailure>], state: InstanceState, usage: Result<ResourceUsage.Interval, Errno>) {
         let process: ProcessInstance = instance.process
@@ -719,7 +721,7 @@ extension Watch {
         }
         let host = await MainActor.run {
             (
-                layout: typing ? KeyboardLayout.current(keyboardType: keyboardType) : KeyboardLayout(name: nil, strokes: [:]),
+                layout: typing ? KeyboardLayout.current(keyboardType: keyboardType) : KeyboardLayout(strokes: [:]),
                 rate: max(NSScreen.main?.maximumFramesPerSecond ?? 1, 1),
                 doubleClick: Duration.seconds(NSEvent.doubleClickInterval),
                 keyRepeat: (delay: Duration.seconds(NSEvent.keyRepeatDelay), interval: Duration.seconds(NSEvent.keyRepeatInterval)),
@@ -733,7 +735,8 @@ extension Watch {
             InstanceState.Window.all(.optionOnScreenOnly, of: process.pid)[process.pid, default: []].filter { row in row.layer >= InstanceState.Window.Band.popUpMenu.level }.map(\.number)
         }
         var (previous, shown, opened): (AsyncStream<Message>?, [CGWindowID], [[CGWindowID]]) = (nil, popUps(), [])
-        for step in steps where outcomes.last.map({ outcome in outcome[case: \.success].map { delivery in delivery.proof != .exit } == true }) ?? true {
+        for (index, step) in steps.enumerated() where outcomes.last.map({ outcome in outcome[case: \.success].map { delivery in delivery.proof != .exit } == true }) ?? true {
+            stepping(index)
             let events = await messages()
             var outcome = await Result { () async throws(ApplicationFailure) in
                 try await step.run(on: self, clipboard: clipboard, host: host, held: &held, source: source, using: &generator, clock: clock)
@@ -812,7 +815,14 @@ extension Watch {
             let keyed: Bool = cancelled == nil && raised == .success && focused == number
             if keyed {
                 let escape = try Input(contact: .key(.special(.escape)), path: [], hold: .zero, modifiers: [], schedule: once, edges: everyEdge)
-                let timeline = try escape.timeline(doubleClick: host.doubleClick, keyRepeat: host.keyRepeat, frames: host.rate, layout: host.layout, firstPress: (1, 1), using: &generator)
+                let timeline = try escape.timeline(
+                    doubleClick: host.doubleClick,
+                    keyRepeat: host.keyRepeat,
+                    frame: .seconds(1) / host.rate,
+                    layout: host.layout,
+                    numbering: (1, 1),
+                    using: &generator,
+                )
                 try await Route.process.post(timeline, to: process, from: source, frame: .seconds(1) / host.rate, clock: clock)
             }
             if keyed || cancelled == .success { _ = try await next(Step.proving, in: changes, clock: clock) }

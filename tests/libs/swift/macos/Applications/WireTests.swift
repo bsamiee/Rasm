@@ -1,11 +1,13 @@
 @unsafe @preconcurrency import ApplicationServices
-import Applications
 import CoreGraphics
 import CustomDump
 import Encoding
 import Foundation
 import Processes
 import Testing
+import UniformTypeIdentifiers
+
+@testable import Applications
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -84,12 +86,29 @@ struct WireTests {
     @Test
     func writesEachStoredLocatorBackAsTheTextTheInterfaceMapKeysItBy() throws {
         let stored: [String] = [
-            #"[{"key":{"identifier":{"value":"toolbar"}},"role":"AXWindow"},{"key":{"document":{"value":"file:///Users/Shared/Untitled.txt"}},"role":"AXTextArea"}]"#,
+            #"[{"key":{"identifier":{"value":"toolbar"}},"role":"AXWindow"},{"key":{"document":{"type":"public.plain-text"}},"role":"AXTextArea"}]"#,
             #"[{"key":{"label":{"value":"saveas"}},"role":"AXMenuItem"},{"key":{"sole":{}},"role":"AXMenu"},{"key":{"members":{}},"role":"AXRadioButton"}]"#,
             #"[{"key":{"offset":{"by":2}},"role":"AXButton"},{"key":{"offset":{"by":1,"from":{"key":{"sole":{}},"role":"AXGroup"}}},"role":"AXRow"}]"#,
         ]
         let locators: [Locator] = try read([Locator].self, String(decoding: try JSONEncoder().encode(stored), as: UTF8.self))
         expectNoDifference(try read([String].self, written(locators) ?? ""), stored)
+    }
+
+    @Test
+    func keysEachSiblingByTheFirstKeyNoSiblingLeftAtItsLevelShares() {
+        let steps: [Locator.Step] = Locator.Step.distinguish([
+            (role: kAXButtonRole, keys: [.identifier(value: "save"), .label(value: "save"), .sole]), (role: kAXButtonRole, keys: [.label(value: "save"), .sole]),
+            (role: kAXButtonRole, keys: [.sole]),
+        ])
+        expectNoDifference(steps.map(\.key), [.identifier(value: "save"), .label(value: "save"), .sole])
+    }
+
+    @Test
+    func printsTwoDocumentsOfOneTypeAsThatTypeAloneWhileTheirStepsStayApart() throws {
+        let urls: [URL] = ["A", "B"].map { name in URL(filePath: "/Users/Shared").appending(component: name).appendingPathExtension(for: .plainText) }
+        let locators: [Locator] = Locator.Step.distinguish(urls.map { url in (role: kAXWindowRole, keys: [.document(at: url), .sole]) }).map { step in Locator(steps: [step]) }
+        #expect(locators[0] != locators[1])
+        expectNoDifference(try locators.map { locator in try locator.text() }, Array(repeating: #"[{"key":{"document":{"type":"public.plain-text"}},"role":"AXWindow"}]"#, count: 2))
     }
 
     @Test(arguments: [#"{"_tag":"window","ref":4}"#, #"{"container":{"ref":4}}"#])

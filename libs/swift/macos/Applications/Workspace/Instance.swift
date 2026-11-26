@@ -15,8 +15,8 @@ public struct Instance: Hashable, Sendable {
 extension Instance {
     public init(_ application: NSRunningApplication) throws(ApplicationFailure) {
         let pid = application.processIdentifier
-        do throws(Errno) { process = try ProcessInstance(of: pid) } catch { throw ApplicationFailure(subject: String(pid), reason: .system(error)) }
         guard !application.isTerminated else { throw ApplicationFailure(subject: String(pid), reason: .system(.noSuchProcess)) }
+        do throws(Errno) { process = try ProcessInstance(of: pid) } catch { throw ApplicationFailure(subject: String(pid), reason: .system(error)) }
         self.application = application
     }
 }
@@ -47,10 +47,6 @@ extension Watch {
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) async throws(ApplicationFailure) -> InstanceState {
         let subject = String(instance.process.pid)
-        guard mode != .forcing else {
-            guard instance.application.forceTerminate() else { throw ApplicationFailure(subject: subject, reason: instance.process.hasExited ? .system(.noSuchProcess) : .refused) }
-            return await states().reduce(await current) { _, next in next }
-        }
         let saving: OSType? =
             dictionary?.commands.contains { (command: ScriptingDictionary.Command) -> Bool in
                 command.eventClass == AEEventClass(kCoreEventClass) && command.eventID == AEEventID(kAEQuitApplication)
@@ -58,46 +54,55 @@ extension Watch {
             } == true ? mode.saveOptions : nil
         let (readiness, ready) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
         let refusals = readiness.prefix(1).compactMap { [instance] () async -> ApplicationFailure? in
-            let event = NSAppleEventDescriptor(
-                eventClass: AEEventClass(kCoreEventClass),
-                eventID: AEEventID(kAEQuitApplication),
-                targetDescriptor: NSAppleEventDescriptor(processIdentifier: instance.process.pid),
-                returnID: AEReturnID(kAutoGenerateReturnID),
-                transactionID: AETransactionID(kAnyTransactionID),
-            )
-            if let saving { event.setParam(NSAppleEventDescriptor(enumCode: saving), forKeyword: keyAESaveOptions) }
-            do throws(AppleEventFailure) {
-                try await NSAppleEventDescriptor.send(event, within: deadline) { _ in }
-                return nil
-            } catch  where error.status == OSStatus(userCanceledErr) {
-                do { try await clock.sleep(for: messagingTimeout) } catch { return nil }
-                return ApplicationFailure(subject: subject, reason: .event(error))
-            } catch  where instance.process.hasExited {
-                return nil
-            } catch  where error.status == OSStatus(procNotFound) {
-                do throws(Errno) {
-                    try instance.process.signal(SIGTERM)
+            let signal: Int32
+            if mode == .forcing {
+                signal = SIGKILL
+            } else {
+                let event = NSAppleEventDescriptor(
+                    eventClass: AEEventClass(kCoreEventClass),
+                    eventID: AEEventID(kAEQuitApplication),
+                    targetDescriptor: NSAppleEventDescriptor(processIdentifier: instance.process.pid),
+                    returnID: AEReturnID(kAutoGenerateReturnID),
+                    transactionID: AETransactionID(kAnyTransactionID),
+                )
+                if let saving { event.setParam(NSAppleEventDescriptor(enumCode: saving), forKeyword: keyAESaveOptions) }
+                do throws(AppleEventFailure) {
+                    try await NSAppleEventDescriptor.send(event, within: deadline) { _ in }
                     return nil
-                } catch Errno.noSuchProcess {
+                } catch  where instance.process.hasExited {
                     return nil
+                } catch  where error.status == OSStatus(procNotFound) {
+                    signal = SIGTERM
                 } catch {
-                    return ApplicationFailure(subject: subject, reason: .system(error))
+                    return ApplicationFailure(subject: subject, reason: .event(error))
                 }
+            }
+            do throws(Errno) {
+                try instance.process.signal(signal)
+                return nil
+            } catch Errno.noSuchProcess {
+                return nil
             } catch {
-                return ApplicationFailure(subject: subject, reason: .event(error))
+                return ApplicationFailure(subject: subject, reason: .system(error))
             }
         }
-        var sent = false
-        for await event in merge(await states().map(Result<InstanceState, ApplicationFailure>.success), refusals.map(Result<InstanceState, ApplicationFailure>.failure)) {
-            let state = try event.get()
-            switch (state, sent) {
-                case (.exited, _): return await states().reduce(state) { _, next in next }
-                case (.running(let running), _) where running.asking.isEmpty && (running.status == .responding || running.status == .unresponsive(thread: .runnable)):
+        var (sent, asked) = (false, false)
+        for await element in merge(
+            await messages().map { message -> Result<Message, ApplicationFailure>? in .success(message) },
+            refusals.map { refusal -> Result<Message, ApplicationFailure>? in .failure(refusal) },
+            AsyncTimerSequence(interval: deadline, clock: clock).prefix(1).map { _ in Result<Message, ApplicationFailure>?.none },
+        ) {
+            guard let message = try element?.get() else { break }
+            asked = asked || message[case: \.event]?.change.is(\.asking) == true
+            guard let state = message[case: \.state] else { continue }
+            switch (state, mode == .forcing, sent) {
+                case (.exited, _, _): return await states().reduce(state) { _, next in next }
+                case (.running(let running), false, _) where asked || !running.asking.isEmpty || running.status.is(\.unresponsive) && running.status.isIdle: return state
+                case (.running(let running), false, false) where !running.status.isIdle && running.status != .unresponsive(thread: .runnable): continue
+                case (_, _, false):
                     sent = true
                     ready.yield()
-                case (.running(let running), _) where running.asking.isEmpty && !running.status.isIdle: continue
-                case (.failed, true): continue
-                case (.running, _), (.failed, false): return state
+                case (_, _, true): continue
             }
         }
         return await current

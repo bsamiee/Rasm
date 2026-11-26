@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Capture, Event, InstanceState, LaunchEvent, Recording, Scope, Session } from '@rasm/applications/contract';
-import { Effect, Result, Schema } from 'effect';
+import { Act, Capture, Diagnostics, Event, InstanceState, KeyStep, LaunchEvent, Recording, Scope, Session } from '@rasm/applications/contract';
+import { Effect, Result, Schema, Struct } from 'effect';
 
 describe('contract', () => {
     it.effect('decodes the tagged change, state, and launch event the Swift server writes', () =>
@@ -65,6 +65,78 @@ describe('contract', () => {
         }),
     );
 
+    it.effect('keeps decoding the events stream past a window change kind this build names no case for, with its spelling kept', () =>
+        Effect.gen(function* () {
+            const window = {
+                number: 9,
+                frame: [
+                    [0, 0],
+                    [400, 300],
+                ],
+                layer: 0,
+                band: 'normal',
+                spaces: [3],
+                onScreen: true,
+                hidden: false,
+                shared: true,
+                asking: false,
+                presented: true,
+            };
+            const events = [
+                { instance: '412@9', sequence: 1, at: '2026-11-26T12:31:00Z', change: { _tag: 'window', change: 'reordered', window } },
+                { instance: '412@9', sequence: 2, at: '2026-11-26T12:31:01Z', change: { _tag: 'window', change: 'shown', window } },
+            ];
+            const decoded = yield* Schema.decodeUnknownEffect(Schema.Array(Event))(events);
+            assert.deepStrictEqual<unknown>(decoded.map(Struct.get('change')), events.map(Struct.get('change')));
+        }),
+    );
+
+    it('names every special key the Swift Key.Special decodes, the keypad clear, JIS, and f13 to f19 keys among them', () => {
+        const named = Schema.is(KeyStep.fields.key.members[0]);
+        assert.deepStrictEqual(
+            ['clear', 'contextualMenu', 'eisu', 'kana', 'f13', 'f19', 'f20', 'Clear'].map((key) => [key, named(key)]),
+            [
+                ['clear', true],
+                ['contextualMenu', true],
+                ['eisu', true],
+                ['kana', true],
+                ['f13', true],
+                ['f19', true],
+                ['f20', false],
+                ['Clear', false],
+            ],
+        );
+    });
+
+    it.effect('decodes the unified log event and act outcome as the Swift server writes them and refuses each missing a key it always writes', () =>
+        Effect.gen(function* () {
+            const entry = {
+                category: 'Watch',
+                eventMessage: 'Window server refused the capture',
+                messageType: 'Fault',
+                processID: 412,
+                processImagePath: '/Applications/Preview.app/Contents/MacOS/Preview',
+                senderImagePath: '/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit',
+                subsystem: 'com.apple.Preview',
+                timestamp: '2026-11-26T10:00:00.250Z',
+            };
+            const delivery = { popUps: [{ closed: true, window: 9 }], proof: 'change', route: { _tag: 'window', number: 7 }, tried: [{ failure: 'value unchanged', rung: 'accessibility' }] };
+            const { unified } = Diagnostics.Result.fields;
+            const { outcomes } = Act.Result.fields;
+            const decoded = yield* Schema.decodeUnknownEffect(unified)(Result.succeed([entry]));
+            assert.deepStrictEqual(
+                {
+                    decoded: Result.getOrThrow(decoded),
+                    outcome: yield* Schema.decodeUnknownEffect(outcomes)([Result.succeed(delivery)]),
+                    unmessaged: Result.isFailure(Schema.decodeUnknownResult(unified)(Result.succeed([Struct.omit(entry, ['eventMessage'])]))),
+                    noticed: Result.isFailure(Schema.decodeUnknownResult(unified)(Result.succeed([{ ...entry, messageType: 'Notice' }]))),
+                    unlisted: Result.isFailure(Schema.decodeUnknownResult(outcomes)([Result.succeed(Struct.omit(delivery, ['popUps']))])),
+                },
+                { decoded: [entry], outcome: [Result.succeed(delivery)], unmessaged: true, noticed: true, unlisted: true },
+            );
+        }),
+    );
+
     it.effect('writes the scope and capture source the Swift server reads with their tag beside their fields', () =>
         Effect.gen(function* () {
             const scope = yield* Schema.encodeEffect(Scope)({ _tag: 'rows', ref: 8, from: 20, count: 10 });
@@ -73,9 +145,9 @@ describe('contract', () => {
         }),
     );
 
-    it.effect('leads each key frame with its time after the first and the pixel rectangle of its image that changed', () =>
+    it.effect('leads each key frame with its time, the steps begun before it, and its change in pixels of the whole first frame, naming a crop and steps that changed nothing shown', () =>
         Effect.gen(function* () {
-            const screenshot = {
+            const whole = {
                 png: new Uint8Array(),
                 width: 400,
                 height: 240,
@@ -86,21 +158,19 @@ describe('contract', () => {
                 windows: [7],
                 backingStore: false,
             };
+            const changed = [
+                [350, 230],
+                [20, 10],
+            ];
+            const event = { _tag: 'event', instance: '412@9', sequence: 7, at: '2026-11-26T10:00:00.400Z', change: { _tag: 'focused', control: 3, kind: 'toggle' } };
             const recording = yield* Schema.decodeUnknownEffect(Recording.Result)({
                 keyFrames: [
-                    { at: '2026-11-26T10:00:00.000Z', screenshot },
-                    {
-                        at: '2026-11-26T10:00:01.250Z',
-                        changed: [
-                            [350, 230],
-                            [20, 10],
-                        ],
-                        screenshot,
-                    },
-                    { at: '2026-11-26T10:00:02.000Z', screenshot },
+                    { at: '2026-11-26T10:00:00.000Z', screenshot: whole, markers: [{ _tag: 'step', index: 0, at: '2026-11-26T10:00:00.100Z' }, event] },
+                    { at: '2026-11-26T10:00:01.250Z', changed, screenshot: { ...whole, width: 40, height: 20, frame: changed }, markers: [] },
+                    { at: '2026-11-26T10:00:02.000Z', changed, screenshot: whole, markers: [{ _tag: 'step', index: 1, at: '2026-11-26T10:00:02.100Z' }] },
                 ],
             });
-            assert.deepStrictEqual(Recording.leads(recording), [['+0'], ['+1s 250ms', 'changed [100, 60, 40, 20]'], ['+2s']]);
+            assert.deepStrictEqual(Recording.leads(recording), [['+0'], ['+1s 250ms', 'after step 1', 'changed [100, 60, 40, 20]', 'cropped to the change'], ['+2s', 'changed [100, 60, 40, 20]', 'then step 2 changing nothing shown']]);
         }),
     );
 });

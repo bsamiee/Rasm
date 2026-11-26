@@ -89,28 +89,30 @@ public struct Observation: Encodable, Sendable {
     let at: Date
     let truncated: Bool
     let opener: Opener?
-    let documents: [String]
+    let documents: OrderedSet<String>
     let conditions: [Condition]
     let controls: [String: Shape]
     let layout: [String: CGRect]
     let values: [String: Fact.Scalar]
 
-    init(
+    init?(
         _ container: Container,
         in open: OrderedDictionary<Int, Container>,
         build: String,
         opener: (control: Control, container: Int)?,
-        opened: Date,
+        after last: Self?,
         at: Date,
         locator: (Int) -> Locator,
     ) throws(ApplicationFailure) {
-        let keyed: [(key: String, control: Control)] = try container.controls.map { control throws(ApplicationFailure) in (key: try control.locator.text(), control: control) }
+        let keyed: [(key: String, control: Control)] = try container.controls.filter { control in control.kind != .row }.map { control throws(ApplicationFailure) in
+            (key: try control.locator.text(), control: control)
+        }
         let held: [URL] = open.values.compactMap(\.document)
-        let atoms: [Condition] = sequence(first: container) { scope in scope.parent.flatMap { parent in open[parent] } }
-            .flatMap(\.controls)
+        let atoms: [Condition] = sequence(first: container) { scope in scope.parent.flatMap { parent in open[parent] } }.prefix(open.count + 1).flatMap(\.controls)
             .compactMap { (control: Control) -> Condition? in
-                [.choice, .toggle].contains(control.kind) ? control.value?.scalar.map { value in Condition.value(at: control.locator, value: value) } : nil
+                control.kind == .choice || control.kind == .toggle ? control.value?.scalar.map { value in Condition.value(at: control.locator, value: value) } : nil
             }
+        let origin: CGPoint? = container.frame?.origin
         self.build = build
         self.container = container.locator
         kind = container.kind
@@ -121,18 +123,21 @@ public struct Observation: Encodable, Sendable {
         self.default = container.default.map(locator)
         cancel = container.cancel.map(locator)
         close = container.close.map(locator)
-        self.opened = opened
+        opened = last?.opened ?? at
         self.at = at
         truncated = container.truncated
         self.opener = opener.map { opener in Opener(container: locator(opener.container), control: opener.control.locator) }
-        documents = held.map { url in url.isFileURL ? url.path(percentEncoded: false) : url.absoluteString }
+        documents = OrderedSet(held.flatMap { (url: URL) -> [String] in url.isFileURL ? [url.path(percentEncoded: false), url.absoluteString] : [url.absoluteString] })
         conditions = atoms + [.documents(held: !held.isEmpty), .modal(at: open.values.last { shown in shown.modal && shown.asking }?.locator)]
         controls = Dictionary(uniqueKeysWithValues: keyed.map { key, control in (key, Shape(control, locator: locator)) })
         layout = Dictionary(
-            uniqueKeysWithValues: keyed.compactMap { key, control in
-                control.frame.flatMap { frame in container.frame.map { bounds in (key, frame.offsetBy(dx: -bounds.origin.x, dy: -bounds.origin.y)) } }
-            }
+            uniqueKeysWithValues: keyed.compactMap { key, control in origin.flatMap { origin in control.frame.map { frame in (key, frame.offsetBy(dx: -origin.x, dy: -origin.y)) } } }
         )
         values = Dictionary(uniqueKeysWithValues: keyed.compactMap { key, control in control.kind.valued ? control.value?.scalar.map { value in (key, value) } : nil })
+        if let last, (last.kind, last.title, last.modal, last.layer) == (kind, title, modal, layer),
+            (last.default, last.cancel, last.close, last.controls) == (self.default, cancel, close, controls)
+        {
+            return nil
+        }
     }
 }

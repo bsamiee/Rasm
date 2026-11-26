@@ -9,13 +9,14 @@
 - Apps and windows an agent opens take no focus and stay behind the user's work, inside or outside the project unless requested
 - Settings differing by project, platform, or build mode use the tool's own switch (profile, condition, glob, per-OS file), never a script or flag
 - Tasks and sessions delete scratch files written to reach a result (downloads, extractions, captures, conversions) once the result is recorded
+- Tests are written only at the user's request
 
 ## [01]-[TOOLING]
 
 [TOOL_ROUTING]:
 - ALWAYS load the coding skill of each language a change writes or reviews
 - Use `claudeCodeDocs`/`openaiDeveloperDocs`/`googleDeveloperDocs` MCP for any fact about Claude Code, Codex, or Antigravity, configuration included
-- Use `chrome:browser` skill for any work in the owner's Chrome, web pages and chrome:// pages alike
+- Use `chrome:browser` skill for any work in the user's Chrome, web pages and chrome:// pages alike
 - Use `Atelier` app to drive all work inside Adobe apps (InDesign, Illustrator, Photoshop, Acrobat, etc)
 - Use `Rasad` app to drive all work inside any app, in place of computer use, `osascript`, or System Events, `Atelier` is used for Adobe apps
 - Use `blender:host` skill for any work against a live Blender or a `bpy` member of the installed build

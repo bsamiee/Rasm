@@ -39,25 +39,25 @@ struct Input: Hashable, Sendable {
     let edges: Set<Edge>
 
     init(contact: Contact, path: [Sample], hold: Duration, modifiers: Set<Modifier>, schedule: Schedule, edges: Set<Edge>) throws(ApplicationFailure) {
-        let delta: SIMD2<Double> = contact[case: \.wheel]?.by ?? .zero
-        let pen: Bool = path.contains { sample in sample.pressure != nil || sample.tilt != nil }
+        let plane = Double(Int32.max)
         let spacing: Duration = hold + schedule.jitter
-        let crowded: Bool = schedule.every.map { (every: Duration) -> Bool in every < spacing } ?? false
-        let finite: Bool = path.allSatisfy { sample in sample.at.x.isFinite && sample.at.y.isFinite }
-        let mixed: Bool = Set(path.map { sample in [sample.pressure == nil, sample.tilt == nil] }).count > 1
-        let ranged: Bool = path.allSatisfy { sample in (0...1).contains(sample.pressure ?? 0) && (-1...1).contains(sample.tilt?.x ?? 0) && (-1...1).contains(sample.tilt?.y ?? 0) }
-        let wheeled: Bool = delta.x.magnitude < Double(Int32.max) && delta.y.magnitude < Double(Int32.max)
-        let pointed: Bool = !path.isEmpty || contact.is(\.key)
-        let traced: Bool = path.count < 2 || !(contact.is(\.key) || contact.is(\.wheel) || schedule.count > 1)
+        let planar: Bool = path.allSatisfy { (sample: Sample) -> Bool in sample.at.x.magnitude <= plane && sample.at.y.magnitude <= plane }
+        let reach: Double? = contact[case: \.wheel].map { (by: SIMD2<Double>, _: CGScrollEventUnit) -> Double in max(by.x.magnitude, by.y.magnitude) }
+        let pen: Bool = path.contains { (sample: Sample) -> Bool in sample.pressure != nil || sample.tilt != nil }
+        let mixed: Bool = path.contains { (sample: Sample) -> Bool in (sample.pressure == nil, sample.tilt == nil) != (path[0].pressure == nil, path[0].tilt == nil) }
+        let ranged: Bool = path.allSatisfy { (sample: Sample) -> Bool in
+            (0...1).contains(sample.pressure ?? 0) && (-1...1).contains(sample.tilt?.x ?? 0) && (-1...1).contains(sample.tilt?.y ?? 0)
+        }
         let rules: [(kept: Bool, rule: String)] = [
             (schedule.count >= 1, "count \(schedule.count) below 1"),
             (min(hold, schedule.jitter) >= Duration.zero, "a negative hold \(hold) or jitter \(schedule.jitter)"),
-            (!crowded, "presses every \(schedule.every ?? spacing) under the hold plus jitter \(spacing)"),
+            ((schedule.every ?? spacing) >= spacing, "presses every \(schedule.every ?? spacing) under the hold plus jitter \(spacing)"),
             (schedule.every != nil || schedule.jitter == Duration.zero, "jitter \(schedule.jitter) on a click run, which has no interval to vary"),
-            (pointed, "a pointer input with no point"),
-            (traced, "a path of \(path.count) points on a key, a wheel, or more than one press"),
-            (finite, "a point off the plane"),
-            (wheeled, "a wheel delta \(delta) beyond \(Int32.max)"),
+            (!path.isEmpty || contact.is(\.key), "a pointer input with no point"),
+            (path.count < 2 || !(contact.is(\.key) || contact.is(\.wheel) || schedule.count > 1), "a path of \(path.count) points on a key, a wheel, or more than one press"),
+            (planar, "a point off the plane of ±\(Int32.max)"),
+            (reach.map { (reach: Double) -> Bool in reach < plane } ?? true, "a wheel delta beyond ±\(Int32.max)"),
+            (reach.map { (reach: Double) -> Bool in reach.rounded() >= 1 } ?? true, "a wheel delta under one whole unit"),
             (!pen || contact == .button(.left), "pressure or tilt off the left button"),
             (!mixed, "pressure or tilt on some points alone"),
             (ranged, "pressure outside 0 to 1 or tilt outside -1 to 1"),
@@ -80,135 +80,154 @@ extension Input {
     func timeline(
         doubleClick interval: Duration,
         keyRepeat: (delay: Duration, interval: Duration),
-        frames rate: Int,
+        frame: Duration,
         layout: KeyboardLayout,
-        firstPress first: (number: Int64, clickState: Int64),
+        numbering first: (number: Int64, clickState: Int64),
         using generator: inout some RandomNumberGenerator,
     ) throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] {
-        let every = schedule.every ?? max(hold, (hold + interval) / 2)
-        let presses = (0..<schedule.count).reduce(into: [(start: Duration, state: Int64, edges: Set<Edge>)]()) { presses, index in
-            let start = presses.last.map { last in last.start + every + schedule.jitter * Double.random(in: -1...1, using: &generator) } ?? .zero
-            let state = presses.last.map { last in start - last.start < interval ? last.state + 1 : 1 } ?? first.clickState
-            let inner: [Edge] = (index > 0 ? [.down] : []) + (index < schedule.count - 1 ? [.up] : [])
-            presses.append((start, state, edges.union(inner)))
-        }
-        let frames = max(1, Int((hold / .seconds(1) * Double(rate)).rounded(.down)))
-        let lengths = zip(path, path.dropFirst()).reduce(into: [0.0]) { (lengths: inout [Double], pair: (from: Sample, to: Sample)) in
+        let walked: [Double] = zip(path, path.dropFirst()).reduce(into: []) { (walked: inout [Double], pair: (from: Sample, to: Sample)) in
             let step: SIMD2<Double> = pair.to.at - pair.from.at
-            lengths.append(lengths[lengths.count - 1] + (step * step).sum().squareRoot())
+            walked.append((walked.last ?? 0) + (step * step).sum().squareRoot())
         }
-        let walked = (0..<(path.count < 2 ? 0 : frames)).reduce(into: (segment: 0, samples: [Sample]())) { walk, frame in
-            let target = lengths[lengths.count - 1] * Double(frame + 1) / Double(frames)
-            walk.segment = (walk.segment..<(path.count - 2)).first { segment in lengths[segment + 1] > target } ?? path.count - 2
-            let (from, to) = (path[walk.segment], path[walk.segment + 1])
-            let span = lengths[walk.segment + 1] - lengths[walk.segment]
-            let share = span > 0 ? (target - lengths[walk.segment]) / span : 1
-            let pressure: Double? = from.pressure.flatMap { start in to.pressure.map { end in start + (end - start) * share } }
-            let tilt: SIMD2<Double>? = from.tilt.flatMap { start in to.tilt.map { end in start + (end - start) * share } }
-            walk.samples.append(Sample(at: from.at + (to.at - from.at) * share, pressure: pressure, tilt: tilt))
+        let travel: Double = contact[case: \.wheel].map { wheel in max(wheel.by.x.magnitude, wheel.by.y.magnitude) } ?? walked.last ?? 0
+        let paced: Int = max(contact.is(\.wheel) ? 1 : walked.count, Int(min(hold / frame, travel.rounded())))
+        let span: Duration = max(hold, frame * paced)
+        let step: Duration = span / max(paced, 1)
+        let every: Duration = schedule.every ?? (contact.is(\.key) ? max(span, keyRepeat.interval) : max(span, (span + interval) / 2))
+        let initial: [(start: Duration, state: Int64, number: Int64, down: Bool, up: Bool)] = [
+            (.zero, first.clickState, first.number, edges.contains(.down), schedule.count > 1 || edges.contains(.up))
+        ]
+        let presses: [(start: Duration, state: Int64, number: Int64, down: Bool, up: Bool)] = (1..<schedule.count).reduce(into: initial) { presses, index in
+            let last = presses[presses.count - 1]
+            let start: Duration = max(last.start + every + schedule.jitter * Double.random(in: -1...1, using: &generator), last.start + span)
+            presses.append((start, start - last.start < interval ? last.state + 1 : 1, last.number + 1, true, index < schedule.count - 1 || edges.contains(.up)))
         }
-        let held = CGEventFlags(modifiers.map(\.key.flag))
-        let pen = path.contains { sample in sample.pressure != nil || sample.tilt != nil }
-        let button = contact[case: \.button]
-        let types: (down: CGEventType, drag: CGEventType, up: CGEventType?) =
-            switch button {
-                case .none: (.mouseMoved, .mouseMoved, nil)
-                case .some(.left): (.leftMouseDown, .leftMouseDragged, .leftMouseUp)
-                case .some(.right): (.rightMouseDown, .rightMouseDragged, .rightMouseUp)
-                case .some: (.otherMouseDown, .otherMouseDragged, .otherMouseUp)
+        let ends: [Int] = walked.enumerated().map { (index: Int, distance: Double) -> Int in
+            index + 1 + Int((Double(paced - walked.count) * (travel > 0 ? distance / travel : Double(index + 1) / Double(walked.count))).rounded())
+        }
+        let points: [Sample] =
+            Array(path.prefix(1))
+            + zip(zip(path, path.dropFirst()), zip([0] + ends, ends)).flatMap { (pair: (from: Sample, to: Sample), bounds: (start: Int, end: Int)) -> [Sample] in
+                (1...(bounds.end - bounds.start)).map { (move: Int) -> Sample in
+                    let share = Double(move) / Double(bounds.end - bounds.start)
+                    return Sample(
+                        at: pair.from.at + (pair.to.at - pair.from.at) * share,
+                        pressure: pair.from.pressure.map { start in start + ((pair.to.pressure ?? start) - start) * share },
+                        tilt: pair.from.tilt.map { start in start + ((pair.to.tilt ?? start) - start) * share },
+                    )
+                }
             }
-        let pressed: [[(offset: Duration, event: CGEvent)]]
+        let pen: Bool = path.first.map { sample in sample.pressure != nil || sample.tilt != nil } ?? false
+        let held = CGEventFlags(modifiers.map(\.key.flag))
+        let button: CGMouseButton? = contact[case: \.button]
+        let course: [(offset: Duration, event: CGEvent)]
         switch contact {
             case .button, .hover:
-                let last = path[path.count - 1]
-                let lifted = Sample(at: last.at, pressure: last.pressure.map { _ in 0 }, tilt: last.tilt)
-                pressed = try presses.enumerated().map { index, press throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] in
-                    let numbered: [(CGEventField, Int64)] = [(.mouseEventClickState, press.state), (.mouseEventNumber, first.number + Int64(index))]
-                    let fields: [(CGEventField, Int64)] = button == nil ? [] : numbered + (pen ? [(.mouseEventSubtype, Int64(CGEventMouseSubtype.tabletPoint.rawValue))] : [])
-                    let dragged: [(offset: Duration, type: CGEventType, sample: Sample)] = walked.samples.enumerated().map { frame, sample in
-                        (press.start + hold * (frame + 1) / frames, types.drag, sample)
+                let types: (down: CGEventType, drag: CGEventType, up: CGEventType?) =
+                    switch button {
+                        case .none: (.mouseMoved, .mouseMoved, nil)
+                        case .some(.left): (.leftMouseDown, .leftMouseDragged, .leftMouseUp)
+                        case .some(.right): (.rightMouseDown, .rightMouseDragged, .rightMouseUp)
+                        case .some: (.otherMouseDown, .otherMouseDragged, .otherMouseUp)
                     }
-                    let released: [(offset: Duration, type: CGEventType, sample: Sample)] = (press.edges.contains(.up) ? types.up : nil).map { up in [(press.start + hold, up, lifted)] } ?? []
-                    let course: [(offset: Duration, type: CGEventType, sample: Sample)] = [(press.start, press.edges.contains(.down) ? types.down : types.drag, path[0])] + dragged + released
-                    return try course.map { offset, type, sample throws(ApplicationFailure) -> (offset: Duration, event: CGEvent) in
-                        let made = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: .zero, mouseButton: button ?? .left)
-                        return (offset, try event(type, from: made, at: sample, flags: held, fields: fields, text: nil))
+                course = try presses.map { press throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] in
+                    let lifted: [(offset: Duration, type: CGEventType, point: Int)] = (press.up ? types.up : nil).map { up in [(press.start + span, up, points.count - 1)] } ?? []
+                    let moved: [(offset: Duration, type: CGEventType, point: Int)] = points.indices.dropFirst().map { point in (press.start + step * point, types.drag, point) }
+                    let moments: [(offset: Duration, type: CGEventType, point: Int)] = [(press.start, press.down ? types.down : types.drag, 0)] + moved + lifted
+                    return try moments.map { offset, type, point throws(ApplicationFailure) -> (offset: Duration, event: CGEvent) in
+                        let (sample, up): (Sample, Bool) = (points[point], type == types.up)
+                        let delta: SIMD2<Double> = up || point == 0 ? .zero : sample.at.rounded(.toNearestOrAwayFromZero) - points[point - 1].at.rounded(.toNearestOrAwayFromZero)
+                        let pressure: Double = up ? 0 : sample.pressure ?? 1
+                        let made = CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: CGPoint(x: sample.at.x, y: sample.at.y), mouseButton: button ?? .left)
+                        let event = try self.event(from: made, at: nil, flags: held)
+                        event.setIntegerValueField(.mouseEventDeltaX, value: Int64(delta.x))
+                        event.setIntegerValueField(.mouseEventDeltaY, value: Int64(delta.y))
+                        guard button != nil else { return (offset, event) }
+                        event.setIntegerValueField(.mouseEventClickState, value: press.state)
+                        event.setIntegerValueField(.mouseEventNumber, value: press.number)
+                        event.setDoubleValueField(.mouseEventPressure, value: pressure)
+                        guard pen else { return (offset, event) }
+                        event.setIntegerValueField(.mouseEventSubtype, value: Int64(CGEventMouseSubtype.tabletPoint.rawValue))
+                        event.setDoubleValueField(.tabletEventPointPressure, value: pressure)
+                        event.setDoubleValueField(.tabletEventTiltX, value: sample.tilt?.x ?? 0)
+                        event.setDoubleValueField(.tabletEventTiltY, value: sample.tilt?.y ?? 0)
+                        return (offset, event)
                     }
                 }
+                .flatMap(\.self)
             case .wheel(let by, let unit):
-                let steps = (0...frames).map { frame in (by * Double(frame) / Double(frames)).rounded(.toNearestOrAwayFromZero) }
-                let shares = zip(steps.dropFirst(), steps).map { reached, before in reached - before } + (unit == .pixel ? [.zero] : [])
-                pressed = try presses.map { press throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] in
-                    try shares.enumerated().map { frame, share throws(ApplicationFailure) -> (offset: Duration, event: CGEvent) in
-                        let phase: CGScrollPhase =
-                            switch (frame, press.edges.contains(.down), press.edges.contains(.up)) {
-                                case (0, true, _): .began
-                                case (frames, _, true): .ended
-                                default: .changed
-                            }
+                let reached: [SIMD2<Double>] = (0...paced).map { index in (by * Double(index) / Double(paced)).rounded(.toNearestOrAwayFromZero) }
+                course = try presses.map { press throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] in
+                    let ended: [(offset: Duration, share: SIMD2<Double>, phase: CGScrollPhase)] = unit == .pixel && press.up ? [(press.start + span, .zero, .ended)] : []
+                    let moments: [(offset: Duration, share: SIMD2<Double>, phase: CGScrollPhase)] =
+                        zip(reached.dropFirst(), reached).enumerated().map { (index: Int, pair: (SIMD2<Double>, SIMD2<Double>)) -> (offset: Duration, share: SIMD2<Double>, phase: CGScrollPhase) in
+                            (press.start + step * index, pair.0 - pair.1, index == 0 && press.down ? .began : .changed)
+                        } + ended
+                    return try moments.map { offset, share, phase throws(ApplicationFailure) -> (offset: Duration, event: CGEvent) in
                         let made = CGEvent(scrollWheelEvent2Source: nil, units: unit, wheelCount: 2, wheel1: Int32(share.y), wheel2: Int32(share.x), wheel3: 0)
-                        let fields: [(CGEventField, Int64)] = unit == .pixel ? [(.scrollWheelEventScrollPhase, Int64(phase.rawValue))] : []
-                        return (press.start + hold * frame / frames, try event(.scrollWheel, from: made, at: path[0], flags: held, fields: fields, text: nil))
+                        let event = try self.event(from: made, at: path[0].at, flags: held)
+                        if unit == .pixel { event.setIntegerValueField(.scrollWheelEventScrollPhase, value: Int64(phase.rawValue)) }
+                        return (offset, event)
                     }
                 }
+                .flatMap(\.self)
             case .key(let key):
-                let strokes = try key.strokes(holding: modifiers, on: layout)
-                let typing = presses.flatMap { press in strokes.indices.map { order in (press: press, order: order) } }
-                pressed = try typing.map { press, order throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] in
-                    let (stroke, last) = (strokes[order], order == strokes.count - 1)
-                    let posting: Set<Edge> = last ? press.edges : press.edges.contains(.down) ? Set(Edge.allCases) : []
-                    let repeats = last ? Array(sequence(first: keyRepeat.delay) { offset in offset + keyRepeat.interval }.prefix { offset in offset <= hold }) : []
-                    let course: [(offset: Duration, edge: Edge)] = [(press.start, .down)] + repeats.map { offset in (press.start + offset, .down) } + [(press.start + (last ? hold : .zero), .up)]
-                    let typed = try course.filter { _, edge in posting.contains(edge) }.map { offset, edge throws(ApplicationFailure) -> (offset: Duration, event: CGEvent) in
-                        let made = CGEvent(keyboardEventSource: nil, virtualKey: stroke.code, keyDown: edge == .down)
-                        return (offset, try event(edge == .down ? .keyDown : .keyUp, from: made, at: path.first, flags: stroke.flags, fields: [], text: stroke.text))
+                let strokes: [Stroke] = key.strokes(holding: modifiers, on: layout)
+                let repeats: [Duration] = Array(sequence(first: keyRepeat.delay) { offset in offset + keyRepeat.interval }.prefix { offset in offset <= hold })
+                course = try presses.map { press throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] in
+                    try strokes.indices.map { order throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] in
+                        let (stroke, last): (Stroke, Bool) = (strokes[order], order == strokes.count - 1)
+                        let posting: (down: Bool, up: Bool) = (press.down, last ? press.up : press.down)
+                        let downs: [Duration] = posting.down ? [press.start] + (last ? repeats.map { offset in press.start + offset } : []) : []
+                        let moments: [(offset: Duration, down: Bool)] = downs.map { offset in (offset, true) } + (posting.up ? [(press.start + (last ? hold : .zero), false)] : [])
+                        let typed: [(offset: Duration, event: CGEvent)] = try moments.map { offset, down throws(ApplicationFailure) -> (offset: Duration, event: CGEvent) in
+                            (offset, try event(from: CGEvent(keyboardEventSource: nil, virtualKey: stroke.code, keyDown: down), at: path.first?.at, flags: stroke.flags, text: stroke.text))
+                        }
+                        let added: [Modifier] = Modifier.allCases.filter { modifier in stroke.flags.contains(modifier.key.flag) && !modifiers.contains(modifier) }
+                        return try bracket(added, holding: held, around: typed, edges: posting)
                     }
-                    let added: [Modifier] = Modifier.allCases.filter { modifier in stroke.flags.contains(modifier.key.flag) && !modifiers.contains(modifier) }
-                    return try bracket(added, holding: modifiers, around: typed, edges: posting)
+                    .flatMap(\.self)
                 }
+                .flatMap(\.self)
         }
-        let course = pressed.flatMap(\.self)
-        let proximity = try Edge.allCases.map { edge throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] in
+        let proximity: [[(offset: Duration, event: CGEvent)]] = try Edge.allCases.map { edge throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] in
             guard pen, edges.contains(edge) else { return [] }
-            let fields: [(CGEventField, Int64)] = [
-                (.tabletProximityEventEnterProximity, edge == .down ? 1 : 0), (.tabletProximityEventPointerType, Int64(NSEvent.PointingDeviceType.pen.rawValue)),
-                (
-                    .tabletProximityEventCapabilityMask,
-                    Int64(NX_TABLET_CAPABILITY_ABSXMASK | NX_TABLET_CAPABILITY_ABSYMASK | NX_TABLET_CAPABILITY_PRESSUREMASK | NX_TABLET_CAPABILITY_TILTXMASK | NX_TABLET_CAPABILITY_TILTYMASK),
-                ),
-            ]
-            let offset: Duration = edge == .down ? .zero : course.last?.offset ?? .zero
-            return [(offset, try event(.tabletProximity, from: CGEvent(source: nil), at: Sample(at: path[0].at, pressure: nil, tilt: nil), flags: held, fields: fields, text: nil))]
+            let entering: Bool = edge == .down
+            let event = try self.event(from: CGEvent(source: nil), at: (entering ? path[0] : path[path.count - 1]).at, flags: held)
+            let capabilities = NX_TABLET_CAPABILITY_ABSXMASK | NX_TABLET_CAPABILITY_ABSYMASK | NX_TABLET_CAPABILITY_PRESSUREMASK | NX_TABLET_CAPABILITY_TILTXMASK | NX_TABLET_CAPABILITY_TILTYMASK
+            event.type = .tabletProximity
+            event.setIntegerValueField(.tabletProximityEventEnterProximity, value: entering ? 1 : 0)
+            event.setIntegerValueField(.tabletProximityEventPointerType, value: Int64(NSEvent.PointingDeviceType.pen.rawValue))
+            event.setIntegerValueField(.tabletProximityEventCapabilityMask, value: Int64(capabilities))
+            return [(entering ? .zero : course.last?.offset ?? .zero, event)]
         }
-        return try bracket(Modifier.allCases.filter(modifiers.contains), holding: [], around: proximity[0] + course + proximity[1], edges: edges)
+        return try bracket(Modifier.allCases.filter(modifiers.contains), holding: [], around: proximity[0] + course + proximity[1], edges: (edges.contains(.down), edges.contains(.up)))
     }
 
     private func bracket(
         _ added: [Modifier],
-        holding base: Set<Modifier>,
+        holding base: CGEventFlags,
         around inner: [(offset: Duration, event: CGEvent)],
-        edges: Set<Edge>,
+        edges: (down: Bool, up: Bool),
     ) throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] {
-        let (start, end): (Duration, Duration) = (inner.first?.offset ?? .zero, inner.last?.offset ?? .zero)
-        let opening: [(offset: Duration, modifier: Modifier, held: Set<Modifier>)] = edges.contains(.down) ? added.indices.map { index in (start, added[index], base.union(added[...index])) } : []
-        let closing: [(offset: Duration, modifier: Modifier, held: Set<Modifier>)] =
-            edges.contains(.up) ? added.indices.reversed().map { index in (end, added[index], base.union(added[..<index])) } : []
-        let changed = try (opening + closing).map { offset, modifier, held throws(ApplicationFailure) -> (offset: Duration, event: CGEvent) in
-            let made = CGEvent(keyboardEventSource: nil, virtualKey: modifier.key.code, keyDown: held.contains(modifier))
-            return (offset, try event(.flagsChanged, from: made, at: path.first, flags: CGEventFlags(held.map(\.key.flag)), fields: [], text: nil))
+        let all: CGEventFlags = base.union(CGEventFlags(added.map(\.key.flag)))
+        let opening: [(offset: Duration, modifier: Modifier, flags: CGEventFlags)] = (edges.down ? added : []).reduce(into: []) { built, modifier in
+            built.append((inner.first?.offset ?? .zero, modifier, (built.last?.flags ?? base).union(modifier.key.flag)))
+        }
+        let closing: [(offset: Duration, modifier: Modifier, flags: CGEventFlags)] = (edges.up ? added : []).reversed().reduce(into: []) { built, modifier in
+            built.append((inner.last?.offset ?? .zero, modifier, (built.last?.flags ?? all).subtracting(modifier.key.flag)))
+        }
+        let changed: [(offset: Duration, event: CGEvent)] = try (opening + closing).map { offset, modifier, flags throws(ApplicationFailure) -> (offset: Duration, event: CGEvent) in
+            (offset, try event(from: CGEvent(keyboardEventSource: nil, virtualKey: modifier.key.code, keyDown: flags.contains(modifier.key.flag)), at: path.first?.at, flags: flags))
         }
         return Array(changed.prefix(opening.count)) + inner + changed.suffix(closing.count)
     }
 
-    private func event(_ type: CGEventType, from made: CGEvent?, at sample: Sample?, flags: CGEventFlags, fields: [(CGEventField, Int64)], text: String?) throws(ApplicationFailure) -> CGEvent {
-        guard let made else { throw ApplicationFailure(subject: "event of type \(type.rawValue) for input \(contact)", reason: .refused) }
-        let pressure: [(CGEventField, Double)] = sample?.pressure.map { pressure in [(.mouseEventPressure, pressure), (.tabletEventPointPressure, pressure)] } ?? []
-        let tilt: [(CGEventField, Double)] = sample?.tilt.map { tilt in [(.tabletEventTiltX, tilt.x), (.tabletEventTiltY, tilt.y)] } ?? []
-        made.type = type
-        made.flags = flags.union(.maskNonCoalesced)
-        if let sample { made.location = CGPoint(x: sample.at.x, y: sample.at.y) }
-        for (field, value) in fields { made.setIntegerValueField(field, value: value) }
-        for (field, value) in pressure + tilt { made.setDoubleValueField(field, value: value) }
+    private func event(from made: CGEvent?, at point: SIMD2<Double>?, flags: CGEventFlags, text: String? = nil) throws(ApplicationFailure) -> CGEvent {
+        guard let made else { throw ApplicationFailure(subject: "event for input \(contact)", reason: .refused) }
+        let stamped: CGEventFlags = [.keyDown, .keyUp].contains(made.type) ? made.flags.subtracting([.maskAlphaShift, .maskShift, .maskControl, .maskAlternate, .maskCommand]) : []
+        made.flags = stamped.union(flags).union(.maskNonCoalesced)
+        if let point { made.location = CGPoint(x: point.x, y: point.y) }
         if let units = text.map({ text in Array(text.utf16) }) {
             units.withUnsafeBufferPointer { units in unsafe made.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units.baseAddress) }
         }

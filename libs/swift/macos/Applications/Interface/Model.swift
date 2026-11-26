@@ -9,6 +9,8 @@ import RegexBuilder
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let recognizedAttribute: String = "recognized"
+private let keyEquivalentAttribute: String = "keyEquivalent"
+private let sectionFields: (object: String, description: String) = ("SectionObject", "SectionDescription")
 private let pressActions: Set<String> = [kAXPressAction, kAXPickAction, kAXConfirmAction]
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -21,15 +23,17 @@ public struct Hierarchy: Sendable {
     public let focused: Int?
     public let truncated: [Int]
     public let extras: Int?
-    var recognized: [CGWindowID: [(text: String, frame: CGRect)]] = [:]
+    var recognized: [CGWindowID: [RecognizedLine]] = [:]
     var runs: [Int: [Control.Run]] = [:]
 
     var undescribed: [InstanceState.Window] {
         let described: Set<CGWindowID> = Set(elements.compactMap(\.window))
-        return windows.filter { row in row.onScreen && row.layer < InstanceState.Window.Band.mainMenu.level && !described.contains(row.number) }
+        return windows.filter { row in
+            row.onScreen && row.container == nil && !described.contains(row.number) && (row.layer < InstanceState.Window.Band.mainMenu.level || row.band == .popUpMenu)
+        }
     }
 
-    var flyouts: [InstanceState.Window] { undescribed.filter { row in row.layer == InstanceState.Window.Band.modalPanel.level } }
+    var flyouts: [InstanceState.Window] { undescribed.filter { row in row.band == .modalPanel || row.band == .popUpMenu } }
 }
 
 public struct Control: Encodable, Equatable, Sendable {
@@ -66,16 +70,19 @@ public struct Control: Encodable, Equatable, Sendable {
                 case (_, kAXSwitchSubrole), (_, kAXToggleSubrole), (kAXCheckBoxRole, _), (kAXRadioButtonRole, _), (kAXDisclosureTriangleRole, _): self = .toggle
                 case (_, kAXSearchFieldSubrole), (_, kAXSecureTextFieldSubrole), (kAXTextFieldRole, _), (kAXTextAreaRole, _): self = .text
                 case (kAXPopUpButtonRole, _), (kAXComboBoxRole, _), (kAXRadioGroupRole, _), (kAXTabGroupRole, _): self = .choice
-                case (kAXTableRole, _), (kAXOutlineRole, _), (kAXListRole, _), (kAXBrowserRole, _): self = .multi
+                case (kAXTableRole, _), (kAXOutlineRole, _), (kAXListRole, _), (kAXBrowserRole, _), (kAXGridRole, _): self = .multi
                 case (kAXRowRole, _): self = .row
                 case (kAXSliderRole, _), (kAXIncrementorRole, _), (kAXValueIndicatorRole, _), (kAXLevelIndicatorRole, _), (kAXProgressIndicatorRole, _), (kAXBusyIndicatorRole, _),
-                    (kAXRelevanceIndicatorRole, _):
+                    (kAXRelevanceIndicatorRole, _), (kAXSplitterRole, _):
                     self = .number
                 case (kAXGroupRole, _) where value?.number != nil, (kAXUnknownRole, _) where value?.number != nil: self = .number
                 case (kAXColorWellRole, _): self = .color
                 case (kAXDateFieldRole, _), (kAXTimeFieldRole, _), (NSAccessibility.Role.dateTimeAreaRole.rawValue, _): self = .date
                 case (_, _) where value?.date != nil: self = .date
-                case (_, _) where element.actions.contains(where: pressActions.contains): self = .action
+                case (_, _) where element.actions.contains(kAXIncrementAction): self = .number
+                case (kAXMenuButtonRole, _),
+                    (_, _) where element.actions.contains(where: pressActions.contains):
+                    self = .action
                 case (kAXUnknownRole, _) where bare: self = .region
                 case (_, _): return nil
             }
@@ -180,6 +187,7 @@ public struct Control: Encodable, Equatable, Sendable {
     public let range: Range?
     public let mark: String?
     public let shortcut: Shortcut?
+    public let keyEquivalent: String?
     public let opens: Int?
     public let separated: Bool?
     public let alternate: Int?
@@ -237,6 +245,7 @@ public struct Container: Encodable, Equatable, Sendable {
                 case (_, kAXDrawerRole, _, _): self = .drawer
                 case (_, kAXToolbarRole, _, _): self = .toolbar
                 case (_, NSAccessibility.Role.webAreaRole.rawValue, _, _): self = .web
+                case (false, _, kAXApplicationDialogSubrole, _), (false, _, kAXApplicationAlertDialogSubrole, _): self = .dialog
                 case (true, _, kAXDialogSubrole, _), (true, _, kAXSystemDialogSubrole, _), (true, _, _, true): self = hierarchy.regular ? .dialog : .prompt
                 case (_, kAXLayoutAreaRole, _, _) where root || !element.children.isEmpty, (true, _, kAXFloatingWindowSubrole, _), (true, _, kAXSystemFloatingWindowSubrole, _): self = .panel
                 case (true, _, _, _): self = .window
@@ -280,28 +289,33 @@ public struct Model: Encodable, Sendable {
         case search(text: String, key: NSAccessibilitySearchKey, limit: Int)
         case menus
 
-        private enum Key: String, CodingKey {
+        private enum CodingKeys: CodingKey {
+            case application, container, menu, rows, text, search, menus
+        }
+
+        private enum Field: String, CodingKey {
             case tag = "_tag"
             case ref, from, count, text, key, limit
         }
 
         public init(from decoder: any Decoder) throws {
-            let fields = try decoder.container(keyedBy: Key.self)
+            let fields = try decoder.container(keyedBy: Field.self)
+            let tag: String = try fields.decode(String.self, forKey: .tag)
             self =
-                switch try fields.decode(String.self, forKey: .tag) {
-                    case "application": .application
-                    case "container": try .container(ref: fields.decode(Int.self, forKey: .ref))
-                    case "menu": try .menu(ref: fields.decode(Int.self, forKey: .ref))
-                    case "rows": try .rows(ref: fields.decode(Int.self, forKey: .ref), from: fields.decode(Int.self, forKey: .from), count: fields.decode(Int.self, forKey: .count))
-                    case "text": try .text(ref: fields.decode(Int.self, forKey: .ref))
-                    case "search":
+                switch CodingKeys(stringValue: tag) {
+                    case .application: .application
+                    case .container: try .container(ref: fields.decode(Int.self, forKey: .ref))
+                    case .menu: try .menu(ref: fields.decode(Int.self, forKey: .ref))
+                    case .rows: try .rows(ref: fields.decode(Int.self, forKey: .ref), from: fields.decode(Int.self, forKey: .from), count: fields.decode(Int.self, forKey: .count))
+                    case .text: try .text(ref: fields.decode(Int.self, forKey: .ref))
+                    case .search:
                         try .search(
                             text: fields.decode(String.self, forKey: .text),
-                            key: NSAccessibilitySearchKey(rawValue: fields.decodeIfPresent(String.self, forKey: .key) ?? NSAccessibilitySearchKey.anyTypeSearchKey.rawValue),
+                            key: fields.decodeIfPresent(String.self, forKey: .key).map(NSAccessibilitySearchKey.init(rawValue:)) ?? .anyTypeSearchKey,
                             limit: fields.decode(Int.self, forKey: .limit),
                         )
-                    case "menus": .menus
-                    case let tag: throw DecodingError.dataCorruptedError(forKey: .tag, in: fields, debugDescription: "\(tag) names no scope")
+                    case .menus: .menus
+                    case nil: throw DecodingError.dataCorruptedError(forKey: .tag, in: fields, debugDescription: "\(tag) names no \(Self.self)")
                 }
         }
     }
@@ -309,7 +323,7 @@ public struct Model: Encodable, Sendable {
     public struct Known: Decodable, Sendable {
         public let build: String
         public let containers: Set<String>
-        public let customWords: [String]
+        public let labels: Set<String>
     }
 
     private enum CodingKeys: CodingKey {
@@ -352,6 +366,8 @@ extension Element {
 
     fileprivate var optionText: String? { label?.text ?? text(kAXValueAttribute) }
 
+    fileprivate var statesSelection: Bool { role == kAXRadioButtonRole || text(kAXSubroleAttribute).map(["AXSegment", NSAccessibility.Subrole.tabButtonSubrole.rawValue].contains) == true }
+
     var children: [Int] {
         switch role {
             case kAXTableRole, kAXOutlineRole: facts[kAXVisibleRowsAttribute].map { rows in rows.elements + columns } ?? facts[kAXChildrenAttribute]?.elements ?? []
@@ -376,10 +392,11 @@ extension Element {
     fileprivate func flag(_ attribute: String) -> Bool? { facts[attribute]?.bool ?? facts[attribute]?.integer.map { value in value != 0 } }
 
     fileprivate func keyed(by label: Control.Label?) -> (role: String, keys: [Locator.Step.Key]) {
+        let document: Locator.Step.Key? = text(kAXDocumentAttribute).flatMap(URL.init(string:)).map(Locator.Step.Key.document(at:))
         let keys: [Locator.Step.Key?] = [
             (text(kAXIdentifierAttribute) ?? text(kAXDOMIdentifierAttribute)).map(Locator.Step.Key.identifier),
-            text(kAXDocumentAttribute).flatMap(URL.init(string:)).map(Locator.Step.Key.document),
-            label.flatMap { label in .label(folding: label.text) },
+            document,
+            document == nil ? label.flatMap { label in .label(folding: label.text) } : nil,
         ]
         return (role: role ?? kAXUnknownRole, keys: keys.compactMap(\.self) + [.sole])
     }
@@ -388,16 +405,35 @@ extension Element {
 extension Model {
     public init(_ hierarchy: Hierarchy, sequence: Int, under: [Int: Locator] = [:], locale: Locale = .autoupdatingCurrent, ref intern: (Locator) -> Int) {
         let flyouts: Set<CGWindowID> = Set(hierarchy.flyouts.map(\.number))
-        let regions: [[Element]] = hierarchy.undescribed.map { row in
+        let regions: [[Element]] = hierarchy.undescribed.map { (row: InstanceState.Window) -> [Element] in
             let id: Int = ~(Int(row.number) << 32)
-            let found: [(text: String, frame: CGRect)]? = flyouts.contains(row.number) ? hierarchy.recognized[row.number] ?? [] : nil
-            let members: [(facts: [String: Fact], frame: CGRect)] =
-                found.map { found in found.map { item in ([kAXRoleAttribute: .text(value: kAXMenuItemRole), recognizedAttribute: .text(value: item.text)], item.frame) } } ?? [([:], row.frame)]
+            let read: [RecognizedLine] = (hierarchy.recognized[row.number] ?? []).sorted { first, second in (first.frame.minY, first.frame.minX) < (second.frame.minY, second.frame.minX) }
+            let column: CGFloat? = read.map { (line: RecognizedLine) -> (shared: Int, edge: CGFloat) in
+                (shared: read.count(where: { (other: RecognizedLine) -> Bool in abs(other.frame.minX - line.frame.minX) < line.frame.height }), edge: line.frame.minX)
+            }.max { first, second in (first.shared, second.edge) < (second.shared, first.edge) }?.edge
+            let lines: [(facts: [String: Fact], frame: CGRect, section: String?)] = read.reduce(
+                into: (section: String?.none, members: [(facts: [String: Fact], frame: CGRect, section: String?)]())
+            ) { walk, line in
+                let heading: Bool = line.isTitle || column.map { edge in line.frame.minX < edge - line.frame.height } == true
+                if heading { walk.section = line.text }
+                let facts: [String: Fact?] = [
+                    kAXRoleAttribute: .text(value: heading ? kAXStaticTextRole : kAXMenuItemRole),
+                    (heading ? kAXValueAttribute : recognizedAttribute): .text(value: line.text),
+                    kAXEnabledAttribute: heading ? nil : Fact.bool(value: line.enabled),
+                    keyEquivalentAttribute: heading ? nil : line.keyEquivalentTranscript.map(Fact.text(value:)),
+                ]
+                walk.members.append((facts: facts.compactMapValues(\.self), frame: line.frame, section: heading ? nil : walk.section))
+            }.members
+            let menu: Bool = flyouts.contains(row.number)
+            let members: [(facts: [String: Fact], frame: CGRect, section: String?)] = menu ? lines : [(facts: [:], frame: row.frame, section: nil)]
+            let sections: [Fact] = members.enumerated().compactMap { offset, member in
+                member.section.map { section in Fact.record(fields: [sectionFields.object: .element(id: id - 1 - offset), sectionFields.description: .text(value: section)]) }
+            }
             let window: [String: Fact?] = [
-                kAXRoleAttribute: .text(value: found == nil ? kAXWindowRole : kAXMenuRole), kAXTitleAttribute: row.title.map { title in .text(value: title) },
-                kAXChildrenAttribute: .list(values: members.indices.map { index in .element(id: id - 1 - index) }),
+                kAXRoleAttribute: .text(value: menu ? kAXMenuRole : kAXWindowRole), kAXTitleAttribute: row.title.map(Fact.text(value:)),
+                kAXChildrenAttribute: .list(values: members.indices.map { index in .element(id: id - 1 - index) }), sectionsAttribute: .list(values: sections),
             ]
-            return ([(facts: window.compactMapValues(\.self), frame: row.frame)] + members).enumerated().map { offset, entry in
+            return ([(facts: window.compactMapValues(\.self), frame: row.frame)] + members.map { member in (facts: member.facts, frame: member.frame) }).enumerated().map { offset, entry in
                 Element(id: id - offset, facts: entry.facts.merging([frameAttribute: .rect(value: entry.frame)]) { first, _ in first }, actions: [], window: row.number)
             }
         }
@@ -410,26 +446,24 @@ extension Model {
             walked.merge(children.map { child in (child, id) }) { first, _ in first }
             pending += children.reversed()
         }
-        let parents: [Int: Int] = Dictionary(
-            uniqueKeysWithValues: held.compactMap { id, element in (element.facts[kAXParentAttribute]?.element.flatMap { parent in held[parent]?.id } ?? walked[id]).map { parent in (id, parent) } }
-        )
-        let kinds: [Int: Container.Kind] = Dictionary(
-            uniqueKeysWithValues: held.compactMap { id, element in Container.Kind(element, root: roots.contains(id), in: hierarchy).map { kind in (id, kind) } }
-        )
-        let owners: [Int: Int] = Dictionary(
-            uniqueKeysWithValues: held.keys.compactMap { (id: Int) -> (Int, Int)? in
-                let chain: some Sequence<Int> = Swift.sequence(first: id) { (child: Int) -> Int? in parents[child] }.dropFirst().prefix(held.count)
-                return chain.first { (scope: Int) -> Bool in kinds[scope] != nil }.map { (owner: Int) -> (Int, Int) in (id, owner) }
-            }
-        )
-        let grouped: [Element] = order.compactMap { (id: Int) -> Element? in kinds[id] == nil ? held[id] : nil }
+        let parents: [Int: Int] = held.compactMapValues { (element: Element) -> Int? in element.facts[kAXParentAttribute]?.element.flatMap { parent in held[parent]?.id } }
+            .merging(walked) { stated, _ in stated }
+        let kinds: [Int: Container.Kind] = held.compactMapValues { (element: Element) -> Container.Kind? in Container.Kind(element, root: roots.contains(element.id), in: hierarchy) }
+        let lineage: [Int: (owner: Int?, inner: [Int])] = held.mapValues { (element: Element) -> (owner: Int?, inner: [Int]) in
+            let inner: [Int] = Array(Swift.sequence(first: element.id) { child in parents[child] }.dropFirst().prefix(held.count).prefix(while: { (scope: Int) -> Bool in kinds[scope] == nil }))
+            return (owner: parents[inner.last ?? element.id].flatMap { owner in kinds[owner].map { _ in owner } }, inner: inner)
+        }
+        let owners: [Int: Int] = lineage.compactMapValues(\.owner)
+        let grouped: [Element] = order.compactMap { id in kinds[id] == nil ? held[id] : nil }
         let members: [Int: [Element]] = Dictionary(grouping: grouped) { (element: Element) -> Int in owners[element.id] ?? element.id }
-        let containers: [(element: Element, kind: Container.Kind)] = kinds.compactMap { id, kind -> (place: Int, element: Element, kind: Container.Kind)? in
-            held[id].map { element in (place: order.firstIndex(of: id) ?? members[id]?.first.flatMap { member in order.firstIndex(of: member.id) } ?? order.count, element: element, kind: kind) }
+        let containers: [(element: Element, kind: Container.Kind)] = held.values.compactMap { (element: Element) -> (place: Int, element: Element, kind: Container.Kind)? in
+            kinds[element.id].map { kind in
+                (place: order.firstIndex(of: element.id) ?? members[element.id]?.first.flatMap { member in order.firstIndex(of: member.id) } ?? order.count, element: element, kind: kind)
+            }
         }
         .sorted { first, second in (first.place, first.element.id) < (second.place, second.element.id) }.map { entry in (element: entry.element, kind: entry.kind) }
         let siblings: [[Element]] = Array(Dictionary(grouping: containers.map(\.element)) { (element: Element) -> Int? in owners[element.id] }.values)
-        let steps: [Int: Locator.Step] = Dictionary(
+        let placed: [Int: Locator.Step] = Dictionary(
             uniqueKeysWithValues: siblings.flatMap { (group: [Element]) -> [(Int, Locator.Step)] in
                 Array(zip(group.map(\.id), Locator.Step.distinguish(group.map { (sibling: Element) -> (role: String, keys: [Locator.Step.Key]) in sibling.keyed(by: sibling.label) })))
             }
@@ -437,9 +471,9 @@ extension Model {
         let scopes: [(element: Element, kind: Container.Kind, locator: Locator)] = containers.map { element, kind in
             let chain: [Int] = Swift.sequence(first: element.id) { scope in owners[scope] }.prefix(held.count).reversed()
             let base: Locator = chain.first.flatMap { root in under[root] } ?? Locator(steps: [])
-            return (element, kind, chain.compactMap { scope in steps[scope] }.reduce(base) { locator, step in locator.appending(step) })
+            return (element, kind, chain.compactMap { scope in placed[scope] }.reduce(base) { locator, step in locator.appending(step) })
         }
-        let refs: [Int: Int] = Dictionary(uniqueKeysWithValues: scopes.map { scope in (scope.element.id, intern(scope.locator)) })
+        let locators: [Int: Locator] = Dictionary(uniqueKeysWithValues: scopes.map { scope in (scope.element.id, scope.locator) })
         let unit = Regex {
             ZeroOrMore(.whitespace)
             FloatingPointFormatStyle<Double>(locale: locale)
@@ -452,181 +486,111 @@ extension Model {
         let sections: [Int: String] = Dictionary(
             held.values.flatMap { (element: Element) -> [Fact] in element.facts[sectionsAttribute]?.list ?? [] }.compactMap { (section: Fact) -> (Int, String)? in
                 let fields: [String: Fact] = section.record ?? [:]
-                guard let object = fields["SectionObject"]?.element, let name = fields["SectionDescription"]?.text else { return nil }
-                return (object, name)
+                return fields[sectionFields.object]?.element.flatMap { object in fields[sectionFields.description]?.text.map { name in (object, name) } }
             }
         ) { first, _ in first }
-        let rows: [CGWindowID: InstanceState.Window] = Dictionary(hierarchy.windows.map { row in (row.number, row) }) { first, _ in first }
-        let built: [(container: Container, located: [(ref: Int, element: Int)])] = scopes.map { element, kind, locator in
-            let inner: [Element] = members[element.id] ?? []
-            let (controls, consumed): ([(control: Control, located: [(ref: Int, element: Int)])], Set<Int>) = Self.controls(
-                of: inner.filter { member in !titles.contains(member.id) },
-                in: locator,
-                held: held,
-                parents: parents,
-                measured: measured,
-                sections: sections,
-                focused: hierarchy.focused,
-                runs: hierarchy.runs,
-                intern: intern,
-            )
-            let located: [(ref: Int, element: Int)] = [(ref: intern(locator), element: element.id)] + controls.flatMap(\.located)
-            let answers: [Int: Int] = Dictionary(located.map { entry in (entry.element, entry.ref) }) { first, _ in first }
-            let window: CGWindowID? = Swift.sequence(first: element.id) { scope in owners[scope] }.prefix(held.count).lazy.compactMap { scope in held[scope]?.window }.first
-            let row: InstanceState.Window? = window.flatMap { number in rows[number] }
-            let title: String? = element.label?.text
-            let modal: Bool = element.flag(kAXModalAttribute) == true || kind != .menu && row?.band == .modalPanel
-            let container = Container(
-                ref: intern(locator),
-                locator: locator,
-                kind: kind,
-                title: title,
-                help: element.text(kAXHelpAttribute),
-                document: element.text(kAXDocumentAttribute).flatMap(URL.init(string:)),
-                edited: element.facts[kAXCloseButtonAttribute]?.element.flatMap { button in held[button]?.flag(kAXEditedAttribute) },
-                fullScreen: element.flag(fullScreenAttribute),
-                loaded: element.flag(kAXLoadedAttribute),
-                loadingProgress: element.facts[kAXLoadingProgressAttribute]?.number,
-                window: window,
-                frame: element.frame,
-                layer: row?.layer,
-                modal: modal,
-                asking: kind.asking(modal: modal) || element.flag(kAXModalAttribute) == true,
-                focused: element.flag(kAXFocusedAttribute) ?? element.flag(kAXMainAttribute),
-                parent: owners[element.id].flatMap { owner in refs[owner] },
-                default: element.facts[kAXDefaultButtonAttribute]?.element.flatMap { button in answers[button] },
-                cancel: element.facts[kAXCancelButtonAttribute]?.element.flatMap { button in answers[button] },
-                close: element.facts[kAXCloseButtonAttribute]?.element.flatMap { button in answers[button] },
-                text: inner.filter { member in member.role == kAXStaticTextRole && !titles.contains(member.id) && !consumed.contains(member.id) }.compactMap { member in
-                    member.text(kAXValueAttribute).flatMap { line in
-                        line == title || line.unicodeScalars.allSatisfy { scalar in scalar.properties.isWhitespace || scalar.properties.generalCategory == .privateUse } ? nil : line
-                    }
-                },
-                truncated: truncated.contains(element.id) || inner.contains { member in truncated.contains(member.id) },
-                controls: controls.map(\.control),
-            )
-            return (container, located)
-        }
-        let shown: [Int: Element] = Dictionary(uniqueKeysWithValues: regions.joined().map { element in (element.id, element) })
-        let entries: [(ref: Int, element: Int)] = built.flatMap(\.located)
-        self.init(
-            sequence: sequence,
-            containers: built.map(\.container),
-            located: Dictionary(entries.filter { entry in shown[entry.element] == nil }.map { entry in (entry.ref, entry.element) }) { first, _ in first },
-            drawn: Dictionary(
-                entries.compactMap { entry -> (Int, (window: CGWindowID, frame: CGRect))? in
-                    guard let element = shown[entry.element], let window = element.window, let frame = element.frame else { return nil }
-                    return (entry.ref, (window: window, frame: frame))
-                }
-            ) { first, _ in first },
-        )
-    }
-
-    private static func controls(
-        of members: [Element],
-        in container: Locator,
-        held: [Int: Element],
-        parents: [Int: Int],
-        measured: Set<Int>,
-        sections: [Int: String],
-        focused: Int?,
-        runs: [Int: [Control.Run]],
-        intern: (Locator) -> Int,
-    ) -> (controls: [(control: Control, located: [(ref: Int, element: Int)])], consumed: Set<Int>) {
+        let windowRows: [CGWindowID: InstanceState.Window] = Dictionary(hierarchy.windows.map { row in (row.number, row) }) { first, _ in first }
+        let operable: [Element] = grouped.filter { member in !titles.contains(member.id) }
         let own: [Int: Control.Kind] = Dictionary(
-            uniqueKeysWithValues: members.compactMap { member in Control.Kind(member, measured: measured.contains(member.id)).map { kind in (member.id, kind) } }
+            uniqueKeysWithValues: operable.compactMap { member in Control.Kind(member, measured: measured.contains(member.id)).map { kind in (member.id, kind) } }
         )
-        let items: [Int] = members.filter { member in member.role == kAXListRole && own[member.id] == .multi }.flatMap(\.children)
-        let kinds: [Int: Control.Kind] = own.merging(items.map { item in (item, Control.Kind.row) }) { kind, _ in kind }
-        let marked: Set<Int> = Set(members.filter { member in member.text(kAXValueAttribute) != nil && !measured.contains(member.id) }.map(\.id))
-        let tabbed: [(tab: Int, group: Int)] = members.flatMap { (member: Element) -> [(tab: Int, group: Int)] in
-            member.role == kAXTabGroupRole ? (member.facts[kAXTabsAttribute]?.elements ?? []).map { (tab: Int) -> (tab: Int, group: Int) in (tab: tab, group: member.id) } : []
-        }
-        let tabs: [Int: Int] = Dictionary(tabbed) { first, _ in first }
-        let headers: [Int: [Int: Element]] = Dictionary(grouping: members.filter { member in member.role == kAXColumnRole }) { column in parents[column.id] ?? column.id }.mapValues { columns in
+        let items: [(Int, Control.Kind)] = operable.filter { member in member.role == kAXListRole && own[member.id] == .multi }.flatMap(\.children).map { item in (item, Control.Kind.row) }
+        let classes: [Int: Control.Kind] = own.merging(items) { kind, _ in kind }
+        let marked: Set<Int> = Set(operable.filter { member in member.text(kAXValueAttribute) != nil && !measured.contains(member.id) }.map(\.id))
+        let tabs: [Int: Int] = Dictionary(
+            operable.flatMap { (member: Element) -> [(Int, Int)] in member.role == kAXTabGroupRole ? (member.facts[kAXTabsAttribute]?.elements ?? []).map { tab in (tab, member.id) } : [] }
+        ) { first, _ in first }
+        let columns: [Int: [Element]] = Dictionary(grouping: operable.filter { member in member.role == kAXColumnRole }) { column in parents[column.id] ?? column.id }
+        let headers: [Int: [Int: String]] = columns.mapValues { (columns: [Element]) -> [Int: String] in
             Dictionary(
-                columns.compactMap { (column: Element) -> (Int, Element)? in
-                    guard let index = column.facts[kAXIndexAttribute]?.integer, let header = column.facts[kAXHeaderAttribute]?.element.flatMap({ header in held[header] }) else { return nil }
-                    return (index, header)
+                columns.compactMap { (column: Element) -> (Int, String)? in
+                    column.facts[kAXIndexAttribute]?.integer.flatMap { index in
+                        column.facts[kAXHeaderAttribute]?.element.flatMap { header in held[header]?.label }.map { label in (index, label.text) }
+                    }
                 }
             ) { first, _ in first }
         }
         let headed: [Int: String] = Dictionary(
-            uniqueKeysWithValues: members.compactMap { (cell: Element) -> (Int, String)? in
+            uniqueKeysWithValues: operable.compactMap { (cell: Element) -> (Int, String)? in
                 guard cell.role == kAXCellRole, let index = cell.facts[kAXColumnIndexRangeAttribute]?.range?.location, let table = parents[cell.id].flatMap({ row in parents[row] }) else { return nil }
-                return headers[table]?[index]?.label.map { label in (cell.id, label.text) }
+                return headers[table]?[index].map { header in (cell.id, header) }
             }
         )
-        let lineage: [(element: Element, row: Int?, consumer: Int?, column: String?)] = members.map { member in
-            let ancestors: [Int] = Array(Swift.sequence(first: member.id) { child in parents[child] }.dropFirst().prefix(held.count))
-            let row: Int? = ancestors.first { scope in kinds[scope] == .row }
+        let placements: [(element: Element, row: Int?, consumer: Int?, column: String?)] = operable.map { member in
+            let inner: [Int] = lineage[member.id]?.inner ?? []
+            let row: Int? = inner.first { scope in classes[scope] == .row }
             let consumer: Int? =
-                ancestors.first { (scope: Int) -> Bool in
+                inner.first { (scope: Int) -> Bool in
                     let role: String? = held[scope]?.role
-                    return kinds[scope] == .choice && role != kAXTabGroupRole || role == kAXScrollBarRole || scope == row && kinds[member.id] == nil
+                    return classes[scope] == .choice && role != kAXTabGroupRole || role == kAXScrollBarRole || scope == row && classes[member.id] == nil
                 } ?? tabs[member.id]
-            return (element: member, row: row, consumer: consumer, column: ancestors.lazy.compactMap { scope in headed[scope] }.first)
+            return (element: member, row: row, consumer: consumer, column: inner.lazy.compactMap { scope in headed[scope] }.first)
         }
-        let columned: [Int: String] = Dictionary(uniqueKeysWithValues: lineage.compactMap { entry in entry.column.map { column in (entry.element.id, column) } })
-        let enclosed: [(element: Element, consumer: Int)] = lineage.compactMap { entry in entry.consumer.map { consumer in (element: entry.element, consumer: consumer) } }
+        let columned: [Int: String] = Dictionary(uniqueKeysWithValues: placements.compactMap { entry in entry.column.map { column in (entry.element.id, column) } })
+        let enclosed: [(element: Element, consumer: Int)] = placements.compactMap { entry in entry.consumer.map { consumer in (element: entry.element, consumer: consumer) } }
         let inside: [Int: [Element]] = Dictionary(grouping: enclosed, by: \.consumer).mapValues { pairs in pairs.map(\.element) }
-        let rowed: [(element: Element, row: Int)] = lineage.compactMap { entry in entry.row.map { row in (element: entry.element, row: row) } }
+        let rowed: [(element: Element, row: Int)] = placements.compactMap { entry in entry.row.map { row in (element: entry.element, row: row) } }
         let cells: [Int: [Element]] = Dictionary(grouping: rowed, by: \.row).mapValues { pairs in pairs.map(\.element) }
-        let rows: [Int: Int] = Dictionary(uniqueKeysWithValues: rowed.map { entry in (entry.element.id, entry.row) })
+        let rowOf: [Int: Int] = Dictionary(uniqueKeysWithValues: rowed.map { entry in (entry.element.id, entry.row) })
         let consumed: Set<Int> = Set(enclosed.map(\.element.id))
-        let classified: [(element: Element, kind: Control.Kind)] = members.compactMap { member in consumed.contains(member.id) ? nil : kinds[member.id].map { kind in (element: member, kind: kind) } }
-        let stated: (Element) -> Bool = { member in
-            member.role == kAXRadioButtonRole || member.text(kAXSubroleAttribute).map(["AXSegment", NSAccessibility.Subrole.tabButtonSubrole.rawValue].contains) == true
+        let classified: [(element: Element, kind: Control.Kind)] = operable.compactMap { member in
+            consumed.contains(member.id) ? nil : classes[member.id].map { kind in (element: member, kind: kind) }
         }
-        let candidates: [Element] = classified.filter { entry in stated(entry.element) || entry.kind == .action && entry.element.role == kAXButtonRole }.map(\.element)
-        let groups: [[Element]] = Dictionary(grouping: candidates) { (element: Element) -> Int in parents[element.id] ?? element.id }.values.flatMap { (siblings: [Element]) -> [[Element]] in
-            Array(Dictionary(grouping: siblings) { (sibling: Element) -> String? in sibling.role }.values)
-        }
-        let sets: [[Element]] = groups.filter { (set: [Element]) -> Bool in
-            set.count > 1 && (set.first.map(stated) == true || set.count(where: { (member: Element) -> Bool in marked.contains(member.id) }) == 1)
+        let taken: Set<Int> = consumed.union(classified.map(\.element.id))
+        let candidates: [Element] = classified.filter { entry in entry.element.statesSelection || entry.kind == .action && entry.element.role == kAXButtonRole }.map(\.element)
+        let sets: [[Element]] = Dictionary(grouping: candidates) { (element: Element) -> Int in parents[element.id] ?? element.id }.values.flatMap { (siblings: [Element]) -> [[Element]] in
+            Dictionary(grouping: siblings) { (sibling: Element) -> String? in sibling.role }.values.filter { (set: [Element]) -> Bool in
+                set.count > 1 && (set.first?.statesSelection == true || set.count(where: { (member: Element) -> Bool in marked.contains(member.id) }) == 1)
+            }
         }
         let leaders: [Int: [Element]] = Dictionary(uniqueKeysWithValues: sets.compactMap { set in set.first.map { leader in (leader.id, set) } })
         let followers: Set<Int> = Set(sets.flatMap { set in set.dropFirst().map(\.id) })
         let entries: [(element: Element, kind: Control.Kind, set: [Element]?, label: Control.Label?)] = classified.compactMap { element, kind in
+            guard !followers.contains(element.id) else { return nil }
             let caption: Control.Label? = element.caption(in: held)
-            let shown: [Element] = [element] + (cells[element.id] ?? [])
-            let cell: Control.Label? = shown.lazy.compactMap { (cell: Element) -> Control.Label? in cell.label ?? cell.caption(in: held) ?? cell.labelled(kAXValueAttribute) }.first
-            let described: Control.Label? =
-                switch kind {
-                    case .row, .multi, .region: nil
-                    case .action, .toggle, .choice, .number, .measure, .text, .color, .date, .item: element.labelled(kAXRoleDescriptionAttribute)
+            let fallback: [String] =
+                switch (kind, element.role) {
+                    case (.row, _): []
+                    case (.multi, _), (.region, _): [kAXHelpAttribute]
+                    case (.action, kAXStaticTextRole): [kAXValueAttribute, kAXHelpAttribute]
+                    case (.action, _), (.toggle, _), (.choice, _), (.number, _), (.measure, _), (.text, _), (.color, _), (.date, _), (.item, _): [kAXHelpAttribute, kAXRoleDescriptionAttribute]
                 }
-            let label: Control.Label? = kind == .row ? cell : element.label ?? caption ?? described ?? element.labelled(kAXHelpAttribute)
-            return switch (followers.contains(element.id), leaders[element.id]) {
-                case (true, _): nil
-                case (false, .some(let set)): (element: element, kind: .choice, set: set, label: caption)
-                case (false, .none): (element: element, kind: kind, set: nil, label: label)
+            let cell: Control.Label? = ([element] + (cells[element.id] ?? [])).lazy.compactMap { (shown: Element) -> Control.Label? in
+                shown.label ?? shown.caption(in: held) ?? shown.labelled(kAXValueAttribute)
+            }.first
+            let label: Control.Label? = kind == .row ? cell : element.label ?? caption ?? fallback.lazy.compactMap(element.labelled).first
+            return leaders[element.id].map { set in (element: element, kind: .choice, set: set, label: caption) } ?? (element: element, kind: kind, set: nil, label: label)
+        }
+        let addressed: [(owner: Int, element: Element, kind: Control.Kind, set: [Element]?, label: Control.Label?, locator: Locator)] = Dictionary(grouping: entries) { entry in
+            owners[entry.element.id] ?? entry.element.id
+        }
+        .flatMap { owner, group -> [(owner: Int, element: Element, kind: Control.Kind, set: [Element]?, label: Control.Label?, locator: Locator)] in
+            let counts: [Locator.Step: Int] = Dictionary(
+                group.compactMap { entry -> (Locator.Step, Int)? in
+                    entry.label.flatMap { label in Locator.Step.Key.label(folding: label.text) }.map { key in (Locator.Step(role: entry.element.role ?? kAXUnknownRole, key: key), 1) }
+                },
+                uniquingKeysWith: +,
+            )
+            let named: [(element: Element, kind: Control.Kind, set: [Element]?, label: Control.Label?)] = group.map { element, kind, set, label in
+                let key: Locator.Step.Key? = label.flatMap { label in .label(folding: label.text) }
+                let shared: Bool = key.map { key in counts[Locator.Step(role: element.role ?? kAXUnknownRole, key: key), default: 0] > 1 } == true
+                return (element: element, kind: kind, set: set, label: shared ? element.labelled(kAXHelpAttribute) ?? label : label)
+            }
+            let steps: [Locator.Step] = Locator.Step.distinguish(
+                named.map { entry -> (role: String, keys: [Locator.Step.Key]) in
+                    let keys: [Locator.Step.Key] = [entry.label.flatMap { label in Locator.Step.Key.label(folding: label.text) }].compactMap(\.self) + [.members]
+                    return entry.set == nil ? entry.element.keyed(by: entry.label) : (role: entry.element.role ?? kAXUnknownRole, keys: keys)
+                }
+            )
+            return zip(named, steps).compactMap { entry, step in
+                locators[owner].map { container in (owner: owner, element: entry.element, kind: entry.kind, set: entry.set, label: entry.label, locator: container.appending(step)) }
             }
         }
-        let classes: [Locator.Step: Int] = Dictionary(
-            entries.compactMap { entry -> (Locator.Step, Int)? in
-                entry.label.flatMap { (label: Control.Label) -> Locator.Step.Key? in .label(folding: label.text) }.map { (key: Locator.Step.Key) -> (Locator.Step, Int) in
-                    (Locator.Step(role: entry.element.role ?? kAXUnknownRole, key: key), 1)
-                }
-            },
-            uniquingKeysWith: +,
-        )
-        let named: [(element: Element, kind: Control.Kind, set: [Element]?, label: Control.Label?)] = entries.map { element, kind, set, label in
-            let key: Locator.Step.Key? = label.flatMap { label in .label(folding: label.text) }
-            let shared: Bool = key.map { key in classes[Locator.Step(role: element.role ?? kAXUnknownRole, key: key), default: 0] > 1 } == true
-            return (element: element, kind: kind, set: set, label: shared ? element.labelled(kAXHelpAttribute) ?? label : label)
-        }
-        let steps: [Locator.Step] = Locator.Step.distinguish(
-            named.map { entry -> (role: String, keys: [Locator.Step.Key]) in
-                let members: [Locator.Step.Key] = [entry.label.flatMap { label in Locator.Step.Key.label(folding: label.text) }].compactMap(\.self) + [.members]
-                return entry.set == nil ? entry.element.keyed(by: entry.label) : (role: entry.element.role ?? kAXUnknownRole, keys: members)
-            }
-        )
-        let refs: [Int: Int] = Dictionary(zip(named, steps).map { entry, step in (entry.element.id, intern(container.appending(step))) }) { first, _ in first }
+        let refs: [Int: Int] = Dictionary(
+            scopes.map { scope in (scope.element.id, intern(scope.locator)) } + addressed.map { entry in (entry.element.id, intern(entry.locator)) }
+        ) { first, _ in first }
         let separators: Set<Int> = Set(
-            members.filter { (member: Element) -> Bool in
-                member.role == kAXMenuItemRole && member.text(kAXTitleAttribute) == nil && member.children.isEmpty && member.flag(kAXEnabledAttribute) == false
-            }.map(\.id)
+            operable.filter { (member: Element) -> Bool in member.role == kAXMenuItemRole && member.label == nil && member.children.isEmpty && member.flag(kAXEnabledAttribute) == false }.map(\.id)
         )
         let separated: Set<Int> = Set(
             Set(separators.compactMap { separator in parents[separator] }).compactMap { parent in held[parent]?.children }.flatMap { (siblings: [Int]) -> [Int] in
@@ -634,14 +598,13 @@ extension Model {
             }
         )
         let alternates: [Int: Int] = Dictionary(
-            zip(named, named.dropFirst()).compactMap { previous, entry -> (Int, Int)? in
-                guard entry.kind == .item, previous.kind == .item, let frame = entry.element.frame, !frame.isEmpty, frame == previous.element.frame else { return nil }
+            zip(addressed, addressed.dropFirst()).compactMap { previous, entry -> (Int, Int)? in
+                guard entry.kind == .item, previous.kind == .item, previous.owner == entry.owner, let frame = entry.element.frame, !frame.isEmpty, frame == previous.element.frame else { return nil }
                 return refs[previous.element.id].map { ref in (entry.element.id, ref) }
             }
         ) { first, _ in first }
-        let controls: [(control: Control, located: [(ref: Int, element: Int)])] = zip(named, steps).map { entry, step in
-            let (element, kind, set, label): (Element, Control.Kind, [Element]?, Control.Label?) = entry
-            let locator: Locator = container.appending(step)
+        let masks: [(mask: AXMenuItemModifiers, modifier: Modifier)] = [(.shift, .shift), (.option, .option), (.control, .control), (AXMenuItemModifiers(rawValue: 1 << 4), .function)]
+        let built: [(owner: Int, control: Control, located: [(ref: Int, element: Int)])] = addressed.map { owner, element, kind, set, label, locator in
             let menus: [Element] = element.children.compactMap { child in held[child] }
             let opens: Int? = zip(menus, Locator.Step.distinguish(menus.map { (menu: Element) -> (role: String, keys: [Locator.Step.Key]) in menu.keyed(by: menu.label) }))
                 .first { (menu: Element, _: Locator.Step) -> Bool in menu.role == kAXMenuRole }.map { (_: Element, keyed: Locator.Step) -> Int in intern(locator.appending(keyed)) }
@@ -655,10 +618,9 @@ extension Model {
                         (inside[element.id] ?? []).filter { option in option.children.isEmpty && option.role != kAXButtonRole && option.optionText != nil }
                     case (.none, _): []
                 }
-            let optionSteps: [Locator.Step] = Locator.Step.distinguish(
+            let optionRefs: [Int] = Locator.Step.distinguish(
                 listed.map { option in (role: option.role ?? kAXUnknownRole, keys: [option.optionText.flatMap(Locator.Step.Key.label(folding:))].compactMap(\.self)) }
-            )
-            let optionRefs: [Int] = optionSteps.map { step in intern(locator.appending(step)) }
+            ).map { step in intern(locator.appending(step)) }
             let shownCells: [Control.Cell] = (cells[element.id] ?? []).filter { cell in cell.role == kAXStaticTextRole }.compactMap { cell in
                 cell.text(kAXValueAttribute).map { text in Control.Cell(column: columned[cell.id], text: text) }
             }
@@ -676,19 +638,20 @@ extension Model {
                 switch (set, element.role) {
                     case (.none, kAXTabGroupRole): element.facts[kAXValueAttribute]?.element.flatMap { tab in held[tab] }
                     case (.some, _), (.none, kAXRadioGroupRole):
-                        listed.first { option in stated(option) ? option.facts[kAXValueAttribute]?.number == 1 || option.flag(kAXSelectedAttribute) == true : marked.contains(option.id) }
+                        listed.first { option in option.statesSelection ? option.facts[kAXValueAttribute]?.number == 1 || option.flag(kAXSelectedAttribute) == true : marked.contains(option.id) }
                     case (.none, _): nil
                 }
+            let read: Fact? = element.facts[kAXValueAttribute].flatMap { fact in fact.elements.isEmpty ? fact : nil }
             let value: Fact? =
                 switch (kind, chosen) {
-                    case (.choice, .some(let option)): option.optionText.map { text in .text(value: text) }
+                    case (.choice, .some(let option)): option.optionText.map(Fact.text(value:))
                     case (.text, _) where element.text(kAXSubroleAttribute) == kAXSecureTextFieldSubrole: nil
-                    case (.toggle, _), (.choice, _), (.number, _), (.measure, _), (.color, _), (.date, _), (.text, _): element.facts[kAXValueAttribute]
+                    case (.toggle, _), (.choice, _), (.number, _), (.measure, _), (.color, _), (.date, _), (.text, _): read
                     case (.row, _), (.item, _): element.facts[kAXURLAttribute]
                     case (.action, _), (.multi, _), (.region, _): nil
                 }
             let selected: Control.Evidence? =
-                switch (kind, set?.first.map(stated)) {
+                switch (kind, set?.first?.statesSelection) {
                     case (.choice, false): .marked
                     case (.choice, _) where value != nil: .attribute
                     case (.row, _) where element.flag(kAXSelectedAttribute) == true: .attribute
@@ -704,9 +667,9 @@ extension Model {
             let key: Key? =
                 element.facts[kAXMenuItemCmdGlyphAttribute]?.integer.flatMap(Key.Special.init(glyph:)).map(Key.special)
                 ?? element.facts[kAXMenuItemCmdVirtualKeyAttribute]?.integer.flatMap { code in CGKeyCode(exactly: code) }.map(Key.code)
-                ?? element.text(kAXMenuItemCmdCharAttribute).flatMap { character in character.lowercased().first }.map(Key.character)
-            let masks: [(mask: AXMenuItemModifiers, modifier: Modifier)] = [(.shift, .shift), (.option, .option), (.control, .control), (AXMenuItemModifiers(rawValue: 1 << 4), .function)]
+                ?? element.text(kAXMenuItemCmdCharAttribute).flatMap(\.first).map(Key.character)
             let modifiers: [Modifier] = (mask.contains(.noCommand) ? [] : [.command]) + masks.filter { pair in mask.contains(pair.mask) }.map(\.modifier)
+            let frames: [CGRect] = (set ?? [element]).compactMap(\.frame)
             let inputs: [String] = element.inputLabels.filter { text in text != label?.text }
             let control = Control(
                 ref: intern(locator),
@@ -719,22 +682,23 @@ extension Model {
                 section: Swift.sequence(first: element.id) { child in parents[child] }.prefix(held.count).lazy.compactMap { scope in sections[scope] }.first,
                 value: value,
                 enabled: element.flag(kAXEnabledAttribute),
-                focused: element.flag(kAXFocusedAttribute) == true || focused == element.id ? true : nil,
+                focused: element.flag(kAXFocusedAttribute) == true || hierarchy.focused == element.id ? true : nil,
                 selected: selected,
                 help: set == nil ? element.text(kAXHelpAttribute) : nil,
-                frame: set.map { members in members.compactMap(\.frame).reduce(CGRect.null) { union, frame in union.union(frame) } } ?? element.frame,
+                frame: frames.first.map { first in frames.dropFirst().reduce(first) { union, frame in union.union(frame) } },
                 positional: locator.positional,
                 options: options.isEmpty ? nil : options,
                 range: range.minimum == nil && range.maximum == nil && range.step == nil && range.wraps == nil ? nil : range,
                 mark: kind == .item ? element.text(kAXMenuItemMarkCharAttribute) : nil,
                 shortcut: kind == .item ? key.map { key in Control.Shortcut(key: key, modifiers: modifiers) } : nil,
+                keyEquivalent: element.text(keyEquivalentAttribute),
                 opens: opens,
                 separated: separated.contains(element.id) ? true : nil,
                 alternate: alternates[element.id],
                 placeholder: element.text(kAXPlaceholderValueAttribute),
                 level: kind == .row ? element.facts[kAXDisclosureLevelAttribute]?.integer : nil,
                 index: kind == .row ? element.facts[kAXIndexAttribute]?.integer : nil,
-                row: rows[element.id].flatMap { row in refs[row] },
+                row: rowOf[element.id].flatMap { row in refs[row] },
                 expanded: element.flag(kAXExpandedAttribute) ?? (kind == .row ? element.flag(kAXDisclosingAttribute).flatMap { open in open || disclosable ? open : nil } : nil),
                 actions: actions.isEmpty ? nil : actions,
                 alternateUIVisible: element.actions.contains(kAXShowAlternateUIAction) ? element.flag(kAXAlternateUIVisibleAttribute) : nil,
@@ -747,13 +711,67 @@ extension Model {
                 selectedTextRanges: ranges?.compactMap { range in range.range.map { range in Control.TextRange(location: range.location, length: range.length) } },
                 numberOfCharacters: element.facts[kAXNumberOfCharactersAttribute]?.integer,
                 insertionPointLineNumber: element.facts[kAXInsertionPointLineNumberAttribute]?.integer,
-                runs: runs[element.id],
+                runs: hierarchy.runs[element.id],
                 invalid: element.text(kAXInvalidAttribute).flatMap(Control.Invalid.init(rawValue:)),
                 required: element.flag(NSAccessibility.Attribute.required.rawValue),
                 current: element.text(kAXARIACurrentAttribute).flatMap(Control.Current.init(rawValue:)),
             )
-            return (control, [(ref: control.ref, element: element.id)] + zip(optionRefs, listed.map(\.id)).map { ref, member in (ref: ref, element: member) })
+            return (owner: owner, control: control, located: [(ref: control.ref, element: element.id)] + zip(optionRefs, listed.map(\.id)).map { ref, member in (ref: ref, element: member) })
         }
-        return (controls, consumed.union(classified.map(\.element.id)))
+        let controls: [Int: [Control]] = Dictionary(grouping: built, by: \.owner).mapValues { entries in entries.map(\.control) }
+        let assembled: [Container] = scopes.map { element, kind, locator in
+            let inner: [Element] = members[element.id] ?? []
+            let window: CGWindowID? = Swift.sequence(first: element.id) { scope in owners[scope] }.prefix(held.count).lazy.compactMap { scope in held[scope]?.window }.first
+            let row: InstanceState.Window? = window.flatMap { number in windowRows[number] }
+            let title: String? = element.label?.text
+            let declared: Bool = element.flag(kAXModalAttribute) == true
+            let modal: Bool = declared || kind != .menu && row?.band == .modalPanel
+            let shownText: [String] = inner.filter { (member: Element) -> Bool in member.role == kAXStaticTextRole && !titles.contains(member.id) && !taken.contains(member.id) }
+                .compactMap { (member: Element) -> String? in
+                    member.text(kAXValueAttribute).flatMap { (line: String) -> String? in
+                        line == title || line.unicodeScalars.allSatisfy { scalar in scalar.properties.isWhitespace || scalar.properties.generalCategory == .privateUse } ? nil : line
+                    }
+                }
+            let cut: Bool = truncated.contains(element.id) || inner.contains { (member: Element) -> Bool in truncated.contains(member.id) }
+            let edited: Bool? = element.facts[kAXCloseButtonAttribute]?.element.flatMap { (button: Int) -> Bool? in held[button]?.flag(kAXEditedAttribute) }
+            return Container(
+                ref: intern(locator),
+                locator: locator,
+                kind: kind,
+                title: title,
+                help: element.text(kAXHelpAttribute),
+                document: element.text(kAXDocumentAttribute).flatMap(URL.init(string:)),
+                edited: edited,
+                fullScreen: element.flag(fullScreenAttribute),
+                loaded: element.flag(kAXLoadedAttribute),
+                loadingProgress: element.facts[kAXLoadingProgressAttribute]?.number,
+                window: window,
+                frame: element.frame,
+                layer: row?.layer,
+                modal: modal,
+                asking: declared || kind.asking(modal: modal),
+                focused: element.flag(kAXFocusedAttribute) ?? element.flag(kAXMainAttribute),
+                parent: owners[element.id].flatMap { owner in refs[owner] },
+                default: element.facts[kAXDefaultButtonAttribute]?.element.flatMap { button in refs[button] },
+                cancel: element.facts[kAXCancelButtonAttribute]?.element.flatMap { button in refs[button] },
+                close: element.facts[kAXCloseButtonAttribute]?.element.flatMap { button in refs[button] },
+                text: shownText,
+                truncated: cut,
+                controls: controls[element.id] ?? [],
+            )
+        }
+        let shown: Set<Int> = Set(regions.joined().map(\.id))
+        let located: [(ref: Int, element: Int)] = scopes.map { scope in (ref: intern(scope.locator), element: scope.element.id) } + built.flatMap(\.located)
+        self.init(
+            sequence: sequence,
+            containers: assembled,
+            located: Dictionary(located.filter { entry in !shown.contains(entry.element) }.map { entry in (entry.ref, entry.element) }) { first, _ in first },
+            drawn: Dictionary(
+                located.compactMap { entry -> (Int, (window: CGWindowID, frame: CGRect))? in
+                    guard shown.contains(entry.element), let element = held[entry.element], let window = element.window, let frame = element.frame else { return nil }
+                    return (entry.ref, (window: window, frame: frame))
+                }
+            ) { first, _ in first },
+        )
     }
 }

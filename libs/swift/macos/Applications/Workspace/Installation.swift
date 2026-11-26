@@ -323,7 +323,7 @@ public struct Installation: Encodable, Hashable, Sendable {
         let resolved: Resources? = read.resources[case: \.success]
         let scriptable: Bool? = resolved?.scriptable
         let quarantine: Quarantine? = resolved?.quarantine
-        let architectures: [String]? = read.architectures[case: \.success] ?? nil
+        let architectures: [String]? = read.architectures[case: \.success].flatMap(\.self)
         try fields.encode(url, forKey: .url)
         try fields.encodeIfPresent(executable, forKey: .executable)
         try fields.encode(identifier, forKey: .identifier)
@@ -343,7 +343,8 @@ public struct Installation: Encodable, Hashable, Sendable {
         try fields.encodeIfPresent(quarantine, forKey: .quarantine)
         try fields.encodeIfPresent(claim, forKey: .claim)
         try fields.encodeIfPresent(read.appIntents[case: \.success], forKey: .appIntents)
-        let unread: [ApplicationFailure] = [read.resources.map { _ in true }, read.architectures.map { _ in true }, read.appIntents.map { _ in true }].compactMap { outcome in outcome[case: \.failure] }
+        let outcomes: [Result<Bool, ApplicationFailure>] = [read.resources.map { _ in true }, read.architectures.map { _ in true }, read.appIntents.map { _ in true }]
+        let unread: [ApplicationFailure] = outcomes.compactMap { outcome in outcome[case: \.failure] }
         if !unread.isEmpty { try fields.encode(unread, forKey: .unread) }
     }
 }
@@ -363,7 +364,7 @@ extension NSApplication.ActivationPolicy {
 
 extension Installation {
     public init(at url: URL) throws(ApplicationFailure) {
-        let bundle = url.resolvingSymlinksInPath()
+        let bundle = url.resolvedDirectory
         let path = bundle.path(percentEncoded: false)
         let info: BundleInfo?
         do {
@@ -405,8 +406,12 @@ extension Installation {
     }
 
     public func runs(_ instance: NSRunningApplication) -> Bool {
-        instance.bundleIdentifier == identifier && instance.bundleURL?.resolvingSymlinksInPath().pathComponents == url.pathComponents
+        instance.bundleIdentifier == identifier && instance.bundleURL?.resolvedDirectory == url
     }
+}
+
+extension URL {
+    var resolvedDirectory: URL { URL(filePath: resolvingSymlinksInPath().path(percentEncoded: false), directoryHint: .isDirectory) }
 }
 
 extension Installation.AppIntent {

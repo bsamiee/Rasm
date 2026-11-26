@@ -89,6 +89,20 @@ extension WindowServerTests {
             expectNoDifference(consent, OSStatus(errAEEventWouldRequireUserConsent), "Automation consent of this process toward the settled instance")
         }
 
+        @Test
+        func reportsAnInstanceAtTheURLOfItsInstallationReadThroughASymlinkedFolderWithoutATrailingSlash() async throws {
+            let folder = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
+            let installation = try Self.bundle(in: folder)
+            let events = NSWorkspace.shared.launchEvents(installation, in: ScriptingDictionaries { _ in nil }, watches: Watches(), within: .seconds(5))
+            var launched: Instance?
+            for await case .launched(let event) in events { launched = event.instance }
+            let instance = try #require(launched)
+            let reported: URL? = InstanceSnapshot(instance, state: .failed(ApplicationFailure(subject: "probe", reason: .noWindow)))?.url
+            _ = instance.application.forceTerminate()
+            try FileManager.default.removeItem(at: folder)
+            expectNoDifference(reported?.absoluteString, installation.url.absoluteString, "Instance URL against the installation URL the listing matches it by")
+        }
+
         @Test(
             .enabled(
                 if: NSWorkspace.shared.frontmostApplication.map { front in Self.normalOwners().contains(front.processIdentifier) } == true,
