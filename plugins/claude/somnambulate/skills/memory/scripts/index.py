@@ -149,7 +149,10 @@ def _git(folder: Path, /, *args: str) -> str:
 
 
 def index(memory: Path, /) -> int:
-    """Validate every memory file, regenerate MEMORY.md from their descriptions, and commit the folder; exit 1 on errors in changed files."""
+    """Validate every memory file, regenerate MEMORY.md from their descriptions, and commit the folder, initializing its repository when it has none; exit 1 on errors in changed files."""
+    if fresh := not (memory / ".git").exists():
+        _git(memory, "init", "-q")
+        _git(memory, "config", "commit.gpgsign", "false")
     target = memory / _INDEX
     try:
         previous = target.read_text(encoding="utf-8")
@@ -170,7 +173,7 @@ def index(memory: Path, /) -> int:
         trailer = (f"--trailer=Session: {session}",) if (session := os.environ.get("CLAUDE_CODE_SESSION_ID", "")) else ()
         named = frozenset(Path(name).stem for name in changed - {_INDEX})
         _git(memory, "commit", "-q", *trailer, "-m", f"Update {f'{len(named)} files' if len(named) > 1 else next(iter(named), _INDEX)}")
-    graded = [(finding.blocking and finding.path in changed, finding) for finding in sorted((*foreign, *(finding for _, found in entries for finding in found), *_measured(text)))]
+    graded = [(finding.blocking and not fresh and finding.path in changed, finding) for finding in sorted((*foreign, *(finding for _, found in entries for finding in found), *_measured(text)))]
     errors = sum(error for error, _ in graded)
     commit = f"commit {_git(memory, 'rev-parse', '--short', 'HEAD').strip()}" if changed else "nothing to commit"
     sys.stdout.writelines((
