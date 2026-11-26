@@ -43,7 +43,7 @@ Clusters group files that hold or need the same facts, built from readings over 
 - Confirmation: each edge holds when reading both bodies names the shared fact, and an edge with no shared fact goes
 - Crossed families: files crossing a subject axis with a concern axis (app by setting) place each fact where its value varies
 - Axis rule: a per-subject value stays in its subject's file, and a fact true of every subject, or of some by a shared trait, goes to the general
-- Few rows: a subject's few rows of a concern with no file of their own join that subject's file nearest the concern, under a group named for it
+- Few rows: a subject's few rows of a concern join its file nearest the concern under a group named for it, else stay in the concern's file
 - Existing generals: a file already holding the cluster's shared facts becomes its general memory, renamed by `[05]` when its stem names no concern
 - Over-broad files: a broad file outside any cluster holds another subject's facts, which move to that subject's file
 - Independence: clusters sharing no file rebuild apart, each by its own agent holding its ledger and this reference
@@ -61,7 +61,7 @@ Rebuilds run raw content before judgment and general memories before specifics, 
 8. Sort: rows more than one member states, or true of every member and needed by more than one, go general, and the rest stay with their member
 9. Plan: clusters, general stems by `[05]`, per-file verdicts by `[04]`, deletions, and renames, approved at `[07]` before any write
 10. General: written first by `SKILL.md` `[03]` and `[04]`, its lead the shared answer most requests need
-11. Specifics: each rebuilt from its own rows, every shared fact deleted, one link clause placed in the group needing the general
+11. Specifics: each rebuilt from its own rows with Edit, every shared fact deleted, one link clause placed in the group needing the general
 12. Descriptions: each rewritten by `SKILL.md` `[05]`, a general bounded against its specifics and a specific by the subject its general lacks
 13. Links: bare `Related:` lists replaced by link clauses or deleted, then `scripts/index.py <scratch>/memory` checks each resolves
 14. Check: reading 5 of `[01]` over every changed file, a request its line misses sending the file back to step 12
@@ -92,7 +92,7 @@ Harness fields of a merge come from the file whose stem survives, else from the 
 Names follow `SKILL.md` `[04]`, and the set adds these checks:
 - General stems name the field and the concern their facts share in a request's words, never `common`, `shared`, `general`, or `misc`
 - Specific stems open with their general's field word and name the subject that varies, a crossed family's cell naming subject and concern
-- Siblings under one general share one concern word, and a concern no sibling shares gets renamed, or folded where the fold stays within 4096 bytes
+- Siblings under one general share one concern word, and a concern no sibling shares gets renamed or folded within 4096 bytes, else stays its own file
 - Catch-all concerns (`tooling`, `notes`) draw every request naming their subject, so their facts move to concerns a request names
 - Stems naming one subject in synonyms merge into the stem a request uses
 
@@ -104,7 +104,7 @@ Sets hold together while each of these stays true after a pass:
 - Every fact at one home and every link resolving
 - Generals serving more than one specific, as a general serving one returns its facts to that file
 - Specifics holding a fact of their own beyond their link clause, and a one-line rule with its own requests staying whole
-- Link chains from a specific ending at its general or one field rule past it, as each hop costs a read
+- Link chains ending within 2 hops of any file, as each hop costs a read a session can skip
 
 ## [07]-[APPROVAL]
 

@@ -1,11 +1,11 @@
 ---
 name: memory
-description: "Use when saving, changing, or auditing a Claude Code auto-memory file or the memory set, covering admission, kinds, general and specific memories, links, names, descriptions that double as index lines, and evidence marks"
+description: "Use when saving, changing, or auditing a Claude Code auto-memory file, its MEMORY.md line, or the memory set, covering admission, kinds, general and specific memories, links, names, descriptions that double as index lines, and evidence marks"
 ---
 
 # [SOMNAMBULATE_MEMORY]
 
-This skill is loaded. Your next call Reads the reference for the work, before any read, search, or write in the memory folder, and its steps replace your own plan; Read it again after a compaction: a memory that does not exist yet -> `references/create.md`, a change inside one existing memory -> `references/edit.md`, the set or any merge, split, rename, or delete -> `references/evaluate.md`. `MEMORY.md` is generated from each file's `description` after every memory write, so no step writes it.
+This skill is loaded. Your next call Reads the reference for the work, before any read, search, or write in the memory folder, and its steps replace your own plan; Read it again after a compaction: a memory that does not exist yet -> `references/create.md`, a change inside one existing memory -> `references/edit.md`, the set or any merge, split, rename, or delete -> `references/evaluate.md`. `MEMORY.md` is generated from each file's `description` after every memory write, so no step writes it, even when it looks stale.
 
 [REFERENCES]:
 - [01]-[CREATE](references/create.md): Saving a new memory file
@@ -35,7 +35,7 @@ Each candidate line passes every test in order, and the first failure sends it t
 
 | [INDEX] | [TEST]     | [QUESTION]                                                       | [ON_FAIL]                                         |
 | :-----: | :--------- | :--------------------------------------------------------------- | :------------------------------------------------ |
-|  [01]   | Derivable  | One read of a tracked file, tool, doc, or skill gives it         | Delete, keeping incidents of it broken            |
+|  [01]   | Derivable  | One read of a tool, doc, skill, or file tracked in a named repo  | Delete, keeping incidents of it broken            |
 |  [02]   | Durable    | Matters a week from now, in a session on another task            | Task list, plan, commit body                      |
 |  [03]   | Acting     | Names the future action it changes, in one clause                | Delete                                            |
 |  [04]   | Procedure  | Holds ordered steps a skill runs                                 | Skill running them, a correction staying here too |
@@ -43,7 +43,7 @@ Each candidate line passes every test in order, and the first failure sends it t
 |  [06]   | Evidenced  | Comes from the owner, a run, or a source read                    | Verify first, or delete                           |
 |  [07]   | Home       | Belongs to no existing general or specific memory                | Memory `[04]` places it in, edited in place       |
 
-Lines whose clauses take different verdicts split into one line per clause before the tests run. Status, progress, completed work, open-probe lists, plans no owner decided, values one run printed, and conclusions no run confirmed fail `[02]` in any wording.
+Named repositories are this one and those `CLAUDE.md` names, and untracked or git-excluded folders count as no source. Lines whose clauses take different verdicts split into one line per clause before the tests run. Status, progress, completed work, open-probe lists, plans no owner decided, values one run printed, rules drawn from one such value, and conclusions no run confirmed fail `[02]` in any wording.
 
 ## [03]-[KINDS]
 
@@ -59,6 +59,7 @@ Kind follows what the knowledge is, and its lead line is the text the descriptio
 
 Kinds draw from one set of parts, and content decides which appear:
 - Leads stand alone, each later line narrows or proves its lead, and a one-line rule with nothing to add is complete
+- Mixed files take the kind of their lead, and knowledge of another kind about another subject splits into its own file
 - Why names an incident, constraint, or mechanism the lead lacks, sits out when none is known, and a Why citing only the owner goes
 - `Not: <wrong> -> <right>` lines appear once a mistake recurs under the rule, at most 2, ending on the right form
 - `Holds until:` names the unlock, expiry, or owner go-ahead ending a decision, or reads `standing`
@@ -82,20 +83,20 @@ Anthropic's wiki trials found a shared table of per-subject values dropped 16 of
 
 [LINKS]:
 - Link clause: `[[<stem>]]` plus the words naming what that file answers, the one form every link takes
-- Direction: links run from a specific memory to any general memory a line needs, a general names no specific, and a sibling link marks a relied fact
+- Direction: a line links any general memory or rule it relies on, no file links a specific memory, and a sibling link marks a relied fact
 - Placement: the clause stands at the line needing the linked fact, in place of that fact, never as an opening routing line or a closing list
-- Following: a session weighs the clause's words to decide whether a Read pays, so a clause names the question its target answers, never `see also`
+- Following: a session weighs the clause's words to decide whether a Read pays, so a clause names the question its target answers, never its values
 - Silence: a specific memory restates nothing its general memory holds, neither summary, value, caution, nor example, and keeps its own facts alone
 - Resolution: `scripts/index.py` refuses a link naming no file, and a rename repoints every `[[<old>]]` in the same pass
 
 [NAMES]: Stems equal `name` in kebab-case from the field's own words, so a specific memory's stem shows its general memory:
 
-| [INDEX] | [MEMORY]      | [STEM]                         |
-| :-----: | :------------ | :----------------------------- |
-|  [01]   | General       | `<field>-<concern>`            |
-|  [02]   | Specific      | `<field>-<subject>-<concern>`  |
-|  [03]   | Whole subject | `<field>-<subject>`            |
-|  [04]   | Rule          | `[<field>-]<rule as a phrase>` |
+| [INDEX] | [MEMORY]       | [STEM]                                   |
+| :-----: | :------------- | :--------------------------------------- |
+|  [01]   | General        | `<field>-<concern>`                      |
+|  [02]   | Specific       | `<field>-<subject>-<concern>`            |
+|  [03]   | Whole subject  | `<field>-<subject>`                      |
+|  [04]   | Rule, decision | `[<field>-]<rule or choice as a phrase>` |
 
 Each part of a stem keeps one meaning across the set:
 - Field: the area's own word (a vendor, a tool, an OS), shared by every stem of that area, as the index heads each shared field's group with it
@@ -111,7 +112,7 @@ Each part of a stem keeps one meaning across the set:
 - Merge: files whose requests each need the other's body hold one subject
 - Split: facts serving disjoint requests part at a subject or concern into named files, never numbered, and a file past 4096 bytes splits or trims
 - Fold: a specific memory holding nothing its general memory lacks folds into it, and a general memory serving one specific memory folds back
-- Routing: knowledge one kind of task uses alone belongs in that task's skill reference or a path-scoped `.claude/rules/` file, with the owner's approval
+- Routing: knowledge one kind of task uses alone moves, on owner approval, to that task's skill or a path-scoped rule, staying while none exists
 
 ## [05]-[DESCRIPTIONS]
 
@@ -119,7 +120,7 @@ Descriptions state which situations need the file in one line of at most 150 cha
 1. Requests: 3 should-load requests as the owner types them (direct, symptom, need unnamed), beside the nearest sibling's requests the line leaves out
 2. Situation: open with the act or question every should-load request shares, in request words (verb, tool, error text)
 3. Layer: a general memory's situation names its concern by the concern's identifiers, never its whole field, which every request there matches
-4. Silence: a specific memory's line omits identifiers its general memory owns, so a request on the shared concern opens the general memory alone
+4. Silence: a specific memory's line omits identifiers its general memory owns, and names each concern group it holds for its subject alone
 5. Bound: state how the file differs from its nearest sibling, the term the sibling's requests lack (host, scope, identifier)
 6. Gist: close with what the file gives
 7. Rules: a `feedback` or `user` line reads `<situation>: <imperative>; <what the body answers>`, as sessions act on the imperative and open for an answer
@@ -130,10 +131,11 @@ Rule lines carrying the imperative alone drew most misses of a full replay, as e
 
 ## [06]-[EVIDENCE]
 
-Every fact ends with one mark, and a mark opening a group covers each unmarked line under it:
+Every fact ends with one mark, a mark opening a group covers each unmarked line under it, and a lead's mark covers the lead alone:
 - `(tried YYYY-MM-DD)` ran and seen, naming the command and the build for host behavior, a recheck on a newer build moving both, `tried by` with file birth time
 - `(sourced: <path[:line] | URL@version>)` read from a tracked file, doc, binary, or package at the version an evaluate pass rechecks
 - `(stated YYYY-MM-DD)` the owner said it, listing each date of statements joined into one rule, or `(stated by YYYY-MM-DD, file birth time)` when the day is lost
+- Host facts tried on an older build than the installed one, or on no named build, stay until an evaluate pass rechecks them by a static read
 - `Inferred:` opens the writer's own conclusion, holds no mark, and names what would settle it
 - Scope stays at its evidence: one request reads `the owner asked for <X> on <task>`, and a standing preference needs the owner's default wording
 - Cautions name the cause they guard against, so a reader tests whether it still holds
@@ -144,7 +146,7 @@ Every fact ends with one mark, and a mark opening a group covers each unmarked l
 ## [07]-[INDEX_AND_EVALS]
 
 `scripts/index.py` derives `MEMORY.md` whole from the files, and `claude plugin eval` tests the skill:
-- Lines: `- [<stem>](<stem>.md) — <description>`, under a `## <field>` heading per first word 2 stems share, the rest first, sorted, committed on change
+- Lines: `- [<stem>](<stem>.md) — <description>` under a `## <field>` heading per first word 2 stems share, one not a rule, the rest first, sorted
 - Budget: the index loads 200 lines or 25KB, headings included, the set stays under 160 lines and 20,000 bytes, and merges free space before trims
 - Validation: a refused file keeps its last good line, or a bare `- [<stem>](<stem>.md)` line, and the plugin reports it back to the session
 - Evals: the plugin's `evals/` cases score create, edit, and evaluate work with and without the plugin, as eval runs load no memory folder
