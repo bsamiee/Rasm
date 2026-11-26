@@ -9,7 +9,7 @@
             "path": "../../../../../libs/typescript/ai/policy"
         },
         {
-            "path": "../../../../../libs/typescript/runtime/shell"
+            "path": "../../../../../libs/typescript/system/shell"
         }
     ]
 }

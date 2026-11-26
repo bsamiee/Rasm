@@ -23,7 +23,7 @@ __pycache__/
 /plugins/**/evals/results/
 dist/
 libs/typescript/ai/policy/claude/types
-libs/typescript/runtime/shell/usage/
+libs/typescript/system/shell/usage/
 storybook-static/
 
 # --- [SNAPSHOTS]

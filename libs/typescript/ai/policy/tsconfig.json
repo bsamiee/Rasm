@@ -5,7 +5,7 @@
     },
     "references": [
         {
-            "path": "../../runtime/shell"
+            "path": "../../system/shell"
         }
     ]
 }

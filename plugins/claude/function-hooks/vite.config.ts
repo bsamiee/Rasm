@@ -43,7 +43,7 @@ export default defineConfig({
                     groups: [
                         { name: 'effect', test: /\/effect@/u, maxSize: 900_000 },
                         { name: 'usage', test: /\/usage\/[^/]+\.json$/u, maxSize: 900_000 },
-                        { name: 'libs', test: /\/(?:libs\/typescript\/runtime|node_modules)\//u, maxSize: 900_000 },
+                        { name: 'libs', test: /\/(?:libs\/typescript\/system|node_modules)\//u, maxSize: 900_000 },
                     ],
                 },
                 strictExecutionOrder: true,

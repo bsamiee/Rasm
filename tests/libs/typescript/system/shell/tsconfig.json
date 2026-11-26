@@ -7,7 +7,7 @@
     },
     "references": [
         {
-            "path": "../../../../../libs/typescript/runtime/shell"
+            "path": "../../../../../libs/typescript/system/shell"
         }
     ]
 }
