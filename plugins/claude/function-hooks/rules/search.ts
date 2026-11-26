@@ -1,7 +1,6 @@
 import { Array, Cause, Effect, FileSystem, Match, Option } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import type { Word } from 'sh-syntax';
-import { covers, findUp, type Invocation, patternOf, rewrite, roots, type Table, type Verdict } from '#/rules/rule';
+import { covers, findUp, type Invocation, patternOf, rewrite, roots, run, type Table, type Verdict } from '#/rules/rule';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -27,13 +26,16 @@ const parseExec = (values: Invocation['words'], appended: boolean) => {
     return { program, batches: batchable.has(program) && ((appended && holes === 0) || (holes === 1 && rest.at(-1) === '{}')) };
 };
 const ignores = Effect.fnUntraced(function* (invocation: Invocation, cwd: string) {
-    const [fs, spawner] = yield* Effect.all([FileSystem.FileSystem, ChildProcessSpawner.ChildProcessSpawner]);
+    const fs = yield* FileSystem.FileSystem;
     const searched = roots(invocation, cwd);
     const repository = Option.filter(yield* findUp(cwd, '.git'), (root) => !invocation.has(...unrestricted) && searched.every((path) => covers(root, path)));
     const paths = Option.match(repository, { onNone: () => [], onSome: (root) => searched.filter((path) => path !== root) });
     const real = yield* Effect.forEach(paths, (path) => fs.realPath(path).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(path))));
-    const judged = Option.filter(Option.map(repository, (root) => ({ root, held: real.filter((path) => covers(root, path)) })), ({ held }) => Array.isReadonlyArrayNonEmpty(held));
-    const code = yield* Option.match(judged, { onNone: () => Effect.succeed(1), onSome: ({ root, held }) => spawner.exitCode(ChildProcess.make({ cwd: root, stdin: 'ignore' })`git check-ignore --no-index -- ${held}`) });
+    const judged = Option.filter(
+        Option.map(repository, (root) => ({ root, held: real.filter((path) => covers(root, path)) })),
+        ({ held }) => Array.isReadonlyArrayNonEmpty(held),
+    );
+    const { code } = yield* Option.match(judged, { onNone: () => Effect.succeed({ code: 1 }), onSome: ({ root, held }) => run(root)`git check-ignore --no-index -- ${held}` });
     yield* Effect.when(new Cause.UnknownError(code, `git check-ignore exited ${code} on ${real.join(' ')}`), Effect.succeed(code > 1));
     return { repository, ignored: code === 0 || paths.some((path) => modules.inside.test(path)) };
 });

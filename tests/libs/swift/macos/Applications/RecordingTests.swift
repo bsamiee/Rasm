@@ -60,7 +60,8 @@ extension WindowServerTests {
                 return (await recording.value, clock.now - started)
             }
             expectNoDifference(ended[case: \.failure]?.reason, .cancelled)
-            #expect(took < .seconds(10), "the cancelled recording ended after \(took)")
+            let prompt: Bool = took < Duration.seconds(10)
+            #expect(prompt, "the cancelled recording ended after \(took)")
         }
     }
 }

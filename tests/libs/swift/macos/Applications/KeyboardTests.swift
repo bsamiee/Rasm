@@ -35,9 +35,9 @@ extension WindowServerTests {
                 let failures: Comment = "Posting the keys answered \(outcomes)"
                 try #require(posted, failures)
                 try await fixture.send(.report)
-                let typed: JSONValue? = try await fixture.next(\.report).value.controls.first { control in control.entry == entry && control.member == 0 }?.value
+                let entered: JSONValue? = try await fixture.next(\.report).value.controls.first { control in control.entry == entry && control.member == 0 }?.value
                 await Captures.current?.take(in: watch)
-                return (shown, typed)
+                return (shown, entered)
             }
             #expect(before != JSONValue.string(text), "The field held the typed text before typing")
             expectNoDifference(after, .string(text))

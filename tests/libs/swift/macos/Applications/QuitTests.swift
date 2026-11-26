@@ -19,7 +19,7 @@ extension WindowServerTests {
         func endsWithTheExitOfAnInstanceAnsweringTheQuitEvent() async throws {
             let state: InstanceState = try await FixtureSession.launched { fixture in
                 let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
-                let watch: Watch = await Watches { _, _ throws(ApplicationFailure) in [] }.watch(try Instance(application))
+                let watch: Watch = await Watches().watch(try Instance(application))
                 return try await watch.quit(.asking, within: .seconds(10))
             }
             #expect(state.is(\.exited), "quit returned \(state) for an instance with no unsaved document")
@@ -29,7 +29,7 @@ extension WindowServerTests {
         func endsWithTheCleanExitOfAnInstanceBusyClosingItsWindowsPastTheMessagingTimeout() async throws {
             let state: InstanceState = try await FixtureSession.launched { fixture in
                 let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
-                let watch: Watch = await Watches { _, _ throws(ApplicationFailure) in [] }.watch(try Instance(application))
+                let watch: Watch = await Watches().watch(try Instance(application))
                 try await fixture.send(.hangOnTermination(kind: .spinning(.seconds(3))))
                 return try await watch.quit(.asking, within: .seconds(10))
             }
@@ -40,7 +40,7 @@ extension WindowServerTests {
         func returnsTheUnresponsiveStateOfAHungInstanceBeforeTheReplyDeadline() async throws {
             let (state, waited): (InstanceState, Duration) = try await FixtureSession.launched { fixture in
                 let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
-                let watch: Watch = await Watches { _, _ throws(ApplicationFailure) in [] }.watch(try Instance(application))
+                let watch: Watch = await Watches().watch(try Instance(application))
                 try await fixture.send(.hang(kind: .sleeping(.seconds(20))))
                 _ = try await fixture.next(\.hanging)
                 let started = ContinuousClock.now

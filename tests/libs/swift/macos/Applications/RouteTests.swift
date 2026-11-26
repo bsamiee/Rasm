@@ -34,7 +34,7 @@ private func post(_ input: (SIMD2<Double>) throws(ApplicationFailure) -> Input, 
     )
     try await route(CGWindowID(window)).post(timeline, to: fixture.process, from: source, frame: .seconds(1) / rate, clock: ContinuousClock())
     let instance = try Instance(try #require(NSRunningApplication(processIdentifier: fixture.process)))
-    await Captures.current?.take(in: await Watches { _, _ throws(ApplicationFailure) in [] }.watch(instance))
+    await Captures.current?.take(in: await Watches().watch(instance))
     return timeline.filter { (_: Duration, event: CGEvent) -> Bool in event.type == .leftMouseDown }.map(\.offset)
 }
 

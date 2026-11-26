@@ -6,6 +6,7 @@ import CasePathsCore
 import CustomDump
 import Encoding
 import Fixture
+import OrderedCollections
 import Testing
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -29,7 +30,7 @@ struct Shown: Equatable {
     let label: String?
 }
 
-struct Step: Hashable {
+struct Chord: Hashable {
     let key: Key?
     let modifiers: Set<Modifier>
 }
@@ -115,17 +116,17 @@ extension WindowServerTests {
             }
             let specials: [NSEvent.SpecialKey: Key.Special] = [.f5: .f5]
             let held: [(flag: NSEvent.ModifierFlags, modifier: Modifier)] = [(.command, .command), (.shift, .shift), (.option, .option), (.control, .control), (.function, .function)]
-            let pressed: [String: Step] = Dictionary(
-                uniqueKeysWithValues: report.controls.compactMap { (control: Report.Control) -> (String, Step)? in
+            let pressed: [String: Chord] = Dictionary(
+                uniqueKeysWithValues: report.controls.compactMap { (control: Report.Control) -> (String, Chord)? in
                     guard let title = control.title, let shortcut = control.shortcut, case .known(let mask) = shortcut.modifiers, let scalar = shortcut.key.unicodeScalars.first else { return nil }
                     let key: Key = specials[NSEvent.SpecialKey(rawValue: Int(scalar.value))].map(Key.special) ?? .character(Character(shortcut.key))
-                    return (title, Step(key: key, modifiers: Set(held.filter { flag, _ in mask.contains(flag) }.map(\.modifier))))
+                    return (title, Chord(key: key, modifiers: Set(held.filter { flag, _ in mask.contains(flag) }.map(\.modifier))))
                 }
             )
-            let read: [String: Step] = Dictionary(
-                levels.flatMap(\.containers).flatMap(\.controls).compactMap { (control: Control) -> (String, Step)? in
+            let read: [String: Chord] = Dictionary(
+                levels.flatMap(\.containers).flatMap(\.controls).compactMap { (control: Control) -> (String, Chord)? in
                     guard let title = control.label?.text, pressed[title] != nil else { return nil }
-                    return (title, Step(key: control.shortcut?.key, modifiers: Set(control.shortcut?.modifiers ?? [])))
+                    return (title, Chord(key: control.shortcut?.key, modifiers: Set(control.shortcut?.modifiers ?? [])))
                 }
             ) { first, _ in first }
             #expect(!pressed.isEmpty, "The fixture reports no menu item with a shortcut")

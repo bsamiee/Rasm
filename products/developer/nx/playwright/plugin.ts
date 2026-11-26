@@ -5,7 +5,7 @@ import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath } from '@nx/devkit';
 import { emitPluginWorkerLog, getDaemonClientEnvGeneration, globWithWorkspaceContext, hashObject, quoteShellArg } from '@nx/devkit/internal';
 import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, owned, packaged, type Pass, PLATFORM, request, run, tokened, within } from '@rasm/nx/inference';
-import { Array, Cause, Effect, Filter, flow, Option, Record, Result, Schema, String, Struct } from 'effect';
+import { Array, Effect, Filter, flow, Option, Record, Result, Schema, String, Struct } from 'effect';
 import plugin from '#/package.json' with { type: 'json' };
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -47,7 +47,11 @@ const templated = (folder: string) => new RegExp(`^${folder.split('{projectName}
 
 const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, routed: boolean) {
     const local = (at: string) => normalizePath(relative(workspaceRoot, at));
-    const { edges, environment, scripts, routes, reported, commands, suites } = yield* request(Effect.sync(() => new Worker(WORKER, { workerData: [join(workspaceRoot, file), routed] })), Loaded, `${file} does not load as a Playwright config`);
+    const { edges, environment, scripts, routes, reported, commands, suites } = yield* request(
+        Effect.sync(() => new Worker(WORKER, { workerData: [join(workspaceRoot, file), routed] })),
+        Loaded,
+        `${file} does not load as a Playwright config`,
+    );
     const workspaced = (url: string) => Option.liftPredicate(url, String.startsWith('file:')).pipe(Option.map(flow(fileURLToPath, local)), Option.filter(within));
     const loaded = Array.dedupe([
         file,

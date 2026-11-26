@@ -122,8 +122,8 @@ extension LogEntry {
         let textClause: NSPredicate? = text.map { text in NSPredicate(format: "%K CONTAINS[c] %@", argumentArray: [CodingKeys.composedMessage.stringValue, text]) }
         let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [NSPredicate(format: "%K == %@", argumentArray: [key.stringValue, value]), levelClause, textClause].compactMap(\.self))
         let decoder = JSONDecoder()
-        try await Configuration(executable: .name("log"), arguments: Arguments(command + ["--predicate", predicate.predicateFormat, "--style", "ndjson"])).run(input: .none, output: .sequence) {
-            execution in
+        let log = Configuration(executable: .name("log"), arguments: Arguments(command + ["--predicate", predicate.predicateFormat, "--style", "ndjson"]))
+        try await log.run(input: .none, output: .sequence) { execution in
             for try await line in execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"])) where line.hasPrefix("{") {
                 switch Result(catching: { try decoder.decode(Line.self, from: Data(line.utf8)).entry }) {
                     case .success(let entry?): try sink(.success(entry))

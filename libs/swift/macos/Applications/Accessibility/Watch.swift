@@ -533,15 +533,19 @@ public actor Watch {
     public func model(_ scope: Model.Scope, known: Model.Known? = nil, clock: some Clock<Duration> = ContinuousClock()) async throws(ApplicationFailure) -> Model {
         switch scope {
             case .application:
-                let verified: Set<Locator> = known?.build == build ? known?.containers ?? [] : []
-                let (walked, kept): (Hierarchy, Set<Int>) = try await spaced(clock: clock) { () throws(ApplicationFailure) -> (Hierarchy, Set<Int>) in
-                    let app: Element = try application()
-                    let held: [Container] = open.values.filter { (container: Container) -> Bool in container.parent == nil && verified.contains(container.locator) }
-                    let kept: Set<Int> = Set(held.compactMap { (container: Container) -> Int? in located[container.ref] })
+                let verified: Set<String> = known?.build == build ? known?.containers ?? [] : []
+                var menus: Bool = bars.isEmpty
+                for bar in bars where !verified.contains(try bar.locator.text()) { menus = true }
+                let walk = { () throws(ApplicationFailure) -> (Hierarchy, Set<Int>) in
+                    let app: Element = try self.application()
+                    var kept: Set<Int> = []
+                    for container in self.open.values where container.parent == nil {
+                        if verified.contains(try container.locator.text()), let element = self.located[container.ref] { kept.insert(element) }
+                    }
                     let windows: Set<Int> = Set(app.facts[kAXWindowsAttribute]?.elements ?? []).subtracting(kept)
-                    let menus: Bool = bars.isEmpty || !bars.allSatisfy { (bar: Container) -> Bool in verified.contains(bar.locator) }
-                    return (try hierarchy(of: app, full: windows, menus: menus), kept)
+                    return (try self.hierarchy(of: app, full: windows, menus: menus), kept)
                 }
+                let (walked, kept): (Hierarchy, Set<Int>) = if menus { try await spaced(clock: clock, walk) } else { try walk() }
                 var read: Hierarchy = walked
                 for row in read.flyouts { read.recognized[row.number] = try await recognizeText(in: row.number, customWords: known?.customWords ?? []) }
                 let model: Model = try merged(read, full: Set(read.roots).subtracting(kept))

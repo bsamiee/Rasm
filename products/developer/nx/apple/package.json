@@ -43,7 +43,6 @@
     "dependencies": {
         "@nx/devkit": "catalog:",
         "@rasm/nx": "workspace:*",
-        "@rasm/process": "workspace:*",
         "cf": "catalog:",
         "effect": "catalog:",
         "which": "catalog:"

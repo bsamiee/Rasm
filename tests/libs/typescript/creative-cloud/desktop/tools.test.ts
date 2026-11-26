@@ -164,6 +164,17 @@ describe('Illustrator preferences', () => {
             },
         ),
     );
+    it.effect('reads none for the release build sharing the bundle name and version of a Beta settings folder', () =>
+        Effect.map(
+            Preferences.illustrator(Application.make({ ...ILLUSTRATOR, name: 'Adobe Illustrator 2027', channel: 'release', identifier: 'com.adobe.illustrator', url: pathToFileURL(`${FIXTURES}Applications/Adobe Illustrator 2027/Adobe Illustrator.app/`) })).pipe(
+                Effect.provideService(Preferences, `${FIXTURES}Preferences`),
+                Effect.provide(layer),
+            ),
+            (read) => {
+                assert.deepStrictEqual(read, []);
+            },
+        ),
+    );
     it.effect('reads none for a build no settings folder ran', () =>
         Effect.map(Preferences.illustrator(Application.make({ ...ILLUSTRATOR, version: '31.2.0' })).pipe(Effect.provideService(Preferences, `${FIXTURES}Preferences`), Effect.provide(layer)), (read) => {
             assert.deepStrictEqual(read, []);

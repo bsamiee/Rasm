@@ -43,7 +43,7 @@ extension WindowServerTests {
             let events = NSWorkspace.shared.launchEvents(
                 try Installation(at: folder.appending(component: "Fixture.app")),
                 in: ScriptingDictionaries { _ in nil },
-                watches: Watches { _, _ throws(ApplicationFailure) in [] },
+                watches: Watches(),
                 within: .seconds(5),
                 arguments: ["-\(FixtureSession.ordersFrontAtLaunch)", "YES"],
             )
@@ -79,7 +79,7 @@ extension WindowServerTests {
             let front = try #require(NSWorkspace.shared.frontmostApplication)
             let (samples, lines, fixture): ([[pid_t]], [Line], pid_t) = try await FixtureSession.launched { fixture in
                 let instance = try Instance(try #require(NSRunningApplication(processIdentifier: fixture.process)))
-                let watch: Watch = await Watches { _, _ throws(ApplicationFailure) in [] }.watch(instance)
+                let watch: Watch = await Watches().watch(instance)
                 let sampling = Task {
                     await AsyncTimerSequence(interval: .milliseconds(5), clock: ContinuousClock()).prefix(200).map { _ in Self.normalOwners() }
                         .reduce(into: [[pid_t]]()) { held, owners in held.append(owners) }

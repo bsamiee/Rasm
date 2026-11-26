@@ -35,13 +35,16 @@ struct StepTests {
         let both: Set<Input.Edge> = [.down, .up]
         let single = Input.Schedule(count: 1, every: nil, jitter: .zero)
         let expected: [Step.Action] = [
-            .press(ref: 3, action: kAXPressAction),
-            .press(ref: 3, action: kAXShowMenuAction),
-            .set(ref: 4, value: .text("Tabloid")),
-            .input(contact: .key(.character("a")), path: [], focus: 5, hold: .milliseconds(250), modifiers: [.command], schedule: single, edges: [.down], windows: []),
-            .input(
+            Step.Action.press(ref: 3, action: kAXPressAction),
+            Step.Action.press(ref: 3, action: kAXShowMenuAction),
+            Step.Action.set(ref: 4, value: .text("Tabloid")),
+            Step.Action.input(contact: .key(.character("a")), path: [], focus: 5, hold: .milliseconds(250), modifiers: [.command], schedule: single, edges: [.down], windows: []),
+            Step.Action.input(
                 contact: .button(.left),
-                path: [.element(ref: 7), .point(Input.Sample(at: SIMD2(10, 20), pressure: 0.5, tilt: nil)), .point(Input.Sample(at: SIMD2(30, 40), pressure: 0.5, tilt: SIMD2(0.1, -0.1)))],
+                path: [
+                    .element(ref: 7), .point(Input.Sample(at: SIMD2<Double>(10, 20), pressure: 0.5, tilt: nil)),
+                    .point(Input.Sample(at: SIMD2<Double>(30, 40), pressure: 0.5, tilt: SIMD2<Double>(0.1, -0.1))),
+                ],
                 focus: nil,
                 hold: .zero,
                 modifiers: [],
@@ -49,9 +52,9 @@ struct StepTests {
                 edges: both,
                 windows: [],
             ),
-            .input(
-                contact: .wheel(by: SIMD2(0, -3), unit: .line),
-                path: [.point(Input.Sample(at: SIMD2(1, 2), pressure: nil, tilt: nil))],
+            Step.Action.input(
+                contact: .wheel(by: SIMD2<Double>(0, -3), unit: .line),
+                path: [.point(Input.Sample(at: SIMD2<Double>(1, 2), pressure: nil, tilt: nil))],
                 focus: nil,
                 hold: .zero,
                 modifiers: [],
@@ -59,7 +62,16 @@ struct StepTests {
                 edges: both,
                 windows: [],
             ),
-            .input(contact: .hover, path: [.point(Input.Sample(at: SIMD2(1, 2), pressure: nil, tilt: nil))], focus: nil, hold: .zero, modifiers: [], schedule: single, edges: both, windows: [9]),
+            Step.Action.input(
+                contact: .hover,
+                path: [.point(Input.Sample(at: SIMD2<Double>(1, 2), pressure: nil, tilt: nil))],
+                focus: nil,
+                hold: .zero,
+                modifiers: [],
+                schedule: single,
+                edges: both,
+                windows: [9],
+            ),
         ]
         expectNoDifference(read, expected)
         expectNoDifference(try steps(#"[{"at":4,"to":"Tabloid","from":"process"}]"#).map(\.from), [.process])
@@ -76,7 +88,9 @@ struct StepTests {
         let watch: Watch = await Watches().watch(try Instance(NSRunningApplication.current), driven: false)
         let refusal = await #expect(throws: ApplicationFailure.self) { try await watch.act(batch) }
         expectNoDifference(refusal?.reason, .refused)
-        #expect(refusal?.subject.contains("step 2") == true && refusal?.subject.contains("step 3") == true && refusal?.subject.contains("step 1") == false, "\(String(describing: refusal))")
+        let subject: String = refusal?.subject ?? ""
+        let named: Bool = subject.contains("step 2") && subject.contains("step 3") && !subject.contains("step 1")
+        #expect(named, "\(String(describing: refusal))")
     }
 
     @Test(.enabled(if: CGPreflightPostEventAccess(), "The system rung checks the PostEvent grant before the shortcut table"))
@@ -95,7 +109,8 @@ struct StepTests {
             )
             let timeline = try input.timeline(doubleClick: .milliseconds(500), keyRepeat: (.milliseconds(250), .milliseconds(33)), frames: 60, layout: layout, firstPress: (1, 1), using: &generator)
             let refusal = await #expect(throws: ApplicationFailure.self) { try await Route.system.post(timeline, to: getpid(), from: source, frame: .milliseconds(16), clock: ContinuousClock()) }
-            #expect(refusal?.subject.contains("as its own shortcut") == true, "key code \(chord.code) with \(chord.modifiers): \(String(describing: refusal))")
+            let shortcut: Bool = refusal?.subject.contains("as its own shortcut") == true
+            #expect(shortcut, "key code \(chord.code) with \(chord.modifiers): \(String(describing: refusal))")
         }
     }
 }

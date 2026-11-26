@@ -34,7 +34,7 @@ private struct Fixture: ~Copyable {
         url = FileManager.default.temporaryDirectory.appending(components: UUID().uuidString, "Fixture.app")
         let resources = url.appending(components: "Contents", "Resources")
         try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
-        let info: [String: Any] = ["CFBundleIdentifier": "app.rasm.fixture", "OSAScriptingDefinitionIsDynamic": true]
+        let info: [String: Any] = [kCFBundleIdentifierKey as String: "app.rasm.fixture", "OSAScriptingDefinitionIsDynamic": true]
         try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0).write(to: url.appending(components: "Contents", "Info.plist"))
         try Data(#"<dictionary title="Fixture"><suite name="Fixture" code="Fixt"/></dictionary>"#.utf8).write(to: resources.appending(component: "Cached.sdef"))
     }
@@ -120,47 +120,44 @@ struct MatchingTests {
     @Test(arguments: requests)
     func refusesAnApplicationThePredicateDoesNotMatchBeforeReadingIt(method: String, params: [String: JSONValue]) async throws {
         let bundle = try Fixture()
-        let (reads, read) = AsyncStream<Void>.makeStream()
         let request = JSONValue.object([method: .object(params.merging(["url": .string(bundle.url.absoluteString)]) { kept, _ in kept })])
-        let outcome = await Result {
-            try await JSONDecoder().decode(Request.self, from: JSONEncoder().encode(request))
-                .perform(
-                    matching: { NSPredicate(format: "kMDItemCFBundleIdentifier == %@", "app.rasm.other") },
-                    dictionaries: ScriptingDictionaries(cachedDefinition: { _ in
-                        read.yield()
-                        return nil
-                    }),
-                    watches: Watches(),
-                )
+        let outcome = await confirmation(expectedCount: 0) { read in
+            await Result {
+                try await JSONDecoder().decode(Request.self, from: JSONEncoder().encode(request))
+                    .perform(
+                        matching: { NSPredicate(format: "kMDItemCFBundleIdentifier == %@", "app.rasm.other") },
+                        dictionaries: ScriptingDictionaries(cachedDefinition: { _ in
+                            read()
+                            return nil
+                        }),
+                        watches: Watches(),
+                    )
+            }
         }
-        read.finish()
         let refusal: Unmatched? =
             switch outcome {
                 case .success: nil
                 case .failure(let failure): (failure as? ApplicationFailure)?.reason[case: \.unmatched]
             }
         expectNoDifference(refusal?.query, "app.rasm.fixture")
-        let counted = await reads.reduce(0) { count, _ in count + 1 }
-        expectNoDifference(counted, 0)
     }
 
     @Test
     func readsTheDefinitionOfAMatchingApplication() async throws {
         let bundle = try Fixture()
         let cached = bundle.url.appending(components: "Contents", "Resources", "Cached.sdef")
-        let (asked, ask) = AsyncStream<String>.makeStream()
-        let response = try await JSONDecoder().decode(Request.self, from: Data(#"{"dictionary":{"url":"\#(bundle.url.absoluteString)"}}"#.utf8))
-            .perform(
-                matching: { NSPredicate(format: "kMDItemCFBundleIdentifier == %@", "app.rasm.fixture") },
-                dictionaries: ScriptingDictionaries(cachedDefinition: { installation in
-                    ask.yield(installation.identifier)
-                    return cached
-                }),
-                watches: Watches(),
-            )
-        ask.finish()
-        let identifiers = await asked.reduce(into: [String]()) { identifiers, identifier in identifiers.append(identifier) }
-        expectNoDifference(identifiers, ["app.rasm.fixture"])
+        let response = try await confirmation(expectedCount: 1) { ask in
+            try await JSONDecoder().decode(Request.self, from: Data(#"{"dictionary":{"url":"\#(bundle.url.absoluteString)"}}"#.utf8))
+                .perform(
+                    matching: { NSPredicate(format: "kMDItemCFBundleIdentifier == %@", "app.rasm.fixture") },
+                    dictionaries: ScriptingDictionaries(cachedDefinition: { installation in
+                        expectNoDifference(installation.identifier, "app.rasm.fixture")
+                        ask()
+                        return cached
+                    }),
+                    watches: Watches(),
+                )
+        }
         let value = try #require(response[case: \.value.some])
         let listing = try JSONDecoder().decode([String: JSONValue].self, from: JSONEncoder().encode(value))
         expectNoDifference(listing["suite"], .array([.object(["name": .string("Fixture"), "code": .string("Fixt")])]))

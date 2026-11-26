@@ -227,7 +227,9 @@ const located = Effect.fnUntraced(function* (context: ExecutorContext) {
     );
     const under = (folder: string) => sources.filter(below(folder)).map((other) => path.relative(folder, other));
     const folders = yield* Effect.forEach(
-        Array.cartesianWith(sources, rows, (file, host) => ({ host, file, folder: path.join(file, path.relative(host.manifest, '.')) })).filter(({ host, file, folder }) => (host.build?.pack !== undefined || host.install?.unpacked === true) && Glob.match(Glob.make(host.manifest), path.relative(folder, file).split(path.sep).join('/'))),
+        Array.cartesianWith(sources, rows, (file, host) => ({ host, file, folder: path.join(file, path.relative(host.manifest, '.')) })).filter(
+            ({ host, file, folder }) => (host.build?.pack !== undefined || host.install?.unpacked === true) && Glob.match(Glob.make(host.manifest), path.relative(folder, file).split(path.sep).join('/')),
+        ),
         ({ host, file, folder }) => Effect.flatMap(fs.readFileString(file), (text) => stated(host, folder, text, file, under(folder))),
     );
     return { project, target, outputs, packages: Array.getSomes(packages), folders: Array.getSomes(folders) };

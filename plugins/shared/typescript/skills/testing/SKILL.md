@@ -117,7 +117,7 @@ Tests own what they create under a name no other test uses, released when their 
 
 | [INDEX] | [EXPORT]                   | [HOLDS]                                                                             |
 | :-----: | :------------------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `@rasm/testing/nx`         | `Workspace` in a temporary folder, `it` with `workspace` and `fileWorkspace`        |
+|  [01]   | `@rasm/testing/nx`         | `Workspace` in a temporary folder, `Workspace.scoped` for an Effect scope, `it` with `workspace` and `fileWorkspace` |
 |  [02]   | `@rasm/testing/http`       | `transport(app)`, an `HttpClient` layer whose `fetch` runs an app in process        |
 |  [03]   | `@rasm/testing/playwright` | `config`, `it` with `axe`, `loaded` with an unpacked extension, `media`, `resource` |
 |  [04]   | `@rasm/testing/errors`     | `refused(pattern)`, a match on an Nx plugin error's nested messages                 |

@@ -1,18 +1,16 @@
-import { ChildProcess } from 'node:child_process';
+import { ChildProcess as NodeChildProcess } from 'node:child_process';
 import { once } from 'node:events';
 import { existsSync, readdirSync } from 'node:fs';
 import { findPackageJSON } from 'node:module';
 import { dirname, isAbsolute, join, posix, relative, sep } from 'node:path';
 import { cwd } from 'node:process';
 import type { Worker } from 'node:worker_threads';
-import * as NodePath from '@effect/platform-node/NodePath';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateNodesContext, detectPackageManager, type ExecutorContext, hashArray, normalizePath, type NxJsonConfiguration, type PackageManager, readJsonFile, type TargetConfiguration, type TaskGraph } from '@nx/devkit';
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getLockFileName, getNamedInputs, hashFile, hashWithWorkspaceContext, killChildOnHostExit, mergeTargetConfigurations, type PackageJson, PluginCache, parseExecutor, readModulePackageJson, workspaceDataDirectory } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
-import * as Process from '@rasm/process';
-import { Array, Cause, Config, ConfigProvider, Context, Effect, Equal, FileSystem, Filter, Formatter, Function, identity, Layer, ManagedRuntime, Match, MutableRef, Option, Path, Predicate, pipe, Record, Result, Schema, type Scope, Stream, String, Struct, Tuple, UndefinedOr } from 'effect';
-import { type ChildProcess as Command, ChildProcessSpawner } from 'effect/process';
+import { Array, Cause, Config, ConfigProvider, Context, Effect, Equal, FileSystem, Filter, Formatter, Function, identity, Layer, ManagedRuntime, Match, MutableRef, Option, Predicate, pipe, Record, Result, Schema, type Scope, Stream, String, Struct, Tuple, UndefinedOr } from 'effect';
+import { ChildProcess, CommandLine } from 'effect/process';
 import collection from '#/executors.json' with { type: 'json' };
 import plugin from '#/package.json' with { type: 'json' };
 
@@ -46,21 +44,6 @@ const Words = Schema.optionalKey(Schema.Array(Schema.String)).annotate({ descrip
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const Root = Context.Reference<string>('@rasm/nx/Root', { defaultValue: cwd });
-const hosted = Layer.merge(
-    layer,
-    Layer.effect(
-        ChildProcessSpawner.ChildProcessSpawner,
-        Effect.map(Effect.service(ChildProcessSpawner.ChildProcessSpawner), (spawner) =>
-            ChildProcessSpawner.make((command) =>
-                Effect.tap(spawner.spawn(command), (handle) => {
-                    const tracked = Object.assign(new ChildProcess(), { pid: handle.pid });
-                    return Effect.andThen(Effect.addFinalizer(() => Effect.sync(() => tracked.emit('exit'))), Effect.sync(() => killChildOnHostExit(tracked)));
-                }),
-            ),
-        ),
-    ).pipe(Layer.provide(layer)),
-);
-const { resolveWithin } = Effect.runSync(Effect.provide(Effect.service(Path.Path), NodePath.layer));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -73,7 +56,7 @@ const legible = (error: unknown): Error =>
     );
 
 const runner = <R>(services: Layer.Layer<R>): Run<R> => {
-    const runtime = ManagedRuntime.make(Layer.merge(services, hosted));
+    const runtime = ManagedRuntime.make(Layer.merge(services, layer));
     return <A, E>(effect: Effect.Effect<A, E, R | NodeServices | Scope.Scope>) => runtime.runPromise(effect.pipe(Effect.mapError(legible), Effect.scoped, Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv())));
 };
 
@@ -88,14 +71,25 @@ const executor = <S extends Schema.Decoder<unknown>, A>(options: S, body: (state
 
 const batched = <S extends Schema.Decoder<unknown>, A, E>(options: S, body: (graph: TaskGraph, inputs: Readonly<Record<string, S['Type']>>, context: ExecutorContext) => Stream.Stream<A, E, NodeServices>) => {
     const decode = Schema.decodeUnknownEffect(Schema.Record(Schema.String, options));
-    return (graph: TaskGraph, raw: unknown, _: unknown, context: ExecutorContext) => Stream.toReadableStream(Stream.provide(Stream.unwrap(Effect.map(decode(raw), (inputs) => body(graph, inputs, context))), hosted)).values();
+    return (graph: TaskGraph, raw: unknown, _: unknown, context: ExecutorContext) => Stream.toReadableStream(Stream.provide(Stream.unwrap(Effect.map(decode(raw), (inputs) => body(graph, inputs, context))), layer)).values();
 };
 
 const fingerprinted = (folder: string) => Effect.succeed(hashArray([...Array.fromNullishOr(hashFile(import.meta.filename)), ...Array.flatMap(readdirSync(folder).toSorted(), (name) => Array.fromNullishOr(hashFile(join(folder, name))).flatMap((hash) => [name, hash]))]));
 
-const spawned = (argv: Array.NonEmptyReadonlyArray<string>, options?: Command.CommandOptions) => Effect.map(Process.run(argv, options), Struct.get('stdout'));
+const ran = Effect.fnUntraced(function* (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) {
+    const invoked = CommandLine.display(argv);
+    const handle = yield* Effect.mapError(ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore', ...options, extendEnv: true, detached: false }), (error) => new Cause.UnknownError(error, `${invoked} cannot start: ${error.message}`));
+    const tracked = Object.assign(new NodeChildProcess(), { pid: handle.pid });
+    yield* Effect.addFinalizer(() => Effect.sync(() => tracked.emit('exit')));
+    yield* Effect.sync(() => killChildOnHostExit(tracked));
+    const [stdout, said, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+    return { invoked, stdout, said, code };
+}, Effect.scoped);
 
-const request = <S extends Schema.Decoder<unknown>>(start: Effect.Effect<Worker | ChildProcess>, reply: S, refusal: string) => {
+const spawned = (argv: Array.NonEmptyReadonlyArray<string>, options: ChildProcess.CommandOptions = {}) =>
+    Effect.flatMap(ran(argv, options), ({ invoked, stdout, said, code }) => (code === 0 ? Effect.succeed(stdout) : new Cause.UnknownError(code, [`${invoked} exits ${code}`, ...Option.toArray(Array.findFirst([said.trim(), stdout.trim()], String.isNonEmpty))].join(': '))));
+
+const request = <S extends Schema.Decoder<unknown>>(start: Effect.Effect<Worker | NodeChildProcess>, reply: S, refusal: string) => {
     const failed = (cause: unknown) => new Cause.UnknownError(cause, refusal);
     return Effect.acquireDisposable(start).pipe(
         Effect.flatMap((peer) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(peer, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(peer, 'exit', { signal }), catch: failed }), failed))),
@@ -104,7 +98,7 @@ const request = <S extends Schema.Decoder<unknown>>(start: Effect.Effect<Worker 
     );
 };
 
-const inside = (folder: string) => (file: string) => Option.isSome(resolveWithin(folder, relative(folder, file)));
+const inside = (folder: string) => (file: string) => Predicate.and(Predicate.not(isAbsolute), (at: string) => Array.headNonEmpty(String.split(normalizePath(at), '/')) !== '..')(relative(folder, file));
 
 const below = (folder: string) => Predicate.and(inside(folder), (file: string) => relative(folder, file) !== '');
 
@@ -271,6 +265,7 @@ export {
     parsed,
     type Pass,
     PLATFORM,
+    ran,
     recalled,
     removable,
     request,

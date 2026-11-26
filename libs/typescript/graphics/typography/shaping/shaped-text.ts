@@ -1,4 +1,4 @@
-import { Array, Effect, Function, Number, Option, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
+import { Array, Effect, Equal, Function, Number, Option, Record, Schema, SchemaGetter, SchemaIssue, Struct, Tuple } from 'effect';
 import { Buffer, BufferFlag, ClusterLevel, Direction, Feature, GlyphClass, GlyphFlag, otTagToLanguage, otTagToScript, shape } from 'harfbuzzjs';
 import { Settings, Tag } from '#/settings';
 import type { Face } from '#/shaping/face';
@@ -77,7 +77,7 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
             ...Record.map(position, em),
             extents: Option.map(Option.fromUndefinedOr(font.glyphExtents(codepoint)), Record.map(em)),
             scale: 1,
-            class: Array.getUnsafe(GlyphClasses.literals, font.face.getGlyphClass(codepoint)),
+            class: Option.getOrThrow(Option.map(Record.findFirst(GlyphClass, Equal.equals(font.face.getGlyphClass(codepoint))), Tuple.get(0))),
             flags: GlyphFlags.literals.filter((flag) => (glyphFlags & GlyphFlag[flag]) !== 0),
         }));
         const bases = shaped.filter((glyph) => glyph.class !== 'MARK').toSorted((left, right) => right.cluster - left.cluster);

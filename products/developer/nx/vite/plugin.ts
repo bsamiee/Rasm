@@ -39,7 +39,11 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
     const fs = yield* FileSystem.FileSystem;
     const at = join(workspaceRoot, file);
     const local = (to: string) => normalizePath(relative(workspaceRoot, to));
-    const resolved = request(Effect.sync(() => new Worker(WORKER, { workerData: { at, outDir } })), Resolution, `${file} does not load for vite build`);
+    const resolved = request(
+        Effect.sync(() => new Worker(WORKER, { workerData: { at, outDir } })),
+        Resolution,
+        `${file} does not load for vite build`,
+    );
     const [resolution, vite] = yield* Effect.all([resolved, Effect.tryPromise({ try: (): Promise<{ readonly parseSync: typeof parseSync }> => import(pathToFileURL(createRequire(at).resolve('vite')).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no vite`) })], { concurrency: 'unbounded' });
     const loaded = Array.dedupe([file, ...resolution.dependencies.map(local)]).filter(within);
     const { packages } = yield* packaged(yield* parsed(vite.parseSync, workspaceRoot, loaded));

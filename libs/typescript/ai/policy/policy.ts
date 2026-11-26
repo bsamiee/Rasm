@@ -1,5 +1,5 @@
 import { Shell } from '@rasm/shell';
-import { Array, ConfigProvider, Duration, Effect, Equal, Exit, HashSet, Match, Number, Option, Predicate, Record, Ref, Stream } from 'effect';
+import { Array, Combiner, ConfigProvider, Duration, Effect, Equal, Exit, HashSet, Match, Number, Option, Predicate, Record, Ref, Stream } from 'effect';
 import { Action, byRun, Decision, Scope, scopes } from '#/decision/action';
 import { type Call, compile, type Compiled, compiled, message, type Requirements, type Table, type Tally, tally } from '#/decision/rule';
 import { git } from '#/rules/git';
@@ -29,10 +29,7 @@ class Policy {
     readonly #told = Ref.makeUnsafe(HashSet.empty<{ readonly text: string; readonly scope: Scope }>());
 
     constructor(...tables: Table[]) {
-        const rules = Record.filter(
-            tables.reduce((merged, table) => Record.union(merged, table, (_, later) => later), git),
-            Predicate.isNotNull,
-        );
+        const rules = Record.filter(Record.makeReducerUnion<string, Table[string]>(Combiner.last()).combineAll([git, ...tables]), Predicate.isNotNull);
         this.#compiled = compiled.combineAll(Record.collect(rules, compile));
     }
 
@@ -62,17 +59,15 @@ class Policy {
                 Effect.forEach(others, (decide) => decide(other)),
                 tally.combineAll,
             );
-        const decided = Action.match(action, {
-            Shell: (call) => decideShell(call, shell, environment),
-            Task: (task) => Effect.map(decideOther(task), ({ again, ...sum }): Result => ({ ...sum, instead: Option.liftPredicate(Action.cases.Task.make({ ...task, again }), () => Duration.isFinite(again) && Duration.isPositive(again)) })),
-            Isolate: (isolate) => Effect.map(decideOther(isolate), ({ apart, ...sum }): Result => ({ ...sum, instead: Option.liftPredicate(Action.cases.Isolate.make({ ...isolate, apart }), () => apart !== isolate.apart) })),
-            Read: (other) => Effect.map(decideOther(other), (sum): Result => ({ ...sum, instead: Option.none() })),
-            Write: (other) => Effect.map(decideOther(other), (sum): Result => ({ ...sum, instead: Option.none() })),
-            Edit: (other) => Effect.map(decideOther(other), (sum): Result => ({ ...sum, instead: Option.none() })),
-            Fetch: (other) => Effect.map(decideOther(other), (sum): Result => ({ ...sum, instead: Option.none() })),
-            Mcp: (other) => Effect.map(decideOther(other), (sum): Result => ({ ...sum, instead: Option.none() })),
-            Spawn: (other) => Effect.map(decideOther(other), (sum): Result => ({ ...sum, instead: Option.none() })),
-        });
+        const decided = Action.matchOrElse(
+            action,
+            {
+                Shell: (call) => decideShell(call, shell, environment),
+                Task: (task) => Effect.map(decideOther(task), ({ again, ...sum }): Result => ({ ...sum, instead: Option.liftPredicate(Action.cases.Task.make({ ...task, again }), () => Duration.isFinite(again) && Duration.isPositive(again)) })),
+                Isolate: (isolate) => Effect.map(decideOther(isolate), ({ apart, ...sum }): Result => ({ ...sum, instead: Option.liftPredicate(Action.cases.Isolate.make({ ...isolate, apart }), () => apart !== isolate.apart) })),
+            },
+            (other) => Effect.map(decideOther(other), (sum): Result => ({ ...sum, instead: Option.none() })),
+        );
         return decided.pipe(
             Effect.flatMap(({ reasons, notes, faults, instead }) =>
                 Effect.map(Effect.all({ notes: this.#fresh(action.agent, notes), faults: this.#fresh(action.agent, faults) }), (told) =>

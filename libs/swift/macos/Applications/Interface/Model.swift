@@ -308,7 +308,7 @@ public struct Model: Encodable, Sendable {
 
     public struct Known: Decodable, Sendable {
         public let build: String
-        public let containers: Set<Locator>
+        public let containers: Set<String>
         public let customWords: [String]
     }
 

@@ -7,7 +7,7 @@ import { quoteShellArg } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import web from '@nx/web/package.json' with { type: 'json' };
 import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, inside, manifested, namedInput, owned, packaged, type Pass, request, run, tokened, type Verbs, within } from '@rasm/nx/inference';
-import { Array, Cause, Effect, Option, Predicate, Schema } from 'effect';
+import { Array, Effect, Option, Predicate, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -34,7 +34,11 @@ const braced = (glob: string): string => {
 
 const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
     const main = join(workspaceRoot, file);
-    const { named, stories, loaded } = yield* request(Effect.sync(() => new Worker(new URL(import.meta.resolve('#/worker')), { workerData: [main, workspaceRoot] })), Loaded, `${file} does not load as a Storybook main config`);
+    const { named, stories, loaded } = yield* request(
+        Effect.sync(() => new Worker(new URL(import.meta.resolve('#/worker')), { workerData: [main, workspaceRoot] })),
+        Loaded,
+        `${file} does not load as a Storybook main config`,
+    );
     const local = Option.liftThrowable((url: string) => normalizePath(relative(workspaceRoot, fileURLToPath(url))));
     const imported = Array.getSomes(loaded.map(([, specifier, parent]) => Option.as(Option.filter(local(parent), within), [specifier, parent] as const)));
     const [{ packages: framed, linked }, { packages: reached }] = yield* Effect.all([packaged(named.map((name) => [name, main] as const)), packaged(imported)]);

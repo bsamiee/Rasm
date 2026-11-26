@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, describe, it } from '@effect/vitest';
 import { Description, type FacetContainer, type FacetControl } from '@rasm/applications/source';
+import { Typeset } from '@rasm/indesign/typesetting';
 import { Preflight } from '@rasm/indesign/views';
 import { Declaration } from '@rasm/object-model/model';
 import { readTypeScript } from '@rasm/object-model/node';
@@ -24,13 +25,24 @@ const BUNDLE_PATH = /bundle path="(?<path>[^"]+)"/u;
 const TIMEOUT = 120_000;
 const PROFILE = '[Basic]';
 const OVERSET = 'Overset text in a frame too small to hold it. '.repeat(40);
+const FIGURES = '2026';
+const CHOSEN = { tnum: 1, lnum: 1, sups: 1 } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Json = Schema.fromJsonString(Schema.Unknown);
 const Answer = Schema.fromJsonString(
-    Schema.Union([Schema.Struct({ described: Description }), Schema.Struct({ operated: Schema.Boolean }), Schema.Struct({ heard: Schema.Struct({ both: Schema.Boolean, after: Schema.Boolean, listeners: Schema.Int }) }), Schema.Struct({ preflighted: Preflight.Result }), Schema.Struct({ failed: Schema.String })]),
+    Schema.Union([
+        Schema.Struct({ described: Description }),
+        Schema.Struct({ operated: Schema.Boolean }),
+        Schema.Struct({ heard: Schema.Struct({ both: Schema.Boolean, after: Schema.Boolean, listeners: Schema.Int }) }),
+        Schema.Struct({ preflighted: Preflight.Result }),
+        Schema.Struct({ typeset: Typeset.Result }),
+        Schema.Struct({ failed: Schema.String }),
+    ]),
 );
+const Framed = Schema.fromJsonString(Schema.Struct({ document: Schema.Int, frame: Schema.String }));
+const Styled = Schema.fromJsonString(Schema.Struct({ figures: Schema.String, position: Schema.String }));
 const Read = Schema.fromJsonString(
     Schema.Struct({
         tool: Schema.String,
@@ -100,6 +112,7 @@ return JSON.stringify({ tool: String(app.toolBoxTools.currentTool), name: app.to
 const described = (answer: typeof Answer.Type) => ('described' in answer ? Effect.succeed(answer.described) : Effect.fail(new Cause.UnknownError(answer, `facet answered ${Formatter.format(answer)}`)));
 const operated = (answer: typeof Answer.Type) => ('operated' in answer ? Effect.succeed(answer.operated) : Effect.fail(new Cause.UnknownError(answer, `facet answered ${Formatter.format(answer)}`)));
 const preflighted = (answer: typeof Answer.Type) => ('preflighted' in answer ? Effect.succeed(answer.preflighted) : Effect.fail(new Cause.UnknownError(answer, `facet answered ${Formatter.format(answer)}`)));
+const typeset = (answer: typeof Answer.Type) => ('typeset' in answer ? Effect.succeed(answer.typeset) : Effect.fail(new Cause.UnknownError(answer, `facet answered ${Formatter.format(answer)}`)));
 const controls = ({ containers }: Description, kind: FacetContainer['kind']): readonly FacetControl[] => Array.flatMap(containers, (container) => (container.kind === kind ? container.controls : []));
 const Held = Schema.fromJsonString(Schema.Struct({ document: Schema.Int, tool: Schema.String }));
 const loaded = Effect.acquireRelease(
@@ -191,6 +204,21 @@ const nests = Effect.fnUntraced(function* () {
         `${PROFILE} rows nest issue under rule under category, answered ${Formatter.format(categories)}`,
     );
 }, Effect.scoped);
+const features = Effect.fnUntraced(function* () {
+    const { document, frame } = yield* Effect.acquireRelease(
+        Effect.flatMap(
+            scripted("const { app } = require('indesign'); const document = app.documents.add(false); const frame = document.pages.item(0).textFrames.add({ geometricBounds: [0, 0, 50, 100], contents: script.args[0] }); return JSON.stringify({ document: document.id, frame: frame.toSpecifier() });", FIGURES),
+            Schema.decodeEffect(Framed),
+        ),
+        ({ document: held }) => Effect.orDie(scripted("const { app, SaveOptions } = require('indesign'); app.documents.itemByID(Number(script.args[0])).close(SaveOptions.NO); return 'closed';", `${held}`)),
+    );
+    const settings = yield* Effect.flatMap(facet({ typeset: { target: frame, settings: { features: CHOSEN } } }), typeset);
+    const read = yield* Effect.flatMap(
+        scripted("const { app } = require('indesign'); const text = app.documents.itemByID(Number(script.args[0])).textFrames.item(0).texts.item(0); return JSON.stringify({ figures: String(text.otfFigureStyle), position: String(text.position) });", `${document}`),
+        Schema.decodeEffect(Styled),
+    );
+    assert.deepStrictEqual({ read, chosen: Struct.pick(settings.features, ['tnum', 'lnum', 'sups']) }, { read: { figures: 'TABULAR_LINING', position: 'OT_SUPERSCRIPT' }, chosen: CHOSEN });
+}, Effect.scoped);
 const hears = Effect.fnUntraced(function* () {
     const before = yield* dom;
     yield* Effect.addFinalizer(() => Effect.orDie(scripted("const { app, UITools } = require('indesign'); app.toolBoxTools.currentTool = UITools[script.args[0]]; return 'restored';", before.tool)));
@@ -211,6 +239,7 @@ describe.skipIf(Option.isNone(application))('InDesign facets against the running
         methods.effect('operate on a tool the UITools enumeration lacks fails Unmatched over its members and leaves the current tool', refuses, TIMEOUT);
         methods.effect('operate on the tool choice takes a tool by the name the host shows for it', names, TIMEOUT);
         methods.effect('preflight of a document holding one overset frame nests its one issue under the Overset text rule under its category', nests, TIMEOUT);
+        methods.effect('typeset with features tnum, lnum, and sups sets otfFigureStyle to TABULAR_LINING and position to OT_SUPERSCRIPT, and reads those three features back', features, TIMEOUT);
         methods.effect('two subscribers to one host event each hear it through one host listener, and the one whose scope stays open hears the next after the other closed', hears, TIMEOUT);
     });
 });

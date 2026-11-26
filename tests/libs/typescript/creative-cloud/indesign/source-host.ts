@@ -1,7 +1,9 @@
 import { Description } from '@rasm/applications/source';
+import { Typeset } from '@rasm/indesign/typesetting';
 import { Dom } from '@rasm/indesign/uxp/dom';
 import { preflight } from '@rasm/indesign/uxp/operations';
 import { toolbar, workspace } from '@rasm/indesign/uxp/source';
+import { typeset } from '@rasm/indesign/uxp/typesetting';
 import { Preflight } from '@rasm/indesign/views';
 import { Plugin, Uxp } from '@rasm/uxp/plugin';
 import fs from 'adobe:fs';
@@ -17,10 +19,11 @@ const Request = Schema.fromJsonString(
         Schema.Struct({ operate: Schema.Struct({ locator: Path, to: Schema.optionalKey(Schema.Union([Schema.Boolean, Schema.Finite, Schema.String])) }) }),
         Schema.Struct({ listen: Schema.Struct({ plugin: Schema.String, tools: Schema.Tuple([Schema.String, Schema.String]) }) }),
         Schema.Struct({ preflight: Preflight }),
+        Schema.Struct({ typeset: Typeset }),
     ]),
 );
 const Heard = Schema.Struct({ both: Schema.Boolean, after: Schema.Boolean, listeners: Schema.Int });
-const Answer = Schema.fromJsonString(Schema.Union([Schema.Struct({ described: Description }), Schema.Struct({ operated: Schema.Boolean }), Schema.Struct({ heard: Heard }), Schema.Struct({ preflighted: Preflight.Result }), Schema.Struct({ failed: Schema.String })]));
+const Answer = Schema.fromJsonString(Schema.Union([Schema.Struct({ described: Description }), Schema.Struct({ operated: Schema.Boolean }), Schema.Struct({ heard: Heard }), Schema.Struct({ preflighted: Preflight.Result }), Schema.Struct({ typeset: Typeset.Result }), Schema.Struct({ failed: Schema.String })]));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -58,6 +61,7 @@ const serve =
                     Match.when({ describe: Match.defined }, ({ describe: within }) => Effect.map(describe(within), (described) => ({ described }))),
                     Match.when({ operate: Match.defined }, ({ operate: payload }) => Effect.as(operate(payload), { operated: true })),
                     Match.when({ preflight: Match.defined }, ({ preflight: payload }) => Effect.map(preflight(payload), (preflighted) => ({ preflighted }))),
+                    Match.when({ typeset: Match.defined }, ({ typeset: payload }) => Effect.map(typeset(payload), (settings) => ({ typeset: settings }))),
                     Match.orElse(({ listen }) => Effect.map(Effect.provideService(listened(listen), Plugin, { id: listen.plugin, host: { app: 'ID' }, requiredPermissions: {} }), (heard) => ({ heard }))),
                 );
                 return yield* Schema.encodeEffect(Answer)(answer);

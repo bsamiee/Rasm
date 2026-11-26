@@ -18,6 +18,11 @@ extension WindowServerTests {
             (CGRect(x: 259.5, y: 0, width: 0.5, height: 0.5), CGRect(x: 990.5, y: 212, width: 0.5, height: 0.5)),
             (CGRect(x: 0, y: 120, width: 260, height: 20), CGRect(x: 731, y: 332, width: 260, height: 20)),
         ]
+        static let placed: [(mark: CGRect, changed: CGRect?)] = [
+            (CGRect(x: 771, y: 242, width: 60, height: 20), CGRect(x: 771, y: 242, width: 60, height: 20)),
+            (CGRect(x: 960, y: 330, width: 60, height: 40), CGRect(x: 960, y: 330, width: 31, height: 22)),
+            (CGRect(x: 0, y: 0, width: 40, height: 40), nil),
+        ]
 
         static func drawn(_ mark: CGRect?) throws -> CGImage {
             let scale: CGFloat = 2
@@ -55,11 +60,7 @@ extension WindowServerTests {
             #expect(within, "mark \(String(describing: mark)) changed \(String(describing: found)), want \(String(describing: changed)) within half a point")
         }
 
-        @Test(arguments: [
-            (CGRect(x: 771, y: 242, width: 60, height: 20), CGRect(x: 771, y: 242, width: 60, height: 20) as CGRect?),
-            (CGRect(x: 960, y: 330, width: 60, height: 40), CGRect(x: 960, y: 330, width: 31, height: 22) as CGRect?),
-            (CGRect(x: 0, y: 0, width: 40, height: 40), nil),
-        ])
+        @Test(arguments: placed)
         func marksDrawAtTheirScreenFrameInsideTheImageAndNowhereElse(mark: CGRect, changed: CGRect?) throws {
             let before = Screenshot(image: try Self.drawn(nil), frame: Self.frame, windows: [], backingStore: false, document: nil, presentation: nil)
             let marked: CGImage = try before.image.marking([Mark(frame: mark, label: "@a12")], in: Self.frame)

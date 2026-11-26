@@ -3,10 +3,5 @@
     "compilerOptions": {
         "types": ["node"]
     },
-    "include": ["**/*", "package.json", "executors.json"],
-    "references": [
-        {
-            "path": "../../system/process"
-        }
-    ]
+    "include": ["**/*", "package.json", "executors.json"]
 }

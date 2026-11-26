@@ -17,7 +17,11 @@ class CopyError extends Schema.TaggedError<CopyError, { readonly brand: unique s
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const marked = ({ reason, tabId }: CopyError) => Effect.promise(() => Promise.all([browser.action.setBadgeText({ tabId, text: BADGES[reason] }), browser.action.setTitle({ tabId, title: browser.i18n.getMessage(reason) }), browser.alarms.create(`${tabId}`, { delayInMinutes: Duration.toMinutes(Duration.seconds(4)) })]));
+const marked = ({ reason, tabId }: CopyError) =>
+    Effect.tryPromise({
+        try: () => Promise.all([browser.action.setBadgeText({ tabId, text: BADGES[reason] }), browser.action.setTitle({ tabId, title: browser.i18n.getMessage(reason) }), browser.alarms.create(`${tabId}`, { delayInMinutes: Duration.toMinutes(Duration.seconds(4)) })]),
+        catch: (cause) => new Cause.UnknownError(cause, `Tab ${tabId} closed before its badge showed ${reason}`),
+    });
 
 const confirmed = (injected: readonly { readonly result?: unknown }[]) => injected.every(({ result }) => result === true);
 
@@ -26,7 +30,7 @@ const confirmed = (injected: readonly { readonly result?: unknown }[]) => inject
 browser.alarms.onAlarm.addListener(({ name }) => {
     Effect.gen(function* () {
         const tabId = yield* Schema.decodeEffect(Schema.FiniteFromString)(name);
-        const title = yield* Effect.promise(() => browser.action.getTitle({}));
+        const title = yield* Effect.tryPromise({ try: () => browser.action.getTitle({}), catch: (cause) => new Cause.UnknownError(cause, 'The action states no default title') });
         yield* Effect.tryPromise({ try: () => Promise.all([browser.action.setBadgeText({ tabId, text: '' }), browser.action.setTitle({ tabId, title })]), catch: (cause) => new Cause.UnknownError(cause, `Tab ${tabId} closed before its badge cleared`) });
     }).pipe(Effect.ignore, Effect.runFork);
 });
@@ -39,12 +43,12 @@ browser.action.onClicked.addListener(({ id: tabId = browser.tabs.TAB_ID_NONE, ur
     Effect.gen(function* () {
         const link = yield* Effect.mapError(Effect.fromNullishOr(url), (cause) => CopyError.make({ reason: 'unreadable', tabId, cause }));
         yield* Effect.tryPromise({ try: () => navigator.clipboard.writeText(link), catch: (cause) => CopyError.make({ reason: 'uncopied', tabId, cause }) });
-        const [zoom, { os }] = yield* Effect.promise(() => Promise.all([browser.tabs.getZoom(tabId), browser.runtime.getPlatformInfo()]));
+        const [zoom, { os }] = yield* Effect.tryPromise({ try: () => Promise.all([browser.tabs.getZoom(tabId), browser.runtime.getPlatformInfo()]), catch: (cause) => CopyError.make({ reason: 'unconfirmed', tabId, cause }) });
         const web = Option.filter(Option.fromNullishOr(URL.parse(link)), ({ protocol }) => protocol === 'http:' || protocol === 'https:');
         const offered = Option.as(web, { share: { url: link, label: browser.i18n.getMessage('share'), glyph: GLYPHS[os] ?? shareElsewhere } });
         return yield* Effect.tryPromise({
             try: () => browser.scripting.executeScript({ target: { tabId }, func: toast, args: [{ css: stylesheet, text: browser.i18n.getMessage('copied'), lang: browser.i18n.getUILanguage(), dir: browser.i18n.getMessage('@@bidi_dir'), zoom, ...Option.getOrUndefined(offered) }], injectImmediately: true }),
             catch: (cause) => CopyError.make({ reason: 'unconfirmed', tabId, cause }),
         }).pipe(Effect.filterOrFail(confirmed, (injected) => CopyError.make({ reason: 'unconfirmed', tabId, cause: injected })));
-    }).pipe(Effect.tapError(Effect.logWarning), Effect.catch(marked), Effect.runFork);
+    }).pipe(Effect.tapError(Effect.logWarning), Effect.catch(marked), Effect.ignore({ log: 'Warn' }), Effect.runFork);
 });

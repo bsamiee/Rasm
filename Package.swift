@@ -215,7 +215,8 @@ let tests: [Target] = [
         dependencies: [
             "AppleEvents", "Applications", "Encoding", "Fixture", "Processes", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump"),
-            .product(name: "PropertyBased", package: "swift-property-based"), .product(name: "Subprocess", package: "swift-subprocess"),
+            .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "PropertyBased", package: "swift-property-based"),
+            .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "tests/libs/swift/macos/Applications",
     ),

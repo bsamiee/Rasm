@@ -1,7 +1,6 @@
 import { Array, Effect, Equal, FileSystem, Match, Option, Path, Record, String } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { RedirOperator } from 'sh-syntax';
-import { type Call, covers, type Invocation, rewrite, type Script, type Table, type Verdict } from '#/rules/rule';
+import { type Call, covers, type Invocation, rewrite, run, type Script, type Table, type Verdict } from '#/rules/rule';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -189,8 +188,8 @@ const programs: Table = {
     'sdef.launch': {
         program: 'sdef',
         decide: Effect.fnUntraced(function* (sdef, { cwd }) {
-            const [fs, path, spawner] = yield* Effect.all([FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
-            const read = (plist: string, key: string) => Effect.map(spawner.string(ChildProcess.make({ cwd, stdin: 'ignore' })`plutil -extract ${key} raw -o - ${plist}`), (printed) => Option.liftPredicate(printed.trim(), String.isNonEmpty));
+            const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+            const read = (plist: string, key: string) => Effect.map(run(cwd)`plutil -extract ${key} raw -o - ${plist}`, ({ printed, code }) => Option.liftPredicate(printed.trim(), () => code === 0));
             const launching = yield* Effect.filter(
                 Array.getSomes(sdef.operands.map(({ word }) => word.text)).map((given) => path.resolve(cwd, given)),
                 Effect.fnUntraced(function* (bundle) {
@@ -235,7 +234,7 @@ const programs: Table = {
     'sd.unmatched': {
         program: 'sd',
         decide: Effect.fnUntraced(function* (sd, { invocations, cwd }) {
-            const [fs, spawner] = yield* Effect.all([FileSystem.FileSystem, ChildProcessSpawner.ChildProcessSpawner]);
+            const fs = yield* FileSystem.FileSystem;
             const letters = Array.fromIterable(
                 Option.getOrElse(
                     Option.flatMap(Array.head(sd.values('--flags')), ({ text }) => text),
@@ -257,7 +256,7 @@ const programs: Table = {
                                   Effect.forEach(paths, (path) => Effect.orElseSucceed(fs.readFileString(path), () => find)),
                                   (texts) => texts.some((text) => text.includes(find)),
                               )
-                            : Effect.map(spawner.exitCode(ChildProcess.make({ cwd, stdin: 'ignore' })`rg --no-config --quiet --text ${options} ${given} --regexp ${find} -- ${paths}`), (code) => code !== 1),
+                            : Effect.map(run(cwd)`rg --no-config --quiet --text ${options} ${given} --regexp ${find} -- ${paths}`, ({ code }) => code !== 1),
                 },
             );
             return matches ? [] : [{ deny: `sd pattern matches nothing in ${paths.join(' ')}.`, advice: 'Read the current text, then match what it holds.' }];

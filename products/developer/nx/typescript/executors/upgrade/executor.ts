@@ -81,7 +81,13 @@ const listed = Effect.fnUntraced(function* (root: string, owner: string, file: s
     const fs = yield* FileSystem.FileSystem;
     const manifest = yield* Effect.try({ try: () => createRequire(join(root, MANIFEST)).resolve(`${owner}/package.json`), catch: (cause) => new Cause.UnknownError(cause, `${root} resolves no ${owner}/package.json`) });
     const { optionalDependencies = {} } = yield* Effect.flatMap(fs.readFileString(manifest), Schema.decodeUnknownEffect(Lister));
-    const folders = [dirname(manifest), ...Array.filterMap(Record.keys(optionalDependencies), Filter.try((name) => dirname(createRequire(manifest).resolve(`${name}/package.json`))))];
+    const folders = [
+        dirname(manifest),
+        ...Array.filterMap(
+            Record.keys(optionalDependencies),
+            Filter.try((name) => dirname(createRequire(manifest).resolve(`${name}/package.json`))),
+        ),
+    ];
     const folder = yield* Effect.fromOption(yield* Effect.findFirst(folders, (candidate) => fs.exists(join(candidate, file))), () => new Cause.UnknownError(folders, `${owner} and its installed optional dependencies hold no ${file}`));
     const at = join(folder, file);
     const document = yield* Effect.flatMap(fs.readFileString(at), Schema.decodeUnknownEffect(Listed));

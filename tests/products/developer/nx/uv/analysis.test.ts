@@ -119,7 +119,7 @@ describe('uv workspace metadata', () => {
 
         const graphed = workspace.graph({ createNodes });
 
-        await expect(graphed).rejects.toSatisfy(refused(/^uv workspace metadata .* exited 2: error: Failed to parse: `?pyproject\.toml/u));
+        await expect(graphed).rejects.toSatisfy(refused(/^uv workspace metadata .* exits 2: error: Failed to parse: `?pyproject\.toml/u));
         await expect(graphed).rejects.toHaveProperty(['partialProjectConfigurationsResult', 'projects', 'nested/proj/library', 'name'], 'library');
     });
 });

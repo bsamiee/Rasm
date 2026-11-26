@@ -94,7 +94,11 @@ const surveyed = Effect.fnUntraced(function* ({ workspaceRoot, holds }: Anchor, 
 
 const read = (anchor: Anchor, file: string, outputPath: string | undefined) => {
     const workerData = { file, entry: join(anchor.workspaceRoot, file), name: plugin.name, suite: Glob.match(SUITE, basename(file)), ...(outputPath !== undefined && { attachmentsDir: join(anchor.workspaceRoot, outputPath, ATTACHMENTS) }) };
-    return request(Effect.sync(() => new Worker(WORKER, { workerData, env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV } })), Surveyed, `${file} does not load as a Vitest config`).pipe(
+    return request(
+        Effect.sync(() => new Worker(WORKER, { workerData, env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV } })),
+        Surveyed,
+        `${file} does not load as a Vitest config`,
+    ).pipe(
         Effect.flatMap(
             Surveyed.match({
                 Plain: ({ dependencies }): ReturnType<typeof surveyed> => Effect.succeed({ suites: [], triggers: [], shared: [], sources: dependencies.map((at) => normalizePath(relative(anchor.workspaceRoot, at))).filter(within) }),

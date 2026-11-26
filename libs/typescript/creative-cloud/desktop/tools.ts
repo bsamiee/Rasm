@@ -197,7 +197,8 @@ const found = Effect.fnUntraced(function* (root: string, pattern: string) {
 const settings = Effect.fnUntraced(function* (application: Application, pattern: string) {
     const [path, preferences] = yield* Effect.all([Path.Path, Preferences]);
     const bundle = yield* path.fromFileUrl(application.url);
-    return yield* found(preferences, `${Glob.escape(path.basename(bundle, '.app'))} *Settings/${pattern}`);
+    const files = yield* found(preferences, `${Glob.escape(path.basename(bundle, '.app'))} *Settings/${pattern}`);
+    return files.filter((file) => /\bBeta\b/u.test(path.relative(preferences, file).split(path.sep, 1).join('')) === (application.channel === 'beta'));
 });
 const elements = (file: string, at: Array.NonEmptyReadonlyArray<string>) => Stream.unwrap(FileSystem.FileSystem.useSync((files) => files.stream(file))).pipe(Stream.pipeThroughChannel(Xml.decode()), Stream.pipeThroughChannel(Xml.elements(at)), Stream.runCollect);
 const photoshop = Effect.fnUntraced(function* ({ application }: Place) {

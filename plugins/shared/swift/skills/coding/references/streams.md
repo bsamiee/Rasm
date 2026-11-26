@@ -59,12 +59,18 @@ Sequences ending on an event merge their elements with the event mapped to `nil`
 
 ```swift
 func lifetime(_ running: some AsyncSequence<InstanceState, Never> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
-    let exited = process.exits().map { _ in InstanceState?.none }
-    return merge(running.map(InstanceState?.some), exited).prefix { state in state != nil }.compactMap(\.self)
+    let (ended, ending) = AsyncStream<Result<ProcessExit, Errno>>.makeStream()
+    let cut = process.exits().map { exit in
+        ending.yield(exit)
+        ending.finish()
+        return InstanceState?.none
+    }
+    let lived = merge(running.map(InstanceState?.some), cut).prefix { state in state != nil }.compactMap(\.self)
+    return chain(lived, ended.flatMap(terminations))
 }
 ```
 
-`exits()` yields once when the process ends. `chain` appends what follows the event, and the merge form stands in for `flatMapLatest`, which in swift-async-algorithms 1.1.7 traps at a state precondition when an outer element races its inner sequence's end:
+`exits()` yields once when the process ends, and its one registration hands the exit through the `makeStream` continuation. `chain` appends what follows the event, and the merge form stands in for `flatMapLatest`, which in swift-async-algorithms 1.1.7 traps at a state precondition when an outer element races its inner sequence's end:
 - Waits subscribe before the act causing their event (a reply continuation stored before its request is sent), and an early event still reaches them
 - One-shot waits read `first { _ in true }` of the matching sequence, and `nil` is the cancelled outcome
 
