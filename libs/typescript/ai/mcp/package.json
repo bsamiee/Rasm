@@ -21,6 +21,7 @@
     "exports": {
         ".": "./index.ts",
         "./cli": "./cli.ts",
+        "./handles": "./handles.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -30,6 +31,7 @@
         "exports": {
             ".": "./dist/index.js",
             "./cli": "./dist/cli.js",
+            "./handles": "./dist/handles.js",
             "./package.json": "./package.json"
         },
         "access": "public"

@@ -47,6 +47,7 @@ type Owned = {
     readonly everyItem: BaseCollection<unknown, unknown, InDesignDOMObject<unknown, 'plural'> & { readonly getElements: () => InDesignDOMObject<unknown>[] }>;
     readonly name: ReadonlyNamedDOMObject<unknown>;
     readonly menuActions: Application;
+    readonly invoke: MenuAction;
     readonly documentOffset: Page;
     readonly spreadHidden: Spread;
     readonly namePrefix: MasterSpread;

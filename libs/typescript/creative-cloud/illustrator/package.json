@@ -29,6 +29,7 @@
         "access": "public"
     },
     "dependencies": {
+        "@rasm/applications": "workspace:*",
         "@rasm/extendscript": "workspace:*",
         "@rasm/object-model": "workspace:*",
         "@rasm/search": "workspace:*",

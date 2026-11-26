@@ -1,14 +1,15 @@
 import { layer as services } from '@effect/platform-node/NodeServices';
 import { SqliteClient } from '@effect/sql-sqlite-node';
 import { assert, describe, it } from '@effect/vitest';
-import { InterfaceMap } from '@rasm/applications';
+import { InterfaceMap, Observation } from '@rasm/applications';
 import { Catalog } from '@rasm/database';
 import { Sqlite } from '@rasm/database/sqlite';
-import { Array, DateTime, Effect, FileSystem, Layer, Option, Record, Schema } from 'effect';
+import { Array, DateTime, Effect, FileSystem, Layer, Option, Predicate, Record, Schema, Struct } from 'effect';
+import { SqlClient } from 'effect/sql';
+import { TestConsole } from 'effect/testing';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Observation = typeof InterfaceMap.Observation.Encoded;
 type Truth = { readonly [K in keyof typeof Truth]: (typeof Truth)[K]['Type'] };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -16,6 +17,16 @@ type Truth = { readonly [K in keyof typeof Truth]: (typeof Truth)[K]['Type'] };
 const PRIVATE = '<private>';
 const TOGGLE = '["AXCheckBox","Facing Pages"]';
 const NOTE = '["AXTextField","Note"]';
+const MENU = '["AXMenuBarItem","Window","AXMenu"]';
+const SUBMENU = '["AXMenuBarItem","Window","AXMenu","AXMenuItem","Recent","AXMenu"]';
+const RECENT = '["AXMenuItem","Recent"]';
+const CLOSE = '["AXMenuItem","Close"]';
+const CLOSE_ALL = '["AXMenuItem","Close All"]';
+const LAYOUT = '["AXWindow","Layout"]';
+const NEW = '["AXMenuItem","New Document…"]';
+const DIALOG = '["AXDialog","New Document"]';
+const UNITS = '["AXPopUpButton","Units"]';
+const WIDTH = '["AXButton","Width"]';
 const START = Date.UTC(2026, 10, 25, 9);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -43,6 +54,70 @@ const Truth = {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const instant = (minute: number) => DateTime.formatIso(DateTime.makeUnsafe(START + minute * 60_000));
+const store = Effect.map(
+    FileSystem.FileSystem.use((fs) => fs.makeTempFileScoped({ suffix: '.sqlite' })),
+    (filename) =>
+        Catalog.layer(
+            InterfaceMap.catalog,
+            Sqlite.layer((names) => SqliteClient.layer({ filename, ...names })),
+        ),
+);
+const newDocument = Effect.forEach(
+    [
+        {
+            build: '22.1.0.19',
+            container: LAYOUT,
+            kind: 'window',
+            document: false,
+            modal: false,
+            layer: 0,
+            size: [1440, 900],
+            opened: instant(0),
+            at: instant(0),
+            complete: true,
+            documents: [],
+            scope: [
+                { _tag: 'Documents', held: false },
+                { _tag: 'Modal', at: null },
+            ],
+            controls: { [NEW]: { kind: 'item', role: 'AXMenuItem', label: { text: 'New Document…', attribute: 'AXTitle' }, shortcut: { key: 'n', modifiers: ['command'] }, positional: false } },
+            layout: {},
+            values: {},
+        },
+        {
+            build: '22.1.0.19',
+            container: DIALOG,
+            kind: 'dialog',
+            title: 'New Document',
+            document: false,
+            modal: true,
+            layer: 8,
+            size: [720, 480],
+            opened: instant(1),
+            at: instant(1),
+            complete: true,
+            documents: [],
+            cause: { container: LAYOUT, control: NEW },
+            scope: [
+                { _tag: 'Value', at: UNITS, value: 'Millimeters' },
+                { _tag: 'Documents', held: false },
+                { _tag: 'Modal', at: DIALOG },
+            ],
+            controls: {
+                [UNITS]: { kind: 'choice', role: 'AXPopUpButton', label: { text: 'Units', attribute: 'AXTitle' }, options: ['Inches', 'Millimeters', 'Points'], positional: false },
+                [WIDTH]: { kind: 'measure', role: 'AXButton', label: { text: 'Width', attribute: 'AXTitleUIElement' }, help: 'Page width', positional: true, parent: DIALOG },
+            },
+            layout: {
+                [WIDTH]: [
+                    [24, 96],
+                    [120, 22],
+                ],
+            },
+            values: { [UNITS]: 'Millimeters', [WIDTH]: '210 mm' },
+        },
+    ] satisfies readonly (typeof Observation.Encoded)[],
+    (each) => Schema.decodeEffect(Observation)(each),
+);
 const app = ({ conditions, reads, owner, draft }: Truth) => {
     const [user, stem] = [`owner${owner}`, `brief-${draft}`];
     const [home, name] = [`/Users/${user}`, `${stem}.indd`];
@@ -64,7 +139,7 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
         );
     const generation = (read: number) => Array.countBy(Array.take(Array.drop(reads, 1), read), (entry) => entry.rebuilt === 0);
     const build = (read: number) => `22.1.0.${19 + generation(read)}`;
-    const observation = (read: number): Observation => {
+    const observation = (read: number): typeof Observation.Encoded => {
         const { toggle, complete } = reads[read] ?? reads[0];
         return {
             build: build(read),
@@ -85,20 +160,50 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
                 { _tag: 'Modal', at: null },
             ],
             controls: {
-                [TOGGLE]: { kind: 'toggle', role: 'AXCheckBox', label: 'Facing Pages', positional: false },
-                [NOTE]: { kind: 'text', role: 'AXTextField', label: 'Note', positional: false },
+                [TOGGLE]: { kind: 'toggle', role: 'AXCheckBox', label: { text: 'Facing Pages', attribute: 'AXTitle' }, positional: false },
+                [NOTE]: { kind: 'text', role: 'AXTextField', label: { text: 'Note', attribute: 'AXTitle' }, positional: false },
                 ...Record.fromIterableWith(
                     Array.filter(
                         Array.makeBy(conditions.length, (index) => index),
                         (index) => present(read, index),
                     ),
-                    (index) => [JSON.stringify(['AXButton', label(index)]), { kind: 'action', role: 'AXButton', label: label(index), positional: false }],
+                    (index) => [JSON.stringify(['AXButton', label(index)]), { kind: 'action', role: 'AXButton', label: { text: label(index), attribute: 'AXDescription' }, positional: false }],
                 ),
             },
             layout: {},
             values: { [TOGGLE]: toggle, [NOTE]: `Saved by ${user} in ${home}/Briefs/${name}` },
         };
     };
+    const level = (read: number, at: number): typeof Observation.Encoded => ({
+        build: build(read),
+        container: MENU,
+        kind: 'menu',
+        document: false,
+        modal: false,
+        layer: 101,
+        size: [0, 0],
+        opened: instant(opener(read)),
+        at: instant(at),
+        complete: true,
+        documents: [],
+        scope: [
+            { _tag: 'Documents', held: true },
+            { _tag: 'Modal', at: null },
+        ],
+        controls: {
+            [RECENT]: { kind: 'item', role: 'AXMenuItem', label: { text: 'Recent', attribute: 'AXTitle' }, ...(bit(read, 0) ? {} : { opens: SUBMENU }), positional: false },
+            [CLOSE]: { kind: 'item', role: 'AXMenuItem', label: { text: 'Close', attribute: 'AXTitle' }, shortcut: { key: 'w', modifiers: ['command'] }, separated: true, positional: false },
+            [CLOSE_ALL]: { kind: 'item', role: 'AXMenuItem', label: { text: 'Close All', attribute: 'AXTitle' }, shortcut: { key: 'w', modifiers: ['command', 'option'] }, alternate: CLOSE, positional: false },
+        },
+        layout: {},
+        values: {},
+    });
+    const submenu = (read: number): typeof Observation.Encoded => ({
+        ...level(read, read),
+        container: SUBMENU,
+        cause: { container: MENU, control: RECENT },
+        controls: { '["AXMenuItem","Clear Menu"]': { kind: 'item', role: 'AXMenuItem', label: { text: 'Clear Menu', attribute: 'AXTitle' }, positional: false } },
+    });
     const oracle = (index: number) => {
         const sightings = readings.filter((read) => present(read, index));
         const retirement =
@@ -110,7 +215,7 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
                 : Option.none();
         return { condition: conditions[index]?._tag, sightings, retirement, epochs: new Set(sightings.map(opener)).size };
     };
-    return { user: { username: user, homedir: home }, stem, readings, present, generation, build, observation, oracle, stored: (index: number) => JSON.stringify(['AXButton', `Item ${index} of ${PRIVATE}`]), window: JSON.stringify(['AXWindow', PRIVATE]) };
+    return { user: { username: user, homedir: home }, stem, readings, present, generation, build, observation, level, submenu, opener, oracle, stored: (index: number) => JSON.stringify(['AXButton', `Item ${index} of ${PRIVATE}`]), window: JSON.stringify(['AXWindow', PRIVATE]) };
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -121,7 +226,7 @@ describe(InterfaceMap, () => {
         Truth,
         Effect.fnUntraced(function* (truth) {
             const world = app(truth);
-            const reads = yield* Effect.forEach(world.readings, (read) => Schema.decodeEffect(InterfaceMap.Observation)(world.observation(read)));
+            const reads = yield* Effect.forEach(world.readings, (read) => Schema.decodeEffect(Observation)(world.observation(read)));
             const states = Array.scan(reads, { map: InterfaceMap.empty, changes: [] as readonly (typeof InterfaceMap.Change.Type)[] }, ({ map }, read) => map.fold(read, world.user));
             const allChanges = states.flatMap(({ changes }) => changes);
             const final = Array.lastNonEmpty(world.readings);
@@ -176,6 +281,22 @@ describe(InterfaceMap, () => {
             assert.notInclude(written, world.user.username);
             assert.notInclude(written, world.stem);
             assert.isTrue(Option.isNone(controls[NOTE]?.value ?? Option.none()), 'a text value is never stored');
+            const opening = yield* Schema.decodeEffect(Observation)(world.submenu(0));
+            const menus = yield* Effect.forEach(world.readings, (read) => Effect.all([Schema.decodeEffect(Observation)(world.level(read, read)), Schema.decodeEffect(Observation)(world.level(read, read + 0.5))]));
+            const leveled = menus.reduce((map, [first, again], read) => {
+                const once = map.fold(first, world.user).map;
+                const twice = once.fold(again, world.user);
+                assert.deepStrictEqual(twice.changes, [], 'a menu level read twice in one opening changes nothing');
+                assert.deepStrictEqual(Record.keys(twice.map.containers).toSorted(), Record.keys(once.containers).toSorted(), 'a menu level read twice stores one structure');
+                assert.deepStrictEqual(Record.map(twice.map.containers[MENU]?.controls ?? {}, Struct.omit(['tally'])), Record.map(once.containers[MENU]?.controls ?? {}, Struct.omit(['tally'])), 'a second read keeps every item as the first stored it');
+                return read === 0 ? twice.map.fold(opening, world.user).map : twice.map;
+            }, last);
+            const items = leveled.containers[MENU]?.controls ?? {};
+            assert.deepStrictEqual(items[RECENT]?.opens, Option.some(SUBMENU), 'the item keeps its submenu link through reads that omit it');
+            assert.deepStrictEqual(items[RECENT]?.label, Option.some({ text: 'Recent', attribute: 'AXTitle' }), 'a label keeps the attribute it was read from');
+            assert.deepStrictEqual(items[CLOSE]?.separated, Option.some(true), 'a separator mark is stored');
+            assert.deepStrictEqual(items[CLOSE_ALL]?.alternate, Option.some(CLOSE), 'an alternate names the item it shares a place with');
+            assert.strictEqual(leveled.containers[MENU]?.container.tally.seen, new Set(world.readings.map(world.opener)).size, 'a menu level is seen once per opening');
         }),
         { arbitrary: { seed: 2026, runs: 300 } },
     );
@@ -183,58 +304,7 @@ describe(InterfaceMap, () => {
     it.effect(
         'reads back on a second start, after the catalog reconciles, every document the first start wrote',
         Effect.fnUntraced(function* () {
-            const filename = yield* FileSystem.FileSystem.use((fs) => fs.makeTempFileScoped({ suffix: '.sqlite' }));
-            const opened = Catalog.layer(
-                InterfaceMap.catalog,
-                Sqlite.layer((names) => SqliteClient.layer({ filename, ...names })),
-            );
-            const [window, press, dialog, units, width] = ['["AXWindow","Layout"]', '["AXMenuItem","New Document…"]', '["AXDialog","New Document"]', '["AXPopUpButton","Units"]', '["AXButton","Width"]'];
-            const shared = { build: '22.1.0.19', modal: false, layer: 0, documents: [], layout: {}, document: false, complete: true } as const;
-            const encoded: readonly Observation[] = [
-                {
-                    ...shared,
-                    container: window,
-                    kind: 'window',
-                    size: [1440, 900],
-                    opened: instant(0),
-                    at: instant(0),
-                    scope: [
-                        { _tag: 'Documents', held: false },
-                        { _tag: 'Modal', at: null },
-                    ],
-                    controls: { [press]: { kind: 'item', role: 'AXMenuItem', label: 'New Document…', shortcut: '⌘N', positional: false } },
-                    values: {},
-                },
-                {
-                    ...shared,
-                    container: dialog,
-                    kind: 'dialog',
-                    title: 'New Document',
-                    modal: true,
-                    layer: 8,
-                    size: [720, 480],
-                    opened: instant(1),
-                    at: instant(1),
-                    cause: { container: window, control: press },
-                    scope: [
-                        { _tag: 'Value', at: units, value: 'Millimeters' },
-                        { _tag: 'Documents', held: false },
-                        { _tag: 'Modal', at: dialog },
-                    ],
-                    controls: {
-                        [units]: { kind: 'choice', role: 'AXPopUpButton', label: 'Units', options: ['Inches', 'Millimeters', 'Points'], positional: false },
-                        [width]: { kind: 'measure', role: 'AXButton', label: 'Width', help: 'Page width', positional: true, parent: dialog },
-                    },
-                    layout: {
-                        [width]: [
-                            [24, 96],
-                            [120, 22],
-                        ],
-                    },
-                    values: { [units]: 'Millimeters', [width]: '210 mm' },
-                },
-            ];
-            const observed = yield* Effect.forEach(encoded, (each) => Schema.decodeEffect(InterfaceMap.Observation)(each));
+            const [opened, observed] = yield* Effect.all([store, newDocument]);
             const written = yield* Effect.scoped(
                 Effect.gen(function* () {
                     const map = yield* InterfaceMap.open('com.adobe.InDesign', 'en');
@@ -243,8 +313,30 @@ describe(InterfaceMap, () => {
                 }),
             ).pipe(Effect.provide(opened));
             const read = yield* Effect.scoped(Effect.flatMap(InterfaceMap.open('com.adobe.InDesign', 'en'), ({ present }) => present)).pipe(Effect.provide(Layer.fresh(opened)));
-            assert.deepStrictEqual(Record.keys(written.containers).toSorted(), [dialog, window].toSorted());
+            assert.deepStrictEqual(Record.keys(written.containers).toSorted(), [DIALOG, LAYOUT].toSorted());
             assert.deepStrictEqual(read, written);
+        }, Effect.provide(services)),
+    );
+
+    it.effect(
+        'reads a store holding a document an earlier shape wrote as if that document were absent, and writes it in the current shape at its next sighting',
+        Effect.fnUntraced(function* () {
+            const [opened, observed] = yield* Effect.all([store, newDocument]);
+            const recalled = Effect.scoped(Effect.flatMap(InterfaceMap.open('com.adobe.InDesign', 'en'), ({ present }) => present));
+            const sighted = (reads: typeof observed) => Effect.scoped(Effect.flatMap(InterfaceMap.open('com.adobe.InDesign', 'en'), ({ observe }) => Effect.forEach(reads, observe)));
+            const [written, aged] = yield* Effect.gen(function* () {
+                const sql = yield* SqlClient.SqlClient;
+                yield* sighted(observed);
+                const fresh = yield* recalled;
+                const rows = yield* sql`UPDATE containers SET body = replace(body, '"label":{"text":"Units","attribute":"AXTitle"}', '"label":"Units"') WHERE locator = ${DIALOG} RETURNING instr(body, '"label":"Units"') > 0 AS aged`;
+                return [fresh, rows] as const;
+            }).pipe(Effect.provide(opened));
+            const stale = yield* recalled.pipe(Effect.provide(Layer.fresh(opened)));
+            const rewritten = yield* Effect.andThen(sighted(Array.drop(observed, 1)), recalled).pipe(Effect.provide(Layer.fresh(opened)));
+            assert.deepStrictEqual(aged, [{ aged: 1 }], 'the dialog row holds its Units label as the earlier bare string');
+            assert.deepStrictEqual(stale, new InterfaceMap({ application: written.application, containers: Record.remove(written.containers, DIALOG) }), 'the store reads as it would without the dialog row');
+            assert.deepStrictEqual((yield* TestConsole.logLines).filter(Predicate.isObject), Array.replicate({ bundle: 'com.adobe.InDesign', language: 'en', stale: 1 }, 2), 'both opens before the rewrite log one line naming the bundle and the count dropped, the open after it none');
+            assert.deepStrictEqual(rewritten.containers[DIALOG]?.controls[UNITS]?.label, Option.some({ text: 'Units', attribute: 'AXTitle' }), 'the dialog sighted again reads back with its label in the current shape');
         }, Effect.provide(services)),
     );
 });

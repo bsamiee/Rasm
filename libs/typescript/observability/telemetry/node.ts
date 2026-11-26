@@ -8,7 +8,7 @@ import { type DiagLogger, DiagLogLevel, diag, logs, propagation, ROOT_CONTEXT, T
 import { CompositePropagator, diagLogLevelFromString, getStringFromEnv, W3CBaggagePropagator, W3CTraceContextPropagator } from '@opentelemetry/core';
 import { EnvironmentGetter, EnvironmentSetter } from '@opentelemetry/propagator-env-carrier';
 import { ATTR_PROCESS_PID } from '@opentelemetry/semantic-conventions/incubating';
-import { Array, Cause, Config, Context, Effect, ErrorReporter, Exit, Formatter, flow, Layer, Logger, LogLevel, Match, Metric, MutableRef, Option, Predicate, Record, Ref, Runtime, Schema, SchemaTransformation, String, Struct, Tracer, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Context, Duration, Effect, ErrorReporter, Exit, Formatter, flow, Layer, Logger, LogLevel, Match, Metric, MutableRef, Option, Predicate, Record, Ref, Runtime, Schema, SchemaGetter, Struct, Tracer, UndefinedOr } from 'effect';
 import envPaths from 'env-paths';
 import { createStream, type FileSize, type Interval, type OptionsWithoutRotate } from 'rotating-file-stream';
 import { errorReporter, exporters, formatLogRecord, layerMinimumLogLevels, layerWithoutDefaultLogger } from '#/otlp';
@@ -32,17 +32,18 @@ const metricReading = Config.all({
     timing: Config.all({ exportIntervalMillis: Config.option(Config.Int('OTEL_METRIC_EXPORT_INTERVAL')), exportTimeoutMillis: Config.option(Config.Int('OTEL_METRIC_EXPORT_TIMEOUT')) }),
 });
 
+const Count = Schema.Int.check(Schema.isGreaterThan(0));
 const Rotation = Schema.Struct({
-    size: Schema.TemplateLiteral([Schema.Int, Schema.Literals(['B', 'K', 'M', 'G'])]),
-    interval: Schema.Union([
-        Schema.TemplateLiteral([Schema.Int, Schema.Literals(['M', 'd'])]),
-        Schema.TemplateLiteral([Schema.Literals(['1', '2', '3', '4', '6', '8', '12', '24']), 'h']),
-        Schema.TemplateLiteral([Schema.Literals(['1', '2', '3', '4', '5', '6', '10', '12', '15', '20', '30', '60']), Schema.Literals(['m', 's'])]),
-    ]),
-    maxFiles: Schema.Int.check(Schema.isGreaterThan(0)),
-}) satisfies Schema.Schema<{ readonly size: FileSize; readonly interval: Interval; readonly maxFiles: number }>;
+    size: Count.pipe(Schema.decodeTo(Schema.TemplateLiteral([Schema.Int, 'B']), { decode: SchemaGetter.transform((bytes) => `${bytes}B` as const), encode: SchemaGetter.forbiddenEncoding })),
+    interval: Count.pipe(
+        Schema.decodeTo(Schema.String, { decode: SchemaGetter.transform(flow(Duration.seconds, Duration.format)), encode: SchemaGetter.forbiddenEncoding }),
+        Schema.decodeTo(Schema.Union([Schema.TemplateLiteral([Schema.Int, 'd']), Schema.TemplateLiteral([Schema.Literals(['1', '2', '3', '4', '6', '8', '12', '24']), 'h']), Schema.TemplateLiteral([Schema.Literals(['1', '2', '3', '4', '5', '6', '10', '12', '15', '20', '30', '60']), Schema.Literals(['m', 's'])])])),
+    ),
+    maxFiles: Count,
+}) satisfies Schema.Codec<{ readonly size: FileSize; readonly interval: Interval; readonly maxFiles: number }, { readonly size: number; readonly interval: number; readonly maxFiles: number }>;
 
-const Level = Schema.String.pipe(Schema.decode(SchemaTransformation.toLowerCase()), Schema.decode(SchemaTransformation.capitalize()), Schema.decodeTo(Schema.Literals(LogLevel.values)));
+const Level = Schema.Literals(['trace', 'debug', 'info', 'notice', 'warning', 'error', 'critical', 'warn', 'fatal']).transform(['Trace', 'Debug', 'Info', 'Info', 'Warn', 'Error', 'Fatal', 'Warn', 'Fatal']);
+const Scope = Schema.String.pipe(Schema.decodeTo(Schema.Array(Schema.String), { decode: SchemaGetter.split({ separator: '=' }), encode: SchemaGetter.transform((entry) => entry.join('=')) }), Schema.decodeTo(Schema.Tuple([Schema.Trim, Schema.Trim.pipe(Schema.decodeTo(Level))])));
 const Target = Schema.Literals(['file', 'stderr']);
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -164,16 +165,16 @@ const layerNode = ({ resource, file }: { readonly resource: Parameters<typeof la
     );
 };
 const layerNodeFromConfig = Effect.fnUntraced(function* ({ resource, target, level, file }: { readonly resource: Parameters<typeof layerNode>[0]['resource']; readonly target: typeof Target.Type; readonly level?: LogLevel.LogLevel; readonly file?: string }) {
-    const refused = yield* Ref.make<readonly (readonly [variable: string, error: Config.ConfigError])[]>([]);
-    const prefix = String.constantCase(resource.serviceName);
-    const read = <A>(variable: string, config: Config.Config<A>) => Effect.catch(config.pipe(Config.option, Config.nested(variable), Config.nested(prefix)), (error) => Effect.as(Ref.update(refused, Array.append([variable, error] as const)), Option.none<A>()));
+    const refused = yield* Ref.make<readonly (readonly [setting: string, error: Config.ConfigError])[]>([]);
+    const group = 'log';
+    const read = <A>(setting: string, config: Config.Config<A>) => Effect.catch(config.pipe(Config.option, Config.nested(setting), Config.nested(group)), (error) => Effect.as(Ref.update(refused, Array.append([setting, error] as const)), Option.none<A>()));
     const stated = yield* Effect.all({
-        level: read('LOG_LEVEL', Config.schema(Level)),
-        filter: read('LOG_FILTER', Config.Record(Schema.String, Level, { trim: true })),
-        target: read('LOG_TARGET', Config.schema(Target)),
-        size: read('LOG_SIZE', Config.schema(Rotation.fields.size)),
-        interval: read('LOG_AGE', Config.schema(Rotation.fields.interval)),
-        maxFiles: read('LOG_FILES', Config.schema(Rotation.fields.maxFiles)),
+        level: read('level', Config.schema(Level)),
+        filter: read('filter', Config.Array(Scope).pipe(Config.map(Record.fromEntries))),
+        target: read('target', Config.schema(Target)),
+        size: read('size', Config.schema(Rotation.fields.size)),
+        interval: read('age', Config.schema(Rotation.fields.interval)),
+        maxFiles: read('files', Config.schema(Rotation.fields.maxFiles)),
     });
     const rotation = {
         ...Option.getOrUndefined(Option.map(stated.size, (size) => ({ size }))),
@@ -183,7 +184,11 @@ const layerNodeFromConfig = Effect.fnUntraced(function* ({ resource, target, lev
     const log = file ?? join(envPaths(resource.serviceName, { suffix: '' }).log, `${resource.serviceName}.log`);
     const rotated = [basename(log), { path: dirname(log), ...rotation }] as const;
     return Ref.get(refused).pipe(
-        Effect.flatMap(Effect.forEach(([variable, error]) => Effect.flatMap(Config.nested(Config.String(variable), prefix), (value) => Effect.annotateLogs(Effect.logWarning('Setting refused, default stands', Cause.fail(error)), { variable: `${prefix}_${variable}`, value })), { discard: true })),
+        Effect.flatMap(
+            Effect.forEach(([setting, error]) => Effect.flatMap(Effect.option(Config.String(setting).pipe(Config.nested(group))), (value) => Effect.annotateLogs(Effect.logWarning('Setting refused, default stands', Cause.fail(error)), { variable: `${group}.${setting}`, ...Record.getSomes({ value }) })), {
+                discard: true,
+            }),
+        ),
         Effect.andThen(Effect.addFinalizer((exit) => (interrupted(exit) ? Effect.logInfo('Process interrupted') : Effect.void))),
         Layer.effectDiscard,
         Layer.provideMerge(layerMinimumLogLevels(level ?? Option.getOrElse(stated.level, () => 'Info' as const), Option.getOrElse(stated.filter, Record.empty<string, LogLevel.LogLevel>))),

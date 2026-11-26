@@ -1,9 +1,14 @@
 # --- [BUILD] ----------------------------------------------------------------------------
 
 [build]
-target-dir  = ".artifacts/cargo"
-build-dir   = "{workspace-root}/.cache/cargo"             # Cargo workspaces this file reaches outside the repository's (uv sdist builds under .cache) keep their own build folder
-rustflags   = ["-Zunstable-options", "--jobs-frontend=0"] # 0 is every core, each thread past the first waiting on a token of the jobserver cargo shares with every rustc
+# --- [DIRECTORIES]
+
+target-dir = ".artifacts/cargo"
+build-dir  = "{workspace-root}/.cache/cargo" # Keep intermediate files separate for each workspace, including uv sdist workspaces under `.cache`
+
+# --- [COMPILATION]
+
+rustflags   = ["-Zunstable-options", "--jobs-frontend=0"] # `0` uses available cores, and frontend threads after the first wait for tokens from Cargo's shared jobserver
 fingerprint = "content"
 
 # --- [ENV] ------------------------------------------------------------------------------
@@ -20,16 +25,22 @@ max-crate-age  = "1 month"
 max-git-co-age = "1 week"
 max-git-db-age = "1 month"
 
-# --- [PROFILES] -------------------------------------------------------------------------
+# --- [PROFILE] --------------------------------------------------------------------------
 
-[profile.dev.package] # Cargo refuses a member `[lints]` override beside `workspace = true`, and tombi's Cargo.toml schema refuses profile `rustflags`
-rasm-site             = { rustflags = ["-Aunsafe_code"] }         # PROJ `proj_factors`, which the `proj` crate wraps none of, runs through `proj-sys` FFI
-rasm-process          = { rustflags = ["-Aunsafe_code"] }         # Windows `CreateEnvironmentBlock`, which no crate wraps, runs through `windows` FFI
-rasm-mcp              = { rustflags = ["-Adeprecated"] }          # Initialize-era MCP revisions keep logging and resources/subscribe, and the GenAI names moved to a repository publishing no crate
-rasm-mcp-tests        = { rustflags = ["-Adeprecated"] }          # Scenarios exercise the initialize-era revisions their server keeps
-rasm-dependency-graph = { rustflags = ["-Aclippy::expect_used"] } # petgraph builds `Acyclic` through a checked `TryFrom` alone, over graphs and subgraphs acyclic by construction
+# --- [DEV]
 
-[profile.release.package] # Root profiles inherit nothing, so release repeats each dev row for itself, bench, and dist, which `check` also lints under
+# Cargo rejects member `[lints]` overrides with `workspace = true`, and Tombi's `Cargo.toml` schema rejects profile `rustflags`
+[profile.dev.package]
+rasm-site             = { rustflags = ["-Aunsafe_code"] }         # PROJ `proj_factors` uses `proj-sys` FFI until `proj` provides a wrapper
+rasm-process          = { rustflags = ["-Aunsafe_code"] }         # Windows `CreateEnvironmentBlock` requires `windows` FFI without a safe crate wrapper
+rasm-mcp              = { rustflags = ["-Adeprecated"] }          # MCP revisions using `initialize` retain logging and `resources/subscribe`. GenAI names moved to a repository without a published crate
+rasm-mcp-tests        = { rustflags = ["-Adeprecated"] }          # Scenarios exercise server support for MCP revisions using `initialize`
+rasm-dependency-graph = { rustflags = ["-Aclippy::expect_used"] } # petgraph requires checked `Acyclic::try_from` for graphs and subgraphs acyclic by construction
+
+# --- [RELEASE]
+
+# Separate release and dev profiles require repeated overrides for `check` under release, bench, and dist
+[profile.release.package]
 rasm-site             = { rustflags = ["-Aunsafe_code"] }
 rasm-process          = { rustflags = ["-Aunsafe_code"] }
 rasm-mcp              = { rustflags = ["-Adeprecated"] }
@@ -43,20 +54,26 @@ feature-unification = "workspace"
 
 # --- [TARGET] ---------------------------------------------------------------------------
 
-# Kept on purpose, do not remove: wild (https://github.com/wild-linker/wild) replaces Apple ld once a
-# release of its Mach-O backend holds thread-local storage, which Rust std uses on macOS, dylib output,
-# which the Dylint cdylib needs, and debug info, which `profile.dev` line tables need. Target rustflags
-# replace `build.rustflags`, so the row repeats them.
+# Replace Apple ld with Wild (https://github.com/wild-linker/wild) when Mach-O supports Rust std's thread-local storage, Dylint dylibs, and dev line tables.
+# Target `rustflags` replace `build.rustflags`, so repeat build flags when enabling Wild
 # [target.aarch64-apple-darwin]
 # rustflags = ["-Zunstable-options", "--jobs-frontend=0", "-Clink-arg=--ld-path=wild"]
 
 # --- [UNSTABLE] -------------------------------------------------------------------------
 
 [unstable]
+# --- [DEPENDENCIES]
+
 bindeps             = true
-build-analysis      = true           # CARGO_BUILD_ANALYSIS_ENABLED=true sets `build.analysis.enabled`, recording each build in $CARGO_HOME/log for cargo report
-checksum-freshness  = true
 feature-unification = true
-gc                  = true
 git                 = "shallow-deps"
-profile-rustflags   = true
+
+# --- [BUILD]
+
+build-analysis     = true # `CARGO_BUILD_ANALYSIS_ENABLED=true` sets `build.analysis.enabled` to record builds in `$CARGO_HOME/log` for `cargo report`
+checksum-freshness = true
+profile-rustflags  = true
+
+# --- [CACHE]
+
+gc = true

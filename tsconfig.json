@@ -277,6 +277,9 @@
         },
         {
             "path": "./tests/libs/typescript/macos/applications"
+        },
+        {
+            "path": "./plugins/claude/rasad"
         }
     ]
 }

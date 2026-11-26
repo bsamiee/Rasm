@@ -2,7 +2,7 @@ import { layerAead, layerSecureRandom } from '@effect/platform-node/NodeCrypto';
 import { Content, Handle, Link, registerResource, registerResourceTemplate, Server, Upstream } from '@rasm/mcp';
 import { Array, Cause, Context, Deferred, Duration, Effect, Latch, Layer, MutableRef, Option, Predicate, Queue, Record, Ref, Result, Schedule, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpProtocol, McpSchema, McpServer, McpTest, Tool, Toolkit } from 'effect/ai';
-import { FetchHttpClient, HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { FetchHttpClient, HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Host } from 'effect/net';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -30,6 +30,7 @@ const STEPS = [0, 50, 100] as const;
 const IDS = ['beta', 'opal', 'alpha'] as const;
 const STATE = 'asked once';
 const ASKED = 'a dialog asks';
+const STATED = 'target responding · behind';
 const RAISED = { owned: 'raised during the claim', judged: 'judged after it' } as const;
 const PATH = '/mcp';
 const UPSTREAM = new URL(PATH, 'http://upstream.test');
@@ -96,6 +97,15 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
             ),
         );
     yield* Server.registerTool(Tool.make('test_simple_text', { description: 'Returns simple text', success: Schema.String }).annotate(Tool.Readonly, true).annotate(Server.Instructions, [INSTRUCTIONS.shown]), () => called('test_simple_text', Effect.succeed(TEXT)));
+    yield* Server.registerTool(Tool.make('test_stated', { description: 'States a state line, then returns simple text', success: Schema.String }).annotate(Tool.Readonly, true), () =>
+        called(
+            'test_stated',
+            Effect.as(
+                Server.ToolCall.use(({ state }) => state(STATED)),
+                TEXT,
+            ),
+        ),
+    );
     yield* Server.registerTool(Tool.make('test_value', { description: 'Returns the value it is given', parameters: Valued, success: Schema.String }).annotate(Tool.Readonly, true), ({ value }) => called('test_value', Effect.succeed(value)));
     yield* Server.registerTool(Tool.make('test_image_content', { description: 'Returns an image', success: Content.image('image/png') }).annotate(Tool.Readonly, true), () => called('test_image_content', Effect.succeed(Uint8Array.fromBase64(PNG))));
     yield* Server.registerTool(Tool.make('test_embedded_resource', { description: 'Returns an embedded resource', success: Content.embeddedResource(Attachment) }).annotate(Tool.Readonly, true), () =>
@@ -193,7 +203,7 @@ const upstream = (protocol: McpProtocol.ProtocolAdapter, token: MutableRef.Mutab
 
 const hosted = Effect.fnUntraced(function* (bound: string) {
     const [probe, name, address] = yield* Effect.all([Probe.make, Server.scheme(MANIFEST.name), Effect.fromResult(Host.hostPortFromString(bound))]);
-    return { probe, layer: Server.layerHttp({ ...MANIFEST, name }, { ...SETTINGS, address, hosts: ['mcp.example'], instructions: [INSTRUCTIONS.stated] }, app(probe)).pipe(Layer.provide([layerAead, layerSecureRandom])) };
+    return { probe, layer: Server.layerHttp({ ...MANIFEST, name }, { ...SETTINGS, address, hosts: ['mcp.example'], instructions: [INSTRUCTIONS.stated] }, app(probe)).pipe(Layer.provide([layerAead, layerSecureRandom, HttpServer.layerServices])) };
 });
 const messages = Effect.fnUntraced(function* (response: Response) {
     const text = yield* Effect.promise(() => response.text());
@@ -237,7 +247,8 @@ const opened = Effect.fnUntraced(function* (protocol: McpProtocol.ProtocolAdapte
     const call = (method: string, params: Record.ReadonlyRecord<string, unknown> = {}, id: string | number = 'request') => Effect.flatMap(send(held, { jsonrpc: '2.0', id, method, params }), messages);
     const answer = (method: string, params?: Record.ReadonlyRecord<string, unknown>, id?: string | number) => Effect.flatMap(call(method, params, id), (all) => Effect.fromNullishOr(all.at(-1)));
     const tool = (name: string, given: Record.ReadonlyRecord<string, unknown> = {}, extra: Record.ReadonlyRecord<string, unknown> = {}) => answer('tools/call', { name, arguments: given, ...extra });
-    return { probe, post, messages, initialize, send: (message: Message) => send(held, message), call, answer, tool, called: (name: string, given?: Record.ReadonlyRecord<string, unknown>) => Effect.map(Effect.flatMap(tool(name, given), Schema.decodeUnknownEffect(Called)), Struct.get('result')) };
+    const request = (path: string, init?: RequestInit) => Effect.promise(() => handler(new Request(new URL(path, ENDPOINT), init)));
+    return { probe, post, request, messages, initialize, send: (message: Message) => send(held, message), call, answer, tool, called: (name: string, given?: Record.ReadonlyRecord<string, unknown>) => Effect.map(Effect.flatMap(tool(name, given), Schema.decodeUnknownEffect(Called)), Struct.get('result')) };
 });
 
 const names = (client: McpTest.Client) => Effect.map(client.listTools(), ({ tools }) => Array.map(tools, Struct.get('name')));
@@ -268,4 +279,4 @@ const proxied = Effect.fnUntraced(function* (
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ASKED, Called, connected, hosted, INSTRUCTIONS, lines, names, opened, PEER, proxied, RAISED, SETTINGS, SETTLED, settled, STATE, TEXT };
+export { ASKED, Called, connected, hosted, INSTRUCTIONS, lines, names, opened, PEER, proxied, RAISED, SETTINGS, SETTLED, settled, STATE, STATED, TEXT };

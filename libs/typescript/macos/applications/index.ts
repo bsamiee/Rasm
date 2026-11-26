@@ -1,4 +1,40 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Act, AppleEventValue, ApplicationRpcs, Capture, Diagnostics, type Dialog, Element, ElementID, Event, Installation, InstanceSnapshot, InstanceState, Launch, LaunchedInstance, LaunchEvent, LongestSide, Pid, Pressure, ProcessInstance, QuitMode, ScriptingDictionary, WindowID } from '#/contract';
-export { InterfaceMap } from '#/interface-map';
+export { Address } from '#/address';
+export {
+    Act,
+    AppleEventValue,
+    ApplicationRpcs,
+    Capture,
+    Container,
+    ContainerKind,
+    Control,
+    Diagnostics,
+    Event,
+    Fact,
+    Installation,
+    InstanceSnapshot,
+    InstanceState,
+    Kind,
+    Launch,
+    LaunchedInstance,
+    LaunchEvent,
+    Locator,
+    LongestSide,
+    Model,
+    Observation,
+    Pid,
+    Pressure,
+    ProcessInstance,
+    QuitMode,
+    Ref,
+    Report,
+    Scope,
+    ScriptingDictionary,
+    Session,
+    Value,
+    WindowID,
+    Written,
+} from '#/contract';
+export { InterfaceMap, InterfaceMaps } from '#/interface-map';
+export { Outline } from '#/outline';

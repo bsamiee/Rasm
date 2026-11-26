@@ -27,13 +27,22 @@ private let unsupported: [String: Set<Substring>] = [
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 extension Program {
-    // --- [LEVELS]
+    // --- [SETTINGS]
 
     private func level(_ text: String, in entry: String, of key: ConfigKey) -> Logging.Logger.Level? {
         let level = Logging.Logger.Level(rawValue: text) ?? Logging.Logger.Level.allCases.first { level in level.severity.text.lowercased() == text }
         let severities = Logging.Logger.Level.allCases.map { level in level.severity.text.lowercased() }.filter { text in Logging.Logger.Level(rawValue: text) == nil }
         if level == nil { unrecognized.add(variable: key.description, value: entry, accepted: Logging.Logger.Level.allCases.map(\.rawValue) + severities) }
         return level
+    }
+
+    private func positive(_ key: ConfigKey) -> Int? {
+        switch settings.int(forKey: key) {
+            case .some(let value) where value <= 0:
+                unrecognized.add(variable: key.description, value: "\(value)", accepted: ["greater than 0"])
+                return nil
+            case let value: return value
+        }
     }
 
     private func rules() -> LogFilter.Rules {
@@ -80,8 +89,8 @@ extension Program {
             let found = DiagnosticReport.reports(since: since) { report in report.kind == .crash && report.isWritten(by: .main) }
             for report in found.reports {
                 let fields: [String: Logging.Logger.MetadataValue?] = [
-                    "process.pid": .stringConvertible(report.pid), "file": .string(report.url.path(percentEncoded: false)),
-                    "exception.type": report.exception.map { type in .attributed(type, attributes: [Privacy.public]) },
+                    OTelAttribute.process.pid: .stringConvertible(report.pid), OTelAttribute.file.path: .string(report.url.path(percentEncoded: false)),
+                    OTelAttribute.exception.type: report.exception.map { type in .attributed(type, attributes: [Privacy.public]) },
                 ]
                 logger.critical("Crash report found", metadata: fields.compactMapValues(\.self))
             }
@@ -101,20 +110,21 @@ extension Program {
         configuration.resourceAttributes =
             configuration.logs.enabled || configuration.metrics.enabled || configuration.traces.enabled
             ? [
-                OTelAttribute.service.name: identifier, OTelAttribute.service.version: version, OTelAttribute.service.instance.id: UUID().uuidString, "process.pid": String(process.processIdentifier),
-                "process.executable.name": process.processName, "host.name": process.hostName, "os.type": "darwin", "os.description": process.operatingSystemVersionString,
-                "process.runtime.name": "swift",
+                OTelAttribute.service.name: identifier, OTelAttribute.service.version: version, OTelAttribute.service.instance.id: UUID().uuidString,
+                OTelAttribute.process.pid: String(process.processIdentifier), OTelAttribute.process.executable.name: process.processName,
+                OTelAttribute.process.runtime.name: "swift", OTelAttribute.host.name: process.hostName, OTelAttribute.os.type: "darwin",
+                OTelAttribute.os.description: process.operatingSystemVersionString,
             ].compactMapValues(\.self) : [:]
         let filter = LogFilter(roots: scopes, rules: rules())
         let resource: Logging.Logger.Metadata = [
             OTelAttribute.service.name: .string(identifier), OTelAttribute.service.version: version.map(Logging.Logger.MetadataValue.string),
-            "process.pid": .stringConvertible(process.processIdentifier),
+            OTelAttribute.process.pid: .stringConvertible(process.processIdentifier),
         ]
         .compactMapValues(\.self)
         var file = RotatingFile(directory(.logs).appending(path: "\(process.processName).log", directoryHint: .notDirectory))
-        file.size = settings.int(forKey: "log.size", default: file.size)
-        file.age = settings.int(forKey: "log.age", as: Duration.self, default: file.age)
-        file.files = settings.int(forKey: "log.files", default: file.files)
+        file.size = positive("log.size") ?? file.size
+        file.age = positive("log.age").map { seconds in .seconds(seconds) } ?? file.age
+        file.files = positive("log.files") ?? file.files
         let target = settings.string(forKey: "log.target", as: LogTarget.self, default: .file)
         let interactive = target == .file && isatty(STDERR_FILENO) == 1
         let keys = OTel.Configuration.LoggingMetadataProviderConfiguration.default

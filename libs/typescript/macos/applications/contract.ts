@@ -4,6 +4,7 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
+type Fact = (typeof FactScalar)['Type'] | { readonly list: { readonly values: readonly Fact[] } };
 type AppleEventValue = null | boolean | number | string | readonly AppleEventValue[] | TypedRecord | Specifier | typeof Descriptor.Type | { readonly _tag?: never; readonly [term: string]: AppleEventValue };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -69,76 +70,187 @@ class ScriptingDictionary extends Schema.Class<ScriptingDictionary, { readonly b
 const Pid = Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Running process ID' });
 const WindowID = Schema.Finite.check(Schema.isUint32()).annotate({ description: 'CGWindowID' });
 const LongestSide = Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Limit in pixels' });
-const ElementID = Schema.String.annotate({ description: 'Base64 element id from a state, event, or node read, valid while its element exists; menu item ids name a path of positions from the menu bar' });
-const Frame = Schema.Tuple([Schema.Tuple([Schema.Finite, Schema.Finite]), Schema.Tuple([Schema.Finite, Schema.Finite])]).annotate({ description: 'Origin and size in screen points' });
+const Ref = Schema.Natural.annotate({ description: 'Interned reference to a container, control, or option, shared by every handle of the server and kept while the server runs; a container shown again keeps its references' });
+const Locator = Schema.String.annotate({ description: 'Canonical encoding of a locator, its steps from the application element down' });
+const Point = Schema.Tuple([Schema.Finite, Schema.Finite]);
+const Size = Schema.Tuple([Schema.Finite, Schema.Finite]);
+const Frame = Schema.Tuple([Point, Size]).annotate({ description: 'Origin and size in screen points' });
 const Value = Schema.Union([Schema.Boolean, Schema.Finite, Schema.String]);
-const FailedRead = Schema.Struct({
-    reads: Schema.Array(Schema.String.annotate({ description: 'Attribute or call refused' })),
-    role: Schema.optionalKey(Schema.String),
-    label: Schema.optionalKey(Schema.String),
-    error: Schema.Int.annotate({ description: 'AXError code' }),
+const FactScalar = Schema.Union([
+    Schema.Struct({ bool: Schema.Struct({ value: Schema.Boolean }) }),
+    Schema.Struct({ integer: Schema.Struct({ value: Schema.Int }) }),
+    Schema.Struct({ real: Schema.Struct({ value: Schema.Finite }) }),
+    Schema.Struct({ text: Schema.Struct({ value: Schema.String }) }),
+    Schema.Struct({ date: Schema.Struct({ value: Schema.String.annotate({ description: 'ISO 8601 date' }) }) }),
+    Schema.Struct({ url: Schema.Struct({ value: Schema.String }) }),
+    Schema.Struct({ point: Schema.Struct({ value: Point }) }),
+    Schema.Struct({ size: Schema.Struct({ value: Size }) }),
+    Schema.Struct({ rect: Schema.Struct({ value: Frame }) }),
+    Schema.Struct({ range: Schema.Struct({ location: Schema.Int, length: Schema.Int }) }),
+    Schema.Struct({ element: Schema.Struct({ id: Schema.Int.annotate({ description: 'Element of the same read' }) }) }),
+    Schema.Struct({ refused: Schema.Struct({ error: Schema.Int.annotate({ description: 'AXError code' }) }) }),
+]);
+const Fact: Schema.Codec<Fact> = Schema.Union([...FactScalar.members, Schema.Struct({ list: Schema.Struct({ values: Schema.Array(Schema.suspend((): Schema.Codec<Fact> => Fact)) }) })]).annotate({
+    description: 'Accessibility attribute value by its Core Foundation type, refused with the AXError a read returned',
 });
-class Element extends Schema.Opaque<Element, unknown>()(
-    Schema.Struct({
-        id: ElementID,
-        role: Schema.optionalKey(Schema.String.annotate({ description: 'AXRole, AXApplication for the application, AXMenuBar for the menu bar' })),
-        subrole: Schema.optionalKey(Schema.String),
-        label: Schema.optionalKey(Schema.String.annotate({ description: 'AXTitle, AXDescription, or the AXValue of its AXTitleUIElement' })),
-        identifier: Schema.optionalKey(Schema.String.annotate({ description: 'AXIdentifier' })),
-        value: Schema.optionalKey(Value.annotate({ description: 'AXValue, the visible text of a text area' })),
-        settable: Schema.Boolean.annotate({ description: 'AXValue accepts a set action' }),
-        enabled: Schema.optionalKey(Schema.Boolean),
-        actions: Schema.Array(Schema.String.annotate({ description: 'Action names a press action takes, AXRaise refused' })),
-        frame: Schema.optionalKey(Frame),
-        count: Schema.Int.annotate({ description: 'Children, visible rows of tables and outlines' }),
-        children: Schema.optionalKey(Schema.Array(Schema.suspend((): Schema.Codec<Element> => Element)).annotate({ description: 'Absent below the depth read' })),
-        unreadable: Schema.Array(FailedRead),
-    }).annotate({ description: 'Accessibility element with its children to the depth read, the application root holding its windows and menu bar' }),
-) {}
-const Control = open({
-    id: ElementID,
-    role: Schema.String,
-    label: Schema.optionalKey(Schema.String),
-    attribute: Schema.optionalKey(Schema.String),
-    value: Schema.optionalKey(Value),
-    enabled: Schema.Boolean,
-});
-const Answers = open({ accept: Schema.optionalKey(Control), discard: Schema.optionalKey(Control), cancel: Schema.optionalKey(Control), buttons: Schema.Array(Control) }).annotate({
-    description: 'Controls answering the element, absent with nothing to press: accept, discard, and cancel as the element marks them, buttons every labeled one, each pressed through act',
-});
-const TopLevelElement = open({
-    id: ElementID,
-    role: Schema.String,
+const Kind = Schema.Literals(['action', 'toggle', 'choice', 'multi', 'row', 'number', 'measure', 'text', 'color', 'date', 'item', 'region']).annotate({ description: 'What a step on the control does, decided from its role and capability facts' });
+const ContainerKind = Schema.Literals(['window', 'dialog', 'panel', 'sheet', 'popover', 'drawer', 'prompt', 'menuBar', 'statusItem', 'menu', 'toolbar']).annotate({ description: 'Container kind, prompt for a dialog of an application that is not regular' });
+const Label = Schema.Struct({ text: Schema.String, attribute: Schema.String.annotate({ description: 'Attribute the label was read from, AXHelp where siblings share a label, recognized where text recognition read it from the window image' }) });
+const Evidence = Schema.Literals(['attribute', 'marked']).annotate({ description: 'How the selection is known: an attribute states it, or exactly one sibling carries a read-only value' });
+const KeyName = Schema.Literals(['return', 'enter', 'tab', 'space', 'delete', 'forwardDelete', 'escape', 'home', 'end', 'pageUp', 'pageDown', 'left', 'right', 'down', 'up', 'help', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12']);
+const Modifier = Schema.Literals(['command', 'shift', 'option', 'control', 'function']);
+const KeyStep = Schema.Struct({
+    key: Schema.Union([KeyName, Schema.String.annotate({ description: 'One character, posted with the key that types it on the current layout' }), Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 65_535 })).annotate({ description: 'Virtual key code, posted as is' })]),
+    modifiers: withDefault(Schema.Array(Modifier), []).annotate({ description: 'Held while the key posts' }),
+}).annotate({ description: 'Key and the modifiers held while it posts, the shape of an act key step' });
+const Control = Schema.Struct({
+    ref: Ref,
+    locator: Locator,
+    kind: Kind,
+    role: Schema.String.annotate({ description: 'AXRole' }),
     subrole: Schema.optionalKey(Schema.String),
-    modal: Schema.optionalKey(Schema.Boolean),
-    identifier: Schema.optionalKey(Schema.String),
-    title: Schema.optionalKey(Schema.String),
-    document: Schema.optionalKey(Schema.String.annotate({ description: 'AXDocument file URL' })),
-    edited: Schema.optionalKey(Schema.Boolean.annotate({ description: 'AXEdited of close button' })),
-    detail: Schema.optionalKey(open({ text: Schema.Array(Schema.String), controls: Schema.Array(Control) }).annotate({ description: 'Walked element contents' })),
-    answers: Schema.optionalKey(Answers),
+    label: Schema.optionalKey(Label),
+    value: Schema.optionalKey(Fact),
+    enabled: Schema.optionalKey(Schema.Boolean),
+    focused: Schema.optionalKey(Schema.Boolean),
+    selected: Schema.optionalKey(Evidence),
+    help: Schema.optionalKey(Schema.String),
+    frame: Schema.optionalKey(Frame),
+    positional: Schema.Boolean.annotate({ description: 'Keyed by its offset from the nearest keyed sibling' }),
+    options: Schema.optionalKey(Schema.Array(Schema.Struct({ label: Schema.String, ref: Ref })).annotate({ description: 'Options of a choice, absent where they list only while open' })),
+    range: Schema.optionalKey(Schema.Struct({ minimum: Schema.optionalKey(Schema.Finite), maximum: Schema.optionalKey(Schema.Finite), step: Schema.optionalKey(Schema.Finite) })),
+    mark: Schema.optionalKey(Schema.String.annotate({ description: 'AXMenuItemMarkChar' })),
+    shortcut: Schema.optionalKey(KeyStep.annotate({ description: 'Key step that presses the menu item from its AXMenuItemCmd attributes' })),
+    opens: Schema.optionalKey(Ref.annotate({ description: 'Menu the control opens, its level read through the menu scope while closed' })),
+    separated: Schema.optionalKey(Schema.Boolean.annotate({ description: 'A separator precedes the item' })),
+    alternate: Schema.optionalKey(Ref.annotate({ description: 'Item whose place this one takes while its modifier is held' })),
+    placeholder: Schema.optionalKey(Schema.String),
+    level: Schema.optionalKey(Schema.Int.annotate({ description: 'AXDisclosureLevel of a row' })),
+    index: Schema.optionalKey(Schema.Natural.annotate({ description: 'AXIndex of a row, rows past it read through the rows scope' })),
+    row: Schema.optionalKey(Ref.annotate({ description: 'Row whose cells hold the control' })),
+    expanded: Schema.optionalKey(Schema.Boolean),
 });
-const Kind = Schema.Literals(['filePanel', 'sheet', 'alert', 'modal', 'system', 'menu', 'window', 'undescribed', 'blocking']).annotate({ description: 'Element kind, undescribed with no element, blocking for a new window on a blocked main thread' });
-const Window = open({
+const Container = Schema.Struct({
+    ref: Ref,
+    locator: Locator,
+    kind: ContainerKind,
+    title: Schema.optionalKey(Schema.String),
+    document: Schema.optionalKey(Schema.String.annotate({ description: 'AXDocument URL' })),
+    window: Schema.optionalKey(WindowID),
+    frame: Schema.optionalKey(Frame),
+    layer: Schema.optionalKey(Schema.Int.annotate({ description: 'Window server layer' })),
+    modal: Schema.Boolean,
+    asking: Schema.Boolean.annotate({ description: 'Requires an answer' }),
+    focused: Schema.optionalKey(Schema.Boolean),
+    parent: Schema.optionalKey(Ref.annotate({ description: 'Container this one sits in' })),
+    default: Schema.optionalKey(Ref),
+    cancel: Schema.optionalKey(Ref),
+    close: Schema.optionalKey(Ref),
+    text: Schema.Array(Schema.String).annotate({ description: 'Static text that labels no control' }),
+    truncated: Schema.Boolean.annotate({ description: 'The read stopped at its node or time bound, model of the container reads it alone' }),
+    controls: Schema.Array(Control),
+});
+const Cursor = Schema.Union([
+    tagByKey('system', Schema.Struct({ name: Schema.String.annotate({ description: 'AppKit NSCursor class property, else WindowServer system cursor, that alone draws the image shown' }) })),
+    tagByKey('custom', Schema.Struct({ digest: Schema.String.annotate({ description: 'Base64 SHA-256 of the image shown, stable per cursor' }), hotSpot: Point, size: Size })),
+])
+    .annotate({ description: 'Cursor the system shows while the application is active and owns the window under the real pointer, named where one system cursor draws its image' })
+    .pipe(Schema.toTaggedUnion('_tag'));
+const Pointer = Schema.Struct({
+    tool: Schema.optionalKey(Schema.String.annotate({ description: 'Tool the pointer acts with, as the host names it' })),
+    holding: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Objects the pointer carries to place, as the host addresses them' })),
+    operations: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Operations in progress, a modal tool state or dialog among them, in the host names, outermost first' })),
+    cursor: Schema.optionalKey(Cursor),
+    dragging: Schema.optionalKey(Frame.annotate({ description: 'Frame of the image a drag session of the application shows, from its window at the dragging window level' })),
+}).annotate({ description: 'Pointer of the application: tool, carried objects, and operations a host source states, cursor and drag the system states' });
+const Model = Schema.Struct({
+    sequence: Schema.Int.annotate({ description: 'Sequence of the last event the model reflects' }),
+    containers: Schema.Array(Container),
+    pointer: Schema.optionalKey(Pointer),
+});
+const Scope = Schema.Union([
+    tagByKey('application', Schema.Struct({})),
+    tagByKey('container', Schema.Struct({ ref: Ref })),
+    tagByKey('menu', Schema.Struct({ ref: Ref.annotate({ description: 'Menu item or menu bar item whose menu level is read' }) })),
+    tagByKey('rows', Schema.Struct({ ref: Ref.annotate({ description: 'Multi control' }), from: Schema.Natural, count: Schema.Int.check(Schema.isGreaterThan(0)) })),
+    tagByKey('menus', Schema.Struct({})),
+])
+    .annotate({ description: 'Every window and the menu bar, one container, one menu level read on demand, rows of a multi, or the menu bar with every level read so far' })
+    .pipe(Schema.toTaggedUnion('_tag'));
+const Build = Schema.String.annotate({ description: 'CFBundleVersion of the instance read' });
+const Instant = Schema.DateTimeUtcFromString;
+const Condition = Schema.TaggedUnion({
+    Value: { at: Locator, value: Value },
+    Documents: { held: Schema.Boolean },
+    Modal: { at: Schema.NullOr(Locator) },
+});
+const Opener = Schema.Struct({ container: Locator, control: Locator });
+const Shape = Schema.Struct({
+    kind: Kind,
+    role: Schema.String.annotate({ description: 'AXRole' }),
+    subrole: Schema.OptionFromOptionalKey(Schema.String),
+    label: Schema.OptionFromOptionalKey(Label),
+    help: Schema.OptionFromOptionalKey(Schema.String),
+    range: Schema.OptionFromOptionalKey(Schema.Struct({ minimum: Schema.optionalKey(Schema.Finite), maximum: Schema.optionalKey(Schema.Finite), step: Schema.optionalKey(Schema.Finite) })),
+    options: Schema.OptionFromOptionalKey(Schema.Array(Schema.String)),
+    shortcut: Schema.OptionFromOptionalKey(KeyStep),
+    mark: Schema.OptionFromOptionalKey(Schema.String),
+    opens: Schema.OptionFromOptionalKey(Locator.annotate({ description: 'Menu the control opens' })),
+    separated: Schema.OptionFromOptionalKey(Schema.Boolean.annotate({ description: 'A separator precedes the item' })),
+    alternate: Schema.OptionFromOptionalKey(Locator.annotate({ description: 'Item whose place this one takes while its modifier is held' })),
+    parent: Schema.OptionFromOptionalKey(Locator),
+    positional: Schema.Boolean.annotate({ description: 'Keyed by its offset from the nearest keyed sibling' }),
+});
+const Observation = Schema.Struct({
+    build: Build,
+    container: Locator,
+    kind: ContainerKind,
+    title: Schema.OptionFromOptionalKey(Schema.String),
+    document: Schema.Boolean.annotate({ description: 'The window holds AXDocument' }),
+    modal: Schema.Boolean,
+    layer: Schema.Int.annotate({ description: 'Window server layer' }),
+    size: Size,
+    default: Schema.OptionFromOptionalKey(Locator),
+    cancel: Schema.OptionFromOptionalKey(Locator),
+    close: Schema.OptionFromOptionalKey(Locator),
+    opened: Instant.annotate({ description: 'When the container last opened, the epoch of this read' }),
+    at: Instant.annotate({ description: 'When this read was made' }),
+    complete: Schema.Boolean.annotate({ description: 'The read reached every element of the container' }),
+    cause: Schema.OptionFromOptionalKey(Opener.annotate({ description: 'Control whose step opened the container' })),
+    documents: Schema.Array(Schema.String.annotate({ description: 'Path of a document open in the instance' })),
+    scope: Schema.Array(Condition),
+    controls: Schema.Record(Locator, Shape),
+    layout: Schema.Record(Locator, Frame.annotate({ description: 'Origin in its container and size, in points' })),
+    values: Schema.Record(Locator, Value),
+}).annotate({ description: 'One read of a container: its static facts by locator, their layout and values, and the atoms in scope' });
+const Window = Schema.Struct({
     number: WindowID,
     title: Schema.optionalKey(Schema.String.annotate({ description: 'kCGWindowName, absent when unset or without Screen Recording grant' })),
     frame: Frame,
     layer: Schema.Int,
     onScreen: Schema.Boolean,
-    kind: Kind,
-    asking: withDefault(Schema.Boolean, false).annotate({ description: 'Requires an answer' }),
-    presented: withDefault(Schema.Boolean, true).annotate({ description: 'False for a window the application made before it first responded and no element describes' }),
-    element: Schema.optionalKey(TopLevelElement),
-}).annotate({ description: 'Window server row, asking rows first, system prompts naming the instance among them' });
+    container: Schema.optionalKey(Ref.annotate({ description: 'Container the window shows' })),
+    kind: Schema.optionalKey(ContainerKind),
+    document: Schema.optionalKey(Schema.String.annotate({ description: 'AXDocument URL' })),
+    asking: Schema.Boolean.annotate({ description: 'Requires an answer, or blocks its application at modal layer' }),
+    presented: Schema.Boolean.annotate({ description: 'A container describes it, or it is on screen' }),
+}).annotate({ description: 'Window server row, asking rows first' });
 const Status = Schema.Literals(['launching', 'responding', 'unresponsive']);
 const ProcessStatus = Schema.Literals(['running', 'runnable', 'sleeping', 'stopped']).annotate({ description: 'Main thread on unresponsive, running after time on a processor, runnable while waiting for one, sleeping while blocked, stopped by a signal' });
-const Running = open({
+const Running = Schema.Struct({
     active: Schema.Boolean,
     status: Status,
     process: Schema.optionalKey(ProcessStatus),
-    usage: Schema.optionalKey(open({ cpu: Schema.Finite.annotate({ description: 'CPU seconds' }), footprint: Schema.Finite.annotate({ description: 'Physical footprint bytes' }), threads: Schema.Int }).annotate({ description: 'On read and on turning unresponsive' })),
+    usage: Schema.optionalKey(
+        Schema.Struct({
+            cpu: Schema.Finite.annotate({ description: 'CPU seconds' }),
+            footprint: Schema.Finite.annotate({ description: 'Physical footprint bytes' }),
+            threads: Schema.Int,
+            assertions: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Name of each power assertion the process holds, the long work it declares' })),
+            assertionsFailure: Schema.optionalKey(Schema.String.annotate({ description: 'Power assertion read failure' })),
+        }).annotate({ description: 'On turning unresponsive' }),
+    ),
     usageFailure: Schema.optionalKey(Schema.String.annotate({ description: 'Usage read failure' })),
-    menus: Schema.optionalKey(Schema.Array(TopLevelElement)),
     windows: Schema.Array(Window),
 });
 const Failed = open({ reason: Schema.String.annotate({ description: 'Failure case' }), subject: Schema.String, message: Schema.optionalKey(Schema.String) });
@@ -186,26 +298,53 @@ const InstanceState = Object.assign(States, {
     launching: States.matchOrElse({ running: ({ running }) => running.status === 'launching' }, Function.constFalse),
     reports: States.matchOrElse({ running: ({ running }) => running.active || running.status === 'unresponsive' || running.windows.some(Struct.get('asking')) }, Function.constTrue),
 });
-const KeyName = Schema.Literals(['return', 'enter', 'tab', 'space', 'delete', 'forwardDelete', 'escape', 'home', 'end', 'pageUp', 'pageDown', 'left', 'right', 'down', 'up', 'help', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12']);
-const Modifier = Schema.Literals(['command', 'shift', 'option', 'control', 'function']);
 const ActParameters = Schema.Struct({
     actions: Schema.NonEmptyArray(
         Schema.Union([
-            Schema.Struct({ press: Schema.Struct({ element: ElementID, action: withDefault(Schema.String, 'AXPress').annotate({ description: 'Element action, AXPress unless named, AXRaise refused' }) }) }),
-            Schema.Struct({ set: Schema.Struct({ element: ElementID, value: Value.annotate({ description: 'Written to AXValue as CFString, CFNumber, or CFBoolean and read back, an unchanged value falling through to the element menu or list, AXIncrement or AXDecrement, then focus and typed keys' }) }) }),
-            Schema.Struct({ choose: Schema.Struct({ element: ElementID, item: Schema.String.annotate({ description: 'Title of a menu or list item, or value of a combo box, written and read back before its menu, list, or keys are tried' }) }) }),
+            Schema.Struct({ press: Schema.Struct({ ref: Ref, action: withDefault(Schema.String, 'AXPress').annotate({ description: 'Element action, AXPress unless named, AXRaise refused' }) }) }),
+            Schema.Struct({ set: Schema.Struct({ ref: Ref, value: Value.annotate({ description: 'Written to AXValue as CFString, CFNumber, or CFBoolean and read back, an unchanged value falling through to the element menu or list, AXIncrement or AXDecrement, then focus and typed keys' }) }) }),
+            Schema.Struct({ choose: Schema.Struct({ ref: Ref, item: Schema.String.annotate({ description: 'Title of a menu or list item, or value of a combo box, written and read back before its menu, list, or keys are tried' }) }) }),
             Schema.Struct({
                 key: Schema.Struct({
-                    key: Schema.Union([KeyName, Schema.String.annotate({ description: 'One character, posted with the key that types it on the current layout' })]),
-                    modifiers: withDefault(Schema.Array(Modifier), []).annotate({ description: 'Held while the key posts' }),
-                }).annotate({ description: 'Posted to the instance process with no activation, the focused window settling it' }),
+                    ...KeyStep.fields,
+                    ref: Schema.optionalKey(Ref.annotate({ description: 'Element the key goes to: its window made main and the element focused through Accessibility, else a window-routed click into it' })),
+                }).annotate({ description: 'Posted to the instance process with no activation, the focused window settling it where no ref names the element' }),
             }),
         ]),
     ).annotate({ description: 'Run in order until one fails, then the instance turns idle once' }),
 });
+const Written = Schema.Result(Schema.Array(Schema.URL), Schema.ErrorInstance()).annotate({ description: 'Documents the instance holds open, by AXDocument and the open command, that FSEvents saw written during the step, else the watch failure' });
+class Diagnostics extends Schema.Class<Diagnostics, { readonly brand: unique symbol }>('Diagnostics')({
+    application: Schema.optionalKey(Schema.Struct({ url: Schema.URL.annotate({ description: 'Bundle of the installation' }), instance: Schema.optionalKey(ProcessInstance) }).annotate({ description: 'Reports and unified log of the instance, else of the installation executable; absent reads the server itself' })),
+    folders: withDefault(Schema.Array(Schema.Struct({ url: Schema.URL.annotate({ description: 'Folder of log files' }), glob: Schema.optionalKey(Schema.String.annotate({ description: 'fnmatch pattern of file names, every file when absent' })) })), []),
+    since: Schema.optionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Seconds back from now, else since the instance launched' })),
+    limit: Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Most reports, log lines, and unified log events returned' }),
+    find: Schema.optionalKey(Schema.String.annotate({ description: 'Text a log line or unified log event holds, ignoring case, searched before the limit applies' })),
+}) {
+    static readonly Result = Schema.Struct({
+        reports: Schema.Array(DiagnosticReport).annotate({ description: 'Newest first' }),
+        logs: Schema.Array(Schema.Struct({ file: Schema.String, text: Schema.String })).annotate({ description: 'Newest first across folders, by the JSON timestamp of a line, else file modification time' }),
+        unified: Schema.Result(
+            Schema.Array(open({ timestamp: Schema.String, processID: Schema.optionalKey(Pid), messageType: Schema.optionalKey(Schema.String), subsystem: Schema.optionalKey(Schema.String), category: Schema.optionalKey(Schema.String), eventMessage: Schema.optionalKey(Schema.String) })).annotate({
+                description: 'log show events, newest first',
+            }),
+            Schema.ErrorInstance(),
+        ),
+        unreadable: Schema.Array(Schema.String).annotate({ description: 'Report files, log folders, and log lines that failed to read, with cause' }),
+    });
+}
+const Route = Schema.Union([tagByKey('process', Schema.Struct({})), tagByKey('window', Schema.Struct({ number: WindowID })), tagByKey('focused', Schema.Struct({ number: WindowID })), tagByKey('system', Schema.Struct({}))]).annotate({
+    description: 'Route its events took: process posts keys to the key window, window adds the routing fields of a background window, focused brackets the window route with focus and defocus records, system posts at the HID tap to the frontmost process',
+});
+const Delivery = Schema.Struct({
+    window: Schema.optionalKey(WindowID.annotate({ description: 'Window the action reached' })),
+    route: Schema.optionalKey(Route.annotate({ description: 'Absent where the action posted no event' })),
+});
 const ActResult = Schema.Struct({
-    outcomes: Schema.Array(Schema.Result(Schema.NullOr(WindowID).annotate({ description: 'Window the action reached' }), Schema.ErrorInstance())).annotate({ description: 'One per action run, the first failure ending the run' }),
+    outcomes: Schema.Array(Schema.Result(Delivery, Schema.ErrorInstance())).annotate({ description: 'One per action run, the first failure ending the run' }),
     state: States.annotate({ description: 'State once the acted windows stop asking, bounded at 2 heartbeats' }),
+    written: Schema.optionalKey(Written.annotate({ description: 'Documents the instance holds open, by AXDocument and the open command, that FSEvents saw written during the actions, else the watch failure; absent for actions a linked source runs' })),
+    diagnostics: Schema.optionalKey(Diagnostics.Result.annotate({ description: 'Error and fault lines of the instance and its crash and hang reports since the actions began; absent for actions a linked source runs' })),
 });
 const Act = Object.assign(ActParameters, { Result: ActResult });
 const Launch = Schema.Struct({
@@ -218,7 +357,29 @@ const Launch = Schema.Struct({
     wait: withDefault(Schema.Boolean, false).annotate({ description: 'Events continue until the instance exits' }),
 });
 const QuitMode = Schema.Literals(['asking', 'saving', 'discarding', 'forcing']).annotate({ description: 'Save option the quit event states where the scripting definition declares one on quit, forcing ending the process with no event' });
+const Session = Schema.Struct({
+    onConsole: Schema.Boolean.annotate({ description: 'kCGSessionOnConsoleKey, false while another user session holds the screen' }),
+    locked: Schema.Boolean.annotate({ description: 'The lock screen shows' }),
+    asleep: Schema.Boolean.annotate({ description: 'The main display sleeps' }),
+    secureInput: Schema.Boolean.annotate({ description: 'A process holds secure event input' }),
+    space: Schema.Int.annotate({ description: 'Active Space' }),
+}).annotate({ description: 'Login session and screens; view and act refuse a session off the console, a locked screen, or a sleeping display' });
 const Pressure = Schema.Struct({ memory: Schema.Literals(['normal', 'warning', 'critical']), thermal: Schema.Literals(['nominal', 'fair', 'serious', 'critical', 'unknown']) }).annotate({ description: 'Kernel memory pressure level and thermal state, unknown for a state this build names no case for' });
+const Pasteboard = Schema.Struct({
+    locator: Locator,
+    changeCount: Schema.Int.annotate({ description: 'NSPasteboard changeCount, rising with each write by any process' }),
+    types: Schema.Array(Schema.String).annotate({ description: 'Pasteboard types the items declare, read with no alert' }),
+    access: Schema.Union([Schema.Literals(['default', 'ask', 'alwaysAllow', 'alwaysDeny']), Schema.Int.annotate({ description: 'Raw value of a case this build names none for' })]).annotate({
+        description: "NSPasteboard accessBehavior: the owner's Paste from Other Apps setting for the server, default until a read first raised the system's paste alert, which lists the server in that setting",
+    }),
+    patterns: Schema.Array(Schema.String).annotate({ description: 'NSPasteboardDetectionPattern values the system detects in the content, read with no alert' }),
+    contentType: Schema.optionalKey(Schema.String.annotate({ description: 'Uniform type of the file the pasteboard references, read with no alert' })),
+    content: Schema.optionalKey(
+        Schema.Union([tagByKey('text', Schema.Struct({ value: Schema.String })), tagByKey('withheld', Schema.Struct({}))])
+            .annotate({ description: 'Plain text, read only where access is alwaysAllow, else withheld as a read would raise the alert or meet the denial; absent where no item holds plain text' })
+            .pipe(Schema.toTaggedUnion('_tag')),
+    ),
+}).annotate({ description: 'General pasteboard, the clipboard a person copies to and pastes from' });
 const ActivationPolicy = Schema.Literals(['regular', 'accessory', 'prohibited']).annotate({ description: 'Regular in Dock, accessory for menu bar or helper process, prohibited for background only' });
 const LaunchedInstance = Schema.Struct({
     pid: Pid,
@@ -233,46 +394,34 @@ class InstanceSnapshot extends Schema.Class<InstanceSnapshot, { readonly brand: 
     identifier: LaunchedInstance.fields.identifier,
     url: Schema.URL.annotate({ description: 'Bundle' }),
     activationPolicy: ActivationPolicy,
+    language: Schema.optionalKey(Schema.String.annotate({ description: 'Interface language of the instance, on the reply of watch' })),
     state: InstanceState,
     listening: Schema.Array(Schema.Int).annotate({ description: 'TCP ports the process listens on, read at each state, empty unless running or on a failed read' }),
     listeningFailure: Schema.optionalKey(Schema.String.annotate({ description: 'Listening ports read failure' })),
 }) {}
-const LaunchEvent = Schema.Union([tagByKey('launched', LaunchedInstance), tagByKey('state', InstanceSnapshot), tagByKey('prompts', Schema.Array(InstanceSnapshot)), tagByKey('opened', AppleEventValue), tagByKey('failed', Failed)])
-    .annotate({ description: 'Launch events: launched first, then states and system prompts, the reply of the open command once sent, ending idle or asking' })
+const LaunchEvent = Schema.Union([tagByKey('launched', LaunchedInstance), tagByKey('state', InstanceSnapshot), tagByKey('opened', AppleEventValue), tagByKey('failed', Failed)])
+    .annotate({ description: 'Launch events: launched first, then states, the reply of the open command once sent, ending idle or asking' })
     .pipe(Schema.toTaggedUnion('_tag'));
-const eventFields = {
-    instance: ProcessInstance,
-    pid: Pid,
-    at: Schema.String.annotate({ description: 'ISO 8601 time the change was read' }),
-};
-const EventWindow = open({
-    number: WindowID,
-    title: Schema.optionalKey(Schema.String),
-    document: Schema.optionalKey(Schema.String.annotate({ description: 'AXDocument file URL' })),
-    subrole: Schema.optionalKey(Schema.String.annotate({ description: 'AXSubrole, AXStandardWindow for a document window' })),
-    kind: Kind,
-});
-class Dialog extends Schema.Opaque<Dialog, unknown>()(
-    open({
-        window: WindowID,
-        element: Schema.optionalKey(ElementID),
-        kind: Kind,
-        title: Schema.optionalKey(Schema.String),
-        text: Schema.Array(Schema.String),
-        answers: Schema.optionalKey(Answers),
-    }),
-) {}
-const Event = Schema.Union([
-    open({ _tag: Schema.tagDefaultOmit('started'), ...eventFields, started: Schema.Literal(true), identifier: Schema.optionalKey(LaunchedInstance.fields.identifier), name: Schema.optionalKey(Schema.String) }),
-    open({ _tag: Schema.tagDefaultOmit('opened'), ...eventFields, opened: EventWindow }),
-    open({ _tag: Schema.tagDefaultOmit('closed'), ...eventFields, closed: EventWindow }),
-    open({ _tag: Schema.tagDefaultOmit('asking'), ...eventFields, asking: Dialog }),
-    open({ _tag: Schema.tagDefaultOmit('answered'), ...eventFields, answered: Dialog }),
-    open({ _tag: Schema.tagDefaultOmit('status'), ...eventFields, status: Status, process: Schema.optionalKey(ProcessStatus) }),
-    open({ _tag: Schema.tagDefaultOmit('exited'), ...eventFields, exited: Exited }),
+const Change = Schema.Union([
+    tagByKey('started', Schema.Struct({ identifier: Schema.optionalKey(LaunchedInstance.fields.identifier), name: Schema.optionalKey(Schema.String) })),
+    tagByKey('opened', Schema.Struct({ container: Ref, kind: ContainerKind, title: Schema.optionalKey(Schema.String) })),
+    tagByKey('closed', Schema.Struct({ container: Ref, kind: ContainerKind, title: Schema.optionalKey(Schema.String) })),
+    tagByKey(
+        'asking',
+        Schema.Struct({ container: Ref, kind: ContainerKind, title: Schema.optionalKey(Schema.String), text: Schema.Array(Schema.String), answers: Schema.Array(Schema.Struct({ ref: Ref, label: Schema.optionalKey(Schema.String) }).annotate({ description: 'Action control answering the container, with its label' })) }),
+    ),
+    tagByKey('focused', Schema.Struct({ control: Ref, kind: Kind })),
+    tagByKey('value', Schema.Struct({ control: Ref, kind: Kind, fact: Fact })),
+    tagByKey('selection', Schema.Struct({ control: Ref, kind: Kind, evidence: Evidence })),
+    tagByKey('moved', Schema.Struct({ container: Ref, kind: ContainerKind, frame: Frame })),
+    tagByKey('frontmost', Schema.Struct({ active: Schema.Boolean })),
+    tagByKey('status', Schema.Struct({ status: Status, thread: Schema.optionalKey(ProcessStatus) })),
+    tagByKey('exited', Schema.Struct({ termination: Exited })),
 ])
-    .annotate({ description: 'Change of a selected instance: started, window opened or closed, dialog asking or answered, status, exited with its crash report' })
+    .annotate({ description: 'Change of a selected instance: started, container opened, closed, or asking, focus, value, or selection of a control, a moved container, frontmost, status, exited with its crash report' })
     .pipe(Schema.toTaggedUnion('_tag'));
+const Event = Object.assign(Schema.Struct({ instance: ProcessInstance, sequence: Schema.Int.annotate({ description: 'Per instance, rising with each change' }), at: Schema.String.annotate({ description: 'ISO 8601 time the change was read' }), change: Change }), { Change });
+const Report = Schema.Struct({ instance: ProcessInstance, identifier: Schema.optionalKey(LaunchedInstance.fields.identifier), language: Schema.String.annotate({ description: 'Interface language of the instance' }), observation: Observation });
 class Installation extends Schema.Class<Installation, { readonly brand: unique symbol }>('Installation')({
     url: Schema.URL,
     executable: Schema.OptionFromOptionalKey(Schema.URL.annotate({ description: 'Main executable of the bundle' })),
@@ -294,6 +443,14 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
     multipleInstancesProhibited: Schema.OptionFromOptionalKey(Schema.Boolean.annotate({ description: 'LSMultipleInstancesProhibited' })),
     environment: Schema.OptionFromOptionalKey(Schema.Record(Schema.String, Schema.String).annotate({ description: 'LSEnvironment' })),
     architectures: Schema.OptionFromOptionalKey(Schema.Array(Schema.String).annotate({ description: 'Architectures of the main executable' })),
+    quarantine: Schema.OptionFromOptionalKey(
+        Schema.Struct({
+            agent: Schema.optionalKey(Schema.String.annotate({ description: 'Application that downloaded the bundle' })),
+            type: Schema.optionalKey(Schema.String.annotate({ description: 'LSQuarantineType' })),
+            origin: Schema.optionalKey(Schema.String.annotate({ description: 'Page the download came from' })),
+            date: Schema.optionalKey(Schema.String.annotate({ description: 'ISO 8601 download time' })),
+        }).annotate({ description: 'Quarantine attribute Gatekeeper checks before a first launch, which a failed launch names as its cause' }),
+    ),
     claim: Schema.OptionFromOptionalKey(
         Schema.Struct({ prefixes: Schema.Array(Schema.String).annotate({ description: 'Bundle identifier prefixes' }), server: Schema.String.annotate({ description: 'MCP server name' }), scope: Schema.String }).annotate({
             description: 'ApplicationServerClaim: applications the server of this bundle drives',
@@ -305,47 +462,47 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
         (instance: InstanceSnapshot) =>
             instance.url.href === url.href && !InstanceState.isAnyOf(['exited'])(instance.state);
 }
+const Listing = Schema.Struct({
+    installations: Schema.Array(Installation),
+    unreadable: Schema.Array(Schema.Struct({ reason: Schema.String, subject: Schema.String.annotate({ description: 'Bundle path' }), message: Schema.optionalKey(Schema.String) })).annotate({ description: 'Bundles that failed to read, each with its cause' }),
+});
 class Capture extends Schema.Class<Capture, { readonly brand: unique symbol }>('Capture')({
-    source: Schema.OptionFromOptionalKey(
-        Schema.Union([Schema.Struct({ windows: Schema.Struct({ numbers: Schema.NonEmptyArray(WindowID) }) }), Schema.Struct({ element: Schema.Struct({ id: ElementID.annotate({ description: 'Element cropped from its window' }) }) })]).annotate({
-            description: 'Windows by number or one element, each presented window when absent',
-        }),
-    ),
-    longestSide: Schema.OptionFromOptionalKey(LongestSide.annotate({ description: 'Longest side in pixels of the inline preview, absent for none' })),
+    source: Schema.Union([
+        Schema.Struct({ windows: Schema.Struct({ numbers: Schema.NonEmptyArray(WindowID).annotate({ description: 'Each window an image of its own with its child windows' }) }) }),
+        Schema.Struct({ element: Schema.Struct({ ref: Ref.annotate({ description: 'Control or container cropped from its window, with the windows of the application above it' }) }) }),
+        Schema.Struct({ region: Schema.Struct({ frame: Frame.annotate({ description: 'Screen region the windows of the application show' }) }) }),
+    ]),
+    longestSide: Schema.OptionFromOptionalKey(LongestSide.annotate({ description: 'Longest side in pixels of each image, never upscaled, full resolution when absent' })),
 }) {
-    static readonly Result = Schema.Record(
-        Schema.String.annotate({ description: 'Window number' }),
+    static readonly Result = Schema.Array(
         Schema.Result(
             Schema.Struct({
-                file: Schema.String.annotate({ description: 'Full-resolution PNG file URL in the output folder captures of the application' }),
-                width: Schema.Int.annotate({ description: 'File width in pixels' }),
-                height: Schema.Int.annotate({ description: 'File height in pixels' }),
-                document: Schema.optionalKey(Schema.String.annotate({ description: 'AXDocument file URL of the window' })),
-                preview: Schema.OptionFromOptionalKey(Schema.Uint8Array.annotate({ description: 'PNG scaled to the longest side' })),
+                png: Schema.Uint8Array.annotate({ description: 'PNG image' }),
+                width: Schema.Int.annotate({ description: 'Image width in pixels' }),
+                height: Schema.Int.annotate({ description: 'Image height in pixels' }),
+                frame: Frame.annotate({ description: 'Screen area the image shows' }),
+                windows: Schema.Array(WindowID).annotate({ description: 'Windows the image composites' }),
+                backingStore: Schema.Boolean.annotate({
+                    description: 'Whether the image is the backing store the window server keeps for a window off screen (hidden, minimized, or on another Space), its last drawn content read through CGSHWCaptureWindowList in place of ScreenCaptureKit',
+                }),
+                document: Schema.optionalKey(Schema.String.annotate({ description: 'AXDocument file URL of the first window showing one' })),
+                presentation: Schema.optionalKey(
+                    Schema.Union([
+                        Schema.Struct({
+                            behind: Schema.Struct({
+                                held: Schema.Finite.annotate({ description: 'Seconds key focus was away from the application holding it, from each menu taking it to its release, while the menus stayed open behind' }),
+                                secureInput: Schema.Boolean.annotate({ description: 'Whether secure input was on at a press, so keys typed in that span reached the menu unfenced' }),
+                            }),
+                        }),
+                        Schema.Struct({ forward: Schema.Struct({}).annotate({ description: 'Application brought forward to open its menu, as no route opened it behind, and left there' }) }),
+                    ]).annotate({ description: 'How the menus the image shows were opened for it, absent when it opened none' }),
+                ),
             }),
             Schema.ErrorInstance(),
         ),
-    );
+    ).annotate({ description: 'One image per window of a windows source in its order, else one' });
 }
-class Diagnostics extends Schema.Class<Diagnostics, { readonly brand: unique symbol }>('Diagnostics')({
-    application: Schema.optionalKey(Schema.Struct({ url: Schema.URL.annotate({ description: 'Bundle of the installation' }), instance: Schema.optionalKey(ProcessInstance) }).annotate({ description: 'Reports and unified log of the instance, else of the installation executable; absent reads the server itself' })),
-    folders: withDefault(Schema.Array(Schema.Struct({ url: Schema.URL.annotate({ description: 'Folder of log files' }), glob: Schema.optionalKey(Schema.String.annotate({ description: 'fnmatch pattern of file names, every file when absent' })) })), []),
-    since: Schema.optionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Seconds back from now, else since the instance launched' })),
-    limit: Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Most reports, log lines, and unified log events returned' }),
-}) {
-    static readonly Result = Schema.Struct({
-        reports: Schema.Array(DiagnosticReport).annotate({ description: 'Newest first' }),
-        logs: Schema.Array(Schema.Struct({ file: Schema.String, text: Schema.String })).annotate({ description: 'Newest first across folders, by the JSON timestamp of a line, else file modification time' }),
-        unified: Schema.Result(
-            Schema.Array(open({ timestamp: Schema.String, processID: Schema.optionalKey(Pid), messageType: Schema.optionalKey(Schema.String), subsystem: Schema.optionalKey(Schema.String), category: Schema.optionalKey(Schema.String), eventMessage: Schema.optionalKey(Schema.String) })).annotate({
-                description: 'log show events, newest first',
-            }),
-            Schema.ErrorInstance(),
-        ),
-        unreadable: Schema.Array(Schema.String).annotate({ description: 'Report files and log folders that failed to read, with cause' }),
-    });
-}
-const Identifiers = { identifiers: Schema.NonEmptyArray(Schema.String).annotate({ description: "Bundle identifiers of the instances monitored, each matching the server's applications" }) };
+const Identifiers = { identifiers: Schema.optionalKey(Schema.NonEmptyArray(Schema.String).annotate({ description: "Bundle identifiers of the instances monitored, each matching the server's applications, every application the server matches when absent" })) };
 const Failure = Schema.Union([Unmatched, Schema.ErrorInstance()]);
 const ApplicationRpcs = RpcGroup.make(
     Rpc.make('installations', {
@@ -353,38 +510,67 @@ const ApplicationRpcs = RpcGroup.make(
             identifiers: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Bundle identifiers' })),
             prefix: Schema.optionalKey(Schema.String.annotate({ description: 'Bundle identifier prefix, joined with identifiers by or, every application the server matches when both are absent' })),
         },
-        success: Schema.Result(Schema.Array(Installation), Schema.ErrorInstance()).annotate({ description: 'Applications folders and running regular applications, on subscribe, each Spotlight update, and each regular launch or exit, or discovery error' }),
+        success: Listing.annotate({ description: 'Applications folders and running regular applications, on subscribe, each Spotlight update, and each regular launch or exit' }),
         stream: true,
     }),
-    Rpc.make('instances', { payload: Identifiers, success: Schema.Array(InstanceSnapshot).annotate({ description: 'On subscribe and each change, exited instances kept until next change' }), stream: true }),
-    Rpc.make('events', { payload: Identifiers, success: Event, stream: true }),
+    Rpc.make('instances', {
+        payload: Identifiers,
+        success: Schema.Array(InstanceSnapshot).annotate({ description: 'On subscribe and each change, every instance not background only, an instance watch or a request started a Watch for in its Accessibility state, exited instances kept until next change' }),
+        stream: true,
+    }),
+    Rpc.make('events', { payload: Identifiers, success: Event.annotate({ description: 'Events of each instance a watch or a request started a Watch for, and of each process outside the Dock raising a modal panel' }), stream: true }),
+    Rpc.make('observations', { payload: Identifiers, success: Report.annotate({ description: 'Each container read whose static facts differ from the last sent, or that opened again' }), stream: true }),
+    Rpc.make('session', { success: Session.annotate({ description: 'On subscribe and each change of console, lock, display sleep, or active Space' }), stream: true }),
     Rpc.make('pressure', { success: Schema.Result(Pressure, Schema.ErrorInstance()).annotate({ description: 'On subscribe and each kernel change, or read error' }), stream: true }),
-    Rpc.make('element', {
-        payload: {
-            instance: ProcessInstance,
-            root: Schema.optionalKey(ElementID.annotate({ description: 'Element read, the application when absent' })),
-            depth: Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Child levels read below the root' }),
-        },
-        success: Element,
+    Rpc.make('pasteboard', {
+        payload: { text: Schema.optionalKey(Schema.String.annotate({ description: 'Plain text written as the only item before the read' })) },
+        success: Pasteboard.annotate({ description: 'General pasteboard once the write, if any, landed' }),
         error: Failure,
     }),
-    Rpc.make('handler', { payload: { document: Schema.URL.annotate({ description: 'File or URL' }) }, success: Installation.annotate({ description: 'Application the system opens the document with' }), error: Failure }),
+    Rpc.make('watch', { payload: { instance: ProcessInstance }, success: InstanceSnapshot.annotate({ description: 'State of the instance, its Accessibility events, states, and observations streamed from this call on' }), error: Failure }),
+    Rpc.make('model', {
+        payload: {
+            instance: ProcessInstance,
+            scope: Scope,
+            known: Schema.optionalKey(Schema.Struct({ build: Build, containers: Schema.Array(Locator) }).annotate({ description: 'Containers the interface map holds as read in this build, which the read checks in place of reading them whole' })),
+        },
+        success: Model,
+        error: Failure,
+    }),
+    Rpc.make('intern', {
+        payload: { instance: ProcessInstance, locators: Schema.Array(Locator) },
+        success: Schema.Array(Ref).annotate({ description: 'Reference of each locator in order, from the table the Watch of the instance keys its own locators by' }),
+        error: Failure,
+    }),
+    Rpc.make('handlers', {
+        payload: { document: Schema.URL.annotate({ description: 'File or URL' }) },
+        success: Listing.annotate({ description: "Applications the server matches that open the document, the system's default first, then by the system's suitability" }),
+        error: Failure,
+    }),
     Rpc.make('launch', { payload: Launch.fields, success: LaunchEvent, error: Failure, stream: true }),
     Rpc.make('act', { payload: { instance: ProcessInstance, ...Act.fields }, success: Act.Result, error: Failure }),
     Rpc.make('quit', { payload: { instance: ProcessInstance, mode: withDefault(QuitMode, 'asking') }, success: InstanceState.annotate({ description: 'Last state, a dialog or unresponsive instance stays running' }), error: Failure }),
     Rpc.make('dictionary', { payload: { url: Schema.URL }, success: ScriptingDictionary, error: Failure }),
     Rpc.make('execute', {
         payload: { instance: ProcessInstance, arguments: withDefault(Schema.Record(Schema.String, AppleEventValue).annotate({ description: 'Parameters of the script command by name or code, direct for direct parameter, accepts reply values' }), {}) },
-        success: AppleEventValue.annotate({ description: 'Reply' }),
+        success: Schema.Struct({ reply: AppleEventValue.annotate({ description: 'Reply' }), written: Written }),
         error: Failure,
     }),
     Rpc.make('capture', { payload: { instance: ProcessInstance, ...Capture.fields }, success: Capture.Result, error: Failure }),
-    Rpc.make('preview', {
-        payload: { file: Schema.URL.annotate({ description: 'PNG file' }), longestSide: LongestSide.annotate({ description: 'Longest side in pixels of the preview, never upscaled' }) },
+    Rpc.make('record', {
+        payload: { instance: ProcessInstance, ...Capture.fields, seconds: Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Seconds recorded, the windows the application opens meanwhile on that display included' }) },
         success: Schema.Struct({
-            width: Schema.Int.annotate({ description: 'File width in pixels' }),
-            height: Schema.Int.annotate({ description: 'File height in pixels' }),
-            preview: Schema.Uint8Array.annotate({ description: 'PNG scaled to the longest side' }),
+            movie: Schema.Uint8Array.annotate({ description: 'Movie of the source over the requested seconds, from SCRecordingOutput' }),
+            type: Schema.String.annotate({ description: 'Uniform type identifier of the movie' }),
+        }),
+        error: Failure,
+    }),
+    Rpc.make('scale', {
+        payload: { image: Schema.Uint8Array.annotate({ description: 'Image bytes in any format ImageIO reads' }), longestSide: LongestSide.annotate({ description: 'Longest side in pixels, never upscaled' }) },
+        success: Schema.Struct({
+            png: Schema.Uint8Array.annotate({ description: 'PNG scaled to the longest side' }),
+            width: Schema.Int.annotate({ description: 'Width in pixels' }),
+            height: Schema.Int.annotate({ description: 'Height in pixels' }),
         }),
         error: Failure,
     }),
@@ -393,4 +579,49 @@ const ApplicationRpcs = RpcGroup.make(
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Act, AppleEventValue, ApplicationRpcs, Capture, Diagnostics, type Dialog, Element, ElementID, Event, Installation, InstanceSnapshot, InstanceState, Launch, LaunchedInstance, LaunchEvent, LongestSide, Pid, Pressure, ProcessInstance, QuitMode, ScriptingDictionary, WindowID };
+export {
+    Act,
+    AppleEventValue,
+    ApplicationRpcs,
+    Build,
+    Capture,
+    Condition,
+    Container,
+    ContainerKind,
+    Control,
+    Cursor,
+    Diagnostics,
+    Event,
+    Fact,
+    Failure,
+    Frame,
+    Installation,
+    InstanceSnapshot,
+    InstanceState,
+    Instant,
+    Kind,
+    Launch,
+    KeyStep,
+    LaunchedInstance,
+    LaunchEvent,
+    Locator,
+    LongestSide,
+    Model,
+    Observation,
+    Opener,
+    Pasteboard,
+    Pid,
+    Pointer,
+    Pressure,
+    ProcessInstance,
+    QuitMode,
+    Ref,
+    Report,
+    Scope,
+    ScriptingDictionary,
+    Session,
+    Shape,
+    Value,
+    WindowID,
+    Written,
+};

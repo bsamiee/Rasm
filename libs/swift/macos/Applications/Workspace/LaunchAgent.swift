@@ -46,7 +46,7 @@ extension LaunchAgent {
         let declared: Declaration
         do { declared = try PropertyListDecoder().decode(Declaration.self, from: Data(contentsOf: plist)) } catch { throw ApplicationFailure(subject: path, reason: .foundation(error as NSError)) }
         let stated = declared.bundleProgram.map { program in bundle.appending(path: program) } ?? (declared.program ?? declared.arguments?.first).map { program in URL(filePath: program) }
-        guard let program = stated else { throw ApplicationFailure(subject: path, reason: .malformed("\(path) names no BundleProgram, Program, or ProgramArguments")) }
+        guard let program = stated else { throw ApplicationFailure(subject: path, reason: .noExecutable) }
         self.init(label: declared.label, program: program, plist: plist, keepAlive: declared.keepAlive)
     }
 

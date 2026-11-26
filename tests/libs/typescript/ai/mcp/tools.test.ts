@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Array, Deferred, Effect, Fiber, Option, Queue, Record, Ref, Schema, String, Struct, SubscriptionRef } from 'effect';
 import { McpProtocol } from 'effect/ai';
-import { ASKED, Called, lines, opened, RAISED, SETTINGS, STATE, settled, TEXT } from '#/fixtures';
+import { ASKED, Called, lines, opened, RAISED, SETTINGS, STATE, STATED, settled, TEXT } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -135,6 +135,17 @@ describe('tool calls through the server', () => {
             yield* settled(text('test_simple_text', { handle }), (shown) => shown.some(String.endsWith(`unowned ${SETTINGS.limit}`)));
             yield* probe.release.open;
             assert.deepStrictEqual({ claimed, beside, released: yield* Fiber.join(gated) }, { claimed: [`! #1 ${RAISED.owned}`, '', 'claimed'], beside: [TEXT], released: ['released'] });
+        }),
+    );
+
+    it.live(
+        'leads a result with the state line its tool states, then the handle it issues or the events its handle owns, then its body',
+        Effect.fnUntraced(function* () {
+            const { probe, called } = yield* opened(PROTOCOL);
+            const [issued, handle] = [lines(yield* called('test_stated')), named(lines(yield* called('test_simple_text'))[0])];
+            yield* Queue.offer(probe.shared, 'shared one');
+            const evented = yield* settled(Effect.map(called('test_stated', { handle }), lines), (shown) => shown.some(String.startsWith('! ')));
+            assert.deepStrictEqual({ issued: [issued[0], ISSUED.test(issued[1] ?? ''), ...issued.slice(2)], evented }, { issued: [STATED, true, '', TEXT], evented: [STATED, '! #1 shared one', '', TEXT] });
         }),
     );
 

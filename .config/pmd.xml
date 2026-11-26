@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ruleset name="rasm" xmlns="http://pmd.sourceforge.net/ruleset/2.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
-    <description>Defects and style findings in Ghidra scripts</description>
+    <description>Java rules for Ghidra scripts</description>
+
+    <!-- [RULES] ───────────────────────────────────────────────────────────────────── -->
+
+    <!-- [BEST_PRACTICES] -->
 
     <rule ref="category/java/bestpractices.xml">
         <exclude name="UnusedFormalParameter" />
@@ -11,27 +15,36 @@
         </properties>
     </rule>
 
+    <!-- [CODE_STYLE] -->
+
     <rule ref="category/java/codestyle.xml">
-        <exclude name="AtLeastOneConstructor" /> <!-- Ghidra instantiates each `GhidraScript` through its implicit constructor -->
-        <exclude name="CommentDefaultAccessModifier" /> <!-- Demands comments on package-private members, CLAUDE.md forbids comments -->
-        <exclude name="LocalVariableCouldBeFinal" /> <!-- `javac` treats effectively final locals as final -->
-        <exclude name="LocalVariableDeclarationShouldBeAtStartOfBlock" /> <!-- Locals bind at first use, data dependency decides order -->
-        <exclude name="MethodArgumentCouldBeFinal" /> <!-- `javac` treats effectively final parameters as final -->
-        <exclude name="NoPackage" /> <!-- Ghidra loads scripts from script folders in the default package -->
-        <exclude name="OnlyOneReturn" /> <!-- `switch` arms and guards return per case -->
-        <exclude name="ShortClassName" /> <!-- Names come from their subject (`Row`, `Role`), `writing:prose` naming -->
-        <exclude name="ShortMethodName" /> <!-- Names come from their subject, `writing:prose` naming -->
-        <exclude name="ShortVariable" /> <!-- Names come from their subject, `writing:prose` naming -->
+        <exclude name="AtLeastOneConstructor" /> <!-- Ghidra can instantiate scripts with Java's default constructor -->
+        <exclude name="CommentDefaultAccessModifier" /> <!-- CLAUDE.md excludes comments marking package access -->
+        <!-- Java recognizes effectively final locals and parameters without `final` -->
+        <exclude name="LocalVariableCouldBeFinal" />
+        <exclude name="LocalVariableDeclarationShouldBeAtStartOfBlock" /> <!-- Declare locals at first use in dependency order -->
+        <exclude name="MethodArgumentCouldBeFinal" />
+        <exclude name="NoPackage" /> <!-- Ghidra loads default-package scripts from script directories -->
+        <exclude name="OnlyOneReturn" /> <!-- Return from each `switch` arm or guard clause -->
+        <!-- `writing:prose` names classes, methods, and variables for their subjects (`Row`, `Role`) -->
+        <exclude name="ShortClassName" />
+        <exclude name="ShortMethodName" />
+        <exclude name="ShortVariable" />
     </rule>
 
+    <!-- [DESIGN] -->
+
     <rule ref="category/java/design.xml">
-        <exclude name="CouplingBetweenObjects" /> <!-- Type counts push one-caller helper extraction CLAUDE.md forbids -->
-        <exclude name="ExcessiveImports" /> <!-- Import counts push one-caller helper extraction CLAUDE.md forbids -->
-        <exclude name="LawOfDemeter" /> <!-- Ghidra's API reaches program state through accessor chains -->
-        <exclude name="LoosePackageCoupling" /> <!-- Reports a configuration error without a package list to check -->
+        <!-- CLAUDE.md keeps related logic together when type, import, or method counts encourage single-caller helper extraction -->
+        <exclude name="CouplingBetweenObjects" />
+        <exclude name="ExcessiveImports" />
+        <exclude name="LawOfDemeter" /> <!-- Ghidra exposes program state through accessor chains -->
+        <exclude name="LoosePackageCoupling" /> <!-- PMD reports a configuration error when the package list is empty -->
         <exclude name="SignatureDeclareThrowsException" /> <!-- `GhidraScript.run` declares `throws Exception` -->
-        <exclude name="TooManyMethods" /> <!-- Member counts push one-caller helper extraction CLAUDE.md forbids -->
+        <exclude name="TooManyMethods" />
     </rule>
+
+    <!-- [ERROR_PRONE] -->
 
     <rule ref="category/java/errorprone.xml">
         <exclude name="AvoidAccessibilityAlteration" />
@@ -52,7 +65,8 @@
     </rule>
     <rule ref="category/java/errorprone.xml/CloseResource">
         <properties>
-            <property name="violationSuppressXPath" value="./ancestor-or-self::LocalVariableDeclaration[VariableDeclarator/MethodCall[pmd-java:matchesSig('java.nio.channels.ServerSocketChannel#accept()')]]" /> <!-- Accepted channels pass to the connection set and the callbacks closing them, past the accepting method -->
+            <!-- Accepted channels outlive the accepting method in the connection set and close in callbacks -->
+            <property name="violationSuppressXPath" value="./ancestor-or-self::LocalVariableDeclaration[VariableDeclarator/MethodCall[pmd-java:matchesSig('java.nio.channels.ServerSocketChannel#accept()')]]" />
         </properties>
     </rule>
     <rule ref="category/java/errorprone.xml/EmptyCatchBlock">
@@ -65,8 +79,8 @@
             <property name="violationSuppressXPath" value="./ancestor::*[pmd-java:nodeIs('TypeDeclaration')][1][self::EnumDeclaration]" />
         </properties>
     </rule>
-    <rule name="EmptyStringForAbsence" language="java" message="Empty string stands for an absent value" class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
-        <description>Keep absence in `Optional` or an empty collection, and choose the whole text per case with `map` and `orElse`</description>
+    <rule name="EmptyStringForAbsence" language="java" message="Empty string fallback hides absence, handle absence explicitly" class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Keep absence in an `Optional` or empty collection. Select complete text for each case with `map` and `orElse`</description>
         <priority>1</priority>
         <properties>
             <property name="xpath">
@@ -82,8 +96,8 @@
             </property>
         </properties>
     </rule>
-    <rule name="UncheckedOptionalAccess" language="java" message="Optional read with no decision on absence" class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
-        <description>Read an `Optional` through `map`, `ifPresent`, `orElseGet`, or `orElseThrow`</description>
+    <rule name="UncheckedOptionalAccess" language="java" message="Direct Optional.get() call, choose an operation that handles absence" class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Use `map`, `ifPresent`, `orElseGet`, or `orElseThrow` to handle both cases of an `Optional`</description>
         <priority>1</priority>
         <properties>
             <property name="xpath">
@@ -95,8 +109,8 @@
             </property>
         </properties>
     </rule>
-    <rule name="UncheckedDecompilerOpen" language="java" message="Decompiler program open result unchecked" class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
-        <description>`DecompilerCallback` discards false from `DecompInterface.openProgram`, open program in configurer and fail with `getLastMessage`</description>
+    <rule name="UncheckedDecompilerOpen" language="java" message="Unchecked decompiler open, check DecompInterface.openProgram()" class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>`DecompilerCallback` ignores the `openProgram` result. Check it in the configurer and throw with `getLastMessage` on failure</description>
         <priority>1</priority>
         <properties>
             <property name="xpath">
@@ -110,13 +124,17 @@
         </properties>
     </rule>
 
+    <!-- [MULTITHREADING] -->
+
     <rule ref="category/java/multithreading.xml">
-        <exclude name="DoNotUseThreads" /> <!-- Scoped to J2EE containers, scripts run in Ghidra's JVM -->
+        <exclude name="DoNotUseThreads" /> <!-- PMD targets J2EE containers. Ghidra runs scripts in its JVM -->
     </rule>
 
+    <!-- [PERFORMANCE] -->
+
     <rule ref="category/java/performance.xml" />
-    <rule name="RecompiledConstantRegex" language="java" message="Constant regex recompiles on each evaluation" class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
-        <description>Reuse a static final Pattern for repeated matching and replacement</description>
+    <rule name="RecompiledConstantRegex" language="java" message="Constant regular expression recompiles on each evaluation, reuse a static final Pattern" class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>Use a `static final Pattern` for repeated matching and replacement</description>
         <priority>1</priority>
         <properties>
             <property name="xpath">
@@ -141,6 +159,8 @@
             </property>
         </properties>
     </rule>
+
+    <!-- [SECURITY] -->
 
     <rule ref="category/java/security.xml" />
 </ruleset>

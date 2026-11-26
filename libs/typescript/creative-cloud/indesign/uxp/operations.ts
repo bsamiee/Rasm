@@ -368,15 +368,16 @@ const render = Effect.fn('render')(function* (target: Specifier, path: string) {
     yield* Effect.try({ try: () => source.exportFile(ExportFormat.PNG_FORMAT, path), catch: HostError.refused(`PNG export of ${target.path} to ${path}`) });
 }, Effect.scoped);
 const suppressDialogs = Dom.use(({ app, MeasurementUnits, UserInteractionLevels }) => Uxp.preserve(app.scriptPreferences, { enableRedraw: false, measurementUnit: MeasurementUnits.POINTS, userInteractionLevel: UserInteractionLevels.NEVER_INTERACT }));
-const listen = (events: readonly string[], name: string, handler: (event: Event) => void) =>
-    Dom.useSync(({ app }) => {
+const listen = (target: (dom: Dom['Service']) => Pick<Application, 'eventListeners' | 'addEventListener'>, events: readonly string[], name: string, handler: (event: Event) => void) =>
+    Dom.useSync((dom) => {
+        const listened = target(dom);
         events.forEach((event) => {
             const named = `${name}:${event}`;
-            const stale = app.eventListeners.itemByName(named);
+            const stale = listened.eventListeners.itemByName(named);
             if (stale.isValid) {
                 stale.remove();
             }
-            Object.assign(app.addEventListener(event, handler), { name: named });
+            Object.assign(listened.addEventListener(event, handler), { name: named });
         });
     });
 

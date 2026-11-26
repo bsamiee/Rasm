@@ -1,6 +1,7 @@
 public import Darwin
 import Foundation
 import Security
+import Subprocess
 public import System
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -149,6 +150,15 @@ extension ProcessInstance {
         let validity = code.map { code in SecCodeCheckValidity(code, [], nil) } ?? found
         guard !hasExited else { throw .noSuchProcess }
         return validity == errSecSuccess
+    }
+
+    // --- [PROFILE]
+
+    public func sample(for duration: Duration, within timeout: Duration) async throws(ProcessFailure) -> String {
+        guard !hasExited else { throw ProcessFailure(subject: rawValue, reason: .io(Errno.noSuchProcess)) }
+        return try await Configuration(executable: .name("sample"), arguments: [String(pid), String(Int((duration / .seconds(1)).rounded(.up))), "-mayDie", "-file", "/dev/stdout"])
+            .run(output: .string(limit: .max), within: timeout)
+            .standardOutput
     }
 }
 

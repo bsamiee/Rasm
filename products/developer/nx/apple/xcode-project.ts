@@ -53,7 +53,27 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
     const fed = released ? archived.filter(Struct.get('feed')) : [];
     const runs = schemes.filter(({ tests }) => tests).flatMap((scheme) => (scheme.plans.length === 0 ? [[]] : scheme.plans.map((plan) => ['-testPlan', plan])).map((planned) => invoke('test', scheme.name, planned)));
     const builds: Run['runs'] = schemes.map((scheme) => invoke('build', scheme.name, []));
-    const installs = archives.map(({ scheme, configuration }) => invoke('install', scheme, ['-configuration', configuration, 'DSTROOT=$(LOCAL_APPS_DIR)', 'INSTALL_PATH=/']));
+    const installs = archives.flatMap(({ scheme, configuration }) => [
+        invoke('archive', scheme, ['-configuration', configuration]),
+        [
+            'sh',
+            '-c',
+            `set -eo pipefail
+changed=$("$@" | jq -r '.[].buildSettings | select(.PRODUCT_TYPE == "com.apple.product-type.application" and .SKIP_INSTALL != "YES") | .HOME, .PRODUCT_BUNDLE_IDENTIFIER' | while read -r home && read -r identifier; do
+    ledger="$home/Library/Group Containers/group.com.apple.replayd/ScreenCaptureApprovals.plist"
+    key=$(printf %s "$identifier" | sed 's/\\./\\\\./g')
+    mkdir -p "\${ledger%/*}"
+    [ -f "$ledger" ] || plutil -create xml1 "$ledger"
+    plutil -extract "$key" xml1 -o /dev/null "$ledger" 2>/dev/null || plutil -insert "$key" -dictionary "$ledger"
+    for field in kScreenCaptureApprovalLastAlerted kScreenCapturePrivacyHintDate; do
+        [ "$(plutil -extract "$key.$field" raw -o - "$ledger" 2>/dev/null)" = 4000-01-01T00:00:00Z ] || { plutil -replace "$key.$field" -date 4000-01-01T00:00:00Z "$ledger"; [ "$home" != "$HOME" ] || echo "$identifier"; }
+    done
+done)
+[ -z "$changed" ] || ! pgrep -qx replayd || killall -HUP replayd`,
+            'sh',
+            ...invoke('-showBuildSettings', scheme, ['-configuration', configuration, '-json']),
+        ] as const,
+    ]);
     const launches = Array.dedupe(schemes.flatMap(({ launch }) => Array.fromNullishOr(launch)));
     const modes = (planned: Run['runs']): Partial<TargetConfiguration> => ({
         configurations: Record.fromIterableWith(container.configurations, (configuration) => [configuration.toLowerCase(), { runs: planned.map((run) => [...run, '-configuration', configuration]) }]),
@@ -128,7 +148,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
                     {
                         technologies: ['xcode'],
                         description:
-                            "Builds each shared scheme archiving an application that installs, under -configuration set to the scheme's archive configuration, and installs its applications into the LOCAL_APPS_DIR xcodebuild evaluates on this Mac with its install action, that folder as DSTROOT since the build system refuses / as one",
+                            "Builds each shared scheme archiving an application that installs, under -configuration set to the scheme's archive configuration, with xcodebuild archive into a temporary archive, then swaps each application of the archive's Products over the one at its INSTALL_PATH, the LOCAL_APPS_DIR xcodebuild evaluates on this Mac, only once every scheme built, signed, and archived, after each install writing every installed application's PRODUCT_BUNDLE_IDENTIFIER row into replayd's ScreenCaptureApprovals.plist under the HOME xcodebuild -showBuildSettings states, both alert dates at 4000-01-01, and signaling a running replayd to read it where that HOME is the HOME replayd runs under, so the application's first screen capture raises no alert",
                         help: { command: 'xcodebuild -help', example: { args: ['-jobs', '4'] } },
                     },
                     { parallelism: false, dependsOn: ['^build--*'], inputs: read, options: { applications: Array.dedupe(archives.flatMap(({ bundles }) => bundles)) } },

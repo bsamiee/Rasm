@@ -39,11 +39,12 @@ extension Instance {
     }
 
     public func quit(
-        _ ending: QuitMode = .asking,
+        _ ending: QuitMode,
+        watch: Watch,
         in dictionary: ScriptingDictionary? = nil,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
-    ) -> any AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable {
-        let states = states(clock: clock)
+    ) async -> any AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable {
+        let states = await watch.states()
         guard ending != .forcing else {
             return if application.forceTerminate() {
                 states.map(Result<InstanceState, ApplicationFailure>.success)
@@ -51,21 +52,21 @@ extension Instance {
                 [Result<InstanceState, ApplicationFailure>.failure(ApplicationFailure(subject: String(process.pid), reason: process.hasExited ? .noProcess : .refused(nil)))].async
             }
         }
-        let declared = dictionary?.commands.contains { command in
-            command.eventClass == AEEventClass(kCoreEventClass) && command.eventID == AEEventID(kAEQuitApplication)
-                && command.parameters.contains { parameter in parameter.code == AEKeyword(keyAESaveOptions) }
-        }
-        let saving = declared == true ? ending.saveOptions : nil
+        let saving =
+            dictionary?.commands.contains { command in
+                command.eventClass == AEEventClass(kCoreEventClass) && command.eventID == AEEventID(kAEQuitApplication)
+                    && command.parameters.contains { parameter in parameter.code == AEKeyword(keyAESaveOptions) }
+            } == true ? ending.saveOptions : nil
         return AsyncStream { output in
             let following = Task {
-                let (replies, reply) = AsyncStream<Result<InstanceState, ApplicationFailure>>.makeStream()
+                let (refusals, refusal) = AsyncStream<ApplicationFailure>.makeStream()
                 var request: Task<Void, Never>?
-                events: for await event in merge(states.map(Result.success), replies) {
+                events: for await event in merge(states.map(Result.success), refusals.map(Result<InstanceState, ApplicationFailure>.failure)) {
                     output.yield(event)
                     switch event {
-                        case .success(.exited): if request == nil { reply.finish() }
+                        case .success(.exited): if request == nil { refusal.finish() }
                         case .success(.running(let running)) where running.asking.isEmpty && (running.status == .responding || running.status == .unresponsive(.runnable)):
-                            request = request ?? Task { await requestQuit(saving: saving, answering: reply, clock: clock) }
+                            request = request ?? Task { await requestQuit(saving: saving, reporting: refusal, watch: watch, clock: clock) }
                         case .success(.running(let running)) where running.asking.isEmpty && !running.status.isIdle: continue
                         case .failure, .success(.running), .success(.failed): break events
                     }
@@ -77,8 +78,8 @@ extension Instance {
         }
     }
 
-    private func requestQuit(saving: OSType?, answering reply: AsyncStream<Result<InstanceState, ApplicationFailure>>.Continuation, clock: some Clock<Duration> & Sendable) async {
-        defer { reply.finish() }
+    private func requestQuit(saving: OSType?, reporting refusals: AsyncStream<ApplicationFailure>.Continuation, watch: Watch, clock: some Clock<Duration> & Sendable) async {
+        defer { refusals.finish() }
         let request = NSAppleEventDescriptor(
             eventClass: AEEventClass(kCoreEventClass),
             eventID: AEEventID(kAEQuitApplication),
@@ -88,26 +89,26 @@ extension Instance {
         )
         if let saving { request.setParam(NSAppleEventDescriptor(enumCode: saving), forKeyword: keyAESaveOptions) }
         let subject = String(process.pid)
-        let outcome: Result<InstanceState, ApplicationFailure>?
+        let refusal: ApplicationFailure?
         do throws(AppleEventFailure) {
             try await NSAppleEventDescriptor.send(request, timeout: NSAppleEventTimeOutDefault) { _ in }
-            outcome = nil
+            refusal = nil
         } catch  where error.status == OSStatus(userCanceledErr) {
             _ = await Result { () async throws(any Error) in try await clock.sleep(for: messagingTimeout) }
-            outcome =
-                switch await state() {
-                    case .running(let running) where !running.asking.isEmpty || running.status.isIdle && running.status.is(\.unresponsive): .success(.running(running))
-                    case .failed: nil
-                    case .running, .exited: .failure(ApplicationFailure(subject: subject, reason: .refused(nil)))
+            refusal =
+                switch await watch.current {
+                    case .running(let running) where running.asking.isEmpty && !(running.status.isIdle && running.status.is(\.unresponsive)):
+                        ApplicationFailure(subject: subject, reason: .refused(nil))
+                    case .running, .failed, .exited: nil
                 }
         } catch  where process.hasExited {
-            outcome = nil
+            refusal = nil
         } catch  where error.status == OSStatus(procNotFound) {
             let signaled = Result { () throws(Errno) in try process.signal(SIGTERM) }
-            outcome = if case .failure = signaled, !process.hasExited { .failure(ApplicationFailure(subject: subject, reason: .event(error))) } else { nil }
+            refusal = if case .failure = signaled, !process.hasExited { ApplicationFailure(subject: subject, reason: .event(error)) } else { nil }
         } catch {
-            outcome = .failure(ApplicationFailure(subject: subject, reason: .event(error)))
+            refusal = ApplicationFailure(subject: subject, reason: .event(error))
         }
-        if let outcome { reply.yield(outcome) }
+        if let refusal { refusals.yield(refusal) }
     }
 }

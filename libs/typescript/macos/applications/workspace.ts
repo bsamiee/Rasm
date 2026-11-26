@@ -1,12 +1,12 @@
 import { Handle, Server } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
-import { Array, Cause, Context, Effect, Equivalence, Function, HashSet, Layer, Option, Predicate, Record, Result, Schema, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Effect, Function, HashSet, Layer, Option, Record, Result, Schema, Sink, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Address } from '#/address';
 import { ApplicationServer } from '#/client';
-import { type Dialog, Event, Installation, Pressure, type InstanceSnapshot, InstanceState } from '#/contract';
+import { Event, Installation, Pressure, type Session, type InstanceSnapshot, InstanceState } from '#/contract';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type DialogFacts = Pick<Dialog, 'kind' | 'window' | 'text'> & { readonly [Key in 'title' | 'answers' | 'element']?: Dialog[Key] | undefined };
 interface Entry {
     readonly url: URL;
     readonly identifier: string;
@@ -16,6 +16,15 @@ interface Entry {
     readonly claim: Installation['claim'];
 }
 type Cataloguer<E, R> = (offered: readonly Installation[]) => Effect.Effect<readonly Omit<Entry, 'claim'>[], E, R>;
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const SESSION = {
+    onConsole: { normal: true, true: 'session on the console', false: 'session off the console' },
+    locked: { normal: false, true: 'screen locked', false: 'screen unlocked' },
+    asleep: { normal: false, true: 'display asleep', false: 'display awake' },
+    secureInput: { normal: false, true: 'secure input on', false: 'secure input off' },
+} as const;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -31,12 +40,14 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
             const [claims, rows] = [Array.getSomes(installed.map(Struct.get('claim'))), yield* cataloguer(installed.filter(({ activationPolicy }) => activationPolicy !== 'prohibited'))];
             return rows.map((row): Entry => ({ ...row, claim: Array.findFirst(claims, covers(row.identifier)) }));
         });
-        const [catalog, running] = yield* Effect.all([Effect.flatMap(listEntries, (rows) => SubscriptionRef.make(rows)), SubscriptionRef.make<readonly InstanceSnapshot[]>([])]);
-        const identifierChanges = Stream.changesWith(
-            Stream.map(SubscriptionRef.changes(catalog), (rows) => Array.dedupe(rows.map(Struct.get('identifier')))),
-            Array.makeEquivalence(Equivalence.String),
-        );
-        const monitor = <A, X>(subscribe: (identifiers: Array.NonEmptyReadonlyArray<string>) => Stream.Stream<A, X>) => Stream.switchMap(identifierChanges, Array.match({ onEmpty: () => Stream.empty, onNonEmpty: subscribe }));
+        const [first, rest] = yield* Stream.peel(server.instances({}), Sink.head());
+        const [catalog, running] = yield* Effect.all([
+            Effect.flatMap(listEntries, (rows) => SubscriptionRef.make(rows)),
+            Effect.flatMap(
+                Effect.fromOption(first, () => new Cause.NoSuchElementError('instances ended before its first value')),
+                (rows) => SubscriptionRef.make(rows),
+            ),
+        ]);
         const refresh = Effect.catchCause(
             Effect.flatMap(listEntries, (rows) => SubscriptionRef.set(catalog, rows)),
             (cause) => Effect.logError('Application listing failed, the last listing stands', cause),
@@ -44,53 +55,44 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
         yield* Effect.forkScoped(Stream.runForEach(Stream.drop(SubscriptionRef.changes(server.installations), 1), () => refresh));
         yield* Effect.forkScoped(
             Stream.runForEach(
-                monitor((identifiers) => server.instances({ identifiers })),
-                (rows) => SubscriptionRef.set(running, rows),
+                Stream.mapAccum(SubscriptionRef.changes(server.installations), HashSet.empty<string>, (logged, { unreadable }) => [HashSet.union(logged, HashSet.fromIterable(unreadable.map(Struct.get('subject')))), unreadable.filter(({ subject }) => !HashSet.has(logged, subject))]),
+                ({ subject, reason, message }) => Effect.logWarning(`Application bundle ${subject} is left out of the listing: ${reason}`, ...Array.fromNullishOr(message)),
             ),
+        );
+        yield* Effect.forkScoped(Stream.runForEach(rest, (rows) => SubscriptionRef.set(running, rows)));
+        const changes = yield* Stream.share(server.events({}).pipe(logEnd('Application events')), { capacity: 'unbounded' });
+        const named = yield* Stream.share(
+            Stream.mapAccumEffect(changes, Record.empty<string, string>, (started, event) => Effect.map(Effect.all([SubscriptionRef.get(running), SubscriptionRef.get(catalog)]), ([rows, entries]) => nameEvent(rows, entries, started, event))),
+            { capacity: 'unbounded' },
         );
         const pressures = server.pressure().pipe(
             Stream.filterMap(Function.identity),
             Stream.changesWith(Schema.toEquivalence(Pressure)),
             Stream.drop(1),
-            Stream.map((pressure) => ({ pressure })),
+            Stream.map((pressure) => ({ system: `memory pressure ${pressure.memory}, thermal state ${pressure.thermal}` })),
+            logEnd('Pressure readings'),
         );
-        const events = Stream.merge(
-            Stream.mapEffect(
-                monitor((identifiers) => server.events({ identifiers })),
-                Effect.fnUntraced(function* (change) {
-                    const [rows, entries] = yield* Effect.all([SubscriptionRef.get(running), SubscriptionRef.get(catalog)]);
-                    const byBundle = Record.fromIterableBy(entries, (row) => row.url.href);
-                    const bundle = Option.map(
-                        Array.findFirst(rows, (row) => row.instance === change.instance),
-                        Struct.get('url'),
-                    );
-                    const listedName = Option.map(
-                        Option.flatMap(bundle, (url) => Record.get(byBundle, url.href)),
-                        Struct.get('name'),
-                    );
-                    const startedName = Event.matchOrElse(change, { started: ({ name }) => Option.fromUndefinedOr(name) }, Option.none);
-                    return {
-                        application: Option.getOrElse(
-                            Option.orElse(listedName, () => startedName),
-                            () => change.instance,
-                        ),
-                        change,
-                    };
-                }),
-            ),
-            pressures,
-        ).pipe(Stream.catchCause((cause) => Stream.fromEffect(Effect.andThen(Effect.logError('Application events ended', cause), Effect.never))));
+        const sessions = server.session().pipe(
+            Stream.zipWithPrevious,
+            Stream.map(([before, after]) => Option.match(before, { onNone: Array.empty<string>, onSome: (held) => [...said(after, (key) => held[key] !== after[key]), ...(held.space === after.space ? [] : ['active space changed'])] })),
+            Stream.filter(Array.isReadonlyArrayNonEmpty),
+            Stream.map((changed) => ({ system: changed.join(', ') })),
+            logEnd('Session readings'),
+        );
+        const session = Effect.map(Stream.runHead(server.session()), Option.match({ onNone: Array.empty, onSome: (held) => said(held, (key) => held[key] !== SESSION[key].normal) }));
         const target = Effect.flatMap(Handle, (handle) => handle.get(Target));
+        const events = Stream.merge(named, Stream.merge(pressures, sessions));
         yield* Server.use((served) =>
             served.events({
                 stream: events,
-                render: (event) => Effect.succeed('pressure' in event ? `memory ${event.pressure.memory}, thermal ${event.pressure.thermal}` : `${event.application} ${describeEvent(event.change)}`),
-                owns: (event, state) => 'pressure' in event || HashSet.has(Context.get(state, Target).followed, event.change.instance),
+                render: (event) => ('system' in event ? Effect.succeed(event.system) : Effect.map(target, (aim) => `${event.application} ${describeEvent(event, aim)}`)),
+                owns: (event, state) => 'system' in event || prompting(event.event.change) || HashSet.has(Context.get(state, Target).followed, event.event.instance),
             }),
         );
         const setTarget = Effect.fnUntraced(function* (aim: { readonly row: Entry; readonly instance: InstanceSnapshot['instance'] }) {
-            const [handle, { followed }] = yield* Effect.all([Handle, target]);
+            const [handle, { followed }, live] = yield* Effect.all([Handle, target, server.watch({ instance: aim.instance })]);
             yield* handle.set(Target, { held: Option.some(aim), followed: HashSet.add(followed, aim.instance) });
+            return live;
         });
         const find = (given: string) =>
             Effect.flatMap(
@@ -111,23 +113,27 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
                 (each) => each.url.href,
             );
             const presenting = Array.getSomes(rows.filter((each) => InstanceState.matchOrElse(each.state, { running: ({ running: live }) => live.windows.some(Struct.get('presented')) }, Function.constFalse)).map((each) => Option.all({ row: Record.get(driven, each.url.href), instance: Option.some(each.instance) })));
-            return { held, presenting, sole: Option.orElse(held, () => (presenting.length === 1 ? Array.head(presenting) : Option.none())) };
+            return { presenting, sole: Option.orElse(held, () => (presenting.length === 1 ? Array.head(presenting) : Option.none())) };
         });
         const current = Effect.gen(function* () {
-            const [{ held, presenting, sole }, rows] = yield* Effect.all([targetState, SubscriptionRef.get(running)]);
+            const { presenting, sole } = yield* targetState;
             const names = presenting.map((each) => each.row.name);
             const aim = yield* Effect.fromOption(sole, () => new Cause.NoSuchElementError(`No application is the target of this handle and ${names.length === 0 ? 'none runs' : `${names.join(', ')} run`}, applications open makes one the target`));
-            yield* Option.isNone(held) ? setTarget(aim) : Effect.void;
-            const live = yield* Effect.fromOption(
-                Array.findFirst(rows, (each) => each.instance === aim.instance && !InstanceState.isAnyOf(['exited'])(each.state)),
+            const live = yield* Effect.filterOrFail(
+                setTarget(aim),
+                (snapshot) => !InstanceState.isAnyOf(['exited'])(snapshot.state),
                 () => new Cause.NoSuchElementError(`${aim.row.name} instance ${aim.instance} no longer runs, applications open starts or targets it again`),
             );
             return { row: aim.row, live };
         });
-        const blocking = (row: Pick<Entry, 'url' | 'name'>, instance?: InstanceSnapshot['instance']) =>
-            Context.make(Server.EarlyReturn, SubscriptionRef.changes(running).pipe(Stream.map(Array.findFirst((each: InstanceSnapshot) => (instance === undefined ? Installation.runs(row)(each) : each.instance === instance))), Stream.filterMap(refuseBlocked(row.name)), Stream.map(Effect.succeed)));
-        const ends = Context.make(Server.EarlyReturn, Stream.unwrap(Effect.map(targetState, ({ sole }) => Option.match(sole, { onNone: () => Stream.never, onSome: ({ row, instance }) => Context.get(blocking(row, instance), Server.EarlyReturn) }))));
-        return { catalog, running, target, setTarget, find, resolve, current, ends, blocking };
+        const prompted = Stream.filterMap(named, ({ application, event }) =>
+            Event.Change.matchOrElse(event.change, { asking: ({ asking }) => (asking.kind === 'prompt' ? Result.succeed(Effect.succeed(`${application} prompt ${Address.token(asking.kind, asking.container)}${titled(asking.title)} asks for an answer`)) : Result.failVoid) }, () => Result.failVoid),
+        );
+        const blocked = (row: Pick<Entry, 'url' | 'name'>, instance?: InstanceSnapshot['instance']) =>
+            SubscriptionRef.changes(running).pipe(Stream.map(Array.findFirst((each: InstanceSnapshot) => (instance === undefined ? Installation.runs(row)(each) : each.instance === instance))), Stream.filterMap(refuseBlocked(row.name)), Stream.map(Effect.succeed));
+        const blocking = (row: Pick<Entry, 'url' | 'name'>) => Context.make(Server.EarlyReturn, Stream.merge(blocked(row), prompted));
+        const ends = Context.make(Server.EarlyReturn, Stream.merge(prompted, Stream.unwrap(Effect.map(targetState, ({ sole }) => Option.match(sole, { onNone: () => Stream.never, onSome: ({ row, instance }) => blocked(row, instance) })))));
+        return { catalog, running, changes, session, target, setTarget, find, resolve, current, ends, blocking };
     }),
 }) {
     static readonly layer = <E, R>(cataloguer: Cataloguer<E, R>) => Layer.effect(Workspace, Workspace.make(cataloguer));
@@ -140,31 +146,54 @@ const covers =
     (identifier: string) =>
     ({ prefixes }: Option.Option.Value<Installation['claim']>) =>
         prefixes.some((prefix) => identifier.startsWith(prefix));
-const describeWindow = ({ number, title, document }: { readonly number: number; readonly title?: string; readonly document?: string }) => [`window ${number}`, ...(title === undefined ? [] : [`"${title}"`]), ...(document === undefined ? [] : [`of ${document}`])].join(' ');
+const logEnd =
+    (subject: string) =>
+    <A, X>(self: Stream.Stream<A, X>) =>
+        Stream.catchCause(self, (cause) => Stream.fromEffect(Effect.andThen(Effect.logError(`${subject} ended`, cause), Effect.never)));
+const nameEvent = (rows: readonly InstanceSnapshot[], entries: readonly Entry[], started: Record.ReadonlyRecord<string, string>, event: typeof Event.Type) => {
+    const announced = Event.Change.matchOrElse(event.change, { started: ({ started: { name } }) => Option.fromUndefinedOr(name) }, Option.none);
+    const application = Array.findFirst(rows, (row) => row.instance === event.instance).pipe(
+        Option.flatMap(({ url }) => Array.findFirst(entries, (entry) => entry.url.href === url.href)),
+        Option.map(Struct.get('name')),
+        Option.orElse(() => Record.get(started, event.instance)),
+        Option.orElse(() => announced),
+        Option.getOrElse(() => event.instance),
+    );
+    const kept = Event.Change.guards.exited(event.change) ? Record.remove(started, event.instance) : Option.match(announced, { onNone: () => started, onSome: (name) => Record.set(started, event.instance, name) });
+    return [kept, [{ application, event }]] as const;
+};
+const declared = ({ usage }: typeof InstanceState.Running.Type) => Array.match(usage?.assertions ?? [], { onEmpty: () => '', onNonEmpty: (names) => `, declares ${names.join(', ')}` });
+const said = (session: typeof Session.Type, keep: (key: keyof typeof SESSION) => boolean) =>
+    Struct.keys(SESSION)
+        .filter(keep)
+        .map((key) => SESSION[key][`${session[key]}`]);
+const prompting = Event.Change.matchOrElse({ asking: ({ asking }) => asking.kind === 'prompt', closed: ({ closed }) => closed.kind === 'prompt' }, Function.constFalse);
+const titled = (title: string | undefined) => UndefinedOr.match(title, { onUndefined: () => '', onDefined: (named) => ` "${named}"` });
 const describeExitStatus = InstanceState.Exited.match({ Status: ({ status }) => `with status ${status}`, Signal: ({ signal }) => `on signal ${signal}`, Unread: () => 'with unread status' });
 const describeExit = (exit: Extract<InstanceSnapshot['state'], { readonly _tag: 'exited' }>['exited']) => `exited ${describeExitStatus(exit)}${UndefinedOr.match(exit.report, { onUndefined: () => '', onDefined: (report) => `, ${report.kind} report ${report.url.href}` })}`;
-const describeControls = (controls: readonly { readonly id: string; readonly role: string; readonly label?: string }[]) => controls.map(({ id, role, label }) => `${label ?? role} ${id}`).join(', ');
-const describeAnswers = ({ answers, element }: Pick<DialogFacts, 'answers' | 'element'>) => {
-    const marked = Array.dedupeWith([answers?.accept, answers?.discard, answers?.cancel].filter(Predicate.isNotUndefined), Equivalence.mapInput(Equivalence.String, Struct.get('id')));
-    const others = Array.filter(answers?.buttons ?? [], (button) => !marked.some(({ id }) => id === button.id));
-    return Array.match(marked, {
-        onEmpty: () => `answers ${describeControls(others)}`,
-        onNonEmpty: (picked) => `answers ${describeControls(picked)}${Array.match(others, { onEmpty: () => '', onNonEmpty: (rest) => `, ${rest.length} more buttons inspect of ${element ?? 'the dialog'} lists` })}`,
+const describeEvent = ({ application, event: { instance, change } }: { readonly application: string; readonly event: typeof Event.Type }, { held, followed }: Context.Service.Shape<typeof Target>) =>
+    Event.Change.match(change, {
+        started: () => 'started',
+        opened: ({ opened }) => `opened ${opened.kind} ${Address.token(opened.kind, opened.container)}${titled(opened.title)}`,
+        closed: ({ closed }) => `closed ${closed.kind} ${Address.token(closed.kind, closed.container)}${titled(closed.title)}`,
+        asking: ({ asking }) => {
+            const driven = HashSet.has(followed, instance);
+            const answers = asking.answers.flatMap(({ ref, label }) => (driven ? [[...Array.fromNullishOr(label), Address.token('action', ref)].join(' ')] : Array.fromNullishOr(label)));
+            const reach = Option.exists(held, (aim) => aim.instance === instance) ? '' : ` once applications open ${application} makes it the target`;
+            const answering = Array.match(answers, {
+                onEmpty: () => (driven ? `inspect reads its answers${reach}` : 'the user answers it'),
+                onNonEmpty: (listed) => (driven ? `act answers with ${listed.join(', ')}${reach}` : `the user answers with ${listed.join(', ')}`),
+            });
+            return `${asking.kind} ${Address.token(asking.kind, asking.container)}${titled(asking.title)} asks${Array.match(asking.text, { onEmpty: () => '', onNonEmpty: (lines) => `: ${lines.join(' ')}` })}; ${answering}`;
+        },
+        focused: ({ focused }) => `focused ${Address.token(focused.kind, focused.control)}`,
+        value: ({ value }) => `${Address.token(value.kind, value.control)} now ${Address.fact(value.kind, value.fact)}`,
+        selection: ({ selection }) => `${Address.token(selection.kind, selection.control)} ${{ attribute: 'selected', marked: 'selected (inferred)' }[selection.evidence]}`,
+        moved: ({ moved }) => `moved ${moved.kind} ${Address.token(moved.kind, moved.container)} to ${moved.frame[0].join(',')} ${moved.frame[1].join('×')}`,
+        frontmost: ({ frontmost }) => (frontmost.active ? 'came to the front' : 'went behind'),
+        status: ({ status }) => UndefinedOr.match(status.thread, { onUndefined: () => status.status, onDefined: (thread) => `${status.status}, main thread ${thread}` }),
+        exited: ({ exited }) => describeExit(exited.termination),
     });
-};
-const describeDialog = ({ kind, window, title, text, answers, element }: DialogFacts) =>
-    kind === 'blocking'
-        ? `window ${window} blocks its application, which answers no Accessibility read while it shows: view shows it, and act with a key answers it`
-        : `${kind} in window ${window} asks${UndefinedOr.match(title, { onUndefined: () => '', onDefined: (named) => ` "${named}"` })}: ${text.join(' ')}, ${describeAnswers({ answers, element })}`;
-const describeEvent = Event.match({
-    started: () => 'started',
-    opened: ({ opened }) => `opened ${describeWindow(opened)}`,
-    closed: ({ closed }) => `closed ${describeWindow(closed)}`,
-    asking: ({ asking }) => describeDialog(asking),
-    answered: ({ answered }) => `${answered.kind} in window ${answered.window} answered`,
-    status: ({ status, process }) => UndefinedOr.match(process, { onUndefined: () => status, onDefined: (thread) => `${status}, main thread ${thread}` }),
-    exited: ({ exited: exit }) => describeExit(exit),
-});
 const refuseBlocked = (name: string) => (found: Option.Option<InstanceSnapshot>) =>
     Option.match(found, {
         onNone: () => Result.succeed(`${name} no longer runs`),
@@ -174,10 +203,12 @@ const refuseBlocked = (name: string) => (found: Option.Option<InstanceSnapshot>)
                 failed: () => Result.failVoid,
                 running: ({ running }) =>
                     Array.match(
-                        running.windows.filter(Struct.get('asking')).map((window) => `${name} ${describeDialog({ kind: window.kind, window: window.number, title: window.element?.title ?? window.title, text: window.element?.detail?.text ?? [], answers: window.element?.answers, element: window.element?.id })}`),
+                        running.windows
+                            .filter(Struct.get('asking'))
+                            .map(({ kind = 'window', container, number, title }) => `${name} ${kind} ${UndefinedOr.match(container, { onUndefined: () => `${number}`, onDefined: (ref) => Address.token(kind, ref) })}${titled(title)} asks for an answer: inspect reads it and act answers it`),
                         {
                             onNonEmpty: (dialogs) => Result.succeed(dialogs.join('; ')),
-                            onEmpty: () => (running.status === 'unresponsive' ? Result.succeed(`${name} stopped responding${UndefinedOr.match(running.process, { onUndefined: () => '', onDefined: (thread) => `, main thread ${thread}` })}`) : Result.failVoid),
+                            onEmpty: () => (running.status === 'unresponsive' ? Result.succeed(`${name} stopped responding${UndefinedOr.match(running.process, { onUndefined: () => '', onDefined: (thread) => `, main thread ${thread}` })}${declared(running)}`) : Result.failVoid),
                         },
                     ),
             }),
@@ -185,4 +216,4 @@ const refuseBlocked = (name: string) => (found: Option.Option<InstanceSnapshot>)
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Entry, Workspace };
+export { declared, type Entry, Workspace };

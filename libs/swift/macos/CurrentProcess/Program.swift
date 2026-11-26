@@ -12,7 +12,6 @@ public import System
 
 public enum Directory: Sendable {
     case logs
-    case captures
     case media
     case state
 }
@@ -22,7 +21,7 @@ public enum Directory: Sendable {
 final class UnrecognizedValues: AccessReporter {
     private let accepted: [String: [String]]
     private let raw: ConfigReader
-    private let state = Mutex<(reported: Set<String>, pending: [(variable: String, value: String, accepted: String)])>(([], []))
+    private let state = Mutex<(reported: Set<String>, pending: [Logging.Logger.Metadata])>(([], []))
 
     init(accepted: [String: [String]], raw: ConfigReader) { (self.accepted, self.raw) = (accepted, raw) }
 
@@ -34,17 +33,13 @@ final class UnrecognizedValues: AccessReporter {
 
     func add(variable: String, value: String, accepted: [String]) {
         state.withLock { state in
-            if state.reported.insert(variable).inserted { state.pending.append((variable, value, accepted.joined(separator: ", "))) }
+            if state.reported.insert(variable).inserted { state.pending.append(["variable": .string(variable), "value": .string(value), "accepted": .string(accepted.joined(separator: ", "))]) }
         }
     }
 
     func log(to logger: Logging.Logger) {
-        let pending = state.withLock { state in
-            defer { state.pending = [] }
-            return state.pending
-        }
-        for entry in pending {
-            logger.warning("Setting value unrecognized, default stands", metadata: ["variable": .string(entry.variable), "value": .string(entry.value), "accepted": .string(entry.accepted)])
+        for metadata in state.withLock({ state in exchange(&state.pending, with: []) }) {
+            logger.warning("Setting value unrecognized, default stands", metadata: metadata)
         }
     }
 }
@@ -70,10 +65,10 @@ public struct Program: Sendable {
     }
 
     public func directory(_ kind: Directory, of application: String? = nil) -> URL {
-        let setting: (ConfigKey) -> URL? = { key in settings.string(forKey: key).map { path in URL(filePath: path, directoryHint: .isDirectory) } }
-        return switch (kind, setting("output.dir")) {
-            case (.state, _):
-                setting("state.dir") ?? .applicationSupportDirectory.appending(path: identifier, directoryHint: .isDirectory)
+        let configured = settings.string(forKey: kind == .state ? "state.dir" : "output.dir").map { path in URL(filePath: path, directoryHint: .isDirectory) }
+        return switch (kind, configured) {
+            case (.state, .some(let state)): state
+            case (.state, .none): .applicationSupportDirectory.appending(path: identifier, directoryHint: .isDirectory)
             case (_, .some(let output)): output.appending(components: application ?? name, String(describing: kind), directoryHint: .isDirectory)
             case (.logs, .none): .libraryDirectory.appending(components: "Logs", identifier, directoryHint: .isDirectory)
             case (_, .none): .cachesDirectory.appending(components: identifier, String(describing: kind), directoryHint: .isDirectory)
@@ -86,20 +81,23 @@ public struct Program: Sendable {
     }
 
     public func require() throws(AggregateError<ApplicationFailure>) {
+        let missing = Grant.allCases.filter { grant in !grant.isHeld }
+        guard !missing.isEmpty else { return }
         var (code, requirement, identity): (SecStaticCode?, SecRequirement?, CFData?) = (nil, nil, nil)
         let found = unsafe SecStaticCodeCreateWithPath(Bundle.main.bundleURL as CFURL, [], &code)
         let designated = code.map { code in unsafe SecCodeCopyDesignatedRequirement(code, [], &requirement) } ?? found
         let read = requirement.map { requirement in unsafe SecRequirementCopyData(requirement, [], &identity) } ?? designated
-        guard read == errSecSuccess, let identity else {
-            throw AggregateError(first: ApplicationFailure(subject: identifier, reason: .foundation(NSError(domain: NSOSStatusErrorDomain, code: Int(read)))))
+        let identified = Result { () throws(AggregateError<ApplicationFailure>) in
+            guard let identity else { throw AggregateError(first: ApplicationFailure(subject: identifier, reason: .foundation(NSError(domain: NSOSStatusErrorDomain, code: Int(read))))) }
+            return identity as Data
         }
-        for grant in Grant.allCases where !grant.isHeld {
-            let requested = ConfigKey("grants.requested.\(grant.rawValue)")
-            guard settings.bytes(forKey: requested).map(Data.init) != identity as Data else { continue }
+        for grant in missing {
+            let requested: ConfigKey = ["grants", "requested", grant.rawValue]
+            guard case .success(let identity) = identified, settings.bytes(forKey: requested).map(Data.init) != identity else { continue }
             grant.request()
-            store(identity as Data, forKey: requested)
+            store(identity, forKey: requested)
         }
-        _ = try traverse(Grant.allCases) { grant in Result { () throws(ApplicationFailure) in try grant.check() }.aggregated(\.self) }.get()
+        _ = try combine(identified, traverse(missing) { grant in Result { () throws(ApplicationFailure) in try grant.check() }.aggregated(\.self) }).get()
     }
 
     static func values(_ domain: [String: Any]) -> [AbsoluteConfigKey: ConfigValue] {

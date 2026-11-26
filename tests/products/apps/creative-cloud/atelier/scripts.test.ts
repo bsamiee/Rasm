@@ -122,15 +122,17 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
             ],
             { discard: true },
         );
-        const served = ApplicationRpcs.omit('element', 'handler', 'launch', 'act', 'quit', 'capture', 'preview', 'diagnostics');
+        const served = ApplicationRpcs.omit('pasteboard', 'model', 'intern', 'handlers', 'launch', 'act', 'quit', 'capture', 'record', 'scale', 'diagnostics');
         yield* Layer.build(
             RpcServer.layer(served).pipe(
                 Layer.provide([
                     served.toLayer({
-                        installations: () => Stream.concat(Stream.succeed(Result.succeed([])), Stream.never),
+                        installations: () => Stream.concat(Stream.succeed({ installations: [], unreadable: [] }), Stream.never),
                         instances: () => Stream.concat(Stream.succeed(instances), Stream.never),
                         events: () => Stream.never,
+                        observations: () => Stream.never,
                         pressure: () => Stream.never,
+                        watch: ({ instance }) => Effect.orDie(Effect.fromOption(Array.findFirst(instances, (row) => row.instance === instance))),
                         dictionary: ({ url }) => Effect.orDie(Effect.fromNullishOr(dictionaries[url.href])),
                         execute: (payload) => executing(executed, payload),
                     }),
@@ -140,7 +142,7 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
             ),
         );
         const server = yield* spawner.spawn(
-            ChildProcess.make(path.join(contents, 'Helpers', 'server'), ['--listen', `127.0.0.1:${port}`, '--output', path.join(root, 'output'), '--registry', registry], { env: { HOME: path.join(root, 'home'), PATH: `${bin}:${searched}` }, extendEnv: true, stdout: 'ignore', stderr: 'inherit' }),
+            ChildProcess.make(path.join(contents, 'Helpers', 'server'), ['--listen', `127.0.0.1:${port}`, '--output-dir', path.join(root, 'output'), '--registry', registry], { env: { HOME: path.join(root, 'home'), PATH: `${bin}:${searched}` }, extendEnv: true, stdout: 'ignore', stderr: 'inherit' }),
         );
         const connected = McpClient.make({ name: 'atelier-suite', version: '1.0.0' }).pipe(Effect.provideServiceEffect(McpClient.Transport, McpClient.http({ url: `http://127.0.0.1:${port}/`, protocol: McpProtocol.v2025_11_25 })));
         const client = yield* Effect.raceFirst(
@@ -164,6 +166,7 @@ const executing = (executed: MutableRef.MutableRef<readonly Sent[]>, { instance,
             const line = direct.split('\n').findIndex((text) => text.includes(MARK)) + 1;
             return line > 0 ? Effect.orDie(Schema.encodeEffect(Reply)({ _tag: 'Thrown', message: MARK, line })) : Effect.orDie(Schema.decodeUnknownEffect(Schema.String)(runInNewContext(direct, {})));
         }),
+        Effect.map((reply) => ({ reply, written: Result.succeed([]) })),
     );
 const lines = ({ content }: { readonly content: readonly unknown[] }) =>
     Array.map(Array.getSomes(Array.map(content, (block) => Schema.decodeUnknownOption(Text)(block))), Struct.get('text'))

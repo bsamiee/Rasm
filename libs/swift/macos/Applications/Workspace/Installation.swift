@@ -1,5 +1,6 @@
 public import AppKit
 import Files
+import MachO.dyld.utils
 import OrderedCollections
 import UniformTypeIdentifiers
 
@@ -93,6 +94,18 @@ public struct Installation: Encodable, Hashable, Sendable {
         public let extensions: [String]
     }
 
+    public struct Quarantine: CustomStringConvertible, Encodable, Hashable, Sendable {
+        public let agent: String?
+        public let type: String?
+        public let origin: URL?
+        public let date: Date?
+
+        public var description: String {
+            let facts: [String?] = [type, agent.map { agent in "from \(agent)" }, origin.map { origin in "of \(origin)" }, date.map { date in "at \(date.ISO8601Format())" }]
+            return facts.compactMap(\.self).joined(separator: " ")
+        }
+    }
+
     public struct Claim: Codable, Hashable, Sendable {
         public let prefixes: [String]
         public let server: String
@@ -116,6 +129,7 @@ public struct Installation: Encodable, Hashable, Sendable {
     public let multipleInstancesProhibited: Bool?
     public let environment: [String: String]?
     public let architectures: [String]?
+    public let quarantine: Quarantine?
     public let claim: Claim?
 }
 
@@ -138,19 +152,27 @@ extension Installation {
         do {
             (info, values) = try (
                 ifPresent { try Data(contentsOf: bundle.appending(components: "Contents", "Info.plist")) }.map { plist in try PropertyListDecoder().decode(BundleInfo.self, from: plist) },
-                bundle.resourceValues(forKeys: [.applicationIsScriptableKey]),
+                bundle.resourceValues(forKeys: [.localizedNameKey, .applicationIsScriptableKey, .quarantinePropertiesKey]),
             )
         } catch {
             throw ApplicationFailure(subject: path, reason: .foundation(error as NSError))
         }
         guard let identifier = info?.identifier else { throw ApplicationFailure(subject: path, reason: .noIdentifier) }
         let extensions: (String) -> [String] = { type in UTType(type)?.tags[.filenameExtension] ?? [] }
-        let loaded = Bundle(url: bundle)
+        let executable = Bundle(url: bundle)?.executableURL
+        var slices: [String] = []
+        let architectures: [String]? = executable.flatMap { executable in
+            let status: Int32 = unsafe macho_for_each_slice(executable.path(percentEncoded: false)) { slice, _, _, _ in
+                slices += unsafe macho_arch_name_for_mach_header(slice).map { name in [unsafe String(cString: name)] } ?? []
+            }
+            return status == 0 ? slices : nil
+        }
+        let name: String = values.localizedName ?? path
         self.init(
             url: bundle,
-            executable: loaded?.executableURL,
+            executable: executable,
             identifier: identifier,
-            name: FileManager.default.displayName(atPath: path),
+            name: name,
             bundleName: info?.bundleName,
             version: info?.version,
             build: info?.build,
@@ -170,24 +192,17 @@ extension Installation {
             exportedTypes: info?.exportedTypes?.map { type in ExportedType(identifier: type.identifier, extensions: extensions(type.identifier)) },
             multipleInstancesProhibited: info?.multipleInstancesProhibited?.value,
             environment: info?.environment,
-            architectures: loaded?.executableArchitectures?.map { architecture in
-                switch architecture.intValue {
-                    case NSBundleExecutableArchitectureARM64: "arm64"
-                    case NSBundleExecutableArchitectureX86_64: "x86_64"
-                    case let other: String(other)
-                }
+            architectures: architectures,
+            quarantine: values.quarantineProperties.map { properties in
+                Quarantine(
+                    agent: properties[kLSQuarantineAgentNameKey as String] as? String,
+                    type: properties[kLSQuarantineTypeKey as String] as? String,
+                    origin: properties[kLSQuarantineOriginURLKey as String] as? URL,
+                    date: properties[kLSQuarantineTimeStampKey as String] as? Date,
+                )
             },
             claim: info?.claim,
         )
-    }
-
-    public init(opening document: URL) throws(ApplicationFailure) {
-        let subject = document.isFileURL ? document.path(percentEncoded: false) : document.absoluteString
-        if document.isFileURL {
-            do { _ = try document.checkResourceIsReachable() } catch { throw ApplicationFailure(subject: subject, reason: .foundation(error as NSError)) }
-        }
-        guard let handler = NSWorkspace.shared.urlForApplication(toOpen: document) else { throw ApplicationFailure(subject: subject, reason: .noHandler) }
-        try self.init(at: handler)
     }
 
     public func runs(_ instance: NSRunningApplication) -> Bool {

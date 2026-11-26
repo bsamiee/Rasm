@@ -4,8 +4,10 @@
     "description": "UXP plugin linking Photoshop to Atelier's MCP server",
     "type": "module",
     "dependencies": {
+        "@rasm/applications": "workspace:*",
         "@rasm/photoshop": "workspace:*",
-        "@rasm/uxp": "workspace:*"
+        "@rasm/uxp": "workspace:*",
+        "effect": "catalog:"
     },
     "devDependencies": {
         "@adobe-uxp-types/uxp": "catalog:",

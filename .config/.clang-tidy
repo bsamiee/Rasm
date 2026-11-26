@@ -1,8 +1,10 @@
-# --- [CHECKS] ---------------------------------------------------------------------------
+# --- [CLANG_TIDY] -----------------------------------------------------------------------
+
+# --- [CHECKS]
 
 Checks:
     - bugprone-*
-    # Every other cert check aliases an enabled check with equal or narrower options
+    # Other CERT checks alias enabled checks with equal or narrower options
     - cert-err33-c
     - clang-analyzer-*
     - concurrency-*
@@ -14,27 +16,27 @@ Checks:
     - performance-*
     - portability-*
     - readability-*
-    # Operands of a binary numeric operation share one type by definition
+    # Binary numeric functions can require matching operand types
     - -bugprone-easily-swappable-parameters
-    # Reads `#include` lines alone and reports each name `import std` supplies
+    # Include cleaner flags `import std` names as missing includes
     - -misc-include-cleaner
-    # Expected values of a case and coefficients of a formula are literals
+    # Test expectations and formula coefficients use literals
     - -cppcoreguidelines-avoid-magic-numbers
     - -readability-magic-numbers
-    # Headers open with `#pragma once`, which each compiler a host builds with accepts
+    # Supported compilers accept headers starting with `#pragma once`
     - -portability-avoid-pragma-once
-    # libc++ hardening checks the index of each `operator[]` call
+    # libc++ hardening checks container subscript bounds
     - -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access
-    # `std::errc{}` is the value `std::from_chars` and `std::to_chars` report success with
+    # `std::from_chars` and `std::to_chars` report success with `std::errc{}`
     - -bugprone-invalid-enum-default-initialization
 WarningsAsErrors: '*'
 
-# --- [HEADER_FILTER] --------------------------------------------------------------------
+# --- [HEADER_FILTERS]
 
 HeaderFilterRegex: '/(products|libs|tests)/'
 ExcludeHeaderFilterRegex: '/\.artifacts/'
 
-# --- [CHECK_OPTIONS] --------------------------------------------------------------------
+# --- [CHECK_OPTIONS]
 
 CheckOptions:
     bugprone-unhandled-self-assignment.WarnOnlyIfThisHasSuspiciousField: false
@@ -59,7 +61,7 @@ CheckOptions:
     readability-identifier-naming.PrivateMemberSuffix: _
     readability-identifier-naming.MacroDefinitionCase: UPPER_CASE
 
-# --- [CUSTOM_CHECKS] --------------------------------------------------------------------
+# --- [CUSTOM_CHECKS]
 
 CustomChecks:
     - Name: member-visit
@@ -67,5 +69,5 @@ CustomChecks:
           match callExpr(callee(functionDecl(hasName("::std::visit")))).bind("call")
       Diagnostic:
           - BindName: call
-            Message: call member `visit` of the variant in place of `std::visit`
+            Message: "Call to `std::visit`, use the variant's `visit` member"
             Level: Warning

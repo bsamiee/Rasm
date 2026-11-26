@@ -1,3 +1,4 @@
+import CasePathsCore
 public import CoreServices
 import Dispatch
 public import Foundation
@@ -9,12 +10,44 @@ public struct FileEvent: Sendable {
     public let url: URL
     public let flags: FSEventStreamEventFlags
 
+    public var mustScanSubDirs: Bool { flags & FSEventStreamEventFlags(kFSEventStreamEventFlagMustScanSubDirs) != 0 }
+
     public static func events(of file: URL) -> AsyncStream<Result<[Self], FileFailure>> {
         AsyncStream { continuation in
             let watcher = Watcher(continuation: continuation)
-            watcher.enqueue { watcher in watcher.start(file) }
+            watcher.enqueue { watcher in watcher.start([file]) }
             continuation.onTermination = { _ in watcher.enqueue { watcher in watcher.stop() } }
         }
+    }
+
+    public static func written<Value, Failure: Error>(
+        _ files: [URL],
+        during work: () async throws(Failure) -> Value,
+    ) async throws(Failure) -> (value: Value, written: Result<[URL], FileFailure>) {
+        let located = Result { () throws(FileFailure) in
+            try files.filter(\.isFileURL).map { file throws(FileFailure) in
+                do throws(Errno) {
+                    return (file: file, path: try file.deletingLastPathComponent().canonical().appending(component: file.lastPathComponent))
+                } catch {
+                    throw FileFailure(file: file, reason: .filesystem(error as NSError))
+                }
+            }
+        }
+        guard case .success(let watched) = located, !watched.isEmpty else { return (try await work(), located.map { _ in [] }) }
+        let (batches, continuation) = AsyncStream<Result<[Self], FileFailure>>.makeStream()
+        let watcher = Watcher(continuation: continuation)
+        defer { watcher.enqueue { watcher in watcher.stop() } }
+        watcher.enqueue { watcher in watcher.start(watched.map(\.path)) }
+        var received = batches.makeAsyncIterator()
+        if case .failure(let failure)? = await received.next() { return (try await work(), .failure(failure)) }
+        let value = try await work()
+        await watcher.flush()
+        continuation.finish()
+        var events: [Self] = []
+        while let batch = await received.next() { events += batch[case: \.success] ?? [] }
+        let changed = FSEventStreamEventFlags(kFSEventStreamEventFlagItemCreated | kFSEventStreamEventFlagItemModified | kFSEventStreamEventFlagItemRenamed)
+        let paths: [FilePath] = events.filter { event in event.flags & changed != 0 }.map { event in FilePath(event.url.path(percentEncoded: false)) }
+        return (value, .success(watched.filter { _, document in paths.contains { path in path.starts(with: FilePath(document.path(percentEncoded: false))) } }.map(\.file)))
     }
 
     public static func presence(of file: URL) -> some AsyncSequence<Result<Bool, FileFailure>, Never> & Sendable {
@@ -42,14 +75,14 @@ public struct FileEvent: Sendable {
             queue.async { [self] in assumeIsolated(work) }
         }
 
-        func start(_ file: URL) {
+        func start(_ files: [URL]) {
             var context = unsafe FSEventStreamContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(), retain: nil, release: nil, copyDescription: nil)
             let flags = kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot | kFSEventStreamCreateFlagNoDefer
             let created = unsafe FSEventStreamCreate(
                 nil,
                 Self.changed,
                 &context,
-                [file.path(percentEncoded: false)] as CFArray,
+                files.map { file in file.path(percentEncoded: false) } as CFArray,
                 FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
                 0,
                 FSEventStreamCreateFlags(flags),
@@ -61,7 +94,7 @@ public struct FileEvent: Sendable {
                     continuation.yield(.success([]))
                 case false?, nil:
                     if let created = unsafe created { unsafe Self.invalidate(created) }
-                    continuation.yield(.failure(FileFailure(file: file, reason: .unwatched)))
+                    continuation.yield(.failure(FileFailure(files: files, reason: .unwatched)))
                     continuation.finish()
             }
         }
@@ -72,6 +105,17 @@ public struct FileEvent: Sendable {
                 unsafe Self.invalidate(stream)
             }
             unsafe stream = nil
+        }
+
+        func flush() async {
+            guard let started = unsafe stream else { return }
+            nonisolated(unsafe) let flushing = unsafe started
+            await withCheckedContinuation { (flushed: CheckedContinuation<Void, Never>) in
+                DispatchQueue.global().async {
+                    unsafe FSEventStreamFlushSync(flushing)
+                    flushed.resume()
+                }
+            }
         }
 
         private static func invalidate(_ stream: FSEventStreamRef) {

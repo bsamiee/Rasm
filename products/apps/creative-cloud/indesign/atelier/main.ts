@@ -1,13 +1,13 @@
+import { SourceRpcs } from '@rasm/applications/source';
 import { Adjust, Typeset, TypesettingRpcs } from '@rasm/indesign';
-import { adjust, call, change, findChange, font, inspect, KASHIDA_WIDTHS, kerns, listen, Dom, preflight, render, runs, STYLISTIC_TAGS, suppressDialogs, thousandths, typeset } from '@rasm/indesign/uxp';
-import { Link, type Upstream } from '@rasm/mcp';
+import { adjust, call, change, describe, findChange, font, inspect, KASHIDA_WIDTHS, kerns, listen, Dom, operate, preflight, render, runs, STYLISTIC_TAGS, suppressDialogs, thousandths, typeset } from '@rasm/indesign/uxp';
+import type { Upstream } from '@rasm/mcp';
 import { HostError, RenderRpcs } from '@rasm/object-model';
 import { read } from '@rasm/object-model/host';
 import { Settings } from '@rasm/typography';
-import { UxpManifest } from '@rasm/uxp';
 import { Plugin, Uxp } from '@rasm/uxp/plugin';
 import { element, picker } from '@rasm/uxp/spectrum';
-import { Array, Cause, Effect, Function, flow, Layer, Match, Number, Option, type Path, Predicate, Queue, Record, Schema, Scope, Semaphore, Stream, Struct } from 'effect';
+import { Array, Cause, Effect, Function, flow, Layer, Match, Number, Option, Predicate, Queue, Record, Schema, Scope, Semaphore, Stream, Struct } from 'effect';
 import declarations from 'indesign-uxp-types/flat?inline';
 import { Tools } from '#/tools';
 
@@ -35,26 +35,37 @@ const nudge = Effect.fnUntraced(function* (deltas: Option.Option<(steps: Steps) 
 
 const [dom, permit] = Effect.runSync(Effect.all([Dom.make(declarations), Semaphore.make(1)]));
 const runScript = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.scopedWith((scope) => Effect.andThen(Scope.provide(suppressDialogs, scope), effect)).pipe(Semaphore.withPermit(permit), Effect.provideService(Dom, dom));
-const events = (plugin: string) =>
-    Stream.callback<Stream.Success<Upstream['events']>>((queue) =>
-        listen([dom.Document.AFTER_OPEN, dom.Document.AFTER_SAVE, dom.Document.BEFORE_CLOSE], plugin, (event) => {
-            const [name, target] = [read(event, 'eventType'), read(event, 'target')];
-            if (Predicate.isString(name) && dom.document(target)) {
-                Queue.offerUnsafe(queue, { name, target: Option.some(target.toSpecifier()), detail: Option.none() });
-            }
-        }).pipe(Effect.provideService(Dom, dom)),
-    );
-const link = (plugin: string, root: Effect.Effect<URL, HostError, Path.Path>) =>
-    Link.dial(
-        RenderRpcs.merge(TypesettingRpcs),
-        Layer.mergeAll(
-            Link.serve(Tools, { events: events(plugin) }).pipe(Layer.provide(Tools.toLayer({ read: flow(inspect, runScript), change: flow(change, runScript), call: flow(call, runScript), find_change: flow(findChange, runScript), adjust: flow(adjust, runScript), preflight: flow(preflight, runScript) }))),
-            RenderRpcs.toLayer({ render: ({ target }) => runScript(Uxp.renderFile((file) => render(target, file.nativePath), 'rendered.png')) }),
-            TypesettingRpcs.toLayer({ runs: flow(runs, runScript), kerns: flow(kerns, runScript), typeset: flow(typeset, runScript), font: flow(font, runScript) }),
-        ),
-        new URL(UxpManifest.link),
-        Effect.all([Effect.tryPromise({ try: () => dom.app.fullName, catch: HostError.refused('application fullName') }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Uxp.Application))), root]).pipe(Effect.map(([{ url }, folder]) => Link.make({ application: url, plugin, root: Option.some(folder) }))),
-    );
+const events = Stream.unwrap(
+    Plugin.useSync(({ id }) =>
+        Stream.callback<Stream.Success<Upstream['events']>>((queue) => {
+            const offer = (name: unknown, target: unknown, detail: Option.Option<Schema.Json>): void => {
+                if (Predicate.isString(name) && dom.domObject(target)) {
+                    Queue.offerUnsafe(queue, { name, target: Option.some(target.toSpecifier()), detail });
+                }
+            };
+            return Effect.all([
+                listen(
+                    ({ app }) => app,
+                    [dom.Document.AFTER_OPEN, dom.Document.AFTER_SAVE, dom.Document.BEFORE_CLOSE],
+                    id,
+                    (event) => {
+                        const target = read(event, 'target');
+                        if (dom.document(target)) {
+                            offer(read(event, 'eventType'), target, Option.none());
+                        }
+                    },
+                ),
+                listen(
+                    ({ app }) => app.toolBoxTools,
+                    [dom.ToolBox.AFTER_ATTRIBUTE_CHANGED],
+                    id,
+                    (event) => offer(read(event, 'eventType'), dom.app.toolBoxTools, Option.some({ currentTool: dom.app.toolBoxTools.currentTool.toString() })),
+                ),
+            ]).pipe(Effect.provideService(Dom, dom));
+        }),
+    ),
+);
+const application = Effect.tryPromise({ try: () => dom.app.fullName, catch: HostError.refused('application fullName') }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Uxp.Application)), Effect.map(Struct.get('url')));
 const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X>) => void) {
     const { id } = yield* Plugin;
     const mode = picker(
@@ -103,8 +114,22 @@ const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work:
     buttons.forEach(([{ axis, sign }, button]) => button.addEventListener('click', ({ metaKey, ctrlKey }) => act(nudge(Option.map(mode.read(), Struct.get(axis)), sign * (metaKey || ctrlKey ? SHORTCUT_MULTIPLE : 1)))));
     Object.assign(root, { textContent: '' });
     Record.collect(groups, (textContent, children) => element('div', {}, element('sp-detail', { textContent }), ...children)).forEach((child) => root.append(child));
-    yield* listen(['afterSelectionChanged', 'afterSelectionAttributeChanged', 'afterContextChanged'], id, refresh);
+    yield* listen(({ app }) => app, ['afterSelectionChanged', 'afterSelectionAttributeChanged', 'afterContextChanged'], id, refresh);
     yield* Effect.sync(refresh);
 }, runScript);
 
-Plugin.serve({ link, panels: { typesetting: panel } });
+Plugin.serve({
+    link: Plugin.dial({
+        application,
+        group: RenderRpcs.merge(TypesettingRpcs, SourceRpcs),
+        toolkit: Tools,
+        handlers: Layer.mergeAll(
+            Tools.toLayer({ read: flow(inspect, runScript), change: flow(change, runScript), call: flow(call, runScript), find_change: flow(findChange, runScript), adjust: flow(adjust, runScript), preflight: flow(preflight, runScript) }),
+            RenderRpcs.toLayer({ render: ({ target }) => runScript(Uxp.renderFile((file) => render(target, file.nativePath))) }),
+            TypesettingRpcs.toLayer({ runs: flow(runs, runScript), kerns: flow(kerns, runScript), typeset: flow(typeset, runScript), font: flow(font, runScript) }),
+            SourceRpcs.toLayer({ describe: flow(describe, runScript), operate: flow(operate, runScript) }),
+        ),
+        events,
+    }),
+    panels: { typesetting: panel },
+});

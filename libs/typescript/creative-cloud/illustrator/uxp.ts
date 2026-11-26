@@ -1,9 +1,14 @@
+import { Description } from '@rasm/applications/source';
 import { HostError, type Render } from '@rasm/object-model';
 import { type Containment, read } from '@rasm/object-model/host';
 import { Unmatched } from '@rasm/search';
-import { Uxp } from '@rasm/uxp/plugin';
+import { Plugin, Uxp } from '@rasm/uxp/plugin';
 import type { File } from 'adobe:uxp';
 import { Array, Effect, Option, Path, Predicate, Record, Schema, Struct } from 'effect';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const TOOL = 'getSelectedToolName';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -14,6 +19,7 @@ const Application = Schema.Struct({
     name: Schema.NonEmptyString.annotate({ description: 'Bundle name without its extension' }),
     path: Schema.NonEmptyString.annotate({ description: 'Folder holding the running bundle' }),
     userInteractionLevel: Schema.String,
+    [TOOL]: Method,
 });
 const Module = Schema.Struct({ app: Schema.declare(Schema.is(Application)).annotate({ description: 'Application instance require("illustrator") holds as app' }) });
 const Artboards = Schema.Struct({ length: Schema.Int, add: Method, remove: Method, getActiveArtboardIndex: Method, setActiveArtboardIndex: Method });
@@ -39,6 +45,9 @@ const containment = Effect.map(hosted, ([{ app }]): Containment => ({
     type: (value) => Option.match(Schema.decodeUnknownOption(Typed)(value), { onNone: () => value.constructor.name, onSome: Struct.get('typename') }),
     kinds: { document: { collection: 'documents', keys: ['fullName'], is: Schema.is(Document) }, ...Record.map(OWNED, Struct.assign({ owner: (value: object): unknown => Option.getOrUndefined(opened(value)) })) },
 }));
+const tool = Effect.flatMap(hosted, ([{ app }]) => Effect.try({ try: (): unknown => app[TOOL](), catch: HostError.refused(TOOL) })).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.NonEmptyString)));
+const { describe, operate } = Description.pointer(Effect.map(tool, (named) => ({ tool: named })));
+const events = Plugin.poll(TOOL, tool);
 const suppressDialogs = Effect.flatMap(hosted, ([{ app }, { UserInteractionLevel }]) => Uxp.preserve(app, { userInteractionLevel: UserInteractionLevel.DONTDISPLAYALERTS }));
 const execute = (code: string) => Effect.flatMap(containment, (held) => Uxp.execute(held, code, (call) => Effect.scoped(Effect.andThen(suppressDialogs, call))));
 const render = Effect.fnUntraced(function* ({ target }: Render, written: File) {
@@ -60,4 +69,4 @@ const render = Effect.fnUntraced(function* ({ target }: Render, written: File) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { application, containment, execute, render, suppressDialogs };
+export { application, containment, describe, events, execute, operate, render, suppressDialogs };

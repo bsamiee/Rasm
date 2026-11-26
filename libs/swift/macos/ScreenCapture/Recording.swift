@@ -1,110 +1,76 @@
-import AVFoundation
 public import Applications
+public import Foundation
 import Processes
-import Results
-public import ScreenCaptureKit
+import ScreenCaptureKit
 import UniformTypeIdentifiers
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+public struct Recording: Encodable, Sendable {
+    public let movie: Data
+    public let type: String
+}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public final class Recording {
-    private final class Events: NSObject, SCRecordingOutputDelegate, Sendable {
-        let outcomes: (stream: AsyncStream<Result<Void, ApplicationFailure>>, continuation: AsyncStream<Result<Void, ApplicationFailure>>.Continuation) = AsyncStream.makeStream()
-        private let path: String
+private final class Events: NSObject, SCRecordingOutputDelegate, SCStreamDelegate, Sendable {
+    let outcomes: (stream: AsyncStream<Result<Void, ApplicationFailure>>, continuation: AsyncStream<Result<Void, ApplicationFailure>>.Continuation) = AsyncStream.makeStream()
+    private let path: String
 
-        init(path: String) { self.path = path }
+    init(path: String) { self.path = path }
 
-        func recordingOutputDidFinishRecording(_: SCRecordingOutput) { ended(.success(())) }
+    func recordingOutputDidFinishRecording(_: SCRecordingOutput) { end(.success(())) }
 
-        func recordingOutput(_: SCRecordingOutput, didFailWithError error: any Error) { ended(.failure(ApplicationFailure(subject: path, reason: .foundation(error as NSError)))) }
+    func recordingOutput(_: SCRecordingOutput, didFailWithError error: any Error) { end(.failure(error)) }
 
-        private func ended(_ outcome: Result<Void, ApplicationFailure>) {
-            outcomes.continuation.yield(outcome)
-            outcomes.continuation.finish()
-        }
-    }
+    func stream(_: SCStream, didStopWithError error: any Error) { end(.failure(error)) }
 
-    public static let buffered: Duration = .seconds(15)
-
-    public let file: URL
-    private let type: AVFileType
-    private let owner: ProcessInstance
-    private let stream: SCStream
-    private let buffer = SCClipBufferingOutput(delegate: nil)
-    private let written: Task<Result<Void, ApplicationFailure>, Never>
-
-    init(_ filter: SCContentFilter, _ configuration: SCStreamConfiguration, of owner: ProcessInstance, to file: URL) async throws(ApplicationFailure) {
-        let path = file.path(percentEncoded: false)
-        guard let type = UTType(filenameExtension: file.pathExtension).map({ type in AVFileType(type.identifier) }) else {
-            throw ApplicationFailure(subject: path, reason: .noExtension)
-        }
-        let movie = SCRecordingOutputConfiguration()
-        guard movie.availableOutputFileTypes.contains(type) else { throw ApplicationFailure(subject: type.rawValue, reason: .noEncoder) }
-        (movie.outputURL, movie.outputFileType) = (file, type)
-        let events = Events(path: path)
-        (self.file, self.type, self.owner) = (file, type, owner)
-        stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
-        written = Task { await events.outcomes.stream.first { _ in true } ?? .failure(ApplicationFailure(subject: path, reason: .cancelled)) }
-        do {
-            try stream.addRecordingOutput(SCRecordingOutput(configuration: movie, delegate: events))
-            try await stream.startCapture()
-            try stream.addClipBufferingOutput(buffer)
-        } catch {
-            events.outcomes.continuation.finish()
-            throw ApplicationFailure(subject: path, reason: .foundation(error as NSError))
-        }
-    }
-
-    deinit {
-        if stream.isCapturing { stream.stopCapture() }
-    }
-
-    public func clip(to file: URL) async throws(ApplicationFailure) {
-        let (path, seconds) = (file.path(percentEncoded: false), Self.buffered / .seconds(1))
-        if !owner.hasExited, stream.isCapturing {
-            do { try await buffer.exportClip(to: file, duration: seconds) } catch { throw ApplicationFailure(subject: path, reason: .foundation(error as NSError)) }
-            return
-        }
-        try await finish()
-        let asset = AVURLAsset(url: self.file)
-        guard let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetPassthrough) else { throw ApplicationFailure(subject: type.rawValue, reason: .noEncoder) }
-        do {
-            let duration = try await asset.load(.duration)
-            export.timeRange = CMTimeRange(start: max(.zero, duration - CMTime(seconds: seconds, preferredTimescale: duration.timescale)), end: duration)
-            try await export.export(to: file, as: type)
-        } catch {
-            throw ApplicationFailure(subject: path, reason: .foundation(error as NSError))
-        }
-    }
-
-    public func finish() async throws(ApplicationFailure) {
-        let path = file.path(percentEncoded: false)
-        do { if stream.isCapturing { try await stream.stopCapture() } } catch SCStreamError.attemptToStopStreamState {} catch {
-            throw ApplicationFailure(subject: path, reason: .foundation(error as NSError))
-        }
-        try await withTimeout(Self.buffered, expired: ApplicationFailure(subject: path, reason: .unanswered(nil))) { [written] () async throws(ApplicationFailure) in try await written.value.get() }
+    func end(_ outcome: Result<Void, any Error>) {
+        outcomes.continuation.yield(outcome.mapError { (error: any Error) -> ApplicationFailure in ApplicationFailure(subject: path, reason: .foundation(error as NSError)) })
+        outcomes.continuation.finish()
     }
 }
-
-@available(*, unavailable)
-extension Recording: Sendable {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-extension SCStreamConfiguration {
-    public static var background: SCStreamConfiguration {
-        let configuration = SCStreamConfiguration()
-        (configuration.showsCursor, configuration.includeChildWindows) = (false, false)
-        return configuration
-    }
-}
-
 extension Instance {
-    public func recording(_ source: Source, to file: URL, longestSide: LongestSide? = nil, configuration: SCStreamConfiguration = .background) async throws(ApplicationFailure) -> Recording {
-        guard let target = try await targets(source, longestSide: longestSide).values.first else { throw ApplicationFailure(subject: file.path(percentEncoded: false), reason: .noWindow) }
-        let (filter, region, width, height) = try target.get()
-        (configuration.width, configuration.height) = (width, height)
-        if let region { configuration.sourceRect = region }
-        return try await Recording(filter, configuration, of: process, to: file)
+    public func recording(_ source: Source, in watch: Watch, for span: Duration, longestSide: LongestSide? = nil) async throws(ApplicationFailure) -> Recording {
+        try Grant.screenCapture.check()
+        return try await watch.presenting(source.ref) { (menus: [Container]) async throws(ApplicationFailure) -> Recording in
+            guard let framing = try await framings(source, showing: menus, in: watch, longestSide: longestSide).first else {
+                throw ApplicationFailure(subject: String(process.pid), reason: .noWindow)
+            }
+            let (_, _, width, height, frame, windows, display) = try framing.get()
+            guard let display, let application = windows.first?.owningApplication else { throw ApplicationFailure(subject: String(process.pid), reason: .noWindow) }
+            let configuration = SCStreamConfiguration()
+            (configuration.showsCursor, configuration.ignoreShadowsDisplay, configuration.width, configuration.height) = (false, true, width, height)
+            configuration.sourceRect = frame.offsetBy(dx: -display.frame.minX, dy: -display.frame.minY).intersection(CGRect(origin: .zero, size: display.frame.size))
+            let output = SCRecordingOutputConfiguration()
+            guard let type = UTType(output.outputFileType.rawValue) else { throw ApplicationFailure(subject: output.outputFileType.rawValue, reason: .noEncoder) }
+            let folder: URL
+            do { folder = try FileManager.default.url(for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: FileManager.default.temporaryDirectory, create: true) } catch {
+                throw ApplicationFailure(subject: FileManager.default.temporaryDirectory.path(percentEncoded: false), reason: .foundation(error as NSError))
+            }
+            output.outputURL = folder.appending(component: String(process.pid)).appendingPathExtension(for: type)
+            let path = output.outputURL.path(percentEncoded: false)
+            let events = Events(path: path)
+            let stream = SCStream(filter: SCContentFilter(display: display, including: [application], exceptingWindows: []), configuration: configuration, delegate: events)
+            let activity = ProcessInfo.processInfo.beginActivity(options: [.idleDisplaySleepDisabled, .userInitiated], reason: "Recording process \(process.pid)")
+            defer { ProcessInfo.processInfo.endActivity(activity) }
+            let recorded: Result<Data, ApplicationFailure> = await Result { () async throws(ApplicationFailure) -> Data in
+                do {
+                    try stream.addRecordingOutput(SCRecordingOutput(configuration: output, delegate: events))
+                    try await stream.startCapture()
+                } catch {
+                    throw ApplicationFailure(subject: path, reason: .foundation(error as NSError))
+                }
+                _ = try? await Task.sleep(for: span)
+                stream.stopCapture { (error: (any Error)?) in if let error { events.end(.failure(error)) } }
+                try await (events.outcomes.stream.first { _ in true } ?? .failure(ApplicationFailure(subject: path, reason: .cancelled))).get()
+                do { return try Data(contentsOf: output.outputURL) } catch { throw ApplicationFailure(subject: path, reason: .foundation(error as NSError)) }
+            }
+            do { try FileManager.default.removeItem(at: folder) } catch { throw ApplicationFailure(subject: folder.path(percentEncoded: false), reason: .foundation(error as NSError)) }
+            return Recording(movie: try recorded.get(), type: type.identifier)
+        }.value
     }
 }

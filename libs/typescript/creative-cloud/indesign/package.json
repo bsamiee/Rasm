@@ -35,6 +35,7 @@
         "access": "public"
     },
     "dependencies": {
+        "@rasm/applications": "workspace:*",
         "@rasm/object-model": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/typography": "workspace:*",

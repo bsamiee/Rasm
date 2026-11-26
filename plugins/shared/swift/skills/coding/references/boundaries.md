@@ -184,6 +184,7 @@ Each metadata interpolation states `privacy:` from `Telemetry` by the value it m
 - File records hold `timestamp`, `severity_text`, `severity_number`, `body`, `scope`, `trace_id`, `span_id`, `trace_flags`, `attributes`, and `resource`
 - Code location enters `attributes` at `WARN` and above, `exception.type` and `exception.message` with an `error:`, `exception.stacktrace` at `ERROR` and above or for an underlying error
 - Settings `log.level`, `log.filter`, `log.target`, `log.size`, `log.age`, `log.files`, `output.dir`, and `state.dir` read `<NAME>_<STEM>` then defaults key `<stem>`
+- Node processes of `@rasm/telemetry` read the same values: `log.level` a swift-log level, `log.filter` `<scope>=<level>` entries, `log.size` bytes, `log.age` seconds
 - `telemetry(scopes:)` writes `<process name>.log` into `Program.current.directory(.logs)`, one file per executable
 - `OTEL_LOGS_EXPORTER`, `OTEL_METRICS_EXPORTER`, and `OTEL_TRACES_EXPORTER` each start one signal's export, unset registers nothing, and swift-otel reads every other `OTEL_*` variable
 - `withSpan` from `Tracing` wraps a boundary operation, and `EnvironmentCarrier` from `Telemetry` carries `TRACEPARENT` and `TRACESTATE` through a child's environment

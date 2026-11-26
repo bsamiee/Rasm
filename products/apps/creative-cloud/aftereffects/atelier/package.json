@@ -5,7 +5,9 @@
     "type": "module",
     "dependencies": {
         "@rasm/aftereffects": "workspace:*",
-        "@rasm/uxp": "workspace:*"
+        "@rasm/applications": "workspace:*",
+        "@rasm/uxp": "workspace:*",
+        "effect": "catalog:"
     },
     "devDependencies": {
         "@adobe-uxp-types/uxp": "catalog:",

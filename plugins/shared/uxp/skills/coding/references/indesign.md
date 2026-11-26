@@ -10,6 +10,10 @@ DOM members are native accessors on class prototypes:
 - Aggregate `.properties` invokes every getter before a failure can be isolated, and a class with a crashing getter reads its other declared fields one at a time
 - Find/Change drop-shadow and inner-shadow `angle`, `distance`, `xOffset`, and `yOffset` accessors crash without a native owner
 - Encoders refuse a promise a storage getter returns, and write an entry's `url` through `String`
+- `Panel.visible` writes apply after the running script returns, and a read in that script returns the old value
+- `MenuAction` `enabled` and `checked` reads take about 4.5 ms per action, one by one or through `itemByRange`, where `everyItem()` reads `name`, `area`, or `id` of all 4,219 actions in under 100 ms
+- `placeGuns.loadPlaceGun` fails with "Import failed." in a document opened without a window, and a loaded place gun makes `PLACE_CURSOR_TOOL` the current tool
+- `ToolBox.AFTER_ATTRIBUTE_CHANGED` is `afterAttributeChanged` on the module's `ToolBox`, and `UITools` holds 38 members where `indesign-uxp-types` 2.0.0 declares 36
 
 ## [02]-[SPECIFIERS]
 
@@ -386,36 +390,9 @@ const source = Effect.fn('source')(function* (face: Font, characters: string) {
 
 ## [12]-[SCRIPTS]
 
-Scripts answer through one `script.setResult` call and fire no timers. Scripts serving an `RpcGroup` read one encoded request from their arguments as stdin and answer through `setResult` as stdout:
-
-```ts
-import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
-
-const Host = Schema.Struct({ script: Schema.declare(Schema.is(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))) });
-const serveScript = <E>(modules: Uxp['Service'], server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): void => {
-    const decoder = new TextDecoder();
-    Effect.gen(function* () {
-        const [{ script: host }, context, done] = yield* Effect.all([Schema.decodeUnknownEffect(Host)(modules.uxp), Effect.context<Uxp>(), Deferred.make<void>()]);
-        const answered = (chunk: string | Uint8Array) => Effect.andThen(Effect.sync(() => host.setResult(Predicate.isString(chunk) ? chunk : decoder.decode(chunk))), Deferred.succeed(done, undefined));
-        const failed = Effect.fnUntraced(function* (cause: Cause.Cause<E>) {
-            yield* Effect.logError(cause);
-            const defect = yield* Effect.orDie(Schema.encodeEffect(Schema.Defect())(Cause.squash(cause)));
-            const encoded = RpcSerialization.json.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect));
-            return yield* encoded === undefined ? Effect.void : answered(encoded);
-        });
-        const stdio = Layer.succeed(Stdio.Stdio)(Stdio.make({ args: Effect.succeed(host.args), stdin: Stream.encodeText(Stream.fromIterable(host.args)), stdout: () => Sink.forEach(answered), stderr: () => Sink.forEach(Console.error) }));
-        const exit = Effect.runSyncExitWith(context)(Layer.launch(server).pipe(Effect.provide(RpcServer.layerProtocolStdio.pipe(Layer.provide([stdio, RpcSerialization.layerJson]))), Effect.catchCauseIf(Predicate.not(Cause.hasInterruptsOnly), failed)));
-        const pending = Option.filter(Result.getSuccess(Exit.findDefect(exit)), Cause.isAsyncFiberError);
-        yield* Effect.sync(() => Option.getOrUndefined(pending)?.fiber.interruptUnsafe());
-        return yield* Option.isSome(pending) && !(yield* Deferred.isDone(done)) ? failed(Cause.die(pending.value)) : Effect.void;
-    }).pipe(Effect.tapCause(Effect.logError), Effect.provide(Uxp.layer(modules)), Effect.runSyncExit);
-};
-```
-
-`layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber. `runSyncExitWith` runs the launch inside the script, a launch that suspends exits with an `AsyncFiberError` defect naming its fiber, and the script interrupts that fiber. Runs that set no result and servers that fail to build answer a `Defect` message, and no failure reaches the host as a throw. Missing or misshapen `uxp.script` leaves no `setResult` to answer through, and its decode failure logs through `Effect.logError`, where the interrupt ending each completed run logs nothing. Typings omit `script` from `uxp`. Each `do script` call loads a fresh context, ExtendScript under `language javascript` and UXP under `language uxpscript`. State for a later call goes through `insertLabel`.
+Scripts answer through one `script.setResult` call and fire no timers:
 
 - Script bodies run as one `ENTIRE_SCRIPT` function step named by the label its caller passes, where a throw rolls back and an outer variable keeps its thrown record
-- Script roots pass the `adobe:indesign` module to a one-call server layer (`serveScript({ uxp, fs }, server(indesign))`)
 - Clients find each install through Launch Services as an application that opens an `.idjs` URL, and send each request as a `do script` event in `uxpscript`
 - Runners switch to async mode for source holding `async ` before a function or `await ` before an expression, and reply empty before the body runs
 - Runner tests match `async ` and `await ` inside strings and comments, and modules the entry requires escape the test

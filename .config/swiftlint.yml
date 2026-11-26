@@ -1,9 +1,9 @@
-# --- [SETTINGS] -------------------------------------------------------------------------
+# --- [LINT_OPTIONS] ---------------------------------------------------------------------
 
 cache_path: .cache/swiftlint
 strict: true
 
-# --- [RULES] ----------------------------------------------------------------------------
+# --- [ENABLED_RULES] --------------------------------------------------------------------
 
 only_rules:
     - accessibility_label_for_image
@@ -68,7 +68,6 @@ only_rules:
     - notification_center_detachment
     - ns_number_init_as_function_reference
     - nsobject_prefer_isequal
-    - optional_data_string_conversion
     - optional_enum_case_matching
     - overridden_super_call
     - override_in_extension
@@ -121,7 +120,7 @@ only_rules:
     - weak_delegate
     - yoda_condition
 
-# --- [RULE_OPTIONS] ---------------------------------------------------------------------
+# --- [RULE_CONFIGURATION] ---------------------------------------------------------------
 
 deployment_target:
     macOS_deployment_target: '27.0'
@@ -135,8 +134,6 @@ nesting:
     type_level: 3
 non_optional_string_data_conversion:
     include_variables: true
-optional_data_string_conversion:
-    include_implicit_init: true
 shorthand_argument:
     always_disallow_more_than_one: true
     always_disallow_member_access: true

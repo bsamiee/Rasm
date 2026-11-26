@@ -132,7 +132,7 @@ extension AppleEventValue: Codable {
                 }
             case .type(let name): try encodeTagged(.type) { fields in try fields.encode(name, forKey: .name) }
             case .enumerator(let name): try encodeTagged(.enumerator) { fields in try fields.encode(name, forKey: .name) }
-            case .date(let date): try encodeTagged(.date) { fields in try fields.encode(date.ISO8601Format(), forKey: .date) }
+            case .date(let date): try encodeTagged(.date) { fields in try fields.encode(date, forKey: .date) }
             case .file(let url): try encodeTagged(.file) { fields in try fields.encode(url, forKey: .url) }
             case .specifier(let want, let form, let seld, let from):
                 try encodeTagged(.specifier) { fields in

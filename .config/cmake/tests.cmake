@@ -1,4 +1,6 @@
-# --- [OPERATIONS] -----------------------------------------------------------------------
+# --- [CTEST] ----------------------------------------------------------------------------
+
+# --- [COMPILE_FAILURE_TESTS]
 
 function(add_reject_tests name)
     cmake_parse_arguments(PARSE_ARGV 1 reject "" "SOURCE" "LIBRARIES")
@@ -20,6 +22,8 @@ function(add_reject_tests name)
     endforeach()
 endfunction()
 
+# --- [FUZZ_TESTS]
+
 function(add_fuzz_test name)
     cmake_parse_arguments(PARSE_ARGV 1 fuzz "" "CORPUS;RUNS" "SOURCES;LIBRARIES")
     if("fuzzer-no-link" IN_LIST RASM_SANITIZERS)
@@ -35,6 +39,8 @@ function(add_fuzz_test name)
     endif()
     target_link_libraries(${name} PRIVATE ${fuzz_LIBRARIES})
 endfunction()
+
+# --- [PACKAGE_CONSUMER_TESTS]
 
 function(add_consumer_test name)
     cmake_parse_arguments(PARSE_ARGV 1 consumer "" "PACKAGE;SOURCE" "")

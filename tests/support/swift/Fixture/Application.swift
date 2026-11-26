@@ -11,12 +11,59 @@ final class Application: NSApplication {
     override func nextEvent(matching mask: NSEvent.EventTypeMask, until expiration: Date?, inMode mode: RunLoop.Mode, dequeue: Bool) -> NSEvent? {
         let event = super.nextEvent(matching: mask, until: expiration, inMode: mode, dequeue: dequeue)
         guard dequeue, let event else { return event }
-        let modifiers = Lenient.known(event.modifierFlags.intersection(.deviceIndependentFlagsMask))
+        let modifierFlags = Lenient.known(event.modifierFlags.intersection(.deviceIndependentFlagsMask))
         switch event.type {
             case .leftMouseDown, .leftMouseUp, .leftMouseDragged, .rightMouseDown, .rightMouseUp, .rightMouseDragged, .otherMouseDown, .otherMouseUp, .otherMouseDragged:
-                emit(Line.pointer(type: .known(event.type), window: event.windowNumber, at: event.locationInWindow, clicks: event.clickCount, modifiers: modifiers))
-            case .keyDown, .keyUp: emit(Line.key(type: .known(event.type), window: event.windowNumber, characters: event.characters, code: event.keyCode, modifiers: modifiers))
-            case .scrollWheel: emit(Line.scroll(window: event.windowNumber, at: event.locationInWindow, delta: CGVector(dx: event.scrollingDeltaX, dy: event.scrollingDeltaY), modifiers: modifiers))
+                emit(
+                    Line.pointer(
+                        type: .known(event.type),
+                        windowNumber: event.windowNumber,
+                        locationInWindow: event.locationInWindow,
+                        eventNumber: event.eventNumber,
+                        clickCount: event.clickCount,
+                        pressure: event.pressure,
+                        subtype: .known(event.subtype),
+                        tilt: event.subtype == .tabletPoint ? event.tilt : nil,
+                        timestamp: event.timestamp,
+                        modifierFlags: modifierFlags,
+                    )
+                )
+            case .mouseMoved: emit(Line.moved(windowNumber: event.windowNumber, locationInWindow: event.locationInWindow, timestamp: event.timestamp, modifierFlags: modifierFlags))
+            case .tabletProximity:
+                emit(
+                    Line.proximity(
+                        windowNumber: event.windowNumber,
+                        isEnteringProximity: event.isEnteringProximity,
+                        pointingDeviceType: .known(event.pointingDeviceType),
+                        timestamp: event.timestamp,
+                    )
+                )
+            case .keyDown, .keyUp:
+                emit(
+                    Line.key(
+                        type: .known(event.type),
+                        windowNumber: event.windowNumber,
+                        characters: event.characters,
+                        keyCode: event.keyCode,
+                        isARepeat: event.isARepeat,
+                        timestamp: event.timestamp,
+                        modifierFlags: modifierFlags,
+                        sourceProcess: event.cgEvent.map { posted in pid_t(posted.getIntegerValueField(.eventSourceUnixProcessID)) },
+                    )
+                )
+            case .scrollWheel:
+                emit(
+                    Line.scroll(
+                        windowNumber: event.windowNumber,
+                        locationInWindow: event.locationInWindow,
+                        scrollingDelta: CGVector(dx: event.scrollingDeltaX, dy: event.scrollingDeltaY),
+                        hasPreciseScrollingDeltas: event.hasPreciseScrollingDeltas,
+                        phase: .known(event.phase),
+                        momentumPhase: .known(event.momentumPhase),
+                        timestamp: event.timestamp,
+                        modifierFlags: modifierFlags,
+                    )
+                )
             default: break
         }
         return event
@@ -75,8 +122,7 @@ final class Delegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSToolbar
         built = Dictionary(uniqueKeysWithValues: Inventory.allCases.map { entry in (entry, entry.row(rows: rows)) })
         for surface in Surface.allCases.map(Optional.some) + [nil] { place(surface) }
         if let window = windows[.unlisted] {
-            let region = Region()
-            region.text = window.title
+            let region = Region(text: window.title)
             window.contentView = region
             window.setContentSize(region.intrinsicContentSize)
             window.setAccessibilityElement(false)
@@ -204,7 +250,10 @@ final class Delegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSToolbar
                     case let region as Region: region.text = title
                     default: captions[entry]?.stringValue = title
                 }
-            case .reorder(let from, let to): (windows[.controls]?.contentView as? NSStackView).map { form in form.insertArrangedSubview(form.arrangedSubviews[from], at: to) }
+            case .reorder(let from, let to):
+                guard let form = windows[.controls]?.contentView as? NSStackView else { return }
+                form.insertArrangedSubview(form.arrangedSubviews[from], at: to)
+                form.layoutSubtreeIfNeeded()
             case .fault(let nonce): Logger().fault("\(nonce, privacy: .public)")
             case .hang(.sleeping(let duration)): Thread.sleep(forTimeInterval: duration / .seconds(1))
             case .hang(.spinning(let duration)):

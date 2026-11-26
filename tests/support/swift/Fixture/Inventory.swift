@@ -14,6 +14,12 @@ final class Region: NSView {
         }
     }
 
+    convenience init(text: String) {
+        self.init(frame: .zero)
+        self.text = text
+        addTrackingArea(NSTrackingArea(rect: .zero, options: [.mouseMoved, .activeAlways, .inVisibleRect], owner: self))
+    }
+
     override var acceptsFirstResponder: Bool { true }
 
     override var intrinsicContentSize: NSSize { NSRect(origin: .zero, size: text.size(withAttributes: attributes)).insetBy(dx: -24, dy: -24).size }
@@ -193,18 +199,38 @@ extension Inventory {
             case .quit:
                 let name = ProcessInfo.processInfo.processName
                 return (nil, name, [NSMenuItem(title: "Quit \(name)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")])
-            case .export: return (nil, "File", [NSMenuItem(title: "Export…", action: #selector(Delegate.exported(_:)), keyEquivalent: "")])
+            case .export:
+                let keyed: [(title: String, key: String, mask: NSEvent.ModifierFlags)] = [
+                    ("Export…", "e", [.command, .shift, .option]), ("Export Page", String(Character(NSEvent.SpecialKey.f5.unicodeScalar)), [.control]), ("Export Spread", "s", [.command, .function]),
+                ]
+                return (
+                    nil,
+                    "File",
+                    keyed.map { title, key, mask in
+                        let item = NSMenuItem(title: title, action: #selector(Delegate.exported(_:)), keyEquivalent: key)
+                        item.keyEquivalentModifierMask = mask
+                        return item
+                    },
+                )
             case .select: return (nil, "Edit", [NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")])
             case .item:
                 let item = NSMenuItem(title: "Show Grid", action: action, keyEquivalent: "'")
                 item.state = .on
                 return (nil, "View", [item])
             case .region:
-                let region = Region()
-                region.text = "Canvas"
+                let region = Region(text: "Canvas")
                 region.setAccessibilityElement(true)
                 return (.covered, nil, [region])
-            case .context: return (.covered, "Context", ["Cut", "Copy", "Paste"].map { title in NSMenuItem(title: title, action: action, keyEquivalent: "") })
+            case .context:
+                let (align, arrange) = (NSMenu(title: "Align"), NSMenu(title: "Arrange"))
+                align.items = ["Left", "Right"].map { title in NSMenuItem(title: title, action: action, keyEquivalent: "") }
+                let aligning = NSMenuItem(title: "Align", action: nil, keyEquivalent: "")
+                aligning.submenu = align
+                arrange.items = [aligning]
+                let arranging = NSMenuItem(title: "Arrange", action: nil, keyEquivalent: "")
+                arranging.submenu = arrange
+                let edits: [NSMenuItem] = ["Cut", "Copy", "Paste"].map { title in NSMenuItem(title: title, action: action, keyEquivalent: "") }
+                return (.covered, "Context", edits + [arranging, aligning] + align.items)
             case .siblings:
                 let siblings = (1...8).map { number in
                     let sibling = NSButton(title: "Swatch", target: nil, action: action)
@@ -240,7 +266,7 @@ extension Inventory {
         let value: JSONValue? =
             switch element.accessibilityValue() {
                 case let text as String: .string(text)
-                case let date as Date: .string(date.formatted(.iso8601))
+                case let date as Date: .string(date.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true)))
                 case let number as NSNumber: .number(number.doubleValue)
                 default: nil
             }
@@ -256,6 +282,7 @@ extension Inventory {
             subrole: element.accessibilitySubrole()?.rawValue,
             parent: unsafe (element.accessibilityParent().flatMap(NSAccessibility.unignoredAncestor(of:)) as? any NSAccessibilityProtocol)?.accessibilityRole()?.rawValue,
             title: element.accessibilityTitle(),
+            description: element.accessibilityLabel(),
             caption: (element.accessibilityTitleUIElement() as? any NSAccessibilityProtocol)?.accessibilityValue() as? String,
             help: element.accessibilityHelp(),
             value: value,

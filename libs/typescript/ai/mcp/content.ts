@@ -26,10 +26,6 @@ const Content = Object.assign(make, {
             ],
             uri,
         ]),
-    preview: make(Schema.Struct({ data: Schema.Uint8Array, mimeType: Schema.String, file: Schema.URL, width: Schema.Int, height: Schema.Int }), 'Full-resolution file the image content block previews', ({ data, mimeType, file, width, height }) => [
-        [McpSchema.ImageContent.make({ data, mimeType }), McpSchema.ResourceLink.make({ uri: file.href, name: decodeURIComponent(file.pathname.slice(file.pathname.lastIndexOf('/') + 1)), mimeType, description: `${width}x${height} pixels, the image block a preview of it` })],
-        file.href,
-    ]),
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

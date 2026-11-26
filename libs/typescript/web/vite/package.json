@@ -2,7 +2,7 @@
     "name": "@rasm/vite",
     "version": "0.1.0",
     "private": true,
-    "description": "Vite plugins and configs for Rasm builds, failing a build on Rolldown warnings that break output and building Chrome extensions from manifest.json",
+    "description": "Vite plugins and configs for Rasm builds, failing a build on Rolldown warnings that break output, building Chrome extensions from manifest.json, and bundling Claude Code plugins from hooks/hooks.json",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -21,6 +21,7 @@
     "exports": {
         ".": "./checks.ts",
         "./chrome": "./chrome.ts",
+        "./claude": "./claude.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -30,6 +31,7 @@
         "exports": {
             ".": "./dist/checks.js",
             "./chrome": "./dist/chrome.js",
+            "./claude": "./dist/claude.js",
             "./package.json": "./package.json"
         },
         "access": "public"

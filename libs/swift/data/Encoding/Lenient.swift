@@ -22,3 +22,5 @@ public enum Lenient<Known: RawRepresentable & Sendable>: RawRepresentable, Codab
 }
 
 extension Lenient: Equatable where Known: Equatable, Known.RawValue: Equatable {}
+
+extension Lenient: Hashable where Known: Hashable, Known.RawValue: Hashable {}

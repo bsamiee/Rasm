@@ -1,4 +1,6 @@
-# --- [TARGET] ---------------------------------------------------------------------------
+# --- [VCPKG_TRIPLET] --------------------------------------------------------------------
+
+# --- [TARGET_PLATFORM]
 
 include("${CMAKE_CURRENT_LIST_DIR}/llvm.cmake")
 if(CMAKE_HOST_APPLE)
@@ -7,7 +9,7 @@ else()
     set(VCPKG_TARGET_ARCHITECTURE x64)
 endif()
 
-# --- [TOOLCHAIN] ------------------------------------------------------------------------
+# --- [TOOLCHAIN]
 
 set(VCPKG_ENV_PASSTHROUGH UNREAL_ENGINE_ROOT)
 set(VCPKG_HASH_ADDITIONAL_FILES "${CMAKE_CURRENT_LIST_DIR}/llvm.cmake")

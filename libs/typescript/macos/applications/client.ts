@@ -35,7 +35,7 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
                     ),
                 ),
             installations,
-            currentInstallations: Effect.flatMap(SubscriptionRef.get(installations), Effect.fromResult),
+            currentInstallations: Effect.map(SubscriptionRef.get(installations), Struct.get('installations')),
             exitCode: Effect.raceFirst(handle.exitCode, Effect.andThen(Fiber.join(discovering), handle.exitCode)),
         };
     }),

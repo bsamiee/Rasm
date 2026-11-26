@@ -12,6 +12,9 @@
         },
         {
             "path": "../../ai/mcp"
+        },
+        {
+            "path": "../../macos/applications"
         }
     ]
 }

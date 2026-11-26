@@ -1,0 +1,8 @@
+{
+    "name": "rasad",
+    "version": "0.1.0",
+    "description": "Hooks that deliver the events of an application to the agent that drove it through Rasad or Atelier",
+    "author": {
+        "name": "Bardia Samiee"
+    }
+}

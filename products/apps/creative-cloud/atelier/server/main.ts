@@ -2,7 +2,9 @@ import { layerDigest } from '@effect/platform-node/NodeCrypto';
 import { layerUndici } from '@effect/platform-node/NodeHttpClient';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
+import { InterfaceMaps } from '@rasm/applications';
 import { ApplicationServer } from '@rasm/applications/client';
+import { SourceRpcs } from '@rasm/applications/source';
 import { Tools } from '@rasm/applications/tools';
 import { Workspace } from '@rasm/applications/workspace';
 import { TypesettingRpcs } from '@rasm/indesign';
@@ -23,7 +25,7 @@ import { typography } from '#/typography';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const tools = Effect.gen(function* () {
-    const links = yield* Link.listen(EvaluationRpcs.merge(RenderRpcs).merge(TypesettingRpcs), UxpManifest.origin);
+    const links = yield* Link.listen(EvaluationRpcs.merge(RenderRpcs, TypesettingRpcs, SourceRpcs), UxpManifest.origin);
     yield* Upstream.serve([Upstream.fromLinks(links), native], { route: yield* route });
     yield* Tools.register({
         descriptions: { ...DESCRIPTIONS, execute_script: DESCRIPTION },
@@ -33,6 +35,7 @@ const tools = Effect.gen(function* () {
             return { image: (yield* client('render', { target })).image, title: target.leaf };
         }),
         logs: readLogs,
+        sourceOf: (row) => links.call(Predicate.and(Link.runsIn(row), Link.serves(SourceRpcs.requests.keys())), `linked plugin of ${row.name} describing its interface`),
     });
     yield* Effect.all([declarations, typography(links)], { discard: true });
 });
@@ -52,7 +55,7 @@ Effect.gen(function* () {
             ],
             settings: [...Tools.settings, RegistryPath],
         },
-        Layer.effectDiscard(tools).pipe(Layer.provide(Layer.provideMerge(Declarations.layer, Layer.provideMerge(Workspace.layer(catalog), RegistryApplications.layer))), Layer.provide([layerUndici, layerDigest]), Layer.provideMerge(application)),
+        Layer.effectDiscard(tools).pipe(Layer.provide(InterfaceMaps.layer), Layer.provide(Layer.provideMerge(Declarations.layer, Layer.provideMerge(Workspace.layer(catalog), RegistryApplications.layer))), Layer.provide([layerUndici, layerDigest]), Layer.provideMerge(application)),
         ended,
     );
 }).pipe(Effect.provide(layer), runMain({ teardown }));

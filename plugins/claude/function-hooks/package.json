@@ -9,6 +9,7 @@
     "devDependencies": {
         "@rasm/nx": "workspace:*",
         "@rasm/policy": "workspace:*",
+        "@rasm/vite": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
         "sh-syntax": "catalog:",

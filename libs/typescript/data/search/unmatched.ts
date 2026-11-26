@@ -24,9 +24,13 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
     candidates: Schema.Array(Schema.String),
     message: Schema.String,
 }) {
+    static readonly #folded = (text: string) => Digits.fold(text.normalize('NFKD').replaceAll(/\p{M}/gu, ''));
     static readonly named = Equivalence.make((left: string, right: string) => COLLATOR.compare(left, right) === 0);
-    static readonly rank = (query: string, candidates: readonly string[]): readonly string[] => {
-        const [matches, info, order] = FUZZY.search(...Array.unappend(Array.map(Array.append(candidates, query), (text) => Digits.fold(text.normalize('NFKD').replaceAll(/\p{M}/gu, '')))), 0, Number.POSITIVE_INFINITY);
+    static readonly rank: {
+        (query: string, candidates: readonly string[]): readonly string[];
+        <A>(query: string, candidates: readonly A[], name: (candidate: A) => string): readonly A[];
+    } = <A>(query: string, candidates: readonly A[], name: (candidate: A) => string = String) => {
+        const [matches, info, order] = FUZZY.search(Array.map(candidates, flow(name, Unmatched.#folded)), Unmatched.#folded(query), 0, Number.POSITIVE_INFINITY);
         return matches === null ? candidates : (info === null ? matches : order.map((position) => Array.getUnsafe(info.idx, position))).map((index) => Array.getUnsafe(candidates, index));
     };
     static readonly of = ({ subject, query = Option.none(), candidates = [] }: { readonly subject: string; readonly query?: Option.Option<string>; readonly candidates?: readonly string[] }) => {

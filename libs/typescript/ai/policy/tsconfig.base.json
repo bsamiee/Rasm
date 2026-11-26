@@ -1,0 +1,6 @@
+{
+    "extends": "../../../../tsconfig.base.json",
+    "compilerOptions": { "noEmit": true, "module": "preserve" },
+    "include": ["${configDir}/**/*", "claude/types/claude-code.d.ts"],
+    "exclude": ["${configDir}/vite.config.ts"]
+}

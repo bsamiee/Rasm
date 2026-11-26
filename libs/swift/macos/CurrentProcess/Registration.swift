@@ -24,16 +24,18 @@ extension LaunchAgent {
         let stopped = keepAlive ? try !runsInstalledProgram() : false
         let service = service
         let again = service.status == .enabled && (replaced || stopped)
-        do {
+        let registered = await Result { () async throws in
             if again {
                 let state: Logger.Metadata = ["label": "\(label, privacy: .public)", "replaced": .stringConvertible(replaced), "stopped": .stringConvertible(stopped)]
                 Logger(label: String(reflecting: Self.self)).info("Agent enabled from other code or not running its installed program, registering it again", metadata: state)
                 try await service.unregister()
             }
             if again || [.notRegistered, .notFound].contains(service.status) { try service.register() }
-        } catch {
-            throw ApplicationFailure(subject: label, reason: .foundation(error as NSError))
         }
-        Program.current.store(installed, forKey: key)
+        switch (service.status, registered) {
+            case (.requiresApproval, _): throw ApplicationFailure(subject: label, reason: .requiresApproval)
+            case (_, .failure(let error)): throw ApplicationFailure(subject: label, reason: .foundation(error as NSError))
+            case (_, .success): Program.current.store(installed, forKey: key)
+        }
     }
 }

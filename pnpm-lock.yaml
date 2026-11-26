@@ -829,6 +829,9 @@ importers:
 
   libs/typescript/creative-cloud/aftereffects:
     dependencies:
+      '@rasm/applications':
+        specifier: workspace:*
+        version: link:../../macos/applications
       '@rasm/object-model':
         specifier: workspace:*
         version: link:../object-model
@@ -904,6 +907,9 @@ importers:
 
   libs/typescript/creative-cloud/illustrator:
     dependencies:
+      '@rasm/applications':
+        specifier: workspace:*
+        version: link:../../macos/applications
       '@rasm/extendscript':
         specifier: workspace:*
         version: link:../extendscript
@@ -929,6 +935,9 @@ importers:
 
   libs/typescript/creative-cloud/indesign:
     dependencies:
+      '@rasm/applications':
+        specifier: workspace:*
+        version: link:../../macos/applications
       '@rasm/object-model':
         specifier: workspace:*
         version: link:../object-model
@@ -976,6 +985,9 @@ importers:
 
   libs/typescript/creative-cloud/photoshop:
     dependencies:
+      '@rasm/applications':
+        specifier: workspace:*
+        version: link:../../macos/applications
       '@rasm/mcp':
         specifier: workspace:*
         version: link:../../ai/mcp
@@ -1200,6 +1212,9 @@ importers:
 
   libs/typescript/macos/applications:
     dependencies:
+      '@effect/sql-sqlite-node':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))
       '@rasm/database':
         specifier: workspace:*
         version: link:../../data/database
@@ -1566,6 +1581,9 @@ importers:
       '@rasm/policy':
         specifier: workspace:*
         version: link:../../../libs/typescript/ai/policy
+      '@rasm/vite':
+        specifier: workspace:*
+        version: link:../../../libs/typescript/web/vite
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1575,6 +1593,24 @@ importers:
       sh-syntax:
         specifier: 'catalog:'
         version: 0.8.7
+      vite:
+        specifier: 'catalog:'
+        version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+
+  plugins/claude/rasad:
+    devDependencies:
+      '@rasm/mcp':
+        specifier: workspace:*
+        version: link:../../../libs/typescript/ai/mcp
+      '@rasm/vite':
+        specifier: workspace:*
+        version: link:../../../libs/typescript/web/vite
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
       vite:
         specifier: 'catalog:'
         version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
@@ -1609,9 +1645,15 @@ importers:
       '@rasm/aftereffects':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/aftereffects
+      '@rasm/applications':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/macos/applications
       '@rasm/uxp':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/uxp
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
     devDependencies:
       '@adobe-uxp-types/uxp':
         specifier: 'catalog:'
@@ -1701,6 +1743,9 @@ importers:
 
   products/apps/creative-cloud/illustrator/atelier:
     dependencies:
+      '@rasm/applications':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/macos/applications
       '@rasm/illustrator':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/illustrator
@@ -1723,6 +1768,9 @@ importers:
 
   products/apps/creative-cloud/indesign/atelier:
     dependencies:
+      '@rasm/applications':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/macos/applications
       '@rasm/indesign':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/indesign
@@ -1757,12 +1805,18 @@ importers:
 
   products/apps/creative-cloud/photoshop/atelier:
     dependencies:
+      '@rasm/applications':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/macos/applications
       '@rasm/photoshop':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/photoshop
       '@rasm/uxp':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/uxp
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
     devDependencies:
       '@adobe-uxp-types/uxp':
         specifier: 'catalog:'
@@ -2467,15 +2521,27 @@ importers:
 
   tests/libs/typescript/creative-cloud/indesign:
     devDependencies:
+      '@adobe-uxp-types/uxp':
+        specifier: 'catalog:'
+        version: 0.1.4
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(redis@6.3.1(@opentelemetry/api@1.10.0))
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(vitest@5.1.1)
+      '@rasm/applications':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/macos/applications
       '@rasm/extendscript':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/extendscript
       '@rasm/indesign':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/indesign
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/system/process
       '@rasm/uxp':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/uxp
@@ -2485,6 +2551,12 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
+      indesign-uxp-types:
+        specifier: 'catalog:'
+        version: 2.0.0(@adobe/cc-ext-uxp-types@7.3.1)
+      vite:
+        specifier: 'catalog:'
+        version: 8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.1(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.1)(@vitest/ui@5.1.1)(vite@8.4.0-beta.1(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))

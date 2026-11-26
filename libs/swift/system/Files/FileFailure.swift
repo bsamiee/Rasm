@@ -16,7 +16,11 @@ public struct FileFailure: CustomNSError, Equatable, LocalizedError {
     public let reason: Reason
 
     init(file: URL, reason: Reason) {
-        subject = file.path(percentEncoded: false)
+        self.init(files: [file], reason: reason)
+    }
+
+    init(files: [URL], reason: Reason) {
+        subject = files.map { file in file.path(percentEncoded: false) }.formatted()
         self.reason = reason
     }
 

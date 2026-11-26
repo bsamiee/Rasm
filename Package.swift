@@ -94,6 +94,7 @@ let modules: [Target] = [
             .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "libs/swift/macos/Applications",
+        linkerSettings: [.unsafeFlags(["-Xlinker", "-F/System/Library/PrivateFrameworks"]), .linkedFramework("SkyLight")],
     ),
     .target(
         name: "CurrentProcess",
@@ -181,6 +182,7 @@ let tests: [Target] = [
         dependencies: ["Encoding", "JSONRPC", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CustomDump", package: "swift-custom-dump")],
         path: "tests/libs/swift/network/JSONRPC",
     ),
+    .testTarget(name: "FilesTests", dependencies: ["Files", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/libs/swift/system/Files"),
     .testTarget(name: "ProcessesTests", dependencies: ["Processes", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/libs/swift/system/Processes"),
     .testTarget(
         name: "AppleEventsTests",
@@ -193,16 +195,21 @@ let tests: [Target] = [
     .testTarget(
         name: "ApplicationsTests",
         dependencies: [
-            "AppleEvents", "Applications", "Processes", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+            "AppleEvents", "Applications", "Encoding", "Fixture", "Processes", "ScreenCapture", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump"),
-            .product(name: "Subprocess", package: "swift-subprocess"),
+            .product(name: "PropertyBased", package: "swift-property-based"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "tests/libs/swift/macos/Applications",
     ),
     .testTarget(
+        name: "ScreenCaptureTests",
+        dependencies: ["Applications", "Fixture", "ScreenCapture", .product(name: "CustomDump", package: "swift-custom-dump")],
+        path: "tests/libs/swift/macos/ScreenCapture",
+    ),
+    .testTarget(
         name: "ApplicationServerTests",
         dependencies: [
-            "AppleEvents", "ApplicationServer", "Applications", "Encoding", "JSONRPC", "Results", .product(name: "CasePaths", package: "swift-case-paths"),
+            "AppleEvents", "ApplicationServer", "Applications", "Encoding", "JSONRPC", "Results", "ScreenCapture", .product(name: "CasePaths", package: "swift-case-paths"),
             .product(name: "CustomDump", package: "swift-custom-dump"),
         ],
         path: "tests/libs/swift/macos/ApplicationServer",
@@ -234,7 +241,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-distributed-tracing", from: "1.7.4"),
         .package(url: "https://github.com/apple/swift-log", from: "1.17.2"),
         .package(url: "https://github.com/swift-otel/swift-otel", from: "1.6.1", traits: ["OTLPHTTP"]),
-        .package(url: "https://github.com/swift-otel/swift-otel-semantic-conventions", from: "1.44.0"),
+        .package(url: "https://github.com/swift-otel/swift-otel-semantic-conventions", .upToNextMinor(from: "1.44.0"), traits: [.defaults, "Experimental"]),
         .package(url: "https://github.com/apple/swift-system-metrics", from: "1.3.1"),
 
         // --- [DISTRIBUTION]
@@ -253,6 +260,6 @@ let package = Package(
 
 for target: Target in package.targets {
     target.swiftSettings = swiftSettings + (target.resources == nil ? [softDeprecations] : []) + (target.swiftSettings ?? [])
-    target.linkerSettings = linkerSettings
+    target.linkerSettings = linkerSettings + (target.linkerSettings ?? [])
     target.dependencies += target.type == .test ? [.product(name: "IssueReportingTestSupport", package: "swift-issue-reporting")] : []
 }

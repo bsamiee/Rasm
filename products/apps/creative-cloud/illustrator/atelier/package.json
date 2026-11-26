@@ -4,6 +4,7 @@
     "description": "UXP plugin linking Illustrator to Atelier's MCP server",
     "type": "module",
     "dependencies": {
+        "@rasm/applications": "workspace:*",
         "@rasm/illustrator": "workspace:*",
         "@rasm/uxp": "workspace:*",
         "effect": "catalog:"

@@ -1,10 +1,12 @@
-# --- [COMPILERS] ------------------------------------------------------------------------
+# --- [LLVM_TOOLCHAIN] -------------------------------------------------------------------
+
+# --- [COMPILERS]
 
 find_program(CMAKE_C_COMPILER clang REQUIRED)
 find_program(CMAKE_CXX_COMPILER clang++ REQUIRED)
 set(CMAKE_OBJCXX_COMPILER "${CMAKE_CXX_COMPILER}")
 
-# --- [STANDARD_LIBRARY] -----------------------------------------------------------------
+# --- [RUNTIME_FLAGS]
 
 if(CMAKE_HOST_WIN32)
     return()
@@ -19,6 +21,9 @@ else()
         set(CMAKE_${kind}_LINKER_FLAGS_INIT "--rtlib=compiler-rt --unwindlib=libunwind -static-libgcc")
     endforeach()
 endif()
+
+# --- [STANDARD_LIBRARIES]
+
 set(standard -nostdlib++)
 foreach(archive IN ITEMS libc++.a libc++abi.a)
     execute_process(COMMAND "${CMAKE_CXX_COMPILER}" -print-file-name=${archive} OUTPUT_VARIABLE path OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)

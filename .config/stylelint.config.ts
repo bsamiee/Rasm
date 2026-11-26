@@ -33,9 +33,10 @@ const grammar = (described: readonly (SyntaxDescriptor | null)[]) =>
             .map(({ name, kept }) => [name, kept]),
     );
 
-// --- [PLUGINS] -------------------------------------------------------------------------
+// --- [DOCUMENT_UNIT_RULE] --------------------------------------------------------------
 
-const documentUnits = 'rasm/document-declaration-property-unit-disallowed-list';
+const declarationUnits = 'declaration-property-unit-disallowed-list';
+const documentUnits = `rasm/document-${declarationUnits}`;
 
 const isolated = (root: Parameters<ReturnType<Rule>>[0]) => root.some((node) => node.type === 'rule' && node.selectors.some((selector) => /^:host$/iu.test(selector)) && node.some((held) => held.type === 'decl' && /^all$/iu.test(held.prop) && /^initial$/iu.test(held.value)));
 
@@ -44,8 +45,10 @@ const documentRule: Rule = Object.assign(
         (root, result) =>
             isolated(root)
                 ? undefined
-                : stylelint.utils.checkAgainstRule({ ruleName: 'declaration-property-unit-disallowed-list', ruleSettings: units, root, result }, (warning) => {
-                      stylelint.utils.report({ ruleName: documentUnits, result, message: warning.text, node: warning.node, start: { line: warning.line, column: warning.column }, end: { line: warning.endLine ?? warning.line, column: warning.endColumn ?? warning.column } });
+                : stylelint.utils.checkAgainstRule({ ruleName: declarationUnits, ruleSettings: units, root, result }, (warning) => {
+                      const suffix = ` (${declarationUnits})`;
+                      const message = warning.text.endsWith(suffix) ? warning.text.slice(0, -suffix.length) : warning.text;
+                      stylelint.utils.report({ ruleName: documentUnits, result, message, node: warning.node, start: { line: warning.line, column: warning.column }, end: { line: warning.endLine ?? warning.line, column: warning.endColumn ?? warning.column } });
                   }),
     { ruleName: documentUnits, messages: {} },
 );
@@ -134,7 +137,7 @@ export default {
         'unit-disallowed-list': ['cm', 'mm', 'q', 'in', 'pt', 'pc'],
         'unit-no-unknown': true,
 
-        // --- [PLUGINS]
+        // --- [PLUGIN_RULES]
 
         'csstools/use-nesting': 'always',
         'defensive-css/no-accidental-hover': true,

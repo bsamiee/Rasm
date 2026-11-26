@@ -7,16 +7,17 @@ import Encoding
 import Foundation
 import JSONRPC
 import Results
+import ScreenCapture
 import Testing
 
 @testable import ApplicationServer
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-private struct Previewed: Decodable {
+private struct Scaled: Decodable {
+    let png: Data
     let width: Int
     let height: Int
-    let preview: Data
 }
 
 private struct Listed: Decodable {
@@ -24,7 +25,7 @@ private struct Listed: Decodable {
         let url: URL
     }
 
-    let success: [Row]
+    let installations: [Row]
 }
 
 private struct Fixture: ~Copyable {
@@ -52,7 +53,7 @@ private let requests: [(String, [String: JSONValue])] = [
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 @Suite
-struct PreviewTests {
+struct ScaleTests {
     @Test(
         arguments: [
             (CGSize(width: 96, height: 240), 60, CGSize(width: 24, height: 60)),
@@ -60,34 +61,35 @@ struct PreviewTests {
             (CGSize(width: 96, height: 240), 500, CGSize(width: 96, height: 240)),
         ] as [(CGSize, Int, CGSize)]
     )
-    func scalesTheLongestSideDownToTheLimitAndNeverUp(size: CGSize, longestSide: Int, previewed: CGSize) async throws {
-        let file = FileManager.default.temporaryDirectory.appending(component: "\(UUID().uuidString).png")
+    func scalesTheLongestSideDownToTheLimitAndNeverUp(size: CGSize, longestSide: Int, scaled: CGSize) async throws {
         let space = try #require(CGColorSpace(name: CGColorSpace.sRGB))
-        try CIContext().writePNGRepresentation(
-            of: CIImage(color: CIColor(red: 0.8, green: 0.3, blue: 0.1)).cropped(to: CGRect(origin: .zero, size: size)),
-            to: file,
-            format: .RGBA8,
-            colorSpace: space,
-        )
-        defer {
-            do { try FileManager.default.removeItem(at: file) } catch { Issue.record(error) }
-        }
-        let request = try JSONDecoder().decode(Request.self, from: Data(#"{"preview":{"file":"\#(file.absoluteString)","longestSide":\#(longestSide)}}"#.utf8))
-        guard case .value(let value?) = try await request.perform(matching: { NSPredicate(value: false) }, dictionaries: ScriptingDictionaries(cachedDefinition: { _ in nil })) else {
-            Issue.record("No preview value")
+        let drawn = CIImage(color: CIColor(red: 0.8, green: 0.3, blue: 0.1)).cropped(to: CGRect(origin: .zero, size: size))
+        let encoded: Data? = CIContext().pngRepresentation(of: drawn, format: .RGBA8, colorSpace: space)
+        let image: Data = try #require(encoded)
+        let request = try JSONDecoder().decode(Request.self, from: Data(#"{"scale":{"image":"\#(image.base64EncodedString())","longestSide":\#(longestSide)}}"#.utf8))
+        guard
+            case .value(let value?) = try await request.perform(
+                matching: { NSPredicate(value: false) },
+                dictionaries: ScriptingDictionaries(cachedDefinition: { _ in nil }),
+                watches: Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }),
+            )
+        else {
+            Issue.record("No scaled value")
             return
         }
-        let answer = try JSONDecoder().decode(Previewed.self, from: try JSONEncoder().encode(value))
-        expectNoDifference([CGSize(width: answer.width, height: answer.height), try #require(CIImage(data: answer.preview)).extent.size], [size, previewed])
+        let answer = try JSONDecoder().decode(Scaled.self, from: try JSONEncoder().encode(value))
+        let decoded: CIImage? = CIImage(data: answer.png)
+        let drawnSize: CGSize = try #require(decoded).extent.size
+        expectNoDifference([CGSize(width: answer.width, height: answer.height), drawnSize], [scaled, scaled])
     }
 
     @Test(arguments: [0, -60])
     func refusesALongestSideBelowOnePixel(longestSide: Int) throws {
         let refusal = #expect(throws: DecodingError.self) {
-            try JSONDecoder().decode(Request.self, from: Data(#"{"preview":{"file":"file:///tmp/preview.png","longestSide":\#(longestSide)}}"#.utf8))
+            try JSONDecoder().decode(Request.self, from: Data(#"{"scale":{"image":"","longestSide":\#(longestSide)}}"#.utf8))
         }
         let path: [String]? = if case .dataCorrupted(let context)? = refusal { context.codingPath.map(\.stringValue) } else { nil }
-        expectNoDifference(path, ["preview", "longestSide"])
+        expectNoDifference(path, ["scale", "longestSide"])
     }
 }
 
@@ -104,7 +106,13 @@ struct InstallationsTests {
         }
         let before = running()
         let request = try JSONDecoder().decode(Request.self, from: Data(#"{"installations":{}}"#.utf8))
-        guard case .stream(let listings) = try await request.perform(matching: { NSPredicate(value: true) }, dictionaries: ScriptingDictionaries(cachedDefinition: { _ in nil })) else {
+        guard
+            case .stream(let listings) = try await request.perform(
+                matching: { NSPredicate(value: true) },
+                dictionaries: ScriptingDictionaries(cachedDefinition: { _ in nil }),
+                watches: Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }),
+            )
+        else {
             Issue.record("No installations stream")
             return
         }
@@ -112,7 +120,7 @@ struct InstallationsTests {
         let listed = try JSONDecoder().decode(Listed.self, from: JSONEncoder().encode(listing))
         let throughout = before.intersection(running())
         try #require(!throughout.isEmpty)
-        expectNoDifference(throughout.subtracting(listed.success.map(\.url.pathComponents)), [])
+        expectNoDifference(throughout.subtracting(listed.installations.map(\.url.pathComponents)), [])
     }
 }
 
@@ -131,6 +139,7 @@ struct MatchingTests {
                         read.yield()
                         return nil
                     }),
+                    watches: Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }),
                 )
         }
         read.finish()
@@ -156,6 +165,7 @@ struct MatchingTests {
                     ask.yield(installation.identifier)
                     return cached
                 }),
+                watches: Watches(recognize: { watched, window throws(ApplicationFailure) in try await watched.recognizeText(in: window) }),
             )
         ask.finish()
         let identifiers = await asked.reduce(into: [String]()) { identifiers, identifier in identifiers.append(identifier) }

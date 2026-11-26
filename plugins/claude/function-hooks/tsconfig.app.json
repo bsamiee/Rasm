@@ -1,7 +1,5 @@
 {
-    "extends": "./tsconfig.json",
-    "include": ["**/*", "../../../libs/typescript/ai/policy/claude/types/*.d.ts"],
-    "exclude": ["vite.config.ts"],
+    "extends": "../../../libs/typescript/ai/policy/tsconfig.base.json",
     "references": [
         {
             "path": "../../../libs/typescript/ai/policy"
@@ -9,5 +7,10 @@
         {
             "path": "../../../libs/typescript/developer/nx"
         }
-    ]
+    ],
+    "nx": {
+        "sync": {
+            "ignoredDependencies": ["@rasm/vite"]
+        }
+    }
 }

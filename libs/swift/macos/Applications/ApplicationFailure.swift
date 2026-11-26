@@ -2,7 +2,6 @@ public import AppleEvents
 public import ApplicationServices
 public import CasePaths
 public import Encoding
-public import Files
 public import Foundation
 import Processes
 public import Results
@@ -18,26 +17,27 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
         case unanswered(ElementAction?)
         case noProcess
         case reused(pid_t)
-        case unreadable(FailedRead)
-        case unresolved
-        case foreign(pid_t)
+        case quarantined(Installation.Quarantine, NSError)
+        case unreadable(attribute: String, error: AXError)
+        case stale(reached: Int, candidates: [String])
         case disabled
-        case unchanged(JSONValue?)
+        case unchanged(Fact.Scalar?)
         case refused(AXError?)
         case noIdentifier
         case noPath
-        case noHandler
+        case noExecutable
         case noWindow
         case noImage
-        case noExtension
         case noEncoder
+        case notOnConsole
+        case screenLocked
+        case displayAsleep
+        case requiresApproval
         case event(AppleEventFailure)
         case system(Errno)
         case foundation(NSError)
         case cancelled
         case unmatched(Unmatched)
-        case unwatched(FileFailure)
-        case malformed(String)
     }
 
     public let subject: String
@@ -57,28 +57,30 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .unanswered(.some): "\(subject) got no answer within messaging timeout, the action may have run"
             case .noProcess: "Process \(subject) exited"
             case .reused(let process): "Arguments and environment reach a new process alone and \(subject) runs as process \(process), close it first"
-            case .unreadable(let read):
-                "\(read.reads.joined(separator: ", ")) on \(read.role ?? "element")\(read.label.map { label in " \(String(reflecting: label))" } ?? "") failed with AXError \(read.error.rawValue)"
-            case .unresolved: "\(subject) no longer exists in its app, read the app again for a current id"
-            case .foreign(let process): "\(subject) belongs to a process other than \(process)"
+            case .quarantined(let quarantine, let error):
+                "\(subject) did not launch (\(error.localizedDescription)) and holds the quarantine attribute Gatekeeper checks before a first launch: \(quarantine)"
+            case .unreadable(let attribute, let error): "\(attribute) on \(subject) failed with AXError \(error.rawValue)"
+            case .stale(let reached, let candidates) where candidates.isEmpty: "Reference \(subject) matches nothing open after \(reached) steps of its locator, read the application again"
+            case .stale(let reached, let candidates): "Reference \(subject) matches nothing open after \(reached) steps of its locator, where \(candidates.formatted()) are, read the application again"
             case .disabled: "Element \(subject) is disabled"
             case .unchanged(let value): "\(subject) left \(kAXValueAttribute) at \(value.map { value in "\(value)" } ?? "unset")"
             case .refused(.some(let error)): "\(subject) refused with AXError \(error.rawValue)"
             case .refused(.none): "\(subject) refused"
             case .noIdentifier: "\(subject) has no \(kCFBundleIdentifierKey as String)"
-            case .noPath: "\(subject) has no \(NSMetadataItemPathKey)"
-            case .noHandler: "No application opens \(subject)"
+            case .noPath: "\(subject) has no file path"
+            case .noExecutable: "\(subject) names no executable"
             case .noWindow: "\(subject) has no window"
             case .noImage: "\(subject) holds no SDR image"
-            case .noExtension: "\(subject) has no filename extension"
             case .noEncoder: "No encoder writes \(subject)"
+            case .notOnConsole: "\(subject) refused, the session is not on the console"
+            case .screenLocked: "\(subject) refused, the screen is locked"
+            case .displayAsleep: "\(subject) refused, the display is asleep"
+            case .requiresApproval: "\(subject) requires approval in System Settings > General > Login Items"
             case .event(let failure): failure.errorDescription
             case .system(let error): "\(subject): \(error.description)"
             case .foundation(let error): "\(subject): \(error.localizedDescription)"
             case .cancelled: "Canceled \(subject)"
             case .unmatched(let miss): miss.errorDescription
-            case .unwatched(let failure): failure.errorDescription
-            case .malformed(let message): message
         }
     }
 
@@ -87,11 +89,10 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .noProcess: [NSUnderlyingErrorKey: Errno.noSuchProcess]
             case .system(let error): [NSUnderlyingErrorKey: error]
             case .event(let failure): [NSUnderlyingErrorKey: failure]
-            case .foundation(let error): [NSUnderlyingErrorKey: error]
-            case .unwatched(let failure): [NSUnderlyingErrorKey: failure]
+            case .foundation(let error), .quarantined(_, let error): [NSUnderlyingErrorKey: error]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
-            case .noGrant, .notResponsible, .unanswered, .reused, .unreadable, .unresolved, .foreign, .disabled, .unchanged, .refused, .noIdentifier, .noPath, .noHandler, .noWindow,
-                .noImage, .noExtension, .noEncoder, .cancelled, .malformed:
+            case .noGrant, .notResponsible, .unanswered, .reused, .unreadable, .stale, .disabled, .unchanged, .refused, .noIdentifier, .noPath, .noExecutable,
+                .noWindow, .noImage, .noEncoder, .notOnConsole, .screenLocked, .displayAsleep, .requiresApproval, .cancelled:
                 [:]
         }
     }
@@ -99,7 +100,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
 
 extension ApplicationFailure: Encodable {
     private enum Key: CodingKey {
-        case reason, subject, message, grant, pid, error, value, candidates, status
+        case reason, subject, message, grant, pid, error, value, candidates, status, attribute, reached, quarantine
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -112,16 +113,23 @@ extension ApplicationFailure: Encodable {
             case .notResponsible(let grant, let process):
                 try fields.encode(grant, forKey: .grant)
                 try fields.encode(process, forKey: .pid)
-            case .foreign(let process), .reused(let process): try fields.encode(process, forKey: .pid)
+            case .reused(let process): try fields.encode(process, forKey: .pid)
+            case .quarantined(let quarantine, let error):
+                try fields.encode(quarantine, forKey: .quarantine)
+                try fields.encode(error.code, forKey: .error)
             case .refused(.some(let error)): try fields.encode(error.rawValue, forKey: .error)
             case .unchanged(let value): try fields.encodeIfPresent(value, forKey: .value)
-            case .unreadable(let read): try read.encode(to: encoder)
+            case .unreadable(let attribute, let error):
+                try fields.encode(attribute, forKey: .attribute)
+                try fields.encode(error.rawValue, forKey: .error)
+            case .stale(let reached, let candidates):
+                try fields.encode(reached, forKey: .reached)
+                try fields.encode(candidates, forKey: .candidates)
             case .unmatched(let miss): try fields.encode(miss.candidates, forKey: .candidates)
             case .event(let failure): try fields.encodeIfPresent(failure.status, forKey: .status)
             case .system(let error): try fields.encode(error.rawValue, forKey: .error)
-            case .unanswered, .noProcess, .unresolved, .disabled, .refused(.none), .noIdentifier, .noPath, .noHandler, .noWindow, .noImage, .noExtension, .noEncoder,
-                .foundation,
-                .cancelled, .unwatched, .malformed:
+            case .unanswered, .noProcess, .disabled, .refused(.none), .noIdentifier, .noPath, .noExecutable, .noWindow, .noImage,
+                .noEncoder, .notOnConsole, .screenLocked, .displayAsleep, .requiresApproval, .foundation, .cancelled:
                 break
         }
     }

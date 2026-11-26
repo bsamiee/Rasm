@@ -13,6 +13,11 @@
             "command": "pdfm-mcp",
             "default_tools_approval_mode": "approve"
         },
+        "rasad": {
+            "type": "http",
+            "url": "http://localhost:7491/",
+            "default_tools_approval_mode": "approve"
+        },
         "raycast": {
             "type": "http",
             "url": "http://127.0.0.1:8267/mcp",

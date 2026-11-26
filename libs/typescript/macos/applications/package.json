@@ -21,6 +21,7 @@
     "exports": {
         ".": "./index.ts",
         "./client": "./client.ts",
+        "./source": "./source.ts",
         "./tools": "./tools.ts",
         "./vite": "./vite.ts",
         "./workspace": "./workspace.ts",
@@ -33,6 +34,7 @@
         "exports": {
             ".": "./dist/index.js",
             "./client": "./dist/client.js",
+            "./source": "./dist/source.js",
             "./tools": "./dist/tools.js",
             "./vite": "./dist/vite.js",
             "./workspace": "./dist/workspace.js",
@@ -41,6 +43,7 @@
         "access": "public"
     },
     "dependencies": {
+        "@effect/sql-sqlite-node": "catalog:",
         "@rasm/database": "workspace:*",
         "@rasm/mcp": "workspace:*",
         "@rasm/process": "workspace:*",

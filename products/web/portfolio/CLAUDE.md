@@ -144,7 +144,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Routes receive each binding by name: `DB` a database engine layer over D1 or Node SQLite, `BUCKET` an `ObjectStorage` layer over the R2 binding or S3
 - `ObjectStorage.sign` presigns through the `AWS_*` variables, resolving the endpoint against the served request and `S3_PUBLIC_ENDPOINT_URL` where browsers reach the bucket elsewhere
 - Workers write one JSON log record per console line, record each span in the Workers trace, and export at invocation end
-- Node servers pass the app name to `layerNodeFromConfig`, which reads `<NAME>_LOG_{LEVEL,FILTER,TARGET,DIR,SIZE,AGE,FILES}`
+- Node servers pass the app name to `layerNodeFromConfig`, which reads `<NAME>_LOG_{LEVEL,FILTER,TARGET,SIZE,AGE,FILES}`
 - Each server exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names
 - `.storybook/main.ts` sets `viteConfigPath: null` and takes the React plugin from `@rasm/testing/storybook`, so no `vite.config.ts` plugin runs
 - `siteHead` takes `icons/mark.svg` and `site/theme.css` tokens, emitting the ICO, Apple touch icon, painted SVG, `theme-color`, and `color-scheme`

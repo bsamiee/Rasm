@@ -67,6 +67,9 @@
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="JSONRPCTests" BuildableName="JSONRPCTests" BlueprintName="JSONRPCTests" ReferencedContainer="container:"/>
             </TestableReference>
             <TestableReference skipped="NO">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="FilesTests" BuildableName="FilesTests" BlueprintName="FilesTests" ReferencedContainer="container:"/>
+            </TestableReference>
+            <TestableReference skipped="NO">
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ProcessesTests" BuildableName="ProcessesTests" BlueprintName="ProcessesTests" ReferencedContainer="container:"/>
             </TestableReference>
             <TestableReference skipped="NO">
@@ -74,6 +77,9 @@
             </TestableReference>
             <TestableReference skipped="NO">
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ApplicationsTests" BuildableName="ApplicationsTests" BlueprintName="ApplicationsTests" ReferencedContainer="container:"/>
+            </TestableReference>
+            <TestableReference skipped="NO">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ScreenCaptureTests" BuildableName="ScreenCaptureTests" BlueprintName="ScreenCaptureTests" ReferencedContainer="container:"/>
             </TestableReference>
             <TestableReference skipped="NO">
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="ApplicationServerTests" BuildableName="ApplicationServerTests" BlueprintName="ApplicationServerTests" ReferencedContainer="container:"/>

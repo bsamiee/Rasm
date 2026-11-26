@@ -2,7 +2,7 @@
     "name": "@rasm/photoshop",
     "version": "0.1.0",
     "private": true,
-    "description": "Photoshop object model for UXP plugins, with modal scopes, history suspension, script evaluation, rendering, and document events",
+    "description": "Photoshop object model for UXP plugins, with modal scopes, history suspension, script evaluation, rendering, notifications of documents, tools, and modal states, and the current tool as an interface facet",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -27,6 +27,7 @@
         "access": "public"
     },
     "dependencies": {
+        "@rasm/applications": "workspace:*",
         "@rasm/mcp": "workspace:*",
         "@rasm/object-model": "workspace:*",
         "@rasm/search": "workspace:*",

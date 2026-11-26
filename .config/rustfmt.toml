@@ -18,12 +18,15 @@ where_single_line    = true
 group_imports       = "StdExternalCrate"
 imports_granularity = "Module"
 
-# --- [ITEMS]
+# --- [SYNTAX]
 
 format_macro_matchers    = true
+use_field_init_shorthand = true
+
+# --- [COMMENTS]
+
 normalize_comments       = true
 normalize_doc_attributes = true
-use_field_init_shorthand = true
 
 # --- [LITERALS]
 

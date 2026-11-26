@@ -1,8 +1,12 @@
-# --- [BOOTSTRAP] ------------------------------------------------------------------------
+# --- [BOOTSTRAP_REMOTE] -----------------------------------------------------------------
+
+# --- [DEFAULTS]
 
 [bootstrap.remote]
 mise_env = ["machine"]
 source   = "."
+
+# --- [HOSTS]
 
 [bootstrap.remote.hosts.derby]
 host     = "derby"

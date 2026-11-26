@@ -1,5 +1,7 @@
 # --- [BOOTSTRAP] ------------------------------------------------------------------------
 
+# --- [APT_SOURCES]
+
 [bootstrap.apt.sources.docker]
 components  = "stable test"
 fingerprint = "9DC8 5822 9FC7 DD38 854A E2D8 8D81 803C 0EBF CD88"
@@ -11,10 +13,14 @@ fingerprint = "2596 A99E AAB3 3821 893C 0A79 458C A832 957F 5868"
 key         = "https://pkgs.tailscale.com/stable/ubuntu/stonking.noarmor.gpg"
 uris        = "https://pkgs.tailscale.com/stable/ubuntu"
 
+# --- [DIRECTORIES]
+
 [bootstrap.directories]
 "/etc/docker"                                   = {}
 "/etc/systemd/journald.conf.d"                  = {}
 "/etc/systemd/system/apt-daily-upgrade.timer.d" = {}
+
+# --- [FILES]
 
 [bootstrap.files."/etc/apt/apt.conf.d/52unattended-upgrades-local"]
 content = '''
@@ -62,6 +68,8 @@ OnCalendar=*-*-* 05:00 America/Chicago
 """
 notify  = ["apt-daily-upgrade.timer"]
 
+# --- [PACKAGES]
+
 [bootstrap.packages]
 "apt:containerd.io"          = "latest"
 "apt:docker-buildx-plugin"   = "latest"
@@ -69,6 +77,8 @@ notify  = ["apt-daily-upgrade.timer"]
 "apt:docker-ce-cli"          = "latest"
 "apt:systemd-zram-generator" = "latest"
 "apt:tailscale"              = "latest"
+
+# --- [SERVICES]
 
 [bootstrap.services]
 "apt-daily-upgrade.timer" = {}

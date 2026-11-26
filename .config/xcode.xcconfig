@@ -1,7 +1,9 @@
-// --- [COMPILATION_CACHE] -----------------------------------------------------------------
+// --- [XCODE] ---------------------------------------------------------------------------
+
+// --- [COMPILATION_CACHE]
 
 COMPILATION_CACHE_ENABLE_CACHING = YES
 
-// --- [BUILD_OPTIONS] ---------------------------------------------------------------------
+// --- [APP_INTENTS_METADATA]
 
 LM_SKIP_METADATA_EXTRACTION = YES

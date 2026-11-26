@@ -28,7 +28,7 @@ actor Server<Request: Decodable & Sendable, Failure: Error> {
     // --- [STATE]
 
     let output = AsyncChannel<Data>()
-    private let encoder = JSONEncoder()
+    private let encoder = JSONEncoder.jsonLines
     private let decoder = JSONDecoder()
     private let perform: @Sendable (Request) async throws(Failure) -> Response
     private let onDrop: @Sendable (JSONRPCFailure) -> Void

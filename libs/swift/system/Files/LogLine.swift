@@ -1,7 +1,7 @@
 import AsyncAlgorithms
 import CasePathsCore
-import CoreServices
 public import Foundation
+import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -32,7 +32,7 @@ public struct LogLine: Encodable, Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension LogLine {
-    public static func newest(in folders: [LogFolder], since earliest: Date?, limit: Int) -> (lines: [Self], failures: [FileFailure]) {
+    public static func newest(in folders: [LogFolder], since earliest: Date?, limit: Int, where matching: (Self) -> Bool) -> (lines: [Self], failures: [FileFailure]) {
         let floor = earliest ?? .distantPast
         let listed = folders.map { folder in
             Result { () throws(FileFailure) in
@@ -53,11 +53,16 @@ extension LogLine {
                     end = body.lastIndex(of: UInt8(ascii: "\n")).map { newline in newline + 1 } ?? body.startIndex
                     return body[end...]
                 }
-                for (position, text) in lines.lazy.filter({ (line: Data) -> Bool in !line.isEmpty }).prefix(limit).enumerated() {
+                var kept = 0
+                for (position, text) in lines.lazy.filter({ (line: Data) -> Bool in !line.isEmpty }).enumerated() {
+                    guard kept < limit else { break }
                     guard let decoded = String(validating: text, as: UTF8.self) else { throw FileFailure(file: file, reason: .filesystem(CocoaError(.fileReadInapplicableStringEncoding) as NSError)) }
                     let line = Self(file: file, text: decoded)
                     let at = line.timestamp ?? modified
-                    if at >= floor { ranked.append((line, at, position)) }
+                    guard at >= floor else { break }
+                    guard matching(line) else { continue }
+                    ranked.append((line, at, position))
+                    kept += 1
                 }
             } catch {
                 failures.append(error)
@@ -67,34 +72,30 @@ extension LogLine {
     }
 
     public static func follow(in folder: LogFolder) -> some AsyncSequence<(lines: [Self], failures: [FileFailure]), Never> & Sendable {
-        let present = Result { () throws(FileFailure) -> [URL] in
-            try ifPresent(folder.url) { try FileManager.default.contentsOfDirectory(at: folder.url, includingPropertiesForKeys: [.fileSizeKey]) } ?? []
-        }
-        let sizes = (present[case: \.success] ?? []).filter(folder.matches).reduce(into: [String: Result<Int, FileFailure>]()) { (sizes: inout [String: Result<Int, FileFailure>], file: URL) in
-            sizes[file.lastPathComponent] = Result { () throws(FileFailure) -> Int in try ifPresent(file) { try file.resourceValues(forKeys: [.fileSizeKey]).fileSize }.flatMap(\.self) ?? 0 }
-        }
-        let initial: (read: [String: Int], lines: [Self], failures: [FileFailure]) = (
-            read: sizes.compactMapValues { (size: Result<Int, FileFailure>) -> Int? in size[case: \.success] }, lines: [],
-            failures: [present[case: \.failure]].compactMap(\.self) + sizes.values.compactMap { (size: Result<Int, FileFailure>) -> FileFailure? in size[case: \.failure] },
-        )
+        let initial: (read: [Inode: Int64]?, lines: [Self], failures: [FileFailure]) = (nil, [], [])
         return FileEvent.events(of: folder.url).reductions(into: initial) { held, batch in
-            (held.lines, held.failures) = ([], batch[case: \.success]?.isEmpty == false ? [] : held.failures)
-            if case .failure(let failure) = batch { held.failures.append(failure) }
-            let files: [URL] = (batch[case: \.success] ?? []).filter { (event: FileEvent) -> Bool in event.flags & FSEventStreamEventFlags(kFSEventStreamEventFlagItemIsFile) != 0 }.map(\.url)
-            for file in Set(files) where folder.matches(file) {
-                do throws(FileFailure) {
-                    let name = file.lastPathComponent
-                    guard let text = try ifPresent(file, { try Data(contentsOf: file, options: .mappedIfSafe) }) else {
-                        held.read[name] = nil
-                        continue
-                    }
-                    let fresh = text.dropFirst((held.read[name] ?? 0) > text.count ? 0 : held.read[name] ?? 0)
+            let (prior, events): ([Inode: Int64]?, [FileEvent]) = (held.read, batch[case: \.success] ?? [])
+            let listed = Result { () throws(FileFailure) -> [URL] in
+                guard prior == nil || events.contains(where: \.mustScanSubDirs) else { return events.map(\.url) }
+                return try ifPresent(folder.url) { try FileManager.default.contentsOfDirectory(at: folder.url, includingPropertiesForKeys: nil) } ?? []
+            }
+            (held.read, held.lines, held.failures) = (prior ?? [:], [], [batch[case: \.failure], listed[case: \.failure]].compactMap(\.self))
+            for file in Set(listed[case: \.success] ?? events.map(\.url)) where folder.matches(file) {
+                do {
+                    let path = FilePath(file.path(percentEncoded: false))
+                    guard let descriptor = try ifPresent({ try FileDescriptor.open(path, .readOnly, options: [.nonBlocking, .closeOnExec]) }) else { continue }
+                    let handle = FileHandle(fileDescriptor: descriptor.rawValue, closeOnDealloc: true)
+                    let stat = try descriptor.stat()
+                    guard stat.type == .regular else { continue }
+                    let from = prior.map { (read: [Inode: Int64]) -> Int64 in read[stat.inode].flatMap { offset in offset <= stat.size ? offset : nil } ?? 0 } ?? stat.size
+                    try descriptor.seek(offset: from, from: .start)
+                    let fresh = try handle.readToEnd() ?? Data()
                     let whole = fresh.lastIndex(of: UInt8(ascii: "\n")).map { end in fresh[...end] } ?? fresh.prefix(0)
-                    guard let lines = String(validating: whole, as: UTF8.self) else { throw FileFailure(file: file, reason: .filesystem(CocoaError(.fileReadInapplicableStringEncoding) as NSError)) }
-                    held.read[name] = whole.endIndex
+                    guard let lines = String(validating: whole, as: UTF8.self) else { throw CocoaError(.fileReadInapplicableStringEncoding) }
+                    held.read?[stat.inode] = from + Int64(whole.count)
                     held.lines += lines.split(whereSeparator: \.isNewline).map { line in Self(file: file, text: String(line)) }
                 } catch {
-                    held.failures.append(error)
+                    held.failures.append(FileFailure(file: file, reason: .filesystem(error as NSError)))
                 }
             }
         }

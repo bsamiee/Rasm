@@ -11,6 +11,8 @@ fail_fast = false
 // --- [STEPS] ----------------------------------------------------------------------------
 
 steps {
+  // --- [CROSS_PLATFORM]
+
   ["ast-grep"] {
     glob = "**/*"
     check = new CommandSpec {
@@ -73,7 +75,7 @@ steps {
     glob = "**/*.cs"
     check = new CommandSpec {
       command =
-        "for file in {{files}}; do [ \"${file##*/}\" != \"$(basename \"${file%/*}\").cs\" ] || { printf '%s:1:1: error: file named after its folder, name the file for its concept family\\n' \"$file\"; failed=1; }; done; [ -z \"${failed:-}\" ]"
+        "for file in {{files}}; do [ \"${file##*/}\" != \"$(basename \"${file%/*}\").cs\" ] || { printf '%s:1:1: error: file name matches folder name, rename it for its contents\\n' \"$file\"; failed=1; }; done; [ -z \"${failed:-}\" ]"
       effect = "read"
     }
     diagnostic_format = "gcc"
@@ -137,19 +139,19 @@ steps {
     glob = "**/*.java"
     local off =
       List(
-        "AddNullMarkedToClass", // Fix imports JSpecify, absent from Ghidra's script classpath
-        "DefaultPackage", // Ghidra loads scripts from script folders in the default package
-        "ImmutableMemberCollection", // Fix takes Guava collections, Gson in Ghidra cannot decode them
-        "Java8ApiChecker", // Guards Java 8 API use, scripts build with Ghidra's JDK
-        "MissingJavadoc", // Demands doc comments, CLAUDE.md forbids comments
-        "RequireExplicitNullMarking", // Fix imports JSpecify, absent from Ghidra's script classpath
-        "Var", // Forces `@Var` on reassigned locals, CLAUDE.md checker rule
-        "Varifier" // Fix writes `var`, PMD `UseExplicitTypes` refuses it
+        "AddNullMarkedToClass", // Both null-marking fixes import JSpecify, absent from Ghidra's script classpath
+        "DefaultPackage", // Ghidra loads scripts in the default package from script folders
+        "ImmutableMemberCollection", // Fix uses Guava collections that Ghidra's Gson cannot decode
+        "Java8ApiChecker", // Java 8 API restrictions conflict with scripts targeting Ghidra's JDK
+        "MissingJavadoc", // Ghidra scripts use section dividers and need no Javadoc
+        "RequireExplicitNullMarking",
+        "Var", // CLAUDE.md disallows checks that require `@Var` on reassigned locals
+        "Varifier" // PMD's `UseExplicitTypes` rejects `var` added by fix
       )
-    local lint = "-path" // Ghidra jar manifests name `Class-Path` jars its release omits
+    local lint = "-path" // Ghidra's release omits JARs its manifests list in `Class-Path`
     check = new CommandSpec {
       command =
-        "javac -J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -XDcompilePolicy=simple --should-stop=ifError=FLOW -processorpath \"${JAVAC_PLUGINS:?error prone is not installed}\" \"-Xplugin:ErrorProne -XepAllDisabledChecksAsWarnings -XepAllSuggestionsAsWarnings \(off.map((check) -> "-Xep:\(check):OFF").join(" ")) -XepOpt:NullAway:AnnotatedPackages=[^.]+$,headless\" -Xlint:all,\(lint) -Werror -d .cache/javac -cp \"${GHIDRA_CLASSPATH:?ghidra is not installed}\" -sourcepath plugins/shared/tool/skills/ghidra/scripts {{files}}"
+        "javac -J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED -J--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED -J--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED -XDcompilePolicy=simple --should-stop=ifError=FLOW -processorpath \"${JAVAC_PLUGINS:?javac plugin classpath missing, run mise install}\" \"-Xplugin:ErrorProne -XepAllDisabledChecksAsWarnings -XepAllSuggestionsAsWarnings \(off.map((check) -> "-Xep:\(check):OFF").join(" ")) -XepOpt:NullAway:AnnotatedPackages=[^.]+$,headless\" -Xlint:all,\(lint) -Werror -d .cache/javac -cp \"${GHIDRA_CLASSPATH:?Ghidra classpath missing, run mise install}\" -sourcepath plugins/shared/tool/skills/ghidra/scripts {{files}}"
       effect = "write"
     }
     diagnostic_format = "gcc"
@@ -185,7 +187,7 @@ steps {
     depends = "javac"
     check = new CommandSpec {
       command =
-        "pmd check --rulesets .config/pmd.xml --no-cache --no-progress --aux-classpath \".cache/javac:${JAVA_HOME:?}/lib/jrt-fs.jar:${GHIDRA_CLASSPATH:?ghidra is not installed}\" {{files}}"
+        "pmd check --rulesets .config/pmd.xml --no-cache --no-progress --aux-classpath \".cache/javac:${JAVA_HOME:?}/lib/jrt-fs.jar:${GHIDRA_CLASSPATH:?Ghidra classpath missing, run mise install}\" {{files}}"
       effect = "read"
     }
     diagnostic_format = "gcc"
@@ -244,6 +246,9 @@ steps {
       effect = "read"
     }
   }
+
+  // --- [MACOS]
+
   when (platform.current.operatingSystem.name == "macOS") {
     ["plutil"] {
       glob = "**/*.{plist,entitlements}"

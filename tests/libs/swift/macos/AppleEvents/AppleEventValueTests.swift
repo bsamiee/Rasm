@@ -1,6 +1,7 @@
 import AppleEvents
 import CoreServices
 import CustomDump
+import Encoding
 import Foundation
 import PropertyBased
 import Testing
@@ -22,7 +23,7 @@ private let wire: [(AppleEventValue, String)] = [
     (.record(type: 0x4664_6F63, fields: ["name": .text("A4")]), #"{"_tag":"record","fields":{"name":"A4"},"type":"Fdoc"}"#),
     (.type("page"), #"{"_tag":"type","name":"page"}"#),
     (.enumerator("javascript"), #"{"_tag":"enumerator","name":"javascript"}"#),
-    (.date(Date(timeIntervalSince1970: 86_400)), #"{"_tag":"date","date":"1970-01-02T00:00:00Z"}"#),
+    (.date(Date(timeIntervalSince1970: 86_400)), #"{"_tag":"date","date":"1970-01-02T00:00:00.000Z"}"#),
     (.file(URL(filePath: "/tmp/proof.pdf")), #"{"_tag":"file","url":"file:///tmp/proof.pdf"}"#),
     (.opaque(type: 0x0000_0001, data: Data("A4".utf8), value: nil), #"{"_tag":"opaque","data":"QTQ=","type":"0x00000001"}"#),
     (.specifier(want: "page", form: .index, seld: .number(2), from: .null), #"{"_tag":"specifier","form":"index","from":null,"seld":2,"want":"page"}"#),
@@ -42,9 +43,7 @@ private let integers: [(DescType, [UInt8], Double?)] = [
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 private func json(_ value: AppleEventValue) throws -> String? {
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-    return String(bytes: try encoder.encode(value), encoding: .utf8)
+    String(bytes: try JSONEncoder.jsonLines.encode(value), encoding: .utf8)
 }
 
 @Suite

@@ -1,5 +1,6 @@
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
+import { InterfaceMaps } from '@rasm/applications';
 import { ApplicationServer } from '@rasm/applications/client';
 import { Tools } from '@rasm/applications/tools';
 import { Workspace } from '@rasm/applications/workspace';
@@ -17,10 +18,10 @@ Effect.gen(function* () {
         { name: manifest.name, description: manifest.description, version, identifier },
         {
             listen: Option.some(Host.hostPortFromStringUnsafe('localhost:7491')),
-            instructions: ['Rasad drives the applications installed on this Mac that no dedicated MCP server claims: their windows, dialogs, menus, documents, and scripting dictionaries.', ...Tools.instructions],
+            instructions: ['Rasad drives the applications installed on this Mac that no dedicated MCP server claims: their windows, dialogs, menus, documents, and scripting dictionaries. Use its tools for any work in one of them in place of computer use, osascript, or System Events.', ...Tools.instructions],
             settings: Tools.settings,
         },
-        Layer.effectDiscard(Tools.register()).pipe(Layer.provide(Workspace.layer(Workspace.fromInstallations)), Layer.provideMerge(application)),
+        Layer.effectDiscard(Tools.register()).pipe(Layer.provide(InterfaceMaps.layer), Layer.provideMerge(Workspace.layer(Workspace.fromInstallations)), Layer.provideMerge(application)),
         ended,
     );
 }).pipe(Effect.provide(layer), runMain({ teardown }));

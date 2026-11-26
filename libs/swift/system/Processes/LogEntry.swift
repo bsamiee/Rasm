@@ -1,11 +1,16 @@
 import DequeModule
 public import Foundation
 import Subprocess
+public import os
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-private let logTime = Date.ISO8601FormatStyle(includingFractionalSeconds: true).year().month().day().dateTimeSeparator(.space).time(includingFractionalSeconds: true)
-    .timeZone(separator: .omitted)
+private let logDecoder: JSONDecoder = {
+    let decoder = JSONDecoder()
+    let time = Date.ISO8601FormatStyle(dateTimeSeparator: .space, includingFractionalSeconds: true)
+    decoder.dateDecodingStrategy = .custom { field in try Date(field.singleValueContainer().decode(String.self), strategy: time) }
+    return decoder
+}()
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -14,13 +19,19 @@ public struct LogEntry: Codable, Sendable {
         case process(pid_t)
         case executable(URL)
 
-        var predicate: String {
+        func arguments(levels: [OSLogType]?, containing text: String?) -> [String] {
             let (key, value): (CodingKeys, Any) =
                 switch self {
                     case .process(let pid): (.processID, pid)
                     case .executable(let url): (.processImagePath, url.path(percentEncoded: false))
                 }
-            return NSPredicate(format: "%K == %@", argumentArray: [key.stringValue, value]).predicateFormat
+            let levelClause: NSPredicate? = levels.map { levels in
+                NSCompoundPredicate(orPredicateWithSubpredicates: levels.map { level in NSPredicate(format: "%K == %d", argumentArray: [CodingKeys.messageType.stringValue, level.rawValue]) })
+            }
+            let textClause: NSPredicate? = text.map { text in NSPredicate(format: "%K CONTAINS[c] %@", argumentArray: [CodingKeys.eventMessage.stringValue, text]) }
+            let clauses: [NSPredicate] = [NSPredicate(format: "%K == %@", argumentArray: [key.stringValue, value]), levelClause, textClause].compactMap(\.self)
+            let flags: [String] = [(OSLogType.info, "--info"), (OSLogType.debug, "--debug")].filter { level, _ in levels?.contains(level) == true }.map(\.1)
+            return ["--predicate", NSCompoundPredicate(andPredicateWithSubpredicates: clauses).predicateFormat, "--style", "ndjson"] + flags
         }
     }
 
@@ -36,30 +47,6 @@ public struct LogEntry: Codable, Sendable {
     public let category: String?
     public let eventMessage: String?
     public let senderImagePath: String?
-
-    public init(from decoder: any Decoder) throws {
-        let fields = try decoder.container(keyedBy: CodingKeys.self)
-        timestamp = try Date(fields.decode(String.self, forKey: .timestamp), strategy: logTime)
-        processID = try fields.decodeIfPresent(pid_t.self, forKey: .processID)
-        processImagePath = try fields.decodeIfPresent(String.self, forKey: .processImagePath)
-        messageType = try fields.decodeIfPresent(String.self, forKey: .messageType)
-        subsystem = try fields.decodeIfPresent(String.self, forKey: .subsystem)
-        category = try fields.decodeIfPresent(String.self, forKey: .category)
-        eventMessage = try fields.decodeIfPresent(String.self, forKey: .eventMessage)
-        senderImagePath = try fields.decodeIfPresent(String.self, forKey: .senderImagePath)
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var fields = encoder.container(keyedBy: CodingKeys.self)
-        try fields.encode(timestamp.formatted(logTime), forKey: .timestamp)
-        try fields.encodeIfPresent(processID, forKey: .processID)
-        try fields.encodeIfPresent(processImagePath, forKey: .processImagePath)
-        try fields.encodeIfPresent(messageType, forKey: .messageType)
-        try fields.encodeIfPresent(subsystem, forKey: .subsystem)
-        try fields.encodeIfPresent(category, forKey: .category)
-        try fields.encodeIfPresent(eventMessage, forKey: .eventMessage)
-        try fields.encodeIfPresent(senderImagePath, forKey: .senderImagePath)
-    }
 }
 
 private struct Line: Decodable {
@@ -73,21 +60,15 @@ private struct Line: Decodable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension LogEntry {
-    public static func history(of source: Source, since start: Date?, limit: Int) async throws(ProcessFailure) -> [Self] {
+    public static func history(of source: Source, since start: Date?, limit: Int, levels: [OSLogType]? = nil, containing text: String? = nil) async throws(ProcessFailure) -> [Self] {
         let window = start.map { start in ["--start", "@\(Int(start.timeIntervalSince1970))"] } ?? ["--last", "boot"]
-        let format = source.predicate
-        let subject = "log show --predicate \(format)"
-        let decoder = JSONDecoder()
+        let arguments = ["show"] + source.arguments(levels: levels, containing: text) + window
+        let subject = "log \(arguments.joined(separator: " "))"
         let shown: ExecutionResult<Deque<Self>, SequenceOutput, StringOutput<UTF8>>
         do {
-            shown = try await Subprocess.run(
-                Configuration(executable: .name("log"), arguments: Arguments(["show", "--predicate", format, "--style", "ndjson"] + window)),
-                input: .none,
-                output: .sequence,
-                error: .string(limit: 1 << 16),
-            ) { execution in
+            shown = try await Subprocess.run(.name("log"), arguments: Arguments(arguments), input: .none, output: .sequence, error: .string(limit: 1 << 16)) { execution in
                 try await execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"])).reduce(into: Deque<Self>()) { held, line in
-                    guard let entry = try decoder.decode(Line.self, from: Data(line.utf8)).entry else { return }
+                    guard let entry = try logDecoder.decode(Line.self, from: Data(line.utf8)).entry else { return }
                     held.append(entry)
                     if held.count > limit { held.removeFirst() }
                 }
@@ -99,21 +80,15 @@ extension LogEntry {
         return shown.closureResult.reversed()
     }
 
-    public static func stream(of source: Source) -> AsyncStream<Result<Self, ProcessFailure>> {
-        let format = source.predicate
+    public static func stream(of source: Source, levels: [OSLogType]? = nil) -> AsyncStream<Result<Self, ProcessFailure>> {
+        let arguments = ["stream"] + source.arguments(levels: levels, containing: nil)
+        let subject = "log \(arguments.joined(separator: " "))"
         let (entries, continuation) = AsyncStream<Result<Self, ProcessFailure>>.makeStream()
         let following = Task {
-            let decoder = JSONDecoder()
-            let subject = "log stream --predicate \(format)"
             do {
-                let ended = try await Subprocess.run(
-                    Configuration(executable: .name("log"), arguments: ["stream", "--predicate", format, "--style", "ndjson"]),
-                    input: .none,
-                    output: .sequence,
-                    error: .string(limit: 1 << 16),
-                ) { execution in
+                let ended = try await Subprocess.run(.name("log"), arguments: Arguments(arguments), input: .none, output: .sequence, error: .string(limit: 1 << 16)) { execution in
                     for try await line in execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"])) where line.hasPrefix("{") {
-                        switch Result(catching: { try decoder.decode(Line.self, from: Data(line.utf8)).entry }) {
+                        switch Result(catching: { try logDecoder.decode(Line.self, from: Data(line.utf8)).entry }) {
                             case .success(let entry?): continuation.yield(.success(entry))
                             case .success(nil): continue
                             case .failure(let error): continuation.yield(.failure(ProcessFailure(subject: line, error)))
@@ -121,9 +96,9 @@ extension LogEntry {
                     }
                 }
                 if !ended.terminationStatus.isSuccess { continuation.yield(.failure(ProcessFailure(subject: subject, reason: .exit(ended.terminationStatus, standardError: ended.standardError)))) }
-            } catch  where !Task.isCancelled {
+            } catch {
                 continuation.yield(.failure(ProcessFailure(subject: subject, error)))
-            } catch {}
+            }
             continuation.finish()
         }
         continuation.onTermination = { _ in following.cancel() }

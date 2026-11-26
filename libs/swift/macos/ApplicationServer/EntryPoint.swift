@@ -28,11 +28,14 @@ public func main(cachedDefinition: @escaping @Sendable (Installation) -> URL?) a
             guard serving else {
                 let agents = try installation.agents()
                 var registered: [Result<Void, ApplicationFailure>] = []
-                for agent in agents where agent.service.status != .requiresApproval {
+                for agent in agents {
                     registered.append(await Result { () async throws(ApplicationFailure) in try await agent.register() })
                 }
+                let unapproved = registered.contains { outcome in
+                    if case .failure(let failure) = outcome { failure.reason == .requiresApproval } else { false }
+                }
+                if unapproved { SMAppService.openSystemSettingsLoginItems() }
                 _ = try traverse(registered) { outcome in outcome.aggregated(\.self) }.get()
-                if agents.contains(where: { agent in agent.service.status == .requiresApproval }) { SMAppService.openSystemSettingsLoginItems() }
                 return
             }
             do { try Program.current.require() } catch { logger.notice("Started without every privacy grant", error: error) }
@@ -47,8 +50,9 @@ public func main(cachedDefinition: @escaping @Sendable (Installation) -> URL?) a
                         reading: FileHandle.standardInput.bytes.jsonLines,
                         writing: { line in try FileDescriptor.standardOutput.writeAll(line) },
                         matching: {
-                            claimed.map { prefixes in NSCompoundPredicate(orPredicateWithSubpredicates: prefixes.map { prefix in NSPredicate(format: "%K BEGINSWITH %@", identifierKey, prefix) }) }
-                                ?? NSPredicate(value: true)
+                            claimed.map { prefixes in
+                                NSCompoundPredicate(orPredicateWithSubpredicates: prefixes.map { prefix in NSPredicate(format: "%K BEGINSWITH %@", NSMetadataItemCFBundleIdentifierKey, prefix) })
+                            } ?? NSPredicate(value: true)
                         },
                         cachedDefinition: cachedDefinition,
                     )

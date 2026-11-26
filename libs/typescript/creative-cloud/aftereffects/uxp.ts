@@ -1,9 +1,14 @@
+import { Description } from '@rasm/applications/source';
 import { HostError, type Render } from '@rasm/object-model';
 import { type Containment, read } from '@rasm/object-model/host';
 import { Unmatched } from '@rasm/search';
-import { Uxp } from '@rasm/uxp/plugin';
+import { Plugin, Uxp } from '@rasm/uxp/plugin';
 import type { File } from 'adobe:uxp';
-import { Effect, Option, Predicate, type Record, Schema } from 'effect';
+import { Effect, Option, Predicate, Record, Schema, Tuple } from 'effect';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const TOOL = 'toolType';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -17,12 +22,17 @@ const Module = Schema.Struct({
     FolderItem: Class,
     FootageItem: Class,
 }).annotate({ description: 'Application instance and DOM constructors require("aftereffects") holds' });
+const Tooled = Schema.Struct({
+    app: Schema.Struct({ project: Schema.Struct({ [TOOL]: Schema.Finite }) }),
+    ToolType: Schema.Record(Schema.String, Schema.Finite).annotate({ description: 'Tool enumeration, each tool name keying its value' }),
+}).annotate({ description: 'Tool type the project of the application holds, and the enumeration naming it, require("aftereffects") holds' });
 const Frame = Schema.declare(Schema.is(Schema.Struct({ time: Schema.Finite, resolutionFactor: Schema.Tuple([Schema.Int, Schema.Int]), saveFrameToPng: Method }))).annotate({ description: 'Composition by the members render reads and calls' });
 const Deferred = Schema.declare(Schema.is(Schema.Struct({ wait: Method }))).annotate({ description: 'DeferredCall saveFrameToPng returns, settled through wait()' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const hosted = Effect.flatMap(Uxp.require('aftereffects'), Schema.decodeUnknownEffect(Module));
+const loaded = Uxp.require('aftereffects');
+const hosted = Effect.flatMap(loaded, Schema.decodeUnknownEffect(Module));
 const containment = Effect.map(hosted, ({ app, Project, CompItem, FolderItem, FootageItem }): Containment => ({
     root: app,
     type: (value) => value.constructor.name,
@@ -37,6 +47,19 @@ const paired = (subject: string, { begin, end }: Record.ReadonlyRecord<'begin' |
 const suppressDialogs = paired('dialog suppression', { begin: (app) => app.beginSuppressDialogs(), end: (app) => app.endSuppressDialogs(false) });
 const undoGroup = (label: string) => paired(`undo group ${label}`, { begin: (app) => app.beginUndoGroup(label), end: (app) => app.endUndoGroup() });
 const execute = (code: string, label: string) => Effect.flatMap(containment, (held) => Uxp.execute(held, code, (call) => Effect.scoped(Effect.andThen(Effect.all([suppressDialogs, undoGroup(label)]), call))));
+const tool = Effect.flatMap(loaded, Schema.decodeUnknownEffect(Tooled)).pipe(
+    Effect.flatMap(({ app: { project }, ToolType }) =>
+        Effect.fromOption(
+            Option.map(
+                Record.findFirst(ToolType, (value) => value === project[TOOL]),
+                Tuple.get(0),
+            ),
+            () => Unmatched.of({ subject: 'ToolType', query: Option.some(`${project[TOOL]}`), candidates: Record.keys(ToolType) }),
+        ),
+    ),
+);
+const { describe, operate } = Description.pointer(Effect.map(tool, (named) => ({ tool: named })));
+const events = Plugin.poll(TOOL, tool);
 const render = Effect.fnUntraced(function* ({ target, label }: Render, written: File) {
     const [held, { CompItem }] = yield* Effect.all([containment, hosted, suppressDialogs, undoGroup(label)]);
     const found = yield* Uxp.locate(held, target);
@@ -48,4 +71,4 @@ const render = Effect.fnUntraced(function* ({ target, label }: Render, written: 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { containment, execute, render, suppressDialogs, undoGroup };
+export { containment, describe, events, execute, operate, render, suppressDialogs, undoGroup };

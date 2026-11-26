@@ -1,3 +1,4 @@
+import AsyncAlgorithms
 import CasePathsCore
 import Files
 public import Foundation
@@ -42,10 +43,6 @@ public struct DiagnosticReport: Encodable, Hashable, Sendable {
         let bundleInfo: [String: String]?
     }
 
-    private enum CodingKeys: CodingKey {
-        case url, kind, date, pid, instance, name, executable, service, bundleIdentifier, event, exception, signal, termination
-    }
-
     public static let directories: [URL] = FileManager.default.urls(for: .libraryDirectory, in: [.userDomainMask, .localDomainMask]).map { library in
         library.appending(components: "Logs", "DiagnosticReports", directoryHint: .isDirectory)
     }
@@ -63,23 +60,6 @@ public struct DiagnosticReport: Encodable, Hashable, Sendable {
     public let exception: String?
     public let signal: String?
     public let termination: Termination?
-
-    public func encode(to encoder: any Encoder) throws {
-        var fields = encoder.container(keyedBy: CodingKeys.self)
-        try fields.encode(url, forKey: .url)
-        try fields.encode(kind, forKey: .kind)
-        try fields.encode(date.formatted(Date.ISO8601FormatStyle()), forKey: .date)
-        try fields.encode(pid, forKey: .pid)
-        try fields.encodeIfPresent(instance, forKey: .instance)
-        try fields.encodeIfPresent(name, forKey: .name)
-        try fields.encodeIfPresent(executable, forKey: .executable)
-        try fields.encodeIfPresent(service, forKey: .service)
-        try fields.encodeIfPresent(bundleIdentifier, forKey: .bundleIdentifier)
-        try fields.encodeIfPresent(event, forKey: .event)
-        try fields.encodeIfPresent(exception, forKey: .exception)
-        try fields.encodeIfPresent(signal, forKey: .signal)
-        try fields.encodeIfPresent(termination, forKey: .termination)
-    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -162,11 +142,27 @@ extension DiagnosticReport {
             .reduce(into: (reports: [Self](), failures: listed.flatMap(\.failures))) { found, file in
                 guard found.reports.count < limit else { return }
                 switch read(file) {
-                    case .success(.some(let report)) where matching(report): found.reports.append(report)
-                    case .success: break
+                    case .success(let report) where matching(report): found.reports.append(report)
                     case .failure(let failure): found.failures.append(failure)
+                    case .success, nil: break
                 }
             }
+    }
+
+    public static func written(since earliest: Date, in directory: URL = directories[0]) -> some AsyncSequence<Result<Self, ProcessFailure>, Never> & Sendable {
+        let initial: (parsed: Set<URL>, found: [Result<Self, ProcessFailure>]) = ([], [])
+        return FileEvent.events(of: directory).reductions(into: initial) { held, change in
+            let listed: (files: [(url: URL, date: Date)], failures: [ProcessFailure]) =
+                switch change {
+                    case .success(let batch) where batch.isEmpty || batch.contains(where: \.mustScanSubDirs): list(directory, since: earliest)
+                    case .success(let batch): readDates(Set(batch.map(\.url)), since: earliest)
+                    case .failure(let failure): ([], [ProcessFailure(subject: failure.subject, reason: .io(failure))])
+                }
+            let reads: [(url: URL, report: Result<Self, ProcessFailure>?)] = listed.files.filter { file in !held.parsed.contains(file.url) }.map { file in (file.url, read(file)) }
+            held.parsed.formUnion(reads.filter { entry in entry.report?[case: \.failure] == nil }.map(\.url))
+            held.found = listed.failures.map(Result<Self, ProcessFailure>.failure) + reads.compactMap(\.report)
+        }
+        .flatMap(\.found.async)
     }
 
     public static func first(
@@ -179,14 +175,15 @@ extension DiagnosticReport {
         let subject = "Crash report of process \(process.pid)"
         return await Result { () async throws(ProcessFailure) in
             try await withTimeout(limit, expired: ProcessFailure(subject: subject, reason: .timedOut(limit)), clock: clock) { () async throws(ProcessFailure) in
-                for await change in FileEvent.events(of: directory) {
-                    let batch = try change.mapError { failure in ProcessFailure(subject: failure.subject, reason: .io(failure)) }.get()
-                    let files = (batch.isEmpty ? list(directory, since: launch) : readDates(batch.map(\.url), since: launch)).files.sorted(using: KeyPathComparator(\.date, order: .reverse))
-                    if let report = files.lazy.compactMap({ file in read(file)[case: \.success].flatMap(\.self) }).first(where: { report in report.kind == .crash && report.isWritten(by: process) }) {
-                        return report
+                var ended: ProcessFailure?
+                for await found in written(since: launch, in: directory) {
+                    switch found {
+                        case .success(let report) where report.kind == .crash && report.isWritten(by: process): return report
+                        case .success: continue
+                        case .failure(let failure): ended = failure
                     }
                 }
-                throw ProcessFailure(subject: subject, reason: .cancelled(CancellationError()))
+                throw (Task.isCancelled ? nil : ended) ?? ProcessFailure(subject: subject, reason: .cancelled(CancellationError()))
             }
         }
     }
@@ -201,14 +198,18 @@ extension DiagnosticReport {
         return readDates(entries, since: earliest)
     }
 
-    private static func readDates(_ entries: [URL], since earliest: Date) -> (files: [(url: URL, date: Date)], failures: [ProcessFailure]) {
-        let stamped = entries.map { url in (url: url, date: Result { try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate }) }
-        let files = stamped.compactMap { entry in entry.date[case: \.success].map { date in (url: entry.url, date: date ?? earliest) } }.filter { file in file.date >= earliest }
+    private static func readDates(_ entries: some Sequence<URL>, since earliest: Date) -> (files: [(url: URL, date: Date)], failures: [ProcessFailure]) {
+        let stamped = entries.map { url in (url: url, date: Result { try ifPresent { try url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate }.flatMap(\.self) }) }
+        let files = stamped.compactMap { entry in entry.date[case: \.success].flatMap(\.self).map { date in (url: entry.url, date: date) } }.filter { file in file.date >= earliest }
         let failures = stamped.compactMap { entry in entry.date[case: \.failure].map { error in ProcessFailure(subject: entry.url.path(percentEncoded: false), reason: .io(error)) } }
         return (files, failures)
     }
 
-    private static func read(_ file: (url: URL, date: Date)) -> Result<Self?, ProcessFailure> {
-        Result { try ifPresent { try Self(file.url, written: file.date) }.flatMap(\.self) }.mapError { error in ProcessFailure(subject: file.url.path(percentEncoded: false), reason: .io(error)) }
+    private static func read(_ file: (url: URL, date: Date)) -> Result<Self, ProcessFailure>? {
+        do {
+            return try ifPresent { try Self(file.url, written: file.date) }.flatMap(\.self).map { report in .success(report) }
+        } catch {
+            return .failure(ProcessFailure(subject: file.url.path(percentEncoded: false), reason: .io(error)))
+        }
     }
 }

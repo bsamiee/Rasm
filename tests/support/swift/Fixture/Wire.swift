@@ -73,6 +73,7 @@ public struct Report: Codable, Equatable, Sendable {
         public let subrole: String?
         public let parent: String?
         public let title: String?
+        public let description: String?
         public let caption: String?
         public let help: String?
         public let value: JSONValue?
@@ -123,9 +124,40 @@ public enum Line: Codable, Sendable {
     case ready
     case report(report: Report)
     case action(selector: String, control: Report.Control?, cause: Lenient<NSEvent.EventType>?)
-    case pointer(type: Lenient<NSEvent.EventType>, window: Int, at: CGPoint, clicks: Int, modifiers: Lenient<NSEvent.ModifierFlags>)
-    case key(type: Lenient<NSEvent.EventType>, window: Int, characters: String?, code: UInt16, modifiers: Lenient<NSEvent.ModifierFlags>)
-    case scroll(window: Int, at: CGPoint, delta: CGVector, modifiers: Lenient<NSEvent.ModifierFlags>)
+    case pointer(
+        type: Lenient<NSEvent.EventType>,
+        windowNumber: Int,
+        locationInWindow: CGPoint,
+        eventNumber: Int,
+        clickCount: Int,
+        pressure: Float,
+        subtype: Lenient<NSEvent.EventSubtype>,
+        tilt: CGPoint?,
+        timestamp: TimeInterval,
+        modifierFlags: Lenient<NSEvent.ModifierFlags>,
+    )
+    case moved(windowNumber: Int, locationInWindow: CGPoint, timestamp: TimeInterval, modifierFlags: Lenient<NSEvent.ModifierFlags>)
+    case proximity(windowNumber: Int, isEnteringProximity: Bool, pointingDeviceType: Lenient<NSEvent.PointingDeviceType>, timestamp: TimeInterval)
+    case scroll(
+        windowNumber: Int,
+        locationInWindow: CGPoint,
+        scrollingDelta: CGVector,
+        hasPreciseScrollingDeltas: Bool,
+        phase: Lenient<NSEvent.Phase>,
+        momentumPhase: Lenient<NSEvent.Phase>,
+        timestamp: TimeInterval,
+        modifierFlags: Lenient<NSEvent.ModifierFlags>,
+    )
+    case key(
+        type: Lenient<NSEvent.EventType>,
+        windowNumber: Int,
+        characters: String?,
+        keyCode: UInt16,
+        isARepeat: Bool,
+        timestamp: TimeInterval,
+        modifierFlags: Lenient<NSEvent.ModifierFlags>,
+        sourceProcess: pid_t?,
+    )
     case menu(title: String, opened: Bool)
     case tracking(title: String, began: Bool)
     case answered(surface: Surface, accepted: Bool)

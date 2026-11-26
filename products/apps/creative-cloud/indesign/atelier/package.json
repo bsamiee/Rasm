@@ -7,6 +7,7 @@
         "#/*": "./*.ts"
     },
     "dependencies": {
+        "@rasm/applications": "workspace:*",
         "@rasm/indesign": "workspace:*",
         "@rasm/mcp": "workspace:*",
         "@rasm/object-model": "workspace:*",

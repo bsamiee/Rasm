@@ -1,4 +1,4 @@
-# --- [LANGUAGES] ------------------------------------------------------------------------
+# --- [OBJECTIVE_CXX] --------------------------------------------------------------------
 
 if(CMAKE_OBJCXX_COMPILER_LOADED)
     string(APPEND CMAKE_OBJCXX_FLAGS " ${RASM_FLAGS} -fobjc-arc")
@@ -6,11 +6,16 @@ endif()
 
 # --- [CPACK] ----------------------------------------------------------------------------
 
+# --- [PACKAGE_METADATA]
+
 set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")
 set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "${PROJECT_DESCRIPTION}")
 set(CPACK_PACKAGE_HOMEPAGE_URL "${PROJECT_HOMEPAGE_URL}")
 set(CPACK_SYSTEM_NAME "${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+
+# --- [PACKAGE_GENERATION]
+
 set(CPACK_INSTALL_CMAKE_PROJECTS "${PROJECT_BINARY_DIR};${PROJECT_NAME};ALL;/")
 set(CPACK_OUTPUT_CONFIG_FILE "${PROJECT_BINARY_DIR}/CPackConfig.cmake")
 set(CPACK_SOURCE_OUTPUT_CONFIG_FILE "${PROJECT_BINARY_DIR}/CPackSourceConfig.cmake")

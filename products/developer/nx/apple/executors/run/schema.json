@@ -21,7 +21,7 @@
         },
         "applications": {
             "type": "array",
-            "description": "Bundle names of the applications the invocations install, a running executable inside one named in the last line as needing a relaunch",
+            "description": "Bundle names of the applications the invocations archive, each invocation taking -archivePath <n>.xcarchive in a temporary folder, once every invocation succeeds each bundle under an archive's Products taking its path below / in one renamex_np, swapped with the bundle installed there, so a failed invocation leaves the installed bundle untouched, and a running executable inside one named in the last line as needing a relaunch",
             "items": {
                 "type": "string"
             }

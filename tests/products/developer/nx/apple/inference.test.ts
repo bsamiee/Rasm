@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, matchesGlob, relative, resolve } from 'node:path';
+import { join, matchesGlob, relative, resolve, sep } from 'node:path';
 import { env } from 'node:process';
 import { createDependencies, createNodes } from '@rasm/nx-apple';
 import { Install } from '@rasm/nx-apple/executors/install';
@@ -90,7 +90,7 @@ const SHARED = '.config/shared.xcconfig';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Described = Schema.fromJsonString(Schema.Struct({ targets: Schema.Array(Schema.Struct({ path: Schema.String, sources: Schema.Array(Schema.String) })) }));
-const Settings = Schema.fromJsonString(Schema.Array(Schema.Struct({ buildSettings: Schema.Struct({ SRCROOT: Schema.String, INFOPLIST_FILE: Schema.String, CODE_SIGN_ENTITLEMENTS: Schema.String, TARGET_BUILD_DIR: Schema.String, WRAPPER_NAME: Schema.String }) })));
+const Settings = Schema.fromJsonString(Schema.Array(Schema.Struct({ buildSettings: Schema.Struct({ SRCROOT: Schema.String, INFOPLIST_FILE: Schema.String, CODE_SIGN_ENTITLEMENTS: Schema.String, DSTROOT: Schema.String, TARGET_BUILD_DIR: Schema.String, WRAPPER_NAME: Schema.String }) })));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -258,14 +258,14 @@ describe('Xcode projects and their shared schemes', () => {
         expect(after).not.toBe(before);
     });
 
-    it('lands the application its install command builds at /Applications/Viewer.app, as xcodebuild resolves that command', async ({ fixture: { root, graph } }) => {
+    it('archives the application its install command installs at /Applications/Viewer.app below its DSTROOT, as xcodebuild resolves that command', async ({ fixture: { root, graph } }) => {
         const { runs } = await targetOptions(Run, graph, 'Viewer', 'install--xcodebuild');
-        const [tool, ...install] = runs.flat();
+        const [tool, ...install] = runs[0] ?? [];
 
-        expect({ invocations: runs.length, tool, landed: settings(root, install).map(({ buildSettings }) => `${buildSettings.TARGET_BUILD_DIR}/${buildSettings.WRAPPER_NAME}`) }).toStrictEqual({ invocations: 1, tool: 'xcodebuild', landed: ['/Applications/Viewer.app'] });
+        expect({ invocations: runs.length, tool, landed: settings(root, install).map(({ buildSettings }) => join(sep, relative(buildSettings.DSTROOT, buildSettings.TARGET_BUILD_DIR), buildSettings.WRAPPER_NAME)) }).toStrictEqual({ invocations: 2, tool: 'xcodebuild', landed: ['/Applications/Viewer.app'] });
     });
 
-    it('installs the application through the run executor into the applications folder xcodebuild names', async ({ fixture: { root, graph, workspace }, onTestFinished }) => {
+    it('installs the application through the run executor into the applications folder xcodebuild names, its bundle identifier approved for screen capture in the replayd ledger under the home xcodebuild states', async ({ fixture: { root, graph, workspace }, onTestFinished }) => {
         const applications = join(root, 'installed');
         vi.stubEnv('CFFIXED_USER_HOME', root);
         onTestFinished(() => {
@@ -276,7 +276,10 @@ describe('Xcode projects and their shared schemes', () => {
 
         const { success } = await execute({ ...inferred, __unparsed__: [`LOCAL_APPS_DIR=${applications}`] }, workspace.context(graph, 'Viewer', 'install--xcodebuild'));
 
-        expect({ success, installed: readdirSync(applications) }).toStrictEqual({ success: true, installed: ['Viewer.app'] });
+        const ledger = join(root, 'Library', 'Group Containers', 'group.com.apple.replayd', 'ScreenCaptureApprovals.plist');
+        const approved = ['kScreenCaptureApprovalLastAlerted', 'kScreenCapturePrivacyHintDate'].map((field) => execFileSync('plutil', ['-extract', `example\\.fixture\\.viewer.${field}`, 'raw', '-o', '-', ledger], { encoding: 'utf-8' }).trim());
+
+        expect({ success, installed: readdirSync(applications), approved }).toStrictEqual({ success: true, installed: ['Viewer.app'], approved: ['4000-01-01T00:00:00Z', '4000-01-01T00:00:00Z'] });
     });
 
     it('releases an application whose Info.plist states no SUFeedURL through attach alone, with no Sparkle feed to publish', ({ fixture: { graph } }) => {

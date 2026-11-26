@@ -1,9 +1,11 @@
-# --- [FLAGS] ----------------------------------------------------------------------------
+# --- [UNREAL_TOOLCHAIN] -----------------------------------------------------------------
+
+# --- [VISIBILITY_AND_RTTI]
 
 set(CMAKE_C_FLAGS_INIT "-fvisibility-ms-compat")
 set(CMAKE_CXX_FLAGS_INIT "${CMAKE_C_FLAGS_INIT} -fvisibility-inlines-hidden -fno-rtti")
 
-# --- [ENGINE] ---------------------------------------------------------------------------
+# --- [PLATFORM_SDKS]
 
 if(CMAKE_HOST_APPLE)
     file(READ "$ENV{UNREAL_ENGINE_ROOT}/Engine/Config/Mac/Mac_SDK.json" sdk)

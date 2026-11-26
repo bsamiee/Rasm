@@ -64,6 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_: Notification) {
+        NSApplication.shared.unhideWithoutActivation()
         running = Task(name: "Telemetry") { [services, logger] in
             do { try await services.run() } catch { logger.error("Telemetry services failed", error: error) }
         }

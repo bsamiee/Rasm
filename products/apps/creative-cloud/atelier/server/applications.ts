@@ -13,14 +13,14 @@ import { McpSchema } from 'effect/ai';
 
 const DESCRIPTIONS = {
     applications:
-        'Lists installed Adobe applications grouped by product, newest form first, with the running instance of each, and one named application with its installation and the open command of its dictionary; open launches one in the background, or makes its running instance the target of the handle; close quits one, or each the handle opened or targeted, each save dialog arriving as an event act answers',
-    view: 'Shows windows as images, each with its file at full resolution: the front window of the target application, every window of every running Adobe application, one element cropped from its window, or the windows showing one document; object shows one document, page, spread, artboard, layer, composition, or sequence the linked extension of the target application renders from its object specifier, with no window needed',
-    diagnostics: "Reads diagnostics newest first: without an application, Atelier's own log lines from both of its processes as JSON; with one, its crash, hang, and diagnostic reports from both DiagnosticReports folders, its UXP log lines, and its unified log",
+        'Lists installed Adobe applications by product, newest form first, and their running instances, or one application with its installation and open command; open launches an application in the background or targets its running instance for later calls; close quits it, or every application this handle opened, each save dialog arriving as an event',
+    view: 'Shows windows as images, a line naming each: the front window of the target, every window of every running Adobe application, the windows showing a document, or one reference cropped from its window, a menu or the item opening it showing one image per open level and the outline of those levels; object renders a document, page, spread, artboard, layer, composition, or sequence from its object specifier through the linked plugin of the target, no window needed',
+    diagnostics: "Reads diagnostics newest first: without application, Atelier's own log lines as JSON; with one, its crash, hang, and diagnostic reports, its UXP log lines, and its unified log",
 };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const RegistryPath = setting('registry', 'registry', Schema.String, '/Library/Application Support/Adobe/caps/hdpim.db', 'Creative Cloud registry database listing the Adobe applications it installed');
+const RegistryPath = setting('registry', Schema.String, '/Library/Application Support/Adobe/caps/hdpim.db', 'Creative Cloud registry database listing the Adobe applications it installed');
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

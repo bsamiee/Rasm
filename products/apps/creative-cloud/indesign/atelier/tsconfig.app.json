@@ -21,6 +21,9 @@
         },
         {
             "path": "../../../../../libs/typescript/creative-cloud/indesign/tsconfig.lib.json"
+        },
+        {
+            "path": "../../../../../libs/typescript/macos/applications"
         }
     ]
 }

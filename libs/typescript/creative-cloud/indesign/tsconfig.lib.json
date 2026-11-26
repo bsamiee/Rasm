@@ -12,6 +12,9 @@
             "path": "../../data/search"
         },
         {
+            "path": "../../macos/applications"
+        },
+        {
             "path": "../object-model/tsconfig.lib.json"
         },
         {

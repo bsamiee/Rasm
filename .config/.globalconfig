@@ -1,23 +1,23 @@
 # --- [DIAGNOSTIC_SEVERITY] --------------------------------------------------------------
 
 dotnet_analyzer_diagnostic.severity = error
-dotnet_diagnostic.CS8524.severity = none # Fix adds a catch-all arm, `RASM3002` and `RASM3004` refuse it
+dotnet_diagnostic.CS8524.severity = none # `RASM3002` and `RASM3004` reject catch-all arms for unnamed enum values
 dotnet_diagnostic.CS9236.severity = error
 
 # --- [DOTNET_ANALYZERS] -----------------------------------------------------------------
 
 # --- [SEVERITY]
 
-dotnet_diagnostic.CA1000.severity = none # Moves factories off their generic type, CLAUDE.md keeps them with it
+dotnet_diagnostic.CA1000.severity = none # CLAUDE.md keeps static factories on their generic types
 dotnet_diagnostic.CA1021.severity = error
-dotnet_diagnostic.CA1034.severity = none # Flags Thinktecture union cases, nested in their type
+dotnet_diagnostic.CA1034.severity = none # Thinktecture nests union cases in their declaring type
 dotnet_diagnostic.CA1045.severity = error
-dotnet_diagnostic.CA1062.severity = none # Nullable reference types state validated arguments
+dotnet_diagnostic.CA1062.severity = none # Non-nullable reference types declare the caller's nullability contract
 dotnet_diagnostic.CA1516.severity = error
-dotnet_diagnostic.CA1715.severity = none # Type parameters follow LanguageExt naming (`A`, `RT`)
-dotnet_diagnostic.CA1716.severity = none # Guards keywords of other CLR languages, solution is C# alone
-dotnet_diagnostic.CA1720.severity = none # Names (`Int`, `Object`) tag host value kinds
-dotnet_diagnostic.CA1724.severity = none # Flags names other packages' namespaces hold, renames coin names
+dotnet_diagnostic.CA1715.severity = none # LanguageExt names type parameters `A` and `RT`
+dotnet_diagnostic.CA1716.severity = none # Cross-language keyword checks target consumers outside the C# solution
+dotnet_diagnostic.CA1720.severity = none # `Int` and `Object` name host value kinds
+dotnet_diagnostic.CA1724.severity = none # Keep domain type names that coincide with dependency namespaces
 
 # --- [OPTIONS]
 
@@ -27,13 +27,13 @@ dotnet_code_quality.CA2241.additional_string_formatting_methods = M:Rasm.Rhino.L
 
 # --- [IDE_ANALYZERS] --------------------------------------------------------------------
 
-dotnet_diagnostic.IDE0055.severity = none # hk step `dotnet-format` checks whitespace file by file
-dotnet_diagnostic.IDE0058.severity = none # Fix assigns each unused expression value to `_`, a discard the code never writes
-dotnet_diagnostic.IDE0072.severity = none # Demands a `_` arm on exhaustive switches, `RASM3002` refuses it
+dotnet_diagnostic.IDE0055.severity = none # hk step `dotnet-format` checks whitespace per file
+dotnet_diagnostic.IDE0058.severity = none # Keep expression statements with unused values free of discard assignments
+dotnet_diagnostic.IDE0072.severity = none # `RASM3002` rejects discard arms when every enum member has an arm
 
 # --- [ERRORPRONE_ANALYZERS] -------------------------------------------------------------
 
-dotnet_diagnostic.EPC29.severity = none # Fires in xUnit-generated files under `obj/` alone
+dotnet_diagnostic.EPC29.severity = none # Reports only in xUnit-generated files under `obj/`
 dotnet_diagnostic.EPC38.severity = error
 dotnet_diagnostic.EPC39.severity = error
 dotnet_diagnostic.EPC40.severity = error
@@ -60,20 +60,22 @@ dotnet_diagnostic.RMG096.severity = error
 
 # --- [SEVERITY]
 
-dotnet_diagnostic.MA0018.severity = none # Deprecated for `CA1000`
-dotnet_diagnostic.MA0038.severity = none # Deprecated for `CA1822`
-dotnet_diagnostic.MA0045.severity = none # Converts sync Roslyn and Rhino callbacks to async, `MA0042` covers blocking
-dotnet_diagnostic.MA0048.severity = none # One file per type contradicts CLAUDE.md concept files
-dotnet_diagnostic.MA0051.severity = none # Fix extracts methods, CLAUDE.md forbids helper extraction
-dotnet_diagnostic.MA0104.severity = none # Flags names other namespaces hold, renames coin names
-dotnet_diagnostic.MA0109.severity = none # Asks for added overloads, CLAUDE.md forbids speculative code
-dotnet_diagnostic.MA0127.severity = none # Property patterns with string constants are the dotnet:coding form
-dotnet_diagnostic.MA0136.severity = none # `.editorconfig` fixes line endings at `lf`
-dotnet_diagnostic.MA0168.severity = none # HyperJet `Vector3D<T>` takes `in` on a non-readonly struct
-dotnet_diagnostic.MA0174.severity = none # Opposite of `MA0175`, which `all-errors` enables
-dotnet_diagnostic.MA0181.severity = none # Flags every cast, Meziantou's own defaults leave it off
-dotnet_diagnostic.MA0214.severity = none # Opposite of `MA0215`, Meziantou enables one, `FixAllProvider.Create` needs the other
-dotnet_diagnostic.MA0215.severity = none # Opposite of `MA0214`, Meziantou enables one, `FixAllProvider.Create` needs the other
+dotnet_diagnostic.MA0018.severity = none # `CA1000` supersedes the deprecated rule
+dotnet_diagnostic.MA0038.severity = none # `CA1822` supersedes the deprecated rule
+dotnet_diagnostic.MA0045.severity = none # Roslyn and Rhino require synchronous callbacks. `MA0042` checks blocking calls in async methods
+dotnet_diagnostic.MA0048.severity = none # CLAUDE.md groups related types in one file
+dotnet_diagnostic.MA0051.severity = none # CLAUDE.md keeps related logic together when length limits encourage helper extraction
+dotnet_diagnostic.MA0104.severity = none # Keep domain type names that coincide with .NET library types
+dotnet_diagnostic.MA0109.severity = none # CLAUDE.md excludes speculative `Span<T>` and `Memory<T>` overloads
+dotnet_diagnostic.MA0127.severity = none # `dotnet:coding` uses string constants in property patterns
+dotnet_diagnostic.MA0136.severity = none # `.editorconfig` fixes raw string line endings at `lf`
+dotnet_diagnostic.MA0168.severity = none # HyperJet passes non-`readonly` `Vector3D<T>` values with `in`
+dotnet_diagnostic.MA0174.severity = none # `all-errors` enables `MA0175`, which omits `class` in record declarations
+dotnet_diagnostic.MA0181.severity = none # Meziantou disables the cast rule by default
+
+# `all-errors` enables both opposing task rules. The `FixAllProvider.Create` callback returns its task directly
+dotnet_diagnostic.MA0214.severity = none
+dotnet_diagnostic.MA0215.severity = none
 
 # --- [OPTIONS]
 
@@ -82,7 +84,7 @@ MA0053.exceptions_should_be_sealed = true
 MA0053.public_class_should_be_sealed = true
 MA0185.treat_opaque_runtime_types_as_culture_sensitive = true
 
-# --- [RASM_ANALYZERS] ------------------------------------------------------------------
+# --- [RASM_ANALYZERS] -------------------------------------------------------------------
 
 RASM3110.types = T:MathNet.Numerics.RootFinding.Bisection|T:MathNet.Numerics.RootFinding.Brent|T:MathNet.Numerics.RootFinding.Broyden|T:MathNet.Numerics.RootFinding.NewtonRaphson|T:MathNet.Numerics.RootFinding.RobustNewtonRaphson|T:MathNet.Numerics.RootFinding.Secant|T:Rhino.PersistentSettings|T:Rhino.Collections.ArchivableDictionary
 
@@ -90,12 +92,13 @@ RASM3110.types = T:MathNet.Numerics.RootFinding.Bisection|T:MathNet.Numerics.Roo
 
 # --- [SEVERITY]
 
-dotnet_diagnostic.RCS1001.severity = none # `.editorconfig` sets `csharp_prefer_braces = false`
+# `RCS1001` and `RCS1003` conflict with `csharp_prefer_braces = false` in `.editorconfig`
+dotnet_diagnostic.RCS1001.severity = none
 dotnet_diagnostic.RCS1002.severity = error
-dotnet_diagnostic.RCS1003.severity = none # `.editorconfig` sets `csharp_prefer_braces = false`
+dotnet_diagnostic.RCS1003.severity = none
 dotnet_diagnostic.RCS1004.severity = error
 dotnet_diagnostic.RCS1014.severity = error
-dotnet_diagnostic.RCS1021.severity = none # Fix turns block statements into assignment expressions
+dotnet_diagnostic.RCS1021.severity = none # Code fix turns assignments in lambda blocks into expression bodies
 dotnet_diagnostic.RCS1050.severity = error
 dotnet_diagnostic.RCS1052.severity = error
 dotnet_diagnostic.RCS1078.severity = error
@@ -105,8 +108,8 @@ dotnet_diagnostic.RCS1162.severity = error
 dotnet_diagnostic.RCS1174.severity = error
 dotnet_diagnostic.RCS1198.severity = error
 dotnet_diagnostic.RCS1208.severity = error
-dotnet_diagnostic.RCS1238.severity = none # Rewrites `?:` to `if` statements, CLAUDE.md keeps logic expression-oriented
-dotnet_diagnostic.RCS1241.severity = none # Adds non-generic `IComparable` members, CLAUDE.md reduces public API
+dotnet_diagnostic.RCS1238.severity = none # CLAUDE.md favors conditional expressions over `if` statements
+dotnet_diagnostic.RCS1241.severity = none # Non-generic `IComparable` adds a member to the public API
 dotnet_diagnostic.RCS1248.severity = error
 dotnet_diagnostic.RCS1252.severity = error
 dotnet_diagnostic.RCS1253.severity = error
