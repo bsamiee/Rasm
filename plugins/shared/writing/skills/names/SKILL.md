@@ -74,3 +74,12 @@ Each row names one place with a failing and a passing name:
 2. Collect candidates from every source past its obvious first answers, then run tests from lookups, never memory
 3. Present survivors with meaning, source, flags, and availability, state one pick, and record its origin and pronunciation in README
 4. Rename only where a test fails on fact (holder, trademark, collision), with every reference updated and its old id kept as a redirect
+
+## [04]-[RENAMES]
+
+Rename and reorganization requests for a folder cover everything under it, and structural names keep no old form:
+1. List and read every file under the folder, with the field docs, package terms, or standard of what it holds
+2. Question the folder name first, then each file, then each member, against [02]
+3. Rename, move, split, or merge each name or place a test fails
+4. Update every reference (imports, package export rows, configuration rows, tests, consumers, docs), and leave no old name, alias, or forwarder
+5. Report a table of old name, new name, and the field term behind each
