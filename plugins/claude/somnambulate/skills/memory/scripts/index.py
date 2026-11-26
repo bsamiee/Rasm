@@ -8,7 +8,9 @@
 # ///
 """Validates memory files, regenerates MEMORY.md from their descriptions, and commits the folder."""
 
+from collections import Counter
 from functools import cache
+from itertools import groupby
 import os
 from pathlib import Path
 import re
@@ -76,8 +78,8 @@ def _markdown() -> MarkdownIt:
 
 
 def _listed(text: str, /) -> tuple[frozendict[str, str], tuple[_Finding, ...]]:
-    rows = tuple((number, line, re.fullmatch(r"- \[([^\]\n]+)\]\(\1\.md\)(?: — .+)?", line)) for number, line in enumerate(text.split("\n"), 1) if line.strip())
-    return frozendict({hit[1]: line for _, line, hit in rows if hit}), tuple(
+    rows = tuple((number, line, re.fullmatch(r"## [^\s#]+|- \[([^\]\n]+)\]\(\1\.md\)(?: — .+)?", line)) for number, line in enumerate(text.split("\n"), 1) if line.strip())
+    return frozendict({hit[1]: line for _, line, hit in rows if hit and hit[1] is not None}), tuple(
         _Finding(
             _INDEX,
             number,
@@ -158,10 +160,12 @@ def index(memory: Path, /) -> int:
         previous = target.read_text(encoding="utf-8")
     except FileNotFoundError:
         previous = ""
-    paths = sorted((path for path in memory.glob("[!.]*.md") if path.name != _INDEX), key=lambda path: path.stem)
+    paths = [path for path in memory.glob("[!.]*.md") if path.name != _INDEX]
+    shared = Counter(path.stem.partition("-")[0] for path in paths)
+    labeled = sorted(((field if shared[field := path.stem.partition("-")[0]] > 1 else "", path) for path in paths), key=lambda pair: (pair[0], pair[1].stem))
     (listed, foreign), stems = _listed(previous), frozenset(path.stem for path in paths)
-    entries = [_entry(stems, listed, path) for path in paths]
-    text = "".join(f"{line}\n" for line, _ in entries)
+    entries = [(field, *_entry(stems, listed, path)) for field, path in labeled]
+    text = "\n".join((f"## {field}\n" if field else "") + "".join(f"{line}\n" for _, line, _ in group) for field, group in groupby(entries, key=lambda entry: entry[0]))
     if written := text != previous:
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=memory, prefix=f".{_INDEX}.", delete=False) as staged:
             staged.write(text)
@@ -173,7 +177,7 @@ def index(memory: Path, /) -> int:
         trailer = (f"--trailer=Session: {session}",) if (session := os.environ.get("CLAUDE_CODE_SESSION_ID", "")) else ()
         named = frozenset(name.removesuffix(".md") for name in changed - {_INDEX})
         _git(memory, "commit", "-q", *trailer, "-m", f"Update {f'{len(named)} files' if len(named) > 1 else next(iter(named), _INDEX)}")
-    graded = [(finding.blocking and not fresh and finding.path in changed, finding) for finding in sorted((*foreign, *(finding for _, found in entries for finding in found), *_measured(text)))]
+    graded = [(finding.blocking and not fresh and finding.path in changed, finding) for finding in sorted((*foreign, *(finding for _, _, found in entries for finding in found), *_measured(text)))]
     errors = sum(error for error, _ in graded)
     commit = f"commit {_git(memory, 'rev-parse', '--short', 'HEAD').strip()}" if changed else "nothing to commit"
     sys.stdout.writelines((

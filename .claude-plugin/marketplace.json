@@ -216,7 +216,7 @@
         {
             "name": "somnambulate",
             "source": "./plugins/claude/somnambulate",
-            "description": "Claude Code auto-memory system: a skill for writing, editing, and auditing memories, a generated MEMORY.md index with git history, and recall proof",
+            "description": "Claude Code auto-memory system: a skill for writing, editing, and auditing memories and a generated MEMORY.md index with git history",
             "author": {
                 "name": "Bardia Samiee"
             },

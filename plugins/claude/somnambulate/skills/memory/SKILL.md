@@ -1,6 +1,6 @@
 ---
 name: memory
-description: "Use when saving, changing, or auditing a Claude Code auto-memory file or the memory set, covering admission, kinds, general and specific memories, links, names, descriptions that double as index lines, evidence marks, and recall proof"
+description: "Use when saving, changing, or auditing a Claude Code auto-memory file or the memory set, covering admission, kinds, general and specific memories, links, names, descriptions that double as index lines, and evidence marks"
 ---
 
 # [SOMNAMBULATE_MEMORY]
@@ -14,7 +14,6 @@ This skill is loaded. Your next call Reads the reference for the work, before an
 
 [SCRIPTS]:
 - [01]-[INDEX](scripts/index.py): Regenerates `MEMORY.md` and commits the folder when a memory file changes, run by the plugin
-- [02]-[RECALL](scripts/recall.py): Replays stored requests through live sessions with and without the memory folder and grades each reply
 
 ## [01]-[RECALL]
 
@@ -99,7 +98,7 @@ Anthropic's wiki trials found a shared table of per-subject values dropped 16 of
 |  [04]   | Rule          | `[<field>-]<rule as a phrase>` |
 
 Each part of a stem keeps one meaning across the set:
-- Field: the area's own word (a vendor, a tool, an OS), shared by every stem of that area, as the index heads each field's group with it
+- Field: the area's own word (a vendor, a tool, an OS), shared by every stem of that area, as the index heads each shared field's group with it
 - Concern: one term per concern, hyphenated where the field writes it so (`native-mcp`), the same in its general memory and every specific memory under it
 - Subject: one thing in the field (an app, a tool, a service), absent from a general memory's stem
 - Whole subject: a memory with no concern split and no general memory above it
@@ -126,7 +125,6 @@ Descriptions state which situations need the file in one line of at most 150 cha
 7. Rules: a `feedback` or `user` line reads `<situation>: <imperative>; <what the body answers>`, as sessions act on the imperative and open for an answer
 8. Answers: the last part names in request words the cases, proofs, exceptions, or forms the body holds past the rule, as should-load requests ask
 9. Strip: values, counts, history, keyword lists, owner framing (`Owner runs <X>`), and words any session matches (`work`, `status`, `notes`)
-10. Prove: the should-load requests become the file's rows in `.recall.jsonl`, written by the reference that wrote the file
 
 Rule lines carrying the imperative alone drew most misses of a full replay, as each request needed a body answer the line never named (tried 2026-11-26).
 
@@ -143,16 +141,10 @@ Every fact ends with one mark, and a mark opening a group covers each unmarked l
 - Newer evidence replaces a value in place, and `CLAUDE.md` or a loaded skill wins a contradiction until evidence corrects that file
 - Claims disagreeing with no later correction go to the owner through `AskUserQuestion` when found
 
-## [07]-[INDEX_AND_PROOF]
+## [07]-[INDEX_AND_EVALS]
 
-`scripts/index.py` derives `MEMORY.md` whole from the files, `scripts/recall.py` proves the set improves answers, and `claude plugin eval` proves the skill:
-- Lines: `- [<stem>](<stem>.md) — <description>` under one `## <field>` heading per stem's first word, headings and lines sorted, committed when the bytes change
+`scripts/index.py` derives `MEMORY.md` whole from the files, and `claude plugin eval` tests the skill:
+- Lines: `- [<stem>](<stem>.md) — <description>`, under a `## <field>` heading per first word 2 stems share, the rest first, sorted, committed on change
 - Budget: the index loads 200 lines or 25KB, headings included, the set stays under 160 lines and 20,000 bytes, and merges free space before trims
 - Validation: a refused file keeps its last good line, or a bare `- [<stem>](<stem>.md)` line, and the plugin reports it back to the session
-- Requests: `.recall.jsonl` rows, unread by the memory scan, are `{"request":"<as typed>","owner":"<stem>"}`, each a question the owner's body answers
-- Scope: a run covers rows naming a file changed since git tag `recall`, `RECALL_RUNS` sessions each (3 by default) with the memory folder and without it
-- Turns: 3 per session, so a session can Read a specific memory, follow its link clause, and still answer
-- Grade: a judge scores whether each reply applies what the owner's body says, and a row's delta is its score with memory less its score without
-- Trend: each run stores row, file, and total scores under `.recall-results/` in the folder's history and prints deltas against the last run
-- Pass: every row scores higher with memory, as an even score marks a derivable fact, an unopened body, or a link clause no session followed
-- Skill: `claude plugin eval` over the plugin's `evals/` cases scores create, edit, and evaluate work with and without the plugin, as its runs load no memory folder
+- Evals: the plugin's `evals/` cases score create, edit, and evaluate work with and without the plugin, as eval runs load no memory folder

@@ -75,13 +75,12 @@ Link clauses (`SKILL.md` `[04]`) sit beside the line whose fact depends on their
 
 ## [05]-[STEPS]
 
-1. Read the file whole, its index line, its `.recall.jsonl` rows, every linker from `rg -l '\[\[<stem>\]\]' <memory-dir>`, its general memory, and each source the change touches
+1. Read the file whole, its index line, every linker from `rg -l '\[\[<stem>\]\]' <memory-dir>`, its general memory, and each source the change touches
 2. Ask once before editing when `git -C <memory-dir> log -1 --format='%cr %(trailers:key=Session,valueonly)' -- <file>` shows a session other than `$CLAUDE_CODE_SESSION_ID` within the hour
 3. Name the change by `[01]`, place each new fact by `[02]`, and move to the reference its row names when its home is neither this file nor its general memory
 4. Run each new line through `SKILL.md` `[02]`, judge each touched line and the change as a whole by `[03]`, and repair link clauses by `[04]`
 5. Rewrite in place with Edit, never Write, so harness and plugin metadata survive, keeping the lead first and every fact marked by `SKILL.md` `[06]`
 6. Open `references/evaluate.md` when the file serves disjoint request groups, passes 4096 bytes, or holds a fact its siblings repeat
 7. Rewrite each touched description by `SKILL.md` `[05]` when its lead, scope, or gist changed, or a rule or profile body outgrew its index line
-8. Keep each touched file's rows, write `SKILL.md` `[07]` rows for a file lacking them, and repoint to the general memory each row whose answer moved there
-9. Run `scripts/recall.py <memory-dir>` after a description or body change, a row scoring no higher with memory sending the work back to step 4
-10. Fix any refusal the plugin reports back before the work ends
+8. Read 3 requests the changed body answers against its index line alone, rewriting the line by step 7 until each request lands on this file
+9. Fix any refusal the plugin reports back before the work ends

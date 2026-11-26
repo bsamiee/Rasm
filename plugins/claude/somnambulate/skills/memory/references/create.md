@@ -1,6 +1,6 @@
 # [CREATE]
 
-New memory files start from a moment worth keeping, take their place among general and specific memories by `SKILL.md` `[04]`, and pass the recall proof before the owner sees them.
+New memory files start from a moment worth keeping, take their place among general and specific memories by `SKILL.md` `[04]`, and reach the owner as a preview before any write.
 
 ## [01]-[MOMENTS]
 
@@ -41,19 +41,19 @@ Lines from one moment often split across rows, and each row runs its own work:
 7. Write each specific memory with its own subject's lines alone, none of its general memory's, and the link clause `SKILL.md` `[04]` places
 8. Write 3 should-load requests per new file by `SKILL.md` `[05]`, then the description from them
 9. Apply `SKILL.md` `[04]` merge and split to the requests: all needing a sibling's body fold the file into it, no shared situation splits it
-10. Clone with `git clone -q <memory-dir> <scratch>/memory`, write the files, link clauses, and rows there, and run `scripts/recall.py <scratch>/memory`
-11. Rewrite until each row scores higher with memory: an unopened file changes the description's situation, a wrong reply the body's line
+10. Clone with `git clone -q <memory-dir> <scratch>/memory`, write the files and link clauses there, and run `scripts/index.py <scratch>/memory`
+11. Read each request against the generated index alone, as a new session sees it: a request no line sends to its file rewrites that description
 12. Preview each new file's body, description, and requests, and each added link clause, through `AskUserQuestion` with a free-response option
 13. In a session without `AskUserQuestion`, write only on the owner's own request with the preview in the reply, else reply with the preview alone
-14. Return to step 10 when the owner changes a description or moves a line, as the proof covers what the owner approves
+14. Return to step 10 when the owner changes a description or moves a line, so the check covers what the owner approves
 15. Write the accepted general memory, then its specific memories, with Write, and add the link clauses to existing files with Edit
-16. Append each file's rows to `<memory-dir>/.recall.jsonl`, repoint sibling rows whose answer the new file now holds, and delete the scratch clone
+16. Delete the scratch clone
 17. Fix each refusal the plugin reports after a write before the work ends
 
-Requests test what each layer must deliver:
+Requests shape each layer's description:
 - Rule files: should-load requests ask what the index line cannot settle, by `SKILL.md` `[05]` items 7 and 8
-- General memories: rows ask through one subject a question only the general answers, so the proof scores the link clause a session follows
-- Specific memories: rows ask what the subject's own facts answer
+- General memories: requests arrive in one subject's words, so each specific's link clause names the question the general answers
+- Specific memories: requests ask what the subject's own facts answer
 
 ## [04]-[ANTI_PATTERNS]
 
