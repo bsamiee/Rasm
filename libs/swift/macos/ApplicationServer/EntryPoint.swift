@@ -35,7 +35,7 @@ public func main(cachedDefinition: @escaping @Sendable (Installation) -> URL?) a
                 if agents.contains(where: { agent in agent.service.status == .requiresApproval }) { SMAppService.openSystemSettingsLoginItems() }
                 return
             }
-            do { try Program.current.require([.accessibility]) } catch { logger.notice("Started without Accessibility trust", error: error) }
+            do { try Program.current.require() } catch { logger.notice("Started without every privacy grant", error: error) }
             let updater = Updater(activationPolicy: .prohibited)
             defer { extendLifetime(updater) }
             var context = InstrumentationContext.topLevel

@@ -3,6 +3,7 @@ import CasePathsCore
 public import Configuration
 public import Foundation
 import Logging
+public import Results
 import Security
 import Synchronization
 public import System
@@ -84,20 +85,21 @@ public struct Program: Sendable {
         stored.setValue(value.flatMap { value in Self.values([key.description: value]).values.first }, forKey: AbsoluteConfigKey(key))
     }
 
-    public func require(_ grants: [Grant]) throws(ApplicationFailure) {
-        for grant in grants where !grant.isHeld {
-            var (code, requirement, identity): (SecStaticCode?, SecRequirement?, CFData?) = (nil, nil, nil)
-            let found = unsafe SecStaticCodeCreateWithPath(Bundle.main.bundleURL as CFURL, [], &code)
-            let designated = code.map { code in unsafe SecCodeCopyDesignatedRequirement(code, [], &requirement) } ?? found
-            let read = requirement.map { requirement in unsafe SecRequirementCopyData(requirement, [], &identity) } ?? designated
-            guard read == errSecSuccess, let identity else { throw ApplicationFailure(subject: identifier, reason: .foundation(NSError(domain: NSOSStatusErrorDomain, code: Int(read)))) }
-            let requested = ConfigKey("grants.requested.\(grant.rawValue)")
-            if settings.bytes(forKey: requested).map(Data.init) != identity as Data {
-                grant.request()
-                store(identity as Data, forKey: requested)
-            }
-            try grant.check()
+    public func require() throws(AggregateError<ApplicationFailure>) {
+        var (code, requirement, identity): (SecStaticCode?, SecRequirement?, CFData?) = (nil, nil, nil)
+        let found = unsafe SecStaticCodeCreateWithPath(Bundle.main.bundleURL as CFURL, [], &code)
+        let designated = code.map { code in unsafe SecCodeCopyDesignatedRequirement(code, [], &requirement) } ?? found
+        let read = requirement.map { requirement in unsafe SecRequirementCopyData(requirement, [], &identity) } ?? designated
+        guard read == errSecSuccess, let identity else {
+            throw AggregateError(first: ApplicationFailure(subject: identifier, reason: .foundation(NSError(domain: NSOSStatusErrorDomain, code: Int(read)))))
         }
+        for grant in Grant.allCases where !grant.isHeld {
+            let requested = ConfigKey("grants.requested.\(grant.rawValue)")
+            guard settings.bytes(forKey: requested).map(Data.init) != identity as Data else { continue }
+            grant.request()
+            store(identity as Data, forKey: requested)
+        }
+        _ = try traverse(Grant.allCases) { grant in Result { () throws(ApplicationFailure) in try grant.check() }.aggregated(\.self) }.get()
     }
 
     static func values(_ domain: [String: Any]) -> [AbsoluteConfigKey: ConfigValue] {

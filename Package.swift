@@ -98,7 +98,8 @@ let modules: [Target] = [
     .target(
         name: "CurrentProcess",
         dependencies: [
-            "Applications", "Files", "Processes", "Telemetry", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Configuration", package: "swift-configuration"),
+            "Applications", "Files", "Processes", "Results", "Telemetry", .product(name: "CasePathsCore", package: "swift-case-paths"),
+            .product(name: "Configuration", package: "swift-configuration"),
             .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"), .product(name: "OTel", package: "swift-otel"),
             .product(name: "OTelSemanticConventions", package: "swift-otel-semantic-conventions"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
             .product(name: "SystemMetrics", package: "swift-system-metrics"),

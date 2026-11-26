@@ -3,7 +3,7 @@ package import Darwin
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public enum Grant: String, Encodable, Sendable {
+public enum Grant: String, CaseIterable, Encodable, Sendable {
     case accessibility
     case screenCapture
     case postEvent
