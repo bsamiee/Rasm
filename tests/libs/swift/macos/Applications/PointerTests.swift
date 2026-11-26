@@ -70,7 +70,7 @@ struct PointerTests {
     @Test(arguments: drags)
     func statesADragOnlyWhileTheApplicationShowsAWindowAtTheDraggingLevel(label: String, rows: String, draggingFrame: CGRect?) throws {
         let windows: [InstanceState.Window] = try JSONDecoder().decode([InstanceState.Window].self, from: Data(rows.utf8))
-        let stated: CGRect? = Pointer(of: .current, windows: windows, containers: [])?.draggingFrame
+        let stated: CGRect? = Pointer(of: .current, windows: windows)?.draggingFrame
         expectNoDifference(stated, draggingFrame, label)
     }
 }

@@ -77,6 +77,7 @@ const served = Effect.fnUntraced(function* (product: string, executable: string,
                         ),
                     installation: ({ url }) => Effect.orDie(Effect.fromOption(Array.findFirst(installations, (each) => each.url.href === url.href))),
                     observations: () => Stream.never,
+                    release: () => Effect.void,
                     pressure: () => Stream.never,
                     session: () => Stream.concat(Stream.succeed(Result.succeed({ onConsole: true, locked: false, asleep: false, secureInput: false, spaces: [1] })), Stream.never),
                     watch: ({ instance }) =>

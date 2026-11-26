@@ -2,7 +2,7 @@ import type { Link } from '@rasm/mcp/link';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Cause, Effect, Exit, Filter, Formatter, Function, HashMap, Match, Option, Predicate, Record, Result, Schema, SchemaTransformation, Stream, Struct, Tuple } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { Container, Control, Failure, type Model, type Observation, Pointer, Value } from '#/contract';
+import { Act, Container, Control, Failure, HostLabel, type Frame, type Model, type Observation, Pointer, Value } from '#/contract';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ interface Tool extends Omit<NonNullable<FacetControl['options']>[number], 'locat
 interface Facet<E, R> {
     readonly roots: Effect.Effect<readonly FacetControl['locator'][], E, R>;
     readonly describe: (payload: { readonly within?: FacetControl['locator'] }) => Effect.Effect<Description, E, R>;
-    readonly operate: (payload: { readonly locator: FacetControl['locator']; readonly to?: Observation['values'][string] }) => Effect.Effect<void, E, R>;
+    readonly operate: (payload: typeof Operation.Type) => Effect.Effect<void | typeof Act.Route.cases.source.Type, E, R>;
 }
 interface Changes<E, R> {
     readonly changes: Stream.Stream<typeof Link.Event.Type, E, R>;
@@ -33,6 +33,14 @@ interface Toolbar<E, R, EC, RC> {
         readonly operate: (tool: string, path: Array.NonEmptyReadonlyArray<string>, to: Observation['values'][string] | undefined) => Effect.Effect<unknown, E, R>;
     };
     readonly pointer?: Effect.Effect<Omit<FacetPointer, 'tool' | 'shortcut' | 'help'>, E, R>;
+    readonly canvas?: {
+        readonly view: Effect.Effect<View, E, R>;
+        readonly apply: (input: typeof Act.Input.Type) => Effect.Effect<Omit<typeof Act.Route.cases.source.Type, '_tag'>, E | Unmatched, R>;
+    };
+}
+interface View {
+    readonly frame: typeof Frame.Type;
+    readonly transform: readonly [a: number, b: number, c: number, d: number, tx: number, ty: number];
 }
 interface Declaration {
     readonly tools: HashMap.HashMap<string, Partial<Omit<Tool, 'id'>>>;
@@ -43,6 +51,7 @@ interface Declaration {
 
 const TOOLBAR: FacetControl['locator'] = [['toolbar' satisfies FacetContainer['kind'], 'tool' satisfies keyof FacetPointer]];
 const CHOICE = Array.append(TOOLBAR, ['choice' satisfies FacetControl['kind'], 'tool'] as const);
+const CANVAS = Array.append(TOOLBAR, ['region' satisfies FacetControl['kind'], 'canvas'] as const);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -56,6 +65,7 @@ const Locator = Schema.fromJsonString(
 class FacetControl extends Schema.Opaque<FacetControl>()(
     Control.mapFields((fields) => ({
         ...Struct.omit(fields, ['ref', 'positional', 'opens', 'alternate']),
+        label: Schema.optionalKey(HostLabel),
         locator: Locator,
         opens: Schema.optionalKey(Locator.annotate({ description: 'Facet container the control opens' })),
         options: Schema.optionalKey(Schema.Array(fields.options.schema.value.mapFields((option) => ({ ...Struct.omit(option, ['ref']), locator: Locator }))).annotate({ description: 'Options of a choice, each addressed by its own locator' })),
@@ -70,6 +80,18 @@ class FacetContainer extends Schema.Opaque<FacetContainer>()(
     })),
 ) {}
 class FacetPointer extends Schema.Opaque<FacetPointer>()(Pointer.mapFields((fields) => Struct.pick(fields, ['tool', 'shortcut', 'help', 'holding', 'operations']))) {}
+const Operation = Object.assign(
+    Schema.Union([
+        Schema.Struct({ locator: Locator, input: Act.Input.annotate({ description: 'Pointer step in screen points the host draws on the canvas the locator names, with its current tool through its own member' }) }),
+        Schema.Struct({ locator: Locator, to: Schema.optionalKey(Value.annotate({ description: 'Value the control takes, absent to press, pick, or select it' })) }),
+    ]),
+    {
+        Result: Schema.Union([
+            Schema.Void.annotate({ description: 'The host took the operation, which a later describe reads back, as a host can apply it after the call returns' }),
+            Act.Route.cases.source.annotate({ description: 'The host drew the input on its canvas through the member named, carrying all but what it names as approximated' }),
+        ]),
+    },
+);
 
 class Description extends Schema.Class<Description, { readonly brand: unique symbol }>('Description')(
     Schema.Struct({ containers: Schema.Array(FacetContainer), pointer: Schema.optionalKey(FacetPointer) }).check(
@@ -81,21 +103,23 @@ class Description extends Schema.Class<Description, { readonly brand: unique sym
     { description: 'Containers and pointer a host source states for the part of an application interface it owns, each top-level container replacing the one Accessibility container of its kind' },
 ) {
     static readonly Locator = Locator;
-    static readonly tools = <E, R, EC, RC>({ current, listed, select, changes, options, pointer = Effect.succeed({}) }: Toolbar<E, R, EC, RC>) => {
+    static readonly Operation = Operation;
+    static readonly tools = <E, R, EC, RC>({ current, listed, select, changes, options, pointer = Effect.succeed({}), canvas }: Toolbar<E, R, EC, RC>) => {
         const state = Effect.map(Effect.all([current, pointer]), ([tool, held]) => ({ tool, pointer: { ...held, ...Struct.pick(tool, ['shortcut', 'help']), tool: tool.label } satisfies FacetPointer }));
         const stated = Effect.gen(function* () {
-            const [{ tool, pointer: held }, tools] = yield* Effect.all([state, Effect.transposeOption(Option.fromUndefinedOr(listed))]);
+            const [{ tool, pointer: held }, tools, viewed] = yield* Effect.all([state, Effect.transposeOption(Option.fromUndefinedOr(listed)), Effect.transposeOption(Option.map(Option.fromUndefinedOr(canvas), ({ view }) => Effect.option(Effect.tapCause(view, (cause) => Effect.logDebug('Canvas unread', cause)))))]);
             const settings = yield* options?.describe(toolAt(tool.id)) ?? Effect.succeed([]);
             const chosen = FacetControl.make({
                 locator: CHOICE,
                 kind: 'choice',
                 role: 'tool',
-                label: { text: 'tool', attribute: 'tool' },
+                label: { text: 'tool' },
                 value: { _tag: 'text', value: Option.isSome(tools) ? tool.label : tool.id },
                 selected: 'attribute',
                 ...Option.getOrUndefined(Option.map(tools, (each) => ({ options: Array.map(each, ({ id, ...facts }) => ({ ...facts, ...(id === tool.id ? Struct.omit(tool, ['id']) : {}), locator: toolAt(id) })) }))),
             });
-            return Description.make({ containers: [{ locator: TOOLBAR, kind: 'toolbar', controls: [chosen, ...settings] }], pointer: held });
+            const region = Option.map(Option.flatten(viewed), ({ frame }) => FacetControl.make({ locator: CANVAS, kind: 'region', role: 'canvas', label: { text: 'canvas' }, frame }));
+            return Description.make({ containers: [{ locator: TOOLBAR, kind: 'toolbar', controls: [chosen, ...settings, ...Option.toArray(region)] }], pointer: held });
         });
         const take = Effect.fnUntraced(function* (id: string) {
             yield* select(id);
@@ -127,17 +151,32 @@ class Description extends Schema.Class<Description, { readonly brand: unique sym
                 Match.when({ role: 'tool', path: Match.defined }, ({ path }) => configure(key, path, to)),
                 Match.orElse(() => Effect.fail(new Cause.IllegalArgumentError(`the tool choice takes the name of a tool, a tool takes no value, and a tool option takes the value it holds, received ${typeof to} at ${role} ${key}`))),
             );
+        const draw = ({ locator, input }: Extract<typeof Operation.Type, { readonly input: unknown }>) =>
+            Option.match(
+                Option.filter(Option.fromUndefinedOr(canvas), () => same(locator, CANVAS)),
+                {
+                    onNone: () => Effect.fail(Unmatched.of({ subject: 'canvas of the host source', query: Option.some(Formatter.format(locator)), candidates: canvas === undefined ? [] : [Formatter.format(CANVAS)] })),
+                    onSome: ({ view, apply }) =>
+                        (input.button ?? 'left') === 'left' && input.by === undefined && input.edge === undefined && (input.count ?? 1) === 1
+                            ? Effect.map(
+                                  Effect.flatMap(view, (held) => apply(plane(held, input))),
+                                  (applied) => Act.Route.cases.source.make(applied),
+                              )
+                            : Effect.fail(new Cause.IllegalArgumentError(`a host source draws one whole left-button press or drag on its canvas, and the step is ${Formatter.format(Struct.pick(input, ['button', 'by', 'edge', 'count']))}`)),
+                },
+            );
+        const press = Effect.fnUntraced(function* ({ locator, to }: Exclude<typeof Operation.Type, { readonly input: unknown }>): Effect.fn.Return<void, E | Unmatched | Cause.IllegalArgumentError, R> {
+            const step = yield* Effect.fromOption(
+                Option.filter(Array.get(locator, 1), () => same([Array.headNonEmpty(locator)], TOOLBAR)),
+                () => Unmatched.of({ subject: 'facet control', query: Option.some(Formatter.format(locator)) }),
+            );
+            yield* route(step, Array.map(Array.drop(locator, 2), Tuple.get(1)), to);
+        });
         const reading = Effect.result(Effect.map(state, ({ pointer: held }) => held));
         return {
             roots: Effect.succeed([TOOLBAR]),
             describe: ({ within }: { readonly within?: FacetControl['locator'] }) => (within === undefined || same(within, TOOLBAR) ? stated : Effect.fail(Unmatched.of({ subject: 'facet item', query: Option.some(Formatter.format(within)) }))),
-            operate: Effect.fnUntraced(function* ({ locator, to }: { readonly locator: FacetControl['locator']; readonly to?: Observation['values'][string] }): Effect.fn.Return<void, E | Unmatched | Cause.IllegalArgumentError, R> {
-                const step = yield* Effect.fromOption(
-                    Option.filter(Array.get(locator, 1), () => same([Array.headNonEmpty(locator)], TOOLBAR)),
-                    () => Unmatched.of({ subject: 'facet control', query: Option.some(Formatter.format(locator)) }),
-                );
-                yield* route(step, Array.map(Array.drop(locator, 2), Tuple.get(1)), to);
-            }),
+            operate: (payload: typeof Operation.Type) => ('input' in payload ? draw(payload) : press(payload)),
             changes: Stream.unwrap(
                 Effect.map(reading, (seed) =>
                     changes.pipe(
@@ -297,22 +336,28 @@ const same = Schema.toEquivalence(Locator);
 const samePointer = Schema.toEquivalence(FacetPointer);
 const layered = <A extends FacetPointer>(under: A, over: FacetPointer) => ({ ...(over.tool === undefined ? under : Struct.omit(under, ['tool', 'shortcut', 'help'])), ...over });
 const toolAt = (id: string) => Array.append(TOOLBAR, ['tool', id] as const);
+const plane = ({ frame: [[left, top]], transform: [a, b, c, d, tx, ty] }: View, { pointer, path, ...input }: typeof Act.Input.Type): typeof Act.Input.Type => {
+    const place = ([x, y, ...rest]: (typeof Act.Input.Type)['pointer']): (typeof Act.Input.Type)['pointer'] => [a * (x - left) + c * (y - top) + tx, b * (x - left) + d * (y - top) + ty, ...rest];
+    return { ...input, pointer: place(pointer), ...(path === undefined ? {} : { path: Array.map(path, place) }) };
+};
 const located = (containers: readonly FacetContainer[]): readonly FacetControl['locator'][] => Array.flatMap(containers, ({ locator, controls }) => [locator, ...Array.flatMap(controls, ({ locator: control, options = [] }) => [control, ...Array.map(options, Struct.get('locator'))])]);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const SourceRpcs = RpcGroup.make(
-    Rpc.make('describe', {
-        payload: { within: Schema.optionalKey(Locator.annotate({ description: 'Facet item whose level is described alone, every facet at its top level when absent' })) },
-        success: Description,
-        error: Failure,
-    }),
-    Rpc.make('operate', {
-        payload: { locator: Locator, to: Schema.optionalKey(Value.annotate({ description: 'Value the control takes, absent to press, pick, or select it' })) },
-        success: Schema.Void.annotate({ description: 'The host took the operation, which a later describe reads back, as a host can apply it after the call returns' }),
-        error: Failure,
-    }),
-);
+const failing = <E extends Schema.Top>(error: E) =>
+    RpcGroup.make(
+        Rpc.make('describe', {
+            payload: { within: Schema.optionalKey(Locator.annotate({ description: 'Facet item whose level is described alone, every facet at its top level when absent' })) },
+            success: Description,
+            error,
+        }),
+        Rpc.make('operate', {
+            payload: Operation,
+            success: Operation.Result,
+            error,
+        }),
+    );
+const SourceRpcs = Object.assign(failing(Failure), { failing });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

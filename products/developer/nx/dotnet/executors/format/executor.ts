@@ -1,5 +1,6 @@
 import type { TaskResult } from '@nx/devkit/internal';
-import { batched, executor, inside, ran, Words } from '@rasm/nx/inference';
+import { batched, executor, inside, Words } from '@rasm/nx/inference';
+import { run } from '@rasm/process';
 import { Array, Clock, Console, Effect, FileSystem, flow, Option, Order, Path, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
 import { grouped } from '#/executors/build/executor';
@@ -34,7 +35,7 @@ const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmp
         commands,
         Effect.fnUntraced(function* (command, index) {
             const report = path.join(folder, `${index}.json`);
-            const { invoked, stdout, said: stderr, code } = yield* ran(['dotnet', ...command, target, '--report', report, ...words], { cwd: root });
+            const { command: invoked, stdout, stderr, code } = yield* run(['dotnet', ...command, target, '--report', report, ...words], { cwd: root }).pipe(Effect.catchTag('ExitError', (exited) => Effect.succeed(exited)));
             const changed = yield* Effect.option(Effect.flatMap(fs.readFileString(report), Schema.decodeEffect(Report)));
             const owners = changed.pipe(
                 Option.filter(() => code === 2),

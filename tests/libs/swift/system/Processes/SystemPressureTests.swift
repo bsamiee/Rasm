@@ -50,6 +50,7 @@ struct SystemPressureTests {
             swapins: 10,
             swapouts: 10,
             decompressions: 10,
+            faults: 100,
             disks: [1: (bytesRead: 100, bytesWritten: 50, time: .seconds(1)), 2: (bytesRead: 1 << 40, bytesWritten: 1 << 40, time: .seconds(900))],
         )
         let later = SystemLoad(
@@ -58,6 +59,7 @@ struct SystemPressureTests {
             swapins: 12,
             swapouts: 13,
             decompressions: 14,
+            faults: 140,
             disks: [1: (bytesRead: 150, bytesWritten: 70, time: .milliseconds(2500)), 3: (bytesRead: 5, bytesWritten: 6, time: .seconds(1))],
         )
         let interval = SystemLoad.Interval(growth: later.since(earlier), deviceUtilization: 12, availableCapacityForImportantUsage: nil)

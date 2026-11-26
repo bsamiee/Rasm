@@ -2,13 +2,13 @@ import { appendFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import process, { type ProcessEventMap } from 'node:process';
 import { finished } from 'node:stream/promises';
-import { layerGlobal, makeExternalSpan, OtelTraceState } from '@effect/opentelemetry/OtelTracer';
+import { layerGlobal, makeExternalSpan } from '@effect/opentelemetry/OtelTracer';
 import { configToAttributes, layerEmpty } from '@effect/opentelemetry/Resource';
-import { type DiagLogger, DiagLogLevel, diag, logs, propagation, ROOT_CONTEXT, TraceFlags, trace } from '@opentelemetry/api';
-import { CompositePropagator, diagLogLevelFromString, getStringFromEnv, W3CBaggagePropagator, W3CTraceContextPropagator } from '@opentelemetry/core';
-import { EnvironmentGetter, EnvironmentSetter } from '@opentelemetry/propagator-env-carrier';
+import { type DiagLogger, DiagLogLevel, diag, logs, ROOT_CONTEXT, trace } from '@opentelemetry/api';
+import { diagLogLevelFromString, getStringFromEnv, W3CTraceContextPropagator } from '@opentelemetry/core';
+import { EnvironmentGetter } from '@opentelemetry/propagator-env-carrier';
 import { ATTR_PROCESS_PID } from '@opentelemetry/semantic-conventions/incubating';
-import { Array, Cause, Config, Context, Duration, Effect, ErrorReporter, Exit, Formatter, flow, Layer, Logger, LogLevel, Match, Metric, MutableRef, Option, Predicate, Record, Ref, Runtime, Schema, SchemaGetter, Struct, Tracer, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Duration, Effect, ErrorReporter, Exit, Formatter, flow, Layer, Logger, LogLevel, Match, Metric, MutableRef, Option, Predicate, Record, Ref, Runtime, Schema, SchemaGetter, Struct, UndefinedOr } from 'effect';
 import envPaths from 'env-paths';
 import { createStream, type FileSize, type Interval, type OptionsWithoutRotate } from 'rotating-file-stream';
 import { errorReporter, exporters, formatLogRecord, layerMinimumLogLevels, layerWithoutDefaultLogger } from '#/otlp';
@@ -57,22 +57,10 @@ class TelemetryError extends Schema.TaggedError<TelemetryError, { readonly brand
     static readonly of = (reason: TelemetryError['reason']['_tag'], subject: string) => (cause?: unknown) => TelemetryError.make({ reason: { _tag: reason }, subject, ...(cause === undefined ? {} : { cause }), message: [`${reason}: ${subject}`, ...(cause === undefined ? [] : [Formatter.format(cause)])].join(': ') });
 }
 
-// --- [SERVICES] ------------------------------------------------------------------------
-
-const Baggage = Context.Reference('@rasm/telemetry/node/Baggage', { defaultValue: () => propagation.getBaggage(ROOT_CONTEXT) });
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const interrupted = <A, E>(exit: Exit.Exit<A, E>) => Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause);
-const propagator = new CompositePropagator({ propagators: [new W3CTraceContextPropagator(), new W3CBaggagePropagator()] });
-const lineage: (span: Tracer.AnySpan) => Context.Context<never> = Match.valueTags({ ExternalSpan: Struct.get('annotations'), Span: (local) => Option.match(local.parent, { onNone: () => local.annotations, onSome: lineage }) });
-const toEnvironment = Effect.map(Effect.all([Effect.serviceOption(Tracer.ParentSpan), Baggage]), ([parent, baggage]) => {
-    const environment: Record<string, string> = {};
-    const carried = UndefinedOr.match(baggage, { onUndefined: () => ROOT_CONTEXT, onDefined: (entries) => propagation.setBaggage(ROOT_CONTEXT, entries) });
-    const spanContext = Option.map(parent, (span) => ({ traceId: span.traceId, spanId: span.spanId, traceFlags: span.sampled ? TraceFlags.SAMPLED : TraceFlags.NONE, ...UndefinedOr.map(Context.getOrUndefined(lineage(span), OtelTraceState), (traceState) => ({ traceState })) }));
-    propagator.inject(Option.match(spanContext, { onNone: () => carried, onSome: (current) => trace.setSpanContext(carried, current) }), undefined, new EnvironmentSetter(environment));
-    return environment;
-});
+const propagator = new W3CTraceContextPropagator();
 const toRotatingFile = Effect.fnUntraced(function* <Message>(self: Logger.Logger<Message, string>, filename: string, options: OptionsWithoutRotate<Interval, FileSize, FileSize>) {
     const opened = MutableRef.make(Option.none<string>());
     const stream = yield* Effect.acquireRelease(
@@ -129,7 +117,7 @@ const started = Effect.fnUntraced(function* (named: Config.Success<typeof export
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const layerFromEnvironment = Effect.sync(() => propagator.extract(ROOT_CONTEXT, undefined, new EnvironmentGetter())).pipe(
-    Effect.map((context) => Layer.merge(UndefinedOr.match(trace.getSpanContext(context), { onUndefined: () => Layer.empty, onDefined: flow(makeExternalSpan, Layer.parentSpan) }), Layer.succeed(Baggage, propagation.getBaggage(context)))),
+    Effect.map((context) => UndefinedOr.match(trace.getSpanContext(context), { onUndefined: () => Layer.empty, onDefined: flow(makeExternalSpan, Layer.parentSpan) })),
     Layer.unwrap,
 );
 const layerNodeSdk = Effect.fnUntraced(function* (resource: Parameters<typeof started>[1]) {
@@ -199,4 +187,4 @@ const teardown: Runtime.Teardown = (exit, onExit) => (interrupted(exit) ? onExit
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Baggage, layerErrorReported, layerFromEnvironment, layerNode, layerNodeFromConfig, layerNodeSdk, layerUncaughtExceptionMonitor, Rotation, TelemetryError, teardown, toEnvironment, toRotatingFile };
+export { layerErrorReported, layerFromEnvironment, layerNode, layerNodeFromConfig, layerNodeSdk, layerUncaughtExceptionMonitor, Rotation, TelemetryError, teardown, toRotatingFile };

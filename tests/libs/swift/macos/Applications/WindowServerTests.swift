@@ -79,13 +79,13 @@ extension WindowServerTests {
                 var refusals: [ApplicationFailure.Reason] = []
                 for _ in 0..<200 {
                     let outcome = await Result { () async throws(ApplicationFailure) in
-                        try await PermittedFrontList.shared.holding(excluding: { _ in false }, for: .seconds(30), clock: ExpiredClock()) { () async in }.get()
+                        try await PermittedFrontList.shared.holding(excluding: { _ in false }, for: .seconds(30), clock: ExpiredClock()) { () async in }.value.get()
                     }
                     if case .failure(let failure) = outcome { refusals.append(failure.reason) }
                 }
                 return refusals
             }
-            .get()
+            .value.get()
             #expect(refusals.allSatisfy { reason in reason == .system(.wouldBlock) }, "Expired lock waits answered \(refusals)")
             expectNoDifference(PermittedFrontList.entries, 0, "Permitted front entries left after 200 scopes whose lock wait expired at once")
         }
@@ -93,7 +93,7 @@ extension WindowServerTests {
         @Test
         func leavesNoEntryWhenItsScopeIsCancelledWhileHeld() async throws {
             let scope = Task {
-                try await PermittedFrontList.shared.holding(excluding: { _ in false }, for: .seconds(30)) { () async throws in try await Task.sleep(for: .seconds(30)) }.get()
+                try await PermittedFrontList.shared.holding(excluding: { _ in false }, for: .seconds(30)) { () async throws in try await Task.sleep(for: .seconds(30)) }.value.get()
             }
             let held: Int? = await AsyncTimerSequence(interval: .milliseconds(5), clock: ContinuousClock()).prefix(400).map { _ in PermittedFrontList.entries }.first { entries in entries > 0 }
             scope.cancel()
@@ -109,7 +109,7 @@ extension WindowServerTests {
                 try await Task.sleep(for: .seconds(1))
                 return (listed, PermittedFrontList.entries)
             }
-            .get()
+            .value.get()
             #expect(during > 0, "The scope listed no entry before its lifetime ended")
             expectNoDifference(ended, 0, "Permitted front entries 800 ms past a 200 ms lifetime while the body still ran")
         }

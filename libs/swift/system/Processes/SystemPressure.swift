@@ -63,18 +63,16 @@ public struct SystemLoad: Sendable {
             return total == 0 ? nil : Double(ticks[Int(CPU_STATE_IDLE)]) / Double(total)
         }
 
+        public var stale: Bool { growth.faults == 0 }
+
         public func encode(to encoder: any Encoder) throws {
             var fields = encoder.container(keyedBy: CodingKeys.self)
             let disk = growth.disks.values.reduce((bytesRead: UInt64.zero, bytesWritten: UInt64.zero, time: Duration.zero)) { total, driver in
                 (total.bytesRead &+ driver.bytesRead, total.bytesWritten &+ driver.bytesWritten, total.time + driver.time)
             }
+            let paging: [(CodingKeys, UInt64)] = stale ? [] : [(.pageins, growth.pageins), (.swapins, growth.swapins), (.swapouts, growth.swapouts), (.decompressions, growth.decompressions)]
             try fields.encodeIfPresent(idle, forKey: .idle)
-            for (key, count) in [
-                (CodingKeys.pageins, growth.pageins), (.swapins, growth.swapins), (.swapouts, growth.swapouts), (.decompressions, growth.decompressions), (.diskBytesRead, disk.bytesRead),
-                (.diskBytesWritten, disk.bytesWritten),
-            ] {
-                try fields.encode(count, forKey: key)
-            }
+            for (key, count) in paging + [(.diskBytesRead, disk.bytesRead), (.diskBytesWritten, disk.bytesWritten)] { try fields.encode(count, forKey: key) }
             try fields.encode(disk.time / .seconds(1), forKey: .diskTime)
             try fields.encodeIfPresent(deviceUtilization, forKey: .deviceUtilization)
             try fields.encodeIfPresent(availableCapacityForImportantUsage, forKey: .availableCapacityForImportantUsage)
@@ -86,6 +84,7 @@ public struct SystemLoad: Sendable {
     public let swapins: UInt64
     public let swapouts: UInt64
     public let decompressions: UInt64
+    public let faults: UInt64
     public let disks: [UInt64: (bytesRead: UInt64, bytesWritten: UInt64, time: Duration)]
 }
 
@@ -157,24 +156,31 @@ extension SystemLoad {
     public init() throws(ProcessFailure) {
         let host = mach_host_self()
         defer { _ = unsafe mach_port_deallocate(mach_task_self_, host) }
-        let read = { (flavor: host_flavor_t, info: UnsafeMutableRawBufferPointer) throws(ProcessFailure) in
-            let status = unsafe info.withMemoryRebound(to: integer_t.self) { words in
-                var count = mach_msg_type_number_t(words.count)
-                return unsafe host_statistics64(host, flavor, words.baseAddress, &count)
+        var (processors, info, length): (natural_t, processor_info_array_t?, mach_msg_type_number_t) = (0, nil, 0)
+        let loaded: kern_return_t = unsafe host_processor_info(host, PROCESSOR_CPU_LOAD_INFO, &processors, &info, &length)
+        guard loaded == KERN_SUCCESS, let loads = unsafe info else { throw ProcessFailure(subject: "host_processor_info PROCESSOR_CPU_LOAD_INFO", reason: .mach(loaded)) }
+        let size: vm_size_t = vm_size_t(length) * vm_size_t(MemoryLayout<integer_t>.stride)
+        defer { _ = unsafe vm_deallocate(mach_task_self_, vm_address_t(bitPattern: loads), size) }
+        let processor: SIMD4<UInt32> = unsafe loads.withMemoryRebound(to: processor_cpu_load_info.self, capacity: Int(processors)) { cores in
+            unsafe UnsafeBufferPointer(start: cores, count: Int(processors)).reduce(SIMD4<UInt32>.zero) { (sum: SIMD4<UInt32>, core: processor_cpu_load_info) -> SIMD4<UInt32> in
+                sum &+ SIMD4(core.cpu_ticks.0, core.cpu_ticks.1, core.cpu_ticks.2, core.cpu_ticks.3)
             }
-            guard status == KERN_SUCCESS else { throw ProcessFailure(subject: "host_statistics64 flavor \(flavor)", reason: .mach(status)) }
         }
-        var processor = host_cpu_load_info()
         var memory = vm_statistics64()
-        try withUnsafeMutableBytes(of: &processor) { info throws(ProcessFailure) in try unsafe read(HOST_CPU_LOAD_INFO, info) }
-        try withUnsafeMutableBytes(of: &memory) { info throws(ProcessFailure) in try unsafe read(HOST_VM_INFO64, info) }
-        let ticks = processor.cpu_ticks
+        let counted: kern_return_t = withUnsafeMutableBytes(of: &memory) { info in
+            unsafe info.withMemoryRebound(to: integer_t.self) { words in
+                var count = mach_msg_type_number_t(words.count)
+                return unsafe host_statistics64(host, HOST_VM_INFO64, words.baseAddress, &count)
+            }
+        }
+        guard counted == KERN_SUCCESS else { throw ProcessFailure(subject: "host_statistics64 HOST_VM_INFO64", reason: .mach(counted)) }
         try self.init(
-            processor: SIMD4(ticks.0, ticks.1, ticks.2, ticks.3),
+            processor: processor,
             pageins: memory.pageins,
             swapins: memory.swapins,
             swapouts: memory.swapouts,
             decompressions: memory.decompressions,
+            faults: memory.faults,
             disks: copyProperty(kIOBlockStorageDriverStatisticsKey, matching: kIOBlockStorageDriverClass).mapValues { statistics in
                 let count = { (key: String) -> UInt64 in statistics[key] as? UInt64 ?? 0 }
                 return (
@@ -192,6 +198,7 @@ extension SystemLoad {
             swapins: swapins &- earlier.swapins,
             swapouts: swapouts &- earlier.swapouts,
             decompressions: decompressions &- earlier.decompressions,
+            faults: faults &- earlier.faults,
             disks: Dictionary(
                 uniqueKeysWithValues: disks.map { id, later in
                     let held = earlier.disks[id] ?? (0, 0, .zero)

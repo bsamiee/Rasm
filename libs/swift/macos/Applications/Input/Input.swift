@@ -1,4 +1,5 @@
 import AppKit
+import AppleEvents
 import CasePaths
 import CasePathsCore
 import CoreGraphics
@@ -37,41 +38,6 @@ struct Input: Hashable, Sendable {
     let modifiers: Set<Modifier>
     let schedule: Schedule
     let edges: Set<Edge>
-
-    init(contact: Contact, path: [Sample], hold: Duration, modifiers: Set<Modifier>, schedule: Schedule, edges: Set<Edge>) throws(ApplicationFailure) {
-        let plane = Double(Int32.max)
-        let spacing: Duration = hold + schedule.jitter
-        let planar: Bool = path.allSatisfy { (sample: Sample) -> Bool in sample.at.x.magnitude <= plane && sample.at.y.magnitude <= plane }
-        let reach: Double? = contact[case: \.wheel].map { (by: SIMD2<Double>, _: CGScrollEventUnit) -> Double in max(by.x.magnitude, by.y.magnitude) }
-        let pen: Bool = path.contains { (sample: Sample) -> Bool in sample.pressure != nil || sample.tilt != nil }
-        let mixed: Bool = path.contains { (sample: Sample) -> Bool in (sample.pressure == nil, sample.tilt == nil) != (path[0].pressure == nil, path[0].tilt == nil) }
-        let ranged: Bool = path.allSatisfy { (sample: Sample) -> Bool in
-            (0...1).contains(sample.pressure ?? 0) && (-1...1).contains(sample.tilt?.x ?? 0) && (-1...1).contains(sample.tilt?.y ?? 0)
-        }
-        let rules: [(kept: Bool, rule: String)] = [
-            (schedule.count >= 1, "count \(schedule.count) below 1"),
-            (min(hold, schedule.jitter) >= Duration.zero, "a negative hold \(hold) or jitter \(schedule.jitter)"),
-            ((schedule.every ?? spacing) >= spacing, "presses every \(schedule.every ?? spacing) under the hold plus jitter \(spacing)"),
-            (schedule.every != nil || schedule.jitter == Duration.zero, "jitter \(schedule.jitter) on a click run, which has no interval to vary"),
-            (!path.isEmpty || contact.is(\.key), "a pointer input with no point"),
-            (path.count < 2 || !(contact.is(\.key) || contact.is(\.wheel) || schedule.count > 1), "a path of \(path.count) points on a key, a wheel, or more than one press"),
-            (planar, "a point off the plane of ±\(Int32.max)"),
-            (reach.map { (reach: Double) -> Bool in reach < plane } ?? true, "a wheel delta beyond ±\(Int32.max)"),
-            (reach.map { (reach: Double) -> Bool in reach.rounded() >= 1 } ?? true, "a wheel delta under one whole unit"),
-            (!pen || contact == .button(.left), "pressure or tilt off the left button"),
-            (!mixed, "pressure or tilt on some points alone"),
-            (ranged, "pressure outside 0 to 1 or tilt outside -1 to 1"),
-            (!edges.isEmpty || !contact.is(\.key), "a key with neither its down nor its up"),
-        ]
-        let refused: [String] = rules.filter { rule in !rule.kept }.map(\.rule)
-        guard refused.isEmpty else { throw ApplicationFailure(subject: "input with \(refused.formatted())", reason: .refused) }
-        self.contact = contact
-        self.path = path
-        self.hold = hold
-        self.modifiers = modifiers
-        self.schedule = schedule
-        self.edges = edges
-    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -94,6 +60,8 @@ extension Input {
         let span: Duration = max(hold, frame * paced)
         let step: Duration = span / max(paced, 1)
         let every: Duration = schedule.every ?? (contact.is(\.key) ? max(span, keyRepeat.interval) : max(span, (span + interval) / 2))
+        let least: Duration = max(every - schedule.jitter, span) * (schedule.count - 1) + span
+        guard least <= replyDeadline else { throw ApplicationFailure(subject: "\(schedule.count) presses of input \(contact) every \(every)", reason: .pastDeadline) }
         let initial: [(start: Duration, state: Int64, number: Int64, down: Bool, up: Bool)] = [
             (.zero, first.clickState, first.number, edges.contains(.down), schedule.count > 1 || edges.contains(.up))
         ]

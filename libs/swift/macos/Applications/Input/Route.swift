@@ -3,6 +3,7 @@ import AsyncAlgorithms
 import Carbon.HIToolbox
 public import CoreGraphics
 public import Encoding
+import SPI
 import System
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -60,7 +61,7 @@ extension Route {
         from source: CGEventSource,
         frame: Duration,
         clock: some Clock<Duration> & Sendable,
-    ) async throws(ApplicationFailure) {
+    ) async throws(ApplicationFailure) -> ApplicationFailure? {
         try Grant.postEvent.check()
         let subject = "input to process \(process) through \(self)"
         let (number, focusing, tapped): (CGWindowID?, Bool, Bool) =
@@ -93,21 +94,17 @@ extension Route {
             let chord = SIMD2(Int(event.getIntegerValueField(.keyboardEventKeycode)), held.reduce(function) { state, modifier in state | Int(modifier.key.state) << 8 })
             return chords.contains(chord) ? "key code \(chord.x) with \(held.map(\.rawValue).formatted())" : nil
         }
-        guard claimed.isEmpty else { throw ApplicationFailure(subject: "\(subject), where the system takes \(claimed.formatted()) as its own shortcut", reason: .refused) }
+        guard claimed.isEmpty else { throw ApplicationFailure(subject: "\(claimed.formatted()) of \(subject)", reason: .symbolicHotKey) }
         let focus: (front: pid_t?, keyFocus: pid_t?)? = tapped ? focusedProcesses() : nil
-        guard focus.map({ focus in !pointing || focus.front == process }) != false else {
-            throw ApplicationFailure(subject: "\(subject), which posts pointer events to the front process alone", reason: .refused)
-        }
-        guard focus.map({ focus in !keyed || focus.keyFocus == process }) != false else {
-            throw ApplicationFailure(subject: "\(subject), which posts keys to the key-focus process alone", reason: .refused)
-        }
+        if let focus, pointing, focus.front != process { throw ApplicationFailure(subject: subject, reason: .notFrontmost(focus.front)) }
+        if let focus, keyed, focus.keyFocus != process { throw ApplicationFailure(subject: subject, reason: .notKeyFocus(focus.keyFocus)) }
         let presses: Set<CGEventType> = tapped ? [.leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel] : []
         for (_, event) in timeline where presses.contains(event.type) {
             var (screen, local, window, connection, owner): (CGPoint, CGPoint, CGWindowID, Int32, pid_t) = (event.location, .zero, kCGNullWindowID, 0, 0)
             let found: CGError = unsafe findWindowAndOwner(mainConnection(), 0, 1, 0, &screen, &local, &window, &connection)
             let owned: CGError = found == .success ? unsafe processOfConnection(connection, &owner) : found
             guard owned == .success else { throw ApplicationFailure(subject: "window under \(event.location) for \(subject)", reason: .windowServer(owned)) }
-            guard owner == process else { throw ApplicationFailure(subject: "\(subject), where window \(window) of process \(owner) lies over \(event.location)", reason: .refused) }
+            guard owner == process else { throw ApplicationFailure(subject: "\(event.location) of \(subject)", reason: .covered(window: window, owner: owner)) }
         }
         let origin: CGPoint? = try number.map { (number: CGWindowID) throws(ApplicationFailure) -> CGPoint in
             let row: [String: Any]? = (CGWindowListCopyWindowInfo(.optionIncludingWindow, number) as? [[String: Any]])?.first
@@ -142,7 +139,9 @@ extension Route {
         activation[record.length] = UInt8(record.size)
         activation[record.kind] = UInt8(NSEvent.EventType.appKitDefined.rawValue)
         activation[record.subtype] = UInt8(NSEvent.EventSubtype.applicationActivated.rawValue)
-        activation.withUnsafeMutableBytes { bytes in unsafe bytes.storeBytes(of: (number ?? kCGNullWindowID).littleEndian, toByteOffset: record.window, as: CGWindowID.self) }
+        var elements: MutableSpan<UInt8> = activation.mutableSpan
+        var bytes: MutableRawSpan = elements.mutableBytes
+        bytes.storeBytes(of: number ?? kCGNullWindowID, toByteOffset: record.window, as: CGWindowID.self, .littleEndian)
         let opened: CGError = focusing ? unsafe postEventRecord(&serial, activation) : .success
         guard opened == .success else { throw ApplicationFailure(subject: "focus record of \(subject)", reason: .windowServer(opened)) }
         let lifts: Set<CGEventType> = releases.union([.keyUp, .flagsChanged, .tabletProximity])
@@ -179,20 +178,13 @@ extension Route {
             }
             return settled ? CGWarpMouseCursorPosition(pointer) : .success
         }
-        if let walked { throw walked }
-        guard closed == .success else { throw ApplicationFailure(subject: "defocus record of \(subject)", reason: .windowServer(closed)) }
-        guard warped == .success else { throw ApplicationFailure(subject: "pointer restore of \(subject)", reason: .windowServer(warped)) }
+        let unclosed: ApplicationFailure? = closed == .success ? nil : ApplicationFailure(subject: "defocus record of \(subject)", reason: .windowServer(closed))
+        let unwarped: ApplicationFailure? = warped == .success ? nil : ApplicationFailure(subject: "pointer restore of \(subject)", reason: .windowServer(warped))
+        let ended: ApplicationFailure? = walked ?? unclosed ?? unwarped
+        switch (ended, posted) {
+            case (.none, _): return nil
+            case (.some(let failure), true) where failure.reason != .cancelled: return failure
+            case (.some(let failure), _): throw failure
+        }
     }
 }
-
-@_silgen_name("SLPSPostEventRecordTo")
-private func postEventRecord(_: UnsafePointer<ProcessSerialNumber>, _: UnsafePointer<UInt8>) -> CGError
-
-@_silgen_name("SLEventRecordPointer")
-private func recordPointer(_: CGEvent) -> UnsafeRawPointer?
-
-@_silgen_name("SLEventSetAuthenticationMessage")
-private func setAuthenticationMessage(_: CGEvent, _: AnyObject)
-
-@_silgen_name("CGEventSetWindowLocation")
-private func setWindowLocation(_: CGEvent, _: CGPoint)

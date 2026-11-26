@@ -136,7 +136,7 @@ class Upstream extends Data.Class<
         readonly filters?: { readonly tools?: Filter; readonly resources?: Filter; readonly templates?: Filter; readonly prompts?: Filter };
         readonly prefix?: string;
         readonly endpoint: Effect.Effect<{ readonly url: URL; readonly headers: Readonly<Record<string, string>> }, E, R>;
-        readonly presence?: Stream.Stream<boolean>;
+        readonly presence?: Stream.Stream<boolean, never, R>;
         readonly poll: Duration.Duration;
         readonly annotations?: Context.Context<never>;
     }): Stream.Stream<readonly Upstream[], never, R | HttpClient.HttpClient | SecureRandom.SecureRandom> => {

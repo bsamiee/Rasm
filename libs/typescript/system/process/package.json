@@ -26,9 +26,6 @@
         },
         "access": "public"
     },
-    "dependencies": {
-        "@rasm/telemetry": "workspace:*"
-    },
     "devDependencies": {
         "@types/node": "catalog:",
         "effect": "catalog:"

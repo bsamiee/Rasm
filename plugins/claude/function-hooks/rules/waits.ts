@@ -1,6 +1,6 @@
 import { Array, Duration, Effect, Function, Match, Option, Path, Result } from 'effect';
 import { Host, NetAddress } from 'effect/net';
-import { type Invocation, rewrite, run, type Table, type Verdict } from '#/rules/rule';
+import { execute, type Invocation, rewrite, type Table, type Verdict } from '#/rules/rule';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -63,19 +63,19 @@ const groupLoops = (invocations: readonly Invocation[]) =>
     });
 const spins = ({ tested, until }: ReturnType<typeof groupLoops>[number]) => Array.isReadonlyArrayNonEmpty(tested) && tested.every((invocation) => invocation.runs(...fixed) && invocation.runs('false') === until);
 const probes = ({ tested }: ReturnType<typeof groupLoops>[number]) => Array.isReadonlyArrayNonEmpty(tested) && !tested.every((invocation) => invocation.runs(...fixed));
-const print = <E, R>(ran: Effect.Effect<{ readonly printed: string }, E, R>) =>
+const print = <E, R>(ran: Effect.Effect<{ readonly stdout: string }, E, R>) =>
     Effect.orElseSucceed(
-        Effect.map(ran, ({ printed }) => printed),
+        Effect.map(ran, ({ stdout }) => stdout),
         () => '',
     );
 const findWriters = Effect.fnUntraced(function* (file: string, cwd: string) {
-    const [open, processes] = yield* Effect.all([print(run(cwd)`lsof -F pa -- ${file}`), print(run(cwd)`ps -A -o pid=,ppid=`)], { concurrency: 'unbounded' });
+    const [open, processes] = yield* Effect.all([print(execute(cwd)(['lsof', '-F', 'pa', '--', file])), print(execute(cwd)(['ps', '-A', '-o', 'pid=,ppid=']))], { concurrency: 'unbounded' });
     const parents = new Map(processes.split('\n').flatMap((line) => Option.toArray(Option.map(Option.fromNullishOr(/^\s*(?<pid>\d+)\s+(?<parent>\d+)/u.exec(line)?.groups), ({ pid = '', parent = '' }) => [pid, parent] as const))));
     const holders = new Set(open.split(/^p/mu).flatMap((listing) => (/^a[uw]$/mu.test(listing) ? [listing.split('\n', 1).join('')] : [])));
     return [...holders].filter((pid) => parents.has(pid) && !holders.has(parents.get(pid) ?? ''));
 });
 const findRepeat = Effect.fnUntraced(function* (file: string, cwd: string) {
-    const lines = (yield* print(run(cwd)`tail -n 10 -- ${file}`))
+    const lines = (yield* print(execute(cwd)(['tail', '-n', '10', '--', file])))
         .split('\n')
         .filter((line) => line.trim() !== '')
         .map((line) => line.replaceAll(/\d+/gu, '#'));

@@ -34,7 +34,7 @@ const TOOLS: Model = {
                     kind: 'choice',
                     role: 'tool',
                     positional: false,
-                    label: { text: 'tool', attribute: 'tool' },
+                    label: { text: 'tool' },
                     value: { _tag: 'text', value: 'Eraser Tool' },
                     options: [
                         { ref: 3, label: 'Brush Tool', shortcut: BRUSH, help: 'Click and drag to paint with the foreground color' },

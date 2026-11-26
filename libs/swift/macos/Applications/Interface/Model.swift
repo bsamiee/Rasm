@@ -19,6 +19,7 @@ public struct Hierarchy: Sendable {
     public let elements: [Element]
     public let roots: [Int]
     public let windows: [InstanceState.Window]
+    let documents: [URL]
     public let regular: Bool
     public let focused: Int?
     public let truncated: [Int]
@@ -55,6 +56,13 @@ public struct Control: Encodable, Equatable, Sendable {
             switch self {
                 case .toggle, .choice, .number, .measure, .color, .date: true
                 case .action, .multi, .row, .text, .item, .region: false
+            }
+        }
+
+        public var holdsValueAttribute: Bool {
+            switch self {
+                case .toggle, .number, .measure, .text, .color, .date: true
+                case .action, .choice, .multi, .row, .item, .region: false
             }
         }
 
@@ -176,7 +184,7 @@ public struct Control: Encodable, Equatable, Sendable {
     public let label: Label?
     public let labels: [String]?
     public let section: String?
-    public let value: Fact?
+    public var value: Fact?
     public let enabled: Bool?
     public let focused: Bool?
     public let selected: Evidence?
@@ -276,7 +284,7 @@ public struct Container: Encodable, Equatable, Sendable {
     public let close: Int?
     public let text: [String]
     public let truncated: Bool
-    public let controls: [Control]
+    public var controls: [Control]
 }
 
 public struct Model: Encodable, Sendable {
@@ -321,7 +329,7 @@ public struct Model: Encodable, Sendable {
     }
 
     public struct Known: Decodable, Sendable {
-        public let build: String
+        public let build: String?
         public let containers: Set<String>
         public let labels: Set<String>
     }
@@ -391,14 +399,14 @@ extension Element {
 
     fileprivate func flag(_ attribute: String) -> Bool? { facts[attribute]?.bool ?? facts[attribute]?.integer.map { value in value != 0 } }
 
-    fileprivate func keyed(by label: Control.Label?) -> (role: String, keys: [Locator.Step.Key]) {
+    fileprivate func identify(by label: Control.Label?, redacting withheld: [(name: String, url: URL)]) -> (role: String, keys: [Locator.Step.Key]) {
         let document: Locator.Step.Key? = text(kAXDocumentAttribute).flatMap(URL.init(string:)).map(Locator.Step.Key.document(at:))
         let keys: [Locator.Step.Key?] = [
             (text(kAXIdentifierAttribute) ?? text(kAXDOMIdentifierAttribute)).map(Locator.Step.Key.identifier),
             document,
             document == nil ? label.flatMap { label in .label(folding: label.text) } : nil,
         ]
-        return (role: role ?? kAXUnknownRole, keys: keys.compactMap(\.self) + [.sole])
+        return (role: role ?? kAXUnknownRole, keys: keys.compactMap { key in key?.redacting(withheld) } + [.sole])
     }
 }
 
@@ -438,6 +446,14 @@ extension Model {
             }
         }
         let held: [Int: Element] = Dictionary((hierarchy.elements + regions.joined()).map { element in (element.id, element) }) { first, _ in first }
+        let home: URL = .homeDirectory
+        let documents: OrderedSet<URL> = OrderedSet(hierarchy.documents + held.values.compactMap { (element: Element) -> URL? in element.text(kAXDocumentAttribute).flatMap(URL.init(string:)) })
+        let places: [(text: String, url: URL)] =
+            documents.flatMap { (url: URL) -> [(text: String, url: URL)] in [(text: url.lastPathComponent, url: url), (text: url.deletingPathExtension().lastPathComponent, url: url)] }
+            + [(text: home.lastPathComponent, url: home), (text: NSUserName(), url: home)]
+        let withheld: [(name: String, url: URL)] = places.compactMap { (entry: (text: String, url: URL)) -> (name: String, url: URL)? in
+            Locator.Step.Key.label(folding: entry.text)?[case: \.label].map { name in (name: name, url: entry.url) }
+        }.sorted { first, second in first.name.count > second.name.count }
         let roots: OrderedSet<Int> = OrderedSet(hierarchy.roots.filter { root in held[root] != nil } + regions.compactMap(\.first?.id))
         var (order, walked, pending): (OrderedSet<Int>, [Int: Int], [Int]) = ([], [:], Array(roots.reversed()))
         while let id = pending.popLast() {
@@ -465,7 +481,10 @@ extension Model {
         let siblings: [[Element]] = Array(Dictionary(grouping: containers.map(\.element)) { (element: Element) -> Int? in owners[element.id] }.values)
         let placed: [Int: Locator.Step] = Dictionary(
             uniqueKeysWithValues: siblings.flatMap { (group: [Element]) -> [(Int, Locator.Step)] in
-                Array(zip(group.map(\.id), Locator.Step.distinguish(group.map { (sibling: Element) -> (role: String, keys: [Locator.Step.Key]) in sibling.keyed(by: sibling.label) })))
+                let keyed: [(role: String, keys: [Locator.Step.Key])] = group.map { (sibling: Element) -> (role: String, keys: [Locator.Step.Key]) in
+                    sibling.identify(by: sibling.label, redacting: withheld)
+                }
+                return Array(zip(group.map(\.id), Locator.Step.distinguish(keyed)))
             }
         )
         let scopes: [(element: Element, kind: Container.Kind, locator: Locator)] = containers.map { element, kind in
@@ -578,8 +597,8 @@ extension Model {
             }
             let steps: [Locator.Step] = Locator.Step.distinguish(
                 named.map { entry -> (role: String, keys: [Locator.Step.Key]) in
-                    let keys: [Locator.Step.Key] = [entry.label.flatMap { label in Locator.Step.Key.label(folding: label.text) }].compactMap(\.self) + [.members]
-                    return entry.set == nil ? entry.element.keyed(by: entry.label) : (role: entry.element.role ?? kAXUnknownRole, keys: keys)
+                    let keys: [Locator.Step.Key] = [entry.label.flatMap { label in Locator.Step.Key.label(folding: label.text)?.redacting(withheld) }].compactMap(\.self) + [.members]
+                    return entry.set == nil ? entry.element.identify(by: entry.label, redacting: withheld) : (role: entry.element.role ?? kAXUnknownRole, keys: keys)
                 }
             )
             return zip(named, steps).compactMap { entry, step in
@@ -606,7 +625,7 @@ extension Model {
         let masks: [(mask: AXMenuItemModifiers, modifier: Modifier)] = [(.shift, .shift), (.option, .option), (.control, .control), (AXMenuItemModifiers(rawValue: 1 << 4), .function)]
         let built: [(owner: Int, control: Control, located: [(ref: Int, element: Int)])] = addressed.map { owner, element, kind, set, label, locator in
             let menus: [Element] = element.children.compactMap { child in held[child] }
-            let opens: Int? = zip(menus, Locator.Step.distinguish(menus.map { (menu: Element) -> (role: String, keys: [Locator.Step.Key]) in menu.keyed(by: menu.label) }))
+            let opens: Int? = zip(menus, Locator.Step.distinguish(menus.map { (menu: Element) -> (role: String, keys: [Locator.Step.Key]) in menu.identify(by: menu.label, redacting: withheld) }))
                 .first { (menu: Element, _: Locator.Step) -> Bool in menu.role == kAXMenuRole }.map { (_: Element, keyed: Locator.Step) -> Int in intern(locator.appending(keyed)) }
             let disclosable: Bool = cells[element.id]?.contains { cell in cell.role == kAXDisclosureTriangleRole } == true
             let listed: [Element] =
@@ -619,7 +638,7 @@ extension Model {
                     case (.none, _): []
                 }
             let optionRefs: [Int] = Locator.Step.distinguish(
-                listed.map { option in (role: option.role ?? kAXUnknownRole, keys: [option.optionText.flatMap(Locator.Step.Key.label(folding:))].compactMap(\.self)) }
+                listed.map { option in (role: option.role ?? kAXUnknownRole, keys: [option.optionText.flatMap(Locator.Step.Key.label(folding:))?.redacting(withheld)].compactMap(\.self)) }
             ).map { step in intern(locator.appending(step)) }
             let shownCells: [Control.Cell] = (cells[element.id] ?? []).filter { cell in cell.role == kAXStaticTextRole }.compactMap { cell in
                 cell.text(kAXValueAttribute).map { text in Control.Cell(column: columned[cell.id], text: text) }
@@ -710,7 +729,7 @@ extension Model {
                 scroll: area.map { area in Control.Scroll(contentSize: area.facts[contentSizeAttribute]?.size, horizontalScrollBar: bars[0], verticalScrollBar: bars[1]) },
                 selectedTextRanges: ranges?.compactMap { range in range.range.map { range in Control.TextRange(location: range.location, length: range.length) } },
                 numberOfCharacters: element.facts[kAXNumberOfCharactersAttribute]?.integer,
-                insertionPointLineNumber: element.facts[kAXInsertionPointLineNumberAttribute]?.integer,
+                insertionPointLineNumber: element.facts[kAXInsertionPointLineNumberAttribute]?.integer.flatMap { line in line == NSNotFound ? nil : line },
                 runs: hierarchy.runs[element.id],
                 invalid: element.text(kAXInvalidAttribute).flatMap(Control.Invalid.init(rawValue:)),
                 required: element.flag(NSAccessibility.Attribute.required.rawValue),
@@ -749,7 +768,7 @@ extension Model {
                 frame: element.frame,
                 layer: row?.layer,
                 modal: modal,
-                asking: declared || kind.asking(modal: modal),
+                asking: declared || kind.asking(modal: modal) || row?.remote != nil,
                 focused: element.flag(kAXFocusedAttribute) ?? element.flag(kAXMainAttribute),
                 parent: owners[element.id].flatMap { owner in refs[owner] },
                 default: element.facts[kAXDefaultButtonAttribute]?.element.flatMap { button in refs[button] },

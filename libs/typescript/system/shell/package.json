@@ -36,6 +36,7 @@
         "access": "public"
     },
     "dependencies": {
+        "@rasm/process": "workspace:*",
         "sh-syntax": "catalog:"
     },
     "devDependencies": {

@@ -20,6 +20,7 @@
         "@rasm/indesign": "workspace:*",
         "@rasm/mcp": "workspace:*",
         "@rasm/object-model": "workspace:*",
+        "@rasm/process": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/telemetry": "workspace:*",
         "@rasm/typography": "workspace:*",
@@ -30,7 +31,6 @@
     "devDependencies": {
         "@adobe/cc-ext-uxp-types": "catalog:",
         "@adobe/premierepro": "catalog:",
-        "@rasm/process": "workspace:*",
         "@rasm/vite": "workspace:*",
         "@types/node": "catalog:",
         "@types/photoshop": "catalog:",

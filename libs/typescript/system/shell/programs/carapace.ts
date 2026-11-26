@@ -1,5 +1,5 @@
-import { Array, Cause, Effect, Order, Record, Schema, SchemaGetter, SchemaIssue, Stream } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { run } from '@rasm/process';
+import { Array, Effect, Order, Record, Schema, SchemaGetter, SchemaIssue } from 'effect';
 import { Flag, overlay, Usage } from '#/programs/usage';
 import { ShellError } from '#/syntax/script';
 
@@ -55,19 +55,15 @@ const Chunk = Schema.Struct({ carapace: Schema.String, groups: Schema.Array(Sche
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const run = Effect.fnUntraced(function* (args: readonly string[]) {
-    const handle = yield* (yield* ChildProcessSpawner.ChildProcessSpawner).spawn(ChildProcess.make('carapace', args, { stdin: 'ignore' }));
-    const [printed, refused, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return yield* code === 0 ? Effect.succeed(printed) : Effect.fail(new Cause.UnknownError(refused, `carapace ${args.join(' ')} exited with ${code}`));
-}, Effect.scoped);
-const release = Effect.all([run(['--version']), Effect.flatMap(run(['--list']), Schema.decodeEffect(Listing))]).pipe(
+const carapace = (...args: readonly string[]) => Effect.map(run(['carapace', ...args]), ({ stdout }) => stdout);
+const release = Effect.all([carapace('--version'), Effect.flatMap(carapace('--list'), Schema.decodeEffect(Listing))]).pipe(
     Effect.map(([version, completers]) => ({ carapace: version.trim(), groups: Array.sort(Array.dedupe(Record.values(completers).flatMap(Array.map(({ group }) => group))), Order.String), completers })),
     Effect.asSome,
     Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeedNone),
     Effect.mapError(ShellError.of({ _tag: 'Host' }, 'carapace --version --list')),
 );
 const describe = (program: string) =>
-    run([program, 'export']).pipe(
+    carapace(program, 'export').pipe(
         Effect.flatMap((printed) => (printed.trim() === '' ? Effect.succeedNone : Effect.asSome(Schema.decodeEffect(Export)(printed)))),
         Effect.mapError(ShellError.of({ _tag: 'Host' }, `carapace ${program} export`)),
     );

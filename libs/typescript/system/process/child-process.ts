@@ -1,5 +1,5 @@
-import { toEnvironment } from '@rasm/telemetry/node';
-import { Array, Effect, Option, Schema, Stream, String } from 'effect';
+import { Array, Effect, Option, Record, Schema, Stream, String } from 'effect';
+import { HttpTraceContext } from 'effect/http';
 import { ChildProcess, CommandLine } from 'effect/process';
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -11,13 +11,14 @@ class ExitError extends Schema.TaggedError<ExitError, { readonly brand: unique s
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const spawn = Effect.fn('spawn')(function* (argv: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) {
-    const traced = yield* toEnvironment;
+    const traced = Option.match(yield* Effect.option(Effect.currentSpan), { onNone: () => ({}), onSome: (span) => Record.mapKeys(HttpTraceContext.toHeaders(span), String.toUpperCase) });
     return yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { extendEnv: true, ...options, env: { ...traced, ...options?.env } });
 });
 const run = Effect.fn('run')(function* (argv: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) {
     const handle = yield* spawn(argv, { stdin: 'ignore', ...options, detached: false });
     const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? { stdout, stderr } : yield* ExitError.of({ command: CommandLine.display(argv), code, stdout, stderr });
+    const exited = { command: CommandLine.display(argv), code, stdout, stderr };
+    return code === 0 ? exited : yield* ExitError.of(exited);
 }, Effect.scoped);
 
 // --- [EXPORTS] -------------------------------------------------------------------------

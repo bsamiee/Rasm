@@ -12,7 +12,7 @@ import { serve } from '@rasm/mcp/cli';
 import { Link } from '@rasm/mcp/link';
 import { Upstream } from '@rasm/mcp/upstream';
 import { Specifier } from '@rasm/object-model/model';
-import { Dialogs, EvaluationRpcs, RenderRpcs } from '@rasm/object-model/rpcs';
+import { Dialogs, EvaluationRpcs, Failure, RenderRpcs } from '@rasm/object-model/rpcs';
 import { teardown } from '@rasm/telemetry/node';
 import { UxpManifest } from '@rasm/uxp/manifest';
 import { Effect, Layer, Option, Predicate, Schema } from 'effect';
@@ -27,7 +27,7 @@ import { typography } from '#/typography';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const tools = Effect.fnUntraced(function* (identifier: string) {
-    const links = yield* Link.listen(EvaluationRpcs.merge(RenderRpcs, TypesettingRpcs, SourceRpcs, Link.Rpcs.omit('tools/list', 'events')).middleware(Dialogs), UxpManifest.origin);
+    const links = yield* Link.listen(EvaluationRpcs.merge(RenderRpcs, TypesettingRpcs, SourceRpcs.failing(Failure), Link.Rpcs.omit('tools/list', 'events')).middleware(Dialogs), UxpManifest.origin);
     yield* Upstream.serve([Upstream.fromLinks(links), native], { route: yield* route });
     yield* Tools.register({
         descriptions: { ...DESCRIPTIONS, execute_script: DESCRIPTION },

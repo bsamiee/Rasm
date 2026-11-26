@@ -15,9 +15,6 @@
     ],
     "type": "module",
     "sideEffects": false,
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "exports": {
         "./host": "./host.ts",
         "./script": "./script.ts",

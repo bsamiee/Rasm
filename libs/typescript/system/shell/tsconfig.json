@@ -1,4 +1,9 @@
 {
     "extends": "../../../../tsconfig.base.json",
-    "include": ["**/*", "usage/*.json"]
+    "include": ["**/*", "usage/*.json"],
+    "references": [
+        {
+            "path": "../process"
+        }
+    ]
 }

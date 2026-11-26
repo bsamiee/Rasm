@@ -2,7 +2,7 @@ import { Handles } from '@rasm/mcp/handles';
 import type { EngineInterface, On } from 'claude-code';
 import { Array, Cache, Cause, Context, Data, Duration, Effect, Exit, Function, HashSet, Layer, Logger, ManagedRuntime, MutableRef, Option, Predicate, Record, Ref, Result, Schema, Stream, Struct } from 'effect';
 import { HttpApiClient } from 'effect/http-api';
-import { Host, NetAddress } from 'effect/net';
+import { Host } from 'effect/net';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -45,15 +45,10 @@ function link($: EngineInterface) {
                 Ref.make<Record.ReadonlyRecord<string, string>>({}),
                 Ref.make(HashSet.empty<Option.Option<string>>()),
             ]);
-            const resident = (origin: string) =>
-                Result.match(Host.hostPortFromString(new URL(origin).host), {
-                    onFailure: Function.constFalse,
-                    onSuccess: ({ host }) => (Host.isDomainName(host) ? (hosts.get(Host.toRelative(host)) ?? []) : Array.filter([host], NetAddress.isIpAddress)).some(NetAddress.isLoopback),
-                });
             const deliver =
                 (agent: Option.Option<string>, urls: HttpApiClient.UrlBuilder<typeof Handles>, { handle, server }: typeof Handles.Binding.Type) =>
                 (lines: Array.NonEmptyReadonlyArray<typeof Handles.Event.Type>) => {
-                    const text = [`MCP server ${server} reports:`, ...Array.map(lines, Struct.get('line'))].join('\n');
+                    const text = Handles.report(server, lines);
                     const last = Array.lastNonEmpty(lines);
                     return Effect.when(
                         request('acknowledging events', () => $.http.fetch(urls.ack({ params: { handle }, query: { through: last.sequence } }), { method: Handles.groups.handles.endpoints.ack.method })).pipe(Effect.filterOrFail(Struct.get('ok'))),
@@ -85,10 +80,10 @@ function link($: EngineInterface) {
                 Effect.fnUntraced(function* (binding: Binding) {
                     const urls = HttpApiClient.urlBuilder(Handles, { baseUrl: binding.origin });
                     const { text: bound } = yield* Effect.flatMap(
-                        request('binding a handle', () => $.http.fetch(urls.bind(), { method: Handles.groups.handles.endpoints.bind.method })),
+                        request('binding a handle', () => $.http.fetch(urls.bind({ query: {} }), { method: Handles.groups.handles.endpoints.bind.method })),
                         Schema.decodeUnknownEffect(Claimed),
                     );
-                    yield* Stream.fromAsyncIterable($.process.spawn({ argv: ['curl', '--silent', '--fail', '--no-buffer', urls.follow({ params: { handle: bound.handle } })] }), (cause) => new Cause.UnknownError(cause)).pipe(
+                    yield* Stream.fromAsyncIterable($.process.spawn({ argv: ['curl', '--silent', '--fail', '--no-buffer', urls.events({ params: { handle: bound.handle }, query: { follow: true } })] }), (cause) => new Cause.UnknownError(cause)).pipe(
                         Stream.filterMap((chunk) => (chunk.stream === 'stdout' ? Result.succeed(chunk.text) : Result.failVoid)),
                         Stream.splitLines,
                         Stream.mapEffect((line) => Schema.decodeEffect(Event)(line)),
@@ -105,7 +100,7 @@ function link($: EngineInterface) {
             const lookup = (read: (binding: Binding) => Effect.Effect<Option.Option<string>>) => (tool: string, agent: Option.Option<string>) =>
                 Effect.flatMap(Ref.get(origins), (known) => Option.match(Record.get(known, tool), { onNone: () => Effect.succeedNone, onSome: (origin) => read(new Binding({ origin, agent })) }));
             return {
-                describe: (tool, given) => Ref.update(origins, (known) => Option.match(Option.filter(given, resident), { onNone: () => Record.remove(known, tool), onSome: (local) => Record.set(known, tool, local) })),
+                describe: (tool, given) => Ref.update(origins, (known) => Option.match(Option.filter(given, Handles.local(hosts)), { onNone: () => Record.remove(known, tool), onSome: (local) => Record.set(known, tool, local) })),
                 handle: lookup((binding) => Effect.option(Cache.get(bindings, binding))),
                 held: lookup((binding) => Cache.getSuccess(bindings, binding)),
                 turn: (agent, running) => Ref.update(busy, running ? HashSet.add(agent) : HashSet.remove(agent)),

@@ -2,7 +2,7 @@ import { pathToFileURL } from 'node:url';
 import { Output, setting } from '@rasm/mcp/cli';
 import { Handle, Server } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Cause, Context, DateTime, Duration, Effect, Equal, Function, Hash, HashMap, HashSet, Match, Option, Predicate, pipe, Record, Ref, Request, RequestResolver, Result, Schema, Stream, Struct, SubscriptionRef, Tuple, UndefinedOr } from 'effect';
+import { Array, ByteSize, Cause, Context, DateTime, Duration, Effect, Equal, Function, Hash, HashMap, HashSet, Match, Option, Predicate, pipe, Record, Ref, Request, RequestResolver, Result, Schema, Stream, Struct, SubscriptionRef, Tuple, UndefinedOr } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
 import { Flag } from 'effect/cli';
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
@@ -22,6 +22,11 @@ type Drawn = Option.Option<{ readonly instance: InstanceSnapshot['instance']; re
 type Step = Tool.Parameters<typeof TOOLS.act>['steps'][number];
 type Sample = Exclude<Extract<Step, { readonly pointer: unknown }>['pointer'], string>;
 type Route = (ref: number) => Option.Option<Description['containers'][number]['locator']>;
+interface Run<A> {
+    readonly entries: readonly A[];
+    readonly outcomes: (typeof Act.Result.Type)['outcomes'];
+    readonly acted: Option.Option<typeof Act.Result.Type>;
+}
 interface Placement {
     readonly instance: InstanceSnapshot['instance'];
     readonly windows: readonly number[];
@@ -123,7 +128,7 @@ const TOOLS = {
     }).annotate(Tool.Readonly, true),
     act: Tool.make('act', {
         description:
-            'Runs steps on the target in order without bringing it forward, each aimed at a reference or label path as inspect prints it: a step with at presses it, with to sets the value its kind takes (an option label chooses, text on the clipboard reference copies), with range selects or replaces text; key posts a key with modifiers; pointer clicks, drags, strokes, hovers, or scrolls at a reference or at a point [x, y] counted in pixels of the last image a view returned for the target, never in screen points, act placing it on the screen through that image, holding a press across steps by edge. A reference the last read of this handle printed runs with no new read, and a label path or remembered item reads the target first; a step at a remembered item presses the items the map saw open its menu or dialog, in the same call. Each step climbs from an Accessibility call, or from the rung that last passed on the control in this build, through background event routes and reads back what it changed, the system route last bringing the target forward and saying so; every malformed step, and every remembered item nothing shown opens or its open container no longer holds, is refused before any runs. Returns each outcome and the state once the target answers, idle, not responding, or quiet for a beat, with its usage saying why a busy target has not answered; inspect with wait follows it further. With record it also records the front window of the target from before the first step until the target answers and returns its key frames after the outcomes, as view with seconds does, each frame line naming the steps begun before it',
+            'Runs steps on the target in order without bringing it forward, each aimed at a reference or label path as inspect prints it: a step with at presses it, with to sets the value its kind takes (an option label chooses, text on the clipboard reference copies), with range selects or replaces text; key posts a key with modifiers; pointer clicks, drags, strokes, hovers, or scrolls at a reference or at a point [x, y] counted in pixels of the last image a view returned for the target, never in screen points, act placing it on the screen through that image, holding a press across steps by edge. A reference the last read of this handle printed runs with no new read, and a label path or remembered item reads the target first; a step at a remembered item presses the items the map saw open its menu or dialog, in the same call. A pointer step on a canvas region a linked source states draws there first through a member of the host with its current tool, moving no pointer and activating nothing, and names what the member does not carry. Each step climbs from an Accessibility call, or from the rung that last passed on the control in this build, through background event routes and reads back what it changed, the system route last bringing the target forward and saying so; every malformed step, and every remembered item nothing shown opens or its open container no longer holds, is refused before any runs. Returns each outcome and the state once the target answers, idle, not responding, or quiet for a beat, with its usage saying why a busy target has not answered; inspect with wait follows it further. With record it also records the front window of the target from before the first step until the target answers and returns its key frames after the outcomes, as view with seconds does, each frame line naming the steps begun before it',
         parameters: Schema.Struct({
             steps: Act.steps(Address.At, {}, {}),
             record: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Record the front window while the steps run, returning the state before them and the last state whole, each state between cropped to its change' })),
@@ -136,7 +141,7 @@ const TOOLS = {
         success: Schema.Struct({ result: Schema.OptionFromOptionalKey(Schema.Json), written: Schema.optionalKey(Written) }),
     }).annotate(Tool.OpenWorld, false),
     diagnostics: Tool.make('diagnostics', {
-        description: 'Reads diagnostics newest first, one line each: without application, the log lines of the server under the file holding them; with one, its crash, hang, and diagnostic reports and its unified log',
+        description: 'Reads diagnostics newest first, one line each: without application, the log lines of the server under the file holding them; with one, its crash, hang, and diagnostic reports, the sample report taken each time it stopped responding, and its unified log',
         parameters: Schema.Struct({
             application: Schema.optionalKey(Schema.String.annotate({ description: 'Listed name, product, bundle identifier, alias, or bundle URL, a product listed in several forms taking the first form listed; the server itself when absent' })),
             since: Diagnostics.fields.since,
@@ -316,14 +321,32 @@ const prepared = <E, F>(instance: InstanceSnapshot['instance'], { base, map, rou
         Option.filter((placement: Placement) => placement.instance === instance),
     );
     const aim = (at: string | Sample): Effect.Effect<number | Sample, E | F | Cause.IllegalArgumentError> => (Predicate.isString(at) ? Effect.map(reach(at), (ref): number | Sample => ref) : Effect.flatMap(viewed, (held) => Effect.fromResult(pointOf(held, at))));
-    const plain = { at: Option.none<Option.Option.Value<ReturnType<typeof Address.locate>>>(), start: 'accessibility' as typeof Act.Rung.Type, opener: Option.none<number>(), openers: [], facet: Option.none<{ readonly locator: Description['containers'][number]['locator']; readonly to?: typeof Value.Type }>() };
+    const plain = { at: Option.none<Option.Option.Value<ReturnType<typeof Address.locate>>>(), start: 'accessibility' as typeof Act.Rung.Type, opener: Option.none<number>(), openers: [], facet: Option.none<typeof Description.Operation.Type>() };
+    const canvases = Array.filterMap(base.items, ({ target }) =>
+        target._tag === 'Control' && target.control.kind === 'region' ? Result.fromOption(Option.all({ ref: Option.some(target.control.ref), locator: route(target.control.ref), frame: Option.fromUndefinedOr(target.control.frame) }), Function.constVoid) : Result.failVoid,
+    );
+    const canvasAt = (pointer: number | Sample) =>
+        Predicate.isNumber(pointer)
+            ? Option.map(
+                  Array.findFirst(canvases, ({ ref }) => ref === pointer),
+                  ({ locator, frame: [[left, top], [width, height]] }): { readonly locator: Description['containers'][number]['locator']; readonly pointer: Sample } => ({ locator, pointer: [left + width / 2, top + height / 2] }),
+              )
+            : Option.map(
+                  Array.findFirst(canvases, ({ frame: [[left, top], [width, height]] }) => pointer[0] >= left && pointer[0] < left + width && pointer[1] >= top && pointer[1] < top + height),
+                  ({ locator }) => ({ locator, pointer }),
+              );
     return (step: Step) =>
         Match.value(step).pipe(
             Match.when({ pointer: Match.defined }, (pointing) =>
-                Effect.map(Effect.all([aim(pointing.pointer), Effect.forEach(pointing.path ?? [], aim, { concurrency: 'unbounded' }), viewed], { concurrency: 'unbounded' }), ([pointer, path, held]) => ({
-                    ...plain,
-                    step: { ...pointing, pointer, path, ...([pointing.pointer, ...(pointing.path ?? [])].some(Predicate.not(Predicate.isString)) ? Option.getOrUndefined(Option.map(held, Struct.pick(['windows']))) : {}) },
-                })),
+                Effect.map(Effect.all([aim(pointing.pointer), Effect.forEach(pointing.path ?? [], aim, { concurrency: 'unbounded' }), viewed], { concurrency: 'unbounded' }), ([aimed, path, held]) => {
+                    const landed = canvasAt(aimed);
+                    const pointer = Option.match(landed, { onNone: () => aimed, onSome: Struct.get('pointer') });
+                    return {
+                        ...plain,
+                        facet: Array.every(path, (point): point is Sample => !Predicate.isNumber(point)) ? Option.map(landed, ({ locator, pointer: start }): typeof Description.Operation.Type => ({ locator, input: { ...pointing, pointer: start, path } })) : Option.none(),
+                        step: { ...pointing, pointer, path, ...([pointer, ...path].some(Predicate.not(Predicate.isNumber)) ? Option.getOrUndefined(Option.map(held, Struct.pick(['windows']))) : {}) },
+                    };
+                }),
             ),
             Match.when({ key: Match.defined }, ({ at, ...keyed }) => Effect.map(Effect.transposeOption(Option.map(Option.fromUndefinedOr(at), reach)), Option.match({ onNone: () => ({ ...plain, step: keyed }), onSome: (ref) => ({ ...plain, step: { ...keyed, at: ref } }) }))),
             Match.orElse((pressing) =>
@@ -333,14 +356,14 @@ const prepared = <E, F>(instance: InstanceSnapshot['instance'], { base, map, rou
                     const opening = item.live ? [] : yield* Effect.fromResult(Result.mapError(Address.opening(Address.recall(base)(map), item), (refused) => new Cause.IllegalArgumentError(refused)));
                     const [ref, refs] = yield* Effect.all([refOf(item), Effect.forEach(opening, refOf, { concurrency: 'unbounded' })], { concurrency: 'unbounded' });
                     const located = Address.locate(item);
-                    const from = Option.flatMap(located, map.route.bind(map));
+                    const from = Option.filter(Option.flatMap(located, map.route.bind(map)), (rung): rung is Exclude<typeof Act.Rung.Type, 'source'> => rung !== 'source');
                     const to = Option.getOrUndefined(Option.map(Option.filter(Option.fromUndefinedOr(pressing.to), Schema.is(Value)), (value) => ({ to: value })));
                     return {
                         ...plain,
                         at: located,
                         start: Option.getOrElse(from, () => plain.start),
                         openers: Array.zipWith(opening, refs, (opener, at) => ({ ...plain, opener: Option.some(at), at: Address.locate(opener), step: { at } })),
-                        facet: Option.map(route(ref), (locator) => ({ locator, ...to })),
+                        facet: Option.map(route(ref), (locator): typeof Description.Operation.Type => ({ locator, ...to })),
                         step: { ...pressing, at: ref, ...Option.getOrUndefined(Option.map(from, (rung) => ({ from: rung }))) },
                     };
                 }),
@@ -480,6 +503,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
         const read = (scope: typeof Scope.Type) => server.model({ instance, scope });
         const [accessible, menus, client] = yield* Effect.all([server.model({ instance, scope: { _tag: 'application' }, ...Option.getOrUndefined(Option.map(map.known, (known) => ({ known }))) }), read({ _tag: 'menus' }), Effect.option(linked(row))], { concurrency: 'unbounded' });
         const application: Model = yield* Option.match(client, { onNone: () => Effect.succeed(accessible), onSome: (from) => facets({ row, live }, from, accessible, {}) });
+        yield* maps.sight(live, application.pointer);
         const [route, handle] = yield* Effect.all([routeOf(instance), Handle]);
         const indexed = (containers: Model['containers']) => Address.index({ ...application, containers });
         const base = indexed(Array.unionWith(application.containers, menus.containers, (left, right) => left.ref === right.ref));
@@ -616,7 +640,13 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                     ),
             });
             const changed = HashSet.fromIterable(Option.toArray(Option.flatMap(first, ({ change }) => (Event.fields.change.isAnyOf(['focused', 'value', 'selection'])(change) ? Option.some(change.control) : Option.none()))));
-            const [{ application, map, indexed, level, base, handle }, clipboard, stated, strained] = yield* Effect.all([modelled(aimed), whole ? clipboardLine(live.instance) : Effect.succeedNone, session, pressure], { concurrency: 'unbounded' });
+            const [opening, [elapsed, [{ application, map, indexed, level, base, handle }, clipboard, stated, strained]], closing] = yield* Effect.all([
+                server.traffic,
+                Effect.timed(Effect.all([modelled(aimed), whole ? clipboardLine(live.instance) : Effect.succeedNone, session, pressure], { concurrency: 'unbounded' })),
+                server.traffic,
+            ]);
+            const cost = { calls: closing.requests - opening.requests, bytes: closing.bytes - opening.bytes, seconds: Duration.toSeconds(elapsed) };
+            yield* whole ? Effect.annotateLogs(Effect.logInfo('Inspect read'), { application: row.identifier, build: Option.getOrElse(map.coverage.build, () => 'unmapped'), ...cost }) : Effect.void;
             const recalled = Address.recall(base)(map);
             const lookup = (at: string | undefined) =>
                 Result.transposeMapOption(Option.fromUndefinedOr(at), (held) => {
@@ -677,27 +707,41 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             );
             const status = InstanceState.matchOrElse(live.state, { running: (activity) => [`${InstanceState.Status.matchOrElse(activity.status, { unresponsive: ({ thread }) => `unresponsive, main thread ${thread}` }, ({ _tag }) => _tag)}${describeUsage(activity)}`, activity.active ? 'front' : 'behind'] }, Array.empty);
             const { tool, shortcut, help, holding = [], operations = [], cursor, draggingFrame } = application.pointer ?? {};
+            const seenWith = pipe(
+                Option.fromUndefinedOr(cursor),
+                Option.flatMap(Cursor.match({ system: () => Option.none<string>(), custom: ({ digest }) => Option.some(digest) })),
+                Option.flatMap((digest) => map.cursor(digest)),
+                Option.map(Record.filter((_, named) => named !== tool)),
+                Option.map(Record.collect((named, count) => `tool ${named} ×${count}`)),
+                Option.filter(Array.isReadonlyArrayNonEmpty<string>),
+                Option.map((pairs) => `seen with ${pairs.join(', ')}`),
+            );
             const pointed = [
                 ...Array.fromNullishOr(tool).map((named) => `tool ${named}`),
                 ...Array.fromNullishOr(shortcut).map(Outline.shortcut),
                 ...(Array.isReadonlyArrayNonEmpty(holding) ? [`holding ${holding.join(', ')}`] : []),
                 ...(Array.isReadonlyArrayNonEmpty(operations) ? [`operations ${operations.join(' > ')}`] : []),
-                ...Array.fromNullishOr(cursor).map((held) => Cursor.match(held, { system: ({ name }) => `cursor ${name}`, custom: ({ digest, size }) => `cursor custom ${digest.slice(0, 8)} ${size.join('×')}` })),
+                ...Array.fromNullishOr(cursor).map((held) => Cursor.match(held, { system: ({ name }) => `cursor ${name}`, custom: ({ digest, size }) => [`cursor custom ${digest.slice(0, 8)} ${size.join('×')}`, ...Option.toArray(seenWith)].join(', ') })),
                 ...(draggingFrame === undefined ? [] : ['dragging']),
             ];
             yield* Server.ToolCall.use((call) => call.state([[row.name, ...status, ...pointed, ...stated, ...strained].join(' · '), ...Array.fromNullishOr(help)].join('\n')));
             return [
                 ...lines,
-                ...(whole && Option.isSome(coverage.build)
+                ...(whole
                     ? [
                           [
-                              `▸ map of build ${coverage.build.value}: ${Record.collect(coverage.known, (each, count) => `${each} ×${count}`).join(', ')}`,
-                              `${Record.size(Record.filter(map.containers, (_, locator) => !Record.has(base.located, locator)))} not open now, find searches them`,
-                              ...(coverage.earlier > 0 ? [`${coverage.earlier} seen only in earlier builds`] : []),
-                              Array.match(
-                                  Struct.keys(GAPS).flatMap((gap) => Array.match(coverage.unopened[gap], { onEmpty: Array.empty, onNonEmpty: (openers) => [`${GAPS[gap]} ×${openers.length}`] })),
-                                  { onEmpty: () => 'every opener seen was opened', onNonEmpty: (gaps) => `never seen open: ${gaps.join(', ')}, ${Outline.call([Outline.quoted('unopened', true)])} lists them` },
-                              ),
+                              `▸ this read ${cost.calls} calls, ${ByteSize.format(ByteSize.bytes(cost.bytes))}, ${Duration.format(elapsed)}`,
+                              ...(Record.isEmptyRecord(map.containers)
+                                  ? ['map holds nothing of this application yet']
+                                  : [
+                                        `map of ${Option.match(coverage.build, { onNone: () => 'its build, its bundle stating no CFBundleVersion', onSome: (build) => `build ${build}` })}: ${Record.collect(coverage.known, (each, count) => `${each} ×${count}`).join(', ')}`,
+                                        `${Record.size(Record.filter(map.containers, (_, locator) => !Record.has(base.located, locator)))} not open now, find searches them`,
+                                        ...(coverage.earlier > 0 ? [`${coverage.earlier} seen only in earlier builds`] : []),
+                                        Array.match(
+                                            Struct.keys(GAPS).flatMap((gap) => Array.match(coverage.unopened[gap], { onEmpty: Array.empty, onNonEmpty: (openers) => [`${GAPS[gap]} ×${openers.length}`] })),
+                                            { onEmpty: () => 'every opener seen was opened', onNonEmpty: (gaps) => `never seen open: ${gaps.join(', ')}, ${Outline.call([Outline.quoted('unopened', true)])} lists them` },
+                                        ),
+                                    ]),
                           ].join(' · '),
                       ]
                     : []),
@@ -735,40 +779,72 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                 (first, second) => Option.isSome(first.opener) && Equal.equals(first.opener, second.opener),
             );
             const operated = Array.getSomes(ready.map(Struct.get('facet')));
-            yield* operated.length === 0 || operated.length === ready.length ? Effect.void : new Cause.IllegalArgumentError(`act takes facet and Accessibility references in calls of their own, and its ${ready.length} steps name ${operated.length} facet references`);
             yield* record && operated.length > 0 ? new Cause.IllegalArgumentError('act records steps the application server runs, and facet references run through the linked source of the target') : Effect.void;
-            const client = yield* Effect.transposeOption(Option.as(Array.head(operated), linked(row)));
-            if (Option.isSome(client)) {
-                const outcomes = yield* Stream.fromIterable(operated).pipe(
-                    Stream.mapEffect((payload) => Effect.result(client.value('operate', payload))),
-                    Stream.takeUntil(Result.isFailure),
-                    Stream.map(Result.map(() => ({ proof: 'answer' as const, tried: [], popUps: [] }))),
-                    Stream.runCollect,
-                );
-                yield* Server.ToolCall.use(Struct.get('awaitRunning'));
-                return { outcomes, state: live.state };
-            }
+            const client = yield* Effect.cached(linked(row));
             const window = record ? Option.some(yield* frontWindow(row.name, live.state)) : Option.none<number>();
-            const acted = yield* server.act({
-                instance: live.instance,
-                steps: Array.map(ready, Struct.get('step')),
-                ...Option.getOrUndefined(Option.map(window, (number) => ({ record: { source: { _tag: 'windows' as const, numbers: Array.of(number) }, longestSide: Option.some(side), frames: FRAMES } }))),
+            const recorded = Option.getOrUndefined(Option.map(window, (number) => ({ record: { source: { _tag: 'windows' as const, numbers: Array.of(number) }, longestSide: Option.some(side), frames: FRAMES } })));
+            const sent = Effect.fnUntraced(function* (entries: Array.NonEmptyReadonlyArray<(typeof ready)[number]>) {
+                const acted = yield* server.act({ instance: live.instance, steps: Array.map(entries, Struct.get('step')), ...recorded });
+                return { entries, outcomes: acted.outcomes, acted: Option.some(acted) } satisfies Run<(typeof ready)[number]>;
             });
-            const proofs = Array.getSomes(Array.zipWith(ready, acted.outcomes, ({ at, start }, outcome) => Option.all({ at, from: Option.some(start), outcome: Option.some(outcome) })));
+            const operate = Effect.fnUntraced(function* (entry: (typeof ready)[number]) {
+                const { facet } = entry;
+                if (Option.isNone(facet)) {
+                    return yield* sent([entry]);
+                }
+                const reached = yield* Effect.result(client);
+                const answered = Result.isFailure(reached) ? Result.fail(reached.failure) : yield* Effect.result(reached.success('operate', facet.value));
+                if (Result.isSuccess(answered)) {
+                    return { entries: [], outcomes: [Result.succeed({ proof: 'answer' as const, ...(Schema.is(Act.Route)(answered.success) ? { route: answered.success } : {}), tried: [], popUps: [] })], acted: Option.none() };
+                }
+                const refused = { rung: 'source' as const, failure: answered.failure.message };
+                if (!('input' in facet.value)) {
+                    return { entries: [], outcomes: [Result.fail(answered.failure)], acted: Option.none() };
+                }
+                const fallen = yield* sent([entry]);
+                return {
+                    ...fallen,
+                    outcomes: Array.map(
+                        fallen.outcomes,
+                        Result.mapBoth({
+                            onSuccess: (delivery) => ({ ...delivery, tried: [refused, ...delivery.tried] }),
+                            onFailure: (cause) => new Cause.UnknownError(cause, `${cause.message}, after the host source refused it: ${refused.failure}`),
+                        }),
+                    ),
+                };
+            });
+            const pieces = yield* Stream.fromIterable(Array.isReadonlyArrayNonEmpty(ready) ? Array.groupWith(ready, (left, right) => Option.isSome(left.facet) === Option.isSome(right.facet)) : []).pipe(
+                Stream.flatMap((group) => (Option.isNone(Array.headNonEmpty(group).facet) ? Stream.fromEffect(sent(group)) : Stream.mapEffect(Stream.fromIterable(group), operate))),
+                Stream.takeUntil(({ outcomes }) => outcomes.some(Result.isFailure)),
+                Stream.runCollect,
+            );
+            const acted = Array.last(Array.getSomes(Array.map(pieces, Struct.get('acted'))));
+            const state = Option.match(acted, { onNone: () => live.state, onSome: Struct.get('state') });
             yield* Effect.all(
                 [
-                    maps.prove(live, proofs),
+                    maps.prove(
+                        live,
+                        Array.getSomes(
+                            Array.map(
+                                Array.flatMap(pieces, ({ entries, outcomes }) => Array.zip(entries, outcomes)),
+                                ([{ at, start }, outcome]) => Option.all({ at, from: Option.some(start), outcome: Option.some(outcome) }),
+                            ),
+                        ),
+                    ),
                     SubscriptionRef.update(
                         running,
-                        Array.map((each) => (each.instance === live.instance ? InstanceSnapshot.make({ ...each, state: acted.state }) : each)),
+                        Array.map((each) => (each.instance === live.instance ? InstanceSnapshot.make({ ...each, state }) : each)),
                     ),
                 ],
                 { discard: true },
             );
-            const frames = Option.match(Option.fromUndefinedOr(acted.recording), {
-                onNone: Array.empty,
-                onSome: Result.match({ onFailure: ({ message }) => [{ line: `${row.name} · recording failed: ${message}`, image: Option.none() }], onSuccess: (recording) => keyFramesOf(row.name, live, recording) }),
-            });
+            const frames = Option.match(
+                Option.flatMap(acted, (held) => Option.fromUndefinedOr(held.recording)),
+                {
+                    onNone: Array.empty,
+                    onSome: Result.match({ onFailure: ({ message }) => [{ line: `${row.name} · recording failed: ${message}`, image: Option.none() }], onSuccess: (recording) => keyFramesOf(row.name, live, recording) }),
+                },
+            );
             yield* Array.match(frames, {
                 onEmpty: () => Effect.void,
                 onNonEmpty: (held) =>
@@ -778,7 +854,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                     ),
             });
             yield* Server.ToolCall.use(Struct.get('awaitRunning'));
-            return Struct.omit(acted, ['recording']);
+            return { ...Option.getOrUndefined(Option.map(acted, Struct.omit(['recording', 'outcomes', 'state']))), outcomes: Array.flatMap(pieces, Struct.get('outcomes')), state };
         }),
     );
     yield* Server.registerTool(describeTool(TOOLS.execute_script, descriptions.execute_script).annotateMerge(ends), ({ code }) => Effect.flatMap(current, (aim) => run(aim, code)));
@@ -800,6 +876,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             ]);
             const lines = [
                 ...found.reports.map((report) => printEntry(report, ['kind', 'date'])),
+                ...found.samples.map((report) => `sample ${report.href}`),
                 ...logged.flat(),
                 ...Result.match(found.unified, {
                     onFailure: ({ message }) => [`unified log unread: ${message}`],
@@ -810,7 +887,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                 }),
                 ...found.unreadable.map((cause) => `unreadable: ${cause}`),
             ];
-            return Array.match(lines, { onEmpty: () => 'no report, log line, or unified log event matched', onNonEmpty: (held) => held.join('\n') });
+            return Array.match(lines, { onEmpty: () => 'no report, sample, log line, or unified log event matched', onNonEmpty: (held) => held.join('\n') });
         }),
     );
 });

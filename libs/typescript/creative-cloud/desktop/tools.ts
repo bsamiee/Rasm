@@ -2,7 +2,7 @@ import { KeyStep } from '@rasm/applications/contract';
 import type { Declaration } from '@rasm/applications/source';
 import { readVersionAndDescriptor } from 'ag-psd/dist/descriptor.js';
 import { createReader, readSignature, readUint16 } from 'ag-psd/dist/psdReader.js';
-import { Array, Cache, Context, Duration, Effect, Exit, FileSystem, Function, Glob, HashMap, Layer, Match, Option, Path, Predicate, Record, Result, Schema, SchemaGetter, SchemaIssue, Stream } from 'effect';
+import { Array, Cache, Context, Duration, Effect, Exit, FileSystem, Formatter, Function, Glob, HashMap, Layer, Match, Option, Path, Predicate, Record, Result, Schema, SchemaGetter, SchemaIssue, Stream } from 'effect';
 import { Xml } from 'effect/encoding';
 import type { Application } from '#/application';
 
@@ -54,7 +54,7 @@ const TOKEN = /\/(?<name>(?:\\.|[^\s\\/{}[\]<>])*)|(?<open>\{)|(?<close>\})|\[\s
 // --- [MODELS] --------------------------------------------------------------------------
 
 const named = Schema.is(KeyStep.fields.key.members[0]);
-const refused = (expected: string, input: unknown) => new SchemaIssue.InvalidValue({ expected }, input);
+const refused = (expected: string, input: unknown, cause?: unknown) => new SchemaIssue.InvalidValue({ expected, ...(cause === undefined ? {} : { message: `Expected ${expected}: ${Formatter.format(cause)}` }) }, input);
 const Shortcut = Schema.String.pipe(
     Schema.decodeTo(KeyStep, {
         decode: SchemaGetter.transformEffect((text: string) => {
@@ -84,7 +84,7 @@ const Toolbar = Schema.Uint8Array.pipe(
                     const descriptor: unknown = readVersionAndDescriptor(reader);
                     return { signature, descriptor };
                 },
-                catch: () => refused('a Photoshop settings descriptor', bytes),
+                catch: (cause) => refused('a Photoshop settings descriptor', bytes, cause),
             }),
         ),
         encode: SchemaGetter.forbiddenEncoding,
@@ -106,7 +106,7 @@ const Catalog = Schema.fromJsonString(
 );
 const Dictionary = Schema.String.pipe(
     Schema.decodeTo(Schema.Unknown, {
-        decode: SchemaGetter.transformEffect((text: string) => Effect.try({ try: () => entries(text.matchAll(TOKEN)), catch: () => refused('an Illustrator dictionary', text) })),
+        decode: SchemaGetter.transformEffect((text: string) => Effect.try({ try: () => entries(text.matchAll(TOKEN)), catch: (cause) => refused('an Illustrator dictionary', text, cause) })),
         encode: SchemaGetter.forbiddenEncoding,
     }),
 );

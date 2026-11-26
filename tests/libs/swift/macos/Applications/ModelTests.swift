@@ -237,7 +237,7 @@ extension WindowServerTests {
         }
 
         @Test(.enabled(if: AXIsProcessTrusted(), "Reading the fixture from outside needs this test process to hold the Accessibility grant"))
-        func readsEachToolbarToolWithItsTooltipAndStatesTheSelectedToolAsThePointerTool() async throws {
+        func readsEachToolbarToolWithItsTooltipAndTheSelectedToolAsTheChoiceValue() async throws {
             let passes: [Model] = try await FixtureSession.launched { fixture in
                 let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
                 let watch: Watch = await Watches().watch(try Instance(application))
@@ -255,7 +255,10 @@ extension WindowServerTests {
             let choice: Control? = toolbar?.controls.first { control in control.kind == .choice }
             let options: [Control.Option] = try #require(choice?.options)
             expectNoDifference(options.map { option in [option.label, option.help] }, Inventory.toolSegments.map { tool in [tool.label, tool.help] })
-            expectNoDifference(passes.map { model in [model.pointer?.tool, model.pointer?.help] }, Inventory.toolSegments.reversed().map { tool in [tool.label, tool.help] })
+            let selected: [String?] = passes.map { (model: Model) -> String? in
+                model.containers.first { (container: Container) -> Bool in container.kind == .toolbar }?.controls.first { (control: Control) -> Bool in control.kind == .choice }?.value?.text
+            }
+            expectNoDifference(selected, Inventory.toolSegments.reversed().map(\.label))
         }
 
         @Test(.enabled(if: AXIsProcessTrusted(), "Reading the fixture from outside needs this test process to hold the Accessibility grant"))

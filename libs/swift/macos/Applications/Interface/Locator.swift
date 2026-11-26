@@ -24,6 +24,17 @@ public struct Locator: Codable, Hashable, Sendable {
                 }
                 return folded.isEmpty ? nil : .label(value: folded)
             }
+
+            func redacting(_ named: [(name: String, url: URL)]) -> Self {
+                let text: String? =
+                    switch self {
+                        case .identifier(let value): Self.label(folding: value)?[case: \.label]
+                        case .label(let value): value
+                        case .document, .sole, .members, .offset: nil
+                    }
+                let held: URL? = text.flatMap { (text: String) -> URL? in named.first { (entry: (name: String, url: URL)) -> Bool in text.contains(entry.name) }?.url }
+                return held.map(Self.document(at:)) ?? self
+            }
         }
 
         private static var levels: [PartialCaseKeyPath<Key>] { [\.identifier, \.document, \.label, \.sole, \.members] }

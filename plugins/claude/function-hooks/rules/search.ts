@@ -1,6 +1,6 @@
 import { Array, Cause, Effect, FileSystem, Match, Option } from 'effect';
 import type { Word } from 'sh-syntax';
-import { covers, findUp, type Invocation, patternOf, rewrite, roots, run, type Table, type Verdict } from '#/rules/rule';
+import { covers, execute, findUp, type Invocation, patternOf, rewrite, roots, type Table, type Verdict } from '#/rules/rule';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -35,7 +35,7 @@ const ignores = Effect.fnUntraced(function* (invocation: Invocation, cwd: string
         Option.map(repository, (root) => ({ root, held: real.filter((path) => covers(root, path)) })),
         ({ held }) => Array.isReadonlyArrayNonEmpty(held),
     );
-    const { code } = yield* Option.match(judged, { onNone: () => Effect.succeed({ code: 1 }), onSome: ({ root, held }) => run(root)`git check-ignore --no-index -- ${held}` });
+    const { code } = yield* Option.match(judged, { onNone: () => Effect.succeed({ code: 1 }), onSome: ({ root, held }) => execute(root)(['git', 'check-ignore', '--no-index', '--', ...held]) });
     yield* Effect.when(new Cause.UnknownError(code, `git check-ignore exited ${code} on ${real.join(' ')}`), Effect.succeed(code > 1));
     return { repository, ignored: code === 0 || paths.some((path) => modules.inside.test(path)) };
 });

@@ -1,6 +1,10 @@
 import CoreServices
 public import Foundation
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+public let replyDeadline: Duration = .seconds(120)
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 let appleEventQueue: DispatchQueue = .init(label: "AppleEvents", attributes: .concurrent)

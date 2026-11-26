@@ -93,7 +93,7 @@ private func base(
     return (contact, path, hold, Input.Schedule(count: count, every: every, jitter: jitter), edges)
 }
 
-private func input(_ shape: Shape, _ draw: Draw, edges: Set<Input.Edge> = [.down, .up]) throws(ApplicationFailure) -> Input {
+private func input(_ shape: Shape, _ draw: Draw, edges: Set<Input.Edge> = [.down, .up]) -> Input {
     let hold: Duration = .milliseconds(draw.hold)
     let every: Duration? = draw.extra.map { (extra: Int) -> Duration in .milliseconds(draw.hold + draw.jitter + extra) }
     let run = Input.Schedule(count: draw.count, every: every, jitter: every == nil ? .zero : .milliseconds(draw.jitter))
@@ -108,12 +108,12 @@ private func input(_ shape: Shape, _ draw: Draw, edges: Set<Input.Edge> = [.down
     let unit: CGScrollEventUnit = draw.variant.isMultiple(of: 2) ? .pixel : .line
     let by: SIMD2<Double> = draw.points[1] + SIMD2(0, draw.points[1].y < 0 ? -1 : 1)
     return switch shape {
-        case .clicks: try Input(contact: .button(button), path: point, hold: hold, modifiers: draw.modifiers, schedule: run, edges: edges)
-        case .stroke: try Input(contact: .button(.left), path: pen, hold: hold, modifiers: draw.modifiers, schedule: single, edges: edges)
-        case .drag: try Input(contact: .button(button), path: line, hold: hold, modifiers: draw.modifiers, schedule: single, edges: edges)
-        case .hover: try Input(contact: .hover, path: line, hold: hold, modifiers: draw.modifiers, schedule: single, edges: edges)
-        case .wheel: try Input(contact: .wheel(by: by, unit: unit), path: point, hold: hold, modifiers: draw.modifiers, schedule: run, edges: edges)
-        case .key: try Input(contact: .key(keys[draw.variant % keys.count].key), path: [], hold: hold, modifiers: draw.modifiers, schedule: run, edges: edges)
+        case .clicks: Input(contact: .button(button), path: point, hold: hold, modifiers: draw.modifiers, schedule: run, edges: edges)
+        case .stroke: Input(contact: .button(.left), path: pen, hold: hold, modifiers: draw.modifiers, schedule: single, edges: edges)
+        case .drag: Input(contact: .button(button), path: line, hold: hold, modifiers: draw.modifiers, schedule: single, edges: edges)
+        case .hover: Input(contact: .hover, path: line, hold: hold, modifiers: draw.modifiers, schedule: single, edges: edges)
+        case .wheel: Input(contact: .wheel(by: by, unit: unit), path: point, hold: hold, modifiers: draw.modifiers, schedule: run, edges: edges)
+        case .key: Input(contact: .key(keys[draw.variant % keys.count].key), path: [], hold: hold, modifiers: draw.modifiers, schedule: run, edges: edges)
     }
 }
 
@@ -130,35 +130,14 @@ private func events(_ timed: [(offset: Duration, event: CGEvent)], among types: 
     timed.filter { (_: Duration, event: CGEvent) -> Bool in types.contains(event.type) }
 }
 
-private let refusals: [(contact: Input.Contact, path: [Input.Sample], hold: Duration, schedule: Input.Schedule, edges: Set<Input.Edge>)] = [
-    base(count: 0), base(hold: .milliseconds(-1)), base(count: 2, every: .milliseconds(20)), base(count: 2, jitter: .milliseconds(10)), base(points: [], pressures: []),
-    base(points: [SIMD2(10, 20), SIMD2(30, 5)], pressures: [nil, nil], count: 2, every: .milliseconds(200)),
-    base(.wheel(by: SIMD2(0, 40), unit: .pixel), points: [SIMD2(10, 20), SIMD2(30, 5)], pressures: [nil, nil]), base(.wheel(by: SIMD2(0, 1e10), unit: .pixel)),
-    base(.button(.right), pressures: [0.5]), base(pressures: [1.5]), base(points: [SIMD2(10, 20), SIMD2(30, 5)], pressures: [0.5, nil]), base(points: [SIMD2(.nan, 20)]),
-    base(.key(.code(48)), points: [], pressures: [], edges: []), base(.wheel(by: SIMD2(0.3, -0.4), unit: .line)), base(points: [SIMD2(1e10, 20)]),
-]
-
 private let edgeSets: [Set<Input.Edge>] = [[], [.down], [.up], [.down, .up]]
 
 @Suite
 struct InputTests {
-    @Test
-    func refusesNoneOfTheBaseInput() throws {
-        let row = base()
-        let made = try Input(contact: row.contact, path: row.path, hold: row.hold, modifiers: [], schedule: row.schedule, edges: row.edges)
-        expectNoDifference(made.path.count, 1)
-    }
-
-    @Test(arguments: refusals)
-    func refusesAnInputOneRuleFromTheBase(contact: Input.Contact, path: [Input.Sample], hold: Duration, schedule: Input.Schedule, edges: Set<Input.Edge>) {
-        let refusal = #expect(throws: ApplicationFailure.self) { try Input(contact: contact, path: path, hold: hold, modifiers: [], schedule: schedule, edges: edges) }
-        expectNoDifference(refusal?.reason, .refused)
-    }
-
     @Test(arguments: [(nil, [1, 2, 3]), (.milliseconds(600), [1, 1, 1])] as [(Duration?, [Int64])])
     func runsClicksAtOnePointUpToTheDoubleClickInterval(every: Duration?, states: [Int64]) throws {
         let row = base(points: [SIMD2(40, 25)], count: 3, every: every)
-        let clicks = try Input(contact: row.contact, path: row.path, hold: row.hold, modifiers: [], schedule: row.schedule, edges: row.edges)
+        let clicks = Input(contact: row.contact, path: row.path, hold: row.hold, modifiers: [], schedule: row.schedule, edges: row.edges)
         var generator = Xoshiro(seed: (1, 2, 3, 4))
         let timed = try clicks.timeline(
             doubleClick: .milliseconds(500),
@@ -174,7 +153,7 @@ struct InputTests {
     @Test
     func releasesTheHeldPressWithItsNumberAndClickState() throws {
         let row = base(points: [SIMD2(40, 25)], edges: [.up])
-        let release = try Input(contact: row.contact, path: row.path, hold: row.hold, modifiers: [], schedule: row.schedule, edges: row.edges)
+        let release = Input(contact: row.contact, path: row.path, hold: row.hold, modifiers: [], schedule: row.schedule, edges: row.edges)
         var generator = Xoshiro(seed: (1, 2, 3, 4))
         let timed = try release.timeline(
             doubleClick: .milliseconds(500),
@@ -206,7 +185,7 @@ struct InputTests {
     @Test(arguments: [Shape.clicks, .stroke, .drag])
     func pairsEveryPressWithOneReleaseOfItsEventNumber(shape: Shape) async {
         await propertyCheck(input: draws, hosts) { (draw: Draw, host: Host) in
-            let pressing = try input(shape, draw)
+            let pressing = input(shape, draw)
             let presses: [CGEvent] = events(try timeline(of: pressing, host), among: downs.union(ups)).map(\.event)
             let order: [Bool] = presses.map { (event: CGEvent) -> Bool in downs.contains(event.type) }
             let numbers: [Int64] = (0..<Int64(pressing.schedule.count)).flatMap { (press: Int64) -> [Int64] in [host.first + press, host.first + press] }
@@ -236,7 +215,7 @@ struct InputTests {
     @Test
     func spacesPressesByTheScheduleAndHoldsEachForTheHold() async {
         await propertyCheck(input: draws, hosts) { (draw: Draw, host: Host) in
-            let clicks = try input(.clicks, draw)
+            let clicks = input(.clicks, draw)
             let timed = try timeline(of: clicks, host)
             let pressed: [Duration] = events(timed, among: downs).map(\.offset)
             let released: [Duration] = events(timed, among: ups).map(\.offset)
@@ -264,7 +243,7 @@ struct InputTests {
     @Test
     func wrapsAPressurePathInPenProximity() async {
         await propertyCheck(input: draws, hosts) { (draw: Draw, host: Host) in
-            let stroke = try input(.stroke, draw)
+            let stroke = input(.stroke, draw)
             let touched: [CGEvent] = try timeline(of: stroke, host).map(\.event).filter { (event: CGEvent) -> Bool in event.type != .flagsChanged }
             let touching: [CGEvent] = Array(touched.dropFirst().dropLast())
             let (enter, leave): (CGEvent, CGEvent) = (try #require(touched.first), try #require(touched.last))
@@ -305,7 +284,7 @@ struct InputTests {
     @Test
     func repeatsAHeldKeyAsPlainKeyDowns() async {
         await propertyCheck(input: draws, hosts) { (draw: Draw, host: Host) in
-            let held = try input(.key, draw)
+            let held = input(.key, draw)
             let posted: [CGEvent] = try timeline(of: held, host).map(\.event)
             let strokes: Int = keys[draw.variant % keys.count].strokes
             let ratio: Double = (held.hold - host.delay) / host.repeatInterval
@@ -319,7 +298,7 @@ struct InputTests {
     @Test(arguments: [Shape.stroke, .drag, .hover])
     func movesThroughEveryPointOfThePathNoTwoMovesInsideOneFrame(shape: Shape) async {
         await propertyCheck(input: draws, hosts) { (draw: Draw, host: Host) in
-            let moving = try input(shape, draw)
+            let moving = input(shape, draw)
             let pointed: [(offset: Duration, event: CGEvent)] = events(try timeline(of: moving, host), among: downs.union(moves))
             let reached: [SIMD2<Double>] = pointed.map { (_: Duration, event: CGEvent) -> SIMD2<Double> in at(event) }
             let visits: [Int?] = moving.path.map { (sample: Input.Sample) -> Int? in
@@ -336,7 +315,7 @@ struct InputTests {
     @Test(arguments: [Shape.stroke, .drag, .hover])
     func carriesThePointerDeltaOfEachMoveSummingToThePath(shape: Shape) async {
         await propertyCheck(input: draws, hosts) { (draw: Draw, host: Host) in
-            let moving = try input(shape, draw)
+            let moving = input(shape, draw)
             let pointed: [CGEvent] = events(try timeline(of: moving, host), among: downs.union(moves).union(ups)).map(\.event)
             let ends: (first: SIMD2<Double>, last: SIMD2<Double>) = (try #require(moving.path.first).at, try #require(moving.path.last).at)
             let travelled: SIMD2<Double> = ends.last.rounded(.toNearestOrAwayFromZero) - ends.first.rounded(.toNearestOrAwayFromZero)
@@ -360,7 +339,7 @@ struct InputTests {
 
     @Test
     func pacesPressesOfAKeyAtTheKeyRepeatIntervalWhereNoEveryIsGiven() throws {
-        let tab = try Input(contact: .key(.special(.tab)), path: [], hold: .zero, modifiers: [], schedule: Input.Schedule(count: 3, every: nil, jitter: .zero), edges: [.down, .up])
+        let tab = Input(contact: .key(.special(.tab)), path: [], hold: .zero, modifiers: [], schedule: Input.Schedule(count: 3, every: nil, jitter: .zero), edges: [.down, .up])
         var generator = Xoshiro(seed: (1, 2, 3, 4))
         let timed = try tab.timeline(
             doubleClick: .milliseconds(500),
@@ -377,7 +356,7 @@ struct InputTests {
     @Test
     func spreadsTheWheelDeltaAcrossEachPressInWholeUnitsAndPhases() async {
         await propertyCheck(input: draws, hosts) { (draw: Draw, host: Host) in
-            let wheel = try input(.wheel, draw)
+            let wheel = input(.wheel, draw)
             let by: SIMD2<Double> = try #require(wheel.contact[case: \.wheel]).by
             let scrolled: [CGEvent] = try timeline(of: wheel, host).map(\.event).filter { (event: CGEvent) -> Bool in event.type == .scrollWheel }
             let pixel: Bool = draw.variant.isMultiple(of: 2)

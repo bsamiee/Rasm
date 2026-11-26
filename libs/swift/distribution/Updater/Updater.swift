@@ -27,17 +27,29 @@ public struct Updater {
         // --- [USER_DRIVER]
 
         private lazy var activationPolicy: NSApplication.ActivationPolicy = NSApplication.shared.activationPolicy()
+        private var hostsEventLoop = false
 
         var supportsGentleScheduledUpdateReminders: Bool { true }
 
         func standardUserDriverWillHandleShowingUpdate(_: Bool, forUpdate _: SUAppcastItem, state: SPUUserUpdateState) {
-            if activationPolicy != .regular { NSApplication.shared.setActivationPolicy(.regular) }
-            if !state.userInitiated { NSApplication.shared.dockTile.badgeLabel = "1" }
+            let application = NSApplication.shared
+            if activationPolicy != .regular { application.setActivationPolicy(.regular) }
+            if !state.userInitiated { application.dockTile.badgeLabel = "1" }
+            guard !application.isRunning, !hostsEventLoop else { return }
+            hostsEventLoop = true
+            DispatchQueue.main.async { [self] in
+                if hostsEventLoop { NSApplication.shared.run() }
+            }
         }
 
         func standardUserDriverWillFinishUpdateSession() {
-            NSApplication.shared.dockTile.badgeLabel = nil
-            NSApplication.shared.setActivationPolicy(activationPolicy)
+            let application = NSApplication.shared
+            application.dockTile.badgeLabel = nil
+            application.setActivationPolicy(activationPolicy)
+            guard exchange(&hostsEventLoop, with: false) else { return }
+            application.stop(nil)
+            let wake = NSEvent.otherEvent(with: .applicationDefined, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, subtype: 0, data1: 0, data2: 0)
+            if let wake { application.postEvent(wake, atStart: true) }
         }
     }
 

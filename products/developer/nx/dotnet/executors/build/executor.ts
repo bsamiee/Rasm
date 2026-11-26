@@ -1,6 +1,7 @@
 import type { TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { batched, executor, ran, spawned, Words } from '@rasm/nx/inference';
+import { batched, executor, spawned, Words } from '@rasm/nx/inference';
+import { run } from '@rasm/process';
 import { Array, Console, DateTime, Effect, Equal, FileSystem, Option, Path, Record, Schema, Stream, String, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
 import { ANALYZER, ENVIRONMENT } from '#/targets';
@@ -62,11 +63,13 @@ const built = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyRe
     };
     yield* Stream.fromIterable(Xml.toEvents(traversal)).pipe(Stream.pipeThroughChannel(Xml.encode()), Stream.run(fs.sink(file)));
     const contents = yield* Stream.fromIterable(Xml.toEvents({ name: 'SolutionConfiguration', attributes: {}, children: assigned })).pipe(Stream.pipeThroughChannel(Xml.encodeString()), Stream.mkString);
-    const [started, { invoked, stdout, said }, finished] = yield* Effect.all([
-        DateTime.now,
-        ran(['dotnet', Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), ...(assigned.length > 0 ? [`-p:CurrentSolutionConfigurationContents=${escaped(contents)}`] : []), `-bl:${log}`, ...words], { cwd: root }),
-        DateTime.now,
-    ]);
+    const started = yield* DateTime.now;
+    const {
+        command: invoked,
+        stdout,
+        stderr: said,
+    } = yield* run(['dotnet', Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), ...(assigned.length > 0 ? [`-p:CurrentSolutionConfigurationContents=${escaped(contents)}`] : []), `-bl:${log}`, ...words], { cwd: root }).pipe(Effect.catchTag('ExitError', (exited) => Effect.succeed(exited)));
+    const finished = yield* DateTime.now;
     const outcomes = yield* Effect.flatMap(spawned(['dotnet', ANALYZER, 'results', root, log], { cwd: root, env: ENVIRONMENT }), Schema.decodeEffect(Outcomes));
     return Array.zipWith(group, projects, ([task], project) => {
         const outcome = outcomes[project] ?? { succeeded: false, started, finished, lines: [] };

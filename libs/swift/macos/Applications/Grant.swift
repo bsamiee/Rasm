@@ -1,5 +1,7 @@
+import AppleEvents
 @unsafe @preconcurrency import ApplicationServices
-package import Darwin
+import Darwin
+import SPI
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -18,6 +20,15 @@ public enum Grant: String, CaseIterable, Encodable, Sendable {
         }
     }
 
+    public var settings: String {
+        let anchor: String =
+            switch self {
+                case .accessibility, .postEvent: "Privacy_Accessibility"
+                case .screenCapture: "Privacy_ScreenCapture"
+            }
+        return "\(privacySettings)?\(anchor)"
+    }
+
     var missing: ApplicationFailure? {
         guard !isHeld(asking: false) else { return nil }
         let (process, responsible) = (getpid(), responsiblePID(getpid()))
@@ -28,8 +39,3 @@ public enum Grant: String, CaseIterable, Encodable, Sendable {
         if let missing { throw missing }
     }
 }
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-@_silgen_name("responsibility_get_pid_responsible_for_pid")
-package func responsiblePID(_: pid_t) -> pid_t

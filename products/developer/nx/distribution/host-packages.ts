@@ -102,6 +102,7 @@ const Pushed = Schema.Struct({ distributions: Schema.Array(Schema.Struct({ filen
 const Uxp = Schema.fromJsonString(Schema.Struct({ manifestVersion: Schema.Finite, id: Schema.String, name: Schema.String, version: Schema.String, host: Schema.Struct({ app: Schema.Literals(Struct.keys(UXP)), minVersion: Schema.String }) }));
 const Chrome = Schema.fromJsonString(Schema.Struct({ manifest_version: Schema.Literal(3), version: Schema.String, key: Schema.optionalKey(Schema.Uint8ArrayFromBase64) }));
 const Claude = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String }));
+const Marketplace = Schema.fromJsonString(Schema.Struct({ name: Schema.String, plugins: Schema.Array(Schema.Struct({ name: Schema.String })) }));
 const Revision = Schema.Struct({ distributionChannels: Schema.Array(Schema.Struct({ crxVersion: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
 const Upload = Schema.optionalKey(Schema.Literals(['UPLOAD_STATE_UNSPECIFIED', 'SUCCEEDED', 'IN_PROGRESS', 'FAILED', 'NOT_FOUND']));
 const Status = Schema.Struct({ publishedItemRevisionStatus: Revision, submittedItemRevisionStatus: Revision, lastAsyncUploadState: Upload });
@@ -391,6 +392,33 @@ const HOSTS: readonly Host[] = [
         read: (text) => Effect.succeed(Schema.decodeOption(Claude)(text)),
         write: exact,
         build: { executor: 'package', command: 'a zip archive of the plugin folder', pack: zipped },
+        install: {
+            command:
+                'the build folder Claude Code loads in place from CLAUDE_CODE_PLUGIN_DIRS, codex plugin add from its row of the personal marketplace ~/.agents/plugins/marketplace.json where it holds .codex-plugin/plugin.json, and agy plugin install with each sidecar enabled where it holds .antigravity-plugin/plugin.json',
+            unpacked: true,
+            run: Effect.fnUntraced(function* ({ at, name, names }, words) {
+                const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+                const [marketplace, settings, files] = [path.join(homedir(), '.agents', 'plugins', 'marketplace.json'), path.join(homedir(), '.gemini', 'config', 'config.json'), names.map((file) => file.split(path.sep).join('/'))];
+                const sidecars = files.filter((file) => Glob.match(Glob.make('sidecars/*/sidecar.json'), file)).map((file) => `${name}/${file.split('/')[1]}`);
+                const listed = yield* fs.readFileString(marketplace).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed('{"name":"personal","plugins":[]}')));
+                const configured = yield* fs.readFileString(settings).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed('{}')));
+                const { name: market, plugins } = yield* Effect.mapError(Schema.decodeEffect(Marketplace)(listed), (cause) => new Cause.UnknownError(cause, `${marketplace} holds no marketplace name and plugins array`));
+                const held = plugins.findIndex((plugin) => plugin.name === name);
+                const row = { name, source: { source: 'local', path: `./${path.relative(homedir(), at).split(path.sep).join('/')}` }, policy: { installation: 'AVAILABLE', authentication: 'ON_INSTALL' }, category: 'Coding' };
+                yield* files.includes('.codex-plugin/plugin.json')
+                    ? Effect.andThen(Effect.andThen(fs.makeDirectory(path.dirname(marketplace), { recursive: true }), fs.writeFileString(marketplace, applyEdits(listed, modify(listed, ['plugins', held === -1 ? plugins.length : held], row, {})))), spawned(['codex', 'plugin', 'add', `${name}@${market}`, ...words]))
+                    : Effect.void;
+                yield* files.includes('.antigravity-plugin/plugin.json')
+                    ? Effect.andThen(
+                          fs.writeFileString(
+                              settings,
+                              sidecars.reduce((text, sidecar) => applyEdits(text, modify(text, ['sidecars', sidecar, 'enabled'], true, {})), configured),
+                          ),
+                          spawned(['agy', 'plugin', 'install', at, ...words]),
+                      )
+                    : Effect.void;
+            }),
+        },
     },
     {
         manifest: '*.uproject',

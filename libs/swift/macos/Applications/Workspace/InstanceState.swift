@@ -5,6 +5,7 @@ public import CasePaths
 import CasePathsCore
 public import Encoding
 public import Processes
+import SPI
 import Subprocess
 public import System
 
@@ -28,9 +29,10 @@ public enum InstanceState: CaseTagged, Equatable, Sendable {
         }
 
         public let status: Status
+        public let pendingEventAge: Duration?
         public let active: Bool
         public let windows: [Window]
-        public let usage: Result<ResourceUsage, Errno>?
+        public let usage: Result<ResourceUsage.Interval, Errno>?
         public let listening: Result<[in_port_t], Errno>
         public let statusItems: Result<Int, ApplicationFailure>?
 
@@ -90,6 +92,7 @@ public enum InstanceState: CaseTagged, Equatable, Sendable {
         public let onScreen: Bool
         public let hidden: Bool
         public let shared: Bool
+        public let remote: CGWindowID?
         public internal(set) var container: Int?
         public internal(set) var kind: Container.Kind?
         public internal(set) var document: URL?
@@ -109,31 +112,48 @@ public enum InstanceState: CaseTagged, Equatable, Sendable {
 
 extension InstanceState.Window {
     static func all(_ listed: CGWindowListOption, relativeTo window: CGWindowID = kCGNullWindowID, of owner: pid_t? = nil) -> [pid_t: [Self]] {
-        let rows: [[String: Any]] = (CGWindowListCopyWindowInfo(listed, window) as? [[String: Any]] ?? []).filter { row in
-            owner.map { owner in row[kCGWindowOwnerPID as String] as? pid_t == owner } ?? true
+        let listing: [[String: Any]] = CGWindowListCopyWindowInfo(listed, window) as? [[String: Any]] ?? []
+        let servers: [pid_t: pid_t] = Dictionary(
+            Set(listing.compactMap { row in row[kCGWindowOwnerPID as String] as? pid_t }).compactMap { (server: pid_t) -> (pid_t, pid_t)? in
+                let responsible: pid_t = responsiblePID(server)
+                return responsible == server ? nil : (server, responsible)
+            }
+        ) { first, _ in first }
+        let framed: [SIMD4<Double>: [[String: Any]]] = listing.reduce(into: [:]) { (framed: inout [SIMD4<Double>: [[String: Any]]], row: [String: Any]) in
+            guard let server = row[kCGWindowOwnerPID as String] as? pid_t, servers[server] != nil,
+                let frame = (row[kCGWindowBounds as String] as? [String: Any]).flatMap({ bounds in CGRect(dictionaryRepresentation: bounds as CFDictionary) })
+            else { return }
+            framed[SIMD4<Double>(frame.minX, frame.minY, frame.width, frame.height), default: []].append(row)
         }
+        let rows: [[String: Any]] = listing.filter { row in owner.map { owner in row[kCGWindowOwnerPID as String] as? pid_t == owner } ?? true }
         let numbers: [CGWindowID] = rows.compactMap { row in row[kCGWindowNumber as String] as? CGWindowID }
         let connection: Int32 = mainConnection()
-        let iterator: CFTypeRef? = unsafe queryWindows(connection, numbers as CFArray, Int32(numbers.count)).flatMap { query in unsafe queriedWindows(query.takeRetainedValue())?.takeRetainedValue() }
+        let iterator: CFTypeRef? = queryWindows(connection, numbers as CFArray, Int32(numbers.count)).flatMap { query in queriedWindows(query) }
         let parents: [CGWindowID: CGWindowID] = Dictionary(
             iterator.map { iterator in Array(sequence(state: iterator) { iterator in advance(iterator) ? (iteratedWindow(iterator), iteratedParent(iterator)) : nil }) } ?? []
         ) { first, _ in first }
-        let spaces: [UInt64] = (unsafe copySpaces(connection, [.current, .others, .user])?.takeRetainedValue() as? [UInt64]) ?? []
+        let spaces: [UInt64] = (copySpaces(connection, [.includesCurrent, .includesOthers, .includesUser]) as? [UInt64]) ?? []
         let assigned: [CGWindowID: [UInt64]] = spaces.reduce(into: [:]) { (assigned: inout [CGWindowID: [UInt64]], space: UInt64) in
             var (setTags, clearTags): (UInt64, UInt64) = (0, 0)
-            let placed: [CGWindowID] = (unsafe copyWindowsWithOptionsAndTags(connection, 0, [space] as CFArray, 0x7, &setTags, &clearTags)?.takeRetainedValue() as? [CGWindowID]) ?? []
+            let placed: [CGWindowID] = (unsafe copyWindowsWithOptionsAndTags(connection, 0, [space] as CFArray, 0x7, &setTags, &clearTags) as? [CGWindowID]) ?? []
             for number in placed { assigned[number, default: []].append(space) }
         }
-        let current: Set<UInt64> = Set((unsafe copySpaces(connection, [.current, .user])?.takeRetainedValue() as? [UInt64]) ?? [])
+        let current: Set<UInt64> = Set((copySpaces(connection, [.includesCurrent, .includesUser]) as? [UInt64]) ?? [])
         return rows.reduce(into: [:]) { (windows: inout [pid_t: [Self]], row: [String: Any]) in
             guard let owner = row[kCGWindowOwnerPID as String] as? pid_t, let number = row[kCGWindowNumber as String] as? CGWindowID, let layer = row[kCGWindowLayer as String] as? Int, layer >= 0,
                 let frame = (row[kCGWindowBounds as String] as? [String: Any]).flatMap({ bounds in CGRect(dictionaryRepresentation: bounds as CFDictionary) }), !frame.isEmpty
             else { return }
             let (onScreen, placed): (Bool, [UInt64]) = (row[kCGWindowIsOnscreen as String] as? Bool ?? false, assigned[number] ?? [])
+            let title: String? = row[kCGWindowName as String] as? String
+            let twins: [[String: Any]] = framed[SIMD4<Double>(frame.minX, frame.minY, frame.width, frame.height)] ?? []
+            let remote: CGWindowID? = twins.first { (twin: [String: Any]) -> Bool in
+                (twin[kCGWindowOwnerPID as String] as? pid_t).flatMap { server in servers[server] } == owner && twin[kCGWindowName as String] as? String == title
+            }
+            .flatMap { (twin: [String: Any]) -> CGWindowID? in twin[kCGWindowNumber as String] as? CGWindowID }
             windows[owner, default: []].append(
                 Self(
                     number: number,
-                    title: (row[kCGWindowName as String] as? String).flatMap { title in title.isEmpty ? nil : title },
+                    title: title.flatMap { title in title.isEmpty ? nil : title },
                     frame: frame,
                     layer: layer,
                     band: Band(layer: layer),
@@ -142,6 +162,7 @@ extension InstanceState.Window {
                     onScreen: onScreen,
                     hidden: !onScreen && !current.isDisjoint(with: placed),
                     shared: row[kCGWindowSharingState as String] as? UInt32 != CGWindowSharingType.none.rawValue,
+                    remote: remote,
                     asking: false,
                     presented: onScreen,
                 )
@@ -202,13 +223,15 @@ extension InstanceState.Termination: Encodable {
 
 extension InstanceState.Activity: Encodable {
     private enum Key: CodingKey {
-        case active, status, usage, usageFailure, windows, statusItems, statusItemsFailure
+        case active, status, pendingEventAge, usage, usageFailure, windows, statusItems, statusItemsFailure
     }
 
     public func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: Key.self)
         try fields.encode(active, forKey: .active)
         try fields.encode(status, forKey: .status)
+        let age: Double? = pendingEventAge.map { (held: Duration) -> Double in held / Duration.seconds(1) }
+        try fields.encodeIfPresent(age, forKey: .pendingEventAge)
         try fields.encodeIfPresent(usage?[case: \.success], forKey: .usage)
         let usageFailure: String? = usage?[case: \.failure]?.description
         try fields.encodeIfPresent(usageFailure, forKey: .usageFailure)

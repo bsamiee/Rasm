@@ -1,6 +1,8 @@
 public import AppKit
 public import Encoding
+import Processes
 import Synchronization
+import System
 import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -44,7 +46,7 @@ public struct Pasteboard: Encodable, Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Pasteboard {
-    private static let reads: Mutex<[NSPasteboard.Name: Pasteboard]> = Mutex([:])
+    private static let reads: Mutex<[NSPasteboard.Name: (server: ProcessInstance, read: Pasteboard)]> = Mutex([:])
 
     static func locator(of name: NSPasteboard.Name) -> Locator { Locator(steps: [Locator.Step(role: String(describing: NSPasteboard.self), key: .identifier(value: name.rawValue))]) }
 
@@ -55,10 +57,14 @@ extension Pasteboard {
     }
 
     public init(_ name: NSPasteboard.Name) async throws(ApplicationFailure) {
+        let servers: [ProcessInstance]
+        do throws(Errno) { servers = try ProcessInstance.all { executable in executable == "/usr/libexec/pboard" } } catch {
+            throw ApplicationFailure(subject: "pasteboard server of \(name.rawValue)", reason: .system(error))
+        }
         let board = NSPasteboard(name: name)
         let (changeCount, access): (Int, NSPasteboard.AccessBehavior) = (board.changeCount, board.accessBehavior)
-        if let last = Self.reads.withLock({ reads in reads[name] }), last.changeCount == changeCount, last.access == access {
-            self = last
+        if let last = Self.reads.withLock({ reads in reads[name] }), servers.contains(last.server), last.read.changeCount == changeCount, last.read.access == access {
+            self = last.read
             return
         }
         let types: [NSPasteboard.PasteboardType] = board.types ?? []
@@ -96,6 +102,6 @@ extension Pasteboard {
             contentType: contentType?.identifier,
             content: content,
         )
-        Self.reads.withLock { reads in reads[name] = self }
+        Self.reads.withLock { reads in reads[name] = servers.first.map { server in (server, self) } }
     }
 }

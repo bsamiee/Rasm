@@ -14,12 +14,13 @@ public struct MetricKitReports: Service {
 
     public init(to logger: Logging.Logger) { self.logger = logger }
 
-    public func run() async {
+    public func run() async throws {
         await cancelWhenGracefulShutdown {
             async let diagnostics: Void = log(manager.diagnosticReports)
             await log(manager.metricReports) { report in (.notice, "MetricKit metric report", report.environment?.latestApplicationVersion, nil) }
             await diagnostics
         }
+        try await gracefulShutdown()
     }
 
     func log(_ reports: some AsyncSequence<DiagnosticReport, Never>) async {

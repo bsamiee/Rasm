@@ -1,13 +1,18 @@
 public import CasePaths
 import CoreServices
+public import Encoding
 public import Foundation
 public import Results
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+package let privacySettings: String = "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension"
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
 public struct AppleEventFailure: CustomNSError, Equatable, LocalizedError {
     @CasePathable
-    public enum Reason: Equatable, Sendable {
+    public enum Reason: CaseLabeled, Equatable, Sendable {
         case undeclared
         case osa(OSStatus)
         case foundation(NSError)
@@ -39,8 +44,8 @@ public struct AppleEventFailure: CustomNSError, Equatable, LocalizedError {
             case .unencodable: "Value has no \(subject) descriptor"
             case .activating: "Activating command \(subject) refused"
             case .unconsented(OSStatus(errAEEventWouldRequireUserConsent)):
-                "Automation consent for Apple Event \(subject) is undecided and the event went without a prompt, asking the user once adds its switch to System Settings > Privacy & Security > Automation"
-            case .unconsented: "Automation consent for Apple Event \(subject) is denied, turn on its switch in System Settings > Privacy & Security > Automation"
+                "Automation consent for Apple Event \(subject) is undecided and went without a prompt, asking once adds its Automation switch at \(privacySettings)?Privacy_Automation"
+            case .unconsented: "Automation consent for Apple Event \(subject) is denied, turn on its switch in Privacy & Security > Automation at \(privacySettings)?Privacy_Automation"
             case .undelivered(let status): "Apple Event \(subject) undelivered (\(status))"
             case .unanswered(let status): "Application sent no reply to \(subject) (\(status)), event may have run"
             case .replied(let status, .some(let message)): "Application replied to \(subject) with error \(status): \(message)"
@@ -63,5 +68,19 @@ public struct AppleEventFailure: CustomNSError, Equatable, LocalizedError {
             case .undeclared, .osa, .unencodable, .activating, .unconsented, .undelivered, .unanswered, .replied, .cancelled:
                 status.map { status in [NSUnderlyingErrorKey: NSError(domain: NSOSStatusErrorDomain, code: Int(status))] } ?? [:]
         }
+    }
+}
+
+extension AppleEventFailure: Encodable {
+    private enum Key: CodingKey {
+        case reason, subject, message, status
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var fields = encoder.container(keyedBy: Key.self)
+        try fields.encode(reason, forKey: .reason)
+        try fields.encode(subject, forKey: .subject)
+        try fields.encodeIfPresent(errorDescription, forKey: .message)
+        try fields.encodeIfPresent(status, forKey: .status)
     }
 }

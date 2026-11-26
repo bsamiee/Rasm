@@ -1,9 +1,9 @@
 import process from 'node:process';
 import { spawn } from '@rasm/process';
 import { layerProtocolChildProcess } from '@rasm/rpc';
-import { Array, Cause, Context, Deferred, type Duration, Effect, Fiber, FileSystem, Formatter, Layer, Option, Path, Schema, SchemaGetter, SchemaIssue, Sink, Stream, SubscriptionRef } from 'effect';
+import { Array, Cause, Context, Deferred, type Duration, Effect, Fiber, FileSystem, Formatter, Layer, MutableRef, Number, Option, Path, Ref, Schema, SchemaGetter, SchemaIssue, Sink, Stream, SubscriptionRef } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
-import { RpcClient, type RpcClientError } from 'effect/rpc';
+import { RpcClient, type RpcClientError, RpcMessage } from 'effect/rpc';
 import { parse } from 'plist';
 import { ApplicationRpcs, LaunchEvent } from '#/contract';
 
@@ -20,7 +20,7 @@ const Bundle = Schema.String.pipe(
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/applications/client/ApplicationServer', {
-    make: Effect.fnUntraced(function* (client: RpcClient.FromGroup<typeof ApplicationRpcs, RpcClientError.RpcClientError>, exited: ChildProcessSpawner.ChildProcessHandle['exitCode']) {
+    make: Effect.fnUntraced(function* (client: RpcClient.FromGroup<typeof ApplicationRpcs, RpcClientError.RpcClientError>, exited: ChildProcessSpawner.ChildProcessHandle['exitCode'], traffic: Effect.Effect<{ readonly requests: number; readonly bytes: number }>) {
         const [first, rest] = yield* Stream.peel(client.installations({}), Sink.head());
         const installations = yield* SubscriptionRef.make(yield* Effect.fromOption(first, () => new Cause.NoSuchElementError('installations ended before its first value')));
         const discovering = yield* Effect.forkScoped(Stream.runForEach(rest, (value) => SubscriptionRef.set(installations, value)));
@@ -52,6 +52,7 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
             installations,
             currentInstallations: Effect.map(SubscriptionRef.get(installations), ({ installations: listed }) => listed),
             exitCode: Effect.raceFirst(exited, Effect.andThen(Fiber.join(discovering), exited)),
+            traffic,
         };
     }),
 }) {
@@ -59,12 +60,15 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
         const [path, files, started] = yield* Effect.all([Path.Path, FileSystem.FileSystem, Deferred.make<ApplicationServer['Service']>()]);
         const contents = path.join(process.execPath, '..', '..');
         const { CFBundleExecutable, CFBundleIdentifier, CFBundleShortVersionString } = yield* Effect.flatMap(files.readFileString(path.join(contents, 'Info.plist')), Schema.decodeEffect(Bundle));
-        const served = Effect.map(spawn([path.join(contents, 'MacOS', CFBundleExecutable)], { stderr: 'inherit' }), (handle) =>
-            Layer.effect(
+        const served = Effect.gen(function* () {
+            const [handle, requests, bytes] = yield* Effect.all([spawn([path.join(contents, 'MacOS', CFBundleExecutable)], { stderr: 'inherit' }), Effect.sync(() => MutableRef.make(0)), Ref.make(0)]);
+            const traffic = Effect.all({ requests: Effect.sync(() => MutableRef.get(requests)), bytes: Ref.get(bytes) });
+            const stdout = Stream.tap(handle.stdout, (chunk) => Ref.update(bytes, Number.sum(chunk.byteLength)));
+            return Layer.effect(
                 ApplicationServer,
-                Effect.flatMap(RpcClient.make(ApplicationRpcs), (client) => ApplicationServer.make(client, handle.exitCode)),
-            ).pipe(Layer.provide(layerProtocolChildProcess(handle))),
-        );
+                Effect.flatMap(RpcClient.make(ApplicationRpcs, { generateRequestId: () => RpcMessage.RequestId(MutableRef.incrementAndGet(requests)) }), (client) => ApplicationServer.make(client, handle.exitCode, traffic)),
+            ).pipe(Layer.provide(layerProtocolChildProcess({ stdin: handle.stdin, stdout })));
+        });
         return {
             version: CFBundleShortVersionString,
             identifier: CFBundleIdentifier,

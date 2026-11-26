@@ -6,7 +6,7 @@ public import System
 // --- [MODELS] --------------------------------------------------------------------------
 
 public struct ResourceUsage: Encodable, Equatable, Sendable {
-    public struct Interval: Encodable, Sendable {
+    public struct Interval: Encodable, Equatable, Sendable {
         public enum Cause: String, Encodable, Sendable {
             case running
             case runnable

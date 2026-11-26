@@ -22,6 +22,13 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
         case unchanged(Fact.Scalar?)
         case unseen
         case refused
+        case symbolicHotKey
+        case notFrontmost(pid_t?)
+        case notKeyFocus(pid_t?)
+        case covered(window: CGWindowID, owner: pid_t)
+        case unshared
+        case notText(Fact.Scalar)
+        case pastDeadline
         case permittedFrontHeld
         case noIdentifier
         case noPath
@@ -52,7 +59,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
 
     public var errorDescription: String? {
         switch reason {
-            case .noGrant(let grant): "\(subject) lacks the \(grant.rawValue) grant, allow it in System Settings > Privacy & Security"
+            case .noGrant(let grant): "\(subject) lacks the \(grant.rawValue) grant, allow it in System Settings > Privacy & Security at \(grant.settings)"
             case .notResponsible(let grant, let process):
                 "\(subject) lacks the \(grant.rawValue) grant as process \(process) is responsible for it and holds none, start \(subject) responsible for itself"
             case .reused(let process): "Arguments and environment reach a new process alone and \(subject) runs as process \(process), close it first"
@@ -67,6 +74,13 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .unchanged(.none): "\(subject) read back a value other than the written one"
             case .unseen: "\(subject) changed nothing the application shows within its answer time"
             case .refused: "\(subject) refused"
+            case .symbolicHotKey: "\(subject) refused, the system takes it as a symbolic hot key of System Settings > Keyboard > Keyboard Shortcuts"
+            case .notFrontmost(let front): "\(subject) refused, the system route posts pointer events to the frontmost process, which is \(front.map(String.init) ?? "none")"
+            case .notKeyFocus(let keyFocus): "\(subject) refused, the system route posts keys to the key-focus process, which is \(keyFocus.map(String.init) ?? "none")"
+            case .covered(let window, let owner): "\(subject) refused, window \(window) of process \(owner) lies over the point"
+            case .unshared: "\(subject) refused, its \(kCGWindowSharingState as String) is none"
+            case .notText(let value): "\(subject) takes text, not \(value)"
+            case .pastDeadline: "\(subject) runs past the reply deadline of \(replyDeadline.formatted(.units(allowed: [.seconds])))"
             case .permittedFrontHeld:
                 "\(subject) refused, a system prompt such as the lock screen or an authorization dialog holds the window server's permitted front list, finish that prompt and retry"
             case .noIdentifier: "\(subject) has no \(kCFBundleIdentifierKey as String)"
@@ -95,8 +109,9 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .system(let error): [NSUnderlyingErrorKey: error]
             case .foundation(let error), .quarantined(_, let error): [NSUnderlyingErrorKey: error]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
-            case .noGrant, .notResponsible, .reused, .unanswered, .stale, .disabled, .unchanged, .unseen, .refused, .permittedFrontHeld, .noIdentifier, .noPath, .noExecutable,
-                .noWindow, .noImage, .noEncoder, .notOnConsole, .screenLocked, .displayAsleep, .requiresApproval, .accessibility, .windowServer, .cancelled:
+            case .noGrant, .notResponsible, .reused, .unanswered, .stale, .disabled, .unchanged, .unseen, .refused, .symbolicHotKey, .notFrontmost, .notKeyFocus, .covered,
+                .unshared, .notText, .pastDeadline, .permittedFrontHeld, .noIdentifier, .noPath, .noExecutable, .noWindow, .noImage, .noEncoder, .notOnConsole, .screenLocked,
+                .displayAsleep, .requiresApproval, .accessibility, .windowServer, .cancelled:
                 [:]
         }
     }
@@ -104,7 +119,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
 
 extension ApplicationFailure: Encodable {
     private enum Key: CodingKey {
-        case reason, subject, message, grant, pid, quarantine, reached, candidates, value, error, status
+        case reason, subject, message, grant, settings, pid, window, quarantine, reached, candidates, value, error, status
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -113,7 +128,9 @@ extension ApplicationFailure: Encodable {
         try fields.encode(subject, forKey: .subject)
         try fields.encodeIfPresent(errorDescription, forKey: .message)
         switch reason {
-            case .noGrant(let grant): try fields.encode(grant, forKey: .grant)
+            case .noGrant(let grant):
+                try fields.encode(grant, forKey: .grant)
+                try fields.encode(grant.settings, forKey: .settings)
             case .notResponsible(let grant, let process):
                 try fields.encode(grant, forKey: .grant)
                 try fields.encode(process, forKey: .pid)
@@ -125,13 +142,18 @@ extension ApplicationFailure: Encodable {
                 try fields.encode(reached, forKey: .reached)
                 try fields.encode(candidates, forKey: .candidates)
             case .unchanged(let value): try fields.encodeIfPresent(value, forKey: .value)
+            case .notText(let value): try fields.encode(value, forKey: .value)
+            case .notFrontmost(let process), .notKeyFocus(let process): try fields.encodeIfPresent(process, forKey: .pid)
+            case .covered(let window, let owner):
+                try fields.encode(window, forKey: .window)
+                try fields.encode(owner, forKey: .pid)
             case .accessibility(let error): try fields.encode(error.rawValue, forKey: .error)
             case .windowServer(let error): try fields.encode(error.rawValue, forKey: .error)
             case .event(let failure): try fields.encodeIfPresent(failure.status, forKey: .status)
             case .system(let error): try fields.encode(error.rawValue, forKey: .error)
             case .unmatched(let miss): try fields.encode(miss.candidates, forKey: .candidates)
-            case .unanswered, .unseen, .disabled, .refused, .permittedFrontHeld, .noIdentifier, .noPath, .noExecutable, .noWindow, .noImage, .noEncoder, .notOnConsole, .screenLocked,
-                .displayAsleep, .requiresApproval, .foundation, .cancelled:
+            case .unanswered, .unseen, .disabled, .refused, .symbolicHotKey, .unshared, .pastDeadline, .permittedFrontHeld, .noIdentifier, .noPath, .noExecutable, .noWindow, .noImage,
+                .noEncoder, .notOnConsole, .screenLocked, .displayAsleep, .requiresApproval, .foundation, .cancelled:
                 break
         }
     }

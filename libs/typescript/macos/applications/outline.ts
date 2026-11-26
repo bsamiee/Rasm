@@ -208,7 +208,7 @@ const tree = (index: Index, changed: HashSet.HashSet<Control['ref']>): readonly 
                   node(
                       `▸ ${facts(`${Option.getOrElse(token, () => target.entry.container.kind)} ${target.entry.container.kind}`, [
                           `seen ${target.entry.container.tally.seen}×, last ${DateTime.formatIsoDateUtc(target.entry.container.tally.last)}`,
-                          ...(Option.exists(index.remembered.build, (build) => build !== target.entry.container.tally.verified) ? [`last in build ${target.entry.container.tally.verified}`] : []),
+                          ...(Option.isSome(index.remembered.build) && !Equal.equals(index.remembered.build, target.entry.container.tally.verified) ? [`last in build ${Option.getOrElse(target.entry.container.tally.verified, () => 'stating no CFBundleVersion')}`] : []),
                           ...flags({ modal: target.entry.container.modal }),
                       ])}`,
                       Option.toArray(token),

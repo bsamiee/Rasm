@@ -1,6 +1,7 @@
 public import CasePaths
 public import Encoding
 public import Foundation
+import Security
 public import Subprocess
 public import System
 
@@ -18,6 +19,7 @@ public struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
         case system(Errno)
         case mach(kern_return_t)
         case notify(UInt32)
+        case authorization(right: String, OSStatus)
         case foundation(NSError)
     }
 
@@ -53,6 +55,10 @@ public struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
             case .system(let error as any Error), .foundation(let error as any Error): "\(subject) failed: \(error.localizedDescription)"
             case .mach(let status): unsafe "\(subject) failed: \(String(cString: mach_error_string(status)))"
             case .notify(let status): "\(subject) failed with notify status \(status)"
+            case .authorization(let right, errAuthorizationInteractionNotAllowed):
+                "\(subject) needs the \(right) right, which asks for a password, so it ran no tool; `security authorizationdb write \(right) allow` grants it without one"
+            case .authorization(let right, let status):
+                "\(subject) read no definition of the \(right) right: \(SecCopyErrorMessageString(status, nil).map { message in message as String } ?? String(status))"
         }
     }
 
@@ -60,6 +66,7 @@ public struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
         switch reason {
             case .subprocess(let error as any Error), .corrupt(let error as any Error), .system(let error as any Error), .foundation(let error as any Error): [NSUnderlyingErrorKey: error]
             case .mach(let status): [NSUnderlyingErrorKey: NSError(domain: NSMachErrorDomain, code: Int(status))]
+            case .authorization(_, let status): [NSUnderlyingErrorKey: NSError(domain: NSOSStatusErrorDomain, code: Int(status))]
             case .exit, .timedOut, .cancelled, .notFound, .notify: [:]
         }
     }

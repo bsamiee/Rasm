@@ -16,6 +16,7 @@ public struct Observation: Encodable, Sendable {
         let range: Control.Range?
         let options: [String]?
         let shortcut: Control.Shortcut?
+        let keyEquivalent: String?
         let mark: String?
         let opens: Locator?
         let separated: Bool?
@@ -34,6 +35,7 @@ public struct Observation: Encodable, Sendable {
             range = control.range
             options = control.options?.map(\.label)
             shortcut = control.shortcut
+            keyEquivalent = control.keyEquivalent
             mark = control.mark
             opens = control.opens.map(locator)
             separated = control.separated
@@ -75,7 +77,7 @@ public struct Observation: Encodable, Sendable {
         }
     }
 
-    let build: String
+    let build: String?
     let container: Locator
     let kind: Container.Kind
     let title: String?
@@ -98,7 +100,7 @@ public struct Observation: Encodable, Sendable {
     init?(
         _ container: Container,
         in open: OrderedDictionary<Int, Container>,
-        build: String,
+        build: String?,
         opener: (control: Control, container: Int)?,
         after last: Self?,
         at: Date,

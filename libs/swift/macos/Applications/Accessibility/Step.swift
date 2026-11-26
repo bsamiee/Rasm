@@ -1,4 +1,5 @@
 import AppKit
+import AppleEvents
 @unsafe @preconcurrency import ApplicationServices
 import AsyncAlgorithms
 import CasePaths
@@ -13,6 +14,7 @@ public import System
 
 private let once = Input.Schedule(count: 1, every: nil, jitter: .zero)
 private let everyEdge: Set<Input.Edge> = Set(Input.Edge.allCases)
+private let downs: Set<CGEventType> = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
 private let selectTextWithCriteria: String = "AXSelectTextWithCriteria"
 private let selections: [String: String] = [
     kAXOutlineRole: kAXSelectedRowsAttribute, kAXTableRole: kAXSelectedRowsAttribute, kAXListRole: kAXSelectedChildrenAttribute, kAXBrowserRole: kAXSelectedChildrenAttribute,
@@ -158,7 +160,15 @@ public struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
 
     public init(from decoder: any Decoder) throws {
         let fields = try decoder.container(keyedBy: CodingKeys.self)
-        let timed = { (key: CodingKeys) throws -> Duration? in try fields.decodeIfPresent(Double.self, forKey: key).map { milliseconds in Duration.milliseconds(milliseconds) } }
+        let longest: Double = replyDeadline / .milliseconds(1)
+        let timed = { (key: CodingKeys) throws -> Duration? in
+            try fields.decodeIfPresent(Double.self, forKey: key).map { (milliseconds: Double) throws -> Duration in
+                guard (0...longest).contains(milliseconds) else {
+                    throw DecodingError.dataCorruptedError(forKey: key, in: fields, debugDescription: "\(milliseconds) ms lies outside 0 to the reply deadline of \(longest) ms")
+                }
+                return .milliseconds(milliseconds)
+            }
+        }
         let (key, pointer, at): (Key?, Aim?, Int?) = try (
             fields.decodeIfPresent(Key.self, forKey: .key), fields.decodeIfPresent(Aim.self, forKey: .pointer), fields.decodeIfPresent(Int.self, forKey: .at),
         )
@@ -177,17 +187,43 @@ public struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
         let path: [Aim] = try pointer.map { (first: Aim) throws -> [Aim] in [first] + (try fields.decodeIfPresent([Aim].self, forKey: .path) ?? []) } ?? []
         let schedule = Input.Schedule(count: try fields.decodeIfPresent(Int.self, forKey: .count) ?? 1, every: try timed(.every), jitter: try timed(.jitter) ?? .zero)
         let edge: Input.Edge? = try fields.decodeIfPresent(Input.Edge.self, forKey: .edge)
-        let (hold, modifiers, windows): (Duration?, Set<Modifier>?, [CGWindowID]?) = try (
-            timed(.hold), fields.decodeIfPresent(Set<Modifier>.self, forKey: .modifiers), fields.decodeIfPresent([CGWindowID].self, forKey: .windows),
+        let (hold, modifiers, windows): (Duration, Set<Modifier>?, [CGWindowID]?) = try (
+            timed(.hold) ?? .zero, fields.decodeIfPresent(Set<Modifier>.self, forKey: .modifiers), fields.decodeIfPresent([CGWindowID].self, forKey: .windows),
         )
-        let range: TextRange? = try fields.decodeIfPresent(TextRange.self, forKey: .range)
+        let (range, named): (TextRange?, String?) = try (fields.decodeIfPresent(TextRange.self, forKey: .range), fields.decodeIfPresent(String.self, forKey: .action))
+        let plane = Double(Int32.max)
+        let samples: [Input.Sample] = path.compactMap { (aim: Aim) -> Input.Sample? in aim[case: \.point] }
+        let pen: [Bool] = samples.map { (sample: Input.Sample) -> Bool in sample.pressure != nil || sample.tilt != nil }
+        let reach: Double? = by.map { (by: SIMD2<Double>) -> Double in max(by.x.magnitude, by.y.magnitude).rounded() }
+        let spacing: Duration = hold + schedule.jitter
+        let run: Duration = (schedule.every ?? .zero) * min(max(schedule.count - 1, 0), Int(longest)) + hold
+        let offPlane: Bool = samples.contains { (sample: Input.Sample) -> Bool in sample.at.x.magnitude > plane || sample.at.y.magnitude > plane }
+        let unranged: Bool = samples.contains { (sample: Input.Sample) -> Bool in
+            !(0...1).contains(sample.pressure ?? 0) || !(-1...1).contains(sample.tilt?.x ?? 0) || !(-1...1).contains(sample.tilt?.y ?? 0)
+        }
+        let rules: [(broken: Bool, key: CodingKeys, rule: String)] = [
+            (named == kAXRaiseAction, .action, "\(kAXRaiseAction) takes focus from the frontmost application"),
+            (!(1...Int(longest)).contains(schedule.count), .count, "count \(schedule.count) outside 1 to one press per millisecond of the reply deadline"),
+            (run > replyDeadline, .every, "presses running \(run) past the reply deadline"),
+            ((schedule.every ?? spacing) < spacing, .every, "presses every \(schedule.every ?? spacing) under the hold plus jitter \(spacing)"),
+            (schedule.every == nil && schedule.jitter > .zero, .jitter, "jitter \(schedule.jitter) on a click run, which has no interval to vary"),
+            (path.count > 1 && (by != nil || schedule.count > 1), .path, "a path of \(path.count) points on a wheel or more than one press"),
+            (offPlane, .pointer, "a point off the plane of ±\(Int32.max)"),
+            (reach.map { (reach: Double) -> Bool in !(1..<plane).contains(reach) } == true, .by, "a wheel delta under one whole unit or beyond ±\(Int32.max)"),
+            (pen.contains(true) && contact != .button(.left), .button, "pressure or tilt off the left button"),
+            (pen.contains(true) && (pen.contains(false) || samples.count < path.count), .path, "pressure or tilt on some points alone"),
+            (unranged, .pointer, "pressure outside 0 to 1 or tilt outside -1 to 1"),
+            (pointer != nil && at != nil, .at, "at on a pointer step, which aims by its pointer"),
+        ]
+        let broken: [(broken: Bool, key: CodingKeys, rule: String)] = rules.filter(\.broken)
+        guard broken.isEmpty else { throw DecodingError.dataCorruptedError(forKey: broken[0].key, in: fields, debugDescription: broken.map(\.rule).formatted()) }
         switch (contact, at, value, range) {
             case (.some(let contact), _, _, _):
                 action = .input(
                     contact: contact,
                     path: path,
                     focus: at,
-                    hold: hold ?? .zero,
+                    hold: hold,
                     modifiers: modifiers ?? [],
                     schedule: schedule,
                     edges: edge.map { edge in [edge] } ?? everyEdge,
@@ -197,7 +233,7 @@ public struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
             case (.none, .some, .some, .some): throw DecodingError.dataCorruptedError(forKey: .to, in: fields, debugDescription: "A range is replaced by text alone")
             case (.none, .some(let ref), .none, .some(let range)): action = .select(ref: ref, range: range)
             case (.none, .some(let ref), .some(let value), .none): action = .set(ref: ref, value: value)
-            case (.none, .some(let ref), .none, .none): action = .press(ref: ref, action: try fields.decodeIfPresent(String.self, forKey: .action) ?? kAXPressAction)
+            case (.none, .some(let ref), .none, .none): action = .press(ref: ref, action: named ?? kAXPressAction)
             case (.none, .none, _, _): throw DecodingError.keyNotFound(CodingKeys.at, DecodingError.Context(codingPath: fields.codingPath, debugDescription: "A step names at, key, or pointer"))
         }
     }
@@ -212,12 +248,6 @@ public struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
                 "\(contact) ×\(schedule.count) \(edges.map(\.rawValue).sorted()) with \(modifiers.map(\.rawValue).sorted()) at \(focus.map { ref in [Aim.element(ref: ref)] } ?? path)"
         }
     }
-
-    var refusal: ApplicationFailure? {
-        guard case .input(let contact, let path, _, let hold, let modifiers, let schedule, let edges, _) = action else { return nil }
-        let samples: [Input.Sample] = path.map { aim in aim[case: \.point] ?? Input.Sample(at: .zero, pressure: nil, tilt: nil) }
-        return Result { () throws(ApplicationFailure) in try Input(contact: contact, path: samples, hold: hold, modifiers: modifiers, schedule: schedule, edges: edges) }[case: \.failure]
-    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -225,7 +255,7 @@ public struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
 extension Step {
     fileprivate typealias Plan = (window: CGWindowID?, course: Course, tried: [Delivery.Attempt])
     fileprivate typealias Read = (element: Element, handles: [AXUIElement])
-    fileprivate typealias Host = (layout: KeyboardLayout, rate: Int, doubleClick: Duration, keyRepeat: (delay: Duration, interval: Duration))
+    fileprivate typealias Host = (layout: KeyboardLayout, frame: Duration, doubleClick: Duration, keyRepeat: (delay: Duration, interval: Duration))
 
     fileprivate func plan(on element: AXUIElement?, presented: Bool) throws(ApplicationFailure) -> Plan {
         guard let element else { throw ApplicationFailure(subject: description, reason: .stale(reached: 0, candidates: [])) }
@@ -238,17 +268,16 @@ extension Step {
         let read = try element.element(reading: [kAXEnabledAttribute, kAXRoleAttribute, kAXFocusedAttribute, kAXWindowAttribute, kAXParentAttribute] + frameAttributes + shown)
         let point: CGPoint? = read.element.activation ?? read.element.frame.map { frame in CGPoint(x: frame.midX, y: frame.midY) }
         let center: [Input.Sample] = point.map { point in [Input.Sample(at: SIMD2(point.x, point.y), pressure: nil, tilt: nil)] } ?? []
-        let pressing: Input? = center.isEmpty ? nil : try Input(contact: .button(.left), path: center, hold: .zero, modifiers: [], schedule: once, edges: everyEdge)
+        let pressing: Input? = center.isEmpty ? nil : Input(contact: .button(.left), path: center, hold: .zero, modifiers: [], schedule: once, edges: everyEdge)
         let click: Course? = read.element.window.flatMap { number in pressing.map { pressing in Course.posting(route: .window(number: number), inputs: [pressing], readBack: .change) } }
         switch (action, read.element.facts[kAXEnabledAttribute]?.bool) {
-            case (.press(_, kAXRaiseAction), _): throw ApplicationFailure(subject: "\(description), raising a window takes focus from the frontmost application", reason: .refused)
             case (.press, false), (.set, false), (.select, false), (.replace, false): throw ApplicationFailure(subject: description, reason: .disabled)
             case (.press, _) where presented: return (read.element.window, .proven(.change), [])
             case (.press(_, let action), _) where action == kAXShowMenuAction || action == kAXPressAction && read.element.role.map(pressOpened.contains) == true:
                 return (read.element.window, .opening(action: action), [])
             case (.press(_, kAXPressAction), _) where read.element.role == kAXRowRole && !read.element.actions.contains(kAXPressAction):
                 return try select(element, read: read, click: click)
-            case (.press(_, let action), _) where accessible:
+            case (.press(_, let action), _) where accessible || action != kAXPressAction:
                 let named: String = read.element.actions.contains(action) ? action : read.element.descriptions.first { _, text in text == action }?.key ?? action
                 let answer: AXError = AXUIElementPerformAction(element, named as CFString)
                 switch (answer, action, click) {
@@ -258,14 +287,13 @@ extension Step {
                     case (_, _, _):
                         throw ApplicationFailure(answer, subject: description, process: element.process, answering: self) { ApplicationFailure(subject: description, reason: .accessibility(answer)) }
                 }
-            case (.press(_, kAXPressAction), _):
+            case (.press, _):
                 guard let click else { throw ApplicationFailure(subject: "\(frameAttribute) of \(description)", reason: .accessibility(.noValue)) }
                 return (read.element.window, click, [])
-            case (.press, _): throw ApplicationFailure(subject: "\(description) from rung \(from?.rawValue ?? ""), which names an element action no event performs", reason: .refused)
             case (.set(_, .rect(let frame)), _):
                 var (origin, size): (CGPoint, CGSize) = (frame.origin, frame.size)
                 guard let position = unsafe AXValueCreate(.cgPoint, &origin), let extent = unsafe AXValueCreate(.cgSize, &size) else {
-                    throw ApplicationFailure(subject: description, reason: .refused)
+                    throw ApplicationFailure(subject: "\(kAXPositionAttribute) and \(kAXSizeAttribute) values of \(frame) for \(description)", reason: .refused)
                 }
                 let answer: AXError? = [(kAXSizeAttribute, extent), (kAXPositionAttribute, position), (kAXSizeAttribute, extent)].map { attribute, value in
                     AXUIElementSetAttributeValue(element, attribute as CFString, value)
@@ -283,7 +311,7 @@ extension Step {
             case (.select(_, let range), _): return try select(range, in: element, read: read, replacing: nil)
             case (.replace(_, let range, let text), _): return try select(range, in: element, read: read, replacing: text)
             case (.input(let contact, _, _, let hold, let modifiers, let schedule, let edges, _), _):
-                let typed = try Input(contact: contact, path: [], hold: hold, modifiers: modifiers, schedule: schedule, edges: edges)
+                let typed = Input(contact: contact, path: [], hold: hold, modifiers: modifiers, schedule: schedule, edges: edges)
                 return try aim([typed], at: element, read: read, click: click, accessible: accessible, readBack: .posting)
         }
     }
@@ -302,7 +330,7 @@ extension Step {
         let selected: Bool = try owner.map { owner throws(ApplicationFailure) in try owner.element.elements(owner.attribute).contains { chosen in CFEqual(chosen, row) } } ?? false
         guard !(written == .success && selected) else { return (read.element.window, .proven(.value), []) }
         let attempt = Delivery.Attempt(rung: .accessibility, failure: owner.map { owner in "\(owner.attribute) left the row unselected" } ?? "no outline, table, list, or browser holds the row")
-        guard let click else { throw ApplicationFailure(subject: "\(description), \(attempt.failure)", reason: .refused) }
+        guard let click else { throw ApplicationFailure(subject: "\(frameAttribute) of \(description) after \(attempt.failure)", reason: .accessibility(.noValue)) }
         return (read.element.window, click, [attempt])
     }
 
@@ -310,22 +338,18 @@ extension Step {
         var names: CFArray?
         let listed: AXError = unsafe AXUIElementCopyParameterizedAttributeNames(element, &names)
         guard [.success, .noValue, .attributeUnsupported, .notImplemented].contains(listed) else { throw element.failure(listed, reading: selectTextWithCriteria) }
-        let web: Bool = (names as? [String])?.contains(selectTextWithCriteria) == true
         let unmatched = ApplicationFailure(subject: description, reason: .unmatched(Unmatched(subject: "text of \(description)", query: "\(range)", candidates: [])))
-        switch (range, web) {
-            case (.text(let sought), true):
-                let criteria: [String: Any] = [
-                    "AXSelectTextActivity": text == nil ? "AXSelectTextActivityFindAndSelect" : "AXSelectTextActivityFindAndReplace", "AXSelectTextSearchStrings": [sought],
-                    "AXSelectTextAmbiguityResolution": "AXSelectTextAmbiguityResolutionClosestToSelection",
-                ]
-                let chosen = try element.parameterized(
-                    selectTextWithCriteria,
-                    criteria.merging(text.map { text in ["AXSelectTextReplacementString": text] } ?? [:]) { first, _ in first } as CFDictionary,
-                )
-                guard (chosen as? String).map({ chosen in !chosen.isEmpty }) == true else { throw unmatched }
-                return (read.element.window, .proven(.value), [])
-            case (.characters, true): throw ApplicationFailure(subject: "\(description), web content selects text by the text it holds", reason: .refused)
-            case (_, false): break
+        if case .text(let sought) = range, (names as? [String])?.contains(selectTextWithCriteria) == true {
+            let criteria: [String: Any] = [
+                "AXSelectTextActivity": text == nil ? "AXSelectTextActivityFindAndSelect" : "AXSelectTextActivityFindAndReplace", "AXSelectTextSearchStrings": [sought],
+                "AXSelectTextAmbiguityResolution": "AXSelectTextAmbiguityResolutionClosestToSelection",
+            ]
+            let chosen = try element.parameterized(
+                selectTextWithCriteria,
+                criteria.merging(text.map { text in ["AXSelectTextReplacementString": text] } ?? [:]) { first, _ in first } as CFDictionary,
+            )
+            guard (chosen as? String).map({ chosen in !chosen.isEmpty }) == true else { throw unmatched }
+            return (read.element.window, .proven(.value), [])
         }
         let value: String = read.element.text(kAXValueAttribute) ?? ""
         let span: NSRange? =
@@ -335,7 +359,9 @@ extension Step {
             }
         guard let span else { throw unmatched }
         var bounds = CFRange(location: span.location, length: span.length)
-        guard let boxed: AXValue = unsafe AXValueCreate(.cfRange, &bounds) else { throw ApplicationFailure(subject: description, reason: .refused) }
+        guard let boxed: AXValue = unsafe AXValueCreate(.cfRange, &bounds) else {
+            throw ApplicationFailure(subject: "\(kAXSelectedTextRangeAttribute) value \(span) for \(description)", reason: .refused)
+        }
         let window: AXUIElement? = read.element.facts[kAXWindowAttribute]?.element.map { id in read.handles[id] }
         let main: AXError =
             try window.map { window throws(ApplicationFailure) -> AXError in
@@ -352,7 +378,7 @@ extension Step {
         let expected: String = (value as NSString).replacingCharacters(in: span, with: text)
         let keys: [(key: Key, modifiers: Set<Modifier>)] =
             text.isEmpty ? [(Key.special(.delete), Set<Modifier>())] : text.map { (character: Character) -> (key: Key, modifiers: Set<Modifier>) in (Key.character(character), []) }
-        let keyed: Course = .posting(route: .process, inputs: try Self.typing(keys), readBack: .value(attribute: kAXValueAttribute, before: .text(value), after: .text(expected)))
+        let keyed: Course = .posting(route: .process, inputs: Self.typing(keys), readBack: .value(attribute: kAXValueAttribute, before: .text(value), after: .text(expected)))
         guard try window?.read([kAXDocumentAttribute]).element.text(kAXDocumentAttribute) == nil else {
             return (read.element.window, keyed, [Delivery.Attempt(rung: .accessibility, failure: "\(kAXSelectedTextAttribute) skips the edit model of a document window")])
         }
@@ -395,8 +421,8 @@ extension Step {
         }
     }
 
-    private static func typing(_ keys: [(key: Key, modifiers: Set<Modifier>)]) throws(ApplicationFailure) -> [Input] {
-        try keys.map { key, modifiers throws(ApplicationFailure) -> Input in try Input(contact: .key(key), path: [], hold: .zero, modifiers: modifiers, schedule: once, edges: everyEdge) }
+    private static func typing(_ keys: [(key: Key, modifiers: Set<Modifier>)]) -> [Input] {
+        keys.map { key, modifiers in Input(contact: .key(key), path: [], hold: .zero, modifiers: modifiers, schedule: once, edges: everyEdge) }
     }
 
     private func assign(_ target: Fact.Scalar, to element: AXUIElement, read: Read, click: Course?, presented: Bool, accessible: Bool) throws(ApplicationFailure) -> Plan {
@@ -430,7 +456,7 @@ extension Step {
                         case (.date, _, _, .some(let date)): .date(date)
                         case (_, _, _, _): target
                     }
-                guard let boxed = value.accessibility else { throw ApplicationFailure(subject: description, reason: .refused) }
+                guard let boxed = value.accessibility else { throw ApplicationFailure(subject: "\(attribute) value \(value) for \(description)", reason: .refused) }
                 let answer = AXUIElementSetAttributeValue(element, attribute as CFString, boxed)
                 let after: Fact.Scalar? = try answer == .success ? current() : nil
                 let attempt = Delivery.Attempt(
@@ -544,7 +570,7 @@ extension Step {
             return (read.element.window, .posting(route: .process, inputs: typed, readBack: readBack), tried)
         }
         guard case .posting(let route, let clicked, _)? = click else {
-            throw ApplicationFailure(subject: "\(kAXFocusedAttribute) for \(description)", reason: written == .success ? .refused : .accessibility(written))
+            throw ApplicationFailure(subject: "\(kAXFocusedAttribute) for \(description)", reason: written == .success ? .unchanged(nil) : .accessibility(written))
         }
         return (read.element.window, .posting(route: route, inputs: clicked + typed, readBack: readBack), tried)
     }
@@ -562,15 +588,25 @@ extension Step {
         let planned: Plan
         var (presentation, pointer): (Watch.Presentation?, SIMD2<Double>?) = (nil, nil)
         switch action {
-            case .set(clipboard, .text(let text)):
+            case .set(clipboard, let value):
+                guard let text = value.text else { throw ApplicationFailure(subject: description, reason: .notText(value)) }
                 try Pasteboard.write(text, to: .general)
                 return Delivery(proof: .answer)
-            case .set(clipboard, _): throw ApplicationFailure(subject: "\(description), the clipboard takes text alone", reason: .refused)
             case .press(let ref, _), .set(let ref, _), .select(let ref, _), .replace(let ref, _, _), .input(_, _, .some(let ref), _, _, _, _, _):
-                let pending: Plan = try await watch.perform(on: ref) { element throws(ApplicationFailure) in try plan(on: element, presented: false) }
-                let opening: String? = pending.course[case: \.opening]
-                let presented = try await watch.presenting(opening.map { _ in ref }, by: opening, clock: clock) { (_: [Container]) async throws(ApplicationFailure) -> Plan in
-                    try await opening == nil ? pending : watch.perform(on: ref) { element throws(ApplicationFailure) in try plan(on: element, presented: true) }
+                let pending: Result<Plan, ApplicationFailure> = await Result { () async throws(ApplicationFailure) -> Plan in
+                    try await watch.perform(on: ref) { element throws(ApplicationFailure) in try plan(on: element, presented: false) }
+                }
+                let (through, opening): (Int?, String?) =
+                    switch pending {
+                        case .success(let read): (read.course[case: \.opening].map { _ in ref }, read.course[case: \.opening])
+                        case .failure(let failure) where failure.reason.is(\.stale): (ref, nil)
+                        case .failure(let failure): throw failure
+                    }
+                let presented = try await watch.presenting(through, by: opening, clock: clock) { (_: [Container]) async throws(ApplicationFailure) -> Plan in
+                    switch (pending, opening) {
+                        case (.success(let read), .none): read
+                        case (_, _): try await watch.perform(on: ref) { element throws(ApplicationFailure) in try plan(on: element, presented: opening != nil) }
+                    }
                 }
                 (planned, presentation) = (presented.value, presented.presentation)
             case .input(let contact, let path, .none, let hold, let modifiers, let schedule, let edges, let windows):
@@ -600,9 +636,9 @@ extension Step {
                         { return nil }
                     } : nil
                 let window: CGWindowID? = shown ?? numbers.first ?? focused
-                let input = try Input(contact: contact, path: samples, hold: hold, modifiers: modifiers, schedule: schedule, edges: edges)
+                let input = Input(contact: contact, path: samples, hold: hold, modifiers: modifiers, schedule: schedule, edges: edges)
                 guard let route = contact.is(\.key) ? Route.process : window.map(Route.window(number:)) else {
-                    throw ApplicationFailure(subject: "\(description), where no window of process \(process) holds the point", reason: .noWindow)
+                    throw ApplicationFailure(subject: "point \(samples.first.map { sample in "\(sample.at)" } ?? "") of process \(process)", reason: .noWindow)
                 }
                 planned = (window, .posting(route: route, inputs: [input], readBack: contact.is(\.button) && edges == everyEdge ? .change : .posting), tried)
                 pointer = samples.last?.at
@@ -614,9 +650,10 @@ extension Step {
         let below: Set<Rung> = Set(Rung.allCases.prefix { rung in rung != from && from != nil })
         let ladder: [Route] = lifted.map { lifted in [lifted.route] } ?? entry.ladder(window: planned.window).filter { route in !below.contains(route.rung) }
         let partial: Bool = inputs.contains { input in input.edges != everyEdge || input.contact == .hover }
+        let matches = { (read: Fact.Scalar?, after: Fact.Scalar) -> Bool in read == after || after.number.map { (number: Double) -> Bool in read?.number == number } == true }
         var tried: [Delivery.Attempt] = planned.tried
         for route in partial ? Array(ladder.prefix(1)) : ladder {
-            do throws(ApplicationFailure) {
+            let attempt = await Result { () async throws(ApplicationFailure) -> (proof: Delivery.Proof, held: (number: Int64, clickState: Int64), restored: ApplicationFailure?)? in
                 if route == .system, !watch.instance.application.isActive {
                     try PermittedFrontList.shared.admit(process).get()
                     let activations = await watch.messages()
@@ -630,37 +667,50 @@ extension Step {
                     }
                     presentation = .forward
                 }
-                let base: Int64 = [CGEventType.leftMouseDown, .rightMouseDown, .otherMouseDown].map { type in Int64(CGEventSource.counterForEventType(source.sourceStateID, eventType: type)) }.reduce(
-                    1,
-                    +,
-                )
+                let base: Int64 = downs.map { type in Int64(CGEventSource.counterForEventType(source.sourceStateID, eventType: type)) }.reduce(1, +)
                 var (timeline, pressed): ([(offset: Duration, event: CGEvent)], Int64) = ([], 0)
                 for input in inputs {
                     let first: (number: Int64, clickState: Int64) = lifted.map { lifted in (lifted.number, lifted.clickState) } ?? (base + pressed, 1)
-                    let next = try input.timeline(doubleClick: host.doubleClick, keyRepeat: host.keyRepeat, frame: .seconds(1) / host.rate, layout: host.layout, numbering: first, using: &generator)
+                    let next = try input.timeline(doubleClick: host.doubleClick, keyRepeat: host.keyRepeat, frame: host.frame, layout: host.layout, numbering: first, using: &generator)
                     let shift: Duration = timeline.last?.offset ?? .zero
                     (timeline, pressed) = (timeline + next.map { offset, event in (shift + offset, event) }, pressed + (input.contact.is(\.button) ? Int64(input.schedule.count) : 0))
                 }
+                let pressing: CGEvent? = timeline.last { _, event in downs.contains(event.type) }?.event
+                let numbering: (number: Int64, clickState: Int64) = (
+                    pressing?.getIntegerValueField(.mouseEventNumber) ?? base + pressed - 1, pressing?.getIntegerValueField(.mouseEventClickState) ?? 1,
+                )
                 let changes = await watch.messages()
-                try await route.post(timeline, to: process, from: source, frame: .seconds(1) / host.rate, clock: clock)
-                let (proven, proof): (Bool, Delivery.Proof)
+                let restored: ApplicationFailure? = try await route.post(timeline, to: process, from: source, frame: host.frame, clock: clock)
+                let proof: Delivery.Proof?
                 switch readBack {
-                    case .posting: (proven, proof) = (true, .posting)
-                    case .change: (proven, proof) = (try await watch.next(Self.proving, in: changes, clock: clock) != nil, .change)
+                    case .posting: proof = .posting
+                    case .change: proof = try await watch.next(Self.proving, in: changes, clock: clock).map { _ in Delivery.Proof.change }
                     case .value(let attribute, let before, let after):
                         let reading = { () async throws(ApplicationFailure) -> Fact.Scalar? in
                             try await watch.perform(on: action.ref) { element throws(ApplicationFailure) in try element?.read([attribute]).element.facts[attribute]?.scalar }
                         }
                         let first: Fact.Scalar? = try await reading()
-                        let read: Fact.Scalar? = first == after || first != before ? first : try await watch.next(Self.proving, in: changes, clock: clock) == nil ? first : reading()
-                        (proven, proof) = (read == after || read != before, .value)
+                        let read: Fact.Scalar? = matches(first, after) || first != before ? first : try await watch.next(Self.proving, in: changes, clock: clock) == nil ? first : reading()
+                        guard matches(read, after) || read == before else { throw ApplicationFailure(subject: "\(attribute) of \(description) through \(route)", reason: .unchanged(read)) }
+                        proof = matches(read, after) ? .value : nil
                 }
-                guard proven else { throw ApplicationFailure(subject: "\(description) through \(route)", reason: .unseen) }
-                let down: Input? = inputs.last { input in input.edges == [.down] }
-                if partial { held[inputs[0].contact] = down.map { down in (base + pressed - 1, Int64(down.schedule.count), route) } }
-                return Delivery(proof: proof, window: planned.window, route: route, tried: tried, presentation: presentation, pointer: pointer)
-            } catch  where [.refused, .noWindow, .unseen].contains(error.reason) || error.reason.is(\.windowServer) {
-                tried.append(Delivery.Attempt(rung: route.rung, failure: error.errorDescription ?? error.subject))
+                return proof.map { proof in (proof, numbering, restored) }
+            }
+            switch attempt {
+                case .success(.some(let reached)):
+                    if let restored = reached.restored { throw restored }
+                    let down: Input? = inputs.last { input in input.edges == [.down] }
+                    if partial { held[inputs[0].contact] = down.map { _ in (reached.held.number, reached.held.clickState, route) } }
+                    return Delivery(proof: reached.proof, window: planned.window, route: route, tried: tried, presentation: presentation, pointer: pointer)
+                case .success(.none):
+                    let unseen = ApplicationFailure(subject: "\(description) through \(route)", reason: .unseen)
+                    tried.append(Delivery.Attempt(rung: route.rung, failure: unseen.errorDescription ?? unseen.subject))
+                case .failure(let failure):
+                    switch failure.reason {
+                        case .refused, .noWindow, .unseen, .symbolicHotKey, .notFrontmost, .notKeyFocus, .covered, .windowServer:
+                            tried.append(Delivery.Attempt(rung: route.rung, failure: failure.errorDescription ?? failure.subject))
+                        default: throw failure
+                    }
             }
         }
         throw ApplicationFailure(subject: "\(description) after \(tried.map { attempt in "\(attempt.rung.rawValue): \(attempt.failure)" }.formatted())", reason: .unseen)
@@ -679,8 +729,8 @@ extension Step {
 
     fileprivate static func proving(_ change: InstanceEvent.Change) -> Void? {
         switch change {
-            case .started, .frontmost, .hidden, .status, .exited: nil
-            case .opened, .closed, .asking, .focused, .value, .selection, .moved, .window: ()
+            case .started, .frontmost, .hidden, .status, .logged, .reported, .sampled, .exited: nil
+            case .opened, .closed, .asking, .focused, .value, .selection, .moved, .window, .announced, .dragging: ()
         }
     }
 }
@@ -706,8 +756,6 @@ extension Watch {
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) async throws(ApplicationFailure) -> (outcomes: [Result<Step.Delivery, ApplicationFailure>], state: InstanceState, usage: Result<ResourceUsage.Interval, Errno>) {
         let process: ProcessInstance = instance.process
-        let refused: [String] = steps.enumerated().compactMap { index, step in step.refusal.map { failure in "step \(index + 1) \(failure.subject)" } }
-        guard refused.isEmpty else { throw ApplicationFailure(subject: refused.formatted(), reason: .refused) }
         let began = Result { () throws(Errno) in try ResourceUsage(of: process) }
         guard let source = CGEventSource(stateID: .privateState) else { throw ApplicationFailure(subject: "private event source for process \(process.pid)", reason: .refused) }
         let activity = ProcessInfo.processInfo.beginActivity(options: [.idleDisplaySleepDisabled, .userInitiated], reason: "Acting on process \(process.pid)")
@@ -719,10 +767,15 @@ extension Watch {
                 case .press, .select, .input: false
             }
         }
-        let host = await MainActor.run {
-            (
+        let front: CGRect? = InstanceState.Window.all(.optionOnScreenOnly, of: process.pid)[process.pid, default: []].first { row in row.band == .normal }?.frame
+        let host: Step.Host = await MainActor.run { () -> Step.Host in
+            var (display, count): (CGDirectDisplayID, UInt32) = (0, 0)
+            let found: Bool = front.map { (frame: CGRect) -> Bool in unsafe CGGetDisplaysWithRect(frame, 1, &display, &count) == .success && count > 0 } ?? false
+            let screen: NSScreen? =
+                NSScreen.screens.first { (screen: NSScreen) -> Bool in found && screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID == display } ?? NSScreen.main
+            return (
                 layout: typing ? KeyboardLayout.current(keyboardType: keyboardType) : KeyboardLayout(strokes: [:]),
-                rate: max(NSScreen.main?.maximumFramesPerSecond ?? 1, 1),
+                frame: Duration.seconds(screen?.minimumRefreshInterval ?? 1),
                 doubleClick: Duration.seconds(NSEvent.doubleClickInterval),
                 keyRepeat: (delay: Duration.seconds(NSEvent.keyRepeatDelay), interval: Duration.seconds(NSEvent.keyRepeatInterval)),
             )
@@ -758,10 +811,12 @@ extension Watch {
                 }
             )
             let after: [CGWindowID] = popUps()
-            (previous, shown, opened) = (events, after, opened + [after.filter { number in !shown.contains(number) }])
+            let added: [CGWindowID] = after.filter { (number: CGWindowID) -> Bool in !shown.contains(number) }
+            (previous, shown, opened) = (events, after, opened + [added])
         }
         let inside: CGWindowID? = outcomes.last?[case: \.success]?.window
-        let open: Set<CGWindowID> = instance.application.isActive ? [] : Set(shown).subtracting(inside.map { number in [number] } ?? [])
+        let excluded: Set<CGWindowID> = inside.map { (number: CGWindowID) -> Set<CGWindowID> in [number] } ?? []
+        let open: Set<CGWindowID> = instance.application.isActive ? [] : Set(shown).subtracting(excluded)
         for (index, numbers) in opened.enumerated() where !open.isDisjoint(with: numbers) {
             var closed: [Step.Delivery.PopUp] = []
             for number in numbers where open.contains(number) {
@@ -814,16 +869,16 @@ extension Watch {
             let focused: CGWindowID? = try application.elements(kAXFocusedWindowAttribute).first?.window
             let keyed: Bool = cancelled == nil && raised == .success && focused == number
             if keyed {
-                let escape = try Input(contact: .key(.special(.escape)), path: [], hold: .zero, modifiers: [], schedule: once, edges: everyEdge)
+                let escape = Input(contact: .key(.special(.escape)), path: [], hold: .zero, modifiers: [], schedule: once, edges: everyEdge)
                 let timeline = try escape.timeline(
                     doubleClick: host.doubleClick,
                     keyRepeat: host.keyRepeat,
-                    frame: .seconds(1) / host.rate,
+                    frame: host.frame,
                     layout: host.layout,
                     numbering: (1, 1),
                     using: &generator,
                 )
-                try await Route.process.post(timeline, to: process, from: source, frame: .seconds(1) / host.rate, clock: clock)
+                _ = try await Route.process.post(timeline, to: process, from: source, frame: host.frame, clock: clock)
             }
             if keyed || cancelled == .success { _ = try await next(Step.proving, in: changes, clock: clock) }
         }

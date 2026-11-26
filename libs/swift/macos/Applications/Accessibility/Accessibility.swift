@@ -4,6 +4,7 @@ public import CasePaths
 import CasePathsCore
 public import Encoding
 public import Foundation
+import SPI
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -14,6 +15,7 @@ let fullScreenAttribute: String = "AXFullScreen"
 let sectionsAttribute: String = "AXSections"
 let contentSizeAttribute: String = "AXContentSize"
 let manualAccessibilityAttribute: String = "AXManualAccessibility"
+let preferredLanguageAttribute: String = "AXPreferredLanguage"
 let frameAttributes: [String] = [frameAttribute, NSAccessibility.Attribute.activationPoint.rawValue]
 let elementAttributes: [String] = [
     kAXRoleAttribute, kAXSubroleAttribute, kAXRoleDescriptionAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXHelpAttribute, kAXIdentifierAttribute, kAXDOMIdentifierAttribute,
@@ -204,8 +206,12 @@ extension AXUIElement {
     }
 
     var window: CGWindowID? {
-        var number: CGWindowID = 0
-        return unsafe windowNumber(self, &number) == .success ? number : nil
+        var (number, connection, owner): (CGWindowID, Int32, pid_t) = (0, 0, 0)
+        guard unsafe windowNumber(self, &number) == .success else { return nil }
+        guard let process, unsafe windowOwner(mainConnection(), number, &connection) == .success, unsafe processOfConnection(connection, &owner) == .success, owner != process else {
+            return number
+        }
+        return InstanceState.Window.all(.optionAll, of: process)[process]?.first { row in row.remote == number }?.number ?? number
     }
 
     static func cast(_ slot: CFTypeRef) -> AXUIElement? { CFGetTypeID(slot) == AXUIElementGetTypeID() ? unsafe unsafeDowncast(slot, to: AXUIElement.self) : nil }
@@ -335,6 +341,3 @@ extension AXUIElement {
         }
     }
 }
-
-@_silgen_name("_AXUIElementGetWindow")
-private func windowNumber(_: AXUIElement, _: UnsafeMutablePointer<CGWindowID>) -> AXError

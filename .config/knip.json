@@ -3,7 +3,7 @@
     "exclude": ["catalog"],
     "treatConfigHintsAsErrors": true,
     "ignoreBinaries": ["jscpd", "lsappinfo", "rustc", "swift", "uv", "zipinfo"],
-    "ignoreDependencies": ["@effect/language-service", "adobe", "claude-code", "indesign-uxp-types"],
+    "ignoreDependencies": ["@effect/language-service", "@rasm/process", "adobe", "claude-code", "indesign-uxp-types"],
     "ignoreExportsUsedInFile": true,
     "ignoreIssues": {
         "package.json": ["dependencies", "devDependencies", "optionalPeerDependencies"],

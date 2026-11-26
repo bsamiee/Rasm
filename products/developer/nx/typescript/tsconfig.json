@@ -6,6 +6,9 @@
     "include": ["**/*", "package.json"],
     "references": [
         {
+            "path": "../../../../libs/typescript/system/process"
+        },
+        {
             "path": "../../../../libs/typescript/developer/nx"
         }
     ]

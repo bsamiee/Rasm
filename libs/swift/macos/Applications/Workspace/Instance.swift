@@ -42,7 +42,7 @@ extension Watch {
 
     public nonisolated func quit(
         _ mode: QuitMode,
-        within deadline: Duration,
+        within deadline: Duration = replyDeadline,
         in dictionary: ScriptingDictionary? = nil,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) async throws(ApplicationFailure) -> InstanceState {

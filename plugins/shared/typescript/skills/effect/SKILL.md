@@ -124,7 +124,7 @@ Spans name an operation, and attributes hold the values that differ per call:
 - HTTP server and client spans take the method alone as name, and `HttpMiddleware.SpanNameGenerator` and `HttpClient.SpanNameGenerator` rename them
 - Request span names are `<method> <target>` over a low-cardinality target (a route, a URI template), each concrete value an attribute
 - `HttpTraceContext.toHeaders(span)` writes a span to headers, and `fromHeaders(headers)` returns an `Option` of the remote span to parent from
-- `toEnvironment` of `@rasm/telemetry/node` writes W3C trace context and baggage into a child's environment, and `spawn` of `@rasm/process` merges it
+- `spawn` of `@rasm/process` writes its span to a child as `TRACEPARENT` through `toHeaders`, and children inherit baggage and trace state
 - `layerFromEnvironment` of `@rasm/telemetry/node` parents a child's spans through `Layer.parentSpan(makeExternalSpan(...))`
 
 Metrics take names from `@opentelemetry/semantic-conventions` (`METRIC_*`, `ATTR_*`, `/incubating` for development ones), and an attribute read from the outcome records after the run:

@@ -538,7 +538,7 @@ extension ScriptingDictionary {
         _ query: Command.Query?,
         arguments: [String: AppleEventValue],
         target: sending NSAppleEventDescriptor,
-        within deadline: Duration,
+        within deadline: Duration = replyDeadline,
     ) async throws(AggregateError<AppleEventFailure>) -> AppleEventValue {
         let command = try Result { () throws(Unmatched) in try command(query, taking: Set(arguments.keys)) }
             .aggregated { miss in AppleEventFailure(subject: query?.description ?? miss.subject, reason: .unmatched(miss)) }.get()

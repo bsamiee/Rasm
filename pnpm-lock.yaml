@@ -1195,6 +1195,9 @@ importers:
       '@nx/js':
         specifier: 'catalog:'
         version: 24.1.0-beta.2(@babel/traverse@7.29.14(supports-color@10.2.2))(nx@24.1.0-beta.2)(supports-color@10.2.2)
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../system/process
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -1398,10 +1401,6 @@ importers:
         version: 4.0.0
 
   libs/typescript/system/process:
-    dependencies:
-      '@rasm/telemetry':
-        specifier: workspace:*
-        version: link:../../observability/telemetry
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -1412,6 +1411,9 @@ importers:
 
   libs/typescript/system/shell:
     dependencies:
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../process
       sh-syntax:
         specifier: 'catalog:'
         version: 0.8.7
@@ -1636,6 +1638,9 @@ importers:
       '@rasm/policy':
         specifier: workspace:*
         version: link:../../../libs/typescript/ai/policy
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../../libs/typescript/system/process
       '@rasm/vite':
         specifier: workspace:*
         version: link:../../../libs/typescript/web/vite
@@ -1654,6 +1659,9 @@ importers:
 
   plugins/claude/risman:
     devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.5(effect@4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2))(redis@6.3.1(@opentelemetry/api@1.10.0))
       '@rasm/mcp':
         specifier: workspace:*
         version: link:../../../libs/typescript/ai/mcp
@@ -1749,6 +1757,9 @@ importers:
       '@rasm/object-model':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/object-model
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/system/process
       '@rasm/search':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/data/search
@@ -1774,9 +1785,6 @@ importers:
       '@adobe/premierepro':
         specifier: 'catalog:'
         version: 27.1.0-beta.23
-      '@rasm/process':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/system/process
       '@rasm/vite':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/web/vite
@@ -1941,6 +1949,9 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../../../libs/typescript/system/process
       cf:
         specifier: 'catalog:'
         version: 1.0.0-rc.2(@types/node@26.6.6)
@@ -1978,6 +1989,9 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../../../libs/typescript/system/process
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -2022,6 +2036,9 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../../../libs/typescript/system/process
       '@rasm/uxp':
         specifier: workspace:*
         version: link:../../../../libs/typescript/creative-cloud/uxp
@@ -2069,6 +2086,9 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../../../libs/typescript/system/process
       '@xml-tools/ast':
         specifier: 'catalog:'
         version: 5.0.6
@@ -2172,6 +2192,9 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../../../libs/typescript/system/process
       effect:
         specifier: 'catalog:'
         version: 4.1.5(patch_hash=e697a5da17fbf330a10370ab249169721977c420ae636fb59830d7e7b55095b2)
@@ -2212,6 +2235,9 @@ importers:
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../../../libs/typescript/system/process
       '@renovatebot/pep440':
         specifier: 'catalog:'
         version: 6.0.0

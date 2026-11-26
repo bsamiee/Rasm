@@ -3,6 +3,7 @@ import CasePathsCore
 public import CoreGraphics
 import CryptoKit
 public import Encoding
+import SPI
 import Synchronization
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -31,8 +32,6 @@ public struct Pointer: Encodable, Equatable, Sendable {
         case custom(digest: String, hotSpot: CGPoint, size: CGSize)
     }
 
-    public let tool: String?
-    public let help: String?
     public let cursor: Cursor?
     public let draggingFrame: CGRect?
 }
@@ -42,18 +41,7 @@ public struct Pointer: Encodable, Equatable, Sendable {
 extension Pointer {
     private static let shown: Mutex<(seed: Int32, cursor: Cursor)?> = Mutex(nil)
 
-    package init?(of application: NSRunningApplication, windows: [InstanceState.Window], containers: [Container]) {
-        let focused: Set<Int> = Set(containers.lazy.filter { (container: Container) -> Bool in container.focused == true }.map(\.ref))
-        let toolbars: [Container] = containers.filter { (container: Container) -> Bool in container.kind == .toolbar }
-        let choices: [(focused: Bool, control: Control)] = toolbars.flatMap { (toolbar: Container) -> [(focused: Bool, control: Control)] in
-            let within: Bool = toolbar.parent.map(focused.contains) == true
-            return toolbar.controls.filter { (control: Control) -> Bool in control.kind == .choice && control.value?.text != nil }.map { (control: Control) in (focused: within, control: control) }
-        }
-        let preferred: Bool = choices.contains(where: \.focused)
-        let candidates: [(focused: Bool, control: Control)] = choices.filter { (choice: (focused: Bool, control: Control)) -> Bool in choice.focused == preferred }
-        let chosen: Control? = candidates.count == 1 ? candidates.first?.control : nil
-        let tool: String? = chosen?.value?.text
-        let help: String? = chosen?.options?.first { (option: Control.Option) -> Bool in option.label == tool }?.help
+    package init?(of application: NSRunningApplication, windows: [InstanceState.Window]) {
         let connection: Int32 = mainConnection()
         var (point, local, window, owner): (CGPoint, CGPoint, CGWindowID, Int32) = (.zero, .zero, kCGNullWindowID, 0)
         let located: Bool = unsafe application.isActive && currentCursorLocation(connection, &point) == .success
@@ -68,8 +56,8 @@ extension Pointer {
             return shown?.cursor
         }
         let draggingFrame: CGRect? = windows.first { (row: InstanceState.Window) -> Bool in row.band == .dragging && row.onScreen }?.frame
-        guard tool != nil || cursor != nil || draggingFrame != nil else { return nil }
-        self.init(tool: tool, help: help, cursor: cursor, draggingFrame: draggingFrame)
+        guard cursor != nil || draggingFrame != nil else { return nil }
+        self.init(cursor: cursor, draggingFrame: draggingFrame)
     }
 }
 
@@ -137,79 +125,3 @@ extension Pointer.Cursor.Image {
         self.init(data: data.prefix(length), hotSpot: hotSpot, size: bounds.size)
     }
 }
-
-@_silgen_name("CGSCurrentCursorSeed")
-private func currentCursorSeed() -> Int32
-
-@_silgen_name("CGSGetCurrentCursorLocation")
-private func currentCursorLocation(_: Int32, _: UnsafeMutablePointer<CGPoint>) -> CGError
-
-@_silgen_name("SLSFindWindowAndOwner")
-func findWindowAndOwner(
-    _: Int32,
-    _: Int32,
-    _: Int32,
-    _: Int32,
-    _: UnsafeMutablePointer<CGPoint>,
-    _: UnsafeMutablePointer<CGPoint>,
-    _: UnsafeMutablePointer<CGWindowID>,
-    _: UnsafeMutablePointer<Int32>,
-) -> CGError
-
-@_silgen_name("CGSGetCursorScale")
-private func cursorScale(_: Int32, _: UnsafeMutablePointer<Float>) -> CGError
-
-@_silgen_name("CGSCursorNameForSystemCursor")
-private func systemCursorName(_: Int32) -> UnsafePointer<CChar>?
-
-@_silgen_name("CGSGetGlobalCursorDataSize")
-private func globalCursorDataSize(_: Int32, _: UnsafeMutablePointer<Int>) -> CGError
-
-@_silgen_name("CGSGetGlobalCursorData")
-private func globalCursorData(
-    _: Int32,
-    _: UnsafeMutableRawPointer?,
-    _: UnsafeMutablePointer<Int>,
-    _: UnsafeMutablePointer<Int>,
-    _: UnsafeMutablePointer<CGRect>,
-    _: UnsafeMutablePointer<CGPoint>,
-    _: UnsafeMutablePointer<Int>,
-    _: UnsafeMutablePointer<Int>,
-    _: UnsafeMutablePointer<Int>,
-) -> CGError
-
-@_silgen_name("CGSGetSystemDefinedCursorDataSize")
-private func systemDefinedCursorDataSize(_: Int32, _: Int32, _: UnsafeMutablePointer<Int>) -> CGError
-
-@_silgen_name("CGSGetSystemDefinedCursorData")
-private func systemDefinedCursorData(
-    _: Int32,
-    _: Int32,
-    _: UnsafeMutableRawPointer?,
-    _: UnsafeMutablePointer<Int>,
-    _: UnsafeMutablePointer<Int>,
-    _: UnsafeMutablePointer<CGRect>,
-    _: UnsafeMutablePointer<CGPoint>,
-    _: UnsafeMutablePointer<Int>,
-    _: UnsafeMutablePointer<Int>,
-    _: UnsafeMutablePointer<Int>,
-) -> CGError
-
-@_silgen_name("CoreCursorGetDataSize")
-private func coreCursorDataSize(_: Int32, _: Int32, _: UnsafeMutablePointer<Int>) -> CGError
-
-@_silgen_name("CoreCursorGetData")
-private func coreCursorData(
-    _: Int32,
-    _: Int32,
-    _: UnsafeMutableRawPointer?,
-    _: UnsafeMutablePointer<Int>,
-    _: UnsafeMutablePointer<Int>,
-    _: UnsafeMutablePointer<CGSize>,
-    _: UnsafeMutablePointer<CGPoint>,
-    _: UnsafeMutablePointer<Int>,
-    _: UnsafeMutablePointer<Int>,
-    _: UnsafeMutablePointer<Int>,
-    _: UnsafeMutablePointer<Int>,
-    _: UnsafeMutablePointer<Int>,
-) -> CGError

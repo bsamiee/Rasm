@@ -6,6 +6,7 @@ public import Foundation
 import ImageIO
 import Processes
 import Results
+import SPI
 @unsafe @preconcurrency import ScreenCaptureKit
 import UniformTypeIdentifiers
 
@@ -105,12 +106,6 @@ public struct Screenshot: Encodable, Sendable {
         let area = CGRect(x: CGFloat(box[0]), y: 1 - CGFloat(box[1] + box[3]), width: CGFloat(box[2]), height: CGFloat(box[3]))
         return area.isEmpty ? nil : area.applying(CGAffineTransform(a: frame.width, b: 0, c: 0, d: frame.height, tx: frame.minX, ty: frame.minY))
     }
-}
-
-private struct WindowCaptureOptions: OptionSet {
-    let rawValue: UInt32
-    static let bestResolution = Self(rawValue: 1 << 8)
-    static let ignoreGlobalClipShape = Self(rawValue: 1 << 11)
 }
 
 struct Framing {
@@ -244,9 +239,6 @@ extension Data {
     }
 }
 
-@_silgen_name("CGSHWCaptureWindowList")
-private func captureWindowList(_: Int32, _: UnsafePointer<UInt32>, _: Int32, _: WindowCaptureOptions) -> CFArray?
-
 extension Watch {
     private nonisolated func shareable(listing named: Set<CGWindowID>, after delays: ArraySlice<Duration>) async throws(ApplicationFailure) -> (windows: [SCWindow], displays: [SCDisplay]) {
         let process: pid_t = instance.process.pid
@@ -284,9 +276,7 @@ extension Watch {
         let withheld: Set<CGWindowID> = Set(rows.filter { row in !row.shared }.map(\.number))
         return targets.map { target in
             Result { () throws(ApplicationFailure) -> Framing in
-                guard withheld.isDisjoint(with: target.named) else {
-                    throw ApplicationFailure(subject: "\(target.subject), whose \(kCGWindowSharingState as String) is none", reason: .refused)
-                }
+                guard withheld.isDisjoint(with: target.named) else { throw ApplicationFailure(subject: target.subject, reason: .unshared) }
                 let named: [SCWindow] = owned.filter { window in target.named.contains(window.windowID) }
                 let floor: Int = named.map(\.windowLayer).min() ?? .min
                 let joined: [SCWindow] = owned.filter { window in

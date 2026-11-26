@@ -1,5 +1,5 @@
 public import Darwin
-import Foundation
+public import Foundation
 import Security
 import Subprocess
 public import System
@@ -156,10 +156,45 @@ extension ProcessInstance {
 
     // --- [PROFILE]
 
-    public func sample(for duration: Duration, within timeout: Duration) async throws(ProcessFailure) -> String {
-        guard !hasExited else { throw ProcessFailure(subject: rawValue, reason: .system(.noSuchProcess)) }
-        return try await Configuration(executable: .name("sample"), arguments: [String(pid), String(Int((duration / .seconds(1)).rounded(.up))), "-mayDie", "-file", "/dev/stdout"])
-            .run(output: .string(limit: .max), within: timeout)
+    private static let taskPort: String = "system.privilege.taskport"
+
+    private var reports: URL { URL.temporaryDirectory.appending(components: "sample", rawValue, directoryHint: .isDirectory) }
+
+    public func samples(since earliest: Date) throws(ProcessFailure) -> [URL] {
+        let written: [(report: URL, at: Date)]
+        do {
+            written = try FileManager.default.contentsOfDirectory(at: reports, includingPropertiesForKeys: [.contentModificationDateKey]).map { (report: URL) throws -> (report: URL, at: Date) in
+                (report, try report.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate ?? .distantPast)
+            }
+        } catch CocoaError.fileReadNoSuchFile {
+            return []
+        } catch {
+            throw ProcessFailure(subject: reports.path(percentEncoded: false), error)
+        }
+        return written.filter { sample in sample.at >= earliest }.sorted { first, second in first.at > second.at }.map(\.report)
+    }
+
+    public func sample(for duration: Duration) async throws(ProcessFailure) -> URL {
+        let subject = "sample of process \(rawValue)"
+        guard !hasExited else { throw ProcessFailure(subject: subject, reason: .system(.noSuchProcess)) }
+        var definition: CFDictionary?
+        let read: OSStatus = unsafe AuthorizationRightGet(Self.taskPort, &definition)
+        let rule: [String: Any] = definition as? [String: Any] ?? [:]
+        let granted: Bool =
+            switch (rule["class"] as? String, rule[kAuthorizationRightRule]) {
+                case (.some(kAuthorizationRuleClassAllow), _): true
+                case (.some(kAuthorizationRightRule), .some(let named as [String])): named == [kAuthorizationRuleClassAllow]
+                case (.some(kAuthorizationRightRule), .some(let named as String)): named == kAuthorizationRuleClassAllow
+                case _: false
+            }
+        guard read == errAuthorizationSuccess, granted else {
+            throw ProcessFailure(subject: subject, reason: .authorization(right: Self.taskPort, read == errAuthorizationSuccess ? errAuthorizationInteractionNotAllowed : read))
+        }
+        let report: URL = reports.appending(component: "\(Date.now.formatted(.iso8601)).sample.txt")
+        do { try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true) } catch { throw ProcessFailure(subject: reports.path(percentEncoded: false), error) }
+        try await Configuration(executable: .name("sample"), arguments: [String(pid), String(Int((duration / .seconds(1)).rounded(.up))), "-mayDie", "-file", report.path(percentEncoded: false)])
+            .run(input: .none, output: .discarded)
+        return report
     }
 }
 

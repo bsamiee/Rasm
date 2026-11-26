@@ -1,14 +1,12 @@
 import AppKit
 import Carbon.HIToolbox
 import CustomDump
+import SPI
 import Testing
 
 @testable import Applications
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-@_silgen_name("SLSCopySpacesForWindows")
-private func copySpacesForWindows(_: Int32, _: SpaceMask, _: CFArray) -> Unmanaged<CFArray>?
 
 @Suite(.timeLimit(.minutes(1)))
 struct SessionTests {
@@ -36,7 +34,7 @@ struct SessionTests {
         let connection: Int32 = mainConnection()
         let rows: [InstanceState.Window] = InstanceState.Window.all(.optionAll).values.flatMap(\.self)
         let assigned: [CGWindowID: Set<UInt64>] = Dictionary(
-            rows.map { row in (row.number, Set((unsafe copySpacesForWindows(connection, [.current, .others, .user], [row.number] as CFArray)?.takeRetainedValue() as? [UInt64]) ?? [])) }
+            rows.map { row in (row.number, Set((copySpacesForWindows(connection, [.includesCurrent, .includesOthers, .includesUser], [row.number] as CFArray) as? [UInt64]) ?? [])) }
         ) { first, _ in first }
         expectNoDifference(Dictionary(rows.map { row in (row.number, Set(row.spaces)) }) { first, _ in first }, assigned)
     }

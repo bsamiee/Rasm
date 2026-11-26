@@ -1,5 +1,5 @@
-import { Array, Cause, Data, Duration, Effect, Function, Option, Predicate, Record, Stream, Struct } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { run } from '@rasm/process';
+import { Array, Cause, Data, Duration, Effect, Function, Option, Predicate, Record, Struct } from 'effect';
 import { type CallExpr, type File, LangVariant, type Word } from 'sh-syntax';
 import { unquote } from '#/evaluation/expansion';
 import { ShellError } from '#/syntax/script';
@@ -131,12 +131,10 @@ const listings: Readonly<Record<string, (call: CallExpr, literal: (word: Word | 
 const ask = Effect.fnUntraced(function* (at: { readonly shell: string; readonly environment: Readonly<Record<string, string>>; readonly source?: string; readonly timeout?: Duration.Input }, builtins: readonly string[]) {
     const names = Array.dedupe(['IFS', 'OLDPWD', ...Record.keys(at.environment).filter((name) => identifier.test(name))]);
     const snippets = Record.values(features).map(([snippet]) => snippet);
-    const handle = yield* ChildProcessSpawner.ChildProcessSpawner.use((spawner) => spawner.spawn(ChildProcess.make(at.shell, ['-c', report, at.shell, at.source ?? '', sentinel.format, ...snippets, '', ...builtins, '', ...names], { env: at.environment, extendEnv: false, stdin: 'ignore' })));
-    const [output, refused, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    yield* Effect.when(new Cause.UnknownError(refused, `${at.shell} exited with ${code}`), Effect.succeed(code !== 0));
+    const { stdout: output } = yield* run([at.shell, '-c', report, at.shell, at.source ?? '', sentinel.format, ...snippets, '', ...builtins, '', ...names], { env: at.environment, extendEnv: false });
     const found = Option.liftPredicate(output.lastIndexOf(sentinel.text), (offset) => offset >= 0);
     return yield* Effect.fromOption(Option.map(found, (offset) => output.slice(offset + sentinel.text.length)));
-}, Effect.scoped);
+});
 const probe = Effect.fnUntraced(function* (at: Parameters<typeof ask>[0], builtins: readonly string[], parse: (source: string, dialect: Dialect) => Effect.Effect<File, ShellError>) {
     const printed = yield* ask(at, builtins).pipe(Effect.timeoutOrElse({ duration: at.timeout ?? Duration.infinity, orElse: () => new Cause.TimeoutError(`${at.shell} printed no probe in time`) }), Effect.mapError(ShellError.of({ _tag: 'Host' }, at.shell)));
     const records = Array.chunksOf(printed.split('\0'), 3).filter(Predicate.isTupleOf(3));

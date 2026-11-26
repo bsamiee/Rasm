@@ -1,3 +1,4 @@
+import type { Act } from '@rasm/applications/contract';
 import { type Description, FacetControl } from '@rasm/applications/source';
 import type { Upstream } from '@rasm/mcp/upstream';
 import { Containment, format } from '@rasm/object-model/host';
@@ -8,12 +9,19 @@ import { Uxp } from '@rasm/uxp/plugin';
 import { action, app, constants, core } from 'adobe:photoshop';
 import type { File } from 'adobe:uxp';
 import { Array, Cause, Context, Effect, Exit, Function, flow, Layer, Match, Option, Predicate, Queue, Record, Result, Schema, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import type { SelectionType, ToolType } from 'photoshop/dom/Constants';
 import type { ActionDescriptor, ExecutionContext } from 'photoshop/dom/CoreModules';
 import type { Document } from 'photoshop/dom/Document';
+import type { Bounds } from 'photoshop/dom/objects/Bounds';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Leaf = Pick<FacetControl, 'kind' | 'role' | 'value' | 'selected'> & { readonly write: (to: unknown) => Option.Option<unknown> };
+interface Route {
+    readonly member: string;
+    readonly carries: (typeof Act.Input.Type)['modifiers'];
+    readonly draw: (drawn: { readonly document: Document; readonly points: Array.NonEmptyReadonlyArray<readonly [number, number]>; readonly mode: SelectionType; readonly bounds: Bounds }) => Promise<unknown>;
+}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -38,6 +46,13 @@ const ModalState = Schema.Struct({
     kind: Schema.optionalKey(Enumerated.annotate({ description: 'Kind of a tool modal state, as toolModalStateChanged names it' })),
     title: Schema.optionalKey(Schema.String.annotate({ description: 'Title of a modal dialog, as modalStateChanged names it' })),
 }).annotate({ description: 'Descriptor of toolModalStateChanged or modalStateChanged' });
+const Rectangle = Schema.Struct({ left: Schema.Finite, top: Schema.Finite, right: Schema.Finite, bottom: Schema.Finite }).annotate({ description: 'Left, top, right, and bottom edges' });
+const Bounded = Schema.declare((input: unknown): input is Bounds => Schema.is(Rectangle)(input)).annotate({ description: 'Plain rectangle the Selection members take, as Adobe examples pass, where @types/photoshop types the Bounds class' });
+const View = Schema.Struct({
+    viewInfo: Schema.Struct({ activeView: Schema.Struct({ globalBounds: Rectangle.annotate({ description: 'Active view in screen points from the top left of the main display' }) }) }).annotate({ description: 'Views of the document' }),
+    viewTransform: Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite]).annotate({ description: 'Affine a b c d tx ty from points of the active view, counted from its top left, to document pixels' }),
+}).annotate({ description: 'Document properties placing its active view on the screen' });
+const ActiveTool = Schema.Struct({ classId: Schema.String, title: Schema.String }).annotate({ description: 'Reply of core.getActiveTool, whose class key Photoshop spells classId where @types/photoshop declares classID' });
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -153,8 +168,8 @@ const render = Effect.fnUntraced(function* ({ target, label }: Render, file: Fil
         }),
     );
 });
-const property = <const Fields extends Schema.Struct.Fields>(reply: Schema.Struct<Fields>) =>
-    play(Array.map(Struct.keys(reply.fields), (_property) => ({ _obj: 'get', _target: [{ _property }, { _ref: 'application', _enum: 'ordinal', _value: 'targetEnum' }] }))).pipe(Effect.flatMap((replies) => Schema.decodeUnknownEffect(reply)(Object.assign({}, ...replies))));
+const property = <const Fields extends Schema.Struct.Fields>(reply: Schema.Struct<Fields>, _ref: 'application' | 'document' = 'application') =>
+    play(Array.map(Struct.keys(reply.fields), (_property) => ({ _obj: 'get', _target: [{ _property }, { _ref, _enum: 'ordinal', _value: 'targetEnum' }] }))).pipe(Effect.flatMap((replies) => Schema.decodeUnknownEffect(reply)(Object.assign({}, ...replies))));
 const application = Effect.map(property(Hosted), Struct.get('hostName'));
 const leaf = Match.type<unknown>().pipe(
     Match.withReturnType<Leaf>(),
@@ -186,7 +201,7 @@ const controls = ({ _obj: owner, ...held }: typeof ActionObject.Type, path: type
     Array.flatMap(Record.toEntries(held), ([key, value]) => {
         const locator = Array.append(path, [owner, key] as const);
         return Option.match(leaf(value), {
-            onSome: (stated) => [FacetControl.make({ ...Struct.omit(stated, ['write']), locator, label: { text: key, attribute: owner } })],
+            onSome: (stated) => [FacetControl.make({ ...Struct.omit(stated, ['write']), locator, label: { text: key } })],
             onNone: () => (Schema.is(ActionObject)(value) ? controls(value, locator) : []),
         });
     });
@@ -204,6 +219,90 @@ const update = ({ _obj: owner, ...held }: typeof ActionObject.Type, [key, ...bel
         onNonEmpty: (deeper) => (Schema.is(ActionObject)(value) ? Result.map(update(value, deeper, to), (inner) => ({ ...value, [Array.headNonEmpty(deeper)]: inner })) : unmatched),
     });
 };
+const painting = Schema.is(Schema.Enum(constants.ToolType));
+const cornered = ([x, y]: readonly [number, number]) => Object.assign(new app.PathPointInfo(), { anchor: [x, y], leftDirection: [x, y], rightDirection: [x, y], kind: constants.PointKind.CORNERPOINT });
+const spanned = (points: Array.NonEmptyReadonlyArray<readonly [number, number]>) => {
+    const [[x0, y0], [x1, y1]] = [Array.headNonEmpty(points), Array.lastNonEmpty(points)];
+    return { left: Math.min(x0, x1), top: Math.min(y0, y1), right: Math.max(x0, x1), bottom: Math.max(y0, y1) };
+};
+const polygon: Route = {
+    member: 'Selection.selectPolygon',
+    carries: ['shift', 'option'],
+    draw: ({ document, points, mode }) =>
+        document.selection.selectPolygon(
+            Array.map(points, ([x, y]) => ({ x, y })),
+            mode,
+        ),
+};
+const routes: Record.ReadonlyRecord<string, Route> = {
+    marqueeRectTool: { member: 'Selection.selectRectangle', carries: ['shift', 'option'], draw: ({ document, mode, bounds }) => document.selection.selectRectangle(bounds, mode) },
+    marqueeEllipTool: { member: 'Selection.selectEllipse', carries: ['shift', 'option'], draw: ({ document, mode, bounds }) => document.selection.selectEllipse(bounds, mode) },
+    lassoTool: polygon,
+    polySelTool: polygon,
+    moveTool: { member: 'Layer.translate', carries: [], draw: ({ document, points }) => Promise.all(document.activeLayers.map((layer) => layer.translate(Array.lastNonEmpty(points)[0] - points[0][0], Array.lastNonEmpty(points)[1] - points[0][1]))) },
+};
+const stroke = Effect.fnUntraced(function* (document: Document, tool: ToolType, points: Array.NonEmptyReadonlyArray<readonly [number, number]>, pressured: boolean) {
+    const names = new Set(Array.makeBy(document.pathItems.length, (index) => document.pathItems[index]?.name));
+    const name = yield* Effect.orDie(
+        Effect.fromOption(
+            Array.findFirst(
+                Array.makeBy(names.size + 1, (index) => `${tool} ${index}`),
+                (each) => !names.has(each),
+            ),
+        ),
+    );
+    yield* Effect.try({ try: () => document.pathItems.add(name, [Object.assign(new app.SubPathInfo(), { closed: false, operation: constants.ShapeOperation.SHAPEXOR, entireSubPath: Array.map(points, cornered) })]), catch: HostError.refused(`path ${name}`) });
+    const added = yield* Effect.try({ try: () => document.pathItems.getByName(name), catch: HostError.refused(`path ${name}`) });
+    yield* Effect.tryPromise({ try: () => added.strokePath(tool, pressured), catch: HostError.refused(`strokePath of path ${name} with ${tool}`) });
+    yield* Effect.tryPromise({ try: () => added.remove(), catch: HostError.refused(`remove of path ${name}`) });
+});
+const canvas = {
+    view: Effect.map(
+        property(View, 'document'),
+        ({
+            viewInfo: {
+                activeView: {
+                    globalBounds: { left, top, right, bottom },
+                },
+            },
+            viewTransform,
+        }) => ({
+            frame: [
+                [left, top],
+                [right - left, bottom - top],
+            ] as const,
+            transform: viewTransform,
+        }),
+    ),
+    apply: Effect.fnUntraced(function* ({ pointer, path = [], modifiers, hold, every, jitter }: typeof Act.Input.Type) {
+        const [{ classId, title }, document] = yield* Effect.all([
+            Effect.flatMap(Effect.tryPromise({ try: () => core.getActiveTool(), catch: HostError.refused('active tool') }), Schema.decodeUnknownEffect(ActiveTool)),
+            Effect.fromOption(Option.fromNullishOr(app.activeDocument), HostError.of({ _tag: 'Unavailable' }, 'active document')),
+        ]);
+        const samples = Array.prepend(path, pointer);
+        const points = Array.map(samples, ([x, y]): readonly [number, number] => [x, y]);
+        const pressured = new Set(Array.map(samples, (sample) => sample[2])).size > 1;
+        const mode = Match.value({ shift: modifiers.includes('shift'), option: modifiers.includes('option') }).pipe(
+            Match.when({ shift: true, option: true }, () => constants.SelectionType.INTERSECT),
+            Match.when({ shift: true }, () => constants.SelectionType.EXTEND),
+            Match.when({ option: true }, () => constants.SelectionType.DIMINISH),
+            Match.orElse(() => constants.SelectionType.REPLACE),
+        );
+        const drawn = { document, points, mode, bounds: yield* Effect.orDie(Schema.decodeUnknownEffect(Bounded)(spanned(points))) };
+        const { member, carries, run } = yield* Effect.fromOption(
+            Option.orElse(
+                Option.map(Option.liftPredicate(classId, painting), (tool): Pick<Route, 'member' | 'carries'> & { readonly run: Effect.Effect<void, HostError> } => ({ member: `PathItem.strokePath ${tool}`, carries: [], run: stroke(document, tool, points, pressured) })),
+                () => Option.map(Record.get(routes, classId), (route) => ({ ...Struct.pick(route, ['member', 'carries']), run: Effect.tryPromise({ try: () => route.draw(drawn), catch: HostError.refused(`${route.member} with ${classId}`) }) })),
+            ),
+            () => Unmatched.of({ subject: 'tool Photoshop draws through a member', query: Option.some(classId), candidates: [...Object.values(constants.ToolType), ...Record.keys(routes)] }),
+        );
+        yield* modal(title, (context) => history(title, context, run));
+        return {
+            member,
+            approximated: [...(pressured ? ['pressure as a taper'] : []), ...(samples.some((sample) => sample[3] !== undefined) ? ['tilt'] : []), ...([hold, every, jitter].some(Predicate.isNotUndefined) ? ['timing'] : []), ...(modifiers.some((held) => !carries.includes(held)) ? ['modifiers'] : [])],
+        };
+    }),
+};
 const toolbar = {
     current: Effect.map(Effect.tryPromise({ try: () => core.getActiveTool(), catch: HostError.refused('active tool') }), ({ key: id, title: label }) => ({ id, label })),
     select: (id: string) => modal(`tool ${id}`, () => play([{ _obj: 'select', _target: [{ _ref: id }] }])),
@@ -217,6 +316,7 @@ const toolbar = {
             ),
     },
     pointer: Effect.map(Notifications.use(Struct.get('operations')), (operations) => ({ operations })),
+    canvas,
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

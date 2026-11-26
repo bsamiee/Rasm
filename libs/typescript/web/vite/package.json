@@ -2,7 +2,7 @@
     "name": "@rasm/vite",
     "version": "0.1.0",
     "private": true,
-    "description": "Vite plugins and configs for Rasm builds, failing a build on Rolldown warnings that break output, building Chrome extensions from manifest.json, and bundling Claude Code plugins from hooks/hooks.json",
+    "description": "Vite plugins and configs for Rasm builds, failing a build on Rolldown warnings that break output, building Chrome extensions from manifest.json, and bundling agent harness plugins from hooks/hooks.json, package.json bin programs, and package.json files",
     "license": "MIT",
     "repository": {
         "type": "git",

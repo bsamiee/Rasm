@@ -3,7 +3,7 @@ import { Description, type FacetContainer, FacetControl } from '@rasm/applicatio
 import { HostError, Specifier } from '@rasm/object-model/model';
 import { Unmatched } from '@rasm/search/unmatched';
 import type { Plugin } from '@rasm/uxp/plugin';
-import type { Event, MenuAction, Panel } from 'adobe:indesign';
+import type { Event, Panel } from 'adobe:indesign';
 import { Array, Cause, Effect, Formatter, Match, Option, Predicate, pipe, Result, Schema, Stream, String, Struct } from 'effect';
 import { type DefaultTreeAdapterMap, defaultTreeAdapter, html, parseFragment } from 'parse5';
 import { Dom } from '#/uxp/dom';
@@ -29,13 +29,13 @@ const describe = Effect.fn('describe')(function* ({ within }: { readonly within?
                                 Array.makeBy(panels.length, (index) => Option.fromUndefinedOr(panels.item(index))),
                                 Array.getSomes,
                                 Array.filter(({ name }) => name.length > 0),
-                                Array.map(({ constructorName, name, visible }) => FacetControl.make({ locator: Array.append(shelf, [constructorName, name] as const), kind: 'toggle', role: constructorName, label: { text: name, attribute: 'name' satisfies keyof Panel }, value: { _tag: 'bool', value: visible } })),
+                                Array.map(({ constructorName, name, visible }) => FacetControl.make({ locator: Array.append(shelf, [constructorName, name] as const), kind: 'toggle', role: constructorName, label: { text: name }, value: { _tag: 'bool', value: visible } })),
                             ),
                         },
                         {
                             locator: bar,
                             kind: 'menuBar',
-                            controls: Array.map(Array.dedupe(menuActions.everyItem().area), (area) => FacetControl.make({ locator: areaAt(area), kind: 'item', role: menuActions.constructorName, label: { text: area, attribute: 'area' satisfies keyof MenuAction }, opens: levelAt(area) })),
+                            controls: Array.map(Array.dedupe(menuActions.everyItem().area), (area) => FacetControl.make({ locator: areaAt(area), kind: 'item', role: menuActions.constructorName, label: { text: area }, opens: levelAt(area) })),
                         },
                     ],
                 }),
@@ -61,7 +61,7 @@ const describe = Effect.fn('describe')(function* ({ within }: { readonly within?
                                     locator: Array.append(areaAt(area), [action.constructorName, action.toSpecifier()] as const),
                                     kind: 'item',
                                     role: action.constructorName,
-                                    label: { text: action.name, attribute: 'name' satisfies keyof MenuAction },
+                                    label: { text: action.name },
                                     ...(Option.isSome(Dom.unavailable(action, 'enabled', false)) ? {} : { enabled: action.enabled, ...(action.checked ? { mark: '✓' } : {}) }),
                                 }),
                         ),

@@ -184,6 +184,7 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
                     served.toLayer({
                         installations: () => Stream.concat(Stream.succeed({ installations, unreadable: [] }), Stream.never),
                         instances: () => Stream.concat(Stream.succeed(Result.succeed(instances)), Stream.never),
+                        release: () => Effect.void,
                         events: () => Stream.never,
                         observations: () => Stream.never,
                         pressure: () => Stream.never,
@@ -197,7 +198,7 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
                                     folders,
                                     payload.folders.map(({ url, glob }) => ({ url: url.href, ...Record.getSomes({ glob: Option.fromUndefinedOr(glob) }) })),
                                 );
-                                return { reports: [], logs: [], unified: Result.succeed([]), unreadable: [] };
+                                return { reports: [], samples: [], logs: [], unified: Result.succeed([]), unreadable: [] };
                             }),
                     }),
                     RpcServer.layerProtocolSocketServer,

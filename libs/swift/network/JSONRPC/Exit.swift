@@ -40,6 +40,10 @@ private struct EncodedError: Encodable {
                 try fields.encode(error.localizedDescription, forKey: .message)
                 try miss.encode(to: encoder)
             case .none:
+                if let typed = error as? any Encodable {
+                    try fields.encode(String(describing: type(of: error)), forKey: .tag)
+                    try typed.encode(to: encoder)
+                }
                 for (depth, bridged) in chain.enumerated() {
                     if depth > 0 { fields = fields.nestedContainer(keyedBy: CodingKeys.self, forKey: .cause) }
                     try fields.encode(bridged.domain, forKey: .name)

@@ -3,7 +3,7 @@ import { type Source, SourceRpcs } from '@rasm/applications/source';
 import { Link } from '@rasm/mcp/link';
 import { type Containment, encode, reference, resolve } from '@rasm/object-model/host';
 import { HostError, Specifier } from '@rasm/object-model/model';
-import { Dialogs, type Evaluation, EvaluationRpcs, type Render, RenderRpcs } from '@rasm/object-model/rpcs';
+import { Dialogs, type Evaluation, EvaluationRpcs, Failure, type Render, RenderRpcs } from '@rasm/object-model/rpcs';
 import { Unmatched } from '@rasm/search/unmatched';
 import { layer } from '@rasm/telemetry/otlp';
 import fs from 'adobe:fs';
@@ -27,6 +27,7 @@ const MANIFEST = `plugin:/${UxpManifest.file}`;
 const BUNDLE = /(?<=\.app)(?:\/.*)?$|(?<=[^/])$/u;
 const RENDERED = 'rendered.png';
 const BODY = 'body.js';
+const SOURCE = SourceRpcs.failing(Failure);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -215,14 +216,14 @@ class Plugin extends Context.Service<Plugin, typeof UxpManifest.Identity.Type>()
                 return (request) => Effect.scoped(Effect.andThen(held, request));
             }),
         );
-        const served = Link.serve(Toolkit.merge(Toolkit.empty, ...Array.fromNullishOr(toolkit)), Stream.ignoreCause(source.changes, { log: 'Error' })).pipe(Layer.provideMerge(Layer.mergeAll(handlers, SourceRpcs.toLayer(Struct.pick(source, ['describe', 'operate'])), suppressed)));
+        const served = Link.serve(Toolkit.merge(Toolkit.empty, ...Array.fromNullishOr(toolkit)), Stream.ignoreCause(source.changes, { log: 'Error' })).pipe(Layer.provideMerge(Layer.mergeAll(handlers, SOURCE.toLayer(Struct.pick(source, ['describe', 'operate'])), suppressed)));
         const link = Plugin.use(({ id, requiredPermissions: { network } }) =>
             Effect.fromOption(
                 Array.findFirst(Array.ensure(network?.domains ?? []), (domain) => Schema.decodeOption(WebSocketUrl)(domain)),
                 () => new Cause.NoSuchElementError(`${id} manifest permits no WebSocket domain to link through`),
             ),
         );
-        return Effect.flatMap(link, (url) => Layer.launch(Link.dial(group.merge(SourceRpcs, Link.Rpcs.omit('tools/list', 'events')).middleware(Dialogs), served, url, peer))).pipe(logFailure, Effect.forkScoped, Layer.effectDiscard);
+        return Effect.flatMap(link, (url) => Layer.launch(Link.dial(group.merge(SOURCE, Link.Rpcs.omit('tools/list', 'events')).middleware(Dialogs), served, url, peer))).pipe(logFailure, Effect.forkScoped, Layer.effectDiscard);
     };
 }
 

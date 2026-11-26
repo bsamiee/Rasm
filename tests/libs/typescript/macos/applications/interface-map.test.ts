@@ -63,12 +63,7 @@ const Truth = {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const instant = (minute: number) => DateTime.formatIso(DateTime.makeUnsafe(START + minute * 60_000));
-const folding = (text: string) =>
-    text
-        .normalize('NFKD')
-        .replaceAll(/[\p{M}\p{P}\p{White_Space}]/gu, '')
-        .toLowerCase();
-const labelled = (role: string, text: string) => JSON.stringify([{ key: { label: { value: folding(text) } }, role }]);
+const identified = (index: number) => JSON.stringify([{ key: { identifier: { value: `item${index}` } }, role: 'AXButton' }]);
 const flushed = Effect.andThen(TestClock.adjust(Duration.seconds(2)), TestClock.adjust(Duration.seconds(2)));
 const store = Effect.map(
     FileSystem.FileSystem.use((fs) => fs.makeTempFileScoped({ suffix: '.sqlite' })),
@@ -180,7 +175,7 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
                         Array.makeBy(conditions.length, (index) => index),
                         (index) => present(read, index),
                     ),
-                    (index) => [labelled('AXButton', label(index)), { kind: 'action', role: 'AXButton', label: { text: label(index), attribute: 'AXDescription' }, positional: false }],
+                    (index) => [identified(index), { kind: 'action', role: 'AXButton', label: { text: label(index), attribute: 'AXDescription' }, positional: false }],
                 ),
             },
             layout: {},
@@ -227,7 +222,7 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
                 : Option.none();
         return { condition: conditions[index]?._tag, sightings, retirement, epochs: new Set(sightings.map(opener)).size };
     };
-    return { user: { username: user, homedir: home }, stem, readings, present, generation, build, observation, level, submenu, opener, oracle, stored: (index: number) => JSON.stringify([{ key: { label: { value: `item${index}of${PRIVATE}` } }, role: 'AXButton' }]), window: DOCUMENT };
+    return { user: { username: user, homedir: home }, stem, readings, present, generation, build, observation, level, submenu, opener, oracle, stored: identified, window: DOCUMENT };
 };
 
 const toolbar = (current: string, [rectangle, pen]: readonly [{ readonly label: string; readonly shortcut?: KeyStep; readonly help?: string }, { readonly label: string; readonly shortcut?: KeyStep; readonly help?: string }]) =>
@@ -282,7 +277,7 @@ describe(InterfaceMap, () => {
                         );
                     }
                     if (before?.tally.persistent === true && Option.isNone(before.retired) && after !== undefined && Option.isSome(after.retired)) {
-                        assert.notStrictEqual(before.tally.verified, world.build(read), `${key} held persistent retires only on a build it was not seen in`);
+                        assert.isFalse(Option.contains(before.tally.verified, world.build(read)), `${key} held persistent retires only on a build it was not seen in`);
                     }
                 }
             };
@@ -317,7 +312,6 @@ describe(InterfaceMap, () => {
             assert.include(written, PRIVATE);
             assert.notInclude(written, world.user.username);
             assert.notInclude(written, world.stem);
-            assert.notInclude(written, folding(world.stem), 'a locator key folding a document name holds it redacted');
             const opening = yield* Schema.decodeEffect(Observation)(world.submenu(0));
             const menus = yield* Effect.forEach(world.readings, (read) => Effect.all([Schema.decodeEffect(Observation)(world.level(read, read)), Schema.decodeEffect(Observation)(world.level(read, read + 0.5))]));
             const leveled = menus.reduce((map, [first, again], read) => {
@@ -339,11 +333,11 @@ describe(InterfaceMap, () => {
     );
 
     it('learns the label a facet gives its selected option under the newest build, serves it while the facet lists the option under another, and serves nothing a build before the newest learned', () => {
-        const first = new InterfaceMap({ application: { builds: [BUILDS[0]], options: {} }, containers: {} });
+        const first = new InterfaceMap({ application: { builds: [BUILDS[0]], options: {}, cursors: {} }, containers: {} });
         const learned = first.learn(toolbar('Rectangle Tool', [{ label: 'Rectangle Tool' }, { label: 'PEN_TOOL' }]));
         const served = learned.map.learn(toolbar('Pen Tool', [{ label: 'RECTANGLE_TOOL' }, { label: 'Pen Tool' }]));
         const again = served.map.learn(toolbar('Pen Tool', [{ label: 'RECTANGLE_TOOL' }, { label: 'Pen Tool' }]));
-        const updated = new InterfaceMap({ application: { builds: [BUILDS[1], BUILDS[0]], options: served.map.application.options }, containers: {} }).learn(toolbar('SELECTION_TOOL', [{ label: 'RECTANGLE_TOOL' }, { label: 'PEN_TOOL' }]));
+        const updated = new InterfaceMap({ application: { builds: [BUILDS[1], BUILDS[0]], options: served.map.application.options, cursors: {} }, containers: {} }).learn(toolbar('SELECTION_TOOL', [{ label: 'RECTANGLE_TOOL' }, { label: 'PEN_TOOL' }]));
         assert.deepStrictEqual(
             { learned: optionLabels(learned.described), served: optionLabels(served.described), updated: optionLabels(updated.described), kept: again.map === served.map, unlearned: first.learn(toolbar('SELECTION_TOOL', [{ label: 'RECTANGLE_TOOL' }, { label: 'PEN_TOOL' }])).map === first },
             { learned: ['Rectangle Tool', 'PEN_TOOL'], served: ['Rectangle Tool', 'Pen Tool'], updated: ['RECTANGLE_TOOL', 'PEN_TOOL'], kept: true, unlearned: true },
@@ -352,7 +346,7 @@ describe(InterfaceMap, () => {
 
     it('learns the shortcut and help beside the label a facet gives its selected option, and serves all three while the facet lists the option with its id alone', () => {
         const pen = { label: 'Pen Tool', shortcut: { key: 'p', modifiers: [] }, help: 'Click to add an anchor point, drag to pull its direction handles' } as const;
-        const learned = new InterfaceMap({ application: { builds: [BUILDS[0]], options: {} }, containers: {} }).learn(toolbar('Pen Tool', [{ label: 'RECTANGLE_TOOL' }, pen]));
+        const learned = new InterfaceMap({ application: { builds: [BUILDS[0]], options: {}, cursors: {} }, containers: {} }).learn(toolbar('Pen Tool', [{ label: 'RECTANGLE_TOOL' }, pen]));
         const served = learned.map.learn(toolbar('RECTANGLE_TOOL', [{ label: 'RECTANGLE_TOOL' }, { label: 'PEN_TOOL' }]));
         assert.deepStrictEqual<unknown>({ learned: optionFacts(learned.described), served: optionFacts(served.described) }, { learned: [{ label: 'RECTANGLE_TOOL' }, pen], served: [{ label: 'RECTANGLE_TOOL' }, pen] });
     });
@@ -449,7 +443,7 @@ describe(InterfaceMap, () => {
             });
             const failed = passed.prove({ at, from: 'window', outcome: Result.fail(new Error('every rung from window failed read-back')) });
             const dialog = yield* Effect.fromOption(Array.last(observed));
-            const rebuilt = passed.fold({ ...dialog, build: BUILDS[1], opened: DateTime.add(dialog.at, { minutes: 5 }), at: DateTime.add(dialog.at, { minutes: 5 }) }, OWNER).map;
+            const rebuilt = passed.fold({ ...dialog, build: Option.some(BUILDS[1]), opened: DateTime.add(dialog.at, { minutes: 5 }), at: DateTime.add(dialog.at, { minutes: 5 }) }, OWNER).map;
             const failures = (map: InterfaceMap) =>
                 Record.get(map.containers, DIALOG).pipe(
                     Option.flatMap(({ controls }) => Record.get(controls, UNITS)),
@@ -496,13 +490,13 @@ describe(InterfaceMap, () => {
             });
             const layout = yield* Effect.fromOption(Array.head(yield* newDocument));
             const read = [layout, menu].reduce((map, each) => map.fold(each, OWNER).map, InterfaceMap.empty);
-            const later = read.fold({ ...layout, build: BUILDS[1], opened: DateTime.add(layout.at, { minutes: 9 }), at: DateTime.add(layout.at, { minutes: 9 }) }, OWNER).map;
+            const later = read.fold({ ...layout, build: Option.some(BUILDS[1]), opened: DateTime.add(layout.at, { minutes: 9 }), at: DateTime.add(layout.at, { minutes: 9 }) }, OWNER).map;
             assert.deepStrictEqual(Option.map(read.level(NEW), Struct.get('locator')), Option.some(MENU), 'the level its opener read in this build is served');
             assert.isTrue(Option.isNone(read.level(RECENT)), 'an item that opened nothing serves no level');
             assert.isTrue(Option.isNone(later.level(NEW)), 'a level read under an earlier build is read again');
             assert.deepStrictEqual(
                 Option.map(read.known, ({ build, containers, labels }) => ({ build, containers: containers.toSorted(), labels: labels.toSorted() })),
-                Option.some({ build: BUILDS[0], containers: [LAYOUT, MENU].toSorted(), labels: ['Close', 'Recent'] }),
+                Option.some({ build: Option.some(BUILDS[0]), containers: [LAYOUT, MENU].toSorted(), labels: ['Close', 'Recent'] }),
             );
             assert.deepStrictEqual(Option.map(later.known, Struct.pick(['containers', 'labels'])), Option.some({ containers: [LAYOUT], labels: [] }), 'a new build verifies only what it read again, and holds no label of a menu it has not read');
         }),
@@ -549,7 +543,7 @@ describe(InterfaceMap, () => {
             });
             const first = InterfaceMap.empty.fold(window, OWNER).map;
             const opened = first.fold(yield* Effect.fromNullishOr(dialog), OWNER).map;
-            const rebuilt = opened.fold({ ...window, build: BUILDS[1], opened: DateTime.add(window.at, { minutes: 9 }), at: DateTime.add(window.at, { minutes: 9 }) }, OWNER).map;
+            const rebuilt = opened.fold({ ...window, build: Option.some(BUILDS[1]), opened: DateTime.add(window.at, { minutes: 9 }), at: DateTime.add(window.at, { minutes: 9 }) }, OWNER).map;
             assert.deepStrictEqual(
                 Record.map({ first, opened, rebuilt }, Struct.get('coverage')),
                 {
@@ -567,7 +561,7 @@ describe(InterfaceMap, () => {
         'holds each build once, newest first, when an earlier build runs again',
         Effect.fnUntraced(function* () {
             const layout = yield* Effect.fromOption(Array.head(yield* newDocument));
-            const read = [BUILDS[0], BUILDS[1], BUILDS[0]].reduce((map, build, minute) => map.fold({ ...layout, build, opened: DateTime.add(layout.at, { minutes: minute }), at: DateTime.add(layout.at, { minutes: minute }) }, OWNER).map, InterfaceMap.empty);
+            const read = [BUILDS[0], BUILDS[1], BUILDS[0]].reduce((map, build, minute) => map.fold({ ...layout, build: Option.some(build), opened: DateTime.add(layout.at, { minutes: minute }), at: DateTime.add(layout.at, { minutes: minute }) }, OWNER).map, InterfaceMap.empty);
             assert.deepStrictEqual(read.application.builds, [BUILDS[0], BUILDS[1]]);
         }),
     );

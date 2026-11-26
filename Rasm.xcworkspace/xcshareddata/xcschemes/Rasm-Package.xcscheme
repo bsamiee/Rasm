@@ -24,6 +24,9 @@
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Updater" BuildableName="Updater" BlueprintName="Updater" ReferencedContainer="container:"/>
             </BuildActionEntry>
             <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="SPI" BuildableName="SPI" BlueprintName="SPI" ReferencedContainer="container:"/>
+            </BuildActionEntry>
+            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="AppleEvents" BuildableName="AppleEvents" BlueprintName="AppleEvents" ReferencedContainer="container:"/>
             </BuildActionEntry>
             <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">

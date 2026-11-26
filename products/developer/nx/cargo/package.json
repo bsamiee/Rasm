@@ -44,6 +44,7 @@
         "@decimalturn/toml-patch": "catalog:",
         "@nx/devkit": "catalog:",
         "@rasm/nx": "workspace:*",
+        "@rasm/process": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {

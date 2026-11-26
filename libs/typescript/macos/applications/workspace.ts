@@ -2,7 +2,7 @@ import { isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Handle, Server } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Cause, Context, Effect, Equivalence, Function, HashSet, Layer, Option, Predicate, Record, Result, type Schema, Sink, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, ByteSize, Cause, Context, Duration, Effect, Equivalence, Function, HashSet, Layer, Option, Predicate, Record, Result, type Schema, Sink, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { Address } from '#/address';
 import { ApplicationServer } from '#/client';
 import { Event, Installation, type InstanceSnapshot, InstanceState, type Pressure, type Running, type Session } from '#/contract';
@@ -28,6 +28,7 @@ const SESSION = {
     asleep: { normal: false, true: 'display asleep', false: 'display awake' },
     secureInput: { normal: false, true: 'secure input on', false: 'secure input off' },
 } as const;
+const CAUSE = { running: 'computing', runnable: 'waiting for a processor', paging: 'paging', reading: 'reading disk', writing: 'writing disk', idle: 'idle' } as const satisfies Record.ReadonlyRecord<NonNullable<Running['usage']>['cause'], string>;
 const WINDOW_CHANGE: Record.ReadonlyRecord<string, string> = { created: 'opened', destroyed: 'closed', moved: 'moved', resized: 'resized', levelChanged: 'moved to its level', shown: 'showed', hidden: 'hid' };
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -77,6 +78,21 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
                 render: (event) => ('system' in event ? Effect.succeed(event.system) : Effect.map(target, (aim) => `${event.application} ${describeEvent(event, aim)}`)),
                 owns: ownsEvent,
             }),
+        );
+        const { states } = yield* Server;
+        yield* Effect.forkScoped(
+            Stream.runForEach(
+                states(Target).pipe(
+                    Stream.map((aims) => Array.reduce(aims, HashSet.empty<InstanceSnapshot['instance']>(), (driven, { followed }) => HashSet.union(driven, followed))),
+                    Stream.changes,
+                    Stream.zipWithPrevious,
+                ),
+                ([before, after]) =>
+                    Effect.catchCause(
+                        Effect.forEach(HashSet.difference(Option.getOrElse(before, HashSet.empty<InstanceSnapshot['instance']>), after), (instance) => server.release({ instance }), { discard: true }),
+                        (cause) => Effect.logWarning('Watch release failed, the Watch stays until its instance exits', cause),
+                    ),
+            ),
         );
         const setTarget = Effect.fnUntraced(function* (aim: { readonly row: Entry; readonly instance: InstanceSnapshot['instance'] }) {
             const live = yield* server.watch({ instance: aim.instance });
@@ -190,7 +206,7 @@ const successes =
             Stream.tap((read) => Result.match(read, { onSuccess: () => Effect.void, onFailure: (failure) => Effect.logWarning(`${subject} failed, the last value stands`, failure) })),
             Stream.filterMap(Function.identity),
         );
-const strains = ({ memory, available, thermal, lowPower, advisory }: typeof Pressure.Type): readonly { readonly normal: boolean; readonly text: string }[] => [
+const strains = ({ memory, available, thermal, lowPower, advisory }: Pressure): readonly { readonly normal: boolean; readonly text: string }[] => [
     { normal: memory === 'normal', text: `memory pressure ${memory} with ${available}% available` },
     { normal: thermal === 'nominal', text: `thermal state ${thermal}` },
     { normal: !lowPower, text: `low power mode ${lowPower ? 'on' : 'off'}` },
@@ -224,7 +240,20 @@ const nameEvent = (rows: readonly InstanceSnapshot[], entries: readonly Entry[],
     const kept = Event.fields.change.guards.exited(event.change) ? Record.remove(started, event.instance) : Option.match(announced, { onNone: () => started, onSome: (name) => Record.set(started, event.instance, name) });
     return [kept, [{ application, event }]] as const;
 };
-const describeUsage = ({ usage }: Running) => Array.match(usage?.assertions ?? [], { onEmpty: () => '', onNonEmpty: (names) => `, declares ${names.join(', ')}` });
+const describeUsage = ({ pendingEventAge, usage }: Running) =>
+    [
+        ...Array.fromNullishOr(pendingEventAge).map((age) => `oldest event unread for ${Duration.format(Duration.seconds(age))}`),
+        ...Array.fromNullishOr(usage).map(({ cause, duration }) => `${CAUSE[cause]} over ${Duration.format(Duration.seconds(duration))}`),
+        ...Array.fromNullishOr(usage).flatMap(({ diskBytesRead, diskBytesWritten, pageWait, runnable }) => [
+            ...(diskBytesRead > 0 ? [`read ${ByteSize.format(ByteSize.bytes(diskBytesRead))}`] : []),
+            ...(diskBytesWritten > 0 ? [`wrote ${ByteSize.format(ByteSize.bytes(diskBytesWritten))}`] : []),
+            ...(pageWait > 0 ? [`waited ${Duration.format(Duration.seconds(pageWait))} on page faults`] : []),
+            ...(runnable > 0 ? [`waited ${Duration.format(Duration.seconds(runnable))} for a processor`] : []),
+        ]),
+        ...Array.match(usage?.end.assertions ?? [], { onEmpty: Array.empty, onNonEmpty: (names) => [`declares ${names.join(', ')}`] }),
+    ]
+        .map((part) => `, ${part}`)
+        .join('');
 const prompting = Event.fields.change.matchOrElse({ asking: ({ kind }) => kind === 'prompt', closed: ({ kind }) => kind === 'prompt' }, Function.constFalse);
 const titled = (title: string | undefined) => UndefinedOr.match(title, { onUndefined: () => '', onDefined: (named) => ` "${named}"` });
 const describeExitStatus = InstanceState.Exited.match({ status: ({ status }) => `with status ${status}`, signal: ({ signal }) => `on signal ${signal}`, statusFailure: () => 'with unread status' });
@@ -261,6 +290,11 @@ const describeEvent = ({ application, event: { instance, change } }: { readonly 
                 ...(window.shared ? [] : ['refuses capture']),
             ].join(', '),
         status: ({ status }) => InstanceState.Status.matchOrElse(status, { unresponsive: ({ thread }) => `unresponsive, main thread ${thread}` }, ({ _tag }) => _tag),
+        announced: ({ text, priority }) => `announced ${JSON.stringify(text)}${UndefinedOr.match(priority, { onUndefined: () => '', onDefined: (level) => ` at ${level} priority` })}`,
+        dragging: ({ notification, control, kind }) => `${notification}${control === undefined || kind === undefined ? '' : ` at ${Address.token(kind, control)}`}`,
+        logged: ({ entry: { messageType, subsystem, category, eventMessage } }) => `${[`logged ${messageType.toLowerCase()}`, ...[subsystem, category].filter((part) => part !== '')].join(' ')}: ${eventMessage}`,
+        sampled: ({ report }) => `sampled on a hang, report ${report.href}`,
+        reported: ({ report }) => `wrote ${report.kind} report ${report.url.href}${UndefinedOr.match(report.event, { onUndefined: () => '', onDefined: (event) => ` for ${event}` })}`,
         exited: ({ termination }) => describeExit(termination),
     });
 const refuseBlocked = (name: string) => (found: Option.Option<InstanceSnapshot>) =>

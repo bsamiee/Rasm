@@ -4,6 +4,7 @@ public import Configuration
 public import Foundation
 import Logging
 public import Results
+import SPI
 import Security
 import Synchronization
 public import System
@@ -62,10 +63,17 @@ public struct Program: Sendable {
         identifier = Bundle.main.bundleIdentifier ?? ProcessInfo.processInfo.processName
         name = identifier.split(separator: ".").last.map { component in String(component) } ?? identifier
         version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-        stored = MutableInMemoryProvider(name: identifier, initialValues: Self.values(UserDefaults.standard.persistentDomain(forName: identifier) ?? [:]))
+        stored = MutableInMemoryProvider(name: identifier, initialValues: [:])
         let providers: [any ConfigProvider] = [EnvironmentVariablesProvider().prefixKeys(with: ConfigKey([name])), stored]
         unrecognized = UnrecognizedValues(raw: ConfigReader(providers: providers))
         settings = ConfigReader(providers: providers, accessReporter: unrecognized)
+        stored.setValues(preferences.mapValues(Optional.some))
+    }
+
+    var preferences: [AbsoluteConfigKey: ConfigValue] {
+        (UserDefaults.standard.persistentDomain(forName: identifier) ?? [:]).reduce(into: [:]) { values, entry in
+            values[AbsoluteConfigKey(ConfigKey(entry.key))] = ConfigValue(propertyList: entry.value)
+        }
     }
 
     public func directory(_ kind: Directory) -> URL {
@@ -112,10 +120,6 @@ public struct Program: Sendable {
         }
         _ = try combine(signed, traverse(missing) { grant in Result { () throws(ApplicationFailure) in try grant.check() }.aggregated(\.self) }).get()
     }
-
-    static func values(_ domain: [String: Any]) -> [AbsoluteConfigKey: ConfigValue] {
-        domain.reduce(into: [:]) { values, entry in values[AbsoluteConfigKey(ConfigKey(entry.key))] = ConfigValue(propertyList: entry.value) }
-    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -147,6 +151,3 @@ public func disclaimResponsibility() throws(Errno) {
     try check(unsafe posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETEXEC)))
     try check(unsafe posix_spawn(nil, executable, nil, &attributes, CommandLine.unsafeArgv, environ))
 }
-
-@_silgen_name("responsibility_spawnattrs_setdisclaim")
-private func disclaim(_: UnsafeMutablePointer<posix_spawnattr_t?>, _: Int32) -> Int32

@@ -17,7 +17,7 @@ private enum DefinitionSource {
 
 public actor ScriptingDictionaries {
     private let cachedDefinition: @Sendable (Installation) -> URL?
-    private var held: [Installation: (processes: Set<ProcessInstance>, reading: Task<Result<ScriptingDictionary, AppleEventFailure>, Never>)] = [:]
+    private var held: [URL: (build: String?, processes: Set<ProcessInstance>, reading: Task<Result<ScriptingDictionary, AppleEventFailure>, Never>)] = [:]
 
     public init(cachedDefinition: @escaping @Sendable (Installation) -> URL?) {
         self.cachedDefinition = cachedDefinition
@@ -31,8 +31,8 @@ public actor ScriptingDictionaries {
             throw AppleEventFailure(subject: error.subject, reason: .foundation(error as NSError))
         }
         let reading =
-            switch held[installation] {
-                case .some(let hit) where hit.processes == processes: hit.reading
+            switch held[installation.url] {
+                case .some(let hit) where hit.build == installation.build && hit.processes == processes: hit.reading
                 case .some, .none:
                     Task { [cachedDefinition] in
                         await Result { () async throws(AppleEventFailure) in
@@ -40,9 +40,9 @@ public actor ScriptingDictionaries {
                         }
                     }
             }
-        held[installation] = (processes, reading)
+        held[installation.url] = (installation.build, processes, reading)
         let read = await reading.value
-        if read.is(\.failure), held[installation]?.reading == reading { held[installation] = nil }
+        if read.is(\.failure), held[installation.url]?.reading == reading { held[installation.url] = nil }
         return try read.get()
     }
 }

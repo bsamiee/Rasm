@@ -1,6 +1,6 @@
 import { Array, Effect, Equal, FileSystem, Match, Option, Path, Record, String } from 'effect';
 import { RedirOperator } from 'sh-syntax';
-import { type Call, covers, type Invocation, rewrite, run, type Script, type Table, type Verdict } from '#/rules/rule';
+import { type Call, covers, execute, type Invocation, rewrite, type Script, type Table, type Verdict } from '#/rules/rule';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -189,7 +189,7 @@ const programs: Table = {
         program: 'sdef',
         decide: Effect.fnUntraced(function* (sdef, { cwd }) {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-            const read = (plist: string, key: string) => Effect.map(run(cwd)`plutil -extract ${key} raw -o - ${plist}`, ({ printed, code }) => Option.liftPredicate(printed.trim(), () => code === 0));
+            const read = (plist: string, key: string) => Effect.map(execute(cwd)(['plutil', '-extract', key, 'raw', '-o', '-', plist]), ({ stdout, code }) => Option.liftPredicate(stdout.trim(), () => code === 0));
             const launching = yield* Effect.filter(
                 Array.getSomes(sdef.operands.map(({ word }) => word.text)).map((given) => path.resolve(cwd, given)),
                 Effect.fnUntraced(function* (bundle) {
@@ -256,7 +256,7 @@ const programs: Table = {
                                   Effect.forEach(paths, (path) => Effect.orElseSucceed(fs.readFileString(path), () => find)),
                                   (texts) => texts.some((text) => text.includes(find)),
                               )
-                            : Effect.map(run(cwd)`rg --no-config --quiet --text ${options} ${given} --regexp ${find} -- ${paths}`, ({ code }) => code !== 1),
+                            : Effect.map(execute(cwd)(['rg', '--no-config', '--quiet', '--text', ...options, ...given, '--regexp', find, '--', ...paths]), ({ code }) => code !== 1),
                 },
             );
             return matches ? [] : [{ deny: `sd pattern matches nothing in ${paths.join(' ')}.`, advice: 'Read the current text, then match what it holds.' }];

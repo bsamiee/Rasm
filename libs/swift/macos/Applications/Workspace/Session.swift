@@ -1,6 +1,7 @@
 import AppKit
 import AsyncAlgorithms
 import Carbon.HIToolbox
+import SPI
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -22,14 +23,19 @@ public struct Session: Encodable, Equatable, Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Session {
-    public static func current() -> Self {
+    private static var console: (onConsole: Bool, locked: Bool, asleep: Bool) {
         let session = CGSessionCopyCurrentDictionary() as? [String: Any]
+        return (session?[kCGSessionOnConsoleKey as String] as? Bool == true, session?["CGSSessionScreenIsLocked"] as? Bool == true, CGDisplayIsAsleep(CGMainDisplayID()) != 0)
+    }
+
+    public static func current() -> Self {
+        let (onConsole, locked, asleep) = console
         return Self(
-            onConsole: session?[kCGSessionOnConsoleKey as String] as? Bool == true,
-            locked: session?["CGSSessionScreenIsLocked"] as? Bool == true,
-            asleep: CGDisplayIsAsleep(CGMainDisplayID()) != 0,
+            onConsole: onConsole,
+            locked: locked,
+            asleep: asleep,
             secureInput: IsSecureEventInputEnabled(),
-            spaces: (unsafe copySpaces(mainConnection(), [.current, .user])?.takeRetainedValue() as? [UInt64]) ?? [],
+            spaces: (copySpaces(mainConnection(), [.includesCurrent, .includesUser]) as? [UInt64]) ?? [],
         )
     }
 
@@ -56,7 +62,7 @@ extension Session {
         var described = unsafe CFMachPortContext(version: 0, info: UnsafeMutableRawPointer(bitPattern: Int(opened)), retain: nil, release: nil, copyDescription: nil)
         let drain: CFMachPortCallBack = { _, _, _, info in
             let connection = Int32(Int(bitPattern: info))
-            while let event = unsafe nextEvent(connection) { unsafe event.release() }
+            while nextEvent(connection) != nil {}
         }
         nonisolated(unsafe) let source: CFRunLoopSource? = unsafe CFMachPortCreateWithPort(nil, events, drain, &described, nil).flatMap { port in CFMachPortCreateRunLoopSource(nil, port, 0) }
         if let source = unsafe source { CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes) }
@@ -77,9 +83,9 @@ extension Session {
         return chain(refused.async, readings)
     }
 
-    public func require(_ subject: String) throws(ApplicationFailure) {
+    public static func require(_ subject: String) throws(ApplicationFailure) {
         let reason: ApplicationFailure.Reason? =
-            switch (onConsole, locked, asleep) {
+            switch console {
                 case (false, _, _): .notOnConsole
                 case (true, true, _): .screenLocked
                 case (true, false, true): .displayAsleep

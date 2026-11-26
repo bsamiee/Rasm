@@ -44,9 +44,11 @@ class Server extends Context.Service<
     {
         readonly uri: (path: string) => string;
         readonly events: <A>(source: { readonly stream: Stream.Stream<A>; readonly render: (event: A) => Effect.Effect<string>; readonly owns?: (event: A, state: Context.Context<never>) => boolean }) => Effect.Effect<void, never, Scope.Scope>;
+        readonly states: <A>(key: Context.Reference<A>) => Stream.Stream<readonly A[]>;
         readonly notifyListChanged: Effect.Effect<void, Error>;
-        readonly bind: Effect.Effect<typeof Handles.Binding.Type>;
+        readonly bind: (agent: Option.Option<string>) => Effect.Effect<typeof Handles.Binding.Type>;
         readonly follow: (handle: string) => Effect.Effect<Stream.Stream<typeof Handles.Event.Type, Cause.NoSuchElementError>, Cause.NoSuchElementError>;
+        readonly pending: (handle: string) => Effect.Effect<readonly (typeof Handles.Event.Type)[], Cause.NoSuchElementError>;
         readonly ack: (handle: string, through: number) => Effect.Effect<void, Cause.NoSuchElementError>;
     }
 >()('@rasm/mcp/server') {
@@ -96,16 +98,35 @@ class Server extends Context.Service<
         yield* McpServer.registerToolkit(toolkit, { content: { [tool.name]: content } }).pipe(Effect.provide(toolkit.toLayer({ [tool.name]: Function.identity })));
     });
     static readonly layer = Effect.fnUntraced(function* ({ scheme, retention, limit, budget }: { readonly scheme: Effect.Success<ReturnType<typeof Server.scheme>>; readonly retention: Duration.Duration; readonly limit: number; readonly budget: number }) {
-        const [server, scope, live, sequence, random, crypto] = yield* Effect.all([McpServer.McpServer, Effect.scope, TxRef.make<Record.ReadonlyRecord<string, TxSubscriptionRef.TxSubscriptionRef<HandleState>>>({}), TxRef.make(0), SecureRandom.SecureRandom, Effect.context<Aead.Aead | SecureRandom.SecureRandom>()]);
+        const [server, scope, live, sequence, random, crypto] = yield* Effect.all([
+            McpServer.McpServer,
+            Effect.scope,
+            TxSubscriptionRef.make<Record.ReadonlyRecord<string, TxSubscriptionRef.TxSubscriptionRef<HandleState>>>({}),
+            TxRef.make(0),
+            SecureRandom.SecureRandom,
+            Effect.context<Aead.Aead | SecureRandom.SecureRandom>(),
+        ]);
         const [key, epoch] = yield* Effect.all([Effect.orDie(Effect.flatMap(Jwk.generateSecret('dir'), (secret) => Jwk.importSecret(secret, 'dir'))), random.uuidV7()]);
         const handles = yield* RcMap.make({
-            lookup: (id: string) => Effect.tap(Effect.all({ id: Effect.succeed(id), row: TxSubscriptionRef.make(FRESH), fibers: FiberSet.make() }), ({ row }) => Effect.acquireRelease(TxRef.update(live, Record.set(id, row)), () => TxRef.update(live, Record.remove(id)))),
+            lookup: (id: string) => Effect.tap(Effect.all({ id: Effect.succeed(id), row: TxSubscriptionRef.make(FRESH), fibers: FiberSet.make() }), ({ row }) => Effect.acquireRelease(TxSubscriptionRef.update(live, Record.set(id, row)), () => TxSubscriptionRef.update(live, Record.remove(id)))),
             idleTimeToLive: retention,
         });
         const kept = Duration.format(retention);
         const findHandle = (known: string) =>
             RcMap.getOption(handles, known).pipe(Effect.flatMap(Effect.fromOption(() => new Cause.NoSuchElementError(`Handle ${known} ${isUuidV7(known) && known < epoch ? 'predates a restart' : `is unknown or expired after ${kept} without a call`}, call again without handle to start one`))));
         const issueHandle = Effect.flatMap(random.uuidV7(), (id) => RcMap.get(handles, id));
+        const queued = (handle: string, states: number) =>
+            Stream.unwrap(
+                Effect.map(findHandle(handle), ({ row }) =>
+                    TxSubscriptionRef.changesStream(row).pipe(
+                        Stream.take(states),
+                        Stream.filter(({ answering }) => answering === 0),
+                        Stream.mapAccum(Function.constant(0), (last, { entries }) => [Math.max(last, ...Array.map(entries, Struct.get('sequence'))), Array.filter(entries, isAfter(last))] as const),
+                        Stream.mapEffect(formatLine),
+                        Stream.provideService(Handle, handleOf(row)),
+                    ),
+                ),
+            );
         const Given = Schema.Struct({ handle: Schema.optionalKey(Schema.String.annotate({ description: `Handle from an earlier result, holding your state and your place in the events; omit it to start one; it expires after ${kept} without a call` })) });
         const added = Record.map(Given.fields, (field) => Schema.toJsonSchemaDocument(field).schema);
         const open = (tool: string, sealed: string) =>
@@ -205,27 +226,20 @@ class Server extends Context.Service<
             events: ({ stream, render, owns = Function.constTrue }) =>
                 Stream.runForEach(stream, (event) =>
                     Effect.tx(
-                        Effect.flatMap(Effect.all([TxRef.modify(sequence, (count) => [count + 1, count + 1]), TxRef.get(live)]), ([at, rows]) =>
+                        Effect.flatMap(Effect.all([TxRef.modify(sequence, (count) => [count + 1, count + 1]), TxSubscriptionRef.get(live)]), ([at, rows]) =>
                             Effect.forEach(Record.values(rows), TxSubscriptionRef.update(routeEvents(limit, at - 1, [{ sequence: at, text: render(event), owns: (state) => owns(event, state) }])), { discard: true }),
                         ),
                     ),
                 ).pipe(Effect.forkScoped, Effect.asVoid),
-            notifyListChanged,
-            bind: Effect.scoped(Effect.map(issueHandle, ({ id }) => ({ handle: id, server: scheme }))),
-            follow: (handle) =>
-                Effect.as(
-                    Effect.scoped(findHandle(handle)),
-                    Stream.unwrap(
-                        Effect.map(findHandle(handle), ({ row }) =>
-                            TxSubscriptionRef.changesStream(row).pipe(
-                                Stream.filter(({ answering }) => answering === 0),
-                                Stream.mapAccum(Function.constant(0), (last, { entries }) => [Math.max(last, ...Array.map(entries, Struct.get('sequence'))), Array.filter(entries, isAfter(last))] as const),
-                                Stream.mapEffect(formatLine),
-                                Stream.provideService(Handle, handleOf(row)),
-                            ),
-                        ),
-                    ),
+            states: (reference) =>
+                TxSubscriptionRef.changesStream(live).pipe(
+                    Stream.switchMap((rows) => Array.match(Record.values(rows), { onEmpty: () => Stream.make(Array.empty<HandleState>()), onNonEmpty: (each) => Stream.zipLatestAll(...Array.map(each, TxSubscriptionRef.changesStream)) })),
+                    Stream.map(Array.map(({ state }) => Context.get(state, reference))),
                 ),
+            notifyListChanged,
+            bind: (agent) => Effect.scoped(Effect.map(Option.match(agent, { onNone: () => issueHandle, onSome: (agentKey) => RcMap.get(handles, agentKey) }), ({ id }) => ({ handle: id, server: scheme }))),
+            follow: (handle) => Effect.as(Effect.scoped(findHandle(handle)), queued(handle, Infinity)),
+            pending: (handle) => Effect.andThen(Effect.scoped(findHandle(handle)), Stream.runCollect(queued(handle, 1))),
             ack: (handle, through) => Effect.scoped(Effect.flatMap(findHandle(handle), ({ row }) => TxSubscriptionRef.update(row, (slot) => ({ ...slot, entries: Array.filter(slot.entries, isAfter(through)) })))),
         });
         return Context.make(McpServer.McpServer, gatedServer).pipe(Context.add(Server, service));
@@ -248,8 +262,8 @@ class Server extends Context.Service<
                         Layer.provide(
                             HttpApiBuilder.group(Handles, 'handles', (handlers) =>
                                 handlers.handleAll({
-                                    bind: () => served.bind,
-                                    follow: ({ params }) => orNotFound(served.follow(params.handle)),
+                                    bind: ({ query }) => served.bind(Option.fromUndefinedOr(query.agent)),
+                                    events: ({ params, query }) => (query.follow ? orNotFound(served.follow(params.handle)) : orNotFound(served.pending(params.handle))),
                                     ack: ({ params, query }) => orNotFound(served.ack(params.handle, query.through)),
                                 }),
                             ),

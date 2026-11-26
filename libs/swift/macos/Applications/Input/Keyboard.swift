@@ -13,15 +13,15 @@ public enum Modifier: String, CaseIterable, Codable, Sendable {
     case function
 
     var key: (code: CGKeyCode, flag: CGEventFlags, state: UInt32) {
-        let (code, flag, state): (Int, CGEventFlags, Int) =
+        let (code, flag, device, state): (Int, CGEventFlags, Int32, Int) =
             switch self {
-                case .command: (kVK_Command, .maskCommand, cmdKey)
-                case .shift: (kVK_Shift, .maskShift, shiftKey)
-                case .option: (kVK_Option, .maskAlternate, optionKey)
-                case .control: (kVK_Control, .maskControl, controlKey)
-                case .function: (kVK_Function, .maskSecondaryFn, 0)
+                case .command: (kVK_Command, .maskCommand, NX_DEVICELCMDKEYMASK, cmdKey)
+                case .shift: (kVK_Shift, .maskShift, NX_DEVICELSHIFTKEYMASK, shiftKey)
+                case .option: (kVK_Option, .maskAlternate, NX_DEVICELALTKEYMASK, optionKey)
+                case .control: (kVK_Control, .maskControl, NX_DEVICELCTLKEYMASK, controlKey)
+                case .function: (kVK_Function, .maskSecondaryFn, 0, 0)
             }
-        return (CGKeyCode(code), flag, UInt32(state >> 8))
+        return (CGKeyCode(code), flag.union(CGEventFlags(rawValue: UInt64(device))), UInt32(state >> 8))
     }
 }
 

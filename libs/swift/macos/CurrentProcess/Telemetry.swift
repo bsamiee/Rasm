@@ -9,6 +9,7 @@ import OTel
 import OTelSemanticConventions
 import Processes
 public import ServiceLifecycle
+import System
 import SystemMetrics
 import Telemetry
 
@@ -66,16 +67,14 @@ extension Program {
 
     // --- [SERVICES]
 
-    private var preferences: [String: Any] { UserDefaults.standard.persistentDomain(forName: identifier) ?? [:] }
-
     private func reloadSettings(_ filter: LogFilter, reporting logger: Logging.Logger) -> ClosureService {
         let file = URL.libraryDirectory.appending(components: "Preferences", "\(identifier).plist", directoryHint: .notDirectory)
         return ClosureService {
             await cancelWhenGracefulShutdown {
-                var known = Set(Self.values(preferences).keys)
+                var known = Set(preferences.keys)
                 for await change in FileEvent.events(of: file) {
                     if case .failure(let failure) = change { logger.warning("Settings watch failed", error: failure) }
-                    let next = Self.values(preferences)
+                    let next = preferences
                     stored.setValues(known.subtracting(next.keys).reduce(into: next.mapValues(Optional.some)) { values, removed in values[removed] = .some(nil) })
                     known = Set(next.keys)
                     filter.rules = rules()
@@ -109,8 +108,11 @@ extension Program {
     // --- [PROCESS]
 
     public func telemetry(scopes: [Any.Type]) -> ServiceGroup {
-        let process = ProcessInfo.processInfo
-        let stated = preferences.compactMapValues { value in value as? String }.filter { variable, _ in variable.hasPrefix("OTEL_") }.merging(process.environment) { _, variable in variable }
+        let (process, environment) = (ProcessInfo.processInfo, ProcessInfo.processInfo.environment)
+        let stated: [String: String] = preferences.reduce(into: environment) { stated, entry in
+            guard case .string(let value) = entry.value.content, entry.key.description.hasPrefix("OTEL_") else { return }
+            stated[entry.key.description] = stated[entry.key.description] ?? value
+        }
         let disabled = stated["OTEL_SDK_DISABLED"]?.lowercased() == "true"
         let signals: [(enabled: WritableKeyPath<OTel.Configuration, Bool>, exporter: String)] = [
             (\.logs.enabled, "OTEL_LOGS_EXPORTER"), (\.metrics.enabled, "OTEL_METRICS_EXPORTER"), (\.traces.enabled, "OTEL_TRACES_EXPORTER"),
@@ -173,6 +175,11 @@ extension Program {
             refusal[metadataKey: "environment_key"] = "\(variable, privacy: .public)"
             refusal[metadataKey: "environment_value"] = "\(value, privacy: .private)"
             refusal.warning("Failed to update configuration from environment")
+        }
+        for (variable, value) in stated where environment[variable] == nil && refused[variable] == nil {
+            guard unsafe setenv(variable, value, 0) != 0 else { continue }
+            let failure = Errno(rawValue: errno)
+            diagnostics.warning("Setting value could not reach the process environment", error: failure, metadata: ["environment_key": "\(variable, privacy: .public)"])
         }
         let logs = configuration.logs.enabled ? Result { try OTel.makeLoggingBackend(configuration: configuration) } : nil
         let exported: (factory: @Sendable (String) -> any LogHandler, service: any Service)? = if case .success(let backend)? = logs { backend } else { nil }

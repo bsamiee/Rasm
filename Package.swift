@@ -78,6 +78,7 @@ let modules: [Target] = [
 
     // --- [MACOS]
 
+    .target(name: "SPI", path: "libs/swift/macos/SPI"),
     .target(
         name: "AppleEvents",
         dependencies: [
@@ -89,18 +90,17 @@ let modules: [Target] = [
     .target(
         name: "Applications",
         dependencies: [
-            "AppleEvents", "Encoding", "Files", "Processes", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
-            .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "OrderedCollections", package: "swift-collections"),
-            .product(name: "Subprocess", package: "swift-subprocess"),
+            "AppleEvents", "Encoding", "Files", "Processes", "Results", "SPI", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+            .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "CasePathsCore", package: "swift-case-paths"),
+            .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "libs/swift/macos/Applications",
-        swiftSettings: [.enableExperimentalFeature("Extern")],
         linkerSettings: [.unsafeFlags(["-Xlinker", "-F/System/Library/PrivateFrameworks"]), .linkedFramework("SkyLight")],
     ),
     .target(
         name: "CurrentProcess",
         dependencies: [
-            "Applications", "Encoding", "Files", "Processes", "Results", "Telemetry", .product(name: "CasePathsCore", package: "swift-case-paths"),
+            "Applications", "Encoding", "Files", "Processes", "Results", "SPI", "Telemetry", .product(name: "CasePathsCore", package: "swift-case-paths"),
             .product(name: "Configuration", package: "swift-configuration"),
             .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"), .product(name: "OTel", package: "swift-otel"),
             .product(name: "OTelSemanticConventions", package: "swift-otel-semantic-conventions"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
@@ -217,7 +217,7 @@ let tests: [Target] = [
     .testTarget(
         name: "ApplicationsTests",
         dependencies: [
-            "AppleEvents", "Applications", "Encoding", "Fixture", "Processes", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+            "AppleEvents", "Applications", "Encoding", "Fixture", "Processes", "SPI", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump"),
             .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "PropertyBased", package: "swift-property-based"),
             .product(name: "Subprocess", package: "swift-subprocess"),
