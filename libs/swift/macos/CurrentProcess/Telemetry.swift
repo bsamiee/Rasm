@@ -107,14 +107,13 @@ extension Program {
             (\.logs.enabled, "OTEL_LOGS_EXPORTER"), (\.metrics.enabled, "OTEL_METRICS_EXPORTER"), (\.traces.enabled, "OTEL_TRACES_EXPORTER"),
         ]
         var configuration = signals.reduce(into: OTel.Configuration.default) { gated, signal in gated[keyPath: signal.enabled] = stated[signal.exporter] != nil }
-        configuration.resourceAttributes =
-            configuration.logs.enabled || configuration.metrics.enabled || configuration.traces.enabled
-            ? [
-                OTelAttribute.service.name: identifier, OTelAttribute.service.version: version, OTelAttribute.service.instance.id: UUID().uuidString,
-                OTelAttribute.process.pid: String(process.processIdentifier), OTelAttribute.process.executable.name: process.processName,
-                OTelAttribute.process.runtime.name: "swift", OTelAttribute.host.name: process.hostName, OTelAttribute.os.type: "darwin",
-                OTelAttribute.os.description: process.operatingSystemVersionString,
-            ].compactMapValues(\.self) : [:]
+        let attributes: [String: String?] = [
+            OTelAttribute.service.name: identifier, OTelAttribute.service.version: version, OTelAttribute.service.instance.id: UUID().uuidString,
+            OTelAttribute.process.pid: String(process.processIdentifier), OTelAttribute.process.executable.name: process.processName,
+            OTelAttribute.process.runtime.name: "swift", OTelAttribute.host.name: process.hostName, OTelAttribute.os.type: "darwin",
+            OTelAttribute.os.description: process.operatingSystemVersionString,
+        ]
+        configuration.resourceAttributes = configuration.logs.enabled || configuration.metrics.enabled || configuration.traces.enabled ? attributes.compactMapValues(\.self) : [:]
         let filter = LogFilter(roots: scopes, rules: rules())
         let resource: Logging.Logger.Metadata = [
             OTelAttribute.service.name: .string(identifier), OTelAttribute.service.version: version.map(Logging.Logger.MetadataValue.string),

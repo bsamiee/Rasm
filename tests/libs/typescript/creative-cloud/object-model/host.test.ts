@@ -11,13 +11,14 @@ const PAGES = [{ kind: 'page', name: 'i' }, { kind: 'page', name: 'ii' }, { kind
 const COVER = { kind: 'document', name: 'cover.indd', pages: { length: 3, 1: PAGES[0], 2: PAGES[1], 3: PAGES[2] }, layers: { length: 1, 0: ART } };
 const PROOF = { kind: 'document', name: 'Plan "B" to print]', pages: { length: 0 }, layers: { length: 0 } };
 const OWNERS = new Map<object, object>([[INK, ART], [ART, COVER], ...PAGES.map((page) => [page, COVER] as const)]);
+const ROOT = { documents: { length: 2, 0: COVER, 1: PROOF } };
+const NAMED = Schema.Struct({ name: Schema.String });
 const HELD: Containment = {
-    root: { documents: { length: 2, 0: COVER, 1: PROOF } },
-    type: () => 'Object',
+    root: ROOT,
     kinds: {
-        document: { collection: 'documents', keys: ['name'], is: (value) => Reflect.get(value, 'kind') === 'document' },
-        page: { collection: 'pages', base: 1, keys: ['name'], is: (value) => Reflect.get(value, 'kind') === 'page', owner: (value) => OWNERS.get(value) },
-        layer: { collection: 'layers', nested: true, keys: ['name'], is: (value) => Reflect.get(value, 'kind') === 'layer', owner: (value) => OWNERS.get(value) },
+        document: { items: ({ documents }: typeof ROOT) => documents, key: NAMED, is: Schema.is(Schema.Struct({ kind: Schema.Literal('document') })) },
+        page: { items: ({ pages }: typeof COVER) => pages, base: 1, key: NAMED, is: Schema.is(Schema.Struct({ kind: Schema.Literal('page') })), owner: (value) => OWNERS.get(value) },
+        layer: { items: ({ layers }: typeof ART) => layers, nested: true, key: NAMED, is: Schema.is(Schema.Struct({ kind: Schema.Literal('layer') })), owner: (value) => OWNERS.get(value) },
     },
 };
 
@@ -95,10 +96,10 @@ describe('object specifier', () => {
         { held: 'a named page', object: PAGES[1], name: 'ii' },
         { held: 'a page with no key', object: PAGES[2], name: undefined },
         { held: 'a layer inside a layer', object: INK, name: 'Ink' },
-    ])('names $held by a specifier that walks back to it, with its type, validity, and name', ({ object, name }) => {
-        const named = reference(HELD, object);
+    ])('names $held by a specifier that walks back to it, with its validity and name', ({ object, name }) => {
+        const named = reference(HELD, object, object.kind);
         assert.isDefined(named);
-        assert.deepStrictEqual([named.type, named.valid, named.name], ['Object', true, name]);
+        assert.deepStrictEqual([named.valid, named.name], [true, name]);
         assert.strictEqual(walked(named.specifier), object);
     });
 });

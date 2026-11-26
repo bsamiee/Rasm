@@ -1,4 +1,4 @@
-import { Array, Data, Duration, Effect, Equal, Function, Option, Record, Result, Schema, Struct } from 'effect';
+import { Array, Data, Duration, Effect, Equal, Function, HashMap, Option, Record, Result, Schema, Struct } from 'effect';
 import { SqlClient, SqlSchema, Statement } from 'effect/sql';
 import { Column, type Fields, type Where } from '#/column';
 import { Rows } from '#/engine';
@@ -66,7 +66,10 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
         return new Relation<F, O>({ schema, options: Option.fromUndefinedOr(options), ...declared, queries: queries(schema, declared) });
     };
     static readonly insert = <F extends Fields, O extends RelationOptions<F>>(relation: Relation<F, O>, rows: Array.NonEmptyReadonlyArray<Written<F, O>>) => Effect.catchTag(relation.queries.insert(rows), 'NoSuchElementError', Effect.die);
-    static readonly upsert = <F extends Fields, O extends RelationOptions<F>>(relation: Relation<F, O>, rows: Array.NonEmptyReadonlyArray<Written<F, O>>, ...kept: readonly Exclude<keyof F & string, keyof O['projections']>[]) => relation.queries.upsert({ rows, kept });
+    static readonly upsert = <F extends Fields, O extends RelationOptions<F>>(relation: Relation<F, O>, rows: Array.NonEmptyReadonlyArray<Written<F, O>>, ...kept: readonly Exclude<keyof F & string, keyof O['projections']>[]) => {
+        const offered = HashMap.fromIterable(Array.map(rows, (row) => [Record.filter(row, (_, field) => Option.exists(Record.get(relation.columns, field), ({ name }) => relation.key.includes(name))), row] as const));
+        return Effect.flatMap(relation.queries.upsert({ rows, kept }), (written) => Effect.forEach(written, ({ key, inserted }) => Effect.map(Effect.orDie(Effect.fromOption(HashMap.get(offered, key))), (row) => ({ row, inserted }))));
+    };
     static readonly ensure = <F extends Fields, O extends RelationOptions<F>>(relation: Relation<F, O>, rows: Array.NonEmptyReadonlyArray<Written<F, O>>) => Effect.catchTag(relation.queries.ensure(rows), 'NoSuchElementError', Effect.die);
     static readonly select = <F extends Fields, O extends RelationOptions<F>>(
         relation: Relation<F, O>,
@@ -158,10 +161,10 @@ const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Rela
                 rows: Schema.fromJsonString(Batch.check(Schema.makeFilter((rows) => Array.dedupe(rows.map(Struct.pick(keyed))).length === rows.length, { expected: 'rows with distinct keys' }))),
                 kept: Schema.Array(Schema.String),
             }),
-            Result: Schema.Struct({ row: schema, inserted: Schema.BooleanFromBit }),
+            Result: Schema.Struct({ key: Schema.Struct(Record.filter(schema.fields, (_, field) => keyed.includes(field))), inserted: Schema.BooleanFromBit }),
             execute: ({ rows, kept }) => {
                 const updated = written.filter(({ name }) => !(relation.key.includes(name) || kept.includes(name)));
-                return Effect.flatMap(fragments, (parts) => parts.rows.upsert(parts, rows, updated)).pipe(Effect.map(Array.map(({ [Rows.flags.inserted]: inserted, ...row }) => ({ row, inserted }))));
+                return Effect.flatMap(fragments, (parts) => parts.rows.upsert(parts, rows, updated)).pipe(Effect.map(Array.map(({ [Rows.flags.inserted]: inserted, ...key }) => ({ key, inserted }))));
             },
         }),
         select: SqlSchema.findAll({

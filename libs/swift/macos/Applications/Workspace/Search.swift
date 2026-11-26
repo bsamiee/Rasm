@@ -26,6 +26,12 @@ extension NSMetadataQuery {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+extension NSPredicate {
+    public func evaluate(bundleIdentifier: String?) -> Bool {
+        bundleIdentifier.map { identifier in evaluate(with: [NSMetadataItemCFBundleIdentifierKey: identifier]) } == true
+    }
+}
+
 extension Installation {
     @MainActor
     public static func search(_ predicate: NSPredicate, in directories: [URL] = []) -> some AsyncSequence<Listing, Never> & Sendable {
@@ -51,13 +57,12 @@ extension Installation {
                 repeat {
                     query.disableUpdates()
                     let indexed: [URL?] = (0..<query.resultCount).map { index in
-                        (query.value(ofAttribute: NSMetadataItemPathKey, forResultAt: index) as? String).map { path in URL(filePath: path, directoryHint: .isDirectory) }
+                        ((query.result(at: index) as? NSMetadataItem)?.value(forAttribute: NSMetadataItemPathKey) as? String).map { path in URL(filePath: path, directoryHint: .isDirectory) }
                     }
                     query.enableUpdates()
                     let running = OrderedSet(
                         NSWorkspace.shared.runningApplications.filter { application in
-                            application.activationPolicy == .regular
-                                && application.bundleIdentifier.map { identifier in predicate.evaluate(with: [NSMetadataItemCFBundleIdentifierKey: identifier]) } == true
+                            application.activationPolicy == .regular && predicate.evaluate(bundleIdentifier: application.bundleIdentifier)
                         }
                         .compactMap(\.bundleURL)
                     )
@@ -75,7 +80,7 @@ extension Installation {
             do { _ = try document.checkResourceIsReachable() } catch { throw ApplicationFailure(subject: subject, reason: .foundation(error as NSError)) }
         }
         let listing = await read(OrderedSet([NSWorkspace.shared.urlForApplication(toOpen: document)].compactMap(\.self) + NSWorkspace.shared.urlsForApplications(toOpen: document)).elements)
-        let matched = listing.installations.filter { installation in predicate.evaluate(with: [NSMetadataItemCFBundleIdentifierKey: installation.identifier]) }
+        let matched = listing.installations.filter { installation in predicate.evaluate(bundleIdentifier: installation.identifier) }
         guard !matched.isEmpty else {
             throw ApplicationFailure(
                 subject: subject,

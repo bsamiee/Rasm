@@ -1,9 +1,11 @@
+import { isAbsolute } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { Handle, Server } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
-import { Array, Cause, Context, Effect, Function, HashSet, Layer, Option, Record, Result, Schema, Sink, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Effect, Function, HashSet, Layer, Option, Predicate, Record, Result, Schema, Sink, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { Address } from '#/address';
 import { ApplicationServer } from '#/client';
-import { Event, Installation, Pressure, type Session, type InstanceSnapshot, InstanceState } from '#/contract';
+import { Event, Installation, type InstanceSnapshot, InstanceState, Pressure, type Running, type Session } from '#/contract';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -37,8 +39,7 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
         const server = yield* ApplicationServer;
         const listEntries = Effect.gen(function* () {
             const installed = yield* server.currentInstallations;
-            const [claims, rows] = [Array.getSomes(installed.map(Struct.get('claim'))), yield* cataloguer(installed.filter(({ activationPolicy }) => activationPolicy !== 'prohibited'))];
-            return rows.map((row): Entry => ({ ...row, claim: Array.findFirst(claims, covers(row.identifier)) }));
+            return claimed(installed, yield* cataloguer(installed.filter(Predicate.not(backgroundOnly))));
         });
         const [first, rest] = yield* Stream.peel(server.instances({}), Sink.head());
         const [catalog, running] = yield* Effect.all([
@@ -94,11 +95,13 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
             yield* handle.set(Target, { held: Option.some(aim), followed: HashSet.add(followed, aim.instance) });
             return live;
         });
-        const find = (given: string) =>
-            Effect.flatMap(
-                SubscriptionRef.get(catalog),
-                Unmatched.single('listed application', Option.some(given), (row: Entry) => [row.name, ...row.aliases, row.url.href]),
-            );
+        const find = Effect.fnUntraced(function* (given: string) {
+            const [rows, installed, read] = yield* Effect.all([SubscriptionRef.get(catalog), server.currentInstallations, Effect.transposeOption(Option.map(bundleAt(given), (url) => server.installation({ url })))]);
+            const listed = new Set(rows.map((row) => row.url.href));
+            const unlisted = Option.toArray(Option.filter(read, (installation) => !backgroundOnly(installation) && !listed.has(installation.url.href)));
+            const query = Option.match(read, { onNone: () => given, onSome: ({ url }) => url.href });
+            return yield* Unmatched.single([...rows, ...claimed([...installed, ...unlisted], entriesOf(unlisted))], 'listed application', Option.some(query), (row: Entry) => [row.name, ...row.aliases, row.url.href]);
+        });
         const resolve = (given: string) =>
             Effect.flatMap(find(given), (row) =>
                 Option.match(row.claim, {
@@ -127,7 +130,7 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
             return { row: aim.row, live };
         });
         const prompted = Stream.filterMap(named, ({ application, event }) =>
-            Event.Change.matchOrElse(event.change, { asking: ({ asking }) => (asking.kind === 'prompt' ? Result.succeed(Effect.succeed(`${application} prompt ${Address.token(asking.kind, asking.container)}${titled(asking.title)} asks for an answer`)) : Result.failVoid) }, () => Result.failVoid),
+            Event.fields.change.matchOrElse(event.change, { asking: ({ asking }) => (asking.kind === 'prompt' ? Result.succeed(Effect.succeed(`${application} prompt ${Address.token(asking.kind, asking.container)}${titled(asking.title)} asks for an answer`)) : Result.failVoid) }, () => Result.failVoid),
         );
         const blocked = (row: Pick<Entry, 'url' | 'name'>, instance?: InstanceSnapshot['instance']) =>
             SubscriptionRef.changes(running).pipe(Stream.map(Array.findFirst((each: InstanceSnapshot) => (instance === undefined ? Installation.runs(row)(each) : each.instance === instance))), Stream.filterMap(refuseBlocked(row.name)), Stream.map(Effect.succeed));
@@ -137,21 +140,28 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
     }),
 }) {
     static readonly layer = <E, R>(cataloguer: Cataloguer<E, R>) => Layer.effect(Workspace, Workspace.make(cataloguer));
-    static readonly fromInstallations = (offered: readonly Installation[]) => Effect.succeed(offered.map(({ url, identifier, name, bundleName, version }) => ({ url, identifier, name, aliases: [identifier, ...Option.toArray(bundleName)], facts: Record.getSomes({ identifier: Option.some(identifier), version }) })));
+    static readonly fromInstallations = (offered: readonly Installation[]) => Effect.succeed(entriesOf(offered));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const bundleAt = (given: string) => (URL.canParse(given) ? Option.filter(Option.some(new URL(given)), ({ protocol }) => protocol === 'file:') : Option.map(Option.liftPredicate(given, isAbsolute), pathToFileURL));
 const covers =
     (identifier: string) =>
     ({ prefixes }: Option.Option.Value<Installation['claim']>) =>
         prefixes.some((prefix) => identifier.startsWith(prefix));
+const claimed = (installed: readonly Installation[], rows: readonly Omit<Entry, 'claim'>[]) => {
+    const claims = Array.getSomes(installed.map(Struct.get('claim')));
+    return rows.map((row): Entry => ({ ...row, claim: Array.findFirst(claims, covers(row.identifier)) }));
+};
+const entriesOf = (offered: readonly Installation[]) => offered.map(({ url, identifier, name, bundleName, version }) => ({ url, identifier, name, aliases: [identifier, ...Option.toArray(bundleName)], facts: Record.getSomes({ identifier: Option.some(identifier), version }) }));
+const backgroundOnly = ({ activationPolicy }: Installation) => activationPolicy === 'prohibited';
 const logEnd =
     (subject: string) =>
     <A, X>(self: Stream.Stream<A, X>) =>
         Stream.catchCause(self, (cause) => Stream.fromEffect(Effect.andThen(Effect.logError(`${subject} ended`, cause), Effect.never)));
-const nameEvent = (rows: readonly InstanceSnapshot[], entries: readonly Entry[], started: Record.ReadonlyRecord<string, string>, event: typeof Event.Type) => {
-    const announced = Event.Change.matchOrElse(event.change, { started: ({ started: { name } }) => Option.fromUndefinedOr(name) }, Option.none);
+const nameEvent = (rows: readonly InstanceSnapshot[], entries: readonly Entry[], started: Record.ReadonlyRecord<string, string>, event: Event) => {
+    const announced = Event.fields.change.matchOrElse(event.change, { started: ({ started: { name } }) => Option.fromUndefinedOr(name) }, Option.none);
     const application = Array.findFirst(rows, (row) => row.instance === event.instance).pipe(
         Option.flatMap(({ url }) => Array.findFirst(entries, (entry) => entry.url.href === url.href)),
         Option.map(Struct.get('name')),
@@ -159,20 +169,20 @@ const nameEvent = (rows: readonly InstanceSnapshot[], entries: readonly Entry[],
         Option.orElse(() => announced),
         Option.getOrElse(() => event.instance),
     );
-    const kept = Event.Change.guards.exited(event.change) ? Record.remove(started, event.instance) : Option.match(announced, { onNone: () => started, onSome: (name) => Record.set(started, event.instance, name) });
+    const kept = Event.fields.change.guards.exited(event.change) ? Record.remove(started, event.instance) : Option.match(announced, { onNone: () => started, onSome: (name) => Record.set(started, event.instance, name) });
     return [kept, [{ application, event }]] as const;
 };
-const declared = ({ usage }: typeof InstanceState.Running.Type) => Array.match(usage?.assertions ?? [], { onEmpty: () => '', onNonEmpty: (names) => `, declares ${names.join(', ')}` });
-const said = (session: typeof Session.Type, keep: (key: keyof typeof SESSION) => boolean) =>
+const declared = ({ usage }: Running) => Array.match(usage?.assertions ?? [], { onEmpty: () => '', onNonEmpty: (names) => `, declares ${names.join(', ')}` });
+const said = (session: Session, keep: (key: keyof typeof SESSION) => boolean) =>
     Struct.keys(SESSION)
         .filter(keep)
         .map((key) => SESSION[key][`${session[key]}`]);
-const prompting = Event.Change.matchOrElse({ asking: ({ asking }) => asking.kind === 'prompt', closed: ({ closed }) => closed.kind === 'prompt' }, Function.constFalse);
+const prompting = Event.fields.change.matchOrElse({ asking: ({ asking }) => asking.kind === 'prompt', closed: ({ closed }) => closed.kind === 'prompt' }, Function.constFalse);
 const titled = (title: string | undefined) => UndefinedOr.match(title, { onUndefined: () => '', onDefined: (named) => ` "${named}"` });
 const describeExitStatus = InstanceState.Exited.match({ Status: ({ status }) => `with status ${status}`, Signal: ({ signal }) => `on signal ${signal}`, Unread: () => 'with unread status' });
 const describeExit = (exit: Extract<InstanceSnapshot['state'], { readonly _tag: 'exited' }>['exited']) => `exited ${describeExitStatus(exit)}${UndefinedOr.match(exit.report, { onUndefined: () => '', onDefined: (report) => `, ${report.kind} report ${report.url.href}` })}`;
-const describeEvent = ({ application, event: { instance, change } }: { readonly application: string; readonly event: typeof Event.Type }, { held, followed }: Context.Service.Shape<typeof Target>) =>
-    Event.Change.match(change, {
+const describeEvent = ({ application, event: { instance, change } }: { readonly application: string; readonly event: Event }, { held, followed }: Context.Service.Shape<typeof Target>) =>
+    Event.fields.change.match(change, {
         started: () => 'started',
         opened: ({ opened }) => `opened ${opened.kind} ${Address.token(opened.kind, opened.container)}${titled(opened.title)}`,
         closed: ({ closed }) => `closed ${closed.kind} ${Address.token(closed.kind, closed.container)}${titled(closed.title)}`,

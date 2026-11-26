@@ -102,4 +102,4 @@ Assertions read what Chrome rendered, in place of a selector or notation the pro
 - `shows` names the role an action reveals, and `after` stubs and acts again before capture
 - Scenes stub through operations a suite's tests use, with no switch in the product for media
 - Text snaps to a whole device pixel before capture, as glyph raster at a fractional position differs between runs
-- Use `docs/typescript/Testing.md` for `media(scenes)` and promo tiles
+- Use `typescript:testing` for `media(scenes)` and promo tiles

@@ -1,5 +1,5 @@
 import { Description } from '@rasm/applications/source';
-import { describe, Dom, operate } from '@rasm/indesign/uxp';
+import { Dom, toolbar } from '@rasm/indesign/uxp';
 import { Uxp } from '@rasm/uxp/plugin';
 import fs from 'adobe:fs';
 import uxp from 'adobe:uxp';
@@ -16,6 +16,8 @@ const Request = Schema.fromJsonString(Schema.Union([Schema.Struct({ describe: Sc
 const Answer = Schema.fromJsonString(Schema.Union([Schema.Struct({ described: Description }), Schema.Struct({ operated: Schema.Boolean }), Schema.Struct({ failed: Schema.String })]));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
+const { describe, operate } = Description.tools(toolbar);
 
 const run = (text: string): string =>
     Effect.runSync(

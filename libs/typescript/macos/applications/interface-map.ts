@@ -4,7 +4,7 @@ import { layer as sqlite } from '@effect/sql-sqlite-node/SqliteClient';
 import { Catalog, Relation } from '@rasm/database';
 import { Sqlite } from '@rasm/database/sqlite';
 import { Output } from '@rasm/mcp/cli';
-import { Array, Context, Data, Duration, Effect, Equal, FileSystem, HashSet, Layer, Option, Order, Predicate, pipe, RcMap, Record, Ref, Schedule, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Context, Data, Duration, Effect, Equal, FileSystem, Function, HashSet, Layer, Option, Order, Predicate, pipe, RcMap, Record, Ref, Schedule, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { SqlClient } from 'effect/sql';
 import { ApplicationServer } from '#/client';
 import { Build, Condition, Frame, Instant, type InstanceSnapshot, InstanceState, Locator, Observation, Opener, Shape, Value } from '#/contract';
@@ -12,7 +12,7 @@ import { Workspace } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Driven = typeof Key.Type & Pick<InstanceSnapshot, 'instance'>;
+type Driven = Key & Pick<InstanceSnapshot, 'instance'>;
 type Opened = Effect.Success<ReturnType<typeof InterfaceMap.open>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -25,25 +25,29 @@ const PAIRED = ['parent', 'role', 'kind', 'help'] as const;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const subject = Condition.match({ Value: ({ _tag, at }) => ({ _tag, at }), Documents: ({ _tag }) => ({ _tag }), Modal: ({ _tag }) => ({ _tag }) });
-const Tally = Schema.Struct({
-    seen: Schema.Natural.annotate({ description: 'Epochs it was seen in' }),
-    missed: Schema.Natural.annotate({ description: 'Complete reads that lacked it' }),
-    first: Instant,
-    last: Instant,
-    epoch: Instant.annotate({ description: 'Opening of the last epoch it was seen in' }),
-    since: Build,
-    verified: Build.annotate({ description: 'Build it was last seen in' }),
-    persistent: Schema.Boolean.annotate({ description: 'Seen again after retiring' }),
-    unexplained: Schema.Array(Instant).annotate({ description: 'Epochs of the last three misses no atom explains' }),
-});
+class Tally extends Schema.Opaque<Tally, unknown>()(
+    Schema.Struct({
+        seen: Schema.Natural.annotate({ description: 'Epochs it was seen in' }),
+        missed: Schema.Natural.annotate({ description: 'Complete reads that lacked it' }),
+        first: Instant,
+        last: Instant,
+        epoch: Instant.annotate({ description: 'Opening of the last epoch it was seen in' }),
+        since: Build,
+        verified: Build.annotate({ description: 'Build it was last seen in' }),
+        persistent: Schema.Boolean.annotate({ description: 'Seen again after retiring' }),
+        unexplained: Schema.Array(Instant).annotate({ description: 'Epochs of the last three misses no atom explains' }),
+    }),
+) {}
 const Presence = Schema.Struct({ with: Schema.Array(Condition), against: Schema.Array(Condition) });
-const Application = Schema.Struct({ builds: Schema.Array(Build).annotate({ description: 'Builds read, newest first' }) });
-const Container = Schema.Struct({
-    ...Struct.pick(Observation.fields, ['kind', 'title', 'modal', 'layer', 'size', 'default', 'cancel', 'close']),
-    openers: Schema.Array(Schema.Struct({ ...Opener.fields, tally: Tally })),
-    tally: Tally,
-    scopes: Schema.Array(Schema.Struct({ at: Instant, atoms: Schema.Array(Condition) })).annotate({ description: 'Atoms of each read holding the last sighting of a control with no condition yet' }),
-});
+class Application extends Schema.Opaque<Application, unknown>()(Schema.Struct({ builds: Schema.Array(Build).annotate({ description: 'Builds read, newest first' }) })) {}
+class Container extends Schema.Opaque<Container, unknown>()(
+    Schema.Struct({
+        ...Struct.pick(Observation.fields, ['kind', 'title', 'modal', 'layer', 'size', 'default', 'cancel', 'close']),
+        openers: Schema.Array(Schema.Struct({ ...Opener.fields, tally: Tally })),
+        tally: Tally,
+        scopes: Schema.Array(Schema.Struct({ at: Instant, atoms: Schema.Array(Condition) })).annotate({ description: 'Atoms of each read holding the last sighting of a control with no condition yet' }),
+    }),
+) {}
 const Control = Schema.Struct({
     ...Struct.omit(Shape.fields, ['options']),
     options: Schema.OptionFromOptionalKey(Schema.Union([Schema.Array(Schema.String), Schema.Struct({ count: Schema.Natural })])),
@@ -53,19 +57,19 @@ const Control = Schema.Struct({
     tally: Tally,
     retired: Schema.OptionFromOptionalKey(Build),
 });
-const Entry = Schema.Struct({ container: Container, controls: Schema.Record(Locator, Control) }).annotate({ description: 'One container and every control read in it, keyed by locator' });
+class Entry extends Schema.Opaque<Entry, unknown>()(Schema.Struct({ container: Container, controls: Schema.Record(Locator, Control) }).annotate({ description: 'One container and every control read in it, keyed by locator' })) {}
 const Change = Schema.TaggedUnion({
     Appeared: { at: Locator },
     Changed: { at: Locator },
     Relabelled: { at: Locator, from: Schema.OptionFromOptionalKey(Schema.String), to: Schema.OptionFromOptionalKey(Schema.String) },
     Gone: { at: Locator },
 });
-const Key = Schema.Struct({ bundle: Schema.String, language: Schema.String });
+class Key extends Schema.Opaque<Key, unknown>()(Schema.Struct({ bundle: Schema.String, language: Schema.String })) {}
 const Stored = <S extends Schema.Constraint>(document: S) => Schema.fromJsonString(Schema.OptionFromNullOr(document).pipe(Schema.catchDecoding(() => Effect.succeedSome(Option.none()))));
 const applications = Relation.make('applications', { ...Key.fields, body: Stored(Application) }, { key: ['bundle', 'language'], withoutRowid: true });
 const containers = Relation.make('containers', { ...Key.fields, locator: Locator, body: Stored(Entry) }, { key: ['bundle', 'language', 'locator'], withoutRowid: true });
 
-class InterfaceMap extends Data.Class<{ readonly application: typeof Application.Type; readonly containers: Readonly<Record<string, typeof Entry.Type>> }> {
+class InterfaceMap extends Data.Class<{ readonly application: Application; readonly containers: Readonly<Record<string, Entry>> }> {
     static readonly Change = Change;
     static readonly empty = new InterfaceMap({ application: { builds: [] }, containers: {} });
     static readonly catalog = Catalog.make({ tables: [applications, containers] });
@@ -74,39 +78,41 @@ class InterfaceMap extends Data.Class<{ readonly application: typeof Application
         const [held, entries, user, sql] = yield* Effect.all([Relation.select(applications, where), Relation.select(containers, where), Effect.sync(() => userInfo()), SqlClient.SqlClient]);
         const stale = Array.countBy([...held, ...entries], ({ body }) => Option.isNone<unknown>(body));
         yield* stale > 0 ? Effect.annotateLogs(Effect.logInfo('Interface map dropped stored documents this build no longer reads'), { bundle, language, stale }) : Effect.void;
-        const state = yield* Ref.make(
-            new InterfaceMap({
-                application: Array.head(held).pipe(
-                    Option.flatMap(Struct.get('body')),
-                    Option.getOrElse(() => InterfaceMap.empty.application),
-                ),
-                containers: Record.getSomes(Record.fromIterableWith(entries, ({ locator, body }) => [locator, body])),
-            }),
+        const loaded = new InterfaceMap({
+            application: Array.head(held).pipe(
+                Option.flatMap(Struct.get('body')),
+                Option.getOrElse(() => InterfaceMap.empty.application),
+            ),
+            containers: Record.getSomes(Record.fromIterableWith(entries, ({ locator, body }) => [locator, body])),
+        });
+        const [state, written] = yield* Effect.all([Ref.make(loaded), Ref.make(loaded)]);
+        const flush = Effect.fnUntraced(
+            function* (closing: boolean) {
+                const [current, stored] = yield* Effect.all([Ref.get(state), Ref.get(written)]);
+                const changed = Record.filter(current.containers, (entry, locator) => entry !== stored.containers[locator] && (closing || !Option.contains(Option.map(Record.get(stored.containers, locator), settled), settled(entry))));
+                const writes = [
+                    ...(current.application === stored.application ? [] : [Relation.upsert(applications, [{ bundle, language, body: Option.some(current.application) }])]),
+                    ...Array.match(
+                        Record.collect(changed, (locator, body) => ({ bundle, language, locator, body: Option.some(body) })),
+                        { onEmpty: Array.empty, onNonEmpty: (rows) => [Relation.upsert(containers, rows)] },
+                    ),
+                ];
+                yield* Array.match(writes, {
+                    onEmpty: () => Effect.void,
+                    onNonEmpty: (statements) => Effect.andThen(sql.withTransaction(Effect.all(statements)), Ref.set(written, new InterfaceMap({ application: current.application, containers: { ...stored.containers, ...changed } }))),
+                });
+            },
+            Effect.catch((error) => Effect.annotateLogs(Effect.logWarning('Interface map flush failed', error), { bundle, language })),
         );
-        const pending = yield* Ref.make(Record.empty<string, typeof Entry.Type>());
-        const flush = Effect.gen(function* () {
-            const [written, { application }] = yield* Effect.all([Ref.get(pending), Ref.get(state)]);
-            yield* Array.match(
-                Record.collect(written, (locator, body) => ({ bundle, language, locator, body: Option.some(body) })),
-                { onEmpty: () => Effect.void, onNonEmpty: (rows) => sql.withTransaction(Effect.all([Relation.upsert(applications, [{ bundle, language, body: Option.some(application) }]), Relation.upsert(containers, rows)])) },
-            );
-            yield* Ref.update(
-                pending,
-                Record.filter((entry, locator) => written[locator] !== entry),
-            );
-        }).pipe(Effect.catch((error) => Effect.annotateLogs(Effect.logWarning('Interface map flush failed', error), { bundle, language })));
-        yield* Effect.addFinalizer(() => flush);
-        yield* Effect.forkScoped(Effect.repeat(flush, Schedule.spaced(LIMITS.interval)));
+        yield* Effect.addFinalizer(() => flush(true));
+        yield* Effect.forkScoped(Effect.repeat(flush(false), Schedule.spaced(LIMITS.interval)));
         return {
             present: Ref.get(state),
-            observe: (read: typeof Observation.Type) =>
+            observe: (read: Observation) =>
                 Ref.modify(state, (map) => {
-                    const folded = map.fold(read, user);
-                    return [folded, folded.map] as const;
-                }).pipe(
-                    Effect.tap(({ touched }) => Ref.update(pending, (waiting) => ({ ...waiting, ...Record.fromEntries(touched) }))),
-                    Effect.map(({ changes }) => changes),
-                ),
+                    const { map: next, changes } = map.fold(read, user);
+                    return [changes, next] as const;
+                }),
         };
     });
 
@@ -114,14 +120,14 @@ class InterfaceMap extends Data.Class<{ readonly application: typeof Application
         return Option.map(Array.head(this.application.builds), (build) => ({ build, containers: Record.keys(Record.filter(this.containers, ({ container }) => container.tally.verified === build)) }));
     }
 
-    fold(read: typeof Observation.Type, { username, homedir }: Pick<UserInfo<string>, 'username' | 'homedir'>) {
+    fold(read: Observation, { username, homedir }: Pick<UserInfo<string>, 'username' | 'homedir'>) {
         const { build, opened, at, complete } = read;
         const texts = Array.sort(Array.dedupe([...read.documents.flatMap((path) => [path, basename(path), basename(path, extname(path))]), homedir, username]), Order.mapInput(Order.flip(Order.Number), String.length));
         const pattern = new RegExp(`(?<![\\p{L}\\p{N}])(?:${texts.map(RegExp.escape).join('|')})(?![\\p{L}\\p{N}])`, 'gu');
         const hide = (text: string) => text.replaceAll(pattern, (found) => (found === homedir ? REDACTED.home : REDACTED.other));
-        const shown = (value: typeof Value.Type) => (Predicate.isString(value) ? hide(value) : value);
+        const shown = (value: Observation['values'][string]) => (Predicate.isString(value) ? hide(value) : value);
         const container = hide(read.container);
-        const scope: (typeof Observation.Type)['scope'] = read.scope.map(Condition.match({ Value: (atom) => ({ ...atom, at: hide(atom.at), value: shown(atom.value) }), Documents: (atom) => atom, Modal: (atom) => ({ ...atom, at: atom.at === null ? null : hide(atom.at) }) }));
+        const scope: Observation['scope'] = read.scope.map(Condition.match({ Value: (atom) => ({ ...atom, at: hide(atom.at), value: shown(atom.value) }), Documents: (atom) => atom, Modal: (atom) => ({ ...atom, at: atom.at === null ? null : hide(atom.at) }) }));
         const cause = Option.map(read.cause, Struct.evolve({ container: hide, control: hide }));
         const shapes = pipe(
             read.controls,
@@ -135,16 +141,16 @@ class InterfaceMap extends Data.Class<{ readonly application: typeof Application
                 },
             ]),
         );
-        const builds = Option.contains(Array.head(this.application.builds), build) ? this.application.builds : [build, ...Array.take(this.application.builds, LIMITS.builds - 1)];
+        const application = Option.contains(Array.head(this.application.builds), build) ? this.application : { builds: [build, ...Array.take(this.application.builds, LIMITS.builds - 1)] };
         const entry = Option.fromUndefinedOr(this.containers[container]);
         const fresh = !Option.exists(entry, ({ container: held }) => Equal.equals(held.tally.epoch, opened));
-        const sight = (tally: Option.Option<typeof Tally.Type>): typeof Tally.Type =>
+        const sight = (tally: Option.Option<Tally>): Tally =>
             Option.match(tally, {
                 onNone: () => ({ seen: 1, missed: 0, first: at, last: at, epoch: opened, since: build, verified: build, persistent: false, unexplained: [] }),
                 onSome: (held) => ({ ...held, seen: held.seen + (Equal.equals(held.epoch, opened) ? 0 : 1), last: at, epoch: opened, verified: build }),
             });
         const [stored, openers, scopes] = Option.match(entry, {
-            onNone: (): readonly [(typeof Entry.Type)['controls'], (typeof Container.Type)['openers'], (typeof Container.Type)['scopes']] => [{}, [], []],
+            onNone: (): readonly [Entry['controls'], Container['openers'], Container['scopes']] => [{}, [], []],
             onSome: ({ controls, container: held }) => [controls, held.openers, held.scopes] as const,
         });
         const [, pairs] = Array.mapAccum(
@@ -181,7 +187,7 @@ class InterfaceMap extends Data.Class<{ readonly application: typeof Application
                 }),
             };
         });
-        const absent = Record.filter(stored, (control, locator) => !Record.has(shapes, locator) && !moved.has(locator) && !Option.exists(control.retired, (retiring) => !Array.take(builds, 2).includes(retiring)));
+        const absent = Record.filter(stored, (control, locator) => !Record.has(shapes, locator) && !moved.has(locator) && !Option.exists(control.retired, (retiring) => !Array.take(application.builds, 2).includes(retiring)));
         const missed = Record.map(absent, (control, locator) => {
             const seeded = Option.getOrElse(control.presence, () => ({ with: scopes.filter((held) => Equal.equals(held.at, control.tally.last)).flatMap(Struct.get('atoms')), against: [] }));
             const explained = scope.some((atom) => seeded.with.some((held) => Equal.equals(subject(held), subject(atom))) && !seeded.with.some((held) => Equal.equals(held, atom)));
@@ -201,7 +207,7 @@ class InterfaceMap extends Data.Class<{ readonly application: typeof Application
                 .filter((control) => Option.isNone(control.presence) && Option.isNone(control.retired))
                 .map((control) => control.tally.last),
         );
-        const current = {
+        const next = Record.set(this.containers, container, {
             container: {
                 ...Struct.pick(read, ['kind', 'modal', 'layer', 'size']),
                 ...Record.map(Struct.pick(read, ['default', 'cancel', 'close']), Option.map(hide)),
@@ -220,21 +226,26 @@ class InterfaceMap extends Data.Class<{ readonly application: typeof Application
                 scopes: [{ at, atoms: scope }, ...scopes].filter((reading) => HashSet.has(pending, reading.at)),
             },
             controls,
-        };
-        const next = Record.set(this.containers, container, current);
+        });
         const linked = Option.gen(function* () {
             const by = yield* Option.filter(cause, ({ container: from }) => fresh && from !== container);
             const from = yield* Record.get(next, by.container);
-            const opening = yield* Record.modify(from.controls, by.control, (control) => ({ ...control, opens: Option.some(container) }));
-            return [by.container, { ...from, controls: opening }] as const;
+            const opener = yield* Option.filter(Record.get(from.controls, by.control), ({ opens }) => !Option.contains(opens, container));
+            return Record.set(next, by.container, { ...from, controls: Record.set(from.controls, by.control, { ...opener, opens: Option.some(container) }) });
         });
         return {
-            map: new InterfaceMap({ application: { builds }, containers: Option.match(linked, { onNone: () => next, onSome: ([from, linking]) => Record.set(next, from, linking) }) }),
+            map: new InterfaceMap({ application, containers: Option.getOrElse(linked, () => next) }),
             changes: [...(Option.isNone(entry) ? [{ _tag: 'Appeared', at: container } as const] : []), ...Record.values(folded).flatMap(({ changes }): readonly (typeof Change.Type)[] => changes)],
-            touched: [[container, current] as const, ...Option.toArray(linked)],
         };
     }
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const settled = Function.memoize(({ container, controls }: Entry) => ({
+    container: { ...container, tally: { ...container.tally, last: container.tally.epoch }, scopes: container.scopes.map(Struct.get('atoms')) },
+    controls: Record.map(controls, (control) => ({ ...control, tally: { ...control.tally, last: control.tally.epoch } })),
+}));
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -249,13 +260,9 @@ class InterfaceMaps extends Context.Service<InterfaceMaps, { readonly recall: (s
                     Stream.filter((rows) => rows.every((row) => row.instance !== instance || InstanceState.isAnyOf(['exited'])(row.state))),
                     Stream.runHead,
                 );
-            const maps = yield* RcMap.make({ lookup: ({ bundle, language }: typeof Key.Type) => InterfaceMap.open(bundle, language) });
+            const maps = yield* RcMap.make({ lookup: ({ bundle, language }: Key) => InterfaceMap.open(bundle, language) });
             const driven: RcMap.RcMap<Driven, Opened, Effect.Error<ReturnType<typeof InterfaceMap.open>>> = yield* RcMap.make({
-                lookup: ({ instance, ...key }: Driven) =>
-                    Effect.tap(
-                        Effect.tapError(RcMap.get(maps, key), () => RcMap.invalidate(maps, key)),
-                        () => Effect.forkIn(Effect.andThen(exited(instance), RcMap.invalidate(driven, { instance, ...key })), scope),
-                    ),
+                lookup: ({ instance, ...key }: Driven) => Effect.tap(RcMap.get(maps, key), () => Effect.forkIn(Effect.andThen(exited(instance), RcMap.invalidate(driven, { instance, ...key })), scope)),
                 idleTimeToLive: Duration.infinity,
             });
             const using = <A, E>(held: Driven, use: (opened: Opened) => Effect.Effect<A, E>) =>
@@ -297,4 +304,4 @@ class InterfaceMaps extends Context.Service<InterfaceMaps, { readonly recall: (s
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { InterfaceMap, InterfaceMaps };
+export { type Entry, InterfaceMap, InterfaceMaps };

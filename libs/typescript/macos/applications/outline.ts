@@ -1,7 +1,7 @@
 import { Unmatched } from '@rasm/search';
 import { Array, DateTime, Equal, HashSet, Number, Option, Order, Record, Result, type Schema, Struct } from 'effect';
 import { Address, type Index, type Item, type Shown } from '#/address';
-import { Condition, type Container, type Control, type KeyStep, type Kind, type Pasteboard, type Ref } from '#/contract';
+import { Condition, type Container, type Control, type KeyStep, type Pasteboard } from '#/contract';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -31,14 +31,14 @@ const CUTS = ['text', 'map', 'options', 'rows', 'containers'] as const;
 const KEPT = { options: 6, rows: 20 } as const;
 const INDENT = '  ';
 const SEPARATED = 'separator above';
-const SELECTED: Readonly<Record<NonNullable<(typeof Control.Type)['selected']>, Partial<Record.ReadonlyRecord<typeof Kind.Type, string>>>> = { attribute: { row: 'selected' }, marked: { row: 'selected (inferred)', choice: 'value inferred' } };
+const SELECTED: Readonly<Record<NonNullable<Control['selected']>, Partial<Record.ReadonlyRecord<Control['kind'], string>>>> = { attribute: { row: 'selected' }, marked: { row: 'selected (inferred)', choice: 'value inferred' } };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const facts = (head: string, rest: readonly string[]) => [head, ...rest].join(' · ');
 const flags = (held: Readonly<Record<string, boolean>>) => Record.keys(Record.filter(held, (on) => on));
 const quoted = (key: string, value: Schema.Json) => `${key}:${JSON.stringify(value)}`;
-const shortcut = ({ key, modifiers }: typeof KeyStep.Type) => `shortcut {key:{${quoted('key', key)},${quoted('modifiers', modifiers)}}}`;
+const shortcut = ({ key, modifiers }: KeyStep) => `shortcut {key:{${quoted('key', key)},${quoted('modifiers', modifiers)}}}`;
 const call = (held: readonly string[]) => `inspect {${held.join(', ')}}`;
 const node = (line: string, tokens: readonly string[], rest: Partial<Node> = {}): Node => ({ line, tokens, pinned: false, cut: NEVER, children: Option.none(), ...rest });
 const alternation = <A>(entries: readonly A[], key: (entry: A) => string, alternate: (entry: A) => Option.Option<string>) => {
@@ -98,7 +98,7 @@ const remembered = (index: Index, locator: string): readonly Node[] => {
     });
 };
 const controlNode =
-    (index: Index, container: typeof Container.Type, changed: HashSet.HashSet<typeof Ref.Type>, leveled: boolean, within: Option.Option<string>) =>
+    (index: Index, container: Container, changed: HashSet.HashSet<Control['ref']>, leveled: boolean, within: Option.Option<string>) =>
     ({ entry: { control, item, options }, alternates, nested }: Folded & { readonly nested: readonly Folded[] }): { readonly node: Node; readonly run: Option.Option<string> } => {
         const marks = {
             [SEPARATED]: control.separated === true,
@@ -149,7 +149,7 @@ const controlNode =
             run: Option.isNone(item.name) && Array.isReadonlyArrayEmpty(nodes) && Array.isReadonlyArrayEmpty(besides) ? Option.some(described) : Option.none(),
         };
     };
-const tree = (index: Index, changed: HashSet.HashSet<typeof Ref.Type>): readonly Node[] => {
+const tree = (index: Index, changed: HashSet.HashSet<Control['ref']>): readonly Node[] => {
     const { containers } = index.model;
     const primary = new Set(Option.getOrElse(Array.findFirst([containers.filter(Struct.get('asking')), containers.filter((container) => container.focused === true), Array.take(containers, 1)], Array.isReadonlyArrayNonEmpty), Array.empty).map(Struct.get('ref')));
     const shown = Array.sortWith(index.shown, ({ container }) => [container.asking, container.focused === true] as const, Order.flip(Order.Tuple([Order.Boolean, Order.Boolean]))).map(({ container, item, controls }) => {
@@ -253,7 +253,7 @@ const start = ({ nodes, call: held }: Page, after: Option.Option<Item>): Result.
     });
 const render = (
     index: Index,
-    { in: within = Option.none(), after = Option.none(), changed = HashSet.empty(), budget = BUDGET }: { readonly in?: Option.Option<Item>; readonly after?: Option.Option<Item>; readonly changed?: HashSet.HashSet<typeof Ref.Type>; readonly budget?: typeof BUDGET } = {},
+    { in: within = Option.none(), after = Option.none(), changed = HashSet.empty(), budget = BUDGET }: { readonly in?: Option.Option<Item>; readonly after?: Option.Option<Item>; readonly changed?: HashSet.HashSet<Control['ref']>; readonly budget?: typeof BUDGET } = {},
 ): Result.Result<readonly string[], Unmatched> => {
     const root: Page = { nodes: tree(index, changed), call: [], depth: 0 };
     const page = Option.match(Option.flatMap(within, Struct.get('token')), {
@@ -292,7 +292,7 @@ const hits = (found: readonly Item[], held: readonly string[], { after = Option.
     };
     return Result.map(start(page, after), (from) => fit(page, from, budget));
 };
-const clipboard = ({ changeCount, types, access, patterns, contentType, content }: typeof Pasteboard.Type, ref: typeof Ref.Type) =>
+const clipboard = ({ changeCount, types, access, patterns, contentType, content }: Pasteboard, ref: Control['ref']) =>
     facts([Address.token('clipboard', ref), 'clipboard', ...(content?._tag === 'text' ? [JSON.stringify(content.text.value.slice(0, BUDGET.page).toWellFormed())] : [])].join(' '), [
         `change ${changeCount}`,
         Array.isReadonlyArrayNonEmpty(types) ? `types ${types.join(', ')}` : 'empty',

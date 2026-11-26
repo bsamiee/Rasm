@@ -36,7 +36,7 @@ extension Route {
             guard let shown = rows.first.flatMap(InstanceState.Window.init) else { throw ApplicationFailure(subject: "window \(number) of \(subject)", reason: .noWindow) }
             return (number, shown.frame.origin)
         }
-        let identity: [UInt8] = number.map { number in withUnsafeBytes(of: number.littleEndian, Array.init) } ?? []
+        let identity: [UInt8] = number.map { number in unsafe withUnsafeBytes(of: number.littleEndian, Array.init) } ?? []
         let marks: [[UInt8]] = subtypes.map { subtype in
             (0..<record.size).map { offset in
                 switch offset {
@@ -49,7 +49,7 @@ extension Route {
             }
         }
         var serial = ProcessSerialNumber()
-        guard marks.isEmpty || unsafe findProcess(process, &serial) else { throw ApplicationFailure(subject: String(process), reason: .noProcess) }
+        guard unsafe marks.isEmpty || findProcess(process, &serial) else { throw ApplicationFailure(subject: String(process), reason: .noProcess) }
         guard self != .system || NSWorkspace.shared.frontmostApplication?.processIdentifier == process else {
             throw ApplicationFailure(subject: "\(subject), which posts to the frontmost process alone", reason: .refused(nil))
         }
@@ -69,7 +69,7 @@ extension Route {
                 do { try await clock.sleep(until: start.advanced(by: offset), tolerance: nil) } catch { throw ApplicationFailure(subject: subject, reason: .cancelled) }
                 event.setSource(source)
                 let read: Int32? = unsafe signed ? getEventRecord(event, &copied, copied.count) : nil
-                let message: AnyObject? = unsafe read == 0 ? authentication?.message?(eventRecord: copied, pid: process, version: 0) ?? nil : nil
+                let message: AnyObject? = unsafe read == 0 ? (authentication?.message?(eventRecord: copied, pid: process, version: 0)).flatMap(\.self) : nil
                 guard read == nil || message != nil else { throw ApplicationFailure(subject: "signing key event \(event.type.rawValue) of \(subject)", reason: .refused(nil)) }
                 let aimed: (number: CGWindowID, origin: CGPoint)? = keys.contains(event.type) ? nil : target
                 let stamps: [(CGEventField?, Int64)] =

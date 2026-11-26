@@ -1,56 +1,35 @@
-import type { Value } from '@rasm/applications';
 import { Description } from '@rasm/applications/source';
 import type { Upstream } from '@rasm/mcp';
 import { HostError, type Render } from '@rasm/object-model';
-import { type Containment, format, read } from '@rasm/object-model/host';
+import { type Containment, format } from '@rasm/object-model/host';
 import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/plugin';
 import { action, app, core } from 'adobe:photoshop';
 import type { File } from 'adobe:uxp';
-import { Array, Cause, Context, Effect, Exit, Formatter, flow, Layer, Match, Option, Predicate, Queue, Record, Result, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Effect, Exit, Function, flow, Layer, Match, Option, Predicate, Queue, Record, Result, Schema, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import type { ActionDescriptor, ExecutionContext } from 'photoshop/dom/CoreModules';
 import type { Document } from 'photoshop/dom/Document';
-import type { Tool } from 'photoshop/dom/objects/Tool';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Path = typeof Description.Locator.Type;
-type Event = Stream.Success<Upstream['events']>;
 type Leaf = Pick<typeof Description.Control.Type, 'kind' | 'role' | 'value' | 'selected'> & { readonly write: (to: unknown) => Option.Option<unknown> };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const REJECTIONS = { Cancelled: 2, Unavailable: 9 } as const;
-const COLLECTIONS = {
-    document: 'documents',
-    textFont: 'fonts',
-    layer: 'layers',
-    artboard: 'artboards',
-    channel: 'channels',
-    colorSampler: 'colorSamplers',
-    countItem: 'countItems',
-    guide: 'guides',
-    historyState: 'historyStates',
-    layerComp: 'layerComps',
-    pathItem: 'pathItems',
-} as const satisfies Record<string, keyof typeof app | keyof Document>;
-const TOOL = 'currentTool' satisfies keyof typeof app;
-const ID = 'id' satisfies keyof Tool;
-const OPTIONS = 'currentToolOptions';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Typed = Schema.Struct({ typename: Schema.String });
+const Identified = Schema.Struct({ id: Schema.Int }).annotate({ description: 'Object keyed by its id' });
 const Exportable = Schema.declare((input: unknown): input is Document | Document['layers'][number] => Predicate.hasProperty(input, 'typename') && (input.typename === 'Document' || input.typename === 'Layer'));
 const Stored = Schema.declare((input: unknown): input is globalThis.File => Schema.is(Uxp.Entry)(input)).annotate({ description: 'UXP storage file, the DOM File type @types/photoshop names for file parameters' });
 const Closing = Schema.Struct({ registerAutoCloseDocument: Schema.declare((input: unknown): input is (documentID: number) => Promise<void> => Predicate.isFunction(input)) }).annotate({ description: 'hostControl member Photoshop holds and @types/photoshop omits' });
 const Rejected = Schema.Struct({ number: Schema.Union(Record.collect(REJECTIONS, (tag, code) => Schema.Literal(code).transform(tag))) });
 const Refusal = Schema.Struct({ _obj: Schema.Literal('error'), message: Schema.String, result: Schema.Int }).annotate({ description: 'Error descriptor a refused command replies with' });
-const Hosted = Schema.Tuple([Schema.Struct({ hostName: Schema.NonEmptyString.annotate({ description: 'Application name, the bundle name of the installation' }) })]);
+const Hosted = Schema.Struct({ hostName: Schema.NonEmptyString.annotate({ description: 'Application name, the bundle name of the installation' }) });
 const ActionObject = Schema.StructWithRest(Schema.Struct({ _obj: Schema.String }), [Schema.Record(Schema.String, Schema.Unknown)]).annotate({ description: 'Descriptor of an object, its keys the string or character IDs Photoshop names them by' });
-const ToolOptions = Schema.Tuple([Schema.Struct({ currentToolOptions: ActionObject })]).annotate({ description: 'Reply to a get of the options of the current tool' });
+const ToolOptions = Schema.Struct({ currentToolOptions: ActionObject }).annotate({ description: 'Options of the current tool, the application property holding them' });
 const DocumentEvent = Schema.Struct({ documentID: Schema.Int }).annotate({ description: 'Descriptor of a document event' });
-const Selected = Schema.Struct({ _target: Schema.Tuple([Schema.Struct({ _ref: Schema.String })]) }).annotate({ description: 'Descriptor of a select, a tool switch where its reference names the current tool' });
 const Enumerated = Schema.Struct({ _enum: Schema.String, _value: Schema.String }).annotate({ description: 'Enumeration value with its type' });
 const Unit = Schema.Struct({ _unit: Schema.String, _value: Schema.Finite }).annotate({ description: 'Number with its unit' });
 const ModalState = Schema.Struct({
@@ -62,51 +41,64 @@ const ModalState = Schema.Struct({
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Notifications extends Context.Service<Notifications, { readonly events: Stream.Stream<Event, HostError>; readonly operations: Effect.Effect<readonly string[]> }>()('@rasm/photoshop/uxp/Notifications') {
+class Notifications extends Context.Service<Notifications, { readonly events: Stream.Stream<Stream.Success<Upstream['events']>, HostError>; readonly changes: Stream.Stream<unknown, HostError>; readonly operations: Effect.Effect<readonly string[]> }>()('@rasm/photoshop/uxp/Notifications') {
     static readonly layer = Layer.effect(Notifications)(
         Effect.gen(function* () {
             const entered = yield* SubscriptionRef.make<Record.ReadonlyRecord<string, string>>({});
             const moded = (name: string, descriptor: unknown) =>
                 Option.match(
-                    Option.flatMap(Schema.decodeUnknownOption(ModalState)(descriptor), ({ level, state: { _value: state }, kind, title }) => Option.map(Option.fromUndefinedOr(UndefinedOr.map(kind, Struct.get('_value')) ?? title), (operation) => ({ level, state, operation }))),
-                    {
-                        onNone: () => Effect.succeed(Result.failVoid),
-                        onSome: (detail) => Effect.as(SubscriptionRef.update(entered, detail.level > 0 ? Record.set(name, detail.operation) : Record.remove(name)), Result.succeed<Event>({ name, target: Option.none(), detail: Option.some(detail) })),
-                    },
+                    Option.flatMap(Schema.decodeUnknownOption(ModalState)(descriptor), ({ level, kind, title }) => Option.map(Option.fromUndefinedOr(UndefinedOr.map(kind, Struct.get('_value')) ?? title), (operation) => ({ level, operation }))),
+                    { onNone: () => Effect.succeedNone, onSome: ({ level, operation }) => Effect.as(SubscriptionRef.update(entered, level > 0 ? Record.set(name, operation) : Record.remove(name)), Option.none()) },
                 );
-            const handlers: Record.ReadonlyRecord<string, (name: string, descriptor: unknown) => Effect.Effect<Result.Result<Event, void>>> = { open: documented, save: documented, close: documented, select: selected, toolModalStateChanged: moded, modalStateChanged: moded };
+            const handlers: Record.ReadonlyRecord<string, (name: string, descriptor: unknown) => Effect.Effect<Option.Option<Stream.Success<Upstream['events']>>>> = {
+                open: documented,
+                save: documented,
+                close: documented,
+                select: () => Effect.succeedNone,
+                toolModalStateChanged: moded,
+                modalStateChanged: moded,
+            };
             const names = Record.keys(handlers);
             const heard = Stream.callback<readonly [string, unknown], HostError>((queue) => {
                 const listener = (name: string, descriptor: unknown): void => {
                     Queue.offerUnsafe(queue, [name, descriptor]);
                 };
-                return Effect.acquireRelease(Effect.tryPromise({ try: () => Promise.resolve(action.addNotificationListener(names, listener)), catch: HostError.refused(`addNotificationListener of ${names.join(', ')}`) }), () =>
-                    Effect.orDie(Effect.tryPromise({ try: () => Promise.resolve(action.removeNotificationListener(names, listener)), catch: HostError.refused(`removeNotificationListener of ${names.join(', ')}`) })),
+                return Effect.acquireRelease(Effect.tryPromise({ try: () => Promise.resolve(action.addNotificationListener(names, listener)), catch: HostError.refused(`notifications ${names.join(', ')}`) }), () =>
+                    Effect.orDie(Effect.tryPromise({ try: () => Promise.resolve(action.removeNotificationListener(names, listener)), catch: HostError.refused(`notifications ${names.join(', ')}`) })),
                 );
             });
-            const events = yield* heard.pipe(
-                Stream.filterMapEffect(([name, descriptor]) => Option.match(Record.get(handlers, name), { onNone: () => Effect.succeed(Result.failVoid), onSome: (handle) => handle(name, descriptor) })),
+            const changes = yield* heard.pipe(
+                Stream.mapEffect(([name, descriptor]) => Option.match(Record.get(handlers, name), { onNone: () => Effect.succeedNone, onSome: (handle) => handle(name, descriptor) })),
                 Stream.share({ capacity: 'unbounded' }),
             );
-            yield* Effect.forkScoped(Effect.tapCause(Stream.runDrain(events), Effect.logError));
-            return { events, operations: Effect.map(SubscriptionRef.get(entered), Record.values) };
+            yield* Effect.forkScoped(Effect.tapCause(Stream.runDrain(changes), Effect.logError));
+            return { events: Stream.filterMap(changes, (event) => Result.fromOption(event, Function.constVoid)), changes, operations: Effect.map(SubscriptionRef.get(entered), Record.values) };
         }),
     );
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const isClass = (...typenames: Array.NonEmptyReadonlyArray<string>) => Schema.is(Schema.Struct({ typename: Schema.Literals(typenames) }));
+const documentOf = ({ parent }: Pick<Document['guides'][number], 'parent'>) => parent;
 const containment: Containment = {
     root: app,
-    type: (value) => Option.match(Schema.decodeUnknownOption(Typed)(value), { onNone: () => value.constructor.name, onSome: Struct.get('typename') }),
-    kinds: Record.map(COLLECTIONS, (collection: string, kind) => ({
-        collection,
-        nested: true,
-        keys: ['id', 'postScriptName', 'name'] satisfies (keyof Document | keyof (typeof app.fonts)[number])[],
-        is: (value: object) => Option.exists(Schema.decodeUnknownOption(Typed)(value), ({ typename }) => String.uncapitalize(typename) === kind),
-        ...(collection in app ? {} : { owner: (value: object) => UndefinedOr.map(read(value, 'document') ?? read(value, 'parent'), (above) => (Array.isArray(above) ? read(above, 'parent') : above)) }),
-    })),
+    kinds: {
+        document: { items: (photoshop: typeof app) => photoshop.documents, key: Identified, is: isClass('Document') },
+        textFont: { items: (photoshop: typeof app) => photoshop.fonts, key: Schema.Struct({ postScriptName: Schema.String }), is: isClass('TextFont') },
+        layer: { items: (owner: Document | Document['layers'][number]) => owner.layers, key: Identified, nested: true, is: isClass('Layer'), owner: ({ document }: Document['layers'][number]) => document },
+        artboard: { items: (document: Document) => document.artboards, key: Identified },
+        channel: { items: (document: Document) => document.channels, key: Schema.Struct({ name: Schema.String }), is: isClass('ComponentChannel', 'AlphaChannel'), owner: documentOf },
+        colorSampler: { items: (document: Document) => document.colorSamplers, is: isClass('ColorSampler'), owner: documentOf },
+        countItem: { items: (document: Document) => document.countItems, is: isClass('CountItem'), owner: ({ parent }: Document['countItems'][number]) => parent.parent },
+        guide: { items: (document: Document) => document.guides, key: Identified, is: isClass('Guide'), owner: documentOf },
+        historyState: { items: (document: Document) => document.historyStates, key: Identified, is: isClass('HistoryState'), owner: documentOf },
+        layerComp: { items: (document: Document) => document.layerComps, key: Identified, is: isClass('LayerComp'), owner: documentOf },
+        pathItem: { items: (document: Document) => document.pathItems, key: Identified, is: isClass('PathItem'), owner: documentOf },
+    },
 };
+const documented = (name: string, descriptor: unknown) =>
+    Effect.succeedSome({ name, target: Option.map(Schema.decodeUnknownOption(DocumentEvent)(descriptor), ({ documentID }) => format({ steps: [{ separator: '/', kind: 'document', selector: { _tag: 'Key', key: 'id', value: documentID } }] })), detail: Option.none() });
 const lineage = (layer: Document['layers'][number] | null): readonly number[] => (layer === null ? [] : [layer.id, ...lineage(layer.parent)]);
 const isolated = (layers: readonly Document['layers'][number][], id: number, above: readonly number[]): Effect.Effect<void, HostError> =>
     Effect.forEach(
@@ -160,19 +152,9 @@ const render = Effect.fnUntraced(function* ({ target, label }: Render, written: 
         }),
     );
 });
-const property = <S extends Schema.Top>(name: string, reply: S) => played([{ _obj: 'get', _target: [{ _property: name }, { _ref: 'application', _enum: 'ordinal', _value: 'targetEnum' }] }]).pipe(Effect.flatMap(Schema.decodeUnknownEffect(reply)));
-const application = Effect.map(property('hostName', Hosted), ([{ hostName }]) => hostName);
-const options = property(OPTIONS, ToolOptions);
-const documented = (name: string, descriptor: unknown) =>
-    Effect.succeed(Result.succeed<Event>({ name, target: Option.map(Schema.decodeUnknownOption(DocumentEvent)(descriptor), ({ documentID }) => format({ steps: [{ separator: '/', kind: 'document', selector: { _tag: 'Key', key: 'id', value: documentID } }] })), detail: Option.none() }));
-const selected = (name: string, descriptor: unknown) =>
-    Effect.sync(() =>
-        Option.match(
-            Option.filter(Schema.decodeUnknownOption(Selected)(descriptor), ({ _target: [{ _ref: reference }] }) => reference === app.currentTool.id),
-            { onNone: () => Result.failVoid, onSome: ({ _target: [{ _ref: currentTool }] }) => Result.succeed<Event>({ name, target: Option.none(), detail: Option.some({ currentTool }) }) },
-        ),
-    );
-const same = Schema.toEquivalence(Description.Locator);
+const property = <const Fields extends Schema.Struct.Fields>(reply: Schema.Struct<Fields>) =>
+    played(Array.map(Struct.keys(reply.fields), (_property) => ({ _obj: 'get', _target: [{ _property }, { _ref: 'application', _enum: 'ordinal', _value: 'targetEnum' }] }))).pipe(Effect.flatMap((replies) => Schema.decodeUnknownEffect(reply)(Object.assign({}, ...replies))));
+const application = Effect.map(property(Hosted), Struct.get('hostName'));
 const leaf = Match.type<unknown>().pipe(
     Match.withReturnType<Leaf>(),
     Match.when(Match.boolean, (value) => ({ kind: 'toggle', role: typeof value, value: { bool: { value } }, write: Option.liftPredicate(Predicate.isBoolean) })),
@@ -199,7 +181,7 @@ const leaf = Match.type<unknown>().pipe(
     })),
     Match.option,
 );
-const controls = ({ _obj: owner, ...held }: typeof ActionObject.Type, path: Path): readonly (typeof Description.Control.Type)[] =>
+const controls = ({ _obj: owner, ...held }: typeof ActionObject.Type, path: typeof Description.Locator.Type): readonly (typeof Description.Control.Type)[] =>
     Array.flatMap(Record.toEntries(held), ([key, value]) => {
         const locator = Array.append(path, [owner, key] as const);
         return Option.match(leaf(value), {
@@ -221,43 +203,21 @@ const written = ({ _obj: owner, ...held }: typeof ActionObject.Type, [key, ...be
         onNonEmpty: (deeper) => (Schema.is(ActionObject)(value) ? Result.map(written(value, deeper, to), (inner) => ({ ...value, [Array.headNonEmpty(deeper)]: inner })) : unmatched),
     });
 };
-const describe = Effect.fn('describe')(function* ({ within }: { readonly within?: Path }) {
-    const toolbar: Path = [[app.typename, TOOL]];
-    yield* within === undefined || same(within, toolbar) ? Effect.void : Unmatched.of({ subject: 'facet item', query: Option.some(Formatter.format(within)), candidates: [Formatter.format(toolbar)] });
-    const refused = HostError.refused(TOOL);
-    const [operations, [{ currentToolOptions }], { title }, tool] = yield* Effect.all([Notifications.use(Struct.get('operations')), options, Effect.tryPromise({ try: () => core.getActiveTool(), catch: refused }), Effect.try({ try: () => app.currentTool, catch: refused })]);
-    return Description.make({
-        containers: [
-            {
-                locator: toolbar,
-                kind: 'toolbar',
-                title,
-                controls: [
-                    Description.Control.make({ locator: Array.append(toolbar, [tool.typename, ID] as const), kind: 'choice', role: tool.typename, label: { text: TOOL, attribute: ID }, value: { text: { value: tool.id } }, selected: 'attribute' }),
-                    ...controls(currentToolOptions, Array.append(toolbar, [tool.typename, tool.id] as const)),
-                ],
-            },
-        ],
-        pointer: { tool: tool.id, operations },
-    });
-});
-const operate = Effect.fn('operate')(function* ({ locator, to }: { readonly locator: Path; readonly to?: typeof Value.Type }) {
-    const text = locator.map((step) => step.join(' ')).join(' > ');
-    const tool = yield* Effect.try({ try: () => app.currentTool.id, catch: HostError.refused(TOOL) });
-    const [field, member, ...path] = Array.map(locator, ([, identifier]) => identifier);
-    yield* field === TOOL ? Effect.void : Unmatched.of({ subject: 'facet control', query: Option.some(text) });
-    if (Array.isReadonlyArrayNonEmpty(path)) {
-        yield* member === tool ? Effect.void : Unmatched.of({ subject: 'option of the current tool', query: Option.some(text), candidates: [tool] });
-        const [{ currentToolOptions }] = yield* options;
-        const value = yield* Effect.fromResult(written(currentToolOptions, path, to));
-        yield* modal(text, () => played([{ _obj: 'set', _target: [{ _ref: tool }], to: { _obj: OPTIONS, [Array.headNonEmpty(path)]: value } }]));
-        return;
-    }
-    yield* member === ID ? Effect.void : Unmatched.of({ subject: 'facet control', query: Option.some(text) });
-    const chosen = yield* Effect.filterOrFail(Effect.succeed(to), Predicate.isString, () => new Cause.IllegalArgumentError(`${text} takes the id of a tool, received ${typeof to}`));
-    yield* modal(text, () => played([{ _obj: 'select', _target: [{ _ref: chosen }] }]));
-});
+const toolbar = {
+    current: Effect.all([Effect.try({ try: () => app.currentTool.id, catch: HostError.refused('current tool') }), Effect.tryPromise({ try: () => core.getActiveTool(), catch: HostError.refused('active tool') })]).pipe(Effect.map(([id, { title }]) => ({ id, label: title }))),
+    select: (id: string) => modal(`tool ${id}`, () => played([{ _obj: 'select', _target: [{ _ref: id }] }])),
+    changes: Stream.unwrap(Notifications.useSync(Struct.get('changes'))),
+    options: {
+        describe: (at: typeof Description.Locator.Type) => Effect.map(property(ToolOptions), ({ currentToolOptions }) => controls(currentToolOptions, at)),
+        operate: (tool: string, path: Array.NonEmptyReadonlyArray<string>, to: unknown) =>
+            property(ToolOptions).pipe(
+                Effect.flatMap(({ currentToolOptions, currentToolOptions: { _obj: owner } }) => Effect.map(Effect.fromResult(written(currentToolOptions, path, to)), (value) => ({ _obj: owner, [Array.headNonEmpty(path)]: value }))),
+                Effect.flatMap((options) => modal(`option ${path.join(' ')} of tool ${tool}`, () => played([{ _obj: 'set', _target: [{ _ref: tool }], to: options }]))),
+            ),
+    },
+    pointer: Effect.map(Notifications.use(Struct.get('operations')), (operations) => ({ operations })),
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { application, containment, describe, execute, Notifications, operate, render };
+export { application, containment, execute, Notifications, render, toolbar };

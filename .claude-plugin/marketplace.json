@@ -227,14 +227,14 @@
         {
             "name": "swift",
             "source": "./plugins/shared/swift",
-            "description": "Swift typed throws, value types, and structured concurrency",
+            "description": "Swift typed throws, value types, structured concurrency, and tests through Swift Testing and XCTest",
             "author": {
                 "name": "Bardia Samiee"
             },
             "category": "Coding",
             "interface": {
                 "displayName": "Swift",
-                "shortDescription": "Swift typed throws, value types, and structured concurrency",
+                "shortDescription": "Swift typed throws, value types, structured concurrency, and tests through Swift Testing and XCTest",
                 "brandColor": "#090909"
             }
         },
@@ -264,7 +264,7 @@
         {
             "name": "typescript",
             "source": "./plugins/shared/typescript",
-            "description": "TypeScript design with Effect, Schema, and algebraic data types",
+            "description": "TypeScript design with Effect, Schema, and algebraic data types, and tests through Vitest, @effect/vitest, and Playwright",
             "author": {
                 "name": "Bardia Samiee"
             },

@@ -168,6 +168,24 @@ extension Installation {
             return status == 0 ? slices : nil
         }
         let name: String = values.localizedName ?? path
+        let documentTypes: [DocumentType]? = info?.documentTypes.map { (types: [BundleInfo.DocumentType]) -> [DocumentType] in
+            OrderedDictionary<String?, [BundleInfo.DocumentType]>(grouping: types, by: \.role).map { (role: String?, declared: [BundleInfo.DocumentType]) -> DocumentType in
+                let tags: [String] = declared.flatMap { (type: BundleInfo.DocumentType) -> [String] in (type.extensions ?? []) + (type.contentTypes ?? []).flatMap(extensions) }
+                return DocumentType(role: role, extensions: OrderedSet(tags.map { tag in tag.lowercased() }).elements)
+            }
+        }
+        let urlSchemes: [String]? = info?.urlTypes.map { (types: [BundleInfo.URLType]) -> [String] in OrderedSet(types.flatMap { type in type.schemes ?? [] }).elements }
+        let exportedTypes: [ExportedType]? = info?.exportedTypes?.map { (type: BundleInfo.ExportedType) -> ExportedType in
+            ExportedType(identifier: type.identifier, extensions: extensions(type.identifier))
+        }
+        let quarantine: Quarantine? = values.quarantineProperties.map { (properties: [String: Any]) -> Quarantine in
+            Quarantine(
+                agent: properties[kLSQuarantineAgentNameKey as String] as? String,
+                type: properties[kLSQuarantineTypeKey as String] as? String,
+                origin: properties[kLSQuarantineOriginURLKey as String] as? URL,
+                date: properties[kLSQuarantineTimeStampKey as String] as? Date,
+            )
+        }
         self.init(
             url: bundle,
             executable: executable,
@@ -180,27 +198,13 @@ extension Installation {
             scriptingDefinitionFile: info?.scriptingDefinitionFile,
             scriptingDefinitionIsDynamic: info?.scriptingDefinitionIsDynamic?.value == true,
             activationPolicy: (info?.activationPolicy ?? .regular).name,
-            documentTypes: info?.documentTypes.map { types in
-                OrderedDictionary<String?, [BundleInfo.DocumentType]>(grouping: types, by: \.role).map { role, declared in
-                    DocumentType(
-                        role: role,
-                        extensions: OrderedSet(declared.flatMap { type in (type.extensions ?? []) + (type.contentTypes ?? []).flatMap(extensions) }.map { tag in tag.lowercased() }).elements,
-                    )
-                }
-            },
-            urlSchemes: info?.urlTypes.map { types in OrderedSet(types.flatMap { type in type.schemes ?? [] }).elements },
-            exportedTypes: info?.exportedTypes?.map { type in ExportedType(identifier: type.identifier, extensions: extensions(type.identifier)) },
+            documentTypes: documentTypes,
+            urlSchemes: urlSchemes,
+            exportedTypes: exportedTypes,
             multipleInstancesProhibited: info?.multipleInstancesProhibited?.value,
             environment: info?.environment,
             architectures: architectures,
-            quarantine: values.quarantineProperties.map { properties in
-                Quarantine(
-                    agent: properties[kLSQuarantineAgentNameKey as String] as? String,
-                    type: properties[kLSQuarantineTypeKey as String] as? String,
-                    origin: properties[kLSQuarantineOriginURLKey as String] as? URL,
-                    date: properties[kLSQuarantineTimeStampKey as String] as? Date,
-                )
-            },
+            quarantine: quarantine,
             claim: info?.claim,
         )
     }

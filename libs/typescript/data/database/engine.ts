@@ -85,7 +85,12 @@ class Rows extends Context.Service<Rows, RowDialect>()('@rasm/database/engine/Ro
         const [unqualified, owner] = [sql.literal(''), sql`${sql(name)}`];
         const element = (entry: Column) => rows.element(sql, entry, rows.member(sql, entry.name));
         const keys = (scope: Statement.Fragment) => sql.csv(key.map((part) => sql`${scope}${sql(part)}`));
-        const order = sql.csv(key.flatMap((part) => written.filter((entry) => entry.name === part).map(element)));
+        const identifying = key.flatMap((part) => written.filter((entry) => entry.name === part));
+        const order = sql.csv(identifying.map(element));
+        const reading =
+            (listed: readonly Column[]) =>
+            (scope: Statement.Fragment, ...extra: readonly (string | Statement.Fragment)[]) =>
+                sql.csv([...listed.map((entry) => rows.read(sql, entry, scope)), ...extra]);
         return {
             sql,
             rows,
@@ -97,7 +102,8 @@ class Rows extends Context.Service<Rows, RowDialect>()('@rasm/database/engine/Ro
             ignore: sql`ON CONFLICT (${keys(unqualified)}) DO NOTHING`,
             element,
             keys,
-            reads: (scope: Statement.Fragment, ...extra: readonly (string | Statement.Fragment)[]) => sql.csv([...all.map((entry) => rows.read(sql, entry, scope)), ...extra]),
+            reads: reading(all),
+            identity: reading(identifying),
             inserting: (body: string, conflict: Statement.Fragment, returning: Statement.Fragment) => sql`INSERT INTO ${owner} (${sql.csv(written.map((entry) => Statement.fragment([sql(entry.name)])))}) SELECT ${sql.csv(written.map(element))} FROM ${rows.insertion(sql, body, order)} ${conflict} RETURNING ${returning}`,
             where: (rules: Readonly<Record<string, string | { readonly not: string } | undefined>>) =>
                 sql.and(

@@ -2,104 +2,103 @@
 
 ## [01]-[NONCOPYABLE_RESOURCES]
 
-Resources with a changing owner (stored, returned, handed to a task) are noncopyable structs holding the host handle alone and adding its lifetime. A `consuming` method reporting a release error ends its value with `discard self`:
+Host registrations a release undoes (a run-loop source on the main run loop, an event tap's port, an FSEvents stream) are noncopyable structs: `init` registers, `deinit` undoes, and the owner's stored field is its one release path:
 
 ```swift
-struct OpenFile: ~Copyable {
-    let descriptor: FileDescriptor
+struct RunLoopSource: ~Copyable {
+    let source: CFRunLoopSource
+    let port: CFMachPort?
 
-    consuming func close() throws(OrderError) {
-        let descriptor = descriptor
-        discard self
-        do { try descriptor.close() } catch { throw OrderError(subject: "descriptor \(descriptor.rawValue)", reason: .failed(error)) }
+    init(_ source: CFRunLoopSource, port: CFMachPort? = nil) {
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        (self.source, self.port) = (source, port)
+    }
+
+    init(port: CFMachPort) {
+        self.init(CFMachPortCreateRunLoopSource(nil, port, 0), port: port)
     }
 
     deinit {
-        try? descriptor.close()
+        CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        port.map(CFMachPortInvalidate)
     }
 }
 ```
 
-Callers acquire through the memberwise init (`try OpenFile(descriptor: .open(path, .readOnly))`) and call host members on `descriptor`. `OrderError.Reason.failed(any Error)` holds the cause the untyped `close()` throws. `discard self` accepts trivially destroyed stored properties alone:
-- Generic code suppresses implicit `Copyable` (`<Value: ~Copyable>`), and generic types are `Copyable` where their parameter is (`Optional`, `Result`)
-- `FileDescriptor.closeAfter` scopes a descriptor one call reads, a noncopyable owner holds one that outlives the call
+AX observers enter as `RunLoopSource(AXObserverGetRunLoopSource(observer))`, event taps and window-server ports as `RunLoopSource(port:)`, which also invalidates the port. `.commonModes` keeps a source firing while the main run loop tracks a menu. Assigning `nil` or a new owner to a field releases its old one, in place of a `didSet` removing sources by hand or a release hung on another resource's `onTermination`:
+- `Unmanaged.passUnretained` contexts keep their owner alive in no way, so the source owner is that owner's field, set to `nil` when its work ends
+- `FSEventStreamRef` owners are `@safe` over pointer storage strict memory safety refuses unmarked, and stop, invalidate, and release the stream in `deinit`
+- `discard self` accepts trivially destroyed stored properties alone (`FileDescriptor`, `FSEventStreamRef`), so an owner of a CF reference releases in `deinit` alone
+- `FileDescriptor.closeAfter` scopes a descriptor one call reads, and an owner holds one past the call
 
-Noncopyable values sit in storage that moves its elements, and `Array` and `Dictionary` require copyable ones:
+Owners sit in storage that moves them, and `Array`, `Dictionary`, tuples, and CasePaths take copyable values alone:
 
-| [INDEX] | [HOLDS]                         | [STORAGE]                |
-| :-----: | :------------------------------ | :----------------------- |
-|  [01]   | One value a later call releases | `Optional`, `take()`     |
-|  [02]   | Count the input decides         | `UniqueArray`            |
-|  [03]   | Count fixed in the type         | `[N of T]`               |
-|  [04]   | One value on the heap           | `UniqueBox`, `consume()` |
-|  [05]   | One value shared across tasks   | `Mutex`                  |
+| [INDEX] | [HOLDS]                         | [STORAGE]                               |
+| :-----: | :------------------------------ | :-------------------------------------- |
+|  [01]   | One owner a later call releases | Stored `Optional`, `nil` or `take()`    |
+|  [02]   | Owner or its host refusal       | `Result<Owner, E>`, read by `switch`    |
+|  [03]   | Owners registered together      | `[N of Owner]`                          |
+|  [04]   | Owner shared across isolation   | `Mutex<Owner?>`, `take()` in `withLock` |
 
-Functions reading elements in order take `borrowing some Iterable<Element, Never> & ~Copyable & ~Escapable`. One `for` loop borrows each element of a span, `[N of T]`, or `UniqueArray`.
+## [02]-[SPANS]
 
-## [02]-[TYPESTATE]
+Binary records read and write through spans: offsets and byte order are values, every access checks bounds, and no `unsafe` pointer appears. Each container lends the span its operation needs:
 
-Workflow states known at compile time are noncopyable types. Each state holds its predecessor and the fact its transition added. Forward transitions are the next state's memberwise init consuming its predecessor, and backward ones return an earlier state whole:
+| [INDEX] | [OPERATION]           | [SPAN]                                           |
+| :-----: | :-------------------- | :----------------------------------------------- |
+|  [01]   | Read a `Data` layout  | `RawSpan` from `bytes`                           |
+|  [02]   | Read an array layout  | `RawSpan` from `span.bytes`                      |
+|  [03]   | Write a `Data` layout | `MutableRawSpan` from `mutableBytes`             |
+|  [04]   | Write an array layout | `MutableRawSpan` from `mutableSpan.mutableBytes` |
 
 ```swift
-struct Draft: ~Copyable {
-    let lines: [Line]
+func focusRecord(window number: CGWindowID, subtype: NSEvent.EventSubtype) -> [UInt8] {
+    var record = [UInt8](repeating: 0, count: 0xF8)
+    var span = record.mutableSpan
+    var bytes = span.mutableBytes
+    bytes.storeBytes(of: 0xF8, toByteOffset: 0x04, as: UInt8.self)
+    bytes.storeBytes(of: UInt8(NSEvent.EventType.appKitDefined.rawValue), toByteOffset: 0x08, as: UInt8.self)
+    bytes.storeBytes(of: number, toByteOffset: 0x3C, as: CGWindowID.self, .littleEndian)
+    bytes.storeBytes(of: UInt8(subtype.rawValue), toByteOffset: 0x8A, as: UInt8.self)
+    return record
 }
+```
 
-struct Submitted: ~Copyable {
-    let draft: Draft
-    let at: Date
+One store per field replaces a switch over every offset and an `unsafe withUnsafeBytes(of:)` copy of the window number:
+- `load(fromByteOffset:as:_:)` reads a `FixedWidthInteger & ConvertibleFromBytes` at any alignment in either byte order, and one generic member decodes every integer width a descriptor holds
+- `storeBytes(of:toByteOffset:as:_:)` writes a `ConvertibleToBytes` value, and byte order is its last argument
+- Spans are `~Escapable`: a binding or non-escaping closure reads one inside the call, and no field or return value holds one
+- C functions filling a buffer take `unsafe withUnsafeMutableBytes` at the call, and spans read its result
 
-    consuming func returned() -> Draft {
-        draft
+## [03]-[SYNCHRONIZED_STATE]
+
+`Mutex` binds to a `let` alone: a stored `let` of a class or actor, or a `static let` for process-wide state. `withLock` runs a synchronous closure over `inout sending` state, returns its value as `sending`, and keeps the closure's typed failure:
+
+```swift
+final class Connection: Sendable {
+    private struct State {
+        var calls: [String: AsyncStream<Reply>.Continuation] = [:]
+        var closed: ConnectionFailure?
     }
 
-    consuming func approved(by reviewer: Account.ID) -> Approval {
-        Approval(lines: draft.lines, submitted: at, reviewer: reviewer)
+    private let state = Mutex(State())
+
+    func register(_ id: String, _ reply: AsyncStream<Reply>.Continuation) throws(ConnectionFailure) {
+        try state.withLock { state throws(ConnectionFailure) in
+            if let closed = state.closed { throw closed }
+            state.calls[id] = reply
+        }
+    }
+
+    func close(_ ending: ConnectionFailure) {
+        let calls = state.withLock { state in state.closed == nil ? exchange(&state, with: State(closed: ending)).calls : [:] }
+        for reply in calls.values { reply.yield(.failure(ending)) }
     }
 }
 ```
 
-`Approval` is a copyable record. `returned()` takes `draft` out of a consumed value through partial consumption, legal in a state with no `deinit`. Final transitions return a copyable record, and ownership tracking ends with the workflow:
-- Transitions take validated inputs and stay total, a `consuming` method that throws loses its consumed state with the error
-- States read from storage or the network decode into an enum, and each `switch` arm constructs its typestate value
-
-## [03]-[SPANS]
-
-Spans lend contiguous storage to a call without a copy or an escaping pointer and end when the call returns. Functions reading contiguous values take a span, every container lends to one signature, and the operation selects the span:
-
-| [INDEX] | [OPERATION]                | [SPAN]                                                                           |
-| :-----: | :------------------------- | :------------------------------------------------------------------------------- |
-|  [01]   | Read elements              | `Span<Element>` from `span`                                                      |
-|  [02]   | Read a binary layout       | `RawSpan` from `bytes`, `span.bytes`                                             |
-|  [03]   | Rewrite elements in place  | `MutableSpan<Element>` from `mutableSpan`                                        |
-|  [04]   | Fill uninitialized storage | `OutputSpan` from `withTemporaryAllocation`, `Array(capacity:initializingWith:)` |
-
-```swift
-func values<Value: FixedWidthInteger & ConvertibleFromBytes>(in bytes: RawSpan, order: ByteOrder) -> [Value] {
-    let width = MemoryLayout<Value>.size
-    return (0..<bytes.byteCount / width).map { index in bytes.load(fromByteOffset: index * width, as: Value.self, order) }
-}
-
-let levels: [Int16] = values(in: frame.bytes, order: .littleEndian)
-```
-
-`frame` is a `Data`. `load(fromByteOffset:as:_:)` checks bounds, reads at any alignment, and takes byte order as a value. One function decodes every fixed-width integer in either order, and the binding's type picks `Value`. `Data` lends `bytes`, `Array` and `InlineArray` lend `span.bytes`. Writers state the order through `storeBytes(of:toByteOffset:as:_:)` on `Data.mutableBytes`.
-
-## [04]-[SYNCHRONIZED_STATE]
-
-`Mutex` and `Atomic` bind to `let` alone, as a stored `let` of a `final class: Sendable` or a global `let` for process-wide state. Each update is a function over `inout` state that `withLock` runs as one critical section, and an actor method or local `var` runs the same function:
-
-```swift
-func debit(_ amount: Decimal, from account: Account.ID, in balances: inout [Account.ID: Decimal]) throws(OrderError) {
-    let balance = balances[account, default: 0]
-    guard balance >= amount else { throw OrderError(subject: "debit \(amount) against \(balance)", reason: .insufficientFunds(shortBy: amount - balance)) }
-    balances[account] = balance - amount
-}
-
-try ledger.withLock { balances throws(OrderError) in try debit(amount, from: account, in: &balances) }
-```
-
-`ledger` is a `Mutex<[Account.ID: Decimal]>`. `withLock` returns its closure's value and keeps the typed failure its closure states. Writes before a throw stay, and the function checks before it writes:
-- `Mutex` stays `Sendable` over a non-`Sendable` value, and `withLock` lends it as `inout sending` with no reference leaving the lock
-- `withLockIfAvailable` returns `nil` while another thread holds the lock, for work a contended caller skips
-- `Atomic` counters read outside any lock use `.relaxed`, a flag publishing other writes pairs a `.releasing` store with an `.acquiring` load
+`Reply` and `ConnectionFailure` are the connection's reply and failure types. Writes before a throw stay, and `register` checks `closed` before it writes:
+- Drains take and reset in one step through `exchange(&state, with:)` or `take()`, in place of a `defer` resetting state after `return`
+- Work that suspends or runs a caller's handler reads what `withLock` returned, after the lock
+- Lookups memoized under the lock read and fill one dictionary in one `withLock`
+- `OSAllocatedUnfairLock` holds the `Copyable` state of a copyable struct, and noncopyable state takes `Mutex`

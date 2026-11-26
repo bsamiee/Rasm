@@ -39,7 +39,8 @@
         "@rasm/object-model": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/typography": "workspace:*",
-        "@rasm/uxp": "workspace:*"
+        "@rasm/uxp": "workspace:*",
+        "parse5": "catalog:"
     },
     "devDependencies": {
         "@adobe-uxp-types/uxp": "catalog:",

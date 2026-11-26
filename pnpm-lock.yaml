@@ -396,6 +396,9 @@ catalogs:
     oxlint:
       specifier: 1.94.0
       version: 1.94.0
+    parse5:
+      specifier: 8.1.1
+      version: 8.1.1
     partial-content:
       specifier: 6.0.0
       version: 6.0.0
@@ -950,6 +953,9 @@ importers:
       '@rasm/uxp':
         specifier: workspace:*
         version: link:../uxp
+      parse5:
+        specifier: 'catalog:'
+        version: 8.1.1
     devDependencies:
       '@adobe-uxp-types/uxp':
         specifier: 'catalog:'
@@ -1022,6 +1028,9 @@ importers:
       '@exodus/bytes':
         specifier: 'catalog:'
         version: 1.16.0(@noble/hashes@2.4.0)
+      '@rasm/applications':
+        specifier: workspace:*
+        version: link:../../macos/applications
       '@rasm/mark':
         specifier: workspace:*
         version: link:../../graphics/mark
@@ -7840,6 +7849,10 @@ packages:
     resolution: {integrity: sha512-TWrgLOFUQTH994YUyl1yT4uyavY5nNB5muff+RtWaqNVCAK408b5ZnnbNAUEWLTCpum9w6arT70i1XdQ4UeOPA==}
     engines: {node: '>=0.12'}
 
+  entities@9.0.0:
+    resolution: {integrity: sha512-oJFNDJg3kTPwAD1cNn2+WmUq4wFoo09npc3Ydf1D7ED4smRiWrsKnaLxykrTWgyGEcusc87P5dxlAleol9kpkg==}
+    engines: {node: '>=20.19.0'}
+
   env-paths@2.2.1:
     resolution: {integrity: sha512-+h1lkLKhZMTYjog1VEpJNG7NZJWcuc2DDk/qsqSTRRCOXiLjeQ1d1/udrUGhqMxUgAlwKNZ0cf2uqan5GLuS2A==}
     engines: {node: '>=6'}
@@ -8831,6 +8844,9 @@ packages:
 
   parse5@7.3.0:
     resolution: {integrity: sha512-IInvU7fabl34qmi9gY8XOVxhYyMyuH2xUNpb2q8/Y+7552KlejkRvqvD19nMoUW/uQGGbqNpA6Tufu5FL5BZgw==}
+
+  parse5@8.1.1:
+    resolution: {integrity: sha512-EcR/6WDcU7b2N3vQSxKALCk9lXGtUMQxXio008OEMBE0kavu/7JLfBEeFPzi43nMqVDSbEn3QCK+BMCc9zO//w==}
 
   partial-content@6.0.0:
     resolution: {integrity: sha512-VYal6jMOopcIqvn0JrTns1ZthlrOai6APfW9L72e3tyT75aVB0KBmq1ti0L84YrSFBjcqrh4i6Sll9qrT/N1sA==}
@@ -14035,6 +14051,8 @@ snapshots:
 
   entities@7.0.1: {}
 
+  entities@9.0.0: {}
+
   env-paths@2.2.1: {}
 
   env-paths@4.0.0:
@@ -15193,6 +15211,10 @@ snapshots:
   parse5@7.3.0:
     dependencies:
       entities: 6.0.1
+
+  parse5@8.1.1:
+    dependencies:
+      entities: 9.0.0
 
   partial-content@6.0.0(@aws-sdk/client-s3@3.1175.0):
     optionalDependencies:

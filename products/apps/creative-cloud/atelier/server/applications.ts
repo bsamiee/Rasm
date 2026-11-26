@@ -15,7 +15,7 @@ const DESCRIPTIONS = {
     applications:
         'Lists installed Adobe applications by product, newest form first, and their running instances, or one application with its installation and open command; open launches an application in the background or targets its running instance for later calls; close quits it, or every application this handle opened, each save dialog arriving as an event',
     view: 'Shows windows as images, a line naming each: the front window of the target, every window of every running Adobe application, the windows showing a document, or one reference cropped from its window, a menu or the item opening it showing one image per open level and the outline of those levels; object renders a document, page, spread, artboard, layer, composition, or sequence from its object specifier through the linked plugin of the target, no window needed',
-    diagnostics: "Reads diagnostics newest first: without application, Atelier's own log lines as JSON; with one, its crash, hang, and diagnostic reports, its UXP log lines, and its unified log",
+    diagnostics: "Reads diagnostics newest first, one line each: without application, Atelier's own log lines under the file holding them; with one, its crash, hang, and diagnostic reports, its UXP log lines, and its unified log",
 };
 
 // --- [MODELS] --------------------------------------------------------------------------

@@ -253,7 +253,7 @@ let package = Package(
         .package(url: "https://github.com/pointfreeco/swift-clocks", from: "1.1.1"),
         .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "1.7.3"),
         .package(url: "https://github.com/pointfreeco/swift-issue-reporting", from: "2.1.2"),
-        .package(url: "https://github.com/x-sheep/swift-property-based", from: "2.0.1"),
+        .package(url: "https://github.com/x-sheep/swift-property-based", from: "2.1.0"),
     ],
     targets: modules + applications + support + tests,
 )

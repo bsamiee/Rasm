@@ -1,24 +1,25 @@
-public import AppKit
-public import AppleEvents
-public import Applications
+import AppKit
+import AppleEvents
+import Applications
 import CurrentProcess
-public import Files
-public import JSONRPC
+import Files
+import JSONRPC
 import Logging
-public import Processes
+import Processes
 import Results
-public import ScreenCapture
+import ScreenCapture
 import Telemetry
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public enum Request: Decodable, Sendable {
-    public struct Application: Decodable, Sendable {
-        public let url: URL
-        public let instance: ProcessInstance?
+enum Request: Decodable, Sendable {
+    struct Application: Decodable, Sendable {
+        let url: URL
+        let instance: ProcessInstance?
     }
 
     case installations(identifiers: [String]?, prefix: String?)
+    case installation(url: URL)
     case instances(identifiers: [String]?)
     case events(identifiers: [String]?)
     case observations(identifiers: [String]?)
@@ -65,44 +66,32 @@ private struct Diagnostics: Encodable, Sendable {
     let unreadable: [String]
 }
 
-private enum Call<Extra: Decodable & Sendable>: Decodable, Sendable {
-    case extra(Extra)
-    case request(Request)
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-    init(from decoder: any Decoder) throws {
-        do { self = .extra(try Extra(from: decoder)) } catch { self = .request(try Request(from: decoder)) }
+private func admit(_ identifier: String?, as subject: String, matching: () -> NSPredicate) throws(ApplicationFailure) {
+    let predicate = matching()
+    guard predicate.evaluate(bundleIdentifier: identifier) else {
+        throw ApplicationFailure(subject: subject, reason: .unmatched(Unmatched(subject: predicate.predicateFormat, query: identifier, candidates: [])))
     }
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-private func matches(_ identifier: String?, _ predicate: NSPredicate) -> Bool {
-    identifier.map { identifier in predicate.evaluate(with: [NSMetadataItemCFBundleIdentifierKey: identifier]) } == true
-}
-
-private func unmatchedFailure(_ subject: String, _ predicate: NSPredicate, _ identifier: String?) -> ApplicationFailure {
-    ApplicationFailure(subject: subject, reason: .unmatched(Unmatched(subject: predicate.predicateFormat, query: identifier, candidates: [])))
-}
-
-private func installation(at url: URL, matching: () -> NSPredicate) throws(ApplicationFailure) -> Installation {
-    let (installation, predicate) = (try Installation(at: url), matching())
-    guard matches(installation.identifier, predicate) else { throw unmatchedFailure(url.path(percentEncoded: false), predicate, installation.identifier) }
+private func readInstallation(at url: URL, matching: () -> NSPredicate) throws(ApplicationFailure) -> Installation {
+    let installation = try Installation(at: url)
+    try admit(installation.identifier, as: url.path(percentEncoded: false), matching: matching)
     return installation
 }
 
 private func instance(of process: ProcessInstance, matching: () -> NSPredicate) throws(ApplicationFailure) -> Instance {
-    guard let application = NSRunningApplication(processIdentifier: process.pid) else { throw ApplicationFailure(subject: process.rawValue, reason: .noProcess) }
-    let instance = try Instance(application)
-    guard instance.process == process else { throw ApplicationFailure(subject: process.rawValue, reason: .noProcess) }
-    let predicate = matching()
-    guard matches(application.bundleIdentifier, predicate) else { throw unmatchedFailure(process.rawValue, predicate, application.bundleIdentifier) }
-    return instance
+    let running = try NSRunningApplication(processIdentifier: process.pid).map { application throws(ApplicationFailure) in try Instance(application) }
+    guard let running, running.process == process else { throw ApplicationFailure(subject: process.rawValue, reason: .noProcess) }
+    try admit(running.application.bundleIdentifier, as: process.rawValue, matching: matching)
+    return running
 }
 
 private func selection(of identifiers: [String]?, matching: @escaping @Sendable () -> NSPredicate) -> @Sendable (NSRunningApplication) -> Bool {
     let predicate = matching()
-    let held = identifiers.map { identifiers in Set(identifiers.filter { identifier in matches(identifier, predicate) }) }
-    return { application in application.bundleIdentifier.map { identifier in held?.contains(identifier) ?? matches(identifier, matching()) } == true }
+    let held = identifiers.map { identifiers in Set(identifiers.filter { identifier in predicate.evaluate(bundleIdentifier: identifier) }) }
+    return { application in held.map { held in application.bundleIdentifier.map(held.contains) == true } ?? matching().evaluate(bundleIdentifier: application.bundleIdentifier) }
 }
 
 extension Request {
@@ -113,9 +102,9 @@ extension Request {
                     (identifiers ?? []).map { identifier in NSPredicate(format: "%K == %@", NSMetadataItemCFBundleIdentifierKey, identifier) }
                     + [prefix].compactMap(\.self).map { prefix in NSPredicate(format: "%K BEGINSWITH %@", NSMetadataItemCFBundleIdentifierKey, prefix) }
                 let predicate = subpredicates.isEmpty ? matching() : NSCompoundPredicate(andPredicateWithSubpredicates: [matching(), NSCompoundPredicate(orPredicateWithSubpredicates: subpredicates)])
-                return await .stream(
-                    Installation.search(predicate, in: FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask)).map(\.self)
-                )
+                return await .stream(Installation.search(predicate, in: FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask)).map(\.self))
+            case .installation(let url):
+                return try .value(readInstallation(at: url, matching: matching))
             case .instances(let identifiers):
                 return .stream(
                     watches.states(of: selection(of: identifiers, matching: matching))
@@ -132,9 +121,8 @@ extension Request {
             case .pasteboard(let text):
                 return try await .value(Pasteboard(.general, writing: text))
             case .watch(let process):
-                let instance = try instance(of: process, matching: matching)
-                let watch = await watches.watch(instance)
-                guard let snapshot = InstanceSnapshot(instance, state: await watch.current, language: watch.language) else { throw ApplicationFailure(subject: process.rawValue, reason: .noPath) }
+                let watch = try await watches.watch(instance(of: process, matching: matching))
+                guard let snapshot = InstanceSnapshot(watch.instance, state: await watch.current, language: watch.language) else { throw ApplicationFailure(subject: process.rawValue, reason: .noPath) }
                 return .value(snapshot)
             case .model(let process, let scope):
                 return try await .value(watches.watch(instance(of: process, matching: matching)).model(scope))
@@ -145,7 +133,7 @@ extension Request {
             case .launch(let url, let documents, let arguments, let environment, let new, let opening, let wait):
                 return try .stream(
                     NSWorkspace.shared.launchEvents(
-                        installation(at: url, matching: matching),
+                        readInstallation(at: url, matching: matching),
                         in: dictionaries,
                         watches: watches,
                         opening: documents,
@@ -160,8 +148,6 @@ extension Request {
             case .act(let process, let actions):
                 let instance = try instance(of: process, matching: matching)
                 try Session.current().require(process.rawValue)
-                let activity = ProcessInfo.processInfo.beginActivity(options: [.idleDisplaySleepDisabled, .userInitiated], reason: "act on process \(process.pid)")
-                defer { ProcessInfo.processInfo.endActivity(activity) }
                 let watch = await watches.watch(instance)
                 let began = await watch.recordFaults()
                 let outcome = await Result { () async throws(ApplicationFailure) in
@@ -183,7 +169,7 @@ extension Request {
                 let states = await instance.quit(mode, watch: watches.watch(instance), in: dictionary)
                 return try await .value(states.reduce(nil as InstanceState?) { _, outcome in try outcome.get() })
             case .dictionary(let url):
-                return try await .value(dictionaries.dictionary(of: installation(at: url, matching: matching)))
+                return try await .value(dictionaries.dictionary(of: readInstallation(at: url, matching: matching)))
             case .execute(let process, let arguments):
                 let instance = try instance(of: process, matching: matching)
                 guard let url = instance.application.bundleURL else { throw ApplicationFailure(subject: process.rawValue, reason: .noPath) }
@@ -205,7 +191,7 @@ extension Request {
                 return try .value(Scaled(png: scaled.png(), width: scaled.width, height: scaled.height))
             case .diagnostics(let application, let folders, let since, let limit, let find):
                 let instance = try application?.instance.map { process throws(ApplicationFailure) in try instance(of: process, matching: matching) }
-                let bundle = try application.map { application throws(ApplicationFailure) in Bundle(url: try installation(at: application.url, matching: matching).url) } ?? Bundle.main
+                let bundle = try application.map { application throws(ApplicationFailure) in Bundle(url: try readInstallation(at: application.url, matching: matching).url) } ?? Bundle.main
                 let (owns, source): ((DiagnosticReport) -> Bool, LogEntry.Source?) =
                     switch (instance?.process, bundle) {
                         case (.some(let process), _): ({ report in report.isWritten(by: process) }, .process(process.pid))
@@ -233,12 +219,11 @@ extension Request {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-public func serve<Extra: Decodable & Sendable>(
+func serve(
     reading lines: @autoclosure @escaping @Sendable () -> any AsyncSequence<Data, any Error>,
     writing write: @escaping @Sendable (Data) throws -> Void,
     matching: @escaping @Sendable () -> NSPredicate,
     cachedDefinition: @escaping @Sendable (Installation) -> URL?,
-    extra: @escaping @Sendable (Extra) async throws -> Response = { (_: Never) -> Response in },
 ) async throws(JSONRPCFailure) {
     let logger = Logger(label: String(reflecting: Request.self))
     let dictionaries = ScriptingDictionaries(cachedDefinition: cachedDefinition)
@@ -249,13 +234,6 @@ public func serve<Extra: Decodable & Sendable>(
         reading: lines(),
         writing: { line in try await withTaskExecutorPreference(output) { try write(line) } },
         onDrop: { failure in logger.debug("Dropped request", error: failure) },
-        { (call: Call<Extra>) in
-            try await withTaskExecutorPreference(calls) {
-                switch call {
-                    case .extra(let request): try await extra(request)
-                    case .request(let request): try await request.perform(matching: matching, dictionaries: dictionaries, watches: watches)
-                }
-            }
-        },
+        { (request: Request) in try await withTaskExecutorPreference(calls) { try await request.perform(matching: matching, dictionaries: dictionaries, watches: watches) } },
     )
 }

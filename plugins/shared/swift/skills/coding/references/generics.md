@@ -2,83 +2,141 @@
 
 ## [01]-[CONSTRAINTS]
 
-Constraints name the narrowest protocol a body calls, a standard protocol before a declared one. An `any P<A>` argument opens to its concrete type at a `some P<A>` parameter, and one function serves a single value and a stored existential:
+Constraints name the narrowest protocol a body calls, a standard protocol before a declared one, and layout protocols admit reads of C memory. `BitwiseCopyable` admits every trivially copied struct as a `proc_pidinfo` out parameter:
 
 ```swift
-func median<Element: Comparable>(_ values: some Collection<Element>) -> Element? {
-    values.sorted().dropFirst(values.count / 2).first
-}
-
-let sources: [any Collection<Decimal>] = [prices, fees.values]
-let medians: [Decimal?] = sources.map { source in median(source) }
-```
-
-`prices` is a `[Decimal]` and `fees` a `[String: Decimal]`. `median` counts before a second pass and takes `Collection` where one pass takes `Sequence`. Members of `any P<A>` with types reading only constrained associated types (`first`, `count`) run on the existential directly.
-
-## [02]-[OPAQUE_TYPES]
-
-Lazy chains over a `some` parameter have a type no signature names and return as `some Collection<Element>` with no box per element access. Every return path yields one concrete type, and a choice between chains becomes a parameter of one chain:
-
-```swift
-func overdrawn(_ accounts: some Collection<Account>, below limit: Decimal = 0) -> some Collection<Account.ID> {
-    accounts.lazy.filter { account in account.balance < limit }.map(\.id)
+func information<Info: BitwiseCopyable>(of process: pid_t, _ flavor: Int32, _ empty: Info, argument: UInt64 = 0) throws(Errno) -> Info {
+    var info = empty
+    guard unsafe proc_pidinfo(process, flavor, argument, &info, Int32(MemoryLayout<Info>.size)) > 0 else { throw Errno(rawValue: errno) }
+    return info
 }
 ```
 
-## [03]-[CONDITIONAL_CONFORMANCES]
+- C structs import with a zero initializer, and a caller's zero value (`proc_bsdinfo()`, `UInt64.zero`) fixes `Info` and seeds the read
+- `FixedWidthInteger & ConvertibleFromBytes` admits `load(fromByteOffset:as:)` at any width, a metatype (`exact(Int64.self)`) picks one
+- Loops differing in element type and per-element fact are one generic member: `next<Matched>` takes `(Change) -> Matched?` for every event
+- Primary associated types constrain inside brackets (`AsyncIteratorProtocol<UInt8, Failure>`), `where` holds the rest (`Known.RawValue: Codable`)
 
-Requirements dispatch through the conformance, and other extension members bind statically. Operations a conformer replaces are requirements with a default in an extension. A conditional conformance derives a container's capability from its elements:
+## [02]-[FAILURE_PARAMETERS]
+
+Members that never construct a failure take `Failure: Error` and pass their body's failure through (`race`, `withTimeout`, `ifPresent`). Typed throws admits one error type, so a scoped member whose own failures join its body's declares each constructor it calls as a protocol requirement, and the caller's module error conforms through its own reason cases. `Lockfile.withLocks<Value, Failure: LockFailure>` throws the body's `Failure` for a held file, a cancelled wait, and a failed release:
 
 ```swift
-protocol Costed<Cost> {
-    associatedtype Cost: AdditiveArithmetic
-
-    var cost: Cost { get }
+public protocol LockFailure: Error {
+    static func lock(_ failure: FileFailure) -> Self
+    static func cancelled(_ error: CancellationError) -> Self
+    func releasing(_ release: Result<Void, Self>) -> Self
 }
 
-extension Array: Costed where Element: Costed {
-    var cost: Element.Cost { lazy.map(\.cost).reduce(.zero, +) }
-}
+extension AccountFailure: LockFailure {
+    static func lock(_ failure: FileFailure) -> Self { Self(subject: failure.subject, reason: .lock(failure)) }
 
-extension Optional: Costed where Wrapped: Costed {
-    var cost: Wrapped.Cost { self?.cost ?? .zero }
+    static func cancelled(_: CancellationError) -> Self { Self(subject: "Lock", reason: .cancelled) }
+
+    func releasing(_ release: Result<Void, Self>) -> Self {
+        switch release {
+            case .success: self
+            case .failure(let error): Self(subject: subject, reason: .cleanup(operation: self, release: error))
+        }
+    }
 }
 ```
 
-`Line` conforms with a `Decimal` cost, and `[[Line]?]` costs through both conformances with no member of its own. Generic types state `Equatable`, `Hashable`, and `Codable` where their parameters conform in an empty extension, and synthesis writes the members. `@MainActor` types mark a conformance read off the main actor `nonisolated` (`final class Draft: nonisolated Decodable`). Nonisolated witnesses only initialize the type or read a struct's stored properties.
+- Static requirements are function values at the call, `mapError(Failure.lock)` lifts each release failure with no closure
+- `releasing` holds a body failure beside its release failure in `cleanup(operation:release:)`, and a caller reads its cause from `operation`
+- Libraries declare no error wrapping the body's, and a caller switches over its own reasons, `lock(FileFailure)` among them
 
-## [04]-[PARAMETER_PACKS]
+## [03]-[OPAQUE_TYPES]
 
-Key paths as pack arguments project rows into typed tuples, each column type inferred from its key path:
+Members returning an adapter state `some P<A>` with every primary associated type, and the caller keeps element and failure while the concrete type stays hidden. `jsonLines` splits any byte sequence into lines and keeps its typed failure:
 
 ```swift
-func projected<Row, each Value>(_ rows: [Row], _ fields: repeat KeyPath<Row, each Value>) -> [(repeat each Value)] {
-    rows.map { row in (repeat row[keyPath: each fields]) }
+struct JSONLines<Bytes: AsyncIteratorProtocol<UInt8, Failure>, Failure: Error>: AsyncSequence, AsyncIteratorProtocol {
+    var bytes: Bytes
+
+    func makeAsyncIterator() -> Self { self }
+
+    mutating func next(isolation actor: isolated any Actor?) async throws(Failure) -> Data? {
+        var line = Data()
+        repeat {
+            switch try await bytes.next(isolation: actor) {
+                case UInt8(ascii: "\n"): return line
+                case let byte?: line.append(byte)
+                case nil: return line.isEmpty ? nil : line
+            }
+        } while true
+    }
 }
 
-let priced: [(String, Int, Decimal)] = projected(lines, \.sku, \.quantity.rawValue, \.unitPrice)
-```
-
-`lines` is a `[Line]`.
-
-## [05]-[INTEGER_GENERIC_PARAMETERS]
-
-Integer generic parameters state a length shared across positions: the compiler infers `N` from argument types and rejects mismatched lengths. `[N of T]` holds its elements inline with no allocation. A result of the same length builds each element from its index through `InlineArray.init(_:)`:
-
-```swift
-func blended<let N: Int>(_ from: [N of Double], _ to: [N of Double], at fraction: Double) -> [N of Double] {
-    InlineArray { index in from[index] + (to[index] - from[index]) * fraction }
+extension AsyncSequence where Element == UInt8 {
+    public var jsonLines: some AsyncSequence<Data, Failure> { JSONLines(bytes: makeAsyncIterator()) }
 }
 ```
 
-`N` reads as an `Int` in the body. `init(first:next:)` unfolds each element from its predecessor (`InlineArray(first: 1) { previous in previous * 2 }`).
+- Types serving as their own iterator return `self` from `makeAsyncIterator()`, one type in place of a sequence and iterator pair
+- `AsyncIteratorProtocol` extensions derive `next()` from `next(isolation:)` and the reverse, a conformer writes the typed `next(isolation:)` alone
+- Every return path yields one concrete type, and a choice between adapters becomes a parameter of one adapter
 
-## [06]-[MACROS]
+## [04]-[PROTOCOL_EXTENSIONS]
 
-`@CasePathable` gives each case a `Hashable` key path, and `allCasePaths` lists them in declaration order. Reports over every case take rows from `allCasePaths`:
+Requirements dispatch through the conformance and other extension members bind statically, so an operation a conformer replaces is a requirement with its default in an extension. A protocol refining `Encodable` supplies `encode(to:)` in its extension, that witness stands in place of synthesis, and a conformer states the protocol alone:
 
 ```swift
-let report: [(path: PartialCaseKeyPath<Delivery>, count: Int)] = Delivery.allCasePaths.map { path in (path, deliveries.count { delivery in delivery.is(path) }) }
+public protocol CaseKeyed: Encodable {}
+
+extension CaseKeyed {
+    public func encode(to encoder: any Encoder) throws {
+        guard let held = Mirror(reflecting: self).children.first, let label = held.label, let value = held.value as? any Encodable else {
+            throw EncodingError.invalidValue(self, EncodingError.Context(codingPath: encoder.codingPath, debugDescription: "\(Self.self) case \(self) holds no Encodable value"))
+        }
+        func encodeKeyed(_ value: some Encodable) throws {
+            var fields = encoder.singleValueContainer()
+            try fields.encode([label: value])
+        }
+        try encodeKeyed(value)
+    }
+}
 ```
 
-`deliveries` is a `[Delivery]` of a `@CasePathable` enum, and a new case enters the report with no edit. `case` returns a value's key path, the key of a table or a grouping by case.
+- `Mirror` reads the label at run time, and a labeled or multi-value payload reads as a tuple and throws at encode
+- `any P` opens at a `some P` parameter, and `encodeKeyed` makes `[label: value]` a conforming `[String: T]` where `[String: any Encodable]` fails
+- Existentials in `??`, a ternary, or a literal open nothing, and a value opens once inside `map` or a local function
+
+## [05]-[CONDITIONAL_CONFORMANCES]
+
+Generic types conform where their parameters do, one extension per capability, and an empty extension lets synthesis write the members. One JSON-RPC message type serves requests, replies, and errors in both directions:
+
+```swift
+struct Message<Payload: Sendable, Fault: Sendable>: Sendable {
+    var id: JSONValue?
+    var method: String?
+    var params: Payload?
+    var result: Payload?
+    var error: Fault?
+}
+
+extension Message: Encodable where Payload: Encodable, Fault: Encodable {}
+```
+
+- `Never` is `Encodable` and `Decodable`, so `Message<_, Never>` encodes a request and `Message<Never, Cause>` an error with no payload type
+- `Decodable` takes a hand `init(from:)` in its own conditional extension, as the wire tells `result: null` apart from a missing `result`
+- `Lenient` is `Equatable` and `Hashable` where its known type and raw value are, `AggregateError` a `LocalizedError` where its element is an `Error`
+- Under `.defaultIsolation(MainActor.self)`, values decoded or compared off the main actor are a `nonisolated struct`, as a nonisolated `JSONDecoder.decode` refuses an isolated conformance
+- Witnesses of a `nonisolated` conformance on a main-actor class (`Draft: nonisolated Decodable`) initialize or read `let` properties alone
+
+## [06]-[CASE_KEY_PATHS]
+
+`@CasePathable` gives each case a `CaseKeyPath<Root, Value>`, a value one generic member takes in place of an extracting closure per case:
+
+```swift
+public func next<Value>(_ line: CaseKeyPath<Line, Value>) async throws -> Value {
+    for try await read in lines {
+        if let value = read[case: line] { return value }
+    }
+    throw FixtureFailure(subject: String(describing: line))
+}
+```
+
+- Callers write `session.next(\.ready)`, and the key path fixes `Value` to the case's payload
+- Matches testing a payload field (`.opened(let menu, .menu, _)`) stay an extracting closure, as a case key path reads its case whole
+- `Case<Value>` requires a copyable `Value`, so a `~Copyable` payload (a run-loop source in a `Result`) reads through `switch`

@@ -1,20 +1,18 @@
-import { Description } from '@rasm/applications/source';
 import { HostError, type Render } from '@rasm/object-model';
-import { type Containment, read } from '@rasm/object-model/host';
+import type { Containment } from '@rasm/object-model/host';
 import { Unmatched } from '@rasm/search';
-import { Plugin, Uxp } from '@rasm/uxp/plugin';
+import { Callable, Uxp } from '@rasm/uxp/plugin';
 import type { File } from 'adobe:uxp';
-import { Effect, Option, Predicate, Record, Schema, Tuple } from 'effect';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const TOOL = 'toolType';
+import { Array, Effect, Option, Predicate, Record, Schema, Struct } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Method = Schema.declare((value: unknown): value is (...args: readonly unknown[]) => unknown => Predicate.isFunction(value));
 const Class = Schema.declare((value: unknown): value is abstract new (...args: readonly never[]) => object => Predicate.isFunction(value));
-class Application extends Schema.Opaque<Application, unknown>()(Schema.Struct({ beginSuppressDialogs: Method, endSuppressDialogs: Method, beginUndoGroup: Method, endUndoGroup: Method })) {}
+const Identified = Schema.Struct({ id: Schema.Int }).annotate({ description: 'Item or layer keyed by its id' });
+const Project = Schema.Struct({ items: Uxp.Collection }).annotate({ description: 'Project by its items, 1-based' });
+const Composition = Schema.Struct({ layers: Uxp.Collection }).annotate({ description: 'Composition by its layers, 1-based' });
+const Contained = Identified.mapFields(Struct.assign({ containingComp: Schema.declare(Predicate.isObject) })).annotate({ description: 'Layer by its id and the composition holding it' });
+class Application extends Schema.Opaque<Application, unknown>()(Schema.Struct({ project: Schema.declare(Schema.is(Project)), beginSuppressDialogs: Callable, endSuppressDialogs: Callable, beginUndoGroup: Callable, endUndoGroup: Callable })) {}
 const Module = Schema.Struct({
     app: Schema.declare(Schema.is(Application)),
     Project: Class,
@@ -23,43 +21,55 @@ const Module = Schema.Struct({
     FootageItem: Class,
 }).annotate({ description: 'Application instance and DOM constructors require("aftereffects") holds' });
 const Tooled = Schema.Struct({
-    app: Schema.Struct({ project: Schema.Struct({ [TOOL]: Schema.Finite }) }),
+    app: Schema.Struct({ project: Schema.declare(Schema.is(Schema.Struct({ toolType: Schema.mutableKey(Schema.Finite) }))).annotate({ description: 'Project of the application, its tool type read and written in place' }) }),
     ToolType: Schema.Record(Schema.String, Schema.Finite).annotate({ description: 'Tool enumeration, each tool name keying its value' }),
-}).annotate({ description: 'Tool type the project of the application holds, and the enumeration naming it, require("aftereffects") holds' });
-const Frame = Schema.declare(Schema.is(Schema.Struct({ time: Schema.Finite, resolutionFactor: Schema.Tuple([Schema.Int, Schema.Int]), saveFrameToPng: Method }))).annotate({ description: 'Composition by the members render reads and calls' });
-const Deferred = Schema.declare(Schema.is(Schema.Struct({ wait: Method }))).annotate({ description: 'DeferredCall saveFrameToPng returns, settled through wait()' });
+}).annotate({ description: 'Project of the application holding its tool type, and the enumeration naming it, require("aftereffects") holds' });
+const Frame = Schema.declare(Schema.is(Schema.Struct({ time: Schema.Finite, resolutionFactor: Schema.Tuple([Schema.Int, Schema.Int]), saveFrameToPng: Callable }))).annotate({ description: 'Composition by the members render reads and calls' });
+const Deferred = Schema.declare(Schema.is(Schema.Struct({ wait: Callable }))).annotate({ description: 'DeferredCall saveFrameToPng returns, settled through wait()' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const loaded = Uxp.require('aftereffects');
 const hosted = Effect.flatMap(loaded, Schema.decodeUnknownEffect(Module));
-const containment = Effect.map(hosted, ({ app, Project, CompItem, FolderItem, FootageItem }): Containment => ({
-    root: app,
-    type: (value) => value.constructor.name,
-    kinds: {
-        project: { is: (value) => value instanceof Project },
-        item: { collection: 'items', base: 1, keys: ['id'], is: (value) => value instanceof CompItem || value instanceof FolderItem || value instanceof FootageItem, owner: () => read(app, 'project') },
-        layer: { collection: 'layers', base: 1, keys: ['id'], is: (value) => read(value, 'containingComp') instanceof CompItem && Predicate.isNumber(read(value, 'id')), owner: (value) => read(value, 'containingComp') },
-    },
-}));
+const containment = Effect.map(
+    hosted,
+    (aftereffects): Containment => ({
+        root: aftereffects.app,
+        kinds: {
+            project: { property: ({ project }: Application) => project, is: (value) => value instanceof aftereffects.Project },
+            item: { items: ({ items }: typeof Project.Type) => items, base: 1, key: Identified, is: (value) => value instanceof aftereffects.CompItem || value instanceof aftereffects.FolderItem || value instanceof aftereffects.FootageItem, owner: () => aftereffects.app.project },
+            layer: { items: ({ layers }: typeof Composition.Type) => layers, base: 1, key: Identified, is: (value) => Option.exists(Schema.decodeUnknownOption(Contained)(value), ({ containingComp }) => containingComp instanceof aftereffects.CompItem), owner: ({ containingComp }: typeof Contained.Type) => containingComp },
+        },
+    }),
+);
 const paired = (subject: string, { begin, end }: Record.ReadonlyRecord<'begin' | 'end', (app: Application) => unknown>) =>
     Effect.flatMap(hosted, ({ app }) => Effect.acquireRelease(Effect.try({ try: () => begin(app), catch: HostError.refused(subject) }), () => Effect.orDie(Effect.try({ try: () => end(app), catch: HostError.refused(subject) }))));
 const suppressDialogs = paired('dialog suppression', { begin: (app) => app.beginSuppressDialogs(), end: (app) => app.endSuppressDialogs(false) });
 const undoGroup = (label: string) => paired(`undo group ${label}`, { begin: (app) => app.beginUndoGroup(label), end: (app) => app.endUndoGroup() });
 const execute = (code: string, label: string) => Effect.flatMap(containment, (held) => Uxp.execute(held, code, (call) => Effect.scoped(Effect.andThen(Effect.all([suppressDialogs, undoGroup(label)]), call))));
-const tool = Effect.flatMap(loaded, Schema.decodeUnknownEffect(Tooled)).pipe(
-    Effect.flatMap(({ app: { project }, ToolType }) =>
-        Effect.fromOption(
-            Option.map(
-                Record.findFirst(ToolType, (value) => value === project[TOOL]),
-                Tuple.get(0),
+const tooled = Effect.flatMap(loaded, Schema.decodeUnknownEffect(Tooled));
+const toolbar = {
+    current: tooled.pipe(
+        Effect.flatMap(({ app: { project }, ToolType }) =>
+            Effect.fromOption(
+                Record.findFirst(ToolType, (value) => value === project.toolType),
+                () => Unmatched.of({ subject: 'tool type', query: Option.some(`${project.toolType}`), candidates: Record.keys(ToolType) }),
             ),
-            () => Unmatched.of({ subject: 'ToolType', query: Option.some(`${project[TOOL]}`), candidates: Record.keys(ToolType) }),
         ),
+        Effect.map(([id]) => ({ id, label: id })),
     ),
-);
-const { describe, operate } = Description.pointer(Effect.map(tool, (named) => ({ tool: named })));
-const events = Plugin.poll(TOOL, tool);
+    listed: Effect.map(tooled, ({ ToolType }) => Array.map(Record.keys(ToolType), (id) => ({ id, label: id }))),
+    select: (id: string) =>
+        tooled.pipe(
+            Effect.flatMap(({ app: { project }, ToolType }) =>
+                Effect.map(
+                    Effect.fromOption(Record.get(ToolType, id), () => Unmatched.of({ subject: 'tool type', query: Option.some(id), candidates: Record.keys(ToolType) })),
+                    (value) => ({ project, value }),
+                ),
+            ),
+            Effect.flatMap(({ project, value }) => Effect.try({ try: () => Object.assign(project, { toolType: value } satisfies Partial<typeof project>), catch: HostError.refused(`tool type ${id}`) })),
+        ),
+};
 const render = Effect.fnUntraced(function* ({ target, label }: Render, written: File) {
     const [held, { CompItem }] = yield* Effect.all([containment, hosted, suppressDialogs, undoGroup(label)]);
     const found = yield* Uxp.locate(held, target);
@@ -71,4 +81,4 @@ const render = Effect.fnUntraced(function* ({ target, label }: Render, written: 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { containment, describe, events, execute, operate, render, suppressDialogs, undoGroup };
+export { containment, execute, render, suppressDialogs, toolbar, undoGroup };

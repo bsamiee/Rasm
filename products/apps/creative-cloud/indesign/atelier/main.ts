@@ -1,13 +1,12 @@
-import { SourceRpcs } from '@rasm/applications/source';
+import { Description } from '@rasm/applications/source';
 import { Adjust, Typeset, TypesettingRpcs } from '@rasm/indesign';
-import { adjust, call, change, describe, findChange, font, inspect, KASHIDA_WIDTHS, kerns, listen, Dom, operate, preflight, render, runs, STYLISTIC_TAGS, suppressDialogs, thousandths, typeset } from '@rasm/indesign/uxp';
+import { adjust, call, change, Dom, findChange, font, inspect, KASHIDA_WIDTHS, kerns, listen, preflight, render, runs, STYLISTIC_TAGS, suppressDialogs, thousandths, toolbar, typeset, workspace } from '@rasm/indesign/uxp';
 import type { Upstream } from '@rasm/mcp';
 import { HostError, RenderRpcs } from '@rasm/object-model';
-import { read } from '@rasm/object-model/host';
 import { Settings } from '@rasm/typography';
 import { Plugin, Uxp } from '@rasm/uxp/plugin';
 import { element, picker } from '@rasm/uxp/spectrum';
-import { Array, Cause, Effect, Function, flow, Layer, Match, Number, Option, Predicate, Queue, Record, Schema, Scope, Semaphore, Stream, Struct } from 'effect';
+import { Array, Cause, Effect, Function, flow, Layer, Match, Number, Option, pipe, Queue, Record, Schema, Scope, Semaphore, Stream, Struct } from 'effect';
 import declarations from 'indesign-uxp-types/flat?inline';
 import { Tools } from '#/tools';
 
@@ -37,34 +36,21 @@ const [dom, permit] = Effect.runSync(Effect.all([Dom.make(declarations), Semapho
 const runScript = <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.scopedWith((scope) => Effect.andThen(Scope.provide(suppressDialogs, scope), effect)).pipe(Semaphore.withPermit(permit), Effect.provideService(Dom, dom));
 const events = Stream.unwrap(
     Plugin.useSync(({ id }) =>
-        Stream.callback<Stream.Success<Upstream['events']>>((queue) => {
-            const offer = (name: unknown, target: unknown, detail: Option.Option<Schema.Json>): void => {
-                if (Predicate.isString(name) && dom.domObject(target)) {
-                    Queue.offerUnsafe(queue, { name, target: Option.some(target.toSpecifier()), detail });
-                }
-            };
-            return Effect.all([
-                listen(
-                    ({ app }) => app,
-                    [dom.Document.AFTER_OPEN, dom.Document.AFTER_SAVE, dom.Document.BEFORE_CLOSE],
-                    id,
-                    (event) => {
-                        const target = read(event, 'target');
-                        if (dom.document(target)) {
-                            offer(read(event, 'eventType'), target, Option.none());
-                        }
-                    },
-                ),
-                listen(
-                    ({ app }) => app.toolBoxTools,
-                    [dom.ToolBox.AFTER_ATTRIBUTE_CHANGED],
-                    id,
-                    (event) => offer(read(event, 'eventType'), dom.app.toolBoxTools, Option.some({ currentTool: dom.app.toolBoxTools.currentTool.toString() })),
-                ),
-            ]).pipe(Effect.provideService(Dom, dom));
-        }),
+        Stream.callback<Stream.Success<Upstream['events']>>((queue) =>
+            listen(
+                ({ app }) => app,
+                [dom.Document.AFTER_OPEN, dom.Document.AFTER_SAVE, dom.Document.BEFORE_CLOSE],
+                id,
+                ({ eventType, target }) => {
+                    if (dom.document(target)) {
+                        Queue.offerUnsafe(queue, { name: eventType, target: Option.some(target.toSpecifier()), detail: Option.none() });
+                    }
+                },
+            ).pipe(Effect.provideService(Dom, dom)),
+        ),
     ),
 );
+const source = pipe(Description.tools(toolbar), Description.merge(workspace), Description.merge({ changes: events }));
 const application = Effect.tryPromise({ try: () => dom.app.fullName, catch: HostError.refused('application fullName') }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Uxp.Application)), Effect.map(Struct.get('url')));
 const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X>) => void) {
     const { id } = yield* Plugin;
@@ -121,15 +107,14 @@ const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work:
 Plugin.serve({
     link: Plugin.dial({
         application,
-        group: RenderRpcs.merge(TypesettingRpcs, SourceRpcs),
+        group: RenderRpcs.merge(TypesettingRpcs),
         toolkit: Tools,
         handlers: Layer.mergeAll(
             Tools.toLayer({ read: flow(inspect, runScript), change: flow(change, runScript), call: flow(call, runScript), find_change: flow(findChange, runScript), adjust: flow(adjust, runScript), preflight: flow(preflight, runScript) }),
             RenderRpcs.toLayer({ render: ({ target }) => runScript(Uxp.renderFile((file) => render(target, file.nativePath))) }),
             TypesettingRpcs.toLayer({ runs: flow(runs, runScript), kerns: flow(kerns, runScript), typeset: flow(typeset, runScript), font: flow(font, runScript) }),
-            SourceRpcs.toLayer({ describe: flow(describe, runScript), operate: flow(operate, runScript) }),
         ),
-        events,
+        source: { describe: flow(source.describe, runScript), operate: flow(source.operate, runScript), changes: Stream.provideService(source.changes, Dom, dom) },
     }),
     panels: { typesetting: panel },
 });

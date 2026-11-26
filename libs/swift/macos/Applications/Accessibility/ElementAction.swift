@@ -223,6 +223,8 @@ extension Instance {
     ) async throws(ApplicationFailure) -> (outcomes: [Result<ElementAction.Delivery, ApplicationFailure>], state: InstanceState) {
         var (outcomes, acted, blind, deferred): ([Result<ElementAction.Delivery, ApplicationFailure>], Set<CGWindowID>, Bool, Bool) = ([], [], false, false)
         guard let source = CGEventSource(stateID: .privateState) else { throw ApplicationFailure(subject: "private event source for process \(process.pid)", reason: .refused(nil)) }
+        let activity = ProcessInfo.processInfo.beginActivity(options: [.idleDisplaySleepDisabled, .userInitiated], reason: "Acting on process \(process.pid)")
+        defer { ProcessInfo.processInfo.endActivity(activity) }
         let keyboardType: CGEventSourceKeyboardType = source.keyboardType
         let host = await MainActor.run {
             (

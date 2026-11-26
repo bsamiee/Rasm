@@ -1,193 +1,199 @@
 # [BOUNDARIES]
 
-## [01]-[DECODING]
+## [01]-[CODABLE]
 
-`Line` is a `Codable` record holding `sku`, `unitPrice`, and its quantity rule in a `quantity: Bounded<1, 999>` field:
+Wire records are synthesized `Codable`, and a field's type holds its wire rule. Enums a producer extends are `Lenient<Known>` fields from `Encoding`, and a tuple switch reads the known cases beside the unknown one:
 
 ```swift
-struct Bounded<let low: Int, let high: Int>: RawRepresentable, Codable, Sendable {
-    let rawValue: Int
+struct Limit: Decodable, Sendable {
+    enum Meter: String, Sendable {
+        case weeklyAll = "weekly_all"
+        case weeklyScoped = "weekly_scoped"
+    }
 
-    init?(rawValue: Int) {
-        guard (low...high).contains(rawValue) else { return nil }
-        self.rawValue = rawValue
+    let kind: Lenient<Meter>
+    let percent: Double
+    let resetsAt: Date?
+    let model: String?
+
+    var rateLimitKind: RateLimitKind? {
+        switch (kind, model) {
+            case (.known(.weeklyAll), _): .weekly
+            case (.known(.weeklyScoped), let model?): .model(model)
+            case (.known(.weeklyScoped), nil), (.unknown, _): nil
+        }
     }
 }
 ```
 
-- `RawRepresentable` over `Int` supplies `init(from:)` and `encode(to:)`, and a rejected value throws `DecodingError.dataCorrupted` at its coding path
-- Key strategies (`.convertFromSnakeCase`) derive wire spellings, `CodingKeys` hold a key no strategy derives in converted spelling (`unitPrice`)
+`RateLimitKind` is the module's enum of `weekly` and `model(String)`:
+- `Lenient` decodes `Known.RawValue` through a single-value container, and a meter a newer producer sends reads as no window, never a failed report
+- Host enums take the same field (`Lenient<AXError>` keeps a code the SDK leaves unnamed), as `Lenient` constrains the raw value alone
+- Standard library `RawRepresentable` coders exist per concrete raw type, and a type generic over its raw value writes both coders through a single-value container
+- Tokens deciding whether a message is accepted are a plain enum refused at decode (`Version` with `case two = "2.0"`), and `Lenient` holds tokens a reader skips
+- Validated scalars are `RawRepresentable` structs over a standard raw type, `init?(rawValue:)` holds the rule, and `nil` throws `DecodingError.dataCorrupted` at the field's coding path
+- `Date` fields stay `Date`, and one coder per wire states the spelling as a strategy (`JSONEncoder.jsonLines` writes ISO 8601 with fractional seconds) in place of a coder per model
+- Key strategies (`.convertFromSnakeCase`) derive wire spellings, `CodingKeys` raw values hold a spelling no strategy derives
+- Bytes decode once into their target type, and a `JSONValue` encoded again to decode parses twice and rounds integers above 2^53 through `Double`
 
-Synthesized `Codable` for an enum with associated values nests fields under a key named for the case. A wire naming its case in a field decodes through one `init(from:)` that reads the discriminator and associated values from one decoder:
+Synthesized `Codable` nests an enum's associated values under a key named for the case. A wire naming its case in a field decodes through one `init(from:)` reading the discriminator and the case's fields from one container:
 
 ```swift
-@CasePathable
-@dynamicMemberLookup
-enum Event: Decodable, Sendable {
-    case placed(Line)
-    case cancelled(reason: String)
-    case unknown(kind: String)
-
-    private enum CodingKeys: CodingKey {
-        case kind
-        case reason
+extension AppleEventValue: Decodable {
+    private enum Tag: String, Decodable {
+        case type
+        case file
+        case specifier
     }
 
-    private enum Kind: String, Sendable {
-        case placed
-        case cancelled
+    private enum Key: String, CodingKey {
+        case tag = "_tag"
+        case name, url, want, seld, from
     }
 
     init(from decoder: any Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let fields = try decoder.container(keyedBy: Key.self)
         self =
-            switch try container.decode(Lenient<Kind>.self, forKey: .kind) {
-                case .known(.placed): .placed(try Line(from: decoder))
-                case .known(.cancelled): .cancelled(reason: try container.decode(String.self, forKey: .reason))
-                case .unknown(let kind): .unknown(kind: kind)
+            switch try fields.decode(Tag.self, forKey: .tag) {
+                case .type: try .type(fields.decode(String.self, forKey: .name))
+                case .file: try .file(fields.decode(URL.self, forKey: .url))
+                case .specifier:
+                    try .specifier(
+                        want: fields.decode(String.self, forKey: .want),
+                        seld: fields.decode(Self.self, forKey: .seld),
+                        from: fields.decodeIfPresent(Self.self, forKey: .from) ?? .null,
+                    )
             }
     }
 }
 ```
 
-- `Line(from: decoder)` reads `Line` fields beside `kind`, and `Lenient<Kind>` types the discriminator with no string literal
-- `unknown(kind:)` keeps a case a newer producer sends as data, and every switch over `Event` handles it
+`AppleEventValue` is a recursive enum holding `null`, `type(String)`, `file(URL)`, and `specifier(want:seld:from:)`:
+- Nested values decode through `decode(Self.self, forKey:)` on the same decoder, one parse at every depth
+- Hand `init(from:)` also states a fact synthesis loses: `contains(.result)` tells `"result": null` from a missing key, and a cross-field rule throws `dataCorrupted` in the same initializer
+- `encodeIfPresent(usage?[case: \.success], forKey: .usage)` writes an optional `Result` field's success and omits absence and failure
+- `CaseKeyed` and `CaseLabeled` from `Encoding` write a single-payload enum as `{"<case>": payload}` and a case as its label, where synthesis nests the payload under `_0`
 
-## [02]-[PATHS]
+## [02]-[FILES]
 
-Names from outside resolve beneath a root directory's descriptor, and `stat` reads a host metadata record whole:
-
-```swift
-func attachment(_ name: FilePath, under root: FileDescriptor) throws(OrderError) -> Stat {
-    do { return try name.stat(relativeTo: root, flags: .resolveBeneath) } catch { throw OrderError(subject: name.string, reason: .unreadable(error)) }
-}
-```
-
-- `.resolveBeneath` makes the kernel refuse with `ENOTCAPABLE` a name resolving outside the root through `..`, a leading `/`, or a symlink
-- `FileDescriptor.open(root, .readOnly, options: .directory)` opens the root once, and a rename of its path after the open moves no read
-- `stat` throws `Errno` typed, and `catch` binds `Errno` with its host code
-- C calls fail by returned status (`posix_spawn*`) or by `-1` or `NULL` with global `errno`, read as `Errno(rawValue:)`
-- NUL-terminated C buffers read as `String(validating: buffer.prefix { unit in unit != 0 }, as: UTF8.self)`
-- Per-user folders read `URL` members (`applicationSupportDirectory`, `cachesDirectory`, `temporaryDirectory`), `Library/Logs` under `libraryDirectory`
-- `Program.current.settings` from `CurrentProcess` reads key `<stem>` from `<NAME>_<STEM>` in the environment, then from the bundle identifier's defaults domain
-- `Program.current.directory(_:of:)` names `~/Library/<folder>/<CFBundleIdentifier>` per `Directory` kind: `Application Support` for `.state`, `Logs` for `.logs`
-- `.captures` and `.media` each take a `<kind>` folder under `Caches/<CFBundleIdentifier>`
-- Setting `state.dir` replaces the `.state` folder, and `output.dir` holds every other kind at `<output.dir>/<application>/<kind>`
-- `<application>` is the `of:` argument, else the bundle identifier's last component
-- `defaults write <bundle id> <stem> <value>` sets a defaults key, typed `-int` for a number and `-array` for a list
-
-## [03]-[PROCESSES]
-
-`Configuration` holds one command as a value. A session with a process-group teardown makes a cancelled caller or a throwing body stop its child and every process that child started. Body forms fold standard output as it streams while standard error collects under a limit:
+File work runs through System (`FilePath`, `FileDescriptor`, `Stat`, `Errno`) and `URL`. Reads go to the file and match its missing-file error as absence, as a `fileExists` check before the read races a writer:
 
 ```swift
-extension PlatformOptions {
-    static func session(grace: Duration) -> Self {
-        var options = Self()
-        options.createSession = true
-        options.teardownSequence = [.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: grace)]
-        return options
+func ifPresent<Value, Failure: Error>(_ read: () throws(Failure) -> Value) throws(Failure) -> Value? {
+    do {
+        return try read()
+    } catch {
+        return switch error as any Error {
+            case CocoaError.fileNoSuchFile, CocoaError.fileReadNoSuchFile, .noSuchFileOrDirectory as Errno: nil
+            default: throw error
+        }
     }
 }
 
-extension Configuration {
-    func reduceLines<Value: Sendable>(into initial: Value, limit: Int, _ update: @Sendable (inout Value, String) -> Void) async throws(OrderError) -> Value {
-        let subject = "\(executable) \(arguments)"
-        let result: ExecutionResult<Value, SequenceOutput, StringOutput<UTF8>>
-        do {
-            result = try await Subprocess.run(self, input: .none, output: .sequence, error: .string(limit: limit)) { execution in
-                try await execution.standardOutput.strings(bufferingPolicy: .maxLineLength(limit)).reduce(into: initial, update)
+let inode: Inode? = try ifPresent { () throws(Errno) in try path.stat().inode }
+```
+
+`Files` declares `ifPresent`, and `path` is a `FilePath`:
+- `FilePath.stat` and `Stat.init` throw `Errno` typed, and `FileDescriptor.open`, `read`, and `write` throw untyped holding an `Errno`
+- `Stat.inode` names a file across renames, and a descriptor whose inode differs from its path's lost the path to another writer
+- `.exclusiveLock` (`O_EXLOCK`) on `open` serializes writers across processes
+- Names from outside stat beneath a root descriptor (`name.stat(relativeTo: root, flags: .resolveBeneath)`), and the kernel refuses a name outside the root with `ENOTCAPABLE`
+- Kernel paths (`proc_pidpath`) compare after `realpath` (`URL.canonical()` from `Files`), as `resolvingSymlinksInPath()` drops `/private`
+- Per-user folders read `URL` members (`applicationSupportDirectory`, `cachesDirectory`, `temporaryDirectory`, `libraryDirectory` for `Logs`) under the bundle identifier
+- `Program.current.directory(_:)` from `CurrentProcess` names a process's state, log, and media folders
+- Bytes read as text through `String(validating: bytes, as: UTF8.self)`, `nil` for invalid UTF-8
+
+## [03]-[SETTINGS]
+
+Settings read through a swift-configuration `ConfigReader`, and `Program.current.settings` from `CurrentProcess` reads key `<stem>` from `<NAME>_<STEM>` in the environment, then from the bundle identifier's defaults domain:
+- Values with a rule read as their type (`int(forKey:as:)` over `ExpressibleByConfigInt`, `string(forKey:as:)` over `RawRepresentable<String>`), and the type's `init?` holds the rule
+- Conversion failures reach the reader's `AccessReporter` as `conversionError`, a non-throwing read returns its default, and a `required` read throws
+- Checks beside the reader (a `positive` helper logging its own refusal) open a second rejection path, and the value's type replaces them
+
+## [04]-[PROCESSES]
+
+`Subprocess.run` launches a child with no shell. Body forms fold standard output as it streams while standard error collects under a limit:
+
+```swift
+func history(_ arguments: [String], limit: Int) async throws(ProcessFailure) -> Deque<LogEntry> {
+    let subject = "log \(arguments.joined(separator: " "))"
+    let shown: ExecutionResult<Deque<LogEntry>, SequenceOutput, StringOutput<UTF8>>
+    do {
+        shown = try await Subprocess.run(.name("log"), arguments: Arguments(arguments), input: .none, output: .sequence, error: .string(limit: 1 << 16)) { execution in
+            try await execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"])).reduce(into: Deque<LogEntry>()) { held, line in
+                held.append(try decoder.decode(LogEntry.self, from: Data(line.utf8)))
+                if held.count > limit { held.removeFirst() }
             }
-        } catch {
-            throw OrderError(subject: subject, reason: .failed(error))
         }
-        guard result.terminationStatus.isSuccess else {
-            throw OrderError(subject: subject, reason: .exited(result.terminationStatus, standardError: result.standardError))
-        }
-        return result.closureResult
+    } catch {
+        throw ProcessFailure(subject: subject, error)
     }
+    guard shown.terminationStatus.isSuccess else { throw ProcessFailure(subject: subject, reason: .exit(shown.terminationStatus, standardError: shown.standardError)) }
+    return shown.closureResult
 }
-
-let log = Configuration(executable: .name("git"), arguments: ["log", "--format=%H"], workingDirectory: directory, platformOptions: .session(grace: grace))
-let revisions: [String] = try await log.reduceLines(into: [], limit: limit) { hashes, hash in hashes.append(hash) }
 ```
 
-`directory` is a `FilePath`, `grace` a `Duration`, and `limit` an `Int`.
+`decoder` is the `log show` decoder with its date strategy, and `ProcessFailure(subject:_:)` classifies a thrown error into `cancelled`, `subprocess`, or `io`:
+- `run` throws `SubprocessError` when launch or I/O fails, and a nonzero exit is a result whose status and standard error enter the exit reason whole
+- `.string(limit:)` bounds collected standard error, `.maxLineLength` bounds each streamed line and throws `outputLimitExceeded` past it, and a fold holds memory flat
+- `strings()` splits on `.lineBreaks`, U+2028 and U+2029 included, and JSON lines split on `.unicodeScalarSequence(["\n"])`, as a JSON string holds both unescaped
+- `.name` searches the child environment's `PATH` and never a working directory, a missing program throws `executableNotFound`, and `.path` takes a `FilePath`
+- Arguments reach the child as separate values, and `.inherit.updating([...])` changes variables for one run, `nil` removing one
+- Children starting processes of their own run under `createSession` with a `.gracefulShutDown(toProcessGroup: true, …)` teardown step (`PlatformOptions.session()` from `Processes`)
+- Teardown runs when the caller is cancelled or the body throws, sends `SIGTERM` to the group, then `SIGKILL`, and without a session the group holds the caller
+- Subprocess sets no deadline, and a run with a budget races it through `withTimeout` from `Results` into a `timedOut` reason
 
-- `run` throws `SubprocessError` with a `code` when a process fails to start or its I/O fails
-- Failed exits of a started process keep `terminationStatus` and standard error whole in `exited(TerminationStatus, standardError: String)`
-- `limit` bounds standard error and each output line, a longer one throws `outputLimitExceeded`, and memory stays flat however long the output runs
-- `.name` searches the child environment's `PATH` whatever its working directory, a missing program is `SubprocessError.Code.executableNotFound`
-- Arguments reach the child as separate values with no shell, `.inherit.updating([...])` changes variables for one run and `nil` removes one
-- `kqueue` `EVFILT_PROC` with `NOTE_EXIT | NOTE_EXITSTATUS | NOTE_EXIT_DETAIL` reports exit of a process the caller can `SIGKILL`, `data` holding wait status
-- `EVFILT_PROC` registration over a process the caller cannot `SIGKILL` fails with `EACCES`
-- `ProcessInstance` from `Processes` names one process by pid and kernel start time (`proc_pid_rusage` `ri_proc_start_abstime`), a later process reusing the pid never equals it
-- `ProcessInstance(of:)` reads the identity once, and exit watches, signals (`proc_signal_with_audittoken`), thread and usage reads, and crash report matches take the instance, never a bare pid
-- `runsInstalledCode()` reads `SecCodeCheckValidity` of the running code, false once the file at its path holds other code (`errSecCSStaticCodeChanged`) or none
-- Kernel paths (`proc_pidpath`) compare with `URL.canonical()` from `Files`, `resolvingSymlinksInPath()` drops `/private`
-- `kAEQuitApplication` with `keyAESaveOptions` set to `kAEYes` saves every document with a location, a quit a person or agent answers leaves it unset
+Processes the caller did not start are named by pid and kernel start time (`proc_pid_rusage` `ri_proc_start_abstime`), as a later process reuses a pid:
+- `ProcessInstance` from `Processes` holds both, and exit watches, signals, and crash report matches take the instance
+- `kqueue` `EVFILT_PROC` with `NOTE_EXIT | NOTE_EXITSTATUS | NOTE_EXIT_DETAIL` reports a process's exit with its wait status in `data`, which `DispatchSource` omits
+- Kernel `filt_procattach` accepts exit status registration from a parent, a tracer, or a caller allowed to `SIGKILL` the target and refuses others with `EACCES`
 
-## [04]-[COMMAND_LINES]
+## [05]-[COMMAND_LINES]
 
-Commands are `ParsableCommand` types, `AsyncParsableCommand` where `run` awaits, and the parser builds arguments through `ExpressibleByArgument`. `RawRepresentable` types over an `ExpressibleByArgument` raw value conform in an empty extension:
+Command-line products are ArgumentParser `ParsableCommand` types, `AsyncParsableCommand` where `run` awaits, and a parent command lists its `subcommands` in its `CommandConfiguration`:
 
 ```swift
-extension Bounded: ExpressibleByArgument {}
+struct Analyze: ParsableCommand {
+    static let configuration: CommandConfiguration = .init(abstract: "Reports the containers of the given project.xcproj and contents.xcworkspacedata files")
 
-@main
-struct Report: ParsableCommand {
-    static let configuration = CommandConfiguration(abstract: "Total the placed order lines of a log")
-
-    @Argument(help: "Order log to read", transform: { URL(filePath: $0) })
-    var log: URL
-
-    @Option(help: "Smallest line quantity counted")
-    var minimum: Bounded<1, 999>
+    @Argument(help: "project.xcproj and contents.xcworkspacedata files", transform: { file in FilePath(file).removingLastComponent() })
+    var containers: [FilePath]
 
     func run() throws {
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let lines = try decoder.decode([Event].self, from: Data(contentsOf: log)).compactMap(\.placed)
-        print(lines.filter { line in line.quantity.rawValue >= minimum.rawValue }.reduce(Decimal.zero) { sum, line in sum + line.unitPrice * Decimal(line.quantity.rawValue) })
+        try FileHandle.standardOutput.write(contentsOf: encoded(report(containers)))
     }
 }
 ```
 
-- `nil` from `init?(rawValue:)` prints the rejected value with usage and exits with a validation status
-- `validate()` holds a rule reading more than one property, a rule of one value belongs to its type
-- `transform:` adapts a host type the parser lacks (`URL`)
-- Errors `run` throws print as `LocalizedError.errorDescription` or `description` and exit with `EXIT_FAILURE`, a thrown `ExitCode` sets the status
-- `print` writes results from `run` of the `@main` type alone, diagnostics go to `Logger`
+`report` builds the `Encodable` result, and `encoded` writes it through one `JSONEncoder`:
+- `transform:` adapts a type the parser lacks (`FilePath`), and a `RawRepresentable` over an `ExpressibleByArgument` raw value conforms in an empty extension
+- `nil` from a conversion prints the rejected value with usage and exits with `ExitCode.validationFailure`, and `validate()` holds a rule reading more than one property
+- Errors `run` throws print as `LocalizedError.errorDescription`, else `String(describing:)`, and exit with `ExitCode.failure`, and a thrown `ExitCode` sets the status alone
+- Results go to standard output as encoded bytes, and diagnostics go to the logger
 
-## [05]-[LOGGING]
+## [06]-[TELEMETRY]
 
-Code logs through swift-log, a `Logger` labeled by its owning type, with a literal message, values in `metadata:`, and an `Error` as `error:`:
+Code logs through swift-log: a `Logger` labeled by its owning type, a literal message naming the operation, values in `metadata:`, and a failure as `error:`:
 
 ```swift
-let logger = Logger(label: String(reflecting: Orders.self))
-logger.error("Order save failed", error: error, metadata: ["order": "\(order.id, privacy: .public)", "file": "\(file.path(percentEncoded: false), privacy: .private)"])
+let logger = Logger(label: String(reflecting: AccountStore.self))
+logger.error("Accounts load failed", error: error, metadata: ["file": "\(file.lastPathComponent, privacy: .public)"])
+logger.notice("Loaded accounts", metadata: ["file": "\(file.lastPathComponent, privacy: .public)", "count": .stringConvertible(accounts.count)])
 ```
 
-Each metadata interpolation states `privacy:` from `Telemetry` by the value it marks:
+Each metadata interpolation states `privacy:`, an attribute `Privacy` from `Telemetry` declares over swift-log `MetadataValueAttributes`:
 
 | [INDEX] | [VALUE]                                 | [PRIVACY]  |
 | :-----: | :-------------------------------------- | :--------- |
 |  [01]   | Count, state, or generated identifier   | `.public`  |
 |  [02]   | Path, name, message body, or credential | `.private` |
 
-- `.stringConvertible(<value>)` keeps a number or flag typed in the log file and public in every sink, a private number goes through the interpolation
-- Messages name the operation and its subject, a failure that paths share logs once where they join
-- Libraries create loggers and spans alone, a process entry alone calls `Program.current.telemetry(scopes:)` from `CurrentProcess`, passing one type of each module it logs at its own level
-- `telemetry(scopes:)` sets the process-wide `LoggingSystem`, and `MetricsSystem` and `InstrumentationSystem` for an exported signal, and returns the `ServiceGroup` its entry runs
-- Entries reach a rotating JSON lines file through `JSONLogHandler`, and `OSLogHandler` writes the unified log for code composing its own `Logger(label:factory:)`
-- Libraries log through `Logger.current` or a `Logger` parameter at `info` and below, and return a failure typed without logging it
-- File records hold `timestamp`, `severity_text`, `severity_number`, `body`, `scope`, `trace_id`, `span_id`, `trace_flags`, `attributes`, and `resource`
-- Code location enters `attributes` at `WARN` and above, `exception.type` and `exception.message` with an `error:`, `exception.stacktrace` at `ERROR` and above or for an underlying error
-- Settings `log.level`, `log.filter`, `log.target`, `log.size`, `log.age`, `log.files`, `output.dir`, and `state.dir` read `<NAME>_<STEM>` then defaults key `<stem>`
-- Node processes of `@rasm/telemetry` read the same values: `log.level` a swift-log level, `log.filter` `<scope>=<level>` entries, `log.size` bytes, `log.age` seconds
-- `telemetry(scopes:)` writes `<process name>.log` into `Program.current.directory(.logs)`, one file per executable
-- `OTEL_LOGS_EXPORTER`, `OTEL_METRICS_EXPORTER`, and `OTEL_TRACES_EXPORTER` each start one signal's export, unset registers nothing, and swift-otel reads every other `OTEL_*` variable
-- `withSpan` from `Tracing` wraps a boundary operation, and `EnvironmentCarrier` from `Telemetry` carries `TRACEPARENT` and `TRACESTATE` through a child's environment
-- `serve` from `JSONRPC` opens one server span per request under the message's `traceId` and `spanId`
-- `MetricKitReports` logs each MetricKit `DiagnosticReport` and `MetricReport`, and `metrickitd` registers a client signed with a team identity alone
-- `OSSignposter(subsystem: Program.current.identifier, category:)` marks Instruments intervals: `withIntervalSignpost` around synchronous work, `beginInterval` and `endInterval` across a suspension
+- `.stringConvertible(<value>)` keeps a number or flag typed in the log file and public in every sink, and a private number goes through the interpolation
+- Messages name the operation and its subject, and a failure that paths share logs once where they join
+- Libraries log through `Logger.current` (bound by `withLogger`) or a `Logger` parameter at `info` and below, and return a failure typed without logging it
+- Process entries alone call `Program.current.telemetry(scopes:)` from `CurrentProcess`, which bootstraps logging, metrics, and tracing and returns the `ServiceGroup` the entry runs
+- Attribute names come from `OTelAttribute` of swift-otel-semantic-conventions (`OTelAttribute.process.pid`), and a deprecated name carries `renamed:` to its successor
+- Typed span setters (`span.attributes.rpc.method`) compile under the package's `Experimental` trait alone, which pins the package to a minor version
+- `withSpan(_:context:ofKind:)` from `Tracing` wraps a boundary operation, and its untyped `rethrows` widens a typed failure to `any Error`, which the caller converts once
+- Trace context enters through `InstrumentationSystem.instrument.extract` from message fields, and reaches a child's environment as `TRACEPARENT` through `EnvironmentCarrier`
+- `OSSignposter` marks Instruments intervals: `withIntervalSignpost` around synchronous work, `beginInterval` and `endInterval` across a suspension

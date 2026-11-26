@@ -191,12 +191,13 @@ const rows = (it: Vitest.MethodsNonLive<Engine | Rows | SqlClient.SqlClient>, st
         }),
     );
     it.effect(
-        'upserts new rows as inserted, changed rows as updated keeping named fields, and leaves equal rows unreturned',
+        'returns each offered row it inserted or changed with whether it was inserted, keeps named fields on update, and leaves equal rows unreturned',
         Effect.fnUntraced(function* () {
             const [stays, changes, arrives] = [event('a', 0, 1), event('b', 0, 2), event('c', 1, 3)];
+            const changed = { ...changes, kind: 'buy' as const, at: DateTime.add(epoch, { days: 1 }) };
             yield* Catalog.reconcile(declared([events]));
             const first = yield* Relation.upsert(events, [stays, changes]);
-            const second = yield* Relation.upsert(events, [stays, { ...changes, kind: 'buy', at: DateTime.add(epoch, { days: 1 }) }, arrives], 'at');
+            const second = yield* Relation.upsert(events, [stays, changed, arrives], 'at');
             const repeated = yield* Effect.flip(Relation.upsert(events, [stays, stays]));
             assert.deepStrictEqual(
                 { first, second: Array.sortWith(second, ({ row }) => row.id, Order.String), repeated: repeated._tag, stored: yield* Relation.select(events, { tenant: [0, 1] }, { order: ['id'] }) },
@@ -206,7 +207,7 @@ const rows = (it: Vitest.MethodsNonLive<Engine | Rows | SqlClient.SqlClient>, st
                         { row: changes, inserted: true },
                     ],
                     second: [
-                        { row: { ...changes, kind: 'buy' }, inserted: false },
+                        { row: changed, inserted: false },
                         { row: arrives, inserted: true },
                     ],
                     repeated: 'SchemaError',

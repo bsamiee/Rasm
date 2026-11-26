@@ -144,11 +144,11 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
     static readonly texts: Rows['Service']['texts'] = (sql, body) => sql`jsonb_array_elements_text(${body}) WITH ORDINALITY e(value, position)`;
     static readonly insertion: Rows['Service']['insertion'] = (sql, body, order) => sql.join(' ', false)([sql`jsonb_array_elements(${body}) e(value)`, 'ORDER BY', order]);
     static readonly read: Rows['Service']['read'] = (sql, { name, textual }, scope) => (textual ? sql`${scope}${sql(name)}::text AS ${sql(name)}` : sql`${scope}${sql(name)}`);
-    static readonly upsert: Rows['Service']['upsert'] = ({ sql, owner, unqualified, ignore, keys, reads, inserting }, body, set) => {
+    static readonly upsert: Rows['Service']['upsert'] = ({ sql, owner, unqualified, ignore, keys, identity, inserting }, body, set) => {
         const parts = set.map(({ name }) => sql`${sql(name)}`);
         const [assigned, held, offered] = [sql.csv(parts.map((part) => sql`${part} = excluded.${part}`)), sql.csv(parts.map((part) => sql`${owner}.${part}`)), sql.csv(parts.map((part) => sql`excluded.${part}`))];
         const [update, inserted] = [sql`ON CONFLICT (${keys(unqualified)}) DO UPDATE SET ${assigned} WHERE (${held}) IS DISTINCT FROM (${offered})`, sql`${sql(Rows.flags.previous)} IS NULL AS ${sql(Rows.flags.inserted)}`];
-        return inserting(body, Array.isReadonlyArrayNonEmpty(parts) ? update : ignore, sql`WITH (OLD AS ${sql(Rows.flags.previous)}) ${reads(unqualified, inserted)}`);
+        return inserting(body, Array.isReadonlyArrayNonEmpty(parts) ? update : ignore, sql`WITH (OLD AS ${sql(Rows.flags.previous)}) ${identity(unqualified, inserted)}`);
     };
     static readonly ensure: Rows['Service']['ensure'] = ({ sql, unqualified, keys, reads, inserting }, body) => {
         const [outer, held] = [sql.literal('t.'), inserting(body, sql`ON CONFLICT (${keys(unqualified)}) DO SELECT`, sql.literal('*'))];

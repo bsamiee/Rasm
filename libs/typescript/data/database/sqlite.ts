@@ -34,10 +34,10 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
     static readonly texts: Rows['Service']['texts'] = (sql, body) => sql.join(' ', false)([sql`json_each(${body})`, 'e']);
     static readonly insertion: Rows['Service']['insertion'] = (sql, body) => sql.join(' ', false)([Sqlite.texts(sql, body), 'WHERE true']);
     static readonly read: Rows['Service']['read'] = (sql, { name, textual }, scope) => (textual ? sql`CAST(${scope}${sql(name)} AS TEXT) AS ${sql(name)}` : sql`${scope}${sql(name)}`);
-    static readonly upsert: Rows['Service']['upsert'] = ({ sql, rows, owner, prefix, unqualified, order, ignore, element, keys, reads, inserting }, body, set) => {
+    static readonly upsert: Rows['Service']['upsert'] = ({ sql, rows, owner, prefix, unqualified, order, ignore, element, keys, identity, inserting }, body, set) => {
         const inserted = (flag: 0 | 1) => sql`${sql.literal(flag.toString())} AS ${sql(Rows.flags.inserted)}`;
-        const update = sql`UPDATE ${owner} SET (${sql.csv(set.map(({ name }) => Statement.fragment([sql(name)])))}) = (${sql.csv(set.map(element))}) FROM ${Sqlite.texts(sql, body)} WHERE (${keys(prefix)}) = (${order}) AND (${sql.csv(set.map(({ name }) => sql.join('', false)([prefix, Statement.fragment([sql(name)])])))}) IS DISTINCT FROM (${sql.csv(set.map(element))}) RETURNING ${reads(unqualified, inserted(0))}`;
-        return Effect.map(rows.atomic([inserting(body, ignore, reads(unqualified, inserted(1))), ...(Array.isReadonlyArrayNonEmpty(set) ? [update] : [])]), Array.flatten);
+        const update = sql`UPDATE ${owner} SET (${sql.csv(set.map(({ name }) => Statement.fragment([sql(name)])))}) = (${sql.csv(set.map(element))}) FROM ${Sqlite.texts(sql, body)} WHERE (${keys(prefix)}) = (${order}) AND (${sql.csv(set.map(({ name }) => sql.join('', false)([prefix, Statement.fragment([sql(name)])])))}) IS DISTINCT FROM (${sql.csv(set.map(element))}) RETURNING ${identity(unqualified, inserted(0))}`;
+        return Effect.map(rows.atomic([inserting(body, ignore, identity(unqualified, inserted(1))), ...(Array.isReadonlyArrayNonEmpty(set) ? [update] : [])]), Array.flatten);
     };
     static readonly ensure: Rows['Service']['ensure'] = ({ sql, rows, owner, prefix, unqualified, order, ignore, keys, reads, inserting }, body) =>
         Effect.map(rows.atomic([inserting(body, ignore, reads(unqualified)), sql`SELECT ${reads(unqualified)} FROM ${owner} WHERE (${keys(unqualified)}) IN (SELECT ${order} FROM ${Sqlite.texts(sql, body)}) ORDER BY ${keys(prefix)}`]), Array.lastNonEmpty);

@@ -1,5 +1,5 @@
 {
-  "originHash" : "303172c8079bbd5900e851ff63c96a7ecc98dd63654c3eba5a3b18980b1d07cd",
+  "originHash" : "08250511bafd5f80d3dc8fa7e5a55ca19fa744e8339e6f3ea47a2c336662d7a4",
   "pins" : [
     {
       "identity" : "async-http-client",
@@ -26,15 +26,6 @@
       "state" : {
         "revision" : "87e50f483c54e6efd60e885f7f5aa946cee68023",
         "version" : "1.2.1"
-      }
-    },
-    {
-      "identity" : "swift-argument-parser",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/apple/swift-argument-parser",
-      "state" : {
-        "revision" : "6a52f3251125d74daf04fcbd5e6f08a75d074382",
-        "version" : "1.8.2"
       }
     },
     {
@@ -267,8 +258,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/x-sheep/swift-property-based",
       "state" : {
-        "revision" : "7d405e77a7b729390ed1d9a66e1f80a707fd03c4",
-        "version" : "2.0.1"
+        "revision" : "fbc0b8b83afc91e159ed62ba2024da8029ab7c97",
+        "version" : "2.1.0"
       }
     },
     {

@@ -15,6 +15,9 @@
             "path": "../../ai/mcp"
         },
         {
+            "path": "../../macos/applications"
+        },
+        {
             "path": "./tsconfig.shared.json"
         }
     ],

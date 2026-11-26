@@ -1,10 +1,8 @@
-import { describe, events, execute, operate, render } from '@rasm/aftereffects/uxp';
-import { SourceRpcs } from '@rasm/applications/source';
+import { execute, render, toolbar } from '@rasm/aftereffects/uxp';
+import { Description } from '@rasm/applications/source';
 import { Plugin, Uxp } from '@rasm/uxp/plugin';
-import { Layer } from 'effect';
+import { Duration, Stream } from 'effect';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const { group, toolkit, handlers } = Plugin.scripting({ execute, render });
-
-Plugin.serve({ link: Plugin.dial({ application: Uxp.application, group: group.merge(SourceRpcs), toolkit, handlers: Layer.merge(handlers, SourceRpcs.toLayer({ describe, operate })), events }) });
+Plugin.serve({ link: Plugin.dial({ application: Uxp.application, ...Plugin.scripting({ execute, render }), source: Description.tools({ ...toolbar, changes: Stream.tick(Duration.seconds(1)) }) }) });

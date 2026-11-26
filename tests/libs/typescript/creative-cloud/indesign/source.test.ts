@@ -12,8 +12,7 @@ import { build, mergeConfig } from 'vite';
 
 const MANIFEST = { manifestVersion: 5, id: 'app.rasm.test.source', name: 'Source', version: '0.1.0', host: { app: 'ID' }, entrypoints: [], requiredPermissions: {} };
 const AREA = 'File Menu';
-const TOOLS = 'Tools';
-const TYPE = 'Type Tool';
+const TYPE = { id: 'TYPE_TOOL', name: 'Type Tool' } as const;
 const PLACED = 'placed text\n';
 const BUNDLE_PATH = /bundle path="(?<path>[^"]+)"/u;
 const TIMEOUT = 120_000;
@@ -65,17 +64,16 @@ const facet = Effect.fnUntraced(function* (request: object) {
 });
 const dom = Effect.flatMap(
     scripted(
-        `const { app } = require('indesign');
-const [area, toolbox] = script.args;
+        `const { app, UITools } = require('indesign');
+const [area] = script.args;
 const every = app.menuActions.everyItem();
 const panels = [];
 for (let index = 0; index < app.panels.length; index += 1) { const panel = app.panels.item(index); if (panel !== undefined && panel.name !== '') { panels.push([panel.name, panel.visible]); } }
-const [ids, areas, names] = [every.id, every.area, every.name];
+const [ids, areas] = [every.id, every.area];
 const actions = ids.filter((id, index) => areas[index] === area).map((id) => app.menuActions.itemByID(id)).map((action) => ({ name: action.name, enabled: action.enabled, checked: action.checked }));
 const holding = app.documents.length === 1 && app.documents.item(0).placeGuns.loaded ? app.documents.item(0).placeGuns.pageItems.everyItem().getElements().map((item) => item.toSpecifier()) : [];
-return JSON.stringify({ tool: String(app.toolBoxTools.currentTool), name: app.toolBoxTools.currentToolName, tools: names.filter((name, index) => areas[index] === toolbox), panels, areas: [...new Set(areas)], actions, holding });`,
+return JSON.stringify({ tool: String(app.toolBoxTools.currentTool), name: app.toolBoxTools.currentToolName, tools: Object.getOwnPropertyNames(Object.getPrototypeOf(UITools)).filter((key) => String(UITools[key]) === key && !UITools.NONE.equals(UITools[key])), panels, areas: [...new Set(areas)], actions, holding });`,
         AREA,
-        TOOLS,
     ),
     Schema.decodeEffect(Read),
 );
@@ -124,8 +122,8 @@ const describes = Effect.fnUntraced(function* () {
 const operates = Effect.fnUntraced(function* () {
     const [top, before] = yield* Effect.all([Effect.flatMap(facet({ describe: {} }), described), dom]);
     const options = controls(top, 'toolbar')[0]?.options ?? [];
-    const [chosen, hidden] = yield* Effect.all([Effect.fromOption(Array.findFirst(options, named(TYPE)), () => new Cause.NoSuchElementError(`${TYPE} option`)), Effect.fromOption(Array.findFirst(controls(top, 'panel'), hiddenToggle), () => new Cause.NoSuchElementError('hidden panel'))]);
-    assert.notStrictEqual(before.name, TYPE, 'setup starts from another tool');
+    const [chosen, hidden] = yield* Effect.all([Effect.fromOption(Array.findFirst(options, named(TYPE.id)), () => new Cause.NoSuchElementError(`${TYPE.id} option`)), Effect.fromOption(Array.findFirst(controls(top, 'panel'), hiddenToggle), () => new Cause.NoSuchElementError('hidden panel'))]);
+    assert.notStrictEqual(before.tool, TYPE.id, 'setup starts from another tool');
     yield* Effect.addFinalizer(() => Effect.orDie(Effect.all([facet({ operate: { locator: hidden.locator, to: false } }), scripted("const { app, UITools } = require('indesign'); app.toolBoxTools.currentTool = UITools[script.args[0]]; return 'restored';", before.tool)])));
     yield* Effect.all([Effect.flatMap(facet({ operate: { locator: chosen.locator } }), operated), Effect.flatMap(facet({ operate: { locator: hidden.locator, to: true } }), operated)]);
     const [after, read] = yield* Effect.all([Effect.flatMap(facet({ describe: {} }), described), dom]);
@@ -138,7 +136,7 @@ const operates = Effect.fnUntraced(function* () {
             panel: Option.getOrUndefined(Array.findFirst(read.panels, ([name, visible]) => (name === panel ? Option.some(visible) : Option.none()))),
             panelRead: Option.getOrUndefined(Option.map(Array.findFirst(controls(after, 'panel'), labelled(panel)), Struct.get('value'))),
         },
-        { tool: 'TYPE_TOOL', name: TYPE, toolRead: { text: { value: TYPE } }, panel: true, panelRead: { bool: { value: true } } },
+        { tool: TYPE.id, name: TYPE.name, toolRead: { text: { value: TYPE.name } }, panel: true, panelRead: { bool: { value: true } } },
     );
 }, Effect.scoped);
 
@@ -150,7 +148,7 @@ const application = Option.flatMap(Option.liftThrowable(() => execFileSync('lsap
 
 describe.skipIf(Option.isNone(application))('InDesign facets against the running InDesign', () => {
     it.layer(Host.layer(Option.getOrElse(application, () => '')).pipe(Layer.provideMerge(layer)), { timeout: TIMEOUT })((methods) => {
-        methods.effect('describe states the current tool name among the toolbox actions by name, each named panel with its visibility, every menu area, one area level, and the loaded place gun as the DOM reads them', describes, TIMEOUT);
-        methods.effect('operate selects a tool by its toolbox option and shows a hidden panel, the DOM and a later describe each reading the change by name', operates, TIMEOUT);
+        methods.effect('describe states the current tool by its name, every tool of the UITools enumeration but NONE as an option, each named panel with its visibility, every menu area, one area level, and the loaded place gun as the DOM reads them', describes, TIMEOUT);
+        methods.effect('operate selects a tool by its option keyed by the UITools member and shows a hidden panel, the DOM and a later describe each reading the change', operates, TIMEOUT);
     });
 });

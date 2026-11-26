@@ -1,155 +1,152 @@
-import type { Value } from '@rasm/applications';
+import type { Observation } from '@rasm/applications';
 import { Description } from '@rasm/applications/source';
 import { HostError, Specifier } from '@rasm/object-model';
 import { Unmatched } from '@rasm/search';
-import type { Application, Document, MenuAction, ToolBox } from 'adobe:indesign';
-import { Array, Cause, Effect, Match, Option, Predicate, pipe, Result, Schema, Struct } from 'effect';
+import { Plugin } from '@rasm/uxp/plugin';
+import type { MenuAction, Panel, ToolBox } from 'adobe:indesign';
+import { Array, Cause, Effect, Formatter, Match, Option, Predicate, pipe, Queue, Result, Schema, Stream, String, Struct } from 'effect';
+import { type DefaultTreeAdapterMap, defaultTreeAdapter, html, parseFragment } from 'parse5';
 import { Dom } from '#/uxp/dom';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Path = typeof Description.Locator.Type;
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const HELD = { tools: 'toolBoxTools', panels: 'panels', menus: 'menuActions' } as const satisfies Record<string, keyof Application>;
-const TOOL = 'currentTool' satisfies keyof ToolBox;
-const AREA = 'area' satisfies keyof MenuAction;
-const LEVEL = 'menu' satisfies (typeof Description.Container.Type)['kind'];
-const TOOLBOX = '$ID/KBSCE Tools';
+import { listen } from '#/uxp/operations';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const same = Schema.toEquivalence(Description.Locator);
-const at = (app: Application, field: keyof Application, ...steps: readonly (readonly [string, string])[]): Path => [[app.constructorName, field], ...steps];
-const actionAt = (app: Application, action: MenuAction): Path => at(app, HELD.menus, [AREA, action.area], [action.constructorName, action.toSpecifier()]);
-const listed = (app: Application, area: string): readonly MenuAction[] => {
-    const { area: areas, id: ids } = app.menuActions.everyItem();
-    return Array.filterMap(Array.zip(areas, ids), ([named, id]) => (named === area ? Result.succeed(app.menuActions.itemByID(id)) : Result.failVoid));
-};
-const toolbox = (app: Application): readonly MenuAction[] =>
-    Option.match(
-        Array.findFirst(Array.dedupe(app.menuActions.everyItem().area), (area) => area !== '' && app.findKeyStrings(area).includes(TOOLBOX)),
-        { onNone: Array.empty, onSome: (area) => listed(app, area) },
-    );
-const actionItem = (app: Application, action: MenuAction) =>
-    Description.Control.make({
-        locator: actionAt(app, action),
-        kind: 'item',
-        role: action.constructorName,
-        label: { text: action.name, attribute: 'name' },
-        ...(Option.isSome(Dom.unavailable(action, 'enabled', false)) ? {} : { enabled: action.enabled, ...(action.checked ? { mark: '✓' } : {}) }),
-    });
-const facets = ({ app }: Dom['Service'], document: Option.Option<Document>) => {
-    const { toolBoxTools: toolBox, panels, menuActions } = app;
-    const choice = at(app, HELD.tools, [toolBox.constructorName, TOOL]);
-    return Description.make({
-        containers: [
-            {
-                locator: at(app, HELD.tools),
-                kind: 'toolbar',
-                controls: [
-                    Description.Control.make({
-                        locator: choice,
-                        kind: 'choice',
-                        role: toolBox.constructorName,
-                        label: { text: TOOL, attribute: TOOL },
-                        value: { text: { value: toolBox.currentToolName } },
-                        selected: 'attribute',
-                        options: Array.map(toolbox(app), (action) => ({ label: action.name, locator: actionAt(app, action) })),
-                    }),
-                ],
-            },
-            {
-                locator: at(app, HELD.panels),
-                kind: 'panel',
-                controls: pipe(
-                    Array.makeBy(panels.length, (index) => Option.fromUndefinedOr(panels.item(index))),
-                    Array.getSomes,
-                    Array.filter(({ name }) => name.length > 0),
-                    Array.map(({ constructorName, name, visible }) => Description.Control.make({ locator: at(app, HELD.panels, [constructorName, name]), kind: 'toggle', role: constructorName, label: { text: name, attribute: 'name' }, value: { bool: { value: visible } } })),
-                ),
-            },
-            {
-                locator: at(app, HELD.menus),
-                kind: 'menuBar',
-                controls: Array.map(Array.dedupe(menuActions.everyItem().area), (area) => {
-                    const item = at(app, HELD.menus, [AREA, area]);
-                    return Description.Control.make({ locator: item, kind: 'item', role: menuActions.constructor.name, label: { text: area, attribute: AREA }, opens: Array.append(item, [LEVEL, area] as const) });
-                }),
-            },
-        ],
-        pointer: {
-            tool: toolBox.currentToolName,
-            holding: Option.match(Option.filter(Option.map(document, Struct.get('placeGuns')), Struct.get('loaded')), { onNone: Array.empty<string>, onSome: ({ pageItems }) => Array.map(pageItems.everyItem().getElements(), (item) => item.toSpecifier()) }),
-        },
-    });
-};
-const describe = Effect.fn('describe')(function* ({ within }: { readonly within?: Path }) {
-    const dom = yield* Dom;
+const roots = Dom.useSync(({ app }): readonly [Description['containers'][number]['locator'], Description['containers'][number]['locator']] => [[[app.menuActions.constructorName, app.constructorName]], [[app.panels.constructorName, app.constructorName]]]);
+const describe = Effect.fn('describe')(function* ({ within }: { readonly within?: Description['containers'][number]['locator'] }) {
+    const [{ app }, [bar, shelf]] = yield* Effect.all([Dom, roots]);
+    const { panels, menuActions } = app;
+    const areaAt = (named: string) => Array.append(bar, [menuActions.constructorName, named] as const);
+    const levelAt = (named: string) => Array.append(areaAt(named), ['menu' satisfies (typeof Description.Container.Type)['kind'], named] as const);
     if (within === undefined) {
-        const document = yield* Effect.option(Dom.current);
-        return yield* Effect.try({ try: () => facets(dom, document), catch: HostError.refused('facets') });
+        return yield* Effect.try({
+            try: () =>
+                Description.make({
+                    containers: [
+                        {
+                            locator: shelf,
+                            kind: 'panel',
+                            controls: pipe(
+                                Array.makeBy(panels.length, (index) => Option.fromUndefinedOr(panels.item(index))),
+                                Array.getSomes,
+                                Array.filter(({ name }) => name.length > 0),
+                                Array.map(({ constructorName, name, visible }) => Description.Control.make({ locator: Array.append(shelf, [constructorName, name] as const), kind: 'toggle', role: constructorName, label: { text: name, attribute: 'name' satisfies keyof Panel }, value: { bool: { value: visible } } })),
+                            ),
+                        },
+                        {
+                            locator: bar,
+                            kind: 'menuBar',
+                            controls: Array.map(Array.dedupe(menuActions.everyItem().area), (area) => Description.Control.make({ locator: areaAt(area), kind: 'item', role: menuActions.constructorName, label: { text: area, attribute: 'area' satisfies keyof MenuAction }, opens: levelAt(area) })),
+                        },
+                    ],
+                }),
+            catch: HostError.refused('panels and menu areas'),
+        });
     }
-    const { app } = dom;
     const [, area] = Array.lastNonEmpty(within);
-    const item = at(app, HELD.menus, [AREA, area]);
-    yield* same(within, item) ? Effect.void : Unmatched.of({ subject: 'menu area', query: Option.some(area), candidates: Array.dedupe(app.menuActions.everyItem().area) });
+    yield* same(within, areaAt(area)) ? Effect.void : Unmatched.of({ subject: 'menu area', query: Option.some(area), candidates: Array.dedupe(menuActions.everyItem().area) });
     return yield* Effect.try({
-        try: () =>
-            Description.make({
+        try: () => {
+            const { area: areas, id: ids } = menuActions.everyItem();
+            return Description.make({
                 containers: [
                     {
-                        locator: Array.append(item, [LEVEL, area] as const),
-                        kind: LEVEL,
+                        locator: levelAt(area),
+                        kind: 'menu',
                         title: area,
-                        parent: at(app, HELD.menus),
-                        controls: Array.map(listed(app, area), (action) => actionItem(app, action)),
+                        parent: bar,
+                        controls: Array.map(
+                            Array.filterMap(Array.zip(areas, ids), ([named, id]) => (named === area ? Result.succeed(menuActions.itemByID(id)) : Result.failVoid)),
+                            (action) =>
+                                Description.Control.make({
+                                    locator: Array.append(areaAt(area), [action.constructorName, action.toSpecifier()] as const),
+                                    kind: 'item',
+                                    role: action.constructorName,
+                                    label: { text: action.name, attribute: 'name' satisfies keyof MenuAction },
+                                    ...(Option.isSome(Dom.unavailable(action, 'enabled', false)) ? {} : { enabled: action.enabled, ...(action.checked ? { mark: '✓' } : {}) }),
+                                }),
+                        ),
                     },
                 ],
-            }),
+            });
+        },
         catch: HostError.refused(area),
     });
 });
-const operate = Effect.fn('operate')(function* ({ locator, to }: { readonly locator: Path; readonly to?: typeof Value.Type }) {
+const operate = Effect.fn('operate')(function* ({ locator, to }: { readonly locator: Description['containers'][number]['locator']; readonly to?: Observation['values'][string] }) {
     const { app, owning } = yield* Dom;
-    const text = locator.map((step) => step.join(' ')).join(' > ');
+    const { panels, menuActions } = app;
+    const text = Formatter.format(locator);
     const refused = HostError.refused(text);
-    yield* Match.value(Array.map(locator, ([, identifier]) => identifier)).pipe(
-        Match.when([HELD.tools, TOOL], () =>
-            Predicate.isString(to)
-                ? Effect.try({ try: () => toolbox(app), catch: refused }).pipe(
-                      Effect.flatMap(Unmatched.single('tool', Option.some(to), (action: MenuAction) => [action.name])),
-                      Effect.flatMap((action) => Effect.try({ try: action.invoke.bind(action), catch: refused })),
-                  )
-                : new Cause.IllegalArgumentError(`${text} takes the name of a tool, received ${typeof to}`),
-        ),
-        Match.when([HELD.panels, Match.string], ([, name]) =>
-            Effect.try({ try: () => app.panels.itemByName(name), catch: refused }).pipe(
+    yield* Match.value([Array.headNonEmpty(locator)[0], ...Array.map(Array.tailNonEmpty(locator), ([, identifier]) => identifier)]).pipe(
+        Match.when([panels.constructorName, Match.string], ([, name]) =>
+            Effect.try({ try: () => panels.itemByName(name), catch: refused }).pipe(
                 Effect.filterOrFail(
                     ({ isValid }) => isValid,
                     () => Unmatched.of({ subject: 'panel', query: Option.some(name) }),
                 ),
-                Effect.flatMap((panel) => Dom.write(panel, { visible: Predicate.isBoolean(to) ? to : !panel.visible })),
-                Effect.flatten,
+                Effect.flatMap((panel) => Effect.try({ try: () => Object.assign(panel, { visible: Predicate.isBoolean(to) ? to : !panel.visible } satisfies Partial<Panel>), catch: refused })),
             ),
         ),
-        Match.when([HELD.menus, Match.string, Match.string], (identifiers) => {
-            const specifier = Array.lastNonEmpty(identifiers);
-            return Schema.decodeEffect(Specifier.FromString)(specifier).pipe(
+        Match.when([menuActions.constructorName, Match.string, Match.string], (identifiers) =>
+            Schema.decodeEffect(Specifier.FromString)(Array.lastNonEmpty(identifiers)).pipe(
                 Effect.flatMap(Dom.locate),
-                Effect.filterOrFail(owning('invoke'), () => Unmatched.of({ subject: 'menu action', query: Option.some(specifier) })),
+                Effect.filterOrFail(owning('invoke'), () => Unmatched.of({ subject: 'menu action', query: Option.some(Array.lastNonEmpty(identifiers)) })),
                 Effect.filterOrFail(
                     (action) => to === undefined || (Predicate.isBoolean(to) && Option.isNone(Dom.unavailable(action, 'checked', false))),
                     () => new Cause.IllegalArgumentError(`${text} invokes with no value, or takes the boolean its checked state turns to`),
                 ),
                 Effect.flatMap((action) => (to === undefined || to !== action.checked ? Effect.try({ try: action.invoke.bind(action), catch: refused }) : Effect.void)),
-            );
-        }),
+            ),
+        ),
         Match.orElse(() => Unmatched.of({ subject: 'facet control', query: Option.some(text) })),
     );
 });
+const renderText = (markup: string) => {
+    const rendered = (node: DefaultTreeAdapterMap['childNode']): string =>
+        Match.value(node).pipe(
+            Match.when(defaultTreeAdapter.isTextNode, ({ value }) => value),
+            Match.when((each) => defaultTreeAdapter.isElementNode(each) && each.tagName === html.TAG_NAMES.BR, () => '\n'),
+            Match.when(defaultTreeAdapter.isElementNode, ({ childNodes }) => childNodes.map(rendered).join('')),
+            Match.orElse(() => ''),
+        );
+    const lines = parseFragment(markup).childNodes.map(rendered).join('').split('\n');
+    return Option.liftPredicate(lines.map((line) => line.replaceAll(/\s+/gu, ' ').trim()).join('\n').trim(), String.isNonEmpty);
+};
+const tools = Dom.useSync(({ UITools, members }) => Array.filter(members(UITools), (tool) => !UITools.NONE.equals(tool)));
+const toolbar = {
+    current: Dom.use(({ app: { toolBoxTools } }) =>
+        Effect.try({ try: () => ({ id: toolBoxTools.currentTool.toString(), label: toolBoxTools.currentToolName, ...Option.getOrUndefined(Option.map(renderText(toolBoxTools.currentToolHint), (help) => ({ help }))) }), catch: HostError.refused('current tool') }),
+    ),
+    listed: Effect.map(
+        tools,
+        Array.map((tool) => ({ id: tool.toString(), label: tool.toString() })),
+    ),
+    select: (id: string) =>
+        Effect.all([tools.pipe(Effect.flatMap(Unmatched.single('tool', Option.some(id), (tool) => [tool.toString()]))), Dom]).pipe(Effect.flatMap(([tool, { app }]) => Effect.try({ try: () => Object.assign(app.toolBoxTools, { currentTool: tool } satisfies Partial<ToolBox>), catch: HostError.refused(`tool ${id}`) }))),
+    changes: Stream.unwrap(
+        Effect.map(Effect.all([Plugin, Dom]), ([{ id }, dom]) =>
+            Stream.callback<void, never, Dom>((queue) =>
+                listen(
+                    ({ app }) => app.toolBoxTools,
+                    [dom.ToolBox.AFTER_ATTRIBUTE_CHANGED],
+                    id,
+                    () => {
+                        Queue.offerUnsafe(queue, undefined);
+                    },
+                ),
+            ),
+        ),
+    ),
+    pointer: Effect.flatMap(Effect.option(Dom.current), (document) =>
+        Effect.try({
+            try: () => ({ holding: Option.match(Option.filter(Option.map(document, Struct.get('placeGuns')), Struct.get('loaded')), { onNone: Array.empty<string>, onSome: ({ pageItems }) => Array.map(pageItems.everyItem().getElements(), (item) => item.toSpecifier()) }) }),
+            catch: HostError.refused('place gun'),
+        }),
+    ),
+};
+const workspace = { roots, describe, operate };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { describe, operate };
+export { toolbar, workspace };

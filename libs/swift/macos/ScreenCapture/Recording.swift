@@ -65,7 +65,7 @@ extension Instance {
                     throw ApplicationFailure(subject: path, reason: .foundation(error as NSError))
                 }
                 _ = try? await Task.sleep(for: span)
-                stream.stopCapture { (error: (any Error)?) in if let error { events.end(.failure(error)) } }
+                do { try await stream.stopCapture() } catch { events.end(.failure(error)) }
                 try await (events.outcomes.stream.first { _ in true } ?? .failure(ApplicationFailure(subject: path, reason: .cancelled))).get()
                 do { return try Data(contentsOf: output.outputURL) } catch { throw ApplicationFailure(subject: path, reason: .foundation(error as NSError)) }
             }

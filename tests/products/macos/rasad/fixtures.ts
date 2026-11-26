@@ -21,7 +21,7 @@ interface Bundle {
 }
 interface Logged {
     readonly identifier: string;
-    readonly event: (typeof Event)['Type'];
+    readonly event: Event;
     readonly taken: Deferred.Deferred<void>;
 }
 

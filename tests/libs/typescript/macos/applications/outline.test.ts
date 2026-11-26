@@ -25,7 +25,7 @@ const Generated = {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const among = <A>(held: readonly A[], given: number | undefined) => Option.flatMap(Option.fromUndefinedOr(given), (at) => Array.get(held, at % Math.max(held.length, 1)));
-const interned = (model: typeof Model.Type, copies: number): typeof Model.Type => {
+const interned = (model: Model, copies: number): Model => {
     const [, numbered] = Array.mapAccum(model.containers, 1, (next, container) => {
         const [after, controls] = Array.mapAccum(
             container.controls.flatMap((control) => Array.replicate(control, copies)),

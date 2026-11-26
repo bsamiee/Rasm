@@ -1,16 +1,14 @@
 import { Unmatched } from '@rasm/search';
 import { Array, Data, HashMap, Match, Option, Order, pipe, Record, Result, Schema, String, Struct } from 'effect';
-import type { Container, Control, Fact, Kind, Model, Value } from '#/contract';
-import type { InterfaceMap } from '#/interface-map';
+import type { Container, Control, Fact, Model, Observation } from '#/contract';
+import type { Entry, InterfaceMap } from '#/interface-map';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Entry = InterfaceMap['containers'][string];
-type Choice = NonNullable<(typeof Control.Type)['options']>[number];
 type Target = Data.TaggedEnum<{
-    Container: { readonly container: typeof Container.Type };
-    Control: { readonly control: typeof Control.Type; readonly container: typeof Container.Type };
-    Option: { readonly option: Choice };
+    Container: { readonly container: Container };
+    Control: { readonly control: Control; readonly container: Container };
+    Option: { readonly option: NonNullable<Control['options']>[number] };
     RememberedContainer: { readonly locator: string; readonly entry: Entry };
     RememberedControl: { readonly locator: string; readonly control: Entry['controls'][string]; readonly entry: Entry };
 }>;
@@ -20,16 +18,16 @@ interface Item {
     readonly name: Option.Option<string>;
     readonly ancestors: readonly string[];
     readonly value: Option.Option<string>;
-    readonly kind: Option.Option<typeof Kind.Type>;
+    readonly kind: Option.Option<Control['kind']>;
     readonly live: boolean;
 }
 interface Shown {
-    readonly container: typeof Container.Type;
+    readonly container: Container;
     readonly item: Item;
-    readonly controls: readonly { readonly control: typeof Control.Type; readonly item: Item; readonly options: readonly { readonly option: Choice; readonly item: Item }[] }[];
+    readonly controls: readonly { readonly control: Control; readonly item: Item; readonly options: readonly { readonly option: NonNullable<Control['options']>[number]; readonly item: Item }[] }[];
 }
 interface Index {
-    readonly model: typeof Model.Type;
+    readonly model: Model;
     readonly items: readonly Item[];
     readonly shown: readonly Shown[];
     readonly tokens: Readonly<Record<string, Item>>;
@@ -76,8 +74,8 @@ const printFact: (fact: Fact) => string = Match.type<Fact>().pipe(
     Match.when({ list: Match.defined }, ({ list }) => `[${list.values.map((each) => printFact(each)).join(', ')}]`),
     Match.exhaustive,
 );
-const printValue = (kind: typeof Kind.Type, fact: Fact) => (kind === 'toggle' && 'integer' in fact ? (STATES[fact.integer.value] ?? printFact(fact)) : printFact(fact));
-const printStored = (kind: typeof Kind.Type, value: typeof Value.Type) =>
+const printValue = (kind: Control['kind'], fact: Fact) => (kind === 'toggle' && 'integer' in fact ? (STATES[fact.integer.value] ?? printFact(fact)) : printFact(fact));
+const printStored = (kind: Control['kind'], value: Observation['values'][string]) =>
     printValue(
         kind,
         Match.value(value).pipe(
@@ -105,7 +103,7 @@ const locatorOf = (target: Target) =>
     Target.$match(target, { Container: ({ container }) => Option.some(container.locator), Control: ({ control }) => Option.some(control.locator), Option: () => Option.none(), RememberedContainer: ({ locator }) => Option.some(locator), RememberedControl: ({ locator }) => Option.some(locator) });
 const located = (items: readonly Item[]) => Record.fromEntries(items.flatMap((item) => Option.toArray(Option.map(locatorOf(item.target), (locator) => [locator, item] as const))));
 const candidateOf = (item: Item) => (item.live ? [...Option.toArray(item.token), JSON.stringify(path(item).join(SEPARATOR))] : Option.toArray(Option.map(item.token, (held) => JSON.stringify(held)))).join(' ');
-const index = (model: typeof Model.Type, map: InterfaceMap): Index => {
+const index = (model: Model, map: InterfaceMap): Index => {
     const parsed = model.containers.map((container) => ({ container, steps: stepsOf(container.locator) }));
     const names = Record.fromEntries(
         parsed.flatMap(({ container, steps }) => [[steps, container.title] as const, ...container.controls.map((control) => [stepsOf(control.locator), control.label?.text] as const)]).flatMap(([steps, text]) => Option.toArray(Option.map(label(text), (name) => [JSON.stringify(steps), name] as const))),
@@ -208,7 +206,7 @@ const resolve = (held: Index, at: string): Result.Result<Item, Unmatched> => {
                   }),
     });
 };
-const find = (held: Index, query: string, kind: Option.Option<typeof Kind.Type>) =>
+const find = (held: Index, query: string, kind: Option.Option<Control['kind']>) =>
     Array.sortWith(
         Unmatched.rank(
             query,

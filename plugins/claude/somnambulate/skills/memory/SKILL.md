@@ -1,125 +1,113 @@
 ---
 name: memory
-description: "Use when writing, editing, merging, splitting, or judging a Claude Code auto-memory file or rebuilding its MEMORY.md index, covering admission, kinds, file boundaries, index lines, recall descriptions, evidence marks, and recall checks"
+description: "Use when saving, changing, or auditing a Claude Code auto-memory file or the memory set, covering admission, kinds, boundaries, descriptions that double as index lines, evidence marks, and recall proof"
 ---
 
 # [SOMNAMBULATE_MEMORY]
 
-Memories hold what no later session reads back from a source: owner rulings and corrections with their reason, facts an investigation found that a source lacks or contradicts, and pointers to outside resources. Harness memory instructions state frontmatter, the four types, `**Why:**` and `**How to apply:**` lines, `[[name]]` links, and absolute dates; this skill holds recall mechanics, the system every memory follows, and its checks.
+This skill is loaded. Before any search or write, Read the reference for the work and follow its steps in place of your own plan, and Read it again after a compaction: a memory that does not exist yet -> `references/create.md`, a change inside one existing memory -> `references/edit.md`, the set or any merge, split, rename, or delete -> `references/evaluate.md`. `MEMORY.md` is generated from each file's `description` after every memory write, so no step writes it.
+
+[REFERENCES]:
+- [01]-[CREATE](references/create.md): Saving a new memory file
+- [02]-[EDIT](references/edit.md): Improving one existing memory file
+- [03]-[EVALUATE](references/evaluate.md): Auditing the memory set, and merging, splitting, renaming, or deleting files
+
+[SCRIPTS]:
+- [01]-[INDEX](scripts/index.py): Regenerates `MEMORY.md` and commits the folder when a memory file changes, run by the plugin
+- [02]-[RECALL](scripts/recall.py): Replays stored requests through live sessions and scores which memory files each one opens
 
 ## [01]-[RECALL]
 
-Each part of a memory file serves one reader:
-- Index: session start loads `MEMORY.md` up to 200 lines or 25 KB, its lines the only memory text every session sees, and an agent opens a file a line points at
-- Selector: where the host enables it, Sonnet reads `- [<type>] <file> (<mtime>): <description>` for the 200 newest files and takes up to 5 it is certain help
-- Gate: `rg -c '"type":"relevant_memories"' <project-dir>/*.jsonl` shows whether the selector ever ran, as a host flag can leave it off and the index alone serve
-- Body: a recalled file arrives cut at 4096 bytes or 200 lines, frontmatter included, and recall stops near 60 KB a session
-- Subagents load neither index nor recall unless forked, so a brief names each memory path its work needs
+Claude Code recalls memory in either of its modes, and every file serves both:
+- Mode: `jq '.cachedGrowthBookFeatures.tengu_moth_copse' ~/.claude.json` true or `CLAUDE_MEMORY_STORES` set means selector mode, otherwise index mode
+- Index mode: session start loads `MEMORY.md` up to 200 lines or 25,000 characters, its lines usually the only memory text a session acts on
+- Opening: a session reads a file whole only when its index line sends it there, so the line carries what a session acts on without opening
+- Selector mode: `MEMORY.md` never loads, and a Sonnet call picks up to 5 files per prompt from `- [<type>] <file> (<mtime>): <description>`
+- Description: the one text both modes read, as the selector's manifest line and as the generated index line
+- Body: selector mode cuts a recalled file at 4096 bytes, so the lead and the facts most requests need come first in every file
+- Caching: each session and its general-purpose subagents keep their starting index until compaction, `/clear`, or the plugin's refresh at the next turn
+- Other sessions: running sessions keep their own copy, so a rename strands their links until they restart, and renames wait for a quiet pass
+- Outside writers: harness save steps, dream, and extraction write memory without this skill, and the plugin restores the index after each
 
 ## [02]-[ADMISSION]
 
 Each candidate line passes every test in order, and the first failure sends it to the home in its row:
 
-| [INDEX] | [TEST]     | [QUESTION]                                                         | [ON_FAIL]                             |
-| :-----: | :--------- | :----------------------------------------------------------------- | :------------------------------------ |
-|  [01]   | Derivable  | One read of code, git, instructions, docs, skill, or tool gives it | Link the path, keep what overturns it |
-|  [02]   | Durable    | Matters a week from now, in a session on another task              | Task list, plan, commit body          |
-|  [03]   | Acting     | Names the future action it changes, in one clause                  | Delete                                |
-|  [04]   | Procedure  | Holds a trigger with ordered steps                                 | Skill running that step               |
-|  [05]   | Checked-in | States a convention a tool or teammate reads from the repository   | Owning repository file, via the owner |
-|  [06]   | Evidenced  | Comes from the owner, a run, or a source read                      | Verify first, or delete               |
-|  [07]   | Home       | Belongs to no existing memory's subject                            | That memory, edited in place          |
+| [INDEX] | [TEST]     | [QUESTION]                                                           | [ON_FAIL]                                         |
+| :-----: | :--------- | :------------------------------------------------------------------- | :------------------------------------------------ |
+|  [01]   | Derivable  | One read of code, git, instructions, docs, skill, or tool gives it   | Link the path, keep what overturns it             |
+|  [02]   | Durable    | Matters a week from now, in a session on another task                | Task list, plan, commit body                      |
+|  [03]   | Acting     | Names the future action it changes, in one clause                    | Delete                                            |
+|  [04]   | Procedure  | Holds ordered steps a skill runs                                     | Skill running them, a correction staying here too |
+|  [05]   | Checked-in | States a convention a tool or teammate reads from the repository     | Owning repository file, via the owner             |
+|  [06]   | Evidenced  | Comes from the owner, a run, or a source read                        | Verify first, or delete                           |
+|  [07]   | Home       | Belongs to no existing memory's subject, or states a field-wide rule | That memory, edited in place                      |
 
-Passing lines rank by the owner time they save: corrections and confirmed choices, rulings with the condition releasing them, results overturning an assumption or a source, settings flipped more than twice, then locations outside the repository. Status, progress, completed work, open-probe lists, unbuilt plans, values one run printed, and conclusions no run confirmed fail `[02]` in any wording.
+Status, progress, completed work, open-probe lists, unbuilt plans, values one run printed, and conclusions no run confirmed fail `[02]` in any wording.
 
 ## [03]-[KINDS]
 
-Kind follows what the knowledge is, and sets the lead line, the parts after it, and how the file changes:
+Kind follows what the knowledge is, and its lead line is the text the description compresses:
 
-| [INDEX] | [KIND]     | [TYPE]      | [LEAD_LINE]                    | [PARTS]                  | [CHANGES_BY]                |
-| :-----: | :--------- | :---------- | :----------------------------- | :----------------------- | :-------------------------- |
-|  [01]   | Rule       | `feedback`  | Condition, then the imperative | Why, How to apply, `Not` | Sharpening the one rule     |
-|  [02]   | Profile    | `user`      | Trait in the scope stated      | Work it changes          | Replacing in place          |
-|  [03]   | Decision   | `project`   | Choice, decider, date          | Why, `Holds until:` end  | Superseding with both dates |
-|  [04]   | Fact sheet | `reference` | Answer most requests need      | Groups in work order     | Correcting each fact        |
-|  [05]   | Pointer    | `reference` | Location and what it holds     | When to open it          | Moving with its target      |
+| [INDEX] | [KIND]     | [TYPE]      | [LEAD_LINE]                         | [PARTS]                   |
+| :-----: | :--------- | :---------- | :---------------------------------- | :------------------------ |
+|  [01]   | Rule       | `feedback`  | `<condition>: <imperative>`         | Why, How to apply, `Not:` |
+|  [02]   | Profile    | `user`      | Trait in the scope the owner stated | Work it changes           |
+|  [03]   | Decision   | `project`   | `<choice>` by decider and date      | Why, `Holds until:`       |
+|  [04]   | Fact sheet | `reference` | Answer most requests need           | Groups in work order      |
+|  [05]   | Pointer    | `reference` | Location and what it holds          | When to open it           |
 
 Kinds draw from one set of parts, and content decides which appear:
 - Leads stand alone, each later line narrows or proves its lead, and a one-line rule with nothing to add is complete
 - Why names an incident, constraint, or mechanism the lead lacks, and a Why restating the rule or the owner's authority goes
 - `Not: <wrong> -> <right>` lines appear once a mistake recurs under the rule, at most 2, ending on the right form
+- `Holds until:` names the unlock, expiry, or owner go-ahead ending a decision, or reads `standing`
 - Bodies hold current understanding rewritten in place, facts name their subject over a pronoun, and a dead end reads `<form> fails because <cause>`
+- Type changes recall in selector mode alone: its prompt holds `[user]` and `[project]` files to requests about them, so a rule saved as `feedback` draws more
 
 ## [04]-[BOUNDARIES]
 
-Files hold one load set, the facts one kind of request needs together:
-- Merge: files loaded together for each other's requests become one, as each spends one of 5 selector slots
-- Split: facts serving disjoint requests, or a file past 4096 bytes, part at a subject (app, tool, decision), never a phase or numbered part
-- Homes: each fact sits in the narrowest file serving it, and others link `[[<slug>]]` with a clause naming what that file holds
+Files hold one subject, and each fact lives in the narrowest file serving it:
+- Subjects name a thing in the field (an app's runtime, a decision, a resource), never a method of finding things (tooling, notes, reads)
+- Homes: a fact stated twice keeps one home, and the other file links `[[<slug>]]` with a clause naming what that file holds
+- Merge: files co-loading on most of each other's should-load requests in `[07]` hold one subject
+- Split: facts serving disjoint requests part at a subject into named siblings, never numbered parts, and a file past 4096 bytes splits or trims
 - Stems: `<field>-<subject>[-<facet>]` equal to `name`, siblings sharing facets, cross-field rules named as the rule, no type, date, or status
+- Routing: knowledge one kind of task uses alone belongs in that task's skill reference or a path-scoped `.claude/rules/` file, moved with the owner's approval
 
-## [05]-[INDEX]
+## [05]-[DESCRIPTIONS]
 
-`MEMORY.md` derives whole from the files and regenerates after every create, edit, merge, split, rename, or delete, so a hand-edited line never drifts from its file and every rebuild yields the same index:
-- Lines: `- [<Title>](<file>) — <hook>` at most 150 characters, one per file, the title spelling the stem in words
-- Groups: `## Rules`, `## Profile`, `## Decisions`, `## Reference` from `metadata.type`, in that order, lines sorted by stem so field stems cluster
-- Hooks compress the lead line in request words: a rule's condition and imperative, a decision's state, a fact sheet's questions, a pointer's location
+Descriptions state which situations need the file in one line of at most 150 characters, the situation inside the first 90, as the harness's fallback index keeps about that much after the link:
+1. Requests: 3 should-load requests as the owner types them (direct, symptom, need unnamed), 3 near misses naming the sibling owning each
+2. Near miss: a request stays a near miss only when no fact in the body changes its answer, else it is a should-load
+3. Rules: should-load requests for a `feedback` or `user` file ask what its index line cannot settle, as the line itself carries the rule
+4. Situation: open with the act or question every should-load request shares, in request words (verb, tool, error text)
+5. Bound: state how the file differs from its nearest sibling, the term a near miss lacks (host, scope, identifier)
+6. Gist: close with what the file gives, and a rule's imperative itself, as the index line acts without opening the file
+7. Strip: values, counts, history, keyword lists, owner framing (`Owner runs <X>`), and words any session matches (`work`, `status`, `notes`)
+8. Prove: the requests form the file's recall test, stored by the reference that wrote them
 
-## [06]-[DESCRIPTIONS]
+Index proxy runs over a live folder measured the form (tried 2026-11-26): description lines opened near misses 20 of 108 times against 41 for compressed hooks, with every should-load request opened.
 
-Descriptions predict which requests need the file, and selector runs over a real folder showed situation-and-bound lines drawing no near-miss load in 15 runs against 14 of 21 for keyword, label, or abstract lines, a specific stem or description loading a file alone, and owner framing loading near misses sharing its noun (tried 2026-11-25):
-1. Requests: 3 should-load requests as the owner types them (direct, symptom, need unnamed), and 3 near misses from sibling files
-2. Situation: open with the act or question every should-load request shares, in request words (verb, tool, error text)
-3. Bound: add the term separating should-load from near misses (host, scope, identifier, phase), as field words alone draw the whole field
-4. Gist: close with what the file gives (the rule, a decision and its state, the questions a fact sheet answers)
-5. Strip: delete stem words, values, counts, history, and words any session matches (`work`, `status`, `notes`), and fit 25 words, 30 at most
-6. Prove: run `[08]`, a missed load adding the request's own term and a near-miss load losing the word it matched
-
-## [07]-[EVIDENCE]
+## [06]-[EVIDENCE]
 
 Every fact ends with one mark, and a mark opening a group covers each line under it:
-- `(tried YYYY-MM-DD)` ran and seen, naming the command or observation where the line lacks it
-- `(sourced: <path[:line] | URL@version>)` read from a file, doc, binary, or package, rechecked when that version moves
+- `(tried YYYY-MM-DD)` ran and seen, naming the command, and the build for host behavior
+- `(sourced: <path[:line] | URL@version>)` read from a file, doc, binary, or package at the version an evaluate pass rechecks
 - `(stated YYYY-MM-DD)` the owner said it, or `(stated by YYYY-MM-DD, file birth time)` when the day is lost
 - `Inferred:` opens the writer's own conclusion, holds no mark, and names what would settle it
 - Scope stays at its evidence: one request reads `the owner asked for <X> on <task>`, and a standing preference needs the owner's default wording
+- Cautions name the cause they guard against, so a reader tests whether it still holds
 - Owner statements change by a later owner statement alone, newer evidence replaces a value in place, and `CLAUDE.md` wins a contradiction
-- Claims repeated across sessions count once, and claims with no later correction become `Conflict: <A> (<mark>) vs <B> (<mark>)` for the owner
+- Claims disagreeing with no later correction go to the owner through `AskUserQuestion` when found
 
-## [08]-[CHECK]
+## [07]-[INDEX_AND_PROOF]
 
-Checks run each request 3 times from `$TMPDIR` against the folder as it stands: the selector check replays the installed selector prompt and passes at 3 of 3 loads per should-load request and 0 of 3 per near miss, and the index check, a proxy for the session model reading `MEMORY.md`, passes when the file is named for each should-load request its hook leaves open and for no near miss:
-
-```bash
-strings -n 8 "$(readlink -f "$(command -v claude)")" | sed -n '/^You are selecting memories/,/selected_memories": \[/p' > <scratch>/selector.txt
-for f in $(ls -t <memory-dir>/*.md | rg -v '/MEMORY\.md$' | head -200); do printf -- '- [%s] %s (%s): %s\n' "$(yq --front-matter=extract '.metadata.type' "$f")" "$(basename "$f")" "$(date -u -r "$f" +%FT%TZ)" "$(yq --front-matter=extract '.description' "$f")"; done > <scratch>/manifest.txt
-printf 'Available memories:\n%s\n\nSelect memories relevant to:\n%s\n' "$(cat <scratch>/manifest.txt)" '<request>' | CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 claude -p --model sonnet --system-prompt "$(cat <scratch>/selector.txt)" --tools "" --strict-mcp-config --no-session-persistence --output-format json --json-schema '{"type":"object","properties":{"selected_memories":{"type":"array","items":{"type":"string"}}},"required":["selected_memories"]}' | jq -c '.[-1].structured_output.selected_memories'
-CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 claude -p --tools "" --strict-mcp-config --no-session-persistence --system-prompt "$(cat <memory-dir>/MEMORY.md)" 'List the memory files you would open before acting, or none: <request>'
-```
-
-## [09]-[CREATE]
-
-1. Run the candidate through `[02]`, owner steering first, then search `rg -il '<term>' <memory-dir>` for subject, synonyms, tool, and error text, a covering file moving the work to `[10]`
-2. Pick the kind `[03]`, name the file `[04]`, write lead and needed parts, and mark each fact `[07]`
-3. Derive the description `[06]` and index line `[05]` from the finished body, then run `[08]` with the draft in place
-4. Preview file, description, and index line through `AskUserQuestion` with a free-response option, then write within 4096 bytes and rebuild the index
-
-## [10]-[EDIT]
-
-1. Read the file whole, its index line, and every linker from `rg -l '\[\[<slug>\]\]' <memory-dir>`, asking once first when another session wrote it minutes ago
-2. Retest boundaries `[04]`: a merge rereads the kept file before the other goes, a rename keeps harness fields and repoints `[[<old>]]`
-3. Rebuild description and index `[05]` from the new body, rerunning `[08]` with the requests the old description served
-
-## [11]-[EVALUATE]
-
-Evaluations read `MEMORY.md` and each file whole, run `wc -c <memory-dir>/*.md` against 4096, and list unresolved links with `comm -23 <(rg -o '\[\[([^]]+)\]\]' -r '$1' -N --no-filename *.md | sort -u) <(ls *.md | sed 's/\.md$//' | sort)`. Each row passes or fails, a fail on `Admission` deletes or folds the file, and every other fail takes its fix in the same pass:
-
-| [INDEX] | [CRITERION] | [PASS]                                      | [FAIL]                                         |
-| :-----: | :---------- | :------------------------------------------ | :--------------------------------------------- |
-|  [01]   | Admission   | Every line passes `[02]`                    | Task state, a run's values, or restated source |
-|  [02]   | Kind        | One kind, lead acts alone, parts earn place | Mixed kinds, empty slots, Why restating        |
-|  [03]   | Boundary    | One load set, one home, links resolving     | Co-loads, broken link, tail past 4096 bytes    |
-|  [04]   | Recall      | Both `[08]` checks pass, hook acts unopened | Missed load, near-miss load, topic-only hook   |
-|  [05]   | Evidence    | Every fact marked, exact identifiers        | Unmarked, overclaimed, paraphrased             |
-|  [06]   | Current     | Agrees with `CLAUDE.md`, siblings, sources  | Superseded value, dead path, retired name      |
-|  [07]   | Index       | Matches a rebuild from the files by `[05]`  | Missing, stale, or hand-grouped line           |
+`scripts/index.py` derives `MEMORY.md` whole from the files, and `scripts/recall.py` proves the set reaches the right files:
+- Lines: `- [<stem>](<stem>.md) — <description>`, flat and sorted by stem, written only when the bytes change, then committed to the folder's git repository
+- Budget: the index loads 200 lines or 25,000 characters, the set stays under 160 lines and 20,000, and merges free space before trims
+- Validation: a refused file keeps its last good line, or a bare `- [<stem>](<stem>.md)` line, and the plugin reports it back to the session
+- Requests: `.recall.jsonl` rows hold `request`, `kind` (`should` or `near`), and `owner`, the stem that answers it, and the memory scan never reads them
+- Scope: a run covers rows touching files changed since git tag `recall` and their field siblings, 3 sessions each beside a no-memory baseline
+- Verdicts: hit (owner opened), miss (owner unopened), co-load (another file beside the owner), steal (another file in its place)
+- Pass: no miss and no steal, as a co-load costs one extra read and its pairs feed the `[04]` merge test

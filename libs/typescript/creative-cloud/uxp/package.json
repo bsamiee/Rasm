@@ -49,6 +49,7 @@
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@exodus/bytes": "catalog:",
+        "@rasm/applications": "workspace:*",
         "@rasm/mark": "workspace:*",
         "@rasm/mcp": "workspace:*",
         "@rasm/object-model": "workspace:*",

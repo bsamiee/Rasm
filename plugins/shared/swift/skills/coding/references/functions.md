@@ -1,60 +1,96 @@
 # [FUNCTIONS]
 
-## [01]-[EFFECT_ANNOTATIONS]
+## [01]-[CLOSURE_PARAMETERS]
 
-Closure parameters take the fewest annotations their use requires, and callers pass the most closures:
+Closure parameters take the annotations the place their callee runs them demands. Root `Package.swift` enables `NonisolatedNonsendingByDefault`, so a nonisolated async function runs on its caller's actor:
+
+| [INDEX] | [CALLEE_RUNS_IT]                           | [ANNOTATION]                     | [SITE]                                         |
+| :-----: | :----------------------------------------- | :------------------------------- | :--------------------------------------------- |
+|  [01]   | In its own isolation before it returns     | None beyond `async`, `throws(E)` | `Watch.presenting(_:clock:_:)`, `Watch.spaced` |
+|  [02]   | Inside an actor the caller stands outside  | `@Sendable`, `Value: Sendable`   | `Watch.perform(on:_:)`                         |
+|  [03]   | In a child task, or after the call returns | `@escaping @Sendable`            | `race(_:against:)`, `Lockfile.withLocks`       |
+
+Actors owning host handles run a caller's body beside them, and only its `Sendable` result leaves:
 
 ```swift
-func measured<Value, Failure: Error, C: Clock<Duration>>(on clock: C, _ work: () async throws(Failure) -> Value) async throws(Failure) -> (value: Value, elapsed: Duration) {
-    let start = clock.now
-    return (try await work(), start.duration(to: clock.now))
+public func perform<Value: Sendable>(on ref: Int?, _ body: @Sendable (AXUIElement?) throws(ApplicationFailure) -> Value) async throws(ApplicationFailure) -> Value {
+    let element: AXUIElement? = if let ref { try await resolve(ref) } else { nil }
+    return try body(element)
 }
 ```
 
-- `Clock.measure` takes a `Void` closure and rethrows `any Error`, `measured` keeps the closure's value and error type
-- Closures run once in another isolation take `sending (T) throws(E) -> U` and capture non-`Sendable` locals the caller stops using
-- Closures stored to run where formed take `@escaping @isolated(any) @Sendable (T) async -> Void`, and holders `await` them from any isolation
-- `isolation` on an `@isolated(any)` closure names the actor it runs on
+`perform` is a `Watch` member, and `resolve(_:)` reads the element a ref names from the actor's handle table:
+- `presenting` is `nonisolated`, so its body runs on the caller's actor, holds non-`Sendable` `SCWindow` and `SCContentFilter` values, and returns an unconstrained `Value`
+- Scoped members are generic over the body's `Value` and keep its typed error, as `Clock.measure` takes a `Void` closure and rethrows untyped
+- Scopes that learn a fact return it beside the value (`(value: Value, presentation: Presentation?)`)
+- Non-`Sendable` values a callee hands to a task are `sending` parameters, and a `@Sendable` reading closure turns the host reply into a `Sendable` value inside that task (`NSAppleEventDescriptor.send(_:timeout:reading:)`)
 
 ## [02]-[FUNCTION_REFERENCES]
 
-Swift has no curried declarations, and bound methods are partial application. Receivers hold values the entry point fixes, arguments vary per call, and `catalog.price(of:)` is the function a consumer receives:
+Combinators take a named function in place of a closure literal restating one call. Swift has no curried declarations, and each form below is a function value:
 
-```swift
-func prices(of codes: [String], in catalog: Catalog) throws(OrderError) -> [Decimal] {
-    try codes.map(SKU.init).map(catalog.price(of:))
-}
-```
+| [INDEX] | [FORM]                   | [EXAMPLE]                                                                      |
+| :-----: | :----------------------- | :----------------------------------------------------------------------------- |
+|  [01]   | Case constructor         | `bundle.executableURL.map(LogEntry.Source.executable)`                         |
+|  [02]   | Generic case constructor | `failures.map(Result<Self, ProcessFailure>.failure)`                           |
+|  [03]   | Initializer by labels    | `flatMap(FourCharCode.init(sdef:))`, `outcomes.map(Exit.init)`                 |
+|  [04]   | Bound method             | `compactMap(descriptor.atIndex)`, `installed.map(report.isWritten(by:))`       |
+|  [05]   | Key path                 | `windows.map(\.windowID)`                                                      |
+|  [06]   | Case key path            | `list?.compactMap(\.element)` over a `@CasePathable @dynamicMemberLookup` enum |
 
-References keep their typed throw, and `map` keeps `OrderError` through both steps with no closure literal.
+- Case constructors state the meaning a closure body restated: `.aggregated(Reason.die)` replaced `.mapError { error in AggregateError(first: Reason.die(error)) }`, and `map(LogEntry.Source.executable)` removed a tuple subject and the arm that built or omitted the case
+- Generic case constructors name each generic argument the surrounding expression leaves open
+- `@dynamicMemberLookup` on a `@CasePathable` enum turns each case into a key path to its optional associated value, the form `compactMap` and `flatMap` take
+- Closure literals stay where the body passes a second argument or joins calls (`map { file throws(ApplicationFailure) in try LaunchAgent(file, in: url) }`)
 
 ## [03]-[PREDICATE_VALUES]
 
-Rules a consumer stores, compares, or shows are package values: `ClosedRange` or `Set` tests membership, `KeyPathComparator` orders. Rules nobody reads back are closures:
+Rules a consumer stores, prints, compares, or hands to another engine are values of the type that engine reads. Rules one call reads and nobody reads back are closures:
+
+| [INDEX] | [RULE]                       | [VALUE]                               | [READER]                                                        |
+| :-----: | :--------------------------- | :------------------------------------ | :-------------------------------------------------------------- |
+|  [01]   | Sort order                   | `KeyPathComparator`                   | `sorted(using:)`, `Hashable` and `Sendable` as `SortComparator` |
+|  [02]   | Interval over host constants | `Range<Int>` of `CGWindowLevelForKey` | `contains(_:)` at every reader of one constant                  |
+|  [03]   | Query a host engine runs     | `NSPredicate`, `NSCompoundPredicate`  | `NSMetadataQuery.predicate`, `log --predicate`, refusals        |
+|  [04]   | Test of one call             | `(T) -> Bool`                         | `DiagnosticReport.reports(where:)`                              |
+
+`Installation.search` reads the caller's predicate as a tree, removes always-true clauses before `NSMetadataQuery` runs it, and evaluates the whole predicate over running applications:
 
 ```swift
-func alarms(in readings: [Reading], outside band: ClosedRange<Int>, by order: [KeyPathComparator<Reading>]) -> [Reading] {
-    readings.filter { reading in !band.contains(reading.level) }.sorted(using: order)
+private static func metadataForm(of predicate: NSPredicate) -> NSPredicate? {
+    guard predicate != NSPredicate(value: true) else { return nil }
+    guard let compound = predicate as? NSCompoundPredicate, compound.compoundPredicateType != .not else { return predicate }
+    let clauses = compound.subpredicates.compactMap { clause in (clause as? NSPredicate).flatMap(metadataForm(of:)) }
+    return switch (compound.compoundPredicateType, clauses.count) {
+        case (.or, ..<compound.subpredicates.count), (_, 0): nil
+        case (_, 1): clauses.first
+        default: NSCompoundPredicate(type: compound.compoundPredicateType, subpredicates: clauses)
+    }
 }
 ```
 
-`band` decodes from configuration, where an inverted pair fails with `DecodingError.dataCorrupted`, and a settings view shows its bounds. `order` is `Hashable` and `Sendable`, and a view stores the user's sort and passes it unchanged.
+- Refusals print the rule a caller passed through `predicateFormat`, and `NSCompoundPredicate` joins a library's clause with the caller's
+- `NSPredicate` declares no `Sendable` conformance, so a library shared across tasks takes a `@Sendable () -> NSPredicate` factory
+- Checks run per element keep each verdict by key in a `Mutex<[String: Bool]>` in place of parsing a predicate format per element
+- One fact holds one interval: `Model.swift` and `Watch.swift` each declared a modal window band and disagreed on utility and dock windows
 
 ## [04]-[DEPENDENCIES]
 
-Libraries own their host calls and take each value an application decides as a parameter. One operation is a function value (`(Key) async throws(E) -> Item?`), and operations sharing one resource are a protocol consumed as `some Store<Item>`. Read-modify-write of one record is one requirement taking a `sending` transition closure that the conformance runs as one isolated step:
+Libraries own their host calls and take as parameters what an application decides: transport, policy, and the error type its module throws. One operation is a function value, and operations one type supplies together are a protocol:
 
-```swift
-protocol Store<Record>: Sendable {
-    associatedtype Record: Identifiable, Sendable where Record.ID: Sendable
+| [INDEX] | [CALLER_DECIDES] | [FORM]                                                       | [SITE]                                              |
+| :-----: | :--------------- | :----------------------------------------------------------- | :-------------------------------------------------- |
+|  [01]   | Transport        | `@escaping @Sendable` function values                        | `serve(reading:writing:matching:cachedDefinition:)` |
+|  [02]   | Policy           | Rule value, or a `@Sendable` factory of a non-`Sendable` one | `matching: @Sendable () -> NSPredicate`             |
+|  [03]   | Error type       | Generic `Failure` over a protocol of constructors            | `Lockfile.withLocks`, `LockFailure`                 |
+|  [04]   | Package step     | Conformance to the package's own protocol                    | `UnrecognizedValues: AccessReporter`                |
 
-    func load(_ id: Record.ID) async throws(OrderError) -> Record?
-    func update(_ id: Record.ID, by transition: sending (Record) throws(OrderError) -> Record) async throws(OrderError) -> Record
-}
+`ConfigReader(providers:accessReporter:)` takes the reporter collecting unrecognized settings at the seam `AccessLogger` and `FileAccessLogger` use. Use `generics.md` for an error type a generic library builds through requirements of the caller's error type.
 
-func debit(_ id: Account.ID, by amount: Decimal, in store: some Store<Account>) async throws(OrderError) -> Account {
-    try await store.update(id) { account throws(OrderError) in try account.debited(amount) }
-}
-```
+Function parameters that callers fill alike are the callee's own logic:
 
-`Account` is `Identifiable` and `Sendable`, and `debited(_:)` throws `OrderError`. Actors conform through synchronous methods with no suspension between read and write, and a witness narrows the requirement's error, `throws(DecodingError)` for an untyped requirement or no `throws` over infallible storage. Actor-isolated methods take no partial application, and a one-operation consumer receives a requirement bound on `some Store<Account>` (`store.load`).
+| [INDEX] | [FORM]                            | [REPLACEMENT]                                           | [SITE]                                     |
+| :-----: | :-------------------------------- | :------------------------------------------------------ | :----------------------------------------- |
+|  [01]   | Closure every caller writes alike | Callee calls the member, merging targets a split forced | `Watches(recognize:)`                      |
+|  [02]   | Closure one caller wrote          | Plain value the callee's expression reads               | `close(interrupting:)` to `close(failed:)` |
+|  [03]   | Parameter no caller sets          | Deleted with every reader                               | `serve(…extra:)` and `Call<Extra>`         |

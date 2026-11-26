@@ -31,7 +31,8 @@ struct MenuTests {
                     let opening = await watch.messages()
                     let shown: Int32? = try await watch.perform(on: region.ref) { element in element.map { element in AXUIElementPerformAction(element, kAXShowMenuAction as CFString).rawValue } }
                     let refusal: Comment = "\(kAXShowMenuAction) on the region answered AXError \(String(describing: shown))"
-                    try #require(shown == AXError.success.rawValue, refusal)
+                    let answered: Bool = shown == AXError.success.rawValue
+                    try #require(answered, refusal)
                     let opened: Int? = await opening.compactMap { (message: Watch.Message) -> Int? in
                         guard case .event(let event) = message, case .opened(let menu, .menu, _) = event.change else { return nil }
                         return menu
@@ -44,9 +45,11 @@ struct MenuTests {
                         return true
                     }
                     let first = try await watch.presenting(context) { (menus: [Container]) in menus }
-                    let arrange: Int = try #require(first.value.last?.controls.first { control in control.label?.text == "Arrange" }?.opens)
+                    let arranging: Int? = first.value.last?.controls.first { (control: Control) -> Bool in control.label?.text == "Arrange" }?.opens
+                    let arrange: Int = try #require(arranging)
                     let second = try await watch.presenting(arrange) { (menus: [Container]) in menus }
-                    let align: Int = try #require(second.value.last?.controls.first { control in control.label?.text == "Align" }?.opens)
+                    let aligning: Int? = second.value.last?.controls.first { (control: Control) -> Bool in control.label?.text == "Align" }?.opens
+                    let align: Int = try #require(aligning)
                     let third = try await watch.presenting(align) { (menus: [Container]) in menus }
                     let before: pid_t? = keyFocusProcess()
                     let popup = try await watch.presenting(pageSize.ref) { (menus: [Container]) async throws(ApplicationFailure) -> (levels: [Container], open: pid_t?, posted: Bool) in
@@ -87,17 +90,27 @@ struct MenuTests {
         expectNoDifference(behind, ["Context": true, "Arrange": true, "Align": true, "Page Size": true])
         let scale: Double = try #require(CGDisplayCopyDisplayMode(CGMainDisplayID()).map { mode in Double(mode.pixelWidth) / Double(mode.width) })
         expectNoDifference(images.map(\.size), images.map { image in CGSize(width: (image.frame.width * scale).rounded(), height: (image.frame.height * scale).rounded()) })
-        #expect(images.count == 3, "Imaging the deepest level opens three levels, one image each, and took \(images.count)")
+        let imaged: Comment = "Imaging the deepest level opens three levels, one image each, and took \(images.count)"
+        let three: Bool = images.count == 3
+        #expect(three, imaged)
         let tracked: [String: [Bool]] = Dictionary(grouping: lines.compactMap { line in line[case: \.tracking] }) { track in track.title }.mapValues { tracks in tracks.map(\.began) }
         expectNoDifference(tracked, ["Context": [true, false, true, false, true, false, true, false, true, false], "Page Size": [true, false]])
-        let balance: [String: Int] = Dictionary(lines.compactMap { line in line[case: \.menu].map { menu in (menu.title, menu.opened ? 1 : -1) } }, uniquingKeysWith: +)
+        let opens: [(String, Int)] = lines.compactMap { (line: Line) -> (String, Int)? in line[case: \.menu].map { (title: String, opened: Bool) -> (String, Int) in (title, opened ? 1 : -1) } }
+        let balance: [String: Int] = Dictionary(opens, uniquingKeysWith: +)
         expectNoDifference(balance.filter { _, open in open != 0 }, [:])
-        #expect(Set(balance.keys).isSuperset(of: ["Context", "Arrange", "Align", "Page Size"]), "The fixture logs \(balance.keys.sorted()) as opened")
+        let logged: Comment = "The fixture logs \(balance.keys.sorted()) as opened"
+        let named: Set<String> = ["Context", "Arrange", "Align", "Page Size"]
+        let covered: Bool = named.isSubset(of: Set(balance.keys))
+        #expect(covered, logged)
         #expect(!lines.contains { line in line[case: \.active] == true }, "The fixture became active")
-        #expect(focus.before != focus.fixture, "Key focus sat with the fixture, process \(focus.fixture), before its Page Size menu opened")
-        #expect(focus.open == focus.before, "Key focus moved from process \(String(describing: focus.before)) to \(String(describing: focus.open)) while the Page Size menu stayed open")
+        let held: Comment = "Key focus sat with the fixture, process \(focus.fixture), before its Page Size menu opened"
+        #expect(focus.before != focus.fixture, held)
+        let moved: Comment = "Key focus moved from process \(String(describing: focus.before)) to \(String(describing: focus.open)) while the Page Size menu stayed open"
+        let kept: Bool = focus.open == focus.before
+        #expect(kept, moved)
         expectNoDifference(chosen, .string("Tabloid"))
         let sources: [pid_t?] = lines.compactMap { line in line[case: \.key]?.sourceProcess }
-        #expect(sources.allSatisfy { source in source == getpid() }, "The fixture took keys from processes \(sources) other than this test process \(getpid())")
+        let foreign: Comment = "The fixture took keys from processes \(sources) other than this test process \(getpid())"
+        #expect(sources.allSatisfy { (source: pid_t?) -> Bool in source == getpid() }, foreign)
     }
 }

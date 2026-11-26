@@ -1,0 +1,3 @@
+{
+    "extends": "../../../libs/typescript/ai/policy/tsconfig.base.json"
+}

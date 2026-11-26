@@ -78,7 +78,6 @@ public struct Screenshot: Encodable, Sendable {
 
 private struct WindowCaptureOptions: OptionSet {
     let rawValue: UInt32
-
     static let bestResolution = Self(rawValue: 1 << 8)
     static let ignoreGlobalClipShape = Self(rawValue: 1 << 11)
 }
@@ -99,6 +98,24 @@ extension Data {
             throw ApplicationFailure(subject: "\(count) bytes", reason: .noImage)
         }
         return image
+    }
+}
+
+@_silgen_name("CGSHWCaptureWindowList")
+private func captureWindowList(_: Int32, _: UnsafePointer<UInt32>, _: Int32, _: WindowCaptureOptions) -> CFArray?
+
+extension SCWindow {
+    func captureBackingStore(_ configuration: SCScreenshotConfiguration) -> CGImage? {
+        guard let backing = (unsafe captureWindowList(mainConnection(), [windowID], 1, [.ignoreGlobalClipShape, .bestResolution]) as? [CGImage])?.first,
+            let cropped = backing.cropping(to: configuration.sourceRect.applying(CGAffineTransform(scaleX: CGFloat(backing.width) / frame.width, y: CGFloat(backing.height) / frame.height)))
+        else { return nil }
+        let scale = CGAffineTransform(scaleX: CGFloat(configuration.width) / CGFloat(cropped.width), y: CGFloat(configuration.height) / CGFloat(cropped.height))
+        return rendering.createCGImage(
+            CIImage(cgImage: cropped).transformed(by: scale, highQualityDownsample: true),
+            from: CGRect(x: 0, y: 0, width: configuration.width, height: configuration.height),
+            format: .RGBA8,
+            colorSpace: cropped.colorSpace,
+        )
     }
 }
 
@@ -168,31 +185,16 @@ extension Instance {
                         let (filter, area, width, height, frame, windows, _) = try framing.get()
                         let numbers: [CGWindowID] = windows.map(\.windowID)
                         let subject: String = numbers.map { (number: CGWindowID) -> String in String(number) }.joined(separator: ",")
-                        let stored: SCWindow? = windows.count == 1 ? windows.first { (window: SCWindow) -> Bool in !window.isOnScreen } : nil
-                        let image: CGImage?
-                        if let window = stored {
-                            image = (unsafe captureWindowList(mainConnection(), [window.windowID], 1, [.ignoreGlobalClipShape, .bestResolution]) as? [CGImage])?.first
-                                .flatMap { (backing: CGImage) -> CGImage? in
-                                    backing.cropping(to: area.applying(CGAffineTransform(scaleX: CGFloat(backing.width) / window.frame.width, y: CGFloat(backing.height) / window.frame.height)))
-                                }
-                                .flatMap { (cropped: CGImage) -> CGImage? in
-                                    rendering.createCGImage(
-                                        CIImage(cgImage: cropped).transformed(by: CGAffineTransform(scaleX: CGFloat(width) / CGFloat(cropped.width), y: CGFloat(height) / CGFloat(cropped.height)), highQualityDownsample: true),
-                                        from: CGRect(x: 0, y: 0, width: width, height: height),
-                                        format: .RGBA8,
-                                        colorSpace: cropped.colorSpace,
-                                    )
-                                }
-                        } else {
-                            let configuration = SCScreenshotConfiguration()
-                            (configuration.showsCursor, configuration.ignoreShadows, configuration.sourceRect, configuration.width, configuration.height) = (false, true, area, width, height)
-                            do { image = try await SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: configuration).sdrImage } catch {
-                                throw ApplicationFailure(subject: subject, reason: .foundation(error as NSError))
-                            }
-                        }
-                        guard let image else { throw ApplicationFailure(subject: subject, reason: .noImage) }
+                        let offScreen: SCWindow? = windows.count == 1 ? windows.first { (window: SCWindow) -> Bool in !window.isOnScreen } : nil
+                        let configuration = SCScreenshotConfiguration()
+                        (configuration.showsCursor, configuration.ignoreShadows, configuration.sourceRect, configuration.width, configuration.height) = (false, true, area, width, height)
+                        let captured: SCScreenshotOutput? =
+                            try await offScreen == nil
+                            ? Result { () async throws -> SCScreenshotOutput in try await SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: configuration) }
+                                .mapError { (error: any Error) -> ApplicationFailure in ApplicationFailure(subject: subject, reason: .foundation(error as NSError)) }.get() : nil
+                        guard let image = captured?.sdrImage ?? offScreen?.captureBackingStore(configuration) else { throw ApplicationFailure(subject: subject, reason: .noImage) }
                         let document: URL? = numbers.lazy.compactMap { (number: CGWindowID) -> URL? in documents[number] }.first
-                        return Screenshot(image: image, frame: frame, windows: numbers, backingStore: stored != nil, document: document, presentation: nil)
+                        return Screenshot(image: image, frame: frame, windows: numbers, backingStore: offScreen != nil, document: document, presentation: nil)
                     }
                 )
             }
@@ -207,6 +209,3 @@ extension Instance {
         }
     }
 }
-
-@_silgen_name("CGSHWCaptureWindowList")
-private func captureWindowList(_: Int32, _: UnsafePointer<UInt32>, _: Int32, _: WindowCaptureOptions) -> CFArray?

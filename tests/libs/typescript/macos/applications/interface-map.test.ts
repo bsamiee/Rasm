@@ -4,9 +4,9 @@ import { assert, describe, it } from '@effect/vitest';
 import { InterfaceMap, Observation } from '@rasm/applications';
 import { Catalog } from '@rasm/database';
 import { Sqlite } from '@rasm/database/sqlite';
-import { Array, DateTime, Effect, FileSystem, Layer, Option, Predicate, Record, Schema, Struct } from 'effect';
+import { Array, DateTime, Duration, Effect, FileSystem, Layer, Option, Predicate, Record, Schema, Struct } from 'effect';
 import { SqlClient } from 'effect/sql';
-import { TestConsole } from 'effect/testing';
+import { TestClock, TestConsole } from 'effect/testing';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -171,7 +171,7 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
                 ),
             },
             layout: {},
-            values: { [TOGGLE]: toggle, [NOTE]: `Saved by ${user} in ${home}/Briefs/${name}` },
+            values: { [TOGGLE]: toggle },
         };
     };
     const level = (read: number, at: number): typeof Observation.Encoded => ({
@@ -218,11 +218,13 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
     return { user: { username: user, homedir: home }, stem, readings, present, generation, build, observation, level, submenu, opener, oracle, stored: (index: number) => JSON.stringify(['AXButton', `Item ${index} of ${PRIVATE}`]), window: JSON.stringify(['AXWindow', PRIVATE]) };
 };
 
+const stored = (locator: string) => Effect.flatMap(SqlClient.SqlClient, (sql) => sql`SELECT body ->> '$.container.tally.last' AS last FROM containers WHERE locator = ${locator}`);
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe(InterfaceMap, () => {
     it.effect.prop(
-        'keeps what each read showed, retires only what the rule names, holds a returning entry persistent, and stores no document name, user name, or text value',
+        'keeps what each read showed, retires only what the rule names, holds a returning entry persistent, and stores no document name or user name',
         Truth,
         Effect.fnUntraced(function* (truth) {
             const world = app(truth);
@@ -280,7 +282,6 @@ describe(InterfaceMap, () => {
             assert.include(written, PRIVATE);
             assert.notInclude(written, world.user.username);
             assert.notInclude(written, world.stem);
-            assert.isTrue(Option.isNone(controls[NOTE]?.value ?? Option.none()), 'a text value is never stored');
             const opening = yield* Schema.decodeEffect(Observation)(world.submenu(0));
             const menus = yield* Effect.forEach(world.readings, (read) => Effect.all([Schema.decodeEffect(Observation)(world.level(read, read)), Schema.decodeEffect(Observation)(world.level(read, read + 0.5))]));
             const leveled = menus.reduce((map, [first, again], read) => {
@@ -315,6 +316,33 @@ describe(InterfaceMap, () => {
             const read = yield* Effect.scoped(Effect.flatMap(InterfaceMap.open('com.adobe.InDesign', 'en'), ({ present }) => present)).pipe(Effect.provide(Layer.fresh(opened)));
             assert.deepStrictEqual(Record.keys(written.containers).toSorted(), [DIALOG, LAYOUT].toSorted());
             assert.deepStrictEqual(read, written);
+        }, Effect.provide(services)),
+    );
+
+    it.effect(
+        'writes a re-read that changes only when the container was read at close, and leaves the opener unwritten when a reopening finds its link held',
+        Effect.fnUntraced(function* () {
+            const [opened, observed] = yield* Effect.all([store, newDocument]);
+            const again = observed.map((read) => ({ ...read, at: DateTime.add(read.at, { minutes: 1 }) }));
+            const reopening = Array.drop(observed, 1).map((read) => ({ ...read, opened: DateTime.add(read.at, { minutes: 2 }), at: DateTime.add(read.at, { minutes: 2 }) }));
+            const between = yield* Effect.scoped(
+                Effect.gen(function* () {
+                    const map = yield* InterfaceMap.open('com.adobe.InDesign', 'en');
+                    yield* Effect.forEach(observed, map.observe);
+                    yield* TestClock.adjust(Duration.seconds(2));
+                    yield* Effect.forEach(again, map.observe);
+                    yield* TestClock.adjust(Duration.seconds(2));
+                    const [layoutRead, dialogRead, linked] = yield* Effect.all([stored(LAYOUT), stored(DIALOG), map.present]);
+                    yield* Effect.forEach(reopening, map.observe);
+                    const reopened = yield* map.present;
+                    return { layout: layoutRead, dialog: dialogRead, opener: linked.containers[LAYOUT], held: reopened.containers[LAYOUT] };
+                }),
+            ).pipe(Effect.provide(opened));
+            const closed = yield* Effect.all({ layout: stored(LAYOUT), dialog: stored(DIALOG) }).pipe(Effect.provide(Layer.fresh(opened)));
+            assert.deepStrictEqual({ layout: between.layout, dialog: between.dialog }, { layout: [{ last: instant(0) }], dialog: [{ last: instant(1) }] }, 'a re-read in the same opening with the same shape waits for close');
+            assert.deepStrictEqual(closed, { layout: [{ last: instant(1) }], dialog: [{ last: instant(3) }] }, 'closing writes the last read of every container');
+            assert.deepStrictEqual(between.opener?.controls[NEW]?.opens, Option.some(DIALOG), 'the opener links the dialog it opened');
+            assert.strictEqual(between.held, between.opener, 'a reopening whose opener already links it leaves the opener as it was');
         }, Effect.provide(services)),
     );
 
