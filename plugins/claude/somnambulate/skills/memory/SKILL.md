@@ -33,15 +33,13 @@ Claude Code recalls memory in an index mode or a selector mode, and every file s
 
 Each candidate line passes every test in order, and the first failure sends it to the home in its row:
 
-| [INDEX] | [TEST]     | [QUESTION]                                                       | [ON_FAIL]                                         |
-| :-----: | :--------- | :--------------------------------------------------------------- | :------------------------------------------------ |
-|  [01]   | Derivable  | One read of a tool, doc, skill, or file tracked in a named repo  | Delete, keeping incidents of it broken            |
-|  [02]   | Durable    | Matters a week from now, in a session on another task            | Task list, plan, commit body                      |
-|  [03]   | Acting     | Names the future action it changes, in one clause                | Delete                                            |
-|  [04]   | Procedure  | Holds ordered steps a skill runs                                 | Skill running them, a correction staying here too |
-|  [05]   | Checked-in | States a convention a tool or teammate reads from the repository | Owning repository file, via the owner             |
-|  [06]   | Evidenced  | Comes from the owner, a run, or a source read                    | Verify first, or delete                           |
-|  [07]   | Home       | Belongs to no existing general or specific memory                | Memory `[04]` places it in, edited in place       |
+| [INDEX] | [TEST]    | [QUESTION]                                                      | [ON_FAIL]                                   |
+| :-----: | :-------- | :-------------------------------------------------------------- | :------------------------------------------ |
+|  [01]   | Derivable | One read of a tool, doc, skill, or file tracked in a named repo | Delete, keeping incidents of it broken      |
+|  [02]   | Durable   | Matters a week from now, in a session on another task           | Task list, plan, commit body                |
+|  [03]   | Acting    | Names the future action it changes, in one clause               | Delete                                      |
+|  [04]   | Evidenced | Comes from the owner, a run, or a source read                   | Verify first, or delete                     |
+|  [05]   | Home      | Belongs to no existing general or specific memory               | Memory `[04]` places it in, edited in place |
 
 Named repositories are this one and those `CLAUDE.md` names, and untracked or git-excluded folders count as no source. Lines whose clauses take different verdicts split into one line per clause before the tests run. Status, progress, completed work, open-probe lists, plans no owner decided, values one run printed, rules drawn from one such value, and conclusions no run confirmed fail `[02]` in any wording.
 
@@ -49,13 +47,13 @@ Named repositories are this one and those `CLAUDE.md` names, and untracked or gi
 
 Kind follows what the knowledge is, and its lead line is the text the description compresses:
 
-| [INDEX] | [KIND]     | [TYPE]      | [LEAD_LINE]                         | [PARTS]                   |
-| :-----: | :--------- | :---------- | :---------------------------------- | :------------------------ |
-|  [01]   | Rule       | `feedback`  | `<condition>: <imperative>`         | Why, How to apply, `Not:` |
-|  [02]   | Profile    | `user`      | Trait in the scope the owner stated | Work it changes           |
-|  [03]   | Decision   | `project`   | `<choice>` by decider and date      | Why, `Holds until:`       |
-|  [04]   | Fact sheet | `reference` | Answer most requests need           | Groups in work order      |
-|  [05]   | Pointer    | `reference` | Location and what it holds          | When to open it           |
+| [INDEX] | [KIND]     | [TYPE]      | [LEAD_LINE]                       | [PARTS]                   |
+| :-----: | :--------- | :---------- | :-------------------------------- | :------------------------ |
+|  [01]   | Rule       | `feedback`  | `<condition>: <imperative>`       | Why, How to apply, `Not:` |
+|  [02]   | Profile    | `user`      | Trait in the scope the owner gave | Work it changes           |
+|  [03]   | Decision   | `project`   | `<choice>` and its date           | Why, `Holds until:`       |
+|  [04]   | Fact sheet | `reference` | Answer most requests need         | Groups in work order      |
+|  [05]   | Pointer    | `reference` | Location and what it holds        | When to open it           |
 
 Kinds draw from one set of parts, and content decides which appear:
 - Leads stand alone, each later line narrows or proves its lead, and a one-line rule with nothing to add is complete
@@ -112,7 +110,6 @@ Each part of a stem keeps one meaning across the set:
 - Merge: files whose requests each need the other's body hold one subject
 - Split: facts serving disjoint requests part at a subject or concern into named files, never numbered, and a file past 4096 bytes splits or trims
 - Fold: a specific memory holding nothing its general memory lacks folds into it, and a general memory serving one specific memory folds back
-- Routing: knowledge one kind of task uses alone moves, on owner approval, to that task's skill or a path-scoped rule, staying while none exists
 
 ## [05]-[DESCRIPTIONS]
 
@@ -131,15 +128,13 @@ Rule lines carrying the imperative alone drew most misses of a full replay, as e
 
 ## [06]-[EVIDENCE]
 
-Every fact ends with one mark, a mark opening a group covers each unmarked line under it, and a lead's mark covers the lead alone:
+Facts from a run or a source end with one mark, and a mark opening a group covers each unmarked line under it, while the owner's facts carry none:
 - `(tried YYYY-MM-DD)` ran and seen, naming the command and the build for host behavior, a recheck on a newer build moving both, `tried by` with file birth time
 - `(sourced: <path[:line] | URL@version>)` read from a tracked file, doc, binary, or package at the version an evaluate pass rechecks
-- `(stated YYYY-MM-DD)` the owner said it, listing each date of statements joined into one rule, or `(stated by YYYY-MM-DD, file birth time)` when the day is lost
 - Host facts tried on an older build than the installed one, or on no named build, stay until an evaluate pass rechecks them by a static read
 - `Inferred:` opens the writer's own conclusion, holds no mark, and names what would settle it
-- Scope stays at its evidence: one request reads `the owner asked for <X> on <task>`, and a standing preference needs the owner's default wording
+- Scope stays at its evidence: one request on one task stays that task's, never a standing preference
 - Cautions name the cause they guard against, so a reader tests whether it still holds
-- Owner statements change by a later owner statement alone and keep their wording where they move, a clause for a general splitting out on approval
 - Newer evidence replaces a value in place, and `CLAUDE.md` or a loaded skill wins a contradiction until evidence corrects that file
 - Claims disagreeing with no later correction go to the owner through `AskUserQuestion` when found
 

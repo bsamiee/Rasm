@@ -5,8 +5,8 @@ metadata:
   type: feedback
 ---
 
-Committing: sign every commit with the SSH key `~/.ssh/signing_ed25519` (stated 2026-11-12)
+Committing: sign every commit with the SSH key `~/.ssh/signing_ed25519`
 
 **Why:** the main branch refuses unsigned commits at push
-- CI bot commits stay unsigned, as the bot holds no key (stated 2026-11-12)
+- CI bot commits stay unsigned, as the bot holds no key
 - `git log --show-signature -1` confirms a signature (tried 2026-11-12)

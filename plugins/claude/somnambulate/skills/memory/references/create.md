@@ -10,7 +10,7 @@ Moments that produce a memory, owner steering first:
 - Finding: an investigation overturns an assumption, a source, or planned work, beyond this session
 - Location: an outside resource (dashboard, ticket, runbook page, account) the work keeps reaching for
 
-Each moment yields candidate lines in the owner's wording where it sets scope, and the tests of `SKILL.md` `[02]` decide which survive.
+Each moment yields candidate lines, and the tests of `SKILL.md` `[02]` decide which survive.
 
 ## [02]-[PLACEMENT]
 

@@ -6,16 +6,16 @@ Edits improve one existing memory, and its general memory when a new fact belong
 
 Requests name the change, and an edit makes that change alone, so a sharpen request rewrites lines and adds none:
 
-| [INDEX] | [CHANGE] | [TRIGGER]                                     | [FORM]                                                              |
-| :-----: | :------- | :-------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | Extend   | New fact on the subject passes admission      | One marked bullet in its group, ordered by request need             |
-|  [02]   | Update   | Version, path, state, or value moved          | Value replaced in place with its new mark, no history line          |
-|  [03]   | Correct  | Run, source, or owner proves a line wrong     | Line rewritten from that evidence, owner lines by `SKILL.md` `[06]` |
-|  [04]   | Sharpen  | Rule restated, or its mistake recurring       | One rewritten lead, a `Not:` line on recurrence                     |
-|  [05]   | Refine   | Lead buried, parts missing, pronoun subject   | Lines reordered and rewritten to their kind in `SKILL.md` `[03]`    |
-|  [06]   | Rescope  | Evidence widens or narrows where a fact holds | Condition, trigger, or `Holds until:` rewritten                     |
-|  [07]   | Retire   | Fact failing admission or no longer true      | Line deleted with its links and the rows it alone answered          |
-|  [08]   | Relink   | Link bare, broken, or restating its target    | Clause rebuilt by `[04]`                                            |
+| [INDEX] | [CHANGE] | [TRIGGER]                                     | [FORM]                                                           |
+| :-----: | :------- | :-------------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | Extend   | New fact on the subject passes admission      | One marked bullet in its group, ordered by request need          |
+|  [02]   | Update   | Version, path, state, or value moved          | Value replaced in place with its new mark, no history line       |
+|  [03]   | Correct  | Run, source, or owner proves a line wrong     | Line rewritten from that evidence                                |
+|  [04]   | Sharpen  | Rule restated, or its mistake recurring       | One rewritten lead, a `Not:` line on recurrence                  |
+|  [05]   | Refine   | Lead buried, parts missing, pronoun subject   | Lines reordered and rewritten to their kind in `SKILL.md` `[03]` |
+|  [06]   | Rescope  | Evidence widens or narrows where a fact holds | Condition, trigger, or `Holds until:` rewritten                  |
+|  [07]   | Retire   | Fact failing admission or no longer true      | Line deleted with its links and the rows it alone answered       |
+|  [08]   | Relink   | Link bare, broken, or restating its target    | Clause rebuilt by `[04]`                                         |
 
 ## [02]-[PLACEMENT]
 

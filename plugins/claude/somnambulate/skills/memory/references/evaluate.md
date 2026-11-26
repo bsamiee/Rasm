@@ -55,9 +55,9 @@ Rebuilds run raw content before judgment and general memories before specifics, 
 2. Ledger: every fact line of each cluster member copied verbatim to `<scratch>/ledger/<cluster>.md` before any rewrite, split per clause by `SKILL.md` `[02]`
 3. Rows: one per line, holding source `<file>:<line>`, mark, identifiers, and the requests it answers
 4. Tests: each row through `SKILL.md` `[02]` in order, recording its first failed test and that test's home
-5. Toss: rows failing with no home are deleted, and rows with a home outside memory join the plan as routes
+5. Toss: rows failing a test are deleted, and rows another memory holds join it
 6. Evidence: each kept row's mark checked by `SKILL.md` `[06]`, sourced versions against installed ones, claims against `CLAUDE.md`
-7. Duplicates: rows stating one fact become one, with the strongest mark, the newest evidence, and owner wording where it sets scope
+7. Duplicates: rows stating one fact become one, with the strongest mark and the newest evidence
 8. Sort: rows more than one member states, or true of every member and needed by more than one, go general, and the rest stay with their member
 9. Plan: clusters, general stems by `[05]`, per-file verdicts by `[04]`, deletions, and renames, approved at `[07]` before any write
 10. General: written first by `SKILL.md` `[03]` and `[04]`, its lead the shared answer most requests need
@@ -69,7 +69,7 @@ Rebuilds run raw content before judgment and general memories before specifics, 
 16. Refusal: a refused pull means another session wrote, so the clone rebases on it, rereads the new commits, and reruns step 14
 17. Final: the `[08]` report, tag `evaluate-<YYYYMMDDTHHMMZ>`, and clone and ledgers deleted
 
-Extraction deletes absorbed rows in the same pass, as a general memory beside unchanged specifics states every fact twice. Owner-stated rows keep their wording wherever they move.
+Extraction deletes absorbed rows in the same pass, as a general memory beside unchanged specifics states every fact twice.
 
 ## [04]-[MOVES]
 
@@ -83,7 +83,6 @@ Structural moves follow from the ledger, never from stem resemblance:
 |  [04]   | Split   | One file's kept rows answering disjoint groups   | Parts at a subject, each with own stem, description, and rows   |
 |  [05]   | Rename  | Stem misnaming kept content, or failing `[05]`   | New stem, harness fields kept, links and row owners repointed   |
 |  [06]   | Delete  | No row kept, or every row moved                  | File deleted, links repointed or removed, rows moved or deleted |
-|  [07]   | Route   | Rows one kind of task alone uses                 | Skill reference or path-scoped rule, after owner approval       |
 
 Harness fields of a merge come from the file whose stem survives, else from the largest source. Renames apply last, once `git -C <memory-dir> log --since=1.hour --format='%(trailers:key=Session,valueonly)'` names no other session, as running sessions keep their old index by `SKILL.md` `[01]`.
 
@@ -111,8 +110,8 @@ Sets hold together while each of these stays true after a pass:
 Owner decisions go through `AskUserQuestion`, each question explaining its options and offering a free response:
 - Plan: clusters, each general's stem and outline, per-file verdicts, and every deletion, merge, and rename
 - Generals: each new general memory before it is written, previewing body, description, and requests
-- Owner statements: deleting one, changing its wording, or choosing between statements that disagree
-- Routes and renames: moving a file out of memory, or renaming a stem the owner chose
+- Contradictions: choosing between owner statements that disagree
+- Renames: a stem the owner chose
 - Headless: a session without `AskUserQuestion` writes the report with every preview and changes nothing until the owner asks
 
 Passes the owner limits to a report run steps 1 to 8 in the clone, return nothing, and set no tag.
