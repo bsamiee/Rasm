@@ -161,6 +161,7 @@ Sections follow work or dependency order under `## [NN]-[NOUN]` headings without
 - List items share one grammatical form and follow their lead-in colon without a blank line
 - Items under an uppercase label hold the sentences the label needs
 - Files open with one `# [TOKEN]`; `##` numbers start at `[01]` in file order and `###` restart under each `##`
+- Headings holding one code span alone name a symbol and take no number or label
 - Labels close with `:` before their list or table, entry leaders are `[NN]-[TOKEN]:` chains
 - Link cards number from `[01]` among sibling entries, the file stem as their token
 - One blank line follows a heading or surrounds a table, at most one separates other blocks, none ends a line or the file

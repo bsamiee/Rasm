@@ -263,7 +263,8 @@ def _excess_rows(doc: _Doc[SyntaxTreeNode], table: SyntaxTreeNode) -> list[int]:
 
 def _headings(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
     h2 = h3 = 0
-    for heading, span in _mapped((node for node in doc.nodes[0].children if node.tag in {"h2", "h3"} and any(inline.content for inline in node.children)), "heading"):
+    numbered = (node for node in doc.nodes[0].children if node.tag in {"h2", "h3"} and [child.type for inline in node.children for child in inline.children] not in ([], ["code_inline"]))
+    for heading, span in _mapped(numbered, "heading"):
         h2, h3 = (h2 + 1, 0) if heading.tag == "h2" else (h2, h3 + 1)
         title = regex.sub(r"^\[[\d.]+\]-", "", "".join(inline.content for inline in heading.children))
         labels = title if any(node.type in {"link", "image"} for node in heading.walk()) else "-".join(_LABEL.findall(title) or [_label(title)])
