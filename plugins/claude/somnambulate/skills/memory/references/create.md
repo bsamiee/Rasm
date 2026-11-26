@@ -39,21 +39,21 @@ Lines from one moment often split across rows, and each row runs its own work:
 5. Pick each new file's kind and type by `SKILL.md` `[03]` and its stem by `SKILL.md` `[04]`, as a general or specific name of its field
 6. Write a new general memory first: a lead naming the concern, then the lines true of every subject under it, each marked by `SKILL.md` `[06]`
 7. Write each specific memory with its own subject's lines alone, none of its general memory's, and the link clause `SKILL.md` `[04]` places
-8. Write 3 should-load requests and 3 near misses per new file by `SKILL.md` `[05]`, then the description from them
+8. Write 3 should-load requests per new file by `SKILL.md` `[05]`, then the description from them
 9. Apply `SKILL.md` `[04]` merge and split to the requests: all needing a sibling's body fold the file into it, no shared situation splits it
 10. Clone with `git clone -q <memory-dir> <scratch>/memory`, write the files, link clauses, and rows there, and run `scripts/recall.py <scratch>/memory`
-11. Rewrite until no miss or steal: a miss changes the description's situation, a steal or broad file moves the shared line to its general memory
+11. Rewrite until each row scores higher with memory: an unopened file changes the description's situation, a wrong reply the body's line
 12. Preview each new file's body, description, and requests, and each added link clause, through `AskUserQuestion` with a free-response option
 13. In a session without `AskUserQuestion`, write only on the owner's own request with the preview in the reply, else reply with the preview alone
 14. Return to step 10 when the owner changes a description or moves a line, as the proof covers what the owner approves
 15. Write the accepted general memory, then its specific memories, with Write, and add the link clauses to existing files with Edit
-16. Append each file's rows to `<memory-dir>/.recall.jsonl`, repoint sibling near rows the new file now owns, and delete the scratch clone
+16. Append each file's rows to `<memory-dir>/.recall.jsonl`, repoint sibling rows whose answer the new file now holds, and delete the scratch clone
 17. Fix each refusal the plugin reports after a write before the work ends
 
-Requests carry the defects the recall measurement found:
-- Rule files: should-load requests ask what the index line cannot settle, by `SKILL.md` `[05]` items 8 and 9
-- General memories: near misses name the specific memories owning subject-only requests, catching a general memory opening for one subject
-- Specific memories: near misses name the general memory and nearest sibling, whose requests run in the proof through the new near rows
+Requests test what each layer must deliver:
+- Rule files: should-load requests ask what the index line cannot settle, by `SKILL.md` `[05]` items 7 and 8
+- General memories: rows ask through one subject a question only the general answers, so the proof scores the link clause a session follows
+- Specific memories: rows ask what the subject's own facts answer
 
 ## [04]-[ANTI_PATTERNS]
 
@@ -67,7 +67,7 @@ Created files go wrong in these forms:
 |  [04]   | General memory over one subject                                  | Lines in that subject's specific memory until a second one |
 |  [05]   | One file per line of one subject                                 | One specific memory holding every line of its subject      |
 |  [06]   | File of unrelated lines under a method name (`notes`, `tooling`) | Each line in the memory of its subject                     |
-|  [07]   | Description reworded to stop a co-load or broad opening          | Shared line moved into its general memory                  |
+|  [07]   | Description reworded so a shared line's requests open one file   | Shared line moved into its general memory                  |
 
 ## [05]-[FIRST_WRITE]
 

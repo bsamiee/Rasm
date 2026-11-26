@@ -35,7 +35,7 @@ General facts sit in one file and reach specific memories through their link cla
 - Values of one shared concern differing by subject (a log folder per app) sit in each subject's specific memory, the general holding the `<placeholder>` rule
 - Values a request reaches through one subject alone stay in that subject's file
 - Specific memories stay silent on what their general memory holds: a line restating it goes, and one link clause names what the general memory holds
-- General memories state facts in their field's terms, a `<placeholder>` standing where subjects differ, and name no subject
+- General memories state facts in their field's terms, a `<placeholder>` where subjects differ and a trait where some share a fact, naming no subject
 
 ## [03]-[VALUE]
 
@@ -83,5 +83,5 @@ Link clauses (`SKILL.md` `[04]`) sit beside the line whose fact depends on their
 6. Open `references/evaluate.md` when the file serves disjoint request groups, passes 4096 bytes, or holds a fact its siblings repeat
 7. Rewrite each touched description by `SKILL.md` `[05]` when its lead, scope, or gist changed, or a rule or profile body outgrew its index line
 8. Keep each touched file's rows, write `SKILL.md` `[07]` rows for a file lacking them, and repoint to the general memory each row whose answer moved there
-9. Run `scripts/recall.py <memory-dir>` after a description change, a miss or steal sending the work back to step 7
+9. Run `scripts/recall.py <memory-dir>` after a description or body change, a row scoring no higher with memory sending the work back to step 4
 10. Fix any refusal the plugin reports back before the work ends
