@@ -110,4 +110,6 @@ Every fact ends with one mark, and a mark opening a group covers each line under
 - Requests: `.recall.jsonl` rows, unread by the memory scan, are `{"kind":"should","request":"<as typed>","owner":"<stem>"}` or near rows adding `"near":"<stem tested>"`
 - Scope: a run covers rows naming a file changed since git tag `recall`, 3 sessions each, a no-memory baseline grading each miss
 - Verdicts: hit (owner opened), miss (owner unopened), co-load (another file beside the owner), steal (another file in its place)
-- Pass: no miss and no steal, as a co-load costs one extra read and its pairs feed the `[04]` merge test
+- Metrics: per file recall, precision (opening on near rows), usefulness (reply graded against the body), breadth, transcript reads
+- Trend: each run stores its counts under `.recall-results/` in the folder's history and prints per-file deltas against the last run
+- Pass: no miss, no steal, and no file opening on more than half of the near runs testing it, as a rarer co-load costs one extra read
