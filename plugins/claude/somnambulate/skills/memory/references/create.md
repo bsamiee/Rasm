@@ -18,10 +18,11 @@ Moments that produce a memory, owner steering first:
 4. Pick the kind and type by `[03]` and the stem by `[04]`, checking no sibling stem sits nearer the subject
 5. Write the lead first, then the parts the kind needs, each fact marked by `[06]`, owner wording kept where it sets scope
 6. Write 3 should-load requests and 3 near misses with their owners by `[05]`, then the description from them
-7. Copy the folder to a scratch directory with the new file and its `.recall.jsonl` rows, run `scripts/recall.py <scratch>`, and rewrite the description until no miss or steal
+7. Clone the folder with `git clone -q <memory-dir> <scratch>/memory`, add the new file and its rows there, run `scripts/recall.py <scratch>/memory`, and rewrite until no miss or steal
 8. Preview body, description, and requests through `AskUserQuestion` with a free-response option
-9. Write the accepted file with Write, append its rows to `<memory-dir>/.recall.jsonl`, and repoint sibling near-miss rows the new file now owns
-10. Fix any refusal the plugin reports back before the work ends
+9. In a session without `AskUserQuestion`, write on the owner's request and give body, description, and requests in the reply
+10. Write the accepted file with Write, append its rows to `<memory-dir>/.recall.jsonl`, and repoint sibling near-miss rows the new file now owns
+11. Fix any refusal the plugin reports back before the work ends
 
 ## [03]-[FIRST_WRITE]
 

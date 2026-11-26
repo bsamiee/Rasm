@@ -5,7 +5,7 @@ description: "Use when saving, changing, or auditing a Claude Code auto-memory f
 
 # [SOMNAMBULATE_MEMORY]
 
-This skill is loaded. Before any search or write, Read the reference for the work and follow its steps in place of your own plan, and Read it again after a compaction: a memory that does not exist yet -> `references/create.md`, a change inside one existing memory -> `references/edit.md`, the set or any merge, split, rename, or delete -> `references/evaluate.md`. `MEMORY.md` is generated from each file's `description` after every memory write, so no step writes it.
+This skill is loaded. Your next call Reads the reference for the work, before any read, search, or write in the memory folder, and its steps replace your own plan; Read it again after a compaction: a memory that does not exist yet -> `references/create.md`, a change inside one existing memory -> `references/edit.md`, the set or any merge, split, rename, or delete -> `references/evaluate.md`. `MEMORY.md` is generated from each file's `description` after every memory write, so no step writes it.
 
 [REFERENCES]:
 - [01]-[CREATE](references/create.md): Saving a new memory file
@@ -59,7 +59,7 @@ Kind follows what the knowledge is, and its lead line is the text the descriptio
 
 Kinds draw from one set of parts, and content decides which appear:
 - Leads stand alone, each later line narrows or proves its lead, and a one-line rule with nothing to add is complete
-- Why names an incident, constraint, or mechanism the lead lacks, and a Why restating the rule or the owner's authority goes
+- Why names an incident, constraint, or mechanism the lead lacks, sits out when none is known, and a Why citing only the owner goes
 - `Not: <wrong> -> <right>` lines appear once a mistake recurs under the rule, at most 2, ending on the right form
 - `Holds until:` names the unlock, expiry, or owner go-ahead ending a decision, or reads `standing`
 - Bodies hold current understanding rewritten in place, facts name their subject over a pronoun, and a dead end reads `<form> fails because <cause>`
@@ -107,7 +107,7 @@ Every fact ends with one mark, and a mark opening a group covers each line under
 - Lines: `- [<stem>](<stem>.md) — <description>`, flat and sorted by stem, written only when the bytes change, then committed to the folder's git repository
 - Budget: the index loads 200 lines or 25,000 characters, the set stays under 160 lines and 20,000, and merges free space before trims
 - Validation: a refused file keeps its last good line, or a bare `- [<stem>](<stem>.md)` line, and the plugin reports it back to the session
-- Requests: `.recall.jsonl` rows hold `request`, `kind`, `owner` (the stem answering it), and on near rows `near` (the file tested), unread by the memory scan
+- Requests: `.recall.jsonl` rows, unread by the memory scan, are `{"kind":"should","request":"<as typed>","owner":"<stem>"}` or near rows adding `"near":"<stem tested>"`
 - Scope: a run covers rows naming a file changed since git tag `recall`, 3 sessions each, a no-memory baseline grading each miss
 - Verdicts: hit (owner opened), miss (owner unopened), co-load (another file beside the owner), steal (another file in its place)
 - Pass: no miss and no steal, as a co-load costs one extra read and its pairs feed the `[04]` merge test

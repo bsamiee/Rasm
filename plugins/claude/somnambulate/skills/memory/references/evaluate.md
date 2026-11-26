@@ -4,7 +4,7 @@ Evaluations judge the memory set as a system: which files exist, what each holds
 
 ## [01]-[AUDIT]
 
-1. Read the change record with `git -C <memory-dir> log --stat <tag>..` from the `evaluate-YYYY-MM-DD` tag the last pass left, and the recall mode by `SKILL.md` `[01]`
+1. Read the change record with `git -C <memory-dir> log --stat <tag>..` from the last `evaluate-YYYY-MM-DD` tag, else the first commit, and the recall mode by `SKILL.md` `[01]`
 2. Run `scripts/index.py <memory-dir>` for sizes, links, frontmatter, and index budget, as it changes nothing when the folder is current
 3. Read every file whole against `SKILL.md` `[02]` admission, `[03]` kind and lead, and `[06]` evidence, checking cited paths and symbols with `rg` and `fd`
 4. Recheck each claim against `CLAUDE.md`, and each `(sourced: …@<version>)` mark against the installed version, rewriting the fact or its mark when it moved
@@ -35,4 +35,4 @@ Sets hold together when these stay true:
 
 ## [04]-[REPORT]
 
-Reports name per file its verdict (kept, edited, merged, split, renamed, moved, deleted) and the evidence for each, then the set totals from `[03]`, and the pass ends by tagging `evaluate-YYYY-MM-DD` in the folder. Choices only the owner holds (merging or deleting owner rulings, routing files out of memory, renaming a stem the owner chose) go through `AskUserQuestion` with a preview of each result before any write.
+Reports open with a table of every file in scope and its verdict (kept, edited, merged, split, renamed, moved, deleted) with its evidence, then the set totals from `[03]`. A pass the owner limits to a report writes nothing and leaves the tag, and any other pass ends by tagging `evaluate-YYYY-MM-DD` in the folder. Choices only the owner holds (merging or deleting owner rulings, routing files out of memory, renaming a stem the owner chose) go through `AskUserQuestion` with a preview of each result before any write.

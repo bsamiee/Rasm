@@ -41,5 +41,5 @@ Owner-stated lines keep the owner's wording where it sets scope, and an edit lea
 3. Name the change by `[01]`, run each new line through `SKILL.md` `[02]`, and judge each touched line by `[02]`
 4. Rewrite in place with Edit, never Write, keeping the lead first, every fact marked by `SKILL.md` `[06]`, and harness and plugin metadata intact
 5. Open `references/evaluate.md` when a fact belongs to another subject, the file serves disjoint request groups, or it passes 4096 bytes
-6. Rewrite the description by `SKILL.md` `[05]` when the lead, scope, or gist changed, keeping requests the file still answers and adding one per new trigger
+6. Rewrite the description by `SKILL.md` `[05]` when the lead, scope, or gist changed, keeping its requests or writing `[05]` rows when it has none
 7. Run `scripts/recall.py <memory-dir>` after a description change, a miss or steal sending it back to step 6
