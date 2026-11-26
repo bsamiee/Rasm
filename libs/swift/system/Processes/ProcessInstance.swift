@@ -29,6 +29,7 @@ public enum ProcessStatus: String, Encodable, Sendable {
     case uninterruptible
     case sleeping
     case stopped
+    case traced
 }
 
 public struct MainThread: Sendable {
@@ -58,6 +59,16 @@ extension ProcessInstance {
         self.init(pid: pid, started: UInt64(start.tv_sec) * USEC_PER_SEC + UInt64(start.tv_usec))
     }
 
+    init(_ process: proc_bsdinfo) {
+        self.init(pid: pid_t(bitPattern: process.pbi_pid), started: process.pbi_start_tvsec * USEC_PER_SEC + process.pbi_start_tvusec)
+    }
+
+    func bsdInfo() throws(Errno) -> proc_bsdinfo {
+        let process = try information(of: pid, PROC_PIDTBSDINFO, proc_bsdinfo())
+        guard Self(process) == self else { throw .noSuchProcess }
+        return process
+    }
+
     public var hasExited: Bool { Result(catching: { () throws(Errno) in try Self(of: pid) }) != .success(self) }
 
     public static func all(executing matching: (FilePath) -> Bool) throws(Errno) -> [Self] {
@@ -67,8 +78,10 @@ extension ProcessInstance {
             count = Int(max(unsafe proc_listallpids(buffer.baseAddress, Int32(buffer.count * MemoryLayout<pid_t>.size)), 0))
         }
         guard !listed.isEmpty else { throw Errno(rawValue: errno) }
+        var path = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
         return
             try listed
+            .filter { pid in unsafe proc_pidpath(pid, &path, UInt32(path.count)) > 0 && matching(FilePath(platformString: path)) }
             .map { pid throws(Errno) -> Self? in
                 do throws(Errno) {
                     let instance = try Self(of: pid)
@@ -93,14 +106,17 @@ extension ProcessInstance {
 
     private func auditToken() throws(Errno) -> audit_token_t {
         var name: mach_port_name_t = 0
-        guard unsafe task_name_for_pid(mach_task_self_, pid, &name) == KERN_SUCCESS else { throw hasExited ? .noSuchProcess : .notPermitted }
+        guard unsafe task_name_for_pid(mach_task_self_, pid, &name) == KERN_SUCCESS else {
+            _ = try bsdInfo()
+            throw .notPermitted
+        }
         defer { _ = unsafe mach_port_deallocate(mach_task_self_, name) }
         var token = audit_token_t()
         var count = mach_msg_type_number_t(MemoryLayout<audit_token_t>.size / MemoryLayout<natural_t>.size)
         let read = withUnsafeMutablePointer(to: &token) { token in
             unsafe token.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { words in unsafe task_info(name, task_flavor_t(TASK_AUDIT_TOKEN), words, &count) }
         }
-        guard !hasExited else { throw .noSuchProcess }
+        _ = try bsdInfo()
         guard read == KERN_SUCCESS else { throw .notPermitted }
         return token
     }
@@ -117,14 +133,14 @@ extension ProcessInstance {
         let descriptors = unsafe [proc_fdinfo](unsafeUninitializedCapacity: Int(capacity) / MemoryLayout<proc_fdinfo>.stride) { buffer, count in
             count = Int(max(unsafe proc_pidinfo(pid, PROC_PIDLISTFDS, 0, buffer.baseAddress, Int32(buffer.count * MemoryLayout<proc_fdinfo>.stride)), 0)) / MemoryLayout<proc_fdinfo>.stride
         }
-        let ports = descriptors.filter { descriptor in descriptor.proc_fdtype == PROX_FDTYPE_SOCKET }.compactMap { descriptor -> in_port_t? in
+        let ports = descriptors.compactMap { descriptor -> in_port_t? in
             var socket = socket_fdinfo()
             let size = Int32(MemoryLayout<socket_fdinfo>.size)
-            let read = unsafe proc_pidfdinfo(pid, descriptor.proc_fd, PROC_PIDFDSOCKETINFO, &socket, size) == size
+            guard descriptor.proc_fdtype == PROX_FDTYPE_SOCKET, unsafe proc_pidfdinfo(pid, descriptor.proc_fd, PROC_PIDFDSOCKETINFO, &socket, size) == size else { return nil }
             let tcp = unsafe socket.psi.soi_proto.pri_tcp
-            return read && socket.psi.soi_kind == SOCKINFO_TCP && tcp.tcpsi_state == TSI_S_LISTEN ? in_port_t(bigEndian: in_port_t(truncatingIfNeeded: tcp.tcpsi_ini.insi_lport)) : nil
+            return socket.psi.soi_kind == SOCKINFO_TCP && tcp.tcpsi_state == TSI_S_LISTEN ? in_port_t(bigEndian: in_port_t(truncatingIfNeeded: tcp.tcpsi_ini.insi_lport)) : nil
         }
-        guard !hasExited else { throw .noSuchProcess }
+        _ = try bsdInfo()
         return Set(ports).sorted()
     }
 
@@ -134,7 +150,7 @@ extension ProcessInstance {
         let attributes = [kSecGuestAttributeAudit: withUnsafeBytes(of: token) { bytes in unsafe Data(bytes) }] as CFDictionary
         let found = unsafe SecCodeCopyGuestWithAttributes(nil, attributes, [], &code)
         let validity = code.map { code in SecCodeCheckValidity(code, [], nil) } ?? found
-        guard !hasExited else { throw .noSuchProcess }
+        _ = try bsdInfo()
         return validity == errSecSuccess
     }
 
@@ -149,25 +165,26 @@ extension ProcessInstance {
 
 extension MainThread {
     public init(of instance: ProcessInstance) throws(Errno) {
-        let process = instance.pid
-        let read = Result { () throws(Errno) in
-            (
-                process: try information(of: process, PROC_PIDTBSDINFO, proc_bsdinfo()),
-                thread: try information(of: process, PROC_PIDTHREADINFO, proc_threadinfo(), argument: information(of: process, PROC_PIDLISTTHREADS, UInt64.zero)),
-            )
+        let thread = Result { () throws(Errno) in
+            try information(of: instance.pid, PROC_PIDTHREADINFO, proc_threadinfo(), argument: information(of: instance.pid, PROC_PIDLISTTHREADS, UInt64.zero))
         }
-        guard !instance.hasExited else { throw .noSuchProcess }
-        let (bsd, thread) = try read.get()
-        let starved: Bool = bsd.pbi_flags & UInt32(PROC_FLAG_PA_THROTTLE | PROC_FLAG_PA_SUSP) != 0
+        let process = try instance.bsdInfo()
+        self.init(process, try thread.get(), at: .now)
+    }
+
+    init(_ process: proc_bsdinfo, _ thread: proc_threadinfo, at instant: SuspendingClock.Instant) {
+        let traced: Bool = process.pbi_flags & UInt32(PROC_FLAG_TRACED) != 0
+        let starved: Bool = process.pbi_flags & UInt32(PROC_FLAG_PA_THROTTLE | PROC_FLAG_PA_SUSP) != 0
         let state: ProcessStatus =
-            switch (Int32(bsd.pbi_status), starved, thread.pth_run_state) {
-                case (SSTOP, _, _), (_, false, TH_STATE_STOPPED): .stopped
-                case (_, true, _): .throttled
-                case (_, false, TH_STATE_UNINTERRUPTIBLE): .uninterruptible
-                case (_, false, TH_STATE_RUNNING): .running
-                case (_, false, _): .sleeping
+            switch (Int32(process.pbi_status), traced, starved, thread.pth_run_state) {
+                case (SSTOP, true, _, _), (_, true, false, TH_STATE_STOPPED): .traced
+                case (SSTOP, false, _, _), (_, false, false, TH_STATE_STOPPED): .stopped
+                case (_, _, true, _): .throttled
+                case (_, _, false, TH_STATE_UNINTERRUPTIBLE): .uninterruptible
+                case (_, _, false, TH_STATE_RUNNING): .running
+                case (_, _, false, _): .sleeping
             }
-        self.init(state: state, time: .nanoseconds(thread.pth_user_time + thread.pth_system_time), at: .now)
+        self.init(state: state, time: .nanoseconds(thread.pth_user_time + thread.pth_system_time), at: instant)
     }
 
     public func status(since earlier: Self) -> ProcessStatus {

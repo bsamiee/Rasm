@@ -1,4 +1,6 @@
+import CasePathsCore
 import Configuration
+import Encoding
 import Files
 import Foundation
 import Instrumentation
@@ -41,9 +43,11 @@ extension Program {
     // --- [SETTINGS]
 
     private func level(_ text: String, in entry: String, of key: ConfigKey) -> Logging.Logger.Level? {
-        let level = Logging.Logger.Level(rawValue: text) ?? Logging.Logger.Level.allCases.first { level in level.severity.text.lowercased() == text }
-        let severities = Logging.Logger.Level.allCases.map { level in level.severity.text.lowercased() }.filter { text in Logging.Logger.Level(rawValue: text) == nil }
-        if level == nil { unrecognized.add(variable: key.description, value: entry, accepted: Logging.Logger.Level.allCases.map(\.rawValue) + severities) }
+        let level = Logging.Logger.Level.allCases.first { level in level.rawValue == text || level.severity.text.lowercased() == text }
+        if level == nil {
+            let severities = Logging.Logger.Level.allCases.map { level in level.severity.text.lowercased() }.filter { text in Logging.Logger.Level(rawValue: text) == nil }
+            unrecognized.add(variable: key.description, value: entry, accepted: Logging.Logger.Level.allCases.map(\.rawValue) + severities)
+        }
         return level
     }
 
@@ -84,15 +88,19 @@ extension Program {
 
     private func crashReports(to logger: Logging.Logger) -> ClosureService {
         ClosureService {
-            let since = settings.double(forKey: "crashReports.since").map(Date.init(timeIntervalSince1970:)) ?? .now
-            store(Date.now.timeIntervalSince1970, forKey: "crashReports.since")
-            let found = DiagnosticReport.reports(since: since) { report in report.kind == .crash && report.isWritten(by: .main) }
+            let (key, now, encoder): (ConfigKey, Date, JSONEncoder) = ("crashReports.since", .now, .jsonLines)
+            let found = DiagnosticReport.reports(since: settings.double(forKey: key).map(Date.init(timeIntervalSince1970:)) ?? now) { report in
+                report.kind == .crash && report.isWritten(by: .main)
+            }
+            store(now.timeIntervalSince1970, forKey: key)
             for report in found.reports {
+                let body = Result { try encoder.encode(report) }
                 let fields: [String: Logging.Logger.MetadataValue?] = [
                     OTelAttribute.process.pid: .stringConvertible(report.pid), OTelAttribute.file.path: .string(report.url.path(percentEncoded: false)),
-                    OTelAttribute.exception.type: report.exception.map { type in .attributed(type, attributes: [Privacy.public]) },
+                    OTelAttribute.exception.type: report.exception.map { exception in .attributed(exception.type, attributes: [Privacy.public]) },
+                    "report": body[case: \.success].map { encoded in .string(String(decoding: encoded, as: UTF8.self)) },
                 ]
-                logger.critical("Crash report found", metadata: fields.compactMapValues(\.self))
+                logger.critical("Crash report found", error: body[case: \.failure], metadata: fields.compactMapValues(\.self))
             }
             for failure in found.failures { logger.warning("Crash report read failed", error: failure) }
         }
@@ -103,28 +111,34 @@ extension Program {
     public func telemetry(scopes: [Any.Type]) -> ServiceGroup {
         let process = ProcessInfo.processInfo
         let stated = preferences.compactMapValues { value in value as? String }.filter { variable, _ in variable.hasPrefix("OTEL_") }.merging(process.environment) { _, variable in variable }
+        let disabled = stated["OTEL_SDK_DISABLED"]?.lowercased() == "true"
         let signals: [(enabled: WritableKeyPath<OTel.Configuration, Bool>, exporter: String)] = [
             (\.logs.enabled, "OTEL_LOGS_EXPORTER"), (\.metrics.enabled, "OTEL_METRICS_EXPORTER"), (\.traces.enabled, "OTEL_TRACES_EXPORTER"),
         ]
-        var configuration = signals.reduce(into: OTel.Configuration.default) { gated, signal in gated[keyPath: signal.enabled] = stated[signal.exporter] != nil }
-        let attributes: [String: String?] = [
-            OTelAttribute.service.name: identifier, OTelAttribute.service.version: version, OTelAttribute.service.instance.id: UUID().uuidString,
-            OTelAttribute.process.pid: String(process.processIdentifier), OTelAttribute.process.executable.name: process.processName,
-            OTelAttribute.process.runtime.name: "swift", OTelAttribute.host.name: process.hostName, OTelAttribute.os.type: "darwin",
-            OTelAttribute.os.description: process.operatingSystemVersionString,
-        ]
-        configuration.resourceAttributes = configuration.logs.enabled || configuration.metrics.enabled || configuration.traces.enabled ? attributes.compactMapValues(\.self) : [:]
+        var configuration = signals.reduce(into: OTel.Configuration.default) { gated, signal in
+            let named = stated[signal.exporter]?.split(separator: ",").map { name in name.trimmingCharacters(in: .whitespaces) } ?? []
+            gated[keyPath: signal.enabled] = !disabled && !named.isEmpty && !named.contains("none")
+        }
+        if configuration.logs.enabled || configuration.metrics.enabled || configuration.traces.enabled {
+            let attributes: [String: String?] = [
+                OTelAttribute.service.version: version, OTelAttribute.service.instance.id: UUID().uuidString, OTelAttribute.process.pid: String(process.processIdentifier),
+                OTelAttribute.process.executable.name: process.processName, OTelAttribute.process.runtime.name: "swift", OTelAttribute.host.name: process.hostName,
+                OTelAttribute.os.type: "darwin", OTelAttribute.os.description: process.operatingSystemVersionString,
+            ]
+            (configuration.serviceName, configuration.resourceAttributes) = (identifier, attributes.compactMapValues(\.self))
+        }
         let filter = LogFilter(roots: scopes, rules: rules())
         let resource: Logging.Logger.Metadata = [
             OTelAttribute.service.name: .string(identifier), OTelAttribute.service.version: version.map(Logging.Logger.MetadataValue.string),
             OTelAttribute.process.pid: .stringConvertible(process.processIdentifier),
         ]
         .compactMapValues(\.self)
+        let positive: (ConfigKey) -> Int? = { key in settings.int(forKey: unrecognized.key(key, accepting: ["greater than 0"]), as: Positive.self)?.configInt }
         var file = RotatingFile(directory(.logs).appending(path: "\(process.processName).log", directoryHint: .notDirectory))
-        file.size = settings.int(forKey: "log.size", as: Positive.self)?.configInt ?? file.size
-        file.age = settings.int(forKey: "log.age", as: Positive.self).map { seconds in .seconds(seconds.configInt) } ?? file.age
-        file.files = settings.int(forKey: "log.files", as: Positive.self)?.configInt ?? file.files
-        let target = settings.string(forKey: "log.target", as: LogTarget.self, default: .file)
+        file.size = positive("log.size").map { bytes in UInt(bytes) } ?? file.size
+        file.age = positive("log.age").map { seconds in .seconds(seconds) } ?? file.age
+        file.backups = positive("log.backups").map { count in UInt(count) } ?? file.backups
+        let target = settings.string(forKey: unrecognized.key("log.target", accepting: LogTarget.allCases.map(\.rawValue)), as: LogTarget.self, default: .file)
         let interactive = target == .file && isatty(STDERR_FILENO) == 1
         let keys = OTel.Configuration.LoggingMetadataProviderConfiguration.default
         let span = OTel.makeLoggingMetadataProvider(configuration: keys)
@@ -134,7 +148,7 @@ extension Program {
             return context.merging([keys.traceFlagsKey: InstrumentationContext.current?.otelIsSampled == true ? "01" : "00"]) { _, flags in flags }
                 .mapValues { value in .attributed(value.description, attributes: [Privacy.public]) }
         }
-        let records: @Sendable (String, any LogHandler?) -> JSONLogHandler = { [file] label, export in
+        let records: @Sendable (String, (any LogHandler)?) -> JSONLogHandler = { [file] label, export in
             var terminal = StreamLogHandler.standardError(label: label)
             terminal.logLevel = .warning
             return JSONLogHandler(
@@ -154,12 +168,11 @@ extension Program {
             let reached: ArraySlice<Substring> = value.split(separator: "," as Character).prefix { element in element != "none" }
             return !values.isDisjoint(with: reached)
         }
-        withLogger(diagnostics) { _ in
-            for (variable, value) in refused {
-                withLogger(mergingMetadata: ["environment_key": "\(variable, privacy: .public)", "environment_value": "\(value, privacy: .private)"]) { refusal in
-                    refusal.warning("Failed to update configuration from environment")
-                }
-            }
+        for (variable, value) in refused {
+            var refusal = diagnostics
+            refusal[metadataKey: "environment_key"] = "\(variable, privacy: .public)"
+            refusal[metadataKey: "environment_value"] = "\(value, privacy: .private)"
+            refusal.warning("Failed to update configuration from environment")
         }
         let logs = configuration.logs.enabled ? Result { try OTel.makeLoggingBackend(configuration: configuration) } : nil
         let exported: (factory: @Sendable (String) -> any LogHandler, service: any Service)? = if case .success(let backend)? = logs { backend } else { nil }
@@ -167,7 +180,7 @@ extension Program {
         configuration.logs.enabled = false
         let variables = stated.filter { variable, _ in refused[variable] == nil }
         let bootstrapped = configuration.metrics.enabled || configuration.traces.enabled ? Result { try OTel.bootstrap(configuration: configuration, environment: variables) } : nil
-        let started: any Service? = if case .success(let service)? = bootstrapped { service } else { nil }
+        let started: (any Service)? = if case .success(let service)? = bootstrapped { service } else { nil }
         let logger = Logging.Logger(label: String(reflecting: Program.self))
         for case .failure(let error)? in [logs?.map { _ in }, bootstrapped?.map { _ in }] { logger.warning("OpenTelemetry signal start failed", error: error) }
         unrecognized.log(to: logger)

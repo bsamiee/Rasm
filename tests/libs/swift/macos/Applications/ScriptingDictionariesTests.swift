@@ -11,7 +11,7 @@ import Testing
 private struct Fixture: ~Copyable {
     let url: URL
 
-    init(declaring name: String?, dynamic: Bool, terminology: URL? = nil) throws {
+    init(declaring name: String?, dynamic: Bool, shipping: Bool, terminology: URL?) throws {
         url = FileManager.default.temporaryDirectory.appending(components: UUID().uuidString, "Fixture.app")
         let (contents, resources) = (url.appending(component: "Contents"), url.appending(components: "Contents", "Resources"))
         try FileManager.default.createDirectory(at: resources, withIntermediateDirectories: true)
@@ -22,8 +22,9 @@ private struct Fixture: ~Copyable {
         try PropertyListSerialization.data(fromPropertyList: info, format: .xml, options: 0).write(to: contents.appending(component: "Info.plist"))
         try Data().write(to: contents.appending(components: "MacOS", "Fixture"))
         try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: contents.appending(components: "MacOS", "Fixture").path(percentEncoded: false))
-        try Data("static".utf8).write(to: resources.appending(component: "Fixture.sdef"))
+        try Data("declared".utf8).write(to: resources.appending(component: "Declared.sdef"))
         try Data("cached".utf8).write(to: resources.appending(component: "Cached.sdef"))
+        if shipping { try Data("shipped".utf8).write(to: resources.appending(component: "Fixture.sdef")) }
         if let terminology { try FileManager.default.copyItem(at: terminology, to: resources.appending(component: "Fixture.rsrc")) }
     }
 
@@ -36,37 +37,44 @@ private struct Fixture: ~Copyable {
 
 @Suite
 struct ScriptingDictionariesTests {
+    static let speech = URL(filePath: "/System/Library/PrivateFrameworks/SpeechObjects.framework/Versions/A/SpeechRecognitionServer.app/Contents/Resources/SpeechRecognitionServer.rsrc")
+    static let encodings = URL(filePath: "/System/Library/TextEncodings/Core Encodings.bundle/Contents/Resources/Core Encodings.rsrc")
+
     @Test(
         arguments: [
-            ("Fixture", false, false, true, "static"),
-            ("Fixture.sdef", false, false, false, "static"),
-            ("Fixture.sdef", true, false, false, "static"),
-            ("Fixture.sdef", true, false, true, "cached"),
-            (nil, true, true, true, "cached"),
-        ] as [(String?, Bool, Bool, Bool, String)]
+            ("Declared", false, true, nil, true, "declared"),
+            ("Declared.sdef", true, true, nil, false, "declared"),
+            ("Declared.sdef", true, true, nil, true, "cached"),
+            (nil, false, true, Self.speech, false, "shipped"),
+            ("Missing.sdef", false, true, nil, false, "shipped"),
+            (nil, false, false, Self.encodings, true, "cached"),
+            (nil, false, false, Self.encodings, false, "undeclared"),
+        ] as [(String?, Bool, Bool, URL?, Bool, String)]
     )
-    func readsTheCachedDefinitionOfADynamicApplicationNotRunningBeforeItsStaticFiles(declared: String?, dynamic: Bool, terminology: Bool, cached: Bool, read: String) async throws {
-        let speech = URL(filePath: "/System/Library/PrivateFrameworks/SpeechObjects.framework/Versions/A/SpeechRecognitionServer.app/Contents/Resources/SpeechRecognitionServer.rsrc")
-        let bundle = try Fixture(declaring: declared, dynamic: dynamic, terminology: terminology ? speech : nil)
+    func readsTheDeclaredThenShippedDefinitionOfAStaticApplicationAndTheCachedOneOfADynamicApplicationNotRunning(
+        declared: String?,
+        dynamic: Bool,
+        shipping: Bool,
+        terminology: URL?,
+        cached: Bool,
+        read: String,
+    ) async throws {
+        let bundle = try Fixture(declaring: declared, dynamic: dynamic, shipping: shipping, terminology: terminology)
         let cache = cached ? bundle.url.appending(components: "Contents", "Resources", "Cached.sdef") : nil
         let installation = try Installation(at: bundle.url)
-        let definition = try await installation.scriptingDefinition(cachedDefinition: cache)
-        expectNoDifference(String(bytes: definition, encoding: .utf8), read)
-    }
-
-    @Test(arguments: [nil, "Missing.sdef"] as [String?])
-    func refusesAnApplicationWhoseDeclaredDefinitionIsAbsentAndThatRunsNoInstance(declared: String?) async throws {
-        let bundle = try Fixture(declaring: declared, dynamic: false)
-        let installation = try Installation(at: bundle.url)
-        let refusal = await #expect(throws: AppleEventFailure.self) { try await installation.scriptingDefinition(cachedDefinition: nil) }
-        expectNoDifference(refusal?.reason, .undeclared)
+        let outcome =
+            switch await Result(catching: { () async throws(AppleEventFailure) in try await installation.scriptingDefinition(running: nil, cachedDefinition: cache) }) {
+                case .success(let definition): String(decoding: definition, as: UTF8.self)
+                case .failure(let failure): "\(failure.reason)"
+            }
+        expectNoDifference(outcome, read)
     }
 
     @Test
     func translatesTheScriptSuitesOfAnApplicationWithNoStaticDefinitionWithoutLaunchingIt() async throws {
         let installation = try Installation(at: URL(filePath: "/System/Applications/TextEdit.app"))
         let running = NSWorkspace.shared.runningApplications.count(where: installation.runs)
-        let dictionary = try ScriptingDictionary(definition: try await installation.scriptingDefinition(cachedDefinition: nil))
+        let dictionary = try ScriptingDictionary(definition: try await installation.scriptingDefinition(running: nil, cachedDefinition: nil))
         let close = try #require(dictionary.commands.first { command in command.name == "close" })
         let document = try #require(dictionary.declarations[.class]?.first { term in term.name == "document" })
         let saving = try #require(dictionary.declarations[.enumeration]?.first { term in term.name == "savo" })
@@ -88,9 +96,8 @@ struct ScriptingDictionariesTests {
 
     @Test
     func translatesTheAeteResourceNamedForTheExecutable() async throws {
-        let speech = URL(filePath: "/System/Library/PrivateFrameworks/SpeechObjects.framework/Versions/A/SpeechRecognitionServer.app/Contents/Resources/SpeechRecognitionServer.rsrc")
-        let bundle = try Fixture(declaring: nil, dynamic: false, terminology: speech)
-        let dictionary = try ScriptingDictionary(definition: try await Installation(at: bundle.url).scriptingDefinition(cachedDefinition: nil))
+        let bundle = try Fixture(declaring: nil, dynamic: false, shipping: false, terminology: Self.speech)
+        let dictionary = try ScriptingDictionary(definition: try await Installation(at: bundle.url).scriptingDefinition(running: nil, cachedDefinition: nil))
         let listen = try #require(dictionary.commands.first { command in command.name == "listen for" })
         let direct = try #require(listen.parameters.first { term in term.name == "direct" })
         expectNoDifference(listen.code.sdef, "sprcsrls")

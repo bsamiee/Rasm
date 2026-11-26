@@ -174,7 +174,7 @@ const layerNodeFromConfig = Effect.fnUntraced(function* ({ resource, target, lev
         target: read('target', Config.schema(Target)),
         size: read('size', Config.schema(Rotation.fields.size)),
         interval: read('age', Config.schema(Rotation.fields.interval)),
-        maxFiles: read('files', Config.schema(Rotation.fields.maxFiles)),
+        maxFiles: read('backups', Config.schema(Rotation.fields.maxFiles)),
     });
     const rotation = {
         ...Option.getOrUndefined(Option.map(stated.size, (size) => ({ size }))),

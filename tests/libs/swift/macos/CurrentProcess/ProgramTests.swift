@@ -24,17 +24,21 @@ struct ProgramTests {
     }
 
     @Test
-    func logsEachUnreadableSettingOnceWithTheValuesItAccepts() {
-        let provider = InMemoryProvider(values: ["log.size": "big", "log.target": "syslog"])
-        let reporter = UnrecognizedValues(accepted: ["log.target": LogTarget.allCases.map(\.rawValue)], raw: ConfigReader(providers: [provider]))
+    func logsEachUnreadableSettingOnceWithTheTypeItWasReadAsOrTheValuesItsKeyAccepts() {
+        let provider = MutableInMemoryProvider(name: String(reflecting: Self.self), initialValues: Program.values(["log.size": "1000", "log.target": "syslog"]))
+        let reporter = UnrecognizedValues(raw: ConfigReader(providers: [provider]))
         let settings = ConfigReader(providers: [provider], accessReporter: reporter)
         let store = InMemoryLogHandler()
         let logger = Logger(label: String(reflecting: Self.self)) { _ in store }
-        _ = (settings.int(forKey: "log.size"), settings.string(forKey: "log.target", as: LogTarget.self), settings.int(forKey: "log.size"))
+        _ = (
+            settings.int(forKey: reporter.key("log.size", accepting: ["greater than 0"])),
+            settings.string(forKey: reporter.key("log.target", accepting: LogTarget.allCases.map(\.rawValue)), as: LogTarget.self),
+            settings.int(forKey: "log.size"),
+        )
         reporter.log(to: logger)
         reporter.log(to: logger)
         let expected: [Logger.Metadata] = [
-            ["variable": "log.size", "value": "big", "accepted": "int"], ["variable": "log.target", "value": "syslog", "accepted": "file, stderr"],
+            ["variable": "log.size", "value": "1000", "accepted": "int"], ["variable": "log.target", "value": "syslog", "accepted": "file, stderr"],
         ]
         expectNoDifference(store.entries.map(\.metadata), expected)
         expectNoDifference(store.entries.map(\.level), [.warning, .warning])

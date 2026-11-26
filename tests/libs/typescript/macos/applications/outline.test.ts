@@ -168,10 +168,57 @@ describe(Address.recall, () => {
                     marked: printed.filter((line) => line.trimStart().startsWith('▸')),
                     recalled: recalled.remembered.containers.map(({ token }) => token),
                     hits,
-                    opening: found.flatMap((item) => Address.opening(recalled, item)).map(({ token }) => token),
+                    opening: found.map((item) => Result.map(Address.opening(recalled, item), Array.map(Struct.get('token')))),
                     located: found.map(Address.locate),
                 },
-                { remembered: 0, marked: [], recalled: [Option.some('Brushes > Brushes')], hits: ['▸ Brushes > Brushes > Size was 12 number · opened by @i6'], opening: [Option.some('@i6')], located: [Option.some({ container: '[["AXWindow","Brushes"]]', control: '[["AXWindow","Brushes"],["AXSlider","Size"]]' })] },
+                {
+                    remembered: 0,
+                    marked: [],
+                    recalled: [Option.some('Brushes > Brushes')],
+                    hits: ['▸ Brushes > Brushes > Size was 12 number · opened by @i6'],
+                    opening: [Result.succeed([Option.some('@i6')])],
+                    located: [Option.some({ container: '[["AXWindow","Brushes"]]', control: '[["AXWindow","Brushes"],["AXSlider","Size"]]' })],
+                },
+            );
+        }),
+    );
+});
+
+describe(Address.opening, () => {
+    it.effect(
+        'refuses a remembered control nothing shown opens, and one its open container no longer holds unless that read stopped short',
+        Effect.fnUntraced(function* () {
+            const brushes = yield* Schema.decodeEffect(Observation)({
+                build: '27.1',
+                container: '[["AXWindow","Brushes"]]',
+                kind: 'panel',
+                title: 'Brushes',
+                modal: false,
+                opened: '2026-11-26T09:00:00Z',
+                at: '2026-11-26T09:00:00Z',
+                truncated: false,
+                documents: [],
+                opener: { container: '[["AXMenu","Window"]]', control: '[["AXMenu","Window"],["AXMenuItem","Brushes"]]' },
+                conditions: [],
+                controls: { '[["AXWindow","Brushes"],["AXSlider","Size"]]': { kind: 'number', role: 'AXSlider', label: { text: 'Size', attribute: 'AXTitle' }, positional: false } },
+                layout: {},
+                values: {},
+            });
+            const { map } = InterfaceMap.empty.fold(brushes, { username: 'owner', homedir: '/Users/owner' });
+            const reach = (model: Model) => {
+                const recalled = Address.recall(Address.index(model), map);
+                return Address.find(recalled, 'Size', Option.none()).map((item) => Result.map(Address.opening(recalled, item), Array.map(Struct.get('token'))));
+            };
+            assert.deepStrictEqual(
+                {
+                    closed: reach({ sequence: 1, containers: TOOLS.containers.filter(({ kind }) => kind === 'toolbar') }),
+                    ...Record.fromEntries((['whole', 'partial'] as const).map((read) => [read, reach({ sequence: 1, containers: [{ ref: 9, locator: '[["AXWindow","Brushes"]]', kind: 'panel', title: 'Brushes', modal: false, asking: false, text: [], truncated: read === 'partial', controls: [] }] })] as const)),
+                },
+                {
+                    closed: [Result.fail('"Brushes > Size" sits in a closed panel that nothing shown now opens, as none of the 1 items the map saw open it is shown; open it, then act again')],
+                    whole: [Result.fail('"Brushes > Size" is missing from the open panel "Brushes", read whole now, though the map saw it there 1×')],
+                    partial: [Result.succeed([])],
+                },
             );
         }),
     );

@@ -16,7 +16,7 @@ import Updater
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-public func main(cachedDefinition: @escaping @Sendable (Installation) -> URL?) async {
+public func main(cachedDefinition: @escaping @Sendable (Installation) -> URL? = { _ in nil }) async {
     let serving = Result { () throws(Errno) in try FileDescriptor.standardInput.stat() }.map { stat in [FileType.fifo, .socket].contains(stat.type) } == .success(true)
     let disclaimed = Result { () throws(Errno) in if serving { try disclaimResponsibility() } }
     let telemetry = Program.current.telemetry(scopes: [Request.self])
@@ -27,9 +27,10 @@ public func main(cachedDefinition: @escaping @Sendable (Installation) -> URL?) a
         do {
             var registered: [Result<Void, ApplicationFailure>] = []
             for agent in try Installation(at: Bundle.main.bundleURL).agents() { registered.append(await Result { () async throws(ApplicationFailure) in try await agent.register() }) }
-            let outcome = traverse(registered) { outcome in outcome.aggregated(\.self) }
-            if case .failure(let refused) = outcome, refused.errors.contains(where: { failure in failure.reason.is(\.requiresApproval) }) { SMAppService.openSystemSettingsLoginItems() }
-            _ = try outcome.get()
+            _ = try traverse(registered) { outcome in outcome.aggregated(\.self) }.get()
+        } catch let refused as AggregateError<ApplicationFailure> where refused.errors.allSatisfy({ failure in failure.reason.is(\.requiresApproval) }) {
+            SMAppService.openSystemSettingsLoginItems()
+            logger.notice("Server agent awaits approval", error: refused)
         } catch {
             logger.critical("Server agent registration failed", error: error)
             throw error
@@ -41,16 +42,22 @@ public func main(cachedDefinition: @escaping @Sendable (Installation) -> URL?) a
             let claim = try Installation(at: Bundle.main.bundleURL).claim
             do { try Program.current.require() } catch { logger.notice("Started without every privacy grant", error: error) }
             do { try PermittedFrontList.recover() } catch { logger.error("Permitted front list recovery failed", error: error) }
-            let updater = Updater()
+            let (updater, dictionaries, watches) = (Updater(), ScriptingDictionaries(cachedDefinition: cachedDefinition), Watches())
             defer { extendLifetime(updater) }
-            try await cancelWhenGracefulShutdown {
-                try await serve(
-                    reading: FileHandle.standardInput.bytes.jsonLines,
-                    writing: { line in try FileDescriptor.standardOutput.writeAll(line) },
-                    matching: { claim?.predicate ?? NSPredicate(value: true) },
-                    cachedDefinition: cachedDefinition,
-                )
+            let (calls, output) = (DispatchQueue(label: "\(Request.self).calls", attributes: .concurrent), DispatchSerialQueue(label: "\(Request.self).output"))
+            let matching: @Sendable () -> NSPredicate = { claim?.predicate ?? NSPredicate(value: true) }
+            let served = await Result {
+                try await cancelWhenGracefulShutdown {
+                    try await JSONRPC.serve(
+                        reading: FileHandle.standardInput.bytes.jsonLines,
+                        writing: { line in _ = try await withTaskExecutorPreference(output) { try FileDescriptor.standardOutput.writeAll(line) } },
+                        onDrop: { failure in logger.debug("Dropped request", error: failure) },
+                        { (request: Request) in try await withTaskExecutorPreference(calls) { try await request.perform(matching: matching, dictionaries: dictionaries, watches: watches) } },
+                    )
+                }
             }
+            await withTaskCancellationShield { await watches.finish() }
+            try served.get()
         } catch let failure as JSONRPCFailure where failure.reason.is(\.cancelled) {
             logger.info("Request serving canceled")
         } catch {

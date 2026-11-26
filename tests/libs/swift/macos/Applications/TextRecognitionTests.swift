@@ -8,21 +8,21 @@ import Testing
 
 @Suite(.timeLimit(.minutes(1)))
 struct TextRecognitionTests {
-    static let drawings: [(language: String, labels: [(text: String, rect: CGRect)])] = [
+    static let drawings: [(language: String, scale: Int, labels: [(text: String, rect: CGRect)])] = [
         (
             "en",
+            1,
             [
-                ("Clean Up", CGRect(x: 12, y: 18, width: 236, height: 20)), ("Rectangle Frame Tool", CGRect(x: 12, y: 196, width: 236, height: 20)),
-                ("Vqxlirn", CGRect(x: 96, y: 371, width: 150, height: 20)), ("Paragraph Styles", CGRect(x: 12, y: 522, width: 236, height: 20)),
-            ],
+                "Selection Tool", "Direct Selection Tool", "Group Selection Tool", "Magic Wand Tool", "Lasso Tool", "Artboard Tool", "Pen Tool", "Curvature Tool", "Line Segment Tool",
+                "Rectangular Grid Tool", "Rectangle Tool", "Ellipse Tool", "Polygon Tool", "Star Tool", "Paintbrush Tool", "Shaper Tool",
+            ].enumerated().map { row, text in (text: text, rect: CGRect(x: 6, y: 4 + 30 * row, width: 230, height: 24)) },
         ),
-        ("ja", [("ファイル", CGRect(x: 12, y: 18, width: 120, height: 20)), ("編集", CGRect(x: 140, y: 240, width: 100, height: 20)), ("表示", CGRect(x: 30, y: 498, width: 100, height: 20))]),
+        ("ja", 2, [("ファイル", CGRect(x: 6, y: 18, width: 120, height: 24)), ("編集", CGRect(x: 130, y: 240, width: 100, height: 24)), ("表示", CGRect(x: 30, y: 438, width: 100, height: 24))]),
     ]
 
     @Test(arguments: drawings)
-    func readsDrawnLabelsAtTheirScreenFrames(language: String, labels: [(text: String, rect: CGRect)]) async throws {
-        let frame = CGRect(x: 731, y: 212, width: 260, height: 560)
-        let scale = 2
+    func readsPanelLabelsAtTheirScreenFrames(language: String, scale: Int, labels: [(text: String, rect: CGRect)]) async throws {
+        let frame = CGRect(x: 731, y: 212, width: 250, height: 500)
         let context: CGContext = try #require(
             unsafe CGContext(
                 data: nil,
@@ -34,13 +34,21 @@ struct TextRecognitionTests {
                 bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
             )
         )
-        context.setFillColor(.white)
+        context.setFillColor(CGColor(gray: 0.27, alpha: 1))
         context.fill(CGRect(x: 0, y: 0, width: context.width, height: context.height))
         context.translateBy(x: 0, y: CGFloat(context.height))
         context.scaleBy(x: CGFloat(scale), y: -CGFloat(scale))
+        context.setStrokeColor(CGColor(gray: 0.36, alpha: 1))
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: true)
-        for label in labels { NSAttributedString(string: label.text, attributes: [.font: NSFont.menuFont(ofSize: 13)]).draw(in: label.rect) }
+        for (row, label) in labels.enumerated() {
+            context.stroke(label.rect.insetBy(dx: 0.5, dy: 0.5))
+            NSAttributedString(
+                string: label.text,
+                attributes: [.font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize), .foregroundColor: NSColor(white: row.isMultiple(of: 2) ? 0.55 : 0.85, alpha: 1)],
+            )
+            .draw(at: CGPoint(x: label.rect.minX + 32, y: label.rect.minY + 5))
+        }
         NSGraphicsContext.restoreGraphicsState()
         let image: CGImage = try #require(context.makeImage())
         let found: [(text: String, frame: CGRect)] = try await image.recognizeText(at: frame, in: Locale.Language(identifier: language), customWords: [])
@@ -50,6 +58,6 @@ struct TextRecognitionTests {
         let misplaced: [String: CGPoint?] = Dictionary(
             uniqueKeysWithValues: drawn.compactMap { (text: String, rect: CGRect) -> (String, CGPoint?)? in centers[text].map(rect.contains) == true ? nil : (text, centers[text]) }
         )
-        expectNoDifference(misplaced, [:], "Each label's recognized center falls inside its drawn rectangle \(drawn)")
+        expectNoDifference(misplaced, [:], "Each label's recognized center falls inside its drawn row \(drawn)")
     }
 }

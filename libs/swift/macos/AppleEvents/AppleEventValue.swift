@@ -31,12 +31,21 @@ public enum KeyForm: String, CaseIterable, Codable, Sendable {
     }
 }
 
-enum AbsoluteOrdinal: String, CaseIterable, Sendable {
+enum Ordinal: String, CaseIterable, Sendable {
     case first
     case middle
     case last
     case any
     case every
+    case next
+    case previous
+
+    var form: KeyForm {
+        switch self {
+            case .first, .middle, .last, .any, .every: .index
+            case .next, .previous: .relative
+        }
+    }
 
     var code: FourCharCode {
         switch self {
@@ -45,6 +54,8 @@ enum AbsoluteOrdinal: String, CaseIterable, Sendable {
             case .last: FourCharCode(kAELast)
             case .any: FourCharCode(kAEAny)
             case .every: FourCharCode(kAEAll)
+            case .next: FourCharCode(kAENext)
+            case .previous: FourCharCode(kAEPrevious)
         }
     }
 }
@@ -88,7 +99,7 @@ extension AppleEventValue: Codable {
                 case .record: try .record(type: code(), fields: fields.decode([String: Self].self, forKey: .fields))
                 case .type: try .type(fields.decode(String.self, forKey: .name))
                 case .enumerator: try .enumerator(fields.decode(String.self, forKey: .name))
-                case .date: try .date(Date.ISO8601FormatStyle().parse(fields.decode(String.self, forKey: .date)))
+                case .date: try .date(Date(fields.decode(String.self, forKey: .date), strategy: .iso8601))
                 case .file: try .file(fields.decode(URL.self, forKey: .url))
                 case .specifier:
                     try .specifier(
@@ -131,7 +142,7 @@ extension AppleEventValue: Codable {
                 }
             case .type(let name): try encodeTagged(.type) { fields in try fields.encode(name, forKey: .name) }
             case .enumerator(let name): try encodeTagged(.enumerator) { fields in try fields.encode(name, forKey: .name) }
-            case .date(let date): try encodeTagged(.date) { fields in try fields.encode(date, forKey: .date) }
+            case .date(let date): try encodeTagged(.date) { fields in try fields.encode(date.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true)), forKey: .date) }
             case .file(let url): try encodeTagged(.file) { fields in try fields.encode(url, forKey: .url) }
             case .specifier(let want, let form, let seld, let from):
                 try encodeTagged(.specifier) { fields in
@@ -154,7 +165,7 @@ extension AppleEventValue: Codable {
 
 extension AppleEventValue {
     public init(_ descriptor: NSAppleEventDescriptor, in dictionary: ScriptingDictionary) {
-        let opaque: () -> Self = { .opaque(type: descriptor.descriptorType, data: descriptor.data, value: descriptor.stringValue) }
+        func opaque() -> Self { .opaque(type: descriptor.descriptorType, data: descriptor.data, value: descriptor.stringValue) }
         func exact<Value: FixedWidthInteger & ConvertibleFromBytes>(_: Value.Type) -> Self {
             (descriptor.data.count == MemoryLayout<Value>.size ? Double(exactly: descriptor.data.bytes.load(fromByteOffset: 0, as: Value.self)) : nil).map(Self.number) ?? opaque()
         }
@@ -171,10 +182,10 @@ extension AppleEventValue {
                     switch (
                         descriptor.forKeyword(AEKeyword(keyAEDesiredClass)),
                         descriptor.forKeyword(AEKeyword(keyAEKeyForm)).flatMap { code in KeyForm.allCases.first { form in form.code == code.enumCodeValue } },
-                        descriptor.forKeyword(AEKeyword(keyAEKeyData)), descriptor.forKeyword(AEKeyword(keyAEContainer)),
-                        descriptor.forKeyword(AEKeyword(keyAEContainer))?.forKeyword(AEKeyword(keyAEDesiredClass))?.typeCodeValue ?? FourCharCode(cApplication),
+                        descriptor.forKeyword(AEKeyword(keyAEKeyData)),
+                        descriptor.forKeyword(AEKeyword(keyAEContainer)).map { from in (from, from.forKeyword(AEKeyword(keyAEDesiredClass))?.typeCodeValue ?? FourCharCode(cApplication)) },
                     ) {
-                        case (.some(let want), .some(let form), .some(let seld), .some(let from), let container):
+                        case (.some(let want), .some(let form), .some(let seld), .some(let (from, container))):
                             .specifier(
                                 want: ScriptingDictionary.name(of: want.typeCodeValue, in: [dictionary.types, dictionary.properties]),
                                 form: form,
@@ -195,7 +206,7 @@ extension AppleEventValue {
                 case DescType(typeAEList): .list((1..<descriptor.numberOfItems + 1).compactMap(descriptor.atIndex).map { item in Self(item, in: dictionary) })
                 case DescType(typeType), DescType(typeKeyword): .type(ScriptingDictionary.name(of: descriptor.typeCodeValue, in: [dictionary.types, dictionary.properties]))
                 case DescType(typeEnumerated): .enumerator(ScriptingDictionary.name(of: descriptor.enumCodeValue, in: [dictionary.enumerators]))
-                case DescType(typeAbsoluteOrdinal): AbsoluteOrdinal.allCases.first { ordinal in ordinal.code == descriptor.enumCodeValue }.map { ordinal in .text(ordinal.rawValue) } ?? opaque()
+                case DescType(typeAbsoluteOrdinal): Ordinal.allCases.first { ordinal in ordinal.code == descriptor.enumCodeValue }.map { ordinal in .text(ordinal.rawValue) } ?? opaque()
                 case DescType(typeFileURL), DescType(typeBookmarkData), DescType(typeAlias): descriptor.fileURLValue.map(Self.file) ?? opaque()
                 case DescType(typeLongDateTime): descriptor.dateValue.map(Self.date) ?? opaque()
                 case _ where descriptor.isRecordDescriptor: record()
@@ -227,16 +238,16 @@ extension AppleEventValue {
                 return (types.contains("integer") ? Int32(exactly: value) : nil).map(NSAppleEventDescriptor.init(int32:)) ?? NSAppleEventDescriptor(double: value)
             case .text(let text):
                 let enumerators = dictionary.enumerators(of: types)
-                return switch URL(string: text) {
-                    case _ where enumerators.byName[text] != nil || FourCharCode(sdef: text).flatMap({ code in enumerators.byCode[code] }) != nil:
+                return switch types.isDisjoint(with: ["file", "alias", "file specification"]) ? nil : URL(string: text) {
+                    case _ where enumerators.byName[text] != nil || !enumerators.byCode.isEmpty && FourCharCode(sdef: text).flatMap({ code in enumerators.byCode[code] }) != nil:
                         try NSAppleEventDescriptor(enumCode: ScriptingDictionary.resolve(text, in: [enumerators]).get().code)
                     case _ where types.contains("type"):
                         try Self.type(text).descriptor(as: types, in: dictionary)
                     case _ where types.contains("date"):
                         try NSAppleEventDescriptor(
-                            date: Result { try Date.ISO8601FormatStyle().parse(text) }.aggregated { error in AppleEventFailure(subject: text, reason: .foundation(error as NSError)) }.get()
+                            date: Result { try Date(text, strategy: .iso8601) }.aggregated { error in AppleEventFailure(subject: text, reason: .foundation(error as NSError)) }.get()
                         )
-                    case .some(let url) where url.isFileURL && !types.isDisjoint(with: ["file", "alias", "file specification"]): try makeFileDescriptor(url)
+                    case .some(let url) where url.isFileURL: try makeFileDescriptor(url)
                     case .some, .none: NSAppleEventDescriptor(string: text)
                 }
             case .list(let items):
@@ -256,31 +267,35 @@ extension AppleEventValue {
             case .file(let url):
                 return try makeFileDescriptor(url)
             case .specifier(let want, let form, let seld, let from):
+                let containerClass = dictionary.classCode(of: from)
+                let desired: Result<FourCharCode, AggregateError<AppleEventFailure>> =
+                    form == .property ? .success(FourCharCode(cProperty)) : ScriptingDictionary.resolve(want, in: dictionary.classes(in: containerClass)).map(\.code)
                 let key: Result<NSAppleEventDescriptor, AggregateError<AppleEventFailure>> =
                     switch (form, seld) {
                         case (.property, .text(let name)), (.property, .type(let name)):
-                            ScriptingDictionary.resolve(name, in: dictionary.scope(dictionary.classCode(of: from))).map { term in NSAppleEventDescriptor(typeCode: term.code) }
-                        case (.index, .text(let text)):
+                            ScriptingDictionary.resolve(name, in: dictionary.scope(containerClass)).map { term in NSAppleEventDescriptor(typeCode: term.code) }
+                        case (.index, .text(let text)), (.relative, .text(let text)):
                             Unmatched.single(
-                                [AbsoluteOrdinal(rawValue: text)].compactMap(\.self),
-                                subject: "absolute ordinal",
+                                Ordinal.allCases.filter { ordinal in ordinal.form == form && ordinal.rawValue == text },
+                                subject: "ordinal",
                                 query: text,
-                                candidates: AbsoluteOrdinal.allCases.map(\.rawValue),
+                                candidates: Ordinal.allCases.filter { ordinal in ordinal.form == form }.map(\.rawValue),
                                 named: \.rawValue,
                             )
                             .aggregated { miss in AppleEventFailure(subject: text, reason: .unmatched(miss)) }
                             .flatMap { ordinal in
-                                NSAppleEventDescriptor(descriptorType: DescType(typeAbsoluteOrdinal), data: NSAppleEventDescriptor(enumCode: ordinal.code).data).map(Result.success)
-                                    ?? .failure(unencodable(DescType(typeAbsoluteOrdinal)))
+                                let type = ordinal.form == .index ? DescType(typeAbsoluteOrdinal) : DescType(typeEnumerated)
+                                return NSAppleEventDescriptor(descriptorType: type, data: NSAppleEventDescriptor(enumCode: ordinal.code).data).map(Result.success) ?? .failure(unencodable(type))
                             }
                         case (.index, .number(let value)):
                             Int32(exactly: value).map { offset in .success(NSAppleEventDescriptor(int32: offset)) } ?? .failure(unencodable(DescType(typeSInt32)))
                         default:
                             makeDescriptor(seld, as: ["integer"])
                     }
-                let (desired, data, container) = try combine(ScriptingDictionary.resolve(want, in: dictionary.classes(in: dictionary.classCode(of: from))), key, makeDescriptor(from)).get()
+                let (desiredClass, data, container) = try combine(desired, key, makeDescriptor(from)).get()
                 let fields: KeyValuePairs<Int, NSAppleEventDescriptor> = [
-                    keyAEDesiredClass: NSAppleEventDescriptor(typeCode: desired.code), keyAEContainer: container, keyAEKeyForm: NSAppleEventDescriptor(enumCode: form.code), keyAEKeyData: data,
+                    keyAEDesiredClass: NSAppleEventDescriptor(typeCode: desiredClass), keyAEContainer: container, keyAEKeyForm: NSAppleEventDescriptor(enumCode: form.code),
+                    keyAEKeyData: data,
                 ]
                 let record = fields.reduce(into: NSAppleEventDescriptor.record()) { record, field in record.setDescriptor(field.value, forKeyword: AEKeyword(field.key)) }
                 guard let specifier = record.coerce(toDescriptorType: DescType(typeObjectSpecifier))

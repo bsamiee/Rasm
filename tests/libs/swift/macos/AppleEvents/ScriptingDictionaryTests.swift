@@ -51,10 +51,24 @@ private let definition = Data(
                 <enumerator name="javascript" code="Fjvs"/>
                 <enumerator name="uxpscript" code="USLg"/>
             </enumeration>
+            <enumeration name="save options" code="savo">
+                <enumerator name="yes" code="yes "/>
+                <enumerator name="no" code="no  "/>
+            </enumeration>
         </suite>
     </dictionary>
     """.utf8
 )
+
+private let spellings: [(String, FourCharCode?)] = [
+    ("pnam", 0x706E_616D),
+    ("0x00000001", 0x0000_0001),
+    ("0x12", 0x3078_3132),
+    ("\u{00A9}opy", 0xA96F_7079),
+    ("0x0000000G", nil),
+    ("pnam ", nil),
+    ("tell application \"Fixture\" to get name", nil),
+]
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -118,5 +132,19 @@ struct ScriptingDictionaryTests {
         expectNoDifference(try AppleEventValue.type("pages total").descriptor(as: [], in: dictionary).typeCodeValue.sdef, "Fpgc")
         let decoded = AppleEventValue(NSAppleEventDescriptor(typeCode: try #require(FourCharCode(sdef: "Fmod"))), in: dictionary)
         expectNoDifference(try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(decoded)), .object(["_tag": .string("type"), "name": .string("modified")]))
+    }
+
+    @Test(arguments: spellings)
+    func readsEachCodeSpellingTheScriptingDefinitionAllows(text: String, code: FourCharCode?) {
+        expectNoDifference(FourCharCode(sdef: text), code)
+        expectNoDifference(code.map(\.sdef).flatMap(FourCharCode.init(sdef:)), code)
+    }
+
+    @Test
+    func resolvesTextAgainstEveryEnumerationTypingTheParameter() throws {
+        let types: Set<String> = ["script language", "save options"]
+        expectNoDifference(try AppleEventValue.text("yes").descriptor(as: types, in: dictionary).enumCodeValue, FourCharCode(kAEYes))
+        expectNoDifference(try AppleEventValue.text("uxpscript").descriptor(as: types, in: dictionary).enumCodeValue, try #require(FourCharCode(sdef: "USLg")))
+        expectNoDifference(try AppleEventValue.text("yes").descriptor(as: ["script language"], in: dictionary).descriptorType, DescType(typeUnicodeText))
     }
 }

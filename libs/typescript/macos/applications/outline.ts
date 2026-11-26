@@ -204,7 +204,7 @@ const tree = (index: Index, changed: HashSet.HashSet<Control['ref']>): readonly 
             ? [
                   node(
                       facts(`▸ ${target.entry.container.kind} ${JSON.stringify(Option.getOrElse(name, () => target.entry.container.kind))}`, [
-                          `seen ${target.entry.container.tally.seen}×, last ${DateTime.formatIsoDateUtc(target.entry.container.tally.last)}`,
+                          `seen ${target.entry.container.tally.seen}×, last ${DateTime.formatIsoDateUtc(target.entry.container.tally.last)}${Option.exists(index.remembered.build, (build) => build !== target.entry.container.tally.verified) ? ` in build ${target.entry.container.tally.verified}, not yet in this one` : ''}`,
                           ...flags({ modal: target.entry.container.modal }),
                           ...(Array.isReadonlyArrayNonEmpty(ancestors) ? [`opened by ${ancestors.join(Address.separator)}`] : []),
                       ]),
@@ -291,21 +291,13 @@ const render = (
     return Result.flatMap(page, (held) => Result.map(start(held, after), (from) => fit(held, from, budget)));
 };
 const hits = (found: readonly Item[], held: readonly string[], { after = Option.none(), budget = BUDGET, opening = Option.none() }: { readonly after?: Option.Option<Item>; readonly budget?: typeof BUDGET; readonly opening?: Option.Option<Index> } = {}) => {
-    const opener = (item: Item) =>
-        Option.flatMap(opening, (index) =>
-            (item.target._tag === 'RememberedContainer' || item.target._tag === 'RememberedControl' ? Option.some(item.target.entry) : Option.none()).pipe(
-                Option.flatMap(({ container }) => Array.head(container.openers)),
-                Option.flatMap(({ control }) => Record.get(index.located, control)),
-                Option.flatMap(Struct.get('token')),
-            ),
-        );
+    const opener = (item: Item) => Option.flatMap(opening, (index) => Option.flatMap(Address.opener(index, item), Struct.get('token')));
     const page: Page = {
         nodes: found.map((item) =>
             node(
                 facts(
                     [
-                        ...(item.live ? Option.toArray(item.token) : ['▸']),
-                        Address.path(item).join(Address.separator),
+                        ...(item.live ? [...Option.toArray(item.token), Address.path(item).join(Address.separator)] : ['▸', Option.getOrElse(item.token, () => Address.path(item).join(Address.separator))]),
                         ...Option.toArray(Option.map(item.value, (value) => (item.live ? value : `was ${value}`))),
                         Address.Target.$match(item.target, {
                             Container: ({ container }) => container.kind,

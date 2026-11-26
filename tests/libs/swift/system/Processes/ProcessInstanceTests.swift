@@ -77,4 +77,32 @@ struct ProcessInstanceTests {
         #expect(throws: Errno.noSuchProcess) { try ProcessInstance(of: child) }
         #expect(process.hasExited)
     }
+
+    @Test(
+        arguments: [
+            (SSTOP, PROC_FLAG_TRACED, TH_STATE_RUNNING, .traced),
+            (SRUN, PROC_FLAG_TRACED, TH_STATE_STOPPED, .traced),
+            (SRUN, PROC_FLAG_TRACED, TH_STATE_RUNNING, .running),
+            (SRUN, PROC_FLAG_PA_SUSP, TH_STATE_STOPPED, .throttled),
+            (SSTOP, PROC_FLAG_PA_THROTTLE, TH_STATE_RUNNING, .stopped),
+        ] as [(Int32, Int32, Int32, ProcessStatus)]
+    )
+    func readsTheMainThreadStateWithStopsUnderADebuggerAndStarvationAheadOfTheThreadRunState(status: Int32, flags: Int32, run: Int32, state: ProcessStatus) {
+        var process = proc_bsdinfo()
+        (process.pbi_status, process.pbi_flags) = (UInt32(status), UInt32(flags))
+        var thread = proc_threadinfo()
+        thread.pth_run_state = run
+        expectNoDifference(MainThread(process, thread, at: .now).state, state)
+    }
+
+    @Test
+    func refusesEveryReadOfAPidWhoseStartTimeNoLongerMatches() throws {
+        let current = try ProcessInstance(of: getpid())
+        let reused = ProcessInstance(pid: current.pid, started: current.started - 1)
+        #expect(throws: Errno.noSuchProcess) { try MainThread(of: reused) }
+        #expect(throws: Errno.noSuchProcess) { try reused.listeningPorts() }
+        #expect(throws: Errno.noSuchProcess) { try reused.runsInstalledCode() }
+        #expect(throws: Errno.noSuchProcess) { try reused.signal(0) }
+        #expect(throws: Errno.noSuchProcess) { try reused.executable() }
+    }
 }

@@ -22,7 +22,7 @@ public enum InstanceState: CaseTagged, Equatable, Sendable {
             public var isIdle: Bool {
                 switch self {
                     case .launching, .unresponsive(.running), .unresponsive(.runnable), .unresponsive(.throttled), .unresponsive(.uninterruptible): false
-                    case .responding, .unresponsive(.sleeping), .unresponsive(.stopped): true
+                    case .responding, .unresponsive(.sleeping), .unresponsive(.stopped), .unresponsive(.traced): true
                 }
             }
         }
@@ -32,7 +32,7 @@ public enum InstanceState: CaseTagged, Equatable, Sendable {
         public let windows: [Window]
         public let usage: Result<ResourceUsage, Errno>?
         public let listening: Result<[in_port_t], Errno>
-        public let statusItems: Result<Int, ApplicationFailure>
+        public let statusItems: Result<Int, ApplicationFailure>?
 
         public var asking: [Window] { windows.filter(\.asking) }
     }
@@ -106,8 +106,10 @@ public enum InstanceState: CaseTagged, Equatable, Sendable {
 }
 
 extension InstanceState.Window {
-    static func all(_ listed: CGWindowListOption, relativeTo window: CGWindowID = kCGNullWindowID) -> [pid_t: [Self]] {
-        let rows: [[String: Any]] = CGWindowListCopyWindowInfo(listed, window) as? [[String: Any]] ?? []
+    static func all(_ listed: CGWindowListOption, relativeTo window: CGWindowID = kCGNullWindowID, of owner: pid_t? = nil) -> [pid_t: [Self]] {
+        let rows: [[String: Any]] = (CGWindowListCopyWindowInfo(listed, window) as? [[String: Any]] ?? []).filter { row in
+            owner.map { owner in row[kCGWindowOwnerPID as String] as? pid_t == owner } ?? true
+        }
         let numbers: [CGWindowID] = rows.compactMap { row in row[kCGWindowNumber as String] as? CGWindowID }
         let connection: Int32 = mainConnection()
         let iterator: CFTypeRef? = unsafe queryWindows(connection, numbers as CFArray, Int32(numbers.count)).flatMap { query in unsafe queriedWindows(query.takeRetainedValue())?.takeRetainedValue() }
@@ -222,8 +224,8 @@ extension InstanceState.Activity: Encodable {
         let usageFailure: String? = usage?[case: \.failure]?.description
         try fields.encodeIfPresent(usageFailure, forKey: .usageFailure)
         try fields.encode(asking + windows.filter { window in !window.asking }, forKey: .windows)
-        try fields.encodeIfPresent(statusItems[case: \.success], forKey: .statusItems)
-        let statusItemsFailure: String? = statusItems[case: \.failure]?.errorDescription
+        try fields.encodeIfPresent(statusItems?[case: \.success], forKey: .statusItems)
+        let statusItemsFailure: String? = statusItems?[case: \.failure]?.errorDescription
         try fields.encodeIfPresent(statusItemsFailure, forKey: .statusItemsFailure)
     }
 }

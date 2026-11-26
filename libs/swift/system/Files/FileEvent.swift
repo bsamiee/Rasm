@@ -9,7 +9,7 @@ public struct FileEvent: Sendable {
     public let url: URL
     public let flags: FSEventStreamEventFlags
 
-    public var mustScanSubDirs: Bool { flags & FSEventStreamEventFlags(kFSEventStreamEventFlagMustScanSubDirs) != 0 }
+    public var mustScanSubDirs: Bool { flags & FSEventStreamEventFlags(kFSEventStreamEventFlagMustScanSubDirs | kFSEventStreamEventFlagRootChanged) != 0 }
 
     public static func events(of file: URL) -> AsyncStream<Result<[Self], FileFailure>> {
         let (events, continuation) = AsyncStream<Result<[Self], FileFailure>>.makeStream()
@@ -19,9 +19,27 @@ public struct FileEvent: Sendable {
         return events
     }
 
+    public static func events(of file: URL, eventMask: DispatchSource.FileSystemEvent) -> AsyncStream<Result<DispatchSource.FileSystemEvent, FileFailure>> {
+        let (events, continuation) = AsyncStream<Result<DispatchSource.FileSystemEvent, FileFailure>>.makeStream()
+        do {
+            let descriptor = try FileDescriptor.open(FilePath(file.path(percentEncoded: false)), .readOnly, options: [.eventOnly, .closeOnExec])
+            let watched = FileHandle(fileDescriptor: descriptor.rawValue, closeOnDealloc: true)
+            let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: watched.fileDescriptor, eventMask: eventMask)
+            source.setRegistrationHandler { continuation.yield(.success([])) }
+            source.setEventHandler { continuation.yield(.success(source.data)) }
+            source.setCancelHandler { withExtendedLifetime(watched) {} }
+            continuation.onTermination = { _ in source.cancel() }
+            source.activate()
+        } catch {
+            continuation.yield(.failure(FileFailure(file: file, reason: .filesystem(error))))
+            continuation.finish()
+        }
+        return events
+    }
+
     public static func presence(of file: URL) -> some AsyncSequence<Result<Bool, FileFailure>, Never> & Sendable {
         events(of: file).map { batch in
-            batch.flatMap { _ in Result { () throws(FileFailure) in try ifPresent(file) { try FilePath(file.path(percentEncoded: false)).stat() } != nil } }
+            batch.flatMap { _ in Result { () throws(FileFailure) in try ifPresent(file) { try FilePath(file.path(percentEncoded: false)).stat(followTargetSymlink: false) } != nil } }
         }
     }
 
@@ -39,10 +57,10 @@ public struct FileEvent: Sendable {
 
     private static func modifications(of file: URL) throws(FileFailure) -> [FilePath: Duration] {
         let root = FilePath(file.path(percentEncoded: false))
-        return try ifPresent(file) {
-            let inside = try file.resourceValues(forKeys: [.isPackageKey]).isPackage == true ? FileManager.default.subpathsOfDirectory(atPath: root.string) : []
-            return try Dictionary(uniqueKeysWithValues: ([root] + inside.map { name in root.appending(name) }).map { path in try (path, Duration(path.stat().st_mtim)) })
-        } ?? [:]
+        let inside = try ifPresent(file) { try file.resourceValues(forKeys: [.isPackageKey]).isPackage == true ? FileManager.default.subpathsOfDirectory(atPath: root.string) : [] } ?? []
+        let paths = [root] + inside.map { name in root.appending(name) }
+        let modified = try paths.map { path throws(FileFailure) in try ifPresent(file) { try (path, Duration(path.stat(followTargetSymlink: false).st_mtim)) } }
+        return Dictionary(uniqueKeysWithValues: modified.compactMap(\.self))
     }
 
     @safe private actor Watcher {
@@ -92,7 +110,7 @@ public struct FileEvent: Sendable {
                         [file.path(percentEncoded: false)] as CFArray,
                         FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
                         0,
-                        FSEventStreamCreateFlags(kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot | kFSEventStreamCreateFlagNoDefer),
+                        FSEventStreamCreateFlags(kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot),
                     )
                 else { throw FileFailure(file: file, reason: .unwatched) }
                 unsafe FSEventStreamSetDispatchQueue(created, watcher.queue)

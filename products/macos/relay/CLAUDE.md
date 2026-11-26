@@ -81,8 +81,8 @@ Relay logs through swift-log to `~/Library/Logs/app.rasm.relay/Relay.log`, or `<
 - Crash reports of `app.rasm.relay` written since the last launch log one `FATAL` record each at launch
 - `codex app-server` standard error logs at `debug` under `Relay.CodexClient`, drained after the connection ends to keep a failing server's last lines
 - Account state sits in `Application Support/app.rasm.relay`, named by the bundle identifier
-- Defaults keys `log.level`, `log.filter`, `log.target`, `output.dir`, `log.size`, `log.age`, `log.files`, and `state.dir` set each value
-- `defaults write app.rasm.relay <key> <value>` or environment variable `RELAY_<KEY>` (`RELAY_LOG_LEVEL`) sets a key
+- Defaults keys `log.level`, `log.filter`, `log.target`, `output.dir`, `log.size`, `log.age`, `log.backups`, and `state.dir` set each value
+- `defaults write app.rasm.relay <key> <value>` sets a key, with `-int` before the value of `log.size`, `log.age`, and `log.backups` and `-array` before the values of `log.filter`, or environment variable `RELAY_<KEY>` (`RELAY_LOG_LEVEL`) sets it
 - `log.level` and `log.filter` apply while Relay runs
 - `OTEL_LOGS_EXPORTER`, `OTEL_METRICS_EXPORTER`, and `OTEL_TRACES_EXPORTER` in the environment or defaults each start one signal's OTLP export
 - Quitting waits 1 second for the last OTLP batch

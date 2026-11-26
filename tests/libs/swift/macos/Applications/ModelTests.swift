@@ -102,6 +102,29 @@ extension WindowServerTests {
         }
 
         @Test(.enabled(if: AXIsProcessTrusted(), "Reading the fixture from outside needs this test process to hold the Accessibility grant"))
+        func placesEachControlInTheWindowTheFixtureDrawsItInAcrossItsSheetAndPopover() async throws {
+            let (report, model): (Report, Model) = try await FixtureSession.launched { fixture in
+                let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
+                let watch: Watch = await Watches().watch(try Instance(application))
+                for surface: Surface in [.sheet, .popover] { try await fixture.send(.show(surface: surface)) }
+                try await fixture.send(.report)
+                return (try await fixture.next(\.report).value, try await watch.model(.application))
+            }
+            let entries: Set<Inventory> = [.action, .bleed, .done]
+            let placed: [(member: Member, drawn: Int?, read: Int?)] = report.controls.filter { reported in entries.contains(reported.entry) }.map { reported in
+                let control: Control? = Self.found(reported, in: model)
+                let container: Container? = control.flatMap { control in model.containers.first { container in container.controls.contains { held in held.ref == control.ref } } }
+                return (Member(entry: reported.entry, index: reported.member), reported.window, container?.window.map(Int.init))
+            }
+            let reached: Set<Inventory> = Set(placed.map(\.member.entry))
+            expectNoDifference(reached, entries)
+            expectNoDifference(
+                Dictionary(uniqueKeysWithValues: placed.map { entry in (entry.member, entry.read) }),
+                Dictionary(uniqueKeysWithValues: placed.map { entry in (entry.member, entry.drawn) }),
+            )
+        }
+
+        @Test(.enabled(if: AXIsProcessTrusted(), "Reading the fixture from outside needs this test process to hold the Accessibility grant"))
         func readsEachMenuItemShortcutAsTheKeyStepThatPressesIt() async throws {
             let (report, levels): (Report, [Model]) = try await FixtureSession.launched { fixture in
                 let application = try #require(NSRunningApplication(processIdentifier: fixture.process))

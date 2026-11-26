@@ -44,6 +44,28 @@ struct LogEntryTests {
         expectNoDifference(entries.map(\.composedMessage), ["fault \(token)", "error \(token)"])
     }
 
+    @Test
+    func historyStartsAtItsInstantNotItsSecond() async throws {
+        let token = UUID().uuidString
+        let now = Date.now.timeIntervalSince1970
+        try await Task.sleep(for: .seconds(now.rounded(.up) - now + 0.1))
+        logger.error("before \(token, privacy: .public)")
+        try await Task.sleep(for: .milliseconds(100))
+        let start = Date.now
+        logger.error("after \(token, privacy: .public)")
+        let entries = try await LogEntry.history(of: .process(getpid()), since: start, limit: 10, containing: token)
+        expectNoDifference(entries.map(\.composedMessage), ["after \(token)"])
+    }
+
+    @Test
+    func historyKeepsTheNewestEntriesUpToItsLimit() async throws {
+        let token = UUID().uuidString
+        let start = Date.now
+        for index in 1...3 { logger.error("\(index, privacy: .public) \(token, privacy: .public)") }
+        let entries = try await LogEntry.history(of: .process(getpid()), since: start, limit: 2, containing: token)
+        expectNoDifference(entries.map(\.composedMessage), ["3 \(token)", "2 \(token)"])
+    }
+
     @Test(.timeLimit(.minutes(1)))
     func streamsOnlyRequestedLevels() async throws {
         let token = UUID().uuidString
@@ -56,7 +78,7 @@ struct LogEntryTests {
         }
         defer { writing.cancel() }
         let first = try #require(
-            await LogEntry.stream(of: .process(getpid()), levels: [.fault]).first { line in if case .success(let entry) = line { entry.composedMessage?.contains(token) == true } else { false } }
+            await LogEntry.stream(of: .process(getpid()), levels: [.fault]).first { line in if case .success(let entry) = line { entry.composedMessage.contains(token) } else { false } }
         )
         let entry = try first.get()
         expectNoDifference(entry.level, .fault)

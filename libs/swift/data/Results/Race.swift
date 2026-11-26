@@ -21,17 +21,13 @@ public func withTimeout<Value: Sendable, Failure: Error>(
     expired: Failure,
     cancelled: Failure,
     clock: some Clock<Duration> = ContinuousClock(),
-    answering start: @escaping @Sendable (@escaping @Sendable (Result<Value, Failure>) -> Void) -> Void,
+    _ work: @escaping @Sendable (_ completionHandler: @escaping @Sendable (Result<Value, Failure>) -> Void) -> Void,
 ) async throws(Failure) -> Value {
     try await withTimeout(timeout, expired: expired, clock: clock) { () async throws(Failure) -> Value in
-        let answers = AsyncStream<Result<Value, Failure>>(bufferingPolicy: .bufferingOldest(1)) { answered in
-            start { answer in
-                answered.yield(answer)
-                answered.finish()
-            }
-        }
-        guard let answer = await answers.first(where: { _ in true }) else { throw cancelled }
-        return try answer.get()
+        let (outcomes, outcome) = AsyncStream<Result<Value, Failure>>.makeStream(bufferingPolicy: .bufferingOldest(1))
+        if !Task.isCancelled { work { completed in outcome.yield(completed) } }
+        for await completed in outcomes { return try completed.get() }
+        throw cancelled
     }
 }
 

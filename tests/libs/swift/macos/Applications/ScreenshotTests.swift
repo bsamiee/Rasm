@@ -3,6 +3,7 @@ import AppKit
 import CasePathsCore
 import CustomDump
 import Fixture
+import ImageIO
 import Testing
 
 @testable import Applications
@@ -20,9 +21,15 @@ extension WindowServerTests {
         ]
         static let placed: [(mark: CGRect, changed: CGRect?)] = [
             (CGRect(x: 771, y: 242, width: 60, height: 20), CGRect(x: 771, y: 242, width: 60, height: 20)),
-            (CGRect(x: 960, y: 330, width: 60, height: 40), CGRect(x: 960, y: 330, width: 31, height: 22)),
+            (CGRect(x: 960, y: 330, width: 60, height: 40), CGRect(x: 954.5, y: 330, width: 36.5, height: 22)),
+            (CGRect(x: 700, y: 180, width: 60, height: 40), CGRect(x: 731, y: 212, width: 36.5, height: 13)),
             (CGRect(x: 0, y: 0, width: 40, height: 40), nil),
         ]
+
+        static func cropped(_ image: CGImage, to frame: CGRect) throws -> Screenshot {
+            let pixels = CGRect(x: (frame.minX - Self.frame.minX) * 2, y: (frame.minY - Self.frame.minY) * 2, width: frame.width * 2, height: frame.height * 2)
+            return Screenshot(image: try #require(image.cropping(to: pixels)), frame: frame, windows: [], backingStore: false, document: nil, presentation: nil)
+        }
 
         static func drawn(_ mark: CGRect?) throws -> CGImage {
             let scale: CGFloat = 2
@@ -72,6 +79,66 @@ extension WindowServerTests {
                     case (.some, .none), (.none, .some): false
                 }
             #expect(within, "mark \(String(describing: mark)) changed \(String(describing: found)), want \(String(describing: changed)) within half a point")
+        }
+
+        @Test
+        func changedFindsNothingBetweenAWindowImageAndItselfWhereItsRoundedCornersArePartlyTransparent() throws {
+            let context: CGContext = try #require(
+                unsafe CGContext(
+                    data: nil,
+                    width: Int(Self.frame.width * 2),
+                    height: Int(Self.frame.height * 2),
+                    bitsPerComponent: 8,
+                    bytesPerRow: 0,
+                    space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedFirst.rawValue),
+                )
+            )
+            context.setFillColor(CGColor(red: 0.2, green: 0.4, blue: 0.9, alpha: 1))
+            context.addPath(unsafe CGPath(roundedRect: CGRect(x: 0, y: 0, width: context.width, height: context.height), cornerWidth: 21, cornerHeight: 21, transform: nil))
+            context.fillPath()
+            let window = Screenshot(image: try #require(context.makeImage()), frame: Self.frame, windows: [], backingStore: false, document: nil, presentation: nil)
+            expectNoDifference(window.changed(from: window), nil)
+        }
+
+        @Test
+        func labelsDrawOverEveryFrameSoNoLaterFrameCrossesAnEarlierLabel() throws {
+            let (under, over): (Mark, Mark) = (
+                Mark(frame: CGRect(x: 771, y: 242, width: 60, height: 20), label: "@a12"), Mark(frame: CGRect(x: 790, y: 200, width: 30, height: 70), label: "@a13"),
+            )
+            let label = CGRect(x: 773, y: 244, width: 30, height: 9)
+            let alone: CGImage = try Self.drawn(nil).marking([under], in: Self.frame)
+            let crossed: CGImage = try Self.drawn(nil).marking([under, over], in: Self.frame)
+            expectNoDifference(try Self.cropped(crossed, to: label).changed(from: try Self.cropped(alone, to: label)), nil)
+        }
+
+        @Test
+        func pngCarriesSRGBColourWhateverSpaceTheImageWasDrawnIn() throws {
+            let space: CGColorSpace = try #require(CGColorSpace(name: CGColorSpace.displayP3))
+            let context: CGContext = try #require(
+                unsafe CGContext(data: nil, width: 40, height: 20, bitsPerComponent: 8, bytesPerRow: 0, space: space, bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue))
+            )
+            context.setFillColor(CGColor(red: 0.2, green: 0.4, blue: 0.9, alpha: 1))
+            context.fill(CGRect(x: 0, y: 0, width: 40, height: 20))
+            let encoded: Data = try #require(context.makeImage()).png()
+            let decoded: CGImage? = CGImageSourceCreateWithData(encoded as CFData, nil).flatMap { source in CGImageSourceCreateImageAtIndex(source, 0, nil) }
+            expectNoDifference(decoded?.colorSpace?.name, CGColorSpace.sRGB)
+        }
+
+        @Test(
+            .enabled(if: CGPreflightScreenCaptureAccess() && AXIsProcessTrusted(), "Capturing the fixture from outside needs this test process to hold the Screen Recording and Accessibility grants")
+        )
+        func capturesARegionFromTheWindowsShownThereAndNoneOffScreen() async throws {
+            let (rows, shots): ([InstanceState.Window], [Result<Screenshot, ApplicationFailure>]) = try await FixtureSession.launched { fixture in
+                let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
+                let watch: Watch = await Watches().watch(try Instance(application))
+                let rows: [InstanceState.Window] = InstanceState.Window.all(.optionAll)[fixture.process, default: []]
+                return (rows, try await watch.capture(.region(frame: rows.map(\.frame).reduce(CGRect.null) { joint, frame in joint.union(frame) })))
+            }
+            let hidden: Set<CGWindowID> = Set(rows.filter { row in !row.onScreen }.map(\.number))
+            try #require(!hidden.isEmpty, "The fixture holds no window off screen inside the region")
+            let shot: Screenshot = try #require(shots.first).get()
+            expectNoDifference(hidden.intersection(shot.windows), [])
         }
 
         @Test(

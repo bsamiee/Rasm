@@ -132,6 +132,23 @@ struct RaceTests {
         expectNoDifference(outcome, answered)
     }
 
+    @Test
+    func startsNoCallbackOnceTheCallerIsCancelled() async {
+        let (starts, started) = AsyncStream<Void>.makeStream()
+        let caller = Task { () async -> Result<Int, Refusal> in
+            try? await Task.sleep(for: .seconds(3600))
+            return await Result { () async throws(Refusal) -> Int in
+                try await withTimeout(.seconds(5), expired: Refusal(field: "timeout"), cancelled: Refusal(field: "cancelled"), clock: TestClock<Duration>()) { _ in started.yield() }
+            }
+        }
+        caller.cancel()
+        let outcome = await caller.value
+        started.finish()
+        let count = await starts.reduce(0) { count, _ in count + 1 }
+        expectNoDifference(outcome, .failure(Refusal(field: "cancelled")))
+        expectNoDifference(count, 0)
+    }
+
     @Test(arguments: [(true, 1, 2), (false, 2, 1)])
     func takesTheFirstOutcomeAndCancelsTheOther(workFinishesFirst: Bool, winner: Int, loser: Int) async throws {
         let (interruptions, interrupted) = AsyncStream<Int>.makeStream()

@@ -9,7 +9,7 @@ import { Server } from '@rasm/mcp/server';
 import { Array, Context, Data, Duration, Effect, Equal, FileSystem, Function, HashMap, HashSet, Layer, Option, Order, Predicate, pipe, RcMap, Record, Ref, Result, Schedule, Schema, Stream, String, Struct, SubscriptionRef } from 'effect';
 import { SqlClient } from 'effect/sql';
 import { ApplicationServer } from '#/client';
-import { Act, Build, Condition, Frame, Instant, type InstanceSnapshot, InstanceState, Locator, Model, Observation, Opener, Shape, Value } from '#/contract';
+import { Act, Build, Condition, Frame, Instant, type InstanceSnapshot, InstanceState, Locator, Observation, Opener, Shape, Value } from '#/contract';
 import { Description, FacetControl } from '#/source';
 import { follows, Workspace } from '#/workspace';
 
@@ -30,7 +30,7 @@ const LIMITS = { builds: 8, openers: 4, misses: 3, epochs: 2, pairing: 8, named:
 const REDACTED = { home: '~', other: '<private>' } as const;
 const STATIC = ['kind', 'role', 'subrole', 'labels', 'section', 'help', 'range', 'shortcut', 'mark', 'separated', 'alternate', 'parent', 'positional'] as const;
 const PAIRED = ['parent', 'role', 'kind', 'help'] as const;
-const FACTS = ['subrole', 'label', 'labels', 'section', 'help', 'range', 'mark', 'shortcut', 'separated'] as const;
+const ELLIPSIS = /(?:…|\.{3})$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -75,7 +75,6 @@ const Control = Schema.Struct({
     retired: Schema.OptionFromOptionalKey(Build),
     route: Schema.OptionFromOptionalKey(Schema.Struct({ build: Build, passed: Schema.OptionFromOptionalKey(Act.Rung), failed: Schema.Array(Act.Rung) }).annotate({ description: 'Rung whose read-back last passed a step on the control in the build, and the rungs that failed it there' })),
 });
-const Facts = Schema.Struct(Struct.pick(Shape.fields, FACTS));
 class Entry extends Schema.Opaque<Entry>()(Schema.Struct({ container: Container, controls: Schema.Record(Locator, Control) }).annotate({ description: 'One container and every control read in it, keyed by locator' })) {}
 const Change = Schema.TaggedUnion({
     Appeared: { at: Locator },
@@ -92,6 +91,7 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
     static readonly Change = Change;
     static readonly empty = new InterfaceMap({ application: { builds: [], options: {} }, containers: {} });
     static readonly catalog = Catalog.make({ tables: [applications, containers] });
+    static readonly languages = (bundle: string) => Effect.map(Relation.select(applications, { bundle: [bundle] }), Array.map(Struct.get('language')));
     static readonly open = Effect.fn('InterfaceMap.open')(function* (bundle: string, language: string) {
         const where = { bundle: [bundle], language: [language] } as const;
         const [held, entries, user, sql] = yield* Effect.all([Relation.select(applications, where), Relation.select(containers, where), Effect.sync(() => userInfo()), SqlClient.SqlClient]);
@@ -153,6 +153,31 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
         }));
     }
 
+    get coverage() {
+        const build = Array.head(this.application.builds);
+        const [current, earlier] = Array.partition(Record.toEntries(this.containers), (entry) => (Option.contains(build, entry[1].container.tally.verified) ? Result.succeed(entry) : Result.fail(entry)));
+        const openers = current.flatMap(([container, { controls }]) =>
+            Record.collect(
+                Record.filter(controls, ({ retired }) => Option.isNone(retired)),
+                (control, held) => ({ at: { container, control }, held }),
+            ),
+        );
+        const gaps = {
+            opens: ({ opens }: Entry['controls'][string]) => Option.exists(opens, (opened) => !Record.has(this.containers, opened)),
+            ellipsis: ({ opens, label }: Entry['controls'][string]) => Option.isNone(opens) && Option.exists(label, ({ text }) => ELLIPSIS.test(text)),
+            options: ({ kind, options }: Entry['controls'][string]) => kind === 'choice' && Option.isNone(options),
+        };
+        return {
+            build,
+            known: Record.map(
+                Array.groupBy(current, ([, { container }]): string => container.kind),
+                (group) => group.length,
+            ),
+            earlier: earlier.length,
+            unopened: Record.map(gaps, (lacks) => openers.filter(({ held }) => lacks(held)).map(({ at }): typeof Opener.Type => at)),
+        };
+    }
+
     level(opener: string) {
         return pipe(
             Record.get(openedBy(this), opener),
@@ -171,7 +196,10 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
     }
 
     prove({ at, from, outcome }: Proof): InterfaceMap {
-        const found = Option.all({ build: Array.head(this.application.builds), entry: Record.get(this.containers, at.container) }).pipe(Option.flatMap(({ build, entry }) => Option.map(Record.get(entry.controls, at.control), (control) => ({ build, entry, control }))));
+        const found = Option.all({ build: Array.head(this.application.builds), entry: Record.get(this.containers, at.container) }).pipe(
+            Option.filter(() => Result.match(outcome, { onSuccess: ({ proof }) => proof !== 'unanswered' && proof !== 'exit', onFailure: Function.constTrue })),
+            Option.flatMap(({ build, entry }) => Option.map(Record.get(entry.controls, at.control), (control) => ({ build, entry, control }))),
+        );
         return Option.match(found, {
             onNone: () => this,
             onSome: ({ build, entry, control }) => {
@@ -372,21 +400,6 @@ const describeChanges = (changes: readonly (typeof Change.Type)[], { container, 
         : Array.match(parts, { onEmpty: Option.none, onNonEmpty: (held) => Option.some(`map of ${shown}: ${held.join('; ')}`) });
 };
 
-const modelOf = Effect.fnUntraced(
-    function* <E>(intern: (locators: readonly string[]) => Effect.Effect<readonly number[], E>, { locator, entry }: Option.Option.Value<ReturnType<InterfaceMap['level']>>, sequence: Model['sequence']) {
-        const controls = Record.filter(entry.controls, ({ retired }) => Option.isNone(retired));
-        const locators = Array.dedupe([locator, ...Record.keys(controls), ...Record.values(controls).flatMap(({ opens, alternate }) => [...Option.toArray(opens), ...Option.toArray(alternate)])]);
-        const refs = Record.fromIterableWith(Array.zip(locators, yield* intern(locators)), Function.identity);
-        const refOf = (at: string) => Record.get(refs, at);
-        const listed = yield* Effect.forEach(Record.toEntries(controls), ([at, control]) =>
-            Effect.map(Schema.encodeEffect(Facts)(control), (facts) => ({ ...facts, ...Struct.pick(control, ['kind', 'role', 'positional']), ref: refs[at], locator: at, ...Record.getSomes({ opens: Option.flatMap(control.opens, refOf), alternate: Option.flatMap(control.alternate, refOf) }) })),
-        );
-        const level = { ref: refs[locator], locator, kind: entry.container.kind, ...Record.getSomes({ title: entry.container.title }), ...Record.getSomes({ layer: entry.container.layer }), modal: entry.container.modal, asking: false, text: [], truncated: false, controls: listed };
-        return yield* Schema.decodeUnknownEffect(Model)({ sequence, containers: [level] });
-    },
-    Effect.catchTag('SchemaError', Effect.die),
-);
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class InterfaceMaps extends Context.Service<
@@ -394,14 +407,14 @@ class InterfaceMaps extends Context.Service<
     {
         readonly recall: (contact: Contact) => Effect.Effect<InterfaceMap, Effect.Error<ReturnType<typeof InterfaceMap.open>>>;
         readonly learn: (contact: Contact, described: Description) => Effect.Effect<Description, Effect.Error<ReturnType<typeof InterfaceMap.open>>>;
-        readonly level: (contact: Contact, opener: string, sequence: Model['sequence']) => Effect.Effect<Option.Option<Model>, Effect.Error<ReturnType<typeof InterfaceMap.open>> | Effect.Error<ReturnType<ApplicationServer['Service']['intern']>>>;
+        readonly held: (bundle: string) => Effect.Effect<Readonly<Record<string, InterfaceMap>>, Effect.Error<ReturnType<typeof InterfaceMap.open>>>;
         readonly prove: (contact: Contact, proofs: readonly Proof[]) => Effect.Effect<void, Effect.Error<ReturnType<typeof InterfaceMap.open>>>;
     }
 >()('@rasm/applications/interface-map/InterfaceMaps') {
     static readonly layer = Layer.effect(
         InterfaceMaps,
         Effect.gen(function* () {
-            const [server, { running, catalog }, scope] = yield* Effect.all([ApplicationServer, Workspace, Effect.scope]);
+            const [server, { running, catalog }, scope, stored] = yield* Effect.all([ApplicationServer, Workspace, Effect.scope, Effect.context<Effect.Services<ReturnType<typeof InterfaceMap.languages>>>()]);
             const exited = (instance: InstanceSnapshot['instance']) =>
                 SubscriptionRef.changes(running).pipe(
                     Stream.dropWhile((rows) => !rows.some((row) => row.instance === instance)),
@@ -455,10 +468,10 @@ class InterfaceMaps extends Context.Service<
             return {
                 recall: (contact) => using(contact, Struct.get('present')),
                 learn: (contact, described) => using(contact, ({ learn }) => learn(described)),
-                level: Effect.fnUntraced(function* (contact, opener, sequence) {
-                    const map = yield* using(contact, Struct.get('present'));
-                    const intern = (locators: readonly string[]) => server.intern({ instance: contact.instance, locators });
-                    return yield* Effect.transposeOption(Option.map(map.level(opener), (found) => modelOf(intern, found, sequence)));
+                held: Effect.fnUntraced(function* (bundle) {
+                    const languages = yield* Effect.provideContext(InterfaceMap.languages(bundle), stored);
+                    const held = yield* Effect.forEach(languages, (language) => Effect.scoped(Effect.flatMap(RcMap.get(maps, { bundle, language }), Struct.get('present'))));
+                    return Record.fromEntries(Array.zip(languages, held));
                 }),
                 prove: (contact, proofs) => using(contact, ({ prove }) => prove(proofs)),
             };

@@ -9,44 +9,48 @@ public import ServiceLifecycle
 
 public struct MetricKitReports: Service {
     private let manager = MetricManager()
+    private let encoder = JSONEncoder.jsonLines
     private let logger: Logging.Logger
 
     public init(to logger: Logging.Logger) { self.logger = logger }
 
     public func run() async {
         await cancelWhenGracefulShutdown {
-            async let diagnostics: Void = log(manager.diagnosticReports) { report in
-                let (level, message): (Logging.Logger.Level, Logging.Logger.Message) =
-                    switch report.result {
-                        case .crash: (.critical, "MetricKit crash report")
-                        case .hang: (.error, "MetricKit hang report")
-                        case .cpuException: (.error, "MetricKit CPU exception report")
-                        case .diskWriteException: (.error, "MetricKit disk write exception report")
-                        case .appLaunch: (.notice, "MetricKit launch report")
-                        @unknown default: (.notice, "MetricKit diagnostic report")
-                    }
-                return (level, message, report.environment.bundleIdentifier, report.environment.applicationVersion, report.environment.pid)
-            }
-            await log(manager.metricReports) { report in (.notice, "MetricKit metric report", report.environment?.bundleIdentifier, report.environment?.latestApplicationVersion, nil) }
+            async let diagnostics: Void = log(manager.diagnosticReports)
+            await log(manager.metricReports) { report in (.notice, "MetricKit metric report", report.environment?.latestApplicationVersion, nil) }
             await diagnostics
         }
     }
 
-    private func log<Report: Encodable>(
+    func log(_ reports: some AsyncSequence<DiagnosticReport, Never>) async {
+        await log(reports) { report in
+            let entry: (level: Logging.Logger.Level, message: Logging.Logger.Message)? =
+                switch report.result {
+                    case .crash: nil
+                    case .hang: (.error, "MetricKit hang report")
+                    case .cpuException: (.error, "MetricKit CPU exception report")
+                    case .diskWriteException: (.error, "MetricKit disk write exception report")
+                    case .appLaunch: (.notice, "MetricKit launch report")
+                    @unknown default: (.notice, "MetricKit diagnostic report")
+                }
+            return entry.map { entry in (entry.level, entry.message, report.environment.applicationVersion, report.environment.pid) }
+        }
+    }
+
+    func log<Report: Encodable>(
         _ reports: some AsyncSequence<Report, Never>,
-        as entry: (Report) -> (level: Logging.Logger.Level, message: Logging.Logger.Message, service: String?, version: String?, pid: pid_t?),
+        as entry: (Report) -> (level: Logging.Logger.Level, message: Logging.Logger.Message, version: String?, pid: pid_t?)?,
     ) async {
         for await report in reports {
-            let (level, message, service, version, pid) = entry(report)
+            guard case (let level, let message, let version, let pid)? = entry(report) else { continue }
             let fields: Logging.Logger.Metadata = [
-                OTelAttribute.service.name: service.map { name in "\(name, privacy: .public)" },
                 OTelAttribute.service.version: version.map { stated in "\(stated, privacy: .public)" },
                 OTelAttribute.process.pid: pid.map(Logging.Logger.MetadataValue.stringConvertible),
             ]
             .compactMapValues(\.self)
-            switch Result(catching: { try JSONEncoder.jsonLines.encode(report) }) {
+            switch Result(catching: { try encoder.encode(report) }) {
                 case .success(let body): logger.log(level: level, message, metadata: fields.merging(["report": .string(String(decoding: body, as: UTF8.self))]) { _, body in body })
-                case .failure(let failure): logger.error("MetricKit report encoding failed", error: failure, metadata: fields)
+                case .failure(let failure): logger.log(level: level, message, error: failure, metadata: fields)
             }
         }
     }

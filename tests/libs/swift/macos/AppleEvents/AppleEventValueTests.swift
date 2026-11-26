@@ -36,6 +36,13 @@ private let wire: [(AppleEventValue, String)] = [
     (.specifier(want: "page", form: .index, seld: .number(2), from: .null), #"{"_tag":"specifier","form":"index","from":null,"seld":2,"want":"page"}"#),
 ]
 
+private let ordinals: [(KeyForm, String, DescType, FourCharCode)] = [
+    (.index, "first", DescType(typeAbsoluteOrdinal), FourCharCode(kAEFirst)),
+    (.index, "every", DescType(typeAbsoluteOrdinal), FourCharCode(kAEAll)),
+    (.relative, "next", DescType(typeEnumerated), FourCharCode(kAENext)),
+    (.relative, "previous", DescType(typeEnumerated), FourCharCode(kAEPrevious)),
+]
+
 private let texts: [(String, DescType)] = [("javascript", DescType(typeEnumerated)), ("Fjvs", DescType(typeEnumerated)), ("Fred", DescType(typeUnicodeText))]
 
 private let integers: [(DescType, [UInt8], Double?)] = [
@@ -76,6 +83,30 @@ struct AppleEventValueTests {
     func decodesASpecifierWithoutAContainerAsOneOnTheApplication() throws {
         let read = try JSONDecoder().decode(AppleEventValue.self, from: Data(#"{"_tag":"specifier","form":"index","seld":2,"want":"page"}"#.utf8))
         expectNoDifference(try json(read), #"{"_tag":"specifier","form":"index","from":null,"seld":2,"want":"page"}"#)
+    }
+
+    @Test
+    func encodesADateInItsWireFormWhateverTheEncodersDateStrategy() throws {
+        let date = AppleEventValue.date(Date(timeIntervalSince1970: 86_400))
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let encoded = try encoder.encode(date)
+        expectNoDifference(String(bytes: encoded, encoding: .utf8), #"{"_tag":"date","date":"1970-01-02T00:00:00.000Z"}"#)
+        expectNoDifference(try json(JSONDecoder().decode(AppleEventValue.self, from: encoded)), try json(date))
+    }
+
+    @Test(arguments: ordinals)
+    func sendsAnOrdinalAsTheKeyDataItsFormDeclares(form: KeyForm, text: String, type: DescType, code: FourCharCode) throws {
+        let specifier = try AppleEventValue.specifier(want: "cpar", form: form, seld: .text(text), from: .null).descriptor(as: [], in: dictionary.get())
+        let data = try #require(specifier.forKeyword(AEKeyword(keyAEKeyData)))
+        expectNoDifference(data.descriptorType, type)
+        expectNoDifference(data.enumCodeValue, code)
+    }
+
+    @Test
+    func sendsAPropertySpecifierWithThePropertyClassWhateverTheWantedName() throws {
+        let specifier = try AppleEventValue.specifier(want: "name", form: .property, seld: .type("pnam"), from: .null).descriptor(as: [], in: dictionary.get())
+        expectNoDifference(specifier.forKeyword(AEKeyword(keyAEDesiredClass))?.typeCodeValue, FourCharCode(cProperty))
     }
 
     @Test(arguments: integers)

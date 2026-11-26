@@ -5,7 +5,7 @@ import IOKit
 import IOKit.graphics
 import IOKit.pwr_mgt
 import IOKit.storage
-public import System
+import System
 import notify
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -19,7 +19,7 @@ public struct SystemPressure: Encodable, Equatable, Sendable {
     public let available: Int
     public let thermal: ProcessInfo.ThermalState
     public let lowPower: Bool
-    public let advisory: [String: Int]
+    public let advisory: [String: Int]?
 
     public func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: CodingKeys.self)
@@ -35,7 +35,7 @@ public struct SystemPressure: Encodable, Equatable, Sendable {
             }
         try fields.encode(thermal, forKey: .thermal)
         try fields.encode(lowPower, forKey: .lowPower)
-        let advisory: [String: String] = advisory.mapValues { level in
+        let advisory: [String: String]? = advisory?.mapValues { level in
             switch level {
                 case kIOSystemLoadAdvisoryLevelBad: "bad"
                 case kIOSystemLoadAdvisoryLevelOK: "ok"
@@ -43,13 +43,42 @@ public struct SystemPressure: Encodable, Equatable, Sendable {
                 default: String(level)
             }
         }
-        try fields.encode(advisory, forKey: .advisory)
+        try fields.encodeIfPresent(advisory, forKey: .advisory)
     }
 }
 
-public struct SystemLoad: Encodable, Sendable {
-    private enum CodingKeys: CodingKey {
-        case idle, pageins, swapins, swapouts, decompressions, deviceUtilization, diskBytesRead, diskBytesWritten, diskTime, availableCapacityForImportantUsage
+public struct SystemLoad: Sendable {
+    public struct Interval: Encodable, Sendable {
+        private enum CodingKeys: CodingKey {
+            case idle, pageins, swapins, swapouts, decompressions, deviceUtilization, diskBytesRead, diskBytesWritten, diskTime, availableCapacityForImportantUsage
+        }
+
+        public let growth: SystemLoad
+        public let deviceUtilization: Int?
+        public let availableCapacityForImportantUsage: Int64?
+
+        public var idle: Double? {
+            let ticks = SIMD4<UInt64>(truncatingIfNeeded: growth.processor)
+            let total: UInt64 = ticks.wrappedSum()
+            return total == 0 ? nil : Double(ticks[Int(CPU_STATE_IDLE)]) / Double(total)
+        }
+
+        public func encode(to encoder: any Encoder) throws {
+            var fields = encoder.container(keyedBy: CodingKeys.self)
+            let disk = growth.disks.values.reduce((bytesRead: UInt64.zero, bytesWritten: UInt64.zero, time: Duration.zero)) { total, driver in
+                (total.bytesRead &+ driver.bytesRead, total.bytesWritten &+ driver.bytesWritten, total.time + driver.time)
+            }
+            try fields.encodeIfPresent(idle, forKey: .idle)
+            for (key, count) in [
+                (CodingKeys.pageins, growth.pageins), (.swapins, growth.swapins), (.swapouts, growth.swapouts), (.decompressions, growth.decompressions), (.diskBytesRead, disk.bytesRead),
+                (.diskBytesWritten, disk.bytesWritten),
+            ] {
+                try fields.encode(count, forKey: key)
+            }
+            try fields.encode(disk.time / .seconds(1), forKey: .diskTime)
+            try fields.encodeIfPresent(deviceUtilization, forKey: .deviceUtilization)
+            try fields.encodeIfPresent(availableCapacityForImportantUsage, forKey: .availableCapacityForImportantUsage)
+        }
     }
 
     public let processor: SIMD4<UInt32>
@@ -57,62 +86,46 @@ public struct SystemLoad: Encodable, Sendable {
     public let swapins: UInt64
     public let swapouts: UInt64
     public let decompressions: UInt64
-    public let diskBytesRead: UInt64
-    public let diskBytesWritten: UInt64
-    public let diskTime: Duration
-    public let deviceUtilization: Int?
-    public let availableCapacityForImportantUsage: Int64?
-
-    public func encode(to encoder: any Encoder) throws {
-        var fields = encoder.container(keyedBy: CodingKeys.self)
-        let ticks = SIMD4<UInt64>(truncatingIfNeeded: processor)
-        let total: UInt64 = ticks.wrappedSum()
-        let idle: Double? = total == 0 ? nil : Double(ticks[Int(CPU_STATE_IDLE)]) / Double(total)
-        try fields.encodeIfPresent(idle, forKey: .idle)
-        for (key, count) in [
-            (CodingKeys.pageins, pageins), (.swapins, swapins), (.swapouts, swapouts), (.decompressions, decompressions), (.diskBytesRead, diskBytesRead), (.diskBytesWritten, diskBytesWritten),
-        ] {
-            try fields.encode(count, forKey: key)
-        }
-        try fields.encode(diskTime / .seconds(1), forKey: .diskTime)
-        try fields.encodeIfPresent(deviceUtilization, forKey: .deviceUtilization)
-        try fields.encodeIfPresent(availableCapacityForImportantUsage, forKey: .availableCapacityForImportantUsage)
-    }
+    public let disks: [UInt64: (bytesRead: UInt64, bytesWritten: UInt64, time: Duration)]
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-private func copyProperty(_ key: String, matching service: String) throws(NSError) -> [[String: Any]] {
+private func copyProperty(_ key: String, matching service: String) throws(ProcessFailure) -> [UInt64: [String: Any]] {
     var iterator: io_iterator_t = 0
     let matched = unsafe IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching(service), &iterator)
-    guard matched == KERN_SUCCESS else { throw NSError(domain: NSMachErrorDomain, code: Int(matched)) }
+    guard matched == KERN_SUCCESS else { throw ProcessFailure(subject: service, reason: .mach(matched)) }
     defer { _ = IOObjectRelease(iterator) }
-    return sequence(state: iterator) { iterator -> io_object_t? in
+    let entries = sequence(state: iterator) { iterator -> io_object_t? in
         let entry: io_object_t = IOIteratorNext(iterator)
         return entry == 0 ? nil : entry
     }
-    .compactMap { (entry: io_object_t) -> [String: Any]? in
-        defer { _ = IOObjectRelease(entry) }
-        let property: CFTypeRef? = unsafe IORegistryEntryCreateCFProperty(entry, key as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue()
-        return property as? [String: Any]
-    }
+    return try Dictionary(
+        uniqueKeysWithValues: entries.map { (entry: io_object_t) throws(ProcessFailure) -> (UInt64, [String: Any]?) in
+            defer { _ = IOObjectRelease(entry) }
+            var id: UInt64 = 0
+            let identified = unsafe IORegistryEntryGetRegistryEntryID(entry, &id)
+            guard identified == KERN_SUCCESS else { throw ProcessFailure(subject: service, reason: .mach(identified)) }
+            return unsafe (id, IORegistryEntryCreateCFProperty(entry, key as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? [String: Any])
+        }
+    )
+    .compactMapValues(\.self)
 }
 
 extension SystemPressure {
-    public static func current() throws(Errno) -> Self {
-        let levels: [UInt32] = try ["kern.memorystatus_vm_pressure_level", "kern.memorystatus_level"].map { name throws(Errno) -> UInt32 in
+    public init() throws(ProcessFailure) {
+        let level = { (name: String) throws(ProcessFailure) -> UInt32 in
             var level: UInt32 = 0
             var size = MemoryLayout<UInt32>.size
-            guard unsafe sysctlbyname(name, &level, &size, nil, 0) == 0 else { throw Errno(rawValue: errno) }
+            guard unsafe sysctlbyname(name, &level, &size, nil, 0) == 0 else { throw ProcessFailure(subject: name, reason: .system(Errno(rawValue: errno))) }
             return level
         }
-        let advisory: CFDictionary? = unsafe IOCopySystemLoadAdvisoryDetailed()?.takeRetainedValue()
-        return Self(
-            memory: DispatchSource.MemoryPressureEvent(rawValue: UInt(levels[0])),
-            available: Int(levels[1]),
+        try self.init(
+            memory: DispatchSource.MemoryPressureEvent(rawValue: UInt(level("kern.memorystatus_vm_pressure_level"))),
+            available: Int(level("kern.memorystatus_level")),
             thermal: ProcessInfo.processInfo.thermalState,
             lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled,
-            advisory: advisory as? [String: Int] ?? [:],
+            advisory: unsafe IOCopySystemLoadAdvisoryDetailed()?.takeRetainedValue() as? [String: Int],
         )
     }
 
@@ -135,45 +148,40 @@ extension SystemPressure {
             NotificationCenter.default.messages(of: process, for: .thermalStateDidChange).map { _ in () },
             NotificationCenter.default.messages(of: process, for: .powerStateDidChange).map { _ in () },
         )
-        .map { _ in Result { () throws(Errno) in try current() }.mapError { error in ProcessFailure(subject: "system pressure", reason: .system(error)) } }
+        .map { _ in Result { () throws(ProcessFailure) in try Self() } }
         return chain(refused.async, readings).removeDuplicates()
     }
 }
 
 extension SystemLoad {
-    public static func current() throws(NSError) -> Self {
+    public init() throws(ProcessFailure) {
         let host = mach_host_self()
         defer { _ = unsafe mach_port_deallocate(mach_task_self_, host) }
+        let read = { (flavor: host_flavor_t, info: UnsafeMutableRawBufferPointer) throws(ProcessFailure) in
+            let status = unsafe info.withMemoryRebound(to: integer_t.self) { words in
+                var count = mach_msg_type_number_t(words.count)
+                return unsafe host_statistics64(host, flavor, words.baseAddress, &count)
+            }
+            guard status == KERN_SUCCESS else { throw ProcessFailure(subject: "host_statistics64 flavor \(flavor)", reason: .mach(status)) }
+        }
         var processor = host_cpu_load_info()
         var memory = vm_statistics64()
-        let reads: [kern_return_t] = [
-            withUnsafeMutablePointer(to: &processor) { info in
-                var count = mach_msg_type_number_t(MemoryLayout<host_cpu_load_info>.size / MemoryLayout<integer_t>.size)
-                return unsafe info.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { words in unsafe host_statistics(host, HOST_CPU_LOAD_INFO, words, &count) }
-            },
-            withUnsafeMutablePointer(to: &memory) { info in
-                var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size)
-                return unsafe info.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { words in unsafe host_statistics64(host, HOST_VM_INFO64, words, &count) }
-            },
-        ]
-        if let failed = reads.first(where: { read in read != KERN_SUCCESS }) { throw NSError(domain: NSMachErrorDomain, code: Int(failed)) }
-        let disks: [[String: Any]] = try copyProperty(kIOBlockStorageDriverStatisticsKey, matching: kIOBlockStorageDriverClass)
-        let disk = { (key: String) -> UInt64 in disks.reduce(0) { total, driver in total &+ (driver[key] as? UInt64 ?? 0) } }
-        let accelerators: [[String: Any]] = try copyProperty("PerformanceStatistics", matching: kIOAcceleratorClassName)
-        let volume: URLResourceValues
-        do { volume = try URL(filePath: "/").resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]) } catch { throw error as NSError }
+        try withUnsafeMutableBytes(of: &processor) { info throws(ProcessFailure) in try unsafe read(HOST_CPU_LOAD_INFO, info) }
+        try withUnsafeMutableBytes(of: &memory) { info throws(ProcessFailure) in try unsafe read(HOST_VM_INFO64, info) }
         let ticks = processor.cpu_ticks
-        return Self(
+        try self.init(
             processor: SIMD4(ticks.0, ticks.1, ticks.2, ticks.3),
             pageins: memory.pageins,
             swapins: memory.swapins,
             swapouts: memory.swapouts,
             decompressions: memory.decompressions,
-            diskBytesRead: disk(kIOBlockStorageDriverStatisticsBytesReadKey),
-            diskBytesWritten: disk(kIOBlockStorageDriverStatisticsBytesWrittenKey),
-            diskTime: .nanoseconds(disk(kIOBlockStorageDriverStatisticsTotalReadTimeKey) &+ disk(kIOBlockStorageDriverStatisticsTotalWriteTimeKey)),
-            deviceUtilization: accelerators.compactMap { statistics in statistics["Device Utilization %"] as? Int }.max(),
-            availableCapacityForImportantUsage: volume.volumeAvailableCapacityForImportantUsage,
+            disks: copyProperty(kIOBlockStorageDriverStatisticsKey, matching: kIOBlockStorageDriverClass).mapValues { statistics in
+                let count = { (key: String) -> UInt64 in statistics[key] as? UInt64 ?? 0 }
+                return (
+                    bytesRead: count(kIOBlockStorageDriverStatisticsBytesReadKey), bytesWritten: count(kIOBlockStorageDriverStatisticsBytesWrittenKey),
+                    time: .nanoseconds(count(kIOBlockStorageDriverStatisticsTotalReadTimeKey) &+ count(kIOBlockStorageDriverStatisticsTotalWriteTimeKey)),
+                )
+            },
         )
     }
 
@@ -184,11 +192,25 @@ extension SystemLoad {
             swapins: swapins &- earlier.swapins,
             swapouts: swapouts &- earlier.swapouts,
             decompressions: decompressions &- earlier.decompressions,
-            diskBytesRead: diskBytesRead &- earlier.diskBytesRead,
-            diskBytesWritten: diskBytesWritten &- earlier.diskBytesWritten,
-            diskTime: diskTime - earlier.diskTime,
-            deviceUtilization: deviceUtilization,
-            availableCapacityForImportantUsage: availableCapacityForImportantUsage,
+            disks: Dictionary(
+                uniqueKeysWithValues: disks.map { id, later in
+                    let held = earlier.disks[id] ?? (0, 0, .zero)
+                    return (id, (bytesRead: later.bytesRead &- held.bytesRead, bytesWritten: later.bytesWritten &- held.bytesWritten, time: later.time - held.time))
+                }
+            ),
+        )
+    }
+}
+
+extension SystemLoad.Interval {
+    public init(since earlier: SystemLoad) throws(ProcessFailure) {
+        let growth = try SystemLoad().since(earlier)
+        let volume: URLResourceValues
+        do { volume = try URL(filePath: "/").resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]) } catch { throw ProcessFailure(subject: "/", error) }
+        try self.init(
+            growth: growth,
+            deviceUtilization: copyProperty("PerformanceStatistics", matching: kIOAcceleratorClassName).values.compactMap { statistics in statistics["Device Utilization %"] as? Int }.max(),
+            availableCapacityForImportantUsage: volume.volumeAvailableCapacityForImportantUsage,
         )
     }
 }

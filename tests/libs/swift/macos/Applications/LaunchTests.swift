@@ -1,9 +1,11 @@
 import AppKit
+import AppleEvents
 import AsyncAlgorithms
 import CasePathsCore
 import CustomDump
 import Fixture
 import Foundation
+import Processes
 import Testing
 
 @testable import Applications
@@ -17,14 +19,7 @@ extension WindowServerTests {
             return rows.filter { row in row[kCGWindowLayer as String] as? Int32 == CGWindowLevelForKey(.normalWindow) }.compactMap { row in row[kCGWindowOwnerPID as String] as? pid_t }
         }
 
-        @Test(
-            .enabled(
-                if: NSWorkspace.shared.frontmostApplication.map { front in Self.normalOwners().contains(front.processIdentifier) } == true,
-                "Ordering behind the frontmost application needs one showing a normal window",
-            )
-        )
-        func neverRanksAWindowOfAnInstanceOrderingItselfFrontAboveTheFrontmostApplicationFromOpenToSettle() async throws {
-            let folder = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
+        static func bundle(in folder: URL) throws -> Installation {
             let contents = folder.appending(components: "Fixture.app", "Contents")
             try FileManager.default.createDirectory(at: contents.appending(component: "MacOS"), withIntermediateDirectories: true)
             try FileManager.default.copyItem(at: FixtureSession.executable, to: contents.appending(components: "MacOS", FixtureSession.executable.lastPathComponent))
@@ -35,13 +30,25 @@ extension WindowServerTests {
                 format: .xml,
                 options: 0,
             ).write(to: contents.appending(component: "Info.plist"))
+            return try Installation(at: folder.appending(component: "Fixture.app"))
+        }
+
+        @Test(
+            .enabled(
+                if: NSWorkspace.shared.frontmostApplication.map { front in Self.normalOwners().contains(front.processIdentifier) } == true,
+                "Ordering behind the frontmost application needs one showing a normal window",
+            )
+        )
+        func neverRanksAWindowOfAnInstanceOrderingItselfFrontAboveTheFrontmostApplicationFromOpenToSettle() async throws {
+            let folder = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
+            let installation = try Self.bundle(in: folder)
             let front = try #require(NSWorkspace.shared.frontmostApplication)
             let sampling = Task {
                 await AsyncTimerSequence(interval: .milliseconds(5), clock: ContinuousClock()).map { _ in (front: focusedProcesses().front, owners: Self.normalOwners()) }
                     .reduce(into: [(front: pid_t?, owners: [pid_t])]()) { held, sample in held.append(sample) }
             }
             let events = NSWorkspace.shared.launchEvents(
-                try Installation(at: folder.appending(component: "Fixture.app")),
+                installation,
                 in: ScriptingDictionaries { _ in nil },
                 watches: Watches(),
                 within: .seconds(5),
@@ -67,6 +74,19 @@ extension WindowServerTests {
                 samples.last.map { sample in (sample.owners.firstIndex(of: instance.application.processIdentifier) ?? -1) > (sample.owners.firstIndex(of: front.processIdentifier) ?? .max) } ?? false
             #expect(behind, "The settled fixture shows a normal window below the frontmost application's")
             expectNoDifference(entries, 0, "Permitted front entries left after settle")
+        }
+
+        @Test
+        func leavesAutomationConsentTowardTheLaunchedInstanceUnaskedAsLaunchServicesSendsItsFirstAppleEvent() async throws {
+            let folder = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
+            let events = NSWorkspace.shared.launchEvents(try Self.bundle(in: folder), in: ScriptingDictionaries { _ in nil }, watches: Watches(), within: .seconds(5))
+            var launched: Instance?
+            for await case .launched(let event) in events { launched = event.instance }
+            let instance = try #require(launched)
+            let consent: OSStatus = await NSAppleEventDescriptor(processIdentifier: instance.process.pid).consent(to: AEEventClass(kCoreEventClass), AEEventID(kAEOpenApplication), asking: false)
+            _ = instance.application.forceTerminate()
+            try FileManager.default.removeItem(at: folder)
+            expectNoDifference(consent, OSStatus(errAEEventWouldRequireUserConsent), "Automation consent of this process toward the settled instance")
         }
 
         @Test(

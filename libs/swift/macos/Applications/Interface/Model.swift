@@ -26,10 +26,10 @@ public struct Hierarchy: Sendable {
 
     var undescribed: [InstanceState.Window] {
         let described: Set<CGWindowID> = Set(elements.compactMap(\.window))
-        return windows.filter { row in row.onScreen && row.layer < Int(CGWindowLevelForKey(.mainMenuWindow)) && !described.contains(row.number) }
+        return windows.filter { row in row.onScreen && row.layer < InstanceState.Window.Band.mainMenu.level && !described.contains(row.number) }
     }
 
-    var flyouts: [InstanceState.Window] { undescribed.filter { row in row.layer == modalLayers.lowerBound } }
+    var flyouts: [InstanceState.Window] { undescribed.filter { row in row.layer == InstanceState.Window.Band.modalPanel.level } }
 }
 
 public struct Control: Encodable, Equatable, Sendable {
@@ -473,9 +473,9 @@ extension Model {
             let located: [(ref: Int, element: Int)] = [(ref: intern(locator), element: element.id)] + controls.flatMap(\.located)
             let answers: [Int: Int] = Dictionary(located.map { entry in (entry.element, entry.ref) }) { first, _ in first }
             let window: CGWindowID? = Swift.sequence(first: element.id) { scope in owners[scope] }.prefix(held.count).lazy.compactMap { scope in held[scope]?.window }.first
-            let layer: Int? = window.flatMap { number in rows[number]?.layer }
+            let row: InstanceState.Window? = window.flatMap { number in rows[number] }
             let title: String? = element.label?.text
-            let modal: Bool = element.flag(kAXModalAttribute) == true || kind != .menu && layer.map(modalLayers.contains) == true
+            let modal: Bool = element.flag(kAXModalAttribute) == true || kind != .menu && row?.band == .modalPanel
             let container = Container(
                 ref: intern(locator),
                 locator: locator,
@@ -489,7 +489,7 @@ extension Model {
                 loadingProgress: element.facts[kAXLoadingProgressAttribute]?.number,
                 window: window,
                 frame: element.frame,
-                layer: layer,
+                layer: row?.layer,
                 modal: modal,
                 asking: kind.asking(modal: modal) || element.flag(kAXModalAttribute) == true,
                 focused: element.flag(kAXFocusedAttribute) ?? element.flag(kAXMainAttribute),

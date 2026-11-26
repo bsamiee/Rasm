@@ -68,8 +68,8 @@ const folds = Effect.fnUntraced(function* ({ model, described }: { readonly mode
         {
             shown: stated,
             tool: described.pointer?.tool ?? model.pointer?.tool,
-            shortcut: described.pointer?.shortcut ?? model.pointer?.shortcut,
-            help: described.pointer?.help ?? model.pointer?.help,
+            shortcut: described.pointer?.tool === undefined ? (described.pointer?.shortcut ?? model.pointer?.shortcut) : described.pointer.shortcut,
+            help: described.pointer?.tool === undefined ? (described.pointer?.help ?? model.pointer?.help) : described.pointer.help,
             holding: described.pointer?.holding ?? model.pointer?.holding,
             cursor: model.pointer?.cursor,
             draggingFrame: model.pointer?.draggingFrame,

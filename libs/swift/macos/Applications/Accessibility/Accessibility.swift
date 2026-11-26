@@ -8,7 +8,6 @@ public import Foundation
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 let messagingTimeout: Duration = .seconds(1)
-let modalLayers: Range<Int> = Int(CGWindowLevelForKey(.modalPanelWindow))..<Int(CGWindowLevelForKey(.utilityWindow))
 let frameAttribute: String = "AXFrame"
 let userInputLabelsAttribute: String = "AXUserInputLabels"
 let fullScreenAttribute: String = "AXFullScreen"
@@ -28,15 +27,16 @@ let windowAttributes: [String] =
 let webAttributes: [String] = [
     kAXInvalidAttribute, NSAccessibility.Attribute.required.rawValue, kAXARIACurrentAttribute, kAXARIARowCountAttribute, kAXLoadedAttribute, kAXLoadingProgressAttribute,
 ]
-let declaredActions: Set<String> = [
-    kAXPressAction, kAXIncrementAction, kAXDecrementAction, kAXConfirmAction, kAXPickAction, kAXCancelAction, kAXRaiseAction, kAXShowMenuAction, kAXShowAlternateUIAction,
-    kAXShowDefaultUIAction, NSAccessibility.Action.delete.rawValue, NSAccessibility.Action.scrollToVisibleAction.rawValue,
-]
 let menuAttributes: [String] = [
     kAXRoleAttribute, kAXSubroleAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXHelpAttribute, kAXIdentifierAttribute, kAXEnabledAttribute, kAXSelectedAttribute,
     kAXMenuItemCmdCharAttribute, kAXMenuItemCmdVirtualKeyAttribute, kAXMenuItemCmdGlyphAttribute, kAXMenuItemCmdModifiersAttribute, kAXMenuItemMarkCharAttribute, kAXURLAttribute,
     kAXChildrenAttribute, kAXParentAttribute, frameAttribute,
 ]
+private let declaredActions: Set<String> = [
+    kAXPressAction, kAXIncrementAction, kAXDecrementAction, kAXConfirmAction, kAXPickAction, kAXCancelAction, kAXRaiseAction, kAXShowMenuAction, kAXShowAlternateUIAction,
+    kAXShowDefaultUIAction, NSAccessibility.Action.delete.rawValue, NSAccessibility.Action.scrollToVisibleAction.rawValue,
+]
+private let windowRoles: Set<String> = [kAXWindowRole, kAXSheetRole, kAXDrawerRole, kAXPopoverRole]
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -106,7 +106,7 @@ public struct Element: Hashable, Sendable {
     public let id: Int
     public let facts: [String: Fact]
     public let actions: [String]
-    public let window: CGWindowID?
+    public var window: CGWindowID?
     public var descriptions: [String: String] = [:]
     public var counts: [String: Int] = [:]
 
@@ -224,7 +224,7 @@ extension AXUIElement {
         var names: CFArray?
         let (answer, facts) = copy(attributes, interning: intern)
         let acted: AXError = answer == .success ? unsafe AXUIElementCopyActionNames(self, &names) : answer
-        let read = Element(id: id, facts: facts, actions: names as? [String] ?? [], window: window)
+        let read = Element(id: id, facts: facts, actions: names as? [String] ?? [], window: nil)
         let (wanted, counted): (read: [String], counted: [String]) = answered.contains(acted) ? read.supplementary : ([], [])
         let missing: [String] = wanted.filter { attribute in !attributes.contains(attribute) }
         let (extended, added) = missing.isEmpty ? (AXError.success, [:]) : copy(missing, interning: intern)
@@ -242,21 +242,32 @@ extension AXUIElement {
                 id: id,
                 facts: facts.merging(added) { first, _ in first },
                 actions: read.actions,
-                window: read.window,
+                window: answer == .success && read.role.map(windowRoles.contains) == true ? window : nil,
                 descriptions: Dictionary(descriptions) { first, _ in first },
                 counts: Dictionary(counts) { first, _ in first },
             ),
         )
     }
 
-    func read(_ attributes: [String]) throws(ApplicationFailure) -> (element: Element, handles: [AXUIElement]) {
+    func element(reading attributes: [String]) throws(ApplicationFailure) -> (element: Element, handles: [AXUIElement]) {
         var handles: [AXUIElement] = [self]
-        let (answer, read) = element(0, reading: attributes) { handle in
+        var (answer, read) = element(0, reading: attributes) { handle in
             handles.append(handle)
             return handles.count - 1
         }
         guard [.success, .invalidUIElement].contains(answer) else { throw failure(answer, reading: attributes.joined(separator: ", ")) }
+        read.window = answer == .success ? read.window ?? window : nil
         return (read, handles)
+    }
+
+    func read(_ attributes: [String]) throws(ApplicationFailure) -> (element: Element, handles: [AXUIElement]) {
+        var handles: [AXUIElement] = [self]
+        let (answer, facts) = copy(attributes) { handle in
+            handles.append(handle)
+            return handles.count - 1
+        }
+        guard [.success, .invalidUIElement].contains(answer) else { throw failure(answer, reading: attributes.joined(separator: ", ")) }
+        return (Element(id: 0, facts: facts, actions: [], window: nil), handles)
     }
 
     func elements(_ attribute: String) throws(ApplicationFailure) -> [AXUIElement] {
@@ -288,25 +299,22 @@ extension AXUIElement {
 
     func runs(interning intern: (AXUIElement) -> Int) throws(ApplicationFailure) -> [Control.Run] {
         guard case .range(let start, let length) = copy([kAXVisibleCharacterRangeAttribute], interning: intern).facts[kAXVisibleCharacterRangeAttribute] else { return [] }
-        var (runs, index): ([Control.Run], Int) = ([], start)
-        while index < start + length, let style = try parameterized(kAXStyleRangeForIndexParameterizedAttribute, index as CFNumber).flatMap({ value in Fact(value, interning: intern)?.range }),
-            case let end = min(style.location + style.length, start + length), end > index
-        {
-            var range = CFRange(location: index, length: end - index)
-            guard let span: AXValue = unsafe AXValueCreate(.cfRange, &range) else { break }
-            let styled: NSAttributedString? = try parameterized(kAXAttributedStringForRangeParameterizedAttribute, span) as? NSAttributedString
-            let attributes: [NSAttributedString.Key: Any] = styled.map { styled in styled.length == 0 ? [:] : unsafe styled.attributes(at: 0, effectiveRange: nil) } ?? [:]
-            runs.append(
-                Control.Run(
-                    range: Control.TextRange(location: range.location, length: range.length),
-                    text: styled?.string ?? "",
-                    attributes: Dictionary(uniqueKeysWithValues: attributes.compactMap { key, value in Fact(value as AnyObject, interning: intern).map { fact in (key.rawValue, fact) } }),
-                    frame: try parameterized(kAXBoundsForRangeParameterizedAttribute, span).flatMap { value in Fact(value, interning: intern)?.rect },
-                )
+        var visible = CFRange(location: start, length: length)
+        let span: AXValue? = unsafe AXValueCreate(.cfRange, &visible)
+        guard let span, let styled = try parameterized(kAXAttributedStringForRangeParameterizedAttribute, span) as? NSAttributedString else { return [] }
+        var spans: [(range: NSRange, attributes: [NSAttributedString.Key: Any])] = []
+        unsafe styled.enumerateAttributes(in: NSRange(location: 0, length: styled.length)) { attributes, range, _ in spans.append((range, attributes)) }
+        return try spans.map { (range: NSRange, attributes: [NSAttributedString.Key: Any]) throws(ApplicationFailure) -> Control.Run in
+            var bounds = CFRange(location: start + range.location, length: range.length)
+            let boxed: AXValue? = unsafe AXValueCreate(.cfRange, &bounds)
+            let frame: CFTypeRef? = try boxed.flatMap { boxed throws(ApplicationFailure) in try parameterized(kAXBoundsForRangeParameterizedAttribute, boxed) }
+            return Control.Run(
+                range: Control.TextRange(location: bounds.location, length: bounds.length),
+                text: styled.attributedSubstring(from: range).string,
+                attributes: Dictionary(uniqueKeysWithValues: attributes.compactMap { key, value in Fact(value as AnyObject, interning: intern).map { fact in (key.rawValue, fact) } }),
+                frame: frame.flatMap { value in Fact(value, interning: intern)?.rect },
             )
-            index = end
         }
-        return runs
     }
 
     func settable(_ attribute: String) throws(ApplicationFailure) -> Bool {

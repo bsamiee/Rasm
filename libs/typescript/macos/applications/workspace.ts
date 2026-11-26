@@ -2,7 +2,7 @@ import { isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { Handle, Server } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Cause, Context, Effect, Function, HashSet, Layer, Option, Predicate, Record, Result, Schema, Sink, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Effect, Equivalence, Function, HashSet, Layer, Option, Predicate, Record, Result, Schema, Sink, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { Address } from '#/address';
 import { ApplicationServer } from '#/client';
 import { Event, Installation, type InstanceSnapshot, InstanceState, Pressure, type Running, type Session } from '#/contract';
@@ -74,13 +74,14 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
             logEnd('Pressure readings'),
         );
         const sessions = server.session().pipe(
+            successes('Session reading'),
             Stream.zipWithPrevious,
-            Stream.map(([before, after]) => Option.match(before, { onNone: Array.empty<string>, onSome: (held) => [...said(after, (key) => held[key] !== after[key]), ...(held.space === after.space ? [] : ['active space changed'])] })),
+            Stream.map(([before, after]) => Option.match(before, { onNone: Array.empty<string>, onSome: (held) => [...said(after, (key) => held[key] !== after[key]), ...(Array.makeEquivalence(Equivalence.strictEqual<number>())(held.spaces, after.spaces) ? [] : ['active space changed'])] })),
             Stream.filter(Array.isReadonlyArrayNonEmpty),
             Stream.map((changed) => ({ system: changed.join(', ') })),
             logEnd('Session readings'),
         );
-        const session = Effect.map(Stream.runHead(server.session()), Option.match({ onNone: Array.empty, onSome: (held) => said(held, (key) => held[key] !== SESSION[key].normal) }));
+        const session = Effect.map(Stream.runHead(successes('Session reading')(server.session())), Option.match({ onNone: Array.empty, onSome: (held) => said(held, (key) => held[key] !== SESSION[key].normal) }));
         const pressure = Effect.map(
             Stream.runHead(Stream.filterMap(server.pressure(), Function.identity)),
             Option.match({
@@ -195,7 +196,7 @@ const strains = ({ memory, available, thermal, lowPower, advisory }: typeof Pres
     { normal: memory === 'normal', text: `memory pressure ${memory} with ${available}% available` },
     { normal: thermal === 'nominal', text: `thermal state ${thermal}` },
     { normal: !lowPower, text: `low power mode ${lowPower ? 'on' : 'off'}` },
-    ...Record.collect(advisory, (key, level) => ({ normal: level !== 'bad', text: `load advisory ${key} ${level}` })),
+    ...UndefinedOr.match(advisory, { onUndefined: () => [{ normal: false, text: 'load advisory unread' }], onDefined: Record.collect((key, level) => ({ normal: level !== 'bad', text: `load advisory ${key} ${level}` })) }),
 ];
 const said = (session: Session, keep: (key: keyof typeof SESSION) => boolean) =>
     Struct.keys(SESSION)
@@ -212,7 +213,10 @@ const describeEvent = ({ application, event: { instance, change } }: { readonly 
         closed: (closed) => `closed ${closed.kind} ${Address.token(closed.kind, closed.container)}${titled(closed.title)}`,
         asking: (asking) => {
             const driven = HashSet.has(followed, instance);
-            const answers = asking.answers.flatMap(({ ref, label }) => (driven ? [[...Array.fromNullishOr(label), Address.token('action', ref)].join(' ')] : Array.fromNullishOr(label)));
+            const answers = asking.answers.flatMap(({ ref, label }) => {
+                const roles = (['default', 'cancel', 'close'] as const).filter((role) => asking[role] === ref).map((role) => `(${role})`);
+                return driven ? [[...Array.fromNullishOr(label), ...roles, Address.token('action', ref)].join(' ')] : Array.fromNullishOr(label).map((text) => [text, ...roles].join(' '));
+            });
             const reach = Option.exists(held, (aim) => aim.instance === instance) ? '' : ` once applications open ${application} makes it the target`;
             const answering = Array.match(answers, {
                 onEmpty: () => (driven ? `inspect reads its answers${reach}` : 'the user answers it'),
@@ -258,4 +262,4 @@ const refuseBlocked = (name: string) => (found: Option.Option<InstanceSnapshot>)
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { describeUsage, type Entry, follows, Workspace };
+export { describeUsage, type Entry, follows, strains, Workspace };

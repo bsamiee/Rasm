@@ -36,6 +36,7 @@ public enum Inventory: String, CaseIterable, Codable, Sendable {
     case bleed
     case done
     case status
+    case drawer
 }
 
 public enum Surface: String, CaseIterable, Codable, Sendable {
@@ -51,6 +52,7 @@ public enum Surface: String, CaseIterable, Codable, Sendable {
     case save
     case popover
     case status
+    case drawer
 }
 
 public enum Hang: Codable, Sendable {

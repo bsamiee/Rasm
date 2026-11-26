@@ -55,6 +55,12 @@ final class Rows: NSObject, NSTableViewDataSource, NSTableViewDelegate, NSOutlin
     func outlineView(_: NSOutlineView, viewFor _: NSTableColumn?, item: Any) -> NSView? { (item as? String).map(NSTextField.init(labelWithString:)) }
 }
 
+final class Drawer: NSPanel {
+    override var canBecomeKey: Bool { true }
+
+    override func cancelOperation(_: Any?) { orderOut(nil) }
+}
+
 final class MeasureCell: NSTextFieldCell {
     override func setAccessibilityValue(_: Any?) {}
 }
@@ -262,6 +268,7 @@ extension Inventory {
             case .bleed: return (.sheet, nil, [NSButton(checkboxWithTitle: "Include Bleed", target: nil, action: action)])
             case .done: return (.popover, "Details", [NSButton(title: "Done", target: nil, action: action)])
             case .status: return (.status, "Status", ["Pause", "Resume"].map { title in NSMenuItem(title: title, action: action, keyEquivalent: "") })
+            case .drawer: return (.controls, "Tools", [NSButton(title: "All Tools", target: nil, action: #selector(Delegate.drew(_:)))])
         }
     }
 

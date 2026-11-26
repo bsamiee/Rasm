@@ -49,10 +49,11 @@ struct WireTests {
     func writesEachInstanceChangeWithItsLabelsBesideItsTag() throws {
         let changes: [InstanceEvent.Change] = [
             .frontmost(active: false), .hidden(hidden: true), .started(identifier: nil, name: "Finder"), .status(status: .unresponsive(thread: .sleeping)), .status(status: .launching),
+            .asking(container: 4, kind: .dialog, title: "Save", text: ["Save changes?"], answers: [], default: 7, cancel: 8, close: nil),
         ]
         expectNoDifference(
             try written(changes),
-            #"[{"_tag":"frontmost","active":false},{"_tag":"hidden","hidden":true},{"_tag":"started","name":"Finder"},{"_tag":"status","status":{"_tag":"unresponsive","thread":"sleeping"}},{"_tag":"status","status":{"_tag":"launching"}}]"#,
+            #"[{"_tag":"frontmost","active":false},{"_tag":"hidden","hidden":true},{"_tag":"started","name":"Finder"},{"_tag":"status","status":{"_tag":"unresponsive","thread":"sleeping"}},{"_tag":"status","status":{"_tag":"launching"}},{"_tag":"asking","answers":[],"cancel":8,"container":4,"default":7,"kind":"dialog","text":["Save changes?"],"title":"Save"}]"#,
         )
     }
 

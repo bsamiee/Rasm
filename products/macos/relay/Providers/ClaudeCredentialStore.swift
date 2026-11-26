@@ -126,7 +126,7 @@ nonisolated struct ClaudeCredentialStore: Sendable {
         let file = existingConfigFile
         try file.deletingLastPathComponent().createDirectory()
         let retry = Backoff(count: 6, base: .milliseconds(200), cap: .seconds(4), jitter: 1)
-        try await Lockfile.withLocks([Lockfile(file.appendingPathExtension("lock"), retry: retry)]) { () async throws(AccountFailure) in
+        try await Lockfile.withLocks([Lockfile(file.appendingPathExtension("lock"), retries: retry)]) { () async throws(AccountFailure) in
             let fields = try Self.read(file)?.fields ?? [:]
             let mode: FilePermissions?
             do { mode = try ifPresent { () throws(Errno) in try FilePath(file.path(percentEncoded: false)).stat().permissions } } catch {
@@ -174,20 +174,21 @@ nonisolated struct ClaudeCredentialStore: Sendable {
 
     private func security(_ arguments: Arguments, input: some InputProtocol = .none) async throws(AccountFailure) -> String? {
         func code(_ status: OSStatus) -> Int32 { status & 0x00FF_FFFF }
+        let invocation = Configuration(
+            executable: .path("/usr/bin/security"),
+            arguments: arguments,
+            environment: .custom([:]),
+            workingDirectory: FilePath(URL.homeDirectory.path(percentEncoded: false)),
+            platformOptions: .session,
+        )
         do throws(ProcessFailure) {
-            return try await Configuration(
-                executable: .path("/usr/bin/security"),
-                arguments: arguments,
-                environment: .custom([:]),
-                workingDirectory: FilePath(URL.homeDirectory.path(percentEncoded: false)),
-                platformOptions: .session,
-            )
-            .run(output: .string(limit: 1 << 20), within: .seconds(15), input: input)
+            return try await invocation.run(output: .string(limit: 1 << 20), within: .seconds(15), input: input)
         } catch {
             return switch error.reason {
                 case .exit(.exited(code(errSecItemNotFound)), _): nil
                 case .exit(.exited(code(errSecInteractionNotAllowed)), _): throw AccountFailure(subject: "Keychain", reason: .interactionNotAllowed)
-                default: throw AccountFailure(subject: "Keychain", reason: error.reason.is(\.cancelled) ? .cancelled : .process(error))
+                case .cancelled: throw AccountFailure(subject: "Keychain", reason: .cancelled)
+                default: throw AccountFailure(subject: "Keychain", reason: .process(ProcessFailure(subject: invocation.executable.description, reason: error.reason)))
             }
         }
     }
@@ -207,9 +208,9 @@ nonisolated struct ClaudeCredentialStore: Sendable {
                 let canonical: URL
                 do { canonical = try directory.canonical() } catch { throw AccountFailure(subject: directory.lastPathComponent, reason: .filesystem(error)) }
                 return [directory.appending(path: ".oauth_refresh.lock"), canonical.appendingPathExtension("lock")].map { url in
-                    Lockfile(url, stale: .seconds(60), update: .seconds(5), retry: refresh)
+                    Lockfile(url, stale: .seconds(60), update: .seconds(5), retries: refresh)
                 }
-                    + [Lockfile(storageWriteLockfile(in: directory), stale: .seconds(15), retry: storageWrite)]
+                    + [Lockfile(storageWriteLockfile(in: directory), stale: .seconds(15), retries: storageWrite)]
             }
         return try await Lockfile.withLocks(lockfiles.flatMap(\.self), body)
     }

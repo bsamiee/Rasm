@@ -33,7 +33,7 @@ interface Index {
     readonly tokens: Readonly<Record<string, Item>>;
     readonly live: Readonly<Record<string, Item>>;
     readonly located: Readonly<Record<string, Item>>;
-    readonly remembered: { readonly containers: readonly Item[]; readonly controls: Readonly<Record<string, readonly Item[]>> };
+    readonly remembered: { readonly build: Option.Option<string>; readonly containers: readonly Item[]; readonly controls: Readonly<Record<string, readonly Item[]>> };
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -152,7 +152,7 @@ const index = (model: Model): Index => {
         tokens: Record.fromEntries([...live, ...unread.map(([, item]) => item)].flatMap((item) => Option.toArray(Option.map(item.token, (at) => [at, item] as const)))),
         live: { ...Record.fromEntries(unread), ...interned },
         located: located(live),
-        remembered: { containers: [], controls: {} },
+        remembered: { build: Option.none(), containers: [], controls: {} },
     };
 };
 const recall = (held: Index, map: InterfaceMap): Index => {
@@ -207,7 +207,11 @@ const recall = (held: Index, map: InterfaceMap): Index => {
         items: [...held.items, ...remembered],
         tokens: { ...held.tokens, ...Record.fromEntries(remembered.flatMap((item) => Option.toArray(Option.map(item.token, (at) => [at, item] as const)))) },
         located: { ...held.located, ...located(remembered) },
-        remembered: { containers: remembered.filter(({ target }) => target._tag === 'RememberedContainer'), controls: Record.fromEntries(groups.map(({ locator, items }) => [locator, items.filter(({ target }) => target._tag === 'RememberedControl')] as const)) },
+        remembered: {
+            build: Array.head(map.application.builds),
+            containers: remembered.filter(({ target }) => target._tag === 'RememberedContainer'),
+            controls: Record.fromEntries(groups.map(({ locator, items }) => [locator, items.filter(({ target }) => target._tag === 'RememberedControl')] as const)),
+        },
     };
 };
 const locate = ({ target }: Item) =>
@@ -218,18 +222,34 @@ const locate = ({ target }: Item) =>
         RememberedContainer: () => Option.none(),
         RememberedControl: ({ locator, container }) => Option.some({ container, control: locator }),
     });
-const opening = (held: Index, item: Item): readonly Item[] => {
-    const chain = Array.reverse(
-        Array.unfold({ at: item, seen: HashSet.empty<string>() }, ({ at, seen }) =>
-            pipe(
-                at.target._tag === 'RememberedContainer' || at.target._tag === 'RememberedControl' ? Array.head(at.target.entry.container.openers) : Option.none(),
-                Option.filter(({ control }) => !HashSet.has(seen, control)),
-                Option.flatMap(({ control }) => Option.map(Record.get(held.located, control), (opener) => [opener, { at: opener, seen: HashSet.add(seen, control) }] as const)),
-            ),
-        ),
+const shell = (held: Index, locator: string) => Option.filter(Option.map(Record.get(held.located, locator), Struct.get('target')), Target.$is('Container'));
+const opener = (held: Index, { target }: Item, seen: HashSet.HashSet<string> = HashSet.empty()) =>
+    Match.value(target).pipe(
+        Match.tag('RememberedContainer', 'RememberedControl', (at) => at),
+        Match.option,
+        Option.filter((at) => Option.isNone(shell(held, at._tag === 'RememberedControl' ? at.container : at.locator))),
+        Option.flatMap(({ entry }) => Array.findFirst(entry.container.openers, ({ control }) => (HashSet.has(seen, control) ? Option.none() : Record.get(held.located, control)))),
     );
-    const menu = ({ target }: Item) => (target._tag === 'Control' && target.container.kind === 'menu') || (target._tag === 'RememberedControl' && target.entry.container.kind === 'menu');
-    return chain.filter((_, at) => !Option.exists(Array.get(chain, at + 1), menu));
+const opening = (held: Index, item: Item): Result.Result<readonly Item[], string> => {
+    const chain = Array.reverse(Array.unfold({ at: item, seen: HashSet.empty<string>() }, ({ at, seen }) => Option.map(opener(held, at, seen), (found) => [found, { at: found, seen: HashSet.union(seen, HashSet.fromIterable(Option.toArray(locatorOf(found.target)))) }] as const)));
+    const menu = ({ target }: Item) => (target._tag === 'Control' && target.container.kind === 'menu') || ((target._tag === 'RememberedControl' || target._tag === 'RememberedContainer') && target.entry.container.kind === 'menu');
+    const root = Array.headNonEmpty(Array.append(chain, item));
+    const named = JSON.stringify(path(item).join(SEPARATOR));
+    const unreachable = ({ container }: Entry) =>
+        Result.fail(`${named} sits in a closed ${container.kind} that nothing shown now opens, as ${Array.match(container.openers, { onEmpty: () => 'the map never saw what opened it', onNonEmpty: (openers) => `none of the ${openers.length} items the map saw open it is shown` })}; open it, then act again`);
+    return root.live || menu(root)
+        ? Result.succeed(chain.filter((_, at) => !Option.exists(Array.get([...chain, item], at + 1), menu)))
+        : Match.value(root.target).pipe(
+              Match.tag('RememberedControl', (at) =>
+                  Option.match(shell(held, at.container), {
+                      onNone: () => unreachable(at.entry),
+                      onSome: ({ container }) =>
+                          container.truncated ? Result.succeed([]) : Result.fail(`${named} is missing from the open ${container.kind}${Option.match(label(container.title), { onNone: () => '', onSome: (title) => ` ${JSON.stringify(title)}` })}, read whole now, though the map saw it there ${at.control.tally.seen}×`),
+                  }),
+              ),
+              Match.tag('RememberedContainer', ({ entry }) => unreachable(entry)),
+              Match.orElse(() => Result.succeed([])),
+          );
 };
 const resolve = (held: Index, at: string): Result.Result<Item, Unmatched> => {
     const segments = Array.map(String.split(at, SEPARATOR.trim()), String.trim);
@@ -272,7 +292,7 @@ const find = (held: Index, query: string, kind: Option.Option<Control['kind']>) 
         Struct.get('live'),
         Order.flip(Order.Boolean),
     );
-const Address = { At, Target, index, recall, opening, locate, resolve, find, path, token, fact: printValue, value: printStored, separator: SEPARATOR } as const;
+const Address = { At, Target, index, recall, opener, opening, locate, resolve, find, path, token, fact: printValue, value: printStored, separator: SEPARATOR } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

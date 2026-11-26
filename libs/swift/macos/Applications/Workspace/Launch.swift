@@ -74,70 +74,105 @@ public enum LaunchEvent: CaseTagged, Sendable {
 extension NSWorkspace {
     func launch(
         _ installation: Installation,
-        opening documents: [URL] = [],
-        arguments: [String] = [],
-        environment: [String: String] = [:],
-        newInstance: Bool = false,
-        clock: some Clock<Duration> = ContinuousClock(),
-    ) async throws(ApplicationFailure) -> (instance: Instance, created: Bool, hold: UUID?) {
-        let url = installation.url
+        opening documents: [URL],
+        arguments: [String],
+        environment: [String: String],
+        newInstance: Bool,
+        within deadline: Duration,
+        watches: Watches,
+        reporting output: AsyncStream<LaunchEvent>.Continuation,
+        clock: some Clock<Duration> & Sendable,
+    ) async throws(ApplicationFailure) -> (watch: Watch, settled: InstanceState?) {
         let running = try instances(of: installation.runs)
-        switch (newInstance ? nil : running.first, arguments.isEmpty && environment.isEmpty, documents.isEmpty) {
-            case (.some(let reused), false, _): throw ApplicationFailure(subject: installation.name, reason: .reused(reused.process.pid))
-            case (.some(let reused), true, true): return (reused, false, nil)
-            case (.some, true, false), (.none, _, _): break
-        }
+        let reused: Instance? =
+            switch (newInstance ? nil : running.first, arguments.isEmpty && environment.isEmpty, documents.isEmpty) {
+                case (.some(let reused), false, _): throw ApplicationFailure(subject: installation.name, reason: .reused(reused.process.pid))
+                case (.some(let reused), true, true): reused
+                case (.some, true, false), (.none, _, _): nil
+            }
+        let creates: Bool = reused == nil && (newInstance || running.isEmpty)
         let configuration = OpenConfiguration()
         configuration.activates = false
-        configuration.hides = newInstance || running.isEmpty
+        configuration.hides = creates
         configuration.addsToRecentItems = false
         configuration.promptsUserIfNeeded = false
         configuration.allowsRunningApplicationSubstitution = false
         configuration.createsNewApplicationInstance = newInstance
-        configuration.arguments = arguments
+        configuration.arguments = creates ? arguments + ["-ApplePersistenceIgnoreState", "YES"] : arguments
         configuration.environment = environment
-        if documents.isEmpty {
-            configuration.appleEvent = NSAppleEventDescriptor(
-                eventClass: AEEventClass(kCoreEventClass),
-                eventID: kAEOpenApplication,
-                targetDescriptor: NSAppleEventDescriptor(applicationURL: url),
-                returnID: AEReturnID(kAutoGenerateReturnID),
-                transactionID: AETransactionID(kAnyTransactionID),
-            )
-            configuration.appleEvent?.setParam(NSAppleEventDescriptor(enumCode: kAENo), forKeyword: keyAERestoreAppState)
-        }
         let before: Set<pid_t> = Set(running.map(\.process.pid))
-        let hold: UUID? =
-            try await configuration.hides
-            ? PermittedFrontList.shared.hold(excluding: { application in installation.runs(application) && !before.contains(application.processIdentifier) }, clock: clock) : nil
         let requested = clock_gettime_nsec_np(CLOCK_REALTIME) / NSEC_PER_USEC
-        let launched: Result<(instance: Instance, created: Bool), ApplicationFailure> = await Result { () async throws(ApplicationFailure) -> (instance: Instance, created: Bool) in
-            let opened: NSRunningApplication
+        return try await PermittedFrontList.shared.holding(
+            excluding: { application in installation.runs(application) && !(creates && before.contains(application.processIdentifier)) },
+            for: deadline,
+            clock: clock,
+        ) { () async throws(ApplicationFailure) -> (watch: Watch, settled: InstanceState?) in
+            let opened: NSRunningApplication?
             do {
-                opened = try await documents.isEmpty ? openApplication(at: url, configuration: configuration) : open(documents, withApplicationAt: url, configuration: configuration)
+                opened =
+                    try await reused != nil
+                    ? nil
+                    : documents.isEmpty ? openApplication(at: installation.url, configuration: configuration) : open(documents, withApplicationAt: installation.url, configuration: configuration)
             } catch {
+                let quarantine: Result<Installation.Quarantine?, ApplicationFailure> = Result { () throws(ApplicationFailure) in try installation.quarantine }
+                if case .failure(let unread) = quarantine { output.yield(.failed(unread)) }
                 throw ApplicationFailure(
-                    subject: url.path(percentEncoded: false),
-                    reason: installation.quarantine.map { quarantine in ApplicationFailure.Reason.quarantined(quarantine, error as NSError) } ?? .foundation(error as NSError),
+                    subject: installation.url.path(percentEncoded: false),
+                    reason: quarantine[case: \.success].flatMap(\.self).map { quarantine in ApplicationFailure.Reason.quarantined(quarantine, error as NSError) } ?? .foundation(error as NSError),
                 )
             }
-            guard opened.processIdentifier == -1, let executable = installation.executable else { return (try Instance(opened), !before.contains(opened.processIdentifier)) }
-            let processes: [ProcessInstance]
+            let executing: [ProcessInstance]
             do throws(Errno) {
-                let path = FilePath(try executable.canonical().path(percentEncoded: false))
-                processes = try ProcessInstance.all { executing in executing == path }
+                let path: FilePath? = try (opened?.processIdentifier == -1 ? installation.executable : nil).map { executable throws(Errno) in
+                    FilePath(try executable.canonical().path(percentEncoded: false))
+                }
+                executing = try path.map { path throws(Errno) in try ProcessInstance.all { executable in executable == path } } ?? []
             } catch {
-                throw ApplicationFailure(subject: executable.path(percentEncoded: false), reason: .system(error))
+                throw ApplicationFailure(subject: installation.executable?.path(percentEncoded: false) ?? installation.name, reason: .system(error))
             }
-            let started = processes.first { process in process.started >= requested }
-            guard let process = started ?? processes.first, let application = NSRunningApplication(processIdentifier: process.pid) else {
-                throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .system(.noSuchProcess))
+            let started: ProcessInstance? = executing.first { process in process.started >= requested }
+            let found: Instance? = (started ?? executing.first).flatMap { process in
+                NSRunningApplication(processIdentifier: process.pid).map { application in Instance(application: application, process: process) }
             }
-            return (Instance(application: application, process: process), started != nil)
+            let (instance, created): (Instance, Bool) =
+                switch (reused, opened, found) {
+                    case (.some(let reused), _, _): (reused, false)
+                    case (.none, _, .some(let found)): (found, started != nil)
+                    case (.none, .some(let opened), .none) where opened.processIdentifier != -1: (try Instance(opened), !before.contains(opened.processIdentifier))
+                    case (.none, _, .none): throw ApplicationFailure(subject: installation.url.path(percentEncoded: false), reason: .system(.noSuchProcess))
+                }
+            let watch = await watches.watch(instance)
+            let replaced = !created && Result(catching: { () throws(Errno) in try instance.process.runsInstalledCode() }) == .success(false)
+            output.yield(.launched(LaunchedInstance(instance: instance, identifier: installation.identifier, created: created, replaced: replaced)))
+            let states = await watch.states().removeDuplicates().flatMapLatest { (state: InstanceState) in
+                let idle: Bool =
+                    state[case: \.running].map { running in running.status.isIdle && (running.status != .unresponsive(thread: .sleeping) || instance.application.isFinishedLaunching) } == true
+                let quiet = chain([()].async, AsyncTimerSequence(interval: messagingTimeout, clock: clock).map { _ in }).prefix(idle ? .max : 0)
+                    .map { () in Result { () throws(Errno) in try ResourceUsage(of: instance.process) } }
+                    .adjacentPairs()
+                    .map { start, end in (state, Optional(end.flatMap { end in start.map(end.since) })) }
+                return chain([(state, Result<ResourceUsage.Interval, Errno>?.none)].async, quiet)
+            }
+            let expiry = AsyncTimerSequence(interval: deadline, clock: clock).prefix(1).map { _ in (InstanceState, Result<ResourceUsage.Interval, Errno>?)?.none }
+            var settled: InstanceState?
+            for await element in merge(states.map(Optional.some), expiry) {
+                guard case (let state, let quiet)? = element else { break }
+                if quiet == nil, let snapshot = InstanceSnapshot(instance, state: state) { output.yield(.state(snapshot)) }
+                settled = state
+                let settles: Bool =
+                    switch (state, quiet) {
+                        case (.exited(let ended), _): ended.report != nil || ended.exit[case: \.success]?.producesReport != true
+                        case (.running(let running), _) where !created || !running.asking.isEmpty: true
+                        case (.failed, _), (.running, .some(.failure)): true
+                        case (.running, .some(.success(let interval))): ![ResourceUsage.Interval.Cause.running, .runnable, .paging].contains(interval.cause)
+                        case (.running, .none): false
+                    }
+                if settles { break }
+            }
+            if creates { instance.application.unhide() }
+            return (watch, settled)
         }
-        if case .failure = launched { PermittedFrontList.shared.release(hold) }
-        let (instance, created) = try launched.get()
-        return (instance, created, hold)
+        .get()
     }
 
     public func launchEvents(
@@ -153,77 +188,55 @@ extension NSWorkspace {
         waiting: Bool = false,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<LaunchEvent, Never> & Sendable {
-        AsyncStream { output in
-            let following = Task {
-                defer { output.finish() }
-                do throws(ApplicationFailure) {
-                    let (instance, created, hold) = try await Self.shared.launch(
-                        installation,
-                        opening: parameters.isEmpty ? documents : [],
-                        arguments: arguments,
-                        environment: environment,
-                        newInstance: newInstance,
-                        clock: clock,
-                    )
-                    let watch = await watches.watch(instance)
-                    await watch.addOpenCommandDocuments(documents)
-                    let replaced = !created && Result(catching: { () throws(Errno) in try instance.process.runsInstalledCode() }) == .success(false)
-                    output.yield(.launched(LaunchedInstance(instance: instance, identifier: installation.identifier, created: created, replaced: replaced)))
-                    let follow = { (untilExit: Bool) async -> InstanceState? in
-                        var (grace, last): (Int?, InstanceState?) = (nil, nil)
-                        var held: Result<ResourceUsage, Errno> = Result { () throws(Errno) in try ResourceUsage(of: instance.process) }
-                        for await next in merge(await watch.states().map(Optional.some), AsyncTimerSequence(interval: messagingTimeout, clock: clock).map { _ in InstanceState?.none }) {
-                            if let next, let snapshot = InstanceSnapshot(instance, state: next) { output.yield(.state(snapshot)) }
-                            let read: Result<ResourceUsage, Errno> = next == nil ? Result { () throws(Errno) in try ResourceUsage(of: instance.process) } : held
-                            let cause: ResourceUsage.Interval.Cause? = read.flatMap { (after: ResourceUsage) -> Result<ResourceUsage.Interval, Errno> in held.map(after.since) }[case: \.success]?.cause
-                            held = read
-                            let moved = next?[case: \.running]?.windows != last?[case: \.running]?.windows
-                            last = next ?? last
-                            switch next {
-                                case .some(.exited(let ended)) where ended.report != nil || ended.exit[case: \.success]?.producesReport != true: return last
-                                case .some(.running(let running)) where !untilExit && (!created || !running.asking.isEmpty): return last
-                                case .some(.running(let running))
-                                where !untilExit && running.status.isIdle && (running.status != .unresponsive(thread: .sleeping) || instance.application.isFinishedLaunching):
-                                    grace = moved ? 0 : grace ?? 0
-                                case .some(.failed) where !untilExit: return last
-                                case .some: grace = nil
-                                case .none where grace == 1 && (cause == .idle || cause == nil): return last
-                                case .none: grace = grace.map { ticks in min(ticks + 1, 1) }
-                            }
-                        }
-                        return last
-                    }
-                    let settled = await follow(false)
-                    if hold != nil { _ = instance.application.unhide() }
-                    if case .failure(let error) = PermittedFrontList.shared.release(hold) { output.yield(.failed(error)) }
-                    if let idle = settled?[case: \.running], idle.asking.isEmpty, !parameters.isEmpty {
-                        let files = AppleEventValue.list(documents.map { document in document.isFileURL ? .file(document) : .text(document.absoluteString) })
-                        let events: [LaunchEvent] = await race {
-                            let reply = await Result { () async throws(AggregateError<AppleEventFailure>) in
-                                let dictionary = try await Result { () async throws(AppleEventFailure) in try await dictionaries.dictionary(of: installation) }.aggregated(\.self).get()
-                                return try await dictionary.send(
-                                    .code(UInt64(kCoreEventClass) << 32 | UInt64(kAEOpenDocuments)),
-                                    arguments: parameters.merging(["direct": files]) { _, documents in documents },
-                                    target: NSAppleEventDescriptor(processIdentifier: instance.process.pid),
-                                    within: deadline,
-                                )
-                            }
-                            return switch reply {
-                                case .success(let value): [.opened(reply: value)]
-                                case .failure(let failures): failures.errors.map { failure -> LaunchEvent in .failed(ApplicationFailure(subject: installation.name, reason: .event(failure))) }
-                            }
-                        } against: {
-                            let interrupting = await watch.states().first { state in state.is(\.exited) || state[case: \.running]?.asking.isEmpty == false }
-                            return [interrupting.flatMap { state in InstanceSnapshot(instance, state: state) }.map(LaunchEvent.state)].compactMap(\.self)
-                        }
-                        for event in events { output.yield(event) }
-                    }
-                    if waiting { _ = await follow(true) }
-                } catch {
-                    output.yield(.failed(error))
-                }
+        let (events, output) = AsyncStream<LaunchEvent>.makeStream()
+        let launching = Task {
+            defer { output.finish() }
+            let launched = await Result { () async throws(ApplicationFailure) in
+                try await Self.shared.launch(
+                    installation,
+                    opening: parameters.isEmpty ? documents : [],
+                    arguments: arguments,
+                    environment: environment,
+                    newInstance: newInstance,
+                    within: deadline,
+                    watches: watches,
+                    reporting: output,
+                    clock: clock,
+                )
             }
-            output.onTermination = { _ in following.cancel() }
+            if case .failure(let error) = launched { output.yield(.failed(error)) }
+            guard case .success(let (watch, settled)) = launched else { return }
+            await watch.addOpenCommandDocuments(documents)
+            let opening: Bool = !parameters.isEmpty && settled?[case: \.running]?.asking.isEmpty == true
+            let files = AppleEventValue.list(documents.map { document in document.isFileURL ? .file(document) : .text(document.absoluteString) })
+            let replies: [LaunchEvent] =
+                await opening
+                ? race {
+                    let reply = await Result { () async throws(AggregateError<AppleEventFailure>) in
+                        let dictionary = try await Result { () async throws(AppleEventFailure) in try await dictionaries.dictionary(of: installation) }.aggregated(\.self).get()
+                        return try await dictionary.send(
+                            .code(UInt64(kCoreEventClass) << 32 | UInt64(kAEOpenDocuments)),
+                            arguments: parameters.merging(["direct": files]) { _, documents in documents },
+                            target: NSAppleEventDescriptor(processIdentifier: watch.instance.process.pid),
+                            within: deadline,
+                        )
+                    }
+                    return switch reply {
+                        case .success(let value): [.opened(reply: value)]
+                        case .failure(let failures): failures.errors.map { failure -> LaunchEvent in .failed(ApplicationFailure(subject: installation.name, reason: .event(failure))) }
+                    }
+                } against: {
+                    let interrupting = await watch.states().first { state in state.is(\.exited) || state[case: \.running]?.asking.isEmpty == false }
+                    return [interrupting.flatMap { state in InstanceSnapshot(watch.instance, state: state) }.map(LaunchEvent.state)].compactMap(\.self)
+                } : []
+            for reply in replies { output.yield(reply) }
+            guard waiting else { return }
+            for await state in await watch.states() {
+                if let snapshot = InstanceSnapshot(watch.instance, state: state) { output.yield(.state(snapshot)) }
+                if state[case: \.exited].map({ ended in ended.report != nil || ended.exit[case: \.success]?.producesReport != true }) == true { return }
+            }
         }
+        output.onTermination = { _ in launching.cancel() }
+        return events
     }
 }

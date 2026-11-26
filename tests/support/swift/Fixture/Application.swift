@@ -103,6 +103,7 @@ final class Delegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSToolbar
         let kinds: [(Surface, NSWindow.Type, NSWindow.StyleMask)] = [
             (.controls, NSWindow.self, document), (.lists, NSWindow.self, document), (.covered, NSWindow.self, document), (.unlisted, NSWindow.self, document),
             (.dialog, NSPanel.self, [.titled]), (.progress, NSPanel.self, [.titled]), (.panel, NSPanel.self, [.titled, .closable, .utilityWindow]), (.sheet, NSWindow.self, [.titled]),
+            (.drawer, Drawer.self, [.borderless, .nonactivatingPanel]),
         ]
         windows = Dictionary(
             uniqueKeysWithValues: kinds.map { surface, kind, style in
@@ -128,6 +129,12 @@ final class Delegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSToolbar
             window.setContentSize(region.intrinsicContentSize)
             window.setAccessibilityElement(false)
             window.setAccessibilityChildren([])
+        }
+        if let drawer = windows[.drawer] {
+            let region = Region(text: "Rectangle")
+            drawer.contentView = region
+            drawer.setContentSize(region.intrinsicContentSize)
+            drawer.level = .popUpMenu
         }
         if let panel = windows[.panel], let palette = panel.contentView {
             palette.setAccessibilityElement(true)
@@ -235,6 +242,8 @@ final class Delegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSToolbar
 
     @objc func exported(_: Any?) { present(.dialog, shown: true) }
 
+    @objc func drew(_: Any?) { present(.drawer, shown: true) }
+
     @objc func document(_: NSDocument, shouldClose: Bool, contextInfo _: UnsafeMutableRawPointer?) { emit(Line.answered(surface: .save, accepted: shouldClose)) }
 
     @objc func keyed(_ notification: Notification) {
@@ -303,6 +312,8 @@ final class Delegate: NSObject, NSApplicationDelegate, NSMenuDelegate, NSToolbar
             case (.save, false): windows[.lists]?.attachedSheet.map { sheet in windows[.lists]?.endSheet(sheet) }
             case (.popover, true): if let anchor = built[.action]?.members.first as? NSView { popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY) }
             case (.popover, false): popover.close()
+            case (.drawer, true): windows[.drawer]?.orderFrontRegardless()
+            case (.drawer, false): windows[.drawer]?.orderOut(nil)
             case (.status, true):
                 status = status ?? NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
                 status?.menu = menus[.status]

@@ -422,6 +422,7 @@ describe(InterfaceMap, () => {
                 at,
                 from: 'accessibility',
                 outcome: Result.succeed({
+                    proof: 'change',
                     route: { _tag: 'window', number: 7 },
                     tried: [
                         { rung: 'accessibility', failure: 'value unchanged' },
@@ -441,6 +442,16 @@ describe(InterfaceMap, () => {
             assert.deepStrictEqual({ unread: read.route(at), passed: passed.route(at), failed: failed.route(at), rebuilt: rebuilt.route(at) }, { unread: Option.none(), passed: Option.some('window'), failed: Option.none(), rebuilt: Option.none() });
             assert.deepStrictEqual({ passed: failures(passed), failed: failures(failed) }, { passed: ['accessibility', 'process'], failed: ['accessibility', 'process', 'window', 'focused', 'system'] });
             assert.strictEqual(passed.prove({ at: { container: DIALOG, control: '["AXButton","Missing"]' }, from: 'accessibility', outcome: Result.fail(new Error('gone')) }), passed, 'a proof for a control the map never read leaves the map as it was');
+        }),
+    );
+    it.effect(
+        'learns no rung from a step whose Accessibility call went unanswered or whose instance exited',
+        Effect.fnUntraced(function* () {
+            const observed = yield* newDocument;
+            const read = observed.reduce((map, each) => map.fold(each, OWNER).map, InterfaceMap.empty);
+            const at = { container: DIALOG, control: UNITS };
+            const unproven = (['unanswered', 'exit'] as const).map((proof) => read.prove({ at, from: 'accessibility', outcome: Result.succeed({ proof, tried: [] }) }));
+            assert.deepStrictEqual(unproven, [read, read]);
         }),
     );
 
@@ -488,6 +499,46 @@ describe(InterfaceMap, () => {
                 { first: first.described, relabelled: relabelled.described, again: again.described, window: InterfaceMap.empty.fold(layout, OWNER).described },
                 { first: Option.some('map learned dialog "New Document", 2 controls'), relabelled: Option.some('map of dialog "New Document": relabelled "Units" → "Unit"'), again: Option.none(), window: Option.some('map learned window, 1 controls') },
             );
+        }),
+    );
+
+    it.effect(
+        'counts the containers of the newest build by kind, and lists each opener it never saw open until the container it opens is read',
+        Effect.fnUntraced(function* () {
+            const [, dialog] = yield* newDocument;
+            const zoom = '["AXPopUpButton","Zoom"]';
+            const window = yield* Schema.decodeEffect(Observation)({
+                build: BUILDS[0],
+                container: LAYOUT,
+                kind: 'window',
+                modal: false,
+                opened: instant(0),
+                at: instant(0),
+                truncated: false,
+                documents: [],
+                conditions: [],
+                controls: {
+                    [NEW]: { kind: 'item', role: 'AXMenuItem', label: { text: 'New Document…', attribute: 'AXTitle' }, positional: false },
+                    [RECENT]: { kind: 'item', role: 'AXMenuItem', label: { text: 'Recent', attribute: 'AXTitle' }, opens: SUBMENU, positional: false },
+                    [zoom]: { kind: 'choice', role: 'AXPopUpButton', label: { text: 'Zoom', attribute: 'AXTitle' }, positional: false },
+                    [CLOSE]: { kind: 'item', role: 'AXMenuItem', label: { text: 'Close', attribute: 'AXTitle' }, positional: false },
+                },
+                layout: {},
+                values: {},
+            });
+            const first = InterfaceMap.empty.fold(window, OWNER).map;
+            const opened = first.fold(yield* Effect.fromNullishOr(dialog), OWNER).map;
+            const rebuilt = opened.fold({ ...window, build: BUILDS[1], opened: DateTime.add(window.at, { minutes: 9 }), at: DateTime.add(window.at, { minutes: 9 }) }, OWNER).map;
+            assert.deepStrictEqual(
+                Record.map({ first, opened, rebuilt }, Struct.get('coverage')),
+                {
+                    first: { build: Option.some(BUILDS[0]), known: { window: 1 }, earlier: 0, unopened: { opens: [{ container: LAYOUT, control: RECENT }], ellipsis: [{ container: LAYOUT, control: NEW }], options: [{ container: LAYOUT, control: zoom }] } },
+                    opened: { build: Option.some(BUILDS[0]), known: { window: 1, dialog: 1 }, earlier: 0, unopened: { opens: [{ container: LAYOUT, control: RECENT }], ellipsis: [], options: [{ container: LAYOUT, control: zoom }] } },
+                    rebuilt: { build: Option.some(BUILDS[1]), known: { window: 1 }, earlier: 1, unopened: { opens: [{ container: LAYOUT, control: RECENT }], ellipsis: [], options: [{ container: LAYOUT, control: zoom }] } },
+                },
+                'an item ending in an ellipsis stays unopened until the dialog it opens is read, a menu item until its menu is, a choice until its options list, and a container read only in an earlier build counts apart',
+            );
+            assert.deepStrictEqual(InterfaceMap.empty.coverage, { build: Option.none(), known: {}, earlier: 0, unopened: { opens: [], ellipsis: [], options: [] } }, 'an application never read holds no build and no opener');
         }),
     );
 });

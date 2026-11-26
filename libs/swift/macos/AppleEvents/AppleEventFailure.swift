@@ -31,7 +31,8 @@ public struct AppleEventFailure: CustomNSError, Equatable, LocalizedError {
 
     public var errorDescription: String? {
         switch reason {
-            case .undeclared: "\(subject) holds no static OSAScriptingDefinition, script suite, or aete resource, runs no instance, and has no cached dictionary, open it to read its dictionary"
+            case .undeclared:
+                "\(subject) holds no OSAScriptingDefinition file, sdef or aete resource named for its executable, or script suite, runs no instance, and has no cached dictionary, open it to read its dictionary"
             case .osa(let status): "OSACopyScriptingDefinitionFromURL failed on \(subject) (\(status))"
             case .foundation(let error): "\(subject): \(error.localizedDescription)"
             case .unmatched(let miss): miss.errorDescription

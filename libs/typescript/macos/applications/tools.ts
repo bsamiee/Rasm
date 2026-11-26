@@ -8,7 +8,7 @@ import { Flag } from 'effect/cli';
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
 import { Address, type Index, type Item, type Shown } from '#/address';
 import { ApplicationServer } from '#/client';
-import { Act, AppleEventValue, type Capture, Cursor, Diagnostics, Event, type Frame, Installation, InstanceSnapshot, InstanceState, Kind, type Model, QuitMode, type Running, Scope, ScriptingDictionary, Value, Written } from '#/contract';
+import { Act, AppleEventValue, type Capture, Cursor, Diagnostics, Event, type Frame, Installation, InstanceSnapshot, InstanceState, Kind, type Model, QuitMode, Recording, type Running, Scope, ScriptingDictionary, Value, Written } from '#/contract';
 import { type InterfaceMap, InterfaceMaps } from '#/interface-map';
 import { Outline } from '#/outline';
 import { type Declaration, Description, type SourceRpcs } from '#/source';
@@ -30,7 +30,13 @@ interface Placement {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const LIMIT = 50;
-const INSTRUCTIONS = ['Start with applications: it lists what is installed and running, and open makes one application the target of later calls. Each result says what changed since your last call and, where an answer or a continuation is due, the call that gives it.'] as const;
+const FRAMES = 6;
+const GAPS = { opens: 'items whose menu or popover was never read', ellipsis: 'items ending in … with no dialog seen', options: 'choices whose options never listed' } as const satisfies Record<keyof InterfaceMap['coverage']['unopened'], string>;
+const INSTRUCTIONS = [
+    'Start with applications: it lists what is installed and running, and open makes one application the target of later calls. Each result says what changed since your last call and, where an answer or a continuation is due, the call that gives it.',
+    'Every container read in an application joins its interface map with its controls, kept per build. Search it with inspect find before opening anything, as it holds closed menus and dialogs. Act on a remembered item by the path find prints: the call opens what leads to it, starts at the route that last passed, and reads each step back, so read again only what a result names as changed or refused.',
+    'To map an application, applications for that one application and the ▸ map line of a full inspect count the menus, dialogs, and panels the map holds and the openers it never saw open, which inspect unopened lists.',
+] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -46,7 +52,7 @@ const LogRecord = Schema.fromJsonString(
 const TOOLS = {
     applications: Tool.make('applications', {
         description:
-            'Lists installed applications and their running instances with the status items each shows in the menu bar, each one another MCP server drives naming that server, or one application with its installation, its App Intents actions with whether each opens it, and open command; open launches an application in the background or targets its running instance for later calls; close quits it, or every application this handle opened, each save dialog arriving as an event',
+            'Lists installed applications and their running instances with the status items each shows in the menu bar, each one another MCP server drives naming that server, or one application with its installation, its App Intents actions with whether each opens it, its open command, and per interface language what its interface map holds: containers by kind read in the newest build, containers read only in earlier builds, and openers never seen open; open launches an application in the background or targets its running instance for later calls; close quits it, or every application this handle opened, each save dialog arriving as an event',
         parameters: Schema.Struct({
             action: Schema.optionalKey(Schema.Literals(['list', 'open', 'close']).annotate({ description: 'list when absent' })),
             application: Schema.optionalKey(Schema.String.annotate({ description: 'Listed name, alias, or bundle URL; open without it takes the application the system opens the documents with, close without it quits every application this handle opened' })),
@@ -66,7 +72,7 @@ const TOOLS = {
     }).annotateMerge(Context.make(Tool.Destructive, false).pipe(Context.add(Tool.Idempotent, true), Context.add(Tool.OpenWorld, false), Context.add(Tool.Meta, { 'anthropic/alwaysLoad': true }))),
     view: Tool.make('view', {
         description:
-            'Shows windows as images, a line naming each: the front window of the target, every window of every running application, the windows showing a document, a document object a linked source renders, or one reference cropped from its window with any menu or panel of the application above it; a menu or the item opening it shows one image per open level and the outline of those levels, a menu the application cannot open while behind drawn from what was read',
+            'Shows windows as images, a line naming each: the front window of the target, every window of every running application, the windows showing a document, a document object a linked source renders, or one reference cropped from its window with any menu or panel of the application above it; a menu or the item opening it shows one image per open level and the outline of those levels, a menu the application cannot open while behind drawn from what was read, and a remembered container or control its outline from the map, nothing opened; with seconds it records what it shows for that long and returns its key frames in place of one image: the state when recording began, then each state it settled in for a beat, each line naming when the state appeared after the first and the pixel rectangle that changed, which view of that rectangle shows again',
         parameters: Schema.Struct({
             of: Schema.optionalKey(
                 Schema.Union([Schema.Literals(['front', 'all', 'document', 'object']), Address.At, Pixels.annotate({ description: 'Pixel rectangle [x, y, width, height] of the last image a view returned, shown again at the full resolution of the screen' })]).annotate({
@@ -75,16 +81,19 @@ const TOOLS = {
             ),
             id: Schema.optionalKey(Schema.String.annotate({ description: 'document: document id from a result; object: id a script result gives the object' })),
             marks: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Draw each control of the target in the image with its frame and reference, as act takes it' })),
+            seconds: Schema.optionalKey(Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 60, exclusiveMinimum: true })).annotate({ description: 'Seconds to record what the view shows, the windows the application opens meanwhile included' })),
+            frames: Recording.fields.frames.annotate({ default: FRAMES }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(FRAMES))),
         }),
         success: Schema.String,
     }).annotate(Tool.Readonly, true),
     inspect: Tool.make('inspect', {
         description:
-            'Reads the interface of the target as an outline: a state line, then each container and its controls, each led by a reference such as @a12 with its label, value, kind, and what it takes, and under ▸ what was shown before and is gone, with its last value. A menu item leads with its mark (✓ checked), names after › the menu it opens, which in reads, its shortcut as the act key action pressing it, a separator above it, and the item an option or other modifier puts in its place. An option of a choice, a tool among them, names its shortcut the same way and its help, and the state line names the current tool with its shortcut, its help on the line below. A cut ends with the call that continues it, a dialog asking for an answer with the act call that gives it. A read of every container counts the containers remembered and not open, which find searches, and ends with the clipboard once it changed since this handle last read it: its change count, types, the kinds the system detects in it, and its text where the Paste from Other Apps setting of the owner allows the read, else why it is withheld',
+            'Reads the interface of the target as an outline: a state line, then each container and its controls, each led by a reference such as @a12 with its label, value, kind, and what it takes, and under ▸ what was shown before and is gone, with its last value. A menu item leads with its mark (✓ checked), names after › the menu it opens, which in reads, its shortcut as the act key action pressing it, a separator above it, and the item an option or other modifier puts in its place. An option of a choice, a tool among them, names its shortcut the same way and its help, and the state line names the current tool with its shortcut, its help on the line below. A cut ends with the call that continues it, a dialog asking for an answer with the act call that gives it. A read of every container ends with what the interface map holds for this build: containers by kind, how many are not open now, which find searches, and the openers never seen open, which unopened lists; then the clipboard once it changed since this handle last read it: its change count, types, the kinds the system detects in it, and its text where the Paste from Other Apps setting of the owner allows the read, else why it is withheld',
         parameters: Schema.Struct({
             in: Schema.optionalKey(Address.At.annotate({ description: 'Container, choice, multi, text, menu item, or remembered container read alone, a menu item reading its menu, a multi its rows, and a text control its style runs with their fonts, colors, links, and frames; every container when absent' })),
-            find: Schema.optionalKey(Schema.String.annotate({ description: 'Text searched in labels, values, and help of every container shown and remembered, best match and live hits first' })),
+            find: Schema.optionalKey(Schema.String.annotate({ description: 'Text searched in labels, values, and help of every container shown and remembered, best match and live hits first, a remembered hit printing the path act takes and the item that opens it' })),
             kind: Schema.optionalKey(Kind.annotate({ description: 'Kind of control find keeps, or every control of the kind without find' })),
+            unopened: Schema.optionalKey(Schema.Boolean.annotate({ description: 'List the items the map saw open nothing it has read: an item whose menu or popover was never read, an item whose label ends in an ellipsis with no dialog seen, and a choice whose options never listed' })),
             after: Schema.optionalKey(Address.At.annotate({ description: 'Item after which the page starts, as a cut names it' })),
             wait: Schema.optionalKey(Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 60, exclusiveMinimum: true })).annotate({ description: 'Seconds to wait for the next change of the target before reading, marking what changed' })),
         }),
@@ -92,8 +101,11 @@ const TOOLS = {
     }).annotate(Tool.Readonly, true),
     act: Tool.make('act', {
         description:
-            'Runs steps on the target in order without bringing it forward, each aimed at a reference or label path as inspect prints it: a step with at presses it, with to sets the value its kind takes (an option label chooses, text on the clipboard reference copies), with range selects or replaces text; key posts a key with modifiers; pointer clicks, drags, strokes, hovers, or scrolls at a reference or point, holding a press across steps by edge. Each step climbs from an Accessibility call through background event routes and reads back what it changed, the system route last bringing the target forward and saying so; every malformed step is refused before any runs. Returns each outcome and the state once the target answers, idle, not responding, or quiet for a beat, with its usage saying why a busy target has not answered; inspect with wait follows it further',
-        parameters: Schema.Struct({ steps: Act.steps(Address.At, {}, {}) }),
+            'Runs steps on the target in order without bringing it forward, each aimed at a reference or label path as inspect prints it: a step with at presses it, with to sets the value its kind takes (an option label chooses, text on the clipboard reference copies), with range selects or replaces text; key posts a key with modifiers; pointer clicks, drags, strokes, hovers, or scrolls at a reference or point, holding a press across steps by edge. A step at a remembered item first presses the items the map saw open its menu or dialog, in the same call. Each step climbs from an Accessibility call, or from the rung that last passed on the control in this build, through background event routes and reads back what it changed, the system route last bringing the target forward and saying so; every malformed step, and every remembered item nothing shown opens or its open container no longer holds, is refused before any runs. Returns each outcome and the state once the target answers, idle, not responding, or quiet for a beat, with its usage saying why a busy target has not answered; inspect with wait follows it further. With record it also records the front window of the target from before the first step until the target answers and returns its key frames after the outcomes, as view with seconds does',
+        parameters: Schema.Struct({
+            steps: Act.steps(Address.At, {}, {}),
+            record: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Record the front window while the steps run, returning the state before them and each state it settled in' })),
+        }),
         success: Act.Result,
     }).annotateMerge(Context.make(Tool.Destructive, false).pipe(Context.add(Tool.OpenWorld, false))),
     execute_script: Tool.make('execute_script', {
@@ -117,6 +129,7 @@ const TOOLS = {
 
 const Clipboard = Context.Reference<Option.Option<number>>('@rasm/applications/tools/Clipboard', { defaultValue: Option.none });
 const Viewed = Context.Reference<Option.Option<Placement>>('@rasm/applications/tools/Viewed', { defaultValue: Option.none });
+const Clip = Context.Reference<Option.Option<{ readonly seconds: number; readonly frames: number }>>('@rasm/applications/tools/Clip', { defaultValue: Option.none });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -135,6 +148,44 @@ const pointOf = (viewed: Option.Option<Placement>, [x, y, ...rest]: Sample) =>
 const marksOf = (index: Index) => index.shown.flatMap(({ controls }) => controls.flatMap(({ control, item }) => Option.toArray(Option.all({ frame: Option.fromUndefinedOr(control.frame), label: item.token }))));
 const locate = (document: string) => (URL.canParse(document) ? new URL(document) : pathToFileURL(document));
 const presentedWindows = (state: InstanceSnapshot['state']) => InstanceState.matchOrElse(state, { running: ({ windows }) => windows.filter((window) => window.presented && window.kind !== 'menu') }, () => []);
+const frontWindow = (application: string, state: InstanceSnapshot['state']) => {
+    const presented = presentedWindows(state);
+    return Effect.fromOption(
+        Option.map(
+            Option.orElse(
+                Array.findFirst(presented, (window) => window.asking || window.kind === 'window'),
+                () => Array.head(presented),
+            ),
+            Struct.get('number'),
+        ),
+        () => new Cause.NoSuchElementError(`${application} presents no window, applications open with documents shows one`),
+    );
+};
+const shot =
+    (application: string, { instance, state }: Pick<InstanceSnapshot, 'instance' | 'state'>, lead: readonly string[]) =>
+    ({ png, width, height, frame, windows, backingStore, document }: typeof Capture.Screenshot.Type) => {
+        const titles = Record.getSomes(Record.fromIterableWith(presentedWindows(state), (window) => [String(window.number), Option.fromUndefinedOr(window.title)]));
+        return {
+            line: [
+                application,
+                ...lead,
+                ...Array.match(windows, {
+                    onEmpty: () => ['drawn from what was read, the application showing no window of it'],
+                    onNonEmpty: ([number]) => [...Option.toArray(Option.map(Record.get(titles, String(number)), (title) => JSON.stringify(title))), `window ${number}`],
+                }),
+                ...(backingStore ? ['off screen, its last drawn content'] : []),
+                ...Array.fromNullishOr(document).map((url) => `document ${url}`),
+            ].join(' · '),
+            image: Option.some({ png, placement: Option.some<Placement>({ instance, windows, frame, size: [width, height] }) }),
+        };
+    };
+const keyFramesOf = (application: string, snapshot: Pick<InstanceSnapshot, 'instance' | 'state'>, recording: typeof Recording.Result.Type) => Array.zipWith(recording.keyFrames, Recording.leads(recording), ({ screenshot }, lead) => shot(application, snapshot, lead)(screenshot));
+const attach = Effect.fnUntraced(function* (taken: readonly { readonly image: Option.Option<{ readonly png: Uint8Array; readonly placement: Option.Option<Placement> }> }[]) {
+    const [{ add }, handle] = yield* Effect.all([Server.ToolCall, Handle]);
+    const images = Array.getSomes(taken.map(Struct.get('image')));
+    yield* handle.set(Viewed, Option.flatMap(Array.last(images), Struct.get('placement')));
+    yield* Effect.forEach(images, ({ png }) => add(McpSchema.ImageContent.make({ data: png, mimeType: 'image/png' })), { discard: true });
+});
 const describeTool = <const Name extends string, P extends Schema.Top, S extends Schema.Top>(tool: Tool.Tool<Name, { readonly parameters: P; readonly success: S; readonly failure: Schema.Never; readonly failureMode: 'error' }>, description = tool.description) =>
     Tool.make(tool.name, { description, parameters: tool.parametersSchema, success: tool.successSchema }).annotateMerge(tool.annotations);
 const listEntry = (instances: readonly InstanceSnapshot[]) => (row: Entry) => ({
@@ -290,7 +341,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             if (Option.isSome(refusal)) {
                 return yield* new Cause.IllegalArgumentError(refusal.value);
             }
-            const opening = item.live ? [] : Address.opening(Address.recall(base, map), item);
+            const opening = item.live ? [] : yield* Effect.fromResult(Result.mapError(Address.opening(Address.recall(base, map), item), (refused) => new Cause.IllegalArgumentError(refused)));
             const [ref, refs] = yield* Effect.all([refOf(instance)(item), Effect.forEach(opening, refOf(instance))]);
             const located = Address.locate(item);
             const from = Option.flatMap(located, map.route.bind(map));
@@ -311,9 +362,14 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
     const handlersOf = (urls: readonly URL[]) => Effect.forEach(urls, (document) => Effect.map(server.handlers({ document }), ({ installations }) => installations.map(Struct.get('url')).map(Struct.get('href'))), { concurrency: 'unbounded' });
     const listed = Effect.fnUntraced(function* (name: string, listing: ReturnType<typeof listEntry>) {
         const row = yield* workspace.find(name);
-        const [installations, dictionary] = yield* Effect.all([server.currentInstallations, Effect.option(Effect.tapError(server.dictionary({ url: row.url }), (cause) => Effect.logDebug('Scripting dictionary unread', cause)))]);
+        const [installations, dictionary, held] = yield* Effect.all([
+            server.currentInstallations,
+            Effect.option(Effect.tapError(server.dictionary({ url: row.url }), (cause) => Effect.logDebug('Scripting dictionary unread', cause))),
+            Effect.option(Effect.tapError(maps.held(row.identifier), (cause) => Effect.logWarning('Interface map unread', cause))),
+        ]);
         const launch = yield* Schema.encodeEffect(ApplicationListing)({ installation: Array.findFirst(installations, (each) => each.url.href === row.url.href), open: Option.flatMap(dictionary, Struct.get('open')) });
-        return [{ ...listing(row), launch }];
+        const map = Record.map(Option.getOrElse(held, Record.empty), ({ coverage: { build, known, earlier, unopened } }) => ({ ...Record.getSomes({ build }), known, earlier, unopened: Record.map(unopened, Struct.get('length')) }));
+        return [{ ...listing(row), launch, ...(Record.isEmptyRecord(map) ? {} : { map }) }];
     });
     const list = Effect.fnUntraced(function* (given: string | undefined, documents: readonly string[] = []) {
         const [instances, entries, { held }, opening] = yield* Effect.all([SubscriptionRef.get(running), SubscriptionRef.get(catalog), target, handlersOf(documents.map(locate))]);
@@ -370,18 +426,9 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
         yield* Ref.update(routed, (held) => Record.set(held, instance, { ...held[instance], ...routes }));
         return composed;
     });
-    const closed = Effect.fnUntraced(function* (
-        { live, base, read, sequence }: { readonly live: Effect.Success<typeof current>['live']; readonly base: Index; readonly read: (scope: typeof Scope.Type) => Effect.Effect<Model & { readonly recalled: boolean }, Effect.Error<ReturnType<typeof server.model>>>; readonly sequence: Model['sequence'] },
-        ref: number,
-    ) {
-        const pressed = Option.getOrUndefined(Option.map(Record.get(base.live, `${ref}`), Struct.get('target')));
-        const opener = pressed?._tag === 'Control' && Option.getOrUndefined(Record.get(base.live, `${pressed.control.opens}`))?.target._tag !== 'Container' ? Option.some(pressed.control.locator) : Option.none<string>();
-        const recalled = Option.flatten(yield* Effect.transposeOption(Option.map(opener, (locator) => maps.level(live, locator, sequence))));
-        return yield* Option.match(recalled, { onNone: () => read({ _tag: 'menu', ref }), onSome: (model) => Effect.succeed<Model & { readonly recalled: boolean }>({ ...model, recalled: true }) });
-    });
     const modelled = Effect.fnUntraced(function* ({ row, live, live: { instance } }: Effect.Success<typeof current>) {
         const map = yield* maps.recall(live);
-        const read = (scope: typeof Scope.Type) => Effect.map(server.model({ instance, scope }), (model): Model & { readonly recalled: boolean } => ({ ...model, recalled: false }));
+        const read = (scope: typeof Scope.Type) => server.model({ instance, scope });
         const [accessible, menus, client] = yield* Effect.all([server.model({ instance, scope: { _tag: 'application' }, ...Option.getOrUndefined(Option.map(map.known, (known) => ({ known }))) }), read({ _tag: 'menus' }), Effect.option(linked(row))], { concurrency: 'unbounded' });
         const application = yield* Option.match(client, { onNone: () => Effect.succeed(accessible), onSome: (from) => facets({ row, live }, from, accessible, {}) });
         const route = yield* routeOf(instance);
@@ -389,8 +436,8 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
         const base = indexed(Array.unionWith(application.containers, menus.containers, (left, right) => left.ref === right.ref));
         const level = (scope: typeof Scope.Type) =>
             Option.match(Option.all({ from: client, within: Option.flatMap(Scope.matchOrElse(scope, { container: ({ ref }) => Option.some(ref), menu: ({ ref }) => Option.some(ref), rows: ({ ref }) => Option.some(ref) }, Option.none<number>), route) }), {
-                onNone: () => Scope.matchOrElse(scope, { menu: ({ ref }) => closed({ live, base, read, sequence: application.sequence }, ref) }, read),
-                onSome: ({ from, within }) => Effect.map(facets({ row, live }, from, { sequence: application.sequence, containers: [] }, { within }), (model): Model & { readonly recalled: boolean } => ({ ...model, recalled: false })),
+                onNone: () => read(scope),
+                onSome: ({ from, within }) => facets({ row, live }, from, { sequence: application.sequence, containers: [] }, { within }),
             });
         return { row, live, application, map, indexed, level, base };
     });
@@ -404,33 +451,17 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             Effect.map(handle.get(Clipboard), (shown) => !Option.contains(shown, digest)),
         );
     });
-    const capture = (application: string, { instance, state }: InstanceSnapshot, source: Capture['source'], drawn: Drawn) => {
-        const titles = Record.getSomes(Record.fromIterableWith(presentedWindows(state), (window) => [String(window.number), Option.fromUndefinedOr(window.title)]));
+    const capture = Effect.fnUntraced(function* (application: string, snapshot: InstanceSnapshot, source: Capture['source'], drawn: Drawn) {
+        const { instance } = snapshot;
         const marks = Option.match(
             Option.filter(drawn, (held) => held.instance === instance),
             { onNone: Array.empty, onSome: Struct.get('marks') },
         );
-        return Effect.map(
-            server.capture({ instance, source, longestSide: Option.some(side), marks }),
-            Array.map((outcome) =>
-                Result.match(outcome, {
-                    onFailure: ({ message }) => ({ line: `${application} · ${message}`, image: Option.none() }),
-                    onSuccess: ({ png, width, height, frame, windows, backingStore, document }) => ({
-                        line: [
-                            application,
-                            ...Array.match(windows, {
-                                onEmpty: () => ['drawn from what was read, the application showing no window of it'],
-                                onNonEmpty: ([number]) => [...Option.toArray(Option.map(Record.get(titles, String(number)), (title) => JSON.stringify(title))), `window ${number}`],
-                            }),
-                            ...(backingStore ? ['off screen, its last drawn content'] : []),
-                            ...Array.fromNullishOr(document).map((url) => `document ${url}`),
-                        ].join(' · '),
-                        image: Option.some({ png, placement: Option.some<Placement>({ instance, windows, frame, size: [width, height] }) }),
-                    }),
-                }),
-            ),
-        );
-    };
+        return yield* Option.match(yield* Clip, {
+            onNone: () => Effect.map(server.capture({ instance, source, longestSide: Option.some(side), marks }), Array.map(Result.match({ onFailure: ({ message }) => ({ line: `${application} · ${message}`, image: Option.none() }), onSuccess: shot(application, snapshot, []) }))),
+            onSome: (clip) => Effect.map(server.record({ instance, source, longestSide: Option.some(side), ...clip }), (recording) => keyFramesOf(application, snapshot, recording)),
+        });
+    });
     const shown = Effect.fnUntraced(function* (keep: (window: Running['windows'][number]) => boolean, drawn: Drawn) {
         const [instances, named] = yield* Effect.all([SubscriptionRef.get(running), naming]);
         const windowed = instances.flatMap((each) => Array.match(presentedWindows(each.state).filter(keep).map(Struct.get('number')), { onEmpty: Array.empty, onNonEmpty: (numbers) => [{ each, numbers }] }));
@@ -438,15 +469,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
     });
     const front = Effect.fnUntraced(function* (drawn: Drawn) {
         const { row, live } = yield* current;
-        const presented = presentedWindows(live.state);
-        const { number } = yield* Effect.fromOption(
-            Option.orElse(
-                Array.findFirst(presented, (window) => window.asking || window.kind === 'window'),
-                () => Array.head(presented),
-            ),
-            () => new Cause.NoSuchElementError(`${row.name} presents no window, applications open with documents shows one`),
-        );
-        return yield* capture(row.name, live, { _tag: 'windows', numbers: [number] }, drawn);
+        return yield* capture(row.name, live, { _tag: 'windows', numbers: [yield* frontWindow(row.name, live.state)] }, drawn);
     });
     const zoom = Effect.fnUntraced(function* (pixels: typeof Pixels.Type, drawn: Drawn) {
         const [viewed, instances, named] = yield* Effect.all([Effect.flatMap(Handle, (handle) => handle.get(Viewed)), SubscriptionRef.get(running), naming]);
@@ -462,15 +485,14 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
         Effect.fnUntraced(function* ({ row, live, map, indexed, level, base }: Effect.Success<ReturnType<typeof modelled>>) {
             const item = yield* itemOf(base, map)(reference);
             const ref = yield* refOf(live.instance)(item);
-            const shots = yield* capture(row.name, live, { _tag: 'element', ref }, drawn);
+            const named = yield* Schema.encodeEffect(Title)(Address.path(item).join(Address.separator));
+            const recalled = item.live ? Option.none<Index>() : Option.some(Address.recall(base, map));
+            const holder = Option.flatMap(recalled, ({ located }) => (item.target._tag === 'RememberedControl' ? Record.get(located, item.target.container) : Option.some(item)));
+            const shots = item.live ? yield* capture(row.name, live, { _tag: 'element', ref }, drawn) : [{ line: `${row.name} · ${named} is not open, outlined from the map and left closed; act on an item in it opens it`, image: Option.none() }];
             const opened = yield* Effect.when(level({ _tag: 'menu', ref }), Effect.succeed(item.target._tag === 'Control' && item.target.control.opens !== undefined));
             const containers = Option.match(opened, { onNone: Array.empty, onSome: Struct.get('containers') });
             const fresh = indexed(containers);
-            const levels = [
-                ...menuPath(base, item).map((each) => ({ index: base, item: each })),
-                ...(item.target._tag === 'RememberedContainer' ? [{ index: Address.recall(base, map), item }] : []),
-                ...Array.getSomes(containers.map((container) => Record.get(fresh.live, `${container.ref}`))).map((each) => ({ index: fresh, item: each })),
-            ];
+            const levels = [...menuPath(base, item).map((each) => ({ index: base, item: each })), ...Option.toArray(Option.all({ index: recalled, item: holder })), ...Array.getSomes(containers.map((container) => Record.get(fresh.live, `${container.ref}`))).map((each) => ({ index: fresh, item: each }))];
             const outline = yield* Effect.forEach(levels, ({ index, item: each }) => Effect.fromResult(Result.map(Result.all([Outline.hits([each], []), Outline.render(index, { in: Option.some(each) })]), Array.flatten)));
             return [...shots, ...outline.flat().map((line) => ({ line, image: Option.none() }))];
         });
@@ -493,8 +515,9 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
     );
     yield* Server.registerTool(
         describeTool(TOOLS.view, descriptions.view),
-        Effect.fnUntraced(function* ({ of = 'front', id, marks = false }) {
+        Effect.fnUntraced(function* ({ of = 'front', id, marks = false, seconds, frames }) {
             const identified = (kind: 'document' | 'object') => Effect.fromOption(Option.fromUndefinedOr(id), () => new Cause.IllegalArgumentError(`view of ${kind} takes an id`));
+            yield* seconds !== undefined && (marks || of === 'object') ? new Cause.IllegalArgumentError('view with seconds records windows the application shows, and marks and objects draw on one image, so view them without seconds') : Effect.void;
             const reading = yield* Effect.cached(Effect.flatMap(current, modelled));
             const drawn: Drawn = marks ? Option.some(yield* Effect.map(reading, ({ live, base }) => ({ instance: live.instance, marks: marksOf(base) }))) : Option.none();
             const taken = yield* Match.value(of).pipe(
@@ -504,21 +527,22 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                 Match.when('object', () => Effect.flatMap(identified('object'), object)),
                 Match.when(Predicate.isString, (reference) => Effect.flatMap(reading, element(reference, drawn))),
                 Match.orElse((pixels) => zoom(pixels, drawn)),
+                Effect.provideService(
+                    Clip,
+                    Option.map(Option.fromUndefinedOr(seconds), (span) => ({ seconds: span, frames })),
+                ),
             );
             yield* Array.isReadonlyArrayEmpty(taken) ? new Cause.NoSuchElementError(`Nothing to view for ${[of, ...Array.fromNullishOr(id)].join(' ')}, view all shows every presented window`) : Effect.void;
-            const [{ add }, handle] = yield* Effect.all([Server.ToolCall, Handle]);
-            const images = Array.getSomes(taken.map(Struct.get('image')));
-            yield* handle.set(Viewed, Option.flatMap(Array.last(images), Struct.get('placement')));
-            yield* Effect.forEach(images, ({ png }) => add(McpSchema.ImageContent.make({ data: png, mimeType: 'image/png' })), { discard: true });
+            yield* attach(taken);
             return taken.map(Struct.get('line')).join('\n');
         }),
     );
     yield* Server.registerTool(
         describeTool(TOOLS.inspect, descriptions.inspect),
-        Effect.fnUntraced(function* ({ in: within, find: query, kind, after, wait }) {
+        Effect.fnUntraced(function* ({ in: within, find: query, kind, after, wait, unopened = false }) {
             const aimed = yield* current;
             const { row, live } = aimed;
-            const searched = Record.collect(Record.getSomes({ find: Option.fromUndefinedOr(query), kind: Option.fromUndefinedOr(kind) }), Outline.quoted);
+            const searched = Record.collect(Record.getSomes({ find: Option.fromUndefinedOr(query), kind: Option.fromUndefinedOr(kind), unopened: Option.liftPredicate<Schema.Json>(unopened, Boolean) }), Outline.quoted);
             const whole = within === undefined && Array.isReadonlyArrayEmpty(searched);
             const first = yield* UndefinedOr.match(wait, {
                 onUndefined: () => Effect.succeedNone,
@@ -532,37 +556,48 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             });
             const changed = HashSet.fromIterable(Option.toArray(Option.flatMap(first, ({ change }) => (Event.fields.change.isAnyOf(['focused', 'value', 'selection'])(change) ? Option.some(change.control) : Option.none()))));
             const [{ application, map, indexed, level, base }, clipboard, stated, strained] = yield* Effect.all([modelled(aimed), whole ? clipboardLine(live.instance) : Effect.succeedNone, session, pressure], { concurrency: 'unbounded' });
-            const recalled = () => Address.recall(base, map);
+            const recalling = Function.memoize((held: Index) => Address.recall(held, map));
             const lookup = (at: string | undefined) =>
                 Result.transposeMapOption(Option.fromUndefinedOr(at), (held) => {
                     const resolved = Address.resolve(base, held);
-                    return Result.isSuccess(resolved) ? resolved : Address.resolve(recalled(), held);
+                    return Result.isSuccess(resolved) ? resolved : Address.resolve(recalling(base), held);
                 });
             const [scope, start] = yield* Effect.fromResult(Result.all([lookup(within), lookup(after)]));
-            const reading = yield* Effect.fromResult(Option.match(scope, { onNone: () => Result.succeedNone, onSome: scopeOf(start) }));
+            const stored = Option.flatMap(scope, ({ target: pressed }) => (pressed._tag === 'Control' && pressed.control.opens !== undefined && Option.getOrUndefined(Record.get(base.live, `${pressed.control.opens}`))?.target._tag !== 'Container' ? map.level(pressed.control.locator) : Option.none()));
+            const shelved = Option.flatMap(stored, ({ locator }) => Record.get(recalling(base).located, locator));
+            const reading = yield* Effect.fromResult(
+                Option.match(
+                    Option.filter(scope, () => Option.isNone(shelved)),
+                    { onNone: () => Result.succeedNone, onSome: scopeOf(start) },
+                ),
+            );
             const fresh = yield* Effect.transposeOption(Option.map(reading, level));
-            const remembered = [scope, start].some(Option.exists(Predicate.not(Struct.get('live'))));
-            const index = Option.match(fresh, { onNone: () => (remembered ? recalled() : base), onSome: ({ containers }) => indexed(containers) });
+            const remembered = Option.isSome(shelved) || [scope, start].some(Option.exists(Predicate.not(Struct.get('live'))));
+            const index = Option.match(fresh, { onNone: () => (remembered ? recalling(base) : base), onSome: ({ containers }) => indexed(containers) });
             const rows = Option.exists(reading, Scope.isAnyOf(['rows']));
             const opened = pipe(
                 Option.filter(fresh, () => Option.exists(reading, Scope.isAnyOf(['menu']))),
                 Option.flatMap(({ containers }) => Array.head(containers)),
                 Option.flatMap(({ ref }) => Record.get(index.live, `${ref}`)),
             );
-            const unopened = Array.groupBy(
-                Record.collect(
-                    Record.filter(map.containers, (_, locator) => !Record.has(base.located, locator)),
-                    (_, { container }): string => container.kind,
-                ),
-                Function.identity,
-            );
+            const { coverage } = map;
             const lines = yield* Effect.fromResult(
                 Array.match(searched, {
-                    onEmpty: () => Outline.render(index, { in: Option.orElse(opened, () => scope), after: rows ? Option.none() : start, changed }),
+                    onEmpty: () =>
+                        Outline.render(index, {
+                            in: Option.orElse(
+                                Option.orElse(shelved, () => opened),
+                                () => scope,
+                            ),
+                            after: rows ? Option.none() : start,
+                            changed,
+                        }),
                     onNonEmpty: (call) => {
-                        const searching = recalled();
-                        const hits = Address.find(searching, query ?? '', Option.fromUndefinedOr(kind));
-                        return Result.map(Outline.hits(hits, call, { after: start, opening: Option.some(searching) }), Array.append(`searched: ${searching.shown.length} containers shown and ${searching.remembered.containers.length} remembered, ${hits.filter(Struct.get('live')).length} of ${hits.length} hits live`));
+                        const searching = recalling(base);
+                        const openers = Array.getSomes(Array.dedupe(Record.values(coverage.unopened).flat().map(Struct.get('control'))).map((control) => Record.get(searching.located, control)));
+                        const hits = Address.find(unopened ? { ...searching, items: openers } : searching, query ?? '', Option.fromUndefinedOr(kind));
+                        const summary = unopened ? `${hits.length} of ${openers.length} openers never seen open` : `searched: ${searching.shown.length} containers shown and ${searching.remembered.containers.length} remembered`;
+                        return Result.map(Outline.hits(hits, call, { after: start, opening: Option.some(searching) }), Array.append(`${summary}, ${hits.filter(Struct.get('live')).length} of ${hits.length} hits live`));
                     },
                 }),
             );
@@ -592,8 +627,20 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             yield* Server.ToolCall.use((call) => call.state([[row.name, ...status, ...pointed, ...stated, ...strained].join(' · '), ...Array.fromNullishOr(help)].join('\n')));
             return [
                 ...lines,
-                ...(whole && !Record.isEmptyReadonlyRecord(unopened) ? [`▸ not open, known from the map: ${Record.collect(unopened, (each, all) => `${each} ×${all.length}`).join(', ')} · find searches them`] : []),
-                ...(Option.exists(fresh, Struct.get('recalled')) ? [`▸ menu level from the map of this build, not read now; act opens it to reach an item`] : []),
+                ...(whole && Option.isSome(coverage.build)
+                    ? [
+                          [
+                              `▸ map of build ${coverage.build.value}: ${Record.collect(coverage.known, (each, count) => `${each} ×${count}`).join(', ')}`,
+                              `${Record.size(Record.filter(map.containers, (_, locator) => !Record.has(base.located, locator)))} not open now, find searches them`,
+                              ...(coverage.earlier > 0 ? [`${coverage.earlier} seen only in earlier builds`] : []),
+                              Array.match(
+                                  Struct.keys(GAPS).flatMap((gap) => Array.match(coverage.unopened[gap], { onEmpty: Array.empty, onNonEmpty: (openers) => [`${GAPS[gap]} ×${openers.length}`] })),
+                                  { onEmpty: () => 'every opener seen was opened', onNonEmpty: (gaps) => `never seen open: ${gaps.join(', ')}, ${Outline.call([Outline.quoted('unopened', true)])} lists them` },
+                              ),
+                          ].join(' · '),
+                      ]
+                    : []),
+                ...(Option.isSome(shelved) ? [`▸ menu level from the map of this build, not read now; act takes an item by its path and opens the menu to reach it`] : []),
                 ...Option.toArray(clipboard),
                 ...Option.toArray(Option.map(more, (next) => `more rows may follow · ${Outline.call([Outline.quoted('in', next.in), Outline.quoted('after', next.after)])}`)),
                 ...Option.toArray(Option.map(answer, ({ asking, ref }) => `> act {steps:[{at:"${Address.token('action', ref)}"}]} answers ${asking}`)),
@@ -602,7 +649,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
     );
     yield* Server.registerTool(
         describeTool(TOOLS.act, descriptions.act),
-        Effect.fnUntraced(function* ({ steps }) {
+        Effect.fnUntraced(function* ({ steps, record = false }) {
             const aimed = yield* current;
             const { row, live } = aimed;
             const [{ base, map }, route] = yield* Effect.all([modelled(aimed), routeOf(live.instance)], { concurrency: 'unbounded' });
@@ -616,18 +663,24 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             );
             const operated = Array.getSomes(ready.map(Struct.get('facet')));
             yield* operated.length === 0 || operated.length === ready.length ? Effect.void : new Cause.IllegalArgumentError(`act takes facet and Accessibility references in calls of their own, and its ${ready.length} steps name ${operated.length} facet references`);
+            yield* record && operated.length > 0 ? new Cause.IllegalArgumentError('act records steps the application server runs, and facet references run through the linked source of the target') : Effect.void;
             const client = yield* Effect.transposeOption(Option.as(Array.head(operated), linked(row)));
             if (Option.isSome(client)) {
                 const outcomes = yield* Stream.fromIterable(operated).pipe(
                     Stream.mapEffect((payload) => Effect.result(client.value('operate', payload))),
                     Stream.takeUntil(Result.isFailure),
-                    Stream.map(Result.map(() => ({ tried: [] }))),
+                    Stream.map(Result.map(() => ({ proof: 'answer' as const, tried: [] }))),
                     Stream.runCollect,
                 );
                 yield* Server.ToolCall.use(Struct.get('awaitRunning'));
                 return { outcomes, state: live.state };
             }
-            const acted = yield* server.act({ instance: live.instance, steps: Array.map(ready, Struct.get('step')) });
+            const window = record ? Option.some(yield* frontWindow(row.name, live.state)) : Option.none<number>();
+            const acted = yield* server.act({
+                instance: live.instance,
+                steps: Array.map(ready, Struct.get('step')),
+                ...Option.getOrUndefined(Option.map(window, (number) => ({ record: { source: { _tag: 'windows' as const, numbers: Array.of(number) }, longestSide: Option.some(side), frames: FRAMES } }))),
+            });
             const proofs = Array.getSomes(Array.zipWith(ready, acted.outcomes, ({ at, start }, outcome) => Option.all({ at, from: Option.some(start), outcome: Option.some(outcome) })));
             yield* Effect.all(
                 [
@@ -639,8 +692,20 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                 ],
                 { discard: true },
             );
+            const frames = Option.match(Option.fromUndefinedOr(acted.recording), {
+                onNone: Array.empty,
+                onSome: Result.match({ onFailure: ({ message }) => [{ line: `${row.name} · recording failed: ${message}`, image: Option.none() }], onSuccess: (recording) => keyFramesOf(row.name, live, recording) }),
+            });
+            yield* Array.match(frames, {
+                onEmpty: () => Effect.void,
+                onNonEmpty: (held) =>
+                    Effect.andThen(
+                        Server.ToolCall.use(({ add }) => add(McpSchema.TextContent.make({ text: held.map(Struct.get('line')).join('\n') }))),
+                        attach(held),
+                    ),
+            });
             yield* Server.ToolCall.use(Struct.get('awaitRunning'));
-            return acted;
+            return Struct.omit(acted, ['recording']);
         }),
     );
     yield* Server.registerTool(describeTool(TOOLS.execute_script, descriptions.execute_script).annotateMerge(ends), ({ code }) => Effect.flatMap(current, (aim) => run(aim, code)));

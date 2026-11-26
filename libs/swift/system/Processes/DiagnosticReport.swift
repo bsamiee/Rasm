@@ -4,6 +4,7 @@ import Files
 public import Foundation
 import Results
 import System
+import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -15,20 +16,62 @@ public struct DiagnosticReport: Encodable, Hashable, Sendable {
         case spin
     }
 
+    public struct Exception: Codable, Hashable, Sendable {
+        public let type: String
+        public let signal: String?
+        public let subtype: String?
+        public let message: String?
+        public let rawCodes: [UInt64]?
+    }
+
     public struct Termination: Codable, Hashable, Sendable {
         public let namespace: String
         public let code: UInt64?
         public let indicator: String?
+        public let byProc: String?
+        public let reasons: [String]?
+        public let details: [String]?
+    }
+
+    public struct Frame: Encodable, Hashable, Sendable {
+        public let image: String?
+        public let imageOffset: UInt64
+        public let symbol: String?
+        public let symbolLocation: UInt64?
     }
 
     private struct Header: Decodable {
+        enum CodingKeys: String, CodingKey {
+            case bugType = "bug_type"
+        }
+
         let bugType: String
     }
 
     private struct Body: Decodable {
-        struct Exception: Decodable {
-            let type: String
-            let signal: String?
+        struct Thread: Decodable {
+            enum CodingKeys: CodingKey {
+                case triggered
+                case frames
+            }
+
+            struct Frame: Decodable {
+                let imageIndex: Int
+                let imageOffset: UInt64
+                let symbol: String?
+                let symbolLocation: UInt64?
+            }
+
+            let frames: [Frame]?
+
+            init(from decoder: any Decoder) throws {
+                let fields = try decoder.container(keyedBy: CodingKeys.self)
+                frames = try fields.decodeIfPresent(Bool.self, forKey: .triggered) == true ? fields.decode([Frame].self, forKey: .frames) : nil
+            }
+        }
+
+        struct Image: Decodable {
+            let name: String?
         }
 
         let pid: pid_t
@@ -41,12 +84,19 @@ public struct DiagnosticReport: Encodable, Hashable, Sendable {
         let bundleInfo: [String: String]?
         let exception: Exception?
         let termination: Termination?
+        let asi: [String: [String]]?
+        let vmRegionInfo: String?
+        let threads: [Thread]?
+        let usedImages: [Image]?
     }
 
     public static let directories: [URL] = FileManager.default.urls(for: .libraryDirectory, in: [.userDomainMask, .localDomainMask]).map { library in
         library.appending(components: "Logs", "DiagnosticReports", directoryHint: .isDirectory)
     }
 
+    private static let analyticsReport = UTType(importedAs: "com.apple.ips")
+    private static let decoder = JSONDecoder()
+    private static let keys: Set<URLResourceKey> = [.contentModificationDateKey, .isRegularFileKey, .isHiddenKey]
     private static let dateTime = Date.ParseStrategy(
         format: """
             \(year: .defaultDigits)-\(month: .twoDigits)-\(day: .twoDigits) \
@@ -55,8 +105,6 @@ public struct DiagnosticReport: Encodable, Hashable, Sendable {
             """,
         timeZone: .gmt,
     )
-
-    private static let keys: Set<URLResourceKey> = [.contentModificationDateKey, .isRegularFileKey, .isHiddenKey]
 
     public let url: URL
     public let kind: Kind
@@ -68,59 +116,78 @@ public struct DiagnosticReport: Encodable, Hashable, Sendable {
     public let coalition: String?
     public let bundleIdentifier: String?
     public let event: String?
-    public let exception: String?
-    public let signal: String?
+    public let exception: Exception?
     public let termination: Termination?
+    public let applicationSpecificInformation: [String: [String]]?
+    public let virtualMemoryRegionInfo: String?
+    public let faultingThread: [Frame]?
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension DiagnosticReport {
-    init?(_ file: URL) throws {
-        let data = try Data(contentsOf: file, options: .alwaysMapped)
-        switch (file.pathExtension, Kind(rawValue: file.pathExtension)) {
-            case ("ips", _):
-                let decoder = JSONDecoder()
-                decoder.keyDecodingStrategy = .convertFromSnakeCase
-                let end = data.firstIndex(of: UInt8(ascii: "\n")) ?? data.endIndex
-                guard try decoder.decode(Header.self, from: data[..<end]).bugType == "309" else { return nil }
-                let body = try decoder.decode(Body.self, from: data[end...].dropFirst())
-                guard (body.isSimulated ?? 0) == 0 else { return nil }
-                self.init(
-                    url: file,
-                    kind: .crash,
-                    date: try Self.dateTime.parse(body.captureTime),
-                    pid: body.pid,
-                    launched: try body.procLaunch.map(Self.dateTime.parse),
-                    name: body.procName,
-                    executable: body.procPath,
-                    coalition: body.coalitionName,
-                    bundleIdentifier: body.bundleInfo?[kCFBundleIdentifierKey as String],
-                    event: nil,
-                    exception: body.exception?.type,
-                    signal: body.exception?.signal,
-                    termination: body.termination,
-                )
-            case (_, .some(let kind)):
-                let lines = String(decoding: data.prefix(1 << 14), as: UTF8.self).matches(of: /^([^:\n]+):[ \t]*(.*)$/.anchorsMatchLineEndings())
-                let fields: [String: String] = Dictionary(lines.map { line -> (String, String) in (String(line.output.1), String(line.output.2)) }, uniquingKeysWith: { first, _ in first })
-                guard let pid = fields["PID"].flatMap({ pid in pid_t(pid) }), let captured = fields["Date/Time"] else { return nil }
-                self.init(
-                    url: file,
-                    kind: kind,
-                    date: try Self.dateTime.parse(captured),
-                    pid: pid,
-                    launched: nil,
-                    name: fields["Command"],
-                    executable: fields["Path"],
-                    coalition: nil,
-                    bundleIdentifier: fields["Identifier"],
-                    event: fields["Event"],
-                    exception: nil,
-                    signal: nil,
-                    termination: nil,
-                )
-            case (_, .none): return nil
+    init?(_ file: URL) throws(ProcessFailure) {
+        let subject = file.path(percentEncoded: false)
+        let read: Data?
+        do { read = try ifPresent { try Data(contentsOf: file, options: .alwaysMapped) } } catch { throw ProcessFailure(subject: subject, error) }
+        guard let data = read else { return nil }
+        do {
+            switch (UTType(filenameExtension: file.pathExtension) == Self.analyticsReport, Kind(rawValue: file.pathExtension)) {
+                case (true, _):
+                    let end = data.firstIndex(of: UInt8(ascii: "\n")) ?? data.endIndex
+                    guard try Self.decoder.decode(Header.self, from: data[..<end]).bugType == "309" else { return nil }
+                    let body = try Self.decoder.decode(Body.self, from: data[end...].dropFirst())
+                    guard (body.isSimulated ?? 0) == 0 else { return nil }
+                    let images = body.usedImages ?? []
+                    self.init(
+                        url: file,
+                        kind: .crash,
+                        date: try Self.dateTime.parse(body.captureTime),
+                        pid: body.pid,
+                        launched: try body.procLaunch.map(Self.dateTime.parse),
+                        name: body.procName,
+                        executable: body.procPath,
+                        coalition: body.coalitionName,
+                        bundleIdentifier: body.bundleInfo?[kCFBundleIdentifierKey as String],
+                        event: nil,
+                        exception: body.exception,
+                        termination: body.termination,
+                        applicationSpecificInformation: body.asi,
+                        virtualMemoryRegionInfo: body.vmRegionInfo,
+                        faultingThread: body.threads?.lazy.compactMap(\.frames).first?.map { frame in
+                            Frame(
+                                image: images.indices.contains(frame.imageIndex) ? images[frame.imageIndex].name : nil,
+                                imageOffset: frame.imageOffset,
+                                symbol: frame.symbol,
+                                symbolLocation: frame.symbolLocation,
+                            )
+                        },
+                    )
+                case (false, let kind?) where kind != .crash:
+                    let lines = String(decoding: data.prefix(1 << 14), as: UTF8.self).matches(of: /^([^:\n]+):[ \t]*(.*)$/.anchorsMatchLineEndings())
+                    let fields: [String: String] = Dictionary(lines.map { line -> (String, String) in (String(line.output.1), String(line.output.2)) }, uniquingKeysWith: { first, _ in first })
+                    guard let pid = fields["PID"].flatMap({ pid in pid_t(pid) }), let captured = fields["Date/Time"] else { throw CocoaError(.coderValueNotFound) }
+                    self.init(
+                        url: file,
+                        kind: kind,
+                        date: try Self.dateTime.parse(captured),
+                        pid: pid,
+                        launched: nil,
+                        name: fields["Command"],
+                        executable: fields["Path"],
+                        coalition: nil,
+                        bundleIdentifier: fields["Identifier"],
+                        event: fields["Event"],
+                        exception: nil,
+                        termination: nil,
+                        applicationSpecificInformation: nil,
+                        virtualMemoryRegionInfo: nil,
+                        faultingThread: nil,
+                    )
+                case (false, _): return nil
+            }
+        } catch {
+            throw ProcessFailure(subject: subject, reason: .corrupt(error as NSError))
         }
     }
 
@@ -143,9 +210,14 @@ extension DiagnosticReport {
         where matching: (Self) -> Bool,
     ) -> (reports: [Self], failures: [ProcessFailure]) {
         let listed = directories.map { directory in list(directory, since: earliest) }
-        let found = listed.flatMap(\.files).compactMap { file in read(file, since: earliest) }
-        let reports = found.compactMap { report in report[case: \.success] }.filter(matching).sorted(using: KeyPathComparator(\.date, order: .reverse))
-        return (Array(reports.prefix(limit)), listed.flatMap(\.failures) + found.compactMap { report in report[case: \.failure] })
+        let found = listed.flatMap(\.files).reduce(into: (reports: [Self](), failures: listed.flatMap(\.failures))) { found, file in
+            switch read(file, since: earliest) {
+                case .success(let report) where matching(report): found.reports.append(report)
+                case .failure(let failure): found.failures.append(failure)
+                case .success, nil: break
+            }
+        }
+        return (Array(found.reports.sorted(using: KeyPathComparator(\.date, order: .reverse)).prefix(limit)), found.failures)
     }
 
     public static func written(since earliest: Date, in directory: URL = directories[0]) -> some AsyncSequence<Result<Self, ProcessFailure>, Never> & Sendable {
@@ -194,19 +266,21 @@ extension DiagnosticReport {
     }
 
     private static func modified(_ entries: some Sequence<URL>, since earliest: Date) -> (files: [URL], failures: [ProcessFailure]) {
-        let read: [(url: URL, values: Result<URLResourceValues?, any Error>)] = entries.map { url in (url, Result { try ifPresent { try url.resourceValues(forKeys: keys) } }) }
-        let files: [URL] = read.compactMap { url, values in
-            guard case .success(let values?) = values, values.isRegularFile == true, values.isHidden == false, let modified = values.contentModificationDate, modified >= earliest else { return nil }
-            return url
+        entries.reduce(into: (files: [URL](), failures: [ProcessFailure]())) { found, url in
+            do {
+                let values = try ifPresent { try url.resourceValues(forKeys: keys) }
+                if values?.isRegularFile == true, values?.isHidden == false, let modified = values?.contentModificationDate, modified >= earliest { found.files.append(url) }
+            } catch {
+                found.failures.append(ProcessFailure(subject: url.path(percentEncoded: false), error))
+            }
         }
-        return (files, read.compactMap { url, values in values[case: \.failure].map { error in ProcessFailure(subject: url.path(percentEncoded: false), error) } })
     }
 
     private static func read(_ file: URL, since earliest: Date) -> Result<Self, ProcessFailure>? {
-        do {
-            return try ifPresent { try Self(file) }.flatMap(\.self).flatMap { report in report.date >= earliest ? .success(report) : nil }
+        do throws(ProcessFailure) {
+            return try Self(file).flatMap { report in report.date >= earliest ? .success(report) : nil }
         } catch {
-            return .failure(ProcessFailure(subject: file.path(percentEncoded: false), error))
+            return .failure(error)
         }
     }
 }

@@ -1,6 +1,8 @@
 import AppKit
 import Carbon.HIToolbox
+import CasePathsCore
 import CustomDump
+import Fixture
 import Testing
 
 @testable import Applications
@@ -29,16 +31,18 @@ struct StepTests {
         let read: [Step.Action] = try steps(
             #"""
             [{"at":3},{"at":3,"action":"AXShowMenu"},{"at":4,"to":"Tabloid","from":"process"},{"key":"a","modifiers":["command"],"at":5,"hold":250,"edge":"down"},
-             {"pointer":7,"path":[[10,20,0.5],[30,40,0.5,0.1,-0.1]],"count":2,"every":300},{"pointer":[1,2],"by":[0,-3],"unit":"line"},{"pointer":[1,2],"button":"none","windows":[9]}]
+             {"pointer":7,"path":[[10,20,0.5],[30,40,0.5,0.1,-0.1]],"count":2,"every":300},{"pointer":[1,2],"by":[0,-3],"unit":"line"},{"pointer":[1,2],"button":"none","windows":[9]},{"pointer":[1,2],"button":"middle"}]
             """#
         ).map(\.action)
         let both: Set<Input.Edge> = [.down, .up]
         let single = Input.Schedule(count: 1, every: nil, jitter: .zero)
-        let expected: [Step.Action] = [
+        let keyed: [Step.Action] = [
             Step.Action.press(ref: 3, action: kAXPressAction),
             Step.Action.press(ref: 3, action: kAXShowMenuAction),
             Step.Action.set(ref: 4, value: .text("Tabloid")),
             Step.Action.input(contact: .key(.character("a")), path: [], focus: 5, hold: .milliseconds(250), modifiers: [.command], schedule: single, edges: [.down], windows: []),
+        ]
+        let pointed: [Step.Action] = [
             Step.Action.input(
                 contact: .button(.left),
                 path: [
@@ -72,7 +76,18 @@ struct StepTests {
                 edges: both,
                 windows: [9],
             ),
+            Step.Action.input(
+                contact: .button(.center),
+                path: [.point(Input.Sample(at: SIMD2<Double>(1, 2), pressure: nil, tilt: nil))],
+                focus: nil,
+                hold: .zero,
+                modifiers: [],
+                schedule: single,
+                edges: both,
+                windows: [],
+            ),
         ]
+        let expected: [Step.Action] = keyed + pointed
         expectNoDifference(read, expected)
         expectNoDifference(try steps(#"[{"at":4,"to":"Tabloid","from":"process"}]"#).map(\.from), [.process])
     }
@@ -111,6 +126,49 @@ struct StepTests {
             let refusal = await #expect(throws: ApplicationFailure.self) { try await Route.system.post(timeline, to: getpid(), from: source, frame: .milliseconds(16), clock: ContinuousClock()) }
             let shortcut: Bool = refusal?.subject.contains("as its own shortcut") == true
             #expect(shortcut, "key code \(chord.code) with \(chord.modifiers): \(String(describing: refusal))")
+        }
+    }
+}
+
+extension WindowServerTests {
+    struct ActTests {
+        private static func control(_ entry: Inventory, of fixture: FixtureSession, in watch: Watch) async throws -> Applications.Control {
+            try await fixture.send(.report)
+            let report: Report = try await fixture.next(\.report).value
+            let model: Model = try await watch.model(.application)
+            let reported: Report.Control = try #require(report.controls.first { control in control.entry == entry })
+            let found: Applications.Control? = ModelTests.found(reported, in: model)
+            return try #require(found)
+        }
+
+        @Test(.enabled(if: AXIsProcessTrusted(), "Acting on the fixture from outside needs this test process to hold the Accessibility grant"))
+        func endsTheRunAtTheStepWhoseInstanceExitedWithNoLaterStepDelivered() async throws {
+            let outcomes: [Result<Step.Delivery, ApplicationFailure>] = try await FixtureSession.launched { fixture in
+                let watch: Watch = await Watches().watch(try Instance(try #require(NSRunningApplication(processIdentifier: fixture.process))))
+                let apply: Applications.Control = try await Self.control(.action, of: fixture, in: watch)
+                let states = await watch.states()
+                kill(fixture.process, SIGKILL)
+                _ = await states.first { state in state.is(\.exited) }
+                let steps: [Step] = try JSONDecoder().decode([Step].self, from: Data(#"[{"at":\#(apply.ref)},{"at":\#(apply.ref)},{"at":\#(apply.ref)}]"#.utf8))
+                return try await watch.act(steps).outcomes
+            }
+            expectNoDifference(outcomes.map { outcome in outcome[case: \.success]?.proof }, [.exit])
+        }
+
+        @Test(.enabled(if: AXIsProcessTrusted(), "Acting on the fixture from outside needs this test process to hold the Accessibility grant"))
+        func closesThePopUpLevelWindowAStepOpenedBehindTheFrontmostApplicationBeforeActReturns() async throws {
+            let (outcomes, left): ([Result<Step.Delivery, ApplicationFailure>], [CGWindowID]) = try await FixtureSession.launched { fixture in
+                let watch: Watch = await Watches().watch(try Instance(try #require(NSRunningApplication(processIdentifier: fixture.process))))
+                let opener: Applications.Control = try await Self.control(.drawer, of: fixture, in: watch)
+                let steps: [Step] = try JSONDecoder().decode([Step].self, from: Data(#"[{"at":\#(opener.ref)}]"#.utf8))
+                let acted = try await watch.act(steps).outcomes
+                let shown: [CGWindowID] = InstanceState.Window.all(.optionOnScreenOnly, of: fixture.process)[fixture.process, default: []]
+                    .filter { row in row.layer >= InstanceState.Window.Band.popUpMenu.level }.map(\.number)
+                await Captures.current?.take(in: watch)
+                return (acted, shown)
+            }
+            expectNoDifference(left, [])
+            expectNoDifference(outcomes.map { outcome in outcome[case: \.success]?.popUps.map(\.closed) }, [[true]])
         }
     }
 }

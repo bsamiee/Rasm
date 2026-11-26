@@ -4,6 +4,15 @@ import CasePathsCore
 public import Foundation
 import Processes
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+private enum DefinitionSource {
+    case running(pid_t)
+    case sdef(URL)
+    case scriptSuites(Bundle)
+    case aete(URL)
+}
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public actor ScriptingDictionaries {
@@ -27,7 +36,7 @@ public actor ScriptingDictionaries {
                 case .some, .none:
                     Task { [cachedDefinition] in
                         await Result { () async throws(AppleEventFailure) in
-                            try ScriptingDictionary(definition: await installation.scriptingDefinition(cachedDefinition: cachedDefinition(installation)))
+                            try ScriptingDictionary(definition: await installation.scriptingDefinition(running: processes.first?.pid, cachedDefinition: cachedDefinition(installation)))
                         }
                     }
             }
@@ -41,45 +50,45 @@ public actor ScriptingDictionaries {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Installation {
-    func scriptingDefinition(cachedDefinition: URL?) async throws(AppleEventFailure) -> Data {
-        let path = url.path(percentEncoded: false)
-        func read(_ file: URL?, named name: String) throws(AppleEventFailure) -> Data {
-            guard let file else { throw AppleEventFailure(subject: "\(name) of \(path)", reason: .undeclared) }
-            do {
-                return try Data(contentsOf: file)
-            } catch {
-                throw AppleEventFailure(subject: "\(name) of \(path)", reason: .foundation(error as NSError))
+    func scriptingDefinition(running: pid_t?, cachedDefinition: URL?) async throws(AppleEventFailure) -> Data {
+        let (bundle, files, named) = (Bundle(url: url), FileManager.default, executable?.lastPathComponent)
+        let cache = Bundle.main.bundleIdentifier.flatMap { server in build.map { build in URL.cachesDirectory.appending(components: server, identifier, "\(build).sdef") } }
+        let statics: [DefinitionSource?] = [
+            scriptingDefinitionFile.flatMap { name in bundle?.url(forResource: name, withExtension: URL(filePath: name).pathExtension.isEmpty ? "sdef" : nil) }.map(DefinitionSource.sdef),
+            named.flatMap { name in bundle?.url(forResource: name, withExtension: "sdef") }.map(DefinitionSource.sdef),
+            bundle?.url(forResource: nil, withExtension: "scriptSuite").flatMap { _ in bundle }.map(DefinitionSource.scriptSuites),
+            named.flatMap { name in bundle?.url(forResource: name, withExtension: "rsrc") }.map(DefinitionSource.aete),
+        ]
+        let live: [DefinitionSource?] = [
+            running.map(DefinitionSource.running),
+            [cache, cachedDefinition].compactMap(\.self).first { file in files.fileExists(atPath: file.path(percentEncoded: false)) }.map(DefinitionSource.sdef),
+        ]
+        var refusal: AppleEventFailure?
+        for source in (scriptingDefinitionIsDynamic ? live + statics : statics + live).compactMap(\.self) {
+            let read = await Result { () async throws(AppleEventFailure) -> Data in
+                switch source {
+                    case .running(let process): try await ScriptingDictionary.definition(of: NSAppleEventDescriptor(processIdentifier: process), within: messagingTimeout)
+                    case .sdef(let file):
+                        try Result { try Data(contentsOf: file) }.mapError { error in AppleEventFailure(subject: file.path(percentEncoded: false), reason: .foundation(error as NSError)) }.get()
+                    case .scriptSuites(let bundle): try ScriptingDictionary.definition(suites: bundle)
+                    case .aete(let resource): try await ScriptingDictionary.definition(terminology: resource)
+                }
+            }
+            switch (read, source, cache) {
+                case (.success(let definition), .running, .some(let cache)):
+                    do {
+                        try files.createDirectory(at: cache.deletingLastPathComponent(), withIntermediateDirectories: true)
+                        try definition.write(to: cache, options: .atomic)
+                    } catch {
+                        throw AppleEventFailure(subject: cache.path(percentEncoded: false), reason: .foundation(error as NSError))
+                    }
+                    return definition
+                case (.success(let definition), _, _): return definition
+                case (.failure(let failure), _, _) where failure.reason.is(\.cancelled): throw failure
+                case (.failure(let failure), _, _) where failure.reason == .osa(OSStatus(resNotFound)): continue
+                case (.failure(let failure), _, _): refusal = refusal ?? failure
             }
         }
-        let bundle = Bundle(url: url)
-        let suited = bundle.flatMap { bundle in bundle.url(forResource: nil, withExtension: "scriptSuite").map { _ in bundle } }
-        let resource = executable.flatMap { executable in bundle?.url(forResource: executable.lastPathComponent, withExtension: "rsrc") }
-        let live = scriptingDefinitionIsDynamic || (scriptingDefinitionFile == nil && suited == nil && resource == nil)
-        let cache = Bundle.main.bundleIdentifier.flatMap { server in build.map { build in URL.cachesDirectory.appending(components: server, identifier, "\(build).sdef") } }
-        let cached = [cache, cachedDefinition].compactMap(\.self).first { file in FileManager.default.fileExists(atPath: file.path(percentEncoded: false)) }
-        let running = live ? NSWorkspace.shared.runningApplications.first(where: runs)?.processIdentifier : nil
-        let asked: Result<Data, AppleEventFailure>? =
-            if let running {
-                await Result { () async throws(AppleEventFailure) in try await ScriptingDictionary.definition(of: NSAppleEventDescriptor(processIdentifier: running), within: messagingTimeout) }
-            } else { nil }
-        switch (asked, cached, scriptingDefinitionFile, suited, resource) {
-            case (.some(.success(let definition)), _, _, _, _):
-                do {
-                    if let cache {
-                        try FileManager.default.createDirectory(at: cache.deletingLastPathComponent(), withIntermediateDirectories: true)
-                        try definition.write(to: cache, options: .atomic)
-                    }
-                } catch {
-                    throw AppleEventFailure(subject: "cached definition of \(path)", reason: .foundation(error as NSError))
-                }
-                return definition
-            case (.some(.failure(let failure)), _, _, _, _) where failure.reason.is(\.cancelled): throw failure
-            case (_, .some(let cached), _, _, _) where live: return try read(cached, named: cached.path(percentEncoded: false))
-            case (_, _, .some(let name), _, _): return try read(bundle?.url(forResource: name, withExtension: URL(filePath: name).pathExtension.isEmpty ? "sdef" : nil), named: name)
-            case (_, _, .none, .some(let suited), _): return try ScriptingDictionary.definition(suites: suited)
-            case (_, _, .none, .none, .some(let resource)): return try await ScriptingDictionary.definition(terminology: resource)
-            case (.some(.failure(let failure)), _, .none, .none, .none): throw failure
-            case (.none, _, .none, .none, .none): throw AppleEventFailure(subject: path, reason: .undeclared)
-        }
+        throw refusal ?? AppleEventFailure(subject: url.path(percentEncoded: false), reason: .undeclared)
     }
 }

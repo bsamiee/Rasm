@@ -5,6 +5,7 @@ import Encoding
 import Foundation
 import JSONRPC
 import Results
+import System
 import Testing
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -12,6 +13,8 @@ import Testing
 private enum Request: Decodable, Sendable {
     case add(left: Int, right: Int)
     case find(name: String)
+    case wrapped(name: String)
+    case unreadable
     case count(to: Int)
     case buffered(to: Int)
     case wait(id: Int)
@@ -41,6 +44,8 @@ private struct Session {
                     switch request {
                         case .add(let left, let right): return .value(left - right)
                         case .find(let name): throw Unmatched(subject: "application", query: name, candidates: ["Finder"])
+                        case .wrapped(let name): throw Wrapped(cause: Wrapped(cause: Unmatched(subject: "application", query: name, candidates: ["Finder"])))
+                        case .unreadable: throw Wrapped(cause: Errno.noSuchFileOrDirectory)
                         case .count(let limit): return .stream([any Encodable & Sendable](Array(1...limit)).async)
                         case .buffered(let limit):
                             let (chunks, chunk) = AsyncStream<Int>.makeStream()
@@ -79,12 +84,37 @@ private struct Session {
 
     mutating func event() async -> String? { await events.next(isolation: nil) }
 
+    mutating func failure(_ id: Int, _ method: String, _ params: [String: JSONValue]) async throws -> (id: JSONValue?, reasons: [[String: JSONValue]], rest: [JSONValue]) {
+        try call(id, method, params)
+        let failed = cause(of: try await reply())
+        return (failed.id, failed.reasons, try await closed())
+    }
+
     mutating func closed() async throws -> [JSONValue] {
         input.finish()
         try await serving.value
         var rest: [JSONValue] = []
         while let line = await output.next(isolation: nil) { rest.append(line) }
         return rest
+    }
+}
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+private struct Wrapped: CustomNSError, Encodable, LocalizedError {
+    private enum CodingKeys: CodingKey {
+        case reason
+    }
+
+    let cause: any Error
+
+    var errorDescription: String? { "wrapped \(cause.localizedDescription)" }
+
+    var errorUserInfo: [String: Any] { [NSUnderlyingErrorKey: cause] }
+
+    func encode(to encoder: any Encoder) throws {
+        var fields = encoder.container(keyedBy: CodingKeys.self)
+        try fields.encode(String(describing: type(of: cause)), forKey: .reason)
     }
 }
 
@@ -113,35 +143,66 @@ struct ServerTests {
         expectNoDifference(replies, [answer(31, .number(5))])
     }
 
-    @Test
-    func encodesAThrownTaggedErrorAsAFailCauseHoldingItsFields() async throws {
+    @Test(arguments: [("find", "No application matching Xcode, candidates: Finder"), ("wrapped", "wrapped wrapped No application matching Xcode, candidates: Finder")])
+    func encodesAThrownUnmatchedUnderAnyWrapperAsAFailCauseHoldingItsFieldsAndTheThrownMessage(method: String, message: String) async throws {
         var session = Session()
-        try session.call(2, "find", ["name": .string("Xcode")])
-        let failed = cause(of: try await session.reply())
-        let rest = try await session.closed()
-        let error: [String: JSONValue]? = if case .object(let fields)? = failed.reasons.first?["error"] { fields } else { nil }
+        let failed = try await session.failure(2, method, ["name": .string("Xcode")])
         expectNoDifference(failed.id, .number(2))
-        expectNoDifference(failed.reasons.map { reason in reason["_tag"] }, [.string("Fail")])
         expectNoDifference(
-            error,
+            failed.reasons,
             [
-                "_tag": .string("Unmatched"), "message": .string("No application matching Xcode, candidates: Finder"), "subject": .string("application"), "query": .string("Xcode"),
-                "candidates": .array([.string("Finder")]),
+                [
+                    "_tag": .string("Fail"),
+                    "error": .object([
+                        "_tag": .string("Unmatched"), "message": .string(message), "subject": .string("application"), "query": .string("Xcode"), "candidates": .array([.string("Finder")]),
+                    ]),
+                ]
             ],
         )
-        expectNoDifference(rest, [])
+        expectNoDifference(failed.rest, [])
+    }
+
+    @Test
+    func encodesAnUntaggedErrorAsANamedErrorHoldingEachUnderlyingErrorAsItsCause() async throws {
+        var session = Session()
+        let failed = try await session.failure(14, "unreadable", [:])
+        let missing = Errno.noSuchFileOrDirectory.localizedDescription
+        expectNoDifference(
+            failed.reasons,
+            [
+                [
+                    "_tag": .string("Fail"),
+                    "error": .object([
+                        "name": .string(String(reflecting: Wrapped.self)), "message": .string("wrapped \(missing)"),
+                        "cause": .object(["name": .string(NSPOSIXErrorDomain), "message": .string(missing)]),
+                    ]),
+                ]
+            ],
+        )
+        expectNoDifference(failed.rest, [])
     }
 
     @Test
     func encodesAnUndecodableRequestAsADieCauseHoldingItsDefect() async throws {
         var session = Session()
-        try session.call(3, "missing", [:])
-        let died = cause(of: try await session.reply())
-        let rest = try await session.closed()
+        let died = try await session.failure(3, "missing", [:])
         expectNoDifference(died.id, .number(3))
         expectNoDifference(died.reasons.map { reason in reason.keys.sorted() }, [["_tag", "defect"]])
         expectNoDifference(died.reasons.map { reason in reason["_tag"] }, [.string("Die")])
-        expectNoDifference(rest, [])
+        expectNoDifference(died.rest, [])
+    }
+
+    @Test
+    func interruptCancelsTheRunningCallAndAnswersItWithAnInterruptCause() async throws {
+        var session = Session()
+        try session.call(6, "wait", ["id": .number(6)])
+        let started = await session.event()
+        try session.control("@effect/rpc/Interrupt", 6)
+        let cancelled = await session.event()
+        let replies = try await session.closed()
+        expectNoDifference([started, cancelled], ["started 6", "cancelled 6"])
+        expectNoDifference(replies.map { reply in cause(of: reply).id }, [.number(6)])
+        expectNoDifference(replies.map { reply in cause(of: reply).reasons }, [[["_tag": .string("Interrupt"), "fiberId": .null]]])
     }
 
     @Test
@@ -158,17 +219,6 @@ struct ServerTests {
         }
         replies += try await session.closed()
         expectNoDifference(replies, [chunk(4, 1), answer(5, .number(2)), chunk(4, 2), chunk(4, 3), answer(4, .null)])
-    }
-
-    @Test
-    func interruptCancelsTheRunningCall() async throws {
-        var session = Session()
-        try session.call(6, "wait", ["id": .number(6)])
-        let started = await session.event()
-        try session.control("@effect/rpc/Interrupt", 6)
-        let cancelled = await session.event()
-        _ = try await session.closed()
-        expectNoDifference([started, cancelled], ["started 6", "cancelled 6"])
     }
 
     @Test

@@ -19,13 +19,13 @@ public struct Lockfile: Sendable {
     let url: URL
     let stale: Duration
     let update: Duration
-    let retry: Backoff?
+    let retries: Backoff?
 
-    public init(_ url: URL, stale: Duration = .seconds(10), update: Duration? = nil, retry: Backoff? = nil) {
+    public init(_ url: URL, stale: Duration = .seconds(10), update: Duration? = nil, retries: Backoff? = nil) {
         self.url = url
         self.stale = max(stale, .seconds(2))
         self.update = max(min(update ?? self.stale / 2, self.stale / 2), .seconds(1))
-        self.retry = retry
+        self.retries = retries
     }
 
     public static func withLocks<Value: Sendable, Failure: LockFailure>(
@@ -33,27 +33,22 @@ public struct Lockfile: Sendable {
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
         _ body: @escaping @Sendable () async throws(Failure) -> Value,
     ) async throws(Failure) -> Value {
-        let (date, start) = (Date(), clock.now)
-        let now: @Sendable () -> Duration = { .seconds(date.timeIntervalSince1970) + start.duration(to: clock.now) }
-        let holder: Holder<Failure> = try await acquire(lockfiles, clock: clock, now: now)
+        let holder: Holder<Failure> = try await acquire(lockfiles, clock: clock)
         let outcome = await Result { () async throws(Failure) -> Value in
             guard let interval = lockfiles.map(\.update).min() else { return try await body() }
-            return try await race(body) { () async throws(Failure) -> Value in try await holder.heartbeat(every: interval, clock: clock, now: now) }
+            return try await race(body) { () async throws(Failure) -> Value in try await holder.heartbeat(every: interval, clock: clock) }
         }
         let released: Result<Void, Failure> = release(await holder.locks)
         return try outcome.mapError { error in error.releasing(released) }.flatMap { value in released.map { _ in value } }.get()
     }
 
-    private static func acquire<Failure: LockFailure>(_ lockfiles: [Self], clock: some Clock<Duration> & Sendable, now: () -> Duration) async throws(Failure) -> Holder<Failure> {
+    private static func acquire<Failure: LockFailure>(_ lockfiles: [Self], clock: some Clock<Duration> & Sendable) async throws(Failure) -> Holder<Failure> {
         var generator = SystemRandomNumberGenerator()
-        var delays: [IndexingIterator<[Duration]>] = lockfiles.map { (lockfile: Self) -> IndexingIterator<[Duration]> in (lockfile.retry?.delays(using: &generator) ?? []).makeIterator() }
+        var delays = lockfiles.map { lockfile in (lockfile.retries?.delays(using: &generator) ?? []).makeIterator() }
         while true {
             var locks: [Lock] = []
-            let failure: FileFailure
-            do throws(FileFailure) {
-                for lockfile in lockfiles { locks.append(try Lock.acquire(lockfile, at: now())) }
-                return Holder(locks)
-            } catch { failure = error }
+            let acquired = Result { () throws(FileFailure) in for lockfile in lockfiles { locks.append(try Lock.acquire(lockfile)) } }
+            guard case .failure(let failure) = acquired else { return Holder(locks) }
             let (blocked, released): (URL, Result<Void, Failure>) = (lockfiles[locks.count].url, release(locks))
             guard failure.reason.is(\.held), case .success = released, let delay = delays[locks.count].next() else { throw Failure.lock(failure).releasing(released) }
             Logger.current.debug("Waiting for held lock", metadata: ["lock": .string(blocked.path(percentEncoded: false)), "delay": .stringConvertible(delay)])
@@ -86,55 +81,40 @@ private struct Lock: Equatable, Sendable {
     let inode: Inode
     let modified: Duration
 
-    static func acquire(_ lockfile: Lockfile, at now: Duration) throws(FileFailure) -> Self {
-        func create() throws(FileFailure) {
-            do {
-                try FileManager.default.createDirectory(at: lockfile.url, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
-            } catch CocoaError.fileWriteFileExists {
-                throw FileFailure(file: lockfile.url, reason: .held)
-            } catch {
-                throw FileFailure(file: lockfile.url, reason: .filesystem(error))
-            }
-        }
+    static func acquire(_ lockfile: Lockfile) throws(FileFailure) -> Self {
         do throws(FileFailure) {
-            try create()
+            try create(lockfile.url)
         } catch let failure where failure.reason.is(\.held) {
+            let now = Duration.seconds(Date.now.timeIntervalSince1970)
             switch try read(lockfile.url) {
                 case .some(let current) where current.modified >= now - lockfile.stale: throw failure
                 case .some(let stale):
-                    try remove(at: lockfile.url)
+                    try remove(lockfile.url)
                     Logger.current.info("Removed stale lock", metadata: ["lock": .string(lockfile.url.path(percentEncoded: false)), "unchanged": .stringConvertible(now - stale.modified)])
                 case .none: break
             }
-            try create()
+            try create(lockfile.url)
         }
-        do throws(FileFailure) { return try current(lockfile.url) } catch {
-            try Result { () throws(FileFailure) in try remove(at: lockfile.url) }
+        do throws(FileFailure) {
+            guard let lock = try read(lockfile.url) else { throw FileFailure(file: lockfile.url, reason: .compromised) }
+            return lock
+        } catch {
+            try Result { () throws(FileFailure) in try remove(lockfile.url) }
                 .mapError { cleanup in FileFailure(file: lockfile.url, reason: .filesystem(AggregateError(first: error, remaining: [cleanup]))) }.get()
             throw error
         }
     }
 
-    func update(at now: Duration) throws(FileFailure) -> Self {
-        try verifyUnchanged()
-        _ = try ifPresent(url) { try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: now / .seconds(1))], ofItemAtPath: url.path(percentEncoded: false)) }
-        let current = try Self.current(url)
-        guard current.inode == inode else { throw FileFailure(file: url, reason: .compromised) }
+    func update() throws(FileFailure) -> Self {
+        guard try Self.read(url) == self else { throw FileFailure(file: url, reason: .compromised) }
+        _ = try ifPresent(url) { guard unsafe utimes(url.path(percentEncoded: false), nil) == 0 else { throw Errno(rawValue: errno) } }
+        guard let current = try Self.read(url), current.inode == inode else { throw FileFailure(file: url, reason: .compromised) }
         return current
     }
 
     func release() throws(FileFailure) {
-        try verifyUnchanged()
-        try Self.remove(at: url)
-    }
-
-    private func verifyUnchanged() throws(FileFailure) {
         guard try Self.read(url) == self else { throw FileFailure(file: url, reason: .compromised) }
-    }
-
-    private static func current(_ url: URL) throws(FileFailure) -> Self {
-        guard let lock = try read(url) else { throw FileFailure(file: url, reason: .compromised) }
-        return lock
+        try Self.remove(url)
     }
 
     private static func read(_ url: URL) throws(FileFailure) -> Self? {
@@ -144,8 +124,14 @@ private struct Lock: Equatable, Sendable {
         }
     }
 
-    private static func remove(at url: URL) throws(FileFailure) {
-        _ = try ifPresent(url) { try FileManager.default.removeItem(at: url) }
+    private static func create(_ url: URL) throws(FileFailure) {
+        guard unsafe mkdir(url.path(percentEncoded: false), FilePermissions.ownerReadWriteExecute.rawValue) != 0 else { return }
+        let error = Errno(rawValue: errno)
+        throw FileFailure(file: url, reason: error == .fileExists ? .held : .filesystem(error))
+    }
+
+    private static func remove(_ url: URL) throws(FileFailure) {
+        _ = try ifPresent(url) { guard unsafe rmdir(url.path(percentEncoded: false)) == 0 else { throw Errno(rawValue: errno) } }
     }
 }
 
@@ -160,9 +146,13 @@ private actor Holder<Failure: LockFailure> {
 
     // --- [HEARTBEAT]
 
-    func heartbeat(every interval: Duration, clock: some Clock<Duration> & Sendable, now: @Sendable () -> Duration) async throws(Failure) -> Never {
+    func heartbeat(every interval: Duration, clock: some Clock<Duration> & Sendable) async throws(Failure) -> Never {
         for await _ in AsyncTimerSequence(interval: interval, clock: clock) {
-            do throws(FileFailure) { locks = try locks.map { lock throws(FileFailure) in try lock.update(at: now()) } } catch { throw .lock(error) }
+            do throws(FileFailure) {
+                for index in locks.indices { locks[index] = try locks[index].update() }
+            } catch {
+                throw .lock(error)
+            }
         }
         throw .cancelled
     }

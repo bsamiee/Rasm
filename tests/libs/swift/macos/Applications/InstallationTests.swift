@@ -1,7 +1,7 @@
 import AppIntents
+import AppKit
 import Applications
 import CustomDump
-import Foundation
 import Testing
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -17,15 +17,15 @@ struct InstallationTests {
 
     @Test(
         arguments: [
-            ("", "regular"),
-            ("<key>LSUIElement</key><true/>", "accessory"),
-            ("<key>LSUIElement</key><integer>1</integer>", "accessory"),
-            ("<key>LSUIElement</key><string>YES</string>", "accessory"),
-            ("<key>LSUIElement</key><string>0</string>", "regular"),
-            ("<key>LSBackgroundOnly</key><string>1</string><key>LSUIElement</key><true/>", "prohibited"),
-        ] as [(String, String)]
+            ("", .regular),
+            ("<key>LSUIElement</key><true/>", .accessory),
+            ("<key>LSUIElement</key><integer>1</integer>", .accessory),
+            ("<key>LSUIElement</key><string>YES</string>", .accessory),
+            ("<key>LSUIElement</key><string>0</string>", .regular),
+            ("<key>LSBackgroundOnly</key><string>1</string><key>LSUIElement</key><true/>", .prohibited),
+        ] as [(String, NSApplication.ActivationPolicy)]
     )
-    func readsTheActivationPolicyOfEachBooleanFormLaunchServicesReads(entries: String, policy: String) throws {
+    func readsTheActivationPolicyOfEachBooleanFormLaunchServicesReads(entries: String, policy: NSApplication.ActivationPolicy) throws {
         let bundle = try Self.declare(entries, in: FileManager.default.temporaryDirectory.appending(components: UUID().uuidString, "Fixture.app"))
         let read = try Installation(at: bundle).activationPolicy
         try FileManager.default.removeItem(at: bundle.deletingLastPathComponent())
@@ -75,5 +75,21 @@ struct InstallationTests {
         expectNoDifference(intents.map(\.title), ["Open Item", nil, nil])
         expectNoDifference(intents.map(\.supportedModes), [.foreground, .foreground(.dynamic), .background])
         expectNoDifference(intents.map(\.isDiscoverable), [true, false, true])
+    }
+
+    @Test
+    func listsABundleWhoseAppIntentsMetadataIsUnreadableWithTheFailureInPlaceOfTheActions() throws {
+        let bundle = try Self.declare("<key>CFBundleShortVersionString</key><string>3</string>", in: FileManager.default.temporaryDirectory.appending(components: UUID().uuidString, "Fixture.app"))
+        let actions = bundle.appending(components: "Contents", "Resources", "Metadata.appintents", "extract.actionsdata")
+        try FileManager.default.createDirectory(at: actions.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(#"{"actions":"#.utf8).write(to: actions)
+        let installation = try Installation(at: bundle)
+        let encoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(installation)) as? [String: Any]
+        let failure = #expect(throws: ApplicationFailure.self) { try installation.appIntents }
+        try FileManager.default.removeItem(at: bundle.deletingLastPathComponent())
+        expectNoDifference(installation.version, "3")
+        expectNoDifference(failure?.subject.hasSuffix("Metadata.appintents/"), true)
+        expectNoDifference(encoded?["appIntents"] == nil, true)
+        expectNoDifference((encoded?["unread"] as? [[String: Any]])?.compactMap { unread in unread["subject"] as? String }, [failure?.subject].compactMap(\.self))
     }
 }

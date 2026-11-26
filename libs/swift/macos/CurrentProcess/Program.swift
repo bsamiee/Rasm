@@ -18,16 +18,21 @@ public enum Directory: Sendable {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 final class UnrecognizedValues: AccessReporter {
-    private let accepted: [String: [String]]
     private let raw: ConfigReader
-    private let state = Mutex<(reported: Set<String>, pending: [Logging.Logger.Metadata])>(([], []))
+    private let state = Mutex<(reported: Set<String>, pending: [Logging.Logger.Metadata], accepted: [AbsoluteConfigKey: [String]])>(([], [], [:]))
 
-    init(accepted: [String: [String]], raw: ConfigReader) { (self.accepted, self.raw) = (accepted, raw) }
+    init(raw: ConfigReader) { self.raw = raw }
+
+    func key(_ key: ConfigKey, accepting values: [String]) -> ConfigKey {
+        state.withLock { state in state.accepted[AbsoluteConfigKey(key)] = values }
+        return key
+    }
 
     func report(_ event: AccessEvent) {
-        guard let failure = event.conversionError ?? event.providerResults.lazy.compactMap({ provider in provider.result[case: \.failure] }).first else { return }
-        let key = event.metadata.key
-        add(variable: key.description, value: raw.string(forKey: ConfigKey(key.components)) ?? String(describing: failure), accepted: accepted[key.description] ?? [event.metadata.valueType.rawValue])
+        let (key, mismatch) = (event.metadata.key, event.providerResults.last?.result[case: \.failure])
+        guard let failure = mismatch ?? event.conversionError else { return }
+        let rule = mismatch == nil ? state.withLock { state in state.accepted[key] } : nil
+        add(variable: key.description, value: raw.string(forKey: ConfigKey(key.components)) ?? String(describing: failure), accepted: rule ?? [event.metadata.valueType.rawValue])
     }
 
     func add(variable: String, value: String, accepted: [String]) {
@@ -59,10 +64,7 @@ public struct Program: Sendable {
         version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
         stored = MutableInMemoryProvider(name: identifier, initialValues: Self.values(UserDefaults.standard.persistentDomain(forName: identifier) ?? [:]))
         let providers: [any ConfigProvider] = [EnvironmentVariablesProvider().prefixKeys(with: ConfigKey([name])), stored]
-        unrecognized = UnrecognizedValues(
-            accepted: ["log.target": LogTarget.allCases.map(\.rawValue), "log.size": ["greater than 0"], "log.age": ["greater than 0"], "log.files": ["greater than 0"]],
-            raw: ConfigReader(providers: providers),
-        )
+        unrecognized = UnrecognizedValues(raw: ConfigReader(providers: providers))
         settings = ConfigReader(providers: providers, accessReporter: unrecognized)
     }
 
@@ -78,10 +80,10 @@ public struct Program: Sendable {
 
     public func store(_ value: any Sendable?, forKey key: ConfigKey) {
         UserDefaults.standard.set(value, forKey: key.description)
-        stored.setValue(value.flatMap { value in Self.values([key.description: value]).values.first }, forKey: AbsoluteConfigKey(key))
+        stored.setValue(value.flatMap(ConfigValue.init(propertyList:)), forKey: AbsoluteConfigKey(key))
     }
 
-    var signature: (requirement: Data?, unique: Data?) {
+    var signature: (requirement: Data, unique: Data) {
         get throws(ApplicationFailure) {
             var (code, information, requirement): (SecStaticCode?, CFDictionary?, CFData?) = (nil, nil, nil)
             let found = unsafe SecStaticCodeCreateWithPath(Bundle.main.bundleURL as CFURL, [], &code)
@@ -90,9 +92,11 @@ public struct Program: Sendable {
             let designated = fields[kSecCodeInfoDesignatedRequirement].flatMap { value in
                 CFGetTypeID(value) == SecRequirementGetTypeID() ? unsafe unsafeDowncast(value, to: SecRequirement.self) : nil
             }
-            let copied = designated.map { designated in unsafe SecRequirementCopyData(designated, [], &requirement) } ?? read
-            guard copied == errSecSuccess else { throw ApplicationFailure(subject: identifier, reason: .foundation(NSError(domain: NSOSStatusErrorDomain, code: Int(copied)))) }
-            return (requirement as Data?, fields[kSecCodeInfoUnique] as? Data)
+            let status = designated.map { designated in unsafe SecRequirementCopyData(designated, [], &requirement) } ?? read
+            guard status == errSecSuccess, let requirement, let unique = fields[kSecCodeInfoUnique] as? Data else {
+                throw ApplicationFailure(subject: identifier, reason: .foundation(NSError(domain: NSOSStatusErrorDomain, code: Int(status == errSecSuccess ? errSecCSUnsigned : status))))
+            }
+            return (requirement as Data, unique)
         }
     }
 
@@ -100,7 +104,7 @@ public struct Program: Sendable {
         let missing = Grant.allCases.filter { grant in !grant.isHeld(asking: false) }
         guard !missing.isEmpty else { return }
         let signed = Result { () throws(ApplicationFailure) in try signature.requirement }.aggregated(\.self)
-        for grant in missing {
+        for grant in missing where responsiblePID(getpid()) == getpid() {
             let requested: ConfigKey = ["grants", "requested", grant.rawValue]
             guard case .success(let requirement) = signed, settings.bytes(forKey: requested).map(Data.init) != requirement else { continue }
             _ = grant.isHeld(asking: true)
@@ -110,23 +114,27 @@ public struct Program: Sendable {
     }
 
     static func values(_ domain: [String: Any]) -> [AbsoluteConfigKey: ConfigValue] {
-        domain.reduce(into: [:]) { values, entry in
-            let content: ConfigContent? =
-                switch entry.value {
-                    case let text as String: .string(text)
-                    case let texts as [String]: .stringArray(texts)
-                    case let data as Data: .bytes(Array(data))
-                    case let number as NSNumber where CFGetTypeID(number) == CFBooleanGetTypeID(): .bool(number.boolValue)
-                    case let number as NSNumber where CFNumberIsFloatType(number): .double(number.doubleValue)
-                    case let number as NSNumber: .int(number.intValue)
-                    default: nil
-                }
-            values[AbsoluteConfigKey(ConfigKey(entry.key))] = content.map { content in ConfigValue(content, isSecret: false) }
-        }
+        domain.reduce(into: [:]) { values, entry in values[AbsoluteConfigKey(ConfigKey(entry.key))] = ConfigValue(propertyList: entry.value) }
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+extension ConfigValue {
+    init?(propertyList value: Any) {
+        let content: ConfigContent
+        switch value {
+            case let text as String: content = .string(text)
+            case let texts as [String]: content = .stringArray(texts)
+            case let data as Data: content = .bytes(Array(data))
+            case let number as NSNumber where CFGetTypeID(number) == CFBooleanGetTypeID(): content = .bool(number.boolValue)
+            case let number as NSNumber where CFNumberIsFloatType(number): content = .double(number.doubleValue)
+            case let number as NSNumber: content = .int(number.intValue)
+            default: return nil
+        }
+        self.init(content, isSecret: false)
+    }
+}
 
 public func disclaimResponsibility() throws(Errno) {
     func check(_ status: Int32) throws(Errno) { if status != 0 { throw Errno(rawValue: status) } }

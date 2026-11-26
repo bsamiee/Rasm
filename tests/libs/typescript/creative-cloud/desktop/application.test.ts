@@ -42,7 +42,7 @@ const offered = OFFERED.map(([bundle, executable, name, identifier, version]) =>
         bundleName: Option.none(),
         version: Option.fromUndefinedOr(version),
         build: Option.none(),
-        scriptable: false,
+        scriptable: Option.some(false),
         scriptingDefinitionFile: Option.none(),
         activationPolicy: 'regular',
         documentTypes: Option.none(),
@@ -53,7 +53,7 @@ const offered = OFFERED.map(([bundle, executable, name, identifier, version]) =>
         architectures: Option.none(),
         quarantine: Option.none(),
         claim: Option.none(),
-        appIntents: [],
+        appIntents: Option.some([]),
     }),
 );
 const listed = Effect.fnUntraced(

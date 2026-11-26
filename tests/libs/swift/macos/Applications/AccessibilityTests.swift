@@ -1,6 +1,8 @@
 @unsafe @preconcurrency import ApplicationServices
+import CasePathsCore
 import CustomDump
 import Encoding
+import Fixture
 import Foundation
 import Testing
 
@@ -24,5 +26,31 @@ struct AccessibilityTests {
                 .refused(error: .known(.cannotComplete)), nil,
             ],
         )
+    }
+}
+
+extension WindowServerTests {
+    @Suite(.enabled(if: AXIsProcessTrusted(), "Reading the fixture from outside needs this test process to hold the Accessibility grant"))
+    struct ElementReadTests {
+        @Test
+        func answersTheElementReadOfAHungInstanceWithinOneMessagingTimeout() async throws {
+            let (reason, waited): (ApplicationFailure.Reason?, Duration) = try await FixtureSession.launched { fixture in
+                AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), Float(messagingTimeout / .seconds(1)))
+                let window: AXUIElement = try #require(try AXUIElementCreateApplication(fixture.process).elements(kAXWindowsAttribute).first)
+                try await fixture.send(.hang(kind: .sleeping(.seconds(5))))
+                _ = try await fixture.next(\.hanging)
+                let started = ContinuousClock.now
+                let reason: ApplicationFailure.Reason?
+                do throws(ApplicationFailure) {
+                    _ = try window.element(reading: windowAttributes)
+                    reason = nil
+                } catch {
+                    reason = error.reason
+                }
+                return (reason, ContinuousClock.now - started)
+            }
+            expectNoDifference(reason, .unanswered(nil))
+            #expect(waited < messagingTimeout * 1.5, "an element read of a hung window waited \(waited) under a \(messagingTimeout) messaging timeout")
+        }
     }
 }

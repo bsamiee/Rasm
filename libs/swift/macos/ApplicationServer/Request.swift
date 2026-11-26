@@ -4,11 +4,9 @@ import Applications
 import CurrentProcess
 import Files
 import JSONRPC
-import Logging
 import Processes
 import Results
 import System
-import Telemetry
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -20,6 +18,12 @@ enum Request: Decodable, Sendable {
     struct Application: Decodable, Sendable {
         let url: URL
         let instance: ProcessInstance?
+    }
+
+    struct Record: Decodable, Sendable {
+        let source: Source
+        let longestSide: LongestSide?
+        let frames: Int
     }
 
     case installations(identifiers: [String]?, prefix: String?)
@@ -35,12 +39,12 @@ enum Request: Decodable, Sendable {
     case intern(instance: ProcessInstance, locators: [Locator])
     case handlers(document: URL)
     case launch(url: URL, documents: [URL], arguments: [String], environment: [String: String], new: Bool, opening: [String: AppleEventValue], wait: Bool)
-    case act(instance: ProcessInstance, steps: [Step])
+    case act(instance: ProcessInstance, steps: [Step], record: Record?)
     case quit(instance: ProcessInstance, mode: Watch.QuitMode)
     case dictionary(url: URL)
     case execute(instance: ProcessInstance, arguments: [String: AppleEventValue])
     case capture(instance: ProcessInstance, source: Source, longestSide: LongestSide?, marks: [Mark])
-    case record(instance: ProcessInstance, source: Source, seconds: Double, longestSide: LongestSide?)
+    case record(instance: ProcessInstance, source: Source, longestSide: LongestSide?, frames: Int, seconds: Double, movie: URL?)
     case scale(image: Data, longestSide: LongestSide)
     case diagnostics(application: Application?, folders: [LogFolder], since: Double?, limit: Int, find: String?)
 }
@@ -49,9 +53,10 @@ private struct ActResult: Encodable, Sendable {
     let outcomes: [EncodedResult<Step.Delivery>]
     let state: InstanceState
     let usage: EncodedResult<ResourceUsage.Interval>
-    let load: EncodedResult<SystemLoad>
+    let load: EncodedResult<SystemLoad.Interval>
     let written: EncodedResult<[URL]>
     let diagnostics: Diagnostics
+    let recording: EncodedResult<Recording>?
 }
 
 private struct ExecuteResult: Encodable, Sendable {
@@ -74,24 +79,28 @@ private struct Diagnostics: Encodable, Sendable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-private func admit(_ identifier: String?, as subject: String, matching: () -> NSPredicate) throws(ApplicationFailure) {
-    let predicate = matching()
-    guard predicate.evaluate(bundleIdentifier: identifier) else {
-        throw ApplicationFailure(subject: subject, reason: .unmatched(Unmatched(subject: predicate.predicateFormat, query: identifier, candidates: [])))
+extension NSPredicate {
+    fileprivate func admit(_ identifier: String?, as subject: String) throws(ApplicationFailure) {
+        guard evaluate(bundleIdentifier: identifier) else {
+            throw ApplicationFailure(subject: subject, reason: .unmatched(Unmatched(subject: predicateFormat, query: identifier, candidates: [])))
+        }
     }
 }
 
-private func readInstallation(at url: URL, matching: () -> NSPredicate) throws(ApplicationFailure) -> Installation {
-    let installation = try Installation(at: url)
-    try admit(installation.identifier, as: url.path(percentEncoded: false), matching: matching)
-    return installation
+extension Installation {
+    fileprivate init(at url: URL, admittedBy predicate: NSPredicate) throws(ApplicationFailure) {
+        try self.init(at: url)
+        try predicate.admit(identifier, as: url.path(percentEncoded: false))
+    }
 }
 
-private func instance(of process: ProcessInstance, matching: () -> NSPredicate) throws(ApplicationFailure) -> Instance {
-    let running = try NSRunningApplication(processIdentifier: process.pid).map { application throws(ApplicationFailure) in try Instance(application) }
-    guard let running, running.process == process else { throw ApplicationFailure(subject: process.rawValue, reason: .system(.noSuchProcess)) }
-    try admit(running.application.bundleIdentifier, as: process.rawValue, matching: matching)
-    return running
+extension Instance {
+    fileprivate init(_ process: ProcessInstance, admittedBy predicate: NSPredicate) throws(ApplicationFailure) {
+        let running = try NSRunningApplication(processIdentifier: process.pid).map { application throws(ApplicationFailure) in try Self(application) }
+        guard let running, running.process == process else { throw ApplicationFailure(subject: process.rawValue, reason: .system(.noSuchProcess)) }
+        try predicate.admit(running.application.bundleIdentifier, as: process.rawValue)
+        self = running
+    }
 }
 
 private func selection(of identifiers: [String]?, matching: @escaping @Sendable () -> NSPredicate) -> @Sendable (NSRunningApplication) -> Bool {
@@ -102,15 +111,16 @@ private func selection(of identifiers: [String]?, matching: @escaping @Sendable 
 
 extension Request {
     func perform(matching: @escaping @Sendable () -> NSPredicate, dictionaries: ScriptingDictionaries, watches: Watches) async throws -> Response {
+        let predicate = matching()
         switch self {
             case .installations(let identifiers, let prefix):
                 let subpredicates =
                     (identifiers ?? []).map { identifier in NSPredicate(format: "%K == %@", NSMetadataItemCFBundleIdentifierKey, identifier) }
-                    + [prefix].compactMap(\.self).map { prefix in NSPredicate(format: "%K BEGINSWITH %@", NSMetadataItemCFBundleIdentifierKey, prefix) }
-                let predicate = subpredicates.isEmpty ? matching() : NSCompoundPredicate(andPredicateWithSubpredicates: [matching(), NSCompoundPredicate(orPredicateWithSubpredicates: subpredicates)])
-                return await .stream(Installation.search(predicate, in: FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask)).map(\.self))
+                    + [prefix.map { prefix in NSPredicate(format: "%K BEGINSWITH %@", NSMetadataItemCFBundleIdentifierKey, prefix) }].compactMap(\.self)
+                let wanted = subpredicates.isEmpty ? predicate : NSCompoundPredicate(andPredicateWithSubpredicates: [predicate, NSCompoundPredicate(orPredicateWithSubpredicates: subpredicates)])
+                return await .stream(Installation.search(wanted, in: FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask)).map(\.self))
             case .installation(let url):
-                return try .value(readInstallation(at: url, matching: matching))
+                return try .value(Installation(at: url, admittedBy: predicate))
             case .instances(let identifiers):
                 return .stream(
                     watches.states(of: selection(of: identifiers, matching: matching))
@@ -123,13 +133,16 @@ extension Request {
             case .pressure:
                 return .stream(SystemPressure.changes().map { pressure -> any Encodable & Sendable in EncodedResult(pressure) })
             case .session:
-                return .stream(Session.changes().map(\.self))
+                return .stream(Session.changes().map { session -> any Encodable & Sendable in EncodedResult(session) })
             case .pasteboard(let text):
                 return try await .value(Pasteboard(.general, writing: text))
             case .watch(let process):
-                let instance = try instance(of: process, matching: matching)
-                let watch = await watches.watch(instance)
-                if try instance.application.bundleURL.map({ url throws(ApplicationFailure) in try Installation(at: url) })?.scriptable == true {
+                let watch = try await watches.watch(Instance(process, admittedBy: predicate))
+                let scriptable: Bool?
+                do { scriptable = try watch.instance.application.bundleURL?.resourceValues(forKeys: [.applicationIsScriptableKey]).applicationIsScriptable } catch {
+                    throw ApplicationFailure(subject: process.rawValue, reason: .foundation(error as NSError))
+                }
+                if scriptable == true {
                     Task { await NSAppleEventDescriptor(processIdentifier: process.pid).consent(to: AEEventClass(kAECoreSuite), AEEventID(kAEGetData), asking: true) }
                 }
                 guard let snapshot = InstanceSnapshot(watch.instance, state: await watch.current, language: watch.language) else {
@@ -137,15 +150,15 @@ extension Request {
                 }
                 return .value(snapshot)
             case .model(let process, let scope, let known):
-                return try await .value(watches.watch(instance(of: process, matching: matching)).model(scope, known: known))
+                return try await .value(watches.watch(Instance(process, admittedBy: predicate)).model(scope, known: known))
             case .intern(let process, let locators):
-                return try await .value(watches.watch(instance(of: process, matching: matching)).intern(locators))
+                return try await .value(watches.watch(Instance(process, admittedBy: predicate)).intern(locators))
             case .handlers(let document):
-                return try await .value(Installation.handlers(of: document, matching: matching()))
+                return try await .value(Installation.handlers(of: document, matching: predicate))
             case .launch(let url, let documents, let arguments, let environment, let new, let opening, let wait):
                 return try .stream(
                     NSWorkspace.shared.launchEvents(
-                        readInstallation(at: url, matching: matching),
+                        Installation(at: url, admittedBy: predicate),
                         in: dictionaries,
                         watches: watches,
                         within: replyDeadline,
@@ -158,18 +171,26 @@ extension Request {
                     )
                     .map(\.self)
                 )
-            case .act(let process, let steps):
-                let instance = try instance(of: process, matching: matching)
+            case .act(let process, let steps, let record):
+                let instance = try Instance(process, admittedBy: predicate)
                 try Session.current().require(process.rawValue)
                 let watch = await watches.watch(instance)
                 let began = await watch.recordFaults()
-                let loaded = Result { () throws(NSError) in try SystemLoad.current() }
-                let outcome = await Result { () async throws(ApplicationFailure) in
+                let loaded = Result { () throws(ProcessFailure) in try SystemLoad() }
+                let acting = { () async throws(ApplicationFailure) in
                     try await FileEvent.written(await watch.documentFiles) { () async throws(ApplicationFailure) in
-                        try await PermittedFrontList.shared.holding(excluding: process.pid) { () async throws(ApplicationFailure) in try await watch.act(steps) }.get()
+                        try await PermittedFrontList.shared.holding(excluding: { application in application.processIdentifier == process.pid }, for: replyDeadline) {
+                            () async throws(ApplicationFailure) in try await watch.act(steps)
+                        }.get()
                     }
                 }
-                let load = Result { () throws(NSError) in try SystemLoad.current() }.flatMap { after in loaded.map(after.since) }
+                let (outcome, recording): (Result<_, ApplicationFailure>, Result<Recording, ApplicationFailure>?) =
+                    if let record {
+                        await watch.record(record.source, keyFrames: record.frames, longestSide: record.longestSide, while: acting)
+                    } else {
+                        (await Result(catching: acting), nil)
+                    }
+                let load = loaded.flatMap { earlier in Result { () throws(ProcessFailure) in try SystemLoad.Interval(since: earlier) } }
                 let (faults, reports) = (await watch.recordedFaults(since: began), DiagnosticReport.reports(since: began) { report in report.isWritten(by: process) })
                 let (acted, written) = try outcome.get()
                 let diagnostics = Diagnostics(
@@ -186,24 +207,28 @@ extension Request {
                         load: EncodedResult(load),
                         written: EncodedResult(written),
                         diagnostics: diagnostics,
+                        recording: recording.map(EncodedResult.init),
                     )
                 )
             case .quit(let process, let mode):
-                let instance = try instance(of: process, matching: matching)
+                let instance = try Instance(process, admittedBy: predicate)
                 let scripted = try [.saving, .discarding].contains(mode) ? instance.application.bundleURL.map { url throws(ApplicationFailure) in try Installation(at: url) } : nil
-                let dictionary: ScriptingDictionary? = if let scripted, scripted.scriptable { try await dictionaries.dictionary(of: scripted) } else { nil }
+                let dictionary: ScriptingDictionary? = if let scripted, try scripted.scriptable { try await dictionaries.dictionary(of: scripted) } else { nil }
                 let watch = await watches.watch(instance)
                 return try await .value(
-                    PermittedFrontList.shared.holding(excluding: process.pid) { () async throws(ApplicationFailure) in try await watch.quit(mode, within: replyDeadline, in: dictionary) }.get()
+                    PermittedFrontList.shared.holding(excluding: { application in application.processIdentifier == process.pid }, for: replyDeadline) { () async throws(ApplicationFailure) in
+                        try await watch.quit(mode, within: replyDeadline, in: dictionary)
+                    }.get()
                 )
             case .dictionary(let url):
-                return try await .value(dictionaries.dictionary(of: readInstallation(at: url, matching: matching)))
+                return try await .value(dictionaries.dictionary(of: Installation(at: url, admittedBy: predicate)))
             case .execute(let process, let arguments):
-                let instance = try instance(of: process, matching: matching)
+                let instance = try Instance(process, admittedBy: predicate)
                 guard let url = instance.application.bundleURL else { throw ApplicationFailure(subject: process.rawValue, reason: .noPath) }
                 let dictionary = try await dictionaries.dictionary(of: Installation(at: url))
                 let documents = await watches.watch(instance).documentFiles
-                let (reply, written) = try await PermittedFrontList.shared.holding(excluding: process.pid) { () async throws(AggregateError<AppleEventFailure>) in
+                let (reply, written) = try await PermittedFrontList.shared.holding(excluding: { application in application.processIdentifier == process.pid }, for: replyDeadline) {
+                    () async throws(AggregateError<AppleEventFailure>) in
                     try await FileEvent.written(documents) { () async throws(AggregateError<AppleEventFailure>) in
                         try await dictionary.send(nil, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: process.pid), within: replyDeadline)
                     }
@@ -211,19 +236,25 @@ extension Request {
                 .get()
                 return .value(ExecuteResult(reply: reply, written: EncodedResult(written)))
             case .capture(let process, let source, let longestSide, let marks):
-                let instance = try instance(of: process, matching: matching)
+                let instance = try Instance(process, admittedBy: predicate)
                 try Session.current().require(process.rawValue)
                 return try await .value(watches.watch(instance).capture(source, longestSide: longestSide, marks: marks).map(EncodedResult.init))
-            case .record(let process, let source, let seconds, let longestSide):
-                let instance = try instance(of: process, matching: matching)
+            case .record(let process, let source, let longestSide, let frames, let seconds, let movie):
+                let instance = try Instance(process, admittedBy: predicate)
                 try Session.current().require(process.rawValue)
-                return try await .value(watches.watch(instance).record(source, for: .seconds(seconds), longestSide: longestSide))
+                let recorded = await watches.watch(instance).record(source, keyFrames: frames, longestSide: longestSide, movie: movie) { () async throws(ApplicationFailure) in
+                    do { try await Task.sleep(for: .seconds(seconds)) } catch { throw ApplicationFailure(subject: "recording of \(source) in process \(process.pid)", reason: .cancelled) }
+                }
+                try recorded.value.get()
+                return try .value(recorded.recording.get())
             case .scale(let image, let longestSide):
                 let scaled = try image.image(longestSide: longestSide)
                 return try .value(Scaled(png: scaled.png(), width: scaled.width, height: scaled.height))
             case .diagnostics(let application, let folders, let since, let limit, let find):
-                let instance = try application?.instance.map { process throws(ApplicationFailure) in try instance(of: process, matching: matching) }
-                let bundle = try application.map { application throws(ApplicationFailure) in Bundle(url: try readInstallation(at: application.url, matching: matching).url) } ?? Bundle.main
+                let instance = try application?.instance.map { process throws(ApplicationFailure) in try Instance(process, admittedBy: predicate) }
+                let bundle: Bundle? =
+                    try instance == nil
+                    ? application.map { application throws(ApplicationFailure) in Bundle(url: try Installation(at: application.url, admittedBy: predicate).url) } ?? Bundle.main : nil
                 let (owns, source): ((DiagnosticReport) -> Bool, LogEntry.Source?) =
                     switch (instance?.process, bundle) {
                         case (.some(let process), _): ({ report in report.isWritten(by: process) }, .process(process.pid))
@@ -247,25 +278,4 @@ extension Request {
                 )
         }
     }
-}
-
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-func serve(
-    reading lines: @autoclosure @escaping @Sendable () -> any AsyncSequence<Data, any Error>,
-    writing write: @escaping @Sendable (Data) throws -> Void,
-    matching: @escaping @Sendable () -> NSPredicate,
-    cachedDefinition: @escaping @Sendable (Installation) -> URL?,
-) async throws(JSONRPCFailure) {
-    let logger = Logger(label: String(reflecting: Request.self))
-    let dictionaries = ScriptingDictionaries(cachedDefinition: cachedDefinition)
-    let watches = Watches()
-    let calls = DispatchQueue(label: "\(Request.self).calls", attributes: .concurrent)
-    let output = DispatchSerialQueue(label: "\(Request.self).output")
-    try await JSONRPC.serve(
-        reading: lines(),
-        writing: { line in try await withTaskExecutorPreference(output) { try write(line) } },
-        onDrop: { failure in logger.debug("Dropped request", error: failure) },
-        { (request: Request) in try await withTaskExecutorPreference(calls) { try await request.perform(matching: matching, dictionaries: dictionaries, watches: watches) } },
-    )
 }

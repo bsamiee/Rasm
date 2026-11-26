@@ -185,9 +185,13 @@ let tests: [Target] = [
         ],
         path: "tests/libs/swift/network/JSONRPC",
     ),
-    .testTarget(name: "FilesTests", dependencies: ["Files", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/libs/swift/system/Files"),
+    .testTarget(name: "FilesTests", dependencies: ["Files", "Results", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/libs/swift/system/Files"),
     .testTarget(name: "FilesPerformanceTests", dependencies: ["Files"], path: "tests/libs/swift/system/FilesPerformance"),
-    .testTarget(name: "ProcessesTests", dependencies: ["Processes", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/libs/swift/system/Processes"),
+    .testTarget(
+        name: "ProcessesTests",
+        dependencies: ["Processes", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "Subprocess", package: "swift-subprocess")],
+        path: "tests/libs/swift/system/Processes",
+    ),
     .testTarget(
         name: "TelemetryTests",
         dependencies: [

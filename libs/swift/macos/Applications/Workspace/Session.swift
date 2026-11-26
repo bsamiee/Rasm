@@ -2,6 +2,13 @@ import AppKit
 import AsyncAlgorithms
 import Carbon.HIToolbox
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+private enum SecureInputNotification: UInt32, CaseIterable {
+    case enabled = 752
+    case disabled = 753
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 public struct Session: Encodable, Equatable, Sendable {
@@ -9,7 +16,7 @@ public struct Session: Encodable, Equatable, Sendable {
     public let locked: Bool
     public let asleep: Bool
     public let secureInput: Bool
-    public let space: UInt64
+    public let spaces: [UInt64]
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -22,29 +29,52 @@ extension Session {
             locked: session?["CGSSessionScreenIsLocked"] as? Bool == true,
             asleep: CGDisplayIsAsleep(CGMainDisplayID()) != 0,
             secureInput: IsSecureEventInputEnabled(),
-            space: activeSpace(mainConnection()),
+            spaces: (unsafe copySpaces(mainConnection(), [.current, .user])?.takeRetainedValue() as? [UInt64]) ?? [],
         )
     }
 
-    public static func changes() -> some AsyncSequence<Self, Never> & Sendable {
-        let (workspace, distributed) = (NSWorkspace.shared.notificationCenter, DistributedNotificationCenter.default())
-        let notices: [NotificationCenter.Notifications] = [
-            workspace.notifications(named: NSWorkspace.screensDidSleepNotification),
-            workspace.notifications(named: NSWorkspace.screensDidWakeNotification),
-            workspace.notifications(named: NSWorkspace.activeSpaceDidChangeNotification),
-            workspace.notifications(named: NSWorkspace.sessionDidBecomeActiveNotification),
-            workspace.notifications(named: NSWorkspace.sessionDidResignActiveNotification),
-            distributed.notifications(named: Notification.Name("com.apple.screenIsLocked")),
-            distributed.notifications(named: Notification.Name("com.apple.screenIsUnlocked")),
-        ]
+    public static func changes() -> some AsyncSequence<Result<Self, ApplicationFailure>, Never> & Sendable {
         let (changed, change) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
-        let observing = Task {
-            await withDiscardingTaskGroup { group in
-                for notice in notices { group.addTask { for await _ in notice { change.yield() } } }
+        let (workspace, distributed): (NotificationCenter, NotificationCenter) = (NSWorkspace.shared.notificationCenter, DistributedNotificationCenter.default())
+        let notices: [(center: NotificationCenter, name: Notification.Name)] = [
+            (workspace, NSWorkspace.screensDidSleepNotification), (workspace, NSWorkspace.screensDidWakeNotification), (workspace, NSWorkspace.activeSpaceDidChangeNotification),
+            (workspace, NSWorkspace.sessionDidBecomeActiveNotification), (workspace, NSWorkspace.sessionDidResignActiveNotification),
+            (distributed, Notification.Name("com.apple.screenIsLocked")), (distributed, Notification.Name("com.apple.screenIsUnlocked")),
+        ]
+        nonisolated(unsafe) let observers: [(center: NotificationCenter, token: any NSObjectProtocol)] = notices.map { center, name in
+            (center, center.addObserver(forName: name, object: nil, queue: nil) { _ in change.yield() })
+        }
+        var (connection, events): (Int32, mach_port_t) = (0, 0)
+        nonisolated(unsafe) let context: Unmanaged<AnyObject> = unsafe Unmanaged.passRetained(change as AnyObject)
+        let notified: @convention(c) (UInt32, UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Void = { _, _, _, context in
+            unsafe (context.map { context in unsafe Unmanaged<AnyObject>.fromOpaque(context).takeUnretainedValue() } as? AsyncStream<Void>.Continuation)?.yield()
+        }
+        let answers: [CGError] =
+            unsafe [newConnection(0, &connection), eventPort(connection, &events)]
+            + SecureInputNotification.allCases.map { notification in unsafe registerNotifyProc(connection, notified, notification.rawValue, context.toOpaque()) }
+        let opened: Int32 = connection
+        var described = unsafe CFMachPortContext(version: 0, info: UnsafeMutableRawPointer(bitPattern: Int(opened)), retain: nil, release: nil, copyDescription: nil)
+        let drain: CFMachPortCallBack = { _, _, _, info in
+            let connection = Int32(Int(bitPattern: info))
+            while let event = unsafe nextEvent(connection) { unsafe event.release() }
+        }
+        nonisolated(unsafe) let source: CFRunLoopSource? = unsafe CFMachPortCreateWithPort(nil, events, drain, &described, nil).flatMap { port in CFMachPortCreateRunLoopSource(nil, port, 0) }
+        if let source = unsafe source { CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes) }
+        change.onTermination = { _ in
+            for observer in unsafe observers { observer.center.removeObserver(observer.token) }
+            DispatchQueue.main.async {
+                if let source = unsafe source { CFRunLoopSourceInvalidate(source) }
+                _ = releaseConnection(opened)
+                unsafe context.release()
             }
         }
-        change.onTermination = { _ in observing.cancel() }
-        return chain([()].async, changed).map { current() }.removeDuplicates()
+        let refused: [Result<Self, ApplicationFailure>] =
+            answers.first { answer in answer != .success }.map { answer in
+                [.failure(ApplicationFailure(subject: "secure input notifications of window server connection \(opened)", reason: .windowServer(answer)))]
+            }
+            ?? []
+        let readings = chain([()].async, changed).map { _ in current() }.removeDuplicates().map { session -> Result<Self, ApplicationFailure> in .success(session) }
+        return chain(refused.async, readings)
     }
 
     public func require(_ subject: String) throws(ApplicationFailure) {
@@ -58,6 +88,3 @@ extension Session {
         if let reason { throw ApplicationFailure(subject: subject, reason: reason) }
     }
 }
-
-@_silgen_name("CGSGetActiveSpace")
-private func activeSpace(_: Int32) -> UInt64

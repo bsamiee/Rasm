@@ -17,7 +17,7 @@ public struct InstanceEvent: Encodable, Sendable {
         case started(identifier: String?, name: String?)
         case opened(container: Int, kind: Container.Kind, title: String?)
         case closed(container: Int, kind: Container.Kind, title: String?)
-        case asking(container: Int, kind: Container.Kind, title: String?, text: [String], answers: [Answer])
+        case asking(container: Int, kind: Container.Kind, title: String?, text: [String], answers: [Answer], default: Int?, cancel: Int?, close: Int?)
         case focused(control: Int, kind: Control.Kind)
         case value(control: Int, kind: Control.Kind, fact: Fact)
         case selection(control: Int, kind: Control.Kind, evidence: Control.Evidence)

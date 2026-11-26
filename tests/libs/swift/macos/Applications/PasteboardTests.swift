@@ -22,6 +22,18 @@ struct PasteboardTests {
     }
 
     @Test
+    func detectsAnEmailAddressOnConsecutiveReadsWithinTheDataDetectorsScannerWait() async throws {
+        let board = NSPasteboard.withUniqueName()
+        defer { board.releaseGlobally() }
+        board.clearContents()
+        board.setString("ada@example.com", forType: .string)
+        let started = ContinuousClock.now
+        let reads = [try await Pasteboard(board.name), try await Pasteboard(board.name)]
+        #expect(started.duration(to: .now) < Duration.seconds(5))
+        expectNoDifference(reads.map { read in read.patterns.contains(__NSPasteboardDetectionPattern.__emailAddress.rawValue) }, [true, true])
+    }
+
+    @Test
     func readsTextOfALaterItemWhereTheFirstHoldsNoneToDetect() async throws {
         let board = NSPasteboard.withUniqueName()
         defer { board.releaseGlobally() }

@@ -44,7 +44,12 @@ extension Configuration {
 }
 
 public func readLoginShellEnvironment(within timeout: Duration) async throws(ProcessFailure) -> [Environment.Key: String] {
-    guard let entry = unsafe getpwuid(getuid())?.pointee else { throw ProcessFailure(subject: "uid \(getuid())", reason: .unlisted) }
+    let uid = getuid()
+    errno = 0
+    guard let entry = unsafe getpwuid(uid)?.pointee else {
+        let failure = errno
+        throw ProcessFailure(subject: "User database entry of uid \(uid)", reason: failure == 0 ? .notFound : .system(Errno(rawValue: failure)))
+    }
     let (user, home, login) = unsafe (String(cString: entry.pw_name), String(cString: entry.pw_dir), String(cString: entry.pw_shell))
     let shell = FilePath(login.isEmpty ? _PATH_BSHELL : login)
     let marker = UUID().uuidString
@@ -56,9 +61,11 @@ public func readLoginShellEnvironment(within timeout: Duration) async throws(Pro
         platformOptions: .session,
     )
     .run(output: .string(limit: sysconf(_SC_ARG_MAX)), within: timeout)
-    guard let start = printed.firstRange(of: marker)?.upperBound else { throw ProcessFailure(subject: shell.string, reason: .noMarker) }
+    guard let start = printed.firstRange(of: marker)?.upperBound else {
+        throw ProcessFailure(subject: "Login shell \(shell.string) output", reason: .corrupt(CocoaError(.coderValueNotFound) as NSError))
+    }
     return Dictionary(
-        printed[start...].split(separator: "\0").compactMap { variable in
+        printed[start...].split(separator: "\0").lazy.compactMap { variable in
             guard let equals = variable.firstIndex(of: "="), let key = Environment.Key(rawValue: String(variable[..<equals])) else { return nil }
             return (key, String(variable[variable.index(after: equals)...]))
         }
