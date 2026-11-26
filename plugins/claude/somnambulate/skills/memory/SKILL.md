@@ -81,7 +81,7 @@ Anthropic's wiki trials found a shared table of per-subject values dropped 16 of
 
 [LINKS]:
 - Link clause: `[[<stem>]]` plus the words naming what that file answers, the one form every link takes
-- Direction: a line links any general memory or rule it relies on, no file links a specific memory, and a sibling link marks a relied fact
+- Direction: a line links a general, whole-subject, or rule memory it relies on, and a specific memory only as a sibling whose fact it relies on
 - Placement: the clause stands at the line needing the linked fact, in place of that fact, never as an opening routing line or a closing list
 - Following: a session weighs the clause's words to decide whether a Read pays, so a clause names the question its target answers, never its values
 - Silence: a specific memory restates nothing its general memory holds, neither summary, value, caution, nor example, and keeps its own facts alone
