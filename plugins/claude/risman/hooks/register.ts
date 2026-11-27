@@ -1,7 +1,8 @@
-import { Notice, request, runtime, say } from '@rasm/claude-code/platform';
+import { Engine, Notice } from '@rasm/claude-code/engine';
+import { host } from '@rasm/claude-code/host';
 import { Handles } from '@rasm/mcp/handles';
-import { atom, type EngineInterface, type On, read, type ToolMcpServer, update } from 'claude-code';
-import { Array, Context, Data, Duration, Effect, Equal, FiberMap, Function, HashMap, HashSet, Layer, MutableRef, Option, Record, Ref, Result, Schema, Stream, Struct, SubscriptionRef, SynchronizedRef } from 'effect';
+import type { On, ToolMcpServer } from 'claude-code';
+import { Array, Context, Data, Duration, Effect, Equal, FiberMap, Function, HashMap, HashSet, Layer, Option, Record, Ref, Result, Schema, Stream, Struct, SynchronizedRef } from 'effect';
 import { HttpStatus } from 'effect/http';
 import { HttpApiClient, HttpApiError } from 'effect/http-api';
 import { Host, NetAddress } from 'effect/net';
@@ -18,7 +19,6 @@ interface Follower {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const HTTP_FETCH_LIMIT = Duration.seconds(30);
-const ROWS = atom({ plugin: 'risman', key: 'rows' } as const, {});
 const { endpoints } = Handles.groups.handles;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -36,74 +36,34 @@ class Link extends Context.Service<
         readonly describe: (tool: string, server: Option.Option<ToolMcpServer>) => Effect.Effect<void>;
         readonly resident: (tool: string) => Effect.Effect<boolean>;
         readonly bind: (tool: string, agent: Option.Option<string>) => Effect.Effect<Option.Option<string>>;
-        readonly turn: (agent: Option.Option<string>, running: boolean) => Effect.Effect<void>;
         readonly report: (agent: string) => Effect.Effect<void>;
     }
->()('@rasm/risman/hooks/register/Link') {}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const loopback = ({ type, origin }: ToolMcpServer) =>
-    Option.filter(Option.fromUndefinedOr(origin), (at) => {
-        const { hostname } = new URL(at);
-        return (
-            type === 'http' &&
-            Result.match(Host.hostFromString(hostname), {
-                onFailure: () => hostname === NetAddress.formatUrlHost(NetAddress.ipv6Loopback),
-                onSuccess: (host) => (Host.isDomainName(host) ? Host.toRelative(host) === 'localhost' : NetAddress.isIpAddress(host) && NetAddress.isLoopback(host)),
-            })
-        );
-    });
-const owns =
-    (agent: Option.Option<string>) =>
-    ({ binding }: Follower) =>
-        Equal.equals(binding.agent, agent);
-
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-function link($: EngineInterface) {
-    const tell = say($);
-    const send = (name: keyof typeof endpoints, url: string) => request('http', name, url, () => $.http.fetch(url, { method: endpoints[name].method }));
-    const show = (handle: string, rows: Record.ReadonlyRecord<string, string>) =>
-        request('store', 'read', ROWS.ref.key, () => read($, ROWS)).pipe(
-            Effect.map((shown) => Record.keys(Record.difference(rows, shown[handle] ?? {}))),
-            Effect.tap(request('store', 'update', ROWS.ref.key, () => update($, ROWS, (shown) => (Record.isEmptyRecord(rows) ? Record.remove(shown, handle) : Record.set(shown, handle, rows))))),
-            Effect.flatMap(Effect.forEach((press: string) => tell(Notice.Notify({ key: press, text: Record.get(rows, press) })), { discard: true })),
-            Effect.catchCause(Effect.logWarning),
-            Effect.uninterruptible,
-        );
-    return Layer.effect(
+>()('@rasm/risman/hooks/register/Link') {
+    static readonly layer = Layer.effect(
         Link,
         Effect.gen(function* () {
-            const [origins, residents, busy, held, polls] = yield* Effect.all([
-                Ref.make<Record.ReadonlyRecord<string, string>>({}),
-                Ref.make<Record.ReadonlyRecord<string, boolean>>({}),
-                SubscriptionRef.make(HashSet.empty<Option.Option<string>>()),
-                SynchronizedRef.make(HashMap.empty<Binding, Follower>()),
-                FiberMap.make<string>(),
-            ]);
-            yield* request('store', 'read', ROWS.ref.key, () => read($, ROWS)).pipe(
-                Effect.flatMap((shown) => Effect.forEach(Record.keys(shown), (handle) => show(handle, {}), { discard: true })),
-                Effect.catchCause(Effect.logWarning),
-            );
+            const engine = yield* Engine;
+            const send = (name: keyof typeof endpoints, url: string) => engine.fetch(url, { method: endpoints[name].method });
+            const show = (handle: string, rows: Record.ReadonlyRecord<string, string>) => Effect.catchCause(engine.deliver(Notice.Band({ group: handle, rows })), Effect.logWarning);
+            const [origins, residents, held, polls] = yield* Effect.all([Ref.make<Record.ReadonlyRecord<string, string>>({}), Ref.make<Record.ReadonlyRecord<string, boolean>>({}), SynchronizedRef.make(HashMap.empty<Binding, Follower>()), FiberMap.make<string>()]);
             const forget = (follower: Follower) => SynchronizedRef.update(held, (known) => (Option.exists(HashMap.get(known, follower.binding), (kept) => kept === follower) ? HashMap.remove(known, follower.binding) : known));
             const take = Effect.fnUntraced(function* (follower: Follower, revision: number, polled: typeof Handles.Polled.Type) {
                 const rows = Record.fromIterableWith(polled.rows.items, ({ key, text }) => [follower.urls.press({ params: { handle: follower.handle, key } }), text]);
                 yield* Effect.when(show(follower.handle, rows), Effect.succeed(polled.rows.revision !== revision));
-                const idle = !HashSet.has(yield* SubscriptionRef.get(busy), follower.binding.agent);
+                const idle = !(yield* engine.isRunning(follower.binding.agent));
                 yield* Array.last(polled.notices).pipe(
                     Option.filter(() => !idle || polled.notices.some(Struct.get('wake'))),
                     Option.match({
                         onNone: () => Effect.void,
-                        onSome: ({ sequence }) => tell(Notice.Model({ agent: follower.binding.agent, idle, text: Array.map(polled.notices, Struct.get('text')).join('\n') })).pipe(Effect.andThen(Ref.set(follower.after, sequence))),
+                        onSome: ({ sequence }) => engine.deliver(Notice.Message({ agent: follower.binding.agent, text: Array.map(polled.notices, Struct.get('text')).join('\n') })).pipe(Effect.andThen(Ref.set(follower.after, sequence))),
                     }),
                 );
                 return polled.rows.revision;
             });
             const round = Effect.fnUntraced(function* (follower: Follower, revision: number) {
                 const { agent } = follower.binding;
-                const idle = !HashSet.has(yield* SubscriptionRef.get(busy), agent);
-                const turned = SubscriptionRef.changes(busy).pipe(
+                const idle = !(yield* engine.isRunning(agent));
+                const turned = engine.turns.pipe(
                     Stream.filter((running) => HashSet.has(running, agent) === idle),
                     Stream.runHead,
                     Effect.as(Option.none<typeof Handles.Polled.Type>()),
@@ -154,6 +114,8 @@ function link($: EngineInterface) {
                     ),
                 );
             yield* Effect.addFinalizer(() => quit(Function.constTrue));
+            yield* Effect.forkScoped(Stream.runForEach(engine.turns, (running) => Effect.forEach(running, resume, { discard: true })));
+            yield* engine.invalidate('tool.describe');
             return {
                 describe: (tool, server) => Ref.update(origins, (known) => server.pipe(Option.flatMap(loopback), Option.match({ onNone: () => Record.remove(known, tool), onSome: (origin) => Record.set(known, tool, origin) }))),
                 resident: (tool) => Ref.get(origins).pipe(Effect.map((known) => Record.has(known, tool))),
@@ -169,77 +131,64 @@ function link($: EngineInterface) {
                         }),
                     );
                 }, Effect.option),
-                turn: (agent, running) => SubscriptionRef.update(busy, running ? HashSet.add(agent) : HashSet.remove(agent)).pipe(Effect.andThen(Effect.when(resume(agent), Effect.succeed(running))), Effect.asVoid),
                 report: (agent) => Option.some(agent).pipe(owns, quit),
             };
         }),
     );
 }
 
-function current($: EngineInterface, live: MutableRef.MutableRef<Option.Option<ReturnType<typeof runtime<Link, never>>>>) {
-    return Option.getOrElse(MutableRef.get(live), () => {
-        const made = runtime($, link($));
-        MutableRef.set(live, Option.some(made));
-        $.ui.invalidate('tool.describe');
-        return made;
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const loopback = ({ type, origin }: ToolMcpServer) =>
+    Option.filter(Option.fromUndefinedOr(origin), (at) => {
+        const { hostname } = new URL(at);
+        return (
+            type === 'http' &&
+            Result.match(Host.hostFromString(hostname), {
+                onFailure: () => hostname === NetAddress.formatUrlHost(NetAddress.ipv6Loopback),
+                onSuccess: (parsed) => (Host.isDomainName(parsed) ? Host.toRelative(parsed) === 'localhost' : NetAddress.isIpAddress(parsed) && NetAddress.isLoopback(parsed)),
+            })
+        );
     });
-}
+const owns =
+    (agent: Option.Option<string>) =>
+    ({ binding }: Follower) =>
+        Equal.equals(binding.agent, agent);
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 function register(on: On) {
-    const live = MutableRef.make(Option.none<ReturnType<typeof runtime<Link, never>>>());
-    on('session.start', ($, e, next) =>
-        current($, live)
-            .runPromise(Effect.void)
-            .then(() => next(e)),
-    );
-    on('session.end', (_, e, next) => Promise.all(Option.toArray(Option.map(MutableRef.getAndSet(live, Option.none()), (ended) => ended.dispose()))).then(() => next(e)));
-    on('turn.start', ($, e, next) =>
-        current($, live)
-            .runPromise(Link.use((linked) => linked.turn(Option.fromUndefinedOr(e.agentId), true)))
-            .then(() => next(e)),
-    );
-    on('turn.complete', ($, e, next) =>
-        current($, live)
-            .runPromise(Link.use((linked) => linked.turn(Option.fromUndefinedOr(e.agentId), false)))
-            .then(() => next(e)),
-    );
-    on('agent.report', ($, e, next) =>
-        current($, live)
-            .runPromise(Link.use((linked) => linked.report(e.agentId)))
-            .then(() => next(e)),
-    );
-    on('tool.describe', ($, e, next) =>
-        current($, live)
-            .runPromise(Link.use((linked) => linked.describe(e.tool, Option.fromUndefinedOr(e.mcpServer))))
-            .then(() => next(e)),
-    );
-    on('tool.check', ($, e, next) =>
-        next(e).then((verdict) =>
-            (verdict.decision === 'deny' && verdict.rule !== undefined) || verdict.ceiling === 'deny'
-                ? verdict
-                : current($, live)
-                      .runPromise(
-                          Link.use((linked) => linked.resident(e.tool)),
-                          { signal: next.signal },
-                      )
-                      .then((resident) => (resident ? { decision: 'allow' as const } : verdict)),
-        ),
-    );
-    on('tool.call', ($, e, next) =>
-        current($, live)
-            .runPromise(
-                Link.use((linked) => linked.bind(e.tool, Option.fromUndefinedOr(e.agentId))),
-                { signal: next.signal },
-            )
-            .then(Option.match({ onNone: () => next(e), onSome: (handle) => next({ ...e, handle }) })),
-    );
-    on('ui.render', { component: 'AbovePrompt' }, ($, e, next) =>
-        read($, ROWS).then((held) => {
-            const rows = Record.values(held).flatMap(Record.toEntries);
-            const { Box, Button } = $.ui.resolve(e);
-            return e.props.hasSurvey || !Array.isReadonlyArrayNonEmpty(rows) ? next(e) : Box({ flexDirection: 'column', children: rows.map(([press, text]) => Button({ key: press, label: text, onPress: () => $.http.fetch(press, { method: endpoints.press.method }) })) });
-        }),
-    );
+    host(on, {
+        layer: Link.layer,
+        hooks: {
+            'agent.report': (e, next) =>
+                Effect.andThen(
+                    Link.use((linked) => linked.report(e.agentId)),
+                    next(e),
+                ),
+            'tool.describe': (e, next) =>
+                Effect.andThen(
+                    Link.use((linked) => linked.describe(e.tool, Option.fromUndefinedOr(e.mcpServer))),
+                    next(e),
+                ),
+            'tool.check': (e, next) =>
+                Effect.filterOrElse(
+                    next(e),
+                    (verdict) => (verdict.decision === 'deny' && verdict.rule !== undefined) || verdict.ceiling === 'deny',
+                    (verdict) =>
+                        Effect.map(
+                            Link.use((linked) => linked.resident(e.tool)),
+                            (resident) => (resident ? { decision: 'allow' as const } : verdict),
+                        ),
+                ),
+            'tool.call': (e, next) =>
+                Effect.flatMap(
+                    Link.use((linked) => linked.bind(e.tool, Option.fromUndefinedOr(e.agentId))),
+                    Option.match({ onNone: () => next(e), onSome: (handle) => next({ ...e, handle }) }),
+                ),
+        },
+        band: { notify: true, press: (url) => Engine.use((engine) => engine.fetch(url, { method: endpoints.press.method })) },
+    });
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
