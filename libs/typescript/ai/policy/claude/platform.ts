@@ -22,6 +22,7 @@ const resting = { pending: Option.some(false), running: Option.some(false), wait
 const variable = /^(?<name>[^=]+)=(?<value>.*)$/su;
 const hookScript = /-hook-\d+\.sh$/u;
 const encoder = new TextEncoder();
+const decoder = new TextDecoder('utf-8', { fatal: true });
 const collator = new Intl.Collator('en', { numeric: true });
 const byTime = Order.mapInput(Order.Number, ({ mtimeMs }: FsEntry) => mtimeMs);
 
@@ -213,10 +214,13 @@ function files($: EngineInterface) {
                 ),
             readFile: (path) => Effect.flatMap(stat(path, 'readFile'), ({ kind }) => (kind === 'file' ? paged(path) : read(path, {}))),
             writeFile: (path, data, options) =>
-                (options?.flag ?? 'w') === 'w' && options?.mode === undefined ? request('FileSystem', 'writeFile', path, () => $.fs.write(path, { base64: data.toBase64() })) : Effect.fail(badArgument('FileSystem', 'writeFile', 'a flag or mode, as the engine writes a whole file under its own mode')),
-            copyFile: (from, to) => request('FileSystem', 'copyFile', from, () => $.fs.copy(from, to)),
-            remove: (path, options) => request('FileSystem', 'remove', path, () => $.fs.remove(path)).pipe(Effect.catchReason('PlatformError', 'NotFound', (_, missing) => (options?.force === true ? Effect.void : missing))),
-            rename: (from, to) => request('FileSystem', 'rename', from, () => $.fs.rename(from, to)),
+                Effect.try({ try: () => decoder.decode(data), catch: () => badArgument('FileSystem', 'writeFile', 'bytes that are no UTF-8 text, as the engine writes text alone') }).pipe(
+                    Effect.filterOrFail(
+                        () => (options?.flag ?? 'w') === 'w' && options?.mode === undefined,
+                        () => badArgument('FileSystem', 'writeFile', 'a flag or mode, as the engine writes a whole file under its own mode'),
+                    ),
+                    Effect.flatMap((text) => request('FileSystem', 'writeFile', path, () => $.fs.write(path, text))),
+                ),
             stat: (path) =>
                 Effect.map(stat(path, 'stat'), (found) => ({
                     type: kinds[found.kind],
