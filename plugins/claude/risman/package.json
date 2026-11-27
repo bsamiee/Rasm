@@ -11,6 +11,8 @@
         "vite": "catalog:"
     },
     "nx": {
-        "tags": ["host:claude-code"]
+        "tags": [
+            "host:claude-code"
+        ]
     }
 }
