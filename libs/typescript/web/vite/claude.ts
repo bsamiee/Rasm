@@ -1,4 +1,4 @@
-import { dirname, join, posix, sep } from 'node:path';
+import { basename, dirname, join, posix } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { Array, Effect, FileSystem, Option, Record, Schema } from 'effect';
 import type { UserConfig, UserConfigFnPromise } from 'vite';
@@ -7,8 +7,16 @@ import { checks } from '#/checks';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const HOOKS = 'hooks';
+const NAME = '@rasm/vite/claude';
 const MANIFESTS = { hooks: `${HOOKS}/hooks.json`, plugin: '.claude-plugin/plugin.json' } as const;
-const CHUNK = 900_000;
+const SHELL = {
+    wasm: 'sh-syntax/main.wasm',
+    loader: 'sh-syntax/sync',
+    entries: Record.fromEntries([
+        ['sh-syntax', 'lib/common.js'],
+        ['sh-syntax/sync', 'lib/sync/processor.js'],
+    ]),
+} as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -47,19 +55,34 @@ const claude = (directory: string): UserConfigFnPromise =>
                     rolldownOptions: {
                         external: ['claude-code'],
                         output: {
-                            entryFileNames: `${HOOKS}/[name].js`,
-                            chunkFileNames: `${HOOKS}/[name]-[hash].js`,
+                            entryFileNames: ({ isEntry, name }) => (isEntry ? `${HOOKS}/[name].js` : `${HOOKS}/${posix.basename(name)}-[hash].js`),
                             minify: { compress: true, mangle: false, codegen: { removeWhitespace: true } },
-                            codeSplitting: { maxSize: CHUNK, groups: [{ name: 'modules', test: new RegExp(`^(?!${RegExp.escape(join(directory, sep))})`, 'u') }] },
-                            strictExecutionOrder: true,
+                            preserveModules: true,
                         },
                     },
                 },
                 plugins: [
                     checks(),
                     {
-                        name: '@rasm/vite/claude',
+                        name: NAME,
                         config: () => ({ build: { emptyOutDir: false } }),
+                        resolveId: {
+                            order: 'pre',
+                            handler(source, importer) {
+                                return Option.match(Record.get(SHELL.entries, source), {
+                                    onNone: () => undefined,
+                                    onSome: (file) => this.resolve(SHELL.wasm, importer).then((wasm) => wasm && { id: join(dirname(wasm.id), file), meta: source === SHELL.loader ? { [NAME]: wasm.id } : {} }),
+                                });
+                            },
+                        },
+                        generateBundle(_, bundle) {
+                            const wasm = new Set(
+                                Object.values(bundle)
+                                    .flatMap((file) => (file.type === 'chunk' ? file.moduleIds : []))
+                                    .flatMap((id) => Option.toArray(Schema.decodeUnknownOption(Schema.String)(this.getModuleInfo(id)?.meta[NAME]))),
+                            );
+                            return Effect.runPromiseWith(services)(Effect.forEach(wasm, (path) => Effect.map(fs.readFile(path), (source) => this.emitFile({ type: 'asset', fileName: posix.join(HOOKS, basename(path)), source })), { discard: true }));
+                        },
                         writeBundle({ dir }, bundle) {
                             return Effect.runPromiseWith(services)(Effect.flatMap(Effect.fromNullishOr(dir), (out) => settle(out, bundle, manifests)));
                         },
