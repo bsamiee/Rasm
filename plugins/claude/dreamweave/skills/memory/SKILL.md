@@ -138,10 +138,9 @@ Facts from a run or a source end with one mark, and a mark opening a group cover
 - Newer evidence replaces a value in place, and `CLAUDE.md` or a loaded skill wins a contradiction until evidence corrects that file
 - Claims disagreeing with no later correction go to the owner through `AskUserQuestion` when found
 
-## [07]-[INDEX_AND_EVALS]
+## [07]-[INDEX]
 
-`scripts/index.py` derives `MEMORY.md` whole from the files, and `claude plugin eval` tests the skill:
+`scripts/index.py` derives `MEMORY.md` whole from the files:
 - Lines: `- [<stem>](<stem>.md) — <description>` under a `## <field>` heading per first word 2 stems share, one not a rule, the rest first, sorted
 - Budget: the index loads 200 lines or 25KB, headings included, the set stays under 160 lines and 20,000 bytes, and merges free space before trims
 - Validation: a refused file keeps its last good line, or a bare `- [<stem>](<stem>.md)` line, and the plugin reports it back to the session
-- Evals: the plugin's `evals/` cases score create, edit, and evaluate work with and without the plugin, as eval runs load no memory folder
