@@ -77,16 +77,15 @@ const route = ({ instance, changed, before, after, targets }: Occurrence, state:
     const stated = (container: number, sequence: number) => Option.exists(held, ({ reads }) => Option.exists(HashMap.get(reads, container), (read) => sequence <= read.sequence));
     const head = ({ _tag, kind, container, title }: Extract<(typeof Event.Changed.Type)['change'], { readonly container: number }>) => [application, _tag, ...Outline.caption(kind, container, title)];
     const ask = (asked: HashMap.HashMap.Value<Standing>['secure'][number]) => {
-        const labels = Record.fromEntries(asked.answers.flatMap(({ ref, label }) => Array.fromNullishOr(label).map((shown) => [`${ref}`, shown] as const)));
-        const roles = Record.getSomes({ default: Option.fromUndefinedOr(asked.default), cancel: Option.fromUndefinedOr(asked.cancel) });
-        const answers = Record.collect(roles, (role, ref) => [role, Address.refer('action', ref), ...Option.toArray(Record.get(labels, `${ref}`)).map(Format.quoted)].join(' '));
+        const roles = Record.fromEntries(Record.collect(Record.getSomes({ default: Option.fromUndefinedOr(asked.default), cancel: Option.fromUndefinedOr(asked.cancel) }), (role, ref) => [`${ref}`, role] as const));
+        const answers = asked.answers.map(({ ref, label }) => [...Option.toArray(Record.get(roles, `${ref}`)), Address.refer('action', ref), ...Array.fromNullishOr(label).map(Format.quoted)].join(' '));
         const field = Array.fromNullishOr(asked.secure).flatMap(({ ref, label }) => [['secure', Address.refer('text', ref), ...Array.fromNullishOr(label).map(Format.quoted)].join(' '), 'person fills it']);
-        const answer = Option.filter(Array.head(asked.answers), () => asked.secure === undefined);
+        const answer = Option.filter(Option.fromUndefinedOr(asked.default), () => asked.secure === undefined);
         return new Line({
             head: head(asked),
             ...Array.match(asked.text, { onEmpty: () => ({}), onNonEmpty: (lines) => ({ value: Format.quoted(lines.join(' ')) }) }),
             facts: [...answers, ...field, ...Array.fromNullishOr(asked.presentation).flatMap(Instance.Presentation.matchOrElse({ forward: ({ _tag }) => [_tag] }, Array.empty<string>))],
-            ...Option.getOrUndefined(Option.map(answer, ({ ref }) => ({ call: new Call({ tool: 'act', given: { steps: [{ at: Address.refer('action', ref) }] } }) }))),
+            ...Option.getOrUndefined(Option.map(answer, (ref) => ({ call: new Call({ tool: 'act', given: { steps: [{ at: Address.refer('action', ref) }] } }) }))),
         });
     };
     const prompt = Option.flatMap(HashMap.get(after, instance), ({ secure }) => Array.last(secure));
@@ -107,7 +106,7 @@ const route = ({ instance, changed, before, after, targets }: Occurrence, state:
                         return notify(false, shown ? [new Line({ head: head(closing), facts: fronted })] : [], { ...row, state: left });
                     },
                     asking: (asked) => notify(true, [ask(asked)], row),
-                    hidden: ({ _tag, hidden }) => notify(false, [new Line({ head: [application, _tag], value: `${hidden}` })]),
+                    hidden: ({ _tag, hidden }) => (targets.some(({ holds }) => holds.some((hold) => hold._tag === 'Launching' && hold.instance === instance)) ? Option.none() : notify(false, [new Line({ head: [application, _tag], value: `${hidden}` })])),
                     status: ({ status }) => {
                         const lasted = Option.zipWith(Option.flatMap(stalled, DateTime.make), DateTime.make(at), (began, ended) => `stalled ${Format.duration(DateTime.distance(began, ended))}`);
                         const facts = [...Instance.State.Status.matchOrElse(status, { unresponsive: ({ thread }) => [`main thread ${thread}`] }, Array.empty<string>), ...Option.toArray(lasted)];

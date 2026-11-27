@@ -23,7 +23,10 @@ class Capture extends Schema.Opaque<Capture>()(
     Schema.Struct({
         source: Schema.TaggedUnion({ windows: { numbers: Schema.NonEmptyArray(Element.WindowNumber) }, element: { ref: Element.Ref }, region: { frame: Element.Frame } }),
         longestSide: Schema.OptionFromOptionalKey(Schema.Int.check(Schema.isGreaterThan(0))),
-        mode: Schema.TaggedUnion({ still: { marks: Schema.Array(Schema.Struct({ frame: Element.Frame, label: Schema.String })).pipe(Schema.withConstructorDefault(Effect.succeed([]))) }, recording: { keyFrameLimit: Schema.Int.check(Schema.isGreaterThan(0)), duration: Schema.DurationFromMillis, movie: Schema.optionalKey(Schema.URL) } }),
+        mode: Schema.TaggedUnion({
+            still: { marks: Schema.Array(Schema.Struct({ frame: Element.Frame, label: Schema.String })).pipe(Schema.withConstructorDefault(Effect.succeed([]))) },
+            recording: { keyFrameLimit: Schema.Int.check(Schema.isGreaterThan(0)), duration: Schema.DurationFromMillis, movie: Schema.optionalKey(Schema.URL) },
+        }),
     }),
 ) {
     static readonly Frame = Frame;

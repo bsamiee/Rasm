@@ -53,7 +53,12 @@ const Toolbar = Context.Reference<(row: Current['row']) => Effect.Effect<Paramet
 const isContainer = Element.isAnyOf(['container']);
 const label = (text: string | undefined) =>
     Option.fromUndefinedOr(text).pipe(
-        Option.map((shown) => shown.replaceAll(/\s+/gu, ' ').trim()),
+        Option.map((shown) =>
+            shown
+                .replaceAll(/\s+/gu, ' ')
+                .replace(/\s*[:：]\s*$/u, '')
+                .trim(),
+        ),
         Option.filter(String.isNonEmpty),
     );
 const trace = (above: readonly string[], name: Option.Option<string>) => ({ above, name, path: Option.map(Option.liftPredicate([...above, ...Option.toArray(name)], Array.isReadonlyArrayNonEmpty), Array.join(SEPARATOR)) });
@@ -142,8 +147,9 @@ const remember = Function.memoize((read: Address) => {
         }).pipe(Option.getOrElse(Array.empty<string>));
     const listed = Array.sortWith(Record.toEntries(containers), ([, entry]) => entry.container.tally.first, DateTime.Order).flatMap(([locator, entry]): readonly Extract<Node, { readonly live: false }>[] => {
         const container = { ...entry.container, _tag: 'container' as const, locator };
-        const title = Option.orElse(Option.flatMap(entry.container.title, label), () => Option.some<string>(entry.container.kind));
-        const traced = trace(lead(locator, HashSet.make(locator)), title);
+        const led = lead(locator, HashSet.make(locator));
+        const title = Option.orElse(Option.flatMap(entry.container.title, label), () => (Array.isReadonlyArrayEmpty(led) ? Option.some<string>(entry.container.kind) : Option.none()));
+        const traced = trace(led, title);
         const controls = Array.sortWith(Record.toEntries(entry.controls), ([, control]) => control.tally.first, DateTime.Order).filter(([, control]) => Option.isNone(control.retired));
         return [
             { ...traced, live: false, element: container, containers: [container], token: traced.path, value: Option.none() },

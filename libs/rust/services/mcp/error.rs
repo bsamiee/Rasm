@@ -15,11 +15,11 @@ use jsonschema::{ValidationError, paths::Location};
 #[cfg(any(feature = "app", feature = "proxy"))]
 use nonempty_collections::NEVec;
 use rmcp::ErrorData;
-#[cfg(feature = "app")]
-use rmcp::model::ElicitationAction;
-use rmcp::model::{ConstString as _, ErrorCode, ListResourceTemplatesRequestMethod, ListResourcesRequestMethod};
+use rmcp::model::{ConstString as _, ErrorCode, ListResourcesRequestMethod};
 #[cfg(feature = "proxy")]
 use rmcp::model::{DiscoverRequestMethod, InitializeResultMethod, ProtocolVersion};
+#[cfg(feature = "app")]
+use rmcp::model::{ElicitationAction, ListResourceTemplatesRequestMethod};
 use serde::Serialize;
 #[cfg(feature = "app")]
 use serde::de::value;

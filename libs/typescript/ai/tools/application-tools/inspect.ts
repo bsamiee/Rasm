@@ -188,10 +188,7 @@ const Inspect = {
         });
         const answer = Array.findFirst(Address.list(shown), ({ element }) => (element._tag === 'container' && element.asking ? Option.some(element) : Option.none())).pipe(
             Option.flatMap((held) =>
-                Option.map(
-                    Option.fromUndefinedOr(held.default ?? held.children.find((child) => child._tag === 'control' && child.kind === 'action')?.ref),
-                    (ref) => new Line({ head: [Address.refer(held.kind, held.ref)], facts: Struct.keys(Struct.pick(held, ['asking'])), call: new Call({ tool: Act.tool.name, given: { steps: [{ at: Address.refer('action', ref) }] } }), pinned: true }),
-                ),
+                Option.map(Option.fromUndefinedOr(held.default ?? held.cancel), (ref) => new Line({ head: [Address.refer(held.kind, held.ref)], facts: Struct.keys(Struct.pick(held, ['asking'])), call: new Call({ tool: Act.tool.name, given: { steps: [{ at: Address.refer('action', ref) }] } }), pinned: true })),
             ),
         );
         return new Report({

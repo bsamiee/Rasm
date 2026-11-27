@@ -113,7 +113,12 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
             ),
             Effect.forkScoped,
         );
-        const [listing, instances, session, pressure] = yield* Effect.all([first('installations', Stream.fromQueue(listings)), first('instances', standing('Instance listing', Stream.fromQueue(snapshots))), latest(standing('Session reading', Stream.fromQueue(sessions))), latest(standing('Pressure reading', Stream.fromQueue(pressures)))]);
+        const [listing, instances, session, pressure] = yield* Effect.all([
+            first('installations', Stream.fromQueue(listings)),
+            first('instances', standing('Instance listing', Stream.fromQueue(snapshots))),
+            latest(standing('Session reading', Stream.fromQueue(sessions))),
+            latest(standing('Pressure reading', Stream.fromQueue(pressures))),
+        ]);
         return {
             ...client,
             launch: Effect.fnUntraced(function* <R>(payload: Parameters<typeof client.launch>[0], launching: (launched: typeof Launched.cases.launched.Type) => Effect.Effect<void, never, R>) {

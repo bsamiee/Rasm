@@ -184,9 +184,14 @@ const set = Effect.fnUntraced(function* ({ row, instance }: { readonly row: Entr
 const hold = Effect.fnUntraced(function* (taken: readonly Hold[]) {
     const [{ running }, { returnEarly }] = yield* Effect.all([ApplicationServer, ToolCall]);
     const rows = Instance.byInstance(yield* SubscriptionRef.get(running));
+    const release = Effect.gen(function* () {
+        const live = Instance.running(yield* SubscriptionRef.get(running));
+        const released = taken.filter((each) => !Hold.$is('Quitting')(each) || Record.has(live, each.instance));
+        yield* retarget(({ holds }) => ({ holds: Array.differenceWith(Equivalence.strictEqual<Hold>())(holds, released) }));
+    });
     yield* Effect.acquireRelease(
         retarget(({ holds }) => ({ holds: [...holds, ...taken] })),
-        () => retarget(({ holds }) => ({ holds: Array.differenceWith(Equivalence.strictEqual<Hold>())(holds, taken) })),
+        () => release,
     );
     const early = taken.flatMap(
         Hold.$match({

@@ -150,12 +150,19 @@ const control = (marks: Marks, within: Option.Option<Container>, held: typeof El
     const attribute = Predicate.hasProperty(held.label, 'attribute') ? held.label.attribute : undefined;
     const text = Predicate.isTagged(held.value, 'text') ? held.value.value : undefined;
     const [cells, listed]: readonly [readonly Element[], readonly Element[]] = held.kind === 'row' ? [held.children, []] : [[], held.children];
-    const inline = cells.map(draw(marks, within)).map(({ head, value }) => [head.join(' '), ...Array.fromNullishOr(value)].join(': '));
     const below = nest(marks, within, listed, text);
     const name = Option.filter(
         Option.flatMap(Address.get(read, held.ref), ({ name: stated }) => stated),
         () => !cells.some((cell) => cell._tag === 'control' && cell.label?.text === held.label?.text),
     );
+    const inline = cells.flatMap((cell) => {
+        const { head, value } = draw(marks, within)(cell);
+        const stated = cell._tag === 'control' && Predicate.hasProperty(cell.label, 'attribute') && cell.label.attribute === 'AXRoleDescription' ? Option.fromUndefinedOr(cell.value) : Option.none();
+        return Option.match(stated, {
+            onNone: () => [[head.join(' '), ...Array.fromNullishOr(value)].join(': ')],
+            onSome: (fact) => (Predicate.isTagged(fact, 'text') && Option.contains(name, fact.value) ? [] : [[...(cell._tag === 'control' ? Array.fromNullishOr(cell.column) : []), ...Array.fromNullishOr(value)].join(': ')]),
+        });
+    });
     const joins = (stated: string) => {
         const group = Option.filter(within, () => held.role === 'AXGroup' && held.value === undefined);
         const names = Option.toArray(group).flatMap((sat) => [...(members(read).get(sat.ref) ?? []).flatMap((each) => Option.toArray(each.name)), ...sat.text]);
@@ -255,7 +262,7 @@ const survey = (marks: Marks): readonly Line[] => {
     });
 };
 const mention =
-    (read: Address) =>
+    (read: Address, gone = true) =>
     (node: Node): Line => {
         const build = Array.head(read.map.application.builds);
         const at = (locator: Option.Option<string>) =>
@@ -274,7 +281,7 @@ const mention =
             Match.when({ element: { _tag: 'container' } }, ({ element }) => label({ [SAY.gone]: true, build: Option.isNone(build) || Equal.equals(build, element.tally.verified) ? undefined : Option.getOrElse(element.tally.verified, () => 'unversioned'), modal: element.modal })),
             Match.when({ element: { _tag: 'control' } }, ({ element, value }) => [
                 ...label({
-                    [SAY.gone]: true,
+                    [SAY.gone]: gone,
                     'last value': Option.getOrUndefined(value),
                     mark: Option.getOrUndefined(Option.map(element.mark, Format.quoted)),
                     opens: at(element.opens),
@@ -327,7 +334,7 @@ const render = (read: Address, { in: within = Option.none(), after = Option.none
                           ...Option.getOrUndefined(
                               Option.map(
                                   Option.filter(node.token, () => node.element._tag === 'container'),
-                                  (token) => ({ rows: Address.recall(read, node.element.locator).map(mention(read)), call: inspect({ in: token }) }),
+                                  (token) => ({ rows: Address.recall(read, node.element.locator).map(mention(read, false)), call: inspect({ in: token }) }),
                               ),
                           ),
                       }),
@@ -344,8 +351,13 @@ const hits = (read: Address, found: readonly Node[], given: Call['given'], after
     return page(new Line({ head: [], rows, call: inspect(given) }), after);
 };
 const changes = (before: Address, after: Address, touched: ReadonlySet<typeof Element.Ref.Type>): readonly Line[] => {
-    const own = (read: Address, ref: typeof Element.Ref.Type) => new Set((members(read).get(ref) ?? []).flatMap(({ element }) => (element._tag === 'container' ? [] : [element.ref])));
-    const changed = HashSet.fromIterable(Address.list(after).flatMap(({ element }) => (element._tag === 'control' && touched.has(element.ref) && Option.exists(Address.get(before, element.ref), (prior) => prior.element._tag === 'control' && !Equal.equals(prior.element.value, element.value)) ? [element.ref] : [])));
+    const steady = (element: Element): readonly (typeof Element.Ref.Type)[] => element.children.flatMap((child) => (child._tag === 'container' || (child._tag === 'control' && child.kind === 'row') ? [] : [child.ref, ...steady(child)]));
+    const own = (read: Address, ref: typeof Element.Ref.Type) => new Set(Option.match(Address.get(read, ref), { onNone: Array.empty<typeof Element.Ref.Type>, onSome: ({ element }) => steady(element) }));
+    const changed = HashSet.fromIterable(
+        Address.list(after).flatMap(({ element }) =>
+            element._tag === 'control' && touched.has(element.ref) && Option.exists(Address.get(before, element.ref), (prior) => prior.element._tag === 'control' && !Equal.equals(Struct.pick(prior.element, ['value', 'selected']), Struct.pick(element, ['value', 'selected']))) ? [element.ref] : [],
+        ),
+    );
     const keep = (element: Element): readonly Element[] => {
         const whole = element._tag === 'container' && !(shows(before, element.ref) && own(before, element.ref).symmetricDifference(own(after, element.ref)).size === 0);
         const children = element.children.flatMap((child) => (whole && child._tag !== 'container' ? [child] : keep(child)));

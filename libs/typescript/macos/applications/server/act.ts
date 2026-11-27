@@ -68,9 +68,7 @@ const Delivery = Schema.Struct({
     tried: Schema.Array(Schema.Struct({ route: Kind, failure: ApplicationFailure.Stated })),
     presentation: Schema.optionalKey(Instance.Presentation),
     popUps: Schema.Array(Schema.Struct({ window: Element.WindowNumber, closed: Schema.Boolean })),
-    scrolled: Schema.optionalKey(
-        Schema.Struct({ horizontal: Schema.optionalKey(Schema.Finite), vertical: Schema.optionalKey(Schema.Finite), rows: Schema.optionalKey(Schema.Int), showing: Schema.Array(Schema.Struct({ index: Schema.Int, label: Schema.optionalKey(Schema.String) })) }),
-    ),
+    scrolled: Schema.optionalKey(Schema.Struct({ horizontal: Schema.optionalKey(Schema.Finite), vertical: Schema.optionalKey(Schema.Finite), rows: Schema.optionalKey(Schema.Int), showing: Schema.Array(Schema.Struct({ index: Schema.Int, label: Schema.optionalKey(Schema.String) })) })),
     resolved: Schema.optionalKey(Schema.Struct({ ref: Element.Ref, effect: Schema.Literals(['pressed', 'selected', 'focused']) })),
     followed: Schema.optionalKey(Schema.Int),
     surface: Schema.optionalKey(Element.Ref),

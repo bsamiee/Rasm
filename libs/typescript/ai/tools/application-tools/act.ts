@@ -43,21 +43,19 @@ const timing = {
     count: Wire.Step.cases.key.fields.count.annotate({ description: 'Presses, 2 a double click' }),
     edge: Wire.Step.cases.key.fields.edge.annotate({ description: 'The one edge posted, a later step posting the other' }),
 };
-const Step = Schema.Union([
-    Wire.Step.cases.key.mapFields(
+const bodies = {
+    key: Wire.Step.cases.key.mapFields(
         (fields) => ({
-            ...Struct.omit(fields, ['from']),
-            _tag: Schema.tagDefaultOmit(fields._tag.schema.literal),
+            ...Struct.omit(fields, ['from', '_tag']),
             key: fields.key.annotate({ description: 'One character, a key name, or a virtual key code' }),
             at: Schema.optionalKey(Address.At.annotate({ description: 'Element the key goes to, the key window when absent' })),
             ...timing,
         }),
         { unsafePreserveChecks: true },
     ),
-    Wire.Step.cases.pointer.mapFields(
+    pointer: Wire.Step.cases.pointer.mapFields(
         (fields) => ({
-            ...Struct.omit(fields, ['from', 'windows']),
-            _tag: Schema.tagDefaultOmit(fields._tag.schema.literal),
+            ...Struct.omit(fields, ['from', 'windows', '_tag']),
             pointer: Position.annotate({ description: 'Element, or [x, y] in pixels of a window image view returned, pen pressure 0 to 1 and tilt x, y -1 to 1 following' }),
             path: Schema.optionalKey(Schema.Array(Position).annotate({ description: 'Positions moved through after the first: a drag, stroke, or hover path' })),
             button: fields.button.annotate({ description: 'left when absent, none hovers' }),
@@ -68,10 +66,9 @@ const Step = Schema.Union([
         }),
         { unsafePreserveChecks: true },
     ),
-    Wire.Step.cases.press.mapFields(
+    press: Wire.Step.cases.press.mapFields(
         (fields) => ({
-            ...Struct.omit(fields, ['from']),
-            _tag: Schema.tagDefaultOmit(fields._tag.schema.literal),
+            ...Struct.omit(fields, ['from', '_tag']),
             at: Address.At,
             action: fields.action.annotate({ description: 'Action as inspect prints it, press when absent' }),
             to: fields.to.annotate({ description: 'Value set: toggle state, number, ISO 8601 date, text, option label, or window frame [[x, y], [width, height]]; text on the clipboard reference copies it' }),
@@ -79,17 +76,19 @@ const Step = Schema.Union([
         }),
         { unsafePreserveChecks: true },
     ),
-    Wire.Step.cases.hold.mapFields((fields) => ({
-        _tag: Schema.tagDefaultOmit(fields._tag.schema.literal),
-        modifiers: fields.modifiers.annotate({ description: 'Modifiers held for hold, no key or pointer' }),
-        hold: timing.hold.schema,
-    })),
+    hold: Wire.Step.cases.hold.mapFields((fields) => ({ modifiers: fields.modifiers.annotate({ description: 'Modifiers held for hold, no key or pointer' }), hold: timing.hold.schema })),
+};
+const Step = Schema.Union([
+    bodies.key.pipe(Schema.decodeTo(Schema.toType(Schema.TaggedStruct('key', bodies.key.fields)), SchemaTransformation.transform({ decode: (given) => ({ ...given, _tag: Wire.Step.cases.key.fields._tag.schema.literal }), encode: Struct.omit(['_tag']) }))),
+    bodies.pointer.pipe(Schema.decodeTo(Schema.toType(Schema.TaggedStruct('pointer', bodies.pointer.fields)), SchemaTransformation.transform({ decode: (given) => ({ ...given, _tag: Wire.Step.cases.pointer.fields._tag.schema.literal }), encode: Struct.omit(['_tag']) }))),
+    bodies.press.pipe(Schema.decodeTo(Schema.toType(Schema.TaggedStruct('press', bodies.press.fields)), SchemaTransformation.transform({ decode: (given) => ({ ...given, _tag: Wire.Step.cases.press.fields._tag.schema.literal }), encode: Struct.omit(['_tag']) }))),
+    bodies.hold.pipe(Schema.decodeTo(Schema.toType(Schema.TaggedStruct('hold', bodies.hold.fields)), SchemaTransformation.transform({ decode: (given) => ({ ...given, _tag: Wire.Step.cases.hold.fields._tag.schema.literal }), encode: Struct.omit(['_tag']) }))),
 ]).pipe(Schema.toTaggedUnion('_tag'));
 const tool = Tool.make('act', {
     description:
         'Runs steps on the target in order until one fails, the rest not run. A step is at (press an element, to sets its value, range selects its text), key, pointer (click, drag, hover, or scroll at an element or at a pixel of a window image view returned), or modifiers with hold. An element is a reference or label path as inspect prints it: one in a closed container is reached by pressing what opens it first, and one an earlier step opens resolves once that step ran. Calls on one handle answer in order',
     parameters: Schema.Struct({
-        steps: Schema.NonEmptyArray(Step),
+        steps: Schema.Array(Step).check(Schema.isMinLength(1)),
         record: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Record the front window, else what the first step aims at, while the steps run, and return key frames' })),
     }),
     success: Report.schema,
