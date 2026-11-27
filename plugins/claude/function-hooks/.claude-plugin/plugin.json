@@ -1,6 +1,6 @@
 {
     "name": "function-hooks",
-    "version": "0.2.6",
+    "version": "0.2.7",
     "description": "Hooks that correct agent commands",
     "author": {
         "name": "Bardia Samiee"
