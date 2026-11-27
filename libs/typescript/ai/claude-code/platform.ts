@@ -1,42 +1,6 @@
 import { Shell } from '@rasm/shell';
-import type { AgentStatus, EngineInterface, FsEntry, FsStat, HookStream, ProcessSpawnChunk, ProcessSpawnRequest, ProcessSpawnResult } from 'claude-code';
-import {
-    Array,
-    Bytes,
-    ByteSize,
-    Cache,
-    Cause,
-    Clock,
-    Context,
-    Data,
-    DateTime,
-    Deferred,
-    Duration,
-    Effect,
-    Exit,
-    Fiber,
-    FiberSet,
-    FileSystem,
-    Filter,
-    Formatter,
-    Function,
-    Hash,
-    Layer,
-    Logger,
-    ManagedRuntime,
-    Match,
-    Option,
-    Order,
-    Path,
-    PlatformError,
-    Predicate,
-    Queue,
-    Record,
-    Redacted,
-    Scheduler,
-    Sink,
-    Stream,
-} from 'effect';
+import type { AgentStatus, EngineInterface, FsStat, FsStatOptions } from 'claude-code';
+import { Array, Bytes, ByteSize, Cache, Cause, Clock, Context, Data, DateTime, Duration, Effect, Exit, Fiber, FiberSet, FileSystem, Formatter, Function, Hash, Layer, Logger, ManagedRuntime, Match, Option, Order, Path, PlatformError, Predicate, Queue, Record, Redacted, Result, Scheduler, Sink, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner, CommandLine } from 'effect/process';
 import 'sh-syntax/vendors/wasm_exec';
 import { getProcessor } from 'sh-syntax/sync';
@@ -44,8 +8,6 @@ import { getProcessor } from 'sh-syntax/sync';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Probe = ReturnType<Shell['Service']['dialect']>;
-type Output = Queue.Queue<Uint8Array, PlatformError.PlatformError | Cause.Done>;
-type Child = HookStream<ProcessSpawnChunk, ProcessSpawnResult>;
 type Notice = Data.TaggedEnum<{
     Toast: { readonly text: string; readonly timeout?: Duration.Input };
     Notify: { readonly key: string; readonly text: Option.Option<string> };
@@ -55,17 +17,10 @@ type Notice = Data.TaggedEnum<{
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const readLimit = 4 * 1024 ** 2;
-const slice = 8;
-const errno = / failed(?: to start)?: (?<code>E[A-Z]+)/u;
 const errnoTags: Readonly<Record<string, PlatformError.SystemErrorTag>> = { ENOENT: 'NotFound', EACCES: 'PermissionDenied', EPERM: 'PermissionDenied', EEXIST: 'AlreadyExists', EISDIR: 'BadResource', ENOTDIR: 'BadResource', ELOOP: 'BadResource', EBUSY: 'Busy' };
 const kinds = { file: 'File', dir: 'Directory', other: 'Unknown' } as const satisfies Record<FsStat['kind'], FileSystem.File.Type>;
 const resting = { pending: Option.some(false), running: Option.some(false), waiting: Option.some(true), idle: Option.some(true), completed: Option.none(), failed: Option.none(), killed: Option.none() } as const satisfies Record<AgentStatus, Option.Option<boolean>>;
-const variable = /^(?<name>[^=]+)=(?<value>.*)$/su;
-const hookScript = /-hook-\d+\.sh$/u;
-const encoder = new TextEncoder();
-const decoder = new TextDecoder('utf-8', { fatal: true });
-const collator = new Intl.Collator('en', { numeric: true });
-const byTime = Order.mapInput(Order.Number, ({ mtimeMs }: FsEntry) => mtimeMs);
+const collator = new Intl.Collator(undefined, { numeric: true });
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -74,15 +29,15 @@ const Notice = Data.taggedEnum<Notice>();
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class TimeSliced extends Scheduler.MixedScheduler {
-    #fiber: object | undefined = undefined;
+    #fiber: Fiber.Fiber<unknown, unknown> | undefined = undefined;
     #ops = 0;
     #start = 0;
 
-    override shouldYield(fiber: Parameters<Scheduler.Scheduler['shouldYield']>[0]) {
-        this.#start = fiber !== this.#fiber || fiber.currentOpCount <= this.#ops ? fiber.getRef(Clock.Clock).currentTimeMillisUnsafe() : this.#start;
-        const due = super.shouldYield(fiber) || ((fiber.currentOpCount & 15) === 0 && fiber.getRef(Clock.Clock).currentTimeMillisUnsafe() - this.#start >= slice);
-        this.#fiber = fiber;
-        this.#ops = due ? Number.POSITIVE_INFINITY : fiber.currentOpCount;
+    override shouldYield(fiber: Fiber.Fiber<unknown, unknown>) {
+        this.#start = fiber === this.#fiber && fiber.currentOpCount > this.#ops ? this.#start : fiber.getRef(Clock.Clock).currentTimeMillisUnsafe();
+        const due = super.shouldYield(fiber) || ((fiber.currentOpCount & 15) === 0 && fiber.getRef(Clock.Clock).currentTimeMillisUnsafe() - this.#start >= 8);
+        this.#fiber = due ? undefined : fiber;
+        this.#ops = fiber.currentOpCount;
         return due;
     }
 }
@@ -104,10 +59,10 @@ class Session extends Context.Service<
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const systemError = (module: string, method: string, subject: string) => (cause: unknown) => {
+const engineError = (module: string, method: string, subject: string) => (cause: unknown) => {
     const said = Predicate.isError(cause) ? cause.message : Formatter.format(cause);
     return PlatformError.systemError({
-        _tag: Option.fromNullishOr(errno.exec(said)?.groups?.['code']).pipe(
+        _tag: Option.fromNullishOr(/ failed(?: to start)?: (?<code>E[A-Z]+)/u.exec(said)?.groups?.['code']).pipe(
             Option.flatMap((code) => Record.get(errnoTags, code)),
             Option.getOrElse((): PlatformError.SystemErrorTag => 'Unknown'),
         ),
@@ -118,34 +73,12 @@ const systemError = (module: string, method: string, subject: string) => (cause:
         cause,
     });
 };
-const request = <A>(module: string, method: string, subject: string, run: () => PromiseLike<A>) => Effect.tryPromise({ try: run, catch: systemError(module, method, subject) });
-const delivered =
-    <A>(module: string, method: string, subject: string, run: () => PromiseLike<A>) =>
-    (refusal: (answer: A) => string | undefined) =>
-        Effect.flatMap(request(module, method, subject, run), (answer) =>
-            Option.match(Option.fromUndefinedOr(refusal(answer)), {
-                onNone: () => Effect.void,
-                onSome: (description) => PlatformError.systemError({ _tag: 'Unknown', module, method, pathOrDescriptor: subject, description }),
-            }),
-        );
-function say($: EngineInterface) {
-    return Notice.$match({
-        Toast: ({ text, timeout }) => Effect.try({ try: () => $.ui.toast(text, timeout === undefined ? undefined : { timeoutMs: Duration.toMillis(timeout) }), catch: systemError('ui', 'toast', text) }),
-        Notify: ({ key, text }) =>
-            Option.match(text, {
-                onNone: () => Effect.asVoid(request('ui', 'cancelNotify', key, () => $.ui.cancelNotify(key))),
-                onSome: (body) => delivered('ui', 'notify', key, () => $.ui.notify(body, { key }))((sent) => (sent.isSent ? undefined : sent.reason)),
-            }),
-        Model: ({ text, agent, idle }) =>
-            Match.value({ idle, agentId: Option.getOrUndefined(agent) }).pipe(
-                Match.when({ idle: false }, ({ agentId }) => delivered('session', 'append', agentId ?? 'main', () => $.session.append({ message: { type: 'user', content: [{ type: 'text', text }] }, ...(agentId === undefined ? {} : { agentId }) }))(({ deny }) => deny)),
-                Match.when({ agentId: Match.string }, ({ agentId }) => delivered('session', 'send', agentId, () => $.session.send({ to: { agentId }, text }))(({ reason }) => reason)),
-                Match.orElse(() => delivered('prompt', 'submit', 'main', () => $.prompt.submit({ text }))(({ drop }) => drop)),
-            ),
-    });
-}
-const badArgument = (module: string, method: string, description: string) => PlatformError.badArgument({ module, method, description });
-const held = <A, E>(exit: Exit.Exit<A, E>) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero);
+const request = Effect.fnUntraced(function* <A>(module: string, method: string, subject: string, run: () => PromiseLike<A>, refusal: (answer: A) => string | undefined = Function.constUndefined) {
+    const answer = yield* Effect.tryPromise({ try: run, catch: engineError(module, method, subject) });
+    const description = refusal(answer);
+    return description === undefined ? answer : yield* PlatformError.systemError({ _tag: 'Unknown', module, method, pathOrDescriptor: subject, description });
+});
+const reveal = (word: CommandLine.Word) => (Redacted.isRedacted(word) ? Redacted.value(word) : word);
 const anchor = (base: Path.Path, cwd: string) =>
     Path.make({
         ...base,
@@ -153,148 +86,111 @@ const anchor = (base: Path.Path, cwd: string) =>
         relative: (from, to) => base.relative(base.resolve(cwd, from), base.resolve(cwd, to)),
         toFileUrl: (file) => base.toFileUrl(file.endsWith('/') ? `${base.resolve(cwd, file)}/` : base.resolve(cwd, file)),
     });
-const environment = (text: string) =>
-    Record.fromEntries(
-        Array.filterMap(
-            text.split('\0'),
-            Filter.fromPredicateOption((line) => Option.map(Option.fromNullishOr(variable.exec(line)?.groups), ({ name = '', value = '' }) => [name, value] as const)),
-        ),
-    );
-const located = (variables: Readonly<Record<string, string>>, plugin: Readonly<Record<string, string>>, join: Path.Path['join']) =>
-    Option.all({
-        binary: Option.orElse(Record.get(variables, 'CLAUDE_CODE_SHELL'), () => Record.get(variables, 'SHELL')),
-        folder: Option.orElse(Record.get(variables, 'CLAUDE_CONFIG_DIR'), () => Option.map(Record.get(variables, 'HOME'), (home) => join(home, '.claude'))),
-        written: Option.map(Option.all([Record.get(plugin, 'CLAUDE_PLUGIN_DATA'), Record.get(plugin, 'CLAUDE_PID')]), ([data, pid]) => join(data, 'dialect', pid)),
-    });
-const unredacted = (word: string | Redacted.Redacted<string>) => (Redacted.isRedacted(word) ? Redacted.value(word) : word);
-const outputQueue = (option: ChildProcess.CommandOptions['stdout']) =>
-    Match.value(Predicate.isString(option) || Sink.isSink(option) ? option : (option?.stream ?? 'pipe')).pipe(
-        Match.when('pipe', () => Effect.asSome(Queue.unbounded<Uint8Array, PlatformError.PlatformError | Cause.Done>())),
-        Match.when('ignore', () => Effect.succeedNone),
-        Match.orElse(() => Effect.fail(badArgument('ChildProcess', 'spawn', 'an output the engine cannot hand on: inherit, overlapped, or a sink'))),
-    );
-const inputText = (option: ChildProcess.CommandOptions['stdin']) =>
-    Match.value(Predicate.isString(option) || Stream.isStream(option) ? option : (option?.stream ?? 'pipe')).pipe(
-        Match.when(Stream.isStream, (input) => input.pipe(Stream.decodeText, Stream.mkString, Effect.asSome)),
-        Match.when(Match.is('pipe', 'ignore'), () => Effect.succeedNone),
-        Match.orElse(() => Effect.fail(badArgument('ChildProcess', 'spawn', 'an input the engine cannot hand on: inherit or overlapped'))),
-    );
-const outputStream = (queue: Option.Option<Output>) => Option.match(queue, { onNone: () => Stream.empty, onSome: Stream.fromQueue });
-const spawnRequest = ({ command, args, options }: ChildProcess.StandardCommand, input: Option.Option<string>): ProcessSpawnRequest => {
-    const given = Record.map(options.env ?? {}, Option.fromUndefinedOr);
-    const set = Record.map(Record.getSomes(given), unredacted);
-    const unset = Record.keys(Record.filter(given, Option.isNone));
-    const [words, alone] = [[command, ...args.map(unredacted)], options.env !== undefined && options.extendEnv !== true];
-    return {
-        ...(alone || Array.isReadonlyArrayNonEmpty(unset) ? { argv: ['/usr/bin/env', ...(alone ? ['-i'] : unset.flatMap((name) => ['-u', name])), '--', ...Record.collect(set, (name, value) => `${name}=${value}`), ...words] } : { argv: words, env: set }),
-        ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-        ...Option.match(input, { onNone: () => ({}), onSome: (text) => ({ input: text }) }),
-    };
-};
-const spawner = (start: (request: ProcessSpawnRequest) => Child) =>
-    ChildProcessSpawner.make(
-        Effect.fnUntraced(function* (command: ChildProcess.Command) {
-            const standard = yield* Effect.succeed(command).pipe(
-                Effect.filterOrFail(ChildProcess.isStandardCommand, () => badArgument('ChildProcess', 'spawn', 'a pipeline, as the engine spawns one argument vector')),
-                Effect.filterOrFail(
-                    ({ options }) => (options.shell ?? false) === false,
-                    () => badArgument('ChildProcess', 'spawn', 'a shell, as the engine starts an argument vector alone'),
-                ),
-                Effect.filterOrFail(
-                    ({ options }) => options.additionalFds === undefined,
-                    () => badArgument('ChildProcess', 'spawn', 'descriptors past standard error'),
-                ),
-            );
-            const [input, stdout, stderr, ended] = yield* Effect.all([inputText(standard.options.stdin), outputQueue(standard.options.stdout), outputQueue(standard.options.stderr), Deferred.make<void>()]);
-            const spawned = yield* Effect.acquireRelease(
-                Effect.sync(() => {
-                    const child = start(spawnRequest(standard, input));
-                    child.result.catch(Function.constVoid);
-                    return child;
-                }),
-                (child) =>
-                    Effect.sync(() => {
-                        const stream: AsyncIterator<ProcessSpawnChunk, ProcessSpawnResult> = child;
-                        stream.return?.().catch(Function.constVoid);
-                    }),
-            );
-            const queues = { stdout, stderr };
-            const pump = yield* Stream.fromAsyncIterable(spawned, systemError('process', 'spawn', standard.command)).pipe(
-                Stream.runForEach((chunk) => Option.match(queues[chunk.stream], { onNone: () => Effect.void, onSome: (queue) => Queue.offer(queue, encoder.encode(chunk.text)) })),
-                Effect.onExit((exit) =>
-                    Effect.andThen(
-                        Effect.forEach(Array.getSomes([stdout, stderr]), (queue) => (Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause) ? Queue.failCause(queue, exit.cause) : Queue.end(queue)), { discard: true }),
-                        Deferred.succeed(ended, undefined),
-                    ),
-                ),
-                Effect.forkScoped({ startImmediately: true }),
-            );
-            return ChildProcessSpawner.makeHandle({
-                pid: ChildProcessSpawner.ProcessId(0),
-                exitCode: Effect.flatMap(
-                    request('process', 'spawn', standard.command, () => spawned.result),
-                    ({ code, signal }) => (code === null ? Effect.fail(systemError('process', 'spawn', standard.command)(new Error(`Process interrupted due to receipt of signal: '${String(signal)}'`))) : Effect.succeed(ChildProcessSpawner.ExitCode(code))),
-                ),
-                isRunning: Effect.map(Deferred.isDone(ended), (done) => !done),
-                kill: () => Fiber.interrupt(pump),
-                stdin: Sink.fail(badArgument('ChildProcess', 'stdin', 'writes after the start, as the engine takes standard input once, at spawn')),
-                stdout: outputStream(stdout),
-                stderr: outputStream(stderr),
-                all: Stream.merge(outputStream(stdout), outputStream(stderr)),
-                getInputFd: () => Sink.drain,
-                getOutputFd: () => Stream.empty,
-                unref: Effect.succeed(Effect.void),
-            });
-        }),
-    );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function files($: EngineInterface) {
-    const stat = (path: string) => request('fs', 'stat', path, () => $.fs.stat(path));
+function say($: EngineInterface) {
+    return (notice: Notice) =>
+        Effect.asVoid(
+            Notice.$match(notice, {
+                Toast: ({ text, timeout }) => Effect.try({ try: () => $.ui.toast(text, timeout === undefined ? undefined : { timeoutMs: Duration.toMillis(timeout) }), catch: engineError('ui', 'toast', text) }),
+                Notify: ({ key, text }) =>
+                    Option.match(text, {
+                        onNone: () => request('ui', 'cancelNotify', key, () => $.ui.cancelNotify(key)),
+                        onSome: (body) =>
+                            request(
+                                'ui',
+                                'notify',
+                                key,
+                                () => $.ui.notify(body, { key }),
+                                (sent) => (sent.isSent ? undefined : sent.reason),
+                            ),
+                    }),
+                Model: ({ text, agent, idle }) =>
+                    Match.value({ idle, agentId: Option.getOrUndefined(agent) }).pipe(
+                        Match.when({ idle: false }, ({ agentId }) =>
+                            request(
+                                'session',
+                                'append',
+                                agentId ?? 'main',
+                                () => $.session.append({ message: { type: 'user', content: [{ type: 'text', text }] }, ...(agentId === undefined ? {} : { agentId }) }),
+                                ({ deny }) => deny,
+                            ),
+                        ),
+                        Match.when({ agentId: Match.string }, ({ agentId }) =>
+                            request(
+                                'session',
+                                'send',
+                                agentId,
+                                () => $.session.send({ to: { agentId }, text }),
+                                ({ reason }) => reason,
+                            ),
+                        ),
+                        Match.orElse(() =>
+                            request(
+                                'prompt',
+                                'submit',
+                                'main',
+                                () => $.prompt.submit({ text }),
+                                ({ drop }) => drop,
+                            ),
+                        ),
+                    ),
+            }),
+        );
+}
+
+function fileSystem($: EngineInterface) {
+    const stat = (path: string, options?: FsStatOptions) => request('fs', 'stat', path, () => $.fs.stat(path, options));
+    const list = (path: string) => request('fs', 'list', path, () => $.fs.list(path));
     const read = (path: string, range: Partial<Record<'offset' | 'length', number>>) =>
         Effect.map(
             request('fs', 'read', path, () => $.fs.read(path, { as: 'bytes', ...range })),
             ({ base64 }) => Uint8Array.fromBase64(base64),
         );
-    const paged = (path: string) => Stream.paginate(0, (offset: number) => Effect.map(read(path, { offset, length: readLimit }), (bytes) => [[bytes], Option.liftPredicate(offset + readLimit, () => bytes.length === readLimit)] as const)).pipe(Stream.runCollect, Effect.map(Bytes.concat));
     return FileSystem.make(
         FileSystem.makeNoop({
             access: (path, options) =>
-                request('fs', 'exists', path, () => $.fs.exists(path)).pipe(
-                    Effect.filterOrFail(
-                        () => options?.readable !== true && options?.writable !== true,
-                        () => badArgument('FileSystem', 'access', 'a permission check, which the engine has no call for'),
-                    ),
-                    Effect.filterOrFail(Predicate.isTruthy, () => PlatformError.systemError({ _tag: 'NotFound', module: 'FileSystem', method: 'access', pathOrDescriptor: path })),
-                    Effect.asVoid,
+                options?.readable === true || options?.writable === true
+                    ? PlatformError.badArgument({ module: 'FileSystem', method: 'access', description: 'a permission check, which the engine has no call for' })
+                    : request('fs', 'exists', path, () => $.fs.exists(path)).pipe(
+                          Effect.filterOrFail(Predicate.isTruthy, () => PlatformError.systemError({ _tag: 'NotFound', module: 'FileSystem', method: 'access', pathOrDescriptor: path })),
+                          Effect.asVoid,
+                      ),
+            readDirectory: (path, options) => (options?.recursive === true ? PlatformError.badArgument({ module: 'FileSystem', method: 'readDirectory', description: 'a listing of nested folders, as the engine lists one folder' }) : Effect.map(list(path), (entries) => entries.map(({ name }) => name))),
+            readDirectoryEntries: (path) => Effect.map(list(path), (entries) => entries.map(({ name, kind, isLink }) => ({ name, type: isLink ? ('SymbolicLink' as const) : kinds[kind] }))),
+            readFile: (path) =>
+                Effect.flatMap(stat(path), ({ kind, size }) =>
+                    kind === 'file'
+                        ? Effect.map(
+                              Effect.forEach(
+                                  Array.makeBy(Math.ceil(size / readLimit), (index) => index * readLimit),
+                                  (offset) => read(path, { offset, length: readLimit }),
+                              ),
+                              Bytes.concat,
+                          )
+                        : read(path, {}),
                 ),
-            readDirectory: (path, options) =>
-                request('fs', 'list', path, () => $.fs.list(path)).pipe(
-                    Effect.filterOrFail(
-                        () => options?.recursive !== true,
-                        () => badArgument('FileSystem', 'readDirectory', 'a listing of nested folders, as the engine lists one folder'),
-                    ),
-                    Effect.map((entries) => entries.map(({ name }) => name)),
-                ),
-            readDirectoryEntries: (path) =>
-                Effect.map(
-                    request('fs', 'list', path, () => $.fs.list(path)),
-                    (entries) => entries.map(({ name, kind, isLink }) => ({ name, type: isLink ? ('SymbolicLink' as const) : kinds[kind] })),
-                ),
-            readFile: (path) => Effect.flatMap(stat(path), ({ kind }) => (kind === 'file' ? paged(path) : read(path, {}))),
             writeFile: (path, data, options) =>
-                Effect.try({ try: () => decoder.decode(data), catch: () => badArgument('FileSystem', 'writeFile', 'bytes that are no UTF-8 text, as the engine writes text alone') }).pipe(
-                    Effect.filterOrFail(
-                        () => (options?.flag ?? 'w') === 'w' && options?.mode === undefined,
-                        () => badArgument('FileSystem', 'writeFile', 'a flag or mode, as the engine writes a whole file under its own mode'),
+                (options?.flag ?? 'w') !== 'w' || options?.mode !== undefined
+                    ? PlatformError.badArgument({ module: 'FileSystem', method: 'writeFile', description: 'a flag or mode, as the engine writes a whole file under its own mode' })
+                    : Effect.try({ try: () => new TextDecoder('utf-8', { fatal: true }).decode(data), catch: () => PlatformError.badArgument({ module: 'FileSystem', method: 'writeFile', description: 'bytes that are no UTF-8 text, as the engine writes text alone' }) }).pipe(
+                          Effect.flatMap((text) => request('fs', 'write', path, () => $.fs.write(path, text))),
+                      ),
+            remove: (path, options) =>
+                Effect.asVoid(
+                    request(
+                        'process',
+                        'run',
+                        path,
+                        () => $.process.run(['rm', ...(options?.recursive === true ? ['-r'] : []), ...(options?.force === true ? ['-f'] : []), '--', path]),
+                        ({ exitCode, stderr }) => (exitCode === 0 ? undefined : stderr),
                     ),
-                    Effect.flatMap((text) => request('fs', 'write', path, () => $.fs.write(path, text))),
                 ),
             stat: (path) =>
-                Effect.map(stat(path), (found) => ({
-                    type: kinds[found.kind],
-                    mtime: DateTime.makeUnsafe(found.mtimeMs).pipe(DateTime.toDateUtc, Option.some),
+                Effect.map(stat(path), ({ kind, mtimeMs, size }) => ({
+                    type: kinds[kind],
+                    mtime: DateTime.makeUnsafe(mtimeMs).pipe(DateTime.toDateUtc, Option.some),
                     atime: Option.none(),
                     birthtime: Option.none(),
                     dev: 0n,
@@ -304,15 +200,88 @@ function files($: EngineInterface) {
                     uid: Option.none(),
                     gid: Option.none(),
                     rdev: Option.none(),
-                    size: ByteSize.bytes(found.size),
+                    size: ByteSize.bytes(size),
                     blksize: Option.none(),
                     blocks: Option.none(),
                 })),
-            realPath: (path) =>
-                Effect.flatMap(
-                    request('fs', 'stat', path, () => $.fs.stat(path, { resolve: true })),
-                    ({ realPath }) => Effect.fromOption(Option.fromUndefinedOr(realPath), () => PlatformError.systemError({ _tag: 'NotFound', module: 'FileSystem', method: 'realPath', pathOrDescriptor: path })),
+            realPath: (path) => Effect.flatMap(stat(path, { resolve: true }), ({ realPath }) => (realPath === undefined ? PlatformError.systemError({ _tag: 'NotFound', module: 'FileSystem', method: 'realPath', pathOrDescriptor: path }) : Effect.succeed(realPath))),
+        }),
+    );
+}
+
+function spawner($: EngineInterface) {
+    return ChildProcessSpawner.make(
+        Effect.fnUntraced(function* (command: ChildProcess.Command) {
+            const {
+                command: program,
+                args,
+                options,
+            } = yield* Effect.succeed(command).pipe(
+                Effect.filterOrFail(ChildProcess.isStandardCommand, () => PlatformError.badArgument({ module: 'ChildProcess', method: 'spawn', description: 'a pipeline, as the engine spawns one argument vector' })),
+                Effect.filterOrFail(
+                    (standard) => (standard.options.shell ?? false) === false,
+                    () => PlatformError.badArgument({ module: 'ChildProcess', method: 'spawn', description: 'a shell, as the engine starts an argument vector alone' }),
                 ),
+                Effect.filterOrFail(
+                    (standard) => standard.options.additionalFds === undefined,
+                    () => PlatformError.badArgument({ module: 'ChildProcess', method: 'spawn', description: 'descriptors past standard error' }),
+                ),
+            );
+            const [input, queues] = yield* Effect.all([
+                Match.value(Predicate.isString(options.stdin) || Stream.isStream(options.stdin) ? options.stdin : (options.stdin?.stream ?? 'pipe')).pipe(
+                    Match.when(Stream.isStream, (stream) =>
+                        stream.pipe(
+                            Stream.decodeText,
+                            Stream.mkString,
+                            Effect.map((text) => ({ input: text })),
+                        ),
+                    ),
+                    Match.when(Match.is('pipe', 'ignore'), () => Effect.succeed({})),
+                    Match.orElse(() => PlatformError.badArgument({ module: 'ChildProcess', method: 'spawn', description: 'an input the engine cannot hand on: inherit or overlapped' })),
+                ),
+                Effect.all(
+                    Record.map({ stdout: options.stdout, stderr: options.stderr }, (output) =>
+                        Match.value(Predicate.isString(output) || Sink.isSink(output) ? output : (output?.stream ?? 'pipe')).pipe(
+                            Match.when('pipe', () => Effect.asSome(Queue.unbounded<string, PlatformError.PlatformError | Cause.Done>())),
+                            Match.when('ignore', () => Effect.succeedNone),
+                            Match.orElse(() => PlatformError.badArgument({ module: 'ChildProcess', method: 'spawn', description: 'an output the engine cannot hand on: inherit, overlapped, or a sink' })),
+                        ),
+                    ),
+                ),
+            ]);
+            const [set, unset] = Record.partition(options.env ?? {}, (value) => (value === undefined ? Result.failVoid : Result.succeed(reveal(value))));
+            const alone = options.env !== undefined && options.extendEnv !== true;
+            const words = [program, ...args.map(reveal)];
+            const child = yield* Effect.sync(() => {
+                const started = $.process.spawn({
+                    ...(alone || !Record.isEmptyRecord(unset) ? { argv: ['/usr/bin/env', ...(alone ? ['-i'] : Record.keys(unset).flatMap((name) => ['-u', name])), '--', ...Record.collect(set, (name, value) => `${name}=${value}`), ...words] } : { argv: words, env: set }),
+                    ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+                    ...input,
+                });
+                started.result.catch(Function.constVoid);
+                return started;
+            });
+            const pump = yield* Stream.fromAsyncIterable(child, engineError('process', 'spawn', program)).pipe(
+                Stream.runForEach(({ stream, text }) => Option.match(queues[stream], { onNone: () => Effect.void, onSome: (queue) => Queue.offer(queue, text) })),
+                Effect.onExit((exit) => Effect.forEach(Array.getSomes(Record.values(queues)), (queue) => (Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause) ? Queue.failCause(queue, exit.cause) : Queue.end(queue)), { discard: true })),
+                Effect.forkScoped({ startImmediately: true }),
+            );
+            const streams = Record.map(queues, (queue) => Option.match(queue, { onNone: () => Stream.empty, onSome: (held) => Stream.encodeText(Stream.fromQueue(held)) }));
+            return ChildProcessSpawner.makeHandle({
+                pid: ChildProcessSpawner.ProcessId(0),
+                exitCode: Effect.flatMap(
+                    request('process', 'spawn', program, () => child.result),
+                    ({ code, signal }) => (code === null ? PlatformError.systemError({ _tag: 'Unknown', module: 'process', method: 'spawn', pathOrDescriptor: program, description: `ended by ${String(signal)}` }) : Effect.succeed(ChildProcessSpawner.ExitCode(code))),
+                ),
+                isRunning: Effect.sync(() => pump.pollUnsafe() === undefined),
+                kill: () => Fiber.interrupt(pump),
+                stdin: Sink.fail(PlatformError.badArgument({ module: 'ChildProcess', method: 'stdin', description: 'writes after the start, as the engine takes standard input once, at spawn' })),
+                ...streams,
+                all: Stream.merge(streams.stdout, streams.stderr),
+                getInputFd: () => Sink.drain,
+                getOutputFd: () => Stream.empty,
+                unref: Effect.succeed(Effect.void),
+            });
         }),
     );
 }
@@ -323,72 +292,57 @@ function session($: EngineInterface) {
             request('agent', 'list', agent, () => $.agent.list()),
             Array.findFirst(({ id }) => id === agent),
         );
-    const folder = request('session', 'cwd', 'session', () => $.session.cwd());
-    const entries = (directory: string, join: Path.Path['join']) =>
-        request('fs', 'list', directory, () => $.fs.list(directory)).pipe(
-            Effect.flatMap(
-                Effect.forEach((entry) =>
-                    entry.isLink
-                        ? Effect.orElseSucceed(
-                              Effect.map(
-                                  request('fs', 'stat', entry.name, () => $.fs.stat(join(directory, entry.name))),
-                                  ({ kind, mtimeMs }) => ({ ...entry, kind, mtimeMs }),
-                              ),
-                              () => entry,
-                          )
-                        : Effect.succeed(entry),
-                ),
-            ),
-            Effect.map(Array.filter(({ kind }) => kind === 'file')),
-            Effect.orElseSucceed((): FsEntry[] => []),
+    const stamp = (file: string) =>
+        request('fs', 'stat', file, () => $.fs.stat(file)).pipe(
+            Effect.map(({ kind, mtimeMs }) => ({ file, kind, mtimeMs })),
+            Effect.orElseSucceed(() => ({ file, kind: 'other' as const, mtimeMs: 0 })),
         );
-    const stamped = (file: string) =>
-        Effect.option(
-            Effect.map(
-                request('fs', 'stat', file, () => $.fs.stat(file)),
-                ({ mtimeMs }) => ({ file, mtimeMs }),
-            ),
+    const listing = (directory: string, join: Path.Path['join']) =>
+        request('fs', 'list', directory, () => $.fs.list(directory)).pipe(
+            Effect.flatMap(Effect.forEach(({ name, kind, mtimeMs, isLink }) => (isLink ? stamp(join(directory, name)) : Effect.succeed({ file: join(directory, name), kind, mtimeMs })))),
+            Effect.orElseSucceed(() => []),
         );
     return Layer.effect(
         Session,
         Effect.gen(function* () {
-            const [shell, fs, processes, path, watchers] = yield* Effect.all([Shell, FileSystem.FileSystem, ChildProcessSpawner.ChildProcessSpawner, Path.Path, FiberSet.make()]);
-            const facts = yield* Cache.makeWith(
-                Effect.fnUntraced(function* () {
-                    const [text, plugin] = yield* Effect.all([processes.string(ChildProcess.make('env', ['-0'])), request('process', 'hookEnv', 'CLAUDE_PLUGIN_DATA', () => $.process.hookEnv())]);
-                    const variables = environment(text);
-                    const found = located(variables, plugin, path.join);
-                    return { variables, ...(yield* Effect.fromOption(found, () => badArgument('Session', 'environment', 'a process that names no shell, no home, or no plugin data folder'))) };
+            const [shell, fs, processes, path] = yield* Effect.all([Shell, FileSystem.FileSystem, ChildProcessSpawner.ChildProcessSpawner, Path.Path]);
+            const [printed, plugin, id] = yield* Effect.all([processes.string(ChildProcess.make('env', ['-0'])), request('process', 'hookEnv', 'plugin', () => $.process.hookEnv()), request('session', 'id', 'session', () => $.session.id())], { concurrency: 'unbounded' });
+            const variables = Record.fromIterableWith(printed.matchAll(/(?<name>[^\0=]+)=(?<value>[^\0]*)/gu), ({ groups }) => [groups?.['name'] ?? '', groups?.['value'] ?? '']);
+            const { binary, home, dialects } = yield* Effect.fromOption(
+                Option.all({
+                    binary: Option.orElse(Record.get(variables, 'CLAUDE_CODE_SHELL'), () => Record.get(variables, 'SHELL')),
+                    home: Option.orElse(Record.get(variables, 'CLAUDE_CONFIG_DIR'), () => Option.map(Record.get(variables, 'HOME'), (folder) => path.join(folder, '.claude'))),
+                    dialects: Option.map(Option.all([Record.get(plugin, 'CLAUDE_PLUGIN_DATA'), Record.get(plugin, 'CLAUDE_PID')]), ([data, pid]) => path.join(data, 'dialect', pid)),
                 }),
-                { capacity: 1, timeToLive: held },
+                () => PlatformError.badArgument({ module: 'Session', method: 'environment', description: 'a process that names no shell, no home, or no plugin data folder' }),
             );
+            yield* Effect.addFinalizer(() => Effect.ignore(fs.remove(dialects, { recursive: true, force: true })));
+            const watchers = yield* FiberSet.make();
             const probes = yield* Cache.makeWith(
-                Effect.fnUntraced(function* ({ sourced }: { readonly sourced: string; readonly stamps: readonly number[] }) {
-                    const { variables, binary, written } = yield* Cache.get(facts, undefined);
-                    const file = path.join(written, `${Hash.string(sourced) >>> 0}.sh`);
-                    yield* Effect.when(fs.writeFileString(file, sourced), Effect.succeed(sourced !== ''));
-                    return yield* shell.dialect({ shell: binary, environment: variables, timeout: Duration.infinity, ...(sourced === '' ? {} : { source: file }) });
+                Effect.fnUntraced(function* (sources: readonly { readonly file: string }[]) {
+                    const lines = yield* Effect.forEach(sources, ({ file }) => Effect.fromResult(CommandLine.join(['.', file])));
+                    const script = path.join(dialects, `${Hash.string(lines.join('\n')) >>> 0}.sh`);
+                    yield* fs.writeFileString(script, lines.join('\n'));
+                    return yield* shell.dialect({ shell: binary, environment: variables, source: script });
                 }),
-                { capacity: 4, timeToLive: held },
+                { capacity: 4, timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero) },
             );
-            const probed = Effect.fnUntraced(function* (cwd: string) {
-                const [{ variables, binary, folder: home }, id] = yield* Effect.all([Cache.get(facts, undefined), request('session', 'id', 'session', () => $.session.id())]);
-                const [snapshots, scripts, launched] = yield* Effect.all([entries(path.join(home, 'shell-snapshots'), path.join), entries(path.join(home, 'session-env', id), path.join), Effect.forEach(Option.toArray(Record.get(variables, 'CLAUDE_ENV_FILE')), stamped)]);
-                const named = snapshots.filter(({ name }) => name.startsWith(`snapshot-${path.basename(binary)}-`));
-                const sources = [
-                    ...(Array.isReadonlyArrayNonEmpty(named) ? [Array.max(named, byTime)] : []).map(({ name, mtimeMs }) => ({ file: path.join(home, 'shell-snapshots', name), mtimeMs })),
-                    ...Array.getSomes(launched),
-                    ...scripts
-                        .filter(({ name }) => hookScript.test(name))
-                        .toSorted((left, right) => collator.compare(left.name, right.name))
-                        .map(({ name, mtimeMs }) => ({ file: path.join(home, 'session-env', id, name), mtimeMs })),
-                ];
-                const quoted = yield* Effect.forEach(sources, ({ file }) => Effect.fromResult(CommandLine.quote(file)));
-                return { dialect: yield* Cache.get(probes, { sourced: quoted.map((word) => `. ${word}`).join('\n'), stamps: sources.map(({ mtimeMs }) => mtimeMs) }), cwd };
+            const dialect = Effect.gen(function* () {
+                const [snapshots, scripts, launched] = yield* Effect.all([listing(path.join(home, 'shell-snapshots'), path.join), listing(path.join(home, 'session-env', id), path.join), Effect.forEach(Option.toArray(Record.get(variables, 'CLAUDE_ENV_FILE')), stamp)], { concurrency: 'unbounded' });
+                const named = snapshots.filter(({ file }) => path.basename(file).startsWith(`snapshot-${path.basename(binary)}-`));
+                return yield* Cache.get(
+                    probes,
+                    [...[named].filter(Array.isArrayNonEmpty).map(Array.max(Order.mapInput(Order.Number, ({ mtimeMs }: (typeof named)[number]) => mtimeMs))), ...launched, ...scripts.filter(({ file }) => /-hook-\d+\.sh$/u.test(file)).toSorted((left, right) => collator.compare(left.file, right.file))].filter(
+                        ({ kind }) => kind === 'file',
+                    ),
+                );
             });
-            yield* Effect.addFinalizer(() => Effect.andThen(FiberSet.clear(watchers), Effect.flatMap(Cache.getSuccess(facts, undefined), Option.match({ onNone: () => Effect.void, onSome: ({ written }) => Effect.ignore(processes.exitCode(ChildProcess.make('rm', ['-rf', written]))) }))));
             return {
-                acting: (agent) => Effect.map(Option.match(agent, { onNone: () => folder, onSome: (id) => Effect.flatMap(listed(id), Option.match({ onNone: () => folder, onSome: ({ cwd }) => Effect.succeed(cwd) })) }), (cwd) => ({ environment: probed(cwd), path: anchor(path, cwd) })),
+                acting: Effect.fnUntraced(function* (agent: Option.Option<string>) {
+                    const found = yield* Effect.transposeOption(Option.map(agent, listed));
+                    const cwd = yield* Option.match(Option.flatten(found), { onNone: () => request('session', 'cwd', 'session', () => $.session.cwd()), onSome: (info) => Effect.succeed(info.cwd) });
+                    return { environment: Effect.map(dialect, (probed) => ({ dialect: probed, cwd })), path: anchor(path, cwd) };
+                }),
                 resting: (agent) =>
                     Effect.map(
                         listed(agent),
@@ -414,16 +368,7 @@ function runtime<A, E>($: EngineInterface, layer: Layer.Layer<A, E, FileSystem.F
     return ManagedRuntime.make(
         layer.pipe(
             Layer.provideMerge(
-                Layer.mergeAll(
-                    Layer.succeed(FileSystem.FileSystem, files($)),
-                    Layer.succeed(
-                        ChildProcessSpawner.ChildProcessSpawner,
-                        spawner((asked) => $.process.spawn(asked)),
-                    ),
-                    Path.layer,
-                    Layer.succeed(Scheduler.Scheduler, new TimeSliced()),
-                    Logger.layer([Logger.map(Logger.formatSimple, (line) => $.ui.log(line, { to: 'debug' }))]),
-                ),
+                Layer.mergeAll(Layer.succeed(FileSystem.FileSystem, fileSystem($)), Layer.succeed(ChildProcessSpawner.ChildProcessSpawner, spawner($)), Path.layer, Layer.succeed(Scheduler.Scheduler, new TimeSliced()), Logger.layer([Logger.map(Logger.formatSimple, (line) => $.ui.log(line, { to: 'debug' }))])),
             ),
         ),
     );
