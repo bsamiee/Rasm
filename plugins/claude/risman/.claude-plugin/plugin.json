@@ -1,6 +1,6 @@
 {
     "name": "risman",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Hooks that deliver the events of an application to the agent that drove it through a local MCP server built on @rasm/mcp",
     "author": {
         "name": "Bardia Samiee"
