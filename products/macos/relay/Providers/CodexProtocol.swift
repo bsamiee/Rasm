@@ -73,7 +73,7 @@ nonisolated enum CodexProtocol {
         let rateLimitsByLimitId: [String: RateLimitSnapshot]?
 
         func usage(identity: AccountIdentity, observedAt: Date) throws(AccountFailure) -> AccountUsage {
-            guard accountId == nil || accountId == identity.organizationID else { throw AccountFailure(.openAI, .accountChanged) }
+            guard accountId == nil || accountId == identity.organizationID else { throw AccountFailure(.openAI, .signInRequired(.otherAccount)) }
             let fallback = [nil, RateLimitSnapshot.codexLimitID].contains(rateLimits.limitId) ? rateLimits : nil
             guard let limits = rateLimitsByLimitId?[RateLimitSnapshot.codexLimitID] ?? fallback else {
                 throw AccountFailure(subject: "Codex \(RateLimitSnapshot.codexLimitID) rate limits", reason: .missing)
@@ -162,7 +162,7 @@ nonisolated enum CodexAuthFile {
         guard let data = try url.contents() else { return nil }
         let subject = "Codex \(url.lastPathComponent)"
         let document = try decoder.decode(Document.self, from: data, subject: subject)
-        if let mode = document.authMode, mode != CodexProtocol.authMode { throw AccountFailure(subject: "ChatGPT", reason: .signInRequired) }
+        if let mode = document.authMode, mode != CodexProtocol.authMode { throw AccountFailure(subject: "ChatGPT", reason: .signInRequired(.missing)) }
         guard let tokens = document.tokens, let idToken = tokens.idToken else { return (data, nil) }
         let segments = idToken.split(separator: ".")
         let encoded: String = segments.count == 3 ? String(segments[1]).replacing("-", with: "+").replacing("_", with: "/") : ""

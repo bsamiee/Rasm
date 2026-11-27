@@ -141,11 +141,13 @@ private struct AccountCard: View {
     private var note: String? {
         let expired = model.usage.usage?.signInExpiresAt.flatMap { expiry in expiry <= now ? expiry : nil }
         let parts: [String?] =
-            switch (model.authentication, model.usage.usage, expired) {
-                case (_, _, .some(let expiry)): ["Sign-in expired \(expiry.formatted(.monthDay))"]
-                case (.signInRequired, _, .none): ["Sign in required"]
-                case (.connected, .none, .none): []
-                case (.connected, .some(let reading), .none):
+            switch (model.signIn, model.usage.usage, expired) {
+                case (_, _, .some(let expiry)), (.expired(let expiry), _, .none): ["Sign-in expired \(expiry.formatted(.monthDay))"]
+                case (.missing, _, .none): ["Sign in required"]
+                case (.ended, _, .none): ["Login ended by \(model.account.provider.tool)"]
+                case (.otherAccount, _, .none): ["Signed in to another account"]
+                case (.none, .none, .none): []
+                case (.none, .some(let reading), .none):
                     (reading.isBlocked(at: now) ? ["Blocked", reading.weekly?.resetText(at: now)] : [])
                         + [model.usage.is(\.stale) ? "Updated \(reading.observedAt.formatted(.relative(presentation: .named)))" : nil]
             }

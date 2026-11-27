@@ -18,8 +18,8 @@ nonisolated struct FileLocations: Sendable {
     var claudePendingSwitchFile: URL { stateDirectory.appending(path: "claude-selection.json") }
     var accountsDirectory: URL { stateDirectory.appending(path: "Accounts", directoryHint: .isDirectory) }
 
-    func accountDirectory(_ id: UUID) -> URL { accountsDirectory.appending(path: id.uuidString, directoryHint: .isDirectory) }
-    func claudeDirectory(_ id: UUID) -> URL { accountDirectory(id).appending(path: "Claude", directoryHint: .isDirectory) }
+    func accountDirectory(_ id: UUID, under accounts: URL? = nil) -> URL { (accounts ?? accountsDirectory).appending(path: id.uuidString, directoryHint: .isDirectory) }
+    func claudeDirectory(_ id: UUID, under accounts: URL? = nil) -> URL { accountDirectory(id, under: accounts).appending(path: "Claude", directoryHint: .isDirectory) }
     func codexHome(_ id: UUID) -> URL { accountDirectory(id).appending(path: "Codex", directoryHint: .isDirectory) }
 }
 

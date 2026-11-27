@@ -6,39 +6,39 @@ import Observation
 @Observable
 final class AccountModel: Codable {
     private enum CodingKeys: CodingKey {
-        case authentication, usage
+        case signIn, usage
     }
 
     static let usageReadSpacing: (active: Duration, inactive: Duration) = (.seconds(180), .seconds(1800))
 
     var account: Account
-    var authentication: AuthenticationState
+    var signIn: SignInCause?
     var usage: UsageState
     var isActive: Bool = false
     private(set) var running: (token: UUID, kind: AccountOperation, task: Task<Void, Never>)?
 
-    init(account: Account, authentication: AuthenticationState, usage: UsageState) {
-        (self.account, self.authentication, self.usage) = (account, authentication, usage)
+    init(account: Account, usage: UsageState, signIn: SignInCause? = nil) {
+        (self.account, self.usage, self.signIn) = (account, usage, signIn)
     }
 
     convenience init(from decoder: any Decoder) throws {
         let fields = try decoder.container(keyedBy: CodingKeys.self)
         try self.init(
             account: Account(from: decoder),
-            authentication: fields.decode(AuthenticationState.self, forKey: .authentication),
             usage: fields.decodeIfPresent(AccountUsage.self, forKey: .usage).map(UsageState.current) ?? .unavailable,
+            signIn: fields.decodeIfPresent(SignInCause.self, forKey: .signIn),
         )
     }
 
     func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: CodingKeys.self)
         try account.encode(to: encoder)
-        try fields.encode(authentication, forKey: .authentication)
+        try fields.encodeIfPresent(signIn, forKey: .signIn)
         try fields.encodeIfPresent(usage.usage, forKey: .usage)
     }
 
     var isBusy: Bool { running != nil }
-    var isConnected: Bool { authentication == .connected }
+    var isConnected: Bool { signIn == nil }
     var acceptsOperation: Bool { running.map { running in running.kind == .refresh } ?? true }
     var canActivate: Bool { isConnected && acceptsOperation && !isActive }
 

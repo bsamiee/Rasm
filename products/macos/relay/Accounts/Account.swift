@@ -34,9 +34,11 @@ nonisolated enum Provider: String, CaseIterable, Codable, Sendable {
     }
 }
 
-nonisolated enum AuthenticationState: Codable, Sendable {
-    case connected
-    case signInRequired
+nonisolated enum SignInCause: Codable, Equatable, Sendable {
+    case missing
+    case ended
+    case expired(Date)
+    case otherAccount
 }
 
 enum AccountOperation: Sendable {
@@ -66,7 +68,6 @@ enum AccountOperation: Sendable {
 
 nonisolated protocol ProviderClient: Actor {
     func activeIdentity(active: Account?) async throws(AccountFailure) -> AccountIdentity?
-    func holdsCredential(for account: Account, isActive: Bool) async throws(AccountFailure) -> Bool
     func activate(_ account: Account, outgoing: Account?) async throws(AccountFailure) -> AccountIdentity
     func signIn(_ target: SignInTarget, codes: AsyncStream<String>) async throws(AccountFailure) -> AccountIdentity
     func signOut(_ account: Account, isActive: Bool) async throws(AccountFailure)
@@ -186,11 +187,11 @@ nonisolated struct AccountFailure: LocalizedError, CustomNSError, LockFailure {
         case timedOut(Duration)
         case cancelled
         case interactionNotAllowed
-        case signInRequired
+        case signInRequired(SignInCause)
+        case sealed
         case signInPageUnopened
         case signInRefused(reason: String?)
         case accountOnHold(appeal: URL)
-        case accountChanged
         case activeAccountChanged
         case usageUnavailable
         case keyringStorage
@@ -235,9 +236,7 @@ nonisolated struct AccountFailure: LocalizedError, CustomNSError, LockFailure {
 
     var cause: Self { reason[case: \.cleanup]?.operation.cause ?? self }
 
-    var requiresSignIn: Bool { cause.reason.is(\.signInRequired) || cause.reason.is(\.accountChanged) }
-
-    var isAccountMismatch: Bool { cause.reason.is(\.accountChanged) }
+    var signIn: SignInCause? { cause.reason[case: \.signInRequired] }
 
     var isCancellation: Bool { cause.reason.is(\.cancelled) }
 
@@ -256,12 +255,15 @@ nonisolated struct AccountFailure: LocalizedError, CustomNSError, LockFailure {
             case .timedOut(let timeout): "\(subject) timed out after \(timeout.formatted(.units(width: .wide)))"
             case .cancelled: "\(subject) canceled"
             case .interactionNotAllowed: SecCopyErrorMessageString(errSecInteractionNotAllowed, nil) as String?
-            case .signInRequired: "\(subject) sign-in required"
+            case .signInRequired(.missing): "\(subject) holds no login"
+            case .signInRequired(.ended): "\(subject) login ended"
+            case .signInRequired(.expired(let end)): "\(subject) login expired \(end.formatted(.iso8601))"
+            case .signInRequired(.otherAccount): "\(subject) holds another account"
+            case .sealed: "\(subject) login sealed in overflow Keychain items"
             case .signInPageUnopened: "Could not open \(subject) sign-in page"
             case .signInRefused(let detail): ["\(subject) sign-in failed", detail].compactMap(\.self).joined(separator: ". ")
             case .accountOnHold(let appeal): "\(subject) account on hold, view details or appeal at \(appeal.absoluteString)"
-            case .accountChanged: "Signed in to different \(subject) account"
-            case .activeAccountChanged: "Active \(subject) account changed during switch"
+            case .activeAccountChanged: "Active \(subject) account changed"
             case .usageUnavailable: "\(subject) could not fetch usage"
             case .keyringStorage: "Set cli_auth_credentials_store = \"file\" to switch accounts"
             case .forcedWorkspace: "Unset forced_chatgpt_workspace_id to switch accounts"
@@ -276,8 +278,8 @@ nonisolated struct AccountFailure: LocalizedError, CustomNSError, LockFailure {
                 [NSUnderlyingErrorKey: cause]
             case .invalid(let causes): [NSMultipleUnderlyingErrorsKey: causes.errors]
             case .cleanup(let operation, let release): [NSUnderlyingErrorKey: operation, NSMultipleUnderlyingErrorsKey: [release]]
-            case .missing, .outOfRange, .notInstalled, .timedOut, .cancelled, .interactionNotAllowed, .signInRequired, .signInPageUnopened, .signInRefused, .accountOnHold,
-                .accountChanged, .activeAccountChanged, .usageUnavailable, .keyringStorage, .forcedWorkspace, .desktopRunning:
+            case .missing, .outOfRange, .notInstalled, .timedOut, .cancelled, .interactionNotAllowed, .signInRequired, .sealed, .signInPageUnopened, .signInRefused, .accountOnHold,
+                .activeAccountChanged, .usageUnavailable, .keyringStorage, .forcedWorkspace, .desktopRunning:
                 [:]
         }
     }

@@ -35,6 +35,7 @@ enum StorageState: Sendable {
 final class AccountStore {
     private struct Records: Codable {
         let records: [AccountModel]
+        let directory: URL?
     }
 
     // --- [STATE]
@@ -52,6 +53,7 @@ final class AccountStore {
     @ObservationIgnored private var authenticationTask: Task<Void, Never>?
     @ObservationIgnored private var refreshWake: AsyncStream<Void>.Continuation?
     @ObservationIgnored private var written: Task<Void, Never>?
+    @ObservationIgnored private var recordedDirectory: URL?
 
     private let locations: FileLocations
     private let claude: ClaudeClient
@@ -131,6 +133,7 @@ final class AccountStore {
                 group.addTask(name: "Login item") { await observeActivation() }
                 load()
                 guard storageState == .available, !isStopping else { return }
+                await settle()
                 await reconcile()
                 await readActiveAccounts()
                 group.addTask(name: "Save") { for await _ in self.saves.stream { await self.save() } }
@@ -196,6 +199,23 @@ final class AccountStore {
                 }
             }
             for id in orphans { removeAccountDirectory(id) }
+        }
+        func settle() async {
+            let stores: [Account] = accounts.map(\.account).filter { (account: Account) -> Bool in account.provider == .claude }
+            let current = locations.accountsDirectory
+            let unchanged = recordedDirectory.map { recorded in recorded.path(percentEncoded: false) == current.path(percentEncoded: false) } ?? false
+            let previous = unchanged ? nil : recordedDirectory
+            if let previous {
+                logger.notice(
+                    "Accounts directory moved",
+                    metadata: ["from": "\(previous.path(percentEncoded: false), privacy: .private)", "to": "\(current.path(percentEncoded: false), privacy: .private)"],
+                )
+            }
+            await withStores(Set(stores.map { account in .privateAccount(account.id) } + [.active(.claude)])) { _ in
+                guard await claude.settle(stores, movedFrom: previous), !unchanged else { return }
+                recordedDirectory = current
+                saves.continuation.yield()
+            }
         }
         func observe(file: URL, provider: Provider) async {
             let fields: Logging.Logger.Metadata = ["provider": "\(provider.name, privacy: .public)", "file": "\(file.lastPathComponent, privacy: .public)"]
@@ -362,7 +382,7 @@ final class AccountStore {
                 apply(active: existing.account.id)
                 return
             }
-            let model = AccountModel(account: Account(id: UUID(), provider: provider, identity: identity), authentication: .connected, usage: .unavailable)
+            let model = AccountModel(account: Account(id: UUID(), provider: provider, identity: identity), usage: .unavailable)
             accounts.append(model)
             logger.notice("Registered account from active store", metadata: model.account.metadata())
             apply(active: model.account.id)
@@ -402,7 +422,7 @@ final class AccountStore {
                         saves.continuation.yield()
                         logger.notice("Switched account", metadata: model.account.metadata(["outgoing": "\([outgoing?.account.id].compactMap(\.self), privacy: .public)"]))
                     } catch {
-                        await record(error, of: .activate, for: model, owning: stores)
+                        record(error, of: .activate, for: model)
                     }
                     await withTaskCancellationShield { await readActiveAccount(account.provider, owning: stores) }
                 }
@@ -453,12 +473,11 @@ final class AccountStore {
         run(model, .signOut) { [self] stores in
             do throws(AccountFailure) {
                 try await client(for: account.provider).signOut(account, isActive: model.isActive)
-                model.authentication = .signInRequired
                 model.usage = .unavailable
-                saves.continuation.yield()
+                mark(model, signIn: .missing)
                 logger.notice("Signed out account", metadata: account.metadata())
             } catch {
-                await record(error, of: .signOut, for: model, owning: stores)
+                record(error, of: .signOut, for: model)
             }
             if stores.contains(.active(account.provider)) { await withTaskCancellationShield { await readActiveAccount(account.provider, owning: stores) } }
         }
@@ -469,7 +488,7 @@ final class AccountStore {
         let account = model.account
         run(model, .remove) { [self, client = client(for: account.provider)] stores in
             do throws(AccountFailure) {
-                do throws(AccountFailure) { try await client.signOut(account, isActive: model.isActive) } catch let error where error.requiresSignIn {}
+                do throws(AccountFailure) { try await client.signOut(account, isActive: model.isActive) } catch let error where error.signIn != nil {}
                 try await client.deletePrivateStore(id: id)
                 accounts.removeAll { other in other.account.id == id }
                 removeAccountDirectory(id)
@@ -477,7 +496,7 @@ final class AccountStore {
                 failures[account.id] = nil
                 logger.notice("Removed account", metadata: account.metadata())
             } catch {
-                await record(error, of: .remove, for: model, owning: stores)
+                record(error, of: .remove, for: model)
             }
             if stores.contains(.active(account.provider)) { await withTaskCancellationShield { await readActiveAccount(account.provider, owning: stores) } }
         }
@@ -499,11 +518,11 @@ final class AccountStore {
                     case .success(let identity) where !Task.isCancelled: await connect(identity, owning: stores)
                     case .failure(let error) where !error.isCancellation && !Task.isCancelled:
                         if let existing {
-                            await record(error, of: .signIn, for: existing, owning: stores)
+                            record(error, of: .signIn, for: existing)
                         } else {
                             logger.error("Sign-in failed for new account", error: error, metadata: fields)
                         }
-                        authentication?.phase = .refused(existing.flatMap { model in error.isAccountMismatch ? .differentAccount(email: model.account.identity.email) : nil } ?? .failure(error))
+                        authentication?.phase = .refused(existing.flatMap { model in error.signIn == .otherAccount ? .differentAccount(email: model.account.identity.email) : nil } ?? .failure(error))
                     case .success, .failure:
                         logger.notice("Sign-in canceled", metadata: fields)
                         if existing == nil { await withTaskCancellationShield { await deletePrivateStore(id, provider: provider, owning: stores) } }
@@ -532,7 +551,7 @@ final class AccountStore {
                     return
                 }
                 let replaced = existing == nil ? duplicate : nil
-                let model = existing ?? AccountModel(account: Account(id: id, provider: provider, identity: identity), authentication: .connected, usage: replaced?.usage ?? .unavailable)
+                let model = existing ?? AccountModel(account: Account(id: id, provider: provider, identity: identity), usage: replaced?.usage ?? .unavailable)
                 if let replaced, let index = accounts.firstIndex(where: { stored in stored === replaced }) {
                     accounts[index] = model
                     logger.notice("Account replaces signed-out account with same identity", metadata: provider.metadata(id, ["replaced": "\(replaced.account.id, privacy: .public)"]))
@@ -541,7 +560,7 @@ final class AccountStore {
                     accounts.append(model)
                 }
                 model.account.identity = identity
-                model.authentication = .connected
+                mark(model, signIn: nil)
                 logger.notice("Signed in account", metadata: model.account.metadata())
                 await save()
                 if stores.contains(.active(provider)) { await readActiveAccount(provider, owning: stores) }
@@ -571,39 +590,15 @@ final class AccountStore {
     private func refresh(_ candidates: [AccountModel]) {
         guard storageState == .available, !isStopping else { return }
         let now = Date()
-        for model in candidates where !model.isBusy {
-            let due = model.usageReadAfter.map { date in date <= now } ?? true
-            guard due || !model.isConnected else { continue }
-            run(model, .refresh) { [self] stores in
-                let held =
-                    await
-                    (model.isConnected
-                    ? nil
-                    : Result { () async throws(AccountFailure) in
-                        try await client(for: model.account.provider).holdsCredential(for: model.account, isActive: model.isActive)
-                    })
-                switch held {
-                    case .some(.success(true)):
-                        logger.notice("Signed-out account holds credential, marked connected", metadata: model.account.metadata())
-                        model.authentication = .connected
-                        saves.continuation.yield()
-                    case .some(.success(false)):
-                        logger.debug("Signed-out account holds no credential", metadata: model.account.metadata())
-                        return
-                    case .some(.failure(let error)):
-                        await record(error, of: .refresh, for: model, owning: stores)
-                        return
-                    case .none: break
-                }
-                if due { await readUsage(model, for: .refresh, owning: stores) }
-            }
+        for model in candidates where !model.isBusy && (!model.isConnected || model.usageReadAfter.map { date in date <= now } ?? true) {
+            run(model, .refresh) { [self] stores in await readUsage(model, for: .refresh, owning: stores) }
         }
     }
 
     private func readUsage(_ model: AccountModel, for operation: AccountOperation, owning: Set<CredentialStore>) async {
         do throws(AccountFailure) {
             model.usage = .current(try await client(for: model.account.provider).usage(for: model.account, isActive: model.isActive))
-            model.authentication = .connected
+            mark(model, signIn: nil)
             if let cleared = failures.removeValue(forKey: model.account.id) {
                 logger.notice("Account failure cleared", metadata: model.account.metadata(["repeats": .stringConvertible(cleared.repeats)]))
             }
@@ -613,13 +608,15 @@ final class AccountStore {
         } catch let error where error.isCancellation {
         } catch {
             model.usage = model.usage.usage.map(UsageState.stale) ?? .unavailable
-            await record(error, of: operation, for: model, owning: owning)
+            record(error, of: operation, for: model)
+            guard error.signIn != nil || error.cause.reason.is(\.activeAccountChanged), owning.contains(.active(model.account.provider)) else { return }
+            await readActiveAccount(model.account.provider, owning: owning)
         }
     }
 
     // --- [FAILURES]
 
-    private func record(_ error: AccountFailure, of operation: AccountOperation, for model: AccountModel, owning: Set<CredentialStore>) async {
+    private func record(_ error: AccountFailure, of operation: AccountOperation, for model: AccountModel) {
         guard !error.isCancellation else { return }
         let cause = String(describing: error)
         let last = failures[model.account.id]
@@ -629,14 +626,25 @@ final class AccountStore {
             logger.error(
                 "Account operation failed",
                 error: error,
-                metadata: model.account.metadata(["operation": "\(operation.name, privacy: .public)", "requiresSignIn": .stringConvertible(error.requiresSignIn)]),
+                metadata: model.account.metadata(["operation": "\(operation.name, privacy: .public)"]),
             )
         }
-        guard error.requiresSignIn else { return }
-        model.authentication = .signInRequired
+        guard let cause = error.signIn, mark(model, signIn: cause) else { return }
         model.usage = model.usage.usage.map(UsageState.stale) ?? .unavailable
+    }
+
+    @discardableResult
+    private func mark(_ model: AccountModel, signIn cause: SignInCause?) -> Bool {
+        guard model.signIn != cause else { return false }
+        let states: [String: Logging.Logger.MetadataValue?] = [
+            "from": model.signIn.map { (previous: SignInCause) -> Logging.Logger.MetadataValue in "\(previous, privacy: .public)" },
+            "to": cause.map { (cause: SignInCause) -> Logging.Logger.MetadataValue in "\(cause, privacy: .public)" },
+            "loginEnds": model.usage.usage?.signInExpiresAt.map { (end: Date) -> Logging.Logger.MetadataValue in "\(end.formatted(.iso8601), privacy: .public)" },
+        ]
+        logger.notice(cause == nil ? "Account connected" : "Account marked for sign-in", metadata: model.account.metadata(states.compactMapValues(\.self)))
+        model.signIn = cause
         saves.continuation.yield()
-        if owning.contains(.active(model.account.provider)) { await readActiveAccount(model.account.provider, owning: owning) }
+        return true
     }
 
     // --- [PERSISTENCE]
@@ -644,9 +652,14 @@ final class AccountStore {
     private func load() {
         let file = locations.accountsFile
         do throws(AccountFailure) {
-            accounts = try file.contents().map { data throws(AccountFailure) in try coding.decoder.decode(Records.self, from: data, subject: file.lastPathComponent).records } ?? []
+            let stored = try file.contents().map { data throws(AccountFailure) in try coding.decoder.decode(Records.self, from: data, subject: file.lastPathComponent) }
+            (accounts, recordedDirectory) = (stored?.records ?? [], stored?.directory)
             storageState = .available
-            logger.notice("Loaded accounts", metadata: ["file": "\(file.lastPathComponent, privacy: .public)", "count": .stringConvertible(accounts.count)])
+            let fields: Logging.Logger.Metadata = [
+                "file": "\(file.lastPathComponent, privacy: .public)", "count": .stringConvertible(accounts.count),
+                "directory": "\(locations.stateDirectory.path(percentEncoded: false), privacy: .private)",
+            ]
+            logger.notice("Loaded accounts", metadata: fields)
         } catch {
             storageState = .unavailable
             logger.error("Accounts load failed", error: error, metadata: ["file": "\(file.lastPathComponent, privacy: .public)"])
@@ -661,7 +674,7 @@ final class AccountStore {
             await previous?.value
             let fields: Logging.Logger.Metadata = ["file": "\(file.lastPathComponent, privacy: .public)", "count": .stringConvertible(accounts.count)]
             do throws(AccountFailure) {
-                try await coding.encoder.encode(Records(records: accounts), subject: file.lastPathComponent).write(to: file)
+                try await coding.encoder.encode(Records(records: accounts, directory: recordedDirectory), subject: file.lastPathComponent).write(to: file)
                 logger.debug("Saved accounts", metadata: fields)
             } catch {
                 logger.error("Accounts save failed", error: error, metadata: fields)

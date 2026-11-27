@@ -47,7 +47,7 @@ actor CodexClient: ProviderClient {
     }
 
     private func identity(at home: URL) throws(AccountFailure) -> AccountIdentity {
-        guard let identity = try CodexAuthFile.read(in: home)?.identity else { throw AccountFailure(.openAI, .signInRequired) }
+        guard let identity = try CodexAuthFile.read(in: home)?.identity else { throw AccountFailure(subject: CodexAuthFile.file(in: home).lastPathComponent, reason: .signInRequired(.missing)) }
         return identity
     }
 
@@ -55,10 +55,6 @@ actor CodexClient: ProviderClient {
 
     func activeIdentity(active _: Account?) throws(AccountFailure) -> AccountIdentity? {
         try CodexAuthFile.read(in: activeHome)?.identity
-    }
-
-    func holdsCredential(for account: Account, isActive: Bool) throws(AccountFailure) -> Bool {
-        try CodexAuthFile.read(in: home(for: account, isActive: isActive))?.identity?.isSameAccount(as: account.identity) ?? false
     }
 
     // --- [SWITCHES]
@@ -76,9 +72,8 @@ actor CodexClient: ProviderClient {
         }
         try await preconditions()
         for home in [activeHome, incoming] + [outgoing.map { outgoing in locations.codexHome(outgoing.id) }].compactMap(\.self) { await stopServer(home) }
-        guard let saved = try CodexAuthFile.read(in: incoming), let identity = saved.identity, identity.isSameAccount(as: account.identity) else {
-            throw AccountFailure(.openAI, .signInRequired)
-        }
+        guard let saved = try CodexAuthFile.read(in: incoming), let identity = saved.identity else { throw AccountFailure(.openAI, .signInRequired(.missing)) }
+        guard identity.isSameAccount(as: account.identity) else { throw AccountFailure(.openAI, .signInRequired(.otherAccount)) }
         let active = try CodexAuthFile.read(in: activeHome)
         if active?.identity?.isSameAccount(as: account.identity) != true {
             guard active?.identity.map({ identity in outgoing?.identity.isSameAccount(as: identity) == true }) ?? (outgoing == nil) else { throw AccountFailure(.openAI, .activeAccountChanged) }
@@ -112,7 +107,7 @@ actor CodexClient: ProviderClient {
         let identity = try identity(at: home)
         guard expected.map(identity.isSameAccount(as:)) ?? true else {
             try await signOut(home: home)
-            throw AccountFailure(.openAI, .accountChanged)
+            throw AccountFailure(.openAI, .signInRequired(.otherAccount))
         }
         return identity
     }
@@ -137,7 +132,7 @@ actor CodexClient: ProviderClient {
     func usage(for account: Account, isActive: Bool) async throws(AccountFailure) -> AccountUsage {
         let home = home(for: account, isActive: isActive)
         let identity = try identity(at: home)
-        guard identity.isSameAccount(as: account.identity) else { throw AccountFailure(.openAI, .accountChanged) }
+        guard identity.isSameAccount(as: account.identity) else { throw AccountFailure(.openAI, isActive ? .activeAccountChanged : .signInRequired(.otherAccount)) }
         return try await connection(for: home)
             .request(.accountRateLimitsRead, params: CodexProtocol.RateLimitsReadParams(excludeResetCreditDetails: true), returning: CodexProtocol.AccountRateLimits.self)
             .usage(identity: identity, observedAt: Date())

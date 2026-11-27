@@ -182,7 +182,7 @@ extension Program {
 
     // --- [PROCESS]
 
-    package func telemetry(scopes: [Any.Type]) -> ServiceGroup {
+    package func telemetry(scopes: [Any.Type], age: Duration? = nil) -> ServiceGroup {
         let (process, environment) = (ProcessInfo.processInfo, ProcessInfo.processInfo.environment)
         let stated: [String: String] = preferences.reduce(into: environment) { stated, entry in
             guard case .string(let value) = entry.value.content, entry.key.description.hasPrefix("OTEL_") else { return }
@@ -213,7 +213,7 @@ extension Program {
         let positive: (ConfigKey) -> Int? = { key in settings.int(forKey: unrecognized.key(key, accepting: ["greater than 0"]), as: Positive.self)?.configInt }
         var file = RotatingFile(directory(.logs).appending(path: "\(process.processName).log", directoryHint: .notDirectory))
         file.size = positive("log.size").map { bytes in UInt(bytes) } ?? file.size
-        file.age = positive("log.age").map { seconds in .seconds(seconds) } ?? file.age
+        file.age = positive("log.age").map { seconds in .seconds(seconds) } ?? age ?? file.age
         file.backups = positive("log.backups").map { count in UInt(count) } ?? file.backups
         let target = settings.string(forKey: unrecognized.key("log.target", accepting: LogTarget.allCases.map(\.rawValue)), as: LogTarget.self, default: .file)
         let interactive = target == .file && isatty(STDERR_FILENO) == 1

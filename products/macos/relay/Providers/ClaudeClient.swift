@@ -18,14 +18,6 @@ nonisolated struct ClaudePendingSwitch: Codable, Sendable {
     var copies: [UUID] { [incoming, outgoing].compactMap(\.self) }
 }
 
-private nonisolated struct ClaudeAuthStatus: Decodable {
-    let loggedIn: Bool
-    let email: String?
-    let orgId: String?
-    let subscriptionType: String?
-    let loginExpiresAt: Date?
-}
-
 private nonisolated struct ClaudeUsageReport: Decodable, Sendable {
     enum Meter: String, Sendable {
         case weeklyAll = "weekly_all"
@@ -109,8 +101,41 @@ actor ClaudeClient: ProviderClient {
         isActive ? active : privateStore(account.id)
     }
 
-    private nonisolated func privateStore(_ id: UUID) -> ClaudeCredentialStore {
-        ClaudeCredentialStore(home: locations.home, environment: ["CLAUDE_CONFIG_DIR": FilePath(locations.claudeDirectory(id).path(percentEncoded: false)).string], username: username)
+    private nonisolated func privateStore(_ id: UUID, under accounts: URL? = nil) -> ClaudeCredentialStore {
+        let directory = FilePath(locations.claudeDirectory(id, under: accounts).path(percentEncoded: false)).string
+        return ClaudeCredentialStore(home: locations.home, environment: ["CLAUDE_CONFIG_DIR": directory], username: username)
+    }
+
+    func settle(_ accounts: [Account], movedFrom previous: URL?) async -> Bool {
+        var settled = true
+        for (id, source) in accounts.compactMap({ (account: Account) in previous.map { (previous: URL) in (account.id, privateStore(account.id, under: previous)) } }) {
+            let store = privateStore(id)
+            do throws(AccountFailure) {
+                let moved = try await ClaudeCredentialStore.withLock(directories: [store.directory]) { () async throws(AccountFailure) in try await source.moveItems(to: store) }
+                if moved { logger.notice("Moved Claude login", metadata: Provider.claude.metadata(id, ["from": "\(source.service, privacy: .public)", "to": "\(store.service, privacy: .public)"])) }
+            } catch {
+                settled = false
+                logger.error("Claude login move failed", error: error, metadata: Provider.claude.metadata(id, ["from": "\(source.service, privacy: .public)"]))
+            }
+        }
+        let held = await Result { () async throws(AccountFailure) in try await active.read() }[case: \.success]?[case: \.credential]?.identity
+        for account in accounts {
+            let store = held.map(account.identity.isSameAccount(as:)) == true ? active : privateStore(account.id)
+            let fields = Provider.claude.metadata(account.id, ["service": "\(store.service, privacy: .public)"])
+            do throws(AccountFailure) {
+                let content = try await store.read()
+                let facts: [String: Logger.MetadataValue?] = [
+                    "login": Mirror(reflecting: content).children.first?.label.map { (label: String) -> Logger.MetadataValue in "\(label, privacy: .public)" },
+                    "cause": content[case: \.signedOut].map { (cause: SignInCause) -> Logger.MetadataValue in "\(cause, privacy: .public)" },
+                    "tokenExpires": content.token?.expires.map { (expiry: Date) -> Logger.MetadataValue in "\(expiry.formatted(.iso8601), privacy: .public)" },
+                    "loginEnds": content.token?.loginEnds.map { (end: Date) -> Logger.MetadataValue in "\(end.formatted(.iso8601), privacy: .public)" },
+                ]
+                logger.info("Read Claude store", metadata: fields.merging(facts.compactMapValues(\.self)) { stated, _ in stated })
+            } catch {
+                logger.error("Claude store read failed", error: error, metadata: fields)
+            }
+        }
+        return settled
     }
 
     // --- [ACTIVE_ACCOUNT]
@@ -120,18 +145,20 @@ actor ClaudeClient: ProviderClient {
         let identity = if let held = content[case: \.credential] { held.identity } else { try active.identity() }
         if let account, let saved = lastCredential, saved.identity.isSameAccount(as: account.identity), !(identity.map(saved.identity.isSameAccount(as:)) ?? false) {
             let store = privateStore(account.id)
-            try await ClaudeCredentialStore.withLock(directories: [store.directory]) { () async throws(AccountFailure) in try await store.write(saved, over: store.readItem()) }
-            logger.notice("Saved credential to private store after outside sign-in", metadata: Provider.claude.metadata(account.id))
+            let written = try await ClaudeCredentialStore.withLock(directories: [store.directory]) { () async throws(AccountFailure) -> Bool in
+                let item = try await store.readItem()
+                let stored = try item?.known.claudeAiOauth.flatMap(ClaudeOAuthToken.init)?.expires
+                guard stored.map({ stored in saved.token.expires.map { expiry in expiry > stored } ?? false }) ?? true else { return false }
+                try await store.write(saved, over: item)
+                return true
+            }
+            logger.notice(
+                written ? "Saved credential to private store after outside sign-in" : "Kept newer private store credential after outside sign-in",
+                metadata: Provider.claude.metadata(account.id, ["service": "\(store.service, privacy: .public)"]),
+            )
         }
         lastCredential = content[case: \.credential]
         return identity
-    }
-
-    func holdsCredential(for account: Account, isActive: Bool) async throws(AccountFailure) -> Bool {
-        let now = Date()
-        return try await readLogin(store(for: account, isActive: isActive)).map { login in
-            login.identity.isSameAccount(as: account.identity) && login.expiresAt.map { expiry in expiry > now } ?? true
-        } ?? false
     }
 
     nonisolated func pendingSwitch() throws(AccountFailure) -> ClaudePendingSwitch? {
@@ -141,7 +168,7 @@ actor ClaudeClient: ProviderClient {
     }
 
     func completePendingSwitch(_ pending: ClaudePendingSwitch) async throws(AccountFailure) {
-        try await ClaudeCredentialStore.withLock(directories: ([active] + pending.copies.map(privateStore)).map(\.directory)) { () async throws(AccountFailure) in
+        try await ClaudeCredentialStore.withLock(directories: ([active] + pending.copies.map { id in privateStore(id) }).map(\.directory)) { () async throws(AccountFailure) in
             try await self.finish(pending)
         }
     }
@@ -170,18 +197,25 @@ actor ClaudeClient: ProviderClient {
         let outgoingStore = outgoing.map { outgoing in privateStore(outgoing.id) }
         let pending = ClaudePendingSwitch(incoming: account.id, outgoing: outgoing?.id)
         let last = lastCredential
-        for store in [active, incoming] where try await store.read().is(\.unidentified) {
-            _ = try await report(of: store)
+        for store in [active, incoming] {
+            if let token = try await store.read()[case: \.unidentified] { _ = try await report(of: store, holding: token) }
         }
         let credential = try await ClaudeCredentialStore.withLock(directories: [active, incoming, outgoingStore].compactMap(\.self).map(\.directory)) {
             () async throws(AccountFailure) in
             let current = try await self.active.read()
-            let stored = try await incoming.read()[case: \.credential]
+            let held = try await incoming.read()
+            let stored = held[case: \.credential]
             let activeCredential = current[case: \.credential].flatMap { held in held.identity.isSameAccount(as: account.identity) ? held : nil }
             let outgoingCredential = outgoing.flatMap { outgoing in
                 [current[case: \.credential], last].lazy.compactMap(\.self).first { held in held.identity.isSameAccount(as: outgoing.identity) }
             }
-            guard let entering = activeCredential ?? stored, entering.identity.isSameAccount(as: account.identity) else { throw AccountFailure(.claude, .signInRequired) }
+            guard let entering = activeCredential ?? stored, entering.identity.isSameAccount(as: account.identity) else {
+                throw switch held {
+                    case .signedOut(let cause): AccountFailure(subject: incoming.service, reason: .signInRequired(cause))
+                    case .unidentified: AccountFailure(subject: "Claude account entry", reason: .missing)
+                    case .credential: AccountFailure(subject: incoming.service, reason: .signInRequired(.otherAccount))
+                }
+            }
             guard current.token.map({ token in [activeCredential, outgoingCredential].contains { held in held?.token.accessToken == token.accessToken } }) ?? true else {
                 throw AccountFailure(.claude, .activeAccountChanged)
             }
@@ -222,14 +256,13 @@ actor ClaudeClient: ProviderClient {
             output: .discarded,
             input: .sequence(codes.prefix(1).map { code in Data((code + "\n").utf8) }),
         )
-        return switch try await readLogin(store) {
-            case .some(let login) where expected.map(login.identity.isSameAccount(as:)) ?? true: login.identity
-            case .some:
-                throw AccountFailure(.claude, .accountChanged).releasing(
-                    await Result { () async throws(AccountFailure) in try await run(["auth", "logout"], store: store, within: .seconds(60), output: .discarded) }
-                )
-            case .none: throw AccountFailure(.claude, .signInRequired)
+        let held = try await credential(in: store)
+        guard expected.map(held.identity.isSameAccount(as:)) ?? true else {
+            throw AccountFailure(subject: store.service, reason: .signInRequired(.otherAccount)).releasing(
+                await Result { () async throws(AccountFailure) in try await run(["auth", "logout"], store: store, within: .seconds(60), output: .discarded) }
+            )
         }
+        return held.identity
     }
 
     func signOut(_ account: Account, isActive: Bool) async throws(AccountFailure) {
@@ -245,24 +278,43 @@ actor ClaudeClient: ProviderClient {
 
     func usage(for account: Account, isActive: Bool) async throws(AccountFailure) -> AccountUsage {
         let store = store(for: account, isActive: isActive)
-        let report = try await report(of: store)
-        guard let login = try await readLogin(store) else { throw AccountFailure(.claude, .signInRequired) }
-        guard login.identity.isSameAccount(as: account.identity) else { throw AccountFailure(.claude, .accountChanged) }
-        guard let report else { throw AccountFailure(subject: "Claude Code usage report", reason: .missing) }
-        return try report.usage(observedAt: Date(), signInExpiresAt: login.expiresAt)
+        let held = try await credential(in: store)
+        guard held.identity.isSameAccount(as: account.identity) else {
+            throw isActive ? AccountFailure(.claude, .activeAccountChanged) : AccountFailure(subject: store.service, reason: .signInRequired(.otherAccount))
+        }
+        let outcome = await Result { () async throws(AccountFailure) in try await report(of: store, holding: held.token) }
+        guard case .success(.some(let report)) = outcome else {
+            if case .success(.signedOut(let cause)) = await Result(catching: { () async throws(AccountFailure) in try await store.read() }) {
+                throw AccountFailure(subject: store.service, reason: .signInRequired(cause))
+            }
+            _ = try outcome.get()
+            throw AccountFailure(subject: "Claude Code usage report", reason: .missing)
+        }
+        return try report.usage(observedAt: Date(), signInExpiresAt: held.token.loginEnds)
     }
 
     // --- [CHILDREN]
 
-    private func report(of store: ClaudeCredentialStore) async throws(AccountFailure) -> ClaudeUsageReport? {
+    private func credential(in store: ClaudeCredentialStore) async throws(AccountFailure) -> ClaudeCredential {
+        let first = try await store.read()
+        if let token = first[case: \.unidentified] { _ = try await report(of: store, holding: token) }
+        switch first.is(\.unidentified) ? try await store.read() : first {
+            case .credential(let held): return held
+            case .unidentified: throw AccountFailure(subject: "Claude account entry", reason: .missing)
+            case .signedOut(let cause): throw AccountFailure(subject: store.service, reason: .signInRequired(cause))
+        }
+    }
+
+    private func report(of store: ClaudeCredentialStore, holding token: ClaudeOAuthToken) async throws(AccountFailure) -> ClaudeUsageReport? {
         let previous = reading
         let read = Task {
             _ = await previous?.value
             return await Result { () async throws(AccountFailure) -> ClaudeUsageReport? in
+                guard !Task.isCancelled else { throw AccountFailure(.claude, .cancelled) }
                 let printed: Data = try await run(
                     ["-p", "/usage", "--output-format", "stream-json", "--verbose", "--no-session-persistence", "--strict-mcp-config", "--settings", #"{"disableClaudeAiConnectors":true}"#],
                     store: store,
-                    within: .seconds(60),
+                    within: token.refreshesSoon ? .seconds(180) : .seconds(60),
                     output: .data(limit: 1 << 20),
                 )
                 let reports = try printed.split(separator: UInt8(ascii: "\n")).map { line throws(AccountFailure) -> ClaudeUsageReport? in
@@ -274,23 +326,10 @@ actor ClaudeClient: ProviderClient {
         reading = read
         return try await withTaskCancellationHandler {
             await read.value
-        } onCancel: {
-            read.cancel()
+        } onCancel: { [logger] in
+            if token.refreshesSoon { logger.debug("Usage read near token expiry runs past cancel", metadata: ["service": "\(store.service, privacy: .public)"]) } else { read.cancel() }
         }
         .get()
-    }
-
-    private func readLogin(_ store: ClaudeCredentialStore) async throws(AccountFailure) -> (identity: AccountIdentity, expiresAt: Date?)? {
-        let printed: Data
-        do throws(AccountFailure) {
-            printed = try await run(["auth", "status", "--json"], store: store, within: .seconds(15), output: .data(limit: 1 << 16))
-        } catch let error where error.reason[case: \.process]?.reason[case: \.exit]?.0 == .exited(1) {
-            return nil
-        }
-        let status = try Self.output.decode(ClaudeAuthStatus.self, from: printed, subject: "claude auth status")
-        guard status.loggedIn else { return nil }
-        let identity = try AccountIdentity(accountID: store.readAccount()?.known.accountUuid, organizationID: status.orgId, email: status.email, plan: status.subscriptionType)
-        return (identity, status.loginExpiresAt)
     }
 
     @discardableResult

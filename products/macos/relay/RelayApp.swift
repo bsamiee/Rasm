@@ -56,7 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @ObservationIgnored private var running: Task<Void, Never>?
 
     override init() {
-        let telemetry = Program.current.telemetry(scopes: [AppDelegate.self])
+        let telemetry = Program.current.telemetry(scopes: [AppDelegate.self], age: .seconds(45 * 86_400))
         logger = Logger(label: String(reflecting: AppDelegate.self))
         services = ServiceGroup(services: [telemetry, MetricKitReports(to: logger)], logger: logger)
         super.init()

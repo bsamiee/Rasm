@@ -158,9 +158,9 @@ private struct AccountSettings: View {
 
             Section {
                 HStack {
-                    switch model.authentication {
-                        case .connected: Button("Sign Out") { store.signOut(model.account.id) }
-                        case .signInRequired: Button("Sign In") { store.signIn(model.account.id) }
+                    switch model.signIn {
+                        case .none: Button("Sign Out") { store.signOut(model.account.id) }
+                        case .some: Button("Sign In") { store.signIn(model.account.id) }
                     }
                     Spacer()
                     if model.isBusy { ProgressView().controlSize(.small) }

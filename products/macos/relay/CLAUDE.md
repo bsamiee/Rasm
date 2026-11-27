@@ -11,6 +11,9 @@ One store owns every trigger and account state change, views call it and provide
 - Account identity is account id with organization id, every identity check compares both
 - Failures needing a new sign-in mark the account for sign-in and its reading stale, every other failure logs and leaves its card connected
 - Accounts marked for sign-in read no usage until their own store holds a matching login that has not expired
+- Store reads alone mark an account for sign-in: no login, a login its tool ended, a past end date, or another account in an inactive store
+- Active stores holding another account move the active account and mark none
+- `accounts.json` records its accounts directory, and a launch under another directory moves each Claude login's Keychain items to their new names before any read, recording the new directory once every move succeeds
 - Active accounts read usage at most every 3 minutes, inactive accounts every 30 minutes, and every account at its next window reset
 - Log metadata marks account ids public and emails and paths private, errors pass as `error:`, failures hold no token
 - Pending and failed `accounts.json` loads start no trigger, a failed load leaves the file unwritten
@@ -19,20 +22,28 @@ One store owns every trigger and account state change, views call it and provide
 
 Claude stores are Claude Code config directories, each with an account file and a login Keychain item:
 - Active account uses the active store Claude Code resolves, every other account a private config directory under `Accounts/<id>/Claude`
-- Relay sends no request to Anthropic, and `claude auth status --json` reports a store's login
+- Relay sends no request to Anthropic, and a store's login reads from its Keychain item and account file
+- Keychain item names end in 8 hex digits of the store directory path's SHA-256, so a login's address includes that path
+- Claude Code reports no login when its 2-second Keychain read times out, so `claude auth status` decides no sign-in state
+- Logins end at the item's `refreshTokenExpiresAt`, which neither a refresh nor a sign-in from a refresh token moves later
 - `claude -p "/usage" --output-format stream-json --verbose` reports a store's usage, as print-mode stream JSON requires `--verbose`
 - Claude Code alone refreshes tokens, since refresh tokens are single use and a second refresher revokes the token family
-- `claude auth status` exits 1 for a store with no login and prints email and organization alone, the account file holds the account id
 - Print-mode `/usage` starts no Remote Control bridge, so a read creates no claude.ai session
 - Usage reads run one `claude` at a time and pass `disableClaudeAiConnectors`, skipping the claude.ai connector fetch
+- Claude Code refreshes a token within 5 minutes of expiry and waits 2 seconds for a refresh in progress at `SIGTERM`
+- Usage reads starting on a token expiring within 10 minutes run under a 180-second limit, every other read under 60 seconds
+- Cancel and quit signal a running usage read only while its token expires more than 10 minutes out, and a canceled read waiting its turn starts no `claude`
 - `/usage` rows are the usage endpoint reply or Claude Code's snapshot under 60 seconds old, and null while the fetch fails
-- Print-mode runs fill a missing account entry from Claude Code's profile fetch, and `claude auth status` does not
+- Print-mode runs fill a missing account entry from Claude Code's profile fetch
 - Switches first read usage on a store missing its account entry
 - Keychain items trust `/usr/bin/security` alone, reads and writes go through the `security` CLI, never Security framework calls
+- `security find-generic-password -w` prints an item holding a non-ASCII or control byte as hex, which Relay decodes before reading or moving it
 - Security framework writes stamp the item's partition list with Relay's signature, and every later `claude` and Claude Desktop read prompts
 - Writes pass `security -i` lines up to 4032 bytes, Claude Code's limit, and longer items as `add-generic-password -X` arguments
 - Writes to an item or account file replace Relay's fields and keep the rest (`mcpOAuth` MCP server logins)
-- Claude Code signs out by revoking the refresh token and deleting the item, a blanked item reads as signed out
+- Claude Code can seal item sections into `-overflow-a` and `-overflow-b` items, which Relay moves and deletes with their item
+- Stores with a login sealed in an overflow item fail their read, never reading as signed out
+- Claude Code signs out by revoking the refresh token and deleting the item, and ends a refused login by blanking the item's tokens
 - `claude` children point at one store and drop variables that redirect their credential or API
 - Claude Code refreshes under `.oauth_refresh.lock` and `<realpath>.lock` and writes credentials under `.storage-write.lock` in its store
 - Relay re-reads the active account when Claude Code releases those locks
@@ -41,6 +52,7 @@ Claude stores are Claude Code config directories, each with an account file and 
 - Switch holds Claude Code's locks on every store it touches and runs no `claude` child inside
 - Switch records its target after reading every store it moves, a failed move and launch finish a recorded switch
 - Outside sign-ins replace the active credential, Relay saves the credential of its last active store read into the outgoing private store
+- Outgoing private stores keep a credential expiring later than the one Relay last read
 
 ## [03]-[CODEX]
 
@@ -67,12 +79,15 @@ Menu bar extra and Settings use system controls, semantic colors, and fonts:
 - Readings dim after a failed read alone, a reading `accounts.json` holds loads as current
 - Windows past their reset show no reading and block nothing until the next read
 - Past sign-in expiry shows as the card note, a future one as the card date
+- Cards marked for sign-in state the cause: no login, a login the tool ended, or another account
 
 ## [06]-[TELEMETRY]
 
 Relay logs through swift-log to `~/Library/Logs/app.rasm.relay/Relay.log`, or `<output.dir>/relay/logs/Relay.log`, one logger label per owning type:
 - File records are OpenTelemetry log records as JSON lines, `info` and above for `Relay` scopes and `warn` and above for every other scope
-- Files rotate to `.1` through `.7` at 8 MiB or 1 day, and a rotated file older than 1 day is deleted
+- Files rotate to `.1` through `.7` at 8 MiB or 45 days, and a rotated file older than 45 days is deleted, as a login lasts 30
+- Launch logs each Claude account's store by Keychain service, login state, token expiry, and login end, and each login moved from another directory
+- `Account marked for sign-in` and `Account connected` state each sign-in change with its cause
 - Records hold every value whole in a file readable by its owner alone, and OTLP log export writes `<private>` for each value not marked public
 - Failed account operations log once per account, operation, and cause, and `Account failure cleared` states repeats once a usage read succeeds
 - Account operations run in a span and an Instruments signpost interval named by the operation

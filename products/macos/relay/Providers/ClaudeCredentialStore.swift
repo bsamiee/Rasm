@@ -16,6 +16,8 @@ nonisolated struct ClaudeOAuthToken: Sendable {
         let accessToken: String?
         let refreshToken: String?
         let subscriptionType: String?
+        let expiresAt: Double?
+        let refreshTokenExpiresAt: Double?
     }
 
     let document: JSONDocument<Attributes>
@@ -25,6 +27,14 @@ nonisolated struct ClaudeOAuthToken: Sendable {
         guard let token = document.known.accessToken else { throw AccountFailure(subject: "Claude access token", reason: .missing) }
         guard !token.isEmpty, document.known.refreshToken?.isEmpty != true else { return nil }
         (self.document, accessToken) = (document, token)
+    }
+
+    var expires: Date? { document.known.expiresAt.map { milliseconds in Date(timeIntervalSince1970: milliseconds / 1000) } }
+
+    var refreshesSoon: Bool { expires.map { expiry in expiry < Date(timeIntervalSinceNow: 600) } ?? true }
+
+    var loginEnds: Date? {
+        document.known.refreshTokenExpiresAt.map { milliseconds in max(Date(timeIntervalSince1970: milliseconds / 1000), expires ?? .distantPast) }
     }
 }
 
@@ -41,6 +51,7 @@ nonisolated struct ClaudeOAuthAccount: Codable, Sendable {
 
 nonisolated struct ClaudeCredentialItem: Codable, Sendable {
     let claudeAiOauth: JSONDocument<ClaudeOAuthToken.Attributes>?
+    let keychainOverflow: JSONValue?
 }
 
 nonisolated struct ClaudeAccountFile: Codable, Sendable {
@@ -56,7 +67,7 @@ nonisolated struct ClaudeCredential: Sendable {
 
 @CasePathable
 nonisolated enum ClaudeStoreContent: Sendable {
-    case signedOut
+    case signedOut(SignInCause)
     case unidentified(ClaudeOAuthToken)
     case credential(ClaudeCredential)
 
@@ -98,13 +109,15 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     // --- [STORE_CONTENT]
 
     func read() async throws(AccountFailure) -> ClaudeStoreContent {
-        let token = try await readItem()?.known.claudeAiOauth.flatMap(ClaudeOAuthToken.init)
-        return switch (token, try token.flatMap { _ throws(AccountFailure) in try readAccount() }) {
-            case (.none, _): .signedOut
-            case (.some(let token), .none): .unidentified(token)
-            case (.some(let token), .some(let account)):
-                .credential(ClaudeCredential(token: token, account: account, identity: try account.known.identity(plan: token.document.known.subscriptionType)))
+        let item = try await readItem()?.known
+        guard let oauth = item?.claudeAiOauth else {
+            guard item?.keychainOverflow == nil else { throw AccountFailure(subject: service, reason: .sealed) }
+            return .signedOut(.missing)
         }
+        guard let token = try ClaudeOAuthToken(oauth) else { return .signedOut(.ended) }
+        if let end = token.loginEnds, end <= .now { return .signedOut(.expired(end)) }
+        guard let account = try readAccount() else { return .unidentified(token) }
+        return .credential(ClaudeCredential(token: token, account: account, identity: try account.known.identity(plan: token.document.known.subscriptionType)))
     }
 
     func write(_ credential: ClaudeCredential, over item: JSONDocument<ClaudeCredentialItem>?) async throws(AccountFailure) {
@@ -154,22 +167,50 @@ nonisolated struct ClaudeCredentialStore: Sendable {
 
     // --- [KEYCHAIN_ITEM]
 
+    private static let itemSuffixes: [String] = ["", "-overflow-a", "-overflow-b"]
+
     func readItem() async throws(AccountFailure) -> JSONDocument<ClaudeCredentialItem>? {
-        let password = if let printed = try await security(["find-generic-password", "-a", username, "-s", service, "-w"]) { Data(printed.utf8) } else { try credentialFile.contents() }
+        let password = if let held = try await password(of: service) { held } else { try credentialFile.contents() }
         return try password.map { data throws(AccountFailure) in try JSONDecoder().decode(JSONDocument<ClaudeCredentialItem>.self, from: data, subject: "Claude credential") }
     }
 
     func writeOAuth(_ oauth: JSONDocument<ClaudeOAuthToken.Attributes>, over item: JSONDocument<ClaudeCredentialItem>?) async throws(AccountFailure) {
-        let password = try JSONEncoder().encode(JSONDocument(fields: item?.fields ?? [:], known: ClaudeCredentialItem(claudeAiOauth: oauth)), subject: "Claude credential").hexEncoded()
-        let arguments = ["add-generic-password", "-U", "-a", username, "-s", service, "-X", password]
-        let line = arguments.map { argument in "\"" + argument.replacing("\\", with: "\\\\").replacing("\"", with: "\\\"") + "\"" }.joined(separator: " ") + "\n"
-        _ = if line.utf8.count <= 4032 { try await security(["-i"], input: .string(line)) } else { try await security(Arguments(arguments)) }
+        let known = ClaudeCredentialItem(claudeAiOauth: oauth, keychainOverflow: nil)
+        try await setPassword(JSONEncoder().encode(JSONDocument(fields: item?.fields ?? [:], known: known), subject: "Claude credential"), of: service)
         try credentialFile.remove()
     }
 
     func deleteItem() async throws(AccountFailure) {
-        _ = try await security(["delete-generic-password", "-a", username, "-s", service])
+        for suffix in Self.itemSuffixes { _ = try await security(["delete-generic-password", "-a", username, "-s", service + suffix]) }
         try credentialFile.remove()
+    }
+
+    func moveItems(to destination: Self) async throws(AccountFailure) -> Bool {
+        var moved = false
+        for suffix in Self.itemSuffixes {
+            let (source, target) = (service + suffix, destination.service + suffix)
+            guard let held = try await password(of: source) else { continue }
+            if try await destination.password(of: target) == nil {
+                try await destination.setPassword(held, of: target)
+                guard try await destination.password(of: target) == held else { throw AccountFailure(subject: target, reason: .missing) }
+                moved = true
+            }
+            _ = try await security(["delete-generic-password", "-a", username, "-s", source])
+        }
+        return moved
+    }
+
+    private func password(of service: String) async throws(AccountFailure) -> Data? {
+        try await security(["find-generic-password", "-a", username, "-s", service, "-w"]).map { (printed: String) -> Data in
+            let text = printed.hasSuffix("\n") ? printed.dropLast() : printed[...]
+            return Data(hexEncoded: text) ?? Data(text.utf8)
+        }
+    }
+
+    private func setPassword(_ password: Data, of service: String) async throws(AccountFailure) {
+        let arguments = ["add-generic-password", "-U", "-a", username, "-s", service, "-X", password.hexEncoded()]
+        let line = arguments.map { argument in "\"" + argument.replacing("\\", with: "\\\\").replacing("\"", with: "\\\"") + "\"" }.joined(separator: " ") + "\n"
+        _ = if line.utf8.count <= 4032 { try await security(["-i"], input: .string(line)) } else { try await security(Arguments(arguments)) }
     }
 
     private func security(_ arguments: Arguments, input: some InputProtocol = .none) async throws(AccountFailure) -> String? {
