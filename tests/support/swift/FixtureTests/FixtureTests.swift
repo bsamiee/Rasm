@@ -17,11 +17,19 @@ struct Read: Hashable {
     let refused: [String: AXError]
 }
 
+// --- [ERRORS] --------------------------------------------------------------------------
+
+struct BodyFailure: Error {
+    let process: pid_t
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-@Suite(.timeLimit(.minutes(1)))
+@Suite(.serialized, .timeLimit(.minutes(1)))
 struct FixtureTests {
-    @Test(.enabled(if: AXIsProcessTrusted(), "Reading the fixture from outside needs this test process to hold the Accessibility grant"))
+    // --- [CONTRACT]
+
+    @Test
     func reportsEveryMemberOnScreenAsAnOutsideAccessibilityReadOfTheProcessFindsIt() async throws {
         let roles: [NSAccessibility.Role] = [
             .button, .checkBox, .radioButton, .popUpButton, .comboBox, .tabGroup, .radioGroup, .table, .outline, .slider, .incrementor, .textField, .colorWell, .dateTimeAreaRole,
@@ -94,5 +102,70 @@ struct FixtureTests {
         let stated: Set<Read> = Set(reported.filter { read in read.role.map { role throws(Never) in documented.contains(role) } ?? false })
         expectNoDifference(seen, stated)
         expectNoDifference(documented.subtracting(reported.compactMap(\.role)), [])
+    }
+
+    @Test
+    func runsOutOfTheDockAndNeverActivatesWhileItsWindowsOrderFront() async throws {
+        let (policy, lines): (NSApplication.ActivationPolicy, [Line]) = try await FixtureSession.launched { fixture in
+            let running = try #require(NSRunningApplication(processIdentifier: fixture.process))
+            try await fixture.send(.show(surface: .panel))
+            try await fixture.send(.raise(surface: .controls))
+            try await fixture.send(.report)
+            return (running.activationPolicy, try await fixture.next(\.report).before)
+        }
+        #expect(policy != .regular, "The fixture runs under activation policy \(policy.rawValue), which puts it in the Dock")
+        #expect(!lines.contains { line in line[case: \.active] == true }, "The fixture became active: \(lines)")
+    }
+
+    // --- [TEARDOWN]
+
+    @Test
+    func endsByTheTimeASessionWhoseBodyReturnedFinishes() async throws {
+        let process: pid_t = try await FixtureSession.launched { fixture in fixture.process }
+        let ended: Bool = kill(process, 0) == -1 && errno == ESRCH
+        #expect(ended, "Fixture \(process) outlived a session whose body returned")
+    }
+
+    @Test
+    func endsByTheTimeASessionWhoseBodyThrewFinishes() async throws {
+        let failure = await #expect(throws: BodyFailure.self) { try await FixtureSession.launched { fixture in throw BodyFailure(process: fixture.process) } }
+        let process = try #require(failure?.process)
+        let ended: Bool = kill(process, 0) == -1 && errno == ESRCH
+        #expect(ended, "Fixture \(process) outlived a session whose body threw")
+    }
+
+    @Test
+    func endsByTheTimeACancelledSessionFinishes() async throws {
+        let (processes, started) = AsyncStream.makeStream(of: pid_t.self)
+        let session = Task {
+            try await FixtureSession.launched { fixture in
+                started.yield(fixture.process)
+                return try await fixture.next(\.report).value
+            }
+        }
+        let process = try #require(await processes.first { _ in true })
+        session.cancel()
+        _ = await session.result
+        let ended: Bool = kill(process, 0) == -1 && errno == ESRCH
+        #expect(ended, "Fixture \(process) outlived a session cancelled while its body awaited a line")
+    }
+
+    @Test
+    func endsOnceTheProcessHoldingItsSessionIsKilled() async throws {
+        let result = try await #require(processExitsWith: .signal(SIGKILL), observing: [\.standardOutputContent]) {
+            try await FixtureSession.launched { fixture in
+                try FileHandle.standardOutput.write(contentsOf: Data(String(fixture.process).utf8))
+                kill(getpid(), SIGKILL)
+            }
+        }
+        let printed = String(decoding: result.standardOutputContent, as: UTF8.self)
+        let parsed: pid_t? = pid_t(printed)
+        let process: pid_t = try #require(parsed)
+        let (exits, exited) = AsyncStream.makeStream(of: Never.self)
+        let source = DispatchSource.makeProcessSource(identifier: process, eventMask: .exit)
+        source.setEventHandler { exited.finish() }
+        source.activate()
+        for await _ in exits {}
+        source.cancel()
     }
 }

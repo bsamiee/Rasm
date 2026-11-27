@@ -111,7 +111,7 @@ extension WindowServerTests {
             let presentations: [Watch.Presentation?] = delivered.map { outcome in outcome[case: \.success]?.presentation }
             expectNoDifference(presentations, [.behind])
             expectNoDifference(chosen, .string("Tabloid"))
-            let sources: [pid_t?] = lines.compactMap { line in line[case: \.key]?.sourceProcess }
+            let sources: [pid_t?] = lines.compactMap { line in line[case: \.key] }
             let foreign: Comment = "The fixture took keys from processes \(sources) other than this test process \(getpid())"
             #expect(sources.allSatisfy { (source: pid_t?) -> Bool in source == getpid() }, foreign)
         }

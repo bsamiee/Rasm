@@ -71,8 +71,8 @@ struct AppleEventTests {
     @Test(.timeLimit(.minutes(1)))
     func endsTheWaitForAReplyFromAHungTargetAtTheDeadlineTheCallerPasses() async throws {
         let (reason, waited) = try await FixtureSession.launched { fixture in
-            try await fixture.send(.hang(kind: .sleeping(.seconds(20))))
-            _ = try await fixture.next(\.hanging)
+            try await fixture.send(.sleep(for: .seconds(20)))
+            _ = try await fixture.next(\.sleeping)
             let started = ContinuousClock.now
             let sent = await Result { () async throws(AppleEventFailure) in
                 let event = NSAppleEventDescriptor(

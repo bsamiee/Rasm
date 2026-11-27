@@ -30,7 +30,7 @@ extension WindowServerTests {
             let state: InstanceState = try await FixtureSession.launched { fixture in
                 let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
                 let watch: Watch = await Watches().watch(try Instance(application))
-                try await fixture.send(.hangOnTermination(kind: .spinning(.seconds(3))))
+                try await fixture.send(.spinOnTermination(for: .seconds(3)))
                 return try await watch.quit(.asking, within: .seconds(10))
             }
             expectNoDifference(state[case: \.exited]?.exit.map(\.status), .success(.exited(0)))
@@ -41,8 +41,8 @@ extension WindowServerTests {
             let (state, waited): (InstanceState, Duration) = try await FixtureSession.launched { fixture in
                 let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
                 let watch: Watch = await Watches().watch(try Instance(application))
-                try await fixture.send(.hang(kind: .sleeping(.seconds(20))))
-                _ = try await fixture.next(\.hanging)
+                try await fixture.send(.sleep(for: .seconds(20)))
+                _ = try await fixture.next(\.sleeping)
                 let started = ContinuousClock.now
                 let state = try await watch.quit(.asking, within: .seconds(30))
                 return (state, ContinuousClock.now - started)
@@ -75,8 +75,8 @@ extension WindowServerTests {
             let state: InstanceState = try await FixtureSession.launched { fixture in
                 let application = try #require(NSRunningApplication(processIdentifier: fixture.process))
                 let watch: Watch = await Watches().watch(try Instance(application))
-                try await fixture.send(.hang(kind: .sleeping(.seconds(20))))
-                _ = try await fixture.next(\.hanging)
+                try await fixture.send(.sleep(for: .seconds(20)))
+                _ = try await fixture.next(\.sleeping)
                 return try await watch.quit(.forcing, within: .seconds(10))
             }
             expectNoDifference(state[case: \.exited]?.exit.map(\.status), .success(.signaled(SIGKILL)))

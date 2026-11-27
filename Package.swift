@@ -149,7 +149,7 @@ let support: [Target] = [
     .executableTarget(
         name: "Fixture",
         dependencies: [
-            "Encoding", .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "CasePathsCore", package: "swift-case-paths"),
+            "Encoding", "Results", .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "CasePathsCore", package: "swift-case-paths"),
             .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "tests/support/swift/Fixture",

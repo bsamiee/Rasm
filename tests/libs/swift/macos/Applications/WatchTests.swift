@@ -56,7 +56,7 @@ extension WindowServerTests {
                 for trial in 0..<5 {
                     let states = await watch.states().dropFirst()
                     let sent: ContinuousClock.Instant = clock.now
-                    try await fixture.send(.retitle(entry: .action, member: 0, to: "Retitled \(trial)"))
+                    try await fixture.send(.retitle(to: "Retitled \(trial)"))
                     _ = await states.first { _ in true }
                     waits.append(sent.duration(to: clock.now))
                 }

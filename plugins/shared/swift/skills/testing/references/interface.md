@@ -15,10 +15,13 @@ let (report, before): (Report, [Line]) = try await FixtureSession.launched { fix
 ```
 
 - Wire values are JSON lines: `Command` on standard input, `Line` on standard output, and errors on standard error
-- Bodies start after the `.ready` line, and `launched` finishes standard input once the body returns, which ends the fixture's process
+- Bodies start after the `.ready` line, and `Fixture` exits at the end of standard input, which `launched` closes once the body ends
+- Cancelled sessions end the fixture by `SIGKILL` from the `Subprocess` teardown, and a dead test process ends it by closing the pipe
+- LaunchServices suites launch `FixtureBundle.installed`, a unique `LSUIElement` bundle, with its `arguments(orderingFront:)`
+- Bundle launches end as `installed` force-terminates its identifier after the body, or as the `-FollowsProcess` test process exits
 - Acts, outside reads, and captures run inside the body while the fixture lives, and the body returns every value its expectations read
 - Expectations follow the body, and `#require` inside it holds a fact a later step needs
-- Windows order back one level below `.normal`, and `Fixture` never activates, so the owner's work keeps focus while a suite runs
+- `Fixture` runs under the `.accessory` policy, out of the Dock, orders windows one level below `.normal`, and never activates, so the owner keeps focus
 - Report fields read `NSAccessibility` members of each control's `NSAccessibility.unignoredDescendant(of:)`, the element a client reaches, never AppKit state
 - Facts a new test needs join `Report` or `Line` as the AppKit type stating them, a host enum as a `Lenient` field (`Lenient<NSEvent.EventType>`)
 

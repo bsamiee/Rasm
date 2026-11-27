@@ -13,7 +13,7 @@ import Testing
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let expected: [Inventory: (kind: Control.Kind, label: any KeyPath<Report.Control, String?> & Sendable)] = [
-    .action: (.action, \.title), .toggle: (.toggle, \.title), .popup: (.choice, \.caption), .deferred: (.choice, \.caption), .combo: (.choice, \.caption),
+    .action: (.action, \.title), .toggle: (.toggle, \.title), .popup: (.choice, \.caption), .combo: (.choice, \.caption),
     .radio: (.choice, \.caption), .tabs: (.choice, \.caption), .segments: (.choice, \.caption), .tools: (.choice, \.description), .table: (.multi, \.description),
     .outline: (.multi, \.description), .slider: (.number, \.caption), .stepper: (.number, \.caption), .measure: (.measure, \.caption), .text: (.text, \.caption),
     .search: (.text, \.caption), .secure: (.text, \.caption), .color: (.color, \.caption), .date: (.date, \.caption), .region: (.region, \.title), .siblings: (.action, \.help),
@@ -244,7 +244,7 @@ extension WindowServerTests {
                 let watch: Watch = await Watches().watch(try Instance(application))
                 var passes: [Model] = []
                 for segment in Inventory.toolSegments.indices.reversed() {
-                    try await fixture.send(.select(entry: .tools, member: 0, segment: segment))
+                    try await fixture.send(.select(segment: segment))
                     try await fixture.send(.report)
                     _ = try await fixture.next(\.report)
                     passes.append(try await watch.model(.application))

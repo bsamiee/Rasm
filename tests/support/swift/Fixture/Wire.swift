@@ -8,7 +8,6 @@ package enum Inventory: String, CaseIterable, Codable, Sendable {
     case action
     case toggle
     case popup
-    case deferred
     case combo
     case radio
     case tabs
@@ -26,12 +25,10 @@ package enum Inventory: String, CaseIterable, Codable, Sendable {
     case date
     case quit
     case export
-    case select
     case item
     case region
     case context
     case siblings
-    case answer
     case progress
     case bleed
     case done
@@ -45,7 +42,6 @@ package enum Surface: String, CaseIterable, Codable, Sendable {
     case covered
     case unlisted
     case toolbar
-    case dialog
     case progress
     case panel
     case sheet
@@ -55,20 +51,15 @@ package enum Surface: String, CaseIterable, Codable, Sendable {
     case drawer
 }
 
-package enum Hang: Codable, Sendable {
-    case sleeping(Duration)
-    case spinning(Duration)
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 
-package struct Report: Codable, Equatable, Sendable {
-    package struct Shortcut: Codable, Equatable, Sendable {
+package struct Report: Codable, Sendable {
+    package struct Shortcut: Codable, Sendable {
         package let key: String
         package let modifiers: Lenient<NSEvent.ModifierFlags>
     }
 
-    package struct Control: Codable, Equatable, Sendable {
+    package struct Control: Codable, Sendable {
         package let entry: Inventory
         package let member: Int
         package let role: String?
@@ -80,10 +71,6 @@ package struct Report: Codable, Equatable, Sendable {
         package let inputs: [String]?
         package let help: String?
         package let value: JSONValue?
-        package let enabled: Bool
-        package let range: ClosedRange<Double>?
-        package let step: Double?
-        package let mark: Lenient<NSControl.StateValue>?
         package let shortcut: Shortcut?
         package let window: Int?
         package let frame: CGRect?
@@ -92,23 +79,13 @@ package struct Report: Codable, Equatable, Sendable {
         package let rows: Int?
     }
 
-    package struct Window: Codable, Equatable, Sendable {
+    package struct Window: Codable, Sendable {
         package let surface: Surface?
         package let number: Int
         package let parent: Int?
-        package let className: String
-        package let title: String
-        package let role: String?
-        package let subrole: String?
-        package let modal: Bool
         package let frame: CGRect
-        package let level: Int
         package let visible: Bool
-        package let key: Bool
-        package let main: Bool
         package let edited: Bool
-        package let defaultButton: Control?
-        package let cancelButton: Control?
     }
 
     package let controls: [Control]
@@ -120,59 +97,21 @@ package enum Command: Codable, Sendable {
     case show(surface: Surface)
     case raise(surface: Surface)
     case dismiss(surface: Surface)
-    case retitle(entry: Inventory, member: Int, to: String)
-    case select(entry: Inventory, member: Int, segment: Int)
+    case retitle(to: String)
+    case select(segment: Int)
     case reorder(from: Int, to: Int)
-    case fault(nonce: String)
-    case hang(kind: Hang)
-    case hangOnTermination(kind: Hang)
+    case sleep(for: Duration)
+    case spinOnTermination(for: Duration)
     case edit
-    case abort
 }
 
 @CasePathable
 package enum Line: Codable, Sendable {
     case ready
-    case hanging(kind: Hang)
+    case sleeping
     case report(report: Report)
-    case action(selector: String, control: Report.Control?, cause: Lenient<NSEvent.EventType>?)
-    case pointer(
-        type: Lenient<NSEvent.EventType>,
-        windowNumber: Int,
-        locationInWindow: CGPoint,
-        eventNumber: Int,
-        clickCount: Int,
-        pressure: Float,
-        subtype: Lenient<NSEvent.EventSubtype>,
-        tilt: CGPoint?,
-        timestamp: TimeInterval,
-        modifierFlags: Lenient<NSEvent.ModifierFlags>,
-    )
-    case moved(windowNumber: Int, locationInWindow: CGPoint, timestamp: TimeInterval, modifierFlags: Lenient<NSEvent.ModifierFlags>)
-    case proximity(windowNumber: Int, isEnteringProximity: Bool, pointingDeviceType: Lenient<NSEvent.PointingDeviceType>, timestamp: TimeInterval)
-    case scroll(
-        windowNumber: Int,
-        locationInWindow: CGPoint,
-        scrollingDelta: CGVector,
-        hasPreciseScrollingDeltas: Bool,
-        phase: Lenient<NSEvent.Phase>,
-        momentumPhase: Lenient<NSEvent.Phase>,
-        timestamp: TimeInterval,
-        modifierFlags: Lenient<NSEvent.ModifierFlags>,
-    )
-    case key(
-        type: Lenient<NSEvent.EventType>,
-        windowNumber: Int,
-        characters: String?,
-        keyCode: UInt16,
-        isARepeat: Bool,
-        timestamp: TimeInterval,
-        modifierFlags: Lenient<NSEvent.ModifierFlags>,
-        sourceProcess: pid_t?,
-    )
+    case key(sourceProcess: pid_t?)
     case menu(title: String, opened: Bool)
     case tracking(title: String, began: Bool)
-    case answered(surface: Surface, accepted: Bool)
     case active(active: Bool)
-    case keyed(window: Int, key: Bool)
 }
