@@ -41,7 +41,7 @@ extension LaunchAgent {
             if again || [.notRegistered, .notFound].contains(service.status) { try service.register() }
         }
         switch (service.status, registered) {
-            case (.requiresApproval, _): throw ApplicationFailure(subject: label, reason: .requiresApproval)
+            case (.requiresApproval, _): throw ApplicationFailure(subject: label, reason: .awaitsLoginItemApproval)
             case (_, .failure(let error)): throw ApplicationFailure(subject: label, reason: .foundation(error as NSError))
             case (_, .success):
                 Program.current.store(contents, forKey: keys.plist)

@@ -564,8 +564,9 @@ package actor Watch {
             container.kind != .menu && fresh[ref] == nil && root(of: container.locator).map { root in full.contains(root) || !windows.contains(root) } != false
         }
         let opened: OrderedDictionary<Int, Container> = fresh.filter { ref, _ in open[ref] == nil }
+        let front: String? = instance.application.isActive ? nil : NSWorkspace.shared.frontmostApplication?.localizedName
         for (ref, container) in closed {
-            emit(.closed(container: ref, kind: container.kind, title: container.title))
+            emit(.closed(container: ref, kind: container.kind, title: container.title, front: front))
             (sent[ref], open[ref], secured[ref], openedBy[ref]) = (nil, nil, nil, nil)
         }
         for ref in opened.keys { openedBy[ref] = pressed }
@@ -608,7 +609,7 @@ package actor Watch {
         }
         for (element, names) in marked where names.contains(kAXMenuClosedNotification) {
             guard let ref = table[element].flatMap({ id in owners[id] }), let menu = open[ref], menu.kind == .menu else { continue }
-            emit(.closed(container: ref, kind: .menu, title: menu.title))
+            emit(.closed(container: ref, kind: .menu, title: menu.title, front: instance.application.isActive ? nil : NSWorkspace.shared.frontmostApplication?.localizedName))
             (sent[ref], open[ref]) = (nil, nil)
         }
         for (element, names) in marked where names.contains(kAXMenuOpenedNotification) && !names.contains(kAXMenuClosedNotification) { try track(element) }
@@ -701,10 +702,10 @@ package actor Watch {
                         case (true, _), (_, .watched), (_, .answered): nil
                     }
                 let refused: ApplicationFailure? = written.flatMap { answer in answer == .success ? nil : applicationElement.failure(answer, reading: manualAccessibilityAttribute) }
-                if let refused, refused.reason.is(\.unanswered) || refused.reason == .system(.noSuchProcess) { throw refused }
+                if let refused, refused.reason.is(\.unanswered) || refused.reason.is(\.unansweredMayHaveRun) || refused.reason == .system(.noSuchProcess) { throw refused }
                 if written != nil { driving = .answered }
                 if let refused { send(.failure(refused)) }
-            } catch  where error.reason.is(\.unanswered) {
+            } catch  where error.reason.is(\.unanswered) || error.reason.is(\.unansweredMayHaveRun) {
                 postponed = marked
             }
             let ready: Bool = instance.application.isFinishedLaunching || open.values.contains(where: \.asking)
@@ -819,21 +820,6 @@ package actor Watch {
                 read.runs[id] = try element.runs(interning: intern)
                 let model = Model(read, sequence: sequence, ref: intern)
                 return Model(sequence: sequence, containers: model.containers.filter { container in container.ref == held.container }, located: model.located)
-            case .search(let text, let key, let limit):
-                let found: Set<Int> = Set(try applicationElement.search(text, key: key, limit: limit).map(intern))
-                let roots: Set<Int> = Set(
-                    found.compactMap { (id: Int) -> Int? in
-                        owners[id].flatMap { ref in root(of: locators[ref - 1]) }
-                            ?? handles[id].flatMap { hit in read(hit, [kAXTopLevelUIElementAttribute]).element.facts[kAXTopLevelUIElementAttribute]?.element }
-                    }
-                )
-                let model = try merged(try hierarchy(of: try application(), full: roots), full: roots)
-                let hits: Set<Int> = Set(model.located.compactMap { ref, element in found.contains(element) ? ref : nil })
-                return Model(
-                    sequence: model.sequence,
-                    containers: model.containers.filter { container in hits.contains(container.ref) || container.controls.contains { control in hits.contains(control.ref) } },
-                    located: model.located,
-                )
             case .menus:
                 return Model(sequence: sequence, containers: bars + levels.values, located: [:])
         }
@@ -880,7 +866,7 @@ package actor Watch {
         let front: NSRunningApplication = focusedProcesses().front.flatMap(NSRunningApplication.init(processIdentifier:)) ?? .current
         guard ahead || instance.application.activate(from: front, options: []) else { throw ApplicationFailure(subject: subject, reason: .refused) }
         let seen: Void? = if ahead { () } else { try await next({ (change: InstanceEvent.Change) -> Void? in change[case: \.frontmost] == true ? () : nil }, in: activations, clock: clock) }
-        guard seen != nil else { throw ApplicationFailure(subject: subject, reason: .unseen) }
+        guard seen != nil else { throw ApplicationFailure(subject: subject, reason: .noChangeSeen) }
         return .forward
     }
 
@@ -1028,7 +1014,7 @@ package actor Watch {
                 case .some(let answer) where answer != .success: "\(action) on \(element.name) \(presentation), with \(kAXCancelAction) answering AXError \(answer.rawValue),"
                 case .some, .none: "\(action) on \(element.name) \(presentation)"
             }
-        throw ApplicationFailure(subject: subject, reason: .unseen)
+        throw ApplicationFailure(subject: subject, reason: .noChangeSeen)
     }
 
     private func openers(along steps: [Locator.Step], by opening: String?) -> some Sequence<(control: Control, action: String)> {
@@ -1050,7 +1036,7 @@ package actor Watch {
         guard try await next({ (change: InstanceEvent.Change) -> Void? in change[case: \.closed]?.container == level ? () : nil }, in: events, clock: clock) != nil else {
             let subject = "\(kAXCancelAction) on \(element.name)"
             throw answer == .success
-                ? ApplicationFailure(subject: subject, reason: .unseen)
+                ? ApplicationFailure(subject: subject, reason: .noChangeSeen)
                 : ApplicationFailure(answer, subject: subject, process: instance.process.pid)
         }
     }
@@ -1170,7 +1156,7 @@ package actor Watch {
             earlier.map { (earlier: (shot: Screenshot, at: ContinuousClock.Instant)) -> Bool in
                 posted.map { (posted: ContinuousClock.Instant) -> Bool in posted.advanced(by: messagingTimeout) < earlier.at } ?? true
             } == true
-        let changed: [CGRect]? = if still, let earlier { await shot.changed(from: earlier.shot) } else { nil }
+        let changed: [CGRect]? = if still, let earlier { await shot.differences(from: earlier.shot) } else { nil }
         let held = pictures[number].flatMap { (held: (frame: CGRect, last: [SIMD2<Int>: (shot: Screenshot, at: ContinuousClock.Instant)], restless: [(region: CGRect, span: Duration)])) in
             held.frame == shot.frame ? held : nil
         }
@@ -1232,6 +1218,6 @@ package actor Watch {
         let role: String =
             control.flatMap { control in NSAccessibility.Role(rawValue: control.role).description(with: control.subrole.map(NSAccessibility.Subrole.init(rawValue:))) } ?? "reference"
         let subject: String = (control?.label?.text ?? open[ref]?.title).map { label in "\(role) \(String(reflecting: label))" } ?? role
-        return ApplicationFailure(subject: subject, reason: .stale(candidates: reached?.controls.compactMap(\.label?.text) ?? []))
+        return ApplicationFailure(subject: subject, reason: .notOpen(nearest: reached?.controls.compactMap(\.label?.text) ?? []))
     }
 }

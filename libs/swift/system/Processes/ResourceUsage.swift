@@ -1,6 +1,7 @@
 import Darwin
 import Foundation
 import IOKit.pwr_mgt
+import Results
 package import System
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -41,16 +42,15 @@ package struct ResourceUsage: Encodable, Equatable, Sendable {
 
         package func encode(to encoder: any Encoder) throws {
             var fields = encoder.container(keyedBy: CodingKeys.self)
-            let values: [(CodingKeys, any Encodable)] = [
-                (.cause, cause), (.duration, duration / .seconds(1)), (.cpu, cpu / .seconds(1)), (.runnable, runnable / .seconds(1)), (.pageWait, pageWait / .seconds(1)),
-                (.diskBytesRead, diskBytesRead), (.diskBytesWritten, diskBytesWritten), (.end, end),
-            ]
-            for (key, value) in values { try fields.encode(value, forKey: key) }
+            try fields.encode([
+                .cause: cause, .duration: duration / .milliseconds(1), .cpu: cpu / .milliseconds(1), .runnable: runnable / .milliseconds(1),
+                .pageWait: pageWait / .milliseconds(1), .diskBytesRead: diskBytesRead, .diskBytesWritten: diskBytesWritten, .end: end,
+            ])
         }
     }
 
     private enum CodingKeys: CodingKey {
-        case cpu, runnable, pageWait, diskBytesRead, diskBytesWritten, footprint, threads, runningThreads, assertions, assertionsFailure
+        case cpu, runnable, pageWait, diskBytesRead, diskBytesWritten, footprint, powerAssertions
     }
 
     let cpu: Duration
@@ -61,25 +61,25 @@ package struct ResourceUsage: Encodable, Equatable, Sendable {
     let footprint: Int
     let threads: Int
     let runningThreads: Int
-    let assertions: Result<[String], ProcessFailure>
+    let powerAssertions: Result<[String], ProcessFailure>
     let at: SuspendingClock.Instant
 
     package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: CodingKeys.self)
-        let held: (CodingKeys, any Encodable) =
-            switch assertions {
-                case .success(let names): (.assertions, names)
-                case .failure(let error): (.assertionsFailure, error.localizedDescription)
-            }
-        let values: [(CodingKeys, any Encodable)] = [
-            (.cpu, cpu / .seconds(1)), (.runnable, runnable / .seconds(1)), (.pageWait, pageWait / .seconds(1)), (.diskBytesRead, diskBytesRead),
-            (.diskBytesWritten, diskBytesWritten), (.footprint, footprint), (.threads, threads), (.runningThreads, runningThreads), held,
-        ]
-        for (key, value) in values { try fields.encode(value, forKey: key) }
+        try fields.encode([
+            .cpu: cpu / .milliseconds(1), .runnable: runnable / .milliseconds(1), .pageWait: pageWait / .milliseconds(1), .diskBytesRead: diskBytesRead,
+            .diskBytesWritten: diskBytesWritten, .footprint: footprint, .powerAssertions: EncodedResult(powerAssertions),
+        ])
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+extension KeyedEncodingContainer {
+    fileprivate mutating func encode(_ fields: KeyValuePairs<Key, any Encodable>) throws {
+        for (key, value) in fields { try encode(value, forKey: key) }
+    }
+}
 
 extension ResourceUsage {
     private static let timebase: mach_timebase_info_data_t = {
@@ -92,7 +92,7 @@ extension ResourceUsage {
         var table: Unmanaged<CFDictionary>?
         let read = unsafe IOPMCopyAssertionsByProcess(&table)
         let held = unsafe table?.takeRetainedValue() as? [NSNumber: AnyObject]
-        return read == kIOReturnSuccess ? .success(held ?? [:]) : .failure(ProcessFailure(subject: "Power assertion read", reason: .mach(read)))
+        return read == kIOReturnSuccess ? .success(held ?? [:]) : .failure(ProcessFailure(subject: "Power assertion read", reason: .mach(ProcessFailure.Status(kernel: read))))
     }
 
     package init(of instance: ProcessInstance) throws(Errno) {
@@ -123,7 +123,7 @@ extension ResourceUsage {
             footprint: Int(usage.ri_phys_footprint),
             threads: Int(task.ptinfo.pti_threadnum),
             runningThreads: Int(task.ptinfo.pti_numrunning),
-            assertions: assertions.map { table in
+            powerAssertions: assertions.map { table in
                 Set(
                     (table[NSNumber(value: instance.pid)] as? [[String: Any]] ?? []).compactMap { (assertion: [String: Any]) -> String? in
                         switch (assertion[kIOPMAssertionTypeKey], assertion[kIOPMAssertionNameKey], assertion[kIOPMAssertionLevelKey]) {

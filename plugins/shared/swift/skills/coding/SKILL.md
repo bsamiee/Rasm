@@ -73,7 +73,7 @@ Current instant, user locale, host settings, and random source (`inout some Rand
 - Arms select one complete tuple of what differs per case, and one statement sequence after the `switch` does the shared work (`let (tag, key, error): (String, Key, any Error) = switch self` in `Reason.encode(to:)`)
 - `count(where:)` counts, `indices(where:)` returns a `RangeSet` that `removeSubranges` and the `subranges` subscript take whole
 - `zip(items, items.dropFirst())` reads neighbors, `Dictionary(_:uniquingKeysWith: +)` counts by key, `Dictionary(grouping:by:)` buckets
-- Condition lists bind a derived value with `case let` (`while let last = menuRead, case let remaining = menuGap - last.duration(to: .now), remaining > .zero`)
+- Condition lists bind a derived value with `case let` (`if let row, case let frame = row.frame, !frame.isEmpty`)
 - Signatures state their type, and stored properties and statics take the type their initializer names (`let <name> = <Type>(...)`)
 - Locals and bindings state a type where inference picks another (empty literal, implicit member, generic result)
 - Closures in a chain over `Result`, optionals, and `??` state parameter and result types, as root `Package.swift` fails an expression past 200 type-check scopes

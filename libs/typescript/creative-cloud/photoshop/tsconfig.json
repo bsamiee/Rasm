@@ -11,9 +11,6 @@
             "path": "../object-model"
         },
         {
-            "path": "../../ai/mcp"
-        },
-        {
             "path": "../../macos/applications"
         }
     ]

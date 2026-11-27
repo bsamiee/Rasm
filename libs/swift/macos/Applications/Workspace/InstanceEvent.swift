@@ -32,7 +32,7 @@ package struct InstanceEvent: Encodable, Sendable {
 
         case started(identifier: String?, name: String?)
         case opened(container: Int, kind: Container.Kind, title: String?)
-        case closed(container: Int, kind: Container.Kind, title: String?)
+        case closed(container: Int, kind: Container.Kind, title: String?, front: String?)
         case asking(
             container: Int,
             kind: Container.Kind,
@@ -66,6 +66,13 @@ package struct InstanceEvent: Encodable, Sendable {
     let sequence: Int
     let at: Date
     let change: Change
+
+    package var isPushed: Bool {
+        switch change {
+            case .moved, .window, .frontmost, .dragging: false
+            case .started, .opened, .closed, .asking, .focused, .value, .selection, .hidden, .status, .announced, .proven, .logged, .reported, .sampled, .exited: true
+        }
+    }
 }
 
 extension InstanceEvent.Change {

@@ -5,6 +5,7 @@ package import CasePaths
 import CasePathsCore
 package import Encoding
 import Processes
+import Results
 import SPI
 import Subprocess
 import System
@@ -38,8 +39,8 @@ package enum InstanceState: CaseTagged, Equatable, Sendable {
         var asking: [Window] { windows.filter(\.asking) }
     }
 
-    struct Window: Codable, Equatable, Sendable {
-        enum Band: String, CaseIterable, Codable, Sendable {
+    struct Window: Encodable, Equatable, Sendable {
+        enum Band: CaseIterable, Sendable {
             case normal
             case floating
             case modalPanel
@@ -79,6 +80,10 @@ package enum InstanceState: CaseTagged, Equatable, Sendable {
             private static let floors: [(level: Int, band: Self)] = allCases.map { band in (band.level, band) }.sorted { first, second in first.level > second.level }
 
             init(layer: Int) { self = Self.floors.first { floor in floor.level <= layer }?.band ?? .normal }
+        }
+
+        private enum CodingKeys: CodingKey {
+            case number, title, frame, onScreen, hidden, container, kind, document, asking, presented
         }
 
         let number: CGWindowID
@@ -208,47 +213,44 @@ extension InstanceState.Activity {
 }
 
 extension InstanceState.Termination: Encodable {
-    private enum Key: String, CodingKey {
+    private enum CodingKeys: String, CodingKey {
         case tag = "_tag"
-        case status, signal, detail, statusFailure, report, reportFailure, reporting
+        case status, signal, unread, failure, detail, reportPending, report
     }
 
     package func encode(to encoder: any Encoder) throws {
-        var fields = encoder.container(keyedBy: Key.self)
-        let (field, value): (Key, any Encodable) =
+        var fields = encoder.container(keyedBy: CodingKeys.self)
+        let (tag, field, value): (CodingKeys, CodingKeys, any Encodable) =
             switch exit.status {
-                case .success(.exited(let status)): (.status, status)
-                case .success(.signaled(let signal)): (.signal, signal)
-                case .failure(let error): (.statusFailure, error.description)
+                case .success(.exited(let status)): (.status, .status, status)
+                case .success(.signaled(let signal)): (.signal, .signal, signal)
+                case .failure(let error): (.unread, .failure, ApplicationFailure(subject: "Exit status", reason: .system(error)))
             }
-        try fields.encode(field.stringValue, forKey: .tag)
+        try fields.encode(tag.stringValue, forKey: .tag)
         try fields.encode(value, forKey: field)
         if !exit.detail.isEmpty { try fields.encode(exit.detail, forKey: .detail) }
-        if report == nil, exit.producesReport { try fields.encode(true, forKey: .reporting) }
-        try fields.encodeIfPresent(report?[case: \.success], forKey: .report)
-        let reportFailure: ProcessFailure.Reason? = report?[case: \.failure]?.reason
-        try fields.encodeIfPresent(reportFailure, forKey: .reportFailure)
+        if report == nil, exit.producesReport { try fields.encode(true, forKey: .reportPending) }
+        let reported: EncodedResult<DiagnosticReport>? = report.map { read in EncodedResult(read) }
+        try fields.encodeIfPresent(reported, forKey: .report)
     }
 }
 
 extension InstanceState.Activity: Encodable {
-    private enum Key: CodingKey {
-        case active, status, pendingEventAge, usage, usageFailure, windows, statusItems, statusItemsFailure
+    private enum CodingKeys: CodingKey {
+        case active, status, pendingEventAge, usage, windows, statusItems
     }
 
     package func encode(to encoder: any Encoder) throws {
-        var fields = encoder.container(keyedBy: Key.self)
+        var fields = encoder.container(keyedBy: CodingKeys.self)
         try fields.encode(active, forKey: .active)
         try fields.encode(status, forKey: .status)
-        let age: Double? = pendingEventAge.map { (held: Duration) -> Double in held / Duration.seconds(1) }
+        let age: Double? = pendingEventAge.map { (held: Duration) -> Double in held / .milliseconds(1) }
         try fields.encodeIfPresent(age, forKey: .pendingEventAge)
-        try fields.encodeIfPresent(usage?[case: \.success], forKey: .usage)
-        let usageFailure: String? = usage?[case: \.failure]?.description
-        try fields.encodeIfPresent(usageFailure, forKey: .usageFailure)
+        let used: EncodedResult<ResourceUsage.Interval>? = usage.map { read in EncodedResult(read) }
+        try fields.encodeIfPresent(used, forKey: .usage)
         try fields.encode(asking + windows.filter { window in !window.asking }, forKey: .windows)
-        try fields.encodeIfPresent(statusItems?[case: \.success], forKey: .statusItems)
-        let statusItemsFailure: String? = statusItems?[case: \.failure]?.errorDescription
-        try fields.encodeIfPresent(statusItemsFailure, forKey: .statusItemsFailure)
+        let items: EncodedResult<Int>? = statusItems.map { read in EncodedResult(read) }
+        try fields.encodeIfPresent(items, forKey: .statusItems)
     }
 }
 

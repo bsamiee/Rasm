@@ -1,11 +1,8 @@
 import { homedir } from 'node:os';
 import dialogs from '@rasm/acrobat/host?inline';
 import { HostScript as Acrobat } from '@rasm/acrobat/script';
-import type { Entry } from '@rasm/applications/catalog';
-import type { Act } from '@rasm/applications/server/act';
+import type { Target } from '@rasm/application-tools/handle/target';
 import { ApplicationServer } from '@rasm/applications/server/client';
-import type { Installation } from '@rasm/applications/server/installation';
-import type { Instance } from '@rasm/applications/server/instance';
 import { Application } from '@rasm/creative-cloud-desktop/application';
 import { Completion } from '@rasm/extendscript/completion';
 import host from '@rasm/extendscript/host?inline';
@@ -15,122 +12,114 @@ import { HostScript as InDesign } from '@rasm/indesign/script';
 import { Link } from '@rasm/mcp/link';
 import { HostError } from '@rasm/object-model/model';
 import { Evaluation, EvaluationRpcs } from '@rasm/object-model/rpcs';
-import type { Unmatched } from '@rasm/search/unmatched';
+import { Unmatched } from '@rasm/search/unmatched';
 import { HOSTS, PluginsInfo, UxpManifest } from '@rasm/uxp/manifest';
-import { Array, Cache, Cause, Duration, Effect, Exit, FileSystem, Match, Option, Order, Path, Predicate, Record, Schema, Struct, SubscriptionRef } from 'effect';
-import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
+import { Array, Cache, Data, Duration, Effect, Exit, FileSystem, Function, Match, Option, Order, Path, Predicate, pipe, Record, Schema, Struct } from 'effect';
+import type { RpcGroup } from 'effect/rpc';
 import shim from 'es5-shim?inline';
 import sham from 'es5-shim/es5-sham.js?inline';
-import { RegistryApplications } from '#/applications';
+import { Applications } from '#/applications';
 import { Declarations } from '#/declarations';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Plan {
-    readonly program: (body: string) => string;
-    readonly engine: Parameters<typeof lower>[1];
-    readonly offset: number;
-    readonly direct: (source: string, label: string) => string;
-    readonly declared: Record.ReadonlyRecord<string, { readonly _tag: 'enumerator'; readonly name: string }>;
-}
-type Route = { readonly _tag: 'Linked' } | { readonly _tag: 'Uxp'; readonly parameter: string; readonly script: typeof InDesign } | { readonly _tag: 'Unlinked' } | { readonly _tag: 'Acrobat' } | { readonly _tag: 'Script'; readonly around: string };
+type Route = Data.TaggedEnum<{
+    Linked: object;
+    Unlinked: object;
+    Uxp: { readonly parameter: string; readonly script: typeof InDesign };
+    Acrobat: object;
+    Script: { readonly around: string };
+}>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const UXP: Record.ReadonlyRecord<string, typeof InDesign> = { [HOSTS.ID.product]: InDesign };
 const EXTENDSCRIPT: Record.ReadonlyRecord<string, typeof Illustrator> = { [HOSTS.AI.product]: Illustrator };
+const AROUND = String(<A>(_: unknown, body: () => A): A => body());
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Route = Data.taggedEnum<Route>();
 const Reply = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Completion)));
 const ResultJson = Schema.toCodecJson(Evaluation.Result);
-const Loaded = Schema.Struct({ pluginId: Schema.String, status: Schema.Literal('enabled'), hostMinVersion: Schema.String }).annotate({ description: 'PluginsInfo row of a plugin its host loads at or above hostMinVersion' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const extendscript = (source: string) => `(function (self) {\n${source}\nif (typeof Object.keys !== 'function') {\n${shim}\n${sham}\n}\n${host}\nreturn encodeURIComponent(host.reply(function () { return around(self, function () { return { result: body.call(self) }; }, host); }));\n})(this)`;
-const reline = (line: (at: number) => Option.Option<number>) => (error: HostError) => Effect.fail(HostError.fields.reason.isAnyOf(['Thrown'])(error.reason) ? HostError.thrown(error.subject, Option.flatMap(error.reason.line, line))(error.cause) : error);
-const evaluate = (): Plan => ({ program: (body: string) => Evaluation.expression(body, true), engine: { targets: UxpManifest.engine }, offset: 0, direct: (source: string) => source, declared: {} });
-const plan = Match.typeTags<Route>()({
-    Linked: evaluate,
-    Unlinked: evaluate,
-    Uxp: ({ parameter, script }): Plan => ({
-        program: (body: string) => Evaluation.expression(body, false),
-        engine: { targets: UxpManifest.engine },
-        offset: script.offset,
-        direct: (source: string, label: string) => script.wrap(source, host, label),
-        declared: { [parameter]: { _tag: 'enumerator' as const, name: script.language } },
-    }),
-    Acrobat: (): Plan => ({ program: (body: string) => Acrobat.program(Evaluation.expression(body, false)), engine: { targets: Acrobat.engine }, offset: Acrobat.offset, direct: (source: string) => Acrobat.wrap(source, host, dialogs), declared: {} }),
-    Script: ({ around }): Plan => ({ program: (body: string) => `var body = ${Evaluation.expression(body, false)};\nvar around = ${around};`, engine: lower.extendscript, offset: 1, direct: extendscript, declared: {} }),
-});
-const openLine = (line: number) => Option.liftPredicate(line - 1, (at) => at > 0);
-const compile = Effect.fnUntraced(function* (body: string, scriptPlan: Plan) {
-    const { code, map } = yield* lower(scriptPlan.program(body), scriptPlan.engine, 'typescript').pipe(Effect.catchTag('HostError', reline(openLine)));
-    const [original, label] = [yield* originalLine(map), Evaluation.formatLabel(body)];
-    return { code, label, direct: scriptPlan.direct(code, label), declared: scriptPlan.declared, relined: reline((line) => Option.map(original(line - scriptPlan.offset), (at) => at - 1)) };
-});
-const route = Effect.fnUntraced(function* <E, R>(dictionary: (url: URL) => Effect.Effect<Pick<typeof Installation.Dictionary.Type, 'script' | 'suite'>, E, R>, owned: (pluginId: string) => boolean, { url, product, version }: Pick<Application, 'url' | 'product' | 'version'>) {
-    const [files, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const app = Array.findFirst(Struct.keys(HOSTS), (key) => HOSTS[key].pluginsInfo && HOSTS[key].product === product);
-    const registries = Array.cartesianWith(Option.toArray(app), ['/', homedir()], (key, root) => path.join(root, 'Library', 'Application Support', 'Adobe', ...PluginsInfo.file(key)));
-    const listed = yield* Effect.forEach(
-        registries,
-        (file) =>
-            files.readFileString(file).pipe(
-                Effect.flatMap(Schema.decodeEffect(PluginsInfo)),
-                Effect.map(Struct.get('plugins')),
-                Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed([])),
-            ),
-        { concurrency: 'unbounded' },
-    );
-    const plugged = Array.some(Array.flatten(listed), (row) => Option.exists(Schema.decodeUnknownOption(Loaded)(row), ({ pluginId, hostMinVersion }) => owned(pluginId) && Order.isGreaterThanOrEqualTo(Application.VersionOrder)(version, hostMinVersion)));
-    const unlinked = Option.liftPredicate<Route>({ _tag: 'Unlinked' }, () => plugged);
-    const uxpScript = Record.get(UXP, product);
-    if (plugged && Option.isNone(uxpScript)) {
-        return unlinked;
-    }
-    const { script, suite } = yield* dictionary(url);
-    const parameter = Option.flatMap(Option.all([script, uxpScript]), ([{ parameters }, { language }]) => Array.findFirst(parameters, ({ enumerators }) => Array.contains(Array.map(enumerators, Struct.get('code')), language)));
-    const around = Option.getOrElse(Option.map(Record.get(EXTENDSCRIPT, product), Struct.get('around')), () => String(<A>(_: unknown, body: () => A): A => body()));
-    const runtime: Route = Array.some(suite, ({ code }) => code === Acrobat.suite) ? { _tag: 'Acrobat' } : { _tag: 'Script', around };
-    return Option.map(Option.all({ parameter, script: uxpScript }), ({ parameter: { name }, script: hostScript }): Route => ({ _tag: 'Uxp', parameter: name, script: hostScript })).pipe(
-        Option.orElse(() => unlinked),
-        Option.orElse(() => Option.as(script, runtime)),
-    );
-});
+const bodyLine = (line: number) => Option.liftPredicate(line - 1, (at) => at > 0);
+const reline = (line: (at: number) => Option.Option<number>) => (error: HostError) => HostError.fields.reason.matchOrElse(error.reason, { Thrown: ({ line: at }) => HostError.thrown(error.subject, Option.flatMap(at, line))(error.cause) }, () => error);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const scripts = Effect.fnUntraced(function* (links: { readonly peers: Effect.Effect<readonly Link[]>; readonly call: (holds: (peer: Link) => boolean, subject: string) => Effect.Effect<RpcClient.RpcClient.Flat<RpcGroup.Rpcs<typeof EvaluationRpcs>, RpcClientError.RpcClientError>, Unmatched> }, identifier: string) {
-    const [server, rows, declarations, files] = yield* Effect.all([ApplicationServer, RegistryApplications, Declarations, Effect.context<FileSystem.FileSystem | Path.Path>()]);
-    const dictionaries = yield* Cache.makeWith((href: string) => server.dictionary({ url: new URL(href) }), { capacity: Number.POSITIVE_INFINITY, timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero) });
-    const dictionary = (url: URL) => Cache.get(dictionaries, url.href);
-    const owned = Schema.is(Schema.TemplateLiteral([`${identifier}.`, Schema.String]));
+const scripts = Effect.fnUntraced(function* (links: Pick<Effect.Success<ReturnType<typeof Link.listen<RpcGroup.Rpcs<typeof EvaluationRpcs>>>>, 'peers' | 'call'>, identifier: string) {
+    const [server, applications, declarations, files, path] = yield* Effect.all([ApplicationServer, Applications, Declarations, FileSystem.FileSystem, Path.Path]);
+    const dictionaries = yield* Cache.makeWith(({ url }: Application) => server.dictionary({ url }), { capacity: Number.POSITIVE_INFINITY, timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero) });
+    const readPlugin = Schema.decodeUnknownOption(Schema.Struct({ pluginId: Schema.TemplateLiteral([`${identifier}.`, Schema.String]), status: Schema.Literal('enabled'), hostMinVersion: Schema.String }));
+    const route = Effect.fnUntraced(function* (application: Application) {
+        const app = Array.findFirst(Struct.keys(HOSTS), (key) => HOSTS[key].pluginsInfo && HOSTS[key].product === application.product);
+        const registries = Array.cartesianWith(Option.toArray(app), ['/', homedir()], (key, root) => path.join(root, 'Library', 'Application Support', 'Adobe', ...PluginsInfo.file(key)));
+        const listed = yield* Effect.forEach(registries, (file) => files.readFileString(file).pipe(Effect.flatMap(Schema.decodeEffect(PluginsInfo)), Effect.map(Struct.get('plugins')), Effect.catchReason('PlatformError', 'NotFound', Function.constant(Effect.succeed([])))), { concurrency: 'unbounded' });
+        const plugged = listed
+            .flat()
+            .flatMap((row) => Option.toArray(readPlugin(row)))
+            .some(({ hostMinVersion }) => Order.isGreaterThanOrEqualTo(Application.VersionOrder)(application.version, hostMinVersion));
+        const uxp = Record.get(UXP, application.product);
+        const stated = yield* Effect.when(Cache.get(dictionaries, application), Effect.succeed(Option.isSome(uxp) || !plugged));
+        const command = Option.flatMap(stated, ({ script }) => script);
+        const parameters = Option.toArray(command).flatMap(({ parameters: held }) => held);
+        const commands = Option.toArray(stated).flatMap(({ command: held }) => held.map(Struct.get('name')));
+        const around = Option.match(Record.get(EXTENDSCRIPT, application.product), { onNone: () => AROUND, onSome: (script) => script.around });
+        const scripted = Option.flatMap(stated, ({ suite }) => Option.as(command, Array.contains(suite.map(Struct.get('code')), Acrobat.suite) ? Route.Acrobat() : Route.Script({ around })));
+        const found = pipe(
+            Option.match(uxp, {
+                onNone: Option.none,
+                onSome: (script) =>
+                    Option.map(
+                        Array.findFirst(parameters, ({ enumerators }) => Array.contains(enumerators.map(Struct.get('code')), script.language)),
+                        ({ name }) => Route.Uxp({ parameter: name, script }),
+                    ),
+            }),
+            Option.orElse(() => (plugged ? Option.some(Route.Unlinked()) : Option.none())),
+            Option.orElse(() => scripted),
+        );
+        return yield* Effect.fromOption(found, () => Unmatched.of({ subject: `linked plugin or script command in the dictionary of ${application.name}`, candidates: commands }));
+    });
     return {
-        describe: `code is a TypeScript function body, return giving its result, run through the newest script engine of the target (a linked plugin, do script uxpscript, Acrobat JavaScript, or ExtendScript), a failure naming the body line. Acrobat bodies reach app, this, event, security, spell, util, Report, and every object read from them through stand-ins that answer each dialog as dismissed without showing it, or refuse it naming the member and the parameter that avoids it (a dirty closeDoc, execMenuItem SaveAs or Open, a picker with no stated cancel value); code a body hands Acrobat as a string (Function, indirect eval, setTimeOut, action scripts) runs against the real app and shows its dialogs. UXP bodies take their host module from require('<host>') (${Declarations.checked.join(', ')}), checked first against its declarations, a wrong member, type, read-only write, or enumeration value refused with a link to atelier://object-model/{host}/{name}`,
-        run: Effect.fnUntraced(function* ({ row: { url, name }, live }: { readonly row: Entry; readonly live: Instance }, code: string) {
-            const [listed, peers] = yield* Effect.all([SubscriptionRef.get(rows), links.peers]);
-            const row = yield* Effect.fromOption(
-                Array.findFirst(listed, (each) => each.url.href === url.href),
-                () => new Cause.NoSuchElementError(`${name} left the installed Adobe applications`),
+        run: Effect.fnUntraced(function* ({ row, live }: Effect.Success<typeof Target.current>, code: string) {
+            const [application, peers] = yield* Effect.all([applications.find(row), links.peers]);
+            const serving = Predicate.and(Link.runsIn(application), Link.serves(EvaluationRpcs));
+            const found = yield* peers.some(serving) ? Effect.succeed(Route.Linked()) : route(application);
+            const { program, engine, offset } = Match.value(found).pipe(
+                Match.tag('Uxp', ({ script }) => ({ program: Evaluation.expression(code, false), engine: { targets: UxpManifest.engine }, offset: script.offset })),
+                Match.tag('Acrobat', () => ({ program: Acrobat.program(Evaluation.expression(code, false)), engine: { targets: Acrobat.engine }, offset: Acrobat.offset })),
+                Match.tag('Script', ({ around }) => ({ program: `var body = ${Evaluation.expression(code, false)};\nvar around = ${around};`, engine: lower.extendscript, offset: 1 })),
+                Match.orElse(() => ({ program: Evaluation.expression(code, true), engine: { targets: UxpManifest.engine }, offset: 0 })),
             );
-            const serving = Predicate.and(Link.runsIn(row), Link.serves(EvaluationRpcs));
-            const declared = yield* Option.match(Array.findFirst(peers, serving), { onSome: () => Effect.succeedSome<Route>({ _tag: 'Linked' }), onNone: () => route(dictionary, owned, row) });
-            const found = yield* Effect.fromOption(declared, () => new Cause.NoSuchElementError(`${row.name} declares no script command and links no plugin`));
-            const scriptPlan = plan(found);
-            yield* declarations.check(row, scriptPlan.program(code), openLine);
-            const built = yield* compile(code, scriptPlan);
-            const linked = Effect.flatMap(links.call(serving, `linked plugin of ${row.name}`), (client) => client('evaluate', { code: built.code, label: built.label }));
-            const scripted = Effect.gen(function* () {
-                const { reply, written } = yield* server.execute({ instance: live.instance, arguments: { direct: built.direct, ...built.declared } });
-                const completion = yield* Effect.mapError(Schema.decodeUnknownEffect(Reply)(reply), HostError.refused(`${row.name} script reply`));
-                return { ...(yield* Completion.decode(ResultJson, built.label)(completion)), written };
+            yield* declarations.check(application, program, bodyLine);
+            const { code: lowered, map } = yield* Effect.catchTag(lower(program, engine, 'typescript'), 'HostError', reline(bodyLine));
+            const original = yield* originalLine(map);
+            const label = Evaluation.formatLabel(code);
+            const execute = Effect.fnUntraced(function* (given: Record.ReadonlyRecord<string, Schema.Json>) {
+                const { reply, written } = yield* server.execute({ instance: live.instance, arguments: given });
+                const completion = yield* Effect.mapError(Schema.decodeUnknownEffect(Reply)(reply), HostError.refused(`${application.name} script reply`));
+                return { ...(yield* Completion.decode(ResultJson, label)(completion)), written };
             });
-            const unlinked = Effect.fail(HostError.of({ _tag: 'Unavailable' }, `linked Atelier plugin running UXP scripts in ${row.name}`)());
-            const run: Effect.Effect<Effect.Success<typeof linked> & { readonly written?: typeof Act.Written.Type }, HostError | Error> = Match.valueTags(found, { Linked: () => linked, Unlinked: () => unlinked, Uxp: () => scripted, Acrobat: () => scripted, Script: () => scripted });
-            return yield* Effect.catchTag(run, 'HostError', built.relined);
-        }, Effect.provideContext(files)),
+            const linked = Effect.flatMap(links.call(serving, `linked plugin of ${application.name}`), (client) => client('evaluate', { code: lowered, label }));
+            const sent: Effect.Effect<Effect.Success<typeof linked | ReturnType<typeof execute>>, HostError | Error> = Route.$match(found, {
+                Linked: () => linked,
+                Unlinked: () => HostError.of({ _tag: 'Unavailable' }, `linked Atelier plugin running UXP scripts in ${application.name}`)(),
+                Uxp: ({ parameter, script }) => execute({ direct: script.wrap(lowered, host, label), [parameter]: { _tag: 'enumerator', name: script.language } }),
+                Acrobat: () => execute({ direct: Acrobat.wrap(lowered, host, dialogs) }),
+                Script: () =>
+                    execute({
+                        direct: `(function (self) {\n${lowered}\nif (typeof Object.keys !== 'function') {\n${shim}\n${sham}\n}\n${host}\nreturn encodeURIComponent(host.reply(function () { return around(self, function () { return { result: body.call(self) }; }, host); }));\n})(this)`,
+                    }),
+            });
+            return yield* Effect.catchTag(
+                sent,
+                'HostError',
+                reline((line) => Option.flatMap(original(line - offset), bodyLine)),
+            );
+        }),
     };
 });
 

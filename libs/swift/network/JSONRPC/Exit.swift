@@ -5,53 +5,10 @@ import Results
 
 private enum CodingKeys: String, CodingKey {
     case tag = "_tag"
-    case success, failure, error, defect, fiberId, name, message, cause, code, data
+    case error, defect, fiberId, code, message, data
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-
-package struct EncodedResult<Success: Encodable & Sendable>: Encodable, Sendable {
-    let result: Result<Success, any Error>
-
-    package init(_ result: Result<Success, some Error>) { self.result = result.mapError { error -> any Error in error } }
-
-    package func encode(to encoder: any Encoder) throws {
-        var fields = encoder.container(keyedBy: CodingKeys.self)
-        switch result {
-            case .success(let value):
-                try fields.encode("Success", forKey: .tag)
-                try fields.encode(value, forKey: .success)
-            case .failure(let error):
-                try fields.encode("Failure", forKey: .tag)
-                try fields.encode(EncodedError(error: error), forKey: .failure)
-        }
-    }
-}
-
-private struct EncodedError: Encodable {
-    let error: any Error
-
-    func encode(to encoder: any Encoder) throws {
-        let chain = Array(sequence(first: error as NSError) { bridged in bridged.underlyingErrors.first as NSError? })
-        var fields = encoder.container(keyedBy: CodingKeys.self)
-        switch chain.lazy.compactMap({ bridged in bridged as? Unmatched }).first {
-            case .some(let miss):
-                try fields.encode(String(describing: Unmatched.self), forKey: .tag)
-                try fields.encode(error.localizedDescription, forKey: .message)
-                try miss.encode(to: encoder)
-            case .none:
-                if let typed = error as? any Encodable {
-                    try fields.encode(String(describing: type(of: error)), forKey: .tag)
-                    try typed.encode(to: encoder)
-                }
-                for (depth, bridged) in chain.enumerated() {
-                    if depth > 0 { fields = fields.nestedContainer(keyedBy: CodingKeys.self, forKey: .cause) }
-                    try fields.encode(bridged.domain, forKey: .name)
-                    try fields.encode(bridged.localizedDescription, forKey: .message)
-                }
-        }
-    }
-}
 
 enum Reason: Encodable, Sendable {
     case fail(any Error)

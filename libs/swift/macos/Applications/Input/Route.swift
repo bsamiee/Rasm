@@ -1,31 +1,39 @@
 import AppKit
 import AsyncAlgorithms
 import Carbon.HIToolbox
-import CoreGraphics
-import Encoding
+package import CoreGraphics
+package import Encoding
 import SPI
 import System
 import os
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-enum Route: CaseTagged, Hashable, Sendable {
+package enum Route: CaseTagged, Hashable, Sendable {
+    package enum Kind: String, CaseIterable, Codable, Sendable, CustomStringConvertible {
+        case accessibility
+        case process
+        case window
+        case focused
+        case system
+
+        package var description: String {
+            switch self {
+                case .accessibility: "Accessibility call"
+                case .process: "process route"
+                case .window: "window route"
+                case .focused: "focused-window route"
+                case .system: "system route"
+            }
+        }
+    }
+
     case process
     case window(number: CGWindowID)
     case focused(number: CGWindowID)
     case system
 
-    func ladder(window: CGWindowID?) -> [Self] {
-        switch (self, window) {
-            case (.process, .some(let number)): [.process, .focused(number: number), .system]
-            case (.process, .none): [.process, .system]
-            case (.window(let number), _): [.window(number: number), .focused(number: number), .system]
-            case (.focused(let number), _): [.focused(number: number), .system]
-            case (.system, _): [.system]
-        }
-    }
-
-    var rung: Rung {
+    var kind: Kind {
         switch self {
             case .process: .process
             case .window: .window
@@ -33,22 +41,14 @@ enum Route: CaseTagged, Hashable, Sendable {
             case .system: .system
         }
     }
-}
 
-package enum Rung: String, CaseIterable, Codable, Sendable, CustomStringConvertible {
-    case accessibility
-    case process
-    case window
-    case focused
-    case system
-
-    package var description: String {
-        switch self {
-            case .accessibility: "Accessibility call"
-            case .process: "process route"
-            case .window: "window route"
-            case .focused: "focused-window route"
-            case .system: "system route"
+    func fallbacks(window: CGWindowID?) -> [Self] {
+        switch (self, window) {
+            case (.process, .some(let number)): [.process, .focused(number: number), .system]
+            case (.process, .none): [.process, .system]
+            case (.window(let number), _): [.window(number: number), .focused(number: number), .system]
+            case (.focused(let number), _): [.focused(number: number), .system]
+            case (.system, _): [.system]
         }
     }
 }
@@ -68,7 +68,7 @@ extension Route {
         clock: some Clock<Duration> & Sendable,
     ) async throws(ApplicationFailure) -> ApplicationFailure? {
         try Grant.postEvent.check()
-        let subject = "\(rung)"
+        let subject = "\(kind)"
         let (number, focused, tapped): (CGWindowID?, CGWindowID?, Bool) =
             switch self {
                 case .process: (nil, nil, false)
@@ -111,17 +111,21 @@ extension Route {
             let chord = SIMD2(Int(event.getIntegerValueField(.keyboardEventKeycode)), held.reduce(function) { (state: Int, modifier: Modifier) -> Int in state | Int(modifier.key.state) << 8 })
             return chords.contains(chord) ? "key code \(chord.x) with \(held.map(\.rawValue).formatted())" : nil
         }
-        guard claimed.isEmpty else { throw ApplicationFailure(subject: "\(claimed.formatted()) on the \(subject)", reason: .symbolicHotKey) }
+        guard claimed.isEmpty else { throw ApplicationFailure(subject: "\(claimed.formatted()) on the \(subject)", reason: .systemShortcut) }
         let focus: (front: pid_t?, keyFocus: pid_t?)? = tapped ? focusedProcesses() : nil
-        if let focus, pointing, focus.front != process { throw ApplicationFailure(subject: subject, reason: .notFrontmost(focus.front)) }
-        if let focus, keyed, focus.keyFocus != process { throw ApplicationFailure(subject: subject, reason: .notKeyFocus(focus.keyFocus)) }
+        if let focus, pointing, focus.front != process {
+            throw ApplicationFailure(subject: subject, reason: .frontElsewhere(focus.front.flatMap(NSRunningApplication.init(processIdentifier:))?.localizedName))
+        }
+        if let focus, keyed, focus.keyFocus != process {
+            throw ApplicationFailure(subject: subject, reason: .keyFocusElsewhere(focus.keyFocus.flatMap(NSRunningApplication.init(processIdentifier:))?.localizedName))
+        }
         for (_, event) in timeline where tapped && presses.contains(event.type) {
             let at = "the \(subject) at \(Int(event.location.x)),\(Int(event.location.y))"
             var (screen, local, window, connection, owner): (CGPoint, CGPoint, CGWindowID, Int32, pid_t) = (event.location, .zero, kCGNullWindowID, 0, 0)
             let found: CGError = unsafe findWindowAndOwner(mainConnection(), 0, 1, 0, &screen, &local, &window, &connection)
             let owned: CGError = found == .success ? unsafe processOfConnection(connection, &owner) : found
             guard owned == .success else { throw ApplicationFailure(subject: "hit test of \(at)", reason: .windowServer(owned)) }
-            guard owner == process else { throw ApplicationFailure(subject: at, reason: .covered(by: owner)) }
+            guard owner == process else { throw ApplicationFailure(subject: at, reason: .covered(by: NSRunningApplication(processIdentifier: owner)?.localizedName)) }
         }
         let target: (origin: CGPoint, owner: pid_t)? = try number.map { (number: CGWindowID) throws(ApplicationFailure) -> (origin: CGPoint, owner: pid_t) in
             guard let described = windowDescription(of: number), !described.bounds.isEmpty else { throw ApplicationFailure(subject: "target window of the \(subject)", reason: .absent) }

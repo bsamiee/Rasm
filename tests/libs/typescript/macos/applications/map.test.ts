@@ -5,6 +5,7 @@ import { assert, describe, it } from '@effect/vitest';
 import { Description } from '@rasm/applications/description';
 import { InterfaceMap } from '@rasm/applications/map';
 import { Element } from '@rasm/applications/server/element';
+import { ApplicationFailure } from '@rasm/applications/server/failure';
 import { Catalog } from '@rasm/database/catalog';
 import { Sqlite } from '@rasm/database/sqlite';
 import { Array, DateTime, Duration, Effect, FileSystem, Layer, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
@@ -33,9 +34,9 @@ const WIDTH = '["AXButton","Width"]';
 const START = Date.UTC(2026, 10, 25, 9);
 const OWNER = { username: 'owner', homedir: '/Users/owner' } as const;
 const BUILDS = ['22.1.0.19', '22.2.0.4'] as const;
-const TOOLBAR: (typeof Description.Control.Type)['locator'] = [['toolbar', 'tool']];
-const RECTANGLE: (typeof Description.Control.Type)['locator'] = [...TOOLBAR, ['tool', 'RECTANGLE_TOOL']];
-const PEN: (typeof Description.Control.Type)['locator'] = [...TOOLBAR, ['tool', 'PEN_TOOL']];
+const TOOLBAR: typeof Description.Locator.Type = [['toolbar', 'tool']];
+const RECTANGLE: typeof Description.Locator.Type = [...TOOLBAR, ['tool', 'RECTANGLE_TOOL']];
+const PEN: typeof Description.Locator.Type = [...TOOLBAR, ['tool', 'PEN_TOOL']];
 const DOCUMENT = JSON.stringify([{ key: { document: { type: 'com.adobe.indesign-document' } }, role: 'AXWindow' }]);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -232,7 +233,7 @@ const toolbar = (current: string, [rectangle, pen]: readonly [{ readonly label: 
                 locator: TOOLBAR,
                 kind: 'toolbar',
                 controls: [
-                    Description.Control.make({
+                    {
                         locator: [...TOOLBAR, ['choice', 'tool']],
                         kind: 'choice',
                         role: 'tool',
@@ -241,7 +242,7 @@ const toolbar = (current: string, [rectangle, pen]: readonly [{ readonly label: 
                             { ...rectangle, locator: RECTANGLE },
                             { ...pen, locator: PEN },
                         ],
-                    }),
+                    },
                 ],
             },
         ],
@@ -259,7 +260,7 @@ describe(InterfaceMap, () => {
         Effect.fnUntraced(function* (truth) {
             const world = app(truth);
             const reads = yield* Effect.forEach(world.readings, (read) => Schema.decodeEffect(Element.Observation)(world.observation(read)));
-            const states = Array.scan(reads, [[], InterfaceMap.empty] as readonly [readonly (typeof InterfaceMap.Change.Type)[], InterfaceMap], ([, map], read) => map.fold(read, world.user));
+            const states = Array.scan(reads, [[], InterfaceMap.empty] as ReturnType<InterfaceMap['fold']>, ([, map], read) => map.fold(read, world.user));
             const allChanges = states.flatMap(([changes]) => changes);
             const final = Array.lastNonEmpty(world.readings);
             const [, last] = Array.lastNonEmpty(states);
@@ -286,7 +287,7 @@ describe(InterfaceMap, () => {
                 const { condition, sightings, retirement, epochs } = world.oracle(index);
                 const entry = controls[key];
                 const live = entry !== undefined && Option.isNone(entry.retired);
-                const count = (tag: (typeof InterfaceMap.Change.Type)['_tag']) => allChanges.filter((change) => change._tag === tag && change.at === key).length;
+                const count = (tag: ReturnType<InterfaceMap['fold']>[0][number]['_tag']) => allChanges.filter((change) => change._tag === tag && change.at === key).length;
                 if (condition !== 'Sometimes') {
                     assert.strictEqual(count('Appeared'), sightings.length > 0 ? 1 : 0, `${key} appears once when shown`);
                     assert.strictEqual(count('Gone'), Option.isSome(retirement) ? 1 : 0, `${key} goes once when the rule retires it`);
@@ -332,7 +333,7 @@ describe(InterfaceMap, () => {
         { arbitrary: { seed: 2026, runs: 300 } },
     );
 
-    it('learns the label a facet gives its selected option under the newest build, serves it while the facet lists the option under another, and serves nothing a build before the newest learned', () => {
+    it('learns the label a host source gives its selected option under the newest build, serves it while the source lists the option under another, and serves nothing a build before the newest learned', () => {
         const first = new InterfaceMap({ application: { builds: [BUILDS[0]], options: {}, cursors: {} }, containers: {} });
         const learned = first.learn(toolbar('Rectangle Tool', [{ label: 'Rectangle Tool' }, { label: 'PEN_TOOL' }]));
         const served = learned[1].learn(toolbar('Pen Tool', [{ label: 'RECTANGLE_TOOL' }, { label: 'Pen Tool' }]));
@@ -344,7 +345,7 @@ describe(InterfaceMap, () => {
         );
     });
 
-    it('learns the shortcut and help beside the label a facet gives its selected option, and serves all three while the facet lists the option with its id alone', () => {
+    it('learns the shortcut and help beside the label a host source gives its selected option, and serves all three while the source lists the option with its id alone', () => {
         const pen = { label: 'Pen Tool', shortcut: { key: 'p', modifiers: [] }, help: 'Click to add an anchor point, drag to pull its direction handles' } as const;
         const learned = new InterfaceMap({ application: { builds: [BUILDS[0]], options: {}, cursors: {} }, containers: {} }).learn(toolbar('Pen Tool', [{ label: 'RECTANGLE_TOOL' }, pen]));
         const served = learned[1].learn(toolbar('RECTANGLE_TOOL', [{ label: 'RECTANGLE_TOOL' }, { label: 'PEN_TOOL' }]));
@@ -427,7 +428,7 @@ describe(InterfaceMap, () => {
         }, Effect.provide(services)),
     );
     it.effect(
-        'starts a write at the rung that last passed read-back in this build, keeps every rung that failed there, and starts over once the build changes',
+        'starts a write at the route that last passed read-back in this build, keeps every route that failed there, and starts over once the build changes',
         Effect.fnUntraced(function* () {
             const observed = yield* newDocument;
             const read = observed.reduce((map, each) => map.fold(each, OWNER)[1], InterfaceMap.empty);
@@ -439,13 +440,13 @@ describe(InterfaceMap, () => {
                     proof: 'change',
                     route: { _tag: 'window', number: 7 },
                     tried: [
-                        { rung: 'accessibility', failure: 'value unchanged' },
-                        { rung: 'process', failure: 'value unchanged' },
+                        { route: 'accessibility', failure: ApplicationFailure.of('unchanged', 'value') },
+                        { route: 'process', failure: ApplicationFailure.of('unchanged', 'value') },
                     ],
                     popUps: [],
                 }),
             });
-            const failed = passed.prove({ at, from: 'window', outcome: Result.fail(new Error('every rung from window failed read-back')) });
+            const failed = passed.prove({ at, from: 'window', outcome: Result.fail(new Error('every route from window failed read-back')) });
             const dialog = yield* Effect.fromOption(Array.last(observed));
             const [, rebuilt] = passed.fold({ ...dialog, build: Option.some(BUILDS[1]), opened: DateTime.add(dialog.at, { minutes: 5 }), at: DateTime.add(dialog.at, { minutes: 5 }) }, OWNER);
             const failures = (map: InterfaceMap) =>
@@ -460,13 +461,13 @@ describe(InterfaceMap, () => {
         }),
     );
     it.effect(
-        'learns no rung from a step whose Accessibility call went unanswered or whose instance exited',
+        'learns no route from a step whose Accessibility call went unanswered, whose instance exited, or whose surface already stood',
         Effect.fnUntraced(function* () {
             const observed = yield* newDocument;
             const read = observed.reduce((map, each) => map.fold(each, OWNER)[1], InterfaceMap.empty);
             const at = { container: DIALOG, control: UNITS };
-            const unproven = (['unanswered', 'exit'] as const).map((proof) => read.prove({ at, from: 'accessibility', outcome: Result.succeed({ proof, tried: [], popUps: [] }) }));
-            assert.deepStrictEqual(unproven, [read, read]);
+            const unproven = (['unanswered', 'exit', 'standing'] as const).map((proof) => read.prove({ at, from: 'accessibility', outcome: Result.succeed({ proof, tried: [], popUps: [] }) }));
+            assert.deepStrictEqual(unproven, [read, read, read]);
         }),
     );
 
@@ -566,9 +567,8 @@ describe(InterfaceMap, () => {
                 {
                     first: {
                         build: Option.some(BUILDS[0]),
-                        known: { window: 1 },
+                        containers: { window: 1 },
                         earlier: 0,
-                        unopened: { opens: [{ container: LAYOUT, control: RECENT }], ellipsis: [{ container: LAYOUT, control: NEW }], options: [{ container: LAYOUT, control: zoom }] },
                         openers: [
                             { container: LAYOUT, control: NEW },
                             { container: LAYOUT, control: RECENT },
@@ -577,9 +577,8 @@ describe(InterfaceMap, () => {
                     },
                     opened: {
                         build: Option.some(BUILDS[0]),
-                        known: { window: 1, dialog: 1 },
+                        containers: { window: 1, dialog: 1 },
                         earlier: 0,
-                        unopened: { opens: [{ container: LAYOUT, control: RECENT }], ellipsis: [], options: [{ container: LAYOUT, control: zoom }] },
                         openers: [
                             { container: LAYOUT, control: RECENT },
                             { container: LAYOUT, control: zoom },
@@ -587,9 +586,8 @@ describe(InterfaceMap, () => {
                     },
                     rebuilt: {
                         build: Option.some(BUILDS[1]),
-                        known: { window: 1 },
+                        containers: { window: 1 },
                         earlier: 1,
-                        unopened: { opens: [{ container: LAYOUT, control: RECENT }], ellipsis: [], options: [{ container: LAYOUT, control: zoom }] },
                         openers: [
                             { container: LAYOUT, control: RECENT },
                             { container: LAYOUT, control: zoom },
@@ -598,7 +596,7 @@ describe(InterfaceMap, () => {
                 },
                 'an item ending in an ellipsis stays unopened until the dialog it opens is read, a menu item until its menu is, a choice until its options list, and a container read only in an earlier build counts apart',
             );
-            assert.deepStrictEqual(InterfaceMap.empty.coverage, { build: Option.none(), known: {}, earlier: 0, unopened: { opens: [], ellipsis: [], options: [] }, openers: [] }, 'an application never read holds no build and no opener');
+            assert.deepStrictEqual(InterfaceMap.empty.coverage, { build: Option.none(), containers: {}, earlier: 0, openers: [] }, 'an application never read holds no build and no opener');
         }),
     );
 

@@ -141,7 +141,6 @@ actor ScriptingDictionaries {
 
 `scriptingDefinition()` reads the application's sdef and throws `AppleEventFailure`. Entries hold the fact keeping them valid, the running processes, and a changed set starts a new read. Entries written before the `await` serve the next caller. After the `await`, eviction compares the stored task with its own, and a newer task another caller stored stays. Cancelling one caller leaves the shared read running:
 - Callers holding the only interest in a shared read await it under `withTaskCancellationHandler { await read.value } onCancel: { read.cancel() }`
-- Actors spacing calls to a host that answers wrongly when called too often hold the last call's instant and sleep the rest of a measured gap
 
 ## [05]-[CANCELLATION_AND_CONTINUATIONS]
 

@@ -10,7 +10,6 @@ package struct Session: Encodable, Equatable, Sendable {
     let locked: Bool
     let asleep: Bool
     let secureInput: Bool
-    let spaces: [UInt64]
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -23,22 +22,16 @@ extension Session {
 
     static func current() -> Self {
         let (onConsole, locked, asleep) = console
-        return Self(
-            onConsole: onConsole,
-            locked: locked,
-            asleep: asleep,
-            secureInput: IsSecureEventInputEnabled(),
-            spaces: (copySpaces(mainConnection(), [.includesCurrent, .includesUser]) as? [UInt64]) ?? [],
-        )
+        return Self(onConsole: onConsole, locked: locked, asleep: asleep, secureInput: IsSecureEventInputEnabled())
     }
 
     package static func changes(from watches: Watches) -> some AsyncSequence<Result<Self, ApplicationFailure>, Never> & Sendable {
         let (noticed, notice) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
         let (workspace, distributed): (NotificationCenter, NotificationCenter) = (NSWorkspace.shared.notificationCenter, DistributedNotificationCenter.default())
         let names: [(center: NotificationCenter, name: Notification.Name)] = [
-            (workspace, NSWorkspace.screensDidSleepNotification), (workspace, NSWorkspace.screensDidWakeNotification), (workspace, NSWorkspace.activeSpaceDidChangeNotification),
-            (workspace, NSWorkspace.sessionDidBecomeActiveNotification), (workspace, NSWorkspace.sessionDidResignActiveNotification),
-            (distributed, Notification.Name(kScreenIsLockedNotification)), (distributed, Notification.Name(kScreenIsUnlockedNotification)),
+            (workspace, NSWorkspace.screensDidSleepNotification), (workspace, NSWorkspace.screensDidWakeNotification), (workspace, NSWorkspace.sessionDidBecomeActiveNotification),
+            (workspace, NSWorkspace.sessionDidResignActiveNotification), (distributed, Notification.Name(kScreenIsLockedNotification)),
+            (distributed, Notification.Name(kScreenIsUnlockedNotification)),
         ]
         nonisolated(unsafe) let observers: [(center: NotificationCenter, token: any NSObjectProtocol)] = names.map { center, name in
             (center, center.addObserver(forName: name, object: nil, queue: nil) { _ in notice.yield() })

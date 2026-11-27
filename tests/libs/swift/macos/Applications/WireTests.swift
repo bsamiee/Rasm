@@ -62,9 +62,20 @@ struct WireTests {
 
     @Test
     func writesAWindowChangeByItsCaseName() throws {
-        let row: InstanceState.Window = try read(
-            InstanceState.Window.self,
-            #"{"number":43,"frame":[[10,30],[800,600]],"layer":0,"band":"normal","spaces":[1],"onScreen":true,"hidden":false,"shared":true,"asking":false,"presented":true}"#,
+        let row = InstanceState.Window(
+            number: 43,
+            title: nil,
+            frame: CGRect(x: 10, y: 30, width: 800, height: 600),
+            layer: 0,
+            band: .normal,
+            parent: nil,
+            spaces: [1],
+            onScreen: true,
+            hidden: false,
+            shared: true,
+            remote: nil,
+            asking: false,
+            presented: true,
         )
         let written = try JSONSerialization.jsonObject(with: JSONEncoder().encode(InstanceEvent.Change.window(change: .moved, window: row))) as? [String: Any]
         expectNoDifference(written?["change"] as? String, "moved")
@@ -74,15 +85,11 @@ struct WireTests {
     func readsEachScopeTheTypeScriptSideWritesByItsTag() throws {
         let scopes: [Model.Scope] = try read(
             [Model.Scope].self,
-            #"[{"_tag":"application"},{"_tag":"container","ref":4},{"_tag":"menu","ref":6},{"_tag":"rows","ref":8,"from":20,"count":10},{"_tag":"text","ref":5},{"_tag":"search","text":"Export","key":"AXHeadingSearchKey","limit":3},{"_tag":"search","text":"","limit":2},{"_tag":"menus"}]"#,
+            #"[{"_tag":"application"},{"_tag":"container","ref":4},{"_tag":"menu","ref":6},{"_tag":"rows","ref":8,"from":20,"count":10},{"_tag":"text","ref":5},{"_tag":"menus"}]"#,
         )
         expectNoDifference(
             scopes.map(String.init(describing:)),
-            [
-                "application", "container(ref: 4)", "menu(ref: 6)", "rows(ref: 8, from: 20, count: 10)", "text(ref: 5)",
-                #"search(text: "Export", key: __C.NSAccessibilitySearchKey(_rawValue: AXHeadingSearchKey), limit: 3)"#,
-                #"search(text: "", key: __C.NSAccessibilitySearchKey(_rawValue: AXAnyTypeSearchKey), limit: 2)"#, "menus",
-            ],
+            ["application", "container(ref: 4)", "menu(ref: 6)", "rows(ref: 8, from: 20, count: 10)", "text(ref: 5)", "menus"],
         )
     }
 

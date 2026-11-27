@@ -1,4 +1,4 @@
-import type { Description } from '@rasm/applications/description';
+import type { Source } from '@rasm/applications/description';
 import { InterfaceMap } from '@rasm/applications/map';
 import { Act as Wire } from '@rasm/applications/server/act';
 import type { Capture } from '@rasm/applications/server/capture';
@@ -6,99 +6,91 @@ import { ApplicationServer } from '@rasm/applications/server/client';
 import { Element } from '@rasm/applications/server/element';
 import { ApplicationFailure } from '@rasm/applications/server/failure';
 import { Instance } from '@rasm/applications/server/instance';
-import { Format, Line, Report } from '@rasm/mcp/report';
+import { Call, Format, Line, Report } from '@rasm/mcp/report';
 import { Handle } from '@rasm/mcp/server';
 import { ToolCall } from '@rasm/mcp/toolkit';
-import { Unmatched } from '@rasm/search/unmatched';
-import { Array, ByteSize, Cause, Context, Duration, Effect, Equal, Equivalence, Formatter, Function, HashMap, HashSet, Match, Number, Option, Predicate, Record, Ref, Result, Schema, SchemaTransformation, Stream, Struct, Tuple } from 'effect';
+import { Array, ByteSize, Context, Duration, Effect, Equal, Formatter, Function, HashMap, HashSet, Match, Number, Option, Predicate, Record, Ref, Result, Schema, SchemaTransformation, Stream, String, Struct, Tuple } from 'effect';
 import { Tool } from 'effect/ai';
-import { Address, type Index, Indexed, type Item, read, Source } from '#/handle/address';
-import { Proving } from '#/handle/notice';
+import { Address } from '#/handle/address';
+import { Notice } from '#/handle/notice';
 import { Outline } from '#/handle/outline';
-import { current } from '#/handle/target';
-import { attach, FRAMES, frontOf, keyFramesOf, pointOf, Side, Viewed } from '#/view';
+import { Target } from '#/handle/target';
+import { View } from '#/view';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Step = Tool.Parameters<typeof tool>['steps'][number];
-type Acted = typeof Wire.Outcome.Type;
-type Delivery = Result.Result.Success<Acted['outcomes'][number]>;
-type Entry = Effect.Success<ReturnType<ReturnType<typeof prepared>>>[number];
-interface Piece {
-    readonly entries: readonly Entry[];
-    readonly outcomes: Acted['outcomes'];
-    readonly acted: Option.Option<Acted>;
-    readonly source: Option.Option<Capture['source']>;
-    readonly notes: readonly Line[];
-    readonly refused: readonly number[];
-}
+type Current = Effect.Success<typeof Target.current>;
+type Sample = (typeof Wire.Input.Type)['pointer'];
+type Delivered = (typeof Wire.Outcome.Type)['outcomes'][number];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PROOFS = { answer: 'accepted', change: 'changed', value: 'value read back', limit: 'at end of range', posting: 'posted, no change seen yet', unanswered: 'unanswered, may have run', exit: 'application exited', standing: 'already showing' } as const satisfies Record<Delivery['proof'], string>;
-const CAUSE = { running: 'computing', runnable: 'waiting for a processor', paging: 'paging', reading: 'reading disk', writing: 'writing disk', idle: 'idle' } as const satisfies Record.ReadonlyRecord<NonNullable<(typeof Instance.State.cases.running.Type)['usage']>['cause'], string>;
-const TEXTUAL: ReadonlySet<(typeof Element.Control.Type)['kind']> = new Set(['measure', 'text', 'date', 'choice', 'multi', 'color']);
-const ALIKE = Array.makeEquivalence(Equivalence.String);
+const PROOFS: Partial<Record<Result.Result.Success<Delivered>['proof'], string>> = { answer: 'accepted', change: 'changed', standing: 'already showing' };
+const NEXT: Record.ReadonlyRecord<string, Call> = {
+    ...Struct.Record(['notOpen', 'absent', 'undelivered'], new Call({ tool: 'inspect', given: {} })),
+    ...Struct.Record(['noChangeSeen', 'unansweredMayHaveRun'], new Call({ tool: 'view', given: { of: 'front' } })),
+};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const [Keyed, Pointed, Aimed, Held] = Wire.Step.members;
-const [, Sample] = Pointed.fields.pointer.members;
-const Position = Schema.Union([Address.At, Sample]);
+const Position = Schema.Union([Address.At, Wire.Input.fields.pointer]);
 const seconds = (description: string) =>
-    Schema.optionalKey(Schema.Finite.annotate({ description }).pipe(Schema.decodeTo(Keyed.fields.hold.schema, SchemaTransformation.transform({ decode: (given: number) => Duration.toMillis(Duration.seconds(given)), encode: (millis: number) => Duration.toSeconds(Duration.millis(millis)) }))));
-const paces = {
-    hold: seconds('Seconds held between down and up, a drag or scroll spread across them'),
-    every: seconds('Seconds from the start of one press to the next'),
-    jitter: seconds('Seconds each press start varies around every'),
+    Schema.optionalKey(Schema.Finite.annotate({ description }).pipe(Schema.decodeTo(Wire.Step.cases.hold.fields.hold, SchemaTransformation.transform({ decode: (given: number) => Duration.toMillis(Duration.seconds(given)), encode: (millis: number) => Duration.toSeconds(Duration.millis(millis)) }))));
+const timing = {
+    hold: seconds('Seconds from down to up, a drag or scroll spread across them'),
+    every: seconds('Seconds from one press start to the next'),
+    jitter: seconds('Seconds each press start varies by'),
+    count: Wire.Step.cases.key.fields.count.annotate({ description: 'Presses, 2 a double click' }),
+    edge: Wire.Step.cases.key.fields.edge.annotate({ description: 'The one edge posted, a later step posting the other' }),
 };
-const pressing = <Fields extends Pick<typeof Keyed.fields, 'count' | 'edge'>>(fields: Fields) => ({
-    ...paces,
-    count: fields.count.annotate({ description: 'Presses, 2 a double click' }),
-    edge: fields.edge.annotate({ description: 'The one edge posted, a later step posting the other: a press held across steps' }),
-});
+const Step = Schema.Union([
+    Wire.Step.cases.key.mapFields(
+        (fields) => ({
+            ...Struct.omit(fields, ['from']),
+            _tag: Schema.tagDefaultOmit(fields._tag.schema.literal),
+            key: fields.key.annotate({ description: 'One character, a key name, or a virtual key code' }),
+            at: Schema.optionalKey(Address.At.annotate({ description: 'Element the key goes to, the key window when absent' })),
+            ...timing,
+        }),
+        { unsafePreserveChecks: true },
+    ),
+    Wire.Step.cases.pointer.mapFields(
+        (fields) => ({
+            ...Struct.omit(fields, ['from', 'windows']),
+            _tag: Schema.tagDefaultOmit(fields._tag.schema.literal),
+            pointer: Position.annotate({ description: 'Element, or [x, y] in pixels of a window image view returned, pen pressure 0 to 1 and tilt x, y -1 to 1 following' }),
+            path: Schema.optionalKey(Schema.Array(Position).annotate({ description: 'Positions moved through after the first: a drag, stroke, or hover path' })),
+            button: fields.button.annotate({ description: 'left when absent, none hovers' }),
+            by: fields.by.annotate({ description: 'Scroll distance [horizontal, vertical]' }),
+            unit: fields.unit.annotate({ description: 'pixel when absent' }),
+            ...timing,
+            in: Schema.optionalKey(Address.At.annotate({ description: 'Window whose image the points count pixels of, where view returned several' })),
+        }),
+        { unsafePreserveChecks: true },
+    ),
+    Wire.Step.cases.press.mapFields(
+        (fields) => ({
+            ...Struct.omit(fields, ['from']),
+            _tag: Schema.tagDefaultOmit(fields._tag.schema.literal),
+            at: Address.At,
+            action: fields.action.annotate({ description: 'Action as inspect prints it, press when absent' }),
+            to: fields.to.annotate({ description: 'Value set: toggle state, number, ISO 8601 date, text, option label, or window frame [[x, y], [width, height]]; text on the clipboard reference copies it' }),
+            range: fields.range.annotate({ description: 'Text selected, [location, length] or the text itself, replaced where to is text' }),
+        }),
+        { unsafePreserveChecks: true },
+    ),
+    Wire.Step.cases.hold.mapFields((fields) => ({
+        _tag: Schema.tagDefaultOmit(fields._tag.schema.literal),
+        modifiers: fields.modifiers.annotate({ description: 'Modifiers held for hold, no key or pointer' }),
+        hold: timing.hold.schema,
+    })),
+]).pipe(Schema.toTaggedUnion('_tag'));
 const tool = Tool.make('act', {
     description:
-        'Runs steps on the target in order until one fails. A step is at (press an element, with to set its value, with range select its text), key, pointer (click, drag, hover, or scroll at an element or at a pixel of a window image view returned), or modifiers with hold. An element is a reference or label path as inspect prints it: one in a closed container runs after the item that opens it, and one an earlier step opens resolves once that step ran. Calls on one handle answer in order',
+        'Runs steps on the target in order until one fails, the rest not run. A step is at (press an element, to sets its value, range selects its text), key, pointer (click, drag, hover, or scroll at an element or at a pixel of a window image view returned), or modifiers with hold. An element is a reference or label path as inspect prints it: one in a closed container is reached by pressing what opens it first, and one an earlier step opens resolves once that step ran. Calls on one handle answer in order',
     parameters: Schema.Struct({
-        steps: Schema.NonEmptyArray(
-            Schema.Union([
-                Keyed.mapFields(
-                    (fields) => ({
-                        ...Struct.omit(fields, ['from']),
-                        key: fields.key.annotate({ description: 'A character, a listed key name, or a virtual key code' }),
-                        at: Schema.optionalKey(Address.At.annotate({ description: 'Element the key goes to, the key window when absent' })),
-                        ...pressing(fields),
-                    }),
-                    { unsafePreserveChecks: true },
-                ),
-                Pointed.mapFields(
-                    (fields) => ({
-                        ...Struct.omit(fields, ['from', 'windows']),
-                        pointer: Position.annotate({ description: 'Element, or point [x, y] in pixels of a window image view returned, pen pressure from 0 to 1 and tilt x and y from -1 to 1 following' }),
-                        path: Schema.optionalKey(Schema.Array(Position).annotate({ description: 'Positions the pointer moves through after the first: a drag, a stroke, or a hover path' })),
-                        button: fields.button.annotate({ description: 'left when absent, none hovers' }),
-                        by: fields.by.annotate({ description: 'Scroll by horizontal and vertical distance, at least one whole unit' }),
-                        unit: fields.unit.annotate({ description: 'Unit of by, pixel when absent' }),
-                        ...pressing(fields),
-                        in: Schema.optionalKey(Address.At.annotate({ description: 'Window whose image a point counts pixels of, named where view returned images of more than one' })),
-                    }),
-                    { unsafePreserveChecks: true },
-                ),
-                Aimed.mapFields(
-                    (fields) => ({
-                        ...Struct.omit(fields, ['from']),
-                        at: Address.At,
-                        action: fields.action.annotate({ description: 'Action of the element as inspect prints it, a press when absent' }),
-                        to: fields.to.annotate({ description: 'Element.Value by the kind of the element: toggle state, number, ISO 8601 date, text, option label of a choice, or frame [[x, y], [width, height]] of a window; text on the clipboard reference copies it' }),
-                        range: fields.range.annotate({ description: 'Text selected, by [location, length] or by the text it holds, replaced where to is text' }),
-                    }),
-                    { unsafePreserveChecks: true },
-                ),
-                Held.mapFields((fields) => ({ modifiers: fields.modifiers.annotate({ description: 'Modifiers held down for hold with no key or pointer' }), hold: paces.hold.schema })),
-            ]),
-        ),
-        record: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Record the front window, else the element the first step aims at, while the steps run, returning key frames as view with seconds does' })),
+        steps: Schema.NonEmptyArray(Step),
+        record: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Record the front window, else what the first step aims at, while the steps run, and return key frames' })),
     }),
     success: Report.schema,
     failure: Schema.ErrorInstance(),
@@ -107,297 +99,255 @@ const tool = Tool.make('act', {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const printed = (value: Schema.Json): string =>
+const print = (value: Schema.Json): string =>
     Match.value(value).pipe(
         Match.when(Match.string, Format.quoted),
         Match.when(Match.number, (amount) => Format.count(amount)),
         Match.when(
             (held: Schema.Json): held is Schema.JsonArray => Array.isArray(held),
-            (held) => held.map(printed).join(held.some((each) => Array.isArray(each)) ? ' ' : ','),
+            (held) => held.map(print).join(held.some((each) => Array.isArray(each)) ? ' ' : ','),
         ),
         Match.orElse(Formatter.format),
     );
-const labelOf = (step: Record.ReadonlyRecord<string, Schema.Json>): readonly string[] =>
-    Record.collect(step, (key, value) =>
+const echo = (written: Record.ReadonlyRecord<string, Schema.Json>): readonly string[] =>
+    Record.collect(written, (key, value) =>
         Match.value({ key, value }).pipe(
             Match.when({ value: (held: Schema.Json) => Array.isArray(held) && Array.isReadonlyArrayEmpty(held) }, Array.empty<string>),
-            Match.when({ key: (name) => Predicate.hasProperty(paces, name), value: Match.number }, ({ value: millis }) => [key, Format.duration(Duration.millis(millis))]),
             Match.when({ key: Match.is('to', 'range'), value: Match.string }, ({ value: text }) => [key, `text of ${Format.count(text.length, Outline.nouns.character)}`]),
-            Match.orElse(() => [key, printed(value)]),
+            Match.orElse(() => [key, print(value)]),
         ),
     ).flat();
-const aimOf = (step: object) => Option.filter(Option.firstSomeOf(['pointer' in step ? Option.some(step.pointer) : Option.none(), 'at' in step ? Option.fromUndefinedOr(step.at) : Option.none()]), Predicate.isNumber);
-const [unmatched, failed] = [Schema.is(Unmatched), Schema.is(ApplicationFailure)];
-const sharing = (left: Error) => (right: Error) =>
-    (unmatched(left) && unmatched(right) && left.subject === right.subject && ALIKE(left.candidates, right.candidates)) || (failed(left) && failed(right) && left.reason === right.reason && left.message.slice(left.subject.length) === right.message.slice(right.subject.length));
-const ending = (outcomes: Acted['outcomes']) => outcomes.some((outcome) => Result.isFailure(outcome) || outcome.success.proof === 'exit');
-const piece = (ran: Pick<Piece, 'entries' | 'outcomes'> & Partial<Piece>): Piece => ({ acted: Option.none(), source: Option.none(), notes: [], refused: [], ...ran });
-const aimedAt = (at: number | typeof Sample.Type, windows: readonly number[]) => ({ at, windows });
-const indexOf = Effect.fnUntraced(function* (aimed: Effect.Success<typeof current>) {
-    const last = yield* Handle.use((handle) => handle.get(Indexed));
-    return yield* Option.match(
-        Option.filter(last, ({ instance }) => instance === aimed.live.instance),
-        { onNone: () => Effect.map(read(aimed), Struct.get('base')), onSome: ({ index }) => Effect.succeed(index) },
-    );
+const aim = Wire.Step.match({
+    key: ({ at }) => Option.fromUndefinedOr(at),
+    pointer: ({ pointer }) => Option.liftPredicate(pointer, Predicate.isNumber),
+    press: ({ at }) => Option.some(at),
+    hold: () => Option.none<number>(),
 });
-const renumbered = (entries: readonly { readonly number: number }[], { keyFrames, ...taken }: typeof Capture.Recorded.Type) => ({
-    ...taken,
-    keyFrames: keyFrames.map((frame) => ({ ...frame, markers: frame.markers.map((marker) => (marker._tag === 'step' ? { ...marker, index: (entries[marker.index]?.number ?? marker.index + 1) - 1 } : marker)) })),
+const locate = ({ element, containers }: Parameters<typeof Address.open>[1]) => (element._tag === 'control' ? Option.some({ container: Array.lastNonEmpty<{ readonly locator: string }>(containers).locator, control: element.locator }) : Option.none());
+const place = (at: number | Sample, windows: readonly number[]) => ({ at, windows });
+const ends = (outcome: Delivered) => Result.isFailure(outcome) || outcome.success.proof === 'exit';
+const unread =
+    (subject: string) =>
+    ({ message }: Error) =>
+        new Line({ head: [subject], value: 'unread', facts: [message] });
+const read = Effect.fnUntraced(function* (target: Current) {
+    const held = Option.filter(yield* Handle.use((handle) => handle.get(Address.Held)), ({ instance }) => instance === target.live.instance);
+    return yield* Option.match(held, { onNone: () => Address.read(target), onSome: (last) => Effect.succeed(last) });
 });
-const diagnose = ({ usage, load }: Pick<Acted, 'usage' | 'load'>) => {
-    const spent = Array.getSuccesses(Array.fromNullishOr(usage)).flatMap(({ cause, duration, diskBytesRead, diskBytesWritten, pageWait, runnable, end }) => [
-        `${CAUSE[cause]} over ${Format.duration(Duration.seconds(duration))}`,
-        ...Record.collect(Record.filter({ read: diskBytesRead, wrote: diskBytesWritten }, Number.isGreaterThan(0)), (did, bytes) => `${did} ${Format.bytes(ByteSize.bytes(bytes))}`),
-        ...Record.collect(Record.filter({ 'on page faults': pageWait, 'for a processor': runnable }, Number.isGreaterThan(0)), (on, waited) => `waited ${Format.duration(Duration.seconds(waited))} ${on}`),
-        ...Array.match(end.assertions ?? [], { onEmpty: Array.empty, onNonEmpty: (names) => [`declares ${Format.list(names)}`] }),
-    ]);
-    const loaded = Array.getSuccesses(Array.fromNullishOr(load)).flatMap(({ idle, swapins = 0, swapouts = 0 }) => [...Array.fromNullishOr(idle).map((share) => `processors ${Format.percent(1 - share)} busy`), ...(swapins + swapouts > 0 ? [`${Format.count(swapins + swapouts)} pages swapped`] : [])]);
-    return Array.match([...spent, ...loaded], { onEmpty: Array.empty, onNonEmpty: (parts) => [new Line({ head: ['usage'], value: Format.list(parts) })] });
+const resolve = (target: Current, state: Instance['state'], { number, step, label }: { readonly number: number; readonly step: typeof Step.Type; readonly label: readonly string[] }) => {
+    const { instance } = target.live;
+    const plain = { number, label, opener: false, proving: Option.none<Omit<Parameters<InterfaceMap['prove']>[0], 'outcome'>>(), operation: Option.none<Parameters<Source['operate']>[0]>() };
+    const entry = (sent: typeof Wire.Step.Type, stated: Partial<typeof plain> = {}) => ({ ...plain, ...stated, step: sent });
+    const refer = (at: string) => Effect.flatMap(Address.reach(target, at), (node) => Address.intern(instance, node));
+    return Step.match(step, {
+        hold: (held) => Effect.succeed([entry(held)]),
+        key: ({ at, ...keyed }) => Effect.map(Effect.forEach(Array.fromNullishOr(at), refer), (refs) => [entry({ ...keyed, ...Option.getOrUndefined(Option.map(Array.head(refs), (ref) => ({ at: ref }))) })]),
+        pointer: Effect.fnUntraced(function* ({ in: within, _tag, ...pointing }: typeof Step.cases.pointer.Type) {
+            const [viewed, found] = yield* Effect.all([Handle.use((handle) => handle.get(View.Viewed)), Effect.forEach(Array.fromNullishOr(within), (at) => Address.reach(target, at))]);
+            const point = View.point(viewed, { instance, state, window: Array.head(found) });
+            const sample = ([x, y, ...pen]: Sample) => Result.map(point([x, y]), (pixel) => place([...pixel.at, ...pen], pixel.windows));
+            const [first, ...rest] = yield* Effect.forEach(Array.prepend(pointing.path ?? [], pointing.pointer), (at) => (Predicate.isString(at) ? Effect.map(refer(at), (ref) => place(ref, [])) : Effect.fromResult(sample(at))), { concurrency: 'unbounded' });
+            const held = yield* read(target);
+            const regions = Address.list(held).flatMap(({ element }) => Option.toArray(Option.all({ ref: Option.some(element.ref), locator: Address.route(held, element.ref), frame: Option.fromUndefinedOr(element._tag === 'control' && element.kind === 'region' ? element.frame : undefined) })));
+            const canvas = Array.findFirst(regions, ({ ref, frame: [[left, top], [width, height]] }) => (Predicate.isNumber(first.at) ? ref === first.at : first.at[0] >= left && first.at[0] < left + width && first.at[1] >= top && first.at[1] < top + height));
+            const pointer = Option.match(canvas, { onNone: () => first.at, onSome: ({ frame: [[left, top], [width, height]] }): number | Sample => (Predicate.isNumber(first.at) ? [left + width / 2, top + height / 2] : first.at) });
+            const path = rest.map((each) => each.at);
+            const [refs, samples] = Array.partition(path, (each) => (Predicate.isNumber(each) ? Result.succeed(each) : Result.fail(each)));
+            const windows = Array.dedupe([first, ...rest].flatMap((each) => each.windows));
+            const operation = Predicate.isNumber(pointer) || Array.isReadonlyArrayNonEmpty(refs) ? Option.none() : Option.map(canvas, ({ locator }) => ({ _tag, locator, input: { ...pointing, pointer, path: samples } }));
+            return [entry({ _tag, ...pointing, pointer, path, ...(Array.isReadonlyArrayEmpty(windows) ? {} : { windows }) }, { operation })];
+        }),
+        press: Effect.fnUntraced(function* (pressed: typeof Step.cases.press.Type) {
+            const node = yield* Address.reach(target, pressed.at);
+            const held = yield* read(target);
+            const openers = yield* Effect.fromResult(Address.open(held, node));
+            const [ref, ...refs] = yield* Effect.forEach(Array.prepend(openers, node), (each) => Address.intern(instance, each), { concurrency: 'unbounded' });
+            const last = Option.flatMap(locate(node), (at) => held.map.route(at));
+            const passed = Option.filter(last, Schema.is(Wire.Step.cases.press.fields.from.schema));
+            const to = Option.map(Option.liftPredicate(pressed.to, Schema.is(Element.Value)), (value) => ({ to: value }));
+            return [
+                ...Array.zipWith(openers, refs, (opener, at) =>
+                    entry({ _tag: pressed._tag, at }, { opener: true, label: ['at', ...Option.toArray(Option.firstSomeOf([opener.token, opener.path])), 'to reach', pressed.at], proving: Option.map(locate(opener), (found) => ({ at: found, from: 'accessibility' as const })) }),
+                ),
+                entry(
+                    { ...pressed, at: ref, ...Option.getOrUndefined(Option.map(passed, (from) => ({ from }))) },
+                    {
+                        proving: Option.map(locate(node), (found) => ({ at: found, from: Option.getOrElse(passed, () => 'accessibility' as const) })),
+                        operation: Option.map(Address.route(held, ref), (locator) => ({ _tag: pressed._tag, locator, ...Option.getOrUndefined(to) })),
+                    },
+                ),
+            ];
+        }),
+    });
 };
-const accepts = (item: Item, { to, range }: { readonly to?: typeof Element.Value.Type | readonly unknown[]; readonly range?: unknown }): Result.Result<Item, Cause.IllegalArgumentError> => {
-    const options = Match.value(item.target).pipe(
-        Match.tag('Control', ({ control }) => Option.map(Option.fromUndefinedOr(control.options), Array.map(Struct.get('label')))),
-        Match.tag('RememberedControl', ({ control }) => Option.filter(control.options, (listed): listed is readonly string[] => Array.isArray(listed))),
-        Match.orElse(() => Option.none<readonly string[]>()),
+const send = Effect.fnUntraced(function* (target: Current, state: Instance['state'], entries: Array.NonEmptyReadonlyArray<Effect.Success<ReturnType<typeof resolve>>[number]>, record: boolean) {
+    const [server, side, linked] = yield* Effect.all([ApplicationServer, View.Side, Address.Linked]);
+    const { operation, step } = Array.headNonEmpty(entries);
+    const drawn = yield* Effect.transposeOption(Option.map(operation, (payload) => Effect.result(Effect.flatMap(linked(target.row), (from) => from.operate(payload)))));
+    const source = Option.filter(Option.firstSomeOf([Option.map(View.front(state), (number): Capture['source'] => ({ _tag: 'windows', numbers: [number] })), Option.map(aim(step), (ref): Capture['source'] => ({ _tag: 'element', ref }))]), () => record);
+    const acted = yield* Effect.when(
+        server.act({ instance: target.live.instance, steps: Array.map(entries, (each) => each.step), ...Option.getOrUndefined(Option.map(source, (from) => ({ record: { source: from, longestSide: Option.some(side), keyFrameLimit: View.limit } }))) }),
+        Effect.succeed(Option.match(drawn, { onNone: Function.constTrue, onSome: (answer) => Result.isFailure(answer) && step._tag === 'pointer' })),
     );
-    const kind = Option.getOrUndefined(item.kind);
-    const taken = Match.value(to).pipe(
-        Match.when(Match.undefined, () => range === undefined || kind === 'text'),
-        Match.when(Match.boolean, () => kind === 'toggle' || kind === 'row'),
-        Match.when(Match.number, () => kind === 'number' || kind === 'measure' || kind === 'text'),
-        Match.when(Match.string, (label) => kind !== undefined && TEXTUAL.has(kind) && Option.match(options, { onNone: Function.constTrue, onSome: Array.contains(label) })),
-        Match.orElse(() => kind === undefined && item.target._tag !== 'Option'),
+    const outcomes: readonly Delivered[] = Option.match(acted, {
+        onNone: () => Option.toArray(drawn).map(Result.map((route) => ({ proof: 'answer' as const, ...(Wire.Route.guards.source(route) ? { route } : {}), tried: [], popUps: [] }))),
+        onSome: (held) => held.outcomes,
+    });
+    const frames = Option.map(
+        Option.flatMap(acted, (held) => Option.fromUndefinedOr(held.frames)),
+        Result.map(Array.map(({ markers = [], ...frame }) => ({ ...frame, markers: markers.map((marker) => (marker._tag === 'step' ? { ...marker, index: (entries[marker.index]?.number ?? marker.index + 1) - 1 } : marker)) }))),
     );
-    const listed = Option.filter(options, () => Predicate.isString(to));
-    const takes = Option.match(listed, { onNone: () => (to === undefined ? 'no range' : 'no such value'), onSome: (labels) => Format.list(labels.map(Format.quoted)) });
-    return taken ? Result.succeed(item) : Result.fail(new Cause.IllegalArgumentError([...Option.toArray(item.token), ...Option.toArray(item.name), ...Option.toArray(item.kind), 'takes', takes].join(' ')));
-};
-const prepared =
-    <E, R>(aimed: Effect.Success<typeof current>, map: InterfaceMap, state: Acted['state'], find: (at: string) => Effect.Effect<Item, E, R>) =>
-    ({ number, step, label }: { readonly number: number; readonly step: Step; readonly label: readonly string[] }) => {
-        const { instance } = aimed.live;
-        const refOf = Address.refOf(instance);
-        const reach = (at: string) => Effect.flatMap(find(at), refOf);
-        const plain = { number, label, opener: Option.none<number>(), at: Option.none<Option.Option.Value<ReturnType<typeof Address.locate>>>(), start: 'accessibility' as typeof Wire.Rung.Type, facet: Option.none<typeof Description.Operation.Type>() };
-        return Match.value(step).pipe(
-            Match.when(
-                { pointer: Match.defined },
-                Effect.fnUntraced(function* ({ in: within, ...pointing }: Extract<Step, { readonly pointer: unknown }>) {
-                    const [viewed, window] = yield* Effect.all([Handle.use((handle) => handle.get(Viewed)), Effect.transposeOption(Option.map(Option.fromUndefinedOr(within), find))]);
-                    const placed = pointOf(viewed, { instance, state, window });
-                    const sampled = ([x, y, ...rest]: typeof Sample.Type) => Result.map(placed([x, y]), ({ at: [left, top], windows }) => aimedAt([left, top, ...rest], windows));
-                    const aim = (at: typeof Position.Type) => (Predicate.isString(at) ? Effect.map(reach(at), (ref) => aimedAt(ref, [])) : Effect.fromResult(sampled(at)));
-                    const [first, ...path] = yield* Effect.forEach(Array.prepend(pointing.path ?? [], pointing.pointer), aim, { concurrency: 'unbounded' });
-                    const index = yield* indexOf(aimed);
-                    const route = Address.route(index);
-                    const canvases = Array.filterMap(index.items, ({ target }) =>
-                        target._tag === 'Control' && target.control.kind === 'region' ? Result.fromOption(Option.all({ ref: Option.some(target.control.ref), locator: route(target.control.ref), frame: Option.fromUndefinedOr(target.control.frame) }), Function.constVoid) : Result.failVoid,
-                    );
-                    const landed = Array.findFirst(canvases, ({ ref, frame: [[left, top], [width, height]] }) => (Predicate.isNumber(first.at) ? ref === first.at : first.at[0] >= left && first.at[0] < left + width && first.at[1] >= top && first.at[1] < top + height));
-                    const pointer = Option.match(landed, { onNone: () => first.at, onSome: ({ frame: [[left, top], [width, height]] }): number | typeof Sample.Type => (Predicate.isNumber(first.at) ? [left + width / 2, top + height / 2] : first.at) });
-                    const points = path.map(Struct.get('at'));
-                    const windows = Array.dedupe([first, ...path].flatMap(Struct.get('windows')));
-                    const samples = Array.filterMap(points, (point) => (Predicate.isNumber(point) ? Result.failVoid : Result.succeed(point)));
-                    const drawn = Predicate.isNumber(pointer) || samples.length < points.length ? Option.none() : Option.map(landed, ({ locator }): typeof Description.Operation.Type => ({ locator, input: { ...pointing, pointer, path: samples } }));
-                    return [{ ...plain, facet: drawn, step: { ...pointing, pointer, path: points, ...(Array.isReadonlyArrayEmpty(windows) ? {} : { windows }) } }];
-                }),
-            ),
-            Match.when({ key: Match.defined }, ({ at, ...keyed }) => Effect.map(Effect.transposeOption(Option.map(Option.fromUndefinedOr(at), reach)), (ref) => [{ ...plain, step: { ...keyed, ...Option.getOrUndefined(Option.map(ref, (held) => ({ at: held }))) } }])),
-            Match.when(
-                { at: Match.defined },
-                Effect.fnUntraced(function* (wanted: Extract<Step, { readonly at: string }>) {
-                    const item = yield* Effect.flatMap(find(wanted.at), (found) => Effect.fromResult(accepts(found, wanted)));
-                    const index = yield* indexOf(aimed);
-                    const opening = item.live ? [] : yield* Effect.fromResult(Address.opening(Address.recall(index)(map), item));
-                    const [ref, refs] = yield* Effect.all([refOf(item), Effect.forEach(opening, refOf, { concurrency: 'unbounded' })], { concurrency: 'unbounded' });
-                    const located = Address.locate(item);
-                    const from = Option.filter(Option.flatMap(located, map.route.bind(map)), (rung): rung is Exclude<typeof Wire.Rung.Type, 'source'> => rung !== 'source');
-                    const to = Option.map(Option.filter(Option.fromUndefinedOr(wanted.to), Schema.is(Element.Value)), (value) => ({ to: value }));
-                    return [
-                        ...Array.zipWith(opening, refs, (opener, at) => ({ ...plain, label: ['at', Option.getOrElse(opener.token, () => Address.path(opener).join(Address.separator)), 'to reach', wanted.at], opener: Option.some(at), at: Address.locate(opener), step: { at } })),
-                        {
-                            ...plain,
-                            at: located,
-                            start: Option.getOrElse(from, () => plain.start),
-                            facet: Option.map(Address.route(index)(ref), (locator): typeof Description.Operation.Type => ({ locator, ...Option.getOrUndefined(to) })),
-                            step: { ...wanted, at: ref, ...Option.getOrUndefined(Option.map(from, (rung) => ({ from: rung }))) },
-                        },
-                    ];
-                }),
-            ),
-            Match.orElse((held) => Effect.succeed([{ ...plain, step: held }])),
+    return { entries, outcomes, acted, recording: Option.all({ source, frames }) };
+});
+const round = (target: Current, record: boolean) =>
+    Effect.fnUntraced(function* ({ state, rest }: { readonly state: Instance['state']; readonly rest: readonly Parameters<typeof resolve>[2][] }) {
+        const resolved = yield* Stream.fromIterable(rest).pipe(
+            Stream.mapEffect((each) => Effect.result(resolve(target, state, each))),
+            Stream.takeUntil(Result.isFailure),
+            Stream.runCollect,
         );
-    };
-const rowOf = (index: Index, proven: HashSet.HashSet<number>, changed: boolean) => {
-    const named = (ref: number) => Option.match(Record.get(index.live, `${ref}`), { onNone: Array.empty<string>, onSome: (item) => [...Option.toArray(item.token), ...Option.toArray(Option.map(item.name, Format.quoted))] });
-    return (head: readonly string[], step: object, outcome: Acted['outcomes'][number]) => {
-        const wheel = 'by' in step;
-        const hover = 'button' in step && step.button === 'none' && !wheel;
-        return Result.match(outcome, {
-            onFailure: ({ message }) => new Line({ head, value: 'failed', facts: [message] }),
-            onSuccess: (delivery) => {
-                const { proof, route, presentation, popUps, scrolled } = delivery;
-                const word = Match.value(delivery).pipe(
-                    Match.when({ resolved: Match.defined }, ({ resolved: { ref, effect } }) => Option.some([effect, ...named(ref)].join(' '))),
-                    Match.when({ proof: 'standing' }, ({ surface }) => Option.some([PROOFS.standing, ...Array.fromNullishOr(surface).flatMap(named)].join(' '))),
-                    Match.when({ proof: 'answer' }, () => Option.some<string>(changed ? PROOFS.change : PROOFS.answer)),
-                    Match.when({ proof: 'posting', followed: (promise) => HashSet.has(proven, promise) }, () => Option.some<string>(PROOFS.change)),
-                    Match.when({ proof: 'posting' }, () => Option.liftPredicate<string>(PROOFS.posting, () => !hover)),
-                    Match.orElse(() => Option.some<string>(PROOFS[proof])),
-                );
-                const moved = Array.fromNullishOr(scrolled).flatMap((held) => (wheel ? [...Outline.scrolled(held.vertical, held.horizontal), ...Outline.showing(held)] : Outline.scrolled(held.vertical, held.horizontal).map((first) => `${first} first`)));
-                return new Line({
-                    head,
-                    ...Option.getOrUndefined(Option.map(word, (value) => ({ value }))),
-                    facts: [
-                        ...moved,
-                        ...(route?._tag === 'source' ? [`drawn by ${route.member}`, ...Array.match(route.approximated, { onEmpty: Array.empty, onNonEmpty: (lost) => [`without ${Format.list(lost)}`] })] : []),
-                        ...(route?._tag === 'focused' ? ['window focused'] : []),
-                        ...(presentation?._tag === 'restored' ? ['brought forward', presentation.back ? 'put back' : 'put back refused'] : []),
-                        ...Record.collect(
-                            Record.filter({ closed: Array.countBy(popUps, Struct.get('closed')), 'left open': Array.countBy(popUps, ({ closed }) => !closed) }, (amount) => amount > 0),
-                            (left, amount) => `${Format.count(amount, Outline.nouns.popUp)} ${left}`,
-                        ),
-                    ],
-                });
-            },
-        });
-    };
+        const [ready, refusals] = Array.partition(resolved, Function.identity);
+        const left = Array.drop(rest, ready.length);
+        const entries = Array.dedupeWith(ready.flat(), (each, other) => each.opener && other.opener && Equal.equals(each.step, other.step));
+        const recording = record && entries.every(({ operation }) => Option.isNone(operation));
+        const groups = Array.match(entries, { onEmpty: () => [], onNonEmpty: (held) => Array.groupWith(held, (each, next) => Option.isNone(each.operation) && Option.isNone(next.operation)) });
+        const ran = yield* Stream.fromIterable(groups).pipe(
+            Stream.mapEffect((group) => send(target, state, group, recording)),
+            Stream.takeUntil(({ outcomes }) => outcomes.some(ends)),
+            Stream.runCollect,
+        );
+        const refused = Array.zipWith(left, Array.isReadonlyArrayEmpty(entries) ? refusals : [], (each, failure) => Result.fail({ ...each, failure }));
+        const acted = Array.last(Array.getSomes(ran.map((each) => each.acted)));
+        const next = { state: Option.match(acted, { onNone: () => state, onSome: (held) => held.state }), rest: left };
+        const more = Option.liftPredicate(next, () => Array.isReadonlyArrayNonEmpty(left) && Array.isReadonlyArrayEmpty(refused) && !ran.some(({ outcomes }) => outcomes.some(ends)));
+        return [[...ran.map((each) => Result.succeed(each)), ...refused], more] as const;
+    });
+const diagnose = ({ usage, load }: NonNullable<(typeof Wire.Outcome.Type)['diagnosis']>) => [
+    Result.match(usage, {
+        onFailure: unread('usage'),
+        onSuccess: ({ cause, duration, end, ...spent }) => {
+            const kept = Record.filter(spent, (held) => (Duration.isDuration(held) ? !Duration.isZero(held) : held > 0));
+            const asserted = Array.getSuccesses([end.powerAssertions]).flat();
+            return new Line({
+                head: ['usage'],
+                value: cause,
+                facts: [Format.duration(duration), ...Record.collect(kept, (key, held) => `${String.noCase()(key)}: ${Duration.isDuration(held) ? Format.duration(held) : Format.bytes(ByteSize.bytes(held))}`), ...(Array.isReadonlyArrayEmpty(asserted) ? [] : [`power assertions: ${Format.list(asserted)}`])],
+            });
+        },
+    }),
+    Result.match(load, {
+        onFailure: unread('load'),
+        onSuccess: ({ processorIdle, swapins = 0, swapouts = 0 }) =>
+            new Line({ head: ['load'], facts: [...Array.fromNullishOr(processorIdle).map((idle) => `processor idle: ${Format.percent(idle)}`), ...Record.collect(Record.filter({ swapins, swapouts }, Number.isGreaterThan(0)), (key, pages) => `${key}: ${Format.count(pages)}`)] }),
+    }),
+];
+const line = (
+    { shown, proven, changed, numbered }: { readonly shown: Address; readonly proven: HashSet.HashSet<number>; readonly changed: boolean; readonly numbered: boolean },
+    { number, label }: { readonly number: number; readonly label: readonly string[] },
+    outcome: Delivered,
+    sent: Option.Option<typeof Wire.Step.Type>,
+) => {
+    const head = numbered ? [`${number}.`, ...label] : label;
+    const name = (ref: number) => Option.match(Address.get(shown, ref), { onNone: Array.empty<string>, onSome: (node) => [...Option.toArray(node.token), ...Option.toArray(Option.map(node.name, Format.quoted))] });
+    return Result.match(outcome, {
+        onFailure: (failure) => {
+            const next = Option.flatMap(Option.liftPredicate(failure, Schema.is(ApplicationFailure)), ({ reason }) => Record.get(NEXT, reason));
+            return new Line({ head, value: Option.isSome(sent) ? 'failed' : 'not run', facts: [failure.message], ...Option.getOrUndefined(Option.map(next, (call) => ({ call }))) });
+        },
+        onSuccess: ({ proof, followed, resolved, surface, route, presentation, popUps, scrolled }) => {
+            const pointing = Option.filter(sent, Wire.Step.isAnyOf(['pointer']));
+            const wheel = Option.exists(pointing, ({ by }) => by !== undefined);
+            const told = (proof === 'answer' && changed) || (proof === 'posting' && followed !== undefined && HashSet.has(proven, followed)) ? 'change' : proof;
+            const said = Match.value({ resolved, told, hover: !wheel && Option.exists(pointing, ({ button }) => button === 'none') }).pipe(
+                Match.when({ resolved: Match.defined }, ({ resolved: found }) => [found.effect, ...name(found.ref)]),
+                Match.when({ told: 'posting', hover: true }, Array.empty<string>),
+                Match.orElse(() => [PROOFS[told] ?? told, ...Array.fromNullishOr(surface).flatMap(name)]),
+            );
+            const drawn = Wire.Route.matchOrElse({ source: ({ member, approximated }) => [`drawn by ${member}`, ...(Array.isReadonlyArrayEmpty(approximated) ? [] : [`without ${Format.list(approximated)}`])], focused: () => ['window focused'] }, Array.empty<string>);
+            const closed = Record.filter({ closed: Array.countBy(popUps, (each) => each.closed), 'left open': Array.countBy(popUps, (each) => !each.closed) }, Number.isGreaterThan(0));
+            return new Line({
+                head,
+                ...Array.match(said, { onEmpty: () => ({}), onNonEmpty: (words) => ({ value: words.join(' ') }) }),
+                facts: [
+                    ...Array.fromNullishOr(scrolled).flatMap((held) => Outline.scroll(held, wheel)),
+                    ...Array.fromNullishOr(route).flatMap(drawn),
+                    ...Array.fromNullishOr(presentation).flatMap(Instance.Presentation.matchOrElse({ restored: ({ back }) => ['brought forward', back ? 'put back' : 'put back refused'] }, Array.empty<string>)),
+                    ...Record.collect(closed, (left, amount) => `${Format.count(amount, Outline.nouns.popUp)} ${left}`),
+                ],
+            });
+        },
+    });
 };
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 const Act = {
     tool,
-    handle: Effect.fnUntraced(function* ({ steps, record = false }: Tool.Parameters<typeof tool>) {
-        const aimed = yield* current;
-        const { row, live } = aimed;
-        const [server, maps, handle, side, source, { call, awaitRunning }] = yield* Effect.all([ApplicationServer, InterfaceMap.Store, Handle, Side, Source, ToolCall]);
-        const { changes } = server;
+    run: Effect.fnUntraced(function* ({ steps, record = false }: Tool.Parameters<typeof tool>) {
+        const target = yield* Target.current;
+        const { row, live } = target;
+        const [server, maps, handle, { call, awaitRunning }] = yield* Effect.all([ApplicationServer, InterfaceMap.Store, Handle, ToolCall]);
         const proofs = yield* Ref.make(HashSet.empty<number>());
-        yield* changes.pipe(
+        yield* server.changes.pipe(
             Stream.filterMap(({ instance, change }) => (instance === live.instance && change._tag === 'proven' ? Result.succeed(change.followed) : Result.failVoid)),
             Stream.runForEach((followed) => Ref.update(proofs, HashSet.add(followed))),
             Effect.forkScoped({ startImmediately: true }),
         );
-        const numbered = Array.map(steps, (step, at) => ({ number: at + 1, step, label: labelOf(step) }));
-        const head = ({ number, label }: { readonly number: number; readonly label: readonly string[] }) => (steps.length > 1 ? [`${number}.`, ...label] : label);
-        const [begun, map] = yield* Effect.all([indexOf(aimed), maps.recall(live)]);
-        const settled = (at: string) => Effect.flatMap(indexOf(aimed), (index) => Effect.fromResult(Result.orElse(Address.resolve(index, at), () => Address.resolve(Address.recall(index)(map), at))));
-        const client = yield* Effect.cached(source(row));
-        const sent = Effect.fnUntraced(function* (entries: Array.NonEmptyReadonlyArray<Entry>, state: Acted['state'], recording: boolean) {
-            const around = Option.firstSomeOf([Option.map(frontOf(state), (number): Capture['source'] => ({ _tag: 'windows', numbers: [number] })), Option.map(aimOf(Array.headNonEmpty(entries).step), (ref): Capture['source'] => ({ _tag: 'element', ref }))]);
-            const taken = Option.filter(around, () => recording);
-            const acted = yield* server.act({ instance: live.instance, steps: Array.map(entries, Struct.get('step')), ...Option.getOrUndefined(Option.map(taken, (from) => ({ record: { source: from, longestSide: Option.some(side), frames: FRAMES } }))) });
-            return piece({ entries, outcomes: acted.outcomes, acted: Option.some(acted), source: taken, notes: recording && Option.isNone(around) ? [new Line({ head: ['not recorded'], value: 'no window shown and no element aimed at' })] : [] });
-        });
-        const operate = (state: Acted['state']) =>
-            Effect.fnUntraced(function* ([entry, facet]: readonly [Entry, typeof Description.Operation.Type]) {
-                const answered = yield* Effect.result(Effect.flatMap(client, (from) => from.operate(facet)));
-                const refused = Result.match(answered, { onSuccess: Array.empty, onFailure: ({ message }) => [{ rung: 'source' as const, failure: message }] });
-                const through = Result.isFailure(answered) && 'input' in facet ? Option.some(yield* sent([entry], state, false)) : Option.none();
-                return Option.match(through, {
-                    onNone: () => piece({ entries: [entry], outcomes: [Result.map(answered, (drawn) => ({ proof: 'answer' as const, ...(Schema.is(Wire.Route)(drawn) ? { route: drawn } : {}), tried: [], popUps: [] }))] }),
-                    onSome: (fallen) =>
-                        piece({
-                            ...fallen,
-                            outcomes: Array.map(
-                                fallen.outcomes,
-                                Result.mapBoth({
-                                    onSuccess: (delivery) => ({ ...delivery, tried: [...refused, ...delivery.tried] }),
-                                    onFailure: (cause) => new Cause.UnknownError(cause, [cause.message, ...refused.map(({ failure }) => `source refused, ${failure}`)].join(', ')),
-                                }),
-                            ),
-                        }),
-                });
-            });
-        const reaching = (at: string) => Address.reach(aimed, at);
-        const pieces = yield* Stream.runCollect(
-            Stream.paginate(
-                { state: live.state, rest: Array.fromIterable(numbered) },
-                Effect.fnUntraced(function* ({ state: before, rest }) {
-                    const resolved = yield* Stream.fromIterable(rest).pipe(
-                        Stream.mapEffect((each) => Effect.result(prepared(aimed, map, before, reaching)(each))),
-                        Stream.takeUntil(Result.isFailure),
-                        Stream.runCollect,
-                    );
-                    const [ready, refusals] = Array.partition(resolved, Function.identity);
-                    const entries = Array.dedupeWith(ready.flat(), (left, right) => Option.isSome(left.opener) && Equal.equals(left.opener, right.opener));
-                    const left = Array.drop(rest, ready.length);
-                    if (!Array.isReadonlyArrayNonEmpty(entries)) {
-                        const others = yield* Effect.forEach(Array.drop(left, 1), (each) => Effect.result(prepared(aimed, map, before, settled)(each)), { concurrency: 'unbounded' });
-                        const alike = Array.zip(Array.drop(left, 1), others).flatMap(([each, other]) => (Result.isFailure(other) && refusals.some(sharing(other.failure)) ? [each] : []));
-                        const stopped = [...Array.take(left, 1), ...alike];
-                        const named = Format.list(stopped.map((each) => head(each).join(' ')));
-                        const notes = refusals.map(({ message }) => new Line({ head: [named], value: 'not run', facts: [message] }));
-                        return [[piece({ entries: [], outcomes: [], notes, refused: stopped.map(Struct.get('number')) })], Option.none()] as const;
-                    }
-                    const recording = record && entries.every(({ facet }) => Option.isNone(facet));
-                    const ran = yield* Stream.fromIterable(Array.groupWith(entries, (each, next) => Option.isSome(each.facet) === Option.isSome(next.facet))).pipe(
-                        Stream.flatMap((group) =>
-                            Option.match(Option.all(Array.map(group, Struct.get('facet'))), {
-                                onNone: () => Stream.fromEffect(sent(group, before, recording)),
-                                onSome: (facets) => Stream.mapEffect(Stream.fromIterable(Array.zip(group, facets)), operate(before)),
-                            }),
-                        ),
-                        Stream.takeUntil(({ outcomes }) => ending(outcomes)),
-                        Stream.runCollect,
-                    );
-                    const after = Option.match(Array.last(Array.getSomes(ran.map(Struct.get('acted')))), { onNone: () => before, onSome: Struct.get('state') });
-                    const more = Array.isReadonlyArrayEmpty(left) || ran.some(({ outcomes }) => ending(outcomes)) ? Option.none() : Option.some({ state: after, rest: left });
-                    return [ran, more] as const;
-                }),
-            ),
-        );
-        const ran = pieces.flatMap(({ entries, outcomes }) => Array.zip(entries, outcomes));
-        const acted = Array.getSomes(pieces.map(Struct.get('acted')));
-        const state = Option.match(Array.last(acted), { onNone: () => live.state, onSome: Struct.get('state') });
-        const delivered = Array.getSuccesses(ran.map(([, outcome]) => outcome));
+        const before = yield* read(target);
+        const numbered = yield* Effect.forEach(steps, (step, at) => Effect.map(Effect.orDie(Schema.encodeEffect(Step)(step)), (written) => ({ number: at + 1, step, label: echo(written) })));
+        const rounds = yield* Stream.runCollect(Stream.paginate({ state: live.state, rest: Array.fromIterable(numbered) }, round(target, record)));
+        const [runs, refused] = Array.partition(rounds, Function.identity);
+        const ran = runs.flatMap(({ entries, outcomes }) => Array.zipWith(entries, outcomes, (entry, outcome) => ({ ...entry, outcome })));
+        const acted = Array.getSomes(runs.map((each) => each.acted));
+        const recordings = Array.getSomes(runs.map((each) => each.recording));
+        const state = Option.match(Array.last(acted), { onNone: () => live.state, onSome: (held) => held.state });
+        const delivered = Array.getSuccesses(ran.map((each) => each.outcome));
         const answering = Instance.State.matchOrElse(state, { running: ({ status }) => status._tag === 'responding' }, Function.constFalse);
         const unanswered = delivered.some(({ proof }) => proof === 'unanswered');
-        const touched = new Set([...ran.flatMap(([{ step }]) => Option.toArray(aimOf(step))), ...delivered.flatMap(({ resolved }) => Array.fromNullishOr(resolved?.ref))]);
-        const after = yield* Effect.result(Effect.when(read(aimed), Effect.succeed(Array.isReadonlyArrayNonEmpty(delivered) && answering)));
-        const changed = after.pipe(Result.map(Option.map(({ base }) => Outline.changes(begun, base, touched))));
+        const touched = new Set([...ran.flatMap(({ step }) => Option.toArray(aim(step))), ...delivered.flatMap(({ resolved }) => Array.fromNullishOr(resolved?.ref))]);
+        const after = yield* Effect.result(Effect.when(Address.read(target), Effect.succeed(Array.isReadonlyArrayNonEmpty(delivered) && answering)));
+        const now = Result.getSuccess(after).pipe(
+            Option.flatten,
+            Option.getOrElse(() => before),
+        );
+        const changes = after.pipe(Result.map(Option.map((held) => Outline.changes(before, held, touched))));
         const proven = yield* Ref.get(proofs);
-        const promised = ran.flatMap(([{ number, label }, outcome]) => Array.fromNullishOr(Result.getOrUndefined(outcome)?.followed).map((followed) => Tuple.make({ instance: live.instance, followed }, { call, step: number, head: label })));
-        const helped = pieces.flatMap(({ entries, outcomes, acted: through }) => (Option.isSome(through) ? Array.zip(entries, outcomes) : []));
         yield* maps.prove(
             live,
-            helped.flatMap(([{ at, start }, outcome]) => Option.toArray(at).map((routed) => ({ at: routed, from: start, outcome }))),
+            ran.flatMap(({ proving, operation, outcome }) => (Option.isSome(operation) ? [] : Option.toArray(proving).map((held) => ({ ...held, outcome })))),
         );
-        yield* handle.update(Proving, HashMap.union(HashMap.fromIterable(promised.filter(([{ followed }]) => !HashSet.has(proven, followed)))));
+        const owed = ran.flatMap(({ number, label, outcome }) => Array.fromNullishOr(Result.getOrUndefined(outcome)?.followed).flatMap((followed) => (HashSet.has(proven, followed) ? [] : [Tuple.make({ instance: live.instance, followed }, { call, step: number, head: label })])));
+        yield* handle.update(Notice.Proving, HashMap.union(HashMap.fromIterable(owed)));
         yield* awaitRunning;
-        const subject = yield* Outline.subject(row.name, { instance: live.instance, state }, { troubled: unanswered || ran.some(([, outcome]) => Result.isFailure(outcome)), keyed: ran.some(([{ step }]) => 'key' in step || ('to' in step && Predicate.isString(step.to))) });
-        const pasted = Option.toArray(Array.last(acted.flatMap(({ pasteboard }) => Array.fromNullishOr(pasteboard))));
-        const clipboard = yield* Effect.forEach(pasted, (taken) =>
-            taken.pipe(
-                Effect.fromResult,
-                Effect.flatMap((pasteboard) => Outline.clipped(live.instance, pasteboard, false)),
-                Effect.result,
+        const subject = yield* Outline.subject(row.name, { instance: live.instance, state }, { troubled: unanswered || ran.some(({ outcome }) => Result.isFailure(outcome)), keyed: ran.some(({ step }) => step._tag === 'key' || (step._tag === 'press' && Predicate.isString(step.to))) });
+        const clipboard = yield* Effect.forEach(Option.toArray(Array.findLast(acted, ({ pasteboard }) => Option.fromUndefinedOr(pasteboard))), (taken) =>
+            Effect.match(
+                Effect.flatMap(Effect.fromResult(taken), (pasteboard) => Outline.clipboard(live.instance, pasteboard, false)),
+                { onFailure: (failure) => [unread('clipboard')(failure)], onSuccess: Function.identity },
             ),
         );
-        const recorded = pieces.flatMap(({ entries, acted: through, source: from }) => Option.toArray(Option.all({ from, recording: Option.flatMapNullishOr(through, Struct.get('recording')) })).map((taken) => ({ ...taken, entries })));
-        const frames = yield* attach(recorded.flatMap(({ from, recording, entries }) => Result.match(recording, { onFailure: Array.empty, onSuccess: (taken) => keyFramesOf({ instance: live.instance, state }, from, renumbered(entries, taken)) })));
-        const written = acted.flatMap(({ written: paths }) => Array.fromNullishOr(paths));
-        const stepped = rowOf(Result.match(after, { onFailure: () => begun, onSuccess: Option.match({ onNone: () => begun, onSome: Struct.get('base') }) }), proven, Result.isSuccess(changed) && Option.exists(changed.success, Array.isReadonlyArrayNonEmpty));
-        const done = new Set([...ran.flatMap(([{ number, opener }]) => (Option.isNone(opener) ? [number] : [])), ...pieces.flatMap(Struct.get('refused'))]);
+        const frames = yield* View.attach(recordings.flatMap(({ source, frames: taken }) => Result.match(taken, { onFailure: Array.empty, onSuccess: (held) => View.frames({ instance: live.instance, state }, source, held) })));
+        const written = acted.flatMap((held) => Array.fromNullishOr(held.written));
+        const seen = { shown: now, proven, changed: Result.getSuccess(changes).pipe(Option.flatten, Option.exists(Array.isReadonlyArrayNonEmpty)), numbered: steps.length > 1 };
+        const reached = Array.last([...ran.flatMap(({ opener, number }) => (opener ? [] : [number])), ...refused.map(({ number }) => number)]);
+        const unrun = Array.drop(numbered, Option.getOrUndefined(reached) ?? 0);
         return new Report({
             lines: [
                 ...subject,
-                ...ran.map(([entry, outcome]) => stepped(Option.isNone(entry.opener) ? head(entry) : entry.label, entry.step, outcome)),
-                ...pieces.flatMap(Struct.get('notes')),
-                ...Array.match(
-                    numbered.filter(({ number }) => !done.has(number)),
-                    { onEmpty: Array.empty, onNonEmpty: (rest) => [new Line({ head: ['not run'], value: Format.list(rest.map(({ number, label }) => ['step', `${number}`, ...label].join(' '))) })] },
-                ),
-                ...Result.match(changed, {
-                    onFailure: ({ message }) => [new Line({ head: ['changes'], value: 'unread', facts: [message] })],
+                ...ran.map((each) => line(seen, each, each.outcome, Option.some(each.step))),
+                ...refused.map((each) => line(seen, each, Result.fail(each.failure), Option.none())),
+                ...Array.match(unrun, { onEmpty: Array.empty, onNonEmpty: (rest) => [new Line({ head: ['not run'], value: Format.list(rest.map(({ number, label }) => ['step', `${number}`, ...label].join(' '))) })] }),
+                ...Result.match(changes, {
+                    onFailure: (failure) => [unread('changes')(failure)],
                     onSuccess: Option.match({ onNone: Array.empty<Line>, onSome: (lines) => (Array.isReadonlyArrayEmpty(lines) ? [new Line({ head: ['nothing shown changed'] })] : lines) }),
                 }),
-                ...(answering && !unanswered ? [] : Option.toArray(Array.last(acted)).flatMap(diagnose)),
-                ...Array.dedupe(Array.getFailures(written).map(Struct.get('message'))).map((message) => new Line({ head: ['written'], value: 'unread', facts: [message] })),
+                ...(answering && !unanswered ? [] : Option.toArray(Option.flatMapNullishOr(Array.last(acted), (held) => held.diagnosis)).flatMap(diagnose)),
+                ...Array.dedupe(Array.getFailures(written).map(unread('written'))),
                 ...Array.match(Array.getSuccesses(written).flat(), { onEmpty: Array.empty, onNonEmpty: (urls) => [new Line({ head: ['written'], value: Format.list(urls.map((url) => Format.quoted(Format.path(url)))) })] }),
-                ...clipboard.flatMap(Result.match({ onFailure: ({ message }) => [new Line({ head: ['clipboard'], value: 'unread', facts: [message] })], onSuccess: Function.identity })),
-                ...Array.getFailures(recorded.map(Struct.get('recording'))).map(({ message }) => new Line({ head: ['recording'], value: 'failed', facts: [message] })),
+                ...clipboard.flat(),
+                ...Array.getFailures(recordings.map((each) => each.frames)).map(unread('recording')),
                 ...frames,
-                ...(record && ran.some(([{ facet }]) => Option.isSome(facet)) ? [new Line({ head: ['not recorded'], value: 'a linked source ran a step' })] : []),
+                ...(record && Array.isReadonlyArrayNonEmpty(runs) && Array.isReadonlyArrayEmpty(recordings) ? [new Line({ head: ['not recorded'], value: ran.some(({ operation }) => Option.isSome(operation)) ? 'a linked source ran a step' : 'no window shown and no element aimed at' })] : []),
             ],
         });
     }, Effect.scoped),

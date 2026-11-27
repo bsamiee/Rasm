@@ -13,6 +13,7 @@ struct Input: Hashable, Sendable {
         case hover
         case wheel(by: SIMD2<Double>, unit: CGScrollEventUnit)
         case key(Key)
+        case modifiers
 
         var description: String {
             switch self {
@@ -25,6 +26,7 @@ struct Input: Hashable, Sendable {
                 case .key(.special(let special)): "key \(special.rawValue)"
                 case .key(.character(let character)): "key \(String(character).debugDescription)"
                 case .key(.code(let code)): "key code \(code)"
+                case .modifiers: "modifier hold"
             }
         }
     }
@@ -84,7 +86,7 @@ extension Input {
         guard least <= replyDeadline else {
             throw ApplicationFailure(
                 subject: "A run of \(schedule.count) presses of \(contact) every \(every.formatted(.units(allowed: [.seconds, .milliseconds], width: .abbreviated)))",
-                reason: .pastDeadline,
+                reason: .pastReplyDeadline,
             )
         }
         let initial: (start: Duration, clickState: Int64, number: Int64, edges: Set<Edge>) = (.zero, first.clickState, first.number, edges.union(schedule.count > 1 ? [Edge.up] : []))
@@ -186,6 +188,7 @@ extension Input {
                     return try bracket(added, holding: held, around: typed, edges: posted)
                 }
                 .flatMap(\.self)
+            case .modifiers: course = []
         }
         let proximity: [[(offset: Duration, event: CGEvent)]] = try Edge.allCases.map { edge throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] in
             guard pen, edges.contains(edge) else { return [] }
@@ -212,7 +215,7 @@ extension Input {
             built.append((inner.first?.offset ?? .zero, modifier, (built.last?.flags ?? base).union(modifier.key.flag)))
         }
         let closing: [(offset: Duration, modifier: Modifier, flags: CGEventFlags)] = (edges.contains(.up) ? added : []).reversed().reduce(into: []) { built, modifier in
-            built.append((inner.last?.offset ?? .zero, modifier, (built.last?.flags ?? all).subtracting(modifier.key.flag)))
+            built.append((inner.last?.offset ?? hold, modifier, (built.last?.flags ?? all).subtracting(modifier.key.flag)))
         }
         let changed: [(offset: Duration, event: CGEvent)] = try (opening + closing).map { offset, modifier, flags throws(ApplicationFailure) -> (offset: Duration, event: CGEvent) in
             (offset, try event(from: CGEvent(keyboardEventSource: nil, virtualKey: modifier.key.code, keyDown: flags.contains(modifier.key.flag)), at: path.first?.at, flags: flags))

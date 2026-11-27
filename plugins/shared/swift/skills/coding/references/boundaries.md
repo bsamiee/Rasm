@@ -72,7 +72,7 @@ extension AppleEventValue: Decodable {
 `AppleEventValue` is a recursive enum holding `null`, `type(String)`, `file(URL)`, and `specifier(want:seld:from:)`:
 - Nested values decode through `decode(Self.self, forKey:)` on the same decoder, one parse at every depth
 - Hand `init(from:)` also states a fact synthesis loses: `contains(.result)` tells `"result": null` from a missing key, and a cross-field rule throws `dataCorrupted` in the same initializer
-- `encodeIfPresent(usage?[case: \.success], forKey: .usage)` writes an optional `Result` field's success and omits absence and failure
+- `EncodedResult(usage)` from `Results` writes a `Result` field whole, its success or its typed failure, where a success-only `encodeIfPresent` dropped the failure
 - `CaseTagged` and `CaseLabeled` from `Encoding` write a case as `{"_tag": "<case>", <fields>}` and as its label, where synthesis keys the payload by case and nests an unlabeled one under `_0`
 
 ## [02]-[FILES]

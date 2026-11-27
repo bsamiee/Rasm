@@ -42,10 +42,12 @@ extension Message: Encodable where Payload: Encodable, Fault: Encodable {}
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-package struct JSONRPCError: Error, Codable {
+package struct JSONRPCError: Error, Codable, CustomStringConvertible {
     package let code: Int
     let message: String
     let data: JSONValue?
 
     package init(code: Int, message: String, data: JSONValue? = nil) { (self.code, self.message, self.data) = (code, message, data) }
+
+    package var description: String { "\(code) \(message)" }
 }

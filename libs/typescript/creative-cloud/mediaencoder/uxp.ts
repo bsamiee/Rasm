@@ -70,8 +70,8 @@ const toEvent = ({ containment, RenderQueue }: MediaEncoder['Service'], name: st
     ),
     detail: Option.liftPredicate(detail, (held) => Array.isReadonlyArrayNonEmpty(Struct.keys(held))),
 });
-const listen = (select: (service: MediaEncoder['Service']) => readonly [() => unknown, Array.NonEmptyReadonlyArray<string>]) => ({
-    changes: Stream.unwrap(
+const listen = (select: (service: MediaEncoder['Service']) => readonly [() => unknown, Array.NonEmptyReadonlyArray<string>]) =>
+    Stream.unwrap(
         MediaEncoder.use(
             Effect.fnUntraced(function* (service) {
                 const [instance, names] = select(service);
@@ -92,13 +92,12 @@ const listen = (select: (service: MediaEncoder['Service']) => readonly [() => un
                 ).pipe(Stream.mapEffect(([name, event]) => Effect.map(Schema.decodeUnknownEffect(Payload)(event), (payload) => toEvent(service, name, payload))));
             }),
         ),
-    ),
-});
+    );
 const execute = (code: string) => MediaEncoder.use(({ containment }) => Uxp.execute(containment, code));
-const events = {
-    renderQueue: listen(({ RenderQueue }) => [() => RenderQueue.getInstance(), [RenderQueue.RENDER_QUEUE_STATUS_CHANGED, RenderQueue.NEXT_JOB_ENCODING_EVENT, RenderQueue.MEDIA_ITEM_CREATED_EVENT, RenderQueue.ENCODE_COMPLETE_EVENT]]),
-    watchFolder: listen(({ WatchFolder }) => [() => WatchFolder.getInstance(), [WatchFolder.WATCH_FOLDER_ENCODER_STATUS_CHANGED]]),
-};
+const events = Stream.merge(
+    listen(({ RenderQueue }) => [() => RenderQueue.getInstance(), [RenderQueue.RENDER_QUEUE_STATUS_CHANGED, RenderQueue.NEXT_JOB_ENCODING_EVENT, RenderQueue.MEDIA_ITEM_CREATED_EVENT, RenderQueue.ENCODE_COMPLETE_EVENT]]),
+    listen(({ WatchFolder }) => [() => WatchFolder.getInstance(), [WatchFolder.WATCH_FOLDER_ENCODER_STATUS_CHANGED]]),
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

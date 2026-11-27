@@ -1,6 +1,5 @@
-import { Description } from '@rasm/applications/description';
+import type { Description } from '@rasm/applications/description';
 import type { Act } from '@rasm/applications/server/act';
-import type { Upstream } from '@rasm/mcp/upstream';
 import { Containment, format } from '@rasm/object-model/host';
 import { HostError } from '@rasm/object-model/model';
 import type { Render } from '@rasm/object-model/rpcs';
@@ -16,7 +15,7 @@ import type { Bounds } from 'photoshop/dom/objects/Bounds';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Leaf = Pick<typeof Description.Control.Type, 'kind' | 'role' | 'value' | 'selected'> & { readonly write: (to: unknown) => Option.Option<unknown> };
+type Leaf = Pick<Description['containers'][number]['controls'][number], 'kind' | 'role' | 'value' | 'selected'> & { readonly write: (to: unknown) => Option.Option<unknown> };
 interface Route {
     readonly member: string;
     readonly carries: (typeof Act.Input.Type)['modifiers'];
@@ -56,32 +55,32 @@ const ActiveTool = Schema.Struct({ key: Schema.String, title: Schema.String, cla
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Notifications extends Context.Service<Notifications, { readonly events: Stream.Stream<Stream.Success<Upstream['events']>, HostError>; readonly changes: Stream.Stream<unknown, HostError>; readonly operations: Effect.Effect<readonly string[]> }>()('@rasm/photoshop/uxp/Notifications') {
-    static readonly layer = Layer.effect(Notifications)(
-        Effect.gen(function* () {
-            const entered = yield* SubscriptionRef.make<Record.ReadonlyRecord<string, string>>({});
-            const track = (name: string, descriptor: unknown) =>
-                Option.match(
-                    Option.flatMap(Schema.decodeUnknownOption(ModalState)(descriptor), ({ level, kind, title }) => Option.map(Option.fromUndefinedOr(UndefinedOr.map(kind, Struct.get('_value')) ?? title), (operation) => ({ level, operation }))),
-                    { onNone: () => Effect.succeedNone, onSome: ({ level, operation }) => Effect.as(SubscriptionRef.update(entered, level > 0 ? Record.set(name, operation) : Record.remove(name)), Option.none()) },
-                );
-            const handlers: Record.ReadonlyRecord<string, (name: string, descriptor: unknown) => Effect.Effect<Option.Option<Stream.Success<Upstream['events']>>>> = {
-                open: toEvent,
-                save: toEvent,
-                close: toEvent,
-                select: () => Effect.succeedNone,
-                toolModalStateChanged: track,
-                modalStateChanged: track,
-            };
-            const names = Record.keys(handlers);
-            const changes = yield* Uxp.listen<readonly [string, unknown]>(`notifications ${names.join(', ')}`, { add: (listener) => action.addNotificationListener(names, listener), remove: (listener) => action.removeNotificationListener(names, listener) }).pipe(
-                Stream.mapEffect(([name, descriptor]) => Option.match(Record.get(handlers, name), { onNone: () => Effect.succeedNone, onSome: (handle) => handle(name, descriptor) })),
-                Stream.share({ capacity: 'unbounded' }),
+class Notifications extends Context.Service<Notifications>()('@rasm/photoshop/uxp/Notifications', {
+    make: Effect.gen(function* () {
+        const entered = yield* SubscriptionRef.make<Record.ReadonlyRecord<string, string>>({});
+        const track = (name: string, descriptor: unknown) =>
+            Option.match(
+                Option.flatMap(Schema.decodeUnknownOption(ModalState)(descriptor), ({ level, kind, title }) => Option.map(Option.fromUndefinedOr(UndefinedOr.map(kind, Struct.get('_value')) ?? title), (operation) => ({ level, operation }))),
+                { onNone: () => Effect.succeedNone, onSome: ({ level, operation }) => Effect.as(SubscriptionRef.update(entered, level > 0 ? Record.set(name, operation) : Record.remove(name)), Option.none()) },
             );
-            yield* changes.pipe(Stream.runDrain, Effect.tapCause(Effect.logError), Effect.forkScoped);
-            return { events: Stream.filterMap(changes, (event) => Result.fromOption(event, Function.constVoid)), changes, operations: Effect.map(SubscriptionRef.get(entered), Record.values) };
-        }),
-    );
+        const handlers: Record.ReadonlyRecord<string, typeof toEvent> = {
+            open: toEvent,
+            save: toEvent,
+            close: toEvent,
+            select: () => Effect.succeedNone,
+            toolModalStateChanged: track,
+            modalStateChanged: track,
+        };
+        const names = Record.keys(handlers);
+        const changes = yield* Uxp.listen<readonly [string, unknown]>(`notifications ${names.join(', ')}`, { add: (listener) => action.addNotificationListener(names, listener), remove: (listener) => action.removeNotificationListener(names, listener) }).pipe(
+            Stream.mapEffect(([name, descriptor]) => Option.match(Record.get(handlers, name), { onNone: () => Effect.succeedNone, onSome: (handle) => handle(name, descriptor) })),
+            Stream.share({ capacity: 'unbounded' }),
+        );
+        yield* changes.pipe(Stream.runDrain, Effect.tapCause(Effect.logError), Effect.forkScoped);
+        return { events: Stream.filterMap(changes, (event) => Result.fromOption(event, Function.constVoid)), changes, operations: Effect.map(SubscriptionRef.get(entered), Record.values) };
+    }),
+}) {
+    static readonly layer = Layer.effect(this, this.make);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -195,11 +194,11 @@ const leaf = Match.type<unknown>().pipe(
     })),
     Match.option,
 );
-const controls = ({ _obj: owner, ...held }: typeof ActionObject.Type, path: typeof Description.Locator.Type): readonly (typeof Description.Control.Type)[] =>
-    Array.flatMap(Record.toEntries(held), ([key, value]) => {
+const controls = ({ _obj: owner, ...held }: typeof ActionObject.Type, path: typeof Description.Locator.Type): Description['containers'][number]['controls'] =>
+    Array.flatMap(Record.toEntries(held), ([key, value]): Description['containers'][number]['controls'] => {
         const locator = Array.append(path, [owner, key] as const);
         return Option.match(leaf(value), {
-            onSome: (stated) => [Description.Control.make({ ...Struct.omit(stated, ['write']), locator, label: { text: key } })],
+            onSome: (stated) => [{ ...Struct.omit(stated, ['write']), locator, label: { text: key } }],
             onNone: () => (Schema.is(ActionObject)(value) ? controls(value, locator) : []),
         });
     });
@@ -218,8 +217,8 @@ const update = ({ _obj: owner, ...held }: typeof ActionObject.Type, [key, ...bel
     });
 };
 const painting = Schema.is(Schema.Enum(constants.ToolType));
-const cornered = ([x, y]: readonly [number, number]) => Object.assign(new app.PathPointInfo(), { anchor: [x, y], leftDirection: [x, y], rightDirection: [x, y], kind: constants.PointKind.CORNERPOINT });
-const spanned = (points: Array.NonEmptyReadonlyArray<readonly [number, number]>) => {
+const corner = ([x, y]: readonly [number, number]) => Object.assign(new app.PathPointInfo(), { anchor: [x, y], leftDirection: [x, y], rightDirection: [x, y], kind: constants.PointKind.CORNERPOINT });
+const span = (points: Array.NonEmptyReadonlyArray<readonly [number, number]>) => {
     const [[x0, y0], [x1, y1]] = [Array.headNonEmpty(points), Array.lastNonEmpty(points)];
     return { left: Math.min(x0, x1), top: Math.min(y0, y1), right: Math.max(x0, x1), bottom: Math.max(y0, y1) };
 };
@@ -254,7 +253,7 @@ const stroke = Effect.fnUntraced(function* (document: Document, tool: ToolType, 
     ).pipe(Effect.fromOption, Effect.orDie);
     const refused = HostError.refused(`path ${name}`);
     const added = yield* Effect.acquireRelease(
-        Effect.try({ try: () => document.pathItems.add(name, [Object.assign(new app.SubPathInfo(), { closed: false, operation: constants.ShapeOperation.SHAPEXOR, entireSubPath: Array.map(points, cornered) })]), catch: refused }).pipe(
+        Effect.try({ try: () => document.pathItems.add(name, [Object.assign(new app.SubPathInfo(), { closed: false, operation: constants.ShapeOperation.SHAPEXOR, entireSubPath: Array.map(points, corner) })]), catch: refused }).pipe(
             Effect.andThen(Effect.try({ try: () => document.pathItems.getByName(name), catch: refused })),
         ),
         (path) => Effect.orDie(Effect.tryPromise({ try: () => path.remove(), catch: HostError.refused(`remove of path ${name}`) })),
@@ -291,7 +290,7 @@ const canvas = {
             Match.when({ option: true }, () => constants.SelectionType.DIMINISH),
             Match.orElse(() => constants.SelectionType.REPLACE),
         );
-        const drawn = { document, points, mode, bounds: yield* Effect.orDie(Schema.decodeUnknownEffect(Bounded)(spanned(points))) };
+        const drawn = { document, points, mode, bounds: yield* Effect.orDie(Schema.decodeUnknownEffect(Bounded)(span(points))) };
         const { member, carries, run } = yield* Effect.fromOption(
             Option.orElse(
                 Option.map(Option.liftPredicate(classId, painting), (tool): Pick<Route, 'member' | 'carries'> & { readonly run: Effect.Effect<void, HostError> } => ({ member: `PathItem.strokePath ${tool}`, carries: [], run: stroke(document, tool, points, pressured) })),
@@ -321,7 +320,8 @@ const toolbar = {
     pointer: Effect.map(Notifications.use(Struct.get('operations')), (operations) => ({ operations })),
     canvas,
 };
+const events = Stream.unwrap(Notifications.useSync(Struct.get('events')));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { application, containment, execute, Notifications, render, suppressDialogs, toolbar };
+export { application, containment, events, execute, Notifications, render, suppressDialogs, toolbar };

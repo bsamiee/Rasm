@@ -71,7 +71,7 @@ extension Watch {
                     return nil
                 } catch  where instance.process.hasExited {
                     return nil
-                } catch  where error.reason == .undelivered(OSStatus(procNotFound)) {
+                } catch  where error.reason == .undelivered(AppleEventFailure.Status(OSStatus(procNotFound))) {
                     signal = SIGTERM
                 } catch {
                     return ApplicationFailure(subject: subject, reason: .event(error))

@@ -30,7 +30,7 @@ const CATALOG = [
 ];
 const LOOKUPS = Record.map(NAMED, (_, query) => Entry.lookup(CATALOG, query));
 
-describe('workspace', () => {
+describe('catalog', () => {
     it.effect('takes the first listed form of a product for a bare product name, and a later form only by its exact name or identifier', () =>
         Effect.gen(function* () {
             const found = yield* Effect.all(LOOKUPS);

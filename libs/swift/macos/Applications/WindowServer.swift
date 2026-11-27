@@ -197,7 +197,7 @@ package final class PermittedFrontList: Sendable {
         let journal: FileHandle
         do throws(ApplicationFailure) { journal = try open([.exclusiveLock, .nonBlocking]) } catch  where error.reason == .system(.wouldBlock) { return nil }
         try clear(journal)
-        guard entries == 0 else { throw ApplicationFailure(subject: "Holding the permitted front list", reason: .permittedFrontHeld) }
+        guard entries == 0 else { throw ApplicationFailure(subject: "Holding the permitted front list", reason: .frontListHeld) }
         return journal
     }
 

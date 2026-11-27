@@ -28,10 +28,10 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
         openAppWhenRun: Schema.Boolean,
         parameters: Schema.Array(Schema.Struct({ name: Schema.String, isOptional: Schema.Boolean })),
     }).pipe(Schema.Array, Schema.OptionFromOptionalKey),
-    unread: Schema.Struct(ApplicationFailure.stated).pipe(Schema.Array, Schema.optionalKey),
+    unread: ApplicationFailure.Stated.pipe(Schema.Array, Schema.optionalKey),
 }) {
     static readonly Dictionary = Dictionary;
-    static readonly Listing = Schema.Struct({ installations: Schema.Array(Installation), unreadable: Schema.Array(Schema.Struct(ApplicationFailure.stated)) });
+    static readonly Listing = Schema.Struct({ installations: Schema.Array(Installation), unreadable: Schema.Array(ApplicationFailure.Stated) });
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

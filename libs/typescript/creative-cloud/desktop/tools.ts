@@ -18,7 +18,7 @@ interface Place {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const MODIFIERS: Record.ReadonlyRecord<string, (typeof Element.Shortcut.Type)['modifiers'][number]> = { Cmd: 'command', Shift: 'shift', Opt: 'option', Ctrl: 'control', Control: 'control' };
+const MODIFIERS: Record.ReadonlyRecord<string, typeof Element.Modifier.Type> = { Cmd: 'command', Shift: 'shift', Opt: 'option', Ctrl: 'control', Control: 'control' };
 const KEYS: Record.ReadonlyRecord<string, (typeof Element.Shortcut.Type)['key']> = {
     'Up Arrow': 'up',
     'Down Arrow': 'down',
@@ -53,25 +53,25 @@ const TOKEN = /\/(?<name>(?:\\.|[^\s\\/{}[\]<>])*)|(?<open>\{)|(?<close>\})|\[\s
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const named = Schema.is(Element.Shortcut.fields.key.members[0]);
-const refused = (expected: string, input: unknown, cause?: unknown) => new SchemaIssue.InvalidValue({ expected, ...(cause === undefined ? {} : { message: `Expected ${expected}: ${Formatter.format(cause)}` }) }, input);
+const decodeKey = Schema.decodeOption(Element.Shortcut.fields.key);
+const refuse = (expected: string, input: unknown, cause?: unknown) => new SchemaIssue.InvalidValue({ expected, ...(cause === undefined ? {} : { message: `Expected ${expected}: ${Formatter.format(cause)}` }) }, input);
 const Shortcut = Schema.String.pipe(
     Schema.decodeTo(Element.Shortcut, {
         decode: SchemaGetter.transformEffect((text: string) => {
             const { held = '', key = '' } = SHORTCUT.exec(text)?.groups ?? {};
-            const resolved = [...key].length === 1 ? Option.some(key.toLowerCase()) : Option.orElse(Option.liftPredicate(key.toLowerCase(), named), () => Record.get(KEYS, key));
+            const resolved = Option.orElse(decodeKey(key.toLowerCase()), () => Record.get(KEYS, key));
             const modifiers = Array.filterMap(held.split('+'), (name) => Result.fromOption(Record.get(MODIFIERS, name), Function.constVoid));
-            return Effect.fromOption(Option.map(resolved, (step) => ({ key: step, modifiers }))).pipe(Effect.mapError(() => refused('a key the shortcut set names', text)));
+            return Effect.fromOption(Option.map(resolved, (step) => ({ key: step, modifiers }))).pipe(Effect.mapError(() => refuse('a key the shortcut set names', text)));
         }),
         encode: SchemaGetter.forbiddenEncoding,
     }),
-).annotate({ description: 'Shortcut text of a shortcut set, each held modifier joined by + before the key' });
+);
 const CharId = Schema.Int.pipe(
     Schema.decodeTo(Schema.String, {
         decode: SchemaGetter.transform((code: number) => `$${String.fromCodePoint(...Array.map([24, 16, 8, 0], (shift) => (code >>> shift) & 0xff))}`),
         encode: SchemaGetter.forbiddenEncoding,
     }),
-).annotate({ description: 'Four-character tool code as getActiveTool().key spells it' });
+);
 const PhotoshopTools = Schema.Array(Schema.Struct({ attributes: Schema.Struct({ name: Schema.String, key: Schema.FiniteFromString.pipe(Schema.decodeTo(CharId)) }), children: Schema.Array(Shortcut) }));
 const Toolbar = Schema.Uint8Array.pipe(
     Schema.decodeTo(Schema.Unknown, {
@@ -84,7 +84,7 @@ const Toolbar = Schema.Uint8Array.pipe(
                     const descriptor: unknown = readVersionAndDescriptor(reader);
                     return { signature, descriptor };
                 },
-                catch: (cause) => refused('a Photoshop settings descriptor', bytes, cause),
+                catch: (cause) => refuse('a Photoshop settings descriptor', bytes, cause),
             }),
         ),
         encode: SchemaGetter.forbiddenEncoding,
@@ -93,20 +93,20 @@ const Toolbar = Schema.Uint8Array.pipe(
 );
 const Catalog = Schema.fromJsonString(
     Schema.Struct({
-        meta: Schema.Struct({ host: Schema.String.annotate({ description: 'UXP host appCode the catalog serves' }) }),
+        meta: Schema.Struct({ host: Schema.String }),
         items: Schema.Array(
             Schema.Struct({
                 name: Schema.String,
                 itemId: Schema.String,
                 context: Schema.Struct({ trigger: Schema.optionalKey(Schema.String) }),
-                cmHelpXDetail: Schema.Struct({ id: Schema.String.annotate({ description: 'helpx.adobe.com page path' }) }).pipe(Schema.Array, Schema.optionalKey),
+                cmHelpXDetail: Schema.Struct({ id: Schema.String }).pipe(Schema.Array, Schema.optionalKey),
             }),
         ),
     }),
 );
 const Dictionary = Schema.String.pipe(
     Schema.decodeTo(Schema.Unknown, {
-        decode: SchemaGetter.transformEffect((text: string) => Effect.try({ try: () => entries(text.matchAll(TOKEN)), catch: (cause) => refused('an Illustrator dictionary', text, cause) })),
+        decode: SchemaGetter.transformEffect((text: string) => Effect.try({ try: () => entries(text.matchAll(TOKEN)), catch: (cause) => refuse('an Illustrator dictionary', text, cause) })),
         encode: SchemaGetter.forbiddenEncoding,
     }),
 );
@@ -116,17 +116,18 @@ const IllustratorKey = Schema.Struct({ Modifiers: Schema.FiniteFromString.pipe(S
             const held = Record.keys(Record.filter(ILLUSTRATOR.modifiers, (bit) => (Modifiers & bit) !== 0));
             const unread = Modifiers & ~Array.reduce(Record.values(ILLUSTRATOR.modifiers), 0, (mask, bit) => mask | bit);
             const stated = Match.value(Key).pipe(
-                Match.when(ILLUSTRATOR.tab, () => Option.some<(typeof Element.Shortcut.Type)['key']>('tab')),
+                Match.when(ILLUSTRATOR.tab, () => 'tab'),
                 Match.when(
                     (code) => code >= 0x20 && code < 0x7f,
-                    (code) => Option.some(String.fromCodePoint(code).toLowerCase()),
+                    (code) => String.fromCodePoint(code).toLowerCase(),
                 ),
-                Match.orElse((code) => Option.liftPredicate(`f${code - ILLUSTRATOR.functions}`, named)),
+                Match.orElse((code) => `f${code - ILLUSTRATOR.functions}`),
+                decodeKey,
             );
             return Match.value({ Key, unread }).pipe(
-                Match.when({ unread: (bits) => bits !== 0 }, () => Effect.fail(refused('Shift, Command, and Option modifier bits', Modifiers))),
+                Match.when({ unread: (bits) => bits !== 0 }, () => Effect.fail(refuse('Shift, Command, and Option modifier bits', Modifiers))),
                 Match.when({ Key: 0 }, () => Effect.succeed({})),
-                Match.orElse(() => Effect.mapError(Effect.fromOption(Option.map(stated, (step) => ({ shortcut: { key: step, modifiers: held } }))), () => refused('Tab, a function key, or a printable character code', Key))),
+                Match.orElse(() => Effect.mapError(Effect.fromOption(Option.map(stated, (step) => ({ shortcut: { key: step, modifiers: held } }))), () => refuse('Tab, a function key, or a printable character code', Key))),
             );
         }),
         encode: SchemaGetter.forbiddenEncoding,
@@ -137,13 +138,13 @@ const IllustratorPrefs = Dictionary.pipe(
     Schema.decodeTo(
         Schema.Struct({
             plugin: Schema.Struct({
-                KBSCShortcutFile: Schema.optionalKey(Schema.Struct({ IsPreset: Schema.Union([Schema.Literal('1').transform(true), Schema.Literal('0').transform(false)]).annotate({ description: 'The set is a preset of the build, else a set the user saved in the settings folder' }), FileName: Schema.StringFromHex })),
-                AIMCPServer: Schema.optionalKey(Schema.Struct({ AuthToken: Schema.StringFromHex.annotate({ description: 'Bearer token the MCP server of the build takes, written once the server is enabled' }) })),
+                KBSCShortcutFile: Schema.optionalKey(Schema.Struct({ IsPreset: Schema.Union([Schema.Literal('1').transform(true), Schema.Literal('0').transform(false)]), FileName: Schema.StringFromHex })),
+                AIMCPServer: Schema.optionalKey(Schema.Struct({ AuthToken: Schema.StringFromHex })),
             }),
         }),
     ),
 );
-const RunConfig = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)).annotate({ description: 'Illustrator .runConfig, keyed by the application version that wrote it' });
+const RunConfig = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown));
 const IndesignShortcuts = Schema.Array(
     Schema.Struct({
         'action-id': Schema.Struct({
@@ -190,14 +191,14 @@ const pair = (tokens: Iterator<RegExpExecArray, undefined>): IteratorResult<read
     }
     return { done: false, value: [name.replaceAll(ESCAPED, '$<escaped>'), value['open'] === undefined ? (value['bytes']?.replaceAll(/\s/gu, '') ?? (value['text'] ?? value['name'])?.replaceAll(ESCAPED, '$<escaped>') ?? value['word'] ?? '') : entries(tokens)] };
 };
-const found = Effect.fnUntraced(function* (root: string, pattern: string) {
+const glob = Effect.fnUntraced(function* (root: string, pattern: string) {
     const [files, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     return Array.map(yield* files.glob(pattern, { root, dot: true }), (each) => path.join(root, each));
 });
 const settings = Effect.fnUntraced(function* (application: Application, pattern: string) {
     const [path, preferences] = yield* Effect.all([Path.Path, Preferences]);
     const bundle = yield* path.fromFileUrl(application.url);
-    const files = yield* found(preferences, `${Glob.escape(path.basename(bundle, '.app'))} *Settings/${pattern}`);
+    const files = yield* glob(preferences, `${Glob.escape(path.basename(bundle, '.app'))} *Settings/${pattern}`);
     return files.filter((file) => /\bBeta\b/u.test(path.relative(preferences, file).split(path.sep, 1).join('')) === (application.channel === 'beta'));
 });
 const elements = (file: string, at: Array.NonEmptyReadonlyArray<string>) => Stream.unwrap(FileSystem.FileSystem.useSync((files) => files.stream(file))).pipe(Stream.pipeThroughChannel(Xml.decode()), Stream.pipeThroughChannel(Xml.elements(at)), Stream.runCollect);
@@ -228,7 +229,7 @@ const illustrator = Effect.fnUntraced(function* ({ application, install }: Place
 });
 const indesign = Effect.fnUntraced(function* ({ install }: Place) {
     const path = yield* Path.Path;
-    const sets = yield* found(path.join(install, 'Presets', 'InDesign Shortcut Sets'), `*/${INDESIGN.set}`);
+    const sets = yield* glob(path.join(install, 'Presets', 'InDesign Shortcut Sets'), `*/${INDESIGN.set}`);
     const listed = yield* Effect.forEach(sets, (file) => elements(file, ['shortcut-set', 'shortcut']));
     const fields = Array.map(Array.flatten(listed), ({ children }) => Record.fromEntries(Array.filterMap(children, (child) => (Predicate.isString(child) ? Result.failVoid : Result.succeed([child.name, child] as const)))));
     const decoded = yield* Schema.decodeUnknownEffect(IndesignShortcuts)(fields);
@@ -236,7 +237,7 @@ const indesign = Effect.fnUntraced(function* ({ install }: Place) {
 });
 const catalogs = Effect.fnUntraced(function* ({ application, bundle }: Place) {
     const [path, files] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
-    const listed = yield* found(path.join(bundle, 'Contents', 'Required', 'UXP'), `**/com.adobe.unifiedpanel/locale/${CATALOG.locale}/*/curatedContent.json`);
+    const listed = yield* glob(path.join(bundle, 'Contents', 'Required', 'UXP'), `**/com.adobe.unifiedpanel/locale/${CATALOG.locale}/*/curatedContent.json`);
     const decoded = yield* Effect.forEach(listed, (file) => Effect.flatMap(files.readFileString(file), Schema.decodeEffect(Catalog)));
     const served = Array.filter(decoded, ({ meta: { host } }) => application.urlSchemes.includes(`adobe+${host.toLowerCase()}`));
     return Array.filterMap(

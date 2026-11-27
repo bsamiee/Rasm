@@ -4,7 +4,6 @@
     "description": "UXP plugin linking Media Encoder to Atelier's MCP server",
     "type": "module",
     "dependencies": {
-        "@rasm/applications": "workspace:*",
         "@rasm/mediaencoder": "workspace:*",
         "@rasm/object-model": "workspace:*",
         "@rasm/uxp": "workspace:*",

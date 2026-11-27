@@ -1,7 +1,7 @@
 import { Program } from '@rasm/current-process';
 import { spawn } from '@rasm/process';
 import { layerProtocolChildProcess } from '@rasm/rpc';
-import { Array, Cause, Context, Deferred, Duration, Effect, Fiber, Function, Layer, MutableRef, Number, Option, Path, Ref, Result, Schema, Sink, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Context, Deferred, Duration, Effect, Fiber, Function, Layer, MutableRef, Number, Option, Path, PubSub, Queue, Ref, Result, Schema, Sink, Stream, Struct, SubscriptionRef } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, type RpcClientError, RpcGroup, RpcMessage } from 'effect/rpc';
 import { Act } from '#/server/act';
@@ -15,9 +15,8 @@ import { Instance } from '#/server/instance';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const { instance } = Instance.fields;
-const read = <A extends Schema.Top>(value: A) => Schema.Result(value, Schema.ErrorInstance());
 const Launched = Schema.Union([
-    Schema.TaggedStruct('launched', { instance, identifier: Schema.String, created: Schema.Boolean, replaced: Schema.optionalKey(Schema.Boolean) }),
+    Schema.TaggedStruct('launched', { instance, identifier: Schema.String, created: Schema.Boolean, replacedOnDisk: Schema.optionalKey(Schema.Boolean) }),
     Schema.TaggedStruct('state', { state: Instance.State }),
     Schema.TaggedStruct('opened', { reply: Schema.Json }),
     Instance.State.cases.failed,
@@ -30,24 +29,19 @@ const Diagnostics = Schema.Struct({
     find: Schema.optionalKey(Schema.String),
 });
 const ApplicationRpcs = RpcGroup.make(
-    Rpc.make('installations', { payload: { name: Schema.optionalKey(Schema.String) }, success: Installation.Listing, stream: true }),
+    Rpc.make('subscribe', { success: Event, stream: true }),
+    Rpc.make('installations', { payload: { name: Schema.String }, success: Installation.Listing, error: ApplicationFailure.Thrown }),
     Rpc.make('installation', { payload: { url: Schema.URL }, success: Installation, error: ApplicationFailure.Thrown }),
-    Rpc.make('instances', { success: Instance.pipe(Schema.Array, read), stream: true }),
-    Rpc.make('events', { success: read(Event), stream: true }),
-    Rpc.make('observations', { success: Schema.Struct({ instance, identifier: Schema.optionalKey(Schema.String), language: Schema.String, observation: Element.Observation }), stream: true }),
-    Rpc.make('session', { success: read(Event.Session), stream: true }),
-    Rpc.make('pressure', { success: read(Event.Pressure), stream: true }),
     Rpc.make('pasteboard', { payload: { content: Schema.Boolean }, success: Act.Pasteboard, error: ApplicationFailure.Thrown }),
     Rpc.make('watch', { payload: { instance, locators: Element.Locator.pipe(Schema.Array, Schema.optionalKey) }, success: Instance.Watched, error: ApplicationFailure.Thrown }),
-    Rpc.make('locators', { payload: { instance }, success: Schema.Array(Element.Locator), error: ApplicationFailure.Thrown }),
-    Rpc.make('release', { payload: { instance } }),
+    Rpc.make('release', { payload: { instance }, success: Schema.Array(Element.Locator) }),
     Rpc.make('model', {
         payload: { instance, scope: Element.Scope, known: Schema.optionalKey(Schema.Struct({ build: Schema.OptionFromOptionalKey(Schema.String), containers: Schema.Array(Element.Locator), labels: Schema.Array(Schema.String) })) },
         success: Element.Model,
         error: ApplicationFailure.Thrown,
     }),
     Rpc.make('intern', { payload: { instance, locators: Schema.Array(Element.Locator) }, success: Schema.Array(Element.Ref), error: ApplicationFailure.Thrown }),
-    Rpc.make('handlers', { payload: { document: Schema.URL }, success: Installation.Listing, error: ApplicationFailure.Thrown }),
+    Rpc.make('installationsOpening', { payload: { document: Schema.URL }, success: Installation.Listing, error: ApplicationFailure.Thrown }),
     Rpc.make('launch', {
         payload: {
             url: Schema.URL,
@@ -56,13 +50,12 @@ const ApplicationRpcs = RpcGroup.make(
             environment: Schema.Record(Schema.String, Schema.String).pipe(Schema.withConstructorDefault(Effect.succeed({}))),
             new: Schema.Boolean.pipe(Schema.withConstructorDefault(Effect.succeed(false))),
             opening: Schema.Record(Schema.String, Schema.Json).pipe(Schema.withConstructorDefault(Effect.succeed({}))),
-            wait: Schema.Boolean.pipe(Schema.withConstructorDefault(Effect.succeed(false))),
         },
         success: Launched,
         error: ApplicationFailure.Thrown,
         stream: true,
     }),
-    Rpc.make('act', { payload: { instance, steps: Schema.NonEmptyArray(Act.Step), record: Schema.optionalKey(Capture.Recording) }, success: Act.Outcome, error: ApplicationFailure.Thrown }),
+    Rpc.make('act', { payload: { instance, steps: Schema.NonEmptyArray(Act.Step), record: Schema.optionalKey(Act.Record) }, success: Act.Outcome, error: ApplicationFailure.Thrown }),
     Rpc.make('activate', { payload: { instance }, success: Instance.Presentation, error: ApplicationFailure.Thrown }),
     Rpc.make('quit', { payload: { instance, mode: Instance.QuitMode.pipe(Schema.withConstructorDefault(Effect.succeed('asking'))) }, success: Instance.State, error: ApplicationFailure.Thrown }),
     Rpc.make('dictionary', { payload: { url: Schema.URL }, success: Installation.Dictionary, error: ApplicationFailure.Thrown }),
@@ -71,15 +64,10 @@ const ApplicationRpcs = RpcGroup.make(
         success: Schema.Struct({ reply: Schema.Json, written: Act.Written }),
         error: ApplicationFailure.Thrown,
     }),
-    Rpc.make('capture', {
-        payload: { instance, ...Capture.fields, marks: Schema.Array(Schema.Struct({ frame: Element.Frame, label: Schema.String })).pipe(Schema.withConstructorDefault(Effect.succeed([]))) },
-        success: Capture.Stills,
-        error: ApplicationFailure.Thrown,
-    }),
-    Rpc.make('record', { payload: { instance, ...Capture.Recording.fields, seconds: Schema.Finite.check(Schema.isGreaterThan(0)), movie: Schema.optionalKey(Schema.URL) }, success: Capture.Recorded, error: ApplicationFailure.Thrown }),
+    Rpc.make('capture', { payload: { instance, ...Capture.fields }, success: Capture.Frames, error: ApplicationFailure.Thrown }),
     Rpc.make('scale', {
         payload: { image: Schema.Uint8Array, longestSide: Schema.Int.check(Schema.isGreaterThan(0)) },
-        success: Schema.Struct(Struct.pick(Capture.Screenshot.fields, ['png', 'width', 'height'])),
+        success: Schema.Struct(Struct.pick(Capture.Frame.fields, ['png', 'width', 'height'])),
         error: ApplicationFailure.Thrown,
     }),
     Rpc.make('diagnostics', {
@@ -88,8 +76,8 @@ const ApplicationRpcs = RpcGroup.make(
             reports: Schema.Array(Instance.Report),
             samples: Schema.Array(Schema.URLFromString),
             logs: Schema.Array(Schema.Struct({ file: Schema.String, text: Schema.String })),
-            unified: Event.fields.change.cases.logged.fields.entry.pipe(Schema.Array, read),
-            unreadable: Schema.Array(Schema.String),
+            unified: Event.Changed.fields.change.cases.logged.fields.entry.pipe(Schema.Array, ApplicationFailure.read),
+            unreadable: Schema.Array(ApplicationFailure.Stated),
         }),
         error: ApplicationFailure.Thrown,
     }),
@@ -104,13 +92,32 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
             const state = yield* SubscriptionRef.make(yield* Effect.fromOption(head, () => new Cause.NoSuchElementError(`${subject} ended before its first value`)));
             return { state, following: yield* Effect.forkScoped(Stream.runForEach(rest, (value) => SubscriptionRef.set(state, value))) };
         });
-        const [listing, instances, session, pressure] = yield* Effect.all([first('installations', client.installations({})), first('instances', standing('Instance listing', client.instances())), latest(standing('Session reading', client.session())), latest(standing('Pressure reading', client.pressure()))]);
-        const changes = yield* Stream.share(standing('Application events', client.events()), { capacity: 'unbounded' });
+        const [listings, snapshots, sessions, pressures, changes, observations] = yield* Effect.all([
+            Queue.unbounded<typeof Installation.Listing.Type>(),
+            Queue.unbounded<typeof Event.cases.instances.Type.read>(),
+            Queue.unbounded<typeof Event.cases.session.Type.read>(),
+            Queue.unbounded<typeof Event.cases.pressure.Type.read>(),
+            PubSub.unbounded<typeof Event.Changed.Type>(),
+            PubSub.unbounded<typeof Event.cases.observed.Type>(),
+        ]);
+        const pushing = yield* client.subscribe().pipe(
+            Stream.runForEach(
+                Event.match({
+                    installations: (listing) => Effect.asVoid(Queue.offer(listings, listing)),
+                    instances: ({ read: rows }) => Effect.asVoid(Queue.offer(snapshots, rows)),
+                    changed: ({ read: change }) => Result.match(change, { onSuccess: (event) => Effect.asVoid(PubSub.publish(changes, event)), onFailure: (failure) => Effect.logWarning('Application event failed', failure) }),
+                    observed: (report) => Effect.asVoid(PubSub.publish(observations, report)),
+                    session: ({ read: session }) => Effect.asVoid(Queue.offer(sessions, session)),
+                    pressure: ({ read: pressure }) => Effect.asVoid(Queue.offer(pressures, pressure)),
+                }),
+            ),
+            Effect.forkScoped,
+        );
+        const [listing, instances, session, pressure] = yield* Effect.all([first('installations', Stream.fromQueue(listings)), first('instances', standing('Instance listing', Stream.fromQueue(snapshots))), latest(standing('Session reading', Stream.fromQueue(sessions))), latest(standing('Pressure reading', Stream.fromQueue(pressures)))]);
         return {
             ...client,
-            launch: Effect.fnUntraced(function* <R>(payload: Omit<Parameters<typeof client.launch>[0], 'wait'>, wait: Option.Option<Duration.Input>, launching: (launched: typeof Launched.cases.launched.Type) => Effect.Effect<void, never, R>) {
-                const { launched, ...outcome } = yield* client.launch({ ...payload, wait: Option.isSome(wait) }).pipe(
-                    Stream.interruptWhen(Option.match(wait, { onNone: () => Effect.never, onSome: Effect.sleep })),
+            launch: Effect.fnUntraced(function* <R>(payload: Parameters<typeof client.launch>[0], launching: (launched: typeof Launched.cases.launched.Type) => Effect.Effect<void, never, R>) {
+                const { launched, ...outcome } = yield* client.launch(payload).pipe(
                     Stream.tap(Launched.matchOrElse({ launched: launching }, () => Effect.void)),
                     Stream.runFold(
                         () => ({
@@ -128,17 +135,17 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
                             }),
                     ),
                 );
-                const refusal = outcome.failed.map(({ subject, reason, message }) => [`${subject} ${reason}`, ...Array.fromNullishOr(message)].join(': '));
+                const refusal = outcome.failed.map(({ subject, reason, values }) => ApplicationFailure.of(reason, subject, values).message);
                 const begun = yield* Effect.fromOption(launched, () => new Cause.UnknownError(outcome.failed, Array.isReadonlyArrayNonEmpty(refusal) ? refusal.join('; ') : `launch of ${payload.url.href} ended before an instance launched`));
                 return { ...begun, ...outcome };
             }),
             installed: listing.state,
             running: instances.state,
-            changes,
+            changes: Stream.fromPubSub(changes),
+            observations: Stream.fromPubSub(observations),
             session,
             pressure,
-            search: (name: string) => client.installations({ name }).pipe(Stream.runHead, Effect.flatMap(Effect.fromOption(() => new Cause.NoSuchElementError(`Spotlight search for applications named ${name} ended before its first listing`))), Effect.map(Struct.get('installations'))),
-            exitCode: Effect.raceFirst(exited, Effect.andThen(Fiber.join(listing.following), exited)),
+            exitCode: Effect.raceFirst(exited, Effect.andThen(Fiber.join(pushing), exited)),
             traffic,
         };
     }),

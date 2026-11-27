@@ -1,6 +1,7 @@
 import { Predicate, Schema, Struct } from 'effect';
 import { Capture } from '#/server/capture';
 import { Element } from '#/server/element';
+import { ApplicationFailure } from '#/server/failure';
 import { Instance } from '#/server/instance';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -46,28 +47,30 @@ const input = <Position extends Schema.Top>(position: Position) =>
         modifiers: Element.Shortcut.fields.modifiers,
         ...timing,
     }).check(paced, pointed);
-const Route = Schema.TaggedUnion({ source: { member: Schema.String, approximated: Schema.Array(Schema.String) }, process: {}, window: { number: Element.WindowNumber }, focused: { number: Element.WindowNumber }, system: {} });
-const Rung = Schema.Literals(['source', 'accessibility', 'process', 'window', 'focused', 'system']);
-const from = Schema.optionalKey(Rung.pick(['accessibility', 'process', 'window', 'focused', 'system']));
+const Kind = Schema.Literals(['source', 'accessibility', 'process', 'window', 'focused', 'system']);
+const Route = Object.assign(Schema.TaggedUnion({ source: { member: Schema.String, approximated: Schema.Array(Schema.String) }, process: {}, window: { number: Element.WindowNumber }, focused: { number: Element.WindowNumber }, system: {} }), { Kind });
+const from = Schema.optionalKey(Kind.pick(['accessibility', 'process', 'window', 'focused', 'system']));
 const Step = Schema.Union([
-    Schema.Struct({ ...Element.Shortcut.fields, at: Schema.optionalKey(Element.Ref), ...timing, from }).check(paced),
-    input(Schema.Union([Element.Ref, Sample])).mapFields(Struct.assign({ windows: Element.WindowNumber.pipe(Schema.Array, Schema.optionalKey), from }), { unsafePreserveChecks: true }),
-    Schema.Struct({
+    Schema.TaggedStruct('key', { ...Element.Shortcut.fields, at: Schema.optionalKey(Element.Ref), ...timing, from }).check(paced),
+    Schema.TaggedStruct('pointer', { ...input(Schema.Union([Element.Ref, Sample])).fields, windows: Element.WindowNumber.pipe(Schema.Array, Schema.optionalKey), from }).check(paced, pointed),
+    Schema.TaggedStruct('press', {
         at: Element.Ref,
         action: Schema.optionalKey(Schema.String.check(Schema.makeFilter((named: string) => named !== 'AXRaise', { expected: 'an action other than AXRaise, which takes focus from the frontmost application' }))),
         to: Schema.optionalKey(Schema.Union([Element.Value, Element.Frame])),
         range: Schema.optionalKey(Schema.Union([Schema.Tuple([Schema.Natural, Schema.Natural]), Schema.String])),
         from,
     }).check(ranged),
-    Schema.Struct({ modifiers: Schema.NonEmptyArray(Element.Modifier), hold: Milliseconds }),
-]);
+    Schema.TaggedStruct('hold', { modifiers: Schema.NonEmptyArray(Element.Modifier), hold: Milliseconds }),
+]).pipe(Schema.toTaggedUnion('_tag'));
 const Delivery = Schema.Struct({
     proof: Schema.Literals(['answer', 'change', 'value', 'limit', 'posting', 'unanswered', 'exit', 'standing']),
     route: Schema.optionalKey(Route),
-    tried: Schema.Array(Schema.Struct({ rung: Rung, failure: Schema.String })),
+    tried: Schema.Array(Schema.Struct({ route: Kind, failure: ApplicationFailure.Stated })),
     presentation: Schema.optionalKey(Instance.Presentation),
     popUps: Schema.Array(Schema.Struct({ window: Element.WindowNumber, closed: Schema.Boolean })),
-    scrolled: Schema.optionalKey(Schema.Struct({ horizontal: Schema.optionalKey(Schema.Finite), vertical: Schema.optionalKey(Schema.Finite), rows: Schema.optionalKey(Schema.Int), showing: Schema.Array(Schema.Struct({ index: Schema.Int, label: Schema.optionalKey(Schema.String) })) })),
+    scrolled: Schema.optionalKey(
+        Schema.Struct({ horizontal: Schema.optionalKey(Schema.Finite), vertical: Schema.optionalKey(Schema.Finite), rows: Schema.optionalKey(Schema.Int), showing: Schema.Array(Schema.Struct({ index: Schema.Int, label: Schema.optionalKey(Schema.String) })) }),
+    ),
     resolved: Schema.optionalKey(Schema.Struct({ ref: Element.Ref, effect: Schema.Literals(['pressed', 'selected', 'focused']) })),
     followed: Schema.optionalKey(Schema.Int),
     surface: Schema.optionalKey(Element.Ref),
@@ -75,27 +78,31 @@ const Delivery = Schema.Struct({
 const Pasteboard = Schema.Struct({
     locator: Element.Locator,
     types: Schema.Array(Schema.String),
-    access: Schema.Union([Schema.Literals(['default', 'ask', 'alwaysAllow', 'alwaysDeny']), Schema.Int]),
-    patterns: Schema.Array(Schema.String),
+    accessBehavior: Schema.Union([Schema.Literals(['default', 'ask', 'alwaysAllow', 'alwaysDeny']), Schema.Int]),
+    detectedPatterns: Schema.Array(Schema.String),
     contentType: Schema.optionalKey(Schema.String),
     content: Schema.optionalKey(Schema.TaggedUnion({ text: { value: Schema.String }, withheld: {}, concealed: {} })),
 });
-const Written = Schema.Result(Schema.Array(Schema.URL), Schema.ErrorInstance());
+const Written = ApplicationFailure.read(Schema.Array(Schema.URL));
 const Act = {
-    Rung,
     Route,
     Step,
     Input: input(Sample),
     Pasteboard,
     Written,
+    Record: Schema.Struct({ ...Struct.pick(Capture.fields, ['source', 'longestSide']), ...Struct.pick(Capture.fields.mode.cases.recording.fields, ['keyFrameLimit']) }),
     Outcome: Schema.Struct({
-        outcomes: Schema.Array(Schema.Result(Delivery, Schema.ErrorInstance())),
+        outcomes: Schema.Array(ApplicationFailure.read(Delivery)),
         state: Instance.State,
-        usage: Schema.optionalKey(Schema.Result(Instance.State.cases.running.fields.usage.schema, Schema.ErrorInstance())),
-        load: Schema.optionalKey(Schema.Result(Schema.Struct({ idle: Schema.optionalKey(Schema.Finite), swapins: Schema.optionalKey(Schema.Finite), swapouts: Schema.optionalKey(Schema.Finite) }), Schema.ErrorInstance())),
+        diagnosis: Schema.optionalKey(
+            Schema.Struct({
+                usage: Instance.State.cases.running.fields.usage.schema,
+                load: ApplicationFailure.read(Schema.Struct({ processorIdle: Schema.optionalKey(Schema.Finite), swapins: Schema.optionalKey(Schema.Finite), swapouts: Schema.optionalKey(Schema.Finite) })),
+            }),
+        ),
         written: Schema.optionalKey(Written),
-        pasteboard: Schema.optionalKey(Schema.Result(Pasteboard, Schema.ErrorInstance())),
-        recording: Schema.optionalKey(Schema.Result(Capture.Recorded, Schema.ErrorInstance())),
+        pasteboard: Schema.optionalKey(ApplicationFailure.read(Pasteboard)),
+        frames: Schema.optionalKey(Capture.Frame.pipe(Schema.Array, ApplicationFailure.read)),
     }),
 } as const;
 

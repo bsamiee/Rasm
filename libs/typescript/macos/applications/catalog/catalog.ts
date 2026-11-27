@@ -43,14 +43,16 @@ class Catalog extends Context.Service<Catalog>()('@rasm/applications/catalog/cat
         yield* Effect.forkScoped(
             Stream.runForEach(
                 Stream.mapAccum(SubscriptionRef.changes(server.installed), HashSet.empty<string>, (logged, { unreadable }) => [HashSet.union(logged, HashSet.fromIterable(unreadable.map(Struct.get('subject')))), unreadable.filter(({ subject }) => !HashSet.has(logged, subject))]),
-                ({ subject, reason, message }) => Effect.logWarning(`Application bundle ${subject} is left out of the listing: ${reason}`, ...Array.fromNullishOr(message)),
+                (failure) => Effect.logWarning('Application bundle left out of the listing', Cause.fail(failure)),
             ),
         );
         const find = Effect.fnUntraced(function* (given: string) {
             const [rows, installed, instances, stated] = yield* Effect.all([SubscriptionRef.get(entries), installations, SubscriptionRef.get(server.running), Effect.transposeOption(Option.map(bundleAt(given), (url) => server.installation({ url })))]);
             const offered = unlisted(byBundle(rows), installed);
             const outside = Array.dedupe(instances.map(({ url }) => url.href).filter((href) => !Record.has(byBundle(rows), href)));
-            const searched = Effect.all([server.search(given), Effect.filterMapEffect(outside, (href) => Effect.result(Effect.tapError(server.installation({ url: new URL(href) }), Effect.logWarning)), { concurrency: 'unbounded' })], { concurrency: 'unbounded' });
+            const searched = Effect.all([Effect.map(server.installations({ name: given }), Struct.get('installations')), Effect.filterMapEffect(outside, (href) => Effect.result(Effect.tapError(server.installation({ url: new URL(href) }), Effect.logWarning)), { concurrency: 'unbounded' })], {
+                concurrency: 'unbounded',
+            });
             return yield* lookup(
                 [...rows, ...stated.pipe(Option.toArray, offered)],
                 Option.match(stated, { onNone: () => given, onSome: ({ url }) => url.href }),

@@ -5,43 +5,43 @@ import { Array, Context, Effect, Layer, Record } from 'effect';
 import { Toolkit } from 'effect/ai';
 import { Act } from '#/act';
 import { Applications } from '#/applications';
-import { Diagnostics, Logs } from '#/diagnostics';
-import { ExecuteScript, Script } from '#/execute-script';
-import { Source, Toolbar } from '#/handle/address';
-import { Notices } from '#/handle/notice';
+import { Diagnostics } from '#/diagnostics';
+import { ExecuteScript } from '#/execute-script';
+import { Address } from '#/handle/address';
+import { Notice } from '#/handle/notice';
 import { Target } from '#/handle/target';
 import { Inspect } from '#/inspect';
-import { Render, Side, View } from '#/view';
+import { View } from '#/view';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const SEAMS = { script: Script, render: Render, logs: Logs, source: Source, toolbar: Toolbar } as const;
+const SEAMS = { script: ExecuteScript.Script, render: View.Render, logs: Diagnostics.Logs, source: Address.Linked, toolbar: Address.Toolbar } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const bind = <P, A, E, R>(handle: (given: P) => Effect.Effect<A, E, R | Handle>) => Effect.map(Effect.context<R>(), (built) => (given: P) => Effect.updateContext(handle(given), (request: Context.Context<Handle>) => Context.merge(built, request)));
+const bind = <P, A, E, R>(run: (given: P) => Effect.Effect<A, E, R | Handle>) => Effect.map(Effect.context<R>(), (built) => (given: P) => Effect.updateContext(run(given), (request: Context.Context<Handle>) => Context.merge(built, request)));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const tools = Toolkit.make(Applications.tool, View.tool, Inspect.tool, Act.tool, ExecuteScript.tool, Diagnostics.tool);
-const handlers = tools.toLayer(
+const runs = tools.toLayer(
     Effect.all({
-        applications: bind(Applications.handle),
-        view: bind(View.handle),
-        inspect: bind(Inspect.handle),
-        act: bind(Act.handle),
-        execute_script: bind(ExecuteScript.handle),
-        diagnostics: bind(Diagnostics.handle),
+        applications: bind(Applications.run),
+        view: bind(View.run),
+        inspect: bind(Inspect.run),
+        act: bind(Act.run),
+        execute_script: bind(ExecuteScript.run),
+        diagnostics: bind(Diagnostics.run),
     }),
 );
 const ApplicationTools = Object.assign(tools, {
-    settings: [Side] as const,
+    settings: [View.Side] as const,
     layer: ({ descriptions = {}, ...seams }: { readonly descriptions?: Readonly<Partial<Record<keyof typeof tools.tools, string>>> } & { readonly [Name in keyof typeof SEAMS]?: Context.Service.Shape<(typeof SEAMS)[Name]> } = {}) =>
-        Layer.merge(Server.toolkit(tools, { descriptions: { execute_script: ExecuteScript.clause, ...descriptions } }), Notices.layer).pipe(
-            Layer.provide(handlers),
+        Layer.merge(Server.toolkit(tools, { descriptions: { execute_script: ExecuteScript.clause, ...descriptions } }), Notice.layer).pipe(
+            Layer.provide(runs),
             Layer.provide(Target.layer),
             Layer.provide(Layer.succeedContext(Context.makeUnsafe(new Map(Record.toEntries(SEAMS).flatMap(([name, { key }]) => Array.fromNullishOr(seams[name]).map((seam) => [key, seam] as const)))))),
-            Layer.provide(Layer.unwrap(Effect.map(Output, ({ state }) => InterfaceMap.Store.layer(state)))),
+            Layer.provide(Layer.unwrap(Effect.map(Output, ({ state }) => InterfaceMap.layer(state)))),
         ),
 });
 

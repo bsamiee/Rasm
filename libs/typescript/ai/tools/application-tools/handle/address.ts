@@ -1,5 +1,4 @@
-import type { Entry } from '@rasm/applications/catalog';
-import { type Declaration, Description, type Source as Host } from '@rasm/applications/description';
+import { Description, type Source } from '@rasm/applications/description';
 import { InterfaceMap } from '@rasm/applications/map';
 import { ApplicationServer } from '@rasm/applications/server/client';
 import { Element } from '@rasm/applications/server/element';
@@ -8,423 +7,374 @@ import type { Instance } from '@rasm/applications/server/instance';
 import { Format } from '@rasm/mcp/report';
 import { Handle } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Cause, Context, Data, DateTime, Effect, Function, HashMap, HashSet, Match, Option, Order, pipe, Predicate, Record, Result, Schema, String, Struct } from 'effect';
+import { Array, Cause, Context, DateTime, Effect, Function, HashMap, HashSet, Match, Option, Order, Predicate, pipe, Record, Result, Schema, String, Struct } from 'effect';
+import type { Target } from '#/handle/target';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Container = typeof Element.Container.Type;
-type Control = typeof Element.Control.Type;
-type Fact = typeof Element.Fact.Type;
-type Model = typeof Element.Model.Type;
-type Linked = Pick<Host<Error, never, never, never, never>, 'describe' | 'operate'>;
-type Target = Data.TaggedEnum<{
-    Container: { readonly container: Container };
-    Control: { readonly control: Control; readonly container: Container };
-    Option: { readonly option: NonNullable<(typeof Element.Control.Type)['options']>[number] };
-    RememberedContainer: { readonly locator: string; readonly entry: InterfaceMap['containers'][string] };
-    RememberedControl: { readonly locator: string; readonly container: string; readonly control: InterfaceMap['containers'][string]['controls'][string]; readonly entry: InterfaceMap['containers'][string] };
-}>;
-interface Aimed {
-    readonly row: Entry;
-    readonly live: Pick<Instance, 'instance' | 'identifier'> & { readonly language: string };
-}
-interface Item {
-    readonly target: Target;
-    readonly token: Option.Option<string>;
-    readonly name: Option.Option<string>;
-    readonly ancestors: readonly string[];
-    readonly value: Option.Option<string>;
-    readonly kind: Option.Option<(typeof Element.Control.Type)['kind']>;
-    readonly live: boolean;
-}
-interface Shown {
-    readonly container: Container;
-    readonly item: Item;
-    readonly controls: readonly { readonly control: Control; readonly item: Item; readonly options: readonly { readonly option: NonNullable<(typeof Element.Control.Type)['options']>[number]; readonly item: Item }[] }[];
-}
-interface Index {
-    readonly model: Model;
-    readonly items: readonly Item[];
-    readonly shown: readonly Shown[];
-    readonly tokens: Readonly<Record<string, Item>>;
-    readonly live: Readonly<Record<string, Item>>;
-    readonly located: Readonly<Record<string, Array.NonEmptyReadonlyArray<Item>>>;
-    readonly remembered: { readonly build: Option.Option<string>; readonly containers: readonly Item[]; readonly controls: Readonly<Record<string, readonly Item[]>> };
-    readonly reads: Readonly<Record<string, { readonly sequence: number; readonly whole: boolean }>>;
-    readonly left: Readonly<Record<string, { readonly container: Pick<Container, 'ref' | 'locator'>; readonly locator: string }>>;
-    readonly closed: Readonly<Record<string, { readonly container: Container; readonly facts: readonly string[] }>>;
-    readonly routes: Readonly<Record<string, Description['containers'][number]['locator']>>;
+type Container = typeof Element.cases.container.Type;
+type Stored = InterfaceMap['containers'][string];
+type Remembered = { readonly locator: string } & (({ readonly _tag: 'container' } & Stored['container']) | ({ readonly _tag: 'control' } & Stored['controls'][string]));
+type Node = { readonly token: Option.Option<string>; readonly name: Option.Option<string>; readonly value: Option.Option<string>; readonly above: readonly string[]; readonly path: Option.Option<string> } & (
+    | { readonly live: true; readonly element: Element; readonly containers: Array.NonEmptyReadonlyArray<Container> }
+    | { readonly live: false; readonly element: Remembered; readonly containers: Array.NonEmptyReadonlyArray<Extract<Remembered, { readonly _tag: 'container' }>> }
+);
+type Current = Effect.Success<typeof Target.current>;
+interface Address {
+    readonly instance: Instance['instance'];
+    readonly model: typeof Element.Model.Type;
+    readonly map: InterfaceMap;
+    readonly reads: HashMap.HashMap<typeof Element.Ref.Type, { readonly sequence: number; readonly whole: boolean }>;
+    readonly left: HashMap.HashMap<typeof Element.Ref.Type, { readonly node: Extract<Node, { readonly live: true }>; readonly gone: Option.Option<readonly string[]> }>;
+    readonly routes: Record.ReadonlyRecord<string, typeof Description.Locator.Type>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SEPARATOR = ' > ';
-const STATES = ['off', 'on', 'mixed'] as const;
 const WORDS = new Intl.Segmenter(undefined, { granularity: 'word' });
-const RUN = Array.makeEquivalence(Unmatched.named);
 const REFERENCE = /^@\p{L}(?<ref>\p{Nd}+)$/u;
+const APPLICATION = Element.Scope.cases.application.make({});
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Target = Data.taggedEnum<Target>();
 const At = Schema.NonEmptyString.annotate({
     description: 'Reference a result printed (@a12), path find prints for a remembered item (File > Export… > Units), or labels from the outer container in joined by > (New Document > Units), matched ignoring case, accents, and punctuation',
 });
-const Steps = Schema.Json.pipe(Schema.Array, Schema.fromJsonString);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-const Source = Context.Reference<(row: Entry) => Effect.Effect<Linked, Error>>('@rasm/application-tools/handle/address/Source', { defaultValue: () => () => new Cause.NoSuchElementError() });
-const Toolbar = Context.Reference<(row: Entry) => Effect.Effect<Declaration, Error>>('@rasm/application-tools/handle/address/Toolbar', { defaultValue: () => () => Effect.succeed({ tools: HashMap.empty(), toolbar: [] }) });
-const Indexed = Context.Reference<Option.Option<{ readonly instance: Instance['instance']; readonly index: Index }>>('@rasm/application-tools/handle/address/Indexed', { defaultValue: Option.none });
+const Held = Context.Reference<Option.Option<Address>>('@rasm/application-tools/handle/address/Held', { defaultValue: Option.none });
+const Linked = Context.Reference<(row: Current['row']) => Effect.Effect<Pick<Source<Error>, 'describe' | 'operate'>, Error>>('@rasm/application-tools/handle/address/Linked', { defaultValue: () => () => new Cause.NoSuchElementError() });
+const Toolbar = Context.Reference<(row: Current['row']) => Effect.Effect<Parameters<typeof Description.fold>[1], Error>>('@rasm/application-tools/handle/address/Toolbar', { defaultValue: () => () => Effect.succeed({ tools: HashMap.empty(), toolbar: [] }) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const isContainer = Element.isAnyOf(['container']);
 const label = (text: string | undefined) =>
     Option.fromUndefinedOr(text).pipe(
         Option.map((shown) => shown.replaceAll(/\s+/gu, ' ').trim()),
         Option.filter(String.isNonEmpty),
     );
-const measured = (values: readonly number[], by: string) => values.map((each) => Format.count(each)).join(by);
-const printFact: (fact: Fact) => string = Match.type<Fact>().pipe(
-    Match.tagsExhaustive({
-        bool: ({ value }) => (value ? 'on' : 'off'),
-        integer: ({ value }) => `${value}`,
-        real: ({ value }) => Format.count(value),
-        text: ({ value }) => `"${value}"`,
-        date: ({ value }) => value,
-        url: ({ value }) => value,
-        point: ({ value }) => measured(value, ','),
-        size: ({ value }) => measured(value, '×'),
-        rect: ({ value }) => `${measured(value[0], ',')} ${measured(value[1], '×')}`,
-        color: ({ red, green, blue, alpha }) => `sRGB ${measured([red, green, blue, alpha], ' ')}`,
-        range: ({ location, length }) => `${location}+${length}`,
-        element: ({ id }) => `element ${id}`,
-        refused: ({ error }) => `unread, AXError ${error}`,
-        list: ({ values }) => `[${values.map((each) => printFact(each)).join(', ')}]`,
-        record: ({ fields }) => `{${Record.collect(fields, (field, each) => `${field}: ${printFact(each)}`).join(', ')}}`,
-    }),
-);
-const printValue = (kind: (typeof Element.Control.Type)['kind'], fact: Fact) => (kind === 'toggle' && fact._tag === 'integer' ? (STATES[fact.value] ?? printFact(fact)) : printFact(fact));
-const printStored = (kind: (typeof Element.Control.Type)['kind'], value: (typeof Element.Observation.Type)['values'][string]) =>
-    Match.value(value).pipe(
-        Match.when(Match.boolean, (on) => printFact({ _tag: 'bool', value: on })),
-        Match.when(Match.number, (amount) => printValue(kind, { _tag: Number.isInteger(amount) ? 'integer' : 'real', value: amount })),
-        Match.orElse((text) => printFact({ _tag: 'text', value: text })),
-    );
-const token = (kind: string, ref: number) => `@${kind.charAt(0)}${ref}`;
-const path = (item: Item) => [...item.ancestors, ...Option.toArray(item.name)];
-const keyOf = (steps: readonly Schema.Json[]) => JSON.stringify(steps);
-const stepsOf = (locator: string) => Option.getOrElse(Schema.decodeOption(Steps)(locator), Array.empty);
-const numbered = (at: string) => Option.fromNullishOr(REFERENCE.exec(at)?.groups?.['ref']);
-const words = (text: string) =>
+const trace = (above: readonly string[], name: Option.Option<string>) => ({ above, name, path: Option.map(Option.liftPredicate([...above, ...Option.toArray(name)], Array.isReadonlyArrayNonEmpty), Array.join(SEPARATOR)) });
+const parse = (at: string) => Option.map(Option.fromNullishOr(REFERENCE.exec(at)?.groups?.['ref']), Number);
+const measure = (values: readonly number[], by: string) => values.map((each) => Format.count(each)).join(by);
+const refer = (kind: string, ref: typeof Element.Ref.Type) => `@${kind.charAt(0)}${ref}`;
+const print =
+    (kind: (typeof Element.cases.control.Type)['kind']) =>
+    (value: typeof Element.Fact.Type | typeof Element.Value.Type): string =>
+        Match.value(value).pipe(
+            Match.when(Match.boolean, (on) => print(kind)({ _tag: 'bool', value: on })),
+            Match.when(Match.number, (amount) => print(kind)({ _tag: Number.isInteger(amount) ? 'integer' : 'real', value: amount })),
+            Match.when(Match.string, (text) => print(kind)({ _tag: 'text', value: text })),
+            Match.tagsExhaustive({
+                bool: (fact) => (fact.value ? 'on' : 'off'),
+                integer: (fact) => (kind === 'toggle' ? ((['off', 'on', 'mixed'] as const)[fact.value] ?? `${fact.value}`) : `${fact.value}`),
+                real: (fact) => Format.count(fact.value),
+                text: (fact) => `"${fact.value}"`,
+                date: (fact) => fact.value,
+                url: (fact) => fact.value,
+                point: (fact) => measure(fact.value, ','),
+                size: (fact) => measure(fact.value, '×'),
+                rect: (fact) => `${measure(fact.value[0], ',')} ${measure(fact.value[1], '×')}`,
+                color: ({ red, green, blue, alpha }) => `sRGB ${measure([red, green, blue, alpha], ' ')}`,
+                range: ({ location, length }) => `${location}+${length}`,
+                element: ({ id }) => `element ${id}`,
+                refused: ({ error }) => `unread, AXError ${error}`,
+                list: ({ values }) => `[${values.map(print(kind)).join(', ')}]`,
+                record: ({ fields }) => `{${Record.collect(fields, (field, each) => `${field}: ${print(kind)(each)}`).join(', ')}}`,
+            }),
+        );
+const segment = (text: string) =>
     Iterator.from(WORDS.segment(text))
         .filter(({ isWordLike }) => isWordLike === true)
-        .map(({ segment }) => segment)
+        .map((word) => word.segment)
         .toArray();
-const segmentsOf = (text: string) => String.split(text, '>').map(String.trim).filter(String.isNonEmpty);
-const loose = (segment: string) => {
-    const wanted = words(segment);
-    return (name: string) => Unmatched.named(name, segment) || Array.window(words(name), wanted.length).some((run) => RUN(run, wanted));
+const holds = (step: string) => {
+    const [wanted, same] = [segment(step), Array.makeEquivalence(Unmatched.named)];
+    return (name: string) => Unmatched.named(name, step) || Array.window(segment(name), wanted.length).some((run) => same(run, wanted));
 };
-const within = (segments: readonly string[]) => {
-    const tests = segments.map(loose);
-    return ({ ancestors }: Item) => Array.isReadonlyArrayEmpty(ancestors.reduce((left, held) => (Option.exists(Array.head(left), (test) => test(held)) ? Array.drop(left, 1) : left), tests));
-};
-const item = (target: Target, ancestors: readonly string[]): Item => {
-    const read = Target.$match(target, {
-        Container: ({ container }) => ({ ref: Option.some(token(container.kind, container.ref)), name: label(container.title), value: Option.none<string>(), kind: Option.none<(typeof Element.Control.Type)['kind']>() }),
-        Control: ({ control }) => ({ ref: Option.some(token(control.kind, control.ref)), name: label(control.label?.text), value: Option.map(Option.fromUndefinedOr(control.value), (fact) => printValue(control.kind, fact)), kind: Option.some(control.kind) }),
-        Option: ({ option }) => ({ ref: Option.some(token('option', option.ref)), name: label(option.label), value: Option.none(), kind: Option.none() }),
-        RememberedContainer: ({ entry: { container } }) => ({ ref: Option.none(), name: Option.orElse(Option.flatMap(container.title, label), () => Option.some(container.kind)), value: Option.none(), kind: Option.none() }),
-        RememberedControl: ({ control }) => ({ ref: Option.none(), name: Option.flatMap(control.label, ({ text }) => label(text)), value: Option.map(control.value, (was) => printStored(control.kind, was)), kind: Option.some(control.kind) }),
-    });
-    return { target, ancestors, name: read.name, value: read.value, kind: read.kind, live: Option.isSome(read.ref), token: Option.orElse(read.ref, () => Option.map(read.name, (name) => [...ancestors, name].join(SEPARATOR))) };
-};
-const locatorOf = (target: Target) =>
-    Target.$match(target, { Container: ({ container }) => Option.some(container.locator), Control: ({ control }) => Option.some(control.locator), Option: () => Option.none(), RememberedContainer: ({ locator }) => Option.some(locator), RememberedControl: ({ locator }) => Option.some(locator) });
-const located = (items: readonly Item[]) => {
-    const placed = items.flatMap((each) => Option.toArray(Option.map(locatorOf(each.target), (at) => ({ at, each }))));
-    const grouped = Array.groupBy(placed, Struct.get('at'));
-    return Record.map(grouped, (held) => Array.map(held, Struct.get('each')));
-};
-const tokensOf = (items: readonly Item[]) => Record.fromEntries(items.flatMap((each) => Option.toArray(Option.map(each.token, (at) => [at, each] as const))));
-const candidateOf = (each: Item) => (each.live ? [...Option.toArray(each.token), path(each).join(SEPARATOR)] : Option.toArray(each.token)).map(Format.quoted).join(' ');
-const caption = (kind: (typeof Element.Container.Type)['kind'], title: Option.Option<string>, ref?: number) => [...Array.fromNullishOr(ref).map((held) => token(kind, held)), String.noCase()(kind), ...Option.toArray(title).map(Format.quoted)].join(' ');
-const refuse = (reason: 'notOpen' | 'absent', subject: string, values: readonly string[]) => ApplicationFailure.make({ reason, subject, message: [subject, String.noCase()(reason), values.join(', ')].filter(String.isNonEmpty).join(' ') });
-const tomb = (container: Container, locator: string) => ({ container: Struct.pick(container, ['ref', 'locator']), locator });
-const own = (state: Context.Service.Shape<typeof Indexed>, of: Instance['instance']) => Option.flatMap(state, ({ instance, index: held }) => (instance === of ? Option.some(held) : Option.none()));
-const index = (model: Model, carried: readonly (readonly [string, Item])[] = []): Index => {
-    const byRef = Record.fromIterableWith(model.containers, (container) => [`${container.ref}`, container]);
-    const names = Record.getSomes(
-        Record.fromIterableWith([...model.containers.map(({ locator, title }) => [locator, title] as const), ...model.containers.flatMap(({ controls }) => controls.map(({ locator, label: named }) => [locator, named?.text] as const))], ([locator, text]) => [keyOf(stepsOf(locator)), label(text)]),
-    );
-    const ancestry = (container: Container): readonly string[] => {
-        const [steps, above] = [stepsOf(container.locator), Option.flatMap(Option.fromUndefinedOr(container.parent), (parent) => Record.get(byRef, `${parent}`))];
-        return Option.match(above, { onSome: (parent) => [...ancestry(parent), ...Option.toArray(label(parent.title))], onNone: () => Array.getSomes(Array.dropRight(steps, 1).map((_, at) => Record.get(names, keyOf(steps.slice(0, at + 1))))) });
+const split = (at: string) => {
+    const segments = String.split(at, '>').map(String.trim).filter(String.isNonEmpty);
+    const tests = Array.dropRight(segments, 1).map(holds);
+    return {
+        last: Option.getOrElse(Array.last(segments), () => ''),
+        descends: (above: readonly string[]) => Array.isReadonlyArrayEmpty(above.reduce((left, held) => (Option.exists(Array.head(left), (test) => test(held)) ? Array.drop(left, 1) : left), tests)),
     };
-    const shown = model.containers.map((container): Shown => {
-        const held = item(Target.Container({ container }), ancestry(container));
-        return {
-            container,
-            item: held,
-            controls: container.controls.map((control) => {
-                const owner = item(Target.Control({ control, container }), [...path(held), ...Array.fromNullishOr(control.section)]);
-                return { control, item: owner, options: (control.options ?? []).map((option) => ({ option, item: item(Target.Option({ option }), path(owner)) })) };
+};
+const sift = (elements: readonly Element[], place: (held: Container, nested: () => readonly Element[], keep: (adopted: readonly Element[]) => readonly Element[]) => readonly Element[]): readonly Element[] =>
+    elements.filter(isContainer).flatMap((held) => {
+        const nested = () => sift(held.children, place);
+        return place(held, nested, (adopted) => [{ ...held, children: [...held.children.filter(Predicate.not(isContainer)), ...nested(), ...adopted] }]);
+    });
+const flatten = (elements: readonly Element[], above: readonly string[], containers: readonly Container[]): readonly Extract<Node, { readonly live: true }>[] =>
+    elements.flatMap((element) => {
+        const { kind, named, value } = Element.match(element, {
+            container: (held) => ({ kind: held.kind, named: held.title, value: Option.none<string>() }),
+            control: (held) => ({ kind: held.kind, named: held.label?.text, value: Option.map(Option.fromUndefinedOr(held.value), print(held.kind)) }),
+            option: (held) => ({ kind: held._tag, named: held.label, value: Option.none<string>() }),
+        });
+        const traced = trace(element._tag === 'control' ? [...above, ...Array.fromNullishOr(element.section)] : above, label(named));
+        const within = isContainer(element) ? [...containers, element] : containers;
+        const below = flatten(element.children, [...traced.above, ...Option.toArray(traced.name)], within);
+        return Array.isReadonlyArrayNonEmpty(within) ? [{ ...traced, live: true as const, element, containers: within, token: Option.some(refer(kind, element.ref)), value }, ...below] : below;
+    });
+const walk = Function.memoize((read: Address) => {
+    const shown = flatten(read.model.elements, [], []);
+    const carried = HashMap.toValues(read.left).flatMap(({ node, gone }) => (Option.isNone(gone) ? [node] : []));
+    const pairs = [...carried, ...shown].map((node) => [node.element.ref, node] as const);
+    const refs = new Set(pairs.map(([ref]) => ref));
+    const unread = shown.flatMap((node) => (node.element._tag === 'control' && node.element.opens !== undefined && !refs.has(node.element.opens) ? [[node.element.opens, { ...node, token: Option.some(refer('menu', node.element.opens)) }] as const] : []));
+    const placed = [...shown, ...carried].flatMap((node) => (node.element._tag === 'option' ? [] : [{ at: node.element.locator, node }]));
+    return { nodes: [...shown, ...carried], byRef: HashMap.fromIterable([...unread, ...pairs]), located: Record.map(Array.groupBy(placed, Struct.get('at')), Array.map(Struct.get('node'))) };
+});
+const remember = Function.memoize((read: Address) => {
+    const { containers } = read.map;
+    const { located } = walk(read);
+    const lead = (locator: string, seen: HashSet.HashSet<string>): readonly string[] =>
+        Option.gen(function* () {
+            const { container } = yield* Record.get(containers, locator);
+            const openers = Array.sortWith(container.openers, ({ tally }) => tally.first, DateTime.Order);
+            const from = yield* Array.findFirst(openers, (opener) => !HashSet.has(seen, opener.container));
+            const held = yield* Record.get(containers, from.container);
+            const control = yield* Record.get(held.controls, from.control);
+            return [...lead(from.container, HashSet.add(seen, from.container)), ...Option.toArray(Option.flatMap(held.container.title, label)), ...Option.toArray(control.section), ...Option.toArray(Option.flatMap(Option.map(control.label, Struct.get('text')), label))];
+        }).pipe(Option.getOrElse(Array.empty<string>));
+    const listed = Array.sortWith(Record.toEntries(containers), ([, entry]) => entry.container.tally.first, DateTime.Order).flatMap(([locator, entry]): readonly Extract<Node, { readonly live: false }>[] => {
+        const container = { ...entry.container, _tag: 'container' as const, locator };
+        const title = Option.orElse(Option.flatMap(entry.container.title, label), () => Option.some<string>(entry.container.kind));
+        const traced = trace(lead(locator, HashSet.make(locator)), title);
+        const controls = Array.sortWith(Record.toEntries(entry.controls), ([, control]) => control.tally.first, DateTime.Order).filter(([, control]) => Option.isNone(control.retired));
+        return [
+            { ...traced, live: false, element: container, containers: [container], token: traced.path, value: Option.none() },
+            ...controls.map(([at, control]) => {
+                const named = trace([...traced.above, ...Option.toArray(title), ...Option.toArray(control.section)], Option.flatMap(Option.map(control.label, Struct.get('text')), label));
+                return { ...named, live: false as const, element: { ...control, _tag: 'control' as const, locator: at }, containers: [container] as const, token: Option.zipRight(named.name, named.path), value: Option.map(control.value, print(control.kind)) };
             }),
-        };
+        ];
     });
-    const refs = [...carried, ...shown.flatMap(({ container, item: held, controls }) => [[`${container.ref}`, held] as const, ...controls.flatMap(({ control, item: owner, options }) => [[`${control.ref}`, owner] as const, ...options.map(({ option, item: each }) => [`${option.ref}`, each] as const)])])];
-    const interned = Record.fromEntries(refs);
-    const unread = shown.flatMap(({ controls }) => controls.flatMap(({ control, item: owner }) => (control.opens === undefined || Record.has(interned, `${control.opens}`) ? [] : [[`${control.opens}`, { ...owner, token: Option.some(token('menu', control.opens)) }] as const])));
-    const items = refs.map(([, each]) => each);
+    const [, counted] = Array.mapAccum(listed, HashMap.empty<string, number>(), (counts, each) => {
+        const count = Option.match(each.token, { onNone: () => 1, onSome: (plain) => Option.getOrElse(HashMap.get(counts, plain), () => 0) + 1 });
+        return [Option.match(each.token, { onNone: () => counts, onSome: (plain) => HashMap.set(counts, plain, count) }), count === 1 ? each : { ...each, token: Option.map(each.token, (plain) => `${plain} #${count}`) }] as const;
+    });
+    const [aliases, nodes] = Array.partition(counted, (each) => Option.match(Record.get(located, each.element.locator), { onNone: () => Result.fail(each), onSome: (found) => Result.succeed(Option.all({ at: each.token, to: Option.liftPredicate(found, Predicate.isTupleOf(1)) })) }));
     return {
-        model,
-        items,
-        shown,
-        tokens: tokensOf([...items, ...unread.map(([, each]) => each)]),
-        live: { ...Record.fromEntries(unread), ...interned },
-        located: located(items),
-        remembered: { build: Option.none(), containers: [], controls: {} },
-        reads: Record.fromIterableWith(model.containers, ({ ref }) => [`${ref}`, { sequence: model.sequence, whole: false }]),
-        left: {},
-        closed: {},
-        routes: {},
+        nodes,
+        paths: Record.fromEntries<readonly [string, Node]>([...Array.getSomes(aliases).map(({ at, to }) => [at, to[0]] as const), ...nodes.flatMap((each) => Option.toArray(Option.map(each.token, (at) => [at, each] as const)))]),
+        located: Record.fromIterableBy(nodes, ({ element }) => element.locator),
+        under: Array.groupBy(
+            nodes.filter(({ element }) => element._tag === 'control'),
+            ({ containers: within }) => Array.headNonEmpty(within).locator,
+        ),
     };
+});
+const get = (read: Address, ref: typeof Element.Ref.Type) => HashMap.get(walk(read).byRef, ref);
+const locate = (read: Address, locator: string): readonly Node[] => Option.getOrElse(Record.get(walk(read).located, locator), () => Option.toArray(Record.get(remember(read).located, locator)));
+const list = (read: Address) => walk(read).nodes;
+const recall = (read: Address, within?: string): readonly Node[] => (within === undefined ? remember(read).nodes : Option.getOrElse(Record.get(remember(read).under, within), Array.empty<Node>));
+const route = (read: Address, ref: typeof Element.Ref.Type) => Record.get(read.routes, `${ref}`);
+const narrow = (read: Address, elements: readonly Element[]): Address => ({ ...read, model: { ...read.model, elements }, left: HashMap.empty() });
+const intern = (instance: Instance['instance'], node: Node) => Effect.flatMap(node.live ? Effect.succeed([node.element.ref]) : ApplicationServer.use((server) => server.intern({ instance, locators: [node.element.locator] })), (refs) => Effect.fromOption(Array.head(refs)));
+const caption = (kind: Container['kind'], title: Option.Option<string>, ref: Option.Option<number>) => [...Option.toArray(Option.map(ref, (held) => refer(kind, held))), String.noCase()(kind), ...Option.toArray(Option.map(title, Format.quoted))].join(' ');
+const show = (read: Address, locator: string) =>
+    Option.toArray(Record.get(walk(read).located, locator))
+        .flat()
+        .flatMap(({ element }) => (isContainer(element) ? [element] : []));
+const refuse = (read: Address, subject: string, locator: string, known: string) => {
+    const open = show(read, locator);
+    const shut = HashMap.toValues(read.left).flatMap(({ node, gone }) => (Option.isSome(gone) && isContainer(node.element) && node.element.locator === locator ? [[caption(node.element.kind, label(node.element.title), Option.some(node.element.ref)), ...gone.value]] : []));
+    const values = Array.match(open, { onEmpty: () => Option.getOrElse(Array.head(shut), () => [known]), onNonEmpty: (held) => held.map(({ kind, title, ref }) => caption(kind, label(title), Option.some(ref))) });
+    return ApplicationFailure.of(Array.isReadonlyArrayEmpty(open) ? 'notOpen' : 'absent', subject, values);
 };
-const partial = ({ truncated, controls }: Container) => truncated || controls.reduce((unlisted, { kind, total = 0 }) => unlisted + (kind === 'multi' ? total : 0) - (kind === 'row' ? 1 : 0), 0) > 0;
-const settle = (
-    before: Index,
-    {
-        stated,
-        gone,
-        facts,
-        sequence,
-        whole,
-        routes,
-        pointer,
-    }: { readonly stated: readonly Container[]; readonly gone: readonly Container[]; readonly facts: readonly string[]; readonly sequence: number; readonly whole: boolean; readonly routes: Index['routes']; readonly pointer: (typeof Element.Model.Type)['pointer'] },
-): Index => {
-    const controls = Record.toEntries(before.live).flatMap(([ref, each]) => (each.target._tag === 'Control' && `${each.target.control.ref}` === ref ? [{ ref, each, locator: each.target.control.locator, sat: `${each.target.container.ref}` }] : []));
-    const held = Array.groupBy(controls, Struct.get('sat'));
-    const [open, shut, restated] = [new Set(stated.map(Struct.get('ref'))), new Set(gone.map(Struct.get('ref'))), new Set(stated.map(Struct.get('locator')))];
-    const stay = before.model.containers.filter(({ ref }) => !open.has(ref) && !shut.has(ref));
-    const versions = [...stated.map((container) => ({ container, short: partial(container) })), ...stay.map((container) => ({ container, short: true }))];
-    const lacking = versions.flatMap(({ container, short }) => {
-        const now = new Set(container.controls.map(({ ref }) => `${ref}`));
-        return (held[`${container.ref}`] ?? []).filter(({ ref }) => !now.has(ref)).map((absent) => ({ ...absent, container, short }));
+const seek = (read: Address, at: string, recalled: Option.Option<ReturnType<typeof remember>>): Result.Result<Node, ApplicationFailure | Unmatched> => {
+    const { nodes, byRef, located } = walk(read);
+    const miss = (subject: string, candidates: readonly Node[]) => Result.fail(Unmatched.of({ subject, query: Option.some(at), candidates: candidates.map((each) => [...Option.toArray(each.token), ...(each.live ? Option.toArray(each.path) : [])].map(Format.quoted).join(' ')) }));
+    return Option.match(parse(at), {
+        onSome: (ref) => {
+            const held = HashMap.get(byRef, ref);
+            const lapsed = Option.filter(HashMap.get(read.left, ref), ({ gone }) => Option.isSome(gone));
+            const again: readonly Node[] = pipe(
+                Option.flatMap(lapsed, ({ node }) => Option.liftPredicate(node.element, Element.isAnyOf(['container', 'control']))),
+                Option.match({ onNone: Array.empty<Node>, onSome: ({ locator }) => [...Option.toArray(Record.get(located, locator)).flat(), ...Option.toArray(Option.flatMap(recalled, (map) => Record.get(map.located, locator)))] }),
+            );
+            return Match.value({ exact: Option.filter(held, ({ token }) => Option.contains(token, at)), lapsed }).pipe(
+                Match.when({ exact: Option.isSome }, ({ exact }) => Result.succeed(exact.value)),
+                Match.when({ lapsed: Option.isSome }, ({ lapsed: lost }) => {
+                    const sat = Array.lastNonEmpty(lost.value.node.containers);
+                    return Result.fromOption(Array.head(again), () => refuse(read, at, sat.locator, caption(sat.kind, label(sat.title), Option.some(sat.ref))));
+                }),
+                Match.orElse(() => miss('reference', Option.toArray(held))),
+            );
+        },
+        onNone: () => {
+            const { last, descends } = split(at);
+            const pools: readonly (readonly Node[])[] = [nodes, ...Option.toArray(recalled).map((map) => map.nodes)];
+            const tiers = Array.cartesian(pools, [(name: string) => Unmatched.named(name, last), holds(last)]);
+            const found = Array.findFirst(tiers, ([pool, test]) =>
+                Option.liftPredicate(
+                    pool.filter((each) => Option.exists(each.name, test) && descends(each.above)),
+                    Array.isReadonlyArrayNonEmpty,
+                ),
+            );
+            const sectioned = nodes.flatMap((each) => (each.element._tag === 'control' && each.element.section !== undefined && Unmatched.named(each.element.section, last) && descends(Array.dropRight(each.above, 1)) ? Option.toArray(HashMap.get(byRef, Array.lastNonEmpty(each.containers).ref)) : []));
+            const candidates = Option.getOrElse(found, (): readonly Node[] => [...new Set(sectioned)]);
+            const nearest = () =>
+                Unmatched.rank(
+                    last,
+                    pools.flat().filter(({ name }) => Option.isSome(name)),
+                    ({ name }) => Option.getOrElse(name, () => last),
+                );
+            return Array.match(candidates, { onEmpty: () => miss('control, option, or container', nearest()), onNonEmpty: (several) => (Predicate.isTupleOf(several, 1) ? Result.succeed(several[0]) : miss('single control, option, or container', several)) });
+        },
     });
-    const complete = new Set(versions.flatMap(({ container, short }) => (short ? [] : [container.locator])));
-    const carried = lacking.flatMap(({ ref, each, short }) => (short ? [[ref, each] as const] : []));
-    const built = index({ sequence: Math.max(before.model.sequence, sequence), containers: [...stated, ...stay], ...(pointer === undefined ? {} : { pointer }) }, carried);
-    const left = {
-        ...Record.filter(before.left, ({ container }) => !complete.has(container.locator)),
-        ...Record.fromEntries(lacking.flatMap(({ ref, locator, container, short }) => (short ? [] : [[ref, tomb(container, locator)] as const]))),
-        ...Record.fromEntries(gone.flatMap((container) => [[`${container.ref}`, tomb(container, container.locator)] as const, ...(held[`${container.ref}`] ?? []).map(({ ref, locator }) => [ref, tomb(container, locator)] as const)])),
-    };
-    return {
-        ...built,
-        reads: { ...before.reads, ...Record.fromEntries([...stated, ...gone].map(({ ref }) => [`${ref}`, { sequence, whole: whole || Option.exists(Record.get(before.reads, `${ref}`), Struct.get('whole')) }] as const)) },
-        left: Record.filter(left, (_, ref) => !Record.has(built.live, ref)),
-        closed: { ...Record.filter(before.closed, (_, locator) => !restated.has(locator)), ...Record.fromEntries(gone.map((container) => [container.locator, { container, facts }] as const)) },
-        routes: { ...before.routes, ...routes },
-    };
 };
-const merge = (last: Option.Option<Index>, model: Model, whole: boolean, routes: Index['routes']): Index => {
-    const before = Option.getOrElse(last, () => index({ sequence: model.sequence, containers: [] }));
-    const newer = ({ ref }: Container) => Option.exists(Record.get(before.reads, `${ref}`), ({ sequence }) => sequence > model.sequence);
-    const stated = new Set(model.containers.map(Struct.get('ref')));
-    const gone = before.model.containers.filter((container) => whole && !stated.has(container.ref) && !newer(container) && Option.exists(Record.get(before.reads, `${container.ref}`), Struct.get('whole')));
-    return settle(before, { stated: model.containers.filter(Predicate.not(newer)), gone, facts: [], sequence: model.sequence, whole, routes, pointer: whole && model.sequence >= before.model.sequence ? model.pointer : before.model.pointer });
-};
-const close = (held: Index, sequence: number, ref: (typeof Element.Container.Type)['ref'], facts: readonly string[]): Index => {
-    const open = Option.flatMap(Record.get(held.live, `${ref}`), ({ target }) => (target._tag === 'Container' ? Option.some(target.container) : Option.none()));
-    const reread = Option.exists(Record.get(held.reads, `${ref}`), (read) => read.sequence > sequence);
-    const shut = Option.flatMap(Record.get(held.left, `${ref}`), ({ container: { locator } }) => Option.map(Record.get(held.closed, locator), (was) => ({ ...held, closed: Record.set(held.closed, locator, { ...was, facts }) })));
-    return Option.match(open, {
-        onSome: (container) => (reread ? held : settle(held, { stated: [], gone: [container], facts, sequence, whole: false, routes: {}, pointer: held.model.pointer })),
-        onNone: () => Option.getOrElse(shut, () => held),
-    });
-};
-const opened = (map: InterfaceMap, locator: string, seen: HashSet.HashSet<string>): readonly string[] =>
-    Option.gen(function* () {
-        const { container } = yield* Record.get(map.containers, locator);
-        const firsts = Array.sortWith(container.openers, ({ tally }) => tally.first, DateTime.Order);
-        const from = yield* Array.findFirst(firsts, ({ container: at }) => !HashSet.has(seen, at));
-        const held = yield* Record.get(map.containers, from.container);
-        const control = yield* Record.get(held.controls, from.control);
-        return [...opened(map, from.container, HashSet.add(seen, from.container)), ...Option.toArray(Option.flatMap(held.container.title, label)), ...Option.toArray(control.section), ...Option.toArray(Option.flatMap(control.label, ({ text }) => label(text)))];
-    }).pipe(Option.getOrElse(Array.empty<string>));
-const remember = (held: Index, map: InterfaceMap): Index => {
-    const listed = Array.sortWith(Record.toEntries(map.containers), ([, { container }]) => container.tally.first, DateTime.Order).flatMap(([locator, entry]) => {
-        const container = item(Target.RememberedContainer({ locator, entry }), opened(map, locator, HashSet.make(locator)));
-        const controls = Array.sortWith(Record.toEntries(entry.controls), ([, control]) => control.tally.first, DateTime.Order);
-        return [container, ...controls.flatMap(([at, control]) => (Option.isSome(control.retired) ? [] : [item(Target.RememberedControl({ locator: at, container: locator, control, entry }), [...path(container), ...Option.toArray(control.section)])]))];
-    });
-    const [, counted] = Array.mapAccum(listed, HashMap.empty<Option.Option<string>, number>(), (counts, each) => {
-        const count = Option.getOrElse(HashMap.get(counts, each.token), () => 0) + 1;
-        return [HashMap.set(counts, each.token, count), { ...each, token: Option.map(each.token, (plain) => (count === 1 ? plain : `${plain} #${count}`)) }] as const;
-    });
-    const shownAt = ({ target }: Item) => Option.flatMap(locatorOf(target), (at) => Record.get(held.located, at));
-    const [aliases, remembered] = Array.partition(counted, (each) => Option.match(shownAt(each), { onNone: () => Result.fail(each), onSome: (found) => Result.succeed(Option.all({ at: each.token, to: Option.liftPredicate(found, Predicate.isTupleOf(1)) })) }));
-    const [controls, containers] = Array.partition(remembered, (each) => (each.target._tag === 'RememberedControl' ? Result.succeed({ sat: each.target.container, each }) : Result.fail(each)));
-    const grouped = Array.groupBy(controls, Struct.get('sat'));
-    return {
-        ...held,
-        items: [...held.items, ...remembered],
-        tokens: { ...held.tokens, ...Record.fromEntries(Array.getSomes(aliases).map(({ at, to }) => [at, to[0]] as const)), ...tokensOf(remembered) },
-        located: { ...held.located, ...located(remembered) },
-        remembered: { build: Array.head(map.application.builds), containers, controls: Record.map(grouped, (under) => under.map(Struct.get('each'))) },
-    };
-};
-const recall = Function.memoize((held: Index) => Function.memoize((map: InterfaceMap) => remember(held, map)));
-const locate = ({ target }: Item) =>
-    Match.value(target).pipe(
-        Match.tag('Control', ({ control, container }) => ({ container: container.locator, control: control.locator })),
-        Match.tag('RememberedControl', ({ locator, container }) => ({ container, control: locator })),
-        Match.option,
+const resolve = (read: Address, at: string) => Result.orElse(seek(read, at, Option.none()), () => Option.match(Record.get(remember(read).paths, at), { onSome: (exact) => Result.succeed(exact), onNone: () => seek(read, at, Option.some(remember(read))) }));
+const find = (read: Address, query: string, kind: Option.Option<(typeof Element.cases.control.Type)['kind']>, among: readonly Node[] = [...walk(read).nodes, ...remember(read).nodes]) => {
+    const { last, descends } = split(query);
+    const kept = among.filter((each) => descends(each.above) && Option.match(kind, { onNone: () => Option.isSome(each.name) || Option.isSome(each.value), onSome: (wanted) => each.element._tag === 'control' && each.element.kind === wanted }));
+    const ranked = Unmatched.rank(last, kept, (each) =>
+        Match.value(each).pipe(
+            Match.when({ live: true }, ({ element }) => [...Array.fromNullishOr(element.help), ...(element._tag === 'control' ? (element.labels ?? []) : [])]),
+            Match.when({ element: { _tag: 'control' } }, ({ element }) => [...Option.toArray(element.help), ...Option.getOrElse(element.labels, Array.empty<string>)]),
+            Match.orElse(Array.empty<string>),
+            Array.prependAll([...Option.toArray(each.name), ...Option.toArray(each.value)]),
+            Array.join(' '),
+        ),
     );
-const shell = (held: Index, locator: string) => Record.get(held.located, locator).pipe(Option.map(Array.flatMap(({ target }) => (target._tag === 'Container' ? [target.container] : []))), Option.filter(Array.isReadonlyArrayNonEmpty<Container>));
-const menu = (target: Target) => Target.$match(target, { Container: () => false, Control: ({ container }) => container.kind === 'menu', Option: () => false, RememberedContainer: ({ entry }) => entry.container.kind === 'menu', RememberedControl: ({ entry }) => entry.container.kind === 'menu' });
-const lost = (held: Index, subject: string, locator: string, mapped: Option.Option<InterfaceMap['containers'][string]['container']>) => {
-    const [open, shut] = [Option.getOrElse(shell(held, locator), Array.empty<Container>), Option.toArray(Record.get(held.closed, locator))];
-    const read = [...open, ...shut.map(Struct.get('container'))].map(({ kind, title, ref }) => caption(kind, label(title), ref));
-    const known = Array.isReadonlyArrayEmpty(read) ? Option.toArray(mapped).map(({ kind, title }) => caption(kind, Option.flatMap(title, label))) : read;
-    return refuse(Array.isReadonlyArrayEmpty(open) ? 'notOpen' : 'absent', subject, [...known, ...shut.flatMap(Struct.get('facts'))]);
+    return Array.sortWith(ranked, ({ live }) => live, Order.flip(Order.Boolean));
 };
-const opener = (held: Index, { target }: Item, seen: HashSet.HashSet<string> = HashSet.empty()) =>
-    Match.value(target).pipe(
-        Match.tag('RememberedContainer', 'RememberedControl', (at) => at),
-        Match.option,
-        Option.filter((at) => Option.isNone(shell(held, at._tag === 'RememberedControl' ? at.container : at.locator))),
-        Option.flatMap(({ entry }) => Array.findFirst(entry.container.openers, ({ control }) => (HashSet.has(seen, control) ? Option.none() : Record.get(held.located, control)))),
-    );
-const opening = (held: Index, wanted: Item): Result.Result<readonly Item[], ApplicationFailure | Unmatched> => {
+const open = (read: Address, wanted: Node): Result.Result<readonly Node[], ApplicationFailure | Unmatched> => {
+    const holder = (node: Node) => (node.live ? Option.none() : Option.some(Array.lastNonEmpty(node.containers)));
     const links = Array.reverse(
-        Array.unfold({ at: wanted, seen: HashSet.empty<string>() }, ({ at, seen }) => Option.map(opener(held, at, seen), (found) => [found, { at: Array.headNonEmpty(found), seen: HashSet.union(seen, locatorOf(Array.headNonEmpty(found).target).pipe(Option.toArray, HashSet.fromIterable)) }] as const)),
+        Array.unfold({ at: wanted, seen: HashSet.empty<string>() }, ({ at, seen }) =>
+            Option.gen(function* () {
+                const shut = yield* Option.filter(holder(at), ({ locator }) => Array.isReadonlyArrayEmpty(show(read, locator)));
+                const { control } = yield* Array.findFirst(shut.openers, (opener) => !HashSet.has(seen, opener.control) && Array.isReadonlyArrayNonEmpty(locate(read, opener.control)));
+                const found = yield* Option.liftPredicate(locate(read, control), Array.isReadonlyArrayNonEmpty);
+                return [found, { at: Array.headNonEmpty(found), seen: HashSet.add(seen, control) }] as const;
+            }),
+        ),
     );
     const chain = links.map(Array.headNonEmpty);
     const root = Array.headNonEmpty(Array.append(chain, wanted));
-    const subject = Option.getOrElse(wanted.token, () => path(wanted).join(SEPARATOR));
+    const sits = holder(root);
+    const subject = Option.getOrElse(Option.firstSomeOf([wanted.token, wanted.path]), () => wanted.element._tag);
     const alike = (tokens: readonly string[]) => Result.fail(Unmatched.of({ subject: `single item reaching ${subject}`, candidates: tokens }));
-    const sits = Match.value(root.target).pipe(
-        Match.tag('RememberedControl', ({ container, entry }) => ({ locator: container, entry })),
-        Match.tag('RememberedContainer', ({ locator, entry }) => ({ locator, entry })),
-        Match.option,
-    );
-    const open = Option.flatMap(sits, ({ locator }) => shell(held, locator));
-    return Match.value({ doubled: Array.findFirst(links, (found) => found.length > 1), reached: root.live || menu(root.target), several: Option.filter(open, (found) => found.length > 1), short: Option.exists(open, (found) => found.some(Struct.get('truncated'))), sits }).pipe(
-        Match.when({ doubled: Option.isSome }, ({ doubled }) => alike(Array.getSomes(doubled.value.map(Struct.get('token'))))),
-        Match.when({ reached: true }, () => Result.succeed(chain.filter((_, at) => !Option.exists(Array.get([...chain, wanted], at + 1), ({ target }) => menu(target))))),
-        Match.when({ several: Option.isSome }, ({ several }) => alike(several.value.map(({ kind, ref }) => token(kind, ref)))),
-        Match.when({ short: true }, () => Result.succeed([])),
-        Match.when({ sits: Option.isSome }, ({ sits: { value } }) => Result.fail(lost(held, subject, value.locator, Option.some(value.entry.container)))),
+    const menu = ({ containers }: Node) => containers.at(-1)?.kind === 'menu';
+    const shown = Option.match(sits, { onNone: Array.empty<Container>, onSome: ({ locator }) => show(read, locator) });
+    return Match.value({ doubled: Array.findFirst(links, (found) => found.length > 1), reached: root.live || menu(root), shown, sits }).pipe(
+        Match.when({ doubled: Option.isSome }, ({ doubled }) => alike(Array.getSomes(doubled.value.map(({ token }) => token)))),
+        Match.when({ reached: true }, () => Result.succeed(chain.filter((_, at) => !Option.exists(Array.get([...chain, wanted], at + 1), menu)))),
+        Match.when({ shown: (held: readonly Container[]) => held.length > 1 }, ({ shown: several }) => alike(several.map(({ kind, ref }) => refer(kind, ref)))),
+        Match.when({ shown: (held: readonly Container[]) => held.some(({ truncated }) => truncated) }, () => Result.succeed([])),
+        Match.when({ sits: Option.isSome }, ({ sits: held }) => Result.fail(refuse(read, subject, held.value.locator, caption(held.value.kind, Option.flatMap(held.value.title, label), Option.none())))),
         Match.orElse(() => Result.succeed([])),
     );
 };
-const matched = (held: Index, at: string): Result.Result<Item, Unmatched> => {
-    const refused = (subject: string, candidates: readonly Item[]) => Result.fail(Unmatched.of({ subject, query: Option.some(at), candidates: candidates.map(candidateOf) }));
-    const segments = segmentsOf(at);
-    const [inside, last] = [within(Array.dropRight(segments, 1)), Option.getOrElse(Array.last(segments), () => '')];
-    const [living, recalled] = Array.partition(held.items, (each) => (each.live ? Result.succeed(each) : Result.fail(each)));
-    const named = held.items.flatMap((each) => Option.toArray(Option.map(each.name, (name) => ({ each, name }))));
-    const found = Array.findFirst(Array.cartesian([living, recalled], [(name: string) => Unmatched.named(name, last), loose(last)]), ([tier, test]) => {
-        const hits = tier.filter((each) => Option.exists(each.name, test) && inside(each));
-        return Array.isReadonlyArrayNonEmpty(hits) ? Option.some(hits) : Option.none();
+const settle = (before: Address, stated: typeof Element.Model.Type, cause: typeof Element.Scope.Type | { readonly _tag: 'closed'; readonly ref: typeof Element.Ref.Type; readonly facts: readonly string[] }, map: InterfaceMap, routes: Address['routes']): Address => {
+    const { nodes, byRef } = walk(before);
+    const [whole, facts, said] = [cause._tag === 'application', cause._tag === 'closed' ? cause.facts : [], flatten(stated.elements, [], [])];
+    const newer = (ref: number) => Option.exists(HashMap.get(before.reads, ref), ({ sequence }) => sequence > stated.sequence);
+    const fresh = HashMap.fromIterable(said.flatMap(({ element }) => (isContainer(element) && !newer(element.ref) ? [[element.ref, element] as const] : [])));
+    const held = (ref: number) => Option.flatMap(HashMap.get(byRef, ref), ({ element }) => (isContainer(element) && element.ref === ref ? Option.some(element) : Option.none()));
+    const gone = ({ ref }: Container) => !HashMap.has(fresh, ref) && !newer(ref) && (cause._tag === 'closed' ? ref === cause.ref : whole && Option.exists(HashMap.get(before.reads, ref), (read) => read.whole));
+    const host = cause._tag === 'menu' ? Option.map(HashMap.get(byRef, cause.ref), ({ containers }) => Array.lastNonEmpty(containers).ref) : Option.none<number>();
+    const [top, rooted] = [new Set(before.model.elements.map((root) => root.ref)), stated.elements.filter(isContainer).filter(({ ref }) => HashMap.has(fresh, ref))];
+    const roots = new Set(rooted.map(({ ref }) => ref));
+    const adopt = (ref: number) => (Option.contains(host, ref) ? rooted.filter((root) => Option.isNone(held(root.ref))).map(graft) : []);
+    const graft = (version: Container): Container => ({
+        ...version,
+        children: [...version.children.filter((child) => !isContainer(child) || HashMap.has(fresh, child.ref)).map((child) => (isContainer(child) ? graft(child) : child)), ...Option.match(held(version.ref), { onNone: Array.empty<Element>, onSome: ({ children }) => sift(children, place) }), ...adopt(version.ref)],
     });
-    const sectioned = new Set(
-        living.flatMap((each) => (each.target._tag === 'Control' && each.target.control.section !== undefined && Unmatched.named(each.target.control.section, last) && inside({ ...each, ancestors: Array.dropRight(each.ancestors, 1) }) ? Option.toArray(Record.get(held.live, `${each.target.container.ref}`)) : [])),
-    );
-    const candidates = Option.getOrElse(found, () => [...sectioned]);
-    return Array.match(candidates, {
-        onEmpty: () => refused('control, option, or container', Unmatched.rank(last, named, Struct.get('name')).map(Struct.get('each'))),
-        onNonEmpty: (several) => (Predicate.isTupleOf(several, 1) ? Result.succeed(several[0]) : refused('single control, option, or container', several)),
+    const place: Parameters<typeof sift>[1] = (prior, nested, keep) => Option.match(HashMap.get(fresh, prior.ref), { onSome: (version) => (roots.has(version.ref) && !top.has(version.ref) ? [graft(version)] : []), onNone: () => (gone(prior) ? nested() : keep(adopt(prior.ref))) });
+    const raised = rooted.filter(({ ref }) => top.has(ref) || (Option.isNone(host) && Option.isNone(held(ref))));
+    const owned = (listed: typeof said) =>
+        Map.groupBy(
+            listed.filter(({ element }) => !isContainer(element)),
+            ({ containers }) => Array.lastNonEmpty(containers).ref,
+        );
+    const [now, was] = [owned(said), owned(nodes)];
+    const versions = HashMap.toValues(fresh).map((version) => {
+        const listed = (now.get(version.ref) ?? []).map(({ element }) => element);
+        const refs = new Set(listed.map(({ ref }) => ref));
+        const unlisted = listed.reduce((count, each) => count + (each._tag === 'control' && each.kind === 'multi' ? (each.total ?? 0) : 0) - (each._tag === 'control' && each.kind === 'row' ? 1 : 0), 0);
+        return { version, short: version.truncated || unlisted > 0, lacking: (was.get(version.ref) ?? []).filter(({ element }) => !refs.has(element.ref)) };
     });
-};
-const resolve = (held: Index, at: string): Result.Result<Item, ApplicationFailure | Unmatched> =>
-    pipe(
-        Option.map(Record.get(held.tokens, at), (exact): Result.Result<Item, ApplicationFailure | Unmatched> => Result.succeed(exact)),
-        Option.orElse(() =>
-            Option.map(
-                Option.flatMap(numbered(at), (ref) => Record.get(held.left, ref)),
-                ({ container, locator }) => Option.match(Record.get(held.located, locator), { onSome: (found) => Result.succeed(Array.headNonEmpty(found)), onNone: () => Result.fail(lost(held, at, container.locator, Option.none())) }),
-            ),
+    const dropped = nodes.filter(({ containers }) => gone(Array.lastNonEmpty(containers)));
+    const complete = new Set(versions.flatMap(({ version, short }) => (short ? [] : [version.locator])));
+    const present = new Set(said.map(({ element }) => element.ref));
+    const pointer = whole && stated.sequence >= before.model.sequence ? stated.pointer : before.model.pointer;
+    const marks = [...HashMap.keys(fresh), ...dropped.flatMap(({ element }) => (isContainer(element) ? [element.ref] : []))].map((ref) => [ref, { sequence: stated.sequence, whole: whole || Option.exists(HashMap.get(before.reads, ref), (read) => read.whole) }] as const);
+    return {
+        instance: before.instance,
+        model: { sequence: Math.max(before.model.sequence, stated.sequence), elements: [...raised.map(graft), ...sift(before.model.elements, place)], ...(pointer === undefined ? {} : { pointer }) },
+        map,
+        reads: HashMap.setMany(before.reads, marks),
+        left: pipe(
+            before.left,
+            HashMap.filter(({ node, gone: lost }) => Option.isNone(lost) || !complete.has(Array.lastNonEmpty(node.containers).locator)),
+            HashMap.map((lost) => (cause._tag === 'closed' && Option.isSome(lost.gone) && Array.lastNonEmpty(lost.node.containers).ref === cause.ref ? { ...lost, gone: Option.some(facts) } : lost)),
+            HashMap.setMany(versions.flatMap(({ short, lacking }) => lacking.map((node) => [node.element.ref, { node, gone: short ? Option.none<readonly string[]>() : Option.some<readonly string[]>([]) }] as const))),
+            HashMap.setMany(dropped.map((node) => [node.element.ref, { node, gone: Option.some(facts) }] as const)),
+            HashMap.filter((_, ref) => !present.has(ref)),
         ),
-        Option.orElse(() => Option.map(numbered(at), (ref) => Result.fail(Unmatched.of({ subject: 'reference', query: Option.some(at), candidates: Option.toArray(Option.flatMap(Record.get(held.live, ref), Struct.get('token'))) })))),
-        Option.getOrElse(() => matched(held, at)),
-    );
-const find = (held: Index, query: string, kind: Option.Option<(typeof Element.Control.Type)['kind']>) => {
-    const segments = segmentsOf(query);
-    const [inside, last] = [within(Array.dropRight(segments, 1)), Option.getOrElse(Array.last(segments), () => '')];
-    const kept = held.items.filter((each) => inside(each) && Option.match(kind, { onNone: () => Option.isSome(each.name) || Option.isSome(each.value), onSome: (wanted) => Option.contains(each.kind, wanted) }));
-    const stated = Target.$match({
-        Container: ({ container }) => Array.fromNullishOr(container.help),
-        Control: ({ control }) => [...Array.fromNullishOr(control.help), ...(control.labels ?? [])],
-        Option: ({ option }) => Array.fromNullishOr(option.help),
-        RememberedContainer: () => Array.empty<string>(),
-        RememberedControl: ({ control }) => [...Option.toArray(control.help), ...Option.getOrElse(control.labels, Array.empty<string>)],
-    });
-    const ranked = Unmatched.rank(last, kept, ({ target, name, value }) => [...Option.toArray(name), ...Option.toArray(value), ...stated(target)].join(' '));
-    return Array.sortWith(ranked, Struct.get('live'), Order.flip(Order.Boolean));
+        routes: { ...before.routes, ...routes },
+    };
 };
-const route = (held: Index) => (ref: (typeof Element.Control.Type)['ref']) => Record.get(held.routes, `${ref}`);
-const refOf = (instance: Instance['instance']) => {
-    const interned = ({ locator }: { readonly locator: string }) => ApplicationServer.use((server) => server.intern({ instance, locators: [locator] })).pipe(Effect.map(Array.head), Effect.flatMap(Effect.fromOption));
-    return ({ target }: Item) => Target.$match(target, { Container: ({ container }) => Effect.succeed(container.ref), Control: ({ control }) => Effect.succeed(control.ref), Option: ({ option }) => Effect.succeed(option.ref), RememberedContainer: interned, RememberedControl: interned });
-};
-const facets = Effect.fnUntraced(function* ({ row, live }: Aimed, from: Linked, model: Model, payload: { readonly within?: Description['containers'][number]['locator'] }) {
-    const [server, maps, toolbar] = yield* Effect.all([ApplicationServer, InterfaceMap.Store, Toolbar]);
-    const [described, tools] = yield* Effect.all([from.describe(payload), toolbar(row)]);
-    return yield* Description.compose(model, yield* maps.learn(live, Description.fold(described, tools)), (locators) => server.intern({ instance: live.instance, locators }));
-});
-const scan = Effect.fnUntraced(function* (target: Aimed, scope: typeof Element.Scope.Type) {
-    const { row, live } = target;
-    const [server, maps, handle, source] = yield* Effect.all([ApplicationServer, InterfaceMap.Store, Handle, Source]);
-    const [map, last, client] = yield* Effect.all([maps.recall(live), handle.get(Indexed), Effect.option(source(row))], { concurrency: 'unbounded' });
+const close = (read: Address, sequence: number, ref: typeof Element.Ref.Type, facts: readonly string[]) => (HashMap.has(walk(read).byRef, ref) || HashMap.has(read.left, ref) ? settle(read, { sequence, elements: [] }, { _tag: 'closed', ref, facts }, read.map, {}) : read);
+const scan = Effect.fnUntraced(function* ({ row, live }: Current, scope: typeof Element.Scope.Type) {
+    const [server, maps, handle, source, toolbar] = yield* Effect.all([ApplicationServer, InterfaceMap.Store, Handle, Linked, Toolbar]);
+    const [map, last, client] = yield* Effect.all([maps.recall(live), handle.get(Held), Effect.option(source(row))], { concurrency: 'unbounded' });
+    const own = Option.filter((held: Address) => held.instance === live.instance);
     const whole = scope._tag === 'application';
-    const level = Option.flatMap(Option.liftPredicate(scope, Element.Scope.isAnyOf(['container', 'menu', 'rows'])), ({ ref }) => Option.flatMap(own(last, live.instance), (held) => Record.get(held.routes, `${ref}`)));
-    const from = Option.filter(client, () => whole || Option.isSome(level));
+    const within = Option.flatMap(Option.liftPredicate(scope, Element.Scope.isAnyOf(['container', 'menu', 'rows'])), ({ ref }) => Option.flatMap(own(last), (held) => route(held, ref)));
+    const linked = Option.filter(client, () => whole || Option.isSome(within));
+    const scopes: readonly (typeof Element.Scope.Type)[] = [...(whole || Option.isNone(linked) ? [scope] : []), ...(whole ? [{ _tag: 'menus' as const }] : [])];
     const known = Option.getOrUndefined(Option.map(map.known, (verified) => ({ known: verified })));
-    const scopes: readonly (typeof Element.Scope.Type)[] = [...(whole || Option.isNone(from) ? [scope] : []), ...(whole ? [{ _tag: 'menus' as const }] : [])];
     const models = yield* Effect.forEach(scopes, (each) => server.model({ instance: live.instance, scope: each, ...(each._tag === 'application' ? known : {}) }), { concurrency: 'unbounded' });
-    const accessible = Option.getOrElse(Array.head(models), (): Model => ({ sequence: Option.match(own(last, live.instance), { onNone: () => 0, onSome: (held) => held.model.sequence }), containers: [] }));
-    const { model, routes } = yield* Option.match(from, {
-        onNone: () => Effect.succeed({ model: accessible, routes: Record.empty<string, Description['containers'][number]['locator']>() }),
-        onSome: (linked) => facets(target, linked, accessible, Option.match(level, { onNone: () => ({}), onSome: (at) => ({ within: at }) })),
+    const accessible = Option.getOrElse(Array.head(models), (): typeof Element.Model.Type => ({ sequence: Option.match(own(last), { onNone: () => 0, onSome: (held) => held.model.sequence }), elements: [] }));
+    const described = yield* Effect.transposeOption(Option.map(linked, (from) => Effect.all([from.describe(Option.match(within, { onNone: () => ({}), onSome: (at) => ({ within: at }) })), toolbar(row)])));
+    const { model, routes } = yield* Option.match(described, {
+        onNone: () => Effect.succeed({ model: accessible, routes: {} }),
+        onSome: ([hosted, tools]) => Effect.flatMap(maps.learn(live, Description.fold(hosted, tools)), (learned) => Description.compose(accessible, learned, (locators) => server.intern({ instance: live.instance, locators }))),
     });
     yield* Effect.when(maps.sight(live, model.pointer), Effect.succeed(whole));
-    const stated = { ...model, containers: Array.unionWith(model.containers, Array.drop(models, 1).flatMap(Struct.get('containers')), (left, right) => left.ref === right.ref) };
-    const merged = (state: typeof last) => merge(own(state, live.instance), stated, whole, routes);
-    yield* handle.update(Indexed, (state) => Option.some({ instance: live.instance, index: merged(state) }));
-    return { model: stated, map, index: Option.getOrElse(own(yield* handle.get(Indexed), live.instance), () => merged(Option.none())) };
+    const menus = Array.drop(models, 1).flatMap(Struct.get('elements'));
+    const stated = { ...model, elements: Array.unionWith(model.elements, menus, (left, right) => left.ref === right.ref) };
+    const merge = (state: Option.Option<Address>) =>
+        settle(
+            Option.getOrElse(own(state), (): Address => ({ instance: live.instance, model: { sequence: 0, elements: [] }, map, reads: HashMap.empty(), left: HashMap.empty(), routes: {} })),
+            stated,
+            scope,
+            map,
+            routes,
+        );
+    yield* handle.update(Held, (state) => state.pipe(merge, Option.some));
+    return { stated, held: Option.getOrElse(own(yield* handle.get(Held)), () => merge(Option.none())) };
 });
-const read = (target: Aimed) =>
-    Effect.map(scan(target, { _tag: 'application' }), ({ model: application, map, index: base }) => ({
-        application,
-        map,
-        base,
-        route: route(base),
-        indexed: (containers: (typeof Element.Model.Type)['containers']) => index({ ...application, containers }),
-        level: (scope: typeof Element.Scope.Type) => Effect.map(scan(target, scope), Struct.get('model')),
-    }));
-const reach = Effect.fnUntraced(function* (target: Aimed, at: string) {
-    const [handle, maps] = yield* Effect.all([Handle, InterfaceMap.Store]);
-    const held = own(yield* handle.get(Indexed), target.live.instance);
-    const shown = Option.flatMap(held, (last) => Option.filter(Result.getSuccess(resolve(last, at)), Struct.get('live')));
-    const sat = Option.flatMap(Option.all({ last: held, ref: numbered(at) }), ({ last, ref }) => Option.map(Record.get(last.left, ref), ({ container }) => ({ last, ref: container.ref })));
+const read = (target: Current, scope: typeof Element.Scope.Type = APPLICATION) => Effect.map(scan(target, scope), ({ stated, held }) => (scope._tag === 'application' ? held : narrow(held, stated.elements)));
+const reach = Effect.fnUntraced(function* (target: Current, at: string) {
+    const held = Option.filter(yield* Handle.use((handle) => handle.get(Held)), (last) => last.instance === target.live.instance);
+    const shown = Option.flatMap(held, (last) => Option.filter(Result.getSuccess(seek(last, at, Option.none())), ({ live }) => live));
+    const sat = Option.flatMap(held, (last) =>
+        Option.map(
+            Option.flatMap(parse(at), (ref) => HashMap.get(last.left, ref)),
+            ({ node }) => ({ last, ref: Array.lastNonEmpty(node.containers).ref }),
+        ),
+    );
     const again = Option.match(sat, {
-        onNone: () => Effect.map(scan(target, { _tag: 'application' }), Struct.get('index')),
+        onNone: () => Effect.map(scan(target, APPLICATION), (now) => now.held),
         onSome: ({ last, ref }) =>
-            scan(target, { _tag: 'container', ref }).pipe(
-                Effect.map(Struct.get('index')),
-                Effect.catchIf(Schema.is(ApplicationFailure), () => Effect.succeed(last)),
+            Effect.catchIf(
+                Effect.map(scan(target, { _tag: 'container', ref }), (now) => now.held),
+                Schema.is(ApplicationFailure),
+                () => Effect.succeed(last),
             ),
     });
-    const recalled = (now: Index) => Effect.flatMap(maps.recall(target.live), (map) => Effect.fromResult(resolve(recall(now)(map), at)));
-    return yield* Option.match(shown, { onSome: (found) => Effect.succeed(found), onNone: () => Effect.flatMap(again, recalled) });
+    return yield* Option.match(shown, { onSome: (found) => Effect.succeed(found), onNone: () => Effect.flatMap(again, (now) => Effect.fromResult(resolve(now, at))) });
 });
-const Address = { At, Target, index, recall, opener, opening, locate, resolve, reach, find, refOf, route, close, path, token, fact: printValue, value: printStored, separator: SEPARATOR } as const;
+const Address = { At, Held, Linked, Toolbar, refer, print, read, reach, get, locate, list, recall, route, resolve, find, open, intern, narrow, close } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Address, type Index, Indexed, type Item, read, type Shown, Source, Toolbar };
+export { Address };

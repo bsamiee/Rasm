@@ -10,7 +10,7 @@ import { RenderRpcs } from '@rasm/object-model/rpcs';
 import { Settings } from '@rasm/typography/settings';
 import { Plugin, Uxp } from '@rasm/uxp/plugin';
 import { createElement, createPicker } from '@rasm/uxp/spectrum';
-import { Array, Cause, Effect, Function, flow, Layer, Match, Number, Option, pipe, Record, Result, Schema, Scope, Semaphore, Stream, Struct } from 'effect';
+import { Array, Cause, Effect, Function, flow, Layer, Match, Number, Option, Record, Result, Schema, Scope, Semaphore, Stream, Struct } from 'effect';
 import declarations from 'indesign-uxp-types/flat?inline';
 import { Tools } from '#/tools';
 
@@ -44,7 +44,7 @@ const events = Dom.events(({ app, Document }) => [app, [Document.AFTER_OPEN, Doc
     Stream.filterMap(({ eventType, target }) => (dom.document(target) ? Result.succeed({ name: eventType, target: Option.some(target.toSpecifier()), detail: Option.none() }) : Result.failVoid)),
     Stream.provideService(Dom, dom),
 );
-const source = pipe(Description.tools(toolbar), Description.merge(workspace), Description.merge({ changes: events }));
+const source = Description.merge(Description.tools(toolbar), workspace);
 const application = Effect.tryPromise({ try: () => dom.app.fullName, catch: HostError.refused('application fullName') }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Uxp.Application)), Effect.map(Struct.get('url')));
 const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X, Plugin>) => void) {
     const mode = createPicker(
@@ -115,7 +115,8 @@ Plugin.serve({
             RenderRpcs.toLayer({ render: ({ target }) => hosted(Uxp.renderFile((file) => render(target, file.nativePath))) }),
             TypesettingRpcs.toLayer({ runs: flow(runs, hosted), kerns: flow(kerns, hosted), typeset: flow(typeset, hosted), font: flow(font, hosted), fontSource: flow(fontSource, hosted) }),
         ),
-        source: { describe: flow(source.describe, hosted), operate: flow(source.operate, hosted), changes: Stream.provideService(source.changes, Dom, dom) },
+        source: { describe: flow(source.describe, hosted), operate: flow(source.operate, hosted), pointer: Stream.provideService(source.pointer, Dom, dom) },
+        events,
         dialogs: scripting,
     }),
     panels: { typesetting: panel },

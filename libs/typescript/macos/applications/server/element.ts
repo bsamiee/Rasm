@@ -3,6 +3,10 @@ import { Effect, Schema, Struct } from 'effect';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Fact = (typeof scalars)[number]['Type'] | { readonly _tag: 'list'; readonly values: readonly Fact[] } | { readonly _tag: 'record'; readonly fields: Readonly<Record<string, Fact>> };
+type Node<Tag extends string, Fields extends Schema.Struct.Fields> = Schema.Struct.Type<Fields> & { readonly _tag: Tag; readonly children: readonly Element[] };
+type Wire<Tag extends string, Fields extends Schema.Struct.Fields> = Schema.Struct.Encoded<Fields> & { readonly _tag: Tag; readonly children: readonly Encoded[] };
+type Element = Node<'container', typeof container> | Node<'control', typeof control> | Node<'option', typeof option>;
+type Encoded = Wire<'container', typeof container> | Wire<'control', typeof control> | Wire<'option', typeof option>;
 interface OptionFromOptionalKeyLambda extends Struct.Lambda {
     <S extends Schema.Constraint>(self: S): Schema.OptionFromOptionalKey<S>;
     readonly '~lambda.out': this['~lambda.in'] extends Schema.Constraint ? Schema.OptionFromOptionalKey<this['~lambda.in']> : never;
@@ -70,75 +74,69 @@ const stated = {
     keyEquivalent: Schema.String,
     separated: Schema.Boolean,
 };
-class Control extends Schema.Opaque<Control>()(
-    Schema.Struct({
-        ref: Ref,
-        locator: Locator,
-        kind: Schema.Literals(['action', 'toggle', 'choice', 'multi', 'row', 'number', 'measure', 'text', 'color', 'date', 'item', 'region']),
-        role: Schema.String,
-        positional: Schema.Boolean,
-        ...Struct.map(stated, Schema.optionalKey),
-        label: Schema.optionalKey(Schema.Union([stated.label, Schema.Struct({ text: Schema.String })])),
-        value: Schema.optionalKey(Fact),
-        enabled: Schema.optionalKey(Schema.Boolean),
-        focused: Schema.optionalKey(Schema.Boolean),
-        selected: Schema.optionalKey(Schema.Literals(['attribute', 'marked'])),
-        frame: Schema.optionalKey(Frame),
-        options: Schema.Struct({ label: Schema.String, ref: Ref, ...Struct.map(Struct.pick(stated, ['help', 'shortcut']), Schema.optionalKey) }).pipe(Schema.Array, Schema.optionalKey),
-        opens: Schema.optionalKey(Ref),
-        alternate: Schema.optionalKey(Ref),
-        placeholder: Schema.optionalKey(Schema.String),
-        settable: Schema.optionalKey(Schema.Boolean),
-        level: Schema.optionalKey(Schema.Int),
-        index: Schema.optionalKey(Schema.Natural),
-        row: Schema.optionalKey(Ref),
-        expanded: Schema.optionalKey(Schema.Boolean),
-        actions: Schema.String.pipe(Schema.Array, Schema.optionalKey),
-        alternateUIVisible: Schema.optionalKey(Schema.Boolean),
-        disclosedBy: Schema.optionalKey(Ref),
-        total: Schema.optionalKey(Schema.Natural),
-        sort: Schema.optionalKey(Schema.Literals(['ascending', 'descending'])),
-        cells: Schema.Struct({ column: Schema.optionalKey(Schema.String), text: Schema.String }).pipe(Schema.Array, Schema.optionalKey),
-        column: Schema.optionalKey(Schema.String),
-        scroll: Schema.optionalKey(Schema.Struct({ contentSize: Schema.optionalKey(Point), horizontalScrollBar: Schema.optionalKey(Schema.Finite), verticalScrollBar: Schema.optionalKey(Schema.Finite) })),
-        selectedTextRanges: TextRange.pipe(Schema.Array, Schema.optionalKey),
-        numberOfCharacters: Schema.optionalKey(Schema.Natural),
-        insertionPointLineNumber: Schema.optionalKey(Schema.Natural),
-        runs: Schema.Struct({ range: TextRange, text: Schema.String, attributes: Schema.Record(Schema.String, Fact), frame: Schema.optionalKey(Frame) }).pipe(Schema.Array, Schema.optionalKey),
-        invalid: Schema.optionalKey(Schema.Literals(['true', 'grammar', 'spelling'])),
-        required: Schema.optionalKey(Schema.Boolean),
-        current: Schema.optionalKey(Schema.Literals(['true', 'page', 'step', 'location', 'date', 'time'])),
-    }),
-) {}
-class Container extends Schema.Opaque<Container>()(
-    Schema.Struct({
-        ref: Ref,
-        locator: Locator,
-        kind: Schema.Literals(['window', 'dialog', 'panel', 'sheet', 'popover', 'drawer', 'prompt', 'menuBar', 'statusItem', 'menu', 'toolbar', 'web']),
-        title: Schema.optionalKey(Schema.String),
-        help: Schema.optionalKey(Schema.String),
-        document: Schema.optionalKey(Schema.String),
-        edited: Schema.optionalKey(Schema.Boolean),
-        fullScreen: Schema.optionalKey(Schema.Boolean),
-        loaded: Schema.optionalKey(Schema.Boolean),
-        loadingProgress: Schema.optionalKey(Schema.Finite),
-        window: Schema.optionalKey(WindowNumber),
-        frame: Schema.optionalKey(Frame),
-        layer: Schema.optionalKey(Schema.Int),
-        closed: Schema.Boolean,
-        modal: Schema.Boolean,
-        asking: Schema.Boolean,
-        focused: Schema.optionalKey(Schema.Boolean),
-        parent: Schema.optionalKey(Ref),
-        default: Schema.optionalKey(Ref),
-        cancel: Schema.optionalKey(Ref),
-        close: Schema.optionalKey(Ref),
-        text: Schema.Array(Schema.String),
-        truncated: Schema.Boolean,
-        unreadable: Schema.Boolean,
-        controls: Schema.Array(Control),
-    }),
-) {}
+const control = {
+    ref: Ref,
+    locator: Locator,
+    kind: Schema.Literals(['action', 'toggle', 'choice', 'multi', 'row', 'number', 'measure', 'text', 'color', 'date', 'item', 'region']),
+    role: Schema.String,
+    positional: Schema.Boolean,
+    ...Struct.map(stated, Schema.optionalKey),
+    label: Schema.optionalKey(Schema.Union([stated.label, Schema.Struct({ text: Schema.String })])),
+    value: Schema.optionalKey(Fact),
+    enabled: Schema.optionalKey(Schema.Boolean),
+    focused: Schema.optionalKey(Schema.Boolean),
+    selected: Schema.optionalKey(Schema.Literals(['attribute', 'marked'])),
+    frame: Schema.optionalKey(Frame),
+    opens: Schema.optionalKey(Ref),
+    alternate: Schema.optionalKey(Ref),
+    placeholder: Schema.optionalKey(Schema.String),
+    settable: Schema.optionalKey(Schema.Boolean),
+    level: Schema.optionalKey(Schema.Int),
+    index: Schema.optionalKey(Schema.Natural),
+    expanded: Schema.optionalKey(Schema.Boolean),
+    actions: Schema.String.pipe(Schema.Array, Schema.optionalKey),
+    alternateUIVisible: Schema.optionalKey(Schema.Boolean),
+    disclosedBy: Schema.optionalKey(Ref),
+    total: Schema.optionalKey(Schema.Natural),
+    sort: Schema.optionalKey(Schema.Literals(['ascending', 'descending'])),
+    cells: Schema.Struct({ column: Schema.optionalKey(Schema.String), text: Schema.String }).pipe(Schema.Array, Schema.optionalKey),
+    column: Schema.optionalKey(Schema.String),
+    scroll: Schema.optionalKey(Schema.Struct({ contentSize: Schema.optionalKey(Point), horizontalScrollBar: Schema.optionalKey(Schema.Finite), verticalScrollBar: Schema.optionalKey(Schema.Finite) })),
+    selectedTextRanges: TextRange.pipe(Schema.Array, Schema.optionalKey),
+    numberOfCharacters: Schema.optionalKey(Schema.Natural),
+    insertionPointLineNumber: Schema.optionalKey(Schema.Natural),
+    runs: Schema.Struct({ range: TextRange, text: Schema.String, attributes: Schema.Record(Schema.String, Fact), frame: Schema.optionalKey(Frame) }).pipe(Schema.Array, Schema.optionalKey),
+    invalid: Schema.optionalKey(Schema.Literals(['true', 'grammar', 'spelling'])),
+    required: Schema.optionalKey(Schema.Boolean),
+    current: Schema.optionalKey(Schema.Literals(['true', 'page', 'step', 'location', 'date', 'time'])),
+};
+const container = {
+    ref: Ref,
+    locator: Locator,
+    kind: Schema.Literals(['window', 'dialog', 'panel', 'sheet', 'popover', 'drawer', 'prompt', 'menuBar', 'statusItem', 'menu', 'toolbar', 'web']),
+    title: Schema.optionalKey(Schema.String),
+    help: Schema.optionalKey(Schema.String),
+    document: Schema.optionalKey(Schema.String),
+    edited: Schema.optionalKey(Schema.Boolean),
+    fullScreen: Schema.optionalKey(Schema.Boolean),
+    loaded: Schema.optionalKey(Schema.Boolean),
+    loadingProgress: Schema.optionalKey(Schema.Finite),
+    window: Schema.optionalKey(WindowNumber),
+    frame: Schema.optionalKey(Frame),
+    layer: Schema.optionalKey(Schema.Int),
+    closed: Schema.Boolean,
+    modal: Schema.Boolean,
+    asking: Schema.Boolean,
+    focused: Schema.optionalKey(Schema.Boolean),
+    default: Schema.optionalKey(Ref),
+    cancel: Schema.optionalKey(Ref),
+    close: Schema.optionalKey(Ref),
+    text: Schema.Array(Schema.String),
+    truncated: Schema.Boolean,
+    unreadable: Schema.Boolean,
+};
+const option = { ref: Ref, label: Schema.String, ...Struct.map(Struct.pick(stated, ['help', 'shortcut']), Schema.optionalKey) };
+const children = Schema.Array(Schema.suspend((): Schema.Codec<Element, Encoded> => Element));
 const Pointer = Schema.Struct({
     tool: Schema.optionalKey(Schema.String),
     shortcut: Schema.optionalKey(Shortcut),
@@ -148,15 +146,6 @@ const Pointer = Schema.Struct({
     cursor: Schema.optionalKey(Schema.TaggedUnion({ system: { name: Schema.String }, custom: { digest: Schema.String, hotSpot: Point, size: Point } })),
     draggingFrame: Schema.optionalKey(Frame),
 });
-class Model extends Schema.Opaque<Model>()(Schema.Struct({ sequence: Schema.Int, containers: Schema.Array(Container), pointer: Schema.optionalKey(Pointer) })) {}
-const Scope = Schema.TaggedUnion({
-    application: {},
-    container: { ref: Ref },
-    menu: { ref: Ref },
-    rows: { ref: Ref, from: Schema.Natural, count: Schema.Int.check(Schema.isGreaterThan(0)) },
-    text: { ref: Ref },
-    menus: {},
-});
 const Condition = Schema.TaggedUnion({
     Value: { at: Locator, value: Value },
     Documents: { held: Schema.Boolean },
@@ -164,7 +153,7 @@ const Condition = Schema.TaggedUnion({
 });
 const Opener = Schema.Struct({ container: Locator, control: Locator });
 const Shape = Schema.Struct({
-    ...Struct.pick(Control.fields, ['kind', 'role', 'positional']),
+    ...Struct.pick(control, ['kind', 'role', 'positional']),
     ...Struct.map(stated, Struct.lambda<OptionFromOptionalKeyLambda>(Schema.OptionFromOptionalKey)),
     options: Schema.String.pipe(Schema.Array, Schema.OptionFromOptionalKey),
     opens: Schema.OptionFromOptionalKey(Locator),
@@ -175,7 +164,7 @@ class Observation extends Schema.Opaque<Observation>()(
     Schema.Struct({
         build: Schema.OptionFromOptionalKey(Schema.String),
         container: Locator,
-        ...Struct.pick(Container.fields, ['kind', 'modal', 'truncated']),
+        ...Struct.pick(container, ['kind', 'modal', 'truncated']),
         title: Schema.OptionFromOptionalKey(Schema.String),
         layer: Schema.OptionFromOptionalKey(Schema.Int),
         size: Schema.OptionFromOptionalKey(Point),
@@ -192,7 +181,30 @@ class Observation extends Schema.Opaque<Observation>()(
         values: Schema.Record(Locator, Value),
     }),
 ) {}
-const Element = { Ref, Locator, Frame, WindowNumber, Value, Fact, Modifier, Shortcut, Control, Container, Pointer, Model, Scope, Condition, Opener, Shape, Observation } as const;
+const Element = Object.assign(Schema.TaggedUnion({ container: { ...container, children }, control: { ...control, children }, option: { ...option, children } }), {
+    Ref,
+    Locator,
+    Frame,
+    WindowNumber,
+    Value,
+    Fact,
+    Modifier,
+    Shortcut,
+    Pointer,
+    Scope: Schema.TaggedUnion({
+        application: {},
+        container: { ref: Ref },
+        menu: { ref: Ref },
+        rows: { ref: Ref, from: Schema.Natural, count: Schema.Int.check(Schema.isGreaterThan(0)) },
+        text: { ref: Ref },
+        menus: {},
+    }),
+    Condition,
+    Opener,
+    Shape,
+    Observation,
+    Model: Schema.Struct({ sequence: Schema.Int, elements: children, pointer: Schema.optionalKey(Pointer) }),
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

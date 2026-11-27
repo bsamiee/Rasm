@@ -112,8 +112,9 @@ let modules: [Target] = [
         name: "ApplicationServer",
         dependencies: [
             "AppleEvents", "Applications", "CurrentProcess", "Encoding", "Files", "JSONRPC", "Processes", "Results", "Telemetry", "Updater",
-            .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Logging", package: "swift-log"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
-            .product(name: "Tracing", package: "swift-distributed-tracing"), .product(name: "UnixSignals", package: "swift-service-lifecycle"),
+            .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Logging", package: "swift-log"),
+            .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"), .product(name: "Tracing", package: "swift-distributed-tracing"),
+            .product(name: "UnixSignals", package: "swift-service-lifecycle"),
         ],
         path: "libs/swift/macos/ApplicationServer",
     ),

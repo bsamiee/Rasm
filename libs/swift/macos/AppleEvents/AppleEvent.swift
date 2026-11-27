@@ -54,10 +54,11 @@ extension NSAppleEventDescriptor {
                 Result { () throws(AppleEventFailure) in
                     switch (thrown, status) {
                         case (_, let code) where unconsented.contains(code):
-                            throw AppleEventFailure(subject: subject, reason: .unconsented(decided == OSStatus(errAEEventWouldRequireUserConsent) ? decided : code))
-                        case (_, let code) where undelivered.contains(code): throw AppleEventFailure(subject: subject, reason: .undelivered(code))
-                        case (.some, let code) where unanswered.contains(code): throw AppleEventFailure(subject: subject, reason: .unanswered(code))
-                        case (_, let code) where code != noErr: throw AppleEventFailure(subject: subject, reason: .replied(code, message: message, offending: offending))
+                            let consent = AppleEventFailure.Status(decided == OSStatus(errAEEventWouldRequireUserConsent) ? decided : code)
+                            throw AppleEventFailure(subject: subject, reason: .unconsented(consent, settings: "\(privacySettings)?Privacy_Automation"))
+                        case (_, let code) where undelivered.contains(code): throw AppleEventFailure(subject: subject, reason: .undelivered(AppleEventFailure.Status(code)))
+                        case (.some, let code) where unanswered.contains(code): throw AppleEventFailure(subject: subject, reason: .unanswered(AppleEventFailure.Status(code)))
+                        case (_, let code) where code != noErr: throw AppleEventFailure(subject: subject, reason: .replied(AppleEventFailure.Status(code), message: message, offending: offending))
                         default: return reading(reply?.paramDescriptor(forKeyword: AEKeyword(keyDirectObject)) ?? .null())
                     }
                 }

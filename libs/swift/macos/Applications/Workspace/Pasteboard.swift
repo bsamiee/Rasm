@@ -23,30 +23,31 @@ package struct Pasteboard: Encodable, Sendable {
     }
 
     private enum CodingKeys: CodingKey {
-        case locator, changeCount, types, access, patterns, contentType, content
+        case locator, types, accessBehavior, detectedPatterns, contentType, content
     }
 
     let locator: Locator
     let changeCount: Int
     let types: [String]
-    let access: NSPasteboard.AccessBehavior
-    let patterns: [String]
+    let accessBehavior: NSPasteboard.AccessBehavior
+    let detectedPatterns: [String]
     let contentType: String?
     let content: Content?
 
     package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: CodingKeys.self)
+        let behavior: any Encodable =
+            switch accessBehavior {
+                case .default: "default"
+                case .ask: "ask"
+                case .alwaysAllow: "alwaysAllow"
+                case .alwaysDeny: "alwaysDeny"
+                @unknown default: accessBehavior.rawValue
+            }
         try fields.encode(locator, forKey: .locator)
-        try fields.encode(changeCount, forKey: .changeCount)
         try fields.encode(types, forKey: .types)
-        switch access {
-            case .default: try fields.encode("default", forKey: .access)
-            case .ask: try fields.encode("ask", forKey: .access)
-            case .alwaysAllow: try fields.encode("alwaysAllow", forKey: .access)
-            case .alwaysDeny: try fields.encode("alwaysDeny", forKey: .access)
-            @unknown default: try fields.encode(access.rawValue, forKey: .access)
-        }
-        try fields.encode(patterns, forKey: .patterns)
+        try fields.encode(behavior, forKey: .accessBehavior)
+        try fields.encode(detectedPatterns, forKey: .detectedPatterns)
         try fields.encodeIfPresent(contentType, forKey: .contentType)
         try fields.encodeIfPresent(content, forKey: .content)
     }
@@ -93,8 +94,8 @@ extension Pasteboard {
 
     package init(_ name: NSPasteboard.Name, reading: Bool) async throws(ApplicationFailure) {
         let board = NSPasteboard(name: name)
-        let (changeCount, access): (Int, NSPasteboard.AccessBehavior) = (board.changeCount, board.accessBehavior)
-        if let last = Self.reads.withLock({ reads in reads[name] }), !last.server.hasExited, last.reading == reading, last.read.changeCount == changeCount, last.read.access == access {
+        let (changeCount, accessBehavior): (Int, NSPasteboard.AccessBehavior) = (board.changeCount, board.accessBehavior)
+        if let last = Self.reads.withLock({ reads in reads[name] }), !last.server.hasExited, last.reading == reading, last.read.changeCount == changeCount, last.read.accessBehavior == accessBehavior {
             self = last.read
             return
         }
@@ -117,7 +118,7 @@ extension Pasteboard {
             throw ApplicationFailure(subject: "pasteboard \(name.rawValue)", reason: .foundation(error as NSError))
         }
         let content: Content? =
-            switch (concealed, reading && types.contains(.string), access) {
+            switch (concealed, reading && types.contains(.string), accessBehavior) {
                 case (true, _, _): .concealed
                 case (false, false, _): nil
                 case (false, true, .alwaysAllow): board.string(forType: .string).map(Content.text(value:))
@@ -127,8 +128,8 @@ extension Pasteboard {
             locator: Self.locator(of: name),
             changeCount: changeCount,
             types: types.map(\.rawValue),
-            access: access,
-            patterns: detected.patterns.map(\.rawValue).sorted(),
+            accessBehavior: accessBehavior,
+            detectedPatterns: detected.patterns.map(\.rawValue).sorted(),
             contentType: detected.contentType?.identifier,
             content: content,
         )

@@ -14,7 +14,7 @@ struct GrantTests {
         let read = ApplicationFailure(.apiDisabled, subject: "probe", process: nil) { otherwise }
         switch (AXIsProcessTrusted(), read.reason) {
             case (true, _): expectNoDifference(read, otherwise)
-            case (false, .noGrant(let grant)), (false, .notResponsible(let grant, _)): expectNoDifference(grant, .accessibility)
+            case (false, .noGrant(let grant)), (false, .parentLacksGrant(let grant, _)): expectNoDifference(grant, .accessibility)
             case (false, let reason): Issue.record("disabled Accessibility answer read as \(reason) while the system finds the grant missing")
         }
     }

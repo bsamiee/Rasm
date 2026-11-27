@@ -247,6 +247,12 @@ struct Control: Encodable, Equatable, Sendable {
     let invalid: Invalid?
     let required: Bool?
     let current: Current?
+
+    private enum CodingKeys: CodingKey {
+        case ref, locator, kind, role, subrole, label, labels, section, value, settable, enabled, focused, selected, help, frame, positional, range, mark, shortcut, keyEquivalent, opens, separated,
+            alternate, placeholder, level, index, expanded, actions, alternateUIVisible, disclosedBy, total, sort, cells, column, scroll, selectedTextRanges, numberOfCharacters,
+            insertionPointLineNumber, runs, invalid, required, current
+    }
 }
 
 struct Container: Encodable, Equatable, Sendable {
@@ -327,6 +333,11 @@ struct Container: Encodable, Equatable, Sendable {
     let truncated: Bool
     let unreadable: Bool
     var controls: [Control]
+
+    private enum CodingKeys: CodingKey {
+        case ref, locator, kind, title, help, document, edited, fullScreen, loaded, loadingProgress, window, frame, layer, closed, modal, asking, focused, `default`, cancel, close, text, truncated
+        case unreadable
+    }
 }
 
 package struct Model: Encodable, Sendable {
@@ -336,16 +347,15 @@ package struct Model: Encodable, Sendable {
         case menu(ref: Int)
         case rows(ref: Int, from: Int, count: Int)
         case text(ref: Int)
-        case search(text: String, key: NSAccessibilitySearchKey, limit: Int)
         case menus
 
         private enum CodingKeys: CodingKey {
-            case application, container, menu, rows, text, search, menus
+            case application, container, menu, rows, text, menus
         }
 
         private enum Field: String, CodingKey {
             case tag = "_tag"
-            case ref, from, count, text, key, limit
+            case ref, from, count
         }
 
         package init(from decoder: any Decoder) throws {
@@ -358,12 +368,6 @@ package struct Model: Encodable, Sendable {
                     case .menu: try .menu(ref: fields.decode(Int.self, forKey: .ref))
                     case .rows: try .rows(ref: fields.decode(Int.self, forKey: .ref), from: fields.decode(Int.self, forKey: .from), count: fields.decode(Int.self, forKey: .count))
                     case .text: try .text(ref: fields.decode(Int.self, forKey: .ref))
-                    case .search:
-                        try .search(
-                            text: fields.decode(String.self, forKey: .text),
-                            key: fields.decodeIfPresent(String.self, forKey: .key).map(NSAccessibilitySearchKey.init(rawValue:)) ?? .anyTypeSearchKey,
-                            limit: fields.decode(Int.self, forKey: .limit),
-                        )
                     case .menus: .menus
                     case nil: throw DecodingError.dataCorruptedError(forKey: .tag, in: fields, debugDescription: "\(tag) names no model scope")
                 }
@@ -376,8 +380,35 @@ package struct Model: Encodable, Sendable {
         let labels: Set<String>
     }
 
+    indirect enum Node: Encodable, Sendable {
+        private enum Key: String, CodingKey {
+            case tag = "_tag"
+            case children
+        }
+
+        case container(Container, children: [Self])
+        case control(Control, children: [Self])
+        case option(Control.Option)
+
+        func encode(to encoder: any Encoder) throws {
+            var fields = encoder.container(keyedBy: Key.self)
+            try fields.encodeIfPresent(Mirror(reflecting: self).children.first?.label, forKey: .tag)
+            switch self {
+                case .container(let held, let children):
+                    try held.encode(to: encoder)
+                    try fields.encode(children, forKey: .children)
+                case .control(let held, let children):
+                    try held.encode(to: encoder)
+                    try fields.encode(children, forKey: .children)
+                case .option(let held):
+                    try held.encode(to: encoder)
+                    try fields.encode([Self](), forKey: .children)
+            }
+        }
+    }
+
     private enum CodingKeys: CodingKey {
-        case sequence, containers, pointer
+        case sequence, elements, pointer
     }
 
     let sequence: Int
@@ -385,6 +416,36 @@ package struct Model: Encodable, Sendable {
     let located: [Int: Int]
     var drawn: [Int: (window: CGWindowID, frame: CGRect)] = [:]
     var pointer: Pointer?
+
+    var elements: [Node] {
+        let refs: Set<Int> = Set(containers.map(\.ref))
+        let (inside, roots): ([Container], [Container]) = containers.reduce(into: ([], [])) { split, each in
+            each.parent.map { parent in parent != each.ref && refs.contains(parent) } == true ? split.0.append(each) : split.1.append(each)
+        }
+        let nested: [Int: [Container]] = Dictionary(grouping: inside) { container in container.parent ?? container.ref }
+        func control(_ held: Control, cells: [Int: [Control]], rows: [Control] = []) -> Node {
+            .control(held, children: (held.options ?? []).map(Node.option) + (cells[held.ref] ?? []).map { cell in control(cell, cells: cells) } + rows.map { row in control(row, cells: cells) })
+        }
+        func container(_ held: Container) -> Node {
+            let listed: Set<Int> = Set(held.controls.map(\.ref))
+            let (inner, top): ([Control], [Control]) = held.controls.reduce(into: ([], [])) { split, each in
+                each.row.map { row in row != each.ref && listed.contains(row) } == true ? split.0.append(each) : split.1.append(each)
+            }
+            let cells: [Int: [Control]] = Dictionary(grouping: inner) { cell in cell.row ?? cell.ref }
+            let runs: [(held: Control, rows: [Control])] = top.reduce(into: []) { runs, each in
+                if each.kind == .row, let last = runs.indices.last, runs[last].held.kind == .multi { runs[last].rows.append(each) } else { runs.append((held: each, rows: [])) }
+            }
+            return .container(held, children: runs.map { run in control(run.held, cells: cells, rows: run.rows) } + (nested[held.ref] ?? []).map(container))
+        }
+        return roots.map(container)
+    }
+
+    package func encode(to encoder: any Encoder) throws {
+        var fields = encoder.container(keyedBy: CodingKeys.self)
+        try fields.encode(sequence, forKey: .sequence)
+        try fields.encode(elements, forKey: .elements)
+        try fields.encodeIfPresent(pointer, forKey: .pointer)
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

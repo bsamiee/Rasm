@@ -88,7 +88,7 @@ extension Installation {
                     return definition
                 case (.success(let definition?), _, _): return definition
                 case (.failure(let failure), _, _) where failure.reason.is(\.cancelled): throw failure
-                case (.failure(let failure), _, _) where failure.reason == .osa(OSStatus(resNotFound)): continue
+                case (.failure(let failure), _, _) where failure.reason == .osa(AppleEventFailure.Status(OSStatus(resNotFound))): continue
                 case (.failure(let failure), _, _): refusal = refusal ?? failure
             }
         }

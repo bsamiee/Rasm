@@ -1,15 +1,27 @@
 package import CasePaths
-package import Encoding
 package import Foundation
-import Security
+package import Results
 package import Subprocess
 package import System
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-package struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
+package struct ProcessFailure: ModuleError, Equatable {
+    package struct Status: Equatable, Sendable, StatusCode {
+        let code: Int32
+        package let name: String
+
+        package init(kernel code: kern_return_t) {
+            (self.code, name) = (code, unsafe String(cString: mach_error_string(code)))
+        }
+
+        package init(security code: OSStatus) {
+            (self.code, name) = (code, Self.constant(of: code))
+        }
+    }
+
     @CasePathable
-    package enum Reason: CaseLabeled, Equatable, Sendable {
+    package enum Reason: Equatable, Sendable {
         case subprocess(SubprocessError)
         case exit(TerminationStatus, standardError: String)
         case timedOut(Duration)
@@ -17,9 +29,9 @@ package struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
         case notFound
         case corrupt(NSError)
         case system(Errno)
-        case mach(kern_return_t)
+        case mach(Status)
         case notify(UInt32)
-        case authorization(right: String, OSStatus)
+        case authorization(right: String, Status)
         case foundation(NSError)
     }
 
@@ -42,48 +54,12 @@ package struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
             }
     }
 
-    package var errorDescription: String? {
-        switch reason {
-            case .subprocess(let error): "\(subject) \(error.description)"
-            case .exit(let status, let standardError):
-                standardError.split(whereSeparator: \.isNewline).last { line in !line.allSatisfy(\.isWhitespace) }.map { line in "\(subject) \(status), \(line.trimmingCharacters(in: .whitespaces))" }
-                    ?? "\(subject) \(status)"
-            case .timedOut(let timeout): "\(subject) timed out after \(timeout.formatted(.units(width: .wide)))"
-            case .cancelled: "\(subject) canceled"
-            case .notFound: "\(subject) not found"
-            case .corrupt(let error): "\(subject) is corrupt: \(((error as any Error) as? DecodingError)?.failureReason ?? error.localizedDescription)"
-            case .system(let error as any Error), .foundation(let error as any Error): "\(subject) failed: \(error.localizedDescription)"
-            case .mach(let status): unsafe "\(subject) failed: \(String(cString: mach_error_string(status)))"
-            case .notify(let status): "\(subject) failed with notify status \(status)"
-            case .authorization(let right, errAuthorizationInteractionNotAllowed):
-                "\(subject) needs the \(right) right, which asks for a password, so it ran no tool; `security authorizationdb write \(right) allow` grants it without one"
-            case .authorization(let right, let status):
-                "\(subject) did not get the \(right) right (\((SecCopyErrorMessageString(status, nil) as String?) ?? String(status))), `security authorizationdb write \(right) allow` grants it"
-        }
-    }
-
     package var errorUserInfo: [String: Any] {
         switch reason {
             case .subprocess(let error as any Error), .corrupt(let error as any Error), .system(let error as any Error), .foundation(let error as any Error): [NSUnderlyingErrorKey: error]
-            case .mach(let status): [NSUnderlyingErrorKey: NSError(domain: NSMachErrorDomain, code: Int(status))]
-            case .authorization(_, let status): [NSUnderlyingErrorKey: NSError(domain: NSOSStatusErrorDomain, code: Int(status))]
+            case .mach(let status): [NSUnderlyingErrorKey: NSError(domain: NSMachErrorDomain, code: Int(status.code))]
+            case .authorization(_, let status): [NSUnderlyingErrorKey: NSError(domain: NSOSStatusErrorDomain, code: Int(status.code))]
             case .exit, .timedOut, .cancelled, .notFound, .notify: [:]
         }
-    }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-extension DecodingError {
-    fileprivate var failureReason: String {
-        let (keys, problem): ([any CodingKey], String) =
-            switch self {
-                case .keyNotFound(let key, let context): (context.codingPath + [key], "missing")
-                case .valueNotFound(_, let context), .typeMismatch(_, let context), .dataCorrupted(let context):
-                    (context.codingPath, context.underlyingError.flatMap { error in (error as NSError).userInfo[NSDebugDescriptionErrorKey] as? String } ?? context.debugDescription)
-                @unknown default: ([], localizedDescription)
-            }
-        let path = keys.map { key in key.intValue.map { index in "[\(index)]" } ?? ".\(key.stringValue)" }.joined().trimmingPrefix(".")
-        return path.isEmpty ? problem : "key \(path): \(problem)"
     }
 }

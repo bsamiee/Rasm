@@ -5,25 +5,23 @@ import { SqlClient, SqlSchema } from 'effect/sql';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Channel = Schema.Literals(['release', 'beta']).annotate({ description: 'Release channel, Beta newest, then year releases' });
+const Channel = Schema.Literals(['release', 'beta']);
 
 class Application extends Schema.Class<Application, { readonly brand: unique symbol }>('Application')({
-    name: Schema.String.annotate({ description: 'Localized name of the bundle' }),
-    product: Schema.String.annotate({ description: 'Creative Cloud product code, or bundle identifier of an app outside the Creative Cloud registry' }),
+    name: Schema.String,
+    product: Schema.String,
     channel: Channel,
-    version: Schema.String.annotate({ description: 'CFBundleShortVersionString' }),
-    build: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Creative Cloud registry BuildVersion' })),
-    identifier: Schema.String.annotate({ description: 'Bundle identifier' }),
-    url: Schema.URL.annotate({ description: 'Bundle' }),
-    urlSchemes: Schema.Array(Schema.String)
-        .pipe(Schema.withConstructorDefault(Effect.succeed([])))
-        .annotate({ description: 'CFBundleURLSchemes of every CFBundleURLTypes entry, adobe+<host code> naming the UXP host the bundle is' }),
+    version: Schema.String,
+    build: Schema.OptionFromOptionalKey(Schema.String),
+    identifier: Schema.String,
+    url: Schema.URL,
+    urlSchemes: Schema.Array(Schema.String).pipe(Schema.withConstructorDefault(Effect.succeed([]))),
 }) {
     static readonly VersionOrder: Order.Order<string> = Order.mapInput(Array.makeOrder(Order.Number), (version: string) => version.split('.').map(Number));
     static readonly Order: Order.Order<Application> = Order.flip(Order.Struct({ channel: Order.mapInput(Order.Number, (channel: Application['channel']) => Channel.literals.indexOf(channel)), version: Application.VersionOrder, build: Option.makeOrder(Application.VersionOrder) }));
     static readonly fromInstallations = Effect.fnUntraced(function* (offered: readonly Installation[]) {
         const [files, path, registry] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Registry]);
-        const rows = yield* products(undefined).pipe(Effect.provide(layer({ filename: registry, readonly: true })), Effect.when(files.exists(registry)), Effect.map(Option.getOrElse(Array.empty)));
+        const rows = yield* findProducts(undefined).pipe(Effect.provide(layer({ filename: registry, readonly: true })), Effect.when(files.exists(registry)), Effect.map(Option.getOrElse(Array.empty)));
         const registered = Record.fromIterableBy(rows, Struct.get('executable'));
         const listed = yield* Effect.filterMapEffect(
             offered,
@@ -45,11 +43,11 @@ class Registry extends Context.Service<Registry, string>()('@rasm/creative-cloud
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const products = SqlSchema.findAll({
+const findProducts = SqlSchema.findAll({
     Request: Schema.Void,
     Result: Schema.Struct({
-        code: Schema.Union([Schema.TemplateLiteralParser([Schema.String, Schema.Literal('BETA').transform('beta')]), Schema.TemplateLiteralParser([Schema.String, Schema.Literal('').transform('release')])]).annotate({ description: 'SAP code, ending BETA for the Beta of a product' }),
-        executable: Schema.String.annotate({ description: 'Main executable AppLaunch names under InstallDir' }),
+        code: Schema.Union([Schema.TemplateLiteralParser([Schema.String, Schema.Literal('BETA').transform('beta')]), Schema.TemplateLiteralParser([Schema.String, Schema.Literal('').transform('release')])]),
+        executable: Schema.String,
         build: Schema.OptionFromNullOr(Schema.String),
     }),
     execute: () =>

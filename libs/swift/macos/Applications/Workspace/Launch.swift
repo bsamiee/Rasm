@@ -11,8 +11,8 @@ package import System
 // --- [MODELS] --------------------------------------------------------------------------
 
 package struct InstanceSnapshot: Encodable, Sendable {
-    private enum Key: CodingKey {
-        case pid, instance, identifier, name, url, activationPolicy, language, launchDate, usage, usageFailure, state, listening, listeningFailure
+    private enum CodingKeys: CodingKey {
+        case instance, identifier, name, url, language, launchDate, usage, state, listeningPorts
     }
 
     let instance: Instance
@@ -21,57 +21,33 @@ package struct InstanceSnapshot: Encodable, Sendable {
     let language: Locale.Language?
     let usage: Result<ResourceUsage, Errno>?
     let state: InstanceState
-    let listening: Result<[in_port_t], Errno>
+    let listeningPorts: Result<[in_port_t], Errno>
 
     package init?(_ instance: Instance, state: InstanceState, language: Locale.Language? = nil, usage: Result<ResourceUsage, Errno>? = nil) {
         guard let url = instance.application.bundleURL?.resolvedDirectory, let identifier = instance.application.bundleIdentifier else { return nil }
         (self.instance, self.identifier, self.url, self.language, self.usage, self.state) = (instance, identifier, url, language, usage, state)
-        listening = state.is(\.running) ? Result { () throws(Errno) -> [in_port_t] in try instance.process.listeningPorts() } : .success([])
+        listeningPorts = state.is(\.running) ? Result { () throws(Errno) -> [in_port_t] in try instance.process.listeningPorts() } : .success([])
     }
 
     package func encode(to encoder: any Encoder) throws {
-        var fields = encoder.container(keyedBy: Key.self)
-        try fields.encode(instance.process.pid, forKey: .pid)
+        var fields = encoder.container(keyedBy: CodingKeys.self)
         try fields.encode(instance.process, forKey: .instance)
         try fields.encode(identifier, forKey: .identifier)
         try fields.encodeIfPresent(instance.application.localizedName, forKey: .name)
         try fields.encode(url, forKey: .url)
-        try fields.encode(instance.application.activationPolicy.name, forKey: .activationPolicy)
         let minimal: String? = language?.minimalIdentifier
         try fields.encodeIfPresent(minimal, forKey: .language)
         try fields.encodeIfPresent(instance.application.launchDate, forKey: .launchDate)
-        try fields.encodeIfPresent(usage?[case: \.success], forKey: .usage)
-        let usageFailure: String? = usage?[case: \.failure]?.description
-        try fields.encodeIfPresent(usageFailure, forKey: .usageFailure)
+        let used: EncodedResult<ResourceUsage>? = usage.map { read in EncodedResult(read) }
+        try fields.encodeIfPresent(used, forKey: .usage)
         try fields.encode(state, forKey: .state)
-        try fields.encode(listening[case: \.success] ?? [], forKey: .listening)
-        if case .failure(let error) = listening { try fields.encode(error.description, forKey: .listeningFailure) }
-    }
-}
-
-package struct LaunchedInstance: Encodable, Sendable {
-    private enum Key: CodingKey {
-        case pid, instance, identifier, created, replaced
-    }
-
-    let instance: Instance
-    let identifier: String
-    let created: Bool
-    let replaced: Bool
-
-    package func encode(to encoder: any Encoder) throws {
-        var fields = encoder.container(keyedBy: Key.self)
-        try fields.encode(instance.process.pid, forKey: .pid)
-        try fields.encode(instance.process, forKey: .instance)
-        try fields.encode(identifier, forKey: .identifier)
-        try fields.encode(created, forKey: .created)
-        if replaced { try fields.encode(true, forKey: .replaced) }
+        try fields.encode(EncodedResult(listeningPorts), forKey: .listeningPorts)
     }
 }
 
 package enum LaunchEvent: CaseTagged, Sendable {
-    case launched(LaunchedInstance)
-    case state(InstanceSnapshot)
+    case launched(instance: ProcessInstance, identifier: String, created: Bool, replacedOnDisk: Bool)
+    case state(state: InstanceState)
     case opened(reply: AppleEventValue)
     case failed(ApplicationFailure)
 }
@@ -91,7 +67,7 @@ extension NSWorkspace {
         clock: some Clock<Duration> & Sendable,
     ) async throws(ApplicationFailure) -> (watch: Watch, settled: InstanceState?) {
         let running = try instances(of: installation.runs)
-        if !newInstance, !running.isEmpty, !arguments.isEmpty || !environment.isEmpty { throw ApplicationFailure(subject: installation.name, reason: .reused) }
+        if !newInstance, !running.isEmpty, !arguments.isEmpty || !environment.isEmpty { throw ApplicationFailure(subject: installation.name, reason: .alreadyRunning) }
         let before: Set<pid_t> = Set(running.map(\.process.pid))
         let creates: Bool = newInstance || running.isEmpty
         let configuration = OpenConfiguration()
@@ -139,8 +115,8 @@ extension NSWorkspace {
                     }
                 let created: Bool = !before.contains(instance.process.pid)
                 let watch = await watches.watch(instance)
-                let replaced = !created && Result(catching: { () throws(ProcessFailure) in try instance.process.runsInstalledCode() }) == .success(false)
-                output.yield(.launched(LaunchedInstance(instance: instance, identifier: installation.identifier, created: created, replaced: replaced)))
+                let replacedOnDisk = !created && Result(catching: { () throws(ProcessFailure) in try instance.process.runsInstalledCode() }) == .success(false)
+                output.yield(.launched(instance: instance.process, identifier: installation.identifier, created: created, replacedOnDisk: replacedOnDisk))
                 let states = await watch.states().removeDuplicates().flatMapLatest { (state: InstanceState) in
                     let status = state[case: \.running]?.status
                     let idle: Bool = status?.isIdle == true && (status != .unresponsive(thread: .sleeping) || instance.application.isFinishedLaunching)
@@ -150,7 +126,7 @@ extension NSWorkspace {
                 var settled: InstanceState?
                 for await element in merge(states.map(Optional.some), expiry) {
                     guard case (let state, let quiet)? = element else { break }
-                    if !quiet, let snapshot = InstanceSnapshot(instance, state: state) { output.yield(.state(snapshot)) }
+                    if !quiet { output.yield(.state(state: state)) }
                     settled = state
                     let reported: Bool = state[case: \.exited].map { ended in ended.report != nil || !ended.exit.producesReport } == true
                     if quiet || reported || state.is(\.failed) || state[case: \.running]?.asking.isEmpty == false { break }
@@ -180,7 +156,6 @@ extension NSWorkspace {
         arguments: [String] = [],
         environment: [String: String] = [:],
         newInstance: Bool = false,
-        waiting: Bool = false,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<LaunchEvent, Never> & Sendable {
         let (events, output) = AsyncStream<LaunchEvent>.makeStream()
@@ -222,14 +197,9 @@ extension NSWorkspace {
                     }
                 } against: {
                     let interrupting = await watch.states().first { state in state.is(\.exited) || state[case: \.running]?.asking.isEmpty == false }
-                    return [interrupting.flatMap { state in InstanceSnapshot(watch.instance, state: state) }.map(LaunchEvent.state)].compactMap(\.self)
+                    return [interrupting.map(LaunchEvent.state(state:))].compactMap(\.self)
                 } : []
             for reply in replies { output.yield(reply) }
-            guard waiting else { return }
-            for await state in await watch.states() {
-                if let snapshot = InstanceSnapshot(watch.instance, state: state) { output.yield(.state(snapshot)) }
-                if state[case: \.exited].map({ ended in ended.report != nil || !ended.exit.producesReport }) == true { return }
-            }
         }
         output.onTermination = { _ in launching.cancel() }
         return events

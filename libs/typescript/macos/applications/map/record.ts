@@ -7,54 +7,41 @@ import { Element } from '#/server/element';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Build = Schema.String;
-const Instant = Schema.DateTimeUtcFromString;
-const Positions = Schema.Array(Schema.Natural);
-class Tally extends Schema.Opaque<Tally>()(
-    Schema.Struct({
-        seen: Schema.Natural,
-        missed: Schema.Natural,
-        first: Instant,
-        last: Instant,
-        epoch: Instant,
-        since: Schema.OptionFromOptionalKey(Build),
-        verified: Schema.OptionFromOptionalKey(Build),
-        persistent: Schema.Boolean,
-        unexplained: Schema.Array(Instant),
-    }),
-) {}
-const Presence = Schema.Struct({ with: Schema.Array(Element.Condition), against: Schema.Array(Element.Condition) });
-class Application extends Schema.Opaque<Application>()(
-    Schema.Struct({
-        builds: Schema.Array(Build),
-        options: Schema.Record(Build, Schema.Array(Schema.Tuple([Description.Locator, Description.Control.fields.options.schema.value.mapFields(Struct.omit(['locator']))]))).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
-        cursors: Schema.Record(Build, Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Natural))).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
-    }),
-) {}
-class Container extends Schema.Opaque<Container>()(
-    Schema.Struct({
-        ...Struct.pick(Element.Observation.fields, ['kind', 'title', 'modal', 'layer', 'size', 'default', 'cancel', 'close']),
-        openers: Schema.Array(Schema.Struct({ ...Element.Opener.fields, tally: Tally })),
-        tally: Tally,
-        scopes: Schema.Array(Schema.Struct({ at: Instant, atoms: Schema.Array(Element.Condition) })),
-    }),
-) {}
-const Control = Schema.Struct({
-    ...Struct.omit(Element.Shape.fields, ['options']),
-    options: Schema.OptionFromOptionalKey(Schema.Union([Schema.Array(Schema.String), Schema.Struct({ count: Schema.Natural })])),
-    frame: Schema.OptionFromOptionalKey(Element.Frame),
-    value: Schema.OptionFromOptionalKey(Element.Value),
-    presence: Schema.OptionFromOptionalKey(Presence),
-    tally: Tally,
-    retired: Schema.OptionFromOptionalKey(Build),
-    route: Schema.OptionFromOptionalKey(Schema.Struct({ build: Schema.OptionFromOptionalKey(Build), passed: Schema.OptionFromOptionalKey(Act.Rung), failed: Schema.Array(Act.Rung) })),
+const Tally = Schema.Struct({
+    seen: Schema.Natural,
+    missed: Schema.Natural,
+    first: Schema.DateTimeUtcFromString,
+    last: Schema.DateTimeUtcFromString,
+    epoch: Schema.DateTimeUtcFromString,
+    since: Schema.OptionFromOptionalKey(Schema.String),
+    verified: Schema.OptionFromOptionalKey(Schema.String),
+    persistent: Schema.Boolean,
+    unexplained: Schema.Array(Schema.DateTimeUtcFromString),
 });
-class Entry extends Schema.Opaque<Entry>()(Schema.Struct({ container: Container, controls: Schema.Record(Element.Locator, Control) })) {}
-const Interned = Schema.Struct({
-    conditions: Schema.Array(Element.Condition),
-    container: Container.mapFields(Struct.assign({ scopes: Schema.Array(Container.fields.scopes.value.mapFields(Struct.assign({ atoms: Positions }))) })),
-    controls: Schema.Record(Element.Locator, Control.mapFields(Struct.assign({ presence: Schema.OptionFromOptionalKey(Presence.mapFields(Struct.assign({ with: Positions, against: Positions }))) }))),
-}).pipe(
+const entry = <Atoms extends Schema.Top>(atoms: Atoms) =>
+    Schema.Struct({
+        container: Schema.Struct({
+            ...Struct.pick(Element.Observation.fields, ['kind', 'title', 'modal', 'layer', 'size', 'default', 'cancel', 'close']),
+            openers: Schema.Array(Schema.Struct({ ...Element.Opener.fields, tally: Tally })),
+            tally: Tally,
+            scopes: Schema.Array(Schema.Struct({ at: Schema.DateTimeUtcFromString, atoms })),
+        }),
+        controls: Schema.Record(
+            Element.Locator,
+            Schema.Struct({
+                ...Struct.omit(Element.Shape.fields, ['options']),
+                options: Schema.OptionFromOptionalKey(Schema.Union([Schema.Array(Schema.String), Schema.Struct({ count: Schema.Natural })])),
+                frame: Schema.OptionFromOptionalKey(Element.Frame),
+                value: Schema.OptionFromOptionalKey(Element.Value),
+                presence: Schema.OptionFromOptionalKey(Schema.Struct({ with: atoms, against: atoms })),
+                tally: Tally,
+                retired: Schema.OptionFromOptionalKey(Schema.String),
+                route: Schema.OptionFromOptionalKey(Schema.Struct({ build: Schema.OptionFromOptionalKey(Schema.String), passed: Schema.OptionFromOptionalKey(Act.Route.Kind), failed: Schema.Array(Act.Route.Kind) })),
+            }),
+        ),
+    });
+const Entry = Element.Condition.pipe(Schema.Array, entry);
+const Interned = Schema.Struct({ conditions: Schema.Array(Element.Condition), ...Schema.Natural.pipe(Schema.Array, entry).fields }).pipe(
     Schema.decodeTo(Schema.toType(Entry), {
         decode: SchemaGetter.transformEffect((interned, options) => {
             const { conditions, container, controls } = interned;
@@ -87,14 +74,27 @@ const Interned = Schema.Struct({
         }),
     }),
 );
-class Key extends Schema.Opaque<Key>()(Schema.Struct({ bundle: Schema.String, language: Schema.String })) {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const applications = Relation.make('applications', { ...Key.fields, body: Schema.fromJsonString(Application) }, { key: ['bundle', 'language'], documents: { body: [] } });
-const containers = Relation.make('containers', { ...Key.fields, locator: Element.Locator, body: Schema.fromJsonString(Interned) }, { key: ['bundle', 'language', 'locator'], documents: { body: [Schema.fromJsonString(Entry)] } });
+const applications = Relation.make(
+    'applications',
+    {
+        bundle: Schema.String,
+        language: Schema.String,
+        body: Schema.fromJsonString(
+            Schema.Struct({
+                builds: Schema.Array(Schema.String),
+                options: Schema.Record(Schema.String, Schema.Array(Schema.Tuple([Description.Locator, Description.fields.containers.value.fields.controls.value.fields.options.schema.value.mapFields(Struct.omit(['locator']))]))).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+                cursors: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Natural))).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+            }),
+        ),
+    },
+    { key: ['bundle', 'language'], documents: { body: [] } },
+);
+const containers = Relation.make('containers', { ...Struct.pick(applications.schema.fields, ['bundle', 'language']), locator: Element.Locator, body: Schema.fromJsonString(Interned) }, { key: ['bundle', 'language', 'locator'], documents: { body: [Schema.fromJsonString(Entry)] } });
 const catalog = Catalog.make({ tables: [applications, containers] });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Application, applications, type Container, catalog, containers, type Entry, type Key, type Tally };
+export { applications, catalog, containers };

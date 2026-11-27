@@ -1,6 +1,4 @@
 import type { Project, premierepro, Sequence } from '@adobe/premierepro';
-import { Description } from '@rasm/applications/description';
-import type { Link } from '@rasm/mcp/link';
 import { Containment } from '@rasm/object-model/host';
 import { HostError } from '@rasm/object-model/model';
 import type { Render } from '@rasm/object-model/rpcs';
@@ -8,10 +6,6 @@ import { Unmatched } from '@rasm/search/unmatched';
 import { Uxp } from '@rasm/uxp/plugin';
 import type { File } from 'adobe:uxp';
 import { Array, Context, Effect, Layer, Option, Path, Predicate, Schema, Stream } from 'effect';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type EventName = Parameters<premierepro['EventManager']['addGlobalEventListener']>[0];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -57,25 +51,17 @@ const render = Effect.fnUntraced(function* ({ target }: Render, written: Pick<Fi
     const refused = HostError.refused(`exportSequenceFrame of sequence ${sequence.name} to ${written.nativePath}`);
     yield* Effect.tryPromise({ try: () => Exporter.exportSequenceFrame(sequence, time, written.name, `${path.dirname(written.nativePath)}${path.sep}`, width, height), catch: refused }).pipe(Effect.flatMap((exported) => (exported ? Effect.void : refused())));
 });
-const listen = (select: (constants: premierepro['Constants']) => readonly EventName[]) => ({
-    changes: Stream.unwrap(
-        Premiere.useSync(({ EventManager, Constants }) =>
-            Stream.mergeAll(
-                Array.map(select(Constants), (name) =>
-                    Uxp.listen(`global listener of ${String(name)}`, { add: (listener) => EventManager.addGlobalEventListener(name, listener), remove: (listener) => EventManager.removeGlobalEventListener(name, listener) }).pipe(
-                        Stream.as<typeof Link.Event.Type>({ name: String(name), target: Option.none(), detail: Option.none() }),
-                    ),
-                ),
-                { concurrency: 'unbounded' },
+const events = Stream.unwrap(
+    Premiere.useSync(({ EventManager, Constants: { ProjectEvent, SequenceEvent } }) =>
+        Stream.mergeAll(
+            Array.map([ProjectEvent.OPENED, ProjectEvent.ACTIVATED, ProjectEvent.CLOSED, SequenceEvent.ACTIVATED, SequenceEvent.CLOSED], (name) =>
+                Uxp.listen(`global listener of ${String(name)}`, { add: (listener) => EventManager.addGlobalEventListener(name, listener), remove: (listener) => EventManager.removeGlobalEventListener(name, listener) }).pipe(Stream.as({ name: String(name), target: Option.none(), detail: Option.none() })),
             ),
+            { concurrency: 'unbounded' },
         ),
     ),
-});
-const source = Description.merge(
-    listen(({ ProjectEvent }) => [ProjectEvent.OPENED, ProjectEvent.ACTIVATED, ProjectEvent.CLOSED]),
-    listen(({ SequenceEvent }) => [SequenceEvent.ACTIVATED, SequenceEvent.CLOSED]),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { execute, Premiere, render, source };
+export { events, execute, Premiere, render };

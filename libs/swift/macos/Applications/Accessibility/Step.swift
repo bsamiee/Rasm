@@ -118,12 +118,12 @@ package struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
 
     package struct Delivery: Encodable, Equatable, Sendable {
         enum Proof: String, Encodable, Sendable {
-            case answer, change, value, limit, posting, unanswered, exit
+            case answer, change, value, limit, posting, unanswered, exit, standing
         }
 
         struct Attempt: Encodable, Equatable, Sendable {
-            let rung: Rung
-            let failure: String
+            let route: Route.Kind
+            let failure: ApplicationFailure
         }
 
         struct PopUp: Encodable, Equatable, Sendable {
@@ -152,16 +152,20 @@ package struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
             let showing: [Row]
         }
 
+        private enum CodingKeys: String, CodingKey {
+            case proof, route, tried, presentation, popUps, scrolled, resolved, followed, surface
+        }
+
         let proof: Proof
         var window: CGWindowID?
         var route: Route?
         var tried: [Attempt] = []
         var presentation: Watch.Presentation?
-        var pointer: SIMD2<Double>?
         var popUps: [PopUp] = []
         var scrolled: Scrolled?
         var resolved: Resolved?
         var followed: Int?
+        var surface: Int?
     }
 
     fileprivate enum Scrolling {
@@ -180,7 +184,7 @@ package struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
             self =
                 switch (contact, edges == everyEdge) {
                     case (.button, true), (.key, true), (.wheel, true): .change
-                    case (.button, false), (.key, false), (.wheel, false), (.hover, _): .posting
+                    case (.button, false), (.key, false), (.wheel, false), (.hover, _), (.modifiers, _): .posting
                 }
         }
     }
@@ -201,97 +205,141 @@ package struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
         case nothing
     }
 
+    private enum Tag: String, Decodable {
+        case key, pointer, press, hold
+    }
+
     private enum CodingKeys: String, CodingKey {
+        case tag = "_tag"
         case at, action, to, range, key, modifiers, pointer, path, button, by, unit, hold, count, every, jitter, edge, from, windows
     }
 
-    let action: Action
-    let from: Rung?
+    private struct Milliseconds: RawRepresentable, Decodable {
+        let rawValue: Double
 
-    init(_ action: Action, from: Rung? = nil) {
+        init?(rawValue: Double) {
+            let longest: Double = replyDeadline / .milliseconds(1)
+            guard (0...longest).contains(rawValue) else { return nil }
+            self.rawValue = rawValue
+        }
+
+        var duration: Duration { .milliseconds(rawValue) }
+    }
+
+    private typealias Rule = (broken: Bool, key: CodingKeys, rule: String)
+
+    let action: Action
+    let from: Route.Kind?
+
+    init(_ action: Action, from: Route.Kind? = nil) {
         self.action = action
         self.from = from
     }
 
     package init(from decoder: any Decoder) throws {
         let fields = try decoder.container(keyedBy: CodingKeys.self)
-        let longest: Double = replyDeadline / .milliseconds(1)
-        let timed = { (key: CodingKeys) throws -> Duration? in
-            try fields.decodeIfPresent(Double.self, forKey: key).map { (milliseconds: Double) throws -> Duration in
-                guard (0...longest).contains(milliseconds) else {
-                    let deadline: String = replyDeadline.formatted(.units(allowed: [.milliseconds], width: .abbreviated))
-                    throw DecodingError.dataCorruptedError(forKey: key, in: fields, debugDescription: "\(milliseconds.formatted(numberFormat)) ms lies outside 0 to the reply deadline of \(deadline)")
+        let deadline: Double = replyDeadline / .milliseconds(1)
+        let longest = Int(deadline)
+        let pacing = { () throws -> (hold: Duration, schedule: Input.Schedule, edges: Set<Input.Edge>, rules: [Rule]) in
+            let hold: Duration = try fields.decodeIfPresent(Milliseconds.self, forKey: .hold)?.duration ?? .zero
+            let schedule = try Input.Schedule(
+                count: fields.decodeIfPresent(Int.self, forKey: .count) ?? 1,
+                every: fields.decodeIfPresent(Milliseconds.self, forKey: .every)?.duration,
+                jitter: fields.decodeIfPresent(Milliseconds.self, forKey: .jitter)?.duration ?? .zero,
+            )
+            let edges: Set<Input.Edge> = try fields.decodeIfPresent(Input.Edge.self, forKey: .edge).map { (edge: Input.Edge) -> Set<Input.Edge> in [edge] } ?? everyEdge
+            let spacing: Duration = hold + schedule.jitter
+            let run: Duration = (schedule.every ?? .zero) * min(max(schedule.count - 1, 0), longest) + hold
+            let rows: [Rule] = [
+                (!(1...longest).contains(schedule.count), .count, "count \(schedule.count) outside 1 to one press per millisecond of the reply deadline"),
+                (run > replyDeadline, .every, "presses running \(run) past the reply deadline"),
+                ((schedule.every ?? spacing) < spacing, .every, "presses every \(schedule.every ?? spacing) under the hold plus jitter \(spacing)"),
+                (schedule.every == nil && schedule.jitter > .zero, .jitter, "jitter \(schedule.jitter) on a click run, which has no interval to vary"),
+            ]
+            return (hold, schedule, edges, rows)
+        }
+        let rules: [Rule]
+        switch try fields.decode(Tag.self, forKey: .tag) {
+            case .key:
+                let paced = try pacing()
+                action = try .input(
+                    contact: .key(fields.decode(Key.self, forKey: .key)),
+                    path: [],
+                    focus: fields.decodeIfPresent(Int.self, forKey: .at),
+                    hold: paced.hold,
+                    modifiers: fields.decodeIfPresent(Set<Modifier>.self, forKey: .modifiers) ?? [],
+                    schedule: paced.schedule,
+                    edges: paced.edges,
+                    windows: [],
+                )
+                from = try fields.decodeIfPresent(Route.Kind.self, forKey: .from)
+                rules = paced.rules
+            case .pointer:
+                let paced = try pacing()
+                let path: [Aim] = try [fields.decode(Aim.self, forKey: .pointer)] + (fields.decodeIfPresent([Aim].self, forKey: .path) ?? [])
+                let (by, button, unit): (SIMD2<Double>?, Button?, ScrollUnit?) = try (
+                    fields.decodeIfPresent(SIMD2<Double>.self, forKey: .by), fields.decodeIfPresent(Button.self, forKey: .button), fields.decodeIfPresent(ScrollUnit.self, forKey: .unit),
+                )
+                let contact: Input.Contact = by.map { (by: SIMD2<Double>) -> Input.Contact in .wheel(by: by, unit: unit?.unit ?? .pixel) } ?? button?.contact ?? .button(.left)
+                let plane = Double(Int32.max)
+                let samples: [Input.Sample] = path.compactMap { (aim: Aim) -> Input.Sample? in aim[case: \.point] }
+                let pen: [Bool] = samples.map { (sample: Input.Sample) -> Bool in sample.pressure != nil || sample.tilt != nil }
+                let reach: Double? = by.map { (by: SIMD2<Double>) -> Double in max(by.x.magnitude, by.y.magnitude).rounded() }
+                let offPlane: Bool = samples.contains { (sample: Input.Sample) -> Bool in sample.at.x.magnitude > plane || sample.at.y.magnitude > plane }
+                let unranged: Bool = samples.contains { (sample: Input.Sample) -> Bool in
+                    !(0...1).contains(sample.pressure ?? 0) || !(-1...1).contains(sample.tilt?.x ?? 0) || !(-1...1).contains(sample.tilt?.y ?? 0)
                 }
-                return .milliseconds(milliseconds)
-            }
-        }
-        let (key, pointer, at): (Key?, Aim?, Int?) = try (
-            fields.decodeIfPresent(Key.self, forKey: .key), fields.decodeIfPresent(Aim.self, forKey: .pointer), fields.decodeIfPresent(Int.self, forKey: .at),
-        )
-        let (by, button, unit): (SIMD2<Double>?, Button?, ScrollUnit?) = try (
-            fields.decodeIfPresent(SIMD2<Double>.self, forKey: .by), fields.decodeIfPresent(Button.self, forKey: .button), fields.decodeIfPresent(ScrollUnit.self, forKey: .unit),
-        )
-        let contact: Input.Contact? =
-            switch (key, pointer, by) {
-                case (.some(let key), _, _): .key(key)
-                case (.none, .none, _): nil
-                case (.none, .some, .some(let by)): .wheel(by: by, unit: unit?.unit ?? .pixel)
-                case (.none, .some, .none): button?.contact ?? .button(.left)
-            }
-        let value: Fact.Scalar? = try fields.decodeIfPresent(Fact.Scalar.self, forKey: .to)
-        from = try fields.decodeIfPresent(Rung.self, forKey: .from)
-        let path: [Aim] = try pointer.map { (first: Aim) throws -> [Aim] in [first] + (try fields.decodeIfPresent([Aim].self, forKey: .path) ?? []) } ?? []
-        let schedule = Input.Schedule(count: try fields.decodeIfPresent(Int.self, forKey: .count) ?? 1, every: try timed(.every), jitter: try timed(.jitter) ?? .zero)
-        let edge: Input.Edge? = try fields.decodeIfPresent(Input.Edge.self, forKey: .edge)
-        let (hold, modifiers, windows): (Duration, Set<Modifier>?, [CGWindowID]?) = try (
-            timed(.hold) ?? .zero, fields.decodeIfPresent(Set<Modifier>.self, forKey: .modifiers), fields.decodeIfPresent([CGWindowID].self, forKey: .windows),
-        )
-        let (range, named): (TextRange?, String?) = try (fields.decodeIfPresent(TextRange.self, forKey: .range), fields.decodeIfPresent(String.self, forKey: .action))
-        let plane = Double(Int32.max)
-        let samples: [Input.Sample] = path.compactMap { (aim: Aim) -> Input.Sample? in aim[case: \.point] }
-        let pen: [Bool] = samples.map { (sample: Input.Sample) -> Bool in sample.pressure != nil || sample.tilt != nil }
-        let reach: Double? = by.map { (by: SIMD2<Double>) -> Double in max(by.x.magnitude, by.y.magnitude).rounded() }
-        let spacing: Duration = hold + schedule.jitter
-        let run: Duration = (schedule.every ?? .zero) * min(max(schedule.count - 1, 0), Int(longest)) + hold
-        let offPlane: Bool = samples.contains { (sample: Input.Sample) -> Bool in sample.at.x.magnitude > plane || sample.at.y.magnitude > plane }
-        let unranged: Bool = samples.contains { (sample: Input.Sample) -> Bool in
-            !(0...1).contains(sample.pressure ?? 0) || !(-1...1).contains(sample.tilt?.x ?? 0) || !(-1...1).contains(sample.tilt?.y ?? 0)
-        }
-        let rules: [(broken: Bool, key: CodingKeys, rule: String)] = [
-            (named == kAXRaiseAction, .action, "\(kAXRaiseAction) takes focus from the frontmost application"),
-            (!(1...Int(longest)).contains(schedule.count), .count, "count \(schedule.count) outside 1 to one press per millisecond of the reply deadline"),
-            (run > replyDeadline, .every, "presses running \(run) past the reply deadline"),
-            ((schedule.every ?? spacing) < spacing, .every, "presses every \(schedule.every ?? spacing) under the hold plus jitter \(spacing)"),
-            (schedule.every == nil && schedule.jitter > .zero, .jitter, "jitter \(schedule.jitter) on a click run, which has no interval to vary"),
-            (path.count > 1 && (by != nil || schedule.count > 1), .path, "a path of \(path.count) points on a wheel or more than one press"),
-            (offPlane, .pointer, "a point off the plane of ±\(Int32.max)"),
-            (reach.map { (reach: Double) -> Bool in !(1..<plane).contains(reach) } == true, .by, "a wheel delta under one whole unit or beyond ±\(Int32.max)"),
-            (pen.contains(true) && contact != .button(.left), .button, "pressure or tilt off the left button"),
-            (pen.contains(true) && (pen.contains(false) || samples.count < path.count), .path, "pressure or tilt on some points alone"),
-            (unranged, .pointer, "pressure outside 0 to 1 or tilt outside -1 to 1"),
-            (pointer != nil && at != nil, .at, "at on a pointer step, which aims by its pointer"),
-        ]
-        let broken: [(broken: Bool, key: CodingKeys, rule: String)] = rules.filter(\.broken)
-        guard broken.isEmpty else { throw DecodingError.dataCorruptedError(forKey: broken[0].key, in: fields, debugDescription: broken.map(\.rule).formatted()) }
-        switch (contact, at, value, range) {
-            case (.some(let contact), _, _, _):
-                action = .input(
+                action = try .input(
                     contact: contact,
                     path: path,
-                    focus: at,
-                    hold: hold,
-                    modifiers: modifiers ?? [],
-                    schedule: schedule,
-                    edges: edge.map { edge in [edge] } ?? everyEdge,
-                    windows: windows ?? [],
+                    focus: nil,
+                    hold: paced.hold,
+                    modifiers: fields.decodeIfPresent(Set<Modifier>.self, forKey: .modifiers) ?? [],
+                    schedule: paced.schedule,
+                    edges: paced.edges,
+                    windows: fields.decodeIfPresent([CGWindowID].self, forKey: .windows) ?? [],
                 )
-            case (.none, .some(let ref), .some(.text(let text)), .some(let range)): action = .replace(ref: ref, range: range, text: text)
-            case (.none, .some, .some, .some): throw DecodingError.dataCorruptedError(forKey: .to, in: fields, debugDescription: "A range is replaced by text alone")
-            case (.none, .some(let ref), .none, .some(let range)): action = .select(ref: ref, range: range)
-            case (.none, .some(let ref), .some(let value), .none): action = .set(ref: ref, value: value)
-            case (.none, .some(let ref), .none, .none): action = .press(ref: ref, action: named ?? kAXPressAction)
-            case (.none, .none, _, _): throw DecodingError.keyNotFound(CodingKeys.at, DecodingError.Context(codingPath: fields.codingPath, debugDescription: "A step names at, key, or pointer"))
+                from = try fields.decodeIfPresent(Route.Kind.self, forKey: .from)
+                let placed: [Rule] = [
+                    (path.count > 1 && (by != nil || paced.schedule.count > 1), .path, "a path of \(path.count) points on a wheel or more than one press"),
+                    (offPlane, .pointer, "a point off the plane of ±\(Int32.max)"),
+                    (reach.map { (reach: Double) -> Bool in !(1..<plane).contains(reach) } == true, .by, "a wheel delta under one whole unit or beyond ±\(Int32.max)"),
+                    (pen.contains(true) && contact != .button(.left), .button, "pressure or tilt off the left button"),
+                    (pen.contains(true) && (pen.contains(false) || samples.count < path.count), .path, "pressure or tilt on some points alone"),
+                    (unranged, .pointer, "pressure outside 0 to 1 or tilt outside -1 to 1"),
+                ]
+                rules = paced.rules + placed
+            case .press:
+                let ref: Int = try fields.decode(Int.self, forKey: .at)
+                let named: String? = try fields.decodeIfPresent(String.self, forKey: .action)
+                let (value, range): (Fact.Scalar?, TextRange?) = try (fields.decodeIfPresent(Fact.Scalar.self, forKey: .to), fields.decodeIfPresent(TextRange.self, forKey: .range))
+                action =
+                    switch (value, range) {
+                        case (.some(.text(let text)), .some(let range)): .replace(ref: ref, range: range, text: text)
+                        case (.some, .some): throw DecodingError.dataCorruptedError(forKey: .to, in: fields, debugDescription: "A range is replaced by text alone")
+                        case (.none, .some(let range)): .select(ref: ref, range: range)
+                        case (.some(let value), .none): .set(ref: ref, value: value)
+                        case (.none, .none): .press(ref: ref, action: named ?? kAXPressAction)
+                    }
+                from = try fields.decodeIfPresent(Route.Kind.self, forKey: .from)
+                rules = [(named == kAXRaiseAction, .action, "\(kAXRaiseAction) takes focus from the frontmost application")]
+            case .hold:
+                let modifiers: Set<Modifier> = try fields.decode(Set<Modifier>.self, forKey: .modifiers)
+                action = try .input(
+                    contact: .modifiers,
+                    path: [],
+                    focus: nil,
+                    hold: fields.decode(Milliseconds.self, forKey: .hold).duration,
+                    modifiers: modifiers,
+                    schedule: once,
+                    edges: everyEdge,
+                    windows: [],
+                )
+                from = nil
+                rules = [(modifiers.isEmpty, .modifiers, "a hold of no modifier")]
         }
+        let broken: [Rule] = rules.filter(\.broken)
+        guard broken.isEmpty else { throw DecodingError.dataCorruptedError(forKey: broken[0].key, in: fields, debugDescription: broken.map(\.rule).formatted()) }
     }
 
     package var description: String { describe(placing: true) }
@@ -312,7 +360,7 @@ package struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
                         case (.button, .none, true, false, _): ("\(contact) drag", 1)
                         case (.button, .none, false, _, 2): ("\(contact) double click", 1)
                         case (.button, .none, false, _, let count): ("\(contact) click", count)
-                        case (.hover, .none, _, _, _), (.wheel, .none, _, _, _), (.key, .none, _, _, _): ("\(contact)", schedule.count)
+                        case (.hover, .none, _, _, _), (.wheel, .none, _, _, _), (.key, .none, _, _, _), (.modifiers, .none, _, _, _): ("\(contact)", schedule.count)
                     }
                 let held: String? = modifiers.isEmpty ? nil : "with \(Modifier.allCases.filter(modifiers.contains).map(\.rawValue).formatted())"
                 let start: String? = placing ? path.first?[case: \.point].map { sample in "\(path.count > 1 ? "from" : "at") \(sample)" } : nil
@@ -375,8 +423,8 @@ extension Step {
     }
 
     fileprivate func plan(on element: AXUIElement?, presented: Bool) throws(ApplicationFailure) -> Plan {
-        guard let element else { throw ApplicationFailure(subject: "the reference", reason: .stale(candidates: [])) }
-        let accessible: Bool = from.map { rung in rung == .accessibility } ?? true
+        guard let element else { throw ApplicationFailure(subject: "the reference", reason: .notOpen(nearest: [])) }
+        let accessible: Bool = from.map { kind in kind == .accessibility } ?? true
         let shown: [String] =
             switch action {
                 case .set, .select, .replace: [kAXValueAttribute, kAXSelectedAttribute]
@@ -389,7 +437,7 @@ extension Step {
                 case .press: false
                 case .set, .select, .replace, .input: try read.element.text(kAXSubroleAttribute) == kAXSecureTextFieldSubrole ? !element.settable(kAXValueAttribute) : false
             }
-        guard !secure else { throw ApplicationFailure(subject: "the element", reason: .secure) }
+        guard !secure else { throw ApplicationFailure(subject: "the element", reason: .secureField) }
         let point: CGPoint? = read.element.activation ?? read.element.frame.map { (frame: CGRect) -> CGPoint in CGPoint(x: frame.midX, y: frame.midY) }
         let sample: Input.Sample? = point.map { (point: CGPoint) -> Input.Sample in Input.Sample(at: SIMD2(point.x, point.y), pressure: nil, tilt: nil) }
         let answering: pid_t? = element.process
@@ -453,7 +501,7 @@ extension Step {
                         let taken: [String] = read.element.actions.filter { (held: String) -> Bool in held != named }
                         throw ApplicationFailure(subject: "the element", reason: .unmatched(Unmatched(subject: "action", query: action, candidates: taken)))
                     case (.failure, kAXPressAction, .success(let click)):
-                        return (read.element.window, click, [Delivery.Attempt(rung: .accessibility, failure: refusal.errorDescription ?? pressing)])
+                        return (read.element.window, click, [Delivery.Attempt(route: .accessibility, failure: refusal)])
                     case (_, _, _): throw refusal
                 }
             case (.press, _): return try (read.element.window, click.get(), [])
@@ -470,7 +518,7 @@ extension Step {
                 let after: CGRect? = placed.facts[kAXPositionAttribute]?.point.flatMap { origin in placed.facts[kAXSizeAttribute]?.size.map { size in CGRect(origin: origin, size: size) } }
                 switch (answer, after == frame) {
                     case (.none, true): return (read.element.window, .proven(.value), [])
-                    case (.none, false): throw ApplicationFailure(subject: "the window", reason: .unchanged(after.map(Fact.Scalar.rect)))
+                    case (.none, false): throw ApplicationFailure(subject: "the window", reason: .readBack(after.map(Fact.Scalar.rect)))
                     case (.some(let answer), _):
                         throw ApplicationFailure(answer, subject: "moving the window", process: element.process, answering: self)
                 }
@@ -496,8 +544,14 @@ extension Step {
         }
         let selected: Bool = try owner.map { owner throws(ApplicationFailure) in try owner.element.elements(owner.attribute).contains { chosen in CFEqual(chosen, row) } } ?? false
         guard !(written == .success && selected) else { return (read.element.window, .proven(.value), []) }
-        let attempt = Delivery.Attempt(rung: .accessibility, failure: owner.map { _ in "the list left the row unselected" } ?? "no outline, table, list, or browser holds the row")
-        return try (read.element.window, click.get(), [attempt])
+        let refusal: ApplicationFailure.Reason =
+            switch (owner, written) {
+                case (.none, _): .unmatched(Unmatched(subject: "list", query: nil, candidates: selections.keys.sorted()))
+                case (.some, .none): .refused
+                case (.some, .some(.success)): .readBack(nil)
+                case (.some, .some(let answer)): .accessibility(answer)
+            }
+        return try (read.element.window, click.get(), [Delivery.Attempt(route: .accessibility, failure: ApplicationFailure(subject: "selecting the row", reason: refusal))])
     }
 
     private func select(_ range: TextRange, in element: AXUIElement, read: Read, replacing text: String?) throws(ApplicationFailure) -> Plan {
@@ -572,7 +626,7 @@ extension Step {
                 case (false, _, _): try element.read([kAXSelectedTextRangeAttribute]).element.facts[kAXSelectedTextRangeAttribute]?.range
             }
         guard selected == .success, shown?.location == span.location, shown?.length == span.length else {
-            throw ApplicationFailure(subject: "the selection", reason: selected == .success ? .unchanged(nil) : .accessibility(selected))
+            throw ApplicationFailure(subject: "the selection", reason: selected == .success ? .readBack(nil) : .accessibility(selected))
         }
         guard let text else { return (read.element.window, .proven(.value), []) }
         let expected: String = (value as NSString).replacingCharacters(in: span, with: text)
@@ -580,7 +634,7 @@ extension Step {
             text.isEmpty ? [(Key.special(.delete), Set<Modifier>())] : text.map { (character: Character) -> (key: Key, modifiers: Set<Modifier>) in (Key.character(character), []) }
         let keyed: Course = .posting(route: .process, inputs: Self.typing(keys), readBack: .value(attribute: kAXValueAttribute, before: .text(value), after: .text(expected)))
         guard try window?.read([kAXDocumentAttribute]).element.text(kAXDocumentAttribute) == nil else {
-            return (read.element.window, keyed, [Delivery.Attempt(rung: .accessibility, failure: "replacing the text through Accessibility skips the document's undo")])
+            return (read.element.window, keyed, [Delivery.Attempt(route: .accessibility, failure: ApplicationFailure(subject: "replacing the text outside the document's undo", reason: .refused))])
         }
         let written: AXError = AXUIElementSetAttributeValue(element, kAXSelectedTextAttribute as CFString, text as CFString)
         let after: String = try element.read([kAXValueAttribute]).element.text(kAXValueAttribute) ?? ""
@@ -589,10 +643,9 @@ extension Step {
             read.element.window, keyed,
             [
                 Delivery.Attempt(
-                    rung: .accessibility,
-                    failure: (written == .success
-                        ? ApplicationFailure(subject: "the text", reason: .unchanged(.text(after))) : ApplicationFailure(subject: "replacing the text", reason: .accessibility(written)))
-                        .errorDescription ?? "the text",
+                    route: .accessibility,
+                    failure: written == .success
+                        ? ApplicationFailure(subject: "the text", reason: .readBack(.text(after))) : ApplicationFailure(subject: "replacing the text", reason: .accessibility(written)),
                 )
             ],
         )
@@ -677,7 +730,7 @@ extension Step {
             let after: Double? = try answer == .success ? axis.bar.read([kAXValueAttribute]).element.facts[kAXValueAttribute]?.number : nil
             return after.map { (after: Double) -> Bool in after != axis.before } ?? false
         }
-        guard moved.contains(true) else { throw ApplicationFailure(subject: "the scroll bar", reason: .unchanged(nil)) }
+        guard moved.contains(true) else { throw ApplicationFailure(subject: "the scroll bar", reason: .readBack(nil)) }
         return (window, host, position, .value, [], try showing())
     }
 
@@ -727,15 +780,14 @@ extension Step {
                 let answer = AXUIElementSetAttributeValue(element, attribute as CFString, boxed)
                 let after: Fact.Scalar? = try answer == .success ? current() : nil
                 let attempt = Delivery.Attempt(
-                    rung: .accessibility,
-                    failure: (answer == .success
-                        ? ApplicationFailure(subject: "the value", reason: .unchanged(after)) : ApplicationFailure(subject: "writing the value", reason: .accessibility(answer)))
-                        .errorDescription ?? "the value",
+                    route: .accessibility,
+                    failure: answer == .success
+                        ? ApplicationFailure(subject: "the value", reason: .readBack(after)) : ApplicationFailure(subject: "writing the value", reason: .accessibility(answer)),
                 )
                 switch (answer, after == value || value.number.map({ number in after?.number == number }) == true, target.text) {
                     case (.success, true, _): return (read.element.window, .proven(.value), [])
                     case (_, false, .some): return try typed([attempt])
-                    case (.success, false, .none): throw ApplicationFailure(subject: "the value", reason: .unchanged(after))
+                    case (.success, false, .none): throw ApplicationFailure(subject: "the value", reason: .readBack(after))
                     case (_, _, _):
                         throw ApplicationFailure(answer, subject: "writing the value", process: element.process, answering: self)
                 }
@@ -749,12 +801,12 @@ extension Step {
                 }
                 switch (answer, value == goal) {
                     case (.success, true): return (read.element.window, .proven(.value), [])
-                    case (.success, false): throw ApplicationFailure(subject: "the value", reason: .unchanged(try current()))
+                    case (.success, false): throw ApplicationFailure(subject: "the value", reason: .readBack(try current()))
                     case (_, _):
                         throw ApplicationFailure(answer, subject: "stepping the value", process: element.process, answering: self)
                 }
             case (false, .some, _, .none): return try typed([])
-            case (false, .none, _, .none): throw ApplicationFailure(subject: "the value", reason: .unchanged(shown))
+            case (false, .none, _, .none): throw ApplicationFailure(subject: "the value", reason: .readBack(shown))
         }
     }
 
@@ -834,7 +886,7 @@ extension Step {
             return (read.element.window, .posting(route: .process, inputs: typed, readBack: readBack), tried)
         }
         guard case .success(.posting(let route, let clicked, _)) = click else {
-            throw ApplicationFailure(subject: "focusing the element", reason: written == .success ? .unchanged(nil) : .accessibility(written))
+            throw ApplicationFailure(subject: "focusing the element", reason: written == .success ? .readBack(nil) : .accessibility(written))
         }
         return (read.element.window, .posting(route: route, inputs: clicked + typed, readBack: readBack), tried)
     }
@@ -868,7 +920,7 @@ extension Step {
             }
         }
         let planned: Plan
-        var (presentation, pointer, landing, resolution, revealed): (Watch.Presentation?, SIMD2<Double>?, Reached?, Delivery.Resolved?, Delivery.Scrolled?) = (nil, nil, nil, nil, nil)
+        var (presentation, surface, landing, resolution, revealed): (Watch.Presentation?, Int?, Reached?, Delivery.Resolved?, Delivery.Scrolled?) = (nil, nil, nil, nil, nil)
         switch action {
             case .set(clipboard, let value):
                 guard let text = value.text else { throw ApplicationFailure(subject: "the clipboard", reason: .notText(value)) }
@@ -881,22 +933,27 @@ extension Step {
                 let (through, opening): (Int?, String?) =
                     switch pending {
                         case .success(let read): (read.course[case: \.opening].map { _ in ref }, read.course[case: \.opening])
-                        case .failure(let failure) where failure.reason.is(\.stale): (ref, nil)
+                        case .failure(let failure) where failure.reason.is(\.notOpen): (ref, nil)
                         case .failure(let failure): throw failure
                     }
-                let presented: (value: Plan, presentation: Watch.Presentation?)
+                let presented: (value: (plan: Plan, shown: Int?), presentation: Watch.Presentation?)
                 do throws(ApplicationFailure) {
-                    presented = try await watch.presenting(through, by: opening, clock: clock) { (_: [Container]) async throws(ApplicationFailure) -> Plan in
+                    presented = try await watch.presenting(through, by: opening, clock: clock) { (surfaces: [Container]) async throws(ApplicationFailure) -> (plan: Plan, shown: Int?) in
                         switch (pending, opening) {
-                            case (.success(let read), .none): read
-                            case (_, _): try await watch.perform(on: ref) { element throws(ApplicationFailure) in try plan(on: element, presented: opening != nil) }
+                            case (.success(let read), .none): (read, nil)
+                            case (_, _): (try await watch.perform(on: ref) { element throws(ApplicationFailure) in try plan(on: element, presented: opening != nil) }, surfaces.last?.ref)
                         }
                     }
-                } catch  where error.reason == .unseen && opening != nil {
+                } catch  where error.reason == .noChangeSeen && opening != nil {
                     let clicked: Plan = try await watch.perform(on: ref) { element throws(ApplicationFailure) in try Step(action, from: .window).plan(on: element, presented: false) }
-                    presented = (clicked, nil)
+                    presented = ((clicked, nil), nil)
                 }
-                (planned, presentation) = (presented.value, presented.presentation)
+                surface =
+                    switch (action, opening, presented.presentation) {
+                        case (.press, .some, .none): presented.value.shown
+                        case (_, _, _): nil
+                    }
+                (planned, presentation) = (surface.map { (_: Int) -> Plan in (presented.value.plan.window, .proven(.standing), []) } ?? presented.value.plan, presented.presentation)
             case .input(let contact, let path, .none, let hold, let modifiers, let schedule, let edges, let windows):
                 let scrolled: Scroll? = try await scrolling(from == nil || from == .accessibility ? .writing : .reading)
                 if let proof = scrolled?.proof {
@@ -916,18 +973,19 @@ extension Step {
                 }
                 landing = try samples.first.flatMap { (start: Input.Sample) throws(ApplicationFailure) -> Reached? in try Self.window(holding: start, of: process, among: numbers) }
                 let shown: CGWindowID? = landing?.number
+                let keyed: Bool = contact.is(\.key) || contact == .modifiers
                 let focused: CGWindowID? =
-                    contact.is(\.key)
+                    keyed
                     ? try await watch.perform(on: nil) { (_: AXUIElement?) throws(ApplicationFailure) -> CGWindowID? in
                         do throws(ApplicationFailure) {
                             return try AXUIElementCreateApplication(process).elements(kAXFocusedWindowAttribute).first?.window
-                        } catch let failure where failure.reason.is(\.unanswered) {
+                        } catch let failure where failure.reason.is(\.unanswered) || failure.reason.is(\.unansweredMayHaveRun) {
                             return nil
                         }
                     } : nil
                 let window: CGWindowID? = scrolled?.window ?? shown ?? numbers.first ?? focused
                 let input = Input(contact: contact, path: samples, hold: hold, modifiers: modifiers, schedule: schedule, edges: edges)
-                guard let route = contact.is(\.key) ? Route.process : window.map(Route.window(number:)) else { throw ApplicationFailure(subject: "the point", reason: .noWindow) }
+                guard let route = keyed ? Route.process : window.map(Route.window(number:)) else { throw ApplicationFailure(subject: "the point", reason: .noWindow) }
                 let position: [Double] = scrolled?.position ?? []
                 let readBack: ReadBack = position.isEmpty ? ReadBack(contact: contact, edges: edges) : .position(before: position)
                 let plain: Bool =
@@ -954,7 +1012,6 @@ extension Step {
                     } else {
                         (window, .posting(route: route, inputs: [input], readBack: readBack), tried)
                     }
-                pointer = samples.last?.at
         }
         let matches = { (read: Fact.Scalar?, after: Fact.Scalar) -> Bool in read == after || after.number.map { (number: Double) -> Bool in read?.number == number } == true }
         let reading = { (attribute: String) async throws(ApplicationFailure) -> Fact.Scalar? in
@@ -990,10 +1047,10 @@ extension Step {
                 readBack: ReadBack,
                 events: AsyncStream<Watch.Message>,
                 lingering: AsyncStream<Watch.Message>?,
-                rung: Rung,
+                kind: Route.Kind,
                 baseline: (shot: Screenshot?, changing: [CGRect], windows: Set<CGWindowID>, caret: CGRect?)
-            ) async throws(ApplicationFailure) -> (proof: Delivery.Proof, note: String?, followed: Int?) in
-            let undrawn: Delivery.Proof = rung == .accessibility ? .answer : .posting
+            ) async throws(ApplicationFailure) -> (proof: Delivery.Proof, note: ApplicationFailure?, followed: Int?) in
+            let undrawn: Delivery.Proof = kind == .accessibility ? .answer : .posting
             let tied: @Sendable (InstanceEvent.Change) -> Void? = Watch.evidence(window: planned.window, control: action.ref, listed: baseline.windows)
             let started = clock.now
             let answer: Duration = await watch.answerTime
@@ -1012,13 +1069,13 @@ extension Step {
                             against: { () async throws(ApplicationFailure) -> Evidence in
                                 var (restless, compared) = (false, false)
                                 while clock.now < deadline, !Task.isCancelled, let shot = await picture(number) {
-                                    guard let changed = await shot.changed(from: earlier) else { continue }
+                                    guard let changed = await shot.differences(from: earlier) else { continue }
                                     let regions: [CGRect] = changed.filter { (region: CGRect) -> Bool in insertion.map { (insertion: CGRect) -> Bool in !insertion.contains(region) } ?? true }
                                     let fresh: Bool = regions.contains { (region: CGRect) -> Bool in !changing.contains { (moving: CGRect) -> Bool in moving.intersects(region) } }
                                     if fresh { return .drawn }
                                     (restless, compared) = (restless || !regions.isEmpty, true)
                                 }
-                                do { try await clock.sleep(until: deadline, tolerance: nil) } catch { throw ApplicationFailure(subject: "the \(rung)", reason: .cancelled) }
+                                do { try await clock.sleep(until: deadline, tolerance: nil) } catch { throw ApplicationFailure(subject: "the \(kind)", reason: .cancelled) }
                                 return restless ? .restless : compared ? .nothing : .uncompared
                             },
                         )
@@ -1044,8 +1101,8 @@ extension Step {
                             await watch.prove(after: started.duration(to: clock.now))
                             return (.change, nil, nil)
                         case .nothing: return (undrawn, nil, followed)
-                        case .restless: return (undrawn, "the window was already changing there", followed)
-                        case .uncompared: return (undrawn, "its picture could not be compared", followed)
+                        case .restless: return (undrawn, ApplicationFailure(subject: "a change apart from what the window was already drawing", reason: .noChangeSeen), followed)
+                        case .uncompared: return (undrawn, ApplicationFailure(subject: "a comparable picture of the window", reason: .noImage), followed)
                         case .drawn:
                             await watch.prove(after: started.duration(to: clock.now))
                             return (.change, nil, nil)
@@ -1061,13 +1118,13 @@ extension Step {
                             await watch.prove(after: started.duration(to: clock.now))
                             return (.value, nil, nil)
                         case (false, true): return (undrawn, nil, nil)
-                        case (false, false): throw ApplicationFailure(subject: "the value", reason: .unchanged(read))
+                        case (false, false): throw ApplicationFailure(subject: "the value", reason: .readBack(read))
                     }
                 case .position(let before):
                     let deadline = started.advanced(by: answer)
                     var after: [Double] = try await scrolling(.reading)?.position ?? before
                     while after == before, clock.now < deadline {
-                        do { try await clock.sleep(for: host.frame) } catch { throw ApplicationFailure(subject: "the \(rung)", reason: .cancelled) }
+                        do { try await clock.sleep(for: host.frame) } catch { throw ApplicationFailure(subject: "the \(kind)", reason: .cancelled) }
                         after = try await scrolling(.reading)?.position ?? before
                     }
                     let moved: Bool = after != before && after.count == before.count
@@ -1094,10 +1151,18 @@ extension Step {
                     case .answered(let readBack): try await confirming(readBack, changes, nil, .accessibility, (nil, [], shownBefore, nil)).proof
                     case .opening, .posting: .change
                 }
-            return Delivery(proof: proof, window: planned.window, tried: planned.tried, presentation: presentation ?? asked.flatMap(\.self), scrolled: revealed, resolved: resolution)
+            return Delivery(
+                proof: proof,
+                window: planned.window,
+                tried: planned.tried,
+                presentation: presentation ?? asked.flatMap(\.self),
+                scrolled: revealed,
+                resolved: resolution,
+                surface: surface,
+            )
         }
         let lifted: (number: Int64, clickState: Int64, route: Route, path: [Input.Sample])? = inputs.count == 1 && inputs[0].edges == [.up] ? held[inputs[0].contact] : nil
-        let below: Set<Rung> = Set(Rung.allCases.prefix { rung in rung != from && from != nil })
+        let below: Set<Route.Kind> = Set(Route.Kind.allCases.prefix { kind in kind != from && from != nil })
         let owner: pid_t? = planned.window.flatMap { (number: CGWindowID) -> pid_t? in windowDescription(of: number)?.owner }
         let foreign: Bool = owner.map { (owner: pid_t) -> Bool in owner != process } == true
         let barred: Bool =
@@ -1105,8 +1170,9 @@ extension Step {
             && planned.window.map { (number: CGWindowID) -> Bool in
                 InstanceState.Activity.statusBars(in: InstanceState.Window.all(.optionAll)).contains { (bar: (host: pid_t, number: CGWindowID)) -> Bool in bar.number == number }
             } == true
-        let climbed: [Route] = entry.ladder(window: planned.window).filter { (route: Route) -> Bool in !below.contains(route.rung) && !(foreign && route.rung == .focused) }
-        let ladder: [Route] = lifted.map { lifted in [lifted.route] } ?? climbed
+        let routes: [Route] =
+            lifted.map { lifted in [lifted.route] }
+            ?? entry.fallbacks(window: planned.window).filter { (route: Route) -> Bool in !below.contains(route.kind) && !(foreign && route.kind == .focused) }
         let partial: Bool = inputs.contains { input in input.edges != everyEdge || input.contact == .hover }
         let target: NSRunningApplication = watch.instance.application
         let named: String = target.localizedName ?? "the application"
@@ -1116,7 +1182,7 @@ extension Step {
             let activations: AsyncStream<Watch.Message> = await watch.messages()
             guard let from, application.activate(from: from, options: []) else { throw ApplicationFailure(subject: subject, reason: .refused) }
             let seen: Void? = try await watch.next({ (change: InstanceEvent.Change) -> Void? in if case .frontmost(active) = change { () } else { nil } }, in: activations, clock: clock)
-            guard seen != nil else { throw ApplicationFailure(subject: subject, reason: .unseen) }
+            guard seen != nil else { throw ApplicationFailure(subject: subject, reason: .noChangeSeen) }
         }
         let (pictured, summoning): (CGWindowID?, Bool) =
             switch readBack {
@@ -1126,8 +1192,8 @@ extension Step {
         let resolved: Screenshot? = if let pictured { await picture(pictured) } else { nil }
         let refreshed = clock.now.advanced(by: host.frame)
         var (tried, thrown, previous, delivered): ([Delivery.Attempt], ApplicationFailure?, NSRunningApplication?, Delivery?) = (planned.tried, nil, nil, nil)
-        var undelivered: [Rung: ApplicationFailure.Reason] = [:]
-        for route in partial ? Array(ladder.prefix(1)) : ladder where thrown == nil && delivered == nil {
+        var undelivered: [Route.Kind: ApplicationFailure.Reason] = [:]
+        for route in partial ? Array(routes.prefix(1)) : routes where thrown == nil && delivered == nil {
             let attempt = await Result {
                 () async throws(ApplicationFailure) -> (proof: Delivery.Proof, held: (number: Int64, clickState: Int64), restored: ApplicationFailure?, note: Delivery.Attempt?, followed: Int?) in
                 let front: pid_t? = route == .system && !foreign ? focusedProcesses().front : nil
@@ -1150,7 +1216,7 @@ extension Step {
                     pressing?.getIntegerValueField(.mouseEventNumber) ?? base + pressed - 1, pressing?.getIntegerValueField(.mouseEventClickState) ?? 1,
                 )
                 if resolved != nil, clock.now < refreshed {
-                    do { try await clock.sleep(until: refreshed, tolerance: nil) } catch { throw ApplicationFailure(subject: "the \(route.rung)", reason: .cancelled) }
+                    do { try await clock.sleep(until: refreshed, tolerance: nil) } catch { throw ApplicationFailure(subject: "the \(route.kind)", reason: .cancelled) }
                 }
                 let shot: Screenshot? = if let pictured, resolved != nil { await picture(pictured) } else { nil }
                 let changing: [CGRect] = if let pictured, shot != nil { await watch.restless(of: pictured) } else { [] }
@@ -1162,14 +1228,14 @@ extension Step {
                 let aimed: Input.Sample? = inputs.contains { (input: Input) -> Bool in input.contact.is(\.button) } ? inputs.first?.path.first : nil
                 if let landing, let aimed {
                     let under: Reached? = try Self.window(holding: aimed, of: process)
-                    guard under?.number == landing.number, under?.frame == landing.frame else { throw ApplicationFailure(subject: "what lay under the point", reason: .stale(candidates: [])) }
+                    guard under?.number == landing.number, under?.frame == landing.frame else { throw ApplicationFailure(subject: "what lay under the point", reason: .notOpen(nearest: [])) }
                 }
                 let posted: AsyncStream<Watch.Message> = await watch.messages()
                 let lingering: AsyncStream<Watch.Message> = await watch.messages()
                 await watch.posting()
                 let restored: ApplicationFailure? = try await route.post(timeline, to: process, from: source, frame: host.frame, clock: clock)
-                let confirmed: (proof: Delivery.Proof, note: String?, followed: Int?) = try await confirming(readBack, posted, lingering, route.rung, before)
-                let note: Delivery.Attempt? = confirmed.note.map { (note: String) -> Delivery.Attempt in Delivery.Attempt(rung: route.rung, failure: note) }
+                let confirmed: (proof: Delivery.Proof, note: ApplicationFailure?, followed: Int?) = try await confirming(readBack, posted, lingering, route.kind, before)
+                let note: Delivery.Attempt? = confirmed.note.map { (note: ApplicationFailure) -> Delivery.Attempt in Delivery.Attempt(route: route.kind, failure: note) }
                 guard summoning else { return (confirmed.proof, numbering, restored, note, confirmed.followed) }
                 let shown: Set<CGWindowID> = hosted()
                 if let fronts, shown.isStrictSubset(of: before.windows) {
@@ -1193,15 +1259,14 @@ extension Step {
                         route: route,
                         tried: tried + [reached.note].compactMap(\.self),
                         presentation: presentation,
-                        pointer: pointer,
                         followed: reached.followed,
                     )
                 case .success(let reached): thrown = reached.restored
                 case .failure(let failure):
                     switch failure.reason {
-                        case .refused, .noWindow, .absent, .unseen, .symbolicHotKey, .notFrontmost, .notKeyFocus, .covered, .windowServer:
-                            tried.append(Delivery.Attempt(rung: route.rung, failure: failure.errorDescription ?? failure.subject))
-                            undelivered[route.rung] = failure.reason
+                        case .refused, .noWindow, .absent, .noChangeSeen, .systemShortcut, .frontElsewhere, .keyFocusElsewhere, .covered, .windowServer:
+                            tried.append(Delivery.Attempt(route: route.kind, failure: failure))
+                            undelivered[route.kind] = failure.reason
                         default: thrown = failure
                     }
             }
@@ -1235,7 +1300,7 @@ extension Step {
         _ element: AXUIElement?,
         revealing: Bool,
     ) throws(ApplicationFailure) -> (sample: Input.Sample, window: CGWindowID?, tried: [Delivery.Attempt], scrolled: Delivery.Scrolled?) {
-        guard let element else { throw ApplicationFailure(subject: "the reference", reason: .stale(candidates: [])) }
+        guard let element else { throw ApplicationFailure(subject: "the reference", reason: .notOpen(nearest: [])) }
         let contentSize: String = NSAccessibility.Attribute.contentSize.rawValue
         let bars: [String] = [kAXHorizontalScrollBarAttribute, kAXVerticalScrollBarAttribute]
         let aimed: CGRect? = try element.read(frameAttributes).element.frame
@@ -1267,7 +1332,7 @@ extension Step {
         }
         let tried: [Delivery.Attempt] =
             revealed == .success
-            ? [] : [Delivery.Attempt(rung: .accessibility, failure: ApplicationFailure(subject: "revealing \(element.name)", reason: .accessibility(revealed)).errorDescription ?? element.name)]
+            ? [] : [Delivery.Attempt(route: .accessibility, failure: ApplicationFailure(subject: "revealing \(element.name)", reason: .accessibility(revealed)))]
         return (Input.Sample(at: SIMD2(point.x, point.y), pressure: nil, tilt: nil), read.element.window, tried, scrolled)
     }
 }
@@ -1342,7 +1407,7 @@ extension Watch {
                 var outcome = await Result { () async throws(ApplicationFailure) in
                     try await step.run(on: self, clipboard: clipboard, host: host, held: &held, source: source, using: &generator, clock: clock)
                 }
-                if let previous, outcome[case: \.failure]?.reason.is(\.stale) == true,
+                if let previous, outcome[case: \.failure]?.reason.is(\.notOpen) == true,
                     try await next({ (change: InstanceEvent.Change) -> Void? in change[case: \.opened].map { _ in () } }, in: previous, clock: clock) != nil
                 {
                     outcome = await Result { () async throws(ApplicationFailure) in
@@ -1351,7 +1416,7 @@ extension Watch {
                 }
                 outcomes.append(
                     outcome.flatMapError { failure in
-                        switch (failure.reason == .unanswered(step), failure.reason == .system(.noSuchProcess)) {
+                        switch (failure.reason == .unansweredMayHaveRun(step), failure.reason == .system(.noSuchProcess)) {
                             case (true, _): .success(Step.Delivery(proof: .unanswered))
                             case (_, true): .success(Step.Delivery(proof: .exit))
                             case (false, false): .failure(failure)

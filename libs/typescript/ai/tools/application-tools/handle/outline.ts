@@ -1,40 +1,33 @@
 import type { Act } from '@rasm/applications/server/act';
 import { ApplicationServer } from '@rasm/applications/server/client';
 import { Element } from '@rasm/applications/server/element';
+import { ApplicationFailure } from '@rasm/applications/server/failure';
 import { Instance } from '@rasm/applications/server/instance';
 import { Call, Format, Line, Report } from '@rasm/mcp/report';
 import { Handle } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Effect, Equal, Function, HashSet, Match, Option, Order, Predicate, pipe, Record, Result, String, Struct, UndefinedOr } from 'effect';
-import { Address, type Index, type Item, type Shown } from '#/handle/address';
+import { Array, Effect, Equal, Function, HashMap, HashSet, Match, Option, Order, Predicate, Record, Result, String, Struct, UndefinedOr } from 'effect';
+import { Address } from '#/handle/address';
 import { Target } from '#/handle/target';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Control = typeof Element.Control.Type;
-type Pasteboard = typeof Act.Pasteboard.Type;
-interface Folded {
-    readonly entry: Shown['controls'][number];
-    readonly alternates: Shown['controls'];
-}
-interface Draft {
-    readonly token: Option.Option<string>;
-    readonly head: readonly string[];
-    readonly value: Option.Option<string>;
-    readonly facts: readonly string[];
-    readonly pinned: boolean;
-    readonly children: readonly Line[];
+type Container = typeof Element.cases.container.Type;
+type Node = ReturnType<typeof Address.recall>[number];
+interface Marks {
+    readonly read: Address;
+    readonly changed: HashSet.HashSet<typeof Element.Ref.Type>;
+    readonly gone: ReadonlyMap<typeof Element.Ref.Type, readonly string[]>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const CUTS = ['text', 'map', 'options', 'rows', 'containers'] as const;
+const CUTS = ['text', 'options', 'rows', 'containers'] as const;
 const KEPT = { options: 6, rows: 20, words: 6, showing: 8 } as const;
 const WORDS = new Intl.Segmenter(undefined, { granularity: 'word' });
-const SPACES = /\s+/gu;
 const NAMING = /[\p{L}\p{N}]/u;
-const ROLES = { group: 'AXGroup', titleBar: new Set(['AXCloseButton', 'AXMinimizeButton', 'AXZoomButton', 'AXFullScreenButton']) } as const;
-const SAY = { asking: 'asks for an answer', gone: 'not shown now', closed: 'closed', separated: 'separator above', front: 'in front' } as const;
+const TITLE_BAR: ReadonlySet<string> = new Set(['AXCloseButton', 'AXMinimizeButton', 'AXZoomButton', 'AXFullScreenButton']);
+const SAY = { gone: 'not shown now', front: 'in front' } as const;
 const NOUNS = {
     window: { one: 'window', other: 'windows' },
     dialog: { one: 'dialog', other: 'dialogs' },
@@ -49,354 +42,342 @@ const NOUNS = {
     toolbar: { one: 'toolbar', other: 'toolbars' },
     web: { one: 'web view', other: 'web views' },
     control: { one: 'control', other: 'controls' },
+    option: { one: 'option', other: 'options' },
     item: { one: 'item', other: 'items' },
     row: { one: 'row', other: 'rows' },
     character: { one: 'character', other: 'characters' },
     popUp: { one: 'pop-up', other: 'pop-ups' },
     match: { one: 'match', other: 'matches' },
-    container: { one: 'container', other: 'containers' },
-} as const satisfies Record<(typeof Element.Container.Type)['kind'] | 'control' | 'item' | 'row' | 'character' | 'popUp' | 'match' | 'container', { readonly one: string; readonly other: string }>;
-const UNSPOKEN: ReadonlySet<(typeof Element.Control.Type)['kind']> = new Set(['action', 'item']);
-const SELECTED: Readonly<Record<NonNullable<(typeof Element.Control.Type)['selected']>, Partial<Record.ReadonlyRecord<(typeof Element.Control.Type)['kind'], string>>>> = { attribute: { row: 'selected' }, marked: { row: 'selected, inferred', choice: 'value inferred' } };
+} as const satisfies Record<Container['kind'] | 'control' | 'option' | 'item' | 'row' | 'character' | 'popUp' | 'match', { readonly one: string; readonly other: string }>;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const flags = (held: Readonly<Record<string, boolean>>) => Record.keys(Record.filter(held, (on) => on));
-const spaced = (text: string) => text.replaceAll(SPACES, ' ').trim();
-const texted = ({ value }: Control) => (value?._tag === 'text' ? Option.some(value.value) : Option.none<string>());
-const scrolled = (vertical: number | undefined, horizontal: number | undefined) => [...Array.fromNullishOr(vertical).map((at) => `scrolled ${Format.percent(at)} down`), ...Array.fromNullishOr(horizontal).map((at) => `scrolled ${Format.percent(at)} across`)];
-const showing = ({ rows, showing: shown }: { readonly rows?: number; readonly showing: readonly { readonly index: number; readonly label?: string }[] }) =>
-    Array.match(shown, {
-        onEmpty: Array.empty,
+const inspect = (given: Call['given']) => new Call({ tool: 'inspect', given });
+const label = (held: Readonly<Record<string, string | number | boolean | undefined>>) =>
+    Record.collect(
+        Record.filter(held, (value): value is string | number | true => value !== undefined && value !== false && value !== ''),
+        (key, value) => (value === true ? String.noCase()(key) : `${String.noCase()(key)}: ${Predicate.isNumber(value) ? Format.count(value) : value}`),
+    );
+const shortcut = ({ key, modifiers }: typeof Element.Shortcut.Type) => [...modifiers.map(String.capitalize), key].join('-');
+const help = (text: string | undefined, name: string | undefined, whole: boolean) => (text !== undefined && text !== name && (whole || name === undefined || !NAMING.test(name)) ? Format.quoted(text) : undefined);
+const caption = (kind: Container['kind'], ref?: typeof Element.Ref.Type, title?: string) => [...Array.fromNullishOr(ref).map((at) => Address.refer(kind, at)), NOUNS[kind].one, ...Array.fromNullishOr(title).filter(String.isNonEmpty).map(Format.quoted)];
+const classify = (element: Node['element']): readonly string[] =>
+    Match.value(element).pipe(
+        Match.tag('container', ({ kind }) => [NOUNS[kind].one]),
+        Match.tag('control', ({ kind }) => (kind === 'action' || kind === 'item' ? [] : [kind])),
+        Match.orElse(({ _tag }) => [_tag]),
+    );
+const link = (read: Address, ref: typeof Element.Ref.Type | undefined) =>
+    Option.fromUndefinedOr(ref).pipe(
+        Option.flatMap((at) => Address.get(read, at)),
+        Option.flatMap(({ token }) => token),
+        Option.getOrUndefined,
+    );
+const shows = (read: Address, ref: typeof Element.Ref.Type) => Option.exists(Address.get(read, ref), ({ element }) => element.ref === ref);
+const members = Function.memoize((read: Address) => Map.groupBy(Address.list(read), ({ containers }) => Array.lastNonEmpty(containers).ref));
+const scroll = ({ vertical = 0, horizontal = 0, rows, showing }: NonNullable<Result.Result.Success<(typeof Act.Outcome.Type)['outcomes'][number]>['scrolled']>, wheel: boolean): readonly string[] => {
+    const moved = Record.collect(
+        Record.filter({ down: vertical, across: horizontal }, (at) => at !== 0),
+        (way, at) => `scrolled ${Format.percent(at)} ${way}`,
+    );
+    const listed = Array.match(showing, {
+        onEmpty: Array.empty<string>,
         onNonEmpty: (held) => {
             const span = [`rows ${Array.headNonEmpty(held).index + 1} to ${Array.lastNonEmpty(held).index + 1}`, ...Array.fromNullishOr(rows).map((total) => `of ${total}`)].join(' ');
-            const labels = [...Array.take(held, KEPT.showing).map(({ index, label }) => UndefinedOr.match(label, { onUndefined: () => `row ${index + 1}`, onDefined: Format.quoted })), ...(held.length > KEPT.showing ? [`${held.length - KEPT.showing} more`] : [])];
+            const [named, rest] = Array.splitAt(held, KEPT.showing);
+            const labels = [...named.map(({ index, label: text }) => UndefinedOr.match(text, { onUndefined: () => `row ${index + 1}`, onDefined: Format.quoted })), ...(Array.isReadonlyArrayEmpty(rest) ? [] : [Format.count(rest.length, { other: 'more' })])];
             return [`${span}: ${labels.join(', ')}`];
         },
     });
-const compose = (head: readonly string[], value: Option.Option<string>, stated: readonly string[]) => [[head.join(' '), ...Option.toArray(value)].filter(String.isNonEmpty).join(': '), ...stated].filter(String.isNonEmpty).join(', ');
-const spoken = (kind: (typeof Element.Control.Type)['kind']) => (UNSPOKEN.has(kind) ? [] : [kind]);
-const keys = ({ key, modifiers }: typeof Element.Shortcut.Type) => [...modifiers.map(String.capitalize), key].join('-');
-const shortcut = (step: typeof Element.Shortcut.Type) => `shortcut ${keys(step)}`;
-const help = (text: string | undefined, name: string | undefined, whole: boolean) => Array.fromNullishOr(text).flatMap((held) => (held !== name && (whole || name === undefined || !NAMING.test(name)) ? [`help: ${Format.quoted(held)}`] : []));
-const inspect = (given: Call['given']) => new Call({ tool: 'inspect', given });
-const opensOf = (token: Option.Option<string>) => Option.toArray(Option.map(token, (at) => `opens ${at}`));
-const caption = (kind: (typeof Element.Container.Type)['kind'], ref?: number, title?: string) => [...Array.fromNullishOr(ref).map((at) => Address.token(kind, at)), NOUNS[kind].one, ...Array.fromNullishOr(title).map(Format.quoted)];
-const under = (each: Control, head: Control) => (head.kind === 'multi' && (each.kind === 'row' || each.row !== undefined)) || each.row === head.ref;
-const stating = Function.memoize(({ container, controls }: Shown) => {
-    const names = controls.flatMap(({ item, options }) => [...Option.toArray(item.name), ...options.flatMap(({ item: each }) => Option.toArray(each.name))]);
-    const values = controls.flatMap(({ control: { value } }) => (value?._tag === 'text' || value?._tag === 'integer' || value?._tag === 'real' ? [spaced(`${value.value}`)] : []));
-    return { said: new Set([...names, ...values]), parts: Array.dedupe([...names, ...values, ...container.text.map(spaced)]).filter(String.isNonEmpty) };
-});
-const joins = (name: string, parts: readonly string[]) => {
-    const held = parts.filter((part) => part.length < name.length && name.includes(part)).toSorted((left, right) => right.length - left.length);
-    return held.length > 1 && !NAMING.test(held.reduce((rest, part) => rest.replaceAll(part, ' '), name));
+    return wheel ? [...moved, ...listed] : moved.map((fact) => `${fact} first`);
 };
-const siblings = (drafts: readonly Draft[], noun: string) => {
-    const common = Array.match(drafts, {
-        onEmpty: () => new Set<string>(),
-        onNonEmpty: (all) => (Predicate.isTupleOf(all, 1) ? new Set<string>() : Array.tailNonEmpty(all).reduce((kept, each) => kept.intersection(new Set(each.facts)), new Set(Array.headNonEmpty(all).facts))),
-    });
-    const composed = drafts.map((held) => {
-        const stated = held.facts.filter((fact) => !common.has(fact));
-        return { held, stated, described: compose(held.head, held.value, stated) };
-    });
-    const leaves = composed.filter(({ held }) => Array.isReadonlyArrayEmpty(held.children));
-    const alike = Array.groupBy(leaves, Struct.get('described'));
-    return {
-        all: Array.fromIterable(common).map((fact) => `all ${noun} ${fact}`),
-        rows: composed.flatMap((entry) => {
-            const { held, stated, described } = entry;
-            const same = Array.isReadonlyArrayEmpty(held.children) ? Option.getOrElse(Record.get(alike, described), () => [entry]) : [entry];
-            return Option.exists(Array.head(same), (first) => first === entry)
-                ? [
-                      new Line({
-                          head: [...same.flatMap((each) => Option.toArray(each.held.token)), ...held.head],
-                          facts: stated,
-                          pinned: same.some((each) => each.held.pinned),
-                          ...Option.getOrUndefined(Option.map(held.value, (value) => ({ value }))),
-                          ...(Array.isReadonlyArrayEmpty(held.children) ? {} : Option.getOrUndefined(Option.map(held.token, (at) => ({ rows: held.children, call: inspect({ in: at }) })))),
-                      }),
-                  ]
-                : [];
-        }),
-    };
-};
-const alternation = <A>(entries: readonly A[], key: (entry: A) => string, alternate: (entry: A) => Option.Option<string>) => {
-    const held = new Set(entries.map(key));
-    const links = Record.getSomes(Record.fromIterableWith(entries, (entry) => [key(entry), Option.filter(alternate(entry), (up) => up !== key(entry) && held.has(up))]));
-    const climb = (at: string, steps: number): Option.Option<string> => Option.match(Record.get(links, at), { onNone: () => Option.some(at), onSome: (up) => (steps === 0 ? Option.none() : climb(up, steps - 1)) });
-    const rooted = entries.flatMap((entry) =>
-        Option.toArray(
-            Option.map(
-                Option.filter(climb(key(entry), entries.length), (root) => root !== key(entry)),
-                (root) => ({ root, entry }),
-            ),
-        ),
+const nest = (marks: Marks, within: Option.Option<Container>, children: readonly Element[], chosen?: string) => {
+    const [bare, shown] = Array.partition(
+        children.filter((child) => !(child._tag === 'control' && child.subrole !== undefined && TITLE_BAR.has(child.subrole))),
+        (child) => (child._tag === 'control' && child.enabled === false && child.label === undefined && child.value === undefined && Array.isReadonlyArrayEmpty(child.children) ? Result.succeed(child) : Result.fail(child)),
     );
-    const beside = Array.groupBy(rooted, Struct.get('root'));
-    const folded = new Set(rooted.map(({ entry }) => key(entry)));
-    return entries.filter((entry) => !folded.has(key(entry))).map((entry) => ({ entry, alternates: Option.getOrElse(Record.get(beside, key(entry)), Array.empty).map(Struct.get('entry')) }));
-};
-const remembered = (index: Index, locator: string): readonly Line[] => {
-    const listed = Option.getOrElse(Record.get(index.remembered.controls, locator), Array.empty).flatMap(({ target, ...item }) => (target._tag === 'RememberedControl' ? [{ ...item, target }] : []));
-    const located = (at: string) => Option.map(Record.get(index.located, at), Array.headNonEmpty);
-    const when = Element.Condition.match({
-        Value: ({ at, value }) =>
-            Option.toArray(
-                pipe(
-                    located(at),
-                    Option.flatMap(({ name, kind }) => Option.all({ name, kind })),
-                    Option.map(({ name, kind }) => `when ${name} is ${Address.value(kind, value)}`),
-                ),
-            ),
-        Documents: ({ held }) => [held ? 'when a document is open' : 'when no document is open'],
-        Modal: ({ at }) => (at === null ? ['when no dialog is open'] : Option.toArray(Option.map(Option.flatMap(located(at), Struct.get('name')), (title) => `when ${title} is open`))),
-    });
-    const described = ({ target: { control }, token, name, value }: (typeof listed)[number]) => ({
-        head: [...Option.toArray(Option.orElse(token, () => name)), ...spoken(control.kind)],
-        stated: [
-            SAY.gone,
-            ...Option.toArray(Option.map(value, (was) => `last value: ${was}`)),
-            ...(Option.isSome(control.mark) ? ['checked'] : []),
-            ...opensOf(Option.flatMap(Option.flatMap(control.opens, located), Struct.get('token'))),
-            ...(Option.contains(control.separated, true) ? [SAY.separated] : []),
-            ...Option.toArray(Option.map(control.shortcut, shortcut)),
-            ...Option.toArray(Option.map(control.keyEquivalent, (text) => `key equivalent: ${Format.quoted(text)}`)),
-            ...Option.match(control.presence, {
-                onNone: Array.empty,
-                onSome: ({ with: seen, against }) => seen.filter((atom) => against.some((other) => other._tag === atom._tag && (atom._tag !== 'Value' || (other._tag === 'Value' && other.at === atom.at)) && !Equal.equals(other, atom))),
-            }).flatMap(when),
-        ],
-    });
-    return alternation(
-        listed,
-        ({ target }) => target.locator,
-        ({ target }) => target.control.alternate,
-    ).map(({ entry, alternates }) => {
-        const { head, stated } = described(entry);
-        return new Line({ head, facts: [...stated, ...alternates.map(described).map((other) => `alternate (${compose(other.head, Option.none(), other.stated)})`)], cut: CUTS.indexOf('map') });
-    });
-};
-const draft =
-    (index: Index, shown: Shown, changed: HashSet.HashSet<(typeof Element.Control.Type)['ref']>, { leveled = false, within = Option.none<string>(), whole = false } = {}) =>
-    ({ entry: { control, item, options }, alternates, nested }: Folded & { readonly nested: readonly Folded[] }): Draft => {
-        const { container } = shown;
-        const marks = {
-            [SAY.separated]: control.separated === true,
-            default: container.default === control.ref,
-            cancel: container.cancel === control.ref,
-            disabled: control.enabled === false,
-            focused: control.focused === true,
-            changed: HashSet.has(changed, control.ref),
-        };
-        const besides = alternates.map((each) => draft(index, shown, changed)({ entry: each, alternates: [], nested: [] }));
-        const chosen = texted(control);
-        const last = options.findIndex(({ option }) => Option.contains(chosen, option.label)) + KEPT.options;
-        const listed = options.map(({ option, item: each }, at) => {
-            const selected = Option.contains(chosen, option.label);
-            return new Line({
-                head: [...Option.toArray(each.token), ...Option.toArray(Option.map(each.name, Format.quoted))],
-                facts: [...(selected ? ['selected'] : []), ...Array.fromNullishOr(option.shortcut).map(shortcut), ...help(option.help, option.label, whole)],
-                pinned: selected,
-                ...(at > last ? { cut: CUTS.indexOf('options') } : {}),
-            });
-        });
-        const groups = control.kind !== 'row' && Array.isReadonlyArrayNonEmpty(nested) ? Array.groupWith(nested, (each, head) => under(each.entry.control, head.entry.control)) : [];
-        const columns = Array.dedupe(Option.getOrElse(Array.head(groups), Array.empty).flatMap(({ entry }) => Array.fromNullishOr(entry.control.column)));
-        const disclosed = groups.some((group) => Array.headNonEmpty(group).entry.control.disclosedBy !== undefined);
-        const leveling = !disclosed && new Set(groups.map((group) => Array.headNonEmpty(group).entry.control.level)).size > 1;
-        const rows = groups.map((group) => ({ control: Array.headNonEmpty(group).entry.control, drafted: draft(index, shown, changed, { leveled: leveling, within: item.name })({ ...Array.headNonEmpty(group), nested: Array.tailNonEmpty(group) }) }));
-        const present = new Set(rows.map(({ control: { ref } }) => ref));
-        const beneath: Record.ReadonlyRecord<string, readonly (typeof rows)[number][]> = Array.groupBy(
-            rows.filter(({ control: { disclosedBy } }) => disclosedBy !== undefined && present.has(disclosedBy)),
-            ({ control: { disclosedBy } }): string => `${disclosedBy}`,
-        );
-        const arrange = (level: readonly (typeof rows)[number][]): ReturnType<typeof siblings> =>
-            siblings(
-                level.map(({ control: { ref }, drafted }) => {
-                    const inner = arrange(Option.getOrElse(Record.get(beneath, `${ref}`), Array.empty));
-                    return { ...drafted, facts: [...drafted.facts, ...inner.all], children: [...drafted.children, ...inner.rows] };
-                }),
-                NOUNS.row.other,
-            );
-        const arranged = arrange(
-            rows
-                .filter(({ control: { disclosedBy } }) => disclosedBy === undefined || !present.has(disclosedBy))
-                .map((row) => ({ ...row, drafted: { ...row.drafted, facts: [...row.drafted.facts, ...Array.fromNullishOr(row.control.disclosedBy).flatMap((up) => Option.toArray(Option.map(Option.flatMap(Record.get(index.live, `${up}`), Struct.get('token')), (token) => `under ${token}`)))] } })),
-        );
-        const runs = (control.runs ?? []).map(({ range, text, attributes }) => new Line({ head: [], value: `"${text}"`, facts: [`characters ${range.location} to ${range.location + range.length}`, ...Record.collect(attributes, (key, value) => `${key}: ${Address.fact('text', value)}`)] }));
-        const cells = control.kind === 'row' ? nested.map(Struct.get('entry')) : [];
-        const inline = cells.map((cell) => (cell.control.kind === 'text' && cell.control.settable !== true ? Option.match(texted(cell.control), { onNone: () => 'empty', onSome: Format.quoted }) : compose([...Option.toArray(cell.item.token), ...spoken(cell.control.kind)], cell.item.value, [])));
-        const label = Option.filter(item.name, (name) => !Option.contains(within, name) && !Option.exists(Array.head(cells), (cell) => Option.contains(texted(cell.control), name)));
-        const naming = control.role === ROLES.group && Option.isNone(item.value) && Option.exists(label, (name) => joins(name, stating(shown).parts)) ? ['group'] : Option.toArray(Option.map(label, Format.quoted));
-        const named = control.label !== undefined && Predicate.hasProperty(control.label, 'attribute') && control.label.attribute === 'AXRoleDescription' ? undefined : control.label?.text;
-        return {
-            token: item.token,
-            head: [...spoken(control.kind), ...Array.match(inline, { onEmpty: () => naming, onNonEmpty: (values) => [[...naming, ...values].join(', ')] })],
-            value: Option.filter(item.value, () => Array.isReadonlyArrayEmpty(inline)),
-            pinned: marks.default || marks.cancel || marks.focused || marks.changed || control.selected !== undefined || (container.asking && control.kind === 'action') || besides.some(Struct.get('pinned')),
-            children: [...runs, ...listed, ...arranged.rows.map((each, at) => (at < KEPT.rows ? each : new Line({ ...each, cut: CUTS.indexOf('rows') })))],
-            facts: [
-                ...(control.mark === undefined ? [] : ['checked']),
-                ...Array.fromNullishOr(control.opens).flatMap((opens) => opensOf(Option.flatMap(Record.get(index.live, `${opens}`), Struct.get('token')))),
-                ...flags(marks),
-                ...Array.fromNullishOr(control.selected).flatMap((evidence) => Array.fromNullishOr(SELECTED[evidence][control.kind])),
-                ...Array.fromNullishOr(control.range).flatMap(({ minimum, maximum, step, wraps }) => [
-                    ...Match.value({ minimum, maximum }).pipe(
-                        Match.when({ minimum: Match.number, maximum: Match.number }, ({ minimum: low, maximum: high }) => [`range ${Format.count(low)} to ${Format.count(high)}`]),
-                        Match.when({ minimum: Match.number }, ({ minimum: low }) => [`at least ${Format.count(low)}`]),
-                        Match.when({ maximum: Match.number }, ({ maximum: high }) => [`at most ${Format.count(high)}`]),
-                        Match.orElse((): readonly string[] => []),
-                    ),
-                    ...(whole ? [...Array.fromNullishOr(step).map((by) => `step ${Format.count(by)}`), ...flags({ wraps: wraps === true })] : []),
-                ]),
-                ...Array.fromNullishOr(control.shortcut).map(shortcut),
-                ...Array.fromNullishOr(control.keyEquivalent).map((text) => `key equivalent: ${Format.quoted(text)}`),
-                ...Array.fromNullishOr(control.placeholder)
-                    .filter(String.isNonEmpty)
-                    .map((text) => `placeholder: ${Format.quoted(text)}`),
-                ...Array.fromNullishOr(control.level).flatMap((level) => (leveled ? [`level ${level}`] : [])),
-                ...Array.fromNullishOr(control.expanded).map((open) => (open ? 'expanded' : 'collapsed')),
-                ...Array.fromNullishOr(control.total).map((total) => Format.count(total, NOUNS.row)),
-                ...arranged.all,
-                ...Array.match(columns, { onEmpty: Array.empty, onNonEmpty: (titles) => [`columns: ${titles.map(Format.quoted).join(', ')}`] }),
-                ...Array.fromNullishOr(control.sort).map((order) => `sorted ${order}`),
-                ...Array.fromNullishOr(control.column).map((column) => `column: ${Format.quoted(column)}`),
-                ...(control.cells ?? []).map(({ column, text }) => UndefinedOr.match(column, { onUndefined: () => Format.quoted(text), onDefined: (title) => `${title}: ${Format.quoted(text)}` })),
-                ...Array.fromNullishOr(control.scroll).flatMap(({ horizontalScrollBar, verticalScrollBar }) => scrolled(verticalScrollBar === 0 ? undefined : verticalScrollBar, horizontalScrollBar === 0 ? undefined : horizontalScrollBar)),
-                ...(control.selectedTextRanges ?? []).flatMap(({ location, length }) => (whole || length > 0 ? [[Format.count(length, NOUNS.character), 'selected', ...(whole ? [`at ${location}`] : [])].join(' ')] : [])),
-                ...Array.fromNullishOr(control.numberOfCharacters).flatMap((total) => (Option.exists(chosen, (text) => text.length === total) ? [] : [Format.count(total, NOUNS.character)])),
-                ...Array.fromNullishOr(control.invalid).map((invalid) => `invalid: ${invalid}`),
-                ...flags({ required: control.required === true }),
-                ...Array.fromNullishOr(control.current).map((current) => `current: ${current}`),
-                ...help(control.help, named, whole),
-                ...besides.map((each) => `alternate (${[...Option.toArray(each.token), compose(each.head, each.value, each.facts)].join(' ')})`),
-                ...(whole
-                    ? [
-                          ...Array.fromNullishOr(control.actions).map((actions) => `actions: ${actions.map(Format.quoted).join(', ')}`),
-                          ...Array.fromNullishOr(control.frame).map((frame) => `frame ${Address.fact(control.kind, { _tag: 'rect', value: frame })}`),
-                          ...Array.fromNullishOr(control.scroll?.contentSize).map(([wide, high]) => `content ${Format.count(wide)} by ${Format.count(high)}`),
-                          ...Array.fromNullishOr(control.insertionPointLineNumber).map((line) => `line ${line}`),
-                          ...Array.fromNullishOr(control.labels).map((labels) => `also labelled ${labels.map(Format.quoted).join(', ')}`),
-                          ...flags({ 'hover controls shown': control.alternateUIVisible === true }),
-                      ]
-                    : []),
-            ],
-        };
+    const rows = shown.map(draw(marks, within, false, chosen));
+    const common = rows.length > 1 ? Array.drop(rows, 1).reduce((kept, { facts = [] }) => kept.intersection(new Set(facts)), new Set(rows[0]?.facts)) : new Set<string>();
+    const noun =
+        NOUNS[
+            Option.getOrElse(
+                Array.findFirst(['option', 'row', 'item'] as const, (kind) => shown.every((child) => (child._tag === 'option' ? child._tag : child.kind) === kind)),
+                () => 'control' as const,
+            )
+        ].other;
+    return {
+        facts: [...Array.fromIterable(common).map((fact) => `all ${noun} ${fact}`), ...(Array.isReadonlyArrayEmpty(bare) ? [] : [`${Format.count(bare.length)} unnamed disabled`])],
+        rows: rows.map((each) => new Line({ ...each, facts: (each.facts ?? []).filter((fact) => !common.has(fact)) })),
     };
-const tree = (index: Index, changed: HashSet.HashSet<(typeof Element.Control.Type)['ref']>, gone: Record.ReadonlyRecord<string, readonly string[]> = {}): readonly Line[] => {
-    const { containers } = index.model;
-    const primary = new Set(Option.getOrElse(Array.findFirst([containers.filter(Struct.get('asking')), containers.filter((container) => container.focused === true), Array.take(containers, 1)], Array.isReadonlyArrayNonEmpty), Array.empty).map(Struct.get('ref')));
-    const shown = Array.sortWith(index.shown, ({ container }) => [container.asking, container.focused === true] as const, Order.flip(Order.Tuple([Order.Boolean, Order.Boolean]))).map((held) => {
-        const { container, item, controls } = held;
-        const primaries = alternation(
-            controls.filter(({ control: { subrole } }) => subrole === undefined || !ROLES.titleBar.has(subrole)),
-            ({ control }) => `${control.ref}`,
-            ({ control }) => Option.map(Option.fromUndefinedOr(control.alternate), (ref) => `${ref}`),
-        );
-        const folded = siblings(
-            (Array.isReadonlyArrayNonEmpty(primaries) ? Array.groupWith(primaries, (each, head) => under(each.entry.control, head.entry.control)) : []).map((group) => draft(index, held, changed)({ ...Array.headNonEmpty(group), nested: Array.tailNonEmpty(group) })),
-            NOUNS[primaries.every(({ entry }) => entry.control.kind === 'item') ? 'item' : 'control'].other,
-        );
-        const rows = [
-            ...folded.rows.map((each) => (primary.has(container.ref) ? each : new Line({ ...each, cut: CUTS.indexOf('containers') }))),
-            ...remembered(index, container.locator),
-            ...container.text.filter((text) => !stating(held).said.has(spaced(text))).map((text) => new Line({ head: [], value: `"${text}"`, cut: CUTS.indexOf('text') })),
-            ...Array.match(gone[container.ref] ?? [], { onEmpty: Array.empty, onNonEmpty: (tokens) => [new Line({ head: ['gone'], value: tokens.join(', ') })] }),
-        ];
-        return new Line({
-            head: caption(container.kind, container.ref, Option.getOrUndefined(item.name)),
-            facts: [
-                ...flags({
-                    focused: container.focused === true,
-                    modal: container.modal,
-                    [SAY.asking]: container.asking,
-                    unsaved: container.edited === true,
-                    'full screen': container.fullScreen === true,
-                    loading: container.loaded === false,
-                    [SAY.closed]: container.closed,
-                }),
-                ...Array.fromNullishOr(container.close).flatMap((ref) => Option.toArray(Option.map(Option.flatMap(Record.get(index.live, `${ref}`), Struct.get('token')), (token) => `close ${token}`))),
-                ...Array.fromNullishOr(container.loadingProgress).flatMap((progress) => (progress < 1 ? [`loaded ${Format.percent(progress)}`] : [])),
-                ...Array.fromNullishOr(container.document).map((document) => `document: ${document}`),
-                ...help(container.help, container.title, false),
-                ...folded.all,
-                ...Option.toArray(item.token).flatMap((at) => [...(container.unreadable ? [`content not exposed - ${Format.call(new Call({ tool: 'view', given: { of: at } }))}`] : []), ...(container.truncated ? [`partly read - ${Format.call(inspect({ in: at }))}`] : [])]),
-            ],
-            pinned: container.asking || rows.some((each) => each.pinned === true),
-            ...Option.getOrUndefined(Option.map(item.token, (at) => ({ rows, call: inspect({ in: at }) }))),
-        });
+};
+const container = (marks: Marks, held: Container): Line => {
+    const { read, gone } = marks;
+    const token = Address.refer(held.kind, held.ref);
+    const said = new Set((members(read).get(held.ref) ?? []).flatMap(({ name, value }) => [...Option.toArray(name), ...Option.toArray(value)]));
+    const below = nest(marks, Option.some(held), held.children);
+    const rows = [
+        ...below.rows,
+        ...held.text.filter((text) => !said.has(text) && !said.has(Address.print('text')(text))).map((text) => new Line({ head: [], value: Address.print('text')(text), cut: CUTS.indexOf('text') })),
+        ...Array.fromNullishOr(gone.get(held.ref))
+            .filter(Array.isReadonlyArrayNonEmpty)
+            .map((tokens) => new Line({ head: ['gone'], value: tokens.join(', ') })),
+    ];
+    return new Line({
+        head: caption(held.kind, held.ref, held.title),
+        facts: [
+            ...label({
+                ...Struct.pick(held, ['focused', 'modal', 'asking', 'edited', 'fullScreen', 'closed']),
+                loading: held.loaded === false,
+                loaded: UndefinedOr.map(held.loadingProgress, (done) => (done < 1 ? Format.percent(done) : undefined)),
+                close: link(read, held.close),
+                document: held.document,
+                help: help(held.help, held.title, false),
+            }),
+            ...below.facts,
+            ...Record.collect(
+                Record.filter({ unreadable: new Call({ tool: 'view', given: { of: token } }), truncated: inspect({ in: token }) }, (_, key) => held[key]),
+                (key, call) => `${key} - ${Format.call(call)}`,
+            ),
+        ],
+        pinned: held.asking || rows.some(({ pinned }) => pinned === true),
+        rows,
+        call: inspect({ in: token }),
     });
-    const recalled = index.remembered.containers.flatMap(({ target, token }) =>
-        target._tag === 'RememberedContainer'
+};
+const control = (marks: Marks, within: Option.Option<Container>, held: typeof Element.cases.control.Type, whole: boolean): Line => {
+    const { read, changed } = marks;
+    const [token, print] = [Address.refer(held.kind, held.ref), Address.print(held.kind)];
+    const attribute = Predicate.hasProperty(held.label, 'attribute') ? held.label.attribute : undefined;
+    const text = Predicate.isTagged(held.value, 'text') ? held.value.value : undefined;
+    const [cells, listed]: readonly [readonly Element[], readonly Element[]] = held.kind === 'row' ? [held.children, []] : [[], held.children];
+    const inline = cells.map(draw(marks, within)).map(({ head, value }) => [head.join(' '), ...Array.fromNullishOr(value)].join(': '));
+    const below = nest(marks, within, listed, text);
+    const name = Option.filter(
+        Option.flatMap(Address.get(read, held.ref), ({ name: stated }) => stated),
+        () => !cells.some((cell) => cell._tag === 'control' && cell.label?.text === held.label?.text),
+    );
+    const joins = (stated: string) => {
+        const group = Option.filter(within, () => held.role === 'AXGroup' && held.value === undefined);
+        const names = Option.toArray(group).flatMap((sat) => [...(members(read).get(sat.ref) ?? []).flatMap((each) => Option.toArray(each.name)), ...sat.text]);
+        const parts = names.filter((part) => part.length < stated.length && stated.includes(part)).toSorted((left, right) => right.length - left.length);
+        return parts.length > 1 && !NAMING.test(parts.reduce((rest, part) => rest.replaceAll(part, ' '), stated));
+    };
+    const naming = Option.exists(name, joins) ? ['group'] : Option.toArray(Option.map(name, Format.quoted));
+    const fact = Option.filter(Option.fromUndefinedOr(held.value), () => Array.isReadonlyArrayEmpty(inline) && attribute !== 'AXValue');
+    const role = { default: Option.exists(within, (sat) => sat.default === held.ref), cancel: Option.exists(within, (sat) => sat.cancel === held.ref), focused: held.focused, changed: HashSet.has(changed, held.ref) };
+    const kept = held.kind === 'multi' ? { cut: CUTS.indexOf('rows'), through: KEPT.rows - 1 } : { cut: CUTS.indexOf('options'), through: listed.findIndex((child) => child._tag === 'option' && child.label === text) + KEPT.options };
+    const rows = [
+        ...(held.runs ?? []).map(({ range, text: run, attributes }) => new Line({ head: [], value: print(run), facts: [...label({ range: print({ _tag: 'range', ...range }) }), ...Record.collect(attributes, (key, value) => `${key}: ${print(value)}`)] })),
+        ...below.rows.map((each, at) => (at > kept.through ? new Line({ ...each, cut: kept.cut }) : each)),
+    ];
+    return new Line({
+        head: [token, ...classify(held), ...[[...naming, ...inline].join(', ')].filter(String.isNonEmpty)],
+        ...Option.getOrUndefined(Option.map(fact, (stated) => ({ value: print(stated) }))),
+        facts: [
+            ...label({
+                disabled: held.enabled === false,
+                ...role,
+                selected: held.selected === 'marked' ? held.selected : held.kind === 'row' && held.selected !== undefined,
+                mark: UndefinedOr.map(held.mark, Format.quoted),
+                opens: link(read, held.opens),
+                'alternate of': link(read, held.alternate),
+                separated: held.separated,
+                ...(whole ? held.range : UndefinedOr.map(held.range, (range) => Struct.pick(range, ['minimum', 'maximum']))),
+                shortcut: UndefinedOr.map(held.shortcut, shortcut),
+                keyEquivalent: UndefinedOr.map(held.keyEquivalent, Format.quoted),
+                placeholder: UndefinedOr.map(held.placeholder, Format.quoted),
+                level: held.level === 0 ? undefined : held.level,
+                expanded: held.expanded,
+                collapsed: held.expanded === false,
+                rows: held.total,
+                columns: Array.dedupe(
+                    Array.fromNullishOr(listed.find((child) => child._tag === 'control' && child.kind === 'row'))
+                        .flatMap((row) => [row, ...row.children])
+                        .flatMap((each) => (each._tag === 'control' ? Array.fromNullishOr(each.column) : [])),
+                )
+                    .map(Format.quoted)
+                    .join(', '),
+                sort: held.sort,
+                column: UndefinedOr.map(held.column, Format.quoted),
+                selectedTextRanges: (held.selectedTextRanges ?? [])
+                    .filter(({ length }) => whole || length > 0)
+                    .map((range) => print({ _tag: 'range', ...range }))
+                    .join(', '),
+                numberOfCharacters: held.numberOfCharacters === text?.length ? undefined : held.numberOfCharacters,
+                invalid: held.invalid,
+                required: held.required,
+                current: held.current,
+                help: help(held.help, attribute === 'AXRoleDescription' ? undefined : held.label?.text, whole),
+                ...(whole
+                    ? {
+                          actions: UndefinedOr.map(held.actions, Format.list),
+                          frame: UndefinedOr.map(held.frame, (value) => print({ _tag: 'rect', value })),
+                          contentSize: UndefinedOr.map(held.scroll?.contentSize, (value) => print({ _tag: 'size', value })),
+                          insertionPointLineNumber: held.insertionPointLineNumber,
+                          labels: UndefinedOr.map(held.labels, Format.list),
+                          alternateUIVisible: held.alternateUIVisible,
+                      }
+                    : {}),
+            }),
+            ...Array.fromNullishOr(held.scroll).flatMap(({ verticalScrollBar = 0, horizontalScrollBar = 0 }) => scroll({ vertical: verticalScrollBar, horizontal: horizontalScrollBar, showing: [] }, true)),
+            ...(held.cells ?? []).map(({ column, text: shown }) => UndefinedOr.match(column, { onUndefined: () => Format.quoted(shown), onDefined: (title) => `${title}: ${Format.quoted(shown)}` })),
+            ...below.facts,
+        ],
+        pinned: Record.some({ ...role, selected: held.selected !== undefined, answer: held.kind === 'action' && Option.exists(within, (sat) => sat.asking), below: rows.some(({ pinned }) => pinned === true) }, (on) => on === true),
+        ...(Array.isReadonlyArrayEmpty(rows) ? {} : { rows, call: inspect({ in: token }) }),
+    });
+};
+const draw =
+    (marks: Marks, within: Option.Option<Container>, whole = false, chosen?: string) =>
+    (element: Element): Line =>
+        Element.match(element, {
+            container: (held) => container(marks, held),
+            control: (held) => control(marks, within, held, whole),
+            option: (held) =>
+                new Line({
+                    head: [Address.refer(held._tag, held.ref), Format.quoted(held.label)],
+                    facts: label({ selected: chosen === held.label, shortcut: UndefinedOr.map(held.shortcut, shortcut), help: help(held.help, held.label, whole) }),
+                    pinned: chosen === held.label,
+                }),
+        });
+const survey = (marks: Marks): readonly Line[] => {
+    const { read } = marks;
+    const tops = (flag: 'asking' | 'focused') => new Set(Address.list(read).flatMap(({ element, containers }) => (element._tag === 'container' && element[flag] === true ? [Array.headNonEmpty(containers).ref] : [])));
+    const [asking, focused] = [tops('asking'), tops('focused')];
+    const ordered = Array.sortWith(read.model.elements, ({ ref }) => [asking.has(ref), focused.has(ref)] as const, Order.flip(Order.Tuple([Order.Boolean, Order.Boolean])));
+    const primary = Option.getOrElse(
+        Array.findFirst([asking, focused], (held) => held.size > 0),
+        () => new Set(Array.take(ordered, 1).map(({ ref }) => ref)),
+    );
+    return ordered.map((element) => {
+        const line = draw(marks, Option.none())(element);
+        return primary.has(element.ref) ? line : new Line({ ...line, rows: (line.rows ?? []).map((row) => new Line({ ...row, cut: CUTS.indexOf('containers') })) });
+    });
+};
+const mention =
+    (read: Address) =>
+    (node: Node): Line => {
+        const build = Array.head(read.map.application.builds);
+        const at = (locator: Option.Option<string>) =>
+            locator.pipe(
+                Option.flatMap((held) => Array.head(Address.locate(read, held))),
+                Option.flatMap(({ token }) => token),
+                Option.getOrUndefined,
+            );
+        const when = Element.Condition.match({
+            Value: ({ at: locator, value }) => Array.take(Address.locate(read, locator), 1).flatMap(({ name, element }) => (element._tag === 'control' && Option.isSome(name) ? [`when ${name.value} is ${Address.print(element.kind)(value)}`] : [])),
+            Documents: ({ held }) => [held ? 'when a document is open' : 'when no document is open'],
+            Modal: ({ at: locator }) => (locator === null ? ['when no dialog is open'] : Array.take(Address.locate(read, locator), 1).flatMap(({ name }) => Option.toArray(name).map((title) => `when ${title} is open`))),
+        });
+        const facts = Match.value(node).pipe(
+            Match.when({ live: true }, Array.empty<string>),
+            Match.when({ element: { _tag: 'container' } }, ({ element }) => label({ [SAY.gone]: true, build: Option.isNone(build) || Equal.equals(build, element.tally.verified) ? undefined : Option.getOrElse(element.tally.verified, () => 'unversioned'), modal: element.modal })),
+            Match.when({ element: { _tag: 'control' } }, ({ element, value }) => [
+                ...label({
+                    [SAY.gone]: true,
+                    'last value': Option.getOrUndefined(value),
+                    mark: Option.getOrUndefined(Option.map(element.mark, Format.quoted)),
+                    opens: at(element.opens),
+                    'alternate of': at(element.alternate),
+                    separated: Option.getOrUndefined(element.separated),
+                    shortcut: Option.getOrUndefined(Option.map(element.shortcut, shortcut)),
+                    keyEquivalent: Option.getOrUndefined(Option.map(element.keyEquivalent, Format.quoted)),
+                }),
+                ...Option.match(element.presence, { onNone: Array.empty, onSome: ({ with: seen, against }) => seen.filter((atom) => against.some((other) => other._tag === atom._tag && (atom._tag !== 'Value' || (other._tag === 'Value' && other.at === atom.at)) && !Equal.equals(other, atom))) }).flatMap(when),
+            ]),
+            Match.orElse(Array.empty<string>),
+        );
+        return new Line({
+            head: [...Option.toArray(Option.firstSomeOf(node.live ? [node.token] : [node.token, node.path])), ...classify(node.element), ...(node.live ? Option.toArray(Option.map(node.path, Format.quoted)) : [])],
+            facts,
+            ...(node.live ? Option.getOrUndefined(Option.map(node.value, (value) => ({ value }))) : {}),
+        });
+    };
+const page = (held: Line, after: Option.Option<Node>): Result.Result<readonly Line[], Unmatched> => {
+    const rows = held.rows ?? [];
+    const start: Result.Result<number, Unmatched> = Option.match(
+        Option.flatMap(after, ({ token }) => token),
+        {
+            onNone: () => Result.succeed(0),
+            onSome: (token) =>
+                Option.match(
+                    Array.findFirstIndex(rows, ({ head }) => Option.contains(Array.head(head), token)),
+                    {
+                        onNone: () => Result.fail(Unmatched.of({ subject: ['item', ...Array.fromNullishOr(held.call).map((call) => `of ${Format.call(call)}`)].join(' '), query: Option.some(token), candidates: rows.flatMap(({ head }) => Array.take(head, 1)) })),
+                        onSome: (found) => Result.succeed(found + 1),
+                    },
+                ),
+        },
+    );
+    return Result.map(start, (from) => [new Line({ ...held, rows: Array.drop(rows, from).map((each) => new Line(Struct.omit(each, ['cut']))) })]);
+};
+const render = (read: Address, { in: within = Option.none(), after = Option.none(), changed = HashSet.empty() }: { readonly in?: Option.Option<Node>; readonly after?: Option.Option<Node>; readonly changed?: HashSet.HashSet<typeof Element.Ref.Type> } = {}) => {
+    const marks: Marks = { read, changed, gone: new Map() };
+    const held: Result.Result<Line, Unmatched> = Option.match(within, {
+        onNone: () => Result.succeed(new Line({ head: [], rows: survey(marks), call: inspect({}) })),
+        onSome: (node) =>
+            node.live
+                ? Option.match(Address.get(read, node.element.ref), {
+                      onNone: () => Result.fail(Unmatched.of({ subject: 'container or control of this read', query: node.token, candidates: Address.list(read).flatMap(({ element, token }) => (element._tag === 'container' ? Option.toArray(token) : [])) })),
+                      onSome: (found) => Result.succeed(draw(marks, Option.some(Array.lastNonEmpty(found.containers)), true)(found.element)),
+                  })
+                : Result.succeed(
+                      new Line({
+                          ...mention(read)(node),
+                          ...Option.getOrUndefined(
+                              Option.map(
+                                  Option.filter(node.token, () => node.element._tag === 'container'),
+                                  (token) => ({ rows: Address.recall(read, node.element.locator).map(mention(read)), call: inspect({ in: token }) }),
+                              ),
+                          ),
+                      }),
+                  ),
+    });
+    return Result.flatMap(held, (line) => page(line, after));
+};
+const hits = (read: Address, found: readonly Node[], given: Call['given'], after: Option.Option<Node> = Option.none()) => {
+    const rows = found.map((node) => {
+        const line = mention(read)(node);
+        const openers = Result.match(Address.open(read, node), { onFailure: Array.empty<string>, onSuccess: (chain) => chain.flatMap(({ token }) => Option.toArray(token)) });
+        return new Line({ ...line, facts: [...(line.facts ?? []), ...label({ 'opened by': openers.join(', ') })] });
+    });
+    return page(new Line({ head: [], rows, call: inspect(given) }), after);
+};
+const changes = (before: Address, after: Address, touched: ReadonlySet<typeof Element.Ref.Type>): readonly Line[] => {
+    const own = (read: Address, ref: typeof Element.Ref.Type) => new Set((members(read).get(ref) ?? []).flatMap(({ element }) => (element._tag === 'container' ? [] : [element.ref])));
+    const changed = HashSet.fromIterable(Address.list(after).flatMap(({ element }) => (element._tag === 'control' && touched.has(element.ref) && Option.exists(Address.get(before, element.ref), (prior) => prior.element._tag === 'control' && !Equal.equals(prior.element.value, element.value)) ? [element.ref] : [])));
+    const keep = (element: Element): readonly Element[] => {
+        const whole = element._tag === 'container' && !(shows(before, element.ref) && own(before, element.ref).symmetricDifference(own(after, element.ref)).size === 0);
+        const children = element.children.flatMap((child) => (whole && child._tag !== 'container' ? [child] : keep(child)));
+        const pruned = element._tag === 'container' && !whole ? { ...element, children, text: [], truncated: false } : { ...element, children };
+        return whole || HashSet.has(changed, element.ref) || Array.isReadonlyArrayNonEmpty(children) ? [pruned] : [];
+    };
+    const gone = new Map(
+        members(before)
+            .entries()
+            .map(([ref, nodes]) => [ref, nodes.flatMap(({ element, token }) => (element._tag === 'container' || shows(after, element.ref) ? [] : Option.toArray(token)))] as const),
+    );
+    const closed = Address.list(before).flatMap(({ element, name }) =>
+        element._tag === 'container' && !shows(after, element.ref)
             ? [
                   new Line({
-                      head: [...Option.toArray(token), NOUNS[target.entry.container.kind].one],
+                      head: caption(element.kind, element.ref, Option.getOrUndefined(name)),
                       facts: [
-                          SAY.gone,
-                          ...(Option.isSome(index.remembered.build) && !Equal.equals(index.remembered.build, target.entry.container.tally.verified) ? [Option.match(target.entry.container.tally.verified, { onNone: () => 'last seen in an unversioned build', onSome: (build) => `last seen in build ${build}` })] : []),
-                          ...flags({ modal: target.entry.container.modal }),
+                          'closed',
+                          ...Option.getOrElse(
+                              Option.flatMap(HashMap.get(after.left, element.ref), ({ gone: facts }) => facts),
+                              Array.empty<string>,
+                          ),
                       ],
-                      ...Option.getOrUndefined(Option.map(token, (at) => ({ rows: remembered(index, target.locator), call: inspect({ in: at }) }))),
                   }),
               ]
             : [],
     );
-    return [...shown, ...recalled];
+    return [...after.model.elements.flatMap(keep).map(draw({ read: after, changed, gone }, Option.none())), ...closed];
 };
-const flattened = (lines: readonly Line[]): readonly Line[] => lines.flatMap((held) => [held, ...flattened(held.rows ?? [])]);
-const paged = (page: Line, after: Option.Option<Item>): Result.Result<readonly Line[], Unmatched> => {
-    const rows = page.rows ?? [];
-    const from = Option.match(Option.flatMap(after, Struct.get('token')), {
-        onNone: () => Result.succeed(0),
-        onSome: (token) => {
-            const at = rows.findIndex(({ head }) => Option.contains(Array.head(head), token));
-            return at === -1 ? Result.fail(Unmatched.of({ subject: ['item', ...Array.fromNullishOr(page.call).map((held) => `of ${Format.call(held)}`)].join(' '), query: Option.some(token), candidates: rows.flatMap(({ head }) => Array.take(head, 1)) })) : Result.succeed(at + 1);
-        },
-    });
-    return Result.map(from, (start) => [new Line({ ...page, rows: Array.drop(rows, start).map((each) => new Line(Struct.omit(each, ['cut']))) })]);
-};
-const alone = (index: Index, changed: HashSet.HashSet<(typeof Element.Control.Type)['ref']>, ref: (typeof Element.Control.Type)['ref']) => {
-    const drafted = index.shown.flatMap((shown) =>
-        shown.controls.flatMap((entry, at) => (entry.control.ref === ref ? [draft(index, shown, changed, { whole: true })({ entry, alternates: [], nested: Array.takeWhile(Array.drop(shown.controls, at + 1), (each) => under(each.control, entry.control)).map((each) => ({ entry: each, alternates: [] })) })] : [])),
-    );
-    return Array.head(siblings(drafted, NOUNS.control.other).rows);
-};
-const render = (index: Index, { in: within = Option.none(), after = Option.none(), changed = HashSet.empty() }: { readonly in?: Option.Option<Item>; readonly after?: Option.Option<Item>; readonly changed?: HashSet.HashSet<(typeof Element.Control.Type)['ref']> } = {}) => {
-    const scope = Option.flatMap(within, ({ token, target }) => Option.map(token, (at) => ({ at, target })));
-    const page = Option.match(scope, {
-        onNone: (): Result.Result<Line, Unmatched> => Result.succeed(new Line({ head: [], rows: tree(index, changed), call: inspect({}) })),
-        onSome: ({ at, target }) => {
-            const found = target._tag === 'Control' ? alone(index, changed, target.control.ref) : Array.findFirst(flattened(tree(index, changed)), ({ head }) => Option.contains(Array.head(head), at));
-            return Result.fromOption(found, () => Unmatched.of({ subject: 'container or control of this read', query: Option.some(at), candidates: [...index.shown.map(Struct.get('item')), ...index.remembered.containers].flatMap(({ token }) => Option.toArray(token)) }));
-        },
-    });
-    return Result.flatMap(page, (held) => paged(held, after));
-};
-const hits = (found: readonly Item[], given: Call['given'], { after = Option.none(), opening = Option.none() }: { readonly after?: Option.Option<Item>; readonly opening?: Option.Option<Index> } = {}) => {
-    const rows = found.map((item) => {
-        const kind = Address.Target.$match(item.target, {
-            Container: ({ container }) => [NOUNS[container.kind].one],
-            Control: ({ control }) => spoken(control.kind),
-            Option: () => ['option'],
-            RememberedContainer: ({ entry }) => [NOUNS[entry.container.kind].one],
-            RememberedControl: ({ control }) => spoken(control.kind),
-        });
-        const path = Address.path(item).join(Address.separator);
-        const opened = Option.flatMap(opening, (index) => Option.map(Address.opener(index, item), (openers) => Array.getSomes(openers.map(Struct.get('token'))).join(', ')));
-        return new Line({
-            head: item.live ? [...Option.toArray(item.token), ...kind, Format.quoted(path)] : [Option.getOrElse(item.token, () => path), ...kind],
-            facts: [...(item.live ? [] : [SAY.gone, ...Option.toArray(Option.map(item.value, (value) => `last value: ${value}`))]), ...Option.toArray(Option.map(opened, (token) => `opened by ${token}`))],
-            ...(item.live ? Option.getOrUndefined(Option.map(item.value, (value) => ({ value }))) : {}),
-        });
-    });
-    return paged(new Line({ head: [], rows, call: inspect(given) }), after);
-};
-const clipboard = ({ types, access, patterns, contentType, content }: Pasteboard, ref: (typeof Element.Control.Type)['ref'], asked: boolean) => {
-    const head = [Address.token('clipboard', ref), 'clipboard'];
-    const text = content?._tag === 'text' ? Option.some(content.value) : Option.none<string>();
-    const shown = Option.map(text, (value) => {
+const clipboard = (instance: Instance['instance'], { locator, types, accessBehavior, detectedPatterns, contentType, content }: typeof Act.Pasteboard.Type, asked: boolean) => {
+    const text = content?._tag === 'text' ? content.value : undefined;
+    const shown = UndefinedOr.map(text, (value) => {
         const words = Iterator.from(WORDS.segment(value)).filter(({ isWordLike }) => isWordLike === true);
         const end = asked
             ? value.length
@@ -406,62 +387,43 @@ const clipboard = ({ types, access, patterns, contentType, content }: Pasteboard
                   .next().value ?? value.length);
         return value.slice(0, Math.min(Report.page, end)).toWellFormed();
     });
-    return content?._tag === 'concealed'
-        ? new Line({ head, facts: [content._tag] })
-        : new Line({
-              head,
-              ...Option.getOrUndefined(Option.map(shown, (value) => ({ value: `"${value}"` }))),
-              facts: [
-                  ...Option.toArray(Option.filter(text, (value) => Option.exists(shown, (kept) => kept.length < value.length))).map((value) => Format.count(value.length, NOUNS.character)),
-                  ...flags({ empty: Array.isReadonlyArrayEmpty(types) }),
-                  ...(asked && Array.isReadonlyArrayNonEmpty(types) ? [`types ${types.join(', ')}`] : []),
-                  ...(asked && Array.isReadonlyArrayNonEmpty(patterns) ? [`detects ${patterns.join(', ')}`] : []),
-                  ...Array.fromNullishOr(contentType).map((type) => `file type ${type}`),
-                  ...(content?._tag === 'withheld' ? [`text ${content._tag}`, `Paste from Other Apps ${access} in System Settings > Privacy & Security`] : []),
-              ],
-          });
-};
-const clipped = (instance: Instance['instance'], pasteboard: Pasteboard, asked: boolean) => ApplicationServer.use((server) => server.intern({ instance, locators: [pasteboard.locator] })).pipe(Effect.map(Array.map((ref) => clipboard(pasteboard, ref, asked))));
-const changes = (before: Index, after: Index, touched: ReadonlySet<(typeof Element.Control.Type)['ref']>): readonly Line[] => {
-    const earlier = Record.fromIterableWith(before.model.containers, ({ ref, controls }) => [`${ref}`, new Set(controls.map(Struct.get('ref')))]);
-    const changed = HashSet.fromIterable(after.model.containers.flatMap(({ controls }) => controls.filter(({ ref, value }) => touched.has(ref) && Option.exists(Record.get(before.live, `${ref}`), ({ target }) => target._tag === 'Control' && !Equal.equals(target.control.value, value))).map(Struct.get('ref'))));
-    const read = after.model.containers.map((container) => {
-        const [now, prior] = [new Set(container.controls.map(Struct.get('ref'))), Record.get(earlier, `${container.ref}`)];
-        const went = Option.toArray(prior).flatMap((held) => Array.fromIterable(held.difference(now)).flatMap((ref) => Option.toArray(Option.flatMap(Record.get(before.live, `${ref}`), Struct.get('token')))));
-        return { container, went, same: Option.exists(prior, (held) => held.symmetricDifference(now).size === 0), valued: container.controls.filter(({ ref }) => HashSet.has(changed, ref)) };
-    });
-    const containers = read.filter(({ same, valued }) => !same || Array.isReadonlyArrayNonEmpty(valued)).map(({ container, same, valued }) => (same ? { ...container, controls: valued, text: [], truncated: false } : container));
-    const closed = before.shown.filter(({ container }) => !read.some((each) => each.container.ref === container.ref));
-    return [
-        ...tree(
-            Address.index({ ...after.model, containers }),
-            changed,
-            Record.fromIterableWith(read, ({ container, went }) => [`${container.ref}`, went]),
-        ),
-        ...closed.map(({ container, item }) => new Line({ head: caption(container.kind, container.ref, Option.getOrUndefined(item.name)), facts: [SAY.closed] })),
+    const facts = [
+        ...(text === undefined || text.length === shown?.length ? [] : [Format.count(text.length, NOUNS.character)]),
+        ...label({
+            empty: Array.isReadonlyArrayEmpty(types),
+            content: content === undefined || content._tag === 'text' ? undefined : content._tag,
+            types: asked && Format.list(types),
+            detectedPatterns: asked && Format.list(detectedPatterns),
+            contentType,
+        }),
+        ...(content?._tag === 'withheld' ? [`Paste from Other Apps ${accessBehavior} in System Settings > Privacy & Security`] : []),
     ];
+    return ApplicationServer.use((server) => server.intern({ instance, locators: [locator] })).pipe(Effect.map(Array.map((ref) => new Line({ head: [Address.refer('clipboard', ref), 'clipboard'], facts, ...(shown === undefined ? {} : { value: Address.print('text')(shown) }) }))));
 };
-const subject = Effect.fnUntraced(function* (application: string, { instance, state }: Pick<Instance, 'instance' | 'state'>, { verb, facts = [], troubled = false, keyed = false }: { readonly verb?: string; readonly facts?: readonly string[]; readonly troubled?: boolean; readonly keyed?: boolean } = {}) {
+const subject = Effect.fnUntraced(function* (name: string, { instance, state }: Pick<Instance, 'instance' | 'state'>, { verb, facts = [], troubled = false, keyed = false }: { readonly verb?: string; readonly facts?: readonly string[]; readonly troubled?: boolean; readonly keyed?: boolean } = {}) {
     const [{ session, pressure }, handle] = yield* Effect.all([ApplicationServer, Handle]);
-    const [screen, strain, { held }] = yield* Effect.all([session, pressure, handle.get(Target)]);
-    const { stalled, front } = Instance.State.match(state, {
-        running: ({ status, active }) => ({ stalled: Instance.State.Status.matchOrElse(status, { responding: (): readonly string[] => [], unresponsive: ({ _tag, thread }) => [_tag, `main thread ${thread}`] }, ({ _tag }) => [_tag]), front: active }),
-        failed: ({ reason, subject: failed, message }) => ({ stalled: [`state unread: ${message ?? `${failed} ${reason}`}`], front: false }),
-        exited: ({ _tag }) => ({ stalled: [_tag], front: false }),
+    const [screen, strain, aim] = yield* Effect.all([session, pressure, handle.get(Target)]);
+    const stalled = Instance.State.match(state, {
+        running: ({ status }) => Instance.State.Status.matchOrElse(status, { responding: Array.empty<string> }, ({ _tag, ...held }) => [_tag, ...label(held)]),
+        failed: ({ reason, subject: failed, values }) => [ApplicationFailure.of(reason, failed, values).message],
+        exited: ({ _tag }) => [_tag],
     });
     const departures = [
         ...stalled,
-        ...flags({ [SAY.front]: front }),
-        ...Option.match(screen, { onNone: Array.empty, onSome: ({ onConsole, locked, asleep, secureInput }) => flags({ 'screen in another session': !onConsole, 'screen locked': locked, 'display asleep': asleep, 'secure input on': keyed && secureInput }) }),
+        ...label({ [SAY.front]: state._tag === 'running' && state.active }),
+        ...Option.match(screen, { onNone: Array.empty<string>, onSome: ({ onConsole, locked, asleep, secureInput }) => label({ 'screen in another session': !onConsole, 'screen locked': locked, 'display asleep': asleep, 'secure input on': keyed && secureInput }) }),
         ...Option.match(
             Option.filter(strain, () => troubled || Array.isReadonlyArrayNonEmpty(stalled)),
-            { onNone: Array.empty, onSome: ({ memory, thermal, advisory = {} }) => flags({ [`memory pressure ${memory}`]: memory !== 'normal', [`thermal state ${thermal}`]: thermal === 'serious' || thermal === 'critical', 'system load advisory bad': Record.some(advisory, (level) => level === 'bad') }) },
+            {
+                onNone: Array.empty<string>,
+                onSome: ({ memory, thermal, advisory = {} }) => label({ 'memory pressure': memory === 'normal' ? undefined : memory, 'thermal state': thermal === 'serious' || thermal === 'critical' ? thermal : undefined, 'system load advisory': Record.some(advisory, (level) => level === 'bad') && 'bad' }),
+            },
         ),
         ...facts,
     ];
-    return verb !== undefined || Array.isReadonlyArrayNonEmpty(departures) || !Option.exists(held, (aim) => aim.instance === instance) ? [new Line({ head: [application, ...Array.fromNullishOr(verb)], facts: departures, pinned: true })] : [];
+    return verb !== undefined || Array.isReadonlyArrayNonEmpty(departures) || !Option.exists(aim.held, (aimed) => aimed.instance === instance) ? [new Line({ head: [name, ...Array.fromNullishOr(verb)], facts: departures, pinned: true })] : [];
 });
-const Outline = { subject, caption, render, hits, changes, clipped, rows: KEPT.rows, say: SAY, nouns: NOUNS, shortcut, scrolled, showing } as const;
+const Outline = { subject, caption, render, hits, changes, clipboard, scroll, shortcut, nouns: NOUNS, say: SAY, rows: KEPT.rows } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

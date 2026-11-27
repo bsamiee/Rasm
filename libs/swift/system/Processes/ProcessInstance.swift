@@ -194,7 +194,7 @@ extension ProcessInstance {
                 return unsafe AuthorizationCreate(&rights, nil, [.extendRights, .destroyRights], nil)
             }
         }
-        guard granted == errAuthorizationSuccess else { throw ProcessFailure(subject: "sample", reason: .authorization(right: right, granted)) }
+        guard granted == errAuthorizationSuccess else { throw ProcessFailure(subject: "sample", reason: .authorization(right: right, ProcessFailure.Status(security: granted))) }
         let report: URL = reports.appending(component: "\(Date.now.formatted(.iso8601)).sample.txt")
         do { try FileManager.default.createDirectory(at: reports, withIntermediateDirectories: true) } catch { throw ProcessFailure(subject: reports.path(percentEncoded: false), error) }
         try await Configuration(executable: .name("sample"), arguments: [String(pid), String(Int((duration / .seconds(1)).rounded(.up))), "-mayDie", "-file", report.path(percentEncoded: false)])

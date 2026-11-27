@@ -76,9 +76,9 @@ struct ResourceUsageTests {
             unsafe IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleSystemSleep as CFString, IOPMAssertionLevel(kIOPMAssertionLevelOn), name as CFString, &assertion) == kIOReturnSuccess
         )
         let listed = "\(kIOPMAssertionTypePreventUserIdleSystemSleep) named \(name)"
-        let held: Bool = try ResourceUsage(of: current).assertions.get().contains(listed)
+        let held: Bool = try ResourceUsage(of: current).powerAssertions.get().contains(listed)
         IOPMAssertionRelease(assertion)
-        let released: Bool = try ResourceUsage(of: current).assertions.get().contains(listed)
+        let released: Bool = try ResourceUsage(of: current).powerAssertions.get().contains(listed)
         expectNoDifference([held, released], [true, false])
     }
 }

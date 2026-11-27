@@ -2,169 +2,170 @@ import { ApplicationServer } from '@rasm/applications/server/client';
 import { Element } from '@rasm/applications/server/element';
 import { Event } from '@rasm/applications/server/event';
 import { Instance } from '@rasm/applications/server/instance';
-import { Format, Line, Report } from '@rasm/mcp/report';
+import { Call, Format, Line, Report } from '@rasm/mcp/report';
 import { Server } from '@rasm/mcp/server';
-import { Array, Context, Data, DateTime, Effect, Equal, Function, HashMap, HashSet, Layer, Number, Option, Order, Record, Ref, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
-import { Address, Indexed } from '#/handle/address';
+import { Array, Context, DateTime, Effect, HashMap, HashSet, Layer, Number, Option, Order, Record, Ref, Result, Schema, Stream, String, Struct } from 'effect';
+import { Address } from '#/handle/address';
 import { Outline } from '#/handle/outline';
 import { Target } from '#/handle/target';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Seen {
-    readonly started: Record.ReadonlyRecord<string, string>;
-    readonly stalled: HashMap.HashMap<Instance['instance'], Event['at']>;
-    readonly concealed: HashSet.HashSet<Instance['instance']>;
-    readonly secure: HashMap.HashMap<Instance['instance'], readonly Pick<typeof Event.fields.change.cases.asking.Type, 'container' | 'title'>[]>;
-    readonly followed: HashSet.HashSet<Instance['instance']>;
+type Standing = HashMap.HashMap<
+    Instance['instance'],
+    {
+        readonly name: Option.Option<string>;
+        readonly followed: boolean;
+        readonly unresponsive: Option.Option<(typeof Event.Changed.Type)['at']>;
+        readonly secure: readonly (typeof Event.Changed.fields.change.cases.asking.Type)[];
+    }
+>;
+interface Occurrence {
+    readonly instance: Instance['instance'];
+    readonly changed: Option.Option<typeof Event.Changed.Type>;
+    readonly before: Standing;
+    readonly after: Standing;
+    readonly targets: readonly (typeof Target)['Service'][];
 }
-type Raised = Data.TaggedEnum<{
-    Changed: { readonly application: string; readonly event: Event; readonly seen: Seen; readonly next: Seen; readonly quit: boolean };
-    Row: { readonly instance: Instance['instance']; readonly text: Option.Option<string> };
-}>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PRESENTED = Schema.is(Element.Container.fields.kind.pick(['window', 'dialog', 'panel', 'sheet', 'popover', 'drawer', 'prompt']));
-const UNSEEN: Seen = { started: Record.empty(), stalled: HashMap.empty(), concealed: HashSet.empty(), secure: HashMap.empty(), followed: HashSet.empty() };
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Raised = Data.taggedEnum<Raised>();
+const WINDOWED = Schema.is(Element.cases.container.fields.kind.pick(['window', 'dialog', 'panel', 'sheet', 'popover', 'drawer', 'prompt']));
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-const Proving = Context.Reference<HashMap.HashMap<{ readonly instance: Instance['instance']; readonly followed: number }, { readonly call: number; readonly step: number; readonly head: readonly string[] }>>('@rasm/application-tools/handle/notices/Proving', { defaultValue: HashMap.empty });
-const Logged = Context.Reference<HashSet.HashSet<Pick<(typeof Event.fields.change.cases.logged.Type)['entry'], 'subsystem' | 'category' | 'eventMessage'>>>('@rasm/application-tools/handle/notices/Logged', { defaultValue: HashSet.empty });
+const Proving = Context.Reference<HashMap.HashMap<{ readonly instance: Instance['instance']; readonly followed: number }, { readonly call: number; readonly step: number; readonly head: readonly string[] }>>('@rasm/application-tools/handle/notice/Proving', { defaultValue: HashMap.empty });
+const Entries = Context.Reference<HashSet.HashSet<Pick<(typeof Event.Changed.fields.change.cases.logged.Type)['entry'], 'subsystem' | 'category' | 'eventMessage'>>>('@rasm/application-tools/handle/notice/Entries', { defaultValue: HashSet.empty });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const advance = (seen: Seen, { instance, at, change }: Event): Seen =>
-    Event.fields.change.matchOrElse(
-        change,
-        {
-            started: ({ name }) => ({ ...seen, started: UndefinedOr.match(name, { onUndefined: () => seen.started, onDefined: (announced) => Record.set(seen.started, instance, announced) }) }),
-            asking: (asked) => (asked.secure === undefined ? seen : { ...seen, secure: HashMap.set(seen.secure, instance, [...Option.getOrElse(HashMap.get(seen.secure, instance), Array.empty).filter((each) => each.container !== asked.container), Struct.pick(asked, ['container', 'title'])]) }),
-            closed: ({ container }) => ({ ...seen, secure: HashMap.modify(seen.secure, instance, (held) => held.filter((each) => each.container !== container)) }),
-            hidden: ({ hidden }) => ({ ...seen, concealed: hidden ? HashSet.add(seen.concealed, instance) : HashSet.remove(seen.concealed, instance) }),
-            status: ({ status }) => ({ ...seen, stalled: Instance.State.Status.isAnyOf(['unresponsive'])(status) ? HashMap.set(seen.stalled, instance, Option.getOrElse(HashMap.get(seen.stalled, instance), Function.constant(at))) : HashMap.remove(seen.stalled, instance) }),
-            exited: () => ({ ...seen, started: Record.remove(seen.started, instance), stalled: HashMap.remove(seen.stalled, instance), concealed: HashSet.remove(seen.concealed, instance), secure: HashMap.remove(seen.secure, instance) }),
-        },
-        () => seen,
-    );
-const raise = (seen: Seen, { change, rows, aims }: { readonly change: Option.Option<Event>; readonly rows: readonly Instance[]; readonly aims: readonly (typeof Target)['Service'][] }): readonly [Seen, readonly Raised[]] => {
-    const named = (instance: Instance['instance'], ...held: readonly Seen[]) => Option.getOrElse(Option.firstSomeOf([Option.map(Record.get(Instance.byInstance(rows), instance), (each) => each.name ?? each.identifier), ...held.map(({ started }) => Record.get(started, instance))]), () => 'a process outside the Dock');
-    const row = (at: Seen) => (instance: Instance['instance']) => Raised.Row({ instance, text: Option.map(Option.flatMap(HashMap.get(at.secure, instance), Array.last), ({ title }) => [`${named(instance, at)}: password needed`, ...Array.fromNullishOr(title).map((shown) => `in ${Format.quoted(shown)}`)].join(' ')) });
-    return Option.match(change, {
+const cite = ({ call, step, head }: HashMap.HashMap.Value<(typeof Proving)['Service']>) => ['call', `${call}`, 'step', `${step}`, ...head];
+const notify = <Rest extends object>(push: boolean, lines: readonly Line[], rest?: Rest) => Option.some({ push, ...rest, ...(Array.isReadonlyArrayNonEmpty(lines) ? { text: Report.text(new Report({ lines })) } : {}) });
+const observe = (standing: Standing, { changed, targets }: Pick<Occurrence, 'changed' | 'targets'>): readonly [Standing, readonly Occurrence[]] => {
+    const write = (held: Standing, instance: Instance['instance'], change: (each: HashMap.HashMap.Value<Standing>) => HashMap.HashMap.Value<Standing>) =>
+        HashMap.modifyAt(held, instance, (found) => Option.some(change(Option.getOrElse(found, () => ({ name: Option.none(), followed: false, unresponsive: Option.none(), secure: [] })))));
+    return Option.match(changed, {
         onNone: () => {
-            const followed = HashSet.fromIterable(aims.flatMap((aim) => Array.fromIterable(aim.followed)));
-            const due = HashSet.union(HashSet.difference(followed, seen.followed), seen.secure.pipe(HashMap.filter(Array.isReadonlyArrayNonEmpty), HashMap.keys, HashSet.fromIterable));
-            return [{ ...seen, followed: HashSet.union(seen.followed, followed) }, Array.fromIterable(due).map(row(seen))];
+            const fresh = targets.flatMap(({ followed }) => Array.fromIterable(followed)).filter((instance) => !Option.exists(HashMap.get(standing, instance), ({ followed }) => followed));
+            const prompted = HashMap.keys(HashMap.filter(standing, ({ secure }) => Array.isReadonlyArrayNonEmpty(secure)));
+            const after = fresh.reduce((held, instance) => write(held, instance, (each) => ({ ...each, followed: true })), standing);
+            return [after, Array.dedupe([...fresh, ...prompted]).map((instance) => ({ instance, changed, before: standing, after, targets }))] as const;
         },
-        onSome: (event) => {
-            const next = advance(seen, event);
-            const rowed = Event.fields.change.isAnyOf(['exited'])(event.change) || !Equal.equals(HashMap.get(seen.secure, event.instance), HashMap.get(next.secure, event.instance));
-            const changed = Raised.Changed({ application: named(event.instance, next, seen), event, seen, next, quit: aims.some((aim) => aim.quitting(event.instance)) });
-            return [next, [...(rowed ? [row(next)(event.instance)] : []), changed]];
+        onSome: ({ instance, at, change }) => {
+            const after = Event.Changed.fields.change.matchOrElse(
+                change,
+                {
+                    started: ({ name, identifier }) => write(standing, instance, (each) => ({ ...each, name: Option.orElse(Option.fromUndefinedOr(name ?? identifier), () => each.name) })),
+                    asking: (asked) => (asked.secure === undefined ? standing : write(standing, instance, (each) => ({ ...each, secure: [...each.secure.filter(({ container }) => container !== asked.container), asked] }))),
+                    closed: ({ container }) => HashMap.modify(standing, instance, (each) => ({ ...each, secure: each.secure.filter((asked) => asked.container !== container) })),
+                    status: ({ status }) => write(standing, instance, (each) => ({ ...each, unresponsive: Instance.State.Status.isAnyOf(['unresponsive'])(status) ? Option.orElse(each.unresponsive, () => Option.some(at)) : Option.none() })),
+                    exited: ({ termination }) => (termination.reportPending === true ? HashMap.modify(standing, instance, (each) => ({ ...each, unresponsive: Option.none(), secure: [] })) : HashMap.remove(standing, instance)),
+                },
+                () => standing,
+            );
+            return [after, [{ instance, changed, before: standing, after, targets }]] as const;
         },
     });
 };
-const posted = ({ call, step, head }: HashMap.HashMap.Value<(typeof Proving)['Service']>) => ['call', `${call}`, 'step', `${step}`, ...head];
-const notice = ({ application, event: { instance, sequence, at, change }, seen, next, quit }: Extract<Raised, { readonly _tag: 'Changed' }>, state: Context.Context<never>) => {
-    const aim = Context.get(state, Target);
-    const inside = Option.exists(aim.held, (held) => held.instance === instance) ? [] : [application];
-    const indexed = Option.filter(Context.get(state, Indexed), (held) => held.instance === instance);
-    const stalling = HashMap.has(next.stalled, instance);
-    const said = (push: boolean, head: readonly string[], rest: Pick<Line, 'value' | 'facts'> = {}, left = state) => Option.some({ text: Report.text(new Report({ lines: [new Line({ head, ...rest })] })), push, state: left });
-    const presented = ({ _tag, kind, container, title }: Extract<Event['change'], { readonly _tag: 'opened' | 'closed' }>, left = Option.none<Context.Context<never>>()) => {
-        const read = Option.exists(indexed, ({ index }) => Option.exists(Record.get(index.reads, `${container}`), (held) => sequence <= held.sequence));
-        return PRESENTED(kind) && !read
-            ? said(
-                  false,
-                  [...inside, _tag, ...Outline.caption(kind, container, title)],
-                  {},
-                  Option.getOrElse(left, () => state),
-              )
-            : Option.map(left, (held) => ({ push: false, state: held }));
+const route = ({ instance, changed, before, after, targets }: Occurrence, state: Context.Context<never>) => {
+    const target = Context.get(state, Target);
+    const followed = HashSet.has(target.followed, instance);
+    const named = (each: Instance['instance']) => Option.flatMap(HashMap.get(before, each), Struct.get('name'));
+    const application = Option.getOrElse(named(instance), () => instance);
+    const stalled = Option.flatMap(HashMap.get(before, instance), Struct.get('unresponsive'));
+    const held = Option.filter(Context.get(state, Address.Held), (read) => read.instance === instance);
+    const stated = (container: number, sequence: number) => Option.exists(held, ({ reads }) => Option.exists(HashMap.get(reads, container), (read) => sequence <= read.sequence));
+    const head = ({ _tag, kind, container, title }: Extract<(typeof Event.Changed.Type)['change'], { readonly container: number }>) => [application, _tag, ...Outline.caption(kind, container, title)];
+    const ask = (asked: HashMap.HashMap.Value<Standing>['secure'][number]) => {
+        const labels = Record.fromEntries(asked.answers.flatMap(({ ref, label }) => Array.fromNullishOr(label).map((shown) => [`${ref}`, shown] as const)));
+        const roles = Record.getSomes({ default: Option.fromUndefinedOr(asked.default), cancel: Option.fromUndefinedOr(asked.cancel) });
+        const answers = Record.collect(roles, (role, ref) => [role, Address.refer('action', ref), ...Option.toArray(Record.get(labels, `${ref}`)).map(Format.quoted)].join(' '));
+        const field = Array.fromNullishOr(asked.secure).flatMap(({ ref, label }) => [['secure', Address.refer('text', ref), ...Array.fromNullishOr(label).map(Format.quoted)].join(' '), 'person fills it']);
+        const answer = Option.filter(Array.head(asked.answers), () => asked.secure === undefined);
+        return new Line({
+            head: head(asked),
+            ...Array.match(asked.text, { onEmpty: () => ({}), onNonEmpty: (lines) => ({ value: Format.quoted(lines.join(' ')) }) }),
+            facts: [...answers, ...field, ...Array.fromNullishOr(asked.presentation).flatMap(Instance.Presentation.matchOrElse({ forward: ({ _tag }) => [_tag] }, Array.empty<string>))],
+            ...Option.getOrUndefined(Option.map(answer, ({ ref }) => ({ call: new Call({ tool: 'act', given: { steps: [{ at: Address.refer('action', ref) }] } }) }))),
+        });
     };
-    return Event.fields.change.matchOrElse(
-        change,
-        {
-            opened: (opening) => presented(opening),
-            closed: (closing) =>
-                presented(
-                    closing,
-                    Option.map(indexed, (held) => Context.add(state, Indexed, Option.some({ ...held, index: Address.close(held.index, sequence, closing.container, [`${closing._tag} ${at}`]) }))),
-                ),
-            asking: ({ _tag, kind, container, title, text, answers, secure, presentation, ...roles }) => {
-                const labels = Record.fromEntries(answers.flatMap(({ ref, label }) => Array.fromNullishOr(label).map((shown) => [`${ref}`, shown] as const)));
-                const buttons = Record.collect(Record.getSomes({ default: Option.fromUndefinedOr(roles.default), cancel: Option.fromUndefinedOr(roles.cancel) }), (role, ref) => [role, Address.token('action', ref), ...Option.toArray(Record.get(labels, `${ref}`)).map(Format.quoted)].join(' '));
-                const field = Array.fromNullishOr(secure).flatMap(({ ref, label }) => [['secure', Address.token('text', ref), ...Array.fromNullishOr(label).map(Format.quoted)].join(' '), 'person fills it']);
-                const facts = [...buttons, ...field, ...(presentation?._tag === 'forward' ? [Outline.say.front] : [])];
-                return said(true, [...inside, _tag, ...Outline.caption(kind, container, title)], Array.match(text, { onEmpty: () => ({ facts }), onNonEmpty: (lines) => ({ value: Format.quoted(lines.join(' ')), facts }) }));
-            },
-            hidden: ({ hidden }) => (HashSet.has(seen.concealed, instance) === HashSet.has(next.concealed, instance) ? Option.none() : said(false, [application, hidden ? 'hidden' : 'unhidden'])),
-            status: ({ status }) => {
-                const lasted = Option.map(Option.all([Option.flatMap(HashMap.get(seen.stalled, instance), DateTime.make), DateTime.make(at)]), ([began, ended]) => `stalled ${Format.duration(DateTime.distance(began, ended))}`);
-                const facts = [...Instance.State.Status.matchOrElse(status, { unresponsive: ({ thread }) => [`main thread ${thread}`] }, Array.empty), ...Option.toArray(lasted)];
-                return HashMap.has(seen.stalled, instance) === stalling ? Option.none() : Option.map(said(true, [application, status._tag], { facts }), (line) => ({ ...line, key: instance }));
-            },
-            announced: ({ _tag, text, priority }) => said(false, [...inside, _tag], { value: Format.quoted(text), facts: priority === 'high' ? [`priority ${priority}`] : [] }),
-            proven: ({ followed, drawn }) => {
-                const [open, key] = [Context.get(state, Proving), { instance, followed }];
-                return Option.flatMap(HashMap.get(open, key), (step) => said(true, [...inside, ...posted(step)], { value: 'changed', facts: drawn ? ['drawn'] : [] }, Context.add(state, Proving, HashMap.remove(open, key))));
-            },
-            logged: ({ _tag, entry: { messageType, subsystem, category, eventMessage } }) => {
-                const [told, key] = [Context.get(state, Logged), { subsystem, category, eventMessage }];
-                return HashSet.has(told, key) ? Option.none() : said(false, [...inside, _tag, messageType.toLowerCase(), subsystem, category].filter(String.isNonEmpty), { value: Format.quoted(eventMessage) }, Context.add(state, Logged, HashSet.add(told, key)));
-            },
-            reported: ({ _tag, report }) => (stalling ? said(true, [application, _tag, report.kind], { value: Format.path(report.url), facts: Array.fromNullishOr(report.event).map((cause) => `event ${cause}`) }) : Option.none()),
-            sampled: ({ _tag, report }) => (stalling ? said(true, [application, _tag], { value: Format.path(report) }) : Option.none()),
-            exited: ({ _tag, termination }) => {
-                const ended = Instance.State.Termination.match(termination, { status: ({ status }) => (status === 0 ? [] : [`status ${status}`]), signal: ({ signal }) => [`signal ${signal}`], statusFailure: ({ statusFailure }) => ['status unread', statusFailure] });
-                const facts = [...ended, ...Array.fromNullishOr(termination.report).map((report) => `${report.kind} report ${Format.path(report.url)}`), ...(termination.reporting === true ? ['reporting'] : []), ...(quit ? ['quit by another agent'] : [])];
-                const left = Context.add(state, Target, aim.without([instance]));
-                return aim.quitting(instance) ? Option.some({ push: false, state: left }) : said(true, [application, _tag], { facts }, left);
-            },
-        },
-        () => Option.none(),
-    );
-};
-const route = (raised: Raised, state: Context.Context<never>) => {
-    const { followed } = Context.get(state, Target);
-    return Raised.$match(raised, {
-        Row: ({ instance, text }) => Option.some(HashSet.has(followed, instance) && Option.isSome(text) ? { push: false, row: { key: instance, text: text.value } } : { push: false, clears: instance }),
-        Changed: (changed) => (HashSet.has(followed, changed.event.instance) ? notice(changed, state) : Option.none()),
+    const prompt = Option.flatMap(HashMap.get(after, instance), ({ secure }) => Array.last(secure));
+    const row = Option.match(followed ? prompt : Option.none(), { onNone: () => ({ clears: instance }), onSome: (asked) => ({ row: { key: instance, text: Report.text(new Report({ lines: [ask(asked)] })) } }) });
+    const told = Option.filter(changed, () => followed);
+    return Option.match(told, {
+        onNone: () => (Option.isNone(changed) ? notify(false, [], row) : Option.none()),
+        onSome: ({ sequence, at, change }) =>
+            Event.Changed.fields.change.matchOrElse(
+                change,
+                {
+                    opened: (opening) => (WINDOWED(opening.kind) && !stated(opening.container, sequence) ? notify(false, [new Line({ head: head(opening) })]) : Option.none()),
+                    closed: (closing) => {
+                        const drives = ({ holds }: (typeof Target)['Service']) => holds.some((hold) => Option.exists(named(hold.instance), (name) => name === closing.front));
+                        const fronted = Array.fromNullishOr(closing.front).flatMap((front) => [`front ${Format.quoted(front)}`, ...(Array.countBy(targets, drives) > (drives(target) ? 1 : 0) ? ["another agent's call"] : [])]);
+                        const left = Option.match(held, { onNone: () => state, onSome: (read) => Context.add(state, Address.Held, Option.some(Address.close(read, sequence, closing.container, [`${closing._tag} ${at}`, ...fronted]))) });
+                        const shown = (WINDOWED(closing.kind) || closing.front !== undefined) && !stated(closing.container, sequence);
+                        return notify(false, shown ? [new Line({ head: head(closing), facts: fronted })] : [], { ...row, state: left });
+                    },
+                    asking: (asked) => notify(true, [ask(asked)], row),
+                    hidden: ({ _tag, hidden }) => notify(false, [new Line({ head: [application, _tag], value: `${hidden}` })]),
+                    status: ({ status }) => {
+                        const lasted = Option.zipWith(Option.flatMap(stalled, DateTime.make), DateTime.make(at), (began, ended) => `stalled ${Format.duration(DateTime.distance(began, ended))}`);
+                        const facts = [...Instance.State.Status.matchOrElse(status, { unresponsive: ({ thread }) => [`main thread ${thread}`] }, Array.empty<string>), ...Option.toArray(lasted)];
+                        return Option.isSome(stalled) === Instance.State.Status.isAnyOf(['unresponsive'])(status) ? Option.none() : notify(true, [new Line({ head: [application, status._tag], facts })], { key: instance });
+                    },
+                    announced: ({ _tag, text, priority }) => notify(false, [new Line({ head: [application, _tag], value: Format.quoted(text), facts: priority === 'high' ? [`priority ${priority}`] : [] })]),
+                    proven: ({ _tag, followed: posted, drawn }) => {
+                        const [owed, key] = [Context.get(state, Proving), { instance, followed: posted }];
+                        return Option.flatMap(HashMap.get(owed, key), (step) => notify(true, [new Line({ head: [application, _tag, ...cite(step)], facts: drawn ? ['drawn'] : [] })], { state: Context.add(state, Proving, HashMap.remove(owed, key)) }));
+                    },
+                    logged: ({ _tag, entry: { messageType, subsystem, category, eventMessage } }) => {
+                        const [entries, key] = [Context.get(state, Entries), { subsystem, category, eventMessage }];
+                        const line = new Line({ head: [application, _tag, String.toLowerCase(messageType), subsystem, category].filter(String.isNonEmpty), value: Format.quoted(eventMessage) });
+                        return HashSet.has(entries, key) ? Option.none() : notify(false, [line], { state: Context.add(state, Entries, HashSet.add(entries, key)) });
+                    },
+                    reported: ({ _tag, report }) => Option.flatMap(stalled, () => notify(true, [new Line({ head: [application, _tag, report.kind], value: Format.path(report.url), facts: Array.fromNullishOr(report.event).map((cause) => `event ${cause}`) })])),
+                    sampled: ({ _tag, report }) => Option.flatMap(stalled, () => notify(true, [new Line({ head: [application, _tag], value: Format.path(report) })])),
+                    exited: ({ _tag, termination }) => {
+                        const ended = Instance.State.Termination.match(termination, { status: ({ status }) => (status === 0 ? [] : [`status ${status}`]), signal: ({ signal }) => [`signal ${signal}`], unread: ({ failure }) => [failure.message] });
+                        const pending = termination.reportPending === true;
+                        const report = Array.fromNullishOr(termination.report).map((read) => Result.match(read, { onSuccess: ({ kind, url }) => `${kind} report ${Format.path(url)}`, onFailure: ({ message }) => message }));
+                        const facts = [...ended, ...(termination.detail ?? []).map(String.noCase()), ...(pending ? ['report pending'] : []), ...report, ...(targets.some((each) => each.quitting(instance)) ? ['quit by another agent'] : [])];
+                        const left = { ...row, key: instance, state: pending ? state : Context.add(state, Target, target.without([instance])) };
+                        return target.quitting(instance) ? notify(false, [], left) : notify(true, [new Line({ head: [application, _tag], facts })], left);
+                    },
+                },
+                () => Option.none(),
+            ),
     });
 };
 const admit = (call: number, state: Context.Context<never>) => {
-    const open = Context.get(state, Proving);
-    const lapsed = HashMap.filter(open, (step) => step.call < call);
-    const lines = Array.sort(HashMap.toValues(lapsed), Order.Struct({ call: Number.Order, step: Number.Order })).map((step) => new Line({ head: posted(step), value: 'no change seen' }));
-    return Option.liftPredicate({ text: Report.text(new Report({ lines })), push: false, state: Context.add(state, Proving, HashMap.removeMany(open, HashMap.keys(lapsed))) }, () => Array.isReadonlyArrayNonEmpty(lines));
+    const owed = Context.get(state, Proving);
+    const lapsed = HashMap.filter(owed, (step) => step.call < call);
+    const lines = Array.sort(HashMap.toValues(lapsed), Order.Struct({ call: Number.Order, step: Number.Order })).map((step) => new Line({ head: cite(step), value: 'no change seen' }));
+    return Array.isReadonlyArrayEmpty(lines) ? Option.none() : notify(false, lines, { state: Context.add(state, Proving, HashMap.removeMany(owed, HashMap.keys(lapsed))) });
 };
-const press = (key: string) => ApplicationServer.use(({ activate }) => Effect.flatMap(Schema.decodeEffect(Instance.fields.instance)(key), (instance) => Effect.asVoid(activate({ instance }))));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Notices = {
+const Notice = {
+    Proving,
     layer: Layer.effectDiscard(
         Effect.gen(function* () {
-            const [server, served, aims] = yield* Effect.all([ApplicationServer, Server, Ref.make<readonly (typeof Target)['Service'][]>([])]);
-            const left = served.states(Target).pipe(
+            const [server, served, targets] = yield* Effect.all([ApplicationServer, Server, Ref.make<Occurrence['targets']>([])]);
+            const retargeted = served.states(Target).pipe(
                 Stream.changes,
-                Stream.tap((held) => Ref.set(aims, held)),
-                Stream.as(Option.none<Event>()),
+                Stream.tap((held) => Ref.set(targets, held)),
+                Stream.as(Option.none<typeof Event.Changed.Type>()),
             );
-            const stream = Stream.merge(Stream.map(server.changes, Option.some), left).pipe(
-                Stream.mapEffect((change) => Effect.zipWith(SubscriptionRef.get(server.running), Ref.get(aims), (rows, held) => ({ change, rows, aims: held }))),
-                Stream.mapAccum(Function.constant(UNSEEN), raise),
+            const stream = Stream.merge(Stream.map(server.changes, Option.some), retargeted).pipe(
+                Stream.mapEffect((changed) => Effect.map(Ref.get(targets), (held) => ({ changed, targets: held }))),
+                Stream.mapAccum((): Standing => HashMap.empty(), observe),
             );
-            yield* served.events({ stream, route, admit, press: (key) => Effect.provideService(press(key), ApplicationServer, server) });
+            yield* served.events({ stream, route, admit, press: (key) => Effect.flatMap(Schema.decodeEffect(Instance.fields.instance)(key), (instance) => Effect.asVoid(server.activate({ instance }))) });
         }),
     ),
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Notices, Proving, press, route };
+export { Notice };

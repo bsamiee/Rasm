@@ -129,7 +129,7 @@ extension Installation {
         return listings.removeDuplicates()
     }
 
-    package static func handlers(of document: URL, matching predicate: NSPredicate) async throws(ApplicationFailure) -> Listing {
+    package static func opening(_ document: URL, matching predicate: NSPredicate) async throws(ApplicationFailure) -> Listing {
         let subject = document.isFileURL ? document.path(percentEncoded: false) : document.absoluteString
         if document.isFileURL {
             do { _ = try document.checkResourceIsReachable() } catch { throw ApplicationFailure(subject: subject, reason: .foundation(error as NSError)) }

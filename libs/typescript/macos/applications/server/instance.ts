@@ -4,8 +4,8 @@ import { ApplicationFailure } from '#/server/failure';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const spent = { cpu: Schema.Finite, runnable: Schema.Finite, pageWait: Schema.Finite, diskBytesRead: Schema.Finite, diskBytesWritten: Schema.Finite };
-const Usage = Schema.Struct({ ...spent, footprint: Schema.Finite, assertions: Schema.String.pipe(Schema.Array, Schema.optionalKey), assertionsFailure: Schema.optionalKey(Schema.String) });
+const spent = { cpu: Schema.DurationFromMillis, runnable: Schema.DurationFromMillis, pageWait: Schema.DurationFromMillis, diskBytesRead: Schema.Finite, diskBytesWritten: Schema.Finite };
+const Usage = Schema.Struct({ ...spent, footprint: Schema.Finite, powerAssertions: Schema.String.pipe(Schema.Array, ApplicationFailure.read) });
 const Report = Schema.Struct({
     url: Schema.URLFromString,
     kind: Schema.Literals(['crash', 'hang', 'diag', 'spin']),
@@ -34,20 +34,18 @@ const Report = Schema.Struct({
 });
 const ended = {
     detail: Schema.Literals(['memory', 'codeSigning', 'decryption']).pipe(Schema.Array, Schema.optionalKey),
-    reporting: Schema.optionalKey(Schema.Boolean),
-    report: Schema.optionalKey(Report),
-    reportFailure: Schema.optionalKey(Schema.String),
+    reportPending: Schema.optionalKey(Schema.Boolean),
+    report: Schema.optionalKey(ApplicationFailure.read(Report)),
 };
-const Termination = Schema.TaggedUnion({ status: { status: Schema.Int, ...ended }, signal: { signal: Schema.Int, ...ended }, statusFailure: { statusFailure: Schema.String, ...ended } });
+const Termination = Schema.TaggedUnion({ status: { status: Schema.Int, ...ended }, signal: { signal: Schema.Int, ...ended }, unread: { failure: ApplicationFailure.Stated, ...ended } });
 const Status = Schema.TaggedUnion({ launching: {}, responding: {}, unresponsive: { thread: Schema.Literals(['running', 'runnable', 'throttled', 'uninterruptible', 'sleeping', 'stopped', 'traced']) } });
 const State = Object.assign(
     Schema.Union([
         Schema.TaggedStruct('running', {
             active: Schema.Boolean,
             status: Status,
-            pendingEventAge: Schema.optionalKey(Schema.Finite),
-            usage: Schema.optionalKey(Schema.Struct({ cause: Schema.Literals(['running', 'runnable', 'paging', 'reading', 'writing', 'idle']), duration: Schema.Finite, ...spent, end: Usage })),
-            usageFailure: Schema.optionalKey(Schema.String),
+            pendingEventAge: Schema.optionalKey(Schema.DurationFromMillis),
+            usage: Schema.optionalKey(ApplicationFailure.read(Schema.Struct({ cause: Schema.Literals(['running', 'runnable', 'paging', 'reading', 'writing', 'idle']), duration: Schema.DurationFromMillis, ...spent, end: Usage }))),
             windows: Schema.Array(
                 Schema.Struct({
                     number: Element.WindowNumber,
@@ -56,14 +54,13 @@ const State = Object.assign(
                     onScreen: Schema.Boolean,
                     hidden: Schema.Boolean,
                     container: Schema.optionalKey(Element.Ref),
-                    kind: Schema.optionalKey(Element.Container.fields.kind),
+                    kind: Schema.optionalKey(Element.cases.container.fields.kind),
                     document: Schema.optionalKey(Schema.String),
                     asking: Schema.Boolean,
                     presented: Schema.Boolean,
                 }),
             ),
-            statusItems: Schema.optionalKey(Schema.Natural),
-            statusItemsFailure: Schema.optionalKey(Schema.String),
+            statusItems: Schema.optionalKey(ApplicationFailure.read(Schema.Natural)),
         }),
         Schema.TaggedStruct('failed', ApplicationFailure.stated),
         Schema.TaggedStruct('exited', { termination: Termination }),
@@ -77,11 +74,9 @@ class Instance extends Schema.Class<Instance, { readonly brand: unique symbol }>
     url: Schema.URL,
     language: Schema.optionalKey(Schema.String),
     launchDate: Schema.optionalKey(Schema.DateTimeUtcFromString),
-    usage: Schema.optionalKey(Usage),
-    usageFailure: Schema.optionalKey(Schema.String),
+    usage: Schema.optionalKey(ApplicationFailure.read(Usage)),
     state: State,
-    listening: Schema.Array(Schema.Int),
-    listeningFailure: Schema.optionalKey(Schema.String),
+    listeningPorts: Schema.Int.pipe(Schema.Array, ApplicationFailure.read),
 }) {
     static readonly State = State;
     static readonly Report = Report;

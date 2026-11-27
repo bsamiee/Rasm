@@ -59,7 +59,7 @@ package actor Watches {
         guard let found else { throw ApplicationFailure(subject: "The instance", reason: process.hasExited ? .absent : .cancelled) }
         let application: NSRunningApplication = found.application
         guard matching().evaluate(bundleIdentifier: application.bundleIdentifier, displayName: application.localizedName, bundle: application.bundleURL) else {
-            throw ApplicationFailure(subject: application.name, reason: .unclaimed)
+            throw ApplicationFailure(subject: application.name, reason: .outsideClaim)
         }
         return found
     }

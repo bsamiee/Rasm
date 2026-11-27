@@ -393,7 +393,7 @@ extension ScriptingDictionary {
             case (.failure(let error), _), (.success, .failure(let error)): throw AppleEventFailure(subject: "staged copy of \(subject)", reason: .foundation(error as NSError))
             case (.success, .success): break
         }
-        guard status == noErr, let definition else { throw AppleEventFailure(subject: subject, reason: .osa(status)) }
+        guard status == noErr, let definition else { throw AppleEventFailure(subject: subject, reason: .osa(AppleEventFailure.Status(status))) }
         return definition as Data
     }
 

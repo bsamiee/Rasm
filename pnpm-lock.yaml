@@ -1036,9 +1036,6 @@ importers:
       '@rasm/applications':
         specifier: workspace:*
         version: link:../../macos/applications
-      '@rasm/mcp':
-        specifier: workspace:*
-        version: link:../../ai/mcp
       '@rasm/object-model':
         specifier: workspace:*
         version: link:../object-model
@@ -1064,12 +1061,6 @@ importers:
 
   libs/typescript/creative-cloud/premierepro:
     dependencies:
-      '@rasm/applications':
-        specifier: workspace:*
-        version: link:../../macos/applications
-      '@rasm/mcp':
-        specifier: workspace:*
-        version: link:../../ai/mcp
       '@rasm/object-model':
         specifier: workspace:*
         version: link:../object-model
@@ -1901,9 +1892,6 @@ importers:
 
   products/apps/creative-cloud/mediaencoder/atelier:
     dependencies:
-      '@rasm/applications':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/macos/applications
       '@rasm/mediaencoder':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/mediaencoder

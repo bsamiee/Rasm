@@ -319,21 +319,6 @@ extension AXUIElement {
         }
     }
 
-    func search(_ text: String, key: NSAccessibilitySearchKey, limit: Int) throws(ApplicationFailure) -> [AXUIElement] {
-        let attribute: String = NSAccessibility.ParameterizedAttribute.uiElementsForSearchPredicateParameterizedAttribute.rawValue
-        var names: CFArray?
-        let listed: AXError = unsafe AXUIElementCopyParameterizedAttributeNames(self, &names)
-        guard [.success, .noValue, .attributeUnsupported, .parameterizedAttributeUnsupported].contains(listed) else { throw failure(listed, reading: attribute) }
-        guard (names as? [String])?.contains(attribute) == true else {
-            return Array(try elements(kAXWindowsAttribute).map { window throws(ApplicationFailure) -> [AXUIElement] in try window.search(text, key: key, limit: limit) }.joined().prefix(limit))
-        }
-        let predicate: [String: Any] = [
-            NSAccessibilitySearchIdentifiersKey: [key.rawValue], NSAccessibilitySearchResultsLimitKey: limit, NSAccessibilitySearchDirectionKey: NSAccessibilitySearchDirectionNext,
-        ]
-        let found = try parameterized(attribute, predicate.merging(text.isEmpty ? [:] : [NSAccessibilitySearchTextKey: text]) { first, _ in first } as CFDictionary)
-        return (found as? [AnyObject] ?? []).compactMap(Self.cast)
-    }
-
     func runs(interning intern: (AXUIElement) -> Int) throws(ApplicationFailure) -> [Control.Run] {
         guard case .range(let start, let length) = copy([kAXVisibleCharacterRangeAttribute], interning: intern).facts[kAXVisibleCharacterRangeAttribute] else { return [] }
         var visible = CFRange(location: start, length: length)

@@ -3,28 +3,33 @@ import { Element } from '@rasm/applications/server/element';
 import { Event } from '@rasm/applications/server/event';
 import { Call, Format, Line, Report } from '@rasm/mcp/report';
 import { Handle, Server } from '@rasm/mcp/server';
-import { Array, Context, Duration, Effect, Fiber, HashSet, Match, Number, Option, Order, pipe, Record, Result, Schema, Stream, Struct } from 'effect';
+import { Array, Context, Duration, Effect, Fiber, HashSet, Match, Number, Option, Record, Result, Schema, Stream, Struct, UndefinedOr } from 'effect';
 import { Tool } from 'effect/ai';
 import { Act } from '#/act';
-import { Address, type Index, Indexed, type Item, read } from '#/handle/address';
+import { Address } from '#/handle/address';
 import { Outline } from '#/handle/outline';
-import { current } from '#/handle/target';
+import { Target } from '#/handle/target';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Clipboard = Schema.Literal('clipboard');
 const tool = Tool.make('inspect', {
-    description: 'Reads the interface of the target as an outline of containers and controls, each led by the reference act and view take: every container, one container or control alone, the clipboard, or a search of what shows now and what the interface map remembers',
+    description: 'Reads the target interface as an outline of containers and controls, each led by a reference act and view take, and searches what shows now with what its interface map remembers',
     parameters: Schema.Struct({
         in: Schema.optionalKey(
-            Schema.Union([Schema.Literal('clipboard'), Address.At]).annotate({
-                description: 'Container, control, or remembered path read alone: a menu item reads its menu, a multi its rows, a text control its style runs with fonts and colors, any other control its value, range, state, frame, and actions; clipboard reads the clipboard; every container when absent',
+            Schema.Union([Clipboard, Address.At]).annotate({
+                description: `Container or control read alone, by reference or path: a menu item reads its menu, a multi ${Outline.rows} of its rows, a text control its style runs, any other control its value, range, frame, and actions; clipboard reads the clipboard, and every container reads when absent`,
             }),
         ),
-        find: Schema.optionalKey(Schema.String.annotate({ description: 'Text searched in labels, values, and help of every container shown and remembered, or of in alone' })),
-        kind: Schema.optionalKey(Element.Control.fields.kind.annotate({ description: 'Element.Control.fields.kind of control find keeps, or every control of that kind without find' })),
-        unopened: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Lists the items whose menu, popover, dialog, or options the interface map never read' })),
-        after: Schema.optionalKey(Address.At.annotate({ description: 'Reference the page starts after, as a more line names it' })),
-        wait: Schema.optionalKey(Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 60, exclusiveMinimum: true })).annotate({ description: 'Most seconds to wait for a change of the target, returning at once when it changed since your last read' })),
+        find: Schema.optionalKey(Schema.String.annotate({ description: 'Text searched in labels, values, and help of everything shown and remembered, or of in alone; each hit prints the reference or path act takes' })),
+        kind: Schema.optionalKey(Element.cases.control.fields.kind.annotate({ description: 'Kind of control find keeps, or every control of that kind without find' })),
+        unopened: Schema.optionalKey(Schema.Boolean.annotate({ description: 'true lists the items whose menu, dialog, popover, or options the interface map never saw open' })),
+        after: Schema.optionalKey(Address.At.annotate({ description: 'Reference a more line names, continuing its list' })),
+        wait: Schema.optionalKey(
+            Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 60, exclusiveMinimum: true })).annotate({
+                description: 'Most seconds to wait for a change of the target, none when it changed since your last read; act results already list what their steps changed',
+            }),
+        ),
     }),
     success: Report.schema,
     failure: Schema.ErrorInstance(),
@@ -39,73 +44,23 @@ const tool = Tool.make('inspect', {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const runOf = (held: Index, ref: number) =>
-    held.shown.flatMap(({ controls }) =>
-        pipe(
-            controls,
-            Array.dropWhile(({ control }) => control.ref !== ref),
-            Array.drop(1),
-            Array.takeWhile(({ control }) => control.kind === 'row' || control.row !== undefined),
-        ),
-    );
-const rowsOf = (held: Index, ref: number) => runOf(held, ref).filter(({ control }) => control.kind === 'row');
-const partialOf = (held: Index) =>
-    held.shown
-        .flatMap(({ controls }) => controls)
-        .filter(({ control }) => control.kind === 'multi')
-        .flatMap(({ control, item }) => {
-            const from = rowsOf(held, control.ref).length;
-            const count = (control.total ?? 0) - from;
-            return count > 0 ? [{ ref: control.ref, from, count, token: item.token }] : [];
-        });
-const membersOf = (held: Index, { target }: Item): readonly Item[] =>
-    Match.value(target).pipe(
-        Match.tag('Container', ({ container }) => held.shown.filter((shown) => shown.container.ref === container.ref).flatMap(({ controls }) => controls.map(Struct.get('item')))),
-        Match.tag('Control', ({ control }) => runOf(held, control.ref).map(Struct.get('item'))),
-        Match.tag('RememberedContainer', ({ locator }) => Option.getOrElse(Record.get(held.remembered.controls, locator), Array.empty<Item>)),
-        Match.orElse(() => held.items),
-    );
-const scopeOf = (start: Option.Option<Item>, whole: boolean) => {
-    const from = start.pipe(
-        Option.flatMap(({ target }) => (target._tag === 'Control' ? Option.fromUndefinedOr(target.control.index) : Option.none())),
-        Option.match({ onNone: () => 0, onSome: Number.increment }),
-    );
-    return ({ target }: Item): Option.Option<typeof Element.Scope.Type> =>
-        Match.value(target).pipe(
-            Match.when({ _tag: 'Control', control: { kind: 'multi' } }, ({ control }) => Option.some({ _tag: 'rows' as const, ref: control.ref, from, count: whole ? Math.max(1, (control.total ?? Outline.rows) - from) : Outline.rows })),
-            Match.when({ _tag: 'Control', control: { kind: 'text' } }, ({ control }) => Option.some({ _tag: 'text' as const, ref: control.ref })),
-            Match.when({ _tag: 'Control', control: { kind: (kind: typeof Element.Control.fields.kind.Type) => kind !== 'choice', opens: Match.number } }, ({ control }) => Option.some({ _tag: 'menu' as const, ref: control.ref })),
-            Match.tag('Container', 'Control', ({ container }) => Option.some({ _tag: 'container' as const, ref: container.ref })),
-            Match.orElse(() => Option.none()),
-        );
-};
-const scrollOf = (multi: string, fact: string) => new Line({ head: [multi], facts: [fact], call: new Call({ tool: Act.tool.name, given: { steps: [{ pointer: multi, by: [0, -400], button: 'none' }] } }), pinned: true });
-const answerOf = ({ container, item, controls }: Index['shown'][number]) =>
-    Option.all({ asking: item.token, ref: Option.fromUndefinedOr(container.default ?? controls.find(({ control }) => control.kind === 'action')?.control.ref) }).pipe(
-        Option.map(({ asking, ref }) => new Line({ head: [asking, Outline.say.asking], call: new Call({ tool: Act.tool.name, given: { steps: [{ at: Address.token('action', ref) }] } }), pinned: true })),
-    );
+const descend = (read: Address, ref: typeof Element.Ref.Type): ReturnType<typeof Address.list> => Option.toArray(Address.get(read, ref)).flatMap((node) => [node, ...node.element.children.flatMap((child) => descend(read, child.ref))]);
+const list = (multi: typeof Element.cases.control.Type) => multi.children.filter(Element.isAnyOf(['control'])).filter((child) => child.kind === 'row');
+const scroll = (multi: string, fact: string) => new Line({ head: [multi], facts: [fact], call: new Call({ tool: Act.tool.name, given: { steps: [{ pointer: multi, by: [0, -400], button: 'none' }] } }), pinned: true });
 const Inspect = {
     tool,
-    handle: Effect.fnUntraced(function* ({ in: within, find: query, kind, after, wait, unopened = false }: Tool.Parameters<typeof tool>) {
-        const [server, aimed] = yield* Effect.all([ApplicationServer, current]);
-        const { changes } = server;
-        const { row, live } = aimed;
-        if (within === 'clipboard') {
-            const pasteboard = yield* server.pasteboard({ content: true });
-            const [subject, clipboard] = yield* Effect.all([Outline.subject(row.name, live), Outline.clipped(live.instance, pasteboard, true)]);
+    run: Effect.fnUntraced(function* ({ in: within, find: query, kind, after, wait, unopened = false }: Tool.Parameters<typeof tool>) {
+        const [server, target, handle] = yield* Effect.all([ApplicationServer, Target.current, Handle]);
+        const { row, live } = target;
+        if (within === Clipboard.literal) {
+            const [subject, clipboard] = yield* Effect.all([Outline.subject(row.name, live), Effect.flatMap(server.pasteboard({ content: true }), (pasteboard) => Outline.clipboard(live.instance, pasteboard, true))]);
             return new Report({ lines: [...subject, ...clipboard] });
         }
         const searched = Option.liftPredicate(Record.getSomes({ find: Option.fromUndefinedOr(query), kind: Option.fromUndefinedOr(kind), unopened: Option.liftPredicate<Schema.Json>(unopened, Boolean) }), (given) => !Record.isEmptyRecord(given));
-        const last = Handle.use((handle) => handle.get(Indexed));
-        const since = (yield* last).pipe(
-            Option.filter(({ instance }) => instance === live.instance),
-            Option.map(({ index }) => index.model.containers.flatMap(({ ref }) => Option.toArray(Record.get(index.reads, `${ref}`)).map(Struct.get('sequence')))),
-            Option.filter(Array.isArrayNonEmpty),
-            Option.map(Array.max(Order.Number)),
-        );
+        const before = Option.filter(yield* handle.get(Address.Held), ({ instance }) => instance === live.instance);
         const next = yield* Option.fromUndefinedOr(wait).pipe(
             Option.map((seconds) =>
-                changes.pipe(
+                server.changes.pipe(
                     Stream.filter(({ instance }) => instance === live.instance),
                     Stream.runHead,
                     Effect.timeoutOption(Duration.seconds(seconds)),
@@ -115,62 +70,90 @@ const Inspect = {
             ),
             Effect.transposeOption,
         );
-        const [opening, [elapsed, first], closing] = yield* Effect.all([server.traffic, Effect.timed(read(aimed)), server.traffic]);
+        const [opening, [elapsed, first], closing] = yield* Effect.all([server.traffic, Effect.timed(Address.read(target)), server.traffic]);
         yield* Effect.when(
             Effect.annotateLogs(Effect.logInfo('Inspect read'), { application: row.identifier, build: Option.getOrElse(first.map.coverage.build, () => 'unmapped'), calls: closing.requests - opening.requests, bytes: closing.bytes - opening.bytes, milliseconds: Duration.toMillis(elapsed) }),
             Effect.succeed(within === undefined && Option.isNone(searched)),
         );
-        const waited = Option.filter(next, () => Option.exists(since, (seen) => first.application.sequence <= seen));
-        const event = Option.flatten(yield* Effect.transposeOption(Option.map(waited, Fiber.join)));
-        const { application, map, indexed, level, base } = Option.isSome(waited) ? yield* read(aimed) : first;
+        const waiting = Option.filter(next, () => Option.exists(before, ({ model }) => first.model.sequence <= model.sequence));
+        const event = Option.flatten(yield* Effect.transposeOption(Option.map(waiting, Fiber.join)));
+        const read = Option.isSome(waiting) ? yield* Address.read(target) : first;
+        const idle = Option.fromUndefinedOr(wait).pipe(
+            Option.filter(() => Option.isSome(waiting) && Option.isNone(event)),
+            Option.map((seconds) => `no change in ${Format.duration(Duration.seconds(seconds))}`),
+        );
         const changed = event.pipe(
-            Option.flatMap(({ change }) => (Event.fields.change.isAnyOf(['focused', 'value', 'selection'])(change) ? Option.some(change.control) : Option.none())),
+            Option.map(({ change }) => change),
+            Option.filter(Event.Changed.fields.change.isAnyOf(['focused', 'value', 'selection'])),
+            Option.map(({ control }) => control),
             Option.toArray,
             HashSet.fromIterable,
         );
-        const recalled = Address.recall(base)(map);
-        const lookup = (at: string | undefined) => Result.transposeMapOption(Option.fromUndefinedOr(at), (given) => Result.orElse(Address.resolve(base, given), () => Address.resolve(recalled, given)));
-        const [scope, start] = yield* Effect.fromResult(Result.all([lookup(within), lookup(after)]));
+        const resolve = (at: string | undefined) => Result.transposeMapOption(Option.fromUndefinedOr(at), (given) => Address.resolve(read, given));
+        const [scope, start] = yield* Effect.fromResult(Result.all([resolve(within), resolve(after)]));
         const shelved = scope.pipe(
-            Option.flatMap(({ target }) => (target._tag === 'Control' ? Option.some(target.control) : Option.none())),
-            Option.filter(({ opens }) => opens !== undefined && !Option.exists(Record.get(base.live, `${opens}`), ({ target }) => target._tag === 'Container')),
-            Option.flatMap(({ locator }) => map.level(locator)),
-            Option.flatMap(({ locator }) => Record.get(recalled.located, locator)),
-            Option.flatMap(Array.findFirst((each: Item) => !each.live)),
+            Option.flatMap((node) => (node.live && node.element._tag === 'control' ? Option.some(node.element) : Option.none())),
+            Option.filter(({ opens }) => opens !== undefined && !Option.exists(Address.get(read, opens), ({ element }) => element.ref === opens)),
+            Option.flatMap(({ locator }) => read.map.level(locator)),
+            Option.flatMap(({ locator }) => Array.findFirst(Address.locate(read, locator), (each) => !each.live)),
         );
-        const reading = Option.flatMap(
-            Option.filter(scope, () => Option.isNone(shelved)),
-            scopeOf(start, Option.isSome(searched)),
+        const offset = start.pipe(
+            Option.flatMap((node) => (node.live && node.element._tag === 'control' ? Option.fromUndefinedOr(node.element.index) : Option.none())),
+            Option.match({ onNone: () => 0, onSome: Number.increment }),
         );
-        const fresh = yield* Effect.transposeOption(Option.map(reading, level));
-        const index = Option.match(fresh, { onNone: () => (Option.isSome(shelved) || [scope, start].some(Option.exists((each: Item) => !each.live)) ? recalled : base), onSome: ({ containers }) => indexed(containers) });
-        const opened = Option.filter(fresh, () => Option.exists(reading, Element.Scope.isAnyOf(['menu']))).pipe(
-            Option.flatMap(({ containers }) => Array.head(containers)),
-            Option.flatMap(({ ref }) => Record.get(index.live, `${ref}`)),
+        const reading = Option.filter(scope, () => Option.isNone(shelved)).pipe(
+            Option.flatMap((node): Option.Option<typeof Element.Scope.Type> =>
+                Match.value(node).pipe(
+                    Match.when({ live: true, element: { _tag: 'control', kind: 'multi' } }, ({ element }) => Option.some({ _tag: 'rows' as const, ref: element.ref, from: offset, count: Outline.rows })),
+                    Match.when({ live: true, element: { _tag: 'control', kind: 'text' } }, ({ element }) => Option.some({ _tag: 'text' as const, ref: element.ref })),
+                    Match.when({ live: true, element: { _tag: 'control', kind: (held: (typeof Element.cases.control.Type)['kind']) => held !== 'choice', opens: Match.number } }, ({ element }) => Option.some({ _tag: 'menu' as const, ref: element.ref })),
+                    Match.when({ live: true }, ({ containers }) => Option.some({ _tag: 'container' as const, ref: Array.lastNonEmpty(containers).ref })),
+                    Match.orElse(() => Option.none()),
+                ),
+            ),
         );
-        const partial = Option.isSome(searched) && Option.isNone(scope) && !unopened ? partialOf(base) : [];
-        yield* Effect.forEach(partial, ({ ref, from, count }) => Effect.option(level({ _tag: 'rows', ref, from, count })), { discard: true });
-        const merged = Option.match(yield* last, { onNone: () => base, onSome: Struct.get('index') });
-        const unread = Array.isReadonlyArrayEmpty(partial) ? [] : partialOf(merged).flatMap(({ token, count }) => Option.toArray(token).map((multi) => scrollOf(multi, `${Format.count(count, Outline.nouns.row)} unread`)));
+        const level = yield* Effect.transposeOption(Option.map(reading, (asked) => Address.read(target, asked)));
+        const shown = Option.getOrElse(
+            Option.filter(level, ({ model }) => Array.isReadonlyArrayNonEmpty(model.elements)),
+            () => read,
+        );
+        const menu = Option.filter(level, () => Option.exists(reading, Element.Scope.isAnyOf(['menu']))).pipe(Option.flatMap((held) => Option.flatMap(Array.head(held.model.elements), ({ ref }) => Address.get(held, ref))));
+        const page = Option.filter(reading, Element.Scope.isAnyOf(['rows']));
+        const at = Option.firstSomeOf([shelved, menu, scope]);
+        const resume = Option.isSome(page) ? Option.none() : start;
+        const multis = Option.isSome(searched) && Option.isNone(scope) && !unopened ? read.model.elements.flatMap(({ ref }) => descend(read, ref)).map(({ element }) => element) : [];
+        const unlisted = multis
+            .filter(Element.isAnyOf(['control']))
+            .filter((held) => held.kind === 'multi')
+            .map((multi) => ({ token: Address.refer(multi.kind, multi.ref), rows: { _tag: 'rows' as const, ref: multi.ref, from: list(multi).length, count: (multi.total ?? 0) - list(multi).length } }))
+            .filter(({ rows }) => rows.count > 0);
+        const fills = yield* Effect.forEach(unlisted, ({ rows }) => Effect.option(Address.read(target, rows)));
+        const unread = Array.zip(unlisted, fills).flatMap(([asked, fill]) => {
+            const filled = fill.pipe(
+                Option.flatMap((held) => Address.get(held, asked.rows.ref)),
+                Option.map(({ element }) => element),
+                Option.filter(Element.isAnyOf(['control'])),
+            );
+            const left = asked.rows.count - Option.match(filled, { onNone: () => 0, onSome: (multi) => list(multi).length });
+            return left > 0 ? [scroll(asked.token, `${Format.count(left, Outline.nouns.row)} unread`)] : [];
+        });
+        const merged = Option.getOrElse(yield* handle.get(Address.Held), () => read);
         const lines = yield* Effect.fromResult(
             Option.match(searched, {
-                onNone: () => Outline.render(index, { in: Option.firstSomeOf([shelved, opened, scope]), after: Option.exists(reading, Element.Scope.isAnyOf(['rows'])) ? Option.none() : start, changed }),
+                onNone: () => Outline.render(shown, { in: at, after: resume, changed }),
                 onSome: (given) => {
-                    const pool = Match.value({ unopened, scope }).pipe(
-                        Match.when({ unopened: true }, () => ({ ...recalled, items: map.coverage.openers.flatMap(({ control }) => Option.getOrElse(Record.get(recalled.located, control), Array.empty<Item>)) })),
-                        Match.when({ scope: Option.isSome }, ({ scope: { value } }) => ({ ...index, items: membersOf(index, value) })),
-                        Match.orElse(() => Address.recall(merged)(map)),
-                    );
-                    const hits = Address.find(pool, query ?? '', Option.fromUndefinedOr(kind));
-                    const empty = Array.isReadonlyArrayEmpty(hits) ? [new Line({ head: [Outline.nouns.match.other], value: Format.count(hits.length) })] : [];
-                    return Result.map(Outline.hits(hits, given, { after: start, opening: Option.some(recalled) }), Array.appendAll([...empty, ...unread]));
+                    const under = Option.map(at, (node) => (node.live ? Array.drop(descend(shown, node.element.ref), 1) : Address.recall(merged, node.element.locator)));
+                    const among = unopened ? merged.map.coverage.openers.flatMap(({ control }) => Address.locate(merged, control)) : Option.getOrUndefined(under);
+                    const found = Address.find(merged, query ?? '', Option.fromUndefinedOr(kind), among);
+                    const none = Array.isReadonlyArrayEmpty(found) ? [new Line({ head: [Outline.nouns.match.other], value: Format.count(found.length) })] : [];
+                    return Result.map(Outline.hits(merged, found, { ...given, ...UndefinedOr.map(within, (held) => ({ in: held })) }, resume), Array.appendAll([...none, ...unread]));
                 },
             }),
         );
-        const { tool: active, shortcut, help, holding = [], operations = [], cursor, draggingFrame } = application.pointer ?? {};
+        const { tool: active, shortcut, help, holding = [], operations = [], cursor, draggingFrame } = read.model.pointer ?? {};
         const others = Option.fromUndefinedOr(cursor).pipe(
             Option.filter(Element.Pointer.fields.cursor.schema.guards.custom),
-            Option.flatMap(({ digest }) => map.cursor(digest)),
+            Option.flatMap(({ digest }) => read.map.cursor(digest)),
             Option.map((tools) => Record.keys(tools).filter((named) => named !== active)),
             Option.filter(Array.isArrayNonEmpty),
         );
@@ -183,29 +166,45 @@ const Inspect = {
             ...(draggingFrame === undefined ? [] : ['dragging']),
             ...Array.fromNullishOr(help).map((text) => `help: ${Format.quoted(text)}`),
         ];
-        const rows = Option.all({ in: Option.flatMap(scope, Struct.get('token')), page: Option.filter(reading, Element.Scope.guards.rows) });
-        const listed = Option.match(rows, { onNone: Array.empty, onSome: ({ page }) => rowsOf(index, page.ref) });
-        const total = Option.flatMap(scope, ({ target }) => (target._tag === 'Control' ? Option.fromUndefinedOr(target.control.total) : Option.none()));
-        const more = Option.all({ rows, at: Option.flatMap(Array.last(listed), ({ item }) => item.token) }).pipe(
-            Option.filter(({ rows: { page } }) => Option.match(total, { onNone: () => listed.length >= page.count, onSome: (held) => page.from + listed.length < held })),
-            Option.map(({ rows: { in: multi, page }, at }) => new Line({ head: ['more'], call: new Call({ tool: tool.name, given: { in: multi, after: at } }), pinned: true, ...Option.getOrUndefined(Option.map(total, (held) => ({ value: Format.count(held - page.from - listed.length) }))) })),
-        );
-        const unloaded = Option.all({ rows, at: Option.flatMap(start, Struct.get('token')) }).pipe(
-            Option.filter(() => Array.isReadonlyArrayEmpty(listed)),
-            Option.map(({ rows: { in: multi }, at }) => scrollOf(multi, `rows after ${at} not loaded`)),
+        const continuation = Option.gen(function* () {
+            const asked = yield* page;
+            const multi = yield* Option.filter(
+                Option.map(Address.get(shown, asked.ref), ({ element }) => element),
+                Element.isAnyOf(['control']),
+            );
+            const [rows, token] = [list(multi), Address.refer(multi.kind, multi.ref)];
+            const left = UndefinedOr.map(multi.total, (total) => total - asked.from - rows.length);
+            return yield* Option.match(Array.last(rows), {
+                onNone: () =>
+                    Option.map(
+                        Option.flatMap(start, (node) => node.token),
+                        (last) => scroll(token, `rows after ${last} not loaded`),
+                    ),
+                onSome: (last) =>
+                    Option.liftPredicate(new Line({ head: ['more'], ...UndefinedOr.map(left, (count) => ({ value: Format.count(count) })), call: new Call({ tool: tool.name, given: { ...Option.getOrUndefined(searched), in: token, after: Address.refer(last.kind, last.ref) } }), pinned: true }), () =>
+                        UndefinedOr.match(left, { onUndefined: () => rows.length >= asked.count, onDefined: (count) => count > 0 }),
+                    ),
+            });
+        });
+        const answer = Array.findFirst(Address.list(shown), ({ element }) => (element._tag === 'container' && element.asking ? Option.some(element) : Option.none())).pipe(
+            Option.flatMap((held) =>
+                Option.map(
+                    Option.fromUndefinedOr(held.default ?? held.children.find((child) => child._tag === 'control' && child.kind === 'action')?.ref),
+                    (ref) => new Line({ head: [Address.refer(held.kind, held.ref)], facts: Struct.keys(Struct.pick(held, ['asking'])), call: new Call({ tool: Act.tool.name, given: { steps: [{ at: Address.refer('action', ref) }] } }), pinned: true }),
+                ),
+            ),
         );
         return new Report({
             lines: [
-                ...(yield* Outline.subject(row.name, live)),
+                ...(yield* Outline.subject(row.name, live, { facts: Option.toArray(idle) })),
                 ...(active === undefined && Array.isReadonlyArrayEmpty(pointed) ? [] : [new Line({ head: ['pointer'], facts: pointed, ...(active === undefined ? {} : { value: active }) })]),
                 ...lines,
-                ...Option.toArray(more),
-                ...Option.toArray(unloaded),
-                ...Array.findFirst(index.shown, ({ container }) => container.asking).pipe(Option.flatMap(answerOf), Option.toArray),
+                ...Option.toArray(continuation),
+                ...Option.toArray(answer),
             ],
         });
     }, Effect.scoped),
-};
+} as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

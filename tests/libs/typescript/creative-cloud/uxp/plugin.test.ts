@@ -42,13 +42,13 @@ const dialed = Effect.fnUntraced(function* (dialogs: (host: { level: string }) =
         return host.level;
     });
     const sockets = Layer.effect(Socket.WebSocketConstructor)(Effect.map(Socket.WebSocketConstructor, (make) => (url: string) => make(Url.setHost(new URL(url), `127.0.0.1:${port}`).href, { headers: { origin: ORIGIN } }))).pipe(Layer.provide(layerWebSocketConstructor));
-    const described = Description.merge(Description.tools({ current: Effect.map(observed, (id) => ({ id, label: id })), select: () => Effect.void, changes: Stream.never }), { changes: Stream.unwrap(Effect.as(Deferred.succeed(subscribed, undefined), Stream.never)) });
     const link = Plugin.dial({
         application: Effect.succeed('Suite Host'),
         group: EvaluationRpcs,
         toolkit: Probe,
         handlers: Layer.merge(EvaluationRpcs.toLayer({ evaluate: () => Effect.map(observed, (level) => ({ result: Option.some(level) })) }), Probe.toLayer({ probe: () => observed })),
-        source: { ...described, changes: Stream.merge(described.changes, ended) },
+        source: Description.tools({ current: Effect.map(observed, (id) => ({ id, label: id })), select: () => Effect.void, changes: Stream.never }),
+        events: Stream.merge(Stream.unwrap(Effect.as(Deferred.succeed(subscribed, undefined), Stream.never)), ended),
         dialogs: dialogs(host),
     });
     yield* Layer.build(link.pipe(Layer.provide(Layer.merge(Layer.succeed(Plugin)({ id: 'app.rasm.suite', host: { app: 'ID' }, requiredPermissions: { network: { domains: ['https://example.com', 'ws://localhost:7490'] } } }), sockets))));
@@ -57,7 +57,7 @@ const dialed = Effect.fnUntraced(function* (dialogs: (host: { level: string }) =
         links,
         host,
         seen: Effect.sync(() => MutableRef.get(seen)),
-        subscribed: Deferred.await(subscribed).pipe(Effect.timeoutOrElse({ duration: '20 seconds', orElse: () => new Cause.TimeoutError('the events subscription reached no source changes of the suite plugin within 20 seconds') })),
+        subscribed: Deferred.await(subscribed).pipe(Effect.timeoutOrElse({ duration: '20 seconds', orElse: () => new Cause.TimeoutError('the events subscription reached no host events of the suite plugin within 20 seconds') })),
     };
 });
 const raising = (error: Error): never => {

@@ -17,8 +17,6 @@ struct ChildProcessTests {
             try await Configuration(executable: .path("/bin/sh"), arguments: ["-c", "printf 'first\\nlast\\n \\n' >&2; exit 3"]).run(output: .discarded, within: .seconds(10))
         }
         expectNoDifference(failure?.reason, .exit(.exited(3), standardError: "first\nlast\n \n"))
-        let description = try #require(failure?.errorDescription)
-        #expect(description.hasSuffix(", last"))
     }
 
     @Test

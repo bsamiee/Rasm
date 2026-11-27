@@ -1,5 +1,4 @@
-import { Description } from '@rasm/applications/description';
-import type { Element } from '@rasm/applications/server/element';
+import { Description, type Source } from '@rasm/applications/description';
 import { HostError, Specifier } from '@rasm/object-model/model';
 import { Unmatched } from '@rasm/search/unmatched';
 import type { Plugin } from '@rasm/uxp/plugin';
@@ -11,31 +10,31 @@ import { Dom } from '#/uxp/dom';
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const same = Schema.toEquivalence(Description.Locator);
-const roots = Dom.useSync(({ app }): readonly [Description['containers'][number]['locator'], Description['containers'][number]['locator']] => [[[app.menuActions.constructorName, app.constructorName]], [[app.panels.constructorName, app.constructorName]]]);
-const describe = Effect.fn('describe')(function* ({ within }: { readonly within?: Description['containers'][number]['locator'] }) {
-    const [{ app }, [bar, shelf]] = yield* Effect.all([Dom, roots]);
+const roots = Dom.useSync(({ app }): readonly [typeof Description.Locator.Type, typeof Description.Locator.Type] => [[[app.menuActions.constructorName, app.constructorName]], [[app.panels.constructorName, app.constructorName]]]);
+const describe = Effect.fn('describe')(function* ({ within }: Parameters<Source['describe']>[0]) {
+    const [{ app }, [menuRoot, panelRoot]] = yield* Effect.all([Dom, roots]);
     const { panels, menuActions } = app;
-    const areaAt = (named: string) => Array.append(bar, [menuActions.constructorName, named] as const);
-    const levelAt = (named: string) => Array.append(areaAt(named), ['menu' satisfies (typeof Description.Container.Type)['kind'], named] as const);
+    const areaAt = (named: string) => Array.append(menuRoot, [menuActions.constructorName, named] as const);
+    const levelAt = (named: string) => Array.append(areaAt(named), ['menu' satisfies Description['containers'][number]['kind'], named] as const);
     if (within === undefined) {
         return yield* Effect.try({
             try: () =>
                 Description.make({
                     containers: [
                         {
-                            locator: shelf,
+                            locator: panelRoot,
                             kind: 'panel',
                             controls: pipe(
                                 Array.makeBy(panels.length, (index) => Option.fromUndefinedOr(panels.item(index))),
                                 Array.getSomes,
                                 Array.filter(({ name }) => name.length > 0),
-                                Array.map(({ constructorName, name, visible }) => Description.Control.make({ locator: Array.append(shelf, [constructorName, name] as const), kind: 'toggle', role: constructorName, label: { text: name }, value: { _tag: 'bool', value: visible } })),
+                                Array.map(({ constructorName, name, visible }): Description['containers'][number]['controls'][number] => ({ locator: Array.append(panelRoot, [constructorName, name] as const), kind: 'toggle', role: constructorName, label: { text: name }, value: { _tag: 'bool', value: visible } })),
                             ),
                         },
                         {
-                            locator: bar,
+                            locator: menuRoot,
                             kind: 'menuBar',
-                            controls: Array.map(Array.dedupe(menuActions.everyItem().area), (area) => Description.Control.make({ locator: areaAt(area), kind: 'item', role: menuActions.constructorName, label: { text: area }, opens: levelAt(area) })),
+                            controls: Array.map(Array.dedupe(menuActions.everyItem().area), (area): Description['containers'][number]['controls'][number] => ({ locator: areaAt(area), kind: 'item', role: menuActions.constructorName, label: { text: area }, opens: levelAt(area) })),
                         },
                     ],
                 }),
@@ -53,17 +52,16 @@ const describe = Effect.fn('describe')(function* ({ within }: { readonly within?
                         locator: levelAt(area),
                         kind: 'menu',
                         title: area,
-                        parent: bar,
+                        parent: menuRoot,
                         controls: Array.map(
                             Array.filterMap(Array.zip(areas, ids), ([named, id]) => (named === area ? Result.succeed(menuActions.itemByID(id)) : Result.failVoid)),
-                            (action) =>
-                                Description.Control.make({
-                                    locator: Array.append(areaAt(area), [action.constructorName, action.toSpecifier()] as const),
-                                    kind: 'item',
-                                    role: action.constructorName,
-                                    label: { text: action.name },
-                                    ...(Option.isSome(Dom.unavailable(action, 'enabled', false)) ? {} : { enabled: action.enabled, ...(action.checked ? { mark: '✓' } : {}) }),
-                                }),
+                            (action): Description['containers'][number]['controls'][number] => ({
+                                locator: Array.append(areaAt(area), [action.constructorName, action.toSpecifier()] as const),
+                                kind: 'item',
+                                role: action.constructorName,
+                                label: { text: action.name },
+                                ...(Option.isSome(Dom.unavailable(action, 'enabled', false)) ? {} : { enabled: action.enabled, ...(action.checked ? { mark: '✓' } : {}) }),
+                            }),
                         ),
                     },
                 ],
@@ -72,11 +70,15 @@ const describe = Effect.fn('describe')(function* ({ within }: { readonly within?
         catch: HostError.refused(area),
     });
 });
-const operate = Effect.fn('operate')(function* ({ locator, to }: { readonly locator: Description['containers'][number]['locator']; readonly to?: (typeof Element.Observation.Type)['values'][string] }) {
+const operate = Effect.fn('operate')(function* (payload: Parameters<Source['operate']>[0]) {
     const { app, owning } = yield* Dom;
     const { panels, menuActions } = app;
-    const text = Formatter.format(locator);
+    const text = Formatter.format(payload.locator);
     const refused = HostError.refused(text);
+    const { locator, to } = yield* Match.valueTags(payload, {
+        press: (press) => Effect.succeed(press),
+        pointer: () => Unmatched.of({ subject: 'canvas of the workspace', query: Option.some(text) }),
+    });
     yield* Match.value([Array.headNonEmpty(locator)[0], ...Array.map(Array.tailNonEmpty(locator), ([, identifier]) => identifier)]).pipe(
         Match.when([panels.constructorName, Match.string], ([, name]) =>
             Effect.try({ try: () => panels.itemByName(name), catch: refused }).pipe(
@@ -98,7 +100,7 @@ const operate = Effect.fn('operate')(function* ({ locator, to }: { readonly loca
                 Effect.flatMap((action) => (to === undefined || to !== action.checked ? Effect.try({ try: action.invoke.bind(action), catch: refused }) : Effect.void)),
             ),
         ),
-        Match.orElse(() => Unmatched.of({ subject: 'facet control', query: Option.some(text) })),
+        Match.orElse(() => Unmatched.of({ subject: 'control of the workspace', query: Option.some(text) })),
     );
 });
 const renderText = (markup: string) => {

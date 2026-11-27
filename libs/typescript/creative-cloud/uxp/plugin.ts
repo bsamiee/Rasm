@@ -12,7 +12,7 @@ import { formatHex8 } from 'culori/fn';
 import { Array, Cache, Cause, Clock, Context, Duration, Effect, Exit, Fiber, FiberHandle, FiberSet, Function, flow, Inspectable, Layer, Logger, ManagedRuntime, Option, Path, PlatformError, Predicate, Queue, Record, Schema, SchemaGetter, Scope, ScopedRef, Stream, Struct } from 'effect';
 import { type Tool, Toolkit } from 'effect/ai';
 import { FetchHttpClient, Url } from 'effect/http';
-import type { Rpc, RpcGroup } from 'effect/rpc';
+import { type Rpc, RpcGroup } from 'effect/rpc';
 import { Socket } from 'effect/socket';
 import { imageSize } from 'image-size';
 import { UxpManifest } from '#/manifest';
@@ -27,7 +27,6 @@ const MANIFEST = `plugin:/${UxpManifest.file}`;
 const BUNDLE = /(?<=\.app)(?:\/.*)?$|(?<=[^/])$/u;
 const RENDERED = 'rendered.png';
 const BODY = 'body.js';
-const SOURCE = Description.failing(Failure);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -53,7 +52,9 @@ const ThemeDocument = Schema.Struct({ theme: HostObject({ getCurrent: Callable, 
 const GlobalRequire = Schema.Struct({ require: Callable });
 const HostInfo = Schema.Struct({ applicationPath: Schema.NonEmptyString });
 const Requests = EvaluationRpcs.merge(RenderRpcs);
-const WebSocketUrl = Schema.URLFromString.check(Schema.makeFilter(({ protocol }) => protocol === 'ws:' || protocol === 'wss:', { description: 'ws: or wss: URL a WebSocket opens' }));
+const DescriptionRpcs = Description.Rpcs.failing(Failure);
+const PointerJson = Schema.toCodecJson(Description.fields.pointer.schema);
+const WebSocketUrl = Schema.URLFromString.check(Schema.makeFilter(({ protocol }) => protocol === 'ws:' || protocol === 'wss:'));
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -212,19 +213,35 @@ class Plugin extends Context.Service<Plugin, typeof UxpManifest.Identity.Type>()
             yield* Effect.sync(() => setup.call(entrypoints, { plugin: { create: () => runtime.runPromise(Effect.void) }, commands: commandHandlers, panels: panelHandlers } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>));
         }).pipe(Effect.tapCause(Effect.logError), Effect.provide(hostLayer), Effect.runFork);
     };
-    static readonly dial = <Rpcs extends Rpc.Any, EA, RA, EH, RH, ES extends Error, RS, EC extends Error, RC, RD, Tools extends Record.ReadonlyRecord<string, Tool.Any & { readonly parametersSchema: Schema.Decoder<unknown> }> = Toolkit.Tools<typeof Toolkit.empty>>({
+    static readonly dial = <
+        Rpcs extends Rpc.Any,
+        EA,
+        RA,
+        EH,
+        RH,
+        RD,
+        ES extends Error = never,
+        RS = never,
+        EP extends Error = never,
+        RP = never,
+        EE extends Error = never,
+        RE = never,
+        Tools extends Record.ReadonlyRecord<string, Tool.Any & { readonly parametersSchema: Schema.Decoder<unknown> }> = Toolkit.Tools<typeof Toolkit.empty>,
+    >({
         application,
         group,
         handlers,
         toolkit,
         source,
+        events = Stream.empty,
         dialogs,
     }: {
         readonly application: Effect.Effect<Link['application'], EA, RA>;
         readonly group: RpcGroup.RpcGroup<Rpcs>;
         readonly handlers: Layer.Layer<Rpc.ToHandler<Rpcs> | Tool.HandlersFor<Tools>, EH, RH>;
         readonly toolkit?: Toolkit.Toolkit<Tools>;
-        readonly source: Omit<Source<ES, RS, typeof Link.Event.Type, EC, RC>, 'roots'>;
+        readonly source?: Omit<Source<ES, RS, EP, RP>, 'roots'>;
+        readonly events?: Stream.Stream<typeof Link.Event.Type, EE, RE>;
         readonly dialogs: Effect.Effect<unknown, HostError, Scope.Scope | RD>;
     }) => {
         const peer = Cache.makeWith(() => Effect.all({ application, plugin: Plugin.useSync(Struct.get('id')) }), { capacity: 1, timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero) });
@@ -234,7 +251,9 @@ class Plugin extends Context.Service<Plugin, typeof UxpManifest.Identity.Type>()
                 return (request) => Effect.scoped(Effect.andThen(held, request));
             }),
         );
-        const served = Link.serve(Toolkit.merge(Toolkit.empty, ...Array.fromNullishOr(toolkit)), source.changes).pipe(Layer.provideMerge(Layer.mergeAll(handlers, SOURCE.toLayer(Struct.pick(source, ['describe', 'operate'])), suppressed)));
+        const description = source === undefined ? { group: RpcGroup.make(), handlers: Layer.empty } : { group: DescriptionRpcs, handlers: DescriptionRpcs.toLayer(Struct.pick(source, ['describe', 'operate'])) };
+        const pointers = Stream.mapEffect(source?.pointer ?? Stream.empty, (pointer) => Effect.map(Effect.orDie(Schema.encodeEffect(PointerJson)(pointer)), (detail) => ({ name: 'pointer' satisfies keyof typeof Description.fields, target: Option.none(), detail: Option.some(detail) })));
+        const served = Link.serve(Toolkit.merge(Toolkit.empty, ...Array.fromNullishOr(toolkit)), Stream.merge(pointers, events)).pipe(Layer.provideMerge(Layer.mergeAll(handlers, description.handlers, suppressed)));
         const url = Plugin.use(({ id, requiredPermissions: { network } }) =>
             Effect.fromOption(
                 Array.findFirst(Array.ensure(network?.domains ?? []), (domain) => Schema.decodeOption(WebSocketUrl)(domain)),
@@ -242,7 +261,7 @@ class Plugin extends Context.Service<Plugin, typeof UxpManifest.Identity.Type>()
             ),
         );
         return Effect.all([url, peer]).pipe(
-            Effect.flatMap(([at, identity]) => Layer.launch(Link.dial(group.merge(SOURCE, Link.Rpcs.omit('tools/list', 'events')).middleware(Dialogs), served, at, Cache.get(identity, undefined)))),
+            Effect.flatMap(([at, identity]) => Layer.launch(Link.dial(group.merge(description.group, Link.Rpcs.omit('tools/list', 'events')).middleware(Dialogs), served, at, Cache.get(identity, undefined)))),
             logFailure,
             Effect.forkScoped,
             Layer.effectDiscard,

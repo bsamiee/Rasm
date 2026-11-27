@@ -101,21 +101,12 @@ private struct Session {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-private struct Wrapped: CustomNSError, Encodable, LocalizedError {
-    private enum CodingKeys: CodingKey {
-        case reason
-    }
-
+private struct Wrapped: CustomNSError, LocalizedError {
     let cause: any Error
 
     var errorDescription: String? { "wrapped \(cause.localizedDescription)" }
 
     var errorUserInfo: [String: Any] { [NSUnderlyingErrorKey: cause] }
-
-    func encode(to encoder: any Encoder) throws {
-        var fields = encoder.container(keyedBy: CodingKeys.self)
-        try fields.encode(String(describing: type(of: cause)), forKey: .reason)
-    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -164,7 +155,7 @@ struct ServerTests {
     }
 
     @Test
-    func encodesAnEncodableErrorUnderItsTypeNameWithItsFieldsAndEachUnderlyingErrorAsItsCause() async throws {
+    func encodesAForeignErrorAsItsDomainAndMessageWithEachUnderlyingErrorAsItsCause() async throws {
         var session = Session()
         let failed = try await session.failure(14, "unreadable", [:])
         let missing = Errno.noSuchFileOrDirectory.localizedDescription
@@ -174,7 +165,7 @@ struct ServerTests {
                 [
                     "_tag": .string("Fail"),
                     "error": .object([
-                        "_tag": .string("Wrapped"), "reason": .string("Errno"), "name": .string(String(reflecting: Wrapped.self)), "message": .string("wrapped \(missing)"),
+                        "name": .string(String(reflecting: Wrapped.self)), "message": .string("wrapped \(missing)"),
                         "cause": .object(["name": .string(NSPOSIXErrorDomain), "message": .string(missing)]),
                     ]),
                 ]

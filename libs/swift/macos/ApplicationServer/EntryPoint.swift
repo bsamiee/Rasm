@@ -32,7 +32,7 @@ package func main(cachedDefinition: @escaping @Sendable (Installation) -> URL? =
             var registered: [Result<Void, ApplicationFailure>] = []
             for agent in try agents.get() { registered.append(await Result { () async throws(ApplicationFailure) in try await agent.register() }) }
             _ = try traverse(registered) { outcome in outcome.aggregated(\.self) }.get()
-        } catch let refused as AggregateError<ApplicationFailure> where refused.errors.allSatisfy({ failure in failure.reason.is(\.requiresApproval) }) {
+        } catch let refused as AggregateError<ApplicationFailure> where refused.errors.allSatisfy({ failure in failure.reason.is(\.awaitsLoginItemApproval) }) {
             SMAppService.openSystemSettingsLoginItems()
             logger.notice("Server agent awaits approval", error: refused)
         }

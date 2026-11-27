@@ -28,7 +28,6 @@
     },
     "dependencies": {
         "@rasm/applications": "workspace:*",
-        "@rasm/mcp": "workspace:*",
         "@rasm/object-model": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/uxp": "workspace:*"

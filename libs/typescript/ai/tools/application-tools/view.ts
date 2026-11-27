@@ -2,67 +2,54 @@ import { pathToFileURL } from 'node:url';
 import type { Entry } from '@rasm/applications/catalog';
 import { Capture } from '@rasm/applications/server/capture';
 import { ApplicationServer } from '@rasm/applications/server/client';
-import type { Element } from '@rasm/applications/server/element';
+import { Element } from '@rasm/applications/server/element';
+import { ApplicationFailure } from '@rasm/applications/server/failure';
 import { Instance } from '@rasm/applications/server/instance';
 import { setting } from '@rasm/mcp/cli';
 import { Call, Format, Line, Report } from '@rasm/mcp/report';
 import { Handle } from '@rasm/mcp/server';
 import { ToolCall } from '@rasm/mcp/toolkit';
-import { Array, Cause, Context, DateTime, Effect, Match, Option, Predicate, Record, Result, Schema, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Cause, Context, DateTime, Duration, Effect, Match, Option, Predicate, Record, Result, Schema, Struct, SubscriptionRef, Tuple } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
 import { Flag } from 'effect/cli';
-import { Address, type Index, type Item, read } from '#/handle/address';
+import { Address } from '#/handle/address';
 import { Outline } from '#/handle/outline';
-import { current, Hold, hold, openCall } from '#/handle/target';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Running = typeof Instance.State.cases.running.Type;
-type Aimed = Effect.Success<typeof current>;
-interface Placement {
-    readonly instance: Instance['instance'];
-    readonly named: string;
-    readonly windows: readonly number[];
-    readonly frame: typeof Element.Frame.Type;
-    readonly size: readonly [number, number];
-}
-interface Shot {
-    readonly line: Line;
-    readonly png: Option.Option<Uint8Array>;
-    readonly placement: Option.Option<readonly [window: string, Placement]>;
-    readonly front: readonly string[];
-}
-interface Taking {
-    readonly marks: Record.ReadonlyRecord<string, ReturnType<typeof marksOf>>;
-    readonly clip: Option.Option<Pick<Parameters<ApplicationServer['Service']['record']>[0], 'seconds' | 'frames' | 'movie'>>;
-}
+import { Target } from '#/handle/target';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const FRAMES = 6;
+const LIMIT = 6;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Side = setting('longest-side', Schema.FiniteFromString.pipe(Schema.decodeTo(Schema.Int.check(Schema.isGreaterThan(0)))), Flag.withDefault(1568), 'Longest side in pixels of each image a view returns');
-const Pixel = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0));
-const Pixels = Schema.Tuple([Pixel, Pixel, Schema.Finite.check(Schema.isGreaterThan(0)), Schema.Finite.check(Schema.isGreaterThan(0))]);
 const tool = Tool.make('view', {
     description:
-        "Shows the target as images: front window, every window, one container or control, a document, an object, or a pixel rectangle enlarged, and with seconds key frames of a recording. Each image line names its window. A point an act step takes counts pixels of one window's whole image, which crops and failed views leave in place, and marks draws references a pointer step takes in place of a point. Changed rectangles of key frames count pixels of that image, and of shows one again",
+        "Shows the target as images: its front window, every window, one container or control, a document, an object, or a pixel rectangle of a window image enlarged, and with seconds the key frames of a recording, each naming the step or event it follows. Each image line names the window it shows and the pixel size of the image. A point an act step takes counts pixels of one window's whole image, which a crop, a view of one element, a failed view, and a cropped key frame leave in place, and marks draws the references a pointer step takes in place of a point. A changed rectangle of a key frame counts pixels of the first key frame, and of takes it to show that part at screen resolution. Calls on one handle answer in order",
     parameters: Schema.Struct({
         of: Schema.optionalKey(
-            Schema.Union([Schema.Literals(['front', 'all', 'document', 'object']), Address.At, Pixels]).annotate({
+            Schema.Union([
+                Schema.Literals(['front', 'all', 'document', 'object']),
+                Address.At,
+                Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite]).check(Schema.makeFilter(([x, y, wide, high]: readonly [number, number, number, number]) => x >= 0 && y >= 0 && wide > 0 && high > 0, { expected: 'a rectangle [x, y, width, height] from 0 with a width and height above 0' })),
+            ]).annotate({
                 description:
-                    'front when absent; all for every window, hidden, minimized, and off-Space ones from their last drawn content; document or object with id; a reference or label path as inspect prints it, a status item shown unpressed and a menu item with its open menu levels; or a pixel rectangle [x, y, width, height] of a window image at screen resolution',
+                    'front when absent; all for every window, one off screen or covered shown from its backing store; document or object with id; a reference or path as inspect prints it, a status item shown unpressed and a menu item with an outline of its open menus; or a rectangle [x, y, width, height] in pixels of a window image, shown at screen resolution',
             }),
         ),
-        in: Schema.optionalKey(Address.At.annotate({ description: 'Window whose image a pixel rectangle counts, where images of several windows are held' })),
-        id: Schema.optionalKey(Schema.String.annotate({ description: 'document: document id from a result; object: id a script result gives the object' })),
-        marks: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Draw the frame and reference of each control' })),
+        in: Schema.optionalKey(Address.At.annotate({ description: 'Window whose image the rectangle counts pixels of, named where view returned images of more than one' })),
+        id: Schema.optionalKey(Schema.String.annotate({ description: 'document: document a result names; object: id a script result gives the object' })),
+        marks: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Draw the frame and reference of each control on the image' })),
         seconds: Schema.optionalKey(Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 60, exclusiveMinimum: true })).annotate({ description: 'Seconds to record, key frames returned in place of one image' })),
-        frames: Capture.Recording.fields.frames.annotate({ description: 'Most key frames a recording returns: 1 the last state, 2 the first and last whole, more the states between cropped to their change', default: FRAMES }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(FRAMES))),
-        into: Schema.optionalKey(Schema.String.annotate({ description: 'Path the recording is also written to as a movie, .mov or .mp4' })),
-    }),
+        frames: Capture.fields.mode.cases.recording.fields.keyFrameLimit.annotate({ description: 'Most key frames a recording returns: 1 the last state, 2 the first and last whole, more the states between cropped to their change', default: LIMIT }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(LIMIT))),
+        into: Schema.optionalKey(Schema.String.annotate({ description: 'Absolute path the recording is also written to as a movie, .mov or .mp4' })),
+    }).check(
+        Schema.makeFilter(({ of, id, marks = false, seconds, into }: { readonly of?: unknown; readonly id?: string; readonly marks?: boolean; readonly seconds?: number; readonly into?: string }) => [
+            ...(seconds !== undefined && (marks || of === 'object') ? [{ path: ['seconds'], issue: 'not taken with marks or of:"object"' }] : []),
+            ...(into !== undefined && seconds === undefined ? [{ path: ['into'], issue: 'takes seconds' }] : []),
+            ...(id === undefined && (of === 'document' || of === 'object') ? [{ path: ['id'], issue: 'required with of:"document" and of:"object"' }] : []),
+        ]),
+    ),
     success: Report.schema,
     failure: Schema.ErrorInstance(),
     dependencies: [Handle],
@@ -70,220 +57,177 @@ const tool = Tool.make('view', {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-const Viewed = Context.Reference<Record.ReadonlyRecord<string, Placement>>('@rasm/application-tools/view/Viewed', { defaultValue: Record.empty });
+const Viewed = Context.Reference<Record.ReadonlyRecord<string, Pick<typeof Capture.Frame.Type, 'frame' | 'windows' | 'width' | 'height'> & Pick<Instance, 'instance'> & { readonly named: string }>>('@rasm/application-tools/view/Viewed', { defaultValue: Record.empty });
 const Render = Context.Reference<(row: Entry, id: string) => Effect.Effect<{ readonly image: Uint8Array; readonly title: string }, Error>>('@rasm/application-tools/view/Render', {
-    defaultValue: () => (row, id) => new Cause.NoSuchElementError(`object ${id} unrendered, ${row.name} links no source`),
+    defaultValue: () => (row, id) => ApplicationFailure.of('noRenderer', `object ${id}`, [row.name]),
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const refused = (lines: readonly Line[]) => new Cause.NoSuchElementError(Report.text(new Report({ lines })));
-const said = (line: Line): Shot => ({ line, png: Option.none(), placement: Option.none(), front: [] });
-const windowsOf = (state: Instance['state']): Running['windows'] => Instance.State.matchOrElse(state, { running: Struct.get('windows') }, Array.empty);
-const frontOf = (state: Instance['state']) => {
-    const shown = windowsOf(state).filter((window) => window.presented && window.kind !== 'menu');
+const windows = (state: Instance['state']): (typeof Instance.State.cases.running.Type)['windows'] => Instance.State.matchOrElse(state, { running: Struct.get('windows') }, Array.empty);
+const front = (state: Instance['state']) => {
+    const shown = windows(state).filter((window) => window.presented && window.kind !== 'menu');
     return Option.map(Option.firstSomeOf([Array.findFirst(shown, (window) => window.asking || window.kind === 'window'), Array.head(shown)]), Struct.get('number'));
 };
-const numbersOf = {
-    front: (state: Instance['state']) => Option.toArray(frontOf(state)),
-    all: (state: Instance['state']) => Array.filterMap(windowsOf(state), ({ number, kind }) => (kind === 'menu' ? Result.failVoid : Result.succeed(number))),
-} as const;
-const presented = (presentation: (typeof Capture.Screenshot.Type)['presentation']) => Array.fromNullishOr(presentation).flatMap((held) => (held._tag === 'forward' || (held._tag === 'restored' && !held.back) ? [Outline.say.front] : []));
-const marksOf = (index: Index) => index.shown.flatMap(({ controls }) => controls.flatMap(({ control, item }) => Option.toArray(Option.all({ frame: Option.fromUndefinedOr(control.frame), label: item.token }))));
-const unshownOf = ({ name }: Pick<Entry, 'name'>, index: Index) => {
-    const items = index.shown.flatMap(({ container, controls }) => (container.kind === 'statusItem' ? controls : []));
-    const call = Option.match(
-        Array.findFirst(items, ({ item }) => item.token),
-        { onSome: (at) => new Call({ tool: 'act', given: { steps: [{ at }] } }), onNone: () => openCall(name) },
-    );
-    return new Line({ head: ['windows'], value: 'none shown', call });
+const refuse = (lines: readonly Line[]) => new Cause.NoSuchElementError(Report.text(new Report({ lines })));
+const point = (viewed: (typeof Viewed)['Service'], { instance, state, window }: Pick<Instance, 'instance' | 'state'> & { readonly window: Option.Option<Parameters<typeof Address.open>[1]> }) => {
+    const wanted = Option.map(window, (node) => (node.live ? Array.lastNonEmpty(node.containers).window : undefined));
+    const held = windows(state).flatMap(({ number, onScreen }) => (onScreen && !Option.exists(wanted, (at) => at !== number) ? Array.fromNullishOr(viewed[`${number}`]).filter((image) => image.instance === instance) : []));
+    const token = Option.flatMap(window, (node) => node.token);
+    const placed: Result.Result<(typeof Viewed)['Service'][string], Error> = Array.match(held, {
+        onEmpty: () => Result.fail(new Cause.NoSuchElementError(Report.text(new Report({ lines: [new Line({ head: [Option.getOrElse(token, () => 'pixels')], value: 'no image held of a shown window' })], next: new Call({ tool: tool.name, given: Record.getSomes({ of: token }) }) })))),
+        onNonEmpty: (several) => (Predicate.isTupleOf(several, 1) ? Result.succeed(several[0]) : Result.fail(ApplicationFailure.of('namesOneOf', 'in', several.map(Struct.get('named'))))),
+    });
+    return ([x, y]: readonly [x: number, y: number]) =>
+        Result.flatMap(placed, ({ named, frame: [[left, top], [across, down]], width, height, windows: shown }) =>
+            x >= 0 && y >= 0 && x <= width && y <= height ? Result.succeed({ at: Tuple.make(left + (x * across) / width, top + (y * down) / height), windows: shown }) : Result.fail(ApplicationFailure.of('outsideImage', `${x},${y}`, [named, Address.print('region')({ _tag: 'size', value: Tuple.make(width, height) })])),
+        );
 };
-const menuPath = (index: Index, item: Item): readonly Item[] => {
-    const menuOf = (ref: number) => Option.filter(Record.get(index.live, `${ref}`), ({ target }) => target._tag === 'Container' && target.container.kind === 'menu');
-    const start = item.target._tag === 'Container' || item.target._tag === 'Control' ? menuOf(item.target.container.ref) : Option.none<Item>();
-    return Array.reverse(Array.unfold(start, (at) => Option.map(at, (held) => [held, held.target._tag === 'Container' ? Option.flatMap(Option.fromUndefinedOr(held.target.container.parent), menuOf) : Option.none<Item>()] as const)));
-};
-const screenOf = ({ named, frame: [[left, top], [width, height]], size: [columns, rows] }: Placement, at: readonly [x: number, y: number, wide?: number, high?: number]): Result.Result<typeof Element.Frame.Type, Cause.IllegalArgumentError> => {
-    const [x, y, wide = 0, high = 0] = at;
-    return x + wide <= columns && y + high <= rows
-        ? Result.succeed([
-              [left + (x * width) / columns, top + (y * height) / rows],
-              [(wide * width) / columns, (high * height) / rows],
-          ])
-        : Result.fail(new Cause.IllegalArgumentError(`${at.join(',')}: outside the ${columns} by ${rows} image of ${named}`));
-};
-const placedOf = (viewed: Record.ReadonlyRecord<string, Placement>, { instance, state, window }: Pick<Instance, 'instance' | 'state'> & { readonly window: Option.Option<Item> }): Result.Result<Placement, Cause.IllegalArgumentError> => {
-    const wanted = Option.map(window, ({ target }) => (target._tag === 'Container' || target._tag === 'Control' ? target.container.window : undefined));
-    const shown = windowsOf(state).flatMap(({ number, onScreen }) => (onScreen && Option.match(wanted, { onNone: () => true, onSome: (at) => at === number }) ? Array.fromNullishOr(viewed[`${number}`]) : []));
-    const kept = shown.filter((held) => held.instance === instance);
-    const token = Option.flatMap(window, Struct.get('token'));
-    const lacking = new Report({ lines: [new Line({ head: [Option.getOrElse(token, () => 'pixels')], value: 'no image held of a shown window' })], next: new Call({ tool: tool.name, given: Record.getSomes({ of: token }) }) });
-    return Predicate.isTupleOf(kept, 1) ? Result.succeed(kept[0]) : Result.fail(new Cause.IllegalArgumentError(Array.match(kept, { onEmpty: () => Report.text(lacking), onNonEmpty: (several) => `in: names one of ${Format.list(several.map(Struct.get('named')))}` })));
-};
-const pointOf = (viewed: Record.ReadonlyRecord<string, Placement>, aim: Parameters<typeof placedOf>[1]) => {
-    const placement = placedOf(viewed, aim);
-    return (point: readonly [x: number, y: number]) => Result.flatMap(placement, (held) => Result.map(screenOf(held, point), ([at]) => ({ at, windows: held.windows })));
-};
-const shot = ({ instance, state }: Pick<Instance, 'instance' | 'state'>) => {
-    const heads = Record.fromIterableWith(windowsOf(state), ({ number, container, kind = 'window', title }) => [`${number}`, UndefinedOr.match(container, { onDefined: (ref) => Outline.caption(kind, ref, title), onUndefined: () => [`${number}`, ...Outline.caption(kind, undefined, title)] })]);
-    return ({ png, width, height, frame, windows, backingStore, document, presentation }: typeof Capture.Screenshot.Type, whole: boolean, facts: readonly string[]): Shot => {
-        const [head = ['display'], ...beside] = windows.map((number) => heads[`${number}`] ?? [`${number}`, ...Outline.caption('window')]);
+const frames = ({ instance, state }: Pick<Instance, 'instance' | 'state'>, source: Capture['source'], taken: readonly (typeof Capture.Frame.Type)[], crop: readonly string[] = []) => {
+    const captions = Record.fromIterableWith(windows(state), ({ number, container, kind = 'window', title }) => [`${number}`, [...(container === undefined ? [`${number}`] : []), ...Outline.caption(kind, container, title)]]);
+    const first = Array.head(taken);
+    const began = Option.flatMapNullishOr(first, (held) => held.at);
+    return taken.map((frame, index) => {
+        const [head = ['display'], ...beside] = frame.windows.map((number) => captions[`${number}`] ?? [`${number}`, ...Outline.caption('window')]);
         const [named = 'display'] = head;
-        return {
-            line: new Line({ head, facts: [...beside.map(Array.join(' ')), ...facts, ...(backingStore ? ['off screen'] : []), ...Array.fromNullishOr(document).map((url) => `document: ${url}`)] }),
-            png: Option.some(png),
-            placement: whole ? Option.map(Array.head(windows), (window) => [`${window}`, { instance, named, windows, frame, size: [width, height] }] as const) : Option.none(),
-            front: presented(presentation),
-        };
-    };
-};
-const stillsOf = (snapshot: Pick<Instance, 'instance' | 'state' | 'name' | 'identifier'>, source: Capture['source'], results: typeof Capture.Stills.Type, crop: readonly string[]): readonly Shot[] => {
-    const draw = shot(snapshot);
-    const numbers = source._tag === 'windows' ? source.numbers : [];
-    const shown = new Set(Array.filterMap(windowsOf(snapshot.state), ({ number, onScreen }) => (onScreen ? Result.succeed(number) : Result.failVoid)));
-    const [shots, bare] = Array.partition(results, (result, at) =>
-        Result.match(result, {
-            onSuccess: (screenshot) => Result.succeed(draw(screenshot, source._tag === 'windows', source._tag === 'windows' ? [] : crop)),
-            onFailure: ({ message }) => (Option.exists(Array.get(numbers, at), (number) => !shown.has(number)) ? Result.fail(at) : new Line({ head: [], value: message }).pipe(said, Result.succeed)),
-        }),
-    );
-    const reopen = openCall(snapshot.name ?? snapshot.identifier);
-    const hidden = new Line({ head: ['off screen'], value: Format.count(bare.length, Outline.nouns.window), facts: ['no image'], call: new Call({ tool: reopen.tool, given: Record.set(reopen.given, 'activate', true) }) });
-    return Array.isReadonlyArrayEmpty(bare) ? shots : [...shots, said(hidden)];
-};
-const keyFramesOf = (snapshot: Pick<Instance, 'instance' | 'state'>, source: Capture['source'], { keyFrames }: typeof Capture.Recorded.Type): readonly Shot[] =>
-    Array.match(keyFrames, {
-        onEmpty: Array.empty,
-        onNonEmpty: (frames) => {
-            const draw = shot(snapshot);
-            const first = Array.headNonEmpty(frames);
-            const [[x, y], [across, down]] = first.screenshot.frame;
-            const scale = [first.screenshot.width / across, first.screenshot.height / down] as const;
-            const begun = frames.map(({ markers }) => markers.flatMap((marker) => (marker._tag === 'step' ? [`step ${marker.index + 1}`] : [])));
-            const single = source._tag === 'windows' && Predicate.isTupleOf(source.numbers, 1);
-            return frames.map(({ at, changed, screenshot }, index) =>
-                draw(screenshot, single && index === frames.length - 1, [
-                    index === 0 ? 'start' : Format.duration(DateTime.distance(first.at, at)),
-                    ...Array.match(begun[index - 1] ?? [], { onEmpty: Array.empty, onNonEmpty: (steps) => [`after ${Format.list(steps)}`] }),
-                    ...Array.fromNullishOr(changed).map(([[left, top], [wide, high]]) => `changed [${[(left - x) * scale[0], (top - y) * scale[1], wide * scale[0], high * scale[1]].map(Math.round).join(',')}]`),
-                ]),
-            );
-        },
+        const whole = source._tag === 'windows' && (frame.at === undefined || (index === taken.length - 1 && Predicate.isTupleOf(source.numbers, 1)));
+        const follows = Array.dedupe((taken[index - 1]?.markers ?? []).map((marker) => (marker._tag === 'step' ? `step ${marker.index + 1}` : marker.change._tag)));
+        const elapsed = Option.zipWith(began, Option.fromUndefinedOr(frame.at), (from, at) => DateTime.distance(from, at));
+        const changed = Option.zipWith(first, Option.fromUndefinedOr(frame.changed), ({ frame: [[x, y], [across, down]], width, height }, [[left, top], [wide, high]]) => [((left - x) * width) / across, ((top - y) * height) / down, (wide * width) / across, (high * height) / down].map(Math.round).join(','));
+        const facts = [
+            ...beside.map(Array.join(' ')),
+            Address.print('region')({ _tag: 'size', value: Tuple.make(frame.width, frame.height) }),
+            ...Option.toArray(elapsed).map((span) => (index === 0 ? 'start' : Format.duration(span))),
+            ...(Array.isReadonlyArrayEmpty(follows) ? [] : [`after ${Format.list(follows)}`]),
+            ...Option.toArray(changed).map((rectangle) => `changed [${rectangle}]`),
+            ...(source._tag === 'windows' ? [] : crop),
+            ...(frame.backingStore ? ['backing store'] : []),
+            ...Array.fromNullishOr(frame.document).map((url) => `document: ${url}`),
+        ];
+        return { line: new Line({ head, facts }), frame, placement: whole ? Array.take(frame.windows, 1).map((number) => Tuple.make(`${number}`, { instance, named, ...Struct.pick(frame, ['frame', 'windows', 'width', 'height']) })) : [] };
     });
-const attach = Effect.fnUntraced(function* (shots: readonly Shot[]) {
+};
+const attach = Effect.fnUntraced(function* (drawn: readonly { readonly line: Line; readonly frame?: Pick<typeof Capture.Frame.Type, 'png' | 'presentation'>; readonly placement?: readonly (readonly [window: string, (typeof Viewed)['Service'][string]])[] }[]) {
     const [{ add }, handle] = yield* Effect.all([ToolCall, Handle]);
-    yield* handle.update(Viewed, (held) => ({ ...held, ...Record.fromEntries(Array.getSomes(shots.map(Struct.get('placement')))) }));
-    yield* Effect.forEach(Array.getSomes(shots.map(Struct.get('png'))), (data) => add(McpSchema.ImageContent.make({ data, mimeType: 'image/png' })), { discard: true });
-    return shots.map(Struct.get('line'));
+    yield* handle.update(Viewed, (held) => ({ ...held, ...Record.fromEntries(drawn.flatMap(({ placement = [] }) => placement)) }));
+    const images = drawn.flatMap(({ frame }) => Array.fromNullishOr(frame));
+    yield* Effect.forEach(images, ({ png }) => add(McpSchema.ImageContent.make({ data: png, mimeType: 'image/png' })), { discard: true });
+    return drawn.map(({ line }) => line);
 });
-const capture = Effect.fnUntraced(function* (snapshot: Pick<Instance, 'instance' | 'state' | 'name' | 'identifier'>, source: Capture['source'], { marks, clip }: Taking, crop: readonly string[] = []) {
+const capture = Effect.fnUntraced(function* (snapshot: Pick<Instance, 'instance' | 'state' | 'name' | 'identifier'>, source: Capture['source'], mode: (instance: Instance['instance']) => Capture['mode'], crop: readonly string[] = []) {
     const [server, side] = yield* Effect.all([ApplicationServer, Side]);
-    const { running } = server;
-    const { instance } = snapshot;
-    yield* hold([Hold.Using({ instance })]);
-    const request = { instance, source, longestSide: Option.some(side) };
-    const taken = yield* Option.match(clip, {
-        onNone: () => Effect.map(server.capture({ ...request, marks: marks[instance] ?? [] }), (results) => (fresh: typeof snapshot) => stillsOf(fresh, source, results, crop)),
-        onSome: (held) => Effect.map(server.record({ ...request, ...held }), (recording) => (fresh: typeof snapshot) => [...Array.fromNullishOr(held.movie).map((url) => said(new Line({ head: ['movie'], value: Format.path(url) }))), ...keyFramesOf(fresh, source, recording)]),
-    });
-    const now = Array.findFirst(yield* SubscriptionRef.get(running), (each) => each.instance === instance);
-    const shots = taken({ ...snapshot, state: Option.match(now, { onNone: () => snapshot.state, onSome: Struct.get('state') }) });
-    return shots.some(({ png }) => Option.isSome(png)) ? shots : yield* refused(shots.map(Struct.get('line')));
+    const { instance, name = snapshot.identifier } = snapshot;
+    const asked = mode(instance);
+    const read = yield* server.capture({ instance, source, longestSide: Option.some(side), mode: asked });
+    const state = Option.match(Record.get(Instance.byInstance(yield* SubscriptionRef.get(server.running)), instance), { onNone: () => snapshot.state, onSome: Struct.get('state') });
+    const numbers: readonly number[] = asked._tag === 'still' && source._tag === 'windows' ? source.numbers : [];
+    const off = new Set(numbers.flatMap((number, at) => (windows(state).some((shown) => shown.number === number && shown.onScreen) ? [] : [at])));
+    const [taken, unread] = Array.partition(read, (each, at) => Result.mapError(each, ({ message }) => (off.has(at) ? Option.none() : Option.some(message))));
+    const reopen = Target.open(name);
+    const lines = [
+        ...frames({ instance, state }, source, taken, crop),
+        ...Array.getSomes(unread).map((message) => ({ line: new Line({ head: [], value: message }) })),
+        ...(unread.some(Option.isNone) ? [{ line: new Line({ head: ['off screen'], value: Format.count(Array.countBy(unread, Option.isNone), Outline.nouns.window), facts: ['no image'], call: new Call({ tool: reopen.tool, given: { ...reopen.given, activate: true } }) }) }] : []),
+    ];
+    const movie = asked._tag === 'recording' ? Array.fromNullishOr(asked.movie).map((url) => ({ line: new Line({ head: ['movie'], value: Format.path(url) }) })) : [];
+    return Array.isReadonlyArrayEmpty(taken) ? yield* refuse(lines.map(({ line }) => line)) : [...movie, ...lines];
 });
-const windowed = Effect.fnUntraced(function* <E, R>({ row, live }: Aimed, numbers: readonly number[], base: Effect.Effect<Index, E, R>, taking: Taking) {
-    return yield* Array.match(numbers, {
-        onEmpty: () => Effect.flatMap(base, (index) => refused([unshownOf(row, index)])),
-        onNonEmpty: (held) => capture(live, { _tag: 'windows', numbers: held }, taking),
+const element = Effect.fnUntraced(function* (target: Effect.Success<typeof Target.current>, read: Address, at: string, mode: Parameters<typeof capture>[2]) {
+    const node = yield* Address.reach(target, at);
+    const named = Option.getOrElse(node.token, () => at);
+    const shown = node.live ? [{ held: node.element, within: Array.lastNonEmpty(node.containers) }] : [];
+    const drawn = yield* Effect.forEach(shown, ({ held, within }) => {
+        const frame = Element.match(held, { container: (each) => each.frame, control: (each) => each.frame ?? within.frame, option: () => undefined });
+        const unseen = held._tag === 'control' && held.frame === undefined && within.frame !== undefined;
+        const part = within.kind === 'statusItem' || Option.isSome(Address.route(read, held.ref)) ? Option.map(Option.fromUndefinedOr(frame), (region): Capture['source'] => ({ _tag: 'region', frame: region })) : Option.some<Capture['source']>({ _tag: 'element', ref: held.ref });
+        const root = Array.findFirst(windows(target.live.state), (each) => (each.container === held.ref ? Option.some(each.number) : Option.none()));
+        const whole = Option.firstSomeOf([root, ...(Option.isNone(part) ? [Option.fromUndefinedOr(within.window), front(target.live.state)] : [])]);
+        const source: Option.Option<Capture['source']> = unseen ? Option.none() : Option.firstSomeOf([Option.map(whole, (number): Capture['source'] => ({ _tag: 'windows', numbers: [number] })), part]);
+        const step = unseen ? { pointer: named, button: 'none' } : { at: named };
+        return Effect.fromOption(source, () => refuse([new Line({ head: [named], value: 'not in view', call: new Call({ tool: 'act', given: { steps: [step] } }) })])).pipe(Effect.flatMap((taken) => capture(target.live, taken, mode, [`crop ${named}`])));
     });
+    const openers = shown.filter(({ held, within }) => held._tag === 'control' && held.opens !== undefined && within.kind !== 'statusItem');
+    const opened = yield* Effect.forEach(openers, ({ held }) => Address.read(target, { _tag: 'menu', ref: held.ref }));
+    const levels: ReturnType<typeof Address.locate> = node.live ? node.containers.flatMap(({ kind, ref }) => (kind === 'menu' ? Option.toArray(Address.get(read, ref)) : [])) : node.containers.flatMap(({ locator }) => Array.take(Address.locate(read, locator), 1));
+    const outline = yield* Effect.forEach([...levels.map((each) => Outline.render(read, { in: Option.some(each) })), ...opened.map((menu) => Outline.render(menu, { in: Option.flatMap(Array.head(menu.model.elements), ({ ref }) => Address.get(menu, ref)) }))], Effect.fromResult);
+    return [...drawn.flat(), ...outline.flat().map((line) => ({ line }))];
 });
-const zoom = (pixels: typeof Pixels.Type, within: string | undefined, taking: Taking) =>
-    Effect.fnUntraced(function* (aim: Aimed) {
-        const [viewed, found] = yield* Effect.all([Handle.use((handle) => handle.get(Viewed)), Effect.forEach(Array.fromNullishOr(within), (at) => Address.reach(aim, at))]);
-        const placement = yield* Effect.fromResult(placedOf(viewed, { ...aim.live, window: Array.head(found) }));
-        const frame = yield* Effect.fromResult(screenOf(placement, pixels));
-        return yield* capture(aim.live, { _tag: 'region', frame }, taking, [`crop [${pixels.join(',')}] of ${placement.named}`]);
+const document = Effect.fnUntraced(function* (id: string, mode: Parameters<typeof capture>[2]) {
+    const { running } = yield* ApplicationServer;
+    const showing = Array.filterMap(yield* SubscriptionRef.get(running), (each) => {
+        const numbers = windows(each.state).flatMap((shown) => (shown.document === id ? [shown.number] : []));
+        return Array.isReadonlyArrayNonEmpty(numbers) ? Result.succeed({ each, numbers }) : Result.failVoid;
     });
-const element = (reference: string, taking: Taking) =>
-    Effect.fnUntraced(function* (aim: Aimed & Effect.Success<ReturnType<typeof read>>) {
-        const { row, live, base, map, route, indexed, level } = aim;
-        const item = yield* Address.reach(aim, reference);
-        const recalled = Address.recall(base)(map);
-        const named = Option.getOrElse(item.token, () => reference);
-        const placed = Match.value(item.target).pipe(
-            Match.tag('Container', ({ container }) => ({ ...Struct.pick(container, ['ref', 'kind', 'frame', 'window']), opens: false, unseen: false })),
-            Match.tag('Control', ({ control, container }) => ({ ref: control.ref, kind: container.kind, frame: control.frame ?? container.frame, window: container.window, opens: control.opens !== undefined && container.kind !== 'statusItem', unseen: control.frame === undefined && container.frame !== undefined })),
-            Match.tag('Option', ({ option }) => ({ ref: option.ref, kind: undefined, frame: undefined, window: undefined, opens: false, unseen: false })),
-            Match.orElse(() => undefined),
-        );
-        const shown = Array.fromNullishOr(placed);
-        yield* shown.some(Struct.get('unseen')) ? refused([new Line({ head: [named], value: 'not in view', call: new Call({ tool: 'act', given: { steps: [{ pointer: named, button: 'none' }] } }) })]) : Effect.void;
-        const sources = yield* Effect.forEach(shown, ({ ref, kind, frame, window }) => {
-            const still = kind === 'statusItem' || Option.isSome(route(ref));
-            const root = Option.map(
-                Array.findFirst(windowsOf(live.state), (each) => each.container === ref),
-                Struct.get('number'),
-            );
-            const part: readonly Capture['source'][] = still ? Array.fromNullishOr(frame).map((held) => ({ _tag: 'region', frame: held })) : [{ _tag: 'element', ref }];
-            const whole = Option.map(Option.firstSomeOf([root, ...(Array.isReadonlyArrayEmpty(part) ? [Option.fromUndefinedOr(window), frontOf(live.state)] : [])]), (number): Capture['source'] => ({ _tag: 'windows', numbers: [number] }));
-            return Effect.fromOption(
-                Option.orElse(whole, () => Array.head(part)),
-                () => refused([unshownOf(row, base)]),
-            );
-        });
-        const shots = yield* Effect.forEach(sources, (source) => capture(live, source, taking, [`crop ${named}`]));
-        const opened = yield* Effect.forEach(shown.filter(Struct.get('opens')), ({ ref }) => level({ _tag: 'menu', ref }));
-        const fresh = indexed(opened.flatMap(Struct.get('containers')));
-        const holder = item.target._tag === 'RememberedControl' ? Option.map(Record.get(recalled.located, item.target.container), Array.headNonEmpty) : Option.liftPredicate(item, ({ live: open }) => !open);
-        const levels = [...menuPath(base, item).map((each) => [base, each] as const), ...Option.toArray(holder).map((each) => [recalled, each] as const), ...fresh.shown.map(({ item: each }) => [fresh, each] as const)];
-        const outline = yield* Effect.forEach(levels, ([index, each]) => Effect.fromResult(Outline.render(index, { in: Option.some(each) })));
-        return [...shots.flat(), ...outline.flat().map(said)];
-    });
-const document = (taking: Taking) =>
-    Effect.fnUntraced(function* (id: string) {
-        const instances = yield* Effect.flatMap(ApplicationServer, ({ running }) => SubscriptionRef.get(running));
-        const shown = instances.flatMap((each) =>
-            Array.match(
-                windowsOf(each.state).flatMap((window) => (window.document === id ? [window.number] : [])),
-                { onEmpty: Array.empty, onNonEmpty: (numbers) => [{ each, numbers }] },
-            ),
-        );
-        yield* Array.isReadonlyArrayEmpty(shown) ? new Cause.NoSuchElementError(`document ${id}: no window shows it`) : Effect.void;
-        const taken = yield* Effect.forEach(shown, ({ each, numbers }) => Effect.map(capture(each, { _tag: 'windows', numbers }, taking), Array.prepend(said(new Line({ head: [each.name ?? each.identifier] })))), { concurrency: 'unbounded' });
-        return taken.flat();
-    });
-const object = (id: string) =>
-    Effect.fnUntraced(function* ({ row }: Aimed) {
-        const [render, server, side] = yield* Effect.all([Render, ApplicationServer, Side]);
-        const { image, title } = yield* render(row, id);
-        const { png } = yield* server.scale({ image, longestSide: side });
-        return [{ ...said(new Line({ head: ['object', Format.quoted(title)] })), png: Option.some(png) }];
-    });
+    yield* Effect.when(ApplicationFailure.of('notShown', `document ${id}`), Effect.succeed(Array.isReadonlyArrayEmpty(showing)));
+    yield* Target.hold(showing.map(({ each }) => Target.Hold.Using({ instance: each.instance })));
+    const drawn = yield* Effect.forEach(showing, ({ each, numbers }) => Effect.map(capture(each, { _tag: 'windows', numbers }, mode), Array.prepend({ line: new Line({ head: [each.name ?? each.identifier] }) })), { concurrency: 'unbounded' });
+    return drawn.flat();
+});
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 const View = {
     tool,
-    handle: Effect.fnUntraced(function* ({ of = 'front', id, in: within, marks = false, seconds, frames, into }: Tool.Parameters<typeof tool>) {
-        const refusals = Record.keys(Record.filter({ 'seconds: not taken with marks or of:"object"': seconds !== undefined && (marks || of === 'object'), 'into: takes seconds': into !== undefined && seconds === undefined }, Boolean));
-        yield* Array.match(refusals, { onEmpty: () => Effect.void, onNonEmpty: (lines) => new Cause.IllegalArgumentError(lines.join('\n')) });
-        const named = Effect.fromOption(Option.fromUndefinedOr(id), () => new Cause.IllegalArgumentError('id: required with of:"document" and of:"object"'));
-        const aimed = yield* Effect.cached(current);
-        const reading = yield* Effect.cached(Effect.flatMap(aimed, (aim) => Effect.map(read(aim), (held) => ({ ...aim, ...held }))));
-        const base = Effect.map(reading, Struct.get('base'));
-        const taking: Taking = {
-            marks: marks ? yield* Effect.map(reading, ({ live, base: index }) => ({ [live.instance]: marksOf(index) })) : {},
-            clip: Option.map(Option.fromUndefinedOr(seconds), (span) => ({ seconds: span, frames, ...Option.getOrUndefined(Option.map(Option.fromUndefinedOr(into), (path) => ({ movie: pathToFileURL(path) }))) })),
-        };
-        const shots = yield* Match.value(of).pipe(
-            Match.when(Match.is('front', 'all'), (scope) => Effect.flatMap(aimed, (aim) => windowed(aim, numbersOf[scope](aim.live.state), base, taking))),
-            Match.when('document', () => Effect.flatMap(named, document(taking))),
-            Match.when('object', () => Effect.flatMap(named, (held) => Effect.flatMap(aimed, object(held)))),
-            Match.when(Predicate.isString, (reference) => Effect.flatMap(reading, element(reference, taking))),
-            Match.orElse((pixels) => Effect.flatMap(aimed, zoom(pixels, within, taking))),
+    run: Effect.fnUntraced(function* ({ of = 'front', id, in: within, marks = false, seconds, frames: limit, into }: Tool.Parameters<typeof tool>) {
+        const target = yield* Effect.cached(Target.current);
+        const read = yield* Effect.cached(Effect.flatMap(target, (aim) => Address.read(aim)));
+        const marked = yield* Effect.when(read, Effect.succeed(marks));
+        const labels = Option.toArray(marked)
+            .flatMap(Address.list)
+            .flatMap(({ element: held, token }) => (held._tag === 'control' ? Option.toArray(Option.all({ frame: Option.fromUndefinedOr(held.frame), label: token })) : []));
+        const named = Effect.fromNullishOr(id);
+        const mode = (instance: Instance['instance']): Capture['mode'] =>
+            seconds === undefined ? { _tag: 'still', marks: Option.exists(marked, (held) => held.instance === instance) ? labels : [] } : { _tag: 'recording', keyFrameLimit: limit, duration: Duration.seconds(seconds), ...(into === undefined ? {} : { movie: pathToFileURL(into) }) };
+        const drawn: Parameters<typeof attach>[0] = yield* Match.value(of).pipe(
+            Match.when(
+                Match.is('front', 'all'),
+                Effect.fnUntraced(function* (scope: 'front' | 'all') {
+                    const { row, live } = yield* target;
+                    const numbers = scope === 'front' ? Option.toArray(front(live.state)) : windows(live.state).flatMap(({ number, kind }) => (kind === 'menu' ? [] : [number]));
+                    if (Array.isReadonlyArrayNonEmpty(numbers)) {
+                        return yield* capture(live, { _tag: 'windows', numbers }, mode);
+                    }
+                    const item = Array.findFirst(Address.list(yield* read), ({ element: held, containers, token }) => (held._tag === 'control' && Array.lastNonEmpty(containers).kind === 'statusItem' ? token : Option.none()));
+                    return yield* refuse([new Line({ head: ['windows'], value: 'none shown', call: Option.match(item, { onNone: () => Target.open(row.name), onSome: (at) => new Call({ tool: 'act', given: { steps: [{ at }] } }) }) })]);
+                }),
+            ),
+            Match.when('document', () => Effect.flatMap(named, (held) => document(held, mode))),
+            Match.when(
+                'object',
+                Effect.fnUntraced(function* () {
+                    const [{ row }, render, server, side, held] = yield* Effect.all([target, Render, ApplicationServer, Side, named]);
+                    const { image, title } = yield* render(row, held);
+                    const { png, width, height } = yield* server.scale({ image, longestSide: side });
+                    return [{ line: new Line({ head: ['object', Format.quoted(title)], facts: [Address.print('region')({ _tag: 'size', value: Tuple.make(width, height) })] }), frame: { png } }];
+                }),
+            ),
+            Match.when(Predicate.isString, (at) => Effect.flatMap(Effect.all([target, read]), ([aim, held]) => element(aim, held, at, mode))),
+            Match.orElse(
+                Effect.fnUntraced(function* ([x, y, wide, high]: readonly [number, number, number, number]) {
+                    const aim = yield* target;
+                    const [viewed, window] = yield* Effect.all([Handle.use((handle) => handle.get(Viewed)), Effect.transposeOption(Option.map(Option.fromUndefinedOr(within), (at) => Address.reach(aim, at)))]);
+                    const place = point(viewed, { ...aim.live, window });
+                    const [origin, corner] = yield* Effect.fromResult(Result.all([place([x, y]), place([x + wide, y + high])]));
+                    return yield* capture(aim.live, { _tag: 'region', frame: [origin.at, [corner.at[0] - origin.at[0], corner.at[1] - origin.at[1]]] }, mode, [`crop [${[x, y, wide, high].join(',')}]`]);
+                }),
+            ),
         );
-        const lines = yield* attach(shots);
-        const subject = of === 'document' ? [] : yield* Effect.flatMap(aimed, ({ row, live }) => Outline.subject(row.name, live, { facts: Array.dedupe(shots.flatMap(Struct.get('front'))) }));
+        const lines = yield* attach(drawn);
+        const fronted = drawn.flatMap(({ frame }) => Array.fromNullishOr(frame?.presentation)).some((held) => held._tag === 'forward' || (held._tag === 'restored' && !held.back));
+        const subject = of === 'document' ? [] : yield* Effect.flatMap(target, ({ row, live }) => Outline.subject(row.name, live, { facts: fronted ? [Outline.say.front] : [] }));
         return new Report({ lines: [...subject, ...lines] });
     }, Effect.scoped),
-};
+    Side,
+    Viewed,
+    Render,
+    limit: LIMIT,
+    attach,
+    front,
+    frames,
+    point,
+    windows,
+} as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { attach, FRAMES, frontOf, keyFramesOf, pointOf, Render, Side, View, Viewed, windowsOf };
+export { View };
