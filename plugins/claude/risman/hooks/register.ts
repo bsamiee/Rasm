@@ -33,8 +33,8 @@ class Link extends Context.Service<
     Link,
     {
         readonly describe: (tool: string, server: Option.Option<ToolMcpServer>) => Effect.Effect<void>;
-        readonly resident: (tool: string, agent: Option.Option<string>) => Effect.Effect<boolean>;
-        readonly handle: (tool: string, agent: Option.Option<string>) => Effect.Effect<Option.Option<string>>;
+        readonly resident: (tool: string) => Effect.Effect<boolean>;
+        readonly bind: (tool: string, agent: Option.Option<string>) => Effect.Effect<Option.Option<string>>;
         readonly turn: (agent: Option.Option<string>, running: boolean) => Effect.Effect<void>;
         readonly report: (agent: string) => Effect.Effect<void>;
     }
@@ -139,7 +139,7 @@ function link($: EngineInterface) {
                     Effect.catchCause((cause) => Effect.logWarning('poll ended', cause)),
                     Effect.annotateLogs({ origin: follower.binding.origin, handle: follower.handle }),
                 );
-            const claim = Effect.fnUntraced(function* (binding: Binding) {
+            const claim = Effect.fnUntraced(function* (binding: Binding, bindings: HashMap.HashMap<Binding, Follower>) {
                 const urls = HttpApiClient.urlBuilder(Handles, { baseUrl: binding.origin });
                 const answer = yield* send('bind', urls.bind());
                 const claimed = yield* Effect.result(Schema.decodeUnknownEffect(Claimed)(answer));
@@ -150,15 +150,8 @@ function link($: EngineInterface) {
                 const { text } = yield* Effect.fromResult(claimed);
                 const follower: Follower = { binding, handle: text.handle, urls, after: yield* Ref.make(0) };
                 yield* FiberMap.run(polls, text.handle, follow(follower));
-                return follower;
+                return [text.handle, HashMap.set(bindings, binding, follower)] as const;
             });
-            const bind = (binding: Binding) =>
-                SynchronizedRef.modifyEffect(held, (known) =>
-                    Option.match(HashMap.get(known, binding), {
-                        onNone: () => claim(binding).pipe(Effect.map((follower) => [follower.handle, HashMap.set(known, binding, follower)] as const)),
-                        onSome: (follower) => Effect.succeed([follower.handle, known] as const),
-                    }),
-                );
             const resume = (agent: Option.Option<string>) => SynchronizedRef.get(held).pipe(Effect.flatMap((known) => Effect.forEach(HashMap.values(HashMap.filter(known, owns(agent))), (follower) => FiberMap.run(polls, follower.handle, follow(follower), { onlyIfMissing: true }), { discard: true })));
             const quit = (owned: (follower: Follower) => boolean) =>
                 SynchronizedRef.getAndUpdate(held, (known) => HashMap.filter(known, (follower) => !owned(follower))).pipe(
@@ -170,20 +163,22 @@ function link($: EngineInterface) {
                         ),
                     ),
                 );
-            const reach = Effect.fnUntraced(function* (tool: string, agent: Option.Option<string>) {
-                const known = yield* Ref.get(residents);
-                const origin = Option.filter(Record.get(yield* Ref.get(origins), tool), (at) => Option.getOrElse(Record.get(known, at), Function.constTrue));
-                return yield* Option.match(origin, { onNone: () => Effect.succeedNone, onSome: (at) => bind(new Binding({ origin: at, agent })).pipe(Effect.option) });
-            });
             yield* Effect.addFinalizer(() => quit(Function.constTrue));
             return {
                 describe: (tool, server) => Ref.update(origins, (known) => server.pipe(Option.flatMap(loopback), Option.match({ onNone: () => Record.remove(known, tool), onSome: (origin) => Record.set(known, tool, origin) }))),
-                resident: Effect.fnUntraced(function* (tool: string, agent: Option.Option<string>) {
-                    yield* reach(tool, agent);
-                    const known = yield* Ref.get(residents);
-                    return Option.exists(Record.get(yield* Ref.get(origins), tool), (at) => Option.getOrElse(Record.get(known, at), Function.constFalse));
-                }),
-                handle: (tool, agent) => resume(agent).pipe(Effect.andThen(reach(tool, agent))),
+                resident: (tool) => Ref.get(origins).pipe(Effect.map((known) => Record.has(known, tool))),
+                bind: Effect.fnUntraced(function* (tool: string, agent: Option.Option<string>) {
+                    yield* resume(agent);
+                    const servers = yield* Ref.get(residents);
+                    const origin = yield* Effect.fromOption(Option.filter(Record.get(yield* Ref.get(origins), tool), (at) => Option.getOrElse(Record.get(servers, at), Function.constTrue)));
+                    const binding = new Binding({ origin, agent });
+                    return yield* SynchronizedRef.modifyEffect(held, (known) =>
+                        Option.match(HashMap.get(known, binding), {
+                            onNone: () => claim(binding, known),
+                            onSome: (follower) => Effect.succeed([follower.handle, known] as const),
+                        }),
+                    );
+                }, Effect.option),
                 turn: (agent, running) => SubscriptionRef.update(busy, running ? HashSet.add(agent) : HashSet.remove(agent)).pipe(Effect.andThen(Effect.when(resume(agent), Effect.succeed(running))), Effect.asVoid),
                 report: (agent) => Option.some(agent).pipe(owns, quit),
             };
@@ -234,7 +229,7 @@ function register(on: On) {
                 ? verdict
                 : current($, live)
                       .runPromise(
-                          Link.use((linked) => linked.resident(e.tool, Option.fromUndefinedOr(e.agentId))),
+                          Link.use((linked) => linked.resident(e.tool)),
                           { signal: next.signal },
                       )
                       .then((resident) => (resident ? { decision: 'allow' as const } : verdict)),
@@ -243,7 +238,7 @@ function register(on: On) {
     on('tool.call', ($, e, next) =>
         current($, live)
             .runPromise(
-                Link.use((linked) => linked.handle(e.tool, Option.fromUndefinedOr(e.agentId))),
+                Link.use((linked) => linked.bind(e.tool, Option.fromUndefinedOr(e.agentId))),
                 { signal: next.signal },
             )
             .then(Option.match({ onNone: () => next(e), onSome: (handle) => next({ ...e, handle }) })),

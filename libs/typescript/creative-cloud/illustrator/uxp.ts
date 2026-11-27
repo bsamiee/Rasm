@@ -55,7 +55,6 @@ const toolbar = {
         Effect.map((id) => ({ id, label: id })),
     ),
     select: (id: string) => Illustrator.use(({ app }) => Effect.try({ try: (): unknown => app.selectTool(id), catch: HostError.refused(`tool ${id}`) })),
-    changes: Uxp.ticks,
 };
 const suppressDialogs = Illustrator.use(({ app, UserInteractionLevel }) => Uxp.preserve(app, { userInteractionLevel: UserInteractionLevel.DONTDISPLAYALERTS }));
 const execute = (code: string) => Illustrator.use(({ containment }) => Uxp.execute(containment, code));

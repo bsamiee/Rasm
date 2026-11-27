@@ -226,8 +226,10 @@ extension AXUIElement {
     var window: CGWindowID? {
         var (number, answering): (CGWindowID, pid_t) = (0, 0)
         guard unsafe windowNumber(self, &number) == .success else { return nil }
-        guard let process, unsafe actualProcess(self, &answering) == .success, answering != process else { return number }
-        return InstanceState.Window.all(.optionAll, of: process)[process]?.first { row in row.remote == number }?.number ?? number
+        guard let process, unsafe actualProcess(self, &answering) == .success else { return number }
+        let served: pid_t = answering == process ? responsiblePID(process) : process
+        guard served != answering else { return number }
+        return InstanceState.Window.all(.optionAll, of: served)[served]?.first { row in row.remote == number }?.number ?? number
     }
 
     static func cast(_ slot: CFTypeRef) -> AXUIElement? { CFGetTypeID(slot) == AXUIElementGetTypeID() ? unsafe unsafeDowncast(slot, to: AXUIElement.self) : nil }

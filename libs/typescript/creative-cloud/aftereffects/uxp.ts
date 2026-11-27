@@ -61,7 +61,7 @@ class AfterEffects extends Context.Service<AfterEffects>()('@rasm/aftereffects/u
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const bracket = (subject: string, { begin, end }: Record.ReadonlyRecord<'begin' | 'end', (app: typeof Application.Type) => unknown>) =>
-    AfterEffects.use(({ app }) => Effect.acquireRelease(Effect.try({ try: () => begin(app), catch: HostError.refused(subject) }), () => Effect.orDie(Effect.try({ try: () => end(app), catch: HostError.refused(subject) }))));
+    AfterEffects.use(({ app }) => Effect.acquireRelease(Effect.try({ try: () => begin(app), catch: HostError.refused(subject) }), () => Effect.ignore(Effect.try({ try: () => end(app), catch: HostError.refused(subject) }), { log: 'Debug' })));
 const suppressDialogs = bracket('dialog suppression', { begin: (app) => app.beginSuppressDialogs(), end: (app) => app.endSuppressDialogs(false) });
 const undoGroup = (label: string) => bracket(`undo group ${label}`, { begin: (app) => app.beginUndoGroup(label), end: (app) => app.endUndoGroup() });
 const execute = (code: string, label: string) => AfterEffects.use(({ containment }) => Uxp.execute(containment, code, (call) => Effect.scoped(Effect.andThen(undoGroup(label), call))));
@@ -74,11 +74,9 @@ const toolbar = {
                 Effect.flatMap((toolType) => Effect.try({ try: () => Object.assign(project, { toolType } satisfies Partial<typeof project>), catch: HostError.refused(`tool type ${id}`) })),
             ),
         ),
-    changes: Uxp.ticks,
 };
-const render = Effect.fnUntraced(function* ({ target, label }: Render, written: File) {
+const render = Effect.fnUntraced(function* ({ target }: Render, written: File) {
     const { containment, CompItem } = yield* AfterEffects;
-    yield* undoGroup(label);
     const found = yield* Uxp.locate(containment, target);
     const composition = yield* Effect.mapError(Schema.decodeUnknownEffect(Composition)(found), () => Unmatched.of({ subject: CompItem.name, query: Option.some(target.path) }));
     yield* Uxp.preserve(composition, { resolutionFactor: [1, 1] });

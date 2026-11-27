@@ -5,5 +5,5 @@
     "version": "0.1.0",
     "host": { "app": "ID", "minVersion": "20.0.0", "data": { "loadEvent": "startup" } },
     "entrypoints": [{ "id": "typesetting", "label": { "default": "Typesetting" }, "type": "panel" }],
-    "requiredPermissions": { "localFileSystem": "fullAccess", "network": { "domains": ["ws://localhost:7490"] }, "allowCodeGenerationFromStrings": true }
+    "requiredPermissions": { "localFileSystem": "fullAccess", "allowCodeGenerationFromStrings": true }
 }

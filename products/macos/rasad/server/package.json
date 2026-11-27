@@ -22,5 +22,16 @@
         "@rasm/vite": "workspace:*",
         "@types/node": "catalog:",
         "vite": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "build--vite": {
+                "options": {
+                    "env": {
+                        "NODE_OPTIONS": "--disable-warning=ExperimentalWarning"
+                    }
+                }
+            }
+        }
     }
 }

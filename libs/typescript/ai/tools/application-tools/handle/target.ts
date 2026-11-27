@@ -1,13 +1,12 @@
 import { Catalog, Entry } from '@rasm/applications/catalog';
 import { ApplicationServer } from '@rasm/applications/server/client';
-import { Element } from '@rasm/applications/server/element';
 import { ApplicationFailure } from '@rasm/applications/server/failure';
 import { Installation } from '@rasm/applications/server/installation';
 import { Instance } from '@rasm/applications/server/instance';
 import { Call, Format, Line, Report } from '@rasm/mcp/report';
 import { Handle, Server } from '@rasm/mcp/server';
 import { ToolCall } from '@rasm/mcp/toolkit';
-import { Array, Cause, Context, Data, Effect, Equal, Equivalence, Function, HashSet, Layer, Number, Option, Record, Ref, Result, Schema, SchemaGetter, Semaphore, Stream, String, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Context, Data, Effect, Equal, Equivalence, Function, HashSet, Layer, Number, Option, Record, Result, Schema, SchemaGetter, Semaphore, Sink, Stream, String, Struct, SubscriptionRef } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -22,7 +21,6 @@ type Hold = Data.TaggedEnum<{
 const Hold = Data.taggedEnum<Hold>();
 const Stored = Schema.Struct({
     held: Schema.OptionFromOptionalKey(Schema.Struct({ url: Installation.fields.url, instance: Instance.fields.instance, language: Schema.String })),
-    followed: Schema.Array(Schema.Struct({ instance: Instance.fields.instance, locators: Element.Locator.pipe(Schema.Array, Schema.OptionFromOptionalKey) })),
     named: Schema.OptionFromOptionalKey(Installation.fields.url),
     opened: Instance.fields.instance.pipe(Schema.Array, Schema.OptionFromOptionalKey),
 });
@@ -57,7 +55,7 @@ class Watches extends Context.Service<Watches, Semaphore.Semaphore>()('@rasm/app
     static readonly layer: Layer.Layer<Watches, never, ApplicationServer | Catalog | Server> = Layer.effect(
         Watches,
         Effect.gen(function* () {
-            const [server, catalog, served, turn, tables] = yield* Effect.all([ApplicationServer, Catalog, Server, Semaphore.make(1), Ref.make(Record.empty<string, readonly string[]>())]);
+            const [server, catalog, served, turn] = yield* Effect.all([ApplicationServer, Catalog, Server, Semaphore.make(1)]);
             const followed = Stream.map(served.states(Key), (states) => states.reduce((all, aim) => HashSet.union(all, aim.followed), HashSet.empty<Instance['instance']>()));
             const following = Effect.map(Stream.runHead(followed), Option.getOrElse(HashSet.empty<Instance['instance']>));
             const entryAt = ({ href }: URL) => Effect.tapError(catalog.find(href), (cause) => Effect.logWarning(`Application bundle ${href} is unread, the restored handle forgets it`, cause));
@@ -67,7 +65,7 @@ class Watches extends Context.Service<Watches, Semaphore.Semaphore>()('@rasm/app
                 Stored.pipe(
                     Schema.decodeTo(Schema.instanceOf(Aim), {
                         decode: SchemaGetter.transformEffect(
-                            Effect.fnUntraced(function* ({ held, followed: tabled, named, opened }: typeof Stored.Type) {
+                            Effect.fnUntraced(function* ({ held, named, opened }: typeof Stored.Type) {
                                 const [row, last] = yield* Effect.all([
                                     held.pipe(
                                         Effect.fromOption,
@@ -76,8 +74,6 @@ class Watches extends Context.Service<Watches, Semaphore.Semaphore>()('@rasm/app
                                     ),
                                     named.pipe(Effect.fromOption, Effect.flatMap(entryAt), Effect.option),
                                 ]);
-                                const stated = Record.getSomes(Record.fromIterableWith(tabled, ({ instance, locators }) => [instance, locators]));
-                                yield* Ref.update(tables, (known) => ({ ...known, ...stated }));
                                 return new Aim({
                                     held: Option.zipWith(row, held, (entry, { instance, language }) => ({ row: entry, instance, language })),
                                     named: last,
@@ -86,28 +82,28 @@ class Watches extends Context.Service<Watches, Semaphore.Semaphore>()('@rasm/app
                                 });
                             }),
                         ),
-                        encode: SchemaGetter.transformEffect(
-                            Effect.fnUntraced(function* ({ held, named, opened }: Aim) {
-                                const read = yield* Ref.get(tables);
-                                return {
-                                    held: Option.map(held, ({ row, instance, language }) => ({ url: row.url, instance, language })),
-                                    followed: Option.toArray(held).map(({ instance }) => ({ instance, locators: Record.get(read, instance) })),
-                                    named: Option.map(named, Struct.get('url')),
-                                    opened: Option.some(Iterator.from(opened).toArray()),
-                                };
-                            }),
-                        ),
+                        encode: SchemaGetter.transform(({ held, named, opened }: Aim) => ({
+                            held: Option.map(held, ({ row, instance, language }) => ({ url: row.url, instance, language })),
+                            named: Option.map(named, Struct.get('url')),
+                            opened: Option.some(Iterator.from(opened).toArray()),
+                        })),
                     }),
                 ),
             );
-            const [restored, rows, seeds] = yield* Effect.all([Stream.runHead(served.states(Key)), SubscriptionRef.get(server.running), Ref.getAndSet(tables, Record.empty<string, readonly string[]>())]);
-            const [live, gone] = Array.partition(
-                Option.getOrElse(restored, Array.empty<Aim>).flatMap(({ held }) => Option.toArray(held)),
-                (target) => (Record.has(Instance.running(rows), target.instance) ? Result.succeed(target) : Result.fail(target)),
-            );
-            yield* Effect.forEach(live, ({ instance }) => Effect.ignore(server.watch({ instance, ...Option.getOrUndefined(Option.map(Record.get(seeds, instance), (locators) => ({ locators }))) }), { log: 'Warn', message: `Watch of ${instance} failed to restore, its references are read again` }), {
-                discard: true,
-            });
+            const [restored, rows, [, reconnected]] = yield* Effect.all([Stream.runHead(served.states(Key)), SubscriptionRef.get(server.running), Stream.peel(server.connected, Sink.head())]);
+            const gone = Option.getOrElse(restored, Array.empty<Aim>)
+                .flatMap(({ held }) => Option.toArray(held))
+                .filter(({ instance }) => !Record.has(Instance.running(rows), instance));
+            const watch = Effect.fnUntraced(function* () {
+                const live = Instance.running(yield* SubscriptionRef.get(server.running));
+                yield* Effect.forEach(
+                    HashSet.filter(yield* following, (instance) => Record.has(live, instance)),
+                    (instance) => Effect.ignore(server.watch({ instance }), { log: 'Warn', message: `Watch of ${instance} failed to restore` }),
+                    { discard: true },
+                );
+            }, Semaphore.withPermit(turn));
+            yield* watch();
+            yield* Effect.forkScoped(Stream.runForEach(reconnected, watch));
             yield* served.events({
                 stream: Stream.fromIterable(gone),
                 route: ({ row, instance }, state) => {
@@ -127,17 +123,6 @@ class Watches extends Context.Service<Watches, Semaphore.Semaphore>()('@rasm/app
                     }, Semaphore.withPermit(turn)),
                 ),
                 Effect.forkScoped,
-            );
-            yield* Effect.addFinalizer(
-                Effect.fnUntraced(function* () {
-                    const read = yield* Effect.all(
-                        Record.fromIterableWith(yield* following, (instance) => [instance, server.release({ instance })]),
-                        { concurrency: 'unbounded', mode: 'result' },
-                    );
-                    const [released, unreleased] = Record.partition(read, Function.identity);
-                    yield* Effect.forEach(Record.values(unreleased), (cause) => Effect.logWarning('Watch release failed at shutdown, the references of its instance are read again after the restart', cause), { discard: true });
-                    yield* Ref.set(tables, released);
-                }),
             );
             return turn;
         }),

@@ -221,7 +221,7 @@ Each host groups changes into one undo step through one call, and every state ch
 |  [02]   | Photoshop     | `core.executeAsModal` with `suspendHistory`       | Async function, awaited | One state per open document    |
 |  [03]   | Premiere Pro  | `project.lockedAccess`, then `executeTransaction` | Synchronous callbacks   | One entry named by transaction |
 |  [04]   | Illustrator   | One `do javascript` call                          | Synchronous source      | One step per call              |
-|  [05]   | After Effects | `app.beginUndoGroup(label)`, `app.endUndoGroup()` | Synchronous source      | One step per script or render  |
+|  [05]   | After Effects | `app.beginUndoGroup(label)`, `app.endUndoGroup()` | Synchronous source      | One step per script            |
 
 - One call holds one user-visible change, named in the undo menu
 - Bodies hold host calls alone, and network, file, and decode work finishes before a body starts and enters as values

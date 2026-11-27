@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, realpathSync } from 'node:fs';
+import { machine } from 'node:os';
 import { join, matchesGlob, relative, resolve, sep } from 'node:path';
 import { env } from 'node:process';
 import { createDependencies, createNodes } from '@rasm/nx-apple';
@@ -70,7 +71,7 @@ const XCODE = {
       "package-product-members": [ { "package": "..", "product-name": "Middle", "build-phase": { "build-phase": "frameworks" } } ],
     },
   ],
-  "build-settings": { "CODE_SIGN_IDENTITY": "-", "CODE_SIGN_STYLE": "Manual", "GENERATE_INFOPLIST_FILE": "YES", "MACOSX_DEPLOYMENT_TARGET": "27.0", "MARKETING_VERSION": "0.1.0", "PRODUCT_NAME": "$(TARGET_NAME)", "SDKROOT": "macosx", "SWIFT_VERSION": "6.0" },
+  "build-settings": { "ALWAYS_SEARCH_USER_PATHS": "NO", "CODE_SIGN_IDENTITY": "-", "CODE_SIGN_STYLE": "Manual", "GENERATE_INFOPLIST_FILE": "YES", "INFOPLIST_KEY_LSApplicationCategoryType": "public.app-category.developer-tools", "MACOSX_DEPLOYMENT_TARGET": "27.0", "MARKETING_VERSION": "0.1.0", "PRODUCT_NAME": "$(TARGET_NAME)", "SDKROOT": "macosx", "SWIFT_VERSION": "6.0" },
 }
 `,
     'apps/Viewer/Viewer.xcodeproj/xcshareddata/xcschemes/Viewer.xcscheme': `<?xml version="1.0" encoding="UTF-8"?>\n<Scheme LastUpgradeVersion="2720" version="1.7">\n    <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES">\n        <BuildActionEntries>\n            <BuildActionEntry buildForTesting="NO" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">\n                ${REFERENCE}\n            </BuildActionEntry>\n        </BuildActionEntries>\n    </BuildAction>\n    <LaunchAction buildConfiguration="Debug">\n        <BuildableProductRunnable runnableDebuggingMode="0">\n            ${REFERENCE}\n        </BuildableProductRunnable>\n    </LaunchAction>\n</Scheme>\n`,
@@ -95,7 +96,7 @@ const Settings = Schema.Struct({ buildSettings: Schema.Struct({ SRCROOT: Schema.
 
 const settings = (root: string, argv: readonly string[]) => Effect.runSync(Schema.decodeEffect(Settings)(execFileSync('xcodebuild', ['-showBuildSettings', '-json', ...argv], { cwd: root, encoding: 'utf-8', env: { ...env, CFFIXED_USER_HOME: root } })));
 
-const invoked = (action: string) => [['xcodebuild', action, '-workspace', 'Fixture.xcworkspace', '-skipMacroValidation', '-skipPackagePluginValidation', '-onlyUsePackageVersionsFromResolvedFile', '-scheme', 'Fixture-Package']];
+const invoked = (action: string) => [['xcodebuild', action, '-workspace', 'Fixture.xcworkspace', '-skipMacroValidation', '-skipPackagePluginValidation', '-onlyUsePackageVersionsFromResolvedFile', '-scheme', 'Fixture-Package', '-destination', `platform=macOS,arch=${machine()},variant=macos`]];
 
 const compiledBy =
     (folder: string) =>

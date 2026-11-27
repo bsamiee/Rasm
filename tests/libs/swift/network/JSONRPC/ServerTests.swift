@@ -175,13 +175,15 @@ struct ServerTests {
     }
 
     @Test
-    func encodesAnUndecodableRequestAsADieCauseHoldingItsDefect() async throws {
+    func encodesAnUndecodableRequestAsAFailCauseNamingItsMethodMalformed() async throws {
         var session = Session()
-        let died = try await session.failure(3, "missing", [:])
-        expectNoDifference(died.id, .number(3))
-        expectNoDifference(died.reasons.map { reason in reason.keys.sorted() }, [["_tag", "defect"]])
-        expectNoDifference(died.reasons.map { reason in reason["_tag"] }, [.string("Die")])
-        expectNoDifference(died.rest, [])
+        let failed = try await session.failure(3, "missing", [:])
+        let error: [String: JSONValue] =
+            failed.reasons.first.flatMap { (reason: [String: JSONValue]) -> [String: JSONValue]? in if case .object(let fields)? = reason["error"] { fields } else { nil } } ?? [:]
+        expectNoDifference(failed.id, .number(3))
+        expectNoDifference(failed.reasons.map { reason in reason["_tag"] }, [.string("Fail")])
+        expectNoDifference([error["_tag"], error["subject"], error["reason"]], [.string("JSONRPCFailure"), .string("missing"), .string("malformed")])
+        expectNoDifference(failed.rest, [])
     }
 
     @Test

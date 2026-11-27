@@ -1,8 +1,11 @@
+import { Target } from '@rasm/application-tools/handle/target';
+import { Catalog } from '@rasm/applications/catalog';
+import { ApplicationServer } from '@rasm/applications/server/client';
 import { Kerns, Typeset, TypesettingRpcs } from '@rasm/indesign/typesetting';
 import { Inspection } from '@rasm/indesign/views';
 import { Link } from '@rasm/mcp/link';
 import { Format, Line, Report } from '@rasm/mcp/report';
-import { Server } from '@rasm/mcp/server';
+import { Handle, Server } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search/unmatched';
 import { drawsKashida, TATWEEL } from '@rasm/typography/arabic/kashida';
 import { Kerning } from '@rasm/typography/arabic/kerning';
@@ -46,7 +49,8 @@ const Tools = Toolkit.make(
         ),
         success: Inspection.View.cases.Font.mapFields(Struct.assign({ specimen: Schema.OptionFromOptionalKey(Specimen) })),
         failure: Schema.ErrorInstance(),
-    }).annotateMerge(Context.make(Tool.Readonly, true).pipe(Context.add(Tool.Strict, true))),
+        dependencies: [Handle],
+    }).annotate(Tool.Readonly, true),
     Tool.make('kerning', {
         description: 'Computes pair kerning and baseline shift from glyph outlines across text, story or frame widened to whole words, and writes them in one undo step',
         parameters: Schema.Struct({
@@ -56,25 +60,29 @@ const Tools = Toolkit.make(
         }),
         success: Report.schema,
         failure: Schema.ErrorInstance(),
-    }).annotate(Tool.Strict, true),
+        dependencies: [Handle],
+    }),
     Tool.make('typeset', {
         description: 'Reads settings of text, story, frame or text defaults, or writes given settings in one undo step, turning off stylistic sets rival to one turned on and refusing kashida in a face with no tatweel advance and no jalt',
         parameters: Schema.Struct(Typeset.fields),
         success: Typeset.Result,
         failure: Schema.ErrorInstance(),
-    }).annotate(Tool.Strict, true),
+        dependencies: [Handle],
+    }),
     Tool.make('quran', {
         description: 'Returns the text of the ayahs of a surah or division from CSV files or a mushaf, its basmalah a line before ayah 1, each ayah closed by a number mark the named application font draws and each line by separator',
         parameters: Schema.Struct({ source: QuranSource, selection: Quran.Selection, face: FONT, numberingSystem: Settings.fields.numberingSystem, separator: Schema.String.annotate({ description: 'Text after each line' }) }),
-        success: Schema.String,
+        success: Report.schema,
         failure: Schema.ErrorInstance(),
-    }).annotateMerge(Context.make(Tool.Readonly, true).pipe(Context.add(Tool.OpenWorld, false), Context.add(Tool.Strict, true))),
+        dependencies: [Handle],
+    }).annotateMerge(Context.make(Tool.Readonly, true).pipe(Context.add(Tool.OpenWorld, false))),
     Tool.make('symbols', {
         description: 'Lists the symbols of a TSV file that the named application font draws, one line per set',
         parameters: Schema.Struct({ file: PATH.annotate({ description: 'Symbol TSV path, one column of hexadecimal code points per set' }), face: FONT }),
         success: Report.schema,
         failure: Schema.ErrorInstance(),
-    }).annotateMerge(Context.make(Tool.Readonly, true).pipe(Context.add(Tool.OpenWorld, false), Context.add(Tool.Strict, true))),
+        dependencies: [Handle],
+    }).annotateMerge(Context.make(Tool.Readonly, true).pipe(Context.add(Tool.OpenWorld, false))),
 );
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -91,34 +99,39 @@ const specimen = Effect.fnUntraced(function* (data: Source, given: Tool.Paramete
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.Effect<readonly Link[]>; readonly call: (holds: (peer: Link) => boolean, subject: string) => Effect.Effect<RpcClient.RpcClient.Flat<RpcGroup.Rpcs<typeof TypesettingRpcs>, RpcClientError.RpcClientError>, Unmatched> }) {
-    const files = yield* FileSystem.FileSystem;
+    const [files, built] = yield* Effect.all([FileSystem.FileSystem, Effect.map(Effect.context<ApplicationServer | Catalog>(), Context.pick(ApplicationServer, Catalog))]);
     const serving = Link.serves(TypesettingRpcs);
-    const client = links.call(serving, 'linked application serving typesetting');
-    const readSource = Effect.fnUntraced(function* (name: string, characters: string) {
-        const [linked, file] = yield* Effect.all([client, files.makeTempFileScoped({ suffix: '.otf' })]);
+    const client = Target.current.pipe(
+        Effect.flatMap(({ row }) => links.call(Predicate.and(Link.runsIn(row), serving), `linked plugin of ${row.name} serving typesetting`)),
+        Effect.provide(built),
+    );
+    const readSource = Effect.fnUntraced(function* (linked: Effect.Success<typeof client>, name: string, characters: string) {
+        const file = yield* files.makeTempFileScoped({ suffix: '.otf' });
         const found = yield* linked('fontSource', { name, text: characters, file });
         return yield* Effect.transposeOption(Option.map(found, ({ file: path, postscriptName }) => files.readFile(path).pipe(Effect.bindTo('data'), Effect.map(Struct.assign({ postscriptName })))));
     }, Effect.scoped);
-    const openFace = Effect.fnUntraced(function* (name: string, characters: string, instance?: typeof Face.Instance.Type) {
-        const source = yield* readSource(name, characters);
+    const openFace = Effect.fnUntraced(function* (linked: Effect.Success<typeof client>, name: string, characters: string, instance?: typeof Face.Instance.Type) {
+        const source = yield* readSource(linked, name, characters);
         return yield* Face.open(yield* Effect.fromOption(source, () => Unmatched.of({ subject: 'installed font', query: Option.some(name) })), instance);
     });
-    const styleRuns = (runs: Parameters<typeof Span.styled>[0], first: number, last: number, extra: string) =>
+    const styleRuns = (linked: Effect.Success<typeof client>, runs: Parameters<typeof Span.styled>[0], first: number, last: number, extra: string) =>
         Effect.forEach(Record.values(Array.groupBy(Span.styled(runs, first, last), ({ font, axes }) => `${font}\t${axes.join(' ')}`)), (group) => {
             const { font, axes } = Array.headNonEmpty(group);
-            return Effect.map(openFace(font, [...group.map(Struct.get('text')), extra].join(''), Face.Instance.make({ coordinates: axes })), (face) => ({ font, face, group }));
+            return Effect.map(openFace(linked, font, [...group.map(Struct.get('text')), extra].join(''), Face.Instance.make({ coordinates: axes })), (face) => ({ font, face, group }));
         });
     const handlers = Tools.toLayer({
         font: Effect.fnUntraced(function* (given) {
+            const linked = yield* client;
             const [font, source] = yield* Effect.all([
-                Effect.flatMap(client, (linked) => linked('font', { name: given.name })),
+                linked('font', { name: given.name }),
                 readSource(
+                    linked,
                     given.name,
                     Option.getOrElse(given.text, () => ''),
                 ),
             ]);
             return { ...font, specimen: yield* Effect.transposeOption(Option.map(source, (data) => specimen(data, given))) };
-        }),
+        }, Effect.scoped),
         kerning: Effect.fnUntraced(function* ({ target, rules, mode }) {
             const linked = yield* client;
             const selection = yield* linked('runs', { target });
@@ -126,7 +139,7 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
             const [first, last] = expandToWords(text, selection.start, selection.start + selection.length);
             const { restores, shapes } = MODES[Option.getOrElse(mode, () => (selection.length === text.length ? 'kern' : 'replace'))];
             const restore = Option.liftPredicate({ index: first, length: last - first }, ({ length }) => restores && length > 0);
-            const faces = shapes && first < last ? yield* styleRuns(selection.runs, first, last, '') : [];
+            const faces = shapes && first < last ? yield* styleRuns(linked, selection.runs, first, last, '') : [];
             const spans = Array.sortWith(
                 faces.flatMap(({ face, group }) => Array.cartesian([face], group)),
                 ([, span]) => span.start,
@@ -146,31 +159,33 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
                     new Line({ head: ['written'], value: `${Format.count(written)} of ${Format.count(kerns.length, { one: 'kerning row', other: 'kerning rows' })}` }),
                 ],
             });
-        }),
+        }, Effect.scoped),
         typeset: Effect.fnUntraced(function* ({ target, settings }) {
             const linked = yield* client;
             const elongating = Option.exists(Option.flatMapNullishOr(settings, Struct.get('kashida')), Predicate.not(Predicate.isTagged('None')));
             const featured = Option.isSome(Option.flatMapNullishOr(settings, Struct.get('features')));
-            const faces = elongating || featured ? yield* Effect.flatMap(linked('runs', { target }), ({ runs, start, length }) => styleRuns(runs, start, start + length, elongating ? String.fromCodePoint(TATWEEL) : '')) : [];
+            const faces = elongating || featured ? yield* Effect.flatMap(linked('runs', { target }), ({ runs, start, length }) => styleRuns(linked, runs, start, start + length, elongating ? String.fromCodePoint(TATWEEL) : '')) : [];
             const broken = elongating ? faces.filter(({ face }) => !drawsKashida(face)) : [];
             yield* Array.match(broken, {
                 onEmpty: () => Effect.void,
                 onNonEmpty: (fonts) => new Cause.IllegalArgumentError(`Kashida breaks the joins of ${FONTS.format(fonts.map(Struct.get('font')))}, as they draw no tatweel with a positive advance and hold no jalt, so set kashida to None or apply a face that has either`),
             });
             return yield* linked('typeset', { target, settings: Option.map(settings, Struct.evolve({ features: (features = {}) => faces.reduce((exclusive, { face }) => face.layout.exclusive(exclusive), features) })) });
-        }),
+        }, Effect.scoped),
         quran: Effect.fnUntraced(function* ({ source, selection, face: name, numberingSystem, separator }) {
+            const linked = yield* client;
             const quran = yield* QuranSource.match(source, {
                 Csv: ({ ayahs, surahs, columns, riwayah }) => Effect.flatMap(Effect.all({ ayahs: files.readFileString(ayahs), surahs: files.readFileString(surahs) }), (csv) => Quran.decode(csv, columns, riwayah)),
                 Mushaf: ({ file, render }) => Effect.flatMap(Effect.transposeOption(Option.map(file, files.readFileString)), (json) => Quran.mushaf(json, render)),
             });
-            return yield* Quran.text(quran, separator, (marks) => openFace(name, marks), Settings.make({ numberingSystem }))(selection);
-        }),
+            const text = yield* Quran.text(quran, separator, (marks) => openFace(linked, name, marks), Settings.make({ numberingSystem }))(selection);
+            return new Report({ lines: Report.of(text).lines, budget: globalThis.Number.POSITIVE_INFINITY });
+        }, Effect.scoped),
         symbols: Effect.fnUntraced(function* ({ file, face: name }) {
-            const symbols = yield* Effect.flatMap(files.readFileString(file), Symbols.decode);
-            const face = yield* openFace(name, Record.values(symbols.sets).flat().join(''));
+            const [linked, symbols] = yield* Effect.all([client, Effect.flatMap(files.readFileString(file), Symbols.decode)]);
+            const face = yield* openFace(linked, name, Record.values(symbols.sets).flat().join(''));
             return new Report({ lines: Record.collect(symbols.supported(face).sets, (set, characters) => new Line({ head: [set], value: Array.match(characters, { onEmpty: () => 'none drawn', onNonEmpty: Array.join(' ') }) })) });
-        }),
+        }, Effect.scoped),
     });
     return Layer.provide(Server.toolkit(Tools, { annotations: Context.make(Server.Visibility, Effect.map(links.peers, Array.some(serving))) }), handlers);
 });

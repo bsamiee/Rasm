@@ -166,7 +166,7 @@ const takes = Effect.fnUntraced(function* () {
 });
 const points = Effect.fnUntraced(function* () {
     const { source } = yield* hosted(['select', 'pen', 'pen', 'select']);
-    assert.deepStrictEqual<unknown>(yield* Stream.runCollect(source.pointer), [
+    assert.deepStrictEqual<unknown>(yield* Stream.runCollect(source.pointer ?? Stream.empty), [
         { holding: HOLDING, tool: 'PEN', shortcut: { key: 'p', modifiers: ['shift'] }, help: 'Click to pen' },
         { holding: HOLDING, tool: 'SELECT', shortcut: { key: 's', modifiers: ['shift'] }, help: 'Click to select' },
     ]);

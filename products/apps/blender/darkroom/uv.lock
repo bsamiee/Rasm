@@ -22,7 +22,11 @@ prerelease-mode = "allow"
 minimum-libc-version = { glibc = "2.28" }
 
 [manifest]
-build-constraints = [{ name = "opencolorio", specifier = "==2.5.0" }]
+build-constraints = [
+    { name = "numpy", specifier = "==2.3.4" },
+    { name = "opencolorio", specifier = "==2.5.0" },
+    { name = "pybind11-stubgen", specifier = "==3.0.0" },
+]
 
 [[package]]
 name = "annotated-types"
@@ -1171,7 +1175,10 @@ source = { editable = "../../../../libs/python/blender/opencolorio-stubs" }
 [package.metadata]
 
 [package.metadata.requires-dev]
-dev = [{ name = "hatchling" }]
+dev = [
+    { name = "hatchling" },
+    { name = "pybind11-stubgen" },
+]
 
 [[package]]
 name = "rasm-records"

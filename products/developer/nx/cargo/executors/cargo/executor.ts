@@ -16,7 +16,7 @@ type Judged = (run: { readonly messages: readonly unknown[]; readonly compiled: 
 
 class Command extends Schema.Opaque<Command>()(
     Schema.Struct({
-        args: Schema.NonEmptyArray(Schema.String).annotate({ description: 'Subcommand and its arguments, a JSON message format among them where each task is decided from the messages of its own package' }),
+        args: Schema.NonEmptyArray(Schema.String).annotate({ description: 'Subcommand and its arguments, led by the +toolchain of a workspace a rustup toolchain file pins, a JSON message format among them where each task is decided from the messages of its own package' }),
         trailing: Schema.String.pipe(Schema.Array, Schema.optionalKey).annotate({ description: 'Arguments after --' }),
         env: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({ description: "Environment variables the command runs with, over the caller's" }),
         packages: Crate.pipe(Schema.Array, Schema.optionalKey).annotate({ description: 'Further packages the command selects' }),

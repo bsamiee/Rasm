@@ -108,7 +108,7 @@ required-environments = [
 
 # --- [BUILDS]
 
-build-constraint-dependencies = ["opencolorio==2.5.0"] # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
+build-constraint-dependencies = ["numpy==2.3.4", "opencolorio==2.5.0", "pybind11-stubgen==3.0.0"] # Builds generating the PyOpenColorIO stubs import the NumPy and OpenColorIO releases Blender bundles, through the pybind11-stubgen parser the build hook composes
 
 [tool.uv.sources]
 rasm-extension         = { workspace = "../../../../libs/python/blender" }

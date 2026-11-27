@@ -3,6 +3,7 @@ import dialogs from '@rasm/acrobat/host?inline';
 import { HostScript as Acrobat } from '@rasm/acrobat/script';
 import type { Target } from '@rasm/application-tools/handle/target';
 import { ApplicationServer } from '@rasm/applications/server/client';
+import { Instance } from '@rasm/applications/server/instance';
 import { Application } from '@rasm/creative-cloud-desktop/application';
 import { Completion } from '@rasm/extendscript/completion';
 import host from '@rasm/extendscript/host?inline';
@@ -10,11 +11,13 @@ import { lower, originalLine } from '@rasm/extendscript/node';
 import { HostScript as Illustrator } from '@rasm/illustrator/script';
 import { HostScript as InDesign } from '@rasm/indesign/script';
 import { Link } from '@rasm/mcp/link';
+import { Line, Report } from '@rasm/mcp/report';
+import { ToolCall } from '@rasm/mcp/toolkit';
 import { HostError } from '@rasm/object-model/model';
 import { Evaluation, EvaluationRpcs } from '@rasm/object-model/rpcs';
 import { Unmatched } from '@rasm/search/unmatched';
 import { HOSTS, PluginsInfo, UxpManifest } from '@rasm/uxp/manifest';
-import { Array, Cache, Data, Duration, Effect, Exit, FileSystem, Function, Match, Option, Order, Path, Predicate, pipe, Record, Schema, Struct } from 'effect';
+import { Array, Cache, Data, Duration, Effect, Exit, FileSystem, Function, Match, Option, Order, Path, Predicate, pipe, Record, Schema, Stream, Struct, SubscriptionRef } from 'effect';
 import type { RpcGroup } from 'effect/rpc';
 import shim from 'es5-shim?inline';
 import sham from 'es5-shim/es5-sham.js?inline';
@@ -50,7 +53,7 @@ const reline = (line: (at: number) => Option.Option<number>) => (error: HostErro
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const scripts = Effect.fnUntraced(function* (links: Pick<Effect.Success<ReturnType<typeof Link.listen<RpcGroup.Rpcs<typeof EvaluationRpcs>>>>, 'peers' | 'call'>, identifier: string) {
+const scripts = Effect.fnUntraced(function* (links: Pick<Effect.Success<ReturnType<typeof Link.listen<RpcGroup.Rpcs<typeof EvaluationRpcs>>>>, 'peers' | 'changes' | 'call'>, identifier: string) {
     const [server, applications, declarations, files, path] = yield* Effect.all([ApplicationServer, Applications, Declarations, FileSystem.FileSystem, Path.Path]);
     const dictionaries = yield* Cache.makeWith(({ url }: Application) => server.dictionary({ url }), { capacity: Number.POSITIVE_INFINITY, timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero) });
     const readPlugin = Schema.decodeUnknownOption(Schema.Struct({ pluginId: Schema.TemplateLiteral([`${identifier}.`, Schema.String]), status: Schema.Literal('enabled'), hostMinVersion: Schema.String }));
@@ -85,7 +88,7 @@ const scripts = Effect.fnUntraced(function* (links: Pick<Effect.Success<ReturnTy
     });
     return {
         run: Effect.fnUntraced(function* ({ row, live }: Effect.Success<typeof Target.current>, code: string) {
-            const [application, peers] = yield* Effect.all([applications.find(row), links.peers]);
+            const [application, peers, { returnEarly }] = yield* Effect.all([applications.find(row), links.peers, ToolCall]);
             const serving = Predicate.and(Link.runsIn(application), Link.serves(EvaluationRpcs));
             const found = yield* peers.some(serving) ? Effect.succeed(Route.Linked()) : route(application);
             const { program, engine, offset } = Match.value(found).pipe(
@@ -104,9 +107,23 @@ const scripts = Effect.fnUntraced(function* (links: Pick<Effect.Success<ReturnTy
                 return { ...(yield* Completion.decode(ResultJson, label)(completion)), written };
             });
             const linked = Effect.flatMap(links.call(serving, `linked plugin of ${application.name}`), (client) => client('evaluate', { code: lowered, label }));
+            const exited = SubscriptionRef.changes(server.running).pipe(
+                Stream.filter((rows) => !Record.has(Instance.running(rows), live.instance)),
+                Stream.runHead,
+                Effect.andThen(HostError.of({ _tag: 'Unavailable' }, `linked Atelier plugin running UXP scripts in ${application.name}`)()),
+            );
             const sent: Effect.Effect<Effect.Success<typeof linked | ReturnType<typeof execute>>, HostError | Error> = Route.$match(found, {
                 Linked: () => linked,
-                Unlinked: () => HostError.of({ _tag: 'Unavailable' }, `linked Atelier plugin running UXP scripts in ${application.name}`)(),
+                Unlinked: () =>
+                    new Report({ lines: [new Line({ head: [application.name, 'plugin'], value: 'unlinked', facts: ['script pending'] })] }).pipe(
+                        Report.text,
+                        Effect.succeed,
+                        Stream.succeed,
+                        returnEarly,
+                        Effect.andThen(links.changes.pipe(Stream.filter(Array.some(serving)), Stream.runHead)),
+                        Effect.raceFirst(exited),
+                        Effect.andThen(linked),
+                    ),
                 Uxp: ({ parameter, script }) => execute({ direct: script.wrap(lowered, host, label), [parameter]: { _tag: 'enumerator', name: script.language } }),
                 Acrobat: () => execute({ direct: Acrobat.wrap(lowered, host, dialogs) }),
                 Script: () =>

@@ -3,6 +3,7 @@ package import AppKit
 import AsyncAlgorithms
 import CasePaths
 import CasePathsCore
+import Files
 package import OrderedCollections
 package import Processes
 import Synchronization
@@ -17,15 +18,23 @@ package actor Watches {
         case released(Instance)
     }
 
-    private var held: [ProcessInstance: (watch: Watch, driven: Bool)] = [:]
-    private let followers: Mutex<[UUID: AsyncStream<(watch: Watch, driven: Bool)>.Continuation]> = Mutex([:])
+    private var held: [ProcessInstance: Watch] = [:]
+    private let followers: Mutex<[UUID: AsyncStream<Watch>.Continuation]> = Mutex([:])
     private let windowServer: Result<WindowServerConnection, ApplicationFailure>
+    private let swept: ApplicationFailure?
 
     package init() {
         let timed: AXError = AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), Float(messagingTimeout / .seconds(1)))
         windowServer = Result { () throws(ApplicationFailure) in
             guard timed == .success else { throw ApplicationFailure(subject: "Messaging timeout of the system-wide element", reason: .accessibility(timed)) }
             return try WindowServerConnection()
+        }
+        do {
+            let tables: [URL] = try ifPresent { () throws -> [URL] in try FileManager.default.contentsOfDirectory(at: Watch.tables, includingPropertiesForKeys: nil) } ?? []
+            for table in tables where ProcessInstance(rawValue: table.lastPathComponent)?.hasExited != false { try FileManager.default.removeItem(at: table) }
+            swept = nil
+        } catch {
+            swept = ApplicationFailure(subject: Watch.tables.path(percentEncoded: false), cause: error)
         }
     }
 
@@ -45,7 +54,7 @@ package actor Watches {
             try NSWorkspace.shared.instances { (application: NSRunningApplication) -> Bool in application.processIdentifier == process.pid }
                 .first { (listed: Instance) -> Bool in listed.process == process }
         }
-        var found: Instance? = held[process]?.watch.instance
+        var found: Instance? = held[process]?.instance
         if found == nil { found = try listed() }
         if found == nil, !process.hasExited {
             let (listings, listing) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
@@ -64,26 +73,21 @@ package actor Watches {
         return found
     }
 
-    package func watch(_ instance: Instance, driven: Bool = true, locators: [Locator] = []) async -> Watch {
-        let before: (watch: Watch, driven: Bool)? = held[instance.process]
-        let after: (watch: Watch, driven: Bool) = (before?.watch ?? Watch(instance, locators: locators), driven || before?.driven == true)
-        held[instance.process] = after
-        let started: Watch = after.watch
-        if before == nil {
-            let windowed: Set<WindowNotification> = Set(WindowNotification.allCases).subtracting([.secureInputEnabled, .secureInputDisabled])
-            await started.start(windows: notices(of: windowed, from: instance.process.pid)) { await self.remove(instance.process, started) }
+    package func watch(_ instance: Instance) async -> Watch {
+        if let watching = held[instance.process] { return watching }
+        let started = Watch(instance)
+        held[instance.process] = started
+        let windowed: Set<WindowNotification> = Set(WindowNotification.allCases).subtracting([.secureInputEnabled, .secureInputDisabled])
+        await started.start(windows: notices(of: windowed, from: instance.process.pid)) { await self.remove(instance.process, started) }
+        await started.drive()
+        followers.withLock { following in
+            for follower in following.values { follower.yield(started) }
         }
-        if after.driven, before?.driven != true { await after.watch.drive() }
-        if before?.driven != after.driven {
-            followers.withLock { following in
-                for follower in following.values { follower.yield(after) }
-            }
-        }
-        return after.watch
+        return started
     }
 
     package func finish() async {
-        let watching: [Watch] = held.values.map(\.watch)
+        let watching: [Watch] = Array(held.values)
         await withDiscardingTaskGroup { group in
             for watch in watching { group.addTask { await watch.finish() } }
         }
@@ -91,15 +95,13 @@ package actor Watches {
 
     package func release(_ process: ProcessInstance) async {
         guard let released = held.removeValue(forKey: process) else { return }
-        await released.watch.finish()
+        await released.finish()
     }
 
-    package func locators(of process: ProcessInstance) async -> [Locator] { await held[process]?.watch.locators ?? [] }
+    private func remove(_ process: ProcessInstance, _ watch: Watch) { if held[process] === watch { held[process] = nil } }
 
-    private func remove(_ process: ProcessInstance, _ watch: Watch) { if held[process]?.watch === watch { held[process] = nil } }
-
-    private func watched() -> AsyncStream<(watch: Watch, driven: Bool)> {
-        let (stream, continuation) = AsyncStream<(watch: Watch, driven: Bool)>.makeStream()
+    private func watched() -> AsyncStream<Watch> {
+        let (stream, continuation) = AsyncStream<Watch>.makeStream()
         let id = UUID()
         continuation.onTermination = { _ in self.followers.withLock { following in following[id] = nil } }
         followers.withLock { following in following[id] = continuation }
@@ -107,51 +109,16 @@ package actor Watches {
         return stream
     }
 
-    private nonisolated func follow(
-        _ matching: @escaping @Sendable (NSRunningApplication) -> Bool,
-        prompts: Bool,
-    ) -> AsyncStream<Result<(instance: Instance, message: Watch.Message?), ApplicationFailure>> {
-        let (output, delivery) = AsyncStream<Result<(instance: Instance, message: Watch.Message?), ApplicationFailure>>.makeStream()
-        let raising: AsyncStream<Result<WindowServerConnection.Notice, ApplicationFailure>> =
-            prompts ? notices(of: [.created, .shown]) : AsyncStream { continuation in continuation.finish() }
-        let raisedByAgents = raising.filter { (notice: Result<WindowServerConnection.Notice, ApplicationFailure>) -> Bool in
-            guard case .success(let notice) = notice else { return true }
-            return notice.owner.flatMap(NSRunningApplication.init(processIdentifier:)).map { owner in owner.activationPolicy != .regular } == true
-        }
-        let scans = chain(
-            [Result<CGWindowID?, ApplicationFailure>.success(nil)].async.prefix(prompts ? 1 : 0),
-            raisedByAgents.map { (notice: Result<WindowServerConnection.Notice, ApplicationFailure>) -> Result<CGWindowID?, ApplicationFailure> in notice.map(\.window) },
-        )
-        let raised = scans.compactMap { (scan: Result<CGWindowID?, ApplicationFailure>) -> [Instance]? in
-            guard case .success(let window) = scan else {
-                if case .failure(let failure) = scan { delivery.yield(.failure(failure)) }
-                return nil
-            }
-            let listed: [pid_t: [InstanceState.Window]] =
-                window.map { (window: CGWindowID) -> [pid_t: [InstanceState.Window]] in InstanceState.Window.all(.optionIncludingWindow, relativeTo: window) }
-                ?? InstanceState.Window.all([.optionOnScreenOnly, .excludeDesktopElements])
-            let owners: Set<pid_t> = Set(
-                listed.filter { (entry: (key: pid_t, value: [InstanceState.Window])) -> Bool in
-                    entry.value.contains { window in window.onScreen && window.layer >= InstanceState.Window.Band.modalPanel.level && window.band != .mainMenu && window.band != .status }
-                        && NSRunningApplication(processIdentifier: entry.key).map { application in application.activationPolicy != .regular } == true
-                        && Result { () throws(ApplicationFailure) in try AXUIElementCreateApplication(entry.key).elements(kAXWindowsAttribute).isEmpty } != .success(true)
-                }.keys
-            )
-            let instances: Result<[Instance], ApplicationFailure> = Result { () throws(ApplicationFailure) in
-                try NSWorkspace.shared.instances { application in owners.contains(application.processIdentifier) }
-            }
-            if case .failure(let failure) = instances { delivery.yield(.failure(failure)) }
-            return instances[case: \.success]
-        }
+    private nonisolated func follow(_ matching: @escaping @Sendable (NSRunningApplication) -> Bool) -> AsyncStream<(instance: Instance, message: Watch.Message?)> {
+        let (output, delivery) = AsyncStream<(instance: Instance, message: Watch.Message?)>.makeStream()
         let following = Task {
-            let requested = await self.watched().filter { held in (prompts || held.driven) && matching(held.watch.instance.application) }.map(\.watch)
-            let prompting = raised.flatMap(\.async).map { instance in await self.watch(instance, driven: false) }
+            let requested = await self.watched().filter { watch in matching(watch.instance.application) }
             await withDiscardingTaskGroup { group in
                 var followed: [ProcessInstance: Watch] = [:]
-                for await watch in merge(requested, prompting) where followed.updateValue(watch, forKey: watch.instance.process) !== watch {
+                for await watch in requested where followed.updateValue(watch, forKey: watch.instance.process) !== watch {
                     group.addTask {
-                        for await message in await watch.messages() { delivery.yield(.success((watch.instance, message))) }
-                        delivery.yield(.success((watch.instance, nil)))
+                        for await message in await watch.messages() { delivery.yield((watch.instance, message)) }
+                        delivery.yield((watch.instance, nil))
                     }
                 }
             }
@@ -164,11 +131,15 @@ package actor Watches {
         of matching: @escaping @Sendable (NSRunningApplication) -> Bool
     ) -> some AsyncSequence<Result<OrderedDictionary<Instance, InstanceState>, ApplicationFailure>, Never> & Sendable {
         let (recounts, recount) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
-        let (fronts, fronted) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let (relists, relist) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
         let observations: [NSKeyValueObservation] = [
             NSWorkspace.shared.observe(\.runningApplications, options: [.initial]) { _, _ in recount.yield() },
-            NSWorkspace.shared.observe(\.frontmostApplication) { _, _ in fronted.yield() },
+            NSWorkspace.shared.observe(\.frontmostApplication) { _, _ in relist.yield() },
         ]
+        let windowed = notices(of: Set(WindowNotification.allCases).subtracting([.reordered, .appUnresponsive, .appResponsive, .secureInputEnabled, .secureInputDisabled]))
+        let relisting = Task {
+            for await notice in windowed where notice.is(\.success) { relist.yield() }
+        }
         nonisolated(unsafe) let refcon: Unmanaged<AnyObject> = unsafe Unmanaged.passRetained(recount as AnyObject)
         let hosts: [Result<AXObserver, ApplicationFailure>] = Set(InstanceState.Activity.statusBars(in: InstanceState.Window.all(.optionAll)).map(\.host)).map { host in
             var created: AXObserver?
@@ -191,6 +162,7 @@ package actor Watches {
             return .failure(ApplicationFailure(subject: subject, reason: .accessibility(refused)))
         }
         recount.onTermination = { _ in
+            relisting.cancel()
             for observation in observations { observation.invalidate() }
             CFRunLoopPerformBlock(CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue) {
                 for observer in hosts.compactMap({ host in host[case: \.success] }) { CFRunLoopSourceInvalidate(AXObserverGetRunLoopSource(observer)) }
@@ -198,12 +170,10 @@ package actor Watches {
             }
             CFRunLoopWakeUp(CFRunLoopGetMain())
         }
-        let windowed = notices(of: Set(WindowNotification.allCases).subtracting([.reordered, .appUnresponsive, .appResponsive, .secureInputEnabled, .secureInputDisabled]))
-            .compactMap { notice in notice[case: \.success] }
-            .debounce(for: quiet).map { _ in Result<Bool, ApplicationFailure>.success(false) }
-        let refusals = hosts.compactMap { host in host[case: \.failure].map { failure in Result<Bool, ApplicationFailure>.failure(failure) } }.async
+        let refused: [ApplicationFailure] = hosts.compactMap { (host: Result<AXObserver, ApplicationFailure>) -> ApplicationFailure? in host[case: \.failure] } + [swept].compactMap(\.self)
+        let refusals = refused.map(Result<Bool, ApplicationFailure>.failure).async
         let recounted = chain(refusals, recounts.map { () -> Result<Bool, ApplicationFailure> in .success(true) })
-        let triggers = merge(recounted, fronts.map { () -> Result<Bool, ApplicationFailure> in .success(false) }, windowed)
+        let triggers = merge(recounted, relists.map { () -> Result<Bool, ApplicationFailure> in .success(false) })
         let counted: (counts: Result<[pid_t: Int], ApplicationFailure>, change: Change) = (.success([:]), .listed(.success([:])))
         let listed = triggers.reductions(into: counted) { (held: inout (counts: Result<[pid_t: Int], ApplicationFailure>, change: Change), trigger: Result<Bool, ApplicationFailure>) in
             guard case .success(let recount) = trigger else {
@@ -235,8 +205,7 @@ package actor Watches {
             )
         }
         .map(\.change)
-        let driven = follow(matching, prompts: false).compactMap { (followed: Result<(instance: Instance, message: Watch.Message?), ApplicationFailure>) -> Change? in
-            guard case .success(let followed) = followed else { return nil }
+        let driven = follow(matching).compactMap { (followed: (instance: Instance, message: Watch.Message?)) -> Change? in
             guard let message = followed.message else { return .released(followed.instance) }
             return message[case: \.state].map { state in .watched(instance: followed.instance, state: state) }
         }
@@ -270,19 +239,16 @@ package actor Watches {
     }
 
     package nonisolated func events(of matching: @escaping @Sendable (NSRunningApplication) -> Bool) -> some AsyncSequence<Result<InstanceEvent, ApplicationFailure>, Never> & Sendable {
-        follow(matching, prompts: true).compactMap { (followed: Result<(instance: Instance, message: Watch.Message?), ApplicationFailure>) -> Result<InstanceEvent, ApplicationFailure>? in
-            switch followed {
-                case .success((_, .event(let event)?)): .success(event)
-                case .success((_, .failure(let failure)?)), .failure(let failure): .failure(failure)
-                case .success((_, .state?)), .success((_, .observation?)), .success((_, nil)): nil
+        follow(matching).compactMap { (followed: (instance: Instance, message: Watch.Message?)) -> Result<InstanceEvent, ApplicationFailure>? in
+            switch followed.message {
+                case .event(let event): .success(event)
+                case .failure(let failure): .failure(failure)
+                case .state, .observation, nil: nil
             }
         }
     }
 
     package nonisolated func observations(of matching: @escaping @Sendable (NSRunningApplication) -> Bool) -> some AsyncSequence<Watch.Report, Never> & Sendable {
-        follow(matching, prompts: false).compactMap { (followed: Result<(instance: Instance, message: Watch.Message?), ApplicationFailure>) -> Watch.Report? in
-            guard case .success(let followed) = followed else { return nil }
-            return followed.message?[case: \.observation]
-        }
+        follow(matching).compactMap { (followed: (instance: Instance, message: Watch.Message?)) -> Watch.Report? in followed.message?[case: \.observation] }
     }
 }

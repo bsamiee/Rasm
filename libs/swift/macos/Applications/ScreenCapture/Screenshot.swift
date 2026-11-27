@@ -1,4 +1,5 @@
 import AppKit
+import CasePathsCore
 package import CoreGraphics
 import CoreImage.CIFilterBuiltins
 package import Foundation
@@ -8,7 +9,6 @@ import Results
 import SPI
 @unsafe @preconcurrency import ScreenCaptureKit
 import UniformTypeIdentifiers
-@unsafe @preconcurrency import Vision
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -86,49 +86,13 @@ package struct Screenshot: Encodable, Sendable {
         try fields.encodeIfPresent(document, forKey: .document)
         try fields.encodeIfPresent(presentation, forKey: .presentation)
     }
-
-    // --- [DIFFERENCE]
-
-    @concurrent func differences(from earlier: Self) async -> [CGRect]? {
-        guard frame == earlier.frame else { return [frame.union(earlier.frame)] }
-        guard (image.width, image.height, image.bitsPerComponent) == (earlier.image.width, earlier.image.height, earlier.image.bitsPerComponent) else { return nil }
-        let extent = CGRect(x: 0, y: 0, width: image.width, height: image.height)
-        let difference = CIFilter.differenceBlendMode()
-        (difference.inputImage, difference.backgroundImage) = (CIImage(cgImage: image).settingAlphaOne(in: extent), CIImage(cgImage: earlier.image).settingAlphaOne(in: extent))
-        let summed = CIFilter.colorMatrix()
-        let total = CIVector(x: 1, y: 1, z: 1, w: 0)
-        (summed.inputImage, summed.rVector, summed.gVector, summed.bVector) = (difference.outputImage, total, total, total)
-        let mask = CIFilter.colorThreshold()
-        let levels: Int = (1 << image.bitsPerComponent) - 1
-        mask.inputImage = summed.outputImage
-        mask.threshold = 0.5 / Float(levels)
-        let gray: CGColorSpace? = CGColorSpace(name: CGColorSpace.linearGray)
-        guard let output = mask.outputImage, let rendered = rendering.createCGImage(output, from: extent, format: .L8, colorSpace: gray) else { return nil }
-        let contours = VNDetectContoursRequest()
-        (contours.contrastAdjustment, contours.detectsDarkOnLight, contours.maximumImageDimension) = (1, false, max(image.width, image.height))
-        let performed: Bool = await withTaskCancellationHandler {
-            do {
-                try VNImageRequestHandler(cgImage: rendered, options: [:]).perform([contours])
-                return !Task.isCancelled
-            } catch {
-                return false
-            }
-        } onCancel: {
-            contours.cancel()
-        }
-        guard performed else { return nil }
-        return (contours.results?.first?.topLevelContours ?? []).map { (contour: VNContour) -> CGRect in
-            let box: CGRect = contour.normalizedPath.boundingBox
-            return CGRect(x: frame.minX + box.minX * frame.width, y: frame.minY + (1 - box.maxY) * frame.height, width: box.width * frame.width, height: box.height * frame.height)
-        }
-    }
 }
 
 struct Framing {
     // --- [CONTENT]
 
     enum Content {
-        case composite(SCContentFilter, windows: [SCWindow], display: SCDisplay?)
+        case composite(SCContentFilter, windows: [SCWindow], displays: [SCDisplay])
         case displays([(filter: SCContentFilter, frame: CGRect)], windows: [SCWindow])
         case backingStore(InstanceState.Window)
     }
@@ -157,6 +121,20 @@ struct Framing {
         let subject = "capture of \(self.subject)"
         let parts: [(filter: SCContentFilter, frame: CGRect)]
         switch content {
+            case .composite(let filter, let windows, let displays) where filter.style == .window && !displays.isEmpty:
+                let shown: [SCDisplay] = displays.filter { (display: SCDisplay) -> Bool in display.frame.intersects(frame) }
+                let regions: [(filter: SCContentFilter, frame: CGRect)] = shown.map { (display: SCDisplay) -> (filter: SCContentFilter, frame: CGRect) in
+                    (SCContentFilter(display: display, including: windows), frame.intersection(display.frame))
+                }
+                do throws(ApplicationFailure) {
+                    return try await Self(content: .composite(filter, windows: windows, displays: []), frame: frame, subject: self.subject).capture(longestSide: longestSide)
+                } catch let refusal where refusal.reason.is(\.foundation) && !regions.isEmpty {
+                    do throws(ApplicationFailure) {
+                        return try await Self(content: .displays(regions, windows: windows), frame: frame, subject: self.subject).capture(longestSide: longestSide)
+                    } catch let second where second.reason.is(\.foundation) {
+                        throw ApplicationFailure(subject: subject, reason: .foundation(AggregateError(first: refusal, remaining: [second]) as NSError))
+                    }
+                }
             case .composite(let filter, _, _): parts = [(filter, frame)]
             case .displays(let held, _): parts = held
             case .backingStore(let row):
@@ -201,7 +179,7 @@ struct Framing {
             }
             shots.append((image, part))
         }
-        if let only = shots.first, shots.count == 1 { return only.image }
+        if let only = shots.first, shots.count == 1, only.frame == frame { return only.image }
         let placed: CIImage = shots.reduce(CIImage.empty()) { (joint: CIImage, shot: (image: CGImage, frame: CGRect)) -> CIImage in
             let offset = CGAffineTransform(translationX: (shot.frame.minX - frame.minX) * across, y: (frame.maxY - shot.frame.maxY) * down)
             return CIImage(cgImage: shot.image).transformed(by: offset).composited(over: joint)
@@ -347,7 +325,6 @@ extension Watch {
         return targets.map { target in
             Result { () throws(ApplicationFailure) -> Framing in
                 let (row, crop, subject) = try target.get()
-                if let row, !row.shared { throw ApplicationFailure(subject: "\(row)", reason: .closedToCapture) }
                 let bounds: CGRect = [row?.frame, crop].compactMap(\.self).reduce(CGRect.infinite) { area, bound in area.intersection(bound) }
                 guard !bounds.isEmpty else { throw ApplicationFailure(subject: "capture of \(subject)", reason: .outsideWindow) }
                 let shown: (windows: [SCWindow], displays: [SCDisplay]) = try row?.onScreen == false ? ([], []) : listed.get()
@@ -375,14 +352,15 @@ extension Watch {
                 let parts: [(filter: SCContentFilter, frame: CGRect)] = framed.filter { (part: (filter: SCContentFilter, frame: CGRect)) -> Bool in !part.frame.isEmpty }
                 return switch (parts.first, row) {
                     case (.some(let part), _) where parts.count == 1:
-                        Framing(content: .composite(part.filter, windows: windows, display: displays.count == 1 ? displays.first : nil), frame: part.frame, subject: subject)
+                        Framing(content: .composite(part.filter, windows: windows, displays: displays), frame: part.frame, subject: subject)
                     case (.some, _):
                         Framing(
                             content: .displays(parts, windows: windows),
                             frame: parts.reduce(CGRect.null) { (joint: CGRect, part: (filter: SCContentFilter, frame: CGRect)) -> CGRect in joint.union(part.frame) },
                             subject: subject,
                         )
-                    case (.none, .some(let row)): Framing(content: .backingStore(row), frame: bounds, subject: subject)
+                    case (.none, .some(let row)) where row.shared: Framing(content: .backingStore(row), frame: bounds, subject: subject)
+                    case (.none, .some(let row)): throw ApplicationFailure(subject: "\(row)", reason: .closedToCapture)
                     case (.none, .none): throw ApplicationFailure(subject: "capture of \(subject)", reason: .noDisplay)
                 }
             }
@@ -405,7 +383,7 @@ extension Watch {
             return captured
         }
         let shown: [CGWindowID: URL] = await documents
-        let shots: [Result<Screenshot, ApplicationFailure>] = taken.map { result in
+        return taken.map { result in
             result.map { shot in
                 Screenshot(
                     image: shot.image,
@@ -417,9 +395,5 @@ extension Watch {
                 )
             }
         }
-        if case .windows = source, marks.isEmpty {
-            for case .success(let shot) in shots { await learn(from: shot) }
-        }
-        return shots
     }
 }

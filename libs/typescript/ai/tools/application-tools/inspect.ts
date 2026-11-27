@@ -35,18 +35,14 @@ const tool = Tool.make('inspect', {
     failure: Schema.ErrorInstance(),
     dependencies: [Handle],
 }).annotateMerge(
-    Context.make(Tool.Readonly, true).pipe(
-        Context.add(Tool.Strict, true),
-        Context.add(Tool.Meta, { 'anthropic/alwaysLoad': true }),
-        Context.add(Server.Instructions, ['Containers read in an application join its interface map: search it with inspect find before opening a menu or dialog, and act on a remembered hit by the path find prints.']),
-    ),
+    Context.make(Tool.Readonly, true).pipe(Context.add(Tool.Meta, { 'anthropic/alwaysLoad': true }), Context.add(Server.Instructions, ['Containers read in an application join its interface map: search it with inspect find before opening a menu or dialog, and act on a remembered hit by the path find prints.'])),
 );
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const descend = (read: Address, ref: typeof Element.Ref.Type): ReturnType<typeof Address.list> => Option.toArray(Address.get(read, ref)).flatMap((node) => [node, ...node.element.children.flatMap((child) => descend(read, child.ref))]);
 const list = (multi: typeof Element.cases.control.Type) => multi.children.filter(Element.isAnyOf(['control'])).filter((child) => child.kind === 'row');
-const scroll = (multi: string, fact: string) => new Line({ head: [multi], facts: [fact], call: new Call({ tool: Act.tool.name, given: { steps: [{ pointer: multi, by: [0, -400], button: 'none' }] } }), pinned: true });
+const scroll = (multi: string, facts: readonly string[]) => new Line({ head: [multi], facts, call: new Call({ tool: Act.tool.name, given: { steps: [{ pointer: multi, by: [0, -400], button: 'none' }] } }), pinned: true });
 const Inspect = {
     tool,
     run: Effect.fnUntraced(function* ({ in: within, find: query, kind, after, wait, unopened = false }: Tool.Parameters<typeof tool>) {
@@ -121,21 +117,11 @@ const Inspect = {
         const page = Option.filter(reading, Element.Scope.isAnyOf(['rows']));
         const at = Option.firstSomeOf([shelved, menu, scope]);
         const resume = Option.isSome(page) ? Option.none() : start;
-        const multis = Option.isSome(searched) && Option.isNone(scope) && !unopened ? read.model.elements.flatMap(({ ref }) => descend(read, ref)).map(({ element }) => element) : [];
-        const unlisted = multis
-            .filter(Element.isAnyOf(['control']))
-            .filter((held) => held.kind === 'multi')
-            .map((multi) => ({ token: Address.refer(multi.kind, multi.ref), rows: { _tag: 'rows' as const, ref: multi.ref, from: list(multi).length, count: (multi.total ?? 0) - list(multi).length } }))
-            .filter(({ rows }) => rows.count > 0);
-        const fills = yield* Effect.forEach(unlisted, ({ rows }) => Effect.option(Address.read(target, rows)));
-        const unread = Array.zip(unlisted, fills).flatMap(([asked, fill]) => {
-            const filled = fill.pipe(
-                Option.flatMap((held) => Address.get(held, asked.rows.ref)),
-                Option.map(({ element }) => element),
-                Option.filter(Element.isAnyOf(['control'])),
-            );
-            const left = asked.rows.count - Option.match(filled, { onNone: () => 0, onSome: (multi) => list(multi).length });
-            return left > 0 ? [scroll(asked.token, `${Format.count(left, Outline.nouns.row)} unread`)] : [];
+        const pages = yield* Effect.when(Address.fill(target), Effect.succeed(Option.isSome(searched) && Option.isNone(scope) && !unopened));
+        const unread = Option.getOrElse(pages, () => []).flatMap(({ token, count, read: fetched }) => {
+            const left = count - Result.getOrElse(fetched, () => 0);
+            const refused = Result.match(fetched, { onSuccess: Array.empty<string>, onFailure: ({ message }) => [message] });
+            return left > 0 ? [scroll(token, [`${Format.count(left, Outline.nouns.row)} unread`, ...refused])] : [];
         });
         const merged = Option.getOrElse(yield* handle.get(Address.Held), () => read);
         const lines = yield* Effect.fromResult(
@@ -178,7 +164,7 @@ const Inspect = {
                 onNone: () =>
                     Option.map(
                         Option.flatMap(start, (node) => node.token),
-                        (last) => scroll(token, `rows after ${last} not loaded`),
+                        (last) => scroll(token, [`rows after ${last} not loaded`]),
                     ),
                 onSome: (last) =>
                     Option.liftPredicate(new Line({ head: ['more'], ...UndefinedOr.map(left, (count) => ({ value: Format.count(count) })), call: new Call({ tool: tool.name, given: { ...Option.getOrUndefined(searched), in: token, after: Address.refer(last.kind, last.ref) } }), pinned: true }), () =>

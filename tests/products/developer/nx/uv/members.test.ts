@@ -25,7 +25,7 @@ const MEMBERS = {
     'proj/internal/pyproject.toml': `[project]\nname = "internal"\nversion = "0.1.0"\nrequires-python = ">=3.13"\nclassifiers = ["Private :: Do Not Upload"]\n${BUILT}`,
     'proj/virtual/pyproject.toml': '[project]\nname = "virtual"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n',
 };
-const VIRTUAL = { 'pyproject.toml': '[tool.uv.workspace]\nmembers = ["library"]\n', 'library/pyproject.toml': '[project]\nname = "library"\nversion = "0.1.0"\n' };
+const VIRTUAL = { 'pyproject.toml': '[tool.uv.workspace]\nmembers = ["library"]\n', 'library/pyproject.toml': '[project]\nname = "library"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n' };
 const WORDS = {
     'proj/library/pyproject.toml': `[project]\nname = "library"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = ["terms", "words"]\n\n[tool.uv.sources]\nterms = { workspace = true }\n${BUILT}`,
     'proj/terms/pyproject.toml': `[project]\nname = "terms"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n${BUILT}`,

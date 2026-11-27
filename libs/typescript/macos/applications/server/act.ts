@@ -6,19 +6,14 @@ import { Instance } from '#/server/instance';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const REPLY_DEADLINE = 120_000;
 const PLANE = 2_147_483_647;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Milliseconds = Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: REPLY_DEADLINE }));
+const Milliseconds = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0));
 const Pressure = Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 1 }));
 const Tilt = Schema.Finite.check(Schema.isBetween({ minimum: -1, maximum: 1 }));
 const Sample = Schema.Union([Schema.Tuple([Schema.Finite, Schema.Finite]), Schema.Tuple([Schema.Finite, Schema.Finite, Pressure]), Schema.Tuple([Schema.Finite, Schema.Finite, Pressure, Tilt, Tilt])]);
-const paced = Schema.makeFilter(
-    ({ hold = 0, every, jitter = 0, count = 1 }: { readonly hold?: number; readonly every?: number; readonly jitter?: number; readonly count?: number }) => (every ?? hold + jitter) >= hold + jitter && (every !== undefined || jitter === 0) && (count - 1) * (every ?? 0) + hold <= REPLY_DEADLINE,
-    { expected: 'every at least the hold plus jitter, jitter only with every, and every press inside the 120 s reply deadline' },
-);
 const pointed = Schema.makeFilter(
     ({ pointer, path = [], button, by, count = 1 }: { readonly pointer?: unknown; readonly path?: readonly unknown[]; readonly button?: string; readonly by?: readonly [number, number]; readonly count?: number }) => {
         const points = [pointer, ...path].filter((position): position is readonly number[] => globalThis.Array.isArray(position));
@@ -32,7 +27,7 @@ const pointed = Schema.makeFilter(
 const ranged = Schema.makeFilter(({ to, range }: { readonly to?: unknown; readonly range?: unknown }) => range === undefined || to === undefined || Predicate.isString(to), { expected: 'a range replaced by text alone' });
 const timing = {
     hold: Schema.optionalKey(Milliseconds),
-    count: Schema.optionalKey(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: REPLY_DEADLINE }))),
+    count: Schema.optionalKey(Schema.Int.check(Schema.isGreaterThanOrEqualTo(1))),
     every: Schema.optionalKey(Milliseconds),
     jitter: Schema.optionalKey(Milliseconds),
     edge: Schema.optionalKey(Schema.Literals(['down', 'up'])),
@@ -46,13 +41,13 @@ const input = <Position extends Schema.Top>(position: Position) =>
         unit: Schema.optionalKey(Schema.Literals(['pixel', 'line'])),
         modifiers: Element.Shortcut.fields.modifiers,
         ...timing,
-    }).check(paced, pointed);
+    }).check(pointed);
 const Kind = Schema.Literals(['source', 'accessibility', 'process', 'window', 'focused', 'system']);
 const Route = Object.assign(Schema.TaggedUnion({ source: { member: Schema.String, approximated: Schema.Array(Schema.String) }, process: {}, window: { number: Element.WindowNumber }, focused: { number: Element.WindowNumber }, system: {} }), { Kind });
 const from = Schema.optionalKey(Kind.pick(['accessibility', 'process', 'window', 'focused', 'system']));
 const Step = Schema.Union([
-    Schema.TaggedStruct('key', { ...Element.Shortcut.fields, at: Schema.optionalKey(Element.Ref), ...timing, from }).check(paced),
-    Schema.TaggedStruct('pointer', { ...input(Schema.Union([Element.Ref, Sample])).fields, windows: Element.WindowNumber.pipe(Schema.Array, Schema.optionalKey), from }).check(paced, pointed),
+    Schema.TaggedStruct('key', { ...Element.Shortcut.fields, at: Schema.optionalKey(Element.Ref), ...timing, from }),
+    Schema.TaggedStruct('pointer', { ...input(Schema.Union([Element.Ref, Sample])).fields, windows: Element.WindowNumber.pipe(Schema.Array, Schema.optionalKey), from }).check(pointed),
     Schema.TaggedStruct('press', {
         at: Element.Ref,
         action: Schema.optionalKey(Schema.String.check(Schema.makeFilter((named: string) => named !== 'AXRaise', { expected: 'an action other than AXRaise, which takes focus from the frontmost application' }))),
@@ -81,12 +76,23 @@ const Pasteboard = Schema.Struct({
     contentType: Schema.optionalKey(Schema.String),
     content: Schema.optionalKey(Schema.TaggedUnion({ text: { value: Schema.String }, withheld: {}, concealed: {} })),
 });
+const LogEntry = Schema.Struct({
+    timestamp: Schema.String,
+    messageType: Schema.Literals(['Debug', 'Info', 'Default', 'Error', 'Fault']),
+    processID: Schema.Int,
+    processImagePath: Schema.String,
+    senderImagePath: Schema.String,
+    subsystem: Schema.String,
+    category: Schema.String,
+    eventMessage: Schema.String,
+});
 const Written = ApplicationFailure.read(Schema.Array(Schema.URL));
 const Act = {
     Route,
     Step,
     Input: input(Sample),
     Pasteboard,
+    LogEntry,
     Written,
     Record: Schema.Struct({ ...Struct.pick(Capture.fields, ['source', 'longestSide']), ...Struct.pick(Capture.fields.mode.cases.recording.fields, ['keyFrameLimit']) }),
     Outcome: Schema.Struct({
@@ -96,6 +102,7 @@ const Act = {
             Schema.Struct({
                 usage: Instance.State.cases.running.fields.usage.schema,
                 load: ApplicationFailure.read(Schema.Struct({ processorIdle: Schema.optionalKey(Schema.Finite), swapins: Schema.optionalKey(Schema.Finite), swapouts: Schema.optionalKey(Schema.Finite) })),
+                faults: Schema.Array(Schema.Struct(Struct.pick(LogEntry.fields, ['messageType', 'subsystem', 'category', 'eventMessage']))),
             }),
         ),
         written: Schema.optionalKey(Written),

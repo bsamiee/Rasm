@@ -10,6 +10,7 @@ package struct JSONRPCFailure: ModuleError {
         case transport(any Error)
         case closed
         case unreadable(DecodingError)
+        case malformed(DecodingError)
         case unencodable(EncodingError)
         case refused(JSONRPCError)
         case timedOut(Duration)
@@ -21,7 +22,8 @@ package struct JSONRPCFailure: ModuleError {
 
     package var errorUserInfo: [String: Any] {
         switch reason {
-            case .transport(let error), .unreadable(let error as any Error), .unencodable(let error as any Error), .refused(let error as any Error): [NSUnderlyingErrorKey: error]
+            case .transport(let error), .unreadable(let error as any Error), .malformed(let error as any Error), .unencodable(let error as any Error), .refused(let error as any Error):
+                [NSUnderlyingErrorKey: error]
             case .closed, .timedOut, .cancelled: [:]
         }
     }

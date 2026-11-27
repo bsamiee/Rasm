@@ -10,7 +10,7 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     workspace.install(import.meta.resolve('vite/package.json'), import.meta.resolve('@nx/vite/package.json'));
-    workspace.write({ 'package.json': '{"name":"repo","workspaces":["apps/*"]}', 'package-lock.json': '{}', 'apps/web/package.json': '{"name":"web","type":"module"}', 'apps/web/index.ts': 'export const value = 1;\n' });
+    workspace.write({ 'package.json': '{"name":"repo","type":"module","workspaces":["apps/*"]}', 'package-lock.json': '{}', 'apps/web/package.json': '{"name":"web","type":"module"}', 'apps/web/index.ts': 'export const value = 1;\n' });
 });
 
 describe('declared outputs of build--vite', () => {

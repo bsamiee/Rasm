@@ -16,14 +16,16 @@ const tool = Tool.make('execute_script', {
     success: Report.schema,
     failure: Schema.ErrorInstance(),
     dependencies: [Handle],
-}).annotateMerge(Context.make(Tool.OpenWorld, false).pipe(Context.add(Tool.Strict, true)));
+}).annotate(Tool.OpenWorld, false);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const Script = Context.Reference<{
+    readonly description: string;
     readonly run: (aim: Effect.Success<typeof Target.current>, code: string) => Effect.Effect<{ readonly result: Option.Option<Schema.Json>; readonly written?: typeof Act.Written.Type }, Error, ApplicationServer>;
 }>('@rasm/application-tools/execute-script/Script', {
     defaultValue: () => ({
+        description: 'the code runs through the script command the scripting dictionary of the target declares, such as do JavaScript, and a target declaring none refuses it with the commands it declares',
         run: Effect.fnUntraced(function* ({ row, live }, code) {
             const server = yield* ApplicationServer;
             const { script, command } = yield* server.dictionary({ url: row.url });
@@ -39,7 +41,6 @@ const Script = Context.Reference<{
 const ExecuteScript = {
     tool,
     Script,
-    clause: 'the code runs through the script command the scripting dictionary of the target declares, such as do JavaScript, and a target declaring none refuses it with the commands it declares',
     run: Effect.fnUntraced(function* ({ code }: Tool.Parameters<typeof tool>) {
         const aim = yield* Target.current;
         const [script, { returnEarly }] = yield* Effect.all([Script, ToolCall]);

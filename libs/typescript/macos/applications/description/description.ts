@@ -14,7 +14,7 @@ interface Toolbar<E, R, EC, RC> {
     readonly current: Effect.Effect<Tool, E, R>;
     readonly listed?: Effect.Effect<readonly Tool[], E, R>;
     readonly select: (id: string) => Effect.Effect<unknown, E, R>;
-    readonly changes: Stream.Stream<unknown, EC, RC>;
+    readonly changes?: Stream.Stream<unknown, EC, RC>;
     readonly options?: {
         readonly describe: (at: typeof Locator.Type) => Effect.Effect<readonly (typeof Control.Type)[], E, R>;
         readonly operate: (tool: string, path: Array.NonEmptyReadonlyArray<string>, to: (typeof Operation.cases.press.Type)['to']) => Effect.Effect<unknown, E, R>;
@@ -82,7 +82,7 @@ class Description extends Schema.Class<Description, { readonly brand: unique sym
 
     // --- [SOURCES]
 
-    static readonly tools = <E, R, EC, RC>({ current, listed, select, changes, options, pointer = Effect.succeed({}), canvas }: Toolbar<E, R, EC, RC>) => {
+    static readonly tools = <E, R, EC = never, RC = never>({ current, listed, select, changes, options, pointer = Effect.succeed({}), canvas }: Toolbar<E, R, EC, RC>) => {
         const state = Effect.map(Effect.all([current, pointer]), ([tool, held]) => ({ tool, pointer: { ...held, ...Struct.pick(tool, ['shortcut', 'help']), tool: tool.label } satisfies typeof Pointer.Type }));
         const description = Effect.gen(function* () {
             const [now, tools, viewed] = yield* Effect.all([state, Effect.transposeOption(Option.fromUndefinedOr(listed)), Effect.transposeOption(Option.map(Option.fromUndefinedOr(canvas), ({ view }) => Effect.option(Effect.tapCause(view, (cause) => Effect.logDebug('Canvas unread', cause)))))]);
@@ -152,19 +152,23 @@ class Description extends Schema.Class<Description, { readonly brand: unique sym
             roots: Effect.succeed([TOOLBAR]),
             describe: ({ within }: { readonly within?: typeof Locator.Type }) => (within === undefined || same(within, TOOLBAR) ? description : Unmatched.of({ subject: 'container of the toolbar', query: Option.some(Formatter.format(within)), candidates: [Formatter.format(TOOLBAR)] })),
             operate: Operation.match({ pointer: draw, press }),
-            pointer: Stream.unwrap(
-                Effect.map(reading, (seed) =>
-                    changes.pipe(
-                        Stream.mapEffect(() => reading),
-                        Stream.prepend([seed]),
-                        Stream.changesWith((last, next) => Result.isFailure(last) && Result.isFailure(next)),
-                        Stream.tap((read) => Result.match(read, { onSuccess: () => Effect.void, onFailure: (error) => Effect.logWarning('Pointer unread', Cause.fail(error)) })),
-                        Stream.filterMap(Function.identity),
-                        Stream.changesWith(samePointer),
-                        Stream.drop(Result.isSuccess(seed) ? 1 : 0),
-                    ),
-                ),
-            ),
+            ...(changes === undefined
+                ? {}
+                : {
+                      pointer: Stream.unwrap(
+                          Effect.map(reading, (seed) =>
+                              changes.pipe(
+                                  Stream.mapEffect(() => reading),
+                                  Stream.prepend([seed]),
+                                  Stream.changesWith((last, next) => Result.isFailure(last) && Result.isFailure(next)),
+                                  Stream.tap((read) => Result.match(read, { onSuccess: () => Effect.void, onFailure: (error) => Effect.logWarning('Pointer unread', Cause.fail(error)) })),
+                                  Stream.filterMap(Function.identity),
+                                  Stream.changesWith(samePointer),
+                                  Stream.drop(Result.isSuccess(seed) ? 1 : 0),
+                              ),
+                          ),
+                      ),
+                  }),
         };
     };
     static readonly merge: {

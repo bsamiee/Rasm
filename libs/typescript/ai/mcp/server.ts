@@ -1,41 +1,7 @@
 import { ATTR_ERROR_TYPE, ATTR_GEN_AI_OPERATION_NAME, ATTR_GEN_AI_PROMPT_NAME, ATTR_GEN_AI_TOOL_NAME, ATTR_MCP_METHOD_NAME, ATTR_MCP_RESOURCE_URI, ERROR_TYPE_VALUE_OTHER, GEN_AI_OPERATION_NAME_VALUE_EXECUTE_TOOL, METRIC_MCP_SERVER_OPERATION_DURATION } from '@opentelemetry/semantic-conventions/incubating';
 import { Column } from '@rasm/database/column';
 import { Unmatched } from '@rasm/search/unmatched';
-import {
-    Array,
-    Boolean,
-    Cause,
-    Context,
-    Deferred,
-    Duration,
-    Effect,
-    Exit,
-    Fiber,
-    FiberSet,
-    Function,
-    Layer,
-    Match,
-    Metric,
-    Number,
-    Option,
-    Order,
-    Predicate,
-    RcMap,
-    Record,
-    Redacted,
-    Ref,
-    Result,
-    Schema,
-    SchemaGetter,
-    type Scope,
-    Stream,
-    Struct,
-    SubscriptionRef,
-    Tuple,
-    TxRef,
-    TxSubscriptionRef,
-    UndefinedOr,
-} from 'effect';
+import { Array, Boolean, Cause, Context, Deferred, Duration, Effect, Exit, Fiber, FiberSet, Function, Layer, Match, Metric, Number, Option, Order, RcMap, Record, Redacted, Ref, Result, Schema, SchemaGetter, type Scope, Stream, Struct, SubscriptionRef, Tuple, TxRef, TxSubscriptionRef, UndefinedOr } from 'effect';
 import { McpProtocol, McpSchema, McpServer, type Tool, type Toolkit } from 'effect/ai';
 import { type Aead, SecureRandom } from 'effect/crypto';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
@@ -438,11 +404,7 @@ const rankCompletions =
             const ordered = Unmatched.rank(input, values);
             return McpSchema.CompleteResult.make({ ...rest, completion: { values: ordered, total: ordered.length } });
         });
-const split = ({ content, structuredContent }: McpSchema.CallToolResult) => {
-    const [texts, blocks] = Array.partition(content, (block) => (block.type === 'text' ? Result.succeed(block.text) : Result.fail(block)));
-    const shown = UndefinedOr.map(structuredContent, (json) => [JSON.stringify(json), Predicate.isString(json) ? json : JSON.stringify(json)] as const);
-    return { blocks, texts: UndefinedOr.match(shown, { onUndefined: () => texts, onDefined: ([mirror, text]) => (Array.contains(texts, mirror) ? Array.map(texts, (each) => (each === mirror ? text : each)) : Array.append(texts, text)) }) };
-};
+const split = ({ content }: McpSchema.CallToolResult) => Array.partition(content, (block) => (block.type === 'text' ? Result.succeed(block.text) : Result.fail(block)));
 const refused = ({ message }: McpSchema.InvalidParams) => Effect.succeed(McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: message })] }));
 const place =
     (limit: number, sequence: number, routed: Routed, woken: boolean) =>
@@ -487,7 +449,7 @@ const finish =
     (limit: number, sequence: number, { call, tool }: Pick<HandleState['running'][number], 'call' | 'tool'>, exit: Parameters<typeof callResult>[0]) =>
     (slot: HandleState): HandleState => {
         const result = callResult(exit);
-        const { texts, blocks } = split(result);
+        const [texts, blocks] = split(result);
         const text = [`finished: call ${call} ${tool}${blocks.length > 0 ? ` +${blocks.length} blocks` : ''}${result.isError === true ? ' failed:' : ''}`, ...texts].join(' ');
         return place(limit, sequence, Option.some({ text, push: true }), true)({ ...slot, running: Array.filter(slot.running, (each) => each.call !== call), blocks: [...slot.blocks, ...blocks] });
     };
@@ -530,7 +492,7 @@ const composeResult = Effect.fnUntraced(function* (outcome: McpSchema.CallToolRe
     yield* Effect.addFinalizer((exit) =>
         Exit.hasInterrupts(exit) ? TxSubscriptionRef.update(row, (slot) => ({ ...slot, dropped: slot.dropped + taken.dropped, notices: Array.sortWith([...taken.notices, ...slot.notices], Struct.get('sequence'), Number.Order), blocks: [...taken.blocks, ...slot.blocks] })) : Effect.void,
     );
-    const { texts, blocks } = split(outcome);
+    const [texts, blocks] = split(outcome);
     const leading = [
         ...Option.toArray(issued),
         ...(taken.dropped > 0 ? [`dropped: ${taken.dropped} notices`] : []),

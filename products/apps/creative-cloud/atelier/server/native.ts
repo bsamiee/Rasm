@@ -11,7 +11,7 @@ import { Upstream } from '@rasm/mcp/upstream';
 import { run } from '@rasm/process';
 import { Unmatched } from '@rasm/search/unmatched';
 import { HOSTS } from '@rasm/uxp/manifest';
-import { Array, Data, Duration, Effect, Equivalence, FileSystem, Function, Glob, Option, Order, Path, Predicate, Record, Result, Schema, Stream, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Data, Effect, Equivalence, FileSystem, Function, Glob, Option, Order, Path, Predicate, Record, Result, Schema, Stream, SubscriptionRef, UndefinedOr } from 'effect';
 import { Xml } from 'effect/encoding';
 import { Host, NetAddress } from 'effect/net';
 import { Applications } from '#/applications';
@@ -135,7 +135,6 @@ const Native = {
                         Stream.filterMap(Function.identity),
                         Stream.mapEffect((open) => Effect.map(settings, (stated) => Option.isSome(port(open, stated))).pipe(Effect.catch((error) => Effect.as(Effect.logWarning(`${row.name} MCP server preferences are unreadable`, error), false)))),
                     ),
-                    poll: Duration.minutes(1),
                 }).pipe(Stream.map(Array.map((each) => new Upstream({ ...each, call: (name, given) => Effect.andThen(early, each.call(name, given)) }))));
             };
             return SubscriptionRef.changes(installed).pipe(

@@ -95,6 +95,23 @@ final class Server<Request: Decodable & Sendable>: Sendable {
         if let trace = message.traceId, let span = message.spanId {
             InstrumentationSystem.instrument.extract(["traceparent": "00-\(trace)-\(span)-\(message.sampled == false ? "00" : "01")"], into: &context, using: TraceContextCarrier())
         }
+        let decoded: Result<Request, AggregateError<Reason>>
+        do {
+            decoded = .success(try JSONValue.object([method: message.params ?? .object([:])]).decode(Request.self))
+        } catch let error as DecodingError {
+            let (path, key): ([any CodingKey], (any CodingKey)?) =
+                switch error {
+                    case .keyNotFound(let missing, let stated): (stated.codingPath, missing)
+                    case .typeMismatch(_, let stated), .valueNotFound(_, let stated), .dataCorrupted(let stated): (stated.codingPath, nil)
+                    @unknown default: ([], nil)
+                }
+            let keys: [any CodingKey] = Array(path.dropFirst()) + [key].compactMap(\.self)
+            let names: [String] = [method] + keys.map(\.stringValue)
+            let subject: String = names.joined(separator: ".")
+            decoded = .failure(AggregateError(first: .fail(JSONRPCFailure(subject: subject, reason: .malformed(error)))))
+        } catch {
+            decoded = .failure(AggregateError(first: .die(error)))
+        }
         let outcome = await Result { () async throws -> Response in
             try await withSpan(method, context: context, ofKind: .server) { span in
                 span.attributes.rpc.system.name = .init(rawValue: "jsonrpc")
@@ -106,8 +123,7 @@ final class Server<Request: Decodable & Sendable>: Sendable {
                         case .number(let number): Int64(exactly: number)?.description ?? number.description
                         case .null, .bool, .array, .object: nil
                     }
-                let request = try Result { try JSONValue.object([method: message.params ?? .object([:])]).decode(Request.self) }.aggregated(Reason.die).get()
-                return try await perform(request)
+                return try await perform(try decoded.get())
             }
         }
         .mapError { error in error as? AggregateError<Reason> ?? AggregateError(failing: error) }

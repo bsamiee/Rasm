@@ -49,6 +49,7 @@
           "input-paths": [
             "$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/server",
             "$(SRCROOT)/$(CODE_SIGN_ENTITLEMENTS)",
+            "$(SRCROOT)/../../../plugins/shared/tool/.mcp.json",
           ],
           "output-paths": [
             "$(DERIVED_FILE_DIR)/server.entitlements",
@@ -58,11 +59,14 @@
           "script": [
             "set -eu",
             "label=\"$PRODUCT_BUNDLE_IDENTIFIER.server\"",
+            "url=$(plutil -extract \"mcpServers.${PRODUCT_BUNDLE_IDENTIFIER##*.}.url\" raw -o - \"$SCRIPT_INPUT_FILE_2\")",
+            "authority=${url#*//}",
+            "authority=${authority%%/*}",
             "plutil -convert xml1 -o \"$SCRIPT_OUTPUT_FILE_0\" \"$SCRIPT_INPUT_FILE_1\"",
             "plutil -insert 'com\\.apple\\.security\\.cs\\.allow-jit' -bool YES \"$SCRIPT_OUTPUT_FILE_0\"",
             "codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --identifier \"$label\" --options runtime --entitlements \"$SCRIPT_OUTPUT_FILE_0\" \"$SCRIPT_INPUT_FILE_0\"",
             "mkdir -p \"${SCRIPT_OUTPUT_FILE_1%/*}\"",
-            "printf '{\"Label\":\"%s\",\"ProcessType\":\"Interactive\",\"KeepAlive\":true,\"ExitTimeOut\":30,\"Sockets\":{\"Listeners\":{\"SockNodeName\":\"localhost\",\"SockServiceName\":7491}},\"BundleProgram\":\"Contents/Helpers/server\",\"SpawnConstraint\":{\"signing-identifier\":\"%s\",\"team-identifier\":\"%s\"}}' \"$label\" \"$label\" \"$DEVELOPMENT_TEAM\" | plutil -convert xml1 -o \"$SCRIPT_OUTPUT_FILE_1\" -",
+            "printf '{\"Label\":\"%s\",\"ProcessType\":\"Interactive\",\"KeepAlive\":true,\"ExitTimeOut\":30,\"Sockets\":{\"Listeners\":{\"SockNodeName\":\"%s\",\"SockServiceName\":%s}},\"BundleProgram\":\"Contents/Helpers/server\",\"SpawnConstraint\":{\"signing-identifier\":\"%s\",\"team-identifier\":\"%s\"}}' \"$label\" \"${authority%:*}\" \"${authority##*:}\" \"$label\" \"$DEVELOPMENT_TEAM\" | plutil -convert xml1 -o \"$SCRIPT_OUTPUT_FILE_1\" -",
             "",
           ],
         },

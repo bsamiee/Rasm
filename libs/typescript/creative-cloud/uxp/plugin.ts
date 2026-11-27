@@ -125,7 +125,6 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
             return Effect.acquireRelease(Effect.tryPromise({ try: () => Promise.resolve(add(listener)), catch: refused }), () => Effect.orDie(Effect.tryPromise({ try: () => Promise.resolve(remove(listener)), catch: refused })));
         });
     };
-    static readonly ticks = Stream.tick(Duration.seconds(1));
     static readonly application = Uxp.use(({ uxp: modules }) => Schema.decodeUnknownEffect(HostInfo)(modules.host)).pipe(Effect.flatMap(({ applicationPath }) => Path.Path.use((path) => path.toFileUrl(`${applicationPath}/`))));
     static readonly locate = (held: Containment, specifier: Pick<Specifier, 'steps' | 'end'>): Effect.Effect<unknown, Unmatched> => {
         const found = resolve(held, specifier);

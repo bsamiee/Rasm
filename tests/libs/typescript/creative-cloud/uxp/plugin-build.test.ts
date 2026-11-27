@@ -16,6 +16,7 @@ const COMMAND = { id: 'reset', label: 'Reset', type: 'command' } as const;
 const PANEL = { id: 'typesetting', label: 'Typesetting', type: 'panel' } as const;
 const GLYPH = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.25 11.5H18.75"/></svg>';
 const ADDON = { addon: { name: 'Typesetting' } } as const;
+const SERVER = { name: 'test', url: 'http://localhost:8080/', domain: 'ws://localhost:8080' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -38,10 +39,20 @@ const built = Effect.fnUntraced(function* (manifest: object, main: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const folder = yield* fs.makeTempDirectoryScoped();
     yield* fs.makeDirectory(path.join(folder, 'icons'));
-    yield* Effect.all([fs.writeFileString(path.join(folder, 'manifest.json'), yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(manifest)), fs.writeFileString(path.join(folder, 'main.ts'), main), fs.writeFileString(path.join(folder, 'icons', `${PANEL.id}.svg`), GLYPH)], { discard: true });
+    const json = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
+    yield* Effect.all(
+        [
+            fs.writeFileString(path.join(folder, 'manifest.json'), yield* json(manifest)),
+            fs.writeFileString(path.join(folder, '.mcp.json'), yield* json({ mcpServers: { [SERVER.name]: { type: 'http', url: SERVER.url } } })),
+            fs.writeFileString(path.join(folder, 'main.ts'), main),
+            fs.writeFileString(path.join(folder, 'icons', `${PANEL.id}.svg`), GLYPH),
+        ],
+        { discard: true },
+    );
     const out = path.join(folder, 'out');
+    const harness = yield* path.toFileUrl(path.join(folder, '.mcp.json'));
     yield* Effect.tryPromise({
-        try: () => build(mergeConfig(pluginConfig(), { configFile: false, root: folder, logLevel: 'silent', build: { outDir: out } })),
+        try: () => build(mergeConfig(pluginConfig({ harness, name: SERVER.name }), { configFile: false, root: folder, logLevel: 'silent', build: { outDir: out } })),
         catch: (cause) => new Cause.UnknownError(cause, Formatter.format(cause)),
     });
     return { out, text: yield* fs.readFileString(path.join(out, UxpManifest.file)) };
@@ -88,9 +99,9 @@ describe(UxpManifest, () => {
 
 it.layer(layer, { excludeTestServices: true })('uxp', (methods) => {
     methods.effect(
-        'writes the entry file, a host floor loaded at host startup, both icon roles at 1x and 2x in black for light and white for dark themes, the stated network domains alone, and the rejection flag',
+        'writes the entry file, a host floor loaded at host startup, both icon roles at 1x and 2x in black for light and white for dark themes, the WebSocket origin of the harness server as the one network domain, and the rejection flag',
         Effect.fnUntraced(function* () {
-            const { out, text } = yield* built({ ...STATED, entrypoints: [COMMAND, PANEL], requiredPermissions: { network: { domains: ['https://example.com'] } } }, 'export {};\n');
+            const { out, text } = yield* built({ ...STATED, entrypoints: [COMMAND, PANEL] }, 'export {};\n');
             const written = yield* Schema.decodeEffect(Written)(text);
             const [command, panel] = written.entrypoints;
             const rows = [...written.icons, ...panel.icons];
@@ -103,7 +114,7 @@ it.layer(layer, { excludeTestServices: true })('uxp', (methods) => {
             for (const { file, drawn: read, expected } of yield* misdrawn(out, rows)) {
                 assert.deepStrictEqual(read, expected, file);
             }
-            assert.deepStrictEqual(written.requiredPermissions.network.domains, ['https://example.com']);
+            assert.deepStrictEqual(written.requiredPermissions.network.domains, [SERVER.domain]);
             assert.isTrue(written.featureFlags.unhandledRejection);
         }, Effect.scoped),
     );

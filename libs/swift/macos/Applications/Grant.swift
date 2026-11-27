@@ -7,7 +7,7 @@ import SPI
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-package enum Grant: String, CaseIterable, CustomStringConvertible, Encodable, Sendable {
+package enum Grant: String, CaseIterable, Encodable, Sendable {
     case accessibility
     case screenCapture
     case postEvent
@@ -22,20 +22,19 @@ package enum Grant: String, CaseIterable, CustomStringConvertible, Encodable, Se
         }
     }
 
-    package var description: String {
-        let anchor: String =
-            switch self {
-                case .accessibility, .postEvent: "Privacy_Accessibility"
-                case .screenCapture: "Privacy_ScreenCapture"
-            }
-        return "\(rawValue) \(privacySettings)?\(anchor)"
-    }
-
     var missing: ApplicationFailure? {
         guard !isHeld(asking: false) else { return nil }
         let (process, responsible) = (getpid(), responsiblePID(getpid()))
         let parent: String? = NSRunningApplication(processIdentifier: responsible)?.localizedName
-        return ApplicationFailure(subject: ProcessInfo.processInfo.processName, reason: responsible == process ? .noGrant(self) : .parentLacksGrant(self, parent))
+        let pane: String =
+            switch self {
+                case .accessibility, .postEvent: "Accessibility"
+                case .screenCapture: "ScreenCapture"
+            }
+        let settings: String = "\(privacySettings)?Privacy_\(pane)"
+        let reason: ApplicationFailure.Reason =
+            responsible == process ? .noGrant(pane: pane, settings: settings) : .parentLacksGrant(pane: pane, parent: parent, settings: settings)
+        return ApplicationFailure(subject: ProcessInfo.processInfo.processName, reason: reason)
     }
 
     package func check() throws(ApplicationFailure) {

@@ -1,3 +1,4 @@
+import { machine } from 'node:os';
 import { basename, dirname, extname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { EXECUTORS, inside, removable, type Verbs } from '@rasm/nx/inference';
@@ -35,6 +36,8 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
     const lock = join(built, workspace ? 'xcshareddata/swiftpm/Package.resolved' : 'project.xcworkspace/xcshareddata/swiftpm/Package.resolved');
     const flags = [workspace ? '-workspace' : '-project', built, '-skipMacroValidation', '-skipPackagePluginValidation'];
     const cloned = join(data, 'xcode-packages', container.path);
+    const destination = ['-destination', `platform=macOS,arch=${machine()},variant=macos`];
+    const generic = ['-destination', 'generic/platform=macOS'];
     const invoke = (action: string, scheme: string, extra: readonly string[]) => ['xcodebuild', action, ...flags, '-onlyUsePackageVersionsFromResolvedFile', '-scheme', scheme, ...extra] as const;
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0);
     const listing = extname(container.path) === '.xcworkspace';
@@ -45,7 +48,7 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
     const archived = Array.cartesianWith(Array.fromNullishOr(options.outputPath), archives, (at, { scheme, configuration, feed }) => {
         const folder = join(at, scheme);
         const archive = join(folder, `${scheme}.xcarchive`);
-        return { feed, folder, archive, base: inside(root)(folder) ? join('{projectRoot}', relative(root, folder)) : join('{workspaceRoot}', folder), run: invoke('archive', scheme, ['-archivePath', archive, '-configuration', configuration]) };
+        return { feed, folder, archive, base: inside(root)(folder) ? join('{projectRoot}', relative(root, folder)) : join('{workspaceRoot}', folder), run: invoke('archive', scheme, [...generic, '-archivePath', archive, '-configuration', configuration]) };
     });
     const referenced = container.buildFiles.flatMap((at) => tokened(at).flatMap((input) => [input, join(input, '**/*'), ...[at, join(at, '**/*')].map((output) => ({ dependentTasksOutputFiles: output }))]));
     const read = pruneExclusions(Array.dedupe(['{projectRoot}/**/*', ...inputs, ...referenced, ...[lock, ...Option.toArray(seed)].flatMap(tokened), ...(workspace ? tokened(join(built, 'contents.xcworkspacedata')) : []), { runtime: 'xcodebuild -version' }, ...INPUTS]));
@@ -57,19 +60,12 @@ const xcodeParts = (options: Options, file: string, container: Analyzed['contain
         testing.flatMap(({ name: scheme, plans }) => plans.filter(Predicate.not(Struct.get('default'))).map(({ name: plan }) => ({ scheme, plan: [plan] }))),
         ({ plan }) => plan.join('').toLowerCase(),
     );
-    const ran = (rows: typeof primary) =>
-        rows.map(({ scheme, plan }) =>
-            invoke(
-                'test',
-                scheme,
-                plan.flatMap((named) => ['-testPlan', named]),
-            ),
-        );
+    const ran = (rows: typeof primary) => rows.map(({ scheme, plan }) => invoke('test', scheme, [...destination, ...plan.flatMap((named) => ['-testPlan', named])]));
     const bundled = (rows: typeof primary) => Option.map(Option.fromUndefinedOr(options.outputPath), (at) => (configuration: readonly string[]) => rows.map(({ scheme, plan }) => join(at, `${[scheme, ...plan, ...configuration].join('-')}.xcresult`)));
     const runs = ran(primary);
-    const builds: Run['runs'] = schemes.map((scheme) => invoke('build', scheme.name, []));
+    const builds: Run['runs'] = schemes.map((scheme) => invoke('build', scheme.name, destination));
     const installs = archives.flatMap(({ scheme, configuration }) => [
-        invoke('archive', scheme, ['-configuration', configuration]),
+        invoke('archive', scheme, [...generic, '-configuration', configuration]),
         [
             'sh',
             '-c',
@@ -86,7 +82,7 @@ changed=$("$@" | jq -r '.[].buildSettings | select(.PRODUCT_TYPE == "com.apple.p
 done)
 [ -z "$changed" ] || ! pgrep -qx replayd || killall -HUP replayd`,
             'sh',
-            ...invoke('-showBuildSettings', scheme, ['-configuration', configuration, '-json']),
+            ...invoke('-showBuildSettings', scheme, [...generic, '-configuration', configuration, '-json']),
         ] as const,
     ]);
     const launches = Array.dedupe(schemes.flatMap(({ launch }) => Array.fromNullishOr(launch)));
@@ -105,7 +101,7 @@ done)
                     builds,
                     {
                         technologies: ['xcode'],
-                        description: 'Builds each shared scheme with xcodebuild build for the destination xcodebuild picks on this Mac, as app builds do, so a package scheme reuses the modules app builds compiled, pack--ditto archiving the schemes with installed products',
+                        description: 'Builds each shared scheme with xcodebuild build for the architecture of this Mac, as app builds do, so a package scheme reuses the modules app builds compiled, pack--ditto archiving the schemes with installed products',
                         help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } },
                     },
                     { cache: true, parallelism: false, ...(!listing && { dependsOn: ['^build--*'] }), inputs: read, ...modes(builds, Option.none()) },
@@ -212,7 +208,7 @@ done)
                     parallelism: false,
                     inputs: read,
                     options: { commands: [...schemes.map(({ name: scheme }) => invoke('clean', scheme, [])), ...archived.map(({ archive }) => ['rm', '-rf', archive])], cwd: '.', targets: removed },
-                    configurations: { cache: { commands: Option.toArray(Option.map(purged, ({ name: scheme }) => ['sh', '-c', 'set -eo pipefail; root=$("$@" | jq -er ".[0].buildSettings.BUILD_ROOT"); rm -rf "$(dirname "$(dirname "$root")")"', 'sh', ...invoke('-showBuildSettings', scheme, ['-json'])])) } },
+                    configurations: { cache: { commands: Option.toArray(Option.map(purged, ({ name: scheme }) => ['sh', '-c', 'set -eo pipefail; root=$("$@" | jq -er ".[0].buildSettings.BUILD_ROOT"); rm -rf "$(dirname "$(dirname "$root")")"', 'sh', ...invoke('-showBuildSettings', scheme, [...generic, '-json'])])) } },
                     metadata: {
                         technologies: ['xcode'],
                         description: `Removes the build products of each shared scheme with xcodebuild clean, then each archive, and under configuration cache removes the per-user DerivedData folder of ${name}, two folders above the BUILD_ROOT xcodebuild -showBuildSettings -json prints`,

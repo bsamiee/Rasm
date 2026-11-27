@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { workspaceRoot } from '@nx/devkit';
 import { createDependencies, createNodes } from '@rasm/nx-cargo';
 import { Cargo, execute } from '@rasm/nx-cargo/executors/cargo';
-import { it, targetOptions } from '@rasm/testing/nx';
+import { it, shimmed, targetOptions } from '@rasm/testing/nx';
 import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
@@ -30,6 +30,7 @@ describe('install--cargo', () => {
         onTestFinished(() => {
             vi.unstubAllEnvs();
         });
+        shimmed(join(workspace.root, '.install/bin'), {});
         const graph = await workspace.write(crates).graph(cargo);
         execFileSync('cargo', ['generate-lockfile'], { cwd: workspace.root });
 

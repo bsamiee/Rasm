@@ -29,7 +29,7 @@ const tool = Tool.make('diagnostics', {
     success: Report.schema,
     failure: Schema.ErrorInstance(),
     dependencies: [Handle],
-}).annotateMerge(Context.make(Tool.Readonly, true).pipe(Context.add(Tool.Strict, true)));
+}).annotate(Tool.Readonly, true);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

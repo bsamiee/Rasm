@@ -1,7 +1,7 @@
 import { basename, dirname, join, posix, relative, resolve } from 'node:path';
 import { normalizePath } from '@nx/devkit';
 import { above, below, inside, runner, Stated, spawned } from '@rasm/nx/inference';
-import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Function, Layer, Option, Predicate, Record, Result, Schema, String, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Function, Layer, Option, Predicate, pipe, Record, Result, Schema, String, UndefinedOr } from 'effect';
 import { Toml } from 'effect/encoding';
 import plugin from '#/package.json' with { type: 'json' };
 
@@ -18,7 +18,8 @@ const LOCK = 'Cargo.lock';
 const CRATE = 'nx_cargo';
 const ACTIONS = `${plugin.name}/release/version-actions`;
 const SETTINGS = ['.cargo/config.toml', '.cargo/config'] as const;
-const CONFIG = [...SETTINGS, 'rust-toolchain.toml', 'rust-toolchain'] as const;
+const TOOLCHAIN = ['rust-toolchain.toml', 'rust-toolchain'] as const;
+const CONFIG = [...SETTINGS, ...TOOLCHAIN] as const;
 const CLIPPY = ['.clippy.toml', 'clippy.toml'] as const;
 const PROFILES = ['dev', 'release', 'test', 'bench'] as const;
 const COMPILER = ['RUSTC', 'RUSTC_WRAPPER', 'RUSTC_WORKSPACE_WRAPPER', 'RUSTDOC', 'RUSTFLAGS', 'CARGO_ENCODED_RUSTFLAGS', 'RUSTDOCFLAGS', 'CARGO_ENCODED_RUSTDOCFLAGS', 'RUSTUP_TOOLCHAIN'] as const;
@@ -103,16 +104,25 @@ const toml = <S extends Schema.Decoder<unknown>>(schema: S, file: string) =>
         Effect.flatMap(Schema.decodeUnknownEffect(schema)),
     );
 
+const pinned = (cwd: string, toolchains: readonly string[]) =>
+    Array.isReadonlyArrayNonEmpty(toolchains)
+        ? spawned(['rustup', 'show', 'active-toolchain'], { cwd }).pipe(
+              Effect.map((stdout) => pipe(stdout, String.trim, String.split(' '), Array.take(1))),
+              Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(Array.empty<string>())),
+          )
+        : Effect.succeed(Array.empty<string>());
+
 const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: string, files: ReadonlySet<string>) {
     const metadata = yield* Effect.flatMap(spawned(['cargo', 'metadata', '--format-version', '1', '--no-deps'], { cwd: join(workspaceRoot, posix.dirname(manifest)) }), Schema.decodeEffect(Metadata));
     const root = normalizePath(relative(workspaceRoot, metadata.workspace_root)) || '.';
     const types = Array.difference(Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types))), ['lib', 'rlib']);
     const found = (stems: readonly string[]) => above(root).flatMap((at) => stems.map((stem) => posix.join(at, stem)).filter((file) => files.has(file)));
     const settings = found(SETTINGS);
-    const [{ profile }, host, denied, layers, exported, resolving, gated, directed] = yield* Effect.all(
+    const [{ profile }, host, toolchain, denied, layers, exported, resolving, gated, directed] = yield* Effect.all(
         [
             toml(Profiles, join(metadata.workspace_root, MANIFEST)),
             Effect.map(spawned(['rustc', '--print', 'host-tuple'], { cwd: metadata.workspace_root }), String.trim),
+            pinned(metadata.workspace_root, found(TOOLCHAIN)),
             Effect.transposeOption(Option.map(nearest(files, root, DENY.config), (file) => Effect.map(toml(Table, join(workspaceRoot, file)), (tables) => ({ files: [file, ...Option.toArray(nearest(files, root, DENY.exceptions))], tables: Record.keys(tables) })))),
             Effect.forEach(settings, (file) => toml(Settings, join(workspaceRoot, file)), { concurrency: 'unbounded' }),
             Config.option(Config.String('CARGO_BUILD_TARGET')),
@@ -139,6 +149,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: strin
         metadata,
         profile,
         host,
+        toolchain,
         configs: found(CONFIG),
         clippy: Option.toArray(Option.map(clippy, (at) => normalizePath(relative(workspaceRoot, at)) || '.')),
         unstable: Array.dedupe(layers.flatMap(({ unstable }) => Record.keys(unstable))),
@@ -170,7 +181,7 @@ const placed = (workspaceRoot: string) => ({ stored: (reading: Reading) => moved
 
 const variable = (key: string) => key.toUpperCase().replaceAll(/[-.]/gu, '_');
 
-const resolved = (workspaceRoot: string, { metadata, profile, host, configs, clippy, unstable, unification, layouts, deny }: Reading, files: ReadonlySet<string>) => {
+const resolved = (workspaceRoot: string, { metadata, profile, host, toolchain, configs, clippy, unstable, unification, layouts, deny }: Reading, files: ReadonlySet<string>) => {
     const within = (at: string) => normalizePath(relative(workspaceRoot, at)) || '.';
     const root = within(metadata.workspace_root);
     const profiles = Record.keys(Record.filter(profile, ({ inherits }) => inherits !== undefined));
@@ -201,6 +212,7 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, configs, cli
             return [...included.map((at) => tokened(posix.join(at, '**/*'))), ...excluded.map((at) => `!${tokened(posix.join(at, '**/*'))}`)];
         }),
         configs: configs.map(tokened),
+        toolchain: toolchain.map((name) => `+${name}`),
         unification,
         unified: unification === 'workspace' ? crates.map(({ manifest }) => tokened(manifest)) : [],
         compiler: [

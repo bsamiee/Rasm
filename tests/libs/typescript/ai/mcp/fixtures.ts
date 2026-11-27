@@ -63,7 +63,7 @@ const Tools = Toolkit.make(
 );
 const Served = Toolkit.make(
     Tool.make('test_simple_text', { description: 'Returns simple text', success: Schema.String }).annotate(Tool.Readonly, true).annotate(Server.Instructions, [INSTRUCTIONS.shown]),
-    Tool.make('test_value', { description: 'Returns the value it is given', parameters: Valued, success: Schema.String }).annotate(Tool.Readonly, true).annotate(Tool.Strict, true),
+    Tool.make('test_value', { description: 'Returns the value it is given', parameters: Valued, success: Schema.String }).annotate(Tool.Readonly, true),
     Tool.make('test_image_content', { description: 'Returns an image' }).annotate(Tool.Readonly, true),
     Tool.make('test_embedded_resource', { description: 'Returns an embedded resource' }).annotate(Tool.Readonly, true),
     Tool.make('test_multiple_content_types', { description: 'Returns text, an image, and an embedded resource' }).annotate(Tool.Readonly, true),
@@ -231,14 +231,11 @@ const connected = Effect.fnUntraced(function* <E, R>(beside: Layer.Layer<never, 
     return { probe, client };
 });
 
-const proxied = Effect.fnUntraced(function* (
-    protocol: McpProtocol.ProtocolAdapter,
-    { poll = Duration.millis(50), presence = Stream.succeed(true), filters = { tools: { deny: ['secret'] } } }: { readonly poll?: Duration.Duration; readonly presence?: Stream.Stream<boolean>; readonly filters?: Parameters<typeof Upstream.fromHttp>[0]['filters'] } = {},
-) {
+const proxied = Effect.fnUntraced(function* (protocol: McpProtocol.ProtocolAdapter, { presence = Stream.succeed(true), filters = { tools: { deny: ['secret'] } } }: { readonly presence?: Stream.Stream<boolean>; readonly filters?: Parameters<typeof Upstream.fromHttp>[0]['filters'] } = {}) {
     const [token, rejected] = [MutableRef.make('first'), MutableRef.make(0)];
     const handler = MutableRef.make((yield* upstream(protocol, token, rejected)).handler);
     const fetch: typeof globalThis.fetch = (input, init) => MutableRef.get(handler)(new Request(input, init));
-    const proxy = Layer.effectDiscard(Upstream.serve([Upstream.fromHttp({ peer: PEER, endpoint: Effect.sync(() => ({ url: UPSTREAM, headers: { authorization: `Bearer ${MutableRef.get(token)}` } })), filters, presence, poll })], { route: (peers) => Effect.succeed(Array.headNonEmpty(peers)) })).pipe(
+    const proxy = Layer.effectDiscard(Upstream.serve([Upstream.fromHttp({ peer: PEER, endpoint: Effect.sync(() => ({ url: UPSTREAM, headers: { authorization: `Bearer ${MutableRef.get(token)}` } })), filters, presence })], { route: (peers) => Effect.succeed(Array.headNonEmpty(peers)) })).pipe(
         Layer.provide([FetchHttpClient.layer, Layer.succeed(FetchHttpClient.Fetch, fetch), layerSecureRandom]),
     );
     const { client } = yield* connected(proxy);

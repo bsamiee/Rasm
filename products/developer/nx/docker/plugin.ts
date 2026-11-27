@@ -27,11 +27,11 @@ const nodes = inferring(Schema.Struct({}), run, function* (files, _, { workspace
     const colima = {
         install: {
             [ENGINE]: {
-                command: `mkdir -p "$COLIMA_HOME" && colima start --activate=false --ssh-config=false --mount none --port-forwarder grpc --memory 8 --disk 20 --cpus "$(($(getconf _NPROCESSORS_ONLN) / 2))"`,
+                command: `colima status > /dev/null 2>&1 || { mkdir -p "$COLIMA_HOME" && colima start --activate=false --ssh-config=false --mount none --port-forwarder grpc --memory 8 --disk 20 --cpus "$(($(getconf _NPROCESSORS_ONLN) / 2))"; }`,
                 inputs: [{ externalDependencies: [] }],
                 metadata: {
                     description:
-                        'Starts the Colima VM holding the Docker Engine DOCKER_HOST names on half the cores of this machine with a data disk capped at 20 GiB, in the COLIMA_HOME folder it creates first as Colima reads that variable only once the folder exists, returning once the engine answers and leaving the VM up after the run, with colima start',
+                        'Starts the Colima VM holding the Docker Engine DOCKER_HOST names on half the cores of this machine with a data disk capped at 20 GiB, in the COLIMA_HOME folder it creates first as Colima reads that variable only once the folder exists, returning once the engine answers and leaving the VM up after the run, with colima start where colima status finds no VM running',
                     help: { command: 'colima start --help', example: { args: ['--verbose'] } },
                 },
             },

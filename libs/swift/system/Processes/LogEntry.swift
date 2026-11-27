@@ -122,7 +122,7 @@ extension LogEntry.Source {
 }
 
 extension LogEntry {
-    package static func history(of source: Source, since start: Date?, limit: Int, containing text: String? = nil) async throws(ProcessFailure) -> [Self] {
+    package static func history(of source: Source, since start: Date?, limit: Int, levels: [Level]? = nil, containing text: String? = nil) async throws(ProcessFailure) -> [Self] {
         let (now, tick) = (Date.now, Int64(mach_continuous_time()))
         let earliest = min(max(0, start.map { start in tick - Int64(now.timeIntervalSince(start) * ticksPerSecond) } ?? 0), tick)
         let windows = sequence(first: max(earliest, tick - Int64(firstWindow * ticksPerSecond))..<tick) { window in
@@ -132,7 +132,7 @@ extension LogEntry {
         for window in windows where entries.count < limit {
             var held = Deque<Self>()
             let wanted = limit - entries.count
-            try await read(during: window, of: source, levels: nil, containing: text) { (line: String) throws(ProcessFailure) in
+            try await read(during: window, of: source, levels: levels, containing: text) { (line: String) throws(ProcessFailure) in
                 if let entry = try entry(in: line)?.get() {
                     held.append(entry)
                     held.removeFirst(max(0, held.count - wanted))
@@ -140,20 +140,6 @@ extension LogEntry {
             }
             entries += held.reversed()
         }
-        return entries
-    }
-
-    package static func stream(of source: Source, levels: [Level]? = nil) -> AsyncStream<Result<Self, ProcessFailure>> {
-        let (entries, continuation) = AsyncStream<Result<Self, ProcessFailure>>.makeStream()
-        let following = Task {
-            do throws(ProcessFailure) {
-                try await read(during: nil, of: source, levels: levels, containing: nil) { line in if let entry = entry(in: line) { continuation.yield(entry) } }
-            } catch {
-                continuation.yield(.failure(error))
-            }
-            continuation.finish()
-        }
-        continuation.onTermination = { _ in following.cancel() }
         return entries
     }
 
@@ -174,7 +160,7 @@ extension LogEntry {
     }
 
     private static func read(
-        during window: Range<Int64>?,
+        during window: Range<Int64>,
         of source: Source,
         levels: [Level]?,
         containing text: String?,
@@ -190,23 +176,20 @@ extension LogEntry {
                 case .some(let text): NSPredicate(format: "composedMessage CONTAINS[c] %@", text)
                 case .none: try source.filter(levels: levels)
             }
-        let clauses: [NSPredicate?] = [
+        let clauses: [NSPredicate] = [
             NSPredicate(format: "type == logEvent"),
             process,
-            window.map { window in NSPredicate(format: "machContinuousTimestamp >= %@ AND machContinuousTimestamp < %@", argumentArray: [window.lowerBound, window.upperBound]) },
+            NSPredicate(format: "machContinuousTimestamp >= %@ AND machContinuousTimestamp < %@", argumentArray: [window.lowerBound, window.upperBound]),
             filter,
         ]
         let boot = Date.now.timeIntervalSince1970 - Double(mach_continuous_time()) / ticksPerSecond
-        let command =
-            window.map { window in
-                [
-                    "show",
-                    "--start", "@\(Int(boot + Double(window.lowerBound) / ticksPerSecond) - windowLead)",
-                    "--end", "@\(Int((boot + Double(window.upperBound) / ticksPerSecond).rounded(.up)) + windowLead)",
-                ]
-            } ?? ["stream"]
+        let command = [
+            "show",
+            "--start", "@\(Int(boot + Double(window.lowerBound) / ticksPerSecond) - windowLead)",
+            "--end", "@\(Int((boot + Double(window.upperBound) / ticksPerSecond).rounded(.up)) + windowLead)",
+        ]
         let shown = [Level.info, .debug].filter { level in levels?.contains(level) ?? true }.map { level in "--\(level.rawValue.lowercased())" }
-        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: clauses.compactMap(\.self))
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: clauses)
         let log = Configuration(executable: .path("/usr/bin/log"), arguments: Arguments(command + shown + ["--predicate", predicate.predicateFormat, "--style", "ndjson"]))
         try await log.run(input: .none, output: .sequence) { execution in
             for try await line in execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"])) where line.hasPrefix("{") { try sink(line) }

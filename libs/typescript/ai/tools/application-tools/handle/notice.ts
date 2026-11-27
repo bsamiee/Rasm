@@ -4,7 +4,7 @@ import { Event } from '@rasm/applications/server/event';
 import { Instance } from '@rasm/applications/server/instance';
 import { Call, Format, Line, Report } from '@rasm/mcp/report';
 import { Server } from '@rasm/mcp/server';
-import { Array, Context, DateTime, Effect, HashMap, HashSet, Layer, Number, Option, Order, Record, Ref, Result, Schema, Stream, String, Struct } from 'effect';
+import { Array, Context, DateTime, Effect, HashMap, HashSet, Layer, Number, Option, Order, Record, Ref, Result, Schema, Stream, String, Struct, UndefinedOr } from 'effect';
 import { Address } from '#/handle/address';
 import { Outline } from '#/handle/outline';
 import { Target } from '#/handle/target';
@@ -35,7 +35,6 @@ const WINDOWED = Schema.is(Element.cases.container.fields.kind.pick(['window', '
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const Proving = Context.Reference<HashMap.HashMap<{ readonly instance: Instance['instance']; readonly followed: number }, { readonly call: number; readonly step: number; readonly head: readonly string[] }>>('@rasm/application-tools/handle/notice/Proving', { defaultValue: HashMap.empty });
-const Entries = Context.Reference<HashSet.HashSet<Pick<(typeof Event.Changed.fields.change.cases.logged.Type)['entry'], 'subsystem' | 'category' | 'eventMessage'>>>('@rasm/application-tools/handle/notice/Entries', { defaultValue: HashSet.empty });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -78,14 +77,15 @@ const route = ({ instance, changed, before, after, targets }: Occurrence, state:
     const head = ({ _tag, kind, container, title }: Extract<(typeof Event.Changed.Type)['change'], { readonly container: number }>) => [application, _tag, ...Outline.caption(kind, container, title)];
     const ask = (asked: HashMap.HashMap.Value<Standing>['secure'][number]) => {
         const roles = Record.fromEntries(Record.collect(Record.getSomes({ default: Option.fromUndefinedOr(asked.default), cancel: Option.fromUndefinedOr(asked.cancel) }), (role, ref) => [`${ref}`, role] as const));
-        const answers = asked.answers.map(({ ref, label }) => [...Option.toArray(Record.get(roles, `${ref}`)), Address.refer('action', ref), ...Array.fromNullishOr(label).map(Format.quoted)].join(' '));
+        const answers = asked.answers.map(({ ref, label }) => [...Array.fromNullishOr(label).map(Format.quoted), Address.refer('action', ref), ...Option.toArray(Record.get(roles, `${ref}`)).map((role) => `(${role})`)].join(' '));
         const field = Array.fromNullishOr(asked.secure).flatMap(({ ref, label }) => [['secure', Address.refer('text', ref), ...Array.fromNullishOr(label).map(Format.quoted)].join(' '), 'person fills it']);
-        const answer = Option.filter(Option.fromUndefinedOr(asked.default), () => asked.secure === undefined);
+        const answer = Option.map(Option.fromUndefinedOr(asked.default), (ref) => new Call({ tool: 'act', given: { steps: [{ at: Address.refer('action', ref) }] } }));
+        const read = new Call({ tool: 'inspect', given: { in: Address.refer(asked.kind, asked.container) } });
         return new Line({
             head: head(asked),
             ...Array.match(asked.text, { onEmpty: () => ({}), onNonEmpty: (lines) => ({ value: Format.quoted(lines.join(' ')) }) }),
             facts: [...answers, ...field, ...Array.fromNullishOr(asked.presentation).flatMap(Instance.Presentation.matchOrElse({ forward: ({ _tag }) => [_tag] }, Array.empty<string>))],
-            ...Option.getOrUndefined(Option.map(answer, (ref) => ({ call: new Call({ tool: 'act', given: { steps: [{ at: Address.refer('action', ref) }] } }) }))),
+            ...(asked.secure === undefined ? { call: Option.getOrElse(answer, () => read) } : {}),
         });
     };
     const prompt = Option.flatMap(HashMap.get(after, instance), ({ secure }) => Array.last(secure));
@@ -100,12 +100,17 @@ const route = ({ instance, changed, before, after, targets }: Occurrence, state:
                     opened: (opening) => (WINDOWED(opening.kind) && !stated(opening.container, sequence) ? notify(false, [new Line({ head: head(opening) })]) : Option.none()),
                     closed: (closing) => {
                         const drives = ({ holds }: (typeof Target)['Service']) => holds.some((hold) => Option.exists(named(hold.instance), (name) => name === closing.front));
-                        const fronted = Array.fromNullishOr(closing.front).flatMap((front) => [`front ${Format.quoted(front)}`, ...(Array.countBy(targets, drives) > (drives(target) ? 1 : 0) ? ["another agent's call"] : [])]);
+                        const fronted = Array.fromNullishOr(closing.front).flatMap((front) => [`front ${Format.quoted(front)}`, ...(Array.countBy(targets, drives) > (drives(target) ? 1 : 0) ? ["another agent's call took the front"] : [])]);
                         const left = Option.match(held, { onNone: () => state, onSome: (read) => Context.add(state, Address.Held, Option.some(Address.close(read, sequence, closing.container, [`${closing._tag} ${at}`, ...fronted]))) });
                         const shown = (WINDOWED(closing.kind) || closing.front !== undefined) && !stated(closing.container, sequence);
                         return notify(false, shown ? [new Line({ head: head(closing), facts: fronted })] : [], { ...row, state: left });
                     },
                     asking: (asked) => notify(true, [ask(asked)], row),
+                    consenting: ({ _tag, granted }) =>
+                        UndefinedOr.match(granted, {
+                            onUndefined: () => notify(true, [new Line({ head: [application, _tag], facts: ['person answers it'] })], { row: { key: instance, text: `${application}: Automation consent waits` } }),
+                            onDefined: (answered) => notify(true, [new Line({ head: [application, _tag], facts: [answered ? 'granted' : 'denied'] })], { clears: instance }),
+                        }),
                     hidden: ({ _tag, hidden }) => (targets.some(({ holds }) => holds.some((hold) => hold._tag === 'Launching' && hold.instance === instance)) ? Option.none() : notify(false, [new Line({ head: [application, _tag], value: `${hidden}` })])),
                     status: ({ status }) => {
                         const lasted = Option.zipWith(Option.flatMap(stalled, DateTime.make), DateTime.make(at), (began, ended) => `stalled ${Format.duration(DateTime.distance(began, ended))}`);
@@ -116,11 +121,6 @@ const route = ({ instance, changed, before, after, targets }: Occurrence, state:
                     proven: ({ _tag, followed: posted, drawn }) => {
                         const [owed, key] = [Context.get(state, Proving), { instance, followed: posted }];
                         return Option.flatMap(HashMap.get(owed, key), (step) => notify(true, [new Line({ head: [application, _tag, ...cite(step)], facts: drawn ? ['drawn'] : [] })], { state: Context.add(state, Proving, HashMap.remove(owed, key)) }));
-                    },
-                    logged: ({ _tag, entry: { messageType, subsystem, category, eventMessage } }) => {
-                        const [entries, key] = [Context.get(state, Entries), { subsystem, category, eventMessage }];
-                        const line = new Line({ head: [application, _tag, String.toLowerCase(messageType), subsystem, category].filter(String.isNonEmpty), value: Format.quoted(eventMessage) });
-                        return HashSet.has(entries, key) ? Option.none() : notify(false, [line], { state: Context.add(state, Entries, HashSet.add(entries, key)) });
                     },
                     reported: ({ _tag, report }) => Option.flatMap(stalled, () => notify(true, [new Line({ head: [application, _tag, report.kind], value: Format.path(report.url), facts: Array.fromNullishOr(report.event).map((cause) => `event ${cause}`) })])),
                     sampled: ({ _tag, report }) => Option.flatMap(stalled, () => notify(true, [new Line({ head: [application, _tag], value: Format.path(report) })])),

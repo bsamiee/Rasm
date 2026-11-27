@@ -4,7 +4,7 @@ import { layer as sqlite } from '@effect/sql-sqlite-node/SqliteClient';
 import { Catalog } from '@rasm/database/catalog';
 import { Relation } from '@rasm/database/relation';
 import { Sqlite } from '@rasm/database/sqlite';
-import { Array, Context, Data, DateTime, Duration, Effect, Equal, Equivalence, FileSystem, Function, HashMap, HashSet, Layer, Option, Order, Predicate, pipe, RcMap, Record, Ref, Result, Schedule, Sink, Stream, String, Struct, SubscriptionRef } from 'effect';
+import { Array, Context, Data, DateTime, Duration, Effect, Equal, FileSystem, Function, HashMap, HashSet, Layer, Option, Order, Predicate, pipe, RcMap, Record, Result, Stream, String, Struct, SubscriptionRef, SynchronizedRef } from 'effect';
 import { SqlClient } from 'effect/sql';
 import { Description } from '#/description/description';
 import { applications, catalog, containers } from '#/map/record';
@@ -25,7 +25,7 @@ type Change = Data.TaggedEnum<{
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const LIMITS = { builds: 8, openers: 4, misses: 3, epochs: 2, pairing: 8, interval: '2 seconds' } as const;
+const LIMITS = { builds: 8, openers: 4, misses: 3, epochs: 2, pairing: 8 } as const;
 const STATIC = Struct.keys(Struct.omit(Element.Shape.fields, ['label', 'options', 'opens']));
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -309,29 +309,22 @@ class InterfaceMap extends Data.Class<{ readonly application: (typeof applicatio
         });
     });
     static readonly open = Effect.fn('InterfaceMap.open')(function* (bundle: string, language: string) {
-        const [loaded, user, sql] = yield* Effect.all([InterfaceMap.read(bundle, language), Effect.sync(() => userInfo()), SqlClient.SqlClient]);
-        const [state, written] = yield* Effect.all([SubscriptionRef.make(loaded), Ref.make(loaded)]);
-        const flush = Effect.gen(function* () {
-            const [current, stored] = yield* Effect.all([SubscriptionRef.get(state), Ref.get(written)]);
-            const rows = Record.collect(
-                Record.filter(current.containers, (entry, locator) => entry !== stored.containers[locator]),
-                (locator, body) => ({ bundle, language, locator, body }),
-            );
-            const writes = [...(current.application === stored.application ? [] : [Relation.upsert(applications, [{ bundle, language, body: current.application }])]), ...(Array.isReadonlyArrayNonEmpty(rows) ? [Relation.upsert(containers, rows)] : [])];
-            yield* Array.match(writes, { onEmpty: () => Effect.void, onNonEmpty: (statements) => Effect.andThen(sql.withTransaction(Effect.all(statements)), Ref.set(written, current)) });
-        }).pipe(Effect.catch((error) => Effect.annotateLogs(Effect.logWarning('Interface map flush failed', error), { bundle, language })));
-        yield* Effect.addFinalizer(() => flush);
-        yield* SubscriptionRef.changes(state).pipe(
-            Stream.changesWith(Equivalence.strictEqual()),
-            Stream.dropWhile((map) => map === loaded),
-            Stream.aggregateWithin(Sink.drain, Schedule.spaced(LIMITS.interval)),
-            Stream.runForEach(() => flush),
-            Effect.forkScoped,
-        );
+        const [loaded, user, sql, services] = yield* Effect.all([InterfaceMap.read(bundle, language), Effect.sync(() => userInfo()), SqlClient.SqlClient, Effect.context<Effect.Services<ReturnType<typeof InterfaceMap.read>>>()]);
+        const state = yield* SynchronizedRef.make(loaded);
+        const change = <A>(step: (map: InterfaceMap) => readonly [A, InterfaceMap]) =>
+            SynchronizedRef.modifyEffect(state, (map) => {
+                const [value, next] = step(map);
+                const rows = Record.collect(
+                    Record.filter(next.containers, (entry, locator) => entry !== map.containers[locator]),
+                    (locator, body) => ({ bundle, language, locator, body }),
+                );
+                const writes = [...(next.application === map.application ? [] : [Relation.upsert(applications, [{ bundle, language, body: next.application }])]), ...(Array.isReadonlyArrayNonEmpty(rows) ? [Relation.upsert(containers, rows)] : [])];
+                return sql.withTransaction(Effect.all(writes)).pipe(Effect.when(Effect.succeed(Array.isReadonlyArrayNonEmpty(writes))), Effect.as([value, next] as const), Effect.provideContext(services));
+            });
         return {
-            present: SubscriptionRef.get(state),
+            present: SynchronizedRef.get(state),
             observe: Effect.fn('InterfaceMap.observe')(function* (read: typeof Element.Observation.Type) {
-                const changes = yield* SubscriptionRef.modify(state, (map) => map.fold(read, user));
+                const changes = yield* change((map) => map.fold(read, user));
                 yield* Array.match(changes, {
                     onEmpty: () => Effect.void,
                     onNonEmpty: (each) =>
@@ -348,9 +341,9 @@ class InterfaceMap extends Data.Class<{ readonly application: (typeof applicatio
                         }),
                 });
             }),
-            learn: (described: Description) => SubscriptionRef.modify(state, (map) => map.learn(described)),
-            prove: (proofs: readonly Parameters<InterfaceMap['prove']>[0][]) => SubscriptionRef.update(state, (map) => proofs.reduce((proven, proof) => proven.prove(proof), map)),
-            sight: (pointer: (typeof Element.Model.Type)['pointer']) => SubscriptionRef.update(state, (map) => map.sight(pointer)),
+            learn: (described: Description) => change((map) => map.learn(described)),
+            prove: (proofs: readonly Parameters<InterfaceMap['prove']>[0][]) => change((map) => [undefined, proofs.reduce((proven, proof) => proven.prove(proof), map)] as const),
+            sight: (pointer: (typeof Element.Model.Type)['pointer']) => change((map) => [undefined, map.sight(pointer)] as const),
         };
     });
     static readonly layer = (folder: string) =>

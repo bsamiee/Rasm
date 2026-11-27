@@ -1,5 +1,5 @@
 import { basename, dirname, join, resolve, sep } from 'node:path';
-import { env } from 'node:process';
+import { env, execPath } from 'node:process';
 import { getSystemErrorMessage } from 'node:util';
 import { executor, spawned, Words } from '@rasm/nx/inference';
 import { Array, Config, Effect, FileSystem, Function, Option, PlatformError, Record, Result, Schema } from 'effect';
@@ -8,6 +8,8 @@ import { ChildProcess, ChildProcessSpawner, CommandLine } from 'effect/process';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const RENAME_SWAP = 0x2;
+const SWAP =
+    "const { dlopen, getInt32 } = await import('node:ffi'); const [from, to, flags] = process.argv.slice(1); const { renamex_np: rename, __error: errno } = dlopen(null, { renamex_np: { arguments: ['string', 'string', 'u32'], return: 'i32' }, __error: { return: 'pointer' } }).functions; process.exitCode = rename(from, to, Number(flags)) === 0 ? 0 : getInt32(errno());";
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -31,12 +33,12 @@ class Run extends Schema.Opaque<Run>()(
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const install = Effect.fnUntraced(function* (from: string, to: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const [held, { dlopen, getInt32 }] = yield* Effect.all([fs.exists(to), Effect.promise(() => import('node:ffi'))]);
-    const { renamex_np: rename, __error: errno } = (yield* Effect.acquireDisposable(Effect.sync(() => dlopen(null, { renamex_np: { arguments: ['string', 'string', 'u32'], return: 'i32' }, __error: { return: 'pointer' } })))).functions;
+    const [fs, spawner] = yield* Effect.all([FileSystem.FileSystem, ChildProcessSpawner.ChildProcessSpawner]);
+    const held = yield* fs.exists(to);
     yield* fs.makeDirectory(dirname(to), { recursive: true });
-    return yield* rename(from, to, held ? RENAME_SWAP : 0) === 0 ? Effect.void : PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'install', syscall: 'renamex_np', pathOrDescriptor: to, description: getSystemErrorMessage(-getInt32(errno())) });
-}, Effect.scoped);
+    const code = yield* spawner.exitCode(ChildProcess.make(execPath, ['--disable-warning=ExperimentalWarning', '--input-type=module', '--eval', SWAP, from, to, `${held ? RENAME_SWAP : 0}`], { stdin: 'ignore', stdout: 'inherit', stderr: 'inherit' }));
+    return yield* code === 0 ? Effect.void : PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'install', syscall: 'renamex_np', pathOrDescriptor: to, description: getSystemErrorMessage(-Number(code)) });
+});
 
 const configured = Config.map(Config.withDefault(Config.Int('GIT_CONFIG_COUNT'), 0), (count) => ({ GIT_CONFIG_COUNT: `${count + 1}`, [`GIT_CONFIG_KEY_${count}`]: 'status.branch', [`GIT_CONFIG_VALUE_${count}`]: 'false' }));
 

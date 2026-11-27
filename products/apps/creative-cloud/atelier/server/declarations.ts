@@ -59,7 +59,6 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
             Effect.tapCause((cause) => Effect.logWarning('Illustrator pages lack the core ExtendScript classes', cause)),
             Effect.catchCause(() => partial),
         );
-        yield* illustrator.pipe(Effect.ignore, Effect.forkScoped);
         const mediaencoder = Effect.gen(function* () {
             const { url } = yield* Effect.fromOption(
                 Array.findFirst(yield* SubscriptionRef.get(rows), (row) => row.product === HOSTS.ame.product),

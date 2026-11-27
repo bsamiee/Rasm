@@ -1,9 +1,9 @@
 import { Program } from '@rasm/current-process';
 import { spawn } from '@rasm/process';
 import { layerProtocolChildProcess } from '@rasm/rpc';
-import { Array, Cause, Context, Deferred, Duration, Effect, Fiber, Function, Layer, MutableRef, Number, Option, Path, PubSub, Queue, Ref, Result, Schema, Sink, Stream, Struct, SubscriptionRef } from 'effect';
-import type { ChildProcessSpawner } from 'effect/process';
+import { Array, Cause, Context, Deferred, Effect, Fiber, Function, Layer, MutableRef, Number, Option, Path, PubSub, Queue, Ref, Result, Schema, Sink, Stream, Struct, SubscriptionRef } from 'effect';
 import { Rpc, RpcClient, type RpcClientError, RpcGroup, RpcMessage } from 'effect/rpc';
+import { Socket } from 'effect/socket';
 import { Act } from '#/server/act';
 import { Capture } from '#/server/capture';
 import { Element } from '#/server/element';
@@ -33,8 +33,8 @@ const ApplicationRpcs = RpcGroup.make(
     Rpc.make('installations', { payload: { name: Schema.String }, success: Installation.Listing, error: ApplicationFailure.Thrown }),
     Rpc.make('installation', { payload: { url: Schema.URL }, success: Installation, error: ApplicationFailure.Thrown }),
     Rpc.make('pasteboard', { payload: { content: Schema.Boolean }, success: Act.Pasteboard, error: ApplicationFailure.Thrown }),
-    Rpc.make('watch', { payload: { instance, locators: Element.Locator.pipe(Schema.Array, Schema.optionalKey) }, success: Instance.Watched, error: ApplicationFailure.Thrown }),
-    Rpc.make('release', { payload: { instance }, success: Schema.Array(Element.Locator) }),
+    Rpc.make('watch', { payload: { instance }, success: Instance.Watched, error: ApplicationFailure.Thrown }),
+    Rpc.make('release', { payload: { instance } }),
     Rpc.make('model', {
         payload: { instance, scope: Element.Scope, known: Schema.optionalKey(Schema.Struct({ build: Schema.OptionFromOptionalKey(Schema.String), containers: Schema.Array(Element.Locator), labels: Schema.Array(Schema.String) })) },
         success: Element.Model,
@@ -76,7 +76,7 @@ const ApplicationRpcs = RpcGroup.make(
             reports: Schema.Array(Instance.Report),
             samples: Schema.Array(Schema.URLFromString),
             logs: Schema.Array(Schema.Struct({ file: Schema.String, text: Schema.String })),
-            unified: Event.Changed.fields.change.cases.logged.fields.entry.pipe(Schema.Array, ApplicationFailure.read),
+            unified: Act.LogEntry.pipe(Schema.Array, ApplicationFailure.read),
             unreadable: Schema.Array(ApplicationFailure.Stated),
         }),
         error: ApplicationFailure.Thrown,
@@ -86,7 +86,7 @@ const ApplicationRpcs = RpcGroup.make(
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/applications/server/client/ApplicationServer', {
-    make: Effect.fnUntraced(function* (client: RpcClient.FromGroup<typeof ApplicationRpcs, RpcClientError.RpcClientError>, exited: ChildProcessSpawner.ChildProcessHandle['exitCode'], traffic: Effect.Effect<{ readonly requests: number; readonly bytes: number }>) {
+    make: Effect.fnUntraced(function* (client: RpcClient.FromGroup<typeof ApplicationRpcs, RpcClientError.RpcClientError>, connections: SubscriptionRef.SubscriptionRef<number>, traffic: Effect.Effect<{ readonly requests: number; readonly bytes: number }>) {
         const first = Effect.fnUntraced(function* <A, X>(subject: string, stream: Stream.Stream<A, X>) {
             const [head, rest] = yield* Stream.peel(stream, Sink.head());
             const state = yield* SubscriptionRef.make(yield* Effect.fromOption(head, () => new Cause.NoSuchElementError(`${subject} ended before its first value`)));
@@ -100,7 +100,16 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
             PubSub.unbounded<typeof Event.Changed.Type>(),
             PubSub.unbounded<typeof Event.cases.observed.Type>(),
         ]);
-        const pushing = yield* client.subscribe().pipe(
+        const connected = SubscriptionRef.changes(connections).pipe(Stream.map(Number.max(1)), Stream.changes);
+        const pushing = yield* connected.pipe(
+            Stream.switchMap(() =>
+                client.subscribe().pipe(
+                    Stream.catchIf(
+                        ({ reason }) => !Schema.is(Socket.SocketOpenError)(reason),
+                        (error) => Stream.fromEffectDrain(Effect.logWarning('Application server connection ended, the next connection subscribes again', error)),
+                    ),
+                ),
+            ),
             Stream.runForEach(
                 Event.match({
                     installations: (listing) => Effect.asVoid(Queue.offer(listings, listing)),
@@ -113,12 +122,11 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
             ),
             Effect.forkScoped,
         );
-        const [listing, instances, session, pressure] = yield* Effect.all([
-            first('installations', Stream.fromQueue(listings)),
-            first('instances', standing('Instance listing', Stream.fromQueue(snapshots))),
-            latest(standing('Session reading', Stream.fromQueue(sessions))),
-            latest(standing('Pressure reading', Stream.fromQueue(pressures))),
-        ]);
+        const ended = Effect.andThen(Fiber.join(pushing), Effect.never);
+        const [listing, instances, session, pressure] = yield* Effect.raceFirst(
+            Effect.all([first('installations', Stream.fromQueue(listings)), first('instances', standing('Instance listing', Stream.fromQueue(snapshots))), latest(standing('Session reading', Stream.fromQueue(sessions))), latest(standing('Pressure reading', Stream.fromQueue(pressures)))]),
+            ended,
+        );
         return {
             ...client,
             launch: Effect.fnUntraced(function* <R>(payload: Parameters<typeof client.launch>[0], launching: (launched: typeof Launched.cases.launched.Type) => Effect.Effect<void, never, R>) {
@@ -150,30 +158,24 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
             observations: Stream.fromPubSub(observations),
             session,
             pressure,
-            exitCode: Effect.raceFirst(exited, Effect.andThen(Fiber.join(pushing), exited)),
+            connected,
+            ended,
             traffic,
         };
     }),
 }) {
     static readonly Diagnostics = Diagnostics;
     static readonly fromBundle = Effect.gen(function* () {
-        const [path, started, program] = yield* Effect.all([Path.Path, Deferred.make<ApplicationServer['Service']>(), Program]);
-        const [name, forceKillAfter] = [path.basename(program.executable), Option.getOrElse(program.share, () => Duration.infinity)];
-        const served = Effect.gen(function* () {
-            const [handle, requests, bytes] = yield* Effect.all([spawn([program.executable], { stderr: 'inherit' }), Effect.sync(() => MutableRef.make(0)), Ref.make(0)]);
-            const traffic = Effect.all({ requests: Effect.sync(() => MutableRef.get(requests)), bytes: Ref.get(bytes) });
-            const stdout = Stream.tap(handle.stdout, (chunk) => Ref.update(bytes, Number.sum(chunk.byteLength)));
-            const linked = Effect.addFinalizer(() => Effect.ignore(handle.kill({ forceKillAfter }), { log: 'Error', message: `Stopping ${name} failed` })).pipe(
-                Effect.andThen(RpcClient.make(ApplicationRpcs, { generateRequestId: () => requests.pipe(MutableRef.incrementAndGet, RpcMessage.RequestId) })),
-                Effect.flatMap((client) => ApplicationServer.make(client, handle.exitCode, traffic)),
-            );
-            return Layer.effect(ApplicationServer, linked).pipe(Layer.provide(layerProtocolChildProcess({ stdin: handle.stdin, stdout }, Effect.match(handle.exitCode, { onFailure: ({ message }) => `${name} ended: ${message}`, onSuccess: (code) => `${name} exited with code ${code}` }))));
-        });
+        const [path, started, program, connections, requests, bytes] = yield* Effect.all([Path.Path, Deferred.make<ApplicationServer['Service']>(), Program, SubscriptionRef.make(0), Effect.sync(() => MutableRef.make(0)), Ref.make(0)]);
+        const child = Effect.map(spawn([program.executable], { stderr: 'inherit', forceKillAfter: Option.getOrUndefined(program.share) }), ({ stdin, stdout, exitCode }) => ({ stdin, exitCode, stdout: Stream.tap(stdout, (chunk) => Ref.update(bytes, Number.sum(chunk.byteLength))) }));
+        const traffic = Effect.all({ requests: Effect.sync(() => MutableRef.get(requests)), bytes: Ref.get(bytes) });
+        const linked = RpcClient.make(ApplicationRpcs, { generateRequestId: () => requests.pipe(MutableRef.incrementAndGet, RpcMessage.RequestId) }).pipe(Effect.flatMap((client) => ApplicationServer.make(client, connections, traffic)));
+        const hooks = Layer.succeed(RpcClient.ConnectionHooks)({ onConnect: SubscriptionRef.update(connections, Number.increment), onDisconnect: Effect.void });
         return {
-            layer: Layer.tap(Layer.unwrap(served), (context) => Deferred.succeed(started, Context.get(context, ApplicationServer))),
+            layer: Layer.tap(Layer.provide(Layer.effect(ApplicationServer, linked), Layer.provide(layerProtocolChildProcess(child), hooks)), (context) => Deferred.succeed(started, Context.get(context, ApplicationServer))),
             ended: Deferred.await(started).pipe(
-                Effect.flatMap(({ exitCode }) => exitCode),
-                Effect.flatMap((code) => new Cause.UnknownError(code, `${name} exited ${code}`)),
+                Effect.flatMap(Struct.get('ended')),
+                Effect.mapError((cause) => new Cause.UnknownError(cause, `${path.basename(program.executable)} ended before it answered`)),
             ),
         };
     });

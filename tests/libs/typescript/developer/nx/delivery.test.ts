@@ -19,7 +19,7 @@ const rhino = {
     'rhino/project.json': JSON.stringify({ name: 'marker', targets: { pack: { executor: 'nx:noop', outputs: ['{projectRoot}/*.yak'] }, attach: { executor: EXECUTORS.attach, dependsOn: ['pack'], inputs: [{ dependentTasksOutputFiles: '**/*' }] } } }),
 };
 const registry = {
-    'tools/record.js': "import { writeFileSync } from 'node:fs';\n\nconst [file, ...argv] = process.argv.slice(2);\nwriteFileSync(file, argv.join('\\n'));\n",
+    'tools/record.mjs': "import { writeFileSync } from 'node:fs';\n\nconst [file, ...argv] = process.argv.slice(2);\nwriteFileSync(file, argv.join('\\n'));\n",
     '.artifacts/lib/lib-1.0.0.tgz': 'archive',
     'lib/project.json': JSON.stringify({
         name: 'lib',
@@ -127,7 +127,7 @@ describe('attach executor', () => {
 });
 
 describe('publish through a registry tool', () => {
-    const tool = [execPath, 'tools/record.js', 'published.txt', 'push'] as const;
+    const tool = [execPath, 'tools/record.mjs', 'published.txt', 'push'] as const;
 
     it.for([
         { case: 'HEAD holds no project tag', tags: [], options: { credential: 'LIB_SECRET' }, target: 'nx-release-publish', published: [] },

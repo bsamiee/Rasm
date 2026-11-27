@@ -285,7 +285,7 @@ const signatures: readonly Row[] = [
         values: { '-P': program, '--python-expr': code },
         operands: [{ ...edits, count: 'optional' }],
     },
-    { name: 'ssh', values: { '-l': user, '-J': { roles: ['host'] }, '-F': file, '-i': file }, operands: [host, { ...script, count: 'rest' }], input: file, output: stdout, interspersed: false },
+    { name: 'ssh', values: { '-l': user, '-J': { roles: ['host'] }, '-F': file, '-i': file }, operands: [host, { ...script, count: 'rest' }], input: { roles: ['shell'], unless: ['-n', '-f', '-N', '-O', '-G', '-V', '-Q'] }, output: stdout, interspersed: false },
     {
         name: 'docker',
         commands: [

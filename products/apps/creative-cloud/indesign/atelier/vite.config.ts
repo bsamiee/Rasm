@@ -14,7 +14,7 @@ const INLINED = Declaration.Model.pipe(Schema.fromJsonString, Schema.fromJsonStr
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default mergeConfig(pluginConfig(), {
+export default mergeConfig(pluginConfig({ harness: new URL('../../../../../plugins/shared/uxp/.mcp.json', import.meta.url), name: 'atelier' }), {
     plugins: [
         {
             name: 'declared',

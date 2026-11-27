@@ -56,7 +56,7 @@ const crateTargets = (workspace: Workspace, { crate, root, linted }: Member): Ve
     const debug = outputs('debug');
     const profiles = ['release', ...workspace.profiles];
     const built = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['build', ...profile, ...COMPILED] }];
-    const installed = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['install', '--path', posix.relative(workspace.root, root) || '.', ...profile, ...COMPILED] }];
+    const installed = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: Array.prependAll(['install', '--path', posix.relative(workspace.root, root) || '.', ...profile, ...COMPILED], workspace.toolchain) }];
     const checked = (placed: (selection: readonly string[]) => Command) => Array.map(Array.prepend(workspace.strategies.map(Option.some), Option.none()), (profile) => placed([...kinds, ...Option.toArray(profile).flatMap((name) => ['--profile', name]), ...COMPILED]));
     const libtest = (run: Array.NonEmptyReadonlyArray<string>): Command => ({ args: Array.appendAll(run, [...(plain ? [] : ['--doc']), LOCKED]) });
     const linting: Verbs =

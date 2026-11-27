@@ -45,6 +45,7 @@ package struct InstanceEvent: Encodable, Sendable {
             secure: Answer?,
             presentation: Watch.Presentation?,
         )
+        case consenting(granted: Bool?)
         case focused(control: Int, kind: Control.Kind)
         case value(control: Int, kind: Control.Kind, fact: Fact)
         case selection(control: Int, kind: Control.Kind, evidence: Control.Evidence)
@@ -56,7 +57,6 @@ package struct InstanceEvent: Encodable, Sendable {
         case announced(text: String, priority: Priority?)
         case dragging(notification: String, control: Int?, kind: Control.Kind?)
         case proven(followed: Int, drawn: Bool)
-        case logged(entry: LogEntry)
         case reported(report: DiagnosticReport)
         case sampled(report: URL)
         case exited(termination: InstanceState.Termination)
@@ -70,7 +70,7 @@ package struct InstanceEvent: Encodable, Sendable {
     package var isPushed: Bool {
         switch change {
             case .moved, .window, .frontmost, .dragging: false
-            case .started, .opened, .closed, .asking, .focused, .value, .selection, .hidden, .status, .announced, .proven, .logged, .reported, .sampled, .exited: true
+            case .started, .opened, .closed, .asking, .consenting, .focused, .value, .selection, .hidden, .status, .announced, .proven, .reported, .sampled, .exited: true
         }
     }
 }
@@ -78,9 +78,7 @@ package struct InstanceEvent: Encodable, Sendable {
 extension InstanceEvent.Change {
     init(asking container: Container, secure: InstanceEvent.Answer?, presentation: Watch.Presentation?) {
         let labels: [Int: String] = Dictionary(container.controls.compactMap { control in control.label.map { label in (control.ref, label.text) } }) { first, _ in first }
-        let marked: OrderedSet<Int> = OrderedSet(
-            [container.default, container.cancel, container.close].compactMap(\.self) + container.controls.filter { control in control.kind == .action }.map(\.ref)
-        )
+        let marked: OrderedSet<Int> = OrderedSet([container.default, container.cancel].compactMap(\.self))
         self = .asking(
             container: container.ref,
             kind: container.kind,

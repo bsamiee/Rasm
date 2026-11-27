@@ -19,6 +19,7 @@ const systemTemporary = /^(?:\/private)?\/tmp(?=\/(?!claude-))/u;
 const shellSyntax = /[$|&;<>()`]|^\w+=/u;
 const shellWrapper = /^(?:\S*\/)?(?:ba|z|da|k)?sh -c$/u;
 const jsonParse = /\bjson\.loads?\(|\bJSON\.parse\(/u;
+const stringLiteral = /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/gu;
 const statuses = ['nx', 'uv', 'dotnet', 'xcodebuild', 'swift', 'npm', 'pnpm', 'cargo', 'curl', 'pytest', 'vitest'];
 const altering: ReadonlySet<string> = new Set(['tied', 'readonly', 'association']);
 const rgFlags: Readonly<Record<string, string>> = { i: '--ignore-case', c: '--case-sensitive', w: '--word-regexp', s: '--multiline-dotall' };
@@ -82,7 +83,7 @@ const languages = {
 const codeOf = (invocation: Invocation) => invocation.arguments.collect('code').flatMap(({ words }) => Array.take(words, 1));
 const takesScript = ({ flag, values }: Invocation['flags'][number]) => flag.spellings.includes('-i') && values.some((value) => value.test(/^-/u) || value.test(sedSubstitution));
 const readsInput = (invocation: Invocation) => {
-    const { input, positional } = invocation.arguments;
+    const { input, positional, opaque } = invocation.arguments;
     const valued = invocation.flags.some(({ flag }) =>
         Option.exists(
             Option.flatMap(invocation.usage, (usage) => usage.value(flag)),
@@ -90,7 +91,7 @@ const readsInput = (invocation: Invocation) => {
         ),
     );
     const exempt = (invocation.runs('sed') && invocation.flags.some(takesScript)) || (invocation.runs('read') && invocation.has('-t')) || (invocation.runs('awk') && codeOf(invocation).every((word) => word.test(/^\s*BEGIN\s*\{[\s\S]*\}\s*$/u)));
-    return !invocation.opaque && Option.exists(input, ({ roles }) => roles.includes('read')) && !positional.some(({ slot }) => slot.tree) && !valued && !exempt;
+    return !opaque && Option.exists(input, ({ roles }) => roles.includes('read') || roles.includes('shell')) && !positional.some(({ slot }) => slot.tree) && !valued && !exempt;
 };
 const closes = (invocation: Invocation) => invocation.runs('head') || (invocation.runs('grep', 'rg') && invocation.has('-q', '--quiet', '-m', '--max-count', '-l', '--files-with-matches'));
 const writesBefore = (invocations: readonly Invocation[], reader: Invocation, path: string) => invocations.some((other) => other.start < reader.start && other.writes.some(({ text }) => Option.contains(text, path)));
@@ -119,7 +120,7 @@ const judgeCode = (name: keyof typeof languages) => {
         );
         const written = Option.getOrElse(inline, () => '');
         const command = Array.findFirst(idioms, ([pattern, restate]) => Option.flatMap(Option.fromNullishOr(pattern.exec(Option.match(source, { onNone: () => written, onSome: String.trim }))), ({ groups = {} }) => restate(groups, invocation)));
-        return Match.value({ command: Option.getOrUndefined(command), inPlace: inPlace === true && invocation.has('-i'), json: jsonParse.test(written), effects: effects?.test(written) === true }).pipe(
+        return Match.value({ command: Option.getOrUndefined(command), inPlace: inPlace === true && invocation.has('-i'), json: jsonParse.test(written), effects: effects?.test(written.replaceAll(stringLiteral, '""')) === true }).pipe(
             Match.when({ command: Match.defined }, ({ command: words }) => rewrite(invocation, words)),
             Match.when({ inPlace: true }, () => [{ deny: `${name} -i edits files in place where the hook cannot judge the change.`, advice: 'Edit them with sd where one pattern covers every change, else with your file edit tool.' }]),
             Match.when({ json: true }, () => [{ deny: `${name} inline code parses JSON.`, advice: 'Read it with jq.' }]),
@@ -134,17 +135,18 @@ const judgeCode = (name: keyof typeof languages) => {
 const programs: Table = {
     'stdin.empty': {
         action: 'Shell',
-        decide: Effect.fnUntraced(function* (script) {
-            const listed = yield* script.invocations;
-            const unfed = listed.filter((invocation) => readsInput(invocation) && invocation.stdin._tag === 'Inherited');
-            return unfed.map((invocation) =>
-                Match.value({ span: Option.getOrUndefined(invocation.span), stmt: Option.getOrUndefined(invocation.node), nested: Option.isSome(invocation.stage) || invocation.within.length > 0, alone: listed.length === 1 }).pipe(
-                    Match.when({ span: Match.defined, nested: true }, ({ span }): Verdict => ({ edit: (editor) => [editor.replace(span, [':'])] })),
-                    Match.when({ stmt: Match.defined, nested: false, alone: false }, ({ stmt }): Verdict => ({ edit: (editor) => [editor.remove(stmt)] })),
-                    Match.orElse((): Verdict => ({ deny: `${invocation.label} reads standard input, which this call leaves empty.`, advice: 'Name the file it should read, or pipe or redirect its input.' })),
-                ),
-            );
-        }),
+        decide: (script, { invocations }) => {
+            const alone = invocations.filter(({ source }) => source === script.source).length === 1;
+            return invocations
+                .filter((invocation) => readsInput(invocation) && invocation.stdin._tag === 'Inherited')
+                .flatMap((invocation) =>
+                    Match.value({ span: Option.getOrUndefined(invocation.span), stmt: Option.getOrUndefined(invocation.node), local: invocation.source === script.source, nested: Option.isSome(invocation.stage) || invocation.within.length > 0, alone }).pipe(
+                        Match.when({ span: Match.defined, local: true, nested: true }, ({ span }): readonly Verdict[] => [{ edit: (editor) => [editor.replace(span, [':'])] }, { note: `${invocation.label} read standard input, which this call leaves empty, so it became : and the rest of the call ran.`, once: 'call' }]),
+                        Match.when({ stmt: Match.defined, local: true, nested: false, alone: false }, ({ stmt }): readonly Verdict[] => [{ edit: (editor) => [editor.remove(stmt)] }, { note: `${invocation.label} read standard input, which this call leaves empty, so the call ran without it.`, once: 'call' }]),
+                        Match.orElse((): readonly Verdict[] => [{ deny: `${invocation.label} reads standard input, which this call leaves empty.`, advice: 'Name the file it should read, or pipe or redirect its input.' }]),
+                    ),
+                );
+        },
     },
     ...Record.fromEntries(Record.collect(languages, (program, { aliases }) => [`code.${program}`, { program, aliases, decide: judgeCode(program) }] as const)),
     'sed.suffix': {
@@ -246,9 +248,9 @@ const programs: Table = {
                 ),
             );
             const flags = Option.all(letters.map((letter) => Record.get(rgFlags, letter)));
-            const paths = Option.getOrElse(Option.all(sd.reads.map(({ text }) => text)), Array.empty<string>);
+            const paths = Option.getOrElse(Option.all(sd.arguments.effects.writes.map(({ text }) => text)), Array.empty<string>);
             const present = yield* Effect.forEach(paths, (path) => Effect.orElseSucceed(fs.exists(path), () => false));
-            const settled = Array.isReadonlyArrayNonEmpty(paths) && present.every(Boolean) && !paths.some((path) => writesBefore(invocations, sd, path)) && !sd.has('--preview');
+            const settled = Array.isReadonlyArrayNonEmpty(paths) && present.every(Boolean) && !paths.some((path) => writesBefore(invocations, sd, path));
             const options = [...(sd.has('--fixed-strings') ? ['--fixed-strings'] : []), ...(sd.has('--across') ? ['--multiline'] : [])];
             const matches = yield* Option.match(
                 Option.filter(Option.all([sd.operand(), flags]), () => settled),

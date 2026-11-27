@@ -1,8 +1,10 @@
 package import AppKit
+import AppleEvents
 @unsafe @preconcurrency import ApplicationServices
 import CasePaths
 import CasePathsCore
 import Encoding
+import Files
 import OSLog
 import OrderedCollections
 import Processes
@@ -40,7 +42,6 @@ private let moving: Set<String> = [kAXWindowMovedNotification, kAXWindowResizedN
 private let applicationAttributes: [String] = [kAXWindowsAttribute, kAXFocusedUIElementAttribute, kAXMenuBarAttribute, kAXExtrasMenuBarAttribute]
 private let menuRoles: Set<String> = [kAXMenuBarRole, kAXMenuBarItemRole, kAXMenuRole, kAXMenuItemRole]
 private let budget: (nodes: Int, time: Duration) = (4000, .seconds(3))
-let quiet: Duration = .milliseconds(100)
 let pressOpened: Set<String> = [kAXMenuBarItemRole, kAXPopUpButtonRole, kAXMenuButtonRole]
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -69,6 +70,12 @@ package actor Watch {
         case answered
     }
 
+    static let tables: URL = .temporaryDirectory.appending(
+        components: Bundle.main.bundleIdentifier ?? ProcessInfo.processInfo.processName,
+        String(describing: Watch.self),
+        directoryHint: .isDirectory,
+    )
+
     package nonisolated let instance: Instance
     package private(set) var language: Locale.Language
     private nonisolated let applicationName: String
@@ -95,20 +102,20 @@ package actor Watch {
     private var unregistered: [String] = notifications
     private var table: [AXUIElement: Int] = [:]
     private var handles: [AXUIElement?] = []
-    package private(set) var locators: [Locator]
+    private var locators: [Locator]
     private var numbers: [Locator: Int]
-    private var seeded: [Locator: ArraySlice<Int>]
+    private let tableFile: (url: URL, handle: Result<FileHandle, ApplicationFailure>)
     private var located: [Int: Int] = [:]
     private var scrolled: Set<Int> = []
     private var steps: (running: Int, waiting: [CheckedContinuation<Void, Never>]) = (0, [])
     @TaskLocal private static var stepping: Bool = false
     private var drawn: [Int: (window: CGWindowID, frame: CGRect)] = [:]
-    private var pictures: [CGWindowID: (frame: CGRect, last: [SIMD2<Int>: (shot: Screenshot, at: ContinuousClock.Instant)], restless: [(region: CGRect, span: Duration)])] = [:]
-    private var posted: ContinuousClock.Instant?
+    private let regions: Mutex<[CGWindowID: [CGRect]]> = Mutex([:])
     private var latency: Duration?
     private var followed: Int = 0
     private var owners: [Int: Int] = [:]
     private var controls: [Int: (control: Control, container: Int)] = [:]
+    private var lists: [Int: Int] = [:]
     private var open: OrderedDictionary<Int, Container> = [:]
     private var secured: [Int: InstanceEvent.Answer] = [:]
     private var sent: [Int: Observation] = [:]
@@ -128,7 +135,7 @@ package actor Watch {
 
     // --- [LIFECYCLE]
 
-    init(_ instance: Instance, locators seed: [Locator] = []) {
+    init(_ instance: Instance) {
         let bundle: Bundle? = instance.application.bundleURL.flatMap(Bundle.init(url:))
         let preferred: [String]? = bundle?.bundleIdentifier.flatMap { identifier in CFPreferencesCopyAppValue("AppleLanguages" as CFString, identifier as CFString) as? [String] }
         let callback: AXObserverCallbackWithInfo = { _, element, notification, info, refcon in
@@ -170,9 +177,20 @@ package actor Watch {
         var serial = ProcessSerialNumber()
         self.serial = unsafe findProcess(instance.process.pid, &serial) ? serial : nil
         queue = DispatchSerialQueue(label: "\(String(reflecting: Watch.self)) \(instance.process)")
-        locators = seed
-        numbers = Dictionary(zip(seed, 1...)) { first, _ in first }
-        seeded = Dictionary(grouping: seed.indices) { (index: Int) -> Locator in seed[index] }.mapValues { (indices: [Int]) -> ArraySlice<Int> in indices[...] }
+        let file: URL = Watch.tables.appending(component: instance.process.rawValue)
+        var seed: [Locator] = []
+        let handle: Result<FileHandle, ApplicationFailure>
+        do {
+            let decoder = JSONDecoder()
+            let lines: [Data] = try ifPresent { () throws -> Data in try Data(contentsOf: file) }?.split(separator: UInt8(ascii: "\n")) ?? []
+            seed = try lines.map { (line: Data) throws -> Locator in Locator(steps: try decoder.decode([Locator.Step].self, from: line)) }
+            try FileManager.default.createDirectory(at: Watch.tables, withIntermediateDirectories: true)
+            let descriptor = try FileDescriptor.open(FilePath(file.path(percentEncoded: false)), .writeOnly, options: [.append, .create, .closeOnExec], permissions: .ownerReadWrite)
+            handle = .success(FileHandle(fileDescriptor: descriptor.rawValue, closeOnDealloc: true))
+        } catch {
+            handle = .failure(ApplicationFailure(subject: file.path(percentEncoded: false), cause: error))
+        }
+        (locators, numbers, tableFile) = (seed, Dictionary(zip(seed, 1...)) { first, _ in first }, (file, handle))
     }
 
     package nonisolated var unownedExecutor: UnownedSerialExecutor { unsafe queue.asUnownedSerialExecutor() }
@@ -221,7 +239,6 @@ package actor Watch {
         windowTicks.continuation.yield()
         ticks.continuation.yield()
         let (process, began): (ProcessInstance, Date) = (instance.process, .now)
-        tasks.append(Task { for await line in LogEntry.stream(of: .process(process.pid), levels: [.fault]) { self.emit(line.map(InstanceEvent.Change.logged(entry:))) } })
         tasks += DiagnosticReport.directories.map { directory in
             let reports = DiagnosticReport.written(since: began, in: directory).filter { @Sendable found in
                 found[case: \.success].map { report in report.kind != .crash && report.isWritten(by: process) } ?? true
@@ -319,6 +336,11 @@ package actor Watch {
         observations = []
         ticks.continuation.finish()
         windowTicks.continuation.finish()
+        do {
+            if instance.process.hasExited { _ = try ifPresent { () throws in try FileManager.default.removeItem(at: tableFile.url) } }
+        } catch {
+            send(.failure(ApplicationFailure(subject: tableFile.url.path(percentEncoded: false), cause: error)))
+        }
         let ending: [UUID: AsyncStream<Message>.Continuation] = subscribers.withLock { held in held.take() } ?? [:]
         for subscriber in ending.values { subscriber.finish() }
         let waiting: [String: [UUID: AsyncStream<Void>.Continuation]] = noticed.withLock { noticed in exchange(&noticed.waiting, with: [:]) }
@@ -432,10 +454,14 @@ package actor Watch {
 
     private func intern(_ locator: Locator) -> Int {
         if let number = numbers[locator] { return number }
-        let index: Int = seeded[locator.stored]?.popFirst() ?? locators.endIndex
-        if index == locators.endIndex { locators.append(locator) } else { locators[index] = locator }
-        numbers[locator] = index + 1
-        return index + 1
+        locators.append(locator)
+        numbers[locator] = locators.count
+        do {
+            try tableFile.handle.get().write(contentsOf: JSONEncoder.jsonLines.encodeLine(locator.steps))
+        } catch {
+            send(.failure(error as? ApplicationFailure ?? ApplicationFailure(subject: tableFile.url.path(percentEncoded: false), cause: error)))
+        }
+        return locators.count
     }
 
     package func intern(_ locators: [Locator]) -> [Int] {
@@ -456,6 +482,13 @@ package actor Watch {
         drawn.merge(model.drawn) { _, read in read }
         owners.merge(model.located.map { ref, element in (element, ref) }) { _, read in read }
         controls.merge(model.containers.flatMap { container in container.controls.map { control in (control.ref, (control: control, container: container.ref)) } }) { _, read in read }
+        for container in model.containers {
+            var list: Int?
+            for control in container.controls where control.row == nil || control.row == control.ref {
+                list = control.kind == .row ? list : control.kind == .multi ? control.ref : nil
+                if control.kind == .row, let list { lists[control.ref] = list }
+            }
+        }
     }
 
     // --- [READS]
@@ -529,7 +562,7 @@ package actor Watch {
         let starts: [(id: Int, reach: Reach, depth: Int)] =
             bars.map { bar in (id: bar, reach: Reach.menu, depth: 2) } + windows.map { window in (id: window, reach: Reach.window, depth: full.contains(window) ? Int.max : 0) }
         let (elements, truncated) = try walk(starts, rows: ranged)
-        return Hierarchy(
+        var read = Hierarchy(
             elements: Array(elements.values),
             roots: windows + bars,
             windows: self.windows(blocking: false),
@@ -539,12 +572,38 @@ package actor Watch {
             truncated: truncated + windows.filter { window in !full.contains(window) },
             extras: app.facts[kAXExtrasMenuBarAttribute]?.element,
         )
+        let (described, hollow): (Set<CGWindowID>, [CGWindowID: Int]) = (read.described, read.unreadable)
+        let served: [(id: Int, host: Int?)] = try read.windows.filter { row in row.remote != nil && !described.contains(row.number) }.map {
+            (row: InstanceState.Window) throws(ApplicationFailure) -> (id: Int, host: Int?)? in
+            let server: pid_t? = row.remote.flatMap(windowDescription(of:))?.owner
+            let listed: [AXUIElement] = try server.map { (owner: pid_t) throws(ApplicationFailure) -> [AXUIElement] in try AXUIElementCreateApplication(owner).elements(kAXWindowsAttribute) } ?? []
+            let shown: AXUIElement? = listed.first { (element: AXUIElement) -> Bool in element.window == row.number }
+            return shown.map { (element: AXUIElement) -> (id: Int, host: Int?) in (id: intern(element), host: hollow[row.number]) }
+        }
+        .compactMap(\.self)
+        let (reached, cut) = try walk(served.map { entry in (id: entry.id, reach: Reach.window, depth: Int.max) }, rows: nil)
+        let links: [Int: [String: Fact]] = Dictionary(
+            served.flatMap { (entry: (id: Int, host: Int?)) -> [(Int, [String: Fact])] in
+                entry.host.map { (host: Int) -> [(Int, [String: Fact])] in
+                    [(host, [kAXChildrenAttribute: Fact.list(values: [.element(id: entry.id)])]), (entry.id, [kAXParentAttribute: Fact.element(id: host)])]
+                } ?? []
+            }
+        ) { first, _ in first }
+        read.elements = elements.merging(reached) { held, _ in held }.values.map { (element: Element) -> Element in
+            links[element.id].map { (link: [String: Fact]) -> Element in
+                let facts: [String: Fact] = element.facts.merging(link) { (_: Fact, linked: Fact) -> Fact in linked }
+                return Element(id: element.id, facts: facts, actions: element.actions, window: element.window, descriptions: element.descriptions, counts: element.counts, settable: element.settable)
+            } ?? element
+        }
+        let unhosted: [Int] = served.filter { entry in entry.host == nil }.map(\.id)
+        (read.roots, read.truncated, read.full) = (windows + unhosted + bars, read.truncated + cut, full.union(unhosted))
+        return read
     }
 
     // --- [CHANGES]
 
-    private func merged(_ hierarchy: Hierarchy, full: Set<Int>) throws(ApplicationFailure) -> Model {
-        scrolled.subtract(full)
+    private func merged(_ hierarchy: Hierarchy) throws(ApplicationFailure) -> Model {
+        scrolled.subtract(hierarchy.full)
         let read = Model(hierarchy, sequence: sequence, ref: intern)
         for control in read.containers.flatMap(\.controls) {
             guard let held = controls[control.ref]?.control else { continue }
@@ -557,11 +616,11 @@ package actor Watch {
         let menuBars: [Container] = read.containers.filter { (container: Container) -> Bool in menuKinds.contains(container.kind) }
         let within: [Container] = read.containers.filter { (container: Container) -> Bool in
             let root: Int? = root(of: container.locator)
-            return !menuKinds.contains(container.kind) && root.map(full.contains) == true
+            return !menuKinds.contains(container.kind) && root.map(hierarchy.full.contains) == true
         }
         let fresh: OrderedDictionary<Int, Container> = OrderedDictionary(within.map { (container: Container) -> (Int, Container) in (container.ref, container) }) { first, _ in first }
         let closed: OrderedDictionary<Int, Container> = open.filter { ref, container in
-            container.kind != .menu && fresh[ref] == nil && root(of: container.locator).map { root in full.contains(root) || !windows.contains(root) } != false
+            container.kind != .menu && fresh[ref] == nil && root(of: container.locator).map { root in hierarchy.full.contains(root) || !windows.contains(root) } != false
         }
         let opened: OrderedDictionary<Int, Container> = fresh.filter { ref, _ in open[ref] == nil }
         let front: String? = instance.application.isActive ? nil : NSWorkspace.shared.frontmostApplication?.localizedName
@@ -654,7 +713,7 @@ package actor Watch {
             let windows: Set<Int> = Set(app.facts[kAXWindowsAttribute]?.elements ?? [])
             let known: Set<Int> = Set(open.values.filter { container in container.parent == nil && container.kind != .menu }.compactMap { container in located[container.ref] })
             let full: Set<Int> = touched.union(windows.subtracting(known))
-            if windows != known || !touched.isEmpty { _ = try merged(try hierarchy(of: app, full: full), full: full) }
+            if windows != known || !touched.isEmpty { _ = try merged(try hierarchy(of: app, full: full)) }
         }
         for (element, names) in marked where names.contains(kAXUIElementDestroyedNotification) {
             if let id = table.removeValue(forKey: element) { handles[id] = nil }
@@ -766,14 +825,14 @@ package actor Watch {
                 let windows: Set<Int> = Set(app.facts[kAXWindowsAttribute]?.elements ?? []).subtracting(kept)
                 var read: Hierarchy = try hierarchy(of: app, full: windows, menus: menus)
                 read.recognized = try await recognizeText(in: read.flyouts.map(\.number), labels: known?.labels ?? [])
-                let model: Model = try merged(read, full: Set(read.roots).subtracting(kept))
+                let model: Model = try merged(read)
                 let fresh: [Container] = model.containers.filter { (container: Container) -> Bool in root(of: container.locator).map(kept.contains) != true }
                 let held: [Container] = open.values.filter { (container: Container) -> Bool in container.kind != .menu && root(of: container.locator).map(kept.contains) == true }
                 let containers: [Container] = fresh + held
                 return Model(sequence: model.sequence, containers: containers, located: model.located, pointer: Pointer(of: instance.application, windows: read.windows))
             case .container(let ref):
                 guard let within = open[ref]?.locator, let root = root(of: within) else { throw stale(ref) }
-                let model = try merged(try hierarchy(of: try application(), full: [root]), full: [root])
+                let model = try merged(try hierarchy(of: try application(), full: [root]))
                 return Model(
                     sequence: model.sequence,
                     containers: model.containers.filter { container in container.locator.steps.starts(with: within.steps) },
@@ -868,6 +927,15 @@ package actor Watch {
         let seen: Void? = if ahead { () } else { try await next({ (change: InstanceEvent.Change) -> Void? in change[case: \.frontmost] == true ? () : nil }, in: activations, clock: clock) }
         guard seen != nil else { throw ApplicationFailure(subject: subject, reason: .noChangeSeen) }
         return .forward
+    }
+
+    package func consent() async {
+        let process: pid_t = instance.process.pid
+        let read: OSStatus = await NSAppleEventDescriptor(processIdentifier: process).consent(to: AEEventClass(kAECoreSuite), AEEventID(kAEGetData), asking: false)
+        guard read == OSStatus(errAEEventWouldRequireUserConsent) else { return }
+        emit(.consenting(granted: nil))
+        let answer: OSStatus = await NSAppleEventDescriptor(processIdentifier: process).consent(to: AEEventClass(kAECoreSuite), AEEventID(kAEGetData), asking: true)
+        emit(.consenting(granted: answer == OSStatus(noErr)))
     }
 
     // --- [MENUS]
@@ -1076,7 +1144,7 @@ package actor Watch {
                 case .window(let change, let window):
                     window.number == aimed || (windows.contains(window.number) ? change == .destroyed || !window.onScreen : window.onScreen) ? () : nil
                 case .focused(let control, _), .value(let control, _, _), .selection(let control, _, _): control == ref ? () : nil
-                case .started, .moved, .frontmost, .hidden, .status, .announced, .dragging, .proven, .logged, .reported, .sampled, .exited: nil
+                case .started, .consenting, .moved, .frontmost, .hidden, .status, .announced, .dragging, .proven, .reported, .sampled, .exited: nil
             }
         }
     }
@@ -1128,6 +1196,20 @@ package actor Watch {
         {
             _ = try level(of: opener.ref)
         }
+        let row: (control: Control, container: Int)? = controls[ref].flatMap { (held: (control: Control, container: Int)) -> (control: Control, container: Int)? in
+            held.control.kind == .row ? held : held.control.row.flatMap { (row: Int) -> (control: Control, container: Int)? in self.controls[row] }
+        }
+        let list: AXUIElement? = row.flatMap { (row: (control: Control, container: Int)) -> Int? in self.lists[row.control.ref] }.flatMap { (list: Int) -> Int? in self.located[list] }
+            .flatMap { (id: Int) -> AXUIElement? in self.handles[id] }
+        if live() == nil, let row, let index = row.control.index, let list {
+            var rows: CFArray?
+            let read: AXError = unsafe AXUIElementCopyAttributeValues(list, kAXRowsAttribute as CFString, index, 1, &rows)
+            let fetched: Int? = rows.flatMap { (rows: CFArray) -> Fact? in Fact(rows, interning: intern) }?.elements.first
+            let shown: AXError? = fetched.flatMap { (id: Int) -> AXUIElement? in self.handles[id] }.map { (row: AXUIElement) -> AXError in
+                AXUIElementPerformAction(row, NSAccessibility.Action.scrollToVisibleAction.rawValue as CFString)
+            }
+            if read == .success, shown == .success { _ = try await model(.container(ref: row.container)) }
+        }
         guard let element = live() else { throw stale(ref) }
         return element
     }
@@ -1142,49 +1224,35 @@ package actor Watch {
         return (open[controls[ref]?.container ?? ref]?.window, frame)
     }
 
-    func learn(from shot: Screenshot) async {
-        guard let number = shot.windows.first else { return }
-        let now: ContinuousClock.Instant = .now
-        let size = SIMD2<Int>(shot.image.width, shot.image.height)
-        let earlier: (shot: Screenshot, at: ContinuousClock.Instant)? = pictures[number].flatMap {
-            (
-                held: (frame: CGRect, last: [SIMD2<Int>: (shot: Screenshot, at: ContinuousClock.Instant)], restless: [(region: CGRect, span: Duration)])
-            ) -> (shot: Screenshot, at: ContinuousClock.Instant)? in
-            held.frame == shot.frame ? held.last[size] : nil
-        }
-        let still: Bool =
-            earlier.map { (earlier: (shot: Screenshot, at: ContinuousClock.Instant)) -> Bool in
-                posted.map { (posted: ContinuousClock.Instant) -> Bool in posted.advanced(by: messagingTimeout) < earlier.at } ?? true
-            } == true
-        let changed: [CGRect]? = if still, let earlier { await shot.differences(from: earlier.shot) } else { nil }
-        let held = pictures[number].flatMap { (held: (frame: CGRect, last: [SIMD2<Int>: (shot: Screenshot, at: ContinuousClock.Instant)], restless: [(region: CGRect, span: Duration)])) in
-            held.frame == shot.frame ? held : nil
-        }
-        let gap: Duration = earlier.map { (earlier: (shot: Screenshot, at: ContinuousClock.Instant)) -> Duration in earlier.at.duration(to: now) } ?? .zero
-        let kept: [(region: CGRect, span: Duration)] = (held?.restless ?? []).compactMap { (entry: (region: CGRect, span: Duration)) -> (region: CGRect, span: Duration)? in
-            let moving: [CGRect] = changed?.filter { (region: CGRect) -> Bool in region.intersects(entry.region) } ?? []
-            return switch (changed, moving.first) {
-                case (.none, _): entry
-                case (.some, .some(let lead)): (moving.reduce(lead.union(entry.region)) { (joint: CGRect, region: CGRect) -> CGRect in joint.union(region) }, max(entry.span, gap))
-                case (.some, .none): gap > entry.span ? nil : entry
+    nonisolated func restless(of number: CGWindowID) -> [CGRect] { regions.withLock { held in held[number] ?? [] } }
+
+    nonisolated func rest(_ dirty: [CGRect], in number: CGWindowID) {
+        regions.withLock { held in
+            for region in dirty {
+                let kept: [CGRect] = held[number] ?? []
+                let meeting: [CGRect] = kept.filter { (other: CGRect) -> Bool in other.intersects(region) }
+                let apart: [CGRect] = kept.filter { (other: CGRect) -> Bool in !other.intersects(region) }
+                held[number] = apart + [meeting.reduce(region) { (joint: CGRect, other: CGRect) -> CGRect in joint.union(other) }]
             }
-        }
-        let fresh: [(region: CGRect, span: Duration)] = (changed ?? []).filter { (region: CGRect) -> Bool in
-            !kept.contains { (entry: (region: CGRect, span: Duration)) -> Bool in entry.region.intersects(region) }
-        }
-        .map { (region: CGRect) -> (region: CGRect, span: Duration) in (region, gap) }
-        var last: [SIMD2<Int>: (shot: Screenshot, at: ContinuousClock.Instant)] = held?.last ?? [:]
-        last[size] = (shot, now)
-        pictures[number] = (shot.frame, last, kept + fresh)
-        pictures = pictures.filter {
-            (held: (key: CGWindowID, value: (frame: CGRect, last: [SIMD2<Int>: (shot: Screenshot, at: ContinuousClock.Instant)], restless: [(region: CGRect, span: Duration)]))) -> Bool in
-            rows.contains { (row: InstanceState.Window) -> Bool in row.number == held.key }
         }
     }
 
-    func restless(of number: CGWindowID) -> [CGRect] { pictures[number]?.restless.map(\.region) ?? [] }
+    func frames(of number: CGWindowID, during call: AsyncStream<Void>) async -> Result<StreamOutput, ApplicationFailure> {
+        let shown: Set<CGWindowID> = Set(rows.map(\.number))
+        let (opened, opening) = AsyncStream<Result<StreamOutput, ApplicationFailure>>.makeStream(bufferingPolicy: .bufferingOldest(1))
+        regions.withLock { held in held = held.filter { (entry: (key: CGWindowID, value: [CGRect])) -> Bool in shown.contains(entry.key) } }
+        tasks.append(Task.detached { await self.proving(number, during: call, into: opening) })
+        return await opened.first { _ in true } ?? .failure(ApplicationFailure(subject: applicationName, reason: .cancelled))
+    }
 
-    func posting() { posted = .now }
+    func faults(since began: Date) async -> [LogEntry] {
+        do throws(ProcessFailure) {
+            return try await LogEntry.history(of: .process(instance.process.pid), since: began, limit: .max, levels: [.fault])
+        } catch {
+            send(.failure(ApplicationFailure(subject: "Diagnostics of \(applicationName)", reason: .foundation(error as NSError))))
+            return []
+        }
+    }
 
     var answerTime: Duration { min(latency ?? messagingTimeout, messagingTimeout) }
 

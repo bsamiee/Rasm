@@ -12,6 +12,7 @@ import { ToolCall } from '@rasm/mcp/toolkit';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Array, ByteSize, Cause, Context, DateTime, Duration, Effect, Equivalence, Formatter, HashSet, Option, Predicate, Record, Result, Schema, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { Tool } from 'effect/ai';
+import { Act } from '#/act';
 import { Address } from '#/handle/address';
 import { Outline } from '#/handle/outline';
 import { Target } from '#/handle/target';
@@ -37,7 +38,7 @@ const tool = Tool.make('applications', {
     failure: Schema.ErrorInstance(),
     dependencies: [Handle],
 })
-    .annotateMerge(Context.make(Tool.Destructive, false).pipe(Context.add(Tool.Idempotent, true), Context.add(Tool.OpenWorld, false), Context.add(Tool.Strict, true), Context.add(Tool.Meta, { 'anthropic/alwaysLoad': true })))
+    .annotateMerge(Context.make(Tool.Destructive, false).pipe(Context.add(Tool.Idempotent, true), Context.add(Tool.OpenWorld, false), Context.add(Tool.Meta, { 'anthropic/alwaysLoad': true })))
     .annotate(Server.Instructions, ['Start with applications: it lists what runs, and open makes one application the target of the calls that follow.', 'Results lead with what the target did since your last call, and name the call that answers a dialog or continues a cut.']);
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -143,9 +144,11 @@ const open = Effect.fnUntraced(function* (application: string | undefined, { doc
     const listed = Entry.byBundle(yield* SubscriptionRef.get(catalog.entries));
     yield* handle.update(Opens, ({ bundles }) => ({ latest: call, bundles: Record.has(listed, row.url.href) ? bundles : Record.set(bundles, row.url.href, row) }));
     const claim = (instance: Instance['instance']) => Effect.flatMap(handle.get(Opens), ({ latest }) => Effect.when(Target.set({ row, instance }), Effect.succeed(latest === call)));
-    const launched = yield* server.launch({ url: row.url, documents: urls, ...Struct.pick(given, ['arguments', 'environment', 'new', 'opening']) }, ({ instance }) =>
-        Effect.andThen(Target.hold([Target.Hold.Launching({ instance, name: row.name })]), Effect.ignore(claim(instance), { log: 'Warn', message: 'Target not taken as the instance launched' })),
-    );
+    const launched = yield* server
+        .launch({ url: row.url, documents: urls, ...Struct.pick(given, ['arguments', 'environment', 'new', 'opening']) }, ({ instance }) =>
+            Effect.andThen(Target.hold([Target.Hold.Launching({ instance, name: row.name })]), Effect.ignore(claim(instance), { log: 'Warn', message: 'Target not taken as the instance launched' })),
+        )
+        .pipe(Effect.catchIf(Schema.is(ApplicationFailure), (failure) => new Cause.UnknownError(failure, Report.text(new Report({ lines: [new Line({ head: [failure.message] })], ...Option.getOrUndefined(Option.map(Record.get(Act.remedies(row.name), failure.reason), (next) => ({ next }))) })))));
     const verb = launched.created ? launched._tag : 'reopened';
     const front = yield* Effect.when(Effect.result(server.activate({ instance: launched.instance })), Effect.succeed(activate));
     const live = yield* Effect.fromOption(yield* claim(launched.instance), () => new Cause.NoSuchElementError(Report.text(new Report({ lines: [new Line({ head: [row.name, verb], facts: ['target taken by a later open'], call: Target.open(row.name) })] }))));

@@ -36,8 +36,8 @@ const runs = tools.toLayer(
 );
 const ApplicationTools = Object.assign(tools, {
     settings: [View.Side] as const,
-    layer: ({ descriptions = {}, ...seams }: { readonly descriptions?: Readonly<Partial<Record<keyof typeof tools.tools, string>>> } & { readonly [Name in keyof typeof SEAMS]?: Context.Service.Shape<(typeof SEAMS)[Name]> } = {}) =>
-        Layer.merge(Server.toolkit(tools, { descriptions: { execute_script: ExecuteScript.clause, ...descriptions } }), Notice.layer).pipe(
+    layer: ({ descriptions = {}, ...seams }: { readonly descriptions?: Readonly<Partial<Record<Exclude<keyof typeof tools.tools, typeof ExecuteScript.tool.name>, string>>> } & { readonly [Name in keyof typeof SEAMS]?: Context.Service.Shape<(typeof SEAMS)[Name]> } = {}) =>
+        Layer.merge(Server.toolkit(tools, { descriptions: { ...descriptions, execute_script: (seams.script ?? ExecuteScript.Script.defaultValue()).description } }), Notice.layer).pipe(
             Layer.provide(runs),
             Layer.provide(Target.layer),
             Layer.provide(Layer.succeedContext(Context.makeUnsafe(new Map(Record.toEntries(SEAMS).flatMap(([name, { key }]) => Array.fromNullishOr(seams[name]).map((seam) => [key, seam] as const)))))),

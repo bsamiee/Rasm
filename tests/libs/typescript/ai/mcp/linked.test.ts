@@ -12,7 +12,7 @@ const LINKED = Link.make({ application: 'Host', plugin: 'ext' });
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Plugin = Toolkit.make(Tool.make('unique', { description: 'Tool of the plugin alone', success: Schema.String }).annotate(Tool.Strict, true));
+const Plugin = Toolkit.make(Tool.make('unique', { description: 'Tool of the plugin alone', success: Schema.String }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

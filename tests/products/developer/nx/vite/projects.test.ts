@@ -14,14 +14,14 @@ const LIB = "lib: { entry: 'index.ts', name: 'lib' }";
 
 const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     workspace.install(import.meta.resolve('vite/package.json'), import.meta.resolve('@nx/vite/package.json'));
-    workspace.write({ 'package.json': '{"name":"repo","workspaces":["apps/*"]}', 'package-lock.json': '{}' });
+    workspace.write({ 'package.json': '{"name":"repo","type":"module","workspaces":["apps/*"]}', 'package-lock.json': '{}' });
 });
 
 describe('projects the Vite targets join', () => {
     it('infers a project only where a project.json or a package.json the workspaces list sits beside the config', async ({ workspace }) => {
         const graph = await workspace
             .write({
-                'apps/listed/package.json': '{"name":"listed"}',
+                'apps/listed/package.json': '{"name":"listed","type":"module"}',
                 'apps/listed/vite.config.ts': `export default { build: { ${LIB} } };\n`,
                 'tools/marked/project.json': '{"name":"marked"}',
                 'tools/marked/vite.config.mts': `export default { build: { ${LIB} } };\n`,

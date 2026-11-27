@@ -1,5 +1,5 @@
 import { Unmatched } from '@rasm/search/unmatched';
-import { Cause, Deferred, Duration, Effect, Equal, Exit, Function, Latch, Layer, Option, Predicate, Record, Ref, Schedule, Schema, Stream, Struct, SubscriptionRef } from 'effect';
+import { Cause, Deferred, Duration, Effect, Equal, Exit, Function, Latch, Layer, MutableRef, Option, Predicate, Record, Ref, Schedule, Schema, Stream, Struct, SubscriptionRef } from 'effect';
 import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse, Url, type UrlParams } from 'effect/http';
 import { NetAddress } from 'effect/net';
 import type { ChildProcessSpawner } from 'effect/process';
@@ -22,27 +22,41 @@ interface Connection<Rpcs extends Rpc.Any, Peer> {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const NO_RETRY = { pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) };
 const SUPERSEDED = new Socket.CloseEvent(4000, 'Superseded by a newer peer of its key');
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const layerProtocolChildProcess = ({ stdin, stdout }: Pick<ChildProcessSpawner.ChildProcessHandle, 'stdin' | 'stdout'>, ended: Effect.Effect<string>) =>
+const openError = (cause: unknown) => Socket.SocketError.make({ reason: Socket.SocketOpenError.make({ kind: 'Unknown', cause }) });
+const layerProtocolChildProcess = <E, R>(spawn: Effect.Effect<Pick<ChildProcessSpawner.ChildProcessHandle, 'stdin' | 'stdout' | 'exitCode'>, E, R>) =>
     Effect.gen(function* () {
-        const requests = new TransformStream<Uint8Array, Uint8Array>();
-        yield* Stream.fromReadableStream({ evaluate: Function.constant(requests.readable), onError: Function.identity }).pipe(Stream.orDie, Stream.run(stdin), Effect.forkScoped);
-        const socket = yield* Socket.fromTransformStream(Effect.succeed({ readable: Stream.toReadableStream(Stream.concat(stdout, Stream.never)), writable: requests.writable }));
-        yield* ended.pipe(
-            Effect.flatMap((reason) => Effect.scoped(Effect.flatMap(socket.writer, ({ write }) => write(new Socket.CloseEvent(1011, reason))))),
-            Effect.ignore,
-            Effect.forkScoped,
+        const piped = yield* Socket.fromTransformStream(
+            Effect.gen(function* () {
+                const { stdin, stdout, exitCode } = yield* Effect.mapError(spawn, openError);
+                const requests = new TransformStream<Uint8Array, Uint8Array>();
+                yield* Stream.fromReadableStream({ evaluate: Function.constant(requests.readable), onError: Function.identity }).pipe(Stream.orDie, Stream.run(stdin), Effect.forkScoped);
+                return { readable: Stream.toReadableStream(Stream.interruptWhen(stdout, exitCode)), writable: requests.writable };
+            }),
         );
-        return yield* RpcClient.makeProtocolSocket(NO_RETRY).pipe(Effect.provideService(Socket.Socket, socket), Effect.provide(RpcSerialization.layerNdJsonRpc({ maxBufferSize: 'unbounded' })));
+        const reader = Effect.gen(function* () {
+            const [{ pull, upgrade }, answered] = yield* Effect.all([piped.reader, Effect.sync(() => MutableRef.make(false))]);
+            return {
+                upgrade,
+                pull: pull.pipe(
+                    Effect.tap(Effect.sync(() => MutableRef.set(answered, true))),
+                    Effect.mapError((error) => (MutableRef.get(answered) ? error : openError(error))),
+                ),
+            };
+        });
+        const retryPolicy = Schedule.forever.pipe(
+            Schedule.setInputType<Socket.SocketError>(),
+            Schedule.while(({ input }) => !Schema.is(Socket.SocketOpenError)(input.reason)),
+        );
+        return yield* RpcClient.makeProtocolSocket({ pingInterval: Duration.infinity, retryPolicy }).pipe(Effect.provideService(Socket.Socket, Socket.make({ reader, writer: piped.writer })), Effect.provide(RpcSerialization.layerNdJsonRpc({ maxBufferSize: 'unbounded' })));
     }).pipe(Layer.effect(RpcClient.Protocol));
 const connect = Effect.fnUntraced(
     function* <A, X, Y>(href: string, handler: (socket: Socket.Socket) => Effect.Effect<A, X, Y>) {
         const { reader, writer } = yield* Socket.makeWebSocket(href);
-        const [opened, superseded] = yield* Effect.all([reader, Ref.make(false)]);
+        const [opened, superseded] = yield* Effect.all([Effect.mapError(reader, openError), Ref.make(false)]);
         const pull = Effect.tapError(opened.pull, ({ reason }) => Ref.set(superseded, Schema.is(Socket.SocketCloseError)(reason) && reason.code === SUPERSEDED.code));
         yield* handler(Socket.make({ reader: Effect.succeed({ ...opened, pull }), writer }));
         return yield* Ref.get(superseded);
@@ -54,12 +68,17 @@ const dial = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rp
     const server = Effect.map(Effect.context<R | Socket.WebSocketConstructor>(), (services) => ({
         address: NetAddress.inetAddressUnsafe(NetAddress.ipv4Loopback, Number(url.port)),
         run: <A, X, Y>(handler: (socket: Socket.Socket) => Effect.Effect<A, X, Y>) =>
-            Stream.fromEffectSchedule(peer, Schedule.spaced(redial)).pipe(
-                Stream.mapEffect((identity) => connect(Url.setUrlParams(url, identity).href, handler)),
+            Stream.fromEffectSchedule(
+                Effect.flatMap(peer, (identity) => connect(Url.setUrlParams(url, identity).href, handler)),
+                Schedule.forever.pipe(
+                    Schedule.setInputType<Exit.Exit<boolean, X | Socket.SocketError>>(),
+                    Schedule.addDelay(({ input }) => Effect.succeed(Option.exists(Exit.findErrorOption(input), (error) => Socket.isSocketError(error) && Schema.is(Socket.SocketOpenError)(error.reason)) ? redial : Duration.zero)),
+                ),
+            ).pipe(
                 Stream.takeUntil((exit) => Exit.isSuccess(exit) && exit.value),
                 Stream.map((exit) => Option.map(Option.filter(Exit.getCause(exit), Predicate.not(Cause.hasInterruptsOnly)), Cause.pretty)),
                 Stream.changes,
-                Stream.runForEach(Option.match({ onNone: () => Effect.void, onSome: (failure) => Effect.logError(`Link to ${url.href} failed, redialing every ${Duration.format(redial)}`, failure) })),
+                Stream.runForEach(Option.match({ onNone: () => Effect.void, onSome: (failure) => Effect.logError(`Link to ${url.href} failed, redialing at once after a close and in ${Duration.format(redial)} after a refusal`, failure) })),
                 Effect.andThen(Effect.logInfo(`Link to ${url.href} ended, a newer peer of its key replaced it`)),
                 Effect.catchCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.interrupt : Effect.logError(`Link to ${url.href} ended, its peer identity failed`, cause))),
                 Effect.andThen(Effect.never),
@@ -84,7 +103,7 @@ const accept = Effect.fnUntraced(function* <Rpcs extends Rpc.Any, Peer, RD>(grou
             Effect.andThen(ended.open),
         ),
     };
-    const protocol = yield* RpcClient.makeProtocolSocket(NO_RETRY).pipe(Effect.provideService(RpcClient.ConnectionHooks, hooks), Effect.provideService(Socket.Socket, socket), Effect.provide(RpcSerialization.layerJson), Effect.annotateLogs(identity));
+    const protocol = yield* RpcClient.makeProtocolSocket({ pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) }).pipe(Effect.provideService(RpcClient.ConnectionHooks, hooks), Effect.provideService(Socket.Socket, socket), Effect.provide(RpcSerialization.layerJson), Effect.annotateLogs(identity));
     const client = yield* Effect.provideService(RpcClient.make(group, { flatten: true }), RpcClient.Protocol, protocol);
     yield* Deferred.succeed(made, { peer, client, superseded: Effect.ignore(writer.write(SUPERSEDED)) });
     return yield* Effect.as(ended.await, HttpServerResponse.empty());

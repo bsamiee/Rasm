@@ -62,7 +62,7 @@ const groupLoops = (invocations: readonly Invocation[]) =>
         return { loop, inside, tested, body: inside.filter((invocation) => !tested.includes(invocation)), until: loop.source.slice(loop.start).startsWith('until') };
     });
 const spins = ({ tested, until }: ReturnType<typeof groupLoops>[number]) => Array.isReadonlyArrayNonEmpty(tested) && tested.every((invocation) => invocation.runs(...fixed) && invocation.runs('false') === until);
-const probes = ({ tested }: ReturnType<typeof groupLoops>[number]) => Array.isReadonlyArrayNonEmpty(tested) && !tested.every((invocation) => invocation.runs(...fixed));
+const probes = ({ tested, until }: ReturnType<typeof groupLoops>[number]) => Array.isReadonlyArrayNonEmpty(tested) && !tested.every((invocation) => invocation.runs(...fixed)) && (until || !tested.some((invocation) => invocation.runs('read')));
 const print = <E, R>(ran: Effect.Effect<{ readonly stdout: string }, E, R>) =>
     Effect.orElseSucceed(
         Effect.map(ran, ({ stdout }) => stdout),

@@ -83,7 +83,11 @@ const targets = (node: Node, solution: (configuration: string) => Readonly<Recor
     }));
     const packed = moded(({ configuration, packed: folder }) => ({ project, command: ['pack', '--no-build', '-restore', '--configuration', configuration], outputs: [posix.join(folder, '*.nupkg')] }));
     const tested = moded(({ configuration }) => ({
-        commands: [{ command: line(['dotnet', 'restore', '--no-dependencies', ...(node.locks.length > 0 ? ['--locked-mode'] : []), `-p:Configuration=${configuration}`]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', '--configuration', configuration])],
+        commands: [
+            { command: line(['dotnet', 'restore', '--no-dependencies', ...(node.locks.length > 0 ? ['--locked-mode'] : []), `-p:Configuration=${configuration}`]), forwardAllArgs: false },
+            ...node.results.map((at) => ({ command: line(['node', '--eval', 'fs.rmSync(process.argv[1], { recursive: true, force: true })', posix.relative(root, at)]), forwardAllArgs: false })),
+            line(['dotnet', 'test', '--no-build', '--configuration', configuration]),
+        ],
     }));
     const formatted = (commands: Array.NonEmptyReadonlyArray<Array.NonEmptyReadonlyArray<string>>, description: string): TargetConfiguration => ({
         executor: `${plugin.name}:format`,
@@ -140,7 +144,7 @@ const targets = (node: Node, solution: (configuration: string) => Readonly<Recor
                     outputs: [...node.results.map(tokened(root)), posix.join('{projectRoot}', '{options.results-directory}')],
                     metadata: metadata(
                         'test',
-                        `Tests the build build--dotnet wrote for ${node.name} with dotnet test --no-build, after a locked restore of the project alone that fetches only packages the machine lacks and writes no lock file, cached under the binaries the builds wrote and the files loading the project reads, as sources and compiler settings reach the tests through those binaries alone`,
+                        `Tests the build build--dotnet wrote for ${node.name} with dotnet test --no-build, after a locked restore of the project alone that fetches only packages the machine lacks and writes no lock file and after removing the results folder of the last run, whose TRX report the test platform warns on overwriting, cached under the binaries the builds wrote and the files loading the project reads, as sources and compiler settings reach the tests through those binaries alone`,
                     ),
                 },
             }),

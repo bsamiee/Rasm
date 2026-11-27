@@ -8,9 +8,9 @@ import { Element } from '@rasm/applications/server/element';
 import { ApplicationFailure } from '@rasm/applications/server/failure';
 import { Catalog } from '@rasm/database/catalog';
 import { Sqlite } from '@rasm/database/sqlite';
-import { Array, DateTime, Duration, Effect, FileSystem, Layer, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { Array, DateTime, Effect, FileSystem, Layer, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { SqlClient } from 'effect/sql';
-import { TestClock, TestConsole } from 'effect/testing';
+import { TestConsole } from 'effect/testing';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -65,7 +65,6 @@ const Truth = {
 
 const instant = (minute: number) => DateTime.formatIso(DateTime.makeUnsafe(START + minute * 60_000));
 const identified = (index: number) => JSON.stringify([{ key: { identifier: { value: `item${index}` } }, role: 'AXButton' }]);
-const flushed = Effect.andThen(TestClock.adjust(Duration.seconds(2)), TestClock.adjust(Duration.seconds(2)));
 const store = Effect.map(
     FileSystem.FileSystem.use((fs) => fs.makeTempFileScoped({ suffix: '.sqlite' })),
     (filename) =>
@@ -370,7 +369,7 @@ describe(InterfaceMap, () => {
     );
 
     it.effect(
-        'writes each changed container within one interval of its change, a re-read included, the close writing what changed since, and leaves the opener unwritten when a reopening finds its link held',
+        'writes each changed container as its change folds, a re-read included, and leaves the opener unwritten when a reopening finds its link held',
         Effect.fnUntraced(function* () {
             const [opened, observed] = yield* Effect.all([store, newDocument]);
             const again = observed.map((read) => ({ ...read, at: DateTime.add(read.at, { minutes: 1 }) }));
@@ -378,9 +377,9 @@ describe(InterfaceMap, () => {
             const between = yield* Effect.scoped(
                 Effect.gen(function* () {
                     const map = yield* InterfaceMap.open('com.adobe.InDesign', 'en');
-                    yield* Effect.andThen(Effect.forEach(observed, map.observe), flushed);
+                    yield* Effect.forEach(observed, map.observe);
                     const first = yield* Effect.all({ layout: stored(LAYOUT), dialog: stored(DIALOG) });
-                    yield* Effect.andThen(Effect.forEach(again, map.observe), flushed);
+                    yield* Effect.forEach(again, map.observe);
                     const [reread, linked] = yield* Effect.all([Effect.all({ layout: stored(LAYOUT), dialog: stored(DIALOG) }), map.present]);
                     yield* Effect.forEach(reopening, map.observe);
                     const reopened = yield* map.present;
@@ -395,7 +394,7 @@ describe(InterfaceMap, () => {
                     reread: { layout: [{ last: instant(1) }], dialog: [{ last: instant(2) }] },
                     closed: { layout: [{ last: instant(1) }], dialog: [{ last: instant(3) }] },
                 },
-                'each change reaches the store one interval after it with the map still open, and the close writes the reopening read since',
+                'each change reaches the store as it folds, with the map open and after its close',
             );
             assert.deepStrictEqual(between.opener?.controls[NEW]?.opens, Option.some(DIALOG), 'the opener links the dialog it opened');
             assert.strictEqual(between.held, between.opener, 'a reopening whose opener already links it leaves the opener as it was');

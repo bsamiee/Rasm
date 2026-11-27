@@ -1,11 +1,13 @@
 import AVFoundation
 import AsyncAlgorithms
 import CasePaths
+import CasePathsCore
 import CoreImage
 import CoreMedia
 import Encoding
 package import Foundation
 @unsafe @preconcurrency import ScreenCaptureKit
+import Synchronization
 import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -54,60 +56,45 @@ package struct KeyFrame: Encodable, Sendable {
     // --- [SELECTION]
 
     private enum Arrival: Sendable {
-        case settled(KeyFrame)
+        case drawn(StreamOutput.Frame)
         case marked(Marker)
     }
 
     static func select(
-        from samples: some AsyncSequence<Self, Never> & Sendable,
+        from frames: some AsyncSequence<StreamOutput.Frame, Never> & Sendable,
         marking markers: some AsyncSequence<Marker, Never> & Sendable,
         after start: Self,
         keeping limit: KeyFrameLimit,
-        clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) async -> [Self] {
-        let settled = samples.removeDuplicates { (earlier: Self, later: Self) async -> Bool in await later.screenshot.differences(from: earlier.screenshot)?.isEmpty == true }.debounce(
-            for: quiet,
-            clock: clock,
-        )
-        let arrivals = merge(chain(settled.map { (frame: Self) -> Arrival? in .settled(frame) }, [Arrival?.none].async), markers.map { (marker: Marker) -> Arrival? in .marked(marker) })
+        let settling = StreamOutput.Frame(status: .idle, displayed: nil, dirty: [], image: nil)
+        let drawn = chain(frames.map { (frame: StreamOutput.Frame) -> Arrival? in .drawn(frame) }, [Arrival?.some(.drawn(settling)), nil].async)
+        let arrivals = merge(drawn, markers.map { (marker: Marker) -> Arrival? in .marked(marker) })
         var kept: [Self] = [start]
+        var pending: (image: CGImage, at: Date, changed: CGRect)?
         for await arrival in arrivals.prefix(while: { (arrival: Arrival?) -> Bool in arrival != nil }).compactMap(\.self) {
-            let sample: Self
+            let frame: StreamOutput.Frame
             switch arrival {
                 case .marked(let marker):
                     kept[kept.count - 1].markers.append(marker)
                     continue
-                case .settled(let frame): sample = frame
+                case .drawn(let drawn): frame = drawn
             }
+            let changed: CGRect = frame.dirty.reduce(pending?.changed ?? CGRect.null) { (joint: CGRect, region: CGRect) -> CGRect in joint.union(region) }
+            if frame.status == .complete, let image = frame.image { pending = (image, frame.at, changed) }
+            guard frame.status == .idle, let settled = exchange(&pending, with: nil), !settled.changed.isNull else { continue }
             let last: Int = kept.count - 1
-            guard let regions = await sample.screenshot.differences(from: kept[last].screenshot), !regions.isEmpty else { continue }
-            let changed: CGRect = regions.reduce(CGRect.null) { (joint: CGRect, region: CGRect) -> CGRect in joint.union(region) }
-            let split: Int = kept[last].markers.firstIndex { (marker: Marker) -> Bool in marker.at >= sample.at } ?? kept[last].markers.endIndex
+            let split: Int = kept[last].markers.firstIndex { (marker: Marker) -> Bool in marker.at >= settled.at } ?? kept[last].markers.endIndex
             let following: [Marker] = Array(kept[last].markers[split...])
             kept[last].markers.removeSubrange(split...)
-            let returned: Bool = last > 0 ? await sample.screenshot.differences(from: kept[last - 1].screenshot)?.isEmpty == true : false
-            let reverted: Bool = last > 0 && kept[last].markers.isEmpty && kept[last - 1].markers.isEmpty && returned
-            guard !reverted else {
-                kept.removeLast()
-                kept[last - 1].markers = following
-                continue
-            }
-            kept.append(Self(at: sample.at, changed: changed, screenshot: sample.screenshot, markers: following))
+            let shot: Screenshot = start.screenshot
+            let screenshot = Screenshot(image: settled.image, frame: shot.frame, windows: shot.windows, backingStore: false, document: shot.document, presentation: nil)
+            kept.append(Self(at: settled.at, changed: settled.changed, screenshot: screenshot, markers: following))
             guard kept.count > limit.rawValue else { continue }
             let areas: [CGFloat] = kept.map { (frame: Self) -> CGFloat in frame.changed.map { rect in rect.width * rect.height } ?? 0 }
             guard let dropped = kept.indices.dropFirst().dropLast().min(by: { first, second in areas[first] < areas[second] }) else { continue }
             let merged: Self = kept.remove(at: dropped)
             kept[dropped - 1].markers += merged.markers
-            while dropped < kept.count {
-                let regions: [CGRect]? = await kept[dropped].screenshot.differences(from: kept[dropped - 1].screenshot)
-                guard regions?.isEmpty != true else {
-                    let same: Self = kept.remove(at: dropped)
-                    kept[dropped - 1].markers += same.markers
-                    continue
-                }
-                kept[dropped].changed = regions.map { (regions: [CGRect]) -> CGRect in regions.reduce(CGRect.null) { (joint: CGRect, region: CGRect) -> CGRect in joint.union(region) } }
-                break
-            }
+            kept[dropped].changed = [merged.changed, kept[dropped].changed].compactMap(\.self).reduce(CGRect.null) { (joint: CGRect, region: CGRect) -> CGRect in joint.union(region) }
         }
         let shown: ArraySlice<Self> = kept.suffix(limit.rawValue)
         return shown.indices.map { (index: Int) -> Self in
@@ -130,43 +117,120 @@ package struct KeyFrame: Encodable, Sendable {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-private final class Output: NSObject, SCStreamOutput, SCStreamDelegate, SCRecordingOutputDelegate, Sendable {
-    let first = AsyncStream<Result<KeyFrame, ApplicationFailure>>.makeStream(bufferingPolicy: .bufferingOldest(1))
-    let samples = AsyncStream<KeyFrame>.makeStream(bufferingPolicy: .bufferingNewest(1))
-    let outcomes = AsyncStream<Result<Void, ApplicationFailure>>.makeStream(bufferingPolicy: .bufferingOldest(1))
-    private let framing: (frame: CGRect, windows: [CGWindowID], document: URL?)
-    private let subject: String
+final class StreamOutput: NSObject, SCStreamOutput, SCStreamDelegate, SCRecordingOutputDelegate, Sendable {
+    // --- [FRAMES]
 
-    init(framing: (frame: CGRect, windows: [CGWindowID], document: URL?), subject: String) { (self.framing, self.subject) = (framing, subject) }
+    struct Frame: Sendable {
+        let status: SCFrameStatus
+        let displayed: UInt64?
+        let dirty: [CGRect]
+        let image: CGImage?
+
+        var drew: Bool { status == .complete }
+
+        var at: Date {
+            let elapsed: CMTime? = displayed.map { (displayed: UInt64) -> CMTime in CMClock.hostTimeClock.time - CMClock.convertSystemUnitsToHostTime(displayed) }
+            return Date(timeIntervalSinceNow: -(elapsed?.seconds ?? 0))
+        }
+    }
+
+    private struct Held {
+        var waiting: [UUID: AsyncStream<Frame>.Continuation] = [:]
+        var began: Bool = false
+        var resting: Bool = true
+        var released: Bool = false
+        var drawn: UInt64 = 0
+    }
+
+    let first = AsyncStream<Result<Frame, ApplicationFailure>>.makeStream(bufferingPolicy: .bufferingOldest(1))
+    let outcomes = AsyncStream<Result<Void, ApplicationFailure>>.makeStream(bufferingPolicy: .bufferingOldest(1))
+    let ended = AsyncStream<Void>.makeStream()
+    let subject: String
+    private let area: CGRect
+    private let resting: (@Sendable ([CGRect]) -> Void)?
+    private let held = Mutex(Held())
+
+    init(showing area: CGRect, subject: String, resting: (@Sendable ([CGRect]) -> Void)?) { (self.area, self.subject, self.resting) = (area, subject, resting) }
+
+    func frames() -> AsyncStream<Frame> {
+        let (stream, continuation) = AsyncStream<Frame>.makeStream()
+        let id = UUID()
+        continuation.onTermination = { _ in self.release(id) }
+        held.withLock { held in
+            held.waiting[id] = continuation
+            held.resting = false
+        }
+        return stream
+    }
+
+    func disturb() { held.withLock { held in held.resting = false } }
+
+    func drew(after instant: UInt64) -> Bool { held.withLock { held in held.drawn > instant } }
+
+    func release(_ waiter: UUID? = nil) {
+        let over: Bool = held.withLock { held in
+            if let waiter { held.waiting[waiter] = nil }
+            held.released = held.released || waiter == nil
+            return held.released && held.waiting.isEmpty
+        }
+        if over { ended.continuation.finish() }
+    }
+
+    func finish() {
+        let waiting: [UUID: AsyncStream<Frame>.Continuation] = held.withLock { held in exchange(&held.waiting, with: [:]) }
+        for waiter in waiting.values { waiter.finish() }
+    }
+
+    // --- [DELEGATE]
 
     func stream(_: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of _: SCStreamOutputType) {
         let info: [SCStreamFrameInfo: Any]? = (CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, createIfNecessary: false) as? [[SCStreamFrameInfo: Any]])?.first
-        let status: SCFrameStatus? = (info?[.status] as? Int).flatMap(SCFrameStatus.init(rawValue:))
-        guard status == .complete, let displayed = info?[.displayTime] as? UInt64, let pixels = sampleBuffer.imageBuffer else { return }
-        let image = CIImage(cvPixelBuffer: pixels)
-        guard let copied = rendering.createCGImage(image, from: image.extent) else {
-            let failure = ApplicationFailure(subject: subject, reason: .noImage)
-            first.continuation.yield(.failure(failure))
-            outcomes.continuation.yield(.failure(failure))
+        guard let status = (info?[.status] as? Int).flatMap(SCFrameStatus.init(rawValue:)) else { return }
+        let content: CGRect? = (info?[.contentRect] as? [String: Any]).flatMap { (fields: [String: Any]) -> CGRect? in CGRect(dictionaryRepresentation: fields as CFDictionary) }
+        let (scale, shrink): (CGFloat?, CGFloat?) = (info?[.scaleFactor] as? CGFloat, info?[.contentScale] as? CGFloat)
+        let placing: CGAffineTransform? =
+            if let content, let scale, let shrink {
+                CGAffineTransform(translationX: area.minX - content.minX / shrink, y: area.minY - content.minY / shrink).scaledBy(x: 1 / (scale * shrink), y: 1 / (scale * shrink))
+            } else {
+                nil
+            }
+        let listed: [Any] = info?[.dirtyRects] as? [Any] ?? []
+        let rects: [CGRect] = listed.compactMap { (entry: Any) -> CGRect? in
+            (entry as? NSValue)?.rectValue ?? (entry as? [String: Any]).flatMap { (fields: [String: Any]) -> CGRect? in CGRect(dictionaryRepresentation: fields as CFDictionary) }
+        }
+        let drawn: [CGRect] = rects.filter { (rect: CGRect) -> Bool in !rect.isEmpty }
+        let dirty: [CGRect] = placing.map { (placing: CGAffineTransform) -> [CGRect] in drawn.map { (rect: CGRect) -> CGRect in rect.applying(placing) } } ?? []
+        let pixels: CVPixelBuffer? = status == .complete && resting == nil ? sampleBuffer.imageBuffer : nil
+        let image: CGImage? = pixels.flatMap { (pixels: CVPixelBuffer) -> CGImage? in
+            let picture = CIImage(cvPixelBuffer: pixels)
+            return rendering.createCGImage(picture, from: picture.extent)
+        }
+        guard pixels == nil || image != nil else {
+            fail(.noImage)
             return
         }
-        let elapsed: CMTime = CMClock.hostTimeClock.time - CMClock.convertSystemUnitsToHostTime(displayed)
-        let screenshot = Screenshot(image: copied, frame: framing.frame, windows: framing.windows, backingStore: false, document: framing.document, presentation: nil)
-        let sample = KeyFrame(at: Date(timeIntervalSinceNow: -elapsed.seconds), changed: nil, screenshot: screenshot)
-        first.continuation.yield(.success(sample))
-        samples.continuation.yield(sample)
+        let frame = Frame(status: status, displayed: info?[.displayTime] as? UInt64, dirty: dirty, image: image)
+        let drew: Bool = status == .complete && (resting != nil || image != nil)
+        if drew { first.continuation.yield(.success(frame)) }
+        let (waiting, rested): ([AsyncStream<Frame>.Continuation], Bool) = held.withLock { held in
+            let unwatched: Bool = drew && held.began && held.resting && held.waiting.isEmpty
+            held.began = held.began || drew
+            held.resting = held.resting || (status == .idle && held.waiting.isEmpty)
+            held.drawn = drew && !dirty.isEmpty ? frame.displayed ?? held.drawn : held.drawn
+            return (Array(held.waiting.values), unwatched)
+        }
+        for waiter in waiting { waiter.yield(frame) }
+        if rested, !dirty.isEmpty { resting?(dirty) }
     }
 
-    func stream(_: SCStream, didStopWithError error: any Error) {
-        let failure = ApplicationFailure(subject: subject, reason: .foundation(error as NSError))
-        first.continuation.yield(.failure(failure))
-        outcomes.continuation.yield(.failure(failure))
-    }
+    func stream(_: SCStream, didStopWithError error: any Error) { fail(.foundation(error as NSError)) }
 
     func recordingOutputDidFinishRecording(_: SCRecordingOutput) { outcomes.continuation.yield(.success(())) }
 
-    func recordingOutput(_: SCRecordingOutput, didFailWithError error: any Error) {
-        let failure = ApplicationFailure(subject: subject, reason: .foundation(error as NSError))
+    func recordingOutput(_: SCRecordingOutput, didFailWithError error: any Error) { fail(.foundation(error as NSError)) }
+
+    private func fail(_ reason: ApplicationFailure.Reason) {
+        let failure = ApplicationFailure(subject: subject, reason: reason)
         first.continuation.yield(.failure(failure))
         outcomes.continuation.yield(.failure(failure))
     }
@@ -175,6 +239,96 @@ private final class Output: NSObject, SCStreamOutput, SCStreamDelegate, SCRecord
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Watch {
+    nonisolated func stream<Value>(
+        _ source: Source,
+        longestSide: LongestSide? = nil,
+        movie: URL? = nil,
+        resting: (@Sendable ([CGRect]) -> Void)? = nil,
+        while body: (_ output: StreamOutput, _ start: StreamOutput.Frame, _ shown: (frame: CGRect, windows: [CGWindowID])) async throws(ApplicationFailure) -> Value,
+    ) async throws(ApplicationFailure) -> (value: Value, presentation: Presentation?) {
+        try Grant.screenCapture.check()
+        return try await presenting(source.ref) { (menus: [Container]) async throws(ApplicationFailure) -> Value in
+            let framed: [Framing] = try await frame(source, showing: menus).map { (framing: Result<Framing, ApplicationFailure>) throws(ApplicationFailure) in
+                try framing.get()
+            }
+            let area: CGRect = framed.map(\.frame).reduce(CGRect.null) { area, next in area.union(next) }
+            guard let joint = try await framed.count > 1 ? frame(.region(frame: area), showing: []).first?.get() : framed.first else {
+                throw ApplicationFailure(subject: "\(SCStream.self)", reason: .noWindow)
+            }
+            let subject = "\(SCStream.self) of \(joint.subject)"
+            let unshown = ApplicationFailure(subject: subject, reason: .noWindow)
+            let (windows, display): ([SCWindow], SCDisplay) =
+                switch joint.content {
+                    case .composite(_, let windows, let displays) where displays.count == 1: (windows, displays[0])
+                    case .composite, .displays: throw ApplicationFailure(subject: subject, reason: .spansDisplays)
+                    case .backingStore: throw unshown
+                }
+            guard let application = windows.first?.owningApplication else { throw unshown }
+            let deadline = AsyncTimerSequence(interval: messagingTimeout * 2, clock: SuspendingClock())
+            let (expired, cancelled) = (ApplicationFailure(subject: subject, reason: .unanswered), ApplicationFailure(subject: subject, reason: .cancelled))
+            let filter = SCContentFilter(display: display, including: [application], exceptingWindows: [])
+            let shown: CGRect = joint.frame.intersection(display.frame)
+            let size: (width: Int, height: Int) = Framing(content: joint.content, frame: shown, subject: joint.subject).fit(at: CGFloat(filter.pointPixelScale), longestSide: longestSide)
+            let configuration = SCStreamConfiguration()
+            (configuration.showsCursor, configuration.showMouseClicks, configuration.pixelFormat) = (false, movie != nil, kCVPixelFormatType_32BGRA)
+            (configuration.shouldBeOpaque, configuration.ignoreShadowsDisplay, configuration.width, configuration.height) = (true, true, size.width, size.height)
+            configuration.sourceRect = shown.offsetBy(dx: -display.frame.minX, dy: -display.frame.minY)
+            let output = StreamOutput(showing: shown, subject: subject, resting: resting)
+            let stream = SCStream(filter: filter, configuration: configuration, delegate: output)
+            let file = SCRecordingOutputConfiguration()
+            let type: AVFileType? = movie.flatMap { movie in UTType(filenameExtension: movie.pathExtension) }.map { type in AVFileType(type.identifier) }
+            switch (movie, type) {
+                case (.none, _): break
+                case (.some(let movie), .some(let type)) where file.availableOutputFileTypes.contains(type): (file.outputURL, file.outputFileType) = (movie, type)
+                case (.some(let movie), _):
+                    let written: [String] = file.availableOutputFileTypes.compactMap { (available: AVFileType) -> String? in UTType(available.rawValue)?.preferredFilenameExtension }
+                    throw ApplicationFailure(subject: movie.path(percentEncoded: false), reason: .noEncoder(extensions: written))
+            }
+            let recorder: SCRecordingOutput? = movie.map { _ in SCRecordingOutput(configuration: file, delegate: output) }
+            let activity = ProcessInfo.processInfo.beginActivity(options: [.idleDisplaySleepDisabled, .userInitiated], reason: subject)
+            defer { ProcessInfo.processInfo.endActivity(activity) }
+            do {
+                try stream.addStreamOutput(output, type: .screen, sampleHandlerQueue: nil)
+                _ = try recorder.map(stream.addRecordingOutput)
+                try await stream.startCapture()
+            } catch {
+                throw ApplicationFailure(subject: subject, reason: .foundation(error as NSError))
+            }
+            let ran: Result<Value, ApplicationFailure> = await Result { () async throws(ApplicationFailure) -> Value in
+                let lapse = deadline.map { _ in Result<StreamOutput.Frame, ApplicationFailure>.failure(expired) }
+                let start: StreamOutput.Frame = try await (merge(output.first.stream, lapse).first { _ in true } ?? .failure(cancelled)).get()
+                return try await body(output, start, (shown, joint.windows))
+            }
+            let stopped: Result<Void, any Error> = await withTaskCancellationShield { await Result { () async throws in try await stream.stopCapture() } }
+            let stopping: Result<Void, ApplicationFailure> = stopped.mapError { error in ApplicationFailure(subject: subject, reason: .foundation(error as NSError)) }
+            switch (stopping, recorder) {
+                case (.success, .some): break
+                case (.success, .none), (.failure, _): output.outcomes.continuation.yield(stopping)
+            }
+            let lapse = deadline.map { _ in Result<Void, ApplicationFailure>.failure(expired) }
+            let ended: Result<Void, ApplicationFailure> = await merge(output.outcomes.stream, lapse).first { _ in true } ?? .failure(cancelled)
+            let value: Value = try ran.get()
+            try ended.get()
+            return value
+        }
+    }
+
+    nonisolated func proving(_ number: CGWindowID, during call: AsyncStream<Void>, into opening: AsyncStream<Result<StreamOutput, ApplicationFailure>>.Continuation) async {
+        let resting: @Sendable ([CGRect]) -> Void = { (dirty: [CGRect]) in self.rest(dirty, in: number) }
+        do throws(ApplicationFailure) {
+            _ = try await stream(.windows(numbers: [number]), resting: resting) {
+                (output: StreamOutput, _: StreamOutput.Frame, _: (frame: CGRect, windows: [CGWindowID])) async throws(ApplicationFailure) in
+                opening.yield(.success(output))
+                for await _ in call {}
+                output.release()
+                for await _ in output.ended.stream {}
+            }
+        } catch {
+            opening.yield(.failure(error))
+        }
+        opening.finish()
+    }
+
     package nonisolated func record<Value>(
         _ source: Source,
         keyFrames limit: KeyFrameLimit,
@@ -184,79 +338,21 @@ extension Watch {
     ) async -> (value: Result<Value, ApplicationFailure>, frames: Result<[KeyFrame], ApplicationFailure>) {
         var ran: Result<Value, ApplicationFailure>?
         let frames: Result<[KeyFrame], ApplicationFailure> = await Result { () async throws(ApplicationFailure) -> [KeyFrame] in
-            try Grant.screenCapture.check()
             let documents: [CGWindowID: URL] = await self.documents()
-            let (keyFrames, presentation) = try await presenting(source.ref) { (menus: [Container]) async throws(ApplicationFailure) -> [KeyFrame] in
-                let framed: [Framing] = try await frame(source, showing: menus).map { (framing: Result<Framing, ApplicationFailure>) throws(ApplicationFailure) in
-                    try framing.get()
-                }
-                let area: CGRect = framed.map(\.frame).reduce(CGRect.null) { area, next in area.union(next) }
-                guard let joint = try await framed.count > 1 ? frame(.region(frame: area), showing: []).first?.get() : framed.first else {
-                    throw ApplicationFailure(subject: "Recording", reason: .noWindow)
-                }
-                let subject = "Recording of \(joint.subject)"
-                let unshown = ApplicationFailure(subject: subject, reason: .noWindow)
-                let (windows, display): ([SCWindow], SCDisplay) =
-                    switch joint.content {
-                        case .composite(_, let windows, .some(let display)): (windows, display)
-                        case .composite(_, _, .none), .displays: throw ApplicationFailure(subject: subject, reason: .spansDisplays)
-                        case .backingStore: throw unshown
-                    }
-                guard let application = windows.first?.owningApplication else { throw unshown }
-                let deadline = AsyncTimerSequence(interval: messagingTimeout * 2, clock: SuspendingClock())
-                let (expired, cancelled) = (ApplicationFailure(subject: subject, reason: .unanswered), ApplicationFailure(subject: subject, reason: .cancelled))
-                let filter = SCContentFilter(display: display, including: [application], exceptingWindows: [])
-                let shown: CGRect = joint.frame.intersection(display.frame)
-                let size: (width: Int, height: Int) = Framing(content: joint.content, frame: shown, subject: joint.subject).fit(at: CGFloat(filter.pointPixelScale), longestSide: longestSide)
-                let configuration = SCStreamConfiguration()
-                (configuration.showsCursor, configuration.showMouseClicks, configuration.pixelFormat) = (false, movie != nil, kCVPixelFormatType_32BGRA)
-                (configuration.shouldBeOpaque, configuration.ignoreShadowsDisplay, configuration.width, configuration.height) = (true, true, size.width, size.height)
-                configuration.minimumFrameInterval = CMTime(seconds: quiet / 2 / .seconds(1), preferredTimescale: CMTimeScale(NSEC_PER_SEC))
-                configuration.sourceRect = shown.offsetBy(dx: -display.frame.minX, dy: -display.frame.minY)
-                let output = Output(framing: (shown, joint.windows, joint.windows.lazy.compactMap { number in documents[number] }.first), subject: subject)
-                let stream = SCStream(filter: filter, configuration: configuration, delegate: output)
-                let file = SCRecordingOutputConfiguration()
-                let type: AVFileType? = movie.flatMap { movie in UTType(filenameExtension: movie.pathExtension) }.map { type in AVFileType(type.identifier) }
-                switch (movie, type) {
-                    case (.none, _): break
-                    case (.some(let movie), .some(let type)) where file.availableOutputFileTypes.contains(type): (file.outputURL, file.outputFileType) = (movie, type)
-                    case (.some(let movie), _):
-                        let written: [String] = file.availableOutputFileTypes.compactMap { (available: AVFileType) -> String? in UTType(available.rawValue)?.preferredFilenameExtension }
-                        throw ApplicationFailure(subject: movie.path(percentEncoded: false), reason: .noEncoder(extensions: written))
-                }
-                let recorder: SCRecordingOutput? = movie.map { _ in SCRecordingOutput(configuration: file, delegate: output) }
-                let activity = ProcessInfo.processInfo.beginActivity(options: [.idleDisplaySleepDisabled, .userInitiated], reason: subject)
-                defer { ProcessInfo.processInfo.endActivity(activity) }
-                do {
-                    try stream.addStreamOutput(output, type: .screen, sampleHandlerQueue: nil)
-                    _ = try recorder.map(stream.addRecordingOutput)
-                    try await stream.startCapture()
-                } catch {
-                    throw ApplicationFailure(subject: subject, reason: .foundation(error as NSError))
-                }
-                let captured: Result<[KeyFrame], ApplicationFailure> = await Result { () async throws(ApplicationFailure) -> [KeyFrame] in
-                    let lapse = deadline.map { _ in Result<KeyFrame, ApplicationFailure>.failure(expired) }
-                    let start: KeyFrame = try await (merge(output.first.stream, lapse).first { _ in true } ?? .failure(cancelled)).get()
-                    let (steps, stepping) = AsyncStream<KeyFrame.Marker>.makeStream()
-                    let events = await messages().compactMap { (message: Message) -> InstanceEvent? in message[case: \.event] }
-                    let markers = merge(events.filter { event in event.isPushed && !event.change.is(\.started) }.map(KeyFrame.Marker.event), steps)
-                    async let keyFrames: [KeyFrame] = KeyFrame.select(from: output.samples.stream, marking: markers, after: start, keeping: limit)
-                    ran = await Result { () async throws(ApplicationFailure) -> Value in try await body { index in stepping.yield(.step(index: index, at: .now)) } }
-                    stepping.finish()
-                    output.samples.continuation.finish()
-                    return await keyFrames
-                }
-                let stopped: Result<Void, any Error> = await withTaskCancellationShield { await Result { () async throws in try await stream.stopCapture() } }
-                let stopping: Result<Void, ApplicationFailure> = stopped.mapError { error in ApplicationFailure(subject: subject, reason: .foundation(error as NSError)) }
-                switch (stopping, recorder) {
-                    case (.success, .some): break
-                    case (.success, .none), (.failure, _): output.outcomes.continuation.yield(stopping)
-                }
-                let lapse = deadline.map { _ in Result<Void, ApplicationFailure>.failure(expired) }
-                let ended: Result<Void, ApplicationFailure> = await merge(output.outcomes.stream, lapse).first { _ in true } ?? .failure(cancelled)
-                let keyFrames: [KeyFrame] = try captured.get()
-                try ended.get()
-                return keyFrames
+            let (keyFrames, presentation) = try await stream(source, longestSide: longestSide, movie: movie) {
+                (output: StreamOutput, start: StreamOutput.Frame, shown: (frame: CGRect, windows: [CGWindowID])) async throws(ApplicationFailure) -> [KeyFrame] in
+                guard let image = start.image else { throw ApplicationFailure(subject: output.subject, reason: .noImage) }
+                let document: URL? = shown.windows.lazy.compactMap { number in documents[number] }.first
+                let screenshot = Screenshot(image: image, frame: shown.frame, windows: shown.windows, backingStore: false, document: document, presentation: nil)
+                let (steps, stepping) = AsyncStream<KeyFrame.Marker>.makeStream()
+                let events = await messages().compactMap { (message: Message) -> InstanceEvent? in message[case: \.event] }
+                let markers = merge(events.filter { event in event.isPushed && !event.change.is(\.started) }.map(KeyFrame.Marker.event), steps)
+                let drawn: AsyncStream<StreamOutput.Frame> = output.frames()
+                async let keyFrames: [KeyFrame] = KeyFrame.select(from: drawn, marking: markers, after: KeyFrame(at: start.at, changed: nil, screenshot: screenshot), keeping: limit)
+                ran = await Result { () async throws(ApplicationFailure) -> Value in try await body { index in stepping.yield(.step(index: index, at: .now)) } }
+                stepping.finish()
+                output.finish()
+                return await keyFrames
             }
             return keyFrames.map { (keyFrame: KeyFrame) -> KeyFrame in
                 var presented: KeyFrame = keyFrame

@@ -23,7 +23,8 @@ const it = nx
             'package-lock.json': '{}',
             'apps/site/package.json': '{"name":"site"}',
             'apps/site/label.stories.tsx': "export default { title: 'Label', component: () => 'label' };\n\nexport const Shown = {};\n",
-            'apps/site/.storybook/main.ts': "export default { stories: ['../*.stories.tsx'], framework: { name: '@storybook/react-vite', options: {} }, core: { disableTelemetry: true } };\n",
+            'apps/site/.storybook/main.ts':
+                "export default { stories: ['../*.stories.tsx'], framework: { name: '@storybook/react-vite', options: {} }, core: { disableTelemetry: true }, viteFinal: (config) => ({ ...config, build: { ...config.build, rolldownOptions: { output: { codeSplitting: { groups: [{ name: 'vendor', test: /node_modules/, maxSize: 500_000 }] } } } } }) };\n",
         });
     })
     .extend('spawned', ({ onTestFinished }) => {

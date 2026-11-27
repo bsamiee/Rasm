@@ -40,5 +40,16 @@
         "indesign-uxp-types": "catalog:",
         "uxp-after-effects": "catalog:",
         "vite": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "build--vite": {
+                "options": {
+                    "env": {
+                        "NODE_OPTIONS": "--disable-warning=ExperimentalWarning"
+                    }
+                }
+            }
+        }
     }
 }

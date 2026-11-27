@@ -7,7 +7,7 @@ import { type InlineConfig, mergeConfig } from 'vite';
 
 const react = viteReact({ exclude: [/\/node_modules\//u, join(resolvePathInStorybookCache(''), '..', '**')], compiler: { panicThreshold: 'all_errors' } });
 
-const main = { addons: ['@storybook/addon-vitest', '@storybook/addon-a11y', '@storybook/addon-docs'], core: { disableTelemetry: true }, viteFinal: (config: InlineConfig) => mergeConfig(config, { plugins: [react] }) };
+const main = { addons: ['@storybook/addon-vitest', '@storybook/addon-a11y', '@storybook/addon-docs'], core: { disableTelemetry: true }, viteFinal: (config: InlineConfig) => mergeConfig(config, { plugins: [react], build: { chunkSizeWarningLimit: 900 } }) };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

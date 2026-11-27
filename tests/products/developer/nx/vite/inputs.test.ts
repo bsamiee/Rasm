@@ -33,7 +33,7 @@ const hashed = (workspace: Workspace, graph: ProjectGraph, versions: Readonly<Re
 const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     workspace.install(import.meta.resolve('vite/package.json'));
     workspace.write({
-        'package.json': '{"name":"repo","workspaces":["apps/*","libs/*"]}',
+        'package.json': '{"name":"repo","type":"module","workspaces":["apps/*","libs/*"]}',
         'package-lock.json': '{}',
         'nx.json': '{"namedInputs":{"default":["{projectRoot}/**/*"],"production":["default","!{projectRoot}/**/*.spec.ts"]}}',
         'tsconfig.base.json': '{"compilerOptions":{"target":"es2022"}}',
@@ -51,7 +51,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
         'apps/web/index.html': '<!doctype html>\n',
         'apps/web/main.ts': 'export {};\n',
         'apps/web/main.spec.ts': 'export {};\n',
-        'apps/web/vite.config.ts': "import { define } from 'dep';\nimport { named } from 'plugin';\nimport { outDir } from '../../tools/vite/base';\nimport { base } from '../../..tools/vite/served';\n\nexport default { base, define, build: { outDir }, plugins: [{ name: named }] };\n",
+        'apps/web/vite.config.ts': "import { define } from 'dep';\nimport { named } from 'plugin';\nimport { outDir } from '../../tools/vite/base.ts';\nimport { base } from '../../..tools/vite/served.ts';\n\nexport default { base, define, build: { outDir }, plugins: [{ name: named }] };\n",
     });
     symlinkSync(join(workspace.root, 'libs/plugin'), join(workspace.root, 'node_modules/plugin'), 'dir');
 });
@@ -87,7 +87,7 @@ describe('what build--vite hashes', () => {
             'tsconfig.json': '{"extends":"./libs/plugin/tsconfig.json"}',
             'libs/plugin/tsconfig.json': '{"compilerOptions":{"jsx":"react-jsx"}}',
             'index.html': '<!doctype html>\n',
-            'vite.config.ts': "import { named } from './libs/plugin/index.js';\nimport { outDir } from './tools/vite/base';\n\nexport default { build: { outDir }, plugins: [{ name: named }] };\n",
+            'vite.config.ts': "import { named } from './libs/plugin/index.js';\nimport { outDir } from './tools/vite/base.ts';\n\nexport default { build: { outDir }, plugins: [{ name: named }] };\n",
         });
         const before = await hashed(workspace, await workspace.graph({ createNodes }));
 
@@ -107,7 +107,7 @@ describe('what build--vite hashes', () => {
             'apps/web/sub/tsconfig.json': '{"extends":"../../../tsconfig.shared.json","compilerOptions":{"jsx":"react-jsx"}}',
             'apps/web/tsconfig.json': '{"extends":"./sub/tsconfig.json"}',
             'apps/web/base.ts': "export const outDir = 'dist';\n",
-            'apps/web/vite.config.ts': "import { named } from './sub/index.js';\nimport { outDir } from './base';\n\nexport default { build: { outDir }, plugins: [{ name: named }] };\n",
+            'apps/web/vite.config.ts': "import { named } from './sub/index.js';\nimport { outDir } from './base.ts';\n\nexport default { build: { outDir }, plugins: [{ name: named }] };\n",
         });
         const before = await hashed(workspace, await workspace.graph({ createNodes }));
 
@@ -189,7 +189,7 @@ describe('resolving the config across graph passes', () => {
         const counter = `${workspace.root}.loads`;
         onTestFinished(() => rmSync(counter, { force: true }));
         const loads = () => (existsSync(counter) ? readFileSync(counter, 'utf-8').length : 0);
-        await workspace.write({ 'apps/web/vite.config.ts': `import { appendFileSync } from 'node:fs';\nimport { outDir } from '../../tools/vite/base';\n\nappendFileSync(${JSON.stringify(counter)}, 'x');\n\nexport default { build: { outDir } };\n` }).graph({ createNodes });
+        await workspace.write({ 'apps/web/vite.config.ts': `import { appendFileSync } from 'node:fs';\nimport { outDir } from '../../tools/vite/base.ts';\n\nappendFileSync(${JSON.stringify(counter)}, 'x');\n\nexport default { build: { outDir } };\n` }).graph({ createNodes });
 
         await workspace.write({ 'docs/guide.md': '# Guide\n\nMore.\n', 'apps/web/main.ts': 'export const changed = 1;\n' }).graph({ createNodes });
         const reused = loads();

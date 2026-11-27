@@ -52,7 +52,7 @@ class Arguments extends Data.Class<{
     }
 
     get input(): Option.Option<Slot> {
-        const fed = this.operands.some(({ word, roles }) => roles.includes('read') && !word.spells('-'));
+        const fed = this.operands.some(({ word, roles }) => (roles.includes('read') && !word.spells('-')) || roles.includes('script') || roles.includes('shell'));
         return Option.filter(
             Option.flatMap(this.usage, ({ input }) => input),
             (slot) => !fed && meets(this.flags)(slot),

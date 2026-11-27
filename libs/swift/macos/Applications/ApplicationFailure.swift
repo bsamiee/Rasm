@@ -11,8 +11,8 @@ package import System
 package struct ApplicationFailure: ModuleError, Equatable {
     @CasePathable
     package enum Reason: Equatable, Sendable {
-        case noGrant(Grant)
-        case parentLacksGrant(Grant, String?)
+        case noGrant(pane: String, settings: String)
+        case parentLacksGrant(pane: String, parent: String?, settings: String)
         case alreadyRunning
         case outsideClaim
         case quarantined(Installation.Quarantine, NSError)
@@ -31,8 +31,8 @@ package struct ApplicationFailure: ModuleError, Equatable {
         case covered(by: String?)
         case closedToCapture
         case notText(Fact.Scalar)
-        case pastReplyDeadline
-        case frontListHeld
+        case pastReplyDeadline(Duration)
+        case frontListHeld(entries: Int)
         case noIdentifier
         case noPath
         case noExecutable
@@ -82,6 +82,10 @@ package struct ApplicationFailure: ModuleError, Equatable {
 }
 
 extension ApplicationFailure {
+    init(subject: String, cause: any Error) {
+        self.init(subject: subject, reason: (cause as? Errno).map(Reason.system) ?? .foundation(cause as NSError))
+    }
+
     init(_ error: AXError, subject: String, process: pid_t?, answering action: Step? = nil, otherwise: (() -> Self)? = nil) {
         let classified: Bool = [AXError.cannotComplete, AXError.invalidUIElement].contains(error)
         let probe = { (process: pid_t) -> Result<ProcessInstance, Errno> in Result(catching: { () throws(Errno) -> ProcessInstance in try ProcessInstance(of: process) }) }

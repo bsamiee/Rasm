@@ -18,7 +18,7 @@ const Planned = Schema.Struct({ command: Schema.String }).annotate({ description
 const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
     workspace.install(import.meta.resolve('vite/package.json'), import.meta.resolve('@nx/vite/package.json'));
     workspace.write({
-        'package.json': '{"name":"repo","workspaces":["apps/*"]}',
+        'package.json': '{"name":"repo","type":"module","workspaces":["apps/*"]}',
         'package-lock.json': '{}',
         'tsconfig.base.json': '{}',
         'tsconfig.shared.json': '{"extends":"./tsconfig.base.json"}',
@@ -26,7 +26,7 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
         'apps/web/package.json': '{"name":"web","type":"module"}',
         'apps/web/tsconfig.json': '{"extends":"../../tsconfig.shared.json"}',
         'apps/web/index.html': '<!doctype html>\n',
-        'apps/web/vite.config.ts': "import { outDir } from '../../tools/vite/base';\n\nexport default { build: { outDir } };\n",
+        'apps/web/vite.config.ts': "import { outDir } from '../../tools/vite/base.ts';\n\nexport default { build: { outDir } };\n",
     });
 });
 

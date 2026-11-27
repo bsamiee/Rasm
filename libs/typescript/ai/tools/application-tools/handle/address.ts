@@ -359,6 +359,22 @@ const scan = Effect.fnUntraced(function* ({ row, live }: Current, scope: typeof 
     return { stated, held: Option.getOrElse(own(yield* handle.get(Held)), () => merge(Option.none())) };
 });
 const read = (target: Current, scope: typeof Element.Scope.Type = APPLICATION) => Effect.map(scan(target, scope), ({ stated, held }) => (scope._tag === 'application' ? held : narrow(held, stated.elements)));
+const rows = (multi: Extract<Element, { readonly _tag: 'control' }>) => multi.children.filter((child) => child._tag === 'control' && child.kind === 'row').length;
+const fill = Effect.fnUntraced(function* (target: Current) {
+    const held = Option.filter(yield* Handle.use((handle) => handle.get(Held)), (last) => last.instance === target.live.instance);
+    const lists = Option.toArray(held)
+        .flatMap((last) => walk(last).nodes.filter(({ element }) => !HashMap.has(last.left, element.ref)))
+        .flatMap(({ element }) => (element._tag === 'control' && element.kind === 'multi' ? [{ multi: element, from: rows(element), count: (element.total ?? 0) - rows(element) }] : []))
+        .filter(({ count }) => count > 0);
+    return yield* Effect.forEach(
+        lists,
+        Effect.fnUntraced(function* ({ multi, from, count }) {
+            const page = yield* Effect.result(read(target, { _tag: 'rows', ref: multi.ref, from, count }));
+            const fetched = Result.map(page, (now) => Option.match(get(now, multi.ref), { onNone: () => 0, onSome: ({ element }) => (element._tag === 'control' ? rows(element) : 0) }));
+            return { token: refer(multi.kind, multi.ref), count, read: fetched };
+        }),
+    );
+});
 const reach = Effect.fnUntraced(function* (target: Current, at: string) {
     const held = Option.filter(yield* Handle.use((handle) => handle.get(Held)), (last) => last.instance === target.live.instance);
     const shown = Option.flatMap(held, (last) => Option.filter(Result.getSuccess(seek(last, at, Option.none())), ({ live }) => live));
@@ -377,9 +393,12 @@ const reach = Effect.fnUntraced(function* (target: Current, at: string) {
                 () => Effect.succeed(last),
             ),
     });
-    return yield* Option.match(shown, { onSome: (found) => Effect.succeed(found), onNone: () => Effect.flatMap(again, (now) => Effect.fromResult(resolve(now, at))) });
+    const tried = yield* Option.match(shown, { onSome: (found) => Effect.succeed(Result.succeed(found)), onNone: () => Effect.map(again, (now) => resolve(now, at)) });
+    const pages = yield* Effect.when(fill(target), Effect.succeed(Result.isFailure(tried) && Option.isNone(parse(at))));
+    const filled = Option.filter(yield* Handle.use((handle) => handle.get(Held)), () => Option.exists(pages, Array.isReadonlyArrayNonEmpty));
+    return yield* Effect.fromResult(Option.match(filled, { onNone: () => tried, onSome: (now) => resolve(now, at) }));
 });
-const Address = { At, Held, Linked, Toolbar, refer, print, read, reach, get, locate, list, recall, route, resolve, find, open, intern, narrow, close } as const;
+const Address = { At, Held, Linked, Toolbar, refer, print, read, reach, fill, get, locate, list, recall, route, resolve, find, open, intern, narrow, close } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

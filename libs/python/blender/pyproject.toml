@@ -73,7 +73,7 @@ required-environments = [
 
 # --- [BUILDS]
 
-build-constraint-dependencies = ["opencolorio==2.5.0"] # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
+build-constraint-dependencies = ["numpy==2.3.4", "opencolorio==2.5.0", "pybind11-stubgen==3.0.0"] # Builds generating the PyOpenColorIO stubs import the NumPy and OpenColorIO releases Blender bundles, through the pybind11-stubgen parser the build hook composes
 
 [tool.uv.workspace]
 members = ["extension", "imaging", "opencolorio-stubs", "rendering", "../../../tests/libs/python/blender/extension", "../../../tests/libs/python/blender/rendering"]
@@ -99,3 +99,7 @@ extend = "../../../pyproject.toml"
 environment     = { python-platform = "all" }                                                                                        # ty merges no parent table and takes `requires-python` from the table holder, so each 3.13 root states its own
 project-manager = { project = "uv" }                                                                                                 # uv names the workspace root and environment, as preview rule `missing-direct-dependency` needs both under `all = "error"`
 rules           = { all = "error", unsound-assignment = "ignore", unsound-return = "ignore", unused-type-ignore-comment = "ignore" } # mypy infers the lambdas ty reads as `Unknown` in an annotated assignment or return, `no-any-return` owns `Any` returned, `unused-ignore` unused `type: ignore` comments
+
+[[tool.ty.overrides]]
+include = ["opencolorio-stubs/hatch_build.py"]
+rules   = { lost-keyword-for-regular-parameter = "ignore" } # pybind11-stubgen 3.0.0 names one parameter two ways across its own mixins (`attr` and `value`), which the hook class composing them inherits

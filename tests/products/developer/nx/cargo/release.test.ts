@@ -16,16 +16,16 @@ const cargo = { createNodes, createDependencies };
 const crates = {
     'rust-toolchain.toml': readFileSync(join(workspaceRoot, 'rust-toolchain.toml'), 'utf-8'),
     'rust/Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["crates/*"]\n',
-    'rust/crates/kit/Cargo.toml': '[package]\nname = "kit"\nversion = "0.1.0"\nedition = "2024"\ndescription = "Doubles"\nlicense = "MIT"\n',
+    'rust/crates/kit/Cargo.toml': '[package]\nname = "kit"\nversion = "0.1.0"\nedition = "2024"\ndescription = "Doubles"\nlicense = "MIT"\nrepository = "https://example.com/fixture"\n',
     'rust/crates/kit/src/lib.rs': 'pub fn double(value: u32) -> u32 {\n    value * 2\n}\n',
-    'rust/crates/app/Cargo.toml': '[package]\nname = "app"\nversion = "0.2.0"\nedition = "2024"\ndescription = "Prints"\nlicense = "MIT"\n\n[dependencies]\nkit = { path = "../kit", version = "0.1.0" }\n',
+    'rust/crates/app/Cargo.toml': '[package]\nname = "app"\nversion = "0.2.0"\nedition = "2024"\ndescription = "Prints"\nlicense = "MIT"\nrepository = "https://example.com/fixture"\n\n[dependencies]\nkit = { path = "../kit", version = "0.1.0" }\n',
     'rust/crates/app/src/main.rs': 'fn main() {\n    println!("{}", kit::double(1));\n}\n',
 };
 const sealed = {
     ...crates,
     'rust/crates/sealed/Cargo.toml': '[package]\nname = "nx-fixture-sealed"\nversion = "0.1.0"\nedition = "2024"\npublish = false\n',
     'rust/crates/sealed/src/lib.rs': 'pub fn three() -> u32 {\n    3\n}\n',
-    'rust/crates/adder/Cargo.toml': '[package]\nname = "nx-fixture-adder"\nversion = "0.1.0"\nedition = "2024"\ndescription = "Adds"\nlicense = "MIT"\n\n[dependencies]\nnx-fixture-sealed = { path = "../sealed", version = "0.1.0" }\n',
+    'rust/crates/adder/Cargo.toml': '[package]\nname = "nx-fixture-adder"\nversion = "0.1.0"\nedition = "2024"\ndescription = "Adds"\nlicense = "MIT"\nrepository = "https://example.com/fixture"\n\n[dependencies]\nnx-fixture-sealed = { path = "../sealed", version = "0.1.0" }\n',
     'rust/crates/adder/src/main.rs': 'fn main() {\n    println!("{}", nx_fixture_sealed::three());\n}\n',
 };
 

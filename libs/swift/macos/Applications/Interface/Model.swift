@@ -15,34 +15,38 @@ private let keyEquivalentAttribute: String = "keyEquivalent"
 // --- [MODELS] --------------------------------------------------------------------------
 
 struct Hierarchy: Sendable {
-    let elements: [Element]
-    let roots: [Int]
+    var elements: [Element]
+    var roots: [Int]
     let windows: [InstanceState.Window]
     let documents: [URL]
     let regular: Bool
     let focused: Int?
-    let truncated: [Int]
+    var truncated: [Int]
     let extras: Int?
+    var full: Set<Int> = []
     var recognized: [CGWindowID: [RecognizedLine]] = [:]
     var runs: [Int: [Control.Run]] = [:]
 
-    var unreadable: [CGWindowID: Int] {
+    var described: Set<CGWindowID> {
         let read: Set<Int> = Set(elements.map(\.id))
         let cut: Set<Int> = Set(truncated)
-        let windowed: [(window: CGWindowID, id: Int, empty: Bool)] = elements.compactMap { (element: Element) -> (window: CGWindowID, id: Int, empty: Bool)? in
-            let empty: Bool = !cut.contains(element.id) && !element.children.contains { (child: Int) -> Bool in read.contains(child) }
-            return element.window.map { (window: CGWindowID) -> (window: CGWindowID, id: Int, empty: Bool) in (window: window, id: element.id, empty: empty) }
-        }
-        let described: Set<CGWindowID> = Set(windowed.filter { (entry: (window: CGWindowID, id: Int, empty: Bool)) -> Bool in !entry.empty }.map(\.window))
-        let hollow: [(CGWindowID, Int)] = windowed.compactMap { (entry: (window: CGWindowID, id: Int, empty: Bool)) -> (CGWindowID, Int)? in
-            entry.empty && !described.contains(entry.window) ? (entry.window, entry.id) : nil
+        return Set(
+            elements.compactMap { (element: Element) -> CGWindowID? in
+                cut.contains(element.id) || element.children.contains { (child: Int) -> Bool in read.contains(child) } ? element.window : nil
+            }
+        )
+    }
+
+    var unreadable: [CGWindowID: Int] {
+        let described: Set<CGWindowID> = self.described
+        let hollow: [(CGWindowID, Int)] = elements.compactMap { (element: Element) -> (CGWindowID, Int)? in
+            element.window.flatMap { (window: CGWindowID) -> (CGWindowID, Int)? in described.contains(window) ? nil : (window, element.id) }
         }
         return Dictionary(hollow) { (first: Int, _: Int) -> Int in first }
     }
 
     var undescribed: [InstanceState.Window] {
-        let unreadable: [CGWindowID: Int] = self.unreadable
-        let described: Set<CGWindowID> = Set(elements.compactMap(\.window)).subtracting(unreadable.keys)
+        let (described, unreadable): (Set<CGWindowID>, [CGWindowID: Int]) = (self.described, self.unreadable)
         return windows.filter { row in
             row.onScreen && !described.contains(row.number) && (row.container == nil || unreadable[row.number] != nil)
                 && (row.layer < InstanceState.Window.Band.mainMenu.level || row.band == .popUpMenu)

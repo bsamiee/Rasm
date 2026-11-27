@@ -117,25 +117,25 @@ extension NSWorkspace {
                 let watch = await watches.watch(instance)
                 let replacedOnDisk = !created && Result(catching: { () throws(ProcessFailure) in try instance.process.runsInstalledCode() }) == .success(false)
                 output.yield(.launched(instance: instance.process, identifier: installation.identifier, created: created, replacedOnDisk: replacedOnDisk))
-                let states = await watch.states().removeDuplicates().flatMapLatest { (state: InstanceState) in
-                    let status = state[case: \.running]?.status
-                    let idle: Bool = status?.isIdle == true && (status != .unresponsive(thread: .sleeping) || instance.application.isFinishedLaunching)
-                    return chain([(state, false)].async, AsyncTimerSequence(interval: messagingTimeout, clock: clock).prefix(idle ? 1 : 0).map { _ in (state, true) })
-                }
-                let expiry = AsyncTimerSequence(interval: clock.now.duration(to: ends), clock: clock).prefix(1).map { _ in (InstanceState, Bool)?.none }
+                let (launches, launched) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+                let finishing = instance.application.observe(\.isFinishedLaunching, options: [.initial, .new]) { _, change in if change.newValue == true { launched.yield() } }
+                let states = await watch.states().removeDuplicates().map { (state: InstanceState) -> (state: InstanceState, ready: Bool)? in (state, false) }
+                let ready = launches.map { () async -> (state: InstanceState, ready: Bool)? in (await watch.beat(), true) }
+                let expiry = AsyncTimerSequence(interval: clock.now.duration(to: ends), clock: clock).prefix(1).map { _ in (state: InstanceState, ready: Bool)?.none }
                 var settled: InstanceState?
-                for await element in merge(states.map(Optional.some), expiry) {
-                    guard case (let state, let quiet)? = element else { break }
-                    if !quiet { output.yield(.state(state: state)) }
+                for await element in merge(states, ready, expiry) {
+                    guard case (let state, let finished)? = element else { break }
+                    if state != settled { output.yield(.state(state: state)) }
                     settled = state
                     let reported: Bool = state[case: \.exited].map { ended in ended.report != nil || !ended.exit.producesReport } == true
-                    if quiet || reported || state.is(\.failed) || state[case: \.running]?.asking.isEmpty == false { break }
+                    if finished || reported || state.is(\.failed) || state[case: \.running]?.asking.isEmpty == false { break }
                 }
+                finishing.invalidate()
                 if creates {
                     let (shown, showing) = AsyncStream<Bool>.makeStream(bufferingPolicy: .bufferingNewest(1))
                     let observation = instance.application.observe(\.isHidden, options: [.initial, .new]) { _, change in showing.yield(change.newValue == false) }
                     _ = instance.application.unhide()
-                    let held = AsyncTimerSequence(interval: clock.now.duration(to: ends.advanced(by: messagingTimeout)), clock: clock).map { _ in true }
+                    let held = AsyncTimerSequence(interval: clock.now.duration(to: ends), clock: clock).map { _ in true }
                     _ = await merge(shown, held).first(where: \.self)
                     observation.invalidate()
                 }

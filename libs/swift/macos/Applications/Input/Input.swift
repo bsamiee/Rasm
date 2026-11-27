@@ -86,7 +86,7 @@ extension Input {
         guard least <= replyDeadline else {
             throw ApplicationFailure(
                 subject: "A run of \(schedule.count) presses of \(contact) every \(every.formatted(.units(allowed: [.seconds, .milliseconds], width: .abbreviated)))",
-                reason: .pastReplyDeadline,
+                reason: .pastReplyDeadline(replyDeadline),
             )
         }
         let initial: (start: Duration, clickState: Int64, number: Int64, edges: Set<Edge>) = (.zero, first.clickState, first.number, edges.union(schedule.count > 1 ? [Edge.up] : []))

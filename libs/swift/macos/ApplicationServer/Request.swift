@@ -57,7 +57,7 @@ enum Request: Decodable, Sendable {
     case installations(name: String)
     case installation(url: URL)
     case pasteboard(content: Bool)
-    case watch(instance: ProcessInstance, locators: [Locator]?)
+    case watch(instance: ProcessInstance)
     case release(instance: ProcessInstance)
     case model(instance: ProcessInstance, scope: Model.Scope, known: Model.Known?)
     case intern(instance: ProcessInstance, locators: [Locator])
@@ -86,6 +86,7 @@ private struct ActResult: Encodable, Sendable {
     struct Diagnosis: Encodable, Sendable {
         let usage: EncodedResult<ResourceUsage.Interval>
         let load: EncodedResult<SystemLoad.Interval>
+        let faults: [LogEntry]
     }
 
     let outcomes: [EncodedResult<Step.Delivery>]
@@ -161,22 +162,17 @@ extension Request {
                 return try .value(Installation(at: url, matching: predicate))
             case .pasteboard(let content):
                 return try await .value(Pasteboard(.general, reading: content))
-            case .watch(let process, let locators):
+            case .watch(let process):
                 let instance = try await watches.instance(process, matching: matching)
-                let installation = try instance.application.bundleURL.map { url throws(ApplicationFailure) in try Installation(at: url) }
-                let watch = await watches.watch(instance, locators: locators ?? [])
-                if try installation?.scriptable == true {
-                    Task { await NSAppleEventDescriptor(processIdentifier: process.pid).consent(to: AEEventClass(kAECoreSuite), AEEventID(kAEGetData), asking: true) }
-                }
+                let watch = await watches.watch(instance)
                 let usage = Result { () throws(Errno) in try ResourceUsage(of: process) }
                 guard let snapshot = InstanceSnapshot(instance, state: await watch.current, language: await watch.language, usage: usage) else {
-                    throw ApplicationFailure(subject: "The instance", reason: installation == nil ? .noPath : .noIdentifier)
+                    throw ApplicationFailure(subject: "The instance", reason: instance.application.bundleURL == nil ? .noPath : .noIdentifier)
                 }
                 return .value(snapshot)
             case .release(let process):
-                let table = await watches.locators(of: process)
                 await watches.release(process)
-                return .value(table)
+                return .value(nil)
             case .model(let process, let scope, let known):
                 return try await .value(watches.watch(watches.instance(process, matching: matching)).model(scope, known: known))
             case .intern(let process, let locators):
@@ -229,7 +225,7 @@ extension Request {
                     ActResult(
                         outcomes: acted.outcomes.map(EncodedResult.init),
                         state: acted.state,
-                        diagnosis: acted.diagnosis.map { diagnosis in ActResult.Diagnosis(usage: EncodedResult(diagnosis.usage), load: EncodedResult(diagnosis.load)) },
+                        diagnosis: acted.diagnosis.map { diagnosis in ActResult.Diagnosis(usage: EncodedResult(diagnosis.usage), load: EncodedResult(diagnosis.load), faults: diagnosis.faults) },
                         written: EncodedResult(written),
                         pasteboard: copied.map(EncodedResult.init),
                         frames: frames.map(EncodedResult.init),
@@ -253,8 +249,10 @@ extension Request {
             case .execute(let process, let arguments):
                 let instance = try await watches.instance(process, matching: matching)
                 guard let url = instance.application.bundleURL else { throw ApplicationFailure(subject: "The instance", reason: .noPath) }
+                let watch = await watches.watch(instance)
+                await watch.consent()
                 let dictionary = try await dictionaries.dictionary(of: Installation(at: url))
-                let (hold, written) = try await FileEvent.written(await watches.watch(instance).documentFiles) { () async throws(ApplicationFailure) in
+                let (hold, written) = try await FileEvent.written(await watch.documentFiles) { () async throws(ApplicationFailure) in
                     try await PermittedFrontList.shared.holding(
                         excluding: { application in application.processIdentifier == process.pid },
                         { () async throws(AggregateError<AppleEventFailure>) in try await dictionary.send(nil, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: process.pid)) },

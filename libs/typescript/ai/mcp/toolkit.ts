@@ -1,6 +1,6 @@
 import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Context, Effect, Formatter, Match, Number, Option, Order, Predicate, Record, Result, Schema, SchemaAST, SchemaIssue, type Stream, Struct, UndefinedOr } from 'effect';
-import { McpSchema, McpServer, type Tool, type Toolkit } from 'effect/ai';
+import { McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
 import { Report } from '#/report';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -113,7 +113,11 @@ const registerToolkit: <Tools extends Record.ReadonlyRecord<string, Tool.Any & {
                     ),
             }),
     });
-    yield* Effect.provideService(McpServer.registerToolkit(toolkit), McpServer.McpServer, served);
+    yield* toolkit.pipe(
+        Struct.lambda<<Held extends Record.ReadonlyRecord<string, Tool.Any>>(held: Toolkit.Toolkit<Held>) => Toolkit.Toolkit<Held>>((held) => Toolkit.make(...Record.values(held.tools).map((tool) => tool.annotate(Tool.Strict, true)))),
+        McpServer.registerToolkit,
+        Effect.provideService(McpServer.McpServer, served),
+    );
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

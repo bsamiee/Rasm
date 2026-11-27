@@ -54,7 +54,7 @@ describe.each([McpProtocol.v2025_11_25, McpProtocol.v2026_07_28])('upstream spea
                     greeted: Array.map(greeted.messages, ({ content }) => ('text' in content ? content.text : undefined)),
                 },
                 {
-                    called: [true, '{"echoed":"hi"}'],
+                    called: [true, 'echoed: hi'],
                     read: [
                         ['upstream://note', 'upstream note'],
                         ['upstream://items/apple', 'item apple'],
@@ -114,19 +114,19 @@ describe('upstream session', () => {
     it.live(
         'reconnects with the current header and answers the call when the upstream refuses the old token with 401',
         Effect.fnUntraced(function* () {
-            const { client, token, rejected } = yield* proxied(PROTOCOL, { poll: Duration.minutes(1) });
+            const { client, token, rejected } = yield* proxied(PROTOCOL);
             MutableRef.set(token, 'second');
             const called = lines(yield* client.callTool({ name: 'echo', arguments: { value: 'again' } }));
-            assert.deepStrictEqual([Array.last(called), MutableRef.get(rejected) > 0], [Option.some('{"echoed":"again"}'), true]);
+            assert.deepStrictEqual([Array.last(called), MutableRef.get(rejected) > 0], [Option.some('echoed: again'), true]);
         }),
     );
 
     it.live(
         'opens a new session and answers the call when the upstream restarted and no longer holds its session',
         Effect.fnUntraced(function* () {
-            const { client, restart } = yield* proxied(PROTOCOL, { poll: Duration.minutes(1) });
+            const { client, restart } = yield* proxied(PROTOCOL);
             yield* restart;
-            assert.deepStrictEqual(Array.last(lines(yield* client.callTool({ name: 'echo', arguments: { value: 'after' } }))), Option.some('{"echoed":"after"}'));
+            assert.deepStrictEqual(Array.last(lines(yield* client.callTool({ name: 'echo', arguments: { value: 'after' } }))), Option.some('echoed: after'));
         }),
     );
 
@@ -134,7 +134,7 @@ describe('upstream session', () => {
         'lists nothing at once while its endpoint has not answered',
         Effect.fnUntraced(
             function* () {
-                const first = yield* Stream.runHead(Upstream.fromHttp({ peer: PEER, endpoint: Effect.never, poll: SETTLED })).pipe(Effect.timeoutOrElse({ duration: SETTLED, orElse: () => Effect.fail(new Cause.UnknownError(PEER, `the upstream source listed nothing after ${Duration.format(SETTLED)}`)) }));
+                const first = yield* Stream.runHead(Upstream.fromHttp({ peer: PEER, endpoint: Effect.never })).pipe(Effect.timeoutOrElse({ duration: SETTLED, orElse: () => Effect.fail(new Cause.UnknownError(PEER, `the upstream source listed nothing after ${Duration.format(SETTLED)}`)) }));
                 assert.deepStrictEqual(first, Option.some([]));
             },
             Effect.provide([FetchHttpClient.layer, layerSecureRandom]),

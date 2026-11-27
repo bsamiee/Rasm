@@ -53,18 +53,19 @@ const tool = Tool.make('view', {
     success: Report.schema,
     failure: Schema.ErrorInstance(),
     dependencies: [Handle],
-}).annotateMerge(Context.make(Tool.Destructive, false).pipe(Context.add(Tool.Strict, true), Context.add(Tool.Meta, { 'anthropic/alwaysLoad': true })));
+}).annotateMerge(Context.make(Tool.Destructive, false).pipe(Context.add(Tool.Meta, { 'anthropic/alwaysLoad': true })));
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const Viewed = Context.Reference<Record.ReadonlyRecord<string, Pick<typeof Capture.Frame.Type, 'frame' | 'windows' | 'width' | 'height'> & Pick<Instance, 'instance'> & { readonly named: string }>>('@rasm/application-tools/view/Viewed', { defaultValue: Record.empty });
 const Render = Context.Reference<(row: Entry, id: string) => Effect.Effect<{ readonly image: Uint8Array; readonly title: string }, Error>>('@rasm/application-tools/view/Render', {
-    defaultValue: () => (row, id) => ApplicationFailure.of('noRenderer', `object ${id}`, [row.name]),
+    defaultValue: () => (row, id) => ApplicationFailure.of('unrendered', `object ${id}`, [row.name]),
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const windows = (state: Instance['state']): (typeof Instance.State.cases.running.Type)['windows'] => Instance.State.matchOrElse(state, { running: Struct.get('windows') }, Array.empty);
+const captions = (state: Instance['state']) => Record.fromIterableWith(windows(state), ({ number, container, kind = 'window', title }) => [`${number}`, [...(container === undefined ? [`${number}`] : []), ...Outline.caption(kind, container, title)]]);
 const front = (state: Instance['state']) => {
     const shown = windows(state).filter((window) => window.presented && window.kind !== 'menu');
     return Option.map(Option.firstSomeOf([Array.findFirst(shown, (window) => window.asking || window.kind === 'window'), Array.head(shown)]), Struct.get('number'));
@@ -76,20 +77,20 @@ const point = (viewed: (typeof Viewed)['Service'], { instance, state, window }: 
     const token = Option.flatMap(window, (node) => node.token);
     const placed: Result.Result<(typeof Viewed)['Service'][string], Error> = Array.match(held, {
         onEmpty: () => Result.fail(new Cause.NoSuchElementError(Report.text(new Report({ lines: [new Line({ head: [Option.getOrElse(token, () => 'pixels')], value: 'no image held of a shown window' })], next: new Call({ tool: tool.name, given: Record.getSomes({ of: token }) }) })))),
-        onNonEmpty: (several) => (Predicate.isTupleOf(several, 1) ? Result.succeed(several[0]) : Result.fail(ApplicationFailure.of('namesOneOf', 'in', several.map(Struct.get('named'))))),
+        onNonEmpty: (several) => (Predicate.isTupleOf(several, 1) ? Result.succeed(several[0]) : Result.fail(new Cause.IllegalArgumentError(Report.text(Report.of({ in: 'required', images: several.map(Struct.get('named')) }))))),
     });
     return ([x, y]: readonly [x: number, y: number]) =>
         Result.flatMap(placed, ({ named, frame: [[left, top], [across, down]], width, height, windows: shown }) =>
-            x >= 0 && y >= 0 && x <= width && y <= height ? Result.succeed({ at: Tuple.make(left + (x * across) / width, top + (y * down) / height), windows: shown }) : Result.fail(ApplicationFailure.of('outsideImage', `${x},${y}`, [named, Address.print('region')({ _tag: 'size', value: Tuple.make(width, height) })])),
+            x >= 0 && y >= 0 && x <= width && y <= height ? Result.succeed({ at: Tuple.make(left + (x * across) / width, top + (y * down) / height), windows: shown }) : Result.fail(ApplicationFailure.of('unplaced', `${x},${y}`, [named, Address.print('region')({ _tag: 'size', value: Tuple.make(width, height) })])),
         );
 };
 const frames = ({ instance, state }: Pick<Instance, 'instance' | 'state'>, source: Capture['source'], taken: readonly (typeof Capture.Frame.Type)[], crop: readonly string[] = []) => {
-    const captions = Record.fromIterableWith(windows(state), ({ number, container, kind = 'window', title }) => [`${number}`, [...(container === undefined ? [`${number}`] : []), ...Outline.caption(kind, container, title)]]);
+    const named = captions(state);
     const first = Array.head(taken);
     const began = Option.flatMapNullishOr(first, (held) => held.at);
     return taken.map((frame, index) => {
-        const [head = ['display'], ...beside] = frame.windows.map((number) => captions[`${number}`] ?? [`${number}`, ...Outline.caption('window')]);
-        const [named = 'display'] = head;
+        const [head = ['display'], ...beside] = frame.windows.map((number) => named[`${number}`] ?? [`${number}`, ...Outline.caption('window')]);
+        const [caption = 'display'] = head;
         const whole = source._tag === 'windows' && (frame.at === undefined || (index === taken.length - 1 && Predicate.isTupleOf(source.numbers, 1)));
         const follows = Array.dedupe((taken[index - 1]?.markers ?? []).map((marker) => (marker._tag === 'step' ? `step ${marker.index + 1}` : marker.change._tag)));
         const elapsed = Option.zipWith(began, Option.fromUndefinedOr(frame.at), (from, at) => DateTime.distance(from, at));
@@ -104,7 +105,7 @@ const frames = ({ instance, state }: Pick<Instance, 'instance' | 'state'>, sourc
             ...(frame.backingStore ? ['backing store'] : []),
             ...Array.fromNullishOr(frame.document).map((url) => `document: ${url}`),
         ];
-        return { line: new Line({ head, facts }), frame, placement: whole ? Array.take(frame.windows, 1).map((number) => Tuple.make(`${number}`, { instance, named, ...Struct.pick(frame, ['frame', 'windows', 'width', 'height']) })) : [] };
+        return { line: new Line({ head, facts }), frame, placement: whole ? Array.take(frame.windows, 1).map((number) => Tuple.make(`${number}`, { instance, named: caption, ...Struct.pick(frame, ['frame', 'windows', 'width', 'height']) })) : [] };
     });
 };
 const attach = Effect.fnUntraced(function* (drawn: readonly { readonly line: Line; readonly frame?: Pick<typeof Capture.Frame.Type, 'png' | 'presentation'>; readonly placement?: readonly (readonly [window: string, (typeof Viewed)['Service'][string]])[] }[]) {
@@ -121,13 +122,13 @@ const capture = Effect.fnUntraced(function* (snapshot: Pick<Instance, 'instance'
     const read = yield* server.capture({ instance, source, longestSide: Option.some(side), mode: asked });
     const state = Option.match(Record.get(Instance.byInstance(yield* SubscriptionRef.get(server.running)), instance), { onNone: () => snapshot.state, onSome: Struct.get('state') });
     const numbers: readonly number[] = asked._tag === 'still' && source._tag === 'windows' ? source.numbers : [];
-    const off = new Set(numbers.flatMap((number, at) => (windows(state).some((shown) => shown.number === number && shown.onScreen) ? [] : [at])));
-    const [taken, unread] = Array.partition(read, (each, at) => Result.mapError(each, ({ message }) => (off.has(at) ? Option.none() : Option.some(message))));
-    const reopen = Target.open(name);
+    const [named, reopen] = [captions(state), Target.open(name)];
+    const [taken, unread] = Array.partition(read, (each, at) => Result.mapError(each, (failure) => ({ failure, number: Option.fromUndefinedOr(numbers[at]) })));
+    const subjects = source._tag === 'windows' ? unread.flatMap(({ number }) => Option.toArray(Option.map(number, (held) => (named[`${held}`] ?? [`${held}`]).join(' ')))) : crop;
+    const reasons = Array.dedupe(unread.map(({ failure }) => Option.match(Option.liftPredicate(failure, Schema.is(ApplicationFailure)), { onNone: () => failure.message, onSome: ({ reason, values }) => ApplicationFailure.of(reason, '', values).message })));
     const lines = [
         ...frames({ instance, state }, source, taken, crop),
-        ...Array.getSomes(unread).map((message) => ({ line: new Line({ head: [], value: message }) })),
-        ...(unread.some(Option.isNone) ? [{ line: new Line({ head: ['off screen'], value: Format.count(Array.countBy(unread, Option.isNone), Outline.nouns.window), facts: ['no image'], call: new Call({ tool: reopen.tool, given: { ...reopen.given, activate: true } }) }) }] : []),
+        ...(Array.isReadonlyArrayEmpty(unread) ? [] : [{ line: new Line({ head: Array.isReadonlyArrayEmpty(subjects) ? [] : [Format.list(subjects)], value: 'no image', facts: reasons, call: new Call({ tool: reopen.tool, given: { ...reopen.given, activate: true } }) }) }]),
     ];
     const movie = asked._tag === 'recording' ? Array.fromNullishOr(asked.movie).map((url) => ({ line: new Line({ head: ['movie'], value: Format.path(url) }) })) : [];
     return Array.isReadonlyArrayEmpty(taken) ? yield* refuse(lines.map(({ line }) => line)) : [...movie, ...lines];

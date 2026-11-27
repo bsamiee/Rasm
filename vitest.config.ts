@@ -29,11 +29,13 @@ const browser = (name: string): BrowserConfigOptions => ({
 });
 
 const suites = (root: string, { name, devDependencies = {}, peerDependencies = {} }: PackageJson): TestProjectInlineConfiguration[] => {
-    const test = { name, testTimeout: LIMIT, hookTimeout: LIMIT, env: { CI: 'false', ...(('nx' in devDependencies || '@nx/devkit' in devDependencies) && { NX_DAEMON: 'false', NX_WORKSPACE_DATA_DIRECTORY: '.nx/workspace-data', NO_COLOR: '1', FORCE_COLOR: '0' }) } };
+    const test = { name, testTimeout: LIMIT, hookTimeout: LIMIT, execArgv: ['--disable-warning=ExperimentalWarning'], env: { CI: 'false', ...(('nx' in devDependencies || '@nx/devkit' in devDependencies) && { NX_DAEMON: 'false', NX_WORKSPACE_DATA_DIRECTORY: '.nx/workspace-data', NO_COLOR: '1', FORCE_COLOR: '0' }) } };
     return 'vitest' in peerDependencies
         ? []
         : Match.value(devDependencies).pipe(
-              Match.when({ '@storybook/addon-vitest': Match.string }, () => [{ plugins: [storybookTest({ configDir: join(import.meta.dirname, root, '.storybook') })], test: { ...test, api: { allowWrite: true }, browser: browser(name) } }]),
+              Match.when({ '@storybook/addon-vitest': Match.string }, () => [
+                  { plugins: [storybookTest({ configDir: join(import.meta.dirname, root, '.storybook') }), { name: 'dependency-cache', config: () => ({ cacheDir: join(import.meta.dirname, 'node_modules/.vite', name) }) }], test: { ...test, api: { allowWrite: true }, browser: browser(name) } },
+              ]),
               Match.when({ 'vitest-browser-react': Match.string }, () => [{ root, plugins: [react], test: { ...test, browser: browser(name) } }]),
               Match.when({ '@cloudflare/vitest-plugin': Match.string }, () => [
                   { root, test: { ...test, name: `${name} node`, exclude: [...defaultExclude, WORKERS] } },

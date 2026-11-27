@@ -1,7 +1,7 @@
 import { parse } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import manifest from '@rasm/mcp/package.json' with { type: 'json' };
-import { Array, Cause, Context, Data, type Duration, Effect, FiberMap, Function, Match, Option, Pool, Predicate, pipe, Queue, Record, Ref, Result, Schedule, Schema, Stream, Struct, Tuple } from 'effect';
+import { Array, Cause, Context, Data, Effect, FiberMap, Function, Match, Option, Pool, Predicate, pipe, Queue, Record, Ref, Result, Schema, Stream, Struct, Tuple } from 'effect';
 import { McpClient, McpClientError, McpProtocol, McpSchema, McpServer } from 'effect/ai';
 import { SecureRandom } from 'effect/crypto';
 import type { HttpClient } from 'effect/http';
@@ -56,7 +56,15 @@ class Upstream extends Data.Class<
                         tool,
                         annotations,
                         handle: (given: Record.ReadonlyRecord<string, unknown>) =>
-                            forward(tool.name, given, (source) => source.call(tool.name, given)).pipe(Effect.catchTag('InternalError', ({ message }) => Effect.succeed(McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: message })] })))),
+                            forward(tool.name, given, (source) => source.call(tool.name, given)).pipe(
+                                Effect.map(({ structuredContent, ...result }) => {
+                                    const stated = Option.fromUndefinedOr(structuredContent);
+                                    const mirror = Option.map(stated, (json) => JSON.stringify(json));
+                                    const shown = Option.map(stated, (json) => McpSchema.TextContent.make({ text: Predicate.isString(json) ? json : Report.text(Report.of(json)) }));
+                                    return McpSchema.CallToolResult.make({ ...result, content: [...result.content.filter((block) => !(block.type === 'text' && Option.contains(mirror, block.text))), ...Option.toArray(shown)] });
+                                }),
+                                Effect.catchTag('InternalError', ({ message }) => Effect.succeed(McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: message })] }))),
+                            ),
                     }),
             }),
             register<McpSchema.Resource>(route, {
@@ -168,7 +176,6 @@ class Upstream extends Data.Class<
         prefix = '',
         endpoint,
         presence = Stream.succeed(true),
-        poll,
         annotations = Context.empty(),
     }: {
         readonly peer: Link;
@@ -176,7 +183,6 @@ class Upstream extends Data.Class<
         readonly prefix?: string;
         readonly endpoint: Effect.Effect<{ readonly url: URL; readonly headers: Readonly<Record<string, string>> }, E, R>;
         readonly presence?: Stream.Stream<boolean, never, R>;
-        readonly poll: Duration.Duration;
         readonly annotations?: Context.Context<never>;
     }): Stream.Stream<readonly Upstream[], never, R | HttpClient.HttpClient | SecureRandom.SecureRandom> => {
         const expose = <A extends { readonly name: string }>(items: readonly A[], filter: Filter | undefined) => Record.fromEntries(Array.filterMap(items, (item) => (allows(item.name, filter) ? Result.succeed([`${prefix}${item.name}`, item] as const) : Result.failVoid)));
@@ -188,7 +194,7 @@ class Upstream extends Data.Class<
             ),
         );
         const connected = Effect.gen(function* () {
-            const [connections, services] = yield* Effect.all([Pool.make({ acquire: connect, size: 1, concurrency: Number.POSITIVE_INFINITY }), Effect.context<SecureRandom.SecureRandom>()]);
+            const [connections, stale, services] = yield* Effect.all([Pool.make({ acquire: connect, size: 1, concurrency: Number.POSITIVE_INFINITY }), Queue.dropping<void>(1), Effect.context<SecureRandom.SecureRandom>()]);
             const run = <A>(use: (connection: Parameters<typeof list>[0]) => Effect.Effect<A, McpClientError.McpClientError, SecureRandom.SecureRandom>) =>
                 Pool.get(connections).pipe(
                     Effect.flatMap((connection) => Effect.tapError(use(connection), ({ reason }) => (reason.pipe(disconnects, Option.isSome) ? Pool.invalidate(connections, connection) : Effect.void))),
@@ -207,13 +213,21 @@ class Upstream extends Data.Class<
                     resources: Array.filter(listing.resources, ({ uri }) => allows(uri, filters.resources)),
                     templates: Array.filter(listing.templates, ({ uriTemplate }) => allows(uriTemplate, filters.templates)),
                     prompts: Record.collect(prompts, (name, prompt) => McpSchema.Prompt.make({ ...prompt, name })),
-                    call: (name, given) => Effect.flatMap(found(tools, name), (tool) => run(({ client }) => client.callTool({ tool, arguments: given })).pipe(Effect.mapError(refused))),
+                    call: (name, given) =>
+                        Effect.flatMap(found(tools, name), (tool) =>
+                            run(({ client }) => client.callTool({ tool, arguments: given })).pipe(
+                                Effect.mapError(refused),
+                                Effect.tapErrorTag('InvalidParams', () => Queue.offer(stale, undefined)),
+                            ),
+                        ),
                     read: (uri) => run(({ client }) => client.readResource({ uri })).pipe(Effect.mapError(refused)),
                     get: (name, given) => Effect.flatMap(found(prompts, name), (prompt) => run(({ client }) => client.getPrompt({ prompt, arguments: given })).pipe(Effect.mapError(refused))),
                     complete: (payload) => run(({ client, transport }) => (client.capabilities.completions === undefined ? Effect.succeed(McpSchema.CompleteResult.empty) : request(transport, McpSchema.Complete, payload))).pipe(Effect.mapError(refused)),
                 });
             };
-            return Stream.fromEffectSchedule(run(list).pipe(Effect.sandbox, Effect.result), Schedule.spaced(poll)).pipe(
+            return Stream.fromQueue(stale).pipe(
+                Stream.prepend([undefined]),
+                Stream.mapEffect(() => run(list).pipe(Effect.sandbox, Effect.result)),
                 Stream.changesWith(Result.makeEquivalence(Schema.toEquivalence(Listing), Function.constTrue)),
                 Stream.flatMap(
                     Result.match({

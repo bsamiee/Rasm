@@ -197,7 +197,8 @@ package final class PermittedFrontList: Sendable {
         let journal: FileHandle
         do throws(ApplicationFailure) { journal = try open([.exclusiveLock, .nonBlocking]) } catch  where error.reason == .system(.wouldBlock) { return nil }
         try clear(journal)
-        guard entries == 0 else { throw ApplicationFailure(subject: "Holding the permitted front list", reason: .frontListHeld) }
+        let listed: Int = entries
+        guard listed == 0 else { throw ApplicationFailure(subject: "Holding the permitted front list", reason: .frontListHeld(entries: listed)) }
         return journal
     }
 
@@ -207,7 +208,7 @@ package final class PermittedFrontList: Sendable {
             let descriptor = try FileDescriptor.open(FilePath(path), access, options: options.union([.create, .append, .closeOnExec]), permissions: .ownerReadWrite)
             return FileHandle(fileDescriptor: descriptor.rawValue, closeOnDealloc: true)
         } catch {
-            throw ApplicationFailure(subject: subject, reason: (error as? Errno).map(ApplicationFailure.Reason.system) ?? .foundation(error as NSError))
+            throw ApplicationFailure(subject: subject, cause: error)
         }
     }
 
