@@ -59,8 +59,8 @@
             "name": "function-hooks",
             "source": {
                 "source": "archive",
-                "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/function-hooks%400.2.4/function-hooks.zip",
-                "sha256": "e449e61a3177acdef1de1678f972fdc2bacd8f4202ba24e70234385985812b80"
+                "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/function-hooks%400.2.5/function-hooks.zip",
+                "sha256": "0e417eff0825488cbf7f8a57b25cd0bdb1efc3ab83366a9c456d9fa8bb4265fb"
             },
             "description": "Claude Code hooks that rewrite or reject tool calls",
             "author": {
