@@ -1,6 +1,42 @@
 import { Shell } from '@rasm/shell';
 import type { AgentStatus, EngineInterface, FsEntry, FsStat, HookStream, ProcessSpawnChunk, ProcessSpawnRequest, ProcessSpawnResult } from 'claude-code';
-import { Array, Bytes, ByteSize, Cache, Cause, Clock, Context, DateTime, Deferred, Duration, Effect, Exit, Fiber, FiberSet, FileSystem, Filter, Formatter, Function, Hash, Layer, ManagedRuntime, Match, Option, Order, Path, PlatformError, Predicate, Queue, Record, Redacted, Scheduler, Sink, Stream } from 'effect';
+import {
+    Array,
+    Bytes,
+    ByteSize,
+    Cache,
+    Cause,
+    Clock,
+    Context,
+    Data,
+    DateTime,
+    Deferred,
+    Duration,
+    Effect,
+    Exit,
+    Fiber,
+    FiberSet,
+    FileSystem,
+    Filter,
+    Formatter,
+    Function,
+    Hash,
+    Layer,
+    Logger,
+    ManagedRuntime,
+    Match,
+    Option,
+    Order,
+    Path,
+    PlatformError,
+    Predicate,
+    Queue,
+    Record,
+    Redacted,
+    Scheduler,
+    Sink,
+    Stream,
+} from 'effect';
 import { ChildProcess, ChildProcessSpawner, CommandLine } from 'effect/process';
 import 'sh-syntax/vendors/wasm_exec';
 import { getProcessor } from 'sh-syntax/sync';
@@ -10,6 +46,12 @@ import { getProcessor } from 'sh-syntax/sync';
 type Probe = ReturnType<Shell['Service']['dialect']>;
 type Output = Queue.Queue<Uint8Array, PlatformError.PlatformError | Cause.Done>;
 type Child = HookStream<ProcessSpawnChunk, ProcessSpawnResult>;
+type Notice = Data.TaggedEnum<{
+    Toast: { readonly text: string; readonly timeout?: Duration.Input };
+    Notify: { readonly text: string; readonly key: string };
+    Withdraw: { readonly key: string };
+    Model: { readonly text: string; readonly agent: Option.Option<string>; readonly idle: boolean };
+}>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -25,6 +67,10 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { fatal: true });
 const collator = new Intl.Collator('en', { numeric: true });
 const byTime = Order.mapInput(Order.Number, ({ mtimeMs }: FsEntry) => mtimeMs);
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Notice = Data.taggedEnum<Notice>();
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -53,12 +99,13 @@ class Session extends Context.Service<
             PlatformError.PlatformError
         >;
         readonly resting: (agent: string) => Effect.Effect<Option.Option<boolean>, PlatformError.PlatformError>;
-        readonly tell: (agent: Option.Option<string>, text: string) => Effect.Effect<void, PlatformError.PlatformError>;
-        readonly log: (text: string) => Effect.Effect<void>;
+        readonly say: ReturnType<typeof say>;
         readonly watch: <E, R>(watcher: Effect.Effect<unknown, E, R>) => Effect.Effect<void, never, R>;
         readonly end: Effect.Effect<void>;
     }
->()('@rasm/claude-code/platform/Session') {}
+>()('@rasm/claude-code/platform/Session') {
+    static readonly layer = session;
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -77,6 +124,48 @@ const systemError = (module: string, method: string, subject: string) => (cause:
     });
 };
 const request = <A>(module: string, method: string, subject: string, run: () => PromiseLike<A>) => Effect.tryPromise({ try: run, catch: systemError(module, method, subject) });
+const say = ($: EngineInterface) =>
+    Notice.$match({
+        Toast: ({ text, timeout }) =>
+            Effect.try({
+                try: () => {
+                    $.ui.toast(text, timeout === undefined ? undefined : { timeoutMs: Duration.toMillis(timeout) });
+                    return true;
+                },
+                catch: systemError('ui', 'toast', text),
+            }),
+        Notify: ({ text, key }) =>
+            Effect.map(
+                request('ui', 'notify', key, () => $.ui.notify(text, { key })),
+                ({ isSent }) => isSent,
+            ),
+        Withdraw: ({ key }) =>
+            Effect.map(
+                request('ui', 'cancelNotify', key, () => $.ui.cancelNotify(key)),
+                ({ isSent }) => isSent,
+            ),
+        Model: ({ text, agent, idle }) =>
+            Match.value({ idle, agentId: Option.getOrUndefined(agent) }).pipe(
+                Match.when({ idle: false }, ({ agentId }) =>
+                    Effect.map(
+                        request('session', 'append', agentId ?? 'main', () => $.session.append({ message: { type: 'user', content: [{ type: 'text', text }] }, ...(agentId === undefined ? {} : { agentId }) })),
+                        ({ deny }) => deny === undefined,
+                    ),
+                ),
+                Match.when({ agentId: Match.string }, ({ agentId }) =>
+                    Effect.map(
+                        request('session', 'send', agentId, () => $.session.send({ to: { agentId }, text })),
+                        ({ isDelivered }) => isDelivered,
+                    ),
+                ),
+                Match.orElse(() =>
+                    Effect.map(
+                        request('prompt', 'submit', 'main', () => $.prompt.submit({ text })),
+                        ({ drop }) => drop === undefined,
+                    ),
+                ),
+            ),
+    });
 const badArgument = (module: string, method: string, description: string) => PlatformError.badArgument({ module, method, description });
 const held = <A, E>(exit: Exit.Exit<A, E>) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero);
 const anchor = (base: Path.Path, cwd: string) =>
@@ -328,39 +417,43 @@ function session($: EngineInterface) {
                         listed(agent),
                         Option.flatMap(({ status }) => resting[status]),
                     ),
-                tell: (agent, text) =>
-                    Option.match(agent, {
-                        onNone: () => Effect.asVoid(request('prompt', 'submit', 'main', () => $.prompt.submit({ text }))),
-                        onSome: (agentId) => Effect.asVoid(request('session', 'send', agentId, () => $.session.send({ to: { agentId }, text }))),
-                    }),
-                log: (text) => Effect.ignore(Effect.try({ try: () => $.ui.log(text, { to: 'debug' }), catch: systemError('ui', 'log', 'debug') })),
+                say: say($),
                 watch: (watcher) => Effect.asVoid(FiberSet.run(watchers, watcher)),
                 end,
             };
         }),
+    ).pipe(
+        Layer.provideMerge(
+            Layer.effect(
+                Shell,
+                Effect.flatMap(
+                    request('wasm', 'compile', './main.wasm', () => $.wasm.compile('./main.wasm')),
+                    (module) => Shell.make({ processor: getProcessor(module) }),
+                ),
+            ),
+        ),
     );
 }
 
-function runtime($: EngineInterface) {
-    const platform = Layer.mergeAll(
-        Layer.succeed(FileSystem.FileSystem, files($)),
-        Layer.succeed(
-            ChildProcessSpawner.ChildProcessSpawner,
-            spawner((asked) => $.process.spawn(asked)),
+function runtime<A, E>($: EngineInterface, layer: Layer.Layer<A, E, FileSystem.FileSystem | ChildProcessSpawner.ChildProcessSpawner | Path.Path>) {
+    return ManagedRuntime.make(
+        layer.pipe(
+            Layer.provideMerge(
+                Layer.mergeAll(
+                    Layer.succeed(FileSystem.FileSystem, files($)),
+                    Layer.succeed(
+                        ChildProcessSpawner.ChildProcessSpawner,
+                        spawner((asked) => $.process.spawn(asked)),
+                    ),
+                    Path.layer,
+                    Layer.succeed(Scheduler.Scheduler, new TimeSliced()),
+                    Logger.layer([Logger.map(Logger.formatSimple, (line) => $.ui.log(line, { to: 'debug' }))]),
+                ),
+            ),
         ),
-        Path.layer,
-        Layer.succeed(Scheduler.Scheduler, new TimeSliced()),
     );
-    const shells = Layer.effect(
-        Shell,
-        Effect.flatMap(
-            request('wasm', 'compile', './main.wasm', () => $.wasm.compile('./main.wasm')),
-            (module) => Shell.make({ processor: getProcessor(module) }),
-        ),
-    ).pipe(Layer.provideMerge(platform));
-    return ManagedRuntime.make(session($).pipe(Layer.provideMerge(shells)));
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { request, runtime, Session };
+export { Notice, request, runtime, say, Session };

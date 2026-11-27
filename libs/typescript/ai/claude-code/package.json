@@ -9,6 +9,7 @@
     },
     "exports": {
         "./hooks": "./hooks.ts",
+        "./platform": "./platform.ts",
         "./package.json": "./package.json"
     },
     "dependencies": {

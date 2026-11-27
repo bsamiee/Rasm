@@ -1,6 +1,7 @@
+import { Notice, request, runtime, say } from '@rasm/claude-code/platform';
 import { Handles } from '@rasm/mcp/handles';
 import { atom, type EngineInterface, type On, read, type ToolMcpServer, update } from 'claude-code';
-import { Array, Cause, Context, Data, Duration, Effect, Equal, FiberMap, Function, HashMap, HashSet, Layer, Logger, ManagedRuntime, MutableRef, Option, Record, Ref, Result, Schema, Stream, Struct, SubscriptionRef, SynchronizedRef } from 'effect';
+import { Array, Cause, Context, Data, Duration, Effect, Equal, FiberMap, Function, HashMap, HashSet, Layer, MutableRef, Option, Record, Ref, Result, Schema, Stream, Struct, SubscriptionRef, SynchronizedRef } from 'effect';
 import { HttpStatus } from 'effect/http';
 import { HttpApiClient, HttpApiError } from 'effect/http-api';
 import { Host, NetAddress } from 'effect/net';
@@ -42,7 +43,6 @@ class Link extends Context.Service<
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const request = <A>(call: string, run: () => PromiseLike<A>) => Effect.tryPromise({ try: run, catch: (cause) => new Cause.UnknownError(cause, `${call} failed`) });
 const loopback = ({ type, origin }: ToolMcpServer) =>
     Option.filter(Option.fromUndefinedOr(origin), (at) => {
         const { hostname } = new URL(at);
@@ -62,19 +62,13 @@ const owns =
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 function link($: EngineInterface) {
-    const send = (name: keyof typeof endpoints, url: string) => request(name, () => $.http.fetch(url, { method: endpoints[name].method }));
-    const deliver = (agent: Option.Option<string>, idle: boolean, text: string) =>
-        idle
-            ? Option.match(agent, {
-                  onNone: () => request('prompt.submit', () => $.prompt.submit({ text })).pipe(Effect.map(({ drop }) => drop === undefined)),
-                  onSome: (agentId) => request('session.send', () => $.session.send({ to: { agentId }, text })).pipe(Effect.map(({ isDelivered }) => isDelivered)),
-              })
-            : request('session.append', () => $.session.append({ message: { type: 'user', content: [{ type: 'text', text }] }, ...Record.getSomes({ agentId: agent }) })).pipe(Effect.map(({ deny }) => deny === undefined));
+    const tell = say($);
+    const send = (name: keyof typeof endpoints, url: string) => request('http', name, url, () => $.http.fetch(url, { method: endpoints[name].method }));
     const show = (handle: string, rows: Record.ReadonlyRecord<string, string>) =>
-        request('reading rows', () => read($, ROWS)).pipe(
+        request('store', 'read', ROWS.ref.key, () => read($, ROWS)).pipe(
             Effect.map((shown) => Record.toEntries(Record.difference(rows, shown[handle] ?? {}))),
-            Effect.tap(request('setting rows', () => update($, ROWS, (shown) => (Record.isEmptyRecord(rows) ? Record.remove(shown, handle) : Record.set(shown, handle, rows))))),
-            Effect.flatMap(Effect.forEach(([press, text]: readonly [string, string]) => request('notifying', () => (Record.has(rows, press) ? $.ui.notify(text, { key: press }) : $.ui.cancelNotify(press))), { discard: true })),
+            Effect.tap(request('store', 'update', ROWS.ref.key, () => update($, ROWS, (shown) => (Record.isEmptyRecord(rows) ? Record.remove(shown, handle) : Record.set(shown, handle, rows))))),
+            Effect.flatMap(Effect.forEach(([press, text]: readonly [string, string]) => tell(Record.has(rows, press) ? Notice.Notify({ text, key: press }) : Notice.Withdraw({ key: press })), { discard: true })),
             Effect.catchCause(Effect.logWarning),
             Effect.uninterruptible,
         );
@@ -88,7 +82,7 @@ function link($: EngineInterface) {
                 SynchronizedRef.make(HashMap.empty<Binding, Follower>()),
                 FiberMap.make<string>(),
             ]);
-            yield* request('reading rows', () => read($, ROWS)).pipe(
+            yield* request('store', 'read', ROWS.ref.key, () => read($, ROWS)).pipe(
                 Effect.flatMap((shown) => Effect.forEach(Record.keys(shown), (handle) => show(handle, {}), { discard: true })),
                 Effect.catchCause(Effect.logWarning),
             );
@@ -102,7 +96,7 @@ function link($: EngineInterface) {
                     Option.match({
                         onNone: () => Effect.void,
                         onSome: ({ sequence }) =>
-                            deliver(follower.binding.agent, idle, Array.map(polled.notices, Struct.get('text')).join('\n')).pipe(
+                            tell(Notice.Model({ agent: follower.binding.agent, idle, text: Array.map(polled.notices, Struct.get('text')).join('\n') })).pipe(
                                 Effect.filterOrFail(Function.identity, () => new Cause.UnknownError(sequence, 'notices undelivered')),
                                 Effect.andThen(Ref.set(follower.after, sequence)),
                             ),
@@ -183,12 +177,12 @@ function link($: EngineInterface) {
                 report: (agent) => Option.some(agent).pipe(owns, quit),
             };
         }),
-    ).pipe(Layer.provideMerge(Logger.layer([Logger.map(Logger.formatSimple, (line) => $.ui.log(line, { to: 'debug' }))])));
+    );
 }
 
-function current($: EngineInterface, live: MutableRef.MutableRef<Option.Option<ManagedRuntime.ManagedRuntime<Link, never>>>) {
+function current($: EngineInterface, live: MutableRef.MutableRef<Option.Option<ReturnType<typeof runtime<Link, never>>>>) {
     return Option.getOrElse(MutableRef.get(live), () => {
-        const made = ManagedRuntime.make(link($));
+        const made = runtime($, link($));
         MutableRef.set(live, Option.some(made));
         $.ui.invalidate('tool.describe');
         return made;
@@ -196,7 +190,7 @@ function current($: EngineInterface, live: MutableRef.MutableRef<Option.Option<M
 }
 
 function register(on: On) {
-    const live = MutableRef.make(Option.none<ManagedRuntime.ManagedRuntime<Link, never>>());
+    const live = MutableRef.make(Option.none<ReturnType<typeof runtime<Link, never>>>());
     on('session.start', ($, e, next) =>
         current($, live)
             .runPromise(Effect.void)

@@ -1,21 +1,14 @@
 import { Action, Decision } from '@rasm/policy/action';
 import type { Policy } from '@rasm/policy/policy';
 import type { EngineInterface, Next, On, ToolCallInput, ToolCallResult } from 'claude-code';
-import { Array, Cause, Clock, Duration, Effect, Exit, Function, Match, MutableRef, Option, Path, Predicate, Record, Schedule, Schema, SchemaGetter, Struct } from 'effect';
-import { request, runtime, Session } from '#/platform';
+import { Cause, Duration, Effect, Function, type Layer, Match, MutableRef, Option, Path, Predicate, Schedule, Schema, SchemaGetter, Struct } from 'effect';
+import { Notice, request, runtime, Session } from '#/platform';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Runtime = ReturnType<typeof runtime>;
+type Runtime = ReturnType<typeof runtime<Layer.Success<ReturnType<typeof Session.layer>>, Layer.Error<ReturnType<typeof Session.layer>>>>;
 type Live = MutableRef.MutableRef<Option.Option<Runtime>>;
 type Busy = MutableRef.MutableRef<boolean>;
-type Health = MutableRef.MutableRef<Readonly<Record<string, Outage>>>;
-type Failure = Effect.Error<ReturnType<typeof decide>> | Cause.TimeoutError;
-interface Outage {
-    readonly since: number;
-    readonly reason: string;
-    readonly unjudged: number;
-}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -26,10 +19,6 @@ const mcpName = /^mcp__(?<server>.+?)__(?<tool>.+)$/su;
 const reserved = ['tool', 'tool_use_id', 'agentId', 'consent', 'requestMeta'] as const;
 const outputLead = /^[^]*(?<=^|[\s"'`(])/u.source;
 const outputFolder = /\/[^\n"'`]*\/tasks\//u.source;
-const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-const plural = new Intl.PluralRules('en');
-const counted = new Intl.NumberFormat('en');
-const unjudgedCalls: Partial<Record<Intl.LDMLPluralRule, (count: string) => string>> & { readonly other: (count: string) => string } = { one: (count) => `${count} call unjudged`, other: (count) => `${count} calls unjudged` };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -58,35 +47,19 @@ const Background = Schema.Struct({ result: Schema.Struct({ backgroundTaskId: Sch
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const firstLine = (text: string) => text.split('\n', 1).join('');
 const annotate = (result: ToolCallResult, notes: readonly string[]): ToolCallResult => (result.deny !== undefined || notes.length === 0 ? result : { ...result, context: [...(result.context ?? []), ...notes] });
 const backgroundTask = (result: ToolCallResult) =>
     Option.flatMap(Schema.decodeUnknownOption(Background)(result), ({ result: { backgroundTaskId: id }, text }) => Option.map(Option.fromNullishOr(new RegExp(`${outputLead}(?<output>${outputFolder}${RegExp.escape(id)}\\.output)`, 'u').exec(text)?.groups), ({ output = '' }) => ({ id, output })));
-const decide = (policy: Policy, action: Action) => Session.use((session) => Effect.flatMap(session.acting(action.agent), ({ environment, path }) => Effect.provideService(policy.decide(action, environment), Path.Path, path)).pipe(Effect.tap(({ faults }) => Effect.forEach(faults, session.log, { discard: true }))));
+const decide = (policy: Policy, action: Action) =>
+    Session.use((session) => Effect.flatMap(session.acting(action.agent), ({ environment, path }) => Effect.provideService(policy.decide(action, environment), Path.Path, path)).pipe(Effect.tap(({ faults }) => Effect.forEach(faults, (fault) => Effect.logWarning(fault), { discard: true }))));
 const deadline = (next: Pick<Next<'tool.call'>, 'budget'>) =>
     Effect.suspend(() => Effect.sleep(Duration.millis(Math.max(0, next.budget.remainingMs - reserve)))).pipe(Effect.repeat({ until: () => next.budget.remainingMs <= reserve }), Effect.andThen(Effect.fail(new Cause.TimeoutError('its hook budget ran out before the rules settled'))));
-const reasonOf = (cause: Cause.Cause<Failure>): Option.Option<string> =>
-    cause.pipe(
-        Cause.findErrorOption,
-        Option.getOrUndefined,
-        Match.value,
-        Match.when(Match.undefined, () => cause.pipe(Cause.pretty, firstLine, Option.some)),
-        Match.when({ _tag: 'ShellError', reason: { _tag: 'Syntax' } }, () => Option.none()),
-        Match.when({ _tag: 'PlatformError', reason: { _tag: 'BadArgument' } }, ({ reason }) => Option.some(firstLine(reason.message))),
-        Match.when({ _tag: 'PlatformError' }, ({ reason: { module, method, description, _tag } }) => Option.some(`engine refused ${module}.${method}: ${firstLine(description ?? _tag)}`)),
-        Match.orElse((error) => Option.some(firstLine(error.message))),
-    );
-const shown = (outages: Readonly<Record<string, Outage>>) =>
-    Array.match(Record.toEntries(outages), {
-        onEmpty: () => undefined,
-        onNonEmpty: (rows) => rows.map(([kind, { since, reason, unjudged }]) => `${kind} rules off since ${clock.format(since)} · ${reason} · ${(unjudgedCalls[plural.select(unjudged)] ?? unjudgedCalls.other)(counted.format(unjudged))}`).join('; '),
-    });
 const watch = (policy: Policy, busy: Busy, { call, agent }: Action, task: Option.Option.Value<ReturnType<typeof backgroundTask>>) =>
     Session.use((session) => {
         const check = (resting: boolean) =>
             Effect.flatMap(decide(policy, Action.cases.Task.make({ ...task, call, agent, resting, again: Duration.infinity })), (decision) =>
                 Effect.as(
-                    Effect.forEach(decision.notes, (text) => session.tell(agent, text), { discard: true }),
+                    Effect.forEach(decision.notes, (text) => session.say(Notice.Model({ text, agent, idle: true })), { discard: true }),
                     Decision.$is('Rewrite')(decision) && Action.guards.Task(decision.action) ? decision.action.again : Duration.infinity,
                 ),
             );
@@ -99,7 +72,7 @@ const watch = (policy: Policy, busy: Busy, { call, agent }: Action, task: Option
                     Schedule.addDelay(({ input }) => Effect.succeed(input)),
                 ),
             }),
-            Effect.catchCause((cause) => session.log(`policy stopped watching task ${task.id}: ${Cause.pretty(cause)}`)),
+            Effect.catchCause((cause) => Effect.logWarning('policy stopped watching task', task.id, cause)),
         );
     });
 
@@ -107,39 +80,13 @@ const watch = (policy: Policy, busy: Busy, { call, agent }: Action, task: Option
 
 function current($: EngineInterface, live: Live) {
     return Option.getOrElse(MutableRef.get(live), () => {
-        const made = runtime($);
+        const made = runtime($, Session.layer($));
         MutableRef.set(live, Option.some(made));
         made.runPromise(Effect.void).catch(() => {
             MutableRef.compareAndSet(live, Option.some(made), Option.none());
             return made.dispose();
         });
         return made;
-    });
-}
-
-function settle($: EngineInterface, health: Health, kind: Action['_tag'], fault: Option.Option<string>) {
-    const held = MutableRef.get(health);
-    const after = Option.match(fault, {
-        onNone: () => Record.remove(held, kind),
-        onSome: (reason) => Record.set(held, kind, Option.match(Record.get(held, kind), { onNone: () => ({ since: Effect.runSync(Clock.currentTimeMillis), reason, unjudged: 1 }), onSome: ({ since, unjudged }) => ({ since, reason, unjudged: unjudged + 1 }) })),
-    });
-    MutableRef.set(health, after);
-    if (Option.isSome(fault) || Record.has(held, kind)) {
-        $.ui.status(shown(after));
-    }
-}
-
-function judged($: EngineInterface, health: Health, action: Action, settled: Exit.Exit<Decision, Failure>) {
-    return Exit.match(settled, {
-        onSuccess: (decision) => {
-            settle($, health, action._tag, Option.none());
-            return decision;
-        },
-        onFailure: (cause) => {
-            $.ui.log(`policy did not judge ${action._tag} call ${action.call} and let it run: ${Cause.pretty(cause)}`, { to: 'debug' });
-            Option.match(reasonOf(cause), { onNone: Function.constVoid, onSome: (reason) => settle($, health, action._tag, Option.some(reason)) });
-            return Decision.Allow({ notes: [], faults: [] });
-        },
     });
 }
 
@@ -157,10 +104,10 @@ function monitor($: EngineInterface, e: ToolCallInput, next: Next<'tool.call'>, 
     );
 }
 
-function answer($: EngineInterface, e: ToolCallInput, next: Next<'tool.call'>, action: Action, policy: Policy, live: Runtime, busy: Busy, health: Health) {
+function answer($: EngineInterface, e: ToolCallInput, next: Next<'tool.call'>, action: Action, policy: Policy, live: Runtime, busy: Busy) {
     return live.runPromise(
         Effect.gen(function* () {
-            const decision = judged($, health, action, yield* Effect.exit(Effect.raceFirst(decide(policy, action), deadline(next))));
+            const decision = yield* Effect.raceFirst(decide(policy, action), deadline(next)).pipe(Effect.catchCause((cause) => Effect.as(Effect.logWarning(`policy did not judge ${action._tag} call ${action.call} and let it run`, cause), Decision.Allow({ notes: [], faults: [] }))));
             const watched = (result: ToolCallResult) => Option.filter(backgroundTask(result), () => policy.appliesTo('Task'));
             const run = (input: ToolCallInput) =>
                 request('Engine', 'next', input.tool, () => next(input)).pipe(
@@ -187,18 +134,15 @@ function answer($: EngineInterface, e: ToolCallInput, next: Next<'tool.call'>, a
 }
 
 function hooks(on: On, policy: Policy) {
-    const [live, busy, health]: readonly [Live, Busy, Health] = [MutableRef.make(Option.none()), MutableRef.make(false), MutableRef.make({})];
-    on('session.start', ($, e, next) => {
-        $.ui.status(undefined);
-        return Option.match(MutableRef.getAndSet(live, Option.none()), {
+    const [live, busy]: readonly [Live, Busy] = [MutableRef.make(Option.none()), MutableRef.make(false)];
+    on('session.start', (_, e, next) =>
+        Option.match(MutableRef.getAndSet(live, Option.none()), {
             onNone: () => next(e),
             onSome: (stale) => Promise.all([next(e), stale.dispose()]).then(([started]) => started),
-        });
-    }).catch((_, e, next) => next(e));
-    on('session.end', ($, e, next) => {
+        }),
+    ).catch((_, e, next) => next(e));
+    on('session.end', (_, e, next) => {
         MutableRef.set(busy, Effect.runSync(Effect.as(policy.clear(), false)));
-        MutableRef.set(health, {});
-        $.ui.status(undefined);
         return Option.match(MutableRef.get(live), {
             onNone: () => next(e),
             onSome: (kept) => Promise.all([next(e), kept.runPromise(Session.use((session) => session.end))]).then(([ended]) => ended),
@@ -220,18 +164,14 @@ function hooks(on: On, policy: Policy) {
             Option.filter(Schema.decodeOption(ToolCall)(e), ({ _tag }) => policy.appliesTo(_tag)),
             {
                 onNone: () => next(e),
-                onSome: (action) => answer($, e, next, action, policy, current($, live), busy, health),
+                onSome: (action) => answer($, e, next, action, policy, current($, live), busy),
             },
         ),
     ).catch((error, e, next) => {
         const failed = Option.filter(Schema.decodeOption(ToolCall)(e), ({ _tag }) => policy.appliesTo(_tag) && !next.called && !next.signal.aborted);
-        const said = `its hook ${next.error.kind === 'throw' ? 'threw' : 'ran out of time'}: ${next.error.message ?? next.error.kind}`;
         Option.match(failed, {
             onNone: Function.constVoid,
-            onSome: (action) => {
-                error.ui.log(`policy did not judge ${action._tag} call ${action.call} and let it run: ${said}`, { to: 'debug' });
-                settle(error, health, action._tag, Option.some(firstLine(said)));
-            },
+            onSome: (action) => error.ui.log(`policy did not judge ${action._tag} call ${action.call} and let it run: its hook ${next.error.kind === 'throw' ? 'threw' : 'ran out of time'}: ${next.error.message ?? next.error.kind}`, { to: 'debug' }),
         });
         return next(e);
     });

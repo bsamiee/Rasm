@@ -1680,6 +1680,9 @@ importers:
 
   plugins/claude/risman:
     devDependencies:
+      '@rasm/claude-code':
+        specifier: workspace:*
+        version: link:../../../libs/typescript/ai/claude-code
       '@rasm/mcp':
         specifier: workspace:*
         version: link:../../../libs/typescript/ai/mcp
