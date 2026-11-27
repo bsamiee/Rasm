@@ -29,12 +29,15 @@ Workflow `CI` queues, bases, and checkouts:
 - CI jobs run Nx tasks on all cores (`NX_PARALLEL`), and `Release` jobs `browser` and `unreal` on half
 - Pushes and manual runs read and write the Nx remote cache with secret `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`
 - Pull request runs read with `NX_SELF_HOSTED_REMOTE_CACHE_READ_TOKEN` and store nothing, and fork pull requests hold no secret and use local cache
+- Workflow `macOS` holds job `macos` with a push queue `macos` of its own, as a push waiting in queue `main` behind a previous run's hosted jobs cost 44% of queued time
+- Job `macos` runs `nx-set-shas` itself over runs of workflow `macOS`, and its manual runs take the first commit as base
+- Job `macos` runs on `xcode-27-xlarge`, as its serial Xcode targets set each push's critical path
 
 ## [03]-[CI_JOBS]
 
-Jobs of workflow `CI` and the projects each runs:
+Jobs of workflows `CI` and `macOS` and the projects each runs:
 - Jobs `shas` and `affected` run on instance `graph`, as other jobs wait for them and instance `host` holds a job behind job `linux` of an earlier run
-- Jobs `linux` and `macos` wait for job `shas` alone, and every other job for job `affected` too
+- Job `linux` waits for job `shas` alone, and every other job for job `affected` too
 - Job `affected` lists each job's projects through `nx show projects --affected --withTarget` over that job's targets and exclusions
 - Job `affected` lists job `windows` and its Rhino steps over `test,build`, as Linux graphs hold `build` alone of a suite limited to another OS
 - `test` targets read `build` outputs, and a listing over `test,build` reaches each suite a change selects through its build

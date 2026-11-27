@@ -10,7 +10,7 @@ on:
                 description: Jobs running every task of their nx affected step past the Nx cache, to time them
                 type: choice
                 default: none
-                options: [none, linux and browser, macos, all]
+                options: [none, linux and browser, all]
 
 concurrency:
     group: ${{ github.event_name == 'push' && 'main' || format('{0}-{1}', github.workflow, github.event_name == 'pull_request' && github.ref || github.run_id) }}
@@ -164,57 +164,6 @@ jobs:
                   NX_SKIP_NX_CACHE: ${{ contains(inputs.uncached, 'linux') || inputs.uncached == 'all' }}
             - *reports
 
-    macos:
-        name: macOS
-        needs: shas
-        runs-on: xcode-27
-        timeout-minutes: 120
-        env:
-            NX_BASE: ${{ needs.shas.outputs.base }}
-            NX_HEAD: ${{ needs.shas.outputs.head }}
-            APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
-            APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
-        steps:
-            - &clone
-              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  fetch-depth: 0
-                  filter: blob:none
-            - &restore
-              id: graph
-              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-              with:
-                  path: &graph |-
-                      .cache/nx/workspace-data/*
-                      !.cache/nx/workspace-data/cache
-                      !.cache/nx/workspace-data/*.db*
-                      !.cache/nx/workspace-data/xcode-packages
-                  key: nx-${{ runner.os }}-
-            - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
-              with:
-                  xcode-version: latest-stable
-            - *tools
-            - if: ${{ env.APPLE_DEVELOPMENT_P12 != '' }}
-              uses: apple-actions/import-codesign-certs@288b8ec97b82c66b6f2a6baaf7acc8dfbcbe331c # v7.2.0
-              with:
-                  p12-file-base64: ${{ env.APPLE_DEVELOPMENT_P12 }}
-                  p12-password: ${{ env.APPLE_DEVELOPMENT_P12_PASSWORD }}
-            - run: nx conformance:check
-            - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,tag:host:unreal,tag:host:claude-code'
-              env:
-                  NX_SKIP_NX_CACHE: ${{ inputs.uncached == 'macos' || inputs.uncached == 'all' }}
-            - if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
-              run: hk check --step swiftlint --step swift-format --step plutil --step xcprojformatter --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
-              env:
-                  HK_LIBGIT2: 'false'
-            - &save
-              if: ${{ !cancelled() && github.ref == 'refs/heads/main' && !endsWith(steps.graph.outputs.cache-matched-key, hashFiles('.cache/nx/workspace-data/*.hash')) }}
-              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-              with:
-                  path: *graph
-                  key: nx-${{ runner.os }}-${{ hashFiles('.cache/nx/workspace-data/*.hash') }}
-            - *reports
-
     windows:
         name: Windows
         needs: [shas, affected]
@@ -223,8 +172,19 @@ jobs:
         timeout-minutes: 120
         env: *shas
         steps:
-            - *clone
-            - *restore
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+                  filter: blob:none
+            - id: graph
+              uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: &graph |-
+                      .cache/nx/workspace-data/*
+                      !.cache/nx/workspace-data/cache
+                      !.cache/nx/workspace-data/*.db*
+                      !.cache/nx/workspace-data/xcode-packages
+                  key: nx-${{ runner.os }}-
             - *tools
             - id: rhino
               if: &rhino ${{ needs.affected.outputs.rhino != '[]' }}
@@ -251,7 +211,11 @@ jobs:
               env:
                   EXCLUDE: *excluded
                   RHINO_TOKEN: ${{ secrets.RHINO_TOKEN }}
-            - *save
+            - if: ${{ !cancelled() && github.ref == 'refs/heads/main' && !endsWith(steps.graph.outputs.cache-matched-key, hashFiles('.cache/nx/workspace-data/*.hash')) }}
+              uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+              with:
+                  path: *graph
+                  key: nx-${{ runner.os }}-${{ hashFiles('.cache/nx/workspace-data/*.hash') }}
             - *reports
 
     unreal:
