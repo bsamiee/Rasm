@@ -16,7 +16,8 @@ const Clean = Schema.Struct({
     __unparsed__: Words,
 }).annotate({
     title: 'Clean',
-    description: "Runs the tool's own clean commands when given, stopping at the first that fails, then removes the outputs the named targets of the project declare and the matches of the named patterns, keeping any the workspace tracks as source, and empties the named folders, attempting every removal and failing with each one that failed",
+    description:
+        "Runs the tool's own clean commands when given, stopping at the first that fails, then removes the outputs the named targets of the project declare and the matches of the named patterns, keeping any the workspace tracks as source, and empties the named folders, attempting every removal and failing with each one that failed",
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -59,7 +60,7 @@ const execute = executor(Clean, function* ({ targets, commands, cwd, folders, pa
     const parents = Array.dedupe(declared.flatMap(({ base, swept }) => [base, ...swept]).flatMap((at) => above(posix.dirname(at)))).filter(below(node.data.root));
     const [, unpruned] = yield* Effect.partition(
         Array.sort(parents, Order.flip(Order.String)),
-        Effect.fnUntraced(function* (parent) {
+        Effect.fnUntraced(function* (parent: string) {
             const empty = (yield* fs.exists(path.join(context.root, parent))) && (yield* fs.readDirectory(path.join(context.root, parent))).length === 0;
             yield* empty ? Effect.andThen(fs.remove(path.join(context.root, parent), { recursive: true }), Effect.annotateLogs(Effect.logInfo('removed'), { path: parent, empty: true })) : Effect.void;
         }),

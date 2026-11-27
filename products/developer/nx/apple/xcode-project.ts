@@ -208,7 +208,12 @@ done)
                     parallelism: false,
                     inputs: read,
                     options: { commands: [...schemes.map(({ name: scheme }) => invoke('clean', scheme, [])), ...archived.map(({ archive }) => ['rm', '-rf', archive])], cwd: '.', targets: removed },
-                    configurations: { cache: { commands: Option.toArray(Option.map(purged, ({ name: scheme }) => ['sh', '-c', 'set -eo pipefail; root=$("$@" | jq -er ".[0].buildSettings.BUILD_ROOT"); rm -rf "$(dirname "$(dirname "$root")")"', 'sh', ...invoke('-showBuildSettings', scheme, [...generic, '-json'])])), patterns: [Glob.escape(cloned)] } },
+                    configurations: {
+                        cache: {
+                            commands: Option.toArray(Option.map(purged, ({ name: scheme }) => ['sh', '-c', 'set -eo pipefail; root=$("$@" | jq -er ".[0].buildSettings.BUILD_ROOT"); rm -rf "$(dirname "$(dirname "$root")")"', 'sh', ...invoke('-showBuildSettings', scheme, [...generic, '-json'])])),
+                            patterns: [Glob.escape(cloned)],
+                        },
+                    },
                     metadata: {
                         technologies: ['xcode'],
                         description: `Removes the build products of each shared scheme with xcodebuild clean, then each archive, and under configuration cache removes the per-user DerivedData folder of ${name}, two folders above the BUILD_ROOT xcodebuild -showBuildSettings -json prints, and the package folder upgrade--xcodebuild resolves into, its git mirrors included`,
