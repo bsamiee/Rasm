@@ -2,7 +2,7 @@
     "mcpServers": {
         "atuin": {
             "type": "stdio",
-            "command": "/etc/profiles/per-user/bardiasamiee/bin/atuin",
+            "command": "atuin",
             "args": ["mcp"],
             "default_tools_approval_mode": "approve"
         }

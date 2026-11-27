@@ -50,9 +50,8 @@ CACHE_DIR     = "{{config_root}}/.cache"
 
 # --- [ARTIFACTS]
 
-CLAUDE_CODE_PLUGIN_DIRS = "{{ env.ARTIFACTS_DIR }}/vite/@rasm/function-hooks:{{ env.ARTIFACTS_DIR }}/vite/@rasm/risman"
-DOTNET_DbgMiniDumpName  = "{{ env.ARTIFACTS_DIR }}/dotnet/dumps/%e-%p.dmp"
-FOUNDRY_OUTPUT_DIR      = "{{ env.ARTIFACTS_DIR }}/foundry"
+DOTNET_DbgMiniDumpName = "{{ env.ARTIFACTS_DIR }}/dotnet/dumps/%e-%p.dmp"
+FOUNDRY_OUTPUT_DIR     = "{{ env.ARTIFACTS_DIR }}/foundry"
 
 # --- [CACHES]
 

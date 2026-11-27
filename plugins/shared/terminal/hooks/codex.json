@@ -5,7 +5,7 @@
                 "hooks": [
                     {
                         "async": true,
-                        "command": "/etc/profiles/per-user/bardiasamiee/bin/zellij-agent-resume codex",
+                        "command": "zellij-agent-resume codex",
                         "timeout": 10,
                         "type": "command"
                     }
@@ -17,7 +17,7 @@
                 "matcher": "^Bash$",
                 "hooks": [
                     {
-                        "command": "/etc/profiles/per-user/bardiasamiee/bin/atuin hook codex",
+                        "command": "atuin hook codex",
                         "timeout": 10,
                         "type": "command"
                     }
@@ -29,7 +29,7 @@
                 "matcher": "^Bash$",
                 "hooks": [
                     {
-                        "command": "/etc/profiles/per-user/bardiasamiee/bin/atuin hook codex",
+                        "command": "atuin hook codex",
                         "timeout": 10,
                         "type": "command"
                     }
@@ -40,7 +40,7 @@
             {
                 "hooks": [
                     {
-                        "command": "/etc/profiles/per-user/bardiasamiee/bin/zellij-agent-resume codex",
+                        "command": "zellij-agent-resume codex",
                         "timeout": 3,
                         "type": "command"
                     }

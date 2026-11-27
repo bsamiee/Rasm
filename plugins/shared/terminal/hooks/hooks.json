@@ -13,7 +13,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "/etc/profiles/per-user/bardiasamiee/bin/zellij-agent-resume claude",
+                        "command": "zellij-agent-resume claude",
                         "async": true
                     }
                 ]
@@ -25,7 +25,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "/etc/profiles/per-user/bardiasamiee/bin/atuin hook claude-code",
+                        "command": "atuin hook claude-code",
                         "async": true
                     }
                 ]
@@ -37,7 +37,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "/etc/profiles/per-user/bardiasamiee/bin/atuin hook claude-code",
+                        "command": "atuin hook claude-code",
                         "async": true
                     }
                 ]
@@ -49,7 +49,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "/etc/profiles/per-user/bardiasamiee/bin/atuin hook claude-code",
+                        "command": "atuin hook claude-code",
                         "timeout": 10
                     }
                 ]
@@ -61,7 +61,7 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "/etc/profiles/per-user/bardiasamiee/bin/zellij-agent-resume claude"
+                        "command": "zellij-agent-resume claude"
                     }
                 ]
             }

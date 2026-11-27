@@ -24,39 +24,3 @@ hide_full_access_warning = true
 
 [shell_environment_policy]
 inherit = "core"
-
-# --- [PLUGINS] --------------------------------------------------------------------------
-
-# --- [MARKETPLACE]
-
-[marketplaces.rasm]
-source_type  = "git"
-source       = "https://github.com/bsamiee/Rasm.git"
-ref          = "main"
-sparse_paths = [".claude-plugin", "plugins"]
-
-# --- [ACTIVATION]
-
-[plugins]
-"blender@rasm"        = { enabled = true }
-"chrome@rasm"         = { enabled = true }
-"code@rasm"           = { enabled = true }
-"cpp@rasm"            = { enabled = true }
-"delegate@rasm"       = { enabled = false }
-"dotnet@rasm"         = { enabled = true }
-"dreamweave@rasm"     = { enabled = false }
-"function-hooks@rasm" = { enabled = false }
-"media@rasm"          = { enabled = true }
-"msbuild@rasm"        = { enabled = true }
-"orchestration@rasm"  = { enabled = true }
-"python@rasm"         = { enabled = true }
-"rhino@rasm"          = { enabled = true }
-"risman@rasm"         = { enabled = true }
-"rust@rasm"           = { enabled = true }
-"search@rasm"         = { enabled = true }
-"swift@rasm"          = { enabled = true }
-"tool@rasm"           = { enabled = true }
-"typescript@rasm"     = { enabled = true }
-"uxp@rasm"            = { enabled = true }
-"web@rasm"            = { enabled = true }
-"writing@rasm"        = { enabled = true }
