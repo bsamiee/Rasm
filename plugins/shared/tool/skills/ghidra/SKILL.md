@@ -250,7 +250,11 @@ Types removed by path:
 - Results: Default calling convention's return register when a run names none
 - Userops: Language operations with no definition run as no-ops and count per name
 
-## [06]-[FORMAT]
+## [06]-[CLEANUP]
+
+Work ends deleting `<main>/.artifacts/ghidra/<name>/` and each `<out>` no finding cites, the saved project keeps imports, analysis, and edits
+
+## [07]-[FORMAT]
 
 Every file opens with `// --- [INDEX]` over `// <program> <language> <counts>`, sections with `// --- [NAME]` padded to column 90:
 - Index: `args=<arguments>` closes the counts of a script that takes arguments after `<out>`
@@ -282,7 +286,7 @@ Every file opens with `// --- [INDEX]` over `// <program> <language> <counts>`, 
 - Stubs: `[RENAMED]` rows `<address> <old> -> <new>`, `[UNCHANGED]`, `[UNRESOLVED]`, and `[REJECTED]` rows `<address> <name>[: <message>]`
 - Drop: `[REMOVED]` and `[ABSENT]` rows per path
 
-## [07]-[EXTEND]
+## [08]-[EXTEND]
 
 Each new postscript is one `GhidraScript` file in the bundle, arguments through `Arguments.Usage` or `Arguments.parse`, lines through `Report.write`:
 - Checks: `hk check <script paths>` passes on every script, its `javac`, `pmd`, `google-java-format`, and `ast-grep` steps included

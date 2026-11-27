@@ -125,7 +125,7 @@ Environments and tool sources of each task:
 - `check--uv` runs `uv lock --check`, the one task failing on a lock its manifests disagree with
 - Locks behind their manifests leave each member a project with no checker, test, or build target, and one warning names the lock and `uv lock`
 - Members take a checker or `test--pytest` target where uv resolves the tool for them, from their dependencies or the first group of theirs or their root holding it
-- `nx clean <member> -c cache` empties the member's folder under `environmentPath` and removes its `__pycache__` folders
+- `nx clean <member> -c cache` empties the member's folder under `environmentPath`, removes its `__pycache__` folders, and removes the `.venv` of a uv root, which `mise install` syncs again
 - `ruff` and `tombi` come from mise `[tools]` and `vulture` from the root `dev` group on `PATH`, as hk runs them over the files or member folder it names
 - Root `.venv` runs no Nx task and serves `pixi run --locked python`, `rg` over `site-packages`, editors, ty's language server, hand `uv run`, and hk's vulture
 - Task environments hold their members, every extra, and the group stating their tool alone, as each `uv run` passes `--no-default-groups`

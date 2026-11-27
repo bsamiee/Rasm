@@ -2,7 +2,7 @@ import { posix } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
 import { type Anchor, above, aggregated, EXECUTORS, inside, PLATFORM, removable, type Stated, type Verbs } from '@rasm/nx/inference';
-import { Array, identity, Option, pipe, Record, Schema, Struct, UndefinedOr } from 'effect';
+import { Array, Glob, identity, Option, pipe, Record, Schema, String, Struct, UndefinedOr } from 'effect';
 import type { Member } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -145,7 +145,7 @@ const targets = (member: Member, { outputPath, environmentPath }: Options, manif
                 ...Array.cartesianWith(Array.dedupe([cwd, ...stated.paths, ...Array.fromNullishOr(stated.config).map(posix.dirname)].flatMap(above)), row.configs, (at, file) => posix.join('{workspaceRoot}', at, file)),
                 ...row.variables.map((env) => ({ env })),
                 PLATFORM,
-                { runtime: line(['uv', 'python', 'find', '--show-version', '--directory', member.workspace]) },
+                { runtime: line(['uv', '--color', 'never', 'python', 'find', '--show-version', '--directory', member.workspace]) },
                 '^default',
                 ...project,
                 ...Array.match(
@@ -180,10 +180,10 @@ const targets = (member: Member, { outputPath, environmentPath }: Options, manif
                   upgrade: {
                       uv: {
                           executor: EXECUTORS.upgrade,
-                          options: { cwd: member.root, commands: [{ apply: ['uv', 'lock', '--upgrade'], preview: ['uv', 'lock', '--upgrade', '--dry-run'] }, { apply: ['uv', 'cache', 'prune', '--force'] }] },
+                          options: { cwd: member.root, commands: [{ apply: ['uv', 'lock', '--upgrade'], preview: ['uv', 'lock', '--upgrade', '--dry-run'] }] },
                           inputs: locking,
                           metadata: {
-                              description: 'Moves every locked package to its newest allowed release with uv lock --upgrade, then removes dangling cache entries with uv cache prune --force, as a running uvx holds the cache lock for its whole run',
+                              description: 'Moves every locked package to its newest allowed release with uv lock --upgrade',
                               help: { command: 'uv lock --help', example: { options: { dryRun: true } } },
                           },
                       },
@@ -214,7 +214,7 @@ const targets = (member: Member, { outputPath, environmentPath }: Options, manif
                 install: {
                     ...(member.scripted && {
                         uv: {
-                            command: `${line(['uv', 'export', '--locked', '--package', member.name, '--no-default-groups', '--no-emit-local', '--no-hashes', '--quiet'])} | ${line(['uv', 'tool', 'install', '--constraints', '-', ...member.locals.flatMap((name) => ['--reinstall-package', name]), ...flagged('--python', member.python), '.'])}`,
+                            command: `${line(['uv', '--color', 'never', 'export', '--locked', '--package', member.name, '--no-default-groups', '--no-emit-local', '--no-hashes', '--quiet'])} | ${line(['uv', 'tool', 'install', '--constraints', '-', ...member.locals.flatMap((name) => ['--reinstall-package', name]), ...flagged('--python', member.python), '.'])}`,
                             options: { cwd: member.root },
                             inputs: ['default', ...built, ...project, { externalDependencies: [] }],
                             metadata: {
@@ -231,17 +231,21 @@ const targets = (member: Member, { outputPath, environmentPath }: Options, manif
     const removed = removable(tools);
     const emptied = Option.toArray(Option.filter(environed, () => Array.isReadonlyArrayNonEmpty(member.checks))).map((at) => ['NX_WORKSPACE_ROOT', ...at.split('/')]);
     const scattered = member.leaf ? [posix.join('{projectRoot}', '**', '__pycache__')] : [];
+    const [pruned, environment] = member.root === member.workspace ? [[['uv', 'cache', 'prune']], [Glob.escape(posix.join(member.root, '.venv'))]] : [[], []];
+    const cleared = [...(removed.length > 0 ? [`removes the outputs ${removed.join(', ')} declare`] : []), ...(pruned.length > 0 ? ['removes the unused entries and cached environments of the uv cache with uv cache prune'] : [])];
     const verbs: Verbs = {
         ...tools,
         clean: {
-            ...([...removed, ...emptied, ...scattered].length > 0 && {
+            ...([...removed, ...emptied, ...scattered, ...pruned, ...environment].length > 0 && {
                 uv: {
                     executor: EXECUTORS.clean,
-                    options: { targets: removed },
-                    configurations: { cache: { folders: emptied, patterns: scattered } },
+                    options: { targets: removed, commands: pruned, cwd: member.root },
+                    configurations: { cache: { folders: emptied, patterns: [...scattered, ...environment] } },
                     inputs: ['default', '^default', posix.join('{workspaceRoot}', member.lock), { externalDependencies: [] }],
                     metadata: {
-                        description: `Removes the outputs ${removed.join(', ')} declare, and under configuration cache empties the folder environmentPath names for the project (its environments and the caches of its checkers and tests) and removes each __pycache__ folder under a project holding no other`,
+                        description: String.capitalize(
+                            [...cleared, 'under configuration cache empties the folder environmentPath names for the project (its environments and the caches of its checkers and tests) and removes each __pycache__ folder under a project holding no other and the .venv a uv root syncs'].join(', and '),
+                        ),
                         help: { command: 'nx run --help', example: { options: { targets: removed } } },
                     },
                 },

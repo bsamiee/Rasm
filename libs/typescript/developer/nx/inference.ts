@@ -91,7 +91,7 @@ const legible = (error: unknown): Error =>
         Match.when(Match.instanceOf(AggregateCreateNodesError), (aggregate) => new AggregateCreateNodesError(aggregate.errors.map(Tuple.evolve([undefined, legible])), aggregate.partialResults)),
         Match.when(
             (each: unknown): each is Error => Predicate.isError(each) && Object.hasOwn(each, 'message') && Predicate.isString(each.message) && String.isNonEmpty(each.message),
-            (each) => (Predicate.isError(each.cause) ? new Cause.UnknownError(each, `${each.message}: ${Formatter.format(each.cause)}`) : each),
+            (each) => Array.match(Array.ensure(each.cause).filter(Predicate.isError), { onEmpty: () => each, onNonEmpty: (causes) => new Cause.UnknownError(each, [each.message, ...causes.map((cause) => Formatter.format(cause))].join(': ')) }),
         ),
         Match.when(Predicate.isError, (each) => new Cause.UnknownError(each, Predicate.isString(each.message) && String.isNonEmpty(each.message) ? each.message : (each.stack ?? Formatter.format(each)))),
         Match.orElse((each) => new Cause.UnknownError(each, Formatter.format(each))),

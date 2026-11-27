@@ -39,12 +39,8 @@ jobs:
                   comm -23 <(printf "%s\n" "${sockets}") <(printf "%s\n" "${bound}") | xargs -r -d '\n' rm -f --
             - &tools
               uses: $/.github/actions/tools
-            - &packages
-              run: pnpm store prune
-            - &wheels
-              run: uv cache prune
             - &prune
-              run: mise prune --yes
+              run: nx run-many --targets=clean--pnpm,clean--uv,clean--mise --projects=rasm
             - run: docker container prune --force --filter until=1h
             - run: docker volume prune --force
             - run: docker image prune --force
@@ -72,8 +68,6 @@ jobs:
             - *checkout
             - *leftovers
             - *tools
-            - *packages
-            - *wheels
             - *prune
 
     graph:
@@ -84,5 +78,4 @@ jobs:
             - *checkout
             - *leftovers
             - *tools
-            - *packages
-            - *wheels
+            - run: nx run-many --targets=clean--pnpm,clean--uv --projects=rasm

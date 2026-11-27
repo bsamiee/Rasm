@@ -22,25 +22,34 @@ const FILES = combineGlobPatterns(Array.dedupe([...HOSTS.map(({ manifest }) => `
 const UPSTREAM = { dependentTasksOutputFiles: '**/*' } as const;
 const RECEIVED: NonNullable<TargetConfiguration['inputs']> = [UPSTREAM, { externalDependencies: [] }];
 const UNSTATED: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
+const PRUNED = [['mise', 'prune', '--yes']];
 const ROOT: Verbs = {
     clean: {
         mise: {
             executor: EXECUTORS.clean,
-            dependsOn: [{ projects: '*', target: 'clean--!(mise)', params: 'forward' }],
+            options: { commands: PRUNED },
+            configurations: { cache: { commands: PRUNED } },
+            inputs: UNSTATED,
+            metadata: {
+                description: 'Deletes the installed tool versions no config file or tool stub mise tracks selects and no running process was started from, and forgets tracked config files that no longer exist, with mise prune --yes, under configuration cache as well',
+                help: { command: 'mise prune --help', example: { args: ['--dry-run'] } },
+            },
+        },
+        nx: {
+            executor: EXECUTORS.clean,
+            dependsOn: [{ projects: '*', target: 'clean--!(nx)', params: 'forward' }],
             options: { folders: [['ARTIFACTS_DIR']] },
             configurations: {
                 cache: {
-                    commands: [
-                        ['mise', 'prune', '--yes'],
-                        ['nx', 'reset', '--only-cache'],
-                    ],
+                    commands: [['nx', 'reset', '--only-cache']],
                     folders: [['CACHE_DIR']],
                 },
             },
             inputs: UNSTATED,
             metadata: {
-                description: `Empties the folder ARTIFACTS_DIR of ${MISE} names once every other clean target ran, and under configuration cache runs mise prune, empties the Nx task cache with nx reset --only-cache, and empties the folder CACHE_DIR names but the entry holding Nx workspace data`,
-                help: { command: 'mise prune --help', example: { options: { folders: [['ARTIFACTS_DIR']] } } },
+                technologies: ['nx'],
+                description: `Empties the folder ARTIFACTS_DIR of ${MISE} names once every other clean target ran, and under configuration cache empties the Nx task cache with nx reset --only-cache and the folder CACHE_DIR names but the entry holding Nx workspace data`,
+                help: { command: 'nx reset --help', example: { options: { folders: [['ARTIFACTS_DIR']] } } },
             },
         },
     },
@@ -69,6 +78,18 @@ const ACTIONS: Verbs = {
     },
 };
 const PIXI: Verbs = {
+    clean: {
+        pixi: {
+            executor: EXECUTORS.clean,
+            configurations: { cache: { commands: [['pixi', 'clean']] } },
+            inputs: [{ externalDependencies: [] }],
+            metadata: {
+                technologies: ['pixi'],
+                description: 'Under configuration cache, removes the installed Pixi environments and the caches of the .pixi folder of the workspace with pixi clean',
+                help: { command: 'pixi clean --help', example: { args: ['--activation-cache'] } },
+            },
+        },
+    },
     upgrade: {
         pixi: {
             executor: EXECUTORS.upgrade,

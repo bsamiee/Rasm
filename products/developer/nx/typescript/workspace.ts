@@ -106,6 +106,7 @@ const plugins = Effect.fnUntraced(function* (workspaceRoot: string, row: string,
 const workspace = Effect.fnUntraced(function* (anchor: Anchor, manager: PackageManager, knipConfig: string | undefined, row: string, { manifest: { jscpd }, stated }: { readonly manifest: typeof Manifest.Type; readonly stated: Stated }) {
     const { workspaceRoot } = anchor;
     const { prune } = MANAGERS[manager];
+    const pruned = [[manager, ...prune]];
     const lock = getLockFileName(manager);
     const knip = ['knip', ...(UndefinedOr.map(knipConfig, (at) => ['--config', at]) ?? [])].map(quoteShellArg).join(' ');
     const configured = Option.orElse(yield* Effect.findFirst(['.jscpd.json', '.config/jscpd.json', '.config/.jscpd.json'], (at) => FileSystem.FileSystem.use((fs) => fs.exists(join(workspaceRoot, at)))), () => Option.liftPredicate(MANIFEST, () => jscpd !== undefined));
@@ -144,9 +145,10 @@ const workspace = Effect.fnUntraced(function* (anchor: Anchor, manager: PackageM
             clean: {
                 [manager]: {
                     executor: EXECUTORS.clean,
-                    configurations: { cache: { commands: [[manager, ...prune]] } },
+                    options: { commands: pruned },
+                    configurations: { cache: { commands: pruned } },
                     inputs: [{ externalDependencies: [] }],
-                    metadata: { description: `Under configuration cache, removes the packages no project of the store or cache of ${manager} references with ${manager} ${prune.join(' ')}`, help: { command: `${manager} ${prune.join(' ')} --help`, example: { args: [] } } },
+                    metadata: { description: `Removes the packages no project of the store or cache of ${manager} references with ${manager} ${prune.join(' ')}, under configuration cache as well`, help: { command: `${manager} ${prune.join(' ')} --help`, example: { args: [] } } },
                 },
             },
             check: Record.map(checks, (target, tool): TargetConfiguration => ({ options: { cwd: '.' }, cache: true, outputs: [], ...target, metadata: { technologies: [tool], ...target.metadata } })),

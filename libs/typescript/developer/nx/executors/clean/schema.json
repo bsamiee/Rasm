@@ -74,5 +74,5 @@
     "required": ["targets", "commands", "cwd", "folders"],
     "additionalProperties": true,
     "title": "Clean",
-    "description": "Runs the tool's own clean commands when given, then removes the outputs the named targets of the project declare and the matches of the named patterns, keeping any the workspace tracks as source, and empties the named folders"
+    "description": "Runs the tool's own clean commands when given, stopping at the first that fails, then removes the outputs the named targets of the project declare and the matches of the named patterns, keeping any the workspace tracks as source, and empties the named folders, attempting every removal and failing with each one that failed"
 }
