@@ -27,11 +27,11 @@ const nodes = inferring(Schema.Struct({}), run, function* (files, _, { workspace
     const colima = {
         install: {
             [ENGINE]: {
-                command: `mkdir -p "$COLIMA_HOME" && { colima status > /dev/null 2>&1 || colima start --activate=false --ssh-config=false --mount none --port-forwarder grpc --memory 8 --disk 20 --cpus "$(($(getconf _NPROCESSORS_ONLN) / 2))"; }`,
+                command: `mkdir -p "$COLIMA_HOME" && { colima status > /dev/null 2>&1 || colima start --activate=false --ssh-config=false --mount none --port-forwarder grpc --memory 8 --disk 20 --cpus "$(($(getconf _NPROCESSORS_ONLN) / 2))"; } && colima ssh -- sudo sh -c 'tune2fs -o discard "$(findmnt -nvo SOURCE -T /var/lib/docker)" && mount -o remount,discard /var/lib/docker'`,
                 inputs: [{ externalDependencies: [] }],
                 metadata: {
                     description:
-                        'Starts the Colima VM holding the Docker Engine DOCKER_HOST names on half the cores of this machine with a data disk capped at 20 GiB, in the COLIMA_HOME folder it creates first as Colima reads that variable only once the folder exists, returning once the engine answers and leaving the VM up after the run, with colima start where colima status finds no VM running',
+                        'Starts the Colima VM of profile COLIMA_PROFILE holding the Docker Engine DOCKER_HOST names on half the cores of this machine with a data disk capped at 20 GiB, in the COLIMA_HOME folder it creates first as Colima reads that variable only once the folder exists, returning once the engine answers and leaving the VM up after the run, with colima start where colima status finds no VM running, then stores discard as a default mount option of the disk holding /var/lib/docker with tune2fs and remounts it with it, so blocks the VM frees return to this machine as it frees them',
                     help: { command: 'colima start --help', example: { args: ['--verbose'] } },
                 },
             },
@@ -44,13 +44,13 @@ const nodes = inferring(Schema.Struct({}), run, function* (files, _, { workspace
                     commands: [
                         ['docker', 'image', 'prune', '--force'],
                         ['docker', 'builder', 'prune', '--force'],
-                        ['colima', 'ssh', '--', 'sudo', 'fstrim', '--all', '--verbose'],
                     ],
                 },
                 configurations: { cache: { commands: [['colima', 'delete', '--data', '--force']] } },
                 inputs: [{ externalDependencies: [] }],
                 metadata: {
-                    description: 'Removes dangling images and build cache with docker image prune and docker builder prune, then discards the freed blocks of the VM disks with fstrim so their files shrink on this machine, and under configuration cache deletes the VM with its data with colima delete --data',
+                    description:
+                        'Removes dangling images and build cache with docker image prune and docker builder prune, their blocks returning to this machine through the discard mount option install--docker sets on the disk holding /var/lib/docker, and under configuration cache deletes the VM with its data with colima delete --data',
                     help: { command: 'colima delete --help', example: { args: [] } },
                 },
             },

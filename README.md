@@ -264,4 +264,4 @@ Products deliver through the same targets in every ecosystem, development builds
 - Container engines run under systemd on machines and, on the owner's Mac, in a Colima VM `DOCKER_HOST` names
 - Project `docker` exists on every machine, and its `install--docker` starts the Colima VM a workspace `COLIMA_HOME` names or confirms systemd's engine answers
 - Packages requiring an engine client take tag `host:docker`, and their `test--*` and `install--*` tasks depend on `docker:install--docker`
-- Colima keeps its VM in `.cache/colima`, `clean--docker` prunes images and trims its disk, and `nx clean -c cache` deletes it
+- Colima keeps its VM in `.cache/colima` under profile `COLIMA_PROFILE`, as Docker contexts take a profile name and a `default` profile elsewhere owns context `colima`, `install--docker` mounts its data disk with online discard, `clean--docker` prunes images and build cache, and `nx clean -c cache` deletes it

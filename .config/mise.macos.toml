@@ -7,8 +7,9 @@ _.path = { path = ['''{% set props = config_root ~ "/Directory.Build.props" %}/A
 
 # --- [CONTAINERS]
 
-COLIMA_HOME = "{{ env.CACHE_DIR }}/colima"
-DOCKER_HOST = "unix://{{ env.COLIMA_HOME }}/default/docker.sock"
+COLIMA_HOME    = "{{ env.CACHE_DIR }}/colima"
+COLIMA_PROFILE = "rasm"
+DOCKER_HOST    = "unix://{{ env.COLIMA_HOME }}/{{ env.COLIMA_PROFILE }}/docker.sock"
 
 # --- [GHIDRA]
 
