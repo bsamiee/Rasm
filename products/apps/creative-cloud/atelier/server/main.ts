@@ -15,8 +15,7 @@ import { Specifier } from '@rasm/object-model/model';
 import { Dialogs, EvaluationRpcs, Failure, RenderRpcs } from '@rasm/object-model/rpcs';
 import { teardown } from '@rasm/telemetry/node';
 import { UxpManifest } from '@rasm/uxp/manifest';
-import { Effect, Layer, Option, Predicate, Schema } from 'effect';
-import { Host } from 'effect/net';
+import { Effect, Layer, Predicate, Schema } from 'effect';
 import { catalog, DESCRIPTIONS, RegistryApplications, readLogs, RegistryPath, route, toolsOf } from '#/applications';
 import { Declarations, declarations } from '#/declarations';
 import { native } from '#/native';
@@ -47,7 +46,6 @@ Effect.gen(function* () {
     return yield* serve(
         { name: manifest.name, description: manifest.description, version, identifier },
         {
-            listen: Option.some(Host.hostPortFromStringUnsafe('localhost:7490')),
             instructions: [
                 'Atelier drives the Adobe applications installed on this Mac (InDesign, Photoshop, Illustrator, After Effects, Premiere Pro, Media Encoder, Acrobat): their documents, windows, dialogs, scripts, and typography. Search for its tools for any task in one of those applications, and work in the Beta of each, which a product code or name opens, opening a year release by its listed name only for a file that needs it.',
                 ...Tools.instructions,
@@ -58,7 +56,7 @@ Effect.gen(function* () {
             ],
             settings: [...Tools.settings, RegistryPath],
         },
-        Layer.effectDiscard(tools(identifier)).pipe(Layer.provide(InterfaceMaps.layer), Layer.provide(Layer.provideMerge(Declarations.layer, Layer.provideMerge(Workspace.layer(catalog), RegistryApplications.layer))), Layer.provide([layerUndici, layerDigest]), Layer.provideMerge(application)),
+        (stop) => Layer.effectDiscard(tools(identifier)).pipe(Layer.provide(InterfaceMaps.layer), Layer.provide(Layer.provideMerge(Declarations.layer, Layer.provideMerge(Workspace.layer(catalog), RegistryApplications.layer))), Layer.provide([layerUndici, layerDigest]), Layer.provideMerge(application(stop))),
         ended,
     );
 }).pipe(Effect.provide(layer), runMain({ teardown }));

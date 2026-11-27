@@ -6,6 +6,7 @@ package import OTel
 import OTelSemanticConventions
 import Runtime
 import System
+import os
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -20,7 +21,7 @@ private struct LogRecord: Encodable {
     }
 
     struct Attribute: Encodable {
-        let value: Logger.MetadataValue
+        let value: Logging.Logger.MetadataValue
 
         func encode(to encoder: any Encoder) throws {
             var attribute = encoder.singleValueContainer()
@@ -51,13 +52,14 @@ private struct LogRecord: Encodable {
 package struct JSONLogHandler: LogHandler {
     // --- [STATE]
 
-    package var metadata: Logger.Metadata = [:] { didSet { terminal?.metadata = metadata } }
-    package var metadataProvider: Logger.MetadataProvider?
-    private var level: Logger.Level?
+    package var metadata: Logging.Logger.Metadata = [:] { didSet { terminal?.metadata = metadata } }
+    package var metadataProvider: Logging.Logger.MetadataProvider?
+    private var level: Logging.Logger.Level?
     private var terminal: any LogHandler?
     private let scope: String
     private let file: RotatingFile?
     private let export: any LogHandler?
+    private let unified: os.Logger
     private let filter: LogFilter
     private let resource: [String: LogRecord.Attribute]
     private let trace: OTel.Configuration.LoggingMetadataProviderConfiguration
@@ -67,20 +69,24 @@ package struct JSONLogHandler: LogHandler {
         label: String,
         to sinks: (file: RotatingFile?, export: any LogHandler?, terminal: any LogHandler?),
         filter: LogFilter,
-        resource: Logger.Metadata,
+        resource: Logging.Logger.Metadata,
         trace: OTel.Configuration.LoggingMetadataProviderConfiguration,
-        metadataProvider: Logger.MetadataProvider? = nil,
+        metadataProvider: Logging.Logger.MetadataProvider? = nil,
     ) {
         (scope, (file, export, terminal), self.filter, self.trace, self.metadataProvider) = (label, sinks, filter, trace, metadataProvider)
         self.resource = resource.mapValues(LogRecord.Attribute.init)
+        unified = resource[OTelAttribute.service.name].map { service in os.Logger(subsystem: service.description, category: label) } ?? os.Logger()
     }
 
-    package var logLevel: Logger.Level {
-        get { level ?? filter.level(for: scope) }
+    package var logLevel: Logging.Logger.Level {
+        get {
+            let recorded = level ?? filter.level(for: scope)
+            return Logging.Logger.Level.allCases.first { candidate in candidate >= recorded || unified.isEnabled(type: candidate.logType) } ?? recorded
+        }
         set { level = newValue }
     }
 
-    package subscript(metadataKey key: String) -> Logger.Metadata.Value? {
+    package subscript(metadataKey key: String) -> Logging.Logger.Metadata.Value? {
         get { metadata[key] }
         set { metadata[key] = newValue }
     }
@@ -89,7 +95,13 @@ package struct JSONLogHandler: LogHandler {
 
     package func log(event: LogEvent) {
         let now = Date.now
-        var attributes = attributes(of: event)
+        var attributes = [metadataProvider?.get() ?? [:], event.metadata ?? [:], event.attributes].reduce(into: metadata) { merged, next in merged.merge(next) { _, last in last } }
+        if unified.isEnabled(type: event.level.logType) {
+            let fields = Dictionary(grouping: attributes.sorted { first, second in first.key < second.key }) { field in Privacy.of(field.value) == .public }
+                .mapValues { marked in marked.map { field in " \(field.key)=\(field.value)" }.joined() }
+            unified.log(level: event.level.logType, "\(event.message.description, privacy: .public)\(fields[true] ?? "", privacy: .public)\(fields[false] ?? "", privacy: .private(mask: .hash))")
+        }
+        guard (level ?? filter.level(for: scope)) <= event.level else { return }
         let record = LogRecord(
             timestamp: now,
             severityText: event.level.severity.text,
@@ -123,7 +135,7 @@ package struct JSONLogHandler: LogHandler {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-extension Logger.Level {
+extension Logging.Logger.Level {
     package var severity: (text: String, number: Int) {
         switch self {
             case .trace: ("TRACE", 1)
@@ -135,11 +147,21 @@ extension Logger.Level {
             case .critical: ("FATAL", 21)
         }
     }
+
+    var logType: OSLogType {
+        switch self {
+            case .trace, .debug: .debug
+            case .info: .info
+            case .notice: .default
+            case .warning, .error: .error
+            case .critical: .fault
+        }
+    }
 }
 
 extension LogEvent {
-    var attributes: Logger.Metadata {
-        let location: Logger.Metadata =
+    var attributes: Logging.Logger.Metadata {
+        let location: Logging.Logger.Metadata =
             level >= .warning
             ? [
                 OTelAttribute.code.file.path: .attributed(file, attributes: [Privacy.public]), OTelAttribute.code.function.name: .attributed(function, attributes: [Privacy.public]),
@@ -158,17 +180,11 @@ extension LogEvent {
                 case .failure(let failure): causes + ["Backtrace capture failed: \(failure)"]
                 case nil: causes
             }
-        let exception: [String: Logger.MetadataValue?] = [
+        let exception: [String: Logging.Logger.MetadataValue?] = [
             OTelAttribute.exception.type: .attributed(String(reflecting: type(of: error)), attributes: [Privacy.public]),
             OTelAttribute.exception.message: .attributed(error is any LocalizedError ? error.localizedDescription : String(describing: error), attributes: [Privacy.public]),
             OTelAttribute.exception.stacktrace: stack.isEmpty ? nil : .attributed(stack.joined(separator: "\n"), attributes: [Privacy.public]),
         ]
         return location.merging(exception.compactMapValues(\.self)) { _, stated in stated }
-    }
-}
-
-extension LogHandler {
-    func attributes(of event: LogEvent) -> Logger.Metadata {
-        [metadataProvider?.get() ?? [:], event.metadata ?? [:], event.attributes].reduce(into: metadata) { merged, next in merged.merge(next) { _, last in last } }
     }
 }

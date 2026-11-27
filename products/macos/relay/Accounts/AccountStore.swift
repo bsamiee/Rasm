@@ -200,7 +200,7 @@ final class AccountStore {
         func observe(file: URL, provider: Provider) async {
             let fields: Logging.Logger.Metadata = ["provider": "\(provider.name, privacy: .public)", "file": "\(file.lastPathComponent, privacy: .public)"]
             do {
-                for try await _ in FileEvent.events(of: file).map({ batch in
+                for try await _ in FileEvent.events(of: [file]).map({ batch in
                     _ = try batch.get()
                     return try ifPresent { try Data(contentsOf: file) }
                 }).removeDuplicates().dropFirst().debounce(for: .milliseconds(300)) {

@@ -1,4 +1,4 @@
-import type { Observation } from '@rasm/applications/contract';
+import type { Observation } from '@rasm/applications/interface';
 import { Description, type FacetContainer, FacetControl } from '@rasm/applications/source';
 import { HostError, Specifier } from '@rasm/object-model/model';
 import { Unmatched } from '@rasm/search/unmatched';

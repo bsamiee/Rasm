@@ -62,18 +62,21 @@ class Typeset extends Schema.Class<Typeset, { readonly brand: unique symbol }>('
         return Option.match(this.settings, { onNone: () => `Read settings of ${this.target}`, onSome: (settings) => `Set ${Struct.keys(settings).join(', ')} of ${this.target}` });
     }
 }
+class FontName extends Schema.Class<FontName, { readonly brand: unique symbol }>('FontName')({ name: Schema.String.annotate({ description: 'Font, PostScript, or full name, family name selects its Regular or first face' }) }) {
+    static readonly Result = Inspection.View.cases.Font;
+}
 class FontSource extends Schema.Class<FontSource, { readonly brand: unique symbol }>('FontSource')({
-    name: Schema.String.annotate({ description: 'Font, PostScript, or full name, family name selects its Regular or first face' }),
+    name: FontName.fields.name,
     text: Schema.String.annotate({ description: 'Subset characters for unreadable font files' }),
     file: Schema.String.annotate({ description: 'Path the subset of an unreadable font file is written to' }),
 }) {
-    static readonly Result = Schema.Struct({ font: Inspection.View.cases.Font, source: Schema.OptionFromOptionalKey(Source.mapFields(Struct.omit(['data'])).mapFields(Struct.assign({ file: Schema.String.annotate({ description: 'Installed face file, or subset written to the requested file' }) }))) });
+    static readonly Result = Schema.Option(Source.mapFields(Struct.omit(['data'])).mapFields(Struct.assign({ file: Schema.String.annotate({ description: 'Installed face file, or subset written to the requested file' }) }))).annotate({ description: 'Face file to shape with, absent for a font not installed' });
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const TypesettingRpcs = RpcGroup.make(makeRpc('runs', Runs), makeRpc('kerns', Kerns), makeRpc('typeset', Typeset), makeRpc('font', FontSource));
+const TypesettingRpcs = RpcGroup.make(makeRpc('runs', Runs), makeRpc('kerns', Kerns), makeRpc('typeset', Typeset), makeRpc('font', FontName), makeRpc('fontSource', FontSource));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Adjust, FontSource, Kerns, Runs, Typeset, TypesettingRpcs };
+export { Adjust, FontName, FontSource, Kerns, Runs, Typeset, TypesettingRpcs };

@@ -1,4 +1,4 @@
-import { KeyStep } from '@rasm/applications/contract';
+import { KeyStep } from '@rasm/applications/interface';
 import type { Declaration } from '@rasm/applications/source';
 import { readVersionAndDescriptor } from 'ag-psd/dist/descriptor.js';
 import { createReader, readSignature, readUint16 } from 'ag-psd/dist/psdReader.js';
@@ -47,7 +47,7 @@ const KEYS: Record.ReadonlyRecord<string, KeyStep['key']> = {
 const SHORTCUT = new RegExp(`^(?<held>(?:(?:${Record.keys(MODIFIERS).map(RegExp.escape).join('|')})\\+)*)(?:#Keyboard_)?(?<key>.+)$`, 'u');
 const ILLUSTRATOR = { modifiers: { shift: 32, command: 64, option: 128 }, tab: 9, functions: 13 } as const;
 const INDESIGN = { context: 'DefaultContext', set: 'Default.indk' } as const;
-const CATALOG = { locale: 'en', technique: 'tool_technique', pages: 'https://helpx.adobe.com/', hosts: { PHXS: 'PHSP' } as Record.ReadonlyRecord<string, string> } as const;
+const CATALOG = { locale: 'en', technique: 'tool_technique', pages: 'https://helpx.adobe.com/' } as const;
 const ESCAPED = /\\(?<escaped>.)/gu;
 const TOKEN = /\/(?<name>(?:\\.|[^\s\\/{}[\]<>])*)|(?<open>\{)|(?<close>\})|\[\s*\d+(?<bytes>[\da-f\s]*)\]|<\s*\d+(?<bytes>[\da-f\s]*)>|\((?<text>(?:\\.|[^\\)])*)\)|(?<word>[^\s/{}[\]()<>]+)/giu;
 
@@ -238,7 +238,7 @@ const catalogs = Effect.fnUntraced(function* ({ application, bundle }: Place) {
     const [path, files] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const listed = yield* found(path.join(bundle, 'Contents', 'Required', 'UXP'), `**/com.adobe.unifiedpanel/locale/${CATALOG.locale}/*/curatedContent.json`);
     const decoded = yield* Effect.forEach(listed, (file) => Effect.flatMap(files.readFileString(file), Schema.decodeEffect(Catalog)));
-    const served = Array.filter(decoded, ({ meta: { host } }) => Option.getOrElse(Record.get(CATALOG.hosts, host), () => host) === application.product);
+    const served = Array.filter(decoded, ({ meta: { host } }) => application.urlSchemes.includes(`adobe+${host.toLowerCase()}`));
     return Array.filterMap(
         Array.flatMap(served, ({ items }) => items),
         ({ name, itemId, context, cmHelpXDetail = [] }) => (context.trigger === CATALOG.technique ? Result.succeed<Row>([itemId, { label: name, ...Record.getSomes({ help: Option.map(Array.head(cmHelpXDetail), ({ id }) => new URL(`${id}.html`, CATALOG.pages).href) }) }]) : Result.failVoid),

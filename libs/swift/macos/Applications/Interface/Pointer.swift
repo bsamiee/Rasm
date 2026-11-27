@@ -36,19 +36,22 @@ extension Pointer {
     private static let shown: Mutex<(seed: Int32, cursor: Cursor)?> = Mutex(nil)
 
     init?(of application: NSRunningApplication, windows: [InstanceState.Window]) {
-        let connection: Int32 = mainConnection()
-        var (point, local, window, owner): (CGPoint, CGPoint, CGWindowID, Int32) = (.zero, .zero, kCGNullWindowID, 0)
-        let located: Bool = unsafe application.isActive && currentCursorLocation(connection, &point) == .success
-        let found: Bool = unsafe located && findWindowAndOwner(connection, 0, 1, 0, &point, &local, &window, &owner) == .success
-        let owned: Bool = found && windows.contains { (row: InstanceState.Window) -> Bool in row.number == window }
-        let cursor: Cursor? = Self.shown.withLock { shown -> Cursor? in
-            guard owned else { return nil }
-            let seed: Int32 = currentCursorSeed()
-            guard shown?.seed != seed else { return shown?.cursor }
-            guard let image = Cursor.Image(.global), currentCursorSeed() == seed else { return nil }
-            shown = (seed: seed, cursor: Cursor(image))
-            return shown?.cursor
-        }
+        let owned: Bool =
+            application.isActive
+            && CGEvent(source: nil).map { (event: CGEvent) -> Bool in
+                var (point, local, window, owner): (CGPoint, CGPoint, CGWindowID, Int32) = (event.location, .zero, kCGNullWindowID, 0)
+                let found: Bool = unsafe findWindowAndOwner(mainConnection(), 0, 1, 0, &point, &local, &window, &owner) == .success
+                return found && windows.contains { (row: InstanceState.Window) -> Bool in row.number == window }
+            } ?? false
+        let cursor: Cursor? =
+            owned
+            ? Self.shown.withLock { shown -> Cursor? in
+                let seed: Int32 = currentCursorSeed()
+                guard shown?.seed != seed else { return shown?.cursor }
+                guard let image = Cursor.Image(.global), currentCursorSeed() == seed else { return nil }
+                shown = (seed: seed, cursor: Cursor(image))
+                return shown?.cursor
+            } : nil
         let draggingFrame: CGRect? = windows.first { (row: InstanceState.Window) -> Bool in row.band == .dragging && row.onScreen }?.frame
         guard cursor != nil || draggingFrame != nil else { return nil }
         self.init(cursor: cursor, draggingFrame: draggingFrame)
@@ -63,35 +66,88 @@ extension Pointer.Cursor {
         let scaled: Float? = unsafe cursorScale(mainConnection(), &scale) == .success ? scale : nil
         let names: [SHA256.Digest: String] = Self.catalogs.withLock { catalogs in
             if let built = catalogs[scaled] { return built }
-            let coreType: String = "_coreCursorType"
-            var count: UInt32 = 0
-            let properties: UnsafeMutablePointer<objc_property_t>? = unsafe class_copyPropertyList(object_getClass(NSCursor.self), &count)
-            defer { unsafe free(properties) }
-            let typed: [(type: Int32, name: String)] = unsafe UnsafeBufferPointer(start: properties, count: Int(count)).compactMap { property in
-                let name: String = unsafe String(cString: property_getName(property))
-                let cursor: NSCursor? = Selector(name) == #selector(getter: NSCursor.current) ? nil : NSCursor.value(forKey: name) as? NSCursor
-                let type: Int32? = cursor?.responds(to: Selector(coreType)) == true ? cursor?.value(forKey: coreType) as? Int32 : nil
-                return type.map { type in (type: type, name: name) }
+            let properties: [(getter: Selector, cursor: NSCursor)] = [
+                (#selector(getter: NSCursor.arrow), NSCursor.arrow),
+                (#selector(getter: NSCursor.crosshair), NSCursor.crosshair),
+                (#selector(getter: NSCursor.disappearingItem), NSCursor.disappearingItem),
+                (#selector(getter: NSCursor.operationNotAllowed), NSCursor.operationNotAllowed),
+                (#selector(getter: NSCursor.dragLink), NSCursor.dragLink),
+                (#selector(getter: NSCursor.dragCopy), NSCursor.dragCopy),
+                (#selector(getter: NSCursor.contextualMenu), NSCursor.contextualMenu),
+                (#selector(getter: NSCursor.pointingHand), NSCursor.pointingHand),
+                (#selector(getter: NSCursor.closedHand), NSCursor.closedHand),
+                (#selector(getter: NSCursor.openHand), NSCursor.openHand),
+                (#selector(getter: NSCursor.iBeam), NSCursor.iBeam),
+                (#selector(getter: NSCursor.iBeamCursorForVerticalLayout), NSCursor.iBeamCursorForVerticalLayout),
+                (#selector(getter: NSCursor.zoomIn), NSCursor.zoomIn),
+                (#selector(getter: NSCursor.zoomOut), NSCursor.zoomOut),
+                (#selector(getter: NSCursor.columnResize), NSCursor.columnResize),
+                (#selector(getter: NSCursor.rowResize), NSCursor.rowResize),
+            ]
+            let columns: [(name: String, cursor: NSCursor)] = NSHorizontalDirection.allCases.map { (direction: NSHorizontalDirection) -> (name: String, cursor: NSCursor) in
+                (name: "\(NSStringFromSelector(#selector(getter: NSCursor.columnResize))) \(direction)", cursor: NSCursor.columnResize(directions: NSHorizontalDirection.Set(direction)))
             }
-            let appKit: [(digest: SHA256.Digest, name: String)] = Dictionary(grouping: typed, by: \.type).compactMap { type, aliases -> (digest: SHA256.Digest, name: String)? in
-                guard let name = aliases.map(\.name).min(), let image = Image(.core(type)) else { return nil }
-                return (digest: SHA256.hash(data: image.data), name: name)
+            let rows: [(name: String, cursor: NSCursor)] = NSVerticalDirection.allCases.map { (direction: NSVerticalDirection) -> (name: String, cursor: NSCursor) in
+                (name: "\(NSStringFromSelector(#selector(getter: NSCursor.rowResize))) \(direction)", cursor: NSCursor.rowResize(directions: NSVerticalDirection.Set(direction)))
             }
-            let system: [(digest: SHA256.Digest, name: String)] = Array(
-                (Int32(0)...).lazy
-                    .map { id in unsafe systemCursorName(id).map { name in (id: id, name: unsafe String(cString: name)) } }
-                    .prefix { cursor in cursor != nil }
-                    .compactMap(\.self)
-                    .compactMap { cursor in Image(.system(cursor.id)).map { image in (digest: SHA256.hash(data: image.data), name: cursor.name) } }
+            let singles: [[NSCursor.FrameResizeDirection]] = NSCursor.FrameResizeDirection.allCases.map { (direction: NSCursor.FrameResizeDirection) -> [NSCursor.FrameResizeDirection] in
+                [direction]
+            }
+            let directions: [[NSCursor.FrameResizeDirection]] = singles + [NSCursor.FrameResizeDirection.allCases]
+            let frames: [(name: String, cursor: NSCursor)] = NSCursor.FrameResizePosition.allCases.flatMap { (position: NSCursor.FrameResizePosition) -> [(name: String, cursor: NSCursor)] in
+                let edge: String =
+                    switch position {
+                        case .top: "top"
+                        case .left: "left"
+                        case .bottom: "bottom"
+                        case .right: "right"
+                        case .topLeft: "topLeft"
+                        case .topRight: "topRight"
+                        case .bottomLeft: "bottomLeft"
+                        case .bottomRight: "bottomRight"
+                    }
+                return directions.map { (set: [NSCursor.FrameResizeDirection]) -> (name: String, cursor: NSCursor) in
+                    let resized = NSCursor.FrameResizeDirection.Set(
+                        set.map { (direction: NSCursor.FrameResizeDirection) -> NSCursor.FrameResizeDirection.Set in NSCursor.FrameResizeDirection.Set(direction) }
+                    )
+                    let words: [String] = ["frameResizeCursor", edge] + set.map { (direction: NSCursor.FrameResizeDirection) -> String in "\(direction)" }
+                    return (name: words.joined(separator: " "), cursor: NSCursor.frameResize(position: position, directions: resized))
+                }
+            }
+            let named: [(name: String, cursor: NSCursor)] = properties.map { (getter: Selector, cursor: NSCursor) -> (name: String, cursor: NSCursor) in
+                (name: NSStringFromSelector(getter), cursor: cursor)
+            }
+            let members: [(name: String, cursor: NSCursor)] = named + columns + rows + frames
+            let types: [Int: (order: Int, name: String)] = Dictionary(
+                members.enumerated()
+                    .map { (order: Int, member: (name: String, cursor: NSCursor)) -> (Int, (order: Int, name: String)) in (member.cursor.coreCursorType(), (order: order, name: member.name)) }
+                    .filter { (type: Int, _: (order: Int, name: String)) -> Bool in type != NSNotFound },
+                uniquingKeysWith: { (first: (order: Int, name: String), _: (order: Int, name: String)) -> (order: Int, name: String) in first },
             )
-            let built: [SHA256.Digest: String] = [system, appKit].reduce(into: [:]) { built, tier in
-                built.merge(Dictionary(grouping: tier, by: \.digest).compactMapValues { named in named.count == 1 ? named.first?.name : nil }) { _, appKit in appKit }
-            }
+            let appKit: [SHA256.Digest: (order: Int, name: String)] = Dictionary(
+                types.compactMap { (type: Int, member: (order: Int, name: String)) -> (SHA256.Digest, (order: Int, name: String))? in
+                    Image(.core(Int32(type))).map { (image: Image) -> (SHA256.Digest, (order: Int, name: String)) in (SHA256.hash(data: image.data), member) }
+                },
+                uniquingKeysWith: { (one: (order: Int, name: String), other: (order: Int, name: String)) -> (order: Int, name: String) in one.order < other.order ? one : other },
+            )
+            let system: [SHA256.Digest: String?] = Dictionary(
+                (Int32(0)...).lazy
+                    .map { (id: Int32) -> (id: Int32, name: String)? in
+                        unsafe systemCursorName(id).map { (name: UnsafePointer<CChar>) -> (id: Int32, name: String) in (id: id, name: unsafe String(cString: name)) }
+                    }
+                    .prefix { (cursor: (id: Int32, name: String)?) -> Bool in cursor != nil }
+                    .compactMap(\.self)
+                    .compactMap { (cursor: (id: Int32, name: String)) -> (SHA256.Digest, String?)? in
+                        Image(.system(cursor.id)).map { (image: Image) -> (SHA256.Digest, String?) in (SHA256.hash(data: image.data), cursor.name) }
+                    },
+                uniquingKeysWith: { (_: String?, _: String?) -> String? in nil },
+            )
+            let built: [SHA256.Digest: String] = system.compactMapValues(\.self).merging(appKit.mapValues(\.name)) { (_: String, named: String) -> String in named }
             catalogs[scaled] = built
             return built
         }
         let digest: SHA256.Digest = SHA256.hash(data: image.data)
-        self = names[digest].map { name in .system(name: name) } ?? .custom(digest: Data(digest).base64EncodedString(), hotSpot: image.hotSpot, size: image.size)
+        self = names[digest].map { (name: String) -> Self in .system(name: name) } ?? .custom(digest: Data(digest).base64EncodedString(), hotSpot: image.hotSpot, size: image.size)
     }
 }
 

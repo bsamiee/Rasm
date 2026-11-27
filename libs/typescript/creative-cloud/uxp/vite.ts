@@ -61,6 +61,7 @@ const pluginConfig = (): UserConfig => ({
                         [['main'], entry.fileName],
                         [['icons'], Array.map(plugin, Struct.get('row'))],
                         ...Array.map(panels, ({ index, icons }): readonly [JSONPath, unknown] => [['entrypoints', index, 'icons'], Array.map(icons, Struct.get('row'))]),
+                        [['host', 'data', 'loadEvent'], 'startup'],
                         [['featureFlags', 'unhandledRejection'], true],
                     ];
                     const icons = yield* Effect.forEach([...plugin, ...Array.flatMap(panels, Struct.get('icons'))], Struct.get('files'), { concurrency: 'unbounded' });

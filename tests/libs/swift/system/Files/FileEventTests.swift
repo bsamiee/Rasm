@@ -1,8 +1,7 @@
 import CustomDump
+import Files
 import Foundation
 import Testing
-
-@testable import Files
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -19,7 +18,7 @@ struct FileEventTests {
         try FileManager.default.createDirectory(at: watched, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: staged, withIntermediateDirectories: true)
         try Data("moved in with its folder".utf8).write(to: staged.appending(component: "moved.ips"))
-        var batches = FileEvent.events(of: watched).makeAsyncIterator()
+        var batches = FileEvent.events(of: [watched]).makeAsyncIterator()
         _ = try #require(await batches.next(isolation: #isolation)).get()
         try FileManager.default.moveItem(at: watched, to: folder.appending(component: "replaced"))
         try FileManager.default.moveItem(at: staged, to: watched)
@@ -41,14 +40,16 @@ struct FileEventTests {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let file = folder.appending(component: "server.log")
         try Data().write(to: file)
-        var events = FileEvent.events(of: file, eventMask: [.write, .extend, .delete, .rename]).makeAsyncIterator()
-        _ = try #require(await events.next(isolation: #isolation)).get()
+        var events = FileEvent.events(of: try FileHandle(forReadingFrom: file), eventMask: [.write, .extend, .delete, .rename]).makeAsyncIterator()
+        let registered = await events.next(isolation: #isolation)
+        expectNoDifference(registered, [])
         let held = try FileHandle(forWritingTo: file)
         try held.write(contentsOf: Data("written while held\n".utf8))
-        let written = try #require(await events.next(isolation: #isolation)).get()
+        let written = try #require(await events.next(isolation: #isolation))
         try held.close()
-        let reported = written.intersection([.write, .extend])
-        #expect(!reported.isEmpty)
+        let touched: DispatchSource.FileSystemEvent = [.write, .extend]
+        let reported: Bool = !written.isDisjoint(with: touched)
+        #expect(reported)
     }
 
     @Test

@@ -143,10 +143,11 @@ struct ServerTests {
         expectNoDifference(replies, [answer(31, .number(5))])
     }
 
-    @Test(arguments: [("find", "No application matching Xcode, candidates: Finder"), ("wrapped", "wrapped wrapped No application matching Xcode, candidates: Finder")])
-    func encodesAThrownUnmatchedUnderAnyWrapperAsAFailCauseHoldingItsFieldsAndTheThrownMessage(method: String, message: String) async throws {
+    @Test(arguments: [("find", ""), ("wrapped", "wrapped wrapped ")])
+    func encodesAThrownUnmatchedUnderAnyWrapperAsAFailCauseHoldingItsFieldsAndTheThrownMessage(method: String, wrappers: String) async throws {
         var session = Session()
         let failed = try await session.failure(2, method, ["name": .string("Xcode")])
+        let message = wrappers + Unmatched(subject: "application", query: "Xcode", candidates: ["Finder"]).localizedDescription
         expectNoDifference(failed.id, .number(2))
         expectNoDifference(
             failed.reasons,
@@ -257,6 +258,19 @@ struct ServerTests {
         while let event = await session.event() { events.append(event) }
         expectNoDifference([first] + rest, [chunk(10, 1)])
         expectNoDifference(events, ["pulled 1"])
+    }
+
+    @Test
+    func cancellingTheServerWhileItWaitsOnARunningCallAfterTheInputClosesInterruptsTheCall() async throws {
+        var session = Session()
+        try session.call(13, "wait", ["id": .number(13)])
+        let started = await session.event()
+        session.input.finish()
+        session.serving.cancel()
+        try await session.serving.value
+        var events: [String?] = []
+        while let event = await session.event() { events.append(event) }
+        expectNoDifference([started] + events, ["started 13", "cancelled 13"])
     }
 
     @Test(arguments: [true, false])

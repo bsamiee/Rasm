@@ -51,14 +51,14 @@ package struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
             case .timedOut(let timeout): "\(subject) timed out after \(timeout.formatted(.units(width: .wide)))"
             case .cancelled: "\(subject) canceled"
             case .notFound: "\(subject) not found"
-            case .corrupt(let error): "\(subject) is corrupt: \(error.localizedDescription)"
+            case .corrupt(let error): "\(subject) is corrupt: \(((error as any Error) as? DecodingError)?.failureReason ?? error.localizedDescription)"
             case .system(let error as any Error), .foundation(let error as any Error): "\(subject) failed: \(error.localizedDescription)"
             case .mach(let status): unsafe "\(subject) failed: \(String(cString: mach_error_string(status)))"
             case .notify(let status): "\(subject) failed with notify status \(status)"
             case .authorization(let right, errAuthorizationInteractionNotAllowed):
                 "\(subject) needs the \(right) right, which asks for a password, so it ran no tool; `security authorizationdb write \(right) allow` grants it without one"
             case .authorization(let right, let status):
-                "\(subject) read no definition of the \(right) right: \(SecCopyErrorMessageString(status, nil).map { message in message as String } ?? String(status))"
+                "\(subject) did not get the \(right) right (\((SecCopyErrorMessageString(status, nil) as String?) ?? String(status))), `security authorizationdb write \(right) allow` grants it"
         }
     }
 
@@ -69,5 +69,21 @@ package struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
             case .authorization(_, let status): [NSUnderlyingErrorKey: NSError(domain: NSOSStatusErrorDomain, code: Int(status))]
             case .exit, .timedOut, .cancelled, .notFound, .notify: [:]
         }
+    }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+extension DecodingError {
+    fileprivate var failureReason: String {
+        let (keys, problem): ([any CodingKey], String) =
+            switch self {
+                case .keyNotFound(let key, let context): (context.codingPath + [key], "missing")
+                case .valueNotFound(_, let context), .typeMismatch(_, let context), .dataCorrupted(let context):
+                    (context.codingPath, context.underlyingError.flatMap { error in (error as NSError).userInfo[NSDebugDescriptionErrorKey] as? String } ?? context.debugDescription)
+                @unknown default: ([], localizedDescription)
+            }
+        let path = keys.map { key in key.intValue.map { index in "[\(index)]" } ?? ".\(key.stringValue)" }.joined().trimmingPrefix(".")
+        return path.isEmpty ? problem : "key \(path): \(problem)"
     }
 }

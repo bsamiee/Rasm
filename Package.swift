@@ -78,7 +78,7 @@ let modules: [Target] = [
 
     // --- [MACOS]
 
-    .target(name: "SPI", path: "libs/swift/macos/SPI"),
+    .systemLibrary(name: "SPI", path: "libs/swift/macos/SPI"),
     .target(
         name: "AppleEvents",
         dependencies: [
@@ -95,16 +95,16 @@ let modules: [Target] = [
             .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "libs/swift/macos/Applications",
-        linkerSettings: [.unsafeFlags(["-Xlinker", "-F/System/Library/PrivateFrameworks"]), .linkedFramework("SkyLight")],
+        linkerSettings: [.unsafeFlags(["-Xlinker", "-F/System/Library/PrivateFrameworks"])],
     ),
     .target(
         name: "CurrentProcess",
         dependencies: [
             "Applications", "Encoding", "Files", "Processes", "Results", "SPI", "Telemetry", .product(name: "CasePathsCore", package: "swift-case-paths"),
-            .product(name: "Configuration", package: "swift-configuration"),
+            .product(name: "Configuration", package: "swift-configuration"), .product(name: "CoreMetrics", package: "swift-metrics"),
             .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"), .product(name: "OTel", package: "swift-otel"),
             .product(name: "OTelSemanticConventions", package: "swift-otel-semantic-conventions"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
-            .product(name: "SystemMetrics", package: "swift-system-metrics"),
+            .product(name: "SystemMetrics", package: "swift-system-metrics"), .product(name: "Tracing", package: "swift-distributed-tracing"),
         ],
         path: "libs/swift/macos/CurrentProcess",
     ),
@@ -145,22 +145,7 @@ let applications: [Target] = [
         exclude: ["AppIcon.icon", "Info.plist", "Rasad.entitlements", "Rasad.xcodeproj", "README.md", "server"],
     ),
 ]
-let support: [Target] = [
-    .executableTarget(
-        name: "Fixture",
-        dependencies: [
-            "Encoding", "Results", .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "CasePathsCore", package: "swift-case-paths"),
-            .product(name: "Subprocess", package: "swift-subprocess"),
-        ],
-        path: "tests/support/swift/Fixture",
-    )
-]
 let tests: [Target] = [
-    .testTarget(
-        name: "FixtureTests",
-        dependencies: ["Fixture", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump")],
-        path: "tests/support/swift/FixtureTests",
-    ),
     .testTarget(
         name: "EncodingTests",
         dependencies: [
@@ -185,7 +170,11 @@ let tests: [Target] = [
         ],
         path: "tests/libs/swift/network/JSONRPC",
     ),
-    .testTarget(name: "FilesTests", dependencies: ["Files", "Results", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/libs/swift/system/Files"),
+    .testTarget(
+        name: "FilesTests",
+        dependencies: ["Files", "Results", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "Logging", package: "swift-log")],
+        path: "tests/libs/swift/system/Files",
+    ),
     .testTarget(name: "FilesPerformanceTests", dependencies: ["Files"], path: "tests/libs/swift/system/FilesPerformance"),
     .testTarget(
         name: "ProcessesTests",
@@ -209,7 +198,7 @@ let tests: [Target] = [
     .testTarget(
         name: "AppleEventsTests",
         dependencies: [
-            "AppleEvents", "Encoding", "Fixture", "Results", .product(name: "CasePathsCore", package: "swift-case-paths"),
+            "AppleEvents", "Encoding", "Results", .product(name: "CasePathsCore", package: "swift-case-paths"),
             .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "PropertyBased", package: "swift-property-based"),
         ],
         path: "tests/libs/swift/macos/AppleEvents",
@@ -217,20 +206,12 @@ let tests: [Target] = [
     .testTarget(
         name: "ApplicationsTests",
         dependencies: [
-            "AppleEvents", "Applications", "Encoding", "Fixture", "Processes", "SPI", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+            "AppleEvents", "Applications", "Encoding", "Processes", "SPI", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "CustomDump", package: "swift-custom-dump"),
             .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "PropertyBased", package: "swift-property-based"),
             .product(name: "Subprocess", package: "swift-subprocess"),
         ],
         path: "tests/libs/swift/macos/Applications",
-    ),
-    .testTarget(
-        name: "ApplicationServerTests",
-        dependencies: [
-            "AppleEvents", "ApplicationServer", "Applications", "Encoding", "JSONRPC", "Results", .product(name: "CasePaths", package: "swift-case-paths"),
-            .product(name: "CustomDump", package: "swift-custom-dump"),
-        ],
-        path: "tests/libs/swift/macos/ApplicationServer",
     ),
 ]
 
@@ -258,6 +239,7 @@ let package = Package(
 
         .package(url: "https://github.com/apple/swift-distributed-tracing", from: "1.7.4"),
         .package(url: "https://github.com/apple/swift-log", from: "1.17.2"),
+        .package(url: "https://github.com/apple/swift-metrics", from: "2.13.1"),
         .package(url: "https://github.com/swift-otel/swift-otel", from: "1.6.1", traits: ["OTLPHTTP"]),
         .package(url: "https://github.com/swift-otel/swift-otel-semantic-conventions", .upToNextMinor(from: "1.44.0"), traits: [.defaults, "Experimental"]),
         .package(url: "https://github.com/apple/swift-system-metrics", from: "1.3.1"),
@@ -273,10 +255,10 @@ let package = Package(
         .package(url: "https://github.com/pointfreeco/swift-issue-reporting", from: "2.1.2"),
         .package(url: "https://github.com/x-sheep/swift-property-based", from: "2.1.0"),
     ],
-    targets: modules + applications + support + tests,
+    targets: modules + applications + tests,
 )
 
-for target: Target in package.targets {
+for target: Target in package.targets where target.type != .system {
     target.swiftSettings = swiftSettings + (target.resources == nil ? [softDeprecations] : []) + (target.swiftSettings ?? [])
     target.linkerSettings = linkerSettings + (target.linkerSettings ?? [])
     target.dependencies += target.type == .test ? [.product(name: "IssueReportingTestSupport", package: "swift-issue-reporting")] : []

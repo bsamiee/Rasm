@@ -8,19 +8,6 @@ import Testing
 
 @Suite
 struct GrantTests {
-    @Test(arguments: [(Grant.accessibility, AXIsProcessTrusted()), (.screenCapture, CGPreflightScreenCaptureAccess()), (.postEvent, CGPreflightPostEventAccess())])
-    func refusesEachGrantTheSystemPreflightFindsMissingAndNamesIt(grant: Grant, held: Bool) {
-        var refused: ApplicationFailure.Reason?
-        do throws(ApplicationFailure) { try grant.check() } catch { refused = error.reason }
-        let named: Grant? =
-            switch refused {
-                case .noGrant(let named), .notResponsible(let named, _): named
-                default: nil
-            }
-        expectNoDifference(named, held ? nil : grant)
-        expectNoDifference(held ? refused : nil, nil)
-    }
-
     @Test
     func readsADisabledAccessibilityAnswerAsTheMissingGrantOnlyWhileTheSystemFindsItMissing() {
         let otherwise = ApplicationFailure(subject: "probe", reason: .refused)

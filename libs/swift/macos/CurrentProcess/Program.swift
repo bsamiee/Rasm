@@ -77,12 +77,15 @@ package struct Program: Sendable {
     }
 
     package func directory(_ kind: Directory) -> URL {
-        let configured = settings.string(forKey: kind == .state ? "state.dir" : "output.dir").map { path in URL(filePath: path, directoryHint: .isDirectory) }
-        return switch (kind, configured) {
-            case (.state, .some(let state)): state
-            case (.state, .none): .applicationSupportDirectory.appending(path: identifier, directoryHint: .isDirectory)
-            case (.logs, .some(let output)): output.appending(components: name, String(describing: kind), directoryHint: .isDirectory)
-            case (.logs, .none): .libraryDirectory.appending(components: "Logs", identifier, directoryHint: .isDirectory)
+        switch kind {
+            case .state:
+                settings.string(forKey: "state.dir").map { (path: String) -> URL in URL(filePath: path, directoryHint: .isDirectory) }
+                    ?? URL.applicationSupportDirectory.appending(path: identifier, directoryHint: .isDirectory)
+            case .logs:
+                settings.string(forKey: "output.dir").map { (path: String) -> URL in
+                    URL(filePath: path, directoryHint: .isDirectory).appending(components: name, String(describing: kind), directoryHint: .isDirectory)
+                }
+                    ?? URL.libraryDirectory.appending(components: "Logs", identifier, directoryHint: .isDirectory)
         }
     }
 
@@ -93,14 +96,15 @@ package struct Program: Sendable {
 
     var signature: (requirement: Data, unique: Data) {
         get throws(ApplicationFailure) {
-            var (code, information, requirement): (SecStaticCode?, CFDictionary?, CFData?) = (nil, nil, nil)
-            let found = unsafe SecStaticCodeCreateWithPath(Bundle.main.bundleURL as CFURL, [], &code)
-            let read = code.map { code in unsafe SecCodeCopySigningInformation(code, SecCSFlags(rawValue: kSecCSRequirementInformation), &information) } ?? found
+            var (running, code, designated, requirement, information): (SecCode?, SecStaticCode?, SecRequirement?, CFData?, CFDictionary?) = (nil, nil, nil, nil, nil)
+            let copied: OSStatus = unsafe SecCodeCopySelf([], &running)
+            let located: OSStatus = running.map { (running: SecCode) -> OSStatus in unsafe SecCodeCopyStaticCode(running, [], &code) } ?? errSecSuccess
+            let designatedRead: OSStatus = code.map { (code: SecStaticCode) -> OSStatus in unsafe SecCodeCopyDesignatedRequirement(code, [], &designated) } ?? errSecSuccess
+            let encoded: OSStatus = designated.map { (designated: SecRequirement) -> OSStatus in unsafe SecRequirementCopyData(designated, [], &requirement) } ?? errSecSuccess
+            let informed: OSStatus = code.map { (code: SecStaticCode) -> OSStatus in unsafe SecCodeCopySigningInformation(code, [], &information) } ?? errSecSuccess
+            let statuses: [OSStatus] = [copied, located, designatedRead, encoded, informed]
+            let status: OSStatus = statuses.first { (status: OSStatus) -> Bool in status != errSecSuccess } ?? errSecSuccess
             let fields: [CFString: CFTypeRef] = information as? [CFString: CFTypeRef] ?? [:]
-            let designated = fields[kSecCodeInfoDesignatedRequirement].flatMap { value in
-                CFGetTypeID(value) == SecRequirementGetTypeID() ? unsafe unsafeDowncast(value, to: SecRequirement.self) : nil
-            }
-            let status = designated.map { designated in unsafe SecRequirementCopyData(designated, [], &requirement) } ?? read
             guard status == errSecSuccess, let requirement, let unique = fields[kSecCodeInfoUnique] as? Data else {
                 throw ApplicationFailure(subject: identifier, reason: .foundation(NSError(domain: NSOSStatusErrorDomain, code: Int(status == errSecSuccess ? errSecCSUnsigned : status))))
             }
@@ -112,9 +116,10 @@ package struct Program: Sendable {
         let missing = Grant.allCases.filter { grant in !grant.isHeld(asking: false) }
         guard !missing.isEmpty else { return }
         let signed = Result { () throws(ApplicationFailure) in try signature.requirement }.aggregated(\.self)
-        for grant in missing where responsiblePID(getpid()) == getpid() {
+        let requirement: Data? = responsiblePID(getpid()) == getpid() ? signed[case: \.success] : nil
+        for grant in missing {
             let requested: ConfigKey = ["grants", "requested", grant.rawValue]
-            guard case .success(let requirement) = signed, settings.bytes(forKey: requested).map(Data.init) != requirement else { continue }
+            guard let requirement, settings.bytes(forKey: requested).map(Data.init) != requirement else { continue }
             _ = grant.isHeld(asking: true)
             store(requirement, forKey: requested)
         }
@@ -147,7 +152,7 @@ package func disclaimResponsibility() throws(Errno) {
     var attributes: posix_spawnattr_t?
     try check(unsafe posix_spawnattr_init(&attributes))
     defer { _ = unsafe posix_spawnattr_destroy(&attributes) }
-    try check(unsafe disclaim(&attributes, 1))
+    try check(unsafe disclaim(&attributes, true))
     try check(unsafe posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_SETEXEC)))
     try check(unsafe posix_spawn(nil, executable, nil, &attributes, CommandLine.unsafeArgv, environ))
 }

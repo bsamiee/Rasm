@@ -32,7 +32,7 @@ max-git-db-age = "1 month"
 # Cargo rejects member `[lints]` overrides with `workspace = true`, and Tombi's `Cargo.toml` schema rejects profile `rustflags`
 [profile.dev.package]
 rasm-site             = { rustflags = ["-Aunsafe_code"] }         # PROJ `proj_factors` uses `proj-sys` FFI until `proj` provides a wrapper
-rasm-process          = { rustflags = ["-Aunsafe_code"] }         # Windows `CreateEnvironmentBlock` requires `windows` FFI without a safe crate wrapper
+rasm-process          = { rustflags = ["-Aunsafe_code"] }         # Windows `CreateEnvironmentBlock` and the bound address libproc returns in a C union have no safe crate wrapper
 rasm-mcp              = { rustflags = ["-Adeprecated"] }          # MCP revisions using `initialize` retain logging and `resources/subscribe`. GenAI names moved to a repository without a published crate
 rasm-mcp-tests        = { rustflags = ["-Adeprecated"] }          # Scenarios exercise server support for MCP revisions using `initialize`
 rasm-dependency-graph = { rustflags = ["-Aclippy::expect_used"] } # petgraph requires checked `Acyclic::try_from` for graphs and subgraphs acyclic by construction

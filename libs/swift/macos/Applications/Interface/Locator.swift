@@ -37,8 +37,6 @@ package struct Locator: Codable, Hashable, Sendable {
             }
         }
 
-        private static var levels: [PartialCaseKeyPath<Key>] { [\.identifier, \.document, \.label, \.sole, \.members] }
-
         let role: String
         let key: Key
 
@@ -51,7 +49,7 @@ package struct Locator: Codable, Hashable, Sendable {
         }
 
         static func distinguish(_ siblings: [(role: String, keys: [Key])]) -> [Self] {
-            let keyed: [Int: Self] = levels.reduce(into: [:]) { keyed, level in
+            let keyed: [Int: Self] = Key.allCasePaths.reduce(into: [:]) { keyed, level in
                 let open: [(index: Int, step: Self)] = siblings.indices.compactMap { (index: Int) -> (index: Int, step: Self)? in
                     guard keyed[index] == nil, let key = siblings[index].keys.first(where: { (key: Key) -> Bool in key.is(level) }) else { return nil }
                     return (index: index, step: Self(role: siblings[index].role, key: key))
@@ -85,7 +83,11 @@ package struct Locator: Codable, Hashable, Sendable {
     func appending(_ step: Step) -> Self { Self(steps: steps + CollectionOfOne(step)) }
 
     func text() throws(ApplicationFailure) -> String {
-        do { return String(decoding: try Self.encoder.encode(stored.steps), as: UTF8.self) } catch { throw ApplicationFailure(subject: "\(steps)", reason: .foundation(error as NSError)) }
+        do {
+            return String(decoding: try Self.encoder.encode(stored.steps), as: UTF8.self)
+        } catch {
+            throw ApplicationFailure(subject: "Address of \(steps.map(\.role).joined(separator: " > "))", reason: .foundation(error as NSError))
+        }
     }
 
     package func encode(to encoder: any Encoder) throws {

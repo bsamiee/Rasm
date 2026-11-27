@@ -1,7 +1,7 @@
 import { layerSecureRandom } from '@effect/platform-node/NodeCrypto';
 import { assert, describe, it } from '@effect/vitest';
 import { Upstream } from '@rasm/mcp/upstream';
-import { Array, Duration, Effect, Function, HashSet, MutableRef, Option, Queue, Result, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Duration, Effect, Function, HashSet, MutableRef, Option, Queue, Result, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpProtocol, type McpTest } from 'effect/ai';
 import { FetchHttpClient } from 'effect/http';
 import { lines, names, PEER, proxied, relisted, SETTLED, TEXT } from '#/fixtures';
@@ -20,7 +20,7 @@ const heard = (client: McpTest.Client) =>
         Stream.scan(Function.constant(HashSet.empty<string>()), (seen, method) => HashSet.add(seen, method)),
         Stream.takeUntil(heardAll),
         Stream.runLast,
-        Effect.timeout(SETTLED),
+        Effect.timeoutOrElse({ duration: SETTLED, orElse: () => Effect.fail(new Cause.UnknownError(CHANGED, `the client heard no list_changed of each kind after ${Duration.format(SETTLED)}`)) }),
         Effect.map(Option.exists(heardAll)),
     );
 const listed = (client: McpTest.Client) =>
@@ -134,7 +134,7 @@ describe('upstream session', () => {
         'lists nothing at once while its endpoint has not answered',
         Effect.fnUntraced(
             function* () {
-                const first = yield* Stream.runHead(Upstream.fromHttp({ peer: PEER, endpoint: Effect.never, poll: SETTLED })).pipe(Effect.timeout(SETTLED));
+                const first = yield* Stream.runHead(Upstream.fromHttp({ peer: PEER, endpoint: Effect.never, poll: SETTLED })).pipe(Effect.timeoutOrElse({ duration: SETTLED, orElse: () => Effect.fail(new Cause.UnknownError(PEER, `the upstream source listed nothing after ${Duration.format(SETTLED)}`)) }));
                 assert.deepStrictEqual(first, Option.some([]));
             },
             Effect.provide([FetchHttpClient.layer, layerSecureRandom]),

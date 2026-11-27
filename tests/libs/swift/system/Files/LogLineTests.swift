@@ -89,7 +89,7 @@ final class LogLineTests {
             read += batch.lines
         }
         expectNoDifference(read.map(\.text), ["separated\u{2028}within", "caf\u{FFFD}", "last"])
-        expectNoDifference(Set(read.map(\.file)), [current])
+        expectNoDifference(Set(read.map { line in line.file.resolvingSymlinksInPath() }), [current])
     }
 
     @Test

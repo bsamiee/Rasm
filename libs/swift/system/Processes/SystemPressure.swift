@@ -12,11 +12,10 @@ import notify
 
 package struct SystemPressure: Encodable, Equatable, Sendable {
     private enum CodingKeys: CodingKey {
-        case memory, available, thermal, lowPower, advisory
+        case memory, thermal, lowPower, advisory
     }
 
     let memory: DispatchSource.MemoryPressureEvent
-    let available: Int
     let thermal: ProcessInfo.ThermalState
     let lowPower: Bool
     let advisory: [String: Int]?
@@ -24,7 +23,6 @@ package struct SystemPressure: Encodable, Equatable, Sendable {
     package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: CodingKeys.self)
         try fields.encode(memory.description, forKey: .memory)
-        try fields.encode(available, forKey: .available)
         let thermal: String =
             switch thermal {
                 case .nominal: "nominal"
@@ -50,41 +48,50 @@ package struct SystemPressure: Encodable, Equatable, Sendable {
 package struct SystemLoad: Sendable {
     package struct Interval: Encodable, Sendable {
         private enum CodingKeys: CodingKey {
-            case idle, pageins, swapins, swapouts, decompressions, deviceUtilization, diskBytesRead, diskBytesWritten, diskTime, availableCapacityForImportantUsage
+            case idle, pageins, swapins, swapouts, decompressions, deviceUtilization, diskBytesRead, diskBytesWritten, diskTime, availableCapacity, availableMemory
         }
 
-        let growth: SystemLoad
+        let start: SystemLoad
+        let end: SystemLoad
         let deviceUtilization: Int?
-        let availableCapacityForImportantUsage: Int64?
+        let availableCapacity: Int
+        let availableMemory: Int
 
         var idle: Double? {
-            let ticks = SIMD4<UInt64>(truncatingIfNeeded: growth.processor)
-            let total: UInt64 = ticks.wrappedSum()
+            let ticks = SIMD4<UInt64>(truncatingIfNeeded: end.processor &- start.processor)
+            let total = ticks.wrappedSum()
             return total == 0 ? nil : Double(ticks[Int(CPU_STATE_IDLE)]) / Double(total)
         }
 
-        var stale: Bool { growth.faults == 0 }
+        var disk: (bytesRead: UInt64, bytesWritten: UInt64, time: Duration) {
+            end.disks.reduce(into: (bytesRead: UInt64.zero, bytesWritten: UInt64.zero, time: Duration.zero)) { sum, driver in
+                guard let held = start.disks[driver.key] else { return }
+                sum = (sum.bytesRead &+ driver.value.bytesRead &- held.bytesRead, sum.bytesWritten &+ driver.value.bytesWritten &- held.bytesWritten, sum.time + driver.value.time - held.time)
+            }
+        }
+
+        func growth(_ counter: KeyPath<SystemLoad, UInt64>) -> UInt64 {
+            end[keyPath: counter] &- start[keyPath: counter]
+        }
+
+        func paging(_ counter: KeyPath<SystemLoad, UInt64>) -> UInt64? {
+            growth(\.memory.faults) == 0 ? nil : growth(counter)
+        }
 
         package func encode(to encoder: any Encoder) throws {
             var fields = encoder.container(keyedBy: CodingKeys.self)
-            let disk = growth.disks.values.reduce((bytesRead: UInt64.zero, bytesWritten: UInt64.zero, time: Duration.zero)) { total, driver in
-                (total.bytesRead &+ driver.bytesRead, total.bytesWritten &+ driver.bytesWritten, total.time + driver.time)
-            }
-            let paging: [(CodingKeys, UInt64)] = stale ? [] : [(.pageins, growth.pageins), (.swapins, growth.swapins), (.swapouts, growth.swapouts), (.decompressions, growth.decompressions)]
-            try fields.encodeIfPresent(idle, forKey: .idle)
-            for (key, count) in paging + [(.diskBytesRead, disk.bytesRead), (.diskBytesWritten, disk.bytesWritten)] { try fields.encode(count, forKey: key) }
-            try fields.encode(disk.time / .seconds(1), forKey: .diskTime)
-            try fields.encodeIfPresent(deviceUtilization, forKey: .deviceUtilization)
-            try fields.encodeIfPresent(availableCapacityForImportantUsage, forKey: .availableCapacityForImportantUsage)
+            let disk = self.disk
+            let values: [(CodingKeys, (any Encodable)?)] = [
+                (.idle, idle), (.pageins, paging(\.memory.pageins)), (.swapins, paging(\.memory.swapins)), (.swapouts, paging(\.memory.swapouts)),
+                (.decompressions, paging(\.memory.decompressions)), (.deviceUtilization, deviceUtilization), (.diskBytesRead, disk.bytesRead),
+                (.diskBytesWritten, disk.bytesWritten), (.diskTime, disk.time / .seconds(1)), (.availableCapacity, availableCapacity), (.availableMemory, availableMemory),
+            ]
+            for case (let key, let value?) in values { try fields.encode(value, forKey: key) }
         }
     }
 
     let processor: SIMD4<UInt32>
-    let pageins: UInt64
-    let swapins: UInt64
-    let swapouts: UInt64
-    let decompressions: UInt64
-    let faults: UInt64
+    let memory: vm_statistics64
     let disks: [UInt64: (bytesRead: UInt64, bytesWritten: UInt64, time: Duration)]
 }
 
@@ -111,17 +118,31 @@ private func copyProperty(_ key: String, matching service: String) throws(Proces
     .compactMapValues(\.self)
 }
 
+private func statistics<Info: BitwiseCopyable>(of host: host_t, _ flavor: host_flavor_t, _ empty: Info) throws(ProcessFailure) -> Info {
+    var info = empty
+    let status: kern_return_t = withUnsafeMutableBytes(of: &info) { bytes in
+        unsafe bytes.withMemoryRebound(to: integer_t.self) { words in
+            var count = mach_msg_type_number_t(words.count)
+            return unsafe host_statistics64(host, flavor, words.baseAddress, &count)
+        }
+    }
+    guard status == KERN_SUCCESS else { throw ProcessFailure(subject: "host_statistics64 \(Info.self)", reason: .mach(status)) }
+    return info
+}
+
+extension UInt32 {
+    fileprivate init(sysctlbyname name: String) throws(ProcessFailure) {
+        var value: UInt32 = 0
+        var size = MemoryLayout<UInt32>.size
+        guard unsafe sysctlbyname(name, &value, &size, nil, 0) == 0 else { throw ProcessFailure(subject: name, reason: .system(Errno(rawValue: errno))) }
+        self = value
+    }
+}
+
 extension SystemPressure {
     init() throws(ProcessFailure) {
-        let level = { (name: String) throws(ProcessFailure) -> UInt32 in
-            var level: UInt32 = 0
-            var size = MemoryLayout<UInt32>.size
-            guard unsafe sysctlbyname(name, &level, &size, nil, 0) == 0 else { throw ProcessFailure(subject: name, reason: .system(Errno(rawValue: errno))) }
-            return level
-        }
         try self.init(
-            memory: DispatchSource.MemoryPressureEvent(rawValue: UInt(level("kern.memorystatus_vm_pressure_level"))),
-            available: Int(level("kern.memorystatus_level")),
+            memory: DispatchSource.MemoryPressureEvent(rawValue: UInt(UInt32(sysctlbyname: "kern.memorystatus_vm_pressure_level"))),
             thermal: ProcessInfo.processInfo.thermalState,
             lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled,
             advisory: unsafe IOCopySystemLoadAdvisoryDetailed()?.takeRetainedValue() as? [String: Int],
@@ -141,14 +162,15 @@ extension SystemPressure {
         source.activate()
         let refused: [Result<Self, ProcessFailure>] =
             registered == NOTIFY_STATUS_OK ? [] : [.failure(ProcessFailure(subject: "notify_register_dispatch \(kIOSystemLoadAdvisoryNotifyName)", reason: .notify(registered)))]
+        let first = Result { () throws(ProcessFailure) in try Self() }
         let process = ProcessInfo.processInfo
         let readings = merge(
-            chain([()].async, pushed),
+            pushed,
             NotificationCenter.default.messages(of: process, for: .thermalStateDidChange).map { _ in () },
             NotificationCenter.default.messages(of: process, for: .powerStateDidChange).map { _ in () },
         )
         .map { _ in Result { () throws(ProcessFailure) in try Self() } }
-        return chain(refused.async, readings).removeDuplicates()
+        return chain((refused + [first]).async, readings).removeDuplicates()
     }
 }
 
@@ -156,31 +178,10 @@ extension SystemLoad {
     package init() throws(ProcessFailure) {
         let host = mach_host_self()
         defer { _ = unsafe mach_port_deallocate(mach_task_self_, host) }
-        var (processors, info, length): (natural_t, processor_info_array_t?, mach_msg_type_number_t) = (0, nil, 0)
-        let loaded: kern_return_t = unsafe host_processor_info(host, PROCESSOR_CPU_LOAD_INFO, &processors, &info, &length)
-        guard loaded == KERN_SUCCESS, let loads = unsafe info else { throw ProcessFailure(subject: "host_processor_info PROCESSOR_CPU_LOAD_INFO", reason: .mach(loaded)) }
-        let size: vm_size_t = vm_size_t(length) * vm_size_t(MemoryLayout<integer_t>.stride)
-        defer { _ = unsafe vm_deallocate(mach_task_self_, vm_address_t(bitPattern: loads), size) }
-        let processor: SIMD4<UInt32> = unsafe loads.withMemoryRebound(to: processor_cpu_load_info.self, capacity: Int(processors)) { cores in
-            unsafe UnsafeBufferPointer(start: cores, count: Int(processors)).reduce(SIMD4<UInt32>.zero) { (sum: SIMD4<UInt32>, core: processor_cpu_load_info) -> SIMD4<UInt32> in
-                sum &+ SIMD4(core.cpu_ticks.0, core.cpu_ticks.1, core.cpu_ticks.2, core.cpu_ticks.3)
-            }
-        }
-        var memory = vm_statistics64()
-        let counted: kern_return_t = withUnsafeMutableBytes(of: &memory) { info in
-            unsafe info.withMemoryRebound(to: integer_t.self) { words in
-                var count = mach_msg_type_number_t(words.count)
-                return unsafe host_statistics64(host, HOST_VM_INFO64, words.baseAddress, &count)
-            }
-        }
-        guard counted == KERN_SUCCESS else { throw ProcessFailure(subject: "host_statistics64 HOST_VM_INFO64", reason: .mach(counted)) }
+        let ticks = try statistics(of: host, HOST_CPU_LOAD_INFO, host_cpu_load_info()).cpu_ticks
         try self.init(
-            processor: processor,
-            pageins: memory.pageins,
-            swapins: memory.swapins,
-            swapouts: memory.swapouts,
-            decompressions: memory.decompressions,
-            faults: memory.faults,
+            processor: SIMD4(ticks.0, ticks.1, ticks.2, ticks.3),
+            memory: statistics(of: host, HOST_VM_INFO64, vm_statistics64()),
             disks: copyProperty(kIOBlockStorageDriverStatisticsKey, matching: kIOBlockStorageDriverClass).mapValues { statistics in
                 let count = { (key: String) -> UInt64 in statistics[key] as? UInt64 ?? 0 }
                 return (
@@ -190,34 +191,20 @@ extension SystemLoad {
             },
         )
     }
-
-    func since(_ earlier: Self) -> Self {
-        Self(
-            processor: processor &- earlier.processor,
-            pageins: pageins &- earlier.pageins,
-            swapins: swapins &- earlier.swapins,
-            swapouts: swapouts &- earlier.swapouts,
-            decompressions: decompressions &- earlier.decompressions,
-            faults: faults &- earlier.faults,
-            disks: Dictionary(
-                uniqueKeysWithValues: disks.map { id, later in
-                    let held = earlier.disks[id] ?? (0, 0, .zero)
-                    return (id, (bytesRead: later.bytesRead &- held.bytesRead, bytesWritten: later.bytesWritten &- held.bytesWritten, time: later.time - held.time))
-                }
-            ),
-        )
-    }
 }
 
 extension SystemLoad.Interval {
-    package init(since earlier: SystemLoad) throws(ProcessFailure) {
-        let growth = try SystemLoad().since(earlier)
+    package init(since start: SystemLoad) throws(ProcessFailure) {
+        let end = try SystemLoad()
         let volume: URLResourceValues
-        do { volume = try URL(filePath: "/").resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]) } catch { throw ProcessFailure(subject: "/", error) }
+        do { volume = try URL(filePath: "/").resourceValues(forKeys: [.volumeAvailableCapacityKey]) } catch { throw ProcessFailure(subject: "/", error) }
+        guard let availableCapacity = volume.volumeAvailableCapacity else { throw ProcessFailure(subject: "available capacity of /", reason: .notFound) }
         try self.init(
-            growth: growth,
+            start: start,
+            end: end,
             deviceUtilization: copyProperty("PerformanceStatistics", matching: kIOAcceleratorClassName).values.compactMap { statistics in statistics["Device Utilization %"] as? Int }.max(),
-            availableCapacityForImportantUsage: volume.volumeAvailableCapacityForImportantUsage,
+            availableCapacity: availableCapacity,
+            availableMemory: Int(UInt32(sysctlbyname: "kern.memorystatus_level")),
         )
     }
 }

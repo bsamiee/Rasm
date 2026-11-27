@@ -10,13 +10,38 @@ package import Results
 // --- [MODELS] --------------------------------------------------------------------------
 
 package final class ScriptingDictionary: Encodable, Sendable {
-    enum Kind: String, CaseIterable, CodingKey {
+    enum Kind: String, CodingKey {
+        case dictionary
         case suite
         case command
         case `class`
+        case classExtension = "class-extension"
         case recordType = "record-type"
         case valueType = "value-type"
         case enumeration
+        case enumerator
+        case property
+        case contents
+        case element
+        case parameter
+        case directParameter = "direct-parameter"
+        case synonym
+        case type
+        case cocoa
+    }
+
+    enum Attribute: String {
+        case name
+        case code
+        case type
+        case list
+        case hidden
+        case plural
+        case inherits
+        case extends
+        case `class`
+
+        static let yes = "yes"
     }
 
     package struct Term: Encodable, Hashable, Sendable {
@@ -123,7 +148,7 @@ package final class ScriptingDictionary: Encodable, Sendable {
 
     package let commands: [Command]
     let script: Command?
-    let declarations: [Kind: [Term]]
+    let declarations: OrderedDictionary<Kind, [Term]>
     let types: Scope
     let members: [FourCharCode: Scope]
     let contained: [FourCharCode: Scope]
@@ -133,78 +158,89 @@ package final class ScriptingDictionary: Encodable, Sendable {
 
     package init(definition data: Data) throws(AppleEventFailure) {
         let document = try Result { try XMLDocument(data: data, options: .documentXInclude) }
-            .mapError { error in AppleEventFailure(subject: "XML of \(data.count)-byte scripting definition", reason: .foundation(error as NSError)) }.get()
+            .mapError { error in AppleEventFailure(subject: "scripting definition XML", reason: .foundation(error as NSError)) }.get()
         let elements: [XMLElement] = (document.rootElement()?.elements(forName: Kind.suite.rawValue) ?? []).flatMap { (suite: XMLElement) -> [XMLElement] in
             [suite] + (suite.children ?? []).compactMap { child in child as? XMLElement }
         }
-        let kinds: [String?: [XMLElement]] = Dictionary(grouping: elements, by: \.name)
-        let typeKinds: [Kind] = [.class, .recordType, .valueType]
-        let named: [String?: [XMLElement]] = Dictionary(grouping: typeKinds.flatMap { kind in kinds[kind.rawValue, default: []] }) { element in element.attribute(forName: "name")?.stringValue }
-        let extensions: [String?: [XMLElement]] = Dictionary(grouping: kinds["class-extension", default: []]) { element in element.attribute(forName: "extends")?.stringValue }
-        func declaringElements(of element: XMLElement) -> [XMLElement] {
-            let ancestors = sequence(state: (found: OrderedDictionary([(ObjectIdentifier(element), element)]) { kept, _ in kept }, next: 0)) {
+        let kinds: [Kind?: [XMLElement]] = Dictionary(grouping: elements) { element in element.name.flatMap(Kind.init(rawValue:)) }
+        let classes: [String?: [XMLElement]] = Dictionary(grouping: kinds[.class, default: []]) { element in element[.name] }
+        let extensions: [String?: [XMLElement]] = Dictionary(grouping: kinds[.classExtension, default: []]) { element in element[.extends] }
+        func lineage(of element: XMLElement) -> [XMLElement] {
+            let ancestors = sequence(state: (found: OrderedDictionary(uniqueKeysWithValues: [(ObjectIdentifier(element), element)]), next: 0)) {
                 (walk: inout (found: OrderedDictionary<ObjectIdentifier, XMLElement>, next: Int)) -> XMLElement? in
                 guard walk.next < walk.found.count else { return nil }
                 let ancestor = walk.found.values[walk.next]
-                walk.found.merge((ancestor.attribute(forName: "inherits")?.stringValue.flatMap { name in named[name] } ?? []).map { parent in (ObjectIdentifier(parent), parent) }) { kept, _ in kept }
+                walk.found.merge((ancestor[.inherits].flatMap { name in classes[name] } ?? []).map { parent in (ObjectIdentifier(parent), parent) }) { kept, _ in kept }
                 walk.next += 1
                 return ancestor
             }
-            return ancestors.flatMap { (ancestor: XMLElement) -> [XMLElement] in
-                [ancestor] + (ancestor.attribute(forName: "name")?.stringValue.flatMap { name in extensions[name] } ?? [])
-            }
+            return ancestors.flatMap { (ancestor: XMLElement) -> [XMLElement] in [ancestor] + (ancestor[.name].flatMap { name in extensions[name] } ?? []) }
         }
-        func sdefType(_ element: XMLElement) -> (types: Set<String>, list: Bool) {
-            let declared = [element] + element.elements(forName: "type")
-            return (Set(declared.compactMap { type in type.attribute(forName: "type")?.stringValue }), declared.contains { type in type.attribute(forName: "list")?.stringValue == "yes" })
+        func declaredType(_ element: XMLElement) -> (types: Set<String>, list: Bool) {
+            let declared = [element] + element.elements(forName: Kind.type.rawValue)
+            return (Set(declared.compactMap { type in type[.type] }), declared.contains { type in type[.list] == Attribute.yes })
         }
         func term(_ element: XMLElement, _ type: (types: Set<String>, list: Bool), members: [Term], elements contained: [String] = []) -> Term? {
-            let synonyms = element.elements(forName: "synonym")
-            return switch (element.attribute(forName: "name")?.stringValue, element.attribute(forName: "code")?.stringValue.flatMap(FourCharCode.init(sdef:))) {
-                case (.some(let name), .some(let code)):
-                    Term(
-                        name: name,
-                        code: code,
-                        types: type.types,
-                        list: type.list,
-                        members: members,
-                        synonyms: synonyms.compactMap { synonym in synonym.attribute(forName: "name")?.stringValue }
-                            + [element.attribute(forName: "plural")?.stringValue ?? (element.name == Kind.class.rawValue ? name + "s" : nil)].compactMap(\.self),
-                        codes: synonyms.compactMap { synonym in synonym.attribute(forName: "code")?.stringValue.flatMap(FourCharCode.init(sdef:)) },
-                        hidden: element.attribute(forName: "hidden")?.stringValue == "yes",
-                        elements: contained,
-                    )
-                default: nil
+            let kind = element.name.flatMap(Kind.init(rawValue:))
+            let identity: (name: String, code: FourCharCode)? =
+                switch (element[.name], element[.code].flatMap(FourCharCode.init(sdef:)), kind) {
+                    case (.some(let name), .some(let code), _): (name, code)
+                    case (let name, let code, .contents): (name ?? Kind.contents.rawValue, code ?? FourCharCode(pContents))
+                    default: nil
+                }
+            let pluralizes: Bool =
+                switch kind {
+                    case .class, .recordType, .valueType: true
+                    default: false
+                }
+            let synonyms = element.elements(forName: Kind.synonym.rawValue)
+            let named: [(name: String, plural: String?)] = synonyms.compactMap { synonym in synonym[.name].map { name in (name: name, plural: synonym[.plural]) } }
+            return identity.map { identity in
+                let plurals: [String] = ([(name: identity.name, plural: element[.plural])] + named).compactMap { (term: (name: String, plural: String?)) -> String? in
+                    pluralizes ? term.plural ?? term.name + "s" : term.plural
+                }
+                return Term(
+                    name: identity.name,
+                    code: identity.code,
+                    types: type.types,
+                    list: type.list,
+                    members: members,
+                    synonyms: named.map(\.name) + plurals,
+                    codes: synonyms.compactMap { synonym in synonym[.code].flatMap(FourCharCode.init(sdef:)) },
+                    hidden: element[.hidden] == Attribute.yes,
+                    elements: contained,
+                )
             }
         }
+        let enumerations = kinds[.enumeration, default: []]
         let enumerators: [ObjectIdentifier: [Term]] = Dictionary(
-            uniqueKeysWithValues: kinds[Kind.enumeration.rawValue, default: []].map { enumeration in
-                (ObjectIdentifier(enumeration), enumeration.elements(forName: "enumerator").compactMap { enumerator in term(enumerator, ([], false), members: []) })
+            uniqueKeysWithValues: enumerations.map { enumeration in
+                (ObjectIdentifier(enumeration), enumeration.elements(forName: Kind.enumerator.rawValue).compactMap { enumerator in term(enumerator, ([], false), members: []) })
             }
         )
         let enumerated: [String: [Term]] = Dictionary(
-            kinds[Kind.enumeration.rawValue, default: []].compactMap { enumeration in
-                enumeration.attribute(forName: "name")?.stringValue.map { name in (name, enumerators[ObjectIdentifier(enumeration)] ?? []) }
-            }
+            enumerations.compactMap { enumeration in enumeration[.name].map { name in (name, enumerators[ObjectIdentifier(enumeration)] ?? []) } }
         ) { first, next in OrderedSet(first + next).elements }
         func typed(_ element: XMLElement) -> Term? {
-            let type = sdefType(element)
-            return term(element, type, members: OrderedSet(type.types.flatMap { type in enumerated[type] ?? [] }).elements)
+            let type = declaredType(element)
+            return term(element, type, members: OrderedSet(type.types.sorted().flatMap { type in enumerated[type] ?? [] }).elements)
         }
-        let properties: [(ObjectIdentifier, [Term])] = elements.map { element in (ObjectIdentifier(element), element.elements(forName: "property").compactMap(typed)) }
+        let properties: [(ObjectIdentifier, [Term])] = elements.map { element in
+            (ObjectIdentifier(element), (element.elements(forName: Kind.property.rawValue) + element.elements(forName: Kind.contents.rawValue)).compactMap(typed))
+        }
         let owned: [ObjectIdentifier: [Term]] = enumerators.merging(properties) { enumerators, _ in enumerators }
         let commands = OrderedSet(
-            kinds[Kind.command.rawValue, default: []].compactMap { element in
-                switch (element.attribute(forName: "name")?.stringValue, element.attribute(forName: "code")?.stringValue.flatMap(UInt64.init(sdef:))) {
+            kinds[.command, default: []].compactMap { element in
+                switch (element[.name], element[.code].flatMap(UInt64.init(sdef:))) {
                     case (.some(let name), .some(let code)):
                         Command(
                             name: name,
                             eventClass: AEEventClass(truncatingIfNeeded: code >> 32),
                             eventID: AEEventID(truncatingIfNeeded: code),
-                            parameters: OrderedSet(element.elements(forName: "parameter").compactMap(typed)).elements
-                                + element.elements(forName: "direct-parameter").map { parameter in Term.direct(sdefType(parameter)) },
-                            synonyms: element.elements(forName: "synonym").compactMap { synonym in synonym.attribute(forName: "name")?.stringValue },
-                            hidden: element.attribute(forName: "hidden")?.stringValue == "yes",
+                            parameters: OrderedSet(element.elements(forName: Kind.parameter.rawValue).compactMap(typed)).elements
+                                + element.elements(forName: Kind.directParameter.rawValue).map { parameter in Term.direct(declaredType(parameter)) },
+                            synonyms: element.elements(forName: Kind.synonym.rawValue).compactMap { synonym in synonym[.name] },
+                            hidden: element[.hidden] == Attribute.yes,
                         )
                     default: nil
                 }
@@ -214,21 +250,21 @@ package final class ScriptingDictionary: Encodable, Sendable {
         script =
             scripting.first { command in command.parameters.contains { term in !term.isDirect && term.list && term.acceptsText } }
             ?? scripting.first { command in command.eventID == AEEventID(kAEDoScript) }
-        let declared: [Kind: [Term]] = Dictionary(
-            uniqueKeysWithValues: Kind.allCases.filter { kind in kind != .command }.map { kind in
-                let terms = kinds[kind.rawValue, default: []].compactMap { element in
-                    let declaring = kind == .class ? declaringElements(of: element) : [element]
+        let declared: OrderedDictionary<Kind, [Term]> = OrderedDictionary(
+            uniqueKeysWithValues: [Kind.suite, .class, .recordType, .valueType, .enumeration].map { kind in
+                let terms = kinds[kind, default: []].compactMap { element in
+                    let declaring = kind == .class ? lineage(of: element) : [element]
                     return term(
                         element,
-                        sdefType(element),
+                        declaredType(element),
                         members: OrderedSet(declaring.flatMap { declared in owned[ObjectIdentifier(declared)] ?? [] }).elements,
-                        elements: declaring.flatMap { declared in declared.elements(forName: "element") }.compactMap { contained in contained.attribute(forName: "type")?.stringValue },
+                        elements: declaring.flatMap { declared in declared.elements(forName: Kind.element.rawValue) }.compactMap { contained in contained[.type] },
                     )
                 }
                 return (kind, OrderedSet(terms).elements)
             }
         )
-        let declaredTypes = typeKinds.flatMap { kind in declared[kind, default: []] }
+        let declaredTypes = [Kind.class, .recordType, .valueType].flatMap { kind in declared[kind, default: []] }
         let (coded, types) = (Dictionary(grouping: declaredTypes, by: \.code), Scope(declaredTypes))
         self.commands = commands
         declarations = declared
@@ -237,17 +273,81 @@ package final class ScriptingDictionary: Encodable, Sendable {
         contained = coded.mapValues { terms in Scope(terms.flatMap(\.elements).flatMap { name in types.byName[name] ?? [] }) }
         self.properties = Scope(OrderedSet(properties.flatMap(\.1)).elements)
         self.enumerators = Scope(declared[.enumeration, default: []].flatMap(\.members))
-        enumerations = enumerated.mapValues(Scope.init)
+        self.enumerations = enumerated.mapValues(Scope.init)
     }
 
     package func encode(to encoder: any Encoder) throws {
         var listing = encoder.container(keyedBy: Kind.self)
         try listing.encode(commands.filter { command in !command.hidden }, forKey: .command)
-        for kind in Kind.allCases where kind != .command { try listing.encode(declarations[kind, default: []].filter { term in !term.hidden }, forKey: kind) }
+        for (kind, terms) in declarations { try listing.encode(terms.filter { term in !term.hidden }, forKey: kind) }
         var derived = encoder.container(keyedBy: Key.self)
         try derived.encodeIfPresent(script, forKey: .script)
         try derived.encodeIfPresent(commands.first { command in command.eventClass == AEEventClass(kCoreEventClass) && command.eventID == AEEventID(kAEOpenDocuments) }, forKey: .open)
     }
+}
+
+private final class ScriptSuite: Decodable {
+    private enum CodingKeys: String, CodingKey {
+        case name = "Name"
+        case appleEventCode = "AppleEventCode"
+        case appleEventClassCode = "AppleEventClassCode"
+        case superclass = "Superclass"
+        case type = "Type"
+        case classes = "Classes"
+        case commands = "Commands"
+        case enumerations = "Enumerations"
+        case enumerators = "Enumerators"
+        case synonyms = "Synonyms"
+        case valueTypes = "ValueTypes"
+        case attributes = "Attributes"
+        case toOneRelationships = "ToOneRelationships"
+        case toManyRelationships = "ToManyRelationships"
+        case arguments = "Arguments"
+        case unnamedArgument = "UnnamedArgument"
+    }
+
+    let name: String?
+    let appleEventCode: String?
+    let appleEventClassCode: String?
+    let superclass: String?
+    let type: String?
+    let classes: [String: ScriptSuite]?
+    let commands: [String: ScriptSuite]?
+    let enumerations: [String: ScriptSuite]?
+    let enumerators: [String: String]?
+    let synonyms: [String: String]?
+    let valueTypes: [String: String]?
+    let attributes: [String: ScriptSuite]?
+    let toOneRelationships: [String: ScriptSuite]?
+    let toManyRelationships: [String: ScriptSuite]?
+    let arguments: [String: ScriptSuite]?
+    let unnamedArgument: ScriptSuite?
+}
+
+private struct ScriptTerminology: Decodable {
+    private enum CodingKeys: String, CodingKey {
+        case name = "Name"
+        case pluralName = "PluralName"
+        case classes = "Classes"
+        case commands = "Commands"
+        case enumerations = "Enumerations"
+        case synonyms = "Synonyms"
+        case attributes = "Attributes"
+        case toOneRelationships = "ToOneRelationships"
+        case toManyRelationships = "ToManyRelationships"
+        case arguments = "Arguments"
+    }
+
+    let name: String?
+    let pluralName: String?
+    let classes: [String: Self]?
+    let commands: [String: Self]?
+    let enumerations: [String: [String: Self]]?
+    let synonyms: [String: Self]?
+    let attributes: [String: Self]?
+    let toOneRelationships: [String: Self]?
+    let toManyRelationships: [String: Self]?
+    let arguments: [String: Self]?
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -269,17 +369,23 @@ extension ScriptingDictionary {
     @concurrent
     package static func definition(terminology resource: URL) async throws(AppleEventFailure) -> Data {
         let (files, subject) = (FileManager.default, resource.path(percentEncoded: false))
-        let (folder, bundle) = (files.temporaryDirectory.appending(component: UUID().uuidString), resource.deletingPathExtension().lastPathComponent)
+        let folder: URL
+        do {
+            folder = try files.url(for: .itemReplacementDirectory, in: .userDomainMask, appropriateFor: files.temporaryDirectory, create: true)
+        } catch {
+            throw AppleEventFailure(subject: "scratch folder for \(subject)", reason: .foundation(error as NSError))
+        }
+        let bundle = folder.appending(component: resource.deletingPathExtension().lastPathComponent)
         let staged = Result { () throws(any Error) in
-            try files.createDirectory(at: folder.appending(components: bundle, "Resources"), withIntermediateDirectories: true)
-            try files.copyItem(at: resource, to: folder.appending(components: bundle, "Resources", resource.lastPathComponent))
+            try files.createDirectory(at: bundle.appending(component: "Resources"), withIntermediateDirectories: true)
+            try files.copyItem(at: resource, to: bundle.appending(components: "Resources", resource.lastPathComponent))
         }
         let (status, definition): (OSStatus, CFData?) =
             switch staged {
                 case .success:
                     await withTaskExecutorPreference(appleEventQueue) {
                         var definition: Unmanaged<CFData>?
-                        return (unsafe OSACopyScriptingDefinitionFromURL(folder.appending(component: bundle) as CFURL, 0, &definition), unsafe definition?.takeRetainedValue())
+                        return (unsafe OSACopyScriptingDefinitionFromURL(bundle as CFURL, 0, &definition), unsafe definition?.takeRetainedValue())
                     }
                 case .failure: (noErr, nil)
             }
@@ -293,183 +399,133 @@ extension ScriptingDictionary {
 
     package static func definition(suites bundle: Bundle) throws(AppleEventFailure) -> Data {
         let foundation = Bundle(for: NSScriptSuiteRegistry.self)
-        let bundles: [Bundle] = [foundation, Bundle(for: NSApplication.self), bundle]
-        func plist(_ file: URL) throws(AppleEventFailure) -> [String: Any] {
-            do {
-                guard let read = try unsafe PropertyListSerialization.propertyList(from: Data(contentsOf: file), format: nil) as? [String: Any] else { throw CocoaError(.propertyListReadCorrupt) }
-                return read
-            } catch {
-                throw AppleEventFailure(subject: file.path(percentEncoded: false), reason: .foundation(error as NSError))
-            }
-        }
-        func declared(_ file: URL?, _ query: String) throws(AppleEventFailure) -> [XMLElement] {
+        func read<Value>(_ file: URL?, named name: String, _ decode: (Data) throws -> Value) throws(AppleEventFailure) -> Value {
             do {
                 guard let file else { throw CocoaError(.fileReadNoSuchFile) }
-                return try XMLDocument(contentsOf: file).nodes(forXPath: query).compactMap { node in node as? XMLElement }
+                return try decode(Data(contentsOf: file))
             } catch {
-                throw AppleEventFailure(subject: "scripting definition XPath \(query)", reason: .foundation(error as NSError))
+                throw AppleEventFailure(subject: file?.path(percentEncoded: false) ?? name, reason: .foundation(error as NSError))
             }
         }
-        func field(_ value: Any?, _ keys: String...) -> [String: Any] { keys.reduce(value) { found, key in (found as? [String: Any])?[key] } as? [String: Any] ?? [:] }
-        func table(_ value: Any?) -> [(key: String, value: [String: Any])] { field(value).map { key, value in (key, field(value)) }.sorted { left, right in left.key < right.key } }
-        func codes(_ value: Any?) -> [(key: String, value: String)] { (value as? [String: String] ?? [:]).sorted { left, right in left.key < right.key } }
-        func flag(_ value: Any?) -> String? {
-            let set: Bool = (value as? NSString)?.boolValue ?? (value as? NSNumber)?.boolValue ?? false
-            return set ? "yes" : nil
-        }
-        func node(_ name: String, _ attributes: [String: Any?], _ children: [XMLElement] = []) -> XMLElement {
-            let element = XMLElement(name: name)
-            element.attributes = attributes.sorted { left, right in left.key < right.key }
-                .compactMap { key, value in (value as? String).flatMap { value in XMLNode.attribute(withName: key, stringValue: value) as? XMLNode } }
+        func entries<Value>(_ table: [String: Value]?) -> [(key: String, value: Value)] { (table ?? [:]).sorted { left, right in left.key < right.key } }
+        func node(_ kind: Kind, _ attributes: KeyValuePairs<Attribute, String?>, _ children: [XMLElement] = []) -> XMLElement {
+            let element = XMLElement(name: kind.rawValue)
+            element.attributes = attributes.compactMap { attribute, value in value.flatMap { value in XMLNode.attribute(withName: attribute.rawValue, stringValue: value) as? XMLNode } }
             element.setChildren(children)
             return element
         }
-        let pairs: [(name: String, suite: [String: Any], terms: [String: Any])] = try bundles.map { bundle throws(AppleEventFailure) in
+        let suites: [(name: String, declared: ScriptSuite, terms: ScriptTerminology?)] = try [foundation, Bundle(for: NSApplication.self), bundle].map { bundle throws(AppleEventFailure) in
             try (bundle.urls(forResourcesWithExtension: "scriptSuite", subdirectory: nil) ?? []).sorted { left, right in left.lastPathComponent < right.lastPathComponent }.map {
                 file throws(AppleEventFailure) in
-                let (suite, stem) = (try plist(file), file.deletingPathExtension().lastPathComponent)
-                return (name: suite["Name"] as? String ?? stem, suite: suite, terms: try bundle.url(forResource: stem, withExtension: "scriptTerminology").map(plist) ?? [:])
+                let stem = file.deletingPathExtension().lastPathComponent
+                let declared = try read(file, named: stem) { data in try PropertyListDecoder().decode(ScriptSuite.self, from: data) }
+                let terms = try bundle.url(forResource: stem, withExtension: "scriptTerminology").map { terminology throws(AppleEventFailure) in
+                    try read(terminology, named: stem) { data in try PropertyListDecoder().decode(ScriptTerminology.self, from: data) }
+                }
+                return (name: declared.name ?? stem, declared: declared, terms: terms)
             }
         }.flatMap(\.self)
-        let classes: [(keys: [String], code: String?, name: String)] = pairs.flatMap { pair -> [(keys: [String], code: String?, name: String)] in
-            let declared: [(keys: [String], code: String?, name: String)] = table(pair.suite["Classes"]).map { key, cocoa in
-                let name: String = field(pair.terms, "Classes", key)["Name"] as? String ?? key
-                return (keys: [pair.name + "." + key, key], code: cocoa["AppleEventCode"] as? String, name: name)
-            }
-            let synonyms: [(keys: [String], code: String?, name: String)] = codes(pair.suite["Synonyms"]).map { code, _ in
-                let name: String = field(pair.terms, "Synonyms", code)["Name"] as? String ?? code
-                return (keys: [], code: code, name: name)
-            }
-            return declared + synonyms
+        let declaredClasses: [(keys: [String], code: String?, name: String)] = suites.flatMap { suite -> [(keys: [String], code: String?, name: String)] in
+            entries(suite.declared.classes).map { key, cocoa in (keys: [suite.name + "." + key, key], code: cocoa.appleEventCode, name: suite.terms?.classes?[key]?.name ?? key) }
         }
-        let classNames: [String: String] = Dictionary(classes.flatMap { row -> [(String, String)] in row.keys.map { key in (key, row.name) } }, uniquingKeysWith: { first, _ in first })
-        let classCodes: [String: String] = Dictionary(
-            classes.flatMap { row -> [(String, String)] in row.code.map { code in row.keys.map { key in (key, code) } } ?? [] },
-            uniquingKeysWith: { first, _ in first },
+        let synonymClasses: [(keys: [String], code: String?, name: String)] = suites.flatMap { suite -> [(keys: [String], code: String?, name: String)] in
+            entries(suite.declared.synonyms).map { code, _ in (keys: [], code: code, name: suite.terms?.synonyms?[code]?.name ?? code) }
+        }
+        let classes = declaredClasses + synonymClasses
+        let classNames: [String: String] = Dictionary(classes.flatMap { row -> [(String, String)] in row.keys.map { key in (key, row.name) } }) { first, _ in first }
+        let classCodes: [String: String] = Dictionary(classes.flatMap { row -> [(String, String)] in row.code.map { code in row.keys.map { key in (key, code) } } ?? [] }) { first, _ in first }
+        let codeNames: [String: String] = Dictionary(classes.compactMap { row -> (String, String)? in row.code.map { code in (code, row.name) } }) { first, _ in first }
+        let enumerationCodes: [String: String] = Dictionary(
+            suites.flatMap { suite -> [(String, String)] in
+                entries(suite.declared.enumerations).flatMap { key, cocoa -> [(String, String)] in [(suite.name + "." + key, cocoa.appleEventCode ?? key), (key, cocoa.appleEventCode ?? key)] }
+            }
+        ) { first, _ in first }
+        let valueTypes: [String: FourCharCode] = Dictionary(
+            suites.flatMap { suite -> [(String, FourCharCode)] in entries(suite.declared.valueTypes).compactMap { cocoa, code in FourCharCode(sdef: code).map { code in (cocoa, code) } } }
+        ) { first, _ in first }
+        let compatibility = try ScriptingDictionary(
+            definition: read(Bundle(identifier: "com.apple.openscripting")?.url(forResource: "Compatibility", withExtension: "sdef"), named: "Compatibility.sdef") { data in data }
         )
-        let codeNames: [String: String] = Dictionary(classes.compactMap { row -> (String, String)? in row.code.map { code in (code, row.name) } }, uniquingKeysWith: { first, _ in first })
-        let enumerated: [(String, String)] = pairs.flatMap { pair -> [(String, String)] in
-            table(pair.suite["Enumerations"]).flatMap { key, cocoa -> [(String, String)] in
-                let code: String = cocoa["AppleEventCode"] as? String ?? key
-                return [(pair.name + "." + key, code), (key, code)]
+        let intrinsics = try read(foundation.url(forResource: "Intrinsics", withExtension: "sdef"), named: "Intrinsics.sdef") { data in try XMLDocument(data: data) }
+        let intrinsicTypes: [(cocoa: String, name: String)] = (intrinsics.rootElement()?.elements(forName: Kind.suite.rawValue) ?? []).flatMap { suite in
+            suite.elements(forName: Kind.valueType.rawValue).compactMap { type in
+                switch (type.elements(forName: Kind.cocoa.rawValue).first?[.class], type[.name]) {
+                    case (.some(let cocoa), .some(let name)): (cocoa: cocoa, name: name)
+                    default: nil
+                }
             }
         }
-        let enumerationCodes: [String: String] = Dictionary(enumerated, uniquingKeysWith: { first, _ in first })
-        let valueTypes: [String: String] = Dictionary(pairs.flatMap { pair -> [(key: String, value: String)] in codes(pair.suite["ValueTypes"]) }, uniquingKeysWith: { first, _ in first })
-        let typeNames: [String: String] = Dictionary(
-            try declared(Bundle(identifier: "com.apple.openscripting")?.url(forResource: "Compatibility", withExtension: "sdef"), "//class[@name]").flatMap {
-                (type: XMLElement) -> [(String, String)] in
-                let codes: [String] = ([type] + type.elements(forName: "synonym")).compactMap { coded in coded.attribute(forName: "code")?.stringValue }
-                return type.attribute(forName: "name")?.stringValue.map { name in codes.map { code in (code, name) } } ?? []
-            },
-            uniquingKeysWith: { first, _ in first },
-        )
-        let intrinsics: [(cocoa: String, name: String)] = try declared(foundation.url(forResource: "Intrinsics", withExtension: "sdef"), "//value-type").compactMap { type in
-            switch (type.elements(forName: "cocoa").first?.attribute(forName: "class")?.stringValue, type.attribute(forName: "name")?.stringValue) {
-                case (.some(let cocoa), .some(let name)): (cocoa: cocoa, name: name)
-                default: nil
-            }
-        }
-        let cocoaTypes: [String: String] = Dictionary(grouping: intrinsics, by: \.cocoa).compactMapValues { rows in rows.count == 1 ? rows.first?.name : nil }
+        let cocoaTypes: [String: String] = Dictionary(grouping: intrinsicTypes, by: \.cocoa).compactMapValues { rows in rows.count == 1 ? rows.first?.name : nil }
         let numberCodes: [String: DescType] = [
             "NSNumber": DescType(typeSInt32), "NSNumber<Bool>": DescType(typeBoolean), "NSNumber<Short>": DescType(typeSInt16), "NSNumber<Int>": DescType(typeSInt32),
             "NSNumber<Long>": DescType(typeSInt32), "NSNumber<UnsignedInt>": DescType(typeUInt32), "NSNumber<UnsignedLong>": DescType(typeUInt32),
             "NSNumber<LongLong>": DescType(typeSInt64), "NSNumber<Float>": DescType(typeIEEE32BitFloatingPoint), "NSNumber<Double>": DescType(typeIEEE64BitFloatingPoint),
             "NSNumber<TypeCode>": DescType(typeType), "NSString<FilePath>": DescType(typeAlias),
         ]
+        func typeName(_ code: FourCharCode) -> String? { compatibility.types.byCode[code]?.first?.name }
         let spelling = /(?<base>[\w.]+)(?:<(?<tag>[\w.]+)>)?/
-        func resolved(_ cocoa: Any?) -> (type: String, list: Bool) {
-            let spelled: String? = cocoa as? String
-            let parts = spelled.flatMap { spelled in spelled.wholeMatch(of: spelling) }
-            let base: String? = parts.map { parts in String(parts.output.base) }
-            let tag: String? = parts?.output.tag.map(String.init)
-            let numbered: String? = spelled.flatMap { spelled in numberCodes[spelled].flatMap { code in typeNames[code.sdef] } }
-            let tagged: String? = tag.flatMap { tag in enumerationCodes[tag] ?? valueTypes[tag].flatMap { code in typeNames[code] } }
+        func resolved(_ cocoa: String?) -> (type: String, list: Bool) {
+            let parts = cocoa.flatMap { spelled in spelled.wholeMatch(of: spelling) }
+            let (base, tag): (String?, String?) = (parts.map { parts in String(parts.output.base) }, parts?.output.tag.map(String.init))
+            let numbered: String? = cocoa.flatMap { spelled in numberCodes[spelled] }.flatMap(typeName)
+            let tagged: String? = tag.flatMap { tag in enumerationCodes[tag] ?? valueTypes[tag].flatMap(typeName) }
             let classed: String? = base.flatMap { base in classNames[base] ?? cocoaTypes[base] }
-            let named: String = numbered ?? tagged ?? classed ?? "any"
-            return (type: named, list: base == "NSArray")
+            return (type: numbered ?? tagged ?? classed ?? "any", list: base == "NSArray")
         }
-        func typed(_ name: String, _ cocoa: Any?, _ attributes: [String: Any?]) -> XMLElement {
+        func typed(_ kind: Kind, _ cocoa: String?, _ attributes: KeyValuePairs<Attribute, String?>) -> XMLElement {
             let (type, list) = resolved(cocoa)
-            return list ? node(name, attributes, [node("type", ["type": type, "list": "yes"])]) : node(name, attributes.merging(["type": type]) { _, type in type })
+            return node(kind, attributes, [node(.type, [.type: type, .list: list ? Attribute.yes : nil])])
         }
-        let groups: [(group: String, many: Bool)] = [("Attributes", false), ("ToOneRelationships", false), ("ToManyRelationships", true)]
-        let rows: [(owner: String, many: Bool, key: String, declared: [String: Any], term: [String: Any])] = pairs.flatMap { pair in
-            table(pair.suite["Classes"]).flatMap { owner, cocoa -> [(owner: String, many: Bool, key: String, declared: [String: Any], term: [String: Any])] in
-                groups.flatMap { group, many in
-                    table(cocoa[group]).map { key, declared in (owner: pair.name + "." + owner, many: many, key: key, declared: declared, term: field(pair.terms, "Classes", owner, group, key)) }
-                }
+        let relationships: [(owner: String, many: Bool, key: String, declared: ScriptSuite, term: ScriptTerminology?)] = suites.flatMap { suite in
+            entries(suite.declared.classes).flatMap { owner, cocoa -> [(owner: String, many: Bool, key: String, declared: ScriptSuite, term: ScriptTerminology?)] in
+                let terms = suite.terms?.classes?[owner]
+                let groups: [(many: Bool, keys: [String: ScriptSuite]?, terms: [String: ScriptTerminology]?)] = [
+                    (false, cocoa.attributes, terms?.attributes), (false, cocoa.toOneRelationships, terms?.toOneRelationships), (true, cocoa.toManyRelationships, terms?.toManyRelationships),
+                ]
+                return groups.flatMap { many, keys, terms in entries(keys).map { key, declared in (owner: suite.name + "." + owner, many: many, key: key, declared: declared, term: terms?[key]) } }
             }
         }
-        let owned: [String: [XMLElement]] = Dictionary(grouping: rows, by: \.owner).mapValues { owned in
-            owned.map { row in
-                let (code, access): (String?, String?) = (row.declared["AppleEventCode"] as? String, flag(row.declared["ReadOnly"]).map { _ in "r" })
-                let contained: String = code.flatMap { code in codeNames[code] } ?? resolved(row.declared["Type"]).type
-                return row.many
-                    ? node("element", ["type": contained, "access": access])
-                    : typed(
-                        "property",
-                        row.declared["Type"],
-                        ["name": row.term["Name"] ?? row.key, "code": code, "access": access, "description": row.term["Description"], "hidden": row.term.isEmpty ? "yes" : nil],
-                    )
+        let owned: [String: [XMLElement]] = Dictionary(grouping: relationships, by: \.owner).mapValues { rows in
+            rows.map { row in
+                row.many
+                    ? node(.element, [.type: row.declared.appleEventCode.flatMap { code in codeNames[code] } ?? resolved(row.declared.type).type])
+                    : typed(.property, row.declared.type, [.name: row.term?.name ?? row.key, .code: row.declared.appleEventCode, .hidden: row.term == nil ? Attribute.yes : nil])
             }
         }
-        let suites: [XMLElement] = pairs.map { name, suite, terms in
-            let declared: [XMLElement] = table(suite["Classes"]).map { key, cocoa in
-                let (named, superclass, children) = (field(terms, "Classes", key), cocoa["Superclass"] as? String, owned[name + "." + key, default: []])
-                let (code, inheritedCode, inherited): (String?, String?, String?) = (
-                    cocoa["AppleEventCode"] as? String, superclass.flatMap { superclass in classCodes[superclass] }, superclass.flatMap { superclass in classNames[superclass] },
-                )
-                return switch (code == nil || code == inheritedCode, inherited) {
-                    case (true, .some(let extended)): node("class-extension", ["extends": extended, "description": named["Description"]], children)
+        let definitions: [XMLElement] = suites.map { name, declared, terms in
+            let classes: [XMLElement] = entries(declared.classes).map { key, cocoa in
+                let (named, children) = (terms?.classes?[key], owned[name + "." + key, default: []])
+                let (inheritedCode, inherited) = (cocoa.superclass.flatMap { superclass in classCodes[superclass] }, cocoa.superclass.flatMap { superclass in classNames[superclass] })
+                return switch (cocoa.appleEventCode == nil || cocoa.appleEventCode == inheritedCode, inherited) {
+                    case (true, .some(let extended)): node(.classExtension, [.extends: extended], children)
                     case (_, let inherited):
                         node(
-                            "class",
-                            [
-                                "name": named["Name"] ?? key, "code": code, "plural": named["PluralName"], "inherits": inherited, "description": named["Description"],
-                                "hidden": named.isEmpty ? "yes" : nil,
-                            ],
+                            .class,
+                            [.name: named?.name ?? key, .code: cocoa.appleEventCode, .plural: named?.pluralName, .inherits: inherited, .hidden: named == nil ? Attribute.yes : nil],
                             children,
                         )
                 }
             }
-            let synonyms: [XMLElement] = codes(suite["Synonyms"]).map { code, synonym in
-                let term = field(terms, "Synonyms", code)
-                return node(
-                    "class",
-                    [
-                        "name": term["Name"] ?? code, "code": code, "plural": term["PluralName"], "inherits": classNames[synonym], "description": term["Description"],
-                        "hidden": term.isEmpty ? "yes" : nil,
-                    ],
-                )
+            let synonyms: [XMLElement] = entries(declared.synonyms).map { code, synonym in
+                let named = terms?.synonyms?[code]
+                return node(.class, [.name: named?.name ?? code, .code: code, .plural: named?.pluralName, .inherits: classNames[synonym], .hidden: named == nil ? Attribute.yes : nil])
             }
-            let commands: [XMLElement] = table(suite["Commands"]).map { key, cocoa in
-                let (named, unnamed) = (field(terms, "Commands", key), field(cocoa, "UnnamedArgument"))
-                let direct: [XMLElement] =
-                    unnamed.isEmpty ? [] : [typed("direct-parameter", unnamed["Type"], ["optional": flag(unnamed["Optional"]), "description": field(named, "UnnamedArgument")["Description"]])]
-                let parameters: [XMLElement] = table(cocoa["Arguments"]).map { argument, declared in
-                    let term = field(named, "Arguments", argument)
-                    return typed(
-                        "parameter",
-                        declared["Type"],
-                        ["name": term["Name"] ?? argument, "code": declared["AppleEventCode"], "optional": flag(declared["Optional"]), "description": term["Description"]],
-                    )
+            let commands: [XMLElement] = entries(declared.commands).map { key, cocoa in
+                let named = terms?.commands?[key]
+                let direct: [XMLElement] = cocoa.unnamedArgument.map { argument in [typed(.directParameter, argument.type, [:])] } ?? []
+                let parameters: [XMLElement] = entries(cocoa.arguments).map { argument, declared in
+                    typed(.parameter, declared.type, [.name: named?.arguments?[argument]?.name ?? argument, .code: declared.appleEventCode])
                 }
-                let result: [XMLElement] = cocoa["Type"].map { type in [typed("result", type, [:])] } ?? []
-                let code: String = [cocoa["AppleEventClassCode"], cocoa["AppleEventCode"]].compactMap { part in part as? String }.joined()
-                return node("command", ["name": named["Name"] ?? key, "code": code, "description": named["Description"], "hidden": named.isEmpty ? "yes" : nil], direct + parameters + result)
+                let code: String = [cocoa.appleEventClassCode, cocoa.appleEventCode].compactMap(\.self).joined()
+                return node(.command, [.name: named?.name ?? key, .code: code, .hidden: named == nil ? Attribute.yes : nil], direct + parameters)
             }
-            let enumerations: [XMLElement] = table(suite["Enumerations"]).map { key, cocoa in
-                let enumerators: [XMLElement] = codes(cocoa["Enumerators"]).map { item, code in
-                    let term = field(terms, "Enumerations", key, item)
-                    return node("enumerator", ["name": term["Name"] ?? item, "code": code, "description": term["Description"]])
-                }
-                return node("enumeration", ["name": cocoa["AppleEventCode"] ?? key, "code": cocoa["AppleEventCode"]], enumerators)
+            let enumerations: [XMLElement] = entries(declared.enumerations).map { key, cocoa in
+                let enumerators: [XMLElement] = entries(cocoa.enumerators).map { item, code in node(.enumerator, [.name: terms?.enumerations?[key]?[item]?.name ?? item, .code: code]) }
+                return node(.enumeration, [.name: cocoa.appleEventCode ?? key, .code: cocoa.appleEventCode], enumerators)
             }
-            let attributes: [String: Any?] = ["name": terms["Name"] ?? name, "code": suite["AppleEventCode"], "description": terms["Description"], "hidden": terms.isEmpty ? "yes" : nil]
-            return node("suite", attributes, declared + synonyms + commands + enumerations)
+            return node(.suite, [.name: terms?.name ?? name, .code: declared.appleEventCode, .hidden: terms == nil ? Attribute.yes : nil], classes + synonyms + commands + enumerations)
         }
-        return XMLDocument(rootElement: node("dictionary", [:], suites)).xmlData
+        return XMLDocument(rootElement: node(.dictionary, [:], definitions)).xmlData
     }
 
     // --- [COMMANDS]
@@ -593,6 +649,12 @@ extension ScriptingDictionary {
         let scopes = types.sorted().compactMap { type in enumerations[type] }
         return scopes.count == 1 ? scopes[0] : Scope(scopes.flatMap(\.terms))
     }
+}
+
+extension XMLElement {
+    // --- [ATTRIBUTES]
+
+    fileprivate subscript(_ name: ScriptingDictionary.Attribute) -> String? { attribute(forName: name.rawValue)?.stringValue }
 }
 
 extension FixedWidthInteger where Self: UnsignedInteger {

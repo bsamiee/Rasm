@@ -168,8 +168,9 @@ const suppressDialogs = (root: Host) => {
         });
         return plain ? copy : value;
     };
+    const rowsOf = (owner: unknown) => (owner === root['app'] ? APPLICATION : OBJECTS);
     const callable = (real: Call, owner: Host | undefined, member: string): Call => {
-        const table = owner === root['app'] ? APPLICATION : OBJECTS;
+        const table = rowsOf(owner);
         const row = owner !== undefined && Object.prototype.hasOwnProperty.call(table, member) ? table[member] : undefined;
         const made = function (this: unknown, ...args: readonly unknown[]): unknown {
             const answered = row === undefined || owner === undefined ? undefined : row(args, owner);
@@ -218,7 +219,7 @@ const suppressDialogs = (root: Host) => {
         for (let level: unknown = real; isObject(level) && level !== Object.prototype; level = Object.getPrototypeOf(level)) {
             Object.getOwnPropertyNames(level).forEach(define);
         }
-        Object.keys(real === root['app'] ? APPLICATION : OBJECTS)
+        Object.keys(rowsOf(real))
             .filter((name) => name in real)
             .forEach(define);
         return made;

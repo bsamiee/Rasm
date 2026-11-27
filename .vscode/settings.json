@@ -91,10 +91,10 @@
         "mise.toml": "mise.*.toml, mise.lock, miserc.toml",
         "nx.json": ".editorconfig, sgconfig.yml",
         "package.json": "*.config.ts, .oxfmtrc.json, .oxlintrc.json, executors.json, manifest.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig*.json",
-        "Package.swift": "Package.resolved, Xcode.xcconfig",
+        "Package.swift": "Package.resolved",
         "pyproject.toml": "hatch_build.py, pixi.lock, uv.lock",
         "README.md": "LICENSE",
-        "swiftlint.yml": "Performance.xctestplan, Rasm-Package.xctestplan, sparkle.xcconfig, swift-format.json, xcode.xcconfig"
+        "swiftlint.yml": "app.xcconfig, Performance.xctestplan, Rasm-Package.xctestplan, sparkle.xcconfig, swift-format.json, xcode.xcconfig"
     },
 
     // --- [CLANGD] ----------------------------------------------------------------------

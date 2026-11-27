@@ -17,12 +17,8 @@ struct RecognizedLine: Equatable, Sendable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-extension CGImage {
-    func recognizeText(
-        at frame: CGRect,
-        in language: Locale.Language,
-        labels: Set<String>,
-    ) async throws(ApplicationFailure) -> [RecognizedLine] {
+extension Screenshot {
+    func recognizeText(in language: Locale.Language, labels: Set<String>) async throws(ApplicationFailure) -> [RecognizedLine] {
         var request = RecognizeTextRequest()
         let languages: [Locale.Language] = request.supportedRecognitionLanguages
         let supported: [String] = languages.map(\.minimalIdentifier)
@@ -30,11 +26,11 @@ extension CGImage {
         let matched: Locale.Language? = Bundle.preferredLocalizations(from: supported, forPreferences: [language.minimalIdentifier]).first
             .flatMap { identifier in listed[identifier] }
             .flatMap { match in match.languageCode == language.languageCode ? match : nil }
-        (request.recognitionLanguages, request.automaticallyDetectsLanguage) = (matched.map { match in [match] } ?? request.recognitionLanguages, matched == nil)
+        if let matched { request.recognitionLanguages = [matched] } else { request.automaticallyDetectsLanguage = true }
         request.minimumTextHeightFraction = 0
-        let subject = "text recognition at \(frame)"
+        let subject = "text recognition in the window at \(SIMD2<Double>(frame.minX, frame.minY).coordinates)"
         let observations: [RecognizedTextObservation]
-        do { observations = try await request.perform(on: self) } catch VisionError.requestCancelled, is CancellationError {
+        do { observations = try await request.perform(on: image) } catch VisionError.requestCancelled, is CancellationError {
             throw ApplicationFailure(subject: subject, reason: .cancelled)
         } catch {
             throw ApplicationFailure(subject: subject, reason: .foundation(error as NSError))
@@ -54,11 +50,12 @@ extension CGImage {
             return (ordered[title], labelled[title], ordered[(title + 1)...].map(\.transcript))
         }
         let tone = CIFilter.colorControls()
-        (tone.inputImage, tone.saturation) = (CIImage(cgImage: self), 0)
-        let pixels = CGSize(width: width, height: height)
+        (tone.inputImage, tone.saturation) = (CIImage(cgImage: image), 0)
+        let gray: CIImage? = tone.outputImage
+        let pixels = CGSize(width: image.width, height: image.height)
         let reductions: CIImage = rows.enumerated().reduce(CIImage.empty()) { joined, row in
             let range = CIFilter.areaMinMaxRed()
-            (range.inputImage, range.extent) = (tone.outputImage, row.element.title.boundingBox.toImageCoordinates(pixels))
+            (range.inputImage, range.extent) = (gray, row.element.title.boundingBox.toImageCoordinates(pixels))
             let reduced: CIImage = range.outputImage ?? CIImage.empty()
             return reduced.transformed(by: CGAffineTransform(translationX: CGFloat(row.offset) - reduced.extent.minX, y: -reduced.extent.minY)).composited(over: joined)
         }
@@ -95,8 +92,8 @@ extension Watch {
         var found: [CGWindowID: [RecognizedLine]] = [:]
         for (window, captured) in zip(windows, try await capture(.windows(numbers: windows))) {
             switch captured {
-                case .success(let screenshot): found[window] = try await screenshot.image.recognizeText(at: screenshot.frame, in: language, labels: labels)
-                case .failure(let failure) where failure.reason.is(\.noWindow): continue
+                case .success(let screenshot): found[window] = try await screenshot.recognizeText(in: language, labels: labels)
+                case .failure(let failure) where failure.reason.is(\.absent) || failure.reason.is(\.noBackingStore): continue
                 case .failure(let failure): throw failure
             }
         }

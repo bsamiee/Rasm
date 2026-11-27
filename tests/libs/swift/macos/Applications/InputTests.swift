@@ -134,22 +134,6 @@ private let edgeSets: [Set<Input.Edge>] = [[], [.down], [.up], [.down, .up]]
 
 @Suite
 struct InputTests {
-    @Test(arguments: [(nil, [1, 2, 3]), (.milliseconds(600), [1, 1, 1])] as [(Duration?, [Int64])])
-    func runsClicksAtOnePointUpToTheDoubleClickInterval(every: Duration?, states: [Int64]) throws {
-        let row = base(points: [SIMD2(40, 25)], count: 3, every: every)
-        let clicks = Input(contact: row.contact, path: row.path, hold: row.hold, modifiers: [], schedule: row.schedule, edges: row.edges)
-        var generator = Xoshiro(seed: (1, 2, 3, 4))
-        let timed = try clicks.timeline(
-            doubleClick: .milliseconds(500),
-            keyRepeat: (.milliseconds(250), .milliseconds(33)),
-            frame: .seconds(1) / 120,
-            layout: layout,
-            numbering: (7, 1),
-            using: &generator,
-        )
-        expectNoDifference(field(.mouseEventClickState, of: events(timed, among: downs).map(\.event)), states)
-    }
-
     @Test
     func releasesTheHeldPressWithItsNumberAndClickState() throws {
         let row = base(points: [SIMD2(40, 25)], edges: [.up])

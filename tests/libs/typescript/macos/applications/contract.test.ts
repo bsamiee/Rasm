@@ -1,5 +1,10 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Act, Capture, Diagnostics, Event, InstanceState, KeyStep, LaunchEvent, Recording, Scope, Session } from '@rasm/applications/contract';
+import { Capture, Recording } from '@rasm/applications/capture';
+import { LaunchEvent } from '@rasm/applications/installations';
+import { Event, InstanceState, Session } from '@rasm/applications/instances';
+import { KeyStep, Scope } from '@rasm/applications/interface';
+import { Diagnostics } from '@rasm/applications/processes';
+import { Act } from '@rasm/applications/steps';
 import { Effect, Result, Schema, Struct } from 'effect';
 
 describe('contract', () => {
@@ -170,7 +175,7 @@ describe('contract', () => {
                     { at: '2026-11-26T10:00:02.000Z', changed, screenshot: whole, markers: [{ _tag: 'step', index: 1, at: '2026-11-26T10:00:02.100Z' }] },
                 ],
             });
-            assert.deepStrictEqual(Recording.leads(recording), [['+0'], ['+1s 250ms', 'after step 1', 'changed [100, 60, 40, 20]', 'cropped to the change'], ['+2s', 'changed [100, 60, 40, 20]', 'then step 2 changing nothing shown']]);
+            assert.deepStrictEqual(Recording.leads(recording), [['at the start'], ['1.2s in', 'after step 1', 'changed [100,60,40,20]'], ['2.0s in', 'changed [100,60,40,20]', 'then step 2, which changed nothing shown']]);
         }),
     );
 });

@@ -11,3 +11,43 @@ index 60e9e3c..663e43f 100644
  /**
   * Service tag for applications that provide one default MCP connection.
   *
+diff --git a/dist/rpc/RpcSerialization.js b/dist/rpc/RpcSerialization.js
+index 03a616d..77f639d 100644
+--- a/dist/rpc/RpcSerialization.js
++++ b/dist/rpc/RpcSerialization.js
+@@ -111,17 +111,19 @@ export const makeNdjson = options => {
+       };
+       return {
+         decode: bytes => {
+-          buffer += typeof bytes === "string" ? bytes : (decoder ??= new TextDecoder()).decode(bytes, {
++          const text = typeof bytes === "string" ? bytes : (decoder ??= new TextDecoder()).decode(bytes, {
+             stream: true
+           });
+           let position = 0;
+-          let nlIndex = buffer.indexOf("\n", position);
++          let nlIndex = text.indexOf("\n", position);
+           const items = [];
+           while (nlIndex !== -1) {
+-            if (isBufferSizeExceeded(nlIndex - position, maxBufferSize)) {
++            if (isBufferSizeExceeded(buffer.length + nlIndex - position, maxBufferSize)) {
+               failMaxBufferSize(maxBufferSize);
+             }
+-            const line = buffer.slice(position, buffer[nlIndex - 1] === "\r" ? nlIndex - 1 : nlIndex);
++            const framed = buffer + text.slice(position, nlIndex);
++            const line = framed.endsWith("\r") ? framed.slice(0, -1) : framed;
++            buffer = "";
+             position = nlIndex + 1;
+             if (line.length > 0) {
+               try {
+@@ -138,9 +140,9 @@ export const makeNdjson = options => {
+                 onDecodeError(error);
+               }
+             }
+-            nlIndex = buffer.indexOf("\n", position);
++            nlIndex = text.indexOf("\n", position);
+           }
+-          buffer = buffer.slice(position);
++          buffer += text.slice(position);
+           if (isBufferSizeExceeded(buffer.length, maxBufferSize)) {
+             failMaxBufferSize(maxBufferSize);
+           }

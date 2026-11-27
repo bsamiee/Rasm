@@ -13,11 +13,8 @@ const Nested = Schema.suspend(() => Codec);
 const Codec: Schema.Codec<Value, Value<Enumerated | { readonly specifier: string }>> = Schema.Union([Enumerated, Located, Schema.String, Schema.Finite, Schema.Boolean, Schema.Null, Schema.Array(Nested), Schema.Record(Schema.String, Nested)]).annotate({
     description: 'Enumerator or object name, {type, member} enumerator, {specifier} object, points or unit string measurement, record of nested preferences',
 });
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
 const Value = Object.assign(Codec, { Fields: Schema.Record(Schema.String, Codec), Enumerated, Located });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Enumerated, Located, Value };
+export { Value };

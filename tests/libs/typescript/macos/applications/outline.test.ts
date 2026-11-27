@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Address } from '@rasm/applications/address';
-import { Model, Observation } from '@rasm/applications/contract';
+import { Model, Observation } from '@rasm/applications/interface';
 import { InterfaceMap } from '@rasm/applications/interface-map';
 import { Outline } from '@rasm/applications/outline';
 import { Array, Effect, Option, Record, Result, Schema, Struct } from 'effect';
@@ -11,7 +11,7 @@ type Index = ReturnType<typeof Address.index>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const CONTINUATION = /^(?<indent> *)\+(?<count>\d+) more · inspect \{(?<call>.*)\}$/u;
+const CONTINUATION = /^(?<indent> *)(?<count>\d+) more, inspect \{(?<call>.*)\} lists them$/u;
 const ARGUMENT = /(?<key>in|after):(?<value>"(?:[^"\\]|\\.)*")/gu;
 const ALTERNATE = /alternate \((?<token>@\p{Ll}\p{Nd}+)/gu;
 const DEPTH = 1000;
@@ -23,10 +23,12 @@ const TOOLS: Model = {
             ref: 1,
             locator: '[["toolbar","tool"]]',
             kind: 'toolbar',
+            closed: false,
             modal: false,
             asking: false,
             text: [],
             truncated: false,
+            unreadable: false,
             controls: [
                 {
                     ref: 2,
@@ -47,10 +49,12 @@ const TOOLS: Model = {
             ref: 5,
             locator: '[["AXMenu","Window"]]',
             kind: 'menu',
+            closed: false,
             modal: false,
             asking: false,
             text: [],
             truncated: false,
+            unreadable: false,
             controls: [{ ref: 6, locator: '[["AXMenu","Window"],["AXMenuItem","Brushes"]]', kind: 'item', role: 'AXMenuItem', positional: false, label: { text: 'Brushes', attribute: 'AXTitle' }, shortcut: BRUSH }],
         },
     ],
@@ -127,9 +131,9 @@ describe('Outline.render of a tool choice', () => {
             assert.deepStrictEqual(
                 { brush: lines.find((line) => line.startsWith('@o3 ')), eraser: lines.find((line) => line.startsWith('@o4 ')), item },
                 {
-                    brush: '@o3 Brush Tool · shortcut {key:"b",modifiers:["shift"]} · help "Click and drag to paint with the foreground color"',
-                    eraser: '@o4 Eraser Tool · selected',
-                    item: '@i6 Brushes item · shortcut {key:"b",modifiers:["shift"]}',
+                    brush: '@o3 Brush Tool, shortcut Shift-b, help: Click and drag to paint with the foreground color',
+                    eraser: '@o4 Eraser Tool, selected',
+                    item: '@i6 Brushes, shortcut Shift-b',
                 },
             );
         }),
@@ -156,7 +160,7 @@ describe(Address.recall, () => {
                 layout: {},
                 values: { '[["AXWindow","Brushes"],["AXSlider","Size"]]': 12 },
             });
-            const { map } = InterfaceMap.empty.fold(brushes, { username: 'owner', homedir: '/Users/owner' });
+            const [, map] = InterfaceMap.empty.fold(brushes, { username: 'owner', homedir: '/Users/owner' });
             const live = Address.index(TOOLS);
             const recalled = Address.recall(live)(map);
             const printed = yield* Effect.fromResult(Outline.render(live));
@@ -165,7 +169,7 @@ describe(Address.recall, () => {
             assert.deepStrictEqual(
                 {
                     remembered: live.remembered.containers.length,
-                    marked: printed.filter((line) => line.trimStart().startsWith('▸')),
+                    marked: printed.filter((line) => line.includes('not shown now')),
                     recalled: recalled.remembered.containers.map(({ token }) => token),
                     hits,
                     opening: found.map((item) => Result.map(Address.opening(recalled, item), Array.map(Struct.get('token')))),
@@ -175,7 +179,7 @@ describe(Address.recall, () => {
                     remembered: 0,
                     marked: [],
                     recalled: [Option.some('Brushes')],
-                    hits: ['▸ Brushes > Size was 12 number · opened by @i6'],
+                    hits: ['Brushes > Size number, not shown now, last value: 12, opened by @i6'],
                     opening: [Result.succeed([Option.some('@i6')])],
                     located: [Option.some({ container: '[["AXWindow","Brushes"]]', control: '[["AXWindow","Brushes"],["AXSlider","Size"]]' })],
                 },
@@ -204,7 +208,7 @@ describe(Address.opening, () => {
                 layout: {},
                 values: {},
             });
-            const { map } = InterfaceMap.empty.fold(brushes, { username: 'owner', homedir: '/Users/owner' });
+            const [, map] = InterfaceMap.empty.fold(brushes, { username: 'owner', homedir: '/Users/owner' });
             const reach = (model: Model) => {
                 const recalled = Address.recall(Address.index(model))(map);
                 return Address.find(recalled, 'Size', Option.none()).map((item) => Result.map(Address.opening(recalled, item), Array.map(Struct.get('token'))));
@@ -212,7 +216,11 @@ describe(Address.opening, () => {
             assert.deepStrictEqual(
                 {
                     closed: reach({ sequence: 1, containers: TOOLS.containers.filter(({ kind }) => kind === 'toolbar') }),
-                    ...Record.fromEntries((['whole', 'partial'] as const).map((read) => [read, reach({ sequence: 1, containers: [{ ref: 9, locator: '[["AXWindow","Brushes"]]', kind: 'panel', title: 'Brushes', modal: false, asking: false, text: [], truncated: read === 'partial', controls: [] }] })] as const)),
+                    ...Record.fromEntries(
+                        (['whole', 'partial'] as const).map(
+                            (read) => [read, reach({ sequence: 1, containers: [{ ref: 9, locator: '[["AXWindow","Brushes"]]', kind: 'panel', title: 'Brushes', closed: false, modal: false, asking: false, text: [], truncated: read === 'partial', unreadable: false, controls: [] }] })] as const,
+                        ),
+                    ),
                 },
                 {
                     closed: [Result.fail('"Brushes > Size" sits in a closed panel that nothing shown now opens, as none of the 1 items the map saw open it is shown; open it, then act again')],

@@ -12,6 +12,7 @@ Rebuilds across many files run as parts: one delegated agent per file rebuilds i
 Splits come from the conductor's own read of the files and their consumers, and every file has one owner:
 - One file is one part, a type with its extension or a module with its manifest row stays one part
 - No agent takes a phase, project, or folder, as an agent holding many files fills its context and reports late
+- Whole-folder rebuilds start from an inventory file and one owner-approved layout (folders, files, schemas, exports), and parts follow its concepts
 - Shared types sit in one contract file, its part runs first, and reading parts start against the finished contract
 - Manifests and build, test, or tool configuration files each have one owning part, or stay with the conductor
 - Consumers outside the parts change only where a contract change forces it, each change named in the report

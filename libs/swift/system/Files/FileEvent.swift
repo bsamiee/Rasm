@@ -1,44 +1,56 @@
-import CoreServices
-import Dispatch
+package import CoreServices
+package import Dispatch
 package import Foundation
-import System
+package import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 package struct FileEvent: Sendable {
+    package struct Flags: OptionSet, Sendable {
+        package static let mustScanSubDirs = Self(rawValue: FSEventStreamEventFlags(kFSEventStreamEventFlagMustScanSubDirs))
+        package static let rootChanged = Self(rawValue: FSEventStreamEventFlags(kFSEventStreamEventFlagRootChanged))
+        package static let itemCreated = Self(rawValue: FSEventStreamEventFlags(kFSEventStreamEventFlagItemCreated))
+        package static let itemRemoved = Self(rawValue: FSEventStreamEventFlags(kFSEventStreamEventFlagItemRemoved))
+        package static let itemRenamed = Self(rawValue: FSEventStreamEventFlags(kFSEventStreamEventFlagItemRenamed))
+        package static let itemModified = Self(rawValue: FSEventStreamEventFlags(kFSEventStreamEventFlagItemModified))
+        package static let itemIsFile = Self(rawValue: FSEventStreamEventFlags(kFSEventStreamEventFlagItemIsFile))
+        package static let itemIsDir = Self(rawValue: FSEventStreamEventFlags(kFSEventStreamEventFlagItemIsDir))
+
+        package let rawValue: FSEventStreamEventFlags
+
+        package init(rawValue: FSEventStreamEventFlags) {
+            self.rawValue = rawValue
+        }
+    }
+
     package let url: URL
-    let flags: FSEventStreamEventFlags
+    package let flags: Flags
+    package let id: FSEventStreamEventId
+    package let inode: Inode?
 
-    package var mustScanSubDirs: Bool { flags & FSEventStreamEventFlags(kFSEventStreamEventFlagMustScanSubDirs | kFSEventStreamEventFlagRootChanged) != 0 }
+    package var mustScanSubDirs: Bool { !flags.isDisjoint(with: [.mustScanSubDirs, .rootChanged]) }
 
-    package static func events(of file: URL) -> AsyncStream<Result<[Self], FileFailure>> {
+    package static func events(of files: [URL]) -> AsyncStream<Result<[Self], FileFailure>> {
         let (events, continuation) = AsyncStream<Result<[Self], FileFailure>>.makeStream()
         let watcher = Watcher(continuation: continuation)
-        watcher.enqueue { watcher in watcher.start(file) }
+        watcher.enqueue { watcher in watcher.start(files) }
         continuation.onTermination = { _ in watcher.enqueue { watcher in watcher.stream = nil } }
         return events
     }
 
-    static func events(of file: URL, eventMask: DispatchSource.FileSystemEvent) -> AsyncStream<Result<DispatchSource.FileSystemEvent, FileFailure>> {
-        let (events, continuation) = AsyncStream<Result<DispatchSource.FileSystemEvent, FileFailure>>.makeStream()
-        do {
-            let descriptor = try FileDescriptor.open(FilePath(file.path(percentEncoded: false)), .readOnly, options: [.eventOnly, .closeOnExec])
-            let watched = FileHandle(fileDescriptor: descriptor.rawValue, closeOnDealloc: true)
-            let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: watched.fileDescriptor, eventMask: eventMask)
-            source.setRegistrationHandler { continuation.yield(.success([])) }
-            source.setEventHandler { continuation.yield(.success(source.data)) }
-            source.setCancelHandler { withExtendedLifetime(watched) {} }
-            continuation.onTermination = { _ in source.cancel() }
-            source.activate()
-        } catch {
-            continuation.yield(.failure(FileFailure(file: file, reason: .filesystem(error))))
-            continuation.finish()
-        }
+    package static func events(of handle: FileHandle, eventMask: DispatchSource.FileSystemEvent) -> AsyncStream<DispatchSource.FileSystemEvent> {
+        let (events, continuation) = AsyncStream<DispatchSource.FileSystemEvent>.makeStream()
+        let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: handle.fileDescriptor, eventMask: eventMask)
+        source.setRegistrationHandler { continuation.yield([]) }
+        source.setEventHandler { continuation.yield(source.data) }
+        source.setCancelHandler { withExtendedLifetime(handle) {} }
+        continuation.onTermination = { _ in source.cancel() }
+        source.activate()
         return events
     }
 
     package static func presence(of file: URL) -> some AsyncSequence<Result<Bool, FileFailure>, Never> & Sendable {
-        events(of: file).map { batch in
+        events(of: [file]).map { batch in
             batch.flatMap { _ in Result { () throws(FileFailure) in try ifPresent(file) { try FilePath(file.path(percentEncoded: false)).stat(followTargetSymlink: false) } != nil } }
         }
     }
@@ -55,12 +67,30 @@ package struct FileEvent: Sendable {
         return (value, written)
     }
 
-    private static func modifications(of file: URL) throws(FileFailure) -> [FilePath: Duration] {
-        let root = FilePath(file.path(percentEncoded: false))
-        let inside = try ifPresent(file) { try file.resourceValues(forKeys: [.isPackageKey]).isPackage == true ? FileManager.default.subpathsOfDirectory(atPath: root.string) : [] } ?? []
-        let paths = [root] + inside.map { name in root.appending(name) }
-        let modified = try paths.map { path throws(FileFailure) in try ifPresent(file) { try (path, Duration(path.stat(followTargetSymlink: false).st_mtim)) } }
-        return Dictionary(uniqueKeysWithValues: modified.compactMap(\.self))
+    private static func modifications(of document: URL) throws(FileFailure) -> [URL: Date?] {
+        let keys: Set<URLResourceKey> = [.contentModificationDateKey]
+        var document = document
+        document.removeAllCachedResourceValues()
+        return try ifPresent(document) { () throws -> [URL: Date?] in
+            let root = try document.resourceValues(forKeys: keys.union([.isPackageKey]))
+            var failure: (any Error)?
+            let enumerator =
+                root.isPackage == true
+                ? FileManager.default.enumerator(
+                    at: document,
+                    includingPropertiesForKeys: Array(keys),
+                    options: .producesRelativePathURLs,
+                    errorHandler: { (_: URL, error: any Error) -> Bool in
+                        failure = error
+                        return false
+                    },
+                )
+                : nil
+            let entries: [URL] = enumerator?.compactMap { (entry: Any) -> URL? in entry as? URL } ?? []
+            let inside = try entries.map { (url: URL) throws -> (URL, Date?) in (url, try url.resourceValues(forKeys: keys).contentModificationDate) }
+            if let failure { throw failure }
+            return Dictionary(uniqueKeysWithValues: [(document, root.contentModificationDate)] + inside)
+        } ?? [:]
     }
 
     @safe private actor Watcher {
@@ -82,42 +112,54 @@ package struct FileEvent: Sendable {
             queue.async { [self] in assumeIsolated(work) }
         }
 
-        func start(_ file: URL) {
-            do throws(FileFailure) {
-                stream = try Stream(watching: file, for: self)
-                continuation.yield(.success([]))
-            } catch {
-                continuation.yield(.failure(error))
+        func start(_ files: [URL]) {
+            guard !files.isEmpty else {
                 continuation.finish()
+                return
             }
+            stream = Stream(watching: files, for: self)
+            guard stream == nil else {
+                continuation.yield(.success([]))
+                return
+            }
+            for file in files { continuation.yield(.failure(FileFailure(file: file, reason: .unwatched))) }
+            continuation.finish()
         }
 
         @safe struct Stream: ~Copyable {
             let handle: FSEventStreamRef
 
-            init(watching file: URL, for watcher: Watcher) throws(FileFailure) {
+            init?(watching files: [URL], for watcher: Watcher) {
                 var context = unsafe FSEventStreamContext(version: 0, info: Unmanaged.passUnretained(watcher).toOpaque(), retain: nil, release: nil, copyDescription: nil)
                 guard
                     let created = unsafe FSEventStreamCreate(
                         nil,
-                        { _, info, count, eventPaths, eventFlags, _ in
-                            let paths = unsafe UnsafeBufferPointer(start: eventPaths.assumingMemoryBound(to: UnsafeMutablePointer<CChar>.self), count: count)
+                        { _, info, count, eventPaths, eventFlags, eventIds in
+                            let entries = unsafe Unmanaged<AnyObject>.fromOpaque(eventPaths).takeUnretainedValue() as? [[String: Any]] ?? []
                             let flags = unsafe UnsafeBufferPointer(start: eventFlags, count: count)
-                            let events = unsafe zip(paths, flags).map { path, flag in FileEvent(url: URL(filePath: unsafe String(cString: path)), flags: flag) }
+                            let ids = unsafe UnsafeBufferPointer(start: eventIds, count: count)
+                            let events = entries.indices.compactMap { (index: Int) -> FileEvent? in
+                                let inode = (entries[index][kFSEventStreamEventExtendedFileIDKey] as? NSNumber).map { (number: NSNumber) -> Inode in Inode(number.uint64Value) }
+                                return (entries[index][kFSEventStreamEventExtendedDataPathKey] as? String).map { (path: String) -> FileEvent in
+                                    unsafe FileEvent(url: URL(filePath: path), flags: Flags(rawValue: flags[index]), id: ids[index], inode: inode)
+                                }
+                            }
                             unsafe info.map { (info: UnsafeMutableRawPointer) -> Watcher in unsafe Unmanaged<Watcher>.fromOpaque(info).takeUnretainedValue() }?.continuation.yield(.success(events))
                         },
                         &context,
-                        [file.path(percentEncoded: false)] as CFArray,
+                        files.map { (file: URL) -> String in file.path(percentEncoded: false) } as CFArray,
                         FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
                         0,
-                        FSEventStreamCreateFlags(kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot),
+                        FSEventStreamCreateFlags(
+                            kFSEventStreamCreateFlagUseCFTypes | kFSEventStreamCreateFlagUseExtendedData | kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot
+                        ),
                     )
-                else { throw FileFailure(file: file, reason: .unwatched) }
+                else { return nil }
                 unsafe FSEventStreamSetDispatchQueue(created, watcher.queue)
                 guard unsafe FSEventStreamStart(created) else {
                     unsafe FSEventStreamInvalidate(created)
                     unsafe FSEventStreamRelease(created)
-                    throw FileFailure(file: file, reason: .unwatched)
+                    return nil
                 }
                 unsafe handle = created
             }

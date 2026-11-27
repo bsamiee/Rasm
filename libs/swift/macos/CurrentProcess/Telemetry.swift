@@ -1,5 +1,6 @@
 import CasePathsCore
 import Configuration
+import CoreMetrics
 import Encoding
 import Files
 import Foundation
@@ -12,6 +13,10 @@ package import ServiceLifecycle
 import System
 import SystemMetrics
 import Telemetry
+import Tracing
+
+import class os.OSSignpostIntervalState
+import struct os.OSSignposter
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -35,6 +40,76 @@ struct Positive: ExpressibleByConfigInt {
     init?(configInt: Int) {
         guard configInt > 0 else { return nil }
         self.configInt = configInt
+    }
+}
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+private struct SignpostTracer: Tracer {
+    // --- [SPANS]
+
+    struct Span: Tracing.Span {
+        static let name: StaticString = "span"
+
+        let span: any Tracing.Span
+        let signposter: OSSignposter
+        let interval: OSSignpostIntervalState
+
+        var context: InstrumentationContext { span.context }
+        var isRecording: Bool { span.isRecording }
+        var operationName: String {
+            get { span.operationName }
+            nonmutating set { span.operationName = newValue }
+        }
+        var attributes: SpanAttributes {
+            get { span.attributes }
+            nonmutating set { span.attributes = newValue }
+        }
+
+        func setStatus(_ status: SpanStatus) { span.setStatus(status) }
+
+        func addEvent(_ event: SpanEvent) { span.addEvent(event) }
+
+        func addLink(_ link: SpanLink) { span.addLink(link) }
+
+        func recordError<Instant: TracerInstant>(_ error: any Error, attributes: SpanAttributes, at instant: @autoclosure () -> Instant) {
+            span.recordError(error, attributes: attributes, at: instant())
+        }
+
+        func end<Instant: TracerInstant>(at instant: @autoclosure () -> Instant) {
+            signposter.endInterval(Self.name, interval)
+            span.end(at: instant())
+        }
+    }
+
+    let signposter: OSSignposter
+    let tracer: any Tracer
+
+    func startSpan<Instant: TracerInstant>(
+        _ operationName: String,
+        context: @autoclosure () -> InstrumentationContext,
+        ofKind kind: SpanKind,
+        at instant: @autoclosure () -> Instant,
+        function: String,
+        file fileID: String,
+        line: UInt,
+    ) -> Span {
+        let interval = signposter.beginInterval(Span.name, id: signposter.makeSignpostID(), "\(operationName, privacy: .public)")
+        let span = tracer.startSpan(operationName, context: context(), ofKind: kind, at: instant(), function: function, file: fileID, line: line)
+        return Span(span: span, signposter: signposter, interval: interval)
+    }
+
+    @available(*, deprecated)
+    func forceFlush() { tracer.forceFlush() }
+
+    // --- [PROPAGATION]
+
+    func extract<Carrier, Extract: Extractor>(_ carrier: Carrier, into context: inout InstrumentationContext, using extractor: Extract) where Extract.Carrier == Carrier {
+        tracer.extract(carrier, into: &context, using: extractor)
+    }
+
+    func inject<Carrier, Inject: Injector>(_ context: InstrumentationContext, into carrier: inout Carrier, using injector: Inject) where Inject.Carrier == Carrier {
+        tracer.inject(context, into: &carrier, using: injector)
     }
 }
 
@@ -72,7 +147,7 @@ extension Program {
         return ClosureService {
             await cancelWhenGracefulShutdown {
                 var known = Set(preferences.keys)
-                for await change in FileEvent.events(of: file) {
+                for await change in FileEvent.events(of: [file]) {
                     if case .failure(let failure) = change { logger.warning("Settings watch failed", error: failure) }
                     let next = preferences
                     stored.setValues(known.subtracting(next.keys).reduce(into: next.mapValues(Optional.some)) { values, removed in values[removed] = .some(nil) })
@@ -165,39 +240,37 @@ extension Program {
         let diagnostics = Logging.Logger(label: String(reflecting: OTel.self)) { label in OnceLogHandler(records(label, nil)) }
         configuration.diagnosticLogger = .custom(diagnostics)
         configuration.diagnosticLogLevel = .warning
-        let refused: [String: String] = stated.filter { variable, value in
-            guard let values = unsupported[variable] else { return false }
+        for (variable, value) in stated {
             let reached: ArraySlice<Substring> = value.split(separator: "," as Character).prefix { element in element != "none" }
-            return !values.isDisjoint(with: reached)
-        }
-        for (variable, value) in refused {
-            var refusal = diagnostics
-            refusal[metadataKey: "environment_key"] = "\(variable, privacy: .public)"
-            refusal[metadataKey: "environment_value"] = "\(value, privacy: .private)"
-            refusal.warning("Failed to update configuration from environment")
-        }
-        for (variable, value) in stated where environment[variable] == nil && refused[variable] == nil {
-            guard unsafe setenv(variable, value, 0) != 0 else { continue }
-            let failure = Errno(rawValue: errno)
-            diagnostics.warning("Setting value could not reach the process environment", error: failure, metadata: ["environment_key": "\(variable, privacy: .public)"])
+            let refused = unsupported[variable].map { values in !values.isDisjoint(with: reached) } ?? false
+            if refused {
+                var refusal = diagnostics
+                refusal[metadataKey: "environment_key"] = "\(variable, privacy: .public)"
+                refusal[metadataKey: "environment_value"] = "\(value, privacy: .private)"
+                refusal.warning("Failed to update configuration from environment")
+            }
+            guard unsafe (refused ? unsetenv(variable) : setenv(variable, value, 0)) != 0 else { continue }
+            diagnostics.warning("Process environment update failed", error: Errno(rawValue: errno), metadata: ["environment_key": "\(variable, privacy: .public)"])
         }
         let logs = configuration.logs.enabled ? Result { try OTel.makeLoggingBackend(configuration: configuration) } : nil
+        let metrics = configuration.metrics.enabled ? Result { try OTel.makeMetricsBackend(configuration: configuration) } : nil
+        let traces = configuration.traces.enabled ? Result { try OTel.makeTracingBackend(configuration: configuration) } : nil
         let exported: (factory: @Sendable (String) -> any LogHandler, service: any Service)? = if case .success(let backend)? = logs { backend } else { nil }
+        let measured: (factory: any MetricsFactory, service: any Service)? = if case .success(let backend)? = metrics { backend } else { nil }
+        let traced: (factory: any Tracer, service: any Service)? = if case .success(let backend)? = traces { backend } else { nil }
         LoggingSystem.bootstrap({ [export = exported?.factory] label, _ in records(label, export?(label)) }, metadataProvider: provider)
-        configuration.logs.enabled = false
-        let variables = stated.filter { variable, _ in refused[variable] == nil }
-        let bootstrapped = configuration.metrics.enabled || configuration.traces.enabled ? Result { try OTel.bootstrap(configuration: configuration, environment: variables) } : nil
-        let started: (any Service)? = if case .success(let service)? = bootstrapped { service } else { nil }
+        if let measured { MetricsSystem.bootstrap(measured.factory) }
+        InstrumentationSystem.bootstrap(SignpostTracer(signposter: OSSignposter(subsystem: identifier, category: .pointsOfInterest), tracer: traced?.factory ?? NoOpTracer()))
         let logger = Logging.Logger(label: String(reflecting: Program.self))
-        for case .failure(let error)? in [logs?.map { _ in }, bootstrapped?.map { _ in }] { logger.warning("OpenTelemetry signal start failed", error: error) }
+        for case .failure(let error)? in [logs?.map { _ in }, metrics?.map { _ in }, traces?.map { _ in }] { logger.warning("OpenTelemetry signal start failed", error: error) }
         unrecognized.log(to: logger)
-        let metrics: [any Service] = configuration.metrics.enabled && started != nil ? [SystemMetricsMonitor(logger: Logging.Logger(label: String(reflecting: SystemMetricsMonitor.self)))] : []
-        let exports: [any Service] = [exported?.service, started].compactMap(\.self) + metrics + [reloadSettings(filter, reporting: logger)]
-        var group = ServiceGroupConfiguration(
-            services: exports.map { service in .init(service: service) } + [.init(service: crashReports(to: logger), successTerminationBehavior: .ignore, failureTerminationBehavior: .ignore)],
-            logger: Logging.Logger(label: String(reflecting: ServiceGroup.self)),
+        let monitor: (any Service)? = measured.map { _ in SystemMetricsMonitor(logger: Logging.Logger(label: String(reflecting: SystemMetricsMonitor.self))) }
+        let exports: [any Service] = [exported?.service, measured?.service, traced?.service, monitor].compactMap(\.self) + [reloadSettings(filter, reporting: logger)]
+        return ServiceGroup(
+            configuration: ServiceGroupConfiguration(
+                services: exports.map { service in .init(service: service) } + [.init(service: crashReports(to: logger), successTerminationBehavior: .ignore, failureTerminationBehavior: .ignore)],
+                logger: Logging.Logger(label: String(reflecting: ServiceGroup.self)),
+            )
         )
-        group.maximumGracefulShutdownDuration = .milliseconds(500)
-        return ServiceGroup(configuration: group)
     }
 }

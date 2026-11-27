@@ -1,8 +1,8 @@
 {
   "default-configuration": "Release",
   "configurations": [
-    { "name": "Debug", "file": "Xcode.xcconfig" },
-    { "name": "Release", "file": "Xcode.xcconfig" },
+    { "name": "Debug", "file": "app.xcconfig" },
+    { "name": "Release", "file": "app.xcconfig" },
   ],
   "localizations": {
     "development": "en",
@@ -17,7 +17,7 @@
     },
   ],
   "files": [
-    { "path": "<PROJECT>/../../../Xcode.xcconfig" },
+    { "path": "<PROJECT>/../../../.config/app.xcconfig" },
     { "path": "AppIcon.icon", "target-membership": [ "Relay/resources" ] },
     {
       "kind": "group",

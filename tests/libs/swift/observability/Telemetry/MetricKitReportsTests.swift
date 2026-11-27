@@ -40,14 +40,20 @@ struct MetricKitReportsTests {
     }
 
     @Test
-    func leavesCrashesToTheCrashReportReaderAndLogsEveryOtherDiagnostic() async throws {
+    func leavesCrashesToTheCrashReportReaderAndLogsEveryOtherDiagnosticWithItsMeasureAndTimeRange() async throws {
         let store = InMemoryLogHandler()
         let reports = MetricKitReports(to: Logger(label: String(reflecting: Self.self)) { _ in store })
+        let decoded = try diagnostics.map { json in try JSONDecoder().decode(MetricKit.DiagnosticReport.self, from: Data(json.utf8)) }
+        let hang = try #require(decoded.lazy.compactMap { (report: MetricKit.DiagnosticReport) -> HangDiagnostic? in if case .hang(let hang) = report.result { hang } else { nil } }.first)
         let (stream, continuation) = AsyncStream.makeStream(of: MetricKit.DiagnosticReport.self)
-        for json in diagnostics { continuation.yield(try JSONDecoder().decode(MetricKit.DiagnosticReport.self, from: Data(json.utf8))) }
+        for report in decoded { continuation.yield(report) }
         continuation.finish()
         await reports.log(stream)
-        expectNoDifference(store.entries.map { entry in "\(entry.level) \(entry.message)" }, ["error MetricKit hang report"])
-        expectNoDifference(store.entries.map { entry in entry.metadata.keys.sorted() }, [["process.pid", "report", "service.version"]])
+        expectNoDifference(store.entries.map { entry in "\(entry.level) \(entry.message)" }, ["error Hang of \(hang.hangDuration.formatted()) reported by MetricKit"])
+        expectNoDifference(store.entries.map { entry in entry.metadata.keys.sorted() }, [["process.pid", "service.version", "time_range"]])
+        expectNoDifference(
+            store.entries.map { entry in entry.metadata.filter { key, _ in key != "time_range" }.mapValues(\.description) },
+            [["process.pid": "312", "service.version": "1.4"]],
+        )
     }
 }

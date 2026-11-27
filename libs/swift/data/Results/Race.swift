@@ -10,7 +10,7 @@ package func race<Value: Sendable, Failure: Error>(
 package func withTimeout<Value: Sendable, Failure: Error>(
     _ timeout: Duration,
     expired: Failure,
-    clock: some Clock<Duration> = ContinuousClock(),
+    clock: some Clock<Duration> = SuspendingClock(),
     _ work: @escaping @Sendable () async throws(Failure) -> Value,
 ) async throws(Failure) -> Value {
     try await race(work) { (try? await clock.sleep(for: timeout)).map { .failure(expired) } }
@@ -20,7 +20,7 @@ package func withTimeout<Value: Sendable, Failure: Error>(
     _ timeout: Duration,
     expired: Failure,
     cancelled: Failure,
-    clock: some Clock<Duration> = ContinuousClock(),
+    clock: some Clock<Duration> = SuspendingClock(),
     _ work: @escaping @Sendable (_ completionHandler: @escaping @Sendable (Result<Value, Failure>) -> Void) -> Void,
 ) async throws(Failure) -> Value {
     try await withTimeout(timeout, expired: expired, clock: clock) { () async throws(Failure) -> Value in

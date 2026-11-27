@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Event, Pressure } from '@rasm/applications/contract';
-import { type Entry, followInstance, lookupEntry, ownsEvent, strains } from '@rasm/applications/workspace';
+import { Event } from '@rasm/applications/instances';
+import { type Entry, followInstance, lookupEntry, ownsEvent } from '@rasm/applications/workspace';
 import { Handle } from '@rasm/mcp/server';
 import { Context, Effect, MutableRef, Option, Record, Schema, Struct } from 'effect';
 
@@ -38,24 +38,6 @@ const CATALOG = [
 const LOOKUPS = Record.map(NAMED, (_, query) => lookupEntry(CATALOG, query));
 
 describe('workspace', () => {
-    it.effect('names an advisory the Swift server read as unread, apart from its levels', () =>
-        Effect.gen(function* () {
-            const unread = yield* Schema.decodeEffect(Pressure)({ memory: 'normal', available: 60, thermal: 'nominal', lowPower: false });
-            const read = yield* Schema.decodeEffect(Pressure)({ memory: 'normal', available: 60, thermal: 'nominal', lowPower: false, advisory: { CombinedLevel: 'bad', UserLevel: 'great' } });
-            const steady = [
-                { normal: true, text: 'memory pressure normal with 60% available' },
-                { normal: true, text: 'thermal state nominal' },
-                { normal: true, text: 'low power mode off' },
-            ];
-            assert.deepStrictEqual(
-                { unread: strains(unread), read: strains(read) },
-                {
-                    unread: [...steady, { normal: false, text: 'load advisory unread' }],
-                    read: [...steady, { normal: false, text: 'load advisory CombinedLevel bad' }, { normal: true, text: 'load advisory UserLevel great' }],
-                },
-            );
-        }),
-    );
     it.effect('takes the first listed form of a product for a bare product name, and a later form only by its exact name or identifier', () =>
         Effect.gen(function* () {
             const found = yield* Effect.all(LOOKUPS);
@@ -64,7 +46,7 @@ describe('workspace', () => {
     );
     it.effect('refuses words two products share, naming each, and words no listed name holds', () =>
         Effect.gen(function* () {
-            const [shared, none] = yield* Effect.all([Effect.flip(lookupEntry(CATALOG, 'Acrobat')), Effect.flip(lookupEntry(CATALOG, 'Lightroom'))]);
+            const [shared, none] = yield* Effect.all([lookupEntry(CATALOG, 'Acrobat').pipe(Effect.flip), lookupEntry(CATALOG, 'Lightroom').pipe(Effect.flip)]);
             assert.deepStrictEqual({ shared: shared.candidates, none: Option.getOrUndefined(none.query) }, { shared: ['Adobe Acrobat', 'Acrobat Distiller'], none: 'Lightroom' });
         }),
     );
@@ -73,7 +55,7 @@ describe('workspace', () => {
             const state = MutableRef.make(Context.empty());
             const [followed, other] = yield* Effect.all([asking('512@1'), asking('513@1')]);
             yield* Effect.provideService(followInstance(followed.instance), Handle, handleOver(state));
-            assert.deepStrictEqual({ followed: ownsEvent({ application: 'Fixture', event: followed }, MutableRef.get(state)), other: ownsEvent({ application: 'Fixture', event: other }, MutableRef.get(state)) }, { followed: true, other: false });
+            assert.deepStrictEqual({ followed: ownsEvent({ event: followed }, MutableRef.get(state)), other: ownsEvent({ event: other }, MutableRef.get(state)) }, { followed: true, other: false });
         }),
     );
 });

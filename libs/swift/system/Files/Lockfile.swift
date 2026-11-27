@@ -54,11 +54,16 @@ package struct Lockfile: Sendable {
             Logger.current.debug("Waiting for held lock", metadata: ["lock": .string(blocked.path(percentEncoded: false)), "delay": .stringConvertible(delay)])
             try await race {
                 () async throws(Failure) in
-                switch await FileEvent.presence(of: blocked).first(where: { presence in presence[case: \.success] != true }) {
-                    case .some(.failure(let error)): throw .lock(error)
-                    case .some(.success): return
-                    case .none: throw .cancelled
+                let path = FilePath(blocked.path(percentEncoded: false))
+                let opened = Result { () throws(FileFailure) in
+                    try ifPresent(blocked) { try FileHandle(fileDescriptor: FileDescriptor.open(path, .readOnly, options: [.eventOnly, .closeOnExec]).rawValue, closeOnDealloc: true) }
                 }
+                guard let watched = try opened.mapError(Failure.lock).get() else { return }
+                for await event in FileEvent.events(of: watched, eventMask: [.delete, .rename]) {
+                    guard event.isEmpty, try Result(catching: { () throws(FileFailure) in try ifPresent(blocked) { try path.stat(followTargetSymlink: false) } != nil }).mapError(Failure.lock).get()
+                    else { return }
+                }
+                throw .cancelled
             } against: {
                 () async throws(Failure) in
                 do { try await clock.sleep(for: delay) } catch { throw .cancelled }

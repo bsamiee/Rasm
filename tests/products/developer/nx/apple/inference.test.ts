@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, realpathSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, realpathSync } from 'node:fs';
 import { join, matchesGlob, relative, resolve, sep } from 'node:path';
 import { env } from 'node:process';
 import { createDependencies, createNodes } from '@rasm/nx-apple';
@@ -115,7 +115,13 @@ const modular = (workspace: Workspace, nested: Record.ReadonlyRecord<string, str
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const it = nx.extend('fixture', { scope: 'file' }, async ({ fileWorkspace }) => {
+const it = nx.extend('fixture', { scope: 'file' }, async ({ fileWorkspace }, { onCleanup }) => {
+    const [temporary, scratch] = [Option.fromUndefinedOr(env['TMPDIR']), join(fileWorkspace.root, 'tmp')];
+    mkdirSync(scratch, { recursive: true });
+    Object.assign(env, { TMPDIR: scratch });
+    onCleanup(() => {
+        Option.match(temporary, { onNone: () => delete env['TMPDIR'], onSome: (at) => Object.assign(env, { TMPDIR: at }) });
+    });
     vi.stubEnv('XCODE_XCCONFIG_FILE', join(fileWorkspace.root, SHARED));
     const graph = await fileWorkspace.write({ ...PACKAGES, ...XCODE, [SHARED]: 'SWIFT_TREAT_WARNINGS_AS_ERRORS = NO\n' }).graph({ createNodes, createDependencies }, { outputPath: 'dist' });
     vi.unstubAllEnvs();

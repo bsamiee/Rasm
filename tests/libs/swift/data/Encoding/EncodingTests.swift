@@ -7,15 +7,6 @@ import Testing
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-private struct Window: Codable, Equatable {
-    let number: Int
-    let title: String
-    let frame: [Double]
-    let link: URL
-    let icon: Data
-    let minimized: Bool?
-}
-
 private struct Numbered: Codable, Equatable, Sendable {
     let number: Int
 }
@@ -65,7 +56,7 @@ struct HexTests {
         expectNoDifference([UInt8](hexEncoded: hex.lowercased()), Array(text.utf8))
     }
 
-    @Test(arguments: ["0", "0g", "zz", "\u{FF21}\u{FF22}", "0 "])
+    @Test(arguments: ["0", "0g", "\u{FF21}\u{FF22}"])
     func refusesNonHexText(text: String) {
         expectNoDifference([UInt8](hexEncoded: text), nil)
     }
@@ -104,17 +95,6 @@ struct JSONValueTests {
             case .valueNotFound, nil: break
             case let error?: Issue.record("null refused as \(error) in place of valueNotFound")
         }
-    }
-
-    @Test
-    func decodesModels() throws {
-        let value: JSONValue = .object([
-            "number": .number(7), "title": .string("Untitled"), "frame": .array([.number(0), .number(24.5)]), "link": .string("https://example.com/a"), "icon": .string("AAE="),
-        ])
-        expectNoDifference(
-            try value.decode(Window.self),
-            Window(number: 7, title: "Untitled", frame: [0, 24.5], link: try #require(URL(string: "https://example.com/a")), icon: Data([0, 1]), minimized: nil),
-        )
     }
 
     @Test

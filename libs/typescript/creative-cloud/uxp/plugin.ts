@@ -9,7 +9,7 @@ import { layer } from '@rasm/telemetry/otlp';
 import fs from 'adobe:fs';
 import uxp, { entrypoints, type File } from 'adobe:uxp';
 import { formatHex8 } from 'culori/fn';
-import { Array, Cause, Clock, Context, Duration, Effect, Fiber, FiberHandle, FiberSet, Function, flow, Inspectable, Layer, Logger, ManagedRuntime, Option, Path, PlatformError, Predicate, Queue, Record, Schema, SchemaGetter, Scope, ScopedRef, Stream, Struct } from 'effect';
+import { Array, Cache, Cause, Clock, Context, Duration, Effect, Exit, Fiber, FiberHandle, FiberSet, Function, flow, Inspectable, Layer, Logger, ManagedRuntime, Option, Path, PlatformError, Predicate, Queue, Record, Schema, SchemaGetter, Scope, ScopedRef, Stream, Struct } from 'effect';
 import { type Tool, Toolkit } from 'effect/ai';
 import { FetchHttpClient, Url } from 'effect/http';
 import type { Rpc, RpcGroup } from 'effect/rpc';
@@ -34,8 +34,22 @@ const SOURCE = SourceRpcs.failing(Failure);
 const Thrown = Schema.Struct({ message: Schema.Unknown });
 const ImageSize = Schema.Struct({ width: Schema.Int, height: Schema.Int }).annotate({ description: 'Image size in pixels' });
 const Callable = Schema.declare((value): value is (...args: readonly unknown[]) => unknown => Predicate.isFunction(value));
+const HostObject = <const Fields extends Schema.Struct.Fields, Kind extends object = object>(fields: Fields, kind?: Predicate.Refinement<object, Kind>) => {
+    const members = Schema.Struct(fields);
+    return Schema.declare(
+        (value: unknown): value is Kind & typeof members.Type =>
+            Predicate.isObjectKeyword(value) &&
+            (kind === undefined || kind(value)) &&
+            Schema.is(members)(
+                Record.fromIterableWith(
+                    Array.filter(Struct.keys(fields), (key) => Reflect.has(value, key)),
+                    (key) => [key, Reflect.get(value, key)],
+                ),
+            ),
+    );
+};
 const Entrypoints = Schema.Struct({ setup: Callable });
-const ThemeDocument = Schema.Struct({ theme: Schema.Struct({ getCurrent: Callable, onUpdated: Schema.Struct({ addListener: Callable, removeListener: Callable }) }).pipe(Schema.is, Schema.declare) });
+const ThemeDocument = Schema.Struct({ theme: HostObject({ getCurrent: Callable, onUpdated: Schema.Struct({ addListener: Callable, removeListener: Callable }) }) });
 const GlobalRequire = Schema.Struct({ require: Callable }).annotate({ description: 'Global require a UXP host resolves its own modules through by name' });
 const HostInfo = Schema.Struct({ applicationPath: Schema.NonEmptyString.annotate({ description: 'Bundle path of the running installation' }) });
 const Requests = EvaluationRpcs.merge(RenderRpcs);
@@ -79,12 +93,12 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
         Effect.sync(() => {
             const prepare: unknown = Reflect.get(Error, 'prepareStackTrace');
             const lines = new WeakMap<object, number>();
-            Error.prepareStackTrace = (error, frames) => {
+            Error.prepareStackTrace = (error, frames: readonly (NodeJS.CallSite & { readonly toString: () => string })[]) => {
                 const line = frames.find((frame) => frame.getScriptNameOrSourceURL() === BODY)?.getLineNumber();
                 if (Predicate.isNumber(line)) {
                     lines.set(error, line);
                 }
-                return Schema.is(Callable)(prepare) ? prepare(error, frames) : [String(error), ...frames.map((frame) => `    at ${frame.getFunctionName() ?? '<anonymous>'} (${frame.getScriptNameOrSourceURL()}:${frame.getLineNumber()}:${frame.getColumnNumber()})`)].join('\n');
+                return Schema.is(Callable)(prepare) ? prepare(error, frames) : [String(error), ...frames.map((frame) => `    at ${frame.toString()}`)].join('\n');
             };
             return { prepare, lines };
         }),
@@ -95,13 +109,24 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
             return HostError.thrown(Inspectable.toStringUnknown(Option.match(Schema.decodeUnknownOption(Thrown)(cause), { onNone: () => cause, onSome: Struct.get('message') }), 0), line)(cause);
         }),
     );
-    static readonly require = (module: string) => {
+    static readonly require = <S extends Schema.Top>(module: string, schema: S) => {
         const refused = HostError.refused(`require('${module}')`);
         return Effect.suspend(() => Schema.decodeUnknownEffect(GlobalRequire)(globalThis)).pipe(
             Effect.mapError(refused),
             Effect.flatMap(({ require: resolved }) => Effect.try({ try: (): unknown => resolved(module), catch: refused })),
+            Effect.flatMap((loaded) => Schema.decodeUnknownEffect(schema)(loaded)),
         );
     };
+    static readonly listen = <Args extends readonly unknown[]>(subject: string, { add, remove }: Record.ReadonlyRecord<'add' | 'remove', (listener: (...args: Args) => void) => unknown>) => {
+        const refused = HostError.refused(subject);
+        return Stream.callback<Args, HostError>((queue) => {
+            const listener = (...args: Args): void => {
+                Queue.offerUnsafe(queue, args);
+            };
+            return Effect.acquireRelease(Effect.tryPromise({ try: () => Promise.resolve(add(listener)), catch: refused }), () => Effect.orDie(Effect.tryPromise({ try: () => Promise.resolve(remove(listener)), catch: refused })));
+        });
+    };
+    static readonly ticks = Stream.tick(Duration.seconds(1));
     static readonly application = Uxp.use(({ uxp: modules }) => Schema.decodeUnknownEffect(HostInfo)(modules.host)).pipe(Effect.flatMap(({ applicationPath }) => Path.Path.use((path) => path.toFileUrl(`${applicationPath}/`))));
     static readonly locate = (held: Containment, specifier: Pick<Specifier, 'steps' | 'end'>): Effect.Effect<unknown, Unmatched> => {
         const found = resolve(held, specifier);
@@ -151,21 +176,16 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
     };
 }
 class Plugin extends Context.Service<Plugin, typeof UxpManifest.Identity.Type>()('@rasm/uxp/plugin') {
-    static readonly theme = Stream.callback<unknown, Schema.SchemaError>(
-        Effect.fnUntraced(function* (queue) {
-            const listener = (current: unknown): void => {
-                Queue.offerUnsafe(queue, current);
-            };
-            const { theme } = yield* Schema.decodeUnknownEffect(ThemeDocument)(document);
-            yield* Effect.acquireRelease(
-                Effect.sync(() => {
-                    theme.onUpdated.addListener(listener);
-                    listener(theme.getCurrent());
-                }),
-                Function.constant(Effect.sync(() => theme.onUpdated.removeListener(listener))),
-            );
-        }),
-    ).pipe(Stream.mapEffect((theme) => Schema.decodeUnknownEffect(UxpManifest.Theme)(theme)));
+    static readonly theme = Effect.suspend(() => Schema.decodeUnknownEffect(ThemeDocument)(document)).pipe(
+        Effect.map(({ theme }) =>
+            Stream.concat(
+                Stream.fromEffect(Effect.try({ try: (): unknown => theme.getCurrent(), catch: HostError.refused('current theme') })),
+                Stream.map(Uxp.listen<readonly [unknown]>('theme updates', { add: (listener) => theme.onUpdated.addListener(listener), remove: (listener) => theme.onUpdated.removeListener(listener) }), Array.headNonEmpty),
+            ),
+        ),
+        Stream.unwrap,
+        Stream.mapEffect((theme) => Schema.decodeUnknownEffect(UxpManifest.Theme)(theme)),
+    );
     static readonly scripting = <EX extends Error, ER extends Error, RX, RR>({ execute, render }: { readonly execute: (code: string, label: string) => Effect.Effect<Option.Option<Schema.Json>, EX, RX>; readonly render: (request: Render, file: File) => Effect.Effect<void, ER, RR> }) => ({
         group: Requests,
         handlers: Requests.toLayer({ evaluate: ({ code, label }: Evaluation) => Effect.map(execute(code, label), (result) => ({ result })), render: (request: Render) => Uxp.renderFile((file) => render(request, file)) }),
@@ -194,7 +214,7 @@ class Plugin extends Context.Service<Plugin, typeof UxpManifest.Identity.Type>()
             yield* Effect.sync(() => setup.call(entrypoints, { plugin: { create: () => runtime.runPromise(Effect.void) }, commands: commandHandlers, panels: panelHandlers } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>));
         }).pipe(Effect.tapCause(Effect.logError), Effect.provide(hostLayer), Effect.runFork);
     };
-    static readonly dial = <Rpcs extends Rpc.Any, EA, RA, EH, RH, ES extends Error, RS, EC, RC, RD, Tools extends Record.ReadonlyRecord<string, Tool.Any> = Toolkit.Tools<typeof Toolkit.empty>>({
+    static readonly dial = <Rpcs extends Rpc.Any, EA, RA, EH, RH, ES extends Error, RS, EC extends Error, RC, RD, Tools extends Record.ReadonlyRecord<string, Tool.Any & { readonly parametersSchema: Schema.Decoder<unknown> }> = Toolkit.Tools<typeof Toolkit.empty>>({
         application,
         group,
         handlers,
@@ -209,21 +229,26 @@ class Plugin extends Context.Service<Plugin, typeof UxpManifest.Identity.Type>()
         readonly source: Omit<Source<ES, RS, EC, RC>, 'roots'>;
         readonly dialogs: Effect.Effect<unknown, HostError, Scope.Scope | RD>;
     }) => {
-        const peer = Effect.all({ application, plugin: Plugin.useSync(Struct.get('id')) });
+        const peer = Cache.makeWith(() => Effect.all({ application, plugin: Plugin.useSync(Struct.get('id')) }), { capacity: 1, timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero) });
         const suppressed = Layer.effect(Dialogs)(
             Effect.map(Effect.context<RD>(), (services) => {
                 const held = Effect.updateContext(dialogs, (scope: Context.Context<Scope.Scope>) => Context.merge(services, scope));
                 return (request) => Effect.scoped(Effect.andThen(held, request));
             }),
         );
-        const served = Link.serve(Toolkit.merge(Toolkit.empty, ...Array.fromNullishOr(toolkit)), Stream.ignoreCause(source.changes, { log: 'Error' })).pipe(Layer.provideMerge(Layer.mergeAll(handlers, SOURCE.toLayer(Struct.pick(source, ['describe', 'operate'])), suppressed)));
-        const link = Plugin.use(({ id, requiredPermissions: { network } }) =>
+        const served = Link.serve(Toolkit.merge(Toolkit.empty, ...Array.fromNullishOr(toolkit)), source.changes).pipe(Layer.provideMerge(Layer.mergeAll(handlers, SOURCE.toLayer(Struct.pick(source, ['describe', 'operate'])), suppressed)));
+        const url = Plugin.use(({ id, requiredPermissions: { network } }) =>
             Effect.fromOption(
                 Array.findFirst(Array.ensure(network?.domains ?? []), (domain) => Schema.decodeOption(WebSocketUrl)(domain)),
                 () => new Cause.NoSuchElementError(`${id} manifest permits no WebSocket domain to link through`),
             ),
         );
-        return Effect.flatMap(link, (url) => Layer.launch(Link.dial(group.merge(SOURCE, Link.Rpcs.omit('tools/list', 'events')).middleware(Dialogs), served, url, peer))).pipe(logFailure, Effect.forkScoped, Layer.effectDiscard);
+        return Effect.all([url, peer]).pipe(
+            Effect.flatMap(([at, identity]) => Layer.launch(Link.dial(group.merge(SOURCE, Link.Rpcs.omit('tools/list', 'events')).middleware(Dialogs), served, at, Cache.get(identity, undefined)))),
+            logFailure,
+            Effect.forkScoped,
+            Layer.effectDiscard,
+        );
     };
 }
 
@@ -255,4 +280,4 @@ const panel = Effect.fnUntraced(function* <E, F>(runtime: ManagedRuntime.Managed
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Callable, Plugin, Uxp };
+export { Callable, HostObject, Plugin, Uxp };

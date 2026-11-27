@@ -58,16 +58,27 @@ struct ResourceUsageTests {
     }
 
     @Test
-    func listsThePowerAssertionItsProcessHoldsUntilReleased() throws {
+    func readsEveryInstanceApartAndRefusesOneWhoseStartTimeNoLongerMatches() throws {
+        let current = try ProcessInstance(of: getpid())
+        let reused = ProcessInstance(pid: current.pid, started: current.started - 1)
+        let usages = ResourceUsage.all(of: [current, reused])
+        expectNoDifference(Set(usages.keys), [current, reused])
+        #expect(throws: Errno.noSuchProcess) { try usages[reused]?.get() }
+        #expect(try (usages[current]?.get().threads ?? 0) > 0)
+    }
+
+    @Test
+    func listsThePowerAssertionItsProcessHoldsByTypeAndNameUntilReleased() throws {
         let current = try ProcessInstance(of: getpid())
         let name = "\(Self.self) \(UUID())"
         var assertion: IOPMAssertionID = 0
         try #require(
             unsafe IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleSystemSleep as CFString, IOPMAssertionLevel(kIOPMAssertionLevelOn), name as CFString, &assertion) == kIOReturnSuccess
         )
-        let held: Bool = try ResourceUsage(of: current).assertions.get().contains(name)
+        let listed = "\(kIOPMAssertionTypePreventUserIdleSystemSleep) named \(name)"
+        let held: Bool = try ResourceUsage(of: current).assertions.get().contains(listed)
         IOPMAssertionRelease(assertion)
-        let released: Bool = try ResourceUsage(of: current).assertions.get().contains(name)
+        let released: Bool = try ResourceUsage(of: current).assertions.get().contains(listed)
         expectNoDifference([held, released], [true, false])
     }
 }

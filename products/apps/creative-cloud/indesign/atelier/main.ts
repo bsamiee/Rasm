@@ -1,7 +1,7 @@
 import { Description } from '@rasm/applications/source';
 import { Adjust, Typeset, TypesettingRpcs } from '@rasm/indesign/typesetting';
 import { Dom } from '@rasm/indesign/uxp/dom';
-import { call, change, findChange, font, inspect, preflight, render, suppressDialogs } from '@rasm/indesign/uxp/operations';
+import { call, change, findChange, font, fontSource, inspect, preflight, render, suppressDialogs } from '@rasm/indesign/uxp/operations';
 import { KASHIDA_WIDTHS, STYLISTIC_TAGS, thousandths } from '@rasm/indesign/uxp/settings';
 import { toolbar, workspace } from '@rasm/indesign/uxp/source';
 import { adjust, kerns, runs, typeset } from '@rasm/indesign/uxp/typesetting';
@@ -113,7 +113,7 @@ Plugin.serve({
         handlers: Layer.mergeAll(
             Tools.toLayer({ read: flow(inspect, hosted), change: flow(change, hosted), call: flow(call, hosted), find_change: flow(findChange, hosted), adjust: flow(adjust, hosted), preflight: flow(preflight, hosted) }),
             RenderRpcs.toLayer({ render: ({ target }) => hosted(Uxp.renderFile((file) => render(target, file.nativePath))) }),
-            TypesettingRpcs.toLayer({ runs: flow(runs, hosted), kerns: flow(kerns, hosted), typeset: flow(typeset, hosted), font: flow(font, hosted) }),
+            TypesettingRpcs.toLayer({ runs: flow(runs, hosted), kerns: flow(kerns, hosted), typeset: flow(typeset, hosted), font: flow(font, hosted), fontSource: flow(fontSource, hosted) }),
         ),
         source: { describe: flow(source.describe, hosted), operate: flow(source.operate, hosted), changes: Stream.provideService(source.changes, Dom, dom) },
         dialogs: scripting,

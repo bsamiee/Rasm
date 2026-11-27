@@ -201,13 +201,6 @@ jobs:
             - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
               with:
                   xcode-version: latest-stable
-            - run: |-
-                  client="$(xcode-select -p)/Platforms/MacOSX.platform/Developer/Library/Xcode/Agents/xctest"
-                  requirement="$(codesign -d -r- "${client}" 2>/dev/null | sed -n 's/^# designated => //p' | csreq -r- -b /dev/stdout | xxd -p | tr -d '\n')"
-                  rows="$(printf "('%s','${client}',1,2,4,1,X'${requirement}',NULL,NULL,'UNUSED',NULL,0,unixepoch())," kTCCServiceAccessibility kTCCServicePostEvent kTCCServiceScreenCapture)"
-                  sudo sqlite3 -bail '/Library/Application Support/com.apple.TCC/TCC.db' '.timeout 5000' "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version, csreq, policy_id, indirect_object_identifier_type, indirect_object_identifier, indirect_object_code_identity, flags, last_modified) VALUES ${rows%,}"
-                  defaults write "${HOME}/Library/Group Containers/group.com.apple.replayd/ScreenCaptureApprovals.plist" "${client}" -dict kScreenCaptureApprovalLastAlerted -date '4000-01-01 00:00:00 +0000' kScreenCapturePrivacyHintDate -date '4000-01-01 00:00:00 +0000'
-                  ! pgrep -qx replayd || killall -HUP replayd
             - *tools
             - if: ${{ env.APPLE_DEVELOPMENT_P12 != '' }}
               uses: apple-actions/import-codesign-certs@288b8ec97b82c66b6f2a6baaf7acc8dfbcbe331c # v7.2.0
@@ -218,8 +211,6 @@ jobs:
             - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,tag:host:unreal'
               env:
                   NX_SKIP_NX_CACHE: ${{ inputs.uncached == 'macos' || inputs.uncached == 'all' }}
-            - if: ${{ failure() }}
-              run: sudo log show --last 2h --predicate 'process == "tccd" AND eventMessage CONTAINS "AUTHREQ"' --style compact
             - if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
               run: hk check --step swiftlint --step swift-format --step plutil --step xcprojformatter --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
               env:

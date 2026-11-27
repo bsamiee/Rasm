@@ -2,7 +2,6 @@ import AppKit
 import Logging
 import Processes
 package import Sparkle
-import System
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -14,9 +13,9 @@ package struct Updater {
         let logger = Logger(label: String(reflecting: Updater.self))
 
         func updater(_: SPUUpdater, didFinishUpdateCycleFor _: SPUUpdateCheck, error _: (any Error)?) {
-            let running = Result { () throws(Errno) in try ProcessInstance(of: getpid()).runsInstalledCode() }
-            guard running != .success(true) else { return }
-            if case .failure(let error) = running { logger.notice("Running code could not be checked against the installed bundle", error: error) }
+            let running = Result { () throws in try ProcessInstance(of: getpid()).runsInstalledCode() }
+            if case .failure(let error) = running { logger.notice("Running code could not be checked against the installed bundle, so the bundle is not reopened", error: error) }
+            guard case .success(false) = running else { return }
             let background = NSWorkspace.OpenConfiguration()
             background.activates = false
             NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: background) { [logger] _, error in

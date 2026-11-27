@@ -17,6 +17,7 @@ const PHOTOSHOP = Application.make({
     build: Option.some('28.2.0.3749'),
     identifier: 'com.adobe.Photoshop',
     url: pathToFileURL(`${FIXTURES}Applications/Adobe Photoshop (Beta)/Adobe Photoshop (Beta).app/`),
+    urlSchemes: ['adbps', 'adobe+phxs', 'adbps+beta'],
 });
 const ILLUSTRATOR = Application.make({
     name: 'Adobe Illustrator (Beta)',
@@ -26,6 +27,7 @@ const ILLUSTRATOR = Application.make({
     build: Option.some('31.1.0.127'),
     identifier: 'com.adobe.illustratorBeta',
     url: pathToFileURL(`${FIXTURES}Applications/Adobe Illustrator (Beta)/Adobe Illustrator.app/`),
+    urlSchemes: ['adbai', 'adobe+ilst'],
 });
 const INDESIGN = Application.make({
     name: 'Adobe InDesign 2027 (Beta)',
@@ -35,6 +37,7 @@ const INDESIGN = Application.make({
     build: Option.some('22.1.0.019'),
     identifier: 'com.adobe.InDesign',
     url: pathToFileURL(`${FIXTURES}Applications/Adobe InDesign 2027 (Beta)/Adobe InDesign 2027 (Beta).app/`),
+    urlSchemes: ['adbid'],
 });
 const SETTINGS = 'Adobe Photoshop (Beta) Settings';
 

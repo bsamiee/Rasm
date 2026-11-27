@@ -1,32 +1,28 @@
 import { HostError, Selector, Specifier } from '@rasm/object-model/model';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Uxp } from '@rasm/uxp/plugin';
-import type { Application, CellStyle, CharacterStyle, Document, Font, InDesignDOMObject, MasterSpread, ObjectStyle, Page, PageItem, ParagraphStyle, PreflightProcess, Spread, TableStyle, Text, TextFrame, TextPath, TextStyleRange } from 'adobe:indesign';
-import { Array, Cause, Effect, Formatter, Function, flow, identity, Match, Number, Option, Predicate, Record, Result, Schema, SchemaGetter, String, Struct } from 'effect';
-import type { FontSource } from '#/typesetting';
+import type { Application, CellStyle, CharacterStyle, Document, FindChangeTextOption, FindTextPreference, Font, InDesignDOMObject, MasterSpread, ObjectStyle, Page, PageItem, ParagraphStyle, PreflightAggregatedError, PreflightProcess, Spread, TableStyle, Text, TextFrame, TextPath, TextStyleRange } from 'adobe:indesign';
+import { Array, Cause, Effect, Formatter, Function, flow, identity, Match, Number, Option, Predicate, Record, Result, Schema, String, Struct } from 'effect';
+import type { FontName, FontSource } from '#/typesetting';
 import { Dom } from '#/uxp/dom';
 import { InDesignSettings } from '#/uxp/settings';
 import { Call, type Change, type FindChange, type Inspect, Inspection, type Issue, type Preflight, FindChangeMode, type Slice } from '#/views';
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Contents = Schema.Struct({ contents: Schema.Json });
-const Row = Schema.Tuple([Schema.Int, Schema.String, Schema.String, Schema.String, Schema.Array(Schema.Tuple([Schema.String, Schema.String]))]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [SEARCH]
 
-const search = Effect.fnUntraced(function* (payload: Pick<FindChange, 'mode' | 'find' | 'change' | 'options'>, located: unknown) {
+const search = Effect.fnUntraced(function* (payload: Pick<FindChange, 'mode'> & Record<'find' | 'change' | 'options', Option.Option<Record.ReadonlyRecord<string, unknown>>>, located: unknown) {
     const members = FindChangeMode.members(payload.mode);
     const dom = yield* Dom;
     const { app, enumerator } = dom;
     yield* Effect.forEach(
-        Record.values(members.preferences),
-        Effect.fnUntraced(function* (member) {
+        Record.toEntries(members.preferences),
+        Effect.fnUntraced(function* ([field, member]) {
             const saved = yield* Dom.saved(app[member]);
             const reset = Effect.try({ try: () => Object.assign(app, { [member]: dom.NothingEnum.NOTHING })[member], catch: HostError.refused(`reset of ${member}`) });
-            return yield* Effect.acquireRelease(Effect.as(reset, saved), Function.constant(Effect.flatMap(Effect.orDie(reset), (cleared) => Uxp.restore(cleared, saved))));
+            yield* Effect.acquireRelease(reset, Function.constant(Effect.flatMap(Effect.orDie(reset), (cleared) => Uxp.restore(cleared, saved))));
+            yield* Effect.transposeOption(Option.map(payload[field], (values) => Effect.flatten(Dom.write(app[member], values))));
         }),
         { discard: true },
     );
@@ -36,8 +32,7 @@ const search = Effect.fnUntraced(function* (payload: Pick<FindChange, 'mode' | '
         Match.when(Predicate.isString, identity<string>),
         Match.orElse(Formatter.format),
     );
-    const scopes = yield* Effect.forEach(Array.ensure(located), (each) => (dom.owning(members.change)(each) ? Effect.succeed(each) : Unmatched.of({ subject: `${payload.mode} search target`, query: dom.domObject(located) ? Option.some(located.toSpecifier()) : Option.none() })));
-    yield* Effect.forEach(Record.toEntries(members.preferences), ([field, target]) => Effect.transposeOption(Option.map(payload[field], (values) => Effect.flatten(Dom.write(app[target], values)))), { discard: true });
+    const scopes = yield* Effect.forEach(Array.ensure(located), (each) => (dom.owning(members.change)(each) ? Effect.succeed(each) : Unmatched.of({ subject: `${payload.mode} search target`, query: dom.domObject(each) ? Option.some(each.toSpecifier()) : Option.none() })));
     const describe = (hit: Text | PageItem) => {
         const text = Option.liftPredicate(hit, dom.text);
         const placed = Option.match(text, { onNone: () => Option.liftPredicate(hit, dom.item), onSome: ({ parentTextFrames }) => Option.filter(Array.head(parentTextFrames), dom.item) });
@@ -50,8 +45,11 @@ const search = Effect.fnUntraced(function* (payload: Pick<FindChange, 'mode' | '
     const found = yield* Effect.forEach(
         scopes,
         Effect.fnUntraced(function* (each) {
-            const owner = dom.owner(each);
-            yield* Effect.transposeOption(Option.as(owner, Uxp.preserve(app, Record.getSomes({ activeDocument: owner }))));
+            yield* dom.owner(each).pipe(
+                Option.filter(({ windows }) => windows.length > 0),
+                Option.map((document) => Uxp.preserve(app, { activeDocument: document })),
+                Effect.transposeOption,
+            );
             const refused = HostError.refused(`${payload.mode} search of ${each.toSpecifier()}`);
             const hits = yield* Effect.try({ try: () => each[members.find](), catch: refused });
             const matches = yield* Effect.try({ try: () => (Predicate.isNumber(hits) ? [] : hits.map(describe)), catch: refused });
@@ -64,7 +62,7 @@ const search = Effect.fnUntraced(function* (payload: Pick<FindChange, 'mode' | '
 
 // --- [READS]
 
-const nestIssues = (rows: readonly (typeof Row.Type)[]): readonly Issue[] => {
+const nestIssues = (rows: readonly PreflightAggregatedError[]): readonly Issue[] => {
     const heads = Array.filterMap(rows, (row, index) => (row[0] === rows[0]?.[0] ? Result.succeed({ row, index }) : Result.failVoid));
     return Array.map(heads, ({ row: [, label, page, , details], index }, position) => ({
         label,
@@ -73,9 +71,11 @@ const nestIssues = (rows: readonly (typeof Row.Type)[]): readonly Issue[] => {
         rows: nestIssues(rows.slice(index + 1, Option.match(Array.get(heads, position + 1), { onNone: () => rows.length, onSome: Struct.get('index') }))),
     }));
 };
-const AggregatedResults = Schema.Tuple([Schema.String, Schema.String, Schema.Array(Row)]).pipe(Schema.decodeTo(Inspection.Issues, { decode: SchemaGetter.transform((aggregate) => nestIssues(aggregate[2])), encode: SchemaGetter.forbiddenEncoding }));
-const readAggregated = (process: PreflightProcess) => Result.try(() => process.aggregatedResults).pipe(Result.flatMap(Schema.decodeUnknownResult(AggregatedResults)));
-const overset = ({ stories }: Document): readonly string[] => Array.filterMap(Array.zip(stories.everyItem().overflows, stories.everyItem().id), ([overflows, id]) => (overflows ? Result.succeed(stories.itemByID(id).toSpecifier()) : Result.failVoid));
+const readAggregated = (process: PreflightProcess) => Result.try(() => nestIssues(process.aggregatedResults[2]));
+const overset = ({ stories }: Document): readonly string[] => {
+    const every = stories.everyItem();
+    return Array.filterMap(Array.zip(every.overflows, every.id), ([overflows, id]) => (overflows ? Result.succeed(stories.itemByID(id).toSpecifier()) : Result.failVoid));
+};
 const readFullName = (document: Document) => Effect.flatMap(Effect.try({ try: () => document.saved, catch: HostError.refused(`saved of ${document.toSpecifier()}`) }), (saved) => (saved ? Dom.file(document, 'fullName') : Effect.succeedNone));
 const overrides = (text: Pick<Text, 'textHasOverrides' | 'toSpecifier'>) =>
     Dom.use(({ StyleType }) => Effect.try({ try: () => ({ paragraph: text.textHasOverrides(StyleType.PARAGRAPH_STYLE_TYPE), character: text.textHasOverrides(StyleType.CHARACTER_STYLE_TYPE) }), catch: HostError.refused(`overrides of ${text.toSpecifier()}`) }));
@@ -88,19 +88,19 @@ const readings = Effect.fn('readings')(function* (found: InDesignDOMObject<unkno
     const { declaration } = yield* Dom;
     const missing = Option.getOrElse(wanted, Array.empty<string>).filter((name) => !Predicate.hasProperty(found, name));
     yield* Array.isReadonlyArrayEmpty(missing) ? Effect.void : Unmatched.of({ subject: `field of ${found.toSpecifier()}`, query: Option.some(missing.join(', ')), candidates: Record.keys(declaration(found.constructorName).fields) });
-    const entries = yield* Option.match(wanted, {
-        onNone: () => Dom.properties(found).pipe(Effect.map(Record.collect((name, held): readonly [string, Effect.Effect<unknown, HostError>] => [name, Effect.succeed(held)]))),
+    const held = yield* Option.match(wanted, {
+        onNone: () => Dom.properties(found).pipe(Effect.map(Record.collect((name, value): readonly [string, Result.Result<unknown, HostError>] => [name, Result.succeed(value)]))),
         onSome: (names) =>
-            Effect.succeed(
-                Array.map(names, (name): readonly [string, Effect.Effect<unknown, HostError>] => {
+            Effect.sync(() =>
+                Array.map(names, (name): readonly [string, Result.Result<unknown, HostError>] => {
                     const refused = HostError.refused(`${found.toSpecifier()} ${name}`);
-                    return [name, Option.match(Dom.unavailable(found, name, false), { onSome: refused, onNone: () => Effect.try({ try: (): unknown => Reflect.get(found, name), catch: refused }) })];
+                    return [name, Option.match(Dom.unavailable(found, name, false), { onSome: (reason) => Result.fail(refused(reason)), onNone: () => Result.try({ try: (): unknown => Reflect.get(found, name), catch: refused }) })];
                 }),
             ),
     });
-    return yield* Effect.forEach(entries, ([name, read]) =>
-        read.pipe(
-            Effect.flatMap((held) => (Predicate.isPromise(held) ? Effect.map(Dom.file(found, name), Option.getOrNull) : Effect.succeed(held ?? null))),
+    return yield* Effect.forEach(held, ([name, read]) =>
+        Effect.fromResult(read).pipe(
+            Effect.flatMap((value) => (Predicate.isPromise(value) ? Effect.map(Dom.file(found, name), Option.getOrNull) : Effect.succeed(value ?? null))),
             Effect.result,
             Effect.map((value) => ({ name, value })),
         ),
@@ -108,11 +108,9 @@ const readings = Effect.fn('readings')(function* (found: InDesignDOMObject<unkno
 });
 const fontView = Effect.fnUntraced(function* (face: Font) {
     const dom = yield* Dom;
-    const specifier = yield* Effect.orDie(Schema.decodeEffect(Specifier.FromString)(face.toSpecifier()));
     const open = Option.toArray(yield* Effect.option(Dom.current));
-    const searched = yield* Effect.forEach(open, (document) =>
-        search({ mode: 'Text', find: Option.some({ appliedFont: { specifier } }), options: Option.some({ includeFootnotes: true, includeHiddenLayers: true, includeLockedLayersForFind: true, includeLockedStoriesForFind: true, includeMasterPages: true }), change: Option.none() }, document),
-    );
+    const options = { includeFootnotes: true, includeHiddenLayers: true, includeLockedLayersForFind: true, includeLockedStoriesForFind: true, includeMasterPages: true } satisfies Partial<FindChangeTextOption>;
+    const searched = yield* Effect.forEach(open, (document) => search({ mode: 'Text', find: Option.some({ appliedFont: face } satisfies Partial<FindTextPreference>), options: Option.some(options), change: Option.none() }, document));
     const styled = yield* Effect.try({
         try: () =>
             Array.flatMap(open, (document) => [...document.allParagraphStyles, ...document.allCharacterStyles])
@@ -145,14 +143,21 @@ const view = (dom: Dom['Service'], found: unknown, slice: Slice) => {
                 const window = Option.liftThrowable(() => app.activeWindow.toSpecifier())();
                 const selected = yield* Effect.try({ try: () => (app.windows.length === 0 ? [] : app.selection), catch: HostError.refused('selection') });
                 const selection = yield* Effect.forEach(selected, (item) =>
-                    Effect.map(Effect.transposeOption(Option.map(Option.liftPredicate(item, dom.overridable), overrides)), (overridden) => ({
-                        ...Dom.referenceUnsafe(item),
-                        contents: Option.map(Schema.decodeUnknownOption(Contents)(item), Struct.get('contents')),
-                        parentStory: Option.map(Option.liftPredicate(item, dom.storied), Struct.get('parentStory')),
-                        overrides: overridden,
-                    })),
+                    Effect.transposeOption(Option.map(Option.liftPredicate(item, dom.overridable), overrides)).pipe(
+                        Effect.flatMap((overridden) =>
+                            Effect.try({
+                                try: () => ({
+                                    ...Dom.referenceUnsafe(item),
+                                    contents: Predicate.hasProperty(item, 'contents') ? Option.some<unknown>(item.contents) : Option.none(),
+                                    parentStory: Option.map(Option.liftPredicate(item, dom.storied), Struct.get('parentStory')),
+                                    overrides: overridden,
+                                }),
+                                catch: HostError.refused('selection'),
+                            }),
+                        ),
+                    ),
                 );
-                const panels = Array.getSomes(globalThis.Array.from({ length: app.panels.length }, (_, index) => Option.map(Option.filter(Option.fromUndefinedOr(app.panels.item(index)), Struct.get('visible')), Struct.get('name'))));
+                const panels = Array.getSomes(Array.makeBy(app.panels.length, (index) => Option.map(Option.filter(Option.fromUndefinedOr(app.panels.item(index)), Struct.get('visible')), Struct.get('name'))));
                 return yield* Dom.pick(Inspection.View.cases.Application, app, () => ({
                     toolBoxTools: { ...picked(Inspection.View.cases.Application.fields.toolBoxTools, app.toolBoxTools), tools: Array.map(dom.members(dom.UITools), (tool) => tool.toString()) },
                     panels,
@@ -182,7 +187,6 @@ const view = (dom: Dom['Service'], found: unknown, slice: Slice) => {
                 return yield* Dom.pick(Inspection.View, spread, () => ({ pages: Array.map(pages, ({ page, extent }) => ({ ...picked(Inspection.View.cases.Spread.fields.pages.value, page, ['extent']), extent })) }));
             }),
         ),
-        Match.when(dom.layer, (layer) => Dom.pick(Inspection.View.cases.Layer, layer)),
         Match.when(
             dom.style,
             Effect.fnUntraced(function* (style: ParagraphStyle | CharacterStyle | ObjectStyle | TableStyle | CellStyle) {
@@ -203,8 +207,6 @@ const view = (dom: Dom['Service'], found: unknown, slice: Slice) => {
                 }));
             }),
         ),
-        Match.when(dom.swatch, (swatch) => Dom.pick(Inspection.View, swatch)),
-        Match.when(dom.link, (linked) => Dom.pick(Inspection.View.cases.Link, linked)),
         Match.when(dom.story, (story) =>
             Dom.pick(Inspection.View.cases.Story, story, () => ({
                 overset: story.length - Number.sumAll(Array.map(story.textContainers, ({ characters }) => characters.length)),
@@ -233,6 +235,10 @@ const view = (dom: Dom['Service'], found: unknown, slice: Slice) => {
         ),
         Match.when(dom.font, fontView),
         Match.when(dom.preflightProcess, (process) => Dom.pick(Inspection.View.cases.PreflightProcess, process, () => ({ aggregatedResults: readAggregated(process) }))),
+        Match.when(
+            (value: unknown): value is InDesignDOMObject<unknown> => dom.domObject(value) && Object.hasOwn(Inspection.View.cases, value.constructorName),
+            (object) => Dom.pick(Inspection.View, object),
+        ),
         Match.option,
         Effect.transposeOption,
     );
@@ -295,22 +301,29 @@ const findChange = (payload: FindChange) =>
         Effect.flatMap((found: unknown) => (Option.isSome(payload.change) ? Dom.commit(payload.label, search(payload, found)) : search(payload, found))),
         Effect.map(({ count, matches }) => ({ count, matches: payload.slice.of(matches) })),
     );
-const font = Effect.fn('font')(function* ({ name, text, file }: FontSource) {
+const font = Effect.fn('font')(function* ({ name }: FontName) {
+    return yield* fontView(yield* Effect.flatMap(Dom.fonts, (lookup) => lookup(name)));
+});
+const fontSource = Effect.fn('fontSource')(function* ({ name, text, file }: FontSource) {
     const [face, dom, { fs }] = yield* Effect.all([Effect.flatMap(Dom.fonts, (lookup) => lookup(name)), Dom, Uxp]);
-    const subset = Effect.as(Effect.try({ try: () => face.createSubsetFont(text, file), catch: HostError.refused(`subset of ${face.name}`) }), Option.some({ file, postscriptName: Option.none<string>() }));
-    const source = face.status.equals(dom.FontStatus.INSTALLED)
+    const refused = HostError.refused(`subset of ${face.name}`);
+    const subset = Effect.try({ try: () => face.createSubsetFont(text, file), catch: refused }).pipe(
+        Effect.andThen(Effect.try({ try: () => fs.readFileSync(file).byteLength, catch: refused })),
+        Effect.filterOrFail(Number.isGreaterThan(0), () => refused()),
+        Effect.as(Option.some({ file, postscriptName: Option.none<string>() })),
+    );
+    return face.status.equals(dom.FontStatus.INSTALLED)
         ? yield* Effect.try({ try: () => fs.lstatSync(face.location), catch: HostError.refused(face.location) }).pipe(
               Effect.as(Option.some({ file: face.location, postscriptName: Option.some(face.postscriptName) })),
               Effect.catchIf((error) => Schema.is(Uxp.Missing)(error.cause), Function.constant(subset)),
           )
         : Option.none();
-    return { font: yield* fontView(face), source };
 });
 const preflight = Effect.fn('preflight')(function* ({ document, profile }: Preflight) {
     const dom = yield* Dom;
     const open = dom.app.documents.everyItem().getElements();
     const targets = yield* Option.match(document, {
-        onNone: () => Effect.succeed(open.filter((each) => !each.preflightOptions.preflightOff)),
+        onNone: () => Effect.try({ try: () => open.filter((each) => !each.preflightOptions.preflightOff), catch: HostError.refused('live preflight of open documents') }),
         onSome: (specifier) =>
             Effect.map(
                 Effect.filterOrElse(Dom.resolve(specifier), dom.document, () => Unmatched.of({ subject: 'open document', query: Option.some(specifier.path), candidates: Array.map(open, (each) => each.toSpecifier()) })),
@@ -337,7 +350,7 @@ const preflight = Effect.fn('preflight')(function* ({ document, profile }: Prefl
     );
 });
 const render = Effect.fn('render')(function* (target: Specifier, path: string) {
-    const dom = yield* Dom;
+    const [dom, { fs }] = yield* Effect.all([Dom, Uxp]);
     const { app, ExportFormat, PNGExportRangeEnum, PNGColorSpaceEnum, PNGQualityEnum } = dom;
     const found = yield* Effect.filterOrFail(
         Dom.resolve(target),
@@ -357,17 +370,22 @@ const render = Effect.fn('render')(function* (target: Specifier, path: string) {
         transparentBackground: false,
         antiAlias: true,
         useDocumentBleeds: false,
+        simulateOverprint: false,
         pngExportRange: PNGExportRangeEnum.EXPORT_RANGE,
         pngSuffix: '',
         exportingHiddenSpread: true,
         exportResolution: pointsPerInch,
         ...range,
     };
+    const refused = HostError.refused(`PNG export of ${target.path}`);
     yield* Uxp.preserve(app.pngExportPreferences, defaults);
-    yield* Effect.try({ try: () => source.exportFile(ExportFormat.PNG_FORMAT, path), catch: HostError.refused(`PNG export of ${target.path} to ${path}`) });
+    yield* Effect.try({ try: () => source.exportFile(ExportFormat.PNG_FORMAT, path), catch: refused }).pipe(
+        Effect.andThen(Effect.try({ try: () => fs.readFileSync(path).byteLength, catch: refused })),
+        Effect.filterOrFail(Number.isGreaterThan(0), () => refused()),
+    );
 }, Effect.scoped);
 const suppressDialogs = Dom.use(({ app, MeasurementUnits, UserInteractionLevels }) => Uxp.preserve(app.scriptPreferences, { enableRedraw: false, measurementUnit: MeasurementUnits.POINTS, userInteractionLevel: UserInteractionLevels.NEVER_INTERACT }));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { call, change, findChange, font, inspect, preflight, render, suppressDialogs };
+export { call, change, findChange, font, fontSource, inspect, preflight, render, suppressDialogs };

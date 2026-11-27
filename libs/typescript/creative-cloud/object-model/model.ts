@@ -1,5 +1,5 @@
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Effect, ErrorReporter, Formatter, type LogLevel, Option, Order, Record, Result, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
+import { Array, Effect, ErrorReporter, Formatter, type LogLevel, Option, Order, Predicate, Record, Result, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
 import { format, parse } from '#/host';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -106,6 +106,7 @@ class Specifier extends Schema.Class<Specifier, { readonly brand: unique symbol 
     }
 }
 class Reference extends Schema.Class<Reference, { readonly brand: unique symbol }>('Reference')({ type: Schema.String, specifier: Schema.String, name: Schema.OptionFromOptionalKey(Schema.String), valid: Schema.Boolean }) {}
+const Raised = Schema.Struct({ message: Schema.String, number: Schema.optionalKey(Schema.Int) }).annotate({ description: 'Message and error number of a value a host throws or answers' });
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -117,16 +118,18 @@ class HostError extends Schema.TaggedError<HostError, { readonly brand: unique s
         Thrown: { line: Schema.OptionFromOptionalKey(Schema.Int.annotate({ description: 'Body line that threw' })) },
     }),
     subject: Schema.String,
+    number: Schema.OptionFromOptionalKey(Schema.Int.annotate({ description: 'Error number the host attaches to what it threw' })),
     cause: Schema.optionalKey(Schema.Defect()),
     message: Schema.String,
 }) {
-    static readonly of = (reason: HostError['reason'], subject: string) => (cause?: unknown) =>
-        HostError.make({
-            reason,
-            subject,
-            ...(cause === undefined ? {} : { cause }),
-            message: HostError.fields.reason.matchOrElse(reason, { Thrown: ({ line }) => [...Option.toArray(line).map((at) => `line ${at}`), subject].join(': ') }, ({ _tag }) => [`${subject} ${String.toLowerCase(_tag)}`, ...(cause === undefined ? [] : [Formatter.format(cause)])].join(': ')),
-        });
+    static readonly of = (reason: HostError['reason'], subject: string) => (cause?: unknown) => {
+        const raised = Schema.decodeUnknownOption(Raised)(cause);
+        const number = Option.flatMapNullishOr(raised, Struct.get('number'));
+        const detail = cause === undefined ? [] : [Predicate.isError(cause) ? Formatter.format(cause) : Option.match(raised, { onNone: () => Formatter.format(cause), onSome: Struct.get('message') })];
+        const stated = HostError.fields.reason.matchOrElse(reason, { Thrown: ({ line }) => [...Option.toArray(line).map((at) => `line ${at}`), subject].join(': ') }, ({ _tag }) => [`${subject} ${String.toLowerCase(_tag)}`, ...detail].join(': '));
+        const message = Option.match(number, { onNone: () => stated, onSome: (code) => `${stated} (error ${code})` });
+        return HostError.make({ reason, subject, number, ...(cause === undefined ? {} : { cause }), message });
+    };
     static readonly refused = (subject: string) => HostError.of({ _tag: 'Refused' }, subject);
     static readonly thrown = (subject: string, line: Option.Option<number>) => HostError.of({ _tag: 'Thrown', line }, subject);
     override readonly [ErrorReporter.severity]: LogLevel.Severity = this.reason._tag === 'Unavailable' ? 'Warn' : 'Info';

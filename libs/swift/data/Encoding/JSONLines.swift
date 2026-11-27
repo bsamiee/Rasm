@@ -2,12 +2,12 @@ package import Foundation
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-struct JSONLines<Bytes: AsyncIteratorProtocol<UInt8, Failure>, Failure: Error>: AsyncSequence, AsyncIteratorProtocol {
+package struct JSONLines<Bytes: AsyncIteratorProtocol<UInt8, Failure>, Failure: Error>: AsyncSequence, AsyncIteratorProtocol {
     var bytes: Bytes
 
-    func makeAsyncIterator() -> Self { self }
+    package func makeAsyncIterator() -> Self { self }
 
-    mutating func next(isolation actor: isolated any Actor?) async throws(Failure) -> Data? {
+    package mutating func next(isolation actor: isolated any Actor?) async throws(Failure) -> Data? {
         var line = Data()
         repeat {
             switch try await bytes.next(isolation: actor) {
@@ -18,6 +18,8 @@ struct JSONLines<Bytes: AsyncIteratorProtocol<UInt8, Failure>, Failure: Error>: 
         } while true
     }
 }
+
+extension JSONLines: Sendable where Bytes: Sendable {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -35,5 +37,5 @@ extension JSONEncoder {
 }
 
 extension AsyncSequence where Element == UInt8 {
-    package var jsonLines: some AsyncSequence<Data, Failure> { JSONLines(bytes: makeAsyncIterator()) }
+    package var jsonLines: JSONLines<AsyncIterator, Failure> { JSONLines(bytes: makeAsyncIterator()) }
 }

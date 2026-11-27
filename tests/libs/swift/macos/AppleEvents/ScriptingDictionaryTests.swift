@@ -22,7 +22,9 @@ private let definition = Data(
             <command name="purge" code="Fixtprge" hidden="yes"/>
             <command name="do script" code="miscdosc">
                 <direct-parameter type="text"/>
-                <parameter name="language" code="Lang" type="script language" optional="yes">
+                <parameter name="language" code="Lang" optional="yes">
+                    <type type="script language"/>
+                    <type type="save options"/>
                     <synonym name="runtime"/>
                 </parameter>
             </command>
@@ -36,6 +38,7 @@ private let definition = Data(
             <class name="document" code="docu" inherits="item">
                 <synonym name="file document"/>
                 <element type="page"/>
+                <contents type="text"/>
                 <property name="modified" code="imod" type="boolean">
                     <synonym code="Fmod"/>
                 </property>
@@ -75,6 +78,8 @@ private let spellings: [(String, FourCharCode?)] = [
 
 private struct Row: Decodable {
     let name: String
+    let parameters: [Self]?
+    let enumerators: [Self]?
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -118,6 +123,7 @@ struct ScriptingDictionaryTests {
         expectNoDifference(try desiredClass(.specifier(want: "page list", form: .index, seld: .number(1), from: document), in: dictionary), "Fpag")
         expectNoDifference(try desiredClass(.specifier(want: "spread", form: .index, seld: .number(1), from: document), in: dictionary), "Fspr")
         expectNoDifference(try AppleEventValue.type("file document").descriptor(as: [], in: dictionary).typeCodeValue.sdef, "docu")
+        expectNoDifference(try desiredClass(.specifier(want: "file documents", form: .index, seld: .number(1), from: .null), in: dictionary), "docu")
     }
 
     @Test
@@ -133,6 +139,19 @@ struct ScriptingDictionaryTests {
         expectNoDifference(try AppleEventValue.type("pages total").descriptor(as: [], in: dictionary).typeCodeValue.sdef, "Fpgc")
         let decoded = AppleEventValue(NSAppleEventDescriptor(typeCode: try #require(FourCharCode(sdef: "Fmod"))), in: dictionary)
         expectNoDifference(try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(decoded)), .object(["_tag": .string("type"), "name": .string("modified")]))
+    }
+
+    @Test
+    func readsAContentsElementAsTheContentsPropertyWhereItStatesNoNameOrCode() throws {
+        expectNoDifference(try AppleEventValue.type("contents").descriptor(as: [], in: dictionary).typeCodeValue.sdef, "pcnt")
+    }
+
+    @Test
+    func listsTheEnumeratorsOfAParameterByTypeNameThenDeclarationOrder() throws {
+        let listing = try JSONDecoder().decode([String: JSONValue].self, from: JSONEncoder().encode(dictionary))
+        let script = try listing["command"]?.decode([Row].self).first { command in command.name == "do script" }
+        let language = script?.parameters?.first { parameter in parameter.name == "language" }
+        expectNoDifference(language?.enumerators?.map(\.name), ["yes", "no", "javascript", "uxpscript"])
     }
 
     @Test(arguments: spellings)

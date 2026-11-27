@@ -1,0 +1,48 @@
+diff --git a/ffi.d.ts b/ffi.d.ts
+index 6b99320..8a2886f 100644
+--- a/ffi.d.ts
++++ b/ffi.d.ts
+@@ -135,6 +135,10 @@ declare module "node:ffi" {
+          * An object containing previously resolved symbol addresses as `bigint` values.
+          */
+         readonly symbols: { [symbol: string]: bigint };
++        /**
++         * An object containing the wrappers of previously resolved functions.
++         */
++        readonly functions: { [symbol: string]: WrappedFunction };
+         /**
+          * Closes the library handle.
+          *
+@@ -204,6 +208,11 @@ declare module "node:ffi" {
+          * ```
+          */
+         getFunction<const T extends FunctionSignature>(name: string, signature: T): WrappedFunctionFromSignature<T>;
++        /**
++         * Wraps a native function pointer as a callable JavaScript function. The wrapper
++         * keeps the library alive.
++         */
++        toFunction<const T extends FunctionSignature>(pointer: bigint, signature: T): WrappedFunctionFromSignature<T>;
+         /**
+          * When `definitions` is provided, resolves each named symbol and returns an
+          * object containing callable wrappers.
+@@ -465,7 +474,7 @@ declare module "node:ffi" {
+     }
+     interface ArgumentTypeMap {
+         "number": number;
+-        "bigint": bigint;
++        "bigint": number | bigint;
+         "pointer": bigint | string | ArrayBuffer | NodeJS.ArrayBufferView | null;
+     }
+     interface ReturnTypeMap {
+diff --git a/net.d.ts b/net.d.ts
+index 3f104c5..ab0e751 100644
+--- a/net.d.ts
++++ b/net.d.ts
+@@ -548,6 +548,7 @@ declare module "node:net" {
+     interface ListenOptions extends Abortable {
+         backlog?: number | undefined;
+         exclusive?: boolean | undefined;
++        fd?: number | undefined;
+         handle?: BoundSocket | undefined;
+         host?: string | undefined;
+         /**

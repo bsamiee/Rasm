@@ -1,6 +1,5 @@
-import { HostError } from '@rasm/object-model/model';
 import { checks } from '@rasm/vite/checks';
-import { Array, Effect, flow, Schema } from 'effect';
+import { Array, Cause, Effect, Schema } from 'effect';
 import { build, type Plugin, type Rolldown } from 'vite';
 import { lower } from '#/node';
 
@@ -13,7 +12,6 @@ const Quoted = Schema.fromJsonString(Schema.String);
 
 const extendscript = (): Rolldown.Plugin => ({ name: 'extendscript', renderChunk: (code) => Effect.runPromise(lower(code, lower.extendscript)) });
 const inlineScript = (entry: string, name: string): Plugin => {
-    const refused = HostError.refused(`Build of ${entry}`);
     const compiled = Effect.tryPromise({
         try: () =>
             build({
@@ -30,9 +28,9 @@ const inlineScript = (entry: string, name: string): Plugin => {
                     },
                 },
             }),
-        catch: refused,
+        catch: (cause) => new Cause.UnknownError(cause, `Build of ${entry} failed`),
     }).pipe(
-        Effect.flatMap(flow(Schema.decodeUnknownEffect(Built), Effect.mapError(refused))),
+        Effect.flatMap(Schema.decodeUnknownEffect(Built)),
         Effect.flatMap(({ output }) => Effect.orDie(Schema.encodeEffect(Quoted)(Array.headNonEmpty(output).code))),
         Effect.map((code) => `export default ${code}`),
     );

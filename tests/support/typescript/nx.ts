@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer';
+import { execFileSync } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { constants } from 'node:http2';
 import { tmpdir } from 'node:os';
@@ -199,6 +200,8 @@ const unportable = (graph: ProjectGraph) => {
     return stated.filter(({ path }) => path.includes('\\') || path.startsWith('/') || /^[A-Za-z]:/u.test(path));
 };
 
+const resolved = (path: string): string => (existsSync(path) ? realpathSync(path) : join(resolved(dirname(path)), basename(path)));
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Workspace {
@@ -285,8 +288,15 @@ const entered = () => {
         close: () => {
             chdir(previous.cwd);
             setWorkspaceRoot(previous.root);
+            const registered = readdirSync(workspace.root, { recursive: true, withFileTypes: true })
+                .filter((entry) => entry.isFile() && entry.name === 'registered-launchservices.txt')
+                .flatMap((entry) => readFileSync(join(entry.parentPath, entry.name), 'utf-8').split('\n').filter(Boolean).map(resolved));
             rmSync(workspace.root, { recursive: true, force: true, maxRetries: 5 });
             resetWorkspaceContext();
+            Array.match(Array.dedupe(registered), {
+                onEmpty: Function.constVoid,
+                onNonEmpty: (bundles) => execFileSync('/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister', ['-u', ...bundles]),
+            });
         },
     };
 };

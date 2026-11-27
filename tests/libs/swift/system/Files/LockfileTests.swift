@@ -1,9 +1,9 @@
+import Files
 import Foundation
+import Logging
 import Results
 import System
 import Testing
-
-@testable import Files
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -18,6 +18,21 @@ private enum LockError: LockFailure {
             case .failure(let error): .cleanup(operation: self, release: error)
         }
     }
+}
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+private struct Logged: LogHandler {
+    let events: AsyncStream<Void>.Continuation
+    var logLevel: Logger.Level = .trace
+    var metadata: Logger.Metadata = [:]
+
+    subscript(metadataKey key: String) -> Logger.Metadata.Value? {
+        get { metadata[key] }
+        set { metadata[key] = newValue }
+    }
+
+    func log(event _: LogEvent) { events.yield() }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -68,21 +83,21 @@ struct LockfileTests {
     }
 
     @Test
-    func waiterAcquiresWhenTheHolderReleasesBeforeItsDelay() async throws {
+    func waiterAcquiresOnTheReleaseOfTheHolderBeforeItsDelayEnds() async throws {
         defer {
             do { try FileManager.default.removeItem(at: folder) } catch { Issue.record(error) }
         }
         let lock = folder.appending(component: "held.lock")
         try FileManager.default.createDirectory(at: lock, withIntermediateDirectories: false)
+        let (waits, waiting) = AsyncStream<Void>.makeStream()
         let holder = Task {
-            try await ContinuousClock().sleep(for: .milliseconds(200))
+            _ = await waits.first { _ in true }
             try FileManager.default.removeItem(at: lock)
         }
-        let elapsed = try await ContinuousClock().measure { () async throws(LockError) in
-            try await Lockfile.withLocks([Lockfile(lock, retries: Backoff(count: 1, base: .seconds(30)))]) { () async throws(LockError) in }
+        try await withLogger(Logger(label: String(reflecting: Self.self)) { _ in Logged(events: waiting) }) { _ async throws(LockError) in
+            try await Lockfile.withLocks([Lockfile(lock, retries: Backoff(count: 1, base: .seconds(3600)))]) { () async throws(LockError) in }
         }
         try await holder.value
-        #expect(elapsed < Duration.seconds(10))
         #expect(!FileManager.default.fileExists(atPath: lock.path(percentEncoded: false)))
     }
 }

@@ -21,7 +21,8 @@ storeDir: .cache/pnpm/store
 
 patchedDependencies:
     '@leeoniya/ufuzzy@1.0.19': .config/patches/@leeoniya__ufuzzy@1.0.19.patch # Number unions in place of ambient const enums `isolatedModules` refuses, until the package declares `IntraMode` and `BoundMode` as values
-    effect@4.1.6: .config/patches/effect@4.1.6.patch # Initialize-era MCP revisions the `@rasm/mcp` suites negotiate, until `McpClient.ProtocolVersion` lists them
+    '@types/node@26.6.11': .config/patches/@types__node@26.6.11.patch # `ListenOptions.fd`, `DynamicLibrary` `functions` and `toFunction`, and number arguments for 64-bit FFI types, until the declarations reach Node 27
+    effect@4.1.6: .config/patches/effect@4.1.6.patch # Initialize-era MCP revisions the `@rasm/mcp` suites negotiate, until `McpClient.ProtocolVersion` lists them, and an NDJSON decode scanning each chunk once, until `RpcSerialization.makeNdjson` stops rescanning the held line per chunk
 
 # --- [CATALOG] --------------------------------------------------------------------------
 

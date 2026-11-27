@@ -4,7 +4,7 @@ import { assert, it } from '@effect/vitest';
 import { Completion } from '@rasm/extendscript/completion';
 import { inlineScript } from '@rasm/extendscript/vite';
 import { HostScript } from '@rasm/indesign/script';
-import { Array, Cause, Context, Effect, Formatter, Layer, Option, Schema, Struct } from 'effect';
+import { Array, Cause, Context, Effect, Formatter, Layer, Schema, Struct } from 'effect';
 import { build } from 'vite';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -98,7 +98,15 @@ it.layer(HostLibrary.layer)('InDesign do script body', (methods) => {
         Effect.fnUntraced(function* () {
             const seen: unknown[] = [];
             const { answers, level } = yield* scripted("const first = 1;\nthrow new Error('boom ' + first);", rolledBack(seen));
-            assert.deepStrictEqual([answers, level, seen.length], [[{ _tag: 'Thrown', message: 'boom 1', number: Option.none(), line: Option.some(3 + HostScript.offset) }], 'INTERACT_WITH_ALL', 1]);
+            assert.deepStrictEqual([answers, level, seen.length], [[{ _tag: 'Thrown', message: 'boom 1', line: 3 + HostScript.offset }], 'INTERACT_WITH_ALL', 1]);
+        }),
+    );
+
+    methods.effect(
+        'answers the error number a host error carries beside its message and body line',
+        Effect.fnUntraced(function* () {
+            const { answers } = yield* scripted("const number = 30_477;\nthrow Object.assign(new Error('Invalid value for set property'), { number });", rolledBack([]));
+            assert.deepStrictEqual(answers, [{ _tag: 'Thrown', message: 'Invalid value for set property', number: 30_477, line: 3 + HostScript.offset }]);
         }),
     );
 
@@ -114,7 +122,7 @@ it.layer(HostLibrary.layer)('InDesign do script body', (methods) => {
         'answers a failure when the host returns before it ran the step',
         Effect.fnUntraced(function* () {
             const { answers } = yield* scripted('return 7;', skipped);
-            assert.deepStrictEqual(answers, [{ _tag: 'Thrown', message: 'doScript returned before its function ran', number: Option.none(), line: Option.none() }]);
+            assert.deepStrictEqual(answers, [{ _tag: 'Thrown', message: 'doScript returned before its function ran' }]);
         }),
     );
 });

@@ -68,7 +68,7 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
         });
         const paged = { illustrator, ...(yield* Effect.all({ mediaencoder: Effect.cached(mediaencoder), aftereffects: files.stream(join(import.meta.dirname, 'aftereffects.jsonl')).pipe(readDocuments, Effect.cached) })) };
         const resolved: Record.ReadonlyRecord<typeof Host.Type, Effect.Effect<Effect.Success<typeof paged.illustrator>, Effect.Error<(typeof paged)[keyof typeof paged]>>> = { ...Record.map(compiled, Effect.flatMap(Struct.get('catalog'))), ...paged };
-        const refused = Effect.fnUntraced(function* (row: Application, line: (at: number) => Option.Option<number>, { host, listed }: { readonly host: keyof typeof CHECKED; readonly listed: Array.NonEmptyReadonlyArray<Finding> }) {
+        const refuse = Effect.fnUntraced(function* (row: Application, line: (at: number) => Option.Option<number>, host: keyof typeof CHECKED, listed: Array.NonEmptyReadonlyArray<Finding>) {
             const { index } = yield* resolved[host];
             const named = Array.intersection(Array.dedupe(Array.getSomes(Array.map(listed, Struct.get('declared')))), [...index.classes, ...index.enumerations]);
             const linked = [...Array.map(named, (name) => ({ uri: server.uri(`object-model/${host}/${name}`), name: `${host} ${name}`, description: `Declaration of ${name}` })), { uri: server.uri(`object-model/${host}`), name: `${host} object model`, description: 'Every class and enumeration the declarations state' }];
@@ -78,12 +78,15 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
                 [`${row.name} declarations refuse the body before it runs:`, ...Array.map(listed, (each) => Option.match(Option.flatMap(each.line, line), { onNone: () => each.text, onSome: (at) => `line ${at}: ${each.text}` })), `Read ${Array.map(linked, Struct.get('uri')).join(', ')}`].join('\n'),
             );
         });
-        const check = Effect.fnUntraced(function* (row: Application, program: string, line: (at: number) => Option.Option<number>) {
-            const host = Record.get(PRODUCTS, row.product);
-            const found = yield* Effect.transposeOption(Option.map(host, (key) => compiled[key]));
-            const findings = yield* Effect.transposeOption(Option.map(found, (source) => source.check(program)));
-            return yield* Option.match(Option.all({ host, listed: Option.flatMap(findings, Option.liftPredicate(Array.isReadonlyArrayNonEmpty)) }), { onNone: () => Effect.void, onSome: (refusal) => refused(row, line, refusal) });
-        });
+        const check = (row: Application, program: string, line: (at: number) => Option.Option<number>) =>
+            Option.match(Record.get(PRODUCTS, row.product), {
+                onNone: () => Effect.void,
+                onSome: (host) =>
+                    compiled[host].pipe(
+                        Effect.flatMap((source) => source.check(program)),
+                        Effect.flatMap(Array.match({ onEmpty: () => Effect.void, onNonEmpty: (listed) => refuse(row, line, host, listed) })),
+                    ),
+            });
         return { index: (host: typeof Host.Type) => Effect.map(resolved[host], Struct.get('index')), page: (host: typeof Host.Type, name: string) => Effect.flatMap(resolved[host], (held) => held.page(name)), check };
     }),
 }) {

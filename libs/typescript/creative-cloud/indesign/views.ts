@@ -45,9 +45,13 @@ const ParagraphAttributes = {
     settings: Settings,
 } satisfies Properties<indesign.ParagraphStyle | indesign.Text | indesign.TextDefault, 'settings'>;
 class Issue extends Schema.Opaque<Issue>()(
-    Schema.Struct({ label: Schema.String, page: Schema.optionalKey(Schema.String.annotate({ description: 'Page name, PB on the pasteboard' })), details: Schema.Record(Schema.String, Schema.String), rows: Schema.Array(Schema.suspend((): Schema.Codec<Issue> => Issue)) }).annotate({
-        description: 'Category or rule with issue count, or issue object with problem and fix',
-    }),
+    Schema.Struct({
+        label: Schema.String,
+        page: Schema.optionalKey(Schema.String.annotate({ description: 'Page name, PB on the pasteboard' })),
+        info: Schema.optionalKey(Schema.String.annotate({ description: 'Error info the rule states for the issue' })),
+        details: Schema.Record(Schema.String, Schema.String),
+        rows: Schema.Array(Schema.suspend((): Schema.Codec<Issue> => Issue)),
+    }).annotate({ description: 'Category or rule with issue count, or issue object with problem and fix' }),
 ) {}
 
 // --- [VIEWS]
@@ -286,4 +290,4 @@ class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Call, Change, Extent, FindChange, FindChangeMode, Font, Inspect, Inspection, type Issue, Items, ObjectView, Preflight, Slice };
+export { Call, Change, Collection, Extent, FindChange, FindChangeMode, Font, Inspect, Inspection, type Issue, Items, ObjectView, Preflight, Slice };

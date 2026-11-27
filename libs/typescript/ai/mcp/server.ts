@@ -1,6 +1,45 @@
 import { ATTR_ERROR_TYPE, ATTR_GEN_AI_OPERATION_NAME, ATTR_GEN_AI_PROMPT_NAME, ATTR_GEN_AI_TOOL_NAME, ATTR_MCP_METHOD_NAME, ATTR_MCP_RESOURCE_URI, ERROR_TYPE_VALUE_OTHER, GEN_AI_OPERATION_NAME_VALUE_EXECUTE_TOOL, METRIC_MCP_SERVER_OPERATION_DURATION } from '@opentelemetry/semantic-conventions/incubating';
+import { Column } from '@rasm/database/column';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Boolean, Cause, Context, Deferred, Duration, Effect, Exit, Fiber, FiberSet, Function, Layer, Match, Metric, Number, Option, Order, Predicate, RcMap, Record, Redacted, Ref, Result, Schema, SchemaGetter, type Scope, Stream, Struct, SubscriptionRef, TxRef, TxSubscriptionRef, UndefinedOr } from 'effect';
+import {
+    Array,
+    Boolean,
+    Cause,
+    Context,
+    DateTime,
+    Deferred,
+    Duration,
+    Effect,
+    type Exit,
+    Fiber,
+    FiberSet,
+    Formatter,
+    Function,
+    Layer,
+    Match,
+    Metric,
+    Number,
+    Option,
+    Order,
+    Predicate,
+    RcMap,
+    Record,
+    Redacted,
+    Ref,
+    Result,
+    Schema,
+    SchemaAST,
+    SchemaGetter,
+    SchemaIssue,
+    type Scope,
+    Stream,
+    Struct,
+    SubscriptionRef,
+    Tuple,
+    TxRef,
+    TxSubscriptionRef,
+    UndefinedOr,
+} from 'effect';
 import { McpProtocol, McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
 import { type Aead, SecureRandom } from 'effect/crypto';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
@@ -8,28 +47,19 @@ import { HttpApiBuilder, HttpApiError } from 'effect/http-api';
 import { Jwk, Jwt } from 'effect/jose';
 import { Host, NetAddress } from 'effect/net';
 import { Handles } from '#/handles';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-interface HandleState {
-    readonly state: Context.Context<never>;
-    readonly dropped: number;
-    readonly entries: readonly { readonly sequence: number; readonly text: Effect.Effect<string>; readonly owns: (state: Context.Context<never>) => boolean }[];
-    readonly held: HandleState['entries'];
-    readonly calls: number;
-    readonly answering: number;
-    readonly running: readonly { readonly call: number; readonly tool: string; readonly fiber: Fiber.Fiber<McpSchema.CallToolResult | McpSchema.InputRequired, McpSchema.InternalError | McpSchema.InvalidParams>; readonly ends: Stream.Stream<Effect.Effect<string>> }[];
-}
+import { callResult, type Entry, type HandleState, openStore } from '#/store';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const FRESH: HandleState = { state: Context.empty(), dropped: 0, entries: [], held: [], calls: 0, answering: 0, running: [] };
+const FRESH: HandleState = { state: Context.empty(), pending: {}, touched: Option.none(), dropped: 0, held: [], entries: [], sent: [], calls: 0, answering: 0, running: [] };
+const LISTING = new Intl.ListFormat('en');
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Coded = Schema.Struct({ code: McpSchema.McpErrorBase.fields.code });
-const Resumed = Schema.Struct({ handle: Schema.String, state: Schema.OptionFromOptionalKey(Schema.String), aud: Schema.String });
-const isUuidV7 = Schema.is(Schema.String.check(Schema.isUUID(7)));
+const Resumed = Schema.Struct({ handle: Schema.String, issued: Schema.Boolean, state: Schema.OptionFromOptionalKey(Schema.String), aud: Schema.String });
+const isUuidV7 = Schema.is(Column.Uuid);
+const standardIssues = SchemaIssue.makeFormatterStandardSchemaV1();
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -43,11 +73,20 @@ class Server extends Context.Service<
     Server,
     {
         readonly uri: (path: string) => string;
-        readonly events: <A>(source: { readonly stream: Stream.Stream<A>; readonly render: (event: A) => Effect.Effect<string>; readonly owns?: (event: A, state: Context.Context<never>) => boolean }) => Effect.Effect<void, never, Scope.Scope>;
+        readonly events: <A>(source: {
+            readonly stream: Stream.Stream<A>;
+            readonly render: (event: A) => Effect.Effect<string>;
+            readonly owns?: (event: A, state: Context.Context<never>) => boolean;
+            readonly leads?: (event: A, state: Context.Context<never>) => boolean;
+            readonly delivers?: (event: A, state: Context.Context<never>) => Option.Option<typeof Handles.Kind.Type>;
+            readonly standing?: (event: A) => Option.Option<typeof Handles.Standing.Type>;
+        }) => Effect.Effect<void, never, Scope.Scope>;
         readonly states: <A>(key: Context.Reference<A>) => Stream.Stream<readonly A[]>;
+        readonly persist: <A, RD, RE>(reference: Context.Reference<A>, schema: Schema.Codec<A, unknown, RD, RE>) => Effect.Effect<void, never, RD | RE>;
+        readonly drain: Effect.Effect<void>;
         readonly notifyListChanged: Effect.Effect<void, Error>;
         readonly bind: Effect.Effect<typeof Handles.Binding.Type>;
-        readonly follow: (handle: string) => Effect.Effect<Stream.Stream<typeof Handles.Event.Type, Cause.NoSuchElementError>, Cause.NoSuchElementError>;
+        readonly follow: (handle: string) => Effect.Effect<Stream.Stream<typeof Handles.Event.Type>, Cause.NoSuchElementError>;
         readonly ack: (handle: string, through: number) => Effect.Effect<void, Cause.NoSuchElementError>;
     }
 >()('@rasm/mcp/server') {
@@ -74,6 +113,8 @@ class Server extends Context.Service<
         defaultValue: () => ({ add: () => Effect.void, state: () => Effect.void, progress: () => Effect.void, input: () => Effect.fail(McpSchema.InternalError.make({ message: 'Client input needs a tool call that carries it to the client' })), awaitRunning: Effect.void }),
     });
     static readonly orInternalError = Effect.mapError(({ message }: Error) => McpSchema.InternalError.make({ message }));
+    static readonly invalidParams = (issue: SchemaIssue.Issue) => McpSchema.InvalidParams.make({ message: describeIssue(issue) });
+    static readonly persist = <A, RD, RE>(reference: Context.Reference<A>, schema: Schema.Codec<A, unknown, RD, RE>) => Server.use((served) => served.persist(reference, schema));
     static readonly progress =
         <A>(report: (value: A, index: number) => Parameters<(typeof Server.ToolCall)['Service']['progress']>[0]) =>
         <E, R>(self: Stream.Stream<A, E, R>) =>
@@ -90,38 +131,65 @@ class Server extends Context.Service<
                     decode: SchemaGetter.transform((given: P['Type']) => Effect.flatMap(Effect.context<McpSchema.McpRequestContext>(), (request) => Effect.provideContext(handle(given), Context.merge(context, request)))),
                     encode: SchemaGetter.forbiddenEncoding,
                 }),
+                Schema.catchDecoding((issue) => Effect.succeedSome(Server.invalidParams(issue))),
             ),
             tool.successSchema,
         ];
         const toolkit = Toolkit.make(Tool.make(tool.name, { description: Tool.getDescription(tool), parameters, success, failure: Schema.ErrorInstance(), dependencies: [McpSchema.McpRequestContext] }).annotateMerge(tool.annotations));
         yield* McpServer.registerToolkit(toolkit, { content: { [tool.name]: content } }).pipe(Effect.provide(toolkit.toLayer({ [tool.name]: Function.identity })));
     });
-    static readonly layer = Effect.fnUntraced(function* ({ scheme, retention, limit, budget }: { readonly scheme: Effect.Success<ReturnType<typeof Server.scheme>>; readonly retention: Duration.Duration; readonly limit: number; readonly budget: number }) {
-        const [server, scope, live, sequence, random, crypto] = yield* Effect.all([
+    static readonly layer = Effect.fnUntraced(function* ({
+        scheme,
+        retention,
+        limit,
+        budget,
+        state: folder,
+        draining: signal,
+    }: {
+        readonly scheme: Effect.Success<ReturnType<typeof Server.scheme>>;
+        readonly retention: Duration.Duration;
+        readonly limit: number;
+        readonly budget: number;
+        readonly state?: string;
+        readonly draining?: Deferred.Deferred<void>;
+    }) {
+        const [server, scope, live, random, crypto, draining, persisted] = yield* Effect.all([
             McpServer.McpServer,
             Effect.scope,
             TxSubscriptionRef.make<Record.ReadonlyRecord<string, TxSubscriptionRef.TxSubscriptionRef<HandleState>>>({}),
-            TxRef.make(0),
             SecureRandom.SecureRandom,
             Effect.context<Aead.Aead | SecureRandom.SecureRandom>(),
+            UndefinedOr.match(signal, { onUndefined: () => Deferred.make<void>(), onDefined: Effect.succeed }),
+            Ref.make(Record.empty<string, (state: Context.Context<never>) => Effect.Effect<Schema.Json>>()),
         ]);
-        const [key, epoch] = yield* Effect.all([Effect.orDie(Effect.flatMap(Jwk.generateSecret('dir'), (secret) => Jwk.importSecret(secret, 'dir'))), random.uuidV7()]);
         const handles = yield* RcMap.make({
             lookup: (id: string) => Effect.tap(Effect.all({ id: Effect.succeed(id), row: TxSubscriptionRef.make(FRESH), fibers: FiberSet.make() }), ({ row }) => Effect.acquireRelease(TxSubscriptionRef.update(live, Record.set(id, row)), () => TxSubscriptionRef.update(live, Record.remove(id)))),
             idleTimeToLive: retention,
         });
+        const { secret, sequence } = yield* openStore({ scheme, retention, folder, live, handles, persisted, render: (row) => Effect.provideService(Handle, handleOf(row)) });
+        const key = yield* Effect.orDie(Jwk.importSecret(secret, 'dir'));
         const kept = Duration.format(retention);
-        const findHandle = (known: string) =>
-            RcMap.getOption(handles, known).pipe(Effect.flatMap(Effect.fromOption(() => new Cause.NoSuchElementError(`Handle ${known} ${isUuidV7(known) && known < epoch ? 'predates a restart' : `is unknown or expired after ${kept} without a call`}, call again without handle to start one`))));
-        const issueHandle = Effect.flatMap(random.uuidV7(), (id) => RcMap.get(handles, id));
-        const queued = (handle: string) =>
-            Stream.unwrap(
-                Effect.map(findHandle(handle), ({ row }) =>
-                    TxSubscriptionRef.changesStream(row).pipe(
-                        Stream.filter(({ answering }) => answering === 0),
-                        Stream.mapAccum(Function.constant(0), (last, { entries }) => [Math.max(last, ...Array.map(entries, Struct.get('sequence'))), Array.filter(entries, isAfter(last))] as const),
-                        Stream.mapEffect(formatLine),
-                        Stream.provideService(Handle, handleOf(row)),
+        const findHandle = (known: string) => RcMap.getOption(handles, known).pipe(Effect.flatMap(Effect.fromOption), Effect.tap(touch));
+        const issueHandle = random.uuidV7().pipe(
+            Effect.flatMap((id) => RcMap.get(handles, id)),
+            Effect.tap(touch),
+        );
+        const queued = ({ id, row }: Effect.Success<ReturnType<typeof findHandle>>) =>
+            TxSubscriptionRef.changesStream(row).pipe(
+                Stream.mapAccumEffect(Record.empty<string, number>, (waiting, slot) =>
+                    Effect.gen(function* () {
+                        const due = slot.answering === 0 && Array.isReadonlyArrayNonEmpty(send(slot)[0]) ? yield* TxSubscriptionRef.modify(row, send) : [];
+                        return settle(waiting, yield* Effect.forEach(due, formatEvent), slot.entries);
+                    }),
+                ),
+                Stream.provideService(Handle, handleOf(row)),
+                Stream.ensuring(TxSubscriptionRef.update(row, (slot) => enqueue(limit, slot.sent)({ ...slot, sent: [] }))),
+                Stream.interruptWhen(
+                    live.pipe(
+                        TxSubscriptionRef.changesStream,
+                        Stream.filter((rows) => !Record.has(rows, id)),
+                        Stream.runHead,
+                        Effect.raceFirst(Deferred.await(draining)),
                     ),
                 ),
             );
@@ -133,7 +201,7 @@ class Server extends Context.Service<
             Effect.map(Layer.buildWithScope(McpServer.visibility(() => Server.orInternalError(Effect.tapCause(Context.get(annotations, Server.Visibility), (cause) => Effect.annotateLogs(Effect.logError('Visibility check failed', cause), subject)))).layer, scope), (gated) => Context.merge(services, gated));
         const listed = yield* Ref.make<Record.ReadonlyRecord<'tools' | 'resources' | 'prompts', Record.ReadonlyRecord<string, boolean>>>({ tools: {}, resources: {}, prompts: {} });
         const notifyListChanged = Effect.gen(function* () {
-            const now = yield* Effect.all({
+            const current = yield* Effect.all({
                 tools: Effect.all(Record.fromIterableWith(server.tools, ({ tool, annotations }) => [tool.name, Context.get(annotations, Server.Visibility)])),
                 resources: Effect.all({
                     ...Record.fromIterableWith(server.resources, ({ resource, annotations }) => [resource.uri, Context.get(annotations, Server.Visibility)]),
@@ -141,8 +209,8 @@ class Server extends Context.Service<
                 }),
                 prompts: Effect.all(Record.fromIterableWith(server.prompts, ({ prompt, annotations }) => [prompt.name, Context.get(annotations, Server.Visibility)])),
             });
-            const before = yield* Ref.getAndSet(listed, now);
-            yield* Effect.forEach(Record.keys(now), (kind) => (Record.some(Record.intersection(now[kind], before[kind], Boolean.xor), Function.identity) ? server.notifications[`notifications/${kind}/list_changed`]({}) : Effect.void), { discard: true });
+            const before = yield* Ref.getAndSet(listed, current);
+            yield* Effect.forEach(Record.keys(current), (kind) => (Record.some(Record.intersection(current[kind], before[kind], Boolean.xor), Function.identity) ? server.notifications[`notifications/${kind}/list_changed`]({}) : Effect.void), { discard: true });
         });
         yield* Layer.build(metrics.layerGlobal);
         const gatedServer = McpServer.McpServer.of({
@@ -152,12 +220,14 @@ class Server extends Context.Service<
                 const tool = McpSchema.Tool.make({ ...Struct.omit(options.tool, ['outputSchema']), icons: withIcons(options.annotations, options.tool.icons), inputSchema: { ...options.tool.inputSchema, properties: { ...options.tool.inputSchema.properties, ...added } } });
                 const handle = Effect.fnUntraced(
                     function* (payload: Record.ReadonlyRecord<string, Schema.Json>) {
-                        const [{ handle: given }, request] = yield* Effect.all([Effect.mapError(Schema.decodeEffect(Given)(payload), ({ message }) => McpSchema.InvalidParams.make({ message })), McpSchema.McpRequestContext]);
+                        const [{ handle: given }, request] = yield* Effect.all([Effect.mapError(Schema.decodeEffect(Given)(payload), ({ issue }) => Server.invalidParams(issue)), McpSchema.McpRequestContext]);
                         const resumed = yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(request.requestState), (sealed) => open(options.tool.name, sealed)));
-                        const { id, row, fibers } = yield* Option.match(Option.firstSomeOf([Option.map(resumed, Struct.get('handle')), Option.fromUndefinedOr(given)]), {
-                            onNone: Function.constant(issueHandle),
-                            onSome: findHandle,
+                        const wanted = Option.firstSomeOf([Option.map(resumed, Struct.get('handle')), Option.fromUndefinedOr(given)]);
+                        const { id, row, fibers } = yield* Option.match(wanted, {
+                            onNone: () => issueHandle,
+                            onSome: (known) => Effect.mapError(findHandle(known), () => McpSchema.InvalidParams.make({ message: `Handle ${known} ${isUuidV7(known) ? `expired after ${kept} without a call` : 'is not one this server issued'}, call again without handle to start one` })),
                         });
+                        const issued = Option.isNone(wanted) || Option.exists(resumed, Struct.get('issued')) ? Option.some(`handle ${id} holds your state, pass it on later calls`) : Option.none<string>();
                         yield* Effect.acquireRelease(TxSubscriptionRef.update(row, Struct.evolve({ answering: Number.increment })), () => TxSubscriptionRef.update(row, Struct.evolve({ answering: Number.decrement })));
                         const [blocks, stated, asked, pace, frozen] = yield* Effect.all([
                             Ref.make(Array.empty<McpSchema.ContentBlock>()),
@@ -170,8 +240,8 @@ class Server extends Context.Service<
                         const notify = (report: Parameters<(typeof Server.ToolCall)['Service']['progress']>[0]) => Option.match(token, { onNone: () => Effect.void, onSome: (progressToken) => server.notifications['notifications/progress']({ progressToken, ...report }) });
                         const poll = SubscriptionRef.updateAndGet(pace, Struct.evolve({ last: Number.increment, offset: Number.increment })).pipe(Effect.flatMap(({ last }) => notify({ progress: last })));
                         const ended = Stream.runHead(Stream.merge(ending, Option.match(token, { onNone: () => Stream.empty, onSome: () => pace.pipe(SubscriptionRef.changes, Stream.debounce(Duration.minutes(1)), Stream.mapEffect(Function.constant(poll)), Stream.drain) })));
-                        const answer = Effect.zipWith(options.handle(Record.remove(payload, 'handle')), Effect.all([Ref.get(stated), Ref.get(blocks)]), (outcome, [state, more]) =>
-                            outcome instanceof McpSchema.InputRequired ? outcome : McpSchema.CallToolResult.make({ ...outcome, content: [...state, ...outcome.content, ...more] }),
+                        const answer = Effect.zipWith(Effect.catchTag(options.handle(Record.remove(payload, 'handle')), 'InvalidParams', refused), Effect.all([Ref.get(stated), Ref.get(blocks)]), (outcome, [lines, more]) =>
+                            outcome instanceof McpSchema.InputRequired ? outcome : McpSchema.CallToolResult.make({ ...outcome, content: [...lines, ...outcome.content, ...more] }),
                         ).pipe(
                             Effect.raceFirst(Deferred.await(asked)),
                             Effect.provideService(Server.ToolCall, {
@@ -190,20 +260,22 @@ class Server extends Context.Service<
                             Effect.flatMap((from) => Effect.ensuring(answer, TxSubscriptionRef.update(row, routeEvents(limit, from, [])))),
                             FiberSet.run(fibers),
                         );
+                        const started = { tool: options.tool.name, fiber, ends: ending };
+                        const continued = TxSubscriptionRef.update(row, (slot) => ({ ...slot, calls: slot.calls + 1, running: [...slot.running, { ...started, call: slot.calls + 1 }] }));
                         const [outcome, early] = yield* Fiber.join(fiber).pipe(
                             Effect.map((value) => [value, false] as const),
                             Effect.raceFirst(Effect.flatMap(ended, Option.match({ onNone: () => Effect.never, onSome: (text) => Effect.map(Effect.provideService(text, Handle, bound), (rendered) => [McpSchema.CallToolResult.make({ content: [McpSchema.TextContent.make({ text: rendered })] }), true] as const) }))),
                             Effect.interruptible,
-                            Effect.onInterrupt(() => Fiber.interrupt(fiber)),
+                            Effect.onInterrupt(() => Effect.flatMap(Deferred.isDone(draining), Boolean.match({ onTrue: () => continued, onFalse: () => Fiber.interrupt(fiber) }))),
                         );
                         return yield* outcome instanceof McpSchema.InputRequired
                             ? Effect.map(
-                                  Effect.provideContext(Effect.orDie(Jwt.encrypt(Resumed, { handle: id, state: Option.fromUndefinedOr(outcome.requestState), aud: options.tool.name }, key)), crypto),
+                                  Effect.provideContext(Effect.orDie(Jwt.encrypt(Resumed, { handle: id, issued: Option.isSome(issued), state: Option.fromUndefinedOr(outcome.requestState), aud: options.tool.name }, key)), crypto),
                                   (sealed) => new McpSchema.InputRequired({ inputRequests: outcome.inputRequests, requestState: Redacted.value(sealed) }),
                               )
-                            : composeResult(outcome, { row, limit, budget, stated: !early && Array.isReadonlyArrayNonEmpty(yield* Ref.get(stated)), issued: given === undefined ? Option.some(id) : Option.none(), early: early ? Option.some({ tool: options.tool.name, fiber, ends: ending }) : Option.none() });
+                            : composeResult(outcome, { row, limit, budget, stated: !early && Array.isReadonlyArrayNonEmpty(yield* Ref.get(stated)), issued, early: early ? Option.some(started) : Option.none() });
                     },
-                    Effect.catchTag('NoSuchElementError', ({ message }) => Effect.succeed(McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: message })] }))),
+                    Effect.catchTag('InvalidParams', refused),
                     Effect.uninterruptible,
                     Effect.scoped,
                 );
@@ -225,23 +297,76 @@ class Server extends Context.Service<
         });
         const service = Server.of({
             uri: (path) => `${scheme}://${path}`,
-            events: ({ stream, render, owns = Function.constTrue }) =>
+            events: ({ stream, render, owns = Function.constTrue, leads = Function.constTrue, delivers = Option.none, standing = Option.none }) =>
                 Stream.runForEach(stream, (event) =>
                     Effect.tx(
-                        Effect.flatMap(Effect.all([TxRef.modify(sequence, (count) => [count + 1, count + 1]), TxSubscriptionRef.get(live)]), ([at, rows]) =>
-                            Effect.forEach(Record.values(rows), TxSubscriptionRef.update(routeEvents(limit, at - 1, [{ sequence: at, text: render(event), owns: (state) => owns(event, state) }])), { discard: true }),
-                        ),
+                        Effect.flatMap(Effect.all([TxRef.modify(sequence, (count) => [count + 1, count + 1]), TxSubscriptionRef.get(live)]), ([at, rows]) => {
+                            const stated = standing(event);
+                            return Effect.forEach(
+                                Record.values(rows),
+                                TxSubscriptionRef.update(
+                                    routeEvents(limit, at - 1, [
+                                        {
+                                            sequence: at,
+                                            text: render(event),
+                                            owns: (held) => owns(event, held),
+                                            leads: (held) => leads(event, held),
+                                            standing: stated,
+                                            delivers: (held) => Option.match(stated, { onNone: () => delivers(event, held), onSome: Option.liftPredicate(Handles.Standing.guards.Waiting) }),
+                                        },
+                                    ]),
+                                ),
+                                { discard: true },
+                            );
+                        }),
                     ),
                 ).pipe(Effect.forkScoped, Effect.asVoid),
             states: (reference) =>
                 TxSubscriptionRef.changesStream(live).pipe(
                     Stream.switchMap((rows) => Array.match(Record.values(rows), { onEmpty: () => Stream.make(Array.empty<HandleState>()), onNonEmpty: (each) => Stream.zipLatestAll(...Array.map(each, TxSubscriptionRef.changesStream)) })),
-                    Stream.map(Array.map(({ state }) => Context.get(state, reference))),
+                    Stream.map(Array.map((slot) => Context.get(slot.state, reference))),
                 ),
+            persist: Effect.fnUntraced(function* <A, RD, RE>(reference: Context.Reference<A>, schema: Schema.Codec<A, unknown, RD, RE>) {
+                const codec = Schema.toCodecJson(schema);
+                const [context, rows] = yield* Effect.all([Effect.context<RD | RE>(), TxSubscriptionRef.get(live)]);
+                yield* Ref.update(
+                    persisted,
+                    Record.set(reference.key, (held: Context.Context<never>) => held.pipe(Context.get(reference), Schema.encodeEffect(codec), Effect.provideContext(context), Effect.orDie)),
+                );
+                const values = yield* Effect.all(
+                    Function.pipe(
+                        yield* Effect.all(Record.map(rows, TxSubscriptionRef.get)),
+                        Record.filterMap((slot) => Result.fromOption(Record.get(slot.pending, reference.key), Function.constVoid)),
+                        Record.map((json) =>
+                            Effect.matchEffect(Effect.provideContext(Schema.decodeEffect(codec)(json), context), {
+                                onFailure: (error) => Effect.as(Effect.annotateLogs(Effect.logWarning('Stored handle state no longer decodes, the handle keeps its default', error), { reference: reference.key }), Option.none<A>()),
+                                onSuccess: Effect.succeedSome,
+                            }),
+                        ),
+                    ),
+                );
+                yield* Effect.all(
+                    Record.collect(Record.intersection(rows, values, Tuple.make), (_, [row, value]) =>
+                        TxSubscriptionRef.update(
+                            row,
+                            Struct.evolve({
+                                pending: (held: HandleState['pending']) => Record.remove(held, reference.key),
+                                state: (held: Context.Context<never>) => Option.match(value, { onNone: () => held, onSome: (decoded) => Context.add(held, reference, decoded) }),
+                            }),
+                        ),
+                    ),
+                    { discard: true },
+                );
+            }),
+            drain: Effect.gen(function* () {
+                yield* Deferred.succeed(draining, undefined);
+                const slots = yield* Effect.all(Record.map(yield* TxSubscriptionRef.get(live), TxSubscriptionRef.get));
+                yield* Fiber.interruptAll(Record.values(slots).flatMap(({ running }) => running.map(Struct.get('fiber'))));
+            }),
             notifyListChanged,
             bind: Effect.scoped(Effect.map(issueHandle, ({ id }) => ({ handle: id, server: scheme }))),
-            follow: (handle) => Effect.as(Effect.scoped(findHandle(handle)), queued(handle)),
-            ack: (handle, through) => Effect.scoped(Effect.flatMap(findHandle(handle), ({ row }) => TxSubscriptionRef.update(row, (slot) => ({ ...slot, entries: Array.filter(slot.entries, isAfter(through)) })))),
+            follow: (handle) => Effect.map(Effect.scoped(findHandle(handle)), queued),
+            ack: (handle, through) => Effect.scoped(Effect.flatMap(findHandle(handle), ({ row }) => TxSubscriptionRef.update(row, acknowledge(through)))),
         });
         return Context.make(McpServer.McpServer, gatedServer).pipe(Context.add(Server, service));
     }, Layer.effectContext);
@@ -286,8 +411,10 @@ const serverOptions = Effect.fnUntraced(function* <E, R>(
 ) {
     const server = yield* McpServer.McpServer;
     const built = yield* Layer.build(Layer.provideMerge(app, Server.layer({ scheme: manifest.name, ...settings })));
+    const served = Context.get(built, Server);
+    yield* Effect.addFinalizer(() => served.drain);
     const shown = yield* Effect.filter([...server.tools, ...server.resources, ...server.resourceTemplates, ...server.prompts], ({ annotations }) => Context.get(annotations, Server.Visibility));
-    return { options: { ...manifest, protocols: Server.protocols, instructions: Array.dedupe([...instructions, ...Array.flatMap(shown, ({ annotations }) => Context.get(annotations, Server.Instructions))]).join('\n') }, served: Context.get(built, Server) };
+    return { options: { ...manifest, protocols: Server.protocols, instructions: Array.dedupe([...instructions, ...Array.flatMap(shown, ({ annotations }) => Context.get(annotations, Server.Instructions))]).join('\n') }, served };
 });
 const withIcons = (annotations: Context.Context<never>, own: readonly McpSchema.Icon[] | undefined) => Array.match(Context.get(annotations, Server.Icons), { onEmpty: () => own, onNonEmpty: Function.identity });
 const operationDuration = Metric.mapInput(
@@ -331,15 +458,70 @@ const split = ({ content, structuredContent }: McpSchema.CallToolResult) => {
     const shown = UndefinedOr.map(structuredContent, (json) => [JSON.stringify(json), Predicate.isString(json) ? json : JSON.stringify(json)] as const);
     return { blocks, texts: UndefinedOr.match(shown, { onUndefined: () => texts, onDefined: ([mirror, text]) => (Array.contains(texts, mirror) ? Array.map(texts, (each) => (each === mirror ? text : each)) : Array.append(texts, text)) }) };
 };
-const enqueue = (limit: number, owned: HandleState['entries']) => (slot: HandleState) => {
+const parameterPath = (segments: readonly (PropertyKey | { readonly key: PropertyKey })[]) =>
+    Array.reduce(segments, '', (text, segment) =>
+        Match.value(typeof segment === 'object' ? segment.key : segment).pipe(
+            Match.when(Predicate.isNumber, (index) => `${text}[${index}]`),
+            Match.when(() => text === '', String),
+            Match.orElse((key) => `${text}.${String(key)}`),
+        ),
+    );
+const nearestForms = (query: string, ast: SchemaAST.AST) => {
+    const declared = SchemaAST.isObjects(ast) ? ast.propertySignatures : [];
+    const forms = Array.flatMap(declared, ({ name, type }) => [
+        { name: String(name), form: String(name) },
+        ...Array.filterMap(SchemaAST.isUnion(type) ? type.types : [type], (member) => (SchemaAST.isLiteral(member) ? Result.succeed({ name: String(member.literal), form: `${String(name)}:${Formatter.format(member.literal)}` }) : Result.failVoid)),
+    ]);
+    return Array.match(Unmatched.rank(query, forms, Struct.get('name')), {
+        onEmpty: () => Array.match(declared, { onEmpty: () => 'not a parameter, this takes none', onNonEmpty: (each) => `not a parameter, the parameters here are ${LISTING.format(Array.map(each, ({ name }) => String(name)))}` }),
+        onNonEmpty: (ranked) => `not a parameter, nearest ${LISTING.format(Array.map(Array.take(ranked, 3), Struct.get('form')))}`,
+    });
+};
+const issueLines = (issue: SchemaIssue.Issue, at: readonly PropertyKey[]): readonly string[] => {
+    if (Predicate.isTagged(issue, 'Pointer')) {
+        return Predicate.isTagged(issue.issue, 'UnexpectedKey') || (Predicate.isTagged(issue.issue, 'InvalidType') && SchemaAST.isNever(issue.issue.ast)) ? [`${parameterPath([...at, ...issue.path])}: ${nearestForms(issue.path.map(String).join('.'), issue.issue.ast)}`] : issueLines(issue.issue, [...at, ...issue.path]);
+    }
+    if (Predicate.isTagged(issue, 'Encoding')) {
+        return issueLines(issue.issue, at);
+    }
+    return (Predicate.isTagged(issue, 'Composite') || Predicate.isTagged(issue, 'AnyOf')) && Array.isReadonlyArrayNonEmpty(issue.issues)
+        ? Array.flatMap(issue.issues, (inner) => issueLines(inner, at))
+        : Array.map(standardIssues(issue).issues, ({ path = [], message }) => Array.match([...at, ...path], { onEmpty: () => message, onNonEmpty: (segments) => `${parameterPath(segments)}: ${message}` }));
+};
+const describeIssue = (issue: SchemaIssue.Issue) => issueLines(issue, []).join('\n');
+const refused = ({ message }: McpSchema.InvalidParams) => Effect.succeed(McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: message })] }));
+const touch = ({ row }: { readonly row: TxSubscriptionRef.TxSubscriptionRef<HandleState> }) => Effect.addFinalizer(() => Effect.flatMap(DateTime.now, (at) => TxSubscriptionRef.update(row, Struct.evolve({ touched: () => Option.some(at) }))));
+const send = (slot: HandleState) => {
+    const [due, kept] = Array.partition(slot.entries, (each) => Option.match(each.delivers(slot.state), { onNone: () => Result.fail(each), onSome: (pushed) => Result.succeed({ ...each, pushed }) }));
+    return Tuple.make(due, { ...slot, entries: kept, sent: [...slot.sent, ...due] });
+};
+const enqueue = (limit: number, owned: readonly Entry[]) => (slot: HandleState) => {
     const merged = Array.sortWith([...slot.entries, ...owned], (each) => each.sequence, Number.Order);
     const [gone, entries] = Array.splitAt(merged, merged.length - limit);
     return { ...slot, dropped: slot.dropped + gone.length, entries };
 };
-const formatLine = ({ sequence, text }: HandleState['entries'][number]) => Effect.map(text, (line) => ({ sequence, line: `! #${sequence} ${line}`.replaceAll('\n', '\n  ') }));
-const isAfter = (sequence: number) => Predicate.mapInput(Number.isGreaterThan(sequence), (entry: HandleState['entries'][number]) => entry.sequence);
+const formatLine = (sequence: number, line: string) => `! #${sequence} ${line}`.replaceAll('\n', '\n  ');
+const formatEvent = ({ pushed, ...entry }: ReturnType<typeof send>[0][number]): Effect.Effect<typeof Handles.Event.Type> =>
+    Handles.Standing.guards.Waiting(pushed) ? Effect.map(entry.text, (line) => Handles.Event.cases.Waiting.make({ sequence: entry.sequence, line, key: pushed.key })) : Effect.map(entry.text, (line) => Handles.Event.cases.Line.make({ sequence: entry.sequence, line: formatLine(entry.sequence, line), kind: pushed }));
+const settle = (waiting: Record.ReadonlyRecord<string, number>, sent: readonly (typeof Handles.Event.Type)[], entries: readonly Entry[]) => {
+    const opened = Array.reduce(sent, waiting, (known, event) => (Handles.Event.guards.Waiting(event) ? Record.set(known, event.key, event.sequence) : known));
+    const closing = Record.fromEntries(
+        Array.flatMap(entries, ({ sequence, standing }) =>
+            Option.filter(standing, Handles.Standing.guards.Settled).pipe(
+                Option.map(({ key }) => [key, sequence] as const),
+                Option.toArray,
+            ),
+        ),
+    );
+    const [settled, open] = Record.partition(opened, (at, key) => (Option.exists(Record.get(closing, key), Number.isGreaterThan(at)) ? Result.succeed(at) : Result.fail(at)));
+    return [open, [...sent, ...Array.map(Record.keys(settled), (key) => Handles.Event.cases.Settled.make({ key }))]] as const;
+};
+const isAfter = (sequence: number) => Predicate.mapInput(Number.isGreaterThan(sequence), (entry: Entry) => entry.sequence);
+const acknowledge =
+    (through: number) =>
+    (slot: HandleState): HandleState => ({ ...slot, sent: Array.filter(slot.sent, isAfter(through)), entries: Array.filter(slot.entries, (each) => isAfter(through)(each) || Option.isNone(each.delivers(slot.state))) });
 const routeEvents =
-    (limit: number, from: number, raised: HandleState['held']) =>
+    (limit: number, from: number, raised: readonly Entry[]) =>
     (slot: HandleState): HandleState => {
         const [owned, rest] = Array.partition([...slot.held, ...raised], (each) => (isAfter(from)(each) && each.owns(slot.state) ? Result.succeed(each) : Result.fail(each)));
         return enqueue(limit, owned)({ ...slot, held: Array.takeRight(rest, limit) });
@@ -351,31 +533,36 @@ const composeResult = Effect.fnUntraced(function* (
     const taken = yield* TxSubscriptionRef.modify(row, (slot) => {
         const [ended, pending] = Array.partition(slot.running, (each) => UndefinedOr.match(each.fiber.pollUnsafe(), { onUndefined: () => Result.fail(each), onDefined: (exit) => Result.succeed({ ...each, exit }) }));
         const started = Array.map(Option.toArray(early), (each) => ({ ...each, call: slot.calls + 1 }));
+        const [leading, waiting] = Array.partition(slot.entries, (each) => (each.leads(slot.state) ? Result.succeed(each) : Result.fail(each)));
         return [
-            { ...slot, ended, pending, started },
-            { ...slot, dropped: 0, entries: [], calls: slot.calls + started.length, running: [...pending, ...started] },
+            { ...slot, entries: leading, ended, pending, started },
+            { ...slot, dropped: 0, entries: Array.filter(waiting, (each) => Option.isSome(each.delivers(slot.state))), calls: slot.calls + started.length, running: [...pending, ...started] },
         ];
     });
-    const lines = yield* Effect.forEach(taken.entries, formatLine).pipe(Effect.provideService(Handle, handleOf(row)));
-    const [, fitted] = Array.mapAccum(Array.zip(taken.entries, lines), budget, (left, [entry, { line }], index) => [left - line.length - 1, index === 0 || left > line.length ? Result.succeed(line) : Result.fail(entry)]);
-    const [shown, later] = Array.separate(fitted);
+    const rendered = yield* Effect.forEach(taken.entries, Struct.get('text')).pipe(Effect.provideService(Handle, handleOf(row)));
+    const runs = Array.match(Array.zip(taken.entries, rendered), { onEmpty: Array.empty, onNonEmpty: (pairs) => Array.groupWith(pairs, ([, left], [, right]) => left === right) });
+    const [, fitted] = Array.mapAccum(runs, budget, (left, run, index) => {
+        const [entry, text] = Array.headNonEmpty(run);
+        const line = formatLine(entry.sequence, [text, ...(run.length > 1 ? [`${run.length} times`] : [])].join(', '));
+        return [left - line.length - 1, index === 0 || left > line.length ? Result.succeed(line) : Result.fail(run.map(Tuple.get(0)))];
+    });
+    const [shown, deferred] = Array.separate(fitted);
+    const later = deferred.flat();
     yield* TxSubscriptionRef.update(row, enqueue(limit, later));
     const finished = Array.map(taken.ended, ({ call, tool, exit }) => {
-        const { failed, texts, blocks } = Exit.match(exit, {
-            onSuccess: (result) => (result instanceof McpSchema.InputRequired ? { failed: true, texts: ['Asked for client input, call the tool again'], blocks: [] } : { failed: result.isError === true, ...split(result) }),
-            onFailure: (cause) => ({ failed: true, texts: Array.map(Cause.prettyErrors(cause), Struct.get('message')), blocks: [] }),
-        });
-        return { blocks, line: [`finished: call ${call} ${tool}${blocks.length > 0 ? ` +${blocks.length} blocks` : ''}${failed ? ' failed:' : ''}`, ...texts].join(' ').replaceAll('\n', '\n  ') };
+        const result = callResult(exit);
+        const { texts, blocks } = split(result);
+        return { blocks, line: [`finished: call ${call} ${tool}${blocks.length > 0 ? ` +${blocks.length} blocks` : ''}${result.isError === true ? ' failed:' : ''}`, ...texts].join(' ').replaceAll('\n', '\n  ') };
     });
     const { texts, blocks } = split(outcome);
     const [state, body] = Array.splitAt(texts, stated ? 1 : 0);
     const leading = [
-        ...Option.toArray(Option.map(issued, (handle) => `handle ${handle} holds your state, pass it on each later call`)),
-        ...(taken.dropped > 0 ? [`! ${taken.dropped} older events dropped`] : []),
+        ...Option.toArray(issued),
+        ...(taken.dropped > 0 ? [`! ${taken.dropped} older events dropped unread, more arrived than the handle keeps`] : []),
         ...shown,
-        ...(later.length > 0 ? [`! ${later.length} more events next call`] : []),
-        ...Array.map(taken.started, ({ call }) => `early: call ${call} keeps running, its result arrives under finished`),
-        ...(taken.pending.length > 0 ? [`pending: calls ${Array.map(taken.pending, Struct.get('call')).join(', ')}`] : []),
+        ...(later.length > 0 ? [`! ${later.length} more events lead a later result`] : []),
+        ...Array.map(taken.started, ({ call, tool }) => `early: call ${call} ${tool} keeps running, its outcome leads a later result`),
+        ...(taken.pending.length > 0 ? [`pending: ${LISTING.format(Array.map(taken.pending, ({ call, tool }) => `call ${call} ${tool}`))} ${taken.pending.length === 1 ? 'keeps' : 'keep'} running`] : []),
         ...Array.map(finished, Struct.get('line')),
     ];
     const text = [...state, ...leading, ...(Array.isReadonlyArrayNonEmpty(leading) && Array.isReadonlyArrayNonEmpty(body) ? [''] : []), ...body];

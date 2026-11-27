@@ -236,9 +236,11 @@ const deploy = {
             ),
         );
         const volumes = Record.collect(Record.filter(app.env, App.Binding.$is('sqlite')), (variable) => ({ name: App.resource(app, mode, variable), target: join(MOUNT, variable) }));
+        const release = `${process.release.name}-${process.version}-linux`;
+        const archives = Record.collect({ amd64: 'x64', arm64: 'arm64' }, (platform, arch) => `FROM scratch AS ${platform}\nADD --unpack=true ${new URL(`${release}-${arch}.tar.xz`, process.release.sourceUrl).href} /\n`).join('');
         return {
             image: {
-                dockerfile: `# syntax=docker/dockerfile:1\nFROM node:${process.versions.node}-trixie-slim\nRUN install -d -o node -g node ${[MOUNT, ...volumes.map(({ target }) => target)].join(' ')}\nUSER node\nWORKDIR /app\nCOPY . .\nENTRYPOINT ["node"]\nCMD ["${App.bundle.entry}.js"]\n`,
+                dockerfile: `# syntax=docker/dockerfile:1\n${archives}FROM \${TARGETARCH} AS release\nFROM debian:trixie-slim\nRUN apt-get update && apt-get install --yes --no-install-recommends libatomic1 && rm -rf /var/lib/apt/lists/* && useradd --uid 1000 --user-group node && install -d -o node -g node ${[MOUNT, ...volumes.map(({ target }) => target)].join(' ')}\nCOPY --from=release /${release}-*/bin/node /usr/local/bin/\nUSER node\nWORKDIR /app\nCOPY . .\nENTRYPOINT ["node"]\nCMD ["${App.bundle.entry}.js"]\n`,
                 context: { location: bundle },
             },
             healthcheck: ['CMD', 'node', '--input-type=module', '--eval', `const response = await fetch('http://127.0.0.1:${port}${App.bundle.readiness}'); if (response.status !== 204) throw new Error('HTTP ' + response.status);`],

@@ -22,12 +22,12 @@ extension ExitDetail: Encodable {
 }
 
 package struct ProcessExit: Equatable, Sendable {
-    private static let reportingSignals: Set<TerminationStatus> = Set([SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGEMT, SIGFPE, SIGBUS, SIGSEGV, SIGSYS, SIGXCPU, SIGXFSZ].map(TerminationStatus.signaled))
+    private static let reportingSignals: Set<TerminationStatus> = Set([SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGEMT, SIGFPE, SIGBUS, SIGSEGV, SIGSYS].map(TerminationStatus.signaled))
 
-    package let status: TerminationStatus
+    package let status: Result<TerminationStatus, Errno>
     package let detail: ExitDetail
 
-    package var producesReport: Bool { detail.contains(.codeSigning) || Self.reportingSignals.contains(status) }
+    package var producesReport: Bool { detail.contains(.codeSigning) || status.map(Self.reportingSignals.contains) == .success(true) }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -35,22 +35,7 @@ package struct ProcessExit: Equatable, Sendable {
 extension ProcessInstance {
     package func exits() -> AsyncStream<Result<ProcessExit, Errno>> {
         let (exits, exit) = AsyncStream<Result<ProcessExit, Errno>>.makeStream()
-        let deliver: @Sendable (FileHandle) -> Void = { queue in
-            var event = unsafe kevent()
-            var now = timespec()
-            let read = unsafe kevent(queue.fileDescriptor, nil, 0, &event, 1, &now)
-            let data = Int32(truncatingIfNeeded: unsafe event.data)
-            let status: TerminationStatus = data & _WSTOPPED == 0 ? .exited(data >> 8 & 0xff) : .signaled(data & _WSTOPPED)
-            let outcome: Result<ProcessExit, Errno> =
-                switch read {
-                    case 1: .success(ProcessExit(status: status, detail: ExitDetail(rawValue: data & NOTE_EXIT_DETAIL_MASK)))
-                    case 0: .failure(.noSuchProcess)
-                    default: .failure(Errno(rawValue: errno))
-                }
-            exit.yield(outcome)
-            exit.finish()
-        }
-        let registered = Result { () throws(Errno) -> FileHandle in
+        let registered = Result { () throws(Errno) -> (queue: FileHandle, refusal: Errno?) in
             let descriptor = kqueue()
             guard descriptor >= 0 else { throw Errno(rawValue: errno) }
             let queue = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
@@ -62,14 +47,35 @@ extension ProcessInstance {
                 data: 0,
                 udata: nil,
             )
-            guard unsafe kevent(descriptor, &change, 1, nil, 0, nil) == 0 else { throw Errno(rawValue: errno) }
-            return queue
+            let refusal: Errno? = unsafe kevent(descriptor, &change, 1, nil, 0, nil) == 0 ? nil : Errno(rawValue: errno)
+            unsafe change.fflags = NOTE_EXIT | UInt32(NOTE_EXIT_DETAIL)
+            guard unsafe refusal == nil || refusal == .noSuchProcess || refusal == .permissionDenied && kevent(descriptor, &change, 1, nil, 0, nil) == 0 else { throw Errno(rawValue: errno) }
+            return (queue, refusal)
         }
         switch registered {
-            case .success(let queue) where hasExited: deliver(queue)
-            case .success(let queue):
-                exit.onTermination = { _ in queue.readabilityHandler = nil }
-                queue.readabilityHandler = deliver
+            case .success(let (queue, refusal)):
+                let deliver: @Sendable (FileHandle) -> Void = { (queue: FileHandle) -> Void in
+                    var event = unsafe kevent()
+                    var now = timespec()
+                    let read = unsafe kevent(queue.fileDescriptor, nil, 0, &event, 1, &now)
+                    let data = Int32(truncatingIfNeeded: unsafe event.data)
+                    let status: Result<TerminationStatus, Errno> =
+                        if let refusal { .failure(refusal) } else { .success(data & _WSTOPPED == 0 ? .exited(data >> 8 & 0xff) : .signaled(data & _WSTOPPED)) }
+                    let outcome: Result<ProcessExit, Errno> =
+                        switch read {
+                            case 1: .success(ProcessExit(status: status, detail: ExitDetail(rawValue: data & NOTE_EXIT_DETAIL_MASK)))
+                            case 0: .success(ProcessExit(status: .failure(.noSuchProcess), detail: []))
+                            default: .failure(Errno(rawValue: errno))
+                        }
+                    exit.yield(outcome)
+                    exit.finish()
+                }
+                if hasExited {
+                    deliver(queue)
+                } else {
+                    exit.onTermination = { _ in queue.readabilityHandler = nil }
+                    queue.readabilityHandler = deliver
+                }
             case .failure(let error):
                 exit.yield(.failure(error))
                 exit.finish()

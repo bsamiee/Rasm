@@ -242,7 +242,7 @@ where
     fn wake(&mut self) {
         match &self.upstream {
             Upstream::Down { retry } if Instant::now() >= *retry && self.clock.drain.is_serving() => self.start(),
-            Upstream::Down { retry: _ } | Upstream::Connecting { attempt: _, stop: _, started: _ } | Upstream::Up(_) => {}
+            Upstream::Down { retry: _ } | Upstream::Connecting { attempt: _, stop: _, started: _ } | Upstream::Up(_) | Upstream::Ending { closed: _ } => {}
         }
     }
 

@@ -42,6 +42,7 @@ class Column extends Data.Class<{
     readonly renamedFrom: Option.Option<string>;
     readonly generation: number;
     readonly retype: boolean;
+    readonly earlier: Option.Option<Schema.Decoder<unknown>>;
 }> {
     static readonly Projection = Data.taggedEnum<Projection>();
     static readonly Collection = Data.taggedEnum<Collection>();
@@ -63,7 +64,7 @@ class Column extends Data.Class<{
             Match.tag('Enum', ({ enums }) => enums.map(([, member]) => member)),
             Match.option,
         );
-    static readonly make = <F extends Fields>(field: keyof F & string, schema: F[keyof F & string], { defaults, projections, renamed, retype }: Pick<RelationOptions<F>, 'defaults' | 'projections' | 'renamed' | 'retype'>, retired: readonly string[], rename: (name: string) => string) => {
+    static readonly make = <F extends Fields>(field: keyof F & string, schema: F[keyof F & string], { defaults, projections, renamed, retype, documents }: Pick<RelationOptions<F>, 'defaults' | 'projections' | 'renamed' | 'retype' | 'documents'>, retired: readonly string[], rename: (name: string) => string) => {
         const flat = (node: SchemaRepresentation.Representation): readonly SchemaRepresentation.Representation[] =>
             Match.value(node).pipe(
                 Match.tag('Union', ({ types }) => types.flatMap(flat)),
@@ -175,6 +176,7 @@ class Column extends Data.Class<{
             renamedFrom: Option.map(Option.fromUndefinedOr(renamed?.[field]), rename),
             generation: Array.countBy(retired, Equal.equals(name)),
             retype: retype?.includes(field) === true,
+            earlier: Option.map(Option.fromUndefinedOr(documents?.[field]), (forms) => Schema.Union(forms)),
         });
     };
 }

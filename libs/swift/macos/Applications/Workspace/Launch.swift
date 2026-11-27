@@ -4,26 +4,27 @@ import AsyncAlgorithms
 import CasePathsCore
 package import Encoding
 import Files
-import Processes
+package import Processes
 import Results
-import System
+package import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 package struct InstanceSnapshot: Encodable, Sendable {
     private enum Key: CodingKey {
-        case pid, instance, identifier, url, activationPolicy, language, state, listening, listeningFailure
+        case pid, instance, identifier, name, url, activationPolicy, language, launchDate, usage, usageFailure, state, listening, listeningFailure
     }
 
     let instance: Instance
     let identifier: String
     let url: URL
     let language: Locale.Language?
+    let usage: Result<ResourceUsage, Errno>?
     let state: InstanceState
 
-    package init?(_ instance: Instance, state: InstanceState, language: Locale.Language? = nil) {
+    package init?(_ instance: Instance, state: InstanceState, language: Locale.Language? = nil, usage: Result<ResourceUsage, Errno>? = nil) {
         guard let url = instance.application.bundleURL?.resolvedDirectory, let identifier = instance.application.bundleIdentifier else { return nil }
-        (self.instance, self.identifier, self.url, self.language, self.state) = (instance, identifier, url, language, state)
+        (self.instance, self.identifier, self.url, self.language, self.usage, self.state) = (instance, identifier, url, language, usage, state)
     }
 
     package func encode(to encoder: any Encoder) throws {
@@ -31,10 +32,15 @@ package struct InstanceSnapshot: Encodable, Sendable {
         try fields.encode(instance.process.pid, forKey: .pid)
         try fields.encode(instance.process, forKey: .instance)
         try fields.encode(identifier, forKey: .identifier)
+        try fields.encodeIfPresent(instance.application.localizedName, forKey: .name)
         try fields.encode(url, forKey: .url)
         try fields.encode(instance.application.activationPolicy.name, forKey: .activationPolicy)
         let minimal: String? = language?.minimalIdentifier
         try fields.encodeIfPresent(minimal, forKey: .language)
+        try fields.encodeIfPresent(instance.application.launchDate, forKey: .launchDate)
+        try fields.encodeIfPresent(usage?[case: \.success], forKey: .usage)
+        let usageFailure: String? = usage?[case: \.failure]?.description
+        try fields.encodeIfPresent(usageFailure, forKey: .usageFailure)
         try fields.encode(state, forKey: .state)
         let listening = state[case: \.running]?.listening
         try fields.encode(listening?[case: \.success] ?? [], forKey: .listening)
@@ -84,13 +90,9 @@ extension NSWorkspace {
         clock: some Clock<Duration> & Sendable,
     ) async throws(ApplicationFailure) -> (watch: Watch, settled: InstanceState?) {
         let running = try instances(of: installation.runs)
-        let reused: Instance? =
-            switch (newInstance ? nil : running.first, arguments.isEmpty && environment.isEmpty, documents.isEmpty) {
-                case (.some(let reused), false, _): throw ApplicationFailure(subject: installation.name, reason: .reused(reused.process.pid))
-                case (.some(let reused), true, true): reused
-                case (.some, true, false), (.none, _, _): nil
-            }
-        let creates: Bool = reused == nil && (newInstance || running.isEmpty)
+        if !newInstance, !running.isEmpty, !arguments.isEmpty || !environment.isEmpty { throw ApplicationFailure(subject: installation.name, reason: .reused) }
+        let before: Set<pid_t> = Set(running.map(\.process.pid))
+        let creates: Bool = newInstance || running.isEmpty
         let configuration = OpenConfiguration()
         configuration.activates = false
         configuration.hides = creates
@@ -98,21 +100,19 @@ extension NSWorkspace {
         configuration.promptsUserIfNeeded = false
         configuration.allowsRunningApplicationSubstitution = false
         configuration.createsNewApplicationInstance = newInstance
-        configuration.arguments = creates ? arguments + ["-ApplePersistenceIgnoreState", "YES"] : arguments
+        configuration.arguments = arguments + ["-ApplePersistenceIgnoreState", "YES"]
         configuration.environment = environment
-        let before: Set<pid_t> = Set(running.map(\.process.pid))
-        let requested = clock_gettime_nsec_np(CLOCK_REALTIME) / NSEC_PER_USEC
+        let ends = clock.now.advanced(by: deadline)
         let hold = try await PermittedFrontList.shared.holding(
             excluding: { application in installation.runs(application) && !(creates && before.contains(application.processIdentifier)) },
-            for: deadline,
+            for: deadline + messagingTimeout,
             clock: clock,
             { () async throws(ApplicationFailure) -> (watch: Watch, settled: InstanceState?) in
-                let opened: NSRunningApplication?
+                let opened: NSRunningApplication
                 do {
                     opened =
-                        try await reused != nil
-                        ? nil
-                        : documents.isEmpty ? openApplication(at: installation.url, configuration: configuration) : open(documents, withApplicationAt: installation.url, configuration: configuration)
+                        try await documents.isEmpty
+                        ? openApplication(at: installation.url, configuration: configuration) : open(documents, withApplicationAt: installation.url, configuration: configuration)
                 } catch {
                     let quarantine: Result<Installation.Quarantine?, ApplicationFailure> = Result { () throws(ApplicationFailure) in try installation.quarantine }
                     if case .failure(let unread) = quarantine { output.yield(.failed(unread)) }
@@ -121,55 +121,49 @@ extension NSWorkspace {
                         reason: quarantine[case: \.success].flatMap(\.self).map { quarantine in ApplicationFailure.Reason.quarantined(quarantine, error as NSError) } ?? .foundation(error as NSError),
                     )
                 }
+                let executable: URL? = opened.processIdentifier == -1 ? installation.executable : nil
                 let executing: [ProcessInstance]
                 do throws(Errno) {
-                    let path: FilePath? = try (opened?.processIdentifier == -1 ? installation.executable : nil).map { executable throws(Errno) in
-                        FilePath(try executable.canonical().path(percentEncoded: false))
-                    }
-                    executing = try path.map { path throws(Errno) in try ProcessInstance.all { executable in executable == path } } ?? []
+                    let canonical: FilePath? = try executable.map { executable throws(Errno) in FilePath(try executable.canonical().path(percentEncoded: false)) }
+                    executing = try canonical.map { canonical throws(Errno) in try ProcessInstance.all { path in path == canonical } } ?? []
                 } catch {
                     throw ApplicationFailure(subject: installation.executable?.path(percentEncoded: false) ?? installation.name, reason: .system(error))
                 }
-                let started: ProcessInstance? = executing.first { process in process.started >= requested }
-                let found: Instance? = (started ?? executing.first).flatMap { process in
+                let found: Instance? = executing.max { first, second in first.started < second.started }.flatMap { process in
                     NSRunningApplication(processIdentifier: process.pid).map { application in Instance(application: application, process: process) }
                 }
-                let (instance, created): (Instance, Bool) =
-                    switch (reused, opened, found) {
-                        case (.some(let reused), _, _): (reused, false)
-                        case (.none, _, .some(let found)): (found, started != nil)
-                        case (.none, .some(let opened), .none) where opened.processIdentifier != -1: (try Instance(opened), !before.contains(opened.processIdentifier))
-                        case (.none, _, .none): throw ApplicationFailure(subject: installation.url.path(percentEncoded: false), reason: .system(.noSuchProcess))
+                let instance: Instance =
+                    switch (found, opened.processIdentifier) {
+                        case (.some(let found), _): found
+                        case (.none, -1): throw ApplicationFailure(subject: installation.url.path(percentEncoded: false), reason: .system(.noSuchProcess))
+                        case (.none, _): try Instance(opened)
                     }
+                let created: Bool = !before.contains(instance.process.pid)
                 let watch = await watches.watch(instance)
-                let replaced = !created && Result(catching: { () throws(Errno) in try instance.process.runsInstalledCode() }) == .success(false)
+                let replaced = !created && Result(catching: { () throws(ProcessFailure) in try instance.process.runsInstalledCode() }) == .success(false)
                 output.yield(.launched(LaunchedInstance(instance: instance, identifier: installation.identifier, created: created, replaced: replaced)))
                 let states = await watch.states().removeDuplicates().flatMapLatest { (state: InstanceState) in
-                    let idle: Bool =
-                        state[case: \.running].map { running in running.status.isIdle && (running.status != .unresponsive(thread: .sleeping) || instance.application.isFinishedLaunching) } == true
-                    let quiet = chain([()].async, AsyncTimerSequence(interval: messagingTimeout, clock: clock).map { _ in }).prefix(idle ? .max : 0)
-                        .map { () in Result { () throws(Errno) in try ResourceUsage(of: instance.process) } }
-                        .adjacentPairs()
-                        .map { start, end in (state, Optional(end.flatMap { end in start.map(end.since) })) }
-                    return chain([(state, Result<ResourceUsage.Interval, Errno>?.none)].async, quiet)
+                    let status = state[case: \.running]?.status
+                    let idle: Bool = status?.isIdle == true && (status != .unresponsive(thread: .sleeping) || instance.application.isFinishedLaunching)
+                    return chain([(state, false)].async, AsyncTimerSequence(interval: messagingTimeout, clock: clock).prefix(idle ? 1 : 0).map { _ in (state, true) })
                 }
-                let expiry = AsyncTimerSequence(interval: deadline, clock: clock).prefix(1).map { _ in (InstanceState, Result<ResourceUsage.Interval, Errno>?)?.none }
+                let expiry = AsyncTimerSequence(interval: clock.now.duration(to: ends), clock: clock).prefix(1).map { _ in (InstanceState, Bool)?.none }
                 var settled: InstanceState?
                 for await element in merge(states.map(Optional.some), expiry) {
                     guard case (let state, let quiet)? = element else { break }
-                    if quiet == nil, let snapshot = InstanceSnapshot(instance, state: state) { output.yield(.state(snapshot)) }
+                    if !quiet, let snapshot = InstanceSnapshot(instance, state: state) { output.yield(.state(snapshot)) }
                     settled = state
-                    let settles: Bool =
-                        switch (state, quiet) {
-                            case (.exited(let ended), _): ended.report != nil || ended.exit[case: \.success]?.producesReport != true
-                            case (.running(let running), _) where !created || !running.asking.isEmpty: true
-                            case (.failed, _), (.running, .some(.failure)): true
-                            case (.running, .some(.success(let interval))): ![ResourceUsage.Interval.Cause.running, .runnable, .paging].contains(interval.cause)
-                            case (.running, .none): false
-                        }
-                    if settles { break }
+                    let reported: Bool = state[case: \.exited].map { ended in ended.report != nil || !ended.exit.producesReport } == true
+                    if quiet || reported || state.is(\.failed) || state[case: \.running]?.asking.isEmpty == false { break }
                 }
-                if creates { instance.application.unhide() }
+                if creates {
+                    let (shown, showing) = AsyncStream<Bool>.makeStream(bufferingPolicy: .bufferingNewest(1))
+                    let observation = instance.application.observe(\.isHidden, options: [.initial, .new]) { _, change in showing.yield(change.newValue == false) }
+                    _ = instance.application.unhide()
+                    let held = AsyncTimerSequence(interval: clock.now.duration(to: ends.advanced(by: messagingTimeout)), clock: clock).map { _ in true }
+                    _ = await merge(shown, held).first(where: \.self)
+                    observation.invalidate()
+                }
                 return (watch, settled)
             },
         )
@@ -235,7 +229,7 @@ extension NSWorkspace {
             guard waiting else { return }
             for await state in await watch.states() {
                 if let snapshot = InstanceSnapshot(watch.instance, state: state) { output.yield(.state(snapshot)) }
-                if state[case: \.exited].map({ ended in ended.report != nil || ended.exit[case: \.success]?.producesReport != true }) == true { return }
+                if state[case: \.exited].map({ ended in ended.report != nil || !ended.exit.producesReport }) == true { return }
             }
         }
         output.onTermination = { _ in launching.cancel() }

@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { KeyStep, Model } from '@rasm/applications/contract';
+import { KeyStep, Model } from '@rasm/applications/interface';
 import { Description, type FacetContainer, type FacetControl } from '@rasm/applications/source';
 import { Array, Cause, Effect, Exit, Option, Order, Record, Ref, Schema, Stream, Struct, SubscriptionRef } from 'effect';
 

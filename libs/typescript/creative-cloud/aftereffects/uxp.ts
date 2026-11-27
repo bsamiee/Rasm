@@ -2,23 +2,21 @@ import { Containment } from '@rasm/object-model/host';
 import { HostError } from '@rasm/object-model/model';
 import type { Render } from '@rasm/object-model/rpcs';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Callable, Uxp } from '@rasm/uxp/plugin';
+import { Callable, HostObject, Uxp } from '@rasm/uxp/plugin';
 import type { File } from 'adobe:uxp';
 import { Array, Context, Effect, Layer, Option, Predicate, Record, Schema } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Class = Schema.declare((value: unknown): value is abstract new () => object => Predicate.isFunction(value));
+const Class = HostObject({ name: Schema.NonEmptyString }, (value): value is abstract new () => object => Predicate.isFunction(value)).annotate({ description: 'Item class require("aftereffects") holds, by its name' });
 const Identified = Schema.Struct({ id: Schema.Int }).annotate({ description: 'Item or layer keyed by its id' });
 const Placed = Schema.Struct({ containingComp: Identified }).annotate({ description: 'Layer by the composition holding it' });
-const Project = Schema.Struct({ items: Uxp.Collection, itemByID: Callable, layerByID: Callable, toolType: Schema.mutableKey(Schema.Finite) }).annotate({ description: 'Project by its items, 1-based, the lookups by id, and its tool type read and written in place' });
-const Composition = Schema.Struct({ ...Identified.fields, layers: Uxp.Collection, time: Schema.Finite, resolutionFactor: Schema.Tuple([Schema.Int, Schema.Int]), saveFrameToPng: Callable })
-    .pipe(Schema.is, Schema.declare)
-    .annotate({ description: 'Composition by its id, its layers, 1-based, and the members render calls' });
-const Deferred = Schema.Struct({ wait: Callable }).pipe(Schema.is, Schema.declare).annotate({ description: 'DeferredCall saveFrameToPng returns, settled through wait()' });
-class Application extends Schema.Opaque<Application>()(Schema.Struct({ project: Project.pipe(Schema.is, Schema.declare), beginSuppressDialogs: Callable, endSuppressDialogs: Callable, beginUndoGroup: Callable, endUndoGroup: Callable })) {}
+const Project = HostObject({ items: Uxp.Collection, itemByID: Callable, layerByID: Callable, toolType: Schema.mutableKey(Schema.Finite) }).annotate({ description: 'Project by its items, 1-based, the lookups by id, and its tool type read and written in place' });
+const Composition = HostObject({ ...Identified.fields, layers: Uxp.Collection, time: Schema.Finite, resolutionFactor: Schema.Tuple([Schema.Int, Schema.Int]), saveFrameToPng: Callable }).annotate({ description: 'Composition by its id, its layers, 1-based, and the members render calls' });
+const Deferred = HostObject({ wait: Callable }).annotate({ description: 'DeferredCall saveFrameToPng returns, settled through wait()' });
+const Application = HostObject({ project: Project, beginSuppressDialogs: Callable, endSuppressDialogs: Callable, beginUndoGroup: Callable, endUndoGroup: Callable });
 const Module = Schema.Struct({
-    app: Application.pipe(Schema.is, Schema.declare),
+    app: Application,
     CompItem: Class,
     FolderItem: Class,
     FootageItem: Class,
@@ -28,7 +26,7 @@ const Module = Schema.Struct({
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class AfterEffects extends Context.Service<AfterEffects>()('@rasm/aftereffects/uxp/AfterEffects', {
-    make: Effect.map(Effect.flatMap(Uxp.require('aftereffects'), Schema.decodeUnknownEffect(Module)), ({ app, CompItem, FolderItem, FootageItem, ToolType }) => ({
+    make: Effect.map(Uxp.require('aftereffects', Module), ({ app, CompItem, FolderItem, FootageItem, ToolType }) => ({
         app,
         CompItem,
         ToolType,
@@ -36,7 +34,7 @@ class AfterEffects extends Context.Service<AfterEffects>()('@rasm/aftereffects/u
         containment: {
             root: app,
             kinds: {
-                project: Containment.kind({ property: ({ project }: Application) => project }),
+                project: Containment.kind({ property: ({ project }: typeof Application.Type) => project }),
                 item: Containment.kind({
                     items: ({ items }: typeof Project.Type) => items,
                     base: 1,
@@ -62,7 +60,7 @@ class AfterEffects extends Context.Service<AfterEffects>()('@rasm/aftereffects/u
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const bracket = (subject: string, { begin, end }: Record.ReadonlyRecord<'begin' | 'end', (app: Application) => unknown>) =>
+const bracket = (subject: string, { begin, end }: Record.ReadonlyRecord<'begin' | 'end', (app: typeof Application.Type) => unknown>) =>
     AfterEffects.use(({ app }) => Effect.acquireRelease(Effect.try({ try: () => begin(app), catch: HostError.refused(subject) }), () => Effect.orDie(Effect.try({ try: () => end(app), catch: HostError.refused(subject) }))));
 const suppressDialogs = bracket('dialog suppression', { begin: (app) => app.beginSuppressDialogs(), end: (app) => app.endSuppressDialogs(false) });
 const undoGroup = (label: string) => bracket(`undo group ${label}`, { begin: (app) => app.beginUndoGroup(label), end: (app) => app.endUndoGroup() });
@@ -76,6 +74,7 @@ const toolbar = {
                 Effect.flatMap((toolType) => Effect.try({ try: () => Object.assign(project, { toolType } satisfies Partial<typeof project>), catch: HostError.refused(`tool type ${id}`) })),
             ),
         ),
+    changes: Uxp.ticks,
 };
 const render = Effect.fnUntraced(function* ({ target, label }: Render, written: File) {
     const { containment, CompItem } = yield* AfterEffects;

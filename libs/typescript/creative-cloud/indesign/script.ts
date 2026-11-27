@@ -48,9 +48,9 @@ const HostScript = {
             `const around = ${String(runInUndoStep)}; const hosted = require('indesign'); const prepare = Error.prepareStackTrace; const lines = [];`,
             host,
             `Error.prepareStackTrace = (error, frames) => { lines.push(...frames.filter((frame) => frame.getScriptNameOrSourceURL() === 'body.js').map((frame) => frame.getLineNumber())); return String(error); };`,
-            `try { answer(host.reply(() => around(hosted, () => { let value; try { value = new Function(${JSON.stringify(`return ${body}\n//# sourceURL=body.js`)})()(); } catch (error) { void error?.stack; throw { message: String(error?.message ?? error), line: lines[0] }; }`,
+            `try { answer(host.reply(() => around(hosted, () => { let value; try { value = new Function(${JSON.stringify(`return ${body}\n//# sourceURL=body.js`)})()(); } catch (error) { void error?.stack; throw { message: String(error?.message ?? error), number: error?.number, line: lines[0] }; }`,
             `if (typeof value?.then === 'function') { value.then(undefined, () => undefined); throw { _tag: 'IllegalArgument', message: 'body returned a promise, a do script body runs synchronously' }; } return { result: value }; }, ${JSON.stringify(label)}), { reference: ${String(reference)} }));`,
-            `} finally { Error.prepareStackTrace = prepare; } } catch (error) { answer(JSON.stringify({ _tag: 'Thrown', message: String(error?.message ?? error) })); } })();`,
+            `} finally { Error.prepareStackTrace = prepare; } } catch (error) { answer(JSON.stringify({ _tag: 'Thrown', message: String(error?.message ?? error), number: error?.number })); } })();`,
         ].join('\n'),
 } as const;
 

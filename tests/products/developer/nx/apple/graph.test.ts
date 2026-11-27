@@ -121,7 +121,7 @@ describe('files Nx hands the plugin', () => {
                     'proj/Package.swift',
                     'proj/Package@swift-6.4.swift',
                     '.config/xcode.xcconfig',
-                    'Xcode.xcconfig',
+                    '.config/app.xcconfig',
                     'A/A.xcodeproj/xcshareddata/xcschemes/A.xcscheme',
                     'W.xcworkspace/xcshareddata/xcschemes/W.xcscheme',
                     'A/Info.plist',

@@ -1,6 +1,6 @@
 import { SeverityNumber } from '@opentelemetry/api';
 import { ATTR_CODE_FUNCTION_NAME, ATTR_CODE_STACKTRACE, ATTR_EXCEPTION_MESSAGE, ATTR_EXCEPTION_STACKTRACE, ATTR_EXCEPTION_TYPE, ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
-import { Array, Cause, Config, Context, Effect, ErrorReporter, type Fiber, Formatter, Iterable, Layer, Logger, LogLevel, Match, Metric, Option, Order, Predicate, Record, References, Schema, String, Struct, Tracer, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Context, Effect, ErrorReporter, type Fiber, Formatter, Iterable, Layer, Logger, LogLevel, Match, Metric, Option, Predicate, Record, References, Schema, String, Struct, Tracer, UndefinedOr } from 'effect';
 import { Otlp, OtlpSerialization } from 'effect/observability';
 
 // --- [TABLES] --------------------------------------------------------------------------
@@ -22,11 +22,11 @@ const severityNumber = Match.type<LogLevel.LogLevel>().pipe(
     Match.orElse((severity) => SeverityNumber[String.toUpperCase(severity)]),
 );
 const scope = (fiber: Fiber.Fiber<unknown, unknown>) => Option.flatMap(Context.getOption(fiber.context, Tracer.ParentSpan), Match.valueTags({ Span: (span) => Option.some(span.name), ExternalSpan: () => Option.none<string>() }));
-const formatLogRecord = (resource: NonNullable<Parameters<typeof layerOtlp>[0]>) =>
+const logRecord = (resource: NonNullable<Parameters<typeof layerOtlp>[0]>) =>
     Logger.make(({ cause, date, fiber, logLevel, message }: Logger.Options<unknown>) => {
         const errors = Cause.prettyErrors(cause, { includeCauseInStack: true });
         const text = Array.map(Array.ensure(message), (part) => (Predicate.isString(part) ? part : Formatter.format(part)));
-        return Formatter.formatJson({
+        return {
             timestamp: String.replace('Z', '000Z')(date.toISOString()),
             severity_text: String.toUpperCase(logLevel),
             severity_number: severityNumber(logLevel),
@@ -40,7 +40,7 @@ const formatLogRecord = (resource: NonNullable<Parameters<typeof layerOtlp>[0]>)
                 ...(LogLevel.isGreaterThanOrEqualTo(logLevel, 'Warn') ? UndefinedOr.map(fiber.getRef(References.CurrentStackFrame), (frame) => ({ [ATTR_CODE_FUNCTION_NAME]: frame.name, [ATTR_CODE_STACKTRACE]: frame.stack() })) : {}),
             },
             resource: { [ATTR_SERVICE_NAME]: resource.serviceName, [ATTR_SERVICE_VERSION]: resource.serviceVersion, ...resource.attributes },
-        });
+        };
     });
 const errorReporter = ErrorReporter.make(({ error, severity, attributes, fiber }) => Cause.fail(error).pipe(Effect.logWithLevel(Predicate.hasProperty(error, ErrorReporter.severity) ? severity : 'Error'), Effect.annotateLogs(attributes), Effect.runSyncWith(fiber.context)<void, never>));
 
@@ -48,14 +48,21 @@ const errorReporter = ErrorReporter.make(({ error, severity, attributes, fiber }
 
 const layerWithoutDefaultLogger = Effect.map(Logger.CurrentLoggers, (loggers) => new Set(Iterable.filter(loggers, (logger) => logger !== Logger.defaultLogger))).pipe(Layer.effect(Logger.CurrentLoggers));
 const layerMinimumLogLevels = (minimum: LogLevel.LogLevel, scopes: Record.ReadonlyRecord<string, LogLevel.LogLevel>) => {
-    const overrides = Array.sortWith(Record.toEntries(scopes), ([prefix]) => prefix.length, Order.flip(Order.Number));
+    const floors = new Map<string, LogLevel.LogLevel>();
     const floor = (fiber: Fiber.Fiber<unknown, unknown>) =>
-        scope(fiber).pipe(
-            Option.flatMap((name) => Array.findFirst(overrides, ([prefix, level]) => (name.startsWith(prefix) ? Option.some(level) : Option.none()))),
-            Option.getOrElse(() => minimum),
-        );
+        Option.match(scope(fiber), {
+            onNone: () => minimum,
+            onSome: (name) =>
+                floors.getOrInsertComputed(name, () => {
+                    const parts = String.split(name, '.');
+                    return Array.findFirst(
+                        Array.makeBy(parts.length, (dropped) => parts.slice(0, parts.length - dropped).join('.')),
+                        (ancestor) => Record.get(scopes, ancestor),
+                    ).pipe(Option.getOrElse(() => minimum));
+                }),
+        });
     const filtered = Effect.map(Logger.CurrentLoggers, (loggers) => new Set(Iterable.map(loggers, (logger) => Logger.make((entry: Logger.Options<unknown>): unknown => (LogLevel.isGreaterThanOrEqualTo(entry.logLevel, floor(entry.fiber)) ? logger.log(entry) : undefined)))));
-    return Layer.merge(Layer.succeed(References.MinimumLogLevel, Array.min([minimum, ...Object.values(scopes)], LogLevel.Order)), Array.isReadonlyArrayEmpty(overrides) ? Layer.empty : Layer.effect(Logger.CurrentLoggers, filtered));
+    return Layer.merge(Layer.succeed(References.MinimumLogLevel, Array.min([minimum, ...Object.values(scopes)], LogLevel.Order)), Layer.effect(Logger.CurrentLoggers, filtered));
 };
 const layerOtlp = (resource?: NonNullable<Parameters<typeof Otlp.layerFromConfig>[0]>['resource']) =>
     Effect.all([exporters, Config.Literals(Struct.keys(SERIALIZATIONS), 'OTEL_EXPORTER_OTLP_PROTOCOL').pipe(Config.withDefault('http/protobuf'))]).pipe(
@@ -64,8 +71,8 @@ const layerOtlp = (resource?: NonNullable<Parameters<typeof Otlp.layerFromConfig
     );
 
 const layer = (resource: NonNullable<Parameters<typeof layerOtlp>[0]> = {}) =>
-    Layer.mergeAll(Logger.layer([Logger.withLeveledConsole(formatLogRecord(resource))], { mergeWithExisting: true }).pipe(Layer.provide(layerWithoutDefaultLogger)), ErrorReporter.layer([errorReporter], { mergeWithExisting: true }), layerOtlp(resource));
+    Layer.mergeAll(Logger.layer([Logger.withLeveledConsole(Logger.map(logRecord(resource), Formatter.formatJson))], { mergeWithExisting: true }).pipe(Layer.provide(layerWithoutDefaultLogger)), ErrorReporter.layer([errorReporter], { mergeWithExisting: true }), layerOtlp(resource));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { errorReporter, exporters, formatLogRecord, layer, layerMinimumLogLevels, layerOtlp, layerWithoutDefaultLogger };
+export { errorReporter, exporters, layer, layerMinimumLogLevels, layerOtlp, layerWithoutDefaultLogger, logRecord };

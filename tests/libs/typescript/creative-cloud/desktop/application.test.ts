@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, describe, it } from '@effect/vitest';
-import { Installation } from '@rasm/applications/contract';
+import { Installation } from '@rasm/applications/installations';
 import { Application, Registry } from '@rasm/creative-cloud-desktop/application';
 import { Effect, FileSystem, Option, Path } from 'effect';
 
@@ -23,17 +23,17 @@ const REGISTRY = [
     ['ACR', '19.0', 'BuildVersion', '19.0.0.544'],
 ] as const;
 const OFFERED = [
-    ['/Applications/Adobe Illustrator 2027/Adobe Illustrator.app', 'Adobe Illustrator', 'Adobe Illustrator 2027', 'com.adobe.illustrator', '31.0.0'],
-    ['/Applications/Adobe Photoshop (Beta)/Adobe Photoshop (Beta).app', 'Adobe Photoshop 2027', 'Adobe Photoshop (Beta)', 'com.adobe.Photoshop', '28.2.0'],
-    ['/Applications/Adobe Illustrator (Beta)/Adobe Illustrator.app', 'Adobe Illustrator', 'Adobe Illustrator 2027 (Beta)', 'com.adobe.illustratorBeta', '31.1.0'],
-    ['/Applications/Adobe Acrobat DC/Adobe Acrobat.app', 'AdobeAcrobat', 'Adobe Acrobat', 'com.adobe.Acrobat.Pro', '26.3.0'],
-    ['/Volumes/Archive/Adobe Acrobat.app', 'AdobeAcrobat', 'Adobe Acrobat', 'com.adobe.Acrobat.Pro', '26.10.0'],
-    ['/Applications/Adobe Acrobat DC/Acrobat Uninstaller.app', 'Acrobat Uninstaller', 'Acrobat Uninstaller', 'com.adobe.Acrobat.Uninstaller', undefined],
+    ['/Applications/Adobe Illustrator 2027/Adobe Illustrator.app', 'Adobe Illustrator', 'Adobe Illustrator 2027', 'com.adobe.illustrator', '31.0.0', undefined],
+    ['/Applications/Adobe Photoshop (Beta)/Adobe Photoshop (Beta).app', 'Adobe Photoshop 2027', 'Adobe Photoshop (Beta)', 'com.adobe.Photoshop', '28.2.0', ['adbps', 'adobe+phxs', 'adbps+beta']],
+    ['/Applications/Adobe Illustrator (Beta)/Adobe Illustrator.app', 'Adobe Illustrator', 'Adobe Illustrator 2027 (Beta)', 'com.adobe.illustratorBeta', '31.1.0', ['adbai', 'adobe+ilst']],
+    ['/Applications/Adobe Acrobat DC/Adobe Acrobat.app', 'AdobeAcrobat', 'Adobe Acrobat', 'com.adobe.Acrobat.Pro', '26.3.0', undefined],
+    ['/Volumes/Archive/Adobe Acrobat.app', 'AdobeAcrobat', 'Adobe Acrobat', 'com.adobe.Acrobat.Pro', '26.10.0', undefined],
+    ['/Applications/Adobe Acrobat DC/Acrobat Uninstaller.app', 'Acrobat Uninstaller', 'Acrobat Uninstaller', 'com.adobe.Acrobat.Uninstaller', undefined, undefined],
 ] as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const offered = OFFERED.map(([bundle, executable, name, identifier, version]) =>
+const offered = OFFERED.map(([bundle, executable, name, identifier, version, schemes]) =>
     Installation.make({
         url: pathToFileURL(`${bundle}/`),
         executable: Option.some(pathToFileURL(`${bundle}/Contents/MacOS/${executable}`)),
@@ -46,7 +46,7 @@ const offered = OFFERED.map(([bundle, executable, name, identifier, version]) =>
         scriptingDefinitionFile: Option.none(),
         activationPolicy: 'regular',
         documentTypes: Option.none(),
-        urlSchemes: Option.none(),
+        urlSchemes: Option.fromUndefinedOr(schemes),
         exportedTypes: Option.none(),
         multipleInstancesProhibited: Option.none(),
         environment: Option.none(),
@@ -79,7 +79,7 @@ const listed = Effect.fnUntraced(
     Effect.scoped,
     Effect.provide(layer),
 );
-const facts = (applications: readonly Application[]) => applications.map(({ url, product, channel, version, build }) => [url.pathname, product, channel, version, Option.getOrUndefined(build)]);
+const facts = (applications: readonly Application[]) => applications.map(({ url, product, channel, version, build, urlSchemes }) => [url.pathname, product, channel, version, Option.getOrUndefined(build), urlSchemes]);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -89,23 +89,23 @@ describe('Application.fromInstallations', () => {
             registry: 'the registry row whose AppLaunch names its executable, a BETA code naming the Beta of its product',
             registered: true,
             expected: [
-                ['/Volumes/Archive/Adobe%20Acrobat.app/', 'com.adobe.Acrobat.Pro', 'release', '26.10.0', undefined],
-                ['/Applications/Adobe%20Acrobat%20DC/Adobe%20Acrobat.app/', 'com.adobe.Acrobat.Pro', 'release', '26.3.0', undefined],
-                ['/Applications/Adobe%20Illustrator%20(Beta)/Adobe%20Illustrator.app/', 'ILST', 'beta', '31.1.0', '31.1.0.127'],
-                ['/Applications/Adobe%20Illustrator%202027/Adobe%20Illustrator.app/', 'ILST', 'release', '31.0.0', '31.0.0.84'],
-                ['/Applications/Adobe%20Photoshop%20(Beta)/Adobe%20Photoshop%20(Beta).app/', 'PHSP', 'beta', '28.2.0', '28.2.0.3749'],
+                ['/Volumes/Archive/Adobe%20Acrobat.app/', 'com.adobe.Acrobat.Pro', 'release', '26.10.0', undefined, []],
+                ['/Applications/Adobe%20Acrobat%20DC/Adobe%20Acrobat.app/', 'com.adobe.Acrobat.Pro', 'release', '26.3.0', undefined, []],
+                ['/Applications/Adobe%20Illustrator%20(Beta)/Adobe%20Illustrator.app/', 'ILST', 'beta', '31.1.0', '31.1.0.127', ['adbai', 'adobe+ilst']],
+                ['/Applications/Adobe%20Illustrator%202027/Adobe%20Illustrator.app/', 'ILST', 'release', '31.0.0', '31.0.0.84', []],
+                ['/Applications/Adobe%20Photoshop%20(Beta)/Adobe%20Photoshop%20(Beta).app/', 'PHSP', 'beta', '28.2.0', '28.2.0.3749', ['adbps', 'adobe+phxs', 'adbps+beta']],
             ],
         },
         {
             registry: 'no registry, each a release under its bundle identifier',
             registered: false,
             expected: [
-                ['/Volumes/Archive/Adobe%20Acrobat.app/', 'com.adobe.Acrobat.Pro', 'release', '26.10.0', undefined],
-                ['/Applications/Adobe%20Acrobat%20DC/Adobe%20Acrobat.app/', 'com.adobe.Acrobat.Pro', 'release', '26.3.0', undefined],
-                ['/Applications/Adobe%20Illustrator%202027/Adobe%20Illustrator.app/', 'com.adobe.illustrator', 'release', '31.0.0', undefined],
-                ['/Applications/Adobe%20Illustrator%20(Beta)/Adobe%20Illustrator.app/', 'com.adobe.illustratorBeta', 'release', '31.1.0', undefined],
-                ['/Applications/Adobe%20Photoshop%20(Beta)/Adobe%20Photoshop%20(Beta).app/', 'com.adobe.Photoshop', 'release', '28.2.0', undefined],
+                ['/Volumes/Archive/Adobe%20Acrobat.app/', 'com.adobe.Acrobat.Pro', 'release', '26.10.0', undefined, []],
+                ['/Applications/Adobe%20Acrobat%20DC/Adobe%20Acrobat.app/', 'com.adobe.Acrobat.Pro', 'release', '26.3.0', undefined, []],
+                ['/Applications/Adobe%20Illustrator%202027/Adobe%20Illustrator.app/', 'com.adobe.illustrator', 'release', '31.0.0', undefined, []],
+                ['/Applications/Adobe%20Illustrator%20(Beta)/Adobe%20Illustrator.app/', 'com.adobe.illustratorBeta', 'release', '31.1.0', undefined, ['adbai', 'adobe+ilst']],
+                ['/Applications/Adobe%20Photoshop%20(Beta)/Adobe%20Photoshop%20(Beta).app/', 'com.adobe.Photoshop', 'release', '28.2.0', undefined, ['adbps', 'adobe+phxs', 'adbps+beta']],
             ],
         },
-    ])('joins each versioned installation to $registry, newest form of a product first', ({ registered, expected }) => Effect.map(listed(registered), (applications) => assert.deepStrictEqual(facts(applications), expected)));
+    ])('joins each versioned installation to $registry with the URL schemes its bundle declares, newest form of a product first', ({ registered, expected }) => Effect.map(listed(registered), (applications) => assert.deepStrictEqual(facts(applications), expected)));
 });

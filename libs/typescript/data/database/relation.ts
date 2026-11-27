@@ -27,6 +27,7 @@ interface RelationOptions<F extends Fields> {
     readonly renamed?: Readonly<Partial<Record<keyof F & string, string>>>;
     readonly renamedFrom?: string;
     readonly retype?: readonly (keyof F & string)[];
+    readonly documents?: { readonly [K in keyof F]?: readonly Schema.Codec<F[K]['Type'], F[K]['Encoded']>[] };
     readonly retired?: readonly string[];
     readonly retiredIndexes?: readonly Array.NonEmptyReadonlyArray<string>[];
 }
@@ -36,6 +37,7 @@ type Selection<F extends Fields> = { readonly [K in keyof F & string]?: Array.No
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Tokenizer = Data.taggedEnum<Tokenizer>();
+const Row = Schema.Record(Schema.String, Schema.Unknown);
 const Search = Schema.Struct({ text: Schema.String, pattern: Schema.String, count: Schema.Natural, marks: Schema.Option(Schema.Struct({ open: Schema.String, close: Schema.String })) });
 class Relation<const Shape extends Fields = Fields, const Options extends RelationOptions<Shape> = RelationOptions<Shape>> extends Data.Class<{
     readonly schema: Schema.Struct<Shape>;
@@ -166,38 +168,74 @@ const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Rela
     const keyed = written.filter(({ name }) => relation.key.includes(name)).map(Struct.get('name'));
     const Batch = Schema.Array(Schema.Struct(Record.fromIterableWith(written, (entry) => [entry.name, wire(entry)])));
     const Selection = Schema.Struct(Record.fromIterableWith(all, (entry) => [entry.name, Schema.optionalKey(Schema.Union([list(entry), Schema.Struct({ not: list(entry) })]))]));
+    const decode = Schema.decodeUnknownEffect(schema);
+    const documents = Array.getSomes(Record.collect(relation.columns, (field, entry) => Option.map(entry.earlier, (earlier) => ({ field, newest: entry.schema, earlier }))));
+    const newest = (row: Readonly<Record<string, unknown>>) =>
+        Effect.forEach(documents, ({ field, newest: form, earlier }) =>
+            Schema.decodeUnknownEffect(form)(row[field]).pipe(
+                Effect.as(row[field]),
+                Effect.catch(() => Effect.flatMap(Schema.decodeUnknownEffect(earlier)(row[field]), Schema.encodeUnknownEffect(form))),
+                Effect.map((stored) => [field, stored] as const),
+            ),
+        );
+    const read = (row: Readonly<Record<string, unknown>>) =>
+        decode(row).pipe(
+            Effect.map((held) => Option.some({ row: held, earlier: false })),
+            Effect.catch(() =>
+                Effect.flatMap(
+                    Effect.result(newest(row)),
+                    Result.match({
+                        onFailure: (issue) =>
+                            Effect.as(Effect.annotateLogs(Effect.logInfo('Stored row dropped, its document decodes in no declared form', issue), { table: relation.name, ...Record.filter(row, (_, field) => Option.exists(Record.get(relation.columns, field), ({ name }) => relation.key.includes(name))) }), Option.none()),
+                        onSuccess: (stored) => Effect.map(decode({ ...row, ...Record.fromEntries(stored) }), (held) => Option.some({ row: held, earlier: true })),
+                    }),
+                ),
+            ),
+        );
+    const upsert = SqlSchema.findAll({
+        Request: Schema.Struct({
+            rows: Schema.fromJsonString(Batch.check(Schema.makeFilter((rows) => Array.dedupe(rows.map(Struct.pick(keyed))).length === rows.length, { expected: 'rows with distinct keys' }))),
+            kept: Schema.Array(Schema.String),
+        }),
+        Result: Schema.Struct({ key: Schema.Struct(Record.filter(schema.fields, (_, field) => keyed.includes(field))), inserted: Schema.BooleanFromBit }),
+        execute: ({ rows, kept }) => {
+            const updated = written.filter(({ name }) => !(relation.key.includes(name) || kept.includes(name)));
+            return Effect.flatMap(fragments, (parts) => parts.rows.upsert(parts, rows, updated)).pipe(Effect.map(Array.map(({ [Rows.flags.inserted]: inserted, ...key }) => ({ key, inserted }))));
+        },
+    });
+    const selected = SqlSchema.findAll({
+        Request: Schema.Struct({ where: Selection, order: Schema.Array(Schema.Union([Schema.String, Schema.Struct({ descending: Schema.String })])), limit: Schema.Option(Schema.Natural), per: Schema.Option(Schema.String) }),
+        Result: Row,
+        execute: ({ where, order, limit, per }) =>
+            Effect.flatMap(fragments, ({ sql, owner, prefix, unqualified, reads, keys, where: matching }) => {
+                const sorted = order.map((entry) => (typeof entry === 'string' ? { field: entry, direction: [] } : { field: entry.descending, direction: ['DESC'] }));
+                const columns = Array.filterMap(sorted, ({ field, direction }) => Result.map(Result.fromOption(Record.get(relation.columns, field), Function.constVoid), ({ name }) => ({ name, direction })));
+                const ordering = (scope: Statement.Fragment) => sql.csv([...columns.map(({ name, direction }) => sql.join(' ', false)([sql`${scope}${sql(name)}`, ...direction])), keys(scope)]);
+                const [outer, filter] = [sql.literal('t.'), matching(where)];
+                const filtered = sql`SELECT ${reads(unqualified)} FROM ${owner} WHERE ${filter} ORDER BY ${ordering(prefix)}`;
+                return Option.match(Option.all({ count: limit, by: Option.flatMap(per, (field) => Record.get(relation.columns, field)) }), {
+                    onNone: () => Option.match(limit, { onNone: () => filtered, onSome: (count) => sql`${filtered} LIMIT ${count}` }),
+                    onSome: ({ count, by }) =>
+                        sql`SELECT ${reads(outer)} FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY ${sql(by.name)} ORDER BY ${ordering(prefix)}) AS ${sql(Rows.flags.position)} FROM ${owner} WHERE ${filter}) t WHERE t.${sql(Rows.flags.position)} <= ${count} ORDER BY ${sql.csv([sql.join('', false)([outer, Statement.fragment([sql(by.name)])]), ordering(outer)])}`,
+                });
+            }),
+    });
+    const removed = SqlSchema.findAll({ Request: Selection, Result: Row, execute: (where) => Effect.flatMap(fragments, ({ sql, owner, reads, unqualified, where: matching }) => sql`DELETE FROM ${owner} WHERE ${matching(where)} RETURNING ${reads(unqualified)}`) });
     return {
         insert: SqlSchema.findNonEmpty({ Request: Schema.fromJsonString(Batch), Result: schema, execute: (body) => Effect.flatMap(fragments, ({ unqualified, reads, inserting }) => inserting(body, unqualified, reads(unqualified))) }),
         ensure: SqlSchema.findNonEmpty({ Request: Schema.fromJsonString(Batch), Result: schema, execute: (body) => Effect.flatMap(fragments, (parts) => parts.rows.ensure(parts, body)) }),
-        upsert: SqlSchema.findAll({
-            Request: Schema.Struct({
-                rows: Schema.fromJsonString(Batch.check(Schema.makeFilter((rows) => Array.dedupe(rows.map(Struct.pick(keyed))).length === rows.length, { expected: 'rows with distinct keys' }))),
-                kept: Schema.Array(Schema.String),
+        upsert,
+        select: (request: Parameters<typeof selected>[0]) =>
+            Effect.flatMap(SqlClient.SqlClient, (sql) => {
+                const rows = selected(request).pipe(
+                    Effect.flatMap(Effect.forEach(read)),
+                    Effect.map(Array.getSomes),
+                    Effect.tap((held) => Array.match(held.filter(Struct.get('earlier')).map(Struct.get('row')), { onEmpty: () => Effect.void, onNonEmpty: (stale) => upsert({ rows: stale, kept: [] }) })),
+                    Effect.map(Array.map(Struct.get('row'))),
+                );
+                return Array.isReadonlyArrayNonEmpty(documents) ? sql.withTransaction(rows) : rows;
             }),
-            Result: Schema.Struct({ key: Schema.Struct(Record.filter(schema.fields, (_, field) => keyed.includes(field))), inserted: Schema.BooleanFromBit }),
-            execute: ({ rows, kept }) => {
-                const updated = written.filter(({ name }) => !(relation.key.includes(name) || kept.includes(name)));
-                return Effect.flatMap(fragments, (parts) => parts.rows.upsert(parts, rows, updated)).pipe(Effect.map(Array.map(({ [Rows.flags.inserted]: inserted, ...key }) => ({ key, inserted }))));
-            },
-        }),
-        select: SqlSchema.findAll({
-            Request: Schema.Struct({ where: Selection, order: Schema.Array(Schema.Union([Schema.String, Schema.Struct({ descending: Schema.String })])), limit: Schema.Option(Schema.Natural), per: Schema.Option(Schema.String) }),
-            Result: schema,
-            execute: ({ where, order, limit, per }) =>
-                Effect.flatMap(fragments, ({ sql, owner, prefix, unqualified, reads, keys, where: matching }) => {
-                    const sorted = order.map((entry) => (typeof entry === 'string' ? { field: entry, direction: [] } : { field: entry.descending, direction: ['DESC'] }));
-                    const columns = Array.filterMap(sorted, ({ field, direction }) => Result.map(Result.fromOption(Record.get(relation.columns, field), Function.constVoid), ({ name }) => ({ name, direction })));
-                    const ordering = (scope: Statement.Fragment) => sql.csv([...columns.map(({ name, direction }) => sql.join(' ', false)([sql`${scope}${sql(name)}`, ...direction])), keys(scope)]);
-                    const [outer, filter] = [sql.literal('t.'), matching(where)];
-                    const filtered = sql`SELECT ${reads(unqualified)} FROM ${owner} WHERE ${filter} ORDER BY ${ordering(prefix)}`;
-                    return Option.match(Option.all({ count: limit, by: Option.flatMap(per, (field) => Record.get(relation.columns, field)) }), {
-                        onNone: () => Option.match(limit, { onNone: () => filtered, onSome: (count) => sql`${filtered} LIMIT ${count}` }),
-                        onSome: ({ count, by }) =>
-                            sql`SELECT ${reads(outer)} FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY ${sql(by.name)} ORDER BY ${ordering(prefix)}) AS ${sql(Rows.flags.position)} FROM ${owner} WHERE ${filter}) t WHERE t.${sql(Rows.flags.position)} <= ${count} ORDER BY ${sql.csv([sql.join('', false)([outer, Statement.fragment([sql(by.name)])]), ordering(outer)])}`,
-                    });
-                }),
-        }),
-        remove: SqlSchema.findAll({ Request: Selection, Result: schema, execute: (where) => Effect.flatMap(fragments, ({ sql, owner, reads, unqualified, where: matching }) => sql`DELETE FROM ${owner} WHERE ${matching(where)} RETURNING ${reads(unqualified)}`) }),
+        remove: (where: Parameters<typeof removed>[0]) => removed(where).pipe(Effect.flatMap(Effect.forEach(read)), Effect.map(Array.getSomes), Effect.map(Array.map(Struct.get('row')))),
         search: Option.map(relation.search, (searchable) =>
             SqlSchema.findAll({
                 Request: Search,

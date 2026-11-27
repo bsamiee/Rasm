@@ -1,5 +1,5 @@
 import { layerAead, layerSecureRandom } from '@effect/platform-node/NodeCrypto';
-import type { Handles } from '@rasm/mcp/handles';
+import { Handles } from '@rasm/mcp/handles';
 import { Link } from '@rasm/mcp/link';
 import { registerResource, registerResourceTemplate } from '@rasm/mcp/resource';
 import { Handle, Server } from '@rasm/mcp/server';
@@ -36,6 +36,7 @@ const STATE = 'asked once';
 const ASKED = 'a dialog asks';
 const STATED = 'target responding · behind';
 const RAISED = { owned: 'raised during the claim', judged: 'judged after it' } as const;
+const KIND = 'hung';
 const PATH = '/mcp';
 const UPSTREAM = new URL(PATH, 'http://upstream.test');
 const ENDPOINT = 'http://localhost/';
@@ -71,7 +72,7 @@ const Claimed = Context.Reference<boolean>('@rasm/test-mcp/fixtures/Claimed', { 
 
 class Probe extends Context.Service<Probe>()('@rasm/test-mcp/fixtures/Probe', {
     make: Effect.gen(function* () {
-        const [calls, entered, interrupted, release, watched, blocked, versions, shared, owned, judged, served] = yield* Effect.all([
+        const [calls, entered, interrupted, release, watched, blocked, versions, shared, owned, standing, judged, served] = yield* Effect.all([
             Ref.make<readonly string[]>([]),
             Queue.unbounded<string>(),
             Queue.unbounded<string>(),
@@ -81,16 +82,17 @@ class Probe extends Context.Service<Probe>()('@rasm/test-mcp/fixtures/Probe', {
             SubscriptionRef.make<Record.ReadonlyRecord<string, number>>({}),
             Queue.unbounded<string>(),
             Queue.unbounded<string>(),
+            Queue.unbounded<{ readonly text: string; readonly standing: typeof Handles.Standing.Type }>(),
             Deferred.make<void>(),
             Deferred.make<Server['Service']>(),
         ]);
-        return { calls, entered, interrupted, release, watched, blocked, versions, shared, owned, judged, served };
+        return { calls, entered, interrupted, release, watched, blocked, versions, shared, owned, standing, judged, served };
     }),
 }) {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, release, watched, blocked, versions, shared, owned, judged, served }: Probe['Service']) {
+const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, release, watched, blocked, versions, shared, owned, standing, judged, served }: Probe['Service']) {
     const called = <A, E, R>(name: string, answer: Effect.Effect<A, E, R>) => Ref.update(calls, (held) => [...held, name]).pipe(Effect.andThen(Queue.offer(entered, name)), Effect.andThen(answer));
     const gated = (name: string) =>
         called(
@@ -110,7 +112,7 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
             ),
         ),
     );
-    yield* Server.registerTool(Tool.make('test_value', { description: 'Returns the value it is given', parameters: Valued, success: Schema.String }).annotate(Tool.Readonly, true), ({ value }) => called('test_value', Effect.succeed(value)));
+    yield* Server.registerTool(Tool.make('test_value', { description: 'Returns the value it is given', parameters: Valued, success: Schema.String }).annotate(Tool.Readonly, true).annotate(Tool.Strict, true), ({ value }) => called('test_value', Effect.succeed(value)));
     yield* Server.registerTool(
         Tool.make('test_image_content', { description: 'Returns an image', success: Schema.Uint8Array }).annotate(Tool.Readonly, true),
         () => called('test_image_content', Effect.succeed(Uint8Array.fromBase64(PNG))),
@@ -174,8 +176,9 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
     yield* Server.use((server) =>
         Effect.all(
             [
-                server.events({ stream: Stream.fromQueue(shared), render: Effect.succeed }),
-                server.events({ stream: Stream.fromQueue(owned), render: Effect.succeed, owns: (event, state) => (event === RAISED.judged ? Deferred.doneUnsafe(judged, Effect.void) && false : Context.get(state, Claimed)) }),
+                server.events({ stream: Stream.fromQueue(shared), render: Effect.succeed, delivers: () => Option.some(KIND) }),
+                server.events({ stream: Stream.fromQueue(owned), render: Effect.succeed, delivers: () => Option.some(KIND), owns: (event, state) => (event === RAISED.judged ? Deferred.doneUnsafe(judged, Effect.void) && false : Context.get(state, Claimed)) }),
+                server.events({ stream: Stream.fromQueue(standing), render: (event) => Effect.succeed(event.text), standing: (event) => Option.some(event.standing) }),
                 Deferred.succeed(served, server),
             ],
             {
@@ -278,9 +281,9 @@ const opened = Effect.fnUntraced(function* (protocol: McpProtocol.ProtocolAdapte
 });
 
 const names = (client: McpTest.Client) => Effect.map(client.listTools(), ({ tools }) => Array.map(tools, Struct.get('name')));
-const placed = Effect.fnUntraced(function* ({ served }: Probe['Service'], handle: string, awaited: Predicate.Predicate<typeof Handles.Event.Type>) {
+const placed = Effect.fnUntraced(function* ({ served }: Probe['Service'], handle: string, awaited: Predicate.Predicate<typeof Handles.Event.cases.Line.Type>) {
     const followed = yield* Effect.flatMap(Deferred.await(served), (server) => server.follow(handle));
-    yield* Stream.runHead(Stream.filter(followed, awaited)).pipe(Effect.timeoutOrElse({ duration: SETTLED, orElse: () => Effect.fail(new Cause.UnknownError(handle, `handle ${handle} holds no awaited event after ${Duration.format(SETTLED)}`)) }));
+    yield* followed.pipe(Stream.filter(Handles.Event.guards.Line), Stream.filter(awaited), Stream.runHead, Effect.timeoutOrElse({ duration: SETTLED, orElse: () => Effect.fail(new Cause.UnknownError(handle, `handle ${handle} holds no awaited event after ${Duration.format(SETTLED)}`)) }));
 });
 const relisted = <A, E>(client: McpTest.Client, read: Effect.Effect<A, E>, done: Predicate.Predicate<A>) =>
     Stream.concat(Stream.succeed('initial'), Stream.filter(Stream.map(Stream.fromQueue(client.notifications), Struct.get('method')), String.endsWith('/list_changed'))).pipe(
@@ -294,7 +297,7 @@ const lines = ({ content }: { readonly content: readonly unknown[] }) => Array.h
 
 const connected = Effect.fnUntraced(function* <E, R>(beside: Layer.Layer<never, E, R>) {
     const [probe, scheme] = yield* Effect.all([Probe.make, Server.scheme(MANIFEST.name)]);
-    const client = yield* McpTest.makeClient(Layer.provide(Layer.mergeAll(app(probe), beside), Server.layer({ ...SETTINGS, scheme }).pipe(Layer.provide([layerAead, layerSecureRandom]))), { protocols: [McpProtocol.v2025_11_25] });
+    const client = yield* McpTest.makeClient(Layer.provide(Layer.mergeAll(app(probe), beside), Server.layer({ ...SETTINGS, scheme }).pipe(Layer.provide([layerAead, layerSecureRandom]), Layer.orDie)), { protocols: [McpProtocol.v2025_11_25] });
     yield* Effect.addFinalizer(() => probe.release.open);
     return { probe, client };
 });
@@ -316,4 +319,4 @@ const proxied = Effect.fnUntraced(function* (
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ASKED, Called, connected, hosted, INSTRUCTIONS, lines, names, opened, PEER, placed, proxied, RAISED, relisted, SETTINGS, SETTLED, STATE, STATED, TEXT };
+export { ASKED, Called, connected, hosted, INSTRUCTIONS, KIND, lines, names, opened, PEER, placed, proxied, RAISED, relisted, SETTINGS, SETTLED, STATE, STATED, TEXT };

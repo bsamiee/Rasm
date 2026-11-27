@@ -45,12 +45,21 @@ extension Configuration {
 
 package func readLoginShellEnvironment(within timeout: Duration) async throws(ProcessFailure) -> [Environment.Key: String] {
     let uid = getuid()
-    errno = 0
-    guard let entry = unsafe getpwuid(uid)?.pointee else {
-        let failure = errno
-        throw ProcessFailure(subject: "User database entry of uid \(uid)", reason: failure == 0 ? .notFound : .system(Errno(rawValue: failure)))
+    let subject = "User database entry of uid \(uid)"
+    let entry: (user: String, home: String, login: String)?
+    do throws(Errno) {
+        entry = try withUnsafeTemporaryAllocation(of: CChar.self, capacity: sysconf(_SC_GETPW_R_SIZE_MAX)) {
+            (buffer: UnsafeMutableBufferPointer<CChar>) throws(Errno) -> (user: String, home: String, login: String)? in
+            var record = unsafe passwd()
+            var found: UnsafeMutablePointer<passwd>?
+            let status = unsafe getpwuid_r(uid, &record, buffer.baseAddress, buffer.count, &found)
+            guard status == 0 else { throw Errno(rawValue: status) }
+            return unsafe found == nil ? nil : (String(cString: record.pw_name), String(cString: record.pw_dir), String(cString: record.pw_shell))
+        }
+    } catch {
+        throw ProcessFailure(subject: subject, reason: .system(error))
     }
-    let (user, home, login) = unsafe (String(cString: entry.pw_name), String(cString: entry.pw_dir), String(cString: entry.pw_shell))
+    guard case (let user, let home, let login)? = entry else { throw ProcessFailure(subject: subject, reason: .notFound) }
     let shell = FilePath(login.isEmpty ? _PATH_BSHELL : login)
     let marker = UUID().uuidString
     let printed = try await Configuration(
@@ -62,7 +71,10 @@ package func readLoginShellEnvironment(within timeout: Duration) async throws(Pr
     )
     .run(output: .string(limit: sysconf(_SC_ARG_MAX)), within: timeout)
     guard let start = printed.firstRange(of: marker)?.upperBound else {
-        throw ProcessFailure(subject: "Login shell \(shell.string) output", reason: .corrupt(CocoaError(.coderValueNotFound) as NSError))
+        throw ProcessFailure(
+            subject: "Login shell \(shell.string) output",
+            DecodingError.dataCorrupted(DecodingError.Context(codingPath: [], debugDescription: "the marker printed before the environment is missing")),
+        )
     }
     return Dictionary(
         printed[start...].split(separator: "\0").lazy.compactMap { variable in

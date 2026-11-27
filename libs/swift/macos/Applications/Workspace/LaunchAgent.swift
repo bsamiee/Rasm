@@ -1,4 +1,4 @@
-package import Encoding
+import Encoding
 import Files
 package import Foundation
 import Processes
@@ -8,6 +8,17 @@ import UniformTypeIdentifiers
 // --- [MODELS] --------------------------------------------------------------------------
 
 package struct LaunchAgent: Sendable {
+    package enum KeepAlive: Decodable, Sendable {
+        case demand
+        case always
+        case conditions
+
+        package init(from decoder: any Decoder) throws {
+            let value = try decoder.singleValueContainer()
+            self = try value.decodeIfMatching(Bool.self).map { kept in kept ? .always : .demand } ?? (value.decode([String: JSONValue].self).isEmpty ? .demand : .conditions)
+        }
+    }
+
     private struct Declaration: Decodable {
         private enum CodingKeys: String, CodingKey {
             case label = "Label"
@@ -15,19 +26,26 @@ package struct LaunchAgent: Sendable {
             case program = "Program"
             case arguments = "ProgramArguments"
             case keepAlive = "KeepAlive"
+            case exitTimeOut = "ExitTimeOut"
+            case throttleInterval = "ThrottleInterval"
         }
 
         let label: String
         let bundleProgram: String?
         let program: String?
         let arguments: [String]?
-        let keepAlive: JSONValue?
+        let keepAlive: KeepAlive?
+        let exitTimeOut: Int?
+        let throttleInterval: Int?
     }
 
     package let label: String
     let program: URL
     package let plist: URL
-    package let keepAlive: JSONValue?
+    package let contents: Data
+    package let keepAlive: KeepAlive
+    package let exitTimeOut: Duration?
+    package let throttleInterval: Duration
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -35,11 +53,25 @@ package struct LaunchAgent: Sendable {
 extension LaunchAgent {
     init(_ plist: URL, in bundle: URL) throws(ApplicationFailure) {
         let path = plist.path(percentEncoded: false)
+        let contents: Data
         let declared: Declaration
-        do { declared = try PropertyListDecoder().decode(Declaration.self, from: Data(contentsOf: plist)) } catch { throw ApplicationFailure(subject: path, reason: .foundation(error as NSError)) }
+        do {
+            contents = try Data(contentsOf: plist)
+            declared = try PropertyListDecoder().decode(Declaration.self, from: contents)
+        } catch {
+            throw ApplicationFailure(subject: path, reason: .foundation(error as NSError))
+        }
         let stated = declared.bundleProgram.map { program in bundle.appending(path: program) } ?? (declared.program ?? declared.arguments?.first).map { program in URL(filePath: program) }
         guard let program = stated else { throw ApplicationFailure(subject: path, reason: .noExecutable) }
-        self.init(label: declared.label, program: program, plist: plist, keepAlive: declared.keepAlive)
+        self.init(
+            label: declared.label,
+            program: program,
+            plist: plist,
+            contents: contents,
+            keepAlive: declared.keepAlive ?? .demand,
+            exitTimeOut: declared.exitTimeOut.flatMap { seconds in seconds > 0 ? .seconds(seconds) : nil },
+            throttleInterval: .seconds(declared.throttleInterval ?? 10),
+        )
     }
 
     func instances() throws(ApplicationFailure) -> [ProcessInstance] {
@@ -53,11 +85,23 @@ extension LaunchAgent {
 
     package func runsInstalledProgram() throws(ApplicationFailure) -> Bool {
         try instances().map { instance throws(ApplicationFailure) in
-            do throws(Errno) { return try instance.runsInstalledCode() } catch  where error == .noSuchProcess { return false } catch {
-                throw ApplicationFailure(subject: label, reason: .system(error))
+            do throws(ProcessFailure) { return try instance.runsInstalledCode() } catch  where error.reason == .system(.noSuchProcess) { return false } catch {
+                throw ApplicationFailure(subject: label, reason: .foundation(error as NSError))
             }
         }
         .contains(true)
+    }
+
+    package func terminate() async throws(ApplicationFailure) {
+        let running = try instances()
+        for instance in running {
+            do throws(Errno) { try instance.signal(SIGTERM) } catch  where error == .noSuchProcess { continue } catch {
+                throw ApplicationFailure(subject: label, reason: .system(error))
+            }
+        }
+        await withDiscardingTaskGroup { group in
+            for instance in running { group.addTask { for await _ in instance.exits() {} } }
+        }
     }
 }
 

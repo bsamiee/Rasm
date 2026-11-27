@@ -2,6 +2,7 @@ package import AppKit
 package import AppleEvents
 import AsyncAlgorithms
 import CasePathsCore
+package import Foundation
 package import Processes
 import System
 
@@ -14,10 +15,18 @@ package struct Instance: Hashable, Sendable {
 
 extension Instance {
     package init(_ application: NSRunningApplication) throws(ApplicationFailure) {
-        let pid = application.processIdentifier
-        guard !application.isTerminated else { throw ApplicationFailure(subject: String(pid), reason: .system(.noSuchProcess)) }
-        do throws(Errno) { process = try ProcessInstance(of: pid) } catch { throw ApplicationFailure(subject: String(pid), reason: .system(error)) }
+        guard !application.isTerminated else { throw ApplicationFailure(subject: application.name, reason: .system(.noSuchProcess)) }
+        do throws(Errno) { process = try ProcessInstance(of: application.processIdentifier) } catch { throw ApplicationFailure(subject: application.name, reason: .system(error)) }
         self.application = application
+    }
+
+    package init(_ process: ProcessInstance, matching predicate: NSPredicate) throws(ApplicationFailure) {
+        guard let application = NSRunningApplication(processIdentifier: process.pid) else { throw ApplicationFailure(subject: "The instance", reason: .absent) }
+        try self.init(application)
+        guard self.process == process else { throw ApplicationFailure(subject: "The instance", reason: .absent) }
+        guard predicate.evaluate(bundleIdentifier: application.bundleIdentifier, displayName: application.localizedName, bundle: application.bundleURL) else {
+            throw ApplicationFailure(subject: application.name, reason: .unclaimed)
+        }
     }
 }
 
@@ -46,7 +55,7 @@ extension Watch {
         in dictionary: ScriptingDictionary? = nil,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) async throws(ApplicationFailure) -> InstanceState {
-        let subject = String(instance.process.pid)
+        let subject = "Quit of \(instance.application.name)"
         let saving: OSType? =
             dictionary?.commands.contains { (command: ScriptingDictionary.Command) -> Bool in
                 command.eventClass == AEEventClass(kCoreEventClass) && command.eventID == AEEventID(kAEQuitApplication)
@@ -71,7 +80,7 @@ extension Watch {
                     return nil
                 } catch  where instance.process.hasExited {
                     return nil
-                } catch  where error.status == OSStatus(procNotFound) {
+                } catch  where error.reason == .undelivered(OSStatus(procNotFound)) {
                     signal = SIGTERM
                 } catch {
                     return ApplicationFailure(subject: subject, reason: .event(error))
@@ -111,10 +120,15 @@ extension Watch {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+extension NSRunningApplication {
+    package var name: String { localizedName ?? bundleIdentifier ?? "the application" }
+}
+
 extension NSWorkspace {
     func instances(of matching: (NSRunningApplication) -> Bool) throws(ApplicationFailure) -> [Instance] {
-        try runningApplications.filter(matching)
+        try runningApplications
             .map { application throws(ApplicationFailure) -> Instance? in
+                guard matching(application) else { return nil }
                 do throws(ApplicationFailure) {
                     return try Instance(application)
                 } catch  where error.reason == .system(.noSuchProcess) {

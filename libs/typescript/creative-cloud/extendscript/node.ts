@@ -1,12 +1,12 @@
 import { SourceMap } from 'node:module';
+import { ZipFile } from 'node:zlib';
 import { HostError } from '@rasm/object-model/model';
 import { run } from '@rasm/process';
 import { type EnvConfig, transformSync } from '@swc/wasm';
 import { parse, type Token, tokTypes } from 'acorn';
 import { simple } from 'acorn-walk';
-import { Array, Cause, Effect, FileSystem, Function, Option, Order, Path, Record, Result, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Effect, FileSystem, Function, Option, Order, Path, PlatformError, Record, Result, Schema, Struct } from 'effect';
 import { Digest } from 'effect/crypto';
-import { Zip } from 'effect/encoding';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -92,22 +92,12 @@ const readCoreOmv = Effect.fn('readCoreOmv')(function* (folder: string) {
         return received === member.sha256 ? bytes : yield* new Cause.UnknownError(received, `${member.path} hashes to sha256 ${received} in place of ${member.sha256}`);
     });
     const fetched = Effect.gen(function* () {
-        const mount = path.join(yield* fs.makeTempDirectoryScoped(), path.basename(CORE.image));
+        const mount = path.join(yield* fs.makeTempDirectoryScoped(), path.basename(CORE.image, path.extname(CORE.image)));
         yield* Effect.acquireRelease(run(['diskutil', 'image', 'attach', '--nobrowse', '--mountPoint', mount, CORE.image]), () => Effect.orDie(run(['diskutil', 'eject', mount])));
-        const paths = new Set<string>(Record.collect(CORE.members, (_, member) => member.path));
-        const held = yield* fs.stream(path.join(mount, CORE.payload)).pipe(
-            Stream.pipeThroughChannel(Zip.decode()),
-            Stream.filter(({ header }) => paths.has(header.path)),
-            Stream.mapEffect(
-                Effect.fnUntraced(function* ({ header, body }) {
-                    return [header.path, yield* Stream.mkUint8Array(body)] as const;
-                }),
-            ),
-            Stream.take(paths.size),
-            Stream.runCollect,
-            Effect.map(Record.fromEntries),
-        );
-        const bytes = yield* Effect.all(Record.map(CORE.members, (member) => verify(member, Effect.fromOption(Record.get(held, member.path)))));
+        const archive = path.join(mount, CORE.payload);
+        const failed = (method: string) => (cause: unknown) => PlatformError.systemError({ _tag: 'Unknown', module: 'ZipFile', method, pathOrDescriptor: archive, cause });
+        const payload = yield* Effect.acquireRelease(Effect.tryPromise({ try: () => ZipFile.open(archive), catch: failed('open') }), (opened) => Effect.orDie(Effect.tryPromise({ try: () => opened.close(), catch: failed('close') })));
+        const bytes = yield* Effect.all(Record.map(CORE.members, (member) => verify(member, Effect.tryPromise({ try: () => payload.getSync(member.path).content(), catch: failed(`content of ${member.path}`) }))));
         yield* fs.makeDirectory(folder, { recursive: true });
         yield* Effect.forEach(Record.toEntries(bytes), ([key, each]) => fs.writeFile(files[key], each), { discard: true });
         return bytes;

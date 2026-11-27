@@ -1,6 +1,7 @@
 import AppleEvents
 @unsafe @preconcurrency import ApplicationServices
 import Darwin
+import Foundation
 import SPI
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -20,13 +21,20 @@ package enum Grant: String, CaseIterable, Encodable, Sendable {
         }
     }
 
-    var settings: String {
-        let anchor: String =
-            switch self {
-                case .accessibility, .postEvent: "Privacy_Accessibility"
-                case .screenCapture: "Privacy_ScreenCapture"
-            }
-        return "\(privacySettings)?\(anchor)"
+    private var section: (anchor: String, key: String) {
+        switch self {
+            case .accessibility, .postEvent: ("Privacy_Accessibility", "ACCESSIBILITY")
+            case .screenCapture: ("Privacy_ScreenCapture", "SCREENANDAUDIOCAPTURE")
+        }
+    }
+
+    var settings: String { "\(privacySettings)?\(section.anchor)" }
+
+    var pane: String {
+        let privacy = FileManager.default.urls(for: .libraryDirectory, in: .systemDomainMask).first.flatMap { library in
+            Bundle(url: library.appending(components: "ExtensionKit", "Extensions", "SecurityPrivacyExtension.appex", directoryHint: .isDirectory))
+        }
+        return privacy?.localizedString(forKey: section.key, value: nil, table: nil) ?? section.key
     }
 
     var missing: ApplicationFailure? {

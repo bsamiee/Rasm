@@ -8,7 +8,7 @@ const Completions = Schema.Union([
     Schema.TaggedStruct('Value', { value: Schema.optionalKey(Schema.Json) }),
     Unmatched.stated,
     Schema.TaggedStruct('IllegalArgument', { message: Schema.String }),
-    Schema.TaggedStruct('Thrown', { message: Schema.String, number: Schema.OptionFromOptionalKey(Schema.Finite), line: Schema.OptionFromOptionalKey(Schema.Int) }),
+    Schema.TaggedStruct('Thrown', { message: Schema.String, number: Schema.optionalKey(Schema.Finite), line: Schema.optionalKey(Schema.Int) }),
 ])
     .annotate({ description: 'Reply of an ExtendScript evaluation, the value it returned or the failure it threw' })
     .pipe(Schema.toTaggedUnion('_tag'));
@@ -18,10 +18,7 @@ const Completion = Object.assign(Completions, {
             Value: ({ value }) => Schema.decodeEffect(success)(value),
             Unmatched: Effect.fail<Unmatched>,
             IllegalArgument: ({ message }) => Effect.fail(new Cause.IllegalArgumentError(message)),
-            Thrown: (failed) => {
-                const coded = Option.match(failed.number, { onNone: () => subject, onSome: (code) => `${subject}: Error ${code}` });
-                return Effect.fail(Option.isSome(failed.line) ? HostError.thrown(`${coded}: ${failed.message}`, failed.line)(failed) : HostError.refused(coded)(failed));
-            },
+            Thrown: (failed) => Effect.fail(failed.line === undefined ? HostError.refused(subject)(failed) : HostError.thrown(`${subject}: ${failed.message}`, Option.some(failed.line))(failed)),
         }),
 });
 

@@ -7,7 +7,7 @@ import { Link } from '@rasm/mcp/link';
 import { HostError } from '@rasm/object-model/model';
 import { Dialogs, Evaluation, EvaluationRpcs } from '@rasm/object-model/rpcs';
 import { Plugin, Uxp } from '@rasm/uxp/plugin';
-import { Array, Context, Deferred, Effect, Function, Layer, MutableRef, Option, Record, Schema, type Scope, Stream, Struct } from 'effect';
+import { Array, Cause, Context, Deferred, Effect, Function, Layer, MutableRef, Option, Record, Schema, type Scope, Stream, Struct } from 'effect';
 import { McpSchema, Tool, Toolkit } from 'effect/ai';
 import { HttpRouter, HttpServer, Url } from 'effect/http';
 import { Socket } from 'effect/socket';
@@ -32,31 +32,37 @@ const Probe = Toolkit.make(Tool.make('probe', { description: 'Reads the host int
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const linked = Link.listen(EvaluationRpcs.merge(SourceRpcs, Link.Rpcs.omit('tools/list', 'events')).middleware(Dialogs), ORIGIN);
-const listening = Effect.fnUntraced(function* () {
-    const ready = yield* Deferred.make<Effect.Success<typeof linked>>();
-    const routes = Layer.effectDiscard(Effect.flatMap(linked, (links) => Deferred.succeed(ready, links)));
+const dialed = Effect.fnUntraced(function* (dialogs: (host: { level: string }) => Effect.Effect<unknown, HostError, Scope.Scope>, ended: Stream.Stream<never, HostError>) {
+    const [ready, host, seen, subscribed] = [yield* Deferred.make<Effect.Success<typeof linked>>(), { level: 'interactive' }, MutableRef.make<readonly string[]>([]), yield* Deferred.make<void>()];
+    const routes = Layer.effectDiscard(Effect.flatMap(linked, (listened) => Deferred.succeed(ready, listened)));
     const services = yield* Layer.build(Layer.provideMerge(HttpRouter.serve(routes, { disableLogger: true, disableListenLog: true }), served(createServer, { port: 0 })));
-    const { port } = yield* Schema.decodeUnknownEffect(Bound)(Context.get(services, HttpServer.HttpServer).address);
-    return { links: yield* Deferred.await(ready), port };
-});
-const dialed = Effect.fnUntraced(function* (port: number, dialogs: (host: { level: string }) => Effect.Effect<unknown, HostError, Scope.Scope>) {
-    const [host, seen, subscribed] = [{ level: 'interactive' }, MutableRef.make<readonly string[]>([]), yield* Deferred.make<void>()];
+    const [{ port }, links] = yield* Effect.all([Schema.decodeUnknownEffect(Bound)(Context.get(services, HttpServer.HttpServer).address), Deferred.await(ready)]);
     const observed = Effect.sync(() => {
         MutableRef.update(seen, Array.append(host.level));
         return host.level;
     });
     const sockets = Layer.effect(Socket.WebSocketConstructor)(Effect.map(Socket.WebSocketConstructor, (make) => (url: string) => make(Url.setHost(new URL(url), `127.0.0.1:${port}`).href, { headers: { origin: ORIGIN } }))).pipe(Layer.provide(layerWebSocketConstructor));
+    const described = Description.merge(Description.tools({ current: Effect.map(observed, (id) => ({ id, label: id })), select: () => Effect.void, changes: Stream.never }), { changes: Stream.unwrap(Effect.as(Deferred.succeed(subscribed, undefined), Stream.never)) });
     const link = Plugin.dial({
         application: Effect.succeed('Suite Host'),
         group: EvaluationRpcs,
         toolkit: Probe,
         handlers: Layer.merge(EvaluationRpcs.toLayer({ evaluate: () => Effect.map(observed, (level) => ({ result: Option.some(level) })) }), Probe.toLayer({ probe: () => observed })),
-        source: Description.merge(Description.tools({ current: Effect.map(observed, (id) => ({ id, label: id })), select: () => Effect.void, changes: Stream.never }), { changes: Stream.unwrap(Effect.as(Deferred.succeed(subscribed, undefined), Stream.never)) }),
+        source: { ...described, changes: Stream.merge(described.changes, ended) },
         dialogs: dialogs(host),
     });
     yield* Layer.build(link.pipe(Layer.provide(Layer.merge(Layer.succeed(Plugin)({ id: 'app.rasm.suite', host: { app: 'ID' }, requiredPermissions: { network: { domains: ['https://example.com', 'ws://localhost:7490'] } } }), sockets))));
-    return { host, seen: Effect.sync(() => MutableRef.get(seen)), subscribed: Deferred.await(subscribed) };
+    yield* Stream.runHead(Stream.filter(links.changes, Array.isArrayNonEmpty)).pipe(Effect.timeoutOrElse({ duration: '20 seconds', orElse: () => new Cause.TimeoutError(`the suite plugin linked to no listener on port ${port} within 20 seconds`) }));
+    return {
+        links,
+        host,
+        seen: Effect.sync(() => MutableRef.get(seen)),
+        subscribed: Deferred.await(subscribed).pipe(Effect.timeoutOrElse({ duration: '20 seconds', orElse: () => new Cause.TimeoutError('the events subscription reached no source changes of the suite plugin within 20 seconds') })),
+    };
 });
+const raising = (error: Error): never => {
+    throw error;
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -67,6 +73,50 @@ it.effect('names the body line an error was built on when the body read its stac
     Effect.map(Effect.flip(Uxp.execute({ root: {}, kinds: {} }, "(function body() {\n    const first = 1;\n    const error = new Error('early ' + first);\n    void error.stack;\n    throw error;\n})")), (failed) => {
         assert.instanceOf(failed, HostError);
         assert.deepStrictEqual([failed.reason, failed.subject], [{ _tag: 'Thrown', line: Option.some(3) }, 'early 1']);
+    }),
+);
+
+it.effect(
+    'decodes the host module require resolves by name through the given schema, and refuses a name it resolves none for',
+    Effect.fnUntraced(function* () {
+        yield* Effect.acquireRelease(
+            Effect.sync(() => {
+                vi.stubGlobal('require', (module: string) => (module === 'indesign' ? { app: { version: '21.2' } } : raising(new Error(`Cannot find module '${module}'`))));
+            }),
+            () => Effect.sync(() => vi.unstubAllGlobals()),
+        );
+        const [loaded, refused] = yield* Effect.all([Uxp.require('indesign', Schema.Struct({ app: Schema.Struct({ version: Schema.String }) })), Effect.flip(Uxp.require('photoshop', Schema.Never))]);
+        assert.instanceOf(refused, HostError);
+        assert.deepStrictEqual([loaded, refused.reason, refused.subject], [{ app: { version: '21.2' } }, { _tag: 'Refused' }, "require('photoshop')"]);
+    }, Effect.scoped),
+);
+
+it.effect('streams the arguments of each host listener call and removes the listener it added once the stream ends', () =>
+    Effect.gen(function* () {
+        const added = new Set<(...args: readonly [number, string]) => void>();
+        const heard = yield* Stream.runCollect(
+            Stream.take(
+                Uxp.listen<readonly [number, string]>('suite updates', {
+                    add: (listener) => {
+                        added.add(listener);
+                        listener(3, 'three');
+                        listener(5, 'five');
+                    },
+                    remove: (listener) => added.delete(listener),
+                }),
+                2,
+            ),
+        );
+        assert.deepStrictEqual(
+            [heard, added.size],
+            [
+                [
+                    [3, 'three'],
+                    [5, 'five'],
+                ],
+                0,
+            ],
+        );
     }),
 );
 
@@ -88,9 +138,7 @@ it.effect('answers alert with undefined, confirm with false, and prompt with nul
 it.live(
     'holds the host dialog suppression over each evaluate, describe, and tool call it serves and restores the host level after each, the events subscription holding none',
     Effect.fnUntraced(function* () {
-        const { links, port } = yield* listening();
-        const { host, seen, subscribed } = yield* dialed(port, (held) => Uxp.preserve(held, { level: 'suppressed' }));
-        yield* Stream.runHead(Stream.filter(links.changes, Array.isArrayNonEmpty));
+        const { links, host, seen, subscribed } = yield* dialed((held) => Uxp.preserve(held, { level: 'suppressed' }), Stream.never);
         const client = yield* links.call(Function.constTrue, 'suite plugin');
         const evaluated = yield* client('evaluate', { code: 'unused', label: 'Run probe' });
         const between = host.level;
@@ -108,9 +156,8 @@ it.live(
 it.live(
     'fails evaluate, describe, and tool calls with the HostError of a refused dialog suppression, decoded by the listening side, and runs no handler',
     Effect.fnUntraced(function* () {
-        const [{ links, port }, refusal] = [yield* listening(), HostError.refused('preferences level')()];
-        const { seen } = yield* dialed(port, () => refusal);
-        yield* Stream.runHead(Stream.filter(links.changes, Array.isArrayNonEmpty));
+        const refusal = HostError.refused('preferences level')();
+        const { links, seen } = yield* dialed(() => refusal, Stream.never);
         const client = yield* links.call(Function.constTrue, 'suite plugin');
         const [evaluated, described, called] = yield* Effect.all([
             Effect.flip(client('evaluate', { code: 'unused', label: 'Run probe' })),
@@ -120,5 +167,16 @@ it.live(
         assert.instanceOf(evaluated, HostError);
         assert.instanceOf(called, HostError);
         assert.deepStrictEqual([evaluated.message, described.message, called.message, yield* seen], [refusal.message, refusal.message, refusal.message, []]);
+    }, Effect.scoped),
+);
+
+it.live(
+    'fails the events subscription with the failure of the host event stream, the listening side reading its message',
+    Effect.fnUntraced(function* () {
+        const refusal = HostError.refused('theme updates')();
+        const { links } = yield* dialed(() => Effect.void, Stream.fail(refusal));
+        const client = yield* links.call(Function.constTrue, 'suite plugin');
+        const failed = yield* client('events', undefined).pipe(Stream.runDrain, Effect.flip, Effect.timeoutOrElse({ duration: '20 seconds', orElse: () => new Cause.TimeoutError('the events subscription ended with no failure within 20 seconds') }));
+        assert.strictEqual(failed.message, refusal.message);
     }, Effect.scoped),
 );

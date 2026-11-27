@@ -78,6 +78,10 @@ struct AccumulationTests {
             ("9", ["a"], "No window matching 9, candidates: a"),
             (nil, [], "No window"),
             (nil, ["a"], "No window, candidates: a"),
+            ("win", ["dialog", "Window 1", "window 2"], "No window matching win, nearest: Window 1 and window 2"),
+            ("x", ["x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8", "x9", "x10"], "No window matching x, nearest: x1, x2, x3, x4, x5, x6, x7, x8, and 2 more"),
+            ("9", ["a", "b", "c", "d", "e", "f", "g", "h"], "No window matching 9, candidates: a, b, c, d, e, f, g, and h"),
+            ("9", ["a", "b", "c", "d", "e", "f", "g", "h", "i"], "No window matching 9, none of 9 candidates is near"),
         ] as [(String?, [String], String)]
     )
     func describesTheMissFromItsQueryAndCandidates(query: String?, candidates: [String], expected: String) {

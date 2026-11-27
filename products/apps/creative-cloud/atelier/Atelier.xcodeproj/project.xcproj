@@ -1,8 +1,8 @@
 {
   "default-configuration": "Release",
   "configurations": [
-    { "name": "Debug", "file": "Xcode.xcconfig" },
-    { "name": "Release", "file": "Xcode.xcconfig" },
+    { "name": "Debug", "file": "app.xcconfig" },
+    { "name": "Release", "file": "app.xcconfig" },
   ],
   "localizations": {
     "development": "en",
@@ -20,7 +20,7 @@
     { "path": "../../../../.artifacts/vite/@rasm/atelier/server", "target-membership": [ "Atelier/copy/Embed Server" ] },
     { "path": "../../../../.artifacts/vite/@rasm/atelier/tsc", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server", "code-sign-on-copy": true } ] },
     { "path": "../../../../.artifacts/vite/@rasm/atelier/typescript/lib.d.ts", "target-membership": [ "Atelier/resources" ] },
-    { "path": "<PROJECT>/../../../../Xcode.xcconfig" },
+    { "path": "<PROJECT>/../../../../.config/app.xcconfig" },
     { "path": "AppIcon.icon", "target-membership": [ "Atelier/resources" ] },
     {
       "kind": "group",
@@ -64,7 +64,7 @@
             "plutil -insert 'com\\.apple\\.security\\.cs\\.allow-jit' -bool YES \"$SCRIPT_OUTPUT_FILE_0\"",
             "codesign --force --sign \"$EXPANDED_CODE_SIGN_IDENTITY\" --identifier \"$label\" --options runtime --entitlements \"$SCRIPT_OUTPUT_FILE_0\" \"$SCRIPT_INPUT_FILE_0\"",
             "mkdir -p \"${SCRIPT_OUTPUT_FILE_1%/*}\"",
-            "printf '{\"Label\":\"%s\",\"ProcessType\":\"Interactive\",\"KeepAlive\":true,\"ExitTimeOut\":30,\"BundleProgram\":\"Contents/Helpers/server\",\"SpawnConstraint\":{\"signing-identifier\":\"%s\",\"team-identifier\":\"%s\"}}' \"$label\" \"$label\" \"$DEVELOPMENT_TEAM\" | plutil -convert xml1 -o \"$SCRIPT_OUTPUT_FILE_1\" -",
+            "printf '{\"Label\":\"%s\",\"ProcessType\":\"Interactive\",\"KeepAlive\":true,\"ExitTimeOut\":30,\"Sockets\":{\"Listeners\":{\"SockNodeName\":\"localhost\",\"SockServiceName\":7490}},\"BundleProgram\":\"Contents/Helpers/server\",\"SpawnConstraint\":{\"signing-identifier\":\"%s\",\"team-identifier\":\"%s\"}}' \"$label\" \"$label\" \"$DEVELOPMENT_TEAM\" | plutil -convert xml1 -o \"$SCRIPT_OUTPUT_FILE_1\" -",
             "",
           ],
         }, {

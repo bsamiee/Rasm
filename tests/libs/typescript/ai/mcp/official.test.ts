@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { layerServer } from '@effect/platform-node/NodeHttpServer';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
-import { Context, Effect, FileSystem, Layer, Match, Path, Schema, Stream } from 'effect';
+import { Cause, Context, Duration, Effect, FileSystem, Layer, Match, Path, Schema, Stream } from 'effect';
 import { HttpRouter, HttpServer } from 'effect/http';
 import { NetAddress } from 'effect/net';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
@@ -31,7 +31,7 @@ const SCENARIOS = [
     'dns-rebinding-protection',
     'http-header-validation',
 ] as const;
-const RUN = 120_000;
+const RUN = Duration.minutes(2);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -53,7 +53,9 @@ const checked = Effect.fnUntraced(function* (scenario: (typeof SCENARIOS)[number
     const [fs, path, spawner, url] = yield* Effect.all([FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner, endpoint]);
     const results = yield* fs.makeTempDirectoryScoped({ prefix: 'mcp-conformance-' });
     const run = yield* spawner.spawn(ChildProcess.make('conformance', ['server', '--url', url, '--scenario', scenario, '--expected-failures', path.join(import.meta.dirname, 'expected-failures.yaml'), '--output-dir', results], { cwd: results }));
-    const [output, code] = yield* Effect.all([run.all.pipe(Stream.decodeText, Stream.mkString), run.exitCode], { concurrency: 'unbounded' });
+    const [output, code] = yield* Effect.all([run.all.pipe(Stream.decodeText, Stream.mkString), run.exitCode], { concurrency: 'unbounded' }).pipe(
+        Effect.timeoutOrElse({ duration: RUN, orElse: () => Effect.fail(new Cause.UnknownError(scenario, `conformance ${scenario} exited with no code after ${Duration.format(RUN)}`)) }),
+    );
     const files = (yield* fs.readDirectory(results, { recursive: true })).filter((file) => path.basename(file) === 'checks.json');
     const checks = yield* Effect.forEach(files, (file) => Effect.flatMap(fs.readFileString(path.join(results, file)), Schema.decodeEffect(Checks)));
     return { output, code, checks: checks.flat() };
@@ -68,6 +70,5 @@ it.layer(layer, { excludeTestServices: true, concurrent: true })('official confo
             const { output, code, checks } = yield* checked(scenario);
             assert.deepStrictEqual({ code, ran: checks.length > 0 }, { code: 0, ran: true }, output);
         }),
-        RUN,
     );
 });

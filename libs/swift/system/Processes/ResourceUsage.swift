@@ -88,7 +88,23 @@ extension ResourceUsage {
         return timebase
     }()
 
+    private static func assertions() -> Result<[NSNumber: AnyObject], ProcessFailure> {
+        var table: Unmanaged<CFDictionary>?
+        let read = unsafe IOPMCopyAssertionsByProcess(&table)
+        let held = unsafe table?.takeRetainedValue() as? [NSNumber: AnyObject]
+        return read == kIOReturnSuccess ? .success(held ?? [:]) : .failure(ProcessFailure(subject: "Power assertion read", reason: .mach(read)))
+    }
+
     package init(of instance: ProcessInstance) throws(Errno) {
+        try self.init(of: instance, among: Self.assertions())
+    }
+
+    package static func all(of instances: some Sequence<ProcessInstance>) -> [ProcessInstance: Result<Self, Errno>] {
+        let held = assertions()
+        return Dictionary(instances.map { instance in (instance, Result { () throws(Errno) in try Self(of: instance, among: held) }) }) { first, _ in first }
+    }
+
+    private init(of instance: ProcessInstance, among assertions: Result<[NSNumber: AnyObject], ProcessFailure>) throws(Errno) {
         var usage = rusage_info_current()
         let status = withUnsafeMutablePointer(to: &usage) { usage in
             unsafe usage.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) { buffer in unsafe proc_pid_rusage(instance.pid, RUSAGE_INFO_CURRENT, buffer) }
@@ -98,10 +114,6 @@ extension ResourceUsage {
         guard ProcessInstance(task.pbsd) == instance else { throw .noSuchProcess }
         guard status == 0 else { throw failure }
         let elapsed = { (ticks: UInt64) -> Duration in .nanoseconds(ticks) * Self.timebase.numer / Self.timebase.denom }
-        var table: Unmanaged<CFDictionary>?
-        let read = unsafe IOPMCopyAssertionsByProcess(&table)
-        let held = unsafe (table?.takeRetainedValue() as? [NSNumber: AnyObject])?[NSNumber(value: instance.pid)] as? [[String: Any]]
-        let names: Set<String> = Set((held ?? []).compactMap { assertion in assertion[kIOPMAssertionNameKey] as? String })
         self.init(
             cpu: elapsed(usage.ri_user_time + usage.ri_system_time),
             runnable: elapsed(usage.ri_runnable_time),
@@ -111,7 +123,17 @@ extension ResourceUsage {
             footprint: Int(usage.ri_phys_footprint),
             threads: Int(task.ptinfo.pti_threadnum),
             runningThreads: Int(task.ptinfo.pti_numrunning),
-            assertions: read == kIOReturnSuccess ? .success(names.sorted()) : .failure(ProcessFailure(subject: "IOPMCopyAssertionsByProcess", reason: .mach(read))),
+            assertions: assertions.map { table in
+                Set(
+                    (table[NSNumber(value: instance.pid)] as? [[String: Any]] ?? []).compactMap { (assertion: [String: Any]) -> String? in
+                        switch (assertion[kIOPMAssertionTypeKey], assertion[kIOPMAssertionNameKey], assertion[kIOPMAssertionLevelKey]) {
+                            case (.some(let type as String), .some(let name as String), .some(let level as Int)) where level == kIOPMAssertionLevelOn: "\(type) named \(name)"
+                            case _: nil
+                        }
+                    }
+                )
+                .sorted()
+            },
             at: .now,
         )
     }

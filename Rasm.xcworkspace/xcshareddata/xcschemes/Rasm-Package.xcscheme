@@ -24,9 +24,6 @@
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Updater" BuildableName="Updater" BlueprintName="Updater" ReferencedContainer="container:"/>
             </BuildActionEntry>
             <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="SPI" BuildableName="SPI" BlueprintName="SPI" ReferencedContainer="container:"/>
-            </BuildActionEntry>
-            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="AppleEvents" BuildableName="AppleEvents" BlueprintName="AppleEvents" ReferencedContainer="container:"/>
             </BuildActionEntry>
             <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
@@ -46,9 +43,6 @@
             </BuildActionEntry>
             <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
                 <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Rasad" BuildableName="Rasad" BlueprintName="Rasad" ReferencedContainer="container:"/>
-            </BuildActionEntry>
-            <BuildActionEntry buildForTesting="YES" buildForRunning="YES" buildForProfiling="YES" buildForArchiving="YES" buildForAnalyzing="YES">
-                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="Fixture" BuildableName="Fixture" BlueprintName="Fixture" ReferencedContainer="container:"/>
             </BuildActionEntry>
         </BuildActionEntries>
     </BuildAction>

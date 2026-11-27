@@ -52,7 +52,6 @@ Rasm/
 ├── Directory.Build.targets   # .NET
 ├── NuGet.config              # .NET
 ├── Package.swift             # Swift workspace and central package catalog
-├── Xcode.xcconfig            # Swift
 ├── Rasm.xcworkspace/         # Swift, one Xcode build folder and package clone for every app and root package
 ├── Cargo.toml                # Rust workspace and central package catalog
 ├── rust-toolchain.toml       # Rust
@@ -176,13 +175,15 @@ Roots split, nest, or hold more where a host or tool decides:
 - Swift modules, app code included, are root `Package.swift` targets, and Xcode app targets hold bundle, icon, and signing over their app module
 - Xcode app projects build through root `Rasm.xcworkspace`, as projects built apart each clone every package and compile it again
 - Root `Package.swift` builds and tests in that workspace through shared scheme `Rasm-Package`, which lists every module, in place of SwiftPM
-- Scheme `Rasm-Package` tests through default plan `.config/Rasm-Package.xctestplan` and measures through `.config/Performance.xctestplan`, each listing its test targets by name
+- Scheme `Rasm-Package` tests through default plan `.config/Rasm-Package.xctestplan`, and `.config/Performance.xctestplan` measures
+- Plans list test targets by name
 - Nx project `Rasm-Package` at `Rasm.xcworkspace` holds the root package's Swift and Xcode targets, and root project `rasm` holds none
 - Workspace `Package.resolved` links to the root one, which `swift package update` moves and `xcodebuild` reads and writes through the link
 - User default `IDEPackageOnlyUseVersionsFromResolvedFile` of mise `[bootstrap]` holds Xcode windows to resolved versions, as builds are
-- `.config/xcode.xcconfig` turns on the Xcode compilation cache, `Xcode.xcconfig` includes it, and its hits need an unchanged build folder path
+- `.config/xcode.xcconfig` turns on the Xcode compilation cache and holds settings every target takes, and cache hits need an unchanged build folder
 - Mise variable `XCODE_XCCONFIG_FILE` applies it to every target `xcodebuild` builds, as a package scheme otherwise compiles every module again
 - User default `CompilationCachingDiskSizeLimit` of mise `[bootstrap]` caps that cache, as Xcode otherwise lets it reach half the free disk
+- App projects base each configuration on `.config/app.xcconfig`, which sets app signing and packaging and includes both other xcconfig files
 - C++ packages each declare their own `project()`, and toolchain, presets, CI, and release stay whole before any package exists
 - Unreal plug-ins sit beside the project enabling them, and name each C++ package they build with their engine's compiler in `.uplugin` `nx.packages`
 - SQL schemas reconcile the live database to owning types with no migration files, and drop or retype only what an owning type retires
@@ -227,7 +228,6 @@ Suites sit in `tests/` except where their tool fixes the place:
 - Suites stay inside a nested tool root that stops discovery at its root (SwiftPM analyzer) or a plugin folder published whole
 - Projects needing no host run on every platform, and tags `os:<platform>` and `host:<host>` mark projects a toolchain, framework, or host limits
 - C++ projects take one Nx configuration per CMake workflow preset (`nx test <project> -c asan`), and the first preset is the default
-- Swift suites reading another process fail where `xctest` lacks its grant, which CI writes and a Mac takes once per Xcode build
 
 Rhino suites boot Rhino once per test process, one run per machine, as concurrent processes opening views on one Cloud Zoo license each raise a prompt:
 - Local runs on a machine with Rhino open views, or none under `nx test <project> -c headless`, in a scratch profile seeded with license files

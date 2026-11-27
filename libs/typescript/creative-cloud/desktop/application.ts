@@ -1,5 +1,5 @@
 import { layer } from '@effect/sql-sqlite-node/SqliteClient';
-import type { Installation } from '@rasm/applications/contract';
+import type { Installation } from '@rasm/applications/installations';
 import { Array, Context, Effect, FileSystem, Option, Order, Path, Record, Result, Schema, Struct } from 'effect';
 import { SqlClient, SqlSchema } from 'effect/sql';
 
@@ -15,6 +15,9 @@ class Application extends Schema.Class<Application, { readonly brand: unique sym
     build: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Creative Cloud registry BuildVersion' })),
     identifier: Schema.String.annotate({ description: 'Bundle identifier' }),
     url: Schema.URL.annotate({ description: 'Bundle' }),
+    urlSchemes: Schema.Array(Schema.String)
+        .pipe(Schema.withConstructorDefault(Effect.succeed([])))
+        .annotate({ description: 'CFBundleURLSchemes of every CFBundleURLTypes entry, adobe+<host code> naming the UXP host the bundle is' }),
 }) {
     static readonly VersionOrder: Order.Order<string> = Order.mapInput(Array.makeOrder(Order.Number), (version: string) => version.split('.').map(Number));
     static readonly Order: Order.Order<Application> = Order.flip(Order.Struct({ channel: Order.mapInput(Order.Number, (channel: Application['channel']) => Channel.literals.indexOf(channel)), version: Application.VersionOrder, build: Option.makeOrder(Application.VersionOrder) }));
@@ -24,11 +27,11 @@ class Application extends Schema.Class<Application, { readonly brand: unique sym
         const registered = Record.fromIterableBy(rows, Struct.get('executable'));
         const listed = yield* Effect.filterMapEffect(
             offered,
-            Effect.fnUntraced(function* ({ url, identifier, name, version, executable }) {
+            Effect.fnUntraced(function* ({ url, identifier, name, version, executable, urlSchemes }) {
                 const at = yield* Effect.transposeOption(Option.map(executable, path.fromFileUrl));
                 const row = Option.flatMap(at, (key) => Record.get(registered, key));
                 const [product, channel] = Option.match(row, { onNone: () => [identifier, 'release'] as const, onSome: Struct.get('code') });
-                return Option.match(version, { onNone: () => Result.failVoid, onSome: (stated) => Result.succeed(Application.make({ name, product, channel, version: stated, build: Option.flatMap(row, Struct.get('build')), identifier, url })) });
+                return Option.match(version, { onNone: () => Result.failVoid, onSome: (stated) => Result.succeed(Application.make({ name, product, channel, version: stated, build: Option.flatMap(row, Struct.get('build')), identifier, url, urlSchemes: Option.getOrElse(urlSchemes, Array.empty) })) });
             }),
         );
         const grouped = Record.values(Array.groupBy(Array.sort(listed, Application.Order), Struct.get('product')));

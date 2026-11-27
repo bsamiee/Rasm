@@ -130,14 +130,14 @@ extension Message: Encodable where Payload: Encodable, Fault: Encodable {}
 `@CasePathable` gives each case a `CaseKeyPath<Root, Value>`, a value one generic member takes in place of an extracting closure per case:
 
 ```swift
-public func next<Value>(_ line: CaseKeyPath<Line, Value>) async throws -> Value {
-    for try await read in lines {
-        if let value = read[case: line] { return value }
+public func next<Value>(_ event: CaseKeyPath<Event, Value>) async throws -> Value {
+    for try await read in events {
+        if let value = read[case: event] { return value }
     }
-    throw FixtureFailure(subject: String(describing: line))
+    throw StreamFailure(subject: String(describing: event))
 }
 ```
 
-- Callers write `session.next(\.ready)`, and the key path fixes `Value` to the case's payload
-- Matches testing a payload field (`.opened(let menu, .menu, _)`) stay an extracting closure, as a case key path reads its case whole
+- Callers write `reader.next(\.opened)`, and the key path fixes `Value` to the case's payload
+- Matches testing a payload field (`.opened(let item, .primary)`) stay an extracting closure, as a case key path reads its case whole
 - `Case<Value>` requires a copyable `Value`, so a `~Copyable` payload (a run-loop source in a `Result`) reads through `switch`

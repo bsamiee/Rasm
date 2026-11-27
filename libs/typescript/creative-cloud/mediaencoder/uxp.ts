@@ -1,24 +1,20 @@
 import { Containment, reference } from '@rasm/object-model/host';
 import { HostError } from '@rasm/object-model/model';
-import { Callable, Uxp } from '@rasm/uxp/plugin';
-import { Array, Context, Effect, Exit, Function, Layer, Option, Predicate, Record, Schema, Stream, Struct } from 'effect';
+import { Callable, HostObject, Uxp } from '@rasm/uxp/plugin';
+import { Array, Context, Effect, Exit, Function, Layer, Option, Predicate, Schema, Stream, Struct } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Statics = <const Fields extends Schema.Struct.Fields>(fields: Fields) => {
-    const members = Schema.Struct(fields);
-    return Schema.declare((value: unknown): value is typeof members.Type => Predicate.isFunction(value) && Schema.is(members)(Record.fromIterableWith(Struct.keys(fields), (key) => [key, Reflect.get(value, key)])));
-};
 const Module = Schema.Struct({
-    RenderQueue: Statics({ getInstance: Callable, getJob: Callable, getJobGroup: Callable, RENDER_QUEUE_STATUS_CHANGED: Schema.String, NEXT_JOB_ENCODING_EVENT: Schema.String, MEDIA_ITEM_CREATED_EVENT: Schema.String, ENCODE_COMPLETE_EVENT: Schema.String }),
-    WatchFolder: Statics({ getInstance: Callable, WATCH_FOLDER_ENCODER_STATUS_CHANGED: Schema.String }),
-    ProgressCategoryContainer: Statics({ getContainer: Callable }),
-    PresetManager: Statics({ getFormatNameList: Callable, getPresetsForFormat: Callable }),
+    RenderQueue: HostObject({ getInstance: Callable, getJob: Callable, getJobGroup: Callable, RENDER_QUEUE_STATUS_CHANGED: Schema.String, NEXT_JOB_ENCODING_EVENT: Schema.String, MEDIA_ITEM_CREATED_EVENT: Schema.String, ENCODE_COMPLETE_EVENT: Schema.String }, Predicate.isFunction),
+    WatchFolder: HostObject({ getInstance: Callable, WATCH_FOLDER_ENCODER_STATUS_CHANGED: Schema.String }, Predicate.isFunction),
+    ProgressCategoryContainer: HostObject({ getContainer: Callable }, Predicate.isFunction),
+    PresetManager: HostObject({ getFormatNameList: Callable, getPresetsForFormat: Callable }, Predicate.isFunction),
 }).annotate({ description: 'Classes require("mediaencoder") holds, by the static members ScriptingAPIManifest.json declares and the plugin reads' });
-const Emitter = Schema.Struct({ subscribeToEvent: Callable, addEventListener: Callable, removeEventListener: Callable }).pipe(Schema.is, Schema.declare).annotate({
+const Emitter = HostObject({ subscribeToEvent: Callable, addEventListener: Callable, removeEventListener: Callable }).annotate({
     description: 'Event source a class getInstance returns: subscribeToEvent from ScriptingAPIManifest.json, the listener pair from AdobeDocs uxp-media-encoder',
 });
-const Container = Schema.Struct({ getAllProgressCategories: Callable }).pipe(Schema.is, Schema.declare).annotate({ description: 'ProgressCategoryContainer instance getContainer returns' });
+const Container = HostObject({ getAllProgressCategories: Callable }).annotate({ description: 'ProgressCategoryContainer instance getContainer returns' });
 const Formats = Schema.Array(Schema.String).annotate({ description: 'Format names getFormatNameList returns' });
 const Listed = Schema.Array(Schema.Unknown).annotate({ description: 'Array a host list call returns' });
 const Identified = Schema.Struct({ id: Schema.String }).annotate({ description: 'Job group or progress category keyed by its id' });
@@ -35,7 +31,7 @@ const Payload = Schema.Struct({ jobId: Schema.optionalKey(Schema.String), status
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class MediaEncoder extends Context.Service<MediaEncoder>()('@rasm/mediaencoder/uxp/MediaEncoder', {
-    make: Effect.map(Effect.flatMap(Uxp.require('mediaencoder'), Schema.decodeUnknownEffect(Module)), (module) => {
+    make: Effect.map(Uxp.require('mediaencoder', Module), (module) => {
         const { RenderQueue, ProgressCategoryContainer, PresetManager } = module;
         return {
             ...module,

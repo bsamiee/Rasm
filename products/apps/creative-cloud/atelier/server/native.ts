@@ -1,5 +1,6 @@
 import { homedir } from 'node:os';
-import { Installation, type InstanceSnapshot } from '@rasm/applications/contract';
+import { Installation } from '@rasm/applications/installations';
+import type { InstanceSnapshot } from '@rasm/applications/instances';
 import { Workspace } from '@rasm/applications/workspace';
 import type { Application } from '@rasm/creative-cloud-desktop/application';
 import { Preferences } from '@rasm/creative-cloud-desktop/tools';
@@ -7,9 +8,9 @@ import { Link } from '@rasm/mcp/link';
 import { Upstream } from '@rasm/mcp/upstream';
 import { run } from '@rasm/process';
 import { HOSTS } from '@rasm/uxp/manifest';
-import { Array, Cause, Data, Duration, Effect, Equivalence, FileSystem, Glob, Option, Order, Path, Predicate, Record, Result, Schema, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Data, Duration, Effect, Equivalence, FileSystem, Glob, Option, Order, Path, Predicate, Record, Result, Schema, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { Xml } from 'effect/encoding';
-import { Host } from 'effect/net';
+import { Host, NetAddress } from 'effect/net';
 import { RegistryApplications } from '#/applications';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -21,8 +22,7 @@ type Store = Data.TaggedEnum<{
 interface NativeServer {
     readonly prefix: string;
     readonly server: Host.Host;
-    readonly port: number;
-    readonly fallback: readonly number[];
+    readonly ports: Array.NonEmptyReadonlyArray<number>;
     readonly path: string;
     readonly authenticated: boolean;
     readonly store: Store;
@@ -31,36 +31,42 @@ interface NativeServer {
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Store = Data.taggedEnum<Store>();
-const McpPort = Schema.FiniteFromString.pipe(Schema.decodeTo(Schema.Port));
-const McpAuthenticationEnabled = Schema.Union([Schema.Literal('1').transform(true), Schema.Literal('0').transform(false)]);
+const McpPreferences = Schema.Struct({
+    server: Schema.optionalKey(Schema.HostFromString),
+    port: Schema.optionalKey(
+        Schema.FiniteFromString.pipe(
+            Schema.decodeTo(Schema.Port),
+            Schema.catchDecoding(() => Effect.succeedNone),
+        ),
+    ),
+    path: Schema.optionalKey(Schema.String),
+    authenticated: Schema.optionalKey(Schema.Union([Schema.Literal('1').transform(true), Schema.Literal('0').transform(false)])),
+}).pipe(Schema.encodeKeys({ server: 'HSL.Prefs.McpServer', port: 'HSL.Prefs.McpPort', path: 'HSL.Prefs.McpPath', authenticated: 'HSL.Prefs.McpAuthenticationEnabled' }));
 
 // --- [TABLES] --------------------------------------------------------------------------
 
 const NATIVE: Record.ReadonlyRecord<string, NativeServer> = {
-    [HOSTS.AI.product]: { prefix: 'illustrator_', server: Host.hostFromStringUnsafe('127.0.0.1'), port: 18_412, fallback: Array.range(18_413, 18_422), path: 'v1/mcp', authenticated: true, store: Store.IllustratorPrefs() },
+    [HOSTS.AI.product]: { prefix: 'illustrator_', server: NetAddress.ipv4Loopback, ports: Array.range(18_412, 18_422), path: 'v1/mcp', authenticated: true, store: Store.IllustratorPrefs() },
     [HOSTS.aftereffects.product]: {
         prefix: 'aftereffects_',
-        server: Host.hostFromStringUnsafe('127.0.0.1'),
-        port: 3100,
-        fallback: [3000],
+        server: NetAddress.ipv4Loopback,
+        ports: [3100, 3000],
         path: 'aftereffects/mcp',
         authenticated: false,
         store: Store.PremiereData({ root: ['Library', 'Preferences', 'Adobe'], folder: 'After Effects', file: 'Adobe After Effects * MC Prefs' }),
     },
     [HOSTS.premierepro.product]: {
         prefix: 'premiere_',
-        server: Host.hostFromStringUnsafe('127.0.0.1'),
-        port: 3000,
-        fallback: [],
+        server: NetAddress.ipv4Loopback,
+        ports: [3000],
         path: 'premiere/mcp',
         authenticated: true,
         store: Store.PremiereData({ root: ['Documents', 'Adobe'], folder: 'Premiere Pro', file: 'Profile-*/Adobe Premiere Pro* Prefs' }),
     },
     [HOSTS.ame.product]: {
         prefix: 'mediaencoder_',
-        server: Host.hostFromStringUnsafe('localhost'),
-        port: 3001,
-        fallback: [],
+        server: NetAddress.ipv6Loopback,
+        ports: [3001],
         path: 'ame/mcp',
         authenticated: false,
         store: Store.PremiereData({ root: ['Documents', 'Adobe'], folder: 'Adobe Media Encoder', file: 'Adobe Media Encoder Prefs' }),
@@ -69,25 +75,27 @@ const NATIVE: Record.ReadonlyRecord<string, NativeServer> = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const listeningPort = (listening: Option.Option<readonly number[]>, { port, fallback }: Pick<NativeServer, 'port' | 'fallback'>) => Option.flatMap(listening, (held) => Array.findFirst([port, ...fallback], (each) => held.includes(each)));
 const readPremiereData = Effect.fnUntraced(function* (row: Application, entry: NativeServer, { root, folder, file }: Data.TaggedEnum.Value<Store, 'PremiereData'>) {
     const [files, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const at = path.join(homedir(), ...root);
     const found = yield* files.glob(`${Glob.escape(row.channel === 'beta' ? `${folder} (Beta)` : folder)}/*/${file}`, { root: at });
-    const written = yield* Effect.forEach(found, (each) => Effect.map(files.stat(path.join(at, each)), ({ mtime }) => ({ file: path.join(at, each), mtime })));
-    const newest = Option.map(Option.liftPredicate(written, Array.isArrayNonEmpty<(typeof written)[number]>), Array.max(Order.mapInput(Option.makeOrder(Order.Date), (each: (typeof written)[number]) => each.mtime)));
+    const written = yield* Effect.forEach(found, (each) => Effect.map(files.stat(path.join(at, each)), ({ mtime }) => ({ file: path.join(at, each), mtime })), { concurrency: 'unbounded' });
+    const newest = Array.match(written, {
+        onEmpty: Option.none,
+        onNonEmpty: (listed) =>
+            Option.some(
+                Array.max(
+                    listed,
+                    Order.mapInput(Option.makeOrder(Order.Date), (each: (typeof written)[number]) => each.mtime),
+                ),
+            ),
+    });
     const elements = yield* Option.match(newest, {
         onNone: () => Effect.succeed(Array.empty<Xml.Element>()),
-        onSome: (chosen) => Stream.unwrap(FileSystem.FileSystem.useSync((held) => held.stream(chosen.file))).pipe(Stream.pipeThroughChannel(Xml.decode()), Stream.pipeThroughChannel(Xml.elements(['PremiereData', 'Preferences', 'Properties', '*'])), Stream.runCollect),
+        onSome: (chosen) => files.stream(chosen.file).pipe(Stream.pipeThroughChannel(Xml.decode()), Stream.pipeThroughChannel(Xml.elements(['PremiereData', 'Preferences', 'Properties', '*'])), Stream.runCollect),
     });
-    const stated = Record.fromEntries(Array.filterMap(elements, ({ name, children: [text] }) => (Predicate.isString(text) ? Result.succeed([name, text] as const) : Result.failVoid)));
-    return {
-        ...entry,
-        server: Option.getOrElse(Option.flatMap(Record.get(stated, 'HSL.Prefs.McpServer'), Schema.decodeUnknownOption(Schema.HostFromString)), () => entry.server),
-        port: Option.getOrElse(Option.flatMap(Record.get(stated, 'HSL.Prefs.McpPort'), Schema.decodeUnknownOption(McpPort)), () => entry.port),
-        path: Option.getOrElse(Record.get(stated, 'HSL.Prefs.McpPath'), () => entry.path),
-        authenticated: Option.getOrElse(Option.flatMap(Record.get(stated, 'HSL.Prefs.McpAuthenticationEnabled'), Schema.decodeUnknownOption(McpAuthenticationEnabled)), () => entry.authenticated),
-    };
+    const { port, ...stated } = yield* Schema.decodeEffect(McpPreferences)(Record.fromEntries(Array.filterMap(elements, ({ name, children: [text] }) => (Predicate.isString(text) ? Result.succeed([name, text] as const) : Result.failVoid))));
+    return { ...entry, ...stated, ports: UndefinedOr.match(port, { onUndefined: () => entry.ports, onDefined: (held) => Array.dedupe(Array.prepend(entry.ports, held)) }) };
 });
 const readStore = (row: Application, entry: NativeServer) =>
     Store.$match(entry.store, {
@@ -95,10 +103,7 @@ const readStore = (row: Application, entry: NativeServer) =>
             settings: Effect.succeed(entry),
             token: Effect.flatMap(Preferences.illustrator(row), (held) =>
                 Effect.fromOption(
-                    Option.map(
-                        Array.findFirst(held, ({ plugin }) => Option.fromUndefinedOr(plugin.AIMCPServer)),
-                        ({ AuthToken }) => AuthToken,
-                    ),
+                    Array.findFirst(held, ({ plugin }) => Option.fromUndefinedOr(plugin.AIMCPServer?.AuthToken)),
                     () => new Cause.NoSuchElementError(`${row.name} preferences hold no AIMCPServer AuthToken, which its MCP server writes once enabled`),
                 ),
             ),
@@ -114,37 +119,32 @@ const readStore = (row: Application, entry: NativeServer) =>
 const native = Stream.unwrap(
     Effect.gen(function* () {
         const [rows, { running, blocking }] = yield* Effect.all([RegistryApplications, Workspace]);
-        const proxy = (row: Application, entry: NativeServer) => {
+        const proxy = ([row, entry]: readonly [Application, NativeServer]) => {
             const { settings, token } = readStore(row, entry);
             const listening = (instances: readonly InstanceSnapshot[]) => Option.map(Array.findFirst(instances, Installation.runs(row)), Struct.get('listening'));
+            const port = (held: Option.Option<readonly number[]>, { ports }: Pick<NativeServer, 'ports'>) => Option.flatMap(held, (open) => Array.findFirst(ports, (each) => open.includes(each)));
             return Upstream.fromHttp({
                 peer: Link.make({ application: row.url, plugin: 'mcp' }),
                 prefix: entry.prefix,
                 endpoint: Effect.gen(function* () {
                     const [instances, stated] = yield* Effect.all([SubscriptionRef.get(running), settings]);
-                    const port = yield* Effect.fromOption(listeningPort(listening(instances), stated), () => new Cause.NoSuchElementError(`${row.name} listens on none of ${[stated.port, ...stated.fallback].join(', ')}`));
-                    const authorization = yield* Effect.when(
-                        Effect.gen(function* () {
-                            return `Bearer ${yield* token}`;
-                        }),
-                        Effect.succeed(stated.authenticated),
-                    );
-                    return { url: new URL(stated.path, `http://${Host.formatHostPort(Host.hostPortUnsafe(stated.server, port))}`), headers: Record.getSomes({ authorization }) };
+                    const at = yield* Effect.fromOption(port(listening(instances), stated), () => new Cause.NoSuchElementError(`${row.name} listens on none of ${stated.ports.join(', ')}`));
+                    const authorization = stated.authenticated ? Option.some(`Bearer ${yield* token}`) : Option.none<string>();
+                    return { url: new URL(stated.path, `http://${Host.formatHostPort(Host.hostPortUnsafe(stated.server, at))}`), headers: Record.getSomes({ authorization }) };
                 }),
                 presence: SubscriptionRef.changes(running).pipe(
-                    Stream.map((instances) => listening(instances)),
-                    Stream.changesWith(Option.makeEquivalence(Array.makeEquivalence(Equivalence.strictEqual<number>()))),
-                    Stream.mapEffect((held) => Effect.map(settings, (stated) => Option.isSome(listeningPort(held, stated))).pipe(Effect.catch((error) => Effect.as(Effect.logWarning(`${row.name} MCP server preferences are unreadable`, error), false)))),
+                    Stream.map(listening),
+                    Stream.changesWith(Option.makeEquivalence(Array.makeEquivalence(Equivalence.Number))),
+                    Stream.mapEffect((held) => Effect.map(settings, (stated) => Option.isSome(port(held, stated))).pipe(Effect.catch((error) => Effect.as(Effect.logWarning(`${row.name} MCP server preferences are unreadable`, error), false)))),
                 ),
                 annotations: blocking(row),
                 poll: Duration.minutes(1),
             });
         };
         return SubscriptionRef.changes(rows).pipe(
-            Stream.map((held) => held.filter((row) => Record.has(NATIVE, row.product))),
-            Stream.changesWith(Array.makeEquivalence(Equivalence.make((left: Application, right: Application) => left.url.href === right.url.href && left.version === right.version))),
-            Stream.map(Array.flatMap((row) => Option.toArray(Option.map(Record.get(NATIVE, row.product), (entry) => proxy(row, entry))))),
-            Stream.switchMap(Array.match({ onEmpty: () => Stream.succeed([]), onNonEmpty: (upstreams) => Stream.map(Stream.zipLatestAll(...upstreams), Array.flatten) })),
+            Stream.map(Array.filterMap((row: Application) => Option.match(Record.get(NATIVE, row.product), { onNone: () => Result.failVoid, onSome: (entry) => Result.succeed([row, entry] as const) }))),
+            Stream.changesWith(Array.makeEquivalence(Equivalence.mapInput(Equivalence.Struct({ url: Equivalence.mapInput(Equivalence.String, (url: URL) => url.href), version: Equivalence.String }), ([row]: readonly [Application, NativeServer]) => row))),
+            Stream.switchMap((served) => Array.match(Array.map(served, proxy), { onEmpty: () => Stream.succeed([]), onNonEmpty: (upstreams) => Stream.map(Stream.zipLatestAll(...upstreams), Array.flatten) })),
         );
     }),
 );

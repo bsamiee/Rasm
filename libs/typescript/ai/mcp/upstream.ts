@@ -1,9 +1,11 @@
+import { parse } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import manifest from '@rasm/mcp/package.json' with { type: 'json' };
 import { Array, Cause, Context, Data, type Duration, Effect, FiberMap, Function, Match, Option, Pool, Predicate, pipe, Queue, Record, Ref, Result, Schedule, Schema, Stream, Struct, Tuple } from 'effect';
 import { McpClient, McpClientError, McpProtocol, McpSchema, McpServer } from 'effect/ai';
 import { SecureRandom } from 'effect/crypto';
 import type { HttpClient } from 'effect/http';
-import { Rpc } from 'effect/rpc';
+import { Rpc, RpcClientError } from 'effect/rpc';
 import { Link } from '#/link';
 import { Server } from '#/server';
 
@@ -34,11 +36,11 @@ class Upstream extends Data.Class<
     Listing & {
         readonly peer: Link;
         readonly annotations: Context.Context<never>;
-        readonly events: Stream.Stream<typeof Link.Event.Type>;
+        readonly events: Stream.Stream<typeof Link.Event.Type, Error>;
         readonly call: (name: string, given: Record.ReadonlyRecord<string, unknown>) => Effect.Effect<McpSchema.CallToolResult, McpSchema.InternalError | McpSchema.InvalidParams, McpSchema.McpRequestContext>;
         readonly read: (uri: string) => Effect.Effect<McpSchema.ReadResourceResult, McpSchema.InternalError | McpSchema.InvalidParams>;
         readonly get: (name: string, given: Record.ReadonlyRecord<string, string>) => Effect.Effect<McpSchema.GetPromptResult, McpSchema.InternalError | McpSchema.InvalidParams>;
-        readonly complete: (payload: Omit<typeof McpSchema.Complete.payloadSchema.Type, 'context'> & { readonly context: (typeof McpSchema.Complete.payloadSchema.Type)['context'] }) => Effect.Effect<McpSchema.CompleteResult, McpSchema.InternalError>;
+        readonly complete: (payload: Omit<typeof McpSchema.Complete.payloadSchema.Type, 'context'> & { readonly context: (typeof McpSchema.Complete.payloadSchema.Type)['context'] }) => Effect.Effect<McpSchema.CompleteResult, McpSchema.InternalError | McpSchema.InvalidParams>;
     }
 > {
     static readonly serve = Effect.fnUntraced(function* <R>(sources: Array.NonEmptyReadonlyArray<Stream.Stream<readonly Upstream[], never, R>>, { route }: { readonly route: Route }) {
@@ -48,7 +50,13 @@ class Upstream extends Data.Class<
                 items: Struct.get('tools'),
                 key: Struct.get('name'),
                 registered: () => Array.map(server.tools, ({ tool, annotations }) => [tool.name, annotations] as const),
-                add: (forward, tool, annotations) => server.addTool({ tool, annotations, handle: (given: Record.ReadonlyRecord<string, unknown>) => forward(tool.name, given, (source) => source.call(tool.name, given)) }),
+                add: (forward, tool, annotations) =>
+                    server.addTool({
+                        tool,
+                        annotations,
+                        handle: (given: Record.ReadonlyRecord<string, unknown>) =>
+                            forward(tool.name, given, (source) => source.call(tool.name, given)).pipe(Effect.catchTag('InternalError', ({ message }) => Effect.succeed(McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: message })] })))),
+                    }),
             }),
             register<McpSchema.Resource>(route, {
                 items: Struct.get('resources'),
@@ -84,24 +92,41 @@ class Upstream extends Data.Class<
                     }),
             }),
         ]);
-        const [eventQueue, following] = yield* Effect.all([Queue.unbounded<Stream.Success<Upstream['events']> & { readonly peer: string }>(), FiberMap.make<string>()]);
-        const reconcile = (current: readonly Upstream[]) => {
-            const peers = Record.fromIterableWith(current, ({ peer, events: stream }) => [Link.key(peer), stream] as const);
-            return Effect.forEach(reconcilers, (apply) => apply(current), { discard: true }).pipe(
-                Effect.andThen(notifyListChanged),
-                Effect.andThen(Effect.forEach(Array.fromIterable(following), ([peer]) => (Record.has(peers, peer) ? Effect.void : FiberMap.remove(following, peer)), { discard: true })),
-                Effect.andThen(Effect.forEach(Record.toEntries(peers), ([peer, stream]) => Stream.runForEach(stream, (event) => Queue.offer(eventQueue, { peer, ...event })).pipe(FiberMap.run(following, peer, { onlyIfMissing: true })), { discard: true })),
-                Effect.catchCause((cause) => Effect.logError('Upstream registration failed', cause)),
+        const [eventQueue, following, followed] = yield* Effect.all([Queue.unbounded<{ readonly peer: Link; readonly event: Result.Result<typeof Link.Event.Type, Error> }>(), FiberMap.make<string>(), Ref.make<Record.ReadonlyRecord<string, Upstream>>({})]);
+        const follow = ({ peer, events: stream }: Upstream) =>
+            stream.pipe(
+                Stream.tapError((error) => Effect.logWarning(`${Link.key(peer)} stopped sending events`, error)),
+                Stream.result,
+                Stream.runForEach((event) => Queue.offer(eventQueue, { peer, event })),
             );
-        };
+        const reconcile = Effect.fnUntraced(
+            function* (current: readonly Upstream[]) {
+                yield* Effect.forEach(reconcilers, (apply) => apply(current), { discard: true });
+                yield* notifyListChanged;
+                const now = Record.fromIterableWith(current, (source) => [Link.key(source.peer), source] as const);
+                const before = yield* Ref.getAndSet(followed, now);
+                yield* Effect.forEach(Record.keys(before), (peer) => (Record.has(now, peer) ? Effect.void : FiberMap.remove(following, peer)), { discard: true });
+                yield* Effect.forEach(Record.toEntries(now), ([peer, source]) => (before[peer] === source ? Effect.void : FiberMap.run(following, peer, follow(source))), { discard: true });
+            },
+            Effect.catchCause((cause) => Effect.logError('Upstream registration failed', cause)),
+        );
         yield* Stream.zipLatestAll(...Array.map(sources, Stream.prepend([Array.empty<Upstream>()]))).pipe(Stream.map(Array.flatten), Stream.runForEach(reconcile), Effect.forkScoped);
-        yield* events({ stream: Stream.fromQueue(eventQueue), render: ({ peer, name, target, detail }) => Effect.succeed([peer, name, ...Option.toArray(target), ...Option.toArray(Option.map(detail, (json) => JSON.stringify(json)))].join(' ')) });
+        yield* events({
+            stream: Stream.fromQueue(eventQueue),
+            render: ({ peer, event }) =>
+                Effect.succeed(
+                    Result.match(event, {
+                        onSuccess: ({ name, target, detail }) => [label(peer), name, ...Option.toArray(target), ...Option.toArray(Option.map(detail, (json) => JSON.stringify(json)))].join(' '),
+                        onFailure: ({ message }) => `${label(peer)} stopped sending events: ${message}, they resume once it links again`,
+                    }),
+                ),
+        });
     });
     static readonly fromLinks = (links: Pick<Effect.Success<ReturnType<typeof Link.listen<never>>>, 'changes' | 'call'>) => {
         const connect = Effect.fnUntraced(function* (peer: Link) {
-            const client = yield* links.call((each) => Link.key(each) === Link.key(peer), Link.key(peer));
+            const client = yield* links.call((each) => each === peer, Link.key(peer));
             const { tools } = yield* client('tools/list', undefined);
-            const unserved = () => Effect.fail(McpSchema.InternalError.make({ message: `${Link.key(peer)} serves tools alone` }));
+            const unserved = () => McpSchema.InternalError.make({ message: `${label(peer)} serves tools alone` });
             return new Upstream({
                 peer,
                 tools,
@@ -109,17 +134,29 @@ class Upstream extends Data.Class<
                 templates: [],
                 prompts: [],
                 annotations: Context.empty(),
-                events: Stream.catchCause(client('events', undefined), (cause) => Stream.fromEffectDrain(Effect.logInfo(`${Link.key(peer)} sends no more events`, cause))),
-                call: (name, given) => Effect.flatMap(McpSchema.McpRequestContext, (request) => Effect.mapError(client('tools/call', { name, arguments: given, context: Struct.pick(request, ['clientId', 'protocolVersion', 'clientCapabilities']), _meta: request.requestMetadata }), toMcpError)),
+                events: client('events', undefined).pipe(Stream.catchIf(Schema.is(RpcClientError.RpcClientError), (error) => Stream.fromEffectDrain(Effect.logInfo(`${Link.key(peer)} sends no more events`, error)))),
+                call: (name, given) =>
+                    Effect.flatMap(McpSchema.McpRequestContext, (request) => client('tools/call', { name, arguments: given, context: Struct.pick(request, ['clientId', 'protocolVersion', 'clientCapabilities']), _meta: request.requestMetadata })).pipe(
+                        Effect.mapError(refuse(`${label(peer)} is not linked, call again once ${named(peer)} runs`)),
+                    ),
                 read: unserved,
                 get: unserved,
                 complete: unserved,
             });
         });
-        return Stream.mapEffect(links.changes, (peers) =>
-            Effect.partition(peers, connect, { concurrency: 'unbounded' }).pipe(
-                Effect.tap(([, refused]) => Effect.forEach(refused, (cause) => Effect.logError('Linked plugin listed no tools', cause), { discard: true })),
-                Effect.map(([upstreams]) => upstreams),
+        return links.changes.pipe(
+            Stream.mapAccumEffect(
+                (): ReadonlyMap<Link, Upstream> => new Map(),
+                (held, peers) =>
+                    pipe(
+                        Array.filter(peers, (peer) => !held.has(peer)),
+                        Effect.partition(connect, { concurrency: 'unbounded' }),
+                        Effect.tap(([, refused]) => Effect.forEach(refused, (cause) => Effect.logError('Linked plugin listed no tools', cause), { discard: true })),
+                        Effect.map(([joined]) => {
+                            const current: ReadonlyMap<Link, Upstream> = new Map(Array.map([...peers.flatMap((peer) => Array.fromNullishOr(held.get(peer))), ...joined], (source) => [source.peer, source] as const));
+                            return [current, [current.values().toArray()]] as const;
+                        }),
+                    ),
             ),
         );
     };
@@ -141,6 +178,7 @@ class Upstream extends Data.Class<
         readonly annotations?: Context.Context<never>;
     }): Stream.Stream<readonly Upstream[], never, R | HttpClient.HttpClient | SecureRandom.SecureRandom> => {
         const expose = <A extends { readonly name: string }>(items: readonly A[], filter: Filter | undefined) => Record.fromEntries(Array.filterMap(items, (item) => (allows(item.name, filter) ? Result.succeed([`${prefix}${item.name}`, item] as const) : Result.failVoid)));
+        const refused = refuse(`${named(peer)} MCP server is not answering, open ${named(peer)} if it is closed and call again`);
         const connect = Effect.flatMap(endpoint, (at) =>
             Effect.mapError(
                 Effect.flip(Effect.forEach(PROTOCOLS, (protocol) => Effect.flip(Effect.all({ client: McpClient.make(CLIENT_INFO), transport: McpClient.Transport }).pipe(Effect.provideServiceEffect(McpClient.Transport, McpClient.http({ ...at, protocol })))))),
@@ -158,7 +196,7 @@ class Upstream extends Data.Class<
                 );
             const toUpstream = (listing: Listing) => {
                 const [tools, prompts] = [expose(listing.tools, filters.tools), expose(listing.prompts, filters.prompts)];
-                const found = <A>(rows: Record.ReadonlyRecord<string, A>, name: string) => Effect.fromOption(Record.get(rows, name), () => McpSchema.InvalidParams.make({ message: `${Link.key(peer)} lists no ${name}` }));
+                const found = <A>(rows: Record.ReadonlyRecord<string, A>, name: string) => Effect.fromOption(Record.get(rows, name), () => McpSchema.InvalidParams.make({ message: `${named(peer)} MCP server lists no ${name}` }));
                 return new Upstream({
                     peer,
                     annotations,
@@ -167,18 +205,18 @@ class Upstream extends Data.Class<
                     resources: Array.filter(listing.resources, ({ uri }) => allows(uri, filters.resources)),
                     templates: Array.filter(listing.templates, ({ uriTemplate }) => allows(uriTemplate, filters.templates)),
                     prompts: Record.collect(prompts, (name, prompt) => McpSchema.Prompt.make({ ...prompt, name })),
-                    call: (name, given) => Effect.flatMap(found(tools, name), (tool) => run(({ client }) => client.callTool({ tool, arguments: given })).pipe(Effect.mapError(toMcpError))),
-                    read: (uri) => run(({ client }) => client.readResource({ uri })).pipe(Effect.mapError(toMcpError)),
-                    get: (name, given) => Effect.flatMap(found(prompts, name), (prompt) => run(({ client }) => client.getPrompt({ prompt, arguments: given })).pipe(Effect.mapError(toMcpError))),
-                    complete: (payload) => Server.orInternalError(run(({ client, transport }) => (client.capabilities.completions === undefined ? Effect.succeed(McpSchema.CompleteResult.empty) : request(transport, McpSchema.Complete, payload)))),
+                    call: (name, given) => Effect.flatMap(found(tools, name), (tool) => run(({ client }) => client.callTool({ tool, arguments: given })).pipe(Effect.mapError(refused))),
+                    read: (uri) => run(({ client }) => client.readResource({ uri })).pipe(Effect.mapError(refused)),
+                    get: (name, given) => Effect.flatMap(found(prompts, name), (prompt) => run(({ client }) => client.getPrompt({ prompt, arguments: given })).pipe(Effect.mapError(refused))),
+                    complete: (payload) => run(({ client, transport }) => (client.capabilities.completions === undefined ? Effect.succeed(McpSchema.CompleteResult.empty) : request(transport, McpSchema.Complete, payload))).pipe(Effect.mapError(refused)),
                 });
             };
             return Stream.fromEffectSchedule(run(list).pipe(Effect.sandbox, Effect.result), Schedule.spaced(poll)).pipe(
                 Stream.changesWith(Result.makeEquivalence(Schema.toEquivalence(Listing), Function.constTrue)),
-                Stream.mapEffect(
+                Stream.flatMap(
                     Result.match({
-                        onFailure: (cause) => Effect.as(Effect.logInfo(`${Link.key(peer)} is unreachable`, cause), []),
-                        onSuccess: (listing) => Effect.as(Effect.logInfo(`${Link.key(peer)} is reachable`), [toUpstream(listing)]),
+                        onFailure: (cause) => Stream.fromEffectDrain(Effect.logWarning(`${Link.key(peer)} is not answering, its last listing stays offered`, cause)),
+                        onSuccess: (listing) => Stream.fromEffect(Effect.as(Effect.logInfo(`${Link.key(peer)} is answering`), [toUpstream(listing)])),
                     }),
                 ),
             );
@@ -192,6 +230,8 @@ class Upstream extends Data.Class<
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const named = ({ application }: Link) => (Predicate.isString(application) ? application : parse(fileURLToPath(application)).name);
+const label = (peer: Link) => `${peer.plugin} in ${named(peer)}`;
 const list = ({ client, transport }: { readonly client: McpClient.McpClient; readonly transport: McpClient.Transport }) =>
     Effect.all({
         tools: client.listTools(),
@@ -208,18 +248,29 @@ const allows = (key: string, { allow, deny = [] }: Filter = {}) => {
 };
 const disconnects = Match.type<McpClientError.McpClientErrorReason>().pipe(
     Match.tag('ClosedError', ({ sessionExpired }) => sessionExpired === true),
-    Match.tag('TransportError', Function.constFalse),
+    Match.tag('TransportError', 'TimeoutError', Function.constFalse),
     Match.when({ _tag: 'HttpError', status: (status: number) => status === 401 || status === 403 }, Function.constTrue),
+    Match.when({ _tag: 'HttpError', status: (status: number) => status === 404 || status >= 500 }, Function.constFalse),
     Match.option,
 );
-const toMcpError = Match.type<{ readonly message: string }>().pipe(
-    Match.when(Schema.is(McpSchema.InvalidParams), (invalid) => invalid),
-    Match.when(
-        (error) => McpClientError.isMcpClientError(error) && 'code' in error.reason && error.reason.code === McpSchema.INVALID_PARAMS_ERROR_CODE,
-        ({ message }) => McpSchema.InvalidParams.make({ message }),
-    ),
-    Match.orElse(({ message }) => McpSchema.InternalError.make({ message })),
-);
+const refuse =
+    (unanswered: string) =>
+    (error: { readonly message: string }): McpSchema.InvalidParams | McpSchema.InternalError =>
+        Match.value(error).pipe(
+            Match.when(Schema.is(McpSchema.InvalidParams), (invalid) => invalid),
+            Match.when(Schema.is(McpSchema.McpError), ({ message }) => McpSchema.InternalError.make({ message })),
+            Match.when(McpClientError.isMcpClientError, ({ reason }) =>
+                Match.value(reason).pipe(
+                    Match.when({ code: McpSchema.INVALID_PARAMS_ERROR_CODE }, ({ description, message }) => McpSchema.InvalidParams.make({ message: description ?? message })),
+                    Match.when(
+                        (each) => each.pipe(disconnects, Option.isSome),
+                        () => McpSchema.InternalError.make({ message: unanswered }),
+                    ),
+                    Match.orElse(({ message }) => McpSchema.InternalError.make({ message })),
+                ),
+            ),
+            Match.orElse(() => McpSchema.InternalError.make({ message: unanswered })),
+        );
 const compileUriTemplate = (template: string) => {
     const [, parts] = Array.mapAccum(template.matchAll(/\{(?<operator>[#&+./;?]?)(?<names>[^}]+)\}|[^{]+/gu).toArray(), 0, (count, [text, operator = '', names]) =>
         names === undefined ? [count, { path: text.replaceAll(':', '::'), names: [] }] : [count + 1, { path: Option.getOrElse(Record.get<string, string>({ '+': '*', '#': '*', '?': '', '&': '' }, operator), () => `:${count}`), names: Array.map(names.split(','), (name) => name.replace(/\*$|:\d+$/u, '')) }],
@@ -239,12 +290,12 @@ const request = Effect.fnUntraced(function* <S extends Schema.Top>(transport: Mc
 const register = Effect.fnUntraced(function* <A>(route: Route, { items, key, registered, add }: Primitive<A>) {
     const [shown, routes] = yield* Effect.all([Ref.make<Record.ReadonlyRecord<string, { readonly item: A; readonly annotations: Context.Context<never> }>>({}), Ref.make<Record.ReadonlyRecord<string, Array.NonEmptyReadonlyArray<Upstream>>>({})]);
     const forward = Effect.fnUntraced(function* <B, E, R>(at: string, given: Record.ReadonlyRecord<string, unknown>, use: (source: Upstream) => Effect.Effect<B, E, R>) {
-        const rows = yield* Effect.fromOption(Record.get(yield* Ref.get(routes), at), () => McpSchema.InternalError.make({ message: `${at} has no reachable upstream` }));
+        const rows = yield* Effect.fromOption(Record.get(yield* Ref.get(routes), at), () => McpSchema.InternalError.make({ message: `No upstream serves ${at} now, call again once its application runs` }));
         const peers = Array.map(rows, Struct.get('peer'));
         const chosen = yield* Array.isReadonlyArrayNonEmpty(Array.tailNonEmpty(peers)) ? route(peers, given) : Effect.succeed(Array.headNonEmpty(peers));
         const source = yield* Effect.fromOption(
             Array.findFirst(rows, ({ peer }) => Link.key(peer) === Link.key(chosen)),
-            () => McpSchema.InvalidParams.make({ message: `${Link.key(chosen)} serves no ${at}, ${Array.map(peers, Link.key).join(', ')} do` }),
+            () => McpSchema.InvalidParams.make({ message: `${label(chosen)} serves no ${at}, ${Array.map(peers, label).join(', ')} do` }),
         );
         return yield* use(source);
     });

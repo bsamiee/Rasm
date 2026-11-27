@@ -1,6 +1,6 @@
-use core::future;
 use core::pin::Pin;
 use core::time::Duration;
+use core::{future, mem};
 use std::error::Report;
 use std::io;
 
@@ -76,7 +76,6 @@ impl Negotiation {
 enum Stage {
     Handshake(Negotiation),
     Ready,
-    Ending,
 }
 
 #[derive(derive_more::Debug)]
@@ -90,6 +89,15 @@ pub(super) struct Live<R, W, C> {
     stop: CancellationToken,
     started: Instant,
     stage: Stage,
+}
+
+impl<R, W, C> Live<R, W, C> {
+    fn ended(self) -> Pin<Box<C>> {
+        let Self { lines, writer, closed, stop, started: _, stage: _ } = self;
+        drop((lines, writer));
+        stop.cancel();
+        closed
+    }
 }
 
 #[derive(derive_more::Debug)]
@@ -114,6 +122,10 @@ pub(super) enum Upstream<A, R, W, C> {
         started: Instant,
     },
     Up(Box<Live<R, W, C>>),
+    Ending {
+        #[debug(skip)]
+        closed: Pin<Box<C>>,
+    },
 }
 
 impl<A, R, W, C> Upstream<A, R, W, C>
@@ -142,18 +154,18 @@ where
                 wake
             }
             Self::Up(open) => loop {
-                let Live { lines, writer, closed, stop: _, started: _, stage } = &mut **open;
-                let reading = !stage.is_ending();
-                let unsent = reading && !writer.write_buffer().is_empty();
+                let Live { lines, writer, closed, stop: _, started: _, stage: _ } = &mut **open;
+                let unsent = !writer.write_buffer().is_empty();
                 tokio::select! {
                     biased;
                     Some(flushed) = OptionFuture::from(unsent.then(|| SinkExt::<Bytes>::flush(writer))) => if let Err(error) = flushed {
                         break Wake::Failed(error);
                     },
-                    Some(line) = OptionFuture::from(reading.then(|| lines.next())) => break Wake::Line(line),
+                    line = lines.next() => break Wake::Line(line),
                     cause = closed => break Wake::Closed(cause),
                 }
             },
+            Self::Ending { closed } => Wake::Closed(closed.await),
         }
     }
 
@@ -161,24 +173,16 @@ where
         if let Some(error) = error {
             tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "server link failed");
         }
-        match self {
-            Self::Up(open) => {
-                open.writer.write_buffer_mut().clear();
-                open.stop.cancel();
-                open.stage = Stage::Ending;
-            }
-            Self::Down { retry: _ } | Self::Connecting { attempt: _, stop: _, started: _ } => {}
-        }
+        *self = match mem::replace(self, Self::down(Duration::ZERO)) {
+            Self::Up(open) => Self::Ending { closed: open.ended() },
+            held @ (Self::Down { retry: _ } | Self::Connecting { attempt: _, stop: _, started: _ } | Self::Ending { closed: _ }) => held,
+        };
     }
 
     pub(super) async fn close(self) -> Option<String> {
         match self {
-            Self::Up(open) => {
-                let Live { lines, writer, closed, stop, started: _, stage: _ } = *open;
-                stop.cancel();
-                drop((lines, writer));
-                Some(closed.await)
-            }
+            Self::Up(open) => Some(open.ended().await),
+            Self::Ending { closed } => Some(closed.await),
             Self::Connecting { attempt: _, stop, started: _ } => {
                 stop.cancel();
                 None
@@ -191,8 +195,8 @@ where
 
     fn writable(&mut self) -> Option<&mut Live<R, W, C>> {
         match self {
-            Self::Up(open) if !open.stage.is_ending() => Some(&mut **open),
-            Self::Up(_) | Self::Down { retry: _ } | Self::Connecting { attempt: _, stop: _, started: _ } => None,
+            Self::Up(open) => Some(&mut **open),
+            Self::Down { retry: _ } | Self::Connecting { attempt: _, stop: _, started: _ } | Self::Ending { closed: _ } => None,
         }
     }
 
@@ -203,7 +207,7 @@ where
     pub(super) fn negotiation(&mut self) -> Option<&mut Negotiation> {
         match self.writable().map(|open| &mut open.stage) {
             Some(Stage::Handshake(negotiation)) => Some(negotiation),
-            Some(Stage::Ready | Stage::Ending) | None => None,
+            Some(Stage::Ready) | None => None,
         }
     }
 

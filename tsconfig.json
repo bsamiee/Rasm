@@ -237,9 +237,6 @@
             "path": "./libs/typescript/web/vite"
         },
         {
-            "path": "./tests/products/apps/creative-cloud/atelier"
-        },
-        {
             "path": "./tests/libs/typescript/graphics/mark"
         },
         {
@@ -280,9 +277,6 @@
         },
         {
             "path": "./products/macos/rasad/server"
-        },
-        {
-            "path": "./tests/products/macos/rasad"
         },
         {
             "path": "./tests/libs/typescript/macos/applications"

@@ -1,11 +1,12 @@
 import UFuzzy from '@leeoniya/ufuzzy';
-import { Array, Effect, Equivalence, ErrorReporter, Function, flow, type LogLevel, Option, Predicate, pipe, Schema, SchemaGetter, Struct } from 'effect';
+import { Array, Effect, Equivalence, ErrorReporter, Function, flow, type LogLevel, Option, Predicate, Schema, SchemaGetter, Struct } from 'effect';
 import { Digits } from '#/digits';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const COLLATOR = new Intl.Collator(undefined, { usage: 'search', sensitivity: 'base', ignorePunctuation: true });
 const LISTING = new Intl.ListFormat('en');
+const LIMITS = { listed: 100, nearest: 8 } as const;
 const FUZZY = new UFuzzy({
     intraMode: 1,
     unicode: true,
@@ -24,6 +25,7 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
     candidates: Schema.Array(Schema.String),
     message: Schema.String,
 }) {
+    static readonly #listing = (items: readonly string[], limit: number) => LISTING.format(items.length > limit ? [...Array.take(items, limit), `${items.length - limit} more`] : items);
     static readonly #folded = (text: string) => Digits.fold(text.normalize('NFKD').replaceAll(/\p{M}/gu, ''));
     static readonly named = Equivalence.make((left: string, right: string) => COLLATOR.compare(left, right) === 0);
     static readonly rank: {
@@ -34,18 +36,19 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
         return matches === null ? candidates : (info === null ? matches : order.map((position) => Array.getUnsafe(info.idx, position))).map((index) => Array.getUnsafe(candidates, index));
     };
     static readonly of = ({ subject, query = Option.none(), candidates = [] }: { readonly subject: string; readonly query?: Option.Option<string>; readonly candidates?: readonly string[] }) => {
-        const limit = 100;
         const refused = Option.match(query, { onNone: () => `No ${subject}`, onSome: (wanted) => `No ${subject} matching ${wanted}` });
-        const displayed = pipe(
-            query,
-            Option.map((wanted) => Unmatched.rank(wanted, candidates)),
-            Option.filter(Array.isReadonlyArrayNonEmpty),
-            Option.getOrElse(() => candidates),
-            Array.take(limit),
+        const listed = Option.match(
+            Option.map(query, (wanted) => Unmatched.rank(wanted, candidates)),
+            {
+                onNone: () => `candidates: ${Unmatched.#listing(candidates, LIMITS.listed)}`,
+                onSome: Array.match({
+                    onNonEmpty: (ranked) => `nearest: ${Unmatched.#listing(ranked, LIMITS.nearest)}`,
+                    onEmpty: () => (candidates.length > LIMITS.nearest ? `none of ${candidates.length} candidates is near` : `candidates: ${Unmatched.#listing(candidates, LIMITS.nearest)}`),
+                }),
+            },
         );
-        const rest = candidates.length - displayed.length;
-        const listed = rest === 0 ? displayed : [...displayed, `${rest} more`];
-        return Unmatched.make({ subject, query, candidates, message: Array.isReadonlyArrayEmpty(candidates) ? refused : `${refused}, candidates: ${LISTING.format(listed)}` });
+        const message = Array.isReadonlyArrayEmpty(candidates) ? refused : `${refused}, ${listed}`;
+        return Unmatched.make({ subject, query, candidates, message });
     };
     static readonly stated = Schema.Struct(Struct.omit(Unmatched.fields, ['message']))
         .pipe(Schema.decodeTo(Schema.toType(Unmatched), { decode: SchemaGetter.transform(Unmatched.of), encode: SchemaGetter.passthroughSubtype() }))

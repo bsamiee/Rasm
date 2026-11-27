@@ -13,14 +13,14 @@ import { Justification } from '@rasm/typography/shaping/justification';
 import { ShapedText } from '@rasm/typography/shaping/shaped-text';
 import { expandToWords, Span } from '@rasm/typography/shaping/word';
 import type { Source } from '@rasm/typography/source';
-import { Array, Cause, Context, Effect, Equivalence, FileSystem, Number, Option, Predicate, Record, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Context, Effect, FileSystem, Number, Option, Predicate, Record, Schema, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const SAME_FACE = Equivalence.Struct({ font: Equivalence.String, axes: Array.makeEquivalence(Equivalence.Number) });
 const MODES = { kern: { restores: false, shapes: true }, replace: { restores: true, shapes: true }, restore: { restores: true, shapes: false } } as const;
+const FONTS = new Intl.ListFormat('en');
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -50,13 +50,13 @@ const Tools = {
         success: Inspection.View.cases.Font.mapFields(Struct.assign({ specimen: Schema.OptionFromOptionalKey(Specimen) })),
     }).annotate(Tool.Readonly, true),
     kerning: Tool.make('kerning', {
-        description: 'Computes pair kerning and baseline shift from glyph outlines across text, story or frame widened to whole words, and writes them in one undo step',
+        description: 'Computes pair kerning and baseline shift from glyph outlines across text, story or frame widened to whole words, writes them in one undo step, and returns a line naming the target and the rows written',
         parameters: Schema.Struct({
             target: Kerns.fields.target,
             rules: Kerning.pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed(Kerning.make({})))),
             mode: Schema.OptionFromOptionalKey(Schema.Literals(Record.keys(MODES)).annotate({ description: 'kern keeps manual kerning. replace restores metrics kerning across the words, then kerns. restore writes metrics kerning alone. Absent, a whole story kerns and text inside one replaces' })),
         }),
-        success: Kerns.Result,
+        success: Schema.String,
     }),
     typeset: Tool.make('typeset', {
         description: 'Reads settings of text, story, frame or text defaults, or writes given settings in one undo step, turning off stylistic sets rival to one turned on and refusing kashida in a face with no tatweel advance and no jalt',
@@ -64,24 +64,25 @@ const Tools = {
         success: Typeset.Result,
     }),
     quran: Tool.make('quran', {
-        description: 'Reads ayahs of surah or division from CSV files or mushaf, its basmalah a line before ayah 1, each ayah closed by a number mark the named application font draws and each line by separator',
+        description: 'Returns the text of the ayahs of a surah or division from CSV files or a mushaf, its basmalah a line before ayah 1, each ayah closed by a number mark the named application font draws and each line by separator',
         parameters: Schema.Struct({ source: QuranSource, selection: Quran.Selection, face: FONT, numberingSystem: Settings.fields.numberingSystem, separator: Schema.String.annotate({ description: 'Text after each line' }) }),
-        success: Schema.Struct({ text: Schema.String }),
+        success: Schema.String,
     }).annotateMerge(Context.make(Tool.Readonly, true).pipe(Context.add(Tool.OpenWorld, false))),
     symbols: Tool.make('symbols', {
-        description: 'Lists symbols of TSV file that named application font covers, by set',
+        description: 'Lists the symbols of a TSV file that the named application font draws, one line per set',
         parameters: Schema.Struct({ file: PATH.annotate({ description: 'Symbol TSV path, one column of hexadecimal code points per set' }), face: FONT }),
-        success: Schema.Struct({ sets: Schema.Record(Schema.String, Schema.Array(Schema.String)) }),
+        success: Schema.String,
     }).annotateMerge(Context.make(Tool.Readonly, true).pipe(Context.add(Tool.OpenWorld, false))),
 };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const specimen = Effect.fnUntraced(function* (data: Source, { coordinates, variations, size, width, settings: given, text, ...run }: Tool.Parameters<typeof Tools.font>) {
-    const face = yield* Face.open(data, { coordinates, variations, size });
-    const settings = yield* Settings.merge(Settings.make({}), Struct.evolve(given, { features: (features = {}) => face.layout.exclusive(features) }));
-    const natural = Option.map(text, (body) => ShapedText.of(face, { ...run, text: body }, settings));
-    const justified = Option.map(Option.all([text, width]), ([body, line]) => Justification.of([{ face, run: { ...run, text: body }, settings }], line));
+const specimen = Effect.fnUntraced(function* (data: Source, given: Tool.Parameters<typeof Tools.font>) {
+    const face = yield* Face.open(data, Struct.pick(given, Struct.keys(Face.Instance.fields)));
+    const settings = yield* Settings.merge(Settings.make({}), Struct.evolve(given.settings, { features: (features = {}) => face.layout.exclusive(features) }));
+    const run = Option.map(given.text, (text) => ({ ...Struct.pick(given, Struct.keys(ShapedText.Run.fields)), text }));
+    const natural = Option.map(run, (shaping) => ShapedText.of(face, shaping, settings));
+    const justified = Option.map(Option.all([run, given.width]), ([shaping, width]) => Justification.of([{ face, run: shaping, settings }], width));
     return { face, shaped: Option.orElse(justified, () => natural), choices: Option.match(natural, { onNone: () => [], onSome: (shaped) => face.layout.choices(shaped) }) };
 });
 
@@ -93,32 +94,29 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
     const client = links.call(serving, 'linked application serving typesetting');
     const visible = Context.make(Server.Visibility, Effect.map(links.peers, Array.some(serving)));
     const readSource = Effect.fnUntraced(function* (name: string, characters: string) {
-        const file = yield* files.makeTempFileScoped({ suffix: '.otf' });
-        const { font, source } = yield* Effect.flatMap(client, (linked) => linked('font', { name, text: characters, file }));
-        return { font, source: yield* Effect.transposeOption(Option.map(source, ({ file: found, postscriptName }) => files.readFile(found).pipe(Effect.bindTo('data'), Effect.map(Struct.assign({ postscriptName }))))) };
+        const [linked, file] = yield* Effect.all([client, files.makeTempFileScoped({ suffix: '.otf' })]);
+        const found = yield* linked('fontSource', { name, text: characters, file });
+        return yield* Effect.transposeOption(Option.map(found, ({ file: path, postscriptName }) => files.readFile(path).pipe(Effect.bindTo('data'), Effect.map(Struct.assign({ postscriptName })))));
     }, Effect.scoped);
-    const openFace = Effect.fnUntraced(function* (name: string, characters: string, instance?: Parameters<typeof Face.open>[1]) {
-        const { source } = yield* readSource(name, characters);
-        return yield* Face.open(yield* Effect.fromOption(source, () => Unmatched.of({ subject: 'font file', query: Option.some(name) })), instance);
+    const openFace = Effect.fnUntraced(function* (name: string, characters: string, instance?: typeof Face.Instance.Type) {
+        const source = yield* readSource(name, characters);
+        return yield* Face.open(yield* Effect.fromOption(source, () => Unmatched.of({ subject: 'installed font', query: Option.some(name) })), instance);
     });
-    const styleRuns = (runs: Parameters<typeof Span.styled>[0], first: number, last: number, extra: string) => {
-        const placed = Span.styled(runs, first, last);
-        return Effect.forEach(
-            Array.dedupeWith(placed, SAME_FACE),
-            Effect.fnUntraced(function* (span: (typeof placed)[number]) {
-                const group = placed.filter((each) => SAME_FACE(span, each));
-                const face = yield* openFace(span.font, [...group.map(Struct.get('text')), extra].join(''), Face.Instance.make({ coordinates: span.axes }));
-                return { font: span.font, face, group };
-            }),
-        );
-    };
+    const styleRuns = (runs: Parameters<typeof Span.styled>[0], first: number, last: number, extra: string) =>
+        Effect.forEach(Record.values(Array.groupBy(Span.styled(runs, first, last), ({ font, axes }) => `${font}\t${axes.join(' ')}`)), (group) => {
+            const { font, axes } = Array.headNonEmpty(group);
+            return Effect.map(openFace(font, [...group.map(Struct.get('text')), extra].join(''), Face.Instance.make({ coordinates: axes })), (face) => ({ font, face, group }));
+        });
     yield* Server.registerTool(
         Tools.font.annotateMerge(visible),
         Effect.fnUntraced(function* (given) {
-            const { font, source } = yield* readSource(
-                given.name,
-                Option.getOrElse(given.text, () => ''),
-            );
+            const [font, source] = yield* Effect.all([
+                Effect.flatMap(client, (linked) => linked('font', { name: given.name })),
+                readSource(
+                    given.name,
+                    Option.getOrElse(given.text, () => ''),
+                ),
+            ]);
             return { ...font, specimen: yield* Effect.transposeOption(Option.map(source, (data) => specimen(data, given))) };
         }),
     );
@@ -131,18 +129,21 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
             const [first, last] = expandToWords(text, selection.start, selection.start + selection.length);
             const { restores, shapes } = MODES[Option.getOrElse(mode, () => (selection.length === text.length ? 'kern' : 'replace'))];
             const restore = Option.liftPredicate({ index: first, length: last - first }, ({ length }) => restores && length > 0);
-            const faces = !shapes || first === last ? [] : yield* styleRuns(selection.runs, first, last, '');
-            const ordered = Array.sortWith(
-                Array.flatMap(faces, ({ face, group }) => Array.cartesian([face], group)),
-                ([, span]: readonly [Face, { readonly start: number }]) => span.start,
+            const faces = shapes && first < last ? yield* styleRuns(selection.runs, first, last, '') : [];
+            const spans = Array.sortWith(
+                faces.flatMap(({ face, group }) => Array.cartesian([face], group)),
+                ([, span]) => span.start,
                 Number.Order,
             );
-            const rows = yield* Stream.fromIterable(ordered).pipe(
+            const rows = yield* Stream.fromIterable(spans).pipe(
                 Stream.map(([face, span]) => Array.map(rules.kerns(face, span.text), Struct.evolve({ index: Number.sum(span.start) }))),
-                Server.progress((_, at) => ({ progress: at + 1, total: ordered.length })),
+                Server.progress((_, at) => ({ progress: at + 1, total: spans.length })),
                 Stream.runCollect,
             );
-            return yield* linked('kerns', { target: selection.specifier, restore, kerns: rows.flat() });
+            const kerns = rows.flat();
+            const { specifier, written } = yield* linked('kerns', { target: selection.specifier, restore, kerns });
+            const counted = `${written} of ${kerns.length} kerning rows written`;
+            return Option.match(restore, { onNone: () => `${specifier} · ${counted}`, onSome: ({ length }) => `${specifier} · metrics kerning restored across ${length} characters, ${counted}` });
         }),
     );
     yield* Server.registerTool(
@@ -150,31 +151,32 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
         Effect.fnUntraced(function* ({ target, settings }) {
             const linked = yield* client;
             const elongating = Option.exists(Option.flatMapNullishOr(settings, Struct.get('kashida')), Predicate.not(Predicate.isTagged('None')));
-            const tatweel = String.fromCodePoint(TATWEEL);
-            const selection = yield* linked('runs', { target });
-            const faces = elongating || Option.isSome(Option.flatMapNullishOr(settings, Struct.get('features'))) ? yield* styleRuns(selection.runs, selection.start, selection.start + selection.length, elongating ? tatweel : '') : [];
+            const featured = Option.isSome(Option.flatMapNullishOr(settings, Struct.get('features')));
+            const faces = elongating || featured ? yield* Effect.flatMap(linked('runs', { target }), ({ runs, start, length }) => styleRuns(runs, start, start + length, elongating ? String.fromCodePoint(TATWEEL) : '')) : [];
             const broken = elongating ? faces.filter(({ face }) => !drawsKashida(face)) : [];
-            yield* Array.isReadonlyArrayEmpty(broken) ? Effect.void : new Cause.IllegalArgumentError(`${broken.map(Struct.get('font')).join(', ')} draw no ${tatweel} with positive advance and hold no jalt, so kashida breaks their joins`);
+            yield* Array.match(broken, {
+                onEmpty: () => Effect.void,
+                onNonEmpty: (fonts) => new Cause.IllegalArgumentError(`Kashida breaks the joins of ${FONTS.format(fonts.map(Struct.get('font')))}, as they draw no tatweel with a positive advance and hold no jalt, so set kashida to None or apply a face that has either`),
+            });
             return yield* linked('typeset', { target, settings: Option.map(settings, Struct.evolve({ features: (features = {}) => faces.reduce((exclusive, { face }) => face.layout.exclusive(exclusive), features) })) });
         }),
     );
     yield* Server.registerTool(
         Tools.quran.annotateMerge(visible),
         Effect.fnUntraced(function* ({ source, selection, face: name, numberingSystem, separator }) {
-            const text = QuranSource.match(source, {
+            const quran = yield* QuranSource.match(source, {
                 Csv: ({ ayahs, surahs, columns, riwayah }) => Effect.flatMap(Effect.all({ ayahs: files.readFileString(ayahs), surahs: files.readFileString(surahs) }), (csv) => Quran.decode(csv, columns, riwayah)),
                 Mushaf: ({ file, render }) => Effect.flatMap(Effect.transposeOption(Option.map(file, files.readFileString)), (json) => Quran.mushaf(json, render)),
             });
-            const [quran, face] = yield* Effect.all([text, openFace(name, '')]);
-            return { text: yield* Quran.text(quran, separator, face, Settings.make({ numberingSystem }))(selection) };
+            return yield* Quran.text(quran, separator, (marks) => openFace(name, marks), Settings.make({ numberingSystem }))(selection);
         }),
     );
     yield* Server.registerTool(
         Tools.symbols.annotateMerge(visible),
         Effect.fnUntraced(function* ({ file, face: name }) {
             const symbols = yield* Effect.flatMap(files.readFileString(file), Symbols.decode);
-            const face = yield* openFace(name, Object.values(symbols.sets).flat().join(''));
-            return { sets: symbols.supported(face).sets };
+            const face = yield* openFace(name, Record.values(symbols.sets).flat().join(''));
+            return Record.collect(symbols.supported(face).sets, (set, characters) => `${set}: ${Array.match(characters, { onEmpty: () => 'none drawn', onNonEmpty: Array.join(' ') })}`).join('\n');
         }),
     );
 });

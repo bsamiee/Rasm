@@ -4,6 +4,7 @@ use core::time::Duration;
 use std::collections::BTreeMap;
 use std::error::Report;
 use std::io::{self, Write as _};
+use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::Arc;
 
@@ -120,6 +121,7 @@ impl Daemon {
         const GRACE: Duration = Duration::from_millis(500);
         const TAIL: usize = 8;
         const LINE: u64 = 4 << 10;
+        const PATH_TMP: &str = "/tmp";
         let declared = ClientCapabilitiesBuilder {
             roots: Some(RootsCapabilities::default()),
             sampling: Some(SamplingCapability::default()),
@@ -143,14 +145,15 @@ impl Daemon {
             let (key, processes, (attached, attachment)) = (key.clone(), processes.clone(), oneshot::channel());
             let Command { program, file: _, arguments, directory, environment } = key.0.clone();
             let mut exited = async move {
-                let login = match rasm_process::login(&directory, time::Instant::now().checked_add(LOGIN), GRACE, &stop).await {
+                let temporary = [PathBuf::from(PATH_TMP)];
+                let login = match rasm_process::login(&directory, &temporary, time::Instant::now().checked_add(LOGIN), GRACE, &stop).await {
                     Ok(login) => login,
                     Err(error) => return Report::new(&error).to_string(),
                 };
                 let mut process = tokio::process::Command::new(program);
                 process.args(arguments).current_dir(directory).env_clear().envs(login).envs(environment).stderr(Stdio::piped());
                 let attach = async |streams| attached.send(streams).map_err(|rasm_process::Streams { id: _, stdin: _, stdout: _, stderr: _ }| io::Error::from(io::ErrorKind::BrokenPipe));
-                match rasm_process::run(process, Some(BUFFER), None, GRACE, &stop, attach).await {
+                match rasm_process::run(process, Some(BUFFER), &temporary, None, GRACE, &stop, attach).await {
                     Ok(status) | Err(rasm_process::ProcessError { program: _, process: Some((_, Some(status))), failures: _ }) => status.to_string(),
                     Err(error) => Report::new(&error).to_string(),
                 }

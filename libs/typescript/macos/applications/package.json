@@ -20,6 +20,12 @@
     "exports": {
         "./address": "./address.ts",
         "./contract": "./contract.ts",
+        "./capture": "./capture.ts",
+        "./installations": "./installations.ts",
+        "./instances": "./instances.ts",
+        "./interface": "./interface.ts",
+        "./processes": "./processes.ts",
+        "./steps": "./steps.ts",
         "./interface-map": "./interface-map.ts",
         "./outline": "./outline.ts",
         "./client": "./client.ts",
@@ -36,6 +42,12 @@
         "exports": {
             "./address": "./dist/address.js",
             "./contract": "./dist/contract.js",
+            "./capture": "./dist/capture.js",
+            "./installations": "./dist/installations.js",
+            "./instances": "./dist/instances.js",
+            "./interface": "./dist/interface.js",
+            "./processes": "./dist/processes.js",
+            "./steps": "./dist/steps.js",
             "./interface-map": "./dist/interface-map.js",
             "./outline": "./dist/outline.js",
             "./client": "./dist/client.js",
@@ -53,8 +65,7 @@
         "@rasm/mcp": "workspace:*",
         "@rasm/process": "workspace:*",
         "@rasm/rpc": "workspace:*",
-        "@rasm/search": "workspace:*",
-        "plist": "catalog:"
+        "@rasm/search": "workspace:*"
     },
     "devDependencies": {
         "@types/node": "catalog:",

@@ -3,12 +3,13 @@ import { Handles } from '@rasm/mcp/handles';
 import { Cause, Effect, Fiber, Queue, Schema, Stream } from 'effect';
 import { McpProtocol } from 'effect/ai';
 import { HttpApiClient } from 'effect/http-api';
-import { lines, opened, TEXT } from '#/fixtures';
+import { KIND, lines, opened, TEXT } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PROTOCOL = McpProtocol.v2026_07_28;
 const EVENTS = ['Preview opened window 3', 'Preview closed window 3'] as const;
+const STANDING = { key: 'instance 41', waits: 'Preview window 3 asks to save', settles: 'Preview closed the save sheet' } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -47,8 +48,8 @@ describe('handle routes a harness plugin reaches', () => {
                 {
                     server: 'test',
                     streamed: [
-                        { sequence: 1, line: '! #1 Preview opened window 3' },
-                        { sequence: 2, line: '! #2 Preview closed window 3' },
+                        { _tag: 'Line', sequence: 1, line: '! #1 Preview opened window 3', kind: KIND },
+                        { _tag: 'Line', sequence: 2, line: '! #2 Preview closed window 3', kind: KIND },
                     ],
                     acked: 204,
                     shown: ['! #2 Preview closed window 3', '', TEXT],
@@ -70,7 +71,24 @@ describe('handle routes a harness plugin reaches', () => {
             const returned = lines(yield* Fiber.join(running));
             yield* Queue.offer(probe.shared, EVENTS[1]);
             const streamed = yield* followedLines(followed, 1);
-            assert.deepStrictEqual({ returned, streamed }, { returned: ['! #1 Preview opened window 3', '', 'released'], streamed: [{ sequence: 2, line: '! #2 Preview closed window 3' }] });
+            assert.deepStrictEqual({ returned, streamed }, { returned: ['! #1 Preview opened window 3', '', 'released'], streamed: [{ _tag: 'Line', sequence: 2, line: '! #2 Preview closed window 3', kind: KIND }] });
+        }),
+    );
+
+    it.live(
+        'streams a waiting event with its bare line, then settles its key once a later event of the key settles it',
+        Effect.fnUntraced(function* () {
+            const { probe, request } = yield* opened(PROTOCOL);
+            const { handle } = yield* Effect.flatMap(request(urls.bind(), { method: 'POST' }), decoded(Handles.Binding));
+            const followed = yield* request(urls.follow({ params: { handle } }));
+            yield* Queue.offerAll(probe.standing, [
+                { text: STANDING.waits, standing: Handles.Standing.cases.Waiting.make({ key: STANDING.key }) },
+                { text: STANDING.settles, standing: Handles.Standing.cases.Settled.make({ key: STANDING.key }) },
+            ]);
+            assert.deepStrictEqual(yield* followedLines(followed, 2), [
+                { _tag: 'Waiting', sequence: 1, key: STANDING.key, line: STANDING.waits },
+                { _tag: 'Settled', key: STANDING.key },
+            ]);
         }),
     );
 });

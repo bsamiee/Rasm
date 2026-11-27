@@ -56,9 +56,6 @@ Jobs of workflow `CI` and the projects each runs:
 - `pack--playwright` renders in job `browser`, extension UI in its image's Linux `system-ui`
 - Job `macos` runs affected `os:darwin` projects except `host:rhino` and `host:unreal`, as no Linux graph holds an Apple project and its runner holds no engine
 - Job `macos` runs `nx conformance:check` again, as Apple projects and their targets enter only the macOS graph
-- Job `macos` writes system TCC rows granting the selected Xcode's `xctest` Accessibility, PostEvent, and Screen Recording, as hosted images run SIP off
-- Job `macos` marks that `xctest` approved in replayd, as an unapproved screen capture raises an alert that takes focus from the fixture
-- Job `macos` prints tccd's `AUTHREQ` lines after a failed step, naming the client tccd judged, as the job's VM and its log end with the job
 - Job `macos` uploads each `test--xcodebuild` result bundle with its reports, holding attachments and window captures of failing tests
 - Job `macos` runs `hk check` steps `swiftlint`, `swift-format`, `plutil`, and `xcprojformatter` from base to head, as hk defines them on macOS alone
 - Job `macos` runs `hk check` through `git` (`HK_LIBGIT2`), as libgit2 fails on a file a partial clone lacks where `git` lists names without it

@@ -7,11 +7,11 @@ import Testing
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-private let members: [(type: Int32, names: Set<String>)] = [
-    (0, ["arrowCursor"]), (1, ["IBeamCursor"]), (2, ["dragLinkCursor"]), (3, ["operationNotAllowedCursor"]), (5, ["dragCopyCursor"]), (11, ["closedHandCursor"]),
-    (12, ["openHandCursor"]), (13, ["pointingHandCursor"]), (17, ["resizeLeftCursor"]), (18, ["resizeRightCursor"]), (19, ["columnResizeCursor", "resizeLeftRightCursor"]),
-    (20, ["crosshairCursor"]), (21, ["resizeUpCursor"]), (22, ["resizeDownCursor"]), (23, ["rowResizeCursor", "resizeUpDownCursor"]), (24, ["contextualMenuCursor"]),
-    (25, ["disappearingItemCursor"]), (26, ["IBeamCursorForVerticalLayout"]), (42, ["zoomInCursor"]), (43, ["zoomOutCursor"]),
+private let members: [(type: Int32, name: String)] = [
+    (0, "arrowCursor"), (1, "IBeamCursor"), (2, "dragLinkCursor"), (3, "operationNotAllowedCursor"), (5, "dragCopyCursor"), (11, "closedHandCursor"), (12, "openHandCursor"),
+    (13, "pointingHandCursor"), (17, "columnResizeCursor left"), (18, "columnResizeCursor right"), (19, "columnResizeCursor"), (20, "crosshairCursor"), (21, "rowResizeCursor up"),
+    (22, "rowResizeCursor down"), (23, "rowResizeCursor"), (24, "contextualMenuCursor"), (25, "disappearingItemCursor"), (26, "IBeamCursorForVerticalLayout"), (42, "zoomInCursor"),
+    (43, "zoomOutCursor"),
 ]
 private let drawn = Data((0..<4480).map { (index: Int) -> UInt8 in UInt8(index * 7 % 251) })
 private let unnamed: [(label: String, image: Pointer.Cursor.Image?)] = [
@@ -44,11 +44,14 @@ private let drags: [(label: String, rows: String, draggingFrame: CGRect?)] = [
 
 @Suite(.timeLimit(.minutes(1)))
 struct PointerTests {
+    init() async { await NSApplication.loadApplication() }
+
     @Test(arguments: members)
-    func namesTheImageOfEachStandardCursorByAnAppKitClassPropertyOfItsCoreTypeAliasesIncluded(type: Int32, names: Set<String>) throws {
+    func namesTheImageOfEachStandardCursorByTheAppKitMemberThatDrawsIt(type: Int32, name: String) throws {
         let image: Pointer.Cursor.Image = try #require(Pointer.Cursor.Image(.core(type)), "CoreCursor type \(type) gives no image")
         let named = Pointer.Cursor(image)
-        #expect(names.map { (name: String) -> Pointer.Cursor in .system(name: name) }.contains(named), "CoreCursor type \(type) is named \(named)")
+        let expected: Pointer.Cursor = .system(name: name)
+        expectNoDifference(named, expected, "CoreCursor type \(type)")
     }
 
     @Test

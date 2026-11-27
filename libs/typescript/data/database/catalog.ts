@@ -20,7 +20,7 @@ class Catalog extends Data.Class<{
             Formatter.formatJson({
                 tables: tables.map(({ columns, search, tenant, ...table }) => ({
                     ...Struct.omit(table, ['schema', 'options', 'queries', 'paths']),
-                    columns: Object.values(columns).map(Struct.omit(['schema'])),
+                    columns: Object.values(columns).map(Struct.omit(['schema', 'earlier'])),
                     search: Option.map(search, ({ columns: searched, tokenizer }) => ({ columns: searched.map(Struct.get('name')), tokenizer })),
                     tenant: Option.map(tenant, ({ column, setting }) => ({ column: column.name, setting })),
                 })),

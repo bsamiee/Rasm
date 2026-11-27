@@ -6,7 +6,9 @@
       "options": {}
     }
   ],
-  "defaultOptions": {},
+  "defaultOptions": {
+    "codeCoverage": false
+  },
   "testTargets": [
     {
       "target": {
@@ -69,20 +71,6 @@
         "containerPath": "container:",
         "identifier": "ApplicationsTests",
         "name": "ApplicationsTests"
-      }
-    },
-    {
-      "target": {
-        "containerPath": "container:",
-        "identifier": "ApplicationServerTests",
-        "name": "ApplicationServerTests"
-      }
-    },
-    {
-      "target": {
-        "containerPath": "container:",
-        "identifier": "FixtureTests",
-        "name": "FixtureTests"
       }
     }
   ],

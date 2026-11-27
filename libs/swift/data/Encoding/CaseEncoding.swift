@@ -1,8 +1,12 @@
 // --- [TYPES] ---------------------------------------------------------------------------
 
-package protocol CaseTagged: Encodable {}
+package protocol CaseTagged: Encodable {
+    associatedtype RawValue = Never where RawValue == Never
+}
 
-package protocol CaseLabeled: Encodable {}
+package protocol CaseLabeled: Encodable {
+    associatedtype RawValue = Never where RawValue == Never
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -45,7 +49,5 @@ extension CaseTagged {
 }
 
 extension CaseLabeled {
-    var caseLabel: String { Mirror(reflecting: self).children.first?.label ?? String(describing: self) }
-
-    package func encode(to encoder: any Encoder) throws { try caseLabel.encode(to: encoder) }
+    package func encode(to encoder: any Encoder) throws { try (Mirror(reflecting: self).children.first?.label ?? String(describing: self)).encode(to: encoder) }
 }

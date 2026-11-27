@@ -23,8 +23,8 @@ package struct FileFailure: CustomNSError, LocalizedError {
     package var errorDescription: String? {
         switch reason {
             case .unwatched: "FSEvents stream on \(subject) failed to start"
-            case .held: "\(subject) is held"
-            case .compromised: "\(subject) changed while held"
+            case .held: "\(subject) is locked"
+            case .compromised: "\(subject) was removed or replaced while locked"
             case .filesystem(let error): "\(subject): \(error.localizedDescription)"
         }
     }

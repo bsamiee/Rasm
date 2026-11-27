@@ -1,7 +1,7 @@
 import { AYAH_MARK, ayahMark, type MarkKind, Mushaf } from '@quran.ws/text';
 import { Digits } from '@rasm/search/digits';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Effect, Equivalence, flow, Number, Option, Order, Record, Schema, Stream, Struct } from 'effect';
+import { Array, Effect, Equivalence, Number, Option, Order, Record, Schema, Stream, Struct } from 'effect';
 import { Csv } from 'effect/encoding';
 import { ayahsInPart, formatSurahAyah, generatePartBlocks, getListsOfRiwaya, isValidSurah, isValidSurahAyah, partNames, type RiwayaData, type RiwayaName, type RiwayasNames, type SurahAyah, type SurahNames, surahNamesAr, surahNamesEn } from 'quran-meta';
 import { TypographyError } from '#/error';
@@ -31,9 +31,12 @@ class Ayah extends Schema.Class<Ayah, { readonly brand: unique symbol }>('Ayah')
     text: Schema.String,
     basmalah: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Unnumbered basmalah the mushaf prints before the ayah' })),
 }) {
-    marked(separator: string, face: Pick<Face, 'draws'>, settings: Pick<Settings, 'digits'>): Effect.Effect<string, Unmatched> {
+    forms(settings: Pick<Settings, 'digits'>) {
         const mark = settings.digits(ayahMark(this.number));
-        const forms = [mark, `\u{FD3F}${mark.slice(AYAH_MARK.length)}\u{FD3E}`];
+        return [mark, `\u{FD3F}${mark.slice(AYAH_MARK.length)}\u{FD3E}`] as const;
+    }
+    marked(separator: string, face: Pick<Face, 'draws'>, settings: Pick<Settings, 'digits'>): Effect.Effect<string, Unmatched> {
+        const forms = this.forms(settings);
         const drawn = Array.findFirst(forms, (form) => face.draws(form));
         return Effect.fromOption(drawn, () => Unmatched.of({ subject: 'ayah mark the face draws', query: Option.some(String(this.number)), candidates: forms })).pipe(Effect.map((form) => [...Option.toArray(this.basmalah), `${this.text}\u{A0}${form}`].map((line) => `${line}${separator}`).join('')));
     }
@@ -106,7 +109,13 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
             Surah: ({ surah, from, to }) => Effect.flatMap(quran.surah(surah), (chapter) => (Option.isNone(quran.riwayah) ? within(chapter, { from, to }) : counted(quran, 'surah', chapter.number, { from, to }))),
             Part: ({ part, number, from, to }) => counted(quran, part, number, { from, to }),
         });
-    static readonly text = (quran: Quran, separator: string, face: Pick<Face, 'draws'>, settings: Pick<Settings, 'digits'>) => flow(Quran.select(quran), Effect.flatMap(Effect.forEach((ayah) => ayah.marked(separator, face, settings))), Effect.map(Array.join('')));
+    static readonly text = <E, R>(quran: Quran, separator: string, face: (marks: string) => Effect.Effect<Pick<Face, 'draws'>, E, R>, settings: Pick<Settings, 'digits'>) =>
+        Effect.fnUntraced(function* (selection: typeof Quran.Selection.Type) {
+            const ayahs = yield* Quran.select(quran)(selection);
+            const drawing = yield* face(ayahs.flatMap((ayah) => ayah.forms(settings)).join(''));
+            const marked = yield* Effect.forEach(ayahs, (ayah) => ayah.marked(separator, drawing, settings));
+            return marked.join('');
+        });
 
     surah(query: string) {
         return Unmatched.single(this.surahs, 'surah', Option.some(query), ({ names, number }) => Array.append(names, String(number)));

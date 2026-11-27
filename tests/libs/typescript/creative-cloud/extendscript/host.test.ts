@@ -49,12 +49,17 @@ describe(stringify, () => {
 
 describe(reply, () => {
     it.effect.each([
-        { named: 'a line it threw on as Thrown at that line', error: { message: 'No such element', number: 1302, line: 3 }, reason: { _tag: 'Thrown', line: Option.some(3) }, subject: `${SUBJECT}: Error 1302: No such element` },
-        { named: 'a throw holding no line as Refused', error: { message: 'Target is locked' }, reason: { _tag: 'Refused' }, subject: SUBJECT },
-    ] as const)('answers $named', ({ error, reason, subject }) =>
+        {
+            named: 'a line it threw on as Thrown at that line, its error number typed',
+            error: { message: 'No such element', number: 1302, line: 3 },
+            expected: { reason: { _tag: 'Thrown', line: Option.some(3) }, subject: `${SUBJECT}: No such element`, number: Option.some(1302) },
+            message: `line 3: ${SUBJECT}: No such element (error 1302)`,
+        },
+        { named: 'a throw holding no line as Refused', error: { message: 'Target is locked' }, expected: { reason: { _tag: 'Refused' }, subject: SUBJECT, number: Option.none() }, message: `${SUBJECT} refused: Target is locked` },
+    ] as const)('answers $named', ({ error, expected, message }) =>
         Effect.map(Effect.flip(answered(reply(raising(error)))), (failed) => {
             assert.instanceOf(failed, HostError);
-            assert.deepStrictEqual(Struct.pick(failed, ['reason', 'subject']), { reason, subject });
+            assert.deepStrictEqual([Struct.pick(failed, ['reason', 'subject', 'number']), failed.message], [expected, message]);
         }),
     );
 

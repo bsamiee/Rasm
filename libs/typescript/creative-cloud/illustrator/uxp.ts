@@ -2,14 +2,14 @@ import { Containment } from '@rasm/object-model/host';
 import { HostError } from '@rasm/object-model/model';
 import type { Render } from '@rasm/object-model/rpcs';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Callable, Uxp } from '@rasm/uxp/plugin';
+import { Callable, HostObject, Uxp } from '@rasm/uxp/plugin';
 import type { File } from 'adobe:uxp';
 import { Array, Context, Effect, Layer, Option, Path, Predicate, Schema, Struct } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Rect = Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite]).annotate({ description: 'Left, top, right, and bottom in points' });
-const Application = Schema.Struct({
+const Application = HostObject({
     name: Schema.NonEmptyString.annotate({ description: 'Bundle name without its extension' }),
     path: Schema.NonEmptyString.annotate({ description: 'Folder holding the running bundle' }),
     userInteractionLevel: Schema.String,
@@ -17,13 +17,11 @@ const Application = Schema.Struct({
     getSelectedToolName: Callable,
     selectTool: Callable,
 });
-const Module = Schema.Struct({ app: Application.pipe(Schema.is, Schema.declare).annotate({ description: 'Application instance require("illustrator") holds as app' }) });
+const Module = Schema.Struct({ app: Application.annotate({ description: 'Application instance require("illustrator") holds as app' }) });
 const Filed = Schema.Struct({ fullName: Schema.Unknown }).annotate({ description: 'Document keyed by its file' });
-const Document = Filed.mapFields(Struct.assign({ artboards: Uxp.Collection, layers: Uxp.Collection, pageItems: Uxp.Collection, getPageItemFromUuid: Callable, imageCapture: Callable }))
-    .pipe(Schema.is, Schema.declare)
-    .annotate({
-        description: 'Document by its file, its collections, its page item lookup by uuid, and the capture render calls',
-    });
+const Document = HostObject({ ...Filed.fields, artboards: Uxp.Collection, layers: Uxp.Collection, pageItems: Uxp.Collection, getPageItemFromUuid: Callable, imageCapture: Callable }).annotate({
+    description: 'Document by its file, its collections, its page item lookup by uuid, and the capture render calls',
+});
 const Identified = Schema.Struct({ uuid: Schema.String }).annotate({ description: 'Page item keyed by its uuid' });
 const PageItem = Identified.mapFields(Struct.assign({ parentDocument: Schema.Unknown })).annotate({ description: 'Page item by its uuid and the document holding it, the members every page item class holds' });
 const Bounded = Schema.Struct({ visibleBounds: Rect }).annotate({ description: 'Document or page item by its bounds' });
@@ -35,7 +33,7 @@ const Globals = Schema.Struct({ UserInteractionLevel: Schema.Struct({ DONTDISPLA
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Illustrator extends Context.Service<Illustrator>()('@rasm/illustrator/uxp/Illustrator', {
-    make: Effect.map(Effect.all([Effect.flatMap(Uxp.require('illustrator'), Schema.decodeUnknownEffect(Module)), Effect.suspend(() => Schema.decodeUnknownEffect(Globals)(globalThis))]), ([{ app }, globals]) => ({
+    make: Effect.map(Effect.all([Uxp.require('illustrator', Module), Effect.suspend(() => Schema.decodeUnknownEffect(Globals)(globalThis))]), ([{ app }, globals]) => ({
         ...globals,
         app,
         containment: {
@@ -61,6 +59,7 @@ const toolbar = {
         Effect.map((id) => ({ id, label: id })),
     ),
     select: (id: string) => Illustrator.use(({ app }) => Effect.try({ try: (): unknown => app.selectTool(id), catch: HostError.refused(`tool ${id}`) })),
+    changes: Uxp.ticks,
 };
 const suppressDialogs = Illustrator.use(({ app, UserInteractionLevel }) => Uxp.preserve(app, { userInteractionLevel: UserInteractionLevel.DONTDISPLAYALERTS }));
 const execute = (code: string) => Illustrator.use(({ containment }) => Uxp.execute(containment, code));

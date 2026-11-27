@@ -15,6 +15,21 @@ package struct InstanceEvent: Encodable, Sendable {
 
     @CasePathable
     enum Change: CaseTagged, Sendable {
+        enum Priority: CaseLabeled, Sendable {
+            case low
+            case medium
+            case high
+
+            init?(_ priority: AXPriority) {
+                switch priority {
+                    case .low: self = .low
+                    case .medium: self = .medium
+                    case .high: self = .high
+                    @unknown default: return nil
+                }
+            }
+        }
+
         case started(identifier: String?, name: String?)
         case opened(container: Int, kind: Container.Kind, title: String?)
         case closed(container: Int, kind: Container.Kind, title: String?)
@@ -27,7 +42,7 @@ package struct InstanceEvent: Encodable, Sendable {
         case frontmost(active: Bool)
         case hidden(hidden: Bool)
         case status(status: InstanceState.Activity.Status)
-        case announced(text: String, priority: Lenient<AXPriority>?)
+        case announced(text: String, priority: Priority?)
         case dragging(notification: String, control: Int?, kind: Control.Kind?)
         case logged(entry: LogEntry)
         case reported(report: DiagnosticReport)

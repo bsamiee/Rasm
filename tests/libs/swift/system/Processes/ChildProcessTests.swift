@@ -40,21 +40,26 @@ struct ChildProcessTests {
     @Test(.timeLimit(.minutes(1)))
     func timeoutEndsEveryProcessOfTheSessionItsChildStarted() async throws {
         let file = URL.temporaryDirectory.appending(path: "\(UUID().uuidString).pid")
-        defer { try? FileManager.default.removeItem(at: file) }
+        defer {
+            do { try FileManager.default.removeItem(at: file) } catch { Issue.record(error) }
+        }
         let failure = await #expect(throws: ProcessFailure.self) {
             try await Configuration(
                 executable: .path("/bin/sh"),
-                arguments: ["-c", "sleep 60 & echo $! > \"$0\"; wait", file.path(percentEncoded: false)],
+                arguments: ["-c", "sleep 600 & echo $! > \"$0\"; wait", file.path(percentEncoded: false)],
                 platformOptions: .session,
             )
             .run(output: .discarded, within: .seconds(1))
         }
         expectNoDifference(failure?.reason, .timedOut(.seconds(1)))
-        let written = try String(contentsOf: file, encoding: .utf8)
-        let parsed = pid_t(written.trimmingCharacters(in: .newlines))
-        let grandchild = try #require(parsed)
-        let deadline = ContinuousClock.now + .seconds(5)
-        while kill(grandchild, 0) == 0, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
-        #expect(kill(grandchild, 0) == -1 && errno == ESRCH)
+        let grandchild = try #require(pid_t(try String(contentsOf: file, encoding: .utf8).trimmingCharacters(in: .newlines)))
+        let (exits, exited) = AsyncStream<Void>.makeStream()
+        let source = DispatchSource.makeProcessSource(identifier: grandchild, eventMask: .exit, queue: .global())
+        source.setEventHandler { exited.yield() }
+        source.activate()
+        let ended: Bool = await exits.contains { _ in true }
+        source.cancel()
+        if !ended { kill(grandchild, SIGKILL) }
+        #expect(ended, "process \(grandchild) of the timed-out session outlived its teardown")
     }
 }

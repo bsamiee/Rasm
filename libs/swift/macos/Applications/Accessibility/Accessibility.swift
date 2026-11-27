@@ -9,22 +9,24 @@ import SPI
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 let messagingTimeout: Duration = .seconds(1)
+let numberFormat: FloatingPointFormatStyle<Double> = FloatingPointFormatStyle(locale: Locale(identifier: "en_US_POSIX")).grouping(.never).precision(.significantDigits(1...17))
 let frameAttribute: String = "AXFrame"
-let userInputLabelsAttribute: String = "AXUserInputLabels"
-let fullScreenAttribute: String = "AXFullScreen"
-let sectionsAttribute: String = "AXSections"
-let contentSizeAttribute: String = "AXContentSize"
 let manualAccessibilityAttribute: String = "AXManualAccessibility"
-let preferredLanguageAttribute: String = "AXPreferredLanguage"
+let userInputLabelsAttribute: String = NSAccessibility.Attribute.userInputLabels.rawValue
+let fullScreenAttribute: String = NSAccessibility.Attribute.fullScreen.rawValue
+let sectionsAttribute: String = NSAccessibility.Attribute.sections.rawValue
+let contentSizeAttribute: String = NSAccessibility.Attribute.contentSize.rawValue
+let preferredLanguageAttribute: String = NSAccessibility.Attribute.preferredLanguage.rawValue
 let frameAttributes: [String] = [frameAttribute, NSAccessibility.Attribute.activationPoint.rawValue]
 let elementAttributes: [String] = [
     kAXRoleAttribute, kAXSubroleAttribute, kAXRoleDescriptionAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXHelpAttribute, kAXIdentifierAttribute, kAXDOMIdentifierAttribute,
-    userInputLabelsAttribute, kAXValueAttribute, kAXEnabledAttribute, kAXFocusedAttribute, kAXSelectedAttribute, kAXParentAttribute, kAXChildrenAttribute, kAXTitleUIElementAttribute,
-    kAXPlaceholderValueAttribute, kAXExpandedAttribute, kAXVisibleCharacterRangeAttribute, frameAttribute,
+    NSAccessibility.Attribute.userInputLabels.rawValue, kAXValueAttribute, kAXEnabledAttribute, kAXFocusedAttribute, kAXSelectedAttribute, kAXParentAttribute, kAXChildrenAttribute,
+    kAXTitleUIElementAttribute, kAXPlaceholderValueAttribute, kAXExpandedAttribute, kAXVisibleCharacterRangeAttribute, frameAttribute,
 ]
 let windowAttributes: [String] =
     elementAttributes + [
-        kAXModalAttribute, kAXMainAttribute, kAXDocumentAttribute, kAXDefaultButtonAttribute, kAXCancelButtonAttribute, kAXCloseButtonAttribute, fullScreenAttribute, sectionsAttribute,
+        kAXModalAttribute, kAXMainAttribute, kAXDocumentAttribute, kAXDefaultButtonAttribute, kAXCancelButtonAttribute, kAXCloseButtonAttribute,
+        NSAccessibility.Attribute.fullScreen.rawValue, NSAccessibility.Attribute.sections.rawValue,
     ]
 let webAttributes: [String] = [
     kAXInvalidAttribute, NSAccessibility.Attribute.required.rawValue, kAXARIACurrentAttribute, kAXARIARowCountAttribute, kAXLoadedAttribute, kAXLoadingProgressAttribute,
@@ -133,7 +135,7 @@ extension Fact {
                 case CFStringGetTypeID(): (value as? String).map(Self.text(value:))
                 case CFAttributedStringGetTypeID(): (value as? NSAttributedString).map { (text: NSAttributedString) -> Self in .text(value: text.string) }
                 case CFDateGetTypeID(): (value as? Date).map(Self.date(value:))
-                case CFURLGetTypeID(): (value as? URL).map { (url: URL) -> Self in .url(value: (unsafe CFURLCreateFilePathURL(nil, url as CFURL, nil)?.takeRetainedValue() ?? url as CFURL) as URL) }
+                case CFURLGetTypeID(): (value as? URL).map { (url: URL) -> Self in .url(value: unsafe CFURLCreateFilePathURL(nil, url as CFURL, nil)?.takeRetainedValue() as URL? ?? url) }
                 case CFArrayGetTypeID(): (value as? [AnyObject]).map { (items: [AnyObject]) -> Self in .list(values: items.compactMap { item in Self(item, interning: intern) }) }
                 case CFDictionaryGetTypeID():
                     (value as? [String: AnyObject]).map { (fields: [String: AnyObject]) -> Self in .record(fields: fields.compactMapValues { field in Self(field, interning: intern) }) }
@@ -141,27 +143,43 @@ extension Fact {
                     CGColorSpace(name: CGColorSpace.sRGB).flatMap { space in unsafe unsafeDowncast(value, to: CGColor.self).converted(to: space, intent: .defaultIntent, options: nil)?.components }
                         .flatMap { (parts: [CGFloat]) -> Self? in parts.count == 4 ? .color(red: parts[0], green: parts[1], blue: parts[2], alpha: parts[3]) : nil }
                 case AXUIElementGetTypeID(): .element(id: intern(unsafe unsafeDowncast(value, to: AXUIElement.self)))
-                case AXValueGetTypeID():
-                    switch AXValueGetType(unsafe unsafeDowncast(value, to: AXValue.self)) {
-                        case .cgPoint: AXValue.unpack(value, into: CGPoint.zero).map(Self.point(value:))
-                        case .cgSize: AXValue.unpack(value, into: CGSize.zero).map(Self.size(value:))
-                        case .cgRect: AXValue.unpack(value, into: CGRect.zero).map(Self.rect(value:))
-                        case .cfRange: AXValue.unpack(value, into: CFRange()).map { (range: CFRange) -> Self in .range(location: range.location, length: range.length) }
-                        case .axError:
-                            AXValue.unpack(value, into: AXError.success).flatMap { (error: AXError) -> Self? in
-                                [.noValue, .attributeUnsupported].contains(error) ? nil : .refused(error: Lenient(rawValue: error.rawValue))
-                            }
-                        case .illegal: nil
-                        @unknown default: nil
-                    }
+                case AXValueGetTypeID(): Self(unsafe unsafeDowncast(value, to: AXValue.self))
                 default: nil
+            }
+        guard let fact else { return nil }
+        self = fact
+    }
+
+    init?(_ boxed: AXValue) {
+        let fact: Self? =
+            switch AXValueGetType(boxed) {
+                case .cgPoint: boxed.unpack(into: CGPoint.zero).map(Self.point(value:))
+                case .cgSize: boxed.unpack(into: CGSize.zero).map(Self.size(value:))
+                case .cgRect: boxed.unpack(into: CGRect.zero).map(Self.rect(value:))
+                case .cfRange: boxed.unpack(into: CFRange()).map { (range: CFRange) -> Self in .range(location: range.location, length: range.length) }
+                case .axError:
+                    boxed.unpack(into: AXError.success).flatMap { (error: AXError) -> Self? in
+                        [.noValue, .attributeUnsupported].contains(error) ? nil : .refused(error: Lenient(rawValue: error.rawValue))
+                    }
+                case .illegal: nil
+                @unknown default: nil
             }
         guard let fact else { return nil }
         self = fact
     }
 }
 
-extension Fact.Scalar {
+extension Fact.Scalar: CustomStringConvertible {
+    package var description: String {
+        switch self {
+            case .bool(let flag): String(flag)
+            case .number(let number): number.formatted(numberFormat)
+            case .text(let text): text.debugDescription
+            case .date(let date): date.formatted(.iso8601)
+            case .rect(let frame): "[[\(SIMD2<Double>(frame.minX, frame.minY).coordinates)], [\(SIMD2<Double>(frame.width, frame.height).coordinates)]]"
+        }
+    }
+
     var number: Double? {
         switch self {
             case .number(let number): number
@@ -173,7 +191,7 @@ extension Fact.Scalar {
     var text: String? {
         switch self {
             case .text(let text): text
-            case .number(let number): number.formatted(FloatingPointFormatStyle<Double>(locale: Locale(identifier: "en_US_POSIX")).grouping(.never).precision(.significantDigits(1...17)))
+            case .number(let number): number.formatted(numberFormat)
             case .bool, .date, .rect: nil
         }
     }
@@ -190,10 +208,9 @@ extension Fact.Scalar {
 }
 
 extension AXValue {
-    fileprivate static func unpack<Value: BitwiseCopyable>(_ slot: CFTypeRef, into empty: Value) -> Value? {
-        let boxed: AXValue = unsafe unsafeDowncast(slot, to: AXValue.self)
+    fileprivate func unpack<Value: BitwiseCopyable>(into empty: Value) -> Value? {
         var value = empty
-        return unsafe AXValueGetValue(boxed, AXValueGetType(boxed), &value) ? value : nil
+        return unsafe AXValueGetValue(self, AXValueGetType(self), &value) ? value : nil
     }
 }
 
@@ -206,11 +223,9 @@ extension AXUIElement {
     }
 
     var window: CGWindowID? {
-        var (number, connection, owner): (CGWindowID, Int32, pid_t) = (0, 0, 0)
+        var (number, answering): (CGWindowID, pid_t) = (0, 0)
         guard unsafe windowNumber(self, &number) == .success else { return nil }
-        guard let process, unsafe windowOwner(mainConnection(), number, &connection) == .success, unsafe processOfConnection(connection, &owner) == .success, owner != process else {
-            return number
-        }
+        guard let process, unsafe actualProcess(self, &answering) == .success, answering != process else { return number }
         return InstanceState.Window.all(.optionAll, of: process)[process]?.first { row in row.remote == number }?.number ?? number
     }
 
@@ -293,13 +308,17 @@ extension AXUIElement {
     }
 
     func search(_ text: String, key: NSAccessibilitySearchKey, limit: Int) throws(ApplicationFailure) -> [AXUIElement] {
+        let attribute: String = NSAccessibility.ParameterizedAttribute.uiElementsForSearchPredicateParameterizedAttribute.rawValue
+        var names: CFArray?
+        let listed: AXError = unsafe AXUIElementCopyParameterizedAttributeNames(self, &names)
+        guard [.success, .noValue, .attributeUnsupported, .parameterizedAttributeUnsupported].contains(listed) else { throw failure(listed, reading: attribute) }
+        guard (names as? [String])?.contains(attribute) == true else {
+            return Array(try elements(kAXWindowsAttribute).map { window throws(ApplicationFailure) -> [AXUIElement] in try window.search(text, key: key, limit: limit) }.joined().prefix(limit))
+        }
         let predicate: [String: Any] = [
-            NSAccessibilitySearchIdentifiersKey: key.rawValue, NSAccessibilitySearchResultsLimitKey: limit, NSAccessibilitySearchDirectionKey: NSAccessibilitySearchDirectionNext,
+            NSAccessibilitySearchIdentifiersKey: [key.rawValue], NSAccessibilitySearchResultsLimitKey: limit, NSAccessibilitySearchDirectionKey: NSAccessibilitySearchDirectionNext,
         ]
-        let found = try parameterized(
-            NSAccessibility.ParameterizedAttribute.uiElementsForSearchPredicateParameterizedAttribute.rawValue,
-            predicate.merging(text.isEmpty ? [:] : [NSAccessibilitySearchTextKey: text]) { first, _ in first } as CFDictionary,
-        )
+        let found = try parameterized(attribute, predicate.merging(text.isEmpty ? [:] : [NSAccessibilitySearchTextKey: text]) { first, _ in first } as CFDictionary)
         return (found as? [AnyObject] ?? []).compactMap(Self.cast)
     }
 
@@ -332,12 +351,16 @@ extension AXUIElement {
         }
     }
 
+    var name: String {
+        let named = Element(id: 0, facts: copy([kAXRoleDescriptionAttribute, kAXRoleAttribute, kAXTitleAttribute, kAXDescriptionAttribute]) { _ in 0 }.facts, actions: [], window: nil)
+        let role: String = named.text(kAXRoleDescriptionAttribute) ?? named.role ?? kAXUnknownRole
+        return (named.text(kAXTitleAttribute) ?? named.text(kAXDescriptionAttribute)).map { label in "\(role) \(String(reflecting: label))" } ?? role
+    }
+
     func failure(_ error: AXError, reading attribute: String) -> ApplicationFailure {
-        ApplicationFailure(error, subject: process.map { pid in "\(attribute) of process \(pid)" } ?? attribute, process: process) {
-            let named = Element(id: 0, facts: copy([kAXRoleAttribute, kAXTitleAttribute, kAXDescriptionAttribute]) { _ in 0 }.facts, actions: [], window: nil)
-            let role: String = named.role ?? kAXUnknownRole
-            let subject: String = (named.text(kAXTitleAttribute) ?? named.text(kAXDescriptionAttribute)).map { label in "\(role) \(String(reflecting: label))" } ?? role
-            return ApplicationFailure(subject: "\(attribute) of \(subject)", reason: .accessibility(error))
+        let application: String = process.flatMap(NSRunningApplication.init(processIdentifier:))?.localizedName ?? "the application"
+        return ApplicationFailure(error, subject: "\(attribute) of \(application)", process: process) {
+            ApplicationFailure(subject: "\(attribute) of \(self.name)", reason: .accessibility(error))
         }
     }
 }

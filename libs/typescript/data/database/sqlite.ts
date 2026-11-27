@@ -113,7 +113,14 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             ...mergeTreeRefusals(relation),
         ];
     };
-    static readonly open: NonNullable<Engine['Service']['open']> = (sql) => Effect.andThen(sql`PRAGMA synchronous = NORMAL`, sql`PRAGMA optimize = 0x10002`);
+    static readonly open: NonNullable<Engine['Service']['open']> = (sql) =>
+        SqlSchema.findOne({ Request: Schema.Void, Result: Vacuum, execute: () => sql`SELECT auto_vacuum = 2 AS incremental FROM pragma_auto_vacuum` })().pipe(
+            Effect.catchTags({ SchemaError: Effect.die, NoSuchElementError: Effect.die }),
+            Effect.flatMap(({ incremental }) => (incremental ? Effect.void : Effect.andThen(sql`PRAGMA auto_vacuum = INCREMENTAL`, sql`VACUUM`))),
+            Effect.andThen(sql`PRAGMA incremental_vacuum`),
+            Effect.andThen(sql`PRAGMA synchronous = NORMAL`),
+            Effect.andThen(sql`PRAGMA optimize = 0x10002`),
+        );
     static readonly execute = Engine.transaction;
     static readonly transactional = true;
     static readonly #stamped = (token: Option.Option<string>) =>
@@ -329,6 +336,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
     static readonly layer = <A, E, R>(client: (names: Dialect['names']) => Layer.Layer<A | SqlClient.SqlClient, E, R>, names: Dialect['names'] = Engine.names.snake) => Layer.mergeAll(Layer.succeed(Engine, { ...Sqlite, names, plan: Sqlite.plan([]) }), Layer.succeed(Rows, Sqlite), client(names));
 }
 const Observed = Schema.Struct({ observed: Schema.fromJsonString(Sqlite) });
+const Vacuum = Schema.Struct({ incremental: Schema.BooleanFromBit });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

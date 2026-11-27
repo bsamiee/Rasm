@@ -15,12 +15,7 @@ const STATED = { manifestVersion: 5, id: 'app.rasm.test', name: 'Test', version:
 const COMMAND = { id: 'reset', label: 'Reset', type: 'command' } as const;
 const PANEL = { id: 'typesetting', label: 'Typesetting', type: 'panel' } as const;
 const GLYPH = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 23 23" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4.25 11.5H18.75"/></svg>';
-const ADDONS = Array.cartesianWith(Array.cartesian([5, 6] as const, [{}, { enableAddon: false }, { enableAddon: true }]), [{}, { addon: { name: 'Typesetting' } }], ([manifestVersion, requiredPermissions], addon) => ({
-    manifestVersion,
-    requiredPermissions,
-    addon,
-    accepted: !('addon' in addon) || (manifestVersion === 6 && 'enableAddon' in requiredPermissions && requiredPermissions.enableAddon),
-}));
+const ADDON = { addon: { name: 'Typesetting' } } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -29,7 +24,7 @@ const Row = Schema.Struct({ path: Schema.String, scale: Schema.Array(Schema.Int)
 const Written = Schema.fromJsonString(
     Schema.Struct({
         main: Schema.String,
-        host: Schema.Struct({ minVersion: Schema.SemVerFromString }),
+        host: Schema.Struct({ minVersion: Schema.SemVerFromString, data: Schema.Struct({ loadEvent: Schema.String }) }),
         icons: Schema.Array(Row),
         entrypoints: Schema.Tuple([Schema.Struct({ id: Schema.String, icons: Row.pipe(Schema.Array, Schema.optionalKey) }), Schema.Struct({ id: Schema.String, icons: Schema.Array(Row) })]),
         requiredPermissions: Schema.Struct({ network: Schema.Struct({ domains: Schema.Array(Schema.String) }) }),
@@ -64,17 +59,10 @@ const misdrawn = (out: string, rows: readonly (typeof Row.Type)[]) =>
 
 describe(UxpManifest, () => {
     it.each([
-        { species: ['toolbar'], width: 23, height: 23, accepted: true },
-        { species: ['toolbar'], width: 23, height: 24, accepted: false },
-        { species: ['pluginList'], width: 24, height: 24, accepted: true },
-        { species: ['pluginList'], width: 24, height: 23, accepted: false },
-        { species: ['toolbar', 'pluginList'], width: 23, height: 23, accepted: false },
-        { species: ['generic'], width: 48, height: 48, accepted: true },
-        { species: ['generic'], width: 48, height: 47, accepted: false },
-        { species: ['generic'], width: 0, height: 0, accepted: false },
-        { species: ['generic'], width: 23.5, height: 23.5, accepted: false },
-    ] as const)('decides a $species icon at $width x $height as accepted $accepted', ({ species, width, height, accepted }) => {
-        assert.strictEqual(Result.isSuccess(Schema.decodeResult(UxpManifest)({ ...STATED, entrypoints: [], icons: [{ width, height, path: 'icons/plugin.png', species }] })), accepted);
+        { side: 'zero', width: 0 },
+        { side: 'fractional', width: 23.5 },
+    ])('refuses a square generic icon whose side is $side', ({ width }) => {
+        assert.isTrue(Result.isFailure(Schema.decodeResult(UxpManifest)({ ...STATED, entrypoints: [], icons: [{ width, height: width, path: 'icons/plugin.png', species: ['generic'] }] })));
     });
 
     it.prop('accepts an icon exactly when it is square and every species it lists takes its side', { width: Side, height: Side, species: Schema.NonEmptyArray(Schema.Literals(['generic', 'toolbar', 'pluginList'])) }, ({ width, height, species }) => {
@@ -86,7 +74,13 @@ describe(UxpManifest, () => {
         assert.isTrue(Result.isFailure(Schema.decodeUnknownResult(UxpManifest)({ ...STATED, host: { app: STATED.host.app }, entrypoints: [] })));
     });
 
-    it.each(ADDONS)('decides addon $addon under manifest version $manifestVersion with permissions $requiredPermissions as accepted $accepted', ({ manifestVersion, requiredPermissions, addon, accepted }) => {
+    it.each([
+        { named: 'no addon under manifest version 5', manifestVersion: 5, requiredPermissions: {}, addon: {}, accepted: true },
+        { named: 'an addon under manifest version 5 with enableAddon', manifestVersion: 5, requiredPermissions: { enableAddon: true }, addon: ADDON, accepted: false },
+        { named: 'an addon under manifest version 6 stating no enableAddon', manifestVersion: 6, requiredPermissions: {}, addon: ADDON, accepted: false },
+        { named: 'an addon under manifest version 6 with enableAddon false', manifestVersion: 6, requiredPermissions: { enableAddon: false }, addon: ADDON, accepted: false },
+        { named: 'an addon under manifest version 6 with enableAddon', manifestVersion: 6, requiredPermissions: { enableAddon: true }, addon: ADDON, accepted: true },
+    ] as const)('decides $named as accepted $accepted', ({ manifestVersion, requiredPermissions, addon, accepted }) => {
         const decoded = Schema.decodeResult(UxpManifest)({ ...STATED, manifestVersion, entrypoints: [], requiredPermissions, ...addon });
         assert.strictEqual(Result.isSuccess(decoded), accepted);
     });
@@ -94,14 +88,14 @@ describe(UxpManifest, () => {
 
 it.layer(layer, { excludeTestServices: true })('uxp', (methods) => {
     methods.effect(
-        'writes the entry file, a host floor, both icon roles at 1x and 2x in black for light and white for dark themes, the stated network domains alone, and the rejection flag',
+        'writes the entry file, a host floor loaded at host startup, both icon roles at 1x and 2x in black for light and white for dark themes, the stated network domains alone, and the rejection flag',
         Effect.fnUntraced(function* () {
             const { out, text } = yield* built({ ...STATED, entrypoints: [COMMAND, PANEL], requiredPermissions: { network: { domains: ['https://example.com'] } } }, 'export {};\n');
             const written = yield* Schema.decodeEffect(Written)(text);
             const [command, panel] = written.entrypoints;
             const rows = [...written.icons, ...panel.icons];
             yield* Schema.decodeEffect(UxpManifest.json)(text);
-            assert.strictEqual(written.main, 'main.js');
+            assert.deepStrictEqual([written.main, written.host.data.loadEvent], ['main.js', 'startup']);
             assert.isFalse(Predicate.hasProperty(command, 'icons'));
             assert.deepStrictEqual(Array.dedupe(Array.map(rows, ({ species: [species], scale }) => `${species} ${scale.join(',')}`)), ['pluginList 1,2', 'toolbar 1,2']);
             assert.sameMembers(Array.flatMap(written.icons, Struct.get('theme')), Struct.keys(TONES));

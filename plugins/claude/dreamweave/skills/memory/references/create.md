@@ -43,12 +43,13 @@ Lines from one moment often split across rows, and each row runs its own work:
 9. Apply `SKILL.md` `[04]` merge and split to the requests: all needing a sibling's body fold the file into it, no shared situation splits it
 10. Clone with `git clone -q <memory-dir> <scratch>/memory`, write the files and link clauses there, and run `scripts/index.py <scratch>/memory`
 11. Read each request against the generated index alone, as a new session sees it: a request no line sends to its file rewrites that description
-12. Preview each new file's body, description, and requests, and each added link clause, through `AskUserQuestion` with a free-response option
-13. In a session without `AskUserQuestion`, write only on the owner's own request with the preview in the reply, else reply with the preview alone
-14. Return to step 10 when the owner changes a description or moves a line, so the check covers what the owner approves
-15. Write the accepted general memory, then its specific memories, with Write, and add the link clauses to existing files with Edit
-16. Delete the scratch clone
-17. Fix each refusal the plugin reports after a write before the work ends
+12. Print each new file's body, requests, and added link clauses in the reply, then ask one `multiSelect` `AskUserQuestion` without `preview`
+13. Give each memory one option, its stem as label and its description as text, and a second option `None` where one memory stands alone
+14. In a session without `AskUserQuestion`, write only on the owner's own request with the bodies in the reply, else reply with the bodies alone
+15. Return to step 10 when the owner changes a description or moves a line, so the check covers what the owner approves
+16. Write the accepted general memory, then its specific memories, with Write, and add the link clauses to existing files with Edit
+17. Delete the scratch clone
+18. Fix each refusal the plugin reports after a write before the work ends
 
 Requests shape each layer's description:
 - Rule files: should-load requests ask what the index line cannot settle, by `SKILL.md` `[05]` items 7 and 8

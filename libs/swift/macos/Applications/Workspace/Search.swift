@@ -30,8 +30,10 @@ extension NSMetadataQuery {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension NSPredicate {
-    package func evaluate(bundleIdentifier: String?) -> Bool {
-        bundleIdentifier.map { identifier in evaluate(with: [NSMetadataItemCFBundleIdentifierKey: identifier]) } == true
+    package func evaluate(bundleIdentifier: String?, displayName: String? = nil, bundle: URL? = nil) -> Bool {
+        bundleIdentifier.map { identifier in
+            evaluate(with: [NSMetadataItemCFBundleIdentifierKey: identifier, NSMetadataItemDisplayNameKey: displayName, NSMetadataItemFSNameKey: bundle?.lastPathComponent].compactMapValues(\.self))
+        } == true
     }
 
     fileprivate func metadataQueryPredicate(within candidates: NSPredicate, negated: Bool = false) -> NSPredicate {
@@ -61,16 +63,17 @@ extension NSPredicate {
 
 extension Installation {
     @MainActor
-    package static func search(_ predicate: NSPredicate, in directories: [URL] = []) -> some AsyncSequence<Listing, Never> & Sendable {
+    package static func search(_ predicate: NSPredicate, in directories: [URL]) -> some AsyncSequence<Listing, Never> & Sendable {
         let (listings, continuation) = AsyncStream<Listing>.makeStream(bufferingPolicy: .bufferingNewest(1))
         let (changes, changed) = AsyncStream<ApplicationFailure?>.makeStream()
-        let edits: [Task<Void, Never>] = directories.map { directory in
-            Task {
-                let notices = FileEvent.events(of: directory).filter { (batch: Result<[FileEvent], FileFailure>) -> Bool in
-                    batch[case: \.success]?.contains { event in event.mustScanSubDirs || event.url.pathComponents.suffix(2).elementsEqual(["Contents", "Info.plist"]) } != false
-                }
-                for await batch in notices { changed.yield(batch[case: \.failure].map { failure in ApplicationFailure(subject: failure.subject, reason: .foundation(failure as NSError)) }) }
+        let edits = Task {
+            let notices = FileEvent.events(of: directories).filter { (batch: Result<[FileEvent], FileFailure>) -> Bool in
+                batch[case: \.success]?.contains { (event: FileEvent) -> Bool in
+                    let moved: Bool = event.flags.contains(.itemIsDir) && !event.flags.isDisjoint(with: [.itemCreated, .itemRemoved, .itemRenamed])
+                    return event.mustScanSubDirs || event.url.pathComponents.suffix(2).elementsEqual(["Contents", "Info.plist"]) || moved && directories.contains(event.url.deletingLastPathComponent())
+                } != false
             }
+            for await batch in notices { changed.yield(batch[case: \.failure].map { failure in ApplicationFailure(subject: failure.subject, reason: .foundation(failure as NSError)) }) }
         }
         let following = Task { @MainActor in
             defer { continuation.finish() }
@@ -89,30 +92,39 @@ extension Installation {
             }
             defer { observation.invalidate() }
             let updates = merge(NotificationCenter.default.messages(of: query, for: NSMetadataQuery.DidUpdateMessage.self, bufferSize: 1).map { _ in ApplicationFailure?.none }, changes)
-            var (held, unwatched): ([URL: (modified: Date?, read: Result<Self, ApplicationFailure>)], [ApplicationFailure]) = ([:], [])
+            var (held, unwatched): ([URL: (modified: [Date?], read: Result<Self, ApplicationFailure>)], [ApplicationFailure]) = ([:], [])
             for await update in chain([ApplicationFailure?.none].async, updates) {
                 unwatched += [update].compactMap(\.self)
                 query.disableUpdates()
-                let indexed: [URL?] = query.results.map { result in
-                    ((result as? NSMetadataItem)?.value(forAttribute: NSMetadataItemPathKey) as? String).map { path in URL(filePath: path, directoryHint: .isDirectory) }
+                let indexed = (0..<query.resultCount).map { (index: Int) -> Result<URL, ApplicationFailure> in
+                    let item = query.result(at: index) as? NSMetadataItem
+                    let path: String? = item?.value(forAttribute: NSMetadataItemPathKey) as? String
+                    let name: String? = item?.value(forAttribute: NSMetadataItemDisplayNameKey) as? String
+                    let subject: String = name.map { (name: String) -> String in "Spotlight item \(name)" } ?? "Spotlight item"
+                    let located: Result<URL, ApplicationFailure>? = path.map { (path: String) -> Result<URL, ApplicationFailure> in .success(URL(filePath: path, directoryHint: .isDirectory)) }
+                    return located ?? .failure(ApplicationFailure(subject: subject, reason: .noPath))
                 }
                 query.enableUpdates()
+                let bundles: [URL] = indexed.compactMap { result in result[case: \.success] }
                 let running = OrderedSet(
                     NSWorkspace.shared.runningApplications.filter { application in
-                        application.activationPolicy == .regular && predicate.evaluate(bundleIdentifier: application.bundleIdentifier)
+                        application.activationPolicy == .regular
+                            && predicate.evaluate(bundleIdentifier: application.bundleIdentifier, displayName: application.localizedName, bundle: application.bundleURL)
                     }
                     .compactMap(\.bundleURL)
                 )
-                .subtracting(indexed.compactMap(\.self))
-                let (listing, reads) = await read(indexed + running.map(Optional.some), reusing: held)
+                .subtracting(bundles)
+                let (listing, reads) = await read(bundles + running, reusing: held)
                 held = reads
-                let matched: [Self] = listing.installations.filter { installation in predicate.evaluate(bundleIdentifier: installation.identifier) }
-                continuation.yield(Listing(installations: matched, unreadable: unwatched + listing.unreadable))
+                let matched: [Self] = listing.installations.filter { installation in
+                    predicate.evaluate(bundleIdentifier: installation.identifier, displayName: installation.name, bundle: installation.url)
+                }
+                continuation.yield(Listing(installations: matched, unreadable: unwatched + indexed.compactMap { result in result[case: \.failure] } + listing.unreadable))
             }
         }
         continuation.onTermination = { _ in
             following.cancel()
-            for edit in edits { edit.cancel() }
+            edits.cancel()
         }
         return listings.removeDuplicates()
     }
@@ -122,14 +134,12 @@ extension Installation {
         if document.isFileURL {
             do { _ = try document.checkResourceIsReachable() } catch { throw ApplicationFailure(subject: subject, reason: .foundation(error as NSError)) }
         }
-        let (listing, _) = await read(
-            OrderedSet([NSWorkspace.shared.urlForApplication(toOpen: document)].compactMap(\.self) + NSWorkspace.shared.urlsForApplications(toOpen: document)).map(Optional.some)
-        )
-        let matched = listing.installations.filter { installation in predicate.evaluate(bundleIdentifier: installation.identifier) }
+        let (listing, _) = await read(OrderedSet([NSWorkspace.shared.urlForApplication(toOpen: document)].compactMap(\.self) + NSWorkspace.shared.urlsForApplications(toOpen: document)).elements)
+        let matched = listing.installations.filter { installation in predicate.evaluate(bundleIdentifier: installation.identifier, displayName: installation.name, bundle: installation.url) }
         guard !matched.isEmpty else {
             throw ApplicationFailure(
                 subject: subject,
-                reason: .unmatched(Unmatched(subject: "application opening \(subject)", query: predicate.predicateFormat, candidates: listing.installations.map(\.name))),
+                reason: .unmatched(Unmatched(subject: "application opening \(subject) that this server drives", query: nil, candidates: listing.installations.map(\.name))),
             )
         }
         return Listing(installations: matched, unreadable: listing.unreadable)
@@ -137,25 +147,31 @@ extension Installation {
 
     @concurrent
     private static func read(
-        _ bundles: [URL?],
-        reusing held: [URL: (modified: Date?, read: Result<Self, ApplicationFailure>)] = [:],
-    ) async -> (listing: Listing, held: [URL: (modified: Date?, read: Result<Self, ApplicationFailure>)]) {
-        let finished: Mutex<[Int: (url: URL?, modified: Date?, read: Result<Self, ApplicationFailure>)]> = Mutex([:])
-        DispatchQueue.concurrentPerform(iterations: bundles.count) { index in
-            let url: URL? = bundles[index]
-            let modified = url.flatMap { url in try? url.appending(components: "Contents", "Info.plist").resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate }
-            let read: (url: URL?, modified: Date?, read: Result<Self, ApplicationFailure>) =
-                switch (url, url.flatMap { url in held[url] }) {
-                    case (.some(let url), .some(let kept)) where modified != nil && kept.modified == modified: (url, modified, kept.read)
-                    case (.some(let url), _): (url, modified, Result { () throws(ApplicationFailure) in try Self(at: url) })
-                    case (.none, _): (nil, nil, .failure(ApplicationFailure(subject: "Spotlight result \(index)", reason: .noPath)))
+        _ bundles: [URL],
+        reusing held: [URL: (modified: [Date?], read: Result<Self, ApplicationFailure>)] = [:],
+    ) async -> (listing: Listing, held: [URL: (modified: [Date?], read: Result<Self, ApplicationFailure>)]) {
+        let finished: Mutex<[URL: (modified: [Date?], read: Result<Self, ApplicationFailure>)]> = Mutex([:])
+        DispatchQueue.concurrentPerform(iterations: bundles.count) { (index: Int) in
+            let (url, plist): (URL, URL) = (bundles[index], bundles[index].appending(components: "Contents", "Info.plist"))
+            let modified: Result<[Date?]?, any Error> = Result { () throws -> [Date?]? in
+                try ifPresent { () throws -> [Date?] in
+                    let attributes: Date? = try url.resourceValues(forKeys: [.attributeModificationDateKey]).attributeModificationDate
+                    let contents: Date? = try plist.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+                    return [attributes, contents]
                 }
-            finished.withLock { finished in finished[index] = read }
+            }
+            let kept: (modified: [Date?], read: Result<Self, ApplicationFailure>)? = held[url]
+            let entry: (modified: [Date?], read: Result<Self, ApplicationFailure>)? =
+                switch (modified, kept) {
+                    case (.success(nil), _): nil
+                    case (.success(let modified?), let kept?) where kept.modified == modified && !modified.contains(nil): kept
+                    case (.success(let modified?), _): (modified, Result { () throws(ApplicationFailure) -> Self in try Self(at: url) })
+                    case (.failure(let error), _): ([], .failure(ApplicationFailure(subject: url.path(percentEncoded: false), reason: .foundation(error as NSError))))
+                }
+            finished.withLock { finished in finished[url] = entry }
         }
-        let reads: [(url: URL?, modified: Date?, read: Result<Self, ApplicationFailure>)] = finished.withLock { finished in bundles.indices.compactMap { index in finished[index] } }
-        return (
-            Listing(installations: OrderedSet(reads.compactMap { read in read.read[case: \.success] }).elements, unreadable: reads.compactMap { read in read.read[case: \.failure] }),
-            Dictionary(reads.compactMap { read in read.url.map { url in (url, (modified: read.modified, read: read.read)) } }) { first, _ in first },
-        )
+        let reads = finished.withLock { finished in finished }
+        let ordered: [Result<Self, ApplicationFailure>] = bundles.compactMap { url in reads[url]?.read }
+        return (Listing(installations: OrderedSet(ordered.compactMap { read in read[case: \.success] }).elements, unreadable: ordered.compactMap { read in read[case: \.failure] }), reads)
     }
 }

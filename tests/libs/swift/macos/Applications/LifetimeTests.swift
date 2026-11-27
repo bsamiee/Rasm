@@ -35,7 +35,7 @@ struct LifetimeTests {
         )
         let states = await Instance(application: .current, process: process).lifetime(running, clock: ContinuousClock()).reduce(into: [InstanceState]()) { states, state in states.append(state) }
         expectNoDifference(states.first, probe)
-        let ends: [Result<TerminationStatus, Errno>?] = states.dropFirst().map { state in state[case: \.exited]?.exit.map(\.status) }
+        let ends: [Result<TerminationStatus, Errno>?] = states.dropFirst().map { state in state[case: \.exited]?.exit.status }
         expectNoDifference(ends, [.success(.signaled(SIGTERM))])
     }
 }

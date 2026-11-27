@@ -2,7 +2,7 @@ import { pathToFileURL } from 'node:url';
 import { layer as services } from '@effect/platform-node/NodeServices';
 import { SqliteClient } from '@effect/sql-sqlite-node';
 import { assert, describe, it } from '@effect/vitest';
-import { type KeyStep, Observation } from '@rasm/applications/contract';
+import { type KeyStep, Observation } from '@rasm/applications/interface';
 import { InterfaceMap } from '@rasm/applications/interface-map';
 import { Description, FacetControl } from '@rasm/applications/source';
 import { Catalog } from '@rasm/database/catalog';
@@ -259,20 +259,20 @@ describe(InterfaceMap, () => {
         Effect.fnUntraced(function* (truth) {
             const world = app(truth);
             const reads = yield* Effect.forEach(world.readings, (read) => Schema.decodeEffect(Observation)(world.observation(read)));
-            const states = Array.scan(reads, { map: InterfaceMap.empty, changes: [] as readonly (typeof InterfaceMap.Change.Type)[] }, ({ map }, read) => map.fold(read, world.user));
-            const allChanges = states.flatMap(({ changes }) => changes);
+            const states = Array.scan(reads, [[], InterfaceMap.empty] as readonly [readonly (typeof InterfaceMap.Change.Type)[], InterfaceMap], ([, map], read) => map.fold(read, world.user));
+            const allChanges = states.flatMap(([changes]) => changes);
             const final = Array.lastNonEmpty(world.readings);
-            const last = Array.lastNonEmpty(states).map;
+            const [, last] = Array.lastNonEmpty(states);
             const controls = last.containers[world.window]?.controls ?? {};
             assert.isTrue(Record.has(controls, TOGGLE), 'the reads reached the stored window');
-            const held = (read: number, key: string) => states[read]?.map.containers[world.window]?.controls[key];
+            const held = (read: number, key: string) => states[read]?.[1].containers[world.window]?.controls[key];
             const returning = (index: number, key: string) => {
                 for (const read of world.readings) {
                     const [before, after] = [held(read, key), held(read + 1, key)];
                     if (before !== undefined && Option.isSome(before.retired) && world.present(read, index)) {
                         assert.isTrue(after !== undefined && Option.isNone(after.retired) && after.tally.persistent, `${key} shown after retirement returns persistent`);
                         assert.isTrue(
-                            states[read + 1]?.changes.some((change) => change._tag === 'Appeared' && change.at === key),
+                            states[read + 1]?.[0].some((change) => change._tag === 'Appeared' && change.at === key),
                             `${key} appears again on its return`,
                         );
                     }
@@ -315,12 +315,12 @@ describe(InterfaceMap, () => {
             const opening = yield* Schema.decodeEffect(Observation)(world.submenu(0));
             const menus = yield* Effect.forEach(world.readings, (read) => Effect.all([Schema.decodeEffect(Observation)(world.level(read, read)), Schema.decodeEffect(Observation)(world.level(read, read + 0.5))]));
             const leveled = menus.reduce((map, [first, again], read) => {
-                const once = map.fold(first, world.user).map;
-                const twice = once.fold(again, world.user);
-                assert.deepStrictEqual(twice.changes, [], 'a menu level read twice in one opening changes nothing');
-                assert.deepStrictEqual(Record.keys(twice.map.containers).toSorted(), Record.keys(once.containers).toSorted(), 'a menu level read twice stores one structure');
-                assert.deepStrictEqual(Record.map(twice.map.containers[MENU]?.controls ?? {}, Struct.omit(['tally'])), Record.map(once.containers[MENU]?.controls ?? {}, Struct.omit(['tally'])), 'a second read keeps every item as the first stored it');
-                return read === 0 ? twice.map.fold(opening, world.user).map : twice.map;
+                const [, once] = map.fold(first, world.user);
+                const [changes, twice] = once.fold(again, world.user);
+                assert.deepStrictEqual(changes, [], 'a menu level read twice in one opening changes nothing');
+                assert.deepStrictEqual(Record.keys(twice.containers).toSorted(), Record.keys(once.containers).toSorted(), 'a menu level read twice stores one structure');
+                assert.deepStrictEqual(Record.map(twice.containers[MENU]?.controls ?? {}, Struct.omit(['tally'])), Record.map(once.containers[MENU]?.controls ?? {}, Struct.omit(['tally'])), 'a second read keeps every item as the first stored it');
+                return read === 0 ? twice.fold(opening, world.user)[1] : twice;
             }, last);
             const items = leveled.containers[MENU]?.controls ?? {};
             assert.deepStrictEqual(items[RECENT]?.opens, Option.some(SUBMENU), 'the item keeps its submenu link through reads that omit it');
@@ -335,11 +335,11 @@ describe(InterfaceMap, () => {
     it('learns the label a facet gives its selected option under the newest build, serves it while the facet lists the option under another, and serves nothing a build before the newest learned', () => {
         const first = new InterfaceMap({ application: { builds: [BUILDS[0]], options: {}, cursors: {} }, containers: {} });
         const learned = first.learn(toolbar('Rectangle Tool', [{ label: 'Rectangle Tool' }, { label: 'PEN_TOOL' }]));
-        const served = learned.map.learn(toolbar('Pen Tool', [{ label: 'RECTANGLE_TOOL' }, { label: 'Pen Tool' }]));
-        const again = served.map.learn(toolbar('Pen Tool', [{ label: 'RECTANGLE_TOOL' }, { label: 'Pen Tool' }]));
-        const updated = new InterfaceMap({ application: { builds: [BUILDS[1], BUILDS[0]], options: served.map.application.options, cursors: {} }, containers: {} }).learn(toolbar('SELECTION_TOOL', [{ label: 'RECTANGLE_TOOL' }, { label: 'PEN_TOOL' }]));
+        const served = learned[1].learn(toolbar('Pen Tool', [{ label: 'RECTANGLE_TOOL' }, { label: 'Pen Tool' }]));
+        const again = served[1].learn(toolbar('Pen Tool', [{ label: 'RECTANGLE_TOOL' }, { label: 'Pen Tool' }]));
+        const updated = new InterfaceMap({ application: { builds: [BUILDS[1], BUILDS[0]], options: served[1].application.options, cursors: {} }, containers: {} }).learn(toolbar('SELECTION_TOOL', [{ label: 'RECTANGLE_TOOL' }, { label: 'PEN_TOOL' }]));
         assert.deepStrictEqual(
-            { learned: optionLabels(learned.described), served: optionLabels(served.described), updated: optionLabels(updated.described), kept: again.map === served.map, unlearned: first.learn(toolbar('SELECTION_TOOL', [{ label: 'RECTANGLE_TOOL' }, { label: 'PEN_TOOL' }])).map === first },
+            { learned: optionLabels(learned[0]), served: optionLabels(served[0]), updated: optionLabels(updated[0]), kept: again[1] === served[1], unlearned: first.learn(toolbar('SELECTION_TOOL', [{ label: 'RECTANGLE_TOOL' }, { label: 'PEN_TOOL' }]))[1] === first },
             { learned: ['Rectangle Tool', 'PEN_TOOL'], served: ['Rectangle Tool', 'Pen Tool'], updated: ['RECTANGLE_TOOL', 'PEN_TOOL'], kept: true, unlearned: true },
         );
     });
@@ -347,8 +347,8 @@ describe(InterfaceMap, () => {
     it('learns the shortcut and help beside the label a facet gives its selected option, and serves all three while the facet lists the option with its id alone', () => {
         const pen = { label: 'Pen Tool', shortcut: { key: 'p', modifiers: [] }, help: 'Click to add an anchor point, drag to pull its direction handles' } as const;
         const learned = new InterfaceMap({ application: { builds: [BUILDS[0]], options: {}, cursors: {} }, containers: {} }).learn(toolbar('Pen Tool', [{ label: 'RECTANGLE_TOOL' }, pen]));
-        const served = learned.map.learn(toolbar('RECTANGLE_TOOL', [{ label: 'RECTANGLE_TOOL' }, { label: 'PEN_TOOL' }]));
-        assert.deepStrictEqual<unknown>({ learned: optionFacts(learned.described), served: optionFacts(served.described) }, { learned: [{ label: 'RECTANGLE_TOOL' }, pen], served: [{ label: 'RECTANGLE_TOOL' }, pen] });
+        const served = learned[1].learn(toolbar('RECTANGLE_TOOL', [{ label: 'RECTANGLE_TOOL' }, { label: 'PEN_TOOL' }]));
+        assert.deepStrictEqual<unknown>({ learned: optionFacts(learned[0]), served: optionFacts(served[0]) }, { learned: [{ label: 'RECTANGLE_TOOL' }, pen], served: [{ label: 'RECTANGLE_TOOL' }, pen] });
     });
 
     it.effect(
@@ -418,7 +418,11 @@ describe(InterfaceMap, () => {
             const rewritten = yield* Effect.andThen(sighted(Array.drop(observed, 1)), recalled).pipe(Effect.provide(Layer.fresh(opened)));
             assert.deepStrictEqual(aged, [{ aged: 1 }], 'the dialog row holds its Units label as the earlier bare string');
             assert.deepStrictEqual(stale, new InterfaceMap({ application: written.application, containers: Record.remove(written.containers, DIALOG) }), 'the store reads as it would without the dialog row');
-            assert.deepStrictEqual((yield* TestConsole.logLines).filter(Predicate.isObject), Array.replicate({ bundle: 'com.adobe.InDesign', language: 'en', stale: 1 }, 2), 'both opens before the rewrite log one line naming the bundle and the count dropped, the open after it none');
+            assert.deepStrictEqual(
+                (yield* TestConsole.logLines).filter((line) => Predicate.isObject(line) && !Predicate.isError(line)),
+                Array.replicate({ bundle: 'com.adobe.InDesign', language: 'en', table: 'containers', locator: DIALOG }, 2),
+                'both opens before the rewrite log one line naming the dropped row by its table and key, the open after it none',
+            );
             assert.deepStrictEqual(rewritten.containers[DIALOG]?.controls[UNITS]?.label, Option.some({ text: 'Units', attribute: 'AXTitle' }), 'the dialog sighted again reads back with its label in the current shape');
         }, Effect.provide(services)),
     );
@@ -426,7 +430,7 @@ describe(InterfaceMap, () => {
         'starts a write at the rung that last passed read-back in this build, keeps every rung that failed there, and starts over once the build changes',
         Effect.fnUntraced(function* () {
             const observed = yield* newDocument;
-            const read = observed.reduce((map, each) => map.fold(each, OWNER).map, InterfaceMap.empty);
+            const read = observed.reduce((map, each) => map.fold(each, OWNER)[1], InterfaceMap.empty);
             const at = { container: DIALOG, control: UNITS };
             const passed = read.prove({
                 at,
@@ -443,7 +447,7 @@ describe(InterfaceMap, () => {
             });
             const failed = passed.prove({ at, from: 'window', outcome: Result.fail(new Error('every rung from window failed read-back')) });
             const dialog = yield* Effect.fromOption(Array.last(observed));
-            const rebuilt = passed.fold({ ...dialog, build: Option.some(BUILDS[1]), opened: DateTime.add(dialog.at, { minutes: 5 }), at: DateTime.add(dialog.at, { minutes: 5 }) }, OWNER).map;
+            const [, rebuilt] = passed.fold({ ...dialog, build: Option.some(BUILDS[1]), opened: DateTime.add(dialog.at, { minutes: 5 }), at: DateTime.add(dialog.at, { minutes: 5 }) }, OWNER);
             const failures = (map: InterfaceMap) =>
                 Record.get(map.containers, DIALOG).pipe(
                     Option.flatMap(({ controls }) => Record.get(controls, UNITS)),
@@ -459,7 +463,7 @@ describe(InterfaceMap, () => {
         'learns no rung from a step whose Accessibility call went unanswered or whose instance exited',
         Effect.fnUntraced(function* () {
             const observed = yield* newDocument;
-            const read = observed.reduce((map, each) => map.fold(each, OWNER).map, InterfaceMap.empty);
+            const read = observed.reduce((map, each) => map.fold(each, OWNER)[1], InterfaceMap.empty);
             const at = { container: DIALOG, control: UNITS };
             const unproven = (['unanswered', 'exit'] as const).map((proof) => read.prove({ at, from: 'accessibility', outcome: Result.succeed({ proof, tried: [], popUps: [] }) }));
             assert.deepStrictEqual(unproven, [read, read]);
@@ -489,8 +493,8 @@ describe(InterfaceMap, () => {
                 values: {},
             });
             const layout = yield* Effect.fromOption(Array.head(yield* newDocument));
-            const read = [layout, menu].reduce((map, each) => map.fold(each, OWNER).map, InterfaceMap.empty);
-            const later = read.fold({ ...layout, build: Option.some(BUILDS[1]), opened: DateTime.add(layout.at, { minutes: 9 }), at: DateTime.add(layout.at, { minutes: 9 }) }, OWNER).map;
+            const read = [layout, menu].reduce((map, each) => map.fold(each, OWNER)[1], InterfaceMap.empty);
+            const [, later] = read.fold({ ...layout, build: Option.some(BUILDS[1]), opened: DateTime.add(layout.at, { minutes: 9 }), at: DateTime.add(layout.at, { minutes: 9 }) }, OWNER);
             assert.deepStrictEqual(Option.map(read.level(NEW), Struct.get('locator')), Option.some(MENU), 'the level its opener read in this build is served');
             assert.isTrue(Option.isNone(read.level(RECENT)), 'an item that opened nothing serves no level');
             assert.isTrue(Option.isNone(later.level(NEW)), 'a level read under an earlier build is read again');
@@ -503,16 +507,29 @@ describe(InterfaceMap, () => {
     );
 
     it.effect(
-        'describes a container read for the first time by what it holds, and a later read by each control that appeared, changed, was relabelled, or went',
+        'reports a container read for the first time and each control it holds as appeared, and a later read by each control that appeared, changed, was relabelled, or went',
         Effect.fnUntraced(function* () {
             const observed = yield* newDocument;
             const [layout, dialog] = yield* Effect.all([Effect.fromOption(Array.get(observed, 0)), Effect.fromOption(Array.get(observed, 1))]);
-            const first = InterfaceMap.empty.fold(dialog, OWNER);
-            const relabelled = first.map.fold({ ...dialog, at: DateTime.add(dialog.at, { seconds: 30 }), controls: Record.map(dialog.controls, (control, at) => (at === UNITS ? { ...control, label: Option.some({ text: 'Unit', attribute: 'AXTitle' }) } : control)) }, OWNER);
-            const again = first.map.fold({ ...dialog, at: DateTime.add(dialog.at, { seconds: 30 }) }, OWNER);
+            const [first, map] = InterfaceMap.empty.fold(dialog, OWNER);
+            const [relabelled] = map.fold({ ...dialog, at: DateTime.add(dialog.at, { seconds: 30 }), controls: Record.map(dialog.controls, (control, at) => (at === UNITS ? { ...control, label: Option.some({ text: 'Unit', attribute: 'AXTitle' }) } : control)) }, OWNER);
+            const [again] = map.fold({ ...dialog, at: DateTime.add(dialog.at, { seconds: 30 }) }, OWNER);
+            const [window] = InterfaceMap.empty.fold(layout, OWNER);
             assert.deepStrictEqual(
-                { first: first.described, relabelled: relabelled.described, again: again.described, window: InterfaceMap.empty.fold(layout, OWNER).described },
-                { first: Option.some('map learned dialog "New Document", controls ×2'), relabelled: Option.some('map of dialog "New Document": relabelled "Units" → "Unit"'), again: Option.none(), window: Option.some('map learned window, controls ×1') },
+                { first, relabelled, again, window },
+                {
+                    first: [
+                        { _tag: 'Appeared', at: DIALOG },
+                        { _tag: 'Appeared', at: UNITS },
+                        { _tag: 'Appeared', at: WIDTH },
+                    ],
+                    relabelled: [{ _tag: 'Relabelled', at: UNITS, from: Option.some('Units'), to: Option.some('Unit') }],
+                    again: [],
+                    window: [
+                        { _tag: 'Appeared', at: LAYOUT },
+                        { _tag: 'Appeared', at: NEW },
+                    ],
+                },
             );
         }),
     );
@@ -541,19 +558,47 @@ describe(InterfaceMap, () => {
                 layout: {},
                 values: {},
             });
-            const first = InterfaceMap.empty.fold(window, OWNER).map;
-            const opened = first.fold(yield* Effect.fromNullishOr(dialog), OWNER).map;
-            const rebuilt = opened.fold({ ...window, build: Option.some(BUILDS[1]), opened: DateTime.add(window.at, { minutes: 9 }), at: DateTime.add(window.at, { minutes: 9 }) }, OWNER).map;
+            const [, first] = InterfaceMap.empty.fold(window, OWNER);
+            const [, opened] = first.fold(yield* Effect.fromNullishOr(dialog), OWNER);
+            const [, rebuilt] = opened.fold({ ...window, build: Option.some(BUILDS[1]), opened: DateTime.add(window.at, { minutes: 9 }), at: DateTime.add(window.at, { minutes: 9 }) }, OWNER);
             assert.deepStrictEqual(
                 Record.map({ first, opened, rebuilt }, Struct.get('coverage')),
                 {
-                    first: { build: Option.some(BUILDS[0]), known: { window: 1 }, earlier: 0, unopened: { opens: [{ container: LAYOUT, control: RECENT }], ellipsis: [{ container: LAYOUT, control: NEW }], options: [{ container: LAYOUT, control: zoom }] } },
-                    opened: { build: Option.some(BUILDS[0]), known: { window: 1, dialog: 1 }, earlier: 0, unopened: { opens: [{ container: LAYOUT, control: RECENT }], ellipsis: [], options: [{ container: LAYOUT, control: zoom }] } },
-                    rebuilt: { build: Option.some(BUILDS[1]), known: { window: 1 }, earlier: 1, unopened: { opens: [{ container: LAYOUT, control: RECENT }], ellipsis: [], options: [{ container: LAYOUT, control: zoom }] } },
+                    first: {
+                        build: Option.some(BUILDS[0]),
+                        known: { window: 1 },
+                        earlier: 0,
+                        unopened: { opens: [{ container: LAYOUT, control: RECENT }], ellipsis: [{ container: LAYOUT, control: NEW }], options: [{ container: LAYOUT, control: zoom }] },
+                        openers: [
+                            { container: LAYOUT, control: NEW },
+                            { container: LAYOUT, control: RECENT },
+                            { container: LAYOUT, control: zoom },
+                        ],
+                    },
+                    opened: {
+                        build: Option.some(BUILDS[0]),
+                        known: { window: 1, dialog: 1 },
+                        earlier: 0,
+                        unopened: { opens: [{ container: LAYOUT, control: RECENT }], ellipsis: [], options: [{ container: LAYOUT, control: zoom }] },
+                        openers: [
+                            { container: LAYOUT, control: RECENT },
+                            { container: LAYOUT, control: zoom },
+                        ],
+                    },
+                    rebuilt: {
+                        build: Option.some(BUILDS[1]),
+                        known: { window: 1 },
+                        earlier: 1,
+                        unopened: { opens: [{ container: LAYOUT, control: RECENT }], ellipsis: [], options: [{ container: LAYOUT, control: zoom }] },
+                        openers: [
+                            { container: LAYOUT, control: RECENT },
+                            { container: LAYOUT, control: zoom },
+                        ],
+                    },
                 },
                 'an item ending in an ellipsis stays unopened until the dialog it opens is read, a menu item until its menu is, a choice until its options list, and a container read only in an earlier build counts apart',
             );
-            assert.deepStrictEqual(InterfaceMap.empty.coverage, { build: Option.none(), known: {}, earlier: 0, unopened: { opens: [], ellipsis: [], options: [] } }, 'an application never read holds no build and no opener');
+            assert.deepStrictEqual(InterfaceMap.empty.coverage, { build: Option.none(), known: {}, earlier: 0, unopened: { opens: [], ellipsis: [], options: [] }, openers: [] }, 'an application never read holds no build and no opener');
         }),
     );
 
@@ -561,7 +606,7 @@ describe(InterfaceMap, () => {
         'holds each build once, newest first, when an earlier build runs again',
         Effect.fnUntraced(function* () {
             const layout = yield* Effect.fromOption(Array.head(yield* newDocument));
-            const read = [BUILDS[0], BUILDS[1], BUILDS[0]].reduce((map, build, minute) => map.fold({ ...layout, build: Option.some(build), opened: DateTime.add(layout.at, { minutes: minute }), at: DateTime.add(layout.at, { minutes: minute }) }, OWNER).map, InterfaceMap.empty);
+            const read = [BUILDS[0], BUILDS[1], BUILDS[0]].reduce((map, build, minute) => map.fold({ ...layout, build: Option.some(build), opened: DateTime.add(layout.at, { minutes: minute }), at: DateTime.add(layout.at, { minutes: minute }) }, OWNER)[1], InterfaceMap.empty);
             assert.deepStrictEqual(read.application.builds, [BUILDS[0], BUILDS[1]]);
         }),
     );
@@ -570,7 +615,7 @@ describe(InterfaceMap, () => {
         'counts one epoch per opening when reads alternate between two open documents of one type',
         Effect.fnUntraced(function* () {
             const layout = yield* Effect.fromOption(Array.head(yield* newDocument));
-            const read = [0, 1, 0, 1].reduce((map, opening, minute) => map.fold({ ...layout, container: DOCUMENT, opened: DateTime.add(layout.at, { minutes: opening }), at: DateTime.add(layout.at, { minutes: minute }) }, OWNER).map, InterfaceMap.empty);
+            const read = [0, 1, 0, 1].reduce((map, opening, minute) => map.fold({ ...layout, container: DOCUMENT, opened: DateTime.add(layout.at, { minutes: opening }), at: DateTime.add(layout.at, { minutes: minute }) }, OWNER)[1], InterfaceMap.empty);
             const entry = yield* Effect.fromNullishOr(read.containers[DOCUMENT]);
             assert.deepStrictEqual({ container: entry.container.tally.seen, control: entry.controls[NEW]?.tally.seen }, { container: 2, control: 2 });
         }),

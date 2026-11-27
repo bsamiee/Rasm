@@ -2,7 +2,9 @@ import type { Link } from '@rasm/mcp/link';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Cause, Effect, Exit, Filter, Formatter, Function, HashMap, Match, Option, Predicate, Record, Result, Schema, SchemaTransformation, Stream, Struct, Tuple } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { Act, Container, Control, Failure, HostLabel, type Frame, type Model, type Observation, Pointer, Value } from '#/contract';
+import { Failure } from '#/contract';
+import { Container, Control, HostLabel, type Frame, type Model, type Observation, Pointer, Value } from '#/interface';
+import { Act } from '#/steps';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -303,12 +305,14 @@ class Description extends Schema.Class<Description, { readonly brand: unique sym
                 container: {
                     ...(yield* at(locator)),
                     ...container,
+                    closed: false,
                     modal: false,
                     asking: false,
                     ...Option.getOrUndefined(Option.map(folded, (held) => Struct.pick(held, ['window', 'frame', 'layer', 'focused', 'modal', 'asking']))),
                     ...(parent === undefined ? {} : { parent: (yield* at(parent)).ref }),
                     text: [],
                     truncated: false,
+                    unreadable: false,
                     controls: yield* Effect.forEach(controls, placeControl),
                 },
             };

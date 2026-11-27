@@ -1,48 +1,84 @@
 package import AppKit
-import AsyncAlgorithms
+import CasePathsCore
 package import Darwin
 import Dispatch
-import Encoding
+import Files
 import Foundation
 import OrderedCollections
+import Results
 import SPI
 import Synchronization
 import System
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-enum WindowNotification: UInt32, CaseIterable, CaseLabeled, Sendable {
-    case moved = 806
-    case resized = 807
-    case reordered = 808
-    case levelChanged = 811
-    case shown = 815
-    case hidden = 816
-    case created = 1325
-    case destroyed = 1326
-    case activeSpaceChanged = 1401
-    case appUnresponsive = 750
-    case appResponsive = 751
+enum WindowNotification: String, CaseIterable, Encodable, Sendable {
+    case created
+    case destroyed
+    case moved
+    case resized
+    case reordered
+    case levelChanged
+    case shown
+    case hidden
+    case addedToSpace
+    case removedFromSpace
+    case activeSpaceChanged
+    case appUnresponsive
+    case appResponsive
+    case secureInputEnabled
+    case secureInputDisabled
 
-    func window(in payload: UnsafeRawBufferPointer) -> CGWindowID? {
-        let offset: Int? =
-            switch self {
-                case .created, .destroyed: MemoryLayout<UInt64>.size
-                case .moved, .resized, .reordered, .levelChanged, .shown, .hidden: 0
-                case .activeSpaceChanged, .appUnresponsive, .appResponsive: nil
-            }
-        return offset.flatMap { offset in payload.count >= offset + MemoryLayout<CGWindowID>.size ? unsafe payload.loadUnaligned(fromByteOffset: offset, as: CGWindowID.self) : nil }
-    }
+    fileprivate static let posted: [UInt32: Self] = Dictionary(uniqueKeysWithValues: allCases.compactMap { notification in notification.post.map { post in (post.type, notification) } })
+    fileprivate static let windowed: Set<WindowNotification> = Set(allCases.filter { notification in notification.post?.window != nil })
 
-    func process(in payload: UnsafeRawBufferPointer) -> pid_t? {
-        let offset: Int = MemoryLayout<(minorVersion: UInt16, majorVersion: UInt16, length: UInt32, connection: Int32)>.size
-        let addressed: Bool = [.appUnresponsive, .appResponsive].contains(self) && payload.count >= offset + MemoryLayout<pid_t>.size
-        return addressed ? unsafe payload.loadUnaligned(fromByteOffset: offset, as: pid_t.self) : nil
+    fileprivate var post: (type: UInt32, window: Int?, process: Int?, space: Int?)? {
+        let spaced: Int = MemoryLayout<UInt64>.size
+        let addressed: Int = MemoryLayout<(minorVersion: UInt16, majorVersion: UInt16, length: UInt32, connection: Int32)>.size
+        return switch self {
+            case .created: (811, 0, nil, nil)
+            case .destroyed: (804, 0, nil, nil)
+            case .moved: (806, 0, nil, nil)
+            case .resized: (807, 0, nil, nil)
+            case .reordered: (808, 0, nil, nil)
+            case .shown: (815, 0, nil, nil)
+            case .hidden: (816, 0, nil, nil)
+            case .addedToSpace: (1325, spaced, nil, 0)
+            case .removedFromSpace: (1326, spaced, nil, 0)
+            case .activeSpaceChanged: (1401, nil, nil, nil)
+            case .appUnresponsive: (750, nil, addressed, nil)
+            case .appResponsive: (751, nil, addressed, nil)
+            case .secureInputEnabled: (752, nil, nil, nil)
+            case .secureInputDisabled: (753, nil, nil, nil)
+            case .levelChanged: nil
+        }
     }
 }
 
+// --- [MODELS] --------------------------------------------------------------------------
+
 extension ProcessSerialNumber {
     fileprivate var number: UInt64 { UInt64(highLongOfPSN) << 32 | UInt64(lowLongOfPSN) }
+
+    fileprivate var applicationName: String {
+        processOfSerial(self).flatMap(NSRunningApplication.init(processIdentifier:)).flatMap { application in application.localizedName ?? application.bundleURL?.lastPathComponent }
+            ?? "an application without a window server connection"
+    }
+}
+
+extension RawSpan {
+    fileprivate func load<T: ConvertibleFromBytes>(at offset: Int?, as type: T.Type) -> T? {
+        guard let offset, byteCount >= offset + MemoryLayout<T>.size else { return nil }
+        return load(fromByteOffset: offset, as: type)
+    }
+}
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+extension ApplicationFailure {
+    fileprivate init(_ answer: CGError, subject: String) {
+        self.init(subject: answer == .invalidContext ? "\(subject) before NSApplication loads this process's window server connection" : subject, reason: .windowServer(answer))
+    }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -89,18 +125,13 @@ package final class PermittedFrontList: Sendable {
             try PermittedFrontList.add(added.values.elements, to: journal)
             listed.merge(added) { kept, _ in kept }
             listed.removeAll { number, _ in removed[number] != nil }
-            let refused: CGError? = removed.values.map { (serial: ProcessSerialNumber) -> CGError in
-                var removing = serial
-                return unsafe removeFromPermittedFrontList(&removing)
-            }
-            .first { answer in answer != .success }
-            guard let refused else { return }
-            throw ApplicationFailure(subject: "\(removed.count) permitted front entries of excluded processes", reason: .windowServer(refused))
+            try PermittedFrontList.remove(removed.values.elements).removed.get()
         }
     }
 
     package static let shared = PermittedFrontList()
     private static let path: String = URL.temporaryDirectory.appending(component: String(reflecting: PermittedFrontList.self)).path(percentEncoded: false)
+    private static let subject: String = "Permitted front list journal at \(path)"
     private let held: Mutex<Held?> = Mutex(nil)
 
     private init() {}
@@ -108,7 +139,6 @@ package final class PermittedFrontList: Sendable {
     package static var entries: Int { (metaInformation(-2, permittedFrontKey) as? [AnyObject])?.count ?? 0 }
 
     package static func recover() throws(ApplicationFailure) {
-        guard shared.held.withLock({ (held: inout Held?) -> Bool in held == nil }) else { return }
         do throws(ApplicationFailure) { try clear(try open([.exclusiveLock, .nonBlocking])) } catch  where error.reason == .system(.wouldBlock) {}
     }
 
@@ -121,30 +151,28 @@ package final class PermittedFrontList: Sendable {
         let (front, keyFocus): (pid_t?, pid_t?) = focusedProcesses()
         let holders: [NSRunningApplication] = [front, keyFocus].compactMap { (process: pid_t?) -> NSRunningApplication? in process.flatMap(NSRunningApplication.init(processIdentifier:)) }
         guard !holders.contains(where: target) else { return (await Result { () async throws(Failure) -> Value in try await body() }, .success(())) }
-        let id = UUID()
-        let watched: FileHandle = try Self.open([.eventOnly])
-        let (unlocks, unlocked) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
-        let source = DispatchSource.makeFileSystemObjectSource(fileDescriptor: watched.fileDescriptor, eventMask: .funlock)
-        source.setRegistrationHandler { unlocked.yield() }
-        source.setEventHandler { unlocked.yield() }
-        source.setCancelHandler { withExtendedLifetime(watched) {} }
-        unlocked.onTermination = { _ in source.cancel() }
-        source.activate()
-        var registered = false
-        for await _ in merge(unlocks.map { _ in true }, AsyncTimerSequence(interval: messagingTimeout * 2, clock: clock).map { _ in false }).prefix(while: \.self) {
-            registered = try held.withLock { (held: inout Held?) throws(ApplicationFailure) -> Bool in
-                if held == nil, let journal = try Self.lock() { held = Held(journal: journal) }
-                guard held != nil else { return false }
-                held?.holds[id] = (target, [])
-                do throws(ApplicationFailure) { try held?.reconcile() } catch {
-                    _ = release(id, from: &held)
-                    throw error
+        let (id, watched): (UUID, FileHandle) = try (UUID(), Self.open([.eventOnly]))
+        let waited: Duration = messagingTimeout * 2
+        let span: String = waited.formatted(.units(allowed: [.seconds], width: .wide))
+        let expired = ApplicationFailure(subject: "Another process held the permitted front list lock for \(span)", reason: .system(.wouldBlock))
+        do throws(ApplicationFailure) {
+            try await withTimeout(waited, expired: expired, clock: clock) { () async throws(ApplicationFailure) in
+                for await _ in FileEvent.events(of: watched, eventMask: .funlock) {
+                    let registered: Bool = try self.held.withLock { (held: inout Held?) throws(ApplicationFailure) -> Bool in
+                        if held == nil, let journal = try Self.lock() { held = Held(journal: journal) }
+                        guard held != nil else { return false }
+                        held?.holds[id] = (target, [])
+                        try held?.reconcile()
+                        return true
+                    }
+                    if registered { return }
                 }
-                return true
+                throw ApplicationFailure(subject: "holding the permitted front list", reason: .cancelled)
             }
-            if registered { break }
+        } catch {
+            _ = held.withLock { (held: inout Held?) -> Result<Void, ApplicationFailure> in release(id, from: &held) }
+            throw error
         }
-        guard registered else { throw ApplicationFailure(subject: Self.path, reason: Task.isCancelled ? .cancelled : .system(.wouldBlock)) }
         return await withTaskGroup(of: Result<Void, ApplicationFailure>.self, returning: (value: Result<Value, Failure>, released: Result<Void, ApplicationFailure>).self) { group in
             group.addTask {
                 try? await clock.sleep(for: lifetime)
@@ -183,18 +211,17 @@ package final class PermittedFrontList: Sendable {
         let journal: FileHandle
         do throws(ApplicationFailure) { journal = try open([.exclusiveLock, .nonBlocking]) } catch  where error.reason == .system(.wouldBlock) { return nil }
         try clear(journal)
-        let listed: Int = entries
-        guard listed == 0 else { throw ApplicationFailure(subject: "\(listed) permitted front entries another process holds", reason: .permittedFrontHeld) }
+        guard entries == 0 else { throw ApplicationFailure(subject: "Holding the permitted front list", reason: .permittedFrontHeld) }
         return journal
     }
 
     private static func open(_ options: FileDescriptor.OpenOptions) throws(ApplicationFailure) -> FileHandle {
         do {
             let access: FileDescriptor.AccessMode = options.contains(.eventOnly) ? .readOnly : .readWrite
-            let descriptor = try FileDescriptor.open(FilePath(path), access, options: options.union([.create, .closeOnExec]), permissions: .ownerReadWrite)
+            let descriptor = try FileDescriptor.open(FilePath(path), access, options: options.union([.create, .append, .closeOnExec]), permissions: .ownerReadWrite)
             return FileHandle(fileDescriptor: descriptor.rawValue, closeOnDealloc: true)
         } catch {
-            throw ApplicationFailure(subject: path, reason: (error as? Errno).map(ApplicationFailure.Reason.system) ?? .foundation(error as NSError))
+            throw ApplicationFailure(subject: subject, reason: (error as? Errno).map(ApplicationFailure.Reason.system) ?? .foundation(error as NSError))
         }
     }
 
@@ -202,18 +229,32 @@ package final class PermittedFrontList: Sendable {
         try append(serials, to: journal)
         for var serial in serials {
             let answer: CGError = unsafe addToPermittedFrontList(&serial)
-            guard answer == .success else { throw ApplicationFailure(subject: "permitted front entry of process \(String(describing: processOfSerial(serial)))", reason: .windowServer(answer)) }
+            guard answer == .success else { throw ApplicationFailure(answer, subject: "Adding \(serial.applicationName) to the permitted front list") }
         }
     }
 
-    private static func append(_ serials: [ProcessSerialNumber], to journal: FileHandle) throws(ApplicationFailure) {
-        let words: [UInt32] = serials.flatMap { serial in [serial.highLongOfPSN, serial.lowLongOfPSN] }
-        do {
-            try journal.seekToEnd()
-            try words.withUnsafeBytes { bytes in try unsafe journal.write(contentsOf: bytes) }
-        } catch {
-            throw ApplicationFailure(subject: path, reason: .foundation(error as NSError))
+    private static func remove(_ serials: [ProcessSerialNumber]) -> (kept: [ProcessSerialNumber], removed: Result<Void, ApplicationFailure>) {
+        let refusals: [(serial: ProcessSerialNumber, answer: CGError)] = serials.compactMap { (serial: ProcessSerialNumber) -> (serial: ProcessSerialNumber, answer: CGError)? in
+            var removing = serial
+            let answer: CGError = unsafe removeFromPermittedFrontList(&removing)
+            return answer == .success ? nil : (serial, answer)
         }
+        let removed: Result<Void, ApplicationFailure> =
+            refusals.first.map { refusal -> Result<Void, ApplicationFailure> in
+                .failure(ApplicationFailure(refusal.answer, subject: "Removing \(refusal.serial.applicationName) from the permitted front list"))
+            } ?? .success(())
+        return (refusals.map(\.serial), removed)
+    }
+
+    private static func append(_ serials: [ProcessSerialNumber], to journal: FileHandle) throws(ApplicationFailure) {
+        let (stride, word): (Int, Int) = (MemoryLayout<ProcessSerialNumber>.stride, MemoryLayout<UInt32>.size)
+        var journaled = Data(count: serials.count * stride)
+        var bytes = journaled.mutableBytes
+        for (index, serial) in serials.enumerated() {
+            bytes.storeBytes(of: serial.highLongOfPSN, toByteOffset: index * stride, as: UInt32.self)
+            bytes.storeBytes(of: serial.lowLongOfPSN, toByteOffset: index * stride + word, as: UInt32.self)
+        }
+        do { try journal.write(contentsOf: journaled) } catch { throw ApplicationFailure(subject: subject, reason: .foundation(error as NSError)) }
     }
 
     private static func clear(_ journal: FileHandle) throws(ApplicationFailure) {
@@ -222,31 +263,24 @@ package final class PermittedFrontList: Sendable {
             try journal.seek(toOffset: 0)
             journaled = try journal.readToEnd() ?? Data()
         } catch {
-            throw ApplicationFailure(subject: path, reason: .foundation(error as NSError))
+            throw ApplicationFailure(subject: subject, reason: .foundation(error as NSError))
         }
         var front = ProcessSerialNumber()
         let fronted: Bool = unsafe frontSerial(&front) == .success
-        let serials: OrderedDictionary<UInt64, ProcessSerialNumber> = OrderedDictionary(
-            stride(from: 0, to: journaled.count - MemoryLayout<ProcessSerialNumber>.stride + 1, by: MemoryLayout<ProcessSerialNumber>.stride).reversed().map {
-                (offset: Int) -> (UInt64, ProcessSerialNumber) in
-                let serial = ProcessSerialNumber(
-                    highLongOfPSN: journaled.bytes.load(fromByteOffset: offset, as: UInt32.self),
-                    lowLongOfPSN: journaled.bytes.load(fromByteOffset: offset + MemoryLayout<UInt32>.stride, as: UInt32.self),
-                )
-                return (serial.number, serial)
-            }
-        ) { first, _ in first }
+        let (stride, word): (Int, Int) = (MemoryLayout<ProcessSerialNumber>.stride, MemoryLayout<UInt32>.size)
+        let recorded: [ProcessSerialNumber] = (0..<journaled.count / stride).map { index in
+            ProcessSerialNumber(
+                highLongOfPSN: journaled.bytes.load(fromByteOffset: index * stride, as: UInt32.self),
+                lowLongOfPSN: journaled.bytes.load(fromByteOffset: index * stride + word, as: UInt32.self),
+            )
+        }
+        let serials: OrderedDictionary<UInt64, ProcessSerialNumber> = OrderedDictionary(recorded.reversed().map { serial in (serial.number, serial) }) { first, _ in first }
         let last: UInt64? = fronted ? front.number : nil
         let ordered: [ProcessSerialNumber] = serials.filter { number, _ in number != last }.values.elements + serials.filter { number, _ in number == last }.values.elements
-        let kept: [(serial: ProcessSerialNumber, answer: CGError)] = ordered.map { (serial: ProcessSerialNumber) -> (serial: ProcessSerialNumber, answer: CGError) in
-            var removing = serial
-            return (serial, unsafe removeFromPermittedFrontList(&removing))
-        }
-        .filter { entry in entry.answer != .success }
-        do { try journal.truncate(atOffset: 0) } catch { throw ApplicationFailure(subject: path, reason: .foundation(error as NSError)) }
-        try append(kept.map(\.serial), to: journal)
-        guard let refused = kept.first?.answer else { return }
-        throw ApplicationFailure(subject: "\(kept.count) permitted front entries journaled in \(path)", reason: .windowServer(refused))
+        let removal: (kept: [ProcessSerialNumber], removed: Result<Void, ApplicationFailure>) = remove(ordered)
+        do { try journal.truncate(atOffset: 0) } catch { throw ApplicationFailure(subject: subject, reason: .foundation(error as NSError)) }
+        try append(removal.kept, to: journal)
+        try removal.removed.get()
     }
 }
 
@@ -255,41 +289,75 @@ final class WindowServerConnection: Sendable {
         let notification: WindowNotification
         let window: CGWindowID?
         let owner: pid_t?
+        let space: UInt64?
     }
 
-    private let id: Int32
+    private struct Held {
+        var owners: [CGWindowID: pid_t] = [:]
+        var requested: Result<Void, ApplicationFailure> = .success(())
+        var subscribers: [UUID: (notifications: Set<WindowNotification>, owner: pid_t?, continuation: AsyncStream<Result<Notice, ApplicationFailure>>.Continuation)] = [:]
+
+        mutating func request(on connection: Int32) {
+            let rows: [[String: Any]] = CGWindowListCopyWindowInfo(.optionAll, kCGNullWindowID) as? [[String: Any]] ?? []
+            owners = Dictionary(
+                rows.compactMap { row in (row[kCGWindowNumber as String] as? CGWindowID).flatMap { number in (row[kCGWindowOwnerPID as String] as? pid_t).map { owner in (number, owner) } } }
+            ) { first, _ in first }
+            let windows: [CGWindowID] = Array(owners.keys)
+            let answer: CGError = requestNotifications(connection, windows.span)
+            let answered: Result<Void, ApplicationFailure> =
+                answer == .success
+                ? .success(())
+                : .failure(ApplicationFailure(subject: "Requesting move, resize, order, visibility, and close notices of \(windows.count.formatted()) windows", reason: .windowServer(answer)))
+            guard case .success = exchange(&requested, with: answered), case .failure(let failure) = answered else { return }
+            for subscriber in subscribers.values where !subscriber.notifications.isDisjoint(with: WindowNotification.windowed) { subscriber.continuation.yield(.failure(failure)) }
+        }
+    }
+
+    private final class Subscriptions: Sendable {
+        let connection: Int32
+        let held: Mutex<Held> = Mutex(Held())
+
+        init(connection: Int32) {
+            self.connection = connection
+        }
+
+        func deliver(_ notification: WindowNotification, _ payload: borrowing RawSpan) {
+            let post = notification.post
+            let window: CGWindowID? = payload.load(at: post?.window, as: CGWindowID.self)
+            let addressed: pid_t? = payload.load(at: post?.process, as: pid_t.self)
+            let space: UInt64? = payload.load(at: post?.space, as: UInt64.self)
+            held.withLock { held in
+                if let window, held.owners[window] == nil { held.request(on: connection) }
+                let owner: pid_t? = addressed ?? window.flatMap { window in held.owners[window] }
+                let responsible: pid_t? = owner.map(responsiblePID)
+                let broadcast: Bool = window == nil && addressed == nil
+                let reached = held.subscribers.values.filter { subscriber in
+                    subscriber.notifications.contains(notification) && (broadcast || subscriber.owner.map { process in process == owner || process == responsible } != false)
+                }
+                for subscriber in reached { subscriber.continuation.yield(.success(Notice(notification: notification, window: window, owner: owner, space: space))) }
+            }
+        }
+    }
+
+    private let subscriptions: Subscriptions
     private let source: Mutex<RunLoopSource?> = Mutex(nil)
-    private let held:
-        Mutex<(owners: [CGWindowID: pid_t], subscribers: [UUID: (notifications: Set<WindowNotification>, owner: pid_t?, continuation: AsyncStream<Result<Notice, ApplicationFailure>>.Continuation)])>
 
     init() throws(ApplicationFailure) {
-        var (id, events): (Int32, mach_port_t) = (0, 0)
-        let opened: CGError = unsafe newConnection(0, &id)
-        guard opened == .success else { throw ApplicationFailure(subject: "window server connection", reason: .windowServer(opened)) }
-        let rows: [[String: Any]] = CGWindowListCopyWindowInfo(.optionAll, kCGNullWindowID) as? [[String: Any]] ?? []
-        let owners: [CGWindowID: pid_t] = Dictionary(
-            rows.compactMap { row in (row[kCGWindowNumber as String] as? CGWindowID).flatMap { number in (row[kCGWindowOwnerPID as String] as? pid_t).map { owner in (number, owner) } } }
-        ) { first, _ in first }
-        self.id = id
-        held = Mutex((owners, [:]))
+        var (connection, events): (Int32, mach_port_t) = (0, 0)
+        let opened: CGError = unsafe newConnection(0, &connection)
+        guard opened == .success else { throw ApplicationFailure(subject: "Opening a window server connection", reason: .windowServer(opened)) }
+        subscriptions = Subscriptions(connection: connection)
+        let context = unsafe Unmanaged.passRetained(subscriptions).toOpaque()
         let callback: @convention(c) (UInt32, UnsafeMutableRawPointer?, Int, UnsafeMutableRawPointer?) -> Void = { type, data, length, context in
-            guard let notification = WindowNotification(rawValue: type),
-                let connection = unsafe context.map({ context in unsafe Unmanaged<WindowServerConnection>.fromOpaque(context).takeUnretainedValue() })
-            else { return }
-            let payload: UnsafeRawBufferPointer? = unsafe data.map { data in unsafe UnsafeRawBufferPointer(start: data, count: length) }
-            connection.deliver(
-                notification,
-                window: unsafe payload.flatMap { payload in unsafe notification.window(in: payload) },
-                process: unsafe payload.flatMap { payload in unsafe notification.process(in: payload) },
-            )
+            guard let notification = WindowNotification.posted[type], let context = unsafe context else { return }
+            let buffer = unsafe UnsafeRawBufferPointer(start: data, count: length)
+            let payload = unsafe RawSpan(_unsafeBytes: buffer)
+            unsafe Unmanaged<Subscriptions>.fromOpaque(context).takeUnretainedValue().deliver(notification, payload)
         }
-        let context = unsafe Unmanaged.passUnretained(self).toOpaque()
-        let answers: [CGError] =
-            unsafe [eventPort(id, &events)] + WindowNotification.allCases.map { notification in unsafe registerNotifyProc(id, callback, notification.rawValue, context) }
-            + [request(Array(owners.keys)), setUnresponsiveNotificationTimeout(id, messagingTimeout / .seconds(1))]
+        let answers: [CGError] = unsafe [eventPort(connection, &events)] + WindowNotification.posted.keys.map { type in unsafe registerNotifyProc(connection, callback, type, context) }
         let refused: CGError? = answers.first { answer in answer != .success }
         let drained: Bool = source.withLock { source in
-            var described = unsafe CFMachPortContext(version: 0, info: UnsafeMutableRawPointer(bitPattern: Int(id)), retain: nil, release: nil, copyDescription: nil)
+            var described = unsafe CFMachPortContext(version: 0, info: UnsafeMutableRawPointer(bitPattern: Int(connection)), retain: nil, release: nil, copyDescription: nil)
             let drain: CFMachPortCallBack = { _, _, _, info in
                 let connection = Int32(Int(bitPattern: info))
                 while nextEvent(connection) != nil {}
@@ -297,47 +365,31 @@ final class WindowServerConnection: Sendable {
             source = unsafe CFMachPortCreateWithPort(nil, events, drain, &described, nil).flatMap { port in CFMachPortCreateRunLoopSource(nil, port, 0) }.map(RunLoopSource.init)
             return source != nil
         }
-        guard refused == nil, drained else { throw ApplicationFailure(subject: "window server notifications of connection \(id)", reason: .windowServer(refused ?? .failure)) }
+        guard refused == nil, drained else { throw ApplicationFailure(subject: "Registering for window server notices", reason: .windowServer(refused ?? .failure)) }
     }
 
     deinit {
-        _ = releaseConnection(id)
-        let ending: [AsyncStream<Result<Notice, ApplicationFailure>>.Continuation] = held.withLock { held in held.subscribers.values.map(\.continuation) }
+        let ending: [AsyncStream<Result<Notice, ApplicationFailure>>.Continuation] = subscriptions.held.withLock { held in held.subscribers.values.map(\.continuation) }
         for subscriber in ending { subscriber.finish() }
+        source.withLock { source in source = nil }
+        DispatchQueue.main.async { [subscriptions] in
+            _ = releaseConnection(subscriptions.connection)
+            unsafe Unmanaged.passUnretained(subscriptions).release()
+        }
     }
 
     func notices(of notifications: Set<WindowNotification>, from owner: pid_t? = nil) -> AsyncStream<Result<Notice, ApplicationFailure>> {
         let (stream, continuation) = AsyncStream<Result<Notice, ApplicationFailure>>.makeStream()
         let id = UUID()
-        continuation.onTermination = { _ in self.held.withLock { held in held.subscribers[id] = nil } }
-        held.withLock { held in held.subscribers[id] = (notifications, owner, continuation) }
+        continuation.onTermination = { [subscriptions] _ in subscriptions.held.withLock { held in held.subscribers[id] = nil } }
+        let windowed: Bool = !notifications.isDisjoint(with: WindowNotification.windowed)
+        subscriptions.held.withLock { held in
+            if windowed { held.request(on: subscriptions.connection) }
+            held.subscribers[id] = (notifications, owner, continuation)
+            if windowed, case .failure(let failure) = held.requested { continuation.yield(.failure(failure)) }
+        }
         return stream
     }
-
-    private func deliver(_ notification: WindowNotification, window: CGWindowID?, process addressed: pid_t?) {
-        held.withLock { held in
-            var (connection, process): (Int32, pid_t) = (0, 0)
-            let known: pid_t? = window.flatMap { window in held.owners[window] }
-            let unread: CGWindowID? = known == nil && notification != .destroyed ? window : nil
-            let read: pid_t? = unread.flatMap { window in unsafe windowOwner(id, window, &connection) == .success && processOfConnection(connection, &process) == .success ? process : nil }
-            if let window, let read { held.owners[window] = read }
-            let requested: CGError = read == nil ? .success : request(Array(held.owners.keys))
-            let owner: pid_t? = addressed ?? known ?? read
-            let responsible: pid_t? = owner.map(responsiblePID)
-            let notice: Result<Notice, ApplicationFailure> =
-                requested == .success
-                ? .success(Notice(notification: notification, window: window, owner: owner))
-                : .failure(ApplicationFailure(subject: "notifications of \(held.owners.count) windows on connection \(id)", reason: .windowServer(requested)))
-            let broadcast: Bool = window == nil && addressed == nil
-            let reached = held.subscribers.values.filter { subscriber in
-                requested != .success || subscriber.notifications.contains(notification) && (broadcast || subscriber.owner.map { process in process == owner || process == responsible } != false)
-            }
-            for subscriber in reached { subscriber.continuation.yield(notice) }
-            if notification == .destroyed, let window { held.owners[window] = nil }
-        }
-    }
-
-    private func request(_ windows: [CGWindowID]) -> CGError { unsafe requestNotifications(id, windows, Int32(windows.count)) }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -345,32 +397,33 @@ final class WindowServerConnection: Sendable {
 func pendingEventAge(of serial: ProcessSerialNumber) throws(ApplicationFailure) -> Duration? {
     var (serial, seconds, flags): (ProcessSerialNumber, Double, UInt32) = (serial, 0, 0)
     let answer: CGError = unsafe unresponsiveStatus(mainConnection(), &serial, &seconds, &flags)
-    guard answer == .success else { throw ApplicationFailure(subject: "unresponsive status of process \(String(describing: processOfSerial(serial)))", reason: .windowServer(answer)) }
+    guard answer == .success else { throw ApplicationFailure(subject: "Unresponsive status of \(serial.applicationName)", reason: .windowServer(answer)) }
     return flags == 0 ? nil : .seconds(seconds)
 }
 
 package func focusedProcesses() -> (front: pid_t?, keyFocus: pid_t?) {
     let focused = focusedSerials()
-    let process = { (read: Result<ProcessSerialNumber?, ApplicationFailure>) -> pid_t? in
-        switch read {
-            case .success(let serial): serial.flatMap(processOfSerial)
-            case .failure: nil
-        }
-    }
-    return (process(focused.front), process(focused.keyFocus))
+    return (focused.front[case: \.success].flatMap(\.self).flatMap(processOfSerial), focused.keyFocus[case: \.success].flatMap(\.self).flatMap(processOfSerial))
+}
+
+func windowDescription(of number: CGWindowID) -> (bounds: CGRect, owner: pid_t)? {
+    var listed: UnsafeRawPointer? = unsafe UnsafeRawPointer(bitPattern: UInt(number))
+    let row: [String: Any]? = unsafe (CGWindowListCreateDescriptionFromArray(CFArrayCreate(nil, &listed, 1, nil)) as? [[String: Any]])?.first
+    guard let owner = row?[kCGWindowOwnerPID as String] as? pid_t, let bounds = row?[kCGWindowBounds as String] as? [String: Any] else { return nil }
+    return CGRect(dictionaryRepresentation: bounds as CFDictionary).map { (bounds: CGRect) -> (bounds: CGRect, owner: pid_t) in (bounds, owner) }
 }
 
 private func focusedSerials() -> (front: Result<ProcessSerialNumber?, ApplicationFailure>, keyFocus: Result<ProcessSerialNumber?, ApplicationFailure>) {
     var (front, key, flag): (ProcessSerialNumber, ProcessSerialNumber, UInt8) = (ProcessSerialNumber(), ProcessSerialNumber(), 0)
     let read: (front: CGError, key: CGError) = unsafe (frontSerial(&front), keyFocusSerial(&key, &flag))
-    let held = { (answer: CGError, serial: ProcessSerialNumber, role: String) -> Result<ProcessSerialNumber?, ApplicationFailure> in
+    let focus = { (answer: CGError, serial: ProcessSerialNumber, subject: String) -> Result<ProcessSerialNumber?, ApplicationFailure> in
         switch (answer, answer.rawValue) {
             case (.success, _): .success(serial)
             case (_, Int32(procNotFound)): .success(nil)
-            case (_, _): .failure(ApplicationFailure(subject: "\(role) process of the permitted front list", reason: .windowServer(answer)))
+            case (_, _): .failure(ApplicationFailure(answer, subject: subject))
         }
     }
-    return (held(read.front, front, "front"), held(read.key, key, "key-focus"))
+    return (focus(read.front, front, "Reading the front process"), focus(read.key, key, "Reading the key-focus process"))
 }
 
 private func processOfSerial(_ serial: ProcessSerialNumber) -> pid_t? {

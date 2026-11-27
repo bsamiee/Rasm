@@ -7,7 +7,7 @@ import { ASKED, Called, lines, opened, placed, RAISED, SETTINGS, STATE, STATED, 
 
 const PROTOCOL = McpProtocol.v2026_07_28;
 const WEATHER = '{"temperature":22.5,"conditions":"Partly cloudy"}';
-const ISSUED = /^handle [\da-f]{8}-[\da-f]{4}-7[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12} holds your state, pass it on each later call$/u;
+const ISSUED = /^handle [\da-f]{8}-[\da-f]{4}-7[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12} holds your state, pass it on later calls$/u;
 const INVALID_PARAMS = -32_602;
 const CALLS = {
     test_simple_text: [{}, ['text']],
@@ -97,8 +97,8 @@ describe('tool calls through the server', () => {
                     ],
                     owned: ['! #3 owned one'],
                     shared: ['! #4 shared one'],
-                    early: `! #4 shared one\nearly: call 1 keeps running, its result arrives under finished\n\n${ASKED}`,
-                    pending: `pending: calls 1\n\n${TEXT}`,
+                    early: `! #4 shared one\nearly: call 1 gated_early keeps running, its outcome leads a later result\n\n${ASKED}`,
+                    pending: `pending: call 1 gated_early keeps running\n\n${TEXT}`,
                     entered: 'test_await_running',
                     waiting: true,
                     finished: 'finished: call 1 gated_early released\n\nsettled',
@@ -147,6 +147,15 @@ describe('tool calls through the server', () => {
     );
 
     it.live(
+        'answers a key its strict tool does not take with an error result naming the nearest parameter, and never runs the tool',
+        Effect.fnUntraced(function* () {
+            const { probe, called } = yield* opened(PROTOCOL);
+            const refused = yield* called('test_value', { value: 'kept', valu: 'kept' });
+            assert.deepStrictEqual([refused.isError, lines(refused).at(-1), yield* Ref.get(probe.calls)], [true, 'valu: not a parameter, nearest value', []]);
+        }),
+    );
+
+    it.live(
         'lists no hidden tool, refuses a call to it as an unknown tool, and never runs it',
         Effect.fnUntraced(function* () {
             const { probe, tool, answer } = yield* opened(PROTOCOL);
@@ -174,12 +183,12 @@ describe('client input of a stateless client', () => {
         { label: 'altered in one sealed byte', tool: 'test_input', altered: (state: string) => state.replace(/(?<=\.)[^.](?=[^.]*$)/u, (sealed) => (sealed === 'A' ? 'B' : 'A')) },
         { label: 'sealed for another tool', tool: 'test_value', altered: (state: string) => state },
     ] as const)(
-        'refuses a request state $label as invalid params without running the tool',
+        'answers a request state $label with an error result naming the refusal, without running the tool',
         Effect.fnUntraced(function* ({ tool: target, altered }) {
             const { probe, tool } = yield* opened(PROTOCOL);
             const { result: asked } = yield* Effect.flatMap(tool('test_input'), Schema.decodeUnknownEffect(Asked));
-            const code = yield* Effect.flatMap(tool(target, { value: 'replayed' }, { requestState: altered(asked.requestState) }), refusal);
-            assert.deepStrictEqual([code, yield* Ref.get(probe.calls)], [INVALID_PARAMS, ['test_input']]);
+            const { result: refused } = yield* Effect.flatMap(tool(target, { value: 'replayed' }, { requestState: altered(asked.requestState) }), Schema.decodeUnknownEffect(Called));
+            assert.deepStrictEqual([refused.isError, lines(refused), yield* Ref.get(probe.calls)], [true, ['requestState came from no input request of this server and tool, call again without it'], ['test_input']]);
         }),
     );
 });

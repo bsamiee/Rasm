@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Array, Effect, Filter, Layer, Schema, Stream, SubscriptionRef } from 'effect';
+import { Array, Cause, Duration, Effect, Filter, Layer, Schema, Stream, SubscriptionRef } from 'effect';
 import type { McpTest } from 'effect/ai';
 import { connected, SETTLED } from '#/fixtures';
 
@@ -20,7 +20,7 @@ const updated = (client: McpTest.Client, until: string) =>
         Stream.map(({ payload }) => payload.uri),
         Stream.takeUntil((uri) => uri === until),
         Stream.runCollect,
-        Effect.timeout(SETTLED),
+        Effect.timeoutOrElse({ duration: SETTLED, orElse: () => Effect.fail(new Cause.UnknownError(until, `no resources/updated notification names ${until} after ${Duration.format(SETTLED)}`)) }),
     );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

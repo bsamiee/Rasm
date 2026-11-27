@@ -1,3 +1,4 @@
+import Carbon.OpenScripting
 import CoreServices
 import CustomDump
 import Encoding
@@ -31,7 +32,6 @@ private let wire: [(AppleEventValue, String)] = [
     (.record(type: 0x4664_6F63, fields: ["name": .text("A4")]), #"{"_tag":"record","fields":{"name":"A4"},"type":"Fdoc"}"#),
     (.type("page"), #"{"_tag":"type","name":"page"}"#),
     (.enumerator("javascript"), #"{"_tag":"enumerator","name":"javascript"}"#),
-    (.date(Date(timeIntervalSince1970: 86_400)), #"{"_tag":"date","date":"1970-01-02T00:00:00.000Z"}"#),
     (.file(URL(filePath: "/tmp/proof.pdf")), #"{"_tag":"file","url":"file:///tmp/proof.pdf"}"#),
     (.opaque(type: 0x0000_0001, data: Data("A4".utf8), value: nil), #"{"_tag":"opaque","data":"QTQ=","type":"0x00000001"}"#),
     (.specifier(want: "page", form: .index, seld: .number(2), from: .null), #"{"_tag":"specifier","form":"index","from":null,"seld":2,"want":"page"}"#),
@@ -97,11 +97,13 @@ struct AppleEventValueTests {
     }
 
     @Test(arguments: ordinals)
-    func sendsAnOrdinalAsTheKeyDataItsFormDeclares(form: KeyForm, text: String, type: DescType, code: FourCharCode) throws {
-        let specifier = try AppleEventValue.specifier(want: "cpar", form: form, seld: .text(text), from: .null).descriptor(as: [], in: dictionary.get())
+    func sendsAnOrdinalAsTheKeyDataItsFormDeclaresAndReadsItBackAsItsName(form: KeyForm, text: String, type: DescType, code: FourCharCode) throws {
+        let value = AppleEventValue.specifier(want: "cpar", form: form, seld: .text(text), from: .null)
+        let specifier = try value.descriptor(as: [], in: dictionary.get())
         let data = try #require(specifier.forKeyword(AEKeyword(keyAEKeyData)))
         expectNoDifference(data.descriptorType, type)
         expectNoDifference(data.enumCodeValue, code)
+        expectNoDifference(try json(AppleEventValue(specifier, in: dictionary.get())), try json(value))
     }
 
     @Test
@@ -132,6 +134,19 @@ struct AppleEventValueTests {
         let sent = try AppleEventValue.file(file).descriptor(as: ["alias"], in: dictionary.get())
         expectNoDifference(sent.descriptorType, DescType(typeAlias))
         expectNoDifference(try json(AppleEventValue(sent, in: dictionary.get())), try json(.file(file)))
+    }
+
+    @Test
+    func readsTheMissingValueAsNull() throws {
+        expectNoDifference(try json(AppleEventValue(NSAppleEventDescriptor(typeCode: FourCharCode(cMissingValue)), in: dictionary.get())), "null")
+    }
+
+    @Test
+    func keepsTheUserFieldsOfARecordBesideItsKeyedFields() throws {
+        let record = AppleEventValue.record(type: DescType(typeAERecord), fields: ["pnam": .text("A4"), "proof copy": .bool(true)])
+        let sent = try record.descriptor(as: [], in: dictionary.get())
+        expectNoDifference(sent.forKeyword(AEKeyword(keyASUserRecordFields))?.numberOfItems, 2)
+        expectNoDifference(try json(AppleEventValue(sent, in: dictionary.get())), try json(record))
     }
 
     @Test

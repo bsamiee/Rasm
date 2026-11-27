@@ -101,7 +101,7 @@ package enum InstanceState: CaseTagged, Equatable, Sendable {
     }
 
     package struct Termination: Equatable, Sendable {
-        let exit: Result<ProcessExit, Errno>
+        let exit: ProcessExit
         let report: Result<DiagnosticReport, ProcessFailure>?
     }
 
@@ -112,62 +112,72 @@ package enum InstanceState: CaseTagged, Equatable, Sendable {
 
 extension InstanceState.Window {
     static func all(_ listed: CGWindowListOption, relativeTo window: CGWindowID = kCGNullWindowID, of owner: pid_t? = nil) -> [pid_t: [Self]] {
-        let listing: [[String: Any]] = CGWindowListCopyWindowInfo(listed, window) as? [[String: Any]] ?? []
-        let servers: [pid_t: pid_t] = Dictionary(
-            Set(listing.compactMap { row in row[kCGWindowOwnerPID as String] as? pid_t }).compactMap { (server: pid_t) -> (pid_t, pid_t)? in
-                let responsible: pid_t = responsiblePID(server)
-                return responsible == server ? nil : (server, responsible)
-            }
-        ) { first, _ in first }
-        let framed: [SIMD4<Double>: [[String: Any]]] = listing.reduce(into: [:]) { (framed: inout [SIMD4<Double>: [[String: Any]]], row: [String: Any]) in
-            guard let server = row[kCGWindowOwnerPID as String] as? pid_t, servers[server] != nil,
-                let frame = (row[kCGWindowBounds as String] as? [String: Any]).flatMap({ bounds in CGRect(dictionaryRepresentation: bounds as CFDictionary) })
-            else { return }
-            framed[SIMD4<Double>(frame.minX, frame.minY, frame.width, frame.height), default: []].append(row)
-        }
-        let rows: [[String: Any]] = listing.filter { row in owner.map { owner in row[kCGWindowOwnerPID as String] as? pid_t == owner } ?? true }
-        let numbers: [CGWindowID] = rows.compactMap { row in row[kCGWindowNumber as String] as? CGWindowID }
-        let connection: Int32 = mainConnection()
-        let iterator: CFTypeRef? = queryWindows(connection, numbers as CFArray, Int32(numbers.count)).flatMap { query in queriedWindows(query) }
-        let parents: [CGWindowID: CGWindowID] = Dictionary(
-            iterator.map { iterator in Array(sequence(state: iterator) { iterator in advance(iterator) ? (iteratedWindow(iterator), iteratedParent(iterator)) : nil }) } ?? []
-        ) { first, _ in first }
-        let spaces: [UInt64] = (copySpaces(connection, [.includesCurrent, .includesOthers, .includesUser]) as? [UInt64]) ?? []
-        let assigned: [CGWindowID: [UInt64]] = spaces.reduce(into: [:]) { (assigned: inout [CGWindowID: [UInt64]], space: UInt64) in
-            var (setTags, clearTags): (UInt64, UInt64) = (0, 0)
-            let placed: [CGWindowID] = (unsafe copyWindowsWithOptionsAndTags(connection, 0, [space] as CFArray, 0x7, &setTags, &clearTags) as? [CGWindowID]) ?? []
-            for number in placed { assigned[number, default: []].append(space) }
-        }
-        let current: Set<UInt64> = Set((copySpaces(connection, [.includesCurrent, .includesUser]) as? [UInt64]) ?? [])
-        return rows.reduce(into: [:]) { (windows: inout [pid_t: [Self]], row: [String: Any]) in
+        let information: [[String: Any]] = CGWindowListCopyWindowInfo(listed, window) as? [[String: Any]] ?? []
+        let listing: [(owner: pid_t, number: CGWindowID, title: String?, frame: CGRect, layer: Int, onScreen: Bool, shared: Bool)] = information.compactMap {
+            (row: [String: Any]) -> (owner: pid_t, number: CGWindowID, title: String?, frame: CGRect, layer: Int, onScreen: Bool, shared: Bool)? in
             guard let owner = row[kCGWindowOwnerPID as String] as? pid_t, let number = row[kCGWindowNumber as String] as? CGWindowID, let layer = row[kCGWindowLayer as String] as? Int, layer >= 0,
-                let frame = (row[kCGWindowBounds as String] as? [String: Any]).flatMap({ bounds in CGRect(dictionaryRepresentation: bounds as CFDictionary) }), !frame.isEmpty
-            else { return }
-            let (onScreen, placed): (Bool, [UInt64]) = (row[kCGWindowIsOnscreen as String] as? Bool ?? false, assigned[number] ?? [])
-            let title: String? = row[kCGWindowName as String] as? String
-            let twins: [[String: Any]] = framed[SIMD4<Double>(frame.minX, frame.minY, frame.width, frame.height)] ?? []
-            let remote: CGWindowID? = twins.first { (twin: [String: Any]) -> Bool in
-                (twin[kCGWindowOwnerPID as String] as? pid_t).flatMap { server in servers[server] } == owner && twin[kCGWindowName as String] as? String == title
-            }
-            .flatMap { (twin: [String: Any]) -> CGWindowID? in twin[kCGWindowNumber as String] as? CGWindowID }
-            windows[owner, default: []].append(
-                Self(
-                    number: number,
-                    title: title.flatMap { title in title.isEmpty ? nil : title },
-                    frame: frame,
-                    layer: layer,
-                    band: Band(layer: layer),
-                    parent: parents[number].flatMap { parent in parent == kCGNullWindowID ? nil : parent },
-                    spaces: placed,
-                    onScreen: onScreen,
-                    hidden: !onScreen && !current.isDisjoint(with: placed),
-                    shared: row[kCGWindowSharingState as String] as? UInt32 != CGWindowSharingType.none.rawValue,
-                    remote: remote,
-                    asking: false,
-                    presented: onScreen,
-                )
-            )
+                let bounds = row[kCGWindowBounds as String] as? [String: Any], let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary), !frame.isEmpty
+            else { return nil }
+            let named: String? = row[kCGWindowName as String] as? String
+            let title: String? = named?.isEmpty == false ? named : nil
+            let onScreen: Bool = row[kCGWindowIsOnscreen as String] as? Bool ?? false
+            let shared: Bool = row[kCGWindowSharingState as String] as? UInt32 != CGWindowSharingType.none.rawValue
+            return (owner: owner, number: number, title: title, frame: frame, layer: layer, onScreen: onScreen, shared: shared)
         }
+        let owners: Set<pid_t> = Set(listing.map(\.owner))
+        let responsibilities: [(server: pid_t, responsible: pid_t)] = owners.compactMap { (server: pid_t) -> (server: pid_t, responsible: pid_t)? in
+            let responsible: pid_t = responsiblePID(server)
+            return responsible == server || responsible == -1 ? nil : (server: server, responsible: responsible)
+        }
+        let servers: [pid_t: pid_t] = Dictionary(uniqueKeysWithValues: responsibilities)
+        let hosted: [(owner: pid_t, number: CGWindowID, title: String?, frame: CGRect, layer: Int, onScreen: Bool, shared: Bool)] = listing.filter {
+            (row: (owner: pid_t, number: CGWindowID, title: String?, frame: CGRect, layer: Int, onScreen: Bool, shared: Bool)) -> Bool in servers[row.owner] != nil
+        }
+        let served: [CGRect: [(owner: pid_t, number: CGWindowID, title: String?, frame: CGRect, layer: Int, onScreen: Bool, shared: Bool)]] = Dictionary(grouping: hosted) {
+            (row: (owner: pid_t, number: CGWindowID, title: String?, frame: CGRect, layer: Int, onScreen: Bool, shared: Bool)) -> CGRect in row.frame
+        }
+        let rows: [(owner: pid_t, number: CGWindowID, title: String?, frame: CGRect, layer: Int, onScreen: Bool, shared: Bool)] = listing.filter {
+            (row: (owner: pid_t, number: CGWindowID, title: String?, frame: CGRect, layer: Int, onScreen: Bool, shared: Bool)) -> Bool in
+            owner.map { (owner: pid_t) -> Bool in row.owner == owner } ?? true
+        }
+        let numbers: [CGWindowID] = rows.map(\.number)
+        let iterator: WindowIterator? = queryWindows(mainConnection(), numbers as CFArray, .spaces).flatMap(WindowIterator.init)
+        let queried: [(CGWindowID, (parent: CGWindowID?, spaces: [UInt64], shown: Bool))] = Array(
+            sequence(state: iterator) { (iterator: inout WindowIterator?) -> (CGWindowID, (parent: CGWindowID?, spaces: [UInt64], shown: Bool))? in
+                guard let current = iterator, current.advance() else { return nil }
+                let spaces: [UInt64] = Array(sequence(state: current.spaces) { (spaces: inout SpaceIterator?) -> UInt64? in spaces?.advance() == true ? spaces?.space : nil })
+                let parent: CGWindowID? = current.parent == kCGNullWindowID ? nil : current.parent
+                return (current.window, (parent: parent, spaces: spaces, shown: current.spaceAttributes.contains(.orderedIn)))
+            }
+        )
+        let placements: [CGWindowID: (parent: CGWindowID?, spaces: [UInt64], shown: Bool)] = Dictionary(queried) {
+            (first: (parent: CGWindowID?, spaces: [UInt64], shown: Bool), _: (parent: CGWindowID?, spaces: [UInt64], shown: Bool)) -> (parent: CGWindowID?, spaces: [UInt64], shown: Bool) in first
+        }
+        let windows: [(owner: pid_t, window: Self)] = rows.map {
+            (row: (owner: pid_t, number: CGWindowID, title: String?, frame: CGRect, layer: Int, onScreen: Bool, shared: Bool)) -> (owner: pid_t, window: Self) in
+            let placement: (parent: CGWindowID?, spaces: [UInt64], shown: Bool)? = placements[row.number]
+            let twin: CGWindowID? = served[row.frame]?.first { (twin: (owner: pid_t, number: CGWindowID, title: String?, frame: CGRect, layer: Int, onScreen: Bool, shared: Bool)) -> Bool in
+                servers[twin.owner] == row.owner && twin.title == row.title
+            }?.number
+            let built = Self(
+                number: row.number,
+                title: row.title,
+                frame: row.frame,
+                layer: row.layer,
+                band: Band(layer: row.layer),
+                parent: placement?.parent,
+                spaces: placement?.spaces ?? [],
+                onScreen: row.onScreen,
+                hidden: !row.onScreen && placement?.shown == true,
+                shared: row.shared,
+                remote: twin,
+                asking: false,
+                presented: row.onScreen,
+            )
+            return (owner: row.owner, window: built)
+        }
+        let grouped: [pid_t: [(owner: pid_t, window: Self)]] = Dictionary(grouping: windows) { (entry: (owner: pid_t, window: Self)) -> pid_t in entry.owner }
+        return grouped.mapValues { (owned: [(owner: pid_t, window: Self)]) -> [Self] in owned.map(\.window) }
     }
 
     func described(by container: Container?, blocking: Bool) -> Self {
@@ -180,8 +190,10 @@ extension InstanceState.Window {
 
 extension InstanceState.Activity {
     static func statusBars(in windows: [pid_t: [InstanceState.Window]]) -> [(host: pid_t, number: CGWindowID)] {
-        windows.flatMap { host, rows in
-            rows.filter { row in row.band == .mainMenu && NSRunningApplication(processIdentifier: host) != nil }.map { row in (host: host, number: row.number) }
+        let hosts: [pid_t: [InstanceState.Window]] = windows.filter { (entry: (key: pid_t, value: [InstanceState.Window])) -> Bool in NSRunningApplication(processIdentifier: entry.key) != nil }
+        return hosts.flatMap { (entry: (key: pid_t, value: [InstanceState.Window])) -> [(host: pid_t, number: CGWindowID)] in
+            let bars: [InstanceState.Window] = entry.value.filter { (row: InstanceState.Window) -> Bool in row.band == .mainMenu }
+            return bars.map { (row: InstanceState.Window) -> (host: pid_t, number: CGWindowID) in (host: entry.key, number: row.number) }
         }
     }
 
@@ -204,17 +216,16 @@ extension InstanceState.Termination: Encodable {
 
     package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: Key.self)
-        let ended: ProcessExit? = exit[case: \.success]
         let (field, value): (Key, any Encodable) =
-            switch exit.map(\.status) {
+            switch exit.status {
                 case .success(.exited(let status)): (.status, status)
                 case .success(.signaled(let signal)): (.signal, signal)
                 case .failure(let error): (.statusFailure, error.description)
             }
         try fields.encode(field.stringValue, forKey: .tag)
         try fields.encode(value, forKey: field)
-        if let ended, !ended.detail.isEmpty { try fields.encode(ended.detail, forKey: .detail) }
-        if report == nil, ended?.producesReport == true { try fields.encode(true, forKey: .reporting) }
+        if !exit.detail.isEmpty { try fields.encode(exit.detail, forKey: .detail) }
+        if report == nil, exit.producesReport { try fields.encode(true, forKey: .reporting) }
         try fields.encodeIfPresent(report?[case: \.success], forKey: .report)
         let reportFailure: ProcessFailure.Reason? = report?[case: \.failure]?.reason
         try fields.encodeIfPresent(reportFailure, forKey: .reportFailure)
@@ -249,21 +260,44 @@ extension Instance {
         _ running: some AsyncSequence<InstanceState, Never> & Sendable,
         clock: some Clock<Duration> & Sendable,
     ) -> some AsyncSequence<InstanceState, Never> & Sendable {
-        let (ended, ending) = AsyncStream<Result<ProcessExit, Errno>>.makeStream()
-        let cut = process.exits().map { exit in
-            ending.yield(exit)
-            ending.finish()
-            return InstanceState?.none
+        let (ended, ending) = AsyncStream<ProcessExit?>.makeStream()
+        let (terminated, terminating) = AsyncStream<InstanceState?>.makeStream()
+        let subject: String = "Exit events of \(application.localizedName ?? application.bundleIdentifier ?? "the application")"
+        let cut = process.exits().map { (exit: Result<ProcessExit, Errno>) -> InstanceState? in
+            guard case .failure(let error) = exit else {
+                ending.yield(exit[case: \.success])
+                ending.finish()
+                return nil
+            }
+            let observation: NSKeyValueObservation = self.application.observe(\.isTerminated, options: [.initial]) {
+                (application: NSRunningApplication, _: NSKeyValueObservedChange<Bool>) -> Void in
+                guard application.isTerminated else { return }
+                ending.yield(nil)
+                ending.finish()
+                terminating.yield(nil)
+            }
+            terminating.onTermination = { (_: AsyncStream<InstanceState?>.Continuation.Termination) -> Void in observation.invalidate() }
+            return .failed(ApplicationFailure(subject: subject, reason: .system(error)))
         }
-        let lived = merge(running.map(InstanceState?.some), cut).prefix { (state: InstanceState?) in state != nil }.compactMap(\.self)
-        return chain(lived, ended.flatMap { exit in self.terminations(after: exit, clock: clock) }).removeDuplicates()
+        let states = merge(running.map(Optional<InstanceState>.some), cut, terminated)
+        let lived = states.prefix { (state: InstanceState?) -> Bool in state != nil }.compactMap(\.self)
+        let exits = ended.flatMap { (exit: ProcessExit?) -> AsyncStream<Result<ProcessExit, Errno>> in
+            exit.map { (exit: ProcessExit) -> AsyncStream<Result<ProcessExit, Errno>> in
+                AsyncStream { (continuation: AsyncStream<Result<ProcessExit, Errno>>.Continuation) -> Void in
+                    continuation.yield(.success(exit))
+                    continuation.finish()
+                }
+            } ?? self.process.exits()
+        }
+        let exited = exits.compactMap { (exit: Result<ProcessExit, Errno>) -> ProcessExit? in exit[case: \.success] }
+        return chain(lived, exited.flatMap { (exit: ProcessExit) in self.terminations(after: exit, clock: clock) }).removeDuplicates()
     }
 
-    private func terminations(after exit: Result<ProcessExit, Errno>, clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
-        [false, true].async.compactMap { reported -> InstanceState? in
-            switch (exit, reported) {
-                case (_, false): .exited(termination: InstanceState.Termination(exit: exit, report: nil))
-                case (.success(let ended), true) where ended.producesReport:
+    private func terminations(after exit: ProcessExit, clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
+        [false, true].async.compactMap { (reported: Bool) -> InstanceState? in
+            switch (reported, exit.producesReport) {
+                case (false, _): .exited(termination: InstanceState.Termination(exit: exit, report: nil))
+                case (true, true):
                     .exited(
                         termination: InstanceState.Termination(
                             exit: exit,
@@ -272,7 +306,7 @@ extension Instance {
                             },
                         )
                     )
-                case (_, true): nil
+                case (true, false): nil
             }
         }
     }

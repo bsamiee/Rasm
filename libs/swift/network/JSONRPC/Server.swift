@@ -31,7 +31,7 @@ private struct TraceContextCarrier: Extractor {
 final class Server<Request: Decodable & Sendable>: Sendable {
     // --- [STATE]
 
-    private struct Call {
+    private struct Call: Sendable {
         let task: Task<Void, Never>
         let acks: AsyncStream<Void>.Continuation
         var streaming = false
@@ -80,8 +80,12 @@ final class Server<Request: Decodable & Sendable>: Sendable {
             state.closed = true
             return Array(state.running.values)
         }
-        for call in calls where call.streaming || failed || Task.isCancelled { call.interrupt() }
-        for call in calls { await call.task.value }
+        for call in calls where call.streaming || failed { call.interrupt() }
+        await withTaskCancellationHandler {
+            for call in calls { await call.task.value }
+        } onCancel: {
+            for call in calls { call.interrupt() }
+        }
     }
 
     // --- [ANSWERS]

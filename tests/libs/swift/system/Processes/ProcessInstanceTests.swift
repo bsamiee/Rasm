@@ -1,6 +1,7 @@
 import CustomDump
 import Darwin
 import Network
+import Subprocess
 import System
 import Testing
 
@@ -101,8 +102,29 @@ struct ProcessInstanceTests {
         let reused = ProcessInstance(pid: current.pid, started: current.started - 1)
         #expect(throws: Errno.noSuchProcess) { try MainThread(of: reused) }
         #expect(throws: Errno.noSuchProcess) { try reused.listeningPorts() }
-        #expect(throws: Errno.noSuchProcess) { try reused.runsInstalledCode() }
         #expect(throws: Errno.noSuchProcess) { try reused.signal(0) }
         #expect(throws: Errno.noSuchProcess) { try reused.executable() }
+        let unchecked = #expect(throws: ProcessFailure.self) { try reused.runsInstalledCode() }
+        expectNoDifference(unchecked?.reason, .system(.noSuchProcess))
+    }
+
+    @Test
+    func findsTheRunningTestProcessRunningItsInstalledCode() throws {
+        #expect(try ProcessInstance(of: getpid()).runsInstalledCode())
+    }
+
+    @Test(
+        arguments: [
+            (.success(.signaled(SIGSEGV)), [], true),
+            (.success(.signaled(SIGABRT)), [], true),
+            (.success(.signaled(SIGXCPU)), [], false),
+            (.success(.signaled(SIGXFSZ)), [], false),
+            (.success(.signaled(SIGKILL)), [], false),
+            (.success(.exited(0)), .codeSigning, true),
+            (.failure(.permissionDenied), [], false),
+        ] as [(Result<TerminationStatus, Errno>, ExitDetail, Bool)]
+    )
+    func expectsACrashReportFromACrashingSignalOrACodeSigningKillAlone(status: Result<TerminationStatus, Errno>, detail: ExitDetail, reports: Bool) {
+        expectNoDifference(ProcessExit(status: status, detail: detail).producesReport, reports)
     }
 }

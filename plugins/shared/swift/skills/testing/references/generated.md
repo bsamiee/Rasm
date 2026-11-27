@@ -10,7 +10,7 @@
 @Test(arguments: [Shape.clicks, .stroke, .drag])
 func pairsEveryPressWithOneReleaseOfItsEventNumber(shape: Shape) async {
     await propertyCheck(input: draws, hosts) { (draw: Draw, host: Host) in
-        let pressing = try input(shape, draw)
+        let pressing = input(shape, draw)
         let presses: [CGEvent] = events(try timeline(of: pressing, host), among: downs.union(ups)).map(\.event)
         let order: [Bool] = presses.map { (event: CGEvent) -> Bool in downs.contains(event.type) }
         expectNoDifference(order, Array(repeating: [true, false], count: pressing.schedule.count).flatMap(\.self))
@@ -69,7 +69,7 @@ Built-in generators each pair a draw with a shrinker:
 Shrinking is on in this workspace: package trait `EnableShrinking` is a default trait under Swift 6.2 and later, and root `Package.swift` names no traits for its row. `.shrinking(false)` turns it off for a test or suite:
 - Failing iterations record no issue while shrinking runs, and each candidate runs the body with its issues dropped, a failing one replacing the input
 - Searches end when no candidate fails, and a final run over shrunk input records its issues, with both inputs and step count in its message
-- Bodies run once per candidate, so effects outside the process (posted events, files, windows) repeat, and checks sharing such state take `.shrinking(false)`
+- Bodies run once per candidate, so effects outside the process (files) repeat, and checks sharing such state take `.shrinking(false)`
 - Candidates pass generator filters and an array's lower count, so each shrunk input is one the generator can draw
 - Bodies recording only warnings report "Warning occured with input" at warning severity and pass
 
@@ -102,14 +102,14 @@ Counterexamples become named example tests:
 Production members take their random source as `inout some RandomNumberGenerator`, and tests pass a `Xoshiro`, which yields one sequence per seed:
 
 ```swift
-private let hosts = zip(Gen.int(in: 100...900), Gen.int(in: 100...600), Gen.int(in: 15...100), Gen.int(in: 0...160), Gen.int64(in: 0...10_000), Gen.uint64())
+private let hosts = zip(Gen.int(in: 100...900), Gen.int(in: 100...600), Gen.int(in: 15...100), Gen.int(in: 4...34), Gen.int64(in: 0...10_000), Gen.uint64())
     .map { (host: (Int, Int, Int, Int, Int64, UInt64)) -> Host in
-        Host(interval: .milliseconds(host.0), delay: .milliseconds(host.1), repeatInterval: .milliseconds(host.2), rate: host.3, first: host.4, seed: host.5)
+        Host(interval: .milliseconds(host.0), delay: .milliseconds(host.1), repeatInterval: .milliseconds(host.2), frame: .milliseconds(host.3), first: host.4, seed: host.5)
     }
 
 private func timeline(of input: Input, _ host: Host) throws(ApplicationFailure) -> [(offset: Duration, event: CGEvent)] {
     var generator = Xoshiro(seed: (host.seed, 1, 2, 3))
-    return try input.timeline(doubleClick: host.interval, keyRepeat: (host.delay, host.repeatInterval), frames: host.rate, layout: layout, numbering: host.first, using: &generator)
+    return try input.timeline(doubleClick: host.interval, keyRepeat: (host.delay, host.repeatInterval), frame: host.frame, layout: layout, numbering: (host.first, 1), using: &generator)
 }
 ```
 
@@ -117,4 +117,4 @@ private func timeline(of input: Input, _ host: Host) throws(ApplicationFailure) 
 - `Gen.uint64()` draws the seed as a field of `Host`, so failures print the random source and `.fixedSeed` replays it
 - `Xoshiro(seed:)` takes four `UInt64` words, and its base64 `String` form returns `nil` when malformed
 - Zero in all four words yields zero forever, so words fixed beside a drawn one stay nonzero
-- Example tests seed a literal (`Xoshiro(seed: (1, 2, 3, 4))` in `runsClicksAtOnePointUpToTheDoubleClickInterval`)
+- Example tests seed a literal (`Xoshiro(seed: (1, 2, 3, 4))` in `pacesPressesOfAKeyAtTheKeyRepeatIntervalWhereNoEveryIsGiven`)

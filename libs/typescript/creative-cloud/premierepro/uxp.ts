@@ -7,7 +7,7 @@ import type { Render } from '@rasm/object-model/rpcs';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Uxp } from '@rasm/uxp/plugin';
 import type { File } from 'adobe:uxp';
-import { Array, Context, Effect, Layer, Option, Path, Predicate, Queue, Schema, Stream } from 'effect';
+import { Array, Context, Effect, Layer, Option, Path, Predicate, Schema, Stream } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -23,7 +23,7 @@ const Guided = Schema.Struct({ guid: Schema.Unknown }).annotate({ description: '
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Premiere extends Context.Service<Premiere, premierepro>()('@rasm/premierepro/uxp/Premiere') {
-    static readonly layer = Layer.effect(Premiere)(Effect.flatMap(Uxp.require('premierepro'), Schema.decodeUnknownEffect(Module)));
+    static readonly layer = Layer.effect(Premiere)(Uxp.require('premierepro', Module));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -60,21 +60,17 @@ const render = Effect.fnUntraced(function* ({ target }: Render, written: Pick<Fi
     yield* Effect.tryPromise({ try: () => Exporter.exportSequenceFrame(sequence, time, written.name, `${path.dirname(written.nativePath)}${path.sep}`, width, height), catch: refused }).pipe(Effect.flatMap((exported) => (exported ? Effect.void : refused())));
 });
 const listen = (select: (constants: premierepro['Constants']) => readonly EventName[]) => ({
-    changes: Stream.callback<typeof Link.Event.Type, HostError, Premiere>(
-        Effect.fnUntraced(function* (queue) {
-            const { EventManager, Constants } = yield* Premiere;
-            yield* Effect.forEach(
-                select(Constants),
-                (name) => {
-                    const handler = (): void => {
-                        Queue.offerUnsafe(queue, { name: String(name), target: Option.none(), detail: Option.none() });
-                    };
-                    const refused = HostError.refused(`global listener of ${String(name)}`);
-                    return Effect.acquireRelease(Effect.try({ try: () => EventManager.addGlobalEventListener(name, handler), catch: refused }), () => Effect.orDie(Effect.try({ try: () => EventManager.removeGlobalEventListener(name, handler), catch: refused })));
-                },
-                { discard: true },
-            );
-        }),
+    changes: Stream.unwrap(
+        Premiere.useSync(({ EventManager, Constants }) =>
+            Stream.mergeAll(
+                Array.map(select(Constants), (name) =>
+                    Uxp.listen(`global listener of ${String(name)}`, { add: (listener) => EventManager.addGlobalEventListener(name, listener), remove: (listener) => EventManager.removeGlobalEventListener(name, listener) }).pipe(
+                        Stream.as<typeof Link.Event.Type>({ name: String(name), target: Option.none(), detail: Option.none() }),
+                    ),
+                ),
+                { concurrency: 'unbounded' },
+            ),
+        ),
     ),
 });
 const source = Description.merge(

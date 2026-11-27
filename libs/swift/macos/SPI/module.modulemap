@@ -1,0 +1,5 @@
+module SPI [system] {
+    header "SPI.h"
+    link framework "SkyLight"
+    export *
+}

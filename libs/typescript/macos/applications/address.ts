@@ -1,6 +1,6 @@
 import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Data, DateTime, Function, HashMap, HashSet, Match, Option, Order, pipe, Predicate, Record, Result, Schema, String, Struct } from 'effect';
-import type { Container, Control, Fact, Model, Observation } from '#/contract';
+import type { Container, Control, Fact, Model, Observation } from '#/interface';
 import type { Entry, InterfaceMap } from '#/interface-map';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -313,14 +313,25 @@ const resolve = (held: Index, at: string): Result.Result<Item, Unmatched> => {
                             { onEmpty: Option.none, onNonEmpty: Option.some },
                         ),
                     );
-                    return Option.match(found, {
-                        onNone: () =>
-                            refused(
-                                'control, option, or container',
-                                Unmatched.rank(last, named, (each) => Option.getOrElse(each.name, () => '')),
-                            ),
-                        onSome: (candidates) => (Predicate.isTupleOf(candidates, 1) ? Result.succeed(candidates[0]) : refused('single control, option, or container', candidates)),
-                    });
+                    const sectioned = Array.dedupeWith(
+                        living.flatMap((each) =>
+                            each.target._tag === 'Control' && Option.exists(Option.fromUndefinedOr(each.target.control.section), (section) => Unmatched.named(section, last)) && inside({ ...each, ancestors: Array.dropRight(each.ancestors, 1) })
+                                ? Option.toArray(Record.get(held.live, `${each.target.container.ref}`))
+                                : [],
+                        ),
+                        (left, right) => left === right,
+                    );
+                    return Option.match(
+                        Option.orElse(found, () => Array.match(sectioned, { onEmpty: Option.none, onNonEmpty: Option.some })),
+                        {
+                            onNone: () =>
+                                refused(
+                                    'control, option, or container',
+                                    Unmatched.rank(last, named, (each) => Option.getOrElse(each.name, () => '')),
+                                ),
+                            onSome: (candidates) => (Predicate.isTupleOf(candidates, 1) ? Result.succeed(candidates[0]) : refused('single control, option, or container', candidates)),
+                        },
+                    );
                 },
             }),
         ),
