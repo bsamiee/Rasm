@@ -128,7 +128,7 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
         yield* Effect.addFinalizer(() => flush);
         yield* SubscriptionRef.changes(state).pipe(
             Stream.changesWith(Equivalence.strictEqual()),
-            Stream.drop(1),
+            Stream.dropWhile((map) => map === loaded),
             Stream.aggregateWithin(Sink.drain, Schedule.spaced(LIMITS.interval)),
             Stream.runForEach(() => flush),
             Effect.forkScoped,

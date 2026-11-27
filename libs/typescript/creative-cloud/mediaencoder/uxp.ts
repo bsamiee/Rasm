@@ -1,7 +1,7 @@
 import { Containment, reference } from '@rasm/object-model/host';
 import { HostError } from '@rasm/object-model/model';
 import { Callable, Uxp } from '@rasm/uxp/plugin';
-import { Array, Context, Effect, Function, Layer, Option, Predicate, Record, Schema, Stream, Struct } from 'effect';
+import { Array, Context, Effect, Exit, Function, Layer, Option, Predicate, Record, Schema, Stream, Struct } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -84,19 +84,16 @@ const listen = (select: (service: MediaEncoder['Service']) => readonly [() => un
             Effect.fnUntraced(function* (service) {
                 const [instance, names] = select(service);
                 const emitter = yield* Effect.try({ try: instance, catch: HostError.refused(`event source of ${names.join(', ')}`) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Emitter)));
-                yield* Effect.validate(
-                    names,
-                    (name) => {
-                        const refused = HostError.refused(`subscribeToEvent ${name}`);
-                        return Effect.try({ try: (): unknown => emitter.subscribeToEvent(name), catch: refused }).pipe(
-                            Effect.filterOrFail(
-                                (subscribed) => subscribed === true,
-                                () => refused(),
-                            ),
-                        );
-                    },
-                    { discard: true },
-                );
+                yield* Effect.forEach(names, (name) => {
+                    const refused = HostError.refused(`subscribeToEvent ${name}`);
+                    return Effect.try({ try: (): unknown => emitter.subscribeToEvent(name), catch: refused }).pipe(
+                        Effect.filterOrFail(
+                            (subscribed) => subscribed === true,
+                            () => refused(),
+                        ),
+                        Effect.exit,
+                    );
+                }).pipe(Effect.flatMap(Exit.asVoidAll));
                 return Stream.mergeAll(
                     Array.map(names, (name) => Stream.map(Stream.fromEventListener(emitter, name), (event) => [name, event] as const)),
                     { concurrency: 'unbounded' },

@@ -1,3 +1,4 @@
+import Foundation
 package import Logging
 
 import struct os.OSAllocatedUnfairLock
@@ -26,7 +27,7 @@ package struct OnceLogHandler: LogHandler {
     }
 
     package func log(event: LogEvent) {
-        let cause = event.error.map { error in String(reflecting: type(of: error)) } ?? "\(event.message) \(metadata.sorted { first, second in first.key < second.key })"
+        let cause = event.error.map { error in (error as NSError).domain } ?? "\(event.message) \(metadata.sorted { first, second in first.key < second.key })"
         guard handler.logLevel <= event.level, seen.withLock({ seen in seen.insert(cause).inserted }) else { return }
         handler.log(event: event)
     }

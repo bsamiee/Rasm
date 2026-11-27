@@ -163,7 +163,7 @@ struct ServerTests {
     }
 
     @Test
-    func encodesAnUntaggedErrorAsANamedErrorHoldingEachUnderlyingErrorAsItsCause() async throws {
+    func encodesAnEncodableErrorUnderItsTypeNameWithItsFieldsAndEachUnderlyingErrorAsItsCause() async throws {
         var session = Session()
         let failed = try await session.failure(14, "unreadable", [:])
         let missing = Errno.noSuchFileOrDirectory.localizedDescription
@@ -173,7 +173,7 @@ struct ServerTests {
                 [
                     "_tag": .string("Fail"),
                     "error": .object([
-                        "name": .string(String(reflecting: Wrapped.self)), "message": .string("wrapped \(missing)"),
+                        "_tag": .string("Wrapped"), "reason": .string("Errno"), "name": .string(String(reflecting: Wrapped.self)), "message": .string("wrapped \(missing)"),
                         "cause": .object(["name": .string(NSPOSIXErrorDomain), "message": .string(missing)]),
                     ]),
                 ]

@@ -19,18 +19,28 @@ extension WindowServerTests {
             return rows.filter { row in row[kCGWindowLayer as String] as? Int32 == CGWindowLevelForKey(.normalWindow) }.compactMap { row in row[kCGWindowOwnerPID as String] as? pid_t }
         }
 
-        static func bundle(in folder: URL) throws -> Installation {
-            let contents = folder.appending(components: "Fixture.app", "Contents")
-            try FileManager.default.createDirectory(at: contents.appending(component: "MacOS"), withIntermediateDirectories: true)
-            try FileManager.default.copyItem(at: FixtureSession.executable, to: contents.appending(components: "MacOS", FixtureSession.executable.lastPathComponent))
-            try PropertyListSerialization.data(
-                fromPropertyList: [
-                    kCFBundleIdentifierKey as String: "app.rasm.fixture.\(UUID().uuidString)", kCFBundleExecutableKey as String: FixtureSession.executable.lastPathComponent,
-                ],
-                format: .xml,
-                options: 0,
-            ).write(to: contents.appending(component: "Info.plist"))
-            return try Installation(at: folder.appending(component: "Fixture.app"))
+        struct TemporaryBundle: ~Copyable {
+            let folder = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
+            let installation: Installation
+
+            init() throws {
+                let contents = folder.appending(components: "Fixture.app", "Contents")
+                try FileManager.default.createDirectory(at: contents.appending(component: "MacOS"), withIntermediateDirectories: true)
+                try FileManager.default.copyItem(at: FixtureSession.executable, to: contents.appending(components: "MacOS", FixtureSession.executable.lastPathComponent))
+                try PropertyListSerialization.data(
+                    fromPropertyList: [
+                        kCFBundleIdentifierKey as String: "app.rasm.fixture.\(UUID().uuidString)", kCFBundleExecutableKey as String: FixtureSession.executable.lastPathComponent,
+                    ],
+                    format: .xml,
+                    options: 0,
+                ).write(to: contents.appending(component: "Info.plist"))
+                installation = try Installation(at: folder.appending(component: "Fixture.app"))
+            }
+
+            deinit {
+                for running in NSRunningApplication.runningApplications(withBundleIdentifier: installation.identifier) { _ = running.forceTerminate() }
+                do { try FileManager.default.removeItem(at: folder) } catch { Issue.record(error) }
+            }
         }
 
         @Test(
@@ -40,15 +50,14 @@ extension WindowServerTests {
             )
         )
         func neverRanksAWindowOfAnInstanceOrderingItselfFrontAboveTheFrontmostApplicationFromOpenToSettle() async throws {
-            let folder = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
-            let installation = try Self.bundle(in: folder)
+            let app = try TemporaryBundle()
             let front = try #require(NSWorkspace.shared.frontmostApplication)
             let sampling = Task {
                 await AsyncTimerSequence(interval: .milliseconds(5), clock: ContinuousClock()).map { _ in (front: focusedProcesses().front, owners: Self.normalOwners()) }
                     .reduce(into: [(front: pid_t?, owners: [pid_t])]()) { held, sample in held.append(sample) }
             }
             let events = NSWorkspace.shared.launchEvents(
-                installation,
+                app.installation,
                 in: ScriptingDictionaries { _ in nil },
                 watches: Watches(),
                 within: .seconds(5),
@@ -60,8 +69,6 @@ extension WindowServerTests {
             let samples: [(front: pid_t?, owners: [pid_t])] = await sampling.value
             let entries: Int = PermittedFrontList.entries
             let instance = try #require(launched)
-            _ = instance.application.forceTerminate()
-            try FileManager.default.removeItem(at: folder)
             let fronts: Set<pid_t?> = Set(samples.map(\.front))
             expectNoDifference(fronts, [front.processIdentifier], "Front processes sampled from open to settle")
             let covering: Int = samples.count { sample in
@@ -78,29 +85,24 @@ extension WindowServerTests {
 
         @Test
         func leavesAutomationConsentTowardTheLaunchedInstanceUnaskedAsLaunchServicesSendsItsFirstAppleEvent() async throws {
-            let folder = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
-            let events = NSWorkspace.shared.launchEvents(try Self.bundle(in: folder), in: ScriptingDictionaries { _ in nil }, watches: Watches(), within: .seconds(5))
+            let app = try TemporaryBundle()
+            let events = NSWorkspace.shared.launchEvents(app.installation, in: ScriptingDictionaries { _ in nil }, watches: Watches(), within: .seconds(5))
             var launched: Instance?
             for await case .launched(let event) in events { launched = event.instance }
             let instance = try #require(launched)
             let consent: OSStatus = await NSAppleEventDescriptor(processIdentifier: instance.process.pid).consent(to: AEEventClass(kCoreEventClass), AEEventID(kAEOpenApplication), asking: false)
-            _ = instance.application.forceTerminate()
-            try FileManager.default.removeItem(at: folder)
             expectNoDifference(consent, OSStatus(errAEEventWouldRequireUserConsent), "Automation consent of this process toward the settled instance")
         }
 
         @Test
         func reportsAnInstanceAtTheURLOfItsInstallationReadThroughASymlinkedFolderWithoutATrailingSlash() async throws {
-            let folder = FileManager.default.temporaryDirectory.appending(component: UUID().uuidString)
-            let installation = try Self.bundle(in: folder)
-            let events = NSWorkspace.shared.launchEvents(installation, in: ScriptingDictionaries { _ in nil }, watches: Watches(), within: .seconds(5))
+            let app = try TemporaryBundle()
+            let events = NSWorkspace.shared.launchEvents(app.installation, in: ScriptingDictionaries { _ in nil }, watches: Watches(), within: .seconds(5))
             var launched: Instance?
             for await case .launched(let event) in events { launched = event.instance }
             let instance = try #require(launched)
             let reported: URL? = InstanceSnapshot(instance, state: .failed(ApplicationFailure(subject: "probe", reason: .noWindow)))?.url
-            _ = instance.application.forceTerminate()
-            try FileManager.default.removeItem(at: folder)
-            expectNoDifference(reported?.absoluteString, installation.url.absoluteString, "Instance URL against the installation URL the listing matches it by")
+            expectNoDifference(reported?.absoluteString, app.installation.url.absoluteString, "Instance URL against the installation URL the listing matches it by")
         }
 
         @Test(

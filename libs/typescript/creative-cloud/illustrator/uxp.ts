@@ -35,7 +35,7 @@ const Globals = Schema.Struct({ UserInteractionLevel: Schema.Struct({ DONTDISPLA
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Illustrator extends Context.Service<Illustrator>()('@rasm/illustrator/uxp/Illustrator', {
-    make: Effect.map(Effect.all([Effect.flatMap(Uxp.require('illustrator'), Schema.decodeUnknownEffect(Module)), Schema.decodeUnknownEffect(Globals)(globalThis)]), ([{ app }, globals]) => ({
+    make: Effect.map(Effect.all([Effect.flatMap(Uxp.require('illustrator'), Schema.decodeUnknownEffect(Module)), Effect.suspend(() => Schema.decodeUnknownEffect(Globals)(globalThis))]), ([{ app }, globals]) => ({
         ...globals,
         app,
         containment: {

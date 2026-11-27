@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { DatabaseSync } from 'node:sqlite';
 import { pathToFileURL } from 'node:url';
-import { runInNewContext } from 'node:vm';
+import { createContext, runInContext } from 'node:vm';
 import { layerUndici } from '@effect/platform-node/NodeHttpClient';
 import { layer as services } from '@effect/platform-node/NodeServices';
 import { layer as sockets } from '@effect/platform-node/NodeSocketServer';
@@ -192,7 +192,7 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
                     watch: ({ instance }) =>
                         Array.findFirst(instances, (row) => row.instance === instance).pipe(
                             Effect.fromOption,
-                            Effect.map((row) => ({ ...row, language: 'en' })),
+                            Effect.flatMap((row) => InstanceSnapshot.Watched.makeEffect({ ...row, language: 'en' })),
                             Effect.orDie,
                         ),
                     dictionary: ({ url }) => Effect.orDie(Effect.fromNullishOr(dictionaries[url.href])),
@@ -251,12 +251,12 @@ const shown = (names: readonly string[]) =>
             throw new Error(`host ${name}`);
         },
     ]);
-const host = () => {
+const host = (info: unknown) => {
     const field = { fileSelect: true, ...shown(['browseForFileToSubmit', 'buttonImportIcon']) };
     const doc = {
         path: '/tmp/a.pdf',
         dirty: true,
-        info: { Title: 'probe' },
+        info,
         getField: () => field,
         closeDoc(this: unknown, discard: unknown) {
             if (this !== doc || discard !== true) {
@@ -292,7 +292,13 @@ const executing = (executed: MutableRef.MutableRef<readonly Sent[]>, { instance,
         Effect.tap((direct) => Effect.sync(() => MutableRef.update(executed, Array.append({ instance, arguments: Record.keys(given), direct })))),
         Effect.flatMap((direct) => {
             const line = direct.split('\n').findIndex((text) => text.includes(MARK)) + 1;
-            return line > 0 ? Effect.orDie(Schema.encodeEffect(Reply)({ _tag: 'Thrown', message: MARK, line })) : Effect.orDie(Schema.decodeUnknownEffect(Schema.String)(runInNewContext(direct, { ...DIALOGS, ...host() })));
+            return line > 0
+                ? Effect.orDie(Schema.encodeEffect(Reply)({ _tag: 'Thrown', message: MARK, line }))
+                : Effect.sync(() => createContext({ ...DIALOGS })).pipe(
+                      Effect.map((realm): unknown => runInContext(direct, Object.assign(realm, host(runInContext("({ Title: 'probe' })", realm))))),
+                      Effect.flatMap(Schema.decodeUnknownEffect(Schema.String)),
+                      Effect.orDie,
+                  );
         }),
         Effect.map((reply) => ({ reply, written: Result.succeed([]) })),
     );

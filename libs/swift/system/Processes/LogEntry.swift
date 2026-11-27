@@ -1,3 +1,4 @@
+import Darwin
 import DequeModule
 package import Foundation
 package import OSLog
@@ -9,6 +10,7 @@ private let logTypes: [String: OSLogEntryLog.Level] = ["Debug": .debug, "Info": 
 private let logTypeNames: [OSLogEntryLog.Level: String] = Dictionary(uniqueKeysWithValues: logTypes.map { name, level in (level, name) })
 private let timestampFormat = Date.ISO8601FormatStyle(dateTimeSeparator: .space, includingFractionalSeconds: true)
 private let decoder = JSONDecoder()
+private let windowLead = 1
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -78,7 +80,7 @@ private struct Line: Decodable {
 extension LogEntry {
     package static func history(of source: Source, since start: Date?, limit: Int, containing text: String? = nil) async throws(ProcessFailure) -> [Self] {
         var held = Deque<String>()
-        let window = start.map { start in ["--start", "@\(Int(start.timeIntervalSince1970))"] } ?? ["--last", "boot"]
+        let window = start.map { start in ["--start", "@\(Int(start.timeIntervalSince1970) - windowLead)"] } ?? ["--last", "boot"]
         try await read(["show"] + window, of: source, since: start, levels: nil, containing: text) { line in
             held.append(line)
             if held.count > limit + 1 { held.removeFirst() }
@@ -124,7 +126,10 @@ extension LogEntry {
         let clauses: [NSPredicate?] = [
             NSPredicate(format: "type == logEvent"),
             process,
-            start.map { start in NSPredicate(format: "date >= %@", argumentArray: [start]) },
+            start.map { start in
+                let elapsed = Int64((Date.now.timeIntervalSince(start) * Double(NSEC_PER_SEC)).rounded())
+                return NSPredicate(format: "continuousNanosecondsSinceBoot >= %@", argumentArray: [UInt64(clamping: Int64(clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW)) - elapsed)])
+            },
             levels.map { levels in NSCompoundPredicate(orPredicateWithSubpredicates: levels.compactMap { level in logTypeNames[level] }.map { name in NSPredicate(format: "logType == %@", name) }) },
             text.map { text in NSPredicate(format: "composedMessage CONTAINS[c] %@", text) },
         ]

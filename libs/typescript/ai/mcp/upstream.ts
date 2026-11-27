@@ -148,13 +148,13 @@ class Upstream extends Data.Class<
             ),
         );
         const connected = Effect.gen(function* () {
-            const [connections, random] = yield* Effect.all([Pool.make({ acquire: connect, size: 1, concurrency: Number.POSITIVE_INFINITY }), SecureRandom.SecureRandom]);
+            const [connections, services] = yield* Effect.all([Pool.make({ acquire: connect, size: 1, concurrency: Number.POSITIVE_INFINITY }), Effect.context<SecureRandom.SecureRandom>()]);
             const run = <A>(use: (connection: Parameters<typeof list>[0]) => Effect.Effect<A, McpClientError.McpClientError, SecureRandom.SecureRandom>) =>
                 Pool.get(connections).pipe(
                     Effect.flatMap((connection) => Effect.tapError(use(connection), ({ reason }) => (reason.pipe(disconnects, Option.isSome) ? Pool.invalidate(connections, connection) : Effect.void))),
                     Effect.scoped,
                     Effect.retry({ times: 1, while: (error) => McpClientError.isMcpClientError(error) && Option.contains(disconnects(error.reason), true) }),
-                    Effect.provideService(SecureRandom.SecureRandom, random),
+                    Effect.updateContext((request: Context.Context<never>) => Context.merge(services, request)),
                 );
             const toUpstream = (listing: Listing) => {
                 const [tools, prompts] = [expose(listing.tools, filters.tools), expose(listing.prompts, filters.prompts)];

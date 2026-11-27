@@ -19,7 +19,8 @@ class Run extends Schema.Opaque<Run>()(
                 "Bundle names of the applications the invocations archive, each invocation taking -archivePath <n>.xcarchive in a temporary folder, once every invocation succeeds each bundle under an archive's Products taking its path below / in one renamex_np, swapped with the bundle installed there, so a failed invocation leaves the installed bundle untouched, then each one holding Contents/Library/LaunchAgents launched once more with open -n -g -j -W, behind the user's windows, so its SMAppService registration replaces the agents still running the build it swapped out, and a running executable inside one named in the last line as needing a relaunch",
         }),
         results: Schema.String.pipe(Schema.Array, Schema.optionalKey).annotate({
-            description: "Result bundle paths, the one at an invocation's index passed to it as -resultBundlePath, each removed before the first invocation runs, as xcodebuild refuses a result bundle path that exists",
+            description:
+                "Result bundle paths, each removed before the first invocation runs, as xcodebuild refuses a result bundle path that exists, the invocation at a path's index writing its bundle through -resultBundlePath into a temporary folder that every bundle leaves for its path once the last invocation ends, as xcodebuild resolves the package graph again at each write under the root of a package it tests and invalidates the test bundles it runs",
         }),
         dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Prints each invocation and runs none' }),
         __unparsed__: Words,
@@ -45,7 +46,9 @@ const commands = Effect.fnUntraced(function* ({ runs, applications = [], results
         Record.filter(env, (_, name) => name.startsWith('NX_') || name === 'LERNA_PACKAGE_NAME'),
         Function.constUndefined,
     );
-    const stage = yield* applications.length === 0 || dry ? Effect.succeedNone : Effect.asSome(fs.makeTempDirectoryScoped());
+    const stage = yield* (applications.length === 0 && results.length === 0) || dry ? Effect.succeedNone : Effect.asSome(fs.makeTempDirectoryScoped());
+    const archives = Option.filter(stage, () => applications.length > 0);
+    const bundles = Option.match(stage, { onNone: () => [], onSome: (at) => results.map((kept, index) => ({ written: join(at, `${index}.xcresult`), kept: resolve(root, kept) })) });
     yield* Effect.forEach(dry ? [] : results, (at) => fs.remove(resolve(root, at), { recursive: true, force: true }), { discard: true });
     const success = yield* Effect.reduce(
         runs,
@@ -56,7 +59,7 @@ const commands = Effect.fnUntraced(function* ({ runs, applications = [], results
                       spawner.exitCode(
                           ChildProcess.make(
                               Array.headNonEmpty(invocation),
-                              [...Array.tailNonEmpty(invocation), ...words, ...Option.match(stage, { onNone: () => [], onSome: (at) => ['-archivePath', join(at, `${index}.xcarchive`)] }), ...Option.match(Array.get(results, index), { onNone: () => [], onSome: (at) => ['-resultBundlePath', at] })],
+                              [...Array.tailNonEmpty(invocation), ...words, ...Option.match(archives, { onNone: () => [], onSome: (at) => ['-archivePath', join(at, `${index}.xcarchive`)] }), ...Option.match(Array.get(bundles, index), { onNone: () => [], onSome: ({ written }) => ['-resultBundlePath', written] })],
                               { cwd: root, env: { ...cleared, ...stated }, extendEnv: true, detached: false, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' },
                           ),
                       ),
@@ -64,7 +67,9 @@ const commands = Effect.fnUntraced(function* ({ runs, applications = [], results
                   )
                 : Effect.as(dry ? Effect.logInfo(`Would run ${CommandLine.display(invocation)}`) : Effect.void, passed),
     );
-    const staged = yield* Effect.forEach(success ? Option.toArray(stage) : [], (at) =>
+    const ended = yield* Effect.filter(bundles, ({ written }) => fs.exists(written));
+    yield* Effect.forEach(ended, ({ written, kept }) => Effect.andThen(fs.makeDirectory(dirname(kept), { recursive: true }), fs.rename(written, kept)), { discard: true });
+    const staged = yield* Effect.forEach(success ? Option.toArray(archives) : [], (at) =>
         Effect.map(
             fs.readDirectory(at, { recursive: true }),
             Array.filterMap((entry) => (applications.includes(basename(entry)) ? Result.succeed([join(at, entry), join(sep, ...entry.split(sep).slice(2))] as const) : Result.failVoid)),

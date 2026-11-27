@@ -74,13 +74,6 @@
     {
       "target": {
         "containerPath": "container:",
-        "identifier": "CurrentProcessTests",
-        "name": "CurrentProcessTests"
-      }
-    },
-    {
-      "target": {
-        "containerPath": "container:",
         "identifier": "ApplicationServerTests",
         "name": "ApplicationServerTests"
       }

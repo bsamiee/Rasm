@@ -100,7 +100,7 @@ it.live(
         yield* subscribed;
         assert.deepStrictEqual(
             [evaluated, between, called.isError === true, yield* seen, host.level, Array.map(yield* links.peers, Struct.get('requests'))],
-            [{ result: Option.some('suppressed') }, 'interactive', false, ['suppressed', 'suppressed', 'suppressed'], 'interactive', [new Set(['evaluate', 'describe', 'operate'])]],
+            [{ result: Option.some('suppressed') }, 'interactive', false, ['suppressed', 'suppressed', 'suppressed', 'interactive'], 'interactive', [new Set(['evaluate', 'describe', 'operate'])]],
         );
     }, Effect.scoped),
 );

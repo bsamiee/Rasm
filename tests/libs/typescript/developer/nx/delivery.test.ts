@@ -97,7 +97,7 @@ describe('attach executor', () => {
 
         const attached = attach({}, workspace.context(graph, 'marker', 'attach'));
 
-        await expect(attached).rejects.toThrow(/^gh api graphql .+ exits 1: HTTP 401: Bad credentials \(https:\/\/api\.github\.com\/graphql\)$/u);
+        await expect(attached).rejects.toThrow(/^gh api graphql .+ exited 1: HTTP 401: Bad credentials \(https:\/\/api\.github\.com\/graphql\)$/u);
         expect(recorded('gh.txt')).toStrictEqual([]);
     });
 

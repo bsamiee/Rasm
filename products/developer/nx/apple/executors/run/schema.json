@@ -28,7 +28,7 @@
         },
         "results": {
             "type": "array",
-            "description": "Result bundle paths, the one at an invocation's index passed to it as -resultBundlePath, each removed before the first invocation runs, as xcodebuild refuses a result bundle path that exists",
+            "description": "Result bundle paths, each removed before the first invocation runs, as xcodebuild refuses a result bundle path that exists, the invocation at a path's index writing its bundle through -resultBundlePath into a temporary folder that every bundle leaves for its path once the last invocation ends, as xcodebuild resolves the package graph again at each write under the root of a package it tests and invalidates the test bundles it runs",
             "items": {
                 "type": "string"
             }

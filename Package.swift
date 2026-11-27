@@ -225,14 +225,6 @@ let tests: [Target] = [
         path: "tests/libs/swift/macos/Applications",
     ),
     .testTarget(
-        name: "CurrentProcessTests",
-        dependencies: [
-            "CurrentProcess", .product(name: "Configuration", package: "swift-configuration"), .product(name: "CustomDump", package: "swift-custom-dump"),
-            .product(name: "InMemoryLogging", package: "swift-log"), .product(name: "Logging", package: "swift-log"),
-        ],
-        path: "tests/libs/swift/macos/CurrentProcess",
-    ),
-    .testTarget(
         name: "ApplicationServerTests",
         dependencies: [
             "AppleEvents", "ApplicationServer", "Applications", "Encoding", "JSONRPC", "Results", .product(name: "CasePaths", package: "swift-case-paths"),

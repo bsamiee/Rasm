@@ -97,7 +97,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
     );
     static readonly require = (module: string) => {
         const refused = HostError.refused(`require('${module}')`);
-        return Schema.decodeUnknownEffect(GlobalRequire)(globalThis).pipe(
+        return Effect.suspend(() => Schema.decodeUnknownEffect(GlobalRequire)(globalThis)).pipe(
             Effect.mapError(refused),
             Effect.flatMap(({ require: resolved }) => Effect.try({ try: (): unknown => resolved(module), catch: refused })),
         );
