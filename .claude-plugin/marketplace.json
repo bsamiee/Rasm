@@ -105,8 +105,8 @@
             "name": "function-hooks",
             "source": {
                 "source": "archive",
-                "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/function-hooks%400.2.1/function-hooks.zip",
-                "sha256": "fd849631717fe02ae69c347e9c109cc9b13a2bd93682639423f50a0590a6417b"
+                "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/function-hooks%400.2.2/function-hooks.zip",
+                "sha256": "47d47ca11fd6bbcd3474e821af29d1906b188517bbf2176d9adafcb6de1a8203"
             },
             "description": "Claude Code hooks that rewrite or reject tool calls",
             "author": {
@@ -189,7 +189,7 @@
             "source": {
                 "source": "archive",
                 "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/risman%400.1.0/risman.zip",
-                "sha256": "7659adf31c4b2b066f229c3e0fdaa0152a28d9727235246b8e28c80bd8c63148"
+                "sha256": "49bd466355e345ec1382574edcc91a6346c6049d5628e4b67df825969fa319b0"
             },
             "description": "Claude Code hooks that bind each agent to its handle on every local MCP server built on @rasm/mcp and deliver the events of the applications it drove between tool calls",
             "author": {
