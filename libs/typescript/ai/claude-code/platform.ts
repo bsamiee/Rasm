@@ -98,9 +98,7 @@ class Session extends Context.Service<
             PlatformError.PlatformError
         >;
         readonly resting: (agent: string) => Effect.Effect<Option.Option<boolean>, PlatformError.PlatformError>;
-        readonly say: ReturnType<typeof say>;
         readonly watch: <E, R>(watcher: Effect.Effect<unknown, E, R>) => Effect.Effect<void, never, R>;
-        readonly end: Effect.Effect<void>;
     }
 >()('@rasm/claude-code/platform/Session') {}
 
@@ -388,8 +386,7 @@ function session($: EngineInterface) {
                 const quoted = yield* Effect.forEach(sources, ({ file }) => Effect.fromResult(CommandLine.quote(file)));
                 return { dialect: yield* Cache.get(probes, { sourced: quoted.map((word) => `. ${word}`).join('\n'), stamps: sources.map(({ mtimeMs }) => mtimeMs) }), cwd };
             });
-            const end = Effect.andThen(FiberSet.clear(watchers), Effect.flatMap(Cache.getSuccess(facts, undefined), Option.match({ onNone: () => Effect.void, onSome: ({ written }) => Effect.ignore(processes.exitCode(ChildProcess.make('rm', ['-rf', written]))) })));
-            yield* Effect.addFinalizer(() => end);
+            yield* Effect.addFinalizer(() => Effect.andThen(FiberSet.clear(watchers), Effect.flatMap(Cache.getSuccess(facts, undefined), Option.match({ onNone: () => Effect.void, onSome: ({ written }) => Effect.ignore(processes.exitCode(ChildProcess.make('rm', ['-rf', written]))) }))));
             return {
                 acting: (agent) => Effect.map(Option.match(agent, { onNone: () => folder, onSome: (id) => Effect.flatMap(listed(id), Option.match({ onNone: () => folder, onSome: ({ cwd }) => Effect.succeed(cwd) })) }), (cwd) => ({ environment: probed(cwd), path: anchor(path, cwd) })),
                 resting: (agent) =>
@@ -397,9 +394,7 @@ function session($: EngineInterface) {
                         listed(agent),
                         Option.flatMap(({ status }) => resting[status]),
                     ),
-                say: say($),
                 watch: (watcher) => Effect.asVoid(FiberSet.run(watchers, watcher)),
-                end,
             };
         }),
     ).pipe(
