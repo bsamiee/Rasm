@@ -1,6 +1,7 @@
-import { ApplicationServer } from '@rasm/applications/client';
-import { Container, Event, InstanceSnapshot, InstanceState } from '@rasm/applications/contract';
-import { byInstance, Workspace } from '@rasm/applications/workspace';
+import { ApplicationServer } from '@rasm/applications/server/client';
+import { Element } from '@rasm/applications/server/element';
+import { Event } from '@rasm/applications/server/event';
+import { Instance } from '@rasm/applications/server/instance';
 import { Format, Line, Report } from '@rasm/mcp/report';
 import { Server } from '@rasm/mcp/server';
 import { Array, Context, Data, DateTime, Effect, Equal, Function, HashMap, HashSet, Layer, Number, Option, Order, Record, Ref, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
@@ -12,19 +13,19 @@ import { Target } from '#/handle/target';
 
 interface Seen {
     readonly started: Record.ReadonlyRecord<string, string>;
-    readonly stalled: HashMap.HashMap<InstanceSnapshot['instance'], Event['at']>;
-    readonly concealed: HashSet.HashSet<InstanceSnapshot['instance']>;
-    readonly secure: HashMap.HashMap<InstanceSnapshot['instance'], readonly Pick<typeof Event.fields.change.cases.asking.Type, 'container' | 'title'>[]>;
-    readonly followed: HashSet.HashSet<InstanceSnapshot['instance']>;
+    readonly stalled: HashMap.HashMap<Instance['instance'], Event['at']>;
+    readonly concealed: HashSet.HashSet<Instance['instance']>;
+    readonly secure: HashMap.HashMap<Instance['instance'], readonly Pick<typeof Event.fields.change.cases.asking.Type, 'container' | 'title'>[]>;
+    readonly followed: HashSet.HashSet<Instance['instance']>;
 }
 type Raised = Data.TaggedEnum<{
     Changed: { readonly application: string; readonly event: Event; readonly seen: Seen; readonly next: Seen; readonly quit: boolean };
-    Row: { readonly instance: InstanceSnapshot['instance']; readonly text: Option.Option<string> };
+    Row: { readonly instance: Instance['instance']; readonly text: Option.Option<string> };
 }>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PRESENTED = Schema.is(Container.fields.kind.pick(['window', 'dialog', 'panel', 'sheet', 'popover', 'drawer', 'prompt']));
+const PRESENTED = Schema.is(Element.Container.fields.kind.pick(['window', 'dialog', 'panel', 'sheet', 'popover', 'drawer', 'prompt']));
 const UNSEEN: Seen = { started: Record.empty(), stalled: HashMap.empty(), concealed: HashSet.empty(), secure: HashMap.empty(), followed: HashSet.empty() };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -33,7 +34,7 @@ const Raised = Data.taggedEnum<Raised>();
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-const Proving = Context.Reference<HashMap.HashMap<{ readonly instance: InstanceSnapshot['instance']; readonly followed: number }, { readonly call: number; readonly step: number; readonly head: readonly string[] }>>('@rasm/application-tools/handle/notices/Proving', { defaultValue: HashMap.empty });
+const Proving = Context.Reference<HashMap.HashMap<{ readonly instance: Instance['instance']; readonly followed: number }, { readonly call: number; readonly step: number; readonly head: readonly string[] }>>('@rasm/application-tools/handle/notices/Proving', { defaultValue: HashMap.empty });
 const Logged = Context.Reference<HashSet.HashSet<Pick<(typeof Event.fields.change.cases.logged.Type)['entry'], 'subsystem' | 'category' | 'eventMessage'>>>('@rasm/application-tools/handle/notices/Logged', { defaultValue: HashSet.empty });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -46,15 +47,14 @@ const advance = (seen: Seen, { instance, at, change }: Event): Seen =>
             asking: (asked) => (asked.secure === undefined ? seen : { ...seen, secure: HashMap.set(seen.secure, instance, [...Option.getOrElse(HashMap.get(seen.secure, instance), Array.empty).filter((each) => each.container !== asked.container), Struct.pick(asked, ['container', 'title'])]) }),
             closed: ({ container }) => ({ ...seen, secure: HashMap.modify(seen.secure, instance, (held) => held.filter((each) => each.container !== container)) }),
             hidden: ({ hidden }) => ({ ...seen, concealed: hidden ? HashSet.add(seen.concealed, instance) : HashSet.remove(seen.concealed, instance) }),
-            status: ({ status }) => ({ ...seen, stalled: InstanceState.Status.isAnyOf(['unresponsive'])(status) ? HashMap.set(seen.stalled, instance, Option.getOrElse(HashMap.get(seen.stalled, instance), Function.constant(at))) : HashMap.remove(seen.stalled, instance) }),
+            status: ({ status }) => ({ ...seen, stalled: Instance.State.Status.isAnyOf(['unresponsive'])(status) ? HashMap.set(seen.stalled, instance, Option.getOrElse(HashMap.get(seen.stalled, instance), Function.constant(at))) : HashMap.remove(seen.stalled, instance) }),
             exited: () => ({ ...seen, started: Record.remove(seen.started, instance), stalled: HashMap.remove(seen.stalled, instance), concealed: HashSet.remove(seen.concealed, instance), secure: HashMap.remove(seen.secure, instance) }),
         },
         () => seen,
     );
-const raise = (seen: Seen, { change, rows, aims }: { readonly change: Option.Option<Event>; readonly rows: readonly InstanceSnapshot[]; readonly aims: readonly (typeof Target)['Service'][] }): readonly [Seen, readonly Raised[]] => {
-    const named = (instance: InstanceSnapshot['instance'], ...held: readonly Seen[]) => Option.getOrElse(Option.firstSomeOf([Option.map(Record.get(byInstance(rows), instance), (each) => each.name ?? each.identifier), ...held.map(({ started }) => Record.get(started, instance))]), () => 'a process outside the Dock');
-    const row = (at: Seen) => (instance: InstanceSnapshot['instance']) =>
-        Raised.Row({ instance, text: Option.map(Option.flatMap(HashMap.get(at.secure, instance), Array.last), ({ title }) => [`${named(instance, at)}: password needed`, ...Array.fromNullishOr(title).map((shown) => `in ${Format.quoted(shown)}`)].join(' ')) });
+const raise = (seen: Seen, { change, rows, aims }: { readonly change: Option.Option<Event>; readonly rows: readonly Instance[]; readonly aims: readonly (typeof Target)['Service'][] }): readonly [Seen, readonly Raised[]] => {
+    const named = (instance: Instance['instance'], ...held: readonly Seen[]) => Option.getOrElse(Option.firstSomeOf([Option.map(Record.get(Instance.byInstance(rows), instance), (each) => each.name ?? each.identifier), ...held.map(({ started }) => Record.get(started, instance))]), () => 'a process outside the Dock');
+    const row = (at: Seen) => (instance: Instance['instance']) => Raised.Row({ instance, text: Option.map(Option.flatMap(HashMap.get(at.secure, instance), Array.last), ({ title }) => [`${named(instance, at)}: password needed`, ...Array.fromNullishOr(title).map((shown) => `in ${Format.quoted(shown)}`)].join(' ')) });
     return Option.match(change, {
         onNone: () => {
             const followed = HashSet.fromIterable(aims.flatMap((aim) => Array.fromIterable(aim.followed)));
@@ -106,7 +106,7 @@ const notice = ({ application, event: { instance, sequence, at, change }, seen, 
             hidden: ({ hidden }) => (HashSet.has(seen.concealed, instance) === HashSet.has(next.concealed, instance) ? Option.none() : said(false, [application, hidden ? 'hidden' : 'unhidden'])),
             status: ({ status }) => {
                 const lasted = Option.map(Option.all([Option.flatMap(HashMap.get(seen.stalled, instance), DateTime.make), DateTime.make(at)]), ([began, ended]) => `stalled ${Format.duration(DateTime.distance(began, ended))}`);
-                const facts = [...InstanceState.Status.matchOrElse(status, { unresponsive: ({ thread }) => [`main thread ${thread}`] }, Array.empty), ...Option.toArray(lasted)];
+                const facts = [...Instance.State.Status.matchOrElse(status, { unresponsive: ({ thread }) => [`main thread ${thread}`] }, Array.empty), ...Option.toArray(lasted)];
                 return HashMap.has(seen.stalled, instance) === stalling ? Option.none() : Option.map(said(true, [application, status._tag], { facts }), (line) => ({ ...line, key: instance }));
             },
             announced: ({ _tag, text, priority }) => said(false, [...inside, _tag], { value: Format.quoted(text), facts: priority === 'high' ? [`priority ${priority}`] : [] }),
@@ -121,7 +121,7 @@ const notice = ({ application, event: { instance, sequence, at, change }, seen, 
             reported: ({ _tag, report }) => (stalling ? said(true, [application, _tag, report.kind], { value: Format.path(report.url), facts: Array.fromNullishOr(report.event).map((cause) => `event ${cause}`) }) : Option.none()),
             sampled: ({ _tag, report }) => (stalling ? said(true, [application, _tag], { value: Format.path(report) }) : Option.none()),
             exited: ({ _tag, termination }) => {
-                const ended = InstanceState.Exited.match(termination, { status: ({ status }) => (status === 0 ? [] : [`status ${status}`]), signal: ({ signal }) => [`signal ${signal}`], statusFailure: ({ statusFailure }) => ['status unread', statusFailure] });
+                const ended = Instance.State.Termination.match(termination, { status: ({ status }) => (status === 0 ? [] : [`status ${status}`]), signal: ({ signal }) => [`signal ${signal}`], statusFailure: ({ statusFailure }) => ['status unread', statusFailure] });
                 const facts = [...ended, ...Array.fromNullishOr(termination.report).map((report) => `${report.kind} report ${Format.path(report.url)}`), ...(termination.reporting === true ? ['reporting'] : []), ...(quit ? ['quit by another agent'] : [])];
                 const left = Context.add(state, Target, aim.without([instance]));
                 return aim.quitting(instance) ? Option.some({ push: false, state: left }) : said(true, [application, _tag], { facts }, left);
@@ -143,21 +143,21 @@ const admit = (call: number, state: Context.Context<never>) => {
     const lines = Array.sort(HashMap.toValues(lapsed), Order.Struct({ call: Number.Order, step: Number.Order })).map((step) => new Line({ head: posted(step), value: 'no change seen' }));
     return Option.liftPredicate({ text: Report.text(new Report({ lines })), push: false, state: Context.add(state, Proving, HashMap.removeMany(open, HashMap.keys(lapsed))) }, () => Array.isReadonlyArrayNonEmpty(lines));
 };
-const press = (key: string) => ApplicationServer.use(({ activate }) => Effect.flatMap(Schema.decodeEffect(InstanceSnapshot.fields.instance)(key), (instance) => Effect.asVoid(activate({ instance }))));
+const press = (key: string) => ApplicationServer.use(({ activate }) => Effect.flatMap(Schema.decodeEffect(Instance.fields.instance)(key), (instance) => Effect.asVoid(activate({ instance }))));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Notices = {
     layer: Layer.effectDiscard(
         Effect.gen(function* () {
-            const [server, { changes, running }, served, aims] = yield* Effect.all([ApplicationServer, Workspace, Server, Ref.make<readonly (typeof Target)['Service'][]>([])]);
+            const [server, served, aims] = yield* Effect.all([ApplicationServer, Server, Ref.make<readonly (typeof Target)['Service'][]>([])]);
             const left = served.states(Target).pipe(
                 Stream.changes,
                 Stream.tap((held) => Ref.set(aims, held)),
                 Stream.as(Option.none<Event>()),
             );
-            const stream = Stream.merge(Stream.map(changes, Option.some), left).pipe(
-                Stream.mapEffect((change) => Effect.zipWith(SubscriptionRef.get(running), Ref.get(aims), (rows, held) => ({ change, rows, aims: held }))),
+            const stream = Stream.merge(Stream.map(server.changes, Option.some), left).pipe(
+                Stream.mapEffect((change) => Effect.zipWith(SubscriptionRef.get(server.running), Ref.get(aims), (rows, held) => ({ change, rows, aims: held }))),
                 Stream.mapAccum(Function.constant(UNSEEN), raise),
             );
             yield* served.events({ stream, route, admit, press: (key) => Effect.provideService(press(key), ApplicationServer, server) });

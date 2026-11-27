@@ -3,9 +3,9 @@ import { layerUndici } from '@effect/platform-node/NodeHttpClient';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { ApplicationTools } from '@rasm/application-tools/toolkit';
-import { ApplicationServer } from '@rasm/applications/client';
-import { SourceRpcs } from '@rasm/applications/source';
-import { Workspace } from '@rasm/applications/workspace';
+import { Catalog } from '@rasm/applications/catalog';
+import { Description } from '@rasm/applications/description';
+import { ApplicationServer } from '@rasm/applications/server/client';
 import { Program } from '@rasm/current-process';
 import { TypesettingRpcs } from '@rasm/indesign/typesetting';
 import { serve } from '@rasm/mcp/cli';
@@ -26,7 +26,7 @@ import { typography } from '#/typography';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const tools = Effect.fnUntraced(function* (identifier: string) {
-    const links = yield* Link.listen(EvaluationRpcs.merge(RenderRpcs, TypesettingRpcs, SourceRpcs.failing(Failure), Link.Rpcs.omit('tools/list', 'events')).middleware(Dialogs), UxpManifest.origin);
+    const links = yield* Link.listen(EvaluationRpcs.merge(RenderRpcs, TypesettingRpcs, Description.failing(Failure), Link.Rpcs.omit('tools/list', 'events')).middleware(Dialogs), UxpManifest.origin);
     yield* Upstream.serve([Upstream.fromLinks(links), native], { route: yield* route });
     yield* declarations;
     const { describe, run } = yield* scripts(links, identifier);
@@ -39,7 +39,7 @@ const tools = Effect.fnUntraced(function* (identifier: string) {
                 return { image: (yield* client('render', { target })).image, title: target.leaf };
             }),
             logs: flow(readLogs, Effect.provideContext(yield* Effect.context<FileSystem.FileSystem | Path.Path>())),
-            source: (row) => Effect.map(links.call(Predicate.and(Link.runsIn(row), Link.serves(SourceRpcs)), `linked plugin of ${row.name} describing its interface`), (client) => ({ describe: (payload) => client('describe', payload), operate: (operation) => client('operate', operation) })),
+            source: (row) => Effect.map(links.call(Predicate.and(Link.runsIn(row), Link.serves(Description.Rpcs)), `linked plugin of ${row.name} describing its interface`), (client) => ({ describe: (payload) => client('describe', payload), operate: (operation) => client('operate', operation) })),
             toolbar: yield* toolsOf,
         }),
         yield* typography(links),
@@ -61,7 +61,7 @@ Effect.gen(function* () {
             settings: [...ApplicationTools.settings, RegistryPath],
         },
         { address, descriptors, share, provider: preferences },
-        tools(identifier).pipe(Layer.provide(Layer.provideMerge(Declarations.layer, Layer.provideMerge(Workspace.layer(catalog), RegistryApplications.layer))), Layer.provide([layerUndici, layerDigest]), Layer.provideMerge(application)),
+        tools(identifier).pipe(Layer.provide(Layer.provideMerge(Declarations.layer, Layer.provideMerge(Catalog.layer(catalog), RegistryApplications.layer))), Layer.provide([layerUndici, layerDigest]), Layer.provideMerge(application)),
         ended,
     );
 }).pipe(Effect.provide(Layer.provideMerge(Program.layer, layer)), runMain({ teardown }));

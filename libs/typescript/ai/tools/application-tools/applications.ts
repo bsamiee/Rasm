@@ -1,8 +1,10 @@
 import { pathToFileURL } from 'node:url';
-import { ApplicationServer } from '@rasm/applications/client';
-import { ApplicationFailure, Container, type InstanceSnapshot, InstanceState, QuitMode } from '@rasm/applications/contract';
-import { InterfaceMaps } from '@rasm/applications/interface-map';
-import { byBundle, byInstance, type Entry, instancesOf, runningOf, Workspace } from '@rasm/applications/workspace';
+import { Catalog, Entry } from '@rasm/applications/catalog';
+import { InterfaceMap } from '@rasm/applications/map';
+import { ApplicationServer } from '@rasm/applications/server/client';
+import { Element } from '@rasm/applications/server/element';
+import { ApplicationFailure } from '@rasm/applications/server/failure';
+import { Instance } from '@rasm/applications/server/instance';
 import { Call, Format, Line, Report } from '@rasm/mcp/report';
 import { Handle, Server } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search/unmatched';
@@ -27,7 +29,7 @@ const tool = Tool.make('applications', {
         new: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Open an instance beside the running ones' })),
         activate: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Bring the application in front and leave it there' })),
         opening: Schema.optionalKey(Schema.Record(Schema.String, Schema.Union([Schema.Boolean, Schema.Finite, Schema.String])).annotate({ description: 'Open command parameters by the names the listing of the application states' })),
-        mode: Schema.optionalKey(QuitMode.annotate({ description: 'What close does with unsaved documents, forcing ending the process with no quit event' })),
+        mode: Schema.optionalKey(Instance.QuitMode.annotate({ description: 'What close does with unsaved documents, forcing ending the process with no quit event' })),
         wait: Schema.optionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Seconds open follows the launch, or close waits at most' })),
     }),
     success: Report.schema,
@@ -46,11 +48,11 @@ const Bundles = Context.Reference<readonly Entry[]>('@rasm/application-tools/app
 
 const same = <A extends Pick<Entry, 'url'>>(left: A, right: A) => left.url.href === right.url.href;
 const locate = (document: string) => (URL.canParse(document) ? new URL(document) : pathToFileURL(document));
-const asking = (state: InstanceSnapshot['state']) => InstanceState.matchOrElse(state, { running: ({ windows }) => windows.filter(Struct.get('asking')).map(({ kind = 'window', container, title }) => `asking ${Outline.caption(kind, container, title).join(' ')}`) }, Array.empty<string>);
-const placed = (row: Entry, held: Context.Service.Shape<typeof Target>['held']) => (each: InstanceSnapshot) => [
-    ...InstanceState.match(each.state, {
+const asking = (state: Instance['state']) => Instance.State.matchOrElse(state, { running: ({ windows }) => windows.filter(Struct.get('asking')).map(({ kind = 'window', container, title }) => `asking ${Outline.caption(kind, container, title).join(' ')}`) }, Array.empty<string>);
+const placed = (row: Entry, held: Context.Service.Shape<typeof Target>['held']) => (each: Instance) => [
+    ...Instance.State.match(each.state, {
         running: ({ status, active, windows, statusItems = 0, statusItemsFailure }) => [
-            ...InstanceState.Status.matchOrElse(status, { responding: () => [], unresponsive: ({ _tag, thread }) => [_tag, `main thread ${thread}`] }, ({ _tag }) => [_tag]),
+            ...Instance.State.Status.matchOrElse(status, { responding: () => [], unresponsive: ({ _tag, thread }) => [_tag, `main thread ${thread}`] }, ({ _tag }) => [_tag]),
             ...(active ? [Outline.say.front] : []),
             ...[[Array.countBy(windows, (window) => window.presented && window.kind !== 'menu'), Outline.nouns.window] as const, [statusItems, Outline.nouns.statusItem] as const].flatMap(([amount, noun]) => (amount > 0 ? [Format.count(amount, noun)] : [])),
             ...Array.fromNullishOr(statusItemsFailure).map((message) => `status items unread: ${message}`),
@@ -62,9 +64,9 @@ const placed = (row: Entry, held: Context.Service.Shape<typeof Target>['held']) 
     ...(Option.exists(held, (aim) => aim.instance === each.instance) ? ['target'] : []),
 ];
 const listing = Effect.fnUntraced(function* ({ documents = [], installed = false }: Pick<Tool.Parameters<typeof tool>, 'documents' | 'installed'>) {
-    const [{ catalog, running }, server, handle] = yield* Effect.all([Workspace, ApplicationServer, Handle]);
-    const [entries, instances, { held, followed }, handlers] = yield* Effect.all([SubscriptionRef.get(catalog), SubscriptionRef.get(running), handle.get(Target), Effect.forEach(documents, (document) => server.handlers({ document: locate(document) }), { concurrency: 'unbounded' })]);
-    const [bundles, runs] = [byBundle(entries), instancesOf(instances, followed)];
+    const [{ entries: catalog }, server, handle] = yield* Effect.all([Catalog, ApplicationServer, Handle]);
+    const [entries, instances, { held, followed }, handlers] = yield* Effect.all([SubscriptionRef.get(catalog), SubscriptionRef.get(server.running), handle.get(Target), Effect.forEach(documents, (document) => server.handlers({ document: locate(document) }), { concurrency: 'unbounded' })]);
+    const [bundles, runs] = [Entry.byBundle(entries), Entry.instancesOf(instances, followed)];
     const repeated = Record.filter(Array.groupBy(entries, Struct.get('name')), (alike) => alike.length > 1);
     const named = (row: Entry) => Format.quoted(Record.has(repeated, row.name) ? `${row.name} at ${Format.path(row.url)}` : row.name);
     const opening = Array.zip(handlers, documents).flatMap(([{ installations }, document]) => installations.map(({ url }) => ({ bundle: url.href, document: Format.quoted(document) })));
@@ -89,12 +91,12 @@ const listing = Effect.fnUntraced(function* ({ documents = [], installed = false
     });
 });
 const listed = Effect.fnUntraced(function* (given: string) {
-    const [{ running }, server, maps, handle, row] = yield* Effect.all([Workspace, ApplicationServer, InterfaceMaps, Handle, find(given)]);
+    const [server, maps, handle, row] = yield* Effect.all([ApplicationServer, InterfaceMap.Store, Handle, find(given)]);
     const [installation, dictionary, languages, instances, { held, followed }, now] = yield* Effect.all([
         server.installation({ url: row.url }),
         Effect.option(Effect.tapError(server.dictionary({ url: row.url }), (cause) => Effect.logDebug('Scripting dictionary unread', cause))),
         Effect.option(Effect.tapError(maps.held(row.identifier), (cause) => Effect.logWarning('Interface map unread', cause))),
-        SubscriptionRef.get(running),
+        SubscriptionRef.get(server.running),
         handle.get(Target),
         DateTime.now,
     ]);
@@ -111,7 +113,7 @@ const listed = Effect.fnUntraced(function* (given: string) {
         },
         Option.getOrUndefined,
     );
-    const usage = ({ usage: used, usageFailure, launchDate }: InstanceSnapshot) => [
+    const usage = ({ usage: used, usageFailure, launchDate }: Instance) => [
         ...Array.fromNullishOr(used).flatMap(({ footprint, cpu }) => [`memory ${Format.bytes(ByteSize.bytes(footprint))}`, `processor time ${Format.duration(Duration.seconds(cpu))}`]),
         ...Array.fromNullishOr(usageFailure).map((message) => `usage unread: ${message}`),
         ...Array.fromNullishOr(launchDate).map((launched) => `up ${Format.duration(DateTime.distance(launched, now))}`),
@@ -121,11 +123,11 @@ const listed = Effect.fnUntraced(function* (given: string) {
             new Line({ head: [row.name], facts: [...Record.toEntries(row.facts).flatMap(([key, value]) => (value === row.identifier ? [] : [`${key} ${Predicate.isString(value) ? value : Formatter.format(value)}`])), ...Option.toArray(row.claim).map(({ server: owner }) => `driven by ${owner}`)] }),
             ...Report.of({ path: Format.path(installation.url), ...(installation.activationPolicy === 'regular' ? {} : Struct.pick(installation, ['activationPolicy'])), ...stated, unread: installation.unread }).lines,
             ...Record.collect(mapped, (language, { coverage: { known, earlier, openers } }) => {
-                const kinds = Record.toEntries(known).flatMap(([kind, amount]) => (Schema.is(Container.fields.kind)(kind) ? [Format.count(amount, Outline.nouns[kind])] : []));
+                const kinds = Record.toEntries(known).flatMap(([kind, amount]) => (Schema.is(Element.Container.fields.kind)(kind) ? [Format.count(amount, Outline.nouns[kind])] : []));
                 const gaps = [[earlier, 'of earlier builds'] as const, [openers.length, 'openers never seen open'] as const].flatMap(([amount, noun]) => (amount > 0 ? [`${Format.count(amount)} ${noun}`] : []));
                 return new Line({ head: ['map', ...(Record.size(mapped) > 1 ? [language] : [])], value: Format.list(kinds), facts: gaps });
             }),
-            ...instancesOf(instances, followed)(row).meant.map((each) => new Line({ head: ['running'], facts: [...placed(row, held)(each), ...usage(each)] })),
+            ...Entry.instancesOf(instances, followed)(row).meant.map((each) => new Line({ head: ['running'], facts: [...placed(row, held)(each), ...usage(each)] })),
         ],
     });
 });
@@ -140,15 +142,15 @@ const opened = Effect.fnUntraced(function* (application: string | undefined, { d
     const row = yield* Effect.flatMap(UndefinedOr.match(application, { onUndefined: () => handler, onDefined: Effect.succeed }), resolve);
     const stated = application === undefined || Array.containsWith(Unmatched.named)([row.name, row.product, row.identifier, ...row.aliases], application);
     const [known] = yield* Effect.all([handle.get(Indexed), handle.set(Intent, call), handle.update(Bundles, (held) => (stated ? held : Array.dedupeWith([...held, row], same)))]);
-    const claim = (instance: InstanceSnapshot['instance']) => Effect.flatMap(handle.get(Intent), (latest) => Effect.when(setTarget({ row, instance }), Effect.succeed(latest === call)));
-    const launched = yield* server.runLaunch({ url: row.url, documents: documents.map(locate), ...launch }, Option.map(Option.fromUndefinedOr(wait), Duration.seconds), ({ instance }) =>
+    const claim = (instance: Instance['instance']) => Effect.flatMap(handle.get(Intent), (latest) => Effect.when(setTarget({ row, instance }), Effect.succeed(latest === call)));
+    const launched = yield* server.launch({ url: row.url, documents: documents.map(locate), ...launch }, Option.map(Option.fromUndefinedOr(wait), Duration.seconds), ({ instance }) =>
         Effect.andThen(hold([Hold.Launching({ instance, name: row.name })]), Effect.ignore(claim(instance), { log: 'Warn', message: 'Target not taken as the instance launched' })),
     );
     const verb = launched.created ? 'launched' : 'reopened';
     const front = yield* Effect.when(Effect.result(server.activate({ instance: launched.instance })), Effect.succeed(activate));
     const live = yield* Effect.fromOption(yield* claim(launched.instance), () => new Cause.NoSuchElementError(Report.text(new Report({ lines: [new Line({ head: [row.name, verb], facts: ['target taken by a later open'], call: openCall(row.name) })] }))));
     const [aims, answered] = yield* Effect.all([Server.use(({ states }) => Stream.runHead(states(Target))), Effect.transposeOption(Option.map(launched.opened, (value) => Effect.orDie(Schema.encodeEffect(Reply)(value))))]);
-    const { active, hidden } = InstanceState.matchOrElse(live.state, { running: (state) => ({ active: state.active, hidden: state.windows.some(({ kind }) => kind !== 'menu') }) }, () => ({ active: false, hidden: false }));
+    const { active, hidden } = Instance.State.matchOrElse(live.state, { running: (state) => ({ active: state.active, hidden: state.windows.some(({ kind }) => kind !== 'menu') }) }, () => ({ active: false, hidden: false }));
     const before = Option.filter(known, (held) => held.instance === live.instance);
     const outline = yield* read({ row, live }).pipe(
         Effect.flatMap(({ base, indexed }) => {
@@ -174,10 +176,10 @@ const opened = Effect.fnUntraced(function* (application: string | undefined, { d
     return new Report({ lines: [...subject, ...failures, ...Report.of({ openCommand: Option.getOrUndefined(answered) }).lines, ...outline] });
 }, Effect.scoped);
 const closed = Effect.fnUntraced(function* (application: string | undefined, { wait, mode }: Pick<Tool.Parameters<typeof tool>, 'wait' | 'mode'>) {
-    const [{ running }, server, handle] = yield* Effect.all([Workspace, ApplicationServer, Handle]);
-    const [instances, { followed, opened: own }, chosen] = yield* Effect.all([SubscriptionRef.get(running), handle.get(Target), Effect.transposeOption(Option.map(Option.fromUndefinedOr(application), resolve))]);
-    const found = Option.map(chosen, (row) => ({ row, ...instancesOf(instances, followed)(row) }));
-    const quit = Option.match(found, { onNone: () => Record.values(runningOf(instances)).filter(({ instance }) => HashSet.has(own, instance)), onSome: Struct.get('meant') });
+    const [server, handle] = yield* Effect.all([ApplicationServer, Handle]);
+    const [instances, { followed, opened: own }, chosen] = yield* Effect.all([SubscriptionRef.get(server.running), handle.get(Target), Effect.transposeOption(Option.map(Option.fromUndefinedOr(application), resolve))]);
+    const found = Option.map(chosen, (row) => ({ row, ...Entry.instancesOf(instances, followed)(row) }));
+    const quit = Option.match(found, { onNone: () => Record.values(Instance.running(instances)).filter(({ instance }) => HashSet.has(own, instance)), onSome: Struct.get('meant') });
     const refusal = Option.match(found, {
         onNone: () => new Line({ head: ['application'], value: 'required', facts: ['nothing you opened runs'] }),
         onSome: ({ row, apart }) =>
@@ -190,14 +192,14 @@ const closed = Effect.fnUntraced(function* (application: string | undefined, { w
     const bound = UndefinedOr.match(wait, { onUndefined: () => Duration.infinity, onDefined: Duration.seconds });
     yield* hold(quit.map(({ instance }) => Hold.Quitting({ instance })));
     const outcomes = yield* Effect.forEach(quit, ({ instance }) => Effect.result(Effect.timeoutOption(server.quit({ instance, ...(mode === undefined ? {} : { mode }) }), bound)), { concurrency: 'unbounded' });
-    const after = byInstance(yield* SubscriptionRef.get(running));
-    const standing = (instance: InstanceSnapshot['instance']) => Option.toArray(Record.get(after, instance)).flatMap(({ state }) => asking(state));
+    const after = Instance.byInstance(yield* SubscriptionRef.get(server.running));
+    const standing = (instance: Instance['instance']) => Option.toArray(Record.get(after, instance)).flatMap(({ state }) => asking(state));
     const verdicts = Array.zipWith(quit, outcomes, ({ instance }, outcome) =>
         Result.match(outcome, {
             onFailure: (error) => ({ words: Schema.is(ApplicationFailure)(error) ? 'did not quit' : 'quit unconfirmed', value: error.message, facts: standing(instance) }),
             onSuccess: Option.match({
                 onNone: () => ({ words: 'still runs', facts: [`after ${Format.duration(bound)}`, ...standing(instance)] }),
-                onSome: InstanceState.match({
+                onSome: Instance.State.match({
                     exited: () => ({ words: 'quit', facts: Array.empty<string>() }),
                     running: (state) => ({ words: 'still runs', facts: asking(state) }),
                     failed: ({ reason, subject, message }) => ({ words: 'state unread', value: message ?? `${subject} ${reason}`, facts: Array.empty<string>() }),

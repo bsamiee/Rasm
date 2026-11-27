@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, describe, it } from '@effect/vitest';
-import { Installation } from '@rasm/applications/contract';
+import { Installation } from '@rasm/applications/server/installation';
 import { Application, Registry } from '@rasm/creative-cloud-desktop/application';
 import { Effect, FileSystem, Option, Path } from 'effect';
 
@@ -43,14 +43,10 @@ const offered = OFFERED.map(([bundle, executable, name, identifier, version, sch
         version: Option.fromUndefinedOr(version),
         build: Option.none(),
         scriptable: Option.some(false),
-        scriptingDefinitionFile: Option.none(),
         activationPolicy: 'regular',
         documentTypes: Option.none(),
         urlSchemes: Option.fromUndefinedOr(schemes),
-        exportedTypes: Option.none(),
         multipleInstancesProhibited: Option.none(),
-        environment: Option.none(),
-        architectures: Option.none(),
         quarantine: Option.none(),
         claim: Option.none(),
         appIntents: Option.some([]),

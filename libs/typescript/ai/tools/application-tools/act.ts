@@ -1,8 +1,11 @@
-import { ApplicationServer } from '@rasm/applications/client';
-import { ApplicationFailure, type Capture, type Control, InstanceState, type Recording, type Running, Value, Act as Wire } from '@rasm/applications/contract';
-import { type InterfaceMap, InterfaceMaps } from '@rasm/applications/interface-map';
-import type { Description } from '@rasm/applications/source';
-import { Workspace } from '@rasm/applications/workspace';
+import type { Description } from '@rasm/applications/description';
+import { InterfaceMap } from '@rasm/applications/map';
+import { Act as Wire } from '@rasm/applications/server/act';
+import type { Capture } from '@rasm/applications/server/capture';
+import { ApplicationServer } from '@rasm/applications/server/client';
+import { Element } from '@rasm/applications/server/element';
+import { ApplicationFailure } from '@rasm/applications/server/failure';
+import { Instance } from '@rasm/applications/server/instance';
 import { Format, Line, Report } from '@rasm/mcp/report';
 import { Handle } from '@rasm/mcp/server';
 import { ToolCall } from '@rasm/mcp/toolkit';
@@ -10,7 +13,7 @@ import { Unmatched } from '@rasm/search/unmatched';
 import { Array, ByteSize, Cause, Context, Duration, Effect, Equal, Equivalence, Formatter, Function, HashMap, HashSet, Match, Number, Option, Predicate, Record, Ref, Result, Schema, SchemaTransformation, Stream, Struct, Tuple } from 'effect';
 import { Tool } from 'effect/ai';
 import { Address, type Index, Indexed, type Item, read, Source } from '#/handle/address';
-import { Proving } from '#/handle/notices';
+import { Proving } from '#/handle/notice';
 import { Outline } from '#/handle/outline';
 import { current } from '#/handle/target';
 import { attach, FRAMES, frontOf, keyFramesOf, pointOf, Side, Viewed } from '#/view';
@@ -18,7 +21,7 @@ import { attach, FRAMES, frontOf, keyFramesOf, pointOf, Side, Viewed } from '#/v
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Step = Tool.Parameters<typeof tool>['steps'][number];
-type Acted = typeof Wire.Result.Type;
+type Acted = typeof Wire.Outcome.Type;
 type Delivery = Result.Result.Success<Acted['outcomes'][number]>;
 type Entry = Effect.Success<ReturnType<ReturnType<typeof prepared>>>[number];
 interface Piece {
@@ -33,8 +36,8 @@ interface Piece {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PROOFS = { answer: 'accepted', change: 'changed', value: 'value read back', limit: 'at end of range', posting: 'posted, no change seen yet', unanswered: 'unanswered, may have run', exit: 'application exited', standing: 'already showing' } as const satisfies Record<Delivery['proof'], string>;
-const CAUSE = { running: 'computing', runnable: 'waiting for a processor', paging: 'paging', reading: 'reading disk', writing: 'writing disk', idle: 'idle' } as const satisfies Record.ReadonlyRecord<NonNullable<Running['usage']>['cause'], string>;
-const TEXTUAL: ReadonlySet<Control['kind']> = new Set(['measure', 'text', 'date', 'choice', 'multi', 'color']);
+const CAUSE = { running: 'computing', runnable: 'waiting for a processor', paging: 'paging', reading: 'reading disk', writing: 'writing disk', idle: 'idle' } as const satisfies Record.ReadonlyRecord<NonNullable<(typeof Instance.State.cases.running.Type)['usage']>['cause'], string>;
+const TEXTUAL: ReadonlySet<(typeof Element.Control.Type)['kind']> = new Set(['measure', 'text', 'date', 'choice', 'multi', 'color']);
 const ALIKE = Array.makeEquivalence(Equivalence.String);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -87,7 +90,7 @@ const tool = Tool.make('act', {
                         ...Struct.omit(fields, ['from']),
                         at: Address.At,
                         action: fields.action.annotate({ description: 'Action of the element as inspect prints it, a press when absent' }),
-                        to: fields.to.annotate({ description: 'Value by the kind of the element: toggle state, number, ISO 8601 date, text, option label of a choice, or frame [[x, y], [width, height]] of a window; text on the clipboard reference copies it' }),
+                        to: fields.to.annotate({ description: 'Element.Value by the kind of the element: toggle state, number, ISO 8601 date, text, option label of a choice, or frame [[x, y], [width, height]] of a window; text on the clipboard reference copies it' }),
                         range: fields.range.annotate({ description: 'Text selected, by [location, length] or by the text it holds, replaced where to is text' }),
                     }),
                     { unsafePreserveChecks: true },
@@ -137,7 +140,7 @@ const indexOf = Effect.fnUntraced(function* (aimed: Effect.Success<typeof curren
         { onNone: () => Effect.map(read(aimed), Struct.get('base')), onSome: ({ index }) => Effect.succeed(index) },
     );
 });
-const renumbered = (entries: readonly { readonly number: number }[], { keyFrames, ...taken }: typeof Recording.Result.Type) => ({
+const renumbered = (entries: readonly { readonly number: number }[], { keyFrames, ...taken }: typeof Capture.Recorded.Type) => ({
     ...taken,
     keyFrames: keyFrames.map((frame) => ({ ...frame, markers: frame.markers.map((marker) => (marker._tag === 'step' ? { ...marker, index: (entries[marker.index]?.number ?? marker.index + 1) - 1 } : marker)) })),
 });
@@ -151,7 +154,7 @@ const diagnose = ({ usage, load }: Pick<Acted, 'usage' | 'load'>) => {
     const loaded = Array.getSuccesses(Array.fromNullishOr(load)).flatMap(({ idle, swapins = 0, swapouts = 0 }) => [...Array.fromNullishOr(idle).map((share) => `processors ${Format.percent(1 - share)} busy`), ...(swapins + swapouts > 0 ? [`${Format.count(swapins + swapouts)} pages swapped`] : [])]);
     return Array.match([...spent, ...loaded], { onEmpty: Array.empty, onNonEmpty: (parts) => [new Line({ head: ['usage'], value: Format.list(parts) })] });
 };
-const accepts = (item: Item, { to, range }: { readonly to?: typeof Value.Type | readonly unknown[]; readonly range?: unknown }): Result.Result<Item, Cause.IllegalArgumentError> => {
+const accepts = (item: Item, { to, range }: { readonly to?: typeof Element.Value.Type | readonly unknown[]; readonly range?: unknown }): Result.Result<Item, Cause.IllegalArgumentError> => {
     const options = Match.value(item.target).pipe(
         Match.tag('Control', ({ control }) => Option.map(Option.fromUndefinedOr(control.options), Array.map(Struct.get('label')))),
         Match.tag('RememberedControl', ({ control }) => Option.filter(control.options, (listed): listed is readonly string[] => Array.isArray(listed))),
@@ -209,7 +212,7 @@ const prepared =
                     const [ref, refs] = yield* Effect.all([refOf(item), Effect.forEach(opening, refOf, { concurrency: 'unbounded' })], { concurrency: 'unbounded' });
                     const located = Address.locate(item);
                     const from = Option.filter(Option.flatMap(located, map.route.bind(map)), (rung): rung is Exclude<typeof Wire.Rung.Type, 'source'> => rung !== 'source');
-                    const to = Option.map(Option.filter(Option.fromUndefinedOr(wanted.to), Schema.is(Value)), (value) => ({ to: value }));
+                    const to = Option.map(Option.filter(Option.fromUndefinedOr(wanted.to), Schema.is(Element.Value)), (value) => ({ to: value }));
                     return [
                         ...Array.zipWith(opening, refs, (opener, at) => ({ ...plain, label: ['at', Option.getOrElse(opener.token, () => Address.path(opener).join(Address.separator)), 'to reach', wanted.at], opener: Option.some(at), at: Address.locate(opener), step: { at } })),
                         {
@@ -266,7 +269,8 @@ const Act = {
     handle: Effect.fnUntraced(function* ({ steps, record = false }: Tool.Parameters<typeof tool>) {
         const aimed = yield* current;
         const { row, live } = aimed;
-        const [server, maps, { changes }, handle, side, source, { call, awaitRunning }] = yield* Effect.all([ApplicationServer, InterfaceMaps, Workspace, Handle, Side, Source, ToolCall]);
+        const [server, maps, handle, side, source, { call, awaitRunning }] = yield* Effect.all([ApplicationServer, InterfaceMap.Store, Handle, Side, Source, ToolCall]);
+        const { changes } = server;
         const proofs = yield* Ref.make(HashSet.empty<number>());
         yield* changes.pipe(
             Stream.filterMap(({ instance, change }) => (instance === live.instance && change._tag === 'proven' ? Result.succeed(change.followed) : Result.failVoid)),
@@ -346,7 +350,7 @@ const Act = {
         const acted = Array.getSomes(pieces.map(Struct.get('acted')));
         const state = Option.match(Array.last(acted), { onNone: () => live.state, onSome: Struct.get('state') });
         const delivered = Array.getSuccesses(ran.map(([, outcome]) => outcome));
-        const answering = InstanceState.matchOrElse(state, { running: ({ status }) => status._tag === 'responding' }, Function.constFalse);
+        const answering = Instance.State.matchOrElse(state, { running: ({ status }) => status._tag === 'responding' }, Function.constFalse);
         const unanswered = delivered.some(({ proof }) => proof === 'unanswered');
         const touched = new Set([...ran.flatMap(([{ step }]) => Option.toArray(aimOf(step))), ...delivered.flatMap(({ resolved }) => Array.fromNullishOr(resolved?.ref))]);
         const after = yield* Effect.result(Effect.when(read(aimed), Effect.succeed(Array.isReadonlyArrayNonEmpty(delivered) && answering)));

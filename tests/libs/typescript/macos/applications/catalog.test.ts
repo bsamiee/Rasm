@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { type Entry, lookupEntry } from '@rasm/applications/workspace';
+import { Entry } from '@rasm/applications/catalog';
 import { Effect, Option, Record, Struct } from 'effect';
 
 const form = (name: string, product: string, identifier: string, folder: string): Entry => ({
@@ -28,7 +28,7 @@ const CATALOG = [
     form('Adobe Illustrator 2027', 'ILST', 'com.adobe.illustrator', 'Adobe Illustrator 2027'),
     form('Adobe Photoshop (Beta)', 'PHSP', 'com.adobe.Photoshop', 'Adobe Photoshop (Beta)'),
 ];
-const LOOKUPS = Record.map(NAMED, (_, query) => lookupEntry(CATALOG, query));
+const LOOKUPS = Record.map(NAMED, (_, query) => Entry.lookup(CATALOG, query));
 
 describe('workspace', () => {
     it.effect('takes the first listed form of a product for a bare product name, and a later form only by its exact name or identifier', () =>
@@ -39,7 +39,7 @@ describe('workspace', () => {
     );
     it.effect('refuses words two products share, naming each, and words no listed name holds', () =>
         Effect.gen(function* () {
-            const [shared, none] = yield* Effect.all([lookupEntry(CATALOG, 'Acrobat').pipe(Effect.flip), lookupEntry(CATALOG, 'Lightroom').pipe(Effect.flip)]);
+            const [shared, none] = yield* Effect.all([Entry.lookup(CATALOG, 'Acrobat').pipe(Effect.flip), Entry.lookup(CATALOG, 'Lightroom').pipe(Effect.flip)]);
             assert.deepStrictEqual({ shared: shared.candidates, none: Option.getOrUndefined(none.query) }, { shared: ['Adobe Acrobat', 'Acrobat Distiller'], none: 'Lightroom' });
         }),
     );

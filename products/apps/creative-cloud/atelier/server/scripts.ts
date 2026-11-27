@@ -1,9 +1,11 @@
 import { homedir } from 'node:os';
 import dialogs from '@rasm/acrobat/host?inline';
 import { HostScript as Acrobat } from '@rasm/acrobat/script';
-import { ApplicationServer } from '@rasm/applications/client';
-import type { InstanceSnapshot, ScriptingDictionary, Written } from '@rasm/applications/contract';
-import type { Entry } from '@rasm/applications/workspace';
+import type { Entry } from '@rasm/applications/catalog';
+import type { Act } from '@rasm/applications/server/act';
+import { ApplicationServer } from '@rasm/applications/server/client';
+import type { Installation } from '@rasm/applications/server/installation';
+import type { Instance } from '@rasm/applications/server/instance';
 import { Application } from '@rasm/creative-cloud-desktop/application';
 import { Completion } from '@rasm/extendscript/completion';
 import host from '@rasm/extendscript/host?inline';
@@ -68,7 +70,7 @@ const compile = Effect.fnUntraced(function* (body: string, scriptPlan: Plan) {
     const [original, label] = [yield* originalLine(map), Evaluation.formatLabel(body)];
     return { code, label, direct: scriptPlan.direct(code, label), declared: scriptPlan.declared, relined: reline((line) => Option.map(original(line - scriptPlan.offset), (at) => at - 1)) };
 });
-const route = Effect.fnUntraced(function* <E, R>(dictionary: (url: URL) => Effect.Effect<Pick<ScriptingDictionary, 'script' | 'suite'>, E, R>, owned: (pluginId: string) => boolean, { url, product, version }: Pick<Application, 'url' | 'product' | 'version'>) {
+const route = Effect.fnUntraced(function* <E, R>(dictionary: (url: URL) => Effect.Effect<Pick<typeof Installation.Dictionary.Type, 'script' | 'suite'>, E, R>, owned: (pluginId: string) => boolean, { url, product, version }: Pick<Application, 'url' | 'product' | 'version'>) {
     const [files, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const app = Array.findFirst(Struct.keys(HOSTS), (key) => HOSTS[key].pluginsInfo && HOSTS[key].product === product);
     const registries = Array.cartesianWith(Option.toArray(app), ['/', homedir()], (key, root) => path.join(root, 'Library', 'Application Support', 'Adobe', ...PluginsInfo.file(key)));
@@ -107,7 +109,7 @@ const scripts = Effect.fnUntraced(function* (links: { readonly peers: Effect.Eff
     const owned = Schema.is(Schema.TemplateLiteral([`${identifier}.`, Schema.String]));
     return {
         describe: `code is a TypeScript function body, return giving its result, run through the newest script engine of the target (a linked plugin, do script uxpscript, Acrobat JavaScript, or ExtendScript), a failure naming the body line. Acrobat bodies reach app, this, event, security, spell, util, Report, and every object read from them through stand-ins that answer each dialog as dismissed without showing it, or refuse it naming the member and the parameter that avoids it (a dirty closeDoc, execMenuItem SaveAs or Open, a picker with no stated cancel value); code a body hands Acrobat as a string (Function, indirect eval, setTimeOut, action scripts) runs against the real app and shows its dialogs. UXP bodies take their host module from require('<host>') (${Declarations.checked.join(', ')}), checked first against its declarations, a wrong member, type, read-only write, or enumeration value refused with a link to atelier://object-model/{host}/{name}`,
-        run: Effect.fnUntraced(function* ({ row: { url, name }, live }: { readonly row: Entry; readonly live: InstanceSnapshot }, code: string) {
+        run: Effect.fnUntraced(function* ({ row: { url, name }, live }: { readonly row: Entry; readonly live: Instance }, code: string) {
             const [listed, peers] = yield* Effect.all([SubscriptionRef.get(rows), links.peers]);
             const row = yield* Effect.fromOption(
                 Array.findFirst(listed, (each) => each.url.href === url.href),
@@ -126,7 +128,7 @@ const scripts = Effect.fnUntraced(function* (links: { readonly peers: Effect.Eff
                 return { ...(yield* Completion.decode(ResultJson, built.label)(completion)), written };
             });
             const unlinked = Effect.fail(HostError.of({ _tag: 'Unavailable' }, `linked Atelier plugin running UXP scripts in ${row.name}`)());
-            const run: Effect.Effect<Effect.Success<typeof linked> & { readonly written?: typeof Written.Type }, HostError | Error> = Match.valueTags(found, { Linked: () => linked, Unlinked: () => unlinked, Uxp: () => scripted, Acrobat: () => scripted, Script: () => scripted });
+            const run: Effect.Effect<Effect.Success<typeof linked> & { readonly written?: typeof Act.Written.Type }, HostError | Error> = Match.valueTags(found, { Linked: () => linked, Unlinked: () => unlinked, Uxp: () => scripted, Acrobat: () => scripted, Script: () => scripted });
             return yield* Effect.catchTag(run, 'HostError', built.relined);
         }, Effect.provideContext(files)),
     };

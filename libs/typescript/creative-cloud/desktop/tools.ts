@@ -1,5 +1,5 @@
-import { KeyStep } from '@rasm/applications/contract';
-import type { Declaration } from '@rasm/applications/source';
+import type { Declaration } from '@rasm/applications/description';
+import { Element } from '@rasm/applications/server/element';
 import { readVersionAndDescriptor } from 'ag-psd/dist/descriptor.js';
 import { createReader, readSignature, readUint16 } from 'ag-psd/dist/psdReader.js';
 import { Array, Cache, Context, Duration, Effect, Exit, FileSystem, Formatter, Function, Glob, HashMap, Layer, Match, Option, Path, Predicate, Record, Result, Schema, SchemaGetter, SchemaIssue, Stream } from 'effect';
@@ -18,8 +18,8 @@ interface Place {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const MODIFIERS: Record.ReadonlyRecord<string, KeyStep['modifiers'][number]> = { Cmd: 'command', Shift: 'shift', Opt: 'option', Ctrl: 'control', Control: 'control' };
-const KEYS: Record.ReadonlyRecord<string, KeyStep['key']> = {
+const MODIFIERS: Record.ReadonlyRecord<string, (typeof Element.Shortcut.Type)['modifiers'][number]> = { Cmd: 'command', Shift: 'shift', Opt: 'option', Ctrl: 'control', Control: 'control' };
+const KEYS: Record.ReadonlyRecord<string, (typeof Element.Shortcut.Type)['key']> = {
     'Up Arrow': 'up',
     'Down Arrow': 'down',
     'Left Arrow': 'left',
@@ -53,10 +53,10 @@ const TOKEN = /\/(?<name>(?:\\.|[^\s\\/{}[\]<>])*)|(?<open>\{)|(?<close>\})|\[\s
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const named = Schema.is(KeyStep.fields.key.members[0]);
+const named = Schema.is(Element.Shortcut.fields.key.members[0]);
 const refused = (expected: string, input: unknown, cause?: unknown) => new SchemaIssue.InvalidValue({ expected, ...(cause === undefined ? {} : { message: `Expected ${expected}: ${Formatter.format(cause)}` }) }, input);
 const Shortcut = Schema.String.pipe(
-    Schema.decodeTo(KeyStep, {
+    Schema.decodeTo(Element.Shortcut, {
         decode: SchemaGetter.transformEffect((text: string) => {
             const { held = '', key = '' } = SHORTCUT.exec(text)?.groups ?? {};
             const resolved = [...key].length === 1 ? Option.some(key.toLowerCase()) : Option.orElse(Option.liftPredicate(key.toLowerCase(), named), () => Record.get(KEYS, key));
@@ -111,12 +111,12 @@ const Dictionary = Schema.String.pipe(
     }),
 );
 const IllustratorKey = Schema.Struct({ Modifiers: Schema.FiniteFromString.pipe(Schema.decodeTo(Schema.Int)), Key: Schema.FiniteFromString.pipe(Schema.decodeTo(Schema.Int)) }).pipe(
-    Schema.decodeTo(Schema.Struct({ shortcut: Schema.optionalKey(KeyStep) }), {
+    Schema.decodeTo(Schema.Struct({ shortcut: Schema.optionalKey(Element.Shortcut) }), {
         decode: SchemaGetter.transformEffect(({ Modifiers, Key }: { readonly Modifiers: number; readonly Key: number }) => {
             const held = Record.keys(Record.filter(ILLUSTRATOR.modifiers, (bit) => (Modifiers & bit) !== 0));
             const unread = Modifiers & ~Array.reduce(Record.values(ILLUSTRATOR.modifiers), 0, (mask, bit) => mask | bit);
             const stated = Match.value(Key).pipe(
-                Match.when(ILLUSTRATOR.tab, () => Option.some<KeyStep['key']>('tab')),
+                Match.when(ILLUSTRATOR.tab, () => Option.some<(typeof Element.Shortcut.Type)['key']>('tab')),
                 Match.when(
                     (code) => code >= 0x20 && code < 0x7f,
                     (code) => Option.some(String.fromCodePoint(code).toLowerCase()),

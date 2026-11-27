@@ -1,7 +1,9 @@
 import { pathToFileURL } from 'node:url';
-import { ApplicationServer } from '@rasm/applications/client';
-import { type Capture, type Frame, type InstanceSnapshot, InstanceState, Recording, type Running } from '@rasm/applications/contract';
-import { type Entry, Workspace } from '@rasm/applications/workspace';
+import type { Entry } from '@rasm/applications/catalog';
+import { Capture } from '@rasm/applications/server/capture';
+import { ApplicationServer } from '@rasm/applications/server/client';
+import type { Element } from '@rasm/applications/server/element';
+import { Instance } from '@rasm/applications/server/instance';
 import { setting } from '@rasm/mcp/cli';
 import { Call, Format, Line, Report } from '@rasm/mcp/report';
 import { Handle } from '@rasm/mcp/server';
@@ -15,12 +17,13 @@ import { current, Hold, hold, openCall } from '#/handle/target';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
+type Running = typeof Instance.State.cases.running.Type;
 type Aimed = Effect.Success<typeof current>;
 interface Placement {
-    readonly instance: InstanceSnapshot['instance'];
+    readonly instance: Instance['instance'];
     readonly named: string;
     readonly windows: readonly number[];
-    readonly frame: typeof Frame.Type;
+    readonly frame: typeof Element.Frame.Type;
     readonly size: readonly [number, number];
 }
 interface Shot {
@@ -57,7 +60,7 @@ const tool = Tool.make('view', {
         id: Schema.optionalKey(Schema.String.annotate({ description: 'document: document id from a result; object: id a script result gives the object' })),
         marks: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Draw the frame and reference of each control' })),
         seconds: Schema.optionalKey(Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 60, exclusiveMinimum: true })).annotate({ description: 'Seconds to record, key frames returned in place of one image' })),
-        frames: Recording.fields.frames.annotate({ description: 'Most key frames a recording returns: 1 the last state, 2 the first and last whole, more the states between cropped to their change', default: FRAMES }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(FRAMES))),
+        frames: Capture.Recording.fields.frames.annotate({ description: 'Most key frames a recording returns: 1 the last state, 2 the first and last whole, more the states between cropped to their change', default: FRAMES }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(FRAMES))),
         into: Schema.optionalKey(Schema.String.annotate({ description: 'Path the recording is also written to as a movie, .mov or .mp4' })),
     }),
     success: Report.schema,
@@ -76,14 +79,14 @@ const Render = Context.Reference<(row: Entry, id: string) => Effect.Effect<{ rea
 
 const refused = (lines: readonly Line[]) => new Cause.NoSuchElementError(Report.text(new Report({ lines })));
 const said = (line: Line): Shot => ({ line, png: Option.none(), placement: Option.none(), front: [] });
-const windowsOf = (state: InstanceSnapshot['state']): Running['windows'] => InstanceState.matchOrElse(state, { running: Struct.get('windows') }, Array.empty);
-const frontOf = (state: InstanceSnapshot['state']) => {
+const windowsOf = (state: Instance['state']): Running['windows'] => Instance.State.matchOrElse(state, { running: Struct.get('windows') }, Array.empty);
+const frontOf = (state: Instance['state']) => {
     const shown = windowsOf(state).filter((window) => window.presented && window.kind !== 'menu');
     return Option.map(Option.firstSomeOf([Array.findFirst(shown, (window) => window.asking || window.kind === 'window'), Array.head(shown)]), Struct.get('number'));
 };
 const numbersOf = {
-    front: (state: InstanceSnapshot['state']) => Option.toArray(frontOf(state)),
-    all: (state: InstanceSnapshot['state']) => Array.filterMap(windowsOf(state), ({ number, kind }) => (kind === 'menu' ? Result.failVoid : Result.succeed(number))),
+    front: (state: Instance['state']) => Option.toArray(frontOf(state)),
+    all: (state: Instance['state']) => Array.filterMap(windowsOf(state), ({ number, kind }) => (kind === 'menu' ? Result.failVoid : Result.succeed(number))),
 } as const;
 const presented = (presentation: (typeof Capture.Screenshot.Type)['presentation']) => Array.fromNullishOr(presentation).flatMap((held) => (held._tag === 'forward' || (held._tag === 'restored' && !held.back) ? [Outline.say.front] : []));
 const marksOf = (index: Index) => index.shown.flatMap(({ controls }) => controls.flatMap(({ control, item }) => Option.toArray(Option.all({ frame: Option.fromUndefinedOr(control.frame), label: item.token }))));
@@ -100,7 +103,7 @@ const menuPath = (index: Index, item: Item): readonly Item[] => {
     const start = item.target._tag === 'Container' || item.target._tag === 'Control' ? menuOf(item.target.container.ref) : Option.none<Item>();
     return Array.reverse(Array.unfold(start, (at) => Option.map(at, (held) => [held, held.target._tag === 'Container' ? Option.flatMap(Option.fromUndefinedOr(held.target.container.parent), menuOf) : Option.none<Item>()] as const)));
 };
-const screenOf = ({ named, frame: [[left, top], [width, height]], size: [columns, rows] }: Placement, at: readonly [x: number, y: number, wide?: number, high?: number]): Result.Result<typeof Frame.Type, Cause.IllegalArgumentError> => {
+const screenOf = ({ named, frame: [[left, top], [width, height]], size: [columns, rows] }: Placement, at: readonly [x: number, y: number, wide?: number, high?: number]): Result.Result<typeof Element.Frame.Type, Cause.IllegalArgumentError> => {
     const [x, y, wide = 0, high = 0] = at;
     return x + wide <= columns && y + high <= rows
         ? Result.succeed([
@@ -109,7 +112,7 @@ const screenOf = ({ named, frame: [[left, top], [width, height]], size: [columns
           ])
         : Result.fail(new Cause.IllegalArgumentError(`${at.join(',')}: outside the ${columns} by ${rows} image of ${named}`));
 };
-const placedOf = (viewed: Record.ReadonlyRecord<string, Placement>, { instance, state, window }: Pick<InstanceSnapshot, 'instance' | 'state'> & { readonly window: Option.Option<Item> }): Result.Result<Placement, Cause.IllegalArgumentError> => {
+const placedOf = (viewed: Record.ReadonlyRecord<string, Placement>, { instance, state, window }: Pick<Instance, 'instance' | 'state'> & { readonly window: Option.Option<Item> }): Result.Result<Placement, Cause.IllegalArgumentError> => {
     const wanted = Option.map(window, ({ target }) => (target._tag === 'Container' || target._tag === 'Control' ? target.container.window : undefined));
     const shown = windowsOf(state).flatMap(({ number, onScreen }) => (onScreen && Option.match(wanted, { onNone: () => true, onSome: (at) => at === number }) ? Array.fromNullishOr(viewed[`${number}`]) : []));
     const kept = shown.filter((held) => held.instance === instance);
@@ -121,7 +124,7 @@ const pointOf = (viewed: Record.ReadonlyRecord<string, Placement>, aim: Paramete
     const placement = placedOf(viewed, aim);
     return (point: readonly [x: number, y: number]) => Result.flatMap(placement, (held) => Result.map(screenOf(held, point), ([at]) => ({ at, windows: held.windows })));
 };
-const shot = ({ instance, state }: Pick<InstanceSnapshot, 'instance' | 'state'>) => {
+const shot = ({ instance, state }: Pick<Instance, 'instance' | 'state'>) => {
     const heads = Record.fromIterableWith(windowsOf(state), ({ number, container, kind = 'window', title }) => [`${number}`, UndefinedOr.match(container, { onDefined: (ref) => Outline.caption(kind, ref, title), onUndefined: () => [`${number}`, ...Outline.caption(kind, undefined, title)] })]);
     return ({ png, width, height, frame, windows, backingStore, document, presentation }: typeof Capture.Screenshot.Type, whole: boolean, facts: readonly string[]): Shot => {
         const [head = ['display'], ...beside] = windows.map((number) => heads[`${number}`] ?? [`${number}`, ...Outline.caption('window')]);
@@ -134,7 +137,7 @@ const shot = ({ instance, state }: Pick<InstanceSnapshot, 'instance' | 'state'>)
         };
     };
 };
-const stillsOf = (snapshot: Pick<InstanceSnapshot, 'instance' | 'state' | 'name' | 'identifier'>, source: Capture['source'], results: typeof Capture.Result.Type, crop: readonly string[]): readonly Shot[] => {
+const stillsOf = (snapshot: Pick<Instance, 'instance' | 'state' | 'name' | 'identifier'>, source: Capture['source'], results: typeof Capture.Stills.Type, crop: readonly string[]): readonly Shot[] => {
     const draw = shot(snapshot);
     const numbers = source._tag === 'windows' ? source.numbers : [];
     const shown = new Set(Array.filterMap(windowsOf(snapshot.state), ({ number, onScreen }) => (onScreen ? Result.succeed(number) : Result.failVoid)));
@@ -148,7 +151,7 @@ const stillsOf = (snapshot: Pick<InstanceSnapshot, 'instance' | 'state' | 'name'
     const hidden = new Line({ head: ['off screen'], value: Format.count(bare.length, Outline.nouns.window), facts: ['no image'], call: new Call({ tool: reopen.tool, given: Record.set(reopen.given, 'activate', true) }) });
     return Array.isReadonlyArrayEmpty(bare) ? shots : [...shots, said(hidden)];
 };
-const keyFramesOf = (snapshot: Pick<InstanceSnapshot, 'instance' | 'state'>, source: Capture['source'], { keyFrames }: typeof Recording.Result.Type): readonly Shot[] =>
+const keyFramesOf = (snapshot: Pick<Instance, 'instance' | 'state'>, source: Capture['source'], { keyFrames }: typeof Capture.Recorded.Type): readonly Shot[] =>
     Array.match(keyFrames, {
         onEmpty: Array.empty,
         onNonEmpty: (frames) => {
@@ -173,8 +176,9 @@ const attach = Effect.fnUntraced(function* (shots: readonly Shot[]) {
     yield* Effect.forEach(Array.getSomes(shots.map(Struct.get('png'))), (data) => add(McpSchema.ImageContent.make({ data, mimeType: 'image/png' })), { discard: true });
     return shots.map(Struct.get('line'));
 });
-const capture = Effect.fnUntraced(function* (snapshot: Pick<InstanceSnapshot, 'instance' | 'state' | 'name' | 'identifier'>, source: Capture['source'], { marks, clip }: Taking, crop: readonly string[] = []) {
-    const [server, { running }, side] = yield* Effect.all([ApplicationServer, Workspace, Side]);
+const capture = Effect.fnUntraced(function* (snapshot: Pick<Instance, 'instance' | 'state' | 'name' | 'identifier'>, source: Capture['source'], { marks, clip }: Taking, crop: readonly string[] = []) {
+    const [server, side] = yield* Effect.all([ApplicationServer, Side]);
+    const { running } = server;
     const { instance } = snapshot;
     yield* hold([Hold.Using({ instance })]);
     const request = { instance, source, longestSide: Option.some(side) };
@@ -236,7 +240,7 @@ const element = (reference: string, taking: Taking) =>
     });
 const document = (taking: Taking) =>
     Effect.fnUntraced(function* (id: string) {
-        const instances = yield* Effect.flatMap(Workspace, ({ running }) => SubscriptionRef.get(running));
+        const instances = yield* Effect.flatMap(ApplicationServer, ({ running }) => SubscriptionRef.get(running));
         const shown = instances.flatMap((each) =>
             Array.match(
                 windowsOf(each.state).flatMap((window) => (window.document === id ? [window.number] : [])),

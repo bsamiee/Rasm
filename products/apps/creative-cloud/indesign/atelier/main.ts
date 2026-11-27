@@ -1,4 +1,4 @@
-import { Description } from '@rasm/applications/source';
+import { Description } from '@rasm/applications/description';
 import { Adjust, Typeset, TypesettingRpcs } from '@rasm/indesign/typesetting';
 import { Dom } from '@rasm/indesign/uxp/dom';
 import { call, change, findChange, font, fontSource, inspect, preflight, render, suppressDialogs } from '@rasm/indesign/uxp/operations';

@@ -1,8 +1,8 @@
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { ApplicationTools } from '@rasm/application-tools/toolkit';
-import { ApplicationServer } from '@rasm/applications/client';
-import { Workspace } from '@rasm/applications/workspace';
+import { Catalog } from '@rasm/applications/catalog';
+import { ApplicationServer } from '@rasm/applications/server/client';
 import { Program } from '@rasm/current-process';
 import { serve } from '@rasm/mcp/cli';
 import { teardown } from '@rasm/telemetry/node';
@@ -21,7 +21,7 @@ Effect.gen(function* () {
             settings: ApplicationTools.settings,
         },
         { address, descriptors, share, provider: preferences },
-        ApplicationTools.layer().pipe(Layer.provideMerge(Workspace.layer(Workspace.fromInstallations)), Layer.provideMerge(application)),
+        ApplicationTools.layer().pipe(Layer.provideMerge(Catalog.layer(Catalog.fromInstallations)), Layer.provideMerge(application)),
         ended,
     );
 }).pipe(Effect.provide(Layer.provideMerge(Program.layer, layer)), runMain({ teardown }));

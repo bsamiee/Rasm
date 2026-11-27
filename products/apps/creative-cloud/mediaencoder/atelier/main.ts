@@ -1,4 +1,4 @@
-import { Description } from '@rasm/applications/source';
+import { Description } from '@rasm/applications/description';
 import { events, execute, MediaEncoder } from '@rasm/mediaencoder/uxp';
 import { EvaluationRpcs } from '@rasm/object-model/rpcs';
 import { Plugin, Uxp } from '@rasm/uxp/plugin';

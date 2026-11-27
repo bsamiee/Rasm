@@ -1,5 +1,5 @@
 import { layer } from '@effect/sql-sqlite-node/SqliteClient';
-import type { Installation } from '@rasm/applications/contract';
+import type { Installation } from '@rasm/applications/server/installation';
 import { Array, Context, Effect, FileSystem, Option, Order, Path, Record, Result, Schema, Struct } from 'effect';
 import { SqlClient, SqlSchema } from 'effect/sql';
 

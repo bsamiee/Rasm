@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
-import { KeyStep, Model } from '@rasm/applications/contract';
-import { Description, type FacetContainer, type FacetControl } from '@rasm/applications/source';
+import { Description } from '@rasm/applications/description';
+import { Element } from '@rasm/applications/server/element';
 import { Array, Cause, Effect, Exit, Option, Order, Record, Ref, Schema, Stream, Struct, SubscriptionRef } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -10,14 +10,14 @@ const RUNS = 2000;
 const LISTED = ['select', 'pen', 'hand'] as const;
 const REFUSED = 'hand';
 const HOLDING = ['/document[@id=1]/rectangle[@id=2]'];
-const SHELF: FacetControl['locator'] = [['Panels', 'Application']];
-const BAR: FacetControl['locator'] = [['MenuActions', 'Application']];
-const FILE: FacetControl['locator'] = [...BAR, ['MenuAction', 'File Menu']];
-const STRAY: FacetControl['locator'] = [['Windows', 'Application']];
+const SHELF: (typeof Description.Control.Type)['locator'] = [['Panels', 'Application']];
+const BAR: (typeof Description.Control.Type)['locator'] = [['MenuActions', 'Application']];
+const FILE: (typeof Description.Control.Type)['locator'] = [...BAR, ['MenuAction', 'File Menu']];
+const STRAY: (typeof Description.Control.Type)['locator'] = [['Windows', 'Application']];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Stated = { label: Schema.NonEmptyString, shortcut: Schema.optionalKey(KeyStep), help: Schema.optionalKey(Schema.NonEmptyString) };
+const Stated = { label: Schema.NonEmptyString, shortcut: Schema.optionalKey(Element.Shortcut), help: Schema.optionalKey(Schema.NonEmptyString) };
 const Listing = {
     tools: Schema.NonEmptyArray(Schema.Struct({ id: Schema.NonEmptyString, ...Stated })),
     current: Schema.Struct({ at: Schema.Natural.annotate({ description: 'Listed tool the host reads as current, taken modulo the deduplicated listing' }), ...Stated }),
@@ -26,7 +26,7 @@ const Listing = {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const heldRef = ({ ref }: { readonly ref: number }) => ref;
-const folds = Effect.fnUntraced(function* ({ model, described }: { readonly model: Model; readonly described: Description }) {
+const folds = Effect.fnUntraced(function* ({ model, described }: { readonly model: typeof Element.Model.Type; readonly described: Description }) {
     const asked: string[] = [];
     const intern = (locators: readonly string[]) =>
         Effect.sync(() => {
@@ -51,7 +51,7 @@ const folds = Effect.fnUntraced(function* ({ model, described }: { readonly mode
         const [folded] = level.parent === undefined && sole(level.kind).length === 1 ? sole(level.kind) : [];
         return { frame: folded?.frame, window: folded?.window, controls: level.controls.map(({ locator, options }) => ({ ref: refOf(locator), options: options?.map(optionRef) })) };
     });
-    const placed: Model['containers'] = composed.containers;
+    const placed: (typeof Element.Model.Type)['containers'] = composed.containers;
     const carried = Array.flatMap(placed, ({ controls }) => Array.flatMap(controls, ({ options = [] }) => options));
     const declared = Array.flatMap(levels, ({ controls }) => Array.flatMap(controls, ({ options = [] }) => options));
     assert.deepStrictEqual(
@@ -89,14 +89,14 @@ const hosted = Effect.fnUntraced(function* (script: readonly (typeof LISTED)[num
     return { held, facet };
 });
 const shown = (id: string) => ({ id, label: `${id} tool` });
-const part = (root: FacetControl['locator'], kind: FacetContainer['kind'], operated: Ref.Ref<readonly string[]>, refusal: Option.Option<string>) => ({
+const part = (root: (typeof Description.Control.Type)['locator'], kind: (typeof Description.Container.Type)['kind'], operated: Ref.Ref<readonly string[]>, refusal: Option.Option<string>) => ({
     roots: Effect.succeed([root]),
-    describe: ({ within }: { readonly within?: FacetControl['locator'] }) =>
+    describe: ({ within }: { readonly within?: (typeof Description.Control.Type)['locator'] }) =>
         Option.match(refusal, {
             onSome: (refused) => Effect.fail(new Cause.UnknownError(refused, refused)),
             onNone: () => Effect.succeed(Description.make({ containers: [{ locator: within ?? root, kind, controls: [] }] })),
         }),
-    operate: ({ locator }: { readonly locator: FacetControl['locator'] }) => Ref.update(operated, Array.append(`${kind} ${locator.length}`)),
+    operate: ({ locator }: { readonly locator: (typeof Description.Control.Type)['locator'] }) => Ref.update(operated, Array.append(`${kind} ${locator.length}`)),
 });
 const errors = (exit: Exit.Exit<unknown, { readonly message: string }>) =>
     Exit.isFailure(exit)
@@ -204,7 +204,7 @@ const isolates = Effect.fnUntraced(function* () {
 describe(Description, () => {
     it.effect.prop(
         'folds the one Accessibility container of a top-level facet kind into the facet container with its frame kept, takes each pointer field the facet states over the one read and the cursor and drag from the read alone, leaves every other Accessibility container as read, and gives each facet locator the reference interned for it, each option keeping the label, shortcut, and help it states',
-        { model: Model, described: Description },
+        { model: Element.Model, described: Description },
         folds,
         {
             arbitrary: { runs: RUNS },

@@ -75,12 +75,10 @@ Forbidden forms take the rebuild in their row:
 Brands mark a value a check validated and keep it apart from values of the same primitive type. Each constraint is stated once on the schema decoding enforces, and the value decodes at its source:
 
 ```ts
-const ProcessInstance = Schema.String.check(Schema.isPattern(/^\d+@\d+$/u)).pipe(Schema.brand('ProcessInstance'));
-
-class InstanceSnapshot extends Schema.Class<InstanceSnapshot, { readonly brand: unique symbol }>('InstanceSnapshot')({ instance: ProcessInstance, url: Schema.URL }) {}
+class Instance extends Schema.Class<Instance, { readonly brand: unique symbol }>('Instance')({ instance: Schema.String.check(Schema.isPattern(/^\d+@\d+$/u)).pipe(Schema.brand('ProcessInstance')), url: Schema.URL }) {}
 ```
 
-`ProcessInstance` holds a process ID and its kernel start time, unequal for a later process reusing the ID. Readers name it `InstanceSnapshot['instance']`, and a bare pid string passed where an instance belongs fails to compile:
+Field `instance` holds a process ID and its kernel start time, unequal for a later process reusing the ID. Readers name it `Instance['instance']`, and a bare pid string passed where an instance belongs fails to compile:
 - Brands take their type from the record holding them, a class over a primitive failing to compile
 - Brands no record holds are a field missing from its record or a check their one reader decodes with, a hand `Brand.Branded` type restating them
 - Refinements derive from the brand they narrow (`Base.check(rule).pipe(Schema.brand('<Narrow>'))`), carrying both brands and both checks

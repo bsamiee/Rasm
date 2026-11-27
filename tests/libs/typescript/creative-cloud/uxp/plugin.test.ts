@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { layer as served } from '@effect/platform-node/NodeHttpServer';
 import { layerWebSocketConstructor } from '@effect/platform-node/NodeSocket';
 import { assert, it } from '@effect/vitest';
-import { Description, SourceRpcs } from '@rasm/applications/source';
+import { Description } from '@rasm/applications/description';
 import { Link } from '@rasm/mcp/link';
 import { HostError } from '@rasm/object-model/model';
 import { Dialogs, Evaluation, EvaluationRpcs } from '@rasm/object-model/rpcs';
@@ -31,7 +31,7 @@ const Probe = Toolkit.make(Tool.make('probe', { description: 'Reads the host int
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const linked = Link.listen(EvaluationRpcs.merge(SourceRpcs, Link.Rpcs.omit('tools/list', 'events')).middleware(Dialogs), ORIGIN);
+const linked = Link.listen(EvaluationRpcs.merge(Description.Rpcs, Link.Rpcs.omit('tools/list', 'events')).middleware(Dialogs), ORIGIN);
 const dialed = Effect.fnUntraced(function* (dialogs: (host: { level: string }) => Effect.Effect<unknown, HostError, Scope.Scope>, ended: Stream.Stream<never, HostError>) {
     const [ready, host, seen, subscribed] = [yield* Deferred.make<Effect.Success<typeof linked>>(), { level: 'interactive' }, MutableRef.make<readonly string[]>([]), yield* Deferred.make<void>()];
     const routes = Layer.effectDiscard(Effect.flatMap(linked, (listened) => Deferred.succeed(ready, listened)));

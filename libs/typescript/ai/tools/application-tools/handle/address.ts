@@ -1,8 +1,10 @@
-import { ApplicationServer } from '@rasm/applications/client';
-import { ApplicationFailure, type Container, type Control, type Fact, type InstanceSnapshot, type Model, type Observation, Scope } from '@rasm/applications/contract';
-import { type InterfaceMap, InterfaceMaps } from '@rasm/applications/interface-map';
-import { type Declaration, Description, type Facet } from '@rasm/applications/source';
-import type { Entry } from '@rasm/applications/workspace';
+import type { Entry } from '@rasm/applications/catalog';
+import { type Declaration, Description, type Source as Host } from '@rasm/applications/description';
+import { InterfaceMap } from '@rasm/applications/map';
+import { ApplicationServer } from '@rasm/applications/server/client';
+import { Element } from '@rasm/applications/server/element';
+import { ApplicationFailure } from '@rasm/applications/server/failure';
+import type { Instance } from '@rasm/applications/server/instance';
 import { Format } from '@rasm/mcp/report';
 import { Handle } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search/unmatched';
@@ -10,17 +12,21 @@ import { Array, Cause, Context, Data, DateTime, Effect, Function, HashMap, HashS
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Linked = Pick<Facet<Error, never>, 'describe' | 'operate'>;
+type Container = typeof Element.Container.Type;
+type Control = typeof Element.Control.Type;
+type Fact = typeof Element.Fact.Type;
+type Model = typeof Element.Model.Type;
+type Linked = Pick<Host<Error, never, never, never, never>, 'describe' | 'operate'>;
 type Target = Data.TaggedEnum<{
     Container: { readonly container: Container };
     Control: { readonly control: Control; readonly container: Container };
-    Option: { readonly option: NonNullable<Control['options']>[number] };
+    Option: { readonly option: NonNullable<(typeof Element.Control.Type)['options']>[number] };
     RememberedContainer: { readonly locator: string; readonly entry: InterfaceMap['containers'][string] };
     RememberedControl: { readonly locator: string; readonly container: string; readonly control: InterfaceMap['containers'][string]['controls'][string]; readonly entry: InterfaceMap['containers'][string] };
 }>;
 interface Aimed {
     readonly row: Entry;
-    readonly live: Pick<InstanceSnapshot, 'instance' | 'identifier'> & { readonly language: string };
+    readonly live: Pick<Instance, 'instance' | 'identifier'> & { readonly language: string };
 }
 interface Item {
     readonly target: Target;
@@ -28,13 +34,13 @@ interface Item {
     readonly name: Option.Option<string>;
     readonly ancestors: readonly string[];
     readonly value: Option.Option<string>;
-    readonly kind: Option.Option<Control['kind']>;
+    readonly kind: Option.Option<(typeof Element.Control.Type)['kind']>;
     readonly live: boolean;
 }
 interface Shown {
     readonly container: Container;
     readonly item: Item;
-    readonly controls: readonly { readonly control: Control; readonly item: Item; readonly options: readonly { readonly option: NonNullable<Control['options']>[number]; readonly item: Item }[] }[];
+    readonly controls: readonly { readonly control: Control; readonly item: Item; readonly options: readonly { readonly option: NonNullable<(typeof Element.Control.Type)['options']>[number]; readonly item: Item }[] }[];
 }
 interface Index {
     readonly model: Model;
@@ -70,7 +76,7 @@ const Steps = Schema.Json.pipe(Schema.Array, Schema.fromJsonString);
 
 const Source = Context.Reference<(row: Entry) => Effect.Effect<Linked, Error>>('@rasm/application-tools/handle/address/Source', { defaultValue: () => () => new Cause.NoSuchElementError() });
 const Toolbar = Context.Reference<(row: Entry) => Effect.Effect<Declaration, Error>>('@rasm/application-tools/handle/address/Toolbar', { defaultValue: () => () => Effect.succeed({ tools: HashMap.empty(), toolbar: [] }) });
-const Indexed = Context.Reference<Option.Option<{ readonly instance: InstanceSnapshot['instance']; readonly index: Index }>>('@rasm/application-tools/handle/address/Indexed', { defaultValue: Option.none });
+const Indexed = Context.Reference<Option.Option<{ readonly instance: Instance['instance']; readonly index: Index }>>('@rasm/application-tools/handle/address/Indexed', { defaultValue: Option.none });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -99,8 +105,8 @@ const printFact: (fact: Fact) => string = Match.type<Fact>().pipe(
         record: ({ fields }) => `{${Record.collect(fields, (field, each) => `${field}: ${printFact(each)}`).join(', ')}}`,
     }),
 );
-const printValue = (kind: Control['kind'], fact: Fact) => (kind === 'toggle' && fact._tag === 'integer' ? (STATES[fact.value] ?? printFact(fact)) : printFact(fact));
-const printStored = (kind: Control['kind'], value: Observation['values'][string]) =>
+const printValue = (kind: (typeof Element.Control.Type)['kind'], fact: Fact) => (kind === 'toggle' && fact._tag === 'integer' ? (STATES[fact.value] ?? printFact(fact)) : printFact(fact));
+const printStored = (kind: (typeof Element.Control.Type)['kind'], value: (typeof Element.Observation.Type)['values'][string]) =>
     Match.value(value).pipe(
         Match.when(Match.boolean, (on) => printFact({ _tag: 'bool', value: on })),
         Match.when(Match.number, (amount) => printValue(kind, { _tag: Number.isInteger(amount) ? 'integer' : 'real', value: amount })),
@@ -127,7 +133,7 @@ const within = (segments: readonly string[]) => {
 };
 const item = (target: Target, ancestors: readonly string[]): Item => {
     const read = Target.$match(target, {
-        Container: ({ container }) => ({ ref: Option.some(token(container.kind, container.ref)), name: label(container.title), value: Option.none<string>(), kind: Option.none<Control['kind']>() }),
+        Container: ({ container }) => ({ ref: Option.some(token(container.kind, container.ref)), name: label(container.title), value: Option.none<string>(), kind: Option.none<(typeof Element.Control.Type)['kind']>() }),
         Control: ({ control }) => ({ ref: Option.some(token(control.kind, control.ref)), name: label(control.label?.text), value: Option.map(Option.fromUndefinedOr(control.value), (fact) => printValue(control.kind, fact)), kind: Option.some(control.kind) }),
         Option: ({ option }) => ({ ref: Option.some(token('option', option.ref)), name: label(option.label), value: Option.none(), kind: Option.none() }),
         RememberedContainer: ({ entry: { container } }) => ({ ref: Option.none(), name: Option.orElse(Option.flatMap(container.title, label), () => Option.some(container.kind)), value: Option.none(), kind: Option.none() }),
@@ -144,10 +150,10 @@ const located = (items: readonly Item[]) => {
 };
 const tokensOf = (items: readonly Item[]) => Record.fromEntries(items.flatMap((each) => Option.toArray(Option.map(each.token, (at) => [at, each] as const))));
 const candidateOf = (each: Item) => (each.live ? [...Option.toArray(each.token), path(each).join(SEPARATOR)] : Option.toArray(each.token)).map(Format.quoted).join(' ');
-const caption = (kind: Container['kind'], title: Option.Option<string>, ref?: number) => [...Array.fromNullishOr(ref).map((held) => token(kind, held)), String.noCase()(kind), ...Option.toArray(title).map(Format.quoted)].join(' ');
+const caption = (kind: (typeof Element.Container.Type)['kind'], title: Option.Option<string>, ref?: number) => [...Array.fromNullishOr(ref).map((held) => token(kind, held)), String.noCase()(kind), ...Option.toArray(title).map(Format.quoted)].join(' ');
 const refuse = (reason: 'notOpen' | 'absent', subject: string, values: readonly string[]) => ApplicationFailure.make({ reason, subject, message: [subject, String.noCase()(reason), values.join(', ')].filter(String.isNonEmpty).join(' ') });
 const tomb = (container: Container, locator: string) => ({ container: Struct.pick(container, ['ref', 'locator']), locator });
-const own = (state: Context.Service.Shape<typeof Indexed>, of: InstanceSnapshot['instance']) => Option.flatMap(state, ({ instance, index: held }) => (instance === of ? Option.some(held) : Option.none()));
+const own = (state: Context.Service.Shape<typeof Indexed>, of: Instance['instance']) => Option.flatMap(state, ({ instance, index: held }) => (instance === of ? Option.some(held) : Option.none()));
 const index = (model: Model, carried: readonly (readonly [string, Item])[] = []): Index => {
     const byRef = Record.fromIterableWith(model.containers, (container) => [`${container.ref}`, container]);
     const names = Record.getSomes(
@@ -189,7 +195,15 @@ const index = (model: Model, carried: readonly (readonly [string, Item])[] = [])
 const partial = ({ truncated, controls }: Container) => truncated || controls.reduce((unlisted, { kind, total = 0 }) => unlisted + (kind === 'multi' ? total : 0) - (kind === 'row' ? 1 : 0), 0) > 0;
 const settle = (
     before: Index,
-    { stated, gone, facts, sequence, whole, routes, pointer }: { readonly stated: readonly Container[]; readonly gone: readonly Container[]; readonly facts: readonly string[]; readonly sequence: number; readonly whole: boolean; readonly routes: Index['routes']; readonly pointer: Model['pointer'] },
+    {
+        stated,
+        gone,
+        facts,
+        sequence,
+        whole,
+        routes,
+        pointer,
+    }: { readonly stated: readonly Container[]; readonly gone: readonly Container[]; readonly facts: readonly string[]; readonly sequence: number; readonly whole: boolean; readonly routes: Index['routes']; readonly pointer: (typeof Element.Model.Type)['pointer'] },
 ): Index => {
     const controls = Record.toEntries(before.live).flatMap(([ref, each]) => (each.target._tag === 'Control' && `${each.target.control.ref}` === ref ? [{ ref, each, locator: each.target.control.locator, sat: `${each.target.container.ref}` }] : []));
     const held = Array.groupBy(controls, Struct.get('sat'));
@@ -223,7 +237,7 @@ const merge = (last: Option.Option<Index>, model: Model, whole: boolean, routes:
     const gone = before.model.containers.filter((container) => whole && !stated.has(container.ref) && !newer(container) && Option.exists(Record.get(before.reads, `${container.ref}`), Struct.get('whole')));
     return settle(before, { stated: model.containers.filter(Predicate.not(newer)), gone, facts: [], sequence: model.sequence, whole, routes, pointer: whole && model.sequence >= before.model.sequence ? model.pointer : before.model.pointer });
 };
-const close = (held: Index, sequence: number, ref: Container['ref'], facts: readonly string[]): Index => {
+const close = (held: Index, sequence: number, ref: (typeof Element.Container.Type)['ref'], facts: readonly string[]): Index => {
     const open = Option.flatMap(Record.get(held.live, `${ref}`), ({ target }) => (target._tag === 'Container' ? Option.some(target.container) : Option.none()));
     const reread = Option.exists(Record.get(held.reads, `${ref}`), (read) => read.sequence > sequence);
     const shut = Option.flatMap(Record.get(held.left, `${ref}`), ({ container: { locator } }) => Option.map(Record.get(held.closed, locator), (was) => ({ ...held, closed: Record.set(held.closed, locator, { ...was, facts }) })));
@@ -339,7 +353,7 @@ const resolve = (held: Index, at: string): Result.Result<Item, ApplicationFailur
         Option.orElse(() => Option.map(numbered(at), (ref) => Result.fail(Unmatched.of({ subject: 'reference', query: Option.some(at), candidates: Option.toArray(Option.flatMap(Record.get(held.live, ref), Struct.get('token'))) })))),
         Option.getOrElse(() => matched(held, at)),
     );
-const find = (held: Index, query: string, kind: Option.Option<Control['kind']>) => {
+const find = (held: Index, query: string, kind: Option.Option<(typeof Element.Control.Type)['kind']>) => {
     const segments = segmentsOf(query);
     const [inside, last] = [within(Array.dropRight(segments, 1)), Option.getOrElse(Array.last(segments), () => '')];
     const kept = held.items.filter((each) => inside(each) && Option.match(kind, { onNone: () => Option.isSome(each.name) || Option.isSome(each.value), onSome: (wanted) => Option.contains(each.kind, wanted) }));
@@ -353,25 +367,25 @@ const find = (held: Index, query: string, kind: Option.Option<Control['kind']>) 
     const ranked = Unmatched.rank(last, kept, ({ target, name, value }) => [...Option.toArray(name), ...Option.toArray(value), ...stated(target)].join(' '));
     return Array.sortWith(ranked, Struct.get('live'), Order.flip(Order.Boolean));
 };
-const route = (held: Index) => (ref: Control['ref']) => Record.get(held.routes, `${ref}`);
-const refOf = (instance: InstanceSnapshot['instance']) => {
+const route = (held: Index) => (ref: (typeof Element.Control.Type)['ref']) => Record.get(held.routes, `${ref}`);
+const refOf = (instance: Instance['instance']) => {
     const interned = ({ locator }: { readonly locator: string }) => ApplicationServer.use((server) => server.intern({ instance, locators: [locator] })).pipe(Effect.map(Array.head), Effect.flatMap(Effect.fromOption));
     return ({ target }: Item) => Target.$match(target, { Container: ({ container }) => Effect.succeed(container.ref), Control: ({ control }) => Effect.succeed(control.ref), Option: ({ option }) => Effect.succeed(option.ref), RememberedContainer: interned, RememberedControl: interned });
 };
 const facets = Effect.fnUntraced(function* ({ row, live }: Aimed, from: Linked, model: Model, payload: { readonly within?: Description['containers'][number]['locator'] }) {
-    const [server, maps, toolbar] = yield* Effect.all([ApplicationServer, InterfaceMaps, Toolbar]);
+    const [server, maps, toolbar] = yield* Effect.all([ApplicationServer, InterfaceMap.Store, Toolbar]);
     const [described, tools] = yield* Effect.all([from.describe(payload), toolbar(row)]);
     return yield* Description.compose(model, yield* maps.learn(live, Description.fold(described, tools)), (locators) => server.intern({ instance: live.instance, locators }));
 });
-const scan = Effect.fnUntraced(function* (target: Aimed, scope: typeof Scope.Type) {
+const scan = Effect.fnUntraced(function* (target: Aimed, scope: typeof Element.Scope.Type) {
     const { row, live } = target;
-    const [server, maps, handle, source] = yield* Effect.all([ApplicationServer, InterfaceMaps, Handle, Source]);
+    const [server, maps, handle, source] = yield* Effect.all([ApplicationServer, InterfaceMap.Store, Handle, Source]);
     const [map, last, client] = yield* Effect.all([maps.recall(live), handle.get(Indexed), Effect.option(source(row))], { concurrency: 'unbounded' });
     const whole = scope._tag === 'application';
-    const level = Option.flatMap(Option.liftPredicate(scope, Scope.isAnyOf(['container', 'menu', 'rows'])), ({ ref }) => Option.flatMap(own(last, live.instance), (held) => Record.get(held.routes, `${ref}`)));
+    const level = Option.flatMap(Option.liftPredicate(scope, Element.Scope.isAnyOf(['container', 'menu', 'rows'])), ({ ref }) => Option.flatMap(own(last, live.instance), (held) => Record.get(held.routes, `${ref}`)));
     const from = Option.filter(client, () => whole || Option.isSome(level));
     const known = Option.getOrUndefined(Option.map(map.known, (verified) => ({ known: verified })));
-    const scopes: readonly (typeof Scope.Type)[] = [...(whole || Option.isNone(from) ? [scope] : []), ...(whole ? [{ _tag: 'menus' as const }] : [])];
+    const scopes: readonly (typeof Element.Scope.Type)[] = [...(whole || Option.isNone(from) ? [scope] : []), ...(whole ? [{ _tag: 'menus' as const }] : [])];
     const models = yield* Effect.forEach(scopes, (each) => server.model({ instance: live.instance, scope: each, ...(each._tag === 'application' ? known : {}) }), { concurrency: 'unbounded' });
     const accessible = Option.getOrElse(Array.head(models), (): Model => ({ sequence: Option.match(own(last, live.instance), { onNone: () => 0, onSome: (held) => held.model.sequence }), containers: [] }));
     const { model, routes } = yield* Option.match(from, {
@@ -390,11 +404,11 @@ const read = (target: Aimed) =>
         map,
         base,
         route: route(base),
-        indexed: (containers: Model['containers']) => index({ ...application, containers }),
-        level: (scope: typeof Scope.Type) => Effect.map(scan(target, scope), Struct.get('model')),
+        indexed: (containers: (typeof Element.Model.Type)['containers']) => index({ ...application, containers }),
+        level: (scope: typeof Element.Scope.Type) => Effect.map(scan(target, scope), Struct.get('model')),
     }));
 const reach = Effect.fnUntraced(function* (target: Aimed, at: string) {
-    const [handle, maps] = yield* Effect.all([Handle, InterfaceMaps]);
+    const [handle, maps] = yield* Effect.all([Handle, InterfaceMap.Store]);
     const held = own(yield* handle.get(Indexed), target.live.instance);
     const shown = Option.flatMap(held, (last) => Option.filter(Result.getSuccess(resolve(last, at)), Struct.get('live')));
     const sat = Option.flatMap(Option.all({ last: held, ref: numbered(at) }), ({ last, ref }) => Option.map(Record.get(last.left, ref), ({ container }) => ({ last, ref: container.ref })));

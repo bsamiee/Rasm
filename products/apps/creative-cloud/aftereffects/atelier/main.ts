@@ -1,5 +1,5 @@
 import { AfterEffects, execute, render, suppressDialogs, toolbar } from '@rasm/aftereffects/uxp';
-import { Description } from '@rasm/applications/source';
+import { Description } from '@rasm/applications/description';
 import { Plugin, Uxp } from '@rasm/uxp/plugin';
 import { Layer } from 'effect';
 

@@ -1,4 +1,4 @@
-import { InterfaceMaps } from '@rasm/applications/interface-map';
+import { InterfaceMap } from '@rasm/applications/map';
 import { Output } from '@rasm/mcp/cli';
 import { type Handle, Server } from '@rasm/mcp/server';
 import { Array, Context, Effect, Layer, Record } from 'effect';
@@ -8,7 +8,7 @@ import { Applications } from '#/applications';
 import { Diagnostics, Logs } from '#/diagnostics';
 import { ExecuteScript, Script } from '#/execute-script';
 import { Source, Toolbar } from '#/handle/address';
-import { Notices } from '#/handle/notices';
+import { Notices } from '#/handle/notice';
 import { Target } from '#/handle/target';
 import { Inspect } from '#/inspect';
 import { Render, Side, View } from '#/view';
@@ -41,7 +41,7 @@ const ApplicationTools = Object.assign(tools, {
             Layer.provide(handlers),
             Layer.provide(Target.layer),
             Layer.provide(Layer.succeedContext(Context.makeUnsafe(new Map(Record.toEntries(SEAMS).flatMap(([name, { key }]) => Array.fromNullishOr(seams[name]).map((seam) => [key, seam] as const)))))),
-            Layer.provide(Layer.unwrap(Effect.map(Output, ({ state }) => InterfaceMaps.layer(state)))),
+            Layer.provide(Layer.unwrap(Effect.map(Output, ({ state }) => InterfaceMap.Store.layer(state)))),
         ),
 });
 

@@ -1,4 +1,4 @@
-import { Description } from '@rasm/applications/source';
+import { Description } from '@rasm/applications/description';
 import { application, execute, Illustrator, render, suppressDialogs, toolbar } from '@rasm/illustrator/uxp';
 import { Plugin } from '@rasm/uxp/plugin';
 import { Effect, Layer } from 'effect';

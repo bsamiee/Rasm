@@ -1,7 +1,7 @@
 {
     "name": "@rasm/applications",
     "version": "0.1.0",
-    "description": "Wire contract and Node client of a Mac application server watching installed and running apps, with their catalog, interface map, and plug-in source contract",
+    "description": "Wire contract and Node client of a Mac application server watching installed and running apps, with their catalog, interface map, and plug-in description contract",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -18,11 +18,10 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        "./contract": "./contract.ts",
-        "./interface-map": "./interface-map.ts",
-        "./client": "./client.ts",
-        "./source": "./source.ts",
-        "./workspace": "./workspace.ts",
+        "./server/*": "./server/*.ts",
+        "./catalog": "./catalog/catalog.ts",
+        "./map": "./map/map.ts",
+        "./description": "./description/description.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -30,11 +29,10 @@
             "#/*": "./dist/*.js"
         },
         "exports": {
-            "./contract": "./dist/contract.js",
-            "./interface-map": "./dist/interface-map.js",
-            "./client": "./dist/client.js",
-            "./source": "./dist/source.js",
-            "./workspace": "./dist/workspace.js",
+            "./server/*": "./dist/server/*.js",
+            "./catalog": "./dist/catalog/catalog.js",
+            "./map": "./dist/map/map.js",
+            "./description": "./dist/description/description.js",
             "./package.json": "./package.json"
         },
         "access": "public"

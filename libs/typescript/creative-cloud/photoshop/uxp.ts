@@ -1,5 +1,5 @@
-import type { Act } from '@rasm/applications/contract';
-import { type Description, FacetControl } from '@rasm/applications/source';
+import { Description } from '@rasm/applications/description';
+import type { Act } from '@rasm/applications/server/act';
 import type { Upstream } from '@rasm/mcp/upstream';
 import { Containment, format } from '@rasm/object-model/host';
 import { HostError } from '@rasm/object-model/model';
@@ -16,7 +16,7 @@ import type { Bounds } from 'photoshop/dom/objects/Bounds';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Leaf = Pick<FacetControl, 'kind' | 'role' | 'value' | 'selected'> & { readonly write: (to: unknown) => Option.Option<unknown> };
+type Leaf = Pick<typeof Description.Control.Type, 'kind' | 'role' | 'value' | 'selected'> & { readonly write: (to: unknown) => Option.Option<unknown> };
 interface Route {
     readonly member: string;
     readonly carries: (typeof Act.Input.Type)['modifiers'];
@@ -195,11 +195,11 @@ const leaf = Match.type<unknown>().pipe(
     })),
     Match.option,
 );
-const controls = ({ _obj: owner, ...held }: typeof ActionObject.Type, path: typeof Description.Locator.Type): readonly FacetControl[] =>
+const controls = ({ _obj: owner, ...held }: typeof ActionObject.Type, path: typeof Description.Locator.Type): readonly (typeof Description.Control.Type)[] =>
     Array.flatMap(Record.toEntries(held), ([key, value]) => {
         const locator = Array.append(path, [owner, key] as const);
         return Option.match(leaf(value), {
-            onSome: (stated) => [FacetControl.make({ ...Struct.omit(stated, ['write']), locator, label: { text: key } })],
+            onSome: (stated) => [Description.Control.make({ ...Struct.omit(stated, ['write']), locator, label: { text: key } })],
             onNone: () => (Schema.is(ActionObject)(value) ? controls(value, locator) : []),
         });
     });

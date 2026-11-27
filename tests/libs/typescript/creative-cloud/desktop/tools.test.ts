@@ -1,7 +1,7 @@
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, describe, it } from '@effect/vitest';
-import { Description } from '@rasm/applications/source';
+import { Description } from '@rasm/applications/description';
 import { Application } from '@rasm/creative-cloud-desktop/application';
 import { Preferences, Tools } from '@rasm/creative-cloud-desktop/tools';
 import { Array, Effect, FileSystem, HashMap, Layer, Option, Path, Stream, Struct } from 'effect';

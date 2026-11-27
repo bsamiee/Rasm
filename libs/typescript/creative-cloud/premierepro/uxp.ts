@@ -1,5 +1,5 @@
 import type { Project, premierepro, Sequence } from '@adobe/premierepro';
-import { Description } from '@rasm/applications/source';
+import { Description } from '@rasm/applications/description';
 import type { Link } from '@rasm/mcp/link';
 import { Containment } from '@rasm/object-model/host';
 import { HostError } from '@rasm/object-model/model';

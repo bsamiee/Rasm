@@ -1,6 +1,7 @@
-import { ApplicationServer } from '@rasm/applications/client';
-import { Condition, type Container, type Control, type InstanceSnapshot, InstanceState, type KeyStep, type Pasteboard } from '@rasm/applications/contract';
-import { Workspace } from '@rasm/applications/workspace';
+import type { Act } from '@rasm/applications/server/act';
+import { ApplicationServer } from '@rasm/applications/server/client';
+import { Element } from '@rasm/applications/server/element';
+import { Instance } from '@rasm/applications/server/instance';
 import { Call, Format, Line, Report } from '@rasm/mcp/report';
 import { Handle } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search/unmatched';
@@ -10,6 +11,8 @@ import { Target } from '#/handle/target';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
+type Control = typeof Element.Control.Type;
+type Pasteboard = typeof Act.Pasteboard.Type;
 interface Folded {
     readonly entry: Shown['controls'][number];
     readonly alternates: Shown['controls'];
@@ -52,9 +55,9 @@ const NOUNS = {
     popUp: { one: 'pop-up', other: 'pop-ups' },
     match: { one: 'match', other: 'matches' },
     container: { one: 'container', other: 'containers' },
-} as const satisfies Record<Container['kind'] | 'control' | 'item' | 'row' | 'character' | 'popUp' | 'match' | 'container', { readonly one: string; readonly other: string }>;
-const UNSPOKEN: ReadonlySet<Control['kind']> = new Set(['action', 'item']);
-const SELECTED: Readonly<Record<NonNullable<Control['selected']>, Partial<Record.ReadonlyRecord<Control['kind'], string>>>> = { attribute: { row: 'selected' }, marked: { row: 'selected, inferred', choice: 'value inferred' } };
+} as const satisfies Record<(typeof Element.Container.Type)['kind'] | 'control' | 'item' | 'row' | 'character' | 'popUp' | 'match' | 'container', { readonly one: string; readonly other: string }>;
+const UNSPOKEN: ReadonlySet<(typeof Element.Control.Type)['kind']> = new Set(['action', 'item']);
+const SELECTED: Readonly<Record<NonNullable<(typeof Element.Control.Type)['selected']>, Partial<Record.ReadonlyRecord<(typeof Element.Control.Type)['kind'], string>>>> = { attribute: { row: 'selected' }, marked: { row: 'selected, inferred', choice: 'value inferred' } };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -72,13 +75,13 @@ const showing = ({ rows, showing: shown }: { readonly rows?: number; readonly sh
         },
     });
 const compose = (head: readonly string[], value: Option.Option<string>, stated: readonly string[]) => [[head.join(' '), ...Option.toArray(value)].filter(String.isNonEmpty).join(': '), ...stated].filter(String.isNonEmpty).join(', ');
-const spoken = (kind: Control['kind']) => (UNSPOKEN.has(kind) ? [] : [kind]);
-const keys = ({ key, modifiers }: KeyStep) => [...modifiers.map(String.capitalize), key].join('-');
-const shortcut = (step: KeyStep) => `shortcut ${keys(step)}`;
+const spoken = (kind: (typeof Element.Control.Type)['kind']) => (UNSPOKEN.has(kind) ? [] : [kind]);
+const keys = ({ key, modifiers }: typeof Element.Shortcut.Type) => [...modifiers.map(String.capitalize), key].join('-');
+const shortcut = (step: typeof Element.Shortcut.Type) => `shortcut ${keys(step)}`;
 const help = (text: string | undefined, name: string | undefined, whole: boolean) => Array.fromNullishOr(text).flatMap((held) => (held !== name && (whole || name === undefined || !NAMING.test(name)) ? [`help: ${Format.quoted(held)}`] : []));
 const inspect = (given: Call['given']) => new Call({ tool: 'inspect', given });
 const opensOf = (token: Option.Option<string>) => Option.toArray(Option.map(token, (at) => `opens ${at}`));
-const caption = (kind: Container['kind'], ref?: number, title?: string) => [...Array.fromNullishOr(ref).map((at) => Address.token(kind, at)), NOUNS[kind].one, ...Array.fromNullishOr(title).map(Format.quoted)];
+const caption = (kind: (typeof Element.Container.Type)['kind'], ref?: number, title?: string) => [...Array.fromNullishOr(ref).map((at) => Address.token(kind, at)), NOUNS[kind].one, ...Array.fromNullishOr(title).map(Format.quoted)];
 const under = (each: Control, head: Control) => (head.kind === 'multi' && (each.kind === 'row' || each.row !== undefined)) || each.row === head.ref;
 const stating = Function.memoize(({ container, controls }: Shown) => {
     const names = controls.flatMap(({ item, options }) => [...Option.toArray(item.name), ...options.flatMap(({ item: each }) => Option.toArray(each.name))]);
@@ -138,7 +141,7 @@ const alternation = <A>(entries: readonly A[], key: (entry: A) => string, altern
 const remembered = (index: Index, locator: string): readonly Line[] => {
     const listed = Option.getOrElse(Record.get(index.remembered.controls, locator), Array.empty).flatMap(({ target, ...item }) => (target._tag === 'RememberedControl' ? [{ ...item, target }] : []));
     const located = (at: string) => Option.map(Record.get(index.located, at), Array.headNonEmpty);
-    const when = Condition.match({
+    const when = Element.Condition.match({
         Value: ({ at, value }) =>
             Option.toArray(
                 pipe(
@@ -176,7 +179,7 @@ const remembered = (index: Index, locator: string): readonly Line[] => {
     });
 };
 const draft =
-    (index: Index, shown: Shown, changed: HashSet.HashSet<Control['ref']>, { leveled = false, within = Option.none<string>(), whole = false } = {}) =>
+    (index: Index, shown: Shown, changed: HashSet.HashSet<(typeof Element.Control.Type)['ref']>, { leveled = false, within = Option.none<string>(), whole = false } = {}) =>
     ({ entry: { control, item, options }, alternates, nested }: Folded & { readonly nested: readonly Folded[] }): Draft => {
         const { container } = shown;
         const marks = {
@@ -282,7 +285,7 @@ const draft =
             ],
         };
     };
-const tree = (index: Index, changed: HashSet.HashSet<Control['ref']>, gone: Record.ReadonlyRecord<string, readonly string[]> = {}): readonly Line[] => {
+const tree = (index: Index, changed: HashSet.HashSet<(typeof Element.Control.Type)['ref']>, gone: Record.ReadonlyRecord<string, readonly string[]> = {}): readonly Line[] => {
     const { containers } = index.model;
     const primary = new Set(Option.getOrElse(Array.findFirst([containers.filter(Struct.get('asking')), containers.filter((container) => container.focused === true), Array.take(containers, 1)], Array.isReadonlyArrayNonEmpty), Array.empty).map(Struct.get('ref')));
     const shown = Array.sortWith(index.shown, ({ container }) => [container.asking, container.focused === true] as const, Order.flip(Order.Tuple([Order.Boolean, Order.Boolean]))).map((held) => {
@@ -354,13 +357,13 @@ const paged = (page: Line, after: Option.Option<Item>): Result.Result<readonly L
     });
     return Result.map(from, (start) => [new Line({ ...page, rows: Array.drop(rows, start).map((each) => new Line(Struct.omit(each, ['cut']))) })]);
 };
-const alone = (index: Index, changed: HashSet.HashSet<Control['ref']>, ref: Control['ref']) => {
+const alone = (index: Index, changed: HashSet.HashSet<(typeof Element.Control.Type)['ref']>, ref: (typeof Element.Control.Type)['ref']) => {
     const drafted = index.shown.flatMap((shown) =>
         shown.controls.flatMap((entry, at) => (entry.control.ref === ref ? [draft(index, shown, changed, { whole: true })({ entry, alternates: [], nested: Array.takeWhile(Array.drop(shown.controls, at + 1), (each) => under(each.control, entry.control)).map((each) => ({ entry: each, alternates: [] })) })] : [])),
     );
     return Array.head(siblings(drafted, NOUNS.control.other).rows);
 };
-const render = (index: Index, { in: within = Option.none(), after = Option.none(), changed = HashSet.empty() }: { readonly in?: Option.Option<Item>; readonly after?: Option.Option<Item>; readonly changed?: HashSet.HashSet<Control['ref']> } = {}) => {
+const render = (index: Index, { in: within = Option.none(), after = Option.none(), changed = HashSet.empty() }: { readonly in?: Option.Option<Item>; readonly after?: Option.Option<Item>; readonly changed?: HashSet.HashSet<(typeof Element.Control.Type)['ref']> } = {}) => {
     const scope = Option.flatMap(within, ({ token, target }) => Option.map(token, (at) => ({ at, target })));
     const page = Option.match(scope, {
         onNone: (): Result.Result<Line, Unmatched> => Result.succeed(new Line({ head: [], rows: tree(index, changed), call: inspect({}) })),
@@ -390,7 +393,7 @@ const hits = (found: readonly Item[], given: Call['given'], { after = Option.non
     });
     return paged(new Line({ head: [], rows, call: inspect(given) }), after);
 };
-const clipboard = ({ types, access, patterns, contentType, content }: Pasteboard, ref: Control['ref'], asked: boolean) => {
+const clipboard = ({ types, access, patterns, contentType, content }: Pasteboard, ref: (typeof Element.Control.Type)['ref'], asked: boolean) => {
     const head = [Address.token('clipboard', ref), 'clipboard'];
     const text = content?._tag === 'text' ? Option.some(content.value) : Option.none<string>();
     const shown = Option.map(text, (value) => {
@@ -418,8 +421,8 @@ const clipboard = ({ types, access, patterns, contentType, content }: Pasteboard
               ],
           });
 };
-const clipped = (instance: InstanceSnapshot['instance'], pasteboard: Pasteboard, asked: boolean) => ApplicationServer.use((server) => server.intern({ instance, locators: [pasteboard.locator] })).pipe(Effect.map(Array.map((ref) => clipboard(pasteboard, ref, asked))));
-const changes = (before: Index, after: Index, touched: ReadonlySet<Control['ref']>): readonly Line[] => {
+const clipped = (instance: Instance['instance'], pasteboard: Pasteboard, asked: boolean) => ApplicationServer.use((server) => server.intern({ instance, locators: [pasteboard.locator] })).pipe(Effect.map(Array.map((ref) => clipboard(pasteboard, ref, asked))));
+const changes = (before: Index, after: Index, touched: ReadonlySet<(typeof Element.Control.Type)['ref']>): readonly Line[] => {
     const earlier = Record.fromIterableWith(before.model.containers, ({ ref, controls }) => [`${ref}`, new Set(controls.map(Struct.get('ref')))]);
     const changed = HashSet.fromIterable(after.model.containers.flatMap(({ controls }) => controls.filter(({ ref, value }) => touched.has(ref) && Option.exists(Record.get(before.live, `${ref}`), ({ target }) => target._tag === 'Control' && !Equal.equals(target.control.value, value))).map(Struct.get('ref'))));
     const read = after.model.containers.map((container) => {
@@ -438,11 +441,11 @@ const changes = (before: Index, after: Index, touched: ReadonlySet<Control['ref'
         ...closed.map(({ container, item }) => new Line({ head: caption(container.kind, container.ref, Option.getOrUndefined(item.name)), facts: [SAY.closed] })),
     ];
 };
-const subject = Effect.fnUntraced(function* (application: string, { instance, state }: Pick<InstanceSnapshot, 'instance' | 'state'>, { verb, facts = [], troubled = false, keyed = false }: { readonly verb?: string; readonly facts?: readonly string[]; readonly troubled?: boolean; readonly keyed?: boolean } = {}) {
-    const [{ session, pressure }, handle] = yield* Effect.all([Workspace, Handle]);
+const subject = Effect.fnUntraced(function* (application: string, { instance, state }: Pick<Instance, 'instance' | 'state'>, { verb, facts = [], troubled = false, keyed = false }: { readonly verb?: string; readonly facts?: readonly string[]; readonly troubled?: boolean; readonly keyed?: boolean } = {}) {
+    const [{ session, pressure }, handle] = yield* Effect.all([ApplicationServer, Handle]);
     const [screen, strain, { held }] = yield* Effect.all([session, pressure, handle.get(Target)]);
-    const { stalled, front } = InstanceState.match(state, {
-        running: ({ status, active }) => ({ stalled: InstanceState.Status.matchOrElse(status, { responding: (): readonly string[] => [], unresponsive: ({ _tag, thread }) => [_tag, `main thread ${thread}`] }, ({ _tag }) => [_tag]), front: active }),
+    const { stalled, front } = Instance.State.match(state, {
+        running: ({ status, active }) => ({ stalled: Instance.State.Status.matchOrElse(status, { responding: (): readonly string[] => [], unresponsive: ({ _tag, thread }) => [_tag, `main thread ${thread}`] }, ({ _tag }) => [_tag]), front: active }),
         failed: ({ reason, subject: failed, message }) => ({ stalled: [`state unread: ${message ?? `${failed} ${reason}`}`], front: false }),
         exited: ({ _tag }) => ({ stalled: [_tag], front: false }),
     });

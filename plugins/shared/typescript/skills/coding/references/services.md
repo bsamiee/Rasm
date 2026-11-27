@@ -105,10 +105,10 @@ Layers compose at a composition root into one graph, and the compiler rejects a 
 |  [05]   | `a.pipe(Layer.provideMerge([b, c]))` | Outputs of `a`, `b`, and `c`, `b` and `c` readable      |
 
 ```ts
-const app = ApplicationTools.layer().pipe(Layer.provideMerge(Workspace.layer(Workspace.fromInstallations)), Layer.provideMerge(application));
+const app = ApplicationTools.layer().pipe(Layer.provideMerge(Catalog.layer(Catalog.fromInstallations)), Layer.provideMerge(application));
 ```
 
-`ApplicationTools.layer()` reads `Workspace` and `ApplicationServer`, the service `application` builds over the Swift helper process, and hides its handler and `InterfaceMaps` layers behind `Layer.provide`. `Workspace` reads `ApplicationServer`, and each `provideMerge` keeps its service readable to every layer above:
+`ApplicationTools.layer()` reads `Catalog` and `ApplicationServer`, the service `application` builds over the Swift helper process, and hides its handler and `InterfaceMap.Store` layers behind `Layer.provide`. `Catalog` reads `ApplicationServer`, and each `provideMerge` keeps its service readable to every layer above:
 - Layers inside one `mergeAll` or `provide` array build concurrently and satisfy none of each other's requirements
 - Swappable dependencies stay in their reading layer's requirements, and each root provides its host's implementation
 - Layers memoize by reference within one build, a layer function's result binds to one `const`, `Layer.fresh` builds one per consumer

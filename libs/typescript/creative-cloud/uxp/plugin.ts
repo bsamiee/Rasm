@@ -1,5 +1,5 @@
+import { Description, type Source } from '@rasm/applications/description';
 import 'core-js/modules/web.url.can-parse.js';
-import { type Source, SourceRpcs } from '@rasm/applications/source';
 import { Link } from '@rasm/mcp/link';
 import { type Containment, encode, reference, resolve } from '@rasm/object-model/host';
 import { HostError, Specifier } from '@rasm/object-model/model';
@@ -27,7 +27,7 @@ const MANIFEST = `plugin:/${UxpManifest.file}`;
 const BUNDLE = /(?<=\.app)(?:\/.*)?$|(?<=[^/])$/u;
 const RENDERED = 'rendered.png';
 const BODY = 'body.js';
-const SOURCE = SourceRpcs.failing(Failure);
+const SOURCE = Description.failing(Failure);
 
 // --- [MODELS] --------------------------------------------------------------------------
 

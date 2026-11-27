@@ -1,8 +1,8 @@
 import { homedir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { Target } from '@rasm/application-tools/handle/target';
-import type { Installation } from '@rasm/applications/contract';
-import type { Entry } from '@rasm/applications/workspace';
+import type { Entry } from '@rasm/applications/catalog';
+import type { Installation } from '@rasm/applications/server/installation';
 import { Application, Registry } from '@rasm/creative-cloud-desktop/application';
 import { Preferences, Tools } from '@rasm/creative-cloud-desktop/tools';
 import { setting } from '@rasm/mcp/cli';

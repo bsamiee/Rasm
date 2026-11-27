@@ -2,9 +2,9 @@ import { pathToFileURL } from 'node:url';
 import { layer as services } from '@effect/platform-node/NodeServices';
 import { SqliteClient } from '@effect/sql-sqlite-node';
 import { assert, describe, it } from '@effect/vitest';
-import { type KeyStep, Observation } from '@rasm/applications/contract';
-import { InterfaceMap } from '@rasm/applications/interface-map';
-import { Description, FacetControl } from '@rasm/applications/source';
+import { Description } from '@rasm/applications/description';
+import { InterfaceMap } from '@rasm/applications/map';
+import { Element } from '@rasm/applications/server/element';
 import { Catalog } from '@rasm/database/catalog';
 import { Sqlite } from '@rasm/database/sqlite';
 import { Array, DateTime, Duration, Effect, FileSystem, Layer, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
@@ -33,9 +33,9 @@ const WIDTH = '["AXButton","Width"]';
 const START = Date.UTC(2026, 10, 25, 9);
 const OWNER = { username: 'owner', homedir: '/Users/owner' } as const;
 const BUILDS = ['22.1.0.19', '22.2.0.4'] as const;
-const TOOLBAR: FacetControl['locator'] = [['toolbar', 'tool']];
-const RECTANGLE: FacetControl['locator'] = [...TOOLBAR, ['tool', 'RECTANGLE_TOOL']];
-const PEN: FacetControl['locator'] = [...TOOLBAR, ['tool', 'PEN_TOOL']];
+const TOOLBAR: (typeof Description.Control.Type)['locator'] = [['toolbar', 'tool']];
+const RECTANGLE: (typeof Description.Control.Type)['locator'] = [...TOOLBAR, ['tool', 'RECTANGLE_TOOL']];
+const PEN: (typeof Description.Control.Type)['locator'] = [...TOOLBAR, ['tool', 'PEN_TOOL']];
 const DOCUMENT = JSON.stringify([{ key: { document: { type: 'com.adobe.indesign-document' } }, role: 'AXWindow' }]);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -124,8 +124,8 @@ const newDocument = Effect.forEach(
             },
             values: { [UNITS]: 'Millimeters', [WIDTH]: '210 mm' },
         },
-    ] satisfies readonly (typeof Observation.Encoded)[],
-    (each) => Schema.decodeEffect(Observation)(each),
+    ] satisfies readonly (typeof Element.Observation.Encoded)[],
+    (each) => Schema.decodeEffect(Element.Observation)(each),
 );
 const app = ({ conditions, reads, owner, draft }: Truth) => {
     const [user, stem] = [`owner${owner}`, `brief-${draft}`];
@@ -148,7 +148,7 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
         );
     const generation = (read: number) => Array.countBy(Array.take(Array.drop(reads, 1), read), (entry) => entry.rebuilt === 0);
     const build = (read: number) => `22.1.0.${19 + generation(read)}`;
-    const observation = (read: number): typeof Observation.Encoded => {
+    const observation = (read: number): typeof Element.Observation.Encoded => {
         const { toggle, complete } = reads[read] ?? reads[0];
         return {
             build: build(read),
@@ -182,7 +182,7 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
             values: { [TOGGLE]: toggle },
         };
     };
-    const level = (read: number, at: number): typeof Observation.Encoded => ({
+    const level = (read: number, at: number): typeof Element.Observation.Encoded => ({
         build: build(read),
         container: MENU,
         kind: 'menu',
@@ -205,7 +205,7 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
         layout: {},
         values: {},
     });
-    const submenu = (read: number): typeof Observation.Encoded => ({
+    const submenu = (read: number): typeof Element.Observation.Encoded => ({
         ...level(read, read),
         container: SUBMENU,
         opener: { container: MENU, control: RECENT },
@@ -225,14 +225,14 @@ const app = ({ conditions, reads, owner, draft }: Truth) => {
     return { user: { username: user, homedir: home }, stem, readings, present, generation, build, observation, level, submenu, opener, oracle, stored: identified, window: DOCUMENT };
 };
 
-const toolbar = (current: string, [rectangle, pen]: readonly [{ readonly label: string; readonly shortcut?: KeyStep; readonly help?: string }, { readonly label: string; readonly shortcut?: KeyStep; readonly help?: string }]) =>
+const toolbar = (current: string, [rectangle, pen]: readonly [{ readonly label: string; readonly shortcut?: typeof Element.Shortcut.Type; readonly help?: string }, { readonly label: string; readonly shortcut?: typeof Element.Shortcut.Type; readonly help?: string }]) =>
     Description.make({
         containers: [
             {
                 locator: TOOLBAR,
                 kind: 'toolbar',
                 controls: [
-                    FacetControl.make({
+                    Description.Control.make({
                         locator: [...TOOLBAR, ['choice', 'tool']],
                         kind: 'choice',
                         role: 'tool',
@@ -258,7 +258,7 @@ describe(InterfaceMap, () => {
         Truth,
         Effect.fnUntraced(function* (truth) {
             const world = app(truth);
-            const reads = yield* Effect.forEach(world.readings, (read) => Schema.decodeEffect(Observation)(world.observation(read)));
+            const reads = yield* Effect.forEach(world.readings, (read) => Schema.decodeEffect(Element.Observation)(world.observation(read)));
             const states = Array.scan(reads, [[], InterfaceMap.empty] as readonly [readonly (typeof InterfaceMap.Change.Type)[], InterfaceMap], ([, map], read) => map.fold(read, world.user));
             const allChanges = states.flatMap(([changes]) => changes);
             const final = Array.lastNonEmpty(world.readings);
@@ -312,8 +312,8 @@ describe(InterfaceMap, () => {
             assert.include(written, PRIVATE);
             assert.notInclude(written, world.user.username);
             assert.notInclude(written, world.stem);
-            const opening = yield* Schema.decodeEffect(Observation)(world.submenu(0));
-            const menus = yield* Effect.forEach(world.readings, (read) => Effect.all([Schema.decodeEffect(Observation)(world.level(read, read)), Schema.decodeEffect(Observation)(world.level(read, read + 0.5))]));
+            const opening = yield* Schema.decodeEffect(Element.Observation)(world.submenu(0));
+            const menus = yield* Effect.forEach(world.readings, (read) => Effect.all([Schema.decodeEffect(Element.Observation)(world.level(read, read)), Schema.decodeEffect(Element.Observation)(world.level(read, read + 0.5))]));
             const leveled = menus.reduce((map, [first, again], read) => {
                 const [, once] = map.fold(first, world.user);
                 const [changes, twice] = once.fold(again, world.user);
@@ -473,7 +473,7 @@ describe(InterfaceMap, () => {
     it.effect(
         'serves a menu level only while the item opening it read it in the current build, and states the containers verified in this build with the labels Accessibility read for their menu items, never one text recognition read',
         Effect.fnUntraced(function* () {
-            const menu = yield* Schema.decodeEffect(Observation)({
+            const menu = yield* Schema.decodeEffect(Element.Observation)({
                 build: BUILDS[0],
                 container: MENU,
                 kind: 'menu',
@@ -539,7 +539,7 @@ describe(InterfaceMap, () => {
         Effect.fnUntraced(function* () {
             const [, dialog] = yield* newDocument;
             const zoom = '["AXPopUpButton","Zoom"]';
-            const window = yield* Schema.decodeEffect(Observation)({
+            const window = yield* Schema.decodeEffect(Element.Observation)({
                 build: BUILDS[0],
                 container: LAYOUT,
                 kind: 'window',

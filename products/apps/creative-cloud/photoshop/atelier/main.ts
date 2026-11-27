@@ -1,4 +1,4 @@
-import { Description } from '@rasm/applications/source';
+import { Description } from '@rasm/applications/description';
 import { application, execute, Notifications, render, suppressDialogs, toolbar } from '@rasm/photoshop/uxp';
 import { Plugin } from '@rasm/uxp/plugin';
 import { Layer, Stream, Struct } from 'effect';

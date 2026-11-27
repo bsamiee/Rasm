@@ -1,8 +1,7 @@
 import { basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ApplicationServer } from '@rasm/applications/client';
-import { Diagnostics as Query } from '@rasm/applications/contract';
-import { type Entry, instancesOf, Workspace } from '@rasm/applications/workspace';
+import { Entry } from '@rasm/applications/catalog';
+import { ApplicationServer } from '@rasm/applications/server/client';
 import { Output } from '@rasm/mcp/cli';
 import { Format, Line, Report } from '@rasm/mcp/report';
 import { Handle } from '@rasm/mcp/server';
@@ -26,9 +25,9 @@ const tool = Tool.make('diagnostics', {
     description: 'Reads diagnostics newest first: without application, the log lines of the server; with one, its crash, hang, and diagnostic reports, the samples taken while it did not respond, and the errors, faults, and lines of its own in its unified log',
     parameters: Schema.Struct({
         application: Schema.optionalKey(Schema.String.annotate({ description: 'Application as applications lists it, the server itself when absent' })),
-        since: Query.fields.since.annotate({ description: 'Seconds back from now, else since the instance launched' }),
-        limit: Query.fields.limit.annotate({ description: 'Most reports, log lines, and unified log events returned', default: LIMIT }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(LIMIT))),
-        find: Query.fields.find.annotate({ description: 'Text a log line or unified log event holds, ignoring case, searched before the limit applies' }),
+        since: ApplicationServer.Diagnostics.fields.since.annotate({ description: 'Seconds back from now, else since the instance launched' }),
+        limit: ApplicationServer.Diagnostics.fields.limit.annotate({ description: 'Most reports, log lines, and unified log events returned', default: LIMIT }).pipe(Schema.withDecodingDefaultKey(Effect.succeed(LIMIT))),
+        find: ApplicationServer.Diagnostics.fields.find.annotate({ description: 'Text a log line or unified log event holds, ignoring case, searched before the limit applies' }),
     }),
     success: Report.schema,
     failure: Schema.ErrorInstance(),
@@ -37,7 +36,7 @@ const tool = Tool.make('diagnostics', {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-const Logs = Context.Reference<(row: Entry) => Effect.Effect<Query['folders'], Error>>('@rasm/application-tools/diagnostics/Logs', { defaultValue: () => () => Effect.succeed([]) });
+const Logs = Context.Reference<(row: Entry) => Effect.Effect<(typeof ApplicationServer.Diagnostics.Type)['folders'], Error>>('@rasm/application-tools/diagnostics/Logs', { defaultValue: () => () => Effect.succeed([]) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -66,9 +65,9 @@ const Diagnostics = {
         const read = yield* UndefinedOr.match(application, {
             onUndefined: () => Effect.succeed({ folders: [{ url: pathToFileURL(`${output.logs}/`), glob: '*.log' }] }),
             onDefined: Effect.fnUntraced(function* (given: string) {
-                const [row, workspace, handle, logs] = yield* Effect.all([resolve(given), Workspace, Handle, Logs]);
-                const [rows, { followed }, folders] = yield* Effect.all([SubscriptionRef.get(workspace.running), handle.get(Target), logs(row)]);
-                return { application: { url: row.url, ...Option.getOrUndefined(Option.map(Array.head(instancesOf(rows, followed)(row).meant), Struct.pick(['instance']))) }, folders };
+                const [row, handle, logs] = yield* Effect.all([resolve(given), Handle, Logs]);
+                const [rows, { followed }, folders] = yield* Effect.all([SubscriptionRef.get(server.running), handle.get(Target), logs(row)]);
+                return { application: { url: row.url, ...Option.getOrUndefined(Option.map(Array.head(Entry.instancesOf(rows, followed)(row).meant), Struct.pick(['instance']))) }, folders };
             }),
         });
         const { reports, samples, logs, unified, unreadable } = yield* server.diagnostics({ ...query, ...read });

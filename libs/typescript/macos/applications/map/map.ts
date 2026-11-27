@@ -4,23 +4,23 @@ import { layer as sqlite } from '@effect/sql-sqlite-node/SqliteClient';
 import { Catalog } from '@rasm/database/catalog';
 import { Relation } from '@rasm/database/relation';
 import { Sqlite } from '@rasm/database/sqlite';
-import { Array, Context, Data, DateTime, Duration, Effect, Equal, Equivalence, FileSystem, Function, HashMap, HashSet, Layer, Option, Order, Predicate, pipe, RcMap, Record, Ref, Result, Schedule, Schema, SchemaGetter, SchemaIssue, Sink, Stream, String, Struct, SubscriptionRef } from 'effect';
+import { Array, Context, Data, DateTime, Duration, Effect, Equal, Equivalence, FileSystem, Function, HashMap, HashSet, Layer, Option, Order, Predicate, pipe, RcMap, Record, Ref, Result, Schedule, Schema, Sink, Stream, String, Struct, SubscriptionRef } from 'effect';
 import { SqlClient } from 'effect/sql';
-import { ApplicationServer } from '#/client';
-import { Act, Build, Condition, Cursor, Frame, type InstanceSnapshot, InstanceState, Instant, Locator, type Model, Observation, Opener, Shape, Value } from '#/contract';
-import { Description, FacetControl } from '#/source';
-import { Workspace } from '#/workspace';
+import { Description } from '#/description/description';
+import { type Application, applications, type Container, catalog, containers, type Entry, type Key, type Tally } from '#/map/record';
+import { Act } from '#/server/act';
+import { ApplicationServer } from '#/server/client';
+import { Element } from '#/server/element';
+import { Instance } from '#/server/instance';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Driven = Key & Pick<InstanceSnapshot, 'instance'>;
-type Contact = Pick<InstanceSnapshot, 'instance' | 'identifier'> & { readonly language: string };
+type Observation = typeof Element.Observation.Type;
+type Opener = typeof Element.Opener.Type;
+type Pointer = (typeof Element.Model.Type)['pointer'];
+type Driven = Key & Pick<Instance, 'instance'>;
+type Contact = Pick<Instance, 'instance' | 'identifier'> & { readonly language: string };
 type Opened = Effect.Success<ReturnType<typeof InterfaceMap.open>>;
-interface Proof {
-    readonly at: Opener;
-    readonly from: typeof Act.Rung.Type;
-    readonly outcome: (typeof Act.Result.Type)['outcomes'][number];
-}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -32,104 +32,19 @@ const ELLIPSIS = /(?:…|\.{3})$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Tally extends Schema.Opaque<Tally>()(
-    Schema.Struct({
-        seen: Schema.Natural.annotate({ description: 'Epochs it was seen in' }),
-        missed: Schema.Natural.annotate({ description: 'Complete reads that lacked it' }),
-        first: Instant,
-        last: Instant,
-        epoch: Instant.annotate({ description: 'Opening of the last epoch it was seen in' }),
-        since: Schema.OptionFromOptionalKey(Build.annotate({ description: 'Build it was first seen in, absent where the bundle states no CFBundleVersion' })),
-        verified: Schema.OptionFromOptionalKey(Build.annotate({ description: 'Build it was last seen in, absent where the bundle states no CFBundleVersion' })),
-        persistent: Schema.Boolean.annotate({ description: 'Seen again after retiring' }),
-        unexplained: Schema.Array(Instant).annotate({ description: 'Epochs of the last three misses no atom explains' }),
-    }),
-) {}
-const Presence = Schema.Struct({ with: Schema.Array(Condition), against: Schema.Array(Condition) });
-class Application extends Schema.Opaque<Application>()(
-    Schema.Struct({
-        builds: Schema.Array(Build).annotate({ description: 'Builds read, newest first' }),
-        options: Schema.Record(Build, Schema.Array(Schema.Tuple([Description.Locator, FacetControl.fields.options.schema.value.mapFields(Struct.omit(['locator']))])))
-            .annotate({ description: 'Label, shortcut, and help a host source stated for each facet option while the option was selected, per build, served over what the source lists for the option' })
-            .pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
-        cursors: Schema.Record(Build, Schema.Record(Cursor.cases.custom.fields.digest, Schema.Record(Schema.String, Schema.Natural)))
-            .annotate({ description: 'Tools each custom cursor showed with while the application was active under the real pointer, keyed by its digest, with the reads that saw the pair, per build' })
-            .pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
-    }),
-) {}
-class Container extends Schema.Opaque<Container>()(
-    Schema.Struct({
-        ...Struct.pick(Observation.fields, ['kind', 'title', 'modal', 'layer', 'size', 'default', 'cancel', 'close']),
-        openers: Schema.Array(Schema.Struct({ ...Opener.fields, tally: Tally })),
-        tally: Tally,
-        scopes: Schema.Array(Schema.Struct({ at: Instant, atoms: Schema.Array(Condition) })).annotate({ description: 'Atoms of each read holding the last sighting of a control with no condition yet' }),
-    }),
-) {}
-const Control = Schema.Struct({
-    ...Struct.omit(Shape.fields, ['options']),
-    options: Schema.OptionFromOptionalKey(Schema.Union([Schema.Array(Schema.String), Schema.Struct({ count: Schema.Natural })])),
-    frame: Schema.OptionFromOptionalKey(Frame),
-    value: Schema.OptionFromOptionalKey(Value),
-    presence: Schema.OptionFromOptionalKey(Presence),
-    tally: Tally,
-    retired: Schema.OptionFromOptionalKey(Build),
-    route: Schema.OptionFromOptionalKey(Schema.Struct({ build: Schema.OptionFromOptionalKey(Build), passed: Schema.OptionFromOptionalKey(Act.Rung), failed: Schema.Array(Act.Rung) }).annotate({ description: 'Rung whose read-back last passed a step on the control in the build, and the rungs that failed it there' })),
-});
-const Positions = Schema.Array(Schema.Natural);
-class Entry extends Schema.Opaque<Entry>()(Schema.Struct({ container: Container, controls: Schema.Record(Locator, Control) }).annotate({ description: 'One container and every control read in it, keyed by locator, each condition written inline' })) {}
-const Interned = Schema.Struct({
-    conditions: Schema.Array(Condition).annotate({ description: 'Each condition the reads and controls of the container hold, once, referred to by its position' }),
-    container: Container.mapFields(Struct.assign({ scopes: Schema.Array(Container.fields.scopes.value.mapFields(Struct.assign({ atoms: Positions }))) })),
-    controls: Schema.Record(Locator, Control.mapFields(Struct.assign({ presence: Schema.OptionFromOptionalKey(Presence.mapFields(Struct.assign({ with: Positions, against: Positions }))) }))),
-})
-    .pipe(
-        Schema.decodeTo(Schema.toType(Entry), {
-            decode: SchemaGetter.transformEffect((interned, options) => {
-                const { conditions, container, controls } = interned;
-                const atoms = (positions: readonly number[]) => Effect.forEach(positions, (at) => Effect.fromOption(Array.get(conditions, at)));
-                return Effect.all({
-                    container: Effect.map(
-                        Effect.forEach(container.scopes, (scope) => Effect.map(atoms(scope.atoms), (held) => ({ ...scope, atoms: held }))),
-                        (scopes) => ({ ...container, scopes }),
-                    ),
-                    controls: Effect.all(
-                        Record.map(controls, (control) =>
-                            control.presence.pipe(
-                                Option.map(({ with: seen, against }) => Effect.all({ with: atoms(seen), against: atoms(against) })),
-                                Effect.transposeOption,
-                                Effect.map((presence) => ({ ...control, presence })),
-                            ),
-                        ),
-                    ),
-                }).pipe(Effect.mapError(() => new SchemaIssue.InvalidValue({ message: `Expected condition positions below ${conditions.length}` }, interned, options)));
-            }),
-            encode: SchemaGetter.transform(({ container, controls }) => {
-                const conditions = Array.dedupe([...container.scopes.flatMap(Struct.get('atoms')), ...Record.values(controls).flatMap(({ presence }) => Option.match(presence, { onNone: Array.empty, onSome: ({ with: seen, against }) => [...seen, ...against] }))]);
-                const positions = HashMap.fromIterable(conditions.map((atom, at) => [atom, at] as const));
-                const place = Array.flatMap((atom: typeof Condition.Type) => Option.toArray(HashMap.get(positions, atom)));
-                return {
-                    conditions,
-                    container: { ...container, scopes: container.scopes.map((scope) => ({ ...scope, atoms: place(scope.atoms) })) },
-                    controls: Record.map(controls, (control) => ({ ...control, presence: Option.map(control.presence, Struct.evolve({ with: place, against: place })) })),
-                };
-            }),
-        }),
-    )
-    .annotate({ description: 'One container and every control read in it, keyed by locator, each condition written once and referred to by position' });
 const Change = Schema.TaggedUnion({
-    Appeared: { at: Locator },
-    Changed: { at: Locator },
-    Relabelled: { at: Locator, from: Schema.OptionFromOptionalKey(Schema.String), to: Schema.OptionFromOptionalKey(Schema.String) },
-    Gone: { at: Locator },
+    Appeared: { at: Element.Locator },
+    Changed: { at: Element.Locator },
+    Relabelled: { at: Element.Locator, from: Schema.OptionFromOptionalKey(Schema.String), to: Schema.OptionFromOptionalKey(Schema.String) },
+    Gone: { at: Element.Locator },
 });
-class Key extends Schema.Opaque<Key>()(Schema.Struct({ bundle: Schema.String, language: Schema.String })) {}
-const applications = Relation.make('applications', { ...Key.fields, body: Schema.fromJsonString(Application) }, { key: ['bundle', 'language'], documents: { body: [] } });
-const containers = Relation.make('containers', { ...Key.fields, locator: Locator, body: Schema.fromJsonString(Interned) }, { key: ['bundle', 'language', 'locator'], documents: { body: [Schema.fromJsonString(Entry)] } });
-
 class InterfaceMap extends Data.Class<{ readonly application: Application; readonly containers: Readonly<Record<string, Entry>> }> {
     static readonly Change = Change;
+    static readonly catalog = catalog;
+    static get Store() {
+        return Store;
+    }
     static readonly empty = new InterfaceMap({ application: { builds: [], options: {}, cursors: {} }, containers: {} });
-    static readonly catalog = Catalog.make({ tables: [applications, containers] });
     static readonly languages = (bundle: string) => Effect.map(Relation.select(applications, { bundle: [bundle] }), Array.map(Struct.get('language')));
     static readonly read = Effect.fn('InterfaceMap.read')(function* (bundle: string, language: string) {
         const where = { bundle: [bundle], language: [language] } as const;
@@ -189,8 +104,8 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
                 });
             }),
             learn: (described: Description) => SubscriptionRef.modify(state, (map) => map.learn(described)),
-            prove: (proofs: readonly Proof[]) => SubscriptionRef.update(state, (map) => proofs.reduce((proven, proof) => proven.prove(proof), map)),
-            sight: (pointer: Model['pointer']) => SubscriptionRef.update(state, (map) => map.sight(pointer)),
+            prove: (proofs: readonly Parameters<InterfaceMap['prove']>[0][]) => SubscriptionRef.update(state, (map) => proofs.reduce((proven, proof) => proven.prove(proof), map)),
+            sight: (pointer: Pointer) => SubscriptionRef.update(state, (map) => map.sight(pointer)),
         };
     });
 
@@ -223,11 +138,11 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
         return Option.flatMap(Array.head(this.application.builds), (build) => Option.flatMap(Record.get(this.application.cursors, build), Record.get(digest)));
     }
 
-    sight(pointer: Model['pointer']): InterfaceMap {
+    sight(pointer: Pointer): InterfaceMap {
         const seen = Option.all({
             build: Array.head(this.application.builds),
             tool: Option.fromUndefinedOr(pointer?.tool),
-            digest: Option.flatMap(Option.fromUndefinedOr(pointer?.cursor), Cursor.match({ system: () => Option.none<string>(), custom: ({ digest }) => Option.some(digest) })),
+            digest: Option.flatMap(Option.fromUndefinedOr(pointer?.cursor), Element.Pointer.fields.cursor.schema.match({ system: () => Option.none<string>(), custom: ({ digest }) => Option.some(digest) })),
         });
         return Option.match(seen, {
             onNone: () => this,
@@ -241,7 +156,7 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
         });
     }
 
-    prove({ at, from, outcome }: Proof): InterfaceMap {
+    prove({ at, from, outcome }: { readonly at: Opener; readonly from: typeof Act.Rung.Type; readonly outcome: (typeof Act.Outcome.Type)['outcomes'][number] }): InterfaceMap {
         const build = Array.head(this.application.builds);
         const found = Record.get(this.containers, at.container).pipe(
             Option.filter(() => Result.match(outcome, { onSuccess: ({ proof }) => proof !== 'unanswered' && proof !== 'exit', onFailure: Function.constTrue })),
@@ -265,7 +180,7 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
         const { builds, options: stored } = this.application;
         const seen = Array.flatMap(
             Array.flatMap(described.containers, ({ controls }) => controls),
-            ({ value, options = [] }: FacetControl) => {
+            ({ value, options = [] }: typeof Description.Control.Type) => {
                 const chosen = value?._tag === 'text' ? Option.some(value.value) : Option.none<string>();
                 return options.filter(({ label }) => Option.contains(chosen, label)).map(({ locator, ...stated }) => [locator, stated] as const);
             },
@@ -301,7 +216,7 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
         const pattern = new RegExp(`(?<![\\p{L}\\p{M}\\p{N}])(?:${texts.map(RegExp.escape).join('|')})(?![\\p{L}\\p{M}\\p{N}])`, 'gu');
         const hide = (text: string) => text.replaceAll(pattern, (found) => (found === homedir ? REDACTED.home : REDACTED.other));
         const shown = (value: Observation['values'][string]) => (Predicate.isString(value) ? hide(value) : value);
-        const scope: Observation['conditions'] = read.conditions.map(Condition.matchOrElse({ Value: (atom) => ({ ...atom, value: shown(atom.value) }) }, Function.identity));
+        const scope: Observation['conditions'] = read.conditions.map(Element.Condition.matchOrElse({ Value: (atom) => ({ ...atom, value: shown(atom.value) }) }, Function.identity));
         const shapes = Record.map(read.controls, (shape, locator) => ({
             ...Struct.evolve(shape, { label: Option.map(Struct.evolve({ text: hide })), help: Option.map(hide), options: Option.map(Array.map(hide)) }),
             frame: Record.get(read.layout, locator),
@@ -406,7 +321,7 @@ class InterfaceMap extends Data.Class<{ readonly application: Application; reado
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const subject = Condition.matchOrElse({ Value: ({ _tag, at }) => ({ _tag, at }) }, ({ _tag }) => ({ _tag }));
+const subject = Element.Condition.matchOrElse({ Value: ({ _tag, at }) => ({ _tag, at }) }, ({ _tag }) => ({ _tag }));
 const openedBy = Function.memoize((map: InterfaceMap) => Record.fromEntries(Record.toEntries(map.containers).flatMap(([locator, { container }]) => (container.kind === 'menu' ? container.openers.map(({ control }) => [control, locator] as const) : []))));
 const known = Function.memoize((map: InterfaceMap) =>
     Option.map(
@@ -453,25 +368,25 @@ const coverage = Function.memoize((map: InterfaceMap) => {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class InterfaceMaps extends Context.Service<
-    InterfaceMaps,
+class Store extends Context.Service<
+    Store,
     {
         readonly recall: (contact: Contact) => Effect.Effect<InterfaceMap, Effect.Error<ReturnType<typeof InterfaceMap.open>>>;
         readonly learn: (contact: Contact, described: Description) => Effect.Effect<Description, Effect.Error<ReturnType<typeof InterfaceMap.open>>>;
         readonly held: (bundle: string) => Effect.Effect<Readonly<Record<string, InterfaceMap>>, Effect.Error<ReturnType<typeof InterfaceMap.open>>>;
-        readonly prove: (contact: Contact, proofs: readonly Proof[]) => Effect.Effect<void, Effect.Error<ReturnType<typeof InterfaceMap.open>>>;
-        readonly sight: (contact: Contact, pointer: Model['pointer']) => Effect.Effect<void, Effect.Error<ReturnType<typeof InterfaceMap.open>>>;
+        readonly prove: (contact: Contact, proofs: readonly Parameters<InterfaceMap['prove']>[0][]) => Effect.Effect<void, Effect.Error<ReturnType<typeof InterfaceMap.open>>>;
+        readonly sight: (contact: Contact, pointer: Pointer) => Effect.Effect<void, Effect.Error<ReturnType<typeof InterfaceMap.open>>>;
     }
->()('@rasm/applications/interface-map/InterfaceMaps') {
+>()('@rasm/applications/map/map/Store') {
     static readonly layer = (folder: string) =>
         Layer.effect(
-            InterfaceMaps,
+            Store,
             Effect.gen(function* () {
-                const [server, { running }, scope, stored] = yield* Effect.all([ApplicationServer, Workspace, Effect.scope, Effect.context<Effect.Services<ReturnType<typeof InterfaceMap.languages>>>()]);
-                const exited = (instance: InstanceSnapshot['instance']) =>
-                    SubscriptionRef.changes(running).pipe(
+                const [server, scope, stored] = yield* Effect.all([ApplicationServer, Effect.scope, Effect.context<Effect.Services<ReturnType<typeof InterfaceMap.languages>>>()]);
+                const exited = (instance: Instance['instance']) =>
+                    SubscriptionRef.changes(server.running).pipe(
                         Stream.dropWhile((rows) => !rows.some((row) => row.instance === instance)),
-                        Stream.filter((rows) => rows.every((row) => row.instance !== instance || InstanceState.isAnyOf(['exited'])(row.state))),
+                        Stream.filter((rows) => rows.every((row) => row.instance !== instance || Instance.State.isAnyOf(['exited'])(row.state))),
                         Stream.runHead,
                     );
                 const maps = yield* RcMap.make({ lookup: ({ bundle, language }: Key) => InterfaceMap.open(bundle, language) });
@@ -486,7 +401,7 @@ class InterfaceMaps extends Context.Service<
                             use,
                         ),
                     );
-                yield* server.observations({}).pipe(
+                yield* server.observations().pipe(
                     Stream.filterMap(({ identifier, ...report }) => (identifier === undefined ? Result.failVoid : Result.succeed({ ...report, identifier }))),
                     Stream.mapEffect(({ observation, ...contact }) =>
                         Effect.catch(
@@ -531,4 +446,4 @@ class InterfaceMaps extends Context.Service<
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Entry, InterfaceMap, InterfaceMaps };
+export { InterfaceMap };

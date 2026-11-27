@@ -1,5 +1,5 @@
-import type { Observation } from '@rasm/applications/contract';
-import { Description, type FacetContainer, FacetControl } from '@rasm/applications/source';
+import { Description } from '@rasm/applications/description';
+import type { Element } from '@rasm/applications/server/element';
 import { HostError, Specifier } from '@rasm/object-model/model';
 import { Unmatched } from '@rasm/search/unmatched';
 import type { Plugin } from '@rasm/uxp/plugin';
@@ -16,7 +16,7 @@ const describe = Effect.fn('describe')(function* ({ within }: { readonly within?
     const [{ app }, [bar, shelf]] = yield* Effect.all([Dom, roots]);
     const { panels, menuActions } = app;
     const areaAt = (named: string) => Array.append(bar, [menuActions.constructorName, named] as const);
-    const levelAt = (named: string) => Array.append(areaAt(named), ['menu' satisfies FacetContainer['kind'], named] as const);
+    const levelAt = (named: string) => Array.append(areaAt(named), ['menu' satisfies (typeof Description.Container.Type)['kind'], named] as const);
     if (within === undefined) {
         return yield* Effect.try({
             try: () =>
@@ -29,13 +29,13 @@ const describe = Effect.fn('describe')(function* ({ within }: { readonly within?
                                 Array.makeBy(panels.length, (index) => Option.fromUndefinedOr(panels.item(index))),
                                 Array.getSomes,
                                 Array.filter(({ name }) => name.length > 0),
-                                Array.map(({ constructorName, name, visible }) => FacetControl.make({ locator: Array.append(shelf, [constructorName, name] as const), kind: 'toggle', role: constructorName, label: { text: name }, value: { _tag: 'bool', value: visible } })),
+                                Array.map(({ constructorName, name, visible }) => Description.Control.make({ locator: Array.append(shelf, [constructorName, name] as const), kind: 'toggle', role: constructorName, label: { text: name }, value: { _tag: 'bool', value: visible } })),
                             ),
                         },
                         {
                             locator: bar,
                             kind: 'menuBar',
-                            controls: Array.map(Array.dedupe(menuActions.everyItem().area), (area) => FacetControl.make({ locator: areaAt(area), kind: 'item', role: menuActions.constructorName, label: { text: area }, opens: levelAt(area) })),
+                            controls: Array.map(Array.dedupe(menuActions.everyItem().area), (area) => Description.Control.make({ locator: areaAt(area), kind: 'item', role: menuActions.constructorName, label: { text: area }, opens: levelAt(area) })),
                         },
                     ],
                 }),
@@ -57,7 +57,7 @@ const describe = Effect.fn('describe')(function* ({ within }: { readonly within?
                         controls: Array.map(
                             Array.filterMap(Array.zip(areas, ids), ([named, id]) => (named === area ? Result.succeed(menuActions.itemByID(id)) : Result.failVoid)),
                             (action) =>
-                                FacetControl.make({
+                                Description.Control.make({
                                     locator: Array.append(areaAt(area), [action.constructorName, action.toSpecifier()] as const),
                                     kind: 'item',
                                     role: action.constructorName,
@@ -72,7 +72,7 @@ const describe = Effect.fn('describe')(function* ({ within }: { readonly within?
         catch: HostError.refused(area),
     });
 });
-const operate = Effect.fn('operate')(function* ({ locator, to }: { readonly locator: Description['containers'][number]['locator']; readonly to?: Observation['values'][string] }) {
+const operate = Effect.fn('operate')(function* ({ locator, to }: { readonly locator: Description['containers'][number]['locator']; readonly to?: (typeof Element.Observation.Type)['values'][string] }) {
     const { app, owning } = yield* Dom;
     const { panels, menuActions } = app;
     const text = Formatter.format(locator);

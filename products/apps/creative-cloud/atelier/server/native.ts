@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import { blocking } from '@rasm/application-tools/handle/target';
-import { Installation, type InstanceSnapshot } from '@rasm/applications/contract';
-import { Workspace } from '@rasm/applications/workspace';
+import { ApplicationServer } from '@rasm/applications/server/client';
+import { Instance } from '@rasm/applications/server/instance';
 import type { Application } from '@rasm/creative-cloud-desktop/application';
 import { Preferences } from '@rasm/creative-cloud-desktop/tools';
 import { Link } from '@rasm/mcp/link';
@@ -119,22 +119,22 @@ const readStore = (row: Application, entry: NativeServer) =>
 
 const native = Stream.unwrap(
     Effect.gen(function* () {
-        const [rows, workspace] = yield* Effect.all([RegistryApplications, Workspace]);
+        const [rows, server] = yield* Effect.all([RegistryApplications, ApplicationServer]);
         const proxy = ([row, entry]: readonly [Application, NativeServer]) => {
             const { settings, token } = readStore(row, entry);
-            const listening = (instances: readonly InstanceSnapshot[]) => Option.map(Array.findFirst(instances, Installation.runs(row)), Struct.get('listening'));
+            const listening = (instances: readonly Instance[]) => Option.map(Array.findFirst(instances, Instance.runs(row)), Struct.get('listening'));
             const port = (held: Option.Option<readonly number[]>, { ports }: Pick<NativeServer, 'ports'>) => Option.flatMap(held, (open) => Array.findFirst(ports, (each) => open.includes(each)));
-            const early = ToolCall.use(({ returnEarly }) => Effect.flatMap(Effect.provideService(blocking(row), Workspace, workspace), returnEarly));
+            const early = ToolCall.use(({ returnEarly }) => Effect.flatMap(Effect.provideService(blocking(row), ApplicationServer, server), returnEarly));
             return Upstream.fromHttp({
                 peer: Link.make({ application: row.url, plugin: 'mcp' }),
                 prefix: entry.prefix,
                 endpoint: Effect.gen(function* () {
-                    const [instances, stated] = yield* Effect.all([SubscriptionRef.get(workspace.running), settings]);
+                    const [instances, stated] = yield* Effect.all([SubscriptionRef.get(server.running), settings]);
                     const at = yield* Effect.fromOption(port(listening(instances), stated), () => new Cause.NoSuchElementError(`${row.name} listens on none of ${stated.ports.join(', ')}`));
                     const authorization = stated.authenticated ? Option.some(`Bearer ${yield* token}`) : Option.none<string>();
                     return { url: new URL(stated.path, `http://${Host.formatHostPort(Host.hostPortUnsafe(stated.server, at))}`), headers: Record.getSomes({ authorization }) };
                 }),
-                presence: SubscriptionRef.changes(workspace.running).pipe(
+                presence: SubscriptionRef.changes(server.running).pipe(
                     Stream.map(listening),
                     Stream.changesWith(Option.makeEquivalence(Array.makeEquivalence(Equivalence.Number))),
                     Stream.mapEffect((held) => Effect.map(settings, (stated) => Option.isSome(port(held, stated))).pipe(Effect.catch((error) => Effect.as(Effect.logWarning(`${row.name} MCP server preferences are unreadable`, error), false)))),

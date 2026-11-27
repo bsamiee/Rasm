@@ -1,5 +1,5 @@
-import { ApplicationServer } from '@rasm/applications/client';
-import { AppleEventValue, type Written } from '@rasm/applications/contract';
+import type { Act } from '@rasm/applications/server/act';
+import { ApplicationServer } from '@rasm/applications/server/client';
 import { Format, Line, Report } from '@rasm/mcp/report';
 import { Handle } from '@rasm/mcp/server';
 import { ToolCall } from '@rasm/mcp/toolkit';
@@ -10,7 +10,7 @@ import { current, ends } from '#/handle/target';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Reply = Schema.toCodecJson(AppleEventValue);
+const Reply = Schema.toCodecJson(Schema.Json);
 const tool = Tool.make('execute_script', {
     description: 'Runs code in the target and returns the value of the script. A dialog, hang, or exit of the target returns the call at once, its outcome following as a finished notice',
     parameters: Schema.Struct({ code: Schema.String.annotate({ description: 'Source the script runtime of the target runs' }) }),
@@ -22,7 +22,7 @@ const tool = Tool.make('execute_script', {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const Script = Context.Reference<{
-    readonly run: (aim: Effect.Success<typeof current>, code: string) => Effect.Effect<{ readonly result: Option.Option<Schema.Json>; readonly written?: typeof Written.Type }, Error, ApplicationServer>;
+    readonly run: (aim: Effect.Success<typeof current>, code: string) => Effect.Effect<{ readonly result: Option.Option<Schema.Json>; readonly written?: typeof Act.Written.Type }, Error, ApplicationServer>;
 }>('@rasm/application-tools/execute-script/Script', {
     defaultValue: () => ({
         run: Effect.fnUntraced(function* ({ row, live }, code) {
