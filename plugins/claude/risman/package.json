@@ -9,5 +9,8 @@
         "@types/node": "catalog:",
         "effect": "catalog:",
         "vite": "catalog:"
+    },
+    "nx": {
+        "tags": ["host:claude-code"]
     }
 }
