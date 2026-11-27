@@ -57,6 +57,7 @@ Remote cache clients and the inputs deciding which machines share a result:
 - Tasks the owner's Mac runs fill the cache, and CI jobs read them where each hash input matches, job `macos` its Swift and Xcode tasks
 - .NET targets but format hash `CI`, as MSBuild sets properties under it
 - Vitest targets hash no `CI`, as their executor refuses `.only` and writes no missing snapshot on every machine
+- Vitest targets hash platform, as suites read host shells and file systems, and no Mac result of theirs serves a Linux or Windows job
 - Playwright targets hash no `CI`, as each one runs `playwright test --forbid-only`, and `pack--playwright` hashes the platform its images render on
 - Swift targets hash compiler version, SDK build, and platform, as `swift --version` adds its host's macOS version, which a runner and a Mac differ in
 - Xcode targets add `xcodebuild -version` and `XCODE_XCCONFIG_FILE` content to those inputs

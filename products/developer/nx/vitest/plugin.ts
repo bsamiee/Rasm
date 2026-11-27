@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { buildPackageJsonPatterns, findProjectForPath, globWithWorkspaceContext, hashObject, type PackageJson } from '@nx/devkit/internal';
-import { above, type Anchor, aggregated, anchored, below, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, NxError, owned, packaged, parsed, type Pass, request, run, tokened, within } from '@rasm/nx/inference';
+import { above, type Anchor, aggregated, anchored, below, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, NxError, owned, packaged, parsed, type Pass, PLATFORM, request, run, tokened, within } from '@rasm/nx/inference';
 import { Array, Cause, Effect, Function, Glob, Option, Predicate, Record, Schema } from 'effect';
 import type { Vite } from 'vitest/node';
 import plugin from '#/package.json' with { type: 'json' };
@@ -121,7 +121,7 @@ const inferred = Effect.fnUntraced(function* (pass: Pass<Resolved>, anchor: Anch
                 options: { config: file, projects: selected, ...(outputPath !== undefined && { attachmentsDir: posix.join(outputPath, ATTACHMENTS) }) },
                 dependsOn: ['codegen--*', '^codegen--*'],
                 cache: true,
-                inputs: ['default', `^${namedInput(root, context)}`, ...Object.values(outside), ...triggers, { externalDependencies: Array.dedupe(['vitest', ...packages]) }, { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true }],
+                inputs: ['default', `^${namedInput(root, context)}`, ...Object.values(outside), ...triggers, PLATFORM, { externalDependencies: Array.dedupe(['vitest', ...packages]) }, { dependentTasksOutputFiles: '**/*.{js,mjs,cjs,ts,mts,cts,jsx,tsx}', transitive: true }],
                 outputs: Array.dedupe([...Array.fromNullishOr(outputPath), ...written, ...(suites.length === 1 ? shared : [])])
                     .filter((at, _index, all) => !all.some(Function.flip(below)(at)))
                     .map(tokened(root)),
