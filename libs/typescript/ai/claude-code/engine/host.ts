@@ -1,7 +1,7 @@
 import type { Args, Caught, EngineInterface, EventResult, Frozen, HookFailure, Next, On, RenderElement, RenderInput } from 'claude-code';
-import { Array, Effect, type FileSystem, HashSet, Layer, ManagedRuntime, MutableRef, Option, type Path, type PlatformError, Predicate, Record, SubscriptionRef } from 'effect';
+import { Array, Effect, type FileSystem, HashSet, Layer, ManagedRuntime, MutableRef, Option, type Path, type PlatformError, Predicate, Record, Ref, SubscriptionRef } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
-import { type Band, type Engine, engine, stored } from '#/engine/interface';
+import { type Engine, engine } from '#/engine/interface';
 import { call, services } from '#/engine/services';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -13,12 +13,13 @@ type Hook<N extends Event, A, F> = (e: Frozen<Args<N>>, next: Proceed<N>) => Eff
 interface Mod<A, E, F> {
     readonly layer: Layer.Layer<A, E, Provided>;
     readonly hooks: { readonly [N in Event]?: Hook<N, A, F> };
-    readonly band?: Band & { readonly press: (key: string) => Effect.Effect<unknown, F, A | Provided> };
+    readonly band?: { readonly press: (key: string) => Effect.Effect<unknown, F, A | Provided> };
 }
 interface Instance<A, E, F> {
     readonly mod: Mod<A, E, F>;
     readonly live: MutableRef.MutableRef<Option.Option<ManagedRuntime.ManagedRuntime<A | Provided, E | PlatformError.PlatformError>>>;
     readonly turns: SubscriptionRef.SubscriptionRef<HashSet.HashSet<Option.Option<string>>>;
+    readonly rows: Ref.Ref<Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, string>>>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -34,7 +35,7 @@ const track = <A, E, F>({ turns }: Instance<A, E, F>, agent: string | undefined,
 
 function start<A, E, F>($: EngineInterface, instance: Instance<A, E, F>) {
     return Option.getOrElse(MutableRef.get(instance.live), () => {
-        const made = ManagedRuntime.make(Layer.provideMerge(instance.mod.layer, Layer.provideMerge(engine($, instance.turns, Option.fromUndefinedOr(instance.mod.band)), services($))));
+        const made = ManagedRuntime.make(Layer.provideMerge(instance.mod.layer, Layer.provideMerge(engine($, instance.turns, Option.as(Option.fromUndefinedOr(instance.mod.band), instance.rows)), services($))));
         MutableRef.set(instance.live, Option.some(made));
         made.runPromise(Effect.void).catch(() => {
             MutableRef.compareAndSet(instance.live, Option.some(made), Option.none());
@@ -49,13 +50,9 @@ function answer<A, E, F, N extends Event>($: EngineInterface, instance: Instance
 }
 
 function draw<A, E, F>($: EngineInterface, instance: Instance<A, E, F>, band: NonNullable<Mod<A, E, F>['band']>, e: Frozen<RenderInput<'AbovePrompt'>>, next: (e: Frozen<RenderInput<'AbovePrompt'>>) => Promise<RenderElement>) {
-    return Effect.runPromise(stored($)).then((held) => {
-        const rows = Record.values(held).flatMap(Record.toEntries);
-        const { Box, Button } = $.ui.resolve(e);
-        return e.props.hasSurvey || !Array.isReadonlyArrayNonEmpty(rows)
-            ? next(e)
-            : Box({ flexDirection: 'column', children: rows.map(([key, label]) => Button({ key, label, onPress: () => start($, instance).runPromise(Effect.catchCause(band.press(key), (cause) => Effect.logWarning(`${label} press failed`, cause))) })) });
-    });
+    const rows = instance.rows.pipe(Ref.getUnsafe, Record.values, Array.flatMap(Record.toEntries));
+    const { Box, Button } = $.ui.resolve(e);
+    return e.props.hasSurvey || !Array.isReadonlyArrayNonEmpty(rows) ? next(e) : Box({ flexDirection: 'column', children: rows.map(([key, label]) => Button({ key, label, onPress: () => start($, instance).runPromise(Effect.catchCause(band.press(key), (cause) => Effect.logWarning(`${label} press failed`, cause))) })) });
 }
 
 function recover<E, R>($: EngineInterface, e: E, next: ((e: E) => R) & Caught & Pick<Next, 'event' | 'signal'>) {
@@ -68,7 +65,7 @@ function recover<E, R>($: EngineInterface, e: E, next: ((e: E) => R) & Caught & 
 }
 
 function host<A, E, F>(on: On, mod: Mod<A, E, F>) {
-    const instance: Instance<A, E, F> = { mod, live: MutableRef.make(Option.none()), turns: HashSet.empty<Option.Option<string>>().pipe(SubscriptionRef.make, Effect.runSync) };
+    const instance: Instance<A, E, F> = { mod, live: MutableRef.make(Option.none()), turns: HashSet.empty<Option.Option<string>>().pipe(SubscriptionRef.make, Effect.runSync), rows: Ref.makeUnsafe({}) };
     const { hooks, band } = mod;
     on('session.start', ($, e, next) => {
         const hook = hooks['session.start'];

@@ -1,50 +1,44 @@
 import type { AgentCallArgs, AgentInfo, AgentStatus, EngineInterface, HttpInit, HttpResponse, InvalidatableEventName, ToolCallResult } from 'claude-code';
-import { Array, Context, Data, Effect, HashSet, Layer, Match, Option, PlatformError, Record, Schema, Semaphore, type Stream, SubscriptionRef } from 'effect';
+import { Array, Context, Data, Effect, HashSet, Layer, Match, Option, PlatformError, Record, Ref, Semaphore, type Stream, SubscriptionRef } from 'effect';
 import { call } from '#/engine/services';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Loop = Option.Option<string>;
 type Notice = Data.TaggedEnum<{
     Toast: { readonly text: string };
     Notification: { readonly key: string; readonly text: Option.Option<string> };
-    Band: { readonly group: string; readonly rows: Readonly<Record<string, string>> };
-    Message: { readonly text: string; readonly agent: Loop };
+    Band: { readonly group: string; readonly rows: Record.ReadonlyRecord<string, string> };
+    Message: { readonly text: string; readonly agent: Option.Option<string> };
 }>;
-interface Band {
-    readonly notify: boolean;
-}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const bandKey = 'band';
 const ended = { pending: false, running: false, waiting: false, idle: false, completed: true, failed: true, killed: true } as const satisfies Record<AgentStatus, boolean>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Notice = Data.taggedEnum<Notice>();
-const Rows = Schema.UndefinedOr(Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.String)));
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Engine extends Context.Service<
     Engine,
     {
-        readonly deliver: (notice: Notice) => Effect.Effect<void, PlatformError.PlatformError | Schema.SchemaError>;
+        readonly deliver: (notice: Notice) => Effect.Effect<void, PlatformError.PlatformError>;
         readonly invalidate: (event: InvalidatableEventName) => Effect.Effect<void>;
         readonly fetch: (url: string, init?: HttpInit) => Effect.Effect<HttpResponse, PlatformError.PlatformError>;
         readonly callTool: (args: AgentCallArgs) => Effect.Effect<ToolCallResult, PlatformError.PlatformError>;
         readonly compile: (source: string) => Effect.Effect<WebAssembly.Module, PlatformError.PlatformError>;
         readonly cwd: Effect.Effect<string, PlatformError.PlatformError>;
         readonly findAgent: (id: string) => Effect.Effect<Option.Option<AgentInfo>, PlatformError.PlatformError>;
-        readonly isRunning: (agent: Loop) => Effect.Effect<boolean>;
-        readonly turns: Stream.Stream<HashSet.HashSet<Loop>>;
+        readonly isRunning: (agent: Option.Option<string>) => Effect.Effect<boolean>;
+        readonly turns: Stream.Stream<HashSet.HashSet<Option.Option<string>>>;
     }
 >()('@rasm/claude-code/engine/interface/Engine') {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashSet.HashSet<Loop>>, band: Option.Option<Band>) {
+function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashSet.HashSet<Option.Option<string>>>, band: Option.Option<Ref.Ref<Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, string>>>>) {
     const permits = Semaphore.makeUnsafe(1);
     const notification = (key: string, text: Option.Option<string>) =>
         Option.match(text, {
@@ -55,38 +49,30 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
                     (sent) => (sent.isSent ? Effect.void : Effect.log(`notification ${key} not sent: ${sent.reason}`)),
                 ),
         });
-    const show = ({ notify }: Band, group: string, shown: Readonly<Record<string, string>>) =>
-        stored($).pipe(
-            Effect.tap((held) => call('store.set', bandKey, () => $.store.set(bandKey, Record.isEmptyRecord(shown) ? Record.remove(held, group) : Record.set(held, group, shown)))),
+    const show = (group: string, shown: Record.ReadonlyRecord<string, string>) =>
+        Effect.fromOption(band, () => PlatformError.badArgument({ module: 'Engine', method: 'deliver', description: `band rows of ${group}, as this mod draws no band` })).pipe(
+            Effect.flatMap((rows) => Ref.modify(rows, (held) => [Record.keys(Record.difference(shown, held[group] ?? {})), Record.isEmptyReadonlyRecord(shown) ? Record.remove(held, group) : Record.set(held, group, shown)] as const)),
             Effect.tap(Effect.sync(() => $.ui.invalidate('ui.render'))),
-            Effect.map((held) => Record.keys(Record.difference(shown, held[group] ?? {}))),
-            Effect.flatMap((changed) => Effect.forEach(notify ? changed : [], (key) => notification(key, Record.get(shown, key)), { discard: true })),
+            Effect.flatMap((changed) => Effect.forEach(changed, (key) => notification(key, Record.get(shown, key)), { discard: true })),
             Semaphore.withPermit(permits),
             Effect.uninterruptible,
         );
-    const isRunning = (agent: Loop) => Effect.map(SubscriptionRef.get(turns), HashSet.has(agent));
+    const isRunning = (agent: Option.Option<string>) => Effect.map(SubscriptionRef.get(turns), HashSet.has(agent));
     return Layer.effect(
         Engine,
         Effect.as(
-            Effect.forEach(
-                Option.toArray(band),
-                (held) =>
-                    stored($).pipe(
-                        Effect.flatMap((rows) => Effect.forEach(Record.keys(rows), (group) => show(held, group, {}), { discard: true })),
-                        Effect.catchCause(Effect.logWarning),
-                    ),
-                { discard: true },
+            Effect.addFinalizer(() =>
+                Effect.forEach(Option.toArray(band), Ref.get).pipe(
+                    Effect.flatMap((held) => Effect.forEach(held.flatMap(Record.keys), (group) => show(group, {}), { discard: true })),
+                    Effect.catchCause(Effect.logWarning),
+                ),
             ),
             {
                 deliver: (notice: Notice) =>
                     Notice.$match(notice, {
                         Toast: ({ text }) => Effect.sync(() => $.ui.toast(text)),
                         Notification: ({ key, text }) => notification(key, text),
-                        Band: ({ group, rows }) =>
-                            Option.match(band, {
-                                onNone: () => PlatformError.badArgument({ module: 'Engine', method: 'deliver', description: `band rows of ${group}, as this mod draws no band` }),
-                                onSome: (held) => show(held, group, rows),
-                            }),
+                        Band: ({ group, rows }) => show(group, rows),
                         Message: ({ text, agent }) =>
                             Effect.flatMap(isRunning(agent), (busy) =>
                                 Match.value({ busy, agentId: Option.getOrUndefined(agent) }).pipe(
@@ -135,13 +121,6 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
     );
 }
 
-function stored($: EngineInterface) {
-    return call('store.get', bandKey, () => $.store.get(bandKey)).pipe(
-        Effect.flatMap(Schema.decodeUnknownEffect(Rows)),
-        Effect.map((rows) => rows ?? {}),
-    );
-}
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Band, Engine, engine, Notice, stored };
+export { Engine, engine, Notice };

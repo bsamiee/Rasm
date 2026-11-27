@@ -187,7 +187,7 @@ function register(on: On) {
                     Option.match({ onNone: () => next(e), onSome: (handle) => next({ ...e, handle }) }),
                 ),
         },
-        band: { notify: true, press: (url) => Engine.use((engine) => engine.fetch(url, { method: endpoints.press.method })) },
+        band: { press: (url) => Engine.use((engine) => engine.fetch(url, { method: endpoints.press.method })) },
     });
 }
 
