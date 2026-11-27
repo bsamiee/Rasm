@@ -165,7 +165,7 @@ Workflow `Release` credentials and jobs:
 
 Workflow `Maintenance` and its jobs on instances `host`, `container`, and `graph`:
 - Workflow `Maintenance` runs weekly before the machine update hour
-- Job `host` keeps ignored files and prunes package stores, Docker objects, and week-old build cache
+- Job `host` keeps ignored files and prunes package stores and dangling images, as a same-tag Playwright rebuild leaves its old image untagged
 - Jobs remove each folder holding ignored files alone at a path git history tracked, as checkouts keep a deleted project's `node_modules` and `dist`
 - Job `host` removes sockets of user `runner` in `/tmp` and its temp folder that no `ss -xa` row binds, as tools write them at paths no setting moves
 - `dotnet test` of SDK 11.0.100 leaves one `/tmp/<hex32>` socket per test application, as its pipe loop never disposes its waiting server

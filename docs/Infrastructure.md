@@ -191,4 +191,4 @@ Package updates and reboots of each machine:
 - Reboots stop runner services through their drain
 - Unattended upgrades keep changed conffiles (`--force-confold`), as the Hostinger image changes `cloud.cfg` and a changed or deleted conffile holds its package
 - Reinstalls restore `docker-compose-plugin` and `docker-ce-rootless-extras` as recommendations of Docker's packages, and no code runs either
-- Docker Engine's builder garbage collection keeps the build cache CI builds fill under `defaultMaxUsedSpace`
+- Docker Engine bounds its build cache by its disk-relative defaults, as deploy builds run on BuildKit builders each deploy removes
