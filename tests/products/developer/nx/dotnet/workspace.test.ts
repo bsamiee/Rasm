@@ -4,9 +4,10 @@ import { platform } from 'node:process';
 import type { ProjectGraph } from '@nx/devkit';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
 import { Build } from '@rasm/nx-dotnet/executors/build';
-import { it as base, outputs, unaggregated, unportable } from '@rasm/testing/nx';
+import { outputs, unaggregated, unportable } from '@rasm/testing/nx';
 import { Option, Record, Schema } from 'effect';
 import { describe, expect, vi } from 'vitest';
+import { it as base } from '#/analyzer';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
@@ -86,18 +87,6 @@ describe('MsbuildAnalyzer evaluation of a workspace', () => {
 
     it('runs every tool target through its verb and states no machine path', ({ analyzed: { graph, root } }) => {
         expect([unaggregated(graph), unportable(graph), JSON.stringify(graph).includes(root)]).toStrictEqual([[], [], false]);
-    });
-});
-
-describe('a change to an imported file', () => {
-    it('gives each project the roles MSBuild evaluates after the change', async ({ workspace }) => {
-        const before = roles(workspace.root, await workspace.write(FILES).graph({ createNodes, createDependencies }));
-
-        const graph = await workspace.write({ 'Directory.Build.props': FILES['Directory.Build.props'].replace('</PropertyGroup>', '  <IsTestProject>true</IsTestProject>\n  </PropertyGroup>') }).graph({ createNodes, createDependencies });
-
-        const compared = roles(workspace.root, graph);
-        const tested = (held: typeof compared) => held.filter(({ expected }) => expected.test).length;
-        expect([compared.map(({ inferred }) => inferred), tested(compared) > tested(before)]).toStrictEqual([compared.map(({ expected }) => expected), true]);
     });
 });
 

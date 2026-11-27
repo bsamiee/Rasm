@@ -571,7 +571,6 @@ catalog:
     '@axe-core/playwright': 4.14.2-ff3a772.0.sha-ff3a772
     '@cloudflare/vitest-plugin': 1.9.2
     '@effect/vitest': 4.1.6
-    '@modelcontextprotocol/inspector': 2.16.0 # Stdio MCP client CLI with per-method exit codes that gate an MCP server target
     '@octokit/webhooks-methods': 6.0.0 # GitHub reference sign and verify a webhook suite exchanges signatures with
     '@playwright/test': 1.66.0-alpha-2026-11-26
     '@storybook/addon-a11y': 11.0.0-rc.0
@@ -579,20 +578,12 @@ catalog:
     '@storybook/addon-vitest': 11.0.0-rc.0
     '@storybook/react-vite': 11.0.0-rc.0
     '@testcontainers/clickhouse': 12.2.2
-    '@testcontainers/kafka': 12.2.2
-    '@testcontainers/localstack': 12.2.2
-    '@testcontainers/minio': 12.2.2
     '@testcontainers/postgresql': 12.2.2
-    '@testcontainers/redis': 12.2.2
-    '@testcontainers/valkey': 12.2.2
     '@types/selenium-webdriver': 4.35.7
-    '@vitest/browser': 5.1.2
     '@vitest/browser-playwright': 5.1.2
     '@vitest/ui': 5.1.2
     ajv: 8.20.0 # JSON Schema validation of resolved Nx project configuration against Nx's own schema
-    axe-core: 4.14.1
     get-port: 7.2.0
-    playwright: 1.66.0-alpha-2026-11-26
     selenium-webdriver: 4.54.0 # W3C WebDriver client that drives a stable Firefox through `geckodriver`, which no Playwright or Vitest provider reaches
     storybook: 11.0.0-rc.0
     stripe: 23.3.0-alpha.1 # Stripe reference test header and event construction a webhook suite exchanges signatures with

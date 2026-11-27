@@ -5,10 +5,10 @@ import type { ProjectGraph } from '@nx/devkit';
 import { FsTree, flushChanges } from '@nx/devkit/internal';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
 import DotnetVersionActions from '@rasm/nx-dotnet/release/version-actions';
-import { it } from '@rasm/testing/nx';
 import type { ReleaseGroupWithName } from 'nx/src/command-line/release/config/filter-release-groups';
 import type { FinalConfigForProject } from 'nx/src/command-line/release/utils/release-graph';
 import { describe, expect, vi } from 'vitest';
+import { it } from '#/analyzer';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 

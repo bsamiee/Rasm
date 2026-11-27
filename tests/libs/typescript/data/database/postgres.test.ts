@@ -4,7 +4,7 @@ import { Catalog } from '@rasm/database/catalog';
 import { Pg } from '@rasm/database/pg';
 import { Relation, Tokenizer } from '@rasm/database/relation';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
-import { Array, Context, Deferred, Effect, Fiber, Function, Layer, Number, Option, Predicate, Redacted, Ref, Schedule, Schema, Struct } from 'effect';
+import { Array, Cause, Context, Deferred, Effect, Fiber, Function, Layer, Number, Option, Predicate, Redacted, Ref, Schedule, Schema, Struct } from 'effect';
 import { SqlClient, SqlError, SqlSchema, type Statement } from 'effect/sql';
 import { declared, pending, reconciling, stored } from '#/reconciling';
 import { type Relational, rows, values } from '#/rows';
@@ -106,6 +106,10 @@ const columns = (table: string) =>
             FROM pg_attribute a WHERE a.attrelid = ${table}::regclass AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum`,
     );
 const constraints = (table: string) => SqlClient.SqlClient.use((sql) => sql`SELECT n.contype::text AS kind, n.convalidated::text AS validated FROM pg_constraint n WHERE n.conrelid = ${table}::regclass AND n.contype IN ('n', 'c') ORDER BY n.conname`);
+const polled = (awaited: string, condition: Statement.Fragment) =>
+    SqlClient.SqlClient.use((sql) => Effect.repeat(sql`SELECT 1 WHERE ${condition}`, { until: Array.isReadonlyArrayNonEmpty, schedule: Schedule.spaced('10 millis') })).pipe(
+        Effect.timeoutOrElse({ duration: '30 seconds', orElse: () => Effect.fail(new Cause.UnknownError(undefined, `${awaited} never came within 30 seconds`)) }),
+    );
 const extensions = SqlClient.SqlClient.use((sql) => sql`SELECT e.extname AS name FROM pg_extension e WHERE e.extname <> 'plpgsql' ORDER BY e.extname`);
 const unique = Effect.exit(SqlClient.SqlClient.use((sql) => sql`CREATE UNIQUE INDEX CONCURRENTLY lookups_label ON lookups (label)`));
 const builds: readonly { readonly label: string; readonly labels: Array.NonEmptyReadonlyArray<string>; readonly arranged: Effect.Effect<unknown, never, SqlClient.SqlClient>; readonly before: readonly object[]; readonly planned: readonly string[] }[] = [
@@ -349,7 +353,6 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Postgres.database>
         Effect.fnUntraced(function* () {
             const [sql, { connected }, { container }] = yield* Effect.all([SqlClient.SqlClient, Database, Postgres]);
             const [locked, released] = yield* Effect.all([Deferred.make<void>(), Deferred.make<void>()]);
-            const polled = (condition: Statement.Fragment) => Effect.repeat(sql`SELECT 1 WHERE ${condition}`, { until: Array.isReadonlyArrayNonEmpty, schedule: Schedule.spaced('10 millis') });
             yield* Catalog.reconcile(declared([lookups]));
             yield* SqlClient.SqlClient.use((holder) => holder.withTransaction(holder`LOCK TABLE lookups IN ACCESS EXCLUSIVE MODE`.pipe(Effect.andThen(Deferred.succeed(locked, undefined)), Effect.andThen(Deferred.await(released))))).pipe(
                 Effect.provide(Pg.layer({ url: connected(container.getUsername(), container.getPassword()) })),
@@ -357,9 +360,9 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Postgres.database>
             );
             yield* Deferred.await(locked);
             const patient = yield* Catalog.reconcile(declared([lookups])).pipe(Effect.result, Effect.forkScoped);
-            yield* polled(sql`EXISTS (SELECT 1 FROM pg_locks l JOIN pg_database d ON d.oid = l.database WHERE d.datname = current_database() AND l.relation = 'lookups'::regclass AND NOT l.granted)`);
+            yield* polled('a reconcile waiting on the lookups lock', sql`EXISTS (SELECT 1 FROM pg_locks l JOIN pg_database d ON d.oid = l.database WHERE d.datname = current_database() AND l.relation = 'lookups'::regclass AND NOT l.granted)`);
             const brief = yield* Catalog.reconcile(Catalog.make({ tables: [lookups], timeouts: { lock: '100 millis', transaction: '1 minute' } })).pipe(Effect.result, Effect.provide(Pg.layer({ url: connected(container.getUsername(), container.getPassword()), applicationName: 'brief' })), Effect.forkScoped);
-            yield* Effect.raceFirst(brief.pipe(Fiber.join, Effect.asVoid), polled(sql`EXISTS (SELECT 1 FROM pg_stat_activity a WHERE a.datname = current_database() AND a.application_name = 'brief' AND a.state = 'idle' AND a.query <> '')`));
+            yield* Effect.raceFirst(brief.pipe(Fiber.join, Effect.asVoid), polled('the brief reconcile idling past its lock limit', sql`EXISTS (SELECT 1 FROM pg_stat_activity a WHERE a.datname = current_database() AND a.application_name = 'brief' AND a.state = 'idle' AND a.query <> '')`));
             yield* Deferred.succeed(released, undefined);
             const settled = yield* Effect.all([Fiber.join(patient), Fiber.join(brief)]);
             assert.deepStrictEqual<unknown>({ raised: Array.map(Array.getFailures(settled), store.fault), pending: yield* pending(declared([lookups])) }, { raised: [], pending: { statements: [], concurrent: [] } });
@@ -370,7 +373,6 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Postgres.database>
         Effect.fnUntraced(function* () {
             const [sql, { connected }, { container }] = yield* Effect.all([SqlClient.SqlClient, Database, Postgres]);
             const client = (name: string) => Pg.layer({ url: connected(container.getUsername(), container.getPassword()), applicationName: name });
-            const polled = (condition: Statement.Fragment) => Effect.repeat(sql`SELECT 1 WHERE ${condition}`, { until: Array.isReadonlyArrayNonEmpty, schedule: Schedule.spaced('10 millis') });
             const waited = (relation: string) => sql`EXISTS (SELECT 1 FROM pg_locks l JOIN pg_database d ON d.oid = l.database WHERE d.datname = current_database() AND l.relation = ${relation}::regclass AND NOT l.granted)`;
             const holding = Effect.fnUntraced(function* (relation: string) {
                 const [locked, released] = yield* Effect.all([Deferred.make<void>(), Deferred.make<void>()]);
@@ -384,10 +386,10 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Postgres.database>
             yield* sql`CREATE EVENT TRIGGER gated ON ddl_command_start WHEN TAG IN ('CREATE INDEX') EXECUTE FUNCTION gated()`;
             const opened = yield* holding('gates.gate');
             const building = yield* Catalog.reconcile(Catalog.make({ tables: [sought], timeouts: { lock: '100 millis', transaction: '1 minute' } })).pipe(Effect.result, Effect.forkScoped);
-            yield* polled(waited('gates.gate'));
+            yield* polled('the index build waiting on gates.gate', waited('gates.gate'));
             const freed = yield* holding('other');
             const queued = yield* Catalog.reconcile(declared([sought])).pipe(Effect.result, Effect.provide(client('peer')), Effect.forkScoped);
-            yield* polled(sql`${waited('other')} OR EXISTS (SELECT 1 FROM pg_stat_activity a WHERE a.datname = current_database() AND a.application_name = 'peer' AND a.state = 'idle' AND a.query <> '')`);
+            yield* polled('the peer reconcile waiting behind the build', sql`${waited('other')} OR EXISTS (SELECT 1 FROM pg_stat_activity a WHERE a.datname = current_database() AND a.application_name = 'peer' AND a.state = 'idle' AND a.query <> '')`);
             yield* Deferred.succeed(opened, undefined);
             const built = yield* Fiber.join(building);
             yield* Deferred.succeed(freed, undefined);

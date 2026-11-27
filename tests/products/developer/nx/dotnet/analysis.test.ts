@@ -5,9 +5,10 @@ import { join } from 'node:path';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
 import { refused } from '@rasm/testing/errors';
-import { environment, it, pathed, shimmed } from '@rasm/testing/nx';
+import { environment, pathed, shimmed } from '@rasm/testing/nx';
 import { Array, Option, Predicate } from 'effect';
 import { describe, expect, onTestFinished, vi } from 'vitest';
+import { it } from '#/analyzer';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 

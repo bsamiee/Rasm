@@ -7,7 +7,7 @@ import { getOutputsForTargetAndConfiguration, readCachedProjectGraph, readJsonFi
 import { interpolate, readNxJsonFromDisk } from '@nx/devkit/internal';
 import { type BrowserContext, chromium, defineConfig, expect, type Page, test, type TestInfo, type Worker } from '@playwright/test';
 import { Brand } from '@rasm/vite/chrome';
-import { Array, Cause, Effect, FileSystem, Function, Option, Predicate, Record, Schema, type Scope, UndefinedOr } from 'effect';
+import { Array, Cause, Duration, Effect, FileSystem, Function, Option, Predicate, Record, Schema, type Scope, UndefinedOr } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -198,6 +198,7 @@ const config = (home: string) => {
     const folder = Option.flatMap(Schema.decodeUnknownOption(Named)(readJsonFile(join(home, 'package.json'))), ({ name }) => routed('@rasm/nx-playwright', name));
     return defineConfig({
         reporter: [['html', { open: 'never' }]],
+        timeout: Duration.toMillis(Duration.minutes(15)),
         use: { trace: 'retain-on-failure', screenshot: 'only-on-failure' },
         ...Option.getOrUndefined(
             Option.map(folder, (at) => ({

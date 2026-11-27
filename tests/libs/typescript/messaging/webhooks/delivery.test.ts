@@ -48,21 +48,21 @@ const posted = (headers: Headers.Headers, body: Uint8Array) =>
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 it.effect.each([
-    { status: 299, attempts: 1, delivered: true },
-    { status: 300, attempts: 1, delivered: false },
-    { status: 404, attempts: 1, delivered: false },
-    { status: 429, attempts: 3, delivered: false },
-    { status: 503, attempts: 3, delivered: false },
+    { status: 299, early: 1, attempts: 1, delivered: true },
+    { status: 300, early: 1, attempts: 1, delivered: false },
+    { status: 404, early: 1, attempts: 1, delivered: false },
+    { status: 429, early: 2, attempts: 3, delivered: false },
+    { status: 503, early: 2, attempts: 3, delivered: false },
 ])(
     'sends a delivery answered $status $attempts times after its retry-after delays, delivered: $delivered',
-    Effect.fnUntraced(function* ({ status, attempts, delivered }) {
+    Effect.fnUntraced(function* ({ status, early, attempts, delivered }) {
         const [webhook, answered] = yield* Effect.all([made(Scheme.standard, standard.secret), Ref.make(0)]);
         const endpoint = Ref.update(answered, (count) => count + 1).pipe(Effect.as(HttpServerResponse.empty({ status, headers: { location: url, 'retry-after': '120' } })));
         const sending = yield* webhook.deliver(url, { id: standard.id, event: { test: 1 } }, Schedule.recurs(2)).pipe(Effect.exit, Effect.provide(transport(endpoint)), Effect.forkChild);
         yield* TestClock.adjust('239 seconds');
-        const early = yield* Ref.get(answered);
+        const before = yield* Ref.get(answered);
         yield* TestClock.adjust('1 second');
-        assert.deepStrictEqual([Exit.isSuccess(yield* Fiber.join(sending)), early, yield* Ref.get(answered)], [delivered, Math.min(attempts, 2), attempts]);
+        assert.deepStrictEqual([Exit.isSuccess(yield* Fiber.join(sending)), before, yield* Ref.get(answered)], [delivered, early, attempts]);
     }, Effect.provide(crypto)),
 );
 it.effect(

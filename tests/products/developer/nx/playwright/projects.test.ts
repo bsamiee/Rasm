@@ -53,17 +53,20 @@ describe('projects test--playwright joins', () => {
         expect(dependencies['e2e:test--playwright']?.map(({ id }) => id)).toStrictEqual(['extension:build--vite']);
     });
 
-    it('fails test--playwright over a focused test whatever the config states, as its key leaves CI out', async ({ workspace }) => {
+    it.for([
+        { case: 'fails over a focused test', declared: 'test.only', success: false },
+        { case: 'passes over the same test unfocused', declared: 'test', success: true },
+    ])('$case where the config states forbidOnly false, as the test--playwright key leaves CI out', async ({ declared, success }, { workspace }) => {
         const graph = await workspace
             .write({
                 'apps/e2e/package.json': '{"name":"e2e"}',
                 'apps/e2e/playwright.config.js': "module.exports = { forbidOnly: false, reporter: [['list']] };\n",
-                'apps/e2e/focused.spec.js': "const { test } = require('@playwright/test');\n\ntest.only('passes', () => {});\n",
+                'apps/e2e/focused.spec.js': `const { test } = require('@playwright/test');\n\n${declared}('passes', () => {});\n`,
             })
             .graph({ createNodes });
 
         const result = await workspace.run(graph, 'e2e', 'test--playwright');
 
-        expect(result.success).toBe(false);
+        expect(result.success).toBe(success);
     });
 });

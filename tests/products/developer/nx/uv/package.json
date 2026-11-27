@@ -3,6 +3,9 @@
     "private": true,
     "description": "@rasm/nx-uv suites over uv workspaces in temporary folders, inferred targets, and release version actions",
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "devDependencies": {
         "@effect/vitest": "catalog:",
         "@nx/devkit": "catalog:",

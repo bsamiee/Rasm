@@ -68,21 +68,15 @@ describe('project(VERSION) in CMakeLists.txt', () => {
     });
 
     it.effect.prop(
-        'writes any major.minor.patch version into project(VERSION) and reads that version back',
+        'writes any major.minor.patch version into project(VERSION) after another command taking VERSION and reads that version back',
         [Schema.Natural, Schema.Natural, Schema.Natural],
         Effect.fnUntraced(function* (parts) {
             const version = parts.join('.');
-            const { tree, actions } = yield* Effect.promise(() => manifested('project(my_lib VERSION 0.0.1 LANGUAGES CXX)\n'));
+            const { tree, actions } = yield* Effect.promise(() => manifested('cmake_minimum_required(VERSION 4.5)\nproject(my_lib VERSION 0.0.1 LANGUAGES CXX)\n'));
 
             yield* Effect.promise(() => actions.updateProjectVersion(tree, version));
 
-            assert.deepStrictEqual([tree.read(MANIFEST, 'utf-8'), yield* Effect.promise(() => actions.readCurrentVersionFromSourceManifest(tree))], [`project(my_lib VERSION ${version} LANGUAGES CXX)\n`, { currentVersion: version, manifestPath: MANIFEST }]);
+            assert.deepStrictEqual([tree.read(MANIFEST, 'utf-8'), yield* Effect.promise(() => actions.readCurrentVersionFromSourceManifest(tree))], [`cmake_minimum_required(VERSION 4.5)\nproject(my_lib VERSION ${version} LANGUAGES CXX)\n`, { currentVersion: version, manifestPath: MANIFEST }]);
         }),
     );
-
-    it('reads the current version from the VERSION of the project() call, not of an earlier command', async () => {
-        const { tree, actions } = await manifested('cmake_minimum_required(VERSION 4.5)\nproject(my_lib VERSION 2.3.4 LANGUAGES CXX)\n');
-
-        await expect(actions.readCurrentVersionFromSourceManifest(tree)).resolves.toStrictEqual({ currentVersion: '2.3.4', manifestPath: MANIFEST });
-    });
 });

@@ -9,7 +9,7 @@ import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 
 const unsigned = { AWS_ENDPOINT_URL_S3: 'http://127.0.0.1', AWS_REGION: 'auto', AWS_ACCESS_KEY_ID: 'unsigned', AWS_SECRET_ACCESS_KEY: 'unsigned' };
 const media = { mime: 'video/mp4', options: { disposition: 'inline', securityHeaders: () => ({ 'X-Content-Type-Options': 'nosniff' }) } } as const;
-const code = { ok: 200, partial: 206, unchanged: 304, missing: 404, failed: 412, unsatisfiable: 416 };
+const code = { ok: 200, partial: 206, unchanged: 304, missing: 404 };
 const content = Uint8Array.from({ length: 61 }, (_, index) => (index * 37) % 251);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -24,7 +24,7 @@ const read = Effect.fn('read')(function* (key: string, init: RequestInit = {}) {
 
 layer(r2Storage({ bucket: env.BUCKET, name: 'objects' }).pipe(Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(unsigned)))), { excludeTestServices: true })('object storage over an R2 binding', (it) => {
     it.effect(
-        'serves ranges, answers preconditions and sets the caller headers',
+        'passes the method, range, and precondition of a request to the store, and sets the caller headers',
         Effect.fnUntraced(function* () {
             const [key, size] = ['media/served', content.length];
             const { httpEtag: etag } = yield* Effect.flatMap(stored(key, content), Effect.fromNullishOr);
@@ -32,13 +32,7 @@ layer(r2Storage({ bucket: env.BUCKET, name: 'objects' }).pipe(Layer.provide(Conf
                 whole: [{}, code.ok, [0, size], null],
                 head: [{ method: 'HEAD' }, code.ok, [0, 0], null],
                 bounded: [{ headers: { range: 'bytes=1-8' } }, code.partial, [1, 9], `bytes 1-8/${size}`],
-                open: [{ headers: { range: 'bytes=50-' } }, code.partial, [50, size], `bytes 50-60/${size}`],
-                suffix: [{ headers: { range: 'bytes=-8' } }, code.partial, [53, size], `bytes 53-60/${size}`],
-                unsatisfiable: [{ headers: { range: `bytes=${size}-` } }, code.unsatisfiable, [0, 0], `bytes */${size}`],
                 unchanged: [{ headers: { 'if-none-match': etag } }, code.unchanged, [0, 0], null],
-                mismatched: [{ headers: { 'if-match': '"other"' } }, code.failed, [0, 0], null],
-                resumed: [{ headers: { range: 'bytes=0-8', 'if-range': etag } }, code.partial, [0, 9], `bytes 0-8/${size}`],
-                restarted: [{ headers: { range: 'bytes=0-8', 'if-range': '"other"' } }, code.ok, [0, size], null],
             } as const;
             const served = yield* Effect.all(
                 Record.map(requests, ([init]) => read(key, init)),

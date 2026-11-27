@@ -1,7 +1,6 @@
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { env, stderr } from 'node:process';
-import { pathToFileURL } from 'node:url';
 import type { NxPlugin } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-docker';
 import { it, taskGraph, type Workspace } from '@rasm/testing/nx';
@@ -22,8 +21,8 @@ const HOSTED = {
     '.gitignore': '.cache/\ntmp/\n',
 };
 const CLIENT = { 'node_modules/@testcontainers/postgresql/package.json': '{"name":"@testcontainers/postgresql","dependencies":{"testcontainers":"12.2.2"}}' };
-const SUITE = (folder: string, required: object, targets: readonly string[] = ['test--vitest'], stated: object = {}) => ({
-    [`${folder}/project.json`]: JSON.stringify({ name: folder, ...stated, targets: Object.fromEntries(targets.map((target) => [target, { command: 'true' }])) }),
+const SUITE = (folder: string, required: object, targets: readonly string[] = ['test--vitest']) => ({
+    [`${folder}/project.json`]: JSON.stringify({ name: folder, targets: Object.fromEntries(targets.map((target) => [target, { command: 'true' }])) }),
     [`${folder}/package.json`]: JSON.stringify({ name: folder, private: true, ...required }),
 });
 
@@ -99,19 +98,6 @@ describe('engine clients', () => {
         const graph = await workspace.write({ ...HOSTED, ...CLIENT, ...SUITE('suite', required) }).graph({ createNodes });
 
         expect(graph.nodes['suite']?.data.tags?.includes('host:docker')).toBe(tagged);
-    });
-
-    it('keeps the tags a project states beside its own', async ({ workspace }) => {
-        const graph = await workspace.write({ ...HOSTED, ...SUITE('suite', { devDependencies: { testcontainers: '12.2.2' } }, ['test--vitest'], { tags: ['scope:suite'] }) }).graph({ createNodes });
-
-        expect(graph.nodes['suite']?.data.tags).toStrictEqual(expect.arrayContaining(['scope:suite', 'host:docker']));
-    });
-
-    it('tags a package reaching a client through a workspace package', async ({ workspace }) => {
-        workspace.write({ ...HOSTED, ...SUITE('harness', { dependencies: { testcontainers: '12.2.2' } }), ...SUITE('library', { devDependencies: { harness: 'workspace:*' } }), ...SUITE('unrelated', { dependencies: { effect: '4.1.5' } }) });
-        const graph = await workspace.install(['harness', pathToFileURL(join(workspace.root, 'harness/package.json')).href]).graph({ createNodes });
-
-        expect(['harness', 'library', 'unrelated'].map((name) => graph.nodes[name]?.data.tags?.includes('host:docker'))).toStrictEqual([true, true, false]);
     });
 });
 

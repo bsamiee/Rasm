@@ -1,6 +1,5 @@
 import { createNodes } from '@rasm/nx-vite';
 import { listen, it as nx } from '@rasm/testing/nx';
-import { Option } from 'effect';
 import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
@@ -32,6 +31,6 @@ describe('readiness of the Vite servers', () => {
         const early = await settled('1500 millis');
         await listen(block === 'server' ? server.port : preview.port);
 
-        expect([early, await settled('20 seconds')]).toStrictEqual([Option.none(), Option.some(0)]);
+        expect([early, await settled('20 seconds')]).toStrictEqual([false, true]);
     });
 });

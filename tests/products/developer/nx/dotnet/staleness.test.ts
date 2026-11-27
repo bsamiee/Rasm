@@ -5,9 +5,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
 import { refused } from '@rasm/testing/errors';
-import { it, pathed } from '@rasm/testing/nx';
+import { pathed } from '@rasm/testing/nx';
 import { describe, expect, type MockInstance, onTestFinished, vi } from 'vitest';
-import { node, report } from '#/analyzer';
+import { node, report, it as serverless } from '#/analyzer';
 
 const { analyzer, targets } = await vi.hoisted(async () => {
     const [fs, os, path, url] = await Promise.all([import('node:fs'), import('node:os'), import('node:path'), import('node:url')]);
@@ -47,7 +47,6 @@ const reporting = () => {
     onTestFinished(() => {
         logged.mockRestore();
         rmSync(folder, { recursive: true });
-        readdirSync(analyzer).forEach((entry) => rmSync(join(analyzer, entry), { recursive: true, force: true }));
     });
     pathed(folder, { dotnet: `echo launched >> ${folder}/launches.log\nexec /bin/cat .stub/report.json` });
     return { logged, launches: () => (existsSync(join(folder, 'launches.log')) ? readFileSync(join(folder, 'launches.log'), 'utf-8').trim().split('\n').length : 0) };
@@ -58,6 +57,22 @@ const warnings = (logged: MockInstance<typeof console.warn>) => logged.mock.call
 const predates = (files: readonly string[]) => refused(new RegExp(`MsbuildAnalyzer\\.dll predates ${files.map((file) => `\\S*/${RegExp.escape(file)}`).join(', ')}, dotnet publish \\S+/analyzer/MsbuildAnalyzer\\.csproj --output \\S+/analyzer/dist builds it$`, 'u'));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
+const it = serverless
+    .extend('packaged', { scope: 'file', auto: true }, ({}, { onCleanup }) => {
+        onCleanup(() => {
+            rmSync(analyzer, { recursive: true, force: true });
+        });
+        return analyzer;
+    })
+    .extend('emptied', { auto: true }, ({ packaged: folder }, { onCleanup }) => {
+        onCleanup(() => {
+            readdirSync(folder).forEach((entry) => {
+                rmSync(join(folder, entry), { recursive: true, force: true });
+            });
+        });
+        return folder;
+    });
 
 describe('analyzer build', () => {
     it('infers no MSBuild project where the analyzer is absent and launches nothing, warning once with the command that builds it', async ({ workspace }) => {
@@ -90,7 +105,7 @@ describe('analyzer build', () => {
         { kind: 'root MSBuild files its evaluation imports and a source of the Roslyn project it references changed', appended: ['Directory.Build.props', 'Directory.Build.targets', 'roslyn/Rules/Shapes.cs'] },
     ])('infers the reported projects with no warning after a real dotnet publish of the analyzer, as $kind', async ({ appended }, { workspace }) => {
         packaged(PUBLISHED);
-        execFileSync('dotnet', ['publish', 'analyzer/MsbuildAnalyzer.csproj', '--output', 'analyzer/dist', '--disable-build-servers'], { cwd: analyzer, stdio: 'ignore' });
+        execFileSync('dotnet', ['publish', 'analyzer/MsbuildAnalyzer.csproj', '--output', 'analyzer/dist'], { cwd: analyzer, stdio: 'ignore' });
         appended.forEach((file) => appendFileSync(join(analyzer, file), '\n'));
         const { logged } = reporting();
 
@@ -105,7 +120,7 @@ describe('analyzer build', () => {
         { kind: 'its lock file changed', appended: 'analyzer/packages.lock.json' },
     ])('refuses the graph after a real dotnet publish of the analyzer, naming exactly the changed file and the command that rebuilds it, as $kind', async ({ appended }, { workspace }) => {
         packaged(PUBLISHED);
-        execFileSync('dotnet', ['publish', 'analyzer/MsbuildAnalyzer.csproj', '--output', 'analyzer/dist', '--disable-build-servers'], { cwd: analyzer, stdio: 'ignore' });
+        execFileSync('dotnet', ['publish', 'analyzer/MsbuildAnalyzer.csproj', '--output', 'analyzer/dist'], { cwd: analyzer, stdio: 'ignore' });
         appendFileSync(join(analyzer, appended), '\n');
         reporting();
 

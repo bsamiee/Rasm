@@ -175,17 +175,11 @@ describe('hashing', () => {
 });
 
 describe('graph laws', () => {
-    it('hashes every tool input in its verb and forwards the verb to each tool, package.json overrides included', async ({ workspace }) => {
-        const graph = await workspace.write(rich).graph(cmake, { outputPath: '.artifacts/cmake/{projectName}' });
-
-        expect(graph.nodes['fixture_core']?.data.targets?.['build--cmake']?.inputs).toContain('{projectRoot}/data/**/*');
-        expect(unaggregated(graph)).toStrictEqual([]);
-    });
-
-    it('states every root, input, output, and working folder as a workspace-relative posix path', async ({ workspace }) => {
+    it('hashes every tool input in its verb, forwards the verb to each tool, package.json overrides included, and states every path workspace-relative and posix', async ({ workspace }) => {
         const graph = await workspace.write(rich).graph(cmake, { outputPath: '.artifacts/cmake/{projectName}' });
 
         expect(Object.keys(graph.nodes['fixture_tool']?.data.targets ?? {})).toStrictEqual(expect.arrayContaining(['check--clang-tidy', 'pack--cpack', 'upgrade--vcpkg', 'install--cmake']));
-        expect(unportable(graph)).toStrictEqual([]);
+        expect(graph.nodes['fixture_core']?.data.targets?.['build--cmake']?.inputs).toContain('{projectRoot}/data/**/*');
+        expect([unaggregated(graph), unportable(graph)]).toStrictEqual([[], []]);
     });
 });

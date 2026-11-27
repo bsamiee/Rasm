@@ -3,7 +3,7 @@ import { createServer, request } from 'node:http';
 import { layer as served } from '@effect/platform-node/NodeHttpServer';
 import { assert, describe, it } from '@effect/vitest';
 import { dial, listen } from '@rasm/rpc';
-import { Array, Cause, Context, Deferred, Duration, Effect, Exit, Function, Layer, MutableRef, Number, Option, Ref, Schema, Scope, Stream, Struct } from 'effect';
+import { Array, Cause, Context, Deferred, Duration, Effect, Exit, Fiber, Function, Layer, MutableRef, Number, Option, Queue, Ref, Schema, Scope, Stream, Struct } from 'effect';
 import { HttpRouter, HttpServer } from 'effect/http';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { Socket } from 'effect/socket';
@@ -19,7 +19,7 @@ const ROUND_TRIPS = 5;
 // --- [MODELS] --------------------------------------------------------------------------
 
 class Peer extends Schema.Opaque<Peer>()(Schema.Struct({ name: Schema.String, instance: Schema.String })) {}
-const Asked = RpcGroup.make(Rpc.make('instance', { success: Schema.String }));
+const Asked = RpcGroup.make(Rpc.make('instance', { success: Schema.String }), Rpc.make('notices', { success: Schema.String, stream: true }), Rpc.make('crash'));
 const Bound = Schema.Struct({ port: Schema.Int });
 const Closed = Schema.Tuple([Schema.Struct({ code: Schema.Int })]);
 
@@ -34,16 +34,17 @@ const listening = Effect.fnUntraced(function* (port: number) {
     return { links: yield* Deferred.await(ready), port: bound.port };
 });
 const dialing = Effect.fnUntraced(function* (port: number, instance: string, identity: Effect.Effect<Peer, Cause.UnknownError> = Effect.succeed({ name: 'extension', instance })) {
-    const [dials, read, closes] = [yield* Ref.make(0), yield* Deferred.make<void>(), MutableRef.make<readonly Promise<unknown>[]>([])];
+    const [dials, read, opened, notices, closes] = [yield* Ref.make(0), yield* Deferred.make<void>(), yield* Deferred.make<void>(), yield* Queue.unbounded<string>(), MutableRef.make<readonly Promise<unknown>[]>([])];
     const sockets = Layer.succeed(Socket.WebSocketConstructor)((url) => {
         const socket = new globalThis.WebSocket(url, { headers: { origin: ORIGIN } });
         MutableRef.update(closes, Array.append(once(socket, 'close')));
         return socket;
     });
     const peer = Ref.update(dials, Number.increment).pipe(Effect.andThen(Deferred.succeed(read, undefined)), Effect.andThen(identity));
-    yield* Layer.build(dial(Asked, Asked.toLayer({ instance: () => Effect.succeed(instance) }), { url: new URL(PATH, `ws://127.0.0.1:${port}`), redial: REDIAL, peer }).pipe(Layer.provide(sockets)));
+    const handlers = Asked.toLayer({ instance: () => Effect.succeed(instance), notices: () => Rpc.fork(Deferred.succeed(opened, undefined).pipe(Effect.as(Stream.fromQueue(notices)), Stream.unwrap)), crash: () => Effect.die('handler died') });
+    yield* Layer.build(dial(Asked, handlers, { url: new URL(PATH, `ws://127.0.0.1:${port}`), redial: REDIAL, peer }).pipe(Layer.provide(sockets)));
     const closed = Effect.promise(() => Promise.all(MutableRef.get(closes))).pipe(Effect.flatMap(Effect.forEach((event) => Schema.decodeUnknownEffect(Closed)(event))), Effect.map(Array.map(([{ code }]) => code)));
-    return { dials: Ref.get(dials), read: Deferred.await(read), closed };
+    return { dials: Ref.get(dials), read: Deferred.await(read), opened: Deferred.await(opened), notices, closed };
 });
 const upgraded = (port: number, origin: Readonly<Record<string, string>>) =>
     Effect.callback<number | undefined>((resume) => {
@@ -54,13 +55,14 @@ const upgraded = (port: number, origin: Readonly<Record<string, string>>) =>
         sent.once('error', (cause) => resume(Effect.die(cause)));
         sent.end();
         return Effect.sync(() => sent.destroy());
-    });
+    }).pipe(Effect.timeoutOrElse({ duration: '5 seconds', orElse: () => Effect.fail(new Cause.UnknownError(origin, 'the WebSocket upgrade drew no answer within 5 seconds')) }));
 const asked = (links: Effect.Success<typeof linked>) => links.call(Function.constTrue, 'peer').pipe(Effect.flatMap((client) => client('instance', undefined)));
 const answering = (links: Effect.Success<typeof linked>, instance: string) =>
     links.changes.pipe(
         Stream.mapEffect(() => Effect.option(asked(links))),
         Stream.filter(Option.contains(instance)),
         Stream.runHead,
+        Effect.timeoutOrElse({ duration: '5 seconds', orElse: () => Effect.fail(new Cause.UnknownError(instance, `peer ${instance} never answered over the link within 5 seconds`)) }),
     );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -100,6 +102,22 @@ describe('link', () => {
             const { port } = yield* listening(0);
             const statuses = yield* Effect.all({ foreign: upgraded(port, { origin: 'http://foreign.test' }), absent: upgraded(port, {}), own: upgraded(port, { origin: ORIGIN }) });
             assert.deepStrictEqual(statuses, { foreign: 403, absent: 403, own: 101 });
+        }),
+    );
+
+    it.live(
+        'keeps a notice stream of a link open when another call on that link dies',
+        Effect.fnUntraced(function* () {
+            const { links, port } = yield* listening(0);
+            const peer = yield* dialing(port, 'notified');
+            yield* answering(links, 'notified');
+            const client = yield* links.call(Function.constTrue, 'peer');
+            const heard = yield* client('notices', undefined).pipe(Stream.take(1), Stream.runCollect, Effect.forkScoped);
+            yield* Effect.timeoutOrElse(peer.opened, { duration: '5 seconds', orElse: () => Effect.fail(new Cause.UnknownError(undefined, 'the notice stream never opened on the dialing peer')) });
+            const died = yield* Effect.exit(client('crash', undefined));
+            yield* Queue.offer(peer.notices, 'after');
+            const notices = yield* Effect.timeoutOrElse(Fiber.join(heard), { duration: '5 seconds', orElse: () => Effect.fail(new Cause.UnknownError(undefined, 'the notice offered after the dead call never arrived')) });
+            assert.deepStrictEqual([Exit.isFailure(died) && Cause.hasDies(died.cause), notices], [true, ['after']]);
         }),
     );
 

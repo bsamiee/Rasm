@@ -19,15 +19,6 @@ describe('program runs', () => {
         { case: 'dry-run--pulumi of a program', files: PROGRAM, project: 'infra', target: 'dry-run--pulumi', program: 'infra', cwd: 'infra', argv: ['deploy', '--operation=preview'] },
         { case: 'deploy--pulumi of a package a program hosts', files: { ...PROGRAM, 'packages/site/package.json': '{"name":"site"}', 'packages/site/hosting.config.ts': 'export default {};\n' }, project: 'site', target: 'deploy--pulumi', program: 'infra', cwd: 'site', argv: ['deploy'] },
         {
-            case: 'deploy--pulumi of a program depending on another program',
-            files: { ...PROGRAM, 'packages/site/package.json': JSON.stringify({ name: 'site', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', infra: 'workspace:*' } }), 'packages/site/stacks.mjs': RECORDING },
-            project: 'site',
-            target: 'deploy--pulumi',
-            program: 'site',
-            cwd: 'site',
-            argv: ['deploy'],
-        },
-        {
             case: 'deploy--pulumi of a program whose path the shell would split',
             files: { 'packages/infra/package.json': JSON.stringify({ name: 'infra', bin: './my stacks.mjs', dependencies: { '@pulumi/pulumi': '*' } }), 'packages/infra/my stacks.mjs': RECORDING },
             project: 'infra',

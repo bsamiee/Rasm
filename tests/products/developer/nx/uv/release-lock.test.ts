@@ -5,8 +5,8 @@ import { type ProjectGraph, readCachedProjectGraph } from '@nx/devkit';
 import { FsTree } from '@nx/devkit/internal';
 import { createNodes } from '@rasm/nx-uv';
 import UvVersionActions, { afterAllProjectsVersioned } from '@rasm/nx-uv/release/version-actions';
-import { it } from '@rasm/testing/nx';
 import { assert, describe, expect, vi } from 'vitest';
+import { it } from '#/fixtures';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 vi.mock(import('@nx/devkit'), async (actual) => ({ ...(await actual()), readCachedProjectGraph: vi.fn<() => ProjectGraph>() }));

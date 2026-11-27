@@ -5,9 +5,10 @@ import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import { batch } from '@rasm/nx-dotnet/executors/build';
 import { batch as checked } from '@rasm/nx-dotnet/executors/check';
 import { batch as formatted } from '@rasm/nx-dotnet/executors/format';
-import { it, pathed, spanned } from '@rasm/testing/nx';
+import { pathed, spanned } from '@rasm/testing/nx';
 import { Record } from 'effect';
 import { describe, expect, onTestFinished, vi } from 'vitest';
+import { it } from '#/analyzer';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

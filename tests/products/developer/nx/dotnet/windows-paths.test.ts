@@ -1,7 +1,7 @@
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
 import { unportable } from '@rasm/testing/nx';
 import { expect, vi } from 'vitest';
-import { it, mode, node, report } from '#/analyzer';
+import { mode, node, report, reported as it } from '#/analyzer';
 
 vi.mock(import('node:path'), async (actual) => {
     const { windows } = await import('@rasm/testing/path');

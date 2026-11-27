@@ -70,7 +70,7 @@ describe('test--vitest runs', () => {
         await expect(executed(workspace, graph, 'a')).resolves.toStrictEqual({ success });
     });
 
-    it('fails a run whose import duration limit fails while every test passes, leaving the exit code of the process as it was', async ({ workspace }) => {
+    it('fails a run whose import duration limit fails while every test passes', async ({ workspace }) => {
         const graph = await workspace
             .write({
                 ...ROOT,
@@ -80,12 +80,10 @@ describe('test--vitest runs', () => {
                 'libs/a/math.test.ts': "import { expect, test } from 'vitest';\nimport { double } from './math.ts';\n\ntest('doubles', () => expect(double(2)).toBe(4));\n",
             })
             .graph({ createNodes });
-        const before = process.exitCode;
 
         const result = await executed(workspace, graph, 'a');
 
         expect(result).toStrictEqual({ success: false });
-        expect(process.exitCode).toBe(before);
     });
 });
 

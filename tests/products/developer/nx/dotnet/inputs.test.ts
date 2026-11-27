@@ -8,7 +8,7 @@ import { Option } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
 import { describe, expect, onTestFinished, vi } from 'vitest';
-import { it, mode, node, report } from '#/analyzer';
+import { mode, node, report, reported as it } from '#/analyzer';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 

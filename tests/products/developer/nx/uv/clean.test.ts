@@ -1,9 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import { createNodes } from '@rasm/nx-uv';
 import { execute } from '@rasm/nx/executors/clean';
-import { it, targetOptions } from '@rasm/testing/nx';
+import { targetOptions } from '@rasm/testing/nx';
 import { Schema } from 'effect';
 import { describe, expect, vi } from 'vitest';
+import { it } from '#/fixtures';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 

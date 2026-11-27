@@ -1,11 +1,12 @@
 import { env } from 'node:process';
 import type { ProjectGraph } from '@nx/devkit';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
-import { it, taskGraph } from '@rasm/testing/nx';
+import { taskGraph } from '@rasm/testing/nx';
 import { Option } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
 import { describe, expect, vi } from 'vitest';
+import { it } from '#/analyzer';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 

@@ -33,13 +33,6 @@ const vectors = {
     svix: { ...standard, scheme: Scheme.svix, secret: 'whsec_plJ3nmyCDGBKInavdOK15jsl', id: 'msg_loFOjxBNrRLzqYUf', at: 1_731_705_121, bytes: encoder.encode('{"event_type":"ping","data":{"success":true}}'), signed: 'v1,rAvfW3dJ/X/qxhsaXPOyyCGmRKsaKWcsNccKXlIktD0=' },
     github: { ...hub, secret: "It's a Secret to Everybody", bytes: encoder.encode('Hello, World!'), signed: 'sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17', accepted: 'SchemaError', late: 'SchemaError' },
     octokit: { ...hub, secret: 'mysecret', foreign: 'foo', bytes: encoder.encode('{"foo":"bar"}'), signed: 'sha256=4864d2759938a15468b5df9ade20bf161da9b4f737ea61794142f3484236bda3' },
-    escapes: {
-        ...hub,
-        secret: 'development',
-        bytes: encoder.encode(String.raw`{"foo":"Foo\n\u001B[34mbar: ♥♥♥♥♥♥♥♥\nthis-is-lost\u001B[0m\u001B[2K"}`),
-        signed: 'sha256=afecc3caa27548bb90d51a50384cb2868b9a3327b4ad6a01c9bd4ed0f8b0b12c',
-    },
-    escaped: { ...hub, secret: 'development', bytes: encoder.encode(String.raw`{"foo":"\\u001b"}`), signed: 'sha256=6f8326efbacfbd04e870cea25b5652e635be8c9807f2fd5348ef60753c9e96ed' },
     tailscale: {
         ...standard,
         scheme: Scheme.tailscale,

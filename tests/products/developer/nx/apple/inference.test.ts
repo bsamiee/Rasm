@@ -1,6 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, realpathSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { existsSync, readdirSync, realpathSync } from 'node:fs';
 import { join, matchesGlob, relative, resolve, sep } from 'node:path';
 import { env } from 'node:process';
 import { createDependencies, createNodes } from '@rasm/nx-apple';
@@ -116,12 +115,7 @@ const modular = (workspace: Workspace, nested: Record.ReadonlyRecord<string, str
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const cache = join(homedir(), 'Library/Caches/rasm');
-mkdirSync(cache, { recursive: true });
-vi.stubEnv('TMPDIR', cache);
-
 const it = nx.extend('fixture', { scope: 'file' }, async ({ fileWorkspace }) => {
-    vi.unstubAllEnvs();
     vi.stubEnv('XCODE_XCCONFIG_FILE', join(fileWorkspace.root, SHARED));
     const graph = await fileWorkspace.write({ ...PACKAGES, ...XCODE, [SHARED]: 'SWIFT_TREAT_WARNINGS_AS_ERRORS = NO\n' }).graph({ createNodes, createDependencies }, { outputPath: 'dist' });
     vi.unstubAllEnvs();

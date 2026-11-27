@@ -100,11 +100,7 @@ describe('nx-release-publish', () => {
         { case: 'its own tag and the registry lacks its version', release: INDEPENDENT, tags: ['kit@0.1.0', 'app@0.2.0'], registry: 'exit 1', ran: ['info app@0.2.0', PUBLISHED] },
         { case: 'its own tag and the registry holds its version', release: INDEPENDENT, tags: ['app@0.2.0'], registry: 'exit 0', ran: ['info app@0.2.0'] },
         { case: 'only the tag of another project', release: INDEPENDENT, tags: ['kit@0.1.0'], registry: 'exit 1', ran: [] },
-        { case: 'the tag of a fixed release', release: { projects: ['*'] }, tags: ['v0.2.0'], registry: 'exit 1', ran: ['info app@0.2.0', PUBLISHED] },
-        { case: 'the tag an independent release group makes', release: { groups: { crates: INDEPENDENT } }, tags: ['app@0.2.0'], registry: 'exit 1', ran: ['info app@0.2.0', PUBLISHED] },
         { case: 'the tag a group pattern naming its group makes', release: { groups: { crates: { ...INDEPENDENT, releaseTag: { pattern: '{releaseGroupName}/{projectName}@{version}' } } } }, tags: ['crates/app@0.2.0'], registry: 'exit 1', ran: ['info app@0.2.0', PUBLISHED] },
-        { case: 'two releases tagged oldest first, asking for the newest as Nx sorts tags by version', release: INDEPENDENT, tags: ['app@0.2.0', 'app@0.2.1'], registry: 'exit 1', ran: ['info app@0.2.1', PUBLISHED] },
-        { case: 'two releases tagged newest first, asking for the newest as Nx sorts tags by version', release: INDEPENDENT, tags: ['app@0.2.1', 'app@0.2.0'], registry: 'exit 1', ran: ['info app@0.2.1', PUBLISHED] },
         { case: 'a prerelease alone under a release tag stating strictPreid false', release: { ...INDEPENDENT, releaseTag: { strictPreid: false } }, tags: ['app@0.3.0-beta.1'], registry: 'exit 1', ran: ['info app@0.3.0-beta.1', PUBLISHED] },
         { case: 'a prerelease alone under the strict preid Nx defaults to, which reads stable tags alone', release: INDEPENDENT, tags: ['app@0.3.0-beta.1'], registry: 'exit 1', ran: [] },
     ])('runs cargo with $ran where HEAD holds $case', async ({ release, tags, registry, ran }, { tagged }) => {

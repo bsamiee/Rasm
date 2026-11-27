@@ -4,10 +4,11 @@ import { env } from 'node:process';
 import type { ProjectGraph } from '@nx/devkit';
 import { readNxJsonFromDisk } from '@nx/devkit/internal';
 import { createNodes } from '@rasm/nx-uv';
-import { it, targetOptions, taskGraph, type Workspace } from '@rasm/testing/nx';
+import { targetOptions, taskGraph, type Workspace } from '@rasm/testing/nx';
 import { Array, Record, Schema } from 'effect';
 import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
 import { assert, describe, expect, vi } from 'vitest';
+import { it } from '#/fixtures';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 

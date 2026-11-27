@@ -13,7 +13,7 @@ const clocks = { early: -Duration.toMillis(tolerance) - second, soon: -Duration.
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.effect.each(Record.keys(vectors))(
+it.effect.each(['standard', 'binary', 'tailscale', 'github'] as const)(
     'accepts the timestamp of scheme row %s at the tolerance in either direction and refuses one a second past it',
     Effect.fnUntraced(function* (row) {
         const { scheme, secret, id, at, bytes, accepted, late } = vectors[row];

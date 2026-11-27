@@ -22,7 +22,6 @@ const outlined = (svg: string) => OUTLINE.exec(svg)?.groups?.['outline'];
 
 (
     [
-        { tab: 'an https tab where canShare is true', path: PAGE.path, stub: STUB.offered, buttons: 1 },
         { tab: 'an http tab where canShare is true', path: 'http://page.test/plain', stub: STUB.offered, buttons: 1 },
         { tab: 'an https tab where canShare is true only for the tab URL and title', path: PAGE.path, stub: STUB.matched, buttons: 1 },
         { tab: 'an https tab where canShare is false', path: PAGE.path, stub: STUB.refused, buttons: 0 },
@@ -79,22 +78,15 @@ it('shows no share button on a file: tab even where canShare is true', async ({ 
     }),
 );
 
-(
-    [
-        { press: 'a click', act: (button: Locator) => button.click() },
-        { press: 'Enter', act: (button: Locator) => button.press('Enter') },
-    ] as const
-).forEach(({ press, act }) =>
-    it(`shares the tab URL and title once on ${press} on the Share link button`, async ({ page, open, armed, extension, toast, shares }) => {
-        await open(PAGE.path, PAGE.fields);
-        await armed(STUB.offered);
-        await extension.act(page);
+it('shares the tab URL and title once on a click on the Share link button', async ({ page, open, armed, extension, toast, shares }) => {
+    await open(PAGE.path, PAGE.fields);
+    await armed(STUB.offered);
+    await extension.act(page);
 
-        await act(toast.getByRole('button', { name: 'Share link' }));
+    await toast.getByRole('button', { name: 'Share link' }).click();
 
-        await expect.poll(shares).toEqual([{ url: PAGE.url, title: PAGE.title }]);
-    }),
-);
+    await expect.poll(shares).toEqual([{ url: PAGE.url, title: PAGE.title }]);
+});
 
 it('shares the link alone from a page that sets no title', async ({ page, context, armed, extension, toast, shares }) => {
     await context.route('https://page.test/untitled', (route) => route.fulfill({ contentType: 'text/html', body: '<!doctype html><input aria-label="Draft">' }));

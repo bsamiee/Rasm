@@ -38,6 +38,8 @@ const shared = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const ran = (test: string) => `#[test]\nfn ${test}() {\n    let at = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();\n    std::fs::write(concat!(env!("CARGO_MANIFEST_DIR"), "/ran"), at.to_string()).unwrap();\n}\n`;
+
 const planned = async (graph: ProjectGraph, target: string, projects: readonly string[] = ['app', 'two']) => {
     const scheduled = taskGraph(graph, projects, [target]);
     const inputs = await Effect.runPromise(Effect.all(Record.map(scheduled.tasks, ({ target: { project } }) => Effect.promise(() => targetOptions(Cargo, graph, project, target)))));
@@ -111,8 +113,8 @@ describe('nextest batch', () => {
         expect([results['two:test--nextest']?.terminalOutput?.includes(said), results['app:test--nextest']?.terminalOutput?.includes(said)]).toStrictEqual([true, false]);
     });
 
-    it('stamps each crate from the start of its command to the suite events of its own package, inside the batch', async ({ workspace }) => {
-        const graph = await workspace.write(crates).graph(cargo);
+    it('stamps each crate from the start of its command to the suite event of its own package, which follows the run of its own test', async ({ workspace }) => {
+        const graph = await workspace.write({ ...crates, 'crates/two/src/lib.rs': `pub fn two() -> u32 {\n    2\n}\n\n${ran('two_ran')}`, 'crates/app/src/main.rs': `fn main() {\n    println!("{}", two::two());\n}\n\n${ran('app_ran')}` }).graph(cargo);
         execFileSync('cargo', ['generate-lockfile'], { cwd: workspace.root });
         const { scheduled, inputs } = await planned(graph, 'test--nextest');
         const before = vi.getRealSystemTime();
@@ -121,5 +123,6 @@ describe('nextest batch', () => {
 
         const after = vi.getRealSystemTime();
         expect(results).toStrictEqual({ 'two:test--nextest': spanned(before, after), 'app:test--nextest': spanned(before, after) });
+        expect(['two', 'app'].filter((crate) => (results[`${crate}:test--nextest`]?.endTime ?? 0) < Number(readFileSync(join(workspace.root, 'crates', crate, 'ran'), 'utf-8')))).toStrictEqual([]);
     });
 });

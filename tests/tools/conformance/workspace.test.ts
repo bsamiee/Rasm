@@ -31,12 +31,12 @@ describe('workspace', () => {
     });
 
     it('reports a selected project without release configuration and release configuration outside the selection', async () => {
-        const rows = ['lib | ', 'app | '];
+        const rows = ['lib | lib is a release project without release configuration', 'app | app holds release configuration outside nx.json release projects'];
         expect(reported(await checked({ release: { projects: ['tag:release'] } }, {}, project('lib', { tags: ['release'] }), project('app', { release: {} }), project('cli', { tags: ['release'], release: {} })), rows)).toStrictEqual(rows);
     });
 
     it('selects every project when release names neither projects nor groups, as nx release does', async () => {
-        const rows = ['app | '];
+        const rows = ['app | app is a release project without release configuration'];
         expect(reported(await checked({ release: {} }, {}, project('lib', { release: {} }), project('app')), rows)).toStrictEqual(rows);
     });
 });

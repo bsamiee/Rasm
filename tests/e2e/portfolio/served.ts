@@ -102,7 +102,7 @@ const served = Effect.gen(function* () {
     yield* Effect.raceFirst(
         Effect.retry(Effect.timeout(HttpClient.filterStatusOk(client).get(new URL(App.bundle.readiness, origin)), '1 second'), { schedule: Schedule.spaced('100 millis') }),
         Effect.flatMap(server.exitCode, (code) => new Cause.UnknownError(code, `${product} exits ${code} before it answers ${App.bundle.readiness}`)),
-    );
+    ).pipe(Effect.timeoutOrElse({ duration: '20 seconds', orElse: () => new Cause.TimeoutError(`${product} answers no ${App.bundle.readiness} at ${origin} within 20 seconds`) }));
     const reset = Effect.gen(function* () {
         const held = yield* Effect.acquireDisposable(Effect.sync(() => new DatabaseSync(database, { timeout: 5000 })));
         const { script } = yield* Schema.decodeUnknownEffect(Cleared)(held.prepare(`SELECT group_concat(format('DELETE FROM "%w"', name), ';') AS script FROM sqlite_schema WHERE type = 'table' AND name NOT GLOB 'sqlite_*'`).get());

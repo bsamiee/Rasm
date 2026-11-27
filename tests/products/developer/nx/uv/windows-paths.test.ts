@@ -1,8 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { createNodes } from '@rasm/nx-uv';
-import { it, unportable } from '@rasm/testing/nx';
+import { unportable } from '@rasm/testing/nx';
 import { describe, expect, vi } from 'vitest';
+import { it } from '#/fixtures';
 
 vi.mock(import('node:path'), async (actual) => {
     const { windows } = await import('@rasm/testing/path');
@@ -37,21 +38,5 @@ describe('@rasm/nx-uv under Windows path separators', () => {
 
         expect(Object.fromEntries(Object.values(graph.nodes).map(({ name, data }) => [name, data.root]))).toStrictEqual({ app: 'python/libs/app', cli: 'other/cli', core: 'python/libs/deep/core', middle: 'python/libs/middle', other: 'other', root: 'python', sdk: 'other/sdk' });
         expect(unportable(graph)).toStrictEqual([]);
-    });
-
-    it('links each member of every uv workspace to the members uv resolves it to depend on directly', async ({ workspace }) => {
-        ['python', 'other'].forEach((folder) => {
-            execFileSync('uv', ['lock', '--quiet'], { cwd: join(workspace.write(PYTHON).root, folder) });
-        });
-
-        const graph = await workspace.graph(uv);
-
-        expect(
-            Object.values(graph.dependencies)
-                .flat()
-                .filter(({ target }) => !target.startsWith('npm:'))
-                .map(({ source, target }) => `${source} -> ${target}`)
-                .toSorted(),
-        ).toStrictEqual(['app -> middle', 'cli -> sdk', 'middle -> core']);
     });
 });

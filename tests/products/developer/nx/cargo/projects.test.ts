@@ -69,15 +69,10 @@ describe('inferred projects', () => {
         await expect(pending).rejects.toSatisfy(refused(/crates\/broken\/Cargo\.toml:1:\d+/u));
     });
 
-    it.for([
-        { case: 'a string over a table', outer: 'CLIPPY_CONF_DIR = { value = "ws/other", relative = true }', inner: 'CLIPPY_CONF_DIR = "other"', found: 'string, but found table' },
-        { case: 'a table over a string', outer: 'CLIPPY_CONF_DIR = "ws/other"', inner: 'CLIPPY_CONF_DIR = { value = "other", relative = true }', found: 'table, but found string' },
-    ])('refuses a nested workspace whose Cargo configuration layers state an [env] row as $case, as cargo does', async ({ outer, inner, found }, { workspace }) => {
-        const pending = workspace
-            .write({ '.cargo/config.toml': `[env]\n${outer}\n`, 'ws/.cargo/config.toml': `[env]\n${inner}\n`, 'ws/Cargo.toml': '[package]\nname = "nested"\nversion = "0.1.0"\nedition = "2024"\n', 'ws/src/lib.rs': 'pub fn one() -> u32 {\n    1\n}\n', 'ws/other/clippy.toml': 'too-many-arguments-threshold = 1\n' })
-            .graph(cargo);
+    it('reads a nested Cargo workspace under the configuration layers of its own folder, as its tasks load them', async ({ workspace }) => {
+        const graph = await workspace.write({ 'ws/.cargo/config.toml': '[build]\ntarget-dir = "out"\n', 'ws/Cargo.toml': '[package]\nname = "nested"\nversion = "0.1.0"\nedition = "2024"\n', 'ws/src/main.rs': 'fn main() {}\n' }).graph(cargo);
 
-        await expect(pending).rejects.toSatisfy(refused(new RegExp(`failed to merge key \`CLIPPY_CONF_DIR\`[\\s\\S]*expected ${found}`, 'u')));
+        expect(outputs(graph, 'nested', 'build--cargo')).toStrictEqual(['ws/out/debug/nested']);
     });
 
     it('states each tool input in the verb running it, and every root, input, output, and folder as a workspace-relative posix path', async ({ workspace }) => {
@@ -112,7 +107,6 @@ describe('task hashes', () => {
         { case: 'workspace unification under its unstable gate', written: { '.cargo/config.toml': '[unstable]\nfeature-unification = true\n\n[resolver]\nfeature-unification = "workspace"\n' }, stated: {}, unified: true },
         { case: 'workspace unification from the environment over a selected row', written: { '.cargo/config.toml': '[unstable]\nfeature-unification = true\n\n[resolver]\nfeature-unification = "selected"\n' }, stated: { CARGO_RESOLVER_FEATURE_UNIFICATION: 'workspace' }, unified: true },
         { case: 'a workspace row cargo ignores without its unstable gate', written: { '.cargo/config.toml': '[resolver]\nfeature-unification = "workspace"\n' }, stated: {}, unified: false },
-        { case: 'the selected unification cargo defaults to', written: {}, stated: {}, unified: false },
     ])('changes the hash of a crate ($unified) when a member it never reaches drops a feature of their shared dependency, under $case', async ({ written, stated, unified }, { workspace, onTestFinished }) => {
         Object.entries(stated).forEach(([name, value]) => {
             vi.stubEnv(name, value);

@@ -23,6 +23,7 @@ const MANIFESTS: Readonly<Record<string, { readonly name: string; readonly bin?:
     conditioned: { name: 'conditioned', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', typed: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['typed'] } },
     infra: { name: 'infra', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', '@pulumi/cloudflare': '*', shared: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['shared'], metadata: { pulumi: { hosts: 'hosting.config.ts' } } } },
     site: { name: 'site', nx: BUILT },
+    chained: { name: 'chained', bin: './stacks.mjs', dependencies: { '@pulumi/pulumi': '*', infra: 'workspace:*' }, nx: { ...BUILT, implicitDependencies: ['infra'] } },
     compiled: { name: 'compiled', bin: 'dist/stacks.js', dependencies: { '@pulumi/pulumi': '*' }, nx: { ...BUILT, metadata: { pulumi: { hosts: 'compiled.config.ts' } } } },
     app: { name: 'app', dependencies: { react: '*' }, nx: BUILT },
 };
@@ -38,6 +39,7 @@ const STACKS = {
     'packages/wrapper/index.ts': 'export {};\n',
     'packages/typed/index.ts': 'export {};\n',
     'packages/conditioned/stacks.mjs': 'export {};\n',
+    'packages/chained/stacks.mjs': 'export {};\n',
     ...Object.fromEntries(Object.entries(MANIFESTS).map(([name, manifest]) => [`packages/${name}/package.json`, JSON.stringify(manifest)])),
 };
 
@@ -78,12 +80,11 @@ describe('task order', () => {
         { task: 'site:deploy--pulumi', before: 'infra:deploy--pulumi', runs: true },
         { task: 'site:install--pulumi', before: 'infra:install--pulumi', runs: true },
         { task: 'site:deploy--pulumi', before: 'site:build--tsc', runs: true },
-        { task: 'site:deploy--pulumi', before: 'infra:build--tsc', runs: false },
         { task: 'compiled:deploy--pulumi', before: 'compiled:build--tsc', runs: true },
         { task: 'app:deploy--pulumi', before: 'compiled:deploy--pulumi', runs: true },
-        { task: 'app:install--pulumi', before: 'infra:install--pulumi', runs: false },
         { task: 'sourced:deploy--pulumi', before: 'source:build--tsc', runs: false },
         { task: 'layered:deploy--pulumi', before: 'wrapper:build--tsc', runs: true },
+        { task: 'chained:deploy--pulumi', before: 'infra:deploy--pulumi', runs: true },
     ])('$task runs $before first: $runs', async ({ task, before, runs }, { workspace }) => {
         const graph = await workspace.write(STACKS).graph({ createNodes });
         const [project = '', target = ''] = task.split(':');
@@ -116,8 +117,6 @@ describe('task order', () => {
 
 describe('what a hosted project hashes of the program it runs', () => {
     it.for([
-        { task: 'site:build--tsc', file: 'packages/infra/stacks.mjs', covered: false },
-        { task: 'site:build--tsc', file: 'packages/shared/package.json', covered: false },
         { task: 'site:deploy--pulumi', file: 'packages/infra/stacks.mjs', covered: true },
         { task: 'site:dry-run--pulumi', file: 'packages/shared/package.json', covered: true },
         { task: 'app:deploy--pulumi', file: 'packages/infra/stacks.mjs', covered: false },

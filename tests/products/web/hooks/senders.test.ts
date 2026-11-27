@@ -28,7 +28,10 @@ const settled = SqlSchema.findAll({
     Request: Schema.Void,
     Result: Schema.Struct({ id: Schema.String, state: Schema.String, attempts: Schema.Int, updated: Schema.Unknown }),
     execute: () => SqlClient.SqlClient.use((sql) => sql`SELECT id, state, attempts, updated_at AS updated FROM effect_queue WHERE queue_name = ${sender.queue} ORDER BY id`),
-})(undefined).pipe(Effect.repeat({ until: (rows) => rows.every(({ state }) => state === 'completed'), schedule: Schedule.spaced('100 millis') }), Effect.timeout('10 seconds'));
+})(undefined).pipe(
+    Effect.repeat({ until: (rows) => rows.every(({ state }) => state === 'completed'), schedule: Schedule.spaced('100 millis') }),
+    Effect.timeoutOrElse({ duration: '10 seconds', orElse: () => Effect.fail(new Cause.UnknownError(sender.queue, `the ${sender.queue} queue holds a row its work never completed within 10 seconds`)) }),
+);
 const added = Effect.fnUntraced(function* <A, E, R>(post: Effect.Effect<A, E, R>) {
     const known = new Set((yield* settled).map(({ id }) => id));
     const answered = yield* post;
@@ -44,7 +47,11 @@ const receiver = Layer.unwrap(
         const server = yield* ChildProcess.make(process.execPath, [join(bundle, App.bundle.environment, `${App.bundle.entry}.js`)], { env: { [App.bundle.portVariable]: `${port}`, POSTGRES_URL: database.getConnectionUri(), TAILSCALE_WEBHOOK_SECRET: sender.secret }, extendEnv: true, stdout: 'ignore', stderr: 'ignore' });
         const client = HttpClient.mapRequest(yield* HttpClient.HttpClient, HttpClientRequest.prependUrl(`http://127.0.0.1:${port}`));
         const exited = Effect.flatMap(server.exitCode, (code) => new Cause.UnknownError(code, `@rasm/hooks exits ${code} before it answers ${App.bundle.readiness}`));
-        yield* Effect.timeout(HttpClient.filterStatusOk(client).get(App.bundle.readiness), '1 second').pipe(Effect.retry({ schedule: Schedule.spaced('100 millis') }), Effect.raceFirst(exited));
+        yield* Effect.timeout(HttpClient.filterStatusOk(client).get(App.bundle.readiness), '1 second').pipe(
+            Effect.retry({ schedule: Schedule.spaced('100 millis') }),
+            Effect.timeoutOrElse({ duration: '30 seconds', orElse: () => Effect.fail(new Cause.UnknownError(port, `@rasm/hooks never answered ${App.bundle.readiness} on port ${port} within 30 seconds`)) }),
+            Effect.raceFirst(exited),
+        );
         return Layer.merge(Layer.succeed(HttpClient.HttpClient, client), PgClient.layer({ url: Redacted.make(database.getConnectionUri()) }));
     }),
 ).pipe(Layer.provide([layerUndici, services]));

@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { basename, join, posix } from 'node:path';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { createNodes } from '@rasm/nx-uv';
-import { it, unaggregated } from '@rasm/testing/nx';
+import { unaggregated } from '@rasm/testing/nx';
 import { Array, Record, Struct } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { LoadedNxPlugin, retrieveProjectConfigurations } from 'nx/src/devkit-internals';
@@ -11,6 +11,7 @@ import type { FileMapCache } from 'nx/src/project-graph/nx-deps-cache';
 import { retrieveWorkspaceFiles } from 'nx/src/project-graph/utils/retrieve-workspace-files';
 import { resetWorkspaceContext } from 'nx/src/utils/workspace-context';
 import { describe, expect, vi } from 'vitest';
+import { it } from '#/fixtures';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 

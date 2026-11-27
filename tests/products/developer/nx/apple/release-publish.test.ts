@@ -1,7 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { execute } from '@rasm/nx-apple/executors/release-publish';
 import { outputs, it as workspaced } from '@rasm/testing/nx';
-import { getLatestGitTagForPattern } from 'nx/src/command-line/release/utils/git';
 import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
@@ -50,11 +49,10 @@ describe('release-publish', () => {
         vi.stubEnv('SPARKLE_ED_PRIVATE_KEY', 'key');
         vi.stubEnv('SPARKLE_FEED_BUCKET', 'feeds');
         const graph = await tagged({ ...relay, 'Relay/build/Relay/Relay.dmg': 'image' }, TAGS);
-        const expected = await getLatestGitTagForPattern(PATTERN, { projectName: 'Relay', releaseGroupName: 'apps' }, () => Promise.resolve(TAGS), { checkAllBranchesWhen: false, requireSemver: true, strictPreid: false });
 
         await execute({ exports: [{ archive: 'Relay/build/Relay/Relay.xcarchive' }], dryRun: true }, workspace.context(graph, 'Relay', 'nx-release-publish'));
 
-        expect(log).toHaveBeenCalledWith(expect.anything(), `Would publish the Sparkle feed of Relay.dmg for ${expected?.tag} through generate_appcast and cf r2 objects put`);
+        expect(log).toHaveBeenCalledWith(expect.anything(), 'Would publish the Sparkle feed of Relay.dmg for Relay-v1.0.0 through generate_appcast and cf r2 objects put');
     });
 
     it('skips the feed of an archive with a zip and no disk image beside it, as pack--ditto writes without notary credentials', async ({ workspace, tagged, log, onTestFinished }) => {

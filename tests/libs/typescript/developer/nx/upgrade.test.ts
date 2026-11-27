@@ -21,7 +21,7 @@ describe('upgrade commands', () => {
         expect([readFileSync(join(workspace.root, 'moved.txt'), 'utf-8'), readFileSync(join(workspace.root, 'locked.txt'), 'utf-8'), env['UPGRADE_DUMPS']]).toStrictEqual(['{root}/dumps/{projectName}-%p.dmp', 'unset', undefined]);
     });
 
-    it('prints a command with no preview and runs nothing under a dry run', async ({ workspace }) => {
+    it('runs nothing under a dry run of a command stating no preview', async ({ workspace }) => {
         const graph = await workspace.write({ ...repository, 'tools/record.js': "import { writeFileSync } from 'node:fs';\n\nwriteFileSync(process.argv[2], 'ran');\n" }).graph({});
 
         await execute({ cwd: '.', dryRun: true, commands: [{ apply: [execPath, join(workspace.root, 'tools/record.js'), 'moved.txt'] }] }, workspace.context(graph, 'repo', 'upgrade'));

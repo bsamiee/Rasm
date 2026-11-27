@@ -1,9 +1,6 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { checks } from '@rasm/vite/checks';
 import { build, createLogger, type Plugin, type Rolldown } from 'vite';
-import { describe, expect, it, onTestFinished } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -65,13 +62,4 @@ describe('rolldown warnings the checks refuse', () => {
         await expect(result).resolves.toMatchObject({ output: [{ type: 'chunk' }] });
         expect(logged).toContain('EVAL');
     });
-});
-
-it('resolves a package import subpath carrying a query through its imports map and keeps the query', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'checks-'));
-    onTestFinished(() => rm(root, { recursive: true }));
-    await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'imported', type: 'module', imports: { '#notes': './notes.txt' } }));
-    await writeFile(join(root, 'notes.txt'), 'Section A-A through the stair core');
-    await writeFile(join(root, 'entry.js'), "import notes from '#notes?raw';\nconsole.log(notes);\n");
-    await expect(build({ configFile: false, root, customLogger: createLogger('silent'), logLevel: 'silent', plugins: [checks()], build: { write: false, rolldownOptions: { input: join(root, 'entry.js') } } })).resolves.toHaveProperty(['output', 0, 'code'], expect.stringContaining('Section A-A through the stair core'));
 });

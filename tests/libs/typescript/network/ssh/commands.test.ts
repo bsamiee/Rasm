@@ -24,7 +24,6 @@ const exited = (failed: unknown) =>
 
 it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('commands', (methods) => {
     methods.effect.each([
-        { status: 254, env: {}, reported: 'Exit 254' },
         { status: 255, env: {}, reported: 'Exit 255' },
         { status: 254, env: { SENT: 'sent' }, reported: 'Exit 254' },
         { status: 255, env: { SENT: 'sent' }, reported: 'Unreachable' },

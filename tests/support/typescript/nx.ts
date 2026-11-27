@@ -1,5 +1,4 @@
 import { Buffer } from 'node:buffer';
-import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -11,11 +10,11 @@ import { fileURLToPath } from 'node:url';
 import { type ExecutorContext, getOutputsForTargetAndConfiguration, type NxPlugin, type ProjectGraph, readJsonFile, readProjectsConfigurationFromProjectGraph } from '@nx/devkit';
 import { below } from '@rasm/nx/inference';
 import { ExitError } from '@rasm/process';
-import { Array, Cause, type Duration, Effect, Function, Match, Option, Predicate, Record, Schema, UndefinedOr } from 'effect';
+import { Array, Cause, Duration, Effect, Function, Match, Option, Predicate, Record, Schema, UndefinedOr } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { LoadedNxPlugin, resolveNxTokensInOptions, retrieveProjectConfigurations } from 'nx/src/devkit-internals';
 import { runCommands } from 'nx/src/executors/run-commands/run-commands.impl';
-import { getFilesForOutputsBatch } from 'nx/src/native';
+import { getFilesForOutputsBatch, ReadinessProbe } from 'nx/src/native';
 import { createNodes as packageJsonNodes, name as packageJsonName } from 'nx/src/plugins/package-json';
 import { ProjectJsonProjectsPlugin } from 'nx/src/plugins/project-json/build-nodes/project-json';
 import { buildProjectGraphUsingProjectFileMap } from 'nx/src/project-graph/build-project-graph';
@@ -257,13 +256,12 @@ class Workspace {
         return UndefinedOr.map(taskGraph(graph, [project], [target], undefined, overrides).tasks[`${project}:${target}`], (task) => getReadyWhen(task, graph, readProjectsConfigurationFromProjectGraph(graph).projects, this.root, env)) ?? null;
     }
     poll(graph: ProjectGraph, project: string, target: string, overrides: Record.ReadonlyRecord<string, unknown> = {}) {
-        const probe = this.ready(graph, project, target, overrides);
-        const check = spawn(probe?.kind === 'command' ? probe.command : 'false', { shell: true, cwd: this.root, env: probe?.kind === 'command' ? probe.env : env, stdio: 'ignore' });
-        const exit = once(check, 'exit').then(([code]: readonly unknown[]) => code);
-        onTestFinished(() => {
-            check.kill();
-        });
-        return (wait: Duration.Input) => Effect.promise(() => exit).pipe(Effect.timeoutOption(wait), Effect.runPromise);
+        const probe = Option.filter(Option.fromNullishOr(this.ready(graph, project, target, overrides)), ({ kind }) => kind !== 'signal' && kind !== 'logMatches');
+        return (within: Duration.Input) =>
+            Effect.fromOption(probe, () => new Cause.NoSuchElementError(`${project}:${target} states no url, port, or command readiness probe`)).pipe(
+                Effect.flatMap((stated) => Effect.promise(() => new ReadinessProbe({ ...stated, timeout: Duration.toMillis(within) }, this.root).wait())),
+                Effect.runPromise,
+            );
     }
 
     // --- [EXECUTION]
@@ -282,7 +280,6 @@ const entered = () => {
     const [previous, workspace] = [{ cwd: cwd(), root: workspaceRoot }, new Workspace()];
     chdir(workspace.root);
     setWorkspaceRoot(workspace.root);
-    env['NX_DAEMON'] = 'false';
     return {
         workspace,
         close: () => {

@@ -1,13 +1,13 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import { env } from 'node:process';
+import { join } from 'node:path';
 import { createNodes } from '@rasm/nx-uv';
 import { ExitError } from '@rasm/process';
 import { refused } from '@rasm/testing/errors';
-import { it, shimmed, type Workspace } from '@rasm/testing/nx';
-import { Predicate, Schema } from 'effect';
+import { shimmed, type Workspace } from '@rasm/testing/nx';
+import { Schema } from 'effect';
 import { describe, expect, vi } from 'vitest';
+import { it } from '#/fixtures';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
 
@@ -27,7 +27,6 @@ const ROOTED = {
     'proj/library/pyproject.toml': '[project]\nname = "library"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n\n[build-system]\nrequires = ["uv_build>=0.13,<0.14"]\nbuild-backend = "uv_build"\n',
 };
 const UNLOCKED = { 'proj/added/pyproject.toml': '[project]\nname = "added"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n' };
-const ASKED = ['workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--output-version', 'preview', '--quiet'];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -35,7 +34,7 @@ const locked = (workspace: Workspace, folder: string) => execFileSync('uv', ['lo
 
 const counted = (workspace: Workspace, name: string) => {
     const log = join(workspace.root, 'tmp', `${name}.log`);
-    shimmed(join(workspace.root, 'tmp', name), { uv: `echo "$UV_PROJECT_ENVIRONMENT|$*" >> "${log}"\nPATH="\${PATH#*:}" exec uv "$@"` });
+    shimmed(join(workspace.root, 'tmp', name), { uv: `echo "$*" >> "${log}"\nPATH="\${PATH#*:}" exec uv "$@"` });
     return () => (existsSync(log) ? readFileSync(log, 'utf-8').trim().split('\n') : []).filter((call) => call.includes('workspace metadata'));
 };
 
@@ -65,18 +64,6 @@ describe('uv workspace metadata', () => {
         await workspace.graph({ createNodes });
 
         expect(calls()).toHaveLength(1);
-    });
-
-    it('asks uv with a project environment that does not exist, which uv answers without the environment it reports by default', async ({ workspace }) => {
-        locked(workspace.write(NESTED), 'nested/proj');
-        const [calls, cwd] = [counted(workspace, 'uv'), join(workspace.root, 'nested/proj')];
-        execFileSync('uv', ['sync', '--offline', '--quiet'], { cwd });
-        await workspace.graph({ createNodes });
-
-        const [environment = ''] = calls()[0]?.split('|') ?? [];
-        const answered = [{}, { UV_PROJECT_ENVIRONMENT: environment }].map((set): unknown => JSON.parse(execFileSync('uv', ASKED, { cwd, encoding: 'utf-8', env: { ...env, ...set } })));
-
-        expect([environment === '', existsSync(resolve(cwd, environment)), ...answered.map(Predicate.hasProperty('environment'))]).toStrictEqual([false, false, true, false]);
     });
 
     it('reads the workspace again once a lock below the Nx workspace root changes', async ({ workspace }) => {

@@ -50,43 +50,17 @@ describe('test--ctest', () => {
         ).toStrictEqual(['failing', 'passing', 'untested']);
     });
 
-    it('passes for a member that adds no tests', async ({ workspace }) => {
-        const graph = await workspace.write(tree).graph(cmake);
-        await workspace.run(graph, 'untested', 'build--cmake');
+    it.for([
+        { case: 'adds no tests', member: 'untested', tests: presets.testPresets, passed: true },
+        { case: 'holds a passing test', member: 'passing', tests: presets.testPresets, passed: true },
+        { case: 'holds a failing test', member: 'failing', tests: presets.testPresets, passed: false },
+        { case: 'holds tests its test preset filters out, stating no tests an error', member: 'passing', tests: [{ name: 'default', configurePreset: 'default', filter: { include: { name: 'absent' } }, execution: { noTestsAction: 'error' } }], passed: false },
+    ])('decides ($passed) a built member that $case, running no test of another member', async ({ member, tests, passed }, { workspace }) => {
+        const graph = await workspace.write({ ...tree, 'CMakePresets.json': JSON.stringify({ ...presets, testPresets: tests }) }).graph(cmake);
+        const built = await workspace.run(graph, member, 'build--cmake');
 
-        const { success } = await workspace.run(graph, 'untested', 'test--ctest');
+        const { success } = await workspace.run(graph, member, 'test--ctest');
 
-        expect(success).toBe(true);
-    });
-
-    it('passes for a member whose tests pass, running no test of another member', async ({ workspace }) => {
-        const graph = await workspace.write(tree).graph(cmake);
-        await workspace.run(graph, 'passing', 'build--cmake');
-
-        const { success } = await workspace.run(graph, 'passing', 'test--ctest');
-
-        expect(success).toBe(true);
-    });
-
-    it('fails for a member whose test fails', async ({ workspace }) => {
-        const graph = await workspace.write(tree).graph(cmake);
-        await workspace.run(graph, 'failing', 'build--cmake');
-
-        const { success } = await workspace.run(graph, 'failing', 'test--ctest');
-
-        expect(success).toBe(false);
-    });
-
-    it('fails where the test preset selects none of the member tests and states no tests an error', async ({ workspace }) => {
-        const filtered = {
-            ...presets,
-            testPresets: [{ name: 'default', configurePreset: 'default', filter: { include: { name: 'absent' } }, execution: { noTestsAction: 'error' } }],
-        };
-        const graph = await workspace.write({ ...tree, 'CMakePresets.json': JSON.stringify(filtered) }).graph(cmake);
-        await workspace.run(graph, 'passing', 'build--cmake');
-
-        const { success } = await workspace.run(graph, 'passing', 'test--ctest');
-
-        expect(success).toBe(false);
+        expect([built.success, success]).toStrictEqual([true, passed]);
     });
 });
