@@ -3,6 +3,7 @@ import { Handles } from '@rasm/mcp/handles';
 import { Link } from '@rasm/mcp/link';
 import { registerResource, registerResourceTemplate } from '@rasm/mcp/resource';
 import { Handle, Server } from '@rasm/mcp/server';
+import { ToolCall } from '@rasm/mcp/toolkit';
 import { Upstream } from '@rasm/mcp/upstream';
 import { Array, Cause, Context, Deferred, Duration, Effect, Latch, Layer, MutableRef, Option, Predicate, Queue, Record, Ref, Result, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpProtocol, McpSchema, McpServer, McpTest, Tool, Toolkit } from 'effect/ai';
@@ -107,7 +108,7 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
         called(
             'test_stated',
             Effect.as(
-                Server.ToolCall.use(({ state }) => state(STATED)),
+                ToolCall.use(({ state }) => state(STATED)),
                 TEXT,
             ),
         ),
@@ -144,7 +145,7 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
     yield* Server.registerTool(
         Tool.make('test_input', { description: 'Asks for client input, then answers with the state it sealed', success: Schema.String }).annotate(Tool.Readonly, true),
         Effect.fnUntraced(function* () {
-            const [{ requestState }, { input }] = yield* Effect.all([McpSchema.McpRequestContext, Server.ToolCall]);
+            const [{ requestState }, { input }] = yield* Effect.all([McpSchema.McpRequestContext, ToolCall]);
             return yield* called('test_input', UndefinedOr.match(requestState, { onUndefined: () => input(new McpSchema.InputRequired({ requestState: STATE })), onDefined: Effect.succeed }));
         }),
     );
@@ -186,7 +187,7 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
             },
         ),
     );
-    yield* Server.registerTool(Tool.make('test_await_running', { description: 'Awaits the calls of its handle that returned early', success: Schema.String }), () => called('test_await_running', Effect.as(Server.ToolCall.use(Struct.get('awaitRunning')), 'settled')));
+    yield* Server.registerTool(Tool.make('test_await_running', { description: 'Awaits the calls of its handle that returned early', success: Schema.String }), () => called('test_await_running', Effect.as(ToolCall.use(Struct.get('awaitRunning')), 'settled')));
     yield* registerResource({ name: 'static-text', description: 'A static text resource for testing', mimeType: 'text/plain', schema: Schema.String, changes: Stream.empty, content: Effect.succeed(STATIC) });
     yield* registerResource({ name: 'static-binary', description: 'A static binary resource for testing', mimeType: 'image/png', schema: Schema.Uint8Array, changes: Stream.empty, content: Effect.succeed(Uint8Array.fromBase64(PNG)) });
     yield* registerResource({ name: 'watched-resource', description: 'A resource whose value changes', mimeType: 'text/plain', schema: Schema.String, changes: SubscriptionRef.changes(watched), content: SubscriptionRef.get(watched) });

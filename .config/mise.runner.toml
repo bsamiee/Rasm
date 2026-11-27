@@ -65,6 +65,7 @@ system = true
 "apt:sqlite3"         = "latest"
 "apt:unzip"           = "latest"
 "apt:zip"             = "latest"
+"apt:zsh"             = "latest"
 
 # --- [SERVICES]
 

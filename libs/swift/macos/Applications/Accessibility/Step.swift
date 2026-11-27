@@ -318,8 +318,8 @@ extension Step {
     fileprivate typealias Plan = (window: CGWindowID?, course: Course, tried: [Delivery.Attempt])
     fileprivate typealias Read = (element: Element, handles: [AXUIElement])
     fileprivate typealias Host = (layout: KeyboardLayout, frame: Duration, doubleClick: Duration, keyRepeat: (delay: Duration, interval: Duration))
-    fileprivate typealias Scroll = (window: CGWindowID?, position: [Double], proof: Delivery.Proof?, tried: [Delivery.Attempt], scrolled: Delivery.Scrolled?)
-    fileprivate typealias Reached = (number: CGWindowID, owner: pid_t, element: AXUIElement?)
+    fileprivate typealias Scroll = (window: CGWindowID?, host: CGWindowID?, position: [Double], proof: Delivery.Proof?, tried: [Delivery.Attempt], scrolled: Delivery.Scrolled?)
+    fileprivate typealias Reached = (number: CGWindowID, owner: pid_t, element: AXUIElement?, host: CGWindowID?, frame: CGRect?)
 
     fileprivate static func window(holding sample: Input.Sample, of process: pid_t, among numbers: [CGWindowID] = []) throws(ApplicationFailure) -> Reached? {
         let point = CGPoint(x: sample.at.x, y: sample.at.y)
@@ -331,8 +331,8 @@ extension Step {
             var found: AXUIElement?
             return unsafe AXUIElementCopyElementAtPosition(root, Float(point.x), Float(point.y), &found) == .success ? found : nil
         }
-        var (under, host): (AXUIElement?, AXUIElement?) = (hit(AXUIElementCreateApplication(process)), nil)
-        host = under
+        let first: AXUIElement? = hit(AXUIElementCreateApplication(process))
+        var (under, host): (AXUIElement?, AXUIElement?) = (first, first)
         while let held = host {
             let served: [AXUIElement] = try held.elements(kAXChildrenAttribute).filter { (child: AXUIElement) -> Bool in serving(child) != serving(held) }
             let holding: [AXUIElement?] = try served.map { (child: AXUIElement) throws(ApplicationFailure) -> AXUIElement? in
@@ -341,14 +341,19 @@ extension Step {
             let deeper: AXUIElement? = holding.compactMap(\.self).first.flatMap(hit)
             (under, host) = (deeper ?? under, deeper.flatMap { (deeper: AXUIElement) -> AXUIElement? in serving(deeper) == serving(held) ? nil : deeper })
         }
-        var number: CGWindowID = 0
-        let drawing: CGWindowID? = under.flatMap { (under: AXUIElement) -> CGWindowID? in unsafe windowNumber(under, &number) == .success ? number : nil }
+        let number = { (element: AXUIElement) -> CGWindowID? in
+            var number: CGWindowID = 0
+            return unsafe windowNumber(element, &number) == .success ? number : nil
+        }
+        let (drawing, presenting): (CGWindowID?, CGWindowID?) = (under.flatMap(number), first.flatMap(number))
         let described: (bounds: CGRect, owner: pid_t)? = drawing.flatMap(windowDescription(of:))
-        if let drawing, let described, numbers.isEmpty || numbers.contains(drawing) { return (drawing, described.owner, under) }
+        let named: Bool = numbers.isEmpty || [drawing, presenting].contains { (window: CGWindowID?) -> Bool in window.map(numbers.contains) == true }
+        let frame: CGRect? = try under.flatMap { (under: AXUIElement) throws(ApplicationFailure) -> CGRect? in try under.read([frameAttribute]).element.frame }
+        if let drawing, let described, named { return (drawing, described.owner, under, presenting, frame) }
         let own: CGWindowID? = InstanceState.Window.all(.optionOnScreenOnly, of: process)[process, default: []].first { row in
             (numbers.isEmpty || numbers.contains(row.number)) && row.frame.contains(point)
         }?.number
-        if let own { return (own, process, under) }
+        if let own { return (own, process, under, own, frame) }
         let listed: [pid_t: [InstanceState.Window]] = InstanceState.Window.all(.optionAll)
         return InstanceState.Activity.statusBars(in: listed).first { bar in
             var (hit, answering): (AXUIElement?, pid_t) = (nil, 0)
@@ -356,7 +361,7 @@ extension Step {
             let found: AXError = unsafe AXUIElementCopyElementAtPosition(AXUIElementCreateApplication(bar.host), Float(point.x), Float(point.y), &hit)
             return found == .success && hit.map { hit in unsafe actualProcess(hit, &answering) == .success } == true && answering == process
         }
-        .map { bar in (bar.number, bar.host, nil) }
+        .map { bar in (bar.number, bar.host, nil, nil, nil) }
     }
 
     fileprivate func plan(on element: AXUIElement?, presented: Bool) throws(ApplicationFailure) -> Plan {
@@ -608,17 +613,30 @@ extension Step {
             let parent: AXUIElement? = up.element.facts[kAXParentAttribute]?.element.map { (id: Int) -> AXUIElement in up.handles[id] }
             (next, area) = (parent, up.element.role == kAXScrollAreaRole && exceeds ? (read: up, span: span) : nil)
         }
-        guard let area else { return (window, [], nil, [], nil) }
+        guard let area else { return (window, reached?.host, [], nil, [], nil) }
+        let host: CGWindowID? =
+            reached?.host
+            ?? area.read.element.frame.flatMap { (frame: CGRect) -> CGWindowID? in
+                InstanceState.Window.all(.optionOnScreenOnly, of: process)[process, default: []].first { (row: InstanceState.Window) -> Bool in
+                    row.frame.contains(CGPoint(x: frame.midX, y: frame.midY))
+                }?.number
+            }
         let showing = { () throws(ApplicationFailure) -> Delivery.Scrolled? in
             guard scrolling != .reading else { return nil }
             let values: [Double?] = try bars.map { (attribute: String) throws(ApplicationFailure) -> Double? in
                 let bar: AXUIElement? = area.read.element.facts[attribute]?.element.map { (id: Int) -> AXUIElement in area.read.handles[id] }
                 return try bar?.read([kAXValueAttribute]).element.facts[kAXValueAttribute]?.number
             }
-            let lists: [(list: AXUIElement, rows: [AXUIElement])] = try area.read.handles[0].elements(kAXChildrenAttribute).map {
-                (child: AXUIElement) throws(ApplicationFailure) -> (list: AXUIElement, rows: [AXUIElement]) in (child, try child.elements(kAXVisibleRowsAttribute))
+            let holders: Set<String> = [kAXGroupRole, kAXScrollAreaRole, kAXSplitGroupRole, kAXLayoutAreaRole]
+            var (queue, cursor, list): ([AXUIElement], Int, (list: AXUIElement, rows: [AXUIElement])?) = (try area.read.handles[0].elements(kAXChildrenAttribute), 0, nil)
+            while list == nil, cursor < queue.count {
+                let held: Read = try queue[cursor].read([kAXRoleAttribute, kAXVisibleRowsAttribute, kAXChildrenAttribute])
+                let rows: [AXUIElement] = held.element.facts[kAXVisibleRowsAttribute]?.elements.map { (id: Int) -> AXUIElement in held.handles[id] } ?? []
+                let children: [AXUIElement] = held.element.facts[kAXChildrenAttribute]?.elements.map { (id: Int) -> AXUIElement in held.handles[id] } ?? []
+                (queue, cursor, list) = (
+                    queue + (rows.isEmpty && held.element.role.map(holders.contains) == true ? children : []), cursor + 1, rows.isEmpty ? nil : (list: queue[cursor], rows: rows),
+                )
             }
-            let list: (list: AXUIElement, rows: [AXUIElement])? = lists.first { (list: (list: AXUIElement, rows: [AXUIElement])) -> Bool in !list.rows.isEmpty }
             var total: CFIndex = 0
             let counted: AXError =
                 list.map { (list: (list: AXUIElement, rows: [AXUIElement])) -> AXError in unsafe AXUIElementGetAttributeValueCount(list.list, kAXRowsAttribute as CFString, &total) } ?? .noValue
@@ -642,21 +660,21 @@ extension Step {
         }
         .compactMap(\.self)
         let position: [Double] = scrollers.map(\.before)
-        guard let span = area.span, scrollers.count == moving.count else { return (window, position, nil, [], try scrolling == .reporting ? showing() : nil) }
+        guard let span = area.span, scrollers.count == moving.count else { return (window, host, position, nil, [], try scrolling == .reporting ? showing() : nil) }
         let goals: [(bar: AXUIElement, before: Double, goal: Double)] = scrollers.map { (axis: Int, bar: AXUIElement, before: Double) -> (bar: AXUIElement, before: Double, goal: Double) in
             (bar, before, min(max(before - distance[axis] / span[axis], 0), 1))
         }
         let pending: [(bar: AXUIElement, before: Double, goal: Double)] = goals.filter { axis in axis.goal != axis.before }
-        guard !pending.isEmpty else { return (window, position, .limit, [], try showing()) }
+        guard !pending.isEmpty else { return (window, host, position, .limit, [], try showing()) }
         let settable: [Bool] = try (scrolling == .writing ? pending : []).map { axis throws(ApplicationFailure) -> Bool in try axis.bar.settable(kAXValueAttribute) }
-        guard scrolling == .writing, settable.allSatisfy(\.self) else { return (window, position, nil, [], try scrolling == .reporting ? showing() : nil) }
+        guard scrolling == .writing, settable.allSatisfy(\.self) else { return (window, host, position, nil, [], try scrolling == .reporting ? showing() : nil) }
         let moved: [Bool] = try pending.map { axis throws(ApplicationFailure) -> Bool in
             let answer: AXError = AXUIElementSetAttributeValue(axis.bar, kAXValueAttribute as CFString, axis.goal as NSNumber)
             let after: Double? = try answer == .success ? axis.bar.read([kAXValueAttribute]).element.facts[kAXValueAttribute]?.number : nil
             return after.map { (after: Double) -> Bool in after != axis.before } ?? false
         }
         guard moved.contains(true) else { throw ApplicationFailure(subject: "the scroll bar", reason: .unchanged(nil)) }
-        return (window, position, .value, [], try showing())
+        return (window, host, position, .value, [], try showing())
     }
 
     private static func typing(_ keys: [(key: Key, modifiers: Set<Modifier>)]) -> [Input] {
@@ -853,7 +871,7 @@ extension Step {
             }
         }
         let planned: Plan
-        var (presentation, pointer): (Watch.Presentation?, SIMD2<Double>?) = (nil, nil)
+        var (presentation, pointer, landing): (Watch.Presentation?, SIMD2<Double>?, Reached?) = (nil, nil, nil)
         switch action {
             case .set(clipboard, let value):
                 guard let text = value.text else { throw ApplicationFailure(subject: "the clipboard", reason: .notText(value)) }
@@ -884,7 +902,10 @@ extension Step {
                 (planned, presentation) = (presented.value, presented.presentation)
             case .input(let contact, let path, .none, let hold, let modifiers, let schedule, let edges, let windows):
                 let scrolled: Scroll? = try await scrolling(from == nil || from == .accessibility ? .writing : .reading)
-                if let proof = scrolled?.proof { return Delivery(proof: proof, scrolled: scrolled?.scrolled) }
+                if let proof = scrolled?.proof {
+                    if proof == .value, let window = scrolled?.host ?? scrolled?.window { await watch.invalidate(window: window) }
+                    return Delivery(proof: proof, scrolled: scrolled?.scrolled)
+                }
                 var (samples, numbers, tried): ([Input.Sample], [CGWindowID], [Delivery.Attempt]) = ([], windows, scrolled?.tried ?? [])
                 for aim in path {
                     let reached: (sample: Input.Sample, window: CGWindowID?, tried: [Delivery.Attempt]) =
@@ -894,8 +915,8 @@ extension Step {
                         }
                     (samples, numbers, tried) = (samples + [reached.sample], numbers + (reached.window.map { number in [number] } ?? []), tried + reached.tried)
                 }
-                let shown: CGWindowID? = try samples.first.flatMap { (start: Input.Sample) throws(ApplicationFailure) -> Reached? in try Self.window(holding: start, of: process, among: numbers) }?
-                    .number
+                landing = try samples.first.flatMap { (start: Input.Sample) throws(ApplicationFailure) -> Reached? in try Self.window(holding: start, of: process, among: numbers) }
+                let shown: CGWindowID? = landing?.number
                 let focused: CGWindowID? =
                     contact.is(\.key)
                     ? try await watch.perform(on: nil) { (_: AXUIElement?) throws(ApplicationFailure) -> CGWindowID? in
@@ -910,7 +931,26 @@ extension Step {
                 guard let route = contact.is(\.key) ? Route.process : window.map(Route.window(number:)) else { throw ApplicationFailure(subject: "the point", reason: .noWindow) }
                 let position: [Double] = scrolled?.position ?? []
                 let readBack: ReadBack = position.isEmpty ? ReadBack(contact: contact, edges: edges) : .position(before: position)
-                planned = (window, .posting(route: route, inputs: [input], readBack: readBack), tried)
+                let plain: Bool =
+                    (from == nil || from == .accessibility) && contact == .button(.left) && samples.count == 1 && edges == everyEdge && schedule.count == 1 && modifiers.isEmpty
+                    && hold == .zero
+                var meaning: AXUIElement? = plain ? landing?.element : nil
+                var meant: AXUIElement?
+                while let current = meaning, meant == nil {
+                    let read: Read = try current.element(reading: [kAXRoleAttribute, kAXParentAttribute])
+                    let takes: Bool = read.element.actions.contains(kAXPressAction) || read.element.role == kAXRowRole
+                    let parent: AXUIElement? = read.element.facts[kAXParentAttribute]?.element.map { (id: Int) -> AXUIElement in read.handles[id] }
+                    (meaning, meant) = (takes || read.element.role.map([kAXWindowRole, kAXApplicationRole].contains) == true ? nil : parent, takes ? current : nil)
+                }
+                let pressed: Plan? = try meant.map { (meant: AXUIElement) throws(ApplicationFailure) -> Plan in
+                    try Step(.press(ref: 0, action: kAXPressAction), from: from).plan(on: meant, presented: false)
+                }
+                planned =
+                    if let pressed, !pressed.course.is(\.opening) {
+                        (pressed.window ?? window, pressed.course, tried + pressed.tried)
+                    } else {
+                        (window, .posting(route: route, inputs: [input], readBack: readBack), tried)
+                    }
                 pointer = samples.last?.at
         }
         let matches = { (read: Fact.Scalar?, after: Fact.Scalar) -> Bool in read == after || after.number.map { (number: Double) -> Bool in read?.number == number } == true }
@@ -1060,6 +1100,11 @@ extension Step {
         let below: Set<Rung> = Set(Rung.allCases.prefix { rung in rung != from && from != nil })
         let owner: pid_t? = planned.window.flatMap { (number: CGWindowID) -> pid_t? in windowDescription(of: number)?.owner }
         let foreign: Bool = owner.map { (owner: pid_t) -> Bool in owner != process } == true
+        let barred: Bool =
+            foreign
+            && planned.window.map { (number: CGWindowID) -> Bool in
+                InstanceState.Activity.statusBars(in: InstanceState.Window.all(.optionAll)).contains { (bar: (host: pid_t, number: CGWindowID)) -> Bool in bar.number == number }
+            } == true
         let climbed: [Route] = entry.ladder(window: planned.window).filter { (route: Route) -> Bool in !below.contains(route.rung) && !(foreign && route.rung == .focused) }
         let ladder: [Route] = lifted.map { lifted in [lifted.route] } ?? climbed
         let partial: Bool = inputs.contains { input in input.edges != everyEdge || input.contact == .hover }
@@ -1075,7 +1120,7 @@ extension Step {
         }
         let (pictured, summoning): (CGWindowID?, Bool) =
             switch readBack {
-                case .change: (foreign ? nil : planned.window, foreign)
+                case .change: (barred ? nil : foreign ? landing?.host : planned.window, barred)
                 case .posting, .value, .position: (nil, false)
             }
         let resolved: Screenshot? = if let pictured { await picture(pictured) } else { nil }
@@ -1116,6 +1161,11 @@ extension Step {
                 let ahead: Bool = summoning && focusedProcesses().front == process
                 if summoning { try PermittedFrontList.shared.admit(process).get() }
                 let fronts: AsyncStream<Watch.Message>? = if ahead { await watch.messages() } else { nil }
+                let aimed: Input.Sample? = inputs.contains { (input: Input) -> Bool in input.contact.is(\.button) } ? inputs.first?.path.first : nil
+                if let landing, let aimed {
+                    let under: Reached? = try Self.window(holding: aimed, of: process)
+                    guard under?.number == landing.number, under?.frame == landing.frame else { throw ApplicationFailure(subject: "what lay under the point", reason: .stale(candidates: [])) }
+                }
                 let posted: AsyncStream<Watch.Message> = await watch.messages()
                 let lingering: AsyncStream<Watch.Message> = await watch.messages()
                 await watch.posting()
@@ -1162,7 +1212,9 @@ extension Step {
         let restored: Result<Void, ApplicationFailure>? = if let back { await Result { () async throws(ApplicationFailure) in try await activating(back, target, false) } } else { nil }
         if var delivered {
             let wheeled: Bool = if case .input(.wheel, _, .none, _, _, _, _, _) = action { true } else { false }
-            delivered.scrolled = try await wheeled && delivered.proof == .value ? scrolling(.reporting)?.scrolled : nil
+            let reported: Scroll? = try await wheeled && delivered.proof == .value ? scrolling(.reporting) : nil
+            delivered.scrolled = reported?.scrolled
+            if let window = reported?.host ?? reported?.window { await watch.invalidate(window: window) }
             delivered.presentation =
                 switch restored {
                     case .some(.success): .restored(back: true)
@@ -1219,111 +1271,118 @@ extension Watch {
         state: InstanceState,
         diagnosis: (usage: Result<ResourceUsage.Interval, Errno>, load: Result<SystemLoad.Interval, ProcessFailure>)?
     ) {
-        let process: ProcessInstance = instance.process
-        let began: (usage: Result<ResourceUsage, Errno>, load: Result<SystemLoad, ProcessFailure>) = (
-            Result { () throws(Errno) in try ResourceUsage(of: process) }, Result { () throws(ProcessFailure) in try SystemLoad() },
-        )
-        guard let source = CGEventSource(stateID: .privateState) else { throw ApplicationFailure(subject: "private event source", reason: .refused) }
-        let activity = ProcessInfo.processInfo.beginActivity(options: [.idleDisplaySleepDisabled, .userInitiated], reason: "Acting on process \(process.pid)")
-        defer { ProcessInfo.processInfo.endActivity(activity) }
-        let keyboardType: CGEventSourceKeyboardType = source.keyboardType
-        let typing: Bool = steps.contains { step in
-            switch step.action {
-                case .set, .replace, .input(.key, _, _, _, _, _, _, _): true
-                case .press, .select, .input: false
-            }
-        }
-        let front: CGRect? = InstanceState.Window.all(.optionOnScreenOnly, of: process.pid)[process.pid, default: []].first { row in row.band == .normal }?.frame
-        let host: Step.Host = await MainActor.run { () -> Step.Host in
-            var (display, count): (CGDirectDisplayID, UInt32) = (0, 0)
-            let found: Bool = front.map { (frame: CGRect) -> Bool in unsafe CGGetDisplaysWithRect(frame, 1, &display, &count) == .success && count > 0 } ?? false
-            let screen: NSScreen? = NSScreen.screens.first { (screen: NSScreen) -> Bool in found && screen.cgDirectDisplayID == display } ?? NSScreen.screens.first
-            return (
-                layout: typing ? KeyboardLayout.current(keyboardType: keyboardType) : KeyboardLayout(strokes: [:]),
-                frame: Duration.seconds(screen?.minimumRefreshInterval ?? 1),
-                doubleClick: Duration.seconds(NSEvent.doubleClickInterval),
-                keyRepeat: (delay: Duration.seconds(NSEvent.keyRepeatDelay), interval: Duration.seconds(NSEvent.keyRepeatInterval)),
+        try await step {
+            () async throws(ApplicationFailure) -> (
+                outcomes: [Result<Step.Delivery, ApplicationFailure>],
+                state: InstanceState,
+                diagnosis: (usage: Result<ResourceUsage.Interval, Errno>, load: Result<SystemLoad.Interval, ProcessFailure>)?
+            ) in
+            let process: ProcessInstance = instance.process
+            let began: (usage: Result<ResourceUsage, Errno>, load: Result<SystemLoad, ProcessFailure>) = (
+                Result { () throws(Errno) in try ResourceUsage(of: process) }, Result { () throws(ProcessFailure) in try SystemLoad() },
             )
-        }
-        let clipboard: Int = await intern([Pasteboard.locator(of: .general)])[0]
-        var outcomes: [Result<Step.Delivery, ApplicationFailure>] = []
-        var held: [Input.Contact: (number: Int64, clickState: Int64, route: Route, path: [Input.Sample])] = [:]
-        var generator = SystemRandomNumberGenerator()
-        let popUps = { () -> [CGWindowID] in
-            InstanceState.Window.all(.optionOnScreenOnly, of: process.pid)[process.pid, default: []].filter { row in row.layer >= InstanceState.Window.Band.popUpMenu.level }.map(\.number)
-        }
-        var (previous, shown, opened): (AsyncStream<Message>?, [CGWindowID], [[CGWindowID]]) = (nil, popUps(), [])
-        for (index, step) in steps.enumerated() where outcomes.last.map({ outcome in outcome[case: \.success].map { delivery in delivery.proof != .exit } == true }) ?? true {
-            stepping(index)
-            let events = await messages()
-            var outcome = await Result { () async throws(ApplicationFailure) in
-                try await step.run(on: self, clipboard: clipboard, host: host, held: &held, source: source, using: &generator, clock: clock)
+            guard let source = CGEventSource(stateID: .privateState) else { throw ApplicationFailure(subject: "private event source", reason: .refused) }
+            let activity = ProcessInfo.processInfo.beginActivity(options: [.idleDisplaySleepDisabled, .userInitiated], reason: "Acting on process \(process.pid)")
+            defer { ProcessInfo.processInfo.endActivity(activity) }
+            let keyboardType: CGEventSourceKeyboardType = source.keyboardType
+            let typing: Bool = steps.contains { step in
+                switch step.action {
+                    case .set, .replace, .input(.key, _, _, _, _, _, _, _): true
+                    case .press, .select, .input: false
+                }
             }
-            if let previous, outcome[case: \.failure]?.reason.is(\.stale) == true,
-                try await next({ (change: InstanceEvent.Change) -> Void? in change[case: \.opened].map { _ in () } }, in: previous, clock: clock) != nil
-            {
-                outcome = await Result { () async throws(ApplicationFailure) in
+            let front: CGRect? = InstanceState.Window.all(.optionOnScreenOnly, of: process.pid)[process.pid, default: []].first { row in row.band == .normal }?.frame
+            let host: Step.Host = await MainActor.run { () -> Step.Host in
+                var (display, count): (CGDirectDisplayID, UInt32) = (0, 0)
+                let found: Bool = front.map { (frame: CGRect) -> Bool in unsafe CGGetDisplaysWithRect(frame, 1, &display, &count) == .success && count > 0 } ?? false
+                let screen: NSScreen? = NSScreen.screens.first { (screen: NSScreen) -> Bool in found && screen.cgDirectDisplayID == display } ?? NSScreen.screens.first
+                return (
+                    layout: typing ? KeyboardLayout.current(keyboardType: keyboardType) : KeyboardLayout(strokes: [:]),
+                    frame: Duration.seconds(screen?.minimumRefreshInterval ?? 1),
+                    doubleClick: Duration.seconds(NSEvent.doubleClickInterval),
+                    keyRepeat: (delay: Duration.seconds(NSEvent.keyRepeatDelay), interval: Duration.seconds(NSEvent.keyRepeatInterval)),
+                )
+            }
+            let clipboard: Int = await intern([Pasteboard.locator(of: .general)])[0]
+            var outcomes: [Result<Step.Delivery, ApplicationFailure>] = []
+            var held: [Input.Contact: (number: Int64, clickState: Int64, route: Route, path: [Input.Sample])] = [:]
+            var generator = SystemRandomNumberGenerator()
+            let popUps = { () -> [CGWindowID] in
+                InstanceState.Window.all(.optionOnScreenOnly, of: process.pid)[process.pid, default: []].filter { row in row.layer >= InstanceState.Window.Band.popUpMenu.level }.map(\.number)
+            }
+            var (previous, shown, opened): (AsyncStream<Message>?, [CGWindowID], [[CGWindowID]]) = (nil, popUps(), [])
+            for (index, step) in steps.enumerated() where outcomes.last.map({ outcome in outcome[case: \.success].map { delivery in delivery.proof != .exit } == true }) ?? true {
+                stepping(index)
+                let events = await messages()
+                var outcome = await Result { () async throws(ApplicationFailure) in
                     try await step.run(on: self, clipboard: clipboard, host: host, held: &held, source: source, using: &generator, clock: clock)
                 }
-            }
-            outcomes.append(
-                outcome.flatMapError { failure in
-                    switch (failure.reason == .unanswered(step), failure.reason == .system(.noSuchProcess)) {
-                        case (true, _): .success(Step.Delivery(proof: .unanswered))
-                        case (_, true): .success(Step.Delivery(proof: .exit))
-                        case (false, false): .failure(failure)
+                if let previous, outcome[case: \.failure]?.reason.is(\.stale) == true,
+                    try await next({ (change: InstanceEvent.Change) -> Void? in change[case: \.opened].map { _ in () } }, in: previous, clock: clock) != nil
+                {
+                    outcome = await Result { () async throws(ApplicationFailure) in
+                        try await step.run(on: self, clipboard: clipboard, host: host, held: &held, source: source, using: &generator, clock: clock)
                     }
                 }
-            )
-            let after: [CGWindowID] = popUps()
-            let added: [CGWindowID] = after.filter { (number: CGWindowID) -> Bool in !shown.contains(number) }
-            (previous, shown, opened) = (events, after, opened + [added])
-        }
-        for (contact, hold) in held where hold.route == .system {
-            let release = Input(contact: contact, path: hold.path, hold: .zero, modifiers: [], schedule: once, edges: [.up])
-            _ = await Result { () async throws(ApplicationFailure) -> ApplicationFailure? in
-                let timeline = try release.timeline(
-                    doubleClick: host.doubleClick,
-                    keyRepeat: host.keyRepeat,
-                    frame: host.frame,
-                    layout: host.layout,
-                    numbering: (hold.number, hold.clickState),
-                    using: &generator,
+                outcomes.append(
+                    outcome.flatMapError { failure in
+                        switch (failure.reason == .unanswered(step), failure.reason == .system(.noSuchProcess)) {
+                            case (true, _): .success(Step.Delivery(proof: .unanswered))
+                            case (_, true): .success(Step.Delivery(proof: .exit))
+                            case (false, false): .failure(failure)
+                        }
+                    }
                 )
-                return try await hold.route.post(timeline, to: process.pid, from: source, frame: host.frame, clock: clock)
+                let after: [CGWindowID] = popUps()
+                let added: [CGWindowID] = after.filter { (number: CGWindowID) -> Bool in !shown.contains(number) }
+                (previous, shown, opened) = (events, after, opened + [added])
             }
-        }
-        let inside: CGWindowID? = outcomes.last?[case: \.success]?.window
-        let excluded: Set<CGWindowID> = inside.map { (number: CGWindowID) -> Set<CGWindowID> in [number] } ?? []
-        let open: Set<CGWindowID> = instance.application.isActive ? [] : Set(shown).subtracting(excluded)
-        for (index, numbers) in opened.enumerated() where !open.isDisjoint(with: numbers) {
-            var closed: [Step.Delivery.PopUp] = []
-            for number in numbers where open.contains(number) {
-                closed.append(Step.Delivery.PopUp(window: number, closed: await dismiss(number, host: host, source: source, using: &generator, clock: clock)))
-            }
-            outcomes[index] = outcomes[index].map { delivery in
-                var stated = delivery
-                stated.popUps = closed
-                return stated
-            }
-        }
-        var last: InstanceState = await current
-        let quieted = await messages().debounce(for: quiet, clock: clock).prefix(1).map { _ in await self.beat() }
-        for await next in merge(await states().dropFirst(), quieted) {
-            let answered: Bool =
-                switch next {
-                    case .exited, .failed: true
-                    case .running(let running): running.status.isIdle || running.status.is(\.unresponsive) || next == last
+            for (contact, hold) in held where hold.route == .system {
+                let release = Input(contact: contact, path: hold.path, hold: .zero, modifiers: [], schedule: once, edges: [.up])
+                _ = await Result { () async throws(ApplicationFailure) -> ApplicationFailure? in
+                    let timeline = try release.timeline(
+                        doubleClick: host.doubleClick,
+                        keyRepeat: host.keyRepeat,
+                        frame: host.frame,
+                        layout: host.layout,
+                        numbering: (hold.number, hold.clickState),
+                        using: &generator,
+                    )
+                    return try await hold.route.post(timeline, to: process.pid, from: source, frame: host.frame, clock: clock)
                 }
-            last = next
-            if answered { break }
+            }
+            let inside: CGWindowID? = outcomes.last?[case: \.success]?.window
+            let excluded: Set<CGWindowID> = inside.map { (number: CGWindowID) -> Set<CGWindowID> in [number] } ?? []
+            let open: Set<CGWindowID> = instance.application.isActive ? [] : Set(shown).subtracting(excluded)
+            for (index, numbers) in opened.enumerated() where !open.isDisjoint(with: numbers) {
+                var closed: [Step.Delivery.PopUp] = []
+                for number in numbers where open.contains(number) {
+                    closed.append(Step.Delivery.PopUp(window: number, closed: await dismiss(number, host: host, source: source, using: &generator, clock: clock)))
+                }
+                outcomes[index] = outcomes[index].map { delivery in
+                    var stated = delivery
+                    stated.popUps = closed
+                    return stated
+                }
+            }
+            var last: InstanceState = await current
+            let quieted = await messages().debounce(for: quiet, clock: clock).prefix(1).map { _ in await self.beat() }
+            for await next in merge(await states().dropFirst(), quieted) {
+                let answered: Bool =
+                    switch next {
+                        case .exited, .failed: true
+                        case .running(let running): running.status.isIdle || running.status.is(\.unresponsive) || next == last
+                    }
+                last = next
+                if answered { break }
+            }
+            let stalled: Bool = last[case: \.running].map { activity in activity.status != .responding } == true
+            let missed: Bool = outcomes.contains { outcome in outcome[case: \.success].map { delivery in delivery.proof == .unanswered } ?? true }
+            guard stalled || missed else { return (outcomes, last, nil) }
+            let usage = Result { () throws(Errno) in try ResourceUsage(of: process) }.flatMap { after in began.usage.map(after.since) }
+            let load = began.load.flatMap { start in Result { () throws(ProcessFailure) in try SystemLoad.Interval(since: start) } }
+            return (outcomes, last, (usage, load))
         }
-        let stalled: Bool = last[case: \.running].map { activity in activity.status != .responding } == true
-        let missed: Bool = outcomes.contains { outcome in outcome[case: \.success].map { delivery in delivery.proof == .unanswered } ?? true }
-        guard stalled || missed else { return (outcomes, last, nil) }
-        let usage = Result { () throws(Errno) in try ResourceUsage(of: process) }.flatMap { after in began.usage.map(after.since) }
-        let load = began.load.flatMap { start in Result { () throws(ProcessFailure) in try SystemLoad.Interval(since: start) } }
-        return (outcomes, last, (usage, load))
     }
 
     private nonisolated func dismiss(

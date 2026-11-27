@@ -772,7 +772,12 @@ extension Model {
                 ?? element.facts[kAXMenuItemCmdVirtualKeyAttribute]?.integer.flatMap { code in CGKeyCode(exactly: code) }.map(Key.code)
                 ?? element.text(kAXMenuItemCmdCharAttribute).flatMap(\.first).map(Key.character)
             let modifiers: [Modifier] = (mask.contains(.noCommand) ? [] : [.command]) + masks.filter { pair in mask.contains(pair.mask) }.map(\.modifier)
-            let frames: [CGRect] = (set ?? [element]).compactMap { (shown: Element) -> CGRect? in shown.frame.flatMap { (frame: CGRect) -> CGRect? in frame.isEmpty ? nil : frame } }
+            let frames: [CGRect] = (set ?? [element]).compactMap { (shown: Element) -> CGRect? in
+                let ancestors: [Int] = Array(Swift.sequence(first: shown.id) { (id: Int) -> Int? in parents[id] }.dropFirst().prefix(held.count))
+                let areas: [CGRect] = ancestors.compactMap { (id: Int) -> CGRect? in held[id].flatMap { (scope: Element) -> CGRect? in scope.role == kAXScrollAreaRole ? scope.frame : nil } }
+                let visible: CGRect? = shown.frame.map { (frame: CGRect) -> CGRect in areas.reduce(frame) { (cut: CGRect, area: CGRect) -> CGRect in cut.intersection(area) } }
+                return visible.flatMap { (frame: CGRect) -> CGRect? in frame.isEmpty ? nil : frame }
+            }
             let inputs: [String] = element.inputLabels.filter { text in text != label?.text }
             let primary: Int? = element.facts[kAXMenuItemPrimaryUIElementAttribute]?.element.flatMap { (item: Int) -> Int? in item == element.id ? nil : refs[item] }
             let control = Control(

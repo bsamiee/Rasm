@@ -5,6 +5,7 @@ import CoreGraphics
 import Encoding
 import SPI
 import System
+import os
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -51,6 +52,10 @@ package enum Rung: String, CaseIterable, Codable, Sendable, CustomStringConverti
         }
     }
 }
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+private let postings = Logger(subsystem: Bundle.main.bundleIdentifier ?? ProcessInfo.processInfo.processName, category: String(describing: Route.self))
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -183,6 +188,12 @@ extension Route {
                 setWindowLocation(event, CGPoint(x: event.location.x - origin.x, y: event.location.y - origin.y))
             }
             if tapped { event.post(tap: .cghidEventTap) } else { event.postToPid(receiver) }
+            if !keys.contains(event.type) {
+                let local: CGPoint = origin.map { (origin: CGPoint) -> CGPoint in CGPoint(x: event.location.x - origin.x, y: event.location.y - origin.y) } ?? event.location
+                postings.debug(
+                    "\(event.type.rawValue, privacy: .public) on \(String(describing: self), privacy: .public) to process \(receiver, privacy: .public) window \(number ?? kCGNullWindowID, privacy: .public) at \(Double(event.location.x), privacy: .private),\(Double(event.location.y), privacy: .private) local \(Double(local.x), privacy: .private),\(Double(local.y), privacy: .private)"
+                )
+            }
             posted = true
             switch edge {
                 case .some(let edge) where edge.down: held.insert(edge.contact)

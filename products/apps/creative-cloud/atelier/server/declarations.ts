@@ -6,6 +6,7 @@ import { readCoreOmv } from '@rasm/extendscript/node';
 import { Output } from '@rasm/mcp/cli';
 import { registerResourceTemplate } from '@rasm/mcp/resource';
 import { Server } from '@rasm/mcp/server';
+import { ToolCall } from '@rasm/mcp/toolkit';
 import { Declaration } from '@rasm/object-model/model';
 import { readDocuments, readManifest, readOmv, readTypeScript } from '@rasm/object-model/node';
 import { Unmatched } from '@rasm/search/unmatched';
@@ -72,7 +73,7 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
             const { index } = yield* resolved[host];
             const named = Array.intersection(Array.dedupe(Array.getSomes(Array.map(listed, Struct.get('declared')))), [...index.classes, ...index.enumerations]);
             const linked = [...Array.map(named, (name) => ({ uri: server.uri(`object-model/${host}/${name}`), name: `${host} ${name}`, description: `Declaration of ${name}` })), { uri: server.uri(`object-model/${host}`), name: `${host} object model`, description: 'Every class and enumeration the declarations state' }];
-            const { add } = yield* Server.ToolCall;
+            const { add } = yield* ToolCall;
             yield* Effect.forEach(linked, (link) => add(McpSchema.ResourceLink.make({ ...link, mimeType: 'application/json' })), { discard: true });
             return yield* new Cause.IllegalArgumentError(
                 [`${row.name} declarations refuse the body before it runs:`, ...Array.map(listed, (each) => Option.match(Option.flatMap(each.line, line), { onNone: () => each.text, onSome: (at) => `line ${at}: ${each.text}` })), `Read ${Array.map(linked, Struct.get('uri')).join(', ')}`].join('\n'),

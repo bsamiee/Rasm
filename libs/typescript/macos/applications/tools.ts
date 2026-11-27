@@ -2,6 +2,7 @@ import { basename } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Output, setting } from '@rasm/mcp/cli';
 import { Handle, Server } from '@rasm/mcp/server';
+import { ToolCall } from '@rasm/mcp/toolkit';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Array, ByteSize, Cause, Context, DateTime, Duration, Effect, Equal, Function, HashMap, HashSet, Match, Option, Order, Predicate, pipe, Record, Ref, Request, RequestResolver, Result, Schema, Stream, String, Struct, SubscriptionRef, Tuple, UndefinedOr } from 'effect';
 import { type McpServer, McpSchema, Tool } from 'effect/ai';
@@ -393,7 +394,7 @@ const keyFramesOf = (application: Option.Option<string>, instance: InstanceSnaps
     ];
 };
 const attach = Effect.fnUntraced(function* (taken: readonly { readonly image: Option.Option<{ readonly png: Uint8Array; readonly placement: Option.Option<Placement> }> }[]) {
-    const [{ add }, handle] = yield* Effect.all([Server.ToolCall, Handle]);
+    const [{ add }, handle] = yield* Effect.all([ToolCall, Handle]);
     const images = Array.getSomes(taken.map(Struct.get('image')));
     yield* handle.set(Viewed, Option.flatMap(Array.last(images), Struct.get('placement')));
     yield* Effect.forEach(images, ({ png }) => add(McpSchema.ImageContent.make({ data: png, mimeType: 'image/png' })), { discard: true });
@@ -833,7 +834,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
         return { row, live, application, map, route, indexed, level, base, handle };
     });
     const clipped = (instance: InstanceSnapshot['instance'], asked: boolean) => (pasteboard: Pasteboard) => Effect.map(intern(instance, pasteboard.locator), (ref) => Outline.clipboard(pasteboard, ref, asked));
-    const stated = (application: string, state: InstanceSnapshot['state'], explains: Explains = {}) => Effect.flatMap(Effect.all([session, pressure]), ([screen, strain]) => Server.ToolCall.use((call) => call.state(stateLine(application, state, { screen, strain, ...explains }))));
+    const stated = (application: string, state: InstanceSnapshot['state'], explains: Explains = {}) => Effect.flatMap(Effect.all([session, pressure]), ([screen, strain]) => ToolCall.use((call) => call.state(stateLine(application, state, { screen, strain, ...explains }))));
     const capture = Effect.fnUntraced(function* (application: Option.Option<string>, snapshot: InstanceSnapshot, source: Capture['source'], drawn: Drawn) {
         const { instance } = snapshot;
         const marks = Option.match(
@@ -1210,7 +1211,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             const proving = Array.zip(ready, outcomes).flatMap(provingOf(live.instance));
             const handle = yield* Handle;
             yield* handle.set(Proving, { ...(yield* handle.get(Proving)), ...Record.fromEntries(proving) });
-            yield* Server.ToolCall.use(Struct.get('awaitRunning'));
+            yield* ToolCall.use(Struct.get('awaitRunning'));
             return [
                 ...Array.zip(ready, outcomes).map(([entry, outcome], index) => [...(ready.length > 1 ? [`${index + 1}.`] : []), describeOutcome(entry.label)(outcome)].join(' ')),
                 ...Array.match(Array.drop(ready, outcomes.length), { onEmpty: Array.empty, onNonEmpty: (rest) => [`Not run: ${Outline.list(rest.map(({ label }) => `${VERBS[label.verb][2]} ${label.object}`))}`] }),

@@ -13,7 +13,6 @@ import {
     type Exit,
     Fiber,
     FiberSet,
-    Formatter,
     Function,
     Layer,
     Match,
@@ -28,9 +27,7 @@ import {
     Ref,
     Result,
     Schema,
-    SchemaAST,
     SchemaGetter,
-    SchemaIssue,
     type Scope,
     Stream,
     Struct,
@@ -48,6 +45,7 @@ import { Jwk, Jwt } from 'effect/jose';
 import { Host, NetAddress } from 'effect/net';
 import { Handles } from '#/handles';
 import { callResult, type Entry, type HandleState, openStore } from '#/store';
+import { ToolCall } from '#/toolkit';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -59,7 +57,6 @@ const LISTING = new Intl.ListFormat('en');
 const Coded = Schema.Struct({ code: McpSchema.McpErrorBase.fields.code });
 const Resumed = Schema.Struct({ handle: Schema.String, issued: Schema.Boolean, state: Schema.OptionFromOptionalKey(Schema.String), aud: Schema.String });
 const isUuidV7 = Schema.is(Column.Uuid);
-const standardIssues = SchemaIssue.makeFormatterStandardSchemaV1();
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -103,22 +100,12 @@ class Server extends Context.Service<
     static readonly Visibility = Context.Reference<Effect.Effect<boolean, Error>>('@rasm/mcp/server/Visibility', { defaultValue: () => Effect.succeed(true) });
     static readonly Icons = Context.Reference<readonly McpSchema.Icon[]>('@rasm/mcp/server/Icons', { defaultValue: () => [] });
     static readonly EarlyReturn = Context.Reference<Stream.Stream<Effect.Effect<string>>>('@rasm/mcp/server/EarlyReturn', { defaultValue: () => Stream.never });
-    static readonly ToolCall = Context.Reference<{
-        readonly add: (block: McpSchema.ContentBlock) => Effect.Effect<void>;
-        readonly state: (line: string) => Effect.Effect<void>;
-        readonly progress: (report: Omit<Parameters<McpServer.McpServer['Service']['notifications']['notifications/progress']>[0], 'progressToken' | '_meta'>) => Effect.Effect<void>;
-        readonly input: (required: McpSchema.InputRequired) => Effect.Effect<never, McpSchema.InternalError>;
-        readonly awaitRunning: Effect.Effect<void>;
-    }>('@rasm/mcp/server/ToolCall', {
-        defaultValue: () => ({ add: () => Effect.void, state: () => Effect.void, progress: () => Effect.void, input: () => Effect.fail(McpSchema.InternalError.make({ message: 'Client input needs a tool call that carries it to the client' })), awaitRunning: Effect.void }),
-    });
     static readonly orInternalError = Effect.mapError(({ message }: Error) => McpSchema.InternalError.make({ message }));
-    static readonly invalidParams = (issue: SchemaIssue.Issue) => McpSchema.InvalidParams.make({ message: describeIssue(issue) });
     static readonly persist = <A, RD, RE>(reference: Context.Reference<A>, schema: Schema.Codec<A, unknown, RD, RE>) => Server.use((served) => served.persist(reference, schema));
     static readonly progress =
-        <A>(report: (value: A, index: number) => Parameters<(typeof Server.ToolCall)['Service']['progress']>[0]) =>
+        <A>(report: (value: A, index: number) => Parameters<(typeof ToolCall)['Service']['progress']>[0]) =>
         <E, R>(self: Stream.Stream<A, E, R>) =>
-            Stream.mapEffect(self, (value, index) => Server.ToolCall.use(({ progress }) => Effect.as(progress(report(value, index)), value)));
+            Stream.mapEffect(self, (value, index) => ToolCall.use(({ progress }) => Effect.as(progress(report(value, index)), value)));
     static readonly registerTool = Effect.fnUntraced(function* <P extends Schema.Top, S extends Schema.Top, R>(
         tool: Tool.Tool<string, { readonly parameters: P; readonly success: S; readonly failure: Schema.Never; readonly failureMode: Tool.FailureMode }>,
         handle: (parameters: P['Type']) => Effect.Effect<S['Type'], Error, R>,
@@ -131,7 +118,7 @@ class Server extends Context.Service<
                     decode: SchemaGetter.transform((given: P['Type']) => Effect.flatMap(Effect.context<McpSchema.McpRequestContext>(), (request) => Effect.provideContext(handle(given), Context.merge(context, request)))),
                     encode: SchemaGetter.forbiddenEncoding,
                 }),
-                Schema.catchDecoding((issue) => Effect.succeedSome(Server.invalidParams(issue))),
+                Schema.catchDecoding((issue) => Effect.succeedSome(ToolCall.invalidParams(issue))),
             ),
             tool.successSchema,
         ];
@@ -220,7 +207,7 @@ class Server extends Context.Service<
                 const tool = McpSchema.Tool.make({ ...Struct.omit(options.tool, ['outputSchema']), icons: withIcons(options.annotations, options.tool.icons), inputSchema: { ...options.tool.inputSchema, properties: { ...options.tool.inputSchema.properties, ...added } } });
                 const handle = Effect.fnUntraced(
                     function* (payload: Record.ReadonlyRecord<string, Schema.Json>) {
-                        const [{ handle: given }, request] = yield* Effect.all([Effect.mapError(Schema.decodeEffect(Given)(payload), ({ issue }) => Server.invalidParams(issue)), McpSchema.McpRequestContext]);
+                        const [{ handle: given }, request] = yield* Effect.all([Effect.mapError(Schema.decodeEffect(Given)(payload), ({ issue }) => ToolCall.invalidParams(issue)), McpSchema.McpRequestContext]);
                         const resumed = yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(request.requestState), (sealed) => open(options.tool.name, sealed)));
                         const wanted = Option.firstSomeOf([Option.map(resumed, Struct.get('handle')), Option.fromUndefinedOr(given)]);
                         const { id, row, fibers } = yield* Option.match(wanted, {
@@ -237,14 +224,14 @@ class Server extends Context.Service<
                             Effect.flatMap(TxSubscriptionRef.get(row), TxSubscriptionRef.make),
                         ]);
                         const [bound, ending, token] = [handleOf(row), Stream.provideService(ends, Handle, handleOf(frozen)), Schema.decodeUnknownOption(McpSchema.ProgressToken)(request.requestMetadata?.progressToken)];
-                        const notify = (report: Parameters<(typeof Server.ToolCall)['Service']['progress']>[0]) => Option.match(token, { onNone: () => Effect.void, onSome: (progressToken) => server.notifications['notifications/progress']({ progressToken, ...report }) });
+                        const notify = (report: Parameters<(typeof ToolCall)['Service']['progress']>[0]) => Option.match(token, { onNone: () => Effect.void, onSome: (progressToken) => server.notifications['notifications/progress']({ progressToken, ...report }) });
                         const poll = SubscriptionRef.updateAndGet(pace, Struct.evolve({ last: Number.increment, offset: Number.increment })).pipe(Effect.flatMap(({ last }) => notify({ progress: last })));
                         const ended = Stream.runHead(Stream.merge(ending, Option.match(token, { onNone: () => Stream.empty, onSome: () => pace.pipe(SubscriptionRef.changes, Stream.debounce(Duration.minutes(1)), Stream.mapEffect(Function.constant(poll)), Stream.drain) })));
                         const answer = Effect.zipWith(Effect.catchTag(options.handle(Record.remove(payload, 'handle')), 'InvalidParams', refused), Effect.all([Ref.get(stated), Ref.get(blocks)]), (outcome, [lines, more]) =>
                             outcome instanceof McpSchema.InputRequired ? outcome : McpSchema.CallToolResult.make({ ...outcome, content: [...lines, ...outcome.content, ...more] }),
                         ).pipe(
                             Effect.raceFirst(Deferred.await(asked)),
-                            Effect.provideService(Server.ToolCall, {
+                            Effect.provideService(ToolCall, {
                                 add: (block) => Ref.update(blocks, Array.append(block)),
                                 state: (line) => Ref.set(stated, [McpSchema.TextContent.make({ text: line })]),
                                 progress: (report) => SubscriptionRef.modify(pace, ({ offset }) => [Struct.evolve(report, { progress: Number.sum(offset), total: UndefinedOr.map(Number.sum(offset)) }), { last: report.progress + offset, offset }]).pipe(Effect.flatMap(notify)),
@@ -458,37 +445,6 @@ const split = ({ content, structuredContent }: McpSchema.CallToolResult) => {
     const shown = UndefinedOr.map(structuredContent, (json) => [JSON.stringify(json), Predicate.isString(json) ? json : JSON.stringify(json)] as const);
     return { blocks, texts: UndefinedOr.match(shown, { onUndefined: () => texts, onDefined: ([mirror, text]) => (Array.contains(texts, mirror) ? Array.map(texts, (each) => (each === mirror ? text : each)) : Array.append(texts, text)) }) };
 };
-const parameterPath = (segments: readonly (PropertyKey | { readonly key: PropertyKey })[]) =>
-    Array.reduce(segments, '', (text, segment) =>
-        Match.value(typeof segment === 'object' ? segment.key : segment).pipe(
-            Match.when(Predicate.isNumber, (index) => `${text}[${index}]`),
-            Match.when(() => text === '', String),
-            Match.orElse((key) => `${text}.${String(key)}`),
-        ),
-    );
-const nearestForms = (query: string, ast: SchemaAST.AST) => {
-    const declared = SchemaAST.isObjects(ast) ? ast.propertySignatures : [];
-    const forms = Array.flatMap(declared, ({ name, type }) => [
-        { name: String(name), form: String(name) },
-        ...Array.filterMap(SchemaAST.isUnion(type) ? type.types : [type], (member) => (SchemaAST.isLiteral(member) ? Result.succeed({ name: String(member.literal), form: `${String(name)}:${Formatter.format(member.literal)}` }) : Result.failVoid)),
-    ]);
-    return Array.match(Unmatched.rank(query, forms, Struct.get('name')), {
-        onEmpty: () => Array.match(declared, { onEmpty: () => 'not a parameter, this takes none', onNonEmpty: (each) => `not a parameter, the parameters here are ${LISTING.format(Array.map(each, ({ name }) => String(name)))}` }),
-        onNonEmpty: (ranked) => `not a parameter, nearest ${LISTING.format(Array.map(Array.take(ranked, 3), Struct.get('form')))}`,
-    });
-};
-const issueLines = (issue: SchemaIssue.Issue, at: readonly PropertyKey[]): readonly string[] => {
-    if (Predicate.isTagged(issue, 'Pointer')) {
-        return Predicate.isTagged(issue.issue, 'UnexpectedKey') || (Predicate.isTagged(issue.issue, 'InvalidType') && SchemaAST.isNever(issue.issue.ast)) ? [`${parameterPath([...at, ...issue.path])}: ${nearestForms(issue.path.map(String).join('.'), issue.issue.ast)}`] : issueLines(issue.issue, [...at, ...issue.path]);
-    }
-    if (Predicate.isTagged(issue, 'Encoding')) {
-        return issueLines(issue.issue, at);
-    }
-    return (Predicate.isTagged(issue, 'Composite') || Predicate.isTagged(issue, 'AnyOf')) && Array.isReadonlyArrayNonEmpty(issue.issues)
-        ? Array.flatMap(issue.issues, (inner) => issueLines(inner, at))
-        : Array.map(standardIssues(issue).issues, ({ path = [], message }) => Array.match([...at, ...path], { onEmpty: () => message, onNonEmpty: (segments) => `${parameterPath(segments)}: ${message}` }));
-};
-const describeIssue = (issue: SchemaIssue.Issue) => issueLines(issue, []).join('\n');
 const refused = ({ message }: McpSchema.InvalidParams) => Effect.succeed(McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: message })] }));
 const touch = ({ row }: { readonly row: TxSubscriptionRef.TxSubscriptionRef<HandleState> }) => Effect.addFinalizer(() => Effect.flatMap(DateTime.now, (at) => TxSubscriptionRef.update(row, Struct.evolve({ touched: () => Option.some(at) }))));
 const send = (slot: HandleState) => {

@@ -99,6 +99,8 @@ package actor Watch {
     private var seeded: [Locator: ArraySlice<Int>]
     private var located: [Int: Int] = [:]
     private var scrolled: Set<Int> = []
+    private var steps: (running: Int, waiting: [CheckedContinuation<Void, Never>]) = (0, [])
+    @TaskLocal private static var stepping: Bool = false
     private var drawn: [Int: (window: CGWindowID, frame: CGRect)] = [:]
     private var pictures: [CGWindowID: (frame: CGRect, last: [SIMD2<Int>: (shot: Screenshot, at: ContinuousClock.Instant)], restless: [(region: CGRect, span: Duration)])] = [:]
     private var posted: ContinuousClock.Instant?
@@ -749,6 +751,8 @@ package actor Watch {
     // --- [MODEL]
 
     package func model(_ scope: Model.Scope, known: Model.Known? = nil, clock: some Clock<Duration> = SuspendingClock()) async throws(ApplicationFailure) -> Model {
+        while !Watch.stepping, steps.running > 0 { await withCheckedContinuation { (waiter: CheckedContinuation<Void, Never>) in steps.waiting.append(waiter) } }
+        beat()
         switch scope {
             case .application:
                 let verified: Set<String> = known?.build == build ? known?.containers ?? [] : []
@@ -783,11 +787,36 @@ package actor Watch {
                 return try await level(of: ref, clock: clock)
             case .rows(let ref, let from, let count):
                 guard let multi = located[ref], let element = handles[multi], let held = controls[ref], let root = root(of: held.control.locator) else { throw stale(ref) }
+                let scrolling: [String] = [kAXParentAttribute, kAXVerticalScrollBarAttribute, kAXHorizontalScrollBarAttribute]
+                let ancestors: [Element] = Array(
+                    Swift.sequence(first: read(element, scrolling).element) { (node: Element) -> Element? in
+                        let parent: AXUIElement? = node.facts[kAXParentAttribute]?.element.flatMap { (id: Int) -> AXUIElement? in self.handles[id] }
+                        return parent.map { (parent: AXUIElement) -> Element in self.read(parent, scrolling).element }
+                    }
+                    .prefix(while: { (node: Element) -> Bool in node.id != intern(applicationElement) })
+                )
+                let positions: [(bar: AXUIElement, value: CFTypeRef?)] = ancestors.flatMap { (node: Element) -> [Int] in
+                    [kAXVerticalScrollBarAttribute, kAXHorizontalScrollBarAttribute].compactMap { (attribute: String) -> Int? in node.facts[attribute]?.element }
+                }
+                .compactMap { (id: Int) -> AXUIElement? in handles[id] }
+                .map { (bar: AXUIElement) -> (bar: AXUIElement, value: CFTypeRef?) in
+                    var value: CFTypeRef?
+                    _ = unsafe AXUIElementCopyAttributeValue(bar, kAXValueAttribute as CFString, &value)
+                    return (bar, value)
+                }
                 var listed: CFArray?
                 let answer = unsafe AXUIElementCopyAttributeValues(element, kAXRowsAttribute as CFString, from, count, &listed)
                 guard answer == .success else { throw element.failure(answer, reading: kAXRowsAttribute) }
                 let rows: [Int] = listed.flatMap { list in Fact(list, interning: intern) }?.elements ?? []
                 let model = Model(try hierarchy(of: try application(), full: [root], rows: (multi, rows)), sequence: sequence, ref: intern)
+                for (bar, value) in positions {
+                    var now: CFTypeRef?
+                    _ = unsafe AXUIElementCopyAttributeValue(bar, kAXValueAttribute as CFString, &now)
+                    guard let value, let now, !CFEqual(value, now) else { continue }
+                    let restored: AXError = AXUIElementSetAttributeValue(bar, kAXValueAttribute as CFString, value)
+                    let subject = "Restoring the scroll position after reading rows of \(applicationName)"
+                    guard restored == .success else { throw ApplicationFailure(restored, subject: subject, process: instance.process.pid) }
+                }
                 return Model(sequence: sequence, containers: model.containers.filter { read in read.ref == held.container }, located: model.located)
             case .text(let ref):
                 guard let id = located[ref], let element = handles[id], let held = controls[ref], let root = root(of: held.control.locator) else { throw stale(ref) }
@@ -1071,6 +1100,23 @@ package actor Watch {
                 case .started, .moved, .frontmost, .hidden, .status, .announced, .dragging, .proven, .logged, .reported, .sampled, .exited: nil
             }
         }
+    }
+
+    nonisolated func step<Value: Sendable, Failure: Error>(_ body: () async throws(Failure) -> Value) async throws(Failure) -> Value {
+        await hold(1)
+        let outcome: Result<Value, Failure> = await Watch.$stepping.withValue(true) { await Result { () async throws(Failure) -> Value in try await body() } }
+        await hold(-1)
+        return try outcome.get()
+    }
+
+    private func hold(_ change: Int) {
+        steps.running += change
+        guard steps.running == 0 else { return }
+        for waiter in exchange(&steps.waiting, with: []) { waiter.resume() }
+    }
+
+    func invalidate(window number: CGWindowID) {
+        scrolled.formUnion(open.values.filter { (container: Container) -> Bool in container.parent == nil && container.window == number }.compactMap { container in located[container.ref] })
     }
 
     func perform<Value: Sendable>(on ref: Int?, _ body: @Sendable (AXUIElement?) throws(ApplicationFailure) -> Value) async throws(ApplicationFailure) -> Value {
