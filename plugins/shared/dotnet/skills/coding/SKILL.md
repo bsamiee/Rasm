@@ -259,7 +259,7 @@ internal static class Workflow {
 
 ### [04.2]-[ERRORS]
 
-Expected failures are data in return types, and exceptions signal developer defects, initialization failures, or third-party calls a boundary converts with `IO.lift` or `Try.lift`. Each raising package declares an error record retaining rejected values and a typed reason. Optional facts take `Option` fields, findings collected without failing take union cases. Records extend `Expected` with code 0 and derive `Message` from current fields. `Unless` returns `Fin`, and `Create(string)` implements `IValidationError`. Rejected values keep their call text through `[CallerArgumentExpression]`:
+Expected failures are data in return types, and exceptions signal developer defects, initialization failures, or third-party calls a boundary converts with `IO.lift` or `Try.lift`. Each raising package declares an error record retaining rejected values and a typed reason. Optional facts take `Option` fields, findings collected without failing take union cases. Records extend `Expected` with code 0, and `Message` derives every fault's text from its reason and subject in one place. `Unless` returns `Fin`, and `Create(string)` implements `IValidationError`. Call sites pass the rejected value and spell no phrase, and it keeps its call text through `[CallerArgumentExpression]`:
 
 ```csharp
 [SmartEnum]
@@ -291,6 +291,8 @@ public sealed record Fault(object? Subject, Reason Reason, Option<int> Index = d
 Consumers classify an error by type with `IsType<E>` and `Filter<E>`, and a captured exception with `HasException<E>`. LanguageExt's `Errors.Cancelled`, `Errors.TimedOut`, `Errors.Closed`, and `Errors.ParseError` stand for those failures. A thrown exception stays the `Exceptional` the lift captured, and a boundary wraps it only to add a subject it lacks (a path), through `Catch` on its `HasException<E>` into an error that keeps the exception as its cause. `Fin<A>` holds violated business rules, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`. Hosts separate both in one `Match`, `IsExceptional` logs detail and renders a generic failure, every other error renders its business message.
 
 Host calls signaling failure with `bool`, `-1`, or `null` become `Fin` at the call (`store.Write(file) ? unit : Error.New(...)`), and a failed step the caller continues past keeps its error message in the outcome.
+
+Subjects are a value or a tuple of values (`(slot, content.Id)`), a helper taking a delegate names its caller through `[CallerMemberName]` and `[CallerLineNumber]`, and each reason item states its wording once. Keys and captions read their member symbol (`nameof`), values print through their type's formatter under a culture argument, and text no host shows goes. Library faults name what failed and why, and the plug-in or command layer adds the remedy and localizes a caption once where it is declared.
 
 Use `dotnet:thinktecture` for value type validation.
 

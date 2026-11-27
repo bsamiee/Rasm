@@ -9,7 +9,7 @@ def replaced[R: msgspec.Struct](record: R, /, **changes: object) -> Outcome[R]:
     try:
         return Ok(msgspec.structs.replace(record, **changes))
     except ValueError as error:
-        return Error(Fault.of(Reason.INVALID, type(record).__name__, error))
+        return Error(Fault.of(Reason.INVALID, type(record), error))
 ```
 
 `replaced(ramp, stops=tuple((1.0 - at, value) for at, value in reversed(ramp.stops)))` returns a reflected ramp or an `INVALID` fault when rounding merges distinct stop positions.

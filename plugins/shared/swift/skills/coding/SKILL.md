@@ -141,8 +141,10 @@ Values take the type that the standard library, an SDK framework, or a package i
 - `RawRepresentable` structs hold a value's rule in `init?(rawValue:)`, and the standard library's coder for their raw type refuses a rejected value at decode (`LongestSide`)
 - Records of `RawRepresentable` fields synthesize each initializer and coder, a field computed from stored fields is a computed property (`LogLine.timestamp`)
 - Custom initializers sit in an extension, and the memberwise initializer and synthesized coders stay (`DiagnosticReport.init?(_:written:)`)
-- Kinds, keys, and states are enum cases and key paths, a string holds text a person reads or a token a wire fixes
-- Wire tokens come from their owner (`kCFBundleIdentifierKey`, `UTType`, `String(describing: T.self)`, a `rawValue`) in place of a literal
+- Kinds, keys, and states are enum cases and key paths, a string holds text a reader receives or a token a wire fixes
+- Text no host shows and no program prints (a `description`, a message) goes
+- Wire tokens and names in text come from their owner (`kCFBundleIdentifierKey`, `UTType`, `String(describing: T.self)`, a `rawValue`, a `Mirror` case label)
+- Modules rendering text state one format style per kind (`.units` for a `Duration`, `.byteCount`, `.list`, `.iso8601`), and a call site passes the value alone
 - Absence is `nil` of an `Optional`, never an empty string, a sentinel, a force cast, or a force unwrap
 - Defaults stand where a standard, the host, or a package states the value, `""` included where an API reads it as unset
 
@@ -232,43 +234,59 @@ Step signatures and the dependence between steps select the operator:
 
 ### [04.2]-[ERRORS]
 
-Each throwing module declares one error type: a struct holding the rejected subject and a `@CasePathable` reason enum, its text derived from both:
+Each throwing module declares one error type: a struct holding the rejected subject and a `@CasePathable` reason enum. One protocol extension derives every module error's text from its subject, its reason's case label, and the values that case holds:
 
 ```swift
-public struct FileFailure: CustomNSError, Equatable, LocalizedError {
+public protocol ModuleError: CustomNSError, LocalizedError {
+    associatedtype Reason: Sendable
+    var subject: String { get }
+    var reason: Reason { get }
+}
+
+extension ModuleError {
+    public var errorDescription: String? {
+        let held: Mirror.Child? = Mirror(reflecting: reason).children.first
+        let fact: String? =
+            switch held?.value {
+                case let duration as Duration: duration.formatted(.units(width: .narrow))
+                case let error as NSError: error.localizedDescription
+                case let value?: String(describing: value)
+                case nil: nil
+            }
+        return [subject, held?.label ?? String(describing: reason), fact].compactMap(\.self).joined(separator: " ")
+    }
+}
+
+public struct FileFailure: ModuleError, Equatable {
     @CasePathable
     public enum Reason: Equatable, Sendable {
         case held
-        case compromised
+        case waited(Duration)
         case filesystem(NSError)
     }
 
     public let subject: String
     public let reason: Reason
 
-    public var errorDescription: String? {
-        switch reason {
-            case .held: "\(subject) is held"
-            case .compromised: "\(subject) changed while held"
-            case .filesystem(let error): "\(subject): \(error.localizedDescription)"
-        }
-    }
-
     public var errorUserInfo: [String: Any] {
         switch reason {
             case .filesystem(let error): [NSUnderlyingErrorKey: error]
-            case .held, .compromised: [:]
+            case .held, .waited: [:]
         }
     }
 }
 ```
 
+`Mirror` reads the thrown case's label and payload, a new case or module adds no text, and the extension is the one place a failure's text changes form:
 - `localizedDescription` and a bridged `NSError` read `errorDescription`, and `errorUserInfo` holds the host cause under `NSUnderlyingErrorKey`
 - `Error` refines `Sendable`, every reason fact is `Sendable`, and a cause crosses tasks whole
 - Reason cases name the rule and their own cause, and a case holds a fact only where some of its failures have one
 - Guards checking separate rules each throw their own reason, and a reason holding a sentence or a `nil` shared across rules loses which rule failed
 - Lookup refusals state how far the lookup matched and what stood there (`.stale(reached:candidates:)`)
-- Subjects name the rejected value with the facts its reason reads (`"\(attribute) of process \(pid)"`)
+- Subjects hold the rejected value's identity (a path, a pid, a name its owner states), and each further fact is a reason field
+- No throw site, case arm, or table spells a sentence, and a new fact joins the reason as a field the extension prints
+- Host codes print through the member naming them (`Errno.description`, `GetMacOSStatusErrorString`), and `AXError` and `CGError`, which no host member names, keep one name per code
+- Library errors name what failed and why, and the product owning the tools or commands adds the remedy (`recoverySuggestion` on an app's error)
 - Host causes stay whole in the host's thrown type: `Errno` from System, `AXError`, `DecodingError`, and `NSError` for an untyped Foundation throw
 - `NSError` is `Sendable` and `Hashable`, and a reason holding one synthesizes `Equatable` where `any Error` forces a hand `==`
 - Host calls convert at the call, `do` holds the host call alone and its `catch` throws the module error

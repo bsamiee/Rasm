@@ -10435,6 +10435,7 @@ name = "rasm-process"
 version = "0.1.0"
 dependencies = [
  "derive_more",
+ "fs-err",
  "itertools 0.15.0",
  "libproc",
  "nix 0.32.0",

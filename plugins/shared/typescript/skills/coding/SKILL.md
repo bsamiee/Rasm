@@ -195,23 +195,23 @@ Every function returns an explicit outcome type, and one type serves one concern
 
 Input boundaries select the outcome type, functions preserve it, and one conversion point uses the function named for its target (`Effect.fromOption`, `Effect.fromResult`, `Option.fromNullishOr`, `Result.fromOption`). `null` and `undefined` appear at a host API alone, a host field whose absence means a default reads `field ?? default` at the read, an optional value passes directly to a host prop accepting `undefined` and through a conditional spread to one refusing it, and `Option` stands where a consumer acts on absence. Absent text stays `undefined` or `Option`, never `''`, and text with an optional part is one expression choosing between complete values (``Option.match(tag, { onNone: () => name, onSome: (suffix) => `${name}-${suffix}` })``); `''` stands only where a host input spells unset as `''` (a JSX `value`, a `<select>` placeholder), decoded back to absence at that input. Cases sharing an absent spelling are a tagged enum compared through `Equal`, as a session and an agent both keyed `''` collide. Casts and `!` never stand in for a presence proof, a decode or `Effect.fromNullishOr` supplying it. Empty arrays are values, `Option<readonly A[]>` stands where a consumer treats no collection and an empty one differently.
 
-Each package declares one error class for the expected failures its producers report, holding a `reason` case for each response a caller gives with the data that response reads, the `subject` that failed, and a foreign `cause` where one exists, with a message derived from them:
+Each package declares one error class for the expected failures its producers report, holding a `reason` case for each response a caller gives with the data that response reads, the `subject` that failed, and a foreign `cause` where one exists. One static derives `message` from subject, reason tag, and reason fields, and no call site, `match` arm, or table spells a sentence:
 
 ```ts
 class HostError extends Schema.TaggedError<HostError, { readonly brand: unique symbol }>()('HostError', {
-    reason: Schema.TaggedUnion({ Refused: {}, Unavailable: {}, Cancelled: {} }),
+    reason: Schema.TaggedUnion({ Refused: {}, Unavailable: {}, Unsupported: { member: Schema.String } }),
     subject: Schema.String,
     cause: Schema.optionalKey(Schema.Defect()),
     message: Schema.String,
 }) {
     static readonly of = (reason: HostError['reason'], subject: string) => (cause?: unknown) =>
-        HostError.make({ reason, subject, ...(cause === undefined ? {} : { cause }), message: [`${subject} ${String.toLowerCase(reason._tag)}`, ...(cause === undefined ? [] : [Formatter.format(cause)])].join(': ') });
+        HostError.make({ reason, subject, ...(cause === undefined ? {} : { cause }), message: [subject, String.toLowerCase(reason._tag), ...Record.values(Struct.omit(reason, ['_tag']))].join(' ') });
     static readonly refused = (subject: string) => HostError.of({ _tag: 'Refused' }, subject);
     override readonly [ErrorReporter.severity]: LogLevel.Severity = this.reason._tag === 'Unavailable' ? 'Warn' : 'Info';
 }
 ```
 
-`HostError.refused('panels and menu areas')` is the `catch` of each host call reading them. `of` omits an absent `cause`, a `cause: undefined` key decoding as `null` across a JSON wire, and `Formatter.format` renders a foreign cause with its nested chain:
+`HostError.refused('panels and menu areas')` is the `catch` of each host call reading them. `of` omits an absent `cause`, a `cause: undefined` key decoding as `null` across a JSON wire, and keeps a present one out of `message`, as `Cause.pretty`, a logger, and `Formatter.format` of the error each print its chain once:
 - `message` is a field the constructing static computes, an own property `structuredClone` and a worker's serializer copy where a getter is lost
 - `[ErrorReporter.severity]` gives a reporter the level of each reason, `'Info'` where the class sets none
 - Instances are effects failing with themselves, `return yield*` raises one in a generator and a handler returning one fails with it
@@ -219,9 +219,12 @@ class HostError extends Schema.TaggedError<HostError, { readonly brand: unique s
 - Errors a package member types (`SchemaError`, `HttpClientError`, `Cause.TimeoutError`) stay in `E` unchanged
 - Codecs over a value the program built die through `Effect.orDie`
 - Absences and refused arguments fail with the `Cause` error naming them (`NoSuchElementError`, `IllegalArgumentError`)
-- Refusal messages name received and accepted kinds, class names from the constructor, and a bound's range solved from the operation's relation
+- Refusal messages name received and accepted kinds and a bound's range solved from the operation's relation
+- Names in text read their owner (a reason's `_tag`, a constructor's `name`, `Struct.keys(X.fields)`, `X.literals`, a tool's `name`), a literal copy drifting
+- Hosts printing `message` alone (Nx without `--verbose`, an MCP `isError` result) take the cause from one boundary printing `Formatter.format(error)` or `Cause.pretty`
+- Library errors name what failed and why, the layer owning tools or commands adds the remedy or next call, and no library names a product
 - Values no package error owns (an entry script's refusal) fail with `new Cause.UnknownError(value, message)`, the message naming the refusal
-- Messages render a schema-typed field through `Schema.encodeResult(Schema.fromJsonString(Schema.toCodecJson(S)))`, never `String`
+- Messages render a field through its module's format member and a schema-typed record through `Schema.encodeResult(Schema.fromJsonString(Schema.toCodecJson(S)))`, never `String`
 - Pure checks return finding lists joined into one error over `Schema.NonEmptyArray(Finding)`, its `raise` static failing on a non-empty list
 - Foreign failures become a `cause` under a subject a caller acts on, a `String(cause)` or `error.message` detail flattening its chain
 
@@ -276,14 +279,14 @@ const Condition = Schema.TaggedUnion({
     Modal: { at: Schema.NullOr(Locator) },
 });
 
-const when = Condition.match({
-    Value: ({ at, value }) => `when ${at} is ${value}`,
-    Documents: ({ held }) => (held ? 'when a document is open' : 'when no document is open'),
-    Modal: ({ at }) => (at === null ? 'when no dialog is open' : `when ${at} is open`),
+const read = Condition.match({
+    Value: ({ at }) => Option.some(at),
+    Documents: () => Option.none(),
+    Modal: ({ at }) => Option.fromNullOr(at),
 });
 ```
 
-`Condition` is one fact a control's presence depends on, `Locator` the encoded path of a control or dialog, and `Value` a read value.
+`Condition` is one fact a control's presence depends on, `Locator` the encoded path of a control or dialog, `Value` a read value, and `read` the control or dialog a condition names.
 
 ## [06]-[EFFECTS]
 
@@ -329,7 +332,9 @@ Quantities with a unit are values of their module, a plain number holds a count 
 - `SemVer` holds versions, decoded through `Schema.SemVerFromString` and written through `SemVer.format`, a `\d+\.\d+\.\d+` pattern restating them
 - `Duration` holds elapsed times, a millisecond number at an API taking one, and text typed `` `${number} ${Duration.Unit}` `` is an undecoded input
 - `DateTime` holds instants and zoned times, `Date` appears at an API taking one
-- `BigDecimal` holds money and exact decimal arithmetic and `ByteSize` sizes, `Duration.format` and `ByteSize.format` rendering fixed English for logs
+- `BigDecimal` holds money and exact decimal arithmetic and `ByteSize` sizes
+- Text renders a value through its module's member: `Duration.format` and `ByteSize.format` in fixed English, `DateTime.formatIso`, `CommandLine.display`
+- Paths render through `fileURLToPath`, foreign values through `Formatter.format`, and a template spelling a unit, plural, range, or list restates an `Intl` member
 - `SecureRandom.SecureRandom` service's `uuidV7` creates identifiers, module `uuidV7Unsafe` where code reads no service (an event handler)
 - `Intl` instances built once outside their reader segment words and format numbers, lists, plurals, and times in a caller locale, else the host's
 - `Intl` `format` and `compare` are bound getters a step takes by reference (`Array.makeBy(n, formatter.format)`)

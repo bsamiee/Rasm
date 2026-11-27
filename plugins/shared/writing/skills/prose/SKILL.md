@@ -197,7 +197,7 @@ Code files hold section dividers and tool directives alone, laid out by the file
 - Comments naming a value's ported source go once the source leaves the repository or names a file the repository does not hold
 - Structured doc comments, commented-out configuration templates, tool directives, and a copyright or SPDX notice a store reads keep their form
 - Doc summaries state returns or behavior without repeating member names; remarks keep one fact per sentence
-- Messages and output fields derive event details and known causes from values, then give agents one available action after a comma
+- Messages and output fields derive event details and known causes from values, and the layer owning the tools or commands adds one available action
 - Tool results, log lines, and every string a program prints are agent-facing text held to each rule of this skill, cleaned as prose in files is
 - Output holds no unneeded word or character and keeps one structure across every result of its program
 - Output lines state what their reader acts on, and omit a default state and a fact every sibling shares

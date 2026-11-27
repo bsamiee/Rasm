@@ -22,7 +22,7 @@ permissions:
     actions: read
 
 env:
-    MSBUILDDISABLENODEREUSE: '1'
+    HK_PROFILE: ci
     NX_PARALLEL: 100%
 
 defaults:
@@ -208,7 +208,7 @@ jobs:
                   p12-file-base64: ${{ env.APPLE_DEVELOPMENT_P12 }}
                   p12-password: ${{ env.APPLE_DEVELOPMENT_P12_PASSWORD }}
             - run: nx conformance:check
-            - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,tag:host:unreal'
+            - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,tag:host:rhino,tag:host:unreal,tag:host:claude-code'
               env:
                   NX_SKIP_NX_CACHE: ${{ inputs.uncached == 'macos' || inputs.uncached == 'all' }}
             - if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
@@ -248,7 +248,7 @@ jobs:
               env:
                   RHINO_EMAIL: ${{ secrets.RHINO_EMAIL }}
             - if: ${{ needs.affected.outputs.windows != needs.affected.outputs.rhino }}
-              run: nx affected --targets=test --configuration=headless --exclude='*,!tag:os:win32,tag:host:rhino'
+              run: nx affected --targets=test --configuration=headless --exclude='*,!tag:os:win32,tag:host:rhino,tag:host:claude-code'
             - id: cached
               if: *rhino
               run: nx affected --targets=test --configuration=headless --exclude='*,!tag:host:rhino' || printf "missed=true\n" >> "${GITHUB_OUTPUT}"

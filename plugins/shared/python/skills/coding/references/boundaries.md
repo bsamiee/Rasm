@@ -40,7 +40,7 @@ Path changes are one function over the change and its arguments that returns the
 
 ```python
 def changed[*Ts](change: Callable[[Path, *Ts], object], target: Path, /, *args: *Ts) -> Outcome[Path]:
-    return catch(change, exception=OSError)(target, *args).map(lambda _: target).map_error(partial(Fault.of, Reason.UNWRITABLE, str(target)))
+    return catch(change, exception=OSError)(target, *args).map(lambda _: target).map_error(partial(Fault.of, Reason.UNWRITABLE, target))
 
 
 def rewritten(target: Path, data: bytes, /) -> None:

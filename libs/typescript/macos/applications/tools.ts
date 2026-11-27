@@ -10,6 +10,7 @@ import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
 import { Address, type Index, type Item, type Shown } from '#/address';
 import { type Capture, Recording } from '#/capture';
 import { ApplicationServer } from '#/client';
+import { ApplicationFailure } from '#/contract';
 import { AppleEventValue, type Installation, type ScriptingDictionary } from '#/installations';
 import { Event, InstanceSnapshot, InstanceState, type Pasteboard, QuitMode, type Running, type Session, Written } from '#/instances';
 import { Container, Cursor, type Frame, Kind, type Model, Scope, Value } from '#/interface';
@@ -18,7 +19,7 @@ import { Outline } from '#/outline';
 import { Diagnostics, type Pressure } from '#/processes';
 import { type Declaration, Description, type SourceRpcs } from '#/source';
 import { Act } from '#/steps';
-import { describeUsage, type Entry, followInstance, Workspace } from '#/workspace';
+import { describeUsage, type Entry, followInstance, Proving, Workspace } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -65,8 +66,9 @@ const LIMIT = 50;
 const FRAMES = 6;
 const PROOFS = {
     answer: 'the application accepted it',
-    change: 'the application changed',
+    change: Outline.say.changed,
     value: 'the value reads back',
+    limit: 'at end of range',
     posting: 'posted',
     unanswered: 'no answer in time, so it may have run',
     exit: 'the application exited',
@@ -117,6 +119,7 @@ const TOOLS = {
             arguments: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Process arguments of a new instance, refused where a running instance would receive them' })),
             environment: Schema.optionalKey(Schema.Record(Schema.String, Schema.String).annotate({ description: 'Environment variables of a new instance, refused as arguments are' })),
             new: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Open an instance beside the running ones' })),
+            activate: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Bring the target in front and leave it there, where a container asks for something only the person can give' })),
             opening: Schema.optionalKey(Schema.Record(Schema.String, Schema.Union([Schema.Boolean, Schema.Finite, Schema.String])).annotate({ description: 'Open command parameters by the names the listing of the application states, sent with the documents once the instance is idle' })),
             mode: Schema.optionalKey(QuitMode),
             wait: Schema.optionalKey(Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Seconds open follows the instance, returning its last state, or close waits at most' })),
@@ -273,11 +276,7 @@ const partialOf = (held: Index) =>
 const joinedOf = (held: Index, reads: readonly { readonly containers: Model['containers'] }[]) =>
     held.model.containers.map((container) => ({
         ...container,
-        controls: Array.unionWith(
-            container.controls,
-            reads.flatMap(({ containers }) => containers.filter((read) => read.ref === container.ref).flatMap((read) => read.controls)),
-            (left, right) => left.ref === right.ref,
-        ),
+        controls: Array.dedupeWith([...container.controls, ...reads.flatMap(({ containers }) => containers.filter((read) => read.ref === container.ref).flatMap((read) => read.controls))], (left, right) => left.ref === right.ref),
     }));
 const unreadOf = ({ control, item, loaded }: ReturnType<typeof partialOf>[number], read: Index) => {
     const remaining = (control.total ?? loaded) - loaded - rowsOf(read, control.ref).length;
@@ -502,11 +501,16 @@ const labelOf = (step: Step): Phrase =>
             ),
         ),
     );
-const describeOutcome = ({ verb, object }: Phrase) =>
+const done = ({ verb, object }: Phrase) => `${VERBS[verb][0]} ${object}`;
+const provingOf =
+    (instance: string) =>
+    ([{ label }, outcome]: readonly [{ readonly label: Phrase }, Acted['outcomes'][number]]) =>
+        Result.match(outcome, { onFailure: Array.empty, onSuccess: ({ followed }) => Array.fromNullishOr(followed).map((held) => [`${instance} ${held}`, done(label)] as const) });
+const describeOutcome = (phrase: Phrase) =>
     Result.match({
-        onFailure: ({ message }: Error) => `${VERBS[verb][1]} ${object} failed: ${message}`,
-        onSuccess: ({ proof, route, presentation, popUps, tried }: Delivery) =>
-            `${VERBS[verb][0]} ${object}: ${[
+        onFailure: ({ message }: Error) => `${VERBS[phrase.verb][1]} ${phrase.object} failed: ${message}`,
+        onSuccess: ({ proof, route, presentation, popUps, tried, scrolled, followed }: Delivery) =>
+            `${done(phrase)}: ${[
                 PROOFS[proof],
                 ...(proof === 'posting'
                     ? [
@@ -517,9 +521,10 @@ const describeOutcome = ({ verb, object }: Phrase) =>
                               ),
                               () => 'nothing shown changed',
                           ),
-                          'so it may not have landed',
+                          followed === undefined ? 'so it may not have landed' : Outline.say.following,
                       ]
                     : []),
+                ...Option.toArray(Option.fromUndefinedOr(scrolled)).flatMap((held) => [...Outline.scrolled(held.vertical, held.horizontal), ...Outline.showing(held)]),
                 ...(route?._tag === 'source' ? [[`drawn by ${route.member}`, ...Array.match(route.approximated, { onEmpty: Array.empty, onNonEmpty: (lost) => [`without ${Outline.list(lost)}`] })].join(', ')] : []),
                 ...(route?._tag === 'focused' ? ['with its window focused'] : []),
                 ...presented(presentation),
@@ -724,7 +729,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             onNonEmpty: (rows) => rows.join('\n'),
         });
     });
-    const open = Effect.fnUntraced(function* (given: string | undefined, { documents = [], wait, ...launch }: Omit<Tool.Parameters<typeof TOOLS.applications>, 'action' | 'application' | 'mode'>) {
+    const open = Effect.fnUntraced(function* (given: string | undefined, { documents = [], wait, activate = false, ...launch }: Omit<Tool.Parameters<typeof TOOLS.applications>, 'action' | 'application' | 'mode'>) {
         const urls = documents.map(locate);
         const handler = Effect.gen(function* () {
             const opening = yield* handlersOf(urls);
@@ -737,6 +742,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
         const row = yield* Effect.flatMap(UndefinedOr.match(given, { onUndefined: () => handler, onDefined: Effect.succeed }), resolve);
         const { instance, created, replaced, opened, failed } = yield* server.runLaunch({ url: row.url, documents: urls, ...launch }, Option.map(Option.fromUndefinedOr(wait), Duration.seconds));
         const live = yield* setTarget({ row, instance });
+        const front = activate ? Option.some(yield* server.activate({ instance })) : Option.none();
         const [reply, read] = yield* Effect.all([Effect.transposeOption(Option.map(opened, Schema.encodeEffect(Reply))), Effect.result(modelled({ row, live }))]);
         const shown = yield* Result.match(read, {
             onFailure: ({ message }) => Effect.succeed([`Its interface could not be read: ${message}`]),
@@ -748,9 +754,12 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
         });
         yield* stated(row.name, live.state);
         return [
-            [created ? 'Launched behind' : 'Reopened behind', ...(live.url.href === row.url.href ? [] : [`from ${fileURLToPath(live.url)}`]), ...(replaced === true ? ['its code changed on disk since it started'] : []), ...Option.toArray(reply).map((value) => `the open command answered ${JSON.stringify(value)}`)].join(
-                ', ',
-            ),
+            [
+                ...Option.match(front, { onNone: () => [created ? 'Launched behind' : 'Reopened behind'], onSome: (held) => [created ? 'Launched' : 'Reopened', held._tag === 'forward' ? Outline.say.front : Outline.say.unfronted] }),
+                ...(live.url.href === row.url.href ? [] : [`from ${fileURLToPath(live.url)}`]),
+                ...(replaced === true ? ['its code changed on disk since it started'] : []),
+                ...Option.toArray(reply).map((value) => `the open command answered ${JSON.stringify(value)}`),
+            ].join(', '),
             ...failed.map(({ subject, reason, message }) => [`After launch, ${subject} failed, ${reason}`, ...Array.fromNullishOr(message)].join(': ')),
             ...shown,
         ].join('\n');
@@ -776,7 +785,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             [
                 [instanceName(each), ...(home === undefined || home === each.url.href ? [] : [`from ${fileURLToPath(each.url)}`])].join(' '),
                 Result.match(outcome, {
-                    onFailure: ({ message }) => `did not quit: ${message}`,
+                    onFailure: (error) => (Schema.is(ApplicationFailure)(error) ? `did not quit: ${error.message}` : `quit unconfirmed: ${error.message}`),
                     onSuccess: Option.match({
                         onNone: () => `still runs after ${Outline.duration(bound)}`,
                         onSome: InstanceState.match({
@@ -798,7 +807,18 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
     const modelled = Effect.fnUntraced(function* ({ row, live, live: { instance } }: Effect.Success<typeof current>) {
         const map = yield* maps.recall(live);
         const read = (scope: typeof Scope.Type) => server.model({ instance, scope });
-        const [accessible, menus, client] = yield* Effect.all([server.model({ instance, scope: { _tag: 'application' }, ...Option.getOrUndefined(Option.map(map.known, (known) => ({ known }))) }), read({ _tag: 'menus' }), Effect.option(linked(row))], { concurrency: 'unbounded' });
+        const [accessible, menus, client] = yield* Effect.all(
+            [
+                server.model({
+                    instance,
+                    scope: { _tag: 'application' },
+                    ...Option.getOrUndefined(Option.map(map.known, (known) => ({ known }))),
+                }),
+                read({ _tag: 'menus' }),
+                Effect.option(linked(row)),
+            ],
+            { concurrency: 'unbounded' },
+        );
         const application: Model = yield* Option.match(client, { onNone: () => Effect.succeed(accessible), onSome: (from) => facets({ row, live }, from, accessible, {}) });
         yield* maps.sight(live, application.pointer);
         const [route, handle] = yield* Effect.all([routeOf(instance), Handle]);
@@ -999,6 +1019,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                 }),
             );
             const merged = Array.isReadonlyArrayEmpty(completed) ? base : indexed(joinedOf(base, completed));
+            yield* Array.isReadonlyArrayEmpty(completed) ? Effect.void : handle.set(Indexed, Option.some({ instance: live.instance, index: merged }));
             const unread = completed.flatMap((each) => unreadOf(each, indexed(each.containers)));
             const lines = yield* Effect.fromResult(
                 Array.match(searched, {
@@ -1086,7 +1107,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                     onNone: () => Effect.succeedNone,
                     onSome: ({ index }) =>
                         Effect.map(
-                            prepare({ base: index, map, route, refOf: refs, find: (at) => Effect.fromOption(Option.filter(Record.get(index.tokens, at), Struct.get('live'))) }),
+                            prepare({ base: index, map, route, refOf: refs, find: (at) => Effect.fromOption(Option.filter(Result.getSuccess(Address.resolve(index, at)), Struct.get('live'))) }),
                             Option.liftPredicate(({ results }) => results.every(Result.isSuccess)),
                         ),
                 },
@@ -1186,6 +1207,9 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                 troubled: outcomes.some(Result.match({ onFailure: Function.constTrue, onSuccess: ({ proof }) => proof === 'unanswered' })),
                 keyed: Array.take(ready, outcomes.length).some(({ step }) => 'key' in step || ('to' in step && Predicate.isString(step.to))),
             });
+            const proving = Array.zip(ready, outcomes).flatMap(provingOf(live.instance));
+            const handle = yield* Handle;
+            yield* handle.set(Proving, { ...(yield* handle.get(Proving)), ...Record.fromEntries(proving) });
             yield* Server.ToolCall.use(Struct.get('awaitRunning'));
             return [
                 ...Array.zip(ready, outcomes).map(([entry, outcome], index) => [...(ready.length > 1 ? [`${index + 1}.`] : []), describeOutcome(entry.label)(outcome)].join(' ')),

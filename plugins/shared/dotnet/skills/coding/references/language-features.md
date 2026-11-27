@@ -199,10 +199,12 @@ internal static class Searches {
         [CallerArgumentExpression(nameof(subject))] string named = "", [CallerMemberName] string search = "") =>
         Bisection.TryFindRoot(margin, lower, upper, accuracy, Math.ILogB(upper - lower) - Math.ILogB(double.Epsilon), out double root)
             ? root
-            : new Fault(string.Create(CultureInfo.InvariantCulture, $"{search} at {named} = {subject} over [{lower}, {upper}]"), Reason.Invalid);
+            : new Fault((search, named, subject, lower, upper), Reason.Invalid);
 }
 ```
 
 - `[CallerArgumentExpression(nameof(add))]` on a delegate parameter `add` captures whole lambda text (`h => view.Changed += h` labels a host event)
 - Delegates wrapping one host call pass as a method group (`store.Delete`), and the captured text names that member
+- Lambdas with a longer body label their failure by `[CallerMemberName]` and `[CallerLineNumber]`, as the captured text is their whole source
+- Keys and captions read their member symbol through `nameof`, `JsonNamingPolicy.KebabCaseLower.ConvertName(nameof(<Item>))` deriving a kebab key
 - Overloads without caller information win resolution, `[OverloadResolutionPriority(-1)]` on them binds source calls to the caller information form

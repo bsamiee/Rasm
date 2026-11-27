@@ -37,6 +37,7 @@ enum Request: Decodable, Sendable {
     case handlers(document: URL)
     case launch(url: URL, documents: [URL], arguments: [String], environment: [String: String], new: Bool, opening: [String: AppleEventValue], wait: Bool)
     case act(instance: ProcessInstance, steps: [Step], record: Record?)
+    case activate(instance: ProcessInstance)
     case quit(instance: ProcessInstance, mode: Watch.QuitMode)
     case dictionary(url: URL)
     case execute(instance: ProcessInstance, arguments: [String: AppleEventValue])
@@ -195,6 +196,8 @@ extension Request {
                         recording: recording.map(EncodedResult.init),
                     )
                 )
+            case .activate(let process):
+                return try await .value(watches.watch(Instance(process, matching: predicate)).forward())
             case .quit(let process, let mode):
                 let instance = try Instance(process, matching: predicate)
                 let installation = try [.saving, .discarding].contains(mode) ? instance.application.bundleURL.map { url throws(ApplicationFailure) in try Installation(at: url) } : nil

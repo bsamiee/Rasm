@@ -101,7 +101,8 @@ Libraries emit logs, spans, and metrics and export nothing. Each host entry prov
 - `OTEL_SDK_DISABLED` disables every signal, and `OTEL_METRIC_EXPORT_INTERVAL`, `OTEL_BSP_SCHEDULE_DELAY`, `OTEL_BLRP_SCHEDULE_DELAY` set push intervals
 - `OTEL_BSP_MAX_QUEUE_SIZE` and `OTEL_BLRP_MAX_QUEUE_SIZE` bound the pending span and log queues, dropping arrivals past them
 - `OTEL_EXPORTER_OTLP_PROTOCOL` reaches no Effect member, so the telemetry layer maps `http/json` and `http/protobuf` to an `OtlpSerialization` layer
-- `OtlpExporter.Flusher` `flush` waits for every export in flight at its call and drains items queued before it, never fails, and has no timeout, a short-lived host bounding it with `Effect.timeoutOption`
+- `OtlpExporter.Flusher` `flush` waits for every export in flight at its call and drains items queued before it, never fails, and has no timeout
+- Short-lived hosts bound `flush` with `Effect.timeoutOption`
 - `NodeSdk.layer` enables a signal only for a processor or reader its configuration names and takes no instrumentations
 - `Metric.enableRuntimeMetricsLayer` adds fiber runtime metrics where metrics export
 

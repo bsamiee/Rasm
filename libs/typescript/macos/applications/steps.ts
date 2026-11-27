@@ -102,10 +102,18 @@ const Rung = Schema.Literals(['source', 'accessibility', 'process', 'window', 'f
     description:
         'Route of a step in the order a step tries them: the host member of a linked source drawing on its canvas, an Accessibility call, events posted to the process or to the window, the window events between focus and defocus records, then events at the HID tap, which bring the target forward and put the application in front before it back; a step moves on only when a route refuses',
 });
+const Scrolled = Schema.Struct({
+    horizontal: Schema.optionalKey(Schema.Finite.annotate({ description: 'Horizontal scroll bar value after the step, 0 at the start of the content and 1 at its end' })),
+    vertical: Schema.optionalKey(Schema.Finite.annotate({ description: 'Vertical scroll bar value after the step, 0 at the top of the content and 1 at its end' })),
+    rows: Schema.optionalKey(Schema.Int.annotate({ description: 'Rows the scrolled list holds' })),
+    showing: Schema.Array(Schema.Struct({ index: Schema.Int, label: Schema.optionalKey(Schema.String) })).annotate({
+        description: 'Rows now in view, each by its index from 0 and the first text it shows',
+    }),
+});
 const Delivery = Schema.Struct({
-    proof: Schema.Literals(['answer', 'change', 'value', 'posting', 'unanswered', 'exit']).annotate({
+    proof: Schema.Literals(['answer', 'change', 'value', 'limit', 'posting', 'unanswered', 'exit']).annotate({
         description:
-            "What proved the step: answer, an Accessibility call answered success; change, an event of the application, the aimed window's image changing, or a new window of the target after the posted events; value, the attribute read back; posting, events delivered with nothing to read back (a hover, a scroll, a held edge) or a route that delivered while nothing shown changed, so no more intrusive route ran; unanswered, no answer within the messaging timeout, so the step can have run; exit, the instance exited during the step, which ends the run",
+            "What proved the step: answer, an Accessibility call answered success; change, an event of the application, the aimed window's image changing, or a new window of the target after the posted events; value, the attribute or the scroll position read back; limit, the scroll area already at the end of its range that way, so nothing ran; posting, events delivered with nothing to read back (a hover, a held edge) or a route that delivered while nothing shown changed, so no more intrusive route ran; unanswered, no answer within the messaging timeout, so the step can have run; exit, the instance exited during the step, which ends the run",
     }),
     window: Schema.optionalKey(WindowID.annotate({ description: 'Window the step reached' })),
     route: Schema.optionalKey(Route.annotate({ description: 'Route its events took, absent where an Accessibility call alone proved the step' })),
@@ -115,6 +123,8 @@ const Delivery = Schema.Struct({
     popUps: Schema.Array(Schema.Struct({ window: WindowID, closed: Schema.Boolean })).annotate({
         description: 'Windows at the pop-up menu level or above the step opened behind the frontmost application, each closed before act returned and read back gone, else left open; a call whose last step is inside one leaves it open',
     }),
+    scrolled: Schema.optionalKey(Scrolled.annotate({ description: 'Where a scroll left the content: its scroll bar values and the rows now in view' })),
+    followed: Schema.optionalKey(Schema.Int.annotate({ description: 'Number the watch follows a step by after it ended as posted; a later proven event carrying it says the step took effect' })),
 });
 const Act = {
     Rung,

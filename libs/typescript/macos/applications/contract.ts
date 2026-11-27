@@ -4,7 +4,7 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 import { Capture, LongestSide, Recording } from '#/capture';
 import { AppleEventValue, Installation, LaunchEvent, ScriptingDictionary } from '#/installations';
 import { Event, Failed, InstanceSnapshot, InstanceState, LaunchedInstance, Pasteboard, QuitMode, Session, Written } from '#/instances';
-import { Build, Frame, Locator, Model, Observation, Ref, Scope, WindowID } from '#/interface';
+import { Build, Frame, Locator, Model, Observation, Presentation, Ref, Scope, WindowID } from '#/interface';
 import { Diagnostics, Pressure, ProcessInstance } from '#/processes';
 import { Act } from '#/steps';
 
@@ -145,6 +145,7 @@ const ApplicationRpcs = RpcGroup.make(
         success: Act.Result,
         error: Failure,
     }),
+    Rpc.make('activate', { payload: { instance: ProcessInstance }, success: Presentation.annotate({ description: 'forward: the instance brought in front and left there; behind: the system refused to bring it forward' }), error: Failure }),
     Rpc.make('quit', { payload: { instance: ProcessInstance, mode: QuitMode.pipe(Schema.withConstructorDefault(Effect.succeed('asking'))) }, success: InstanceState.annotate({ description: 'Last state, a dialog or unresponsive instance staying running' }), error: Failure }),
     Rpc.make('dictionary', { payload: { url: Installation.fields.url }, success: ScriptingDictionary, error: Failure }),
     Rpc.make('execute', {

@@ -219,7 +219,7 @@ pub(crate) async fn serve(endpoint: Endpoint, cache: &Utf8Path, idle: Option<Dur
     let Some(Instance { listener, held }) = Instance::claim(&endpoint, claim).await? else { return Ok(()) };
     let files = rlimit::increase_nofile_limit(u64::MAX).inspect_err(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "open file limit not raised")).ok();
     tracing::info!(pid = std::process::id(), ?built, files, "listening");
-    let stale = async |path: std::path::PathBuf| {
+    let stale = async |path: PathBuf| {
         let (command, IgnoredAny) = rasm_mcp::decode::<(Command, IgnoredAny)>(&fs_err::tokio::read(&path).await?).map_err(io::Error::other)?;
         Ok::<_, io::Error>(crate::build(&fs_err::tokio::metadata(&command.program).await?)? != command.file)
     };

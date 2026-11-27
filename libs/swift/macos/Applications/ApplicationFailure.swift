@@ -21,6 +21,7 @@ package struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
         case unanswered(Step?)
         case stale(candidates: [String])
         case disabled
+        case secure
         case unchanged(Fact.Scalar?)
         case unseen
         case refused
@@ -109,6 +110,7 @@ package struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .stale(let candidates) where candidates.isEmpty: "\(subject) matches nothing open, inspect the application again"
             case .stale(let candidates): "\(subject) matches nothing open, the nearest open container holds \(candidates.formatted()), inspect the application again"
             case .disabled: "\(subject) is disabled"
+            case .secure: "\(subject) is a secure field the person fills, no step can"
             case .unchanged(.some(let value)): "\(subject) read back \(value) in place of the written value"
             case .unchanged(.none): "\(subject) read back a value other than the written one"
             case .unseen: "\(subject) changed nothing the application shows within its answer time, view the application to see its state"
@@ -170,8 +172,8 @@ package struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .system(let error): [NSUnderlyingErrorKey: error]
             case .foundation(let error), .quarantined(_, let error): [NSUnderlyingErrorKey: error]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
-            case .noGrant, .notResponsible, .reused, .unclaimed, .unanswered, .stale, .disabled, .unchanged, .unseen, .refused, .undelivered, .symbolicHotKey, .notFrontmost, .notKeyFocus, .covered,
-                .unshared, .notText, .pastDeadline, .permittedFrontHeld, .noIdentifier, .noPath, .noExecutable, .noWindow, .absent, .noBackingStore, .spansDisplays, .noImage, .noEncoder,
+            case .noGrant, .notResponsible, .reused, .unclaimed, .unanswered, .stale, .disabled, .secure, .unchanged, .unseen, .refused, .undelivered, .symbolicHotKey, .notFrontmost, .notKeyFocus,
+                .covered, .unshared, .notText, .pastDeadline, .permittedFrontHeld, .noIdentifier, .noPath, .noExecutable, .noWindow, .absent, .noBackingStore, .spansDisplays, .noImage, .noEncoder,
                 .notOnConsole, .screenLocked, .displayAsleep, .requiresApproval, .accessibility, .windowServer, .cancelled:
                 [:]
         }

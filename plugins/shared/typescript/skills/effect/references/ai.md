@@ -17,6 +17,8 @@ Annotations state behavior to MCP clients and model providers, and `annotateMerg
 - `Tool.Readonly` and `Tool.Idempotent` default `false`, `Tool.OpenWorld` `true`, and an unset `Tool.Destructive` lists as `!Readonly`
 - `Tool.Title` sets the listed title, and `Tool.Meta` the listed `_meta` (`{ 'anthropic/alwaysLoad': true }`)
 - `Tool.getDescription` returns `description` or the description annotation on `parameters`
+- Tool lists send that description and the `title`, `description`, `default`, and `examples` annotations of `parameters`, `expected` and `message` reaching no client
+- Handlers add a next call to a library failure where the toolkit is declared, built from the tool (`tool.name`, `parametersSchema`, `Tool.Parameters<typeof tool>`)
 - `Tool.Strict` set `true` makes `McpServer` refuse excess keys and list `additionalProperties: false`, a raw JSON Schema tool dying at registration
 - `Tool.Strict` left `undefined` defers to the provider's setting, and `false` sends `strict: false`
 

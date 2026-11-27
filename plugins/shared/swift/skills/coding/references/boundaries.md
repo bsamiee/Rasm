@@ -35,6 +35,7 @@ struct Limit: Decodable, Sendable {
 - `Date` fields stay `Date`, and one coder per wire states the spelling as a strategy (`JSONEncoder.jsonLines` writes ISO 8601 with fractional seconds) in place of a coder per model
 - Key strategies (`.convertFromSnakeCase`) derive wire spellings, `CodingKeys` raw values hold a spelling no strategy derives
 - Bytes decode once into their target type, and a `JSONValue` encoded again to decode parses twice and rounds integers above 2^53 through `Double`
+- Decode refusals reach a reader through `NSDebugDescriptionErrorKey` of the bridged error alone, as `localizedDescription` prints one generic sentence
 
 Synthesized `Codable` nests an enum's associated values under a key named for the case. A wire naming its case in a field decodes through one `init(from:)` reading the discriminator and the case's fields from one container:
 

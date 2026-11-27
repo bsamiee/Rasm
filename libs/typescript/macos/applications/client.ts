@@ -114,7 +114,7 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
                 Effect.andThen(RpcClient.make(ApplicationRpcs, { generateRequestId: () => requests.pipe(MutableRef.incrementAndGet, RpcMessage.RequestId) })),
                 Effect.flatMap((client) => ApplicationServer.make(client, handle.exitCode, traffic)),
             );
-            return Layer.effect(ApplicationServer, linked).pipe(Layer.provide(layerProtocolChildProcess({ stdin: handle.stdin, stdout })));
+            return Layer.effect(ApplicationServer, linked).pipe(Layer.provide(layerProtocolChildProcess({ stdin: handle.stdin, stdout }, Effect.match(handle.exitCode, { onFailure: ({ message }) => `${name} ended: ${message}`, onSuccess: (code) => `${name} exited with code ${code}` }))));
         });
         return {
             version,

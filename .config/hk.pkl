@@ -187,8 +187,22 @@ steps {
     }
     diagnostic_format = "gcc"
   }
-  ["oxlint"] = (Builtins.ox_lint) { depends = "ast-grep" }
-  ["oxfmt"] = (Builtins.oxfmt) { depends = List("oxlint", "ryl", "stylelint") }
+  local claudeCode = List("libs/typescript/ai/claude-code", "plugins/claude")
+  ["oxlint"] = (Builtins.ox_lint) {
+    depends = "ast-grep"
+    exclude = claudeCode
+  }
+  ["oxlint-claude-code"] = (Builtins.ox_lint) {
+    depends = "ast-grep"
+    glob =
+      claudeCode.flatMap((folder) ->
+        (Builtins.ox_lint.glob as List<String>).map((files) -> "\(folder)/\(files)")
+      )
+    profiles = List("!ci") // CI runners hold no Claude Code engine declarations, which these programs list in `files`
+  }
+  ["oxfmt"] = (Builtins.oxfmt) {
+    depends = List("oxlint", "oxlint-claude-code", "ryl", "stylelint")
+  }
   ["pkl-format"] = (Builtins.pkl_format) { depends = "editorconfig-checker" }
   ["ruff"] = (Builtins.ruff) { depends = "ast-grep" }
   ["ruff-format"] = (Builtins.ruff_format) { depends = "ruff" }

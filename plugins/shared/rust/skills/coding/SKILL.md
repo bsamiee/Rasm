@@ -36,7 +36,8 @@ Parameter types state every value a function accepts, and its return type every 
 - Values differing per platform or build are one `cfg_select!` around the differing part, and an item one platform alone holds takes `#[cfg]`
 - Values following a rule compute from parameters or a variant's rank (`plan >= Plan::Team`), and a table holds values no rule derives
 - Facts a dependency or the build states come from it (a protocol version from its package's constant, `env!("CARGO_PKG_NAME")`)
-- Strings hold text a person reads or a wire's fixed token, and a kind, key, or name derives from its owner (a type, a member)
+- Strings hold text a reader receives or a wire's fixed token, and a kind, key, or name derives from its owner (a type, a variant, a field)
+- Text no program prints and no host shows goes
 - Inherent methods exist only where they keep their type's invariant, and other behavior goes in functions
 - Helpers one function reads are closures inside it, or a nested `fn` that is generic, `const`, recursive, or returns a borrow of a parameter
 - Bodies doing more than one job split by job into functions reading their parameters, never into a run of named closures
@@ -234,7 +235,7 @@ Each step is a function, and its operator follows its signature and whether step
 
 ### [04.2]-[ERRORS]
 
-Panics mark a broken invariant. Refusals are one crate error enum, a variant per relation a caller branches on, text in `Display` alone:
+Panics mark a broken invariant. Refusals are one crate error enum, a variant per relation a caller branches on, and its derived `Display` is the one place their text is written:
 
 ```rust
 #[derive(Debug, thiserror::Error)]
@@ -246,10 +247,16 @@ pub enum LedgerError {
 }
 ```
 
-`Refusal` is a fieldless enum deriving `derive_more::Display`, its variant names as its text:
+`Refusal` is a fieldless enum deriving `derive_more::Display` under `#[display(rename_all = "kebab-case")]`, its variant names as its text:
 - Messages render typed fields, printing neither the source nor a value its `Display` writes, and branch through `fmt::from_fn`
 - Fields named `source` hold the typed foreign error, and text it adds beyond that (a position) is a field the message prints
 - Refusals are variants naming their values, never `Other(format!(..))` or a `FromStr` with `Err = String`
+- Call sites build a variant from values and spell no sentence, a wording per fieldless variant restating the name `rename_all` prints
+- `rename_all = "lowercase"` joins a name's words (`NonFinite` as `nonfinite`), and a reason of more than one word takes kebab or snake case
+- Field names a caller passes print through a fieldless enum under `rename_all = "snake_case"` (`Input::InitialStep` as `initial_step`)
+- Context one scope's failures share is one variant holding its `#[source]` fault, never a prefix each variant restates
+- Quantities, sizes, and durations print through their type: `uom` `into_format_args(<unit>, Abbreviation)`, `bytesize::ByteSize`, jiff `SignedDuration` under `{:#}`
+- Library errors name what failed and why, and the crate serving the tools or commands adds the retry or next call as data of its protocol error
 - Foreign errors describing the whole failure stay direct, or reach one variant through `#[error(transparent)]` and `#[from]`
 - Boundaries `map_err` a foreign error into its variant beside an operation field and the path or key it omits, alike at every call
 - Functions returning `Result<_, NEVec<E>>` take one `impl From<E> for NEVec<E>`, a single-error step converting through `?`

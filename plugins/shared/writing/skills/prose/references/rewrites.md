@@ -180,7 +180,7 @@ Identifier and file renames update every reference:
 - AFTER: `` Stale lock file -> rerun `<tool> install` ``, `` Missing lock file -> run `<tool> lock` first `` (one item per case)
 - WRONG: `` If the lock file is stale -> rerun `<tool> install` `` (condition kept as a clause beside the arrow)
 
-- BEFORE: `` HTTP 429: wait `Retry-After` seconds and retry ``, `HTTP 401 → sign in again` (sibling cases in two forms)
+- BEFORE: `` HTTP 429: wait `Retry-After` seconds and retry ``, `HTTP 401 → sign in again` (sibling cases in mixed forms)
 - AFTER: `` HTTP 429 -> retry after `Retry-After` seconds ``, `HTTP 401 -> sign in again`
 - WRONG: `` On HTTP 429, retry after `Retry-After` seconds `` (case turned into a sentence while siblings map cases)
 - KEEP: `` `string -> Option<int>` describes every parse outcome `` (signature in code, no case)

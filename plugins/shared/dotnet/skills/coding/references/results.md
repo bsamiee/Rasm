@@ -41,15 +41,15 @@ internal static class Validators {
 ```csharp
 internal static class Roots {
     public static Fin<double> Ratio(double x, double y) =>
-        y == 0 ? new Fault("divisor", Reason.Invalid)
-        : x != 0 && Math.Sign(x) != Math.Sign(y) ? new Fault("ratio", Reason.Invalid)
+        y == 0 ? new Fault(y, Reason.Invalid)
+        : x != 0 && Math.Sign(x) != Math.Sign(y) ? new Fault((x, y), Reason.Invalid)
         : Math.Sqrt(x / y);
     public static Fin<string> Rendered(double x, double y) =>
         Ratio(x, y).Map(static root => root.ToString(CultureInfo.InvariantCulture));
     public static Fin<double> Nested(double x, double y) =>
         Ratio(x, y).Bind(static root => Ratio(root, 1));
     public static Fin<double> Root(double value) =>
-        from _ in guard<Error>(value >= 0, new Fault("value", Reason.Invalid)).ToFin()
+        from _ in guard<Error>(value >= 0, new Fault(value, Reason.Invalid)).ToFin()
         select Math.Sqrt(value);
 }
 ```

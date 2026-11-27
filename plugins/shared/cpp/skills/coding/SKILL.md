@@ -129,6 +129,9 @@ Dependent steps bind and stop at their first failure, independent checks all run
 |  [05]   | Value at the composition root | `value_or`, `error_or` |
 
 - Packages declare one refusal enumeration, a case per response a caller gives, and a failure with a subject is an aggregate of both
+- One `std::formatter` specialization per refusal and failure aggregate derives its text from label and fields, and a call site formats the value alone
+- Fields print through the `std::formatter` of their type, a label is spelled once beside its enumeration, and text no program prints goes
+- Library failures name what failed and why, and the entry point owning the commands adds the remedy
 - Foreign failures stay `std::error_code`, compared against `std::errc` where a caller branches
 - Calls into a dependency that throws take its non-throwing overload, else one function catches at that call and returns `std::expected`
 - Units compiled with exceptions off call no member that reports by throwing (`at`, `value`, `std::stoi`)

@@ -37,9 +37,9 @@ use std::os::unix::net::UnixStream as Socket;
 #[cfg(windows)]
 use std::os::windows::ffi::OsStringExt as _;
 use std::path::{Path, PathBuf};
-use std::process::{ExitStatus, Stdio};
 #[cfg(unix)]
 use std::process;
+use std::process::{ExitStatus, Stdio};
 
 #[cfg(target_vendor = "apple")]
 use fs_err::PathExt as _;
@@ -72,11 +72,11 @@ use rustix::{io::Errno, process::Signal};
 #[cfg(unix)]
 use socket2::SockRef;
 use thiserror::Error;
-use tokio::io::{AsyncBufReadExt as _, AsyncRead, AsyncReadExt as _, AsyncWrite, BufReader};
 #[cfg(target_vendor = "apple")]
 use tokio::io::Interest;
 #[cfg(target_vendor = "apple")]
 use tokio::io::unix::AsyncFd;
+use tokio::io::{AsyncBufReadExt as _, AsyncRead, AsyncReadExt as _, AsyncWrite, BufReader};
 #[cfg(unix)]
 use tokio::net::UnixStream;
 #[cfg(unix)]
@@ -230,8 +230,8 @@ impl AsRawFd for Sockets {
 
 #[cfg(target_vendor = "apple")]
 impl Sockets {
-    fn watch(folders: impl IntoIterator<Item = PathBuf>) -> io::Result<Self> {
-        let opened = folders.into_iter().map(|path| match fs_err::File::open(&path).and_then(|file| Ok((file.metadata()?, file))) {
+    fn watch(named: impl IntoIterator<Item = PathBuf>) -> io::Result<Self> {
+        let opened = named.into_iter().map(|path| match fs_err::File::open(&path).and_then(|file| Ok((file.metadata()?, file))) {
             Ok((folder, file)) => Ok(Some(((folder.dev(), folder.ino()), (path, file)))),
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
             Err(error) => Err(error),
@@ -329,7 +329,7 @@ impl Sockets {
         };
         exited.cancelled().await;
         let removed = found.iter().map(left).filter_map(Result::err).map(failed(ProcessOperation::Remove));
-        NEVec::try_from_vec(Vec::from_iter(stopped.map(failed(ProcessOperation::Watch)).into_iter().chain(removed))).map_or(Ok(()), Err)
+        NEVec::try_from_vec(Vec::from_iter(iter::chain(stopped.map(failed(ProcessOperation::Watch)), removed))).map_or(Ok(()), Err)
     }
 }
 

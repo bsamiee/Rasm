@@ -58,10 +58,11 @@ const FacetControl = Control.mapFields((fields) => ({ ...Struct.omit(fields, ['r
 - `Model.GeneratedByDb` reaches read variants alone, `GeneratedByApp` all but `jsonCreate` and `jsonUpdate`, and `Sensitive` all but JSON
 - `Model.DateTimeInsert` and `DateTimeUpdate` stamp writes from the clock, `Model.FieldOption` decoding a `null` column or absent JSON key
 
-Facts other fields decide are getters of a `Schema.Class`, a stored field holding one contradicting its sources. Rules over more than one field are one `.check(Schema.makeFilter(f))` on the record, `f` returning `true`, a message, or `{ path, issue }` at each field a reader fixes:
+Facts other fields decide are getters of a `Schema.Class`, a stored field holding one contradicting its sources. Rules over more than one field are one `.check(Schema.makeFilter(f, { expected }))` on the record, `f` returning a boolean, or `{ path, issue }` at each field a reader fixes:
 - Whole-value fixes decode with `{ errors: 'all' }`, `SchemaIssue.makeFormatterStandardSchemaV1()(error.issue).issues` listing one message per path
 - Formatter paths are always `PropertyKey[]`, the standard's optional `{ key }` segment type needing no default or mapping
 - Issues crossing a wire are a reason case of `Schema.StandardSchemaV1FailureResult.fields` the formatter's result spreads into
+- Refusals state `expected` as a noun phrase on their filter or `SchemaIssue.InvalidValue`, which the issue formatter prints beside the input, a filter with none printing `<filter>`
 
 ## [03]-[UNIONS]
 
@@ -212,6 +213,7 @@ const document = JsonSchema.toDocumentDraft07(Schema.toJsonSchemaDocument(Clean,
 
 `Clean` holds the options of the `clean` executor, which decodes them through it, and the `executor-schemas` sync generator writes `document` as the executor's `schema.json`. Nx fills each `default` and routes the words after `--` to the `$default: { $source: 'unparsed' }` key before the decode runs, and resolves `#/definitions/` references alone, which draft-07 conversion writes from `$defs`:
 - `toJsonSchemaDocument` describes the encoded side of `toCodecJson(X)` with standard keys, `includeAnnotationKey` passing vendor keys
+- Annotations stay where a reader receives them: `title`, `description`, `default`, and `examples` reach a JSON Schema document alone, and a schema no host lists takes none
 - `fromJsonString(X)` keeps the encoded type of `X` a peer types against, where `toCodecJson` types it `Json`
 - Key spellings a rule decides derive from the fields (`Schema.encodeKeys(Record.map(X.fields, (_, key) => String.camelToSnake(key)))`)
 - Structured text builds through its encoder (`encodeEffect(fromJsonString(X, { space }))`, `NetAddress.formatInet`), a template restating it

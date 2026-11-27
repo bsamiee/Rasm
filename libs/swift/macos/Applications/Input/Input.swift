@@ -160,7 +160,6 @@ extension Input {
                     let made = CGEvent(scrollWheelEvent2Source: nil, units: unit, wheelCount: 2, wheel1: Int32(share.y), wheel2: Int32(share.x), wheel3: 0)
                     let event = try self.event(from: made, at: path[0].at, flags: held)
                     guard unit == .pixel else { return (offset, event) }
-                    event.setIntegerValueField(.scrollWheelEventIsContinuous, value: 1)
                     event.setIntegerValueField(.scrollWheelEventScrollPhase, value: Int64(phase.rawValue))
                     return (offset, event)
                 }

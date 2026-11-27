@@ -108,6 +108,10 @@ Criteria deciding a row:
 - Suppression: each suppression names its reason, one a catalog or manifest row makes false goes and its finding is fixed
 - String: a string deciding behavior goes, each case derived from the value's owner (type, member, host), never an enum renaming it
 - Fragile: logic reading text shape, order, or spelling (a message pattern, a split index, a prefix test) reads the typed source or package predicate
+- Text: text a program emits derives once from typed values (an error's case and fields, a value's format member, a name read from its declaration)
+- Text outcome: a sentence spelled per case, call site, or table row goes
+- Unread: text no reader receives goes (an annotation no host lists, a checker note its report style omits)
+- Remedy: a library failure names what failed and why, and the layer owning the tools or commands adds the remedy or next call
 - Injection: values a build tool or host supplies reach code through its typed channel (an import, a generated module), never a declared global
 - Credit: a defect present before the pass and one the pass introduced are both fixed in the pass
 - Triage: mixed work is read against the last clean commit, each change kept for a fact or capability it names or undone in place

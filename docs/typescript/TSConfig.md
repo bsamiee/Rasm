@@ -26,6 +26,7 @@ tsconfig files and what each holds:
 |  [03]   | Package `tsconfig.json`   | `extends` base, `references`, runtime `types` and `lib`                                                     |
 |  [04]   | Root `tsconfig.node.json` | `noEmit: true` over root `vitest.config.ts` and `.config/stylelint.config.ts`, `references` to test support |
 |  [05]   | UXP `tsconfig.base.json`  | `extends` root base, UXP `lib`, `module`, `types`, and `paths`, in `@rasm/uxp`                              |
+|  [06]   | Hook `tsconfig.base.json` | `extends` root base, `module`, and Claude Code engine declarations as `files`, in `@rasm/claude-code`       |
 
 Programs and their emit:
 - Programs write into their own `dist` for `pnpm pack`, and `noEmit` is the one emit decision every `tsc` mode, editor, and Nx target reads
@@ -89,9 +90,11 @@ Options for one case alone:
 - `stripInternal` drops `@internal` members from declarations
 - `composite: false` sits beside `noEmit` only for inferred types no declaration names (TS2883, TS4094) or imports outside `include` (TS6307)
 - `module: preserve` serves `export =` modules read by named import (`@adobe-uxp-types`) and extensionless `.d.ts` re-exports (`icu`, Workers types)
-- `@rasm/claude-code` reads the Claude Code hooks declarations through `types`, a link to the `claude-code` declarations the running engine writes into the `@rasm/function-hooks` build folder it loads, as only an interactive session writes them and no release tag or package holds the released engine's text
-- Projects typed against those declarations take tag `host:claude-code`, which the CI Linux job excludes
-- The engine's `claude-code` declarations hold no tool table, and `@rasm/claude-code` decodes the tool inputs its hooks read with a schema
+- Claude Code hook programs list in `files` the `claude-code` declarations the running engine writes into the `@rasm/function-hooks` build folder
+- Only an interactive session loading that folder writes those declarations, and no release tag or package holds the released engine's text
+- `files` names those declarations where `include` would skip a missing file, as TS6053 names its path and Nx hashes that path before the engine writes it
+- Projects typed against those declarations take tag `host:claude-code`, which every CI job excludes
+- Engine `claude-code` declarations hold no tool table, and `@rasm/claude-code` decodes the tool inputs its hooks read with a schema
 
 ## [04]-[PROJECT_REFERENCES]
 

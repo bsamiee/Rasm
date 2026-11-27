@@ -144,6 +144,7 @@ class Aim extends Data.Class<{
 const Target = Context.Reference<Aim>('@rasm/applications/workspace/Target', { defaultValue: () => Aim.empty });
 const aimed = Effect.flatMap(Handle, (handle) => handle.get(Target));
 const Shown = Context.Reference<Record.ReadonlyRecord<string, HashSet.HashSet<number>>>('@rasm/applications/workspace/Shown', { defaultValue: () => Record.empty() });
+const Proving = Context.Reference<Record.ReadonlyRecord<string, string>>('@rasm/applications/workspace/Proving', { defaultValue: () => Record.empty() });
 const sight = Effect.fnUntraced(function* (instance: string, opening: number, open: boolean) {
     const handle = yield* Handle;
     const all = yield* handle.get(Shown);
@@ -383,6 +384,8 @@ const route = (seen: Seen, next: Seen, application: string, event: Event, latest
             const asks = [
                 [`${describeContainer(asking.kind, asking.container, asking.title)} ${Outline.say.asking}`, ...Array.match(asking.text, { onEmpty: Array.empty, onNonEmpty: (lines) => [Outline.named(lines.join(' '))] })].join(': '),
                 Array.match(answers, { onEmpty: () => 'inspect reads its answers', onNonEmpty: (listed) => `act answers with ${CHOICES.format(listed)}` }),
+                ...Array.fromNullishOr(asking.secure).map(({ ref, label }) => [`secure field ${[...Array.fromNullishOr(label).map(Outline.named), Address.token('text', ref)].join(' ')}`, Outline.say.secure].join(', ')),
+                ...Array.fromNullishOr(asking.presentation).map((held) => (held._tag === 'forward' ? Outline.say.front : Outline.say.unfronted)),
             ].join(', ');
             return lead(
                 Effect.map(aimed, ({ held }) => (Option.exists(held, (aim) => aim.instance === instance) ? asks : `${asks} once ${openCall(application)} makes it the target`)),
@@ -402,6 +405,16 @@ const route = (seen: Seen, next: Seen, application: string, event: Event, latest
                 : lead(Effect.succeed(InstanceState.Status.matchOrElse(status, { unresponsive: ({ thread }) => `is not responding, main thread ${thread}` }, () => 'responds again')), { delivers: HashSet.has(next.stalled, instance) ? Option.some('hung') : Option.none() }),
         announced: ({ text, priority }) => lead(Effect.succeed([`announced: ${Outline.named(text)}`, ...(priority === 'high' ? ['high priority'] : [])].join(', '))),
         dragging: () => unled,
+        proven: ({ followed, drawn }) =>
+            lead(
+                Effect.gen(function* () {
+                    const handle = yield* Handle;
+                    const held = yield* handle.get(Proving);
+                    const key = `${instance} ${followed}`;
+                    yield* handle.set(Proving, Record.remove(held, key));
+                    return `proved ${Option.getOrElse(Record.get(held, key), () => 'posted step')}: ${drawn ? Outline.say.drawn : Outline.say.changed}`;
+                }),
+            ),
         logged: ({ entry: { messageType, subsystem, category, eventMessage } }) =>
             lead(
                 Effect.succeed(
@@ -530,4 +543,4 @@ const refuseBlocked = (name: string) => (found: Option.Option<InstanceSnapshot>)
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { describeUsage, type Entry, followInstance, lookupEntry, ownsEvent, Workspace };
+export { describeUsage, type Entry, followInstance, lookupEntry, ownsEvent, Proving, Workspace };

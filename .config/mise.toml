@@ -98,6 +98,7 @@ CF_QUIET                    = "1"
 CTX7_TELEMETRY_DISABLED     = "1"
 DOTNET_NOLOGO               = "1"
 HK_MISE                     = "1"
+MSBUILDDISABLENODEREUSE     = "1"
 NX_ISOLATE_PLUGINS          = "false"
 RUSTUP_AUTO_INSTALL         = "0"
 RUSTUP_TOOLCHAIN            = false

@@ -6,7 +6,7 @@ import { vi } from 'vitest';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const STUB = { report: '.stub/report.json' } as const;
-const SERVERLESS = { DOTNET_CLI_USE_MSBUILD_SERVER: '0', MSBUILDDISABLENODEREUSE: '1', UseSharedCompilation: 'false' } as const;
+const SERVERLESS = { UseSharedCompilation: 'false' } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

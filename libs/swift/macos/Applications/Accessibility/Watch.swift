@@ -98,12 +98,16 @@ package actor Watch {
     private var numbers: [Locator: Int]
     private var seeded: [Locator: ArraySlice<Int>]
     private var located: [Int: Int] = [:]
+    private var scrolled: Set<Int> = []
     private var drawn: [Int: (window: CGWindowID, frame: CGRect)] = [:]
     private var pictures: [CGWindowID: (frame: CGRect, last: [SIMD2<Int>: (shot: Screenshot, at: ContinuousClock.Instant)], restless: [(region: CGRect, span: Duration)])] = [:]
     private var posted: ContinuousClock.Instant?
+    private var latency: Duration?
+    private var followed: Int = 0
     private var owners: [Int: Int] = [:]
     private var controls: [Int: (control: Control, container: Int)] = [:]
     private var open: OrderedDictionary<Int, Container> = [:]
+    private var secured: [Int: InstanceEvent.Answer] = [:]
     private var sent: [Int: Observation] = [:]
     private var bars: [Container] = []
     private var levels: OrderedDictionary<Int, Container> = [:]
@@ -327,7 +331,7 @@ package actor Watch {
 
     private func close() async {
         observing = nil
-        CFRunLoopPerformBlock(CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue) { withExtendedLifetime(self) {} }
+        CFRunLoopPerformBlock(CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue) { @Sendable [self] in withExtendedLifetime(self) {} }
         CFRunLoopWakeUp(CFRunLoopGetMain())
         observations = []
         ticks.continuation.finish()
@@ -366,7 +370,9 @@ package actor Watch {
             )
         )
         for container in open.values where container.asking {
-            continuation.yield(.event(InstanceEvent(instance: instance.process, sequence: sequence, at: .now, change: InstanceEvent.Change(asking: container))))
+            let presentation: Presentation? = secured[container.ref].map { _ in instance.application.isActive ? .forward : .behind }
+            let asking = InstanceEvent.Change(asking: container, secure: secured[container.ref], presentation: presentation)
+            continuation.yield(.event(InstanceEvent(instance: instance.process, sequence: sequence, at: .now, change: asking)))
         }
         continuation.onTermination = { _ in self.subscribers.withLock { held in held?[id] = nil } }
         let listening: Bool = subscribers.withLock { held in
@@ -541,6 +547,7 @@ package actor Watch {
     // --- [CHANGES]
 
     private func merged(_ hierarchy: Hierarchy, full: Set<Int>) throws(ApplicationFailure) -> Model {
+        scrolled.subtract(full)
         let read = Model(hierarchy, sequence: sequence, ref: intern)
         for control in read.containers.flatMap(\.controls) {
             guard let held = controls[control.ref]?.control else { continue }
@@ -562,9 +569,22 @@ package actor Watch {
         let opened: OrderedDictionary<Int, Container> = fresh.filter { ref, _ in open[ref] == nil }
         for (ref, container) in closed {
             emit(.closed(container: ref, kind: container.kind, title: container.title))
-            (sent[ref], open[ref]) = (nil, nil)
+            (sent[ref], open[ref], secured[ref]) = (nil, nil, nil)
         }
-        for (ref, container) in opened { emit(container.asking ? InstanceEvent.Change(asking: container) : .opened(container: ref, kind: container.kind, title: container.title)) }
+        var entered: [Int: InstanceEvent.Answer] = [:]
+        for container in fresh.values where container.asking && secured[container.ref] == nil {
+            let field: Control? = container.controls.first { (control: Control) -> Bool in control.subrole == kAXSecureTextFieldSubrole }
+            let element: AXUIElement? = field.flatMap { (field: Control) -> AXUIElement? in located[field.ref].flatMap { (id: Int) -> AXUIElement? in handles[id] } }
+            guard let field, let element, try !element.settable(kAXValueAttribute) else { continue }
+            entered[container.ref] = InstanceEvent.Answer(ref: field.ref, label: field.label?.text)
+        }
+        let ahead: Bool = try entered.isEmpty ? false : activate()
+        for (ref, container) in fresh where opened[ref] != nil || entered[ref] != nil {
+            let presentation: Presentation? = entered[ref].map { _ in ahead ? .forward : .behind }
+            let asking = InstanceEvent.Change(asking: container, secure: entered[ref], presentation: presentation)
+            emit(container.asking ? asking : .opened(container: ref, kind: container.kind, title: container.title))
+        }
+        secured.merge(entered) { _, read in read }
         if !closed.isEmpty || !opened.isEmpty { windowTicks.continuation.yield() }
         open.merge(fresh) { _, read in read }
         bars = menuBars + bars.filter { held in !menuBars.contains { read in read.kind == held.kind } }
@@ -600,13 +620,21 @@ package actor Watch {
             focused = element
             if let control = owners[element], let held = controls[control] { emit(.focused(control: control, kind: held.control.kind)) }
         }
-        var restated: Set<AXUIElement> = []
-        for (element, names) in marked where names.contains(kAXValueChangedNotification) && names.isDisjoint(with: invalidating) {
+        let changed: [AXUIElement: Element] = Dictionary(
+            uniqueKeysWithValues: marked.compactMap { (entry: (key: AXUIElement, value: Set<String>)) -> (AXUIElement, Element)? in
+                guard entry.value.contains(kAXValueChangedNotification), entry.value.isDisjoint(with: invalidating) else { return nil }
+                return (entry.key, read(entry.key, [kAXRoleAttribute, kAXValueAttribute, kAXTopLevelUIElementAttribute]).element)
+            }
+        )
+        let scrollBars: [AXUIElement: Element] = changed.filter { (entry: (key: AXUIElement, value: Element)) -> Bool in entry.value.role == kAXScrollBarRole }
+        scrolled.formUnion(scrollBars.values.compactMap { (bar: Element) -> Int? in bar.facts[kAXTopLevelUIElementAttribute]?.element })
+        var restated: Set<AXUIElement> = Set(scrollBars.keys)
+        for (element, shown) in changed where scrollBars[element] == nil {
             guard let ref = table[element].flatMap({ id in owners[id] }), let held = controls[ref], held.control.kind.holdsValueAttribute, held.control.subrole != kAXSecureTextFieldSubrole,
                 let index = open[held.container]?.controls.firstIndex(where: { (control: Control) -> Bool in control.ref == ref })
             else { continue }
             restated.insert(element)
-            let fact: Fact? = read(element, [kAXValueAttribute]).element.facts[kAXValueAttribute].flatMap { (fact: Fact) -> Fact? in fact.elements.isEmpty ? fact : nil }
+            let fact: Fact? = shown.facts[kAXValueAttribute].flatMap { (fact: Fact) -> Fact? in fact.elements.isEmpty ? fact : nil }
             guard fact != held.control.value else { continue }
             controls[ref]?.control.value = fact
             open[held.container]?.controls[index].value = fact
@@ -730,7 +758,7 @@ package actor Watch {
                     let app: Element = try self.application()
                     var kept: Set<Int> = []
                     for container in self.open.values where container.parent == nil {
-                        if verified.contains(try container.locator.text()), let element = self.located[container.ref] { kept.insert(element) }
+                        if verified.contains(try container.locator.text()), let element = self.located[container.ref], !self.scrolled.contains(element) { kept.insert(element) }
                     }
                     let windows: Set<Int> = Set(app.facts[kAXWindowsAttribute]?.elements ?? []).subtracting(kept)
                     return (try self.hierarchy(of: app, full: windows, menus: menus), kept)
@@ -815,13 +843,30 @@ package actor Watch {
         return level
     }
 
-    // --- [MENUS]
+    // --- [ACTIVATION]
 
-    enum Presentation: CaseTagged, Equatable, Sendable {
+    package enum Presentation: CaseTagged, Equatable, Sendable {
         case behind
         case forward
         case restored(back: Bool)
     }
+
+    private func activate() throws(ApplicationFailure) -> Bool {
+        try PermittedFrontList.shared.admit(instance.process.pid).get()
+        let front: NSRunningApplication = focusedProcesses().front.flatMap(NSRunningApplication.init(processIdentifier:)) ?? .current
+        return instance.application.isActive || instance.application.activate(from: front, options: [])
+    }
+
+    package func forward(clock: some Clock<Duration> = SuspendingClock()) async throws(ApplicationFailure) -> Presentation {
+        let subject = "Bringing \(applicationName) forward"
+        let (ahead, activations): (Bool, AsyncStream<Message>) = (instance.application.isActive, messages())
+        guard try activate() else { throw ApplicationFailure(subject: subject, reason: .refused) }
+        let seen: Void? = if ahead { () } else { try await next({ (change: InstanceEvent.Change) -> Void? in change[case: \.frontmost] == true ? () : nil }, in: activations, clock: clock) }
+        guard seen != nil else { throw ApplicationFailure(subject: subject, reason: .unseen) }
+        return .forward
+    }
+
+    // --- [MENUS]
 
     private func track(_ menu: AXUIElement) throws(ApplicationFailure) {
         let head: Element = read(menu, frameAttributes + [kAXParentAttribute, kAXTopLevelUIElementAttribute]).element
@@ -904,15 +949,7 @@ package actor Watch {
         guard presentation == .behind || !extra && !instance.application.isActive else {
             throw ApplicationFailure(subject: "\(frameAttribute) of \(element.name)", reason: .accessibility(.noValue))
         }
-        if presentation == .forward {
-            try PermittedFrontList.shared.admit(process).get()
-            let activations = messages()
-            let subject = "Bringing \(applicationName) forward to press \(element.name)"
-            let front: NSRunningApplication = focusedProcesses().front.flatMap(NSRunningApplication.init(processIdentifier:)) ?? .current
-            guard instance.application.activate(from: front, options: []) else { throw ApplicationFailure(subject: subject, reason: .refused) }
-            let activated: Void? = try await next({ (change: InstanceEvent.Change) -> Void? in change[case: \.frontmost] == true ? () : nil }, in: activations, clock: clock)
-            guard activated != nil else { throw ApplicationFailure(subject: subject, reason: .unseen) }
-        }
+        if presentation == .forward { _ = try await forward(clock: clock) }
         let events = messages()
         let hosted = { () -> Set<CGWindowID> in
             let listed: [pid_t: [InstanceState.Window]] = InstanceState.Window.all([.optionOnScreenOnly, .excludeDesktopElements])
@@ -1000,6 +1037,7 @@ package actor Watch {
         _ change: @escaping @Sendable (InstanceEvent.Change) -> Matched?,
         in events: AsyncStream<Message>,
         clock: some Clock<Duration>,
+        within limit: Duration = messagingTimeout,
     ) async throws(ApplicationFailure) -> Matched? {
         let subject = "waiting on \(applicationName)"
         return try await race(
@@ -1014,7 +1052,7 @@ package actor Watch {
                 throw ApplicationFailure(subject: subject, reason: Task.isCancelled ? .cancelled : .system(.noSuchProcess))
             },
             against: { () async throws(ApplicationFailure) -> Matched? in
-                do { try await clock.sleep(for: messagingTimeout) } catch { throw ApplicationFailure(subject: subject, reason: .cancelled) }
+                do { try await clock.sleep(for: limit) } catch { throw ApplicationFailure(subject: subject, reason: .cancelled) }
                 return nil
             },
         )
@@ -1030,7 +1068,7 @@ package actor Watch {
                 case .window(let change, let window):
                     window.number == aimed || (windows.contains(window.number) ? change == .destroyed || !window.onScreen : window.onScreen) ? () : nil
                 case .focused(let control, _), .value(let control, _, _), .selection(let control, _, _): control == ref ? () : nil
-                case .started, .moved, .frontmost, .hidden, .status, .announced, .dragging, .logged, .reported, .sampled, .exited: nil
+                case .started, .moved, .frontmost, .hidden, .status, .announced, .dragging, .proven, .logged, .reported, .sampled, .exited: nil
             }
         }
     }
@@ -1104,6 +1142,23 @@ package actor Watch {
     func restless(of number: CGWindowID) -> [CGRect] { pictures[number]?.restless.map(\.region) ?? [] }
 
     func posting() { posted = .now }
+
+    var answerTime: Duration { min(latency ?? messagingTimeout, messagingTimeout) }
+
+    func prove(after elapsed: Duration) { latency = max(latency ?? .zero, elapsed) }
+
+    func follow(_ late: @escaping @Sendable () async -> (drawn: Bool, after: Duration)?) -> Int {
+        followed += 1
+        let id: Int = followed
+        tasks.append(
+            Task {
+                guard let seen = await late() else { return }
+                self.prove(after: seen.after)
+                self.emit(.proven(followed: id, drawn: seen.drawn))
+            }
+        )
+        return id
+    }
 
     func documents() -> [CGWindowID: URL] {
         Dictionary(open.values.compactMap { container in container.window.flatMap { window in container.document.map { document in (window, document) } } }) { first, _ in first }

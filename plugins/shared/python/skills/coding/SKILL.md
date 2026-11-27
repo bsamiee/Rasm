@@ -66,7 +66,7 @@ Higher-order functions take or return a function and own fixed control flow, the
 ```python
 def read[T](reader: Callable[[Path], T], path: Path, /) -> Outcome[T]:
     caught: Callable[[Path], Result[T, OSError]] = catch(reader, exception=OSError)
-    return caught(path).map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
+    return caught(path).map_error(partial(Fault.of, Reason.UNREADABLE, path))
 
 
 content: Callable[[Path], Outcome[bytes]] = partial(read, Path.read_bytes)
@@ -202,6 +202,7 @@ class Tier(IntEnum):
 `Tier.TEAM.quota` is `1 << 20`, and a new member takes every fact from its rank:
 - `StrEnum` with `auto()` takes each wire token from its member name, an explicit value holds a datum consumers read (a template)
 - Tables take each key from the entry's own declaration: a member, a class, or a function's `__name__`
+- Labels a host shows derive from their identifier through the host's member (`bpy.path.display_name(<key>)` in Blender), a `name=` literal restating it
 - Class facts derive at class build through `__init_subclass__` and `__set_name__`
 - Constants hold what no owner derives, and values one relation joins (a minimum and maximum, names and their order) are one value
 - Code reads facts a tool resolves (canonical names, workspace members, constraints) from its lock file or output in place of re-deriving them
@@ -223,7 +224,7 @@ Input boundaries select the result type and functions keep it. One boundary conv
 
 ### [04.1]-[ERRORS]
 
-Exceptions mark a violated precondition or a third-party raise a boundary converts. One `Fault` record serves every package, its `reason` an enum member holding the message template. `Fault.of` returns the non-empty tuple every fault builder needs:
+Exceptions mark a violated precondition or a third-party raise a boundary converts. One `Fault` record serves every package, its `reason` an enum member holding the message template, and `message` renders each held value once by its kind. `Fault.of` returns the non-empty tuple every fault builder needs:
 
 ```python
 type Faults = tuple[Fault, *tuple[Fault, ...]]
@@ -239,23 +240,42 @@ class Reason(StrEnum):
     FAILED = "{subject} failed. {cause}"
 
 
+def shown(value: object, /) -> str:
+    match value:
+        case str():
+            return value
+        case os.PathLike():
+            return os.fspath(value)
+        case tuple():
+            return shlex.join(map(str, value))
+        case type():
+            return value.__qualname__
+        case _:
+            return reprlib.repr(value)
+
+
 class Fault(msgspec.Struct, frozen=True, kw_only=True):
     reason: StrEnum
-    subject: str
-    member: str = ""
+    subject: object
+    member: object = ""
     cause: object = ""
 
     @property
     def message(self) -> str:
-        return self.reason.format(subject=self.subject, member=self.member, cause=self.cause)
+        return self.reason.format(subject=shown(self.subject), member=shown(self.member), cause=self.cause)
 
     @classmethod
-    def of(cls, reason: StrEnum, subject: str, cause: object = "", /, *, member: str = "") -> Faults:
+    def of(cls, reason: StrEnum, subject: object, cause: object = "", /, *, member: object = "") -> Faults:
         return (cls(reason=reason, subject=subject, member=member, cause=cause),)
 ```
 
 `reason` takes a member of any package's reason enum, with one member and its template per failure a consumer handles apart:
-- `subject` names the refused value, `member` the member or bound it misses, and a caught exception stays as `cause`
+- `subject` holds the refused value and `member` the member or bound it misses, each as its value, and a caught exception stays as `cause`
+- Call sites pass a path, an argument tuple, or a type as it is, a `str`, `repr`, or `shlex.join` around it restating `shown`
+- No call site spells a sentence: a failure a consumer handles apart is a reason member, and a fact it adds is a field its template prints
+- Numbers print through a format spec (`{count:,}`, `{ratio:.2%}`), quantities through `pint`'s `~P`, and durations as their `timedelta`
+- Library faults name what failed and why, and the command or operator layer adds the remedy or next call
+- Text no sink prints (a reason no reader receives, a fault no caller reads) goes
 - `partial(Fault.of, <reason>, <subject>)` serves `map_error` and `filter_with` with the refused value as `cause`, and `to_result_with` with none
 - Consumers classify a fault by its `reason` member or by a class pattern on its `cause`
 - Suppressed or warned conditions become an `Error` or a `Result` holding the degraded value
@@ -267,7 +287,7 @@ def ran(program: str, /, *args: str, stdout: int | None = None) -> Outcome[subpr
     try:
         return Ok(subprocess.run((program, *args), stdout=stdout, check=True))
     except (OSError, subprocess.CalledProcessError) as error:
-        return Error(Fault.of(Reason.FAILED, program, error))
+        return Error(Fault.of(Reason.FAILED, (program, *args), error))
 ```
 
 Overloaded calls take a typed `def` under `@catch`, and calls raising unrelated classes take a `try`.
@@ -341,7 +361,7 @@ Decode external bytes or builtins in one typed call through `msgspec.<format>.de
 ```python
 def stored[T](form: TypeForm[T], path: Path, /) -> Outcome[T]:
     decode: Callable[[bytes], Result[T, msgspec.DecodeError]] = catch(msgspec.json.Decoder(form).decode, exception=msgspec.DecodeError)
-    return content(path).bind(lambda raw: decode(raw).map_error(partial(Fault.of, Reason.INVALID, str(path))))
+    return content(path).bind(lambda raw: decode(raw).map_error(partial(Fault.of, Reason.INVALID, path)))
 ```
 
 `stored(Ports, path)` over `type Ports = tuple[Annotated[int, msgspec.Meta(ge=1, le=65535)], ...]` reads as `Outcome[tuple[int, ...]]`:
@@ -365,7 +385,7 @@ def _entered(stack: ExitStack, paths: Sequence[Path], /) -> tuple[BufferedReader
 @contextmanager
 def opened(paths: Sequence[Path], /) -> Generator[Outcome[tuple[BufferedReader, ...]]]:
     with ExitStack() as stack:
-        yield _entered(stack, paths).map_error(partial(Fault.of, Reason.UNREADABLE, ", ".join(map(str, paths))))
+        yield _entered(stack, paths).map_error(partial(Fault.of, Reason.UNREADABLE, tuple(paths)))
 ```
 
 Failed opens release every stream opened before them at scope exit, and the body receives one fault in place of an exception:
@@ -382,7 +402,7 @@ async def loaded(path: anyio.Path, /) -> Outcome[bytes]:
     try:
         data = await path.read_bytes()
     except OSError as error:
-        return Error(Fault.of(Reason.UNREADABLE, str(path), error))
+        return Error(Fault.of(Reason.UNREADABLE, path, error))
     return Ok(data)
 ```
 

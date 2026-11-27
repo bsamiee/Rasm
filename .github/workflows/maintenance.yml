@@ -26,6 +26,17 @@ jobs:
               with:
                   fetch-depth: 0
                   clean: false
+            - &leftovers
+              run: |-
+                  git ls-files -z --others --ignored --exclude-standard --directory | while IFS= read -r -d '' path; do
+                      if [[ "${path}" == */ ]] && ! git check-ignore -q --no-index "${path%/}" && git log -1 --format=%h -- "${path}" | read -r; then
+                          printf "%s\0" "${path}"
+                      fi
+                  done | xargs -0 -r git clean -ffdX --
+            - run: |-
+                  sockets="$(find /tmp "${RUNNER_TEMP}" -maxdepth 1 -type s -user "${UID}" | sort)"
+                  bound="$(ss -Hxa | awk '{print $5}' | sort -u)"
+                  comm -23 <(printf "%s\n" "${sockets}") <(printf "%s\n" "${bound}") | xargs -r -d '\n' rm -f --
             - &tools
               uses: $/.github/actions/tools
             - &packages
@@ -59,6 +70,7 @@ jobs:
                 password: ${{ github.token }}
         steps:
             - *checkout
+            - *leftovers
             - *tools
             - *packages
             - *wheels
@@ -70,6 +82,7 @@ jobs:
         timeout-minutes: 60
         steps:
             - *checkout
+            - *leftovers
             - *tools
             - *packages
             - *wheels

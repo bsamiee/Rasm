@@ -27,11 +27,16 @@ const SUPERSEDED = new Socket.CloseEvent(4000, 'Superseded by a newer peer of it
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const layerProtocolChildProcess = ({ stdin, stdout }: Pick<ChildProcessSpawner.ChildProcessHandle, 'stdin' | 'stdout'>) =>
+const layerProtocolChildProcess = ({ stdin, stdout }: Pick<ChildProcessSpawner.ChildProcessHandle, 'stdin' | 'stdout'>, ended: Effect.Effect<string>) =>
     Effect.gen(function* () {
         const requests = new TransformStream<Uint8Array, Uint8Array>();
         yield* Stream.fromReadableStream({ evaluate: Function.constant(requests.readable), onError: Function.identity }).pipe(Stream.orDie, Stream.run(stdin), Effect.forkScoped);
-        const socket = yield* Socket.fromTransformStream(Effect.succeed({ readable: Stream.toReadableStream(stdout), writable: requests.writable }));
+        const socket = yield* Socket.fromTransformStream(Effect.succeed({ readable: Stream.toReadableStream(Stream.concat(stdout, Stream.never)), writable: requests.writable }));
+        yield* ended.pipe(
+            Effect.flatMap((reason) => Effect.scoped(Effect.flatMap(socket.writer, ({ write }) => write(new Socket.CloseEvent(1011, reason))))),
+            Effect.ignore,
+            Effect.forkScoped,
+        );
         return yield* RpcClient.makeProtocolSocket(NO_RETRY).pipe(Effect.provideService(Socket.Socket, socket), Effect.provide(RpcSerialization.layerNdJsonRpc({ maxBufferSize: 'unbounded' })));
     }).pipe(Layer.effect(RpcClient.Protocol));
 const connect = Effect.fnUntraced(

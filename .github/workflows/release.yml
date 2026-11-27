@@ -27,7 +27,6 @@ cache-mode: none
 
 env:
     GH_TOKEN: ${{ github.token }}
-    MSBUILDDISABLENODEREUSE: '1'
 
 defaults:
     run:

@@ -2,7 +2,7 @@
     "$schema": "../node_modules/knip/schema.json",
     "exclude": ["catalog"],
     "treatConfigHintsAsErrors": true,
-    "ignoreBinaries": ["jscpd", "lsappinfo", "rustc", "swift", "uv", "zipinfo"],
+    "ignoreBinaries": ["jscpd", "rustc", "swift", "uv", "zipinfo"],
     "ignoreDependencies": ["@effect/language-service", "@rasm/process", "adobe", "claude-code", "indesign-uxp-types"],
     "ignoreExportsUsedInFile": true,
     "ignoreIssues": {
@@ -19,6 +19,9 @@
         },
         "infra": {
             "project": ["**/*.ts", "!sdks/**"]
+        },
+        "plugins/claude/*": {
+            "entry": ["types/index.d.ts"]
         },
         "products/apps/creative-cloud/*/atelier": {
             "entry": ["main.ts"]

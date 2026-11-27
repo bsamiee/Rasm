@@ -19,7 +19,7 @@ async def bounded[S, T](step: Callable[[S], Awaitable[Outcome[T]]], limiter: any
     async with limiter:
         with anyio.move_on_after(limit / timedelta(seconds=1)):
             return await step(subject)
-    return Error(Fault.of(Reason.EXPIRED, str(subject), limit))
+    return Error(Fault.of(Reason.EXPIRED, subject, limit))
 ```
 
 `await anyio.amap(partial(bounded, loaded, limiter, limit), paths)` returns each expired item's fault beside its siblings' bytes:

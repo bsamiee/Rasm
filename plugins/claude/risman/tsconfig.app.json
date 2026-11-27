@@ -1,5 +1,7 @@
 {
     "extends": "../../../libs/typescript/ai/claude-code/tsconfig.base.json",
+    "compilerOptions": { "noEmit": true },
+    "exclude": ["vite.config.ts"],
     "references": [
         {
             "path": "../../../libs/typescript/ai/mcp"

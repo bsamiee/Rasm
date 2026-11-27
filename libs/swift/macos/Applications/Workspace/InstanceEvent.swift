@@ -33,7 +33,18 @@ package struct InstanceEvent: Encodable, Sendable {
         case started(identifier: String?, name: String?)
         case opened(container: Int, kind: Container.Kind, title: String?)
         case closed(container: Int, kind: Container.Kind, title: String?)
-        case asking(container: Int, kind: Container.Kind, title: String?, text: [String], answers: [Answer], default: Int?, cancel: Int?, close: Int?)
+        case asking(
+            container: Int,
+            kind: Container.Kind,
+            title: String?,
+            text: [String],
+            answers: [Answer],
+            default: Int?,
+            cancel: Int?,
+            close: Int?,
+            secure: Answer?,
+            presentation: Watch.Presentation?,
+        )
         case focused(control: Int, kind: Control.Kind)
         case value(control: Int, kind: Control.Kind, fact: Fact)
         case selection(control: Int, kind: Control.Kind, evidence: Control.Evidence)
@@ -44,6 +55,7 @@ package struct InstanceEvent: Encodable, Sendable {
         case status(status: InstanceState.Activity.Status)
         case announced(text: String, priority: Priority?)
         case dragging(notification: String, control: Int?, kind: Control.Kind?)
+        case proven(followed: Int, drawn: Bool)
         case logged(entry: LogEntry)
         case reported(report: DiagnosticReport)
         case sampled(report: URL)
@@ -57,7 +69,7 @@ package struct InstanceEvent: Encodable, Sendable {
 }
 
 extension InstanceEvent.Change {
-    init(asking container: Container) {
+    init(asking container: Container, secure: InstanceEvent.Answer?, presentation: Watch.Presentation?) {
         let labels: [Int: String] = Dictionary(container.controls.compactMap { control in control.label.map { label in (control.ref, label.text) } }) { first, _ in first }
         let marked: OrderedSet<Int> = OrderedSet(
             [container.default, container.cancel, container.close].compactMap(\.self) + container.controls.filter { control in control.kind == .action }.map(\.ref)
@@ -71,6 +83,8 @@ extension InstanceEvent.Change {
             default: container.default,
             cancel: container.cancel,
             close: container.close,
+            secure: secure,
+            presentation: presentation,
         )
     }
 }

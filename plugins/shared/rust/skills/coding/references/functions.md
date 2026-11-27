@@ -49,16 +49,14 @@ pub fn refused(parcel: &Parcel, carrier: Carrier) -> impl Iterator<Item = Field>
 
 ## [03]-[FINDINGS]
 
-Checks a report collects without failing are one enum with a variant and message per check, and one `match` holds each predicate:
+Checks a report collects without failing are one enum with a variant per check, its name the finding's text, and one `match` holds each predicate:
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq, VariantArray, Display)]
+#[display(rename_all = "kebab-case")]
 pub enum Finding {
-    #[display("order holds no lines")]
     Empty,
-    #[display("order total exceeds its credit limit")]
     OverLimit,
-    #[display("shipping address is unverified")]
     Unverified,
 }
 

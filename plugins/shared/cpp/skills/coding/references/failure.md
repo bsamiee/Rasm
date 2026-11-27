@@ -82,12 +82,17 @@ Refusals name themselves through one `switch` in their namespace:
 }
 ```
 
-`std::formatter` specializations sit in the global namespace and print through it:
+`std::formatter` specializations sit in the global namespace, one per refusal and failure aggregate, and derive every printed failure from its label and fields:
 
 ```cpp
 template <>
 struct std::formatter<raster::Refusal> : std::formatter<std::string_view> {
     auto format(raster::Refusal refusal, std::format_context& context) const { return std::formatter<std::string_view>::format(raster::label(refusal), context); }
+};
+
+template <>
+struct std::formatter<raster::Defect> : std::formatter<std::string_view> {
+    auto format(const raster::Defect& defect, std::format_context& context) const { return std::format_to(context.out(), "{} {}", defect.position, defect.refusal); }
 };
 ```
 
@@ -102,7 +107,7 @@ auto main(int count, char** values) -> int {
     const auto parsed = raster::extents_of(texts, 1'000'000);
     if (!parsed) {
         for (const auto defect : parsed.error()) {
-            std::println(std::cerr, "argument {}: {}", defect.position + 1, defect.refusal);
+            std::println(std::cerr, "{}", defect);
         }
         return 2;
     }

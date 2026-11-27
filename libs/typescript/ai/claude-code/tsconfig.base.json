@@ -1,6 +1,6 @@
 {
     "extends": "../../../../tsconfig.base.json",
-    "compilerOptions": { "noEmit": true, "module": "preserve" },
-    "include": ["${configDir}/**/*", "types/index.d.ts"],
-    "exclude": ["${configDir}/vite.config.ts"]
+    "compilerOptions": { "module": "preserve" },
+    "files": ["../../../../.artifacts/vite/@rasm/function-hooks/.claude-plugin/types/claude-code/index.d.ts"],
+    "include": ["${configDir}/**/*"]
 }

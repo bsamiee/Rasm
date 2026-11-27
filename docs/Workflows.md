@@ -41,11 +41,13 @@ Jobs of workflow `CI` and the projects each runs:
 - Job `affected` names the Playwright image Deploy publishes by the `@playwright/test` row of the pnpm catalog
 - Runs at a Playwright version with no published image fail to pull it until Deploy on `main` publishes its tag
 - Job `deploy` of such a run still builds that tag, as it waits for job `browser` without needing its success, and a re-run of `browser` passes
-- Job `linux` runs affected projects tagged `os:linux` or no `os:` on instance `host`, except `host:rhino`, `host:browser`, `host:unreal`
+- Job `linux` runs affected projects tagged `os:linux` or no `os:` on instance `host`, except `host:rhino`, `host:browser`, `host:unreal`, `host:claude-code`
 - Job `linux` runs `nx sync:check` and `nx conformance:check`, as CI task runs skip sync and no Nx task runs conformance
 - Job `affected` runs neither check, as jobs `browser`, `windows`, `unreal`, and `deploy` wait for it and neither check feeds one
 - Job `linux` runs every `codegen` target first, as type-aware lint reads the sources those targets write
 - Job `linux` runs `hk check` from base to head before its tasks, which run past a failed check once code generation passed
+- Workflow variable `HK_PROFILE` turns on hk profile `ci`, which skips step `oxlint-claude-code` over `host:claude-code` sources
+- No runner holds the engine declarations those sources' programs list, and type-aware oxlint reports each such program as an invalid tsconfig
 - Configuration `ci` of job `linux` adds GitHub annotations to `check--knip` findings
 - Job `browser` turns batching off (`NX_BATCH_MODE`)
 - Jobs `linux` and `browser` remove each report path before their run, as their kept checkout holds earlier runs' reports
@@ -54,7 +56,7 @@ Jobs of workflow `CI` and the projects each runs:
 - Job containers and user `node` of the Playwright image take user `runner`'s uid, as every job of one instance shares its checkout
 - Selenium Manager downloads stable Firefox and `geckodriver` for WebDriver suites, and the image holds the libraries Firefox loads
 - `pack--playwright` renders in job `browser`, extension UI in its image's Linux `system-ui`
-- Job `macos` runs affected `os:darwin` projects except `host:rhino` and `host:unreal`, as no Linux graph holds an Apple project and its runner holds no engine
+- Job `macos` runs affected `os:darwin` projects except `host:rhino`, `host:unreal`, and `host:claude-code`, as no Linux graph holds an Apple project and its runner holds no engine
 - Job `macos` runs `nx conformance:check` again, as Apple projects and their targets enter only the macOS graph
 - Job `macos` uploads each `test--xcodebuild` result bundle with its reports, holding attachments and window captures of failing tests
 - Job `macos` runs `hk check` steps `swiftlint`, `swift-format`, `plutil`, and `xcprojformatter` from base to head, as hk defines them on macOS alone
@@ -163,6 +165,11 @@ Workflow `Release` credentials and jobs:
 Workflow `Maintenance` and its jobs on instances `host`, `container`, and `graph`:
 - Workflow `Maintenance` runs weekly before the machine update hour
 - Job `host` keeps ignored files and prunes package stores, Docker objects, and week-old build cache
+- Jobs remove each folder holding ignored files alone at a path git history tracked, as checkouts keep a deleted project's `node_modules` and `dist`
+- Job `host` removes sockets of user `runner` in `/tmp` and its temp folder that no `ss -xa` row binds, as tools write them at paths no setting moves
+- `dotnet test` of SDK 11.0.100 leaves one `/tmp/<hex32>` socket per test application, as its pipe loop never disposes its waiting server
+- Scratch `dotnet test --no-build` runs each left one `/tmp/<hex32>` socket, and a direct run of the built test application left none
+- `dotnet format` build hosts leave `/tmp/<uuid>` sockets, as Roslyn's MSBuild workspace binds its pipes in `/tmp` whatever `TMPDIR` names
 - Job `host` prunes unused mise tools of its machine, and job `container` those of instance `container`'s tool cache in the Playwright image
 - Jobs `container` and `graph` prune the pnpm store and uv cache of their own checkout, as each instance's checkout holds both
 - `uv cache prune` keeps each archive its cache names, and an environment linked to one stays linked

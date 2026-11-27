@@ -203,7 +203,7 @@ internal static class Workflow {
         Func<Command, IO<Unit>> save, Command command) =>
         from valid in Eff<RT, Command>.Lift(() => validate(command))
         from owner in lookup(valid.OwnerId)
-        from found in Eff<RT, Entry>.Lift(() => owner.ToFin(new Fault($"owner {valid.OwnerId}", Reason.Missing)))
+        from found in Eff<RT, Entry>.Lift(() => owner.ToFin(new Fault(valid.OwnerId, Reason.Missing)))
         from _ in save(valid)
         select found;
 }
@@ -294,7 +294,7 @@ internal sealed class Handler(IRepository<Account> states, Func<Command, Account
         select unit;
 
     private static IO<Account> Require(IO<Option<Account>> lookup) =>
-        lookup.Bind(static option => IO.lift(option.ToFin(new Fault("account", Reason.Missing))));
+        lookup.Bind(static option => IO.lift(option.ToFin(new Fault(nameof(Account), Reason.Missing))));
 }
 ```
 

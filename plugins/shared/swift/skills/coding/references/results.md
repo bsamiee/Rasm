@@ -44,7 +44,7 @@ init(accountID: String?, organizationID: String?, email: String?, plan: String?)
         require(email, .email),
         organizationID.map { value in require(value, .organizationID).map(Optional.some) } ?? .success(nil),
     )
-    .mapError { causes in AccountFailure(subject: "Account identity", reason: .invalid(causes)) }
+    .mapError { causes in AccountFailure(subject: String(describing: Self.self), reason: .invalid(causes)) }
     .get()
     self.plan = plan
 }
@@ -54,7 +54,7 @@ init(accountID: String?, organizationID: String?, email: String?, plan: String?)
 - Field rules a type holds (`LongestSide(rawValue:)` refusing a non-positive side) lift its failable init in place of a local rule
 - Callers acting on each failure receive `AggregateError<E>`, callers treating the rejection as one failure an `invalid` reason holding it
 - Cross-field rules run on the values `combine` returns
-- Rules read as one message are rows `[(kept: Bool, rule: String)]`, and `Input.init` throws once naming every failed row
+- Rules checked in one pass are rows `[(kept: Bool, rule: Reason)]`, and the initializer throws once holding every failed row's reason
 
 ## [03]-[WORKFLOWS]
 

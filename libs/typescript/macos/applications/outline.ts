@@ -38,7 +38,7 @@ const NEVER = globalThis.Number.POSITIVE_INFINITY;
 const BUDGET = { page: 6000, ceiling: 12_000 };
 const UNBOUNDED: typeof BUDGET = { page: NEVER, ceiling: NEVER };
 const CUTS = ['text', 'map', 'options', 'rows', 'containers'] as const;
-const KEPT = { options: 6, rows: 20, words: 6 } as const;
+const KEPT = { options: 6, rows: 20, words: 6, showing: 8 } as const;
 const WORDS = new Intl.Segmenter(undefined, { granularity: 'word' });
 const MEASURE = new Intl.NumberFormat('en', { maximumFractionDigits: 2, maximumSignificantDigits: 3, roundingPriority: 'morePrecision', useGrouping: false });
 const PERCENT = new Intl.NumberFormat('en', { style: 'percent' });
@@ -52,6 +52,12 @@ const SAY = {
     closed: 'closed, act presses its items without opening it',
     unlisted: 'options list only while open, to chooses one by its label',
     separated: 'separator above',
+    changed: 'the application changed',
+    drawn: 'the window changed',
+    following: 'proof follows as event',
+    front: 'application in front',
+    unfronted: 'bring to front refused',
+    secure: 'person fills it, no step can',
 } as const;
 const NOUNS = {
     window: ['window', 'windows'],
@@ -91,6 +97,16 @@ const duration = (elapsed: Duration.Input) => {
         Match.orElse(() => SPANS.whole.format({ days, hours, minutes, seconds })),
     );
 };
+const scrolled = (vertical: number | undefined, horizontal: number | undefined) => [...Array.fromNullishOr(vertical).map((at) => `scrolled ${PERCENT.format(at)} down`), ...Array.fromNullishOr(horizontal).map((at) => `scrolled ${PERCENT.format(at)} across`)];
+const showing = ({ rows, showing: shown }: { readonly rows?: number; readonly showing: readonly { readonly index: number; readonly label?: string }[] }) =>
+    Array.match(shown, {
+        onEmpty: Array.empty,
+        onNonEmpty: (held) => {
+            const span = [`rows ${Array.headNonEmpty(held).index + 1} to ${Array.lastNonEmpty(held).index + 1}`, ...Array.fromNullishOr(rows).map((total) => `of ${total}`)].join(' ');
+            const labels = [...Array.take(held, KEPT.showing).map(({ index, label }) => UndefinedOr.match(label, { onUndefined: () => `row ${index + 1}`, onDefined: named })), ...(held.length > KEPT.showing ? [`${held.length - KEPT.showing} more`] : [])];
+            return [`${span}: ${labels.join(', ')}`];
+        },
+    });
 const heading = (parts: readonly string[], value: Option.Option<string>) => Option.match(value, { onNone: () => parts.join(' '), onSome: (held) => `${parts.join(' ')}: ${held}` });
 const spoken = (kind: Control['kind']) => (UNSPOKEN.has(kind) ? [] : [kind]);
 const quoted = (key: string, value: Schema.Json) => `${key}:${JSON.stringify(value)}`;
@@ -195,7 +211,7 @@ const draft =
             focused: control.focused === true,
             changed: HashSet.has(changed, control.ref),
         };
-        const besides = siblings(alternates.map((each) => draft(index, container, changed, leveled, Option.none())({ entry: each, alternates: [], nested: [] })));
+        const besides = alternates.flatMap((each) => siblings([draft(index, container, changed, leveled, Option.none())({ entry: each, alternates: [], nested: [] })]));
         const pinned = marks.default || marks.cancel || marks.close || marks.focused || marks.changed || control.selected !== undefined || (container.asking && control.kind === 'action') || besides.some(Struct.get('pinned'));
         const chosen = control.value?._tag === 'text' ? Option.some(control.value.value) : Option.none();
         const listed = options.map(({ option, item: each }) => {
@@ -208,11 +224,11 @@ const draft =
         const leveling = !disclosed && new Set(groups.map((group) => Array.headNonEmpty(group).entry.control.level)).size > 1;
         const rows = groups.map((group) => ({ control: Array.headNonEmpty(group).entry.control, drafted: draft(index, container, changed, leveling, item.name)({ ...Array.headNonEmpty(group), nested: Array.tailNonEmpty(group) }) }));
         const present = new Set(rows.map(({ control: { ref } }) => ref));
-        const beneath = Array.groupBy(
+        const beneath: Record.ReadonlyRecord<string, readonly (typeof rows)[number][]> = Array.groupBy(
             rows.filter(({ control: { disclosedBy } }) => disclosedBy !== undefined && present.has(disclosedBy)),
-            ({ control: { disclosedBy } }) => `${disclosedBy}`,
+            ({ control: { disclosedBy } }): string => `${disclosedBy}`,
         );
-        const arrange = (level: typeof rows): readonly Node[] => siblings(level.map(({ control: { ref }, drafted }) => ({ ...drafted, children: [...drafted.children, ...arrange(Option.getOrElse(Record.get(beneath, `${ref}`), Array.empty))] })));
+        const arrange = (level: readonly (typeof rows)[number][]): readonly Node[] => siblings(level.map(({ control: { ref }, drafted }) => ({ ...drafted, children: [...drafted.children, ...arrange(Option.getOrElse(Record.get(beneath, `${ref}`), Array.empty))] })));
         const tops = rows
             .filter(({ control: { disclosedBy } }) => disclosedBy === undefined || !present.has(disclosedBy))
             .map((row) => ({ ...row, drafted: { ...row.drafted, facts: [...row.drafted.facts, ...Array.fromNullishOr(row.control.disclosedBy).flatMap((up) => Option.toArray(Option.map(Option.flatMap(Record.get(index.live, `${up}`), Struct.get('token')), (token) => `under ${token}`)))] } }));
@@ -261,11 +277,7 @@ const draft =
                 ...Array.fromNullishOr(control.sort).map((order) => `sorted ${order}`),
                 ...Array.fromNullishOr(control.column).map((column) => `column: ${named(column)}`),
                 ...Array.fromNullishOr(control.cells).flatMap((cells) => cells.map(({ column, text }) => UndefinedOr.match(column, { onUndefined: () => named(text), onDefined: (title) => `${title}: ${named(text)}` }))),
-                ...Array.fromNullishOr(control.scroll).flatMap(({ contentSize, horizontalScrollBar, verticalScrollBar }) => [
-                    ...Array.fromNullishOr(verticalScrollBar).map((at) => `scrolled ${PERCENT.format(at)} down`),
-                    ...Array.fromNullishOr(horizontalScrollBar).map((at) => `scrolled ${PERCENT.format(at)} across`),
-                    ...Array.fromNullishOr(contentSize).map(([wide, high]) => `content ${MEASURE.format(wide)} by ${MEASURE.format(high)}`),
-                ]),
+                ...Array.fromNullishOr(control.scroll).flatMap(({ contentSize, horizontalScrollBar, verticalScrollBar }) => [...scrolled(verticalScrollBar, horizontalScrollBar), ...Array.fromNullishOr(contentSize).map(([wide, high]) => `content ${MEASURE.format(wide)} by ${MEASURE.format(high)}`)]),
                 ...Array.fromNullishOr(control.selectedTextRanges).flatMap((ranges) => (control.focused === true || ranges.some(({ length }) => length > 0) ? [`selection ${ranges.map(({ location, length }) => `of ${count(length, 'character')} at ${location}`).join(' and ')}`] : [])),
                 ...Array.fromNullishOr(control.numberOfCharacters).flatMap((total) => (control.value?._tag === 'text' && control.value.value.length === total ? [] : [count(total, 'character')])),
                 ...Array.fromNullishOr(control.insertionPointLineNumber).flatMap((line) => (control.focused === true ? [`line ${line}`] : [])),
@@ -507,7 +519,7 @@ const changes = (before: Index, after: Index) => {
         ...before.shown.filter(({ container }) => !kept.has(container.ref)).map(({ container, item }) => [...Option.toArray(item.token), NOUNS[container.kind][0], ...Option.toArray(Option.map(item.name, named)), 'closed'].join(' ')),
     ];
 };
-const Outline = { render, hits, changes, clipboard, budget: BUDGET, rows: KEPT.rows, say: SAY, call, quoted, keys, shortcut, count, named, duration, noun: (kind: Container['kind']) => NOUNS[kind][0], percent: PERCENT.format, list: (items: Iterable<string>) => LIST.format(items) } as const;
+const Outline = { render, hits, changes, clipboard, budget: BUDGET, rows: KEPT.rows, say: SAY, call, quoted, keys, shortcut, count, named, duration, noun: (kind: Container['kind']) => NOUNS[kind][0], percent: PERCENT.format, list: (items: Iterable<string>) => LIST.format(items), scrolled, showing } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

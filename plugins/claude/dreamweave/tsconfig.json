@@ -1,3 +1,4 @@
 {
-    "extends": "../../../libs/typescript/ai/claude-code/tsconfig.base.json"
+    "extends": "../../../libs/typescript/ai/claude-code/tsconfig.base.json",
+    "compilerOptions": { "noEmit": true }
 }

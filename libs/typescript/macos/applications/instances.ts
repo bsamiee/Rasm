@@ -1,5 +1,5 @@
 import { Schema, Struct } from 'effect';
-import { Container, Control, Fact, Frame, Instant, Ref, WindowID } from '#/interface';
+import { Container, Control, Fact, Frame, Instant, Presentation, Ref, WindowID } from '#/interface';
 import { DiagnosticReport, Exited, LogEntry, Pid, ProcessInstance, ProcessStatus, Usage, UsageInterval } from '#/processes';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -90,6 +90,8 @@ const Change = Schema.TaggedUnion({
         ...container,
         text: Container.fields.text,
         answers: Schema.Array(Schema.Struct({ ref: Ref, label: Schema.optionalKey(Schema.String) }).annotate({ description: 'Action control answering the container, with its label' })),
+        secure: Schema.optionalKey(Schema.Struct({ ref: Ref, label: Schema.optionalKey(Schema.String) }).annotate({ description: 'Secure text field only the person can fill, which no step reaches' })),
+        presentation: Schema.optionalKey(Presentation.annotate({ description: 'forward: the application brought in front for the person to fill the secure field; behind: the system refused to bring it forward' })),
         ...Struct.pick(Container.fields, ['default', 'cancel', 'close']),
     },
     focused: control,
@@ -116,13 +118,17 @@ const Change = Schema.TaggedUnion({
         control: Schema.optionalKey(Ref),
         kind: Schema.optionalKey(Control.fields.kind),
     },
+    proven: {
+        followed: Schema.Int.annotate({ description: 'Number of the step act returned as posted, from its delivery followed field' }),
+        drawn: Schema.Boolean.annotate({ description: 'The aimed window changed, false where an event of the application tied to the step showed it' }),
+    },
     logged: { entry: LogEntry.annotate({ description: 'Fault the instance logged, streamed while a handle drives it' }) },
     reported: { report: DiagnosticReport.annotate({ description: 'Hang, spin, or diagnostic report written for the instance while a handle drives it, a crash report arriving with exited' }) },
     sampled: { report: Schema.URLFromString.annotate({ description: 'sample report of the main thread and every other thread, taken as the instance turned unresponsive while a handle drives it' }) },
     exited: { termination: Exited },
 }).annotate({
     description:
-        'Change of a selected instance: started, container opened, closed, or asking, focus, value, or selection of a control, a moved container, frontmost, hidden, a window server window change, status, an announcement, a drag at a control, a logged fault, a written diagnostic report, a sample taken on a hang, exited with its crash report',
+        'Change of a selected instance: started, container opened, closed, or asking, focus, value, or selection of a control, a moved container, frontmost, hidden, a window server window change, status, an announcement, a drag at a control, a step act returned as posted taking effect later, a logged fault, a written diagnostic report, a sample taken on a hang, exited with its crash report',
 });
 class Event extends Schema.Opaque<Event>()(Schema.Struct({ instance: ProcessInstance, sequence: Schema.Int.annotate({ description: 'Per instance, rising with each change' }), at: Schema.String.annotate({ description: 'ISO 8601 time the change was read' }), change: Change })) {}
 class InstanceSnapshot extends Schema.Class<InstanceSnapshot, { readonly brand: unique symbol }>('InstanceSnapshot')({

@@ -125,7 +125,7 @@ internal static class Commands {
     public static IO<(Event Event, Snapshot Snapshot)> Handle(Func<Guid, IO<Seq<Event>>> load, Func<Event, IO<Unit>> save, Debit command) =>
         from _ in IO.lift(Fault.Unless(command.Amount > 0m, Reason.Invalid, command.Amount))
         from history in load(command.EntryId)
-        from snapshot in IO.lift(Entry.Rebuild(history).ToFin(new Fault($"entry {command.EntryId}", Reason.Missing)))
+        from snapshot in IO.lift(Entry.Rebuild(history).ToFin(new Fault(command.EntryId, Reason.Missing)))
         from result in IO.lift(Entry.Debit(snapshot, command))
         from __ in save(result.Event)
         select result;
@@ -145,7 +145,7 @@ internal static class Queries {
     public static Seq<Row> Rows(Seq<Event> history) =>
         history.Choose(static evt => evt.Switch<Option<Row>>(
             created: static _ => Option<Row>.None,
-            credited: static e => Some(new Row("credit", e.Amount)),
+            credited: static e => Some(new Row(nameof(Event.Credited), e.Amount)),
             debited: static e => Some(new Row(e.Target, -e.Amount)),
             frozen: static _ => Option<Row>.None));
     public static decimal Total(Seq<Row> rows) => rows.Fold(0m, static (total, row) => total + row.Amount);

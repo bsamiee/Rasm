@@ -201,6 +201,7 @@ pub struct Args {
 
 `Retention` derives `ValueEnum` and `Default`, and `TOKEN=<token> <program> --settings a.toml run -x` decodes every field:
 - Flags and variables take the field's name (`--token`, `TOKEN`), and a dependency's variable takes its constant (`env = EnvFilter::DEFAULT_ENV`)
+- Help states a field's purpose alone, as clap prints each default from `default_value_t`
 - `hide_env_values` keeps a secret out of `--help`, `SecretString` redacts `Debug`, and `expose_secret` reads it at the call sending it
 - `value_parser` refuses at parse a value the type's `FromStr` accepts and its consumer refuses (an address without a port)
 - Repeatable paths omit `value_delimiter`, a comma staying part of a path
