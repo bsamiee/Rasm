@@ -1,6 +1,6 @@
 import { assert, it } from '@effect/vitest';
 import { Shell } from '@rasm/shell';
-import { Arbitrary, Array, Effect, FileSystem, Formatter, Match, Option, Redacted, Schema, Struct } from 'effect';
+import { Arbitrary, Array, Effect, FileSystem, Formatter, Match, Option, Path, Redacted, Schema, Struct } from 'effect';
 import { walk, type Word } from 'sh-syntax';
 import { Dialects, Oracle } from '#/oracle';
 
@@ -10,6 +10,7 @@ type Script = Effect.Success<ReturnType<Shell['Service']['read']>>;
 type Expansion = ReturnType<Script['expand']>[0];
 type Field = Extract<Expansion, { readonly _tag: 'Expanded' }>['fields'][number];
 type Recorded = Effect.Success<ReturnType<Oracle['Service']['run']>>['records'][number];
+type Feature = Parameters<Script['dialect']['supports']>[0];
 type Kind = 'bash' | 'zsh' | 'zsh -f' | '/bin/bash' | '/bin/sh' | 'dash';
 interface Row {
     readonly shell: Kind;
@@ -18,6 +19,7 @@ interface Row {
     readonly operands?: readonly string[];
     readonly startup?: string;
     readonly fields: readonly string[];
+    readonly lacking?: { readonly feature: Feature; readonly fields: readonly string[] };
     readonly exact: boolean;
 }
 
@@ -115,9 +117,9 @@ const located = (script: Script, start: number) => {
     });
     return script.expand(Option.getOrThrow(Array.last(found)))[0];
 };
-const observed = Effect.fnUntraced(function* ({ shell, word, ...at }: Omit<Row, 'fields' | 'exact'>) {
+const observed = Effect.fnUntraced(function* ({ shell, word, ...at }: Omit<Row, 'fields' | 'lacking' | 'exact'>) {
     const { script, records } = yield* read(shell, `rec ${word}`, { ...at, cwd: (yield* Oracle).fixture });
-    return { expansion: located(script, 4), records };
+    return { expansion: located(script, 4), dialect: script.dialect, records };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -129,7 +131,7 @@ it.layer(Dialects.layer, { excludeTestServices: true })('expansion', (suite) => 
         { shell: 'bash', word: String.raw`$'\u00410'`, fields: ['Known'], exact: true },
         { shell: '/bin/bash', word: String.raw`$'\u00410'`, fields: ['Known'], exact: true },
         { shell: 'bash', word: String.raw`$'\x4g\101\cA\e\q\U0001F600'`, fields: ['Known'], exact: true },
-        { shell: 'zsh', word: String.raw`$'\x4g\101\C-a\e\q\U0001F600'`, fields: ['Known'], exact: true },
+        { shell: 'zsh', word: String.raw`$'\x4g\101\C-a\e\q\U0001F600'`, fields: ['Known'], lacking: { feature: 'wide', fields: ['Refused Bytes'] }, exact: true },
         { shell: 'bash', word: String.raw`$'a\0b'c`, fields: ['Known'], exact: true },
         { shell: 'bash', word: String.raw`$'\xff'`, fields: ['…'], exact: true },
         { shell: 'bash', word: '$x', environment: { x: 'a b' }, fields: ['Known', 'Known'], exact: true },
@@ -153,9 +155,9 @@ it.layer(Dialects.layer, { excludeTestServices: true })('expansion', (suite) => 
         { shell: 'bash', word: `\${x/b/B}.\${x//b/B}.\${x/#a/A}.\${x/%b/B}.\${x/b*/Z}.\${x//[bc]/Z}.\${x/b/<&>}`, environment: { x: 'abcb' }, fields: ['Known'], exact: true },
         { shell: '/bin/bash', word: `\${x/b/<&>}`, environment: { x: 'abcb' }, fields: ['Known'], exact: true },
         { shell: 'bash', word: `\${x^^}\${x,}\${x^}`, environment: { x: 'aBc' }, fields: ['Known'], exact: true },
-        { shell: '/bin/bash', word: `\${x^^}`, environment: { x: 'aBc' }, fields: ['Refused Unsupported'], exact: true },
+        { shell: '/bin/bash', word: `\${x^^}`, environment: { x: 'aBc' }, fields: ['Known'], lacking: { feature: 'casing', fields: ['Refused Unsupported'] }, exact: true },
         { shell: 'bash', word: `\${x:1:-1}\${x: -2}`, environment: { x: 'abcd' }, fields: ['Known'], exact: true },
-        { shell: '/bin/bash', word: `\${x:1:-1}`, environment: { x: 'abcd' }, fields: ['Refused Arithmetic'], exact: true },
+        { shell: '/bin/bash', word: `\${x:1:-1}`, environment: { x: 'abcd' }, fields: ['Known'], lacking: { feature: 'negative', fields: ['Refused Arithmetic'] }, exact: true },
         { shell: 'zsh', word: `\${x:h:r}.\${x:e}.\${x:u}`, environment: { x: '/a/b.c' }, fields: ['Known'], exact: true },
         { shell: 'zsh', word: '$x:t:r.$x:/bin', environment: { x: '/a/b.c' }, fields: ['Known'], exact: true },
         { shell: 'zsh', word: `\${x:h}.\${y:a}`, environment: { x: 'b.c', y: '../a/./b' }, fields: ['Known'], exact: true },
@@ -171,8 +173,8 @@ it.layer(Dialects.layer, { excludeTestServices: true })('expansion', (suite) => 
         { shell: 'bash', word: '"$*"', operands: ['a b', '', 'c'], fields: ['Known'], exact: true },
         { shell: 'bash', word: '"x$@y"', operands: ['1', '2'], fields: ['Known', 'Known'], exact: true },
         { shell: 'bash', word: '"$@"', fields: [], exact: true },
-        { shell: '/bin/bash', word: `"\${*}"\${y##*/}`, environment: { y: ' ' }, fields: [], exact: true },
-        { shell: '/bin/sh', word: `""\${y}""`, environment: { y: ' ' }, fields: ['Known'], exact: true },
+        { shell: '/bin/bash', word: `"\${*}"\${y##*/}`, environment: { y: ' ' }, fields: ['Known'], lacking: { feature: 'leadingnulls', fields: [] }, exact: true },
+        { shell: '/bin/sh', word: `""\${y}""`, environment: { y: ' ' }, fields: ['Known', 'Known'], lacking: { feature: 'leadingnulls', fields: ['Known'] }, exact: true },
         { shell: 'bash', word: `""\${y}""`, environment: { y: ' ' }, fields: ['Known', 'Known'], exact: true },
         { shell: 'bash', word: `\${@:-x}`, fields: ['Known'], exact: true },
         { shell: 'bash', word: '$#.$0.$?', operands: ['a', 'b'], fields: ['Known'], exact: true },
@@ -197,7 +199,7 @@ it.layer(Dialects.layer, { excludeTestServices: true })('expansion', (suite) => 
         { shell: 'bash', word: '{01..03}', fields: ['Known', 'Known', 'Known'], exact: true },
         { shell: '/bin/bash', word: '{01..03}', fields: ['Known', 'Known', 'Known'], exact: true },
         { shell: 'bash', word: '{a..e..2}', fields: ['Known', 'Known', 'Known'], exact: true },
-        { shell: '/bin/bash', word: '{1..5..2}', fields: ['Known'], exact: true },
+        { shell: '/bin/bash', word: '{1..5..2}', fields: ['Known', 'Known', 'Known'], lacking: { feature: 'steps', fields: ['Known'] }, exact: true },
         { shell: 'zsh', word: '{a..e..2}', fields: ['Known'], exact: true },
         { shell: 'zsh', word: '{1..3..0}', fields: ['…'], exact: false },
         { shell: 'bash', word: '{1..3..-1}', fields: ['Known', 'Known', 'Known'], exact: true },
@@ -232,10 +234,11 @@ it.layer(Dialects.layer, { excludeTestServices: true })('expansion', (suite) => 
         { shell: 'bash', word: '*.txt', startup: 'set -f', fields: ['Known'], exact: true },
         { shell: 'zsh -f', word: '*(.)', fields: ['Paths Refused'], exact: false },
     ])(
-        '$shell expands $word under $environment, operands $operands, and startup "$startup" to $fields with exact $exact, which the real run fits',
-        Effect.fnUntraced(function* ({ fields, exact, ...row }) {
-            const { expansion, records } = yield* observed(row);
-            assert.deepStrictEqual([described(expansion), expansion._tag === 'Refused' || expansion.exact, related(expansion, records)], [fields, exact, true], Formatter.format({ expansion, records: records.map(({ args }) => args) }));
+        '$shell expands $word under $environment, operands $operands, and startup "$startup" to $fields, or $lacking.fields where it lacks $lacking.feature, with exact $exact, which the real run fits',
+        Effect.fnUntraced(function* ({ fields, lacking, exact, ...row }) {
+            const { expansion, dialect, records } = yield* observed(row);
+            const expected = Option.match(Option.fromUndefinedOr(lacking), { onNone: () => fields, onSome: ({ feature, fields: otherwise }) => (dialect.supports(feature) ? fields : otherwise) });
+            assert.deepStrictEqual([described(expansion), expansion._tag === 'Refused' || expansion.exact, related(expansion, records)], [expected, exact, true], Formatter.format({ expansion, features: dialect.features, records: records.map(({ args }) => args) }));
         }),
     );
 
@@ -294,15 +297,17 @@ it.layer(Dialects.layer, { excludeTestServices: true })('expansion', (suite) => 
     ] as const)(
         '$dialect expands ~+ to the working folder as PWD names it when logical is $logical, and as its physical path otherwise',
         Effect.fnUntraced(function* ({ dialect, logical }) {
-            const [shell, oracle, fs, { probed }] = yield* Effect.all([Shell, Oracle, FileSystem.FileSystem, Dialects]);
-            const physical = yield* fs.realPath(oracle.fixture);
-            const environment = { PWD: logical ? oracle.fixture : '/' };
-            const script = yield* shell.read('rec ~+', { dialect: yield* probed(dialect, environment), cwd: oracle.fixture });
-            const { records } = yield* oracle.run(script.argv(), environment, oracle.fixture);
+            const [shell, oracle, fs, path, { probed }] = yield* Effect.all([Shell, Oracle, FileSystem.FileSystem, Path.Path, Dialects]);
+            const linked = path.join(yield* fs.makeTempDirectoryScoped(), 'linked');
+            yield* fs.symlink(oracle.fixture, linked);
+            const physical = yield* fs.realPath(linked);
+            const environment = { PWD: logical ? linked : '/' };
+            const script = yield* shell.read('rec ~+', { dialect: yield* probed(dialect, environment), cwd: linked });
+            const { records } = yield* oracle.run(script.argv(), environment, linked);
             const expansion = located(script, 4);
-            const expected = logical ? oracle.fixture : physical;
-            assert.deepStrictEqual([oracle.fixture === physical, expansion._tag === 'Expanded' ? expansion.fields.map((field) => field.text) : [], records.map(({ args }) => args)], [false, [Option.some(expected)], [[expected]]]);
-        }),
+            const expected = logical ? linked : physical;
+            assert.deepStrictEqual([linked === physical, expansion._tag === 'Expanded' ? expansion.fields.map((field) => field.text) : [], records.map(({ args }) => args)], [false, [Option.some(expected)], [[expected]]]);
+        }, Effect.scoped),
     );
 
     suite.effect.prop(
