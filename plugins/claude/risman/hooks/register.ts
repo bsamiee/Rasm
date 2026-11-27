@@ -1,7 +1,7 @@
 import { Notice, request, runtime, say } from '@rasm/claude-code/platform';
 import { Handles } from '@rasm/mcp/handles';
 import { atom, type EngineInterface, type On, read, type ToolMcpServer, update } from 'claude-code';
-import { Array, Cause, Context, Data, Duration, Effect, Equal, FiberMap, Function, HashMap, HashSet, Layer, MutableRef, Option, Record, Ref, Result, Schema, Stream, Struct, SubscriptionRef, SynchronizedRef } from 'effect';
+import { Array, Context, Data, Duration, Effect, Equal, FiberMap, Function, HashMap, HashSet, Layer, MutableRef, Option, Record, Ref, Result, Schema, Stream, Struct, SubscriptionRef, SynchronizedRef } from 'effect';
 import { HttpStatus } from 'effect/http';
 import { HttpApiClient, HttpApiError } from 'effect/http-api';
 import { Host, NetAddress } from 'effect/net';
@@ -66,9 +66,9 @@ function link($: EngineInterface) {
     const send = (name: keyof typeof endpoints, url: string) => request('http', name, url, () => $.http.fetch(url, { method: endpoints[name].method }));
     const show = (handle: string, rows: Record.ReadonlyRecord<string, string>) =>
         request('store', 'read', ROWS.ref.key, () => read($, ROWS)).pipe(
-            Effect.map((shown) => Record.toEntries(Record.difference(rows, shown[handle] ?? {}))),
+            Effect.map((shown) => Record.keys(Record.difference(rows, shown[handle] ?? {}))),
             Effect.tap(request('store', 'update', ROWS.ref.key, () => update($, ROWS, (shown) => (Record.isEmptyRecord(rows) ? Record.remove(shown, handle) : Record.set(shown, handle, rows))))),
-            Effect.flatMap(Effect.forEach(([press, text]: readonly [string, string]) => tell(Record.has(rows, press) ? Notice.Notify({ text, key: press }) : Notice.Withdraw({ key: press })), { discard: true })),
+            Effect.flatMap(Effect.forEach((press: string) => tell(Notice.Notify({ key: press, text: Record.get(rows, press) })), { discard: true })),
             Effect.catchCause(Effect.logWarning),
             Effect.uninterruptible,
         );
@@ -95,11 +95,7 @@ function link($: EngineInterface) {
                     Option.filter(() => !idle || polled.notices.some(Struct.get('wake'))),
                     Option.match({
                         onNone: () => Effect.void,
-                        onSome: ({ sequence }) =>
-                            tell(Notice.Model({ agent: follower.binding.agent, idle, text: Array.map(polled.notices, Struct.get('text')).join('\n') })).pipe(
-                                Effect.filterOrFail(Function.identity, () => new Cause.UnknownError(sequence, 'notices undelivered')),
-                                Effect.andThen(Ref.set(follower.after, sequence)),
-                            ),
+                        onSome: ({ sequence }) => tell(Notice.Model({ agent: follower.binding.agent, idle, text: Array.map(polled.notices, Struct.get('text')).join('\n') })).pipe(Effect.andThen(Ref.set(follower.after, sequence))),
                     }),
                 );
                 return polled.rows.revision;

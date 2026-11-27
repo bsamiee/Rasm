@@ -2,11 +2,11 @@ import { Action, Decision } from '@rasm/policy/action';
 import type { Policy } from '@rasm/policy/policy';
 import type { EngineInterface, Next, On, ToolCallInput, ToolCallResult } from 'claude-code';
 import { Cause, Duration, Effect, Function, type Layer, Match, MutableRef, Option, Path, Predicate, Schedule, Schema, SchemaGetter, Struct } from 'effect';
-import { Notice, request, runtime, Session } from '#/platform';
+import { Notice, request, runtime, Session, session } from '#/platform';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Runtime = ReturnType<typeof runtime<Layer.Success<ReturnType<typeof Session.layer>>, Layer.Error<ReturnType<typeof Session.layer>>>>;
+type Runtime = ReturnType<typeof runtime<Layer.Success<ReturnType<typeof session>>, Layer.Error<ReturnType<typeof session>>>>;
 type Live = MutableRef.MutableRef<Option.Option<Runtime>>;
 type Busy = MutableRef.MutableRef<boolean>;
 
@@ -51,19 +51,19 @@ const annotate = (result: ToolCallResult, notes: readonly string[]): ToolCallRes
 const backgroundTask = (result: ToolCallResult) =>
     Option.flatMap(Schema.decodeUnknownOption(Background)(result), ({ result: { backgroundTaskId: id }, text }) => Option.map(Option.fromNullishOr(new RegExp(`${outputLead}(?<output>${outputFolder}${RegExp.escape(id)}\\.output)`, 'u').exec(text)?.groups), ({ output = '' }) => ({ id, output })));
 const decide = (policy: Policy, action: Action) =>
-    Session.use((session) => Effect.flatMap(session.acting(action.agent), ({ environment, path }) => Effect.provideService(policy.decide(action, environment), Path.Path, path)).pipe(Effect.tap(({ faults }) => Effect.forEach(faults, (fault) => Effect.logWarning(fault), { discard: true }))));
+    Session.use((opened) => Effect.flatMap(opened.acting(action.agent), ({ environment, path }) => Effect.provideService(policy.decide(action, environment), Path.Path, path)).pipe(Effect.tap(({ faults }) => Effect.forEach(faults, (fault) => Effect.logWarning(fault), { discard: true }))));
 const deadline = (next: Pick<Next<'tool.call'>, 'budget'>) =>
     Effect.suspend(() => Effect.sleep(Duration.millis(Math.max(0, next.budget.remainingMs - reserve)))).pipe(Effect.repeat({ until: () => next.budget.remainingMs <= reserve }), Effect.andThen(Effect.fail(new Cause.TimeoutError('its hook budget ran out before the rules settled'))));
 const watch = (policy: Policy, busy: Busy, { call, agent }: Action, task: Option.Option.Value<ReturnType<typeof backgroundTask>>) =>
-    Session.use((session) => {
+    Session.use((opened) => {
         const check = (resting: boolean) =>
             Effect.flatMap(decide(policy, Action.cases.Task.make({ ...task, call, agent, resting, again: Duration.infinity })), (decision) =>
                 Effect.as(
-                    Effect.forEach(decision.notes, (text) => session.say(Notice.Model({ text, agent, idle: true })), { discard: true }),
+                    Effect.forEach(decision.notes, (text) => opened.say(Notice.Model({ text, agent, idle: true })), { discard: true }),
                     Decision.$is('Rewrite')(decision) && Action.guards.Task(decision.action) ? decision.action.again : Duration.infinity,
                 ),
             );
-        return Effect.suspend(() => Option.match(agent, { onNone: () => Effect.succeedSome(!MutableRef.get(busy)), onSome: session.resting })).pipe(
+        return Effect.suspend(() => Option.match(agent, { onNone: () => Effect.succeedSome(!MutableRef.get(busy)), onSome: opened.resting })).pipe(
             Effect.flatMap(Option.match({ onNone: () => Effect.succeed(Duration.infinity), onSome: check })),
             Effect.repeat({
                 while: Duration.isFinite,
@@ -80,7 +80,7 @@ const watch = (policy: Policy, busy: Busy, { call, agent }: Action, task: Option
 
 function current($: EngineInterface, live: Live) {
     return Option.getOrElse(MutableRef.get(live), () => {
-        const made = runtime($, Session.layer($));
+        const made = runtime($, session($));
         MutableRef.set(live, Option.some(made));
         made.runPromise(Effect.void).catch(() => {
             MutableRef.compareAndSet(live, Option.some(made), Option.none());
@@ -111,7 +111,7 @@ function answer($: EngineInterface, e: ToolCallInput, next: Next<'tool.call'>, a
             const watched = (result: ToolCallResult) => Option.filter(backgroundTask(result), () => policy.appliesTo('Task'));
             const run = (input: ToolCallInput) =>
                 request('Engine', 'next', input.tool, () => next(input)).pipe(
-                    Effect.tap((result) => Option.match(watched(result), { onNone: () => Effect.void, onSome: (task) => Session.use((session) => session.watch(watch(policy, busy, action, task))) })),
+                    Effect.tap((result) => Option.match(watched(result), { onNone: () => Effect.void, onSome: (task) => Session.use((opened) => opened.watch(watch(policy, busy, action, task))) })),
                     Effect.map((result) => annotate(result, decision.notes)),
                 );
             const dispatch = ({ command, run: mode }: typeof Action.cases.Shell.Type) =>
@@ -145,7 +145,7 @@ function hooks(on: On, policy: Policy) {
         MutableRef.set(busy, Effect.runSync(Effect.as(policy.clear(), false)));
         return Option.match(MutableRef.get(live), {
             onNone: () => next(e),
-            onSome: (kept) => Promise.all([next(e), kept.runPromise(Session.use((session) => session.end))]).then(([ended]) => ended),
+            onSome: (kept) => Promise.all([next(e), kept.runPromise(Session.use((opened) => opened.end))]).then(([ended]) => ended),
         });
     }).catch((_, e, next) => next(e));
     on('session.compact', (_, e, next) => next(e).then((result) => Effect.runSync(Effect.as(result.messages === undefined || e.trigger === 'precompute' ? Effect.void : policy.forget(Option.fromUndefinedOr(e.agentId)), result)))).catch((_, e, next) => next(e));

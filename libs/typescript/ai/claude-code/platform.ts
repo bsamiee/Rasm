@@ -48,8 +48,7 @@ type Output = Queue.Queue<Uint8Array, PlatformError.PlatformError | Cause.Done>;
 type Child = HookStream<ProcessSpawnChunk, ProcessSpawnResult>;
 type Notice = Data.TaggedEnum<{
     Toast: { readonly text: string; readonly timeout?: Duration.Input };
-    Notify: { readonly text: string; readonly key: string };
-    Withdraw: { readonly key: string };
+    Notify: { readonly key: string; readonly text: Option.Option<string> };
     Model: { readonly text: string; readonly agent: Option.Option<string>; readonly idle: boolean };
 }>;
 
@@ -103,9 +102,7 @@ class Session extends Context.Service<
         readonly watch: <E, R>(watcher: Effect.Effect<unknown, E, R>) => Effect.Effect<void, never, R>;
         readonly end: Effect.Effect<void>;
     }
->()('@rasm/claude-code/platform/Session') {
-    static readonly layer = session;
-}
+>()('@rasm/claude-code/platform/Session') {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -124,48 +121,31 @@ const systemError = (module: string, method: string, subject: string) => (cause:
     });
 };
 const request = <A>(module: string, method: string, subject: string, run: () => PromiseLike<A>) => Effect.tryPromise({ try: run, catch: systemError(module, method, subject) });
-const say = ($: EngineInterface) =>
-    Notice.$match({
-        Toast: ({ text, timeout }) =>
-            Effect.try({
-                try: () => {
-                    $.ui.toast(text, timeout === undefined ? undefined : { timeoutMs: Duration.toMillis(timeout) });
-                    return true;
-                },
-                catch: systemError('ui', 'toast', text),
+const delivered =
+    <A>(module: string, method: string, subject: string, run: () => PromiseLike<A>) =>
+    (refusal: (answer: A) => string | undefined) =>
+        Effect.flatMap(request(module, method, subject, run), (answer) =>
+            Option.match(Option.fromUndefinedOr(refusal(answer)), {
+                onNone: () => Effect.void,
+                onSome: (description) => PlatformError.systemError({ _tag: 'Unknown', module, method, pathOrDescriptor: subject, description }),
             }),
-        Notify: ({ text, key }) =>
-            Effect.map(
-                request('ui', 'notify', key, () => $.ui.notify(text, { key })),
-                ({ isSent }) => isSent,
-            ),
-        Withdraw: ({ key }) =>
-            Effect.map(
-                request('ui', 'cancelNotify', key, () => $.ui.cancelNotify(key)),
-                ({ isSent }) => isSent,
-            ),
+        );
+function say($: EngineInterface) {
+    return Notice.$match({
+        Toast: ({ text, timeout }) => Effect.try({ try: () => $.ui.toast(text, timeout === undefined ? undefined : { timeoutMs: Duration.toMillis(timeout) }), catch: systemError('ui', 'toast', text) }),
+        Notify: ({ key, text }) =>
+            Option.match(text, {
+                onNone: () => Effect.asVoid(request('ui', 'cancelNotify', key, () => $.ui.cancelNotify(key))),
+                onSome: (body) => delivered('ui', 'notify', key, () => $.ui.notify(body, { key }))((sent) => (sent.isSent ? undefined : sent.reason)),
+            }),
         Model: ({ text, agent, idle }) =>
             Match.value({ idle, agentId: Option.getOrUndefined(agent) }).pipe(
-                Match.when({ idle: false }, ({ agentId }) =>
-                    Effect.map(
-                        request('session', 'append', agentId ?? 'main', () => $.session.append({ message: { type: 'user', content: [{ type: 'text', text }] }, ...(agentId === undefined ? {} : { agentId }) })),
-                        ({ deny }) => deny === undefined,
-                    ),
-                ),
-                Match.when({ agentId: Match.string }, ({ agentId }) =>
-                    Effect.map(
-                        request('session', 'send', agentId, () => $.session.send({ to: { agentId }, text })),
-                        ({ isDelivered }) => isDelivered,
-                    ),
-                ),
-                Match.orElse(() =>
-                    Effect.map(
-                        request('prompt', 'submit', 'main', () => $.prompt.submit({ text })),
-                        ({ drop }) => drop === undefined,
-                    ),
-                ),
+                Match.when({ idle: false }, ({ agentId }) => delivered('session', 'append', agentId ?? 'main', () => $.session.append({ message: { type: 'user', content: [{ type: 'text', text }] }, ...(agentId === undefined ? {} : { agentId }) }))(({ deny }) => deny)),
+                Match.when({ agentId: Match.string }, ({ agentId }) => delivered('session', 'send', agentId, () => $.session.send({ to: { agentId }, text }))(({ reason }) => reason)),
+                Match.orElse(() => delivered('prompt', 'submit', 'main', () => $.prompt.submit({ text }))(({ drop }) => drop)),
             ),
     });
+}
 const badArgument = (module: string, method: string, description: string) => PlatformError.badArgument({ module, method, description });
 const held = <A, E>(exit: Exit.Exit<A, E>) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero);
 const anchor = (base: Path.Path, cwd: string) =>
@@ -456,4 +436,4 @@ function runtime<A, E>($: EngineInterface, layer: Layer.Layer<A, E, FileSystem.F
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Notice, request, runtime, say, Session };
+export { Notice, request, runtime, say, Session, session };
