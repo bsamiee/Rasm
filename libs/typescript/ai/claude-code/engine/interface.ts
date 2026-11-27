@@ -48,16 +48,16 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
     const permits = Semaphore.makeUnsafe(1);
     const notification = (key: string, text: Option.Option<string>) =>
         Option.match(text, {
-            onNone: () => Effect.asVoid(call('ui', 'cancelNotify', key, () => $.ui.cancelNotify(key))),
+            onNone: () => Effect.asVoid(call('ui.cancelNotify', key, () => $.ui.cancelNotify(key))),
             onSome: (body) =>
                 Effect.flatMap(
-                    call('ui', 'notify', key, () => $.ui.notify(body, { key })),
+                    call('ui.notify', key, () => $.ui.notify(body, { key })),
                     (sent) => (sent.isSent ? Effect.void : Effect.log(`notification ${key} not sent: ${sent.reason}`)),
                 ),
         });
     const show = ({ notify }: Band, group: string, shown: Readonly<Record<string, string>>) =>
         stored($).pipe(
-            Effect.tap((held) => call('store', 'set', bandKey, () => $.store.set(bandKey, Record.isEmptyRecord(shown) ? Record.remove(held, group) : Record.set(held, group, shown)))),
+            Effect.tap((held) => call('store.set', bandKey, () => $.store.set(bandKey, Record.isEmptyRecord(shown) ? Record.remove(held, group) : Record.set(held, group, shown)))),
             Effect.tap(Effect.sync(() => $.ui.invalidate('ui.render'))),
             Effect.map((held) => Record.keys(Record.difference(shown, held[group] ?? {}))),
             Effect.flatMap((changed) => Effect.forEach(notify ? changed : [], (key) => notification(key, Record.get(shown, key)), { discard: true })),
@@ -92,8 +92,7 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
                                 Match.value({ busy, agentId: Option.getOrUndefined(agent) }).pipe(
                                     Match.when({ busy: true }, ({ agentId }) =>
                                         call(
-                                            'session',
-                                            'append',
+                                            'session.append',
                                             agentId ?? 'main',
                                             () => $.session.append({ message: { type: 'user', content: [{ type: 'text', text }] }, ...(agentId === undefined ? {} : { agentId }) }),
                                             ({ deny }) => deny,
@@ -101,8 +100,7 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
                                     ),
                                     Match.when({ agentId: Match.string }, ({ agentId }) =>
                                         call(
-                                            'session',
-                                            'send',
+                                            'session.send',
                                             agentId,
                                             () => $.session.send({ to: { agentId }, text }),
                                             ({ reason }) => reason,
@@ -110,8 +108,7 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
                                     ),
                                     Match.orElse(() =>
                                         call(
-                                            'prompt',
-                                            'submit',
+                                            'prompt.submit',
                                             'main',
                                             () => $.prompt.submit({ text }),
                                             ({ drop }) => drop,
@@ -122,13 +119,13 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
                             ),
                     }),
                 invalidate: (event: InvalidatableEventName) => Effect.sync(() => $.ui.invalidate(event)),
-                fetch: (url: string, init?: HttpInit) => call('http', 'fetch', url, () => $.http.fetch(url, init)),
-                callTool: (args: AgentCallArgs) => call('agent', 'call', args.tool, (signal) => $.agent.call(args, { signal })),
-                compile: (source: string) => call('wasm', 'compile', source, () => $.wasm.compile(source)),
-                cwd: call('session', 'cwd', 'main', () => $.session.cwd()),
+                fetch: (url: string, init?: HttpInit) => call('http.fetch', url, () => $.http.fetch(url, init)),
+                callTool: (args: AgentCallArgs) => call('agent.call', args.tool, (signal) => $.agent.call(args, { signal })),
+                compile: (source: string) => call('wasm.compile', source, () => $.wasm.compile(source)),
+                cwd: call('session.cwd', 'main', () => $.session.cwd()),
                 findAgent: (id: string) =>
                     Effect.map(
-                        call('agent', 'list', id, () => $.agent.list()),
+                        call('agent.list', id, () => $.agent.list()),
                         Array.findFirst((info) => info.id === id && !ended[info.status]),
                     ),
                 isRunning,
@@ -139,7 +136,7 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
 }
 
 function stored($: EngineInterface) {
-    return call('store', 'get', bandKey, () => $.store.get(bandKey)).pipe(
+    return call('store.get', bandKey, () => $.store.get(bandKey)).pipe(
         Effect.flatMap(Schema.decodeUnknownEffect(Rows)),
         Effect.map((rows) => rows ?? {}),
     );

@@ -27,7 +27,7 @@ const reasons = { throw: 'threw', timeout: 'ran out of time' } as const satisfie
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const lift = <N extends Event>(next: ((input: Args<N>) => Promise<EventResult<N>>) & Pick<Next<N>, 'budget' | 'event' | 'signal'>): Proceed<N> => Object.assign((input: Args<N>) => call('engine', 'next', next.event, () => next(input)), { budget: next.budget, signal: next.signal });
+const lift = <N extends Event>(next: ((input: Args<N>) => Promise<EventResult<N>>) & Pick<Next<N>, 'budget' | 'event' | 'signal'>): Proceed<N> => Object.assign((input: Args<N>) => call(next.event, 'next', () => next(input)), { budget: next.budget, signal: next.signal });
 const track = <A, E, F>({ turns }: Instance<A, E, F>, agent: string | undefined, running: boolean) => Effect.runSync(SubscriptionRef.update(turns, running ? HashSet.add(Option.fromUndefinedOr(agent)) : HashSet.remove(Option.fromUndefinedOr(agent))));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
