@@ -106,8 +106,8 @@
             "name": "risman",
             "source": {
                 "source": "archive",
-                "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/risman%400.1.0/risman.zip",
-                "sha256": "49bd466355e345ec1382574edcc91a6346c6049d5628e4b67df825969fa319b0"
+                "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/risman%400.1.1/risman.zip",
+                "sha256": "f6982ad3bffbc1e851bd41fcb1411df43e95eb0ce6915560721b0fa4e9a5c578"
             },
             "description": "Claude Code hooks that bind each agent to its handle on every local MCP server built on @rasm/mcp and deliver the events of the applications it drove between tool calls",
             "author": {
