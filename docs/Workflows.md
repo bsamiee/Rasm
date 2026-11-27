@@ -82,11 +82,11 @@ Composite actions and the mise profile jobs load:
 - Action `tools` replaces a kept mise once a newer release is a day old, as an older mise refuses a newer lock format
 - Job containers install mise tools in the runner's tool cache
 - CMake checks uninitialized variables in each file inside the source tree, vcpkg's toolchain file included where mise installs it there
-- Windows jobs install mise tools under `C:\mise`, as `cmd.exe` finds no command once `PATH` passes 8191 characters
-- GitHub-hosted runners alone load mise profile `ci`, which skips Python environments and Playwright browsers
-- Profile `ci` sets `enable_tools` to the tools hosted jobs' steps, Nx tasks, and graph creation run
+- Windows jobs install mise tools under `C:/mise`, as `cmd.exe` finds no command once `PATH` passes 8191 characters
+- GitHub-hosted runners, job containers, and instance `graph` load mise profile `ci`, which skips Python environments and Playwright browsers
+- Profile `ci` sets `enable_tools` to the tools its jobs' steps, Nx tasks, and graph creation run
 - Profile `ci` states no `[tools]` row, as mise installs a row stated there only from a `mise.ci.toml` lock the repository lacks
-- Self-hosted jobs, job containers and job `affected` included, load no profile and install every tool
+- Instance `host` loads no profile and installs every tool, as job `linux` runs every Linux project
 
 ## [05]-[CACHE]
 
