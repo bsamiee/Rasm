@@ -8,7 +8,7 @@ import Results
 import SPI
 @unsafe @preconcurrency import ScreenCaptureKit
 import UniformTypeIdentifiers
-import Vision
+@unsafe @preconcurrency import Vision
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -89,7 +89,7 @@ package struct Screenshot: Encodable, Sendable {
 
     // --- [DIFFERENCE]
 
-    func changed(from earlier: Self) -> [CGRect]? {
+    @concurrent func changed(from earlier: Self) async -> [CGRect]? {
         guard frame == earlier.frame else { return [frame.union(earlier.frame)] }
         guard (image.width, image.height, image.bitsPerComponent) == (earlier.image.width, earlier.image.height, earlier.image.bitsPerComponent) else { return nil }
         let extent = CGRect(x: 0, y: 0, width: image.width, height: image.height)
@@ -106,7 +106,17 @@ package struct Screenshot: Encodable, Sendable {
         guard let output = mask.outputImage, let rendered = rendering.createCGImage(output, from: extent, format: .L8, colorSpace: gray) else { return nil }
         let contours = VNDetectContoursRequest()
         (contours.contrastAdjustment, contours.detectsDarkOnLight, contours.maximumImageDimension) = (1, false, max(image.width, image.height))
-        do { try VNImageRequestHandler(cgImage: rendered, options: [:]).perform([contours]) } catch { return nil }
+        let performed: Bool = await withTaskCancellationHandler {
+            do {
+                try VNImageRequestHandler(cgImage: rendered, options: [:]).perform([contours])
+                return !Task.isCancelled
+            } catch {
+                return false
+            }
+        } onCancel: {
+            contours.cancel()
+        }
+        guard performed else { return nil }
         return (contours.results?.first?.topLevelContours ?? []).map { (contour: VNContour) -> CGRect in
             let box: CGRect = contour.normalizedPath.boundingBox
             return CGRect(x: frame.minX + box.minX * frame.width, y: frame.minY + (1 - box.maxY) * frame.height, width: box.width * frame.width, height: box.height * frame.height)

@@ -429,6 +429,8 @@ package actor Watch {
         return handles.count - 1
     }
 
+    func reference(of element: AXUIElement) -> Int? { table[element].flatMap { (id: Int) -> Int? in owners[id] } }
+
     private func intern(_ locator: Locator) -> Int {
         if let number = numbers[locator] { return number }
         let index: Int = seeded[locator.stored]?.popFirst() ?? locators.endIndex
@@ -482,7 +484,7 @@ package actor Watch {
             let visible = Range(NSRange(location: range.location, length: range.length), in: value)
         else { return (answer, read) }
         let facts: [String: Fact] = read.facts.merging([kAXValueAttribute: .text(value: String(value[visible]))]) { _, shown in shown }
-        return (answer, Element(id: id, facts: facts, actions: read.actions, window: read.window, descriptions: read.descriptions, counts: read.counts))
+        return (answer, Element(id: id, facts: facts, actions: read.actions, window: read.window, descriptions: read.descriptions, counts: read.counts, settable: read.settable))
     }
 
     private func application() throws(ApplicationFailure) -> Element {
@@ -904,9 +906,11 @@ package actor Watch {
             .min { first, second in first.frame.width * first.frame.height < second.frame.width * second.frame.height }
         let opener: Int? = [kAXParentAttribute, kAXTopLevelUIElementAttribute].compactMap { attribute in head.facts[attribute]?.element.flatMap { id in owners[id] } }.first
         let (elements, truncated) = try walk([(id: head.id, reach: .menu, depth: 2)], rows: nil)
-        let shown: [Element] = elements.values.map { element in
-            element.id == head.id
-                ? Element(id: element.id, facts: element.facts, actions: element.actions, window: row?.number, descriptions: element.descriptions, counts: element.counts) : element
+        let shown: [Element] = elements.values.map { (element: Element) -> Element in
+            guard element.id == head.id else { return element }
+            var placed: Element = element
+            placed.window = row?.number
+            return placed
         }
         let hierarchy = Hierarchy(
             elements: shown,
@@ -1150,19 +1154,24 @@ package actor Watch {
         return (open[controls[ref]?.container ?? ref]?.window, frame)
     }
 
-    func learn(from shot: Screenshot) {
+    func learn(from shot: Screenshot) async {
         guard let number = shot.windows.first else { return }
         let now: ContinuousClock.Instant = .now
         let size = SIMD2<Int>(shot.image.width, shot.image.height)
-        let held = pictures[number].flatMap { (held: (frame: CGRect, last: [SIMD2<Int>: (shot: Screenshot, at: ContinuousClock.Instant)], restless: [(region: CGRect, span: Duration)])) in
-            held.frame == shot.frame ? held : nil
+        let earlier: (shot: Screenshot, at: ContinuousClock.Instant)? = pictures[number].flatMap {
+            (
+                held: (frame: CGRect, last: [SIMD2<Int>: (shot: Screenshot, at: ContinuousClock.Instant)], restless: [(region: CGRect, span: Duration)])
+            ) -> (shot: Screenshot, at: ContinuousClock.Instant)? in
+            held.frame == shot.frame ? held.last[size] : nil
         }
-        let earlier: (shot: Screenshot, at: ContinuousClock.Instant)? = held?.last[size]
         let still: Bool =
             earlier.map { (earlier: (shot: Screenshot, at: ContinuousClock.Instant)) -> Bool in
                 posted.map { (posted: ContinuousClock.Instant) -> Bool in posted.advanced(by: messagingTimeout) < earlier.at } ?? true
             } == true
-        let changed: [CGRect]? = still ? earlier.flatMap { (earlier: (shot: Screenshot, at: ContinuousClock.Instant)) -> [CGRect]? in shot.changed(from: earlier.shot) } : nil
+        let changed: [CGRect]? = if still, let earlier { await shot.changed(from: earlier.shot) } else { nil }
+        let held = pictures[number].flatMap { (held: (frame: CGRect, last: [SIMD2<Int>: (shot: Screenshot, at: ContinuousClock.Instant)], restless: [(region: CGRect, span: Duration)])) in
+            held.frame == shot.frame ? held : nil
+        }
         let gap: Duration = earlier.map { (earlier: (shot: Screenshot, at: ContinuousClock.Instant)) -> Duration in earlier.at.duration(to: now) } ?? .zero
         let kept: [(region: CGRect, span: Duration)] = (held?.restless ?? []).compactMap { (entry: (region: CGRect, span: Duration)) -> (region: CGRect, span: Duration)? in
             let moving: [CGRect] = changed?.filter { (region: CGRect) -> Bool in region.intersects(entry.region) } ?? []

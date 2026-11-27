@@ -82,7 +82,13 @@ const interned = (model: Model, copies: number): Model => {
                 return [last, { ...control, ref, ...(control.options === undefined ? {} : { options }) }] as const;
             },
         );
-        return [after, { ...container, ref: next, controls }] as const;
+        const [, celled] = Array.mapAccum(controls, Option.none<number>(), (current, control: (typeof controls)[number]): readonly [Option.Option<number>, (typeof controls)[number]] => {
+            const owner = control.kind === 'row' ? Option.none<number>() : Option.filter(current, () => control.row !== undefined);
+            const bare = Struct.omit(control, ['row']);
+            return [control.kind === 'row' ? Option.some(control.ref) : owner, Option.match(owner, { onNone: () => bare, onSome: (row) => ({ ...bare, row }) })];
+        });
+        const cells = new Set(celled.flatMap((control) => (control.row === undefined ? [] : [control.ref])));
+        return [after, { ...container, ref: next, controls: celled.map((control) => (control.alternate !== undefined && (control.row !== undefined || cells.has(control.alternate)) ? Struct.omit(control, ['alternate']) : control)) }] as const;
     });
     return {
         ...model,
@@ -254,9 +260,9 @@ describe(Outline.render, () => {
                     .map(({ groups }) => groups?.['token'] ?? ''),
             ];
             const printed = leading.map((token) => ({ token, resolved: Address.resolve(index, token) }));
-            const controls = model.containers.flatMap(Struct.get('controls'));
+            const controls = model.containers.flatMap(Struct.get('controls')).filter(({ row }) => row === undefined);
             assert.deepStrictEqual(printed.filter(({ token, resolved }) => !(Result.isSuccess(resolved) && Option.contains(resolved.success.token, token))).map(Struct.get('token')), [], 'every reference a line leads with or folds beside it resolves to the thing printed with it');
-            assert.strictEqual(leading.length, model.containers.length + controls.length + controls.flatMap((control) => control.options ?? []).length, 'every container, control, and option prints its reference once');
+            assert.strictEqual(leading.length, model.containers.length + controls.length + controls.flatMap((control) => control.options ?? []).length, 'every container, control outside a table row, and option prints its reference once');
         }),
         { arbitrary: { seed: 2026, runs: 200 } },
     );

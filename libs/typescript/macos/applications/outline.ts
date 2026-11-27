@@ -58,6 +58,7 @@ const SAY = {
     front: 'application in front',
     unfronted: 'bring to front refused',
     secure: 'person fills it, no step can',
+    unseen: 'not in view',
 } as const;
 const NOUNS = {
     window: ['window', 'windows'],
@@ -219,7 +220,9 @@ const draft =
             return node(facts([...Option.toArray(each.token), named(Option.getOrElse(each.name, () => 'unlabelled'))].join(' '), [...(selected ? ['selected'] : []), ...Array.fromNullishOr(option.shortcut).map(shortcut), ...help(option.help, option.label)]), Option.toArray(each.token), { pinned: selected });
         });
         const last = Option.getOrElse(Array.findFirstIndex(listed, Struct.get('pinned')), () => -1) + KEPT.options;
-        const groups = Array.isReadonlyArrayNonEmpty(nested) ? Array.groupWith(nested, (each, head) => each.entry.control.row === head.entry.control.ref) : [];
+        const inline = control.kind === 'row' ? nested.map(({ entry }) => (entry.control.kind === 'text' && entry.control.settable !== true ? Option.getOrElse(Option.map(entry.item.value, named), () => 'empty') : heading([...Option.toArray(entry.item.token), ...spoken(entry.control.kind)], entry.item.value))) : [];
+        const groups = control.kind !== 'row' && Array.isReadonlyArrayNonEmpty(nested) ? Array.groupWith(nested, (each, head) => each.entry.control.row === head.entry.control.ref) : [];
+        const columns = Array.dedupe(Option.getOrElse(Array.head(groups), Array.empty).flatMap(({ entry }) => Array.fromNullishOr(entry.control.column)));
         const disclosed = groups.some((group) => Array.headNonEmpty(group).entry.control.disclosedBy !== undefined);
         const leveling = !disclosed && new Set(groups.map((group) => Array.headNonEmpty(group).entry.control.level)).size > 1;
         const rows = groups.map((group) => ({ control: Array.headNonEmpty(group).entry.control, drafted: draft(index, container, changed, leveling, item.name)({ ...Array.headNonEmpty(group), nested: Array.tailNonEmpty(group) }) }));
@@ -233,18 +236,39 @@ const draft =
             .filter(({ control: { disclosedBy } }) => disclosedBy === undefined || !present.has(disclosedBy))
             .map((row) => ({ ...row, drafted: { ...row.drafted, facts: [...row.drafted.facts, ...Array.fromNullishOr(row.control.disclosedBy).flatMap((up) => Option.toArray(Option.map(Option.flatMap(Record.get(index.live, `${up}`), Struct.get('token')), (token) => `under ${token}`)))] } }));
         const runs = (control.runs ?? []).map(({ range, text, attributes }) => node(facts(JSON.stringify(text), [`characters ${range.location} to ${range.location + range.length}`, ...Record.collect(attributes, (key, value) => `${key}: ${Address.fact('text', value)}`)]), []));
-        const head = heading(
-            [
-                ...Option.toArray(
-                    Option.map(
-                        Option.filter(item.name, (name) => !Option.contains(within, name)),
-                        named,
-                    ),
+        const head = Array.match(inline, {
+            onEmpty: () =>
+                heading(
+                    [
+                        ...Option.toArray(
+                            Option.map(
+                                Option.filter(item.name, (name) => !Option.contains(within, name)),
+                                named,
+                            ),
+                        ),
+                        ...spoken(control.kind),
+                    ],
+                    item.value,
                 ),
-                ...spoken(control.kind),
-            ],
-            item.value,
-        );
+            onNonEmpty: (values) =>
+                [
+                    ...Option.toArray(
+                        Option.map(
+                            Option.filter(
+                                item.name,
+                                (name) =>
+                                    !Option.contains(within, name) &&
+                                    !Option.contains(
+                                        Option.flatMap(Array.head(nested), ({ entry }) => entry.item.value),
+                                        name,
+                                    ),
+                            ),
+                            named,
+                        ),
+                    ),
+                    ...values,
+                ].join(', '),
+        });
         return {
             token: item.token,
             tokens: [...Option.toArray(item.token), ...besides.flatMap(Struct.get('tokens'))],
@@ -274,6 +298,7 @@ const draft =
                 ...Array.fromNullishOr(control.expanded).map((open) => (open ? 'expanded' : 'collapsed')),
                 ...Array.fromNullishOr(control.actions).map((actions) => `actions: ${actions.map(named).join(', ')}`),
                 ...Array.fromNullishOr(control.total).map((total) => count(total, 'row')),
+                ...Array.match(columns, { onEmpty: Array.empty, onNonEmpty: (titles) => [`columns: ${titles.map(named).join(', ')}`] }),
                 ...Array.fromNullishOr(control.sort).map((order) => `sorted ${order}`),
                 ...Array.fromNullishOr(control.column).map((column) => `column: ${named(column)}`),
                 ...Array.fromNullishOr(control.cells).flatMap((cells) => cells.map(({ column, text }) => UndefinedOr.match(column, { onUndefined: () => named(text), onDefined: (title) => `${title}: ${named(text)}` }))),
@@ -503,9 +528,9 @@ const clipboard = ({ types, access, patterns, contentType, content }: Pasteboard
               ],
           );
 };
-const changes = (before: Index, after: Index) => {
+const changes = (before: Index, after: Index, touched: ReadonlySet<Control['ref']>) => {
     const [held, kept] = [new Set(before.model.containers.map(Struct.get('ref'))), new Set(after.model.containers.map(Struct.get('ref')))];
-    const changed = HashSet.fromIterable(after.shown.flatMap(({ controls }) => controls.filter(({ control, item }) => Option.exists(Record.get(before.live, `${control.ref}`), (prior) => !Equal.equals(prior.value, item.value))).map(({ control }) => control.ref)));
+    const changed = HashSet.fromIterable(after.shown.flatMap(({ controls }) => controls.filter(({ control, item }) => touched.has(control.ref) && Option.exists(Record.get(before.live, `${control.ref}`), (prior) => !Equal.equals(prior.value, item.value))).map(({ control }) => control.ref)));
     const containers = after.model.containers.flatMap((container) =>
         held.has(container.ref)
             ? Array.match(

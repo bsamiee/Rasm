@@ -212,6 +212,7 @@ struct Control: Encodable, Equatable, Sendable {
     let labels: [String]?
     let section: String?
     var value: Fact?
+    let settable: Bool?
     let enabled: Bool?
     let focused: Bool?
     let selected: Evidence?
@@ -396,22 +397,22 @@ extension Element {
 
     fileprivate var inputLabels: [String] { facts[NSAccessibility.Attribute.userInputLabels.rawValue]?.list?.compactMap(\.text).filter { text in !text.isEmpty } ?? [] }
 
-    var supplementary: (read: [String], counted: [String]) {
+    var supplementary: (read: [String], counted: [String], settable: [String]) {
         switch (Control.Kind(self, measured: false), role, text(kAXSubroleAttribute)) {
-            case (.number, _, _): ([kAXMinValueAttribute, kAXMaxValueAttribute, kAXValueIncrementAttribute, kAXValueWrapsAttribute], [])
-            case (.multi, _, _): ([kAXVisibleRowsAttribute, kAXVisibleChildrenAttribute, kAXHeaderAttribute, kAXVisibleColumnsAttribute], [kAXRowsAttribute])
+            case (.number, _, _): ([kAXMinValueAttribute, kAXMaxValueAttribute, kAXValueIncrementAttribute, kAXValueWrapsAttribute], [], [])
+            case (.multi, _, _): ([kAXVisibleRowsAttribute, kAXVisibleChildrenAttribute, kAXHeaderAttribute, kAXVisibleColumnsAttribute], [kAXRowsAttribute], [])
             case (.row, _, _):
-                ([kAXDisclosingAttribute, kAXDisclosureLevelAttribute, kAXIndexAttribute, kAXURLAttribute, kAXFilenameAttribute, kAXDisclosedByRowAttribute, kAXAlternateUIVisibleAttribute], [])
-            case (.text, _, _): ([kAXSelectedTextRangeAttribute, kAXSelectedTextRangesAttribute, kAXNumberOfCharactersAttribute, kAXInsertionPointLineNumberAttribute], [])
-            case (.choice, kAXTabGroupRole, _): ([kAXTabsAttribute], [])
-            case (.item, kAXMenuItemRole, _): ([kAXMenuItemPrimaryUIElementAttribute], [])
-            case (_, kAXColumnRole, _): ([kAXHeaderAttribute, kAXIndexAttribute], [])
-            case (_, kAXCellRole, _): ([kAXColumnIndexRangeAttribute], [])
-            case (_, kAXScrollAreaRole, _): ([kAXVerticalScrollBarAttribute, kAXHorizontalScrollBarAttribute, NSAccessibility.Attribute.contentSize.rawValue], [])
-            case (_, NSAccessibility.Role.webAreaRole.rawValue, _): ([kAXLoadedAttribute, kAXLoadingProgressAttribute], [])
-            case (_, _, kAXSortButtonSubrole): ([kAXSortDirectionAttribute], [])
-            case (_, _, kAXCloseButtonSubrole): ([kAXEditedAttribute], [])
-            case (_, _, _): ([], [])
+                ([kAXDisclosingAttribute, kAXDisclosureLevelAttribute, kAXIndexAttribute, kAXURLAttribute, kAXFilenameAttribute, kAXDisclosedByRowAttribute, kAXAlternateUIVisibleAttribute], [], [])
+            case (.text, _, _): ([kAXSelectedTextRangeAttribute, kAXSelectedTextRangesAttribute, kAXNumberOfCharactersAttribute, kAXInsertionPointLineNumberAttribute], [], [kAXValueAttribute])
+            case (.choice, kAXTabGroupRole, _): ([kAXTabsAttribute], [], [])
+            case (.item, kAXMenuItemRole, _): ([kAXMenuItemPrimaryUIElementAttribute], [], [])
+            case (_, kAXColumnRole, _): ([kAXHeaderAttribute, kAXIndexAttribute], [], [])
+            case (_, kAXCellRole, _): ([kAXColumnIndexRangeAttribute], [], [])
+            case (_, kAXScrollAreaRole, _): ([kAXVerticalScrollBarAttribute, kAXHorizontalScrollBarAttribute, NSAccessibility.Attribute.contentSize.rawValue], [], [])
+            case (_, NSAccessibility.Role.webAreaRole.rawValue, _): ([kAXLoadedAttribute, kAXLoadingProgressAttribute], [], [])
+            case (_, _, kAXSortButtonSubrole): ([kAXSortDirectionAttribute], [], [])
+            case (_, _, kAXCloseButtonSubrole): ([kAXEditedAttribute], [], [])
+            case (_, _, _): ([], [], [])
         }
     }
 
@@ -502,7 +503,7 @@ extension Model {
             let head: Element =
                 host.map { (host: Element) -> Element in
                     let facts: [String: Fact] = host.facts.merging(content) { (_: Fact, drawn: Fact) -> Fact in drawn }
-                    return Element(id: host.id, facts: facts, actions: host.actions, window: host.window, descriptions: host.descriptions, counts: host.counts)
+                    return Element(id: host.id, facts: facts, actions: host.actions, window: host.window, descriptions: host.descriptions, counts: host.counts, settable: host.settable)
                 } ?? synthetic
             let shown: [Element] = members.enumerated().map { offset, member -> Element in
                 let facts: [String: Fact] = member.facts.merging([frameAttribute: .rect(value: member.frame)]) { (stated: Fact, _: Fact) -> Fact in stated }
@@ -790,6 +791,7 @@ extension Model {
                 labels: inputs.isEmpty ? nil : inputs,
                 section: Swift.sequence(first: element.id) { child in parents[child] }.prefix(held.count).lazy.compactMap { scope in sections[scope] }.first,
                 value: value,
+                settable: element.settable[kAXValueAttribute],
                 enabled: element.flag(kAXEnabledAttribute),
                 focused: element.flag(kAXFocusedAttribute) == true || hierarchy.focused == element.id ? true : nil,
                 selected: selected,

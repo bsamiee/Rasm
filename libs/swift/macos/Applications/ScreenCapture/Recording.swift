@@ -54,7 +54,7 @@ package struct Recording: Encodable, Sendable {
         keeping limit: KeyFrameLimit,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) async -> [KeyFrame] {
-        let settled = samples.removeDuplicates { (earlier: KeyFrame, later: KeyFrame) -> Bool in later.screenshot.changed(from: earlier.screenshot)?.isEmpty == true }.debounce(
+        let settled = samples.removeDuplicates { (earlier: KeyFrame, later: KeyFrame) async -> Bool in await later.screenshot.changed(from: earlier.screenshot)?.isEmpty == true }.debounce(
             for: quiet,
             clock: clock,
         )
@@ -69,12 +69,13 @@ package struct Recording: Encodable, Sendable {
                 case .settled(let frame): sample = frame
             }
             let last: Int = kept.count - 1
-            guard let regions = sample.screenshot.changed(from: kept[last].screenshot), let lead = regions.first else { continue }
+            guard let regions = await sample.screenshot.changed(from: kept[last].screenshot), let lead = regions.first else { continue }
             let changed: CGRect = regions.dropFirst().reduce(lead) { (joint: CGRect, region: CGRect) -> CGRect in joint.union(region) }
             let split: Int = kept[last].markers.firstIndex { (marker: Marker) -> Bool in marker.at >= sample.at } ?? kept[last].markers.endIndex
             let following: [Marker] = Array(kept[last].markers[split...])
             kept[last].markers.removeSubrange(split...)
-            let reverted: Bool = last > 0 && kept[last].markers.isEmpty && kept[last - 1].markers.isEmpty && sample.screenshot.changed(from: kept[last - 1].screenshot)?.isEmpty == true
+            let returned: Bool = last > 0 ? await sample.screenshot.changed(from: kept[last - 1].screenshot)?.isEmpty == true : false
+            let reverted: Bool = last > 0 && kept[last].markers.isEmpty && kept[last - 1].markers.isEmpty && returned
             guard !reverted else {
                 kept.removeLast()
                 kept[last - 1].markers = following
@@ -87,7 +88,7 @@ package struct Recording: Encodable, Sendable {
             let merged: KeyFrame = kept.remove(at: dropped)
             kept[dropped - 1].markers += merged.markers
             while dropped < kept.count {
-                let regions: [CGRect]? = kept[dropped].screenshot.changed(from: kept[dropped - 1].screenshot)
+                let regions: [CGRect]? = await kept[dropped].screenshot.changed(from: kept[dropped - 1].screenshot)
                 guard regions?.isEmpty != true else {
                     let same: KeyFrame = kept.remove(at: dropped)
                     kept[dropped - 1].markers += same.markers

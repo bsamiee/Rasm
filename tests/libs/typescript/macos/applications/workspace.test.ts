@@ -1,6 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
 import { Event } from '@rasm/applications/instances';
-import { type Entry, followInstance, lookupEntry, ownsEvent } from '@rasm/applications/workspace';
+import { type Entry, follow, lookupEntry, ownsEvent } from '@rasm/applications/workspace';
 import { Handle } from '@rasm/mcp/server';
 import { Context, Effect, MutableRef, Option, Record, Schema, Struct } from 'effect';
 
@@ -54,7 +54,7 @@ describe('workspace', () => {
         Effect.gen(function* () {
             const state = MutableRef.make(Context.empty());
             const [followed, other] = yield* Effect.all([asking('512@1'), asking('513@1')]);
-            yield* Effect.provideService(followInstance(followed.instance), Handle, handleOver(state));
+            yield* Effect.provideService(follow(followed.instance, true), Handle, handleOver(state));
             assert.deepStrictEqual({ followed: ownsEvent({ event: followed }, MutableRef.get(state)), other: ownsEvent({ event: other }, MutableRef.get(state)) }, { followed: true, other: false });
         }),
     );

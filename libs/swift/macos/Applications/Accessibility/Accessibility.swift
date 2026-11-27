@@ -113,6 +113,7 @@ struct Element: Hashable, Sendable {
     var window: CGWindowID?
     var descriptions: [String: String] = [:]
     var counts: [String: Int] = [:]
+    var settable: [String: Bool] = [:]
 
     func text(_ attribute: String) -> String? { facts[attribute]?.text.flatMap { text in text.isEmpty ? nil : text } }
 
@@ -246,7 +247,7 @@ extension AXUIElement {
         let (answer, facts) = copy(attributes, interning: intern)
         let acted: AXError = answer == .success ? unsafe AXUIElementCopyActionNames(self, &names) : answer
         let read = Element(id: id, facts: facts, actions: names as? [String] ?? [], window: nil)
-        let (wanted, counted): (read: [String], counted: [String]) = answered.contains(acted) ? read.supplementary : ([], [])
+        let (wanted, counted, writable): (read: [String], counted: [String], settable: [String]) = answered.contains(acted) ? read.supplementary : ([], [], [])
         let missing: [String] = wanted.filter { attribute in !attributes.contains(attribute) }
         let (extended, added) = missing.isEmpty ? (AXError.success, [:]) : copy(missing, interning: intern)
         let descriptions: [(String, String)] = read.actions.filter { action in !declaredActions.contains(action) }.compactMap { action in
@@ -257,6 +258,10 @@ extension AXUIElement {
             var total: CFIndex = 0
             return unsafe AXUIElementGetAttributeValueCount(self, attribute as CFString, &total) == .success ? (attribute, total) : nil
         }
+        let settable: [(String, Bool)] = writable.compactMap { (attribute: String) -> (String, Bool)? in
+            var answer: DarwinBoolean = false
+            return unsafe AXUIElementIsAttributeSettable(self, attribute as CFString, &answer) == .success ? (attribute, answer.boolValue) : nil
+        }
         return (
             [acted, extended].first { error in !answered.contains(error) } ?? answer,
             Element(
@@ -266,6 +271,7 @@ extension AXUIElement {
                 window: answer == .success && read.role.map(windowRoles.contains) == true ? window : nil,
                 descriptions: Dictionary(descriptions) { first, _ in first },
                 counts: Dictionary(counts) { first, _ in first },
+                settable: Dictionary(settable) { first, _ in first },
             ),
         )
     }

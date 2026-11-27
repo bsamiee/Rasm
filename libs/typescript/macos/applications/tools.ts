@@ -20,7 +20,7 @@ import { Outline } from '#/outline';
 import { Diagnostics, type Pressure } from '#/processes';
 import { type Declaration, Description, type SourceRpcs } from '#/source';
 import { Act } from '#/steps';
-import { describeUsage, type Entry, followInstance, Proving, Workspace } from '#/workspace';
+import { describeUsage, type Entry, follow, Proving, Workspace } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -507,12 +507,18 @@ const provingOf =
     (instance: string) =>
     ([{ label }, outcome]: readonly [{ readonly label: Phrase }, Acted['outcomes'][number]]) =>
         Result.match(outcome, { onFailure: Array.empty, onSuccess: ({ followed }) => Array.fromNullishOr(followed).map((held) => [`${instance} ${held}`, done(label)] as const) });
-const describeOutcome = (phrase: Phrase) =>
+const unseen = ({ target, token }: Item) => (target._tag === 'Control' && target.control.frame === undefined && target.container.frame !== undefined ? Option.map(token, (at) => `${at} ${Outline.say.unseen} - act {steps:[{pointer:${JSON.stringify(at)}, button:"none"}]}`) : Option.none());
+const aimOf = (step: object) => Option.filter(Option.firstSomeOf(['pointer' in step ? Option.some(step.pointer) : Option.none(), 'at' in step ? Option.fromUndefinedOr(step.at) : Option.none()]), Predicate.isNumber);
+const describeOutcome = (phrase: Phrase, read: Index) =>
     Result.match({
         onFailure: ({ message }: Error) => `${VERBS[phrase.verb][1]} ${phrase.object} failed: ${message}`,
-        onSuccess: ({ proof, route, presentation, popUps, tried, scrolled, followed }: Delivery) =>
+        onSuccess: ({ proof, route, presentation, popUps, tried, scrolled, followed, resolved }: Delivery) =>
             `${done(phrase)}: ${[
-                PROOFS[proof],
+                ...Option.toArray(Option.filter(Option.fromUndefinedOr(scrolled), () => phrase.verb !== 'scroll')).flatMap((held) => Array.match(Outline.scrolled(held.vertical, held.horizontal), { onEmpty: Array.empty, onNonEmpty: (moved) => [`${moved.join(', ')} first`] })),
+                Option.match(Option.fromUndefinedOr(resolved), {
+                    onNone: () => PROOFS[proof],
+                    onSome: ({ ref, effect }) => [effect, ...Option.match(Record.get(read.live, `${ref}`), { onNone: Array.empty, onSome: (item) => [...Option.toArray(item.token), ...Option.toArray(Option.map(item.name, Outline.named))] })].join(' '),
+                }),
                 ...(proof === 'posting'
                     ? [
                           Option.getOrElse(
@@ -525,7 +531,7 @@ const describeOutcome = (phrase: Phrase) =>
                           followed === undefined ? 'so it may not have landed' : Outline.say.following,
                       ]
                     : []),
-                ...Option.toArray(Option.fromUndefinedOr(scrolled)).flatMap((held) => [...Outline.scrolled(held.vertical, held.horizontal), ...Outline.showing(held)]),
+                ...Option.toArray(Option.filter(Option.fromUndefinedOr(scrolled), () => phrase.verb === 'scroll')).flatMap((held) => [...Outline.scrolled(held.vertical, held.horizontal), ...Outline.showing(held)]),
                 ...(route?._tag === 'source' ? [[`drawn by ${route.member}`, ...Array.match(route.approximated, { onEmpty: Array.empty, onNonEmpty: (lost) => [`without ${Outline.list(lost)}`] })].join(', ')] : []),
                 ...(route?._tag === 'focused' ? ['with its window focused'] : []),
                 ...presented(presentation),
@@ -780,7 +786,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
         yield* Array.isReadonlyArrayEmpty(quit) ? new Cause.NoSuchElementError(refusal) : Effect.void;
         const home = Option.getOrUndefined(Option.map(chosen, ({ url }) => url.href));
         const bound = UndefinedOr.match(wait, { onUndefined: () => Duration.infinity, onDefined: Duration.seconds });
-        yield* Effect.forEach(quit, (each) => followInstance(each.instance), { discard: true });
+        yield* Effect.forEach(quit, (each) => follow(each.instance, true), { discard: true });
         const outcomes = yield* Effect.forEach(quit, (each) => Effect.result(Effect.timeoutOption(server.quit({ instance: each.instance, ...quitting }), bound)), { concurrency: 'unbounded' });
         return Array.zipWith(quit, outcomes, (each, outcome) =>
             [
@@ -870,6 +876,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
     const element = (reference: string, drawn: Drawn) =>
         Effect.fnUntraced(function* ({ row, live, map, route, indexed, level, base }: Effect.Success<ReturnType<typeof modelled>>) {
             const item = yield* itemOf(base, map)(reference);
+            yield* Option.match(unseen(item), { onNone: () => Effect.void, onSome: (line) => new Cause.NoSuchElementError(line) });
             const ref = yield* refOf(live.instance)(item);
             const named = Outline.named(Address.path(item).join(Address.separator));
             const recalled = item.live ? Option.none<Index>() : map.pipe(Address.recall(base), Option.some);
@@ -1126,7 +1133,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             );
             const operated = Array.getSomes(ready.map(Struct.get('facet')));
             const client = yield* Effect.cached(linked(row));
-            const first = Option.flatMap(Array.head(ready), ({ step }) => Option.filter(Option.firstSomeOf(['pointer' in step ? Option.some(step.pointer) : Option.none(), 'at' in step ? Option.fromUndefinedOr(step.at) : Option.none()]), Predicate.isNumber));
+            const first = Option.flatMap(Array.head(ready), ({ step }) => aimOf(step));
             const around = Option.firstSomeOf([Option.map(frontOf(live.state), (number): Capture['source'] => ({ _tag: 'windows', numbers: Array.of(number) })), Option.map(first, (ref): Capture['source'] => ({ _tag: 'element', ref }))]);
             const recording: Option.Option<Result.Result<Capture['source'], string>> = Match.value({ record, linked: Array.isReadonlyArrayNonEmpty(operated) }).pipe(
                 Match.when({ record: false }, () => Option.none()),
@@ -1174,7 +1181,8 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             const outcomes = Array.flatMap(pieces, Struct.get('outcomes'));
             const copied = Array.last(Array.getSomes(pieces.map(({ acted: held }) => Option.flatMapNullishOr(held, Struct.get('pasteboard')))));
             const clipboard = yield* Effect.transposeOption(Option.map(copied, (read) => read.pipe(Effect.fromResult, Effect.flatMap(clipped(live.instance, false)), Effect.result)));
-            const changed = yield* Effect.result(Effect.map(Effect.when(modelled(aimed), Effect.succeed(outcomes.some(Result.isSuccess) && responding(state))), Option.match({ onNone: Array.empty, onSome: (read) => Outline.changes(base, read.base) })));
+            const touched = new Set([...ready.flatMap(({ step }) => Option.toArray(aimOf(step))), ...outcomes.flatMap((outcome) => (Result.isSuccess(outcome) ? Array.fromNullishOr(outcome.success.resolved?.ref) : []))]);
+            const changed = yield* Effect.result(Effect.map(Effect.when(modelled(aimed), Effect.succeed(outcomes.some(Result.isSuccess) && responding(state))), Option.match({ onNone: Array.empty, onSome: (read) => Outline.changes(base, read.base, touched) })));
             yield* Effect.all(
                 [
                     maps.prove(
@@ -1213,7 +1221,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             yield* handle.set(Proving, { ...(yield* handle.get(Proving)), ...Record.fromEntries(proving) });
             yield* ToolCall.use(Struct.get('awaitRunning'));
             return [
-                ...Array.zip(ready, outcomes).map(([entry, outcome], index) => [...(ready.length > 1 ? [`${index + 1}.`] : []), describeOutcome(entry.label)(outcome)].join(' ')),
+                ...Array.zip(ready, outcomes).map(([entry, outcome], index) => [...(ready.length > 1 ? [`${index + 1}.`] : []), describeOutcome(entry.label, base)(outcome)].join(' ')),
                 ...Array.match(Array.drop(ready, outcomes.length), { onEmpty: Array.empty, onNonEmpty: (rest) => [`Not run: ${Outline.list(rest.map(({ label }) => `${VERBS[label.verb][2]} ${label.object}`))}`] }),
                 ...Result.match(changed, { onFailure: ({ message }) => [`The changes could not be read: ${message}`], onSuccess: Function.identity }),
                 ...Option.match(acted, { onNone: Array.empty, onSome: (held) => diagnose(row.name, state, held) }),

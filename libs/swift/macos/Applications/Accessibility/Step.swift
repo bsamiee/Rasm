@@ -131,6 +131,15 @@ package struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
             let closed: Bool
         }
 
+        struct Resolved: Encodable, Equatable, Sendable {
+            enum Effect: String, Encodable, Sendable {
+                case pressed, selected, focused
+            }
+
+            let ref: Int
+            let effect: Effect
+        }
+
         struct Scrolled: Encodable, Equatable, Sendable {
             struct Row: Encodable, Equatable, Sendable {
                 let index: Int
@@ -151,6 +160,7 @@ package struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
         var pointer: SIMD2<Double>?
         var popUps: [PopUp] = []
         var scrolled: Scrolled?
+        var resolved: Resolved?
         var followed: Int?
     }
 
@@ -185,7 +195,7 @@ package struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
 
     fileprivate enum Evidence: Sendable {
         case event
-        case drawn(Screenshot)
+        case drawn
         case restless
         case uncompared
         case nothing
@@ -871,7 +881,7 @@ extension Step {
             }
         }
         let planned: Plan
-        var (presentation, pointer, landing): (Watch.Presentation?, SIMD2<Double>?, Reached?) = (nil, nil, nil)
+        var (presentation, pointer, landing, resolution, revealed): (Watch.Presentation?, SIMD2<Double>?, Reached?, Delivery.Resolved?, Delivery.Scrolled?) = (nil, nil, nil, nil, nil)
         switch action {
             case .set(clipboard, let value):
                 guard let text = value.text else { throw ApplicationFailure(subject: "the clipboard", reason: .notText(value)) }
@@ -908,12 +918,14 @@ extension Step {
                 }
                 var (samples, numbers, tried): ([Input.Sample], [CGWindowID], [Delivery.Attempt]) = ([], windows, scrolled?.tried ?? [])
                 for aim in path {
-                    let reached: (sample: Input.Sample, window: CGWindowID?, tried: [Delivery.Attempt]) =
+                    let reached: (sample: Input.Sample, window: CGWindowID?, tried: [Delivery.Attempt], scrolled: Delivery.Scrolled?) =
                         switch aim {
-                            case .point(let sample): (sample, nil, [])
+                            case .point(let sample): (sample, nil, [], nil)
                             case .element(let ref): try await watch.perform(on: ref) { element throws(ApplicationFailure) in try Self.reach(element, revealing: contact == .hover) }
                         }
-                    (samples, numbers, tried) = (samples + [reached.sample], numbers + (reached.window.map { number in [number] } ?? []), tried + reached.tried)
+                    (samples, numbers, tried, revealed) = (
+                        samples + [reached.sample], numbers + (reached.window.map { number in [number] } ?? []), tried + reached.tried, reached.scrolled ?? revealed,
+                    )
                 }
                 landing = try samples.first.flatMap { (start: Input.Sample) throws(ApplicationFailure) -> Reached? in try Self.window(holding: start, of: process, among: numbers) }
                 let shown: CGWindowID? = landing?.number
@@ -935,16 +947,20 @@ extension Step {
                     (from == nil || from == .accessibility) && contact == .button(.left) && samples.count == 1 && edges == everyEdge && schedule.count == 1 && modifiers.isEmpty
                     && hold == .zero
                 var meaning: AXUIElement? = plain ? landing?.element : nil
-                var meant: AXUIElement?
+                var (meant, effect): (AXUIElement?, Delivery.Resolved.Effect) = (nil, .pressed)
                 while let current = meaning, meant == nil {
                     let read: Read = try current.element(reading: [kAXRoleAttribute, kAXParentAttribute])
                     let takes: Bool = read.element.actions.contains(kAXPressAction) || read.element.role == kAXRowRole
+                    effect = read.element.actions.contains(kAXPressAction) ? .pressed : .selected
                     let parent: AXUIElement? = read.element.facts[kAXParentAttribute]?.element.map { (id: Int) -> AXUIElement in read.handles[id] }
                     (meaning, meant) = (takes || read.element.role.map([kAXWindowRole, kAXApplicationRole].contains) == true ? nil : parent, takes ? current : nil)
                 }
                 let pressed: Plan? = try meant.map { (meant: AXUIElement) throws(ApplicationFailure) -> Plan in
                     try Step(.press(ref: 0, action: kAXPressAction), from: from).plan(on: meant, presented: false)
                 }
+                let answered: Bool = pressed.map { (pressed: Plan) -> Bool in pressed.course.is(\.proven) || pressed.course.is(\.answered) } == true
+                let named: Int? = if let meant, answered { await watch.reference(of: meant) } else { nil }
+                resolution = named.map { (ref: Int) -> Delivery.Resolved in Delivery.Resolved(ref: ref, effect: effect) }
                 planned =
                     if let pressed, !pressed.course.is(\.opening) {
                         (pressed.window ?? window, pressed.course, tried + pressed.tried)
@@ -1009,10 +1025,10 @@ extension Step {
                             against: { () async throws(ApplicationFailure) -> Evidence in
                                 var (restless, compared) = (false, false)
                                 while clock.now < deadline, !Task.isCancelled, let shot = await picture(number) {
-                                    guard let changed = shot.changed(from: earlier) else { continue }
+                                    guard let changed = await shot.changed(from: earlier) else { continue }
                                     let regions: [CGRect] = changed.filter { (region: CGRect) -> Bool in insertion.map { (insertion: CGRect) -> Bool in !insertion.contains(region) } ?? true }
                                     let fresh: Bool = regions.contains { (region: CGRect) -> Bool in !changing.contains { (moving: CGRect) -> Bool in moving.intersects(region) } }
-                                    if fresh { return .drawn(shot) }
+                                    if fresh { return .drawn }
                                     (restless, compared) = (restless || !regions.isEmpty, true)
                                 }
                                 do { try await clock.sleep(until: deadline, tolerance: nil) } catch { throw ApplicationFailure(subject: "the \(rung)", reason: .cancelled) }
@@ -1043,11 +1059,8 @@ extension Step {
                         case .nothing: return (undrawn, nil, followed)
                         case .restless: return (undrawn, "the window was already changing there", followed)
                         case .uncompared: return (undrawn, "its picture could not be compared", followed)
-                        case .drawn(let shot):
+                        case .drawn:
                             await watch.prove(after: started.duration(to: clock.now))
-                            let ceiling = started.advanced(by: messagingTimeout)
-                            var last: Screenshot = shot
-                            while clock.now < ceiling, !Task.isCancelled, let number = shot.windows.first, let next = await picture(number), next.changed(from: last)?.isEmpty == false { last = next }
                             return (.change, nil, nil)
                     }
                 case .value(let attribute, let before, let after):
@@ -1094,7 +1107,7 @@ extension Step {
                     case .answered(let readBack): try await confirming(readBack, changes, nil, .accessibility, (nil, [], shownBefore, nil)).proof
                     case .opening, .posting: .change
                 }
-            return Delivery(proof: proof, window: planned.window, tried: planned.tried, presentation: presentation ?? asked.flatMap(\.self))
+            return Delivery(proof: proof, window: planned.window, tried: planned.tried, presentation: presentation ?? asked.flatMap(\.self), scrolled: revealed, resolved: resolution)
         }
         let lifted: (number: Int64, clickState: Int64, route: Route, path: [Input.Sample])? = inputs.count == 1 && inputs[0].edges == [.up] ? held[inputs[0].contact] : nil
         let below: Set<Rung> = Set(Rung.allCases.prefix { rung in rung != from && from != nil })
@@ -1153,11 +1166,9 @@ extension Step {
                     do { try await clock.sleep(until: refreshed, tolerance: nil) } catch { throw ApplicationFailure(subject: "the \(route.rung)", reason: .cancelled) }
                 }
                 let shot: Screenshot? = if let pictured, resolved != nil { await picture(pictured) } else { nil }
-                let paired: [CGRect]? = resolved.flatMap { (first: Screenshot) -> [CGRect]? in shot?.changed(from: first) }
-                let learned: [CGRect] = if let pictured { await watch.restless(of: pictured) } else { [] }
-                let changing: [CGRect]? = paired.map { (paired: [CGRect]) -> [CGRect] in paired + learned }
-                let insertion: CGRect? = if changing != nil { await caret() } else { nil }
-                let before: (shot: Screenshot?, changing: [CGRect], windows: Set<CGWindowID>, caret: CGRect?) = (changing == nil ? nil : shot, changing ?? [], hosted(), insertion)
+                let changing: [CGRect] = if let pictured, shot != nil { await watch.restless(of: pictured) } else { [] }
+                let insertion: CGRect? = if shot != nil { await caret() } else { nil }
+                let before: (shot: Screenshot?, changing: [CGRect], windows: Set<CGWindowID>, caret: CGRect?) = (shot, changing, hosted(), insertion)
                 let ahead: Bool = summoning && focusedProcesses().front == process
                 if summoning { try PermittedFrontList.shared.admit(process).get() }
                 let fronts: AsyncStream<Watch.Message>? = if ahead { await watch.messages() } else { nil }
@@ -1213,7 +1224,7 @@ extension Step {
         if var delivered {
             let wheeled: Bool = if case .input(.wheel, _, .none, _, _, _, _, _) = action { true } else { false }
             let reported: Scroll? = try await wheeled && delivered.proof == .value ? scrolling(.reporting) : nil
-            delivered.scrolled = reported?.scrolled
+            (delivered.scrolled, delivered.resolved) = (reported?.scrolled ?? revealed, resolution)
             if let window = reported?.host ?? reported?.window { await watch.invalidate(window: window) }
             delivered.presentation =
                 switch restored {
@@ -1233,8 +1244,35 @@ extension Step {
             ?? ApplicationFailure(subject: describe(placing: false), reason: .undelivered(routes: undelivered, focus: restoring))
     }
 
-    private static func reach(_ element: AXUIElement?, revealing: Bool) throws(ApplicationFailure) -> (sample: Input.Sample, window: CGWindowID?, tried: [Delivery.Attempt]) {
+    private static func reach(
+        _ element: AXUIElement?,
+        revealing: Bool,
+    ) throws(ApplicationFailure) -> (sample: Input.Sample, window: CGWindowID?, tried: [Delivery.Attempt], scrolled: Delivery.Scrolled?) {
         guard let element else { throw ApplicationFailure(subject: "the reference", reason: .stale(candidates: [])) }
+        let contentSize: String = NSAccessibility.Attribute.contentSize.rawValue
+        let bars: [String] = [kAXHorizontalScrollBarAttribute, kAXVerticalScrollBarAttribute]
+        let aimed: CGRect? = try element.read(frameAttributes).element.frame
+        var (next, scrolled): (AXUIElement?, Delivery.Scrolled?) = (try element.elements(kAXParentAttribute).first, nil)
+        while let current = next, let aimed, scrolled == nil {
+            let area: Read = try current.read([kAXRoleAttribute, kAXParentAttribute, frameAttribute, contentSize] + bars)
+            let frame: CGRect? = area.element.role == kAXScrollAreaRole ? area.element.frame : nil
+            let content: CGSize? = area.element.facts[contentSize]?.size
+            let shown: Bool = frame.map { (frame: CGRect) -> Bool in frame.contains(CGPoint(x: aimed.midX, y: aimed.midY)) } ?? true
+            let moved: [Double?] = try bars.indices.map { (axis: Int) throws(ApplicationFailure) -> Double? in
+                guard !shown, let frame, let content, let bar = area.element.facts[bars[axis]]?.element.map({ (id: Int) -> AXUIElement in area.handles[id] }) else { return nil }
+                let (start, size, extent, center): (Double, Double, Double, Double) =
+                    axis == 0 ? (frame.minX, frame.width, content.width, aimed.midX) : (frame.minY, frame.height, content.height, aimed.midY)
+                guard extent > size, let value = try bar.read([kAXValueAttribute]).element.facts[kAXValueAttribute]?.number else { return nil }
+                let goal: Double = min(max((center - start + value * (extent - size) - size / 2) / (extent - size), 0), 1)
+                let answer: AXError = AXUIElementSetAttributeValue(bar, kAXValueAttribute as CFString, goal as NSNumber)
+                return answer == .success ? try bar.read([kAXValueAttribute]).element.facts[kAXValueAttribute]?.number : nil
+            }
+            let parent: AXUIElement? = area.element.facts[kAXParentAttribute]?.element.map { (id: Int) -> AXUIElement in area.handles[id] }
+            (next, scrolled) = (
+                moved.contains { (value: Double?) -> Bool in value != nil } ? nil : parent,
+                moved.contains { (value: Double?) -> Bool in value != nil } ? Delivery.Scrolled(horizontal: moved[0], vertical: moved[1], rows: nil, showing: []) : nil,
+            )
+        }
         let read = try element.element(reading: frameAttributes)
         let revealed: AXError = revealing && read.element.actions.contains(kAXShowAlternateUIAction) ? AXUIElementPerformAction(element, kAXShowAlternateUIAction as CFString) : .success
         guard let point = read.element.activation ?? read.element.frame.map({ frame in CGPoint(x: frame.midX, y: frame.midY) }) else {
@@ -1243,7 +1281,7 @@ extension Step {
         let tried: [Delivery.Attempt] =
             revealed == .success
             ? [] : [Delivery.Attempt(rung: .accessibility, failure: ApplicationFailure(subject: "revealing \(element.name)", reason: .accessibility(revealed)).errorDescription ?? element.name)]
-        return (Input.Sample(at: SIMD2(point.x, point.y), pressure: nil, tilt: nil), read.element.window, tried)
+        return (Input.Sample(at: SIMD2(point.x, point.y), pressure: nil, tilt: nil), read.element.window, tried, scrolled)
     }
 }
 

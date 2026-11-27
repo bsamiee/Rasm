@@ -176,6 +176,7 @@ class Control extends Schema.Opaque<Control>()(
         opens: Schema.optionalKey(Ref.annotate({ description: 'Menu the control opens, its level read through the menu scope while closed' })),
         alternate: Schema.optionalKey(Ref.annotate({ description: 'Item whose place this one takes while its modifier is held' })),
         placeholder: Schema.optionalKey(Schema.String),
+        settable: Schema.optionalKey(Schema.Boolean.annotate({ description: 'AXUIElementIsAttributeSettable on the value of a text control, absent for other kinds' })),
         level: Schema.optionalKey(Schema.Int.annotate({ description: 'AXDisclosureLevel of a row' })),
         index: Schema.optionalKey(Schema.Natural.annotate({ description: 'AXIndex of a row, rows past it read through the rows scope' })),
         row: Schema.optionalKey(Ref.annotate({ description: 'Row whose cells hold the control' })),

@@ -261,7 +261,7 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
         );
         const setTarget = Effect.fnUntraced(function* (aim: { readonly row: Entry; readonly instance: InstanceSnapshot['instance'] }) {
             const live = yield* server.watch({ instance: aim.instance });
-            yield* followInstance(aim.instance);
+            yield* follow(aim.instance, true);
             const [handle, before] = yield* Effect.all([Handle, aimed]);
             yield* handle.set(Target, new Aim({ ...before, held: Option.some({ ...aim, language: live.language }) }));
             return live;
@@ -335,9 +335,9 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
 const byBundle = Function.memoize((rows: readonly Entry[]) => Record.fromIterableBy(rows, (row) => row.url.href));
 const byInstance = Function.memoize((rows: readonly InstanceSnapshot[]) => Record.fromIterableBy(rows, (row) => row.instance));
 const runningOf = Function.memoize((rows: readonly InstanceSnapshot[]) => Record.filter(byInstance(rows), (each) => !InstanceState.isAnyOf(['exited'])(each.state)));
-const followInstance = Effect.fnUntraced(function* (instance: InstanceSnapshot['instance']) {
+const follow = Effect.fnUntraced(function* (instance: InstanceSnapshot['instance'], kept: boolean) {
     const [handle, before] = yield* Effect.all([Handle, aimed]);
-    yield* handle.set(Target, new Aim({ ...before, followed: HashSet.add(before.followed, instance) }));
+    yield* handle.set(Target, new Aim({ ...before, followed: kept ? HashSet.add(before.followed, instance) : HashSet.remove(before.followed, instance) }));
 });
 const byIdentifier = Function.memoize((rows: readonly InstanceSnapshot[]) => Array.groupBy(Record.values(runningOf(rows)), (each) => each.identifier));
 const instancesOf = (rows: readonly InstanceSnapshot[], followed: HashSet.HashSet<InstanceSnapshot['instance']>) => (row: Pick<Entry, 'url' | 'identifier'>) => {
@@ -429,7 +429,7 @@ const route = (seen: Seen, next: Seen, application: string, event: Event, latest
             ),
         reported: ({ report }) => lead(Effect.succeed([`wrote ${report.kind} report`, ...Array.fromNullishOr(report.event).map((cause) => `for ${cause}`), `at ${fileURLToPath(report.url)}`].join(' ')), { delivers: Option.some(report.kind === 'crash' ? 'crashed' : 'hung') }),
         sampled: ({ report }) => lead(Effect.succeed(`was sampled while not responding, report at ${fileURLToPath(report)}`), { delivers: Option.some('hung') }),
-        exited: ({ termination }) => lead(Effect.succeed(describeExit(termination)), { delivers: Option.some(termination._tag === 'signal' || termination.report?.kind === 'crash' || (termination._tag === 'status' && termination.reporting === true) ? 'crashed' : 'exited'), standing: settled }),
+        exited: ({ termination }) => lead(Effect.as(follow(instance, false), describeExit(termination)), { delivers: Option.some(termination._tag === 'signal' || termination.report?.kind === 'crash' || (termination._tag === 'status' && termination.reporting === true) ? 'crashed' : 'exited'), standing: settled }),
     });
 };
 const lookupEntry = Effect.fnUntraced(function* <E = never>(rows: readonly Entry[], query: string, further: Effect.Effect<readonly Entry[], E> = Effect.succeed([])) {
@@ -543,4 +543,4 @@ const refuseBlocked = (name: string) => (found: Option.Option<InstanceSnapshot>)
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { describeUsage, type Entry, followInstance, lookupEntry, ownsEvent, Proving, Workspace };
+export { describeUsage, type Entry, follow, lookupEntry, ownsEvent, Proving, Workspace };

@@ -1,7 +1,7 @@
 import { Predicate, Schema, Struct } from 'effect';
 import { Recording } from '#/capture';
 import { InstanceState, Pasteboard, Written } from '#/instances';
-import { Frame, KeyStep, Point, Presentation, Value, WindowID } from '#/interface';
+import { Frame, KeyStep, Point, Presentation, Ref, Value, WindowID } from '#/interface';
 import { Load, UsageInterval } from '#/processes';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -124,6 +124,7 @@ const Delivery = Schema.Struct({
         description: 'Windows at the pop-up menu level or above the step opened behind the frontmost application, each closed before act returned and read back gone, else left open; a call whose last step is inside one leaves it open',
     }),
     scrolled: Schema.optionalKey(Scrolled.annotate({ description: 'Where a scroll left the content: its scroll bar values and the rows now in view' })),
+    resolved: Schema.optionalKey(Schema.Struct({ ref: Ref, effect: Schema.Literals(['pressed', 'selected', 'focused']) }).annotate({ description: 'Element a pointer step at a point resolved to through Accessibility, with what the Accessibility call did to it' })),
     followed: Schema.optionalKey(Schema.Int.annotate({ description: 'Number the watch follows a step by after it ended as posted; a later proven event carrying it says the step took effect' })),
 });
 const Act = {
