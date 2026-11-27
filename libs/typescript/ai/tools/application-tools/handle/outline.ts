@@ -64,7 +64,7 @@ const caption = (kind: Container['kind'], ref?: typeof Element.Ref.Type, title?:
 const classify = (element: Node['element']): readonly string[] =>
     Match.value(element).pipe(
         Match.tag('container', ({ kind }) => [NOUNS[kind].one]),
-        Match.tag('control', ({ kind }) => (kind === 'action' || kind === 'item' ? [] : [kind])),
+        Match.tag('control', ({ kind }) => (kind === 'action' || kind === 'item' || kind === 'label' ? [] : [kind])),
         Match.orElse(({ _tag }) => [_tag]),
     );
 const link = (read: Address, ref: typeof Element.Ref.Type | undefined) =>
@@ -92,8 +92,9 @@ const scroll = ({ vertical = 0, horizontal = 0, rows, showing }: NonNullable<Res
     return wheel ? [...moved, ...listed] : moved.map((fact) => `${fact} first`);
 };
 const nest = (marks: Marks, within: Option.Option<Container>, children: readonly Element[], chosen?: string) => {
+    const named = new Set([...Option.toArray(within).flatMap(({ title }) => Array.fromNullishOr(title)), ...children.flatMap((child) => (child._tag === 'control' && child.kind !== 'label' ? Array.fromNullishOr(child.label?.text) : []))]);
     const [bare, shown] = Array.partition(
-        children.filter((child) => !(child._tag === 'control' && child.subrole !== undefined && TITLE_BAR.has(child.subrole))),
+        children.filter((child) => !(child._tag === 'control' && ((child.subrole !== undefined && TITLE_BAR.has(child.subrole)) || (child.kind === 'label' && Predicate.isTagged(child.value, 'text') && named.has(child.value.value))))),
         (child) => (child._tag === 'control' && child.enabled === false && child.label === undefined && child.value === undefined && Array.isReadonlyArrayEmpty(child.children) ? Result.succeed(child) : Result.fail(child)),
     );
     const rows = shown.map(draw(marks, within, false, chosen));
@@ -170,7 +171,7 @@ const control = (marks: Marks, within: Option.Option<Container>, held: typeof El
         return parts.length > 1 && !NAMING.test(parts.reduce((rest, part) => rest.replaceAll(part, ' '), stated));
     };
     const naming = Option.exists(name, joins) ? ['group'] : Option.toArray(Option.map(name, Format.quoted));
-    const fact = Option.filter(Option.fromUndefinedOr(held.value), () => Array.isReadonlyArrayEmpty(inline) && attribute !== 'AXValue');
+    const fact = Option.filter(Option.fromUndefinedOr(held.value), () => Array.isReadonlyArrayEmpty(inline) && attribute !== 'AXValue' && held.kind !== 'label');
     const role = { default: Option.exists(within, (sat) => sat.default === held.ref), cancel: Option.exists(within, (sat) => sat.cancel === held.ref), focused: held.focused, changed: HashSet.has(changed, held.ref) };
     const kept = held.kind === 'multi' ? { cut: CUTS.indexOf('rows'), through: KEPT.rows - 1 } : { cut: CUTS.indexOf('options'), through: listed.findIndex((child) => child._tag === 'option' && child.label === text) + KEPT.options };
     const rows = [
@@ -192,7 +193,7 @@ const control = (marks: Marks, within: Option.Option<Container>, held: typeof El
                 ...(whole ? held.range : UndefinedOr.map(held.range, (range) => Struct.pick(range, ['minimum', 'maximum']))),
                 shortcut: UndefinedOr.map(held.shortcut, shortcut),
                 keyEquivalent: UndefinedOr.map(held.keyEquivalent, Format.quoted),
-                placeholder: UndefinedOr.map(held.placeholder, Format.quoted),
+                placeholder: String.isNonEmpty(text ?? '') ? undefined : UndefinedOr.map(held.placeholder, Format.quoted),
                 level: held.level === 0 ? undefined : held.level,
                 expanded: held.expanded,
                 collapsed: held.expanded === false,
@@ -227,11 +228,11 @@ const control = (marks: Marks, within: Option.Option<Container>, held: typeof El
                     : {}),
             }),
             ...Array.fromNullishOr(held.scroll).flatMap(({ verticalScrollBar = 0, horizontalScrollBar = 0 }) => scroll({ vertical: verticalScrollBar, horizontal: horizontalScrollBar, showing: [] }, true)),
-            ...(held.cells ?? []).map(({ column, text: shown }) => UndefinedOr.match(column, { onUndefined: () => Format.quoted(shown), onDefined: (title) => `${title}: ${Format.quoted(shown)}` })),
             ...below.facts,
         ],
         pinned: Record.some({ ...role, selected: held.selected !== undefined, answer: held.kind === 'action' && Option.exists(within, (sat) => sat.asking), below: rows.some(({ pinned }) => pinned === true) }, (on) => on === true),
         ...(Array.isReadonlyArrayEmpty(rows) ? {} : { rows, call: inspect({ in: token }) }),
+        ...(held.kind === 'label' ? { cut: CUTS.indexOf('text') } : {}),
     });
 };
 const draw =

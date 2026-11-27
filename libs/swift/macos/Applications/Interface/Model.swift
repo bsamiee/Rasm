@@ -66,17 +66,18 @@ struct Control: Encodable, Equatable, Sendable {
         case date
         case item
         case region
+        case label
 
         var valued: Bool {
             switch self {
                 case .toggle, .choice, .number, .measure, .color, .date: true
-                case .action, .multi, .row, .text, .item, .region: false
+                case .action, .multi, .row, .text, .item, .region, .label: false
             }
         }
 
         var holdsValueAttribute: Bool {
             switch self {
-                case .toggle, .number, .measure, .text, .color, .date: true
+                case .toggle, .number, .measure, .text, .color, .date, .label: true
                 case .action, .choice, .multi, .row, .item, .region: false
             }
         }
@@ -84,7 +85,7 @@ struct Control: Encodable, Equatable, Sendable {
         var defaultActions: Set<String> {
             switch self {
                 case .action, .multi, .row, .region: [kAXPressAction, kAXPickAction, kAXConfirmAction]
-                case .text: [kAXPressAction, kAXPickAction]
+                case .text, .label: [kAXPressAction, kAXPickAction]
                 case .item: [kAXPressAction, kAXPickAction, kAXConfirmAction, kAXCancelAction]
                 case .toggle, .choice, .number, .measure, .color, .date: [kAXPressAction, kAXPickAction, kAXConfirmAction, kAXIncrementAction, kAXDecrementAction]
             }
@@ -106,6 +107,7 @@ struct Control: Encodable, Equatable, Sendable {
             let value: Fact? = element.facts[kAXValueAttribute]
             let bare: Bool = element.children.isEmpty && value == nil && element.label == nil && element.frame != nil && element.actions.allSatisfy { action in action == kAXShowMenuAction }
             let subrole: Self? = element.text(kAXSubroleAttribute).flatMap { (name: String) -> Self? in Self.subroles[name] }
+            let worded: Bool = element.text(kAXValueAttribute)?.unicodeScalars.contains { scalar in !scalar.properties.isWhitespace && scalar.properties.generalCategory != .privateUse } == true
             let kind: Self? =
                 switch (Self.roles[role], subrole) {
                     case (.item, _) where role == kAXMenuItemRole && element.label == nil: nil
@@ -116,6 +118,7 @@ struct Control: Encodable, Equatable, Sendable {
                     case (.none, .none) where value?.date != nil: .date
                     case (.none, .none) where element.actions.contains(kAXIncrementAction): .number
                     case (.none, .none) where element.actions.contains(where: Self.action.defaultActions.contains): .action
+                    case (.none, .none) where role == kAXStaticTextRole && worded && element.frame?.isEmpty == false: .label
                     case (.none, .none) where role == kAXUnknownRole && bare: .region
                     case (.none, .none): nil
                 }
@@ -180,11 +183,6 @@ struct Control: Encodable, Equatable, Sendable {
         }
     }
 
-    struct Cell: Encodable, Equatable, Sendable {
-        let column: String?
-        let text: String
-    }
-
     struct TextRange: Encodable, Equatable, Sendable {
         let location: Int
         let length: Int
@@ -237,7 +235,6 @@ struct Control: Encodable, Equatable, Sendable {
     let disclosedBy: Int?
     let total: Int?
     let sort: Sort?
-    let cells: [Cell]?
     let column: String?
     let scroll: Scroll?
     let selectedTextRanges: [TextRange]?
@@ -250,7 +247,7 @@ struct Control: Encodable, Equatable, Sendable {
 
     private enum CodingKeys: CodingKey {
         case ref, locator, kind, role, subrole, label, labels, section, value, settable, enabled, focused, selected, help, frame, positional, range, mark, shortcut, keyEquivalent, opens, separated,
-            alternate, placeholder, level, index, expanded, actions, alternateUIVisible, disclosedBy, total, sort, cells, column, scroll, selectedTextRanges, numberOfCharacters,
+            alternate, placeholder, level, index, expanded, actions, alternateUIVisible, disclosedBy, total, sort, column, scroll, selectedTextRanges, numberOfCharacters,
             insertionPointLineNumber, runs, invalid, required, current
     }
 }
@@ -704,7 +701,7 @@ extension Model {
             let caption: Control.Label? = element.caption(in: held)
             let fallback: [String] =
                 switch (kind, element.role) {
-                    case (.row, _): []
+                    case (.row, _), (.label, _): []
                     case (.multi, _), (.region, _): [kAXHelpAttribute]
                     case (.action, kAXStaticTextRole): [kAXValueAttribute, kAXHelpAttribute]
                     case (.action, _), (.toggle, _), (.choice, _), (.number, _), (.measure, _), (.text, _), (.color, _), (.date, _), (.item, _): [kAXHelpAttribute, kAXRoleDescriptionAttribute]
@@ -712,7 +709,8 @@ extension Model {
             let cell: Control.Label? = ([element] + (cells[element.id] ?? [])).lazy.compactMap { (shown: Element) -> Control.Label? in
                 shown.label ?? shown.caption(in: held) ?? shown.labelled(kAXValueAttribute)
             }.first
-            let label: Control.Label? = kind == .row ? cell : element.label ?? caption ?? fallback.lazy.compactMap(element.labelled).first
+            let named: Control.Label? = kind == .label ? nil : element.label ?? caption ?? fallback.lazy.compactMap(element.labelled).first
+            let label: Control.Label? = kind == .row ? cell : named
             return leaders[element.id].map { set in (element: element, kind: .choice, set: set, label: caption) } ?? (element: element, kind: kind, set: nil, label: label)
         }
         let addressed: [(owner: Int, element: Element, kind: Control.Kind, set: [Element]?, label: Control.Label?, locator: Locator)] = Dictionary(grouping: entries) { entry in
@@ -774,9 +772,6 @@ extension Model {
             let optionRefs: [Int] = Locator.Step.distinguish(
                 listed.map { option in (role: option.role ?? kAXUnknownRole, keys: [option.optionText.flatMap(Locator.Step.Key.label(folding:))?.redacting(withheld)].compactMap(\.self)) }
             ).map { step in intern(locator.appending(step)) }
-            let shownCells: [Control.Cell] = (cells[element.id] ?? []).filter { cell in cell.role == kAXStaticTextRole }.compactMap { cell in
-                cell.text(kAXValueAttribute).map { text in Control.Cell(column: columned[cell.id], text: text) }
-            }
             let area: Element? = parents[element.id].flatMap { parent in held[parent] }.flatMap { parent in parent.role == kAXScrollAreaRole ? parent : nil }
             let bars: [Double?] = [kAXHorizontalScrollBarAttribute, kAXVerticalScrollBarAttribute].map { attribute in
                 area?.facts[attribute]?.element.flatMap { bar in held[bar]?.facts[kAXValueAttribute]?.number }
@@ -811,7 +806,7 @@ extension Model {
                 switch (kind, chosen) {
                     case (.choice, .some(let option)): option.optionText.map(Fact.text(value:))
                     case (.text, _) where element.text(kAXSubroleAttribute) == kAXSecureTextFieldSubrole: nil
-                    case (.toggle, _), (.choice, _), (.number, _), (.measure, _), (.color, _), (.date, _), (.text, _): read
+                    case (.toggle, _), (.choice, _), (.number, _), (.measure, _), (.color, _), (.date, _), (.text, _), (.label, _): read
                     case (.row, _), (.item, _): element.facts[kAXURLAttribute]
                     case (.action, _), (.multi, _), (.region, _): nil
                 }
@@ -877,7 +872,6 @@ extension Model {
                 disclosedBy: element.facts[kAXDisclosedByRowAttribute]?.element.flatMap { row in refs[row] },
                 total: kind == .multi ? rowCount ?? element.counts[kAXRowsAttribute] : nil,
                 sort: Control.Sort(element.text(kAXSortDirectionAttribute)),
-                cells: shownCells.contains { cell in cell.column != nil } ? shownCells : nil,
                 column: columned[element.id],
                 scroll: area.map { area in Control.Scroll(contentSize: area.facts[NSAccessibility.Attribute.contentSize.rawValue]?.size, horizontalScrollBar: bars[0], verticalScrollBar: bars[1]) },
                 selectedTextRanges: textRanges.isEmpty ? nil : textRanges,

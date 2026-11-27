@@ -77,7 +77,7 @@ const stated = {
 const control = {
     ref: Ref,
     locator: Locator,
-    kind: Schema.Literals(['action', 'toggle', 'choice', 'multi', 'row', 'number', 'measure', 'text', 'color', 'date', 'item', 'region']),
+    kind: Schema.Literals(['action', 'toggle', 'choice', 'multi', 'row', 'number', 'measure', 'text', 'color', 'date', 'item', 'region', 'label']),
     role: Schema.String,
     positional: Schema.Boolean,
     ...Struct.map(stated, Schema.optionalKey),
@@ -99,7 +99,6 @@ const control = {
     disclosedBy: Schema.optionalKey(Ref),
     total: Schema.optionalKey(Schema.Natural),
     sort: Schema.optionalKey(Schema.Literals(['ascending', 'descending'])),
-    cells: Schema.Struct({ column: Schema.optionalKey(Schema.String), text: Schema.String }).pipe(Schema.Array, Schema.optionalKey),
     column: Schema.optionalKey(Schema.String),
     scroll: Schema.optionalKey(Schema.Struct({ contentSize: Schema.optionalKey(Point), horizontalScrollBar: Schema.optionalKey(Schema.Finite), verticalScrollBar: Schema.optionalKey(Schema.Finite) })),
     selectedTextRanges: TextRange.pipe(Schema.Array, Schema.optionalKey),

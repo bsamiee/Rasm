@@ -116,7 +116,7 @@ const flatten = (elements: readonly Element[], above: readonly string[], contain
     elements.flatMap((element) => {
         const { kind, named, value } = Element.match(element, {
             container: (held) => ({ kind: held.kind, named: held.title, value: Option.none<string>() }),
-            control: (held) => ({ kind: held.kind, named: held.label?.text, value: Option.map(Option.fromUndefinedOr(held.value), print(held.kind)) }),
+            control: (held) => (held.kind === 'label' && Predicate.isTagged(held.value, 'text') ? { kind: held.kind, named: held.value.value, value: Option.none<string>() } : { kind: held.kind, named: held.label?.text, value: Option.map(Option.fromUndefinedOr(held.value), print(held.kind)) }),
             option: (held) => ({ kind: held._tag, named: held.label, value: Option.none<string>() }),
         });
         const traced = trace(element._tag === 'control' ? [...above, ...Array.fromNullishOr(element.section)] : above, label(named));

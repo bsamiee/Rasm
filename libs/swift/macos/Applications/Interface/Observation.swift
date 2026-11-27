@@ -106,9 +106,8 @@ struct Observation: Encodable, Sendable {
         at: Date,
         locator: (Int) -> Locator,
     ) throws(ApplicationFailure) {
-        let keyed: [String: Control] = try Dictionary(
-            container.controls.filter { control in control.kind != .row }.map { control throws(ApplicationFailure) -> (String, Control) in (try control.locator.text(), control) }
-        ) { first, _ in first }
+        let remembered: [Control] = container.controls.filter { control in control.kind != .row && control.kind != .label }
+        let keyed: [String: Control] = try Dictionary(remembered.map { control throws(ApplicationFailure) -> (String, Control) in (try control.locator.text(), control) }) { first, _ in first }
         self.build = build
         self.container = container.locator
         kind = container.kind
