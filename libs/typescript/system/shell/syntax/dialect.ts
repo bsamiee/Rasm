@@ -38,6 +38,8 @@ const features = {
     steps: ['printf %s {1..5..2}', '135'],
     padding: ['printf %s {01..02}', '0102'],
     unicode: [String.raw`printf %s $'\u0041'`, 'A'],
+    wide: [String.raw`printf %s $'\u0080'`, '\u0080'],
+    narrow: [String.raw`printf narrow; x=$'\u0080'; [ "$x" = '\u0080' ] || printf %s "$x"`, 'narrow'],
     negative: ['x=abc; printf %s "${x:0:-1}"', 'ab'],
     transforms: ['x=a; printf %s "${x@Q}"', "'a'"],
     nulls: [`setopt shwordsplit 2>/dev/null; x=' '; printf '<%s>' a\${x}""`, '<a><>'],

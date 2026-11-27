@@ -60,19 +60,28 @@ const spreads: Readonly<Record<string, boolean>> = { '@': true, '*': false };
 const escapes: Readonly<Record<string, string>> = { a: '\u0007', b: '\b', e: '\u001B', E: '\u001B', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\', "'": "'", '"': '"', '?': '?' };
 const byte = (value: number) => `%${value.toString(16).padStart(2, '0')}`;
 const control = (character: string) => byte(character === '?' ? 0x7f : (character.codePointAt(0) ?? 0) & 0x1f);
-const ansi: Readonly<Record<string, (held: string, zsh: boolean, wide: boolean) => string>> = {
-    plain: (held) => encodeURIComponent(held),
-    caret: (held, zsh) => (zsh ? encodeURIComponent(`c${held}`) : control(held)),
-    chord: (held, zsh) => (zsh ? control(held) : encodeURIComponent(`\\C-${held}`)),
-    meta: (held, zsh) => (zsh ? byte(0x80 + ((held.codePointAt(0) ?? 0) & 0x7f)) : encodeURIComponent(`\\M-${held}`)),
-    hex: (held) => byte(Number.parseInt(held, 16)),
-    octal: (held) => byte(Number.parseInt(held, 8) & 0xff),
-    point: (held, _, wide) => {
+const ansi: Readonly<Record<string, (held: string, zsh: boolean, dialect: Dialect) => Option.Option<string>>> = {
+    plain: (held) => Option.some(encodeURIComponent(held)),
+    caret: (held, zsh) => Option.some(zsh ? encodeURIComponent(`c${held}`) : control(held)),
+    chord: (held, zsh) => Option.some(zsh ? control(held) : encodeURIComponent(`\\C-${held}`)),
+    meta: (held, zsh) => Option.some(zsh ? byte(0x80 + ((held.codePointAt(0) ?? 0) & 0x7f)) : encodeURIComponent(`\\M-${held}`)),
+    hex: (held) => Option.some(byte(Number.parseInt(held, 16))),
+    octal: (held) => Option.some(byte(Number.parseInt(held, 8) & 0xff)),
+    point: (held, zsh, dialect) => {
         const digits = held.slice(1, held.startsWith('u') ? 5 : 9);
-        const encoded = Option.getOrElse(Option.liftThrowable(() => encodeURIComponent(String.fromCodePoint(Number.parseInt(digits, 16))))(), () => '%');
-        return wide ? `${encoded}${encodeURIComponent(held.slice(1 + digits.length))}` : encodeURIComponent(`\\${held}`);
+        const code = Number.parseInt(digits, 16);
+        const rest = encodeURIComponent(held.slice(1 + digits.length));
+        const [letter, width] = code < 0x1_00_00 ? ['u', 4] : ['U', 8];
+        const encoded = Option.getOrElse(Option.liftThrowable(() => encodeURIComponent(String.fromCodePoint(code)))(), () => '%');
+        const escaped = encodeURIComponent(`\\${letter}${code.toString(16).toUpperCase().padStart(width, '0')}`);
+        return Match.value({ known: dialect.supports('unicode'), converts: code <= 0x7f || dialect.supports('wide'), narrow: dialect.supports('narrow') }).pipe(
+            Match.when({ known: false }, () => Option.some(encodeURIComponent(`\\${held}`))),
+            Match.when({ converts: true }, () => Option.some(`${encoded}${rest}`)),
+            Match.when({ narrow: true }, () => Option.liftPredicate(`${escaped}${rest}`, () => !zsh)),
+            Match.orElse(() => Option.some('%')),
+        );
     },
-    other: (held, zsh) => encodeURIComponent(escapes[held] ?? (zsh ? held : `\\${held}`)),
+    other: (held, zsh) => Option.some(encodeURIComponent(escapes[held] ?? (zsh ? held : `\\${held}`))),
 };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -328,18 +337,22 @@ const expandParameter = (exp: ParamExp, trailing: readonly string[], scope: Scop
 
 // --- [WORDS]
 
-const decode = (raw: string, { dialect, zsh }: Frame): Option.Option<string> => {
-    const wide = dialect.supports('unicode');
+const decode = (raw: string, { dialect, zsh }: Frame, secret: boolean): Chunk => {
     const found = raw.matchAll(/\\(?:c(?<caret>[\s\S])|C-(?<chord>[\s\S])|M-(?<meta>[\s\S])|x(?<hex>[\da-fA-F]{1,2})|(?<point>[uU][\da-fA-F]+)|(?<octal>[0-7]{1,3})|(?<other>[\s\S]))|(?<plain>[^\\]+)|\\$/gu);
     const encode = ([form, held]: readonly [string, string | undefined]) =>
         Option.map(
             Option.filter(Record.get(ansi, form), () => Predicate.isString(held)),
-            (write) => write(held ?? '', zsh, wide),
+            (write) => write(held ?? '', zsh, dialect),
         );
-    const bytes = Array.fromIterable(found)
-        .map(({ groups = {} }) => Option.getOrElse(Array.findFirst(Record.toEntries(groups), encode), () => '%5C'))
-        .join('');
-    return Option.liftThrowable(decodeURIComponent)(zsh || !bytes.includes('%00') ? bytes : bytes.slice(0, bytes.indexOf('%00')));
+    return pipe(
+        Option.all(Array.fromIterable(found).map(({ groups = {} }) => Option.getOrElse(Array.findFirst(Record.toEntries(groups), encode), () => Option.some('%5C')))),
+        Option.map((parts) => parts.join('')),
+        Option.map((bytes) => Option.liftThrowable(decodeURIComponent)(zsh || !bytes.includes('%00') ? bytes : bytes.slice(0, bytes.indexOf('%00')))),
+        Option.match({
+            onNone: () => Chunk.Refusal({ origin: Origin.Bytes(), certain: true }),
+            onSome: Option.match({ onNone: () => Chunk.Unknown({ origin: Origin.Bytes(), certain: true, many: false }), onSome: (text) => quote(text, secret) }),
+        }),
+    );
 };
 const scan = (text: string, frame: Frame, secret: boolean): readonly Chunk[] =>
     Array.fromIterable(text.matchAll(/\\(?<escaped>[\s\S])|(?<plain>[^\\]+)|\\$/gu)).flatMap(({ groups = {} }) => {
@@ -394,10 +407,16 @@ const expandPart = (part: WordPart, trailing: readonly string[], scope: Scope, f
                 const literal = Option.match(site.heredoc, { onNone: () => inside, onSome: (expands) => Option.some(expands ? unescape(/\\(?<escaped>[$`\\\n])/gu)(value) : value) });
                 return [scope, Option.match(literal, { onNone: () => scan(value, frame, secret), onSome: (text) => [quote(text, secret)] })];
             },
-            SglQuoted: ({ value, dollar }): Evaluated => {
-                const text = quoted ? Option.some(`${dollar ? '$' : ''}'${value}'`) : Option.liftPredicate(value, () => !dollar).pipe(Option.orElse(() => decode(value, frame)));
-                return [scope, [Option.match(text, { onNone: () => Chunk.Unknown({ origin: Origin.Bytes(), certain: true, many: false }), onSome: (written) => quote(written, secret) })]];
-            },
+            SglQuoted: ({ value, dollar }): Evaluated => [
+                scope,
+                [
+                    Match.value({ quoted, dollar }).pipe(
+                        Match.when({ quoted: true }, () => quote(`${dollar ? '$' : ''}'${value}'`, secret)),
+                        Match.when({ dollar: true }, () => decode(value, frame, secret)),
+                        Match.orElse(() => quote(value, secret)),
+                    ),
+                ],
+            ],
             DblQuoted: ({ parts }): Evaluated => (Array.isReadonlyArrayEmpty(parts) ? [scope, [quote('')]] : expandParts(parts, scope, { ...frame, quoted: true }, false)),
             ParamExp: (exp) => expandParameter(exp, trailing, scope, frame),
             CmdSubst: (node): Evaluated => [scope, [obscure(substituted(node), frame)]],
