@@ -95,7 +95,8 @@ Actions caches per workflow and machine:
 - Graph cache paths name `workspace-data/*`, as an excluded folder inside a named folder still enters its archive
 - Graph caches save after the run passes or fails, keyed by the hash of every `*.hash` file, as those change only with plugin entries
 - Graph cache saves skip a hash the restored key ends with
-- Graph caches save from runs on `main` and tool caches from pushes to `main` alone, as a pull request run's cache serves re-runs of that pull request alone
+- Graph caches save from runs on `main` and `jdx/mise-action` tool caches from pushes to `main` alone, as a pull request run's cache serves re-runs of that pull request alone
+- Analyzer caches save from every ref, as a composite action's `actions/cache` step takes no save condition
 - `jdx/mise-action` saves hosted jobs' tools by platform, profile, bootstrap arguments, `mise.lock`, `mise.ci.toml`, and `rust-toolchain.toml`
 - Tool cache keys leave out `mise.toml` and the OS and machine mise files, as `mise.lock` pins every tool and those files change with hooks and rows no tool reads
 - GitHub-hosted jobs hold rustup and cargo homes inside the mise folder that action caches, and a restored cache holds the Rust toolchain

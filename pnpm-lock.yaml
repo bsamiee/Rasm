@@ -91,23 +91,23 @@ catalogs:
       specifier: 2.4.0
       version: 2.4.0
     '@nx/conformance':
-      specifier: 24.1.0-beta.3
-      version: 24.1.0-beta.3
+      specifier: 24.1.0
+      version: 24.1.0
     '@nx/devkit':
-      specifier: 24.1.0-beta.3
-      version: 24.1.0-beta.3
+      specifier: 24.1.0
+      version: 24.1.0
     '@nx/eslint-plugin':
-      specifier: 24.1.0-beta.3
-      version: 24.1.0-beta.3
+      specifier: 24.1.0
+      version: 24.1.0
     '@nx/js':
-      specifier: 24.1.0-beta.3
-      version: 24.1.0-beta.3
+      specifier: 24.1.0
+      version: 24.1.0
     '@nx/vite':
-      specifier: 24.1.0-beta.3
-      version: 24.1.0-beta.3
+      specifier: 24.1.0
+      version: 24.1.0
     '@nx/web':
-      specifier: 24.1.0-beta.3
-      version: 24.1.0-beta.3
+      specifier: 24.1.0
+      version: 24.1.0
     '@octokit/webhooks-methods':
       specifier: 6.0.0
       version: 6.0.0
@@ -382,8 +382,8 @@ catalogs:
       specifier: 14.0.0
       version: 14.0.0
     nx:
-      specifier: 24.1.0-beta.3
-      version: 24.1.0-beta.3
+      specifier: 24.1.0
+      version: 24.1.0
     oxc-transform-react:
       specifier: 0.158.0
       version: 0.158.0
@@ -550,22 +550,22 @@ importers:
         version: 0.73.7
       '@nx/conformance':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@nx/js@24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2))(esbuild@0.28.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(@nx/js@24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2))(esbuild@0.28.2)(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@nx/eslint-plugin':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(typescript@7.1.0-dev.20261124.1)
+        version: 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(typescript@7.1.0-dev.20261124.1)
       '@nx/js':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
+        version: 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
       '@nx/vite':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2)
+        version: 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2)
       '@nx/web':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@nx/vite@24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2))(@typescript/typescript6@6.0.2)(debug@4.4.3(supports-color@10.2.2))(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
+        version: 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@nx/vite@24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2))(@typescript/typescript6@6.0.2)(debug@4.4.3(supports-color@10.2.2))(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.66.0-alpha-2026-11-26
@@ -658,7 +658,7 @@ importers:
         version: 6.48.0
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       oxc-transform-react:
         specifier: 'catalog:'
         version: 0.158.0
@@ -718,7 +718,7 @@ importers:
         version: 4.1.6(effect@4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02))(redis@6.3.1(@opentelemetry/api@1.10.0))
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.66.0-alpha-2026-11-26
@@ -1209,10 +1209,10 @@ importers:
         version: 4.1.6(effect@4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02))(redis@6.3.1(@opentelemetry/api@1.10.0))
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@nx/js':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
+        version: 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
       '@rasm/process':
         specifier: workspace:*
         version: link:../../system/process
@@ -1228,7 +1228,7 @@ importers:
         version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
 
   libs/typescript/graphics/mark:
     dependencies:
@@ -1969,7 +1969,7 @@ importers:
     dependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
@@ -1994,7 +1994,7 @@ importers:
         version: 3.0.4
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
     optionalDependencies:
       '@rasm/nx-apple-darwin-arm64':
         specifier: workspace:*
@@ -2009,7 +2009,7 @@ importers:
         version: 3.3.3
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
@@ -2025,13 +2025,13 @@ importers:
         version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
 
   products/developer/nx/cmake:
     dependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
@@ -2044,7 +2044,7 @@ importers:
         version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
 
   products/developer/nx/distribution:
     dependencies:
@@ -2056,7 +2056,7 @@ importers:
         version: 4.1.6(effect@4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02))(redis@6.3.1(@opentelemetry/api@1.10.0))
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
@@ -2081,13 +2081,13 @@ importers:
         version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
 
   products/developer/nx/docker:
     dependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
@@ -2100,13 +2100,13 @@ importers:
         version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
 
   products/developer/nx/dotnet:
     dependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
@@ -2134,13 +2134,13 @@ importers:
         version: 3.0.4
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
 
   products/developer/nx/playwright:
     dependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@playwright/test':
         specifier: catalog:peers
         version: 1.66.0-alpha-2026-11-26
@@ -2156,13 +2156,13 @@ importers:
         version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
 
   products/developer/nx/pulumi:
     dependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
@@ -2178,16 +2178,16 @@ importers:
         version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
 
   products/developer/nx/storybook:
     dependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@nx/js':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
+        version: 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
@@ -2197,13 +2197,13 @@ importers:
     devDependencies:
       '@nx/web':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@nx/vite@24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2))(@typescript/typescript6@6.0.2)(debug@4.4.3(supports-color@10.2.2))(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
+        version: 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@nx/vite@24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2))(@typescript/typescript6@6.0.2)(debug@4.4.3(supports-color@10.2.2))(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       storybook:
         specifier: 'catalog:'
         version: 11.0.0-rc.0(@types/react@19.3.3)(react@19.3.1)
@@ -2212,7 +2212,7 @@ importers:
     dependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
@@ -2246,7 +2246,7 @@ importers:
         version: 10.15.0(jiti@2.7.0)(supports-color@10.2.2)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
 
   products/developer/nx/uv:
     dependencies:
@@ -2255,7 +2255,7 @@ importers:
         version: 3.3.3
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
@@ -2280,16 +2280,16 @@ importers:
         version: 3.0.4
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
 
   products/developer/nx/vite:
     dependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@nx/vite':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2)
+        version: 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2)
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
@@ -2302,7 +2302,7 @@ importers:
         version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       vite:
         specifier: 'catalog:'
         version: 8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
@@ -2311,7 +2311,7 @@ importers:
     dependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../libs/typescript/developer/nx
@@ -2324,7 +2324,7 @@ importers:
         version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       vite:
         specifier: 'catalog:'
         version: 8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
@@ -2480,7 +2480,7 @@ importers:
         version: 5.20261125.1
       '@nx/vite':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2)
+        version: 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2)
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../../tests/support/typescript
@@ -2942,7 +2942,7 @@ importers:
     devDependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/developer/nx
@@ -2957,7 +2957,7 @@ importers:
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.2(@opentelemetry/api@1.10.0)(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(@vitest/browser-playwright@5.1.2)(@vitest/ui@5.1.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
@@ -3251,7 +3251,7 @@ importers:
         version: 4.1.6(effect@4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02))(vitest@5.1.2)
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/developer/nx
@@ -3272,7 +3272,7 @@ importers:
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.2(@opentelemetry/api@1.10.0)(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(@vitest/browser-playwright@5.1.2)(@vitest/ui@5.1.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
@@ -3284,7 +3284,7 @@ importers:
         version: 4.1.6(effect@4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02))(vitest@5.1.2)
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx-cargo':
         specifier: workspace:*
         version: link:../../../../../products/developer/nx/cargo
@@ -3299,7 +3299,7 @@ importers:
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.2(@opentelemetry/api@1.10.0)(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(@vitest/browser-playwright@5.1.2)(@vitest/ui@5.1.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
@@ -3311,7 +3311,7 @@ importers:
         version: 4.1.6(effect@4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02))(vitest@5.1.2)
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx-cmake':
         specifier: workspace:*
         version: link:../../../../../products/developer/nx/cmake
@@ -3326,7 +3326,7 @@ importers:
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.2(@opentelemetry/api@1.10.0)(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(@vitest/browser-playwright@5.1.2)(@vitest/ui@5.1.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
@@ -3338,7 +3338,7 @@ importers:
         version: 4.1.6(effect@4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02))(vitest@5.1.2)
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/developer/nx
@@ -3356,7 +3356,7 @@ importers:
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.2(@opentelemetry/api@1.10.0)(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(@vitest/browser-playwright@5.1.2)(@vitest/ui@5.1.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
@@ -3365,7 +3365,7 @@ importers:
     devDependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx-docker':
         specifier: workspace:*
         version: link:../../../../../products/developer/nx/docker
@@ -3377,7 +3377,7 @@ importers:
         version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.2(@opentelemetry/api@1.10.0)(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(@vitest/browser-playwright@5.1.2)(@vitest/ui@5.1.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
@@ -3386,7 +3386,7 @@ importers:
     devDependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx-dotnet':
         specifier: workspace:*
         version: link:../../../../../products/developer/nx/dotnet
@@ -3401,7 +3401,7 @@ importers:
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.2(@opentelemetry/api@1.10.0)(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(@vitest/browser-playwright@5.1.2)(@vitest/ui@5.1.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
@@ -3410,7 +3410,7 @@ importers:
     devDependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.66.0-alpha-2026-11-26
@@ -3431,7 +3431,7 @@ importers:
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.2(@opentelemetry/api@1.10.0)(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(@vitest/browser-playwright@5.1.2)(@vitest/ui@5.1.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
@@ -3455,7 +3455,7 @@ importers:
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       vite:
         specifier: 'catalog:'
         version: 8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
@@ -3467,10 +3467,10 @@ importers:
     devDependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@nx/web':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@nx/vite@24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2))(@typescript/typescript6@6.0.2)(debug@4.4.3(supports-color@10.2.2))(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
+        version: 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@nx/vite@24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2))(@typescript/typescript6@6.0.2)(debug@4.4.3(supports-color@10.2.2))(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
       '@rasm/nx-storybook':
         specifier: workspace:*
         version: link:../../../../../products/developer/nx/storybook
@@ -3488,7 +3488,7 @@ importers:
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       react:
         specifier: 'catalog:'
         version: 19.3.1
@@ -3512,7 +3512,7 @@ importers:
         version: 1.0.0-rc.4
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx-typescript':
         specifier: workspace:*
         version: link:../../../../../products/developer/nx/typescript
@@ -3530,7 +3530,7 @@ importers:
         version: 10.15.0(jiti@2.7.0)(supports-color@10.2.2)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.2(@opentelemetry/api@1.10.0)(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(@vitest/browser-playwright@5.1.2)(@vitest/ui@5.1.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
@@ -3542,7 +3542,7 @@ importers:
         version: 4.1.6(effect@4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02))(vitest@5.1.2)
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/developer/nx
@@ -3563,7 +3563,7 @@ importers:
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.2(@opentelemetry/api@1.10.0)(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(@vitest/browser-playwright@5.1.2)(@vitest/ui@5.1.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
@@ -3572,10 +3572,10 @@ importers:
     devDependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@nx/vite':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2)
+        version: 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2)
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/developer/nx
@@ -3593,7 +3593,7 @@ importers:
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       vite:
         specifier: 'catalog:'
         version: 8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
@@ -3605,7 +3605,7 @@ importers:
     devDependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx-vitest':
         specifier: workspace:*
         version: link:../../../../../products/developer/nx/vitest
@@ -3623,7 +3623,7 @@ importers:
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       vite:
         specifier: 'catalog:'
         version: 8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
@@ -3687,7 +3687,7 @@ importers:
     devDependencies:
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.66.0-alpha-2026-11-26
@@ -3714,7 +3714,7 @@ importers:
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
       storybook:
         specifier: 'catalog:'
         version: 11.0.0-rc.0(@types/react@19.3.3)(react@19.3.1)
@@ -3729,10 +3729,10 @@ importers:
     devDependencies:
       '@nx/conformance':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@nx/js@24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2))(esbuild@0.28.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(@nx/js@24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2))(esbuild@0.28.2)(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/conformance':
         specifier: workspace:*
         version: link:../../../tools/conformance
@@ -3750,10 +3750,10 @@ importers:
     dependencies:
       '@nx/conformance':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@nx/js@24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2))(esbuild@0.28.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(@nx/js@24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2))(esbuild@0.28.2)(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@nx/devkit':
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+        version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@rasm/nx':
         specifier: workspace:*
         version: link:../../libs/typescript/developer/nx
@@ -3765,7 +3765,7 @@ importers:
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
       nx:
         specifier: 'catalog:'
-        version: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+        version: 24.1.0(@typescript/typescript6@6.0.2)
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -5254,40 +5254,46 @@ packages:
   '@nodable/entities@3.1.0':
     resolution: {integrity: sha512-LsS/DjHr+uDM647Gru/cA8+J3a3HfhttwCKLyuoyN7yXTFCxKBtSgMQBvrW9yNPa2/zDRUNuGPaH5QUFoa4arQ==}
 
-  '@nx/conformance@24.1.0-beta.3':
-    resolution: {integrity: sha512-3hnuP2BGOi3ViP9Q7EzdjarWpobh5vPFqHfsnFi8uiEn7kTyQO4SyiZihZxcdKgCEgY/H33jVaZQE+kCKjiWzA==}
+  '@nx/conformance@24.1.0':
+    resolution: {integrity: sha512-X5dcEMF9/Fok31cBXnPeQX3DxAPNJdgge3jJR8Gu0NO1QkBXHiaijX+y8UU/2XqWZcKzyDyNIava7XGlzPqxlw==}
     peerDependencies:
-      '@nx/js': 24.1.0-beta.3
+      '@nx/js': 24.1.0
       esbuild: '>=0.19.2 <1.0.0'
     peerDependenciesMeta:
       esbuild:
         optional: true
 
-  '@nx/devkit@24.1.0-beta.3':
-    resolution: {integrity: sha512-klqkO8ejbYySvaClAz+MfvlVxQK4xOMUNpN8JlSABZ60J8T4ODPYtX12hz8r9jdbzQ2JcaeqZpLcLvY+hregug==}
+  '@nx/devkit@24.1.0':
+    resolution: {integrity: sha512-PTKU2Er+++6KBcNe6+RWUt/FYs6snrxRW/k8pPIv3dl6Lrp2eObdRjnq1r5zjvsjDvDJ/CYDesQ4hPgSnk9mQg==}
     peerDependencies:
       nx: '>= 23 <= 25 || ^24.0.0-0'
 
-  '@nx/eslint-plugin@24.1.0-beta.3':
-    resolution: {integrity: sha512-Ft96YTMyxdi9baA5RXEHuCEspYNe6f4aON1IExqmTsRcm8L43Bauaw3V3hfiYwiYkmo8ZpGRvGbm+Hnzo35ulg==}
+  '@nx/eslint-plugin@24.1.0':
+    resolution: {integrity: sha512-SisjLrL8eV9dP+nc1KPtHHqkwbDT69xQYNvScx1YM4T/15nzf7SVAd6ooVmuOzTxct39MS5MwPnWPsfGv+6QIw==}
     peerDependencies:
+      '@eslint/js': ^9.0.0 || ^10.0.0
       '@typescript-eslint/parser': ^8.0.0
       eslint: ^9.0.0 || ^10.0.0
       eslint-config-prettier: ^10.0.0
       typescript: ^5.8.0 || ^6.0.0
+      typescript-eslint: ^8.0.0
     peerDependenciesMeta:
+      '@eslint/js':
+        optional: true
       '@typescript-eslint/parser':
         optional: true
       eslint-config-prettier:
         optional: true
       typescript:
         optional: true
+      typescript-eslint:
+        optional: true
 
-  '@nx/js@24.1.0-beta.3':
-    resolution: {integrity: sha512-YXRL6fcQZb34LdGqdmZxyx6M4PsTt5f2zvTDE+v4sqqbqvp5hFY/cr48WrnjZCS8abVrU89zKNEtDL3YZky5jg==}
+  '@nx/js@24.1.0':
+    resolution: {integrity: sha512-erojuYFpMwNdvm9lvqb/YwmSPf9U7i095m7ESKVQELXFExauINXkCxdln4hbAPlLUmhqYlllojuCz60RI5p3pQ==}
     peerDependencies:
       '@swc/cli': '>=0.6.0 <0.9.0'
-      nx: 24.1.0-beta.3
+      nx: 24.1.0
       typescript: ^5.8.0 || ^6.0.0
       verdaccio: ^6.0.5 || ^7.0.0
     peerDependenciesMeta:
@@ -5300,62 +5306,62 @@ packages:
       verdaccio:
         optional: true
 
-  '@nx/nx-darwin-arm64@24.1.0-beta.3':
-    resolution: {integrity: sha512-VeDwvZePIkx8+ftFwK9tf1mGwEdZncNr/iHL83WZ/Xu8Nm1YT2HTGb+vzkkm6C/JvZwzVqqcB87TAj2XR4Tbfw==}
+  '@nx/nx-darwin-arm64@24.1.0':
+    resolution: {integrity: sha512-JDi/w0zkRN/Tid3A0KskK4wjdQEO5yDaii+V0aiZ95KjJxc81lGjRA/bAoplq7/ibEQW34FgijSHvYTeGtIsqA==}
     cpu: [arm64]
     os: [darwin]
 
-  '@nx/nx-darwin-x64@24.1.0-beta.3':
-    resolution: {integrity: sha512-9n1iF9Jfw0gzpw+EG7HyM3FlRqBJi+I+nHGRBFiVk3WXIUorN5WCTAWLkBsnlo3y3pZUg36n2SGatTwJwIepXg==}
+  '@nx/nx-darwin-x64@24.1.0':
+    resolution: {integrity: sha512-gwF1/uhwpkqUNSyZMfDVodHA8NAoE7mnrSCxei/FWTOBx1d+dGp+UnMNV2avJyFL+jpWYxtrkzXwz+tYn/7mgg==}
     cpu: [x64]
     os: [darwin]
 
-  '@nx/nx-freebsd-x64@24.1.0-beta.3':
-    resolution: {integrity: sha512-CJ8bPg/tbI+qeIkDfzFK+MYuBtJY2MFLhH64MhOj/er+ABM99g/UXGJ4bdj/3RET1apyv6WIckSeRANN2CQMoQ==}
+  '@nx/nx-freebsd-x64@24.1.0':
+    resolution: {integrity: sha512-0CSJ0fC/cFrJZ4/tdnn/V0nmwtJPdDGGXUDGBltsUFdSyYTjEpkhJ8SRNf3LP3zRCa/ol4/s/hxKXynv/18nhw==}
     cpu: [x64]
     os: [freebsd]
 
-  '@nx/nx-linux-arm-gnueabihf@24.1.0-beta.3':
-    resolution: {integrity: sha512-kq8zWjj3/4N1Y//uStLvAMoT98aMuYcwNsnjULShat81gTvkDmRG68nqyVo88olrVw5JHFwST1vdVTle9dR7Eg==}
+  '@nx/nx-linux-arm-gnueabihf@24.1.0':
+    resolution: {integrity: sha512-jcVUQHQgc3zsr0iIDz8B3BqdywPsg0uatHi3bIw0QnBmc/HMCXpTVaqwYCJ+8Gxl3hI/PQW3SGYbG8JyNGXlYg==}
     cpu: [arm]
     os: [linux]
 
-  '@nx/nx-linux-arm64-gnu@24.1.0-beta.3':
-    resolution: {integrity: sha512-347Z829htQDa4t7agA3IQGZXOzwfVSTRQn9d4+97ivXIPq1Hoc8KDpUP+2+TROIZukGzcWmx1Snr74956yWiqQ==}
+  '@nx/nx-linux-arm64-gnu@24.1.0':
+    resolution: {integrity: sha512-B+2JGcOQMSaFbg0khc6DGheUpk2GLjgORMOO07Pxzg/zykHxpf39LdsR23ms7rI3f+1LCU1sg7mSiXW8E7TIvw==}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
 
-  '@nx/nx-linux-arm64-musl@24.1.0-beta.3':
-    resolution: {integrity: sha512-ovGMrHKoLsUY5KyEVAG+C7wLFszHM2AmXl1jFdW0EDTwpGy2+VaJsBKgyghqF+/Z3QYWh7JFZDM/h6CQvtbPOw==}
+  '@nx/nx-linux-arm64-musl@24.1.0':
+    resolution: {integrity: sha512-5fiCp/+0Cza6Qw2iY9wtpiVPoKRrWoAg5x/srsdzCmZ/ZSEqipcJxsH+op0CpyjEvRNxB4D5Dc9eXAHHBIXxyQ==}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
 
-  '@nx/nx-linux-x64-gnu@24.1.0-beta.3':
-    resolution: {integrity: sha512-1K6jvJjyw0INELUuaAKfzzHm6CJ1FCdZMJF0bKTfolTdeLJhg8Uc+a4FNeVHWwmLKGYI7WZq6jGYyVJ+yNki4g==}
+  '@nx/nx-linux-x64-gnu@24.1.0':
+    resolution: {integrity: sha512-dQqoaHF6H5yuoTpGqJQWTkExrf8mDFbwHY1cwvEt4n3aGD4yd4piPupfAlAf3j2iSYN/zcnHOvyyRk7z29PbOA==}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@nx/nx-linux-x64-musl@24.1.0-beta.3':
-    resolution: {integrity: sha512-22vWuPgKQsJn4lVdEq+Cpt0TcocUkC7zch5x+4XuG2ybz6Xve60xFsd1868NJSlGIo5ktwoHcy1BuQaBMOLwGQ==}
+  '@nx/nx-linux-x64-musl@24.1.0':
+    resolution: {integrity: sha512-L3U394OPyyRxyHCovlC18pJZoakIG1dZOkdunVaThkeDyjo3By4eH89AHG/HV0C04zGrW34qYWLP+M69ZQeNWQ==}
     cpu: [x64]
     os: [linux]
     libc: [musl]
 
-  '@nx/nx-win32-arm64-msvc@24.1.0-beta.3':
-    resolution: {integrity: sha512-38R9fE/kH/mFxzrJkk9lADYcgmf/PW5b9OThO/p14DT2BkbKIrub+eIKFxC1bPnAcyuBLIbATWvVVNwLgLto5w==}
+  '@nx/nx-win32-arm64-msvc@24.1.0':
+    resolution: {integrity: sha512-As4h0dip4eqZzHUSGYE1ekmmZMoG7kYyjA1G3qlT1DHTxrEzWhP4sh0VlRKyjo8AdRhWgZg+Wmr+tnVcHiuRaQ==}
     cpu: [arm64]
     os: [win32]
 
-  '@nx/nx-win32-x64-msvc@24.1.0-beta.3':
-    resolution: {integrity: sha512-8AzS5c6eIMYgNtljKfgph7tqxgstqL4u4rhccFQiJbC0FYuK0HZkf0DlsQkIdWgspiOtllicCsNXGw8Wu+PBtg==}
+  '@nx/nx-win32-x64-msvc@24.1.0':
+    resolution: {integrity: sha512-EA0XlQKYiiTrlCJh8qim0KJsTOubNfe7L+qM81YuORoTmGwFjeQYRUSloUlgX6sNmS10Syx1L62UQUNCq5zSDA==}
     cpu: [x64]
     os: [win32]
 
-  '@nx/vite@24.1.0-beta.3':
-    resolution: {integrity: sha512-fcAfIrUhUTJ2c/+1wdbGPc3E5mlTLi6Tb7xndZOi9Dvis3R4rQ9Asatr8S6Cg1+u/C8kpQtksTkas0XuL/JOGw==}
+  '@nx/vite@24.1.0':
+    resolution: {integrity: sha512-2DR9klpLRri6kjprMwCudAiE3DQD+0ZRSkzYHwneQLYEHa4hNrs3f0NEE8uwgokwUUBMPxA4lV5LZCr8+brdsw==}
     peerDependencies:
       typescript: ^5.8.0 || ^6.0.0
       vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
@@ -5363,10 +5369,10 @@ packages:
       typescript:
         optional: true
 
-  '@nx/vitest@24.1.0-beta.3':
-    resolution: {integrity: sha512-CxaJODy0bo+CnjfojvtIEVzvZTzlQJthoW7MUOJzKbT3Mj9G4ZniOpT4Ka5VorWOLvh+boWHkBtCnlL5+Lf48g==}
+  '@nx/vitest@24.1.0':
+    resolution: {integrity: sha512-mhTCy46xDNuoeaLEN11o2rBwx7o1RYkSoXFpMM2HPd4NBMytLCXReXXJty2APR1U+tPu/XTBQeESn3jZ/Ue9yA==}
     peerDependencies:
-      '@nx/eslint': 24.1.0-beta.3
+      '@nx/eslint': 24.1.0
       typescript: ^5.8.0 || ^6.0.0
       vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
       vitest: ^3.0.0 || ^4.0.0 || ^5.0.0
@@ -5380,15 +5386,15 @@ packages:
       vitest:
         optional: true
 
-  '@nx/web@24.1.0-beta.3':
-    resolution: {integrity: sha512-McB9r/iTevL5fF8cvDRycSdglr6taNLQbdwoNSFDEycx0IkvtwWOzLb0izk3fwj68RKAZBGFnfdBBW8qz2rzgw==}
+  '@nx/web@24.1.0':
+    resolution: {integrity: sha512-NUXvserxJZ1bWWagR65IpRJrnjcTDNOlvtqQjZyplKWzH/qj+dP4kjHFifQbVlyZ+5mfS8ZYuvPJeCq1MQJD6w==}
     peerDependencies:
-      '@nx/cypress': 24.1.0-beta.3
-      '@nx/eslint': 24.1.0-beta.3
-      '@nx/jest': 24.1.0-beta.3
-      '@nx/playwright': 24.1.0-beta.3
-      '@nx/vite': 24.1.0-beta.3
-      '@nx/webpack': 24.1.0-beta.3
+      '@nx/cypress': 24.1.0
+      '@nx/eslint': 24.1.0
+      '@nx/jest': 24.1.0
+      '@nx/playwright': 24.1.0
+      '@nx/vite': 24.1.0
+      '@nx/webpack': 24.1.0
     peerDependenciesMeta:
       '@nx/cypress':
         optional: true
@@ -5403,8 +5409,8 @@ packages:
       '@nx/webpack':
         optional: true
 
-  '@nx/workspace@24.1.0-beta.3':
-    resolution: {integrity: sha512-PR8zg26hk8vPGPPFYx2oQQj+QgMkdaUVjDIuI2QF+I6+9foMdgH5OZxGyAXHdYGfFxskZFOPOzKyn0eU4uRVqw==}
+  '@nx/workspace@24.1.0':
+    resolution: {integrity: sha512-R2pviTuczkhskBPzp1knHTeaThm5knV9hXaAWNnKJ1fYxfemmZfusRSAVX9dIxxk1Y8SHRKV1m72Uc6DNTyIMw==}
 
   '@octokit/webhooks-methods@6.0.0':
     resolution: {integrity: sha512-MFlzzoDJVw/GcbfzVC1RLR36QqkTLUf79vLVO3D+xn7r0QgxnFoLZgtrzxiQErAjFUOdH6fas2KeQJ1yr/qaXQ==}
@@ -8771,8 +8777,8 @@ packages:
   nth-check@2.1.1:
     resolution: {integrity: sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w==}
 
-  nx@24.1.0-beta.3:
-    resolution: {integrity: sha512-CCSpzYzc/ss0g+bqNRuJWyEV9GDRmCnqBEEKa8nrikEblxGoaQk/Whe4pCT+FTvuRkCD/uWbVnvVNt2dfydaWA==}
+  nx@24.1.0:
+    resolution: {integrity: sha512-Ny7DJFI2yJhk86qcPoxqfRimD8FmBcrv6mCLTMPEV0yLfm2+bJazmldHaxKZWNMQmxsJG3bam0ByIHLpNM8OiA==}
     hasBin: true
     peerDependencies:
       '@swc-node/register': ^1.11.1
@@ -11562,10 +11568,10 @@ snapshots:
 
   '@nodable/entities@3.1.0': {}
 
-  '@nx/conformance@24.1.0-beta.3(@nx/js@24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2))(esbuild@0.28.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))':
+  '@nx/conformance@24.1.0(@nx/js@24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2))(esbuild@0.28.2)(nx@24.1.0(@typescript/typescript6@6.0.2))':
     dependencies:
-      '@nx/devkit': 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
-      '@nx/js': 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
+      '@nx/devkit': 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
+      '@nx/js': 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
       ajv: 8.20.0
       picocolors: 1.1.1
       semver: 7.8.6
@@ -11576,19 +11582,19 @@ snapshots:
     transitivePeerDependencies:
       - nx
 
-  '@nx/devkit@24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))':
+  '@nx/devkit@24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))':
     dependencies:
       ejs: 5.0.1
       minimatch: 11.0.8
-      nx: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+      nx: 24.1.0(@typescript/typescript6@6.0.2)
       semver: 7.8.6
       tslib: 2.9.1
       yargs-parser: 21.1.1
 
-  '@nx/eslint-plugin@24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(typescript@7.1.0-dev.20261124.1)':
+  '@nx/eslint-plugin@24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(typescript@7.1.0-dev.20261124.1)':
     dependencies:
-      '@nx/devkit': 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
-      '@nx/js': 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
+      '@nx/devkit': 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
+      '@nx/js': 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
       '@phenomnomnominal/tsquery': 6.2.0(@typescript/typescript6@6.0.2)
       '@typescript-eslint/type-utils': 8.73.0(@typescript/typescript6@6.0.2)(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@7.1.0-dev.20261124.1)
       '@typescript-eslint/utils': 8.73.0(@typescript/typescript6@6.0.2)(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))(supports-color@10.2.2)(typescript@7.1.0-dev.20261124.1)
@@ -11611,7 +11617,7 @@ snapshots:
       - supports-color
       - verdaccio
 
-  '@nx/js@24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)':
+  '@nx/js@24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)':
     dependencies:
       '@babel/core': 7.29.13(supports-color@10.2.2)
       '@babel/plugin-proposal-decorators': 7.29.7(@babel/core@7.29.13(supports-color@10.2.2))(supports-color@10.2.2)
@@ -11623,8 +11629,8 @@ snapshots:
       '@babel/preset-env': 7.29.14(@babel/core@7.29.13(supports-color@10.2.2))(supports-color@10.2.2)
       '@babel/preset-typescript': 7.29.7(@babel/core@7.29.13(supports-color@10.2.2))(supports-color@10.2.2)
       '@babel/runtime': 7.29.14
-      '@nx/devkit': 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
-      '@nx/workspace': 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+      '@nx/devkit': 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
+      '@nx/workspace': 24.1.0(@typescript/typescript6@6.0.2)
       '@zkochan/js-yaml': 0.0.7
       babel-plugin-const-enum: 1.2.0(@babel/core@7.29.13(supports-color@10.2.2))(supports-color@10.2.2)
       babel-plugin-macros: 3.1.0
@@ -11643,7 +11649,7 @@ snapshots:
       tinyglobby: 0.2.17
       tslib: 2.9.1
     optionalDependencies:
-      nx: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+      nx: 24.1.0(@typescript/typescript6@6.0.2)
       typescript: '@typescript/typescript6@6.0.2'
     transitivePeerDependencies:
       - '@babel/traverse'
@@ -11651,41 +11657,41 @@ snapshots:
       - '@swc/core'
       - supports-color
 
-  '@nx/nx-darwin-arm64@24.1.0-beta.3':
+  '@nx/nx-darwin-arm64@24.1.0':
     optional: true
 
-  '@nx/nx-darwin-x64@24.1.0-beta.3':
+  '@nx/nx-darwin-x64@24.1.0':
     optional: true
 
-  '@nx/nx-freebsd-x64@24.1.0-beta.3':
+  '@nx/nx-freebsd-x64@24.1.0':
     optional: true
 
-  '@nx/nx-linux-arm-gnueabihf@24.1.0-beta.3':
+  '@nx/nx-linux-arm-gnueabihf@24.1.0':
     optional: true
 
-  '@nx/nx-linux-arm64-gnu@24.1.0-beta.3':
+  '@nx/nx-linux-arm64-gnu@24.1.0':
     optional: true
 
-  '@nx/nx-linux-arm64-musl@24.1.0-beta.3':
+  '@nx/nx-linux-arm64-musl@24.1.0':
     optional: true
 
-  '@nx/nx-linux-x64-gnu@24.1.0-beta.3':
+  '@nx/nx-linux-x64-gnu@24.1.0':
     optional: true
 
-  '@nx/nx-linux-x64-musl@24.1.0-beta.3':
+  '@nx/nx-linux-x64-musl@24.1.0':
     optional: true
 
-  '@nx/nx-win32-arm64-msvc@24.1.0-beta.3':
+  '@nx/nx-win32-arm64-msvc@24.1.0':
     optional: true
 
-  '@nx/nx-win32-x64-msvc@24.1.0-beta.3':
+  '@nx/nx-win32-x64-msvc@24.1.0':
     optional: true
 
-  '@nx/vite@24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2)':
+  '@nx/vite@24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2)':
     dependencies:
-      '@nx/devkit': 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
-      '@nx/js': 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
-      '@nx/vitest': 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2)
+      '@nx/devkit': 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
+      '@nx/js': 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
+      '@nx/vitest': 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2)
       '@phenomnomnominal/tsquery': 6.2.0(@typescript/typescript6@6.0.2)
       ajv: 8.20.0
       picomatch: 4.0.7
@@ -11705,10 +11711,10 @@ snapshots:
       - verdaccio
       - vitest
 
-  '@nx/vitest@24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2)':
+  '@nx/vitest@24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2)':
     dependencies:
-      '@nx/devkit': 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
-      '@nx/js': 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
+      '@nx/devkit': 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
+      '@nx/js': 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
       '@phenomnomnominal/tsquery': 6.2.0(@typescript/typescript6@6.0.2)
       semver: 7.8.6
       tslib: 2.9.1
@@ -11725,16 +11731,16 @@ snapshots:
       - supports-color
       - verdaccio
 
-  '@nx/web@24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@nx/vite@24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2))(@typescript/typescript6@6.0.2)(debug@4.4.3(supports-color@10.2.2))(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)':
+  '@nx/web@24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@nx/vite@24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2))(@typescript/typescript6@6.0.2)(debug@4.4.3(supports-color@10.2.2))(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)':
     dependencies:
-      '@nx/devkit': 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
-      '@nx/js': 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
+      '@nx/devkit': 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
+      '@nx/js': 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)
       detect-port: 2.1.0
       http-server: 14.1.1(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       picocolors: 1.1.1
       tslib: 2.9.1
     optionalDependencies:
-      '@nx/vite': 24.1.0-beta.3(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2)
+      '@nx/vite': 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(vite@8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.2)
     transitivePeerDependencies:
       - '@babel/traverse'
       - '@swc-node/register'
@@ -11746,12 +11752,12 @@ snapshots:
       - typescript
       - verdaccio
 
-  '@nx/workspace@24.1.0-beta.3(@typescript/typescript6@6.0.2)':
+  '@nx/workspace@24.1.0(@typescript/typescript6@6.0.2)':
     dependencies:
-      '@nx/devkit': 24.1.0-beta.3(nx@24.1.0-beta.3(@typescript/typescript6@6.0.2))
+      '@nx/devkit': 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
       '@zkochan/js-yaml': 0.0.7
       chalk: 4.1.2
-      nx: 24.1.0-beta.3(@typescript/typescript6@6.0.2)
+      nx: 24.1.0(@typescript/typescript6@6.0.2)
       picomatch: 4.0.7
       semver: 7.8.6
       tslib: 2.9.1
@@ -14755,7 +14761,7 @@ snapshots:
     dependencies:
       boolbase: 1.0.0
 
-  nx@24.1.0-beta.3(@typescript/typescript6@6.0.2):
+  nx@24.1.0(@typescript/typescript6@6.0.2):
     dependencies:
       '@clack/core': 1.4.3
       '@clack/prompts': 1.7.0
@@ -14847,16 +14853,16 @@ snapshots:
       yargs: 17.7.2
       yargs-parser: 21.1.1
     optionalDependencies:
-      '@nx/nx-darwin-arm64': 24.1.0-beta.3
-      '@nx/nx-darwin-x64': 24.1.0-beta.3
-      '@nx/nx-freebsd-x64': 24.1.0-beta.3
-      '@nx/nx-linux-arm-gnueabihf': 24.1.0-beta.3
-      '@nx/nx-linux-arm64-gnu': 24.1.0-beta.3
-      '@nx/nx-linux-arm64-musl': 24.1.0-beta.3
-      '@nx/nx-linux-x64-gnu': 24.1.0-beta.3
-      '@nx/nx-linux-x64-musl': 24.1.0-beta.3
-      '@nx/nx-win32-arm64-msvc': 24.1.0-beta.3
-      '@nx/nx-win32-x64-msvc': 24.1.0-beta.3
+      '@nx/nx-darwin-arm64': 24.1.0
+      '@nx/nx-darwin-x64': 24.1.0
+      '@nx/nx-freebsd-x64': 24.1.0
+      '@nx/nx-linux-arm-gnueabihf': 24.1.0
+      '@nx/nx-linux-arm64-gnu': 24.1.0
+      '@nx/nx-linux-arm64-musl': 24.1.0
+      '@nx/nx-linux-x64-gnu': 24.1.0
+      '@nx/nx-linux-x64-musl': 24.1.0
+      '@nx/nx-win32-arm64-msvc': 24.1.0
+      '@nx/nx-win32-x64-msvc': 24.1.0
       typescript: '@typescript/typescript6@6.0.2'
 
   object-inspect@1.13.4: {}

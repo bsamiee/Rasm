@@ -42,7 +42,7 @@ const nodes = inferring(Schema.Struct({}), run, function* (files, _, { workspace
                 dependsOn: [`install--${ENGINE}`],
                 options: {
                     commands: [
-                        ['docker', 'image', 'prune', '--force'],
+                        ['docker', 'image', 'prune', '--all', '--force'],
                         ['docker', 'builder', 'prune', '--force'],
                     ],
                 },
@@ -50,7 +50,7 @@ const nodes = inferring(Schema.Struct({}), run, function* (files, _, { workspace
                 inputs: [{ externalDependencies: [] }],
                 metadata: {
                     description:
-                        'Removes dangling images and build cache with docker image prune and docker builder prune, their blocks returning to this machine through the discard mount option install--docker sets on the disk holding /var/lib/docker, and under configuration cache deletes the VM with its data with colima delete --data',
+                        'Removes images no container uses and dangling build cache with docker image prune and docker builder prune, their blocks returning to this machine through the discard mount option install--docker sets on the disk holding /var/lib/docker, and under configuration cache deletes the VM with its data with colima delete --data',
                     help: { command: 'colima delete --help', example: { args: [] } },
                 },
             },

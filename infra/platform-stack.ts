@@ -105,10 +105,22 @@ class Machine extends Data.Class<{
         return new Volume(`${this.name}-${volume}`, { name: volume }, { provider: this.provider, ...options }).name;
     }
 
-    contained(service: string, tests: readonly string[], args: Omit<ContainerArgs, 'name' | 'networksAdvanced' | 'restart' | 'logDriver' | 'wait' | 'healthcheck'>, options: CustomResourceOptions = {}) {
+    contained(service: string, tests: readonly string[], args: Omit<ContainerArgs, 'name' | 'networksAdvanced' | 'restart' | 'logDriver' | 'logOpts' | 'wait' | 'healthcheck'>, options: CustomResourceOptions = {}) {
         return new Container(
             `${this.name}-${service}`,
-            { name: service, networksAdvanced: [{ name: this.network }], restart: 'unless-stopped', logDriver: 'local', wait: true, waitTimeout: 300, destroyGraceSeconds: 120, ...Array.match(tests, { onEmpty: () => ({}), onNonEmpty: (stated) => ({ healthcheck: { tests: [...stated], interval: '10s' } }) }), ...args },
+            {
+                name: service,
+                networksAdvanced: [{ name: this.network }],
+                restart: 'unless-stopped',
+                logDriver: 'journald',
+                logOpts: { tag: '{{.Name}}' },
+                wait: true,
+                waitTimeout: 300,
+                destroyGraceSeconds: 120,
+                ...Array.match(tests, { onEmpty: () => ({}), onNonEmpty: (stated) => ({ healthcheck: { tests: [...stated], interval: '10s' } }) }),
+                ...args,
+                envs: output(args.envs).apply((envs) => Array.prepend(envs ?? [], 'NO_COLOR=1')),
+            },
             { provider: this.provider, ...options },
         );
     }
@@ -127,6 +139,7 @@ const proxied = Function.memoize((machine: Machine) => {
             `TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_TO=${Machine.entrypoint}`,
             `TRAEFIK_ENTRYPOINTS_${secure}_HTTP_TLS=true`,
             `TRAEFIK_ENTRYPOINTS_${secure}_TRANSPORT_RESPONDINGTIMEOUTS_READTIMEOUT=30m`,
+            'TRAEFIK_LOG_NOCOLOR=true',
             'TRAEFIK_PING=true',
             'TRAEFIK_PROVIDERS_DOCKER=true',
             'TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT=false',
@@ -155,7 +168,7 @@ const stored = (machine: Machine, rows: Readonly<Record<'RUSTFS_ACCESS_KEY' | 'R
         'storage',
         ['CMD', 'curl', '--fail', '--silent', `http://127.0.0.1:${ports.internal}${ports.health}`],
         {
-            image: machine.pulled('rustfs/rustfs:1.0.6'),
+            image: machine.pulled('rustfs/rustfs:1.0.7'),
             envs: [interpolate`RUSTFS_ACCESS_KEY=${user}`, interpolate`RUSTFS_SECRET_KEY=${key}`, 'RUSTFS_CONSOLE_ENABLE=false', 'RUSTFS_OBS_LOG_DIRECTORY='],
             ports: published.ips.apply(Array.map((ip) => ({ internal: ports.internal, external: ports.external, ip }))),
             ulimits: [{ name: 'nofile', soft: 1_048_576, hard: 1_048_576 }],

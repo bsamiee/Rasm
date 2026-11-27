@@ -19,7 +19,6 @@ jobs:
         environment: deploy
         concurrency:
             group: ${{ github.event_name == 'push' && 'deploy' || 'main' }}
-            cancel-in-progress: false
             queue: max
         permissions:
             contents: read

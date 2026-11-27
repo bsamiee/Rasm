@@ -14,7 +14,6 @@ on:
 
 concurrency:
     group: ${{ github.event_name == 'push' && 'main' || format('{0}-{1}', github.workflow, github.event_name == 'pull_request' && github.ref || github.run_id) }}
-    cancel-in-progress: false
     queue: max
 
 permissions:
@@ -24,6 +23,9 @@ permissions:
 env:
     HK_PROFILE: ci
     NX_PARALLEL: 100%
+    GH_TOKEN: ${{ github.token }}
+    NX_SELF_HOSTED_REMOTE_CACHE_SERVER: ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
+    NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: ${{ case(github.event_name == 'pull_request', secrets.NX_SELF_HOSTED_REMOTE_CACHE_READ_TOKEN, secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN) }}
 
 defaults:
     run:
@@ -62,40 +64,38 @@ jobs:
         runs-on: [self-hosted, graph]
         timeout-minutes: 30
         outputs:
-            engines: ${{ steps.unreal.outputs.engines }}
+            engines: ${{ steps.images.outputs.engines }}
             unreal: ${{ steps.listed.outputs.unreal }}
             browser: ${{ steps.listed.outputs.browser }}
             windows: ${{ steps.listed.outputs.windows }}
             rhino: ${{ steps.listed.outputs.rhino }}
-            image: ${{ steps.listed.outputs.image }}
+            image: ${{ steps.images.outputs.playwright }}
             infra: ${{ steps.listed.outputs.infra }}
-        env:
-            GH_TOKEN: &github ${{ github.token }}
-            NX_BASE: &base ${{ needs.shas.outputs.base }}
-            NX_HEAD: &head ${{ needs.shas.outputs.head }}
-            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
-            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: &token ${{ github.event_name == 'pull_request' && secrets.NX_SELF_HOSTED_REMOTE_CACHE_READ_TOKEN || secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
+        env: &shas
+            NX_BASE: ${{ needs.shas.outputs.base }}
+            NX_HEAD: ${{ needs.shas.outputs.head }}
         steps:
             - *checkout
             - &tools
               id: tools
               uses: $/.github/actions/tools
-            - id: unreal
-              uses: $/.github/actions/unreal
+            - id: images
+              uses: $/.github/actions/images
             - id: listed
+              env:
+                  BROWSER: &browser '*,!tag:host:browser'
+                  RHINO: &excluded '*,!tag:host:rhino'
               run: |-
                   listed() {
                       projects="$(nx show projects --affected --withTarget="$2" --exclude="$3" --json)"
                       printf "%s=%s\n" "$1" "${projects}"
                   }
-                  version="$(yq '.catalog["@playwright/test"]' pnpm-workspace.yaml)"
                   {
                       listed unreal check,test,build '*,!tag:host:unreal'
-                      listed browser check,test,build,pack '*,!tag:host:browser'
+                      listed browser check,test,build,pack "${BROWSER}"
                       listed windows test,build '*,!tag:os:win32,!tag:host:rhino'
-                      listed rhino test,build '*,!tag:host:rhino'
+                      listed rhino test,build "${RHINO}"
                       listed infra deploy--pulumi '*,!@rasm/infra'
-                      printf "image=%s\n" "ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}"
                   } >> "${GITHUB_OUTPUT}"
 
     linux:
@@ -103,26 +103,25 @@ jobs:
         needs: shas
         runs-on: [self-hosted, host]
         timeout-minutes: 120
-        env:
-            GH_TOKEN: *github
-            NX_BASE: *base
-            NX_HEAD: *head
-            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
-            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
+        env: *shas
         steps:
             - &stale
               run: rm -rf .artifacts/cmake/*/*.log .artifacts/dotnet/test .artifacts/playwright .artifacts/vitest
             - *checkout
             - *tools
-            - run: nx sync:check
-            - run: nx conformance:check
+            - parallel:
+                  - run: nx sync:check
+                  - run: nx conformance:check
             - id: codegen
               run: nx run-many --targets=codegen
-            - run: hk check --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
+            - id: hk
+              background: true
+              run: hk check --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
             - if: ${{ !cancelled() && steps.codegen.outcome == 'success' }}
               run: nx affected --targets=check,test,build --configuration=ci --exclude='tag:os:*,!tag:os:linux,tag:host:rhino,tag:host:browser,tag:host:unreal,tag:host:claude-code'
               env:
                   NX_SKIP_NX_CACHE: ${{ contains(inputs.uncached, 'linux') || inputs.uncached == 'all' }}
+            - wait: hk
             - &reports
               if: ${{ always() }}
               uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -153,18 +152,14 @@ jobs:
                 username: ${{ github.actor }}
                 password: ${{ github.token }}
             options: --init --ipc=host
-        env:
-            GH_TOKEN: *github
-            NX_BASE: *base
-            NX_HEAD: *head
-            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
-            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
+        env: *shas
         steps:
             - *stale
             - *checkout
             - *tools
-            - run: nx affected --targets=check,test,build,pack --exclude='*,!tag:host:browser'
+            - run: nx affected --targets=check,test,build,pack --exclude="${EXCLUDE}"
               env:
+                  EXCLUDE: *browser
                   NX_BATCH_MODE: 'false'
                   NX_SKIP_NX_CACHE: ${{ contains(inputs.uncached, 'linux') || inputs.uncached == 'all' }}
             - *reports
@@ -175,11 +170,8 @@ jobs:
         runs-on: xcode-27
         timeout-minutes: 120
         env:
-            GH_TOKEN: *github
-            NX_BASE: *base
-            NX_HEAD: *head
-            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
-            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
+            NX_BASE: ${{ needs.shas.outputs.base }}
+            NX_HEAD: ${{ needs.shas.outputs.head }}
             APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
             APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
         steps:
@@ -229,12 +221,7 @@ jobs:
         if: ${{ needs.affected.outputs.windows != '[]' }}
         runs-on: windows-2025
         timeout-minutes: 120
-        env:
-            GH_TOKEN: *github
-            NX_BASE: *base
-            NX_HEAD: *head
-            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
-            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
+        env: *shas
         steps:
             - *clone
             - *restore
@@ -251,15 +238,18 @@ jobs:
               run: nx affected --targets=test --configuration=headless --exclude='*,!tag:os:win32,tag:host:rhino,tag:host:claude-code'
             - id: cached
               if: *rhino
-              run: nx affected --targets=test --configuration=headless --exclude='*,!tag:host:rhino' || printf "missed=true\n" >> "${GITHUB_OUTPUT}"
+              run: nx affected --targets=test --configuration=headless --exclude="${EXCLUDE}" || printf "missed=true\n" >> "${GITHUB_OUTPUT}"
+              env:
+                  EXCLUDE: *excluded
             - if: ${{ steps.cached.outputs.missed == 'true' }}
               uses: mcneel/setup-rhino3d@095a5ff63cdb7dc8383e229fc40ffa779915b0af # v4.0.0
               with:
                   email-address: ${{ secrets.RHINO_EMAIL }}
                   download-url: ${{ env.RHINO_INSTALLER }}
             - if: ${{ steps.cached.outputs.missed == 'true' }}
-              run: nx affected --targets=test --configuration=headless --exclude='*,!tag:host:rhino'
+              run: nx affected --targets=test --configuration=headless --exclude="${EXCLUDE}"
               env:
+                  EXCLUDE: *excluded
                   RHINO_TOKEN: ${{ secrets.RHINO_TOKEN }}
             - *save
             - *reports
@@ -281,8 +271,6 @@ jobs:
                 password: ${{ secrets.EPIC_GHCR_TOKEN }}
             options: --memory=10g
         env:
-            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
-            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
             HOME: /home/ue4
             UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: 'false'
         steps:

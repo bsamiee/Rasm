@@ -64,7 +64,13 @@ Machines, their roles, and their reinstall:
 - Hostinger shows no credit balance, and steal in `/proc/stat` counts CPU time the hypervisor gives other machines, never a credit limit
 - `[bootstrap]` lengthens the Hostinger image's `99lock-timeout`, as a reinstalled machine's runner install meets its first unattended upgrade
 - `[bootstrap]` writes the Hostinger image's `/etc/fstab` whole, as a file entry edits no line of a file mise does not own
-- Root filesystems mount with `nodiscard`, as online discard held the disk busy for hours, and Hostinger's guest agent runs `fstrim` daily beside weekly `fstrim.timer`
+- Root filesystems mount with `nodiscard`, as online discard held the disk busy for hours
+- `fstrim.timer` stays masked, as Hostinger's guest agent runs `fstrim` over every fstab filesystem daily through `guest-exec`, which `journalctl -t qemu-ga` records
+- `[bootstrap]` removes the Hostinger image's `journald.conf`, as its guest agent writes 7-day retention and daily files there at install
+- Machines keep line logs in the journal alone under `SystemMaxUse`, and `[bootstrap]` masks rsyslog and its dmesg copy, each a copy of journal entries
+- Service containers log to the journal under their name across replacements, and containers a job starts keep the daemon's `local` driver, removed with them
+- `[bootstrap]` keeps root's user manager running, as one started for each SSH session wrote half of each journal
+- `systemd-coredump` holds crash dumps under its own size limits, as Docker's units allow core files of any size
 - Stack `rasm` holds a Hostinger post-install script joining reinstalled machines to the tailnet with Tailscale SSH
 - `set-hostname` restores a machine's hostname after its tailnet join and resets it with no shutdown, and post-install scripts flush writes first
 - `hostinger vps virtual-machines recreate <id> --template-id <id> --post-install-script-id <id>` reinstalls a machine and erases its hostname
@@ -183,5 +189,6 @@ Package updates and reboots of each machine:
 - `reboot-when-idle` reboots while `/run/reboot-required` exists and the repository's 100 newest runs hold none without a conclusion
 - `reboot-when-idle` reads the unfiltered run list, as a run filtered by status appears seconds after its creation
 - Reboots stop runner services through their drain
+- Unattended upgrades keep changed conffiles (`--force-confold`), as the Hostinger image changes `cloud.cfg` and a changed or deleted conffile holds its package
 - Reinstalls restore `docker-compose-plugin` and `docker-ce-rootless-extras` as recommendations of Docker's packages, and no code runs either
 - Docker Engine's builder garbage collection keeps the build cache CI builds fill under `defaultMaxUsedSpace`

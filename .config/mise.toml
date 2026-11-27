@@ -98,6 +98,7 @@ CTX7_TELEMETRY_DISABLED     = "1"
 DOTNET_NOLOGO               = "1"
 HK_MISE                     = "1"
 MSBUILDDISABLENODEREUSE     = "1"
+NX_DB_NAME                  = "rasm"
 NX_ISOLATE_PLUGINS          = "false"
 RUSTUP_AUTO_INSTALL         = "0"
 RUSTUP_TOOLCHAIN            = false
@@ -146,7 +147,7 @@ sources = []
 
 [hooks]
 postinstall = [
-    '''node -e "const { execSync } = require('node:child_process'); const { existsSync, readFileSync } = require('node:fs'); const read = (command) => execSync(command, { encoding: 'utf8' }); execSync('rustup default ' + read('rustup show active-toolchain').split(' ')[0], { stdio: 'inherit' }); const built = JSON.parse(read('cargo metadata --format-version 1 --no-deps')).build_directory + '/.rustc_info.json'; existsSync(built) && !readFileSync(built, 'utf8').includes(read('rustc -vV').match(/commit-hash: (.+)/)[1]) && execSync('cargo clean', { stdio: 'inherit' }); const pruned = ['rust', 'http:rustc-source']; JSON.parse(process.env.MISE_INSTALLED_TOOLS).some(({ name }) => pruned.includes(name)) && execSync('mise prune --yes --tools ' + pruned.join(' '), { stdio: 'inherit' })"''',
+    '''node -e "const { execSync } = require('node:child_process'); const { existsSync, readFileSync } = require('node:fs'); const read = (command) => execSync(command, { encoding: 'utf8' }); execSync('rustup default ' + read('rustup show active-toolchain').split(' ')[0], { stdio: 'inherit' }); const built = JSON.parse(read('cargo metadata --format-version 1 --no-deps')).build_directory + '/.rustc_info.json'; existsSync(built) && !readFileSync(built, 'utf8').includes(read('rustc -vV').match(/commit-hash: (.+)/)[1]) && execSync('cargo clean', { stdio: 'inherit' }); const pruned = ['rust', 'http:rustc-source', 'github:llvm/llvm-project']; JSON.parse(process.env.MISE_INSTALLED_TOOLS).some(({ name }) => pruned.includes(name)) && execSync('mise prune --yes --tools ' + pruned.join(' '), { stdio: 'inherit' })"''',
     "mise deps install",
 ]
 

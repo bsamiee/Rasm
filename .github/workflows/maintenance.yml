@@ -7,7 +7,6 @@ on:
 
 concurrency:
     group: ${{ github.workflow }}
-    cancel-in-progress: false
 
 defaults:
     run:
@@ -19,7 +18,7 @@ jobs:
         runs-on: [self-hosted, host]
         timeout-minutes: 60
         outputs:
-            image: ${{ steps.image.outputs.image }}
+            image: ${{ steps.images.outputs.playwright }}
         steps:
             - &checkout
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -49,10 +48,8 @@ jobs:
             - run: nx run rasm:check--cargo-deny-advisories
               env:
                   NX_SKIP_NX_CACHE: 'true'
-            - id: image
-              run: |-
-                  version="$(yq '.catalog["@playwright/test"]' pnpm-workspace.yaml)"
-                  printf "image=%s\n" "ghcr.io/${GITHUB_REPOSITORY,,}/playwright:${version}" >> "${GITHUB_OUTPUT}"
+            - id: images
+              uses: $/.github/actions/images
 
     container:
         name: Container runner

@@ -20,7 +20,6 @@ on:
 
 concurrency:
     group: ${{ github.workflow }}
-    cancel-in-progress: false
     queue: max
 
 cache-mode: none
@@ -45,8 +44,8 @@ jobs:
             deliver: ${{ steps.released.outputs.deliver }}
             browser: ${{ steps.released.outputs.browser }}
             unreal: ${{ steps.released.outputs.unreal }}
-            image: ${{ steps.released.outputs.image }}
-            engines: ${{ steps.unreal.outputs.engines }}
+            image: ${{ steps.images.outputs.playwright }}
+            engines: ${{ steps.images.outputs.engines }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -70,18 +69,16 @@ jobs:
                   commit="$(git rev-parse HEAD)"
                   [[ "${commit}" != "${GITHUB_SHA}" ]] || exit 0
                   tags="$(git tag --points-at HEAD)"
-                  version="$(yq '.catalog["@playwright/test"]' pnpm-workspace.yaml)"
-                  nx run-many --targets=attach --configuration=release --graph=stdout | jq --raw-output --arg tags "${tags}" \
-                      --arg commit "${commit}" --arg image "ghcr.io/${GITHUB_REPOSITORY}/playwright:${version}" '
+                  nx run-many --targets=attach --configuration=release --graph=stdout | jq --raw-output --arg tags "${tags}" --arg commit "${commit}" '
                       .graph.nodes as $nodes | .tasks as {tasks: $tasks, dependencies: $edges} | INDEX($tasks[] | select(.target.target == "attach"); .target.project) as $attach
                       | ($tags | split("\n") | map(select(. != "") | sub("@[^@]*$"; ""))) as $tagged
                       | def reach: (. + [.[] | $edges[.][].id] | unique) as $next | if $next == . then . else $next | reach end;
                       reduce ($tagged[] | select($attach[.] or IN("host:unreal"; $nodes[.].data.tags[]?))) as $project ({projects: $tagged, deliver: [], browser: [], unreal: []};
                           [$nodes[$project].data.tags[]?, ([$attach[$project].id // empty] | reach[] | $nodes[$tasks[.].target.project].data.tags[]?)] as $reached
                           | .[if IN("host:unreal"; $reached[]) then "unreal" elif IN("host:browser"; $reached[]) then "browser" else "deliver" end] += [$project])
-                      | map_values(join(",")) + {commit: $commit, image: ($image | ascii_downcase)} | to_entries[] | "\(.key)=\(.value)"' >> "${GITHUB_OUTPUT}"
-            - id: unreal
-              uses: $/.github/actions/unreal
+                      | map_values(join(",")) + {commit: $commit} | to_entries[] | "\(.key)=\(.value)"' >> "${GITHUB_OUTPUT}"
+            - id: images
+              uses: $/.github/actions/images
 
     deliver:
         name: Deliver

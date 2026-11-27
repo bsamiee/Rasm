@@ -491,15 +491,15 @@ catalog:
 
     # --- [NX]
 
-    '@nx/conformance': 24.1.0-beta.3 # `nx conformance` rules over the project graph and files, npm `latest` holding the commercial line
-    '@nx/devkit': 24.1.0-beta.3
-    '@nx/eslint-plugin': 24.1.0-beta.3 # `nx-plugin-checks` rule over plugin package, executor, generator, and migration manifests
-    '@nx/js': 24.1.0-beta.3 # tsconfig `extends` chains the config-reading plugins hash
-    '@nx/plugin': 24.1.0-beta.3 # Generators and checks for plugins, executors, generators, and migrations
-    '@nx/vite': 24.1.0-beta.3 # `nxReadySignal` Vite plugin a served config holds
-    '@nx/web': 24.1.0-beta.3 # `file-server` executor serving a built Storybook
-    '@nx/workspace': 24.1.0-beta.3 # `move`, `remove`, and `infer-targets` generators
-    nx: 24.1.0-beta.3
+    '@nx/conformance': 24.1.0 # `nx conformance` rules over the project graph and files, npm `latest` holding the commercial line
+    '@nx/devkit': 24.1.0
+    '@nx/eslint-plugin': 24.1.0 # `nx-plugin-checks` rule over plugin package, executor, generator, and migration manifests
+    '@nx/js': 24.1.0 # tsconfig `extends` chains the config-reading plugins hash
+    '@nx/plugin': 24.1.0 # Generators and checks for plugins, executors, generators, and migrations
+    '@nx/vite': 24.1.0 # `nxReadySignal` Vite plugin a served config holds
+    '@nx/web': 24.1.0 # `file-server` executor serving a built Storybook
+    '@nx/workspace': 24.1.0 # `move`, `remove`, and `infer-targets` generators
+    nx: 24.1.0
 
     # --- [BUILD]
 
