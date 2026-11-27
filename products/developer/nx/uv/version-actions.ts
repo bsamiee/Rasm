@@ -89,7 +89,7 @@ const named = Effect.fnUntraced(function* (tree: Tree, projectGraph: ProjectGrap
 
 const released = Effect.fnUntraced(function* (tree: Tree, manifest: string, options: unknown) {
     const [{ lock }, { project: stated }] = yield* Effect.all([Schema.decodeUnknownEffect(Options)(options), project(tree, manifest)]);
-    const compile = ['uv', 'pip', 'compile', '-', '--no-deps', '--quiet', '--format', 'pylock.toml'] as const;
+    const compile = ['uv', '--color', 'never', 'pip', 'compile', '-', '--no-deps', '--quiet', '--format', 'pylock.toml'] as const;
     const stdout = yield* spawned(compile, { cwd: join(tree.root, dirname(lock)), stdin: Stream.encodeText(Stream.make(stated.name)) });
     const { packages } = yield* Effect.mapError(Effect.fromResult(Toml.parse(stdout)), (cause) => new Cause.UnknownError(cause, `${compile.join(' ')} prints no TOML`)).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Pylock)));
     const found = Array.findFirst(packages, ({ name, version }) => (normalized(name) === normalized(stated.name) ? Option.fromUndefinedOr(version) : Option.none()));

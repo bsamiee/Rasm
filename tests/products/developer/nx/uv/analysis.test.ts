@@ -107,7 +107,7 @@ describe('uv workspace metadata', () => {
 
         const graphed = workspace.graph({ createNodes });
 
-        await expect(graphed).rejects.toSatisfy(refused(Schema.Struct({ ...ExitError.fields, command: Schema.String.check(Schema.isPattern(/^uv workspace metadata /u)), code: Schema.Literal(2), stderr: Schema.String.check(Schema.isPattern(/^error: Failed to parse: `?pyproject\.toml/u)) })));
+        await expect(graphed).rejects.toSatisfy(refused(Schema.Struct({ ...ExitError.fields, command: Schema.String.check(Schema.isPattern(/^uv --color never workspace metadata /u)), code: Schema.Literal(2), stderr: Schema.String.check(Schema.isPattern(/^error: Failed to parse: `?pyproject\.toml/u)) })));
         await expect(graphed).rejects.toHaveProperty(['partialProjectConfigurationsResult', 'projects', 'nested/proj/library', 'name'], 'library');
     });
 });

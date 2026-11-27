@@ -12,8 +12,8 @@ import { LOCK, located, Metadata, SCHEMA } from '#/workspace';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const OWN = fingerprinted(import.meta.dirname);
-const METADATA = ['uv', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--output-version', SCHEMA, '--quiet'] as const;
-const LISTED = ['uv', 'workspace', 'list'] as const;
+const METADATA = ['uv', '--color', 'never', 'workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--output-version', SCHEMA, '--quiet'] as const;
+const LISTED = ['uv', '--color', 'never', 'workspace', 'list'] as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

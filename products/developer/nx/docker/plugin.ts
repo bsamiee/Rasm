@@ -27,7 +27,7 @@ const nodes = inferring(Schema.Struct({}), run, function* (files, _, { workspace
     const colima = {
         install: {
             [ENGINE]: {
-                command: `colima status > /dev/null 2>&1 || { mkdir -p "$COLIMA_HOME" && colima start --activate=false --ssh-config=false --mount none --port-forwarder grpc --memory 8 --disk 20 --cpus "$(($(getconf _NPROCESSORS_ONLN) / 2))"; }`,
+                command: `mkdir -p "$COLIMA_HOME" && { colima status > /dev/null 2>&1 || colima start --activate=false --ssh-config=false --mount none --port-forwarder grpc --memory 8 --disk 20 --cpus "$(($(getconf _NPROCESSORS_ONLN) / 2))"; }`,
                 inputs: [{ externalDependencies: [] }],
                 metadata: {
                     description:

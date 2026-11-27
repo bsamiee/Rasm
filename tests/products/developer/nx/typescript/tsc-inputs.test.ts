@@ -34,7 +34,7 @@ const TYPESCRIPT = { 'npm:typescript': { type: 'npm', name: 'npm:typescript', da
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const compiled = (workspace: Workspace, folder: string, ...args: readonly string[]) => spawnSync(join(workspace.root, 'node_modules/.bin/tsc'), args, { cwd: join(workspace.root, folder), encoding: 'utf-8' }).stdout;
+const compiled = (workspace: Workspace, folder: string, ...args: readonly string[]) => spawnSync(join(workspace.root, 'node_modules/.bin/tsc'), [...args, '--pretty', 'false'], { cwd: join(workspace.root, folder), encoding: 'utf-8' }).stdout;
 
 const listed = (workspace: Workspace, folder: string, program: string) =>
     compiled(workspace, folder, '-p', program, '--listFilesOnly')

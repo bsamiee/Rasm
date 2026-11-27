@@ -1,5 +1,5 @@
 import AppKit
-import Logging
+package import Logging
 import Processes
 package import Sparkle
 
@@ -10,7 +10,12 @@ package struct Updater {
     private final class Delegate: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {
         // --- [UPDATE_CYCLE]
 
-        let logger = Logger(label: String(reflecting: Updater.self))
+        let logger: Logger
+
+        init(logger: Logger) {
+            self.logger = logger
+            super.init()
+        }
 
         func updater(_: SPUUpdater, didFinishUpdateCycleFor _: SPUUpdateCheck, error _: (any Error)?) {
             let running = Result { () throws in try ProcessInstance(of: getpid()).runsInstalledCode() }
@@ -53,9 +58,10 @@ package struct Updater {
     }
 
     package let updater: SPUUpdater
-    private let delegate = Delegate()
+    private let delegate: Delegate
 
-    package init() {
+    package init(logger: Logger = Logger(label: String(reflecting: Self.self))) {
+        delegate = Delegate(logger: logger)
         updater = SPUUpdater(hostBundle: .main, applicationBundle: .main, userDriver: SPUStandardUserDriver(hostBundle: .main, delegate: delegate), delegate: delegate)
         do { try updater.start() } catch { delegate.logger.error("Updater could not start", error: error) }
     }

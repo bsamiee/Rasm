@@ -29,7 +29,7 @@ const browser = (name: string): BrowserConfigOptions => ({
 });
 
 const suites = (root: string, { name, devDependencies = {}, peerDependencies = {} }: PackageJson): TestProjectInlineConfiguration[] => {
-    const test = { name, testTimeout: LIMIT, hookTimeout: LIMIT, execArgv: ['--disable-warning=ExperimentalWarning'], env: { CI: 'false', ...(('nx' in devDependencies || '@nx/devkit' in devDependencies) && { NX_DAEMON: 'false', NX_WORKSPACE_DATA_DIRECTORY: '.nx/workspace-data', NO_COLOR: '1', FORCE_COLOR: '0' }) } };
+    const test = { name, testTimeout: LIMIT, hookTimeout: LIMIT, execArgv: ['--disable-warning=ExperimentalWarning'], env: { CI: 'false', ...(('nx' in devDependencies || '@nx/devkit' in devDependencies) && { NX_DAEMON: 'false', NX_WORKSPACE_DATA_DIRECTORY: '.nx/workspace-data' }) } };
     return 'vitest' in peerDependencies
         ? []
         : Match.value(devDependencies).pipe(
