@@ -89,7 +89,7 @@ const panel = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work:
                 Match.orElse((stretch) => Settings.fields.kashida.schema.cases[stretch].make({ ...(isElongated(kashida) ? Struct.omit(kashida, ['_tag']) : {}), lower, upper: lower })),
             ),
         }));
-    const reshape = () => act(Effect.map(typesetSelection(Option.none()), readKashida));
+    const reshape = () => Option.none().pipe(typesetSelection, Effect.map(readKashida), act);
     elongation.onChange(reshape);
     width.onChange(reshape);
     sets.forEach(([tag, box]) => box.addEventListener('change', () => act(Effect.succeedSome({ features: { [tag]: box.checked ? 1 : null } }))));

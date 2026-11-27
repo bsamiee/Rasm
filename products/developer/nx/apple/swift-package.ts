@@ -30,16 +30,12 @@ const RESOLVED = 'Package.resolved';
 const Listed = Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
 const Tests = Schema.Literal('test');
 const Executable = Schema.Literal('executable');
-class Described extends Schema.Opaque<Described>()(
-    Schema.fromJsonString(
-        Schema.Struct({
-            name: Schema.String,
-            dependencies: Schema.Array(Schema.Struct({ path: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-            targets: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.String, path: Schema.String, target_dependencies: Listed, product_dependencies: Listed, resources: Schema.Array(Schema.Unknown).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })),
-            products: Schema.Array(Schema.Struct({ name: Schema.String, targets: Schema.Array(Schema.String), type: Schema.Record(Schema.String, Schema.Unknown) })),
-        }),
-    ),
-) {}
+class Described extends Schema.Struct({
+    name: Schema.String,
+    dependencies: Schema.Array(Schema.Struct({ path: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+    targets: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.String, path: Schema.String, target_dependencies: Listed, product_dependencies: Listed, resources: Schema.Array(Schema.Unknown).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })),
+    products: Schema.Array(Schema.Struct({ name: Schema.String, targets: Schema.Array(Schema.String), type: Schema.Record(Schema.String, Schema.Unknown) })),
+}).pipe(Schema.fromJsonString, Schema.Opaque<Described>()) {}
 const Exclusions = Schema.fromJsonString(Schema.Struct({ targets: Schema.Array(Schema.Struct({ name: Schema.String, exclude: Listed })) })).annotate({
     description: 'The targets of swift package dump-package with the exclude rows of each, the files and folders inside a target folder SwiftPM never compiles, which swift package describe omits',
 });
@@ -58,7 +54,7 @@ const sources = ({ root, manifest, exclusions }: Package, described: ReadonlyMap
         edges: manifest.targets.flatMap(({ target_dependencies }, source) => target_dependencies.flatMap((name) => Array.fromNullishOr(indexed.get(name))).map((target) => ({ source, target, data: undefined }))).map((edge, index) => ({ ...edge, index })),
     });
     const linked = Option.map(products, (names) => new Set(manifest.products.filter(({ name }) => names.includes(name)).flatMap(({ targets }) => targets)));
-    const reached = Array.fromIterable(Graph.values(Graph.dfs(graph, { start: Graph.findNodes(graph, ({ name }) => Option.match(linked, { onNone: () => true, onSome: (held) => held.has(name) })) })));
+    const reached = graph.pipe(Graph.dfs({ start: Graph.findNodes(graph, ({ name }) => Option.match(linked, { onNone: () => true, onSome: (held) => held.has(name) })) }), Graph.values, Array.fromIterable);
     const used = reached.flatMap(({ product_dependencies }) => product_dependencies);
     return [
         ...reached.flatMap((module) => [join('{workspaceRoot}', root, module.path, '**/*'), ...(excluded.get(module.name) ?? []).flatMap((row) => [row, join(row, '**/*')].map((path) => `!${join('{workspaceRoot}', root, module.path, path)}`))]),

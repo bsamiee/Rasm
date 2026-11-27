@@ -72,7 +72,7 @@ const readDocument = Effect.fn('readDocument')(
 `documents` is the table's `Relation`, its fields typing `Request`, `Draft` the row schema, `initial` the encoded empty document, and `unavailable` maps a failure to `ServiceUnavailable`. Rows cross the finder by these rules:
 - Statements returning rows on every run (a `LEFT JOIN` from one value row, an insert returning rows) turn `NoSuchElementError` into `Effect.die`
 - `RETURNING` names the columns a caller reads, and a write no caller reads runs through `SqlSchema.void`, as finders decode every returned row
-- `Schema.fromJsonString(Schema.Array(Row))` in a request field hands `execute` the JSON text a list binds
+- `Row.pipe(Schema.Array, Schema.fromJsonString)` in a request field hands `execute` the JSON text a list binds
 
 Finders decode rows as one array, so a column holding a stored document catches its own decoding failure, and one stale row leaves every other row readable:
 

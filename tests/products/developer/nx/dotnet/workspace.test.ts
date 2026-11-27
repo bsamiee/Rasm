@@ -28,7 +28,7 @@ const FILES = {
 const Evaluated = Schema.fromJsonString(
     Schema.Struct({
         Properties: Schema.Struct({ MSBuildProjectName: Schema.String, PackageId: Schema.String, IsPackable: Schema.String, IsPublishable: Schema.String, IsTestProject: Schema.String, TargetPlatformIdentifier: Schema.String, OutputPath: Schema.String, PublishDir: Schema.String }),
-        Items: Schema.Struct({ ProjectReference: Schema.optionalKey(Schema.Array(Schema.Struct({ FullPath: Schema.String }))) }),
+        Items: Schema.Struct({ ProjectReference: Schema.Struct({ FullPath: Schema.String }).pipe(Schema.Array, Schema.optionalKey) }),
     }),
 );
 

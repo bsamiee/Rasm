@@ -55,13 +55,9 @@ const CANVAS = Array.append(TOOLBAR, ['region' satisfies FacetControl['kind'], '
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Locator = Schema.fromJsonString(
-    Schema.NonEmptyArray(
-        Schema.Struct({ key: Schema.Struct({ identifier: Schema.Struct({ value: Schema.String }) }), role: Schema.String }).pipe(
-            Schema.decodeTo(Schema.Tuple([Schema.String, Schema.String]), SchemaTransformation.transform({ decode: ({ role, key }) => [role, key.identifier.value] as const, encode: ([role, value]) => ({ key: { identifier: { value } }, role }) })),
-        ),
-    ),
-).annotate({ description: 'Locator of a facet container, control, or option: the role and identifier of each step from the application down, encoded as the canonical locator text' });
+const Locator = Schema.Struct({ key: Schema.Struct({ identifier: Schema.Struct({ value: Schema.String }) }), role: Schema.String })
+    .pipe(Schema.decodeTo(Schema.Tuple([Schema.String, Schema.String]), SchemaTransformation.transform({ decode: ({ role, key }) => [role, key.identifier.value] as const, encode: ([role, value]) => ({ key: { identifier: { value } }, role }) })), Schema.NonEmptyArray, Schema.fromJsonString)
+    .annotate({ description: 'Locator of a facet container, control, or option: the role and identifier of each step from the application down, encoded as the canonical locator text' });
 class FacetControl extends Schema.Opaque<FacetControl>()(
     Control.mapFields((fields) => ({
         ...Struct.omit(fields, ['ref', 'positional', 'opens', 'alternate']),

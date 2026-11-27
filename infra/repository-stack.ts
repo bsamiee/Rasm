@@ -44,7 +44,7 @@ const Form = Schema.String.pipe(
     }),
     Schema.decodeTo(Schema.Struct({ description: Schema.NonEmptyString, labels: Schema.NonEmptyArray(Schema.Literals(Struct.keys(palette))) })),
 );
-const Policy = Schema.fromJsonString(Schema.Struct({ bindings: Schema.optionalKey(Schema.Array(Schema.Struct({ role: Schema.String, members: Schema.Array(Schema.String) }))) }));
+const Policy = Schema.fromJsonString(Schema.Struct({ bindings: Schema.Struct({ role: Schema.String, members: Schema.Array(Schema.String) }).pipe(Schema.Array, Schema.optionalKey) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

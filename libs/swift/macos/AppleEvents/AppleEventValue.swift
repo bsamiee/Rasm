@@ -1,13 +1,13 @@
 import CasePathsCore
 import CoreServices
 import Encoding
-public import Foundation
+package import Foundation
 import OrderedCollections
-public import Results
+import Results
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public enum KeyForm: String, CaseIterable, Codable, Sendable {
+package enum KeyForm: String, CaseIterable, Codable, Sendable {
     case property
     case index
     case name
@@ -62,7 +62,7 @@ enum Ordinal: String, CaseIterable, Sendable {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public enum AppleEventValue: Sendable {
+package enum AppleEventValue: Sendable {
     case null
     case bool(Bool)
     case number(Double)
@@ -85,7 +85,7 @@ extension AppleEventValue: Codable {
         case fields, name, date, url, want, form, seld, from, type, data, value
     }
 
-    public init(from decoder: any Decoder) throws {
+    package init(from decoder: any Decoder) throws {
         let value = try decoder.singleValueContainer()
         func decodeTagged() throws -> Self {
             let fields = try decoder.container(keyedBy: Key.self)
@@ -120,7 +120,7 @@ extension AppleEventValue: Codable {
             }
     }
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         func encodeTagged(_ tag: Tag, _ fill: (inout KeyedEncodingContainer<Key>) throws -> Void) throws {
             var fields = encoder.container(keyedBy: Key.self)
             try fields.encode(tag, forKey: .tag)
@@ -164,7 +164,7 @@ extension AppleEventValue: Codable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension AppleEventValue {
-    public init(_ descriptor: NSAppleEventDescriptor, in dictionary: ScriptingDictionary) {
+    init(_ descriptor: NSAppleEventDescriptor, in dictionary: ScriptingDictionary) {
         func opaque() -> Self { .opaque(type: descriptor.descriptorType, data: descriptor.data, value: descriptor.stringValue) }
         func exact<Value: FixedWidthInteger & ConvertibleFromBytes>(_: Value.Type) -> Self {
             (descriptor.data.count == MemoryLayout<Value>.size ? Double(exactly: descriptor.data.bytes.load(fromByteOffset: 0, as: Value.self)) : nil).map(Self.number) ?? opaque()
@@ -214,7 +214,7 @@ extension AppleEventValue {
             }
     }
 
-    public func descriptor(as types: Set<String>, in dictionary: ScriptingDictionary) throws(AggregateError<AppleEventFailure>) -> NSAppleEventDescriptor {
+    func descriptor(as types: Set<String>, in dictionary: ScriptingDictionary) throws(AggregateError<AppleEventFailure>) -> NSAppleEventDescriptor {
         func makeDescriptor(_ value: Self, as types: Set<String> = []) -> Result<NSAppleEventDescriptor, AggregateError<AppleEventFailure>> {
             Result { () throws(AggregateError<AppleEventFailure>) in try value.descriptor(as: types, in: dictionary) }
         }

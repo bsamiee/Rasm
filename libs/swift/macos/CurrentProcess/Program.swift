@@ -1,17 +1,17 @@
-public import Applications
+package import Applications
 import CasePathsCore
-public import Configuration
-public import Foundation
+import Configuration
+package import Foundation
 import Logging
-public import Results
+package import Results
 import SPI
 import Security
 import Synchronization
-public import System
+package import System
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public enum Directory: Sendable {
+package enum Directory: Sendable {
     case logs
     case state
 }
@@ -49,13 +49,13 @@ final class UnrecognizedValues: AccessReporter {
     }
 }
 
-public struct Program: Sendable {
-    public static let current = Self()
+package struct Program: Sendable {
+    package static let current = Self()
 
-    public let identifier: String
-    public let name: String
-    public let version: String?
-    public let settings: ConfigReader
+    package let identifier: String
+    let name: String
+    package let version: String?
+    let settings: ConfigReader
     let stored: MutableInMemoryProvider
     let unrecognized: UnrecognizedValues
 
@@ -76,7 +76,7 @@ public struct Program: Sendable {
         }
     }
 
-    public func directory(_ kind: Directory) -> URL {
+    package func directory(_ kind: Directory) -> URL {
         let configured = settings.string(forKey: kind == .state ? "state.dir" : "output.dir").map { path in URL(filePath: path, directoryHint: .isDirectory) }
         return switch (kind, configured) {
             case (.state, .some(let state)): state
@@ -86,7 +86,7 @@ public struct Program: Sendable {
         }
     }
 
-    public func store(_ value: any Sendable?, forKey key: ConfigKey) {
+    func store(_ value: any Sendable?, forKey key: ConfigKey) {
         UserDefaults.standard.set(value, forKey: key.description)
         stored.setValue(value.flatMap(ConfigValue.init(propertyList:)), forKey: AbsoluteConfigKey(key))
     }
@@ -108,7 +108,7 @@ public struct Program: Sendable {
         }
     }
 
-    public func require() throws(AggregateError<ApplicationFailure>) {
+    package func require() throws(AggregateError<ApplicationFailure>) {
         let missing = Grant.allCases.filter { grant in !grant.isHeld(asking: false) }
         guard !missing.isEmpty else { return }
         let signed = Result { () throws(ApplicationFailure) in try signature.requirement }.aggregated(\.self)
@@ -140,7 +140,7 @@ extension ConfigValue {
     }
 }
 
-public func disclaimResponsibility() throws(Errno) {
+package func disclaimResponsibility() throws(Errno) {
     func check(_ status: Int32) throws(Errno) { if status != 0 { throw Errno(rawValue: status) } }
     guard responsiblePID(getpid()) != getpid() else { return }
     guard let executable = Bundle.main.executablePath else { throw .noSuchFileOrDirectory }

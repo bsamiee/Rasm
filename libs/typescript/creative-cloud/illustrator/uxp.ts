@@ -17,11 +17,13 @@ const Application = Schema.Struct({
     getSelectedToolName: Callable,
     selectTool: Callable,
 });
-const Module = Schema.Struct({ app: Schema.declare(Schema.is(Application)).annotate({ description: 'Application instance require("illustrator") holds as app' }) });
+const Module = Schema.Struct({ app: Application.pipe(Schema.is, Schema.declare).annotate({ description: 'Application instance require("illustrator") holds as app' }) });
 const Filed = Schema.Struct({ fullName: Schema.Unknown }).annotate({ description: 'Document keyed by its file' });
-const Document = Schema.declare(Schema.is(Filed.mapFields(Struct.assign({ artboards: Uxp.Collection, layers: Uxp.Collection, pageItems: Uxp.Collection, getPageItemFromUuid: Callable, imageCapture: Callable })))).annotate({
-    description: 'Document by its file, its collections, its page item lookup by uuid, and the capture render calls',
-});
+const Document = Filed.mapFields(Struct.assign({ artboards: Uxp.Collection, layers: Uxp.Collection, pageItems: Uxp.Collection, getPageItemFromUuid: Callable, imageCapture: Callable }))
+    .pipe(Schema.is, Schema.declare)
+    .annotate({
+        description: 'Document by its file, its collections, its page item lookup by uuid, and the capture render calls',
+    });
 const Identified = Schema.Struct({ uuid: Schema.String }).annotate({ description: 'Page item keyed by its uuid' });
 const PageItem = Identified.mapFields(Struct.assign({ parentDocument: Schema.Unknown })).annotate({ description: 'Page item by its uuid and the document holding it, the members every page item class holds' });
 const Bounded = Schema.Struct({ visibleBounds: Rect }).annotate({ description: 'Document or page item by its bounds' });

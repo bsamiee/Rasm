@@ -92,7 +92,7 @@ const served = (files: Files) => {
         stat: (path) =>
             Effect.map(found('stat', path), ({ bytes, modified }) => ({
                 type: 'File',
-                mtime: Option.some(DateTime.toDateUtc(DateTime.makeUnsafe(modified))),
+                mtime: DateTime.makeUnsafe(modified).pipe(DateTime.toDateUtc, Option.some),
                 atime: Option.none(),
                 birthtime: Option.none(),
                 dev: 0n,
@@ -117,7 +117,7 @@ const reader =
 
 const graphOf = (graph: unknown, environment?: Record.ReadonlyRecord<string, string>, at = AT) => Effect.runPromise(reader(new Map([[at, { bytes: encoded(graph), modified: 1 }]]), environment)(ROOT));
 
-const failure = (files: Files) => Effect.runPromise(Effect.flip(reader(files)(ROOT)));
+const failure = (files: Files) => reader(files)(ROOT).pipe(Effect.flip, Effect.runPromise);
 
 const addresses = (graph: ProjectGraph) =>
     Object.values(graph.nodes).flatMap((node) => Object.entries(node.data.targets ?? {}).flatMap(([target, stated]) => [undefined, ...Object.keys(stated.configurations ?? {})].map((configuration) => ({ id: [node.name, target, ...Array.fromNullishOr(configuration)].join(':'), node, target, stated, configuration }))));
@@ -215,7 +215,7 @@ describe('the cached graph', () => {
         files.set(AT, { bytes: encoded({ ...mini, nodes: { tool: mini.nodes.tool } }), modified: 2 });
         const resized = await Effect.runPromise(read(ROOT));
         files.set(AT, { bytes: Uint8Array.from([...whole.subarray(0, -1), 0x20]), modified: 3 });
-        const torn = await Effect.runPromise(Effect.flip(read(ROOT)));
+        const torn = await read(ROOT).pipe(Effect.flip, Effect.runPromise);
         files.set(AT, { bytes: whole, modified: 3 });
         const mended = await Effect.runPromise(read(ROOT));
         expect([unchanged === first, touched === first, touched.tasks.has('site:lint'), resized.tasks.has('site:lint'), torn._tag, mended.tasks.has('site:lint')]).toStrictEqual([true, false, true, false, 'SchemaError', true]);

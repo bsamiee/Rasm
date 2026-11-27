@@ -1,6 +1,6 @@
 import DequeModule
-public import Foundation
-public import OSLog
+package import Foundation
+package import OSLog
 import Subprocess
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -12,8 +12,8 @@ private let decoder = JSONDecoder()
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct LogEntry: Codable, Sendable {
-    public enum Source: Sendable {
+package struct LogEntry: Codable, Sendable {
+    package enum Source: Sendable {
         case process(pid_t)
         case executable(URL)
     }
@@ -29,16 +29,16 @@ public struct LogEntry: Codable, Sendable {
         case composedMessage = "eventMessage"
     }
 
-    public let date: Date
-    public let level: OSLogEntryLog.Level
-    public let processIdentifier: pid_t
-    public let processImagePath: String
-    public let senderImagePath: String
-    public let subsystem: String
-    public let category: String
-    public let composedMessage: String
+    let date: Date
+    let level: OSLogEntryLog.Level
+    let processIdentifier: pid_t
+    let processImagePath: String
+    let senderImagePath: String
+    let subsystem: String
+    let category: String
+    let composedMessage: String
 
-    public init(from decoder: any Decoder) throws {
+    package init(from decoder: any Decoder) throws {
         let fields = try decoder.container(keyedBy: CodingKeys.self)
         let logType = try fields.decode(String.self, forKey: .level)
         guard let level = logTypes[logType] else { throw DecodingError.dataCorruptedError(forKey: .level, in: fields, debugDescription: "unknown log type \(logType)") }
@@ -52,7 +52,7 @@ public struct LogEntry: Codable, Sendable {
         composedMessage = try fields.decode(String.self, forKey: .composedMessage)
     }
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: CodingKeys.self)
         try fields.encode(date, forKey: .date)
         try fields.encode(logTypeNames[level], forKey: .level)
@@ -76,7 +76,7 @@ private struct Line: Decodable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension LogEntry {
-    public static func history(of source: Source, since start: Date?, limit: Int, containing text: String? = nil) async throws(ProcessFailure) -> [Self] {
+    package static func history(of source: Source, since start: Date?, limit: Int, containing text: String? = nil) async throws(ProcessFailure) -> [Self] {
         var held = Deque<String>()
         let window = start.map { start in ["--start", "@\(Int(start.timeIntervalSince1970))"] } ?? ["--last", "boot"]
         try await read(["show"] + window, of: source, since: start, levels: nil, containing: text) { line in
@@ -86,7 +86,7 @@ extension LogEntry {
         return try held.compactMap(entry(in:)).map { decoded throws(ProcessFailure) in try decoded.get() }.suffix(limit).reversed()
     }
 
-    public static func stream(of source: Source, levels: [OSLogEntryLog.Level]? = nil) -> AsyncStream<Result<Self, ProcessFailure>> {
+    package static func stream(of source: Source, levels: [OSLogEntryLog.Level]? = nil) -> AsyncStream<Result<Self, ProcessFailure>> {
         let (entries, continuation) = AsyncStream<Result<Self, ProcessFailure>>.makeStream()
         let following = Task {
             do throws(ProcessFailure) {

@@ -7,37 +7,31 @@ use itertools::{Either, Itertools as _};
 use jiff::{SignedDuration, Span, Timestamp, ZonedDateTime};
 use nalgebra::{UnitQuaternion, UnitVector3};
 use nonempty_collections::nev;
-use solar_positioning::time::JulianDate;
 use solar_positioning::{ElevationTarget, Events, HorizonState, PreparedPositions, SolarEvents, SolarPosition, SolarPositions};
 use uom::si::angle::degree;
 use uom::si::f64::{Angle, Time};
 use uom::si::length::meter;
 use uom::si::time::second;
 
-use crate::{Input, Operation, SolarError, Sun, at, direction, julian, location, position, positioning, prepared};
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const DAY: SignedDuration = SignedDuration::from_hours(24);
+use crate::{Input, Operation, SolarError, Sun, at, delta_t, direction, location, position, positioning, prepared};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn events(sun: &Sun, interval: Range<Timestamp>, elevation: Angle) -> Result<Events<ZonedDateTime>, SolarError> {
-    let (start, end) = julian_interval(sun, interval)?;
+    let delta_t = delta_t(sun, interval.start)?;
     let zoned = |at: Timestamp| at.to_zoned_datetime(sun.place.zone.clone());
-    let searched = positioning(Operation::Search(interval));
-    let (lit, crossings) = crossings(sun, interval, elevation)?;
-    let next = |date: f64| SolarEvents::new().next_transit_from_julian(date, end, location(sun).longitude, start.delta_t());
-    let transits = iter::successors(Some(next(start.julian_date())), |previous| previous.as_ref().ok().copied().flatten().map(next))
+    let (lit, crossings) = crossings(sun, interval, elevation, delta_t)?;
+    let next = |from: Timestamp| SolarEvents::new().next_transit(from, interval.end, location(sun).longitude, delta_t);
+    let transits = iter::successors(Some(next(interval.start)), |previous| previous.as_ref().ok().copied().flatten().map(next))
         .map_while(Result::transpose)
-        .map(|transit| transit.map_err(searched).and_then(|date| instant(interval, start, date).map(zoned).map_err(SolarError::Time)))
+        .map(|transit| transit.map(zoned).map_err(positioning(Operation::Search(interval))))
         .collect::<Result<Vec<_>, _>>()?;
     let (rises, sets) = crossings.into_iter().partition_map(|(at, rising)| if rising { Either::Left(zoned(at)) } else { Either::Right(zoned(at)) });
     Ok(Events { start: zoned(interval.start), end: zoned(interval.end), state_at_start: if lit { HorizonState::Above } else { HorizonState::Below }, rises, transits, sets })
 }
 
 pub fn windows(sun: &Sun, interval: Range<Timestamp>, elevation: Angle) -> Result<Vec<Range<Timestamp>>, SolarError> {
-    let (lit, crossings) = crossings(sun, interval, elevation)?;
+    let (lit, crossings) = crossings(sun, interval, elevation, delta_t(sun, interval.start)?)?;
     Ok(iter::chain(lit.then_some(interval.start), crossings.into_iter().map(|(at, _)| at))
         .chain([interval.end])
         .array_chunks::<2>()
@@ -79,29 +73,19 @@ pub fn path(sun: &Sun, north: UnitQuaternion<f64>, interval: Range<Timestamp>, s
         .collect())
 }
 
-fn crossings(sun: &Sun, interval: Range<Timestamp>, elevation: Angle) -> Result<(bool, Vec<(Timestamp, bool)>), SolarError> {
-    let (start, end) = julian_interval(sun, interval)?;
+fn crossings(sun: &Sun, interval: Range<Timestamp>, elevation: Angle, delta_t: f64) -> Result<(bool, Vec<(Timestamp, bool)>), SolarError> {
     let searched = positioning(Operation::Search(interval));
     let target = ElevationTarget { angle: elevation.get::<degree>(), height: sun.place.elevation.get::<meter>(), refraction: sun.refraction };
-    let (_, initial) = prepared(sun, start).map_err(searched)?;
+    let (_, initial) = prepared(sun, interval.start, delta_t).map_err(searched)?;
     let lit = initial.elevation_angle() >= target.angle;
     let positions = SolarPositions::new();
-    let step = |(date, rising): (f64, bool)| {
-        (if rising { SolarPositions::next_elevation_rise_from_julian } else { SolarPositions::next_elevation_set_from_julian })(&positions, date, end, location(sun), start.delta_t(), target)
+    let step = |(from, rising): (Timestamp, bool)| {
+        (if rising { SolarPositions::next_elevation_rise } else { SolarPositions::next_elevation_set })(&positions, from, interval.end, location(sun), delta_t, target)
             .map(|next| next.map(|next| (next, !rising)))
     };
-    iter::successors(Some(step((start.julian_date(), !lit))), |previous| previous.as_ref().ok().copied().flatten().map(step))
+    iter::successors(Some(step((interval.start, !lit))), |previous| previous.as_ref().ok().copied().flatten().map(step))
         .map_while(Result::transpose)
-        .map(|crossing| crossing.map_err(searched).and_then(|(date, rising)| instant(interval, start, date).map(|at| (at, !rising)).map_err(SolarError::Time)))
+        .map(|crossing| crossing.map(|(at, rising)| (at, !rising)).map_err(searched))
         .collect::<Result<Vec<_>, _>>()
         .map(|crossings| (lit, crossings))
-}
-
-fn julian_interval(sun: &Sun, interval: Range<Timestamp>) -> Result<(JulianDate, f64), SolarError> {
-    let start = julian(sun, interval.start)?;
-    Ok((start, start.julian_date() + interval.end.duration_since(interval.start).div_duration_f64(DAY)))
-}
-
-fn instant(interval: Range<Timestamp>, start: JulianDate, date: f64) -> Result<Timestamp, jiff::Error> {
-    SignedDuration::try_from_secs_f64((date - start.julian_date()) * DAY.as_secs_f64()).and_then(|offset| interval.start.checked_add(offset))
 }

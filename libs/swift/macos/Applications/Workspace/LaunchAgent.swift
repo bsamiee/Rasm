@@ -1,13 +1,13 @@
-public import Encoding
+package import Encoding
 import Files
-public import Foundation
-public import Processes
+package import Foundation
+import Processes
 import System
 import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct LaunchAgent: Sendable {
+package struct LaunchAgent: Sendable {
     private struct Declaration: Decodable {
         private enum CodingKeys: String, CodingKey {
             case label = "Label"
@@ -24,10 +24,10 @@ public struct LaunchAgent: Sendable {
         let keepAlive: JSONValue?
     }
 
-    public let label: String
-    public let program: URL
-    public let plist: URL
-    public let keepAlive: JSONValue?
+    package let label: String
+    let program: URL
+    package let plist: URL
+    package let keepAlive: JSONValue?
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -42,7 +42,7 @@ extension LaunchAgent {
         self.init(label: declared.label, program: program, plist: plist, keepAlive: declared.keepAlive)
     }
 
-    public func instances() throws(ApplicationFailure) -> [ProcessInstance] {
+    func instances() throws(ApplicationFailure) -> [ProcessInstance] {
         do throws(Errno) {
             let executable = try ifPresent { () throws(Errno) in FilePath(try program.canonical().path(percentEncoded: false)) }
             return try executable.map { executable throws(Errno) in try ProcessInstance.all { path in path == executable } } ?? []
@@ -51,7 +51,7 @@ extension LaunchAgent {
         }
     }
 
-    public func runsInstalledProgram() throws(ApplicationFailure) -> Bool {
+    package func runsInstalledProgram() throws(ApplicationFailure) -> Bool {
         try instances().map { instance throws(ApplicationFailure) in
             do throws(Errno) { return try instance.runsInstalledCode() } catch  where error == .noSuchProcess { return false } catch {
                 throw ApplicationFailure(subject: label, reason: .system(error))
@@ -62,7 +62,7 @@ extension LaunchAgent {
 }
 
 extension Installation {
-    public func agents() throws(ApplicationFailure) -> [LaunchAgent] {
+    package func agents() throws(ApplicationFailure) -> [LaunchAgent] {
         let folder = url.appending(components: "Contents", "Library", "LaunchAgents", directoryHint: .isDirectory)
         let files: [URL]
         do { files = try ifPresent { try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) } ?? [] } catch {

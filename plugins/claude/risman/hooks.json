@@ -1,7 +1,0 @@
-{
-    "risman": {
-        "PreToolUse": [{ "matcher": "mcp_.*|call_mcp_tool", "hooks": [{ "type": "command", "command": "node ./hooks/command.js antigravity PreToolUse", "timeout": 10 }] }],
-        "PreInvocation": [{ "type": "command", "command": "node ./hooks/command.js antigravity PreInvocation", "timeout": 10 }],
-        "Stop": [{ "type": "command", "command": "node ./hooks/command.js antigravity Stop", "timeout": 10 }]
-    }
-}

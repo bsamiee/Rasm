@@ -1,16 +1,16 @@
 import AppKit
 import Carbon.OpenScripting
 import CasePathsCore
-public import CoreServices
+package import CoreServices
 import Encoding
-public import Foundation
+package import Foundation
 import OrderedCollections
-public import Results
+package import Results
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public final class ScriptingDictionary: Encodable, Sendable {
-    public enum Kind: String, CaseIterable, CodingKey {
+package final class ScriptingDictionary: Encodable, Sendable {
+    enum Kind: String, CaseIterable, CodingKey {
         case suite
         case command
         case `class`
@@ -19,12 +19,12 @@ public final class ScriptingDictionary: Encodable, Sendable {
         case enumeration
     }
 
-    public struct Term: Encodable, Hashable, Sendable {
-        public let name: String
-        public let code: FourCharCode
-        public let types: Set<String>
-        public let list: Bool
-        public let members: [Self]
+    package struct Term: Encodable, Hashable, Sendable {
+        let name: String
+        package let code: FourCharCode
+        let types: Set<String>
+        let list: Bool
+        let members: [Self]
         var synonyms: [String] = []
         var codes: [FourCharCode] = []
         var hidden = false
@@ -40,19 +40,19 @@ public final class ScriptingDictionary: Encodable, Sendable {
             case name, code
         }
 
-        public func encode(to encoder: any Encoder) throws {
+        package func encode(to encoder: any Encoder) throws {
             var fields = encoder.container(keyedBy: Key.self)
             try fields.encode(name, forKey: .name)
             try fields.encode(code.sdef, forKey: .code)
         }
     }
 
-    public struct Command: Encodable, Hashable, Sendable {
-        public enum Query: CustomStringConvertible, Sendable {
+    package struct Command: Encodable, Hashable, Sendable {
+        package enum Query: CustomStringConvertible, Sendable {
             case name(String)
             case code(UInt64)
 
-            public var description: String {
+            package var description: String {
                 switch self {
                     case .name(let name): name
                     case .code(let code): code.sdef
@@ -70,10 +70,10 @@ public final class ScriptingDictionary: Encodable, Sendable {
             ),
         ]
 
-        public let name: String
-        public let eventClass: AEEventClass
-        public let eventID: AEEventID
-        public let parameters: [Term]
+        let name: String
+        package let eventClass: AEEventClass
+        package let eventID: AEEventID
+        package let parameters: [Term]
         var synonyms: [String] = []
         var hidden = false
 
@@ -81,9 +81,9 @@ public final class ScriptingDictionary: Encodable, Sendable {
             case name, code, parameters, types, list, enumerators
         }
 
-        public var code: UInt64 { UInt64(eventClass) << 32 | UInt64(eventID) }
+        var code: UInt64 { UInt64(eventClass) << 32 | UInt64(eventID) }
 
-        public func encode(to encoder: any Encoder) throws {
+        package func encode(to encoder: any Encoder) throws {
             var row = encoder.container(keyedBy: Key.self)
             try row.encode(name, forKey: .name)
             try row.encode(code.sdef, forKey: .code)
@@ -121,9 +121,9 @@ public final class ScriptingDictionary: Encodable, Sendable {
         case script, open
     }
 
-    public let commands: [Command]
-    public let script: Command?
-    public let declarations: [Kind: [Term]]
+    package let commands: [Command]
+    let script: Command?
+    let declarations: [Kind: [Term]]
     let types: Scope
     let members: [FourCharCode: Scope]
     let contained: [FourCharCode: Scope]
@@ -131,7 +131,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
     let enumerators: Scope
     let enumerations: [String: Scope]
 
-    public init(definition data: Data) throws(AppleEventFailure) {
+    package init(definition data: Data) throws(AppleEventFailure) {
         let document = try Result { try XMLDocument(data: data, options: .documentXInclude) }
             .mapError { error in AppleEventFailure(subject: "XML of \(data.count)-byte scripting definition", reason: .foundation(error as NSError)) }.get()
         let elements: [XMLElement] = (document.rootElement()?.elements(forName: Kind.suite.rawValue) ?? []).flatMap { (suite: XMLElement) -> [XMLElement] in
@@ -240,7 +240,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
         enumerations = enumerated.mapValues(Scope.init)
     }
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var listing = encoder.container(keyedBy: Kind.self)
         try listing.encode(commands.filter { command in !command.hidden }, forKey: .command)
         for kind in Kind.allCases where kind != .command { try listing.encode(declarations[kind, default: []].filter { term in !term.hidden }, forKey: kind) }
@@ -255,7 +255,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
 extension ScriptingDictionary {
     // --- [DEFINITIONS]
 
-    public static func definition(of target: sending NSAppleEventDescriptor, within deadline: Duration) async throws(AppleEventFailure) -> Data {
+    package static func definition(of target: sending NSAppleEventDescriptor, within deadline: Duration) async throws(AppleEventFailure) -> Data {
         let request = NSAppleEventDescriptor(
             eventClass: AEEventClass(kASAppleScriptSuite),
             eventID: "gsdf".utf8.reduce(0) { code, byte in code << 8 | AEEventID(byte) },
@@ -267,7 +267,7 @@ extension ScriptingDictionary {
     }
 
     @concurrent
-    public static func definition(terminology resource: URL) async throws(AppleEventFailure) -> Data {
+    package static func definition(terminology resource: URL) async throws(AppleEventFailure) -> Data {
         let (files, subject) = (FileManager.default, resource.path(percentEncoded: false))
         let (folder, bundle) = (files.temporaryDirectory.appending(component: UUID().uuidString), resource.deletingPathExtension().lastPathComponent)
         let staged = Result { () throws(any Error) in
@@ -291,7 +291,7 @@ extension ScriptingDictionary {
         return definition as Data
     }
 
-    public static func definition(suites bundle: Bundle) throws(AppleEventFailure) -> Data {
+    package static func definition(suites bundle: Bundle) throws(AppleEventFailure) -> Data {
         let foundation = Bundle(for: NSScriptSuiteRegistry.self)
         let bundles: [Bundle] = [foundation, Bundle(for: NSApplication.self), bundle]
         func plist(_ file: URL) throws(AppleEventFailure) -> [String: Any] {
@@ -474,7 +474,7 @@ extension ScriptingDictionary {
 
     // --- [COMMANDS]
 
-    public func command(_ query: Command.Query?, taking arguments: Set<String>) throws(Unmatched) -> Command {
+    func command(_ query: Command.Query?, taking arguments: Set<String>) throws(Unmatched) -> Command {
         let matching: (Command) -> Bool =
             switch query {
                 case .some(.name(let name)): { command in command.name == name || command.synonyms.contains(name) }
@@ -502,7 +502,7 @@ extension ScriptingDictionary {
 
     // --- [EVENTS]
 
-    public func event(
+    func event(
         _ command: Command,
         arguments: [String: AppleEventValue],
         target: NSAppleEventDescriptor,
@@ -534,7 +534,7 @@ extension ScriptingDictionary {
         return event
     }
 
-    public func send(
+    package func send(
         _ query: Command.Query?,
         arguments: [String: AppleEventValue],
         target: sending NSAppleEventDescriptor,
@@ -598,7 +598,7 @@ extension ScriptingDictionary {
 extension FixedWidthInteger where Self: UnsignedInteger {
     // --- [CODES]
 
-    public init?(sdef text: String) {
+    init?(sdef text: String) {
         let width = Self.bitWidth / 8
         let hex: [UInt8]? = text.utf8.count == 2 + 2 * width && text.hasPrefix("0x") ? [UInt8](hexEncoded: text.dropFirst(2)) : nil
         switch hex ?? (text.unicodeScalars.count == width ? text.data(using: .macOSRoman).map { data in [UInt8](data) } : nil) {
@@ -607,7 +607,7 @@ extension FixedWidthInteger where Self: UnsignedInteger {
         }
     }
 
-    public var sdef: String {
+    var sdef: String {
         let bytes = stride(from: Self.bitWidth - 8, through: 0, by: -8).map { shift in UInt8(truncatingIfNeeded: self >> shift) }
         return (bytes.contains { byte in byte < 0x20 || byte == 0x7F } ? nil : String(bytes: bytes, encoding: .macOSRoman)) ?? "0x" + bytes.hexEncoded(uppercase: true)
     }

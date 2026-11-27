@@ -1,12 +1,13 @@
-amends "package://github.com/jdx/hk/releases/download/v2.13.0/hk@2.13.0#/Config.pkl"
+amends "package://github.com/jdx/hk/releases/download/v2.14.0/hk@2.14.0#/Config.pkl"
 
-import "package://github.com/jdx/hk/releases/download/v2.13.0/hk@2.13.0#/Builtins.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.14.0/hk@2.14.0#/Builtins.pkl"
 import "pkl:platform"
 
 // --- [SETTINGS] -------------------------------------------------------------------------
 
 exclude = "infra/sdks/**"
 fail_fast = false
+recheck_after_fix = true
 
 // --- [STEPS] ----------------------------------------------------------------------------
 
@@ -114,13 +115,7 @@ steps {
     }
     fix { command { argv = List("google-java-format", "--aosp", "--replace", "{{files}}") } }
   }
-  ["hk"] {
-    glob = ".config/hk.pkl"
-    check = new CommandSpec {
-      command = new Command { argv = List("hk", "validate", "--deny-warnings") }
-      effect = "read"
-    }
-  }
+  ["hk"] = Builtins.hk_validate
   ["jactionlint"] = (Builtins.jactionlint) {
     local jactionlint = List("jactionlint", "--strict-exit")
     depends = "ast-grep"
@@ -192,13 +187,7 @@ steps {
     }
     diagnostic_format = "gcc"
   }
-  ["oxlint"] = (Builtins.ox_lint) {
-    local oxlint = List("oxlint", "--deny-warnings", "--format", "sarif")
-    depends = "ast-grep"
-    check { command { argv = oxlint + List("{{files}}") } }
-    fix { command { argv = oxlint + List("--fix", "{{files}}") } }
-    diagnostic_format = "sarif"
-  }
+  ["oxlint"] = (Builtins.ox_lint) { depends = "ast-grep" }
   ["oxfmt"] = (Builtins.oxfmt) { depends = List("oxlint", "ryl", "stylelint") }
   ["pkl-format"] = (Builtins.pkl_format) { depends = "editorconfig-checker" }
   ["ruff"] = (Builtins.ruff) { depends = "ast-grep" }

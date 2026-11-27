@@ -144,7 +144,7 @@ const tally = Struct.makeReducer<Tally>({
 ```ts
 const run = Effect.fn('run')(function* (argv: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) {
     const handle = yield* spawn(argv, { stdin: 'ignore', ...options, detached: false });
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+    const [stdout, stderr, code] = yield* Effect.all([handle.stdout.pipe(Stream.decodeText, Stream.mkString), handle.stderr.pipe(Stream.decodeText, Stream.mkString), handle.exitCode], { concurrency: 'unbounded' });
     return code === 0 ? { stdout, stderr } : yield* ExitError.of({ command: CommandLine.display(argv), code, stdout, stderr });
 }, Effect.scoped);
 ```

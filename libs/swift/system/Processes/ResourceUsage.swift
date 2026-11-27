@@ -1,13 +1,13 @@
 import Darwin
 import Foundation
 import IOKit.pwr_mgt
-public import System
+package import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct ResourceUsage: Encodable, Equatable, Sendable {
-    public struct Interval: Encodable, Equatable, Sendable {
-        public enum Cause: String, Encodable, Sendable {
+package struct ResourceUsage: Encodable, Equatable, Sendable {
+    package struct Interval: Encodable, Equatable, Sendable {
+        package enum Cause: String, Encodable, Sendable {
             case running
             case runnable
             case paging
@@ -20,17 +20,17 @@ public struct ResourceUsage: Encodable, Equatable, Sendable {
             case cause, duration, cpu, runnable, pageWait, diskBytesRead, diskBytesWritten, end
         }
 
-        public let start: ResourceUsage
-        public let end: ResourceUsage
+        package let start: ResourceUsage
+        let end: ResourceUsage
 
-        public var duration: Duration { start.at.duration(to: end.at) }
-        public var cpu: Duration { end.cpu - start.cpu }
-        public var runnable: Duration { end.runnable - start.runnable }
-        public var pageWait: Duration { end.pageWait - start.pageWait }
-        public var diskBytesRead: UInt64 { end.diskBytesRead - start.diskBytesRead }
-        public var diskBytesWritten: UInt64 { end.diskBytesWritten - start.diskBytesWritten }
+        var duration: Duration { start.at.duration(to: end.at) }
+        var cpu: Duration { end.cpu - start.cpu }
+        var runnable: Duration { end.runnable - start.runnable }
+        var pageWait: Duration { end.pageWait - start.pageWait }
+        var diskBytesRead: UInt64 { end.diskBytesRead - start.diskBytesRead }
+        var diskBytesWritten: UInt64 { end.diskBytesWritten - start.diskBytesWritten }
 
-        public var cause: Cause {
+        package var cause: Cause {
             let spent: [(cause: Cause, time: Duration)] = [(.running, cpu), (.runnable, runnable), (.paging, pageWait)]
             return switch (spent.max { left, right in left.time < right.time }, diskBytesRead, diskBytesWritten) {
                 case (.some(let longest), _, _) where longest.time > .zero && longest.time * 2 >= duration: longest.cause
@@ -39,7 +39,7 @@ public struct ResourceUsage: Encodable, Equatable, Sendable {
             }
         }
 
-        public func encode(to encoder: any Encoder) throws {
+        package func encode(to encoder: any Encoder) throws {
             var fields = encoder.container(keyedBy: CodingKeys.self)
             let values: [(CodingKeys, any Encodable)] = [
                 (.cause, cause), (.duration, duration / .seconds(1)), (.cpu, cpu / .seconds(1)), (.runnable, runnable / .seconds(1)), (.pageWait, pageWait / .seconds(1)),
@@ -53,18 +53,18 @@ public struct ResourceUsage: Encodable, Equatable, Sendable {
         case cpu, runnable, pageWait, diskBytesRead, diskBytesWritten, footprint, threads, runningThreads, assertions, assertionsFailure
     }
 
-    public let cpu: Duration
-    public let runnable: Duration
-    public let pageWait: Duration
-    public let diskBytesRead: UInt64
-    public let diskBytesWritten: UInt64
-    public let footprint: Int
-    public let threads: Int
-    public let runningThreads: Int
-    public let assertions: Result<[String], ProcessFailure>
-    public let at: SuspendingClock.Instant
+    let cpu: Duration
+    let runnable: Duration
+    let pageWait: Duration
+    let diskBytesRead: UInt64
+    let diskBytesWritten: UInt64
+    let footprint: Int
+    let threads: Int
+    let runningThreads: Int
+    let assertions: Result<[String], ProcessFailure>
+    let at: SuspendingClock.Instant
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: CodingKeys.self)
         let held: (CodingKeys, any Encodable) =
             switch assertions {
@@ -88,7 +88,7 @@ extension ResourceUsage {
         return timebase
     }()
 
-    public init(of instance: ProcessInstance) throws(Errno) {
+    package init(of instance: ProcessInstance) throws(Errno) {
         var usage = rusage_info_current()
         let status = withUnsafeMutablePointer(to: &usage) { usage in
             unsafe usage.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) { buffer in unsafe proc_pid_rusage(instance.pid, RUSAGE_INFO_CURRENT, buffer) }
@@ -116,5 +116,5 @@ extension ResourceUsage {
         )
     }
 
-    public func since(_ earlier: Self) -> Interval { Interval(start: earlier, end: self) }
+    package func since(_ earlier: Self) -> Interval { Interval(start: earlier, end: self) }
 }

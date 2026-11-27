@@ -1,28 +1,28 @@
-public import Logging
-public import os
+import Logging
+import os
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public struct OSLogHandler: LogHandler {
+struct OSLogHandler: LogHandler {
     // --- [STATE]
 
-    public var metadata: Logging.Logger.Metadata = [:]
-    public var metadataProvider: Logging.Logger.MetadataProvider?
-    public var logLevel: Logging.Logger.Level = .trace
+    var metadata: Logging.Logger.Metadata = [:]
+    var metadataProvider: Logging.Logger.MetadataProvider?
+    var logLevel: Logging.Logger.Level = .trace
     private let logger: os.Logger
 
-    public init(logger: os.Logger, metadataProvider: Logging.Logger.MetadataProvider? = nil) {
+    init(logger: os.Logger, metadataProvider: Logging.Logger.MetadataProvider? = nil) {
         (self.logger, self.metadataProvider) = (logger, metadataProvider)
     }
 
-    public subscript(metadataKey key: String) -> Logging.Logger.Metadata.Value? {
+    subscript(metadataKey key: String) -> Logging.Logger.Metadata.Value? {
         get { metadata[key] }
         set { metadata[key] = newValue }
     }
 
     // --- [ENTRIES]
 
-    public func log(event: LogEvent) {
+    func log(event: LogEvent) {
         let type: OSLogType =
             switch event.level {
                 case .trace, .debug: .debug

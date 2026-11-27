@@ -49,9 +49,9 @@ const measures = Relation.make('measures', {
     bytes: Column.Bytes,
     note: Schema.NullOr(Schema.String),
     body: Schema.fromJsonString(Schema.Struct({ plan: Schema.String })),
-    tags: Schema.fromJsonString(Schema.Array(Schema.String)),
+    tags: Schema.String.pipe(Schema.Array, Schema.fromJsonString),
     weights: Schema.fromJsonString(Schema.Record(Schema.String, Schema.Finite)),
-    points: Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, score: Schema.Finite }))),
+    points: Schema.Struct({ name: Schema.String, score: Schema.Finite }).pipe(Schema.Array, Schema.fromJsonString),
 });
 const measured = { id: '01900000-0000-7000-8000-000000000000', label: 'a', count: 1, amount: '12.5', ratio: 0.5, flag: true, at: '2026-01-01 00:00:00.123', bytes: '', note: null, body: '{"plan":"pro"}', tags: ['a', 'b'], weights: { x: 1.5 }, points: [{ name: 'p', score: 2 }] };
 const reading = { id: Schema.String, at: Schema.DateTimeUtcFromString, version: Schema.Int, value: Schema.Finite };
@@ -82,7 +82,7 @@ const partial = Relation.make('partial', { id: Schema.String, email: Schema.Null
 const nearby = Relation.make('nearby', { id: Schema.String, email: Schema.String }, { indexes: [{ columns: ['email'], method: 'gist' }] });
 const worded = Relation.make('worded', { id: Schema.String, title: Schema.String }, { search: { columns: ['title'], tokenizer: Tokenizer.Trigram() } });
 const rented = Relation.make('rented', { id: Schema.String, tenant: Schema.String }, { tenant: { column: 'tenant', setting: 'app.tenant' } });
-const listed = Relation.make('listed', { id: Schema.String, tags: Schema.NullOr(Schema.fromJsonString(Schema.Array(Schema.String))) });
+const listed = Relation.make('listed', { id: Schema.String, tags: Schema.String.pipe(Schema.Array, Schema.fromJsonString, Schema.NullOr) });
 const aged = Relation.make('aged', { id: Schema.String, at: Schema.String }, { mergeTree: { expires: { column: 'at', after: '1 day' } } });
 const revised = Relation.make('revised', { id: Schema.String, version: Schema.String }, { mergeTree: { version: 'version' } });
 const refusals: readonly { readonly label: string; readonly relation: Catalog['tables'][number]; readonly finding: object }[] = [

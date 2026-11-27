@@ -1,4 +1,4 @@
-public import Encoding
+package import Encoding
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -42,10 +42,10 @@ extension Message: Encodable where Payload: Encodable, Fault: Encodable {}
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public struct JSONRPCError: Error, Codable {
-    public let code: Int
-    public let message: String
-    public let data: JSONValue?
+package struct JSONRPCError: Error, Codable {
+    package let code: Int
+    let message: String
+    let data: JSONValue?
 
-    public init(code: Int, message: String, data: JSONValue? = nil) { (self.code, self.message, self.data) = (code, message, data) }
+    package init(code: Int, message: String, data: JSONValue? = nil) { (self.code, self.message, self.data) = (code, message, data) }
 }

@@ -1,7 +1,6 @@
 {
     "name": "@rasm/mark",
     "version": "0.1.0",
-    "private": true,
     "description": "SVG marks painted in a tone over currentColor, with per-size drawings, canvas placement, and raster output through resvg",
     "license": "MIT",
     "repository": {

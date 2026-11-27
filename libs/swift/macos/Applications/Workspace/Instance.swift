@@ -1,19 +1,19 @@
-public import AppKit
-public import AppleEvents
+package import AppKit
+package import AppleEvents
 import AsyncAlgorithms
 import CasePathsCore
-public import Processes
+package import Processes
 import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct Instance: Hashable, Sendable {
-    public let application: NSRunningApplication
-    public let process: ProcessInstance
+package struct Instance: Hashable, Sendable {
+    package let application: NSRunningApplication
+    package let process: ProcessInstance
 }
 
 extension Instance {
-    public init(_ application: NSRunningApplication) throws(ApplicationFailure) {
+    package init(_ application: NSRunningApplication) throws(ApplicationFailure) {
         let pid = application.processIdentifier
         guard !application.isTerminated else { throw ApplicationFailure(subject: String(pid), reason: .system(.noSuchProcess)) }
         do throws(Errno) { process = try ProcessInstance(of: pid) } catch { throw ApplicationFailure(subject: String(pid), reason: .system(error)) }
@@ -24,7 +24,7 @@ extension Instance {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 extension Watch {
-    public enum QuitMode: String, Decodable, Sendable {
+    package enum QuitMode: String, Decodable, Sendable {
         case asking
         case saving
         case discarding
@@ -40,7 +40,7 @@ extension Watch {
         }
     }
 
-    public nonisolated func quit(
+    package nonisolated func quit(
         _ mode: QuitMode,
         within deadline: Duration = replyDeadline,
         in dictionary: ScriptingDictionary? = nil,
@@ -112,7 +112,7 @@ extension Watch {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension NSWorkspace {
-    public func instances(of matching: (NSRunningApplication) -> Bool) throws(ApplicationFailure) -> [Instance] {
+    func instances(of matching: (NSRunningApplication) -> Bool) throws(ApplicationFailure) -> [Instance] {
         try runningApplications.filter(matching)
             .map { application throws(ApplicationFailure) -> Instance? in
                 do throws(ApplicationFailure) {

@@ -60,7 +60,7 @@ const signatures = (crypto: Crypto) => {
         Effect.fnUntraced(function* (row) {
             const { scheme, secret, foreign, id, at, bytes, signed, crowded, accepted } = vectors[row];
             const [webhook, stranger] = yield* Effect.all([made(scheme, secret), made(scheme, foreign)]);
-            yield* TestClock.setTime(Duration.toMillis(Duration.seconds(at)));
+            yield* Duration.seconds(at).pipe(Duration.toMillis, TestClock.setTime);
             const [headers, forged] = yield* Effect.all([webhook.sign(id, bytes), stranger.sign(id, bytes)]);
             const rewritten = Record.map({ crowded: crowded(signed), cut: crowded(signed.replace(tail, '')), relabelled: signed.replace(label, 'v9') }, (text) => Headers.set(headers, scheme.signature, text));
             const presented = yield* Effect.all(Record.map({ signed: headers, ...rewritten, forged, unsigned: Headers.remove(headers, scheme.signature) }, (changed) => outcome(webhook.verify(changed, bytes))));
@@ -79,7 +79,7 @@ const signatures = (crypto: Crypto) => {
         Effect.fnUntraced(function* ({ change, verified }) {
             const { scheme, secret, id, at, bytes } = vectors.standard;
             const webhook = yield* made(scheme, secret);
-            yield* TestClock.setTime(Duration.toMillis(Duration.seconds(at)));
+            yield* Duration.seconds(at).pipe(Duration.toMillis, TestClock.setTime);
             assert.strictEqual(yield* outcome(webhook.verify(change(yield* webhook.sign(id, bytes)), bytes)), verified);
         }, Effect.provide(crypto)),
     );
@@ -88,7 +88,7 @@ const signatures = (crypto: Crypto) => {
         Effect.fnUntraced(function* () {
             const { scheme, secret, id, at, bytes } = vectors.binary;
             const [empty, webhook] = yield* Effect.all([Effect.match(made(scheme, 'whsec_'), { onSuccess: () => 'built', onFailure: ({ _tag }) => _tag }), made(scheme, secret)]);
-            yield* TestClock.setTime(Duration.toMillis(Duration.seconds(at)));
+            yield* Duration.seconds(at).pipe(Duration.toMillis, TestClock.setTime);
             const margin = encoder.encode('--');
             const headers = yield* webhook.sign(id, Bytes.concat([margin, bytes, margin]).subarray(margin.length, margin.length + bytes.length));
             const unprefixed = yield* Effect.flatMap(made(scheme, secret.slice('whsec_'.length)), (reader) => outcome(reader.verify(headers, bytes))).pipe(Effect.orElseSucceed(Function.constant('refused at construction')));

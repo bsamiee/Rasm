@@ -85,7 +85,11 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
                 yield* Cache.get(placed, host);
                 const socket = path.join(yield* fs.makeTempDirectoryScoped(), 'control');
                 const holder = yield* started(yield* Effect.fromResult(host.command(path, root, ['sh', '-c', 'echo && exec cat'], [], Option.some(socket))), { stdin: 'pipe' });
-                const refused = Effect.flatMap(Stream.mkString(Stream.decodeText(holder.stderr)), (printed) => SshError.of({ _tag: 'Unreachable', stderr: printed }, host.name));
+                const refused = holder.stderr.pipe(
+                    Stream.decodeText,
+                    Stream.mkString,
+                    Effect.flatMap((printed) => SshError.of({ _tag: 'Unreachable', stderr: printed }, host.name)),
+                );
                 yield* Effect.filterOrElse(Stream.runHead(holder.stdout), Option.isSome, () => refused);
                 yield* started(['sh', '-c', 'cat > /dev/null; exec "$0" "$@"', ...host.request(socket, 'exit')], { stdin: 'pipe', stdout: 'ignore', stderr: 'ignore' });
                 const { stdout } = yield* captured(host.request(socket, 'forward', ...Forward.argv(wanted))).pipe(Effect.catchTag('ExitError', ({ stderr }) => SshError.of({ _tag: 'Refused', stderr }, host.name)));

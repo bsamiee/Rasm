@@ -1,17 +1,17 @@
-public import AppleEvents
-public import ApplicationServices
-public import CasePaths
-public import Encoding
-public import Foundation
+package import AppleEvents
+package import ApplicationServices
+package import CasePaths
+package import Encoding
+package import Foundation
 import Processes
-public import Results
-public import System
+package import Results
+package import System
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
+package struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
     @CasePathable
-    public enum Reason: CaseLabeled, Equatable, Sendable {
+    package enum Reason: CaseLabeled, Equatable, Sendable {
         case noGrant(Grant)
         case notResponsible(Grant, pid_t)
         case reused(pid_t)
@@ -49,15 +49,15 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
         case unmatched(Unmatched)
     }
 
-    public let subject: String
-    public let reason: Reason
+    let subject: String
+    package let reason: Reason
 
-    public init(subject: String, reason: Reason) {
+    package init(subject: String, reason: Reason) {
         self.subject = subject
         self.reason = reason
     }
 
-    public var errorDescription: String? {
+    package var errorDescription: String? {
         switch reason {
             case .noGrant(let grant): "\(subject) lacks the \(grant.rawValue) grant, allow it in System Settings > Privacy & Security at \(grant.settings)"
             case .notResponsible(let grant, let process):
@@ -103,7 +103,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
         }
     }
 
-    public var errorUserInfo: [String: Any] {
+    package var errorUserInfo: [String: Any] {
         switch reason {
             case .event(let failure): [NSUnderlyingErrorKey: failure]
             case .system(let error): [NSUnderlyingErrorKey: error]
@@ -122,7 +122,7 @@ extension ApplicationFailure: Encodable {
         case reason, subject, message, grant, settings, pid, window, quarantine, reached, candidates, value, error, status
     }
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: Key.self)
         try fields.encode(reason, forKey: .reason)
         try fields.encode(subject, forKey: .subject)

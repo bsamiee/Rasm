@@ -17,9 +17,9 @@ type Judged = (run: { readonly messages: readonly unknown[]; readonly compiled: 
 class Command extends Schema.Opaque<Command>()(
     Schema.Struct({
         args: Schema.NonEmptyArray(Schema.String).annotate({ description: 'Subcommand and its arguments, a JSON message format among them where each task is decided from the messages of its own package' }),
-        trailing: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments after --' }),
+        trailing: Schema.String.pipe(Schema.Array, Schema.optionalKey).annotate({ description: 'Arguments after --' }),
         env: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({ description: "Environment variables the command runs with, over the caller's" }),
-        packages: Schema.optionalKey(Schema.Array(Crate)).annotate({ description: 'Further packages the command selects' }),
+        packages: Crate.pipe(Schema.Array, Schema.optionalKey).annotate({ description: 'Further packages the command selects' }),
     }),
 ) {}
 class Cargo extends Schema.Opaque<Cargo>()(
@@ -29,7 +29,7 @@ class Cargo extends Schema.Opaque<Cargo>()(
         package: Schema.optionalKey(Schema.String).annotate({ description: 'Package the task selects, passed to cargo as a package ID spec' }),
         unification: Unification.annotate({ description: 'Cargo resolver.feature-unification of the workspace, a batch running each task of selected, which unifies features over every package one invocation selects, in a cargo process of its own' }),
         __unparsed__: Words,
-        outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Paths the commands write, which the target's outputs name through {options.outputs.<n>}, each parent folder created before the run" }),
+        outputs: Schema.String.pipe(Schema.Array, Schema.optionalKey).annotate({ description: "Paths the commands write, which the target's outputs name through {options.outputs.<n>}, each parent folder created before the run" }),
     }).annotate({
         title: 'Cargo',
         description: 'Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by the compiler messages of its own package, or by the exit status where the command prints none',
@@ -48,7 +48,15 @@ const ran = Effect.fnUntraced(
     function* (cwd: string, args: readonly string[], env: Readonly<Record<string, string>> = {}) {
         const handle = yield* ChildProcess.make('cargo', args, { cwd, env, extendEnv: true, detached: false, stdin: 'inherit' });
         const [lines, code] = yield* Stream.make([handle.stdout, stdout] as const, [handle.stderr, stderr] as const).pipe(
-            Stream.flatMap(([bytes, sink]) => Stream.map(Stream.splitLines(Stream.decodeText(bytes)), (line) => ({ line, sink })), { concurrency: 'unbounded' }),
+            Stream.flatMap(
+                ([bytes, sink]) =>
+                    bytes.pipe(
+                        Stream.decodeText,
+                        Stream.splitLines,
+                        Stream.map((line) => ({ line, sink })),
+                    ),
+                { concurrency: 'unbounded' },
+            ),
             Stream.mapEffect((read) => Effect.map(Clock.currentTimeMillis, (at) => ({ ...read, at, message: Schema.decodeOption(Message)(read.line) }))),
             Stream.map((read) => ({ ...read, rendered: Option.flatMap(Option.filter(read.message, Schema.is(Diagnostic)), (diagnostic) => diagnostic.message.rendered) })),
             Stream.mapAccum(HashSet.empty<string>, (seen, { rendered, line, ...read }) => [Option.reduceCompact([rendered], seen, (kept, held) => HashSet.add(kept, held)), [{ ...read, text: Option.isSome(read.message) ? Option.filter(rendered, (held) => !HashSet.has(seen, held)) : Option.some(`${line}\n`) }]]),

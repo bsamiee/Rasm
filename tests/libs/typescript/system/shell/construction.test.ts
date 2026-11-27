@@ -115,7 +115,7 @@ it.layer(Dialects.layer, { excludeTestServices: true })('construction', (suite) 
             const secret = 'hunter2 "and" it\'s';
             const built = yield* shell.script(named.bash)`rec ${Redacted.make(secret)} "${Redacted.make(secret, { label: 'token' })}" ${['open', Redacted.make(secret)]} plain`;
             const [{ records }, json] = yield* Effect.all([oracle.run(built.argv()), Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(built)]);
-            const shown = [Formatter.format(built), Formatter.format(Redactable.redact(built)), Formatter.format(built.argv()), json, inspect(built)];
+            const shown = [Formatter.format(built), built.pipe(Redactable.redact, Formatter.format), Formatter.format(built.argv()), json, inspect(built)];
             assert.deepStrictEqual([records.map(({ args }) => args), shown.filter((text) => text.includes('hunter2')), built.toString()], [[[secret, secret, 'open', secret, 'plain']], [], 'rec <redacted> "<redacted:token>" open <redacted> plain']);
         }),
     );

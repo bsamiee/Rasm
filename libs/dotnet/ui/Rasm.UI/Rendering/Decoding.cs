@@ -152,10 +152,12 @@ internal sealed class Decoding {
         using IDisposable scope = SvgSystemColorResolver.PushProvider(colors);
         string css = string.Concat(key.Classes.AsIterable().Select(static pair => Rule(pair.Key, pair.Value)));
         SvgParameters parameters = new(Entities: null, Css: css.Length > 0 ? css : null, CurrentColor: key.Current.Map(Drawn).ToNullable());
-        return Optional(SvgService.Open(held, parameters)).ToFin(new UIFault(key.Source.Key, UIReason.Unreadable)).Bind(document =>
-            document.Descendants().OfType<SvgAnimationElement>().Any()
-                ? LoadedMedia.Smil.Of(document, settings => Configured(settings).SystemColorProvider = colors, key.Source.Key)
-                : Optional(SKSvg.ToPicture(document, model, loader)).ToFin(new UIFault(key.Source.Key, UIReason.Unreadable)).Map(static art => (LoadedMedia)new LoadedMedia.Picture(art)));
+        return Try.lift(() => Optional(SvgService.Open(held, parameters)).ToFin(new UIFault(key.Source.Key, UIReason.Unreadable)).Bind(document =>
+                document.Descendants().OfType<SvgAnimationElement>().Any()
+                    ? LoadedMedia.Smil.Of(document, settings => Configured(settings).SystemColorProvider = colors, key.Source.Key)
+                    : Optional(SKSvg.ToPicture(document, model, loader)).ToFin(new UIFault(key.Source.Key, UIReason.Unreadable)).Map(static art => (LoadedMedia)new LoadedMedia.Picture(art))))
+            .Run()
+            .MapFail(error => error.HasException<SvgProcessingLimitException>() ? new UIFault(key.Source.Key, UIReason.Refused, Inner: error) : error);
     }
 
     private SKSvgSettings Configured(SKSvgSettings settings) {

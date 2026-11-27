@@ -1,13 +1,13 @@
 import AsyncAlgorithms
 import CasePathsCore
-public import Foundation
+package import Foundation
 import Logging
-public import Results
+package import Results
 import System
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public protocol LockFailure: Error {
+package protocol LockFailure: Error {
     static func lock(_ failure: FileFailure) -> Self
     static var cancelled: Self { get }
     func releasing(_ release: Result<Void, Self>) -> Self
@@ -15,20 +15,20 @@ public protocol LockFailure: Error {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct Lockfile: Sendable {
+package struct Lockfile: Sendable {
     let url: URL
     let stale: Duration
     let update: Duration
     let retries: Backoff?
 
-    public init(_ url: URL, stale: Duration = .seconds(10), update: Duration? = nil, retries: Backoff? = nil) {
+    package init(_ url: URL, stale: Duration = .seconds(10), update: Duration? = nil, retries: Backoff? = nil) {
         self.url = url
         self.stale = max(stale, .seconds(2))
         self.update = max(min(update ?? self.stale / 2, self.stale / 2), .seconds(1))
         self.retries = retries
     }
 
-    public static func withLocks<Value: Sendable, Failure: LockFailure>(
+    package static func withLocks<Value: Sendable, Failure: LockFailure>(
         _ lockfiles: [Self],
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
         _ body: @escaping @Sendable () async throws(Failure) -> Value,

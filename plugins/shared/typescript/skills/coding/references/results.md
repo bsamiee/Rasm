@@ -58,7 +58,7 @@ const write = (target: InDesignDOMObject<unknown>, values: Record.ReadonlyRecord
 Consumers recover from failures they hold a response to, and every other failure passes on in `E`. A portfolio asset read answers store failures as unavailable and an absent row as not found:
 
 ```ts
-const unavailable = Effect.fn('unavailable')((error: Cause.YieldableError) => Effect.andThen(Effect.logError(Cause.fail(error)), HttpApiError.ServiceUnavailable.make()));
+const unavailable = Effect.fn('unavailable')((error: Cause.YieldableError) => Cause.fail(error).pipe(Effect.logError, Effect.andThen(HttpApiError.ServiceUnavailable.make())));
 const readAsset = Effect.fn('readAsset')(Function.flow(SqlSchema.findOne({ Request: AssetRead, Result: AssetObject, execute: selectAsset }), Effect.catchTag(['SqlError', 'SchemaError'], unavailable, () => HttpApiError.NotFound.make())));
 ```
 

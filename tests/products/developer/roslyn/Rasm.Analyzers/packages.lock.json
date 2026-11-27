@@ -22,9 +22,9 @@
       },
       "Microsoft.CodeAnalysis.Analyzer.Testing": {
         "type": "Direct",
-        "requested": "[5.15.0-1.26570.9, )",
-        "resolved": "5.15.0-1.26570.9",
-        "contentHash": "2FrHllBLcG/8MQu+Owe/JSoNtHOfFazzU+MabBlnuYOseCVUYyi2Dc2VePVHpoDKlYAGKqIir2dfsBoWPM6vjQ==",
+        "requested": "[5.15.0-1.26576.1, )",
+        "resolved": "5.15.0-1.26576.1",
+        "contentHash": "Ey+YQO16XKUobEQpisWI4VTdj1667/3GcsGshEBWOuTiY4Q+S25b2ILQN7a/9c7mPWmCDuKPAzg8qp0pkKoUgQ==",
         "dependencies": {
           "DiffPlex": "1.7.2",
           "Microsoft.CodeAnalysis.Workspaces.Common": "4.12.0",
@@ -47,11 +47,11 @@
       },
       "Microsoft.CodeAnalysis.CodeFix.Testing": {
         "type": "Direct",
-        "requested": "[5.15.0-1.26570.9, )",
-        "resolved": "5.15.0-1.26570.9",
-        "contentHash": "d6cvVOxLPTRJNBdJCjbQwTeZzX+Tym0OiWYuMXTPYOqxhJ8ENWHJ3NtOZ5BHh3W5zzPJx1ha0/XlxpEK9HC7Lg==",
+        "requested": "[5.15.0-1.26576.1, )",
+        "resolved": "5.15.0-1.26576.1",
+        "contentHash": "OWAEmHN6PIbEa2fOG8H3JeT27/8Vsio8wPhA+snENZW5bnwjswhnUct4pmwEdF+SqHK4Yw3trZ/4KNC44NkzvA==",
         "dependencies": {
-          "Microsoft.CodeAnalysis.Analyzer.Testing": "[5.15.0-1.26570.9]",
+          "Microsoft.CodeAnalysis.Analyzer.Testing": "[5.15.0-1.26576.1]",
           "Microsoft.CodeAnalysis.Workspaces.Common": "4.12.0"
         }
       },
@@ -76,12 +76,12 @@
       },
       "Microsoft.CodeAnalysis.CSharp.CodeFix.Testing": {
         "type": "Direct",
-        "requested": "[5.15.0-1.26570.9, )",
-        "resolved": "5.15.0-1.26570.9",
-        "contentHash": "ZdZtRpu5cL9GEGv7gO1bdETWqKWGk7a7Ag9fobQtwrhs5gB50ic4bapZ6fAxFH71EilYsvFOzjoal+T6dSwHxw==",
+        "requested": "[5.15.0-1.26576.1, )",
+        "resolved": "5.15.0-1.26576.1",
+        "contentHash": "XPn5bM3VcKu6xf8+8lJ26NmtNYZytgqDeq5kJHBsKC2ydHAaJV/jdoYHSEJFe32F65I5A+1CoBSxtaZ7sfUp+g==",
         "dependencies": {
           "Microsoft.CodeAnalysis.CSharp.Workspaces": "4.12.0",
-          "Microsoft.CodeAnalysis.CodeFix.Testing": "[5.15.0-1.26570.9]"
+          "Microsoft.CodeAnalysis.CodeFix.Testing": "[5.15.0-1.26576.1]"
         }
       },
       "Microsoft.CodeAnalysis.Workspaces.Common": {

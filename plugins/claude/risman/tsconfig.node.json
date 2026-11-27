@@ -1,6 +1,6 @@
 {
     "extends": "./tsconfig.json",
     "compilerOptions": { "types": ["node"] },
-    "include": ["vite.config.ts", "hooks/command.ts"],
-    "references": [{ "path": "../../../libs/typescript/web/vite" }, { "path": "../../../libs/typescript/ai/mcp" }]
+    "include": ["vite.config.ts"],
+    "references": [{ "path": "../../../libs/typescript/web/vite" }]
 }

@@ -12,8 +12,7 @@ import { combineOptionsForExecutor } from 'nx/src/utils/params';
 
 const resolves = (graph: ProjectGraph, names: readonly string[], owner: string, entry: string | TargetDependencyConfig) => {
     const expanded = normalizeDependencyConfigDefinition(Predicate.isString(entry) ? entry : { ...entry }, owner, graph, [...names]);
-    const patterned = !Predicate.isString(entry) && entry.projects !== undefined && Array.ensure(entry.projects).every((pattern) => isGlobPattern(pattern));
-    return isGlobPattern(Predicate.isString(entry) ? entry : entry.target) ? Array.isReadonlyArrayNonEmpty(expanded) : expanded.some(({ target, projects, dependencies = false }) => (dependencies ? names.includes(target) : patterned || projects.some((held) => target in (graph.nodes[held]?.data.targets ?? {}))));
+    return isGlobPattern(Predicate.isString(entry) ? entry : entry.target) ? Array.isReadonlyArrayNonEmpty(expanded) : expanded.some(({ target, projects, dependencies = false }) => (dependencies ? names.includes(target) : projects.some((held) => target in (graph.nodes[held]?.data.targets ?? {}))));
 };
 
 const same = (stated: NonNullable<TargetConfiguration['inputs']>[number], read: NonNullable<TargetConfiguration['inputs']>[number]) => isDeepStrictEqual(stated, read) || (Predicate.isObject(read) && 'dependentTasksOutputFiles' in read && isDeepStrictEqual(stated, { ...read, transitive: true }));
@@ -39,7 +38,7 @@ export default createConformanceRule<{ readonly separator: string }>({
     name: 'targets',
     category: 'consistency',
     description:
-        "Holds every project under Nx's project schema and the options of every target and configuration under its executor's schema, resolves every dependsOn entry to a target, an entry selecting projects by glob aside, as Nx runs one on the projects it reaches holding its target and on none where that target exists on another platform alone, and gives a project an nx:noop target `<name>` exactly where it holds `<name><separator><tool>` targets, depending on them alone with its parameters forwarded and stating exactly their inputs, with no other target depending on it, as Nx forwards the parameters of the run to its tool targets",
+        "Holds every project under Nx's project schema and the options of every target and configuration under its executor's schema, resolves every dependsOn entry to a target, as Nx warns on each task holding an entry that reaches no task, and gives a project an nx:noop target `<name>` exactly where it holds `<name><separator><tool>` targets, depending on them alone with its parameters forwarded and stating exactly their inputs, with no other target depending on it, as Nx forwards the parameters of the run to its tool targets",
     implementation: ({ tree, projectGraph, ruleOptions: { separator } }) => {
         const validator = new Ajv({ strict: false, allErrors: true });
         const configured = validator.compile(project);

@@ -5,7 +5,7 @@ import { Unmatched } from '@rasm/search/unmatched';
 import { Array, ByteSize, Cause, Context, Duration, Effect, Equivalence, Function, HashSet, Layer, Option, Predicate, Record, Result, type Schema, Sink, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { Address } from '#/address';
 import { ApplicationServer } from '#/client';
-import { Event, Installation, type InstanceSnapshot, InstanceState, type Pressure, type Running, type Session } from '#/contract';
+import { Event, Installation, InstanceSnapshot, InstanceState, type Pressure, type Running, type Session } from '#/contract';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -58,7 +58,12 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
             Effect.flatMap(listEntries, (rows) => SubscriptionRef.set(catalog, rows)),
             (cause) => Effect.logError('Application listing failed, the last listing stands', cause),
         );
-        yield* Effect.forkScoped(Stream.runForEach(Stream.drop(SubscriptionRef.changes(server.installations), 1), () => refresh));
+        yield* server.installations.pipe(
+            SubscriptionRef.changes,
+            Stream.drop(1),
+            Stream.runForEach(() => refresh),
+            Effect.forkScoped,
+        );
         yield* Effect.forkScoped(
             Stream.runForEach(
                 Stream.mapAccum(SubscriptionRef.changes(server.installations), HashSet.empty<string>, (logged, { unreadable }) => [HashSet.union(logged, HashSet.fromIterable(unreadable.map(Struct.get('subject')))), unreadable.filter(({ subject }) => !HashSet.has(logged, subject))]),
@@ -131,7 +136,7 @@ class Workspace extends Context.Service<Workspace>()('@rasm/applications/workspa
                 Option.flatMap(held, ({ instance }) => Record.get(instances, instance)),
                 (each) => !InstanceState.isAnyOf(['exited'])(each.state),
             );
-            const known = Option.map(Option.all({ aim: held, snapshot }), ({ aim: { row, language }, snapshot: each }): { readonly row: Entry; readonly live: InstanceSnapshot & { readonly language: string } } => ({ row, live: { ...each, language } }));
+            const known = Option.map(Option.all({ aim: held, snapshot }), ({ aim: { row, language }, snapshot: each }) => ({ row, live: InstanceSnapshot.Watched.make({ ...each, language }) }));
             return { presenting, known, sole: Option.orElse(held, () => (presenting.length === 1 ? Array.head(presenting) : Option.none())) };
         });
         const current = Effect.gen(function* () {

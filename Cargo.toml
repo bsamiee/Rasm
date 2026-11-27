@@ -36,22 +36,22 @@ rayon    = "1.12.0"                                          # Data parallelism 
 
 foyer = { version = "0.22.6", features = ["tracing", "serde"] }                                                                        # Hybrid memory and disk caches holding results larger than memory
 moka  = { version = "0.12.16", features = ["future", "sync"] }                                                                         # Bounded caches with per-entry expiry and coalesced async loads
-redis = { version = "2.0.0-rc.3", features = ["tokio-rustls-comp", "tls-rustls-native-roots", "connection-manager", "cluster-async"] } # Valkey commands, pub/sub, streams, and cluster connections over rustls, `tls-rustls-native-roots` adding the root store `tls-rustls` leaves out
+redis = { version = "2.0.0-rc.4", features = ["tokio-rustls-comp", "tls-rustls-native-roots", "connection-manager", "cluster-async"] } # Valkey commands, pub/sub, streams, and cluster connections over rustls, `tls-rustls-native-roots` adding the root store `tls-rustls` leaves out
 
 # --- [SYSTEM]
 
 dirs            = "7.0.0"                                                 # Per-user cache, configuration, state, and runtime folders each platform names
-interprocess    = { version = "2.4.9", features = ["tokio"] }             # Local sockets as Unix domain sockets and Windows named pipes under one name type
+interprocess    = { version = "2.4.10", features = ["tokio"] }            # Local sockets as Unix domain sockets and Windows named pipes under one name type
 libc            = "1.0.0-alpha.5"                                         # Native constants missing from higher-level process APIs
 libproc         = "0.15.0"                                                # Darwin process group membership and process information
 nix             = { version = "0.32.0", features = ["resource", "user"] } # Account identity, home directories, and process resource usage from the operating system
-process-wrap    = { version = "10.0.1", features = ["tokio1"] }           # Child processes in groups and job objects that die with their owner
-rlimit          = "0.11.0"                                                # Open file limit raised to the per-process maximum each platform allows
+process-wrap    = { version = "11.0.0", features = ["tokio1"] }           # Child processes in groups and job objects that die with their owner
+rlimit          = "0.12.0"                                                # Open file limit raised to the per-process maximum each platform allows
 rustix          = { version = "1.1.6", features = ["fs", "process"] }     # Typed POSIX calls returning errno values where std stops
 sd-notify       = "0.5.0"                                                 # Readiness and watchdog signals to systemd
 socket2         = "0.6.5"                                                 # Socket options tokio sockets lack, IPv6-only binding
 which           = "8.0.6"                                                 # Executables resolved against a given PATH and working directory
-windows         = "0.62.2"                                                # Win32 process creation flags process-wrap wrappers take, and the environment block of a logon
+windows         = "0.62.2"                                                # Win32 process creation flags whose bits process-wrap wrappers take, and the environment block of a logon
 stacksafe       = "1.0.3"                                                 # Stack growth for recursive operations over nested values
 velopack        = "1.2.161"                                               # Product installation and in-place updates
 wasmtime        = "51.0.0"                                                # In-process WebAssembly sandbox around untrusted guest code
@@ -60,8 +60,8 @@ windows-service = "0.8.1"                                                 # Wind
 # --- [ERRORS]
 
 annotate-snippets    = "0.12.18"                                   # Diagnostics rendered over source spans
-anyhow               = "1.0.104"                                   # Native error reports preserved from NUTS and exercised by erased-error lint examples
-nonempty-collections = { version = "1.4.0", features = ["serde"] } # Non-empty vectors, sets, and maps that hold accumulated errors
+anyhow               = "1.0.105"                                   # Native error reports preserved from NUTS and exercised by erased-error lint examples
+nonempty-collections = { version = "1.5.0", features = ["serde"] } # Non-empty vectors, sets, and maps that hold accumulated errors
 sysexits             = "0.13.0"                                    # Process exit statuses each crate error converts into at the host
 thiserror            = "2.0.21"                                    # Error enums that consumers match by variant
 validated            = { version = "1.0.0", features = ["rayon"] } # Applicative validation accumulating every independent error
@@ -93,7 +93,7 @@ slotmap               = "1.1.1"                                           # Gene
 
 # --- [CRDT]
 
-loro = "1.18.0" # Loro documents with text, list, map, and tree history
+loro = "1.19.1" # Loro documents with text, list, map, and tree history
 yrs  = "0.28.2" # Yjs documents with state vectors and update exchange
 
 # --- [SERIALIZATION]
@@ -121,13 +121,13 @@ serde_path_to_error = "0.1.20"                                                  
 serde_urlencoded    = "0.7.1"                                                                                # Typed decode of form-encoded fields, numbers and booleans parsed from text
 serde_with          = { version = "3.25.0", features = ["base64", "hex", "jiff_0_2", "schemars_1"] }         # Field codecs declared on records that schema derivation reads
 zmij                = "1.0.23"                                                                               # Shortest round-trip float text, the form serde_json writes floats in
-toml                = { version = "1.2.2", features = ["preserve_order"] }                                   # Typed TOML decode and encode, tables in file order
-toml_edit           = { version = "0.25.20", features = ["serde"] }                                          # TOML edits that keep comments and layout
+toml                = { version = "1.2.3", features = ["preserve_order"] }                                   # Typed TOML decode and encode, tables in file order
+toml_edit           = { version = "0.25.21", features = ["serde"] }                                          # TOML edits that keep comments and layout
 yaml-edit           = "0.3.6"                                                                                # YAML edits that keep comments and layout
 
 # --- [SCHEMA]
 
-jsonschema = { version = "0.63.0", default-features = false, features = ["resolve-file", "idna"] }                             # JSON Schema validation, sync `validator_for` panics inside tokio fetching a remote `$ref` through default `resolve-http` and `tls-aws-lc-rs`
+jsonschema = { version = "0.63.2", default-features = false, features = ["resolve-file", "idna"] }                             # JSON Schema validation, sync `validator_for` panics inside tokio fetching a remote `$ref` through default `resolve-http` and `tls-aws-lc-rs`
 schemars   = { version = "1.2.3", features = ["jiff02", "uuid1", "indexmap2", "url2", "semver1", "bytes1", "preserve_order"] } # JSON Schema derived from record types in field declaration order
 
 # --- [NEWTYPES]
@@ -138,8 +138,8 @@ ordered-float   = { version = "5.5.1", features = ["serde"] }                   
 
 # --- [TIME]
 
-croner = { version = "5.0.0", default-features = false, features = ["jiff"] } # Cron expressions evaluated against passed-in instants, default `chrono` adds chrono beside jiff
-jiff   = { version = "1.0.2", features = ["serde"] }                          # Instants, zoned date-times, spans, and zone database
+croner = { version = "5.0.1", default-features = false, features = ["jiff"] } # Cron expressions evaluated against passed-in instants, default `chrono` adds chrono beside jiff
+jiff   = { version = "1.0.3", features = ["serde"] }                          # Instants, zoned date-times, spans, and zone database
 
 # --- [IDENTIFIERS]
 
@@ -175,10 +175,10 @@ ast-grep-config    = { version = "0.51.3", default-features = false }           
 ast-grep-core      = "0.51.3"                                                                      # Structural search and rewrite over syntax trees
 ast-grep-dynamic   = "0.51.3"                                                                      # Custom-language grammar libraries of structural search, loaded at run time
 ast-grep-language  = "0.51.3"                                                                      # Built-in grammars of structural search
-cel                = { version = "0.16.0", features = ["json"] }                                   # Common Expression Language policies
+cel                = { version = "0.16.1", features = ["json"] }                                   # Common Expression Language policies
 chumsky            = { version = "0.14.2", features = ["pratt"] }                                  # Parser combinators that recover and collect every error
 ec4rs              = "2.0.0-rc.1"                                                                  # EditorConfig properties resolved per path
-oxc                = { version = "0.159.0", features = ["ast_visit", "semantic", "codegen"] }      # JavaScript and TypeScript parsing, analysis, and printing
+oxc                = { version = "0.160.0", features = ["ast_visit", "semantic", "codegen"] }      # JavaScript and TypeScript parsing, analysis, and printing
 regex-syntax       = "0.8.12"                                                                      # Parser and Unicode classes the regex engine and tree-sitter link
 regex-automata     = "0.4.19"                                                                      # Compiled regex programs the regex engine runs, with their heap size
 regex              = "1.13.2"                                                                      # Unicode patterns with linear-time matching
@@ -192,8 +192,8 @@ winnow             = "1.0.5"                                                    
 # --- [MARKUP]
 
 ammonia      = "4.2.5"                                                                              # Allow-list sanitization of untrusted HTML
-comrak       = { version = "1.1.0", default-features = false, features = ["cli", "syntect-fancy"] } # CommonMark and GFM parsed into AST, default `syntect-onig` builds Oniguruma C beside `regex-fancy`
-htmd         = "0.6.0"                                                                              # HTML converted to Markdown
+comrak       = { version = "1.2.0", default-features = false, features = ["cli", "syntect-fancy"] } # CommonMark and GFM parsed into AST, default `syntect-onig` builds Oniguruma C beside `regex-fancy`
+htmd         = "0.6.1"                                                                              # HTML converted to Markdown
 lightningcss = { version = "1.0.0-alpha.72", features = ["visitor", "into_owned"] }                 # CSS parsing, transformation, and minification
 minijinja    = { version = "3.1.0", features = ["serde", "json", "loop_controls", "urlencode"] }    # Jinja templates rendering reports and generated documents
 quick-xml    = { version = "0.42.0", features = ["serialize", "encoding"] }                         # Streaming XML read and write with serde mapping
@@ -218,18 +218,18 @@ typed-path            = { version = "0.13.0", default-features = false }        
 
 # --- [COMPRESSION]
 
-async-compression = { version = "0.4.52", features = ["tokio", "gzip", "zlib", "zstd", "brotli", "lz4", "xz", "bzip2"] } # Compression over async byte streams
+async-compression = { version = "0.4.54", features = ["tokio", "gzip", "zlib", "zstd", "brotli", "lz4", "xz", "bzip2"] } # Compression over async byte streams
 brotli            = "9.1.3"                                                                                              # Brotli streams
 bzip2             = "0.6.1"                                                                                              # bzip2 streams
 flate2            = { version = "1.1.11", default-features = false, features = ["zlib-rs", "runtime_detection"] }        # Deflate, zlib, and gzip streams, default `rust_backend` compiles miniz_oxide beside zlib-rs
 lz4_flex          = "0.14.2"                                                                                             # LZ4 block and frame codecs
-lzma-rust2        = "0.25.0"                                                                                             # XZ, LZMA, and LZIP streams
+lzma-rust2        = "0.26.0"                                                                                             # XZ, LZMA, and LZIP streams
 qbsdiff           = "1.4.4"                                                                                              # Binary deltas between file versions
-sevenz-rust2      = { version = "0.25.0", features = ["zstd"] }                                                          # 7z archives
+sevenz-rust2      = { version = "0.27.0", features = ["zstd"] }                                                          # 7z archives
 snap              = "1.1.2"                                                                                              # Snappy frames
 tar               = "0.4.46"                                                                                             # Tar archives
-zip               = { version = "9.8.1", default-features = false, features = ["deflate-flate2-zlib-rs"] }               # ZIP archives with ZIP64, stored and deflated entries
-zstd              = { version = "0.14.4", features = ["zstdmt"] }                                                        # Zstandard frames with dictionaries
+zip               = { version = "9.8.2", default-features = false, features = ["deflate-flate2-zlib-rs"] }               # ZIP archives with ZIP64, stored and deflated entries
+zstd              = { version = "0.14.5", features = ["zstdmt"] }                                                        # Zstandard frames with dictionaries
 
 # --- [CRYPTOGRAPHY]
 
@@ -239,7 +239,7 @@ rcgen                    = { version = "0.14.10", default-features = false, feat
 rsa                      = { version = "0.10.0", features = ["pkcs1v15"] }                                     # PKCS#1 v1.5 signing `pdf_oxide` calls under `signatures` while requesting `rsa` default features, which leave `pkcs1v15` out
 rustls                   = "0.24.0-dev.3"                                                                      # TLS stack with process-wide aws-lc-rs provider each binary installs
 rustls-platform-verifier = "0.7.1"                                                                             # Certificate verification through OS trust store
-sha2                     = "0.11.1"                                                                            # SHA-2 digests in pure Rust
+sha2                     = "0.11.2"                                                                            # SHA-2 digests in pure Rust
 sigstore                 = { version = "0.15.1", default-features = false, features = ["full", "rustls-tls"] } # Keyless signing and transparency-log verification, default `native-tls` links platform TLS beside rustls
 x509-parser              = { version = "0.18.1", features = ["verify-aws"] }                                   # X.509 certificate parsing and signature checks
 
@@ -254,9 +254,9 @@ webbrowser    = "1.2.7"                                                         
 
 # --- [SECRETS]
 
-aws-config                      = { version = "1.13.3", features = ["behavior-version-latest"] }                                                                # AWS credential and region resolution
-aws-sdk-kms                     = { version = "1.133.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # AWS KMS keys, default `rustls` adds a legacy hyper client on ring
-aws-sdk-sts                     = { version = "1.128.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # STS session credentials under a session policy, default `rustls` adds a legacy hyper client on ring
+aws-config                      = { version = "1.13.4", features = ["behavior-version-latest"] }                                                                # AWS credential and region resolution
+aws-sdk-kms                     = { version = "1.134.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # AWS KMS keys, default `rustls` adds a legacy hyper client on ring
+aws-sdk-sts                     = { version = "1.129.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # STS session credentials under a session policy, default `rustls` adds a legacy hyper client on ring
 azure_identity                  = { version = "1.1.0-beta.2", features = ["tokio"] }                                                                            # Microsoft Entra ID credential chain
 azure_security_keyvault_keys    = "1.1.0-beta.2"                                                                                                                # Azure Key Vault keys and cryptographic operations
 azure_security_keyvault_secrets = "1.1.0-beta.2"                                                                                                                # Azure Key Vault secrets
@@ -272,7 +272,7 @@ aide               = { version = "0.16.0-alpha.4", features = ["axum-json", "axu
 axum               = { version = "0.8.9", features = ["http2"] }                                                                                                                                                # Servers mounting tower services on bound sockets
 form_urlencoded    = "1.2.3"                                                                                                                                                                                    # application/x-www-form-urlencoded encoding of name and value pairs
 headers            = "0.4.2"                                                                                                                                                                                    # Typed conditional, range, and entity-tag headers
-hickory-resolver   = "0.26.3"                                                                                                                                                                                   # Async DNS resolution with SRV lookups
+hickory-resolver   = "0.26.4"                                                                                                                                                                                   # Async DNS resolution with SRV lookups
 http               = "1.5.0"                                                                                                                                                                                    # Request, response, URI, and header types axum and hyper share
 http-body          = "1.1.0"                                                                                                                                                                                    # Body trait and frames that response bodies of tower layers implement
 http-cache-reqwest = "1.0.0-alpha.11"                                                                                                                                                                           # RFC 9111 response cache in embedded store
@@ -298,7 +298,7 @@ connectrpc          = { version = "0.9.1", features = ["server", "client-tls", "
 prost               = "0.14.6"                                                           # Protobuf message encoding that generated gRPC types derive
 prost-types         = "0.14.6"                                                           # Protobuf well-known types and the descriptor set gRPC reflection serves
 protovalidate-buffa = { version = "0.8.0", features = ["json"] }                         # Protovalidate rules compiled into message validation
-rmcp                = "3.11.0"                                                           # MCP servers and clients over stdio, Unix sockets, child processes, and Streamable HTTP, each consumer naming its roles and transports
+rmcp                = { version = "3.12.0", default-features = false }                   # MCP servers and clients over stdio, Unix sockets, child processes, and Streamable HTTP, each consumer naming its roles and transports, default `chrono` adds chrono beside jiff
 tonic               = { version = "0.14.9", features = ["gzip"] }                        # gRPC servers and clients over HTTP/2 with deadlines, streaming, and the gzip messages Connect clients send by default, `GrpcTimeout` answers CANCELLED after calling and polling its inner service
 tonic-health        = "0.14.9"                                                           # Standard `grpc.health.v1` service with a status reporter per served service
 tonic-prost         = "0.14.9"                                                           # prost codec that generated gRPC clients and servers encode messages with
@@ -306,15 +306,15 @@ tonic-reflection    = "0.14.9"                                                  
 
 # --- [TRANSFER]
 
-object_store = { version = ">=0.13.2, <0.14", features = ["aws", "gcp", "azure", "http"] } # One API over S3, GCS, Azure, HTTP, and local object stores at the release DataFusion and deltalake link, `cloud` under each store feature adds an older reqwest, ring, and chrono
-reqwest_dav  = "0.3.3"                                                                     # WebDAV transfers
+object_store = { version = ">=0.14.2, <0.15", features = ["aws", "gcp", "azure", "http"] } # One API over S3, GCS, Azure, HTTP, and local object stores at the release DataFusion links, each store feature on the catalog's reqwest and aws-lc-rs
+reqwest_dav  = "0.4.0"                                                                     # WebDAV transfers
 russh        = "0.65.4"                                                                    # SSH clients and servers reaching remote workers
 russh-sftp   = "4.0.0"                                                                     # SFTP over SSH channels
 suppaftp     = { version = "13.0.0", features = ["tokio-rustls-aws-lc-rs"] }               # FTP and FTPS transfers
 
 # --- [OBSERVABILITY]
 
-instrumented-object-store           = ">=55.0.0, <56"                                                                                                                        # Tracing spans around object store reads, writes, and lists, at the release linking DataFusion's object_store
+instrumented-object-store           = ">=56.0.0, <57"                                                                                                                        # Tracing spans around object store reads, writes, and lists, at the release linking DataFusion's object_store
 log                                 = "0.4.35"                                                                                                                               # Logger registration failure `LogTracer::init` returns
 opentelemetry                       = "0.33.1"                                                                                                                               # Trace, metric, and log API
 opentelemetry-appender-tracing      = "0.33.1"                                                                                                                               # Tracing events exported as log records
@@ -339,7 +339,7 @@ tracing-subscriber                  = { version = "0.3.23", features = ["env-fil
 
 anstream             = "1.0.0"                                                                                    # Writers that keep, strip, or translate ANSI per terminal
 anstyle              = "1.0.14"                                                                                   # Style values shared by help text, terminal output, and TUI spans
-clap                 = { version = "4.6.9", features = ["cargo", "derive", "env"] }                               # Typed command-line arguments and environment values
+clap                 = { version = "4.6.10", features = ["cargo", "derive", "env"] }                              # Typed command-line arguments and environment values
 clap-verbosity-flag  = { version = "3.0.4", features = ["tracing"] }                                              # Verbosity flags resolved to tracing level filter
 clap_complete        = { version = "4.6.12", features = ["unstable-dynamic"] }                                    # Shell completions each command serves under `COMPLETE=<shell>`, `unstable-dynamic` gating `CompleteEnv` and `clap/unstable-ext`
 clap_mangen          = { version = "0.3.4", features = ["env"] }                                                  # Man pages generated from each command, `env` naming each variable a row reads
@@ -365,7 +365,7 @@ winit                = "0.31.0-beta.4"                                          
 
 # --- [DATA_STORAGE]
 
-aws-sdk-s3     = { version = "1.161.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # S3 buckets, tags, and per-request header changes, default `rustls` adds a legacy hyper client on ring and `sigv4a` its elliptic-curve signer
+aws-sdk-s3     = { version = "1.162.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # S3 buckets, tags, and per-request header changes, default `rustls` adds a legacy hyper client on ring and `sigv4a` its elliptic-curve signer
 clickhouse     = { version = "0.15.3", features = ["rustls-tls-aws-lc", "rustls-tls-native-roots", "inserter", "uuid"] }                       # Typed row inserts and selects over ClickHouse
 duckdb         = { version = "1.20001.0", features = ["json", "parquet", "appender-arrow"] }                                                   # In-process analytics over Parquet, CSV, JSON, and attached databases
 jiff-sqlx      = { version = "1.0.0", features = ["postgres", "sqlite"] }                                                                      # jiff values as sqlx column types
@@ -382,7 +382,7 @@ cloudevents-sdk           = { version = "0.9.0", features = ["axum", "http-bindi
 lettre                    = { version = "0.11.24", default-features = false, features = ["builder", "smtp-transport", "pool", "hostname", "tokio1-rustls", "aws-lc-rs", "rustls-platform-verifier"] } # Mail messages over pooled SMTP, default `native-tls` links platform TLS beside rustls
 rdkafka                   = { version = "0.40.0", features = ["zstd"] }                                                                                                                               # Kafka producers, consumers, and admin over librdkafka built from source
 rumqttc-next              = { version = "0.34.0", features = ["tracing"] }                                                                                                                            # MQTT 5 client
-schema_registry_converter = { version = "6.0.0", default-features = false, features = ["futures", "avro", "json", "proto_raw", "rustls_tls"] }                                                        # Schema Registry serdes over Avro, JSON Schema, and Protobuf, default `native_tls` links platform TLS beside rustls
+schema_registry_converter = { version = "6.1.0", default-features = false, features = ["futures", "avro", "json", "proto_raw", "rustls_tls"] }                                                        # Schema Registry serdes over Avro, JSON Schema, and Protobuf, default `native_tls` links platform TLS beside rustls
 standardwebhooks          = "1.3.0"                                                                                                                                                                   # Standard Webhooks signing and signature verification over `http` 1 header maps
 zeromq                    = "0.7.0"                                                                                                                                                                   # ZeroMQ sockets
 
@@ -398,29 +398,29 @@ tokio-serial = "5.5.0"                                                         #
 
 adbc_core                  = "0.25.0"                                                                                      # Database access through ADBC returning record batches
 adbc_driver_manager        = "0.25.0"                                                                                      # ADBC drivers loaded from shared libraries
-arrow                      = { version = ">=59.3.2, <60", features = ["ipc_compression"] }                                 # Columnar record batches, casts between encodings, and IPC under ZSTD and LZ4, at the release DataFusion and deltalake link, adding a second num-bigint under arrow-buffer beside nalgebra's and a second zstd under arrow-ipc beside reqwest's
+arrow                      = { version = ">=60.2.0, <61", features = ["ipc_compression"] }                                 # Columnar record batches, casts between encodings, and IPC under ZSTD and LZ4, at the release DataFusion links, adding a second num-bigint under arrow-buffer beside nalgebra's
 arrow-flight               = { version = "60.2.0", features = ["flight-sql", "tls-aws-lc"] }                               # Arrow Flight and Flight SQL
-arrow-schema               = { version = ">=59.3.2, <60", features = ["canonical_extension_types"] }                       # Extension types and the canonical uuid type, the `extension` module the arrow facade re-exports nowhere, at arrow's release
-datafusion                 = "55.3.0"                                                                                      # SQL query engine over Arrow and object stores
-datafusion-functions-json  = "0.55.6"                                                                                      # JSON path functions registered on DataFusion sessions
-datafusion-substrait       = "55.3.0"                                                                                      # DataFusion plans converted to and from Substrait
-datafusion-table-providers = { version = "0.15.1", features = ["sqlite"] }                                                 # SQLite tables read and written as Arrow with filter pushdown, common crate adds chrono, `time`, sea-query, and arrow `ffi`, `sqlite` adds rusqlite beside sqlx-sqlite on one libsqlite3-sys
-deltalake                  = { version = "1.1.2", features = ["datafusion", "s3", "gcs", "azure"] }                        # Delta Lake tables
+arrow-schema               = { version = ">=60.2.0, <61", features = ["canonical_extension_types"] }                       # Extension types and the canonical uuid type, the `extension` module the arrow facade re-exports nowhere, at arrow's release
+datafusion                 = "56.0.0"                                                                                      # SQL query engine over Arrow and object stores
+datafusion-functions-json  = "0.55.6"                                                                                      # JSON path functions registered on DataFusion sessions, linking a second DataFusion 55 and arrow 59 beside the catalog's until a release on DataFusion 56
+datafusion-substrait       = "56.0.0"                                                                                      # DataFusion plans converted to and from Substrait
+datafusion-table-providers = { version = "0.15.1", features = ["sqlite"] }                                                 # SQLite tables read and written as Arrow with filter pushdown, common crate adds chrono, `time`, sea-query, and arrow `ffi`, `sqlite` adds rusqlite beside sqlx-sqlite on one libsqlite3-sys, linking a second DataFusion 55 and arrow 59 beside the catalog's until a release on DataFusion 56
+deltalake                  = { version = "1.1.2", features = ["datafusion", "s3", "gcs", "azure"] }                        # Delta Lake tables, linking a second DataFusion 55, arrow 59, and object_store 0.13 beside the catalog's until a release on DataFusion 56
 iceberg                    = "0.11.0"                                                                                      # Apache Iceberg tables
 iceberg-catalog-rest       = "0.11.0"                                                                                      # Iceberg REST catalogs
-parquet                    = { version = ">=59.3.2, <60", features = ["object_store", "arrow_canonical_extension_types"] } # Parquet files read and written as record batches over object stores, files and memory, the Parquet UUID logical type mapped to and from `arrow.uuid`, at the release DataFusion and deltalake link, its codecs adding a second brotli and zstd beside those reqwest's compression takes
+parquet                    = { version = ">=60.2.0, <61", features = ["object_store", "arrow_canonical_extension_types"] } # Parquet files read and written as record batches over object stores, files and memory, the Parquet UUID logical type mapped to and from `arrow.uuid`, at the release DataFusion links
 polars                     = { version = "0.55.2", features = ["lazy", "parquet", "ipc", "json", "dtype-full", "sql"] }    # Dataframes with lazy query engine
-serde_arrow                = { version = "0.15.1", features = ["arrow-59"] }                                               # Typed records encoded into and decoded from record batches against the schema a record states
+serde_arrow                = { version = "0.15.1", features = ["arrow-60"] }                                               # Typed records encoded into and decoded from record batches against the schema a record states
 substrait                  = { version = "0.65.0", features = ["parse", "extensions", "serde"] }                           # Substrait plan model
 
 # --- [ARRAYS]
 
-hdf5-metno         = { version = "0.15.1", features = ["static", "zlib", "lzf", "blosc-all"] }                                                                                                     # HDF5 arrays
-icechunk           = { version = "2.3.1", default-features = false, features = ["object-store-s3", "object-store-gcs", "object-store-azure", "object-store-http", "object-store-fs", "redirect"] } # Versioned tensor stores over object stores, default `s3` adds a second S3 client beside object_store and turns on the `sigv4a` signer of `aws-sdk-s3`
+hdf5-metno         = { version = "0.15.3", features = ["static", "zlib", "lzf", "blosc-all"] }                                                                                                     # HDF5 arrays
+icechunk           = { version = "2.4.0", default-features = false, features = ["object-store-s3", "object-store-gcs", "object-store-azure", "object-store-http", "object-store-fs", "redirect"] } # Versioned tensor stores over object stores, default `s3` adds a second S3 client beside object_store and turns on the `sigv4a` signer of `aws-sdk-s3`
 netcdf             = { version = "0.12.1", features = ["static"] }                                                                                                                                 # netCDF fields
 zarrs              = { version = "0.23.14", features = ["async", "jiff", "pcodec", "bitround"] }                                                                                                   # Zarr chunked arrays with sharding, pcodec numeric compression, and bit rounding
 zarrs_icechunk     = { version = "0.6.0", default-features = false, features = ["object-store-s3", "object-store-gcs", "object-store-azure", "object-store-http", "object-store-fs", "redirect"] } # Icechunk sessions as zarrs async stores, default `s3` adds aws-sdk-s3 beside object_store
-zarrs_object_store = ">=0.6.2, <0.7"                                                                                                                                                               # Object stores as zarrs async stores at the object_store release DataFusion links
+zarrs_object_store = ">=0.7.0, <0.8"                                                                                                                                                               # Object stores as zarrs async stores at the object_store release DataFusion links
 
 # --- [MATHEMATICS]
 
@@ -461,9 +461,9 @@ rustfft      = "6.4.1"                                     # FFT of any length
 
 # --- [SOLVERS]
 
-basin    = "3.4.0"                                                                                                                                                    # Scalar roots and minimization, bounded robust least squares over nalgebra
+basin    = "3.6.0"                                                                                                                                                    # Scalar roots and minimization, bounded robust least squares over nalgebra
 clarabel = { version = "0.11.1", features = ["sdp", "blas-src", "lapack-src"] }                                                                                       # Conic interior-point solves over typed cone blocks, `SolverError` names serde_json under default `serde` alone, `sdp` names `blas_src` and `lapack_src`, which compile empty until the final binary picks one implementation through its own `blas-src` and `lapack-src` rows (Clarabel's `sdp-*` features restate them and exclude each other), adds older thiserror, itertools, derive_builder's darling with strsim on an older syn, and a wasm web-time beside the catalog's
-diffsol  = "0.20.0"                                                                                                                                                   # ODE and DAE solves under BDF, SDIRK and explicit Runge-Kutta with forward sensitivities and adjoint gradients over faer sparse and dense backends
+diffsol  = "0.20.1"                                                                                                                                                   # ODE and DAE solves under BDF, SDIRK and explicit Runge-Kutta with forward sensitivities and adjoint gradients over faer sparse and dense backends
 fmi      = { git = "https://github.com/jondo2010/rust-fmi", rev = "2ffb3e69a15f442f64817eb9129b614236a1f85b", default-features = false, features = ["fmi2", "fmi3"] } # FMI 2 and 3 Co-Simulation imports and instances at a commit linking the catalog's zip ahead of any release, default `ls-bus` adds the FMI 3 bus layer and bytes; fmi-sys builds its FMI 2, FMI 3 and default `ls-bus` bindings through bindgen on libclang whatever features fmi takes
 good_lp  = { version = "1.15.3", default-features = false, features = ["highs"] }                                                                                     # LP and MIP models over HiGHS (CMake, bindgen on libclang), reached through `rasm-optimization`'s default `linear` feature, which a consumer turns off to skip the native build; `allocation` takes any good_lp `Solver` a caller enables
 kasuari  = "0.4.13"                                                                                                                                                   # Cassowary constraint solving of layouts
@@ -486,7 +486,7 @@ curvo             = "0.3.3"                                                     
 fidget            = { version = "0.5.1", default-features = false, features = ["jit", "mesh", "shapes"] } # Implicit surfaces built from shape trees, JIT-evaluated and meshed by octree, shapes for blends, default `gui`, `rhai`, `wgpu`, and `raster` add UI, scripting, GPU, and raster stacks
 jagua-rs          = { version = "2.0.0", features = ["spp"] }                                             # Collision detection inside 2D irregular nesting
 k                 = "0.32.0"                                                                              # Forward and inverse kinematics of serial chains
-kiddo             = { version = "6.3.1", default-features = false, features = ["multi-threaded"] }        # k-d tree nearest and radius queries in parallel batches, default `fixed` adds fixed-point coordinates
+kiddo             = { version = "6.3.2", default-features = false, features = ["multi-threaded"] }        # k-d tree nearest and radius queries in parallel batches, default `fixed` adds fixed-point coordinates
 manifold-rust     = { version = "0.19.6", features = ["parallel"] }                                       # Manifold solids with booleans, extrusion, revolution, slicing, and decomposition
 meshopt           = "0.7.0"                                                                               # Mesh simplification, vertex cache optimization, and EXT_meshopt_compression buffers
 parry3d-f64       = { version = "0.31.1", features = ["parallel"] }                                       # 3D contacts, shape casts, parallel hierarchy refits, ray casts, point projections, bounding volume hierarchies, mesh splits, convex decomposition, voxelization and mass properties over f64 shapes
@@ -497,7 +497,7 @@ urdf-rs           = "0.10.0"                                                    
 # --- [INTERCHANGE]
 
 acadrust        = "0.6.8"                                                                                                                                                                                                                                                                                             # DWG and DXF drawings with plot styles, sheet sets, and layouts
-e57             = { version = "0.11.13", features = ["crc32c"] }                                                                                                                                                                                                                                                      # E57 point clouds with page checksums through the crc32c crate
+e57             = { version = "0.11.14", features = ["crc32c"] }                                                                                                                                                                                                                                                      # E57 point clouds with page checksums through the crc32c crate
 gltf            = { version = "1.4.1", features = ["extensions", "extras", "KHR_lights_punctual", "KHR_materials_emissive_strength", "KHR_materials_ior", "KHR_materials_specular", "KHR_materials_transmission", "KHR_materials_unlit", "KHR_materials_variants", "KHR_materials_volume", "KHR_texture_transform"] } # glTF and GLB with lights, PBR material extensions, variants, and texture transforms
 las             = { version = "0.11.2", features = ["laz-parallel"] }                                                                                                                                                                                                                                                 # LAS and LAZ point clouds
 openusd         = { version = "0.9.0", features = ["mmap"] }                                                                                                                                                                                                                                                          # USD stages read from memory maps and authored
@@ -530,16 +530,16 @@ grib              = { version = "0.21.0", default-features = false, features = [
 h3o               = { version = "0.11.1", features = ["geo"] }                                                                                                             # H3 hexagonal cells
 kml               = "0.15.0"                                                                                                                                               # KML and KMZ, default `zip` turns on zip `time` beside jiff
 osmpbf            = "0.3.8"                                                                                                                                                # OpenStreetMap PBF extracts
-pmtiles           = { version = "0.28.1", features = ["brotli", "http-async", "moka", "reqwest-rustls", "tilejson", "write", "zstd"] }                                     # PMTiles archives read from memory maps and HTTPS, and written, `object-store` links a newer object_store beside DataFusion's
+pmtiles           = { version = "0.28.1", features = ["brotli", "http-async", "moka", "reqwest-rustls", "object-store", "tilejson", "write", "zstd"] }                     # PMTiles archives read from memory maps, HTTPS, and object stores, and written
 proj              = "0.32.0"                                                                                                                                               # CRS transforms over PROJ, the system library through pkg-config or else a source build needing `cmake` and a `sqlite3` binary, `Transform` over geo-types geometries
 proj-sys          = "0.28.0"                                                                                                                                               # PROJ C API for calls `proj` wraps none of, `proj_factors` for projection scale and convergence
 projjson          = "0.1.1"                                                                                                                                                # Typed PROJJSON coordinate systems, units, axes, and ellipsoids
 rstar             = "0.14.0"                                                                                                                                               # R*-tree envelope and nearest queries
 shapefile         = { version = "0.9.0", features = ["geo-types"] }                                                                                                        # Shapefiles
-solar-positioning = { version = "0.7.2", default-features = false, features = ["std"] }                                                                                    # SPA solar positions and horizon events over UT Julian dates, default `chrono` adds chrono beside jiff
-stac              = { version = "0.17.7", features = ["std", "geo", "async"] }                                                                                             # STAC catalogs, items, and collections, `geoparquet` links arrow 58 beside DataFusion's
+solar-positioning = "0.8.0"                                                                                                                                                # SPA solar positions, elevation crossings, and transits over jiff timestamps and civil dates
+stac              = { version = "0.17.7", features = ["std", "geo", "async"] }                                                                                             # STAC catalogs, items, and collections, `geoparquet` links arrow 58 beside the catalog's arrow 60
 stac-io           = "0.3.6"                                                                                                                                                # STAC reads, writes, and API searches
-thermalcomfort    = "4.6.2"                                                                                                                                                # PMV, UTCI, adaptive comfort, and psychrometrics, over measurements quantities, adds a newer heapless beside the older copies
+thermalcomfort    = "4.8.1"                                                                                                                                                # PMV, UTCI, adaptive comfort, and psychrometrics, over measurements quantities, adds a newer heapless beside the older copies
 
 # --- [COLOR]
 
@@ -564,7 +564,7 @@ nom-exif          = "3.8.0"                                                     
 opencv            = "0.102.0"                                                                                              # Image processing, camera calibration, feature matching, and video
 oxipng            = "10.2.1"                                                                                               # Lossless PNG optimization
 png               = "0.18.1"                                                                                               # PNG encoding of typst-render pixmaps with their sRGB intent and pixel density, at the release tiny-skia links
-tiff              = { version = "0.11.3", features = ["zstd"] }                                                            # TIFF and DNG containers with tag access and multi-page image sequences
+tiff              = { version = "0.11.3", features = ["zstd"] }                                                            # TIFF and DNG containers with tag access and multi-page image sequences, `zstd` adding an older zstd beside the catalog's
 turbojpeg         = "1.5.1"                                                                                                # JPEG encode and decode through libjpeg-turbo
 
 # --- [TYPOGRAPHY]
@@ -622,7 +622,7 @@ umya-spreadsheet = { git = "https://github.com/MathNya/umya-spreadsheet", rev = 
 
 # --- [MEDIA]
 
-c2pa        = { version = "0.92.2", default-features = false, features = ["rust_native_crypto", "file_io"] } # C2PA content credentials read, signed, and verified, default `openssl` builds vendored OpenSSL beside rust_native_crypto and `default_http` adds an older reqwest and ureq on ring beside aws-lc-rs
+c2pa        = { version = "0.92.3", default-features = false, features = ["rust_native_crypto", "file_io"] } # C2PA content credentials read, signed, and verified, default `openssl` builds vendored OpenSSL beside rust_native_crypto and `default_http` adds an older reqwest and ureq on ring beside aws-lc-rs
 cpal        = "0.18.2"                                                                                       # Audio device input and output
 ffmpeg-next = "9.1.0"                                                                                        # Video and audio mux, demux, and encode
 libmpv2     = "7.0.1"                                                                                        # Media playback through mpv
@@ -638,7 +638,7 @@ symphonia   = { version = "0.6.1", features = ["mp3", "aac", "isomp4"] }        
 
 candle-core = { version = "0.11.1", features = ["metal"] }                                                                                                                                      # Tensor computation on CPU and Metal
 genai       = "0.7.5"                                                                                                                                                                           # Model completions across Anthropic, OpenAI, and OpenRouter
-linfa       = "0.8.1"                                                                                                                                                                           # Clustering, linear models, and decision trees
+linfa       = "0.9.0"                                                                                                                                                                           # Clustering, linear models, and decision trees
 mistralrs   = { version = "0.8.1", features = ["metal"] }                                                                                                                                       # Local LLM inference with sampling and KV caching
 ort         = { version = "2.0.0-rc.15", default-features = false, features = ["std", "ndarray", "tracing", "download-binaries", "copy-dylibs", "tls-rustls-no-provider", "api-31", "coreml"] } # ONNX Runtime inference, default `tls-native` links platform TLS beside rustls
 safetensors = "0.8.0"                                                                                                                                                                           # Safetensors weights
@@ -650,7 +650,7 @@ whisper-rs  = { version = "0.16.0", features = ["metal"] }                      
 
 build-rs          = "0.3.6"                                              # Build script inputs Cargo passes through the environment, read as typed values
 cargo_metadata    = "0.23.1"                                             # Cargo workspace, dependency graph, and compiler message reads
-litrs             = "1.0.1"                                              # Rust string literals decoded from source files outside compiler parsing
+litrs             = "1.1.0"                                              # Rust string literals decoded from source files outside compiler parsing
 prettyplease      = "0.3.0"                                              # Generated Rust syntax formatted as checked-in source
 protox            = "0.10.0"                                             # Protobuf descriptor sets compiled from `.proto` files with no `protoc` binary
 quote             = "1.0.47"                                             # Rust token generation
@@ -673,9 +673,9 @@ hdrhistogram           = "7.6.0"                                                
 criterion              = { version = "0.8.2", features = ["async_tokio"] }                                                                                                                                                 # Statistical benchmarks with saved baselines
 oci-spec               = { version = "0.10.0", default-features = false, features = ["distribution"] }                                                                                                                     # Image references parsed into registry, repository, tag, and digest
 insta                  = { version = "1.49.0", features = ["json", "redactions", "glob", "filters"] }                                                                                                                      # Inline and file snapshot assertions, JSON-RPC transcript snapshots with id redactions, one case per transcript file
-h2                     = "0.4.20"                                                                                                                                                                                          # HTTP/2 client observing GOAWAY and RST_STREAM frames
+h2                     = "0.4.21"                                                                                                                                                                                          # HTTP/2 client observing GOAWAY and RST_STREAM frames
 http-body-util         = "0.1.5"                                                                                                                                                                                           # Collected response bodies
-hyper                  = { version = "1.12.0", features = ["client", "http1", "http2"] }                                                                                                                                   # Raw HTTP/1 and HTTP/2 client connections in suites
+hyper                  = { version = "1.13.0", features = ["client", "http1", "http2"] }                                                                                                                                   # Raw HTTP/1 and HTTP/2 client connections in suites
 hyper-util             = { version = "0.1.21", features = ["client-legacy", "tokio", "http1", "http2"] }                                                                                                                   # Tokio IO adapters for hyper connections
 insta-cmd              = "0.7.0"                                                                                                                                                                                           # Binary runs snapshotted with exit code and output
 libtest-mimic          = "0.8.2"                                                                                                                                                                                           # Custom test runners with native libtest discovery

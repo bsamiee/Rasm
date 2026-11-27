@@ -12,12 +12,12 @@ private enum SecureInputNotification: UInt32, CaseIterable {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct Session: Encodable, Equatable, Sendable {
-    public let onConsole: Bool
-    public let locked: Bool
-    public let asleep: Bool
-    public let secureInput: Bool
-    public let spaces: [UInt64]
+package struct Session: Encodable, Equatable, Sendable {
+    let onConsole: Bool
+    let locked: Bool
+    let asleep: Bool
+    let secureInput: Bool
+    let spaces: [UInt64]
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -28,7 +28,7 @@ extension Session {
         return (session?[kCGSessionOnConsoleKey as String] as? Bool == true, session?["CGSSessionScreenIsLocked"] as? Bool == true, CGDisplayIsAsleep(CGMainDisplayID()) != 0)
     }
 
-    public static func current() -> Self {
+    static func current() -> Self {
         let (onConsole, locked, asleep) = console
         return Self(
             onConsole: onConsole,
@@ -39,7 +39,7 @@ extension Session {
         )
     }
 
-    public static func changes() -> some AsyncSequence<Result<Self, ApplicationFailure>, Never> & Sendable {
+    package static func changes() -> some AsyncSequence<Result<Self, ApplicationFailure>, Never> & Sendable {
         let (changed, change) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
         let (workspace, distributed): (NotificationCenter, NotificationCenter) = (NSWorkspace.shared.notificationCenter, DistributedNotificationCenter.default())
         let notices: [(center: NotificationCenter, name: Notification.Name)] = [
@@ -83,7 +83,7 @@ extension Session {
         return chain(refused.async, readings)
     }
 
-    public static func require(_ subject: String) throws(ApplicationFailure) {
+    package static func require(_ subject: String) throws(ApplicationFailure) {
         let reason: ApplicationFailure.Reason? =
             switch console {
                 case (false, _, _): .notOnConsole

@@ -41,7 +41,7 @@ const Unreal = Schema.Struct({
         "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer, unity builds off, and no precompiled headers for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin with strict includes once per engine on this machine its hosts name, skipping a host whose engine is absent, after each package its descriptor maps to a folder installs there under a .gitignore holding *, runs the automation tests named after it through UnrealEditor-Cmd in each host and reads their result from the exported report, zips the tracked sources with those installed packages and the engine's EngineVersion once per engine after the Fab store checks pass, or copies the package into the Plugins folder of each user project",
 });
 const Report = Schema.fromJsonString(Schema.Struct({ tests: Schema.NonEmptyArray(Schema.Struct({ fullTestPath: Schema.String, state: Schema.String })) }));
-const Listed = Schema.fromJsonString(Schema.Struct({ FabURL: Schema.optionalKey(Schema.String), Modules: Schema.Array(Schema.Struct({ Name: Schema.String, PlatformAllowList: Schema.optionalKey(Schema.Array(Schema.String)), PlatformDenyList: Schema.optionalKey(Schema.Array(Schema.String)) })) }));
+const Listed = Schema.fromJsonString(Schema.Struct({ FabURL: Schema.optionalKey(Schema.String), Modules: Schema.Array(Schema.Struct({ Name: Schema.String, PlatformAllowList: Schema.String.pipe(Schema.Array, Schema.optionalKey), PlatformDenyList: Schema.String.pipe(Schema.Array, Schema.optionalKey) })) }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

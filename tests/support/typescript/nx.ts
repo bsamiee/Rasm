@@ -10,6 +10,7 @@ import { chdir, cwd, env } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { type ExecutorContext, getOutputsForTargetAndConfiguration, type NxPlugin, type ProjectGraph, readJsonFile, readProjectsConfigurationFromProjectGraph } from '@nx/devkit';
 import { below } from '@rasm/nx/inference';
+import { ExitError } from '@rasm/process';
 import { Array, Cause, type Duration, Effect, Function, Match, Option, Predicate, Record, Schema, UndefinedOr } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { LoadedNxPlugin, resolveNxTokensInOptions, retrieveProjectConfigurations } from 'nx/src/devkit-internals';
@@ -67,10 +68,13 @@ const environment = (root: string, set: Record.ReadonlyRecord<string, string> = 
     ...set,
 });
 
-const refusing = (tool: string) => [
-    { case: 'a missing executable', scripts: {}, refusal: new RegExp(`^${RegExp.escape(tool)} .*cannot start: `, 'u') },
-    { case: 'a non-zero exit', scripts: { [tool]: 'echo refused >&2\nexit 3' }, refusal: new RegExp(`^${RegExp.escape(tool)} .*exits 3: refused$`, 'u') },
-];
+const refusing = (tool: string) => {
+    const command = Schema.String.check(Schema.isPattern(new RegExp(`^${RegExp.escape(tool)} `, 'u')));
+    return [
+        { case: 'a missing executable', scripts: {}, refusal: Schema.TaggedStruct('PlatformError', { reason: Schema.TaggedStruct('NotFound', { method: Schema.Literal('spawn'), pathOrDescriptor: command }) }) },
+        { case: 'a non-zero exit', scripts: { [tool]: 'echo refused >&2\nexit 3' }, refusal: Schema.Struct({ ...ExitError.fields, command, code: Schema.Literal(3), stderr: Schema.Literal('refused\n') }) },
+    ];
+};
 
 const scripted = (folder: string, scripts: Record.ReadonlyRecord<string, string>, path: string) => {
     mkdirSync(folder, { recursive: true });

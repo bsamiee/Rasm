@@ -10,12 +10,12 @@ private enum CodingKeys: String, CodingKey {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct EncodedResult<Success: Encodable & Sendable>: Encodable, Sendable {
+package struct EncodedResult<Success: Encodable & Sendable>: Encodable, Sendable {
     let result: Result<Success, any Error>
 
-    public init(_ result: Result<Success, some Error>) { self.result = result.mapError { error -> any Error in error } }
+    package init(_ result: Result<Success, some Error>) { self.result = result.mapError { error -> any Error in error } }
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: CodingKeys.self)
         switch result {
             case .success(let value):

@@ -44,7 +44,7 @@ class Shell extends Context.Service<Shell>()('@rasm/shell/shell', {
         const dialects = yield* Cache.make({ capacity: Number.POSITIVE_INFINITY, lookup: (at: { readonly shell: string; readonly environment: Readonly<Record<string, string>> }) => Effect.option(detect(at)) });
         const locate = Effect.fnUntraced(function* (dialect: Dialect, at: { readonly cwd?: string; readonly operands?: readonly string[] }) {
             const logical = Record.get(dialect.environment, 'PWD');
-            const [physical, resolved] = yield* Effect.all([Effect.option(Effect.flatMap(Effect.fromOption(Option.fromUndefinedOr(at.cwd)), fs.realPath)), Effect.option(Effect.flatMap(Effect.fromOption(logical), fs.realPath))]);
+            const [physical, resolved] = yield* Effect.all([Option.fromUndefinedOr(at.cwd).pipe(Effect.fromOption, Effect.flatMap(fs.realPath), Effect.option), logical.pipe(Effect.fromOption, Effect.flatMap(fs.realPath), Effect.option)]);
             const pwd = Option.orElse(
                 Option.filter(logical, () => Option.isSome(physical) && Equal.equals(physical, resolved)),
                 () => physical,

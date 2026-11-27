@@ -1,9 +1,9 @@
 import CoreServices
-public import Foundation
+package import Foundation
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-public let replyDeadline: Duration = .seconds(120)
+package let replyDeadline: Duration = .seconds(120)
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -12,7 +12,7 @@ let appleEventQueue: DispatchQueue = .init(label: "AppleEvents", attributes: .co
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension NSAppleEventDescriptor {
-    public static func send<Value: Sendable>(
+    package static func send<Value: Sendable>(
         _ event: sending NSAppleEventDescriptor,
         within deadline: Duration?,
         reading: @escaping @Sendable (NSAppleEventDescriptor) -> Value,
@@ -53,7 +53,7 @@ extension NSAppleEventDescriptor {
     }
 
     @concurrent
-    public func consent(to eventClass: AEEventClass, _ eventID: AEEventID, asking: Bool) async -> OSStatus {
+    package func consent(to eventClass: AEEventClass, _ eventID: AEEventID, asking: Bool) async -> OSStatus {
         await withTaskExecutorPreference(appleEventQueue) { unsafe AEDeterminePermissionToAutomateTarget(aeDesc, eventClass, eventID, asking) }
     }
 }

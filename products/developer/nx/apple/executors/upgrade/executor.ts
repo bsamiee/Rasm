@@ -60,7 +60,7 @@ const execute = executor(Upgrade, function* ({ package: root, dryRun }, context)
     const requirements = dependencies
         .flatMap(Struct.get('sourceControl'))
         .flatMap(({ location, requirement }) => Array.cartesianWith(location.remote, requirement.range, ({ urlString }, range) => ({ url: urlString, ...range })))
-        .filter(({ lowerBound, upperBound }) => SemVer.equals(upperBound, SemVer.bumpMajor(SemVer.release(lowerBound))));
+        .filter(({ lowerBound, upperBound }) => SemVer.equals(upperBound, lowerBound.pipe(SemVer.release, SemVer.bumpMajor)));
     const moves = Array.getSomes(yield* Effect.forEach(requirements, (requirement) => newest(requirement, context.root), { concurrency: 'unbounded' }));
     const source = yield* fs.readFileString(file);
     const rewritten = yield* Effect.reduce(

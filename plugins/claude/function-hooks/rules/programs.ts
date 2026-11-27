@@ -112,7 +112,11 @@ const judgeCode = (name: keyof typeof languages) => {
         const file = Option.flatMap(Option.all([Option.flatMap(executed, ({ word }) => word.text), invocation.place._tag === 'Local' ? invocation.place.cwd.text : Option.none<string>()]), ([given, cwd]) =>
             Option.liftPredicate(path.resolve(cwd, given), (resolved) => path.dirname(resolved) === cwd && Option.contains(inline, '') && !writesBefore(invocations, invocation, resolved)),
         );
-        const source = yield* Effect.option(Effect.flatMap(Effect.fromOption(file), (resolved) => fs.readFileString(resolved)));
+        const source = yield* file.pipe(
+            Effect.fromOption,
+            Effect.flatMap((resolved) => fs.readFileString(resolved)),
+            Effect.option,
+        );
         const written = Option.getOrElse(inline, () => '');
         const command = Array.findFirst(idioms, ([pattern, restate]) => Option.flatMap(Option.fromNullishOr(pattern.exec(Option.match(source, { onNone: () => written, onSome: String.trim }))), ({ groups = {} }) => restate(groups, invocation)));
         return Match.value({ command: Option.getOrUndefined(command), inPlace: inPlace === true && invocation.has('-i'), json: jsonParse.test(written), effects: effects?.test(written) === true }).pipe(
@@ -323,8 +327,10 @@ const programs: Table = {
                 const part = word.parts.at(-1);
                 return part?.type === 'ProcSubst' && (word.parts.length === 1 || (joined && word.parts.length === 2 && word.parts[0]?.type === 'Lit')) ? Option.some({ word, part, joined }) : Option.none();
             });
-            const written = yield* Effect.option(
-                Effect.flatMap(Effect.fromOption(moved), ({ part, joined }) => Effect.all([shell.script(script)`hyperfine_input=$(mktemp) && cat ${part} > "$hyperfine_input"`, joined ? shell.script(script.dialect)`--input "$hyperfine_input"` : shell.script(script.dialect)`"$hyperfine_input"`])),
+            const written = yield* moved.pipe(
+                Effect.fromOption,
+                Effect.flatMap(({ part, joined }) => Effect.all([shell.script(script)`hyperfine_input=$(mktemp) && cat ${part} > "$hyperfine_input"`, joined ? shell.script(script.dialect)`--input "$hyperfine_input"` : shell.script(script.dialect)`"$hyperfine_input"`])),
+                Effect.option,
             );
             const words = inputs.flatMap(({ spelled, values }) => [spelled, ...values]).flatMap(({ node }) => Option.toArray(node));
             const substituted = words.some(({ parts }) => parts.some(({ type }) => type === 'ProcSubst'));

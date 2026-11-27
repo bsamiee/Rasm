@@ -1,24 +1,24 @@
 import AppKit
 import CasePathsCore
-public import CoreGraphics
+import CoreGraphics
 import CoreImage.CIFilterBuiltins
-public import Foundation
+import Foundation
 import Vision
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct RecognizedLine: Equatable, Sendable {
-    public let text: String
-    public let frame: CGRect
-    public let keyEquivalentTranscript: String?
-    public let isTitle: Bool
-    public let enabled: Bool
+struct RecognizedLine: Equatable, Sendable {
+    let text: String
+    let frame: CGRect
+    let keyEquivalentTranscript: String?
+    let isTitle: Bool
+    let enabled: Bool
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension CGImage {
-    public func recognizeText(
+    func recognizeText(
         at frame: CGRect,
         in language: Locale.Language,
         labels: Set<String>,
@@ -87,7 +87,7 @@ extension CGImage {
 }
 
 extension Watch {
-    public nonisolated func recognizeText(
+    nonisolated func recognizeText(
         in windows: [CGWindowID],
         labels: Set<String>,
     ) async throws(ApplicationFailure) -> [CGWindowID: [RecognizedLine]] {

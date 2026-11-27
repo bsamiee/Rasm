@@ -1,43 +1,39 @@
-public import Foundation
+package import Foundation
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public struct AggregateError<Element: Sendable>: Error {
-    public let first: Element
-    public let remaining: [Element]
+package struct AggregateError<Element: Sendable>: Error {
+    package let first: Element
+    let remaining: [Element]
 
-    public init(first: Element, remaining: [Element] = []) {
+    package init(first: Element, remaining: [Element] = []) {
         self.first = first
         self.remaining = remaining
     }
 
-    public init?(_ errors: some Collection<Element>) {
+    package init?(_ errors: some Collection<Element>) {
         guard let first = errors.first else { return nil }
         self.init(first: first, remaining: Array(errors.dropFirst()))
     }
 
-    public var errors: [Element] { [first] + remaining }
-
-    public func map<Next: Sendable>(_ transform: (Element) -> Next) -> AggregateError<Next> {
-        AggregateError<Next>(first: transform(first), remaining: remaining.map(transform))
-    }
+    package var errors: [Element] { [first] + remaining }
 }
 
 extension AggregateError: CustomNSError, LocalizedError where Element: Error {
-    public var errorDescription: String? { errors.map(\.localizedDescription).joined(separator: "\n") }
+    package var errorDescription: String? { errors.map(\.localizedDescription).joined(separator: "\n") }
 
-    public var errorUserInfo: [String: Any] { [NSMultipleUnderlyingErrorsKey: errors] }
+    package var errorUserInfo: [String: Any] { [NSMultipleUnderlyingErrorsKey: errors] }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Result {
-    public func aggregated<Next: Sendable>(_ transform: (Failure) -> Next) -> Result<Success, AggregateError<Next>> {
+    package func aggregated<Next: Sendable>(_ transform: (Failure) -> Next) -> Result<Success, AggregateError<Next>> {
         mapError { error in AggregateError(first: transform(error)) }
     }
 }
 
-public func combine<each Value, Failure>(
+package func combine<each Value, Failure>(
     _ results: repeat Result<each Value, AggregateError<Failure>>
 ) -> Result<(repeat each Value), AggregateError<Failure>> {
     var errors: [Failure] = []
@@ -45,7 +41,7 @@ public func combine<each Value, Failure>(
     return AggregateError(errors).map(Result.failure) ?? Result { () throws(AggregateError<Failure>) in (repeat try (each results).get()) }
 }
 
-public func traverse<Element, Value, Failure>(
+package func traverse<Element, Value, Failure>(
     _ elements: some Sequence<Element>,
     _ transform: (Element) -> Result<Value, AggregateError<Failure>>,
 ) -> Result<[Value], AggregateError<Failure>> {

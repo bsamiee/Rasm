@@ -5,4 +5,4 @@ import { shell } from '#/site/shell.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-Effect.runSync(hydrate(shell));
+Effect.runSync(shell.pipe(hydrate));

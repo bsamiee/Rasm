@@ -169,7 +169,7 @@ Absence a host returns decodes to `Option`, absence a domain default fills decod
 Keys written only where their value differs from the default pair a defaulting decode with an encode dropping the default:
 
 ```ts
-const Default = <S extends Schema.Top>(schema: S, value: S['Encoded']) => Schema.optionalKey(Schema.toEncoded(schema)).pipe(Schema.decodeTo(schema, { decode: SchemaGetter.withDefault(Effect.succeed(value)), encode: SchemaGetter.transformOptional(Option.filter((held) => !Equal.equals(held, value))) }));
+const Default = <S extends Schema.Top>(schema: S, value: S['Encoded']) => schema.pipe(Schema.toEncoded, Schema.optionalKey, Schema.decodeTo(schema, { decode: SchemaGetter.withDefault(Effect.succeed(value)), encode: SchemaGetter.transformOptional(Option.filter((held) => !Equal.equals(held, value))) }));
 ```
 
 `Default(Schema.Boolean, false)` decodes a missing key of a command usage table to `false` and encodes `false` as no key, where `{ encodingStrategy: 'omit' }` on a decoding default drops the key from every encode, a set value included:
@@ -187,24 +187,24 @@ const Default = <S extends Schema.Top>(schema: S, value: S['Encoded']) => Schema
 
 Field schemas declare the domain type, and each format derives its codec from the class or variant it encodes. `toCodecJson` encodes `DateTime`, `BigDecimal`, `Duration`, `Option`, and classes as JSON values, `toCodecStringTree` every leaf as a string:
 
-| [INDEX] | [FORMAT]                  | [CODEC]                                                        |
-| :-----: | :------------------------ | :------------------------------------------------------------- |
-|  [01]   | JSON text, JSON fields    | `Schema.fromJsonString(X)`                                     |
-|  [02]   | JSON text, other fields   | `Schema.fromJsonString(Schema.toCodecJson(X))`                 |
-|  [03]   | Parsed JSON value         | `Schema.toCodecJson(X)`                                        |
-|  [04]   | JSON a Go service writes  | `Schema.toCodecGoJson(X)`                                      |
-|  [05]   | Query string or fragment  | `Schema.fromURLSearchParams(Schema.toCodecStringTree(X))`      |
-|  [06]   | Form body                 | `Schema.fromFormData(Schema.toCodecStringTree(X))`             |
-|  [07]   | JSON Schema, draft 2020   | `Schema.toJsonSchemaDocument(X)`                               |
-|  [08]   | JSON Schema, draft 07     | `JsonSchema.toDocumentDraft07(Schema.toJsonSchemaDocument(X))` |
-|  [09]   | Standard Schema validator | `Schema.toStandardSchemaV1(X)`                                 |
+| [INDEX] | [FORMAT]                  | [CODEC]                                                             |
+| :-----: | :------------------------ | :------------------------------------------------------------------ |
+|  [01]   | JSON text, JSON fields    | `Schema.fromJsonString(X)`                                          |
+|  [02]   | JSON text, other fields   | `X.pipe(Schema.toCodecJson, Schema.fromJsonString)`                 |
+|  [03]   | Parsed JSON value         | `Schema.toCodecJson(X)`                                             |
+|  [04]   | JSON a Go service writes  | `Schema.toCodecGoJson(X)`                                           |
+|  [05]   | Query string or fragment  | `X.pipe(Schema.toCodecStringTree, Schema.fromURLSearchParams)`      |
+|  [06]   | Form body                 | `X.pipe(Schema.toCodecStringTree, Schema.fromFormData)`             |
+|  [07]   | JSON Schema, draft 2020   | `Schema.toJsonSchemaDocument(X)`                                    |
+|  [08]   | JSON Schema, draft 07     | `X.pipe(Schema.toJsonSchemaDocument, JsonSchema.toDocumentDraft07)` |
+|  [09]   | Standard Schema validator | `Schema.toStandardSchemaV1(X)`                                      |
 
 Options schemas a host reads as JSON Schema are the schema each run decodes through, so one declaration states both:
 
 ```ts
 const Clean = Schema.Struct({
     targets: Schema.Array(Schema.String).annotate({ description: 'Targets whose declared outputs are removed', default: [] }),
-    __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
+    __unparsed__: Schema.String.pipe(Schema.Array, Schema.optionalKey).annotate({ $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
 });
 
 const document = JsonSchema.toDocumentDraft07(Schema.toJsonSchemaDocument(Clean, { includeAnnotationKey: (key) => key.startsWith('$') || key.startsWith('x-') || key === 'hidden' }));

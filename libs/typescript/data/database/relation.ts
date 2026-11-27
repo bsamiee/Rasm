@@ -68,7 +68,16 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
     static readonly insert = <F extends Fields, O extends RelationOptions<F>>(relation: Relation<F, O>, rows: Array.NonEmptyReadonlyArray<Written<F, O>>) => Effect.catchTag(relation.queries.insert(rows), 'NoSuchElementError', Effect.die);
     static readonly upsert = <F extends Fields, O extends RelationOptions<F>>(relation: Relation<F, O>, rows: Array.NonEmptyReadonlyArray<Written<F, O>>, ...kept: readonly Exclude<keyof F & string, keyof O['projections']>[]) => {
         const offered = HashMap.fromIterable(Array.map(rows, (row) => [Record.filter(row, (_, field) => Option.exists(Record.get(relation.columns, field), ({ name }) => relation.key.includes(name))), row] as const));
-        return Effect.flatMap(relation.queries.upsert({ rows, kept }), (written) => Effect.forEach(written, ({ key, inserted }) => Effect.map(Effect.orDie(Effect.fromOption(HashMap.get(offered, key))), (row) => ({ row, inserted }))));
+        return Effect.flatMap(relation.queries.upsert({ rows, kept }), (written) =>
+            Effect.forEach(written, ({ key, inserted }) =>
+                offered.pipe(
+                    HashMap.get(key),
+                    Effect.fromOption,
+                    Effect.orDie,
+                    Effect.map((row) => ({ row, inserted })),
+                ),
+            ),
+        );
     };
     static readonly ensure = <F extends Fields, O extends RelationOptions<F>>(relation: Relation<F, O>, rows: Array.NonEmptyReadonlyArray<Written<F, O>>) => Effect.catchTag(relation.queries.ensure(rows), 'NoSuchElementError', Effect.die);
     static readonly select = <F extends Fields, O extends RelationOptions<F>>(
@@ -78,9 +87,13 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
     ) => relation.queries.select({ where, order, limit: Option.fromUndefinedOr(limit), per: Option.fromUndefinedOr(per) });
     static readonly remove = <F extends Fields, O extends RelationOptions<F>>(relation: Relation<F, O>, where: Selection<F>) => relation.queries.remove(where);
     static readonly search = <F extends Fields, O extends RelationOptions<F> & { readonly search: NonNullable<RelationOptions<F>['search']> }>(relation: Relation<F, O>, text: string, limit: number, marks?: { readonly open: string; readonly close: string }) =>
-        Effect.flatMap(Effect.orDie(Effect.fromOption(relation.queries.search)), (find) => find({ text, pattern: `%${text.replaceAll(/[\\%_]/gu, String.raw`\$&`)}%`, count: limit, marks: Option.fromUndefinedOr(marks) }));
+        relation.queries.search.pipe(
+            Effect.fromOption,
+            Effect.orDie,
+            Effect.flatMap((find) => find({ text, pattern: `%${text.replaceAll(/[\\%_]/gu, String.raw`\$&`)}%`, count: limit, marks: Option.fromUndefinedOr(marks) })),
+        );
     static readonly withTenant = Effect.fnUntraced(function* <F extends Fields, O extends RelationOptions<F> & { readonly tenant: NonNullable<RelationOptions<F>['tenant']> }, A, E, R>(relation: Relation<F, O>, id: F[O['tenant']['column']]['Type'], effect: Effect.Effect<A, E, R>) {
-        const { column, setting } = yield* Effect.orDie(Effect.fromOption(relation.tenant));
+        const { column, setting } = yield* relation.tenant.pipe(Effect.fromOption, Effect.orDie);
         const [sql, { tenant }, encoded] = yield* Effect.all([SqlClient.SqlClient, Rows, Schema.encodeEffect(column.schema)(id)]);
         const scoped = yield* Effect.orDie(Effect.fromNullishOr(tenant));
         return yield* sql.withTransaction(Effect.andThen(scoped(sql, setting, encoded), effect));
@@ -145,7 +158,7 @@ const definition = <F extends Fields>(fields: F, options: RelationOptions<F>, re
 // --- [QUERIES]
 
 const wire = (entry: Column) => (entry.kind === 'blob' ? Schema.encodeTo(Schema.NullOr(Schema.Uint8ArrayFromHex))(entry.schema) : entry.schema);
-const list = (entry: Column) => Schema.fromJsonString(Schema.NonEmptyArray(wire(entry)));
+const list = (entry: Column) => entry.pipe(wire, Schema.NonEmptyArray, Schema.fromJsonString);
 const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Relation, 'name' | 'columns' | 'key' | 'search'>) => {
     const fragments = Rows.fragments(relation);
     const all = Object.values<Column>(relation.columns);
@@ -188,7 +201,7 @@ const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Rela
         search: Option.map(relation.search, (searchable) =>
             SqlSchema.findAll({
                 Request: Search,
-                Result: Schema.Struct({ row: schema, rank: Schema.Finite, highlight: Schema.OptionFromNullOr(Schema.fromJsonString(Schema.Record(Schema.String, Schema.NullOr(Schema.String)))) }),
+                Result: Schema.Struct({ row: schema, rank: Schema.Finite, highlight: Schema.Record(Schema.String, Schema.NullOr(Schema.String)).pipe(Schema.fromJsonString, Schema.OptionFromNullOr) }),
                 execute: ({ text, pattern, count, marks }) => Effect.flatMap(fragments, (parts) => parts.rows.search(parts, searchable, text, pattern, marks, count)).pipe(Effect.map(Array.map(({ [Rows.flags.rank]: rank, [Rows.flags.highlight]: highlight, ...row }) => ({ row, rank, highlight })))),
             }),
         ),

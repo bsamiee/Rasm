@@ -371,12 +371,12 @@ const expandTilde = (lit: Lit, next: Option.Option<WordPart>, scope: Scope, { zs
     const found = Match.value({ tilde: prefix !== '', open: rest.value === '' && Option.isSome(next), zsh, slashed, user }).pipe(
         Match.when({ tilde: false }, () => Option.none()),
         Match.when({ open: true, zsh: false }, () => Option.none()),
-        Match.when({ open: true, slashed: false }, () => Option.some(home(Option.some(user)))),
+        Match.when({ open: true, slashed: false }, () => Option.some(user).pipe(home, Option.some)),
         Match.when({ user: '' }, () => Option.some(Option.match(scope.text('HOME'), { onNone: () => home(Option.none()), onSome: (value) => [quote(value)] }))),
         Match.when({ user: '+' }, () => Option.some(stacked('PWD'))),
         Match.when({ user: '-' }, () => Option.some(stacked('OLDPWD'))),
         Match.when({ user: (name: string) => /^[+-](?!\d+$)/u.test(name) }, () => Option.some([quote(prefix)])),
-        Match.orElse(() => Option.some(home(Option.some(user)))),
+        Match.orElse(() => Option.some(user).pipe(home, Option.some)),
     );
     return Option.match(found, { onNone: () => [[], lit], onSome: (chunks) => [chunks, rest] });
 };

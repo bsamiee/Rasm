@@ -1,28 +1,28 @@
-public import Darwin
-public import Foundation
+package import Darwin
+package import Foundation
 import Security
 import Subprocess
-public import System
+package import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct ProcessInstance: Codable, Hashable, Sendable {
-    public let pid: pid_t
-    public let started: UInt64
+package struct ProcessInstance: Codable, Hashable, Sendable {
+    package let pid: pid_t
+    package let started: UInt64
 }
 
 extension ProcessInstance: RawRepresentable, CustomStringConvertible {
-    public var rawValue: String { "\(pid)@\(started)" }
-    public var description: String { rawValue }
+    package var rawValue: String { "\(pid)@\(started)" }
+    package var description: String { rawValue }
 
-    public init?(rawValue: String) {
+    package init?(rawValue: String) {
         let parts = rawValue.split(separator: "@", omittingEmptySubsequences: false)
         guard parts.count == 2, let pid = pid_t(parts[0]), let started = UInt64(parts[1]) else { return nil }
         self.init(pid: pid, started: started)
     }
 }
 
-public enum ProcessStatus: String, Encodable, Sendable {
+package enum ProcessStatus: String, Encodable, Sendable {
     case running
     case runnable
     case throttled
@@ -32,10 +32,10 @@ public enum ProcessStatus: String, Encodable, Sendable {
     case traced
 }
 
-public struct MainThread: Sendable {
-    public let state: ProcessStatus
-    public let time: Duration
-    public let at: SuspendingClock.Instant
+package struct MainThread: Sendable {
+    package let state: ProcessStatus
+    let time: Duration
+    let at: SuspendingClock.Instant
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -49,7 +49,7 @@ func information<Info: BitwiseCopyable>(of process: pid_t, _ flavor: Int32, _ em
 extension ProcessInstance {
     // --- [IDENTITY]
 
-    public init(of pid: pid_t) throws(Errno) {
+    package init(of pid: pid_t) throws(Errno) {
         var name: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, pid]
         var process = unsafe kinfo_proc()
         var size = unsafe MemoryLayout<kinfo_proc>.stride
@@ -69,9 +69,9 @@ extension ProcessInstance {
         return process
     }
 
-    public var hasExited: Bool { Result(catching: { () throws(Errno) in try Self(of: pid) }) != .success(self) }
+    package var hasExited: Bool { Result(catching: { () throws(Errno) in try Self(of: pid) }) != .success(self) }
 
-    public static func all(executing matching: (FilePath) -> Bool) throws(Errno) -> [Self] {
+    package static func all(executing matching: (FilePath) -> Bool) throws(Errno) -> [Self] {
         let capacity = proc_listallpids(nil, 0)
         guard capacity > 0 else { throw Errno(rawValue: errno) }
         let listed = unsafe [pid_t](unsafeUninitializedCapacity: Int(capacity)) { buffer, count in
@@ -93,7 +93,7 @@ extension ProcessInstance {
             .compactMap(\.self)
     }
 
-    public func executable() throws(Errno) -> FilePath {
+    package func executable() throws(Errno) -> FilePath {
         var path = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
         let read = unsafe proc_pidpath(pid, &path, UInt32(path.count))
         let failure = Errno(rawValue: errno)
@@ -121,13 +121,13 @@ extension ProcessInstance {
         return token
     }
 
-    public func signal(_ signal: Int32) throws(Errno) {
+    package func signal(_ signal: Int32) throws(Errno) {
         var token = try auditToken()
         let status = unsafe proc_signal_with_audittoken(&token, signal)
         guard status == 0 else { throw Errno(rawValue: status) }
     }
 
-    public func listeningPorts() throws(Errno) -> [in_port_t] {
+    package func listeningPorts() throws(Errno) -> [in_port_t] {
         let capacity = proc_pidinfo(pid, PROC_PIDLISTFDS, 0, nil, 0)
         guard capacity > 0 else { throw Errno(rawValue: errno) }
         let descriptors = unsafe [proc_fdinfo](unsafeUninitializedCapacity: Int(capacity) / MemoryLayout<proc_fdinfo>.stride) { buffer, count in
@@ -144,7 +144,7 @@ extension ProcessInstance {
         return Set(ports).sorted()
     }
 
-    public func runsInstalledCode() throws(Errno) -> Bool {
+    package func runsInstalledCode() throws(Errno) -> Bool {
         let token = try auditToken()
         var code: SecCode?
         let attributes = [kSecGuestAttributeAudit: withUnsafeBytes(of: token) { bytes in unsafe Data(bytes) }] as CFDictionary
@@ -160,7 +160,7 @@ extension ProcessInstance {
 
     private var reports: URL { URL.temporaryDirectory.appending(components: "sample", rawValue, directoryHint: .isDirectory) }
 
-    public func samples(since earliest: Date) throws(ProcessFailure) -> [URL] {
+    package func samples(since earliest: Date) throws(ProcessFailure) -> [URL] {
         let written: [(report: URL, at: Date)]
         do {
             written = try FileManager.default.contentsOfDirectory(at: reports, includingPropertiesForKeys: [.contentModificationDateKey]).map { (report: URL) throws -> (report: URL, at: Date) in
@@ -174,7 +174,7 @@ extension ProcessInstance {
         return written.filter { sample in sample.at >= earliest }.sorted { first, second in first.at > second.at }.map(\.report)
     }
 
-    public func sample(for duration: Duration) async throws(ProcessFailure) -> URL {
+    package func sample(for duration: Duration) async throws(ProcessFailure) -> URL {
         let subject = "sample of process \(rawValue)"
         guard !hasExited else { throw ProcessFailure(subject: subject, reason: .system(.noSuchProcess)) }
         var definition: CFDictionary?
@@ -199,7 +199,7 @@ extension ProcessInstance {
 }
 
 extension MainThread {
-    public init(of instance: ProcessInstance) throws(Errno) {
+    package init(of instance: ProcessInstance) throws(Errno) {
         let thread = Result { () throws(Errno) in
             try information(of: instance.pid, PROC_PIDTHREADINFO, proc_threadinfo(), argument: information(of: instance.pid, PROC_PIDLISTTHREADS, UInt64.zero))
         }
@@ -222,7 +222,7 @@ extension MainThread {
         self.init(state: state, time: .nanoseconds(thread.pth_user_time + thread.pth_system_time), at: instant)
     }
 
-    public func status(since earlier: Self) -> ProcessStatus {
+    package func status(since earlier: Self) -> ProcessStatus {
         switch (state, time - earlier.time) {
             case (.running, let ran) where ran * 2 < earlier.at.duration(to: at): .runnable
             case (.sleeping, let ran) where ran > .zero: .running

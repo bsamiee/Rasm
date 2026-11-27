@@ -15,9 +15,10 @@ Plugin globs, `targetDefaults` rows, and what Nx does with each:
 - `targetDefaults` keys take an array of rows with `filter.projects`, tags included, and merge into inferred targets without creating one
 - Configuration options merge over a target's default options, so plugins state an option in each configuration its default value is wrong for
 - `"..."` in a `targetDefaults` `dependsOn` keeps the entries a plugin inferred
-- `dependsOn` entries naming projects by a pattern matching none warn "misconfigured" per task
-- `{ "projects": "*", "target": "<target>" }` resolves silently to every project holding the target, and none where no graph project holds it
-- Conformance accepts a `dependsOn` with all-glob `projects` naming a target no project holds, and checks each exact `^` name
+- `dependsOn` entries naming projects, by name or pattern, warn "misconfigured" on each task they plan no dependency for
+- `dependsOn` strings of form `<project>:<target>` naming no project warn as a target name holding `:` no project holds
+- `^<target>` entries plan over graph edges alone and never warn, so a target existing on one platform alone needs a project holding it on every platform
+- Conformance reports each `dependsOn` entry resolving to no target, and checks each exact `^` name
 
 ## [02]-[HASHING]
 
@@ -62,7 +63,7 @@ Remote cache clients and the inputs deciding which machines share a result:
 - Xcode targets hash the SwiftPM targets their linked package products reach alone, and other Swift changes leave an app's result cached
 - Cargo targets hash `rustc -vV`, which prints its host triple, and no Mac result of theirs serves a Linux job
 - Python checks and tests hash platform, and no Mac result of theirs serves a Linux job
-- Root project `rasm` holds no Colima target, and its tasks share keys between the Mac and Linux
+- Root project `rasm` holds no Docker Engine target, and its tasks share keys between the Mac and Linux
 - Nx sets no remote cache timeout and stops a run on a read answered other than 200 or 404 or left unconnected, and no setting overrides the stop
 - `@rasm/nx-distribution` reads the cache server with its token once before the tasks of each `nx` run that uses the remote cache, outside any task
 - Reads answered other than 200 or 404, refused, or past option `remoteCacheTimeout` print one warning and empty `NX_SELF_HOSTED_REMOTE_CACHE_SERVER`

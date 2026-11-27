@@ -1,7 +1,6 @@
 {
     "name": "@rasm/mcp",
     "version": "0.1.0",
-    "private": true,
     "description": "MCP servers over Effect programs, serving tools and resources over Streamable HTTP or stdio with per-agent state and proxied upstream servers",
     "license": "MIT",
     "repository": {

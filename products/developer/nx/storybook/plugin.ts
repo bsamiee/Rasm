@@ -1,4 +1,3 @@
-import { findPackageJSON } from 'node:module';
 import { dirname, join, posix, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
@@ -15,7 +14,6 @@ type Resolved = Effect.Success<ReturnType<typeof read>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const RUNNER = '@storybook/test-runner';
 const OWN = fingerprinted(import.meta.dirname);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -46,13 +44,12 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
         packages: [...framed, ...reached],
         linked,
         globs: Array.dedupe(stories.map(({ directory, files }) => posix.join(directory, braced(files)))).filter(inside('.')),
-        runner: Option.isSome(Option.liftThrowable(findPackageJSON)(RUNNER, main)),
         sources: Array.dedupe(Array.getSomes(loaded.map(([url]) => local(url)))).filter(within),
     };
 });
 
-const targets = (root: string, { packages, linked, globs, runner, sources }: Resolved, chain: readonly string[], production: boolean, output: Option.Option<string>, exec: string): Verbs => {
-    const hashed = [
+const targets = (root: string, { packages, linked, globs, sources }: Resolved, chain: readonly string[], production: boolean, output: Option.Option<string>, exec: string): Verbs => {
+    const inputs = [
         ...(production ? ['production', '{workspaceRoot}/{projectRoot}/.storybook/**/*', '^production'] : ['default', '^default']),
         ...[...globs, ...sources.filter(Predicate.not(owned(root)))].map((at) => posix.join('{workspaceRoot}', at)),
         ...chain.map((at) => ({ json: posix.join('{workspaceRoot}', at), fields: ['compilerOptions'] })),
@@ -62,8 +59,8 @@ const targets = (root: string, { packages, linked, globs, runner, sources }: Res
                   { input: 'default', projects: [...linked], dependencies: true as const },
               ]
             : []),
+        { externalDependencies: Array.dedupe(['storybook', ...packages]) },
     ];
-    const inputs = [...hashed, { externalDependencies: Array.dedupe(['storybook', ...packages]) }];
     const written = Option.getOrElse(output, () => posix.join(root, 'storybook-static'));
     const needs = { options: { cwd: root }, dependsOn: ['codegen--*', '^codegen--*'], inputs };
     const built = ['build--storybook'];
@@ -97,17 +94,6 @@ const targets = (root: string, { packages, linked, globs, runner, sources }: Res
                 metadata: { description: 'Serves the project stories with storybook dev', help: { command: `${exec} storybook dev --help`, example: { args: ['--port=<port>'] } } },
             },
         },
-        test: runner
-            ? {
-                  storybook: {
-                      command: 'test-storybook',
-                      options: { cwd: root },
-                      dependsOn: [{ target: 'serve--storybook', waitFor: 'ready' }],
-                      inputs: [...hashed, { externalDependencies: Array.dedupe(['storybook', RUNNER, ...packages]) }],
-                      metadata: { description: 'Runs the stories of the Storybook serve--storybook serves as tests with test-storybook, hashing the sources serve--storybook serves', help: { command: `${exec} test-storybook --help`, example: { args: ['--url', 'http://localhost:6006'] } } },
-                  },
-              }
-            : {},
         clean: {
             storybook: {
                 executor: EXECUTORS.clean,

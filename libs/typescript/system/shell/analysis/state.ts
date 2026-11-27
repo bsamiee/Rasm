@@ -24,7 +24,7 @@ class Variable extends Data.Class<{ readonly values: HashSet.HashSet<Binding>; r
 
     get binding(): Binding {
         return Option.getOrElse(
-            Option.filter(Array.head(Array.fromIterable(this.values)), () => HashSet.size(this.values) === 1),
+            Option.filter(this.values.pipe(Array.fromIterable, Array.head), () => HashSet.size(this.values) === 1),
             () => Binding.Unknown({ origins: this.origins }),
         );
     }

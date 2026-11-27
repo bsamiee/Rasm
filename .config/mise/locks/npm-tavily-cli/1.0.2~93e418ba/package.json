@@ -2,6 +2,6 @@
   "name": "mise-npm-install",
   "private": true,
   "dependencies": {
-    "@tavily/cli": "1.0.1"
+    "@tavily/cli": "1.0.2"
   }
 }

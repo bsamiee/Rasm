@@ -93,7 +93,7 @@ class InstanceSnapshot extends Schema.Class<InstanceSnapshot, { readonly brand: 
 Shapes differing in one member schema are one function taking the schema:
 
 ```ts
-const recorded = <S extends Schema.Codec<unknown, string>>(stamp: S) => Schema.String.pipe(Schema.decodeTo(Schema.Option(Schema.toType(stamp)), { decode: SchemaGetter.transform(Schema.decodeOption(stamp)), encode: SchemaGetter.forbiddenEncoding }));
+const recorded = <S extends Schema.Codec<unknown, string>>(stamp: S) => Schema.String.pipe(Schema.decodeTo(stamp.pipe(Schema.toType, Schema.Option), { decode: stamp.pipe(Schema.decodeOption, SchemaGetter.transform), encode: SchemaGetter.forbiddenEncoding }));
 ```
 
 `recorded(Schema.fromJsonString(TableStamp))` decodes the stamp a ClickHouse table comment holds to `Option<TableStamp>`, a comment holding none reading as absent, and the bound refuses a schema whose encoded side is not text:

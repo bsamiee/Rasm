@@ -1,15 +1,15 @@
-public import CasePaths
-public import Encoding
-public import Foundation
+package import CasePaths
+package import Encoding
+package import Foundation
 import Security
-public import Subprocess
-public import System
+package import Subprocess
+package import System
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
+package struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
     @CasePathable
-    public enum Reason: CaseLabeled, Equatable, Sendable {
+    package enum Reason: CaseLabeled, Equatable, Sendable {
         case subprocess(SubprocessError)
         case exit(TerminationStatus, standardError: String)
         case timedOut(Duration)
@@ -23,14 +23,14 @@ public struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
         case foundation(NSError)
     }
 
-    public let subject: String
-    public let reason: Reason
+    package let subject: String
+    package let reason: Reason
 
-    public init(subject: String, reason: Reason) {
+    package init(subject: String, reason: Reason) {
         (self.subject, self.reason) = (subject, reason)
     }
 
-    public init(subject: String, _ error: any Error) {
+    package init(subject: String, _ error: any Error) {
         self =
             switch error {
                 case is CancellationError: Self(subject: subject, reason: .cancelled)
@@ -42,7 +42,7 @@ public struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
             }
     }
 
-    public var errorDescription: String? {
+    package var errorDescription: String? {
         switch reason {
             case .subprocess(let error): "\(subject) \(error.description)"
             case .exit(let status, let standardError):
@@ -62,7 +62,7 @@ public struct ProcessFailure: CustomNSError, Equatable, LocalizedError {
         }
     }
 
-    public var errorUserInfo: [String: Any] {
+    package var errorUserInfo: [String: Any] {
         switch reason {
             case .subprocess(let error as any Error), .corrupt(let error as any Error), .system(let error as any Error), .foundation(let error as any Error): [NSUnderlyingErrorKey: error]
             case .mach(let status): [NSUnderlyingErrorKey: NSError(domain: NSMachErrorDomain, code: Int(status))]

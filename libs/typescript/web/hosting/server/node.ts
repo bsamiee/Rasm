@@ -22,7 +22,7 @@ const serve = <const E extends Record.ReadonlyRecord<string, Binding>, A, Err, R
     HttpRouter.serve(
         Effect.fromNullishOr(process.argv[1]).pipe(
             Effect.flatMap((script) => HttpStaticServer.make({ root: join(dirname(script), App.bundle.assets) })),
-            Effect.map((files) => Layer.mergeAll(hosted(app, runtime, routes, { fetch: HttpEffect.toWebHandler(files) }), HttpRouter.add('GET', App.bundle.readiness, HttpMiddleware.withLoggerDisabled(Effect.succeed(HttpServerResponse.empty()))), HttpRouter.add('GET', '/*', files))),
+            Effect.map((files) => Layer.mergeAll(hosted(app, runtime, routes, { fetch: HttpEffect.toWebHandler(files) }), HttpRouter.add('GET', App.bundle.readiness, HttpServerResponse.empty().pipe(Effect.succeed, HttpMiddleware.withLoggerDisabled)), HttpRouter.add('GET', '/*', files))),
             Layer.unwrap,
         ),
     ).pipe(

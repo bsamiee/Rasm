@@ -1,5 +1,5 @@
-public import AppKit
-public import Encoding
+package import AppKit
+import Encoding
 import Processes
 import Synchronization
 import System
@@ -7,8 +7,8 @@ import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct Pasteboard: Encodable, Sendable {
-    public enum Content: CaseTagged, Equatable, Sendable {
+package struct Pasteboard: Encodable, Sendable {
+    enum Content: CaseTagged, Equatable, Sendable {
         case text(value: String)
         case withheld
     }
@@ -17,15 +17,15 @@ public struct Pasteboard: Encodable, Sendable {
         case locator, changeCount, types, access, patterns, contentType, content
     }
 
-    public let locator: Locator
-    public let changeCount: Int
-    public let types: [String]
-    public let access: NSPasteboard.AccessBehavior
-    public let patterns: [String]
-    public let contentType: String?
-    public let content: Content?
+    let locator: Locator
+    let changeCount: Int
+    let types: [String]
+    let access: NSPasteboard.AccessBehavior
+    let patterns: [String]
+    let contentType: String?
+    let content: Content?
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: CodingKeys.self)
         try fields.encode(locator, forKey: .locator)
         try fields.encode(changeCount, forKey: .changeCount)
@@ -50,13 +50,13 @@ extension Pasteboard {
 
     static func locator(of name: NSPasteboard.Name) -> Locator { Locator(steps: [Locator.Step(role: String(describing: NSPasteboard.self), key: .identifier(value: name.rawValue))]) }
 
-    public static func write(_ text: String, to name: NSPasteboard.Name) throws(ApplicationFailure) {
+    package static func write(_ text: String, to name: NSPasteboard.Name) throws(ApplicationFailure) {
         let board = NSPasteboard(name: name)
         board.clearContents()
         guard board.setString(text, forType: .string) else { throw ApplicationFailure(subject: "\(name.rawValue) text \(String(reflecting: text))", reason: .refused) }
     }
 
-    public init(_ name: NSPasteboard.Name) async throws(ApplicationFailure) {
+    package init(_ name: NSPasteboard.Name) async throws(ApplicationFailure) {
         let servers: [ProcessInstance]
         do throws(Errno) { servers = try ProcessInstance.all { executable in executable == "/usr/libexec/pboard" } } catch {
             throw ApplicationFailure(subject: "pasteboard server of \(name.rawValue)", reason: .system(error))

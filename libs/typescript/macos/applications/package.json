@@ -1,7 +1,6 @@
 {
     "name": "@rasm/applications",
     "version": "0.1.0",
-    "private": true,
     "description": "Wire contract and Node client of a Mac application server watching installed and running apps, the six MCP tools over it, and the build of the Node server a Mac app embeds as its helper",
     "license": "MIT",
     "repository": {

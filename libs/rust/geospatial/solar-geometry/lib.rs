@@ -10,8 +10,7 @@ use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 #[cfg(feature = "proximity")]
 use rasm_proximity::ProximityError;
 use rasm_site::Place;
-use solar_positioning::time::JulianDate;
-use solar_positioning::{Location, PreparedPositions, RefractionCorrection, SolarPosition, SolarPositions, delta_t};
+use solar_positioning::{Location, PreparedPositions, RefractionCorrection, SolarPosition, SolarPositions};
 use uom::si::angle::{degree, radian};
 use uom::si::f64::{Angle, Length, Ratio, ThermodynamicTemperature};
 use uom::si::length::meter;
@@ -104,7 +103,7 @@ impl From<NEVec<Input>> for SolarError {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn position(sun: &Sun, at: Timestamp) -> Result<(PreparedPositions, SolarPosition), SolarError> { prepared(sun, julian(sun, at)?).map_err(positioning(Operation::Position(at))) }
+pub fn position(sun: &Sun, at: Timestamp) -> Result<(PreparedPositions, SolarPosition), SolarError> { prepared(sun, at, delta_t(sun, at)?).map_err(positioning(Operation::Position(at))) }
 
 #[must_use]
 pub fn direction(azimuth: Angle, altitude: Angle, north: UnitQuaternion<f64>) -> UnitVector3<f64> {
@@ -124,27 +123,15 @@ pub fn at(interval: Range<Timestamp>, share: f64) -> Result<Timestamp, SolarErro
     SignedDuration::try_from_secs_f64(interval.end.duration_since(interval.start).as_secs_f64() * share).and_then(|offset| interval.start.checked_add(offset)).map_err(SolarError::Time)
 }
 
-fn prepared(sun: &Sun, date: JulianDate) -> Result<(PreparedPositions, SolarPosition), solar_positioning::Error> {
-    let prepared = SolarPositions::new().for_time_from_julian(date)?;
+fn prepared(sun: &Sun, at: Timestamp, delta_t: f64) -> Result<(PreparedPositions, SolarPosition), solar_positioning::Error> {
+    let prepared = SolarPositions::new().for_time(at, delta_t)?;
     Ok((prepared, prepared.at(location(sun), sun.place.elevation.get::<meter>(), sun.refraction)?))
 }
 
 fn location(sun: &Sun) -> Location { Location { latitude: sun.place.position.latitude().get::<degree>(), longitude: sun.place.position.longitude().get::<degree>() } }
 
-fn julian(sun: &Sun, at: Timestamp) -> Result<JulianDate, SolarError> {
-    let civil = Offset::UTC.to_datetime(at);
-    let (year, month) = (i32::from(civil.year()), u32::from(civil.month().unsigned_abs()));
-    let delta_t = sun.delta_t.map_or_else(|| delta_t::estimate_from_date(year, month).map_err(positioning(Operation::DeltaT(at))), |stated| Ok(stated.as_secs_f64()))?;
-    JulianDate::from_utc(
-        year,
-        month,
-        u32::from(civil.day().unsigned_abs()),
-        u32::from(civil.hour().unsigned_abs()),
-        u32::from(civil.minute().unsigned_abs()),
-        SignedDuration::new(i64::from(civil.second()), civil.subsec_nanosecond()).as_secs_f64(),
-        delta_t,
-    )
-    .map_err(positioning(Operation::Position(at)))
+fn delta_t(sun: &Sun, at: Timestamp) -> Result<f64, SolarError> {
+    sun.delta_t.map_or_else(|| solar_positioning::delta_t::estimate_from_civil_date(Offset::UTC.to_datetime(at).date()).map_err(positioning(Operation::DeltaT(at))), |stated| Ok(stated.as_secs_f64()))
 }
 
 const fn positioning(operation: Operation) -> impl Fn(solar_positioning::Error) -> SolarError + Copy { move |source| SolarError::Positioning { operation, source } }

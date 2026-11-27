@@ -342,7 +342,7 @@ class Opener extends Schema.Opaque<Opener>()(Schema.Struct({ container: Locator,
 const Shape = Schema.Struct({
     ...Struct.pick(Control.fields, ['kind', 'role', 'positional']),
     ...Struct.map(controlFacts, Struct.lambda<OptionFromOptionalKeyLambda>(Schema.OptionFromOptionalKey)),
-    options: Schema.OptionFromOptionalKey(Schema.Array(Schema.String)),
+    options: Schema.String.pipe(Schema.Array, Schema.OptionFromOptionalKey),
     opens: Schema.OptionFromOptionalKey(Locator.annotate({ description: 'Menu the control opens' })),
     alternate: Schema.OptionFromOptionalKey(Locator.annotate({ description: 'Item whose place this one takes while its modifier is held' })),
     parent: Schema.OptionFromOptionalKey(Locator),
@@ -472,7 +472,7 @@ const DiagnosticReport = Schema.Struct({
             indicator: Schema.optionalKey(Schema.String),
             byProc: Schema.optionalKey(Schema.String.annotate({ description: 'Process that terminated it' })),
             reasons: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'dyld or code signing lines: library not loaded, symbol not found, launch constraint violation' })),
-            details: Schema.optionalKey(Schema.Array(Schema.String)),
+            details: Schema.String.pipe(Schema.Array, Schema.optionalKey),
         }).annotate({ description: 'Kernel termination reason, CODESIGNING with Launch Constraint Violation for a refused launch, DYLD for a failed load' }),
     ),
     applicationSpecificInformation: Schema.optionalKey(Schema.Record(Schema.String, Schema.Array(Schema.String)).annotate({ description: 'Application Specific Information of a crash report (asi) by image: abort() called, a malloc corruption, a fork-safety violation' })),
@@ -859,7 +859,9 @@ class InstanceSnapshot extends Schema.Class<InstanceSnapshot, { readonly brand: 
     state: InstanceState,
     listening: Schema.Array(Schema.Int).annotate({ description: 'TCP ports the process listens on, read at each state, empty unless running or on a failed read' }),
     listeningFailure: Schema.optionalKey(Schema.String.annotate({ description: 'Listening ports read failure' })),
-}) {}
+}) {
+    static readonly Watched = InstanceSnapshot.pipe(Schema.refine((snapshot): snapshot is InstanceSnapshot & { readonly language: string } => snapshot.language !== undefined, { expected: 'an instance snapshot stating its interface language' }));
+}
 const LaunchEvent = Schema.Union([Schema.TaggedStruct('launched', LaunchedInstance.fields), Schema.TaggedStruct('state', InstanceSnapshot.fields), Schema.TaggedStruct('opened', { reply: AppleEventValue }), failed])
     .annotate({ description: 'Launch events: launched first, then states, the reply of the open command once sent, ending idle or asking' })
     .pipe(Schema.toTaggedUnion('_tag'));
@@ -922,7 +924,7 @@ const ApplicationRpcs = RpcGroup.make(
     }),
     Rpc.make('watch', {
         payload: { instance: ProcessInstance },
-        success: InstanceSnapshot.pipe(Schema.refine((snapshot): snapshot is InstanceSnapshot & { readonly language: string } => snapshot.language !== undefined, { expected: 'an instance snapshot stating its interface language' })).annotate({
+        success: InstanceSnapshot.Watched.annotate({
             description: 'State and interface language of the instance, its Accessibility events, states, and observations streamed from this call on',
         }),
         error: Failure,

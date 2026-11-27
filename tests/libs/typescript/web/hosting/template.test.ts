@@ -34,7 +34,7 @@ it.effect(
     'sends the document head and the fallback of suspended content before that content settles, then the content',
     Effect.fnUntraced(function* () {
         const drawn = yield* Deferred.make<string>();
-        const { text } = yield* served(Deferred.await(drawn));
+        const { text } = yield* drawn.pipe(Deferred.await, served);
         const [shell, rest] = yield* Stream.peel(text, Sink.reduceWhile(Function.constant(''), Predicate.not(String.includes('Drawing sheet')), String.concat));
         assert.deepStrictEqual({ module: shell.includes('<script type="module" src="/assets/main-4f2a.js"></script>'), fallback: shell.includes('Drawing sheet'), settled: shell.includes('Sheet A-101') }, { module: true, fallback: true, settled: false });
         yield* Deferred.succeed(drawn, 'Sheet A-101');

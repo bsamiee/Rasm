@@ -19,8 +19,8 @@ const Target = Schema.Struct({
     options: Schema.optionalKey(Options),
     configurations: Schema.optionalKey(Schema.Record(Schema.String, Options)),
     defaultConfiguration: Schema.optionalKey(Schema.String),
-    outputs: Schema.optionalKey(Schema.Array(Schema.String)),
-    dependsOn: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, Dependency]))),
+    outputs: Schema.String.pipe(Schema.Array, Schema.optionalKey),
+    dependsOn: Schema.Union([Schema.String, Dependency]).pipe(Schema.Array, Schema.optionalKey),
     cache: Schema.optionalKey(Schema.Boolean),
     continuous: Schema.optionalKey(Schema.Boolean),
     metadata: Schema.optionalKey(Schema.Struct({ help: Schema.optionalKey(Schema.Struct({ command: Schema.String })) })),
@@ -35,7 +35,7 @@ const Cached = Schema.fromJsonString(Schema.Struct({ nodes: Schema.Record(Schema
 class Run extends Schema.Class<Run, { readonly brand: unique symbol }>('Run')(
     {
         command: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
-        commands: Schema.optionalKey(Schema.Array(Schema.Union([Schema.String, Schema.Struct({ command: Schema.String })]))),
+        commands: Schema.Union([Schema.String, Schema.Struct({ command: Schema.String })]).pipe(Schema.Array, Schema.optionalKey),
         cwd: Schema.optionalKey(Schema.String),
     },
     { description: 'The options of an nx:run-commands task naming the shell lines it runs and the folder it runs them in' },

@@ -135,6 +135,7 @@
         "typescript/no-misused-spread": "off", // Flags class spreads (`{ ...this }`, `{ ...Pg }`), `allow` lists each class by hand
         "typescript/no-unnecessary-type-arguments": "off", // Flags `Effect.context<never>()`, and omitting it widens `R` to `any` in `Effect.all`
         "typescript/no-unnecessary-type-parameters": "off", // Counts a class parameter whose one use is its base type argument (`Data.Class<{ env: E }>`) as unused, the shape of every generic data class
+        "typescript/no-unsafe-class-instance-assignment": "off", // Flags every `Schema.Opaque` value, a plain object its class types and never constructs (`new(_: never)`), and host objects a runtime supplies (`D1Database` bindings, `process` as an `EventEmitter`), 142 of its 145 sites; its real finding, a literal standing for the `Schema.Class` `McpSchema.ClientCapabilities`, became `ClientCapabilities.make()`
         "typescript/prefer-readonly-parameter-types": "off", // Forces declarations inference states, CLAUDE.md checker rule
         "typescript/promise-function-async": "off", // Pushes toward `async`, which Effect `asyncFunction` refuses
         "typescript/strict-boolean-expressions": "off", // Effect `strictBooleanExpressions` owns the defect

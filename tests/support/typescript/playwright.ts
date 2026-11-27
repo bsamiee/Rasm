@@ -218,7 +218,11 @@ const config = (home: string) => {
 const resource =
     <A, E>(scoped: Effect.Effect<A, E, Scope.Scope>) =>
     ({}, use: (held: A) => Promise<void>) =>
-        Effect.runPromise(Effect.scoped(Effect.flatMap(scoped, (held) => Effect.promise(() => use(held)))));
+        scoped.pipe(
+            Effect.flatMap((held) => Effect.promise(() => use(held))),
+            Effect.scoped,
+            Effect.runPromise,
+        );
 
 const it = test.extend<{ readonly axe: AxeBuilder }>({ axe: ({ page }, use) => use(new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'])) });
 

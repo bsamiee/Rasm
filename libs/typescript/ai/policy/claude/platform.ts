@@ -22,7 +22,6 @@ const resting = { pending: Option.some(false), running: Option.some(false), wait
 const variable = /^(?<name>[^=]+)=(?<value>.*)$/su;
 const hookScript = /-hook-\d+\.sh$/u;
 const encoder = new TextEncoder();
-const decoder = new TextDecoder('utf-8', { fatal: true });
 const collator = new Intl.Collator('en', { numeric: true });
 const byTime = Order.mapInput(Order.Number, ({ mtimeMs }: FsEntry) => mtimeMs);
 
@@ -105,7 +104,7 @@ const outputQueue = (option: ChildProcess.CommandOptions['stdout']) =>
     );
 const inputText = (option: ChildProcess.CommandOptions['stdin']) =>
     Match.value(Predicate.isString(option) || Stream.isStream(option) ? option : (option?.stream ?? 'pipe')).pipe(
-        Match.when(Stream.isStream, (input) => Effect.asSome(Stream.mkString(Stream.decodeText(input)))),
+        Match.when(Stream.isStream, (input) => input.pipe(Stream.decodeText, Stream.mkString, Effect.asSome)),
         Match.when(Match.is('pipe', 'ignore'), () => Effect.succeedNone),
         Match.orElse(() => Effect.fail(badArgument('ChildProcess', 'spawn', 'an input the engine cannot hand on: inherit or overlapped'))),
     );
@@ -214,17 +213,14 @@ function files($: EngineInterface) {
                 ),
             readFile: (path) => Effect.flatMap(stat(path, 'readFile'), ({ kind }) => (kind === 'file' ? paged(path) : read(path, {}))),
             writeFile: (path, data, options) =>
-                Effect.try({ try: () => decoder.decode(data), catch: () => badArgument('FileSystem', 'writeFile', 'bytes that are no UTF-8 text, as the engine writes text alone') }).pipe(
-                    Effect.filterOrFail(
-                        () => (options?.flag ?? 'w') === 'w' && options?.mode === undefined,
-                        () => badArgument('FileSystem', 'writeFile', 'a flag or mode, as the engine writes a whole file under its own mode'),
-                    ),
-                    Effect.flatMap((text) => request('FileSystem', 'writeFile', path, () => $.fs.write(path, text))),
-                ),
+                (options?.flag ?? 'w') === 'w' && options?.mode === undefined ? request('FileSystem', 'writeFile', path, () => $.fs.write(path, { base64: data.toBase64() })) : Effect.fail(badArgument('FileSystem', 'writeFile', 'a flag or mode, as the engine writes a whole file under its own mode')),
+            copyFile: (from, to) => request('FileSystem', 'copyFile', from, () => $.fs.copy(from, to)),
+            remove: (path, options) => request('FileSystem', 'remove', path, () => $.fs.remove(path)).pipe(Effect.catchReason('PlatformError', 'NotFound', (_, missing) => (options?.force === true ? Effect.void : missing))),
+            rename: (from, to) => request('FileSystem', 'rename', from, () => $.fs.rename(from, to)),
             stat: (path) =>
                 Effect.map(stat(path, 'stat'), (found) => ({
                     type: kinds[found.kind],
-                    mtime: Option.some(DateTime.toDateUtc(DateTime.makeUnsafe(found.mtimeMs))),
+                    mtime: DateTime.makeUnsafe(found.mtimeMs).pipe(DateTime.toDateUtc, Option.some),
                     atime: Option.none(),
                     birthtime: Option.none(),
                     dev: 0n,

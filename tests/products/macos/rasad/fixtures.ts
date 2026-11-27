@@ -26,7 +26,7 @@ interface Logged {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Installations = Schema.Array(Schema.toCodecJson(Installation));
+const Installations = Installation.pipe(Schema.toCodecJson, Schema.Array);
 const Instance = Schema.toCodecJson(InstanceSnapshot);
 const Happened = Schema.toCodecJson(Event);
 const Launch = Schema.toCodecJson(LaunchEvent);
@@ -58,46 +58,50 @@ const served = Effect.fnUntraced(function* (product: string, executable: string,
         return yield* Effect.orDie(Schema.decodeEffect(Launch)({ _tag: 'launched', pid, instance: row.instance, identifier: bundle.identifier, created: true }));
     });
     const fake = ApplicationRpcs.omit('pasteboard', 'model', 'intern', 'handlers', 'act', 'quit', 'dictionary', 'execute', 'capture', 'record', 'scale', 'diagnostics');
-    yield* Layer.build(
-        RpcServer.layer(fake).pipe(
-            Layer.provide([
-                fake.toLayer({
-                    installations: ({ identifiers, prefix }) =>
-                        Stream.concat(Stream.succeed({ unreadable: [], installations: installations.filter((each) => (identifiers === undefined && prefix === undefined) || identifiers?.includes(each.identifier) === true || (prefix !== undefined && each.identifier.startsWith(prefix))) }), Stream.never),
-                    instances: ({ identifiers }) => Stream.map(SubscriptionRef.changes(running), (rows) => Result.succeed(Array.filter(rows, (row) => identifiers?.includes(row.identifier) !== false))),
-                    events: ({ identifiers }) =>
-                        SubscriptionRef.changes(log).pipe(
-                            Stream.mapAccum(
-                                () => 0,
-                                (seen, entries) => [entries.length, entries.slice(seen)],
-                            ),
-                            Stream.filter(({ identifier }) => identifiers?.includes(identifier) !== false),
-                            Stream.tap(({ taken }) => Deferred.succeed(taken, undefined)),
-                            Stream.map(({ event }) => Result.succeed(event)),
+    yield* fake.pipe(
+        RpcServer.layer,
+        Layer.provide([
+            fake.toLayer({
+                installations: ({ identifiers, prefix }) =>
+                    Stream.concat(Stream.succeed({ unreadable: [], installations: installations.filter((each) => (identifiers === undefined && prefix === undefined) || identifiers?.includes(each.identifier) === true || (prefix !== undefined && each.identifier.startsWith(prefix))) }), Stream.never),
+                instances: ({ identifiers }) => Stream.map(SubscriptionRef.changes(running), (rows) => Result.succeed(Array.filter(rows, (row) => identifiers?.includes(row.identifier) !== false))),
+                events: ({ identifiers }) =>
+                    SubscriptionRef.changes(log).pipe(
+                        Stream.mapAccum(
+                            () => 0,
+                            (seen, entries) => [entries.length, entries.slice(seen)],
                         ),
-                    installation: ({ url }) => Effect.orDie(Effect.fromOption(Array.findFirst(installations, (each) => each.url.href === url.href))),
-                    observations: () => Stream.never,
-                    release: () => Effect.void,
-                    pressure: () => Stream.never,
-                    session: () => Stream.concat(Stream.succeed(Result.succeed({ onConsole: true, locked: false, asleep: false, secureInput: false, spaces: [1] })), Stream.never),
-                    watch: ({ instance }) =>
-                        Effect.andThen(
-                            Effect.sync(() => MutableRef.update(watched, Array.append(instance))),
-                            SubscriptionRef.get(running),
-                        ).pipe(
-                            Effect.flatMap((rows) => Effect.fromOption(Array.findFirst(rows, (row) => row.instance === instance))),
-                            Effect.filterOrFail(
-                                (row): row is InstanceSnapshot & { readonly language: string } => row.language !== undefined,
-                                () => new Cause.NoSuchElementError(`${instance} states no interface language`),
-                            ),
-                            Effect.orDie,
+                        Stream.filter(({ identifier }) => identifiers?.includes(identifier) !== false),
+                        Stream.tap(({ taken }) => Deferred.succeed(taken, undefined)),
+                        Stream.map(({ event }) => Result.succeed(event)),
+                    ),
+                installation: ({ url }) => Array.findFirst(installations, (each) => each.url.href === url.href).pipe(Effect.fromOption, Effect.orDie),
+                observations: () => Stream.never,
+                release: () => Effect.void,
+                pressure: () => Stream.never,
+                session: () => Stream.concat(Stream.succeed(Result.succeed({ onConsole: true, locked: false, asleep: false, secureInput: false, spaces: [1] })), Stream.never),
+                watch: ({ instance }) =>
+                    Effect.andThen(
+                        Effect.sync(() => MutableRef.update(watched, Array.append(instance))),
+                        SubscriptionRef.get(running),
+                    ).pipe(
+                        Effect.flatMap((rows) => Effect.fromOption(Array.findFirst(rows, (row) => row.instance === instance))),
+                        Effect.filterOrFail(
+                            (
+                                row,
+                            ): row is InstanceSnapshot & {
+                                readonly language: string;
+                            } => row.language !== undefined,
+                            () => new Cause.NoSuchElementError(`${instance} states no interface language`),
                         ),
-                    launch: (payload) => Stream.fromEffect(launch(payload)),
-                }),
-                RpcServer.layerProtocolSocketServer,
-            ]),
-            Layer.provide([sockets({ path: socket }), RpcSerialization.layerNdJsonRpc()]),
-        ),
+                        Effect.orDie,
+                    ),
+                launch: (payload) => Stream.fromEffect(launch(payload)),
+            }),
+            RpcServer.layerProtocolSocketServer,
+        ]),
+        Layer.provide([sockets({ path: socket }), RpcSerialization.layerNdJsonRpc()]),
+        Layer.build,
     );
     const files = {
         [path.join(contents, 'Info.plist')]: build({ CFBundleExecutable: executable, CFBundleIdentifier: `app.rasm.${executable.toLowerCase()}.suite`, CFBundleShortVersionString: '0.0.0' }),

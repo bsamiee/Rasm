@@ -13,7 +13,7 @@ const PATH = '/link';
 class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')({
     application: Schema.Union([Schema.URLFromString.annotate({ description: 'Host application bundle URL with trailing slash' }), Schema.String.annotate({ description: 'Host application name, from a host that reports no bundle path' })]),
     plugin: Schema.String.annotate({ description: 'Plugin identifier inside its host application' }),
-    requests: Schema.fromJsonString(Schema.toCodecJson(Schema.ReadonlySet(Schema.String)))
+    requests: Schema.String.pipe(Schema.ReadonlySet, Schema.toCodecJson, Schema.fromJsonString)
         .annotate({ description: 'Requests the plugin serves beside tool calls' })
         .pipe(Schema.withConstructorDefault(Effect.succeed(new Set<string>()))),
 }) {

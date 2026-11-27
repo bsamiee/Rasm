@@ -1,7 +1,6 @@
 {
     "name": "@rasm/process",
     "version": "0.1.0",
-    "private": true,
     "description": "Child process runs over Effect commands, each joining its caller's trace and failing with its exit code and output",
     "license": "MIT",
     "repository": {

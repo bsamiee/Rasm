@@ -9,10 +9,10 @@ import { above, below, executor, inside, spawned, Words } from '#/inference';
 
 const Clean = Schema.Struct({
     targets: Schema.Array(Schema.String).annotate({ description: 'Targets of the project, each declared output of every configuration is removed', default: [] }),
-    commands: Schema.Array(Schema.NonEmptyArray(Schema.String)).annotate({ description: "The tool's own clean commands, each an argument list", default: [] }),
+    commands: Schema.String.pipe(Schema.NonEmptyArray, Schema.Array).annotate({ description: "The tool's own clean commands, each an argument list", default: [] }),
     cwd: Schema.String.annotate({ description: 'Folder the commands run in, relative to the workspace root', default: '.' }),
-    folders: Schema.Array(Schema.NonEmptyArray(Schema.String)).annotate({ description: "Folders whose entries are removed, keeping the entry holding Nx's workspace data, each an environment variable naming a folder followed by path segments under it", default: [] }),
-    patterns: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Glob patterns relative to the workspace root, each match is removed whole unless the workspace tracks it or a file under it', default: [] }),
+    folders: Schema.String.pipe(Schema.NonEmptyArray, Schema.Array).annotate({ description: "Folders whose entries are removed, keeping the entry holding Nx's workspace data, each an environment variable naming a folder followed by path segments under it", default: [] }),
+    patterns: Schema.String.pipe(Schema.Array, Schema.optionalKey).annotate({ description: 'Glob patterns relative to the workspace root, each match is removed whole unless the workspace tracks it or a file under it', default: [] }),
     __unparsed__: Words,
 }).annotate({
     title: 'Clean',

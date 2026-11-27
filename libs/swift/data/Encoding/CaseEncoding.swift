@@ -1,8 +1,8 @@
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public protocol CaseTagged: Encodable {}
+package protocol CaseTagged: Encodable {}
 
-public protocol CaseLabeled: Encodable {}
+package protocol CaseLabeled: Encodable {}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -20,7 +20,7 @@ private struct Field: CodingKey {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension CaseTagged {
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         let held: Mirror.Child? = Mirror(reflecting: self).children.first
         let payload: Mirror? = held.map { held in Mirror(reflecting: held.value) }
         let refused = { (value: Any) in
@@ -45,7 +45,7 @@ extension CaseTagged {
 }
 
 extension CaseLabeled {
-    public var caseLabel: String { Mirror(reflecting: self).children.first?.label ?? String(describing: self) }
+    var caseLabel: String { Mirror(reflecting: self).children.first?.label ?? String(describing: self) }
 
-    public func encode(to encoder: any Encoder) throws { try caseLabel.encode(to: encoder) }
+    package func encode(to encoder: any Encoder) throws { try caseLabel.encode(to: encoder) }
 }

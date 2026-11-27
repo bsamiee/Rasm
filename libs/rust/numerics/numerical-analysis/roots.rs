@@ -3,7 +3,7 @@ use core::num::NonZero;
 use core::ops::ControlFlow;
 use core::range::RangeInclusive;
 
-use basin::{BoxBounds, Brent, Constrained, ConstraintSet, ConstraintSolveError, CostFunction, PointState, RootError, Toms748Root};
+use basin::{BoxBounds, Brent, Constrained, ConstraintSet, ConstraintSolveError, CostFunction, IncumbentRef, PointState, RootError, Toms748Root};
 use faer::MatRef;
 use faer::linalg::evd::EvdError;
 use itertools::Itertools as _;
@@ -69,7 +69,13 @@ where F: Fn(f64) -> Result<f64, AnalysisError> {
             ConstraintSolveError::Evaluation(error) => error,
             source => AnalysisError::Root { bracket, source: RootSource::Basin(Box::new(source)) },
         })
-        .and_then(|result| if result.report.termination.is_converged() { Ok((*result.best_param(), result.best_cost())) } else { Err(AnalysisError::SearchStopped { bracket, report: result.report }) })
+        .and_then(|result| {
+            let incumbent = result.incumbent_record().map(|IncumbentRef { param, cost: least, .. }| (*param, least));
+            match (result.report.termination.is_converged(), incumbent) {
+                (true, Some(found)) => Ok(found),
+                (true, None) | (false, _) => Err(AnalysisError::SearchStopped { bracket, report: result.report }),
+            }
+        })
 }
 
 pub fn bracketed<F>(function: F, interval: Bounds, steps: NonZero<usize>, tolerance: Option<Tolerance>, hooks: SearchHooks<'_>) -> Result<Vec<f64>, NEVec<AnalysisError>>

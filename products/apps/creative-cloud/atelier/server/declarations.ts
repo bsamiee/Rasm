@@ -58,7 +58,7 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
             Effect.tapCause((cause) => Effect.logWarning('Illustrator pages lack the core ExtendScript classes', cause)),
             Effect.catchCause(() => partial),
         );
-        yield* Effect.forkScoped(Effect.ignore(illustrator));
+        yield* illustrator.pipe(Effect.ignore, Effect.forkScoped);
         const mediaencoder = Effect.gen(function* () {
             const { url } = yield* Effect.fromOption(
                 Array.findFirst(yield* SubscriptionRef.get(rows), (row) => row.product === HOSTS.ame.product),
@@ -66,7 +66,7 @@ class Declarations extends Context.Service<Declarations>()('@rasm/atelier/declar
             );
             return yield* readManifest(yield* files.readFileString(yield* posix.fromFileUrl(new URL('Contents/Resources/json/ScriptingAPIManifest.json', url))));
         });
-        const paged = { illustrator, ...(yield* Effect.all({ mediaencoder: Effect.cached(mediaencoder), aftereffects: Effect.cached(readDocuments(files.stream(join(import.meta.dirname, 'aftereffects.jsonl')))) })) };
+        const paged = { illustrator, ...(yield* Effect.all({ mediaencoder: Effect.cached(mediaencoder), aftereffects: files.stream(join(import.meta.dirname, 'aftereffects.jsonl')).pipe(readDocuments, Effect.cached) })) };
         const resolved: Record.ReadonlyRecord<typeof Host.Type, Effect.Effect<Effect.Success<typeof paged.illustrator>, Effect.Error<(typeof paged)[keyof typeof paged]>>> = { ...Record.map(compiled, Effect.flatMap(Struct.get('catalog'))), ...paged };
         const refused = Effect.fnUntraced(function* (row: Application, line: (at: number) => Option.Option<number>, { host, listed }: { readonly host: keyof typeof CHECKED; readonly listed: Array.NonEmptyReadonlyArray<Finding> }) {
             const { index } = yield* resolved[host];

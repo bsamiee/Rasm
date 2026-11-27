@@ -26,7 +26,7 @@ const Container = Schema.Struct({
     products: Schema.Record(Schema.String, Schema.Array(Schema.String)),
     buildFiles: Schema.Array(Schema.String),
 });
-class Analyzed extends Schema.Opaque<Analyzed>()(Schema.fromJsonString(Schema.Struct({ containers: Schema.Array(Container), failures: Schema.Record(Schema.String, Schema.String) }))) {}
+class Analyzed extends Schema.Struct({ containers: Schema.Array(Container), failures: Schema.Record(Schema.String, Schema.String) }).pipe(Schema.fromJsonString, Schema.Opaque<Analyzed>()) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

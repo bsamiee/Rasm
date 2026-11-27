@@ -36,7 +36,7 @@ const DescriptionFields = { name: Schema.String, shortdesc: Schema.optionalKey(T
 class Argument extends Schema.Opaque<Argument, { readonly brand: unique symbol }>()(Schema.Struct({ ...DescriptionFields, optional: Schema.optionalKey(Schema.Literal('true').transform(true)) })) {}
 const Property = Schema.Struct({ ...DescriptionFields, rwaccess: Schema.optionalKey(Schema.Literal('readonly').transform(true)) });
 const MethodElement = Schema.Struct({ ...DescriptionFields, parameters: Schema.optionalKey(Schema.Struct({ parameter: Schema.Array(Argument) })) });
-const Elements = Schema.Struct({ type: Schema.Literals(['instance', 'class', 'constructor', 'event']), property: Schema.optionalKey(Schema.Array(Property)), method: Schema.optionalKey(Schema.Array(MethodElement)) });
+const Elements = Schema.Struct({ type: Schema.Literals(['instance', 'class', 'constructor', 'event']), property: Property.pipe(Schema.Array, Schema.optionalKey), method: MethodElement.pipe(Schema.Array, Schema.optionalKey) });
 class Classdef extends Schema.Opaque<Classdef, { readonly brand: unique symbol }>()(
     Schema.Struct({ ...DescriptionFields, enumeration: Schema.optionalKey(Schema.Literal('true').transform(true)), superclass: Schema.optionalKey(Text), elements: Schema.Array(Elements).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }),
 ) {}
@@ -48,11 +48,11 @@ const Constructor = Schema.Struct({ propKind: Schema.Literal('constructor') });
 class Entry extends Schema.Opaque<Entry, { readonly brand: unique symbol }>()(
     Schema.Struct({
         name: Schema.String,
-        properties: Schema.NullOr(Schema.Array(Schema.Struct({ name: Schema.String, dataType: Schema.String, propKind: Kind, propType: Flag('readOnly', 'readWrite'), async: BooleanText }))),
-        methods: Schema.NullOr(Schema.Array(Schema.Union([Callable, Constructor]))),
+        properties: Schema.Struct({ name: Schema.String, dataType: Schema.String, propKind: Kind, propType: Flag('readOnly', 'readWrite'), async: BooleanText }).pipe(Schema.Array, Schema.NullOr),
+        methods: Schema.Union([Callable, Constructor]).pipe(Schema.Array, Schema.NullOr),
     }),
 ) {}
-const Manifest = Schema.fromJsonString(Schema.Array(Entry));
+const Manifest = Entry.pipe(Schema.Array, Schema.fromJsonString);
 class DocumentationRow extends Schema.Opaque<DocumentationRow, { readonly brand: unique symbol }>()(
     Schema.Struct({
         name: Schema.String,

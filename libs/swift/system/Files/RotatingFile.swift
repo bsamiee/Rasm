@@ -1,26 +1,26 @@
-public import Foundation
+package import Foundation
 import System
 import os
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public struct RotatingFile: Sendable {
-    public let url: URL
-    public var size: UInt = 8 << 20
-    public var age: Duration = .seconds(86_400)
-    public var backups: UInt = 7
+package struct RotatingFile: Sendable {
+    package let url: URL
+    package var size: UInt = 8 << 20
+    package var age: Duration = .seconds(86_400)
+    package var backups: UInt = 7
     private let path: FilePath
     private let state = OSAllocatedUnfairLock<(writer: (descriptor: FileDescriptor, inode: Inode)?, failure: FileFailure?)>(initialState: (nil, nil))
 
-    public init(_ url: URL) { (self.url, path) = (url, FilePath(url.path(percentEncoded: false))) }
+    package init(_ url: URL) { (self.url, path) = (url, FilePath(url.path(percentEncoded: false))) }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension RotatingFile {
-    public var urls: [URL] { stride(from: backups, through: 0, by: -1).map(file) }
+    package var urls: [URL] { stride(from: backups, through: 0, by: -1).map(file) }
 
-    public var failure: FileFailure? { state.withLock { held in held.failure } }
+    package var failure: FileFailure? { state.withLock { held in held.failure } }
 
     private func file(_ index: UInt) -> URL { index == 0 ? url : url.appendingPathExtension(String(index)) }
 
@@ -54,7 +54,7 @@ extension RotatingFile {
         return try open()
     }
 
-    public func append(_ data: Data, at now: Date = .now) throws(FileFailure) {
+    package func append(_ data: Data, at now: Date = .now) throws(FileFailure) {
         let expiry: Duration = .seconds(now.timeIntervalSince1970) - age
         try state.withLock { held -> Result<Void, FileFailure> in
             let outcome = Result { () throws in

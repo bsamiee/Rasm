@@ -18,7 +18,7 @@ const [encoder, decoder] = [new TextEncoder(), new TextDecoder()];
 
 const Webhook = Effect.fn('Webhook')(function* <S extends Schema.Top>({ scheme, payload, ...contract }: { readonly scheme: Scheme; readonly payload: S; readonly tolerance: Duration.Input; readonly secrets: Array.NonEmptyReadonlyArray<Redacted.Redacted> }) {
     const [keys, digest] = yield* Effect.all([Effect.forEach(contract.secrets, (secret) => Scheme.key(scheme, secret)), Digest.Digest]);
-    const [tolerance, text] = [Duration.fromInputUnsafe(contract.tolerance), Schema.fromJsonString(Schema.toCodecJson(payload))];
+    const [tolerance, text] = [Duration.fromInputUnsafe(contract.tolerance), payload.pipe(Schema.toCodecJson, Schema.fromJsonString)];
     const refused = (reason: WebhookError['reason']) => WebhookError.of(reason, scheme.signature)();
     const verify = Effect.fn('verify')(function* (headers: Headers.Headers, body: Uint8Array) {
         const [{ id, timestamp, content, signatures }, now] = yield* Effect.all([Scheme.read(scheme, headers, body), DateTime.now]);

@@ -32,4 +32,4 @@ const read = Effect.gen(function* () {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-parentPort?.postMessage(await Effect.runPromise(Effect.scoped(read)));
+parentPort?.postMessage(await read.pipe(Effect.scoped, Effect.runPromise));

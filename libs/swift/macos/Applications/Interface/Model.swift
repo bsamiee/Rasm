@@ -1,8 +1,8 @@
-public import AppKit
+package import AppKit
 @unsafe @preconcurrency import ApplicationServices
 import CasePathsCore
-public import CoreGraphics
-public import Foundation
+import CoreGraphics
+import Foundation
 import OrderedCollections
 import RegexBuilder
 
@@ -15,15 +15,15 @@ private let pressActions: Set<String> = [kAXPressAction, kAXPickAction, kAXConfi
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct Hierarchy: Sendable {
-    public let elements: [Element]
-    public let roots: [Int]
-    public let windows: [InstanceState.Window]
+struct Hierarchy: Sendable {
+    let elements: [Element]
+    let roots: [Int]
+    let windows: [InstanceState.Window]
     let documents: [URL]
-    public let regular: Bool
-    public let focused: Int?
-    public let truncated: [Int]
-    public let extras: Int?
+    let regular: Bool
+    let focused: Int?
+    let truncated: [Int]
+    let extras: Int?
     var recognized: [CGWindowID: [RecognizedLine]] = [:]
     var runs: [Int: [Control.Run]] = [:]
 
@@ -37,8 +37,8 @@ public struct Hierarchy: Sendable {
     var flyouts: [InstanceState.Window] { undescribed.filter { row in row.band == .modalPanel || row.band == .popUpMenu } }
 }
 
-public struct Control: Encodable, Equatable, Sendable {
-    public enum Kind: String, Codable, Sendable {
+struct Control: Encodable, Equatable, Sendable {
+    enum Kind: String, Codable, Sendable {
         case action
         case toggle
         case choice
@@ -52,14 +52,14 @@ public struct Control: Encodable, Equatable, Sendable {
         case item
         case region
 
-        public var valued: Bool {
+        var valued: Bool {
             switch self {
                 case .toggle, .choice, .number, .measure, .color, .date: true
                 case .action, .multi, .row, .text, .item, .region: false
             }
         }
 
-        public var holdsValueAttribute: Bool {
+        var holdsValueAttribute: Bool {
             switch self {
                 case .toggle, .number, .measure, .text, .color, .date: true
                 case .action, .choice, .multi, .row, .item, .region: false
@@ -97,41 +97,41 @@ public struct Control: Encodable, Equatable, Sendable {
         }
     }
 
-    public enum Evidence: String, Codable, Sendable {
+    enum Evidence: String, Codable, Sendable {
         case attribute
         case marked
     }
 
-    public struct Label: Encodable, Equatable, Sendable {
-        public let text: String
-        public let attribute: String
+    struct Label: Encodable, Equatable, Sendable {
+        let text: String
+        let attribute: String
     }
 
-    public struct Option: Encodable, Equatable, Sendable {
-        public let label: String
-        public let ref: Int
-        public let help: String?
+    struct Option: Encodable, Equatable, Sendable {
+        let label: String
+        let ref: Int
+        let help: String?
     }
 
-    public struct Range: Encodable, Equatable, Sendable {
-        public let minimum: Double?
-        public let maximum: Double?
-        public let step: Double?
-        public let wraps: Bool?
+    struct Range: Encodable, Equatable, Sendable {
+        let minimum: Double?
+        let maximum: Double?
+        let step: Double?
+        let wraps: Bool?
     }
 
-    public struct Shortcut: Encodable, Equatable, Sendable {
-        public let key: Key
-        public let modifiers: [Modifier]
+    struct Shortcut: Encodable, Equatable, Sendable {
+        let key: Key
+        let modifiers: [Modifier]
     }
 
-    public enum Invalid: String, Encodable, Sendable {
+    enum Invalid: String, Encodable, Sendable {
         case `true`
         case grammar
         case spelling
     }
 
-    public enum Current: String, Encodable, Sendable {
+    enum Current: String, Encodable, Sendable {
         case `true`
         case page
         case step
@@ -140,7 +140,7 @@ public struct Control: Encodable, Equatable, Sendable {
         case time
     }
 
-    public enum Sort: String, Encodable, Sendable {
+    enum Sort: String, Encodable, Sendable {
         case ascending
         case descending
 
@@ -153,76 +153,76 @@ public struct Control: Encodable, Equatable, Sendable {
         }
     }
 
-    public struct Cell: Encodable, Equatable, Sendable {
-        public let column: String?
-        public let text: String
+    struct Cell: Encodable, Equatable, Sendable {
+        let column: String?
+        let text: String
     }
 
-    public struct TextRange: Encodable, Equatable, Sendable {
-        public let location: Int
-        public let length: Int
+    struct TextRange: Encodable, Equatable, Sendable {
+        let location: Int
+        let length: Int
     }
 
-    public struct Run: Encodable, Equatable, Sendable {
-        public let range: TextRange
-        public let text: String
-        public let attributes: [String: Fact]
-        public let frame: CGRect?
+    struct Run: Encodable, Equatable, Sendable {
+        let range: TextRange
+        let text: String
+        let attributes: [String: Fact]
+        let frame: CGRect?
     }
 
-    public struct Scroll: Encodable, Equatable, Sendable {
-        public let contentSize: CGSize?
-        public let horizontalScrollBar: Double?
-        public let verticalScrollBar: Double?
+    struct Scroll: Encodable, Equatable, Sendable {
+        let contentSize: CGSize?
+        let horizontalScrollBar: Double?
+        let verticalScrollBar: Double?
     }
 
-    public let ref: Int
-    public let locator: Locator
-    public let kind: Kind
-    public let role: String
-    public let subrole: String?
-    public let label: Label?
-    public let labels: [String]?
-    public let section: String?
-    public var value: Fact?
-    public let enabled: Bool?
-    public let focused: Bool?
-    public let selected: Evidence?
-    public let help: String?
-    public let frame: CGRect?
-    public let positional: Bool
-    public let options: [Option]?
-    public let range: Range?
-    public let mark: String?
-    public let shortcut: Shortcut?
-    public let keyEquivalent: String?
-    public let opens: Int?
-    public let separated: Bool?
-    public let alternate: Int?
-    public let placeholder: String?
-    public let level: Int?
-    public let index: Int?
-    public let row: Int?
-    public let expanded: Bool?
-    public let actions: [String]?
-    public let alternateUIVisible: Bool?
-    public let disclosedBy: Int?
-    public let total: Int?
-    public let sort: Sort?
-    public let cells: [Cell]?
-    public let column: String?
-    public let scroll: Scroll?
-    public let selectedTextRanges: [TextRange]?
-    public let numberOfCharacters: Int?
-    public let insertionPointLineNumber: Int?
-    public let runs: [Run]?
-    public let invalid: Invalid?
-    public let required: Bool?
-    public let current: Current?
+    let ref: Int
+    let locator: Locator
+    let kind: Kind
+    let role: String
+    let subrole: String?
+    let label: Label?
+    let labels: [String]?
+    let section: String?
+    var value: Fact?
+    let enabled: Bool?
+    let focused: Bool?
+    let selected: Evidence?
+    let help: String?
+    let frame: CGRect?
+    let positional: Bool
+    let options: [Option]?
+    let range: Range?
+    let mark: String?
+    let shortcut: Shortcut?
+    let keyEquivalent: String?
+    let opens: Int?
+    let separated: Bool?
+    let alternate: Int?
+    let placeholder: String?
+    let level: Int?
+    let index: Int?
+    let row: Int?
+    let expanded: Bool?
+    let actions: [String]?
+    let alternateUIVisible: Bool?
+    let disclosedBy: Int?
+    let total: Int?
+    let sort: Sort?
+    let cells: [Cell]?
+    let column: String?
+    let scroll: Scroll?
+    let selectedTextRanges: [TextRange]?
+    let numberOfCharacters: Int?
+    let insertionPointLineNumber: Int?
+    let runs: [Run]?
+    let invalid: Invalid?
+    let required: Bool?
+    let current: Current?
 }
 
-public struct Container: Encodable, Equatable, Sendable {
-    public enum Kind: String, Codable, Sendable {
+struct Container: Encodable, Equatable, Sendable {
+    enum Kind: String, Codable, Sendable {
         case window
         case dialog
         case panel
@@ -262,33 +262,33 @@ public struct Container: Encodable, Equatable, Sendable {
         }
     }
 
-    public let ref: Int
-    public let locator: Locator
-    public let kind: Kind
-    public let title: String?
-    public let help: String?
-    public let document: URL?
-    public let edited: Bool?
-    public let fullScreen: Bool?
-    public let loaded: Bool?
-    public let loadingProgress: Double?
-    public let window: CGWindowID?
-    public let frame: CGRect?
-    public let layer: Int?
-    public let modal: Bool
-    public let asking: Bool
-    public let focused: Bool?
-    public let parent: Int?
-    public let `default`: Int?
-    public let cancel: Int?
-    public let close: Int?
-    public let text: [String]
-    public let truncated: Bool
-    public var controls: [Control]
+    let ref: Int
+    let locator: Locator
+    let kind: Kind
+    let title: String?
+    let help: String?
+    let document: URL?
+    let edited: Bool?
+    let fullScreen: Bool?
+    let loaded: Bool?
+    let loadingProgress: Double?
+    let window: CGWindowID?
+    let frame: CGRect?
+    let layer: Int?
+    let modal: Bool
+    let asking: Bool
+    let focused: Bool?
+    let parent: Int?
+    let `default`: Int?
+    let cancel: Int?
+    let close: Int?
+    let text: [String]
+    let truncated: Bool
+    var controls: [Control]
 }
 
-public struct Model: Encodable, Sendable {
-    public enum Scope: Decodable, Sendable {
+package struct Model: Encodable, Sendable {
+    package enum Scope: Decodable, Sendable {
         case application
         case container(ref: Int)
         case menu(ref: Int)
@@ -306,7 +306,7 @@ public struct Model: Encodable, Sendable {
             case ref, from, count, text, key, limit
         }
 
-        public init(from decoder: any Decoder) throws {
+        package init(from decoder: any Decoder) throws {
             let fields = try decoder.container(keyedBy: Field.self)
             let tag: String = try fields.decode(String.self, forKey: .tag)
             self =
@@ -328,21 +328,21 @@ public struct Model: Encodable, Sendable {
         }
     }
 
-    public struct Known: Decodable, Sendable {
-        public let build: String?
-        public let containers: Set<String>
-        public let labels: Set<String>
+    package struct Known: Decodable, Sendable {
+        let build: String?
+        let containers: Set<String>
+        let labels: Set<String>
     }
 
     private enum CodingKeys: CodingKey {
         case sequence, containers, pointer
     }
 
-    public let sequence: Int
-    public let containers: [Container]
+    let sequence: Int
+    let containers: [Container]
     let located: [Int: Int]
     var drawn: [Int: (window: CGWindowID, frame: CGRect)] = [:]
-    public var pointer: Pointer?
+    var pointer: Pointer?
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -411,7 +411,7 @@ extension Element {
 }
 
 extension Model {
-    public init(_ hierarchy: Hierarchy, sequence: Int, under: [Int: Locator] = [:], locale: Locale = .autoupdatingCurrent, ref intern: (Locator) -> Int) {
+    init(_ hierarchy: Hierarchy, sequence: Int, under: [Int: Locator] = [:], locale: Locale = .autoupdatingCurrent, ref intern: (Locator) -> Int) {
         let flyouts: Set<CGWindowID> = Set(hierarchy.flyouts.map(\.number))
         let regions: [[Element]] = hierarchy.undescribed.map { (row: InstanceState.Window) -> [Element] in
             let id: Int = ~(Int(row.number) << 32)

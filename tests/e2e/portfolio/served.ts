@@ -31,7 +31,7 @@ const STORAGE = { binding: 'BUCKET', bucket: 'portfolio', accessKeyId: 'portfoli
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Upload = Schema.Struct({ attempt: Schema.String, objects: Schema.Array(Schema.Struct({ key: Schema.String })) }).annotate({ description: 'The attempt and object keys POST /api/assets answers for a file the library lacks' });
-const Allowed = Schema.fromJsonString(Schema.Array(Schema.String)).annotate({ description: 'The JSON list of owner addresses the ALLOWED variable holds' });
+const Allowed = Schema.String.pipe(Schema.Array, Schema.fromJsonString).annotate({ description: 'The JSON list of owner addresses the ALLOWED variable holds' });
 const Cleared = Schema.Struct({ script: Schema.String }).annotate({ description: 'The one statement list SQLite builds to delete every row of every table the product created' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

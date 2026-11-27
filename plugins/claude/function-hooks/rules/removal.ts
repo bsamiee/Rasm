@@ -75,7 +75,11 @@ const removal: Table = {
             const [nulls, plain] = [xargs.has('-0', '--null'), xargs.only('-0', '--null', '-r', '--no-run-if-empty')];
             const argv = Option.flatMap(remover, (inner) => inner.argv);
             const list = Option.filter(xargs.stdin._tag === 'File' ? xargs.stdin.path.text : Option.none(), () => plain);
-            const listed = yield* Effect.option(Effect.flatMap(Effect.fromOption(list), (file) => fs.readFileString(file)));
+            const listed = yield* list.pipe(
+                Effect.fromOption,
+                Effect.flatMap((file) => fs.readFileString(file)),
+                Effect.option,
+            );
             const paths = Option.filter(
                 Option.map(listed, (text) => text.split(nulls ? '\0' : '\n').filter(String.isNonEmpty)),
                 (items) => Array.isReadonlyArrayNonEmpty(items) && (nulls || items.every((item) => !/[\s'"\\]/u.test(item))),

@@ -7,7 +7,7 @@ import { chunks } from '#/usage/chunks';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const Carried = Schema.NonEmptyArray(Schema.toEncoded(Chunk));
+const Carried = Chunk.pipe(Schema.toEncoded, Schema.NonEmptyArray);
 const merger = Option.makeReducer(Combiner.make((base: Usage, over: Usage) => base.merge(over)));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -31,15 +31,7 @@ const catalog = Effect.fnUntraced(function* (rows: readonly (typeof Usage.Encode
             function* (program: string) {
                 const exported = yield* Option.match(yield* live, {
                     onSome: ({ completers }) => (Record.has(completers, program) ? describe(program) : Effect.succeedNone),
-                    onNone: () =>
-                        Effect.orDie(
-                            Effect.transposeOption(
-                                Option.map(
-                                    Array.findFirst(carried, ({ programs }) => Record.get(programs, program)),
-                                    Schema.decodeEffect(Row),
-                                ),
-                            ),
-                        ),
+                    onNone: () => Array.findFirst(carried, ({ programs }) => Record.get(programs, program)).pipe(Option.map(Schema.decodeEffect(Row)), Effect.transposeOption, Effect.orDie),
                 });
                 return merger.combine(exported, Record.get(named, program));
             },

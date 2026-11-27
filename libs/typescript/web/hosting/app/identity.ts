@@ -12,7 +12,7 @@ const development = { cookie: 'development-user', page: '<!doctype html><title>S
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Header = Schema.String.pipe(Schema.decode(SchemaTransformation.toLowerCase()));
-const Addresses = Schema.fromJsonString(Schema.Array(Schema.String));
+const Addresses = Schema.String.pipe(Schema.Array, Schema.fromJsonString);
 
 class User extends Schema.Class<User, { readonly brand: unique symbol }>('User')({ id: Schema.NonEmptyString, email: Schema.OptionFromOptionalKey(Schema.String) }) {}
 
@@ -48,7 +48,7 @@ class Identity extends Context.Service<Identity, Effect.Effect<Option.Option<Use
     static readonly href = (action: keyof typeof Identity.paths, target: string) => `${Identity.paths[action]}?${UrlParams.toString(UrlParams.fromInput(ReturnTo.make({ return_to: target })))}`;
     static readonly back = Effect.gen(function* () {
         const request = yield* HttpServerRequest.HttpServerRequest;
-        const [url, returned] = yield* Effect.all([Effect.orDie(Effect.fromOption(HttpServerRequest.toURL(request))), Effect.option(HttpServerRequest.schemaSearchParams(ReturnTo))]);
+        const [url, returned] = yield* Effect.all([HttpServerRequest.toURL(request).pipe(Effect.fromOption, Effect.orDie), ReturnTo.pipe(HttpServerRequest.schemaSearchParams, Effect.option)]);
         const target = returned.pipe(
             Option.flatMapNullishOr(({ return_to }) => URL.parse(return_to, url.origin)),
             Option.filter(({ origin }) => origin === url.origin),

@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-docker",
     "private": true,
-    "description": "@rasm/nx-docker suites over the Colima engine targets and the engine edges of packages requiring an engine client, in temporary workspaces",
+    "description": "@rasm/nx-docker suites over the Docker Engine targets and the engine edges of packages requiring an engine client, in temporary workspaces",
     "type": "module",
     "devDependencies": {
         "@nx/devkit": "catalog:",

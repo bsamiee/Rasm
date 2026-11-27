@@ -36,8 +36,8 @@ describe('handle routes a harness plugin reaches', () => {
         'streams each event a bound handle owns as the line its results lead with, and leaves an acknowledged event out of the next result while a later one stays',
         Effect.fnUntraced(function* () {
             const { probe, request, called } = yield* opened(PROTOCOL);
-            const { handle, server } = yield* Effect.flatMap(request(urls.bind({ query: {} }), { method: 'POST' }), decoded(Handles.Binding));
-            const followed = yield* request(urls.events({ params: { handle }, query: { follow: true } }));
+            const { handle, server } = yield* Effect.flatMap(request(urls.bind(), { method: 'POST' }), decoded(Handles.Binding));
+            const followed = yield* request(urls.follow({ params: { handle } }));
             yield* Queue.offerAll(probe.shared, EVENTS);
             const streamed = yield* followedLines(followed, EVENTS.length);
             const acked = yield* request(urls.ack({ params: { handle }, query: { through: 1 } }), { method: 'DELETE' });
@@ -61,8 +61,8 @@ describe('handle routes a harness plugin reaches', () => {
         'leaves an event raised while a call of the handle runs to that call result alone, and streams the next event once the call returned',
         Effect.fnUntraced(function* () {
             const { probe, request, called } = yield* opened(PROTOCOL);
-            const { handle } = yield* Effect.flatMap(request(urls.bind({ query: {} }), { method: 'POST' }), decoded(Handles.Binding));
-            const followed = yield* request(urls.events({ params: { handle }, query: { follow: true } }));
+            const { handle } = yield* Effect.flatMap(request(urls.bind(), { method: 'POST' }), decoded(Handles.Binding));
+            const followed = yield* request(urls.follow({ params: { handle } }));
             const running = yield* Effect.forkScoped(called('gated_write', { handle }));
             yield* Queue.take(probe.entered);
             yield* Queue.offer(probe.shared, EVENTS[0]);

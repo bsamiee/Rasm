@@ -1,4 +1,3 @@
-import AppleEvents
 import CasePathsCore
 import CoreServices
 import CustomDump
@@ -6,6 +5,8 @@ import Encoding
 import Foundation
 import Results
 import Testing
+
+@testable import AppleEvents
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

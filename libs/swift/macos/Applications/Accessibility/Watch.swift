@@ -1,12 +1,12 @@
-public import AppKit
+package import AppKit
 @unsafe @preconcurrency import ApplicationServices
 import AsyncAlgorithms
-public import CasePaths
+import CasePaths
 import CasePathsCore
-public import Encoding
+import Encoding
 import OSLog
-public import OrderedCollections
-public import Processes
+package import OrderedCollections
+package import Processes
 import Results
 import SPI
 import Synchronization
@@ -56,11 +56,11 @@ struct RunLoopSource: ~Copyable {
     deinit { CFRunLoopSourceInvalidate(source) }
 }
 
-public actor Watch {
+package actor Watch {
     // --- [STATE]
 
-    public nonisolated let instance: Instance
-    public nonisolated let language: Locale.Language
+    package nonisolated let instance: Instance
+    package nonisolated let language: Locale.Language
     private let queue: DispatchSerialQueue
     private let serial: ProcessSerialNumber?
     private let build: String?
@@ -143,7 +143,7 @@ public actor Watch {
         queue = DispatchSerialQueue(label: "\(String(reflecting: Watch.self)) \(instance.process)")
     }
 
-    public nonisolated var unownedExecutor: UnownedSerialExecutor { unsafe queue.asUnownedSerialExecutor() }
+    package nonisolated var unownedExecutor: UnownedSerialExecutor { unsafe queue.asUnownedSerialExecutor() }
 
     func start(windows notices: AsyncStream<Result<WindowServerConnection.Notice, ApplicationFailure>>, ending: @escaping @Sendable () async -> Void) {
         let process: pid_t = instance.process.pid
@@ -281,21 +281,21 @@ public actor Watch {
     // --- [MESSAGES]
 
     @CasePathable
-    public enum Message: Sendable {
+    enum Message: Sendable {
         case state(InstanceState)
         case event(InstanceEvent)
         case observation(Report)
         case failure(ApplicationFailure)
     }
 
-    public struct Report: Encodable, Sendable {
-        public let instance: ProcessInstance
-        public let identifier: String?
-        public let language: String
-        public let observation: Observation
+    package struct Report: Encodable, Sendable {
+        let instance: ProcessInstance
+        let identifier: String?
+        let language: String
+        let observation: Observation
     }
 
-    public func messages() -> AsyncStream<Message> {
+    func messages() -> AsyncStream<Message> {
         let (stream, continuation) = AsyncStream<Message>.makeStream()
         let id = UUID()
         continuation.yield(.state(state))
@@ -316,9 +316,9 @@ public actor Watch {
         return stream
     }
 
-    public func states() -> some AsyncSequence<InstanceState, Never> & Sendable { messages().compactMap { message in message[case: \.state] } }
+    func states() -> some AsyncSequence<InstanceState, Never> & Sendable { messages().compactMap { message in message[case: \.state] } }
 
-    public var current: InstanceState { state }
+    package var current: InstanceState { state }
 
     private func send(_ message: Message) {
         subscribers.withLock { held in
@@ -362,7 +362,7 @@ public actor Watch {
 
     private func intern(_ locator: Locator) -> Int { locators.append(locator).index + 1 }
 
-    public func intern(_ locators: [Locator]) -> [Int] {
+    package func intern(_ locators: [Locator]) -> [Int] {
         let opened: [Locator] = open.values.map(\.locator)
         let documented: [Locator] = opened.filter { (held: Locator) -> Bool in held != held.stored }
         let documents: [Locator: [Locator]] = Dictionary(grouping: documented) { (held: Locator) -> Locator in held.stored }
@@ -631,7 +631,7 @@ public actor Watch {
 
     // --- [MODEL]
 
-    public func model(_ scope: Model.Scope, known: Model.Known? = nil, clock: some Clock<Duration> = ContinuousClock()) async throws(ApplicationFailure) -> Model {
+    package func model(_ scope: Model.Scope, known: Model.Known? = nil, clock: some Clock<Duration> = ContinuousClock()) async throws(ApplicationFailure) -> Model {
         switch scope {
             case .application:
                 let verified: Set<String> = known?.build == build ? known?.containers ?? [] : []
@@ -728,7 +728,7 @@ public actor Watch {
 
     // --- [MENUS]
 
-    public enum Presentation: CaseTagged, Comparable, Sendable {
+    enum Presentation: CaseTagged, Comparable, Sendable {
         case behind
         case forward
     }
@@ -762,7 +762,7 @@ public actor Watch {
         try observe(container, opener: opener.flatMap { ref in controls[ref] })
     }
 
-    public nonisolated func presenting<Value>(
+    nonisolated func presenting<Value>(
         _ ref: Int?,
         by opening: String? = nil,
         clock: some Clock<Duration> = ContinuousClock(),
@@ -900,7 +900,7 @@ public actor Watch {
 
     // --- [ACTIONS]
 
-    public func perform<Value: Sendable>(on ref: Int?, _ body: @Sendable (AXUIElement?) throws(ApplicationFailure) -> Value) async throws(ApplicationFailure) -> Value {
+    func perform<Value: Sendable>(on ref: Int?, _ body: @Sendable (AXUIElement?) throws(ApplicationFailure) -> Value) async throws(ApplicationFailure) -> Value {
         let element: AXUIElement? = if let ref { try await resolve(ref) } else { nil }
         return try body(element)
     }
@@ -914,7 +914,7 @@ public actor Watch {
         return element
     }
 
-    public func frame(of ref: Int) async throws(ApplicationFailure) -> (window: CGWindowID, frame: CGRect) {
+    func frame(of ref: Int) async throws(ApplicationFailure) -> (window: CGWindowID, frame: CGRect) {
         if let shown = drawn[ref] {
             guard rows.contains(where: { row in row.number == shown.window && row.onScreen }) else { throw stale(ref) }
             return shown
@@ -925,13 +925,13 @@ public actor Watch {
         return (window, frame)
     }
 
-    public func documents() -> [CGWindowID: URL] {
+    func documents() -> [CGWindowID: URL] {
         Dictionary(open.values.compactMap { container in container.window.flatMap { window in container.document.map { document in (window, document) } } }) { first, _ in first }
     }
 
-    public func addOpenCommandDocuments(_ documents: [URL]) { openCommandDocuments.append(contentsOf: documents) }
+    func addOpenCommandDocuments(_ documents: [URL]) { openCommandDocuments.append(contentsOf: documents) }
 
-    public var documentFiles: [URL] { openCommandDocuments.union(open.values.compactMap(\.document)).elements.filter(\.isFileURL) }
+    package var documentFiles: [URL] { openCommandDocuments.union(open.values.compactMap(\.document)).elements.filter(\.isFileURL) }
 
     private func stale(_ ref: Int) -> ApplicationFailure {
         let steps: [Locator.Step] = locators.indices.contains(ref - 1) ? locators[ref - 1].steps : []
@@ -940,7 +940,7 @@ public actor Watch {
     }
 }
 
-public actor Watches {
+package actor Watches {
     private enum Change: Sendable {
         case listed(Result<OrderedDictionary<Instance, InstanceState>, ApplicationFailure>)
         case watched(instance: Instance, state: InstanceState)
@@ -951,7 +951,7 @@ public actor Watches {
     private let followers: Mutex<[UUID: AsyncStream<(watch: Watch, driven: Bool)>.Continuation]> = Mutex([:])
     private let windowServer: Result<WindowServerConnection, ApplicationFailure>
 
-    public init() {
+    package init() {
         let timed: AXError = AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), Float(messagingTimeout / .seconds(1)))
         windowServer = Result { () throws(ApplicationFailure) in
             guard timed == .success else { throw ApplicationFailure(subject: "messaging timeout of the system-wide element", reason: .accessibility(timed)) }
@@ -970,7 +970,7 @@ public actor Watches {
         }
     }
 
-    public func watch(_ instance: Instance, driven: Bool = true) async -> Watch {
+    package func watch(_ instance: Instance, driven: Bool = true) async -> Watch {
         let before: (watch: Watch, driven: Bool)? = held[instance.process]
         let after: (watch: Watch, driven: Bool) = (before?.watch ?? Watch(instance), driven || before?.driven == true)
         held[instance.process] = after
@@ -985,14 +985,14 @@ public actor Watches {
         return after.watch
     }
 
-    public func finish() async {
+    package func finish() async {
         let watching: [Watch] = held.values.map(\.watch)
         await withDiscardingTaskGroup { group in
             for watch in watching { group.addTask { await watch.finish() } }
         }
     }
 
-    public func release(_ process: ProcessInstance) async {
+    package func release(_ process: ProcessInstance) async {
         guard let released = held.removeValue(forKey: process) else { return }
         await released.watch.finish()
     }
@@ -1053,7 +1053,7 @@ public actor Watches {
         return output
     }
 
-    public nonisolated func states(
+    package nonisolated func states(
         of matching: @escaping @Sendable (NSRunningApplication) -> Bool
     ) -> some AsyncSequence<Result<OrderedDictionary<Instance, InstanceState>, ApplicationFailure>, Never> & Sendable {
         let (recounts, recount) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
@@ -1161,7 +1161,7 @@ public actor Watches {
         .removeDuplicates()
     }
 
-    public nonisolated func events(of matching: @escaping @Sendable (NSRunningApplication) -> Bool) -> some AsyncSequence<Result<InstanceEvent, ApplicationFailure>, Never> & Sendable {
+    package nonisolated func events(of matching: @escaping @Sendable (NSRunningApplication) -> Bool) -> some AsyncSequence<Result<InstanceEvent, ApplicationFailure>, Never> & Sendable {
         follow(matching, prompts: true).compactMap { (followed: Result<(instance: Instance, message: Watch.Message?), ApplicationFailure>) -> Result<InstanceEvent, ApplicationFailure>? in
             switch followed {
                 case .success((_, .event(let event)?)): .success(event)
@@ -1171,7 +1171,7 @@ public actor Watches {
         }
     }
 
-    public nonisolated func observations(of matching: @escaping @Sendable (NSRunningApplication) -> Bool) -> some AsyncSequence<Watch.Report, Never> & Sendable {
+    package nonisolated func observations(of matching: @escaping @Sendable (NSRunningApplication) -> Bool) -> some AsyncSequence<Watch.Report, Never> & Sendable {
         follow(matching, prompts: false).compactMap { (followed: Result<(instance: Instance, message: Watch.Message?), ApplicationFailure>) -> Watch.Report? in
             guard case .success(let followed) = followed else { return nil }
             return followed.message?[case: \.observation]

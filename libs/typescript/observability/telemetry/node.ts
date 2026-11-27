@@ -131,7 +131,7 @@ const layerNodeSdk = Effect.fnUntraced(function* (resource: Parameters<typeof st
 }, Layer.unwrap);
 const layerUncaughtExceptionMonitor = Effect.gen(function* () {
     const services = yield* Effect.context<never>();
-    const crashed = (...[error, origin]: ProcessEventMap['uncaughtExceptionMonitor']) => Effect.runSyncWith(services)(Effect.annotateLogs(Effect.logFatal(Cause.die(error)), { origin }));
+    const crashed = (...[error, origin]: ProcessEventMap['uncaughtExceptionMonitor']) => Cause.die(error).pipe(Effect.logFatal, Effect.annotateLogs({ origin }), Effect.runSyncWith(services)<void, never>);
     yield* Effect.acquireRelease(
         Effect.sync(() => process.on('uncaughtExceptionMonitor', crashed)),
         () => Effect.sync(() => process.removeListener('uncaughtExceptionMonitor', crashed)),

@@ -36,7 +36,7 @@ const Api = HttpApi.make('portfolio')
 - `HttpApiSchema.WithHeaders(S, headers)` types headers handlers set through `withHeaders({ body, headers })` and clients read as `{ body, headers }`
 - `.middleware(M)`, `.prefix(p)`, and `annotateEndpoints` reach endpoints and groups added before the call, and `.annotate` reaches every one
 - `HttpApi.ParseOptions` annotated `{ onExcessProperty: 'error' }` refuses unknown fields, a slot class (`QueryParseOptions`) one slot
-- `HttpApi.RedactedNames` annotated `{ query, headers, params }` redacts those values in spans and request logs, sending them unchanged
+- `HttpApi.RedactedNames` annotated `{ query, headers, params }` redacts those values in spans and request logs, sending them unchanged, and a slot field typed `Schema.Redacted` needs no listing
 - `HttpApiGroup.make('handles', { topLevel: true })` places a group's methods at the client root, and `.addHttpApi(other)` merges another API's groups
 
 ## [02]-[ERRORS]

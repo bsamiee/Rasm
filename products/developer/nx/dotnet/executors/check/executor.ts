@@ -13,8 +13,8 @@ const Result = Schema.Struct({
     ruleId: Schema.String,
     level: Schema.Literals(['none', 'note', ...Failing.literals]),
     message: Schema.Struct({ text: Schema.String }),
-    suppressions: Schema.optionalKey(Schema.Array(Schema.Unknown)),
-    locations: Schema.optionalKey(Schema.Array(Schema.Struct({ physicalLocation: Schema.Struct({ artifactLocation: Schema.Struct({ uri: Schema.URLFromString }), region: Schema.Struct({ startLine: Schema.Int, startColumn: Schema.Int }) }) }))),
+    suppressions: Schema.Unknown.pipe(Schema.Array, Schema.optionalKey),
+    locations: Schema.Struct({ physicalLocation: Schema.Struct({ artifactLocation: Schema.Struct({ uri: Schema.URLFromString }), region: Schema.Struct({ startLine: Schema.Int, startColumn: Schema.Int }) }) }).pipe(Schema.Array, Schema.optionalKey),
 });
 const Report = Schema.fromJsonString(Schema.Struct({ runs: Schema.Array(Schema.Struct({ results: Schema.Array(Result) })) }));
 

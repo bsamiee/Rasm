@@ -1,7 +1,6 @@
 {
     "name": "@rasm/search",
     "version": "0.1.0",
-    "private": true,
     "description": "Name lookup with fuzzy-ranked near matches, and the decimal digits of every Intl numbering system with their fold to ASCII",
     "license": "MIT",
     "repository": {

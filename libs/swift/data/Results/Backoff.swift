@@ -1,13 +1,13 @@
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct Backoff: Sendable {
+package struct Backoff: Sendable {
     let count: Int
     let base: Duration
     let growth: Double
     let cap: Duration?
     let jitter: Double
 
-    public init(count: Int, base: Duration, growth: Double = 2, cap: Duration? = nil, jitter: Double = 0) {
+    package init(count: Int, base: Duration, growth: Double = 2, cap: Duration? = nil, jitter: Double = 0) {
         (self.count, self.base, self.growth, self.cap, self.jitter) = (count, base, growth, cap, jitter)
     }
 

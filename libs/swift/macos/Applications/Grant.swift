@@ -5,12 +5,12 @@ import SPI
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public enum Grant: String, CaseIterable, Encodable, Sendable {
+package enum Grant: String, CaseIterable, Encodable, Sendable {
     case accessibility
     case screenCapture
     case postEvent
 
-    public func isHeld(asking: Bool) -> Bool {
+    package func isHeld(asking: Bool) -> Bool {
         switch (self, asking) {
             case (.accessibility, _): unsafe AXIsProcessTrustedWithOptions([kAXTrustedCheckOptionPrompt.takeUnretainedValue(): asking] as CFDictionary)
             case (.screenCapture, false): CGPreflightScreenCaptureAccess()
@@ -20,7 +20,7 @@ public enum Grant: String, CaseIterable, Encodable, Sendable {
         }
     }
 
-    public var settings: String {
+    var settings: String {
         let anchor: String =
             switch self {
                 case .accessibility, .postEvent: "Privacy_Accessibility"
@@ -35,7 +35,7 @@ public enum Grant: String, CaseIterable, Encodable, Sendable {
         return ApplicationFailure(subject: ProcessInfo.processInfo.processName, reason: responsible == process ? .noGrant(self) : .notResponsible(self, responsible))
     }
 
-    public func check() throws(ApplicationFailure) {
+    package func check() throws(ApplicationFailure) {
         if let missing { throw missing }
     }
 }

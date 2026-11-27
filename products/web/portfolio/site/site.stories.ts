@@ -100,7 +100,7 @@ const StoredBlanks = meta.story({
             () => waitFor(() => expect(document.title).toBe('Portfolio · Architecture')),
             () => expect(Array.from(canvas.getByRole('region', { name: 'Untitled entry' }).querySelectorAll('.chapter-meta span, dt, dd'), ({ textContent }) => textContent)).toStrictEqual(['Project', '2025', 'Credits', 'Structure by Rasm Engineering']),
             () =>
-                expect(Effect.runPromise(Schema.encodeEffect(Portfolio)(Portfolio.make({ name: ' Studio Rasm ', introduction: '  ', entries: [Entry.make({ id: joints, kind: 'study', title: 'Timber Joints ' })] })))).resolves.toStrictEqual({
+                expect(Schema.encodeEffect(Portfolio)(Portfolio.make({ name: ' Studio Rasm ', introduction: '  ', entries: [Entry.make({ id: joints, kind: 'study', title: 'Timber Joints ' })] })).pipe(Effect.runPromise)).resolves.toStrictEqual({
                     name: 'Studio Rasm',
                     entries: [{ id: joints, kind: 'study', title: 'Timber Joints', compositions: [] }],
                 }),
@@ -109,16 +109,17 @@ const StoredBlanks = meta.story({
 const StoredPlacements = meta.story({
     play: () =>
         played([
-            () => expect(Effect.runPromise(Effect.flatMap(Schema.decodeUnknownEffect(Bootstrap)(placed), Schema.encodeEffect(Bootstrap)))).resolves.toStrictEqual(placed),
+            () => expect(Schema.decodeUnknownEffect(Bootstrap)(placed).pipe(Effect.flatMap(Schema.encodeEffect(Bootstrap)), Effect.runPromise)).resolves.toStrictEqual(placed),
             () =>
                 expect(
-                    Effect.runPromise(
-                        Effect.map(Schema.decodeUnknownEffect(Bootstrap)(placed), ({ published }) =>
+                    Schema.decodeUnknownEffect(Bootstrap)(placed).pipe(
+                        Effect.map(({ published }) =>
                             published.portfolio.entries
                                 .flatMap(({ compositions }) => compositions)
                                 .flatMap(({ items }) => items)
                                 .map((item) => (item.kind === 'pdf' ? item.page : item.asset.name)),
                         ),
+                        Effect.runPromise,
                     ),
                 ).resolves.toStrictEqual([{ width: 800, height: 600, number: 2 }, 'walkthrough.mp4']),
         ]),

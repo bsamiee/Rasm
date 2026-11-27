@@ -1,8 +1,8 @@
 import Encoding
-public import Files
+package import Files
 import Foundation
-public import Logging
-public import OTel
+package import Logging
+package import OTel
 import OTelSemanticConventions
 import Runtime
 import System
@@ -48,11 +48,11 @@ private struct LogRecord: Encodable {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public struct JSONLogHandler: LogHandler {
+package struct JSONLogHandler: LogHandler {
     // --- [STATE]
 
-    public var metadata: Logger.Metadata = [:] { didSet { terminal?.metadata = metadata } }
-    public var metadataProvider: Logger.MetadataProvider?
+    package var metadata: Logger.Metadata = [:] { didSet { terminal?.metadata = metadata } }
+    package var metadataProvider: Logger.MetadataProvider?
     private var level: Logger.Level?
     private var terminal: any LogHandler?
     private let scope: String
@@ -63,7 +63,7 @@ public struct JSONLogHandler: LogHandler {
     private let trace: OTel.Configuration.LoggingMetadataProviderConfiguration
     private let encoder = JSONEncoder.jsonLines
 
-    public init(
+    package init(
         label: String,
         to sinks: (file: RotatingFile?, export: any LogHandler?, terminal: any LogHandler?),
         filter: LogFilter,
@@ -75,19 +75,19 @@ public struct JSONLogHandler: LogHandler {
         self.resource = resource.mapValues(LogRecord.Attribute.init)
     }
 
-    public var logLevel: Logger.Level {
+    package var logLevel: Logger.Level {
         get { level ?? filter.level(for: scope) }
         set { level = newValue }
     }
 
-    public subscript(metadataKey key: String) -> Logger.Metadata.Value? {
+    package subscript(metadataKey key: String) -> Logger.Metadata.Value? {
         get { metadata[key] }
         set { metadata[key] = newValue }
     }
 
     // --- [RECORDS]
 
-    public func log(event: LogEvent) {
+    package func log(event: LogEvent) {
         let now = Date.now
         var attributes = attributes(of: event)
         let record = LogRecord(
@@ -124,7 +124,7 @@ public struct JSONLogHandler: LogHandler {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Logger.Level {
-    public var severity: (text: String, number: Int) {
+    package var severity: (text: String, number: Int) {
         switch self {
             case .trace: ("TRACE", 1)
             case .debug: ("DEBUG", 5)

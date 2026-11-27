@@ -427,7 +427,7 @@ rasm-typography = { workspace = true }
 
 [tool.pixi.workspace]
 channels  = ["conda-forge"]
-platforms = [{ platform = "osx-arm64", macos = "27.0" }, "linux-64", "win-64"]
+platforms = [{ subdir = "osx-arm64", macos = "27.0" }, "linux-64", "win-64"]
 
 [tool.pixi.environments.default]
 no-default-feature = true
@@ -868,10 +868,11 @@ require-lazy         = [
 # --- [TY] -------------------------------------------------------------------------------
 
 [tool.ty]
-analysis    = { allowed-unresolved-imports = ["uharfbuzz.**"] }                                           # uharfbuzz re-exports its compiled `_harfbuzz` module, which ships no stub
-environment = { python-platform = "all" }
-rules       = { all = "error", unsound-return = "ignore", unused-type-ignore-comment = "ignore" }         # mypy `no-any-return` owns `Any` returned through a typed boundary, `unused-ignore` unused `type: ignore` comments
-src         = { exclude = ["libs/python/blender", "products/apps/blender", "tests/libs/python/blender"] } # 3.13 uv roots `libs/python/blender` and `products/apps/blender/darkroom`, each checked through its own `[tool.ty]`; ty opens one project per root and finds no nested one
+analysis        = { allowed-unresolved-imports = ["uharfbuzz.**"] }                                           # uharfbuzz re-exports its compiled `_harfbuzz` module, which ships no stub
+environment     = { python-platform = "all" }
+project-manager = { project = "uv" }                                                                          # uv names the workspace root and environment, as preview rule `missing-direct-dependency` needs both under `all = "error"`
+rules           = { all = "error", unsound-return = "ignore", unused-type-ignore-comment = "ignore" }         # mypy `no-any-return` owns `Any` returned through a typed boundary, `unused-ignore` unused `type: ignore` comments
+src             = { exclude = ["libs/python/blender", "products/apps/blender", "tests/libs/python/blender"] } # 3.13 uv roots `libs/python/blender` and `products/apps/blender/darkroom`, each checked through its own `[tool.ty]`; ty opens one project per root and finds no nested one
 
 # --- [VULTURE] --------------------------------------------------------------------------
 
@@ -938,3 +939,8 @@ include = ["**/Cargo.toml"]
 [[tool.tombi.schemas]]
 path    = "https://mise.jdx.dev/schema/mise.json"
 include = [".config/mise.*.toml"]
+
+[[tool.tombi.schemas]]
+root    = "tool.pixi"
+path    = "https://pixi.prefix.dev/latest/schema/manifest/schema.json" # SchemaStore's partial copy lacks the platform `subdir` key Pixi 0.85 reads
+include = ["pyproject.toml"]

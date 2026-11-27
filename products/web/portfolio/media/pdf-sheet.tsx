@@ -61,7 +61,8 @@ const PdfSheet = ({ asset, page, layoutId }: { readonly asset: PdfAsset; readonl
     const url = assetUrl(asset.id);
     const source = PdfDocument({ url, disableStream: true, disableAutoFetch: true });
     const retry = useAtomRefresh(source);
-    return AsyncResult.builder(useAtomValue(source))
+    return useAtomValue(source)
+        .pipe(AsyncResult.builder)
         .onInitialOrWaiting(() => <MediaLoading />)
         .onSuccess((document) => (layoutId === undefined ? <SheetPreview asset={asset} document={document} page={page.number} /> : <SheetViewer asset={asset} document={document} layoutId={layoutId} page={page} url={url} />))
         .onErrorTag('MediaError', ({ reason }) => (

@@ -1,10 +1,10 @@
-public import AppKit
-public import CasePaths
-public import Encoding
+package import AppKit
+package import CasePaths
+package import Encoding
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public enum Inventory: String, CaseIterable, Codable, Sendable {
+package enum Inventory: String, CaseIterable, Codable, Sendable {
     case action
     case toggle
     case popup
@@ -39,7 +39,7 @@ public enum Inventory: String, CaseIterable, Codable, Sendable {
     case drawer
 }
 
-public enum Surface: String, CaseIterable, Codable, Sendable {
+package enum Surface: String, CaseIterable, Codable, Sendable {
     case controls
     case lists
     case covered
@@ -55,67 +55,67 @@ public enum Surface: String, CaseIterable, Codable, Sendable {
     case drawer
 }
 
-public enum Hang: Codable, Sendable {
+package enum Hang: Codable, Sendable {
     case sleeping(Duration)
     case spinning(Duration)
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct Report: Codable, Equatable, Sendable {
-    public struct Shortcut: Codable, Equatable, Sendable {
-        public let key: String
-        public let modifiers: Lenient<NSEvent.ModifierFlags>
+package struct Report: Codable, Equatable, Sendable {
+    package struct Shortcut: Codable, Equatable, Sendable {
+        package let key: String
+        package let modifiers: Lenient<NSEvent.ModifierFlags>
     }
 
-    public struct Control: Codable, Equatable, Sendable {
-        public let entry: Inventory
-        public let member: Int
-        public let role: String?
-        public let subrole: String?
-        public let parent: String?
-        public let title: String?
-        public let description: String?
-        public let caption: String?
-        public let inputs: [String]?
-        public let help: String?
-        public let value: JSONValue?
-        public let enabled: Bool
-        public let range: ClosedRange<Double>?
-        public let step: Double?
-        public let mark: Lenient<NSControl.StateValue>?
-        public let shortcut: Shortcut?
-        public let window: Int?
-        public let frame: CGRect?
-        public let customActions: [String]?
-        public let columns: [String]?
-        public let rows: Int?
+    package struct Control: Codable, Equatable, Sendable {
+        package let entry: Inventory
+        package let member: Int
+        package let role: String?
+        package let subrole: String?
+        package let parent: String?
+        package let title: String?
+        package let description: String?
+        package let caption: String?
+        package let inputs: [String]?
+        package let help: String?
+        package let value: JSONValue?
+        package let enabled: Bool
+        package let range: ClosedRange<Double>?
+        package let step: Double?
+        package let mark: Lenient<NSControl.StateValue>?
+        package let shortcut: Shortcut?
+        package let window: Int?
+        package let frame: CGRect?
+        package let customActions: [String]?
+        package let columns: [String]?
+        package let rows: Int?
     }
 
-    public struct Window: Codable, Equatable, Sendable {
-        public let surface: Surface?
-        public let number: Int
-        public let parent: Int?
-        public let className: String
-        public let title: String
-        public let role: String?
-        public let subrole: String?
-        public let modal: Bool
-        public let frame: CGRect
-        public let level: Int
-        public let visible: Bool
-        public let key: Bool
-        public let main: Bool
-        public let edited: Bool
-        public let defaultButton: Control?
-        public let cancelButton: Control?
+    package struct Window: Codable, Equatable, Sendable {
+        package let surface: Surface?
+        package let number: Int
+        package let parent: Int?
+        package let className: String
+        package let title: String
+        package let role: String?
+        package let subrole: String?
+        package let modal: Bool
+        package let frame: CGRect
+        package let level: Int
+        package let visible: Bool
+        package let key: Bool
+        package let main: Bool
+        package let edited: Bool
+        package let defaultButton: Control?
+        package let cancelButton: Control?
     }
 
-    public let controls: [Control]
-    public let windows: [Window]
+    package let controls: [Control]
+    package let windows: [Window]
 }
 
-public enum Command: Codable, Sendable {
+package enum Command: Codable, Sendable {
     case report
     case show(surface: Surface)
     case raise(surface: Surface)
@@ -131,7 +131,7 @@ public enum Command: Codable, Sendable {
 }
 
 @CasePathable
-public enum Line: Codable, Sendable {
+package enum Line: Codable, Sendable {
     case ready
     case hanging(kind: Hang)
     case report(report: Report)

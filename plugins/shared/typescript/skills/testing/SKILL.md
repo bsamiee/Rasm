@@ -81,7 +81,7 @@ Assertions compare observed facts against values written in the test:
 - Absence and failure compare against a constructed case (`Option.none()`, `Exit.fail(error)`), and `@effect/vitest/utils` members (`assertSome`, `assertFailure`, `assertExitFailure`) narrow the type beside the comparison
 - `Effect.flip` returns an expected failure, and the test asserts its `reason._tag` and subject, as an assertion that something failed passes for every wrong failure
 - `Effect.exit` keeps defects and interruptions for an `Exit` or `Cause` assertion
-- `addEqualityTesters()` registers no tester in 4.1.5, so no assertion reads `Equal`, and values `Equal` compares (`HashSet`, `HashMap`) convert to sorted arrays first
+- `addEqualityTesters()` registers no tester in 4.1.6, so no assertion reads `Equal`, and values `Equal` compares (`HashSet`, `HashMap`) convert to sorted arrays first
 - `expect.schemaMatching(Schema.toStandardSchemaV1(S))` accepts any value `S` decodes, for a field holding a value of one run (a span's instants)
 
 ## [03]-[TIME]

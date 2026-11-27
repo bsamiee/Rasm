@@ -1,7 +1,8 @@
-public import AppKit
+import AppKit
 import AsyncAlgorithms
 import CasePathsCore
 import Files
+package import Foundation
 import OrderedCollections
 import Results
 import Synchronization
@@ -10,9 +11,9 @@ import UniformTypeIdentifiers
 // --- [MODELS] --------------------------------------------------------------------------
 
 extension Installation {
-    public struct Listing: Encodable, Equatable, Sendable {
-        public let installations: [Installation]
-        public let unreadable: [ApplicationFailure]
+    package struct Listing: Encodable, Equatable, Sendable {
+        let installations: [Installation]
+        let unreadable: [ApplicationFailure]
     }
 }
 
@@ -29,7 +30,7 @@ extension NSMetadataQuery {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension NSPredicate {
-    public func evaluate(bundleIdentifier: String?) -> Bool {
+    package func evaluate(bundleIdentifier: String?) -> Bool {
         bundleIdentifier.map { identifier in evaluate(with: [NSMetadataItemCFBundleIdentifierKey: identifier]) } == true
     }
 
@@ -60,7 +61,7 @@ extension NSPredicate {
 
 extension Installation {
     @MainActor
-    public static func search(_ predicate: NSPredicate, in directories: [URL] = []) -> some AsyncSequence<Listing, Never> & Sendable {
+    package static func search(_ predicate: NSPredicate, in directories: [URL] = []) -> some AsyncSequence<Listing, Never> & Sendable {
         let (listings, continuation) = AsyncStream<Listing>.makeStream(bufferingPolicy: .bufferingNewest(1))
         let (changes, changed) = AsyncStream<ApplicationFailure?>.makeStream()
         let edits: [Task<Void, Never>] = directories.map { directory in
@@ -116,7 +117,7 @@ extension Installation {
         return listings.removeDuplicates()
     }
 
-    public static func handlers(of document: URL, matching predicate: NSPredicate) async throws(ApplicationFailure) -> Listing {
+    package static func handlers(of document: URL, matching predicate: NSPredicate) async throws(ApplicationFailure) -> Listing {
         let subject = document.isFileURL ? document.path(percentEncoded: false) : document.absoluteString
         if document.isFileURL {
             do { _ = try document.checkResourceIsReachable() } catch { throw ApplicationFailure(subject: subject, reason: .foundation(error as NSError)) }

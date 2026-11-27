@@ -24,7 +24,7 @@ const Manifest = Schema.fromJsonString(
         name: Schema.OptionFromOptionalKey(Schema.String),
         bin: Schema.optionalKey(Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.String)])),
         exports: Schema.optionalKey(Schema.Unknown),
-        main: Schema.optionalKey(Schema.NullOr(Schema.String)),
+        main: Schema.String.pipe(Schema.NullOr, Schema.optionalKey),
         dependencies: Dependencies,
         devDependencies: Dependencies,
         nx: Schema.optionalKey(Schema.Struct({ metadata: Schema.optionalKey(Schema.Struct({ pulumi: Schema.optionalKey(Schema.Struct({ hosts: Schema.optionalKey(Schema.NonEmptyString) })) })) })),

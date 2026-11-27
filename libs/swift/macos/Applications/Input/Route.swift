@@ -1,14 +1,14 @@
 import AppKit
 import AsyncAlgorithms
 import Carbon.HIToolbox
-public import CoreGraphics
-public import Encoding
+import CoreGraphics
+import Encoding
 import SPI
 import System
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public enum Route: CaseTagged, Hashable, Sendable {
+enum Route: CaseTagged, Hashable, Sendable {
     case process
     case window(number: CGWindowID)
     case focused(number: CGWindowID)
@@ -34,7 +34,7 @@ public enum Route: CaseTagged, Hashable, Sendable {
     }
 }
 
-public enum Rung: String, CaseIterable, Codable, Sendable {
+enum Rung: String, CaseIterable, Codable, Sendable {
     case accessibility
     case process
     case window

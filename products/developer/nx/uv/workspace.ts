@@ -41,23 +41,22 @@ const Patterns = Schema.Struct({
 const Patterned = Patterns.mapFields(Struct.assign({ ini_options: Schema.optionalKey(Patterns), pytest: Schema.optionalKey(Patterns) })).annotate({
     description: 'The python_files setting of a pytest configuration table, of its ini_options table in a pyproject.toml, or of the pytest section of an INI file read whole',
 });
+const GroupEntries = Schema.Struct({ name: Schema.String, id: Schema.String }).pipe(Schema.Array, Schema.NullOr, Schema.optionalKey);
 const Node = Schema.Struct({
     name: Schema.optionalKey(Schema.String),
     version: Schema.optionalKey(Schema.String),
     source: Schema.Struct({ editable: Schema.optionalKey(Schema.String), virtual: Schema.optionalKey(Schema.String), directory: Schema.optionalKey(Schema.String), path: Schema.optionalKey(Schema.String) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     dependencies: Schema.Array(Schema.Struct({ id: Schema.String }).pipe(Schema.decodeTo(Schema.String, SchemaTransformation.transform({ decode: ({ id }) => id, encode: (id) => ({ id }) })))),
-    dependency_groups: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.Struct({ name: Schema.String, id: Schema.String })))),
-    optional_dependencies: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.Struct({ name: Schema.String, id: Schema.String })))),
+    dependency_groups: GroupEntries,
+    optional_dependencies: GroupEntries,
 });
 class Metadata extends Schema.Opaque<Metadata>()(
-    Schema.fromJsonString(
-        Schema.Struct({
-            schema: Schema.Struct({ version: Schema.Literal(SCHEMA) }),
-            workspace: Schema.Struct({ path: Schema.String, id: Schema.String }),
-            members: Schema.Array(Schema.Struct({ name: Schema.String, path: Schema.String, id: Schema.String })),
-            resolution: Schema.Record(Schema.String, Node),
-        }),
-    ),
+    Schema.Struct({
+        schema: Schema.Struct({ version: Schema.Literal(SCHEMA) }),
+        workspace: Schema.Struct({ path: Schema.String, id: Schema.String }),
+        members: Schema.Array(Schema.Struct({ name: Schema.String, path: Schema.String, id: Schema.String })),
+        resolution: Schema.Record(Schema.String, Node),
+    }).pipe(Schema.fromJsonString),
 ) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

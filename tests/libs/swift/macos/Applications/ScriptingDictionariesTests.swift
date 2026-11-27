@@ -1,9 +1,9 @@
 import AppKit
-import AppleEvents
 import CustomDump
 import Foundation
 import Testing
 
+@testable import AppleEvents
 @testable import Applications
 
 // --- [MODELS] --------------------------------------------------------------------------

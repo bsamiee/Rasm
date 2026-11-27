@@ -1,7 +1,7 @@
 import AsyncAlgorithms
-public import CasePaths
+package import CasePaths
 import Encoding
-public import Foundation
+package import Foundation
 import OTelSemanticConventions
 import Results
 import Synchronization
@@ -17,7 +17,7 @@ private enum ControlMessage: String {
 // --- [MODELS] --------------------------------------------------------------------------
 
 @CasePathable
-public enum Response: Sendable {
+package enum Response: Sendable {
     case value((any Encodable & Sendable)?)
     case stream(any AsyncSequence<any Encodable & Sendable, Never> & Sendable)
 }
@@ -143,7 +143,7 @@ final class Server<Request: Decodable & Sendable>: Sendable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public func serve<Request: Decodable & Sendable>(
+package func serve<Request: Decodable & Sendable>(
     reading lines: @autoclosure @escaping @Sendable () -> any AsyncSequence<Data, any Error>,
     writing write: @escaping @Sendable (Data) async throws -> Void,
     onDrop: @escaping @Sendable (JSONRPCFailure) -> Void,

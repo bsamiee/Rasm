@@ -1,18 +1,18 @@
-public import Applications
+package import Applications
 import Configuration
 import Encoding
 import Foundation
 import Logging
-public import ServiceManagement
+import ServiceManagement
 import Telemetry
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension LaunchAgent {
-    public var service: SMAppService { .agent(plistName: plist.lastPathComponent) }
+    var service: SMAppService { .agent(plistName: plist.lastPathComponent) }
 
     @concurrent
-    public func register() async throws(ApplicationFailure) {
+    package func register() async throws(ApplicationFailure) {
         let installed = try Program.current.signature.unique
         let key = ConfigKey("agents.registered.\(label)")
         let replaced = Program.current.settings.bytes(forKey: key).map(Data.init) != installed

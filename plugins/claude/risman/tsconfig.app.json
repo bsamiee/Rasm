@@ -1,6 +1,5 @@
 {
     "extends": "../../../libs/typescript/ai/policy/tsconfig.base.json",
-    "exclude": ["${configDir}/vite.config.ts", "${configDir}/hooks/command.ts"],
     "references": [
         {
             "path": "../../../libs/typescript/ai/mcp"

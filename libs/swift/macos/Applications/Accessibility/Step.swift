@@ -4,11 +4,11 @@ import AppleEvents
 import AsyncAlgorithms
 import CasePaths
 import CasePathsCore
-public import CoreGraphics
+import CoreGraphics
 import Encoding
-public import Processes
+package import Processes
 import Results
-public import System
+package import System
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -22,7 +22,7 @@ private let selections: [String: String] = [
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
+package struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
     @CasePathable
     enum Aim: Decodable, Hashable, Sendable {
         case element(ref: Int)
@@ -109,28 +109,28 @@ public struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
         }
     }
 
-    public struct Delivery: Encodable, Equatable, Sendable {
-        public enum Proof: String, Encodable, Sendable {
+    package struct Delivery: Encodable, Equatable, Sendable {
+        enum Proof: String, Encodable, Sendable {
             case answer, change, value, posting, unanswered, exit
         }
 
-        public struct Attempt: Encodable, Equatable, Sendable {
-            public let rung: Rung
-            public let failure: String
+        struct Attempt: Encodable, Equatable, Sendable {
+            let rung: Rung
+            let failure: String
         }
 
-        public struct PopUp: Encodable, Equatable, Sendable {
-            public let window: CGWindowID
-            public let closed: Bool
+        struct PopUp: Encodable, Equatable, Sendable {
+            let window: CGWindowID
+            let closed: Bool
         }
 
-        public let proof: Proof
-        public internal(set) var window: CGWindowID?
-        public internal(set) var route: Route?
-        public internal(set) var tried: [Attempt] = []
-        public internal(set) var presentation: Watch.Presentation?
-        public internal(set) var pointer: SIMD2<Double>?
-        public internal(set) var popUps: [PopUp] = []
+        let proof: Proof
+        var window: CGWindowID?
+        var route: Route?
+        var tried: [Attempt] = []
+        var presentation: Watch.Presentation?
+        var pointer: SIMD2<Double>?
+        var popUps: [PopUp] = []
     }
 
     fileprivate enum ReadBack {
@@ -158,7 +158,7 @@ public struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
         self.from = from
     }
 
-    public init(from decoder: any Decoder) throws {
+    package init(from decoder: any Decoder) throws {
         let fields = try decoder.container(keyedBy: CodingKeys.self)
         let longest: Double = replyDeadline / .milliseconds(1)
         let timed = { (key: CodingKeys) throws -> Duration? in
@@ -238,7 +238,7 @@ public struct Step: Decodable, Hashable, Sendable, CustomStringConvertible {
         }
     }
 
-    public var description: String {
+    package var description: String {
         switch action {
             case .press(let ref, let action): "\(action) on \(ref)"
             case .set(let ref, let value): "set \(kAXValueAttribute) \(value) on \(ref)"
@@ -750,7 +750,7 @@ extension AXUIElement {
 
 extension Watch {
     @concurrent
-    public nonisolated func act(
+    package nonisolated func act(
         _ steps: [Step],
         stepping: @Sendable (_ index: Int) -> Void = { _ in },
         clock: some Clock<Duration> & Sendable = ContinuousClock(),

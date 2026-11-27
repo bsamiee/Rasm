@@ -37,7 +37,7 @@ const handleOf = (row: TxSubscriptionRef.TxSubscriptionRef<HandleState>) => ({
     get: <A>(key: Context.Reference<A>) => Effect.map(TxSubscriptionRef.get(row), ({ state }) => Context.get(state, key)),
     set: <A>(key: Context.Reference<A>, value: A) => TxSubscriptionRef.update(row, (slot) => ({ ...slot, state: Context.add(slot.state, key, value) })),
 });
-const Handle = Context.Reference<ReturnType<typeof handleOf>>('@rasm/mcp/server/Handle', { defaultValue: () => handleOf(Effect.runSync(TxSubscriptionRef.make(FRESH))) });
+const Handle = Context.Reference<ReturnType<typeof handleOf>>('@rasm/mcp/server/Handle', { defaultValue: () => TxSubscriptionRef.make(FRESH).pipe(Effect.runSync, handleOf) });
 
 class Server extends Context.Service<
     Server,
@@ -46,9 +46,8 @@ class Server extends Context.Service<
         readonly events: <A>(source: { readonly stream: Stream.Stream<A>; readonly render: (event: A) => Effect.Effect<string>; readonly owns?: (event: A, state: Context.Context<never>) => boolean }) => Effect.Effect<void, never, Scope.Scope>;
         readonly states: <A>(key: Context.Reference<A>) => Stream.Stream<readonly A[]>;
         readonly notifyListChanged: Effect.Effect<void, Error>;
-        readonly bind: (agent: Option.Option<string>) => Effect.Effect<typeof Handles.Binding.Type>;
+        readonly bind: Effect.Effect<typeof Handles.Binding.Type>;
         readonly follow: (handle: string) => Effect.Effect<Stream.Stream<typeof Handles.Event.Type, Cause.NoSuchElementError>, Cause.NoSuchElementError>;
-        readonly pending: (handle: string) => Effect.Effect<readonly (typeof Handles.Event.Type)[], Cause.NoSuchElementError>;
         readonly ack: (handle: string, through: number) => Effect.Effect<void, Cause.NoSuchElementError>;
     }
 >()('@rasm/mcp/server') {
@@ -115,11 +114,10 @@ class Server extends Context.Service<
         const findHandle = (known: string) =>
             RcMap.getOption(handles, known).pipe(Effect.flatMap(Effect.fromOption(() => new Cause.NoSuchElementError(`Handle ${known} ${isUuidV7(known) && known < epoch ? 'predates a restart' : `is unknown or expired after ${kept} without a call`}, call again without handle to start one`))));
         const issueHandle = Effect.flatMap(random.uuidV7(), (id) => RcMap.get(handles, id));
-        const queued = (handle: string, states: number) =>
+        const queued = (handle: string) =>
             Stream.unwrap(
                 Effect.map(findHandle(handle), ({ row }) =>
                     TxSubscriptionRef.changesStream(row).pipe(
-                        Stream.take(states),
                         Stream.filter(({ answering }) => answering === 0),
                         Stream.mapAccum(Function.constant(0), (last, { entries }) => [Math.max(last, ...Array.map(entries, Struct.get('sequence'))), Array.filter(entries, isAfter(last))] as const),
                         Stream.mapEffect(formatLine),
@@ -171,7 +169,7 @@ class Server extends Context.Service<
                         const [bound, ending, token] = [handleOf(row), Stream.provideService(ends, Handle, handleOf(frozen)), Schema.decodeUnknownOption(McpSchema.ProgressToken)(request.requestMetadata?.progressToken)];
                         const notify = (report: Parameters<(typeof Server.ToolCall)['Service']['progress']>[0]) => Option.match(token, { onNone: () => Effect.void, onSome: (progressToken) => server.notifications['notifications/progress']({ progressToken, ...report }) });
                         const poll = SubscriptionRef.updateAndGet(pace, Struct.evolve({ last: Number.increment, offset: Number.increment })).pipe(Effect.flatMap(({ last }) => notify({ progress: last })));
-                        const ended = Stream.runHead(Stream.merge(ending, Option.match(token, { onNone: () => Stream.empty, onSome: () => Stream.drain(Stream.mapEffect(Stream.prepend(Stream.debounce(SubscriptionRef.changes(pace), Duration.minutes(1)), [undefined]), () => poll)) })));
+                        const ended = Stream.runHead(Stream.merge(ending, Option.match(token, { onNone: () => Stream.empty, onSome: () => pace.pipe(SubscriptionRef.changes, Stream.debounce(Duration.minutes(1)), Stream.prepend([undefined]), Stream.mapEffect(Function.constant(poll)), Stream.drain) })));
                         const answer = Effect.zipWith(options.handle(Record.remove(payload, 'handle')), Effect.all([Ref.get(stated), Ref.get(blocks)]), (outcome, [state, more]) =>
                             outcome instanceof McpSchema.InputRequired ? outcome : McpSchema.CallToolResult.make({ ...outcome, content: [...state, ...outcome.content, ...more] }),
                         ).pipe(
@@ -187,7 +185,11 @@ class Server extends Context.Service<
                             Effect.updateService(McpSchema.McpRequestContext, (context) => ({ ...context, requestState: Option.getOrUndefined(Option.flatMap(resumed, Struct.get('state'))) })),
                             Effect.scoped,
                         );
-                        const fiber = yield* FiberSet.run(fibers)(Effect.flatMap(TxRef.get(sequence), (from) => Effect.ensuring(answer, TxSubscriptionRef.update(row, routeEvents(limit, from, [])))));
+                        const fiber = yield* sequence.pipe(
+                            TxRef.get,
+                            Effect.flatMap((from) => Effect.ensuring(answer, TxSubscriptionRef.update(row, routeEvents(limit, from, [])))),
+                            FiberSet.run(fibers),
+                        );
                         const [outcome, early] = yield* Fiber.join(fiber).pipe(
                             Effect.map((value) => [value, false] as const),
                             Effect.raceFirst(Effect.flatMap(ended, Option.match({ onNone: () => Effect.never, onSome: (text) => Effect.map(Effect.provideService(text, Handle, bound), (rendered) => [McpSchema.CallToolResult.make({ content: [McpSchema.TextContent.make({ text: rendered })] }), true] as const) }))),
@@ -237,9 +239,8 @@ class Server extends Context.Service<
                     Stream.map(Array.map(({ state }) => Context.get(state, reference))),
                 ),
             notifyListChanged,
-            bind: (agent) => Effect.scoped(Effect.map(Option.match(agent, { onNone: () => issueHandle, onSome: (agentKey) => RcMap.get(handles, agentKey) }), ({ id }) => ({ handle: id, server: scheme }))),
-            follow: (handle) => Effect.as(Effect.scoped(findHandle(handle)), queued(handle, Infinity)),
-            pending: (handle) => Effect.andThen(Effect.scoped(findHandle(handle)), Stream.runCollect(queued(handle, 1))),
+            bind: Effect.scoped(Effect.map(issueHandle, ({ id }) => ({ handle: id, server: scheme }))),
+            follow: (handle) => Effect.as(Effect.scoped(findHandle(handle)), queued(handle)),
             ack: (handle, through) => Effect.scoped(Effect.flatMap(findHandle(handle), ({ row }) => TxSubscriptionRef.update(row, (slot) => ({ ...slot, entries: Array.filter(slot.entries, isAfter(through)) })))),
         });
         return Context.make(McpServer.McpServer, gatedServer).pipe(Context.add(Server, service));
@@ -262,8 +263,8 @@ class Server extends Context.Service<
                         Layer.provide(
                             HttpApiBuilder.group(Handles, 'handles', (handlers) =>
                                 handlers.handleAll({
-                                    bind: ({ query }) => served.bind(Option.fromUndefinedOr(query.agent)),
-                                    events: ({ params, query }) => (query.follow ? orNotFound(served.follow(params.handle)) : orNotFound(served.pending(params.handle))),
+                                    bind: () => served.bind,
+                                    follow: ({ params }) => orNotFound(served.follow(params.handle)),
                                     ack: ({ params, query }) => orNotFound(served.ack(params.handle, query.through)),
                                 }),
                             ),
@@ -312,7 +313,7 @@ const metrics = McpServer.middleware((effect, { method, target }) =>
     UndefinedOr.match(operations[method], {
         onUndefined: () => effect,
         onDefined: Effect.fnUntraced(function* (attributing) {
-            const [duration, exit] = yield* Effect.timed(Effect.exit(effect));
+            const [duration, exit] = yield* effect.pipe(Effect.exit, Effect.timed);
             yield* Metric.update(Metric.withAttributes(operationDuration, { [ATTR_MCP_METHOD_NAME]: method, ...attributing(target), ...failureAttributes(exit) }), duration);
             return yield* exit;
         }),

@@ -15,10 +15,10 @@ const Module = Schema.Struct({
     ProgressCategoryContainer: Statics({ getContainer: Callable }),
     PresetManager: Statics({ getFormatNameList: Callable, getPresetsForFormat: Callable }),
 }).annotate({ description: 'Classes require("mediaencoder") holds, by the static members ScriptingAPIManifest.json declares and the plugin reads' });
-const Emitter = Schema.declare(Schema.is(Schema.Struct({ subscribeToEvent: Callable, addEventListener: Callable, removeEventListener: Callable }))).annotate({
+const Emitter = Schema.Struct({ subscribeToEvent: Callable, addEventListener: Callable, removeEventListener: Callable }).pipe(Schema.is, Schema.declare).annotate({
     description: 'Event source a class getInstance returns: subscribeToEvent from ScriptingAPIManifest.json, the listener pair from AdobeDocs uxp-media-encoder',
 });
-const Container = Schema.declare(Schema.is(Schema.Struct({ getAllProgressCategories: Callable }))).annotate({ description: 'ProgressCategoryContainer instance getContainer returns' });
+const Container = Schema.Struct({ getAllProgressCategories: Callable }).pipe(Schema.is, Schema.declare).annotate({ description: 'ProgressCategoryContainer instance getContainer returns' });
 const Formats = Schema.Array(Schema.String).annotate({ description: 'Format names getFormatNameList returns' });
 const Listed = Schema.Array(Schema.Unknown).annotate({ description: 'Array a host list call returns' });
 const Identified = Schema.Struct({ id: Schema.String }).annotate({ description: 'Job group or progress category keyed by its id' });

@@ -1,20 +1,20 @@
 import AsyncAlgorithms
 import CasePathsCore
-public import Foundation
+package import Foundation
 import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct LogFolder: Codable, Hashable, Sendable {
-    public let url: URL
-    public let glob: String?
+package struct LogFolder: Codable, Hashable, Sendable {
+    let url: URL
+    let glob: String?
 
-    public init(url: URL, glob: String? = nil) { (self.url, self.glob) = (url, glob) }
+    package init(url: URL, glob: String? = nil) { (self.url, self.glob) = (url, glob) }
 
     func matches(_ file: URL) -> Bool { glob.map { glob in unsafe fnmatch(glob, file.lastPathComponent, 0) == 0 } ?? true }
 }
 
-public struct LogLine: Encodable, Sendable {
+package struct LogLine: Encodable, Sendable {
     private struct Record: Decodable {
         let timestamp: Date
     }
@@ -25,18 +25,18 @@ public struct LogLine: Encodable, Sendable {
         return decoder
     }()
 
-    public let file: URL
-    public let text: String
+    let file: URL
+    package let text: String
 
     init(file: URL, bytes: some Collection<UInt8>) { (self.file, text) = (file, String(decoding: bytes, as: UTF8.self)) }
 
-    public var timestamp: Date? { Result { try Self.decoder.decode(Record.self, from: Data(text.utf8)) }[case: \.success]?.timestamp }
+    var timestamp: Date? { Result { try Self.decoder.decode(Record.self, from: Data(text.utf8)) }[case: \.success]?.timestamp }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension LogLine {
-    public static func newest(in folders: [LogFolder], since earliest: Date?, limit: Int, where matching: (Self) -> Bool) -> (lines: [Self], failures: [FileFailure]) {
+    package static func newest(in folders: [LogFolder], since earliest: Date?, limit: Int, where matching: (Self) -> Bool) -> (lines: [Self], failures: [FileFailure]) {
         let floor = earliest ?? .distantPast
         let keys: Set<URLResourceKey> = [.contentModificationDateKey, .isRegularFileKey]
         let listed = folders.map { folder in
@@ -73,7 +73,7 @@ extension LogLine {
         return (Array(ranked.sorted { first, second in (first.at, second.position) > (second.at, first.position) }.prefix(limit).map(\.line)), failures)
     }
 
-    public static func follow(in folder: LogFolder) -> some AsyncSequence<(lines: [Self], failures: [FileFailure]), Never> & Sendable {
+    static func follow(in folder: LogFolder) -> some AsyncSequence<(lines: [Self], failures: [FileFailure]), Never> & Sendable {
         let keys: Set<URLResourceKey> = [.fileIdentifierKey, .fileSizeKey]
         let baseline = Result { () throws(FileFailure) in
             let files = try ifPresent(folder.url) { try FileManager.default.contentsOfDirectory(at: folder.url, includingPropertiesForKeys: Array(keys)) } ?? []

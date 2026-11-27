@@ -1,5 +1,6 @@
 #![feature(array_try_map, default_field_values, float_conversions, once_cell_try, type_changing_struct_update)]
 
+use core::f64::consts::PI;
 use core::marker::PhantomData;
 use core::num::{NonZero, ParseIntError};
 use core::range::Range;
@@ -17,20 +18,22 @@ use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use rasm_site::Place;
 use rasm_solar_geometry::{Refraction, SolarError, Sun, lapsed, sampled};
 use solar_positioning::{PreparedPositions, SolarPosition};
-use thermalcomfort::constants::STEFAN_BOLTZMANN;
 use thermalcomfort::environment::ScaleWindSpeedLogError;
 use thermalcomfort::{Humidity, Temperature};
 use uom::ConstZero as _;
+use uom::si::action::planck_constant;
 use uom::si::angle::radian;
-use uom::si::f64::{Angle, HeatFluxDensity, Illuminance, Length, Luminance, Pressure, Ratio, ThermodynamicTemperature, Time, Velocity};
+use uom::si::f64::{Action, Angle, HeatCapacity, HeatFluxDensity, Illuminance, Length, Luminance, Pressure, Ratio, ThermodynamicTemperature, Time, Velocity};
+use uom::si::heat_capacity::boltzmann_constant;
 use uom::si::heat_flux_density::watt_per_square_meter;
 use uom::si::length::meter;
 use uom::si::pressure::pascal;
 use uom::si::ratio::ratio;
 use uom::si::thermodynamic_temperature::kelvin;
 use uom::si::time::second;
-use uom::si::velocity::meter_per_second;
-use uom::si::{self, Quantity, SI};
+use uom::si::velocity::{meter_per_second, speed_of_light_in_vacuum};
+use uom::si::{self, ISQ, Quantity, SI};
+use uom::typenum::{N3, N4, P1, P2, P3, P4, Z0};
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -400,7 +403,7 @@ pub fn completed(hours: &Hours<Sun>) -> Result<Hours<Sun>, WeatherError> {
                 let tenths = hour.opaque_sky_cover.or(hour.total_sky_cover)?.get::<ratio>() * 10.0;
                 let clear = 0.764_f64.mul_add((dew_point?.get::<kelvin>() / 273.0).ln(), 0.787);
                 let emissivity = clear * 0.000_28_f64.mul_add(tenths, -0.0035).mul_add(tenths, 0.0224).mul_add(tenths, 1.0);
-                Some(HeatFluxDensity::new::<watt_per_square_meter>(emissivity * STEFAN_BOLTZMANN * hour.dry_bulb?.get::<kelvin>().powi(4)))
+                Some(stefan_boltzmann() * hour.dry_bulb?.powi(P4::new()) * emissivity)
             });
             let (direct_irradiance, diffuse_irradiance) = match (hour.global_irradiance, hour.direct_irradiance, hour.diffuse_irradiance) {
                 (Some(global), Some(direct), None) => {
@@ -471,6 +474,11 @@ fn extraterrestrial(prepared: &PreparedPositions) -> HeatFluxDensity {
 }
 
 fn cos_zenith(solar: &SolarPosition) -> f64 { solar.elevation_angle().to_radians().sin().max(0.0) }
+
+fn stefan_boltzmann() -> Measure<ISQ<Z0, P1, N3, Z0, N4, Z0, Z0>> {
+    let (boltzmann, planck, light) = (HeatCapacity::new::<boltzmann_constant>(1.0), Action::new::<planck_constant>(1.0), Velocity::new::<speed_of_light_in_vacuum>(1.0));
+    boltzmann.powi(P4::new()) / (planck.powi(P3::new()) * light.powi(P2::new())) * (2.0 * PI.powi(5) / 15.0)
+}
 
 // --- [CODECS]
 

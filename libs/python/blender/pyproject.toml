@@ -96,5 +96,6 @@ extend = "../../../pyproject.toml"
 # --- [TY] -------------------------------------------------------------------------------
 
 [tool.ty]
-environment = { python-platform = "all" }                                                                                        # ty merges no parent table and takes `requires-python` from the table holder, so each 3.13 root states its own
-rules       = { all = "error", unsound-assignment = "ignore", unsound-return = "ignore", unused-type-ignore-comment = "ignore" } # mypy infers the lambdas ty reads as `Unknown` in an annotated assignment or return, `no-any-return` owns `Any` returned, `unused-ignore` unused `type: ignore` comments
+environment     = { python-platform = "all" }                                                                                        # ty merges no parent table and takes `requires-python` from the table holder, so each 3.13 root states its own
+project-manager = { project = "uv" }                                                                                                 # uv names the workspace root and environment, as preview rule `missing-direct-dependency` needs both under `all = "error"`
+rules           = { all = "error", unsound-assignment = "ignore", unsound-return = "ignore", unused-type-ignore-comment = "ignore" } # mypy infers the lambdas ty reads as `Unknown` in an annotated assignment or return, `no-any-return` owns `Any` returned, `unused-ignore` unused `type: ignore` comments

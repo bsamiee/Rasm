@@ -1,13 +1,13 @@
-public import AppKit
+import AppKit
 import Logging
 import Processes
-public import Sparkle
+package import Sparkle
 import System
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 @MainActor
-public struct Updater {
+package struct Updater {
     private final class Delegate: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {
         // --- [UPDATE_CYCLE]
 
@@ -53,10 +53,10 @@ public struct Updater {
         }
     }
 
-    public let updater: SPUUpdater
+    package let updater: SPUUpdater
     private let delegate = Delegate()
 
-    public init() {
+    package init() {
         updater = SPUUpdater(hostBundle: .main, applicationBundle: .main, userDriver: SPUStandardUserDriver(hostBundle: .main, delegate: delegate), delegate: delegate)
         do { try updater.start() } catch { delegate.logger.error("Updater could not start", error: error) }
     }

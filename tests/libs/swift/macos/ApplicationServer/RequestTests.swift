@@ -1,5 +1,4 @@
 import AppKit
-import Applications
 import CasePaths
 import CoreImage
 import CustomDump
@@ -10,6 +9,7 @@ import Results
 import Testing
 
 @testable import ApplicationServer
+@testable import Applications
 
 // --- [MODELS] --------------------------------------------------------------------------
 

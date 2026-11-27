@@ -20,7 +20,7 @@ class Build extends Schema.Opaque<Build>()(
     Schema.Struct({
         project: Schema.String.annotate({ description: 'Project file to build' }),
         command: Schema.NonEmptyArray(Schema.String).annotate({ description: 'dotnet verb and its switches for the configuration, which the plugin infers' }),
-        outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Folders and files the configuration writes, which the target's outputs name through {options.outputs.<n>}" }),
+        outputs: Schema.String.pipe(Schema.Array, Schema.optionalKey).annotate({ description: "Folders and files the configuration writes, which the target's outputs name through {options.outputs.<n>}" }),
         solution: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({
             description: 'Configuration|Platform of each project file the build reaches, passed as CurrentSolutionConfigurationContents, which the plugin infers where a reached project lacks the configuration',
         }),

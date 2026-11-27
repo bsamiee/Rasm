@@ -25,6 +25,7 @@ extension Installation {
 - Nonisolated async functions take non-`Sendable` arguments from the calling actor, as they run on it
 - `@concurrent` functions needing main-actor facts read them in one `await MainActor.run { (...) }` returning a tuple
 - `InferIsolatedConformances` isolates a `@MainActor` type's conformances to the main actor, and its requirement implementations read its state directly
+- `isolated deinit` releases actor or main-actor state on its executor
 
 Non-`Sendable` values cross isolation once the compiler proves the sender keeps no reference to them:
 - Fresh values, `sending` parameters, and `sending` results each form a region of their own and cross whole
@@ -59,6 +60,7 @@ let ended: Result<Void, any Error>? = await withTaskGroup(of: Result<Void, any E
 - Owners store each `Task` outliving its scope and cancel it in their teardown, and a `Task` stored nowhere ends only when its own work does
 - Operations running one at a time on one model chain tasks: each new `Task` awaits the previous one's value and its cancel handler cancels it
 - `Task.immediate` runs on the caller's actor up to its first suspension, the form for a synchronous event handler that starts async work
+- Groups bounded to `width` children add the first `width` keys, then one pending key per finished child, and the parent alone writes the results
 
 ## [03]-[DEADLINES]
 
@@ -92,6 +94,7 @@ private func race<Value: Sendable, Failure: Error>(
 `expired` is the caller's own failure (`ProcessFailure(subject: subject, reason: .timedOut(timeout))`), its reason holding the budget. `cancelAll()` stops the losing child, and the group returns once that child ends, so work that never suspends holds the group until it checks cancellation. Cancelling the caller ends the sleep with no outcome, and the cancelled work's own outcome decides. The work child always yields, and a fallback outcome naming `expired` in place of `preconditionFailure` reports a timeout that never happened:
 - Public `race(_:against:)` takes a rival ending only by failing (a lock heartbeat), and the work's outcome ends the rival
 - Waits for one event pass the event's stream as the work (`replies.first { _ in true }`), in place of a `merge` with a timer mapped to `nil`
+- Deadlines handed down a call tree are one `C.Instant` every nested step sleeps `until:`, and a step with its own budget takes a `Duration`
 
 ## [04]-[ACTORS]
 

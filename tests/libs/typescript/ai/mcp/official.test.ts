@@ -35,7 +35,7 @@ const RUN = 120_000;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Checks = Schema.fromJsonString(Schema.Array(Schema.Struct({ id: Schema.String })));
+const Checks = Schema.Struct({ id: Schema.String }).pipe(Schema.Array, Schema.fromJsonString);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -45,7 +45,7 @@ const endpoint = Effect.gen(function* () {
     const listening = Context.get(yield* Layer.build(layerServer(createServer, { host: '127.0.0.1', port: 0 })), HttpServer.HttpServer);
     const url = yield* Match.valueTags(listening.address, { UnixPathAddress: Effect.die, InetAddressV4: served, InetAddressV6: served });
     const handler = yield* HttpRouter.toHttpEffect((yield* hosted(new URL(url).host)).layer);
-    yield* Effect.provideService(Layer.build(HttpServer.serve(handler)), HttpServer.HttpServer, listening);
+    yield* handler.pipe(HttpServer.serve(), Layer.build, Effect.provideService(HttpServer.HttpServer, listening));
     return url;
 });
 
@@ -53,7 +53,7 @@ const checked = Effect.fnUntraced(function* (scenario: (typeof SCENARIOS)[number
     const [fs, path, spawner, url] = yield* Effect.all([FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner, endpoint]);
     const results = yield* fs.makeTempDirectoryScoped({ prefix: 'mcp-conformance-' });
     const run = yield* spawner.spawn(ChildProcess.make('conformance', ['server', '--url', url, '--scenario', scenario, '--expected-failures', path.join(import.meta.dirname, 'expected-failures.yaml'), '--output-dir', results], { cwd: results }));
-    const [output, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(run.all)), run.exitCode], { concurrency: 'unbounded' });
+    const [output, code] = yield* Effect.all([run.all.pipe(Stream.decodeText, Stream.mkString), run.exitCode], { concurrency: 'unbounded' });
     const files = (yield* fs.readDirectory(results, { recursive: true })).filter((file) => path.basename(file) === 'checks.json');
     const checks = yield* Effect.forEach(files, (file) => Effect.flatMap(fs.readFileString(path.join(results, file)), Schema.decodeEffect(Checks)));
     return { output, code, checks: checks.flat() };

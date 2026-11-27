@@ -4,7 +4,7 @@ import OrderedCollections
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct Observation: Encodable, Sendable {
+struct Observation: Encodable, Sendable {
     struct Shape: Encodable, Equatable, Sendable {
         let kind: Control.Kind
         let role: String

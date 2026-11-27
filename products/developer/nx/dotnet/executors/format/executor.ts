@@ -13,12 +13,12 @@ type Planned = readonly [string, Format];
 
 class Format extends Schema.Opaque<Format>()(
     Schema.Struct({
-        commands: Schema.NonEmptyArray(Schema.NonEmptyArray(Schema.String)).annotate({ description: 'dotnet format subcommands and their switches, run in order, which the plugin infers' }),
+        commands: Schema.String.pipe(Schema.NonEmptyArray, Schema.NonEmptyArray).annotate({ description: 'dotnet format subcommands and their switches, run in order, which the plugin infers' }),
         project: Schema.String.annotate({ description: 'Project file the commands run on' }),
         __unparsed__: Words,
     }).annotate({ title: 'Format', description: 'Runs dotnet format commands in order on one project, or once each over a solution of every batched project' }),
 ) {}
-const Report = Schema.fromJsonString(Schema.Array(Schema.Struct({ FilePath: Schema.String }))).annotate({ description: 'The file dotnet format --report writes, one entry per document it changed or would change' });
+const Report = Schema.Struct({ FilePath: Schema.String }).pipe(Schema.Array, Schema.fromJsonString).annotate({ description: 'The file dotnet format --report writes, one entry per document it changed or would change' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

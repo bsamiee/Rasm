@@ -42,12 +42,12 @@ Options and runs of mypy and refurb:
 Configuration lookup of ty:
 - `@rasm/nx-uv` runs one `ty check` per uv root, from that root over every member root, in an environment holding every package of its workspace
 - `ty` walks up to the first `pyproject.toml` holding `[tool.ty]`, or a `ty.toml`, and merges no parent table
-- `ty` has no `extends`, and each uv root restates `environment` and `rules`
+- `ty` has no `extends`, and each uv root restates `environment`, `project-manager`, and `rules`
 - `TY_CONFIG_FILE` replaces project options whole and shares no table across roots
 - `ty` takes its Python version from the `requires-python` beside its table, a uv root's for each of its members
 - `ty` overrides hold `rules` and `analysis` alone, with no `environment`
 - `src.exclude` keeps a root `ty check` with no paths off Blender roots, and command-line paths bypass it
-- `TY_UV=1` makes ty ask uv for the workspace root and environment, as preview rule `missing-direct-dependency` needs both under `all = "error"`
+- `project-manager.project = "uv"` makes ty ask uv for the workspace root and environment, as preview rule `missing-direct-dependency` needs both under `all = "error"`, and a set `TY_UV` overrides it
 
 ## [05]-[RUFF]
 

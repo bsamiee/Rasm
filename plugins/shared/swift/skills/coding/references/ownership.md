@@ -102,3 +102,4 @@ final class Connection: Sendable {
 - Work that suspends or runs a caller's handler reads what `withLock` returned, after the lock
 - Lookups memoized under the lock read and fill one dictionary in one `withLock`
 - `OSAllocatedUnfairLock` holds the `Copyable` state of a copyable struct, and noncopyable state takes `Mutex`
+- `Atomic` binds to a `let` as `Mutex` does, counters read outside any lock use `.relaxed`, and a flag publishing other writes pairs `.releasing` with `.acquiring`

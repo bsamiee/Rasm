@@ -78,8 +78,8 @@ const DIALOGS = Record.fromIterableWith(['alert', 'confirm', 'prompt'], (name) =
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Instances = Schema.Array(Schema.toCodecJson(InstanceSnapshot));
-const Installations = Schema.Array(Schema.toCodecJson(Installation));
+const Instances = InstanceSnapshot.pipe(Schema.toCodecJson, Schema.Array);
+const Installations = Installation.pipe(Schema.toCodecJson, Schema.Array);
 const Opened = Schema.fromJsonString(Schema.Struct({ instance: Schema.String }));
 const Text = Schema.Struct({ text: Schema.String });
 const Answered = Schema.fromJsonString(Schema.Struct({ result: Schema.Json }));
@@ -178,33 +178,38 @@ class Suite extends Context.Service<Suite>()('@rasm/test-atelier/scripts.test/Su
             }),
         );
         const served = ApplicationRpcs.omit('installation', 'pasteboard', 'model', 'intern', 'handlers', 'launch', 'act', 'quit', 'capture', 'record', 'scale');
-        yield* Layer.build(
-            RpcServer.layer(served).pipe(
-                Layer.provide([
-                    served.toLayer({
-                        installations: () => Stream.concat(Stream.succeed({ installations, unreadable: [] }), Stream.never),
-                        instances: () => Stream.concat(Stream.succeed(Result.succeed(instances)), Stream.never),
-                        release: () => Effect.void,
-                        events: () => Stream.never,
-                        observations: () => Stream.never,
-                        pressure: () => Stream.never,
-                        session: () => Stream.concat(Stream.succeed(Result.succeed({ onConsole: true, locked: false, asleep: false, secureInput: false, spaces: [1] })), Stream.never),
-                        watch: ({ instance }) => Effect.orDie(Effect.map(Effect.fromOption(Array.findFirst(instances, (row) => row.instance === instance)), (row) => ({ ...row, language: 'en' }))),
-                        dictionary: ({ url }) => Effect.orDie(Effect.fromNullishOr(dictionaries[url.href])),
-                        execute: (payload) => executing(executed, payload),
-                        diagnostics: (payload) =>
-                            Effect.sync(() => {
-                                MutableRef.set(
-                                    folders,
-                                    payload.folders.map(({ url, glob }) => ({ url: url.href, ...Record.getSomes({ glob: Option.fromUndefinedOr(glob) }) })),
-                                );
-                                return { reports: [], samples: [], logs: [], unified: Result.succeed([]), unreadable: [] };
-                            }),
-                    }),
-                    RpcServer.layerProtocolSocketServer,
-                ]),
-                Layer.provide([sockets({ path: socket }), RpcSerialization.layerNdJsonRpc()]),
-            ),
+        yield* served.pipe(
+            RpcServer.layer,
+            Layer.provide([
+                served.toLayer({
+                    installations: () => Stream.concat(Stream.succeed({ installations, unreadable: [] }), Stream.never),
+                    instances: () => Stream.concat(Stream.succeed(Result.succeed(instances)), Stream.never),
+                    release: () => Effect.void,
+                    events: () => Stream.never,
+                    observations: () => Stream.never,
+                    pressure: () => Stream.never,
+                    session: () => Stream.concat(Stream.succeed(Result.succeed({ onConsole: true, locked: false, asleep: false, secureInput: false, spaces: [1] })), Stream.never),
+                    watch: ({ instance }) =>
+                        Array.findFirst(instances, (row) => row.instance === instance).pipe(
+                            Effect.fromOption,
+                            Effect.map((row) => ({ ...row, language: 'en' })),
+                            Effect.orDie,
+                        ),
+                    dictionary: ({ url }) => Effect.orDie(Effect.fromNullishOr(dictionaries[url.href])),
+                    execute: (payload) => executing(executed, payload),
+                    diagnostics: (payload) =>
+                        Effect.sync(() => {
+                            MutableRef.set(
+                                folders,
+                                payload.folders.map(({ url, glob }) => ({ url: url.href, ...Record.getSomes({ glob: Option.fromUndefinedOr(glob) }) })),
+                            );
+                            return { reports: [], samples: [], logs: [], unified: Result.succeed([]), unreadable: [] };
+                        }),
+                }),
+                RpcServer.layerProtocolSocketServer,
+            ]),
+            Layer.provide([sockets({ path: socket }), RpcSerialization.layerNdJsonRpc()]),
+            Layer.build,
         );
         const server = yield* spawner.spawn(ChildProcess.make(path.join(contents, 'Helpers', 'server'), ['--listen', `127.0.0.1:${port}`, '--output-dir', path.join(root, 'output'), '--registry', registry], { env: { HOME: home }, extendEnv: true, stdout: 'ignore', stderr: 'inherit' }));
         const connected = McpClient.make({ name: 'atelier-suite', version: '1.0.0' }).pipe(Effect.provideServiceEffect(McpClient.Transport, McpClient.http({ url: `http://127.0.0.1:${port}/`, protocol: McpProtocol.v2025_11_25 })));

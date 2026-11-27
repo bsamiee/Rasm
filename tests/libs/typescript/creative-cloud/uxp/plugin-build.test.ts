@@ -31,7 +31,7 @@ const Written = Schema.fromJsonString(
         main: Schema.String,
         host: Schema.Struct({ minVersion: Schema.SemVerFromString }),
         icons: Schema.Array(Row),
-        entrypoints: Schema.Tuple([Schema.Struct({ id: Schema.String, icons: Schema.optionalKey(Schema.Array(Row)) }), Schema.Struct({ id: Schema.String, icons: Schema.Array(Row) })]),
+        entrypoints: Schema.Tuple([Schema.Struct({ id: Schema.String, icons: Row.pipe(Schema.Array, Schema.optionalKey) }), Schema.Struct({ id: Schema.String, icons: Schema.Array(Row) })]),
         requiredPermissions: Schema.Struct({ network: Schema.Struct({ domains: Schema.Array(Schema.String) }) }),
         featureFlags: Schema.Struct({ unhandledRejection: Schema.Boolean }),
     }),

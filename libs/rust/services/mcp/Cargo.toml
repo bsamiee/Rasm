@@ -54,7 +54,7 @@ form_urlencoded                    = { workspace = true, optional = true }
 matchit                            = { workspace = true, optional = true }
 percent-encoding                   = { workspace = true, optional = true }
 url                                = { workspace = true, optional = true }
-rmcp                               = { workspace = true, default-features = false, features = ["server"] }
+rmcp                               = { workspace = true, features = ["server"] }
 opentelemetry                      = { workspace = true, optional = true }
 opentelemetry-semantic-conventions = { workspace = true }
 tracing                            = { workspace = true }

@@ -34,19 +34,19 @@ const EXECUTORS = Record.map(collection.executors, (_, executor) => `${plugin.na
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
-const Stated = Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) })).annotate({
+const Stated = Schema.Record(Schema.String, Schema.Struct({ inputs: Input.pipe(Schema.Array, Schema.mutable, Schema.optionalKey) })).annotate({
     description: "The target rows of a project's package.json nx field or project.json, whose inputs Nx merges over the inferred targets after every plugin",
 });
 const Overrides = Schema.fromJsonString(Schema.Struct({ targets: Schema.optionalKey(Stated), nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Stated) })) })).annotate({
     description: 'The nx.targets of a package.json and the targets of a project.json, which Nx merges over the inferred targets in that order',
 });
 const Named = Schema.fromJsonString(Schema.Struct({ name: Schema.String })).annotate({ description: 'The name field of a package.json' });
-const Words = Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' });
+const Words = Schema.String.pipe(Schema.Array, Schema.optionalKey).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' });
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const Root = Context.Reference<string>('@rasm/nx/Root', { defaultValue: cwd });
-const hostPath = Effect.runSync(Effect.provide(Effect.service(Path.Path), pathLayer));
+const hostPath = Path.Path.pipe(Effect.service, Effect.provide(pathLayer), Effect.runSync);
 const hosted = Layer.provideMerge(
     Layer.effect(ChildProcessSpawner.ChildProcessSpawner)(
         Effect.gen(function* () {
@@ -94,7 +94,15 @@ const executor = <S extends Schema.Decoder<unknown>, A>(options: S, body: (state
 
 const batched = <S extends Schema.Decoder<unknown>, A, E>(options: S, body: (graph: TaskGraph, inputs: Readonly<Record<string, S['Type']>>, context: ExecutorContext) => Stream.Stream<A, E, NodeServices>) => {
     const decode = Schema.decodeUnknownEffect(Schema.Record(Schema.String, options));
-    return (graph: TaskGraph, raw: unknown, _: unknown, context: ExecutorContext) => Stream.toReadableStream(Stream.provide(Stream.unwrap(Effect.map(decode(raw), (inputs) => body(graph, inputs, context))), hosted)).values();
+    return (graph: TaskGraph, raw: unknown, _: unknown, context: ExecutorContext) =>
+        decode(raw)
+            .pipe(
+                Effect.map((inputs) => body(graph, inputs, context)),
+                Stream.unwrap,
+                Stream.provide(hosted),
+                Stream.toReadableStream(),
+            )
+            .values();
 };
 
 const fingerprinted = (folder: string) => Effect.succeed(hashArray([...Array.fromNullishOr(hashFile(import.meta.filename)), ...Array.flatMap(readdirSync(folder).toSorted(), (name) => Array.fromNullishOr(hashFile(join(folder, name))).flatMap((hash) => [name, hash]))]));

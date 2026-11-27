@@ -35,7 +35,7 @@ const Thrown = Schema.Struct({ message: Schema.Unknown });
 const ImageSize = Schema.Struct({ width: Schema.Int, height: Schema.Int }).annotate({ description: 'Image size in pixels' });
 const Callable = Schema.declare((value): value is (...args: readonly unknown[]) => unknown => Predicate.isFunction(value));
 const Entrypoints = Schema.Struct({ setup: Callable });
-const ThemeDocument = Schema.Struct({ theme: Schema.declare(Schema.is(Schema.Struct({ getCurrent: Callable, onUpdated: Schema.Struct({ addListener: Callable, removeListener: Callable }) }))) });
+const ThemeDocument = Schema.Struct({ theme: Schema.Struct({ getCurrent: Callable, onUpdated: Schema.Struct({ addListener: Callable, removeListener: Callable }) }).pipe(Schema.is, Schema.declare) });
 const GlobalRequire = Schema.Struct({ require: Callable }).annotate({ description: 'Global require a UXP host resolves its own modules through by name' });
 const HostInfo = Schema.Struct({ applicationPath: Schema.NonEmptyString.annotate({ description: 'Bundle path of the running installation' }) });
 const Requests = EvaluationRpcs.merge(RenderRpcs);
@@ -236,16 +236,16 @@ const applyTheme = Effect.fnUntraced(function* (root: HTMLElement) {
 });
 const panel = Effect.fnUntraced(function* <E, F>(runtime: ManagedRuntime.ManagedRuntime<Uxp | Plugin, E>, body: Panel<F>) {
     const held = yield* ScopedRef.fromAcquire(Effect.void);
-    const run = <X>(effect: Effect.Effect<unknown, X, Uxp | Plugin>): Promise<void> => runtime.runPromise(Effect.asVoid(logFailure(effect)));
+    const run = <X>(effect: Effect.Effect<unknown, X, Uxp | Plugin>): Promise<void> => runtime.runPromise(effect.pipe(logFailure, Effect.asVoid));
     const fork = Effect.fnUntraced(
         function* (element: HTMLElement) {
             const runFork = yield* FiberSet.makeRuntime<Uxp | Plugin, unknown, never>();
-            yield* Effect.forkScoped(logFailure(applyTheme(element)));
+            yield* applyTheme(element).pipe(logFailure, Effect.forkScoped);
             return yield* body(element, (work) => {
-                runFork(Effect.ignore(logFailure(work)));
+                work.pipe(logFailure, Effect.ignore, runFork);
             });
         },
-        (effect) => Effect.asVoid(Effect.forkScoped(logFailure(effect))),
+        (effect) => effect.pipe(logFailure, Effect.forkScoped, Effect.asVoid),
     );
     return {
         show: (root?: unknown): Promise<void> => run(Effect.flatMap(Schema.decodeUnknownEffect(Schema.instanceOf(HTMLElement))(root), (element) => ScopedRef.set(held, fork(element)))),

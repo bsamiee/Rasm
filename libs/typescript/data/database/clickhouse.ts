@@ -29,10 +29,10 @@ const quoted = flow(literal, String.replaceAll('\\', '$&$&'));
 const Part = Schema.Struct({ kind: Schema.Literals(Struct.keys(kinds)), name: Schema.String, digest: Schema.String, columns: Schema.Array(Schema.String) });
 const MergeTree = Schema.Struct({ key: Schema.Array(Schema.String), version: Schema.optionalKey(Schema.String), partition: Schema.optionalKey(Schema.String) });
 class TableStamp extends Schema.Opaque<TableStamp>()(Identity.mapFields(Struct.assign({ mergeTree: MergeTree, expires: Schema.optionalKey(Schema.Int), codecs: Schema.Record(Schema.String, Schema.NonEmptyArray(Schema.String)), parts: Schema.Array(Part) }))) {}
-const recorded = <S extends Schema.Codec<unknown, string>>(stamp: S) => Schema.String.pipe(Schema.decodeTo(Schema.Option(Schema.toType(stamp)), { decode: SchemaGetter.transform(Schema.decodeOption(stamp)), encode: SchemaGetter.forbiddenEncoding }));
+const recorded = <S extends Schema.Codec<unknown, string>>(stamp: S) => Schema.String.pipe(Schema.decodeTo(stamp.pipe(Schema.toType, Schema.Option), { decode: stamp.pipe(Schema.decodeOption, SchemaGetter.transform), encode: SchemaGetter.forbiddenEncoding }));
 const Table = Schema.Struct({
     name: Schema.String,
-    identity: recorded(Schema.fromJsonString(TableStamp)),
+    identity: TableStamp.pipe(Schema.fromJsonString, recorded),
     columns: Schema.Array(Schema.Struct({ name: Schema.String, identity: recorded(Stamp), comment: Schema.String, definition: Schema.String, codec: Schema.String, copied: Schema.BooleanFromBit })),
     parts: Schema.Array(Schema.Struct({ kind: Part.fields.kind, name: Schema.String, definition: Schema.String })),
 });

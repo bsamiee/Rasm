@@ -356,10 +356,10 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Postgres.database>
                 Effect.forkScoped,
             );
             yield* Deferred.await(locked);
-            const patient = yield* Effect.forkScoped(Effect.result(Catalog.reconcile(declared([lookups]))));
+            const patient = yield* Catalog.reconcile(declared([lookups])).pipe(Effect.result, Effect.forkScoped);
             yield* polled(sql`EXISTS (SELECT 1 FROM pg_locks l JOIN pg_database d ON d.oid = l.database WHERE d.datname = current_database() AND l.relation = 'lookups'::regclass AND NOT l.granted)`);
             const brief = yield* Catalog.reconcile(Catalog.make({ tables: [lookups], timeouts: { lock: '100 millis', transaction: '1 minute' } })).pipe(Effect.result, Effect.provide(Pg.layer({ url: connected(container.getUsername(), container.getPassword()), applicationName: 'brief' })), Effect.forkScoped);
-            yield* Effect.raceFirst(Effect.asVoid(Fiber.join(brief)), polled(sql`EXISTS (SELECT 1 FROM pg_stat_activity a WHERE a.datname = current_database() AND a.application_name = 'brief' AND a.state = 'idle' AND a.query <> '')`));
+            yield* Effect.raceFirst(brief.pipe(Fiber.join, Effect.asVoid), polled(sql`EXISTS (SELECT 1 FROM pg_stat_activity a WHERE a.datname = current_database() AND a.application_name = 'brief' AND a.state = 'idle' AND a.query <> '')`));
             yield* Deferred.succeed(released, undefined);
             const settled = yield* Effect.all([Fiber.join(patient), Fiber.join(brief)]);
             assert.deepStrictEqual<unknown>({ raised: Array.map(Array.getFailures(settled), store.fault), pending: yield* pending(declared([lookups])) }, { raised: [], pending: { statements: [], concurrent: [] } });
@@ -383,7 +383,7 @@ const cases = (it: Vitest.MethodsNonLive<Layer.Success<typeof Postgres.database>
             yield* sql`CREATE FUNCTION gated() RETURNS event_trigger LANGUAGE plpgsql AS 'BEGIN IF current_query() LIKE ''CREATE INDEX CONCURRENTLY%'' THEN PERFORM set_config(''lock_timeout'', ''0'', true); LOCK TABLE gates.gate IN SHARE MODE; END IF; END'`;
             yield* sql`CREATE EVENT TRIGGER gated ON ddl_command_start WHEN TAG IN ('CREATE INDEX') EXECUTE FUNCTION gated()`;
             const opened = yield* holding('gates.gate');
-            const building = yield* Effect.forkScoped(Effect.result(Catalog.reconcile(Catalog.make({ tables: [sought], timeouts: { lock: '100 millis', transaction: '1 minute' } }))));
+            const building = yield* Catalog.reconcile(Catalog.make({ tables: [sought], timeouts: { lock: '100 millis', transaction: '1 minute' } })).pipe(Effect.result, Effect.forkScoped);
             yield* polled(waited('gates.gate'));
             const freed = yield* holding('other');
             const queued = yield* Catalog.reconcile(declared([sought])).pipe(Effect.result, Effect.provide(client('peer')), Effect.forkScoped);

@@ -262,6 +262,6 @@ Products deliver through the same targets in every ecosystem, development builds
 - Stacks declare every container image a machine or CI job runs and build those no registry publishes, and `.github/` holds no Dockerfile or image build
 - App `hosting.config.ts` targets name Cloudflare or a machine with role `Apps`, and `nx install @rasm/infra` runs role `Apps` under `rasm.localhost`
 - Container engines run under systemd on machines and, on the owner's Mac, in a Colima VM `DOCKER_HOST` names
-- Project `colima` exists where `COLIMA_HOME` names a workspace folder, as on macOS, and its `install--colima` starts the VM and leaves it up
-- Packages requiring an engine client take tag `host:docker`, and their `test--*` and `install--*` tasks depend on `install--colima` where one exists
-- Colima keeps its VM in `.cache/colima`, `clean--colima` prunes images and trims its disk, and `nx clean -c cache` deletes it
+- Project `docker` exists on every machine, and its `install--docker` starts the Colima VM a workspace `COLIMA_HOME` names or confirms systemd's engine answers
+- Packages requiring an engine client take tag `host:docker`, and their `test--*` and `install--*` tasks depend on `docker:install--docker`
+- Colima keeps its VM in `.cache/colima`, `clean--docker` prunes images and trims its disk, and `nx clean -c cache` deletes it

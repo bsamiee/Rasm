@@ -44,7 +44,7 @@ const values = Relation.make('values', {
     code: Text,
     note: Schema.OptionFromNullOr(Text),
 });
-const Written = Schema.fromJsonString(Schema.Array(values.schema));
+const Written = values.schema.pipe(Schema.Array, Schema.fromJsonString);
 const Generated = Schema.NonEmptyArray(Schema.Struct(Struct.omit(values.schema.fields, ['id']))).check(Schema.isMaxLength(ids.length));
 const events = Relation.make('events', { id: Schema.String, tenant: Schema.Int, at: Schema.DateTimeUtcFromString, kind: Schema.Literals(['view', 'buy']), note: Schema.NullOr(Schema.String) }, { indexes: [{ columns: ['tenant', 'at'] }] });
 const accounts = Relation.make(

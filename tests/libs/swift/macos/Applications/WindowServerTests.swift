@@ -1,5 +1,4 @@
 import AppKit
-import Applications
 import AsyncAlgorithms
 import CasePathsCore
 import CoreGraphics
@@ -8,6 +7,8 @@ import Foundation
 import Synchronization
 import System
 import Testing
+
+@testable import Applications
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

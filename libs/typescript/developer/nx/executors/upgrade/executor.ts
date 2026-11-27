@@ -10,7 +10,7 @@ const Upgrade = Dry.mapFields(
         commands: Schema.NonEmptyArray(
             Schema.Struct({
                 apply: Schema.NonEmptyArray(Schema.String).annotate({ description: "The tool's argument list moving requirements and locks" }),
-                preview: Schema.optionalKey(Schema.NonEmptyArray(Schema.String)).annotate({ description: "The tool's own dry run argument list, run under a dry run in place of apply; absent prints apply and runs nothing" }),
+                preview: Schema.String.pipe(Schema.NonEmptyArray, Schema.optionalKey).annotate({ description: "The tool's own dry run argument list, run under a dry run in place of apply; absent prints apply and runs nothing" }),
                 env: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({ description: 'Variables this command alone runs with over the inherited environment' }),
             }),
         ).annotate({ description: 'Commands run in order, stopping at the first failure' }),

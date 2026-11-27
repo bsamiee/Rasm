@@ -13,7 +13,7 @@ const RUN = 180_000;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Checks = Schema.fromJsonString(Schema.Array(Schema.Struct({ id: Schema.String })));
+const Checks = Schema.Struct({ id: Schema.String }).pipe(Schema.Array, Schema.fromJsonString);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -21,7 +21,7 @@ const checked = Effect.fnUntraced(function* (url: string, scenario: (typeof SCEN
     const [fs, path, spawner] = yield* Effect.all([FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
     const results = yield* fs.makeTempDirectoryScoped({ prefix: 'rasad-conformance-' });
     const run = yield* spawner.spawn(ChildProcess.make('conformance', ['server', '--url', url, '--scenario', scenario, '--output-dir', results], { cwd: results }));
-    const [output, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(run.all)), run.exitCode], { concurrency: 'unbounded' });
+    const [output, code] = yield* Effect.all([run.all.pipe(Stream.decodeText, Stream.mkString), run.exitCode], { concurrency: 'unbounded' });
     const files = (yield* fs.readDirectory(results, { recursive: true })).filter((file) => path.basename(file) === 'checks.json');
     const checks = yield* Effect.forEach(files, (file) => Effect.flatMap(fs.readFileString(path.join(results, file)), Schema.decodeEffect(Checks)));
     return { scenario, code, ran: checks.flat().length > 0, output };

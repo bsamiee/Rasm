@@ -1,11 +1,11 @@
-public import CasePaths
-public import Foundation
+package import CasePaths
+package import Foundation
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public struct JSONRPCFailure: CustomNSError, LocalizedError {
+package struct JSONRPCFailure: CustomNSError, LocalizedError {
     @CasePathable
-    public enum Reason: Sendable {
+    package enum Reason: Sendable {
         case transport(any Error)
         case closed
         case unreadable(DecodingError)
@@ -15,10 +15,10 @@ public struct JSONRPCFailure: CustomNSError, LocalizedError {
         case cancelled
     }
 
-    public let subject: String
-    public let reason: Reason
+    let subject: String
+    package let reason: Reason
 
-    public var errorDescription: String? {
+    package var errorDescription: String? {
         switch reason {
             case .transport(let error): error.localizedDescription
             case .closed: "Connection closed"
@@ -30,7 +30,7 @@ public struct JSONRPCFailure: CustomNSError, LocalizedError {
         }
     }
 
-    public var errorUserInfo: [String: Any] {
+    package var errorUserInfo: [String: Any] {
         switch reason {
             case .transport(let error), .unreadable(let error as any Error), .unencodable(let error as any Error), .refused(let error as any Error): [NSUnderlyingErrorKey: error]
             case .closed, .timedOut, .cancelled: [:]

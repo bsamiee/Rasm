@@ -481,7 +481,7 @@ async def performed(
                 requirement
                 for held, extras in pending
                 for requirement in map(Requirement, metadata.requires(held) or ())
-                if requirement.marker is None or any(requirement.marker.evaluate({"extra": extra}) for extra in extras or {""})
+                if requirement.marker is None or requirement.marker.evaluate({"extra": extras})
             )
             pending = frozenset((canonicalize_name(requirement.name), frozenset(requirement.extras)) for requirement in required) - reached
             reached |= pending

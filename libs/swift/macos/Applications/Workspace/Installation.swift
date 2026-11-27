@@ -1,7 +1,8 @@
-public import AppIntents
-public import AppKit
+import AppIntents
+import AppKit
 import CasePathsCore
 import Files
+package import Foundation
 import MachO.dyld.utils
 import OrderedCollections
 import Synchronization
@@ -150,22 +151,22 @@ private struct PackageData: Decodable {
     let includes: [String]
 }
 
-public struct Installation: Encodable, Hashable, Sendable {
-    public struct DocumentType: Encodable, Hashable, Sendable {
-        public let role: String?
-        public let extensions: [String]
+package struct Installation: Encodable, Hashable, Sendable {
+    struct DocumentType: Encodable, Hashable, Sendable {
+        let role: String?
+        let extensions: [String]
     }
 
-    public struct ExportedType: Encodable, Hashable, Sendable {
-        public let identifier: String
-        public let extensions: [String]
+    struct ExportedType: Encodable, Hashable, Sendable {
+        let identifier: String
+        let extensions: [String]
     }
 
-    public struct Quarantine: CustomStringConvertible, Encodable, Hashable, Sendable {
-        public let agentName: String?
-        public let type: String?
-        public let originURL: URL?
-        public let timeStamp: Date?
+    package struct Quarantine: CustomStringConvertible, Encodable, Hashable, Sendable {
+        let agentName: String?
+        let type: String?
+        let originURL: URL?
+        let timeStamp: Date?
 
         init(_ properties: [String: Any]) {
             agentName = properties[kLSQuarantineAgentNameKey as String] as? String
@@ -174,7 +175,7 @@ public struct Installation: Encodable, Hashable, Sendable {
             timeStamp = properties[kLSQuarantineTimeStampKey as String] as? Date
         }
 
-        public var description: String {
+        package var description: String {
             let facts: [String?] = [
                 type, agentName.map { agent in "from \(agent)" }, originURL.map { origin in "of \(origin)" }, timeStamp.map { stamp in "at \(stamp.ISO8601Format())" },
             ]
@@ -182,22 +183,22 @@ public struct Installation: Encodable, Hashable, Sendable {
         }
     }
 
-    public struct Claim: Codable, Hashable, Sendable {
-        public let prefixes: [String]
-        public let server: String
-        public let scope: String
+    package struct Claim: Codable, Hashable, Sendable {
+        let prefixes: [String]
+        let server: String
+        let scope: String
 
-        public var predicate: NSPredicate {
+        package var predicate: NSPredicate {
             NSCompoundPredicate(orPredicateWithSubpredicates: prefixes.map { prefix in NSPredicate(format: "%K BEGINSWITH %@", NSMetadataItemCFBundleIdentifierKey, prefix) })
         }
     }
 
-    public struct AppIntent: Encodable, Hashable, Sendable {
-        public struct Parameter: Encodable, Hashable, Sendable {
-            public let name: String
-            public let title: String?
-            public let description: String?
-            public let isOptional: Bool
+    struct AppIntent: Encodable, Hashable, Sendable {
+        struct Parameter: Encodable, Hashable, Sendable {
+            let name: String
+            let title: String?
+            let description: String?
+            let isOptional: Bool
         }
 
         private enum CodingKeys: CodingKey {
@@ -206,15 +207,15 @@ public struct Installation: Encodable, Hashable, Sendable {
 
         private static let modes: KeyValuePairs<String, IntentModes> = ["background": .background, "foreground": .foreground, "deferred": .foreground(.deferred), "dynamic": .foreground(.dynamic)]
 
-        public let identifier: String
-        public let title: String?
-        public let description: String?
-        public let openAppWhenRun: Bool
-        public let supportedModes: IntentModes
-        public let isDiscoverable: Bool
-        public let parameters: [Parameter]
+        let identifier: String
+        let title: String?
+        let description: String?
+        let openAppWhenRun: Bool
+        let supportedModes: IntentModes
+        let isDiscoverable: Bool
+        let parameters: [Parameter]
 
-        public func encode(to encoder: any Encoder) throws {
+        func encode(to encoder: any Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
             try container.encode(identifier, forKey: .identifier)
             try container.encodeIfPresent(title, forKey: .title)
@@ -259,28 +260,28 @@ public struct Installation: Encodable, Hashable, Sendable {
         case multipleInstancesProhibited, environment, architectures, quarantine, claim, appIntents, unread
     }
 
-    public let url: URL
-    public let executable: URL?
-    public let identifier: String
-    public let bundleName: String?
-    public let version: String?
-    public let build: String?
-    public let scriptingDefinitionFile: String?
-    public let scriptingDefinitionIsDynamic: Bool
-    public let activationPolicy: NSApplication.ActivationPolicy
-    public let documentTypes: [DocumentType]?
-    public let urlSchemes: [String]?
-    public let exportedTypes: [ExportedType]?
-    public let multipleInstancesProhibited: Bool?
-    public let environment: [String: String]?
-    public let claim: Claim?
+    package let url: URL
+    let executable: URL?
+    package let identifier: String
+    package let bundleName: String?
+    package let version: String?
+    let build: String?
+    let scriptingDefinitionFile: String?
+    let scriptingDefinitionIsDynamic: Bool
+    let activationPolicy: NSApplication.ActivationPolicy
+    let documentTypes: [DocumentType]?
+    let urlSchemes: [String]?
+    let exportedTypes: [ExportedType]?
+    let multipleInstancesProhibited: Bool?
+    let environment: [String: String]?
+    package let claim: Claim?
     private let deferred = Deferred()
 
-    public var name: String { deferred.read(\.name) { FileManager.default.displayName(atPath: url.path(percentEncoded: false)) } }
+    package var name: String { deferred.read(\.name) { FileManager.default.displayName(atPath: url.path(percentEncoded: false)) } }
 
-    public var scriptable: Bool { get throws(ApplicationFailure) { try resources.get().scriptable } }
+    package var scriptable: Bool { get throws(ApplicationFailure) { try resources.get().scriptable } }
 
-    public var quarantine: Quarantine? { get throws(ApplicationFailure) { try resources.get().quarantine } }
+    var quarantine: Quarantine? { get throws(ApplicationFailure) { try resources.get().quarantine } }
 
     private var resources: Result<Resources, ApplicationFailure> {
         deferred.read(\.resources) { () -> Result<Resources, ApplicationFailure> in
@@ -295,7 +296,7 @@ public struct Installation: Encodable, Hashable, Sendable {
         }
     }
 
-    public var architectures: [String]? {
+    var architectures: [String]? {
         get throws(ApplicationFailure) {
             try deferred.read(\.architectures) { () -> Result<[String]?, ApplicationFailure> in
                 guard let path = executable?.path(percentEncoded: false) else { return .success(nil) }
@@ -313,11 +314,11 @@ public struct Installation: Encodable, Hashable, Sendable {
         }
     }
 
-    public var appIntents: [AppIntent] {
+    var appIntents: [AppIntent] {
         get throws(ApplicationFailure) { try deferred.read(\.appIntents) { Result { () throws(ApplicationFailure) in try AppIntent.declared(by: url) } }.get() }
     }
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: CodingKeys.self)
         let read = (resources: resources, architectures: Result { () throws(ApplicationFailure) in try architectures }, appIntents: Result { () throws(ApplicationFailure) in try appIntents })
         let resolved: Resources? = read.resources[case: \.success]
@@ -350,7 +351,7 @@ public struct Installation: Encodable, Hashable, Sendable {
 }
 
 extension NSApplication.ActivationPolicy {
-    public var name: String {
+    var name: String {
         switch self {
             case .regular: "regular"
             case .accessory: "accessory"
@@ -363,7 +364,7 @@ extension NSApplication.ActivationPolicy {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Installation {
-    public init(at url: URL) throws(ApplicationFailure) {
+    package init(at url: URL) throws(ApplicationFailure) {
         let bundle = url.resolvedDirectory
         let path = bundle.path(percentEncoded: false)
         let info: BundleInfo?
@@ -405,7 +406,7 @@ extension Installation {
         )
     }
 
-    public func runs(_ instance: NSRunningApplication) -> Bool {
+    func runs(_ instance: NSRunningApplication) -> Bool {
         instance.bundleIdentifier == identifier && instance.bundleURL?.resolvedDirectory == url
     }
 }

@@ -4,6 +4,7 @@
 
 `McpServer` holds tools, resources, templates, prompts, and skills a transport serves. Registrations read `McpServer` from context, `registerToolkit` making one `addTool` call per tool:
 - `McpServer.toolkit(kit)`, `resource`, `prompt`, and `skill` are layers, their `register*` forms effects capturing the services they run with
+- `McpServer.skill(skill, { uri })` serves a `Skill` of `effect/ai/Skill`, which `Skill.fromFiles` decodes from a `SKILL.md` folder map and `Skill.toFiles` writes back
 - `McpServer.toolkit(kit, { content })` maps successes to content blocks and drops `outputSchema` and `structuredContent`
 - `McpServer.resource` templates take one schema per `${}` hole, `McpSchema.param(name, schema)` naming it, with no `{?query}` expansion
 - `McpServer.prompt({ name, parameters, content })` derives argument requirement from field optionality and description from annotations
@@ -23,7 +24,7 @@ const metrics = McpServer.middleware((effect, { method, target }) =>
     UndefinedOr.match(operations[method], {
         onUndefined: () => effect,
         onDefined: Effect.fnUntraced(function* (attributing) {
-            const [duration, exit] = yield* Effect.timed(Effect.exit(effect));
+            const [duration, exit] = yield* effect.pipe(Effect.exit, Effect.timed);
             yield* Metric.update(Metric.withAttributes(operationDuration, { [ATTR_MCP_METHOD_NAME]: method, ...attributing(target) }), duration);
             return yield* exit;
         }),

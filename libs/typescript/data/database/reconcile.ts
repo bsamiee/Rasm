@@ -123,7 +123,7 @@ const tableDdl = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, engine: 
                 );
             };
             const [checkName, check] = [label([entry.name, 'check']), rule(name)];
-            const parts = [type, ...Option.toArray(projection(entry)).map((expression) => engine.generated(sql, expression)), ...(entry.nullable ? [] : ['NOT NULL']), ...Option.toArray(defaulted).map((value) => `DEFAULT ${value}`)];
+            const parts = [type, ...entry.pipe(projection, Option.toArray).map((expression) => engine.generated(sql, expression)), ...(entry.nullable ? [] : ['NOT NULL']), ...Option.toArray(defaulted).map((value) => `DEFAULT ${value}`)];
             const identity = { origin: Option.getOrElse(entry.renamedFrom, () => entry.name), generation: entry.generation };
             const hashed = yield* digest(sql`${spaced([...parts, ...Option.toArray(rule(sql.literal('subject'))).map(Struct.get('text'))])}`.compile(true)[0]);
             const [stamp, constrained] = [{ ...identity, digest: hashed }, Option.toArray(check).map(({ text }) => engine.constraint(sql, checkName.name, text))];
@@ -281,7 +281,9 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
         });
     const components = Graph.stronglyConnectedComponents(graph(edges));
     const cyclic = edges.filter(({ parent, child }) => components.some((component) => component.includes(parent) && component.includes(child)));
-    const created = Array.fromIterable(Graph.entries(Graph.topo()(graph(Array.difference(edges, cyclic))))).map(([index, entry]) => ({ ...entry, deferred: cyclic.filter(({ child }) => child === index).map(Struct.get('link')) }));
+    const created = graph(Array.difference(edges, cyclic))
+        .pipe(Graph.topo(), Graph.entries, Array.fromIterable)
+        .map(([index, entry]) => ({ ...entry, deferred: cyclic.filter(({ child }) => child === index).map(Struct.get('link')) }));
     const kept = Array.difference(observed, [...located.retiring, ...located.claimed]);
     const removed = located.retiring.map(({ name }) => name);
     const occupied = SqlSchema.findOne({ Request: Schema.String, Result: Populated, execute: (name) => sql`SELECT EXISTS (SELECT 1 FROM ${sql(name)}) AS populated` });

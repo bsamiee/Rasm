@@ -7,7 +7,7 @@ One `RpcGroup` of schema-typed procedures is the contract servers, clients, prot
 ```ts
 const Failure = Schema.Union([Unmatched, Schema.ErrorInstance()]);
 const ApplicationRpcs = RpcGroup.make(
-    Rpc.make('events', { payload: { identifiers: Schema.optionalKey(Schema.NonEmptyArray(Schema.String)) }, success: Event, stream: true }),
+    Rpc.make('events', { payload: { identifiers: Schema.String.pipe(Schema.NonEmptyArray, Schema.optionalKey) }, success: Event, stream: true }),
     Rpc.make('pressure', { success: Schema.Result(Pressure, Schema.ErrorInstance()), stream: true }),
     Rpc.make('act', { payload: { instance: ProcessInstance, ...Act.fields }, success: Act.Result, error: Failure }),
 );
@@ -122,7 +122,7 @@ const dialing = (url: URL, redial: Duration.Duration) =>
     Effect.map(Effect.context<Socket.WebSocketConstructor>(), (services) =>
         SocketServer.SocketServer.of({
             address: NetAddress.inetAddressUnsafe(NetAddress.ipv4Loopback, Number(url.port)),
-            run: (handler) => Effect.scoped(Effect.flatMap(Socket.makeWebSocket(url.href), handler)).pipe(Effect.exit, Effect.repeat(Schedule.spaced(redial)), Effect.andThen(Effect.never), Effect.provideContext(services)),
+            run: (handler) => Socket.makeWebSocket(url.href).pipe(Effect.flatMap(handler), Effect.scoped, Effect.exit, Effect.repeat(Schedule.spaced(redial)), Effect.andThen(Effect.never), Effect.provideContext(services)),
         }),
     );
 ```

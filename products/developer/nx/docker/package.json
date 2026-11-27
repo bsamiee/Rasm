@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-docker",
     "version": "0.1.0",
-    "description": "Nx plugin inferring project colima at a COLIMA_HOME inside the workspace and tagging packages requiring a container engine client host:docker",
+    "description": "Nx plugin inferring project docker, the Docker Engine a Colima VM at a COLIMA_HOME inside the workspace holds or the system service manager keeps running, and tagging packages requiring a container engine client host:docker",
     "license": "MIT",
     "repository": {
         "type": "git",

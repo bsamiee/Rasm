@@ -3,16 +3,16 @@ import AsyncAlgorithms
 import CasePaths
 import CoreImage
 import CoreMedia
-public import Encoding
-public import Foundation
+import Encoding
+package import Foundation
 import Processes
 @unsafe @preconcurrency import ScreenCaptureKit
 import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct Recording: Encodable, Sendable {
-    public enum Marker: CaseTagged, Sendable {
+package struct Recording: Encodable, Sendable {
+    enum Marker: CaseTagged, Sendable {
         case step(index: Int, at: Date)
         case event(InstanceEvent)
 
@@ -24,11 +24,11 @@ public struct Recording: Encodable, Sendable {
         }
     }
 
-    public struct KeyFrame: Encodable, Sendable {
-        public let at: Date
-        public internal(set) var changed: CGRect?
-        public let screenshot: Screenshot
-        public internal(set) var markers: [Marker] = []
+    struct KeyFrame: Encodable, Sendable {
+        let at: Date
+        var changed: CGRect?
+        let screenshot: Screenshot
+        var markers: [Marker] = []
     }
 
     private enum Arrival: Sendable {
@@ -36,8 +36,8 @@ public struct Recording: Encodable, Sendable {
         case marked(Marker)
     }
 
-    public let keyFrames: [KeyFrame]
-    public let presentation: Watch.Presentation?
+    let keyFrames: [KeyFrame]
+    let presentation: Watch.Presentation?
 
     static func keyFrames(
         of samples: some AsyncSequence<KeyFrame, Never> & Sendable,
@@ -139,7 +139,7 @@ private final class Output: NSObject, SCStreamOutput, SCStreamDelegate, SCRecord
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Watch {
-    public nonisolated func record<Value>(
+    package nonisolated func record<Value>(
         _ source: Source,
         keyFrames limit: Int,
         longestSide: LongestSide? = nil,

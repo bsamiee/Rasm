@@ -40,6 +40,6 @@ describe('run install', () => {
 
         const { success } = await execute({ runs: [['sh', '-c', ARCHIVED, contents], ...(failing ? [['false']] : [])], applications: ['Viewer.app'] }, workspace.context(EMPTY, 'Viewer', 'install--xcodebuild'));
 
-        expect({ success, executable: readFileSync(join(contents, 'Viewer'), 'utf8') }).toStrictEqual({ success: !failing, executable });
+        expect({ success, executable: readFileSync(join(contents, 'Viewer'), 'utf-8') }).toStrictEqual({ success: !failing, executable });
     });
 });

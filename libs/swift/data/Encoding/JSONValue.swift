@@ -2,7 +2,7 @@ import Foundation
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public enum JSONValue: Codable, Hashable, Sendable {
+package enum JSONValue: Codable, Hashable, Sendable {
     case null
     case bool(Bool)
     case number(Double)
@@ -10,7 +10,7 @@ public enum JSONValue: Codable, Hashable, Sendable {
     case array([Self])
     case object([String: Self])
 
-    public init(from decoder: any Decoder) throws {
+    package init(from decoder: any Decoder) throws {
         guard decoder.codingPath.count < 128 else {
             throw DecodingError.dataCorrupted(DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "JSON nests deeper than 128 levels"))
         }
@@ -25,7 +25,7 @@ public enum JSONValue: Codable, Hashable, Sendable {
             }
     }
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var container = encoder.singleValueContainer()
         switch self {
             case .null: try container.encodeNil()
@@ -37,13 +37,13 @@ public enum JSONValue: Codable, Hashable, Sendable {
         }
     }
 
-    public func decode<Value: Decodable>(_: Value.Type = Value.self) throws -> Value { try JSONDecoder().decode(Value.self, from: JSONEncoder().encode(self)) }
+    package func decode<Value: Decodable>(_: Value.Type = Value.self) throws -> Value { try JSONDecoder().decode(Value.self, from: JSONEncoder().encode(self)) }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension SingleValueDecodingContainer {
-    public func decodeIfMatching<Value: Decodable>(_: Value.Type) throws -> Value? {
+    package func decodeIfMatching<Value: Decodable>(_: Value.Type) throws -> Value? {
         do { return try decode(Value.self) } catch DecodingError.typeMismatch { return nil }
     }
 }

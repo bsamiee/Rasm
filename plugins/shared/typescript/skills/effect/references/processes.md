@@ -22,7 +22,7 @@ Worker threads share their process: `process.chdir` and signal listeners are abs
 ```ts
 const ignored = Effect.fn('ignored')(function* (cwd: string, paths: readonly string[]) {
     const handle = yield* ChildProcess.make({ cwd, stdin: 'ignore', stdout: 'ignore' })`git check-ignore --no-index -q -- ${paths}`;
-    const [said, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+    const [said, code] = yield* Effect.all([handle.stderr.pipe(Stream.decodeText, Stream.mkString), handle.exitCode], { concurrency: 'unbounded' });
     return code <= 1 ? code === 0 : yield* new Cause.UnknownError(said, `git check-ignore exited ${code}`);
 }, Effect.scoped);
 ```

@@ -94,7 +94,7 @@ const ADOBE: Partial<Record<NodeJS.Platform, Config.Config<string>>> = {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Platforms = Schema.optionalKey(Schema.Array(Schema.String));
+const Platforms = Schema.String.pipe(Schema.Array, Schema.optionalKey);
 const Extension = Schema.Struct({ schema_version: Schema.String, id: Schema.String, version: Schema.String, platforms: Platforms, build: Schema.optionalKey(Schema.Struct({ generated: Schema.optionalKey(Schema.Struct({ platforms: Platforms })) })) });
 const Listed = Schema.Struct({ data: Schema.Array(Schema.Struct({ id: Schema.String, version: Schema.String, platforms: Platforms })) });
 const Yak = Schema.Struct({ name: Schema.String, version: Schema.String, authors: Schema.Array(Schema.String), description: Schema.String });
@@ -102,18 +102,18 @@ const Pushed = Schema.Struct({ distributions: Schema.Array(Schema.Struct({ filen
 const Uxp = Schema.fromJsonString(Schema.Struct({ manifestVersion: Schema.Finite, id: Schema.String, name: Schema.String, version: Schema.String, host: Schema.Struct({ app: Schema.Literals(Struct.keys(UXP)), minVersion: Schema.String }) }));
 const Chrome = Schema.fromJsonString(Schema.Struct({ manifest_version: Schema.Literal(3), version: Schema.String, key: Schema.optionalKey(Schema.Uint8ArrayFromBase64) }));
 const Claude = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String }));
-const Marketplace = Schema.fromJsonString(Schema.Struct({ name: Schema.String, plugins: Schema.Array(Schema.Struct({ name: Schema.String })) }));
 const Revision = Schema.Struct({ distributionChannels: Schema.Array(Schema.Struct({ crxVersion: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
 const Upload = Schema.optionalKey(Schema.Literals(['UPLOAD_STATE_UNSPECIFIED', 'SUCCEEDED', 'IN_PROGRESS', 'FAILED', 'NOT_FOUND']));
 const Status = Schema.Struct({ publishedItemRevisionStatus: Revision, submittedItemRevisionStatus: Revision, lastAsyncUploadState: Upload });
 const Uploaded = Schema.Struct({ uploadState: Upload });
 const References = Schema.Array(Schema.Struct({ name: Schema.String, enabled: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))) }).pipe(Schema.encodeKeys({ name: 'Name', enabled: 'Enabled' }))).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
-const Project = Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Plugins: References, AdditionalPluginDirectories: Schema.optionalKey(Schema.Array(Schema.String)) }));
+const Project = Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Plugins: References, AdditionalPluginDirectories: Schema.String.pipe(Schema.Array, Schema.optionalKey) }));
 const Linked = Schema.Record(Schema.String, Schema.Struct({ project: Schema.String, target: Schema.String, configuration: Schema.optionalKey(Schema.String) })).annotate({
     description: 'Folders of a .uplugin, each mapped to the Nx target that installs a package under it in a folder named for the engine platform',
 });
-class Plugin extends Schema.Opaque<Plugin>()(
-    Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Version: Schema.optionalKey(Schema.Int), VersionName: Schema.optionalKey(Schema.String), Installed: Schema.optionalKey(Schema.Boolean), Plugins: References, nx: Schema.optionalKey(Schema.Struct({ packages: Linked })) })),
+class Plugin extends Schema.Struct({ FileVersion: Schema.Int, Version: Schema.optionalKey(Schema.Int), VersionName: Schema.optionalKey(Schema.String), Installed: Schema.optionalKey(Schema.Boolean), Plugins: References, nx: Schema.optionalKey(Schema.Struct({ packages: Linked })) }).pipe(
+    Schema.fromJsonString,
+    Schema.Opaque<Plugin>(),
 ) {}
 const Association = Schema.Struct({ EngineAssociation: Schema.OptionFromOptionalKey(Schema.String) });
 const Engined = Schema.fromJsonString(Association);
@@ -182,7 +182,13 @@ const entry = (file: string, name: string) =>
     Stream.unwrap(FileSystem.FileSystem.useSync((fs) => fs.stream(file))).pipe(
         Stream.pipeThroughChannel(Zip.decode()),
         Stream.filter(({ header }) => Glob.match(Glob.make(name), header.path)),
-        Stream.mapEffect(({ header, body }) => Effect.map(Stream.mkString(Stream.decodeText(body)), (text) => ({ at: header.path, text }))),
+        Stream.mapEffect(({ header, body }) =>
+            body.pipe(
+                Stream.decodeText,
+                Stream.mkString,
+                Effect.map((text) => ({ at: header.path, text })),
+            ),
+        ),
         Stream.runHead,
         Effect.mapError((cause) => new Cause.UnknownError(cause, `${file} does not read as a zip archive`)),
     );
@@ -392,33 +398,6 @@ const HOSTS: readonly Host[] = [
         read: (text) => Effect.succeed(Schema.decodeOption(Claude)(text)),
         write: exact,
         build: { executor: 'package', command: 'a zip archive of the plugin folder', pack: zipped },
-        install: {
-            command:
-                'the build folder Claude Code loads in place from CLAUDE_CODE_PLUGIN_DIRS, codex plugin add from its row of the personal marketplace ~/.agents/plugins/marketplace.json where it holds .codex-plugin/plugin.json, and agy plugin install with each sidecar enabled where it holds .antigravity-plugin/plugin.json',
-            unpacked: true,
-            run: Effect.fnUntraced(function* ({ at, name, names }, words) {
-                const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-                const [marketplace, settings, files] = [path.join(homedir(), '.agents', 'plugins', 'marketplace.json'), path.join(homedir(), '.gemini', 'config', 'config.json'), names.map((file) => file.split(path.sep).join('/'))];
-                const sidecars = files.filter((file) => Glob.match(Glob.make('sidecars/*/sidecar.json'), file)).map((file) => `${name}/${file.split('/')[1]}`);
-                const listed = yield* fs.readFileString(marketplace).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed('{"name":"personal","plugins":[]}')));
-                const configured = yield* fs.readFileString(settings).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed('{}')));
-                const { name: market, plugins } = yield* Effect.mapError(Schema.decodeEffect(Marketplace)(listed), (cause) => new Cause.UnknownError(cause, `${marketplace} holds no marketplace name and plugins array`));
-                const held = plugins.findIndex((plugin) => plugin.name === name);
-                const row = { name, source: { source: 'local', path: `./${path.relative(homedir(), at).split(path.sep).join('/')}` }, policy: { installation: 'AVAILABLE', authentication: 'ON_INSTALL' }, category: 'Coding' };
-                yield* files.includes('.codex-plugin/plugin.json')
-                    ? Effect.andThen(Effect.andThen(fs.makeDirectory(path.dirname(marketplace), { recursive: true }), fs.writeFileString(marketplace, applyEdits(listed, modify(listed, ['plugins', held === -1 ? plugins.length : held], row, {})))), spawned(['codex', 'plugin', 'add', `${name}@${market}`, ...words]))
-                    : Effect.void;
-                yield* files.includes('.antigravity-plugin/plugin.json')
-                    ? Effect.andThen(
-                          fs.writeFileString(
-                              settings,
-                              sidecars.reduce((text, sidecar) => applyEdits(text, modify(text, ['sidecars', sidecar, 'enabled'], true, {})), configured),
-                          ),
-                          spawned(['agy', 'plugin', 'install', at, ...words]),
-                      )
-                    : Effect.void;
-            }),
-        },
     },
     {
         manifest: '*.uproject',

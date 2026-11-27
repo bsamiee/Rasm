@@ -55,7 +55,7 @@ class Execution extends Context.Service<Execution, ExecutionContext>()('@rasm/ho
                 Effect.gen(function* () {
                     const scope = yield* Scope.make();
                     const invocation = yield* Layer.buildWithScope(yield* Execution.Invocation, scope);
-                    const exit = yield* Effect.exit(Effect.provide(Scope.provide(scope)(effect), invocation));
+                    const exit = yield* effect.pipe(Scope.provide(scope), Effect.provide(invocation), Effect.exit);
                     execution.waitUntil(Effect.runPromiseWith(isolate)(Scope.close(scope, exit)));
                     return yield* exit;
                 }),
@@ -97,7 +97,9 @@ const Worker = Object.assign(
             layer: Layer.empty,
             handlers: (ready) => ({
                 scheduled: (controller, _, execution) =>
-                    ready().then((isolate) => Execution.run(isolate, execution)(Effect.asVoid(Effect.withSpan(job(controller), `scheduled ${controller.cron}`, { attributes: { 'faas.trigger': 'timer', 'faas.cron': controller.cron, 'faas.time': DateTime.formatIso(DateTime.makeUnsafe(controller.scheduledTime)) } })))),
+                    ready().then((isolate) =>
+                        Effect.withSpan(job(controller), `scheduled ${controller.cron}`, { attributes: { 'faas.trigger': 'timer', 'faas.cron': controller.cron, 'faas.time': DateTime.formatIso(DateTime.makeUnsafe(controller.scheduledTime)) } }).pipe(Effect.asVoid, Execution.run(isolate, execution)),
+                    ),
             }),
         }),
         queue: <S extends Schema.Top, E, R>(body: S, work: (body: S['Type'], delivery: Pick<Message, 'id' | 'attempts' | 'timestamp'>) => Effect.Effect<unknown, E, R | Execution | Scope.Scope>): Kind<R | S['DecodingServices']> => ({

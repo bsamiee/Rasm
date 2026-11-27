@@ -1,8 +1,8 @@
-public import Applications
+package import Applications
 import CasePathsCore
 import CurrentProcess
 import Encoding
-public import Foundation
+package import Foundation
 import JSONRPC
 import Logging
 import Results
@@ -16,7 +16,7 @@ import Updater
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-public func main(cachedDefinition: @escaping @Sendable (Installation) -> URL? = { _ in nil }) async {
+package func main(cachedDefinition: @escaping @Sendable (Installation) -> URL? = { _ in nil }) async {
     let serving = Result { () throws(Errno) in try FileDescriptor.standardInput.stat() }.map { stat in [FileType.fifo, .socket].contains(stat.type) } == .success(true)
     let disclaimed = Result { () throws(Errno) in if serving { try disclaimResponsibility() } }
     let telemetry = Program.current.telemetry(scopes: [Request.self])

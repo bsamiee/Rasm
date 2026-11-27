@@ -1,32 +1,32 @@
-public import CasePathsCore
+package import CasePathsCore
 import Encoding
-public import Foundation
-public import Subprocess
+package import Foundation
+package import Subprocess
 import System
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public struct FixtureFailure: LocalizedError, Sendable {
-    public let subject: String
+package struct FixtureFailure: LocalizedError, Sendable {
+    package let subject: String
 
-    public var errorDescription: String? { "Fixture output ended before \(subject)" }
+    package var errorDescription: String? { "Fixture output ended before \(subject)" }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public struct FixtureSession: Sendable {
-    public static let executable = Bundle(for: Delegate.self).bundleURL.deletingLastPathComponent().appending(component: "Fixture")
-    public static let ordersFrontAtLaunch = "OrdersFrontAtLaunch"
+package struct FixtureSession: Sendable {
+    package static let executable = Bundle(for: Delegate.self).bundleURL.deletingLastPathComponent().appending(component: "Fixture")
+    package static let ordersFrontAtLaunch = "OrdersFrontAtLaunch"
 
-    public let process: pid_t
+    package let process: pid_t
     private let writer: StandardInputWriter
     private let lines: AsyncThrowingStream<Line, any Error>
 
-    public func send(_ command: Command) async throws {
+    package func send(_ command: Command) async throws {
         _ = try await writer.write(Array(JSONEncoder.jsonLines.encodeLine(command)))
     }
 
-    public func next<Value>(_ line: CaseKeyPath<Line, Value>) async throws -> (value: Value, before: [Line]) {
+    package func next<Value>(_ line: CaseKeyPath<Line, Value>) async throws -> (value: Value, before: [Line]) {
         var before: [Line] = []
         for try await read in lines {
             if let value = read[case: line] { return (value, before) }
@@ -35,7 +35,7 @@ public struct FixtureSession: Sendable {
         throw FixtureFailure(subject: String(describing: line))
     }
 
-    public static func launched<Value: Sendable>(_ body: (Self) async throws -> Value) async throws -> Value {
+    package static func launched<Value: Sendable>(_ body: (Self) async throws -> Value) async throws -> Value {
         try await run(.path(FilePath(executable.path(percentEncoded: false))), input: .inputWriter, output: .sequence, error: .currentStandardError) { execution in
             let (lines, continuation) = AsyncThrowingStream.makeStream(of: Line.self)
             async let drained: Void = drain(execution.standardOutput, into: continuation)

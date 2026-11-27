@@ -102,7 +102,7 @@ it.effect('names a completed job by the specifier of its group and batch item, i
     return host.run(
         Effect.gen(function* () {
             const subscribed = vi.spyOn(host.queue, 'subscribeToEvent');
-            const first = yield* Effect.forkScoped(Stream.runHead(events.renderQueue.changes));
+            const first = yield* events.renderQueue.changes.pipe(Stream.runHead, Effect.forkScoped);
             yield* Deferred.await(host.completing);
             host.queue.dispatchEvent(Object.assign(new Event(EVENTS.complete), { jobId: 'j1', isOkToMoveFile: true }));
             assert.deepStrictEqual(yield* Fiber.join(first), Option.some({ name: EVENTS.complete, target: Option.some(JOB), detail: Option.some({ isOkToMoveFile: true }) }));
@@ -115,7 +115,7 @@ it.effect('fails with a refusal and adds no listener where subscribeToEvent answ
     const host = hosted(false);
     return host.run(
         Effect.gen(function* () {
-            const failed = yield* Effect.flip(Stream.runHead(events.renderQueue.changes));
+            const failed = yield* events.renderQueue.changes.pipe(Stream.runHead, Effect.flip);
             assert.instanceOf(failed, HostError);
             assert.strictEqual(failed.reason._tag, 'Refused');
             assert.deepStrictEqual(host.added.mock.calls, []);

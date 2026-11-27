@@ -1,17 +1,17 @@
-public import CoreServices
+import CoreServices
 import Dispatch
-public import Foundation
+package import Foundation
 import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct FileEvent: Sendable {
-    public let url: URL
-    public let flags: FSEventStreamEventFlags
+package struct FileEvent: Sendable {
+    package let url: URL
+    let flags: FSEventStreamEventFlags
 
-    public var mustScanSubDirs: Bool { flags & FSEventStreamEventFlags(kFSEventStreamEventFlagMustScanSubDirs | kFSEventStreamEventFlagRootChanged) != 0 }
+    package var mustScanSubDirs: Bool { flags & FSEventStreamEventFlags(kFSEventStreamEventFlagMustScanSubDirs | kFSEventStreamEventFlagRootChanged) != 0 }
 
-    public static func events(of file: URL) -> AsyncStream<Result<[Self], FileFailure>> {
+    package static func events(of file: URL) -> AsyncStream<Result<[Self], FileFailure>> {
         let (events, continuation) = AsyncStream<Result<[Self], FileFailure>>.makeStream()
         let watcher = Watcher(continuation: continuation)
         watcher.enqueue { watcher in watcher.start(file) }
@@ -19,7 +19,7 @@ public struct FileEvent: Sendable {
         return events
     }
 
-    public static func events(of file: URL, eventMask: DispatchSource.FileSystemEvent) -> AsyncStream<Result<DispatchSource.FileSystemEvent, FileFailure>> {
+    static func events(of file: URL, eventMask: DispatchSource.FileSystemEvent) -> AsyncStream<Result<DispatchSource.FileSystemEvent, FileFailure>> {
         let (events, continuation) = AsyncStream<Result<DispatchSource.FileSystemEvent, FileFailure>>.makeStream()
         do {
             let descriptor = try FileDescriptor.open(FilePath(file.path(percentEncoded: false)), .readOnly, options: [.eventOnly, .closeOnExec])
@@ -37,13 +37,13 @@ public struct FileEvent: Sendable {
         return events
     }
 
-    public static func presence(of file: URL) -> some AsyncSequence<Result<Bool, FileFailure>, Never> & Sendable {
+    package static func presence(of file: URL) -> some AsyncSequence<Result<Bool, FileFailure>, Never> & Sendable {
         events(of: file).map { batch in
             batch.flatMap { _ in Result { () throws(FileFailure) in try ifPresent(file) { try FilePath(file.path(percentEncoded: false)).stat(followTargetSymlink: false) } != nil } }
         }
     }
 
-    public static func written<Value, Failure: Error>(
+    package static func written<Value, Failure: Error>(
         _ files: [URL],
         during work: () async throws(Failure) -> Value,
     ) async throws(Failure) -> (value: Value, written: Result<[URL], FileFailure>) {

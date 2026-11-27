@@ -28,7 +28,13 @@ const execute = executor(Attach, function* ({ dryRun, __unparsed__: words = [] }
         return yield* spawned(data.repository.release === null ? commands(at).create : commands(at).upload, { cwd: context.root });
     });
     const previewed = (at: string) => `Would run ${CommandLine.display(commands(at).upload)} where ${at} has a GitHub release, else ${CommandLine.display(commands(at).create)}`;
-    yield* dry ? Effect.logInfo(previewed(Option.getOrElse(tag, () => `<tag nx release makes for ${project}>`))) : Option.match(tag, { onNone: () => Effect.logInfo(`Skipped ${project}: HEAD holds no tag of ${project}, so nx release released no version of it at this commit`), onSome: attached });
+    yield* dry
+        ? tag.pipe(
+              Option.getOrElse(() => `<tag nx release makes for ${project}>`),
+              previewed,
+              Effect.logInfo,
+          )
+        : Option.match(tag, { onNone: () => Effect.logInfo(`Skipped ${project}: HEAD holds no tag of ${project}, so nx release released no version of it at this commit`), onSome: attached });
     return { success: true };
 });
 

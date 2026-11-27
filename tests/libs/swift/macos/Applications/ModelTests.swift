@@ -1,6 +1,5 @@
 import AppKit
 @unsafe @preconcurrency import ApplicationServices
-import Applications
 import AsyncAlgorithms
 import CasePathsCore
 import CustomDump
@@ -8,6 +7,8 @@ import Encoding
 import Fixture
 import OrderedCollections
 import Testing
+
+@testable import Applications
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

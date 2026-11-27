@@ -2,7 +2,7 @@ package import AppKit
 import AsyncAlgorithms
 package import Darwin
 import Dispatch
-public import Encoding
+import Encoding
 import Foundation
 import OrderedCollections
 import SPI
@@ -11,7 +11,7 @@ import System
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public enum WindowNotification: UInt32, CaseIterable, CaseLabeled, Sendable {
+enum WindowNotification: UInt32, CaseIterable, CaseLabeled, Sendable {
     case moved = 806
     case resized = 807
     case reordered = 808

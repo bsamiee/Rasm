@@ -56,7 +56,17 @@ const joined = (left: Verbs, right: Verbs): Verbs => Record.union(left, right, (
 
 const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Options, files: readonly string[], { developer, compiled, xcconfig }: { readonly developer: Option.Option<string>; readonly compiled: Result.Result<string, string>; readonly xcconfig: Option.Option<string> }) {
     const fs = yield* FileSystem.FileSystem;
-    const [info, xcodebuild] = yield* Effect.all([Effect.option(spawned(['swift', '-print-target-info'], { cwd: workspaceRoot })), Effect.option(Effect.flatMap(Effect.fromOption(developer), (path) => fs.stat(join(path, 'usr', 'bin', 'xcodebuild'))))], { concurrency: 'unbounded' });
+    const [info, xcodebuild] = yield* Effect.all(
+        [
+            Effect.option(spawned(['swift', '-print-target-info'], { cwd: workspaceRoot })),
+            developer.pipe(
+                Effect.fromOption,
+                Effect.flatMap((path) => fs.stat(join(path, 'usr', 'bin', 'xcodebuild'))),
+                Effect.option,
+            ),
+        ],
+        { concurrency: 'unbounded' },
+    );
     const paths = new Set(files);
     const manifests = files.filter((file) => basename(file) === MANIFEST);
     const containers = files.filter((file) => basename(file) === 'project.xcproj' || (basename(file) === 'contents.xcworkspacedata' && extname(dirname(dirname(file))) !== '.xcodeproj'));
@@ -208,7 +218,7 @@ const createNodes: CreateNodes = [
             ...Option.toArray(xcconfig),
             ...Option.toArray(developer),
             ...Option.toArray(Option.flatMapNullishOr(developer, (path) => hashFile(join(path, '..', 'version.plist')))),
-            ...[...Option.toArray(swift), ...Option.toArray(Result.getSuccess(compiled))].flatMap((file) => [file, ...Array.fromNullishOr(hashFile(file))]),
+            ...[...Option.toArray(swift), ...compiled.pipe(Result.getSuccess, Option.toArray)].flatMap((file) => [file, ...Array.fromNullishOr(hashFile(file))]),
             ...Option.toArray(yield* Config.option(Config.String('TOOLCHAINS'))),
             ...files.filter((file) => basename(file) === MANIFEST).flatMap((file) => Array.fromNullishOr(hashFile(join(workspaceRoot, dirname(file), PACKAGED)))),
         ];

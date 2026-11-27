@@ -5,7 +5,7 @@ import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct Locator: Codable, Hashable, Sendable {
+package struct Locator: Codable, Hashable, Sendable {
     struct Step: Codable, Hashable, Sendable {
         @CasePathable
         enum Key: Codable, Hashable, Sendable {
@@ -88,12 +88,12 @@ public struct Locator: Codable, Hashable, Sendable {
         do { return String(decoding: try Self.encoder.encode(stored.steps), as: UTF8.self) } catch { throw ApplicationFailure(subject: "\(steps)", reason: .foundation(error as NSError)) }
     }
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var text = encoder.singleValueContainer()
         try text.encode(self.text())
     }
 }
 
 extension Locator {
-    public init(from decoder: any Decoder) throws { steps = try Self.decoder.decode([Step].self, from: Data(decoder.singleValueContainer().decode(String.self).utf8)) }
+    package init(from decoder: any Decoder) throws { steps = try Self.decoder.decode([Step].self, from: Data(decoder.singleValueContainer().decode(String.self).utf8)) }
 }

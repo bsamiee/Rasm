@@ -39,7 +39,7 @@ const shipped = Effect.fnUntraced(function* (tree: Tree, version: string, files:
     const lines = rows.join('\n').trim();
     const moved = yield* Effect.when(
         Effect.sync(() => {
-            tree.write(files.shipped, [recorded.trimEnd(), `## Release ${SemVer.format(SemVer.release(release))}\n\n${lines}\n`].filter(String.isNonEmpty).join('\n\n'));
+            tree.write(files.shipped, [recorded.trimEnd(), `## Release ${release.pipe(SemVer.release, SemVer.format)}\n\n${lines}\n`].filter(String.isNonEmpty).join('\n\n'));
             tree.write(files.unshipped, comments.map((comment) => `${comment}\n`).join(''));
             return `Unshipped rules of ${files.unshipped} moved to ${files.shipped} under release ${version}`;
         }),

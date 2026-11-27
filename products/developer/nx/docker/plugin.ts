@@ -8,7 +8,7 @@ import { Array, Config, Effect, FileSystem, Option, Record, Schema } from 'effec
 
 const OWN = fingerprinted(import.meta.dirname);
 const MANIFEST = 'package.json';
-const ENGINE = 'colima';
+const ENGINE = 'docker';
 const CLIENTS: ReadonlySet<string> = new Set(['testcontainers', '@pulumi/docker']);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -24,14 +24,14 @@ const Required = Schema.fromJsonString(
 
 const nodes = inferring(Schema.Struct({}), run, function* (files, _, { workspaceRoot }, cached) {
     const [fs, anchor] = [yield* FileSystem.FileSystem, anchored(workspaceRoot)];
-    const verbs = {
+    const colima = {
         install: {
             [ENGINE]: {
                 command: `mkdir -p "$COLIMA_HOME" && colima start --activate=false --ssh-config=false --mount none --port-forwarder grpc --memory 8 --disk 20 --cpus "$(($(getconf _NPROCESSORS_ONLN) / 2))"`,
                 inputs: [{ externalDependencies: [] }],
                 metadata: {
                     description:
-                        'Starts the Colima VM holding the container engine DOCKER_HOST names on half the cores of this machine with a data disk capped at 20 GiB, in the COLIMA_HOME folder it creates first as Colima reads that variable only once the folder exists, returning once the engine answers and leaving the VM up after the run, with colima start',
+                        'Starts the Colima VM holding the Docker Engine DOCKER_HOST names on half the cores of this machine with a data disk capped at 20 GiB, in the COLIMA_HOME folder it creates first as Colima reads that variable only once the folder exists, returning once the engine answers and leaving the VM up after the run, with colima start',
                     help: { command: 'colima start --help', example: { args: ['--verbose'] } },
                 },
             },
@@ -39,7 +39,7 @@ const nodes = inferring(Schema.Struct({}), run, function* (files, _, { workspace
         clean: {
             [ENGINE]: {
                 executor: EXECUTORS.clean,
-                dependsOn: ['install--colima'],
+                dependsOn: [`install--${ENGINE}`],
                 options: {
                     commands: [
                         ['docker', 'image', 'prune', '--force'],
@@ -56,10 +56,28 @@ const nodes = inferring(Schema.Struct({}), run, function* (files, _, { workspace
             },
         },
     };
-    const engine = (yield* Config.option(Config.String('COLIMA_HOME'))).pipe(
-        Option.map((home) => normalizePath(relative(workspaceRoot, resolve(workspaceRoot, home)))),
-        Option.filter(within),
-        Option.map((root) => [MANIFEST, { projects: { [root]: { root, name: ENGINE, targets: aggregated(verbs, {}, ENGINE, anchor) } } }] as const),
+    const service = {
+        install: {
+            [ENGINE]: {
+                command: 'docker version',
+                inputs: [{ externalDependencies: [] }],
+                metadata: {
+                    description: 'Confirms the Docker Engine DOCKER_HOST names, else the default socket the system service manager keeps running, answers, printing the client and engine versions and failing while the engine is down, with docker version',
+                    help: { command: 'docker version --help', example: { args: [] } },
+                },
+            },
+        },
+    };
+    const folder = (found: Option.Option<string>, below: string) =>
+        found.pipe(
+            Option.map((at) => normalizePath(relative(workspaceRoot, resolve(workspaceRoot, at, below)))),
+            Option.filter(within),
+        );
+    const backed = Option.map(folder(yield* Config.option(Config.String('COLIMA_HOME')), '.'), (root) => ({ root, verbs: colima }));
+    const served = Option.map(folder(yield* Config.option(Config.String('CACHE_DIR')), ENGINE), (root) => ({ root, verbs: service }));
+    const engine = Option.map(
+        Option.orElse(backed, () => served),
+        ({ root, verbs }) => [MANIFEST, { projects: { [root]: { root, name: ENGINE, targets: aggregated(verbs, {}, ENGINE, anchor) } } }] as const,
     );
     const sources = files.filter((file) => anchor.holds(posix.dirname(file)));
     const pass = yield* cached<{ readonly sources: readonly string[]; readonly tagged: readonly string[] }>('docker.hash', yield* OWN);

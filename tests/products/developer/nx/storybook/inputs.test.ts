@@ -13,7 +13,7 @@ vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()),
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const INSTALLED = { storybook: '11.0.0', '@storybook/react-vite': '11.0.0', '@storybook/test-runner': '0.24.0', unread: '1.0.0' } as const;
+const INSTALLED = { storybook: '11.0.0', '@storybook/react-vite': '11.0.0', unread: '1.0.0' } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -46,7 +46,6 @@ const it = nx.extend('modules', { auto: true }, ({ workspace }) => {
         '..stories/card.stories.tsx': 'export default {};\n',
         'apps/site/package.json': '{"name":"site"}',
         'apps/site/tsconfig.json': '{"extends":"../../tsconfig.shared.json"}',
-        'apps/site/node_modules/@storybook/test-runner/package.json': '{"name":"@storybook/test-runner","version":"0.24.0"}',
         'apps/site/src/label.stories.tsx': 'export default {};\n',
         'apps/site/.storybook/main.ts': "import { stories } from '../../../tools/storybook/shared.ts';\n\nexport default { stories, framework: '@storybook/react-vite', addons: ['addon'] };\n",
     });
@@ -63,14 +62,12 @@ describe('what the Storybook targets hash', () => {
         { case: 'the compilerOptions of a tsconfig outside the project its extends chain reaches', edit: { 'tsconfig.shared.json': '{"extends":"./tsconfig.base.json","compilerOptions":{"jsx":"preserve"}}' }, changes: true },
         { case: 'a file outside the project that no stories glob matches', edit: { 'libs/ui/button.tsx': 'export const Button = 2;\n' }, changes: false },
         { case: 'the main config the production input leaves out', edit: { 'apps/site/.storybook/main.ts': "import { stories } from '../../../tools/storybook/shared.ts';\n\nexport default { stories, framework: '@storybook/react-vite', addons: ['addon'], docs: {} };\n" }, changes: true },
-    ])('hashes build--storybook, test--storybook, and the test target running it again after an edit to $case: $changes', async ({ edit, changes }, { workspace }) => {
-        const graph = await workspace.graph({ createNodes });
-        const before = await Promise.all([hashed(workspace, graph, 'build--storybook'), hashed(workspace, graph, 'test--storybook'), hashed(workspace, graph, 'test')]);
+    ])('hashes build--storybook again after an edit to $case: $changes', async ({ edit, changes }, { workspace }) => {
+        const before = await hashed(workspace, await workspace.graph({ createNodes }), 'build--storybook');
 
-        const edited = await workspace.write(edit).graph({ createNodes });
-        const after = await Promise.all([hashed(workspace, edited, 'build--storybook'), hashed(workspace, edited, 'test--storybook'), hashed(workspace, edited, 'test')]);
+        const after = await hashed(workspace, await workspace.write(edit).graph({ createNodes }), 'build--storybook');
 
-        expect({ planned: [...before, ...after].every(Predicate.isString), build: before[0] !== after[0], test: before[1] !== after[1], aggregate: before[2] !== after[2] }).toStrictEqual({ planned: true, build: changes, test: changes, aggregate: changes });
+        expect({ planned: before !== undefined && after !== undefined, changed: before !== after }).toStrictEqual({ planned: true, changed: changes });
     });
 
     it.for([
@@ -78,7 +75,7 @@ describe('what the Storybook targets hash', () => {
         { case: 'the compilerOptions of a tsconfig inside the folder of a project nested in its own that its tsconfig extends', edit: { 'apps/site/sub/tsconfig.json': '{"extends":"../../../tsconfig.shared.json","compilerOptions":{"jsx":"preserve"}}' } },
         { case: 'a story under a stories glob inside the folder of a project nested in its own', edit: { 'apps/site/sub/card.stories.tsx': 'export default { title: "Card" };\n' } },
         { case: 'a module the main config imports from its own folder outside the nested project', edit: { 'apps/site/addons.ts': "export const addons = ['addon'];\nexport const unused = 1;\n" } },
-    ])('hashes build--storybook, test--storybook, and the test target of a project holding another project again after an edit to $case', async ({ edit }, { workspace }) => {
+    ])('hashes build--storybook of a project holding another project again after an edit to $case', async ({ edit }, { workspace }) => {
         workspace.write({
             'apps/site/sub/project.json': '{"name":"sub"}',
             'apps/site/sub/shared.ts': "export const stories = ['../src', '../sub/**/*.stories.tsx'];\n",
@@ -88,13 +85,11 @@ describe('what the Storybook targets hash', () => {
             'apps/site/addons.ts': "export const addons = ['addon'];\n",
             'apps/site/.storybook/main.ts': "import { stories } from '../sub/shared.ts';\nimport { addons } from '../addons.ts';\n\nexport default { stories, framework: '@storybook/react-vite', addons };\n",
         });
-        const graph = await workspace.graph({ createNodes });
-        const before = await Promise.all([hashed(workspace, graph, 'build--storybook'), hashed(workspace, graph, 'test--storybook'), hashed(workspace, graph, 'test')]);
+        const before = await hashed(workspace, await workspace.graph({ createNodes }), 'build--storybook');
 
-        const edited = await workspace.write(edit).graph({ createNodes });
-        const after = await Promise.all([hashed(workspace, edited, 'build--storybook'), hashed(workspace, edited, 'test--storybook'), hashed(workspace, edited, 'test')]);
+        const after = await hashed(workspace, await workspace.write(edit).graph({ createNodes }), 'build--storybook');
 
-        expect({ planned: [...before, ...after].every(Predicate.isString), build: before[0] !== after[0], test: before[1] !== after[1], aggregate: before[2] !== after[2] }).toStrictEqual({ planned: true, build: true, test: true, aggregate: true });
+        expect({ planned: before !== undefined && after !== undefined, changed: before !== after }).toStrictEqual({ planned: true, changed: true });
     });
 
     it.for([

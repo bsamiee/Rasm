@@ -29,11 +29,11 @@ const Build = Schema.Struct({
     description:
         "Builds the Blender extension archives the project's blender_manifest.toml declares through Blender's blender_ext.py, with no Blender installed, one archive per platform the manifest lists and one for every platform where it lists none, or for a check validates the manifest and files of the source folder with blender_ext.py validate; a project holding pyproject.toml builds one staged copy per platform the manifest lists, or one for every platform where it lists none, that bundles its local dependencies as subpackages and as wheels the registry dependencies uv installs from the exported lock for its platforms at the one Python minor its requires-python pins as ==<major>.<minor>.*, leaving out each package its blender dependency group pins as one Blender bundles",
 });
-class Manifest extends Schema.Opaque<Manifest>()(Schema.Struct({ id: Schema.String, platforms: Schema.optionalKey(Schema.Array(Schema.String)) })) {}
+class Manifest extends Schema.Opaque<Manifest>()(Schema.Struct({ id: Schema.String, platforms: Schema.String.pipe(Schema.Array, Schema.optionalKey) })) {}
 const Minor = Schema.TemplateLiteralParser(['==', Schema.Natural, '.', Schema.Natural, '.*']);
 const Locked = Schema.Struct({
     'requires-python': Schema.String,
-    packages: Schema.Array(Schema.Struct({ name: Schema.String, directory: Schema.optionalKey(Schema.Struct({ path: Schema.String })), wheels: Schema.optionalKey(Schema.Array(Schema.Struct({ url: Schema.String, hashes: Schema.Struct({ sha256: Schema.String }) }))) })),
+    packages: Schema.Array(Schema.Struct({ name: Schema.String, directory: Schema.optionalKey(Schema.Struct({ path: Schema.String })), wheels: Schema.Struct({ url: Schema.String, hashes: Schema.Struct({ sha256: Schema.String }) }).pipe(Schema.Array, Schema.optionalKey) })),
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -141,7 +141,7 @@ const waits: Table = {
         action: 'Shell',
         decide: (_, { invocations }) =>
             groupLoops(invocations)
-                .filter((loop) => spins(loop) && loop.body.some((invocation) => !invocation.runs(...fixed, ...inert) && !endsAlone(invocation)) && !loop.inside.some((invocation) => invocation.runs(...exits) || Option.isSome(deriveWatch(invocation))))
+                .filter((loop) => spins(loop) && loop.body.some((invocation) => !invocation.runs(...fixed, ...inert) && !endsAlone(invocation)) && !loop.inside.some((invocation) => invocation.runs(...exits) || invocation.pipe(deriveWatch, Option.isSome)))
                 .map(({ tested }) => ({ deny: `Loop on ${tested.map(({ label }) => label).join(' ')} never ends, as nothing changes its condition and no break or exit leaves it.`, advice: 'Wait on a real condition with Monitor `until <check>; do sleep <seconds>; done`.' })),
     },
     'loop.busy': {
@@ -175,7 +175,7 @@ const waits: Table = {
         program: 'gh',
         path: ['run', 'view'],
         decide: Effect.fnUntraced(function* (view, { invocations, script, shell }) {
-            const polls = invocations.every((other) => Option.isSome(other.repeated) && other.writes.every(({ text }) => Option.contains(text, '/dev/null')) && (other.runs(...pollers) || Option.isSome(deriveWatch(other))));
+            const polls = invocations.every((other) => Option.isSome(other.repeated) && other.writes.every(({ text }) => Option.contains(text, '/dev/null')) && (other.runs(...pollers) || other.pipe(deriveWatch, Option.isSome)));
             const sole = Option.filter(Array.head(script.syntax.stmts), () => polls && script.syntax.stmts.length === 1);
             const watch = Option.filter(deriveWatch(view), () => Option.isSome(view.repeated));
             const command = yield* Effect.transposeOption(Option.map(Option.all([sole, watch]), ([, argv]) => shell.script(script.dialect)`gh run watch ${argv}`));

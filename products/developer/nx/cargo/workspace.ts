@@ -44,7 +44,7 @@ const Package = Schema.Struct({
     version: Schema.String,
     manifest_path: Schema.String,
     readme: Schema.NullOr(Schema.String),
-    publish: Schema.NullOr(Schema.Array(Schema.String)),
+    publish: Schema.String.pipe(Schema.Array, Schema.NullOr),
     dependencies: Schema.Array(Schema.Struct({ name: Schema.String, path: Schema.optionalKey(Schema.String) })),
     targets: Schema.Array(Target),
     features: Schema.Record(Schema.String, Schema.Array(Schema.String)),
@@ -52,7 +52,7 @@ const Package = Schema.Struct({
         Schema.Struct({
             nx: Schema.optionalKey(
                 Schema.Struct({
-                    implicitDependencies: Schema.optionalKey(Schema.Array(Schema.String)),
+                    implicitDependencies: Schema.String.pipe(Schema.Array, Schema.optionalKey),
                     targets: Schema.optionalKey(Stated).annotate({
                         description: 'Target rows of [package.metadata.nx.targets], merged over the inferred targets as Nx merges the nx field of a package.json, a package.json or project.json beside the crate merging over them',
                     }),

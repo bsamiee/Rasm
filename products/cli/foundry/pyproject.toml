@@ -19,7 +19,7 @@ dependencies = [
     "anyio>=4.16.0",             # Worker processes running each face of a set in parallel
     "expression>=6.0.1",         # Results and options of every module
     "msgspec>=0.22.0",           # Declaration, report, and stamp records with TOML and JSON codecs, `frozendict` fields from 0.22.0
-    "packaging>=26.3",           # Requirement markers the installed dependency closure walks
+    "packaging>=26.4",           # Requirement markers the installed dependency closure walks, each evaluated against its requester's whole extras set from 26.4
     "rasm-records",              # Fault results, record files, and atomic writes
     "rasm-typography",           # Face construction, compilation, shaping approvals, and requirement checks
 

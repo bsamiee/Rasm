@@ -1,39 +1,33 @@
-package import AppKit
+import AppKit
 import CasePathsCore
-public import CoreGraphics
+import CoreGraphics
 import CryptoKit
-public import Encoding
+import Encoding
 import SPI
 import Synchronization
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct Pointer: Encodable, Equatable, Sendable {
-    public enum Cursor: CaseTagged, Equatable, Sendable {
-        package struct Image: Sendable {
-            package enum Source: Sendable {
+struct Pointer: Encodable, Equatable, Sendable {
+    enum Cursor: CaseTagged, Equatable, Sendable {
+        struct Image: Sendable {
+            enum Source: Sendable {
                 case global
                 case system(Int32)
                 case core(Int32)
             }
 
-            package let data: Data
-            package let hotSpot: CGPoint
-            package let size: CGSize
-
-            package init(data: Data, hotSpot: CGPoint, size: CGSize) {
-                self.data = data
-                self.hotSpot = hotSpot
-                self.size = size
-            }
+            let data: Data
+            let hotSpot: CGPoint
+            let size: CGSize
         }
 
         case system(name: String)
         case custom(digest: String, hotSpot: CGPoint, size: CGSize)
     }
 
-    public let cursor: Cursor?
-    public let draggingFrame: CGRect?
+    let cursor: Cursor?
+    let draggingFrame: CGRect?
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -41,7 +35,7 @@ public struct Pointer: Encodable, Equatable, Sendable {
 extension Pointer {
     private static let shown: Mutex<(seed: Int32, cursor: Cursor)?> = Mutex(nil)
 
-    package init?(of application: NSRunningApplication, windows: [InstanceState.Window]) {
+    init?(of application: NSRunningApplication, windows: [InstanceState.Window]) {
         let connection: Int32 = mainConnection()
         var (point, local, window, owner): (CGPoint, CGPoint, CGWindowID, Int32) = (.zero, .zero, kCGNullWindowID, 0)
         let located: Bool = unsafe application.isActive && currentCursorLocation(connection, &point) == .success
@@ -64,7 +58,7 @@ extension Pointer {
 extension Pointer.Cursor {
     private static let catalogs: Mutex<[Float?: [SHA256.Digest: String]]> = Mutex([:])
 
-    package init(_ image: Image) {
+    init(_ image: Image) {
         var scale: Float = 0
         let scaled: Float? = unsafe cursorScale(mainConnection(), &scale) == .success ? scale : nil
         let names: [SHA256.Digest: String] = Self.catalogs.withLock { catalogs in
@@ -102,7 +96,7 @@ extension Pointer.Cursor {
 }
 
 extension Pointer.Cursor.Image {
-    package init?(_ source: Source) {
+    init?(_ source: Source) {
         let connection: Int32 = mainConnection()
         var length: Int = 0
         let sized: CGError =

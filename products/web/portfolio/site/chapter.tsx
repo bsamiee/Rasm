@@ -33,7 +33,7 @@ const Chapter = ({ entry }: { readonly entry: Entry }) => {
     const chapter = { current: Option.getOrNull(section) };
     const near = useInView(chapter, { margin: '700px' });
     const visible = useInView(chapter);
-    const selected = Option.getOrUndefined(useAtomValue(selectedComposition(entry.id)));
+    const selected = useAtomValue(selectedComposition(entry.id)).pipe(Option.getOrUndefined);
     const navigate = useAtomSet(selectComposition);
     const title = entryTitle(entry);
     const details = Record.getSomes({ Role: Option.fromUndefinedOr(entry.role), Credits: Option.fromUndefinedOr(entry.credits) });

@@ -7,19 +7,19 @@ description: "Use when writing or reviewing Swift, covering functional design wi
 
 Code uses each module's types wherever they state a value, and a module below performs its field's job before any hand form:
 
-| [INDEX] | [FIELD]           | [MODULES]                                                                           |
-| :-----: | :---------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | Language          | Standard library, Swift Concurrency, `Synchronization`, `Observation`               |
-|  [02]   | Collections       | `OrderedCollections`, `DequeModule`                                                 |
-|  [03]   | Async sequences   | `AsyncAlgorithms`                                                                   |
-|  [04]   | Enum cases        | `CasePaths` declaring `@CasePathable`, `CasePathsCore` for code reading paths alone |
-|  [05]   | Files, processes  | `System`, `Subprocess`                                                              |
-|  [06]   | Settings          | `Configuration`                                                                     |
-|  [07]   | Service lifecycle | `ServiceLifecycle`, `UnixSignals`                                                   |
-|  [08]   | Observability     | `Logging`, `Tracing`, `Instrumentation`, `OTel`, `OTelSemanticConventions`          |
-|  [09]   | Process metrics   | `SystemMetrics`                                                                     |
-|  [10]   | App updates       | `Sparkle`                                                                           |
-|  [11]   | Command lines     | `ArgumentParser`, in a tool package outside root `Package.swift`                    |
+| [INDEX] | [FIELD]           | [MODULES]                                                                                  |
+| :-----: | :---------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | Language          | Standard library, Swift Concurrency, `Synchronization`, `Observation`                      |
+|  [02]   | Collections       | `OrderedCollections`, `DequeModule`, `HeapModule`, `HashTreeCollections`, `BitCollections` |
+|  [03]   | Async sequences   | `AsyncAlgorithms`                                                                          |
+|  [04]   | Enum cases        | `CasePaths` declaring `@CasePathable`, `CasePathsCore` for code reading paths alone        |
+|  [05]   | Files, processes  | `System`, `Subprocess`                                                                     |
+|  [06]   | Settings          | `Configuration`                                                                            |
+|  [07]   | Service lifecycle | `ServiceLifecycle`, `UnixSignals`                                                          |
+|  [08]   | Observability     | `Logging`, `Tracing`, `Instrumentation`, `OTel`, `OTelSemanticConventions`                 |
+|  [09]   | Process metrics   | `SystemMetrics`                                                                            |
+|  [10]   | App updates       | `Sparkle`                                                                                  |
+|  [11]   | Command lines     | `ArgumentParser`, in a tool package outside root `Package.swift`                           |
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Closure effects, function references, predicates and comparators as values, and dependencies
@@ -184,6 +184,9 @@ Choose collections by their most frequent operation:
 |  [03]   | Values interned to dense ids            | `OrderedSet`, `append(_:)` returns the index |
 |  [04]   | Keyed lookups, membership               | `Dictionary`, `Set`                          |
 |  [05]   | Insertion and removal at both ends      | `Deque`                                      |
+|  [06]   | Repeated minimum or maximum             | `Heap`                                       |
+|  [07]   | Many versions sharing structure         | `TreeDictionary`, `TreeSet`                  |
+|  [08]   | Dense small non-negative integers       | `BitSet`                                     |
 
 ### [03.1]-[ENUMS]
 
@@ -287,7 +290,7 @@ Isolation decides where code runs and what it touches, and the state a value sha
 |  [03]   | Shared mutable state whose updates suspend | `actor`                                                            |
 |  [04]   | Non-`Sendable` host handles                | `actor` holding the handles, `Sendable` records leaving it         |
 |  [05]   | Blocking host calls over actor-held state  | `actor` whose `unownedExecutor` is its own `DispatchSerialQueue`   |
-|  [06]   | Shared mutable state updated synchronously | `Mutex` in a `final class: Sendable`                               |
+|  [06]   | Shared mutable state updated synchronously | `Mutex` or `Atomic` in a `final class: Sendable`                   |
 |  [07]   | Same state held by a copyable value        | `OSAllocatedUnfairLock`                                            |
 |  [08]   | CPU-bound work off the caller's actor      | `@concurrent` function                                             |
 |  [09]   | Nonisolated blocking host call             | `@concurrent` function under `withTaskExecutorPreference(<queue>)` |

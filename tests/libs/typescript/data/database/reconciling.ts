@@ -181,7 +181,7 @@ const bounded = Relation.make('bounded', {
     slug: Schema.String.check(Schema.isLowercased()),
     shout: Schema.String.check(Schema.isUppercased()),
     count: Schema.Int,
-    since: Schema.DateFromString.check(Schema.isGreaterThanOrEqualToDate(DateTime.toDateUtc(DateTime.makeUnsafe('2026-01-01T00:00:00.000Z')))),
+    since: Schema.DateFromString.check(DateTime.makeUnsafe('2026-01-01T00:00:00.000Z').pipe(DateTime.toDateUtc, Schema.isGreaterThanOrEqualToDate)),
     wide: Schema.BigIntFromString.check(Schema.isBetweenBigInt({ minimum: -7n, maximum: 7n })),
 });
 const valid = { ratio: 0.5, positive: 1, code: 'ab', state: 'open', level: 1, step: 5, slug: 'abc', shout: 'ABC', count: 1, since: '2026-06-01T00:00:00.000Z', wide: 0 };

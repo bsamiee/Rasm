@@ -1,7 +1,6 @@
 {
     "name": "@rasm/telemetry",
     "version": "0.1.0",
-    "private": true,
     "description": "Logs, traces, and metrics of Effect programs exported over OTLP, with Node log rotation, crash capture, and host metrics",
     "license": "MIT",
     "repository": {

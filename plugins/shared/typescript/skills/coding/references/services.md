@@ -89,7 +89,7 @@ Layers remove `Scope` from their requirements. Resource lifetime selects where a
 - Host handles implementing `Disposable` or `AsyncDisposable` enter through `Effect.acquireDisposable`, released by their own dispose
 - Handles without a dispose method enter through `Effect.acquireRelease`, its release receiving the `Exit`
 - Host clients with a package-published layer (`NodeHttpClient.layerUndici`) enter through the published layer
-- Reads a service warms at build fork through `Effect.forkScoped(Effect.ignore(read))`, layer build continuing and the fork ending with the layer
+- Reads a service warms at build fork through `read.pipe(Effect.ignore, Effect.forkScoped)`, layer build continuing and the fork ending with the layer
 - Values a scope owns are read inside it, and a value read after a call is acquired at a longer lifetime
 
 ## [04]-[LAYERS]

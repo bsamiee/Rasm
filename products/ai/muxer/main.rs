@@ -229,7 +229,10 @@ async fn run(invocation: Invocation<Cli>) -> Result<ExitCode, MuxerError> {
         tokio::io::stdout().write_all(&printed).await.map_err(failed(Operation::Report))?;
         return Ok(ExitCode::SUCCESS);
     };
-    let (input, output) = rasm_process::standard(Some(BUFFER)).map_err(failed(Operation::Relay))?;
+    let (input, output) = cfg_select! {
+        unix => rasm_process::standard(Some(BUFFER)).map_err(failed(Operation::Relay))?,
+        _ => (tokio::io::stdin(), tokio::io::stdout()),
+    };
     let mut session = Resumable::new(input, output, DEFAULT_MAX_LINE_LENGTH);
     let served = async {
         let held = BTreeMap::from_iter(env::vars_os());

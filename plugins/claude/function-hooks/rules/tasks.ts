@@ -28,7 +28,7 @@ const stackFlags = ['--stack', '-s', '--yes', '-y', '--skip-preview', '--non-int
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Words = Schema.Array(Schema.String);
-const Command = Schema.optionalKey(Schema.NullOr(Schema.Struct({ command: Schema.Union([Schema.String, Schema.Struct({ argv: Words })]) })));
+const Command = Schema.Struct({ command: Schema.Union([Schema.String, Schema.Struct({ argv: Words })]) }).pipe(Schema.NullOr, Schema.optionalKey);
 const Hooks = Schema.fromJsonString(Schema.Struct({ steps: Schema.Record(Schema.String, Schema.Struct({ check: Command, check_diff: Command, check_list_files: Command, fix: Command })) }));
 const Plan = Schema.fromJsonString(Schema.Struct({ steps: Schema.Array(Schema.Struct({ status: Schema.String, fileCount: Schema.optionalKey(Schema.Finite) })) }));
 const Metadata = Schema.fromJsonString(Schema.Struct({ workspace_root: Schema.String, packages: Schema.Array(Schema.Struct({ name: Schema.String, manifest_path: Schema.String })) }));
@@ -277,7 +277,7 @@ const tasks: Table = {
     },
     'nx.launcher': {
         program: 'nx',
-        decide: (nx) => (Array.isReadonlyArrayNonEmpty(nx.within) && isLaunchedBy(nx, launcherPrograms) ? Option.toArray(launcherOf(nx)).map((launcher) => ({ edit: (editor) => [editor.remove(launcher)] })) : []),
+        decide: (nx) => (Array.isReadonlyArrayNonEmpty(nx.within) && isLaunchedBy(nx, launcherPrograms) ? nx.pipe(launcherOf, Option.toArray).map((launcher) => ({ edit: (editor) => [editor.remove(launcher)] })) : []),
     },
     'nx.quieted': {
         program: 'nx',

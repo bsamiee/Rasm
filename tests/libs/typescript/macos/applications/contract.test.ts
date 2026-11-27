@@ -128,8 +128,8 @@ describe('contract', () => {
                 {
                     decoded: Result.getOrThrow(decoded),
                     outcome: yield* Schema.decodeUnknownEffect(outcomes)([Result.succeed(delivery)]),
-                    unmessaged: Result.isFailure(Schema.decodeUnknownResult(unified)(Result.succeed([Struct.omit(entry, ['eventMessage'])]))),
-                    noticed: Result.isFailure(Schema.decodeUnknownResult(unified)(Result.succeed([{ ...entry, messageType: 'Notice' }]))),
+                    unmessaged: Result.succeed([Struct.omit(entry, ['eventMessage'])]).pipe(Schema.decodeUnknownResult(unified), Result.isFailure),
+                    noticed: Result.succeed([{ ...entry, messageType: 'Notice' }]).pipe(Schema.decodeUnknownResult(unified), Result.isFailure),
                     unlisted: Result.isFailure(Schema.decodeUnknownResult(outcomes)([Result.succeed(Struct.omit(delivery, ['popUps']))])),
                 },
                 { decoded: [entry], outcome: [Result.succeed(delivery)], unmessaged: true, noticed: true, unlisted: true },

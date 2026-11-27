@@ -52,7 +52,7 @@ const At = Schema.NonEmptyString.annotate({
     description:
         'A reference as results print it: @ with a kind letter and number for what is read now (@d3), or the path of a remembered item (File > Export… > Export > Units, numbered #2 where paths repeat), which keeps naming the item once it is open; else a label path from the outer container in, labels joined by > (New Document > Units), each label matched ignoring case, accents, and punctuation or by a run of the words it holds, items read now first',
 });
-const Steps = Schema.fromJsonString(Schema.Array(Schema.Json));
+const Steps = Schema.Json.pipe(Schema.Array, Schema.fromJsonString);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -255,7 +255,7 @@ const opener = (held: Index, { target }: Item, seen: HashSet.HashSet<string> = H
     );
 const opening = (held: Index, wanted: Item): Result.Result<readonly Item[], string> => {
     const links = Array.reverse(
-        Array.unfold({ at: wanted, seen: HashSet.empty<string>() }, ({ at, seen }) => Option.map(opener(held, at, seen), (found) => [found, { at: Array.headNonEmpty(found), seen: HashSet.union(seen, HashSet.fromIterable(Option.toArray(locatorOf(Array.headNonEmpty(found).target)))) }] as const)),
+        Array.unfold({ at: wanted, seen: HashSet.empty<string>() }, ({ at, seen }) => Option.map(opener(held, at, seen), (found) => [found, { at: Array.headNonEmpty(found), seen: HashSet.union(seen, locatorOf(Array.headNonEmpty(found).target).pipe(Option.toArray, HashSet.fromIterable)) }] as const)),
     );
     const chain = links.map(Array.headNonEmpty);
     const root = Array.headNonEmpty(Array.append(chain, wanted));

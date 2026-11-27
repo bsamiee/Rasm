@@ -1,11 +1,11 @@
-public import Encoding
-public import Foundation
+package import Encoding
+package import Foundation
 import Results
 import Synchronization
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable & Sendable, Failure: Error>: Sendable {
+package final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable & Sendable, Failure: Error>: Sendable {
     // --- [STATE]
 
     private struct State {
@@ -28,7 +28,7 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
 
     // --- [LIFECYCLE]
 
-    public static func run<Value>(
+    package static func run<Value>(
         reading lines: sending some AsyncSequence<Data, any Error>,
         writing write: @escaping @Sendable (Data) async throws -> Void,
         timeout: Duration,
@@ -41,9 +41,9 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
         return await body(connection)
     }
 
-    public var isClosed: Bool { state.withLock { state in state.closed != nil } }
+    package var isClosed: Bool { state.withLock { state in state.closed != nil } }
 
-    public func waitUntilClosed() async -> Failure {
+    package func waitUntilClosed() async -> Failure {
         let (ends, end) = AsyncStream<Failure>.makeStream()
         let id = UUID()
         end.onTermination = { [weak self] _ in self?.state.withLock { state in state.endings[id] = nil } }
@@ -56,7 +56,7 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
     // --- [REQUESTS]
 
     @discardableResult
-    public func request<Value: Decodable & Sendable>(
+    package func request<Value: Decodable & Sendable>(
         _ method: Method,
         params: (some Encodable & Sendable)? = Never?.none,
         returning _: Value.Type = JSONValue.self,
@@ -77,13 +77,13 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
         return try answer.mapError { error in failure(JSONRPCFailure(subject: subject, reason: .refused(error))) }.get()
     }
 
-    public func notify(_ method: Method, params: (some Encodable & Sendable)? = Never?.none) async throws(Failure) {
+    package func notify(_ method: Method, params: (some Encodable & Sendable)? = Never?.none) async throws(Failure) {
         try await send(Message<_, Never>(method: method.rawValue, params: params), subject: method.rawValue)
     }
 
     // --- [NOTIFICATIONS]
 
-    public func subscribe<Value: Decodable & Sendable>(
+    package func subscribe<Value: Decodable & Sendable>(
         _ method: Method,
         to _: Value.Type,
         bufferingPolicy: AsyncStream<Result<Value, Failure>>.Continuation.BufferingPolicy = .unbounded,

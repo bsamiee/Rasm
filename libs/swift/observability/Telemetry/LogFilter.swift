@@ -1,31 +1,31 @@
-public import Logging
+package import Logging
 import Synchronization
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public final class LogFilter: Sendable {
-    public struct Rules: Sendable {
-        public var level: Logger.Level
-        public var others: Logger.Level
-        public var scopes: [String: Logger.Level]
+package final class LogFilter: Sendable {
+    package struct Rules: Sendable {
+        package var level: Logger.Level
+        var others: Logger.Level
+        var scopes: [String: Logger.Level]
 
-        public init(level: Logger.Level = .info, others: Logger.Level = .warning, scopes: [String: Logger.Level] = [:]) { (self.level, self.others, self.scopes) = (level, others, scopes) }
+        package init(level: Logger.Level = .info, others: Logger.Level = .warning, scopes: [String: Logger.Level] = [:]) { (self.level, self.others, self.scopes) = (level, others, scopes) }
     }
 
     private let roots: Set<Substring>
     private let state: Mutex<(rules: Rules, resolved: [String: Logger.Level])>
 
-    public init(roots: [Any.Type], rules: Rules = .init()) {
+    package init(roots: [Any.Type], rules: Rules = .init()) {
         self.roots = Set(roots.map { root in String(reflecting: root).prefix { character in character != "." } })
         state = Mutex((rules, [:]))
     }
 
-    public var rules: Rules {
+    package var rules: Rules {
         get { state.withLock { state in state.rules } }
         set { state.withLock { state in state = (newValue, [:]) } }
     }
 
-    public func level(for scope: String) -> Logger.Level {
+    package func level(for scope: String) -> Logger.Level {
         state.withLock { state in
             if let resolved = state.resolved[scope] { return resolved }
             let level =

@@ -147,7 +147,7 @@ Context7 reads:
 - Answer across libraries in one step, up to four `--library` names or IDs, `--library-version` reads that version's snapshot
 - Candidates with snippet count, reputation, benchmark score, Versions, and `Source code` on IDs `ctx7 code` reads
 - Code examples and source with a Source URL per snippet, `--language` ranks one language first, wiki pages can describe an older major
-- Snapshot from the Versions list, `__branch__<name>` snapshots an older major, `not found` means unindexed
+- Snapshot of the version a project writes (`4.1.0`, `^4.1.0`, `3`) through `--tag`, else the closest one indexed, a major alone its newest release
 - Rendered docs site with API reference pages, Source URL names the docs version, a code fence can lose line breaks
 - Declaration of one symbol in repository source at the commit its docs describe, `/websites/` and `/llmstxt/` IDs hold no source
 - Source lines matching a regex at a `/<owner>/<repo>/<tag>` ID, `-F` reads an error message literally, `-l` names files alone, `-c` counts per file
@@ -158,7 +158,7 @@ Context7 reads:
 ctx7 search '<question naming the symbol>' --library /<owner>/<repo> --language <language>
 ctx7 library '<repository name>' '<task sentence naming the symbol>'
 ctx7 docs /<owner>/<repo> '<one concept naming the symbol>' --language <language>
-ctx7 docs /<owner>/<repo>/<version> '<one concept>'
+ctx7 docs /<owner>/<repo> '<one concept>' --tag <version>
 ctx7 docs /websites/<site> '<one concept>'
 ctx7 code /<owner>/<repo> '<Symbol>' --op definition
 ctx7 code /<owner>/<repo>/<tag> '<regex>' -g '<glob>' -g '!<glob>' -C 3

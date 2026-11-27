@@ -33,7 +33,7 @@ const writer = Effect.fn('writer')(function* (write: (rows: Readonly<Record<stri
         yield* Ref.update(pending, Record.filter((entry, locator) => written[locator] !== entry));
     }).pipe(Effect.catch((error) => Effect.logWarning('Flush failed', error)));
     yield* Effect.addFinalizer(() => flush);
-    yield* Effect.forkScoped(Effect.repeat(flush, Schedule.spaced(interval)));
+    yield* flush.pipe(Effect.repeat(Schedule.spaced(interval)), Effect.forkScoped);
     return (locator: string, entry: Entry) => Ref.update(pending, Record.set(locator, entry));
 });
 ```

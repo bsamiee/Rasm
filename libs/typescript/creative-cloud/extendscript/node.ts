@@ -28,9 +28,9 @@ const Diagnostic = Schema.TemplateLiteralParser(['  x ', Schema.String, '\n   ,-
 const Mapping = Schema.fromJsonString(
     Schema.Struct({
         version: Schema.Int,
-        sources: Schema.mutable(Schema.Array(Schema.String)),
-        sourcesContent: Schema.mutable(Schema.Array(Schema.String)).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-        names: Schema.mutable(Schema.Array(Schema.String)),
+        sources: Schema.String.pipe(Schema.Array, Schema.mutable),
+        sourcesContent: Schema.String.pipe(Schema.Array, Schema.mutable, Schema.withDecodingDefaultKey(Effect.succeed([]))),
+        names: Schema.String.pipe(Schema.Array, Schema.mutable),
         mappings: Schema.String,
         file: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),
         sourceRoot: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),

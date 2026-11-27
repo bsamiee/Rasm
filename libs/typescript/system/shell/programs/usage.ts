@@ -18,7 +18,7 @@ interface Encoded {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Default = <S extends Schema.Top>(schema: S, value: S['Encoded']) => Schema.optionalKey(Schema.toEncoded(schema)).pipe(Schema.decodeTo(schema, { decode: SchemaGetter.withDefault(Effect.succeed(value)), encode: SchemaGetter.transformOptional(Option.filter((held) => !Equal.equals(held, value))) }));
+const Default = <S extends Schema.Top>(schema: S, value: S['Encoded']) => schema.pipe(Schema.toEncoded, Schema.optionalKey, Schema.decodeTo(schema, { decode: SchemaGetter.withDefault(Effect.succeed(value)), encode: SchemaGetter.transformOptional(Option.filter((held) => !Equal.equals(held, value))) }));
 const List = <S extends Schema.Top>(item: S) => Default(Schema.Array(item), []);
 const Arity = Schema.Literals(['none', 'one', 'optional', 'rest']);
 const Slot = Schema.Struct({
@@ -66,7 +66,7 @@ class Usage extends Schema.Class<Usage, { readonly brand: unique symbol }>('@ras
         flags: List(Flag),
         inherited: List(Flag),
         values: Default(Schema.Record(Schema.String, Slot), {}),
-        operands: Schema.OptionFromOptionalKey(Schema.Array(Slot)),
+        operands: Slot.pipe(Schema.Array, Schema.OptionFromOptionalKey),
         input: Schema.OptionFromOptionalKey(Slot),
         output: Schema.OptionFromOptionalKey(Slot),
         abbreviates: Schema.OptionFromOptionalKey(Schema.Boolean),

@@ -52,7 +52,7 @@ const hostingStacks = Effect.fnUntraced(function* (node: ProjectGraphProjectNode
                 {
                     image: machine.imaged(name, projected.image.dockerfile, { context: projected.image.context }),
                     envs: all({
-                        ...Record.map(projected.env, (value) => (Redacted.isRedacted(value) ? secret(Redacted.value(value)) : value)),
+                        ...Record.map(projected.env, (value) => (Redacted.isRedacted(value) ? secret(value.pipe(Redacted.value)) : value)),
                         ...(Record.isEmptyRecord(projected.buckets) ? {} : { ...bucketed(name, storage, projected.buckets), S3_PUBLIC_ENDPOINT_URL: storage.origin }),
                         ...Option.match(owner, { onNone: () => ({}), onSome: (email) => ({ [Enrollment.variable]: JSON.stringify([email]) }) }),
                         [Access.variable]: access,

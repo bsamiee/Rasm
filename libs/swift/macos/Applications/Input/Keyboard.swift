@@ -1,11 +1,11 @@
 import Carbon.HIToolbox
-public import CoreGraphics
+import CoreGraphics
 import Foundation
 import Synchronization
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-public enum Modifier: String, CaseIterable, Codable, Sendable {
+enum Modifier: String, CaseIterable, Codable, Sendable {
     case command
     case shift
     case option
@@ -33,8 +33,8 @@ struct Stroke: Equatable, Sendable {
     let text: String?
 }
 
-public enum Key: Codable, Hashable, Sendable {
-    public enum Special: String, CaseIterable, Codable, Sendable {
+enum Key: Codable, Hashable, Sendable {
+    enum Special: String, CaseIterable, Codable, Sendable {
         case `return`, enter, tab, space, delete, forwardDelete, escape, clear, home, end, pageUp, pageDown, left, right, down, up, help, contextualMenu, eisu, kana
         case f1, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19
 
@@ -96,7 +96,7 @@ public enum Key: Codable, Hashable, Sendable {
     case character(Character)
     case code(CGKeyCode)
 
-    public init(from decoder: any Decoder) throws {
+    init(from decoder: any Decoder) throws {
         let value = try decoder.singleValueContainer()
         do { self = .code(try value.decode(CGKeyCode.self)) } catch DecodingError.typeMismatch {
             let text = try value.decode(String.self)
@@ -109,7 +109,7 @@ public enum Key: Codable, Hashable, Sendable {
         }
     }
 
-    public func encode(to encoder: any Encoder) throws {
+    func encode(to encoder: any Encoder) throws {
         var value = encoder.singleValueContainer()
         switch self {
             case .special(let special): try value.encode(special)

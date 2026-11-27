@@ -9,6 +9,9 @@
             "path": "../../../libs/typescript/web/vite"
         },
         {
+            "path": "../../../libs/typescript/system/process"
+        },
+        {
             "path": "../../../libs/typescript/developer/nx"
         }
     ]

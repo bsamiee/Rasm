@@ -15,7 +15,7 @@ const instant = { behavior: 'instant' } as const satisfies ScrollIntoViewOptions
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-class Position extends Schema.Opaque<Position>()(Schema.fromURLSearchParams(Schema.Struct({ project: Entry.fields.id, composition: Schema.optional(Composition.fields.id) }))) {}
+class Position extends Schema.Opaque<Position>()(Schema.Struct({ project: Entry.fields.id, composition: Schema.optional(Composition.fields.id) }).pipe(Schema.fromURLSearchParams)) {}
 const Place = Data.taggedEnum<Place>();
 const top = Place.Anchor({ id: 'top' });
 const work = Place.Anchor({ id: 'work' });

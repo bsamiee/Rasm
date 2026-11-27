@@ -66,7 +66,7 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
             const stdout = Stream.tap(handle.stdout, (chunk) => Ref.update(bytes, Number.sum(chunk.byteLength)));
             return Layer.effect(
                 ApplicationServer,
-                Effect.flatMap(RpcClient.make(ApplicationRpcs, { generateRequestId: () => RpcMessage.RequestId(MutableRef.incrementAndGet(requests)) }), (client) => ApplicationServer.make(client, handle.exitCode, traffic)),
+                Effect.flatMap(RpcClient.make(ApplicationRpcs, { generateRequestId: () => requests.pipe(MutableRef.incrementAndGet, RpcMessage.RequestId) }), (client) => ApplicationServer.make(client, handle.exitCode, traffic)),
             ).pipe(Layer.provide(layerProtocolChildProcess({ stdin: handle.stdin, stdout })));
         });
         return {

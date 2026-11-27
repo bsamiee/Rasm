@@ -80,7 +80,10 @@ class ObjectStorage extends Context.Service<ObjectStorage>()('@rasm/object-stora
     static readonly remove = (key: string, uploadId: Option.Option<string>) => ObjectStorage.use((storage) => storage.remove(key, uploadId));
     static readonly serve = Effect.fn('ObjectStorage.serve')(function* (object: ServeContext, options: Omit<ServeObjectOptions, 'onError'> = {}) {
         const [{ objects }, request, context] = yield* Effect.all([ObjectStorage, Effect.flatMap(HttpServerRequest.HttpServerRequest, HttpServerRequest.toWeb).pipe(Effect.orDie), Effect.context<never>()]);
-        const served = serveObject(objects, { ...options, onError: (error, { operation, key }) => Effect.runSyncWith(context)(Effect.logError(Cause.fail(ObjectStorageError.of('Unavailable', `${operation} ${key}`)(error)))) });
+        const served = serveObject(objects, {
+            ...options,
+            onError: (error, { operation, key }) => ObjectStorageError.of('Unavailable', `${operation} ${key}`)(error).pipe(Cause.fail, Effect.logError, Effect.runSyncWith(context)<void, never>),
+        });
         return HttpServerResponse.fromWeb(yield* Effect.promise(() => served(request, object)));
     });
 }

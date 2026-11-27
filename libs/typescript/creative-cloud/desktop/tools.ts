@@ -89,7 +89,7 @@ const Toolbar = Schema.Uint8Array.pipe(
         ),
         encode: SchemaGetter.forbiddenEncoding,
     }),
-    Schema.decodeTo(Schema.Struct({ signature: Schema.Literal('8BPF'), descriptor: Schema.Struct({ tlst: Schema.Array(Schema.Array(Schema.Struct({ toolKey: CharId }))) }) })),
+    Schema.decodeTo(Schema.Struct({ signature: Schema.Literal('8BPF'), descriptor: Schema.Struct({ tlst: Schema.Struct({ toolKey: CharId }).pipe(Schema.Array, Schema.Array) }) })),
 );
 const Catalog = Schema.fromJsonString(
     Schema.Struct({
@@ -99,7 +99,7 @@ const Catalog = Schema.fromJsonString(
                 name: Schema.String,
                 itemId: Schema.String,
                 context: Schema.Struct({ trigger: Schema.optionalKey(Schema.String) }),
-                cmHelpXDetail: Schema.optionalKey(Schema.Array(Schema.Struct({ id: Schema.String.annotate({ description: 'helpx.adobe.com page path' }) }))),
+                cmHelpXDetail: Schema.Struct({ id: Schema.String.annotate({ description: 'helpx.adobe.com page path' }) }).pipe(Schema.Array, Schema.optionalKey),
             }),
         ),
     }),

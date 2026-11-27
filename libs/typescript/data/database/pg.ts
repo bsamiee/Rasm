@@ -59,12 +59,15 @@ const opclasses: Readonly<Record<Relation['indexes'][number]['method'], { readon
 const Role = Schema.Struct({ role: Schema.String });
 const ColumnRef = Schema.Struct({ fields: Schema.Array(Schema.Unknown) });
 class Configuration extends Schema.Opaque<Configuration>()(Schema.Struct({ name: Schema.String, configuration: Schema.String, filters: Schema.Array(Schema.String) })) {}
-const Prelude = Schema.Struct({ required: Schema.Array(Schema.String), filters: Schema.Array(Schema.String), declared: Schema.fromJsonString(Schema.Array(Configuration)) });
+const Prelude = Schema.Struct({ required: Schema.Array(Schema.String), filters: Schema.Array(Schema.String), declared: Configuration.pipe(Schema.Array, Schema.fromJsonString) });
 class Configurations extends Schema.Opaque<Configurations, { readonly brand: unique symbol }>()(
     Schema.Struct({
         migrator: Schema.String,
         absent: Schema.Array(Schema.String),
-        configurations: Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, configuration: Schema.String, configured: Schema.Boolean, drift: Schema.Array(Schema.Struct({ tokens: Schema.NonEmptyArray(Schema.String), dictionaries: Schema.OptionFromNullOr(Schema.NonEmptyArray(Schema.String)) })) }))),
+        configurations: Schema.Struct({ name: Schema.String, configuration: Schema.String, configured: Schema.Boolean, drift: Schema.Array(Schema.Struct({ tokens: Schema.NonEmptyArray(Schema.String), dictionaries: Schema.String.pipe(Schema.NonEmptyArray, Schema.OptionFromNullOr) })) }).pipe(
+            Schema.Array,
+            Schema.fromJsonString,
+        ),
     }),
 ) {}
 class PgObject extends Schema.Class<PgObject, { readonly brand: unique symbol }>('PgObject')({ name: Schema.String, comment: Schema.OptionFromNullOr(Schema.String) }) {

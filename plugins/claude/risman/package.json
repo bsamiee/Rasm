@@ -1,22 +1,9 @@
 {
     "name": "@rasm/risman",
     "private": true,
-    "description": "Hooks for Claude Code, Codex, and Antigravity that bind each agent to a handle of every MCP server built on @rasm/mcp and deliver its events between tool calls",
-    "bin": {
-        "risman": "./hooks/command.ts"
-    },
-    "files": [
-        ".claude-plugin",
-        ".codex-plugin",
-        ".antigravity-plugin",
-        "hooks.json",
-        "hooks/codex.json",
-        "sidecars",
-        "README.md"
-    ],
+    "description": "Claude Code hooks that bind each agent to a handle of every MCP server built on @rasm/mcp and deliver its events between tool calls",
     "type": "module",
     "devDependencies": {
-        "@effect/platform-node": "catalog:",
         "@rasm/mcp": "workspace:*",
         "@rasm/vite": "workspace:*",
         "@types/node": "catalog:",

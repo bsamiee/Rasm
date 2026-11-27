@@ -85,7 +85,7 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
         });
     });
     static readonly Render = Schema.Struct({
-        marks: Schema.optionalKey(Schema.Union([Schema.Boolean, Schema.mutable(Schema.Array(Schema.Literals(['waqf', 'division', 'sajdah', 'sajdah_line', 'sah', 'raised_dot'] as const satisfies readonly MarkKind[])))]).annotate({ description: 'Signs printed against words, true for every kind' })),
+        marks: Schema.optionalKey(Schema.Union([Schema.Boolean, Schema.Literals(['waqf', 'division', 'sajdah', 'sajdah_line', 'sah', 'raised_dot'] as const satisfies readonly MarkKind[]).pipe(Schema.Array, Schema.mutable)]).annotate({ description: 'Signs printed against words, true for every kind' })),
         lines: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Break text where printed lines break' })),
     }).annotate({ description: 'Signs and line breaks written into mushaf ayah text' });
     static readonly mushaf = Effect.fn('Quran.mushaf')(function* (json: Option.Option<string> = Option.none(), render: Parameters<Mushaf['surahs'][number]['ayahs'][number]['render']>[0] = {}, tables: readonly SurahNames[] = NAMES) {

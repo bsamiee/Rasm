@@ -112,16 +112,18 @@ where
             .any(|key| bloom.is_none_or(|bloom| bloom.check(key.as_slice())))
     };
     let [mins, maxes] = [StatisticsConverter::row_group_mins, StatisticsConverter::row_group_maxes].try_map(|bounds| bounds(&statistics, row_groups.iter().copied()))?;
-    let pages = metadata.column_index().zip(metadata.offset_index());
+    let pages = metadata.page_index().map(Arc::as_ref);
     let (builder, selectors) = stream::iter(iter::zip(iter::zip(&groups, &row_groups), iter::zip(mins.as_fixed_size_binary(), maxes.as_fixed_size_binary())))
         .map(Ok::<_, TablesError>)
         .try_fold((builder, Vec::new()), async |(mut reader, mut selectors), ((group, row_group), (min, max))| {
             let rows = usize::try_from(row_group.num_rows()).map_err(ParquetError::from)?;
             let bloom = OptionFuture::from(held(min, max, None).then(|| reader.get_row_group_column_bloom_filter(*group, leaf))).await.transpose()?;
             match (bloom.filter(|bloom| held(min, max, bloom.as_ref())), pages) {
-                (Some(bloom), Some((column_index, offset_index))) if let Some(counts) = statistics.data_page_row_counts(offset_index, metadata.row_groups(), iter::once(group))? => {
-                    let [page_mins, page_maxes] =
-                        [StatisticsConverter::data_page_mins, StatisticsConverter::data_page_maxes].try_map(|bounds| bounds(&statistics, column_index, offset_index, iter::once(group)))?;
+                (Some(bloom), Some(pages))
+                    if pages.offset_index(*group, leaf).is_some()
+                        && let Some(counts) = statistics.data_page_row_counts(pages, metadata.row_groups(), iter::once(group))? =>
+                {
+                    let [page_mins, page_maxes] = [StatisticsConverter::data_page_mins, StatisticsConverter::data_page_maxes].try_map(|bounds| bounds(&statistics, pages, iter::once(group)))?;
                     iter::zip(iter::zip(page_mins.as_fixed_size_binary(), page_maxes.as_fixed_size_binary()), counts.values())
                         .map(|((page_min, page_max), count)| usize::try_from(*count).map(|row_count| RowSelector { row_count, skip: !held(page_min, page_max, bloom.as_ref()) }))
                         .process_results(|spans| selectors.extend(spans))

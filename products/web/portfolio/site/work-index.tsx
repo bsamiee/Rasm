@@ -13,7 +13,7 @@ const reveal = (link: HTMLAnchorElement | null) => link?.scrollIntoView({ block:
 
 const WorkIndex = () => {
     const { entries } = useAtomValue(shown);
-    const active = Option.getOrUndefined(useAtomValue(activeEntry));
+    const active = useAtomValue(activeEntry).pipe(Option.getOrUndefined);
     const jump = useAtomSet(jumpToEntry);
     return (
         <nav aria-label="Work index" className="work-index">

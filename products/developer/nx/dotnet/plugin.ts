@@ -110,7 +110,7 @@ const projected = (nodes: readonly Node[], manifests: readonly Stated[], anchor:
     const unreleased = Graph.mutate(referenced, (mutable) => {
         Graph.filterEdges(mutable, (released) => !released);
     });
-    const reached = (graph: typeof referenced, node: Node): readonly Node[] => Array.fromIterable(Graph.values(Graph.dfs(graph, { start: Option.toArray(Option.map(Record.get(placed, dirname(node.file)), Struct.get('index'))) })));
+    const reached = (graph: typeof referenced, node: Node): readonly Node[] => graph.pipe(Graph.dfs({ start: Option.toArray(Option.map(Record.get(placed, dirname(node.file)), Struct.get('index'))) }), Graph.values, Array.fromIterable);
     const carried = (node: Node) => reached(unreleased, node).flatMap(({ releases }) => Array.fromNullishOr(releases));
     return Array.zip(nodes, manifests).map(([node, manifest]): [string, CreateNodesResult] => {
         const closure = reached(referenced, node);
@@ -204,7 +204,7 @@ const inferred = Effect.fnUntraced(function* (matched: Array.NonEmptyReadonlyArr
             }),
     );
     const results = [...projected(report.nodes, manifests, anchor), ...solutions];
-    const failures = [...Option.toArray(Result.getFailure(read)).map((error): [null, Error] => [null, error]), ...report.failures.map(({ file, message }): [string, Error] => [file, new Cause.UnknownError(file, message)])];
+    const failures = [...read.pipe(Result.getFailure, Option.toArray).map((error): [null, Error] => [null, error]), ...report.failures.map(({ file, message }): [string, Error] => [file, new Cause.UnknownError(file, message)])];
     return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
 });
 

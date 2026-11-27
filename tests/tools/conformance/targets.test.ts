@@ -12,18 +12,18 @@ const aggregate = (name: string, inputs?: TargetConfiguration['inputs']): Target
 
 const checked = (...projects: readonly ProjectNodesWithFiles[]) => violations(rule, { separator: '--' }, { projects });
 
-const app = project('app', { targets: { codegen: aggregate('codegen'), 'codegen--cf': run(), clean: aggregate('clean'), 'clean--colima': run(), test: aggregate('test'), 'test--vitest': run() } });
+const app = project('app', { targets: { codegen: aggregate('codegen'), 'codegen--cf': run(), clean: aggregate('clean'), 'clean--docker': run(), test: aggregate('test'), 'test--vitest': run() } });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('targets', () => {
-    it('accepts valid options, dependsOn entries Nx resolves, a project pattern naming a target no project of this graph holds, and nx:noop aggregates stating exactly the inputs of their tool targets', async () => {
+    it('accepts valid options, dependsOn entries Nx resolves, and nx:noop aggregates stating exactly the inputs of their tool targets', async () => {
         const lib = project('lib', {
             targets: {
                 build: aggregate('build', ['default', { externalDependencies: ['typescript'] }, { dependentTasksOutputFiles: '**/*.d.ts', transitive: true }]),
                 'build--tsc': run({
                     inputs: ['default', { externalDependencies: ['typescript'] }, { dependentTasksOutputFiles: '**/*.d.ts' }],
-                    dependsOn: ['^build--*', 'codegen--*', { projects: '*', target: 'clean--colima' }, 'app:codegen--cf', { projects: '*', target: 'install--colima' }],
+                    dependsOn: ['^build--*', 'codegen--*', { projects: '*', target: 'clean--docker' }, 'app:codegen--cf'],
                     configurations: { watch: { command: 'tsc --watch' } },
                 }),
                 check: { executor: 'nx:noop', dependsOn: [{ target: 'check--*', params: 'forward', projects: ['lib'] }] },
@@ -39,21 +39,24 @@ describe('targets', () => {
         expect(reported(await checked(lib), rows)).toStrictEqual(rows);
     });
 
-    it('reports dependsOn entries naming a target their own project, their named projects, or every project lacks', async () => {
+    it('reports dependsOn entries naming a target their own project, their named projects, the projects a pattern selects, or every project lacks', async () => {
         const rows = [
-            'lib | lib:test--vitest dependsOn "install--colima" names no target',
+            'lib | lib:test--vitest dependsOn "install--docker" names no target',
             'lib | lib:test--vitest dependsOn "^build--dotnet" names no target',
             'lib | lib:test--vitest dependsOn "^check--clipy" names no target',
             'lib | lib:test--vitest dependsOn "^compile" names no target',
             'lib | lib:test--vitest dependsOn "^compile--tsc" names no target',
             'lib | lib:test--vitest dependsOn "missing--*" names no target',
-            'lib | lib:test--vitest dependsOn {"dependencies":true,"target":"install--colima"} names no target',
+            'lib | lib:test--vitest dependsOn {"dependencies":true,"target":"install--docker"} names no target',
             'lib | lib:test--vitest dependsOn {"projects":["app"],"target":"build--tsc"} names no target',
+            'lib | lib:test--vitest dependsOn {"projects":"*","target":"install--docker"} names no target',
         ];
         const lib = project('lib', {
             targets: {
                 test: aggregate('test'),
-                'test--vitest': run({ dependsOn: ['install--colima', '^compile', '^compile--tsc', 'missing--*', { dependencies: true, target: 'install--colima' }, { projects: ['app'], target: 'build--tsc' }, 'build--tsc', '^test--vitest', '^build--dotnet', '^check--clipy'] }),
+                'test--vitest': run({
+                    dependsOn: ['install--docker', '^compile', '^compile--tsc', 'missing--*', { dependencies: true, target: 'install--docker' }, { projects: ['app'], target: 'build--tsc' }, { projects: '*', target: 'install--docker' }, 'build--tsc', '^test--vitest', '^build--dotnet', '^check--clipy'],
+                }),
                 build: aggregate('build'),
                 'build--tsc': run(),
                 check: aggregate('check'),

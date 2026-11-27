@@ -61,7 +61,7 @@ Ports follow who binds them:
 
 Projects reach an engine through Nx and mise alone:
 - `@rasm/nx-docker` tags a project `host:docker` when its manifest names `testcontainers` or `@pulumi/docker`, or a direct dependency names one in its `dependencies`
-- `nx.json` `targetDefaults` row `{test,install}--*` filtered to `tag:host:docker` adds `install--colima` to `dependsOn`, which starts the Colima VM and leaves it running
+- `nx.json` `targetDefaults` row `{test,install}--*` filtered to `tag:host:docker` adds `docker:install--docker` to `dependsOn`, which starts the Colima VM on macOS and leaves it running, and confirms the systemd engine answers on Linux
 - `.config/mise.macos.toml` points `DOCKER_HOST` at Colima's socket, and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` names `/var/run/docker.sock` inside the VM for the reaper container's mount
 
 ## [02]-[WORKERS]

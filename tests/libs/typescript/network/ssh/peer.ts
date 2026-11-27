@@ -8,7 +8,7 @@ import { Array, Console, Effect, Layer, Option, Schema, Stdio } from 'effect';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Asked = Schema.fromJsonString(Schema.Struct({ folder: Schema.String, host: Host, forward: Schema.OptionFromOptionalKey(Forward), calls: Schema.Int, remote: Schema.NonEmptyArray(Schema.String) }));
-const Reached = Schema.fromJsonString(Schema.Array(Schema.String));
+const Reached = Schema.String.pipe(Schema.Array, Schema.fromJsonString);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -22,7 +22,7 @@ const held = Effect.gen(function* () {
 });
 
 if (import.meta.main) {
-    runMain(Layer.launch(Layer.effectDiscard(held)).pipe(Effect.provide(layer)));
+    runMain(held.pipe(Layer.effectDiscard, Layer.launch, Effect.provide(layer)));
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

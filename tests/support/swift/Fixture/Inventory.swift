@@ -95,7 +95,7 @@ final class Layout: NSDocument {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Inventory {
-    public static let toolSegments: [(label: String, help: String)] = [("Select", "Selection Tool (V)"), ("Type", "Type Tool (T)"), ("Frame", "Frame Tool (F)")]
+    package static let toolSegments: [(label: String, help: String)] = [("Select", "Selection Tool (V)"), ("Type", "Type Tool (T)"), ("Frame", "Frame Tool (F)")]
 
     @MainActor
     func row(rows: Rows) -> (surface: Surface?, caption: String?, members: [any NSObject & NSAccessibilityProtocol]) {

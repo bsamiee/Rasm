@@ -24,7 +24,7 @@ const environment = (cwd: string = import.meta.dirname): Effect.Effect<{ readonl
     );
 const shell = (command: string, agent: Action['agent'] = Option.none()): Action => ({ _tag: 'Shell', call: command, agent, command, run: 'foreground' });
 const printed = (command: string, cwd: string) =>
-    ChildProcessSpawner.ChildProcessSpawner.use((spawner) => Effect.scoped(Effect.flatMap(spawner.spawn(ChildProcess.make('/bin/bash', ['-c', command], { cwd, env: variables, extendEnv: false })), (handle) => Effect.all([Stream.mkString(Stream.decodeText(handle.all)), handle.exitCode]))));
+    ChildProcessSpawner.ChildProcessSpawner.use((spawner) => Effect.scoped(Effect.flatMap(spawner.spawn(ChildProcess.make('/bin/bash', ['-c', command], { cwd, env: variables, extendEnv: false })), (handle) => Effect.all([handle.all.pipe(Stream.decodeText, Stream.mkString), handle.exitCode]))));
 const folder = Effect.fnUntraced(function* (files: Readonly<Record<string, string>>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const made = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());

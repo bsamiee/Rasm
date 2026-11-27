@@ -3,9 +3,10 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { env } from 'node:process';
 import { createNodes } from '@rasm/nx-uv';
+import { ExitError } from '@rasm/process';
 import { refused } from '@rasm/testing/errors';
 import { it, shimmed, type Workspace } from '@rasm/testing/nx';
-import { Predicate } from 'effect';
+import { Predicate, Schema } from 'effect';
 import { describe, expect, vi } from 'vitest';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
@@ -119,7 +120,7 @@ describe('uv workspace metadata', () => {
 
         const graphed = workspace.graph({ createNodes });
 
-        await expect(graphed).rejects.toSatisfy(refused(/^uv workspace metadata .* exits 2: error: Failed to parse: `?pyproject\.toml/u));
+        await expect(graphed).rejects.toSatisfy(refused(Schema.Struct({ ...ExitError.fields, command: Schema.String.check(Schema.isPattern(/^uv workspace metadata /u)), code: Schema.Literal(2), stderr: Schema.String.check(Schema.isPattern(/^error: Failed to parse: `?pyproject\.toml/u)) })));
         await expect(graphed).rejects.toHaveProperty(['partialProjectConfigurationsResult', 'projects', 'nested/proj/library', 'name'], 'library');
     });
 });

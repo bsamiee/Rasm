@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { globWithWorkspaceContext, hashFile } from '@nx/devkit/internal';
 import { createDependencies, createNodes } from '@rasm/nx-apple';
+import { ExitError } from '@rasm/process';
 import { refused } from '@rasm/testing/errors';
 import { it as nx, pathed, shimmed } from '@rasm/testing/nx';
 import { Effect, Option, Record, Schema } from 'effect';
@@ -204,9 +205,10 @@ describe('graph cache', () => {
 
     it('refuses a manifest swift package describe rejects on every graph, naming the package and the exit', async ({ workspace, swift }) => {
         workspace.write({ 'broken/Package.swift': `${TOOLS}let package = Package(name: \n` });
+        const refusal = Schema.Struct({ ...ExitError.fields, command: Schema.String.check(Schema.isPattern(/^swift package --package-path broken .*describe --type json$/u)), code: Schema.Literal(1) });
 
-        await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/^swift package --package-path broken .*describe --type json exits 1: /u));
-        await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/^swift package --package-path broken .*describe --type json exits 1: /u));
+        await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(refusal));
+        await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(refusal));
         expect(swift.described()).toHaveLength(2);
     });
 });

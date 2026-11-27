@@ -1,8 +1,8 @@
-public import AppKit
-public import AppleEvents
+package import AppKit
+package import AppleEvents
 import AsyncAlgorithms
 import CasePathsCore
-public import Encoding
+package import Encoding
 import Files
 import Processes
 import Results
@@ -10,23 +10,23 @@ import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct InstanceSnapshot: Encodable, Sendable {
+package struct InstanceSnapshot: Encodable, Sendable {
     private enum Key: CodingKey {
         case pid, instance, identifier, url, activationPolicy, language, state, listening, listeningFailure
     }
 
-    public let instance: Instance
-    public let identifier: String
-    public let url: URL
-    public let language: Locale.Language?
-    public let state: InstanceState
+    let instance: Instance
+    let identifier: String
+    let url: URL
+    let language: Locale.Language?
+    let state: InstanceState
 
-    public init?(_ instance: Instance, state: InstanceState, language: Locale.Language? = nil) {
+    package init?(_ instance: Instance, state: InstanceState, language: Locale.Language? = nil) {
         guard let url = instance.application.bundleURL?.resolvedDirectory, let identifier = instance.application.bundleIdentifier else { return nil }
         (self.instance, self.identifier, self.url, self.language, self.state) = (instance, identifier, url, language, state)
     }
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: Key.self)
         try fields.encode(instance.process.pid, forKey: .pid)
         try fields.encode(instance.process, forKey: .instance)
@@ -42,17 +42,17 @@ public struct InstanceSnapshot: Encodable, Sendable {
     }
 }
 
-public struct LaunchedInstance: Encodable, Sendable {
+package struct LaunchedInstance: Encodable, Sendable {
     private enum Key: CodingKey {
         case pid, instance, identifier, created, replaced
     }
 
-    public let instance: Instance
-    public let identifier: String
-    public let created: Bool
-    public let replaced: Bool
+    let instance: Instance
+    let identifier: String
+    let created: Bool
+    let replaced: Bool
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: Key.self)
         try fields.encode(instance.process.pid, forKey: .pid)
         try fields.encode(instance.process, forKey: .instance)
@@ -62,7 +62,7 @@ public struct LaunchedInstance: Encodable, Sendable {
     }
 }
 
-public enum LaunchEvent: CaseTagged, Sendable {
+package enum LaunchEvent: CaseTagged, Sendable {
     case launched(LaunchedInstance)
     case state(InstanceSnapshot)
     case opened(reply: AppleEventValue)
@@ -177,7 +177,7 @@ extension NSWorkspace {
         return try hold.value.get()
     }
 
-    public func launchEvents(
+    package func launchEvents(
         _ installation: Installation,
         in dictionaries: ScriptingDictionaries,
         watches: Watches,

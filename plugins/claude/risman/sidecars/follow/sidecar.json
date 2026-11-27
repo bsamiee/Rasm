@@ -1,6 +1,0 @@
-{
-    "display_name": "Risman",
-    "description": "Follows the events of each conversation's handles on local @rasm/mcp servers and sends them to a conversation that has gone idle",
-    "command": "node",
-    "args": ["../../hooks/command.js", "antigravity", "follow"]
-}

@@ -49,6 +49,7 @@
         "@nx/devkit": "catalog:",
         "@playwright/test": "catalog:",
         "@rasm/nx": "workspace:*",
+        "@rasm/process": "workspace:*",
         "@storybook/addon-a11y": "catalog:",
         "@types/chrome": "catalog:",
         "@types/node": "catalog:",
@@ -63,6 +64,7 @@
         "@nx/devkit": "catalog:peers",
         "@playwright/test": "catalog:peers",
         "@rasm/nx": "workspace:*",
+        "@rasm/process": "workspace:*",
         "@storybook/addon-a11y": "catalog:peers",
         "@vitejs/plugin-react": "catalog:peers",
         "effect": "catalog:peers",
@@ -79,6 +81,9 @@
             "optional": true
         },
         "@rasm/nx": {
+            "optional": true
+        },
+        "@rasm/process": {
             "optional": true
         },
         "@storybook/addon-a11y": {

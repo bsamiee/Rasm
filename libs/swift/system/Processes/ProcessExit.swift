@@ -1,39 +1,39 @@
 import Foundation
-public import Subprocess
-public import System
+package import Subprocess
+package import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct ExitDetail: OptionSet, Sendable {
-    public static let decryption = Self(rawValue: NOTE_EXIT_DECRYPTFAIL)
-    public static let memory = Self(rawValue: NOTE_EXIT_MEMORY)
-    public static let codeSigning = Self(rawValue: NOTE_EXIT_CSERROR)
+package struct ExitDetail: OptionSet, Sendable {
+    static let decryption = Self(rawValue: NOTE_EXIT_DECRYPTFAIL)
+    static let memory = Self(rawValue: NOTE_EXIT_MEMORY)
+    static let codeSigning = Self(rawValue: NOTE_EXIT_CSERROR)
 
-    public let rawValue: Int32
+    package let rawValue: Int32
 
-    public init(rawValue: Int32) { self.rawValue = rawValue }
+    package init(rawValue: Int32) { self.rawValue = rawValue }
 }
 
 extension ExitDetail: Encodable {
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var names = encoder.singleValueContainer()
         try names.encode([(Self.memory, "memory"), (Self.codeSigning, "codeSigning"), (Self.decryption, "decryption")].filter { option, _ in contains(option) }.map(\.1))
     }
 }
 
-public struct ProcessExit: Equatable, Sendable {
+package struct ProcessExit: Equatable, Sendable {
     private static let reportingSignals: Set<TerminationStatus> = Set([SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGEMT, SIGFPE, SIGBUS, SIGSEGV, SIGSYS, SIGXCPU, SIGXFSZ].map(TerminationStatus.signaled))
 
-    public let status: TerminationStatus
-    public let detail: ExitDetail
+    package let status: TerminationStatus
+    package let detail: ExitDetail
 
-    public var producesReport: Bool { detail.contains(.codeSigning) || Self.reportingSignals.contains(status) }
+    package var producesReport: Bool { detail.contains(.codeSigning) || Self.reportingSignals.contains(status) }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension ProcessInstance {
-    public func exits() -> AsyncStream<Result<ProcessExit, Errno>> {
+    package func exits() -> AsyncStream<Result<ProcessExit, Errno>> {
         let (exits, exit) = AsyncStream<Result<ProcessExit, Errno>>.makeStream()
         let deliver: @Sendable (FileHandle) -> Void = { queue in
             var event = unsafe kevent()

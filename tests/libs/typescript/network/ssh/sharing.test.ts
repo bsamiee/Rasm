@@ -77,7 +77,7 @@ it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('sharing',
             const sshd = yield* Sshd;
             const [{ ssh, asked }, host, made] = yield* Effect.all([sshd.client, sshd.hosted('exited'), sshd.scratch]);
             yield* ssh.run(host, ['mkfifo', `${made}/ready`, `${made}/gate`]);
-            const running = yield* Effect.forkScoped(reasoned(ssh.run(host, ['sh', '-c', `echo "$SSH_CONNECTION" > ${made}/ready; cat ${made}/gate`])));
+            const running = yield* ssh.run(host, ['sh', '-c', `echo "$SSH_CONNECTION" > ${made}/ready; cat ${made}/gate`]).pipe(reasoned, Effect.forkScoped);
             const before = yield* ssh.run(host, ['cat', `${made}/ready`]);
             yield* asked(host, 'exit');
             const ended = yield* Fiber.join(running);

@@ -10,7 +10,7 @@ import { mergeConfig, type Plugin } from 'vite';
 
 const DECLARED = /^indesign-uxp-types\/flat\?inline$/u;
 const MOUNTED = '\0declared';
-const INLINED = Schema.fromJsonString(Schema.fromJsonString(Declaration.Model));
+const INLINED = Declaration.Model.pipe(Schema.fromJsonString, Schema.fromJsonString);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

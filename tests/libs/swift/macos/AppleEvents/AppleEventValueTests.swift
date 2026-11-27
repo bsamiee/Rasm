@@ -1,10 +1,11 @@
-import AppleEvents
 import CoreServices
 import CustomDump
 import Encoding
 import Foundation
 import PropertyBased
 import Testing
+
+@testable import AppleEvents
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

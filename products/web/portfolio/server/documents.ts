@@ -25,7 +25,7 @@ const TreePath = Schema.String.pipe(
     }),
 );
 const Stored = Schema.Struct({ revision: documents.schema.fields.revision, data: Schema.fromJsonString(PortfolioData) });
-const Draft = Schema.Struct({ revision: documents.schema.fields.revision, stored: Schema.BooleanFromBit, unplaced: Schema.fromJsonString(Schema.Array(Schema.Struct({ path: TreePath, assetId: AssetId }))) });
+const Draft = Schema.Struct({ revision: documents.schema.fields.revision, stored: Schema.BooleanFromBit, unplaced: Schema.Struct({ path: TreePath, assetId: AssetId }).pipe(Schema.Array, Schema.fromJsonString) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

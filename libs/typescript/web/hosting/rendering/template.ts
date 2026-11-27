@@ -27,7 +27,13 @@ class Template extends Context.Service<Template, Effect.Effect<{ readonly lang: 
     static readonly render = Effect.fn('Template.render')(function* <S extends Schema.Codec<unknown, unknown>>(shell: Shell<S>, value: S['Type'], sources: Record.ReadonlyRecord<string, readonly string[]> = {}) {
         const [document, context, json, random] = yield* Effect.all([Effect.flatten(Template), Effect.context<never>(), Effect.orDie(Schema.encodeEffect(shell.data.json)(value)), SecureRandom.SecureRandom]);
         const nonce = Base64.encode(yield* random.randomBytes(16));
-        const rendered = yield* Effect.promise((signal) => renderToReadableStream(shell.page(value, json, document), { signal, nonce, onError: (error) => Effect.runSyncWith(context)(Effect.logError(Cause.die(error))) }));
+        const rendered = yield* Effect.promise((signal) =>
+            renderToReadableStream(shell.page(value, json, document), {
+                signal,
+                nonce,
+                onError: (error) => Cause.die(error).pipe(Effect.logError, Effect.runSyncWith(context)<void, never>),
+            }),
+        );
         const page = HttpServerResponse.stream(Stream.fromReadableStream<Uint8Array, HostingError>({ evaluate: Function.constant(rendered), onError: HostingError.of('Template', 'render') }), { contentType: 'text/html; charset=utf-8' });
         return UndefinedOr.match(shell.policy, {
             onUndefined: () => page,

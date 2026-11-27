@@ -1,12 +1,12 @@
 import Foundation
 import Results
-public import Subprocess
+package import Subprocess
 import System
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension PlatformOptions {
-    public static var session: Self {
+    package static var session: Self {
         var options = Self()
         options.createSession = true
         options.teardownSequence = [.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: .seconds(2))]
@@ -15,7 +15,7 @@ extension PlatformOptions {
 }
 
 extension Configuration {
-    public func run<Input: InputProtocol, Output: OutputProtocol>(
+    func run<Input: InputProtocol, Output: OutputProtocol>(
         input: Input,
         output: Output,
         body: (Execution<Input, Output, StringOutput<UTF8>>) async throws -> Void = { _ in },
@@ -32,7 +32,7 @@ extension Configuration {
         return result.standardOutput
     }
 
-    public func run<Output: OutputProtocol>(
+    package func run<Output: OutputProtocol>(
         output: Output,
         within timeout: Duration,
         input: some InputProtocol = .none,
@@ -43,7 +43,7 @@ extension Configuration {
     }
 }
 
-public func readLoginShellEnvironment(within timeout: Duration) async throws(ProcessFailure) -> [Environment.Key: String] {
+package func readLoginShellEnvironment(within timeout: Duration) async throws(ProcessFailure) -> [Environment.Key: String] {
     let uid = getuid()
     errno = 0
     guard let entry = unsafe getpwuid(uid)?.pointee else {

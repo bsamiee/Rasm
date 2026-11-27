@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-storybook",
     "version": "0.1.0",
-    "description": "Nx plugin inferring Storybook build, preview, development server, and test-storybook targets from each Storybook main configuration",
+    "description": "Nx plugin inferring Storybook build, preview, and development server targets from each Storybook main configuration",
     "license": "MIT",
     "repository": {
         "type": "git",

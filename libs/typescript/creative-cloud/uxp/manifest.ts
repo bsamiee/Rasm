@@ -25,9 +25,9 @@ const Icon = Schema.Struct({
     width: Side,
     height: Side,
     path: Schema.String,
-    scale: Schema.optionalKey(Schema.Array(Schema.Finite)),
-    theme: Schema.optionalKey(Schema.Array(Schema.Literals([...Struct.keys(THEMES), 'all']))),
-    species: Schema.optionalKey(Schema.Array(Schema.Literals(['generic', ...Struct.keys(ICON_SIZES)]))),
+    scale: Schema.Finite.pipe(Schema.Array, Schema.optionalKey),
+    theme: Schema.Literals([...Struct.keys(THEMES), 'all']).pipe(Schema.Array, Schema.optionalKey),
+    species: Schema.Literals(['generic', ...Struct.keys(ICON_SIZES)]).pipe(Schema.Array, Schema.optionalKey),
 }).check(
     Schema.makeFilter(({ width, height }) => width === height || `one side for width and height, received ${String(width)} x ${String(height)}`),
     Schema.makeFilter(({ width, species = [] }) => {
@@ -55,20 +55,20 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
             maxVersion: Schema.optionalKey(Version),
             data: Schema.optionalKey(Schema.Struct({ apiVersion: Schema.optionalKey(Schema.Literals([1, 2])), loadEvent: Schema.optionalKey(Schema.Literals(['use', 'startup'])), enableMenuRecording: Flag })),
         }),
-        icons: Schema.optionalKey(Schema.Array(Icon)),
+        icons: Icon.pipe(Schema.Array, Schema.optionalKey),
         strings: Schema.optionalKey(Schema.Union([Schema.String, Schema.Record(Schema.String, Localized)])),
         addon: Schema.optionalKey(Schema.Struct({ name: Schema.NonEmptyString })),
         entrypoints: Schema.Array(
             Schema.Union([
                 Entrypoint.pipe(Schema.fieldsAssign({ type: Schema.Literal('command'), shortcut: Schema.optionalKey(Schema.Struct({ mac: Schema.optionalKey(Schema.String), win: Schema.optionalKey(Schema.String) })) })),
-                Entrypoint.pipe(Schema.fieldsAssign({ type: Schema.Literal('panel'), minimumSize: Size, maximumSize: Size, preferredDockedSize: Size, preferredFloatingSize: Size, allowViewPersistence: Flag, icons: Schema.optionalKey(Schema.Array(Icon)) })),
+                Entrypoint.pipe(Schema.fieldsAssign({ type: Schema.Literal('panel'), minimumSize: Size, maximumSize: Size, preferredDockedSize: Size, preferredFloatingSize: Size, allowViewPersistence: Flag, icons: Icon.pipe(Schema.Array, Schema.optionalKey) })),
             ]),
         ),
         requiredPermissions: Schema.Struct({
             localFileSystem: Schema.optionalKey(Schema.Literals(['plugin', 'request', 'fullAccess'])),
             network: Schema.optionalKey(Schema.Struct({ domains: Schema.Union([Schema.NonEmptyArray(Schema.String), Schema.Literal('all')]) })),
             clipboard: Schema.optionalKey(Schema.Literals(['read', 'readAndWrite'])),
-            launchProcess: Schema.optionalKey(Schema.Struct({ schemes: Schema.optionalKey(Schema.NonEmptyArray(Schema.String)), extensions: Schema.optionalKey(Schema.NonEmptyArray(Schema.String)) })),
+            launchProcess: Schema.optionalKey(Schema.Struct({ schemes: Schema.String.pipe(Schema.NonEmptyArray, Schema.optionalKey), extensions: Schema.String.pipe(Schema.NonEmptyArray, Schema.optionalKey) })),
             ipc: Schema.optionalKey(Schema.Struct({ enablePluginCommunication: Schema.Boolean, enableHostCommunication: Flag })),
             webview: Schema.optionalKey(
                 Schema.Struct({

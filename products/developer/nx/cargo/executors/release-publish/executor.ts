@@ -10,7 +10,7 @@ const Publish = Schema.Struct({
     dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Prints each change and makes none, as NX_DRY_RUN=true does' }),
     cwd: Schema.String.annotate({ description: 'Cargo workspace root, relative to the Nx workspace root' }),
     package: Schema.String.annotate({ description: 'Crate to publish' }),
-    packages: Schema.optionalKey(Schema.Array(Crate)).annotate({ description: 'Workspace crates the crate reaches through path dependencies, published beside it under a dry run' }),
+    packages: Crate.pipe(Schema.Array, Schema.optionalKey).annotate({ description: 'Workspace crates the crate reaches through path dependencies, published beside it under a dry run' }),
     registry: Schema.optionalKey(Schema.String).annotate({ description: 'Registry the crate names in its publish list, passed as --registry' }),
     __unparsed__: Words,
 }).annotate({

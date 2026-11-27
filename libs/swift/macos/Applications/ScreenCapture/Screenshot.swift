@@ -1,8 +1,8 @@
 import AppKit
 import AsyncAlgorithms
-public import CoreGraphics
+package import CoreGraphics
 import CoreImage.CIFilterBuiltins
-public import Foundation
+package import Foundation
 import ImageIO
 import Processes
 import Results
@@ -17,7 +17,7 @@ let rendering = CIContext(options: [.workingColorSpace: NSNull()])
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public enum Source: Decodable, Hashable, Sendable {
+package enum Source: Decodable, Hashable, Sendable {
     case windows(numbers: [CGWindowID])
     case element(ref: Int)
     case region(frame: CGRect)
@@ -35,7 +35,7 @@ public enum Source: Decodable, Hashable, Sendable {
 
     var ref: Int? { if case .element(let ref) = self { ref } else { nil } }
 
-    public init(from decoder: any Decoder) throws {
+    package init(from decoder: any Decoder) throws {
         let fields = try decoder.container(keyedBy: Field.self)
         let tag: String = try fields.decode(String.self, forKey: .tag)
         self =
@@ -48,35 +48,35 @@ public enum Source: Decodable, Hashable, Sendable {
     }
 }
 
-public struct LongestSide: RawRepresentable, Decodable, Sendable {
-    public let rawValue: Int
+package struct LongestSide: RawRepresentable, Decodable, Sendable {
+    package let rawValue: Int
 
-    public init?(rawValue: Int) {
+    package init?(rawValue: Int) {
         guard rawValue > 0 else { return nil }
         self.rawValue = rawValue
     }
 }
 
-public struct Mark: Decodable, Sendable {
-    public let frame: CGRect
-    public let label: String
+package struct Mark: Decodable, Sendable {
+    let frame: CGRect
+    let label: String
 }
 
-public struct Screenshot: Encodable, Sendable {
+package struct Screenshot: Encodable, Sendable {
     private enum CodingKeys: CodingKey {
         case png, width, height, frame, windows, backingStore, document, presentation
     }
 
-    public let image: CGImage
-    public let frame: CGRect
-    public let windows: [CGWindowID]
-    public let backingStore: Bool
-    public let document: URL?
-    public let presentation: Watch.Presentation?
+    let image: CGImage
+    let frame: CGRect
+    let windows: [CGWindowID]
+    let backingStore: Bool
+    let document: URL?
+    let presentation: Watch.Presentation?
 
     // --- [ENCODING]
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: CodingKeys.self)
         try fields.encode(image.png(), forKey: .png)
         try fields.encode(image.width, forKey: .width)
@@ -90,7 +90,7 @@ public struct Screenshot: Encodable, Sendable {
 
     // --- [DIFFERENCE]
 
-    public func changed(from earlier: Self) -> CGRect? {
+    func changed(from earlier: Self) -> CGRect? {
         guard frame == earlier.frame, (image.width, image.height) == (earlier.image.width, earlier.image.height) else { return frame.union(earlier.frame) }
         let extent = CGRect(x: 0, y: 0, width: image.width, height: image.height)
         let difference = CIFilter.differenceBlendMode()
@@ -157,7 +157,7 @@ struct Framing {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension CGImage {
-    public func png() throws(ApplicationFailure) -> Data {
+    package func png() throws(ApplicationFailure) -> Data {
         let encoded = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(encoded, UTType.png.identifier as CFString, 1, nil) else {
             throw ApplicationFailure(subject: UTType.png.identifier, reason: .noEncoder)
@@ -167,7 +167,7 @@ extension CGImage {
         return encoded as Data
     }
 
-    public func marking(_ marks: [Mark], in area: CGRect) throws(ApplicationFailure) -> CGImage {
+    func marking(_ marks: [Mark], in area: CGRect) throws(ApplicationFailure) -> CGImage {
         let meeting: [Mark] = marks.filter { mark in mark.frame.intersects(area) }
         guard !meeting.isEmpty else { return self }
         let subject = "\(meeting.count) marks on a \(width)×\(height) image"
@@ -230,7 +230,7 @@ extension CGImage {
 }
 
 extension Data {
-    public func image(longestSide: LongestSide) throws(ApplicationFailure) -> CGImage {
+    package func image(longestSide: LongestSide) throws(ApplicationFailure) -> CGImage {
         let options = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true, kCGImageSourceThumbnailMaxPixelSize: longestSide.rawValue] as CFDictionary
         guard let image = CGImageSourceCreateWithData(self as CFData, nil).flatMap({ source in CGImageSourceCreateThumbnailAtIndex(source, 0, options) }) else {
             throw ApplicationFailure(subject: "\(count) bytes", reason: .noImage)
@@ -311,7 +311,7 @@ extension Watch {
         }
     }
 
-    public nonisolated func capture(_ source: Source, longestSide: LongestSide? = nil, marks: [Mark] = []) async throws(ApplicationFailure) -> [Result<Screenshot, ApplicationFailure>] {
+    package nonisolated func capture(_ source: Source, longestSide: LongestSide? = nil, marks: [Mark] = []) async throws(ApplicationFailure) -> [Result<Screenshot, ApplicationFailure>] {
         try Grant.screenCapture.check()
         async let documents: [CGWindowID: URL] = self.documents()
         let (taken, presentation) = try await presenting(source.ref) { (menus: [Container]) async throws(ApplicationFailure) -> [Result<(image: CGImage, framing: Framing), ApplicationFailure>] in

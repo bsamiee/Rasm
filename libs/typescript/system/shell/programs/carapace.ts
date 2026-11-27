@@ -33,10 +33,10 @@ const Pflag = Schema.Struct({ Longhand: Schema.optionalKey(Schema.String), Short
 );
 const Command: Schema.Codec<Usage, Export> = Schema.Struct({
     Name: Schema.String,
-    Aliases: Schema.optionalKey(Schema.Array(Schema.String)),
-    LocalFlags: Schema.optionalKey(Schema.Array(Pflag)),
-    PersistentFlags: Schema.optionalKey(Schema.Array(Pflag)),
-    Commands: Schema.optionalKey(Schema.Array(Schema.suspend(() => Command))),
+    Aliases: Schema.String.pipe(Schema.Array, Schema.optionalKey),
+    LocalFlags: Pflag.pipe(Schema.Array, Schema.optionalKey),
+    PersistentFlags: Pflag.pipe(Schema.Array, Schema.optionalKey),
+    Commands: Schema.suspend(() => Command).pipe(Schema.Array, Schema.optionalKey),
 }).pipe(
     Schema.decodeTo(Schema.toType(Usage), {
         decode: SchemaGetter.transform((command) => {

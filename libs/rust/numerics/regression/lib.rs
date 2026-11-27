@@ -7,8 +7,8 @@ use core::range::RangeInclusive;
 use core::{cmp, iter};
 
 use basin::{
-    ArctanLoss, BoxBounds, CauchyLoss, ConstraintDescription, ConstraintSet, ConstraintSolveError, Constraints, Executor, HuberLoss, Jacobian, LossFunction, OptimizationResult, Residual,
-    RobustLeastSquares, SoftL1Loss, SquaredLoss, State as _, TerminationReport, TrustRegionReflective,
+    ArctanLoss, BoxBounds, CauchyLoss, ConstraintDescription, ConstraintSet, ConstraintSolveError, Constraints, Executor, HuberLoss, IncumbentRef, Jacobian, LossFunction, Residual,
+    RobustLeastSquares, SoftL1Loss, SquaredLoss, TerminationReport, TrustRegionReflective,
 };
 use faer::MatRef;
 use faer::linalg::svd::SvdError;
@@ -520,10 +520,13 @@ where
             )
             .max_iter(options.steps.get())
             .run()
-            .map(|OptimizationResult { state, report, .. }| Minimum { point: state.param().clone(), cost: state.cost(), report })
             .map_err(|failure| match failure {
                 ConstraintSolveError::Evaluation(error) => error,
                 source => RegressionError::Search(Box::new(source)),
+            })
+            .and_then(|result| {
+                let (point, cost) = result.incumbent_record().map(|IncumbentRef { param, cost, .. }| (param.clone(), cost)).ok_or(AnalysisError::NoConvergence)?;
+                Ok(Minimum { point, cost, report: result.report })
             })
         })
         .partition_map(Either::from);

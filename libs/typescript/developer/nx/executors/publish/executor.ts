@@ -12,7 +12,7 @@ const ALTERNATIVES = new Intl.ListFormat('en', { type: 'disjunction' });
 const Publish = Dry.mapFields(
     Struct.assign({
         publish: Schema.NonEmptyArray(Schema.String).annotate({ description: "The tool's publish argument list, followed by each file of the target's dependentTasksOutputFiles input, none where the target states no such input" }),
-        preview: Schema.optionalKey(Schema.NonEmptyArray(Schema.String)).annotate({ description: "Arguments the tool's own dry run adds to publish, run under a dry run in place of publish; absent prints publish and runs nothing" }),
+        preview: Schema.String.pipe(Schema.NonEmptyArray, Schema.optionalKey).annotate({ description: "Arguments the tool's own dry run adds to publish, run under a dry run in place of publish; absent prints publish and runs nothing" }),
         credential: Schema.Union([Schema.String, Schema.NonEmptyArray(Schema.String)]).annotate({
             description: "Environment variable holding the destination's credential, or variables in order of preference any one of which grants it (an OIDC token request beside a registry token), where every one is unset or empty the run publishes nothing, names them, and succeeds",
         }),

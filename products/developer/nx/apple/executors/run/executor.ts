@@ -13,17 +13,17 @@ const RENAME_SWAP = 0x2;
 
 class Run extends Schema.Opaque<Run>()(
     Schema.Struct({
-        runs: Schema.Array(Schema.NonEmptyArray(Schema.String)).annotate({ description: 'Invocations the plugin infers, each a program and its arguments' }),
-        applications: Schema.optionalKey(Schema.Array(Schema.String)).annotate({
+        runs: Schema.String.pipe(Schema.NonEmptyArray, Schema.Array).annotate({ description: 'Invocations the plugin infers, each a program and its arguments' }),
+        applications: Schema.String.pipe(Schema.Array, Schema.optionalKey).annotate({
             description:
                 "Bundle names of the applications the invocations archive, each invocation taking -archivePath <n>.xcarchive in a temporary folder, once every invocation succeeds each bundle under an archive's Products taking its path below / in one renamex_np, swapped with the bundle installed there, so a failed invocation leaves the installed bundle untouched, then each one holding Contents/Library/LaunchAgents launched once more with open -n -g -j -W, behind the user's windows, so its SMAppService registration replaces the agents still running the build it swapped out, and a running executable inside one named in the last line as needing a relaunch",
         }),
-        results: Schema.optionalKey(Schema.Array(Schema.String)).annotate({
+        results: Schema.String.pipe(Schema.Array, Schema.optionalKey).annotate({
             description: "Result bundle paths, the one at an invocation's index passed to it as -resultBundlePath, each removed before the first invocation runs, as xcodebuild refuses a result bundle path that exists",
         }),
         dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Prints each invocation and runs none' }),
         __unparsed__: Words,
-        outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Files the configuration writes, which the target's outputs name through {options.outputs.<n>}" }),
+        outputs: Schema.String.pipe(Schema.Array, Schema.optionalKey).annotate({ description: "Files the configuration writes, which the target's outputs name through {options.outputs.<n>}" }),
     }).annotate({ title: 'Run', description: "Runs swift and xcodebuild invocations in order with Nx's per-task environment removed and git status.branch off after the caller's GIT_CONFIG_<n> entries, stopping at the first failure" }),
 ) {}
 

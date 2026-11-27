@@ -90,7 +90,7 @@ const SHARED = '.config/shared.xcconfig';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Described = Schema.fromJsonString(Schema.Struct({ targets: Schema.Array(Schema.Struct({ path: Schema.String, sources: Schema.Array(Schema.String) })) }));
-const Settings = Schema.fromJsonString(Schema.Array(Schema.Struct({ buildSettings: Schema.Struct({ SRCROOT: Schema.String, INFOPLIST_FILE: Schema.String, CODE_SIGN_ENTITLEMENTS: Schema.String, DSTROOT: Schema.String, TARGET_BUILD_DIR: Schema.String, WRAPPER_NAME: Schema.String }) })));
+const Settings = Schema.Struct({ buildSettings: Schema.Struct({ SRCROOT: Schema.String, INFOPLIST_FILE: Schema.String, CODE_SIGN_ENTITLEMENTS: Schema.String, DSTROOT: Schema.String, TARGET_BUILD_DIR: Schema.String, WRAPPER_NAME: Schema.String }) }).pipe(Schema.Array, Schema.fromJsonString);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

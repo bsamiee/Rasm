@@ -80,7 +80,7 @@ VCPKG_DOWNLOADS                = "{{ env.CACHE_DIR }}/vcpkg/downloads"
 CODELLDB_PATH      = { tools = true, value = '''{% set codelldb = tools["github:vadimcn/codelldb"]?.path %}{% if codelldb %}{{ codelldb }}/extension/adapter/codelldb{% endif %}''' }
 GHIDRA_CLASSPATH   = { tools = true, value = '''{% set ghidra = tools["github:NationalSecurityAgency/ghidra"]?.path %}{% if ghidra %}{{ exec(command="fd --type f --full-path --glob '**/lib/*.jar' --absolute-path '" ~ ghidra ~ "/Ghidra' | paste -sd: -", cache_key="ghidra-classpath-" ~ ghidra, cache_duration="1d") }}{% endif %}''' }
 GHIDRA_INSTALL_DIR = { tools = true, value = '{{ tools["github:NationalSecurityAgency/ghidra"]?.path or "" }}' }
-JAVAC_PLUGINS      = { tools = true, value = '{% for jar in ["dataflow-errorprone", "dataflow-nullaway", "error-prone", "jspecify", "nullaway"] %}{% set tool = tools["http:" ~ jar]?.path %}{% if tool %}{{ tool }}/{{ jar }}.jar{% if not loop.last %}:{% endif %}{% endif %}{% endfor %}' }
+JAVAC_PLUGINS      = { tools = true, value = '{% for jar in ["checker-qual", "dataflow-errorprone", "dataflow-nullaway", "error-prone", "jspecify", "nullaway"] %}{% set tool = tools["http:" ~ jar]?.path %}{% if tool %}{{ tool }}/{{ jar }}.jar{% if not loop.last %}:{% endif %}{% endif %}{% endfor %}' }
 VCPKG_ROOT         = { tools = true, value = '{{ tools["github:microsoft/vcpkg-tool"]?.path or "" }}' }
 
 # --- [SERVICES]
@@ -103,7 +103,6 @@ RUSTUP_AUTO_INSTALL         = "0"
 RUSTUP_TOOLCHAIN            = false
 SHELLCHECK_OPTS             = "--rcfile={{config_root}}/.config/shellcheckrc"
 SWIFT_BACKTRACE             = "enable=yes,interactive=no,warnings=suppressed"
-TY_UV                       = "1"
 UV_PYTHON_PREFERENCE        = "only-managed"
 VCPKG_DISABLE_METRICS       = "1"
 VCPKG_FORCE_SYSTEM_BINARIES = "1"
@@ -195,6 +194,7 @@ editorconfig-checker           = "latest"
 "github:trailofbits/dylint"    = { matching = "cargo-dylint-", os = ["unix"], version = "latest" }
 google-java-format             = "latest"
 hk                             = { depends = ["sd"], postinstall = { run = '''{% if os() != "windows" %}sd 'download/v[^/]+/hk@[^#]+#' "download/v$MISE_TOOL_VERSION/hk@$MISE_TOOL_VERSION#" "$MISE_CONFIG_ROOT/.config/hk.pkl"{% endif %}''', when = "always" }, version = "latest" }
+"http:checker-qual"            = { bin = "checker-qual.jar", format = "raw", url = "https://repo1.maven.org/maven2/org/checkerframework/checker-qual/{{ version }}/checker-qual-{{ version }}.jar", version = "latest", version_list_url = "https://repo1.maven.org/maven2/org/checkerframework/checker-qual/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
 "http:dataflow-errorprone"     = { bin = "dataflow-errorprone.jar", format = "raw", url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/{{ version }}/dataflow-errorprone-{{ version }}.jar", version = "latest", version_list_url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
 "http:dataflow-nullaway"       = { bin = "dataflow-nullaway.jar", format = "raw", url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/{{ version }}/dataflow-nullaway-{{ version }}.jar", version = "latest", version_list_url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
 "http:error-prone"             = { bin = "error-prone.jar", format = "raw", url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/{{ version }}/error_prone_core-{{ version }}-with-dependencies.jar", version = "latest", version_list_url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }

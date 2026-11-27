@@ -36,7 +36,6 @@ VERSIONING_SYSTEM = apple-generic
 // --- [DEPLOYMENT]
 
 COPY_PHASE_STRIP = NO
-MACOSX_DEPLOYMENT_TARGET = 27.0
 
 // --- [SIGNING] -------------------------------------------------------------------------
 

@@ -99,8 +99,9 @@ Libraries emit logs, spans, and metrics and export nothing. Each host entry prov
 - Headers read `OTEL_EXPORTER_OTLP_<SIGNAL>_HEADERS`, then `OTEL_EXPORTER_OTLP_HEADERS`
 - Resources read `OTEL_SERVICE_NAME`, `OTEL_SERVICE_VERSION`, and `OTEL_RESOURCE_ATTRIBUTES`, named variables winning over attributes
 - `OTEL_SDK_DISABLED` disables every signal, and `OTEL_METRIC_EXPORT_INTERVAL`, `OTEL_BSP_SCHEDULE_DELAY`, `OTEL_BLRP_SCHEDULE_DELAY` set push intervals
+- `OTEL_BSP_MAX_QUEUE_SIZE` and `OTEL_BLRP_MAX_QUEUE_SIZE` bound the pending span and log queues, dropping arrivals past them
 - `OTEL_EXPORTER_OTLP_PROTOCOL` reaches no Effect member, so the telemetry layer maps `http/json` and `http/protobuf` to an `OtlpSerialization` layer
-- `OtlpExporter.Flusher` `flush` drains every exporter concurrently, never fails, and has no timeout, a short-lived host bounding it with `Effect.timeoutOption`
+- `OtlpExporter.Flusher` `flush` waits for every export in flight at its call and drains items queued before it, never fails, and has no timeout, a short-lived host bounding it with `Effect.timeoutOption`
 - `NodeSdk.layer` enables a signal only for a processor or reader its configuration names and takes no instrumentations
 - `Metric.enableRuntimeMetricsLayer` adds fiber runtime metrics where metrics export
 
@@ -133,7 +134,7 @@ Metrics take names from `@opentelemetry/semantic-conventions` (`METRIC_*`, `ATTR
 const operationDuration = Metric.mapInput(Metric.histogram(METRIC_MCP_SERVER_OPERATION_DURATION, { boundaries: [0.01, 0.1, 1, 10, 60] }), Duration.toSeconds);
 
 const measured = Effect.fnUntraced(function* <A, E, R>(effect: Effect.Effect<A, E, R>, attributes: Readonly<Record<string, string>>) {
-    const [duration, exit] = yield* Effect.timed(Effect.exit(effect));
+    const [duration, exit] = yield* effect.pipe(Effect.exit, Effect.timed);
     yield* Metric.update(Metric.withAttributes(operationDuration, { ...attributes, ...failureAttributes(exit) }), duration);
     return yield* exit;
 });

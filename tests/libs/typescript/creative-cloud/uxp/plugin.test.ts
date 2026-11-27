@@ -8,7 +8,7 @@ import { HostError } from '@rasm/object-model/model';
 import { Dialogs, Evaluation, EvaluationRpcs } from '@rasm/object-model/rpcs';
 import { Plugin, Uxp } from '@rasm/uxp/plugin';
 import { Array, Context, Deferred, Effect, Function, Layer, MutableRef, Option, Record, Schema, type Scope, Stream, Struct } from 'effect';
-import { Tool, Toolkit } from 'effect/ai';
+import { McpSchema, Tool, Toolkit } from 'effect/ai';
 import { HttpRouter, HttpServer, Url } from 'effect/http';
 import { Socket } from 'effect/socket';
 import { vi } from 'vitest';
@@ -95,8 +95,8 @@ it.live(
         const evaluated = yield* client('evaluate', { code: 'unused', label: 'Run probe' });
         const between = host.level;
         yield* client('describe', {});
-        const called = yield* client('tools/call', { name: 'probe', arguments: {}, context: { clientId: 1, protocolVersion: '2025-11-25', clientCapabilities: {} } });
-        yield* Effect.forkScoped(Stream.runDrain(client('events', undefined)));
+        const called = yield* client('tools/call', { name: 'probe', arguments: {}, context: { clientId: 1, protocolVersion: '2025-11-25', clientCapabilities: McpSchema.ClientCapabilities.make() } });
+        yield* client('events', undefined).pipe(Stream.runDrain, Effect.forkScoped);
         yield* subscribed;
         assert.deepStrictEqual(
             [evaluated, between, called.isError === true, yield* seen, host.level, Array.map(yield* links.peers, Struct.get('requests'))],
@@ -115,7 +115,7 @@ it.live(
         const [evaluated, described, called] = yield* Effect.all([
             Effect.flip(client('evaluate', { code: 'unused', label: 'Run probe' })),
             Effect.flip(client('describe', {})),
-            Effect.flip(client('tools/call', { name: 'probe', arguments: {}, context: { clientId: 1, protocolVersion: '2025-11-25', clientCapabilities: {} } })),
+            Effect.flip(client('tools/call', { name: 'probe', arguments: {}, context: { clientId: 1, protocolVersion: '2025-11-25', clientCapabilities: McpSchema.ClientCapabilities.make() } })),
         ]);
         assert.instanceOf(evaluated, HostError);
         assert.instanceOf(called, HostError);

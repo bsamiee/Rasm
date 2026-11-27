@@ -1,9 +1,9 @@
-public import Foundation
-public import System
+package import Foundation
+package import System
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public func ifPresent<Value, Failure: Error>(_ read: () throws(Failure) -> Value) throws(Failure) -> Value? {
+package func ifPresent<Value, Failure: Error>(_ read: () throws(Failure) -> Value) throws(Failure) -> Value? {
     do {
         return try read()
     } catch {
@@ -19,7 +19,7 @@ func ifPresent<Value>(_ file: URL, _ operation: () throws -> Value) throws(FileF
 }
 
 extension URL {
-    public func canonical() throws(Errno) -> URL {
+    package func canonical() throws(Errno) -> URL {
         guard let resolved = unsafe realpath(path(percentEncoded: false), nil) else { throw Errno(rawValue: errno) }
         defer { unsafe free(resolved) }
         return URL(filePath: unsafe String(cString: resolved))

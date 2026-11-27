@@ -157,7 +157,18 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
     yield* Server.registerTool(Tool.make('test_claim', { description: 'Raises two events of the owned source, and claims the source for its handle once the server judged the second, which it does after placing the first for every handle, and no dialog blocks', success: Schema.String }), () =>
         called(
             'test_claim',
-            Queue.offerAll(owned, [RAISED.owned, RAISED.judged]).pipe(Effect.andThen(Deferred.await(judged)), Effect.andThen(Stream.runHead(Stream.filter(SubscriptionRef.changes(blocked), (held) => !held))), Effect.andThen(Effect.flatMap(Handle, (handle) => handle.set(Claimed, true))), Effect.as('claimed')),
+            Queue.offerAll(owned, [RAISED.owned, RAISED.judged]).pipe(
+                Effect.andThen(Deferred.await(judged)),
+                Effect.andThen(
+                    blocked.pipe(
+                        SubscriptionRef.changes,
+                        Stream.filter((held) => !held),
+                        Stream.runHead,
+                    ),
+                ),
+                Effect.andThen(Effect.flatMap(Handle, (handle) => handle.set(Claimed, true))),
+                Effect.as('claimed'),
+            ),
         ),
     );
     yield* Server.use((server) =>

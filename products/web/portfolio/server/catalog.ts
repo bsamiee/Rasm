@@ -12,7 +12,7 @@ const documents = Relation.make('documents', { state: Schema.Literals(['draft', 
 const UploadAttempt = Schema.Struct({ id: Schema.String, discard: Schema.Boolean, objects: Schema.Array(Schema.Struct({ key: Schema.String, width: Schema.optionalKey(Schema.Int), uploadId: Schema.OptionFromOptionalKey(Schema.String) })) });
 const assets = Relation.make(
     'assets',
-    { id: AssetId, body: Schema.fromJsonString(Schema.Unknown), objectKey: Schema.OptionFromNullOr(Schema.String), removing: Schema.NullOr(Schema.BooleanFromBit), uploads: Schema.OptionFromNullOr(Schema.fromJsonString(Schema.Array(UploadAttempt))), available: Schema.BooleanFromBit },
+    { id: AssetId, body: Schema.fromJsonString(Schema.Unknown), objectKey: Schema.OptionFromNullOr(Schema.String), removing: Schema.NullOr(Schema.BooleanFromBit), uploads: UploadAttempt.pipe(Schema.Array, Schema.fromJsonString, Schema.OptionFromNullOr), available: Schema.BooleanFromBit },
     {
         projections: {
             objectKey: { from: 'body', path: ['objectKey'] },
@@ -27,7 +27,7 @@ const projectedPaths = Statement.csv(assets.paths.map((path) => Statement.fragme
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const unavailable = Effect.fn('unavailable')((error: Cause.YieldableError) => Effect.andThen(Effect.logError(Cause.fail(error)), HttpApiError.ServiceUnavailable.make()));
+const unavailable = Effect.fn('unavailable')((error: Cause.YieldableError) => error.pipe(Cause.fail, Effect.logError, Effect.andThen(HttpApiError.ServiceUnavailable.make())));
 const references = (sql: SqlClient.SqlClient, source: Statement.Fragment = sql`${sql(documents.name)}`) => sql`SELECT d.state, j.value AS asset_id, j.fullkey, j.json -> j.path AS placement
     FROM ${source} d, json_tree(d.body) j WHERE j.key = 'assetId' AND j.type = 'text'`;
 

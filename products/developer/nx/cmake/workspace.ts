@@ -29,24 +29,20 @@ const TOKEN = /#\[(?<comment>=*)\[[\s\S]*?\]\k<comment>\]|#[^\n]*|\[(?<bracket>=
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Launcher = Schema.Union([Schema.String, Schema.Struct({ value: Schema.String }).pipe(Schema.decodeTo(Schema.String, SchemaTransformation.transform({ decode: ({ value }) => value, encode: (value) => ({ value }) })))]);
-class Presets extends Schema.Opaque<Presets>()(
-    Schema.fromJsonString(
+class Presets extends Schema.Struct({
+    configurePresets: Schema.Array(
         Schema.Struct({
-            configurePresets: Schema.Array(
-                Schema.Struct({
-                    name: Schema.String,
-                    inherits: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
-                    generator: Schema.optionalKey(Schema.String),
-                    binaryDir: Schema.optionalKey(Schema.String),
-                    cacheVariables: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
-                    environment: Schema.optionalKey(Schema.Record(Schema.String, Schema.NullOr(Schema.String))),
-                }),
-            ).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-            packagePresets: Schema.Array(Schema.Struct({ name: Schema.String, configurePreset: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-            workflowPresets: Schema.Array(Schema.Struct({ name: Schema.String, steps: Schema.Array(Schema.Struct({ type: Schema.String, name: Schema.String })) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+            name: Schema.String,
+            inherits: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
+            generator: Schema.optionalKey(Schema.String),
+            binaryDir: Schema.optionalKey(Schema.String),
+            cacheVariables: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
+            environment: Schema.optionalKey(Schema.Record(Schema.String, Schema.NullOr(Schema.String))),
         }),
-    ),
-) {}
+    ).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+    packagePresets: Schema.Array(Schema.Struct({ name: Schema.String, configurePreset: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+    workflowPresets: Schema.Array(Schema.Struct({ name: Schema.String, steps: Schema.Array(Schema.Struct({ type: Schema.String, name: Schema.String })) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+}).pipe(Schema.fromJsonString, Schema.Opaque<Presets>()) {}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -117,7 +113,7 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
             });
     });
     yield* Effect.when(new Cause.UnknownError(inheriting, `${presets} lists configure presets inheriting each other in a cycle, which cmake refuses`), Effect.succeed(!Graph.isAcyclic(inheriting)));
-    const chains = new Map(Array.fromIterable(Graph.entries(Graph.nodes(inheriting))).map(([at, preset]) => [preset.name, Array.reverse(Graph.values(Graph.dfs(inheriting, { start: [at] })))] as const));
+    const chains = new Map(inheriting.pipe(Graph.nodes, Graph.entries, Array.fromIterable).map(([at, preset]) => [preset.name, inheriting.pipe(Graph.dfs({ start: [at] }), Graph.values, Array.reverse)] as const));
     const chain = (name: string) => chains.get(name) ?? [];
     const macros = (configure: string, at: string) =>
         expanded(

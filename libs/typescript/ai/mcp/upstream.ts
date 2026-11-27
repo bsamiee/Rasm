@@ -151,7 +151,7 @@ class Upstream extends Data.Class<
             const [connections, random] = yield* Effect.all([Pool.make({ acquire: connect, size: 1, concurrency: Number.POSITIVE_INFINITY }), SecureRandom.SecureRandom]);
             const run = <A>(use: (connection: Parameters<typeof list>[0]) => Effect.Effect<A, McpClientError.McpClientError, SecureRandom.SecureRandom>) =>
                 Pool.get(connections).pipe(
-                    Effect.flatMap((connection) => Effect.tapError(use(connection), ({ reason }) => (Option.isSome(disconnects(reason)) ? Pool.invalidate(connections, connection) : Effect.void))),
+                    Effect.flatMap((connection) => Effect.tapError(use(connection), ({ reason }) => (reason.pipe(disconnects, Option.isSome) ? Pool.invalidate(connections, connection) : Effect.void))),
                     Effect.scoped,
                     Effect.retry({ times: 1, while: (error) => McpClientError.isMcpClientError(error) && Option.contains(disconnects(error.reason), true) }),
                     Effect.provideService(SecureRandom.SecureRandom, random),
@@ -173,7 +173,7 @@ class Upstream extends Data.Class<
                     complete: (payload) => Server.orInternalError(run(({ client, transport }) => (client.capabilities.completions === undefined ? Effect.succeed(McpSchema.CompleteResult.empty) : request(transport, McpSchema.Complete, payload)))),
                 });
             };
-            return Stream.fromEffectSchedule(Effect.result(Effect.sandbox(run(list))), Schedule.spaced(poll)).pipe(
+            return Stream.fromEffectSchedule(run(list).pipe(Effect.sandbox, Effect.result), Schedule.spaced(poll)).pipe(
                 Stream.changesWith(Result.makeEquivalence(Schema.toEquivalence(Listing), Function.constTrue)),
                 Stream.mapEffect(
                     Result.match({

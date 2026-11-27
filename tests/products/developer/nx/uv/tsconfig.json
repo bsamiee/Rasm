@@ -9,10 +9,13 @@
             "path": "../../../../support/typescript"
         },
         {
-            "path": "../../../../../libs/typescript/developer/nx"
+            "path": "../../../../../libs/typescript/system/process"
         },
         {
             "path": "../../../../../products/developer/nx/uv"
+        },
+        {
+            "path": "../../../../../libs/typescript/developer/nx"
         }
     ]
 }

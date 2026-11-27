@@ -191,7 +191,7 @@ pub fn detached(command: impl Into<CommandWrap>) -> CommandWrap {
     let mut command = command.into();
     cfg_select! {
         unix => command.wrap(ProcessSession),
-        windows => command.wrap(CreationFlags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)),
+        windows => command.wrap(CreationFlags((DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP).0)),
     };
     command
 }
@@ -203,30 +203,23 @@ fn sized(socket: &Socket, buffer: usize) -> io::Result<()> {
     options.set_recv_buffer_size(buffer)
 }
 
+#[cfg(unix)]
 pub fn standard(buffer: Option<usize>) -> io::Result<(impl AsyncRead + Send + Unpin + 'static, impl AsyncWrite + Send + Unpin + 'static)> {
-    cfg_select! {
-        unix => {{
-            fn attached<P, B>(descriptor: impl AsFd, buffer: Option<usize>, piped: impl FnOnce(OwnedFd) -> io::Result<P>, blocking: B) -> io::Result<Either<UnixStream, Either<P, B>>> {
-                let file = std::fs::File::from(descriptor.as_fd().try_clone_to_owned()?);
-                let kind = file.metadata()?.file_type();
-                match (kind.is_socket(), kind.is_fifo()) {
-                    (true, _) => {
-                        let socket = Socket::from(OwnedFd::from(file));
-                        buffer.map(|buffer| sized(&socket, buffer)).transpose()?;
-                        socket.set_nonblocking(true)?;
-                        UnixStream::from_std(socket).map(Either::Left)
-                    }
-                    (false, true) => piped(OwnedFd::from(file)).map(|pipe| Either::Right(Either::Left(pipe))),
-                    (false, false) => Ok(Either::Right(Either::Right(blocking))),
-                }
+    fn attached<P, B>(descriptor: impl AsFd, buffer: Option<usize>, piped: impl FnOnce(OwnedFd) -> io::Result<P>, blocking: B) -> io::Result<Either<UnixStream, Either<P, B>>> {
+        let file = std::fs::File::from(descriptor.as_fd().try_clone_to_owned()?);
+        let kind = file.metadata()?.file_type();
+        match (kind.is_socket(), kind.is_fifo()) {
+            (true, _) => {
+                let socket = Socket::from(OwnedFd::from(file));
+                buffer.map(|buffer| sized(&socket, buffer)).transpose()?;
+                socket.set_nonblocking(true)?;
+                UnixStream::from_std(socket).map(Either::Left)
             }
-            Ok((attached(io::stdin(), buffer, pipe::Receiver::from_owned_fd, tokio::io::stdin())?, attached(io::stdout(), buffer, pipe::Sender::from_owned_fd, tokio::io::stdout())?))
-        }}
-        _ => {{
-            let _: Option<usize> = buffer;
-            Ok((tokio::io::stdin(), tokio::io::stdout()))
-        }}
+            (false, true) => piped(OwnedFd::from(file)).map(|pipe| Either::Right(Either::Left(pipe))),
+            (false, false) => Ok(Either::Right(Either::Right(blocking))),
+        }
     }
+    Ok((attached(io::stdin(), buffer, pipe::Receiver::from_owned_fd, tokio::io::stdin())?, attached(io::stdout(), buffer, pipe::Sender::from_owned_fd, tokio::io::stdout())?))
 }
 
 pub async fn tail<R>(reader: R, kept: usize, limit: u64, mut each: impl FnMut(&str)) -> VecDeque<String>

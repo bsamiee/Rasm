@@ -36,8 +36,9 @@ const hashed = async (workspace: Workspace, plugin: Pick<NxPlugin, 'createNodes'
     return value;
 };
 
-const homed = (home: string | undefined) => {
+const homed = (home: string | undefined, cache?: string) => {
     vi.stubEnv('COLIMA_HOME', home);
+    vi.stubEnv('CACHE_DIR', cache);
     onTestFinished(() => {
         vi.unstubAllEnvs();
     });
@@ -50,7 +51,7 @@ describe('root project', () => {
         { home: 'inside the workspace', at: (root: string) => join(root, '.cache/colima') },
         { home: 'unset', at: () => undefined },
     ])('hashes a root task as a workspace without the plugin does, with COLIMA_HOME $home', async ({ at }, { workspace }) => {
-        homed(at(workspace.root));
+        homed(at(workspace.root), join(workspace.root, '.cache'));
         workspace.write(HOSTED);
 
         const bare = await hashed(workspace, {}, 'workspace', 'check--lint');
@@ -64,17 +65,24 @@ describe('engine project', () => {
         homed(join(workspace.root, '.cache/colima'));
         const graph = await workspace.write(HOSTED).graph({ createNodes });
 
-        const { dependencies } = taskGraph(graph, ['colima'], ['install--colima', 'clean--colima']);
+        const { dependencies } = taskGraph(graph, ['docker'], ['install--docker', 'clean--docker']);
 
-        expect([graph.nodes['colima']?.data.root, dependencies]).toStrictEqual(['.cache/colima', { 'colima:install--colima': [], 'colima:clean--colima': [{ id: 'colima:install--colima' }] }]);
+        expect([graph.nodes['docker']?.data.root, dependencies]).toStrictEqual(['.cache/colima', { 'docker:install--docker': [], 'docker:clean--docker': [{ id: 'docker:install--docker' }] }]);
     });
 
     it.for([
         { home: 'unset', at: () => undefined },
         { home: 'empty', at: () => '' },
         { home: 'outside the workspace', at: () => join(tmpdir(), 'colima') },
-    ])('infers no engine target with COLIMA_HOME $home', async ({ at }, { workspace }) => {
-        homed(at());
+    ])('confirms the service manager engine answers under CACHE_DIR, holding no clean target, with COLIMA_HOME $home', async ({ at }, { workspace }) => {
+        homed(at(), join(workspace.root, '.cache'));
+        const graph = await workspace.write(HOSTED).graph({ createNodes });
+
+        expect([graph.nodes['docker']?.data.root, graph.nodes['docker']?.data.targets?.['install--docker']?.options, Object.keys(graph.nodes['docker']?.data.targets ?? {})]).toStrictEqual(['.cache/docker', { command: 'docker version' }, ['install', 'install--docker']]);
+    });
+
+    it('infers no engine project with neither COLIMA_HOME nor CACHE_DIR inside the workspace', async ({ workspace }) => {
+        homed(undefined, join(tmpdir(), 'cache'));
         const graph = await workspace.write(HOSTED).graph({ createNodes });
 
         expect(Object.values(graph.nodes).map((node) => [node.name, Object.keys(node.data.targets ?? {})])).toStrictEqual([['workspace', ['check--lint']]]);
@@ -108,8 +116,11 @@ describe('engine clients', () => {
 });
 
 describe('engine edges', () => {
-    it('starts the engine before the test and install targets of each tagged package, adding no target', async ({ workspace }) => {
-        homed(join(workspace.root, '.cache/colima'));
+    it.for([
+        { engine: 'Colima', at: (root: string) => join(root, '.cache/colima') },
+        { engine: 'the service manager', at: () => undefined },
+    ])('starts the engine $engine holds before the test and install targets of each tagged package with no warning, adding no target', async ({ at }, { workspace }) => {
+        homed(at(workspace.root), join(workspace.root, '.cache'));
         workspace.write({
             ...HOSTED,
             ...CLIENT,
@@ -119,41 +130,33 @@ describe('engine edges', () => {
             ...SUITE('bare', { devDependencies: { testcontainers: '12.2.2' } }, ['check--lint']),
         });
         const graph = await workspace.graph({ createNodes });
-
-        const { dependencies } = taskGraph(graph, ['containers', 'stack', 'unrelated'], ['test--vitest', 'install--pulumi']);
-
-        expect([dependencies, Object.keys(graph.nodes['bare']?.data.targets ?? {})]).toStrictEqual([
-            {
-                'containers:test--vitest': [{ id: 'colima:install--colima' }],
-                'stack:install--pulumi': [{ id: 'colima:install--colima' }],
-                'stack:test--vitest': [{ id: 'colima:install--colima' }],
-                'unrelated:test--vitest': [],
-                'colima:install--colima': [],
-            },
-            ['check--lint'],
-        ]);
-    });
-
-    it('tags a package and plans its tasks with no dependency and no warning where no engine project exists', async ({ workspace }) => {
-        homed(undefined);
-        const graph = await workspace.write({ ...HOSTED, ...SUITE('suite', { dependencies: { '@pulumi/docker': '5.4.0' } }, ['test--vitest', 'install--pulumi']) }).graph({ createNodes });
         const written = vi.spyOn(stderr, 'write');
         onTestFinished(() => {
             written.mockRestore();
         });
 
-        const { dependencies } = taskGraph(graph, ['suite'], ['test--vitest', 'install--pulumi']);
+        const { dependencies } = taskGraph(graph, ['containers', 'stack', 'unrelated'], ['test--vitest', 'install--pulumi']);
 
-        expect([graph.nodes['suite']?.data.tags?.includes('host:docker'), dependencies, written.mock.calls]).toStrictEqual([true, { 'suite:test--vitest': [], 'suite:install--pulumi': [] }, []]);
+        expect([dependencies, Object.keys(graph.nodes['bare']?.data.targets ?? {}), written.mock.calls]).toStrictEqual([
+            {
+                'containers:test--vitest': [{ id: 'docker:install--docker' }],
+                'stack:install--pulumi': [{ id: 'docker:install--docker' }],
+                'stack:test--vitest': [{ id: 'docker:install--docker' }],
+                'unrelated:test--vitest': [],
+                'docker:install--docker': [],
+            },
+            ['check--lint'],
+            [],
+        ]);
     });
 
-    it('hashes a tagged suite alike with and without the engine project', async ({ workspace }) => {
+    it('hashes a tagged suite alike whether Colima or the service manager holds the engine', async ({ workspace }) => {
         workspace.write({ ...HOSTED, ...SUITE('suite', { devDependencies: { testcontainers: '12.2.2' } }) });
-        homed(undefined);
-        const apart = await hashed(workspace, { createNodes }, 'suite', 'test--vitest');
-        homed(join(workspace.root, '.cache/colima'));
+        homed(undefined, join(workspace.root, '.cache'));
+        const served = await hashed(workspace, { createNodes }, 'suite', 'test--vitest');
+        homed(join(workspace.root, '.cache/colima'), join(workspace.root, '.cache'));
 
-        await expect(hashed(workspace, { createNodes }, 'suite', 'test--vitest')).resolves.toBe(apart);
+        await expect(hashed(workspace, { createNodes }, 'suite', 'test--vitest')).resolves.toBe(served);
     });
 });
 

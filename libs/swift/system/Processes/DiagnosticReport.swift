@@ -1,43 +1,43 @@
 import AsyncAlgorithms
 import CasePathsCore
 import Files
-public import Foundation
+package import Foundation
 import Results
 import System
 import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct DiagnosticReport: Encodable, Hashable, Sendable {
-    public enum Kind: String, Encodable, Sendable {
+package struct DiagnosticReport: Encodable, Hashable, Sendable {
+    package enum Kind: String, Encodable, Sendable {
         case crash
         case hang
         case diag
         case spin
     }
 
-    public struct Exception: Codable, Hashable, Sendable {
-        public let type: String
-        public let signal: String?
-        public let subtype: String?
-        public let message: String?
-        public let rawCodes: [UInt64]?
+    package struct Exception: Codable, Hashable, Sendable {
+        package let type: String
+        let signal: String?
+        let subtype: String?
+        let message: String?
+        let rawCodes: [UInt64]?
     }
 
-    public struct Termination: Codable, Hashable, Sendable {
-        public let namespace: String
-        public let code: UInt64?
-        public let indicator: String?
-        public let byProc: String?
-        public let reasons: [String]?
-        public let details: [String]?
+    struct Termination: Codable, Hashable, Sendable {
+        let namespace: String
+        let code: UInt64?
+        let indicator: String?
+        let byProc: String?
+        let reasons: [String]?
+        let details: [String]?
     }
 
-    public struct Frame: Encodable, Hashable, Sendable {
-        public let image: String?
-        public let imageOffset: UInt64
-        public let symbol: String?
-        public let symbolLocation: UInt64?
+    struct Frame: Encodable, Hashable, Sendable {
+        let image: String?
+        let imageOffset: UInt64
+        let symbol: String?
+        let symbolLocation: UInt64?
     }
 
     private struct Header: Decodable {
@@ -90,7 +90,7 @@ public struct DiagnosticReport: Encodable, Hashable, Sendable {
         let usedImages: [Image]?
     }
 
-    public static let directories: [URL] = FileManager.default.urls(for: .libraryDirectory, in: [.userDomainMask, .localDomainMask]).map { library in
+    package static let directories: [URL] = FileManager.default.urls(for: .libraryDirectory, in: [.userDomainMask, .localDomainMask]).map { library in
         library.appending(components: "Logs", "DiagnosticReports", directoryHint: .isDirectory)
     }
 
@@ -106,21 +106,21 @@ public struct DiagnosticReport: Encodable, Hashable, Sendable {
         timeZone: .gmt,
     )
 
-    public let url: URL
-    public let kind: Kind
-    public let date: Date
-    public let pid: pid_t
-    public let launched: Date?
-    public let name: String?
-    public let executable: String?
-    public let coalition: String?
-    public let bundleIdentifier: String?
-    public let event: String?
-    public let exception: Exception?
-    public let termination: Termination?
-    public let applicationSpecificInformation: [String: [String]]?
-    public let virtualMemoryRegionInfo: String?
-    public let faultingThread: [Frame]?
+    package let url: URL
+    package let kind: Kind
+    let date: Date
+    package let pid: pid_t
+    let launched: Date?
+    let name: String?
+    let executable: String?
+    let coalition: String?
+    let bundleIdentifier: String?
+    let event: String?
+    package let exception: Exception?
+    let termination: Termination?
+    let applicationSpecificInformation: [String: [String]]?
+    let virtualMemoryRegionInfo: String?
+    let faultingThread: [Frame]?
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -191,11 +191,11 @@ extension DiagnosticReport {
         }
     }
 
-    public func isWritten(by process: ProcessInstance) -> Bool {
+    package func isWritten(by process: ProcessInstance) -> Bool {
         pid == process.pid && (launched.map { launched in UInt64((launched.timeIntervalSince1970 * 1000).rounded()) == process.started / 1000 } ?? true)
     }
 
-    public func isWritten(by bundle: Bundle) -> Bool {
+    package func isWritten(by bundle: Bundle) -> Bool {
         guard let reported = executable.map({ path in FilePath(path) }), let path = bundle.executablePath.map({ path in FilePath(path) }) else { return false }
         return switch reported.components.firstIndex(of: "*") {
             case .some(let marker): bundleIdentifier == bundle.bundleIdentifier && path.ends(with: FilePath(root: nil, reported.components[marker...].dropFirst()))
@@ -203,7 +203,7 @@ extension DiagnosticReport {
         }
     }
 
-    public static func reports(
+    package static func reports(
         since earliest: Date = .distantPast,
         limit: Int = .max,
         in directories: [URL] = directories,
@@ -220,7 +220,7 @@ extension DiagnosticReport {
         return (Array(found.reports.sorted(using: KeyPathComparator(\.date, order: .reverse)).prefix(limit)), found.failures)
     }
 
-    public static func written(since earliest: Date, in directory: URL = directories[0]) -> some AsyncSequence<Result<Self, ProcessFailure>, Never> & Sendable {
+    package static func written(since earliest: Date, in directory: URL = directories[0]) -> some AsyncSequence<Result<Self, ProcessFailure>, Never> & Sendable {
         let initial: (read: Set<URL>, found: [Result<Self, ProcessFailure>]) = ([], [])
         return FileEvent.events(of: directory).reductions(into: initial) { held, change in
             let listed: (files: [URL], failures: [ProcessFailure]) =
@@ -236,7 +236,7 @@ extension DiagnosticReport {
         .flatMap(\.found.async)
     }
 
-    public static func first(
+    package static func first(
         writtenBy process: ProcessInstance,
         since launch: Date,
         within limit: Duration = .seconds(60),

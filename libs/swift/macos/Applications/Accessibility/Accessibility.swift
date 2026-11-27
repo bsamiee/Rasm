@@ -1,9 +1,9 @@
 import AppKit
-@unsafe @preconcurrency public import ApplicationServices
-public import CasePaths
+@unsafe @preconcurrency package import ApplicationServices
+package import CasePaths
 import CasePathsCore
-public import Encoding
-public import Foundation
+package import Encoding
+package import Foundation
 import SPI
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -44,22 +44,22 @@ private let windowRoles: Set<String> = [kAXWindowRole, kAXSheetRole, kAXDrawerRo
 
 @CasePathable
 @dynamicMemberLookup
-public enum Fact: CaseTagged, Hashable, Sendable {
-    public enum Scalar: Codable, Hashable, Sendable {
+package enum Fact: CaseTagged, Hashable, Sendable {
+    package enum Scalar: Codable, Hashable, Sendable {
         case bool(Bool)
         case number(Double)
         case text(String)
         case date(Date)
         case rect(CGRect)
 
-        public init(from decoder: any Decoder) throws {
+        package init(from decoder: any Decoder) throws {
             let value = try decoder.singleValueContainer()
             self =
                 try value.decodeIfMatching(Bool.self).map(Self.bool) ?? value.decodeIfMatching(Double.self).map(Self.number) ?? value.decodeIfMatching(CGRect.self).map(Self.rect)
                 ?? .text(value.decode(String.self))
         }
 
-        public func encode(to encoder: any Encoder) throws {
+        package func encode(to encoder: any Encoder) throws {
             var value = encoder.singleValueContainer()
             switch self {
                 case .bool(let flag): try value.encode(flag)
@@ -87,11 +87,11 @@ public enum Fact: CaseTagged, Hashable, Sendable {
     case record(fields: [String: Self])
     case refused(error: Lenient<AXError>)
 
-    public var number: Double? { self.integer.map(Double.init) ?? self.real }
+    var number: Double? { self.integer.map(Double.init) ?? self.real }
 
-    public var elements: [Int] { self.list?.compactMap(\.element) ?? self.element.map { id in [id] } ?? [] }
+    var elements: [Int] { self.list?.compactMap(\.element) ?? self.element.map { id in [id] } ?? [] }
 
-    public var scalar: Scalar? {
+    var scalar: Scalar? {
         switch self {
             case .bool(let flag): .bool(flag)
             case .integer(let number): .number(Double(number))
@@ -104,21 +104,21 @@ public enum Fact: CaseTagged, Hashable, Sendable {
     }
 }
 
-public struct Element: Hashable, Sendable {
-    public let id: Int
-    public let facts: [String: Fact]
-    public let actions: [String]
-    public var window: CGWindowID?
-    public var descriptions: [String: String] = [:]
-    public var counts: [String: Int] = [:]
+struct Element: Hashable, Sendable {
+    let id: Int
+    let facts: [String: Fact]
+    let actions: [String]
+    var window: CGWindowID?
+    var descriptions: [String: String] = [:]
+    var counts: [String: Int] = [:]
 
-    public func text(_ attribute: String) -> String? { facts[attribute]?.text.flatMap { text in text.isEmpty ? nil : text } }
+    func text(_ attribute: String) -> String? { facts[attribute]?.text.flatMap { text in text.isEmpty ? nil : text } }
 
-    public var role: String? { text(kAXRoleAttribute) }
+    var role: String? { text(kAXRoleAttribute) }
 
-    public var frame: CGRect? { facts[frameAttribute]?.rect }
+    var frame: CGRect? { facts[frameAttribute]?.rect }
 
-    public var activation: CGPoint? { facts[NSAccessibility.Attribute.activationPoint.rawValue]?.point }
+    var activation: CGPoint? { facts[NSAccessibility.Attribute.activationPoint.rawValue]?.point }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

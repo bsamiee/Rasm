@@ -1,7 +1,6 @@
 {
     "name": "@rasm/rpc",
     "version": "0.1.0",
-    "private": true,
     "description": "Effect RPC transports over a child process's standard streams and over redialing WebSocket links between peers and a server",
     "license": "MIT",
     "repository": {

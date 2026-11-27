@@ -1,26 +1,26 @@
-public import CasePaths
-public import Foundation
+package import CasePaths
+package import Foundation
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public struct FileFailure: CustomNSError, LocalizedError {
+package struct FileFailure: CustomNSError, LocalizedError {
     @CasePathable
-    public enum Reason: Sendable {
+    package enum Reason: Sendable {
         case unwatched
         case held
         case compromised
         case filesystem(any Error)
     }
 
-    public let subject: String
-    public let reason: Reason
+    package let subject: String
+    package let reason: Reason
 
     init(file: URL, reason: Reason) {
         subject = file.path(percentEncoded: false)
         self.reason = reason
     }
 
-    public var errorDescription: String? {
+    package var errorDescription: String? {
         switch reason {
             case .unwatched: "FSEvents stream on \(subject) failed to start"
             case .held: "\(subject) is held"
@@ -29,7 +29,7 @@ public struct FileFailure: CustomNSError, LocalizedError {
         }
     }
 
-    public var errorUserInfo: [String: Any] {
+    package var errorUserInfo: [String: Any] {
         switch reason {
             case .filesystem(let error): [NSUnderlyingErrorKey: error]
             case .unwatched, .held, .compromised: [:]

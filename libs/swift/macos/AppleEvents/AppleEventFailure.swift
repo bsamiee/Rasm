@@ -1,8 +1,8 @@
-public import CasePaths
+package import CasePaths
 import CoreServices
-public import Encoding
-public import Foundation
-public import Results
+package import Encoding
+package import Foundation
+package import Results
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -10,9 +10,9 @@ package let privacySettings: String = "x-apple.systempreferences:com.apple.setti
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public struct AppleEventFailure: CustomNSError, Equatable, LocalizedError {
+package struct AppleEventFailure: CustomNSError, Equatable, LocalizedError {
     @CasePathable
-    public enum Reason: CaseLabeled, Equatable, Sendable {
+    package enum Reason: CaseLabeled, Equatable, Sendable {
         case undeclared
         case osa(OSStatus)
         case foundation(NSError)
@@ -26,15 +26,15 @@ public struct AppleEventFailure: CustomNSError, Equatable, LocalizedError {
         case cancelled
     }
 
-    public let subject: String
-    public let reason: Reason
+    package let subject: String
+    package let reason: Reason
 
     package init(subject: String, reason: Reason) {
         self.subject = subject
         self.reason = reason
     }
 
-    public var errorDescription: String? {
+    package var errorDescription: String? {
         switch reason {
             case .undeclared:
                 "\(subject) holds no OSAScriptingDefinition file, sdef or aete resource named for its executable, or script suite, runs no instance, and has no cached dictionary, open it to read its dictionary"
@@ -54,14 +54,14 @@ public struct AppleEventFailure: CustomNSError, Equatable, LocalizedError {
         }
     }
 
-    public var status: OSStatus? {
+    package var status: OSStatus? {
         switch reason {
             case .osa(let status), .unconsented(let status), .undelivered(let status), .unanswered(let status), .replied(let status, _): status
             case .undeclared, .foundation, .unmatched, .unencodable, .activating, .cancelled: nil
         }
     }
 
-    public var errorUserInfo: [String: Any] {
+    package var errorUserInfo: [String: Any] {
         switch reason {
             case .foundation(let error): [NSUnderlyingErrorKey: error]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
@@ -76,7 +76,7 @@ extension AppleEventFailure: Encodable {
         case reason, subject, message, status
     }
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: Key.self)
         try fields.encode(reason, forKey: .reason)
         try fields.encode(subject, forKey: .subject)

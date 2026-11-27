@@ -33,7 +33,7 @@ const Full = Schema.Struct({
     globalTeardowns: Schema.Array(Schema.String),
     webServers: Schema.Array(Server),
     config: Schema.Struct({ reporter: Schema.Array(Schema.Tuple([Schema.String, Schema.optionalKey(Schema.Unknown)])) }),
-    projects: Schema.Array(Schema.declare(Schema.is(Schema.Struct({ project: Schema.Struct({ name: Schema.String, outputDir: Schema.String, testDir: Schema.String, webServer: Schema.Array(Server) }) })))),
+    projects: Schema.Array(Schema.Struct({ project: Schema.Struct({ name: Schema.String, outputDir: Schema.String, testDir: Schema.String, webServer: Schema.Array(Server) }) }).pipe(Schema.is, Schema.declare)),
 }).annotate({
     description: 'The FullConfigInternal loadConfigFromFile returns: config folder, global setup and teardown scripts, webServer rows, resolved reporters, and each FullProjectInternal row kept whole for collectFilesForProject, holding the name, output folder, test folder, and webServer rows of its project',
 });

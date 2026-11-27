@@ -1,7 +1,7 @@
 import AppKit
-public import AppleEvents
+package import AppleEvents
 import CasePathsCore
-public import Foundation
+package import Foundation
 import Processes
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -15,15 +15,15 @@ private enum DefinitionSource {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public actor ScriptingDictionaries {
+package actor ScriptingDictionaries {
     private let cachedDefinition: @Sendable (Installation) -> URL?
     private var held: [URL: (build: String?, processes: Set<ProcessInstance>, reading: Task<Result<ScriptingDictionary, AppleEventFailure>, Never>)] = [:]
 
-    public init(cachedDefinition: @escaping @Sendable (Installation) -> URL?) {
+    package init(cachedDefinition: @escaping @Sendable (Installation) -> URL?) {
         self.cachedDefinition = cachedDefinition
     }
 
-    public func dictionary(of installation: Installation) async throws(AppleEventFailure) -> ScriptingDictionary {
+    package func dictionary(of installation: Installation) async throws(AppleEventFailure) -> ScriptingDictionary {
         let processes: Set<ProcessInstance>
         do throws(ApplicationFailure) {
             processes = Set(try NSWorkspace.shared.instances(of: installation.runs).map(\.process))

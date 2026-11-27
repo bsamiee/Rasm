@@ -159,7 +159,7 @@ const features = Schema.Struct({
     otfStylisticSets: Schema.Int,
     ...Record.map(FEATURE_FLAGS, () => Schema.Boolean),
     ...Record.map(FEATURE_MEMBERS, (table) => Schema.Literals(Record.keys(table))),
-    opentypeFeatures: Schema.optionalKey(Schema.Array(Schema.Tuple([Schema.String, Schema.Finite]))),
+    opentypeFeatures: Schema.Tuple([Schema.String, Schema.Finite]).pipe(Schema.Array, Schema.optionalKey),
 }).pipe(
     Schema.decodeTo(Schema.toType(Settings.fields.features), {
         decode: SchemaGetter.transform(({ otfStylisticSets, opentypeFeatures = [], ...held }) => {

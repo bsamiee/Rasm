@@ -1,7 +1,6 @@
 {
     "name": "@rasm/uxp",
     "version": "0.1.0",
-    "private": true,
     "description": "UXP manifests and the hosts that load them, plugin and script runtimes, Spectrum panel controls, and Vite plugin builds",
     "license": "MIT",
     "repository": {

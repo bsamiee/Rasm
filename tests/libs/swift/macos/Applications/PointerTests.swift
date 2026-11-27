@@ -1,8 +1,9 @@
 import AppKit
-import Applications
 import CryptoKit
 import CustomDump
 import Testing
+
+@testable import Applications
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

@@ -8,7 +8,7 @@ import Logging
 import OTel
 import OTelSemanticConventions
 import Processes
-public import ServiceLifecycle
+package import ServiceLifecycle
 import System
 import SystemMetrics
 import Telemetry
@@ -107,7 +107,7 @@ extension Program {
 
     // --- [PROCESS]
 
-    public func telemetry(scopes: [Any.Type]) -> ServiceGroup {
+    package func telemetry(scopes: [Any.Type]) -> ServiceGroup {
         let (process, environment) = (ProcessInfo.processInfo, ProcessInfo.processInfo.environment)
         let stated: [String: String] = preferences.reduce(into: environment) { stated, entry in
             guard case .string(let value) = entry.value.content, entry.key.description.hasPrefix("OTEL_") else { return }

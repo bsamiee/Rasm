@@ -556,7 +556,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             const item = yield* itemOf(base, map)(reference);
             const ref = yield* refOf(live.instance)(item);
             const named = yield* Schema.encodeEffect(Title)(Address.path(item).join(Address.separator));
-            const recalled = item.live ? Option.none<Index>() : Option.some(Address.recall(base)(map));
+            const recalled = item.live ? Option.none<Index>() : map.pipe(Address.recall(base), Option.some);
             const holder = Option.flatMap(recalled, ({ located }) => (item.target._tag === 'RememberedControl' ? Option.map(Record.get(located, item.target.container), Array.headNonEmpty) : Option.some(item)));
             const placed = Match.value(item.target).pipe(
                 Match.tag('Control', ({ control, container }) => ({ frame: control.frame ?? container.frame, window: container.window })),
@@ -639,7 +639,12 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                         Effect.map(Option.flatten),
                     ),
             });
-            const changed = HashSet.fromIterable(Option.toArray(Option.flatMap(first, ({ change }) => (Event.fields.change.isAnyOf(['focused', 'value', 'selection'])(change) ? Option.some(change.control) : Option.none()))));
+            const changed = pipe(
+                first,
+                Option.flatMap(({ change }: Event) => (Event.fields.change.isAnyOf(['focused', 'value', 'selection'])(change) ? Option.some(change.control) : Option.none())),
+                Option.toArray,
+                HashSet.fromIterable,
+            );
             const [opening, [elapsed, [{ application, map, indexed, level, base, handle }, clipboard, stated, strained]], closing] = yield* Effect.all([
                 server.traffic,
                 Effect.timed(Effect.all([modelled(aimed), whole ? clipboardLine(live.instance) : Effect.succeedNone, session, pressure], { concurrency: 'unbounded' })),

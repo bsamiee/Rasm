@@ -1,10 +1,11 @@
 import AppKit
 @unsafe @preconcurrency import ApplicationServices
-import Applications
 import CasePathsCore
 import CustomDump
 import Fixture
 import Testing
+
+@testable import Applications
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

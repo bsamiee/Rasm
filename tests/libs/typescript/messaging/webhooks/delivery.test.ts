@@ -58,7 +58,7 @@ it.effect.each([
     Effect.fnUntraced(function* ({ status, attempts, delivered }) {
         const [webhook, answered] = yield* Effect.all([made(Scheme.standard, standard.secret), Ref.make(0)]);
         const endpoint = Ref.update(answered, (count) => count + 1).pipe(Effect.as(HttpServerResponse.empty({ status, headers: { location: url, 'retry-after': '120' } })));
-        const sending = yield* Effect.forkChild(Effect.exit(webhook.deliver(url, { id: standard.id, event: { test: 1 } }, Schedule.recurs(2))).pipe(Effect.provide(transport(endpoint))));
+        const sending = yield* webhook.deliver(url, { id: standard.id, event: { test: 1 } }, Schedule.recurs(2)).pipe(Effect.exit, Effect.provide(transport(endpoint)), Effect.forkChild);
         yield* TestClock.adjust('239 seconds');
         const early = yield* Ref.get(answered);
         yield* TestClock.adjust('1 second');
@@ -73,7 +73,7 @@ it.effect(
         const batch = Object.values(events).flat();
         const deliveries = yield* Queue.unbounded<Effect.Success<ReturnType<typeof webhook.verify>>>();
         const text = encoder.encode('not JSON');
-        const client = yield* Layer.build(transport(webhook.receive((incoming) => Queue.offer(deliveries, incoming))));
+        const client = yield* webhook.receive((incoming) => Queue.offer(deliveries, incoming)).pipe(transport, Layer.build);
         yield* Effect.provide(webhook.deliver(url, { id: 'derived', event: batch }, Schedule.recurs(0)), client);
         const [signed, unparsed] = yield* Effect.all([webhook.sign('derived', vectors.tailscale.bytes), webhook.sign('derived', text)]);
         const unbounded = Headers.fromInput({ [Scheme.tailscale.signature]: 't=99999999999999999999,v1=00' });
@@ -104,7 +104,7 @@ it.effect(
             const seen = yield* Ref.updateAndGet(stamps, Array.append(Option.all([Headers.get(headers, 'webhook-id'), Headers.get(headers, 'webhook-timestamp')])));
             return seen.length === 1 || Option.contains(Headers.get(headers, 'webhook-id'), 'msg_refused') ? HttpServerResponse.empty({ status: 503 }) : yield* webhook.receive(accept);
         });
-        const client = yield* Layer.build(transport(endpoint));
+        const client = yield* endpoint.pipe(transport, Layer.build);
         const offer = yield* webhook.queued({ name: 'outbox', maxAttempts: 3, retrySchedule: Schedule.spaced('1 minute') }, (queued) => webhook.deliver(url, queued, Schedule.recurs(0))).pipe(Effect.provide(client));
         yield* Effect.all([offer({ id: 'msg_repeated', event: { count: 1 } }), offer({ id: 'msg_repeated', event: { count: 2 } })]);
         yield* TestClock.adjust('1 minute');

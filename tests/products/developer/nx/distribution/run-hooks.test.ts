@@ -75,7 +75,7 @@ describe('remote cache read before a run', () => {
     });
 
     it('empties the server and warns once where the connection is refused', async ({ warned }) => {
-        const { address } = await Effect.runPromise(Effect.scoped(remote('held-token', Function.constant(Option.none()))));
+        const { address } = await remote('held-token', Function.constant(Option.none())).pipe(Effect.scoped, Effect.runPromise);
         vi.stubEnv(server, address);
 
         await preTasksExecution({ remoteCacheTimeout: '10 seconds' }, context);

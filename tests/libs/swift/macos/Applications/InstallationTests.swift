@@ -1,8 +1,9 @@
 import AppIntents
 import AppKit
-import Applications
 import CustomDump
 import Testing
+
+@testable import Applications
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

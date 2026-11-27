@@ -1,6 +1,6 @@
 import AsyncAlgorithms
-@unsafe @preconcurrency public import Dispatch
-public import Foundation
+@unsafe @preconcurrency import Dispatch
+import Foundation
 import IOKit
 import IOKit.graphics
 import IOKit.pwr_mgt
@@ -10,18 +10,18 @@ import notify
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct SystemPressure: Encodable, Equatable, Sendable {
+package struct SystemPressure: Encodable, Equatable, Sendable {
     private enum CodingKeys: CodingKey {
         case memory, available, thermal, lowPower, advisory
     }
 
-    public let memory: DispatchSource.MemoryPressureEvent
-    public let available: Int
-    public let thermal: ProcessInfo.ThermalState
-    public let lowPower: Bool
-    public let advisory: [String: Int]?
+    let memory: DispatchSource.MemoryPressureEvent
+    let available: Int
+    let thermal: ProcessInfo.ThermalState
+    let lowPower: Bool
+    let advisory: [String: Int]?
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: CodingKeys.self)
         try fields.encode(memory.description, forKey: .memory)
         try fields.encode(available, forKey: .available)
@@ -47,25 +47,25 @@ public struct SystemPressure: Encodable, Equatable, Sendable {
     }
 }
 
-public struct SystemLoad: Sendable {
-    public struct Interval: Encodable, Sendable {
+package struct SystemLoad: Sendable {
+    package struct Interval: Encodable, Sendable {
         private enum CodingKeys: CodingKey {
             case idle, pageins, swapins, swapouts, decompressions, deviceUtilization, diskBytesRead, diskBytesWritten, diskTime, availableCapacityForImportantUsage
         }
 
-        public let growth: SystemLoad
-        public let deviceUtilization: Int?
-        public let availableCapacityForImportantUsage: Int64?
+        let growth: SystemLoad
+        let deviceUtilization: Int?
+        let availableCapacityForImportantUsage: Int64?
 
-        public var idle: Double? {
+        var idle: Double? {
             let ticks = SIMD4<UInt64>(truncatingIfNeeded: growth.processor)
             let total: UInt64 = ticks.wrappedSum()
             return total == 0 ? nil : Double(ticks[Int(CPU_STATE_IDLE)]) / Double(total)
         }
 
-        public var stale: Bool { growth.faults == 0 }
+        var stale: Bool { growth.faults == 0 }
 
-        public func encode(to encoder: any Encoder) throws {
+        package func encode(to encoder: any Encoder) throws {
             var fields = encoder.container(keyedBy: CodingKeys.self)
             let disk = growth.disks.values.reduce((bytesRead: UInt64.zero, bytesWritten: UInt64.zero, time: Duration.zero)) { total, driver in
                 (total.bytesRead &+ driver.bytesRead, total.bytesWritten &+ driver.bytesWritten, total.time + driver.time)
@@ -79,13 +79,13 @@ public struct SystemLoad: Sendable {
         }
     }
 
-    public let processor: SIMD4<UInt32>
-    public let pageins: UInt64
-    public let swapins: UInt64
-    public let swapouts: UInt64
-    public let decompressions: UInt64
-    public let faults: UInt64
-    public let disks: [UInt64: (bytesRead: UInt64, bytesWritten: UInt64, time: Duration)]
+    let processor: SIMD4<UInt32>
+    let pageins: UInt64
+    let swapins: UInt64
+    let swapouts: UInt64
+    let decompressions: UInt64
+    let faults: UInt64
+    let disks: [UInt64: (bytesRead: UInt64, bytesWritten: UInt64, time: Duration)]
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -112,7 +112,7 @@ private func copyProperty(_ key: String, matching service: String) throws(Proces
 }
 
 extension SystemPressure {
-    public init() throws(ProcessFailure) {
+    init() throws(ProcessFailure) {
         let level = { (name: String) throws(ProcessFailure) -> UInt32 in
             var level: UInt32 = 0
             var size = MemoryLayout<UInt32>.size
@@ -128,7 +128,7 @@ extension SystemPressure {
         )
     }
 
-    public static func changes() -> some AsyncSequence<Result<Self, ProcessFailure>, Never> & Sendable {
+    package static func changes() -> some AsyncSequence<Result<Self, ProcessFailure>, Never> & Sendable {
         let (pushed, signal) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
         let source = DispatchSource.makeMemoryPressureSource(eventMask: .all, queue: .global())
         source.setEventHandler { signal.yield() }
@@ -153,7 +153,7 @@ extension SystemPressure {
 }
 
 extension SystemLoad {
-    public init() throws(ProcessFailure) {
+    package init() throws(ProcessFailure) {
         let host = mach_host_self()
         defer { _ = unsafe mach_port_deallocate(mach_task_self_, host) }
         var (processors, info, length): (natural_t, processor_info_array_t?, mach_msg_type_number_t) = (0, nil, 0)
@@ -191,7 +191,7 @@ extension SystemLoad {
         )
     }
 
-    public func since(_ earlier: Self) -> Self {
+    func since(_ earlier: Self) -> Self {
         Self(
             processor: processor &- earlier.processor,
             pageins: pageins &- earlier.pageins,
@@ -210,7 +210,7 @@ extension SystemLoad {
 }
 
 extension SystemLoad.Interval {
-    public init(since earlier: SystemLoad) throws(ProcessFailure) {
+    package init(since earlier: SystemLoad) throws(ProcessFailure) {
         let growth = try SystemLoad().since(earlier)
         let volume: URLResourceValues
         do { volume = try URL(filePath: "/").resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]) } catch { throw ProcessFailure(subject: "/", error) }

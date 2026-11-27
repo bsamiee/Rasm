@@ -1,4 +1,4 @@
-public import Foundation
+package import Foundation
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -22,18 +22,18 @@ struct JSONLines<Bytes: AsyncIteratorProtocol<UInt8, Failure>, Failure: Error>: 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension JSONEncoder {
-    public static var jsonLines: JSONEncoder {
+    package static var jsonLines: JSONEncoder {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         encoder.dateEncodingStrategy = .custom { date, target in try date.formatted(Date.ISO8601FormatStyle(includingFractionalSeconds: true)).encode(to: target) }
         return encoder
     }
 
-    public func encodeLine(_ value: some Encodable) throws -> Data {
+    package func encodeLine(_ value: some Encodable) throws -> Data {
         try encode(value) + [UInt8(ascii: "\n")]
     }
 }
 
 extension AsyncSequence where Element == UInt8 {
-    public var jsonLines: some AsyncSequence<Data, Failure> { JSONLines(bytes: makeAsyncIterator()) }
+    package var jsonLines: some AsyncSequence<Data, Failure> { JSONLines(bytes: makeAsyncIterator()) }
 }

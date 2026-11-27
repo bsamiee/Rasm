@@ -1,20 +1,20 @@
 import Encoding
 import Foundation
-public import Logging
-public import MetricKit
+package import Logging
+import MetricKit
 import OTelSemanticConventions
-public import ServiceLifecycle
+package import ServiceLifecycle
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public struct MetricKitReports: Service {
+package struct MetricKitReports: Service {
     private let manager = MetricManager()
     private let encoder = JSONEncoder.jsonLines
     private let logger: Logging.Logger
 
-    public init(to logger: Logging.Logger) { self.logger = logger }
+    package init(to logger: Logging.Logger) { self.logger = logger }
 
-    public func run() async throws {
+    package func run() async throws {
         await cancelWhenGracefulShutdown {
             async let diagnostics: Void = log(manager.diagnosticReports)
             await log(manager.metricReports) { report in (.notice, "MetricKit metric report", report.environment?.latestApplicationVersion, nil) }

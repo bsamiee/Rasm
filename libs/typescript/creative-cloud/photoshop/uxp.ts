@@ -86,7 +86,7 @@ class Notifications extends Context.Service<Notifications, { readonly events: St
                 Stream.mapEffect(([name, descriptor]) => Option.match(Record.get(handlers, name), { onNone: () => Effect.succeedNone, onSome: (handle) => handle(name, descriptor) })),
                 Stream.share({ capacity: 'unbounded' }),
             );
-            yield* Effect.forkScoped(Effect.tapCause(Stream.runDrain(changes), Effect.logError));
+            yield* changes.pipe(Stream.runDrain, Effect.tapCause(Effect.logError), Effect.forkScoped);
             return { events: Stream.filterMap(changes, (event) => Result.fromOption(event, Function.constVoid)), changes, operations: Effect.map(SubscriptionRef.get(entered), Record.values) };
         }),
     );
@@ -243,14 +243,10 @@ const routes: Record.ReadonlyRecord<string, Route> = {
 };
 const stroke = Effect.fnUntraced(function* (document: Document, tool: ToolType, points: Array.NonEmptyReadonlyArray<readonly [number, number]>, pressured: boolean) {
     const names = new Set(Array.makeBy(document.pathItems.length, (index) => document.pathItems[index]?.name));
-    const name = yield* Effect.orDie(
-        Effect.fromOption(
-            Array.findFirst(
-                Array.makeBy(names.size + 1, (index) => `${tool} ${index}`),
-                (each) => !names.has(each),
-            ),
-        ),
-    );
+    const name = yield* Array.findFirst(
+        Array.makeBy(names.size + 1, (index) => `${tool} ${index}`),
+        (each) => !names.has(each),
+    ).pipe(Effect.fromOption, Effect.orDie);
     yield* Effect.try({ try: () => document.pathItems.add(name, [Object.assign(new app.SubPathInfo(), { closed: false, operation: constants.ShapeOperation.SHAPEXOR, entireSubPath: Array.map(points, cornered) })]), catch: HostError.refused(`path ${name}`) });
     const added = yield* Effect.try({ try: () => document.pathItems.getByName(name), catch: HostError.refused(`path ${name}`) });
     yield* Effect.tryPromise({ try: () => added.strokePath(tool, pressured), catch: HostError.refused(`strokePath of path ${name} with ${tool}`) });

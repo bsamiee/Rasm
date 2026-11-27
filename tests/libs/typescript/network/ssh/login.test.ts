@@ -123,7 +123,7 @@ it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('login', (
             const sshd = yield* Sshd;
             const [{ ssh }, host] = yield* Effect.all([sshd.client, sshd.hosted(principal, { trust: { _tag, keys: ['ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl'] } })]);
             const failed = yield* Effect.flip(ssh.run(host, listener));
-            assert.deepStrictEqual([yield* reasoned(Effect.fail(failed)), Schema.is(SshError)(failed) && failed.message.includes('Host key verification failed.')], ['Unreachable', true]);
+            assert.deepStrictEqual([yield* failed.pipe(Effect.fail, reasoned), Schema.is(SshError)(failed) && failed.message.includes('Host key verification failed.')], ['Unreachable', true]);
         }),
     );
 });

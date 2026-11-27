@@ -38,7 +38,7 @@ serde_path_to_error                = { workspace = true }
 jiff                               = { workspace = true }
 xxhash-rust                        = { workspace = true }
 fs-err                             = { workspace = true, features = ["tokio"] }
-rmcp                               = { workspace = true, default-features = false, features = ["server"] }
+rmcp                               = { workspace = true, features = ["server"] }
 opentelemetry                      = { workspace = true }
 opentelemetry-semantic-conventions = { workspace = true }
 tracing                            = { workspace = true }

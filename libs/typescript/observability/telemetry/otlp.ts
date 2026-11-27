@@ -31,7 +31,7 @@ const formatLogRecord = (resource: NonNullable<Parameters<typeof layerOtlp>[0]>)
             severity_text: String.toUpperCase(logLevel),
             severity_number: severityNumber(logLevel),
             body: (Array.isReadonlyArrayNonEmpty(text) ? text : Array.map(errors, Struct.get('message'))).join(' '),
-            ...UndefinedOr.map(Option.getOrUndefined(scope(fiber)) ?? resource.serviceName, (name) => ({ scope: name })),
+            ...UndefinedOr.map(fiber.pipe(scope, Option.getOrUndefined) ?? resource.serviceName, (name) => ({ scope: name })),
             ...UndefinedOr.map(Context.getOrUndefined(fiber.context, Tracer.ParentSpan), (span) => ({ trace_id: span.traceId, span_id: span.spanId, trace_flags: span.sampled ? '01' : '00' })),
             attributes: {
                 ...fiber.getRef(References.CurrentLogAnnotations),
@@ -42,7 +42,7 @@ const formatLogRecord = (resource: NonNullable<Parameters<typeof layerOtlp>[0]>)
             resource: { [ATTR_SERVICE_NAME]: resource.serviceName, [ATTR_SERVICE_VERSION]: resource.serviceVersion, ...resource.attributes },
         });
     });
-const errorReporter = ErrorReporter.make(({ error, severity, attributes, fiber }) => Effect.runSyncWith(fiber.context)(Effect.annotateLogs(Effect.logWithLevel(Predicate.hasProperty(error, ErrorReporter.severity) ? severity : 'Error')(Cause.fail(error)), attributes)));
+const errorReporter = ErrorReporter.make(({ error, severity, attributes, fiber }) => Cause.fail(error).pipe(Effect.logWithLevel(Predicate.hasProperty(error, ErrorReporter.severity) ? severity : 'Error'), Effect.annotateLogs(attributes), Effect.runSyncWith(fiber.context)<void, never>));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

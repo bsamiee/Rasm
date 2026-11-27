@@ -1,26 +1,26 @@
-public import AppKit
+import AppKit
 @unsafe @preconcurrency import ApplicationServices
 import AsyncAlgorithms
-public import CasePaths
+package import CasePaths
 import CasePathsCore
-public import Encoding
-public import Processes
+package import Encoding
+import Processes
 import SPI
 import Subprocess
-public import System
+import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 @CasePathable
-public enum InstanceState: CaseTagged, Equatable, Sendable {
-    public struct Activity: Equatable, Sendable {
+package enum InstanceState: CaseTagged, Equatable, Sendable {
+    package struct Activity: Equatable, Sendable {
         @CasePathable
-        public enum Status: CaseTagged, Equatable, Sendable {
+        enum Status: CaseTagged, Equatable, Sendable {
             case launching
             case responding
             case unresponsive(thread: ProcessStatus)
 
-            public var isIdle: Bool {
+            var isIdle: Bool {
                 switch self {
                     case .launching, .unresponsive(.running), .unresponsive(.runnable), .unresponsive(.throttled), .unresponsive(.uninterruptible): false
                     case .responding, .unresponsive(.sleeping), .unresponsive(.stopped), .unresponsive(.traced): true
@@ -28,19 +28,19 @@ public enum InstanceState: CaseTagged, Equatable, Sendable {
             }
         }
 
-        public let status: Status
-        public let pendingEventAge: Duration?
-        public let active: Bool
-        public let windows: [Window]
-        public let usage: Result<ResourceUsage.Interval, Errno>?
-        public let listening: Result<[in_port_t], Errno>
-        public let statusItems: Result<Int, ApplicationFailure>?
+        let status: Status
+        let pendingEventAge: Duration?
+        let active: Bool
+        let windows: [Window]
+        let usage: Result<ResourceUsage.Interval, Errno>?
+        let listening: Result<[in_port_t], Errno>
+        let statusItems: Result<Int, ApplicationFailure>?
 
-        public var asking: [Window] { windows.filter(\.asking) }
+        var asking: [Window] { windows.filter(\.asking) }
     }
 
-    public struct Window: Codable, Equatable, Sendable {
-        public enum Band: String, CaseIterable, Codable, Sendable {
+    struct Window: Codable, Equatable, Sendable {
+        enum Band: String, CaseIterable, Codable, Sendable {
             case normal
             case floating
             case modalPanel
@@ -56,7 +56,7 @@ public enum InstanceState: CaseTagged, Equatable, Sendable {
             case assistiveTechHigh
             case cursor
 
-            public var level: Int {
+            var level: Int {
                 let key: CGWindowLevelKey =
                     switch self {
                         case .normal: .normalWindow
@@ -82,27 +82,27 @@ public enum InstanceState: CaseTagged, Equatable, Sendable {
             init(layer: Int) { self = Self.floors.first { floor in floor.level <= layer }?.band ?? .normal }
         }
 
-        public let number: CGWindowID
-        public let title: String?
-        public let frame: CGRect
-        public let layer: Int
-        public let band: Band
-        public let parent: CGWindowID?
-        public let spaces: [UInt64]
-        public let onScreen: Bool
-        public let hidden: Bool
-        public let shared: Bool
-        public let remote: CGWindowID?
-        public internal(set) var container: Int?
-        public internal(set) var kind: Container.Kind?
-        public internal(set) var document: URL?
-        public internal(set) var asking: Bool
-        public internal(set) var presented: Bool
+        let number: CGWindowID
+        let title: String?
+        let frame: CGRect
+        let layer: Int
+        let band: Band
+        let parent: CGWindowID?
+        let spaces: [UInt64]
+        let onScreen: Bool
+        let hidden: Bool
+        let shared: Bool
+        let remote: CGWindowID?
+        var container: Int?
+        var kind: Container.Kind?
+        var document: URL?
+        var asking: Bool
+        var presented: Bool
     }
 
-    public struct Termination: Equatable, Sendable {
-        public let exit: Result<ProcessExit, Errno>
-        public let report: Result<DiagnosticReport, ProcessFailure>?
+    package struct Termination: Equatable, Sendable {
+        let exit: Result<ProcessExit, Errno>
+        let report: Result<DiagnosticReport, ProcessFailure>?
     }
 
     case running(Activity)
@@ -202,7 +202,7 @@ extension InstanceState.Termination: Encodable {
         case status, signal, detail, statusFailure, report, reportFailure, reporting
     }
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: Key.self)
         let ended: ProcessExit? = exit[case: \.success]
         let (field, value): (Key, any Encodable) =
@@ -226,7 +226,7 @@ extension InstanceState.Activity: Encodable {
         case active, status, pendingEventAge, usage, usageFailure, windows, statusItems, statusItemsFailure
     }
 
-    public func encode(to encoder: any Encoder) throws {
+    package func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: Key.self)
         try fields.encode(active, forKey: .active)
         try fields.encode(status, forKey: .status)

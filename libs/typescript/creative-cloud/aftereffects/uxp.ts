@@ -12,11 +12,13 @@ const Class = Schema.declare((value: unknown): value is abstract new () => objec
 const Identified = Schema.Struct({ id: Schema.Int }).annotate({ description: 'Item or layer keyed by its id' });
 const Placed = Schema.Struct({ containingComp: Identified }).annotate({ description: 'Layer by the composition holding it' });
 const Project = Schema.Struct({ items: Uxp.Collection, itemByID: Callable, layerByID: Callable, toolType: Schema.mutableKey(Schema.Finite) }).annotate({ description: 'Project by its items, 1-based, the lookups by id, and its tool type read and written in place' });
-const Composition = Schema.declare(Schema.is(Schema.Struct({ ...Identified.fields, layers: Uxp.Collection, time: Schema.Finite, resolutionFactor: Schema.Tuple([Schema.Int, Schema.Int]), saveFrameToPng: Callable }))).annotate({ description: 'Composition by its id, its layers, 1-based, and the members render calls' });
-const Deferred = Schema.declare(Schema.is(Schema.Struct({ wait: Callable }))).annotate({ description: 'DeferredCall saveFrameToPng returns, settled through wait()' });
-class Application extends Schema.Opaque<Application>()(Schema.Struct({ project: Schema.declare(Schema.is(Project)), beginSuppressDialogs: Callable, endSuppressDialogs: Callable, beginUndoGroup: Callable, endUndoGroup: Callable })) {}
+const Composition = Schema.Struct({ ...Identified.fields, layers: Uxp.Collection, time: Schema.Finite, resolutionFactor: Schema.Tuple([Schema.Int, Schema.Int]), saveFrameToPng: Callable })
+    .pipe(Schema.is, Schema.declare)
+    .annotate({ description: 'Composition by its id, its layers, 1-based, and the members render calls' });
+const Deferred = Schema.Struct({ wait: Callable }).pipe(Schema.is, Schema.declare).annotate({ description: 'DeferredCall saveFrameToPng returns, settled through wait()' });
+class Application extends Schema.Opaque<Application>()(Schema.Struct({ project: Project.pipe(Schema.is, Schema.declare), beginSuppressDialogs: Callable, endSuppressDialogs: Callable, beginUndoGroup: Callable, endUndoGroup: Callable })) {}
 const Module = Schema.Struct({
-    app: Schema.declare(Schema.is(Application)),
+    app: Application.pipe(Schema.is, Schema.declare),
     CompItem: Class,
     FolderItem: Class,
     FootageItem: Class,

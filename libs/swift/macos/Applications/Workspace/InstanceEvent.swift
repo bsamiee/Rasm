@@ -1,20 +1,20 @@
-@unsafe @preconcurrency public import ApplicationServices
-public import CasePaths
-public import Encoding
-public import Foundation
+@unsafe @preconcurrency import ApplicationServices
+import CasePaths
+import Encoding
+import Foundation
 import OrderedCollections
-public import Processes
+import Processes
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct InstanceEvent: Encodable, Sendable {
-    public struct Answer: Encodable, Sendable {
-        public let ref: Int
-        public let label: String?
+package struct InstanceEvent: Encodable, Sendable {
+    struct Answer: Encodable, Sendable {
+        let ref: Int
+        let label: String?
     }
 
     @CasePathable
-    public enum Change: CaseTagged, Sendable {
+    enum Change: CaseTagged, Sendable {
         case started(identifier: String?, name: String?)
         case opened(container: Int, kind: Container.Kind, title: String?)
         case closed(container: Int, kind: Container.Kind, title: String?)
@@ -35,10 +35,10 @@ public struct InstanceEvent: Encodable, Sendable {
         case exited(termination: InstanceState.Termination)
     }
 
-    public let instance: ProcessInstance
-    public let sequence: Int
-    public let at: Date
-    public let change: Change
+    let instance: ProcessInstance
+    let sequence: Int
+    let at: Date
+    let change: Change
 }
 
 extension InstanceEvent.Change {

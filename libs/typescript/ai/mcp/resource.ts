@@ -34,7 +34,14 @@ const track = Effect.fnUntraced(function* <A, I, R>({ schema, changes, uri, mime
         Effect.forkScoped,
     );
     yield* SubscriptionRef.changes(store).pipe(
-        Stream.mapAccum(HashMap.empty<string, Entry<A>>, (last, next) => [next, Array.fromIterable(HashMap.keys(HashMap.filter(last, ({ value }, at) => !Option.contains(Option.map(HashMap.get(next, at), Struct.get('value')), value))))]),
+        Stream.mapAccum(HashMap.empty<string, Entry<A>>, (last, next) => [
+            next,
+            last.pipe(
+                HashMap.filter(({ value }, at) => !Option.contains(Option.map(HashMap.get(next, at), Struct.get('value')), value)),
+                HashMap.keys,
+                Array.fromIterable,
+            ),
+        ]),
         Stream.runForEach(notify),
         Effect.forkScoped,
     );

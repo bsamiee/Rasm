@@ -26,7 +26,7 @@ const Drawn = Schema.TaggedUnion({ Local: { bind: End, connect: End }, Remote: {
 
 const resolved = Effect.fnUntraced(function* (words: readonly string[]) {
     const handle = yield* ChildProcess.make('ssh', ['-G', ...words], { stdin: 'ignore' });
-    const [lines, code] = yield* Effect.all([Stream.runCollect(Stream.splitLines(Stream.decodeText(handle.stdout))), handle.exitCode], { concurrency: 'unbounded' });
+    const [lines, code] = yield* Effect.all([handle.stdout.pipe(Stream.decodeText, Stream.splitLines, Stream.runCollect), handle.exitCode], { concurrency: 'unbounded' });
     return code === 0
         ? Record.map(
               Array.groupBy(lines, (line) => line.slice(0, line.indexOf(' '))),

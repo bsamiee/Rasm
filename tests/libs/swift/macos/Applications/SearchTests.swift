@@ -1,8 +1,9 @@
 import AppKit
-import Applications
 import CustomDump
 import Testing
 import UniformTypeIdentifiers
+
+@testable import Applications
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
