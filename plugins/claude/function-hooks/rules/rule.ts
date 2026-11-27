@@ -10,6 +10,7 @@ type Script = Parameters<ScriptRow['decide']>[0];
 type Call = Parameters<ScriptRow['decide']>[1];
 type Invocation = Call['invocations'][number];
 type Verdict = Extract<ReturnType<ScriptRow['decide']>, readonly unknown[]>[number];
+type ProgramVerdict = Extract<ReturnType<Extract<Table[string], { readonly program: string; readonly decide: unknown }>['decide']>, readonly unknown[]>[number];
 type Piece = Invocation['reads'][number]['pieces'][number];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -33,4 +34,4 @@ const execute = (cwd: string) => (argv: Array.NonEmptyReadonlyArray<string>) => 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Call, covers, execute, findUp, type Invocation, patternOf, rewrite, roots, type Script, type Table, type Verdict };
+export { type Call, covers, execute, findUp, type Invocation, patternOf, type ProgramVerdict, rewrite, roots, type Script, type Table, type Verdict };

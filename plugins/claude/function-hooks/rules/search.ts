@@ -1,6 +1,6 @@
-import { Array, Cause, Effect, FileSystem, Match, Option } from 'effect';
+import { Array, Cause, Effect, FileSystem, Match, Option, Record } from 'effect';
 import type { Word } from 'sh-syntax';
-import { covers, execute, findUp, type Invocation, patternOf, rewrite, roots, type Table, type Verdict } from '#/rules/rule';
+import { covers, execute, findUp, type Invocation, patternOf, type ProgramVerdict, rewrite, roots, type Table, type Verdict } from '#/rules/rule';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -9,6 +9,7 @@ const modules = { inside: /(?:^|\/)node_modules(?:\/|$)/u, exclusion: /^!?(?:\.?
 const basicSyntax = /\\\\|\\(?<escaped>[(){}+?|])|(?<plain>^\*|[(){}+?|])/gu;
 const backreference = /\\[1-9]/u;
 const batchable: ReadonlySet<string> = new Set(['du', 'stat', 'ls', 'file', 'shasum', 'sha256sum', 'md5', 'cat', 'rm', 'touch', 'chmod', 'chown', 'xattr']);
+const printers: Readonly<Record<string, string>> = { basename: '{/}', dirname: '{//}' };
 const unrestricted = ['--no-ignore', '--no-ignore-vcs', '--unrestricted'];
 const fdOptions: Readonly<Record<string, readonly string[]>> = { '-type': ['-t'], '-maxdepth': ['-d'], '-mindepth': ['--min-depth'], '-name': ['-g'], '-iname': ['-i', '-g'] };
 const rgOptions = {
@@ -20,10 +21,12 @@ const rgOptions = {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const translate = (pattern: string) => pattern.replaceAll(basicSyntax, (matched: string, escaped?: string, plain?: string) => escaped ?? (plain === undefined ? matched : `\\${plain}`));
-const parseExec = (values: Invocation['words'], appended: boolean) => {
+const parseExec = ({ words }: Invocation, { spelled, values }: Invocation['flags'][number], appended: boolean) => {
     const [program = '', ...rest] = values.map(({ text }) => Option.getOrElse(text, () => ''));
     const holes = rest.filter((word) => placeholder.test(word)).length;
-    return { program, batches: batchable.has(program) && ((appended && holes === 0) || (holes === 1 && rest.at(-1) === '{}')) };
+    const trailing = (appended && holes === 0) || (holes === 1 && rest.at(-1) === '{}');
+    const terminator = Option.filter(Array.get(words, words.indexOf(Option.getOrElse(Array.last(values), () => spelled)) + 1), (word) => word.spells(';'));
+    return { program, trailing, batches: trailing && batchable.has(program), alone: trailing && rest.length === holes, terminator };
 };
 const ignores = Effect.fnUntraced(function* (invocation: Invocation, cwd: string) {
     const fs = yield* FileSystem.FileSystem;
@@ -50,9 +53,19 @@ const search: Table = {
         decide: (fd) =>
             fd.flags
                 .filter(({ flag }) => flag.spellings.includes('--exec'))
-                .map(({ spelling, values }) => {
-                    const { program, batches } = parseExec(values, true);
-                    return batches ? { rename: { '--exec': spelling.startsWith('--') ? '--exec-batch' : '-X' } } : { deny: `fd -x ${program} starts one process per search result.`, advice: 'Pass -X for a command taking every path in one run.' };
+                .flatMap<ProgramVerdict>((bound) => {
+                    const { program, trailing, batches, alone, terminator } = parseExec(fd, bound, true);
+                    const format = Option.filter(Record.get(printers, program), () => alone);
+                    const end = Option.flatMap(
+                        Option.orElse(terminator, () => Array.last(bound.values)),
+                        ({ node }) => node,
+                    );
+                    return Match.value({ printed: Option.getOrUndefined(Option.all([format, bound.spelled.node, end])), batches, trailing }).pipe(
+                        Match.when({ printed: Match.defined }, ({ printed: [template, flag, last] }): readonly Verdict[] => [{ edit: (editor) => [editor.replace([flag, last], ['--format', template])] }]),
+                        Match.when({ batches: true }, () => [{ rename: { '--exec': bound.spelling.startsWith('--') ? '--exec-batch' : '-X' } }]),
+                        Match.when({ trailing: true }, (): readonly Verdict[] => [{ note: `fd -x ${program} starts one process per search result, where -X passes every path to one run of a command taking many.`, once: 'agent' }]),
+                        Match.orElse(() => []),
+                    );
                 }),
     },
     'find.batched': {
@@ -61,16 +74,15 @@ const search: Table = {
         decide: (find) =>
             find.flags
                 .filter(({ flag }) => flag.spellings.includes('-exec') || flag.spellings.includes('-execdir'))
-                .flatMap(({ spelled, values }) => {
-                    const { program, batches } = parseExec(values, false);
-                    const terminator = Option.filter(Array.get(find.words, find.words.indexOf(Option.getOrElse(Array.last(values), () => spelled)) + 1), (word) => word.spells(';'));
+                .flatMap((bound) => {
+                    const { program, trailing, batches, terminator } = parseExec(find, bound, false);
                     const plus = Option.filter(
                         Option.flatMap(terminator, ({ node }) => node),
                         () => batches,
                     );
-                    return Match.value({ plus: Option.getOrUndefined(plus), each: Option.isSome(terminator) }).pipe(
+                    return Match.value({ plus: Option.getOrUndefined(plus), each: trailing && Option.isSome(terminator) }).pipe(
                         Match.when({ plus: Match.defined }, ({ plus: word }): readonly Verdict[] => [{ edit: (editor) => [editor.replace(word, ['+'])] }]),
-                        Match.when({ each: true }, (): readonly Verdict[] => [{ deny: `find -exec ${program} starts one process per result.`, advice: 'End -exec with {} + for a command taking every path in one run.' }]),
+                        Match.when({ each: true }, (): readonly Verdict[] => [{ note: `find -exec ${program} starts one process per result, where {} + passes every path to one run of a command taking many.`, once: 'agent' }]),
                         Match.orElse(() => []),
                     );
                 }),
