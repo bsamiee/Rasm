@@ -7,6 +7,9 @@
     "files": [],
     "references": [
         {
+            "path": "../../../../support/typescript"
+        },
+        {
             "path": "../../../../../libs/typescript/data/object-storage"
         },
         {

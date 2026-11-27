@@ -8,6 +8,9 @@
     "exclude": ["sdks"],
     "references": [
         {
+            "path": "../tests/support/typescript"
+        },
+        {
             "path": "../libs/typescript/system/process"
         },
         {

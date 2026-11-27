@@ -27,6 +27,7 @@
         "@pulumiverse/doppler": "catalog:",
         "@rasm/hosting": "workspace:*",
         "@rasm/process": "workspace:*",
+        "@rasm/testing": "workspace:*",
         "effect": "catalog:",
         "vite": "catalog:"
     },

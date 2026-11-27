@@ -2,6 +2,7 @@ import { CreateBucketCommand, S3Client } from '@aws-sdk/client-s3';
 import { assert, layer } from '@effect/vitest';
 import { s3Storage } from '@rasm/object-storage/s3';
 import { ObjectStorage, Presignable } from '@rasm/object-storage/storage';
+import { containers } from '@rasm/testing/containers';
 import { ByteSize, ConfigProvider, Effect, Layer, Option, Record, Schema } from 'effect';
 import { FetchHttpClient, Headers, HttpClient, HttpClientRequest } from 'effect/http';
 import { GenericContainer, Wait } from 'testcontainers';
@@ -33,7 +34,7 @@ const stat = (key: string) => ObjectStorage.use((storage) => storage.stat(key)).
 const served = Layer.unwrap(
     Effect.gen(function* () {
         const container = yield* Effect.acquireDisposable(
-            Effect.promise(() => new GenericContainer('rustfs/rustfs:1.0.6').withEnvironment({ RUSTFS_ACCESS_KEY: credentials.accessKeyId, RUSTFS_SECRET_KEY: credentials.secretAccessKey, RUSTFS_CONSOLE_ENABLE: 'false' }).withExposedPorts(port).withWaitStrategy(Wait.forHttp('/health/ready', port)).start()),
+            Effect.promise(() => new GenericContainer(containers.rustfs).withEnvironment({ RUSTFS_ACCESS_KEY: credentials.accessKeyId, RUSTFS_SECRET_KEY: credentials.secretAccessKey, RUSTFS_CONSOLE_ENABLE: 'false' }).withExposedPorts(port).withWaitStrategy(Wait.forHttp('/health/ready', port)).start()),
         );
         const endpoint = `http://${container.getHost()}:${container.getMappedPort(port)}`;
         yield* Effect.acquireUseRelease(

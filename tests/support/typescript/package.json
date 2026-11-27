@@ -16,6 +16,7 @@
     "type": "module",
     "sideEffects": false,
     "exports": {
+        "./containers": "./containers.ts",
         "./errors": "./errors.ts",
         "./http": "./http.ts",
         "./nx": "./nx.ts",

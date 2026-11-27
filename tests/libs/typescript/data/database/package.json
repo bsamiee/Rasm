@@ -16,6 +16,7 @@
         "@effect/sql-sqlite-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@rasm/database": "workspace:*",
+        "@rasm/testing": "workspace:*",
         "@testcontainers/clickhouse": "catalog:",
         "@testcontainers/postgresql": "catalog:",
         "@types/node": "catalog:",

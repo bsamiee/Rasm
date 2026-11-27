@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { isIPv4 } from 'node:net';
 import playwright from '@playwright/test/package.json' with { type: 'json' };
 import aws from '@pulumi/aws';
@@ -10,6 +11,7 @@ import { all, type CustomResourceOptions, getProject, type Input, interpolate, j
 import { getDeviceOutput } from '@pulumi/tailscale';
 import type { deploy } from '@rasm/hosting/deploy';
 import { Identity } from '@rasm/hosting/identity';
+import { containers } from '@rasm/testing/containers';
 import { Array, Data, Duration, Effect, Function, Option, Predicate, Record, String, Struct, UndefinedOr } from 'effect';
 import type { identified } from '#/repository-stack';
 
@@ -81,6 +83,7 @@ class Machine extends Data.Class<{
 
     static readonly entrypoint = 'websecure' satisfies keyof typeof entrypoints;
     static readonly guard = 'auth';
+    static readonly base = /^(?<lead>FROM\s+(?:--\S+\s+)*)(?<named>[^\s@$]+)(?=\s|$)/gmu;
     static readonly forwarded = { id: 'Remote-User', email: 'Remote-Email' } as const;
 
     routed(service: string, port: number, extra: Readonly<Record<string, string>> = {}) {
@@ -92,13 +95,36 @@ class Machine extends Data.Class<{
 
     // --- [CONTAINERS]
 
-    pulled(image: string, options: CustomResourceOptions = {}) {
-        return new RemoteImage(`${this.name}-${image}`, { name: interpolate`${image}@${getRegistryImageOutput({ name: image }, { provider: this.provider }).sha256Digest}` }, { provider: this.provider, ...options }).repoDigest;
+    digested(image: string) {
+        return interpolate`${image}@${getRegistryImageOutput({ name: image }, { provider: this.provider }).sha256Digest}`;
+    }
+
+    pulled(image: string, { digest, ...options }: CustomResourceOptions & { readonly digest?: Input<string> } = {}) {
+        return new RemoteImage(`${this.name}-${image}`, { name: digest === undefined ? this.digested(image) : interpolate`${image}@${digest}` }, { provider: this.provider, ...options }).repoDigest;
+    }
+
+    tagged(image: string, options: CustomResourceOptions & { readonly digest?: Input<string> } = {}) {
+        return new Tag(`${this.name}-${image}`, { sourceImage: this.pulled(image, options), targetImage: image }, { provider: this.provider }).targetImage;
     }
 
     imaged(image: string, inline: Input<string>, { cache, ...args }: Pick<dockerBuild.ImageArgs, 'context' | 'labels' | 'registries'> & { readonly cache?: string } = {}) {
         const stored = cache === undefined ? { load: true } : { exports: [{ registry: { annotations: args.labels } }], ...Struct.Record(['cacheFrom', 'cacheTo'], [{ registry: { ref: cache } }]) };
-        return new dockerBuild.Image(`${this.name}-${image}`, { dockerfile: { inline }, context: { location: '-' }, tags: [image], push: false, buildOnPreview: false, ...stored, buildArgs: { BUILDKIT_DOCKERFILE_CHECK: 'error=true' }, ...args }, { provider: this.builder }).digest;
+        const based = output(inline).apply((text) => {
+            const stages = new Set(
+                text
+                    .matchAll(/^FROM\s.*\sAS\s+(?<stage>\S+)/gimu)
+                    .map(({ groups }) => groups?.['stage'])
+                    .filter(Predicate.isString),
+            );
+            const bases = new Set(
+                text
+                    .matchAll(Machine.base)
+                    .map(({ groups }) => groups?.['named'])
+                    .filter(Predicate.isString),
+            ).difference(stages.union(new Set(['scratch'])));
+            return all(Record.fromIterableWith(bases, (named) => [named, this.digested(named)])).apply((pinned) => text.replaceAll(Machine.base, (line: string, lead: string, named: string) => (named in pinned ? `${lead}${pinned[named]}` : line)));
+        });
+        return new dockerBuild.Image(`${this.name}-${image}`, { dockerfile: { inline: based }, context: { location: '-' }, tags: [image], push: false, buildOnPreview: false, ...stored, buildArgs: { BUILDKIT_DOCKERFILE_CHECK: 'error=true' }, ...args }, { provider: this.builder }).digest;
     }
 
     kept(volume: string, options: CustomResourceOptions = {}) {
@@ -168,7 +194,7 @@ const stored = (machine: Machine, rows: Readonly<Record<'RUSTFS_ACCESS_KEY' | 'R
         'storage',
         ['CMD', 'curl', '--fail', '--silent', `http://127.0.0.1:${ports.internal}${ports.health}`],
         {
-            image: machine.pulled('rustfs/rustfs:1.0.7'),
+            image: machine.pulled(containers.rustfs),
             envs: [interpolate`RUSTFS_ACCESS_KEY=${user}`, interpolate`RUSTFS_SECRET_KEY=${key}`, 'RUSTFS_CONSOLE_ENABLE=false', 'RUSTFS_OBS_LOG_DIRECTORY='],
             ports: published.ips.apply(Array.map((ip) => ({ internal: ports.internal, external: ports.external, ip }))),
             ulimits: [{ name: 'nofile', soft: 1_048_576, hard: 1_048_576 }],
@@ -356,14 +382,15 @@ esac`;
                     });
                     return {
                         runners: Record.fromEntries(registered),
-                        engines: Array.map(engines, (version) => `ghcr.io/epicgames/unreal-engine:dev-slim-${version}`).map(
-                            (image) => new Tag(`${machine.name}-${image}`, { sourceImage: machine.pulled(image, { customTimeouts: { create: '2h', update: '2h' } }), targetImage: image }, { provider: machine.provider }).targetImage,
-                        ),
-                        browsers: machine.imaged(
-                            `${browsers}:${playwright.version}`,
-                            `FROM node:slim\nENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright\nRUN apt-get update && apt-get install --yes --no-install-recommends build-essential ca-certificates curl git libicu-dev && rm -rf /var/lib/apt/lists/*\nRUN npx --yes playwright@${playwright.version} install --with-deps chromium && npx --yes playwright@${playwright.version} install-deps firefox && rm -rf /var/lib/apt/lists/* /root/.npm && usermod --home /github/home node\nUSER node\n`,
-                            { registries, labels: { 'org.opencontainers.image.source': `https://github.com/${owner}/${repository}` }, cache: `${browsers}:cache` },
-                        ),
+                        engines: Array.map(engines, (version) => machine.tagged(`ghcr.io/epicgames/unreal-engine:dev-slim-${version}`, { customTimeouts: { create: '2h', update: '2h' } })),
+                        tests: [...Array.map([containers.postgres, containers.clickhouse, containers.ryuk], (image) => machine.tagged(image)), machine.imaged(containers.ssh.image, readFileSync(new URL('Dockerfile', containers.ssh.context), 'utf-8'))],
+                        browsers: machine.tagged(`${browsers}:${playwright.version}`, {
+                            digest: machine.imaged(
+                                `${browsers}:${playwright.version}`,
+                                `FROM node:slim\nENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright\nRUN apt-get update && apt-get install --yes --no-install-recommends build-essential ca-certificates curl git libicu-dev && rm -rf /var/lib/apt/lists/*\nRUN npx --yes playwright@${playwright.version} install --with-deps chromium && npx --yes playwright@${playwright.version} install-deps firefox && rm -rf /var/lib/apt/lists/* /root/.npm && usermod --home /github/home node\nUSER node\n`,
+                                { registries, labels: { 'org.opencontainers.image.source': `https://github.com/${owner}/${repository}` }, cache: `${browsers}:cache` },
+                            ),
+                        }),
                     };
                 },
             }),

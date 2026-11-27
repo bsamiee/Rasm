@@ -92,6 +92,8 @@ Images stacks build, push, and pull:
 - Pushed images hold their registry credentials, as a changed `registries` setting replaces the build provider and images ignore a changed password
 - Locally built images lost from their machine stay in stack state until a deploy replaces their `docker-build:Image` resource
 - Pulled images take name `<tag>@<digest>` from registry digests each deploy reads, and a moved tag replaces its image, then its containers
+- Built images take each `FROM` base as `<tag>@<digest>` from the registry digest each deploy reads, so a moved base rebuilds its image
+- Role `Runner` pulls the Playwright image it built and the test container images `@rasm/testing/containers` names, each tagged as tests name it
 - Machine Docker providers sign in to Docker Hub with rows `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`, as anonymous digest reads and pulls share one hourly allowance per address
 - Docker removes no image name a container uses, its provider pulls no name a machine holds, and stacks pull no image by tag alone
 

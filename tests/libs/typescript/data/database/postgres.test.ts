@@ -3,6 +3,7 @@ import { assert, layer, type Vitest } from '@effect/vitest';
 import { Catalog } from '@rasm/database/catalog';
 import { Pg } from '@rasm/database/pg';
 import { Relation, Tokenizer } from '@rasm/database/relation';
+import { containers } from '@rasm/testing/containers';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { Array, Cause, Context, Deferred, Effect, Fiber, Function, Layer, Number, Option, Predicate, Redacted, Ref, Schedule, Schema, Struct } from 'effect';
 import { SqlClient, SqlError, SqlSchema, type Statement } from 'effect/sql';
@@ -77,7 +78,7 @@ const restated = Relation.make('legacy', { id: Schema.String, lower: Schema.Stri
 class Database extends Context.Service<Database, { readonly connected: (username: string, password: string) => Redacted.Redacted; readonly name: string }>()('@rasm/test-database/postgres.test/Database') {}
 class Postgres extends Context.Service<Postgres, { readonly container: StartedPostgreSqlContainer; readonly admin: SqlClient.SqlClient; readonly created: Ref.Ref<number> }>()('@rasm/test-database/postgres.test/Postgres') {
     static readonly layer = Effect.gen(function* () {
-        const container = yield* Effect.acquireDisposable(Effect.promise(() => new PostgreSqlContainer('postgres:19.0-alpine3.24').withCommand(['postgres', '-c', 'fsync=off', '-c', 'synchronous_commit=off', '-c', 'full_page_writes=off']).withTmpFs({ '/var/lib/postgresql': 'rw' }).start()));
+        const container = yield* Effect.acquireDisposable(Effect.promise(() => new PostgreSqlContainer(containers.postgres).withCommand(['postgres', '-c', 'fsync=off', '-c', 'synchronous_commit=off', '-c', 'full_page_writes=off']).withTmpFs({ '/var/lib/postgresql': 'rw' }).start()));
         const admin = Context.get(yield* Layer.build(PgClient.layer({ url: Redacted.make(container.getConnectionUri()) })), SqlClient.SqlClient);
         return { container, admin, created: yield* Ref.make(0) };
     }).pipe(Layer.effect(Postgres));

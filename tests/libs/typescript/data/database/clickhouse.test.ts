@@ -4,6 +4,7 @@ import { Catalog } from '@rasm/database/catalog';
 import { Clickhouse } from '@rasm/database/clickhouse';
 import { Column } from '@rasm/database/column';
 import { Relation, Tokenizer } from '@rasm/database/relation';
+import { containers } from '@rasm/testing/containers';
 import { ClickHouseContainer, type StartedClickHouseContainer } from '@testcontainers/clickhouse';
 import { Array, BigDecimal, Context, Effect, Layer, Number, Option, Predicate, Ref, Schema, Struct } from 'effect';
 import { SqlClient, SqlError } from 'effect/sql';
@@ -104,7 +105,7 @@ const Bounds = Schema.Struct({ minimum: Schema.Literals(limits), maximum: Schema
 
 class Server extends Context.Service<Server, { readonly container: StartedClickHouseContainer; readonly admin: SqlClient.SqlClient; readonly created: Ref.Ref<number> }>()('@rasm/test-database/clickhouse.test/Server') {
     static readonly layer = Effect.gen(function* () {
-        const container = yield* Effect.acquireDisposable(Effect.promise(() => new ClickHouseContainer('clickhouse/clickhouse-server:26.10.10.3-alpine').start()));
+        const container = yield* Effect.acquireDisposable(Effect.promise(() => new ClickHouseContainer(containers.clickhouse).start()));
         const admin = Context.get(yield* Layer.build(ClickhouseClient.layer(container.getClientOptions())), SqlClient.SqlClient);
         return { container, admin, created: yield* Ref.make(0) };
     }).pipe(Layer.effect(Server));

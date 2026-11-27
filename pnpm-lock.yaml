@@ -764,6 +764,9 @@ importers:
       '@rasm/process':
         specifier: workspace:*
         version: link:../libs/typescript/system/process
+      '@rasm/testing':
+        specifier: workspace:*
+        version: link:../tests/support/typescript
       effect:
         specifier: 'catalog:'
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
@@ -2880,6 +2883,9 @@ importers:
       '@rasm/database':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/data/database
+      '@rasm/testing':
+        specifier: workspace:*
+        version: link:../../../../support/typescript
       '@testcontainers/clickhouse':
         specifier: 'catalog:'
         version: 12.2.2(bare-buffer@3.7.3)(supports-color@10.2.2)
@@ -2919,6 +2925,9 @@ importers:
       '@rasm/object-storage':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/data/object-storage
+      '@rasm/testing':
+        specifier: workspace:*
+        version: link:../../../../support/typescript
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)
@@ -9509,8 +9518,8 @@ packages:
     resolution: {integrity: sha512-Zm8jaHK51pM9X/SN7CQ9aNc/0Egg+37wrbbhC1fpcn4EjADLZL5vkTniAAqjQIdXov3YciZSTKsa0K5ouNtnDw==}
     engines: {node: '>=22'}
 
-  systeminformation@5.33.23:
-    resolution: {integrity: sha512-OBOvemo4WHf8bGMszwszn3JcFxkIMZt7adjhdgJh3eePo37EIBZovZbhJDQ2zfVYPEtXScHDJXGik8eYd3WMNw==}
+  systeminformation@5.33.26:
+    resolution: {integrity: sha512-/AfmkcUh5/Zgul9vJgTzRqdyeeAkkZM857cXkN1CLzdj3gVvdij9EICcNcl3/nMGsr3A2uRvPmpCy2YX1A9uiQ==}
     engines: {node: '>=10.0.0'}
     os: [darwin, linux, win32, freebsd, openbsd, netbsd, sunos, android]
     hasBin: true
@@ -11918,7 +11927,7 @@ snapshots:
     dependencies:
       '@opentelemetry/api': 1.10.0
       '@opentelemetry/instrumentation': 0.301.2(@opentelemetry/api@1.10.0)(supports-color@10.2.2)
-      systeminformation: 5.33.23
+      systeminformation: 5.33.26
     transitivePeerDependencies:
       - supports-color
 
@@ -15751,7 +15760,7 @@ snapshots:
     dependencies:
       standardwebhooks: 1.3.0
 
-  systeminformation@5.33.23: {}
+  systeminformation@5.33.26: {}
 
   tagged-tag@1.0.0: {}
 
