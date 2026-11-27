@@ -1,0 +1,12 @@
+{
+    "name": "swift",
+    "description": "Swift typed throws, value types, structured concurrency, and tests through Swift Testing and XCTest",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "interface": {
+        "displayName": "Swift",
+        "shortDescription": "Swift typed throws, value types, structured concurrency, and tests through Swift Testing and XCTest",
+        "brandColor": "#090909"
+    }
+}

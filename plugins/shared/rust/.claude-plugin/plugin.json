@@ -1,0 +1,12 @@
+{
+    "name": "rust",
+    "description": "Rust algebraic types, results, traits, and async effects",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "interface": {
+        "displayName": "Rust",
+        "shortDescription": "Rust algebraic types, results, traits, and async effects",
+        "brandColor": "#090909"
+    }
+}

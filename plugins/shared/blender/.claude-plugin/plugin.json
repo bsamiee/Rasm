@@ -1,0 +1,12 @@
+{
+    "name": "blender",
+    "description": "Blender sessions and bpy for data, extensions, interfaces, node trees, and rendering",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "interface": {
+        "displayName": "Blender",
+        "shortDescription": "Blender sessions and bpy for data, extensions, interfaces, node trees, and rendering",
+        "brandColor": "#090909"
+    }
+}

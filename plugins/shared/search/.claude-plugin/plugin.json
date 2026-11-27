@@ -1,0 +1,12 @@
+{
+    "name": "search",
+    "description": "Research dependencies, the web, Are.na, and NotebookLM. Search code structure with ast-grep",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "interface": {
+        "displayName": "Search",
+        "shortDescription": "Research dependencies, the web, Are.na, and NotebookLM. Search code structure with ast-grep",
+        "brandColor": "#090909"
+    }
+}

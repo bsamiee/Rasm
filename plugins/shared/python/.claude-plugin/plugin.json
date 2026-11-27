@@ -1,0 +1,12 @@
+{
+    "name": "python",
+    "description": "Python result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "interface": {
+        "displayName": "Python",
+        "shortDescription": "Python result and record types, cyclopts, expression, msgspec, pydantic, telemetry, and docstrings",
+        "brandColor": "#090909"
+    }
+}

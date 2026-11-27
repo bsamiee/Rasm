@@ -1,0 +1,7 @@
+{
+    "name": "terminal",
+    "description": "Shell history and agent session search through Atuin, with Zellij session hooks",
+    "author": {
+        "name": "Bardia Samiee"
+    }
+}

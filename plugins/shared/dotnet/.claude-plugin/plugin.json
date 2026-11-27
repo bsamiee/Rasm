@@ -1,0 +1,12 @@
+{
+    "name": "dotnet",
+    "description": "C# result and effect types, LanguageExt, Mapperly, memory, Thinktecture, UI, and Roslyn navigation",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "interface": {
+        "displayName": ".NET",
+        "shortDescription": "C# result and effect types, LanguageExt, Mapperly, memory, Thinktecture, UI, and Roslyn navigation",
+        "brandColor": "#090909"
+    }
+}

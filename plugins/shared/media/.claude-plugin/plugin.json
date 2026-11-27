@@ -1,0 +1,12 @@
+{
+    "name": "media",
+    "description": "Voicebox voice studio through MCP",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "interface": {
+        "displayName": "Media",
+        "shortDescription": "Voicebox voice studio through MCP",
+        "brandColor": "#090909"
+    }
+}

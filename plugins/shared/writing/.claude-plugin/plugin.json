@@ -1,0 +1,12 @@
+{
+    "name": "writing",
+    "description": "Prose and naming standards, word choices, and automatic checks",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "interface": {
+        "displayName": "Writing",
+        "shortDescription": "Prose and naming standards, word choices, and automatic checks",
+        "brandColor": "#090909"
+    }
+}

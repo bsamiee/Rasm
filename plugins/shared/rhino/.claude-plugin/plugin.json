@@ -1,0 +1,12 @@
+{
+    "name": "rhino",
+    "description": "Rhino sessions, Grasshopper 2 canvases, and tests over RhinoCommon and Grasshopper",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "interface": {
+        "displayName": "Rhino",
+        "shortDescription": "Rhino sessions, Grasshopper 2 canvases, and tests over RhinoCommon and Grasshopper",
+        "brandColor": "#090909"
+    }
+}

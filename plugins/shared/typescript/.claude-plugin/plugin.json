@@ -1,0 +1,12 @@
+{
+    "name": "typescript",
+    "description": "TypeScript design with Effect, Schema, and algebraic data types, and tests through Vitest, @effect/vitest, and Playwright",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "interface": {
+        "displayName": "TypeScript",
+        "shortDescription": "TypeScript design with Effect, Schema, and algebraic data types",
+        "brandColor": "#090909"
+    }
+}

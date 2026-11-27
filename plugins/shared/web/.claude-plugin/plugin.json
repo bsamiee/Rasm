@@ -1,0 +1,12 @@
+{
+    "name": "web",
+    "description": "CSS, browser support, and React Aria Components",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "interface": {
+        "displayName": "Web",
+        "shortDescription": "CSS, browser support, and React Aria Components",
+        "brandColor": "#090909"
+    }
+}

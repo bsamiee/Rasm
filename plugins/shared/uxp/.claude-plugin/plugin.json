@@ -1,0 +1,12 @@
+{
+    "name": "uxp",
+    "description": "Adobe UXP development and app control through Atelier and Adobe MCP servers",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "interface": {
+        "displayName": "UXP",
+        "shortDescription": "Adobe UXP development and app control through Atelier and Adobe MCP servers",
+        "brandColor": "#090909"
+    }
+}

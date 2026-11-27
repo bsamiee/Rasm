@@ -1,0 +1,12 @@
+{
+    "name": "chrome",
+    "description": "Signed-in Chrome controls through chrome-devtools, and extension development, testing, and Web Store releases",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "interface": {
+        "displayName": "Chrome",
+        "shortDescription": "Signed-in Chrome controls through chrome-devtools, and extension development, testing, and Web Store releases",
+        "brandColor": "#090909"
+    }
+}

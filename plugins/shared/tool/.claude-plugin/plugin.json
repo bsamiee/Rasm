@@ -1,0 +1,12 @@
+{
+    "name": "tool",
+    "description": "Ghidra analysis, host inspection, and debugging for Python, .NET, C++, and JavaScript. Drive Mac applications through Rasad, and access Raycast, Parallels Desktop, Superhuman Mail and Docs, and Google services",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "interface": {
+        "displayName": "Tool",
+        "shortDescription": "Host inspection, debugging, and connected apps",
+        "brandColor": "#090909"
+    }
+}

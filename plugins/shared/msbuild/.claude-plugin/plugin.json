@@ -1,0 +1,12 @@
+{
+    "name": "msbuild",
+    "description": "MSBuild evaluation, execution, packaging, and binary log diagnostics",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "interface": {
+        "displayName": "MSBuild",
+        "shortDescription": "MSBuild evaluation, execution, packaging, and binary log diagnostics",
+        "brandColor": "#090909"
+    }
+}

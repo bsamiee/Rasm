@@ -1,0 +1,13 @@
+{
+    "name": "cpp",
+    "description": "C++ and Objective-C++ types, ownership, error values, compile-time evaluation, memory layout, and concurrency. Debug Unreal Engine on macOS",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "keywords": ["c++", "objective-c++", "unreal-mcp"],
+    "interface": {
+        "displayName": "C++",
+        "shortDescription": "C++ and Objective-C++ types, ownership, error values, compile-time evaluation, memory layout, and concurrency. Debug Unreal Engine on macOS",
+        "brandColor": "#090909"
+    }
+}
