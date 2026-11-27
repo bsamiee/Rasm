@@ -120,7 +120,7 @@ jobs:
               run: nx run-many --targets=codegen
             - run: hk check --from-ref "${NX_BASE}" --to-ref "${NX_HEAD}"
             - if: ${{ !cancelled() && steps.codegen.outcome == 'success' }}
-              run: nx affected --targets=check,test,build --configuration=ci --exclude='tag:os:*,!tag:os:linux,tag:host:rhino,tag:host:browser,tag:host:unreal'
+              run: nx affected --targets=check,test,build --configuration=ci --exclude='tag:os:*,!tag:os:linux,tag:host:rhino,tag:host:browser,tag:host:unreal,tag:host:claude-code'
               env:
                   NX_SKIP_NX_CACHE: ${{ contains(inputs.uncached, 'linux') || inputs.uncached == 'all' }}
             - &reports

@@ -1,8 +1,11 @@
 {
-    "extends": "../../../libs/typescript/ai/policy/tsconfig.base.json",
+    "extends": "../../../libs/typescript/ai/claude-code/tsconfig.base.json",
     "references": [
         {
             "path": "../../../libs/typescript/system/process"
+        },
+        {
+            "path": "../../../libs/typescript/ai/claude-code"
         },
         {
             "path": "../../../libs/typescript/ai/policy"

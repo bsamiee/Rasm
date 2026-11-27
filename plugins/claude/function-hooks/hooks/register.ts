@@ -1,4 +1,4 @@
-import { hooks } from '@rasm/policy/claude';
+import { hooks } from '@rasm/claude-code/hooks';
 import { Policy } from '@rasm/policy/policy';
 import { ghidra } from '#/rules/ghidra';
 import { programs } from '#/rules/programs';

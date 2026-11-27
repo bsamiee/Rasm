@@ -89,8 +89,9 @@ Options for one case alone:
 - `stripInternal` drops `@internal` members from declarations
 - `composite: false` sits beside `noEmit` only for inferred types no declaration names (TS2883, TS4094) or imports outside `include` (TS6307)
 - `module: preserve` serves `export =` modules read by named import (`@adobe-uxp-types`) and extensionless `.d.ts` re-exports (`icu`, Workers types)
-- `@rasm/policy` reads the Claude Code hooks declarations through `claude/types`, the link mise row `http:claude-code-types` writes to the declarations of its release tag
-- Published `claude-code` declarations hold no tool table, and `@rasm/policy` decodes the tool inputs its hooks read with a schema
+- `@rasm/claude-code` reads the Claude Code hooks declarations through `types`, a link to the `claude-code` declarations the running engine writes into the `@rasm/function-hooks` build folder it loads, as only an interactive session writes them and no release tag or package holds the released engine's text
+- Projects typed against those declarations take tag `host:claude-code`, which the CI Linux job excludes
+- The engine's `claude-code` declarations hold no tool table, and `@rasm/claude-code` decodes the tool inputs its hooks read with a schema
 
 ## [04]-[PROJECT_REFERENCES]
 

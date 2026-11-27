@@ -55,7 +55,7 @@ type Table = Readonly<Record<string, ProgramRow | ScriptRow | { [K in NonShell]:
 interface Tally extends Pick<typeof Action.cases.Task.Type, 'again'>, Pick<typeof Action.cases.Isolate.Type, 'apart'> {
     readonly reasons: readonly string[];
     readonly notes: readonly Note[];
-    readonly faults: readonly Note[];
+    readonly faults: readonly string[];
     readonly edits: readonly (Edit & { readonly rule: string })[];
     readonly move: Move;
     readonly drop: readonly string[];
@@ -103,7 +103,7 @@ const evaluate = (rule: string) => {
             return Effect.isEffect(given) ? given : Effect.succeed(given);
         }).pipe(
             Effect.map((given) => tally.combineAll(given.map((verdict) => ({ ...tally.initialValue, ...lift(verdict) })))),
-            Effect.catchCause((cause) => Effect.succeed({ ...tally.initialValue, faults: [{ text: `${rule}: failed and judged nothing: ${message(cause)}`, once: 'call' as const }] })),
+            Effect.catchCause((cause) => Effect.succeed({ ...tally.initialValue, faults: [`${rule}: failed and judged nothing: ${message(cause)}`] })),
         );
 };
 const flagEdits =

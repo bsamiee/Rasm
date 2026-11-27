@@ -1,6 +1,6 @@
 import { assert, it } from '@effect/vitest';
 import { Policy } from '@rasm/policy/policy';
-import { Array, Duration, Effect, MutableRef, Option } from 'effect';
+import { Array, Cause, Deferred, Duration, Effect, Exit, Fiber, MutableRef, Option } from 'effect';
 import { environment, folder, printed, services, shell } from '#/fixtures';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -58,8 +58,8 @@ const kinds: Table = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const held = (later: MutableRef.MutableRef<boolean>): Table => ({
-    held: { program: 'true', decide: () => Effect.as(Effect.never, []) },
+const held = (entered: Deferred.Deferred<void>, later: MutableRef.MutableRef<boolean>): Table => ({
+    held: { program: 'true', decide: () => Effect.as(Effect.andThen(Deferred.succeed(entered, undefined), Effect.never), []) },
     later: {
         program: 'true',
         decide: () =>
@@ -122,12 +122,13 @@ it.layer(services, { excludeTestServices: true })('policy', (suite) => {
             assert.deepStrictEqual(refused, { _tag: 'Deny', reasons: ['git revert is replaced. Read the new row.'], notes: [], faults: [] });
         }),
     );
-    suite.effect('a decision cut off inside a rule answers nothing and runs no later rule', () =>
+    suite.effect('a decision interrupted inside a rule ends interrupted and runs no later rule', () =>
         Effect.gen(function* () {
-            const later = MutableRef.make(false);
-            const answered = yield* new Policy(held(later)).decide(shell('true'), environment()).pipe(Effect.timeoutOrElse({ duration: '50 millis', orElse: () => Effect.succeed('cut' as const) }));
-            yield* Effect.sleep('50 millis');
-            assert.deepStrictEqual([answered, MutableRef.get(later)], ['cut', false]);
+            const [entered, later] = [yield* Deferred.make<void>(), MutableRef.make(false)];
+            const deciding = yield* Effect.forkChild(new Policy(held(entered, later)).decide(shell('true'), environment()));
+            yield* Deferred.await(entered).pipe(Effect.timeoutOrElse({ duration: '1 minute', orElse: () => Effect.fail(new Cause.UnknownError(entered, 'the decision never reached rule held')) }));
+            yield* Fiber.interrupt(deciding);
+            assert.deepStrictEqual([Exit.hasInterrupts(yield* Fiber.await(deciding)), MutableRef.get(later)], [true, false]);
         }),
     );
     suite.effect('a row over another kind of act restates it', () =>

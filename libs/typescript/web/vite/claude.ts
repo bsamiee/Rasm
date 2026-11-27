@@ -1,4 +1,4 @@
-import { join, posix, sep } from 'node:path';
+import { dirname, join, posix, sep } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { Array, Effect, FileSystem, Option, Record, Schema } from 'effect';
 import type { UserConfig, UserConfigFnPromise } from 'vite';
@@ -19,12 +19,22 @@ const Plugin = Schema.fromJsonString(Schema.Struct({ types: Schema.optionalKey(S
     description: 'The .claude-plugin/plugin.json of a Claude Code plugin, its types contract a declaration file relative to the plugin folder',
 });
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const settle = Effect.fnUntraced(function* (out: string, bundle: Readonly<Record<string, unknown>>, manifests: Readonly<Record<string, string>>) {
+    const fs = yield* FileSystem.FileSystem;
+    const changed = yield* Effect.filter(Record.toEntries(manifests), ([file, source]) => Effect.map(Effect.option(fs.readFileString(join(out, file))), (held) => !Option.contains(held, source)));
+    yield* Effect.forEach(changed, ([file, source]) => Effect.andThen(fs.makeDirectory(dirname(join(out, file)), { recursive: true }), fs.writeFileString(join(out, file), source)), { discard: true });
+    const stale = (yield* fs.readDirectory(join(out, HOOKS))).map((name) => posix.join(HOOKS, name)).filter((file) => !Record.has(bundle, file) && !Record.has(manifests, file));
+    yield* Effect.forEach(stale, (file) => fs.remove(join(out, file)), { discard: true });
+});
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const claude = (directory: string): UserConfigFnPromise =>
     Effect.fnUntraced(
         function* () {
-            const fs = yield* FileSystem.FileSystem;
+            const [fs, services] = yield* Effect.all([FileSystem.FileSystem, Effect.context<FileSystem.FileSystem>()]);
             const [hooks, plugin] = yield* Effect.all([Effect.flatMap(fs.readFileString(join(directory, MANIFESTS.hooks)), Schema.decodeEffect(Hooks)), fs.readFileString(join(directory, MANIFESTS.plugin))]);
             const { types } = yield* Schema.decodeEffect(Plugin)(plugin);
             const contract = yield* Effect.forEach(Option.toArray(Option.fromUndefinedOr(types)), (path) => Effect.map(fs.readFileString(join(directory, path)), (source) => [posix.normalize(path), source] as const));
@@ -49,10 +59,9 @@ const claude = (directory: string): UserConfigFnPromise =>
                     checks(),
                     {
                         name: '@rasm/vite/claude',
-                        generateBundle() {
-                            Record.toEntries(manifests).forEach(([fileName, source]) => {
-                                this.emitFile({ type: 'asset', fileName, source });
-                            });
+                        config: () => ({ build: { emptyOutDir: false } }),
+                        writeBundle({ dir }, bundle) {
+                            return Effect.runPromiseWith(services)(Effect.flatMap(Effect.fromNullishOr(dir), (out) => settle(out, bundle, manifests)));
                         },
                     },
                 ],

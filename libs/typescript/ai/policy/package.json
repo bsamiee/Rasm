@@ -2,7 +2,7 @@
     "name": "@rasm/policy",
     "version": "0.1.0",
     "private": true,
-    "description": "Decisions on what an agent attempts by named rule tables, answered as allow, deny, or rewrite, with the hooks that carry them into Claude Code",
+    "description": "Decisions on what an agent attempts by named rule tables, answered as allow, deny, or rewrite",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -20,7 +20,7 @@
     },
     "exports": {
         "./policy": "./policy.ts",
-        "./claude": "./claude/hooks.ts",
+        "./action": "./decision/action.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -29,14 +29,13 @@
         },
         "exports": {
             "./policy": "./dist/policy.js",
-            "./claude": "./dist/claude/hooks.js",
+            "./action": "./dist/decision/action.js",
             "./package.json": "./package.json"
         },
         "access": "public"
     },
     "dependencies": {
-        "@rasm/shell": "workspace:*",
-        "sh-syntax": "catalog:"
+        "@rasm/shell": "workspace:*"
     },
     "devDependencies": {
         "effect": "catalog:"

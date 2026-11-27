@@ -929,19 +929,6 @@ url = "https://repo1.maven.org/maven2/org/checkerframework/checker-qual/4.4.0/ch
 checksum = "sha256:5fcfce0ac50f42b17b7d75023d5afd64211f1bc8ee9a1dea3b4d9e637ae97e9e"
 url = "https://repo1.maven.org/maven2/org/checkerframework/checker-qual/4.4.0/checker-qual-4.4.0.jar"
 
-[[tools."http:claude-code-types"]]
-version = "2.1.332"
-backend = "http:claude-code-types"
-specifiers = ["latest"]
-
-[tools."http:claude-code-types"."platforms.linux-x64"]
-checksum = "sha256:b89f24fde1dd1ddfd08a5355a0cf1d1b8bbc25e9f7474c697fbe4d89dbb93c31"
-url = "https://raw.githubusercontent.com/anthropics/claude-code/v2.1.332/mods/types/claude-code.d.ts"
-
-[tools."http:claude-code-types"."platforms.macos-arm64"]
-checksum = "sha256:b89f24fde1dd1ddfd08a5355a0cf1d1b8bbc25e9f7474c697fbe4d89dbb93c31"
-url = "https://raw.githubusercontent.com/anthropics/claude-code/v2.1.332/mods/types/claude-code.d.ts"
-
 [[tools."http:dataflow-errorprone"]]
 version = "3.55.1-eisop1"
 backend = "http:dataflow-errorprone"

@@ -1,8 +1,5 @@
 {
     "extends": "../../../../tsconfig.base.json",
-    "compilerOptions": {
-        "lib": ["esnext", "webworker"]
-    },
     "references": [
         {
             "path": "../../system/shell"

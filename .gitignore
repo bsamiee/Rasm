@@ -26,7 +26,6 @@ __pycache__/
 .cloudflare/
 **/evals/results/
 dist/
-libs/typescript/ai/policy/claude/types
 libs/typescript/system/shell/usage/
 storybook-static/
 

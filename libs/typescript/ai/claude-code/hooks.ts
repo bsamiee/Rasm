@@ -1,15 +1,21 @@
+import { Action, Decision } from '@rasm/policy/action';
+import type { Policy } from '@rasm/policy/policy';
 import type { EngineInterface, Next, On, ToolCallInput, ToolCallResult, VcsIsolateInput } from 'claude-code';
-import { Duration, Effect, FileSystem, Match, MutableRef, Option, Path, Predicate, Schedule, Schema, SchemaGetter, Struct } from 'effect';
-import { request, runtime, Session } from '#/claude/platform';
-import { Action, Decision } from '#/decision/action';
-import { message } from '#/decision/rule';
-import type { Policy } from '#/policy';
+import { Array, Cause, Clock, Duration, Effect, Exit, FileSystem, Function, Match, MutableRef, Option, Path, Predicate, Record, Schedule, Schema, SchemaGetter, Struct } from 'effect';
+import { request, runtime, Session } from '#/platform';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Runtime = ReturnType<typeof runtime>;
 type Live = MutableRef.MutableRef<Option.Option<Runtime>>;
 type Busy = MutableRef.MutableRef<boolean>;
+type Health = MutableRef.MutableRef<Readonly<Record<string, Outage>>>;
+type Failure = Effect.Error<ReturnType<typeof decide>> | Cause.TimeoutError;
+interface Outage {
+    readonly since: number;
+    readonly reason: string;
+    readonly unjudged: number;
+}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -21,6 +27,10 @@ const mcpName = /^mcp__(?<server>.+?)__(?<tool>.+)$/su;
 const reserved = ['tool', 'tool_use_id', 'agentId', 'consent', 'requestMeta'] as const;
 const outputLead = /^[^]*(?<=^|[\s"'`(])/u.source;
 const outputFolder = /\/[^\n"'`]*\/tasks\//u.source;
+const clock = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const plural = new Intl.PluralRules('en');
+const counted = new Intl.NumberFormat('en');
+const unjudgedCalls: Partial<Record<Intl.LDMLPluralRule, (count: string) => string>> & { readonly other: (count: string) => string } = { one: (count) => `${count} call unjudged`, other: (count) => `${count} calls unjudged` };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -49,16 +59,29 @@ const Background = Schema.Struct({ result: Schema.Struct({ backgroundTaskId: Sch
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const firstLine = (text: string) => text.split('\n', 1).join('');
 const annotate = (result: ToolCallResult, notes: readonly string[]): ToolCallResult => (result.deny !== undefined || notes.length === 0 ? result : { ...result, context: [...(result.context ?? []), ...notes] });
 const backgroundTask = (result: ToolCallResult) =>
     Option.flatMap(Schema.decodeUnknownOption(Background)(result), ({ result: { backgroundTaskId: id }, text }) => Option.map(Option.fromNullishOr(new RegExp(`${outputLead}(?<output>${outputFolder}${RegExp.escape(id)}\\.output)`, 'u').exec(text)?.groups), ({ output = '' }) => ({ id, output })));
-const decide = (policy: Policy, action: Action) =>
-    Session.use((session) =>
-        Effect.flatMap(session.acting(action.agent), ({ environment, path }) => Effect.provideService(policy.decide(action, environment), Path.Path, path)).pipe(
-            Effect.catch((error) => policy.undecided(action.agent, error.message, 'call')),
-            Effect.tap(({ faults }) => Effect.forEach(faults, session.log, { discard: true })),
-        ),
+const decide = (policy: Policy, action: Action) => Session.use((session) => Effect.flatMap(session.acting(action.agent), ({ environment, path }) => Effect.provideService(policy.decide(action, environment), Path.Path, path)).pipe(Effect.tap(({ faults }) => Effect.forEach(faults, session.log, { discard: true }))));
+const deadline = (next: Pick<Next<'tool.call'>, 'budget'>) =>
+    Effect.suspend(() => Effect.sleep(Duration.millis(Math.max(0, next.budget.remainingMs - reserve)))).pipe(Effect.repeat({ until: () => next.budget.remainingMs <= reserve }), Effect.andThen(Effect.fail(new Cause.TimeoutError('its hook budget ran out before the rules settled'))));
+const reasonOf = (cause: Cause.Cause<Failure>): Option.Option<string> =>
+    cause.pipe(
+        Cause.findErrorOption,
+        Option.getOrUndefined,
+        Match.value,
+        Match.when(Match.undefined, () => cause.pipe(Cause.pretty, firstLine, Option.some)),
+        Match.when({ _tag: 'ShellError', reason: { _tag: 'Syntax' } }, () => Option.none()),
+        Match.when({ _tag: 'PlatformError', reason: { _tag: 'BadArgument' } }, ({ reason }) => Option.some(firstLine(reason.message))),
+        Match.when({ _tag: 'PlatformError' }, ({ reason: { module, method, description, _tag } }) => Option.some(`engine refused ${module}.${method}: ${firstLine(description ?? _tag)}`)),
+        Match.orElse((error) => Option.some(firstLine(error.message))),
     );
+const shown = (plugin: string, outages: Readonly<Record<string, Outage>>) =>
+    Array.match(Record.toEntries(outages), {
+        onEmpty: () => undefined,
+        onNonEmpty: (rows) => `${plugin}: ${rows.map(([kind, { since, reason, unjudged }]) => `${kind} rules off since ${clock.format(since)} · ${reason} · ${(unjudgedCalls[plural.select(unjudged)] ?? unjudgedCalls.other)(counted.format(unjudged))}`).join('; ')}`,
+    });
 const watch = (policy: Policy, busy: Busy, { call, agent }: Action, task: Option.Option.Value<ReturnType<typeof backgroundTask>>) =>
     Session.use((session) => {
         const check = (resting: boolean) =>
@@ -77,28 +100,9 @@ const watch = (policy: Policy, busy: Busy, { call, agent }: Action, task: Option
                     Schedule.addDelay(({ input }) => Effect.succeed(input)),
                 ),
             }),
-            Effect.catchCause((cause) => session.log(`policy stopped watching task ${task.id}: ${message(cause)}`)),
+            Effect.catchCause((cause) => session.log(`policy stopped watching task ${task.id}: ${Cause.pretty(cause)}`)),
         );
     });
-const isolate = (e: VcsIsolateInput, next: Next<'vcs.isolate'>, policy: Policy, live: Runtime) =>
-    live.runPromise(
-        Effect.flatMap(
-            decide(policy, Action.cases.Isolate.make({ call: e.name, agent: Option.fromUndefinedOr(e.parentAgentId), from: e.from, worker: Option.fromUndefinedOr(e.agentId), apart: true })),
-            Decision.$match({
-                Deny: ({ reasons }) => Effect.succeed({ deny: reasons.join('\n') }),
-                Rewrite: () =>
-                    Effect.map(
-                        Effect.orElseSucceed(
-                            FileSystem.FileSystem.use((fs) => fs.realPath(e.from)),
-                            () => e.from,
-                        ),
-                        (path) => ({ path, vcs }),
-                    ),
-                Allow: () => request('Engine', 'next', e.name, () => next(e)),
-            }),
-        ),
-        { signal: next.signal },
-    );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -114,11 +118,55 @@ function current($: EngineInterface, live: Live) {
     });
 }
 
+function settle($: EngineInterface, health: Health, kind: Action['_tag'], fault: Option.Option<string>) {
+    const held = MutableRef.get(health);
+    const after = Option.match(fault, {
+        onNone: () => Record.remove(held, kind),
+        onSome: (reason) => Record.set(held, kind, Option.match(Record.get(held, kind), { onNone: () => ({ since: Effect.runSync(Clock.currentTimeMillis), reason, unjudged: 1 }), onSome: ({ since, unjudged }) => ({ since, reason, unjudged: unjudged + 1 }) })),
+    });
+    MutableRef.set(health, after);
+    if (Option.isSome(fault) || Record.has(held, kind)) {
+        $.ui.status(shown($.plugin.name, after));
+    }
+}
+
+function judged($: EngineInterface, health: Health, action: Action, settled: Exit.Exit<Decision, Failure>) {
+    return Exit.match(settled, {
+        onSuccess: Function.identity,
+        onFailure: (cause) => {
+            $.ui.log(`policy did not judge ${action._tag} call ${action.call} and let it run: ${Cause.pretty(cause)}`, { to: 'debug' });
+            Option.match(reasonOf(cause), { onNone: Function.constVoid, onSome: (reason) => settle($, health, action._tag, Option.some(reason)) });
+            return Decision.Allow({ notes: [], faults: [] });
+        },
+    });
+}
+
+function isolate($: EngineInterface, e: VcsIsolateInput, next: Next<'vcs.isolate'>, policy: Policy, live: Runtime, health: Health) {
+    const action = Action.cases.Isolate.make({ call: e.name, agent: Option.fromUndefinedOr(e.parentAgentId), from: e.from, worker: Option.fromUndefinedOr(e.agentId), apart: true });
+    return live.runPromise(
+        Effect.flatMap(Effect.exit(Effect.raceFirst(decide(policy, action), deadline(next))), (settled) =>
+            Decision.$match(judged($, health, action, settled), {
+                Deny: ({ reasons }) => Effect.succeed({ deny: reasons.join('\n') }),
+                Rewrite: () =>
+                    Effect.map(
+                        Effect.orElseSucceed(
+                            FileSystem.FileSystem.use((fs) => fs.realPath(e.from)),
+                            () => e.from,
+                        ),
+                        (path) => ({ path, vcs }),
+                    ),
+                Allow: () => request('Engine', 'next', e.name, () => next(e)),
+            }),
+        ),
+        { signal: next.signal },
+    );
+}
+
 function monitor($: EngineInterface, e: ToolCallInput, next: Next<'tool.call'>, command: string, notes: readonly string[]) {
     const { description, timeout } = e;
     const input = { command, description: Predicate.isString(description) ? description : command, timeout_ms: Predicate.isNumber(timeout) ? timeout : monitorTimeout };
     return Effect.map(
-        request('Engine', 'agent.call', command, () => $.agent.call({ tool: 'Monitor', input, ...(e.agentId === undefined ? {} : { agentId: e.agentId }) }, { signal: next.signal })),
+        request('agent', 'call', command, () => $.agent.call({ tool: 'Monitor', input, ...(e.agentId === undefined ? {} : { agentId: e.agentId }) }, { signal: next.signal })),
         ({ deny, isError, text }): ToolCallResult =>
             Match.value({ deny, isError }).pipe(
                 Match.when({ deny: Match.string }, (refused) => ({ deny: refused.deny })),
@@ -128,16 +176,15 @@ function monitor($: EngineInterface, e: ToolCallInput, next: Next<'tool.call'>, 
     );
 }
 
-function answer($: EngineInterface, e: ToolCallInput, next: Next<'tool.call'>, action: Action, policy: Policy, live: Runtime, busy: Busy) {
+function answer($: EngineInterface, e: ToolCallInput, next: Next<'tool.call'>, action: Action, policy: Policy, live: Runtime, busy: Busy, health: Health) {
     return live.runPromise(
         Effect.gen(function* () {
-            const decision = yield* decide(policy, action).pipe(Effect.timeoutOrElse({ duration: Duration.millis(Math.max(0, next.budget.remainingMs - reserve)), orElse: () => policy.undecided(action.agent, 'its hook ran out of time', 'call') }));
-            const told = [...decision.notes, ...decision.faults];
+            const decision = judged($, health, action, yield* Effect.exit(Effect.raceFirst(decide(policy, action), deadline(next))));
             const watched = (result: ToolCallResult) => Option.filter(backgroundTask(result), () => policy.appliesTo('Task'));
             const run = (input: ToolCallInput) =>
                 request('Engine', 'next', input.tool, () => next(input)).pipe(
                     Effect.tap((result) => Option.match(watched(result), { onNone: () => Effect.void, onSome: (task) => Session.use((session) => session.watch(watch(policy, busy, action, task))) })),
-                    Effect.map((result) => annotate(result, told)),
+                    Effect.map((result) => annotate(result, decision.notes)),
                 );
             const dispatch = ({ command, run: mode }: typeof Action.cases.Shell.Type) =>
                 Match.value({ kept: Action.guards.Shell(action) && action.run === mode, mode }).pipe(
@@ -145,11 +192,11 @@ function answer($: EngineInterface, e: ToolCallInput, next: Next<'tool.call'>, a
                         const { timeout: _timeout, ...untimed } = e;
                         return run({ ...untimed, command, run_in_background: true });
                     }),
-                    Match.when({ kept: false, mode: 'monitored' }, () => monitor($, e, next, command, told)),
+                    Match.when({ kept: false, mode: 'monitored' }, () => monitor($, e, next, command, decision.notes)),
                     Match.orElse(() => run({ ...e, command })),
                 );
             return yield* Decision.$match(decision, {
-                Deny: ({ reasons }) => Effect.succeed<ToolCallResult>({ deny: [...reasons, nothingRan, ...told].join('\n') }),
+                Deny: ({ reasons }) => Effect.succeed<ToolCallResult>({ deny: [...reasons, nothingRan].join('\n') }),
                 Allow: () => run(e),
                 Rewrite: ({ action: restated }) => (Action.guards.Shell(restated) ? dispatch(restated) : run(e)),
             });
@@ -159,15 +206,18 @@ function answer($: EngineInterface, e: ToolCallInput, next: Next<'tool.call'>, a
 }
 
 function hooks(on: On, policy: Policy) {
-    const [live, busy]: readonly [Live, Busy] = [MutableRef.make(Option.none()), MutableRef.make(false)];
-    on('session.start', (_, e, next) =>
-        Option.match(MutableRef.getAndSet(live, Option.none()), {
+    const [live, busy, health]: readonly [Live, Busy, Health] = [MutableRef.make(Option.none()), MutableRef.make(false), MutableRef.make({})];
+    on('session.start', ($, e, next) => {
+        $.ui.status(undefined);
+        return Option.match(MutableRef.getAndSet(live, Option.none()), {
             onNone: () => next(e),
             onSome: (stale) => Promise.all([next(e), stale.dispose()]).then(([started]) => started),
-        }),
-    ).catch((_, e, next) => next(e));
-    on('session.end', (_, e, next) => {
+        });
+    }).catch((_, e, next) => next(e));
+    on('session.end', ($, e, next) => {
         MutableRef.set(busy, Effect.runSync(Effect.as(policy.clear(), false)));
+        MutableRef.set(health, {});
+        $.ui.status(undefined);
         return Option.match(MutableRef.get(live), {
             onNone: () => next(e),
             onSome: (kept) => Promise.all([next(e), kept.runPromise(Session.use((session) => session.end))]).then(([ended]) => ended),
@@ -185,7 +235,7 @@ function hooks(on: On, policy: Policy) {
         }).catch((_, e, next) => next(e));
     }
     if (policy.appliesTo('Isolate')) {
-        on('vcs.isolate', ($, e, next) => isolate(e, next, policy, current($, live))).catch((_, e, next) => next(e));
+        on('vcs.isolate', ($, e, next) => isolate($, e, next, policy, current($, live), health)).catch((_, e, next) => next(e));
         on('vcs.status', { vcs }, () => ({ changes: [], unpublished: 0 })).catch(() => ({ changes: [], unpublished: 0 }));
         on('vcs.release', { vcs }, () => ({ isReleased: true as const })).catch(() => ({ isReleased: true as const }));
     }
@@ -194,16 +244,21 @@ function hooks(on: On, policy: Policy) {
             Option.filter(Schema.decodeOption(ToolCall)(e), ({ _tag }) => policy.appliesTo(_tag)),
             {
                 onNone: () => next(e),
-                onSome: (action) => answer($, e, next, action, policy, current($, live), busy),
+                onSome: (action) => answer($, e, next, action, policy, current($, live), busy, health),
             },
         ),
-    ).catch(($, e, next) =>
-        next(e).then((result) => {
-            const faults = next.called ? [] : Effect.runSync(policy.undecided(Option.fromUndefinedOr(e.agentId), (next.error.message ?? next.error.kind).split('\n', 1).join(''), 'agent')).faults;
-            faults.forEach((text) => $.ui.log(text, { to: 'debug' }));
-            return annotate(result, faults);
-        }),
-    );
+    ).catch((error, e, next) => {
+        const failed = Option.filter(Schema.decodeOption(ToolCall)(e), ({ _tag }) => policy.appliesTo(_tag) && !next.called && !next.signal.aborted);
+        const said = `its hook ${next.error.kind === 'throw' ? 'threw' : 'ran out of time'}: ${next.error.message ?? next.error.kind}`;
+        Option.match(failed, {
+            onNone: Function.constVoid,
+            onSome: (action) => {
+                error.ui.log(`policy did not judge ${action._tag} call ${action.call} and let it run: ${said}`, { to: 'debug' });
+                settle(error, health, action._tag, Option.some(firstLine(said)));
+            },
+        });
+        return next(e);
+    });
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

@@ -304,6 +304,9 @@
         },
         {
             "path": "./libs/typescript/creative-cloud/acrobat"
+        },
+        {
+            "path": "./libs/typescript/ai/claude-code"
         }
     ]
 }

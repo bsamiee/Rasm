@@ -214,7 +214,7 @@
         { "files": ["**/worker.ts"], "rules": { "unicorn/require-post-message-target-origin": "off" } }, // Worker `postMessage` takes no `targetOrigin`
         { "files": ["**/*.tsx"], "rules": { "react/rules-of-hooks": "error" } },
         {
-            "files": ["**/hooks/register.ts", "**/claude/*.ts"], // Claude Code engine modules, a plugin's hooks entry and the modules of a package's `claude` runtime entry
+            "files": ["**/hooks/register.ts", "**/claude-code/*.ts"], // Claude Code engine modules, a plugin's hooks entry and the modules of the engine boundary library
             "rules": {
                 "func-style": "off", // `claude plugin validate` takes `register` and every function receiving `$` only as a `function` declaration
                 "node/callback-return": "off", // Hooks await `next`, a `claude-code` continuation

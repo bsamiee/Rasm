@@ -1,6 +1,6 @@
 import { Shell } from '@rasm/shell';
 import type { AgentStatus, EngineInterface, FsEntry, FsStat, HookStream, ProcessSpawnChunk, ProcessSpawnRequest, ProcessSpawnResult } from 'claude-code';
-import { Array, Bytes, ByteSize, Cache, Cause, Clock, Context, DateTime, Deferred, Duration, Effect, Exit, Fiber, FiberSet, FileSystem, Filter, Function, Hash, Layer, ManagedRuntime, Match, Option, Order, Path, PlatformError, Predicate, Queue, Record, Redacted, Scheduler, Sink, Stream } from 'effect';
+import { Array, Bytes, ByteSize, Cache, Cause, Clock, Context, DateTime, Deferred, Duration, Effect, Exit, Fiber, FiberSet, FileSystem, Filter, Formatter, Function, Hash, Layer, ManagedRuntime, Match, Option, Order, Path, PlatformError, Predicate, Queue, Record, Redacted, Scheduler, Sink, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner, CommandLine } from 'effect/process';
 import 'sh-syntax/vendors/wasm_exec';
 import { getProcessor } from 'sh-syntax/sync';
@@ -58,21 +58,24 @@ class Session extends Context.Service<
         readonly watch: <E, R>(watcher: Effect.Effect<unknown, E, R>) => Effect.Effect<void, never, R>;
         readonly end: Effect.Effect<void>;
     }
->()('@rasm/policy/claude/platform/Session') {}
+>()('@rasm/claude-code/platform/Session') {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const systemError = (module: string, method: string, subject: string) => (cause: unknown) =>
-    PlatformError.systemError({
-        _tag: Option.fromNullishOr(errno.exec(Predicate.isError(cause) ? cause.message : '')?.groups?.['code']).pipe(
+const systemError = (module: string, method: string, subject: string) => (cause: unknown) => {
+    const said = Predicate.isError(cause) ? cause.message : Formatter.format(cause);
+    return PlatformError.systemError({
+        _tag: Option.fromNullishOr(errno.exec(said)?.groups?.['code']).pipe(
             Option.flatMap((code) => Record.get(errnoTags, code)),
             Option.getOrElse((): PlatformError.SystemErrorTag => 'Unknown'),
         ),
         module,
         method,
         pathOrDescriptor: subject,
+        description: said,
         cause,
     });
+};
 const request = <A>(module: string, method: string, subject: string, run: () => PromiseLike<A>) => Effect.tryPromise({ try: run, catch: systemError(module, method, subject) });
 const badArgument = (module: string, method: string, description: string) => PlatformError.badArgument({ module, method, description });
 const held = <A, E>(exit: Exit.Exit<A, E>) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero);
@@ -149,7 +152,7 @@ const spawner = (start: (request: ProcessSpawnRequest) => Child) =>
                     }),
             );
             const queues = { stdout, stderr };
-            const pump = yield* Stream.fromAsyncIterable(spawned, systemError('ChildProcess', 'spawn', standard.command)).pipe(
+            const pump = yield* Stream.fromAsyncIterable(spawned, systemError('process', 'spawn', standard.command)).pipe(
                 Stream.runForEach((chunk) => Option.match(queues[chunk.stream], { onNone: () => Effect.void, onSome: (queue) => Queue.offer(queue, encoder.encode(chunk.text)) })),
                 Effect.onExit((exit) =>
                     Effect.andThen(
@@ -162,8 +165,8 @@ const spawner = (start: (request: ProcessSpawnRequest) => Child) =>
             return ChildProcessSpawner.makeHandle({
                 pid: ChildProcessSpawner.ProcessId(0),
                 exitCode: Effect.flatMap(
-                    request('ChildProcess', 'exitCode', standard.command, () => spawned.result),
-                    ({ code, signal }) => (code === null ? Effect.fail(systemError('ChildProcess', 'exitCode', standard.command)(new Error(`Process interrupted due to receipt of signal: '${String(signal)}'`))) : Effect.succeed(ChildProcessSpawner.ExitCode(code))),
+                    request('process', 'spawn', standard.command, () => spawned.result),
+                    ({ code, signal }) => (code === null ? Effect.fail(systemError('process', 'spawn', standard.command)(new Error(`Process interrupted due to receipt of signal: '${String(signal)}'`))) : Effect.succeed(ChildProcessSpawner.ExitCode(code))),
                 ),
                 isRunning: Effect.map(Deferred.isDone(ended), (done) => !done),
                 kill: () => Fiber.interrupt(pump),
@@ -181,17 +184,17 @@ const spawner = (start: (request: ProcessSpawnRequest) => Child) =>
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 function files($: EngineInterface) {
-    const stat = (path: string, method: string) => request('FileSystem', method, path, () => $.fs.stat(path));
+    const stat = (path: string) => request('fs', 'stat', path, () => $.fs.stat(path));
     const read = (path: string, range: Partial<Record<'offset' | 'length', number>>) =>
         Effect.map(
-            request('FileSystem', 'readFile', path, () => $.fs.read(path, { as: 'bytes', ...range })),
+            request('fs', 'read', path, () => $.fs.read(path, { as: 'bytes', ...range })),
             ({ base64 }) => Uint8Array.fromBase64(base64),
         );
     const paged = (path: string) => Stream.paginate(0, (offset: number) => Effect.map(read(path, { offset, length: readLimit }), (bytes) => [[bytes], Option.liftPredicate(offset + readLimit, () => bytes.length === readLimit)] as const)).pipe(Stream.runCollect, Effect.map(Bytes.concat));
     return FileSystem.make(
         FileSystem.makeNoop({
             access: (path, options) =>
-                request('FileSystem', 'access', path, () => $.fs.exists(path)).pipe(
+                request('fs', 'exists', path, () => $.fs.exists(path)).pipe(
                     Effect.filterOrFail(
                         () => options?.readable !== true && options?.writable !== true,
                         () => badArgument('FileSystem', 'access', 'a permission check, which the engine has no call for'),
@@ -200,7 +203,7 @@ function files($: EngineInterface) {
                     Effect.asVoid,
                 ),
             readDirectory: (path, options) =>
-                request('FileSystem', 'readDirectory', path, () => $.fs.list(path)).pipe(
+                request('fs', 'list', path, () => $.fs.list(path)).pipe(
                     Effect.filterOrFail(
                         () => options?.recursive !== true,
                         () => badArgument('FileSystem', 'readDirectory', 'a listing of nested folders, as the engine lists one folder'),
@@ -209,20 +212,20 @@ function files($: EngineInterface) {
                 ),
             readDirectoryEntries: (path) =>
                 Effect.map(
-                    request('FileSystem', 'readDirectoryEntries', path, () => $.fs.list(path)),
+                    request('fs', 'list', path, () => $.fs.list(path)),
                     (entries) => entries.map(({ name, kind, isLink }) => ({ name, type: isLink ? ('SymbolicLink' as const) : kinds[kind] })),
                 ),
-            readFile: (path) => Effect.flatMap(stat(path, 'readFile'), ({ kind }) => (kind === 'file' ? paged(path) : read(path, {}))),
+            readFile: (path) => Effect.flatMap(stat(path), ({ kind }) => (kind === 'file' ? paged(path) : read(path, {}))),
             writeFile: (path, data, options) =>
                 Effect.try({ try: () => decoder.decode(data), catch: () => badArgument('FileSystem', 'writeFile', 'bytes that are no UTF-8 text, as the engine writes text alone') }).pipe(
                     Effect.filterOrFail(
                         () => (options?.flag ?? 'w') === 'w' && options?.mode === undefined,
                         () => badArgument('FileSystem', 'writeFile', 'a flag or mode, as the engine writes a whole file under its own mode'),
                     ),
-                    Effect.flatMap((text) => request('FileSystem', 'writeFile', path, () => $.fs.write(path, text))),
+                    Effect.flatMap((text) => request('fs', 'write', path, () => $.fs.write(path, text))),
                 ),
             stat: (path) =>
-                Effect.map(stat(path, 'stat'), (found) => ({
+                Effect.map(stat(path), (found) => ({
                     type: kinds[found.kind],
                     mtime: DateTime.makeUnsafe(found.mtimeMs).pipe(DateTime.toDateUtc, Option.some),
                     atime: Option.none(),
@@ -240,7 +243,7 @@ function files($: EngineInterface) {
                 })),
             realPath: (path) =>
                 Effect.flatMap(
-                    request('FileSystem', 'realPath', path, () => $.fs.stat(path, { resolve: true })),
+                    request('fs', 'stat', path, () => $.fs.stat(path, { resolve: true })),
                     ({ realPath }) => Effect.fromOption(Option.fromUndefinedOr(realPath), () => PlatformError.systemError({ _tag: 'NotFound', module: 'FileSystem', method: 'realPath', pathOrDescriptor: path })),
                 ),
         }),
@@ -250,18 +253,18 @@ function files($: EngineInterface) {
 function session($: EngineInterface) {
     const listed = (agent: string) =>
         Effect.map(
-            request('Agent', 'list', agent, () => $.agent.list()),
+            request('agent', 'list', agent, () => $.agent.list()),
             Array.findFirst(({ id }) => id === agent),
         );
-    const folder = request('Session', 'cwd', 'session', () => $.session.cwd());
+    const folder = request('session', 'cwd', 'session', () => $.session.cwd());
     const entries = (directory: string, join: Path.Path['join']) =>
-        request('FileSystem', 'readDirectory', directory, () => $.fs.list(directory)).pipe(
+        request('fs', 'list', directory, () => $.fs.list(directory)).pipe(
             Effect.flatMap(
                 Effect.forEach((entry) =>
                     entry.isLink
                         ? Effect.orElseSucceed(
                               Effect.map(
-                                  request('FileSystem', 'stat', entry.name, () => $.fs.stat(join(directory, entry.name))),
+                                  request('fs', 'stat', entry.name, () => $.fs.stat(join(directory, entry.name))),
                                   ({ kind, mtimeMs }) => ({ ...entry, kind, mtimeMs }),
                               ),
                               () => entry,
@@ -275,7 +278,7 @@ function session($: EngineInterface) {
     const stamped = (file: string) =>
         Effect.option(
             Effect.map(
-                request('FileSystem', 'stat', file, () => $.fs.stat(file)),
+                request('fs', 'stat', file, () => $.fs.stat(file)),
                 ({ mtimeMs }) => ({ file, mtimeMs }),
             ),
         );
@@ -285,7 +288,7 @@ function session($: EngineInterface) {
             const [shell, fs, processes, path, watchers] = yield* Effect.all([Shell, FileSystem.FileSystem, ChildProcessSpawner.ChildProcessSpawner, Path.Path, FiberSet.make()]);
             const facts = yield* Cache.makeWith(
                 Effect.fnUntraced(function* () {
-                    const [text, plugin] = yield* Effect.all([processes.string(ChildProcess.make('env', ['-0'])), request('Process', 'hookEnv', 'CLAUDE_PLUGIN_DATA', () => $.process.hookEnv())]);
+                    const [text, plugin] = yield* Effect.all([processes.string(ChildProcess.make('env', ['-0'])), request('process', 'hookEnv', 'CLAUDE_PLUGIN_DATA', () => $.process.hookEnv())]);
                     const variables = environment(text);
                     const found = located(variables, plugin, path.join);
                     return { variables, ...(yield* Effect.fromOption(found, () => badArgument('Session', 'environment', 'a process that names no shell, no home, or no plugin data folder'))) };
@@ -302,7 +305,7 @@ function session($: EngineInterface) {
                 { capacity: 4, timeToLive: held },
             );
             const probed = Effect.fnUntraced(function* (cwd: string) {
-                const [{ variables, binary, folder: home }, id] = yield* Effect.all([Cache.get(facts, undefined), request('Session', 'id', 'session', () => $.session.id())]);
+                const [{ variables, binary, folder: home }, id] = yield* Effect.all([Cache.get(facts, undefined), request('session', 'id', 'session', () => $.session.id())]);
                 const [snapshots, scripts, launched] = yield* Effect.all([entries(path.join(home, 'shell-snapshots'), path.join), entries(path.join(home, 'session-env', id), path.join), Effect.forEach(Option.toArray(Record.get(variables, 'CLAUDE_ENV_FILE')), stamped)]);
                 const named = snapshots.filter(({ name }) => name.startsWith(`snapshot-${path.basename(binary)}-`));
                 const sources = [
@@ -326,15 +329,11 @@ function session($: EngineInterface) {
                         Option.flatMap(({ status }) => resting[status]),
                     ),
                 tell: (agent, text) =>
-                    Effect.asVoid(
-                        request(
-                            'Session',
-                            'tell',
-                            Option.getOrElse(agent, () => 'main'),
-                            (): Promise<unknown> => Option.match(agent, { onNone: () => $.prompt.submit({ text }), onSome: (agentId) => $.session.send({ to: { agentId }, text }) }),
-                        ),
-                    ),
-                log: (text) => Effect.ignore(Effect.try({ try: () => $.ui.log(text, { to: 'debug' }), catch: systemError('Ui', 'log', 'debug') })),
+                    Option.match(agent, {
+                        onNone: () => Effect.asVoid(request('prompt', 'submit', 'main', () => $.prompt.submit({ text }))),
+                        onSome: (agentId) => Effect.asVoid(request('session', 'send', agentId, () => $.session.send({ to: { agentId }, text }))),
+                    }),
+                log: (text) => Effect.ignore(Effect.try({ try: () => $.ui.log(text, { to: 'debug' }), catch: systemError('ui', 'log', 'debug') })),
                 watch: (watcher) => Effect.asVoid(FiberSet.run(watchers, watcher)),
                 end,
             };
@@ -355,7 +354,7 @@ function runtime($: EngineInterface) {
     const shells = Layer.effect(
         Shell,
         Effect.flatMap(
-            request('Wasm', 'compile', './main.wasm', () => $.wasm.compile('./main.wasm')),
+            request('wasm', 'compile', './main.wasm', () => $.wasm.compile('./main.wasm')),
             (module) => Shell.make({ processor: getProcessor(module) }),
         ),
     ).pipe(Layer.provideMerge(platform));

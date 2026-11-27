@@ -48,11 +48,7 @@ class Policy {
         return Ref.set(this.#told, HashSet.empty());
     }
 
-    undecided(agent: Action['agent'], why: string, once: keyof typeof scopes): Effect.Effect<Decision> {
-        return Effect.map(this.#fresh(agent, [{ text: `policy did not judge this call and let it run: ${why}`, once }]), (faults) => Decision.Allow({ notes: [], faults }));
-    }
-
-    decide<E, R>(action: Action, environment: Effect.Effect<Environment, E, R>): Effect.Effect<Decision, never, Requirements | R> {
+    decide<E, R>(action: Action, environment: Effect.Effect<Environment, E, R>): Effect.Effect<Decision, E | Effect.Error<Script['invocations']>, Requirements | R> {
         const { shell, others } = this.#compiled;
         const decideOther = (other: Action) =>
             Effect.map(
@@ -68,16 +64,14 @@ class Policy {
             },
             (other) => Effect.map(decideOther(other), (sum): Result => ({ ...sum, instead: Option.none() })),
         );
-        return decided.pipe(
-            Effect.flatMap(({ reasons, notes, faults, instead }) =>
-                Effect.map(Effect.all({ notes: this.#fresh(action.agent, notes), faults: this.#fresh(action.agent, faults) }), (told) =>
-                    Array.match(Array.dedupe(reasons), {
-                        onNonEmpty: (given) => Decision.Deny({ ...told, reasons: given }),
-                        onEmpty: () => Option.match(instead, { onNone: () => Decision.Allow(told), onSome: (restated) => Decision.Rewrite({ ...told, action: restated }) }),
-                    }),
-                ),
-            ),
-            Effect.catchCause((cause) => this.undecided(action.agent, message(cause), 'call')),
+        return Effect.flatMap(decided, ({ reasons, notes, faults, instead }) =>
+            Effect.map(this.#fresh(action.agent, notes), (fresh) => {
+                const told = { notes: fresh, faults: Array.dedupe(faults) };
+                return Array.match(Array.dedupe(reasons), {
+                    onNonEmpty: (given) => Decision.Deny({ ...told, reasons: given }),
+                    onEmpty: () => Option.match(instead, { onNone: () => Decision.Allow(told), onSome: (restated) => Decision.Rewrite({ ...told, action: restated }) }),
+                });
+            }),
         );
     }
 
@@ -103,7 +97,7 @@ const decideShell = Effect.fnUntraced(function* <E, R>(action: Call['action'], r
             return Match.value({ joined, alone, idle: Option.exists(held.script, ({ source }) => source === script.source) }).pipe(
                 Match.when({ joined: Exit.isSuccess }, ({ joined: { value } }): Edits => ({ ...held, edits: [...held.edits, edit], rules: [...held.rules, rule], script: Option.some(value) })),
                 Match.when({ alone: Exit.isSuccess, idle: true }, ({ alone: { value } }): Edits => ({ ...held, edits: [edit], rules: [rule], script: Option.some(value) })),
-                Match.when({ alone: Exit.isFailure }, ({ alone: { cause } }): Edits => ({ ...held, faults: [...held.faults, { text: `${rule}: its rewrite could not apply, so the call ran without it: ${message(cause)}`, once: 'call' }] })),
+                Match.when({ alone: Exit.isFailure }, ({ alone: { cause } }): Edits => ({ ...held, faults: [...held.faults, `${rule}: its rewrite could not apply, so the call ran without it: ${message(cause)}`] })),
                 Match.orElse(() => held),
             );
         });
@@ -118,7 +112,7 @@ const decideShell = Effect.fnUntraced(function* <E, R>(action: Call['action'], r
         const kept = Option.getOrElse(first, () => ({ move: held.move, notes: held.notes }));
         const rewritten = Option.filter(edited.script, ({ source }) => source !== script.source);
         const sources = [...trail.map((seen) => seen.script.source), ...Option.toArray(rewritten).map(({ source }) => source)];
-        const revert = (how: string) => [[{ ...kept, script: Array.headNonEmpty(trail).script, reasons: [], faults: [...held.faults, { text: `${editors.join(', ')}: rewrites ${how}, so the call ran as written.`, once: 'call' as const }] }], Option.none()] as const;
+        const revert = (how: string) => [[{ ...kept, script: Array.headNonEmpty(trail).script, reasons: [], faults: [...held.faults, `${editors.join(', ')}: rewrites ${how}, so the call ran as written.`] }], Option.none()] as const;
         return Match.value({ denied: Array.isReadonlyArrayNonEmpty(sum.reasons), rewritten: Option.getOrUndefined(rewritten), cycled: new Set(sources).size < sources.length, endless: trail.length >= editors.length * Math.max(1, words) + 2, moved: held.move.run !== reached.run }).pipe(
             Match.when({ denied: true }, () => [[{ ...held, notes: sum.notes, script, reasons: Array.isReadonlyArrayNonEmpty(before) ? [`${before.join(', ')} rewrote the call to ${script.source}, which is refused:`, ...sum.reasons] : sum.reasons }], Option.none()] as const),
             Match.when({ rewritten: Match.defined, cycled: true }, () => revert(`undo each other (${sources.join(' then ')})`)),

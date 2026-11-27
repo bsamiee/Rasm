@@ -1,0 +1,33 @@
+{
+    "name": "@rasm/claude-code",
+    "private": true,
+    "description": "Claude Code hooks that carry policy decisions into the engine, over Effect platform services built on the engine's own calls",
+    "type": "module",
+    "sideEffects": false,
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        "./hooks": "./hooks.ts",
+        "./package.json": "./package.json"
+    },
+    "dependencies": {
+        "@rasm/policy": "workspace:*",
+        "@rasm/shell": "workspace:*",
+        "sh-syntax": "catalog:"
+    },
+    "devDependencies": {
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
+    },
+    "engines": {
+        "node": ">=27"
+    },
+    "nx": {
+        "tags": [
+            "host:claude-code"
+        ]
+    }
+}
