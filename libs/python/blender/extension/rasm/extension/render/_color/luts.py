@@ -111,7 +111,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                         ).map(lambda _: None)
                     )
                 case strip, _:
-                    return Error(Fault.of(Reason.ABSENT, repr(strip), member="colorspace_settings"))
+                    return Error(Fault.of(Reason.ABSENT, strip, member="colorspace_settings"))
 
         def rendered(scene: bpy.types.Scene, config: PyOpenColorIO.Config, folder: Path) -> Outcome[ImageFile]:
             return (
@@ -142,7 +142,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             case bpy.types.Strip(id_data=bpy.types.Scene(sequencer_colorspace_settings=bpy.types.ColorManagedSequencerColorspaceSettings(name=space))) as active:
                 return self.sequenced(call, active, space)
             case _:
-                return Error(Fault.of(Reason.ABSENT, repr(self.modifiers.root), member=rna(self.modifiers.owner)))
+                return Error(Fault.of(Reason.ABSENT, self.modifiers.root, member=rna(self.modifiers.owner)))
 
     # --- [REGISTRATION]
 
@@ -185,7 +185,7 @@ def reloaded(identity: Identity, path: str, config: PyOpenColorIO.Config) -> Out
             stamps[str(resolved)] = stamp
         return str(resolved)
 
-    return catch(resolved.stat, exception=OSError)().map_error(partial(Fault.of, Reason.UNREADABLE, str(resolved))).map(held)
+    return catch(resolved.stat, exception=OSError)().map_error(partial(Fault.of, Reason.UNREADABLE, resolved)).map(held)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

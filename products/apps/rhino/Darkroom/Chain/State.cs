@@ -55,7 +55,7 @@ internal sealed record ChainState(Seq<ChainEntry> Entries, ValueSet Values) {
 
     private Fin<Seq<(EffectKind Kind, float Mix)>> Running =>
         Entries.Filter(static entry => entry.On).Traverse(static entry =>
-                Declared.Value.Kinds.Find(entry.Kind).ToFin(new DarkroomFault(entry.Kind, DarkroomReason.Unlisted)).Map(kind => (Kind: kind, entry.Mix))).As()
+                Declared.Value.Kinds.Find(entry.Kind).ToFin(Fault.Of(DarkroomReason.Unlisted, entry.Kind)).Map(kind => (Kind: kind, entry.Mix))).As()
             .Map(static runs => toSeq(runs.OrderBy(static run => run.Kind.Stage)));
 
     internal Fin<Seq<GuideChannel>> Needs =>

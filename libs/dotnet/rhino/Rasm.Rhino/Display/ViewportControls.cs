@@ -149,12 +149,12 @@ public static class ViewportControls {
                 from cleared in IO.lift(() => doc.ViewUserInterface.RemoveByGroupId(groupId))
                 from released in Products.Released(() => ignore(doc.ViewUserInterface.RemoveByGroupId(groupId)))
                 from added in Commits.WithinRedraw(doc, new RedrawPolicy.AllViews(Deferred: true),
-                    IO.lift(() => Products.Each(items, (item, index) => RhinoFault.Unless(doc.ViewUserInterface.Add(item, groupId), RhinoReason.Declined, item, index))))
+                    IO.lift(() => Products.Each(items, (item, index) => Fault.Unless(doc.ViewUserInterface.Add(item, groupId), RhinoReason.Declined, item, index))))
                 select unit,
         };
 
     public static IO<Unit> Show(Seq<UserInterfaceObjectBase> items) =>
-        items.TraverseM(static item => use(IO.lift(() => RhinoFault.Unless(item.RegisterForAllDocuments(), RhinoReason.Declined, item).Map(_ => item)),
+        items.TraverseM(static item => use(IO.lift(() => Fault.Unless(item.RegisterForAllDocuments(), RhinoReason.Declined, item).Map(_ => item)),
             static held => IO.lift(held.Unregister))).As().Map(unit);
 
     // --- [MESSAGES]

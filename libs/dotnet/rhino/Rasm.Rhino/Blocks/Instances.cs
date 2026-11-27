@@ -60,7 +60,7 @@ public static class Instances {
 
     public static Fin<Seq<Step<ObjectAttributes>>> Filled(InstanceDefinition definition, HashMap<string, string> values) =>
         toHashSet(Conversions.Rows(TextFields.GetInstanceAttributeFields(definition)).Map(static field => field.Key)) switch {
-            var keys => Products.Each(toSeq<(string Key, string Value)>(values), (entry, index) => RhinoFault.Unless(keys.Contains(entry.Key), RhinoReason.Missing, entry.Key, index)
+            var keys => Products.Each(toSeq<(string Key, string Value)>(values), (entry, index) => Fault.Unless(keys.Contains(entry.Key), RhinoReason.Missing, entry.Key, index)
                 .Map(_ => Steps.Of<ObjectAttributes>(staged => staged.SetUserString(entry.Key, entry.Value)))),
         };
 
@@ -77,7 +77,7 @@ public static class Instances {
                 from id in Conversions.Required(Conversions.Present(doc.Objects.AddInstanceObject(definition.Index, piece.Xform * nested.InstanceXform, piece.Attributes)), index)
                 select id)
             : (from copy in use(() => piece.Piece.DuplicateGeometry())
-               from moved in IO.lift(RhinoFault.Unless(copy.Transform(piece.Xform), RhinoReason.Declined, piece.Xform, index))
+               from moved in IO.lift(Fault.Unless(copy.Transform(piece.Xform), RhinoReason.Declined, piece.Xform, index))
                from id in IO.lift(Conversions.Required(Conversions.Present(doc.Objects.Add(copy, piece.Attributes)), index))
                select id).Bracket();
 }

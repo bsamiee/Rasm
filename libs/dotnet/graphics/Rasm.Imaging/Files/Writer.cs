@@ -105,7 +105,7 @@ public abstract partial record ImageFile {
         public Option<string> Model { get; init; }
 
         public override IO<Unit> Write(FileMetadata metadata, Stream stream, Option<SixLabors.ImageSharp.Configuration> configuration = default) =>
-            from accepted in IO.lift(ImagingFault.Unless(
+            from accepted in IO.lift(Fault.Unless(
                 Exposure.ForAll(static stops => float.Abs(stops) < int.MaxValue) && FocalLength.ForAll(static focal => (double)focal.Millimeters is >= 0d and < int.MaxValue) && Aperture.ForAll(static stop => stop is >= 0f and < int.MaxValue),
                 ImagingReason.Range, (Exposure, FocalLength, Aperture)))
             let illuminant = Gamut.StandardRgb.Configuration.Xyz.WhitePoint
@@ -131,9 +131,9 @@ public abstract partial record ImageFile {
     }
 
     private static Fin<PixelFrame> Canvas(Seq<PixelFrame> frames, bool windowed) =>
-        from canvas in frames.Head.ToFin(ImagingFault.Of(ImagingReason.Empty, frames.Count))
+        from canvas in frames.Head.ToFin(Fault.Of(ImagingReason.Empty, frames.Count))
         from matched in frames.Map(static (frame, index) => (Frame: frame, Index: index))
-            .Traverse(entry => ImagingFault.Unless(entry.Frame.Extent == canvas.Extent && (!windowed || entry.Frame.Window == canvas.Window), ImagingReason.Mismatch, entry.Frame.Window, entry.Index))
+            .Traverse(entry => Fault.Unless(entry.Frame.Extent == canvas.Extent && (!windowed || entry.Frame.Window == canvas.Window), ImagingReason.Mismatch, entry.Frame.Window, entry.Index))
             .As()
         select canvas;
 
@@ -158,7 +158,7 @@ public abstract partial record ImageFile {
 
     private static IO<Unit> Scanlines(Stream stream, PixelFrame frame, OutputDepth depth, bool alpha, FileMetadata metadata, Seq<(TiffTag Tag, object[] Values)> fields, Seq<TiffFieldInfo> custom) =>
         from buffered in IO.lift(depth.Buffered(frame.Extent.Width, alpha))
-        from written in use(IO.lift(() => Optional(BitMiracle.LibTiff.Classic.Tiff.ClientOpen(nameof(Tiff), "w", stream, new BorrowedTiffStream())).ToFin(ImagingFault.Of(ImagingReason.Refused, stream))))
+        from written in use(IO.lift(() => Optional(BitMiracle.LibTiff.Classic.Tiff.ClientOpen(nameof(Tiff), "w", stream, new BorrowedTiffStream())).ToFin(Fault.Of(ImagingReason.Refused, stream))))
             .Bind(tiff => IO.lift(environment => Scanned(tiff, frame, depth, alpha, [
              (TiffTag.IMAGEWIDTH, [frame.Extent.Width]),
              (TiffTag.IMAGELENGTH, [frame.Extent.Height]),
@@ -179,7 +179,7 @@ public abstract partial record ImageFile {
         select written;
 
     private static Fin<Unit> Scanned(BitMiracle.LibTiff.Classic.Tiff tiff, PixelFrame frame, OutputDepth depth, bool alpha, Seq<(TiffTag Tag, object[] Values)> fields, Seq<TiffFieldInfo> custom, CancellationToken token) {
-        Fin<Unit> Set((TiffTag Tag, object[] Values) field) => ImagingFault.Unless(tiff.SetField(field.Tag, field.Values), ImagingReason.Refused, field.Tag);
+        Fin<Unit> Set((TiffTag Tag, object[] Values) field) => Fault.Unless(tiff.SetField(field.Tag, field.Values), ImagingReason.Refused, field.Tag);
         tiff.MergeFieldInfo([.. custom], custom.Count);
         return fields.TraverseM(Set).As()
             .Bind(_ => Set((TiffTag.ROWSPERSTRIP, [tiff.DefaultStripSize(0)])))
@@ -193,9 +193,9 @@ public abstract partial record ImageFile {
                     Placed(frame, alpha, y, pixels.Span);
                     depth.Encode(pixels.Span, alpha, line.Span);
                     if (!tiff.WriteScanline(segment.Array, segment.Offset, y, 0))
-                        return ImagingFault.Of(ImagingReason.Refused, y);
+                        return Fault.Of(ImagingReason.Refused, y);
                 }
-                return ImagingFault.Unless(tiff.Flush(), ImagingReason.Refused, frame.Extent);
+                return Fault.Unless(tiff.Flush(), ImagingReason.Refused, frame.Extent);
             });
     }
 }

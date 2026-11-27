@@ -75,7 +75,7 @@ public static class EffectList {
         source.Switch(
             (Effect: typeof(TEffect).GUID, TEffect.Definition.Default),
             document: static (wanted, held) => RenderSettingsSources.Read(held.Doc, scope => State(scope.Settings, wanted.Effect, wanted.Default)),
-            section: static (wanted, held) => IO.lift(() => Listed(held.Host).Find(listed => listed.Id == wanted.Effect).ToFin(Missing(wanted.Effect)))
+            section: static (wanted, held) => IO.lift(() => Listed(held.Host).Find(listed => listed.Id == wanted.Effect).ToFin(Fault.Of(RhinoReason.Missing, wanted.Effect)))
                 .Bind(listed => Recalled(IO.lift(() => {
                     object? value = null;
                     return listed.GetParam(StateKey, ref value) ? Optional(value as string) : None;
@@ -89,7 +89,7 @@ public static class EffectList {
             (Effect: typeof(TEffect).GUID, Text: Encoded(state)),
             document: static (tuned, held) => RenderSettingsSources.Edit(held.Doc, scope => Edit(scope.Settings, [Tuned(tuned.Effect, tuned.Text)])),
             section: static (tuned, held) => SectionModels.Write(held.Host, new ProviderId<IDisposable>(ProviderIds.RdkRenderingPostEffects), _ =>
-                IO.lift(() => Listed(held.Host).Find(listed => listed.Id == tuned.Effect).ToFin(Missing(tuned.Effect)))
+                IO.lift(() => Listed(held.Host).Find(listed => listed.Id == tuned.Effect).ToFin(Fault.Of(RhinoReason.Missing, tuned.Effect)))
                     .Bind(listed => Products.Accepted(() => listed.SetParam(StateKey, tuned.Text)))));
 
     // --- [EDITS]
@@ -113,13 +113,13 @@ public static class EffectList {
         }), $"selected {effect}");
 
     public static Step<PostEffectCollection> Ordered(Seq<Guid> ids) =>
-        new(effects => IO.lift(() => Products.Each(ids, (id, index) => RhinoFault.Unless(effects.MovePostEffectBefore(id, Guid.Empty), RhinoReason.Declined, id, index))).Map(_ => effects),
+        new(effects => IO.lift(() => Products.Each(ids, (id, index) => Fault.Unless(effects.MovePostEffectBefore(id, Guid.Empty), RhinoReason.Declined, id, index))).Map(_ => effects),
             $"ordered {ids}");
 
     public static Step<PostEffectCollection> Tuned<TState>(Guid effect, TState state) where TState : notnull => Tuned(effect, Encoded(state));
 
     private static Step<PostEffectCollection> Tuned(Guid effect, string text) =>
-        new(effects => Found(effects, effect).Bind(data => Products.Accepted(() => data.SetParameter(StateKey, text))).Map(_ => effects), $"tuned {effect}");
+        new(effects => Found(effects, effect).Bind(data => Products.Accepted(() => data.SetParameter(StateKey, text))).Map(_ => effects), effect);
 
     // --- [EXECUTION]
 
@@ -175,7 +175,5 @@ public static class EffectList {
          select value).Bracket();
 
     private static IO<PostEffectData> Found(PostEffectCollection effects, Guid id) =>
-        Products.Many(() => effects, required: false).Bind(static rows => rows.TraverseM(static row => use(IO.pure(row))).As()).Bind(held => IO.lift(held.Find(data => data.Id == id).ToFin(Missing(id))));
-
-    private static RhinoFault Missing(Guid id) => new($"post effect {id}", RhinoReason.Missing);
+        Products.Many(() => effects, required: false).Bind(static rows => rows.TraverseM(static row => use(IO.pure(row))).As()).Bind(held => IO.lift(held.Find(data => data.Id == id).ToFin(Fault.Of(RhinoReason.Missing, id))));
 }

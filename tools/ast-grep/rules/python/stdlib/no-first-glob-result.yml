@@ -53,5 +53,4 @@ rule:
               - has: { field: right, matches: searched }
               - has: { field: body, has: { matches: exit } }
               - not: { has: { field: alternative, kind: else_clause } }
-message: 'Path taken from `$SEARCH` depends on filesystem order'
-note: 'Build the known path directly, or `match` listed results against `case [<path>]`'
+message: 'Path taken from `$SEARCH` depends on filesystem order, build the known path directly or `match` listed results against `case [<path>]`'

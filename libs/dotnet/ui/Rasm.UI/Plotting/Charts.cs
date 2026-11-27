@@ -23,13 +23,13 @@ public sealed record Plotted(Key Key, string Label, Figure Figure) {
     public Option<Vector2> LabelAt { get; init; }
 
     public static Fin<Plotted> Histogram(Key key, string label, Samples samples, Seq<float> edges) =>
-        UIFault.Unless(edges.Count >= 2 && edges.AsIterable().Window(2).All(static pair => pair[0] < pair[1]), UIReason.Order, edges)
+        Fault.Unless(edges.Count >= 2 && edges.AsIterable().Window(2).All(static pair => pair[0] < pair[1]), UIReason.Order, edges)
             .Bind(_ => Binned(samples, edges))
             .Map(figure => new Plotted(key, label, figure));
 
     public static Fin<Plotted> Density(Key key, string label, Samples samples, Factor bandwidth, AxisRange domain, int count) {
         double[] data = [.. samples.Finite.Select(static value => (double)value)];
-        return (UIFault.Unless(count > 1, UIReason.Range, count), UIFault.Unless(data.Length > 0, UIReason.Missing, samples.Values.Length))
+        return (Fault.Unless(count > 1, UIReason.Range, count), Fault.Unless(data.Length > 0, UIReason.Missing, samples.Values.Length))
             .Apply((_, _) => new Plotted(key, label, new Figure.Curve(domain, new Samples(Generate.LinearSpacedMap(count, domain.From, domain.To, at => (float)KernelDensity.EstimateGaussian(at, (float)bandwidth, data)))) {
                 Fill = new Floor.Baseline(0f),
                 Interpolation = Interpolation.Monotone,
@@ -39,7 +39,7 @@ public sealed record Plotted(Key Key, string Label, Figure Figure) {
     public static Fin<Plotted> Regression(Key key, string label, Seq<Vector2> points, int order) {
         double[] across = [.. points.Map(static point => (double)point.X)];
         double[] up = [.. points.Map(static point => (double)point.Y)];
-        return UIFault.Unless(order >= 0 && order < points.Count, UIReason.Range, (order, points.Count))
+        return Fault.Unless(order >= 0 && order < points.Count, UIReason.Range, (order, points.Count))
             .Bind(_ => AxisRange.Validated((float)TensorPrimitives.Min(across), (float)TensorPrimitives.Max(across)))
             .Map(domain => Fit.PolynomialFunc(across, up, order) switch { var fit => new Plotted(key, label, new Figure.Graph(domain, at => (float)fit(at))) });
     }
@@ -78,10 +78,10 @@ public sealed partial class Stacking {
     private static Fin<Seq<Plotted>> Summed(Seq<Plotted> series, Func<Seq<float[]>, Seq<float[]>> transform) =>
         from layers in series.Traverse(static plotted => plotted.Figure.SwitchPartially<Key, Fin<(AxisRange Domain, ReadOnlyMemory<float> Values, Func<Samples, Samples, Figure> Rebuilt)>>(
             plotted.Key,
-            @default: static (key, _) => new UIFault(key, UIReason.Range),
+            @default: static (key, _) => Fault.Of(UIReason.Range, key),
             curve: static (_, curve) => Pure((curve.Domain, curve.Samples.Values, fun((Samples lower, Samples upper) => (Figure)(curve with { Samples = upper, Fill = curve.Fill.Map(_ => (Floor)new Floor.Lower(lower)) })))),
             bars: static (_, bars) => Pure((bars.Domain, bars.Values.Values, fun((Samples lower, Samples upper) => (Figure)(bars with { Values = upper, Floor = new Floor.Lower(lower) })))))).As()
-        from aligned in UIFault.Unless(layers.ForAll(layer => layer.Domain == layers[0].Domain && layer.Values.Length == layers[0].Values.Length), UIReason.Range, layers.Map(static layer => (layer.Domain, layer.Values.Length)))
+        from aligned in Fault.Unless(layers.ForAll(layer => layer.Domain == layers[0].Domain && layer.Values.Length == layers[0].Values.Length), UIReason.Range, layers.Map(static layer => (layer.Domain, layer.Values.Length)))
         let bounds = transform(Sums(layers.Map(static layer => layer.Values)))
         select series.Map((plotted, index) => plotted with { Figure = layers[index].Rebuilt(new Samples(bounds[index]), new Samples(bounds[index + 1])) });
 
@@ -94,7 +94,7 @@ public sealed partial class Stacking {
               let offset = (((held.Index + 0.5f) / series.Count) - 0.5f) * (float)bars.Width * plane.Bandwidth * bars.Values.Slot(bars.Domain)
               from domain in AxisRange.Validated(bars.Domain.From + offset, bars.Domain.To + offset)
               select held.Plotted with { Figure = bars with { Domain = domain, Width = width } }
-            : new UIFault(held.Plotted.Key, UIReason.Range, held.Index)).As();
+            : Fault.Of(UIReason.Range, held.Plotted.Key, held.Index)).As();
 
     private static float[] Combined(float[] sum, ReadOnlySpan<float> values, Combine combine) {
         float[] next = new float[sum.Length];

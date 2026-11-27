@@ -36,7 +36,7 @@ class BeforeAfter(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
 
     def decoded(self, owner: object, key: str) -> Outcome[tuple[NativeTree, NativeTree]]:
         """Decodes before and after trees, accumulating faults of both, absent fault before write finishes."""
-        return paired(_decoded(self.before), option.of_optional(self.after).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(owner), member=f"{key}.after")).bind(_decoded))
+        return paired(_decoded(self.before), option.of_optional(self.after).to_result_with(lambda: Fault.of(Reason.ABSENT, owner, member=f"{key}.after")).bind(_decoded))
 
     def restored(self) -> Outcome[None]:
         """Restores members still at their after values, every before value of an operation that never finished."""
@@ -61,7 +61,7 @@ class BeforeAfter(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
                 before_values = {key: held.values for key, held in before.owners.items()}
                 after_values = {key: held.values for key, held in after.owners.items()}
                 missing = tuple(
-                    Applied(outcome=Error(Fault.of(Reason.ABSENT, repr(struct), member=rna(descriptor.path))))
+                    Applied(outcome=Error(Fault.of(Reason.ABSENT, struct, member=rna(descriptor.path))))
                     for key, values in before_values.items()
                     for name, (target, _) in values.items()
                     if key not in after_values or name not in after_values[key]
@@ -119,7 +119,7 @@ def native(owner: Native, selection: Option[tuple[Descriptor, ...]] = NOTHING, p
         Native tree, refused fault for a removed struct.
     """
     return catch(Capture[NativeValue](owner, partial(_native_read, owner), selection, prior=prior, native=True, inactive=True).tree, exception=ReferenceError)().map_error(
-        partial(Fault.of, Refusal.REFUSED, repr(owner))
+        partial(Fault.of, Refusal.REFUSED, owner)
     )
 
 
@@ -166,12 +166,12 @@ def persisted(tree: NativeTree) -> Outcome[_StoredTree]:
     def member(row: NativeValue) -> Generator[NativeTree, Outcome[_StoredTree], Outcome[tuple[tuple[object, RnaPath], object]]]:
         target, value = row
         if not isinstance(target[0], bpy.types.ID):
-            return Error(Fault.of(Reason.OUTSIDE, repr(target[0]), type(target[0]).__name__, member=bpy.types.ID.__name__))
+            return Error(Fault.of(Reason.OUTSIDE, target[0], type(target[0]).__name__, member=bpy.types.ID))
         match value:
             case bpy.types.ID() | bool() | int() | float() | str() | tuple() | IdName() | None:
                 return Ok((target, value))
             case bpy.types.bpy_struct():
-                return Error(Fault.of(Reason.OUTSIDE, repr(target), type(value).__name__, member=bpy.types.ID.__name__))
+                return Error(Fault.of(Reason.OUTSIDE, target, type(value).__name__, member=bpy.types.ID))
             case tree:
                 return (yield tree).map(lambda held: (target, held))
 
@@ -210,7 +210,7 @@ def _decoded(tree: _StoredTree, *, compound: bool = False) -> Outcome[NativeTree
             case bpy.types.PointerProperty(), bpy.types.ID() | None:
                 return Ok(value)
             case bpy.types.PointerProperty(), _:
-                return Error(Fault.of(Reason.OUTSIDE, subject, type(value).__name__, member=bpy.types.ID.__name__))
+                return Error(Fault.of(Reason.OUTSIDE, subject, type(value).__name__, member=bpy.types.ID))
             case _:
                 return converted_value(value, Value, subject)
 
@@ -228,7 +228,7 @@ def _decoded(tree: _StoredTree, *, compound: bool = False) -> Outcome[NativeTree
                     else struct_at(block, path).bind(lambda struct: Descriptor.resolve(struct, name, bpy.types.Property).to_option())
                 )
             case _:
-                return Error(Fault.of(Reason.OUTSIDE, rna(path), type(block).__name__, member=bpy.types.ID.__name__))
+                return Error(Fault.of(Reason.OUTSIDE, rna(path), type(block).__name__, member=bpy.types.ID))
         for descriptor in found.to_list():
             result = yield from value_of(descriptor, value)
             return result.map(lambda held: Some((key if compound else (block.session_uid, *path), name, ((block, path), held))))

@@ -135,7 +135,7 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
             .split(path)
             .bind(lambda split: owned(split[0]).bind(lambda owner: option.of_optional(try_downcast(bpy.types.Property, owner.properties.get(split[1])))).map(lambda prop: (split, prop)))
             .filter(lambda found: within(found[1], found[0][2]))
-            .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(root), member=rna(path)))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, root, member=rna(path)))
             .bind(lambda found: typed(kind, rna(path), found[1]).map(lambda prop: Descriptor(root=stated, owner=found[0][0], prop=prop, coordinates=found[0][2])))
         )
 
@@ -160,7 +160,7 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
             Holder and descriptor, absent fault for a path naming no member or a holder the host no longer reaches.
         """
         return Descriptor.resolve(root, path, bpy.types.Property).bind(
-            lambda descriptor: struct_at(root, descriptor.owner).map(lambda holder: (holder, descriptor)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(root), member=rna(descriptor.path)))
+            lambda descriptor: struct_at(root, descriptor.owner).map(lambda holder: (holder, descriptor)).to_result_with(lambda: Fault.of(Reason.ABSENT, root, member=rna(descriptor.path)))
         )
 
     @staticmethod
@@ -325,7 +325,7 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
             desired = msgspec.to_builtins(desired) if self.prop.subtype == "BYTE_STRING" else os.fsdecode(desired)
         if isinstance(self.prop, bpy.types.FloatProperty):
             return (
-                converted_value(desired, float | tuple[float, ...], repr(self.prop))
+                converted_value(desired, float | tuple[float, ...], self.prop)
                 .map(lambda number: np.array_equal(np.asarray(held, np.float32).view(np.uint32), np.asarray(number, np.float32).view(np.uint32)))
                 .default_value(value=False)
             )
@@ -353,12 +353,12 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
         def stored() -> Outcome[object]:
             match self.prop, value:
                 case bpy.types.FloatProperty() as real, _:
-                    return converted_value(value, float | tuple[float, ...], repr(real)).bind(partial(self.quantized, real)).map(lambda held: held if held.ndim else float(held))
+                    return converted_value(value, float | tuple[float, ...], real).bind(partial(self.quantized, real)).map(lambda held: held if held.ndim else float(held))
                 case bpy.types.IntProperty() as integer, _:
                     bounded = Annotated[int, self.meta]
-                    return converted_value(value, bounded | tuple[bounded, ...], repr(integer))
+                    return converted_value(value, bounded | tuple[bounded, ...], integer)
                 case bpy.types.StringProperty(subtype="BYTE_STRING") as text, str(encoded):
-                    return converted_value(encoded, bytes, repr(text)).bind(partial(self.validated, text))
+                    return converted_value(encoded, bytes, text).bind(partial(self.validated, text))
                 case bpy.types.StringProperty() as text, str() | bytes() as content:
                     return self.validated(text, content)
                 case _:
@@ -369,7 +369,7 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
                 case bpy.types.EnumProperty(is_enum_flag=True), tuple(chosen):
                     return Ok(set(chosen))
                 case bpy.types.PointerProperty(fixed_type=bpy.types.bpy_struct() as pointed), IdName() as identity:
-                    return subclass(bpy.types.ID, pointed.identifier).bind(lambda kind: identity.resolve(kind).to_result_with(lambda: Fault.of(Reason.ABSENT, kind.__name__, member=identity.name)))
+                    return subclass(bpy.types.ID, pointed.identifier).bind(lambda kind: identity.resolve(kind).to_result_with(lambda: Fault.of(Reason.ABSENT, kind, member=identity.name)))
                 case _:
                     return Ok(stored)
 
@@ -394,15 +394,15 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
         """Returns float32 storage, outside fault outside hard range."""
         return Ok(np.asarray(value, dtype=np.float32)).filter_with(
             lambda target: not np.any((target < prop.hard_min) | (target > prop.hard_max)),
-            lambda _: Fault.of(Reason.OUTSIDE, repr(prop), str(value), member=f"values within hard range [{prop.hard_min}, {prop.hard_max}]"),
+            lambda _: Fault.of(Reason.OUTSIDE, prop, value, member=f"values within hard range [{prop.hard_min}, {prop.hard_max}]"),
         )
 
     @staticmethod
     def validated[T: str | bytes](prop: bpy.types.StringProperty, value: T) -> Outcome[T]:
         """Returns storable value, outside fault for NUL or text past the host's length."""
         encoded = (os.fsencode(value) if prop.subtype in _PATHS else value.encode("utf-8")) if isinstance(value, str) else value
-        text = Ok(value) if prop.subtype == "BYTE_STRING" else converted_value(os.fsdecode(value) if prop.subtype in _PATHS else value, Annotated[str, msgspec.Meta(pattern=r"^[^\x00]*$")], repr(prop))
-        return text.bind(lambda _: converted_value(encoded, Annotated[bytes, msgspec.Meta(max_length=prop.length_max - 1)], repr(prop)) if prop.length_max else Ok(encoded)).map(lambda _: value)
+        text = Ok(value) if prop.subtype == "BYTE_STRING" else converted_value(os.fsdecode(value) if prop.subtype in _PATHS else value, Annotated[str, msgspec.Meta(pattern=r"^[^\x00]*$")], prop)
+        return text.bind(lambda _: converted_value(encoded, Annotated[bytes, msgspec.Meta(max_length=prop.length_max - 1)], prop) if prop.length_max else Ok(encoded)).map(lambda _: value)
 
     def shown(self, value: Value) -> str:
         """Returns enum label or display text of stored value."""
@@ -554,12 +554,12 @@ def sequenced[W](writes: Iterable[tuple[RnaPath, Native, Descriptor, W]]) -> tup
 # --- [CONVERSIONS]
 
 
-def converted_value[T](value: object, kind: TypeForm[T], subject: str) -> Outcome[T]:
+def converted_value[T](value: object, kind: TypeForm[T], subject: object) -> Outcome[T]:
     """Returns value converted to kind, outside fault naming the refused constraint."""
     try:
         held: T = msgspec.convert(value, kind)
     except msgspec.ValidationError as error:
-        return Error(Fault.of(Reason.OUTSIDE, subject, error, member=repr(kind)))
+        return Error(Fault.of(Reason.OUTSIDE, subject, error, member=kind))
     return Ok(held)
 
 

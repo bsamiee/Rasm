@@ -210,7 +210,7 @@ class Save[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
             confirming = self.destinations.is_some() and operator.options.is_invoke and not operator.options.is_repeat and not operator.replacing
             paths = located(operator)
             return (
-                (_present(paths).map_error(partial(Fault.of, Reason.UNREADABLE, repr(paths))) if confirming else Ok(()))
+                (_present(paths).map_error(partial(Fault.of, Reason.UNREADABLE, paths)) if confirming else Ok(()))
                 .map(lambda found: replaced(operator, found) if found else body.chose(operator, context, paths))
                 .default_with(lambda faults: body.noted(operator, rendered(faults), "CANCELLED"))
             )
@@ -285,7 +285,7 @@ def _opened(
     return (
         catch(call, exception=TypeError)(*(arguments[name] for name in names), **keywords)
         .map(lambda answer: set["rna_enums.OperatorReturnItems"](("INTERFACE",)) if answer is None else answer)
-        .map_error(partial(Fault.of, Refusal.REFUSED, repr(call.func)))
+        .map_error(partial(Fault.of, Refusal.REFUSED, call.func))
     )
 
 

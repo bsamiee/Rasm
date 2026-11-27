@@ -24,5 +24,4 @@ rule:
         - has: { field: left, kind: identifier, not: { pattern: __all__ } }
         - has: { field: right, any: [{ matches: empty-literal }, { matches: empty-builtin }, { matches: factory }] }
         - inside: { kind: expression_statement, inside: { kind: module } }
-message: '`$CELL` holds process state in a module cell'
-note: 'Yield state from a scope-owned resource and pass values to reading operations as arguments'
+message: '`$CELL` holds process state in a module cell, yield state from a scope-owned resource and pass values to reading operations as arguments'

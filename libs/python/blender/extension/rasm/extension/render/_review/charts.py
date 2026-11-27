@@ -14,7 +14,6 @@ from rasm.extension.data._ids.images import normalized
 from rasm.extension.data._ids.ownership import Ownership, Saved
 from rasm.extension.data._lifecycle.identity import Identity
 from rasm.extension.data._lifecycle.registration import Acquisitions, Declaration
-from rasm.extension.data._lifecycle.reports import Refusal
 from rasm.extension.data._rna.conditions import Setting
 from rasm.extension.data._rna.paths import root_in
 from rasm.extension.data._rna.properties import enum_choices
@@ -27,7 +26,7 @@ from rasm.extension.ui._drawing.handlers import HandlerRefresh
 from rasm.extension.ui._images.views import framed, image_type, overlaid
 from rasm.extension.ui._resources.theme import Metrics
 from rasm.imaging import ChartPlacement, Colors, converted_colors, converted_image, Homography, ImageFile, PanoramaView, PublishedChart, Quad, rgba
-from rasm.records import Fault, Outcome, paired
+from rasm.records import Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -134,7 +133,7 @@ class Charting(msgspec.Struct, frozen=True, kw_only=True):
                     lambda frame: paired(frame.source(), frame.source_encoding).bind(lambda found: converted_image(config, PyOpenColorIO.ROLE_SCENE_LINEAR, found[0], source=found[1]))
                 ).default_with(
                     lambda: (
-                        Error(Fault.of(Refusal.REQUIRED, repr(image), member="explicit captured file and pass source"))
+                        Error(Fault.of(Reason.UNMET, image, member="explicit captured file and pass source"))
                         if image.type in {"RENDER_RESULT", "COMPOSITING", "MULTILAYER"}
                         else normalized(image, config)
                     )

@@ -231,7 +231,7 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
             valued=Some(lambda descriptor: not isinstance(descriptor.prop, bpy.types.CollectionProperty | bpy.types.PointerProperty) or isinstance(descriptor.prop.fixed_type, bpy.types.ID)),
             inactive=True,
         )
-        captured = (catch(native.tree, exception=ReferenceError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(block))).map(lambda tree: (tree, *references(block, tree))),)
+        captured = (catch(native.tree, exception=ReferenceError)().map_error(partial(Fault.of, Refusal.REFUSED, block)).map(lambda tree: (tree, *references(block, tree))),)
         seed = captured[0].map(
             lambda parts: (
                 Some(

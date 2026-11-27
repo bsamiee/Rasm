@@ -110,7 +110,7 @@ internal static partial class Dispatch {
                     Added(
                         "SunStudy",
                         (from copy in use(() => doc.AnimationProperties)
-                         from window in IO.lift(SunWindow.Read(copy).Bind(static found => found.ToFin(new DarkroomFault("document sun study", DarkroomReason.Missing))))
+                         from window in IO.lift(SunWindow.Read(copy).Bind(static found => found.ToFin(Fault.Of(DarkroomReason.Missing, "document sun study"))))
                          select Seq(QueuePlacement.Active with { Sun = window })).Bracket(),
                         doc, request, kit),
                     OptionSpecs.Of(OptionType.Toggle(LabelPair.OffOn), request.Clay.IsSome, clay => kit.Advance(request with { Clay = clay ? Some(Albedo) : None }), caption: "Clay"),
@@ -119,7 +119,7 @@ internal static partial class Dispatch {
                     OptionSpecs.Of(OptionType.Toggle(LabelPair.NoYes), request.Resume, resume => kit.Advance(request with { Resume = resume })),
                     OptionSpecs.Of(OptionType.Integer(1, None), 1, index => new QueueEdit.Remove(HashSet(index - 1)).Committed(doc).Bind(Shown) >> kit.Advance(request), caption: "Remove"),
                     OptionSpecs.Of(OptionType.Integer(1, None), 1, index =>
-                        QueueState.Read(doc).Bind(state => state.Entries.At(index - 1).ToFin(new DarkroomFault("render queue entry", DarkroomReason.Missing, index)).Match(
+                        QueueState.Read(doc).Bind(state => state.Entries.At(index - 1).ToFin(Fault.Of(DarkroomReason.Missing, "render queue entry", index)).Match(
                             Succ: entry => new QueueEdit.Toggle(index - 1, !entry.Renders).Committed(doc).Bind(Shown) >> kit.Advance(request),
                             Fail: kit.Retry)), caption: "Toggle"),
                     OptionSpecs.Of(
@@ -206,7 +206,7 @@ internal static partial class Dispatch {
          from advertised in IO.liftAsync(environment => client.GetFromJsonAsync(new Uri(farm.Manager, "/api/v3/jobs/types"), FlamencoContext.Default.FlamencoTypes, environment.Token))
          from types in IO.lift(Conversions.Required(advertised))
          let type = Path.GetFileNameWithoutExtension(CompilerFile)
-         from compiled in IO.lift(toSeq(types.JobTypes).Find(job => string.Equals(job.Name, type, StringComparison.Ordinal)).ToFin(new DarkroomFault((FormattableString)$"Flamenco job type {type}", DarkroomReason.Missing)))
+         from compiled in IO.lift(toSeq(types.JobTypes).Find(job => string.Equals(job.Name, type, StringComparison.Ordinal)).ToFin(Fault.Of(DarkroomReason.Missing, type)))
          from submitted in IO.liftAsync(async environment => {
              using JsonContent content = JsonContent.Create(new FlamencoJob(
                  Path.GetFileNameWithoutExtension(copy), type, compiled.Etag, farm.Priority, WorkerPlatform.Current().Key,
@@ -215,11 +215,11 @@ internal static partial class Dispatch {
              return response.StatusCode is HttpStatusCode.OK
                  ? Conversions.Required(await response.Content.ReadFromJsonAsync(FlamencoContext.Default.FlamencoReceipt, environment.Token).ConfigureAwait(false))
                      .Map(receipt => new Uri(farm.Manager, $"/jobs/{receipt.Id:D}"))
-                 : new DarkroomFault((FormattableString)$"Flamenco answering {response.StatusCode}", DarkroomReason.Refused);
+                 : Fault.Of(DarkroomReason.Refused, response.StatusCode);
          })
          from received in IO.lift(submitted)
          select received).Bracket()
-            | @catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Uri>(new DarkroomFault((FormattableString)$"render job post to {farm.Manager}", DarkroomReason.Failed, Inner: error)));
+            | @catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Uri>(Fault.Of(DarkroomReason.Failed, farm.Manager, inner: error)));
 
     // --- [PACKAGES]
 
@@ -273,9 +273,9 @@ internal static partial class Dispatch {
     private static string ParentVariable => ProcessEnvironment.Key(Some(Session.Activities.Name), "RENDER_PARENT");
 
     private static IO<Unit> Job =>
-        from path in IO.lift(static () => Conversions.Present(Environment.GetEnvironmentVariable(JobVariable)).ToFin(new DarkroomFault(JobVariable, DarkroomReason.Missing)))
+        from path in IO.lift(static () => Conversions.Present(Environment.GetEnvironmentVariable(JobVariable)).ToFin(Fault.Of(DarkroomReason.Missing, JobVariable)))
         from parent in IO.lift(Conversions.Present(Environment.GetEnvironmentVariable(ParentVariable))
-            .Traverse(static text => int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int id) ? Fin.Succ(id) : new DarkroomFault(text, DarkroomReason.Invalid)).As())
+            .Traverse(static text => int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int id) ? Fin.Succ(id) : Fault.Of(DarkroomReason.Invalid, text)).As())
         from started in IO.lift(Unit () => ignore(Session.StartOperationAsync($"{nameof(Dispatch)}.{nameof(Job)}", Launched(
             from exited in parent.Traverse(static id =>
                 (from process in use(Products.Of(() => Process.GetProcessById(id)))
@@ -287,7 +287,7 @@ internal static partial class Dispatch {
         select unit;
 
     private static IO<Unit> FarmJob(RhinoDoc doc, RunMode mode) =>
-        from scripted in IO.lift(() => DarkroomFault.Unless(mode is RunMode.Scripted, DarkroomReason.Invalid, mode))
+        from scripted in IO.lift(() => Fault.Unless(mode is RunMode.Scripted, DarkroomReason.Invalid, mode))
         from started in IO.lift(() => ignore(Session.StartOperationAsync($"{nameof(Dispatch)}.{nameof(FarmJob)}",
             from code in Farmed(doc).Map(static _ => 0).Catch(static error => IO.lift(() => Session.Failed(error)).Map(_ => QueueRuns.Stopping(error) ? 2 : 1)).As()
             from flushed in IO.lift(PlugIn.FlushSettingsSavedQueue).OnUiThread()
@@ -296,7 +296,7 @@ internal static partial class Dispatch {
         select unit;
 
     private static IO<Unit> Farmed(RhinoDoc doc) =>
-        (from path in IO.lift(() => Conversions.Present(doc.Path).ToFin(new DarkroomFault(doc.Name, DarkroomReason.Unsaved)).Bind(static saved => InputPath.Of(Path.ChangeExtension(saved, PackageFile.Job.Extension)))).OnUiThread()
+        (from path in IO.lift(() => Conversions.Present(doc.Path).ToFin(Fault.Of(DarkroomReason.Unsaved, doc.Name)).Bind(static saved => InputPath.Of(Path.ChangeExtension(saved, PackageFile.Job.Extension)))).OnUiThread()
          from job in QueueJob.Read(path)
          from record in IO.lift(OutputPath.Of(Path.ChangeExtension(path, ".progress.json")))
          from context in QueueContext.Open

@@ -23,7 +23,7 @@ public sealed record Hierarchy {
     public float Weight { get; }
     public Seq<Hierarchy> Members { get; }
 
-    public static Fin<Hierarchy> Leaf(Key key, float weight) => UIFault.Unless(float.IsFinite(weight) && weight >= 0f, UIReason.Range, weight).Map(_ => new Hierarchy(key, weight, []));
+    public static Fin<Hierarchy> Leaf(Key key, float weight) => Fault.Unless(float.IsFinite(weight) && weight >= 0f, UIReason.Range, weight).Map(_ => new Hierarchy(key, weight, []));
 
     public static Hierarchy Group(Key key, Seq<Hierarchy> members) => new(key, members.Sum(static member => member.Weight), members);
 }
@@ -37,7 +37,7 @@ public sealed record Flow {
     public float Weight { get; }
 
     public static Fin<Flow> Validated(Key key, Key source, Key target, float weight) =>
-        UIFault.Unless(float.IsFinite(weight) && weight >= 0f && source != target, UIReason.Range, (source, target, weight)).Map(_ => new Flow(key, source, target, weight));
+        Fault.Unless(float.IsFinite(weight) && weight >= 0f && source != target, UIReason.Range, (source, target, weight)).Map(_ => new Flow(key, source, target, weight));
 }
 
 public sealed record Arranged(Key Key, Vector2 At, float Weight, Figure Figure);
@@ -81,7 +81,7 @@ public static class Arrangements {
     // --- [HIERARCHIES]
 
     public static Fin<Seq<Arranged>> Treemap(PlotFrame frame, Hierarchy root, float inner = 0f, float outer = 0f) =>
-        UIFault.Unless(float.IsFinite(inner) && float.IsFinite(outer) && inner >= 0f && outer >= 0f, UIReason.Range, (inner, outer)).Map(_ => {
+        Fault.Unless(float.IsFinite(inner) && float.IsFinite(outer) && inner >= 0f && outer >= 0f, UIReason.Range, (inner, outer)).Map(_ => {
             float half = inner / 2f;
             return toSeq(SuperEnumerable.TraverseDepthFirst((Node: root, Rect: frame.Box), held =>
                 Squarified(toSeq(held.Node.Members.Filter(static member => member.Weight > 0f).OrderByDescending(static member => member.Weight)), Deflated(held.Rect, outer - half))
@@ -152,7 +152,7 @@ public static class Arrangements {
         BidirectionalGraph<Key, TaggedEdge<Key, Flow>> graph = flows.Map(static flow => new TaggedEdge<Key, Flow>(flow.Source, flow.Target, flow)).ToBidirectionalGraph<Key, TaggedEdge<Key, Flow>>();
         Seq<Flow> Outgoing(Key key) => toSeq(graph.OutEdges(key)).Map(static edge => edge.Tag);
         Seq<Flow> Incoming(Key key) => toSeq(graph.InEdges(key)).Map(static edge => edge.Tag);
-        return (UIFault.Unless(graph.IsDirectedAcyclicGraph(), UIReason.Order, flows.Count), UIFault.Unless(toHashSet(flows.Map(static flow => flow.Key)).Count == flows.Count, UIReason.Repeated, flows.Count))
+        return (Fault.Unless(graph.IsDirectedAcyclicGraph(), UIReason.Order, flows.Count), Fault.Unless(toHashSet(flows.Map(static flow => flow.Key)).Count == flows.Count, UIReason.Repeated, flows.Count))
             .Apply(static (_, _) => unit).As().Map(_ => {
                 SKRect box = frame.Box;
                 HashMap<Key, int> depths = Ranked(graph);
@@ -203,7 +203,7 @@ public static class Arrangements {
         int count = groups.Count;
         Seq<float> totals = toSeq(matrix.RowSums().Enumerate());
         float total = matrix.Enumerate().Sum();
-        return UIFault.Unless(matrix.RowCount == count && matrix.ColumnCount == count && matrix.ForAll(static cell => float.IsFinite(cell) && cell >= 0f) && total > 0f && count * (float)gap < 1f, UIReason.Range, (count, total, gap))
+        return Fault.Unless(matrix.RowCount == count && matrix.ColumnCount == count && matrix.ForAll(static cell => float.IsFinite(cell) && cell >= 0f) && total > 0f && count * (float)gap < 1f, UIReason.Range, (count, total, gap))
             .Map(_ => {
                 float share = (1f - (count * (float)gap)) / total;
                 Seq<float> starts = totals.Scan(0f, (start, sum) => start + (sum * share) + (float)gap);

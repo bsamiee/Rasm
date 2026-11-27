@@ -38,7 +38,7 @@ public sealed class Lut1D {
     public bool HalfDomain { get; }
 
     public static Fin<Lut1D> From(ReadOnlyMemory<float> rows, Vector3 domainMinimum, Vector3 domainMaximum, bool halfDomain = false) =>
-        (ImagingFault.Unless(rows.Length % 3 is 0 && (halfDomain ? rows.Length == 3 * HalfCodes : rows.Length >= 6), ImagingReason.Miscounted, rows.Length),
+        (Fault.Unless(rows.Length % 3 is 0 && (halfDomain ? rows.Length == 3 * HalfCodes : rows.Length >= 6), ImagingReason.Miscounted, rows.Length),
          halfDomain ? unit : LutTables.Checked(rows.Span, domainMinimum, domainMaximum))
             .Apply((_, _) => new Lut1D(rows.Span, domainMinimum, domainMaximum, halfDomain)).As();
 
@@ -178,7 +178,7 @@ public abstract partial record LutTable {
 
     public sealed record Cube(Lut3D Lattice, LutInterpolation Interpolation) : LutTable {
         public override void Apply(Span<Vector4> row) => Lattice.Apply(MemoryMarshal.Cast<Vector4, float>(row), MemoryMarshal.Cast<Vector4, float>(row), 4, Interpolation);
-        public override Fin<LutTable> Inverse() => ImagingFault.Of(ImagingReason.NoInverse, Lattice.Size);
+        public override Fin<LutTable> Inverse() => Fault.Of(ImagingReason.NoInverse, Lattice.Size);
     }
 
     public sealed record ChannelCurve : LutTable {
@@ -206,8 +206,8 @@ public abstract partial record LutTable {
         public override Fin<LutTable> Inverse() =>
             Inverted
                 ? new ChannelCurve(Table, HueAdjust)
-                : ImagingFault.Unless(!Table.HalfDomain, ImagingReason.Unsupported, Table.HalfDomain)
-                    .Bind(_ => toSeq(Enumerable.Range(0, 3)).Traverse(channel => Monotonic(Table.Channel(channel)).ToFin(ImagingFault.Of(ImagingReason.NoInverse, channel, channel))).As())
+                : Fault.Unless(!Table.HalfDomain, ImagingReason.Unsupported, Table.HalfDomain)
+                    .Bind(_ => toSeq(Enumerable.Range(0, 3)).Traverse(channel => Monotonic(Table.Channel(channel)).ToFin(Fault.Of(ImagingReason.NoInverse, channel, channel))).As())
                     .Map(found => (LutTable)new ChannelCurve(Table, HueAdjust, found));
 
         private float Invert(int channel, float value) {
@@ -238,7 +238,7 @@ public abstract partial record LutTable {
         public override void Apply(Span<Vector4> row) {
             foreach (ref Vector4 pixel in row) pixel = new Vector4(Vector3.Transform(pixel.AsVector3(), Matrix), pixel.W);
         }
-        public override Fin<LutTable> Inverse() => Matrix4x4.Invert(Matrix, out Matrix4x4 inverse) ? new Affine(inverse) : ImagingFault.Of(ImagingReason.NoInverse, Matrix);
+        public override Fin<LutTable> Inverse() => Matrix4x4.Invert(Matrix, out Matrix4x4 inverse) ? new Affine(inverse) : Fault.Of(ImagingReason.NoInverse, Matrix);
     }
 
     public sealed record Range(Option<(float In, float Out)> Minimum, Option<(float In, float Out)> Maximum, bool Clamps = true) : LutTable {
@@ -253,7 +253,7 @@ public abstract partial record LutTable {
             foreach (ref Vector4 pixel in row) pixel = new Vector4(Vector3.Clamp((pixel.AsVector3() * scale) + new Vector3(shift), new Vector3(low), new Vector3(high)), pixel.W);
         }
         public override Fin<LutTable> Inverse() =>
-            ImagingFault.Unless(!(from bottom in Minimum from top in Maximum select bottom.Out == top.Out).IfNone(noneValue: false), ImagingReason.NoInverse, (Minimum, Maximum))
+            Fault.Unless(!(from bottom in Minimum from top in Maximum select bottom.Out == top.Out).IfNone(noneValue: false), ImagingReason.NoInverse, (Minimum, Maximum))
                 .Map(_ => (LutTable)new Range(Minimum.Map(static bound => (bound.Out, bound.In)), Maximum.Map(static bound => (bound.Out, bound.In)), Clamps));
     }
 
@@ -352,11 +352,11 @@ public static class LutTables {
     extension(Lut3D) {
         public static Fin<Lut3D> From(int size, ReadOnlyMemory<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>
             Checked(samples.Span, domainMinimum, domainMaximum).Bind(_ => Try.lift(() => new Lut3D(size, samples.Span, domainMinimum, domainMaximum)).Run()
-                .MapFail(cause => ImagingFault.Of(ImagingReason.Refused, size, inner: cause)));
+                .MapFail(cause => Fault.Of(ImagingReason.Refused, size, inner: cause)));
     }
 
     internal static Fin<Unit> Checked(ReadOnlySpan<float> samples, Vector3 domainMinimum, Vector3 domainMaximum) =>
-        (ImagingFault.Unless(TensorPrimitives.IsFiniteAll(samples), ImagingReason.Range, samples.Length),
-         ImagingFault.Unless(Vector3.AllWhereAllBitsSet(Vector3.IsFinite(domainMinimum) & Vector3.IsFinite(domainMaximum) & Vector3.LessThan(domainMinimum, domainMaximum)), ImagingReason.Degenerate, (domainMinimum, domainMaximum)))
+        (Fault.Unless(TensorPrimitives.IsFiniteAll(samples), ImagingReason.Range, samples.Length),
+         Fault.Unless(Vector3.AllWhereAllBitsSet(Vector3.IsFinite(domainMinimum) & Vector3.IsFinite(domainMaximum) & Vector3.LessThan(domainMinimum, domainMaximum)), ImagingReason.Degenerate, (domainMinimum, domainMaximum)))
             .Apply(static (_, _) => unit).As();
 }

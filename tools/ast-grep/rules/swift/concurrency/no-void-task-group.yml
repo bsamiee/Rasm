@@ -43,5 +43,4 @@ rule:
                                               has:
                                                   field: suffix
                                                   regex: '^\.(addTask|addTaskUnlessCancelled|addImmediateTask|addImmediateTaskUnlessCancelled|cancelAll|isCancelled|isEmpty)$'
-message: '`$SCOPE(of: Void.self)` keeps each finished child in a group its body never iterates'
-note: 'Call `withDiscardingTaskGroup`, or `withThrowingDiscardingTaskGroup` for `withThrowingTaskGroup`'
+message: '`$SCOPE(of: Void.self)` keeps each finished child in a group its body never iterates, call `withDiscardingTaskGroup`, or `withThrowingDiscardingTaskGroup` for `withThrowingTaskGroup`'

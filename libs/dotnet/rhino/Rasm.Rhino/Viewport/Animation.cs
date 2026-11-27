@@ -103,7 +103,7 @@ public static class Animations {
                     .Apply(static (existing, dotted, stem) => new AnimationOutput(existing, dotted, stem))
                     .As()).As(),
          toSeq(AnimationQuality.Items).Find(quality => (quality.RenderFull, quality.RenderPreview) == (held.RenderFull, held.RenderPreview))
-             .ToFin(new RhinoFault($"animation capture (full, preview) = ({held.RenderFull}, {held.RenderPreview})", RhinoReason.Missing)))
+             .ToFin(Fault.Of(RhinoReason.Missing, $"animation capture (full, preview) = ({held.RenderFull}, {held.RenderPreview})")))
             .Apply((output, quality) => new AnimationSequence(kind, held.FrameCount, held.ViewportName, Conversions.Present(held.DisplayMode), output, quality))
             .As();
 }

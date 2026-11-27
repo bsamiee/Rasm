@@ -108,7 +108,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
                 folder = Path(str(Icons.folder(identity)))
                 icon = (
                     Ok(folder / packaged)
-                    .filter_with(lambda file: file.suffix == ".dat" and file.is_file(), lambda _: Fault.of(Reason.ABSENT, str(folder), member=packaged.as_posix()))
+                    .filter_with(lambda file: file.suffix == ".dat" and file.is_file(), lambda _: Fault.of(Reason.ABSENT, folder, member=packaged))
                     .map(lambda file: str(file.with_suffix("")))
                 )
             case str(name):
@@ -162,7 +162,7 @@ def _registered[S](tools: Tools[S], identity: Identity, pointers: tuple[Option[D
                     catch(bpy.utils.register_tool, exception=Exception)(cls, after=after, separator=tools.separator and first, group=tools.group and first)
                     .map(lambda _: stack.callback(bpy.utils.unregister_tool, cls))
                     .map(lambda _: None)
-                    .map_error(partial(Fault.of, Refusal.UNREGISTERED, cls.__name__))
+                    .map_error(partial(Fault.of, Refusal.UNREGISTERED, cls))
                 )
             )
 

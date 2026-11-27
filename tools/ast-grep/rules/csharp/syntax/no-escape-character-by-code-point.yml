@@ -28,5 +28,4 @@ transform:
     STRING: { replace: { source: $CAST, replace: '(?s)^.*ConvertFromUtf32\(.*$', by: '"\e"' } }
     SEQUENCE: { replace: { source: $STRING, replace: '^\\[uUx].*$', by: '\e' } }
 fix: $SEQUENCE
-message: '`$CODE` spells the escape character by its code point'
-note: 'Write `\e`, `''\e''` for a `char` and `"\e"` for a `string`'
+message: '`$CODE` spells the escape character by its code point, write `''\e''` for a `char` and `"\e"` for a `string`'

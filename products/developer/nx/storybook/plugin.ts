@@ -5,7 +5,7 @@ import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, normal
 import { quoteShellArg } from '@nx/devkit/internal';
 import { getRootTsConfigFileName } from '@nx/js';
 import web from '@nx/web/package.json' with { type: 'json' };
-import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, inside, manifested, namedInput, owned, packaged, type Pass, request, run, tokened, type Verbs, within } from '@rasm/nx/inference';
+import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, inside, manifested, namedInput, NxError, owned, packaged, type Pass, request, run, tokened, type Verbs, within } from '@rasm/nx/inference';
 import { Array, Effect, Option, Predicate, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -35,7 +35,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string) {
     const { named, stories, loaded } = yield* request(
         Effect.sync(() => new Worker(new URL(import.meta.resolve('#/worker')), { workerData: [main, workspaceRoot] })),
         Loaded,
-        `${file} does not load as a Storybook main config`,
+        NxError.of({ _tag: 'Unloaded', tool: 'storybook' }, file),
     );
     const local = Option.liftThrowable((url: string) => normalizePath(relative(workspaceRoot, fileURLToPath(url))));
     const imported = Array.getSomes(loaded.map(([, specifier, parent]) => Option.as(Option.filter(local(parent), within), [specifier, parent] as const)));

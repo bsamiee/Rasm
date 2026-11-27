@@ -52,5 +52,4 @@ rule:
         - all:
               - has: { field: left, kind: 'pattern_list, tuple_pattern, list_pattern', pattern: $NAME }
               - has: { field: right, kind: 'expression_list, tuple, list', has: { matches: bound-value } }
-message: '`$NAME` is a sentinel that marks absence by identity'
-note: 'Use `Option[<T>]` with `Nothing`, on fields msgspec decodes `<T> | None` or `UnsetType = UNSET`'
+message: '`$NAME` is a sentinel that marks absence by identity, use `Option[<T>]` with `Nothing`, and `<T> | None` or `UnsetType = UNSET` on fields msgspec decodes'

@@ -125,7 +125,7 @@ internal static class Commands {
     public static IO<(Event Event, Snapshot Snapshot)> Handle(Func<Guid, IO<Seq<Event>>> load, Func<Event, IO<Unit>> save, Debit command) =>
         from _ in IO.lift(Fault.Unless(command.Amount > 0m, Reason.Invalid, command.Amount))
         from history in load(command.EntryId)
-        from snapshot in IO.lift(Entry.Rebuild(history).ToFin(new Fault(command.EntryId, Reason.Missing)))
+        from snapshot in IO.lift(Entry.Rebuild(history).ToFin(Fault.Of(Reason.Missing, command.EntryId)))
         from result in IO.lift(Entry.Debit(snapshot, command))
         from __ in save(result.Event)
         select result;

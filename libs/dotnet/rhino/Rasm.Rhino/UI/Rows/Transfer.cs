@@ -21,7 +21,7 @@ public static class DataTransfer {
         from text in IO.lift(static () => Conversions.Required(Clipboard.Instance.Text))
         from read in IO.lift(ValueSet.Read(text))
         let scoped = read.Scoped(keys)
-        from matched in IO.lift(RhinoFault.Unless(bound.Keys().Exists(scoped.Entries.ContainsKey), RhinoReason.Mismatched, text))
+        from matched in IO.lift(Fault.Unless(bound.Keys().Exists(scoped.Entries.ContainsKey), RhinoReason.Mismatched, text))
         from diff in scope.Commit(bound, scoped)
         select diff;
 

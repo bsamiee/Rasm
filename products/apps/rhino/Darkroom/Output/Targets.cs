@@ -79,9 +79,9 @@ internal sealed partial class TargetFile {
         from beauty in source.Linear
         from channels in source.Channels(target.Position)
         from position in IO.lift(target.Position
-            ? (channels.Find(static held => held.Channel == SavedChannel.Distance).ToFin(new DarkroomFault(nameof(SavedChannel.Distance), DarkroomReason.Missing)),
-               source.Scene.Camera.ToFin(new DarkroomFault("scene camera", DarkroomReason.Missing)),
-               source.Scene.Meters.ToFin(new DarkroomFault("scene meters", DarkroomReason.Missing)))
+            ? (channels.Find(static held => held.Channel == SavedChannel.Distance).ToFin(Fault.Of(DarkroomReason.Missing, nameof(SavedChannel.Distance))),
+               source.Scene.Camera.ToFin(Fault.Of(DarkroomReason.Missing, "scene camera")),
+               source.Scene.Meters.ToFin(Fault.Of(DarkroomReason.Missing, "scene meters")))
                 .Apply((distance, camera, meters) => Seq(reader.Naming.Position(GuideChannel.Depth.Measured(distance.Frame, meters), camera)))
                 .As()
             : Seq<ExrLayer>())
@@ -117,8 +117,6 @@ internal sealed partial class TargetFile {
 
 internal sealed record OutputTarget(TargetFile FileFormat, bool Alpha, OutputDepth ColorDepth, ExrCompression Codec, Option<LayerReader> Reader, bool Position, int Quality) {
     public static OutputTarget Default { get; } = new(TargetFile.Png, Alpha: false, OutputDepth.UInt8, ExrCompression.Zip, Reader: None, Position: false, Quality: 95);
-
-    public Fin<Unit> Encodable => DarkroomFault.Unless(FileFormat.Depths.Exists(depth => depth == ColorDepth), DarkroomReason.Invalid, (FileFormat.Key, ColorDepth.Key));
 
     public OutputTarget Retyped(TargetFile file) => this with { FileFormat = file, ColorDepth = file.Depths.Exists(depth => depth == ColorDepth) ? ColorDepth : file.Depths[0] };
 }

@@ -112,12 +112,12 @@ public abstract partial record Sweep {
             driven: static (at, sweep) => Positioned(at.Tolerances, sweep).Bind(shapes => Railed(sweep.Rail, shapes.Map(static row => row.Shape), at.Sweep.Closed, at.Corners)),
             rails: static (at, sweep) => Paired(sweep.First, sweep.Second, sweep.Shapes, at.Sweep.Closed, at.Corners),
             railsPlaced: static (at, sweep) => Paired(sweep.First, sweep.Second, sweep.Shapes.Map(static row => row.Shape), at.Sweep.Closed, at.Corners),
-            pipe: static (_, _) => IO.fail<SubD>(new RhinoFault(nameof(Pipe), RhinoReason.Unsupported)));
+            pipe: static (_, _) => IO.fail<SubD>(Fault.Of(RhinoReason.Unsupported, nameof(Pipe))));
 
     // --- [LOWERING]
 
     private static IO<Seq<Brep>> Hosted((Sweep Sweep, Tolerances Tolerances) at, Rail rail, Seq<Curve> shapes, Option<Point3d> start, Option<Point3d> end, SweepBlend blend, SweepMiter miter, bool refitRail) =>
-        from host in IO.lift(() => rail.Alignment.Host.ToFin(new RhinoFault(rail.Alignment, RhinoReason.Unsupported)))
+        from host in IO.lift(() => rail.Alignment.Host.ToFin(Fault.Of(RhinoReason.Unsupported, rail.Alignment)))
         let fit = at.Sweep.Fit.Parameters
         from swept in Products.Many(() => Brep.CreateFromSweep(
             rail.Alignment is Alignment.Surface surface ? surface.Trim : rail.Path, shapes, Conversions.Unset(start), Conversions.Unset(end),
@@ -170,7 +170,7 @@ public abstract partial record Sweep {
         select made;
 
     private static Fin<(SweepFrame Frame, Vector3d Normal)> Framed(Rail rail) =>
-        rail.Alignment.Host.Filter(static held => held.Frame is not SweepFrame.AlignWithSurface).ToFin(new RhinoFault(rail.Alignment, RhinoReason.Unsupported));
+        rail.Alignment.Host.Filter(static held => held.Frame is not SweepFrame.AlignWithSurface).ToFin(Fault.Of(RhinoReason.Unsupported, rail.Alignment));
 
     private static IO<Seq<NurbsCurve>> Nurbs(IEnumerable<Curve> shapes) => Products.Many(() => shapes.Select(static shape => shape.ToNurbsCurve()));
 }

@@ -138,7 +138,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def chosen(editor: Editor, tree: bpy.types.NodeTree, node: bpy.types.Node, settings: NodePreviews) -> Outcome[PreviewTarget]:
             return targets(call.identity, editor, tree, settings).bind(
                 lambda found: option.of_optional(next((target for source, _socket, target in found if source == node), None)).to_result_with(
-                    partial(Fault.of, Reason.ABSENT, repr(tree.nodes), member=node.name)
+                    partial(Fault.of, Reason.ABSENT, tree.nodes, member=node.name)
                 )
             )
 
@@ -167,7 +167,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def pruned() -> Outcome[None]:
             return (
                 _thumbnails(identity)
-                .bind(lambda paths: catch(lambda: sorted(paths, key=lambda path: path.stat().st_mtime), exception=OSError)().map_error(partial(Fault.of, Reason.UNREADABLE, str(_folder(identity)))))
+                .bind(lambda paths: catch(lambda: sorted(paths, key=lambda path: path.stat().st_mtime), exception=OSError)().map_error(partial(Fault.of, Reason.UNREADABLE, _folder(identity))))
                 .bind(lambda found: accumulated(removed(path) for path in found[:-limit]))
                 .map(lambda _: None)
             )
@@ -243,7 +243,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 return (
                     NODE_TEXTURES[identity]
                     .stored(key, image.pixels, limit, kept, metadata=number)
-                    .bind(lambda _: catch(os.utime, exception=OSError)(path).map_error(partial(Fault.of, Reason.UNWRITABLE, str(path))))
+                    .bind(lambda _: catch(os.utime, exception=OSError)(path).map_error(partial(Fault.of, Reason.UNWRITABLE, path)))
                     .map(lambda _: None)
                 )
 
@@ -481,7 +481,7 @@ def _thumbnails(identity: Identity) -> Outcome[tuple[Path, ...]]:
     except FileNotFoundError:
         return Ok(())
     except OSError as error:
-        return Error(Fault.of(Reason.UNREADABLE, str(folder), error))
+        return Error(Fault.of(Reason.UNREADABLE, folder, error))
 
 
 def _thumbnail(identity: Identity, key: ContentHash) -> Path:

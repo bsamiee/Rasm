@@ -250,28 +250,34 @@ extension AXUIElement {
         let (wanted, counted, writable): (read: [String], counted: [String], settable: [String]) = answered.contains(acted) ? read.supplementary : ([], [], [])
         let missing: [String] = wanted.filter { attribute in !attributes.contains(attribute) }
         let (extended, added) = missing.isEmpty ? (AXError.success, [:]) : copy(missing, interning: intern)
-        let descriptions: [(String, String)] = read.actions.filter { action in !declaredActions.contains(action) }.compactMap { action in
+        let descriptions: [(answer: AXError, row: (String, String)?)] = read.actions.filter { action in !declaredActions.contains(action) }.map {
+            (action: String) -> (answer: AXError, row: (String, String)?) in
             var text: CFString?
-            return unsafe AXUIElementCopyActionDescription(self, action as CFString, &text) == .success ? (text as String?).map { text in (action, text) } : nil
+            let answer: AXError = unsafe AXUIElementCopyActionDescription(self, action as CFString, &text)
+            return (answer, answer == .success ? (text as String?).map { text in (action, text) } : nil)
         }
-        let counts: [(String, Int)] = counted.compactMap { attribute in
+        let counts: [(answer: AXError, row: (String, Int)?)] = counted.map { (attribute: String) -> (answer: AXError, row: (String, Int)?) in
             var total: CFIndex = 0
-            return unsafe AXUIElementGetAttributeValueCount(self, attribute as CFString, &total) == .success ? (attribute, total) : nil
+            let answer: AXError = unsafe AXUIElementGetAttributeValueCount(self, attribute as CFString, &total)
+            return (answer, answer == .success ? (attribute, total) : nil)
         }
-        let settable: [(String, Bool)] = writable.compactMap { (attribute: String) -> (String, Bool)? in
-            var answer: DarwinBoolean = false
-            return unsafe AXUIElementIsAttributeSettable(self, attribute as CFString, &answer) == .success ? (attribute, answer.boolValue) : nil
+        let settable: [(answer: AXError, row: (String, Bool)?)] = writable.map { (attribute: String) -> (answer: AXError, row: (String, Bool)?) in
+            var held: DarwinBoolean = false
+            let answer: AXError = unsafe AXUIElementIsAttributeSettable(self, attribute as CFString, &held)
+            return (answer, answer == .success ? (attribute, held.boolValue) : nil)
         }
+        let supplementary: [AXError] = descriptions.map(\.answer) + counts.map(\.answer) + settable.map(\.answer)
+        let unanswered: AXError? = supplementary.first { (error: AXError) -> Bool in error == .cannotComplete }
         return (
-            [acted, extended].first { error in !answered.contains(error) } ?? answer,
+            [acted, extended].first { error in !answered.contains(error) } ?? unanswered ?? answer,
             Element(
                 id: id,
                 facts: facts.merging(added) { first, _ in first },
                 actions: read.actions,
                 window: answer == .success && read.role.map(windowRoles.contains) == true ? window : nil,
-                descriptions: Dictionary(descriptions) { first, _ in first },
-                counts: Dictionary(counts) { first, _ in first },
-                settable: Dictionary(settable) { first, _ in first },
+                descriptions: Dictionary(descriptions.compactMap(\.row)) { first, _ in first },
+                counts: Dictionary(counts.compactMap(\.row)) { first, _ in first },
+                settable: Dictionary(settable.compactMap(\.row)) { first, _ in first },
             ),
         )
     }

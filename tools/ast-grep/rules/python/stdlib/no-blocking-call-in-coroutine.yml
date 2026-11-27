@@ -51,5 +51,4 @@ rule:
         - matches: coroutine
         - has: { field: function, pattern: $CALLEE, matches: blocking-callee }
         - has: { field: arguments, pattern: $ARGS }
-message: '`$CALLEE$ARGS` blocks the event loop inside a coroutine'
-note: 'Call `await anyio.<name>(<arguments>)`'
+message: '`$CALLEE$ARGS` blocks the event loop inside a coroutine, call `await anyio.<name>(<arguments>)`'

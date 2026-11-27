@@ -138,7 +138,7 @@ public sealed partial record ViewTransform(ColorEncoding Scene, Seq<Action<Span<
 
     public static Fin<ViewTransform> Photoreceptor(Gamut working, PixelFrame frame, float intensity, Option<float> contrast, float light, float chromatic) =>
         from samples in LuminanceSamples.Gather(frame, working)
-        from mean in frame.Mean(frame.Window).ToFin(ImagingFault.Of(ImagingReason.Empty, frame.Window))
+        from mean in frame.Mean(frame.Window).ToFin(Fault.Of(ImagingReason.Empty, frame.Window))
         let logs = samples.LogStatistics
         let weights = working.Luminance
         let power = contrast.IfNone(() => logs.Maximum == logs.Minimum ? 1f : (float)(0.3d + (0.7d * double.Pow((logs.Maximum - logs.Mean) / (logs.Maximum - logs.Minimum), 1.4d))))
@@ -190,7 +190,7 @@ public sealed record FilmStock(
         Vector3 backlight = Vector3.Transform(Backlight, extension) * float.Exp2(PrintExposure);
         Vector3 cap = Transmitted(backlight * float.Exp2(-NegativeDensity), PrintDensity);
         float black = float.Min(BlackPoint.Match(Some: static point => point / 1000f, None: () => Vector3.Dot(Transmitted(backlight, PrintDensity) / cap, Weights)), 0.999f);
-        Fin<Matrix4x4> inverted = Matrix4x4.Invert(extension, out Matrix4x4 inverse) ? inverse : ImagingFault.Of(ImagingReason.Degenerate, extension);
+        Fin<Matrix4x4> inverted = Matrix4x4.Invert(extension, out Matrix4x4 inverse) ? inverse : Fault.Of(ImagingReason.Degenerate, extension);
         ColorEncoding linear = new(basis, new Transfer.Linear());
         return from back in inverted
                from table in LutSpace.Of(basis, LogCurve.Allocation(-10f, 10f, float.Exp2(-10f))).Bake(80, [ToneCurve.Graded(node => Displayed(node, back))], basis, linear)

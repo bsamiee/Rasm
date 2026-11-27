@@ -258,7 +258,7 @@ Each `Bind` understands only its outer effect, nested effects do not compose dir
 internal static class Stacks {
     public static IO<decimal> Converted(Func<Guid, IO<Option<Account>>> lookup, Guid id, IO<decimal> rate) =>
         from found in lookup(id)
-        from account in IO.lift(found.ToFin(new Fault(id, Reason.Missing)))
+        from account in IO.lift(found.ToFin(Fault.Of(Reason.Missing, id)))
         from factor in rate
         select account.Balance * factor;
     public static IO<Unit> Publish(Func<Task> publish) =>

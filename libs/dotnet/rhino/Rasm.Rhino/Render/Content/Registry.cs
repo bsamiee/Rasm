@@ -38,7 +38,7 @@ public sealed class DefinedContentSerializer(SerializerRow row)
     public override RenderContent? Read(string pathToFile) =>
         Session.Run(
             row.Read.Map(read => OnFile(pathToFile, RhinoReason.Unreadable, Products.Transfer(() => read(pathToFile), static created =>
-                IO.lift(() => RhinoFault.Unless(Contents.RuntimeSerialNumber(created) > 0, RhinoReason.Invalid, created.Id).Map(_ => (RenderContent?)Adopted(created))))))
+                IO.lift(() => Fault.Unless(Contents.RuntimeSerialNumber(created) > 0, RhinoReason.Invalid, created.Id).Map(_ => (RenderContent?)Adopted(created))))))
                 .IfNone(IO.pure<RenderContent?>(value: null)),
             failed: null);
 
@@ -69,5 +69,5 @@ public sealed class DefinedContentSerializer(SerializerRow row)
         return content;
     }
 
-    private static IO<T> OnFile<T>(string path, RhinoReason reason, IO<T> run) => run.MapFail(error => new RhinoFault(path, reason, Inner: error));
+    private static IO<T> OnFile<T>(string path, RhinoReason reason, IO<T> run) => run.MapFail(error => Fault.Of(reason, path, inner: error));
 }

@@ -178,7 +178,7 @@ class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def exported(source: CompletedRender) -> Outcome[Done]:
             return (
                 source.raw
-                .to_result_with(partial(Fault.of, Reason.ABSENT, str(source.file.path), member="raw render source"))
+                .to_result_with(partial(Fault.of, Reason.ABSENT, source.file.path, member="raw render source"))
                 .bind(
                     lambda raw: paired(
                         source.source(view=call.properties.selected_view).bind(
@@ -186,7 +186,7 @@ class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                                 lambda program: converted_image(source.config, PyOpenColorIO.ROLE_INTERCHANGE_SCENE, file, source=program)
                             )
                         ),
-                        option.of_optional(raw.view).to_result_with(partial(Fault.of, Reason.ABSENT, str(source.file.path), member="captured source exposure")),
+                        option.of_optional(raw.view).to_result_with(partial(Fault.of, Reason.ABSENT, source.file.path, member="captured source exposure")),
                         raw.optics,
                         basis(source.config, PyOpenColorIO.ROLE_INTERCHANGE_SCENE),
                     ).bind(lambda facts: LinearRaw(make="Blender", model=bpy.app.version_string, exposure=facts[1].exposure, optics=facts[2]).written(target, facts[0].pixels[..., :3], facts[3]))
@@ -306,7 +306,7 @@ def proxied(image: bpy.types.Image, identity: Identity, downscale: Scaled | Long
         return (
             linear(file, width, height)
             .bind(lambda values: ImageFile(pixels=values, colorspace=file.colorspace, header=file.header).written(target, Storage(depth=depth), {}, config))
-            .bind(lambda _: catch(image.__setitem__, exception=TypeError)(key, str(source)).map_error(partial(Fault.of, Refusal.REFUSED, repr(image))))
+            .bind(lambda _: catch(image.__setitem__, exception=TypeError)(key, str(source)).map_error(partial(Fault.of, Refusal.REFUSED, image)))
             .bind(lambda _: written(image, ("filepath",), str(target)).map(lambda _: str(target)))
         )
 
@@ -323,11 +323,7 @@ def restored(image: bpy.types.Image, identity: Identity) -> Outcome[None]:
     return (
         option
         .of_optional(try_downcast(str, image.get(key)))
-        .map(
-            lambda source: (
-                written(image, ("filepath",), source).bind(lambda _: catch(image.pop, exception=KeyError)(key).map_error(partial(Fault.of, Refusal.REFUSED, repr(image)))).map(lambda _: None)
-            )
-        )
+        .map(lambda source: written(image, ("filepath",), source).bind(lambda _: catch(image.pop, exception=KeyError)(key).map_error(partial(Fault.of, Refusal.REFUSED, image))).map(lambda _: None))
         .default_value(Ok(None))
     )
 

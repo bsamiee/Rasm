@@ -14,7 +14,7 @@ public abstract partial record ProjectionTargets {
     public sealed record OnPlane(Plane Plane, Option<Vector3d> Along) : ProjectionTargets {
         public Fin<Transform> Projection =>
             Along.Match(Some: along => Transform.ProjectAlong(Plane, along), None: () => Transform.PlanarProjection(Plane)) switch {
-                var xform => RhinoFault.Unless(!xform.IsIdentity, RhinoReason.Invalid, Along).Map(_ => xform),
+                var xform => Fault.Unless(!xform.IsIdentity, RhinoReason.Invalid, Along).Map(_ => xform),
             };
     }
 }

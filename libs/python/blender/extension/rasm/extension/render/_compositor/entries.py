@@ -98,7 +98,7 @@ def added_entry(
     Returns:
         `Ok` of the entry, `refused` when the host refuses the entry, and faults of its group, enable, and move writes.
     """
-    created = catch(scene.compositor_effects.new, exception=RuntimeError)(name.default_value(group.name)).map_error(partial(Fault.of, Refusal.REFUSED, repr(scene.compositor_effects)))
+    created = catch(scene.compositor_effects.new, exception=RuntimeError)(name.default_value(group.name)).map_error(partial(Fault.of, Refusal.REFUSED, scene.compositor_effects))
     return tracked(scope, scene.compositor_effects.remove, created).bind(
         lambda entry: (
             accumulated((written(entry, ("node_group",), group), *(enabled.descriptor.write(entry, enabled in enables) for enabled in Enabled)))

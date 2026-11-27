@@ -229,7 +229,7 @@ public static class DisplayModes {
 
     public static Fin<Unit> CopyFrom(DisplayAttributeMaterial slot, Material material) =>
         Conversions.Rows(material.GetTextures()) switch {
-            var textures => Products.Each(textures, static (texture, index) => RhinoFault.Unless(Slotted.Exists(type => type == texture.TextureType), RhinoReason.Unsupported, texture.TextureType, index))
+            var textures => Products.Each(textures, static (texture, index) => Fault.Unless(Slotted.Exists(type => type == texture.TextureType), RhinoReason.Unsupported, texture.TextureType, index))
                 .Bind(_ => Copied(slot, material, textures)),
         };
 
@@ -237,7 +237,7 @@ public static class DisplayModes {
         (slot.Diffuse, slot.Emission, slot.Shine, slot.Transparency, slot.IndexOfRefraction, slot.Reflectivity, slot.DisableLighting) =
             (material.DiffuseColor, material.EmissionColor, material.Shine, material.Transparency, material.IndexOfRefraction, material.Reflectivity, material.DisableLighting);
         return Products.Each(Slotted, (type, index) => textures.Find(texture => texture.TextureType == type).Match(
-            Some: texture => RhinoFault.Unless(slot.SetTexture(texture, type), RhinoReason.Declined, type, index),
+            Some: texture => Fault.Unless(slot.SetTexture(texture, type), RhinoReason.Declined, type, index),
             None: () => ignore(slot.RemoveTexture(type)))).Map(static _ => unit);
     }
 }

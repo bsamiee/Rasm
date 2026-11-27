@@ -172,7 +172,7 @@ class Matched(Case, frozen=True, kw_only=True):
                 .to_optional(),
             )
 
-        return lit().map_error(partial(Fault.of, Reason.FAILED, repr(reading)))
+        return lit().map_error(partial(Fault.of, Reason.FAILED, reading))
 
 
 class PlacedLight(msgspec.Struct, frozen=True, kw_only=True):
@@ -268,7 +268,7 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
             def graded(color: Rgb) -> Outcome[Rgb]:
                 return catch(
                     lambda: msgspec.convert(applied(operation, np.asarray([color], dtype=np.float32))[0].tolist(), type=tuple[Finite, Finite, Finite]), exception=msgspec.ValidationError
-                )().map_error(partial(Fault.of, Reason.FAILED, repr(color)))
+                )().map_error(partial(Fault.of, Reason.FAILED, color))
 
             def light_at(light: Light) -> Outcome[PlacedLight]:
                 return paired(graded(light.color), _scaled((self.irradiance,), light.stops)).map(

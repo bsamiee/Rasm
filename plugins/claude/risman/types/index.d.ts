@@ -2,8 +2,8 @@
 
 declare module 'claude-code' {
     interface PluginState {
-        risman: { waiting: RismanWaiting };
+        risman: { rows: RismanRows };
     }
 }
 
-export type RismanWaiting = Readonly<Record<string, Readonly<Record<string, string>>>>;
+export type RismanRows = Readonly<Record<string, Readonly<Record<string, string>>>>;

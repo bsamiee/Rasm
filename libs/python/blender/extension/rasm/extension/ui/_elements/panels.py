@@ -142,7 +142,7 @@ class Preference(msgspec.Struct, Generic[_G_co], frozen=True, kw_only=True):  # 
             identity
             .preferences(bpy.types.AddonPreferences)
             .to_result_with(lambda: Fault.of(Reason.ABSENT, identity.package, member=self.key))
-            .bind(lambda held: typed(self.form, repr(held), getattr(held, self.key)))
+            .bind(lambda held: typed(self.form, held, getattr(held, self.key)))
         )
 
 

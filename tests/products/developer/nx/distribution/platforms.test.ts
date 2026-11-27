@@ -56,7 +56,7 @@ describe('platforms a host runs on', () => {
         const graph = await workspace.write(files).graph({ createNodes });
 
         await expect(unreal({ users: [], operation: 'build', ...(await targetOptions(Schema.Record(Schema.String, Schema.Unknown), graph, 'Game', 'build--unreal')) }, workspace.context(graph, 'Game', 'build--unreal'))).rejects.toThrow(
-            new RegExp(`^${RegExp.escape(join(workspace.root, 'Game/Game.uproject'))} associates the engine at ${RegExp.escape(join(workspace.root, 'Engine'))}, which holds no Engine/Build/Build\\.version$`, 'u'),
+            new RegExp(`^${RegExp.escape(join(workspace.root, 'Game/Game.uproject'))} associates the engine at ${RegExp.escape(join(workspace.root, 'Engine'))}, which holds no Engine/Build/Build\\.version: PlatformError: NotFound: `, 'u'),
         );
     });
 

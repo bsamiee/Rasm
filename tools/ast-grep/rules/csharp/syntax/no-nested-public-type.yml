@@ -52,5 +52,4 @@ rule:
                                         all:
                                             - has: { field: name, pattern: { context: 'class $BASE;', selector: identifier } }
                                             - has: { kind: base_list, has: { stopBy: end, pattern: $OWNER } }
-message: '`$ACCESS` type `$NAME` nests inside `$OWNER`'
-note: 'Declare the type at file level, union cases stay nested in their base'
+message: '`$ACCESS` type `$NAME` nests inside `$OWNER`, declare it at file level, union cases stay nested in their base'

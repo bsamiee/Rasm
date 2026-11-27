@@ -259,32 +259,20 @@ internal static class Workflow {
 
 ### [04.2]-[ERRORS]
 
-Expected failures are data in return types, and exceptions signal developer defects, initialization failures, or third-party calls a boundary converts with `IO.lift` or `Try.lift`. Each raising package declares an error record retaining rejected values and a typed reason. Optional facts take `Option` fields, findings collected without failing take union cases. Records extend `Expected` with code 0, and `Message` derives every fault's text from its reason and subject in one place. `Unless` returns `Fin`, and `Create(string)` implements `IValidationError`. Call sites pass the rejected value and spell no phrase, and it keeps its call text through `[CallerArgumentExpression]`:
+Expected failures are data in return types, and exceptions signal developer defects, initialization failures, or third-party calls a boundary converts with `IO.lift` or `Try.lift`. Each raising package declares one reason smart enum of its domain reasons, and the shared `Fault<TReason>` record of `Rasm.Telemetry.Api` holds the rejected value as subject, the reason, and optional index and cause. `Message` derives every fault's text from its subject and reason in one place, subject first, and `Create(string)` holds the text a generator states with no reason. `Fault.Of` and `Fault.Unless` infer the reason type, and call sites pass typed values and spell no phrase:
 
 ```csharp
 [SmartEnum]
-public sealed partial class Reason {
-    public static readonly Reason Stated = new("rejected input");
+public sealed partial class Reason : IFaultReason {
     public static readonly Reason Invalid = new("rule violated");
     public static readonly Reason Missing = new("missing");
 
     public string Message { get; }
 }
 
-public sealed record Fault(object? Subject, Reason Reason, Option<int> Index = default, Option<Error> Inner = default)
-    : Expected(Reason.Message, 0, Inner), IValidationError<Fault> {
-    public object? Subject { get; } = Subject;
-    public Reason Reason { get; } = Reason;
-    public Option<int> Index { get; } = Index;
-
-    public override string Message => Index.Match(
-        at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"),
-        () => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject}"));
-
-    public static Fault Create(string message) => new(message, Reason.Stated);
-
-    public static Fin<Unit> Unless<T>(bool flag, Reason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        flag ? unit : new Fault((names, rejected), reason, index);
+internal static class Accounts {
+    public static Fin<Account> Found(Option<Account> found, Guid id) => found.ToFin(Fault.Of(Reason.Missing, id));
+    public static Fin<Unit> Funded(decimal balance, decimal amount) => Fault.Unless(balance >= amount, Reason.Invalid, (balance, amount));
 }
 ```
 

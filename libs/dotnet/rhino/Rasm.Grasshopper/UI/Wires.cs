@@ -115,7 +115,7 @@ public static class Wires {
     private static readonly IO<Unit> Redrawn = IO.lift(static () => Optional(Editor.Instance).Iter(static editor => editor.Canvas.ScheduleRedraw()));
 
     public static IO<Unit> Route<TRoute>() where TRoute : IWireRoute =>
-        from free in IO.lift(static () => RhinoFault.Unless(WireShape.ShapeType is null, RhinoReason.Taken, WireShape.ShapeType))
+        from free in IO.lift(static () => Fault.Unless(WireShape.ShapeType is null, RhinoReason.Taken, WireShape.ShapeType))
         from routed in use(IO.lift(static () => WireShape.ShapeType = typeof(RoutedWire<TRoute>)), static held => IO.lift(() => {
             if (WireShape.ShapeType == held) WireShape.ShapeType = null;
         }) >> Redrawn)

@@ -42,7 +42,7 @@ public sealed partial class Dither {
     public Func<Quantizer, float, PixelPass> Pass { get; }
 
     public static Fin<PixelPass> Posterized(Quantizer levels, float amount, float preserveHue, float cell) =>
-        ImagingFault.Unless(float.IsFinite(cell) && cell > 0f, ImagingReason.Range, cell)
+        Fault.Unless(float.IsFinite(cell) && cell > 0f, ImagingReason.Range, cell)
             .Map(_ => (PixelPass)new PixelPass.Positional((row, x, y) => Quantize<Ordered>(row, x, y, levels, amount, preserveHue, 1f / cell)));
 
     private static PixelPass.Positional Thresholded<T>(Quantizer levels, float amount) where T : struct, IThreshold =>
@@ -108,7 +108,7 @@ public sealed partial class Dither {
         private const string Texture = "HDR_RGBA_4.png";
 
         private static ReadOnlyMemory2D<Vector4> Read() =>
-            Optional(typeof(Dither).Assembly.GetManifestResourceStream(Texture)).ToFin(ImagingFault.Of(ImagingReason.Missing, Texture)).Map(static stream => {
+            Optional(typeof(Dither).Assembly.GetManifestResourceStream(Texture)).ToFin(Fault.Of(ImagingReason.Missing, Texture)).Map(static stream => {
                 const float codes = ushort.MaxValue + 1f;
                 using Stream owned = stream;
                 using Image<RgbaVector> image = Image.Load<RgbaVector>(owned);

@@ -74,7 +74,7 @@ public static class Placements {
 
     public static Func<Canvas, IO<Unit>> Selected(ObjectPlacement placement) =>
         canvas =>
-            from document in IO.lift(() => Conversions.Required(canvas.Document, call: placement.Verb))
+            from document in IO.lift(() => Conversions.Required(canvas.Document, subject: placement.Verb))
             from arranged in Arrange(document, toSeq(document.Objects.SelectedObjects).Map(static item => item.InstanceId), Seq(placement))
             select unit;
 

@@ -101,14 +101,14 @@ public static class Bakes {
     private static Fin<Seq<Guid>> Written(RhinoDoc document, (Seq<(BakeKey Key, GeometryBase Geometry, ObjectAttributes Attributes, Option<Guid> Into)> Writes, Seq<Guid> Deleted, Seq<Guid> Severed) plan) {
         plan.Severed.Iter(id => Optional(document.Objects.FindId(id)).Iter(static found => Severed(found.Attributes.UserDictionary)));
         Seq<bool> deleted = plan.Deleted.Map(id => Optional(document.Objects.FindId(id)).Exists(found => document.Objects.Delete(found, quiet: true, ignoreModes: true))).Strict();
-        return RhinoFault.Unless(deleted.ForAll(static removed => removed), RhinoReason.Declined, plan.Deleted)
+        return Fault.Unless(deleted.ForAll(static removed => removed), RhinoReason.Declined, plan.Deleted)
             .Bind(_ => plan.Writes.TraverseM(write => write.Into.Match(
                 Some: objectId =>
-                    from replaced in RhinoFault.Unless(document.Objects.Replace(objectId, write.Geometry, ignoreModes: true), RhinoReason.Declined, write.Key)
-                    from modified in RhinoFault.Unless(document.Objects.ModifyAttributes(objectId, write.Attributes, quiet: true), RhinoReason.Declined, write.Key)
+                    from replaced in Fault.Unless(document.Objects.Replace(objectId, write.Geometry, ignoreModes: true), RhinoReason.Declined, write.Key)
+                    from modified in Fault.Unless(document.Objects.ModifyAttributes(objectId, write.Attributes, quiet: true), RhinoReason.Declined, write.Key)
                     select objectId,
                 None: () => document.Objects.Add(write.Geometry, write.Attributes) switch {
-                    var added => RhinoFault.Unless(added != Guid.Empty, RhinoReason.Declined, write.Key).Map(_ => added),
+                    var added => Fault.Unless(added != Guid.Empty, RhinoReason.Declined, write.Key).Map(_ => added),
                 }).Map(id => {
                     write.Key.AssignToObject(document.Objects.FindId(id));
                     return id;
@@ -117,11 +117,11 @@ public static class Bakes {
 
     private static Fin<Seq<Guid>> Written(File3dm file, (Seq<(BakeKey Key, GeometryBase Geometry, ObjectAttributes Attributes, Option<Guid> Into)> Writes, Seq<Guid> Deleted, Seq<Guid> Severed) plan) {
         plan.Severed.Iter(id => Optional(file.Objects.FindId(id)).Iter(static found => Severed(found.Attributes.UserDictionary)));
-        return RhinoFault.Unless(file.Objects.Delete(plan.Deleted) == plan.Deleted.Count, RhinoReason.Declined, plan.Deleted)
+        return Fault.Unless(file.Objects.Delete(plan.Deleted) == plan.Deleted.Count, RhinoReason.Declined, plan.Deleted)
             .Bind(_ => plan.Writes.TraverseM(write =>
-                (from deleted in write.Into.Traverse(objectId => RhinoFault.Unless(file.Objects.Delete(objectId), RhinoReason.Declined, write.Key)).As()
+                (from deleted in write.Into.Traverse(objectId => Fault.Unless(file.Objects.Delete(objectId), RhinoReason.Declined, write.Key)).As()
                  let id = file.Objects.Add(write.Geometry, write.Attributes)
-                 from added in RhinoFault.Unless(id != Guid.Empty, RhinoReason.Declined, write.Key)
+                 from added in Fault.Unless(id != Guid.Empty, RhinoReason.Declined, write.Key)
                  select id).Map(id => {
                      write.Key.AssignToObject(file.Objects.FindId(id));
                      return id;

@@ -40,5 +40,4 @@ rule:
                         kind: block
                         inside:
                             matches: { msgspec-struct-frozen-option: { value: { kind: 'true' } } }
-message: '`$SITE` leaves a `msgspec.Struct` record mutable'
-note: 'Declare `frozen=True` with `tuple`, `frozenset`, or `Mapping` fields, and hold changing state in a slotted class owning its release'
+message: '`$SITE` leaves a `msgspec.Struct` record mutable, declare `frozen=True` with `tuple`, `frozenset`, or `Mapping` fields, and hold changing state in a slotted class owning its release'

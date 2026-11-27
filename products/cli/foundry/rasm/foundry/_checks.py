@@ -4,6 +4,7 @@ from enum import auto, StrEnum
 from pathlib import Path
 from typing import override
 lazy from functools import partial
+lazy import shlex
 lazy import subprocess
 
 import msgspec
@@ -60,9 +61,9 @@ def ran(*command: str, check: bool = True) -> Outcome[bytes]:
     try:
         return Ok(subprocess.run(command, capture_output=True, check=check).stdout)
     except OSError as error:
-        return Error(Fault.of(Reason.FAILED, " ".join(command), error))
+        return Error(Fault.of(Reason.FAILED, shlex.join(command), error))
     except subprocess.CalledProcessError as error:
-        return Error(Fault.of(Reason.FAILED, " ".join(command), error.stderr.decode().strip()))
+        return Error(Fault.of(Reason.FAILED, shlex.join(command), error.stderr.decode().strip()))
 
 
 def inspected(paths: tuple[Path, ...], /) -> Outcome[frozendict[Path, tuple[Check, ...]]]:

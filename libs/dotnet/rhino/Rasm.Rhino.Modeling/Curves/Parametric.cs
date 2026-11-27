@@ -21,7 +21,7 @@ public abstract partial record ParametricCurve {
             (Seq(domain.T0) + breaks + Seq(domain.T1)) switch {
                 var joins => Products.Each(toSeq(joins.Window(2, static pair => (Before: pair[0], After: pair[1]))), static (pair, index) => pair.Before < pair.After
                         ? Fin.Succ(unit)
-                        : new RhinoFault(pair, RhinoReason.Outside, index))
+                        : Fault.Of(RhinoReason.Outside, pair, index))
                     .Map(_ => new Function(map, joins)),
             };
     }
@@ -34,7 +34,7 @@ public abstract partial record ParametricCurve {
 
         public static Fin<Involute> Validated(Tolerances tolerances, Curve baseCurve, double start) =>
             (Conversions.Within(baseCurve.Domain, start),
-             CurveEvaluation.Kinks(tolerances, baseCurve, Continuity.G1_continuous) switch { var kinks => RhinoFault.Unless(kinks.IsEmpty, RhinoReason.Invalid, kinks.Count) })
+             CurveEvaluation.Kinks(tolerances, baseCurve, Continuity.G1_continuous) switch { var kinks => Fault.Unless(kinks.IsEmpty, RhinoReason.Invalid, kinks.Count) })
                 .Apply((at, _) => new Involute(baseCurve, at)).As();
     }
 
@@ -43,7 +43,7 @@ public abstract partial record ParametricCurve {
         public Curve Base { get; }
 
         public static Fin<Evolute> Validated(Tolerances tolerances, Curve baseCurve) =>
-            (new Spacing.Inflections().Along(tolerances, baseCurve).Bind(static inflections => RhinoFault.Unless(inflections.IsEmpty, RhinoReason.Invalid, inflections.Count)),
+            (new Spacing.Inflections().Along(tolerances, baseCurve).Bind(static inflections => Fault.Unless(inflections.IsEmpty, RhinoReason.Invalid, inflections.Count)),
              new Spacing.CurvatureMaxima().Along(tolerances, baseCurve),
              new Spacing.Discontinuities(Continuity.G2_continuous).Along(tolerances, baseCurve))
                 .Apply((_, maxima, breaks) => new Evolute(baseCurve, Joined(baseCurve.Domain, (maxima + breaks).Map(static row => row.Parameter)))).As();

@@ -38,16 +38,16 @@ public sealed class CommitTests(Fixtures fixtures) {
     [Fact]
     public async Task FailedCommitUndoesItsWritesKeepsTheBodyErrorAndLeavesNoRecord() {
         RhinoDoc doc = await fixtures.TakeAsync(RhinoHost.Document);
-        RhinoFault refused = new(nameof(FailedCommitUndoesItsWritesKeepsTheBodyErrorAndLeavesNoRecord), RhinoReason.Stated);
+        Fault<RhinoReason> refused = Fault<RhinoReason>.Create(nameof(FailedCommitUndoesItsWritesKeepsTheBodyErrorAndLeavesNoRecord));
         Assert.Same(refused, await Expect<Error>.FailAsync(Commits.Commit(doc, "Add layer", new RedrawPolicy.Silent(), Rows.Add(doc, Layers.Kind, Some("A"), []) >> IO.fail<Layer>(refused)).OnUiThread()));
-        Assert.Equal(RhinoReason.Missing, (await Expect<RhinoFault>.FailAsync(Layers.Resolve(doc, new LayerRef.Path("A")).OnUiThread())).Reason);
+        Assert.Equal(RhinoReason.Missing, (await Expect<Fault<RhinoReason>>.FailAsync(Layers.Resolve(doc, new LayerRef.Path("A")).OnUiThread())).Reason);
         Assert.Empty(await RhinoHost.RunAsync(IO.lift(() => toSeq(doc.GetUndoRecords()).Filter(static record => record.Description is "Add layer").Strict()).OnUiThread()));
     }
 
     [Fact]
     public async Task FailedCommitAfterACommittedOneKeepsTheEarlierRecordAndItsWrite() {
         RhinoDoc doc = await fixtures.TakeAsync(RhinoHost.Document);
-        RhinoFault refused = new(nameof(FailedCommitAfterACommittedOneKeepsTheEarlierRecordAndItsWrite), RhinoReason.Stated);
+        Fault<RhinoReason> refused = Fault<RhinoReason>.Create(nameof(FailedCommitAfterACommittedOneKeepsTheEarlierRecordAndItsWrite));
         Option<uint> kept = (await RhinoHost.RunAsync(Commits.Commit(doc, "Add A", new RedrawPolicy.Silent(), Rows.Add(doc, Layers.Kind, Some("A"), [])).OnUiThread())).Record;
         Assert.Same(refused, await Expect<Error>.FailAsync(Commits.Commit(doc, "Refused", new RedrawPolicy.Silent(), IO.fail<Layer>(refused)).OnUiThread()));
         (Option<uint> newest, bool present) = await RhinoHost.RunAsync(IO.lift(() => (toSeq(doc.GetUndoRecords()).Head.Map(static entry => entry.SerialNumber), doc.Layers.FindByFullPath("A", RhinoMath.UnsetIntIndex) >= 0)).OnUiThread());
@@ -58,10 +58,10 @@ public sealed class CommitTests(Fixtures fixtures) {
     [Fact]
     public async Task CommitInADocumentWithUndoRecordingOffFailsAsUnavailableBeforeWriting() {
         RhinoDoc doc = await fixtures.TakeAsync(RhinoHost.Document);
-        RhinoFault fault = await Expect<RhinoFault>.FailAsync((IO.lift(() => { doc.UndoRecordingEnabled = false; })
+        Fault<RhinoReason> fault = await Expect<Fault<RhinoReason>>.FailAsync((IO.lift(() => { doc.UndoRecordingEnabled = false; })
             >> Commits.Commit(doc, "Add layer", new RedrawPolicy.Silent(), Rows.Add(doc, Layers.Kind, Some("A"), []))).OnUiThread());
         Assert.Equal(RhinoReason.Unavailable, fault.Reason);
-        Assert.Equal(RhinoReason.Missing, (await Expect<RhinoFault>.FailAsync(Layers.Resolve(doc, new LayerRef.Path("A")).OnUiThread())).Reason);
+        Assert.Equal(RhinoReason.Missing, (await Expect<Fault<RhinoReason>>.FailAsync(Layers.Resolve(doc, new LayerRef.Path("A")).OnUiThread())).Reason);
     }
 
     // --- [REDRAW]
@@ -79,9 +79,9 @@ public sealed class CommitTests(Fixtures fixtures) {
     [Fact]
     public async Task SuppressedRedrawIsRestoredAfterTheBodyFails() {
         RhinoDoc doc = await fixtures.TakeAsync(RhinoHost.Document);
-        RhinoFault refused = new(nameof(SuppressedRedrawIsRestoredAfterTheBodyFails), RhinoReason.Stated);
+        Fault<RhinoReason> refused = Fault<RhinoReason>.Create(nameof(SuppressedRedrawIsRestoredAfterTheBodyFails));
         bool prior = await RhinoHost.RunAsync(IO.lift(() => doc.Views.RedrawEnabled).OnUiThread());
-        Assert.Same(refused, await Expect<RhinoFault>.FailAsync(Commits.WithinRedraw(doc, new RedrawPolicy.Suppressed(Deferred: false, RepaintLayers: false), IO.fail<Unit>(refused)).OnUiThread()));
+        Assert.Same(refused, await Expect<Fault<RhinoReason>>.FailAsync(Commits.WithinRedraw(doc, new RedrawPolicy.Suppressed(Deferred: false, RepaintLayers: false), IO.fail<Unit>(refused)).OnUiThread()));
         Assert.Equal(prior, await RhinoHost.RunAsync(IO.lift(() => doc.Views.RedrawEnabled).OnUiThread()));
     }
 }

@@ -249,6 +249,7 @@
         "dependencies": {
           "LanguageExt.Core": "[5.0.0-beta-78, )",
           "NodaTime": "[3.3.7, )",
+          "Rasm.Telemetry.Api": "[0.1.0-alpha.0, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )",
           "UnitsNet": "[6.0.0-pre021, )"
         }
@@ -260,6 +261,7 @@
           "HyperJet": "[0.4.0, )",
           "LanguageExt.Core": "[5.0.0-beta-78, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
+          "Rasm.Telemetry.Api": "[0.1.0-alpha.0, )",
           "SuperLinq": "[6.5.0, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )"
         }
@@ -273,6 +275,7 @@
           "QuikGraph": "[2.5.0, )",
           "QuikGraph.Graphviz": "[2.5.0, )",
           "Rasm.Rhino": "[0.1.0-alpha.0, )",
+          "Rasm.Telemetry.Api": "[0.1.0-alpha.0, )",
           "SuperLinq": "[6.5.0, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )",
           "UUIDNext": "[4.2.4, )",
@@ -326,6 +329,7 @@
           "QuikGraph": "[2.5.0, )",
           "Rasm.Geometry": "[0.1.0-alpha.0, )",
           "Rasm.Rhino": "[0.1.0-alpha.0, )",
+          "Rasm.Telemetry.Api": "[0.1.0-alpha.0, )",
           "Silk.NET.Maths": "[2.23.0, )",
           "SuperLinq": "[6.5.0, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )"
@@ -356,7 +360,8 @@
         "type": "Project",
         "dependencies": {
           "LanguageExt.Core": "[5.0.0-beta-78, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[10.0.15, 11.0.0)"
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.15, 11.0.0)",
+          "Thinktecture.Runtime.Extensions": "[10.6.0, )"
         }
       },
       "rasm.testing": {
@@ -1095,6 +1100,7 @@
         "dependencies": {
           "LanguageExt.Core": "[5.0.0-beta-78, )",
           "NodaTime": "[3.3.7, )",
+          "Rasm.Telemetry.Api": "[0.1.0-alpha.0, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )",
           "UnitsNet": "[6.0.0-pre021, )"
         }
@@ -1106,6 +1112,7 @@
           "HyperJet": "[0.4.0, )",
           "LanguageExt.Core": "[5.0.0-beta-78, )",
           "MathNet.Numerics": "[6.0.0-beta2, )",
+          "Rasm.Telemetry.Api": "[0.1.0-alpha.0, )",
           "SuperLinq": "[6.5.0, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )"
         }
@@ -1119,6 +1126,7 @@
           "QuikGraph": "[2.5.0, )",
           "QuikGraph.Graphviz": "[2.5.0, )",
           "Rasm.Rhino": "[0.1.0-alpha.0, )",
+          "Rasm.Telemetry.Api": "[0.1.0-alpha.0, )",
           "SuperLinq": "[6.5.0, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )",
           "UUIDNext": "[4.2.4, )",
@@ -1172,6 +1180,7 @@
           "QuikGraph": "[2.5.0, )",
           "Rasm.Geometry": "[0.1.0-alpha.0, )",
           "Rasm.Rhino": "[0.1.0-alpha.0, )",
+          "Rasm.Telemetry.Api": "[0.1.0-alpha.0, )",
           "Silk.NET.Maths": "[2.23.0, )",
           "SuperLinq": "[6.5.0, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )"
@@ -1202,7 +1211,8 @@
         "type": "Project",
         "dependencies": {
           "LanguageExt.Core": "[5.0.0-beta-78, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[10.0.15, 11.0.0)"
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.15, 11.0.0)",
+          "Thinktecture.Runtime.Extensions": "[10.6.0, )"
         }
       },
       "rasm.testing": {

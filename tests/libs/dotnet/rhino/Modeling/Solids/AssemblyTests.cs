@@ -21,7 +21,7 @@ public sealed class AssemblyTests {
     [Fact]
     public async Task EdgeNamingAnAbsentVertexFailsAsOutsideAtItsIndex() {
         using LineCurve curve = new(Point3d.Origin, new Point3d(1, 0, 0));
-        RhinoFault fault = await Expect<RhinoFault>.FailAsync(SolidAssembly.Build(new BrepTopology([], [curve], [(Point3d.Origin, None), (new Point3d(1, 0, 0), None)], [new TopologyEdge(0, 0, 5)], [])));
+        Fault<RhinoReason> fault = await Expect<Fault<RhinoReason>>.FailAsync(SolidAssembly.Build(new BrepTopology([], [curve], [(Point3d.Origin, None), (new Point3d(1, 0, 0), None)], [new TopologyEdge(0, 0, 5)], [])));
         Assert.Equal((RhinoReason.Outside, Some(0)), (fault.Reason, fault.Index));
     }
 }

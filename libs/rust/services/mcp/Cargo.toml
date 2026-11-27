@@ -18,7 +18,7 @@ bench   = false
 # --- [FEATURES] -------------------------------------------------------------------------
 
 [features]
-proxy     = ["dep:backon", "dep:bytes", "dep:memchr", "dep:serde_path_to_error", "dep:serde_with", "dep:jiff", "serde_json/raw_value", "tokio-util/time", "rmcp/client"]
+proxy     = ["dep:backon", "dep:bytes", "dep:memchr", "dep:bytesize", "dep:nonempty-collections", "dep:serde_path_to_error", "dep:serde_with", "dep:jiff", "serde_json/raw_value", "tokio-util/time", "rmcp/client"]
 telemetry = ["dep:opentelemetry", "dep:rasm-telemetry"]
 http      = ["rmcp/transport-streamable-http-server"]
 app       = ["dep:arc-swap", "dep:moka", "dep:nonempty-collections", "dep:validated", "dep:derive-where", "dep:bytes", "dep:data-encoding", "dep:serde_path_to_error", "dep:serde_urlencoded", "dep:jsonschema", "dep:form_urlencoded", "dep:matchit", "dep:percent-encoding", "dep:url", "rmcp/elicitation"]
@@ -41,6 +41,7 @@ derive_more                        = { workspace = true }
 itertools                          = { workspace = true }
 bytes                              = { workspace = true, optional = true }
 memchr                             = { workspace = true, optional = true }
+bytesize                           = { workspace = true, optional = true }
 data-encoding                      = { workspace = true, optional = true }
 serde                              = { workspace = true }
 serde_json                         = { workspace = true }

@@ -130,7 +130,7 @@ class _PackReport(BATPackReporter):
     @override
     def on_copy_error(self, src: Path, dest: PurePath, errormsg: str) -> None:
         """Holds a refused copy."""
-        self._faults.extend(Fault.of(Reason.UNWRITABLE, str(dest), errormsg))
+        self._faults.extend(Fault.of(Reason.UNWRITABLE, dest, errormsg))
 
     @override
     def on_rewrite_start(self, blendfile: Path, save_to: Path) -> None:
@@ -143,12 +143,12 @@ class _PackReport(BATPackReporter):
     @override
     def on_rewrite_error(self, blendfile: Path, save_to: Path, errormsg: str) -> None:
         """Holds a refused path rewrite."""
-        self._faults.extend(Fault.of(Reason.UNWRITABLE, str(save_to), errormsg))
+        self._faults.extend(Fault.of(Reason.UNWRITABLE, save_to, errormsg))
 
     @override
     def on_missing_file(self, blendfile: Path, relpath_in_pack: PurePath) -> None:
         """Holds a dependency missing on disk."""
-        self._faults.extend(Fault.of(Reason.ABSENT, str(blendfile.parent), member=blendfile.name))
+        self._faults.extend(Fault.of(Reason.ABSENT, blendfile.parent, member=blendfile.name))
 
 
 class Packing(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -166,7 +166,7 @@ class Packing(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def advanced(self) -> Outcome[Option[Self]]:
         """Runs one pack step, keeping the pack queued while steps remain, else finishing with the pack, or aborting and finishing with the refusal."""
-        match _bat_called(self.packer.step).map_error(partial(Fault.of, Reason.UNREADABLE, str(self.packer.project_root))):
+        match _bat_called(self.packer.step).map_error(partial(Fault.of, Reason.UNREADABLE, self.packer.project_root)):
             case Ok(True):
                 return Ok(Some(self))
             case Ok():
@@ -180,7 +180,7 @@ class Packing(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         """Runs every remaining step in one call, the form a background run takes, aborting at a refusal."""
         return (
             _bat_called(lambda: tuple(iter(self.packer.step, False)))
-            .map_error(partial(Fault.of, Reason.UNREADABLE, str(self.packer.project_root)))
+            .map_error(partial(Fault.of, Reason.UNREADABLE, self.packer.project_root))
             .or_else_with(partial(_released, self.release))
             .map(lambda _: self.pack)
         )
@@ -330,7 +330,7 @@ def pack_started(target: Path | FileTransferProtocol, project: Path, options: Op
         .of_optional(bpy.data.filepath or None)
         .filter(lambda _: not bpy.data.is_dirty)
         .to_result_with(lambda: Fault.of(Refusal.REQUIRED, "saved session file"))
-        .bind(lambda _: _bat_called(packer.start).map_error(partial(Fault.of, Reason.UNREADABLE, str(project))).or_else_with(partial(_released, release)))
+        .bind(lambda _: _bat_called(packer.start).map_error(partial(Fault.of, Reason.UNREADABLE, project)).or_else_with(partial(_released, release)))
         .map(lambda _: Packing(packer=packer, report=report, release=release, finished=finished))
     )
 

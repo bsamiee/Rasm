@@ -32,7 +32,7 @@ internal static partial class Layouts {
     internal static Fin<LayoutNode> Unique(LayoutNode layout, HashMap<Seq<Key>, LayoutNode> prior) =>
         Repeated(layout, prior) switch {
             var repeated when repeated.IsEmpty => layout,
-            var repeated => Error.Many(repeated.Map(static path => (Error)new UIFault(path, UIReason.Repeated))),
+            var repeated => Error.Many(repeated.Map(static path => (Error)Fault.Of(UIReason.Repeated, path))),
         };
 
     internal static SKSize Preferred(LayoutPass pass, LayoutNode layout, SKSize offered) {

@@ -218,9 +218,7 @@ def match_camera_iris(call: Call[Named]) -> Outcome[Answer]:
         camera = option.of_optional(scene.camera).bind(
             lambda held: option.of_optional(try_downcast(bpy.types.Camera, held.data)).bind(lambda data: option.of_optional(data.dof)).map(lambda dof: (held.name, dof))
         )
-        return paired(camera.to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene), member="camera")), defocus.named(call.identity, scene, call.properties.name)).bind(
-            lambda found: copied(*found)
-        )
+        return paired(camera.to_result_with(partial(Fault.of, Reason.ABSENT, scene, member="camera")), defocus.named(call.identity, scene, call.properties.name)).bind(lambda found: copied(*found))
 
     return rooted(bpy.types.Scene, call.context).bind(matched)
 

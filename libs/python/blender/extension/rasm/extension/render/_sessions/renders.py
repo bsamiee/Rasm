@@ -252,7 +252,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     rollback.callback(written, slots, ("active_index",), slots.active_index)
                     match TargetSlot[record.slot]:
                         case TargetSlot.DISPLAYED:
-                            return option.of_optional(slots.active).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(image), member="render_slots.active")).bind(renamed)
+                            return option.of_optional(slots.active).to_result_with(lambda: Fault.of(Reason.ABSENT, image, member="render_slots.active")).bind(renamed)
                         case TargetSlot.NEW:
                             return catch(slots.new, exception=RuntimeError)(name=title).map_error(partial(Fault.of, Refusal.REFUSED, f"{image!r}.render_slots.new")).bind(partial(added, image))
 
@@ -290,7 +290,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             return outcome.or_else_with(lambda faults: paired(Error(faults), bound.restored(day, scene)).map(lambda _: Done()))
 
         def checked(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> Outcome[Done]:
-            return bound.recovery.stored.read(scene).bind(lambda held: Error(Fault.of(Refusal.TAKEN, repr(scene), member=bound.recovery.stored.name)) if held.is_some() else scene_render(scene, layer))
+            return bound.recovery.stored.read(scene).bind(lambda held: Error(Fault.of(Refusal.TAKEN, scene, member=bound.recovery.stored.name)) if held.is_some() else scene_render(scene, layer))
 
         def selected(scene: bpy.types.Scene) -> Outcome[Done]:
             def launched(layer: bpy.types.ViewLayer) -> Outcome[Done]:

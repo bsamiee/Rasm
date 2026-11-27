@@ -136,7 +136,7 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, Exporte
                     option
                     .of_optional(item.export_properties)
                     .map(lambda properties: assigned(properties, {(key,): value for key, value in exporter.values.items()}))
-                    .default_with(lambda: Error(Fault.of(Reason.ABSENT, repr(item), member="export_properties"))),
+                    .default_with(lambda: Error(Fault.of(Reason.ABSENT, item, member="export_properties"))),
                 ).map(lambda _: None)
 
             def replaced() -> Outcome[bpy.types.CollectionExport]:

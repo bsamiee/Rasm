@@ -50,7 +50,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         def merged() -> PyOpenColorIO.Config:
             return reduce(partial(_absorbed, self.merge, None), self.sources, base)
 
-        return called(merged, str(self.sources))
+        return called(merged, self.sources)
 
     def keeping(self, base: PyOpenColorIO.Config, prior: PyOpenColorIO.Config) -> Outcome[Self]:
         """Adds the view transforms an earlier merged config holds that neither `base` nor the build names, in their earlier order, each resolved into the operations its processor runs so no file it read stays referenced.
@@ -177,9 +177,9 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         def merged() -> PyOpenColorIO.Config:
             return PyOpenColorIO.ConfigMergingHelpers.MergeConfigs(self.merge, reduce(partial(_absorbed, self.merge, pathlib.Path()), self.sources, base), rows)
 
-        return paired(called(authored, str(stage)), called(sourced, str(stage))).bind(
+        return paired(called(authored, stage), called(sourced, stage)).bind(
             lambda held: paired(
-                called(merged, str(stage)).bind(lambda request: called(viewed, str(stage), request)),
+                called(merged, stage).bind(lambda request: called(viewed, stage, request)),
                 files_copied((*copies, *held[1])),
                 accumulated(committed(stage / name, text.encode()) for name, text in dict(held[0]).items()),
             ).map(lambda pair: pair[0])
@@ -191,7 +191,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Published path, or `FAILED` and `UNWRITABLE` faults.
         """
-        return committed(path, lambda stage: self.staged(base, stage.parent).bind(lambda config: called(config.archive, str(path), str(stage))))
+        return committed(path, lambda stage: self.staged(base, stage.parent).bind(lambda config: called(config.archive, path, str(stage))))
 
     def installed(self, base: PyOpenColorIO.Config, folder: pathlib.Path) -> Outcome[pathlib.Path]:
         """Replaces `folder` whole with rows merged into `base` and their files.

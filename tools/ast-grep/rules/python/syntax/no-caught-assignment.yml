@@ -70,5 +70,4 @@ rule:
     all:
         - has: { field: body, matches: write-block }
         - has: { matches: swallowing-handler }
-message: '`try` around `$WRITE` discards the error a rejected value raises'
-note: 'Validate values at construction, or return the caught error as a typed failure holding it as cause'
+message: '`try` around `$WRITE` discards the error a rejected value raises, validate values at construction or return the caught error as a typed failure holding it as cause'

@@ -173,8 +173,8 @@ public static class Contours {
         world.Match(
             meters => meters is 0d || pixels is 0d
                 ? Fin.Succ<Func<float, float>>(static _ => 0f)
-                : from view in camera.ToFin(ImagingFault.Of(ImagingReason.Missing, camera))
-                  from step in Footprint(view.Lens).ToFin(ImagingFault.Of(ImagingReason.Degenerate, view.Lens))
+                : from view in camera.ToFin(Fault.Of(ImagingReason.Missing, camera))
+                  from step in Footprint(view.Lens).ToFin(Fault.Of(ImagingReason.Degenerate, view.Lens))
                   select (Func<float, float>)(depth => (float)double.Min(meters / (step.Origin + (depth * step.Direction)).Length(), pixels)),
             () => Fin.Succ<Func<float, float>>(_ => (float)pixels))
         .Map(width => taper.Match(near => depth => width(depth) * near.Scale((float)double.Clamp(near.Near / depth, 0d, 1d)), () => width));

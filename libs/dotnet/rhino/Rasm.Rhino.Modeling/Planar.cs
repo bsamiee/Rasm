@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using NetTopologySuite;
 using NetTopologySuite.Algorithm;
 using NetTopologySuite.Algorithm.Construct;
@@ -19,7 +18,7 @@ public sealed record PlanarRegion {
     public Seq<Curve> Holes { get; }
 
     public static Fin<PlanarRegion> Validated(Curve boundary, Seq<Curve> holes) =>
-        (RhinoFault.Unless(boundary.IsClosed, RhinoReason.Invalid, boundary.IsClosed), Products.Each(holes, static (hole, index) => RhinoFault.Unless(hole.IsClosed, RhinoReason.Invalid, hole.IsClosed, index)))
+        (Fault.Unless(boundary.IsClosed, RhinoReason.Invalid, boundary.IsClosed), Products.Each(holes, static (hole, index) => Fault.Unless(hole.IsClosed, RhinoReason.Invalid, hole.IsClosed, index)))
             .Apply((_, _) => new PlanarRegion(boundary, holes)).As();
 }
 
@@ -34,7 +33,7 @@ public sealed record PlanarGeometry {
 
     public static Fin<PlanarGeometry> Validated(Seq<Point3d> points, Seq<Curve> curves, Seq<PlanarRegion> regions) =>
         (points.Count + curves.Count + regions.Count) switch {
-            var count => RhinoFault.Unless(count > 0, RhinoReason.Missing, count).Map(_ => new PlanarGeometry(points, curves, regions)),
+            var count => Fault.Unless(count > 0, RhinoReason.Missing, count).Map(_ => new PlanarGeometry(points, curves, regions)),
         };
 }
 
@@ -93,7 +92,7 @@ public static class Planar {
     public static IO<(Polyline Boundary, Seq<Polyline> Holes)> ConcaveBoundary(Tolerances tolerances, Plane plane, Seq<Point3d> points, ConcaveCriterion criterion, bool holesAllowed) =>
         Analyzed(
             plane,
-            () => IO.lift(() => RhinoFault.Unless(criterion.Valid, RhinoReason.Outside, criterion).Bind(_ => Products.Each(points, (point, index) => Local(tolerances, plane, point, index)))),
+            () => IO.lift(() => Fault.Unless(criterion.Valid, RhinoReason.Outside, criterion).Bind(_ => Products.Each(points, (point, index) => Local(tolerances, plane, point, index)))),
             coordinates => criterion.Switch(
                 (Plane: plane, Points: Factory.CreateMultiPointFromCoords([.. coordinates]), HolesAllowed: holesAllowed),
                 maximumEdgeLength: static (at, of) => Region(at.Plane, ConcaveHull.ConcaveHullByLength(at.Points, of.Length, at.HolesAllowed)),
@@ -103,10 +102,10 @@ public static class Planar {
     // --- [DIAGRAMS]
 
     public static IO<Seq<(Point3d Site, Polyline Cell)>> Voronoi(Tolerances tolerances, Rectangle3d frame, Seq<Point3d> sites) =>
-        from envelope in IO.lift(() => RhinoFault.Unless(frame.IsValid && frame.Width > 0 && frame.Height > 0, RhinoReason.Invalid, frame).Map(_ => new Envelope(frame.X.Min, frame.X.Max, frame.Y.Min, frame.Y.Max)))
+        from envelope in IO.lift(() => Fault.Unless(frame.IsValid && frame.Width > 0 && frame.Height > 0, RhinoReason.Invalid, frame).Map(_ => new Envelope(frame.X.Min, frame.X.Max, frame.Y.Min, frame.Y.Max)))
         from coordinates in IO.lift(Products.Each(sites, (site, index) =>
             from at in Local(tolerances, frame.Plane, site, index)
-            from covered in RhinoFault.Unless(envelope.Covers(at), RhinoReason.Outside, site, index)
+            from covered in Fault.Unless(envelope.Covers(at), RhinoReason.Outside, site, index)
             select at))
         from diagram in IO.lift(() => {
             VoronoiDiagramBuilder builder = new() { ClipEnvelope = envelope, Tolerance = tolerances.Absolute };
@@ -115,7 +114,7 @@ public static class Planar {
         })
         from cells in IO.lift(Products.Each(toSeq(diagram.Geometries), (cell, index) => cell switch {
             Polygon { UserData: Coordinate site } polygon => Fin.Succ((Site: World(frame.Plane, site), Cell: Ring(frame.Plane, polygon.Shell))),
-            _ => new RhinoFault(cell.GeometryType, RhinoReason.Mismatched, index),
+            _ => Fault.Of(RhinoReason.Mismatched, cell.GeometryType, index),
         }))
         select cells;
 
@@ -124,7 +123,7 @@ public static class Planar {
     private static readonly GeometryFactory Factory = NtsGeometryServices.Instance.CreateGeometryFactory();
 
     private static IO<T> Analyzed<TInput, T>(Plane plane, Func<IO<TInput>> read, Func<TInput, Fin<T>> analysis) =>
-        from valid in IO.lift(() => RhinoFault.Unless(plane.IsValid, RhinoReason.Invalid, plane))
+        from valid in IO.lift(() => Fault.Unless(plane.IsValid, RhinoReason.Invalid, plane))
         from answer in read().Bind(input => IO.lift(analysis(input))).Bracket()
         select answer;
 
@@ -146,14 +145,14 @@ public static class Planar {
         from lines in Products.Of(() => curve.ToPolyline(tolerances.Absolute, tolerances.Angle, 0, 0))
         from vertices in IO.lift(Products.Each(toSeq(lines.ToPolyline()), (vertex, _) => Local(tolerances, plane, vertex, index)))
         from ring in IO.lift(curve.IsClosed switch {
-            true => RhinoFault.Unless(vertices.Count >= 4, RhinoReason.Outside, vertices.Count, index).Map(_ => vertices.Init.Add(vertices[0].Copy())),
+            true => Fault.Unless(vertices.Count >= 4, RhinoReason.Outside, vertices.Count, index).Map(_ => vertices.Init.Add(vertices[0].Copy())),
             false => vertices,
         })
         select ring;
 
     private static Fin<Coordinate> Local(Tolerances tolerances, Plane plane, Point3d point, int index) =>
-        from mapped in RhinoFault.Unless(plane.RemapToPlaneSpace(point, out Point3d local), RhinoReason.Declined, point, index).Map(_ => local)
-        from flat in RhinoFault.Unless(Math.Abs(mapped.Z) <= tolerances.Absolute, RhinoReason.Outside, mapped.Z, index)
+        from mapped in Fault.Unless(plane.RemapToPlaneSpace(point, out Point3d local), RhinoReason.Declined, point, index).Map(_ => local)
+        from flat in Fault.Unless(Math.Abs(mapped.Z) <= tolerances.Absolute, RhinoReason.Outside, mapped.Z, index)
         select new Coordinate(mapped.X, mapped.Y);
 
     private static Point3d World(Plane plane, Coordinate at) => plane.PointAt(at.X, at.Y);
@@ -167,13 +166,13 @@ public static class Planar {
             var line => (Circle: new Circle(new Plane(line.From, plane.XAxis, plane.YAxis), line.Length), RadiusPoint: line.To),
         };
 
-    private static Fin<(Polyline Boundary, Seq<Polyline> Holes)> Region(Plane plane, NetTopologySuite.Geometries.Geometry hull, [CallerArgumentExpression(nameof(hull))] string call = "") =>
+    private static Fin<(Polyline Boundary, Seq<Polyline> Holes)> Region(Plane plane, NetTopologySuite.Geometries.Geometry hull) =>
         hull switch {
             Polygon { IsEmpty: false } polygon => (Boundary: Ring(plane, polygon.Shell), Holes: toSeq(polygon.Holes).Map(hole => Ring(plane, hole)).Strict()),
-            _ => new RhinoFault(call, hull.IsEmpty ? RhinoReason.Missing : RhinoReason.Mismatched),
+            _ => Fault.Of(hull.IsEmpty ? RhinoReason.Missing : RhinoReason.Mismatched, hull.GeometryType),
         };
 
-    private static Fin<PlanarEnclosure> Enclosure(Plane plane, NetTopologySuite.Geometries.Geometry enclosure, [CallerArgumentExpression(nameof(enclosure))] string call = "") =>
+    private static Fin<PlanarEnclosure> Enclosure(Plane plane, NetTopologySuite.Geometries.Geometry enclosure) =>
         enclosure switch {
             Polygon { IsEmpty: false } rectangle => toSeq(rectangle.Shell.Coordinates).Map(at => World(plane, at)) switch {
                 var corners => new Plane(corners[0], corners[1] - corners[0], Vector3d.CrossProduct(plane.ZAxis, corners[1] - corners[0])) switch {
@@ -184,6 +183,6 @@ public static class Planar {
             },
             LineString { NumPoints: 2 } segment => new PlanarEnclosure.Segment(Segment(plane, segment)),
             NetTopologySuite.Geometries.Point { IsEmpty: false } point => new PlanarEnclosure.Single(World(plane, point.Coordinate)),
-            _ => new RhinoFault(call, enclosure.IsEmpty ? RhinoReason.Missing : RhinoReason.Mismatched),
+            _ => Fault.Of(enclosure.IsEmpty ? RhinoReason.Missing : RhinoReason.Mismatched, enclosure.GeometryType),
         };
 }

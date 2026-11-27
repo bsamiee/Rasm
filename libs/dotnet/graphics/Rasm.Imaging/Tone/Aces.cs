@@ -192,9 +192,9 @@ public sealed partial record ViewTransform {
     private static Fin<float> Root(Func<double, double> margin, double lower, double upper, double accuracy) =>
         margin(upper) >= 0d ? (float)upper
         : Brent.TryFindRoot(margin, lower, upper, accuracy, SearchIterations, out double root) ? (float)root
-        : ImagingFault.Of(ImagingReason.Range, (lower, upper));
+        : Fault.Of(ImagingReason.Range, (lower, upper));
 
-    private static Fin<Matrix4x4> Inverted(Matrix4x4 matrix) => Matrix4x4.Invert(matrix, out Matrix4x4 inverse) ? inverse : ImagingFault.Of(ImagingReason.Degenerate, matrix);
+    private static Fin<Matrix4x4> Inverted(Matrix4x4 matrix) => Matrix4x4.Invert(matrix, out Matrix4x4 inverse) ? inverse : Fault.Of(ImagingReason.Degenerate, matrix);
 
     private static Fin<Rendering> Built((Gamut Limit, float Peak) key) =>
         from aabToCone in Inverted(ConeToAab)

@@ -41,10 +41,10 @@ public sealed class LayersTests(Fixtures fixtures) {
     [Fact]
     public async Task ReconcileOfAMalformedLeafFailsAsUnqualifiedBeforeWritingAnyLayer() {
         RhinoDoc doc = await fixtures.TakeAsync(RhinoHost.Document);
-        RhinoFault fault = await Expect<RhinoFault>.FailAsync(
+        Fault<RhinoReason> fault = await Expect<Fault<RhinoReason>>.FailAsync(
             Rows.Reconcile(doc, Layers.Kind, Seq("Good", "").Map(static key => new RowSpec<Layer>(key, [])), Prune.Keep, new RedrawPolicy.Silent()).OnUiThread());
         Assert.Equal((RhinoReason.Unqualified, (object?)""), (fault.Reason, fault.Subject));
-        Assert.Equal(RhinoReason.Missing, (await Expect<RhinoFault>.FailAsync(Layers.Resolve(doc, new LayerRef.Path("Good")).OnUiThread())).Reason);
+        Assert.Equal(RhinoReason.Missing, (await Expect<Fault<RhinoReason>>.FailAsync(Layers.Resolve(doc, new LayerRef.Path("Good")).OnUiThread())).Reason);
     }
 
     // --- [ADDRESSES]
@@ -52,13 +52,13 @@ public sealed class LayersTests(Fixtures fixtures) {
     [Fact]
     public async Task UnknownLayerPathFailsAsMissing() {
         RhinoDoc doc = await fixtures.TakeAsync(RhinoHost.Document);
-        Assert.Equal(RhinoReason.Missing, (await Expect<RhinoFault>.FailAsync(Layers.Resolve(doc, new LayerRef.Path($"Absent{ModelComponent.NamePathSeparator}Layer")).OnUiThread())).Reason);
+        Assert.Equal(RhinoReason.Missing, (await Expect<Fault<RhinoReason>>.FailAsync(Layers.Resolve(doc, new LayerRef.Path($"Absent{ModelComponent.NamePathSeparator}Layer")).OnUiThread())).Reason);
     }
 
     [Fact]
     public async Task LayerLookupByNameFailsAsUnsupported() {
         RhinoDoc doc = await fixtures.TakeAsync(RhinoHost.Document);
-        Assert.Equal(RhinoReason.Unsupported, (await Expect<RhinoFault>.FailAsync(Rows.Find(doc.Layers, new ComponentRef<Layer>.ByName("Default")).OnUiThread())).Reason);
+        Assert.Equal(RhinoReason.Unsupported, (await Expect<Fault<RhinoReason>>.FailAsync(Rows.Find(doc.Layers, new ComponentRef<Layer>.ByName("Default")).OnUiThread())).Reason);
     }
 
     // --- [EDITS]
@@ -110,7 +110,7 @@ public sealed class LayersTests(Fixtures fixtures) {
             from held in Layers.Resolve(doc, new LayerRef.Path("S"))
             from current in Products.Accepted(() => doc.Layers.SetCurrentLayerIndex(held.Index, quiet: true))
             select (held.Id, doc.Objects.AddPoint(Point3d.Origin, new ObjectAttributes { LayerIndex = held.Index }))).OnUiThread());
-        Assert.Equal(RhinoReason.Declined, (await Expect<RhinoFault>.FailAsync(Layers.Merge(doc, new LayerRef.Path("S"), new LayerRef.Path("K"), "Merge", new RedrawPolicy.Silent()).OnUiThread())).Reason);
+        Assert.Equal(RhinoReason.Declined, (await Expect<Fault<RhinoReason>>.FailAsync(Layers.Merge(doc, new LayerRef.Path("S"), new LayerRef.Path("K"), "Merge", new RedrawPolicy.Silent()).OnUiThread())).Reason);
         (Guid onLayer, Guid childParent, int targetObjects, int targetChildren) = await RhinoHost.RunAsync((
             from child in Layers.Resolve(doc, new LayerRef.Path($"S{ModelComponent.NamePathSeparator}C"))
             from target in Layers.Resolve(doc, new LayerRef.Path("K"))
@@ -121,7 +121,7 @@ public sealed class LayersTests(Fixtures fixtures) {
     [Fact]
     public async Task MergeIntoItsOwnChildFailsAsInvalid() {
         RhinoDoc doc = await fixtures.TakeAsync(RhinoHost.Document);
-        Assert.Equal(RhinoReason.Invalid, (await Expect<RhinoFault>.FailAsync((
+        Assert.Equal(RhinoReason.Invalid, (await Expect<Fault<RhinoReason>>.FailAsync((
             Rows.Reconcile(doc, Layers.Kind, Seq(new RowSpec<Layer>($"S{ModelComponent.NamePathSeparator}C", [])), Prune.Keep, new RedrawPolicy.Silent())
             >> Layers.Merge(doc, new LayerRef.Path("S"), new LayerRef.Path($"S{ModelComponent.NamePathSeparator}C"), "Merge", new RedrawPolicy.Silent())).OnUiThread())).Reason);
     }

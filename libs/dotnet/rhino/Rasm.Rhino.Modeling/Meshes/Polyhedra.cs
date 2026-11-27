@@ -49,18 +49,18 @@ public sealed record Hull {
     public Seq<Seq<int>> Facets { get; }
 
     public static Fin<Hull> Validated(Seq<Point3d> points, Seq<Seq<int>> facets) =>
-        Products.Each(facets, (facet, index) => RhinoFault.Unless(facet.Count >= 3 && facet.ForAll(at => at >= 0 && at < points.Count), RhinoReason.Outside, facet.Count, index))
+        Products.Each(facets, (facet, index) => Fault.Unless(facet.Count >= 3 && facet.ForAll(at => at >= 0 && at < points.Count), RhinoReason.Outside, facet.Count, index))
             .Map(_ => new Hull(points, facets));
 
     public Fin<Seq<Point3d>> Poles(Point3d centre, double tolerance) =>
         (Points.Fold(Point3d.Origin, static (sum, point) => sum + point) / Points.Count) switch {
             var inside => Products.Each(Facets, (facet, index) => facet.Map(at => Points[at]).Strict() switch {
                 var corners =>
-                    from fitted in RhinoFault.Unless(Plane.FitPlaneToPoints(corners, out Plane plane) is PlaneFitResult.Success, RhinoReason.Invalid, corners.Count, index).Map(_ => plane)
+                    from fitted in Fault.Unless(Plane.FitPlaneToPoints(corners, out Plane plane) is PlaneFitResult.Success, RhinoReason.Invalid, corners.Count, index).Map(_ => plane)
                     let middle = corners.Fold(Point3d.Origin, static (sum, point) => sum + point) / corners.Count
                     let outward = fitted.ZAxis * double.Sign(fitted.ZAxis * (middle - inside))
                     let distance = outward * (middle - centre)
-                    from clear in RhinoFault.Unless(distance > tolerance, RhinoReason.Outside, distance, index)
+                    from clear in Fault.Unless(distance > tolerance, RhinoReason.Outside, distance, index)
                     select centre + (outward / distance),
             }),
         };

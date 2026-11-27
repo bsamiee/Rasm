@@ -278,7 +278,7 @@ class Tony(CompositorRecord, frozen=True, kw_only=True):
         folder = shell.identity.folder / _TONY_FOLDER
         match (
             Ok(folder / _TONY_CONFIG)
-            .filter_with(Path.is_file, lambda _: Fault.of(Reason.ABSENT, str(folder), member="Tony McMapface tables"))
+            .filter_with(Path.is_file, lambda _: Fault.of(Reason.ABSENT, folder, member="Tony McMapface tables"))
             .bind(lambda path: ConfigBuild(sources=(path,)).absorbed(shell.config))
         ):
             case Ok(config):
@@ -457,7 +457,7 @@ def _contrasted(values: Mapping[Key, Value], stops: float) -> Outcome[float]:
         accumulated(value(values, float, socket) for socket in (_A, _B, _C, _E, _F))
         .filter_with(
             lambda held: white * held[0] * (held[4] - held[3]) + held[1] * (held[2] * held[4] - held[3]) != 0.0,
-            lambda _: Fault.of(Reason.OUTSIDE, path_key(_SCENE_WHITE), str(stops), member="scene white holding nonzero contrast"),
+            lambda _: Fault.of(Reason.OUTSIDE, path_key(_SCENE_WHITE), stops, member="scene white holding nonzero contrast"),
         )
         .map(lambda _: stops)
     )

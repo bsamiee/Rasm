@@ -339,7 +339,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
         return (
             rooted(bpy.types.Scene, context)
             .bind(reached)
-            .bind(lambda scopes: Ok(Plan(moment=moment, scopes=scopes)) if scopes else Error(Fault.of(Reason.ABSENT, repr(context), member=dispatch.scope)))
+            .bind(lambda scopes: Ok(Plan(moment=moment, scopes=scopes)) if scopes else Error(Fault.of(Reason.ABSENT, context, member=dispatch.scope)))
             .bind(lambda plan: revising.map(lambda revise: revise(self.identity, plan)).default_value(Ok(plan)))
         )
 
@@ -369,7 +369,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
             case (Sent(queue=queue, target=LocalMachine() as target), progress, beat):
                 return Ok(LocalRun(queue=queue, target=target, progress=progress, beat=beat))
             case _:
-                return Error(Fault.of(Reason.ABSENT, repr(self.queued), member=RunFile.PROGRESS))
+                return Error(Fault.of(Reason.ABSENT, self.queued, member=RunFile.PROGRESS))
 
     def ticked(self) -> Outcome[bool]:
         """Refreshes progress, clears successful run files, logs recorded preparation refusals, and reports recordless preparation exits, answering whether a run remains pending."""
@@ -423,7 +423,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
 
 def scene_of(name: str) -> Outcome[bpy.types.Scene]:
     """Returns the scene a planned scope or job names, absent fault once it is gone."""
-    return catch(lambda: bpy.data.scenes[name], exception=KeyError)().map_error(partial(Fault.of, Reason.ABSENT, repr(bpy.data.scenes), member=name))
+    return catch(lambda: bpy.data.scenes[name], exception=KeyError)().map_error(partial(Fault.of, Reason.ABSENT, bpy.data.scenes, member=name))
 
 
 def ranged(scene: bpy.types.Scene) -> Frames:

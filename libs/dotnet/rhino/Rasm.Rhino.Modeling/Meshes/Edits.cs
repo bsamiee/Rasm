@@ -33,7 +33,7 @@ public abstract partial record FacePatch {
             from held in IO.lift(() =>
                 from corners in Products.Each(Corners, static (vertex, at) => vertex.ComponentIndexType is ComponentIndexType.MeshVertex or ComponentIndexType.MeshTopologyVertex
                     ? Fin.Succ(vertex)
-                    : new RhinoFault(vertex.ComponentIndexType, RhinoReason.Mismatched, at))
+                    : Fault.Of(RhinoReason.Mismatched, vertex.ComponentIndexType, at))
                 from components in mesh.Within(corners + Edges.Map(static edge => new ComponentIndex(ComponentIndexType.MeshTopologyEdge, edge)))
                 select components)
             from patched in Products.Accepted(() => mesh.PatchSingleFace(held))

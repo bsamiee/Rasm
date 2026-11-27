@@ -159,8 +159,8 @@ class PreviewLighting(msgspec.Struct, frozen=True, kw_only=True):
                     .bind(
                         lambda preferences: (
                             catch(lambda: preferences.studio_lights[name], exception=KeyError)()
-                            .map_error(partial(Fault.of, Reason.ABSENT, repr(preferences.studio_lights), member=name))
-                            .filter_with(lambda light: light.type == "WORLD", lambda _: Fault.of(Reason.ABSENT, repr(preferences.studio_lights), member=name))
+                            .map_error(partial(Fault.of, Reason.ABSENT, preferences.studio_lights, member=name))
+                            .filter_with(lambda light: light.type == "WORLD", lambda _: Fault.of(Reason.ABSENT, preferences.studio_lights, member=name))
                             .map(lambda light: light.path)
                         )
                     )
@@ -285,7 +285,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
         )
         previewed = accumulated(
             Descriptor.resolve(bpy.types.Scene, preview, bpy.types.Property).bind(
-                lambda held: struct_at(scene, held.owner).map(lambda owner: (final, held.read(owner))).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(scene), member=rna(held.owner)))
+                lambda held: struct_at(scene, held.owner).map(lambda owner: (final, held.read(owner))).to_result_with(lambda: Fault.of(Reason.ABSENT, scene, member=rna(held.owner)))
             )
             for final, preview in samples.to_list()
         )
@@ -350,7 +350,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
         release = ExitStack()
 
         def undone(request: object, step: Callable[[], object]) -> None:
-            release.callback(_released, identity, lambda: catch(step, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(request))))
+            release.callback(_released, identity, lambda: catch(step, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, request)))
 
         def lit(light: bpy.types.Object, data: bpy.types.Light) -> Outcome[None]:
             def relit() -> None:
@@ -380,12 +380,8 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                 undone(subject, lambda: scene.collection.objects.unlink(subject))
 
             return accumulated((
-                *(catch(shown, exception=RuntimeError)(shape, item, mesh).map_error(partial(Fault.of, Refusal.REFUSED, repr(item))) for shape, (item, mesh) in shapes),
-                *(
-                    catch(linked, exception=RuntimeError)(subject).map_error(partial(Fault.of, Refusal.REFUSED, repr(scene)))
-                    for subject in (staging.viewpoint,)
-                    if isinstance(subject, bpy.types.Object)
-                ),
+                *(catch(shown, exception=RuntimeError)(shape, item, mesh).map_error(partial(Fault.of, Refusal.REFUSED, item)) for shape, (item, mesh) in shapes),
+                *(catch(linked, exception=RuntimeError)(subject).map_error(partial(Fault.of, Refusal.REFUSED, scene)) for subject in (staging.viewpoint,) if isinstance(subject, bpy.types.Object)),
             )).map(lambda _: None)
 
         def aimed(scene: bpy.types.Scene, camera: bpy.types.Object, data: bpy.types.Camera) -> Outcome[None]:
@@ -547,7 +543,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
         match source.resolve():
             case Ok(scene):
                 held = {entry.name: entry for entry in scene.compositor_effects}
-                return accumulated(option.of_optional(held.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=name)) for name in entries).bind(
+                return accumulated(option.of_optional(held.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, scene.compositor_effects, member=name)) for name in entries).bind(
                     lambda chosen: self.sampled(identity, scene, chosen, pixels)
                 )
             case Error(faults):
@@ -583,7 +579,7 @@ def _released(identity: Identity, step: Callable[[], Outcome[object]]) -> None:
 
 def _unlinked(paths: Mapping[_Capture, Path]) -> Outcome[None]:
     """Deletes capture files a render writes, absent ones included."""
-    return accumulated(catch(path.unlink, exception=OSError)(missing_ok=True).map_error(partial(Fault.of, Reason.UNWRITABLE, str(path))) for path in paths.values()).map(lambda _: None)
+    return accumulated(catch(path.unlink, exception=OSError)(missing_ok=True).map_error(partial(Fault.of, Reason.UNWRITABLE, path)) for path in paths.values()).map(lambda _: None)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

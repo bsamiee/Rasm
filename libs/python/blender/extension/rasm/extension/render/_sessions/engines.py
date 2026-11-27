@@ -121,7 +121,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
             failed = (
                 _written(engine, layer.name, self.render(scene, layer))
                 if isinstance(scene, bpy.types.Scene) and isinstance(layer, bpy.types.ViewLayer)
-                else Fault.of(Reason.ABSENT, repr(depsgraph), member=bpy.types.ViewLayer.__name__)
+                else Fault.of(Reason.ABSENT, depsgraph, member=bpy.types.ViewLayer)
             )
             for _, text in rendered(failed):
                 engine.report({"ERROR"}, text)
@@ -195,7 +195,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
 
 def _written(engine: bpy.types.RenderEngine, layer: str, tiles: Iterable[Outcome[Tile]]) -> tuple[Fault, ...]:
     """Writes tiles into a view layer's results until cancellation or first fault, planes top row first into their registered pass and view, returning the faults that stopped it."""
-    absent, area = Fault.of(Reason.ABSENT, repr(engine), member=bpy.types.RenderResult.__name__), 0
+    absent, area = Fault.of(Reason.ABSENT, engine, member=bpy.types.RenderResult), 0
     if (final := engine.get_result()) is None:
         return absent
     for answer in takewhile(lambda _: not engine.test_break(), tiles):
@@ -210,7 +210,7 @@ def _written(engine: bpy.types.RenderEngine, layer: str, tiles: Iterable[Outcome
                     return absent
                 try:
                     filled = accumulated(
-                        Error(Fault.of(Reason.ABSENT, repr(result), member=pass_.name))
+                        Error(Fault.of(Reason.ABSENT, result, member=pass_.name))
                         if found is None
                         else catch(found.rect.foreach_set, exception=TypeError)(plane[-result.resolution_y :, : result.resolution_x][::-1].ravel()).map_error(
                             partial(Fault.of, Reason.INVALID, pass_.name)

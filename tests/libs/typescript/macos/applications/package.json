@@ -9,7 +9,6 @@
         "@effect/vitest": "catalog:",
         "@rasm/applications": "workspace:*",
         "@rasm/database": "workspace:*",
-        "@rasm/mcp": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
         "vitest": "catalog:"

@@ -84,7 +84,7 @@ public static class NamedSelections {
             select new NamedWrite(Saved(doc, entry.Name, held.Bind(static row => row.Objects).Distinct().Strict(), held.Bind(static row => row.SubObjects).Distinct().Strict()), IO.pure(unit)),
         Hold = static (doc, _) => ObjectTarget.Selection(doc).Map(held => new NamedWrite(Reverted(doc, held), IO.pure(unit))),
         Accepts = Some<Func<StateName, Fin<Unit>>>(static name =>
-            RhinoFault.Unless(!((string)name).Contains("::", StringComparison.Ordinal) && !((string)name).Contains(Quote, StringComparison.Ordinal), RhinoReason.Invalid, (string)name)),
+            Fault.Unless(!((string)name).Contains("::", StringComparison.Ordinal) && !((string)name).Contains(Quote, StringComparison.Ordinal), RhinoReason.Invalid, (string)name)),
         Members = Some<Func<RhinoDoc, NamedEntry, IO<Seq<Guid>>>>(static (doc, entry) => Found(doc, entry.Name).Map(static rows => rows.Bind(static row => row.Objects).Distinct().Strict())),
     };
 

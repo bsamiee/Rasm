@@ -242,7 +242,7 @@ public static class Appearance {
     // --- [DENSITY]
 
     public static Seq<IO<IO<Unit>>> IconSizes(int stripHeight, int glyph, int row) =>
-        IO.lift(() => RhinoFault.Unless(int.IsEvenInteger(row - glyph), RhinoReason.Outside, (row, glyph))) switch {
+        IO.lift(() => Fault.Unless(int.IsEvenInteger(row - glyph), RhinoReason.Outside, (row, glyph))) switch {
             var even => (even >> Products.Scoped(static () => ItemPadding(owner: null).Height)).Map(inset => stripHeight - (2 * inset)) switch {
                 var tab => Seq(
                     even >> ButtonPadding.Swap((row - glyph) / 2),

@@ -86,7 +86,7 @@ public static class Links {
 
     public static IO<Unit> Relink(RhinoDoc doc, InstanceDefinition definition, InputPath path, bool relative) =>
         (from folder in IO.lift(() => relative
-             ? Conversions.Present(doc.Path).Bind(static held => Optional(Path.GetDirectoryName(held))).ToFin(new RhinoFault(doc.Name, RhinoReason.Unqualified)).Map(Some)
+             ? Conversions.Present(doc.Path).Bind(static held => Optional(Path.GetDirectoryName(held))).ToFin(Fault.Of(RhinoReason.Unqualified, doc.Name)).Map(Some)
              : Option<string>.None)
          from reference in use(Products.Of(() => FileReference.CreateFromFullAndRelativePaths(path, folder.Map(held => Path.GetRelativePath(held, path)).ValueUnsafe())))
          from modified in Products.Accepted(() => doc.InstanceDefinitions.ModifySourceArchive(definition.Index, reference, definition.UpdateType, definition.LayerStyle, quiet: true))

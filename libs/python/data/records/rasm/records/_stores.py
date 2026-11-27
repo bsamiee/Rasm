@@ -65,7 +65,7 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         """
         held = self.decoder
         decode = partial(msgspec.toml.decode, type=held.type, strict=held.strict, dec_hook=held.dec_hook) if self.path.suffix == ".toml" else held.decode
-        return read(self.path).bind(lambda data: catch(decode, exception=msgspec.DecodeError)(data).map_error(partial(Fault.of, Reason.INVALID, str(self.path))))
+        return read(self.path).bind(lambda data: catch(decode, exception=msgspec.DecodeError)(data).map_error(partial(Fault.of, Reason.INVALID, self.path)))
 
     def found(self) -> Outcome[Option[T]]:
         """Decodes and validates the record a present file holds.
@@ -115,14 +115,14 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
 def read(path: Path, /) -> Outcome[bytes]:
     """Reads one file's bytes, `UNREADABLE` fault for a failed read."""
-    return catch(Path.read_bytes, exception=OSError)(path).map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
+    return catch(Path.read_bytes, exception=OSError)(path).map_error(partial(Fault.of, Reason.UNREADABLE, path))
 
 
 # --- [WRITES]
 
 
 def _written(act: Callable[[Path], object], path: Path, /) -> Outcome[Path]:
-    return catch(act, exception=OSError)(path).map(lambda _: path).map_error(partial(Fault.of, Reason.UNWRITABLE, str(path)))
+    return catch(act, exception=OSError)(path).map(lambda _: path).map_error(partial(Fault.of, Reason.UNWRITABLE, path))
 
 
 folder_made: Final = partial(_written, partial(Path.mkdir, parents=True, exist_ok=True))
@@ -184,7 +184,7 @@ def committed(path: Path, write: bytes | Callable[[Path], Outcome[object]], /, *
     Returns:
         Ok(path), writer faults, or `UNWRITABLE` fault for folder creation or replacement. A held folder leaves for the stage folder by two renames, renamed back when the second fails.
     """
-    unwritable = partial(Fault.of, Reason.UNWRITABLE, str(path))
+    unwritable = partial(Fault.of, Reason.UNWRITABLE, path)
 
     def replaced(parent: Path) -> Outcome[Path]:
         try:

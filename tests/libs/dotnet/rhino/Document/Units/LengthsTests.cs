@@ -51,11 +51,11 @@ public sealed class LengthsTests {
             Fin<Tolerances> validated = Tolerances.Validated(absolute, relative, angle);
             Assert.Equal(
                 double.IsFinite(absolute) && absolute > 0d && relative > 0d && relative < 1d && angle > 0d && angle <= Math.PI
-                    ? Right<RhinoReason, (double, double, double)>((absolute, relative, angle))
-                    : Left<RhinoReason, (double, double, double)>(RhinoReason.Outside),
+                    ? Right<Option<RhinoReason>, (double, double, double)>((absolute, relative, angle))
+                    : Left<Option<RhinoReason>, (double, double, double)>(RhinoReason.Outside),
                 validated.Match(
-                    Succ: static held => Right<RhinoReason, (double, double, double)>((held.Absolute, held.Relative, held.Angle)),
-                    Fail: _ => Left<RhinoReason, (double, double, double)>(Expect<RhinoFault>.Failed(validated).Reason)));
+                    Succ: static held => Right<Option<RhinoReason>, (double, double, double)>((held.Absolute, held.Relative, held.Angle)),
+                    Fail: _ => Left<Option<RhinoReason>, (double, double, double)>(Expect<Fault<RhinoReason>>.Failed(validated).Reason)));
         }, iter: 10_000);
 
     [Fact]
@@ -64,11 +64,11 @@ public sealed class LengthsTests {
             Fin<UnitsAndTolerances> validated = UnitsAndTolerances.Validated(LengthUnit.Millimeters, ModelGrid.Model, display, precision);
             Assert.Equal(
                 Enum.IsDefined(display) && precision is >= 0 and <= 8
-                    ? Right<RhinoReason, (DistanceDisplayMode, int)>((display, precision))
-                    : Left<RhinoReason, (DistanceDisplayMode, int)>(RhinoReason.Outside),
+                    ? Right<Option<RhinoReason>, (DistanceDisplayMode, int)>((display, precision))
+                    : Left<Option<RhinoReason>, (DistanceDisplayMode, int)>(RhinoReason.Outside),
                 validated.Match(
-                    Succ: static held => Right<RhinoReason, (DistanceDisplayMode, int)>((held.Display, held.Precision)),
-                    Fail: _ => Left<RhinoReason, (DistanceDisplayMode, int)>(Expect<RhinoFault>.Failed(validated).Reason)));
+                    Succ: static held => Right<Option<RhinoReason>, (DistanceDisplayMode, int)>((held.Display, held.Precision)),
+                    Fail: _ => Left<Option<RhinoReason>, (DistanceDisplayMode, int)>(Expect<Fault<RhinoReason>>.Failed(validated).Reason)));
         }, iter: 10_000);
 
     // --- [QUANTITIES]

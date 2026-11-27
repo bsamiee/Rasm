@@ -8,14 +8,15 @@ use bytes::Bytes;
 use futures::future::OptionFuture;
 use futures::{SinkExt, StreamExt as _};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
+use rmcp::ErrorData;
 use serde_json::value::RawValue;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::time::Instant;
 use tokio_util::codec::{BytesCodec, FramedRead, FramedWrite};
 use tokio_util::sync::CancellationToken;
 
-use super::jsonrpc::{Line, Lines};
-use super::{Lifecycle, Link};
+use super::jsonrpc::{Line, Lines, decode};
+use super::{Cause, Exit, Lifecycle, Link};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -25,14 +26,14 @@ enum Probe {
     Unsent,
     Pending,
     Answered(Box<RawValue>),
-    Refused(String),
+    Refused(Option<ErrorData>),
 }
 
 #[derive(Debug)]
 pub(super) enum Next {
     Link(Lifecycle, Box<RawValue>),
     Probe(Lifecycle),
-    Halt(String),
+    Halt(Cause),
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -52,7 +53,9 @@ impl Negotiation {
     }
 
     pub(super) fn answered(&mut self, lifecycle: Lifecycle, result: Option<&RawValue>, refused: Option<&RawValue>) -> Option<Next> {
-        let answer = result.map_or_else(|| Probe::Refused(refused.map_or("no result", RawValue::get).to_owned()), |result| Probe::Answered(result.to_owned()));
+        let stated =
+            refused.and_then(|refused| decode::<ErrorData>(refused.get().as_bytes()).inspect_err(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "server error unreadable")).ok());
+        let answer = result.map_or(Probe::Refused(stated), |result| Probe::Answered(result.to_owned()));
         match lifecycle {
             Lifecycle::Discover => self.discover = answer,
             Lifecycle::Initialize => self.initialize = answer,
@@ -62,7 +65,7 @@ impl Negotiation {
             (Probe::Answered(handshake), Probe::Unsent | Probe::Refused(_)) => Some(Next::Link(Lifecycle::Discover, handshake.clone())),
             (Probe::Refused(_), Probe::Unsent) => Some(Next::Probe(Lifecycle::Initialize)),
             (Probe::Unsent, Probe::Refused(_)) => Some(Next::Probe(Lifecycle::Discover)),
-            (Probe::Refused(discover), Probe::Refused(initialize)) => Some(Next::Halt(format!("server refused server/discover ({discover}) and initialize ({initialize})"))),
+            (Probe::Refused(discover), Probe::Refused(initialize)) => Some(Next::Halt(Cause::Refused { discover: discover.clone(), initialize: initialize.clone() })),
             (Probe::Unsent | Probe::Pending | Probe::Answered(_) | Probe::Refused(_), Probe::Pending) | (Probe::Pending, Probe::Unsent | Probe::Refused(_)) | (Probe::Unsent, Probe::Unsent) => None,
         }
     }
@@ -74,7 +77,7 @@ impl Negotiation {
 
 #[derive(Debug, derive_more::IsVariant)]
 enum Stage {
-    Handshake(Negotiation),
+    Handshake(Box<Negotiation>),
     Ready,
 }
 
@@ -104,8 +107,8 @@ impl<R, W, C> Live<R, W, C> {
 pub(super) enum Wake<R, W, C> {
     Line(Option<io::Result<Line>>),
     Failed(io::Error),
-    Closed(String),
-    Connected(#[debug(skip)] io::Result<Link<R, W, C>>, CancellationToken, Instant),
+    Closed(Exit),
+    Connected(#[debug(skip)] Result<Link<R, W, C>, Exit>, CancellationToken, Instant),
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -130,10 +133,10 @@ pub(super) enum Upstream<A, R, W, C> {
 
 impl<A, R, W, C> Upstream<A, R, W, C>
 where
-    A: Future<Output = io::Result<Link<R, W, C>>>,
+    A: Future<Output = Result<Link<R, W, C>, Exit>>,
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
-    C: Future<Output = String>,
+    C: Future<Output = Exit>,
 {
     // --- [LIFECYCLE]
 
@@ -142,7 +145,7 @@ where
     pub(super) fn link(link: Link<R, W, C>, limit: usize, stop: CancellationToken, started: Instant) -> Self {
         let Link { reader, writer, closed } = link;
         let (lines, writer) = (FramedRead::new(reader, Lines::new(limit)), FramedWrite::new(writer, BytesCodec::new()));
-        Self::Up(Box::new(Live { lines, writer, closed: Box::pin(closed), stop, started, stage: Stage::Handshake(Negotiation::default()) }))
+        Self::Up(Box::new(Live { lines, writer, closed: Box::pin(closed), stop, started, stage: Stage::Handshake(Box::default()) }))
     }
 
     pub(super) async fn next(&mut self) -> Wake<R, W, C> {
@@ -179,7 +182,7 @@ where
         };
     }
 
-    pub(super) async fn close(self) -> Option<String> {
+    pub(super) async fn close(self) -> Option<Exit> {
         match self {
             Self::Up(open) => Some(open.ended().await),
             Self::Ending { closed } => Some(closed.await),
@@ -206,7 +209,7 @@ where
 
     pub(super) fn negotiation(&mut self) -> Option<&mut Negotiation> {
         match self.writable().map(|open| &mut open.stage) {
-            Some(Stage::Handshake(negotiation)) => Some(negotiation),
+            Some(Stage::Handshake(negotiation)) => Some(&mut **negotiation),
             Some(Stage::Ready) | None => None,
         }
     }

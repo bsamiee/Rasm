@@ -79,7 +79,7 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
                 choice
                 .bind(lambda pair: pair[0].colorspace(config))
                 .map(PyOpenColorIO.ColorSpace.getName)
-                .to_result_with(lambda: Fault.of(Reason.ABSENT, config.getName() or repr(config), member=f"display encoding {display}"))
+                .to_result_with(lambda: Fault.of(Reason.ABSENT, config.getName() or config, member=f"display encoding {display}"))
             )
         )
 
@@ -110,7 +110,7 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
             built.setLinearCC(PyOpenColorIO.MatrixTransform.Scale([2.0**self.exposure] * 3 + [1.0]))
         if self.gamma != 1.0:
             built.setDisplayCC(PyOpenColorIO.ExponentTransform([self.inverse_gamma] * 3 + [1.0]))
-        return called(built.getProcessor, repr(self), config)
+        return called(built.getProcessor, self, config)
 
     def form(self, config: PyOpenColorIO.Config, values: npt.NDArray[np.float32], source: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[npt.NDArray[np.float32]]:
         """Returns associated display colors of associated `values` in `source`."""
@@ -118,9 +118,9 @@ class DisplayView(msgspec.Struct, frozen=True, kw_only=True):
 
     def image(self, config: PyOpenColorIO.Config, values: npt.NDArray[np.float32], source: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[ImageFile]:
         """Returns associated `values` in `source` formed into an image tagged with the view colorspace."""
-        return paired(
-            self.form(config, values, source), self.colorspace(config).to_result_with(lambda: Fault.of(Reason.ABSENT, config.getName() or repr(config), member=f"{self.display}/{self.view}"))
-        ).map(lambda found: ImageFile(pixels=found[0], colorspace=found[1].getName()))
+        return paired(self.form(config, values, source), self.colorspace(config).to_result_with(lambda: Fault.of(Reason.ABSENT, config.getName() or config, member=f"{self.display}/{self.view}"))).map(
+            lambda found: ImageFile(pixels=found[0], colorspace=found[1].getName())
+        )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -173,7 +173,7 @@ def lin_to_log() -> PyOpenColorIO.LogCameraTransform:
 # --- [BUILDS]
 
 
-def called[**P, T](call: Callable[P, T], subject: str, *args: P.args, **kwargs: P.kwargs) -> Outcome[T]:
+def called[**P, T](call: Callable[P, T], subject: object, *args: P.args, **kwargs: P.kwargs) -> Outcome[T]:
     """Returns the value of one OCIO call, or `FAILED` fault naming `subject` for either OCIO exception class."""
     try:
         return Ok(call(*args, **kwargs))
@@ -183,7 +183,7 @@ def called[**P, T](call: Callable[P, T], subject: str, *args: P.args, **kwargs: 
 
 def processor(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> Outcome[PyOpenColorIO.Processor]:
     """Returns processor, or `FAILED` fault."""
-    return called(config.getProcessor, type(transform).__name__, transform)
+    return called(config.getProcessor, type(transform), transform)
 
 
 def converted(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, values: npt.NDArray[np.float32]) -> Outcome[npt.NDArray[np.float32]]:

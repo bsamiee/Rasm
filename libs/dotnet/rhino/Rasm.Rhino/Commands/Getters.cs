@@ -181,9 +181,9 @@ public static class Getters {
         from result in get
         from answer in routes.Find(route => route.Result == result).Map(static route => route.Then).IfNone(() => IO.fail<T>(result switch {
             GetResult.Cancel or GetResult.Timeout => Errors.Cancelled,
-            GetResult.Nothing => new RhinoFault(prompt, RhinoReason.Nothing),
-            GetResult.ExitRhino => new RhinoFault(prompt, RhinoReason.Exited),
-            _ => new RhinoFault((prompt, result), RhinoReason.Declined),
+            GetResult.Nothing => Fault.Of(RhinoReason.Nothing, prompt),
+            GetResult.ExitRhino => Fault.Of(RhinoReason.Exited, prompt),
+            _ => Fault.Of(RhinoReason.Declined, (prompt, result)),
         }))
         select answer;
 
@@ -251,7 +251,7 @@ public static class Getters {
         where TGetter : GetPoint =>
         Run(
             create,
-            request.Handlers.IsEmpty ? request : request with { Accept = request.Accept with { Message = request.Accept.Message | Some<Func<object, IO<T>>>(static value => IO.fail<T>(new RhinoFault(value.GetType(), RhinoReason.Mismatched))) } },
+            request.Handlers.IsEmpty ? request : request with { Accept = request.Accept with { Message = request.Accept.Message | Some<Func<object, IO<T>>>(static value => IO.fail<T>(Fault.Of(RhinoReason.Mismatched, value.GetType()))) } },
             doc,
             getter =>
                 from handlers in request.Handlers.TraverseM(handler => handler.Attach(getter)).As()

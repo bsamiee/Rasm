@@ -26,7 +26,7 @@ const execute = executor(Upgrade, function* ({ commands, cwd, dryRun }, context)
         commands,
         ({ apply, preview, env = {} }) =>
             Option.match(dry ? Option.fromUndefinedOr(preview) : Option.some(apply), {
-                onNone: () => Effect.logInfo(`Would run ${CommandLine.display(apply)}`),
+                onNone: () => Effect.annotateLogs(Effect.logInfo('skipped'), { command: CommandLine.display(apply), dry }),
                 onSome: (argv) => spawned(argv, { cwd: path.join(context.root, cwd), env, stdout: 'inherit', stderr: 'inherit' }),
             }),
         { discard: true },

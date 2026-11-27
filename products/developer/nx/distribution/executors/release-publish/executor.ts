@@ -32,7 +32,7 @@ const execute = executor(Publish, function* ({ credential, dryRun, __unparsed__:
         onEmpty: () => new Cause.UnknownError(outputs, `${project}: no host package sits under ${outputs.join(', ')}, the outputs ${target} depends on; run its dependencies first`),
         onNonEmpty: Effect.forEach((row) => (dry ? Effect.logInfo(`Would publish ${row.found.at} to ${row.store} through ${row.command}`) : pushed(row)), { discard: true }),
     });
-    yield* dry ? delivered : Effect.flatMap(released(context), Option.match({ onNone: () => Effect.logInfo(`Skipped ${project}: HEAD holds no tag of ${project}, so nx release released no version of it at this commit`), onSome: () => delivered }));
+    yield* dry ? delivered : Effect.when(delivered, Effect.map(released(context), Option.isSome));
     return { success: true };
 });
 

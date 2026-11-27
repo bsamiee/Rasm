@@ -126,13 +126,13 @@ class Recombined(Case, frozen=True, kw_only=True):
         sockets = {name: render.at(identifier, bpy.types.NodeSocketColor) for name, identifier in offered.items()}
 
         def socket(name: str) -> Outcome[Expr]:
-            return option.of_optional(sockets.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(tuple(offered)), member=name))
+            return option.of_optional(sockets.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, tuple(offered), member=name))
 
         def gained(source: Expr, key: Key) -> Expr:
             return source * (math("POWER", 2.0, outer(item_key(key, _GAIN.key))) * outer(key))
 
         def total(terms: tuple[Expr, ...], requested: Key) -> Outcome[Expr]:
-            return Ok(sum(terms[1:], terms[0])) if terms else Error(Fault.of(Reason.ABSENT, repr(tuple(offered)), member=requested))
+            return Ok(sum(terms[1:], terms[0])) if terms else Error(Fault.of(Reason.ABSENT, tuple(offered), member=requested))
 
         def finished(terms: tuple[tuple[Key, Expr, Option[Family]], ...], combined: Callable[[Mapping[Key, Expr]], Outcome[Expr]]) -> Outcome[Expr]:
             picked = filtered.map(lambda term: {key: term(key, source, family, render) for key, source, family in terms}).default_with(lambda: {key: source for key, source, _ in terms})

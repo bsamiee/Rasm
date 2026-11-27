@@ -9,5 +9,4 @@ rule:
               kind: lambda_literal
               stopBy: { kind: 'lambda_literal, function_declaration' }
               inside: { kind: call_suffix, inside: { kind: call_expression, has: { nthChild: 1, kind: simple_identifier, regex: '^defer$' } } }
-message: '`$TASK` in `defer` starts cleanup that outlives the scope it cleans up'
-note: 'Await cleanup in the `defer` body, inside `withTaskCancellationShield` when it must finish after cancellation'
+message: '`$TASK` in `defer` starts cleanup that outlives the scope it cleans up, await cleanup in the `defer` body, inside `withTaskCancellationShield` when it must finish after cancellation'

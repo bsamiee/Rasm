@@ -36,7 +36,7 @@ public sealed class Subtraction : Component<Subtraction>, IComponentDefinition<S
         return access =>
             from a in minuend(access)
             from b in subtrahend(access)
-            from kept in RhinoFault.Unless(a >= b, RhinoReason.Invalid, b)
+            from kept in Fault.Unless(a >= b, RhinoReason.Invalid, b)
             select difference(access, a - b);
     }
 
@@ -76,11 +76,11 @@ public sealed class ComponentTests {
     public Task SubtrahendAboveItsMinuendFailsTheSolutionWithTheFullComponentMessage() =>
         Gen.Int[-1_000_000, 1_000_000].Select(Gen.Int[1, 1_000_000]).SampleAsync(static async (minuend, excess) => {
             double subtrahend = (minuend + excess) * ModelGrid.Model.Absolute;
-            RhinoFault fault = await Expect<RhinoFault>.FailAsync(
+            Fault<RhinoReason> fault = await Expect<Fault<RhinoReason>>.FailAsync(
                 Subtraction.Placed([minuend * ModelGrid.Model.Absolute], [subtrahend]).Bind(static placed => Solutions.Run(placed.Document, SolutionMode.Headless)).Bracket());
             Assert.Equal(RhinoReason.Unfinished, fault.Reason);
             Assert.Equal(
-                [string.Create(CultureInfo.InvariantCulture, $"{RhinoReason.Unfinished.Message}: {nameof(Subtraction)}: {RhinoReason.Invalid.Message}: b = {subtrahend}")],
+                [string.Create(CultureInfo.InvariantCulture, $"({nameof(Subtraction)}, {subtrahend} {RhinoReason.Invalid.Message}) {RhinoReason.Unfinished.Message}")],
                 fault.Inner.ToSeq().Bind(static inner => inner.AsIterable().ToSeq()).Map(static leaf => leaf.Message));
         });
 
@@ -92,7 +92,7 @@ public sealed class ComponentTests {
 
     [Fact]
     public async Task IdentityWithoutAnOwnerFailsAsMissing() =>
-        Assert.Equal(RhinoReason.Missing, (await Expect<RhinoFault>.FailAsync(IO.lift(static () => new ValueParameter<double>().CustomIoId).OnUiThread())).Reason);
+        Assert.Equal(RhinoReason.Missing, (await Expect<Fault<RhinoReason>>.FailAsync(IO.lift(static () => new ValueParameter<double>().CustomIoId).OnUiThread())).Reason);
 
     // --- [GENERATORS]
 

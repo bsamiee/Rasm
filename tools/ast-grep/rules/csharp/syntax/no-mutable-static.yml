@@ -19,5 +19,4 @@ rule:
               - not: { has: { kind: modifier, regex: '^abstract$' } }
               - has: { field: name, pattern: { context: 'class $NAME;', selector: identifier } }
               - has: { kind: accessor_list, has: { kind: accessor_declaration, has: { field: name, regex: '^set$' } } }
-message: '`$NAME` is mutable static state every caller in the process shares'
-note: 'Declare `static readonly` immutable values, return next state from each operation, or share an `Atom` its owner creates once'
+message: '`$NAME` is mutable static state every caller in the process shares, declare `static readonly` immutable values, return next state from each operation, or share an `Atom` its owner creates once'

@@ -79,6 +79,6 @@ public static class SolidTopology {
                 CutAway: cutAway)))
         from kept in Products.Many(() => wired.Kept, required: false, nameof(Brep.WireCut))
         from cutAway in Products.Many(() => wired.CutAway, required: false, nameof(Brep.WireCut))
-        from accepted in IO.lift(RhinoFault.Unless(wired.Cut, RhinoReason.Declined, wired.Cut))
+        from accepted in IO.lift(Fault.Unless(wired.Cut, RhinoReason.Declined, wired.Cut))
         select (Kept: kept, CutAway: cutAway);
 }

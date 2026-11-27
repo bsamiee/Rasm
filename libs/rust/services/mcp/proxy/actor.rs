@@ -9,10 +9,11 @@ use backon::BackoffBuilder as _;
 use bytes::Bytes;
 use futures::StreamExt as _;
 use itertools::Itertools as _;
+use nonempty_collections::NEVec;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rmcp::ErrorData;
 use rmcp::model::{
-    CancelledNotificationMethod, CancelledNotificationParam, ClientCapabilities, ConstString as _, DiscoverRequestMethod, EmptyResult, ErrorCode, InitializeRequestParams, InitializeResultMethod,
+    CancelledNotificationMethod, CancelledNotificationParam, ClientCapabilities, ConstString as _, DiscoverRequestMethod, EmptyResult, InitializeRequestParams, InitializeResultMethod,
     InitializedNotificationMethod, JsonRpcVersion2_0, LoggingLevel, PingRequestMethod, ProtocolVersion, RequestId, RequestMetaObject, ServerCapabilities, SetLevelRequestMethod,
     SubscribeRequestMethod, SubscribeRequestParams, UnsubscribeRequestMethod, UnsubscribeRequestParams,
 };
@@ -28,7 +29,8 @@ use tokio_util::time::{DelayQueue, delay_queue};
 use super::jsonrpc::{Envelope, Line, Message, Method, Params, decode, encoded, identity, refusal};
 use super::routing::{Call, Calls, Client, Effect, Held, Origin, Session, Sessions, Subscribers, issued, read, splice};
 use super::upstream::{Next, Upstream, Wake};
-use super::{IdleTimeout, Key, Lifecycle, Link, Liveness, Phase, Policy, Profile, Status, announced};
+use super::{Cause, Exit, IdleTimeout, Key, Lifecycle, Link, Liveness, Phase, Policy, Profile, Status, announced};
+use crate::{McpError, Part, Unrouted};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -47,10 +49,6 @@ enum Activity {
     Touched,
     Probing,
 }
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const ENDED: &str = "the call that asked ended before the request could be routed";
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -136,10 +134,10 @@ pub(super) struct Actor<F, A, R, W, C> {
 impl<F, A, R, W, C> Actor<F, A, R, W, C>
 where
     F: FnMut(CancellationToken) -> A + Send,
-    A: Future<Output = io::Result<Link<R, W, C>>> + Send,
+    A: Future<Output = Result<Link<R, W, C>, Exit>> + Send,
     R: AsyncRead + Send + Unpin,
     W: AsyncWrite + Send + Unpin,
-    C: Future<Output = String> + Send,
+    C: Future<Output = Exit> + Send,
 {
     // --- [LIFECYCLE]
 
@@ -210,7 +208,7 @@ where
             Some(Event::Line { session, line: _ }) if !self.sessions.joined.contains_key(&session) => {}
             Some(Event::Line { session, line: Line::Whole(line) }) => self.on_line(session, &line),
             Some(Event::Line { session, line: Line::Oversized { head, tail } }) => {
-                let error = ErrorData::invalid_request(format!("request exceeds {} bytes, send less", self.policy.line), None);
+                let error = ErrorData::from(McpError::Exceeded { part: Part::Request, limit: self.policy.line });
                 if let (Some(id), _) = identity(&head, &tail) {
                     self.sessions.reply(session, refusal(&id, &error));
                 }
@@ -226,9 +224,8 @@ where
             Wake::Line(Some(Ok(Line::Oversized { head, tail }))) => self.on_oversized(&head, &tail),
             Wake::Line(Some(Err(error))) | Wake::Failed(error) => self.end(Some(&error)),
             Wake::Line(None) => self.end(None),
-            Wake::Closed(cause) => self.fail(&cause),
+            Wake::Closed(exit) | Wake::Connected(Err(exit), _, _) => self.fail(Cause::Exited(exit)),
             Wake::Connected(Ok(link), stop, started) => self.connected(link, stop, started),
-            Wake::Connected(Err(error), _, _) => self.fail(&format!("cannot start: {}", Report::new(&error))),
         }
     }
 
@@ -273,7 +270,7 @@ where
         match self.upstream.negotiation().and_then(|negotiation| negotiation.answered(lifecycle, result, refused)) {
             Some(Next::Link(lifecycle, handshake)) => self.linked(lifecycle, handshake),
             Some(Next::Probe(lifecycle)) => self.probe(lifecycle),
-            Some(Next::Halt(cause)) => self.halt(&cause),
+            Some(Next::Halt(cause)) => self.halt(cause),
             None => {}
         }
     }
@@ -339,39 +336,45 @@ where
         self.upstream.end(error);
     }
 
-    fn halt(&mut self, cause: &str) {
+    fn halt(&mut self, cause: Cause) {
         self.end(None);
-        self.status.send_modify(|status| status.cause = Some(cause.into()));
+        self.status.send_modify(|status| status.cause = Some(NEVec::new(cause)));
     }
 
-    fn fail(&mut self, exit: &str) {
+    fn fail(&mut self, ended: Cause) {
         if mem::take(&mut self.reprobe) | self.suspect() {
-            tracing::debug!(exit, "server ended on server/discover, asking initialize first");
+            tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&ended), "server ended on server/discover, asking initialize first");
             drop(self.calls.reset());
             return self.start();
         }
         let stated = self.status.borrow().cause.clone();
-        let cause: Arc<str> = stated.map_or_else(|| exit.into(), |stated| format!("{stated}; {exit}").into());
+        let cause = match stated {
+            Some(mut stated) => {
+                stated.push(ended);
+                stated
+            }
+            None => NEVec::new(ended),
+        };
         self.failures = self.failures.saturating_add(1);
         let delay = self.policy.restart.build().take(self.failures).last().unwrap_or_default();
-        tracing::debug!({ EXCEPTION_MESSAGE } = %cause, failures = self.failures, ?delay, "server down");
+        tracing::debug!({ EXCEPTION_MESSAGE } = %cause.iter().format(", "), failures = self.failures, ?delay, "server down");
         self.upstream = Upstream::down(delay);
         self.disarm();
-        self.status.send_modify(|status| (status.phase, status.failures, status.delay, status.cause) = (Phase::Down, self.failures, delay, Some(Arc::clone(&cause))));
-        self.reject(&format!("server exited before answering: {cause}; call again"));
+        self.status.send_modify(|status| (status.phase, status.failures, status.delay, status.cause) = (Phase::Down, self.failures, delay, Some(cause.clone())));
+        self.reject(|sent| McpError::Down { cause: cause.clone(), sent });
         self.told(None);
         self.drained(false);
     }
 
-    fn reject(&mut self, message: &str) {
-        let error = ErrorData::internal_error(message.to_owned(), None);
+    fn reject(&mut self, refused: impl Fn(bool) -> McpError) {
+        let (sent, unsent) = (ErrorData::from(refused(true)), ErrorData::from(refused(false)));
         let waiting = self.calls.reset().filter_map(|origin| match origin {
-            Origin::Session(call) => Some((call.session, call.id)),
+            Origin::Session(call) => Some((call.session, call.id, &sent)),
             Origin::Discover | Origin::Initialize | Origin::Internal | Origin::Probe => None,
         });
-        let parked = mem::take(&mut self.calls.backlog).into_iter().filter_map(|(session, line)| Some((session, identity(&line, &[]).0?)));
-        for (session, id) in waiting.chain(parked) {
-            self.sessions.reply(session, refusal(&id, &error));
+        let parked = mem::take(&mut self.calls.backlog).into_iter().filter_map(|(session, line)| Some((session, identity(&line, &[]).0?, &unsent)));
+        for (session, id, error) in waiting.chain(parked) {
+            self.sessions.reply(session, refusal(&id, error));
         }
     }
 
@@ -379,7 +382,7 @@ where
         self.asking.retain(|asked| !asked.is_closed());
         if self.upstream.ready() || (self.upstream.negotiation().is_some() && self.sessions.joined.is_empty() && self.asking.is_empty()) {
             let exit = mem::replace(&mut self.upstream, Upstream::down(Duration::ZERO)).close().await;
-            tracing::debug!(exit, "server idle, stopped");
+            tracing::debug!(exit = exit.as_ref().map(|exit| tracing::field::display(Report::new(exit))), "server idle, stopped");
             self.disarm();
             self.status.send_modify(|status| status.phase = Phase::Idle);
         } else {
@@ -388,10 +391,10 @@ where
     }
 
     async fn stop(mut self) {
-        self.reject("server stopped; call again");
+        self.reject(|_| McpError::Stopping);
         self.told(None);
         let exit = self.upstream.close().await;
-        tracing::debug!(exit, "server stopped");
+        tracing::debug!(exit = exit.as_ref().map(|exit| tracing::field::display(Report::new(exit))), "server stopped");
         self.status.send_modify(|status| status.phase = Phase::Stopped);
     }
 
@@ -439,7 +442,7 @@ where
                 match (self.clock.activity, self.calls.waiting(), self.policy.liveness) {
                     (Activity::Quiet | Activity::Probing, 0, _) if self.sessions.joined.is_empty() => self.idle().await,
                     (Activity::Probing, 1.., Some(_)) if self.profile.as_ref().is_some_and(|profile| self.calls.callers().all(|(_, call)| profile.responsive.contains(&call.key))) =>
-                        self.halt("server stopped answering"),
+                        self.halt(Cause::Unresponsive),
                     (Activity::Touched, _, _) | (Activity::Quiet | Activity::Probing, 0, _) | (Activity::Probing, 1.., Some(_)) => self.rearm(),
                     (Activity::Quiet, 1.., Some(Liveness { quiet: _, grace })) => {
                         let id = self.calls.issue(Origin::Probe);
@@ -500,9 +503,8 @@ where
             (Some(id), Some(method)) if self.dispatch(session, line, id, &method, params) => {}
             (Some(_), Some(_)) if !self.upstream.is_down() && self.calls.backlog.len() < self.policy.queue => self.calls.backlog.push_back((session, line.clone())),
             (Some(id), Some(_)) => {
-                let cause = self.status.borrow().cause.clone();
-                let message = cause.map_or_else(|| "server is starting; call again".to_owned(), |cause| format!("server is down: {cause}; call again later"));
-                self.sessions.reply(session, refusal(id.get().as_bytes(), &ErrorData::internal_error(message, None)));
+                let refused = self.status.borrow().cause.clone().map_or(McpError::Starting, |cause| McpError::Down { cause, sent: false });
+                self.sessions.reply(session, refusal(id.get().as_bytes(), &refused.into()));
             }
             (None, Some(method)) if method.is_initialized() =>
                 if let Some(held) = self.sessions.joined.get_mut(&session) {
@@ -593,10 +595,7 @@ where
         let refused = |error: &ErrorData| self.sessions.reply(session, refusal(id.get().as_bytes(), error));
         match (asked, profile.lifecycle) {
             (Lifecycle::Discover, Lifecycle::Discover) => self.sessions.answer(session, id, &profile.handshake),
-            (Lifecycle::Discover, Lifecycle::Initialize) => {
-                let refused_discover = format!("this server opens with initialize at protocol {} or earlier and serves no server/discover", ProtocolVersion::LATEST_WITH_INITIALIZE.as_str());
-                refused(&ErrorData::new(ErrorCode::METHOD_NOT_FOUND, refused_discover, None));
-            }
+            (Lifecycle::Discover, Lifecycle::Initialize) => refused(&McpError::Discover.into()),
             (Lifecycle::Initialize, Lifecycle::Discover) => {
                 let modern = Vec::from_iter(ProtocolVersion::KNOWN_VERSIONS.iter().filter(|version| !version.has_initialize()).cloned());
                 refused(&ErrorData::unsupported_protocol_version(requested.unwrap_or(ProtocolVersion::LATEST_WITH_INITIALIZE), &modern));
@@ -617,7 +616,7 @@ where
 
     fn call(&mut self, session: u64, line: &Bytes, id: &RawValue, method: &Method, params: Option<&Params<'_>>, effect: Effect) -> bool {
         if !self.clock.drain.is_serving() {
-            self.sessions.reply(session, refusal(id.get().as_bytes(), &ErrorData::internal_error("server is stopping; call again", None)));
+            self.sessions.reply(session, refusal(id.get().as_bytes(), &McpError::Stopping.into()));
             return true;
         }
         self.wake();
@@ -671,7 +670,7 @@ where
 
     // --- [ATTRIBUTION]
 
-    fn decline(&mut self, id: &[u8], reason: &str) { self.upstream.send(refusal(id, &ErrorData::new(ErrorCode::METHOD_NOT_FOUND, reason.to_owned(), None))); }
+    fn decline(&mut self, id: &[u8], method: Option<Method>, reason: Unrouted) { self.upstream.send(refusal(id, &McpError::Unrouted { method, reason }.into())); }
 
     fn settled(&mut self, request: u64, completed: Option<Key>) {
         if let Some((_, probation)) = self.calls.writer.take_if(|(writer, _)| *writer == request) {
@@ -683,13 +682,13 @@ where
         })) {
             match candidates.first() {
                 Some(caller) => self.ask(*caller, id, line, &method),
-                None => self.decline(&id, ENDED),
+                None => self.decline(&id, Some(method), Unrouted::CallerEnded),
             }
         }
         let blocked = BTreeSet::from_iter(self.calls.held.iter().flat_map(|held| held.candidates.iter().copied()));
         if !self.calls.held.is_empty() && blocked.len() <= self.calls.held.len() {
-            for Held { id, line: _, method: _, candidates: _ } in mem::take(&mut self.calls.held) {
-                self.decline(&id, "more than one call was waiting on a request and none states its caller; ask again");
+            for Held { id, line: _, method, candidates: _ } in mem::take(&mut self.calls.held) {
+                self.decline(&id, Some(method), Unrouted::CallerAmbiguous);
             }
             for key in Vec::from_iter(self.calls.callers().filter(|(caller, _)| blocked.contains(caller)).map(|(_, call)| call.key.clone())) {
                 self.learn(key, true);
@@ -708,14 +707,14 @@ where
     }
 
     fn ask(&mut self, caller: u64, id: Bytes, line: Bytes, method: &Method) {
-        let Some(Origin::Session(call)) = self.calls.pending.get_mut(&caller) else { return self.decline(&id, ENDED) };
+        let Some(Origin::Session(call)) = self.calls.pending.get_mut(&caller) else { return self.decline(&id, Some(method.clone()), Unrouted::CallerEnded) };
         call.asked = true;
         let (session, key, declared) = (call.session, call.key.clone(), call.capabilities.as_deref().is_none_or(|capabilities| declares(capabilities, method)));
         if declared {
             self.calls.asked.insert(id, (BTreeSet::from([session]), None));
             self.sessions.deliver(session, [line]);
         } else {
-            self.decline(&id, &format!("the client session whose call caused {method} declares no capability for it"));
+            self.decline(&id, Some(method.clone()), Unrouted::CapabilityUndeclared);
         }
         self.learn(key, true);
     }
@@ -739,7 +738,7 @@ where
                 self.upstream.send(decode::<&RawValue>(id).map_err(serde_path_to_error::Error::into_inner).and_then(reply));
             }
             (None, Some((line, _))) => self.upstream.forward([line.clone()]),
-            (None, None) => self.decline(id, "client session closed before answering"),
+            (None, None) => self.decline(id, None, Unrouted::SessionClosed),
         }
     }
 
@@ -779,12 +778,12 @@ where
         let request = match identity(head, tail) {
             (Some(id), None) => issued(&id),
             (Some(id), Some(_)) => {
-                self.upstream.send(refusal(&id, &ErrorData::invalid_request(format!("request exceeds {limit} bytes, send less"), None)));
+                self.upstream.send(refusal(&id, &McpError::Exceeded { part: Part::Request, limit }.into()));
                 None
             }
             (None, Some(_) | None) => None,
         };
-        let error = ErrorData::internal_error(format!("server response exceeds {limit} bytes, ask for less output"), None);
+        let error = ErrorData::from(McpError::Exceeded { part: Part::Response, limit });
         match request.and_then(|request| self.calls.take(request).map(|origin| (request, origin))) {
             Some((request, Origin::Session(call))) => {
                 self.sessions.reply(call.session, refusal(&call.id, &error));
@@ -825,7 +824,7 @@ where
             return self.upstream.send(encoded(&pong));
         }
         let Some(quiet) = self.profile.as_ref().filter(|profile| profile.lifecycle.is_initialize()).map(|profile| &profile.quiet) else {
-            return self.decline(id.get().as_bytes(), "a server of this protocol version returns an input-required result in place of a request");
+            return self.decline(id.get().as_bytes(), Some(method), Unrouted::InputRequired);
         };
         let unknown = BTreeSet::from_iter(self.calls.callers().filter(|(_, call)| !quiet.contains(&call.key)).map(|(request, _)| request));
         let candidates = if unknown.is_empty() { BTreeSet::from_iter(self.calls.callers().map(|(request, _)| request)) } else { unknown };
@@ -842,7 +841,7 @@ where
                 let deadline = self.clock.timers.insert(Timer::Asked(asked.clone()), self.policy.handshake);
                 self.calls.asked.insert(asked, (rooted, Some((Vec::new(), deadline))));
             }
-            (None, _, None) => self.decline(&asked, "no client session has a call in flight"),
+            (None, _, None) => self.decline(&asked, Some(method), Unrouted::Idle),
             (Some(caller), 1, _) => self.ask(caller, asked, line.clone(), &method),
             (Some(_), _, _) => self.calls.held.push(Held { id: asked, line: line.clone(), method, candidates }),
         }

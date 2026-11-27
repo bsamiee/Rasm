@@ -21,8 +21,8 @@ public static class SubDs {
         new(subd => IO.lift(() =>
             from held in Held(subd, [boundaryEdge])
             from boundary in Boundary(Boundaries(subd), boundaryEdge)
-            from closed in RhinoFault.Unless(boundary.Closed, RhinoReason.Invalid, boundaryEdge)
-            from filled in RhinoFault.Unless(subd.Faces.Add(boundary.Edges) is not null, RhinoReason.Declined, boundaryEdge)
+            from closed in Fault.Unless(boundary.Closed, RhinoReason.Invalid, boundaryEdge)
+            from filled in Fault.Unless(subd.Faces.Add(boundary.Edges) is not null, RhinoReason.Declined, boundaryEdge)
             select subd), nameof(SubD.Faces));
 
     public static Step<SubD> Bridge(uint edgeA, uint edgeB) =>
@@ -30,11 +30,11 @@ public static class SubDs {
             from held in Held(subd, [edgeA, edgeB])
             let boundaries = Boundaries(subd)
             from ends in (Boundary(boundaries, edgeA), Boundary(boundaries, edgeB)).Apply(static (first, second) => (First: first, Second: second)).As()
-            from apart in RhinoFault.Unless(!ends.First.Edges.Exists(link => link.Id == edgeB), RhinoReason.Repeated, (edgeA, edgeB))
-            from even in RhinoFault.Unless(ends.First.Edges.Count == ends.Second.Edges.Count, RhinoReason.Mismatched, (ends.First.Edges.Count, ends.Second.Edges.Count))
+            from apart in Fault.Unless(!ends.First.Edges.Exists(link => link.Id == edgeB), RhinoReason.Repeated, (edgeA, edgeB))
+            from even in Fault.Unless(ends.First.Edges.Count == ends.Second.Edges.Count, RhinoReason.Mismatched, (ends.First.Edges.Count, ends.Second.Edges.Count))
             from faces in Products.Each(
                 Rotated(ends.First, edgeA).Zip(Rotated(ends.Second with { Edges = ends.Second.Edges.Rev() }, edgeB), static (a, b) => (A: a, B: b)).Strict(),
-                (rail, index) => Quad(subd, rail.A, rail.B).ToFin(new RhinoFault(nameof(SubD.Faces), RhinoReason.Declined, index)))
+                (rail, index) => Quad(subd, rail.A, rail.B).ToFin(Fault.Of(RhinoReason.Declined, nameof(SubD.Faces), index)))
             select subd), nameof(SubD.Faces));
 
     private static Fin<Seq<int>> Held(SubD subd, Seq<uint> edges) => subd.Within(ComponentIndexType.SubdEdge, edges.Map(static edge => (int)edge));
@@ -48,7 +48,7 @@ public static class SubDs {
         };
 
     private static Fin<(Seq<SubDEdge> Edges, bool Closed)> Boundary(Seq<(Seq<SubDEdge> Edges, bool Closed)> boundaries, uint edge) =>
-        boundaries.Find(boundary => boundary.Edges.Exists(link => link.Id == edge)).ToFin(new RhinoFault(ComponentIndexType.SubdEdge, RhinoReason.Missing, (int)edge));
+        boundaries.Find(boundary => boundary.Edges.Exists(link => link.Id == edge)).ToFin(Fault.Of(RhinoReason.Missing, ComponentIndexType.SubdEdge, (int)edge));
 
     private static Seq<SubDEdge> Rotated((Seq<SubDEdge> Edges, bool Closed) boundary, uint edge) =>
         (boundary.Closed ? boundary.Edges.TakeWhile(link => link.Id != edge).Count : 0) switch {

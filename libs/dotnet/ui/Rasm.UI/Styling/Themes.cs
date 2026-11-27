@@ -156,8 +156,8 @@ public sealed partial class Theme {
     private float Typed => float.Max(1f, FontSize / 13f);
 
     public static Fin<Theme> Validated(Seeds seeds, TextFace face, float fontSize, HashMap<Token, SKColorF> stated = default, HashSet<Condition> conditions = default, Option<Configuration> configuration = default) =>
-        (UIFault.Unless(face.Family.IsSome, UIReason.Missing, face.Family),
-         UIFault.Unless(float.IsFinite(fontSize) && fontSize > 0f && float.IsFinite(seeds.Control) && seeds.Control > 0f && seeds.Corner.ForAll(static corner => float.IsFinite(corner) && corner >= 0f),
+        (Fault.Unless(face.Family.IsSome, UIReason.Missing, face.Family),
+         Fault.Unless(float.IsFinite(fontSize) && fontSize > 0f && float.IsFinite(seeds.Control) && seeds.Control > 0f && seeds.Corner.ForAll(static corner => float.IsFinite(corner) && corner >= 0f),
              UIReason.Range, (fontSize, seeds.Control, seeds.Corner)))
             .Apply((_, _) => Stated(seeds, stated) switch {
                 var held => configuration.IfNone(Configuration.Default) switch {

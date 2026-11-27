@@ -10,5 +10,4 @@ utils:
         not: { inside: { kind: string, stopBy: end } }
 rule:
     matches: outermost
-message: 'String literal holds an invisible code point'
-note: 'Write the code point as a `\uXXXX` or `\UXXXXXXXX` escape in a non-raw string'
+message: 'String literal holds an invisible code point, write it as a `\uXXXX` or `\UXXXXXXXX` escape in a non-raw string'

@@ -185,7 +185,7 @@ def _applied(scene: bpy.types.Scene, *, layer: str, collection: int, flag: Descr
             Block
             .of_seq((node, ancestors) for node, ancestors in walked(held.layer_collection) if node.collection.session_uid == collection)
             .try_head()
-            .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(held.layer_collection), member=str(collection)))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, held.layer_collection, member=collection))
             .bind(lambda path: written(held, *path))
         )
 
@@ -210,7 +210,7 @@ def _grid(context: bpy.types.Context) -> tuple[tuple[str, ...], tuple[tuple[int,
 def _moved(context: bpy.types.Context, current: int, row: int) -> Outcome[None]:
     """Moves the context scene's view layer at `current` to `row`."""
     return rooted(bpy.types.Scene, context).bind(
-        lambda scene: catch(scene.view_layers.move, exception=RuntimeError)(current, row).map(lambda _: None).map_error(partial(Fault.of, Refusal.REFUSED, repr(scene.view_layers)))
+        lambda scene: catch(scene.view_layers.move, exception=RuntimeError)(current, row).map(lambda _: None).map_error(partial(Fault.of, Refusal.REFUSED, scene.view_layers))
     )
 
 

@@ -91,6 +91,7 @@
         <ProjectReference Include="../../drawing/Rasm.Drafting/Rasm.Drafting.csproj" />
         <ProjectReference Include="../../runtime/Rasm.Telemetry.Api/Rasm.Telemetry.Api.csproj" />
         <ProjectReference Include="../../runtime/Rasm.Telemetry/Rasm.Telemetry.csproj" />
+        <Using Include="Rasm.Telemetry.Api" />
     </ItemGroup>
 
     <ItemGroup Label="Package Files">

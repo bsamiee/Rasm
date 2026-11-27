@@ -36,17 +36,17 @@ public static class Channels {
             sizeof(float) => Fin.Succ(ComponentOrders.Irrelevant),
             3 * sizeof(float) => ComponentOrders.RGB,
             4 * sizeof(float) => ComponentOrders.RGBA,
-            _ => new RhinoFault(size, RhinoReason.Unsupported),
+            _ => Fault.Of(RhinoReason.Unsupported, size),
         }
                from accepted in (Inside(cpu, rect, components),
-                       RhinoFault.Unless(rect.Width <= int.MaxValue / (components * sizeof(float)), RhinoReason.Outside, rect))
+                       Fault.Unless(rect.Width <= int.MaxValue / (components * sizeof(float)), RhinoReason.Outside, rect))
                    .Apply(static (_, _) => unit).As()
                select Copied(cpu, rect, components, order);
     }
 
     public static Fin<Unit> Put(RenderWindow.Channel cpu, Rectangle rect, ReadOnlyMemory2D<float> rgba) =>
-        (RhinoFault.Unless(rgba.Height == rect.Height && rgba.Width == 4L * rect.Width, RhinoReason.Mismatched, (rgba.Height, rgba.Width, rect)),
-         rgba.TryGetMemory(out ReadOnlyMemory<float> block) ? Fin.Succ(block) : new RhinoFault(rect, RhinoReason.Unsupported),
+        (Fault.Unless(rgba.Height == rect.Height && rgba.Width == 4L * rect.Width, RhinoReason.Mismatched, (rgba.Height, rgba.Width, rect)),
+         rgba.TryGetMemory(out ReadOnlyMemory<float> block) ? Fin.Succ(block) : Fault.Of(RhinoReason.Unsupported, rect),
          Inside(cpu, rect, 4))
             .Apply((_, packed, _) => Pinned(cpu, rect, packed)).As();
 
@@ -71,7 +71,7 @@ public static class Channels {
     }
 
     private static Fin<Unit> Inside(RenderWindow.Channel cpu, Rectangle rect, int components) =>
-        RhinoFault.Unless(
+        Fault.Unless(
             rect is { X: >= 0, Y: >= 0, Width: > 0, Height: > 0 } && (long)rect.X + rect.Width <= cpu.Width && (long)rect.Y + rect.Height <= cpu.Height && (long)rect.Width * rect.Height <= System.Array.MaxLength / components,
             RhinoReason.Outside, (rect, cpu.Width, cpu.Height));
 
@@ -102,7 +102,7 @@ public static class Channels {
             select unit);
 
     public static IO<T> Opened<T>(Func<Guid, PostEffectChannel?> open, Guid channel, Func<PostEffectChannel, RenderWindow.Channel, IO<T>> body) =>
-        Available(open, channel, body).Bind(found => IO.lift(found.ToFin(new RhinoFault(channel, RhinoReason.Missing))));
+        Available(open, channel, body).Bind(found => IO.lift(found.ToFin(Fault.Of(RhinoReason.Missing, channel))));
 
     public static IO<Option<T>> Available<T>(Func<Guid, PostEffectChannel?> open, Guid channel, Func<PostEffectChannel, RenderWindow.Channel, IO<T>> body) =>
         (from opened in Products.Maybe(() => open(channel)).Bind(static found => found.Traverse(static held => use(IO.pure(held))).As())

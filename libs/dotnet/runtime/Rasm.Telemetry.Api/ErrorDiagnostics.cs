@@ -18,7 +18,7 @@ public static partial class ErrorDiagnostics {
 
     private static string ErrorType(Error error) =>
         error.Head.Exception.Map(static thrown => thrown.GetType().ToString())
-            .IfNone(() => error.Head.Code is 0 ? error.Head.GetType().Name : error.Head.Code.ToString(CultureInfo.InvariantCulture));
+            .IfNone(() => error.Head.Code is 0 ? error.Head.GetType().ToString() : error.Head.Code.ToString(CultureInfo.InvariantCulture));
 
     private static Seq<Error> Causes(Error error, Func<Error, bool> descends) =>
         toSeq(LanguageExt.List.unfold(error.AsIterable().ToSeq(), pending => pending.Head.Map(cause =>

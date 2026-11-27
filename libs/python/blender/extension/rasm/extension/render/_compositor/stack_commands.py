@@ -72,7 +72,7 @@ def duplicate_stack(stacking: LayerStackService, call: Call[Empty]) -> Outcome[A
     def copied(scene: bpy.types.Scene, held: tuple[bpy.types.SceneCompositorEffect, bpy.types.NodeTree]) -> Outcome[Answer]:
         with ExitStack() as rollback:
             return retained(
-                typed(bpy.types.CompositorNodeTree, repr(held[1]), held[1].copy())
+                typed(bpy.types.CompositorNodeTree, held[1], held[1].copy())
                 .bind(lambda copy: OWNERSHIP.owned(stacking.identity, copy, of=Some(scene), scope=Some(rollback)))
                 .bind(lambda owned: stacking.switched(scene, owned, call.context))
                 .map(lambda _: Done()),
@@ -238,7 +238,7 @@ def _noded(stacking: LayerStackService, kind: type[bpy.types.Node], setup: Calla
     """Layer of a new owned source node set up by `setup`, reading the node's first enabled output."""
 
     def first(node: bpy.types.Node) -> Outcome[StackLayer]:
-        output = Block.of_seq(node.outputs).filter(lambda socket: socket.enabled).try_head().to_result_with(partial(Fault.of, Reason.ABSENT, kind.__name__, member="outputs"))
+        output = Block.of_seq(node.outputs).filter(lambda socket: socket.enabled).try_head().to_result_with(partial(Fault.of, Reason.ABSENT, kind, member="outputs"))
         return output.map(lambda socket: StackLayer(key=key, name=node.bl_label, source=NodeSource(node=node.bl_idname, output=socket.name)))
 
     return tracked(scope, tree.nodes.remove, created(tree, kind)).bind(
@@ -301,7 +301,7 @@ def edit_layer(stacking: LayerStackService, call: Call[LayerEdit]) -> Outcome[An
             case LayerMaskAt(layer=index):
                 return within(index).bind(lambda layer: reindexed(scene, held, target, item_key(layer.key, StackLayer.blend, Blend.masks), layer.blend.masks))
             case EffectMaskAt(layer=index, entry=entry):
-                blend = held.record.blended(target).to_result_with(partial(Fault.of, Reason.ABSENT, TITLE, member=str(entry)))
+                blend = held.record.blended(target).to_result_with(partial(Fault.of, Reason.ABSENT, TITLE, member=entry))
                 return paired(within(index), blend).bind(lambda parts: reindexed(scene, held, target, item_key(parts[0].key, EFFECTS, entry + 1, Entry.blend, Blend.masks), parts[1].masks))
 
     return (
@@ -322,7 +322,7 @@ def add_effect_to_layer(stacking: LayerStackService, call: Call[Choice]) -> Outc
 
 def _targeted(properties: LayerEdit) -> Outcome[StackTarget]:
     """Decodes the target case an edit's properties name."""
-    return converted_value({"kind": properties.kind, "layer": properties.layer, "entry": properties.entry, "mask": properties.mask}, StackTarget, repr(properties))
+    return converted_value({"kind": properties.kind, "layer": properties.layer, "entry": properties.entry, "mask": properties.mask}, StackTarget, properties)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

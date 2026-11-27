@@ -39,7 +39,7 @@ public static class AttributeEdits {
     public static IO<Seq<Guid>> Modify(RhinoDoc doc, Seq<RhinoObject> objects, Func<RhinoObject, Seq<Step<ObjectAttributes>>> steps, bool quiet) =>
         objects.Map(target => (Target: target, Steps: steps(target))).Filter(static row => !row.Steps.IsEmpty)
             .Map((row, index) => Edits.Apply(Stage(doc, row.Target, quiet), row.Target.Attributes, row.Steps).Map(_ => row.Target.Id).Bracket()
-                .MapFail(error => new RhinoFault(row.Target.Id, RhinoReason.Declined, index, error)))
+                .MapFail(error => Fault.Of(RhinoReason.Declined, row.Target.Id, index, error)))
             .TraverseM(static edit => edit).As();
 
     // --- [STEPS]

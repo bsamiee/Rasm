@@ -77,7 +77,7 @@ class ObjectState(msgspec.Struct, frozen=True, kw_only=True):
             (item.modifiers, Ok(partial(_modifier_moved, item.modifiers)), self.modifiers),
             (
                 item.constraints,
-                Ok(lambda name, index: catch(item.constraints.move, exception=RuntimeError)(item.constraints.find(name), index).map_error(partial(Fault.of, Refusal.REFUSED, repr(item.constraints)))),
+                Ok(lambda name, index: catch(item.constraints.move, exception=RuntimeError)(item.constraints.find(name), index).map_error(partial(Fault.of, Refusal.REFUSED, item.constraints))),
                 self.constraints,
             ),
             (item.shader_effects, Ok(partial(_shader_effect_moved, item)), self.shader_effects),
@@ -101,7 +101,7 @@ class LevelEdit(bpy.types.PropertyGroup):
 def active_object(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Object]:
     """Returns active object of view layer, `absent` when none is active."""
     objects = view_layer.objects
-    return option.of_optional(objects.active).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(objects), member="active"))
+    return option.of_optional(objects.active).to_result_with(lambda: Fault.of(Reason.ABSENT, objects, member="active"))
 
 
 def descendants(item: bpy.types.Object, view_layer: bpy.types.ViewLayer) -> tuple[bpy.types.Object, ...]:
@@ -183,7 +183,7 @@ def _vertex_group_moved(item: bpy.types.Object, name: str, index: int) -> Outcom
     groups = item.vertex_groups
     before = groups.find(name)
     if (active := groups.active) is None:
-        return Error(Fault.of(Reason.ABSENT, repr(groups), member="active"))
+        return Error(Fault.of(Reason.ABSENT, groups, member="active"))
 
     def shifted(_: None) -> Outcome[None]:
         return called(bpy.ops.object.vertex_group_move, {"direction": "UP" if index < before else "DOWN"}, override=Some(bpy.context.temp_override(object=item, active_object=item))).map(
@@ -210,9 +210,9 @@ def _modifier_moved(stack: bpy.types.ObjectModifiers, name: str, index: int) -> 
     pinned = modifier.use_pin_to_last
     blocked = tuple(held for held in stack[min(before, index) : max(before, index) + 1] if held.use_pin_to_last != pinned)
     return (
-        Error(Fault.of(Reason.OUTSIDE, repr(modifier), blocked, member="its pinned modifier segment"))
+        Error(Fault.of(Reason.OUTSIDE, modifier, blocked, member="its pinned modifier segment"))
         if blocked
-        else catch(stack.move, exception=RuntimeError)(before, index).map_error(partial(Fault.of, Refusal.REFUSED, repr(stack)))
+        else catch(stack.move, exception=RuntimeError)(before, index).map_error(partial(Fault.of, Refusal.REFUSED, stack))
     )
 
 
@@ -230,7 +230,7 @@ def _restacked(item: bpy.types.Object, stack: _Stack, move: Outcome[_Mover], ent
     adding = tuple(key for key, _ in rows if key not in kept)
     rank = {key: position for position, key in enumerate((*kept, *adding))}
     moves = tuple((key, index) for index, (key, _) in enumerate(rows) if (adding and stack == item.modifiers) or rank[key] != min(rank[later] for later, _ in rows[index:]))
-    refused = partial(Fault.of, Refusal.REFUSED, repr(stack))
+    refused = partial(Fault.of, Refusal.REFUSED, stack)
 
     def removed(key: str) -> Outcome[None]:
         return catch(stack.remove, exception=RuntimeError)(stack[key]).map_error(refused)  # ty: ignore[invalid-argument-type]
@@ -239,22 +239,20 @@ def _restacked(item: bpy.types.Object, stack: _Stack, move: Outcome[_Mover], ent
         return (
             catch(stack.new, exception=RuntimeError)(**({"name": key} if named else {}), **parameters[key])  # ty: ignore[invalid-argument-type]
             .map_error(refused)
-            .bind(lambda made: option.of_optional(try_downcast(bpy.types.bpy_struct, made)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(stack), member=key)))
+            .bind(lambda made: option.of_optional(try_downcast(bpy.types.bpy_struct, made)).to_result_with(lambda: Fault.of(Reason.ABSENT, stack, member=key)))
             .bind(lambda made: Ok(None) if named else written(made, ("name",), key).map(lambda _: None))
         )
 
     planned = (*(partial(removed, key) for key in leaving), *(partial(added, key) for key in adding))
     return paired(
-        accumulated(
-            Ok(value).filter_with(choices[key].__contains__, partial(Fault.of, Reason.OUTSIDE, repr(stack), member=", ".join(choices[key]))) for _, held in rows for key, value in held.items()
-        ),
+        accumulated(Ok(value).filter_with(choices[key].__contains__, partial(Fault.of, Reason.OUTSIDE, stack, member=", ".join(choices[key]))) for _, held in rows for key, value in held.items()),
         move.map(lambda mover: (*planned, *starmap(partial, ((mover, *indices) for indices in moves)))) if moves else Ok(planned),
     ).map(lambda pair: pair[1])
 
 
 def _diverged(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...], data: Option[bpy.types.ID], parent: Option[bpy.types.Object]) -> Outcome[tuple[_Step, ...]]:
     """Returns writes from object to state, accumulating independent faults before any write, the data and parent writes the host drops refused."""
-    refused = partial(Fault.of, Refusal.REFUSED, repr(item))
+    refused = partial(Fault.of, Refusal.REFUSED, item)
     unchanged: Outcome[tuple[_Step, ...]] = Ok(())
 
     def resized(slots: tuple[Snapshot, ...]) -> Outcome[tuple[_Step, ...]]:
@@ -267,7 +265,7 @@ def _diverged(state: ObjectState, item: bpy.types.Object, layers: tuple[bpy.type
         return (
             data
             .or_else(option.of_optional(item.data))
-            .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(item), member="data.materials"))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, item, member="data.materials"))
             .bind(lambda block: Descriptor.resolve(block, ("materials",), bpy.types.CollectionProperty).map(lambda member: getattr(block, member.prop.identifier)))
             .map(lambda materials: (lambda: catch(sized, exception=RuntimeError)(materials).map_error(refused),) if len(materials) != len(slots) else ())
         )
@@ -373,7 +371,7 @@ def shaped(mesh: bpy.types.Mesh, vertices: npt.NDArray[np.float32], faces: npt.N
         mesh.update(calc_edges=True)
         mesh.shade_flat()
 
-    return filled().map_error(partial(Fault.of, Refusal.REFUSED, repr(mesh)))
+    return filled().map_error(partial(Fault.of, Refusal.REFUSED, mesh))
 
 
 # --- [SCOPES]

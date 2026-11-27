@@ -154,9 +154,9 @@ class CurvePoints(Edited, frozen=True, kw_only=True):
                         )
                     )
                 case _:
-                    return Error(Fault.of(Reason.ABSENT, repr(mapping), member="curves"))
+                    return Error(Fault.of(Reason.ABSENT, mapping, member="curves"))
 
-        return struct_at(live, ("mapping",), bpy.types.CurveMapping).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(live), member="mapping")).bind(held)
+        return struct_at(live, ("mapping",), bpy.types.CurveMapping).to_result_with(lambda: Fault.of(Reason.ABSENT, live, member="mapping")).bind(held)
 
     @property
     def tree(self) -> Tree[Value, RnaPath, RnaPath]:
@@ -295,7 +295,7 @@ class Generated(Content, frozen=True, kw_only=True, eq=False):
                     .members(Some(config))
                     .bind(partial(assigned, image))
                     .bind(lambda _: filled(image, values))
-                    .bind(lambda _: catch(image.pack, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(image))))
+                    .bind(lambda _: catch(image.pack, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, image)))
                     .map(lambda _: image)
                 ),
             )
@@ -316,7 +316,7 @@ class Generated(Content, frozen=True, kw_only=True, eq=False):
 
 def _ramp(holder: bpy.types.Node | bpy.types.Texture) -> Outcome[bpy.types.ColorRamp]:
     """Holder's `color_ramp`, else `absent` fault naming it."""
-    return struct_at(holder, ("color_ramp",), bpy.types.ColorRamp).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(holder), member="color_ramp"))
+    return struct_at(holder, ("color_ramp",), bpy.types.ColorRamp).to_result_with(lambda: Fault.of(Reason.ABSENT, holder, member="color_ramp"))
 
 
 def _stamped(identity: Identity, live: bpy.types.Node, content: Option[ContentHash]) -> Outcome[None]:
@@ -325,7 +325,7 @@ def _stamped(identity: Identity, live: bpy.types.Node, content: Option[ContentHa
         Mark
         .read(identity, live)
         .map(lambda mark: msgspec.structs.replace(mark, content=content).write(identity, live))
-        .default_value(Error(Fault.of(Reason.ABSENT, repr(live), member=identity.manifest.id)))
+        .default_value(Error(Fault.of(Reason.ABSENT, live, member=identity.manifest.id)))
     )
 
 
@@ -337,7 +337,7 @@ def _framed(live: bpy.types.Node) -> Outcome[bpy.types.ImageUser | bpy.types.Com
         case bpy.types.ShaderNodeTexImage() | bpy.types.ShaderNodeTexEnvironment():
             return Ok(live.image_user)
         case _:
-            return Error(Fault.of(Reason.ABSENT, repr(live), member="image_user"))
+            return Error(Fault.of(Reason.ABSENT, live, member="image_user"))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

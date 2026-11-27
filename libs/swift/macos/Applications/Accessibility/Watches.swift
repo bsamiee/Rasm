@@ -40,6 +40,30 @@ package actor Watches {
         }
     }
 
+    package func instance(_ process: ProcessInstance, matching: @Sendable () -> NSPredicate) async throws(ApplicationFailure) -> Instance {
+        let listed = { () throws(ApplicationFailure) -> Instance? in
+            try NSWorkspace.shared.instances { (application: NSRunningApplication) -> Bool in application.processIdentifier == process.pid }
+                .first { (listed: Instance) -> Bool in listed.process == process }
+        }
+        var found: Instance? = held[process]?.watch.instance
+        if found == nil { found = try listed() }
+        if found == nil, !process.hasExited {
+            let (listings, listing) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+            let observation: NSKeyValueObservation = NSWorkspace.shared.observe(\.runningApplications, options: [.initial]) { _, _ in listing.yield() }
+            defer { observation.invalidate() }
+            for await _ in merge(listings, process.exits().map { (_: Result<ProcessExit, Errno>) -> Void in () }) {
+                found = try listed()
+                if found != nil || process.hasExited { break }
+            }
+        }
+        guard let found else { throw ApplicationFailure(subject: "The instance", reason: process.hasExited ? .absent : .cancelled) }
+        let application: NSRunningApplication = found.application
+        guard matching().evaluate(bundleIdentifier: application.bundleIdentifier, displayName: application.localizedName, bundle: application.bundleURL) else {
+            throw ApplicationFailure(subject: application.name, reason: .unclaimed)
+        }
+        return found
+    }
+
     package func watch(_ instance: Instance, driven: Bool = true, locators: [Locator] = []) async -> Watch {
         let before: (watch: Watch, driven: Bool)? = held[instance.process]
         let after: (watch: Watch, driven: Bool) = (before?.watch ?? Watch(instance, locators: locators), driven || before?.driven == true)
@@ -202,7 +226,6 @@ package actor Watches {
                                 active: instance.application.isActive,
                                 windows: windows[instance.process.pid, default: []],
                                 usage: nil,
-                                listening: Result { () throws(Errno) in try instance.process.listeningPorts() },
                                 statusItems: counts.map { counts in counts[instance.process.pid, default: 0] },
                             )
                             return (instance, .running(activity))
@@ -237,7 +260,6 @@ package actor Watches {
                         active: activity.active,
                         windows: activity.windows,
                         usage: activity.usage,
-                        listening: activity.listening,
                         statusItems: listed[case: \.running]?.statusItems,
                     )
                     return .running(counted)

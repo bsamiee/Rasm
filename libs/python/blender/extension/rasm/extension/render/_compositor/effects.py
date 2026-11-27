@@ -244,7 +244,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
     def read(self, identity: Identity, entry: bpy.types.SceneCompositorEffect, *, form: type[CompositorRecord] | None = None) -> Outcome[Entry[CompositorRecord]]:
         """Reads the entry record its group stores, absent before the group stores one."""
         codec = self.stored(identity, self.record if form is None else form)
-        return grouped(entry).bind(lambda group: codec.read(group).bind(lambda held: held.to_result_with(partial(Fault.of, Reason.ABSENT, repr(group), member=codec.name))))
+        return grouped(entry).bind(lambda group: codec.read(group).bind(lambda held: held.to_result_with(partial(Fault.of, Reason.ABSENT, group, member=codec.name))))
 
     @overload
     def current(self, identity: Identity, scene: bpy.types.Scene) -> Outcome[Option[CompositorRecord]]: ...
@@ -263,7 +263,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
             option
             .of_optional(try_downcast(bpy.types.SceneCompositorEffect, scene.compositor_effects.get(name)))
             .filter(lambda entry: option.of_optional(entry.node_group).bind(partial(Mark.read, identity)).filter(lambda mark: mark.key in keys).is_some())
-            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=name))
+            .to_result_with(partial(Fault.of, Reason.ABSENT, scene.compositor_effects, member=name))
         )
 
     def appended(
@@ -341,7 +341,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
         self, identity: Identity, scene: bpy.types.Scene, record: CompositorRecord, entry: Option[bpy.types.SceneCompositorEffect], source: Option[bpy.types.Scene] = NOTHING
     ) -> Outcome[tuple[str, Option[PassRequest]]]:
         """Runs the scene check, then names the scene's first rendered view layer the group reads and makes its pass request."""
-        layer = Block.of_seq(used(scene)).try_head().map(lambda held: held.name).to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.view_layers), member="used view layer"))
+        layer = Block.of_seq(used(scene)).try_head().map(lambda held: held.name).to_result_with(partial(Fault.of, Reason.ABSENT, scene.view_layers, member="used view layer"))
         request = option.of_optional(record.requested)
         return paired(self.checked(identity, source.default_value(scene), entry), layer).bind(
             lambda pair: (
@@ -501,7 +501,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
                 return refreshed(group, live, InterfaceKeys.of(live, identity).sockets)
             with ExitStack() as rollback:
                 return retained(
-                    typed(bpy.types.NodeTree, repr(live), live.copy())
+                    typed(bpy.types.NodeTree, live, live.copy())
                     .bind(lambda copied: own.owned(identity, copied, of=owner, scope=Some(rollback)))
                     .bind(lambda copy: refreshed(group, copy, InterfaceKeys.of(copy, identity).sockets)),
                     rollback,
@@ -525,7 +525,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
         def keyed(channel: Animation) -> Outcome[bool]:
             match channel.source:
                 case Driven():
-                    return Error(Fault.of(Reason.OUTSIDE, rna(channel.path), Driven.__name__, member=Keys.__name__))
+                    return Error(Fault.of(Reason.OUTSIDE, rna(channel.path), Driven.__name__, member=Keys))
                 case Keys():
                     return channel.apply(scene)
 

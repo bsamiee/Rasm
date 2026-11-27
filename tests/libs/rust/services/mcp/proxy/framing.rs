@@ -5,6 +5,7 @@ use proptest::test_runner::FileFailurePersistence;
 use rasm_mcp::{Line, Lines, Method, Resumable, identity};
 use rasm_mcp_tests::Id;
 use rmcp::ErrorData;
+use serde_json::json;
 use tokio_util::codec::Decoder as _;
 
 use super::{INITIALIZE, INITIALIZED, Peer, joined, padded, proxy};
@@ -102,7 +103,8 @@ async fn session_line_over_the_limit_is_refused_under_its_id_and_later_lines_rea
     for id in [1, 2] {
         let refused = client.next().await;
         assert_eq!(refused.id, Some(Id::Number(id)), "the request over the limit is answered under its own id");
-        assert_eq!(refused.error.message.as_deref(), Some("request exceeds 4096 bytes, send less"), "the refusal states the limit");
+        let stated = json!({ "_tag": "Exceeded", "part": "request", "limit": MAX, "next": { "smaller": "request" } });
+        assert_eq!((refused.error.code, refused.error.data), (Some(-32600), Some(stated)), "the refusal states the limit and a smaller request");
     }
     assert_eq!(server.wire.next().await.method.as_deref(), Some("tools/list"), "the line that fits, newline counted, reaches the server whole across many reads");
     server.wire.silent(core::time::Duration::from_millis(100)).await;
@@ -120,7 +122,8 @@ async fn server_response_over_the_limit_fails_its_call_alone() {
     }
     let (wide, next) = (caller.next().await, caller.next().await);
     assert_eq!(wide.id, Some(Id::Number(7)));
-    assert_eq!(wide.error.message.as_deref(), Some("server response exceeds 1024 bytes, ask for less output"), "the caller is told the response was over the limit");
+    let stated = json!({ "_tag": "Exceeded", "part": "response", "limit": 1 << 10, "next": { "smaller": "response" } });
+    assert_eq!((wide.error.code, wide.error.data), (Some(-32603), Some(stated)), "the caller is told the response was over the limit and to ask for a smaller one");
     assert_eq!((next.id, next.error.message), (Some(Id::Number(8)), None), "the next call is answered");
 }
 

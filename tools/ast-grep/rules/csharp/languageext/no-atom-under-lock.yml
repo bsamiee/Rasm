@@ -65,7 +65,6 @@ rule:
               matches: lock-region
               pattern: $REGION
 labels:
-    WRITE: { style: primary, message: 'Writes the atom' }
+    WRITE: { style: primary }
     REGION: { style: secondary, message: 'Holds the lock' }
-message: '`$WRITE` writes an atom under a lock that serializes the write a second time'
-note: 'Write through `Atom` operations without a lock, or hold state in a plain field under the lock'
+message: '`$WRITE` writes an atom under a lock that serializes the write twice, write through `Atom` operations without the lock or hold state in a plain field under it'

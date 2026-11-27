@@ -400,7 +400,7 @@ def pass_file_add(call: Call[bpy.types.PropertyGroup]) -> Outcome[Answer]:
 
     return (
         _unlisted(call.identity, call.context)
-        .bind(lambda found: Block.of_seq(found).filter(lambda source: source.name == name).try_head().to_result_with(lambda: Fault.of(Reason.ABSENT, repr(call.context.view_layer), member=name)))
+        .bind(lambda found: Block.of_seq(found).filter(lambda source: source.name == name).try_head().to_result_with(lambda: Fault.of(Reason.ABSENT, call.context.view_layer, member=name)))
         .bind(added)
         if name
         else Ok(Unchanged(reason="Every layer pass has a file row"))

@@ -77,5 +77,4 @@ rule:
                                 - has: { field: function, kind: member_access_expression, all: [{ has: { field: expression, pattern: $ATTRS } }, { has: { field: name, pattern: $EFFECT } }] }
                                 - has: { field: arguments, has: { matches: amount-argument, has: { nthChild: { position: 1, reverse: true }, matches: zero } } }
                           - has: { stopBy: end, kind: invocation_expression, all: *cleared }
-message: '`$ATTRS.$EFFECT` sets amount `$AMOUNT` that every later object in the frame inherits'
-note: 'Reset `<attributes>.<effect>` to amount `0` after the draw in its callback'
+message: '`$ATTRS.$EFFECT` sets amount `$AMOUNT` that every later object in the frame inherits, reset `$ATTRS.$EFFECT` to amount `0` after the draw in its callback'

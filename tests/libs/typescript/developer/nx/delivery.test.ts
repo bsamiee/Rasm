@@ -115,14 +115,14 @@ describe('attach executor', () => {
 
         await attach({ dryRun: true, __unparsed__: ['--dry-run=true', '--repo', 'owner/marker'] }, workspace.context(graph, 'marker', 'attach'));
 
-        expect(log).toHaveBeenCalledWith(expect.anything(), expect.stringMatching(/^Would run gh release upload .+ rhino\/marker-1\.2\.4-rh8-any\.yak --clobber --repo owner\/marker where .+ has a GitHub release, else gh release create .+ --verify-tag rhino\/marker-1\.2\.4-rh8-any\.yak --repo owner\/marker$/u));
+        expect(log).toHaveBeenCalledWith(expect.stringMatching(/^skipped upload: gh release upload .+ rhino\/marker-1\.2\.4-rh8-any\.yak --clobber --repo owner\/marker, create: gh release create .+ --verify-tag rhino\/marker-1\.2\.4-rh8-any\.yak --repo owner\/marker, dry$/u));
         expect(recorded('gh.txt')).toStrictEqual([]);
     });
 
     it('refuses where the build it depends on wrote no file, naming the declared output', async ({ workspace, released }) => {
         const { graph } = await released({ 'rhino/project.json': rhino['rhino/project.json'] }, ['marker@1.2.4']);
 
-        await expect(attach({}, workspace.context(graph, 'marker', 'attach'))).rejects.toThrow('marker holds no file its dependentTasksOutputFiles input of attach matches under [rhino/*.yak]');
+        await expect(attach({}, workspace.context(graph, 'marker', 'attach'))).rejects.toThrow('marker:attach unmatched input: **/*, outputs: rhino/*.yak, tasks: marker:pack');
     });
 });
 
@@ -152,6 +152,6 @@ describe('publish through a registry tool', () => {
 
         await publish({ publish: [...tool], credential: ['UNSET_TOKEN', 'BLANK_TOKEN'] }, workspace.context(graph, 'lib', 'nx-release-publish'));
 
-        expect(log).toHaveBeenCalledWith(expect.anything(), expect.stringMatching(/: UNSET_TOKEN or BLANK_TOKEN is not set$/u));
+        expect(log).toHaveBeenCalledWith(expect.stringMatching(/, unset: UNSET_TOKEN BLANK_TOKEN$/u));
     });
 });

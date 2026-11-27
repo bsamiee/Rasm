@@ -12,7 +12,7 @@ public sealed partial class ParameterSpan {
     public double Length => End - Start;
 
     public static Fin<ParameterSpan> Validated(double start, double end) =>
-        GeometryFault.Unless(double.IsFinite(start) && double.IsFinite(end) && start < end, GeometryRule.Order, (start, end)).Map(_ => new ParameterSpan(start, end));
+        Fault.Unless(double.IsFinite(start) && double.IsFinite(end) && start < end, GeometryRule.Order, (start, end)).Map(_ => new ParameterSpan(start, end));
 }
 
 [SmartEnum]
@@ -52,11 +52,11 @@ public abstract partial record AnalyticCurve {
                 }));
 
         public static Fin<Trochoid> Validated(Roll roll, double rollingRadius, double arm) =>
-            (GeometryFault.Unless(double.IsFinite(rollingRadius) && rollingRadius > 0d && double.IsFinite(arm) && arm >= 0d, GeometryRule.Range, (rollingRadius, arm)), roll.Switch(
-                line: static line => GeometryFault.Unless(line.Arches >= 1, GeometryRule.Count, line.Arches).Map(_ => toSeq(Generate.LinearSpaced(line.Arches + 1, 0d, double.Tau * line.Arches))),
+            (Fault.Unless(double.IsFinite(rollingRadius) && rollingRadius > 0d && double.IsFinite(arm) && arm >= 0d, GeometryRule.Range, (rollingRadius, arm)), roll.Switch(
+                line: static line => Fault.Unless(line.Arches >= 1, GeometryRule.Count, line.Arches).Map(_ => toSeq(Generate.LinearSpaced(line.Arches + 1, 0d, double.Tau * line.Arches))),
                 circle: static circle =>
-                    (GeometryFault.Unless(circle.Fixed >= 1 && circle.Rolling >= 1, GeometryRule.Count, (circle.Fixed, circle.Rolling)),
-                     GeometryFault.Unless(circle.Side == RollSide.Outside || (circle.Fixed != circle.Rolling && circle.Fixed != 2L * circle.Rolling), GeometryRule.Degenerate, (circle.Side, circle.Fixed, circle.Rolling)))
+                    (Fault.Unless(circle.Fixed >= 1 && circle.Rolling >= 1, GeometryRule.Count, (circle.Fixed, circle.Rolling)),
+                     Fault.Unless(circle.Side == RollSide.Outside || (circle.Fixed != circle.Rolling && circle.Fixed != 2L * circle.Rolling), GeometryRule.Degenerate, (circle.Side, circle.Fixed, circle.Rolling)))
                         .Apply((_, _) => Euclid.GreatestCommonDivisor(circle.Fixed, circle.Rolling) switch { var gcd => toSeq(Generate.LinearSpaced((int)(circle.Fixed / gcd) + 1, 0d, double.Tau * circle.Rolling / gcd)) }).As()))
                 .Apply((_, joins) => new Trochoid(roll, rollingRadius, arm, joins)).As();
     }
@@ -69,7 +69,7 @@ public abstract partial record AnalyticCurve {
 
         public static Fin<Harmonic> Validated(Seq<HarmonicTerm> terms) =>
             terms.Filter(static term => term.Frequency > 0 && (term.Cosine.LengthSquared() > 0d || term.Sine.LengthSquared() > 0d)).Map(static term => (long)term.Frequency) switch {
-                var moving => (terms.Map(static (term, index) => GeometryFault.Unless(term.Frequency >= 0, GeometryRule.Range, term.Frequency, index)).Traverse(static held => held).As(), GeometryFault.Unless(!moving.IsEmpty, GeometryRule.Degenerate, moving))
+                var moving => (terms.Map(static (term, index) => Fault.Unless(term.Frequency >= 0, GeometryRule.Range, term.Frequency, index)).Traverse(static held => held).As(), Fault.Unless(!moving.IsEmpty, GeometryRule.Degenerate, moving))
                     .Apply((_, _) => new Harmonic(terms, Seq(0d, double.Tau / Euclid.GreatestCommonDivisor(moving.ToArray())))).As(),
             };
     }
@@ -84,8 +84,8 @@ public abstract partial record AnalyticCurve {
             double.SinCos(Symmetry.Numerator * t / (4d * Symmetry.Denominator)) switch { var (sin, cos) => Planar(Complex.FromPolarCoordinates(double.Pow(double.Pow(double.Abs(cos / Radii.A), Exponents.N2) + double.Pow(double.Abs(sin / Radii.B), Exponents.N3), -1d / Exponents.N1), t)) };
 
         public static Fin<Superformula> Validated(int symmetryNumerator, int symmetryDenominator, double n1, double n2, double n3, double a, double b) =>
-            (GeometryFault.Unless(symmetryNumerator >= 1 && symmetryDenominator >= 1, GeometryRule.Count, (symmetryNumerator, symmetryDenominator)),
-             GeometryFault.Unless(double.IsFinite(n1) && n1 is not 0d && n2 > 0d && n3 > 0d && a > 0d && b > 0d, GeometryRule.Range, (n1, n2, n3, a, b)))
+            (Fault.Unless(symmetryNumerator >= 1 && symmetryDenominator >= 1, GeometryRule.Count, (symmetryNumerator, symmetryDenominator)),
+             Fault.Unless(double.IsFinite(n1) && n1 is not 0d && n2 > 0d && n3 > 0d && a > 0d && b > 0d, GeometryRule.Range, (n1, n2, n3, a, b)))
                 .Apply((_, _) => (Step: double.Tau * symmetryDenominator / symmetryNumerator, Count: 2L * symmetryNumerator / Euclid.GreatestCommonDivisor(symmetryNumerator, 2L * symmetryDenominator), Odd: n2 <= 1d, Even: n3 <= 1d) switch {
                     var zeros => new Superformula(symmetryNumerator, symmetryDenominator, n1, n2, n3, a, b,
                         Seq(0d) + toSeq(Range(zeros.Odd ? 1L : 2L, (zeros.Odd ? zeros.Count / 2 : 0L) + (zeros.Even ? (zeros.Count / 2) - 1 : 0L), zeros.Odd && zeros.Even ? 1L : 2L))

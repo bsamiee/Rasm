@@ -300,7 +300,7 @@ def texture_setup(call: Call[Empty]) -> Outcome[Answer]:
             .bind(
                 lambda maps: (
                     paired(
-                        option.of_optional(call.context.active_object).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(call.context), member="active_object")),
+                        option.of_optional(call.context.active_object).to_result_with(lambda: Fault.of(Reason.ABSENT, call.context, member="active_object")),
                         material(Textured(maps=maps), call.identity, Some(rollback)),
                     )
                     .bind(lambda pair: _ACTIVE_MATERIAL.write(*pair))

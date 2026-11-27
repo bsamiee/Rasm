@@ -41,15 +41,15 @@ internal static class Validators {
 ```csharp
 internal static class Roots {
     public static Fin<double> Ratio(double x, double y) =>
-        y == 0 ? new Fault(y, Reason.Invalid)
-        : x != 0 && Math.Sign(x) != Math.Sign(y) ? new Fault((x, y), Reason.Invalid)
+        y == 0 ? Fault.Of(Reason.Invalid, y)
+        : x != 0 && Math.Sign(x) != Math.Sign(y) ? Fault.Of(Reason.Invalid, (x, y))
         : Math.Sqrt(x / y);
     public static Fin<string> Rendered(double x, double y) =>
         Ratio(x, y).Map(static root => root.ToString(CultureInfo.InvariantCulture));
     public static Fin<double> Nested(double x, double y) =>
         Ratio(x, y).Bind(static root => Ratio(root, 1));
     public static Fin<double> Root(double value) =>
-        from _ in guard<Error>(value >= 0, new Fault(value, Reason.Invalid)).ToFin()
+        from _ in guard<Error>(value >= 0, Fault.Of(Reason.Invalid, value)).ToFin()
         select Math.Sqrt(value);
 }
 ```
@@ -66,7 +66,7 @@ internal static class Pipeline {
     public static Fin<ValidRequest> Validate(Request request) =>
         Fault.Unless(request.Amount > 0, Reason.Invalid, request.Amount).Map(_ => new ValidRequest(request.Key, request.Amount));
     public static Fin<Model> Load(Func<string, Option<(string Key, decimal Balance)>> find, ValidRequest request) =>
-        find(request.Key).ToFin(new Fault(request.Key, Reason.Missing)).Map(row => new Model(row.Key, row.Balance, request.Amount));
+        find(request.Key).ToFin(Fault.Of(Reason.Missing, request.Key)).Map(row => new Model(row.Key, row.Balance, request.Amount));
     public static Fin<Updated> Update(Model model) =>
         Fault.Unless(model.Balance >= model.Amount, Reason.Invalid, (model.Balance, model.Amount)).Map(_ => new Updated(model.Key, model.Balance - model.Amount));
     public static Fin<Unit> Save(Updated model) =>

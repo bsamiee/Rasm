@@ -11,7 +11,7 @@ public sealed record NamedPosition(Guid Id, string Name, Seq<(Guid ObjectId, Tra
         IO.lift(() => Products.Each(Conversions.Rows(doc.NamedPositions.Ids), (id, _) => Conversions.Rows(doc.NamedPositions.Objects(id)) switch {
             var members => Products.Each(members, (found, index) => {
                 Transform xform = Transform.Unset;
-                return RhinoFault.Unless(doc.NamedPositions.ObjectXform(id, found, ref xform), RhinoReason.Missing, found.Id, index).Map(_ => (ObjectId: found.Id, Xform: xform));
+                return Fault.Unless(doc.NamedPositions.ObjectXform(id, found, ref xform), RhinoReason.Missing, found.Id, index).Map(_ => (ObjectId: found.Id, Xform: xform));
             }).Map(objects => new NamedPosition(
                 id, doc.NamedPositions.Name(id), objects, members.Filter(static found => found.HasHistoryRecord()).Map(static found => found.Id).Strict())),
         }));
@@ -63,9 +63,9 @@ public static class NamedPositions {
             .Map(id => (Id: id, Held: toHashSet(table.ObjectIds(id))))
             .Filter(row => row.Held.IsSubsetOf(wanted))
             .Match(
-                Some: row => (wanted.Count == row.Held.Count ? unit : RhinoFault.Unless(table.Append(row.Id, wanted.Except(row.Held)), RhinoReason.Declined, name))
-                    .Bind(_ => RhinoFault.Unless(table.Update(row.Id), RhinoReason.Declined, name)),
-                None: () => RhinoFault.Unless(table.Save(name, wanted) != Guid.Empty, RhinoReason.Declined, name));
+                Some: row => (wanted.Count == row.Held.Count ? unit : Fault.Unless(table.Append(row.Id, wanted.Except(row.Held)), RhinoReason.Declined, name))
+                    .Bind(_ => Fault.Unless(table.Update(row.Id), RhinoReason.Declined, name)),
+                None: () => Fault.Unless(table.Save(name, wanted) != Guid.Empty, RhinoReason.Declined, name));
 
     internal static IO<Guid> Found(RhinoDoc doc, string name) =>
         IO.lift(() => Conversions.Present(doc.NamedPositions.Id(name)).ToFin(Table.Missing(name)));

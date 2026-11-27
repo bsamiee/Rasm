@@ -4,7 +4,7 @@ use claims::{assert_none, assert_ok, assert_some};
 use rasm_mcp_tests::Id;
 use tokio::time::{self, Instant};
 
-use super::{GRACE, INITIALIZE, INITIALIZED, LINE, SERVED, joined, proxy, session};
+use super::{GRACE, INITIALIZE, INITIALIZED, LINE, SERVED, exited, joined, proxy, session};
 
 // --- [NEGOTIATION]
 
@@ -29,7 +29,7 @@ async fn server_that_ends_on_discover_is_asked_initialize_first_with_no_restart_
     let (_proxy, mut starts, _actor) = proxy(16, LINE);
     let mut first = assert_some!(starts.recv().await);
     assert_eq!(first.wire.next().await.method.as_deref(), Some("server/discover"));
-    assert_ok!(first.exit.send("exit status: 1".to_owned()));
+    assert_ok!(first.exit.send(exited("exit status: 1")));
     let ended = Instant::now();
     let mut second = assert_some!(starts.recv().await);
     assert_eq!(second.wire.next().await.method.as_deref(), Some("initialize"), "the next start asks initialize first");

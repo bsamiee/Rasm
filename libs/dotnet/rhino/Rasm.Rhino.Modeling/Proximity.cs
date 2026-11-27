@@ -13,7 +13,7 @@ public abstract partial record Interior {
 
         public Brep Brep { get; }
 
-        public static Fin<Solid> Validated(Brep brep) => RhinoFault.Unless(brep.IsSolid, RhinoReason.Invalid, brep.IsSolid).Map(_ => new Solid(brep));
+        public static Fin<Solid> Validated(Brep brep) => Fault.Unless(brep.IsSolid, RhinoReason.Invalid, brep.IsSolid).Map(_ => new Solid(brep));
 
         public static IO<Solid> Validated(SubD subd, SubDToBrepOptions options) =>
             Products.Of(() => subd.ToBrep(options)).Bind(static brep => IO.lift(Validated(brep)));
@@ -26,7 +26,7 @@ public abstract partial record Interior {
 
         public static Fin<Closed> Validated(Mesh mesh) =>
             (mesh.IsClosed, mesh.IsManifold()) switch {
-                var held => RhinoFault.Unless(held is (true, true), RhinoReason.Invalid, held).Map(_ => new Closed(mesh)),
+                var held => Fault.Unless(held is (true, true), RhinoReason.Invalid, held).Map(_ => new Closed(mesh)),
             };
     }
 
@@ -38,7 +38,7 @@ public abstract partial record Interior {
         public Plane Plane { get; }
 
         public static Fin<Planar> Validated(Curve curve, Plane plane) =>
-            (RhinoFault.Unless(curve.IsClosed, RhinoReason.Invalid, curve.IsClosed), RhinoFault.Unless(plane.IsValid, RhinoReason.Invalid, plane))
+            (Fault.Unless(curve.IsClosed, RhinoReason.Invalid, curve.IsClosed), Fault.Unless(plane.IsValid, RhinoReason.Invalid, plane))
                 .Apply((_, _) => new Planar(curve, plane)).As();
     }
 
@@ -79,7 +79,7 @@ public static class Proximity {
                 point, Some(at.ComponentIndex), at.IsFaceParameter ? [at.FaceCornerIndex, at.FaceCornerParameters.X, at.FaceCornerParameters.Y] : at.IsEdgeParameter ? [at.EdgeParameter] : [], None)),
             PointCloud cloud => Found(Conversions.Present(cloud.ClosestPoint(query)), None).Map(found => found.Map(index => new Closest(
                 cloud[index].Location, Some(new ComponentIndex(ComponentIndexType.PointCloudPoint, index)), [], cloud.ContainsNormals ? Some(cloud[index].Normal) : None)).Filter(at => Inside(query, at, limit))),
-            _ => new RhinoFault(subject.ObjectType, RhinoReason.Mismatched),
+            _ => Fault.Of(RhinoReason.Mismatched, subject.ObjectType),
         };
 
     public static Fin<Option<(Point3d OnCurve, Point3d OnObject, T Geometry)>> Nearest<T>(Curve curve, Seq<T> candidates, Option<double> limit) where T : GeometryBase =>
@@ -93,7 +93,7 @@ public static class Proximity {
     private static Fin<Option<T>> Found<T>(bool found, Option<double> limit, Func<T> answer) => Found(found ? Some(answer()) : None, limit);
 
     private static Fin<Option<T>> Found<T>(Option<T> found, Option<double> limit) =>
-        found.IsSome || limit.IsSome ? found : new RhinoFault(nameof(Nearest), RhinoReason.Missing);
+        found.IsSome || limit.IsSome ? found : Fault.Of(RhinoReason.Missing, nameof(Nearest));
 
     private static bool Inside(Point3d query, Closest at, Option<double> limit) => limit.ForAll(distance => query.DistanceTo(at.Point) <= distance);
 }

@@ -33,7 +33,7 @@ public abstract partial class ExrChannels {
         private Custom(Seq<string> names) : base(names, color: false) { }
 
         public static Fin<Custom> Validated(Seq<string> names) =>
-            ImagingFault.Unless(names.Count is >= 1 and <= 4 && names.Distinct().Count == names.Count && !names.Exists(string.IsNullOrWhiteSpace), ImagingReason.Range, names).Map(_ => new Custom(names));
+            Fault.Unless(names.Count is >= 1 and <= 4 && names.Distinct().Count == names.Count && !names.Exists(string.IsNullOrWhiteSpace), ImagingReason.Range, names).Map(_ => new Custom(names));
     }
 }
 
@@ -95,16 +95,16 @@ public abstract partial record ImageFile {
 
     public sealed record Exr(Seq<ExrLayer> Layers, OutputDepth Depth, ExrCompression Codec, Option<Gamut> Gamut, bool Multipart) : ImageFile {
         public override IO<Unit> Write(FileMetadata metadata, Stream stream, Option<SixLabors.ImageSharp.Configuration> configuration = default) =>
-            from floating in IO.lift(ImagingFault.Unless(Depth.Levels.IsNone, ImagingReason.Unsupported, Depth))
+            from floating in IO.lift(Fault.Unless(Depth.Levels.IsNone, ImagingReason.Unsupported, Depth))
             from canvas in IO.lift(Canvas(Layers.Map(static layer => layer.Frame), windowed: !Multipart))
             let attributes = (Seq((Name: "capDate", Text: metadata.Stamp), (Name: "Software", Text: metadata.Software))
                     + Gamut.Bind(static held => held.InteropId).Map(static id => (Name: FileMetadata.InteropId, Text: id)).ToSeq()
                     + metadata.Fields.ToSeq().Map(static field => (Name: field.Key, Text: field.Value)))
                 .Map(static text => new HeaderAttribute(text.Name, "string", Encoding.UTF8.GetBytes(text.Text)))
             from image in IO.lift(() => new Image((Multipart ? Layers.Map(static layer => (layer.Name, Layers: Seq(layer))) : Seq((Name: Option<string>.None, Layers))).Map(part => Assembled(part.Name, part.Layers, canvas, attributes, metadata)).Strict()))
-                .Catch(static error => error.HasException<ArgumentException>(), error => IO.fail<Image>(ImagingFault.Of(ImagingReason.Refused, Layers.Map(static layer => layer.Name), inner: error)))
+                .Catch(static error => error.HasException<ArgumentException>(), error => IO.fail<Image>(Fault.Of(ImagingReason.Refused, Layers.Map(static layer => layer.Name), inner: error)))
             from result in IO.liftVAsync(environment => ExrFile.SaveToStreamAsync(image, stream, cancellationToken: environment.Token))
-            from written in IO.lift(result.IsSuccess ? Fin.Succ(unit) : ImagingFault.Of(ImagingReason.Refused, result.Status, inner: Optional(result.Error).Map(Error.New)))
+            from written in IO.lift(result.IsSuccess ? Fin.Succ(unit) : Fault.Of(ImagingReason.Refused, result.Status, inner: Optional(result.Error).Map(Error.New)))
             select written;
 
         private Part Assembled(Option<string> name, Seq<ExrLayer> layers, PixelFrame canvas, Seq<HeaderAttribute> attributes, FileMetadata metadata) {

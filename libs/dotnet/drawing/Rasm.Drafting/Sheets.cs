@@ -49,9 +49,9 @@ public sealed record DraftingConvention {
 
     public static Fin<DraftingConvention> Validated(Length binding, Length border, bool rowsFromTop, bool columnsFromRight, LetteringStandard lettering, Terminator terminator, RevisionAlphabet revisions,
         string zoneLetters, Func<Length, Length, Length, Seq<Length>> divisions, Option<Length> topRightZonesUpTo = default, Option<(Length Reach, Length TitleBlock)> centering = default) =>
-        (DraftingFault.Unless(Seq(binding, border).ForAll(Measured) && topRightZonesUpTo.ForAll(Measured) && centering.ForAll(static held => Measured(held.Reach) && Measured(held.TitleBlock)),
+        (Fault.Unless(Seq(binding, border).ForAll(Measured) && topRightZonesUpTo.ForAll(Measured) && centering.ForAll(static held => Measured(held.Reach) && Measured(held.TitleBlock)),
                 DraftingReason.Measure, (binding, border, topRightZonesUpTo, centering)),
-         DraftingFault.Unless(zoneLetters.Length > 0 && toHashSet(zoneLetters).Count == zoneLetters.Length, DraftingReason.Repeated, zoneLetters))
+         Fault.Unless(zoneLetters.Length > 0 && toHashSet(zoneLetters).Count == zoneLetters.Length, DraftingReason.Repeated, zoneLetters))
             .Apply((_, _) => new DraftingConvention(binding, border, rowsFromTop, columnsFromRight, lettering, terminator, revisions, zoneLetters, divisions, topRightZonesUpTo, centering)).As();
 
     internal static bool Measured(Length length) => QuantityValue.IsFinite(length.Value) && length >= Length.Zero;
@@ -95,9 +95,9 @@ public abstract partial class SheetSize {
 
         public static Fin<Custom> Validated(string name, Length width, Length height, DraftingConvention convention) =>
             name.Trim() switch {
-                var trimmed => (DraftingFault.Unless(trimmed.Length > 0, DraftingReason.Blank, name),
-                     DraftingFault.Unless(!Standard.TryGet(trimmed, out _), DraftingReason.Repeated, name),
-                     DraftingFault.Unless(DraftingConvention.Measured(width) && DraftingConvention.Measured(height) && width > Length.Zero && height > Length.Zero, DraftingReason.Measure, (width, height)))
+                var trimmed => (Fault.Unless(trimmed.Length > 0, DraftingReason.Blank, name),
+                     Fault.Unless(!Standard.TryGet(trimmed, out _), DraftingReason.Repeated, name),
+                     Fault.Unless(DraftingConvention.Measured(width) && DraftingConvention.Measured(height) && width > Length.Zero && height > Length.Zero, DraftingReason.Measure, (width, height)))
                     .Apply((_, _, _) => new Custom(trimmed, width <= height ? (width, height) : (height, width), convention)).As(),
             };
     }

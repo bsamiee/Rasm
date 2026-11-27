@@ -60,6 +60,19 @@ pub struct Served {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Ended {
+    pub status: String,
+    pub stderr: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Down {
+    pub cause: Vec<Ended>,
+    pub sent: bool,
+    pub next: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Running {
     pub pid: u32,
     pub sessions: usize,

@@ -16,5 +16,4 @@ rule:
                     all:
                         - has: { stopBy: end, matches: { swift-task-call: { member: { regex: '^sleep$' } } } }
                         - has: { stopBy: end, pattern: '$EXECUTION.send(signal: .terminate)' }
-message: '`$SITE` signals a Subprocess child by hand'
-note: 'Call `<execution>.send(signal:toProcessGroup:)`, and `teardown(using:)` or a `teardownSequence` for a terminate-then-kill stop'
+message: '`$SITE` signals a Subprocess child by hand, call `<execution>.send(signal:toProcessGroup:)`, and `teardown(using:)` or a `teardownSequence` for a terminate-then-kill stop'

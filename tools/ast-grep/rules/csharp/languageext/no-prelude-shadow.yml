@@ -15,5 +15,4 @@ rule:
               - { inside: { kind: join_clause }, precedes: { regex: '^in$' } }
               - inside: { kind: foreach_statement, field: left }
     inside: { stopBy: end, matches: languageext-compilation-unit }
-message: '`$NAME` hides `Prelude.$NAME`'
-note: 'Rename the declaration after what its value holds'
+message: '`$NAME` hides `Prelude.$NAME`, rename the declaration after what its value holds'

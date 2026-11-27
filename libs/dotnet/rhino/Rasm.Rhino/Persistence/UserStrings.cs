@@ -12,12 +12,12 @@ namespace Rasm.Rhino.Persistence;
 [ValueObject<string>(EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads, ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class KeyName {
-    public static Fin<KeyName> Validated(string value) => TryCreate(value, out KeyName? name, out RhinoFault? fault) ? name : fault;
+    public static Fin<KeyName> Validated(string value) => TryCreate(value, out KeyName? name, out Fault<RhinoReason>? fault) ? name : fault;
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
-        validationError = value.Length > 0 && !value.Contains(DocumentKey.Separator, StringComparison.Ordinal) ? null : new RhinoFault(value, RhinoReason.Unqualified);
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref string value) =>
+        validationError = value.Length > 0 && !value.Contains(DocumentKey.Separator, StringComparison.Ordinal) ? null : Fault.Of(RhinoReason.Unqualified, value);
 }
 
 public sealed record DocumentKey(KeyName Name, Option<KeyName> Entry = default) {
@@ -41,7 +41,7 @@ public static class UserStrings {
 
     public static IO<Unit> Write(
         HashMap<EqStringOrdinalIgnoreCase, string, string> held, Func<string, string, bool> set, HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> edits) =>
-        IO.lift(() => Products.Each(Changed(held, edits), (edit, index) => RhinoFault.Unless(set(edit.Key, Conversions.Unset(edit.Value)), RhinoReason.Declined, edit.Key, index))).Map(unit);
+        IO.lift(() => Products.Each(Changed(held, edits), (edit, index) => Fault.Unless(set(edit.Key, Conversions.Unset(edit.Value)), RhinoReason.Declined, edit.Key, index))).Map(unit);
 
     private static Seq<(string Key, Option<string> Value)> Changed(
         HashMap<EqStringOrdinalIgnoreCase, string, string> held, HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> edits) =>

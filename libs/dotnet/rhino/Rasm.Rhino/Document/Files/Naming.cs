@@ -8,7 +8,7 @@ namespace Rasm.Rhino.Document.Files;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [ValueObject<string>]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class NamePart {
@@ -16,54 +16,54 @@ public sealed partial class NamePart {
 
     public static NamePart Ordinal(int position) => new(position.ToString(CultureInfo.InvariantCulture));
 
-    public static Fin<NamePart> Validated(string value) => TryCreate(value, out NamePart? part, out RhinoFault? fault) ? part : fault;
+    public static Fin<NamePart> Validated(string value) => TryCreate(value, out NamePart? part, out Fault<RhinoReason>? fault) ? part : fault;
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref string value) {
         ReadOnlySpan<char> trimmed = value.AsSpan().Trim();
         value = string.Create(trimmed.Length, trimmed, static (target, source) => source.ReplaceAny(target, Reserved, '_'));
-        validationError = trimmed.Trim('.').IsEmpty ? new RhinoFault(value, RhinoReason.Unqualified) : null;
+        validationError = trimmed.Trim('.').IsEmpty ? Fault.Of(RhinoReason.Unqualified, value) : null;
     }
 }
 
 [ValueObject<string>]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FileExtension {
     internal const char Mark = '.';
 
-    public static Fin<FileExtension> Validated(string value) => TryCreate(value, out FileExtension? extension, out RhinoFault? fault) ? extension : fault;
+    public static Fin<FileExtension> Validated(string value) => TryCreate(value, out FileExtension? extension, out Fault<RhinoReason>? fault) ? extension : fault;
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
-        validationError = value is [Mark, _, ..] && !value.AsSpan(1).ContainsAny(NamePart.Reserved) && !value.AsSpan(1).Contains(Mark) ? null : new RhinoFault(value, RhinoReason.Unqualified);
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref string value) =>
+        validationError = value is [Mark, _, ..] && !value.AsSpan(1).ContainsAny(NamePart.Reserved) && !value.AsSpan(1).Contains(Mark) ? null : Fault.Of(RhinoReason.Unqualified, value);
 }
 
 [ValueObject<int>]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class OutputVersion : IMinMaxValue<OutputVersion> {
     public static OutputVersion MinValue { get; } = new(1);
 
     public static OutputVersion MaxValue { get; } = new(int.MaxValue);
 
-    public Fin<OutputVersion> Next() => _value < MaxValue._value ? Validated(_value + 1) : new RhinoFault(_value, RhinoReason.Outside);
+    public Fin<OutputVersion> Next() => _value < MaxValue._value ? Validated(_value + 1) : Fault.Of(RhinoReason.Outside, _value);
 
-    public static Fin<OutputVersion> Validated(int value) => TryCreate(value, out OutputVersion? version, out RhinoFault? fault) ? version : fault;
+    public static Fin<OutputVersion> Validated(int value) => TryCreate(value, out OutputVersion? version, out Fault<RhinoReason>? fault) ? version : fault;
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref int value) =>
-        validationError = value >= MinValue._value ? null : new RhinoFault(value, RhinoReason.Outside);
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref int value) =>
+        validationError = value >= MinValue._value ? null : Fault.Of(RhinoReason.Outside, value);
 }
 
 [ValueObject<int>]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class SequenceNumber : IMinMaxValue<SequenceNumber> {
     public static SequenceNumber MinValue { get; } = new(0);
 
     public static SequenceNumber MaxValue { get; } = new(int.MaxValue);
 
-    public static Fin<SequenceNumber> Validated(int value) => TryCreate(value, out SequenceNumber? number, out RhinoFault? fault) ? number : fault;
+    public static Fin<SequenceNumber> Validated(int value) => TryCreate(value, out SequenceNumber? number, out Fault<RhinoReason>? fault) ? number : fault;
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref int value) =>
-        validationError = value >= MinValue._value ? null : new RhinoFault(value, RhinoReason.Outside);
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref int value) =>
+        validationError = value >= MinValue._value ? null : Fault.Of(RhinoReason.Outside, value);
 }
 
 [Union]
@@ -98,7 +98,7 @@ public sealed record OutputConvention(char Separator, string VersionMark, int Ve
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [ObjectFactory<string>(UseForSerialization = SerializationFrameworks.SystemTextJson)]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public abstract partial record OutputFolder : IConvertible<string> {
     private const string DocumentMark = "//";
 
@@ -112,7 +112,7 @@ public abstract partial record OutputFolder : IConvertible<string> {
                 .Map(static segments => (OutputFolder)new BesideDocument(segments))
             : new Absolute(value);
 
-    public static RhinoFault? Validate(string? value, IFormatProvider? provider, out OutputFolder? item) => Conversions.Validate(value, Validated, out item);
+    public static Fault<RhinoReason>? Validate(string? value, IFormatProvider? provider, out OutputFolder? item) => Conversions.Validate(value, Validated, out item);
 
     public string ToValue() => Switch(
         absolute: static absolute => absolute.Folder,
@@ -120,13 +120,13 @@ public abstract partial record OutputFolder : IConvertible<string> {
 
     public Fin<string> Of(Option<string> saved) =>
         Switch(saved,
-            absolute: static (_, absolute) => Path.IsPathFullyQualified(absolute.Folder) ? absolute.Folder : new RhinoFault(absolute.Folder, RhinoReason.Unqualified),
+            absolute: static (_, absolute) => Path.IsPathFullyQualified(absolute.Folder) ? absolute.Folder : Fault.Of(RhinoReason.Unqualified, absolute.Folder),
             besideDocument: static (documentPath, beside) => Conversions.Required(documentPath).Map(path => Path.Join([Path.GetDirectoryName(path), .. beside.Segments])));
 }
 
 [Union]
 [ObjectFactory<string>(UseForSerialization = SerializationFrameworks.SystemTextJson)]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public abstract partial record Stem : IConvertible<string> {
     public sealed record DocumentName : Stem;
 
@@ -137,7 +137,7 @@ public abstract partial record Stem : IConvertible<string> {
             Some: static named => NamePart.Validated(named).Map(static part => (Stem)new Literal(part)),
             None: static () => new DocumentName());
 
-    public static RhinoFault? Validate(string? value, IFormatProvider? provider, out Stem? item) => Conversions.Validate(value, Validated, out item);
+    public static Fault<RhinoReason>? Validate(string? value, IFormatProvider? provider, out Stem? item) => Conversions.Validate(value, Validated, out item);
 
     public string ToValue() => Switch(
         documentName: static _ => "",
@@ -188,7 +188,7 @@ public static class Destinations {
             .As()
             .Bind(named => (
                     Conversions.Unique(named, static row => (string)row.Path, StringComparer.OrdinalIgnoreCase),
-                    named.Traverse(row => RhinoFault.Unless(overwrite || !Path.Exists(row.Path), RhinoReason.Taken, (string)row.Path)).As())
+                    named.Traverse(row => Fault.Unless(overwrite || !Path.Exists(row.Path), RhinoReason.Taken, (string)row.Path)).As())
                 .Apply(static (held, _) => held)
                 .As()))
         select (location.Folder, placed);

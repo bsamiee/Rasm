@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using Rhino.DocObjects;
 using Rhino.Render;
 
@@ -54,8 +53,8 @@ public static class Mappings {
             Mapped(mapping.Evaluate(sample.Point, sample.Normal, out Point3d texture, inverse, normals), texture, index)))
         select result;
 
-    private static Fin<(Point3d Texture, int Side)> Mapped(int side, Point3d texture, int index, [CallerArgumentExpression(nameof(side))] string call = "") =>
-        side is not 0 ? (texture, side) : new RhinoFault(call, RhinoReason.Declined, index);
+    private static Fin<(Point3d Texture, int Side)> Mapped(int side, Point3d texture, int index) =>
+        side is not 0 ? (texture, side) : Fault.Of(RhinoReason.Declined, texture, index);
 
     // --- [CHANNELS]
 
@@ -66,7 +65,7 @@ public static class Mappings {
         select held;
 
     public static IO<Unit> Assign(RhinoObject rhinoObject, int channel, TextureMapping mapping, Option<Transform> objectTransform = default) =>
-        from accepted in IO.lift(() => RhinoFault.Unless((mapping.MappingType is TextureMappingType.OcsMapping) == (channel == ObjectAttributes.OCSMappingChannelId), RhinoReason.Mismatched, (mapping.MappingType, channel)))
+        from accepted in IO.lift(() => Fault.Unless((mapping.MappingType is TextureMappingType.OcsMapping) == (channel == ObjectAttributes.OCSMappingChannelId), RhinoReason.Mismatched, (mapping.MappingType, channel)))
         from assigned in objectTransform.Match(
             Some: xform => Products.Accepted(() => rhinoObject.SetTextureMapping(channel, mapping, xform) is not 0),
             None: () => Products.Accepted(() => rhinoObject.SetTextureMapping(channel, mapping) is not 0))
@@ -83,7 +82,7 @@ public static class Mappings {
         select coordinates;
 
     private static Fin<Either<Seq<Point2d>, Seq<Point3d>>> Copied(CachedTextureCoordinates held) =>
-        RhinoFault.Unless(held.Dim is 2 or 3, RhinoReason.Unsupported, held.Dim).Map(_ => Conversions.Rows(held) switch {
+        Fault.Unless(held.Dim is 2 or 3, RhinoReason.Unsupported, held.Dim).Map(_ => Conversions.Rows(held) switch {
             var points when held.Dim is 2 => (Either<Seq<Point2d>, Seq<Point3d>>)new Either<Seq<Point2d>, Seq<Point3d>>.Left(points.Map(static point => new Point2d(point.X, point.Y))),
             var points => new Either<Seq<Point2d>, Seq<Point3d>>.Right(points),
         });

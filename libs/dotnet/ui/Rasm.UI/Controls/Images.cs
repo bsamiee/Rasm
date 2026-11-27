@@ -35,7 +35,7 @@ public sealed partial class ImageRegion {
     }
 
     public static Fin<ImageRegion> Validated(SKRect edges) =>
-        UIFault.Unless(edges is { Left: >= 0f, Top: >= 0f, Right: <= 1f, Bottom: <= 1f } && edges.Left < edges.Right && edges.Top < edges.Bottom, UIReason.Range, edges).Map(_ => new ImageRegion(edges));
+        Fault.Unless(edges is { Left: >= 0f, Top: >= 0f, Right: <= 1f, Bottom: <= 1f } && edges.Left < edges.Right && edges.Top < edges.Bottom, UIReason.Range, edges).Map(_ => new ImageRegion(edges));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

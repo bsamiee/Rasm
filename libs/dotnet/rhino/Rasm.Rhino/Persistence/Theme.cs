@@ -157,7 +157,7 @@ public sealed record RhinoTheme(string Name) {
             widget: static (color, key) => Moded(key, Preferences.Property(() => AppearanceSettings.GetWidgetColor(key.Member), held => AppearanceSettings.SetWidgetColor(key.Member, held, forceUiUpdate: true)).Swap(color)),
             appearance: static (color, key) => Moded(key, AppearanceColors.Find(member => string.Equals(member.Name, key.Member, StringComparison.Ordinal)).Match(
                 Some: member => Preferences.Property(member.Read, member.Write).Swap(color),
-                None: () => IO.fail<IO<Unit>>(new RhinoFault(key.Member, RhinoReason.Missing))))));
+                None: () => IO.fail<IO<Unit>>(Fault.Of(RhinoReason.Missing, key.Member))))));
 
     private static readonly Seq<(string Name, Func<Color> Read, Action<Color> Write)> AppearanceColors =
         toSeq(typeof(AppearanceSettings).GetProperties(BindingFlags.Public | BindingFlags.Static))
@@ -227,14 +227,14 @@ public sealed record RhinoTheme(string Name) {
             }).Filter(bound.ContainsKey));
 
         Func<ThemeKey, Fin<Unicolour>> basis = key =>
-            live.Find(key).Map(ToUnicolour).ToFin(new RhinoFault(key, RhinoReason.Missing));
+            live.Find(key).Map(ToUnicolour).ToFin(Fault.Of(RhinoReason.Missing, key));
 
         Func<ThemeKey, HashMap<ThemeKey, Fin<Unicolour>>, Fin<Unicolour>> value = (key, known) =>
             bound.ContainsKey(key) ? known[key] : basis(key);
 
         Fin<Unicolour> Resolve(ThemeKey key, HashMap<ThemeKey, Fin<Unicolour>> known) =>
             key is ThemeKey.Paint { Member: var member } && hooked.Contains(member)
-                ? new RhinoFault(member, RhinoReason.Unsupported)
+                ? Fault.Of(RhinoReason.Unsupported, member)
                 : bound[key].Switch(
                     (Key: key, Known: known, Base: basis, Value: value),
                     set: static (_, set) => set.Value,
@@ -249,9 +249,9 @@ public sealed record RhinoTheme(string Name) {
         return Try.lift(() => toSeq(dependencies.Keys)
                 .ToBidirectionalGraph(key => dependencies[key].Map(target => new Edge<ThemeKey>(key, target)), allowParallelEdges: false)
                 .SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward)).Run()
-            .MapFail(error => error.HasException<NonAcyclicGraphException>() ? new RhinoFault(Name, RhinoReason.Repeated, Inner: error) : error)
+            .MapFail(error => error.HasException<NonAcyclicGraphException>() ? Fault.Of(RhinoReason.Repeated, Name, inner: error) : error)
             .Map(order => toSeq(order).Fold(HashMap<ThemeKey, Fin<Unicolour>>(), (known, key) =>
-                known.Add(key, Resolve(key, known).MapFail(error => new RhinoFault(key, RhinoReason.Invalid, Inner: error)))))
+                known.Add(key, Resolve(key, known).MapFail(error => Fault.Of(RhinoReason.Invalid, key, inner: error)))))
             .Bind(static known => toSeq(known.AsIterable()).Traverse(static row => row.Value.Map(color => (row.Key, Color: ToColor(color)))).As())
             .Map(static rows => toHashMap(rows));
     }

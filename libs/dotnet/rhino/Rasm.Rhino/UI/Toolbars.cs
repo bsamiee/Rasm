@@ -128,7 +128,7 @@ public sealed record MenuExtension {
     public RuiPlatforms Platforms { get; init; } = RuiPlatforms.Both;
 
     public static Fin<MenuExtension> Of(Seq<string> path, Seq<Seq<Command<Macro>>> groups) =>
-        RhinoFault.Unless(path.Count > 1, RhinoReason.Invalid, path).Map(_ => new MenuExtension(path, groups));
+        Fault.Unless(path.Count > 1, RhinoReason.Invalid, path).Map(_ => new MenuExtension(path, groups));
 
     public string Text => string.Join("::", Path);
 }
@@ -203,7 +203,7 @@ public static class Toolbars {
                     .Choose(static entry => Optional(entry as MenuEntry.Item)).Map(static item => (item.Id, item)))
                 from live in use(static () => new CancellationTokenSource(), static source => Products.Each(Seq(IO.lift(source.Cancel), IO.lift(source.Dispose))).Map(unit))
                 let handler = Updated(items, live.Token)
-                from registered in IO.lift(Products.Each(items.Values.ToSeq(), (item, index) => RhinoFault.Unless(RuiUpdateUi.RegisterMenuItem(file, item.Menu, item.Id, handler), RhinoReason.Declined, item.Id, index)))
+                from registered in IO.lift(Products.Each(items.Values.ToSeq(), (item, index) => Fault.Unless(RuiUpdateUi.RegisterMenuItem(file, item.Menu, item.Id, handler), RhinoReason.Declined, item.Id, index)))
                 from post in Mailboxes.Idle<Unit, Unit>(_ => Placed(file, declared.Groups))
                 from queued in post(unit, unit)
                 select unit,
@@ -241,7 +241,7 @@ public static class Toolbars {
     public static IO<ToolbarFile> Own => IO.lift(static () => Identity(Session.Assembly)).Bind(File);
 
     public static IO<ToolbarFile> File(Guid id) =>
-        IO.lift(() => Conversions.Rows(RhinoApp.ToolbarFiles).Find(file => file.Id == id).ToFin(new RhinoFault(id.ToString("D", CultureInfo.InvariantCulture), RhinoReason.Missing)));
+        IO.lift(() => Conversions.Rows(RhinoApp.ToolbarFiles).Find(file => file.Id == id).ToFin(Fault.Of(RhinoReason.Missing, id.ToString("D", CultureInfo.InvariantCulture))));
 
     public static IO<Seq<ToolbarGroup>> Groups(ToolbarFile file) =>
         IO.lift(() => Conversions.Rows(toSeq(Range(0, file.GroupCount)).Map(file.GetGroup)).Strict());

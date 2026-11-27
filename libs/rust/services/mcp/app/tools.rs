@@ -3,7 +3,6 @@ use core::future::ready;
 use core::pin::pin;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
-use std::error::Report;
 use std::sync::Arc;
 use std::sync::nonpoison::Mutex;
 
@@ -37,8 +36,8 @@ use uuid::Uuid;
 use validated::Validated;
 
 use super::{Router, Server};
-use crate::error::internal;
-use crate::{Handle, McpError, Progress, ToolError};
+use crate::error::{Data, coded, internal, reported};
+use crate::{Handle, McpError, Next, Progress, ToolError};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -51,15 +50,11 @@ type Executions = Arc<Mutex<BTreeMap<usize, Execution>>>;
 impl<E> IntoCallToolResult for ToolError<E>
 where E: Serialize + Error
 {
-    fn into_call_tool_result(self) -> Result<CallToolResponse, ErrorData> {
-        #[derive(Serialize)]
-        struct Rendered<'error, E> {
-            #[serde(flatten)]
-            error: &'error E,
-            message: String,
-        }
-        serde_json::to_value(Rendered { error: &self.0, message: Report::new(&self.0).to_string() }).map(|value| CallToolResult::structured_error(value).into()).map_err(internal)
-    }
+    fn into_call_tool_result(self) -> Result<CallToolResponse, ErrorData> { structured(&self.0, None) }
+}
+
+impl IntoCallToolResult for McpError {
+    fn into_call_tool_result(self) -> Result<CallToolResponse, ErrorData> { structured(&self, coded(&self).1) }
 }
 
 #[derive(Deserialize, Serialize)]
@@ -172,6 +167,13 @@ impl Elicitation {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+fn structured<E>(error: &E, next: Option<Next>) -> Result<CallToolResponse, ErrorData>
+where E: Serialize + Error {
+    let mut result = CallToolResult::error(vec![ContentBlock::text(reported(error, next))]);
+    result.structured_content = Some(serde_json::to_value(Data { error, next }).map_err(internal)?);
+    Ok(result.into())
+}
+
 pub(super) fn validated<A>(route: ToolRoute<A>) -> Validated<(Cow<'static, str>, ToolRoute<A>), McpError>
 where A: Send + Sync + 'static {
     let ToolRoute { call, mut attr, .. } = route;
@@ -192,7 +194,7 @@ where A: Send + Sync + 'static {
             let violations = validator.evaluate(&arguments).iter_errors().map(|entry| (entry.instance_location.clone(), entry.error.message().to_owned())).collect();
             match NEVec::try_from_vec(violations) {
                 None => call(context),
-                Some(violations) => ready(ToolError(McpError::Arguments { tool: context.name, violations }).into_call_tool_result()).boxed(),
+                Some(violations) => ready(McpError::Arguments { tool: context.name, violations }.into_call_tool_result()).boxed(),
             }
         });
         (name, routed)
@@ -295,7 +297,7 @@ where A: Server {
         });
         let (handle, Record { state, executions }, minted) = match resolved {
             Ok(resolved) => resolved,
-            Err(refused) => return ToolError(refused).into_call_tool_result(),
+            Err(refused) => return refused.into_call_tool_result(),
         };
         let destructive = tools.get(&request.name).is_some_and(|tool| tool.annotations.as_ref().is_none_or(|hints| hints.read_only_hint != Some(true) && hints.is_destructive()));
         let execution = Execution { tool: request.name.clone(), arguments: request.arguments.clone(), outcome: Outcome::Running };

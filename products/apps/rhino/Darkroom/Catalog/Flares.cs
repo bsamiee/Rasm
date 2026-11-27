@@ -16,9 +16,9 @@ namespace Darkroom.Catalog;
 internal sealed partial class FlareAnchor {
     public static readonly FlareAnchor Frame = new("frame", [], static (position, _, context) => Some((context.Extent.Point(position), Option<float>.None)));
     public static readonly FlareAnchor Sun = new("sun", [GuideChannel.Depth], static (_, _, context) =>
-        context.Lights.ToFin(new DarkroomFault("Sun flare anchor", DarkroomReason.Lights)).Map(lights => lights.Sun.Bind(direction => Distant(direction, context))));
+        context.Lights.ToFin(Fault.Of(DarkroomReason.Lights, "Sun flare anchor")).Map(lights => lights.Sun.Bind(direction => Distant(direction, context))));
     public static readonly FlareAnchor Light = new("light", [GuideChannel.Depth], static (_, light, context) =>
-        light.Traverse(target => context.Lights.ToFin(new DarkroomFault((FormattableString)$"Light flare anchor {target}", DarkroomReason.Lights)).Map(lights =>
+        light.Traverse(target => context.Lights.ToFin(Fault.Of(DarkroomReason.Lights, target)).Map(lights =>
             (from point in lights.Points.Find(target) from camera in context.Camera from located in camera.Pixel(point) select (located.Point, Depth: Some(located.Depth)))
             | lights.Directions.Find(target).Bind(direction => Distant(direction, context)))).As().Map(static located => located.Flatten()));
 

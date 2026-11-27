@@ -57,6 +57,8 @@
         <ProjectReference Include="../../../../libs/dotnet/rhino/Rasm.Grasshopper/Rasm.Grasshopper.csproj" />
         <ProjectReference Include="../../../../libs/dotnet/rhino/Rasm.Rhino.Modeling/Rasm.Rhino.Modeling.csproj" />
         <ProjectReference Include="../../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
+        <ProjectReference Include="../../../../libs/dotnet/runtime/Rasm.Telemetry.Api/Rasm.Telemetry.Api.csproj" />
+        <Using Include="Rasm.Telemetry.Api" />
     </ItemGroup>
 
     <ItemGroup Label="Rhino Plug-Ins">

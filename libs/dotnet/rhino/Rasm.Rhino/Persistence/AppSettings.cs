@@ -12,13 +12,13 @@ namespace Rasm.Rhino.Persistence;
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class CommandName {
-    public static Fin<CommandName> Validated(string value) => TryCreate(value, out CommandName? name, out RhinoFault? fault) ? name : fault;
+    public static Fin<CommandName> Validated(string value) => TryCreate(value, out CommandName? name, out Fault<RhinoReason>? fault) ? name : fault;
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref string value) {
         string? trimmed = value.TrimOrNullify();
-        validationError = trimmed is { } name && Command.IsValidCommandName(name) ? null : new RhinoFault(value, RhinoReason.Unqualified);
+        validationError = trimmed is { } name && Command.IsValidCommandName(name) ? null : Fault.Of(RhinoReason.Unqualified, value);
         value = trimmed ?? value;
     }
 }
@@ -26,15 +26,15 @@ public sealed partial class CommandName {
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class PackageSource {
     public const char Separator = ';';
 
-    public static Fin<PackageSource> Validated(string value) => TryCreate(value, out PackageSource? source, out RhinoFault? fault) ? source : fault;
+    public static Fin<PackageSource> Validated(string value) => TryCreate(value, out PackageSource? source, out Fault<RhinoReason>? fault) ? source : fault;
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref string value) {
         string? trimmed = value.TrimOrNullify();
-        validationError = trimmed is { } source && !source.Contains(Separator, StringComparison.Ordinal) ? null : new RhinoFault(value, RhinoReason.Unqualified);
+        validationError = trimmed is { } source && !source.Contains(Separator, StringComparison.Ordinal) ? null : Fault.Of(RhinoReason.Unqualified, value);
         value = trimmed ?? value;
     }
 }
@@ -63,7 +63,7 @@ public static class AppSettings {
         Preferences.Of(
             IO.lift(() => toSeq(ShortcutKeySettings.GetShortcuts()).Find(row => row.Key == key && row.Modifier == modifier).Bind(static row => Conversions.Present(row.Macro))),
             macro =>
-                from accepted in IO.lift(() => RhinoFault.Unless(macro.IsNone || ShortcutKeySettings.IsAcceptableKeyCombo(key, modifier), RhinoReason.Unsupported, (key, modifier)))
+                from accepted in IO.lift(() => Fault.Unless(macro.IsNone || ShortcutKeySettings.IsAcceptableKeyCombo(key, modifier), RhinoReason.Unsupported, (key, modifier)))
                 from written in IO.lift(() => ShortcutKeySettings.SetMacro(key, modifier, Conversions.Unset(macro)))
                 select written,
             Some(Preferences.AppSettingsChanged));

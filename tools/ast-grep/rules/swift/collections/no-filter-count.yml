@@ -34,5 +34,4 @@ rule:
                   - matches: filter-call
                   - { kind: try_expression, has: { field: expr, matches: filter-call } }
         - not: { inside: { matches: zero-test } }
-message: '`$C.filter` builds a collection only to count its elements'
-note: 'Call `<sequence>.count(where: <test>)`'
+message: '`$C.filter` builds a collection only to count its elements, call `$C.count(where: <test>)`'

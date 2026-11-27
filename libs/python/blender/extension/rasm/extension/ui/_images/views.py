@@ -213,7 +213,7 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
 
     def pressed(self, context: bpy.types.Context) -> Outcome[tuple[Quad, Rect]]:
         """Reads the quad and frame under a handle, absent fault while the owner holds none."""
-        return self.held(context).bind(lambda found: found.to_result_with(partial(Fault.of, Reason.ABSENT, repr(context.area), member=self.key)))
+        return self.held(context).bind(lambda found: found.to_result_with(partial(Fault.of, Reason.ABSENT, context.area, member=self.key)))
 
     def bounded(self, fractions: npt.NDArray[np.float64], *, shifted: bool) -> npt.NDArray[np.float64]:
         """Keeps corners inside the bounds, a shifted quad first moving whole as far as the bounds let it before any corner is clipped."""
@@ -281,7 +281,7 @@ def displayed_aspect(context: bpy.types.Context) -> Outcome[float]:
     """
     return (
         rooted(bpy.types.SpaceImageEditor, context)
-        .bind(lambda space: option.of_optional(space.image).to_result_with(partial(Fault.of, Reason.ABSENT, repr(space), member="image")))
+        .bind(lambda space: option.of_optional(space.image).to_result_with(partial(Fault.of, Reason.ABSENT, space, member="image")))
         .bind(lambda _: rooted(bpy.types.Area, context).bind(region_in))
         .map(framed)
         .map(lambda frame: frame.width / frame.height)
@@ -379,7 +379,7 @@ def _regioned(record: Picked, located: tuple[bpy.types.SpaceImageEditor, bpy.typ
         Some((column, row))
         .filter(lambda pixel: 0 <= pixel[0] < width and 0 <= pixel[1] < height)
         .map(lambda pixel: Region.bounding(np.clip((np.array(pixel) + reach) / (width, height), 0.0, 1.0)))
-        .to_result_with(partial(Fault.of, Reason.ABSENT, repr(space.image), member=f"pixel {column}, {row}"))
+        .to_result_with(partial(Fault.of, Reason.ABSENT, space.image, member=f"pixel {column}, {row}"))
     )
 
 

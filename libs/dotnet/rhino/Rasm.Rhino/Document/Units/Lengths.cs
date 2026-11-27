@@ -9,7 +9,7 @@ namespace Rasm.Rhino.Document.Units;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [ComplexValueObject]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class Tolerances {
     public double Absolute { get; }
     public double Relative { get; }
@@ -18,7 +18,7 @@ public sealed partial class Tolerances {
     public double MeshIntersection => Absolute * Intersection.MeshIntersectionsTolerancesCoefficient;
 
     public static Fin<Tolerances> Validated(double absolute, double relative, double angle) =>
-        TryCreate(absolute, relative, angle, out Tolerances? tolerances, out RhinoFault? fault) ? tolerances : fault;
+        TryCreate(absolute, relative, angle, out Tolerances? tolerances, out Fault<RhinoReason>? fault) ? tolerances : fault;
 
     public static IO<Tolerances> Read(RhinoDoc doc, Space space) => IO.lift(() => space.Read(doc).Tolerances);
 
@@ -27,14 +27,14 @@ public sealed partial class Tolerances {
         && Vector3d.VectorAngle(left.XAxis, right.XAxis) <= Angle
         && Vector3d.VectorAngle(left.YAxis, right.YAxis) <= Angle;
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref double absolute, ref double relative, ref double angle) =>
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref double absolute, ref double relative, ref double angle) =>
         validationError = double.IsFinite(absolute) && absolute > 0d && relative is > 0d and < 1d && angle is > 0d and <= Math.PI
             ? null
-            : new RhinoFault((absolute, relative, angle), RhinoReason.Outside);
+            : Fault.Of(RhinoReason.Outside, (absolute, relative, angle));
 }
 
 [ComplexValueObject(SkipToString = true)]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class UnitsAndTolerances {
     public LengthUnit LengthUnit { get; }
     public Tolerances Tolerances { get; }
@@ -46,12 +46,12 @@ public sealed partial class UnitsAndTolerances {
     public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"{LengthUnit.Symbol} {Tolerances} {Display} {Precision}");
 
     public static Fin<UnitsAndTolerances> Validated(LengthUnit lengthUnit, Tolerances tolerances, DistanceDisplayMode display, int precision) =>
-        TryCreate(lengthUnit, tolerances, display, precision, out UnitsAndTolerances? units, out RhinoFault? fault) ? units : fault;
+        TryCreate(lengthUnit, tolerances, display, precision, out UnitsAndTolerances? units, out Fault<RhinoReason>? fault) ? units : fault;
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref LengthUnit lengthUnit, ref Tolerances tolerances, ref DistanceDisplayMode display, ref int precision) =>
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref LengthUnit lengthUnit, ref Tolerances tolerances, ref DistanceDisplayMode display, ref int precision) =>
         validationError = Enum.IsDefined(display) && precision is >= 0 and <= 8
             ? null
-            : new RhinoFault((display, precision), RhinoReason.Outside);
+            : Fault.Of(RhinoReason.Outside, (display, precision));
 
     public IO<Unit> Write(RhinoDoc doc, Space space) =>
         Commits.Undoable(doc, $"{space.Name} {nameof(UnitsAndTolerances)}", IO.lift(() => space.Read(doc)), value => Assigned(doc, space, value), this);

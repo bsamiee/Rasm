@@ -24,8 +24,8 @@ public sealed record AffineMap {
 
     public static Fin<AffineMap> Validated(Vector3D<double> x, Vector3D<double> y, Vector3D<double> z, Vector3D<double> translation) =>
         new AffineMap(x, y, z, translation) switch {
-            var map => from finite in GeometryFault.Unless(x.IsFinite && y.IsFinite && z.IsFinite && translation.IsFinite, GeometryRule.Range, map)
-                       from regular in GeometryFault.Unless(map.Linear.Determinant() is not 0d && map.Inverse() is { X.IsFinite: true, Y.IsFinite: true, Z.IsFinite: true, Translation.IsFinite: true }, GeometryRule.Singular, map)
+            var map => from finite in Fault.Unless(x.IsFinite && y.IsFinite && z.IsFinite && translation.IsFinite, GeometryRule.Range, map)
+                       from regular in Fault.Unless(map.Linear.Determinant() is not 0d && map.Inverse() is { X.IsFinite: true, Y.IsFinite: true, Z.IsFinite: true, Translation.IsFinite: true }, GeometryRule.Singular, map)
                        select map,
         };
 

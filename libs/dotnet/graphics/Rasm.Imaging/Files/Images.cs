@@ -24,7 +24,7 @@ public abstract partial record ImageFile {
          from read in Read(stream, layer, configuration)
          select read)
             .Bracket()
-            | @catch(static error => error.IsExceptional, error => IO.fail<(PixelFrame, Option<ColorEncoding>)>(ImagingFault.Of(ImagingReason.Unreadable, path, inner: error)));
+            | @catch(static error => error.IsExceptional, error => IO.fail<(PixelFrame, Option<ColorEncoding>)>(Fault.Of(ImagingReason.Unreadable, path, inner: error)));
 
     public static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Read(Stream stream, Option<string> layer = default, Option<SixLabors.ImageSharp.Configuration> configuration = default) =>
         stream.CanSeek
@@ -57,7 +57,7 @@ public abstract partial record ImageFile {
 
     private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Loaded(Stream stream, Option<string> layer) =>
         from result in IO.liftVAsync(environment => ExrFile.LoadFromStreamAsync(stream, cancellationToken: environment.Token))
-        from image in IO.lift(Optional(result.Value).ToFin(ImagingFault.Of(ImagingReason.Refused, result.Status, inner: Optional(result.Error).Map(Error.New))))
+        from image in IO.lift(Optional(result.Value).ToFin(Fault.Of(ImagingReason.Refused, result.Status, inner: Optional(result.Error).Map(Error.New))))
         from read in IO.lift(Layer(toSeq(image.Parts), layer))
         select read;
 
@@ -81,13 +81,13 @@ public abstract partial record ImageFile {
              CvInvoke.Imdecode(stream, ImreadModes.Unchanged, decoded);
              return decoded;
          }))
-         from claimed in IO.lift(ImagingFault.Unless(!image.IsEmpty, ImagingReason.UnknownFormat, stream.Length - start))
+         from claimed in IO.lift(Fault.Unless(!image.IsEmpty, ImagingReason.UnknownFormat, stream.Length - start))
          from size in IO.lift(PixelExtent.Validated(image.Width, image.Height))
          from code in IO.lift(image.NumberOfChannels switch {
              1 => Fin.Succ(ColorConversion.Gray2Rgba),
              3 => ColorConversion.Bgr2Rgba,
              4 => ColorConversion.Bgra2Rgba,
-             var channels => ImagingFault.Of(ImagingReason.Unsupported, channels),
+             var channels => Fault.Of(ImagingReason.Unsupported, channels),
          })
          let scale = image.Depth switch { DepthType.Cv8U => Some(1d / byte.MaxValue), DepthType.Cv16U => Some(1d / ushort.MaxValue), _ => Option<double>.None }
          let frame = new PixelFrame(Point.Empty, size, size)
@@ -100,10 +100,10 @@ public abstract partial record ImageFile {
 
     private static Fin<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Layer(Seq<Part> parts, Option<string> layer) =>
         from part in (layer.Bind(named => parts.Find(candidate => string.Equals(candidate.Header.Name, named, StringComparison.Ordinal))) | parts.Find(static candidate => candidate.Header.Name.Length is 0))
-            .ToFin(ImagingFault.Of(ImagingReason.Empty, layer))
+            .ToFin(Fault.Of(ImagingReason.Empty, layer))
         from header in (
                 from samples in part.Header.IsDeep
-                     ? ImagingFault.Of(ImagingReason.Unsupported, part.Header.Name)
+                     ? Fault.Of(ImagingReason.Unsupported, part.Header.Name)
                      : Fin.Succ(layer.IsNone && PartConversion.IsLuminanceChroma(part) ? PartConversion.LuminanceChromaToRgbaFloat(part) : PartConversion.ToInterleavedFloat(part))
                 from layout in Components(samples.ChannelNames, layer)
                 select (Samples: samples, Layout: layout),
@@ -134,7 +134,7 @@ public abstract partial record ImageFile {
              let component = family.IndexOf(entry.Name[^1], StringComparison.OrdinalIgnoreCase)
              where component >= 0
              select (Component: component, entry.Channel, Letter: entry.Name[^1])).DistinctBy(static row => row.Component)) switch {
-                 [] => ImagingFault.Of(ImagingReason.Empty, layer),
+                 [] => Fault.Of(ImagingReason.Empty, layer),
                  var filled => (
                      (filled.Filter(static row => row.Component < 3) is [var lone]
                          ? filled + Seq(0, 1, 2).Filter(component => component != lone.Component).Map(component => (Component: component, lone.Channel, lone.Letter))

@@ -3,10 +3,6 @@ import { CommandLine } from 'effect/process';
 import { credentialed, Dry, forwarded, packaged, released } from '#/executor';
 import { dried, executor, spawned, Words } from '#/inference';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const ALTERNATIVES = new Intl.ListFormat('en', { type: 'disjunction' });
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Publish = Dry.mapFields(
@@ -28,15 +24,14 @@ const Publish = Dry.mapFields(
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const execute = executor(Publish, function* ({ publish, preview, credential, flag, dryRun, __unparsed__: words = [] }, context) {
-    const [dry, { project, files }, held] = yield* Effect.all([dried(dryRun), packaged(context), credentialed(credential)]);
+    const [dry, { files }, held] = yield* Effect.all([dried(dryRun), packaged(context), credentialed(credential)]);
     const command = pipe(publish, Array.appendAll(files), Array.appendAll(forwarded(words)));
     const keyed = Option.getOrElse(Option.all([Option.fromUndefinedOr(flag), held]), Array.empty<string>);
-    const skipped = dry ? Effect.logInfo(`Would run ${CommandLine.display(command)}`) : Effect.logWarning(`Skipped ${CommandLine.display(command)}: ${ALTERNATIVES.format(Array.ensure(credential))} is not set`);
     const delivered = Option.match(dry ? Option.map(Option.fromUndefinedOr(preview), Array.prependAll(command)) : Option.as(held, Array.appendAll(command, keyed)), {
-        onNone: () => skipped,
+        onNone: () => Effect.annotateLogs(Effect.logWithLevel(dry ? 'Info' : 'Warn')('skipped'), { command: CommandLine.display(command), dry, unset: dry ? [] : Array.ensure(credential) }),
         onSome: (argv) => spawned(argv, { cwd: context.root, stdout: 'inherit', stderr: 'inherit' }),
     });
-    yield* dry ? delivered : Effect.flatMap(released(context), Option.match({ onNone: () => Effect.logInfo(`Skipped ${CommandLine.display(command)}: HEAD holds no tag of ${project}, so nx release released no version of it at this commit`), onSome: () => delivered }));
+    yield* dry ? delivered : Effect.when(delivered, Effect.map(released(context), Option.isSome));
     return { success: true };
 });
 

@@ -66,5 +66,4 @@ rule:
               - has: { field: consequence, matches: exits }
               - not: { has: { field: alternative, pattern: $_ } }
               - precedes: { stopBy: end, matches: reads }
-message: 'Existence test on `$PATH` races the operation it guards'
-note: 'Delete test, run operation as `catch(<callee>, exception=OSError)(<arguments>)`'
+message: 'Existence test on `$PATH` races the operation it guards, delete the test and run the operation as `catch(<callee>, exception=OSError)(<arguments>)`'

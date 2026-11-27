@@ -32,6 +32,5 @@ rule:
         - has: { matches: follower, pattern: $FOLLOWER }
         - has: { matches: reader, follows: { stopBy: end, pattern: $FOLLOWER } }
 labels:
-    FOLLOWER: { style: primary, message: Follower keeps waiting after its reader exits }
-message: '`$FOLLOWER` keeps following file changes after its pipeline reader exits'
-note: Poll finite file reads in a loop with an attempt or time limit
+    FOLLOWER: { style: primary }
+message: '`$FOLLOWER` keeps following file changes after its pipeline reader exits, poll finite reads in a loop with an attempt or time limit'

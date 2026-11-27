@@ -383,7 +383,7 @@ def meter_exposure(call: Call[Empty]) -> Outcome[Answer]:
             lambda scene: (
                 exposure
                 .earliest(call.identity, scene)
-                .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=exposure.kind))
+                .to_result_with(partial(Fault.of, Reason.ABSENT, scene.compositor_effects, member=exposure.kind))
                 .bind(lambda held: READ.entering(call.identity, scene, held, AutoExposure.consumed))
             )
         )

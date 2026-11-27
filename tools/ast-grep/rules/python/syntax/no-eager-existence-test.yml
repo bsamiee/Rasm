@@ -65,5 +65,4 @@ rule:
                     - has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } }, matches: built-collection }
                     - not: { matches: python-invariant-index-test }
         - pattern: $TEST
-message: '`$TEST` builds every match to test whether one exists'
-note: 'Call `any(<test> for <item> in <source>)`, negated for an emptiness test, with `<needle> == <item>` as `<test>` for membership'
+message: '`$TEST` builds every match to test whether one exists, call `any(<test> for <item> in <source>)`, negated for an emptiness test, with `<needle> == <item>` as `<test>` for membership'

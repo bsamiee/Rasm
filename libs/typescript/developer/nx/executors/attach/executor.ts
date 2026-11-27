@@ -1,4 +1,4 @@
-import { Effect, Option, Schema, Struct } from 'effect';
+import { Effect, Option, Record, Schema, Struct } from 'effect';
 import { CommandLine } from 'effect/process';
 import { Dry, forwarded, packaged, released } from '#/executor';
 import { dried, executor, spawned, Words } from '#/inference';
@@ -21,20 +21,13 @@ const Attach = Dry.mapFields(Struct.assign({ __unparsed__: Words })).annotate({
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const execute = executor(Attach, function* ({ dryRun, __unparsed__: words = [] }, context) {
-    const [dry, { project, files }, tag] = yield* Effect.all([dried(dryRun), packaged(context), Effect.map(released(context), Option.map(Struct.get('tag')))]);
+    const [dry, { files }, tag] = yield* Effect.all([dried(dryRun), packaged(context), Effect.map(released(context), Option.map(Struct.get('tag')))]);
     const commands = (at: string) => ({ upload: ['gh', 'release', 'upload', at, ...files, '--clobber', ...forwarded(words)], create: ['gh', 'release', 'create', at, '--verify-tag', ...files, ...forwarded(words)] }) as const;
     const attached = Effect.fnUntraced(function* (at: string) {
         const { data } = yield* Effect.flatMap(spawned(['gh', 'api', 'graphql', '-F', 'owner={owner}', '-F', 'name={repo}', '-f', `tag=${at}`, '-f', `query=${QUERY}`], { cwd: context.root }), Schema.decodeEffect(Held));
         return yield* spawned(data.repository.release === null ? commands(at).create : commands(at).upload, { cwd: context.root });
     });
-    const previewed = (at: string) => `Would run ${CommandLine.display(commands(at).upload)} where ${at} has a GitHub release, else ${CommandLine.display(commands(at).create)}`;
-    yield* dry
-        ? tag.pipe(
-              Option.getOrElse(() => `<tag nx release makes for ${project}>`),
-              previewed,
-              Effect.logInfo,
-          )
-        : Option.match(tag, { onNone: () => Effect.logInfo(`Skipped ${project}: HEAD holds no tag of ${project}, so nx release released no version of it at this commit`), onSome: attached });
+    yield* dry ? Effect.annotateLogs(Effect.logInfo('skipped'), { ...Record.map(commands(Option.getOrElse(tag, () => '<tag>')), (argv) => CommandLine.display(argv)), dry }) : tag.pipe(Option.map(attached), Effect.transposeOption);
     return { success: true };
 });
 

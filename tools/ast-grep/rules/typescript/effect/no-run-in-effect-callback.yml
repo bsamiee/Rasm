@@ -59,7 +59,6 @@ rule:
         - matches: effect-combinator
 transform:
     RUN_HEAD: { replace: { source: $RUN, replace: '(?s)^([^(]+)\(.*$', by: '$1' } }
-message: '`$RUN_HEAD` starts a separate runtime inside an effect callback'
-note: 'Return the effect from its callback, through `flatMap` in place of `map` and `suspend` in place of `sync` or `promise`, or run it with the surrounding services through `Effect.context` and a `run*With` runner'
+message: '`$RUN_HEAD` starts a separate runtime inside an effect callback, return the effect from its callback through `flatMap` in place of `map` and `suspend` in place of `sync` or `promise`, or run it with the surrounding services through `Effect.context` and a `run*With` runner'
 labels:
     RUN: { style: primary }

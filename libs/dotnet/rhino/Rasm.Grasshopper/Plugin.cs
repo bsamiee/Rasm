@@ -40,7 +40,7 @@ public static class PluginShell {
                                  && type.IsAssignableTo(typeof(IDocumentObject)) && type.GetConstructor(Type.EmptyTypes) is not null)
                              .Filter(type => !ObjectProxies.RegisterObject(type, host))
                              .Strict())
-                         .Bind(static declined => IO.lift(RhinoFault.Unless(declined.IsEmpty, RhinoReason.Declined, declined)))
+                         .Bind(static declined => IO.lift(Fault.Unless(declined.IsEmpty, RhinoReason.Declined, declined)))
                          .Cons(definition.Grasshopper)
                          .Map<K<IO, Unit>>(static step => step).Fails().As()
                      from loaded in guard(errors.IsEmpty, Error.Many(errors))

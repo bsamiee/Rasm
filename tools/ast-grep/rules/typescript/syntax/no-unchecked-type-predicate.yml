@@ -18,5 +18,4 @@ rule:
     all:
         - inside: { kind: 'type_predicate_annotation, asserts_annotation', stopBy: { not: { kind: asserts } } }
         - has: { field: type, any: [{ matches: unbound-parameter }, { has: { stopBy: end, matches: unbound-parameter } }] }
-message: '`$PREDICATE` narrows to `$TYPE`, a type parameter only its caller chooses'
-note: 'Key the narrowed type by an argument: `<K extends keyof <Table>>(key: K, value: unknown): value is <Table>[K]` over a type table'
+message: '`$PREDICATE` narrows to `$TYPE`, a type parameter only its caller chooses, key the narrowed type by an argument over a type table, `<K extends keyof <Table>>(key: K, value: unknown): value is <Table>[K]`'

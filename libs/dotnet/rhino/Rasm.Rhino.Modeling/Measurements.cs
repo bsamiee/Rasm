@@ -25,7 +25,7 @@ public sealed record MassSubject {
     public Seq<Transform> Placements { get; }
 
     public static Fin<MassSubject> Validated(MassSource source, double density, Seq<Transform> placements) =>
-        RhinoFault.Unless(double.IsFinite(density) && density >= 0d, RhinoReason.Outside, density).Map(_ => new MassSubject(source, density, placements));
+        Fault.Unless(double.IsFinite(density) && density >= 0d, RhinoReason.Outside, density).Map(_ => new MassSubject(source, density, placements));
 }
 
 public sealed record PrincipalMoments(double X, Vector3d XAxis, double Y, Vector3d YAxis, double Z, Vector3d ZAxis) {
@@ -54,7 +54,7 @@ public static class Measurements {
             Mesh mesh => Products.Of(() => AreaMassProperties.Compute(mesh, area: true, firstMoments, secondMoments, productMoments)),
             Hatch hatch => Products.Of(() => AreaMassProperties.Compute(hatch)),
             Curve curve => Products.Of(() => AreaMassProperties.Compute(curve, tolerances.Absolute)),
-            _ => IO.fail<AreaMassProperties>(new RhinoFault(geometry.ObjectType, RhinoReason.Mismatched, index)),
+            _ => IO.fail<AreaMassProperties>(Fault.Of(RhinoReason.Mismatched, geometry.ObjectType, index)),
         }, AreaMassProperties.WeightedSum, None).Of(subjects);
 
     public static IO<(Seq<Seq<VolumeMassProperties>> Parts, VolumeMassProperties Total)> Volume(Tolerances tolerances, Seq<MassSubject> subjects, bool firstMoments, bool secondMoments, bool productMoments) =>
@@ -62,14 +62,14 @@ public static class Measurements {
             Brep brep => Products.Of(() => VolumeMassProperties.Compute(brep, volume: true, firstMoments, secondMoments, productMoments, tolerances.Relative, tolerances.Absolute)),
             Surface surface => Products.Of(() => VolumeMassProperties.Compute(surface, volume: true, firstMoments, secondMoments, productMoments)),
             Mesh mesh => Products.Of(() => VolumeMassProperties.Compute(mesh, volume: true, firstMoments, secondMoments, productMoments)),
-            _ => IO.fail<VolumeMassProperties>(new RhinoFault(geometry.ObjectType, RhinoReason.Mismatched, index)),
+            _ => IO.fail<VolumeMassProperties>(Fault.Of(RhinoReason.Mismatched, geometry.ObjectType, index)),
         }, VolumeMassProperties.WeightedSum,
-            Some(fun(static (VolumeMassProperties part, Transform xform) => RhinoFault.Unless(part.Transform(xform), RhinoReason.Declined, xform).Map(_ => part)))).Of(subjects);
+            Some(fun(static (VolumeMassProperties part, Transform xform) => Fault.Unless(part.Transform(xform), RhinoReason.Declined, xform).Map(_ => part)))).Of(subjects);
 
     public static IO<(Seq<Seq<LengthMassProperties>> Parts, LengthMassProperties Total)> Length(Seq<MassSubject> subjects, bool firstMoments, bool secondMoments, bool productMoments) =>
         new Measure<LengthMassProperties>((geometry, index) => geometry is Curve curve
             ? Products.Of(() => LengthMassProperties.Compute(curve, length: true, firstMoments, secondMoments, productMoments))
-            : IO.fail<LengthMassProperties>(new RhinoFault(geometry.ObjectType, RhinoReason.Mismatched, index)), LengthMassProperties.WeightedSum, None).Of(subjects);
+            : IO.fail<LengthMassProperties>(Fault.Of(RhinoReason.Mismatched, geometry.ObjectType, index)), LengthMassProperties.WeightedSum, None).Of(subjects);
 
     private sealed record Measure<T>(
         Func<GeometryBase, int, IO<T>> Compute,

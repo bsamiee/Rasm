@@ -36,7 +36,7 @@ public sealed record GrasshopperTheme(string Name) {
             Seq<(PropertyId Id, Binding Binding)> chosen = toSeq(SkinProperties.All).Choose(id => Skin(id).Map(binding => (id, binding))).Strict();
             chosen.Iter(row => definition.Unbind(row.Id));
             return chosen.Traverse(row => Try.lift(fun(() => definition.Bind(row.Id, row.Binding))).Run()
-                    .MapFail(error => new RhinoFault(SkinProperties.ToToken(row.Id), RhinoReason.Invalid, Inner: error)))
+                    .MapFail(error => Fault.Of(RhinoReason.Invalid, SkinProperties.ToToken(row.Id), inner: error)))
                 .As().Map(_ => definition);
         }
     }
@@ -66,7 +66,7 @@ public sealed record GrasshopperTheme(string Name) {
             let chapters = toSeq(ObjectProxies.Proxies.Where(static proxy => proxy.Type.Assembly == Session.Assembly).Select(static proxy => proxy.Nomen.Chapter).Distinct(StringComparer.Ordinal))
             let rules = new NamedRules(Name + NamedRules.Extension, Rules.Empty.Add([Rule.CreateCiteRule(NamedRules.DefaultRules), .. chapters.Map(chapter => Rule.CreateTintRule(Selector.FromChapter(chapter), tint)), .. Tabs]))
             from tinted in when(!(chapters.IsEmpty && Tabs.IsEmpty), Refreshed(tabs.Folder + rules.Name, Encoding.UTF8.GetBytes(rules.Rules.ToString()), File.ReadAllBytes,
-                IO.lift(() => RhinoFault.Unless(rules.Store(tabs), RhinoReason.Declined, rules.Name)))).As()
+                IO.lift(() => Fault.Unless(rules.Store(tabs), RhinoReason.Declined, rules.Name)))).As()
             select unit).As()
         from current in IO.lift(() => SkinServer.IsCurrent(Name)).Bind(Active.Write)
         from followed in GrasshopperPreferences.Setting(Settings.CanvasSkin).Changed(_ => IO.lift(() => SkinServer.IsCurrent(Name)).Bind(Active.Write))
@@ -112,7 +112,7 @@ public sealed record GrasshopperTheme(string Name) {
         select unit;
 
     private IO<IO<Unit>> Apply =>
-        from installed in IO.lift(() => RhinoFault.Unless(SkinServer.Exists(Name), RhinoReason.Missing, Name))
+        from installed in IO.lift(() => Fault.Unless(SkinServer.Exists(Name), RhinoReason.Missing, Name))
         from document in IO.lift(static () => Optional(RhinoDoc.ActiveDoc))
         from restores in GrasshopperPreferences.Setting(Settings.CanvasSkin).Swap(Name).Map(restore => IO.lift(() => SkinServer.IsCurrent(Name)).Bind(current => when(current, restore).As()))
             .Cons(document.Bind(_ => Preview).Map(static preview => Preferences.Property(

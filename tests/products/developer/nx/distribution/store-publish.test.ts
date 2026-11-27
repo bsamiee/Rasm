@@ -73,7 +73,7 @@ describe('nx-release-publish to the Blender extensions platform', () => {
 
         await publish();
 
-        expect(log).toHaveBeenCalledWith(expect.anything(), 'Skipped marker_tools: HEAD holds no tag of marker_tools, so nx release released no version of it at this commit');
+        expect(log).toHaveBeenCalledWith('untagged project: marker_tools');
         expect(store.asked()).toStrictEqual([]);
     });
 
@@ -82,7 +82,7 @@ describe('nx-release-publish to the Blender extensions platform', () => {
 
         await publish({ credential });
 
-        expect(log).toHaveBeenCalledWith(expect.anything(), expect.stringMatching(new RegExp(`^Skipped \\S+marker_tools-1\\.2\\.3\\.zip for https://extensions\\.blender\\.org: ${credential} is not set$`, 'u')));
+        expect(log).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`^Skipped \\S+marker_tools-1\\.2\\.3\\.zip for https://extensions\\.blender\\.org: ${credential} is not set$`, 'u')));
         expect(store.asked()).toStrictEqual([]);
     });
 
@@ -91,7 +91,7 @@ describe('nx-release-publish to the Blender extensions platform', () => {
 
         await publish({ dryRun: true });
 
-        expect(log).toHaveBeenCalledWith(expect.anything(), expect.stringMatching(/^Would publish \S+marker_tools-1\.2\.3\.zip to https:\/\/extensions\.blender\.org/u));
+        expect(log).toHaveBeenCalledWith(expect.stringMatching(/^Would publish \S+marker_tools-1\.2\.3\.zip to https:\/\/extensions\.blender\.org/u));
         expect(store.asked()).toStrictEqual([]);
     });
 
@@ -114,14 +114,14 @@ describe('nx-release-publish to the Blender extensions platform', () => {
 
         await expect(publish()).resolves.toStrictEqual({ success: true });
 
-        expect(log).toHaveBeenCalledWith(expect.anything(), expect.stringMatching(/holds no extension marker_tools: its first version uploads by hand at https:\/\/extensions\.blender\.org\/submit\//u));
+        expect(log).toHaveBeenCalledWith(expect.stringMatching(/holds no extension marker_tools: its first version uploads by hand at https:\/\/extensions\.blender\.org\/submit\//u));
     });
 
     it('refuses where the build it depends on wrote no archive, naming the outputs to run first', async ({ workspace, published }) => {
         const publish = await published(extension, ['tools', 'marker_tools-1.2.3.zip', 'blender_manifest.toml'], ['marker_tools@1.2.3']);
         workspace.remove('tools/marker_tools-1.2.3.zip');
 
-        await expect(publish()).rejects.toThrow(/^marker_tools holds no file its dependentTasksOutputFiles input of nx-release-publish matches under \[tools\/\*\.zip\].*run them first$/u);
+        await expect(publish()).rejects.toThrow(/^marker_tools:nx-release-publish unmatched input: \S+, outputs: tools\/\*\.zip, tasks: \S+$/u);
     });
 });
 
@@ -134,7 +134,7 @@ describe('nx-release-publish to the Chrome Web Store', () => {
 
         await publish();
 
-        expect(log).toHaveBeenCalledWith(expect.anything(), expect.stringMatching(/^Skipped \S+Clipper\.zip for https:\/\/chrome\.google\.com\/webstore\/devconsole: .*first version uploads by hand.* key/u));
+        expect(log).toHaveBeenCalledWith(expect.stringMatching(/^Skipped \S+Clipper\.zip for https:\/\/chrome\.google\.com\/webstore\/devconsole: .*first version uploads by hand.* key/u));
         expect(store.asked()).toStrictEqual([]);
     });
 

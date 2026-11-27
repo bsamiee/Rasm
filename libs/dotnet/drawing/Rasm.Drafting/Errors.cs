@@ -1,13 +1,9 @@
-using System.Globalization;
-using System.Runtime.CompilerServices;
-
 namespace Rasm.Drafting;
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
 [SmartEnum]
-public sealed partial class DraftingReason {
-    public static readonly DraftingReason Stated = new("rejected input");
+public sealed partial class DraftingReason : IFaultReason {
     public static readonly DraftingReason ScaleRatio = new("no finite positive ratio");
     public static readonly DraftingReason RevisionLetters = new("letters outside the revision alphabet or its letter count");
     public static readonly DraftingReason RevisionOrdinal = new("ordinal outside the revision alphabet");
@@ -22,23 +18,4 @@ public sealed partial class DraftingReason {
     public static readonly DraftingReason Repeated = new("empty or repeated entries");
 
     public string Message { get; }
-}
-
-public sealed record DraftingFault(object? Subject, DraftingReason Reason, Option<int> Index = default, Option<Error> Inner = default, Option<string> Expression = default)
-    : Expected(Reason.Message, 0, Inner),
-    IValidationError<DraftingFault> {
-    public object? Subject { get; } = Subject;
-    public DraftingReason Reason { get; } = Reason;
-    public Option<string> Expression { get; } = Expression;
-
-    public override string Message =>
-        string.Concat([
-            Reason.Message, ": ", .. Expression.Map(static named => $"{named} = ").ToSeq(), string.Create(CultureInfo.InvariantCulture, $"{Subject}"),
-            .. Index.Map(static at => string.Create(CultureInfo.InvariantCulture, $" at index {at}")).ToSeq(),
-        ]);
-
-    public static DraftingFault Create(string message) => new(message, DraftingReason.Stated);
-
-    public static Fin<Unit> Unless<T>(bool flag, DraftingReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string? names = null) =>
-        flag ? unit : new DraftingFault(rejected, reason, index, Expression: Optional(names));
 }

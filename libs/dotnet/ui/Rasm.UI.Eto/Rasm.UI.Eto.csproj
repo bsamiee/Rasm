@@ -26,6 +26,8 @@
     </ItemGroup>
 
     <ItemGroup Label="Workspace Projects">
+        <ProjectReference Include="../../runtime/Rasm.Telemetry.Api/Rasm.Telemetry.Api.csproj" />
         <ProjectReference Include="../Rasm.UI/Rasm.UI.csproj" />
+        <Using Include="Rasm.Telemetry.Api" />
     </ItemGroup>
 </Project>

@@ -138,7 +138,7 @@ public static class Diagnostics {
         rows.Filter(static row => row.Count > 0).Map(static row => new Defect<T>(row.Kind, row.Count, row.At(), row.Repair.Map(Lifted<T, TKind>))).Strict();
 
     private static Step<T> Lifted<T, TKind>(Step<TKind> step) where T : GeometryBase where TKind : GeometryBase =>
-        new(target => step.Run((TKind)(GeometryBase)target).Map(static result => (T)(GeometryBase)result), step.Member);
+        new(target => step.Run((TKind)(GeometryBase)target).Map(static result => (T)(GeometryBase)result), step.Subject);
 
     private static Seq<ComponentIndex> Components(ComponentIndexType kind, Seq<int> indices) => indices.Map(index => new ComponentIndex(kind, index)).Strict();
 }

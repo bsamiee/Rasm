@@ -29,7 +29,7 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
     public static IO<Rimage> Open(string fileName) =>
         Read(fileName, (_, index) =>
             from size in Measured(index.Xml, fileName)
-            from effects in Optional(index.Xml.Element("post-effects-new")).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))
+            from effects in Optional(index.Xml.Element("post-effects-new")).ToFin(Fault.Of(RhinoReason.Unreadable, fileName))
             from entries in Products.Each(
                 from stage in toSeq(effects.Elements())
                 from entry in toSeq(stage.Elements("plug-in"))
@@ -56,41 +56,41 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
         Span<byte> lead = stackalloc byte[Start.Length + (2 * sizeof(int))];
         int read = file.ReadAtLeast(lead, lead.Length, throwOnEndOfStream: false);
         if (read != lead.Length || !Ascii.Equals(lead[..Start.Length], Start) || BinaryPrimitives.ReadInt32LittleEndian(lead[Start.Length..]) != Version)
-            return new RhinoFault(fileName, RhinoReason.Unreadable);
+            return Fault.Of(RhinoReason.Unreadable, fileName);
         int length = BinaryPrimitives.ReadInt32LittleEndian(lead[^sizeof(int)..]);
         if (length < 0 || length % sizeof(char) is not 0 || length > System.Array.MaxLength - sizeof(char) - Body.Length
             || (long)length + sizeof(char) + Body.Length > file.Length - lead.Length)
-            return new RhinoFault(fileName, RhinoReason.Unreadable);
+            return Fault.Of(RhinoReason.Unreadable, fileName);
         byte[] header = new byte[length + sizeof(char) + Body.Length];
         long body = (long)lead.Length + header.Length;
         return file.ReadAtLeast(header, header.Length, throwOnEndOfStream: false) == header.Length && Ascii.Equals(header.AsSpan(length + sizeof(char)), Body)
             ? Try.lift(() => XElement.Parse(Encoding.Unicode.GetString(header, 0, length))).Run()
-                .MapFail(error => error.HasException<XmlException>() ? new RhinoFault(fileName, RhinoReason.Unreadable, Inner: error) : error)
+                .MapFail(error => error.HasException<XmlException>() ? Fault.Of(RhinoReason.Unreadable, fileName, inner: error) : error)
                 .Map(xml => (xml, body))
-            : new RhinoFault(fileName, RhinoReason.Unreadable);
+            : Fault.Of(RhinoReason.Unreadable, fileName);
     }
 
     private static Fin<Size> Measured(XElement xml, string fileName) =>
-        (Child(xml, "width", parseInt).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable)),
-         Child(xml, "height", parseInt).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable)))
+        (Child(xml, "width", parseInt).ToFin(Fault.Of(RhinoReason.Unreadable, fileName)),
+         Child(xml, "height", parseInt).ToFin(Fault.Of(RhinoReason.Unreadable, fileName)))
             .Apply(static (width, height) => new Size(width, height))
             .As()
             .Bind(size => size is { Width: > 0, Height: > 0 } && (long)size.Width * size.Height <= System.Array.MaxLength / 4
                 ? Fin.Succ(size)
-                : new RhinoFault(fileName, RhinoReason.Unreadable));
+                : Fault.Of(RhinoReason.Unreadable, fileName));
 
     private static Fin<(EffectEntry Effect, HashMap<string, string> Fields)> Entry(string fileName, XElement effects, XElement stage, XElement entry) =>
-        from id in Optional(entry.Attribute("id")).Bind(static attribute => parseGuid(attribute.Value)).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))
+        from id in Optional(entry.Attribute("id")).Bind(static attribute => parseGuid(attribute.Value)).ToFin(Fault.Of(RhinoReason.Unreadable, fileName))
         from effect in string.Equals(stage.Name.LocalName, "tone-mapping", StringComparison.Ordinal)
             ? (Optional(stage.Attribute("selection")).Map(static attribute => attribute.Value) | Optional(effects.Element("tone-mapping-selection")).Map(static element => element.Value))
-                .Traverse(text => parseGuid(text).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))).As()
+                .Traverse(text => parseGuid(text).ToFin(Fault.Of(RhinoReason.Unreadable, fileName))).As()
                 .Map(selected => (EffectEntry)new EffectEntry.Selectable(id, EffectList.ToneMapper(selected) == id))
             : (Flag(entry, "on", fileName), Flag(entry, "shown", fileName)).Apply((enabled, shown) => (EffectEntry)new EffectEntry.Listed(id, enabled, shown)).As()
         let fields = toHashMap(Optional(entry.Element("state")).ToSeq().Bind(static state => toSeq(state.Elements())).Map(static field => (field.Name.LocalName, field.Value)))
         select (effect, fields);
 
     private static Fin<bool> Flag(XElement entry, string part, string fileName) =>
-        Optional(entry.Attribute(part)).Traverse(attribute => parseBool(attribute.Value).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))).As()
+        Optional(entry.Attribute(part)).Traverse(attribute => parseBool(attribute.Value).ToFin(Fault.Of(RhinoReason.Unreadable, fileName))).As()
             .Map(static value => value.IfNone(noneValue: false));
 
     private static Fin<HashMap<Guid, long>> Offsets(XElement xml, string fileName) =>
@@ -101,15 +101,15 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
                     from start in Child(channel, "start", parseLong)
                     select (Id: id, Start: start))
                 .As())
-            .ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))
+            .ToFin(Fault.Of(RhinoReason.Unreadable, fileName))
             .Map(static listed => toHashMap(listed));
 
     private Fin<Memory2D<float>> Filled(FileStream file, long body, HashMap<Guid, long> offsets, RenderWindow.StandardChannels channel) =>
-        from starts in Channels.Components(channel).Traverse(component => offsets.Find(RenderWindow.ChannelId(component)).ToFin(new RhinoFault(FileName, RhinoReason.Unreadable))).As()
+        from starts in Channels.Components(channel).Traverse(component => offsets.Find(RenderWindow.ChannelId(component)).ToFin(Fault.Of(RhinoReason.Unreadable, FileName))).As()
         let bytes = (long)sizeof(float) * Size.Width * Size.Height
         let marker = "[RIMAGE-CHAN]".Length + Unsafe.SizeOf<Guid>()
         let length = file.Length
-        from bounded in RhinoFault.Unless(!starts.IsEmpty && starts.ForAll(start => start >= 0 && start <= length - body - marker - bytes), RhinoReason.Unreadable, FileName)
+        from bounded in Fault.Unless(!starts.IsEmpty && starts.ForAll(start => start >= 0 && start <= length - body - marker - bytes), RhinoReason.Unreadable, FileName)
         select Planes(file, starts.Map(start => body + start + marker).Strict());
 
     private Memory2D<float> Planes(FileStream file, Seq<long> planes) {

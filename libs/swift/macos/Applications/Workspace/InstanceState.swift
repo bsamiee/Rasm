@@ -33,7 +33,6 @@ package enum InstanceState: CaseTagged, Equatable, Sendable {
         let active: Bool
         let windows: [Window]
         let usage: Result<ResourceUsage.Interval, Errno>?
-        let listening: Result<[in_port_t], Errno>
         let statusItems: Result<Int, ApplicationFailure>?
 
         var asking: [Window] { windows.filter(\.asking) }
@@ -256,10 +255,7 @@ extension InstanceState.Activity: Encodable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension Instance {
-    func lifetime(
-        _ running: some AsyncSequence<InstanceState, Never> & Sendable,
-        clock: some Clock<Duration> & Sendable,
-    ) -> some AsyncSequence<InstanceState, Never> & Sendable {
+    func lifetime(clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
         let (ended, ending) = AsyncStream<ProcessExit?>.makeStream()
         let (terminated, terminating) = AsyncStream<InstanceState?>.makeStream()
         let subject: String = "Exit events of \(application.localizedName ?? application.bundleIdentifier ?? "the application")"
@@ -279,8 +275,7 @@ extension Instance {
             terminating.onTermination = { (_: AsyncStream<InstanceState?>.Continuation.Termination) -> Void in observation.invalidate() }
             return .failed(ApplicationFailure(subject: subject, reason: .system(error)))
         }
-        let states = merge(running.map(Optional<InstanceState>.some), cut, terminated)
-        let lived = states.prefix { (state: InstanceState?) -> Bool in state != nil }.compactMap(\.self)
+        let lived = merge(cut, terminated).prefix { (state: InstanceState?) -> Bool in state != nil }.compactMap(\.self)
         let exits = ended.flatMap { (exit: ProcessExit?) -> AsyncStream<Result<ProcessExit, Errno>> in
             exit.map { (exit: ProcessExit) -> AsyncStream<Result<ProcessExit, Errno>> in
                 AsyncStream { (continuation: AsyncStream<Result<ProcessExit, Errno>>.Continuation) -> Void in

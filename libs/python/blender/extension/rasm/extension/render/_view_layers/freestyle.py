@@ -112,7 +112,7 @@ def _applied(identity: Identity, freestyle: _Freestyle, layer: bpy.types.ViewLay
         count = kept(held, desired, lambda modifier, modified: (modifier.name, modifier.type) == (modified.name, modified.kind))
 
         def removed(modifier: bpy.types.LineStyleModifier) -> Outcome[None]:
-            return catch(held.remove, exception=RuntimeError)(modifier).map(lambda _: None).map_error(partial(Fault.of, Refusal.REFUSED, repr(style)))
+            return catch(held.remove, exception=RuntimeError)(modifier).map(lambda _: None).map_error(partial(Fault.of, Refusal.REFUSED, style))
 
         def added(modifier: _StyleModifier) -> Outcome[None]:
             try:
@@ -150,7 +150,7 @@ def _applied(identity: Identity, freestyle: _Freestyle, layer: bpy.types.ViewLay
         return style.bind(written)
 
     def removed(held: bpy.types.FreestyleLineSet) -> Outcome[None]:
-        return catch(linesets.remove, exception=RuntimeError)(held).map_error(partial(Fault.of, Refusal.REFUSED, repr(layer.freestyle_settings)))
+        return catch(linesets.remove, exception=RuntimeError)(held).map_error(partial(Fault.of, Refusal.REFUSED, layer.freestyle_settings))
 
     first = freestyle.settings.apply(layer.freestyle_settings)
     return (

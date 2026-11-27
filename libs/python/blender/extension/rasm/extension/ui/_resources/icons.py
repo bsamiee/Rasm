@@ -33,7 +33,7 @@ type Widget = Callable[[bpy.types.ThemeUserInterface], bpy.types.ThemeWidgetColo
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_ICON: Final = typed(bpy.types.EnumProperty, bpy.types.UILayout.__name__, rna_definition(bpy.types.UILayout).functions["prop"].parameters["icon"])
+_ICON: Final = typed(bpy.types.EnumProperty, bpy.types.UILayout, rna_definition(bpy.types.UILayout).functions["prop"].parameters["icon"])
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -68,7 +68,7 @@ class _IconSet:
         """Adds each variant as its master turned a quarter clockwise, the host's bottom-first rows turning a quarter counterclockwise, absent fault for a master the folder lacks."""
         missing = tuple(master for master in variants.values() if master not in self.coverage)
         self.coverage.update({variant: np.ascontiguousarray(np.rot90(self.coverage[master])) for variant, master in variants.items()} if not missing else {})
-        return accumulated(Error(Fault.of(Reason.ABSENT, str(Icons.folder(identity)), member=master.as_posix())) for master in missing).map(lambda _: None)
+        return accumulated(Error(Fault.of(Reason.ABSENT, Icons.folder(identity), member=master)) for master in missing).map(lambda _: None)
 
     def tinted(self, source: Path, place: Hashable, color: Color) -> int:
         """Returns the icon ID of the source's preview at the place, its pixels rewritten as coverage times color, premultiplied as the host draws previews, while the place held another color."""
@@ -120,7 +120,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
                     _ICONS
                     .get(identity)
                     .filter(lambda icons: source in icons.coverage)
-                    .to_result_with(lambda: Fault.of(Reason.ABSENT, str(Icons.folder(identity)), member=source.as_posix()))
+                    .to_result_with(lambda: Fault.of(Reason.ABSENT, Icons.folder(identity), member=source))
                     .map(lambda icons: Some(lambda place, color: icons.tinted(source, place, color)))
                 )
             case Some(bpy.types.ID() as block):
@@ -128,7 +128,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
             case Some(str(name)):
                 return (
                     _ICON
-                    .bind(lambda prop: option.of_optional(prop.enum_items.get(name)).to_result_with(lambda: Fault.of(Reason.ABSENT, bpy.types.UILayout.__name__, member=name)))
+                    .bind(lambda prop: option.of_optional(prop.enum_items.get(name)).to_result_with(lambda: Fault.of(Reason.ABSENT, bpy.types.UILayout, member=name)))
                     .map(lambda item: item.value)
                     .map(lambda value: Some(lambda _place, _color: value))
                 )

@@ -1,11 +1,10 @@
 import { layerAead, layerSecureRandom } from '@effect/platform-node/NodeCrypto';
-import { Handles } from '@rasm/mcp/handles';
 import { Link } from '@rasm/mcp/link';
 import { registerResource, registerResourceTemplate } from '@rasm/mcp/resource';
-import { Handle, Server } from '@rasm/mcp/server';
+import { Server } from '@rasm/mcp/server';
 import { ToolCall } from '@rasm/mcp/toolkit';
 import { Upstream } from '@rasm/mcp/upstream';
-import { Array, Cause, Context, Deferred, Duration, Effect, Latch, Layer, MutableRef, Option, Predicate, Queue, Record, Ref, Result, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Duration, Effect, Latch, Layer, MutableRef, Option, Predicate, Queue, Record, Ref, Result, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpProtocol, McpSchema, McpServer, McpTest, Tool, Toolkit } from 'effect/ai';
 import { FetchHttpClient, HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Host } from 'effect/net';
@@ -36,8 +35,6 @@ const IDS = ['beta', 'opal', 'alpha'] as const;
 const STATE = 'asked once';
 const ASKED = 'a dialog asks';
 const STATED = 'target responding · behind';
-const RAISED = { owned: 'raised during the claim', judged: 'judged after it' } as const;
-const KIND = 'hung';
 const PATH = '/mcp';
 const UPSTREAM = new URL(PATH, 'http://upstream.test');
 const ENDPOINT = 'http://localhost/';
@@ -69,11 +66,9 @@ const Tools = Toolkit.make(
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-const Claimed = Context.Reference<boolean>('@rasm/test-mcp/fixtures/Claimed', { defaultValue: () => false });
-
 class Probe extends Context.Service<Probe>()('@rasm/test-mcp/fixtures/Probe', {
     make: Effect.gen(function* () {
-        const [calls, entered, interrupted, release, watched, blocked, versions, shared, owned, standing, judged, served] = yield* Effect.all([
+        const [calls, entered, interrupted, release, watched, blocked, versions] = yield* Effect.all([
             Ref.make<readonly string[]>([]),
             Queue.unbounded<string>(),
             Queue.unbounded<string>(),
@@ -81,19 +76,14 @@ class Probe extends Context.Service<Probe>()('@rasm/test-mcp/fixtures/Probe', {
             SubscriptionRef.make('open'),
             SubscriptionRef.make(false),
             SubscriptionRef.make<Record.ReadonlyRecord<string, number>>({}),
-            Queue.unbounded<string>(),
-            Queue.unbounded<string>(),
-            Queue.unbounded<{ readonly text: string; readonly standing: typeof Handles.Standing.Type }>(),
-            Deferred.make<void>(),
-            Deferred.make<Server['Service']>(),
         ]);
-        return { calls, entered, interrupted, release, watched, blocked, versions, shared, owned, standing, judged, served };
+        return { calls, entered, interrupted, release, watched, blocked, versions };
     }),
 }) {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, release, watched, blocked, versions, shared, owned, standing, judged, served }: Probe['Service']) {
+const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, release, watched, blocked, versions }: Probe['Service']) {
     const called = <A, E, R>(name: string, answer: Effect.Effect<A, E, R>) => Ref.update(calls, (held) => [...held, name]).pipe(Effect.andThen(Queue.offer(entered, name)), Effect.andThen(answer));
     const gated = (name: string) =>
         called(
@@ -156,36 +146,6 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
             Stream.filterMap(SubscriptionRef.changes(blocked), (held) => (held ? Result.succeed(Effect.succeed(ASKED)) : Result.failVoid)),
         ),
         () => gated('gated_early'),
-    );
-    yield* Server.registerTool(Tool.make('test_claim', { description: 'Raises two events of the owned source, and claims the source for its handle once the server judged the second, which it does after placing the first for every handle, and no dialog blocks', success: Schema.String }), () =>
-        called(
-            'test_claim',
-            Queue.offerAll(owned, [RAISED.owned, RAISED.judged]).pipe(
-                Effect.andThen(Deferred.await(judged)),
-                Effect.andThen(
-                    blocked.pipe(
-                        SubscriptionRef.changes,
-                        Stream.filter((held) => !held),
-                        Stream.runHead,
-                    ),
-                ),
-                Effect.andThen(Effect.flatMap(Handle, (handle) => handle.set(Claimed, true))),
-                Effect.as('claimed'),
-            ),
-        ),
-    );
-    yield* Server.use((server) =>
-        Effect.all(
-            [
-                server.events({ stream: Stream.fromQueue(shared), render: Effect.succeed, delivers: () => Option.some(KIND) }),
-                server.events({ stream: Stream.fromQueue(owned), render: Effect.succeed, delivers: () => Option.some(KIND), owns: (event, state) => (event === RAISED.judged ? Deferred.doneUnsafe(judged, Effect.void) && false : Context.get(state, Claimed)) }),
-                server.events({ stream: Stream.fromQueue(standing), render: (event) => Effect.succeed(event.text), standing: (event) => Option.some(event.standing) }),
-                Deferred.succeed(served, server),
-            ],
-            {
-                discard: true,
-            },
-        ),
     );
     yield* Server.registerTool(Tool.make('test_await_running', { description: 'Awaits the calls of its handle that returned early', success: Schema.String }), () => called('test_await_running', Effect.as(ToolCall.use(Struct.get('awaitRunning')), 'settled')));
     yield* registerResource({ name: 'static-text', description: 'A static text resource for testing', mimeType: 'text/plain', schema: Schema.String, changes: Stream.empty, content: Effect.succeed(STATIC) });
@@ -282,10 +242,6 @@ const opened = Effect.fnUntraced(function* (protocol: McpProtocol.ProtocolAdapte
 });
 
 const names = (client: McpTest.Client) => Effect.map(client.listTools(), ({ tools }) => Array.map(tools, Struct.get('name')));
-const placed = Effect.fnUntraced(function* ({ served }: Probe['Service'], handle: string, awaited: Predicate.Predicate<typeof Handles.Event.cases.Line.Type>) {
-    const followed = yield* Effect.flatMap(Deferred.await(served), (server) => server.follow(handle));
-    yield* followed.pipe(Stream.filter(Handles.Event.guards.Line), Stream.filter(awaited), Stream.runHead, Effect.timeoutOrElse({ duration: SETTLED, orElse: () => Effect.fail(new Cause.UnknownError(handle, `handle ${handle} holds no awaited event after ${Duration.format(SETTLED)}`)) }));
-});
 const relisted = <A, E>(client: McpTest.Client, read: Effect.Effect<A, E>, done: Predicate.Predicate<A>) =>
     Stream.concat(Stream.succeed('initial'), Stream.filter(Stream.map(Stream.fromQueue(client.notifications), Struct.get('method')), String.endsWith('/list_changed'))).pipe(
         Stream.mapEffect(() => read),
@@ -320,4 +276,4 @@ const proxied = Effect.fnUntraced(function* (
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ASKED, Called, connected, hosted, INSTRUCTIONS, KIND, lines, names, opened, PEER, placed, proxied, RAISED, relisted, SETTINGS, SETTLED, STATE, STATED, TEXT };
+export { Called, connected, hosted, INSTRUCTIONS, lines, names, opened, PEER, proxied, relisted, SETTLED, STATE, TEXT };

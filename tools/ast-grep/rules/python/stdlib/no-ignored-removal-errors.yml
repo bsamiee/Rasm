@@ -6,5 +6,4 @@ rule:
     all:
         - has: { field: arguments, has: { kind: keyword_argument, all: [{ has: { field: name, pattern: ignore_errors } }, { has: { field: value, kind: 'true' } }] } }
         - has: { field: function, pattern: $CALL, matches: { python-member-use: { module: { regex: '^shutil$' }, name: { regex: '^rmtree$' } } } }
-message: '`$CALL` with `ignore_errors=True` discards every removal failure'
-note: 'Call `catch(shutil.rmtree, exception=OSError)` and recover `FileNotFoundError` alone'
+message: '`$CALL` with `ignore_errors=True` discards every removal failure, call `catch(shutil.rmtree, exception=OSError)` and recover `FileNotFoundError` alone'

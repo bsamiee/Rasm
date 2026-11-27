@@ -20,7 +20,7 @@ public sealed partial class Easing {
     public double Y2 { get; }
 
     public static Fin<Easing> Validated(double x1, double y1, double x2, double y2) =>
-        UIFault.Unless(x1 is >= 0d and <= 1d && x2 is >= 0d and <= 1d && double.IsFinite(y1) && double.IsFinite(y2), UIReason.Range, (x1, y1, x2, y2)).Map(_ => new Easing(x1, y1, x2, y2));
+        Fault.Unless(x1 is >= 0d and <= 1d && x2 is >= 0d and <= 1d && double.IsFinite(y1) && double.IsFinite(y2), UIReason.Range, (x1, y1, x2, y2)).Map(_ => new Easing(x1, y1, x2, y2));
 
     public Option<(double Progress, double Slope)> At(Fraction time) =>
         Brent.TryFindRoot(at => Bezier(at, X1, X2) - (float)time, 0d, 1d, Accuracy, maxIterations: 64, out double s)

@@ -52,7 +52,7 @@ public sealed partial class LineCap {
 }
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<DraftingFault>]
+[ValidationError<Fault<DraftingReason>>]
 public sealed partial class LineType {
     private static readonly QuantityValue Dot = QuantityValue.FromTerms(1, 2);
     private static readonly QuantityValue Gap = -3;

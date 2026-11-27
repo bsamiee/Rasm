@@ -102,7 +102,7 @@ class HostCommands(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Ok, `UNWRITABLE` fault for a refused log, `FAILED` for a refused launch, `FAILED` holding the exit code and last 20 output lines for a nonzero exit, or the first fault of `waited`.
         """
-        tail, subject = deque[str](maxlen=20), shlex.join(argv)
+        tail = deque[str](maxlen=20)
 
         def attended(log: logging.Handler, child: subprocess.Popen[bytes]) -> Outcome[None]:
             relay = threading.Thread(target=contextvars.copy_context().run, args=(tail.extend, relayed(child.stdout or (), log, Path(argv[0]).stem)))
@@ -112,7 +112,7 @@ class HostCommands(msgspec.Struct, frozen=True, kw_only=True):
                 relay.join()
             return answer.bind(
                 lambda code: catch(subprocess.CompletedProcess(argv, code, "\n".join(tail)).check_returncode, exception=subprocess.CalledProcessError)().map_error(
-                    partial(Fault.of, Reason.FAILED, subject)
+                    partial(Fault.of, Reason.FAILED, shlex.join(argv))
                 )
             )
 
@@ -250,7 +250,7 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: HostCommands, inte
             catch(child.wait, exception=subprocess.TimeoutExpired)(timeout=interval.total_seconds())
             .to_option()
             .map(Ok)
-            .or_else_with(lambda: catch(records.path.touch, exception=OSError)().swap().to_option().map(lambda error: Error(Fault.of(Reason.UNWRITABLE, str(records.path), error))))
+            .or_else_with(lambda: catch(records.path.touch, exception=OSError)().swap().to_option().map(lambda error: Error(Fault.of(Reason.UNWRITABLE, records.path, error))))
         )
 
     def waited(child: subprocess.Popen[bytes]) -> Outcome[int]:
@@ -304,7 +304,7 @@ def awake[T](operation: Callable[[], Outcome[T]], /) -> Outcome[T]:
     """Runs operation while wakepy's `keep.running` mode holds off system sleep, the display free to sleep, a mode failing to activate running nothing."""
     with ExitStack() as stack:
         mode = stack.enter_context(keep.running(on_fail="pass"))
-        unheld = partial(Fault.of, Reason.FAILED, str(mode.result.method or mode.result.mode_name))
+        unheld = partial(Fault.of, Reason.FAILED, mode.result.mode_name if mode.result.method is None else mode.result.method.name)
         answer = operation() if mode.active else Error(unheld(mode.result.get_failure_text(style="inline")))
         release = stack.pop_all().close
     return paired(answer, catch(release, exception=RuntimeError)().map_error(unheld)).map(lambda pair: pair[0])

@@ -142,7 +142,7 @@ class Gizmo[S = bpy.types.Context](msgspec.Struct, frozen=True, kw_only=True):
     def bound(self, identity: Identity) -> Outcome[_Bound[S]]:
         """Resolves the binding into a member with its target name or the attach of a handler or operators, absent fault for a member or handler on a kind without target."""
         named = option.of_optional(next(iter(self.kind.targets), None) if isinstance(self.kind, Shape) else _TARGETS.get(self.kind)).to_result_with(
-            lambda: Fault.of(Reason.ABSENT, repr(self.kind), member="target")
+            lambda: Fault.of(Reason.ABSENT, self.kind, member="target")
         )
         match self.bind:
             case tuple(placements):

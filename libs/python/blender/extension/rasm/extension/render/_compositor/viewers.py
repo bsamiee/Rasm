@@ -110,7 +110,7 @@ class _ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False, dict=True
         def prepared(config: PyOpenColorIO.Config, original: bpy.types.NodeTree, keyed: OwnedNodes, source: bpy.types.NodeSocket) -> Outcome[None]:
             return (
                 entering_space(config, entry, source.identifier)
-                .to_result_with(partial(Fault.of, Reason.ABSENT, repr(entry), member="encoding colorspace"))
+                .to_result_with(partial(Fault.of, Reason.ABSENT, entry, member="encoding colorspace"))
                 .bind(lambda space: captured_scene_source(config, space).map(lambda encoding: (space, encoding)))
                 .bind(lambda found: _connected(identity, entry, keyed, source).bind(lambda _: captured_input(identity, scene, entry, original, found[0])).map(partial(queued, found[1])))
             )
@@ -163,7 +163,7 @@ class _ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False, dict=True
                 lambda scene: (
                     option
                     .of_optional(scene.compositor_effects.get(call.properties.name))
-                    .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=call.properties.name))
+                    .to_result_with(partial(Fault.of, Reason.ABSENT, scene.compositor_effects, member=call.properties.name))
                     .bind(lambda entry: self.entering(call.identity, scene, entry, consumed))
                 )
             )
@@ -191,7 +191,7 @@ class Viewers(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             .to_option()
             .bind(lambda entry: option.of_optional(entry.node_group).bind(lambda group: Mark.read(identity, group)).filter(lambda mark: mark.key in keys).map(lambda mark: (entry, mark)))
             .map(lambda pair: (pair[0], option.of_optional(self.rows.keyed.get(pair[1].key))))
-            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=name))
+            .to_result_with(partial(Fault.of, Reason.ABSENT, scene.compositor_effects, member=name))
         )
 
     def view_output(self, call: operators.Call[ViewTarget]) -> Outcome[operators.Answer]:
@@ -205,7 +205,7 @@ class Viewers(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 .of_optional(keyed.nodes.get(OUTPUTS))
                 .bind(lambda output: option.of_optional(keyed.sockets[OUTPUTS].get(chosen.socket)).bind(lambda identifier: socket_at(output.inputs, identifier).to_option()))
                 .bind(lambda socket: Block.of_seq(links_of(socket)).try_head().map(lambda link: endpoints(link)[1]))
-                .to_result_with(partial(Fault.of, Reason.ABSENT, repr(keyed.interface.tree.links), member=chosen.socket))
+                .to_result_with(partial(Fault.of, Reason.ABSENT, keyed.interface.tree.links, member=chosen.socket))
                 if chosen.node == OUTPUTS
                 else keyed.socket(chosen.node, chosen.socket, output=True)
             )

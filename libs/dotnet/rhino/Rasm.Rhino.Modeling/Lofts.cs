@@ -75,7 +75,7 @@ public sealed record Loft(Seq<Curve> Sections) {
             ? from sections in Products.Many(() => Sections.Map(static section => section.ToNurbsCurve()))
               from made in Products.Of(() => SubD.CreateFromLoft(sections, Closed, corners, creases, divisions))
               select made
-            : IO.fail<SubD>(new RhinoFault(Ends, RhinoReason.Unsupported));
+            : IO.fail<SubD>(Fault.Of(RhinoReason.Unsupported, Ends));
 
     private static (Point3d Apex, Option<BrepTrim> Trim) Placed(Option<LoftEnd> end) =>
         end.Match(
@@ -125,13 +125,13 @@ public static class Lofts {
             ordered: static (at, ordered) => Networked(() => (NurbsSurface.CreateNetworkSurface(
                 ordered.U.Curves, ordered.U.Start, ordered.U.End, ordered.V.Curves, ordered.V.Start, ordered.V.End, at.Tolerances.Absolute, at.Interior, at.Tolerances.Angle, out int error), error)));
 
-    private static IO<NurbsSurface> Networked(Func<(NurbsSurface? Surface, int Error)> network, [CallerArgumentExpression(nameof(network))] string call = "") =>
+    private static IO<NurbsSurface> Networked(Func<(NurbsSurface? Surface, int Error)> network, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
         from made in IO.lift(network)
-        from held in Products.Maybe(() => made.Surface, call)
+        from held in Products.Maybe(() => made.Surface, member, line)
         let failure = (NetworkFailure)made.Error
         from surface in IO.lift(failure is NetworkFailure.None
-            ? held.ToFin(new RhinoFault(call, RhinoReason.Missing))
-            : new RhinoFault(failure, RhinoReason.Declined))
+            ? held.ToFin(Fault.Of(RhinoReason.Missing, (member, line)))
+            : Fault.Of(RhinoReason.Declined, failure))
         select surface;
 
     // --- [PATCHES]

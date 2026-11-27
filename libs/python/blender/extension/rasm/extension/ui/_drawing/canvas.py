@@ -328,7 +328,7 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
                 color, depth = gpu.types.GPUTexture(size, format=self.format), gpu.types.GPUTexture(size, format="DEPTH32F_STENCIL8")
                 buffer = gpu.types.GPUFrameBuffer(depth_slot=depth, color_slots=color)
             except (TypeError, RuntimeError) as error:
-                return Error(Fault.of(Refusal.REFUSED, type(self).__name__, error))
+                return Error(Fault.of(Refusal.REFUSED, type(self), error))
             with buffer.bind():  # type: ignore[func-returns-value]  # ty: ignore[invalid-context-manager]
                 with pixels.drawn(), Canvas.depth_tested("NONE"):
                     buffer.clear(color=CLEAR, depth=1.0)
@@ -436,7 +436,7 @@ def viewed(
     """
     space = located.area.spaces.active
     if not isinstance(space, bpy.types.SpaceView3D):
-        return Error(Fault.of(Reason.ABSENT, repr(located.area), member=bpy.types.SpaceView3D.__name__))
+        return Error(Fault.of(Reason.ABSENT, located.area, member=bpy.types.SpaceView3D))
 
     def painted(region: bpy.types.Region, view: Matrix) -> Outcome[npt.NDArray[np.float32]]:
         overlay = space.overlay

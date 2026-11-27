@@ -81,9 +81,9 @@ internal sealed partial class NoticeSender : IDisposable {
         IO.liftAsync(async environment => {
             using JsonContent content = JsonContent.Create(new NtfyMessage { Topic = topic, Title = queued.Title, Body = description, Priority = queued.Priority, Tags = [.. queued.Tag.ToSeq()] });
             using HttpResponseMessage response = await client.PostAsync(server, content, environment.Token).ConfigureAwait(false);
-            return response.StatusCode is HttpStatusCode.OK ? Fin.Succ(unit) : new DarkroomFault((FormattableString)$"notice post to {server} answering {response.StatusCode}", DarkroomReason.Refused);
+            return response.StatusCode is HttpStatusCode.OK ? Fin.Succ(unit) : Fault.Of(DarkroomReason.Refused, (server, response.StatusCode));
         }).Bind(IO.lift)
-        | @catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Unit>(new DarkroomFault((FormattableString)$"notice post to {server}", DarkroomReason.Failed, Inner: error)))
+        | @catch(static error => error.HasException<HttpRequestException>(), error => IO.fail<Unit>(Fault.Of(DarkroomReason.Failed, server, inner: error)))
         | @catch(static error => error.Is(Errors.Cancelled), static error => cancelToken.Bind(token => IO.fail<Unit>(token.IsCancellationRequested ? error : Errors.TimedOut)));
 
     [LoggerMessage(Level = LogLevel.Information, Message = "{Title}: {Description}")]

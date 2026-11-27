@@ -22,5 +22,4 @@ rule:
                   kind: expression_statement
                   inside: { kind: program, not: { has: { kind: export_statement } } }
             - inside: { kind: import_specifier }
-message: '`$RUN` runs outside a program entry point'
-note: 'Call `runMain` in a top-level statement of a module exporting nothing, or inside a top-level `if (import.meta.main)` block'
+message: '`$RUN` runs outside a program entry point, call `runMain` in a top-level statement of a module exporting nothing, or inside a top-level `if (import.meta.main)` block'

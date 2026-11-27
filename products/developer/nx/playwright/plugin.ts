@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath } from '@nx/devkit';
 import { emitPluginWorkerLog, getDaemonClientEnvGeneration, globWithWorkspaceContext, hashObject, quoteShellArg } from '@nx/devkit/internal';
-import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, owned, packaged, type Pass, PLATFORM, request, run, tokened, within } from '@rasm/nx/inference';
+import { type Anchor, aggregated, anchored, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, NxError, owned, packaged, type Pass, PLATFORM, request, run, tokened, within } from '@rasm/nx/inference';
 import { Array, Effect, Filter, flow, Option, Record, Result, Schema, String, Struct } from 'effect';
 import plugin from '#/package.json' with { type: 'json' };
 
@@ -50,7 +50,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, r
     const { edges, environment, scripts, routes, reported, commands, suites } = yield* request(
         Effect.sync(() => new Worker(WORKER, { workerData: [join(workspaceRoot, file), routed] })),
         Loaded,
-        `${file} does not load as a Playwright config`,
+        NxError.of({ _tag: 'Unloaded', tool: 'playwright' }, file),
     );
     const workspaced = (url: string) => Option.liftPredicate(url, String.startsWith('file:')).pipe(Option.map(flow(fileURLToPath, local)), Option.filter(within));
     const loaded = Array.dedupe([

@@ -65,7 +65,7 @@ class Handle[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
     def resolve(self: "Handle[T]") -> Outcome[T]:
         """Returns live original, absent fault once expired."""
-        return option.of_optional(_joined((self,), bpy.data.all_ids).get(self)).to_result_with(partial(Fault.of, Reason.ABSENT, self.kind.__name__, member=str(self.uid)))
+        return option.of_optional(_joined((self,), bpy.data.all_ids).get(self)).to_result_with(partial(Fault.of, Reason.ABSENT, self.kind, member=self.uid))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

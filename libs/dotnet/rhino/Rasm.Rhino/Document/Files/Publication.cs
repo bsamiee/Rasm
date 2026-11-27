@@ -23,7 +23,7 @@ public static class FilePublication {
          select published).Uninterruptible();
 
     internal static IO<T> Faulted<T>(string path, RhinoReason reason, IO<T> access) =>
-        access.MapFail(error => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>() ? new RhinoFault(path, reason, Inner: error) : error);
+        access.MapFail(error => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>() ? Fault.Of(reason, path, inner: error) : error);
 
     private static IO<Unit> Published(string staged, OutputPath path, bool overwrite) =>
         Faulted(path, RhinoReason.Unwritable, cancelToken.Bind(token => IO.lift(() => {
@@ -34,7 +34,7 @@ public static class FilePublication {
                 UnixMarshal.ThrowExceptionForLastErrorIf(Syscall.link(staged, path));
             return unit;
         })).MapFail(error => !overwrite && error.Exception.Case is UnixIOException { ErrorCode: Errno.EEXIST } or IOException { HResult: FileExists or AlreadyExists }
-            ? new RhinoFault(path, RhinoReason.Taken, Inner: error)
+            ? Fault.Of(RhinoReason.Taken, path, inner: error)
             : error));
 
     private static IO<Unit> Encoded(string staged, Func<FileStream, IO<Unit>> encode) =>
@@ -51,7 +51,7 @@ public static class FilePublication {
             .Catch(static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(), static _ => IO.pure(Option<TRecord>.None))
             .Bind(found => found.Traverse(record => IO.lift(() => decode(record))).As())
             .Catch(static error => error.IsExpected || error.HasException<JsonException>(),
-                error => IO.fail<Option<TValue>>(new RhinoFault(path, RhinoReason.Unreadable, Inner: error)));
+                error => IO.fail<Option<TValue>>(Fault.Of(RhinoReason.Unreadable, path, inner: error)));
 
     public static IO<Unit> Write<TRecord>(OutputPath path, TRecord value, JsonTypeInfo<TRecord> info, bool overwrite = true) =>
         Write(path, overwrite, stream => IO.liftAsync(async environment => {

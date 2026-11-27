@@ -19,7 +19,7 @@ public static class Metadata {
         public Fin<MetaData> Write<T>(MetaData meta, T value) =>
             MetaValue.TryCreate(value, out MetaValue entry, out string failure)
                 ? MetaData.Merge(MergeBehaviour.Overwrite, meta, new MetaData((name, entry)))
-                : new RhinoFault(name.ToString(), RhinoReason.Declined, Inner: Error.New(failure));
+                : Fault.Of(RhinoReason.Declined, name.ToString(), inner: Error.New(failure));
     }
 }
 
@@ -34,7 +34,7 @@ public static class Trees {
 
         public Fin<Tree<T>> Matching(string siteRule) =>
             Optional(SiteRule.TryParse(siteRule, out string message))
-                .ToFin(new RhinoFault(siteRule, RhinoReason.Unreadable, Inner: Optional(message).Map(static text => Error.New(text))))
+                .ToFin(Fault.Of(RhinoReason.Unreadable, siteRule, inner: Optional(message).Map(static text => Error.New(text))))
                 .Map(tree.Matching);
     }
 }

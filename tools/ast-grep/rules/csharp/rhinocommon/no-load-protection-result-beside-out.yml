@@ -63,5 +63,4 @@ rule:
                   not: { inside: { any: [{ kind: declaration_expression }, { matches: out-argument }] } }
 constraints:
     SILENT: { not: { regex: '^_$' } }
-message: '`$MEMBER` result read beside `$SILENT`, an out value the host sets `true` for every `false` result'
-note: 'Write `_ = <call>` and read `<silent>` alone, or pass `out _` and read the result alone'
+message: '`$MEMBER` result read beside `$SILENT`, an out value the host sets `true` for every `false` result, write `_ = <call>` and read `$SILENT` alone, or pass `out _` and read the result alone'

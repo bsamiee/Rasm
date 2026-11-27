@@ -53,5 +53,4 @@ rule:
 transform:
     KEPT: { replace: { source: $$OP, replace: '^!==?$', by: every repeat } }
     KEEPS: { replace: { source: $KEPT, replace: '^===?$', by: one of each value } }
-message: '`$FILTER` keeps $KEEPS by an index scan per element and miscounts every `NaN`'
-note: 'Use `Set` or `Array.dedupe` for distinct values; repeats are `Array.groupBy` keys with at least two elements'
+message: '`$FILTER` keeps $KEEPS by an index scan per element and miscounts every `NaN`, use `Set` or `Array.dedupe` for distinct values and `Array.groupBy` keys with at least two elements for repeats'

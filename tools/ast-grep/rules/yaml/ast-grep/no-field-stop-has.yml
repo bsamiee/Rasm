@@ -11,5 +11,4 @@ rule:
               all:
                   - has: { kind: *pair, has: { field: key, regex: '^["'']?field["'']?$' } }
                   - inside: { kind: 'block_node, flow_node', inside: { kind: *pair, has: { field: key, regex: '^["'']?has["'']?$' } } }
-message: '`has` beside `field` and a rule `stopBy` reads the field child and its direct children alone'
-note: 'Write `has: {field: <role>, any: [<target>, {kind: <wrapper>, has: {stopBy: <stop>, <target>}}]}` to descend from the field child'
+message: '`has` beside `field` and a rule `stopBy` reads the field child and its direct children alone, write `has: {field: <role>, any: [<target>, {kind: <wrapper>, has: {stopBy: <stop>, <target>}}]}` to descend from the field child'

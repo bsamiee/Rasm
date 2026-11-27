@@ -1,5 +1,5 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Array, Effect, Fiber, Option, Queue, Schema, Struct } from 'effect';
+import { Array, Effect, Option, Schema, Struct } from 'effect';
 import { McpProtocol } from 'effect/ai';
 import { INSTRUCTIONS, opened } from '#/fixtures';
 
@@ -7,7 +7,6 @@ import { INSTRUCTIONS, opened } from '#/fixtures';
 
 const PROTOCOL = McpProtocol.v2025_11_25;
 const INITIALIZE = { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: PROTOCOL.protocolVersion, capabilities: {}, clientInfo: { name: 'gate', version: '1.0.0' } } } as const;
-const CANCELLED = { jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 'gated' } } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -60,19 +59,6 @@ describe('session of a stateful client', () => {
                 [INSTRUCTIONS.stated, INSTRUCTIONS.shown, INSTRUCTIONS.hidden].map((line) => lines.includes(line)),
                 [true, true, false],
             );
-        }),
-    );
-
-    it.live(
-        'interrupts a running tool on cancellation of its request and writes no response for it',
-        Effect.fnUntraced(function* () {
-            const { probe, call, send } = yield* opened(PROTOCOL);
-            const pending = yield* Effect.forkChild(call('tools/call', { name: 'gated_write', arguments: {} }, CANCELLED.params.requestId));
-            const entered = yield* Queue.take(probe.entered);
-            const cancelled = yield* send(CANCELLED);
-            const interrupted = yield* Effect.timeoutOption(Queue.take(probe.interrupted), '2 seconds');
-            const written = yield* Effect.timeoutOption(Fiber.join(pending), '2 seconds');
-            assert.deepStrictEqual({ entered, cancelled: cancelled.status, interrupted, written }, { entered: 'gated_write', cancelled: 202, interrupted: Option.some('gated_write'), written: Option.some([]) });
         }),
     );
 

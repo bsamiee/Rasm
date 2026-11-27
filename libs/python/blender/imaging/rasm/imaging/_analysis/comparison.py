@@ -79,7 +79,7 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
     def of(cls, reference: npt.NDArray[np.float32], test: npt.NDArray[np.float32], domain: PyOpenColorIO.ReferenceSpaceType, *, data_range: float) -> Outcome["Comparison"]:
         """Compares equal-shape planes, `data_range` as SSIM input range."""
         if reference.shape != test.shape:
-            return Error(Fault.of(Reason.OUTSIDE, cls.__name__, test.shape, member=f"test planes of the reference shape {reference.shape}"))
+            return Error(Fault.of(Reason.OUTSIDE, cls, test.shape, member=f"test planes of the reference shape {reference.shape}"))
         first, second = OpenImageIO.ImageBuf(reference[..., :3]), OpenImageIO.ImageBuf(test[..., :3])
 
         @np.errstate(divide="ignore", invalid="ignore")

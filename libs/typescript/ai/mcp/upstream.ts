@@ -113,13 +113,14 @@ class Upstream extends Data.Class<
         yield* Stream.zipLatestAll(...Array.map(sources, Stream.prepend([Array.empty<Upstream>()]))).pipe(Stream.map(Array.flatten), Stream.runForEach(reconcile), Effect.forkScoped);
         yield* events({
             stream: Stream.fromQueue(eventQueue),
-            render: ({ peer, event }) =>
-                Effect.succeed(
-                    Result.match(event, {
+            route: ({ peer, event }) =>
+                Option.some({
+                    push: false,
+                    text: Result.match(event, {
                         onSuccess: ({ name, target, detail }) => [label(peer), name, ...Option.toArray(target), ...Option.toArray(Option.map(detail, (json) => JSON.stringify(json)))].join(' '),
-                        onFailure: ({ message }) => `${label(peer)} stopped sending events: ${message}, they resume once it links again`,
+                        onFailure: ({ message }) => `${label(peer)} stopped sending events: ${message}`,
                     }),
-                ),
+                }),
         });
     });
     static readonly fromLinks = (links: Pick<Effect.Success<ReturnType<typeof Link.listen<never>>>, 'changes' | 'call'>) => {

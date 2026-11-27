@@ -52,7 +52,7 @@ def relinked(collection: bpy.types.Collection, members: tuple[_Member, ...], *, 
     held = frozenset((*collection.objects, *collection.children))
     changed = tuple(item for item in dict.fromkeys(members) if (item in held) is not linked)
     return accumulated(
-        catch(entries.link if linked else entries.unlink, exception=RuntimeError)(item).map_error(partial(Fault.of, Refusal.REFUSED, repr(collection)))  # ty: ignore[invalid-argument-type]
+        catch(entries.link if linked else entries.unlink, exception=RuntimeError)(item).map_error(partial(Fault.of, Refusal.REFUSED, collection))  # ty: ignore[invalid-argument-type]
         for item in changed
         for entries in (collection.objects if isinstance(item, bpy.types.Object) else collection.children,)
     ).map(lambda _: changed)
@@ -66,7 +66,7 @@ def active_editable(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Collec
     active = view_layer.active_layer_collection
     path = next((*ancestors, node) for node, ancestors in walked(view_layer.layer_collection) if node == active)
     return option.of_optional(next((layer.collection for layer in reversed(tuple(takewhile(lambda layer: not layer.exclude, path))) if _editable(layer.collection)), None)).to_result_with(
-        lambda: Fault.of(Reason.ABSENT, repr(view_layer), member="active_layer_collection")
+        lambda: Fault.of(Reason.ABSENT, view_layer, member="active_layer_collection")
     )
 
 
@@ -190,7 +190,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                 return (
                     option
                     .of_optional(rows.get(collection))
-                    .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(parent), member=collection.name))
+                    .to_result_with(lambda: Fault.of(Reason.ABSENT, parent, member=collection.name))
                     .bind(Snapshot.capture)
                     .bind(lambda values: relinked(parent, (made,), linked=True).map(lambda _: _entries(parent)).bind(lambda entries: values.apply(entries[made]).outcome.map(lambda _: entries)))
                     .bind(
@@ -254,7 +254,7 @@ def _parented(collection: bpy.types.Collection, parent: Option[bpy.types.Collect
 
 def _copied[T: bpy.types.ID](block: T) -> Outcome[T]:
     copied = block.copy()
-    return option.of_optional(copied).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(block), member="copy"))
+    return option.of_optional(copied).to_result_with(lambda: Fault.of(Reason.ABSENT, block, member="copy"))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

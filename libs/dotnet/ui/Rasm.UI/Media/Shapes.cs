@@ -23,10 +23,10 @@ public abstract partial record Shape {
 
         public static Fin<Outlined> Validated(string pathData) {
             SKPath? parsed = SKPath.ParseSvgPathData(pathData);
-            if (parsed is null) return new UIFault(pathData, UIReason.Unreadable);
+            if (parsed is null) return Fault.Of(UIReason.Unreadable, pathData);
             if (!parsed.Bounds.IsEmpty) return new Outlined(parsed);
             parsed.Dispose();
-            return new UIFault(pathData, UIReason.Unreadable);
+            return Fault.Of(UIReason.Unreadable, pathData);
         }
 
         internal SKPath Path { get; }
@@ -54,7 +54,7 @@ public sealed partial class IconSet {
     internal SKRect Box => SKRect.Create(Grid, Grid);
 
     public static Fin<IconSet> Validated(float grid, float stem) =>
-        UIFault.Unless(float.IsFinite(grid) && grid > 0f && float.IsFinite(stem) && stem >= 0f, UIReason.Range, (grid, stem)).Map(_ => new IconSet(grid, stem));
+        Fault.Unless(float.IsFinite(grid) && grid > 0f && float.IsFinite(stem) && stem >= 0f, UIReason.Range, (grid, stem)).Map(_ => new IconSet(grid, stem));
 }
 
 [ComplexValueObject(SkipFactoryMethods = true)]
@@ -71,7 +71,7 @@ public sealed partial class Corners {
     internal Seq<float> Clockwise => [TopLeft, TopRight, BottomRight, BottomLeft];
 
     public static Fin<Corners> Validated(float topLeft, float topRight, float bottomRight, float bottomLeft) =>
-        UIFault.Unless(Seq(topLeft, topRight, bottomRight, bottomLeft).ForAll(static radius => float.IsFinite(radius) && radius >= 0f), UIReason.Range, (topLeft, topRight, bottomRight, bottomLeft)).Map(_ => new Corners(topLeft, topRight, bottomRight, bottomLeft));
+        Fault.Unless(Seq(topLeft, topRight, bottomRight, bottomLeft).ForAll(static radius => float.IsFinite(radius) && radius >= 0f), UIReason.Range, (topLeft, topRight, bottomRight, bottomLeft)).Map(_ => new Corners(topLeft, topRight, bottomRight, bottomLeft));
 
     internal static Corners Round(float radius) => new(radius, radius, radius, radius);
 

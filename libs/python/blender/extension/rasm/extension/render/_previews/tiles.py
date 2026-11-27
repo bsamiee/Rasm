@@ -146,7 +146,7 @@ class EffectTiles(msgspec.Struct, frozen=True, kw_only=True, dict=True, eq=False
         match record:
             case str(name):
                 if (position := scene.compositor_effects.find(name)) < 0:
-                    return Error(Fault.of(Reason.ABSENT, repr(scene.compositor_effects), member=name))
+                    return Error(Fault.of(Reason.ABSENT, scene.compositor_effects, member=name))
                 through = frozenset(itertools.islice(scene.compositor_effects, position + 1))
                 return offered((), tuple(item for item in routed if item.entry in through))
             case tuple(entries):

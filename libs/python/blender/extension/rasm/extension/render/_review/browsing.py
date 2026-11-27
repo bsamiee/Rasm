@@ -133,14 +133,12 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def chosen(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Renders, ContentHash]]:
         """Returns renders and the stored render the browser draws as before frame, absent fault while none is stored."""
         return paired(self.browsed(identity, context), self.history.held(identity)).bind(
-            lambda pair: (
-                pair[1].before(pair[0].picked).map(lambda key: (pair[1], key)).to_result_with(partial(Fault.of, Reason.ABSENT, str(self.history.record(identity).path), member="stored render"))
-            )
+            lambda pair: pair[1].before(pair[0].picked).map(lambda key: (pair[1], key)).to_result_with(partial(Fault.of, Reason.ABSENT, self.history.record(identity).path, member="stored render"))
         )
 
     def caption(self, identity: Identity, context: bpy.types.Context) -> Outcome[str]:
         """Returns the shown frame's history name, the image's own name for a frame the history holds no entry of."""
-        image = rooted(bpy.types.SpaceImageEditor, context).bind(lambda space: option.of_optional(space.image).to_result_with(partial(Fault.of, Reason.ABSENT, repr(space), member="image")))
+        image = rooted(bpy.types.SpaceImageEditor, context).bind(lambda space: option.of_optional(space.image).to_result_with(partial(Fault.of, Reason.ABSENT, space, member="image")))
         return paired(image, self.history.held(identity)).map(
             lambda pair: self.history.stored.marked(identity, pair[0]).bind(lambda mark: mark.content).bind(lambda key: option.of_optional(pair[1].names.get(key))).default_value(pair[0].name)
         )
@@ -158,7 +156,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             lambda found: (
                 paired(found[1].read(), found[1].encoding)
                 .bind(lambda source: converted_image(config, PyOpenColorIO.ROLE_SCENE_LINEAR, source[0], source=source[1]))
-                .bind(lambda file: option.of_optional(found[0].image).map(lambda image: (image, file, found[1])).to_result_with(partial(Fault.of, Reason.ABSENT, repr(found[0]), member="image")))
+                .bind(lambda file: option.of_optional(found[0].image).map(lambda image: (image, file, found[1])).to_result_with(partial(Fault.of, Reason.ABSENT, found[0], member="image")))
             )
         )
 

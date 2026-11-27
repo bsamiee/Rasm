@@ -42,11 +42,11 @@ internal sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Map<i
     // --- [READS]
 
     private static Seq<Error> Entered(RhinoDoc doc, Seq<NamedEntry> named, QueueEntry<Unit> entry, int index) =>
-        (Held(doc, named, entry.Queued) ? [] : Seq<Error>(new DarkroomFault((FormattableString)$"entry source {entry.Queued.Source}", DarkroomReason.Unviewed, index)))
+        (Held(doc, named, entry.Queued) ? [] : Seq<Error>(Fault.Of(DarkroomReason.Unviewed, entry.Queued.Source, index)))
         + (entry.Queued.Overscan is 0d || entry.Queued.Source is RenderSettings.RenderingSources.ActiveViewport
             ? []
-            : Seq<Error>(new DarkroomFault((FormattableString)$"entry source {entry.Queued.Source}", DarkroomReason.Overscan, index)))
-        + entry.Rendered.Match(Succ: static _ => Seq<Error>(), Fail: error => Seq<Error>(new DarkroomFault("entry", DarkroomReason.Unrenderable, index, error)));
+            : Seq<Error>(Fault.Of(DarkroomReason.Overscan, entry.Queued.Source, index)))
+        + entry.Rendered.Match(Succ: static _ => Seq<Error>(), Fail: error => Seq<Error>(Fault.Of(DarkroomReason.Unrenderable, "entry", index, error)));
 
     private static bool Held(RhinoDoc doc, Seq<NamedEntry> named, QueuedEntry entry) =>
         entry.Source switch {
@@ -80,26 +80,26 @@ internal sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Map<i
         QueueTarget target, QueuePlan plan, RhinoDoc doc, Seq<NamedEntry> named, DocumentStatistics statistics, LinkClosure links, bool prompts,
         Option<Seq<RenderWindow.StandardChannels>> channels, Option<RunState> run, Host host, Disk disk, Textures textures) =>
         new(
-            (plan.Entries.IsEmpty ? Seq<Error>(new DarkroomFault("render queue", DarkroomReason.Empty)) : [])
+            (plan.Entries.IsEmpty ? Seq<Error>(Fault.Of(DarkroomReason.Empty, "render queue")) : [])
             + plan.Entries.Map((entry, index) => Entered(doc, named, entry, index)).Flatten()
             + disk.Output.Match(Succ: static held => held.ToSeq().Bind(static volume => volume.Refusals(None)), Fail: static error => Seq(error))
-            + links.Broken.Choose(static broken => Stored(broken.Link.Target).Map<Error>(file => new DarkroomFault((FormattableString)$"{broken.Link.Name} link {file}", DarkroomReason.Unreadable, Inner: broken.Error)))
+            + links.Broken.Choose(static broken => Stored(broken.Link.Target).Map<Error>(file => Fault.Of(DarkroomReason.Unreadable, (broken.Link.Name, file), inner: broken.Error)))
             + (target.RendersHere
-                ? (host.Installed ? [] : Seq<Error>(new DarkroomFault((FormattableString)$"current renderer {host.Renderer}", DarkroomReason.Missing)))
-                    + (host.AutoSaved ? [] : Seq<Error>(new DarkroomFault("automatic saving of finished renderings", DarkroomReason.Off)))
+                ? (host.Installed ? [] : Seq<Error>(Fault.Of(DarkroomReason.Missing, host.Renderer)))
+                    + (host.AutoSaved ? [] : Seq<Error>(Fault.Of(DarkroomReason.Off, "automatic saving of finished renderings")))
                 : [])
             + run.Bind(static state => state.Free.Match(Succ: static _ => Option<Error>.None, Fail: Some)).ToSeq()
-            + (target.Quits ? host.Untitled.Map<Error>(static serial => new DarkroomFault((FormattableString)$"untitled document {serial}", DarkroomReason.Edited)) : [])
-            + (target.Package.IsSome && prompts ? Seq<Error>(new DarkroomFault("prompting linked block updates", DarkroomReason.Unattended)) : [])
+            + (target.Quits ? host.Untitled.Map<Error>(static serial => Fault.Of(DarkroomReason.Edited, serial)) : [])
+            + (target.Package.IsSome && prompts ? Seq<Error>(Fault.Of(DarkroomReason.Unattended, "prompting linked block updates")) : [])
             + disk.Package.ToSeq().Bind(volume => volume.Match(Succ: held => held.Refusals(statistics.FileLength), Fail: static error => Seq(error))),
-            links.Stale.Choose(static link => Stored(link.Target).Map<Error>(file => new DarkroomFault((FormattableString)$"{link.Name} link {file}", DarkroomReason.Stale)))
-            + links.Graph.Condensed.Cycles.Map<Error>(static files => new DarkroomFault((FormattableString)$"linked files {string.Join(", ", files.Choose(Stored))}", DarkroomReason.Cyclic))
+            links.Stale.Choose(static link => Stored(link.Target).Map<Error>(file => Fault.Of(DarkroomReason.Stale, (link.Name, file))))
+            + links.Graph.Condensed.Cycles.Map<Error>(static files => Fault.Of(DarkroomReason.Cyclic, files.Choose(Stored)))
             + links.Mismatched.Choose(static row => Stored(row.Link.Target).Map<Error>(file =>
-                new DarkroomFault((FormattableString)$"{row.Link.Name} in {row.Link.Units} linking {file} in {row.FileUnits}", DarkroomReason.Units)))
-            + textures.Absent.Map<Error>(static path => new DarkroomFault($"texture {path}", DarkroomReason.Missing))
+                Fault.Of(DarkroomReason.Units, (row.Link.Name, row.Link.Units, file, row.FileUnits))))
+            + textures.Absent.Map<Error>(static path => Fault.Of(DarkroomReason.Missing, $"texture {path}"))
             + (target.RendersHere
-                ? (host.SafeMode && host.Renderer == host.RhinoRender ? Seq<Error>(new DarkroomFault("Rhino Render in safe mode", DarkroomReason.Cpu)) : [])
-                : (textures.Unpacked + toSeq(links.Graph.Edges).Choose(static link => Stored(link.Target))).Distinct().Map<Error>(static path => new DarkroomFault(path, DarkroomReason.Uncopied))),
+                ? (host.SafeMode && host.Renderer == host.RhinoRender ? Seq<Error>(Fault.Of(DarkroomReason.Cpu, "Rhino Render in safe mode")) : [])
+                : (textures.Unpacked + toSeq(links.Graph.Edges).Choose(static link => Stored(link.Target))).Distinct().Map<Error>(static path => Fault.Of(DarkroomReason.Uncopied, path))),
             toMap(plan.Entries.Map((entry, index) => from frame in entry.Rendered.ToOption() from components in channels select (index, QueueEstimate.Memory(statistics, frame.Padded, components))).Somes()));
 
     private static Option<string> Stored(LinkedModel model) => model.Switch(opened: static _ => Option<string>.None, stored: static stored => Some(stored.Path));
@@ -123,9 +123,9 @@ internal sealed record Preflight(Seq<Error> Refusals, Seq<Error> Cautions, Map<i
         private const long Floor = 256L << 20;
 
         public Seq<Error> Refusals(Option<long> copy) =>
-            (Writable ? [] : Seq<Error>(new RhinoFault(Folder, RhinoReason.Unwritable)))
-            + Free.Filter(static free => free < Floor).Map<Error>(free => new DarkroomFault((FormattableString)$"render at {Folder} with {free} bytes free", DarkroomReason.Space)).ToSeq()
-            + (from free in Free from size in copy where size > free select (Error)new DarkroomFault((FormattableString)$"copy of {size} bytes at {Folder} with {free} bytes free", DarkroomReason.Space)).ToSeq();
+            (Writable ? [] : Seq<Error>(Fault.Of(RhinoReason.Unwritable, Folder)))
+            + Free.Filter(static free => free < Floor).Map<Error>(free => Fault.Of(DarkroomReason.Reserve, (Folder, free, Floor))).ToSeq()
+            + (from free in Free from size in copy where size > free select (Error)Fault.Of(DarkroomReason.Space, (Folder, free, size))).ToSeq();
 
         public static IO<Volume> Of(string folder) =>
             IO.lift(() => toSeq(LanguageExt.List.unfold(Some(new DirectoryInfo(folder)), static current =>

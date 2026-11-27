@@ -43,7 +43,7 @@ pub struct Opened<S, T> {
 pub enum Refusal {
     #[error("service speaks opening protocol {served}, this client {offered}")]
     Protocol { offered: u32, served: u32 },
-    #[error("a newer build replaces the service, connect again")]
+    #[error("service superseded by a newer build")]
     Superseded,
     #[error("{reason}")]
     Service { reason: String },

@@ -64,7 +64,7 @@ internal static class RenderHistory {
 
     public static IO<Rendering> Annotated(Rendering rendering, Option<string> note) =>
         (from entered in use(IO.liftAsync(static environment => Recording.EnterAsync(environment.Token)))
-         from state in IO.lift(rendering.State.ToFin(new DarkroomFault((FormattableString)$"render state of {rendering.Image.FileName}", DarkroomReason.Missing)))
+         from state in IO.lift(rendering.State.ToFin(Fault.Of(DarkroomReason.Missing, rendering.Image.FileName)))
          from recorded in Recorded(rendering, state with { Note = note })
          select recorded).Bracket();
 
@@ -96,7 +96,7 @@ internal static class RenderHistory {
          select unit).Bracket();
 
     private static IO<Unit> Claimed(string fileName) =>
-        from folder in IO.lift(() => Optional(Path.GetDirectoryName(fileName)).ToFin(new RhinoFault(fileName, RhinoReason.Unqualified)))
+        from folder in IO.lift(() => Optional(Path.GetDirectoryName(fileName)).ToFin(Fault.Of(RhinoReason.Unqualified, fileName)))
         from prior in atomicIO(() => (Before: Held.Value, After: Held.Value = Held.Value with { Folder = Held.Value.Folder | Some(folder) }))
         from scanned in when(prior.Before.Folder.IsNone, IO.lift(() => Session.Start(Scanned(folder)))).As()
         select unit;

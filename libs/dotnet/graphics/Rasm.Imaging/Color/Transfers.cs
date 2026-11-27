@@ -17,7 +17,7 @@ namespace Rasm.Imaging.Color;
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [ObjectFactory<string>(UseForSerialization = SerializationFrameworks.SystemTextJson)]
-[ValidationError<ImagingFault>]
+[ValidationError<Fault<ImagingReason>>]
 public abstract partial record Transfer : IConvertible<string>, IFixedFunction {
     private const string LinearKey = "linear";
     private const string AcesCcKey = "acescc";
@@ -53,23 +53,23 @@ public abstract partial record Transfer : IConvertible<string>, IFixedFunction {
 
     public static Fin<Transfer> Read(string value) => Named.TryGetValue(value, out Transfer? named) ? named : Parametric(value, toSeq(value.Split(':')));
 
-    public static ImagingFault? Validate(string? value, IFormatProvider? provider, out Transfer? item) => TextValidation.Parsed(value, Read, out item);
+    public static Fault<ImagingReason>? Validate(string? value, IFormatProvider? provider, out Transfer? item) => TextValidation.Parsed(value, Read, out item);
 
     private static Fin<float> Number(string text) =>
-        float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float number) ? number : ImagingFault.Of(ImagingReason.Malformed, text);
+        float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float number) ? number : Fault.Of(ImagingReason.Malformed, text);
 
     private static Fin<Transfer> Parametric(string value, Seq<string> parts) =>
         parts.Tail.Traverse(Number).As().Bind(levels => (parts[0], levels.Count) switch {
             (GammaForm, 1 or 2) => Gamma.Of(levels[0], levels.Tail.Head.IfNone(0f)).Map(static gamma => (Transfer)gamma),
             (PqForm, 1 or 2) => Pq.Of(Display(levels)).Map(static pq => (Transfer)pq),
             (HlgForm, 1 or 2) => Hlg.Of(Display(levels)).Map(static hlg => (Transfer)hlg),
-            _ => ImagingFault.Of(ImagingReason.UnknownFormat, value),
+            _ => Fault.Of(ImagingReason.UnknownFormat, value),
         });
 
     private static DynamicRange Display(Seq<float> levels) => new(levels[0], levels.Tail.Head.Map(static nits => (double)nits).IfNone(DynamicRange.High.MaxLuminance), DynamicRange.High.MinLuminance);
 
     private static Fin<DynamicRange> Lit(DynamicRange range) =>
-        ImagingFault.Unless(double.IsNormal(range.WhiteLuminance) && double.IsNormal(range.MaxLuminance) && range.WhiteLuminance > 0d && range.MaxLuminance > 0d, ImagingReason.Range, (range.WhiteLuminance, range.MaxLuminance)).Map(_ => range);
+        Fault.Unless(double.IsNormal(range.WhiteLuminance) && double.IsNormal(range.MaxLuminance) && range.WhiteLuminance > 0d && range.MaxLuminance > 0d, ImagingReason.Range, (range.WhiteLuminance, range.MaxLuminance)).Map(_ => range);
 
     private static void Coded(Span<Vector4> row, TransferFunction curve, Action<ReadOnlySpan<float>, Span<float>, TransferFunction> convert) {
         Span<float> samples = MemoryMarshal.Cast<Vector4, float>(row);
@@ -102,7 +102,7 @@ public abstract partial record Transfer : IConvertible<string>, IFixedFunction {
         public override LutTable Decode => new LutTable.Exponent(Offset > 0f ? ExponentStyle.MonCurveFwd : ExponentStyle.BasicFwd, new(Exponent), new(Offset));
 
         public static Fin<Gamma> Of(float exponent, float offset = 0f) =>
-            ImagingFault.Unless(float.IsFinite(exponent) && float.IsFinite(offset) && exponent > 0f && offset >= 0f && (offset is 0f || exponent > 1f), ImagingReason.Range, (exponent, offset))
+            Fault.Unless(float.IsFinite(exponent) && float.IsFinite(offset) && exponent > 0f && offset >= 0f && (offset is 0f || exponent > 1f), ImagingReason.Range, (exponent, offset))
                 .Map(_ => Seq(Srgb, Rec709, Gamma22, Gamma28, Rec1886).Find(known => (known.Exponent, known.Offset) == (exponent, offset)).IfNone(() => new Gamma(exponent, offset)));
     }
 
@@ -228,11 +228,11 @@ public sealed record ColorEncoding(Gamut Gamut, Transfer Transfer) {
         }).As();
 
     public static Fin<ColorEncoding> Of(CicpProfile cicp) =>
-        (ImagingFault.Unless(cicp is { MatrixCoefficients: CicpMatrixCoefficients.Identity, FullRange: true }, ImagingReason.Unsupported, (cicp.MatrixCoefficients, cicp.FullRange)),
-         Gamut.Known.Find(gamut => gamut.Cicp == Some(cicp.ColorPrimaries)).ToFin(ImagingFault.Of(ImagingReason.UnknownFormat, cicp.ColorPrimaries)),
+        (Fault.Unless(cicp is { MatrixCoefficients: CicpMatrixCoefficients.Identity, FullRange: true }, ImagingReason.Unsupported, (cicp.MatrixCoefficients, cicp.FullRange)),
+         Gamut.Known.Find(gamut => gamut.Cicp == Some(cicp.ColorPrimaries)).ToFin(Fault.Of(ImagingReason.UnknownFormat, cicp.ColorPrimaries)),
          Transfer.Known.Find(transfer => transfer.Cicp == Some(cicp.TransferCharacteristics is CicpTransferCharacteristics.ItuRBt601_7 or CicpTransferCharacteristics.ItuRBt2020_2_10bit or CicpTransferCharacteristics.ItuRBt2020_2_12bit
                  ? CicpTransferCharacteristics.ItuRBt709_6
-                 : cicp.TransferCharacteristics)).ToFin(ImagingFault.Of(ImagingReason.UnknownFormat, cicp.TransferCharacteristics)))
+                 : cicp.TransferCharacteristics)).ToFin(Fault.Of(ImagingReason.UnknownFormat, cicp.TransferCharacteristics)))
             .Apply(static (_, gamut, transfer) => new ColorEncoding(gamut, transfer)).As();
 
     public LutTable To(ColorEncoding target) =>

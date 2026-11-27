@@ -157,7 +157,7 @@ class FileItems(ItemContent, frozen=True, kw_only=True):
     @staticmethod
     def _bound(live: bpy.types.CompositorNodeOutputFile, identity: Identity) -> tuple[Mapping[str, Mapping[str, str]], dict[str, bpy.types.NodeCompositorFileOutputItem], bpy.types.NodeInputs]:
         """Returns stored bindings, native items by socket identifier, and node inputs, raising `TypeError` for a record `write` never stored."""
-        match live, converted_value(live.get(identity.identifier(FileItems._key), {}), Mapping[str, Mapping[str, str]], repr(live)):
+        match live, converted_value(live.get(identity.identifier(FileItems._key), {}), Mapping[str, Mapping[str, str]], live):
             case bpy.types.CompositorNodeOutputFile(inputs=bpy.types.bpy_prop_collection() as inputs), Ok(bindings):
                 return bindings, {socket.identifier: item for item, socket in zip(live.file_output_items, inputs)}, inputs
             case other:
@@ -232,7 +232,7 @@ class FileItems(ItemContent, frozen=True, kw_only=True):
             kept: dict[Key, dict[str, str]] = {}
             desired: list[str] = []
             answers: list[Outcome[None]] = []
-            refused = partial(Fault.of, Refusal.REFUSED, repr(output))
+            refused = partial(Fault.of, Refusal.REFUSED, output)
             try:
                 for index in reversed(removed):
                     output.file_output_items.remove(output.file_output_items[index])
@@ -310,7 +310,7 @@ def _captured(context: bpy.types.Context) -> Outcome[Snapshot]:
 
 def _output(live: bpy.types.Node) -> Outcome[bpy.types.CompositorNodeOutputFile]:
     """Node as File Output, else `absent` fault naming its items."""
-    return option.of_optional(try_downcast(bpy.types.CompositorNodeOutputFile, live)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(live), member="file_output_items"))
+    return option.of_optional(try_downcast(bpy.types.CompositorNodeOutputFile, live)).to_result_with(lambda: Fault.of(Reason.ABSENT, live, member="file_output_items"))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

@@ -15,10 +15,10 @@ public sealed class ColorRamp {
     public ImmutableArray<Vector4> Samples { get; }
 
     public static Fin<ColorRamp> From(ImmutableArray<Vector4> samples) =>
-        ImagingFault.Unless(!samples.IsDefaultOrEmpty, ImagingReason.Empty, samples).Map(_ => new ColorRamp(samples));
+        Fault.Unless(!samples.IsDefaultOrEmpty, ImagingReason.Empty, samples).Map(_ => new ColorRamp(samples));
 
     public static Fin<ColorRamp> Sampled(int intervals, Func<float, Vector4> sample) =>
-        ImagingFault.Unless(intervals > 0 && intervals < System.Array.MaxLength, ImagingReason.Range, intervals)
+        Fault.Unless(intervals > 0 && intervals < System.Array.MaxLength, ImagingReason.Range, intervals)
             .Map(_ => new ColorRamp([.. Enumerable.Range(0, intervals + 1).Select(at => sample(at / (float)intervals))]));
 
     public Vector4 Sample(float position) =>
@@ -50,10 +50,10 @@ public sealed class RampIntegral {
     }
 
     public static Fin<RampIntegral> From(ImmutableArray<Vector4> samples) =>
-        ImagingFault.Unless(!samples.IsDefaultOrEmpty, ImagingReason.Empty, samples).Map(_ => new RampIntegral(samples));
+        Fault.Unless(!samples.IsDefaultOrEmpty, ImagingReason.Empty, samples).Map(_ => new RampIntegral(samples));
 
     public static Fin<RampIntegral> Sampled(int bins, Func<float, Vector4> sample) =>
-        ImagingFault.Unless(bins > 0 && bins < System.Array.MaxLength, ImagingReason.Range, bins)
+        Fault.Unless(bins > 0 && bins < System.Array.MaxLength, ImagingReason.Range, bins)
             .Map(_ => new RampIntegral([.. Enumerable.Range(0, bins).Select(at => sample((at + 0.5f) / bins))]));
 
     public Vector4 Mean(double position, double footprint) {

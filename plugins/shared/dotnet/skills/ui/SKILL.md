@@ -81,7 +81,7 @@ internal sealed class Frame : IDisposable {
         Surfaced(info, () => SKSurface.Create(info, properties)).Map(made => new Frame(made, info));
 
     private static Fin<SKSurface> Surfaced(SKImageInfo info, Func<SKSurface> create) =>
-        Optional(create()).ToFin(new Fault(string.Create(CultureInfo.InvariantCulture, $"{info.Width}x{info.Height} {info.ColorType}"), Reason.Refused));
+        Optional(create()).ToFin(Fault.Of(Reason.Refused, (info.Width, info.Height, info.ColorType)));
 
     public void Damage(SKRect logical, float scale) =>
         damage.Op(SKRectI.Ceiling(SKMatrix.CreateScale(scale, scale).MapRect(logical), outwards: true), SKRegionOperation.Union);

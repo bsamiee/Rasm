@@ -25,7 +25,7 @@ internal abstract partial record ArchStage {
             from ratios in AllowedRatios(tolerances)
             let least = ratios.T0 * Span.Baseline.Length
             let most = ratios.T1 * Span.Baseline.Length
-            from plain in ArchFault.Unless(ratios.IncludesParameter(double.Abs(height) / Span.Baseline.Length), ArchReason.RiseOutside, (height, least, most))
+            from plain in Fault.Unless(ratios.IncludesParameter(double.Abs(height) / Span.Baseline.Length), ArchReason.RiseOutside, (height, least, most))
             select Span.Apex(height);
 
         public Fin<Point3d> Nearest(Point3d cursor, Tolerances tolerances) =>
@@ -36,7 +36,7 @@ internal abstract partial record ArchStage {
         private Fin<Interval> AllowedRatios(Tolerances tolerances) =>
             (tolerances.Absolute / Span.Baseline.Length) switch {
                 var margin => new Interval(Arch.Ratios.T0 + margin, Arch.Ratios.T1 - margin) switch {
-                    var ratios => ArchFault.Unless(ratios.IsIncreasing, ArchReason.SpanNarrow, (length: Span.Baseline.Length, Arch.Ratios)).Map(_ => ratios),
+                    var ratios => Fault.Unless(ratios.IsIncreasing, ArchReason.SpanNarrow, (length: Span.Baseline.Length, Arch.Ratios)).Map(_ => ratios),
                 },
             };
     }
@@ -81,7 +81,7 @@ internal static class ArchPrompts {
                             + (toSeq(foiled.Arch.Lobes) switch {
                                 var counts when counts.Tail.IsEmpty => Seq<OptionSpec<StageStep<ArchStage, Unit>>>(),
                                 var counts => Seq(OptionSpecs.Of(OptionType.Integer(counts.Head, counts.Last), foiled.Lobes, lobes =>
-                                    ArchFault.Unless(counts.Exists(count => count == lobes), ArchReason.LobesOutside, lobes).Match(
+                                    Fault.Unless(counts.Exists(count => count == lobes), ArchReason.LobesOutside, lobes).Match(
                                         Succ: _ => held.Kit.Replace(held.End with { Choice = foiled with { Lobes = lobes } }),
                                         Fail: held.Kit.Retry))),
                             })),

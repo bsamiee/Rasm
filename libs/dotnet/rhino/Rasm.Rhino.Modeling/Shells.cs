@@ -22,7 +22,7 @@ public sealed record BlendEdge(BrepEdge Edge, BlendContinuity Continuity) {
             Some: static held => Fin.Succ(held),
             None: () => toSeq(Edge.AdjacentFaces()) switch {
                 [var single] => Edge.Brep.Faces[single],
-                var faces => new RhinoFault(nameof(Edge.AdjacentFaces), RhinoReason.Mismatched, faces.Count),
+                var faces => Fault.Of(RhinoReason.Mismatched, nameof(Edge.AdjacentFaces), faces.Count),
             })
         select (Face: face, Domain: Domain.IfNone(Edge.Domain));
 }

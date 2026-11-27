@@ -20,5 +20,4 @@ labels:
     <CAPTURE>:
         style: secondary
         message: <role of the capture, key omitted otherwise>
-message: <violation with captured or transformed values>
-note: <required form and its reason>
+message: <violation with captured or transformed values>, <required form>

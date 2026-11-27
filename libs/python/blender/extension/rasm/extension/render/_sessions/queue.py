@@ -227,11 +227,11 @@ def dispatch(dispatcher: Dispatcher, call: Call[Dispatch]) -> Outcome[Done]:
                 gaps, bindings = (), (("fixed camera", camera),)
         return paired(
             accumulated((
-                *(Error(Fault.of(Reason.ABSENT, repr(scene), member=str(frame))) for frame in gaps),
+                *(Error(Fault.of(Reason.ABSENT, scene, member=frame)) for frame in gaps),
                 *(
                     option
                     .of_optional(bpy.data.objects.get(name))
-                    .to_result_with(partial(Fault.of, Reason.ABSENT, repr(bpy.data.objects), member=name))
+                    .to_result_with(partial(Fault.of, Reason.ABSENT, bpy.data.objects, member=name))
                     .bind(lambda found: typed(bpy.types.Camera, binding, found.data))
                     for binding, name in bindings
                 ),
@@ -283,7 +283,7 @@ def resume(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
                 lambda issued: Done(notes=tuple(("INFO", value) for answer in issued for value in answer.to_option().to_list()), skipped=accumulated(issued).swap().default_value(()))
             )
             if phase in resumable
-            else Error(Fault.of(Reason.OUTSIDE, str(dispatcher.host.path(run.queue.stem, RunFile.PROGRESS)), str(phase.name), member=", ".join(value.name for value in resumable)))
+            else Error(Fault.of(Reason.OUTSIDE, dispatcher.host.path(run.queue.stem, RunFile.PROGRESS), phase.name, member=", ".join(value.name for value in resumable)))
         )
 
     return paired(dispatcher.local_run(), dispatcher.preference.read(call.identity)).bind(lambda pair: resent(*pair)).bind(lambda done: dispatcher.watched().map(lambda _: done))
@@ -317,7 +317,7 @@ def open_log(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
 
     return (
         rooted(bpy.types.WindowManager, call.context)
-        .bind(lambda manager: dispatcher.queued.struct(manager).dispatched.to_result_with(lambda: Fault.of(Reason.ABSENT, repr(dispatcher.queued), member="plan")))
+        .bind(lambda manager: dispatcher.queued.struct(manager).dispatched.to_result_with(lambda: Fault.of(Reason.ABSENT, dispatcher.queued, member="plan")))
         .bind(opened)
     )
 
@@ -326,11 +326,7 @@ def cancel_shutdown(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
     """Cancels the shutdown scheduled after the local queue."""
 
     def cancelling(run: LocalRun, preferences: QueuePreferences) -> Outcome[Done]:
-        return (
-            shutdown_cancelled(run.progress).map(lambda _: Done(notes=(("INFO", "Shutdown canceled"),)))
-            if preferences.shutdown
-            else Error(Fault.of(Reason.ABSENT, repr(preferences), member="shutdown"))
-        )
+        return shutdown_cancelled(run.progress).map(lambda _: Done(notes=(("INFO", "Shutdown canceled"),))) if preferences.shutdown else Error(Fault.of(Reason.ABSENT, preferences, member="shutdown"))
 
     return paired(dispatcher.local_run(), dispatcher.preference.read(call.identity)).bind(lambda pair: cancelling(*pair))
 
@@ -358,20 +354,13 @@ def pack(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
 def read_manager(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
     """Reads Manager storage, worker tags, and job types, reporting each worker tag."""
 
-    def flamenco(preferences: QueuePreferences, target: Target) -> Outcome[Flamenco]:
-        match target:
-            case Flamenco():
-                return Ok(target)
-            case other:
-                return Error(Fault.of(Reason.OUTSIDE, repr(preferences), type(other).__name__, member=Flamenco.__name__))
-
     def noted(manager: Manager) -> Done:
         return Done(notes=(("INFO", f"Job type {'installed' if manager.job_type.is_some() else 'missing'}"), *(("INFO", f"Worker tag {tag.name}") for tag in manager.tags)))
 
     return (
         dispatcher.preference
         .read(call.identity)
-        .bind(lambda preferences: preferences.target.bind(partial(flamenco, preferences)))
+        .bind(lambda preferences: preferences.target.bind(partial(typed, Flamenco, preferences)))
         .bind(lambda target: Dispatcher.connected().bind(lambda _: target.server.opened(Manager.queried)))
         .map(noted)
     )
@@ -389,7 +378,7 @@ def install_job_type(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]
         return written().map_error(partial(Fault.of, Reason.UNWRITABLE, folder)).map(lambda path: Done(notes=(("INFO", str(path)),)))
 
     return dispatcher.preference.read(call.identity).bind(
-        lambda preferences: preferences.scripts.map(copied).default_with(lambda: Error(Fault.of(Reason.ABSENT, repr(call.context.preferences), member="scripts")))
+        lambda preferences: preferences.scripts.map(copied).default_with(lambda: Error(Fault.of(Reason.ABSENT, call.context.preferences, member="scripts")))
     )
 
 

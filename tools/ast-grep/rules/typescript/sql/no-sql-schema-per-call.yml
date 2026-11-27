@@ -26,5 +26,4 @@ rule:
                     stopBy: end
                     kind: generator_function, generator_function_declaration
                     has: { field: body, has: { stopBy: end, kind: yield_expression, has: { stopBy: end, matches: sql-client } } }
-message: '`$QUERY` builds its request encoder and row decoder on every call'
-note: 'Declare the query at module scope with `execute` reading `SqlClient.SqlClient.use`, caller values entering as `Request` fields'
+message: '`$QUERY` builds its request encoder and row decoder on every call, declare the query at module scope with `execute` reading `SqlClient.SqlClient.use`, caller values entering as `Request` fields'

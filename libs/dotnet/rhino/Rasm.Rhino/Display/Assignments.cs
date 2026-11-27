@@ -169,5 +169,5 @@ public static class DisplayModeRules {
                 ? IO.lift(() => AllViewportsRemoved(staged, Guid.NewGuid()))
                 : IO.lift(() => staged.RemoveDisplayModeOverride(slot)));
 
-    internal static Fin<Unit> Assignable(DisplayModeDescription mode) => RhinoFault.Unless(mode.AllowObjectAssignment, RhinoReason.Unsupported, mode.EnglishName);
+    internal static Fin<Unit> Assignable(DisplayModeDescription mode) => Fault.Unless(mode.AllowObjectAssignment, RhinoReason.Unsupported, mode.EnglishName);
 }

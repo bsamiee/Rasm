@@ -38,7 +38,7 @@ public sealed partial class ColorChart {
     public int Rows => D50.Count / Columns;
 
     public static Fin<ColorChart> Validated(int columns, int neutral, Seq<Vector3> d50) =>
-        ImagingFault.Unless(
+        Fault.Unless(
             columns > 0 && !d50.IsEmpty && d50.Count % columns is 0 && neutral >= 0 && neutral < d50.Count && d50.ForAll(static xyz => Vector3.AllWhereAllBitsSet(Vector3.IsFinite(xyz))),
             ImagingReason.Degenerate, (columns, neutral, d50.Count)).Map(_ => new ColorChart(columns, neutral, d50));
 }
@@ -55,7 +55,7 @@ public sealed partial class ChartSamples {
         };
 
     public static Fin<ChartSamples> Validated(ColorChart chart, Gamut gamut, Seq<Vector3> patches) =>
-        ImagingFault.Unless(patches.Count == chart.D50.Count, ImagingReason.Miscounted, patches.Count).Map(_ => new ChartSamples(chart, gamut, patches));
+        Fault.Unless(patches.Count == chart.D50.Count, ImagingReason.Miscounted, patches.Count).Map(_ => new ChartSamples(chart, gamut, patches));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -75,7 +75,7 @@ public abstract partial record ChartPlacement {
 
     private Seq<int> Patches => toSeq(Enumerable.Range(0, Chart.D50.Count));
 
-    private ImagingFault Unaligned => ImagingFault.Of(ImagingReason.Degenerate, Quad);
+    private Fault<ImagingReason> Unaligned => Fault.Of(ImagingReason.Degenerate, Quad);
 
     public Seq<ChartFinding> Findings(PixelExtent frame) {
         (double narrowest, double widest) = (double.Pi / 3d, 2d * double.Pi / 3d);
@@ -112,7 +112,7 @@ public abstract partial record ChartPlacement {
         return Patches.Traverse(patch =>
             taps.Choose(tap => image(Center(patch) + tap).Bind(point => frame.Texel(new Point((int)float.Floor(point.X), (int)float.Floor(point.Y)), wrap)))
                 .Fold((Sum: Vector3.Zero, Count: 0), static (mean, texel) => (mean.Sum + texel.AsVector3(), mean.Count + 1)) switch {
-                    (_, 0) => Fin.Fail<Vector3>(ImagingFault.Of(ImagingReason.Empty, patch, patch)),
+                    (_, 0) => Fin.Fail<Vector3>(Fault.Of(ImagingReason.Empty, frame.Extent, patch)),
                     var (sum, count) => sum / count,
                 }).As().Bind(patches => ChartSamples.Validated(Chart, gamut, patches));
     }

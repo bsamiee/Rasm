@@ -73,6 +73,7 @@
         <ProjectReference Include="../../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
         <ProjectReference Include="../../../../libs/dotnet/runtime/Rasm.Telemetry.Api/Rasm.Telemetry.Api.csproj" />
         <ProjectReference Include="../../../../libs/dotnet/runtime/Rasm.Telemetry/Rasm.Telemetry.csproj" />
+        <Using Include="Rasm.Telemetry.Api" />
     </ItemGroup>
 
     <ItemGroup Label="Render Farm">

@@ -111,7 +111,7 @@ internal static class Exports {
         from lens in IO.lift(state.Values.Recalled(EntryKey.TypeOwner(Kinds.Lens.Id), LensProfile.Default))
         from scene in ChainScene.Sourced(doc, extent, None)
         from rendering in IO.lift(scene.Camera.Bind(static camera => camera.Lens is Projection.Rectilinear rectilinear ? Some(rectilinear) : None)
-            .ToFin(new DarkroomFault(nameof(Projection.Rectilinear), DarkroomReason.Missing)))
+            .ToFin(Fault.Of(DarkroomReason.Missing, nameof(Projection.Rectilinear))))
         from map in IO.lift(lens.Map(rendering))
         let image = new ImageFile.Exr([new ExrLayer(None, map.ToSTMap(extent, extent), ExrChannels.Standard.Rgba)], OutputDepth.Float32, OutputTarget.Default.Codec, None, Multipart: false)
         select new ExportFile(TargetFile.Exr.Extension, stream => image.Write(metadata, stream));

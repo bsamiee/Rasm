@@ -42,7 +42,7 @@ public static class Commits {
     public static IO<Committed<T>> Commit<T>(RhinoDoc doc, string name, RedrawPolicy redraw, IO<T> body) =>
         WithinRedraw(doc, redraw,
             from begun in IO.lift(() =>
-                RhinoFault.Unless(doc.UndoRecordingEnabled && (!Command.InCommand() || doc.UndoRecordingIsActive), RhinoReason.Unavailable, (doc.UndoRecordingEnabled, doc.UndoRecordingIsActive))
+                Fault.Unless(doc.UndoRecordingEnabled && (!Command.InCommand() || doc.UndoRecordingIsActive), RhinoReason.Unavailable, (doc.UndoRecordingEnabled, doc.UndoRecordingIsActive))
                     .Map(_ => Conversions.Present(doc.BeginUndoRecord(name))))
             from value in body.Catch(error =>
                 Ended(doc, begun).Bind(kept => when(kept.IsSome, Products.Each(Seq(Step(doc, doc.Undo), IO.lift(doc.ClearRedoRecords))).Map(unit)).As())
@@ -50,8 +50,8 @@ public static class Commits {
             from record in Ended(doc, begun)
             select new Committed<T>(value, record));
 
-    public static IO<Unit> Step(RhinoDoc doc, Func<bool> step, [CallerArgumentExpression(nameof(step))] string member = "") =>
-        from stepped in Products.Accepted(step, member)
+    public static IO<Unit> Step(RhinoDoc doc, Func<bool> step, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
+        from stepped in Products.Accepted(step, member, line)
         from open in IO.lift(() => Conversions.Present(doc.CurrentUndoRecordSerialNumber))
         from closed in open.Traverse(serial => Products.Accepted(() => doc.EndUndoRecord(serial))).As()
         select unit;

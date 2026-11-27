@@ -19,7 +19,7 @@ public sealed record Quantizer {
 
     public LevelRange Clipping => new(0.5f / MaxCode, (MaxCode - 0.5f) / MaxCode);
 
-    public static Fin<Quantizer> Validated(int levels) => ImagingFault.Unless(levels >= 2, ImagingReason.Range, levels).Map(_ => new Quantizer(levels));
+    public static Fin<Quantizer> Validated(int levels) => Fault.Unless(levels >= 2, ImagingReason.Range, levels).Map(_ => new Quantizer(levels));
 
     public Vector4 Round(Vector4 code) => Vector4.Truncate(Vector4.Clamp(code + new Vector4(0.5f), Vector4.Zero, new Vector4(MaxCode)));
 
@@ -51,7 +51,7 @@ public sealed partial class OutputDepth {
 
     public long RowBytes(int width, bool alpha) => (((long)width * (alpha ? 4 : 3) * Bits) + 7) / 8;
 
-    internal Fin<Unit> Buffered(int width, bool alpha) => ImagingFault.Unless(RowBytes(width, alpha) <= System.Array.MaxLength, ImagingReason.Oversize, (width, alpha));
+    internal Fin<Unit> Buffered(int width, bool alpha) => Fault.Unless(RowBytes(width, alpha) <= System.Array.MaxLength, ImagingReason.Oversize, (width, alpha));
 
     public void Encode(ReadOnlySpan<Vector4> row, bool alpha, Span<byte> destination) {
         int channels = alpha ? 4 : 3;

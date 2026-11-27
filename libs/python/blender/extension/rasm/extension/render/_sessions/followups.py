@@ -53,8 +53,8 @@ class FollowedRender(bpy.types.PropertyGroup):
     def written(self, name: str, /) -> Outcome[WrittenPass]:
         """Returns the written pass of a pass name, absent fault for a pass the record follows none of or the render wrote none of."""
         found: Result[object, ValueError] = catch(self.path_resolve, exception=ValueError)(_member_key(name))
-        return found.map_error(lambda error: Fault.of(Reason.ABSENT, repr(self), error, member=name)).bind(
-            lambda value: option.of_optional(try_downcast(WrittenPass, value)).filter(lambda held: bool(held.path)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(self), member=name))
+        return found.map_error(lambda error: Fault.of(Reason.ABSENT, self, error, member=name)).bind(
+            lambda value: option.of_optional(try_downcast(WrittenPass, value)).filter(lambda held: bool(held.path)).to_result_with(partial(Fault.of, Reason.ABSENT, self, member=name))
         )
 
 
@@ -137,7 +137,7 @@ class FollowUp[G: FollowUpSettings](msgspec.Struct, frozen=True, kw_only=True, d
                 for output, name in written.passes.items()
             ]
             sources = dict(reversed(routed))
-            return accumulated(option.of_optional(sources.get(name)).map(lambda held: (name, *held)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene), member=name)) for name in names)
+            return accumulated(option.of_optional(sources.get(name)).map(lambda held: (name, *held)).to_result_with(partial(Fault.of, Reason.ABSENT, scene, member=name)) for name in names)
 
         def planned(record: str, outputs: str, version: int, copied: OutputPath, found: tuple[tuple[str, str, str], ...]) -> tuple[JobScope, Option[JobScope]]:
             values: dict[RnaPath, Value] = {

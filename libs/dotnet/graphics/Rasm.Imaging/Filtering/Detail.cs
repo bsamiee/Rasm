@@ -117,7 +117,7 @@ public static class GrainNoise {
     public static Fin<Memory2D<Vector4>> NormalScores(PixelFrame scan, double footprint) {
         (double width, double height) = (double.Ceiling(footprint), double.Ceiling(scan.Size.Height * footprint / scan.Size.Width));
         return width * height > System.Array.MaxLength
-            ? ImagingFault.Of(ImagingReason.Oversize, (width, height))
+            ? Fault.Of(ImagingReason.Oversize, (width, height))
             : Try.lift(() => {
                 int pixels = (int)width * (int)height;
                 using Mat source = scan.Header();
@@ -224,7 +224,7 @@ public static class Kuwahara {
     });
 
     public static Fin<Unit> Sectors(PixelFrame frame, double radius, double uniformity, float sharpness, float eccentricity, Option<IProgress<int>> progress = default) =>
-        from bounded in ImagingFault.Unless(double.Ceiling((1d + eccentricity) * radius) + 1d <= int.MaxValue, ImagingReason.Oversize, (radius, eccentricity))
+        from bounded in Fault.Unless(double.Ceiling((1d + eccentricity) * radius) + 1d <= int.MaxValue, ImagingReason.Oversize, (radius, eccentricity))
         from filtered in frame.Filter(source => {
             (float focus, float overlap, (float sine, float cosine)) = (16f * sharpness * sharpness, 2f / (float)radius, float.SinCos(1.5f * float.Pi / Count));
             float envelope = (overlap + cosine) / (sine * sine);

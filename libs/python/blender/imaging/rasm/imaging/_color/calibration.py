@@ -265,10 +265,10 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
         source, target = np.unstack(np.array(samples, dtype=np.float64).reshape(-1, 2, 3), axis=1)
         return (
             catch(colour.matrix_colour_correction, exception=np.linalg.LinAlgError)(source, target, method="Cheung 2004")
-            .map_error(functools.partial(Fault.of, Reason.FAILED, str(source)))
+            .map_error(functools.partial(Fault.of, Reason.FAILED, source))
             .bind(
                 lambda found: catch(lambda: msgspec.convert({"color_matrix": np.asarray(found, dtype=np.float64).tolist()}, cls), exception=msgspec.ValidationError)().map_error(
-                    functools.partial(Fault.of, Reason.OUTSIDE, cls.__name__, member=f"matrix condition below {_CEILING:.3g}")
+                    functools.partial(Fault.of, Reason.OUTSIDE, cls, member=f"matrix condition below {_CEILING:.3g}")
                 )
             )
         )
@@ -323,7 +323,7 @@ def converted_colors(config: PyOpenColorIO.Config, source: str, target: str, val
 
 
 def _colors(values: npt.NDArray[np.float32 | np.float64]) -> Outcome[Colors]:
-    return catch(lambda: msgspec.convert(values.tolist(), tuple[Rgb, ...]), exception=msgspec.ValidationError)().map_error(functools.partial(Fault.of, Reason.INVALID, Colors.__name__))
+    return catch(lambda: msgspec.convert(values.tolist(), tuple[Rgb, ...]), exception=msgspec.ValidationError)().map_error(functools.partial(Fault.of, Reason.INVALID, Colors))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

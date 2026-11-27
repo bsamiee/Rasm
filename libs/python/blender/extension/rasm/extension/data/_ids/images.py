@@ -83,13 +83,13 @@ def pixels(image: bpy.types.Image) -> Outcome[npt.NDArray[np.float32]]:
     """Reads float32 pixels bottom row first as height, width, channels, refused fault for an image holding no buffer."""
     (width, height), channels = np.asarray(image.size), image.channels
     plane = np.empty((height, width, channels), np.float32)
-    return catch(image.pixels.foreach_get, exception=TypeError)(plane.reshape(-1)).map_error(partial(Fault.of, Refusal.REFUSED, repr(image))).map(lambda _: plane)
+    return catch(image.pixels.foreach_get, exception=TypeError)(plane.reshape(-1)).map_error(partial(Fault.of, Refusal.REFUSED, image)).map(lambda _: plane)
 
 
 def aspect(image: bpy.types.Image) -> Outcome[float]:
     """Returns the default image buffer's displayed width to height, absent fault without a buffer."""
     (width, height), display = np.asarray(image.size), image.display_aspect
-    return Ok(width * display.x / (height * display.y)) if width and height else Error(Fault.of(Reason.ABSENT, repr(image), member=image.filepath))
+    return Ok(width * display.x / (height * display.y)) if width and height else Error(Fault.of(Reason.ABSENT, image, member=image.filepath))
 
 
 def read(image: bpy.types.Image, colorspace: str) -> Outcome[ImageFile]:
@@ -99,7 +99,7 @@ def read(image: bpy.types.Image, colorspace: str) -> Outcome[ImageFile]:
         flipped = np.ascontiguousarray(plane[::-1])
         return ImageFile(pixels=premultiplied(flipped) if _straight(image) else flipped, colorspace=colorspace)
 
-    return pixels(image).map(formed) if np.asarray(image.size).prod() else Error(Fault.of(Reason.ABSENT, repr(image), member=image.filepath))
+    return pixels(image).map(formed) if np.asarray(image.size).prod() else Error(Fault.of(Reason.ABSENT, image, member=image.filepath))
 
 
 def normalized(image: bpy.types.Image, config: PyOpenColorIO.Config) -> Outcome[ImageFile]:
@@ -110,7 +110,7 @@ def normalized(image: bpy.types.Image, config: PyOpenColorIO.Config) -> Outcome[
     Returns:
         Associated pixels with their encoding, or native configuration, export, and read faults.
     """
-    refused = partial(Fault.of, Refusal.REFUSED, repr(image))
+    refused = partial(Fault.of, Refusal.REFUSED, image)
 
     def captured(space: str, scene: bpy.types.Scene) -> Outcome[ImageFile]:
         members: dict[RnaPath, Value] = {
@@ -131,7 +131,7 @@ def normalized(image: bpy.types.Image, config: PyOpenColorIO.Config) -> Outcome[
 
     match image:
         case bpy.types.Image(source="VIEWER") | bpy.types.Image(type="MULTILAYER"):
-            return Error(Fault.of(Refusal.REQUIRED, repr(image), member="render encoding colorspace"))
+            return Error(Fault.of(Reason.UNMET, image, member="render encoding colorspace"))
         case bpy.types.Image(colorspace_settings=bpy.types.ColorManagedInputColorspaceSettings(is_data=True, name=name)):
             return read(image, name)
         case _:
@@ -156,7 +156,7 @@ def filled(image: bpy.types.Image, plane: npt.NDArray[np.float32]) -> Outcome[No
     padded = np.pad(color, ((0, 0), (0, 0), (0, image.channels - color.shape[2])))
     if color.shape[2] < 4 and image.channels == 4:
         padded[..., 3] = 1.0
-    return catch(image.pixels.foreach_set, exception=TypeError)(padded[::-1].reshape(-1)).map_error(partial(Fault.of, Refusal.REFUSED, repr(image))).map(lambda _: image.update())
+    return catch(image.pixels.foreach_set, exception=TypeError)(padded[::-1].reshape(-1)).map_error(partial(Fault.of, Refusal.REFUSED, image)).map(lambda _: image.update())
 
 
 def _straight(image: bpy.types.Image) -> bool:

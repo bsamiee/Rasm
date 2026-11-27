@@ -9,6 +9,5 @@ rule:
         inside:
             kind: call_expression
             has: { field: function, pattern: $LOG, matches: { effect-module-member: { module: { regex: '(?-u:\b)Effect$' }, member: { regex: '^(log|logTrace|logDebug|logInfo|logWarning|logError|logFatal)$' } } } }
-message: '`$LOG` takes structured data as a message value'
-note: 'Attach fields through `Effect.annotateLogs(<effect>, <fields>)` and pass text and a `Cause` alone to the log call'
+message: '`$LOG` takes structured data as a message value, attach fields through `Effect.annotateLogs(<effect>, <fields>)` and pass text and a `Cause` alone to the log call'
 labels: { FIELDS: { style: primary } }

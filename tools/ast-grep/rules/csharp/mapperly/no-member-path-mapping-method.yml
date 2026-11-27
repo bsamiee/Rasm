@@ -72,5 +72,4 @@ rule:
                   - not: { has: { kind: parameter, nthChild: 2 } }
         - has: { matches: path-body }
         - matches: mapperly-mapping-method
-message: 'Mapping method returns source member path `$PATH`'
-note: 'Replace the method and its `Use` reference with `[MapProperty(nameof(@<source>.<path>), nameof(<target>.<member>))]`'
+message: 'Mapping method returns source member path `$PATH`, replace the method and its `Use` reference with `[MapProperty(nameof(@<source>.<path>), nameof(<target>.<member>))]`'

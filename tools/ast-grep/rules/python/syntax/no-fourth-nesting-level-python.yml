@@ -53,7 +53,8 @@ rule:
                       stopBy: { matches: boundary }
                       not: { inside: { matches: level, stopBy: { kind: function_definition } } }
         - pattern: $SCOPE
-message: 'Control flow or closure opens a fourth nesting level'
-note: 'Rebuild nested control flow with `match`, a comprehension or a pipeline over its inputs'
+transform:
+    HEAD: { replace: { source: $SCOPE, replace: '(?s):?[\t-\r ]*\n.*$', by: '' } }
+message: '`$HEAD` opens a fourth nesting level, rebuild nested control flow or closures with `match`, a comprehension, or a pipeline over its inputs'
 labels:
-    SCOPE: { style: primary, message: Fourth nesting level }
+    SCOPE: { style: primary }

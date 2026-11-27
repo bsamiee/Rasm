@@ -184,7 +184,7 @@ public abstract partial record Scope {
 
 public sealed record FrameComparison(double Psnr, Option<double> Nrmse, PixelFrame Difference) {
     public static Fin<FrameComparison> Of(PixelFrame reference, PixelFrame test) =>
-        ImagingFault.Unless(reference.Size == test.Size, ImagingReason.Mismatch, (reference.Size, test.Size)).Bind(_ => Try.lift(() => {
+        Fault.Unless(reference.Size == test.Size, ImagingReason.Mismatch, (reference.Size, test.Size)).Bind(_ => Try.lift(() => {
             using Mat expected = Color(reference);
             using Mat actual = Color(test);
             using Mat delta = new();

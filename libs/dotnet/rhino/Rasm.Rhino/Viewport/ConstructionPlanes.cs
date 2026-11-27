@@ -129,7 +129,7 @@ public static class ConstructionPlanes {
         from dilation in IO.lift(() => NamedTable.Dilation(xform))
         from moved in IO.lift(() => {
             Plane staged = plane.Plane;
-            return RhinoFault.Unless(staged.Transform(xform), RhinoReason.Declined, xform).Map(_ => staged);
+            return Fault.Unless(staged.Transform(xform), RhinoReason.Declined, xform).Map(_ => staged);
         })
         from scaled in IO.lift(() => { (plane.Plane, plane.GridSpacing, plane.SnapSpacing) = (moved, plane.GridSpacing * dilation, plane.SnapSpacing * dilation); })
         select plane;

@@ -25,7 +25,7 @@ public sealed class UnitTextTests {
     [Fact]
     public Task UnitBearingTextInAUnitlessSpaceFailsAsUnreadable() =>
         Suffixed.Select(Gen.Int[1, 1_000_000]).SampleAsync(static async (suffix, steps) =>
-            Assert.Equal(RhinoReason.Unreadable, (await Expect<RhinoFault>.FailAsync(UnitText.ParseLength(Text(steps, suffix.Text), StringParserSettings.DefaultParseSettings, LengthUnit.None))).Reason));
+            Assert.Equal(RhinoReason.Unreadable, (await Expect<Fault<RhinoReason>>.FailAsync(UnitText.ParseLength(Text(steps, suffix.Text), StringParserSettings.DefaultParseSettings, LengthUnit.None))).Reason));
 
     // --- [SCALES]
 
@@ -46,7 +46,7 @@ public sealed class UnitTextTests {
     [InlineData(":1")]
     [InlineData("1")]
     public async Task MalformedScaleTextFailsAsUnreadable(string text) =>
-        Assert.Equal(RhinoReason.Unreadable, (await Expect<RhinoFault>.FailAsync(UnitText.ParseScale(text, StringParserSettings.DefaultParseSettings, LengthUnit.Millimeters))).Reason);
+        Assert.Equal(RhinoReason.Unreadable, (await Expect<Fault<RhinoReason>>.FailAsync(UnitText.ParseScale(text, StringParserSettings.DefaultParseSettings, LengthUnit.Millimeters))).Reason);
 
     // --- [GENERATORS]
 

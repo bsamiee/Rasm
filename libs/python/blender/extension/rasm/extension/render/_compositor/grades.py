@@ -62,7 +62,7 @@ def matrix_values(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transfo
                 rows = np.asarray(held.getMatrix(), dtype=np.float64).reshape(4, 4)[:3, :3].tolist()
                 return Ok({socket.key: tuple(row) for socket, row in zip(MATRIX, (*rows, held.getOffset()[:3]), strict=True)})
             case operations:
-                return Error(Fault.of(Reason.OUTSIDE, type(transform).__name__, ", ".join(type(operation).__name__ for operation in operations), member=PyOpenColorIO.MatrixTransform.__name__))
+                return Error(Fault.of(Reason.OUTSIDE, type(transform), ", ".join(type(operation).__name__ for operation in operations), member=PyOpenColorIO.MatrixTransform))
 
     return processor(config, transform).bind(reduced)
 

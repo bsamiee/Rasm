@@ -82,10 +82,10 @@ public static class Booleans {
         from running in IO.lift(() => (fresh.Tolerance, fresh.CancellationToken) = (tolerances.MeshIntersection, token))
         select fresh;
 
-    private static IO<Seq<Grouped<Mesh, int>>> Checked(Func<(Mesh[]? Meshes, Result Result, int[][]? Map)> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
+    private static IO<Seq<Grouped<Mesh, int>>> Checked(Func<(Mesh[]? Meshes, Result Result, int[][]? Map)> call, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
         from answered in IO.lift(call)
-        from ended in IO.lift(Results.Ended(answered.Result, member))
-        from groups in Mapped(() => (answered.Meshes, answered.Map), member)
+        from ended in IO.lift(Results.Ended(answered.Result, member, line))
+        from groups in Mapped(() => (answered.Meshes, answered.Map), member, line)
         select groups;
 
     // --- [CURVES]
@@ -98,7 +98,7 @@ public static class Booleans {
                 at.Operation.First,
                 at.Operation.Second,
                 () => Keyed(() => (Curve.CreateBooleanUnion(at.Operation.Second, at.Absolute, out int[] key), key))
-                    .Bind(static regions => IO.lift(Products.Each(regions, static (region, index) => RhinoFault.Unless(!region.From.IsEmpty, RhinoReason.Missing, region.From, index).Map(_ => region.Value)))),
+                    .Bind(static regions => IO.lift(Products.Each(regions, static (region, index) => Fault.Unless(!region.From.IsEmpty, RhinoReason.Missing, region.From, index).Map(_ => region.Value)))),
                 (first, outer) => Products.Many(() => Curve.CreateBooleanIntersection(first, outer, at.Absolute), required: false)),
             difference: static at => PerFirst(at.Operation.First, first => Products.Many(() => Curve.CreateBooleanDifference(first, at.Operation.Second, at.Absolute), required: false)));
 
@@ -110,15 +110,15 @@ public static class Booleans {
 
     // --- [PROVENANCE]
 
-    public static IO<Seq<Grouped<T, int>>> Keyed<T>(Func<(T[]? Rows, int[]? Key)> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : GeometryBase =>
-        from answered in Products.Many(() => call(), required: false, member)
-        from key in IO.lift(Conversions.Required(answered.Out, call: member))
+    public static IO<Seq<Grouped<T, int>>> Keyed<T>(Func<(T[]? Rows, int[]? Key)> call, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) where T : GeometryBase =>
+        from answered in Products.Many(() => call(), required: false, member, line)
+        from key in IO.lift(Conversions.Required(answered.Out, member: member, line: line))
         let owners = key.Select(static (owner, input) => (Owner: owner, Input: input)).ToLookup(static entry => entry.Owner, static entry => entry.Input)
         select answered.Values.Map((row, index) => new Grouped<T, int>(row, toSeq(owners[index]))).Strict();
 
-    public static IO<Seq<Grouped<T, int>>> Mapped<T>(Func<(T[]? Rows, int[][]? Map)> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : GeometryBase =>
-        from answered in Products.Many(() => call(), required: false, member)
-        from map in IO.lift(Conversions.Required(answered.Out, call: member))
+    public static IO<Seq<Grouped<T, int>>> Mapped<T>(Func<(T[]? Rows, int[][]? Map)> call, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) where T : GeometryBase =>
+        from answered in Products.Many(() => call(), required: false, member, line)
+        from map in IO.lift(Conversions.Required(answered.Out, member: member, line: line))
         select answered.Values.Zip(toSeq(map), static (row, inputs) => new Grouped<T, int>(row, toSeq(inputs))).Strict();
 
     // --- [OPERANDS]

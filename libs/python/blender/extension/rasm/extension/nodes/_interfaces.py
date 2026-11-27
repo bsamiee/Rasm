@@ -360,7 +360,7 @@ def decoded[T: msgspec.Struct](record: T, values: Mapping[Key, Value], /, *path:
         try:
             return Ok(msgspec.structs.replace(owner, **changes))
         except (TypeError, ValueError) as error:
-            return Error(Fault.of(Reason.INVALID, type(owner).__name__, error))
+            return Error(Fault.of(Reason.INVALID, type(owner), error))
 
     changes: dict[tuple[str, ...], Outcome[dict[str, object]]] = {}
 
@@ -372,7 +372,7 @@ def decoded[T: msgspec.Struct](record: T, values: Mapping[Key, Value], /, *path:
             case _ if at in values and Socket.of(field.name, field.type).is_some():
                 return (
                     catch(msgspec.convert, exception=msgspec.ValidationError)(held(msgspec.inspect.type_info(field.type), values[at]), field.type)
-                    .map_error(functools.partial(Fault.of, Reason.INVALID, type(owner).__name__, member=at))
+                    .map_error(functools.partial(Fault.of, Reason.INVALID, type(owner), member=at))
                     .map(lambda found: ((field.name, found),))
                 )
             case _:

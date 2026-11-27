@@ -148,7 +148,7 @@ class MenuItems(ItemContent, frozen=True, kw_only=True):
         kept: dict[str, dict[str, str]] = {}
         desired: list[str] = []
         answers: list[Outcome[object]] = []
-        refused = partial(Fault.of, Refusal.REFUSED, repr(switch))
+        refused = partial(Fault.of, Refusal.REFUSED, switch)
         try:
             for index in reversed(removed):
                 switch.enum_items.remove(switch.enum_items[index])
@@ -341,7 +341,7 @@ def item_key(*parts: object) -> Key:
 
 def _switch(live: bpy.types.Node) -> Outcome[bpy.types.GeometryNodeMenuSwitch]:
     """Node as Menu Switch, else `absent` fault naming its items."""
-    return option.of_optional(try_downcast(bpy.types.GeometryNodeMenuSwitch, live)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(live), member="enum_items"))
+    return option.of_optional(try_downcast(bpy.types.GeometryNodeMenuSwitch, live)).to_result_with(lambda: Fault.of(Reason.ABSENT, live, member="enum_items"))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -30,7 +30,7 @@ internal sealed partial class RunEnd {
 
 [Union]
 internal abstract partial record RunState {
-    public Fin<Unit> Free => this is Active active ? new DarkroomFault((FormattableString)$"render queue in process {active.ProcessId}", DarkroomReason.Running) : unit;
+    public Fin<Unit> Free => this is Active active ? Fault.Of(DarkroomReason.Running, active.ProcessId) : unit;
 
     public sealed record Idle : RunState;
     public sealed record Active(int ProcessId) : RunState;
@@ -144,7 +144,7 @@ internal static partial class QueueRuns {
          select unit).Bracket().Fork().Bind(static forked => forked.Await);
 
     public static bool Stopping(Error error) =>
-        error.Is(Errors.Cancelled) || error.AsIterable().Exists(static cause => cause is RhinoFault fault && fault.Reason == RhinoReason.Exited);
+        error.Is(Errors.Cancelled) || error.AsIterable().Exists(static cause => cause is Fault<RhinoReason> fault && fault.Reason == RhinoReason.Exited);
 
     private static IO<ForkIO<Unit>> Heartbeat(QueueContext context, QueueHeartbeat heartbeat) =>
         use(IO.lift(() => File.SetLastWriteTimeUtc(context.Record, context.Clock.GetUtcNow().UtcDateTime))
@@ -263,7 +263,7 @@ internal static partial class QueueRuns {
         from framing in ChainScene.Sourced(scope.Doc, rendered.Padded, entry.Frames.Named(frame).Map(static number => Duration.FromSeconds((int)number / 24d)))
         from launched in Documents.RunScript(scope.Doc, $"_-{RenderCommand}", echo: false, display: None)
         from heard in scope.Heard.ValueIO
-        let lost = new DarkroomFault(frame, DarkroomReason.Unsaved, Expression: "frame")
+        let lost = Fault.Of(DarkroomReason.Unsaved, frame)
         from ended in IO.lift(heard.Ended.ToFin(lost).Bind(result => Results.Ended(result).MapFail(error => Stopping(error) ? error : lost + error)))
         from began in IO.lift(heard.Began.ToFin(lost))
         from saved in IO.lift(heard.Saved.ToFin(lost))

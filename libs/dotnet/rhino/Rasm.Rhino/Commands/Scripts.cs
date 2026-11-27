@@ -18,7 +18,7 @@ public static class Scripts {
         select engine;
 
     public static IO<T> Run<T>(PythonScript engine, IO<T> call) =>
-        call | @catch(static error => error.IsExceptional, error => IO.fail<T>(new RhinoFault(engine.GetStackTraceFromException(error.ToException()), RhinoReason.Raised, Inner: error)));
+        call | @catch(static error => error.IsExceptional, error => IO.fail<T>(Fault.Of(RhinoReason.Raised, engine.GetStackTraceFromException(error.ToException()), inner: error)));
 
     // --- [RHINOCODE]
 

@@ -20,10 +20,10 @@ public static class Annotations {
     // --- [CREATION]
 
     public static IO<T> Create<T>(
-        RhinoDoc doc, Option<ComponentRef<DimensionStyle>> style, Seq<Step<DimensionStyle>> overrides, Func<DimensionStyle, T?> create, [CallerArgumentExpression(nameof(create))] string member = "")
+        RhinoDoc doc, Option<ComponentRef<DimensionStyle>> style, Seq<Step<DimensionStyle>> overrides, Func<DimensionStyle, T?> create, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0)
         where T : AnnotationBase =>
         from parent in DimensionStyles.Resolve(doc, style)
-        from annotation in Products.Of(() => create(parent), member)
+        from annotation in Products.Of(() => create(parent), member, line)
         from overridden in unless(overrides.IsEmpty, DimensionStyles.Override(doc, annotation, overrides)).As()
         select annotation;
 
@@ -85,7 +85,7 @@ public static class Annotations {
              AngularDimension angular => angular.GetAngleDisplayText(style),
              RadialDimension radial => radial.GetDistanceDisplayText(units, style),
              OrdinateDimension ordinate => ordinate.GetDistanceDisplayText(units, style),
-             var other => new RhinoFault(other.AnnotationType, RhinoReason.Unsupported),
+             var other => Fault.Of(RhinoReason.Unsupported, other.AnnotationType),
          })
          select text).Bracket();
 
@@ -95,7 +95,7 @@ public static class Annotations {
              (Dimension dimension, ViewportInfo view) => dimension.GetTextTransform(view, style, scale, style.DrawForward),
              (TextEntity text, ViewportInfo view) => text.GetTextTransform(view, scale, style),
              (TextEntity text, _) => text.GetTextTransform(scale, style),
-             var (other, _) => new RhinoFault(other.AnnotationType, RhinoReason.Unsupported),
+             var (other, _) => Fault.Of(RhinoReason.Unsupported, other.AnnotationType),
          })
          select xform).Bracket();
 
@@ -135,11 +135,11 @@ public static class Annotations {
             RadialDimension radial => Shown(radial.GetTextRectangle(out Point3d[] corners), corners, radial.GetDisplayLines(style, scale, out IEnumerable<Line> lines), lines, []),
             OrdinateDimension ordinate => Shown(ordinate.GetTextRectangle(out Point3d[] corners), corners, ordinate.GetDisplayLines(style, scale, out IEnumerable<Line> lines), lines, []),
             AngularDimension angular => Shown(angular.GetTextRectangle(out Point3d[] corners), corners, angular.GetDisplayLines(style, scale, out Line[] lines, out Arc[] arcs), lines, arcs),
-            var other => new RhinoFault(other.AnnotationType, RhinoReason.Unsupported),
+            var other => Fault.Of(RhinoReason.Unsupported, other.AnnotationType),
         });
 
     private static Fin<(Seq<Line> Lines, Seq<Arc> Arcs, Seq<Point3d> Text)> Shown(bool texted, Point3d[] corners, bool lined, IEnumerable<Line> lines, IEnumerable<Arc> arcs) =>
-        RhinoFault.Unless(texted && lined, RhinoReason.Declined, (texted, lined))
+        Fault.Unless(texted && lined, RhinoReason.Declined, (texted, lined))
             .Map(_ => (toSeq(lines).Filter(static line => line.IsValid).Strict(), toSeq(arcs).Filter(static arc => arc.IsValid).Strict(), toSeq(corners)));
 
     public static IO<T> Display<T>(Hatch hatch, HatchPattern pattern, double scale, Func<(Seq<Curve> Bounds, Seq<Line> Lines, Option<Brep> Solid), IO<T>> body) =>

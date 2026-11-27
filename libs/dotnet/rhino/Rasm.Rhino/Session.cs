@@ -84,7 +84,7 @@ public static class Session {
         from taken in unless(bound.Exists(held => ReferenceEquals(held, fresh)), IO.lift(() => {
             fresh.Scope.Dispose();
             fresh.Activities.Dispose();
-        }) >> IO.fail<Unit>(new RhinoFault(category, RhinoReason.Taken))).As()
+        }) >> IO.fail<Unit>(Fault.Of(RhinoReason.Taken, category))).As()
         select unit;
 
     private static IO<ILogger> Composed(JoinableTaskContext threading, Either<Skin, PlugIn> host, Type category, ActivitySource activities) =>

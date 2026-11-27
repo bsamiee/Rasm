@@ -325,7 +325,7 @@ public sealed partial class VoronoiFeature {
         static (dimensions, _, _, randomness, _) => (0f, NoiseDimensions.Bound(0.5d * (new Vector4(1f + randomness, randomness, randomness, randomness) * dimensions.Live).Length(), (2 * dimensions.Key) + 4)));
 
     public Fin<(Func<Vector4, uint, (float Distance, Vector4 Site)> Sample, (float Lower, float Upper) Range)> Sampler(NoiseDimensions dimensions, Octaves octaves, float exponent, float randomness, float smoothness) =>
-        ImagingFault.Unless(this == NSphereRadius || !(octaves.Lacunarity is 0f && octaves.Detail > 0f && octaves.Roughness > 0f), ImagingReason.Degenerate, octaves)
+        Fault.Unless(this == NSphereRadius || !(octaves.Lacunarity is 0f && octaves.Detail > 0f && octaves.Roughness > 0f), ImagingReason.Degenerate, octaves)
             .Map(_ => ((Func<Vector4, uint, (float Distance, Vector4 Site)>)((point, field) => Sample(dimensions, point, octaves, exponent, randomness, smoothness, field)), Range(dimensions, octaves, exponent, randomness, smoothness)));
 
     [UseDelegateFromConstructor]
@@ -411,7 +411,7 @@ public static class CoordinateHash {
 }
 
 [ComplexValueObject]
-[ValidationError<ImagingFault>]
+[ValidationError<Fault<ImagingReason>>]
 public sealed partial class MagicNoise {
     private static readonly ImmutableArray<(int Axis, Vector3 Coefficients, float Gain, bool Cosine)> Turbulence = [
         (1, new(1f, -1f, 1f), -1f, true),
@@ -443,8 +443,8 @@ public sealed partial class MagicNoise {
         return Centered(turned);
     }
 
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int depth, ref float distortion) =>
-        validationError = depth >= 0 && depth <= Turbulence.Length && float.IsFinite(distortion) ? null : ImagingFault.Of(ImagingReason.Range, (depth, distortion));
+    static partial void ValidateFactoryArguments(ref Fault<ImagingReason>? validationError, ref int depth, ref float distortion) =>
+        validationError = depth >= 0 && depth <= Turbulence.Length && float.IsFinite(distortion) ? null : Fault.Of(ImagingReason.Range, (depth, distortion));
 
     private Vector3 Centered(Vector3 turned) => new Vector3(0.5f) - (Distortion is 0f ? turned : turned / (2f * Distortion));
 }

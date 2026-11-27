@@ -21,7 +21,7 @@ namespace Rasm.Rhino.UI;
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class HelpTopic {
     public IO<Unit> Show => Products.Accepted(() => RhinoHelp.Show(_value));
 
@@ -29,10 +29,10 @@ public sealed partial class HelpTopic {
 
     public static IO<Unit> Shown(Option<HelpTopic> row) => Of(row).Traverse(static topic => topic.Show).As().Map(unit);
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref string value) =>
         (value, validationError) = value.TrimOrNullify() is { } trimmed
-            ? (trimmed, default(RhinoFault))
-            : (value, new RhinoFault($"value = '{value}'", RhinoReason.Invalid));
+            ? (trimmed, default(Fault<RhinoReason>))
+            : (value, Fault.Of(RhinoReason.Invalid, $"value = '{value}'"));
 }
 
 [SmartEnum<OptionsDialogPage.PageType>(SkipIComparable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]

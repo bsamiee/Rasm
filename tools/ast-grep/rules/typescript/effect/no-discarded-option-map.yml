@@ -19,5 +19,4 @@ rule:
                         any:
                             - { kind: member_expression, has: { field: property, regex: '^pipe$' } }
                             - matches: { effect-function: { name: { regex: '^pipe$' } } }
-message: '`$MAP` runs a side effect and discards the `Option` it returns'
-note: 'Call `Option.match(<option>, { onNone: Function.constVoid, onSome: <effect> })`'
+message: '`$MAP` runs a side effect and discards the `Option` it returns, call `Option.match(<option>, { onNone: Function.constVoid, onSome: <effect> })`'

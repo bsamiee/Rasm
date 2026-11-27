@@ -95,11 +95,11 @@ public sealed partial class CurvatureFit {
 
     public static readonly CurvatureFit Auto = new(
         IO.lift(static () => VisualAnalysisMode.CurvatureColorAutoRange()),
-        static (meshes, state) => RhinoFault.Unless(CurvatureAnalysisSettings.CalculateCurvatureAutoRange(meshes, ref state), RhinoReason.Declined, meshes.Count).Map(_ => state));
+        static (meshes, state) => Fault.Unless(CurvatureAnalysisSettings.CalculateCurvatureAutoRange(meshes, ref state), RhinoReason.Declined, meshes.Count).Map(_ => state));
 
     public static readonly CurvatureFit Max = new(
         IO.lift(static () => VisualAnalysisMode.CurvatureColorMaxRange()),
-        static (meshes, state) => RhinoFault.Unless(CurvatureAnalysisSettings.CalculateCurvatureMaxRange(meshes, state), RhinoReason.Declined, meshes.Count).Map(_ => state));
+        static (meshes, state) => Fault.Unless(CurvatureAnalysisSettings.CalculateCurvatureMaxRange(meshes, state), RhinoReason.Declined, meshes.Count).Map(_ => state));
 
     // --- [RANGES]
 
@@ -129,14 +129,14 @@ public static class AnalysisModes {
     public static IO<Unit> Enable(RhinoDoc doc, Seq<RhinoObject> objects, Guid mode, bool enabled, RedrawPolicy redraw) =>
         from found in Products.Of(() => VisualAnalysisMode.Find(mode))
         from shown in Commits.WithinRedraw(doc, redraw, IO.lift(() => Products.Each(objects, (obj, index) =>
-            RhinoFault.Unless(obj.EnableVisualAnalysisMode(found, enabled), RhinoReason.Declined, obj.Id, index))))
+            Fault.Unless(obj.EnableVisualAnalysisMode(found, enabled), RhinoReason.Declined, obj.Id, index))))
         select unit;
 
     public static IO<Seq<Guid>> Refresh(RhinoDoc doc, Guid mode, RedrawPolicy redraw) =>
         from found in Products.Of(() => VisualAnalysisMode.Find(mode))
         from refreshed in Commits.WithinRedraw(doc, redraw, IO.lift(() =>
             Conversions.Rows(doc.Objects.GetObjectList(new ObjectEnumeratorSettings { HiddenObjects = true })).Filter(obj => obj.InVisualAnalysisMode(found)) switch {
-                var shown => Products.Each(shown, (obj, index) => RhinoFault.Unless(obj.EnableVisualAnalysisMode(found, enable: false) && obj.EnableVisualAnalysisMode(found, enable: true),
+                var shown => Products.Each(shown, (obj, index) => Fault.Unless(obj.EnableVisualAnalysisMode(found, enable: false) && obj.EnableVisualAnalysisMode(found, enable: true),
                     RhinoReason.Declined, obj.Id, index)).Map(_ => shown.Map(static obj => obj.Id).Strict()),
             }))
         select refreshed;

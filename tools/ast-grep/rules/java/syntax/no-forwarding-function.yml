@@ -81,5 +81,4 @@ rule:
                                         has:
                                             kind: return_statement, expression_statement
                                             has: { any: [{ has: { field: arguments, has: { pattern: $P } } }, { has: { field: object, pattern: $P } }] }
-message: '`$FN` forwards its parameters unchanged to `$F`'
-note: Widen callee visibility to match forwarding method, call it directly, and delete forwarding method
+message: '`$FN` forwards its parameters unchanged to `$F`, widen `$F` to the visibility of `$FN`, call `$F` directly, and delete `$FN`'

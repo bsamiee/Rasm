@@ -57,5 +57,4 @@ rule:
                     - all: [{ has: { field: name, pattern: limit } }, { has: { field: arguments, has: { matches: one } } }, { has: { field: object, matches: sorted, pattern: $TERM } }]
 transform:
     CHAIN: { replace: { source: $TERM, replace: '[\t-\r ]*\n[\t-\r ]*', by: '' } }
-message: '`$CHAIN` evaluates or sorts a stream before an element query'
-note: 'Use `anyMatch` with `Objects.equals` for membership, existence predicates, or terminal `findFirst`, `min`, or `max` selection'
+message: '`$CHAIN` evaluates or sorts a stream before an element query, use `anyMatch` with `Objects.equals` for membership, existence predicates, or terminal `findFirst`, `min`, or `max` selection'

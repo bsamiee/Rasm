@@ -82,7 +82,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             self.charting
             .charted(identity, context)
             .map(lambda found: found.map(lambda chart: chart[:3]))
-            .bind(lambda found: found.to_result_with(partial(Fault.of, Reason.ABSENT, repr(context.area), member=identity.identifier(self.charting.charts.key))))
+            .bind(lambda found: found.to_result_with(partial(Fault.of, Reason.ABSENT, context.area, member=identity.identifier(self.charting.charts.key))))
         )
 
     def edited[T: bpy.types.PropertyGroup](self, change: Callable[[Call[T], bpy.types.Image, PlacedChart], Outcome[PlacedChart]], call: Call[T]) -> Outcome[Answer]:
@@ -125,7 +125,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             )
             return placement.bind(lambda held: self.charting.placed.write(chart.struct(image), PlacedChart(placement=held)))
 
-        images = self.charting.shown(call.identity, call.context).to_result_with(partial(Fault.of, Reason.ABSENT, repr(call.context.space_data), member="image"))
+        images = self.charting.shown(call.identity, call.context).to_result_with(partial(Fault.of, Reason.ABSENT, call.context.space_data, member="image"))
         return paired(images, self.charting.charts.bound(call.identity), displayed_aspect(call.context)).bind(lambda found: placed(*found)).map(lambda _: Done())
 
     def sample_chart(self, call: Call[Empty]) -> Outcome[Answer]:

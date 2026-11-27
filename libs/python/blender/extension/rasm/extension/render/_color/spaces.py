@@ -165,12 +165,12 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         kept = self.folder / identity.manifest.id
         return (
             Ok(kept)
-            .filter_with(Path.is_dir, lambda _: Fault.of(Reason.ABSENT, str(self.folder), member=f"{identity.manifest.name} installation"))
+            .filter_with(Path.is_dir, lambda _: Fault.of(Reason.ABSENT, self.folder, member=f"{identity.manifest.name} installation"))
             .bind(
                 lambda held: (
                     committed(self.folder, lambda stage: files_copied(((held, stage),)))
                     if any(held.iterdir())
-                    else catch(shutil.rmtree, exception=OSError)(self.folder).map(lambda _: self.folder).map_error(partial(Fault.of, Reason.UNWRITABLE, str(self.folder)))
+                    else catch(shutil.rmtree, exception=OSError)(self.folder).map(lambda _: self.folder).map_error(partial(Fault.of, Reason.UNWRITABLE, self.folder))
                 )
             )
         )

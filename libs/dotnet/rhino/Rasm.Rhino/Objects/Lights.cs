@@ -16,7 +16,7 @@ namespace Rasm.Rhino.Objects;
 public sealed record Emission(Color4f Light, double Luminance);
 
 [ComplexValueObject]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class ColorFilter {
     public double Red { get; }
     public double Green { get; }
@@ -24,12 +24,12 @@ public sealed partial class ColorFilter {
 
     public Emission Light => Lights.Peaked(Red, Green, Blue);
 
-    public static Fin<ColorFilter> Validated(double red, double green, double blue) => TryCreate(red, green, blue, out ColorFilter? filter, out RhinoFault? fault) ? filter : fault;
+    public static Fin<ColorFilter> Validated(double red, double green, double blue) => TryCreate(red, green, blue, out ColorFilter? filter, out Fault<RhinoReason>? fault) ? filter : fault;
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref double red, ref double green, ref double blue) =>
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref double red, ref double green, ref double blue) =>
         validationError = Math.Min(red, Math.Min(green, blue)) >= 0d && Math.Max(red, Math.Max(green, blue)) is > 0d and < double.PositiveInfinity
             ? null
-            : new RhinoFault((red, green, blue), RhinoReason.Outside);
+            : Fault.Of(RhinoReason.Outside, (red, green, blue));
 }
 
 [Union]

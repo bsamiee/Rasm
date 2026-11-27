@@ -256,7 +256,7 @@ pub enum LedgerError {
 - Field names a caller passes print through a fieldless enum under `rename_all = "snake_case"` (`Input::InitialStep` as `initial_step`)
 - Context one scope's failures share is one variant holding its `#[source]` fault, never a prefix each variant restates
 - Quantities, sizes, and durations print through their type: `uom` `into_format_args(<unit>, Abbreviation)`, `bytesize::ByteSize`, jiff `SignedDuration` under `{:#}`
-- Library errors name what failed and why, and the crate serving the tools or commands adds the retry or next call as data of its protocol error
+- Crates serving tools or commands add the retry or next call as data of their protocol error
 - Foreign errors describing the whole failure stay direct, or reach one variant through `#[error(transparent)]` and `#[from]`
 - Boundaries `map_err` a foreign error into its variant beside an operation field and the path or key it omits, alike at every call
 - Functions returning `Result<_, NEVec<E>>` take one `impl From<E> for NEVec<E>`, a single-error step converting through `?`

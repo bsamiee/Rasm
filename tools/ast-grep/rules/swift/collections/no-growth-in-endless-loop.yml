@@ -77,5 +77,4 @@ rule:
                                       - not: { has: { field: result, kind: additive_expression, has: { field: lhs, pattern: $GROWN } } }
                                 - kind: prefix_expression
                                   all: [{ has: { field: operation, regex: '^&$' } }, { has: { field: target, pattern: $GROWN } }]
-message: '`$GROWN` grows each pass of a loop with no exit and no removal'
-note: 'Bound the collection, remove its elements per pass, or declare it inside its loop body'
+message: '`$GROWN` grows each pass of a loop with no exit and no removal, bound it, remove its elements per pass, or declare it inside its loop body'

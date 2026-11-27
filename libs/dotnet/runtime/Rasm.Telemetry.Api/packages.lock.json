@@ -41,11 +41,38 @@
         "resolved": "5.0.1",
         "contentHash": "sCZ0Di4B937wKa9pwKbdsE6Njr8A/FdCLw28+yDKyMaDZ/f8JWxcFn6NOCukzKhCG/eA6M2DbXlKkrPi0g0lIA=="
       },
+      "Thinktecture.Runtime.Extensions": {
+        "type": "Direct",
+        "requested": "[10.6.0, )",
+        "resolved": "10.6.0",
+        "contentHash": "KtEHcDcq3dkz9HTdK90t20fzlrqycnp0x5XagG16SHnsdHRNmcPaBMNQPEzhzkXi14OksRjPGiTjOFR9+SfvhA==",
+        "dependencies": {
+          "Thinktecture.Runtime.Extensions.Analyzers": "10.6.0",
+          "Thinktecture.Runtime.Extensions.Refactorings": "10.6.0",
+          "Thinktecture.Runtime.Extensions.SourceGenerator": "10.6.0"
+        }
+      },
+      "Thinktecture.Runtime.Extensions.Analyzers": {
+        "type": "Transitive",
+        "resolved": "10.6.0",
+        "contentHash": "lCJqqGjoUf/x8WrMhUZDYSfE/IlzhIukvvExMmeQn7QOcfmVBZzQObfm8LeORA5HOjm2WmrCje4/pWOU7xXqwg=="
+      },
+      "Thinktecture.Runtime.Extensions.Refactorings": {
+        "type": "Transitive",
+        "resolved": "10.6.0",
+        "contentHash": "aOLMNhuUO8DMYkZntJFMrhvsn91Ai51+9YFhj8cOy9/XAg2iewkdmrjkE9sVXZm+QCzjDnlImhOKZOP1h4un6A=="
+      },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "CentralTransitive",
         "requested": "[10.0.15, 11.0.0)",
         "resolved": "10.0.15",
         "contentHash": "KczR2nV7ooeimtZxAawPht/FJUHnX+uoWy7y4pba+iaRQBwUM2NwtiqZg+/FpZDHUf2RkkzveGkhMTWDNzmDUA=="
+      },
+      "Thinktecture.Runtime.Extensions.SourceGenerator": {
+        "type": "CentralTransitive",
+        "requested": "[10.6.0, )",
+        "resolved": "10.6.0",
+        "contentHash": "Jw3+e90caB67fLwod+dVgEBimjEEVW/K7wpQs4G5/3iZeHJUWsBSYBjwh2eVkQGhmyAClGldK/4awKuqGunvyA=="
       }
     }
   }

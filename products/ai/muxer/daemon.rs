@@ -14,12 +14,11 @@ use futures::future::{self, BoxFuture, Either, OptionFuture};
 use futures::{FutureExt as _, StreamExt as _, TryFutureExt as _, TryStreamExt as _, stream};
 use interprocess::local_socket::tokio::Stream;
 use interprocess::local_socket::traits::tokio::Listener as _;
-use itertools::Itertools as _;
 use jiff::Timestamp;
 use opentelemetry::global;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rasm_ipc::{Endpoint, Instance, IpcError, Opened, Refusal};
-use rasm_mcp::{History, IdleTimeout, Link, Liveness, Policy, Pool, Store};
+use rasm_mcp::{Exit, History, IdleTimeout, Link, Liveness, Policy, Pool, Store};
 use rasm_telemetry::metrics;
 use rmcp::model::{ClientCapabilitiesBuilder, ElicitationCapability, Implementation, InitializeRequestParams, ProtocolVersion, RootsCapabilities, SamplingCapability};
 use rmcp::transport::async_rw::DEFAULT_MAX_LINE_LENGTH;
@@ -115,7 +114,7 @@ impl Daemon {
     fn start(
         &self,
         key: &ServerKey,
-    ) -> (Policy, impl FnMut(CancellationToken) -> BoxFuture<'static, io::Result<Link<rasm_process::Output, rasm_process::Input, BoxFuture<'static, String>>>> + Send + use<>, tracing::Span) {
+    ) -> (Policy, impl FnMut(CancellationToken) -> BoxFuture<'static, Result<Link<rasm_process::Output, rasm_process::Input, BoxFuture<'static, Exit>>, Exit>> + Send + use<>, tracing::Span) {
         const IDLE: IdleTimeout = IdleTimeout { ratio: 300, floor: Duration::from_mins(1), ceiling: Duration::from_hours(2) };
         const LOGIN: Duration = Duration::from_secs(10);
         const GRACE: Duration = Duration::from_millis(500);
@@ -162,19 +161,16 @@ impl Daemon {
             async move {
                 let streams = match future::select(attachment, &mut exited).await {
                     Either::Left((Ok(streams), _)) => streams,
-                    Either::Left((Err(oneshot::error::RecvError { .. }), _)) => return Err(io::Error::other(exited.await)),
-                    Either::Right((exit, _)) => return Err(io::Error::other(exit)),
+                    Either::Left((Err(oneshot::error::RecvError { .. }), _)) => return Err(Exit { status: exited.await.into(), stderr: Vec::new() }),
+                    Either::Right((status, _)) => return Err(Exit { status: status.into(), stderr: Vec::new() }),
                 };
-                let (reader, writer) = streams.stdout.zip(streams.stdin).ok_or(io::ErrorKind::BrokenPipe)?;
+                let (reader, writer) = streams.stdout.zip(streams.stdin).ok_or_else(|| Exit { status: io::Error::from(io::ErrorKind::BrokenPipe).to_string().into(), stderr: Vec::new() })?;
                 processes.send_if_modified(|processes| processes.insert(key.clone(), streams.id.get()).is_none());
                 let read = |stderr| AbortOnDropHandle::new(task::spawn(rasm_process::tail(stderr, TAIL, LINE, |line| tracing::debug!(line, "server stderr")).in_current_span()));
-                let closed = future::join(exited, OptionFuture::from(streams.stderr.map(read))).inspect(move |_| _ = processes.send_if_modified(|processes| processes.remove(&key).is_some())).map(
-                    |(exit, tail)| match tail {
-                        Some(Ok(tail)) if !tail.is_empty() => format!("{exit}; stderr: {}", tail.iter().join(" | ")),
-                        Some(Ok(_)) | None => exit,
-                        Some(Err(error)) => format!("{exit}; stderr unread: {}", Report::new(&error)),
-                    },
-                );
+                let ended = future::join(exited, OptionFuture::from(streams.stderr.map(read))).inspect(move |_| _ = processes.send_if_modified(|processes| processes.remove(&key).is_some()));
+                let unread = |error: &task::JoinError| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "server stderr unread");
+                let closed = ended
+                    .map(move |(status, tail)| Exit { status: status.into(), stderr: tail.transpose().inspect_err(unread).ok().flatten().into_iter().flatten().map(String::into_boxed_str).collect() });
                 Ok(Link { reader, writer, closed: closed.boxed() })
             }
             .boxed()
@@ -197,7 +193,7 @@ impl Daemon {
                 calls: member.in_flight(),
                 starts: status.starts,
                 failures: status.failures,
-                cause: status.cause.as_deref().map(str::to_owned),
+                cause: status.cause.clone(),
                 start_cost: status.profile.as_ref().map(|profile| profile.cost),
                 pid,
                 memory: pid.and_then(memory),

@@ -30,5 +30,4 @@ rule:
                                 - has: { any: [{ kind: pair, has: { field: key, regex: '^signal$' } }, { kind: shorthand_property_identifier, regex: '^signal$' }, { kind: spread_element }, { kind: pair, all: [{ has: { field: key, regex: '^once$' } }, { has: { field: value, kind: 'true' } }] }] }
               - inside: { stopBy: end, matches: typescript-function-boundary }
               - not: { inside: { kind: program, stopBy: end, has: { stopBy: end, matches: removal, has: { field: arguments, has: { nthChild: { position: 2, ofRule: *code }, pattern: $HANDLER, not: { kind: 'arrow_function, function_expression' } } } } } }
-message: '`$TARGET` keeps the `$EVENT` listener attached'
-note: 'Register with `{ signal }` and abort its `AbortController` when its owner closes, or remove the listener by its added function reference'
+message: '`$TARGET` keeps the `$EVENT` listener attached, register with `{ signal }` and abort its `AbortController` when its owner closes, or remove the listener by its added function reference'

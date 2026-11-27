@@ -83,7 +83,7 @@ describe('files Nx hands the plugin', () => {
 
 describe('a root configuration listing projects', () => {
     it.for([
-        { case: 'project glob matches no folder', config: "export default { test: { projects: ['packages/*'] } };\n", refusal: /^vitest\.config\.ts does not load as a Vitest config/u },
+        { case: 'project glob matches no folder', config: "export default { test: { projects: ['packages/*'] } };\n", refusal: /^vitest\.config\.ts unloaded tool: vitest/u },
         { case: 'inline project roots in a folder no project holds', config: "export default { test: { projects: [{ test: { name: 'suite', root: 'tools/suite' } }] } };\n", refusal: /^vitest\.config\.ts declares a project under tools\/suite, which no project root holds$/u },
     ])('refuses a root configuration whose $case', async ({ config, refusal }, { workspace }) => {
         await expect(workspace.write({ ...ROOT, 'vitest.config.ts': config, 'tools/suite/a.test.ts': '' }).graph({ createNodes })).rejects.toSatisfy(refused(refusal));

@@ -26,7 +26,7 @@ describe('loading a Playwright config', () => {
     it('refuses a config that throws, naming the config', async ({ workspace }) => {
         const graphed = workspace.write({ 'apps/e2e/playwright.config.js': "throw new Error('config refused');\n" }).graph({ createNodes });
 
-        await expect(graphed).rejects.toSatisfy(refused(/^apps\/e2e\/playwright\.config\.js does not load as a Playwright config/u));
+        await expect(graphed).rejects.toSatisfy(refused(/^apps\/e2e\/playwright\.config\.js unloaded tool: playwright/u));
     });
 
     it.for([

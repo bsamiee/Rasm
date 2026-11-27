@@ -170,7 +170,7 @@ class OfferedEffects(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def offering(self, kind: Key | type[CompositorRecord]) -> Outcome[CompositorEffect]:
         """Finds the effect of a record key or exact record type."""
         key = kind if isinstance(kind, str) else item_key(kind)
-        return option.of_optional(self.keyed.get(key)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(tuple(row.kind for row in self.rows)), member=key))
+        return option.of_optional(self.keyed.get(key)).to_result_with(partial(Fault.of, Reason.ABSENT, tuple(row.kind for row in self.rows), member=key))
 
     # --- [ENTRIES]
 
@@ -188,7 +188,7 @@ class OfferedEffects(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             option
             .of_optional(scene.compositor_effects.get(name))
             .bind(lambda entry: self.row(identity, entry).map(lambda row: Owned(entry=entry, row=row)))
-            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=name))
+            .to_result_with(partial(Fault.of, Reason.ABSENT, scene.compositor_effects, member=name))
         )
 
     def held(self, identity: Identity, scene: bpy.types.Scene) -> tuple[CompositorEffect, ...]:
@@ -207,7 +207,7 @@ class OfferedEffects(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             unmixed = row.mix is Mix.REPLACE or (not record.blend.masks and all(values.get(item_key(BLEND, socket.key)) == socket.default_value for socket in (MODE, OPACITY)))
             return paired(
                 Ok(None) if row.pointwise else Error(Fault.of(Reason.OUTSIDE, entry.name, row.kind, member="pointwise effects")),
-                Ok(None) if unmixed else Error(Fault.of(Reason.OUTSIDE, entry.name, repr(record.blend), member=f"plain {BLEND}")),
+                Ok(None) if unmixed else Error(Fault.of(Reason.OUTSIDE, entry.name, record.blend, member=f"plain {BLEND}")),
             ).map(lambda _: (row, record, values))
 
         return (
@@ -272,7 +272,7 @@ class OfferedEffects(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             row = held.row
             return (
                 catch(scene.compositor_effects.remove, exception=RuntimeError)(held.entry)
-                .map_error(partial(Fault.of, Refusal.REFUSED, repr(scene)))
+                .map_error(partial(Fault.of, Refusal.REFUSED, scene))
                 .bind(lambda _: self.release(identity, scene, row) if not row.entries(identity, scene) else Ok(None))
                 .bind(lambda _: accumulated(owner.removed(identity) for owner in row.ownerships))
                 .map(lambda _: None)
@@ -306,7 +306,7 @@ class OfferedEffects(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def separated(entry: bpy.types.SceneCompositorEffect, owner: Ownership[bpy.types.NodeTree], group: bpy.types.NodeTree) -> Outcome[bool]:
             with ExitStack() as rollback:
                 return retained(
-                    typed(bpy.types.NodeTree, repr(group), group.copy())
+                    typed(bpy.types.NodeTree, group, group.copy())
                     .bind(lambda copied: owner.owned(identity, copied, of=Some(scene), scope=Some(rollback)))
                     .bind(lambda owned: written(entry, ("node_group",), owned))
                     .map(lambda _: True),

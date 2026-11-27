@@ -131,7 +131,7 @@ class Editor(msgspec.Struct, frozen=True, kw_only=True):
                     case _, ():
                         return Ok(NOTHING)
                     case _:
-                        return Error(Fault.of(Refusal.REQUIRED, repr(space), tuple(modifier.name for modifier in using), member="explicit preview modifier"))
+                        return Error(Fault.of(Reason.UNMET, space, tuple(modifier.name for modifier in using), member="explicit preview modifier"))
                 return enclosing(space).map(
                     lambda groups: chosen.map(lambda modifier: cls(item=Handle.of(item), scene=Handle.of(scene), modifier=modifier.name, groups=tuple(node.name for node in groups)))
                 )
@@ -149,7 +149,7 @@ class Editor(msgspec.Struct, frozen=True, kw_only=True):
                 option
                 .of_optional(try_downcast(bpy.types.NodesModifier, item.modifiers.get(self.modifier)))
                 .bind(lambda found: option.of_optional(found.node_group))
-                .to_result_with(partial(Fault.of, Reason.ABSENT, repr(item.modifiers), member=self.modifier))
+                .to_result_with(partial(Fault.of, Reason.ABSENT, item.modifiers, member=self.modifier))
             )
         )
 
@@ -229,9 +229,9 @@ def enclosing(space: bpy.types.SpaceNodeEditor) -> Outcome[tuple[bpy.types.Node,
                     case (node,):
                         return Ok(node)
                     case matches:
-                        return Error(Fault.of(Reason.OUTSIDE, repr(space), tuple(node.name for node in matches), member="explicit Editor.groups for an ambiguous native path"))
+                        return Error(Fault.of(Reason.OUTSIDE, space, tuple(node.name for node in matches), member="explicit Editor.groups for an ambiguous native path"))
             case _:
-                return Error(Fault.of(Reason.ABSENT, repr(space), member="native node-tree path"))
+                return Error(Fault.of(Reason.ABSENT, space, member="native node-tree path"))
 
     return accumulated(itertools.starmap(entered, itertools.pairwise(trees)))
 
@@ -241,12 +241,12 @@ def enclosing(space: bpy.types.SpaceNodeEditor) -> Outcome[tuple[bpy.types.Node,
 
 def _node(tree: bpy.types.NodeTree, name: str) -> Outcome[bpy.types.Node]:
     """Reads one native node, retaining its missing-key cause."""
-    return option.of_optional(tree.nodes.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(tree.nodes), member=name))
+    return option.of_optional(tree.nodes.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, tree.nodes, member=name))
 
 
 def _copied[T: bpy.types.ID](identity: Identity, block: T, copies: ExitStack) -> Outcome[T]:
     """Copies a block under the preview route ownership for the copies' scope."""
-    refused = partial(Fault.of, Refusal.REFUSED, repr(block))
+    refused = partial(Fault.of, Refusal.REFUSED, block)
 
     def built() -> Outcome[T]:
         try:
@@ -280,7 +280,7 @@ def _routed[H: Holder](identity: Identity, holder: H, target: PreviewTarget, cop
         )
 
     def entered(node: bpy.types.Node) -> Outcome[bpy.types.NodeTree]:
-        group = group_tree(node).to_result_with(partial(Fault.of, Reason.ABSENT, repr(node), member=bpy.types.NodeTree.__name__))
+        group = group_tree(node).to_result_with(partial(Fault.of, Reason.ABSENT, node, member=bpy.types.NodeTree))
         return group.bind(lambda inner: _copied(identity, inner, copies)).bind(lambda inner: written(node, ("node_tree",), inner).map(lambda _: inner))
 
     def outward(tree: bpy.types.NodeTree) -> Outcome[bpy.types.NodeSocket]:
@@ -329,7 +329,7 @@ def rendered(identity: Identity, preview: PreviewScene, target: PreviewTarget, s
             return functions.lowered(bpy.types.ShaderNodeTree, *roots)
 
         found: Outcome[bpy.types.Node] = (
-            editor.held().bind(lambda root: editor.tree(root).to_result_with(partial(Fault.of, Reason.ABSENT, repr(editor), member=target.node))).bind(lambda tree: _node(tree, target.node))
+            editor.held().bind(lambda root: editor.tree(root).to_result_with(partial(Fault.of, Reason.ABSENT, editor, member=target.node))).bind(lambda tree: _node(tree, target.node))
         )
         material = SWATCH.created(identity, bpy.data.materials.new, "Swatch")
         return paired(found, material).bind(lambda parts: paired(graph(parts[0], aov), tree_of(parts[1])).bind(lambda pair: reconciled(*pair, identity)).map(lambda _: parts[1]))

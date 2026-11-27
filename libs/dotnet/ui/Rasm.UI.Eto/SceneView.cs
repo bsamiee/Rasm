@@ -77,7 +77,7 @@ public sealed class SceneView : Drawable {
             format = new SKImageInfo(0, 0, (data.TranslateArgbToData(Colors.Red.ToArgb()) & 0xFF) is 0xFF ? SKColorType.Rgba8888 : SKColorType.Bgra8888,
                 data.PremultipliedAlpha ? SKAlphaType.Premul : SKAlphaType.Unpremul, SKColorSpace.CreateSrgb());
         backing = new Backing(format);
-        host = new SceneHost(new SceneBackend(format, static info => SKSurface.Create(info) is { } made ? made : new UIFault(info, UIReason.Refused), Invalidated, Linked) { Applied = Applied }, clock, embedded);
+        host = new SceneHost(new SceneBackend(format, static info => SKSurface.Create(info) is { } made ? made : Fault.Of(UIReason.Refused, info), Invalidated, Linked) { Applied = Applied }, clock, embedded);
         controls = new PlacedControls<Placed>(Added, Moved, Removed);
         frames = new UITimer((_, _) => Run(ticking.Map(tick => host.Now.Bind(tick)).IfNone(IO.pure(unit)))) { Interval = frame.TotalSeconds };
         Content = layout;

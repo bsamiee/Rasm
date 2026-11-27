@@ -17,7 +17,7 @@ public abstract partial record SectionSubject {
 
         public static Fin<SectionSubject> Of(GeometryBase geometry) =>
             geometry is InstanceReferenceGeometry or PointCloud
-                ? new RhinoFault(geometry.ObjectType, RhinoReason.Mismatched)
+                ? Fault.Of(RhinoReason.Mismatched, geometry.ObjectType)
                 : new Shape(geometry);
     }
 
@@ -36,8 +36,8 @@ public sealed record MeshField {
     public Seq<double> Values { get; }
 
     public static Fin<MeshField> Validated(Mesh mesh, Seq<double> values) =>
-        (RhinoFault.Unless(values.Count == mesh.Vertices.Count && mesh.TextureCoordinates.Count == mesh.Vertices.Count, RhinoReason.Mismatched, (values.Count, mesh.Vertices.Count, mesh.TextureCoordinates.Count)),
-         Products.Each(values, static (value, index) => RhinoFault.Unless(double.IsFinite(value), RhinoReason.Outside, value, index)))
+        (Fault.Unless(values.Count == mesh.Vertices.Count && mesh.TextureCoordinates.Count == mesh.Vertices.Count, RhinoReason.Mismatched, (values.Count, mesh.Vertices.Count, mesh.TextureCoordinates.Count)),
+         Products.Each(values, static (value, index) => Fault.Unless(double.IsFinite(value), RhinoReason.Outside, value, index)))
             .Apply((_, _) => new MeshField(mesh, values)).As();
 }
 
@@ -64,7 +64,7 @@ public static class Sections {
                         Accepted: Intersection.GeometryPlane(geometry, plane, tolerances.Absolute, joinCurves, pointCloudAsPoints, includeHiddenObjects, document, source.Xform, cache, token, out Curve[] curves, out Point3d[] points),
                         Curves: curves, Points: points))
                     from kept in Products.Many(() => cut.Curves, required: false)
-                    from accepted in IO.lift(RhinoFault.Unless(cut.Accepted, RhinoReason.Declined, plane, index))
+                    from accepted in IO.lift(Fault.Unless(cut.Accepted, RhinoReason.Declined, plane, index))
                     select new Section(plane, kept, Conversions.Rows(cut.Points)),
             };
 
@@ -72,7 +72,7 @@ public static class Sections {
 
     public static IO<Seq<(double Level, Seq<Curve> Curves)>> Levels(Tolerances tolerances, MeshField field, Seq<double> levels) =>
         from lifted in Products.Of(field.Mesh.DuplicateMesh)
-        from written in IO.lift(Products.Each(field.Values, (value, vertex) => RhinoFault.Unless(
+        from written in IO.lift(Products.Each(field.Values, (value, vertex) => Fault.Unless(
             lifted.Vertices.SetVertex(vertex, field.Mesh.TextureCoordinates[vertex].X, field.Mesh.TextureCoordinates[vertex].Y, value), RhinoReason.Declined, value, vertex)))
         from normals in IO.lift(lifted.RebuildNormals)
         from cache in use(static () => new MeshIntersectionCache())

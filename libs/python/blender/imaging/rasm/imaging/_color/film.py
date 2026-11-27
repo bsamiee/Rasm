@@ -107,7 +107,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
         white = density(log_backlight - self.negative.density, self.positive)
         interval = black - white
         if (floor := option.of_optional(self.black_point)).is_none() and not np.any(interval):
-            return Error(Fault.of(Reason.OUTSIDE, type(self).__name__, (black, white), member="black and white print densities that differ"))
+            return Error(Fault.of(Reason.OUTSIDE, type(self), (black, white), member="black and white print densities that differ"))
         light = np.maximum(values.astype(np.float64), 0.0)
         log_light = logged(light)
         log_pre = logged(pre)
@@ -138,7 +138,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
             blend = np.maximum(1.0 - np.abs((formed @ weights)[..., None] - 0.5) / 0.45, 0.0)
             return np.asarray(formed + (saturated - formed) * blend, dtype=np.float32)
 
-        return catch(lambda: np.linalg.solve(matrix, right.reshape(-1, 3).T), exception=np.linalg.LinAlgError)().map(finished).map_error(partial(Fault.of, Reason.FAILED, str(matrix)))
+        return catch(lambda: np.linalg.solve(matrix, right.reshape(-1, 3).T), exception=np.linalg.LinAlgError)().map(finished).map_error(partial(Fault.of, Reason.FAILED, matrix))
 
     # --- [TABLES]
 

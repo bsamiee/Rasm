@@ -157,7 +157,7 @@ public sealed record RowScope {
             contents: static (of, section) => of.Contents(section)));
 
     private static IO<Seq<Preference<T>>> Untargeted<T>(CommitMode held) where T : notnull =>
-        IO.fail<Seq<Preference<T>>>(new RhinoFault(held.GetType().Name, RhinoReason.Mismatched));
+        IO.fail<Seq<Preference<T>>>(Fault.Of(RhinoReason.Mismatched, held.GetType().Name));
 
     // --- [COMMITS]
 

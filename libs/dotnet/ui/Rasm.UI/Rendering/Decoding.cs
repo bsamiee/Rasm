@@ -60,7 +60,7 @@ internal abstract class LoadedMedia : IDisposable {
             configure(loaded.Settings);
             if (loaded.FromSvgDocument(source) is not null) return new Smil(loaded);
             loaded.Dispose();
-            return new UIFault(resource, UIReason.Unreadable);
+            return Fault.Of(UIReason.Unreadable, resource);
         }
 
         internal override bool Animated => document.HasAnimations;
@@ -130,11 +130,11 @@ internal sealed class Decoding {
 
     internal Fin<Decoded> Decode((ImageSource.Encoded Source, SKSizeI Pixels) key) {
         using SKCodec? codec = SKCodec.Create(key.Source.Data);
-        return Optional(codec).ToFin(new UIFault(key.Source.Data.Size, UIReason.Unreadable)).Bind(read => {
+        return Optional(codec).ToFin(Fault.Of(UIReason.Unreadable, key.Source.Data.Size)).Bind(read => {
             SKSizeI wanted = ImageSource.Encoded.Oriented(read.EncodedOrigin, key.Pixels).Shown;
             SKImageInfo raw = read.Info.WithSize(read.GetScaledDimensions(float.Min(1f, float.Max((float)wanted.Width / read.Info.Width, (float)wanted.Height / read.Info.Height)))).WithAlphaType(SKAlphaType.Premul);
             (SKSizeI shown, SKMatrix orientation) = ImageSource.Encoded.Oriented(read.EncodedOrigin, raw.Size);
-            return offscreen(raw.WithSize(shown)).ToFin(new UIFault(shown, UIReason.Refused)).Bind(surface => Frames(read, raw, surface, orientation));
+            return offscreen(raw.WithSize(shown)).ToFin(Fault.Of(UIReason.Refused, shown)).Bind(surface => Frames(read, raw, surface, orientation));
         });
     }
 
@@ -142,7 +142,7 @@ internal sealed class Decoding {
         using AnimationBuilder builder = Animation.CreateBuilder();
         using DataUriResourceProvider embedded = new(preDecode: true);
         builder.SetFontManager(SKFontManager.Default).SetResourceProvider(embedded);
-        return Optional(builder.Build(key.Source.Shown(key.Shaded))).ToFin(new UIFault(key.Source.Key, UIReason.Unreadable)).Map(static motion => (LoadedMedia)new LoadedMedia.Lottie(motion));
+        return Optional(builder.Build(key.Source.Shown(key.Shaded))).ToFin(Fault.Of(UIReason.Unreadable, key.Source.Key)).Map(static motion => (LoadedMedia)new LoadedMedia.Lottie(motion));
     }
 
     private Fin<LoadedMedia> Vector(ArtKey key) {
@@ -152,12 +152,12 @@ internal sealed class Decoding {
         using IDisposable scope = SvgSystemColorResolver.PushProvider(colors);
         string css = string.Concat(key.Classes.AsIterable().Select(static pair => Rule(pair.Key, pair.Value)));
         SvgParameters parameters = new(Entities: null, Css: css.Length > 0 ? css : null, CurrentColor: key.Current.Map(Drawn).ToNullable());
-        return Try.lift(() => Optional(SvgService.Open(held, parameters)).ToFin(new UIFault(key.Source.Key, UIReason.Unreadable)).Bind(document =>
+        return Try.lift(() => Optional(SvgService.Open(held, parameters)).ToFin(Fault.Of(UIReason.Unreadable, key.Source.Key)).Bind(document =>
                 document.Descendants().OfType<SvgAnimationElement>().Any()
                     ? LoadedMedia.Smil.Of(document, settings => Configured(settings).SystemColorProvider = colors, key.Source.Key)
-                    : Optional(SKSvg.ToPicture(document, model, loader)).ToFin(new UIFault(key.Source.Key, UIReason.Unreadable)).Map(static art => (LoadedMedia)new LoadedMedia.Picture(art))))
+                    : Optional(SKSvg.ToPicture(document, model, loader)).ToFin(Fault.Of(UIReason.Unreadable, key.Source.Key)).Map(static art => (LoadedMedia)new LoadedMedia.Picture(art))))
             .Run()
-            .MapFail(error => error.HasException<SvgProcessingLimitException>() ? new UIFault(key.Source.Key, UIReason.Refused, Inner: error) : error);
+            .MapFail(error => error.HasException<SvgProcessingLimitException>() ? Fault.Of(UIReason.Refused, key.Source.Key, inner: error) : error);
     }
 
     private SKSvgSettings Configured(SKSvgSettings settings) {
@@ -180,10 +180,10 @@ internal sealed class Decoding {
             using SKBitmap? temporary = animated && timing.DisposalMethod is SKCodecAnimationDisposalMethod.RestorePrevious ? new(raw) : null;
             SKBitmap destination = temporary ?? canvas;
             int based = animated && timing.RequiredFrame >= 0 ? prior : SKCodecOptions.Default.PriorFrame;
-            if (temporary is not null && based >= 0 && !canvas.CopyTo(temporary)) return Failed(new UIFault(raw.Size, UIReason.Refused));
+            if (temporary is not null && based >= 0 && !canvas.CopyTo(temporary)) return Failed(Fault.Of(UIReason.Refused, raw.Size));
             SKCodecResult result = codec.GetPixels(raw, destination.GetPixels(), new SKCodecOptions(index, based));
-            if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput)) return Failed(new UIFault(result, UIReason.Unreadable));
-            if (animated && codec.EncodedFormat is SKEncodedImageFormat.Heif && !codec.GetFrameInfo(index, out timing)) return Failed(new UIFault(index, UIReason.Unreadable));
+            if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput)) return Failed(Fault.Of(UIReason.Unreadable, result));
+            if (animated && codec.EncodedFormat is SKEncodedImageFormat.Heif && !codec.GetFrameInfo(index, out timing)) return Failed(Fault.Of(UIReason.Unreadable, index));
             using SKImage pixels = SKImage.FromBitmap(destination);
             owned.Canvas.Clear(SKColors.Transparent);
             owned.Canvas.DrawImage(pixels, 0f, 0f, SKSamplingOptions.Default, paint: null);
@@ -192,7 +192,7 @@ internal sealed class Decoding {
         }
         return new Decoded(frames);
 
-        Fin<Decoded> Failed(UIFault error) {
+        Fin<Decoded> Failed(Fault<UIReason> error) {
             frames.Iter(static frame => frame.Image.Dispose());
             return error;
         }

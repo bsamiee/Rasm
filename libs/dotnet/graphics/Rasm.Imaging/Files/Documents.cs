@@ -66,7 +66,7 @@ public abstract partial record ImageFile {
         private static ReadOnlySpan<byte> DataBlock => "Adobe Photoshop Document Data Block\0"u8;
 
         public static Fin<Document> From(OutputDepth depth, Option<ColorEncoding> encoding, Seq<DocumentLayer> layers) =>
-            from known in ImagingFault.Unless(Keys.ContainsKey(depth), ImagingReason.Unsupported, depth)
+            from known in Fault.Unless(Keys.ContainsKey(depth), ImagingReason.Unsupported, depth)
             from canvas in Canvas(Rasters(layers).Bind(static raster => raster.Frame.Cons(raster.Mask.Bind(static mask => mask.Matte).ToSeq())), windowed: true)
             select new Document(depth, encoding, layers, canvas);
 
@@ -108,7 +108,7 @@ public abstract partial record ImageFile {
             long info = records.Fold((long)sizeof(short), static (sum, record) => record.Data.Fold(sum + record.Fields.Length, static (total, data) => total + data.Length));
             long layered = info + (info & 1);
             long size = (DataBlock.Length + (6 * sizeof(uint)) + layered + 3) & ~3L;
-            return (ImagingFault.Unless(records.Count <= -short.MinValue, ImagingReason.Oversize, records.Count), ImagingFault.Unless(size <= System.Array.MaxLength, ImagingReason.Oversize, size))
+            return (Fault.Unless(records.Count <= -short.MinValue, ImagingReason.Oversize, records.Count), Fault.Unless(size <= System.Array.MaxLength, ImagingReason.Oversize, size))
                 .Apply((_, _) => {
                     byte[] block = new byte[size];
                     using BinaryWriter writer = new(new MemoryStream(block));

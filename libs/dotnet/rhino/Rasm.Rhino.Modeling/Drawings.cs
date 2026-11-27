@@ -55,7 +55,7 @@ public static class Drawings {
             TextDot dot => Products.Of<GeometryBase>(() => new Point(dot.Point)).Map(static point => Seq(point)),
             TextEntity text => Products.Many<GeometryBase>(text.Explode),
             Dimension dimension => Products.Many(dimension.Explode).Bind(pieces => Products.Each(pieces.Map(piece => Lowered(piece, index)))).Map(static pieces => pieces.Bind(static held => held)),
-            AnnotationBase annotation => IO.fail<Seq<GeometryBase>>(new RhinoFault(annotation.ObjectType, RhinoReason.Unsupported, index)),
+            AnnotationBase annotation => IO.fail<Seq<GeometryBase>>(Fault.Of(RhinoReason.Unsupported, annotation.ObjectType, index)),
             _ => IO.pure(Seq(geometry)),
         };
 
@@ -76,6 +76,6 @@ public static class Drawings {
         select silhouettes;
 
     private static IO<Seq<Silhouette>> Traced(Func<Silhouette[]?> compute) =>
-        IO.lift(() => Conversions.Required(compute(), call: nameof(Silhouette)))
+        IO.lift(() => Conversions.Required(compute(), subject: nameof(Silhouette)))
             .Bind(static rows => Products.Each(toSeq(rows).Map(static silhouette => Products.Maybe(() => silhouette.Curve).Map(_ => silhouette)).Strict()));
 }

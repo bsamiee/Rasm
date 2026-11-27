@@ -130,5 +130,4 @@ rule:
               - has: { nthChild: 1, matches: name-value }
 transform:
     HEAD: { replace: { source: $CONVERSION, replace: '(?s)^([@\p{XID_Continue}.]+).*$', by: '$1' } }
-message: '`$HEAD` converts between enums by member name'
-note: 'Delete the same-named copy, or declare a Mapperly mapping with `[MapEnum(EnumMappingStrategy.ByName)]` where both enums stay'
+message: '`$HEAD` converts between enums by member name, delete the same-named copy, or map through `[MapEnum(EnumMappingStrategy.ByName)]` where both enums stay'

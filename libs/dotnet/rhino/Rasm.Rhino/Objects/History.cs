@@ -31,7 +31,7 @@ public sealed record HistoryDefinition<T>(int Version, HistoryKey<T> Inputs, Fun
     // --- [REPLAY]
 
     public override IO<Unit> Replay(ReplayHistoryData data) =>
-        from version in IO.lift(() => RhinoFault.Unless(data.HistoryVersion == Version, RhinoReason.Mismatched, data.HistoryVersion))
+        from version in IO.lift(() => Fault.Unless(data.HistoryVersion == Version, RhinoReason.Mismatched, data.HistoryVersion))
         from inputs in Inputs.Read(data)
         from built in Build(inputs)
         from held in IO.lift(() => toSeq(data.Results))
@@ -58,8 +58,8 @@ public sealed record HistoryDefinition<T>(int Version, HistoryKey<T> Inputs, Fun
                 Curve curve => Some(result.UpdateToCurve(curve, attributes: null)),
                 _ => Option<bool>.None,
             }).Match(
-                Some: accepted => RhinoFault.Unless(accepted, RhinoReason.Declined, geometry.ObjectType, index),
-                None: () => new RhinoFault(geometry.ObjectType, RhinoReason.Unsupported, index)),
+                Some: accepted => Fault.Unless(accepted, RhinoReason.Declined, geometry.ObjectType, index),
+                None: () => Fault.Of(RhinoReason.Unsupported, geometry.ObjectType, index)),
         }))
         select unit;
 }

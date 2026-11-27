@@ -15,12 +15,12 @@ namespace Rasm.Rhino.Persistence;
 [ValueObject<string>(SkipIParsable = true)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class SnapshotText {
-    public static Fin<SnapshotText> Validated(string value) => TryCreate(value, out SnapshotText? text, out RhinoFault? fault) ? text : fault;
+    public static Fin<SnapshotText> Validated(string value) => TryCreate(value, out SnapshotText? text, out Fault<RhinoReason>? fault) ? text : fault;
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
-        validationError = Quotable(value) ? null : new RhinoFault(value, RhinoReason.Unqualified);
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref string value) =>
+        validationError = Quotable(value) ? null : Fault.Of(RhinoReason.Unqualified, value);
 
     internal static bool Quotable(string value) => value.Length > 0 && !value.AsSpan().ContainsAny('"', '\r', '\n');
 }
@@ -28,12 +28,12 @@ public sealed partial class SnapshotText {
 [ValueObject<string>(SkipIParsable = true, EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads, ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class SnapshotName {
-    public static Fin<SnapshotName> Validated(string value) => TryCreate(value, out SnapshotName? name, out RhinoFault? fault) ? name : fault;
+    public static Fin<SnapshotName> Validated(string value) => TryCreate(value, out SnapshotName? name, out Fault<RhinoReason>? fault) ? name : fault;
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
-        validationError = SnapshotText.Quotable(value) ? null : new RhinoFault(value, RhinoReason.Unqualified);
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref string value) =>
+        validationError = SnapshotText.Quotable(value) ? null : Fault.Of(RhinoReason.Unqualified, value);
 }
 
 [SmartEnum]
@@ -79,14 +79,14 @@ public abstract partial record SnapshotChange {
         rename: static (held, change) => Expecting(held, [(change.Name, true), (change.NewName, false)], $"""_-Snapshots _Rename "{change.Name}" "{change.NewName}" _Enter"""),
         import: static (_, change) => SnapshotText.Quotable(change.Path)
             ? $"""_-Snapshots _Import "{change.Path}" _Enter"""
-            : new RhinoFault(change.Path, RhinoReason.Unreadable),
+            : Fault.Of(RhinoReason.Unreadable, change.Path),
         userText: static (held, change) => Expecting(held, [(change.Name, true)], change.Value.Match(
             Some: value => $"""_-Snapshots _UserText "{change.Name}" _Set "{change.Key}" "{value}" _Enter _Enter""",
             None: () => $"""_-Snapshots _UserText "{change.Name}" _Set "{change.Key}" _Enter _Enter _Enter""")));
 
     internal static Fin<string> Expecting(Seq<string> names, Seq<(SnapshotName Name, bool Present)> rows, string script) =>
         rows.Traverse(row => Holds(names, row.Name) == row.Present ? Fin.Succ(unit)
-            : new RhinoFault(row.Name, row.Present ? RhinoReason.Missing : RhinoReason.Taken)).As().Map(_ => script);
+            : Fault.Of(row.Present ? RhinoReason.Missing : RhinoReason.Taken, row.Name)).As().Map(_ => script);
 
     internal static bool Holds(Seq<string> names, SnapshotName name) =>
         names.Exists(stored => name == stored);
@@ -140,7 +140,7 @@ public sealed record SnapshotRecord<TSubject, TState>(uint TypeCode, DictionaryC
         Transformed.Map(place => place(subject, state)).IfNone(state);
 
     private IO<TState> Decoded(BinaryArchiveReader archive) =>
-        Stored(archive).Bind(found => IO.lift(found.ToFin(new RhinoFault(Codec.Name, RhinoReason.Missing))));
+        Stored(archive).Bind(found => IO.lift(found.ToFin(Fault.Of(RhinoReason.Missing, Codec.Name))));
 
     private IO<Option<TState>> Stored(BinaryArchiveReader archive) =>
         from positioned in Products.Accepted(() => archive.SeekFromStart(0UL))
@@ -275,7 +275,7 @@ public static class Snapshots {
             from saved in new SnapshotChange.Named(SnapshotOperation.Save, name).Run(doc)
             select new NamedWrite(new SnapshotChange.Named(SnapshotOperation.Restore, name).Run(doc), new SnapshotChange.Named(SnapshotOperation.Delete, name).Run(doc)),
         Import = Some<Func<RhinoDoc, InputPath, Option<Seq<StateName>>, IO<NamedWrite>>>(static (doc, path, names) =>
-            from whole in IO.lift(() => RhinoFault.Unless(names.IsNone, RhinoReason.Unsupported, names))
+            from whole in IO.lift(() => Fault.Unless(names.IsNone, RhinoReason.Unsupported, names))
             from imported in new SnapshotChange.Import(path).Run(doc)
             select NamedWrite.Undoable),
     };

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use claims::{assert_err, assert_ok, assert_some};
 use futures::{StreamExt as _, future, stream};
-use mcp_muxer_tests::{Agent, Isolated, Slow, call, exited, reached, session, spawned};
+use mcp_muxer_tests::{Agent, Down, Isolated, Slow, call, decoded, exited, reached, session, spawned};
 use rasm_testing::{Failure, Folder};
 use rmcp::model::{CallToolRequest, ClientRequest, NumberOrString, ProgressNotificationParam, ProgressToken, ProtocolVersion};
 use rmcp::service::{ClientLifecycleMode, PeerRequestOptions};
@@ -23,7 +23,7 @@ async fn runtime_folder_past_the_socket_limit_refuses_the_session_with_the_cause
         let mut command = isolated.relay(&[], &[]);
         command.env("MCP_MUXER_RUNTIME_DIR", isolated.folder(&"long".repeat(40)));
         let refused = assert_err!(session(Agent::default(), command).await);
-        assert!(refusal(&refused).is_some_and(|message| message.contains("socket")), "a session no daemon can serve is answered with the cause and runs no server of its own: {refused:?}");
+        assert!(refusal(&refused).is_some_and(|answer| answer.message.contains("socket")), "a session no daemon can serve is answered with the cause and runs no server of its own: {refused:?}");
     })
     .await
 }
@@ -118,11 +118,16 @@ async fn failed_start_reports_its_cause_and_backs_off() -> Result<(), Failure<Fo
             session(Agent::default(), command)
         };
         let attached = assert_ok!(relay(&["--speaks", "legacy"]).await);
-        let states = |refused: &io::Error, texts: &[&str]| refusal(refused).is_some_and(|message| texts.iter().all(|text| message.contains(text)));
+        let down = |refused: &io::Error| {
+            let data = assert_some!(refusal(refused).filter(|answer| answer.code.0 == -32603).and_then(|answer| answer.data.clone()), "an internal error carries its typed data: {refused:?}");
+            assert_ok!(decoded::<Down>(&assert_ok!(serde_json::to_vec(&data))))
+        };
+        let ended = |stated: &Down| stated.cause.first().is_some_and(|end| end.status == "exit status: 7" && end.stderr.iter().any(|line| line.contains("fixture refuses to start")));
         let cause = assert_err!(relay(&["--fail-start"]).await);
-        assert!(states(&cause, &["exit status: 7", "fixture refuses to start"]), "the error states exit status and stderr: {cause:?}");
+        assert!(ended(&down(&cause)), "the error states exit status and stderr: {cause:?}");
         let again = assert_err!(relay(&["--fail-start"]).await);
-        assert!(states(&again, &["server is down"]), "inside the backoff window the caller gets the stored cause: {again:?}");
+        let stated = down(&again);
+        assert!(stated.next == "retry" && !stated.sent, "inside the backoff window the caller gets the stored cause: {again:?}");
         let failing = async || servers(isolated, &IDLE).await.into_iter().find(|served| served.arguments == ["--fail-start"]).map(|served| (served.starts, served.failures));
         assert_eq!(failing().await, Some((2, 1)), "the unknown server started once per handshake order, and a second session inside the backoff window starts no process");
         let first = assert_some!(daemon(isolated, &IDLE).await);
@@ -130,7 +135,7 @@ async fn failed_start_reports_its_cause_and_backs_off() -> Result<(), Failure<Fo
         assert_ok!(assert_ok!(time::timeout(Duration::from_secs(30), exited(first)).await, "the daemon exits once it holds nothing"));
         let _held = assert_ok!(relay(&["--speaks", "legacy"]).await);
         let stored = assert_err!(relay(&["--fail-start"]).await);
-        assert!(states(&stored, &["server is down", "fixture refuses to start"]), "a new daemon answers from the stored failure: {stored:?}");
+        assert!(ended(&down(&stored)), "a new daemon answers from the stored failure: {stored:?}");
         let counted = failing().await;
         assert!(matches!(counted, Some((0, 1) | (2, 2))), "inside the stored window the new daemon starts no process, after it the stored failure count grows: {counted:?}");
     })
@@ -195,7 +200,10 @@ async fn program_missing_from_path_is_named_to_the_client_and_starts_once_found(
             spawned(Agent::default(), command, lifecycle.clone())
         };
         let refused = assert_err!(relay(isolated.folder("empty")).await);
-        assert!(refusal(&refused).is_some_and(|message| message.contains("mcp-fixture") && message.contains("PATH")), "the client's request is answered with the missing program: {refused:?}");
+        assert!(
+            refusal(&refused).is_some_and(|answer| answer.message.contains("mcp-fixture") && answer.message.contains("PATH")),
+            "the client's request is answered with the missing program: {refused:?}"
+        );
         let (found, _) = assert_ok!(relay(isolated.root.clone()).await);
         assert_eq!(echoed(&found, "found").await, "found", "a later session whose PATH holds the program reaches its server");
     })

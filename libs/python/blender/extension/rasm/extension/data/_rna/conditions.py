@@ -265,9 +265,7 @@ class Scenes(Case, frozen=True, kw_only=True):
         return (
             option
             .of_optional(self.names)
-            .map(
-                lambda names: accumulated(catch(lambda: bpy.data.scenes[name], exception=KeyError)().map_error(partial(Fault.of, Reason.ABSENT, repr(bpy.data.scenes), member=name)) for name in names)
-            )
+            .map(lambda names: accumulated(catch(lambda: bpy.data.scenes[name], exception=KeyError)().map_error(partial(Fault.of, Reason.ABSENT, bpy.data.scenes, member=name)) for name in names))
             .default_with(lambda: Ok(tuple(scene for scene in bpy.data.scenes if not scene.is_runtime_data)))
         )
 
@@ -304,7 +302,7 @@ class Objects(Case, frozen=True, kw_only=True):
         """Returns collection objects."""
         return (
             catch(lambda: bpy.data.collections[self.collection], exception=KeyError)()
-            .map_error(partial(Fault.of, Reason.ABSENT, repr(bpy.data.collections), member=self.collection))
+            .map_error(partial(Fault.of, Reason.ABSENT, bpy.data.collections, member=self.collection))
             .map(lambda collection: tuple(collection.all_objects))
         )
 
@@ -349,7 +347,7 @@ def scope_choice(default: type[Scope]) -> bpy.props._PropertyDeferred:
 
 def chosen(form: ScopeForm) -> Outcome[Scope]:
     """Returns the scope a form's choice names, a collection's objects by its name, outside fault for a choice naming no scope."""
-    return converted_value({Case.__struct_config__.tag_field: form.scope, "collection": form.collection}, Scope, repr(form))
+    return converted_value({Case.__struct_config__.tag_field: form.scope, "collection": form.collection}, Scope, form)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

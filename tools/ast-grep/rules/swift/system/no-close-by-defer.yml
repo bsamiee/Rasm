@@ -22,5 +22,4 @@ rule:
               kind: 'function_declaration, init_declaration, lambda_literal'
               stopBy: { kind: 'function_declaration, init_declaration, lambda_literal' }
               not: { has: { stopBy: { kind: 'function_declaration, init_declaration, lambda_literal' }, kind: await_expression } }
-message: '`defer` closes `$DESCRIPTOR` around a synchronous body'
-note: 'Run the body inside `<descriptor>.closeAfter { }`, a `defer` closing on a failed construction alone stays'
+message: '`defer` closes `$DESCRIPTOR` around a synchronous body, run the body inside `$DESCRIPTOR.closeAfter { }`, a `defer` closing on a failed construction alone stays'

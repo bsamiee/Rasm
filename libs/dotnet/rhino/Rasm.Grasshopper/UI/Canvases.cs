@@ -142,7 +142,7 @@ public static class Canvases {
     // --- [EDITS]
 
     public static IO<Unit> Inline<T>(Canvas canvas, RectangleF frame, IDocumentObject owner, T current, Func<T, IO<Unit>> assign, Func<Grasshopper2.Undo.Action> snapshot) =>
-        from assistant in IO.lift(static () => Conversions.Required(TypeAssistantServer.Find<T>(), call: typeof(T).Name))
+        from assistant in IO.lift(static () => Conversions.Required(TypeAssistantServer.Find<T>(), subject: typeof(T).Name))
         from undo in IO.lift(snapshot)
         let recorded = memo(() => Optional(owner.Document).Bind(document => {
             VerbNoun name = new("Edit", owner.Nomen.Name);
@@ -195,7 +195,7 @@ public static class Canvases {
     public static IO<Bitmap> Capture(Canvas canvas, Option<Seq<Guid>> objects, Size size, bool background = true, bool wires = true, bool messages = true) =>
         from region in IO.lift(() => objects.Match(Some: ids => Bounds(canvas, ids), None: static () => (Fin<RectangleF>)RectangleF.Empty))
         from bitmap in IO.lift(Optional(canvas.DrawToBitmap(region, size.Width, size.Height, background, wires, messages))
-            .ToFin(new RhinoFault(objects.ToString(), RhinoReason.Unfinished)))
+            .ToFin(Fault.Of(RhinoReason.Unfinished, objects.ToString())))
         select bitmap;
 
     private static Fin<RectangleF> Bounds(Canvas canvas, Seq<Guid> objects) =>
@@ -203,7 +203,7 @@ public static class Canvases {
             .Map(document => objects.Choose(id => Optional(document.Objects.Find(id))).Map(static item => item.Attributes.AggregateBounds))
             .Filter(static boxes => !boxes.IsEmpty)
             .Map(static boxes => boxes.BoundingBox())
-            .ToFin(new RhinoFault(objects.ToString(), RhinoReason.Missing));
+            .ToFin(Fault.Of(RhinoReason.Missing, objects.ToString()));
 
     // --- [TRACKING]
 

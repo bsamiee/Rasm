@@ -36,5 +36,4 @@ rule:
                             all:
                                 - has: { field: type, pattern: $REPEATED }
                                 - follows: { stopBy: end, kind: parameter, has: { field: type, pattern: $REPEATED } }
-message: Delegate `$NAME` restates a `Func` or `Action` signature
-note: 'Use the matching `Func` or `Action`, a delegate repeating a parameter type stays'
+message: 'Delegate `$NAME` restates a `Func` or `Action` signature, use the matching `Func` or `Action`, a delegate repeating a parameter type stays'

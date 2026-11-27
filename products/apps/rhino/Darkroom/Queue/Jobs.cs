@@ -72,7 +72,7 @@ internal sealed record QueueJob(int RhinoVersion, string Copy, Seq<QueueJob.Entr
     internal IO<RenderBatch> Batch(RhinoDoc doc) =>
         from settings in use(RenderSettingsSources.Snapshot(doc))
         from entries in IO.lift(Entries.Map(static (entry, index) => (Entry: entry, Index: index))
-            .Traverse(held => Planned(held.Entry, settings).MapFail(error => new DarkroomFault("render queue job entry", DarkroomReason.Invalid, held.Index, error)))
+            .Traverse(held => Planned(held.Entry, settings).MapFail(error => Fault.Of(DarkroomReason.Invalid, "render queue job entry", held.Index, error)))
             .As()
             .Bind(static entries => Conversions.Unique(entries, static entry => entry.Key)))
         from batch in RenderBatch.Placed(doc, entries, overwrite: true)
@@ -81,7 +81,7 @@ internal sealed record QueueJob(int RhinoVersion, string Copy, Seq<QueueJob.Entr
     private static Fin<QueueEntry<Unit>> Planned(Entry entry, RenderSettings settings) =>
         from frames in FrameSpan.Of(entry.Queued.Sun)
         from outputs in toSeq(entry.Outputs).Map(static (output, index) => (Output: output, Index: index)).Traverse(held =>
-                DarkroomFault.Unless((int)held.Output.Frame < frames.Numbers.Count, DarkroomReason.Beyond, (held.Output.Frame, frames.Numbers.Count), held.Index)
+                Fault.Unless((int)held.Output.Frame < frames.Numbers.Count, DarkroomReason.Beyond, (held.Output.Frame, frames.Numbers.Count), held.Index)
                     .Map(_ => new QueueOutput<Unit>(held.Output.Target, new OutputName(
                         held.Output.Scope,
                         held.Output.Version.Match<OutputVersioning>(Some: static pinned => new OutputVersioning.Pinned(pinned), None: static () => new OutputVersioning.Unversioned()),
@@ -91,7 +91,7 @@ internal sealed record QueueJob(int RhinoVersion, string Copy, Seq<QueueJob.Entr
 
     internal static IO<QueueJob> Read(string path) =>
         from found in FilePublication.Read(path, Info, static job => Fin.Succ(job))
-        from job in IO.lift(found.ToFin(new DarkroomFault(path, DarkroomReason.Missing)))
+        from job in IO.lift(found.ToFin(Fault.Of(DarkroomReason.Missing, path)))
         select job;
 }
 

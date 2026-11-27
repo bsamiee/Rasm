@@ -219,7 +219,7 @@ def _served(identity: Identity, item: bpy.types.Object) -> Outcome[bpy.types.Obj
     return (
         _LightRig.empty
         .marked(identity, item)
-        .map(lambda mark: mark.of.map(partial(typed, bpy.types.Object, f"{item!r}.target")).default_with(lambda: Error(Fault.of(Reason.ABSENT, repr(item), member="target"))))
+        .map(lambda mark: mark.of.map(partial(typed, bpy.types.Object, f"{item!r}.target")).default_with(lambda: Error(Fault.of(Reason.ABSENT, item, member="target"))))
         .default_value(Ok(item))
     )
 
@@ -293,7 +293,7 @@ def _rig_frame(target: bpy.types.Object, setup: RigSetup, context: bpy.types.Con
                 return Ok(target.matrix_world.translation.copy())
             case _RigFocus.BONE:
                 pose = option.of_optional(target.pose).bind(lambda pose: catch(lambda: pose.bones[setup.bone], exception=KeyError)().to_option())
-                return pose.map(lambda pose: target.matrix_world @ pose.head).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(target), member=setup.bone))
+                return pose.map(lambda pose: target.matrix_world @ pose.head).to_result_with(lambda: Fault.of(Reason.ABSENT, target, member=setup.bone))
             case _RigFocus.CURSOR:
                 return Ok(scene.cursor.location.copy())
             case _RigFocus.BOUNDS:
@@ -307,11 +307,11 @@ def _rig_frame(target: bpy.types.Object, setup: RigSetup, context: bpy.types.Con
                 case bpy.types.SpaceView3D(region_3d=bpy.types.RegionView3D(view_rotation=rotation)):
                     return Ok(rotation.to_matrix())
                 case space:
-                    return Error(Fault.of(Reason.OUTSIDE, f"{found.area!r}.spaces.active.region_3d", type(space).__name__, member=bpy.types.SpaceView3D.__name__))
+                    return Error(Fault.of(Reason.OUTSIDE, f"{found.area!r}.spaces.active.region_3d", type(space).__name__, member=bpy.types.SpaceView3D))
 
         match _RigAxes[setup.axes]:
             case _RigAxes.CAMERA:
-                return option.of_optional(scene.camera).map(lambda camera: camera.matrix_world.to_3x3().normalized()).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(scene), member="camera"))
+                return option.of_optional(scene.camera).map(lambda camera: camera.matrix_world.to_3x3().normalized()).to_result_with(lambda: Fault.of(Reason.ABSENT, scene, member="camera"))
             case _RigAxes.VIEW:
                 return rooted(bpy.types.WindowManager, context).bind(lambda manager: AreaQuery(space=bpy.types.SpaceView3D).first(manager.windows)).bind(oriented)
             case _RigAxes.TARGET:
@@ -330,7 +330,7 @@ def _rig_frame(target: bpy.types.Object, setup: RigSetup, context: bpy.types.Con
             lambda depsgraph: (
                 Ok((Vector(points.min(axis=0).tolist()).freeze(), Vector(points.max(axis=0).tolist()).freeze()))
                 if (points := bound_corners((target, *descendants(target, layer)), depsgraph)).size
-                else Error(Fault.of(Reason.ABSENT, repr(target), member="bound_box"))
+                else Error(Fault.of(Reason.ABSENT, target, member="bound_box"))
             )
         )
         .bind(lambda bounds: paired(centered(*bounds), framed()).map(lambda pair: (bounds, *pair)))
@@ -358,7 +358,7 @@ def _rigged(target: bpy.types.Object, existing: Option[bpy.types.Object], contex
                 return (
                     state.rig
                     .placements(config, frame[1], measurement)
-                    .bind(lambda placed: placed.to_result_with(lambda: Fault.of(Reason.ABSENT, repr(setup), member="reference")))
+                    .bind(lambda placed: placed.to_result_with(lambda: Fault.of(Reason.ABSENT, setup, member="reference")))
                     .map(lambda placed: (frame, placed))
                 )
 
@@ -488,7 +488,7 @@ def rig_arrange(call: Call[Empty]) -> Outcome[Done]:
         lambda rig, setup, state: (
             lighting(setup.reference, PyOpenColorIO.GetCurrentConfig())
             .bind(state.rig.arranged)
-            .bind(lambda arranged: arranged.to_result_with(lambda: Fault.of(Reason.ABSENT, repr(rig), member="reference")))
+            .bind(lambda arranged: arranged.to_result_with(lambda: Fault.of(Reason.ABSENT, rig, member="reference")))
             .map(lambda arranged: msgspec.structs.replace(state, rig=msgspec.structs.replace(state.rig, layout=arranged)))
         ),
     )
@@ -501,7 +501,7 @@ def rig_remove(call: Call[Empty]) -> Outcome[Done]:
         paired(
             rooted(bpy.types.ViewLayer, call.context)
             .bind(lambda layer: _resolved(layer, call.identity))
-            .filter_with(lambda rig: _LightRig.empty.marked(call.identity, rig).is_some(), lambda rig: Fault.of(Reason.ABSENT, repr(rig), member=_LightRig.empty.key)),
+            .filter_with(lambda rig: _LightRig.empty.marked(call.identity, rig).is_some(), lambda rig: Fault.of(Reason.ABSENT, rig, member=_LightRig.empty.key)),
             rooted(bpy.types.Scene, call.context),
         )
         .bind(

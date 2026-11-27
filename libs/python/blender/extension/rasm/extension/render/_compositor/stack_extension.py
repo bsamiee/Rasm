@@ -143,8 +143,8 @@ def _layered(stacking: LayerStackService, config: PyOpenColorIO.Config, view: Di
         .of_seq(frame.parts.values())
         .try_head()
         .bind(lambda part: option.of_optional(try_downcast(str, part.getattribute("Frame", OpenImageIO.TypeString))))
-        .to_result_with(partial(Fault.of, Reason.ABSENT, str(frame.path), member="Frame"))
-        .bind(lambda text: catch(int, exception=ValueError)(text).map_error(partial(Fault.of, Refusal.REFUSED, str(frame.path))))
+        .to_result_with(partial(Fault.of, Reason.ABSENT, frame.path, member="Frame"))
+        .bind(lambda text: catch(int, exception=ValueError)(text).map_error(partial(Fault.of, Refusal.REFUSED, frame.path)))
     )
 
     def read_tree(tree: bpy.types.NodeTree, record: LayerStack, at: int, valued: Callable[[Key], Outcome[Value]]) -> Outcome[tuple[DocumentLayers, npt.NDArray[np.float32]]]:
@@ -156,7 +156,7 @@ def _layered(stacking: LayerStackService, config: PyOpenColorIO.Config, view: Di
             .choose(lambda node: option.of_optional(try_downcast(bpy.types.CompositorNodeOutputFile, node)))
             .try_head()
             .bind(lambda node: option.of_optional(node.format).bind(extension).map(lambda suffix: Path(bpy.path.abspath(node.directory)) / f"{stack_file(tree.session_uid, Some(at))}{suffix}"))
-            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(tree.nodes), member=bpy.types.CompositorNodeOutputFile.__name__))
+            .to_result_with(partial(Fault.of, Reason.ABSENT, tree.nodes, member=bpy.types.CompositorNodeOutputFile))
         )
 
         def planes(file: Multilayer) -> Outcome[tuple[DocumentLayers, npt.NDArray[np.float32]]]:
@@ -165,7 +165,7 @@ def _layered(stacking: LayerStackService, config: PyOpenColorIO.Config, view: Di
                 layers.setdefault(layer.name, layer)
 
             def raw(name: str) -> Outcome[npt.NDArray[np.float32]]:
-                found = option.of_optional(layers.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, str(file.path), member=name))
+                found = option.of_optional(layers.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, file.path, member=name))
                 return found.bind(lambda layer: file.plane(layer, layer.channels))
 
             def color(name: str) -> Outcome[tuple[npt.NDArray[Coded], npt.NDArray[Coded]]]:
@@ -203,7 +203,7 @@ def _layered(stacking: LayerStackService, config: PyOpenColorIO.Config, view: Di
 
     def composed(entry: bpy.types.SceneCompositorEffect, tree: bpy.types.NodeTree, record: LayerStack, at: int) -> Outcome[Document]:
         density = scene.render.ppm_factor / scene.render.ppm_base
-        space = view.colorspace(config).to_result_with(partial(Fault.of, Reason.ABSENT, repr(config), member=f"{view.display}/{view.view}"))
+        space = view.colorspace(config).to_result_with(partial(Fault.of, Reason.ABSENT, config, member=f"{view.display}/{view.view}"))
         return paired(read_tree(tree, record, at, partial(entry_value, identity, entry)), space).bind(
             lambda parts: depth.coded(parts[0][1]).map(lambda composite: Document(layers=parts[0][0], composite=composite, colorspace=parts[1].getName(), density=density))
         )
@@ -410,7 +410,7 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def document(self, identity: Identity, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> Outcome[Document]:
         """Layered document of the scene's head stack at a saved frame, formed through the stack view, else the scene's."""
-        return paired(self.bound(identity), self.view(identity, scene), called(PyOpenColorIO.GetCurrentConfig, str(frame.path))).bind(
+        return paired(self.bound(identity), self.view(identity, scene), called(PyOpenColorIO.GetCurrentConfig, frame.path)).bind(
             lambda parts: _layered(parts[0], parts[2], parts[1].default_with(lambda: viewed(scene)), scene, frame, depth)
         )
 

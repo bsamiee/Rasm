@@ -120,7 +120,7 @@ public sealed class GlyphAtlas {
     public CellGrid Grid { get; }
 
     public static Fin<GlyphAtlas> Rendered(string glyphs, GlyphFont font, double cell, PixelExtent extent) =>
-        ImagingFault.Unless(glyphs.Length > 0 && !glyphs.AsSpan().ContainsAnyExceptInRange(' ', '~') && toHashSet(glyphs).Count == glyphs.Length, ImagingReason.Range, glyphs)
+        Fault.Unless(glyphs.Length > 0 && !glyphs.AsSpan().ContainsAnyExceptInRange(' ', '~') && toHashSet(glyphs).Count == glyphs.Length, ImagingReason.Range, glyphs)
             .Map(_ => Drawn(glyphs, font, cell, extent));
 
     public int Glyph(float level) => ranked[int.Clamp((int)(level * ranked.Length), 0, ranked.Length - 1)];

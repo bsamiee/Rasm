@@ -213,7 +213,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
                     press = Press(x=x, y=y, threshold=int(threshold * system.ui_scale))
                     return self.begin(context, press.travel(event, snapped=False, precise=precision(context, event, frozenset()))).bind(partial(started, manager, window, workspace, press))
                 case _:
-                    return Error(Fault.of(Reason.ABSENT, repr(context), member="window"))
+                    return Error(Fault.of(Reason.ABSENT, context, member="window"))
 
         def ended(operator: bpy.types.Operator, rollback: Option[bpy.types.Context] = NOTHING) -> Outcome[None]:
             """Disposes the run, restoring its snapshot when the native host supplies a cancellation context."""

@@ -1,3 +1,4 @@
+use core::fmt;
 use core::future::ready;
 use core::ops::RangeInclusive;
 use core::time::Duration;
@@ -7,7 +8,7 @@ use backon::ExponentialBuilder;
 use claims::{assert_err, assert_ok, assert_some};
 use futures::FutureExt as _;
 use futures::future::BoxFuture;
-use rasm_mcp::{History, IdleTimeout, Link, Liveness, Policy, Proxy, decode};
+use rasm_mcp::{Exit, History, IdleTimeout, Link, Liveness, Policy, Proxy, decode};
 use rasm_mcp_tests::Id;
 use rmcp::model::{ClientCapabilities, DiscoverResult, Implementation, InitializeRequestParams, JsonRpcVersion2_0, ProtocolVersion, ServerCapabilities};
 use serde::{Deserialize, Serialize};
@@ -68,13 +69,20 @@ struct Fields {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+struct Refused {
+    code: Option<i32>,
+    message: Option<String>,
+    data: Option<Value>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(default)]
 struct Seen {
     id: Option<Id>,
     method: Option<String>,
     params: Fields,
     result: Fields,
-    error: Fields,
+    error: Refused,
 }
 
 impl Seen {
@@ -161,7 +169,7 @@ impl Peer {
 #[derive(Debug)]
 struct Served {
     wire: Peer,
-    exit: oneshot::Sender<String>,
+    exit: oneshot::Sender<Exit>,
     stop: CancellationToken,
 }
 
@@ -187,17 +195,19 @@ impl Served {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+fn exited(status: impl fmt::Display) -> Exit { Exit { status: status.to_string().into(), stderr: Vec::new() } }
+
 fn proxy(queue: usize, line: usize) -> (Proxy, mpsc::UnboundedReceiver<Served>, JoinHandle<()>) {
     let (connections, starts) = mpsc::unbounded_channel();
-    let connect = move |stop: CancellationToken| -> BoxFuture<'static, io::Result<Link<ReadHalf<DuplexStream>, WriteHalf<DuplexStream>, BoxFuture<'static, String>>>> {
+    let connect = move |stop: CancellationToken| -> BoxFuture<'static, Result<Link<ReadHalf<DuplexStream>, WriteHalf<DuplexStream>, BoxFuture<'static, Exit>>, Exit>> {
         let (near, far) = tokio::io::duplex(64 << 10);
         let (reader, writer) = tokio::io::split(near);
-        let (exit, exited) = oneshot::channel();
+        let (exit, ended) = oneshot::channel();
         let attached = match connections.send(Served { wire: Peer::new(far), exit, stop }) {
             Ok(()) => Ok(()),
-            Err(mpsc::error::SendError(Served { wire: _, exit: _, stop: _ })) => Err(io::Error::from(io::ErrorKind::BrokenPipe)),
+            Err(mpsc::error::SendError(Served { wire: _, exit: _, stop: _ })) => Err(exited(io::Error::from(io::ErrorKind::BrokenPipe))),
         };
-        ready(attached.map(|()| Link { reader, writer, closed: exited.map(|status| status.unwrap_or_else(|closed| closed.to_string())).boxed() })).boxed()
+        ready(attached.map(|()| Link { reader, writer, closed: ended.map(|status| status.unwrap_or_else(exited)).boxed() })).boxed()
     };
     let policy = Policy {
         client: InitializeRequestParams::new(ClientCapabilities::default(), Implementation::new("proxy", "0")),

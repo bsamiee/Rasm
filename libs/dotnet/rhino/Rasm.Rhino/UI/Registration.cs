@@ -19,7 +19,7 @@ internal static class ViewRegistration {
         IO.lift(static () => ViewCatalog.Current.Listed<TCase>()).Bind(rows => Products.Each(rows.Map(register))).Map(unit);
 
     private static IO<Unit> Hosted(View view, Action register) =>
-        IO.lift(register).MapFail(error => error.HasException<ArgumentException>() ? new RhinoFault(view.Caption, RhinoReason.Unsupported, Inner: error) : error);
+        IO.lift(register).MapFail(error => error.HasException<ArgumentException>() ? Fault.Of(RhinoReason.Unsupported, view.Caption, inner: error) : error);
 
     private static string Caption(View view) => LocalText.Of(view.Caption).Local;
 

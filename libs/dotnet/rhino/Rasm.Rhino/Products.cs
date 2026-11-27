@@ -25,45 +25,45 @@ public static class Products {
 
     // --- [PRODUCTS]
 
-    public static IO<T> Of<T>(Func<T?> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
-        Maybe(call, member).Bind(found => IO.lift(found.ToFin(new RhinoFault(member, RhinoReason.Missing))));
+    public static IO<T> Of<T>(Func<T?> call, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) where T : class =>
+        Maybe(call, member, line).Bind(found => IO.lift(found.ToFin(Fault.Of(RhinoReason.Missing, (member, line)))));
 
-    public static IO<Option<T>> Maybe<T>(Func<T?> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
-        IO.lift(call).Bind(product => Optional(product).Traverse(held => Validated(held, member, None)).As());
+    public static IO<Option<T>> Maybe<T>(Func<T?> call, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) where T : class =>
+        IO.lift(call).Bind(product => Optional(product).Traverse(held => Validated(held, (member, line), None)).As());
 
-    public static IO<Seq<T>> Many<T>(Func<IEnumerable<T?>?> call, bool required = true, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
-        IO.lift(call).Bind(products => Listed(products, member, required));
+    public static IO<Seq<T>> Many<T>(Func<IEnumerable<T?>?> call, bool required = true, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) where T : class =>
+        IO.lift(call).Bind(products => Listed(products, (member, line), required));
 
-    public static IO<(Seq<T> Values, TOut Out)> Many<T, TOut>(Func<(IEnumerable<T?>? Values, TOut Out)> call, bool required = true, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
-        IO.lift(call).SelectMany(answered => Listed(answered.Values, member, required), static (answered, values) => (values, answered.Out));
+    public static IO<(Seq<T> Values, TOut Out)> Many<T, TOut>(Func<(IEnumerable<T?>? Values, TOut Out)> call, bool required = true, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) where T : class =>
+        IO.lift(call).SelectMany(answered => Listed(answered.Values, (member, line), required), static (answered, values) => (values, answered.Out));
 
-    public static IO<(T Value, TOut Out)> Of<T, TOut>(Func<(T? Value, TOut Out)> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
+    public static IO<(T Value, TOut Out)> Of<T, TOut>(Func<(T? Value, TOut Out)> call, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) where T : class =>
         IO.lift(call).Bind(answered => Optional(answered.Value).Match(
-            Some: held => Validated(held, member, None).Map(valid => (valid, answered.Out)),
-            None: () => IO.fail<(T, TOut)>(new RhinoFault(member, RhinoReason.Missing))));
+            Some: held => Validated(held, (member, line), None).Map(valid => (valid, answered.Out)),
+            None: () => IO.fail<(T, TOut)>(Fault.Of(RhinoReason.Missing, (member, line)))));
 
-    public static IO<TOut> Accepted<TOut>(Func<(bool Accepted, TOut Out)> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
+    public static IO<TOut> Accepted<TOut>(Func<(bool Accepted, TOut Out)> call, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
         IO.lift(Fin<TOut> () => call() switch {
             (true, var value) => value,
-            _ => new RhinoFault(member, RhinoReason.Declined),
+            _ => Fault.Of(RhinoReason.Declined, (member, line)),
         });
 
-    public static IO<Unit> Accepted(Func<bool> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
-        IO.lift(() => call() ? Fin.Succ(unit) : new RhinoFault(member, RhinoReason.Declined));
+    public static IO<Unit> Accepted(Func<bool> call, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
+        IO.lift(() => call() ? Fin.Succ(unit) : Fault.Of(RhinoReason.Declined, (member, line)));
 
-    public static IO<T> Copied<T>(T source, [CallerArgumentExpression(nameof(source))] string member = "") where T : GeometryBase =>
-        IO.lift(() => Conversions.Required(source.Duplicate() as T, call: member));
+    public static IO<T> Copied<T>(T source) where T : GeometryBase =>
+        IO.lift(() => Conversions.Required(source.Duplicate() as T, subject: source.ObjectType));
 
-    private static IO<Seq<T>> Listed<T>(IEnumerable<T?>? products, string label, bool required) where T : class =>
+    private static IO<Seq<T>> Listed<T>(IEnumerable<T?>? products, (string Member, int Line) caller, bool required) where T : class =>
         Optional(products).Map(static rows => toSeq(rows).Strict()).Filter(rows => !required || !rows.IsEmpty).Match(
             Some: rows => Each(rows.Map((row, index) => Optional(row).Match(
-                Some: held => Validated(held, label, index),
-                None: () => IO.fail<T>(new RhinoFault(label, RhinoReason.Missing, index))))),
-            None: () => IO.fail<Seq<T>>(new RhinoFault(label, RhinoReason.Missing)));
+                Some: held => Validated(held, caller, index),
+                None: () => IO.fail<T>(Fault.Of(RhinoReason.Missing, caller, index))))),
+            None: () => IO.fail<Seq<T>>(Fault.Of(RhinoReason.Missing, caller)));
 
-    private static IO<T> Validated<T>(T product, string label, Option<int> index) where T : class =>
+    private static IO<T> Validated<T>(T product, (string Member, int Line) caller, Option<int> index) where T : class =>
         IO.lift(() => product switch {
-            CommonObject geometry when !geometry.IsValidWithLog(out string log) => Fin.Fail<T>(new RhinoFault(label, RhinoReason.Invalid, index, Error.New(log))),
+            CommonObject geometry when !geometry.IsValidWithLog(out string log) => Fin.Fail<T>(Fault.Of(RhinoReason.Invalid, caller, index, Error.New(log))),
             var held => held,
         });
 
@@ -81,14 +81,14 @@ public static class Products {
 
     // --- [CALLBACKS]
 
-    public static IO<T> Captured<T>(Func<Action<Fin<T>>, IO<Unit>> host, [CallerArgumentExpression(nameof(host))] string call = "") =>
+    public static IO<T> Captured<T>(Func<Action<Fin<T>>, IO<Unit>> host, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
         from answer in atomIO(Option<Fin<T>>.None)
         from hosted in host(value => answer.Swap(_ => Some(value)))
-        from value in IO.lift(answer.Value.ToFin(new RhinoFault(call, RhinoReason.Missing)).Bind(static result => result))
+        from value in IO.lift(answer.Value.ToFin(Fault.Of(RhinoReason.Missing, (member, line))).Bind(static result => result))
         select value;
 
-    public static IO<T> Captured<TArgs, T>(Action<Action<TArgs>> host, Func<TArgs, IO<T>> body, [CallerArgumentExpression(nameof(host))] string call = "") =>
-        Captured<T>(answer => IO.lift(() => host(args => answer(Session.RunSafe(body(args), CancellationToken.None)))), call);
+    public static IO<T> Captured<TArgs, T>(Action<Action<TArgs>> host, Func<TArgs, IO<T>> body, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
+        Captured<T>(answer => IO.lift(() => host(args => answer(Session.RunSafe(body(args), CancellationToken.None)))), member, line);
 
     // --- [TRAVERSALS]
 
@@ -152,8 +152,8 @@ public static class Products {
                         .Finally(IO.lift(held.Closing.Dispose))).Uninterruptible())
             .Map(static held => held.Value).Uninterruptible();
 
-    public static IO<TOut> Transfer<T, TOut>(Func<T?> make, Func<T, IO<TOut>> to, [CallerArgumentExpression(nameof(make))] string member = "") where T : class, IDisposable =>
-        use(IO.lift(() => Conversions.Required(make(), call: member))).Bind(to).BracketFail();
+    public static IO<TOut> Transfer<T, TOut>(Func<T?> make, Func<T, IO<TOut>> to, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) where T : class, IDisposable =>
+        use(IO.lift(() => Conversions.Required(make(), member: member, line: line))).Bind(to).BracketFail();
 
     public static IO<T> Replace<T>(Ref<Option<Owned<T>>> slot, IO<T> body) =>
         Replaced(body, owned => {

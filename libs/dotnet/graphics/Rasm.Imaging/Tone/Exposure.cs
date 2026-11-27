@@ -42,7 +42,7 @@ public sealed class LuminanceSamples {
 
     internal static Fin<LuminanceSamples> Of(double[] plane, Rectangle window) =>
         plane.Where(double.IsFinite).Order().ToArray() switch {
-            [] => ImagingFault.Of(ImagingReason.Empty, window),
+            [] => Fault.Of(ImagingReason.Empty, window),
             var kept => new LuminanceSamples(kept),
         };
 
@@ -87,7 +87,7 @@ public sealed record Metering(float Low, float High, float Center, Vector2 Start
         double weight = inner.Count + (border * (all.Count - inner.Count));
         return weight > 0d
             ? (float)(double.Log2(MiddleGray) - ((inner.Sum + (border * (all.Sum - inner.Sum))) / weight))
-            : ImagingFault.Of(ImagingReason.Empty, (window, Center));
+            : Fault.Of(ImagingReason.Empty, (window, Center));
     }
 
     private static ((double Sum, double Count) All, (double Sum, double Count) Inner) Logged(ReadOnlySpan2D<double> levels, Rectangle center, double low, double high) {

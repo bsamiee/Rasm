@@ -98,7 +98,7 @@ public static class Layers {
 
     private static Fin<Seq<string>> Preorder(Seq<string> keys) =>
         Products.Each(toSeq((keys.Bind(Lineage) + keys).Distinct(StringComparer.OrdinalIgnoreCase)), static (key, index) =>
-                RhinoFault.Unless(ModelComponent.IsValidComponentName(Layer.GetLeafName(key)), RhinoReason.Unqualified, key, index).Map(_ => key))
+                Fault.Unless(ModelComponent.IsValidComponentName(Layer.GetLeafName(key)), RhinoReason.Unqualified, key, index).Map(_ => key))
             .Map(static names => names.Choose(Conversions.Present).ToLookup(Layer.GetParentName, StringComparer.OrdinalIgnoreCase))
             .Map(static children => toSeq(SuperEnumerable.TraverseDepthFirst("", parent => children[parent]).Skip(1)));
 
@@ -109,13 +109,13 @@ public static class Layers {
     private static Fin<Seq<RowEdit<Layer>>> Placed(RhinoDoc doc, Option<Layer> live, string key) =>
         (Layer.GetLeafName(key), Layer.GetParentName(key)) switch {
             var (leaf, parent) =>
-                from named in RhinoFault.Unless(ModelComponent.IsValidComponentName(leaf), RhinoReason.Unqualified, leaf)
+                from named in Fault.Unless(ModelComponent.IsValidComponentName(leaf), RhinoReason.Unqualified, leaf)
                 from above in parent.Length is 0
                     ? Option<Layer>.None
                     : Conversions.Present(doc.Layers.FindByFullPath(parent, RhinoMath.UnsetIntIndex)).Bind(index => Optional(doc.Layers.FindIndex(index)))
-                        .ToFin(new RhinoFault(parent, RhinoReason.Missing))
+                        .ToFin(Fault.Of(RhinoReason.Missing, parent))
                         .Map(Some)
-                from acyclic in RhinoFault.Unless(!above.Exists(held => live.Exists(row => row.Id == held.Id || Below(row, held.Id))), RhinoReason.Invalid, key)
+                from acyclic in Fault.Unless(!above.Exists(held => live.Exists(row => row.Id == held.Id || Below(row, held.Id))), RhinoReason.Invalid, key)
                 select Seq(
                     Rows.Set<Layer, string>(static row => row.Name, static (row, name) => row.Name = name, leaf),
                     Rows.Set<Layer, Guid>(static row => row.ParentLayerId, static (row, id) => row.ParentLayerId = id, Conversions.Unset(above.Map(static held => held.Id)))),
@@ -132,7 +132,7 @@ public static class Layers {
             row: static (document, row) => Rows.Find(document.Layers, row.Address),
             path: static (document, path) => IO.lift(() =>
                 Conversions.Present(document.Layers.FindByFullPath(path.FullPath, RhinoMath.UnsetIntIndex)).Bind(index => Optional(document.Layers.FindIndex(index)))
-                    .ToFin(new RhinoFault(path.FullPath, RhinoReason.Missing))),
+                    .ToFin(Fault.Of(RhinoReason.Missing, path.FullPath))),
             current: static (document, _) => IO.lift(() => document.Layers.CurrentLayer));
 
     public static IO<Option<Seq<Guid>>> Selected(RhinoDoc doc) =>
@@ -144,7 +144,7 @@ public static class Layers {
         Commits.Commit(doc, name, redraw,
         from merged in Resolve(doc, source)
         from kept in Resolve(doc, target)
-        from acyclic in IO.lift(RhinoFault.Unless(merged.Id != kept.Id && !Below(merged, kept.Id), RhinoReason.Invalid, (merged.FullPath, kept.FullPath)))
+        from acyclic in IO.lift(Fault.Unless(merged.Id != kept.Id && !Below(merged, kept.Id), RhinoReason.Invalid, (merged.FullPath, kept.FullPath)))
         from moved in new ObjectTarget.Lookup(table => table.GetObjectList(new ObjectEnumeratorSettings { HiddenObjects = true, IncludeLights = true, LayerIndexFilter = merged.Index }))
             .Each(doc, found => {
                 using ObjectAttributes staged = found.Attributes.Duplicate();

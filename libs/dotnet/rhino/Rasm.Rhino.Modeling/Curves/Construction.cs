@@ -30,8 +30,8 @@ public static class CurveConstruction {
 
     // --- [CATENARIES]
 
-    public static IO<CatenaryCurve> CreateCatenaryCurve(CatenaryCall call, [CallerArgumentExpression(nameof(call))] string member = "") =>
-        from answered in Products.Of(() => (call(out Point3d apex, out double parameter, out double length, out double deviation), (Apex: apex, Parameter: parameter, Length: length, Deviation: deviation)), member)
+    public static IO<CatenaryCurve> CreateCatenaryCurve(CatenaryCall call, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
+        from answered in Products.Of(() => (call(out Point3d apex, out double parameter, out double length, out double deviation), (Apex: apex, Parameter: parameter, Length: length, Deviation: deviation)), member, line)
         select new CatenaryCurve(answered.Value, answered.Out.Apex, answered.Out.Parameter, answered.Out.Length, answered.Out.Deviation);
 
     // --- [FITS]
@@ -67,7 +67,7 @@ public static class CurveConstruction {
             from kinks in IO.lift(() => CurveEvaluation.Kinks(tolerances, curve, Continuity.G1_continuous))
             from corners in IO.lift(curve.IsClosed && kinks.Exists(t => t >= curve.Domain.T1)
                 ? Seam(curve, kinks.Filter(t => t < curve.Domain.T1).Last.IfNone(curve.Domain.T0))
-                    .Bind(t => RhinoFault.Unless(curve.ChangeClosedCurveSeam(t), RhinoReason.Declined, t))
+                    .Bind(t => Fault.Unless(curve.ChangeClosedCurveSeam(t), RhinoReason.Declined, t))
                     .Map(_ => CurveEvaluation.Kinks(tolerances, curve, Continuity.G1_continuous))
                 : kinks)
             from cuts in IO.lift(Cuts(curve, corners.Filter(t => t > curve.Domain.T0 && t < curve.Domain.T1), before, after))
@@ -76,7 +76,7 @@ public static class CurveConstruction {
 
     private static Fin<double> Seam(Curve curve, double last) =>
         ((curve.GetLength(new Interval(curve.Domain.T0, last)) + curve.GetLength()) / 2d) switch {
-            var middle => RhinoFault.Unless(curve.LengthParameter(middle, out double t), RhinoReason.Outside, middle).Map(_ => t),
+            var middle => Fault.Unless(curve.LengthParameter(middle, out double t), RhinoReason.Outside, middle).Map(_ => t),
         };
 
     private static Fin<Seq<(double Start, double End)>> Cuts(Curve curve, Seq<double> corners, double before, double after) =>
@@ -85,10 +85,10 @@ public static class CurveConstruction {
         }).Strict()) switch {
             var measured => Products.Each(measured.Lengths, (span, index) =>
                 span.Start > (index > 0 ? measured.Lengths[index - 1].End : 0d) && span.End < (index < measured.Lengths.Count - 1 ? measured.Lengths[index + 1].Start : measured.Total)
-                    ? (RhinoFault.Unless(curve.LengthParameter(span.Start, out double start), RhinoReason.Outside, span.Start, index).Map(_ => start),
-                        RhinoFault.Unless(curve.LengthParameter(span.End, out double end), RhinoReason.Outside, span.End, index).Map(_ => end))
+                    ? (Fault.Unless(curve.LengthParameter(span.Start, out double start), RhinoReason.Outside, span.Start, index).Map(_ => start),
+                        Fault.Unless(curve.LengthParameter(span.End, out double end), RhinoReason.Outside, span.End, index).Map(_ => end))
                         .Apply(static (start, end) => (Start: start, End: end)).As()
-                    : new RhinoFault(span, RhinoReason.Outside, index)),
+                    : Fault.Of(RhinoReason.Outside, span, index)),
         };
 
     private static IO<Curve> Cut(Tolerances tolerances, Curve curve, Seq<(double Start, double End)> cuts) =>
@@ -96,6 +96,6 @@ public static class CurveConstruction {
         from lines in Products.Many(() => cuts.Map(cut => new LineCurve(curve.PointAt(cut.Start), curve.PointAt(cut.End))))
         let kept = pieces.Filter(piece => !cuts.Exists(cut => cut.Start < piece.Domain.Mid && piece.Domain.Mid < cut.End))
         from joined in Products.Many(() => Curve.JoinCurves(kept + lines.Map(static line => (Curve)line), tolerances.Absolute, preserveDirection: true))
-        from single in IO.lift(RhinoFault.Unless(joined.Count is 1, RhinoReason.Declined, joined.Count).Map(_ => joined[0]))
+        from single in IO.lift(Fault.Unless(joined.Count is 1, RhinoReason.Declined, joined.Count).Map(_ => joined[0]))
         select single;
 }

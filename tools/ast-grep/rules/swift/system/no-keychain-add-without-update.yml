@@ -33,5 +33,4 @@ rule:
         - inside:
               stopBy: { any: [{ matches: swift-declaration-scope }, { kind: source_file }] }
               matches: security-scope
-message: '`$ARGS` adds a keychain item without `-U` and fails with `errSecDuplicateItem` on an existing item'
-note: 'Pass `-U` after the subcommand to update an existing item and keep its ACL and partition list'
+message: '`$ARGS` adds a keychain item without `-U` and fails with `errSecDuplicateItem` on an existing item, pass `-U` after the subcommand to update it and keep its ACL and partition list'

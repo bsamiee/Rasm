@@ -160,7 +160,7 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
         """Constructs a face from its original and writes its UFO source through ufoLib2, replacing the held source in one atomic step."""
         path = self.declaration.source(face)
         return typography.constructed(original, face, self.texts, cache=self.cache).bind(
-            lambda made: committed(path, lambda stage: catch(made.ufo.save, exception=OSError)(stage).map_error(partial(Fault.of, Reason.UNWRITABLE, str(path)))).map(lambda _: made)
+            lambda made: committed(path, lambda stage: catch(made.ufo.save, exception=OSError)(stage).map_error(partial(Fault.of, Reason.UNWRITABLE, path))).map(lambda _: made)
         )
 
     def built(self, face: Faces, original: typography.Binary, /) -> Outcome[Built]:
@@ -211,15 +211,15 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
         source, buffer = self.declaration.source(done.face), BytesIO()
         opened = paired(
             read(done.path).bind(
-                lambda data: catch(TTFont, exception=TTLibError)(BytesIO(data), lazy=True, recalcBBoxes=False, recalcTimestamp=False).map_error(partial(Fault.of, Reason.UNREADABLE, str(done.path)))
+                lambda data: catch(TTFont, exception=TTLibError)(BytesIO(data), lazy=True, recalcBBoxes=False, recalcTimestamp=False).map_error(partial(Fault.of, Reason.UNREADABLE, done.path))
             ),
-            catch(ufoLib2.Font.open, exception=UFOLibError)(source, lazy=False).map_error(partial(Fault.of, Reason.UNREADABLE, str(source))),
+            catch(ufoLib2.Font.open, exception=UFOLibError)(source, lazy=False).map_error(partial(Fault.of, Reason.UNREADABLE, source)),
         )
         match opened:
             case Ok((font, ufo)):
                 typography.metered(font, ufo.info, metrics)
                 font.save(buffer)
-                return committed(source, lambda stage: catch(ufo.save, exception=OSError)(stage).map_error(partial(Fault.of, Reason.UNWRITABLE, str(source)))).bind(
+                return committed(source, lambda stage: catch(ufo.save, exception=OSError)(stage).map_error(partial(Fault.of, Reason.UNWRITABLE, source))).bind(
                     lambda _: self.stored(done.face, done.inputs, done.own, metrics, buffer.getvalue())
                 )
             case Error(faults):
@@ -282,7 +282,7 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
                 source = self.declaration.source(face)
                 return (
                     catch(lambda: UFOReader(source).getGlyphSet().getUnicodes(), exception=UFOLibError)()
-                    .map_error(partial(Fault.of, Reason.UNREADABLE, str(source)))
+                    .map_error(partial(Fault.of, Reason.UNREADABLE, source))
                     .map(lambda mapped: typography.Coverage(required=frozenset(*codes for codes in mapped.values()), excluded=(), blocks=frozenset()))
                 )
 

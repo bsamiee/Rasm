@@ -86,7 +86,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                 not isinstance(struct, bpy.types.bpy_prop_collection) and descriptor.prop.is_animatable and bool(descriptor.coordinates) == bool(Descriptor.dimensions(descriptor.prop))
             ):
                 return Ok((struct, descriptor))
-        return Error(Fault.of(Reason.ABSENT, repr(block), member=rna(self.path)))
+        return Error(Fault.of(Reason.ABSENT, block, member=rna(self.path)))
 
     # --- [CHANNELS]
 
@@ -125,7 +125,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                 changed = bool(differing(driver, source.values))
                 return assigned(driver, source.values).bind(lambda _: variables(driver)).map(lambda wrote: wrote | changed)
 
-            return option.of_optional(curve.driver).to_result_with(partial(Fault.of, Reason.ABSENT, repr(curve), member="driver")).bind(drove)
+            return option.of_optional(curve.driver).to_result_with(partial(Fault.of, Reason.ABSENT, curve, member="driver")).bind(drove)
 
         def modified(curve: bpy.types.FCurve) -> Outcome[bool]:
             held = tuple(curve.modifiers)
@@ -135,13 +135,13 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
             def added(row: Modifier) -> Outcome[None]:
                 return (
                     catch(curve.modifiers.new, exception=TypeError)(row.kind)
-                    .map_error(partial(Fault.of, Refusal.REFUSED, repr(curve.modifiers)))
-                    .bind(lambda made: option.of_optional(made).to_result_with(partial(Fault.of, Reason.ABSENT, repr(curve.modifiers), member=row.kind)))
+                    .map_error(partial(Fault.of, Refusal.REFUSED, curve.modifiers))
+                    .bind(lambda made: option.of_optional(made).to_result_with(partial(Fault.of, Reason.ABSENT, curve.modifiers, member=row.kind)))
                     .bind(lambda made: assigned(made, row.values))
                 )
 
             return (
-                accumulated(catch(curve.modifiers.remove, exception=RuntimeError)(modifier).map_error(partial(Fault.of, Refusal.REFUSED, repr(curve.modifiers))) for modifier in held)
+                accumulated(catch(curve.modifiers.remove, exception=RuntimeError)(modifier).map_error(partial(Fault.of, Refusal.REFUSED, curve.modifiers)) for modifier in held)
                 .bind(lambda _: accumulated(map(added, self.modifiers)))
                 .map(lambda _: True)
             )
@@ -176,7 +176,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
             lambda found: (
                 struct_at(block, ("animation_data",), bpy.types.AnimData)
                 .or_else_with(lambda: option.of_optional(block.animation_data_create()))
-                .to_result_with(partial(Fault.of, Reason.ABSENT, repr(block), member="animation_data"))
+                .to_result_with(partial(Fault.of, Reason.ABSENT, block, member="animation_data"))
                 .bind(lambda data: curve_of(data, *found[0]))
                 .bind(lambda curve: accumulated((found[1](curve), written(curve, ("mute",), value=False).map(lambda wrote: wrote.is_some()), modified(curve))).map(any))
             )
@@ -186,7 +186,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
         """Removes the channel's F-curve or driver."""
         return self.channel(block).bind(
             lambda found: accumulated(
-                catch(lambda: curves.remove(curve), exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(curves)))
+                catch(lambda: curves.remove(curve), exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, curves))
                 for curves in struct_at(block, ("animation_data",), bpy.types.AnimData).bind(self.source.curves).to_list()
                 for curve in option.of_optional(curves.find(rna(found[1].member), index=found[1].index.default_value(0))).to_list()
             ).map(lambda _: None)
@@ -209,7 +209,7 @@ def sampled(owner: Struct, path: RnaPath, frames: Iterable[float], proposed: Opt
         One value per frame, absent fault for a path naming no number or enum scalar.
     """
     held = tuple(frames)
-    absent = partial(Fault.of, Reason.ABSENT, repr(owner), member=rna(path))
+    absent = partial(Fault.of, Reason.ABSENT, owner, member=rna(path))
 
     def projected(prop: bpy.types.Property, values: NDArray[np.float32]) -> Outcome[tuple[float, ...]]:
         match prop:

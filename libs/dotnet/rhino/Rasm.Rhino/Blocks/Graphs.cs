@@ -104,7 +104,7 @@ public static class Graphs {
         public Fin<Seq<TVertex>> SourceFirst =>
             components.Cycles switch {
                 { IsEmpty: true } => toSeq(components.SourceFirstBidirectionalTopologicalSort()).Bind(static component => toSeq(component.Vertices)).Strict(),
-                var cycles => Error.Many(cycles.Map(static cycle => (Error)new RhinoFault(cycle, RhinoReason.Repeated))),
+                var cycles => Error.Many(cycles.Map(static cycle => (Error)Fault.Of(RhinoReason.Repeated, cycle))),
             };
     }
 

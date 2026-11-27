@@ -59,13 +59,13 @@ from rasm.rendering import (
 
 def _no_trailing(command: str, trailing: tuple[str, ...]) -> Outcome[None]:
     """Refuses trailing arguments a command takes none of."""
-    return Error(Fault.of(Reason.OUTSIDE, command, repr(trailing), member="no trailing arguments")) if trailing else Ok(None)
+    return Error(Fault.of(Reason.OUTSIDE, command, trailing, member="no trailing arguments")) if trailing else Ok(None)
 
 
 def _job_path(dispatcher: Dispatcher, scene: bpy.types.Scene) -> Outcome[OutputPath]:
     """Returns the output path a scene's job copy holds, absent fault for a scene no job wrote."""
     scope = dispatcher.routing.pathed.stored
-    return scope.read(scene).bind(lambda found: found.to_result_with(lambda: Fault.of(Reason.ABSENT, repr(scene), member=scope.name)))
+    return scope.read(scene).bind(lambda found: found.to_result_with(lambda: Fault.of(Reason.ABSENT, scene, member=scope.name)))
 
 
 # --- [PREPARATION]
@@ -103,7 +103,7 @@ def _job(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, stem
                 return pack_started(transfer, Path(os.path.commonpath((source.parent, saved_file.parent))), OPTIONS, Ok).bind(Packing.drained).map(lambda pack: held(*transfer.placed, pack.skipped))
             return (
                 catch(get_hasher(), exception=OSError)(saved_file)
-                .map_error(partial(Fault.of, Reason.UNREADABLE, str(saved_file)))
+                .map_error(partial(Fault.of, Reason.UNREADABLE, saved_file))
                 .map(lambda digest: (PackedFile(source=str(saved_file), path=saved_file.name, digest=bytes.fromhex(digest)), ()))
             )
 
@@ -258,7 +258,7 @@ def commanded(dispatcher: Dispatcher, arguments: Run | RenderFrames, trailing: t
                 case (output_root,):
                     return scene_of(name).bind(lambda scene: _frames(dispatcher, scene, numbers, lambda _frame, _elapsed: Ok(None), Some(Path(output_root)))).map(lambda _: 0)
                 case _:
-                    return Error(Fault.of(Reason.OUTSIDE, RunCommand.RENDER, repr(trailing), member="<output root>"))
+                    return Error(Fault.of(Reason.OUTSIDE, RunCommand.RENDER, trailing, member="<output root>"))
 
 
 # --- [SUPERVISION]

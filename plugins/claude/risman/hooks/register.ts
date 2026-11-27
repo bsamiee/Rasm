@@ -1,220 +1,181 @@
 import { Handles } from '@rasm/mcp/handles';
-import { atom, type EngineInterface, type On, read, update } from 'claude-code';
-import { Array, Boolean, Cache, Cause, Context, Data, Duration, Effect, Exit, FiberMap, Formatter, Function, HashSet, Layer, Logger, ManagedRuntime, MutableRef, Option, Predicate, Record, Ref, Result, Schedule, Schema, Stream, String, Struct, SubscriptionRef, SynchronizedRef } from 'effect';
+import { atom, type EngineInterface, type On, read, type ToolMcpServer, update } from 'claude-code';
+import { Array, Cause, Context, Data, Duration, Effect, Equal, FiberMap, Function, HashMap, HashSet, Layer, Logger, ManagedRuntime, MutableRef, Option, Record, Ref, Result, Schema, Stream, Struct, SubscriptionRef, SynchronizedRef } from 'effect';
 import { HttpStatus } from 'effect/http';
 import { HttpApiClient } from 'effect/http-api';
 import { Host, NetAddress } from 'effect/net';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Sequenced = Exclude<typeof Handles.Event.Type, { readonly _tag: 'Settled' }>;
-
-interface Held {
-    readonly seen: number;
-    readonly pending: readonly Sequenced[];
-    readonly unacked: Option.Option<number>;
-}
-
 interface Follower {
-    readonly agent: Option.Option<string>;
+    readonly binding: Binding;
+    readonly handle: string;
     readonly urls: HttpApiClient.UrlBuilder<typeof Handles>;
-    readonly bound: typeof Handles.Binding.Type;
-    readonly held: SynchronizedRef.SynchronizedRef<Held>;
+    readonly after: Ref.Ref<number>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PERMISSION_PROMPT_NOTICE = Duration.seconds(6);
-const MCP_RECONNECT = { first: Duration.seconds(1), within: Duration.minutes(30) } as const;
+const HTTP_FETCH_LIMIT = Duration.seconds(30);
+const ROWS = atom({ plugin: 'risman', key: 'rows' } as const, {});
+const { endpoints } = Handles.groups.handles;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Claimed = Schema.Struct({ ok: Schema.Literal(true), text: Schema.fromJsonString(Handles.Binding) });
-const Event = Schema.fromJsonString(Handles.Event);
-const Written = Schema.fromJsonString(Schema.Struct({ http_code: Schema.Int, errormsg: Schema.NullOr(Schema.String) }));
-const alarming = Schema.is(Handles.Kind.pick(['crashed', 'hung']));
+const Answered = Schema.Struct({ ok: Schema.Literal(true), text: Schema.fromJsonString(Handles.Polled) });
 
 class Binding extends Data.Class<{ readonly origin: string; readonly agent: Option.Option<string> }> {}
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class FollowError extends Schema.TaggedError<FollowError, { readonly brand: unique symbol }>()('FollowError', {
-    reason: Schema.TaggedUnion({ Gone: {}, Dropped: { status: Schema.Int }, Unstarted: {} }),
-    subject: Schema.String,
-    cause: Schema.optionalKey(Schema.Defect()),
-    message: Schema.String,
-}) {
-    static readonly of = (reason: FollowError['reason'], subject: string) => (cause?: unknown) => FollowError.make({ reason, subject, ...(cause === undefined ? {} : { cause }), message: [`following ${subject} ${String.toLowerCase(reason._tag)}`, ...(cause === undefined ? [] : [Formatter.format(cause)])].join(': ') });
-}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Link extends Context.Service<
     Link,
     {
-        readonly describe: (tool: string, origin: Option.Option<string>) => Effect.Effect<void>;
+        readonly describe: (tool: string, server: Option.Option<ToolMcpServer>) => Effect.Effect<void>;
+        readonly resident: (tool: string, agent: Option.Option<string>) => Effect.Effect<boolean>;
         readonly handle: (tool: string, agent: Option.Option<string>) => Effect.Effect<Option.Option<string>>;
-        readonly held: (tool: string, agent: Option.Option<string>) => Effect.Effect<Option.Option<string>>;
         readonly turn: (agent: Option.Option<string>, running: boolean) => Effect.Effect<void>;
+        readonly report: (agent: string) => Effect.Effect<void>;
     }
 >()('@rasm/risman/hooks/register/Link') {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const request = <A>(call: string, run: () => PromiseLike<A>) => Effect.tryPromise({ try: run, catch: (cause) => new Cause.UnknownError(cause, `${call} failed`) });
-const row = ({ server }: typeof Handles.Binding.Type, line: string) => `${server} · ${line}`;
-const notice = ({ handle }: typeof Handles.Binding.Type, key: string) => `${handle}/${key}`;
+const loopback = ({ type, origin }: ToolMcpServer) =>
+    Option.filter(Option.fromUndefinedOr(origin), (at) => {
+        const { hostname } = new URL(at);
+        return (
+            type === 'http' &&
+            Result.match(Host.hostFromString(hostname), {
+                onFailure: () => hostname === NetAddress.formatUrlHost(NetAddress.ipv6Loopback),
+                onSuccess: (host) => (Host.isDomainName(host) ? Host.toRelative(host) === 'localhost' : NetAddress.isIpAddress(host) && NetAddress.isLoopback(host)),
+            })
+        );
+    });
+const owns =
+    (agent: Option.Option<string>) =>
+    ({ binding }: Follower) =>
+        Equal.equals(binding.agent, agent);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 function link($: EngineInterface) {
+    const send = (name: keyof typeof endpoints, url: string) => request(name, () => $.http.fetch(url, { method: endpoints[name].method }));
+    const deliver = (agent: Option.Option<string>, idle: boolean, text: string) =>
+        idle
+            ? Option.match(agent, {
+                  onNone: () => request('prompt.submit', () => $.prompt.submit({ text })).pipe(Effect.map(({ drop }) => drop === undefined)),
+                  onSome: (agentId) => request('session.send', () => $.session.send({ to: { agentId }, text })).pipe(Effect.map(({ isDelivered }) => isDelivered)),
+              })
+            : request('session.append', () => $.session.append({ message: { type: 'user', content: [{ type: 'text', text }] }, ...Record.getSomes({ agentId: agent }) })).pipe(Effect.map(({ deny }) => deny === undefined));
+    const show = ({ handle, urls }: Follower, items: (typeof Handles.Rows.Type)['items']) => {
+        const rows = Record.fromIterableWith(items, ({ key, text }) => [urls.press({ params: { handle, key } }), text]);
+        return request('reading rows', () => read($, ROWS)).pipe(
+            Effect.map((shown) => Record.toEntries(Record.difference(rows, shown[handle] ?? {}))),
+            Effect.tap(request('setting rows', () => update($, ROWS, (shown) => (Record.isEmptyRecord(rows) ? Record.remove(shown, handle) : Record.set(shown, handle, rows))))),
+            Effect.flatMap(Effect.forEach(([press, text]: readonly [string, string]) => request('notifying', () => (Record.has(rows, press) ? $.ui.notify(text, { key: press }) : $.ui.cancelNotify(press))), { discard: true })),
+            Effect.catchCause(Effect.logWarning),
+        );
+    };
     return Layer.effect(
         Link,
         Effect.gen(function* () {
-            const [scope, hosts, origins, busy, pings] = yield* Effect.all([
-                Effect.scope,
-                Effect.map(
-                    Effect.orElseSucceed(
-                        request('reading /etc/hosts', () => $.fs.read('/etc/hosts')),
-                        Function.constant(''),
-                    ),
-                    Host.parseHostsFile,
-                ),
+            const [origins, residents, busy, held, polls] = yield* Effect.all([
                 Ref.make<Record.ReadonlyRecord<string, string>>({}),
+                Ref.make<Record.ReadonlyRecord<string, boolean>>({}),
                 SubscriptionRef.make(HashSet.empty<Option.Option<string>>()),
-                FiberMap.make<string>(),
+                SynchronizedRef.make(HashMap.empty<Binding, Follower>()),
+                FiberMap.make<Binding>(),
             ]);
-            const resident = (origin: string) =>
-                Result.match(Host.hostPortFromString(new URL(origin).host), {
-                    onFailure: Function.constFalse,
-                    onSuccess: ({ host }) => (Host.isDomainName(host) ? (hosts.get(Host.toRelative(host)) ?? []) : Array.filter([host], NetAddress.isIpAddress)).some(NetAddress.isLoopback),
-                });
-            const note = (handle: string, change: (keyed: Record.ReadonlyRecord<string, string>) => Record.ReadonlyRecord<string, string>) =>
-                request('updating waiting prompts', () =>
-                    update($, atom({ plugin: 'risman', key: 'waiting' } as const, {}), (held) => {
-                        const keyed = change(held[handle] ?? {});
-                        return Record.isEmptyRecord(keyed) ? Record.remove(held, handle) : Record.set(held, handle, keyed);
+            const take = Effect.fnUntraced(function* (follower: Follower, revision: number, polled: typeof Handles.Polled.Type) {
+                yield* Effect.when(show(follower, polled.rows.items), Effect.succeed(polled.rows.revision !== revision));
+                const idle = !HashSet.has(yield* SubscriptionRef.get(busy), follower.binding.agent);
+                yield* Array.last(polled.notices).pipe(
+                    Option.filter(() => !idle || polled.notices.some(Struct.get('wake'))),
+                    Option.match({
+                        onNone: () => Effect.void,
+                        onSome: ({ sequence }) =>
+                            deliver(follower.binding.agent, idle, Array.map(polled.notices, Struct.get('text')).join('\n')).pipe(
+                                Effect.filterOrFail(Function.identity, () => new Cause.UnknownError(sequence, 'notices undelivered')),
+                                Effect.andThen(Ref.set(follower.after, sequence)),
+                            ),
                     }),
                 );
-            const ack = ({ urls, bound }: Follower, through: number) =>
-                request('acknowledging events', () => $.http.fetch(urls.ack({ params: { handle: bound.handle }, query: { through } }), { method: Handles.groups.handles.endpoints.ack.method })).pipe(
-                    Effect.filterOrFail(Struct.get('ok'), ({ status }) => new Cause.UnknownError(status, `acknowledging events answered ${status}`)),
-                );
-            const settle = Effect.fnUntraced(function* (follower: Follower, held: Held) {
-                const { agent, bound } = follower;
-                const lines = Array.filter(held.pending, Handles.Event.guards.Line);
-                const awake = HashSet.has(yield* SubscriptionRef.get(busy), agent);
-                const told = awake ? held.pending : lines;
-                const text = [`MCP server ${bound.server} reports:`, ...Array.map(told, Struct.get('line'))].join('\n');
-                const delivered =
-                    !Array.isReadonlyArrayNonEmpty(told) ||
-                    (yield* (
-                        awake
-                            ? Effect.map(
-                                  request('session.append', () => $.session.append({ message: { type: 'user', content: [{ type: 'text', text }] }, ...Record.getSomes({ agentId: agent }) })),
-                                  ({ deny }) => deny === undefined,
-                              )
-                            : Option.match(agent, {
-                                  onNone: () =>
-                                      Effect.map(
-                                          request('prompt.submit', () => $.prompt.submit({ text })),
-                                          ({ drop }) => drop === undefined,
-                                      ),
-                                  onSome: (agentId) =>
-                                      Effect.map(
-                                          request('session.send', () => $.session.send({ to: { agentId }, text })),
-                                          Struct.get('isDelivered'),
-                                      ),
-                              })
-                    ).pipe(Effect.tapCause(Effect.logWarning), Effect.orElseSucceed(Function.constFalse)));
-                yield* Effect.when(SubscriptionRef.update(busy, HashSet.add(agent)), Effect.succeed(delivered && !awake && Array.isReadonlyArrayNonEmpty(lines)));
-                const through = Option.orElse(Option.map(Array.last(held.pending), Struct.get('sequence')), () => held.unacked);
-                return delivered
-                    ? {
-                          ...held,
-                          pending: [],
-                          unacked: yield* Option.match(through, {
-                              onNone: () => Effect.succeedNone,
-                              onSome: (sequence) =>
-                                  ack(follower, sequence).pipe(
-                                      Effect.as(Option.none<number>()),
-                                      Effect.tapCause(Effect.logWarning),
-                                      Effect.orElseSucceed(() => Option.some(sequence)),
-                                  ),
-                          }),
-                      }
-                    : held;
+                return polled.rows.revision;
             });
-            const absorb = Effect.fnUntraced(function* (follower: Follower, held: Held, events: Array.NonEmptyReadonlyArray<typeof Handles.Event.Type>) {
-                const { bound } = follower;
-                const fresh = yield* Effect.filterMapEffect(
-                    Array.filter(events, (event) => Handles.Event.guards.Settled(event) || event.sequence > held.seen),
-                    Handles.Event.match({
-                        Line: (event) => Effect.as(alarming(event.kind) ? Effect.sync(() => $.ui.toast(row(bound, event.line))) : Effect.void, Result.succeed<Sequenced>(event)),
-                        Waiting: (event) => {
-                            const shown = row(bound, event.line);
-                            const key = notice(bound, event.key);
-                            const ping = Effect.sleep(PERMISSION_PROMPT_NOTICE).pipe(Effect.andThen(Effect.uninterruptible(request('notifying', () => $.ui.notify(shown, { key })))), Effect.tapCause(Effect.logWarning));
-                            return note(bound.handle, Record.set(event.key, shown)).pipe(Effect.andThen(FiberMap.run(pings, key, ping)), Effect.catchCause(Effect.logWarning), Effect.as(Result.succeed<Sequenced>(event)));
-                        },
-                        Settled: (event) => {
-                            const key = notice(bound, event.key);
-                            return note(bound.handle, Record.remove(event.key)).pipe(Effect.andThen(FiberMap.remove(pings, key)), Effect.andThen(request('cancelling a notification', () => $.ui.cancelNotify(key))), Effect.catchCause(Effect.logWarning), Effect.as(Result.failVoid));
-                        },
-                    }),
+            const round = Effect.fnUntraced(function* (follower: Follower, revision: number) {
+                const { agent } = follower.binding;
+                const idle = !HashSet.has(yield* SubscriptionRef.get(busy), agent);
+                const turned = SubscriptionRef.changes(busy).pipe(
+                    Stream.filter((running) => HashSet.has(running, agent) === idle),
+                    Stream.runHead,
+                    Effect.as(Option.none<typeof Handles.Polled.Type>()),
                 );
-                return yield* settle(follower, { seen: Math.max(held.seen, ...Array.map(fresh, Struct.get('sequence'))), pending: [...held.pending, ...fresh], unacked: held.unacked });
-            });
-            const receive = (follower: Follower) => (events: Array.NonEmptyReadonlyArray<typeof Handles.Event.Type>) => SynchronizedRef.updateEffect(follower.held, (held) => absorb(follower, held, events));
-            const flush = (follower: Follower) => SynchronizedRef.updateEffect(follower.held, (held) => settle(follower, held));
-            const attempt = Effect.fnUntraced(function* (follower: Follower) {
-                const { urls, bound } = follower;
-                const written = yield* Ref.make('');
-                yield* Stream.fromAsyncIterable($.process.spawn({ argv: ['curl', '--silent', '--no-buffer', '--write-out', '%{stderr}%{json}', urls.follow({ params: { handle: bound.handle } })] }), FollowError.of({ _tag: 'Unstarted' }, bound.server)).pipe(
-                    Stream.filterMapEffect((chunk) => (chunk.stream === 'stdout' ? Effect.succeed(Result.succeed(chunk.text)) : Effect.as(Ref.update(written, String.concat(chunk.text)), Result.failVoid))),
-                    Stream.splitLines,
-                    Stream.mapEffect((line) => Schema.decodeEffect(Event)(line)),
-                    Stream.chunks,
-                    Stream.runForEach(receive(follower)),
+                const query = { after: yield* Ref.get(follower.after), rows: revision, idle, wait: Duration.toSeconds(HTTP_FETCH_LIMIT) / 2 };
+                const polled = yield* send('poll', follower.urls.poll({ params: { handle: follower.handle }, query })).pipe(
+                    Effect.tap(({ status }) => Effect.when(SynchronizedRef.update(held, HashMap.remove(follower.binding)), Effect.succeed(status === HttpStatus.fromLiteral('NotFound')))),
+                    Effect.flatMap(Schema.decodeUnknownEffect(Answered)),
+                    Effect.tapError(() => show(follower, [])),
+                    Effect.map(({ text }) => Option.some(text)),
+                    Effect.raceFirst(turned),
                 );
-                const { http_code: status, errormsg } = yield* Effect.flatMap(Ref.get(written), Schema.decodeEffect(Written));
-                return yield* status === HttpStatus.fromLiteral('OK') ? Effect.void : FollowError.of(status === HttpStatus.fromLiteral('NotFound') ? { _tag: 'Gone' } : { _tag: 'Dropped', status }, bound.server)(errormsg ?? undefined);
+                const next = yield* Option.match(polled, { onNone: () => Effect.succeed(revision), onSome: (answer) => take(follower, revision, answer) });
+                return [Array.empty<never>(), Option.some(next)] as const;
             });
             const follow = (follower: Follower) =>
-                Effect.raceFirst(
-                    attempt(follower).pipe(Effect.retry({ while: (error) => Predicate.isTagged(error, 'FollowError') && error.reason._tag === 'Dropped', schedule: Schedule.exponential(MCP_RECONNECT.first).pipe(Schedule.upTo({ duration: MCP_RECONNECT.within })) }), Effect.forever),
-                    SubscriptionRef.changes(busy).pipe(
-                        Stream.map(HashSet.has(follower.agent)),
-                        Stream.changes,
-                        Stream.filter(Boolean.not),
-                        Stream.runForEach(() => flush(follower)),
+                Stream.paginate(0, (revision: number) => round(follower, revision)).pipe(
+                    Stream.runDrain,
+                    Effect.catchCause((cause) => Effect.logWarning('poll ended', cause)),
+                    Effect.annotateLogs({ origin: follower.binding.origin, handle: follower.handle }),
+                );
+            const claim = Effect.fnUntraced(function* (binding: Binding) {
+                const urls = HttpApiClient.urlBuilder(Handles, { baseUrl: binding.origin });
+                const answer = yield* send('bind', urls.bind());
+                const claimed = yield* Effect.result(Schema.decodeUnknownEffect(Claimed)(answer));
+                yield* Effect.when(
+                    Ref.update(residents, (known) => Record.set(known, binding.origin, Result.isSuccess(claimed))),
+                    Effect.succeed(Result.isSuccess(claimed) || answer.status < HttpStatus.fromLiteral('InternalServerError')),
+                );
+                const { text } = yield* Effect.fromResult(claimed);
+                const follower: Follower = { binding, handle: text.handle, urls, after: yield* Ref.make(0) };
+                yield* FiberMap.run(polls, binding, follow(follower));
+                return follower;
+            });
+            const bind = (binding: Binding) =>
+                SynchronizedRef.modifyEffect(held, (known) =>
+                    Option.match(HashMap.get(known, binding), {
+                        onNone: () => claim(binding).pipe(Effect.map((follower) => [follower.handle, HashMap.set(known, binding, follower)] as const)),
+                        onSome: (follower) => Effect.succeed([follower.handle, known] as const),
+                    }),
+                );
+            const resume = (agent: Option.Option<string>) => SynchronizedRef.get(held).pipe(Effect.flatMap((known) => Effect.forEach(HashMap.filter(known, owns(agent)), ([binding, follower]) => FiberMap.run(polls, binding, follow(follower), { onlyIfMissing: true }), { discard: true })));
+            const quit = (owned: (follower: Follower) => boolean) =>
+                SynchronizedRef.getAndUpdate(held, (known) => HashMap.filter(known, (follower) => !owned(follower))).pipe(
+                    Effect.flatMap((known) =>
+                        Effect.forEach(HashMap.filter(known, owned), ([binding, follower]) => FiberMap.remove(polls, binding).pipe(Effect.andThen(show(follower, [])), Effect.andThen(send('release', follower.urls.release({ params: { handle: follower.handle } }))), Effect.catchCause(Effect.logWarning)), {
+                            concurrency: 'unbounded',
+                            discard: true,
+                        }),
                     ),
                 );
-            const bindings: Cache.Cache<Binding, string, Cause.UnknownError | Schema.SchemaError> = yield* Cache.makeWith(
-                Effect.fnUntraced(function* (binding: Binding) {
-                    const urls = HttpApiClient.urlBuilder(Handles, { baseUrl: binding.origin });
-                    const { text: bound } = yield* Effect.flatMap(
-                        request('binding a handle', () => $.http.fetch(urls.bind(), { method: Handles.groups.handles.endpoints.bind.method })),
-                        Schema.decodeUnknownEffect(Claimed),
-                    );
-                    const held = yield* SynchronizedRef.make<Held>({ seen: Number.NEGATIVE_INFINITY, pending: [], unacked: Option.none() });
-                    yield* follow({ agent: binding.agent, urls, bound, held }).pipe(
-                        Effect.ensuring(Effect.orDie(note(bound.handle, Record.empty))),
-                        Effect.catchCause((cause) => Effect.logWarning(`stopped following ${bound.server}`, cause)),
-                        Effect.ensuring(Cache.invalidate(bindings, binding)),
-                        Effect.forkIn(scope),
-                    );
-                    return bound.handle;
-                }),
-                { capacity: Number.POSITIVE_INFINITY, timeToLive: (exit) => (Exit.isSuccess(exit) || Option.exists(Exit.findErrorOption(exit), Predicate.isTagged('SchemaError')) ? Duration.infinity : Duration.zero) },
-            );
-            const lookup = (find: (binding: Binding) => Effect.Effect<Option.Option<string>>) => (tool: string, agent: Option.Option<string>) =>
-                Effect.flatMap(Ref.get(origins), (known) => Option.match(Record.get(known, tool), { onNone: () => Effect.succeedNone, onSome: (origin) => find(new Binding({ origin, agent })) }));
+            const reach = Effect.fnUntraced(function* (tool: string, agent: Option.Option<string>) {
+                const known = yield* Ref.get(residents);
+                const origin = Option.filter(Record.get(yield* Ref.get(origins), tool), (at) => Option.getOrElse(Record.get(known, at), Function.constTrue));
+                return yield* Option.match(origin, { onNone: () => Effect.succeedNone, onSome: (at) => bind(new Binding({ origin: at, agent })).pipe(Effect.option) });
+            });
+            yield* Effect.addFinalizer(() => quit(Function.constTrue));
             return {
-                describe: (tool, given) => Ref.update(origins, (known) => Option.match(Option.filter(given, resident), { onNone: () => Record.remove(known, tool), onSome: (local) => Record.set(known, tool, local) })),
-                handle: lookup((binding) => Effect.option(Cache.get(bindings, binding))),
-                held: lookup((binding) => Cache.getSuccess(bindings, binding)),
-                turn: (agent, running) => SubscriptionRef.update(busy, running ? HashSet.add(agent) : HashSet.remove(agent)),
+                describe: (tool, server) => Ref.update(origins, (known) => server.pipe(Option.flatMap(loopback), Option.match({ onNone: () => Record.remove(known, tool), onSome: (origin) => Record.set(known, tool, origin) }))),
+                resident: Effect.fnUntraced(function* (tool: string, agent: Option.Option<string>) {
+                    yield* reach(tool, agent);
+                    const known = yield* Ref.get(residents);
+                    return Option.exists(Record.get(yield* Ref.get(origins), tool), (at) => Option.getOrElse(Record.get(known, at), Function.constFalse));
+                }),
+                handle: (tool, agent) => resume(agent).pipe(Effect.andThen(reach(tool, agent))),
+                turn: (agent, running) => SubscriptionRef.update(busy, running ? HashSet.add(agent) : HashSet.remove(agent)).pipe(Effect.andThen(Effect.when(resume(agent), Effect.succeed(running))), Effect.asVoid),
+                report: (agent) => Option.some(agent).pipe(owns, quit),
             };
         }),
     ).pipe(Layer.provideMerge(Logger.layer([Logger.map(Logger.formatSimple, (line) => $.ui.log(line, { to: 'debug' }))])));
@@ -247,28 +208,41 @@ function register(on: On) {
             .runPromise(Link.use((linked) => linked.turn(Option.fromUndefinedOr(e.agentId), false)))
             .then(() => next(e)),
     );
+    on('agent.report', ($, e, next) =>
+        current($, live)
+            .runPromise(Link.use((linked) => linked.report(e.agentId)))
+            .then(() => next(e)),
+    );
     on('tool.describe', ($, e, next) =>
         current($, live)
-            .runPromise(Link.use((linked) => linked.describe(e.tool, Option.fromUndefinedOr(e.mcpServer?.origin))))
+            .runPromise(Link.use((linked) => linked.describe(e.tool, Option.fromUndefinedOr(e.mcpServer))))
             .then(() => next(e)),
     );
     on('tool.check', ($, e, next) =>
-        current($, live)
-            .runPromise(Link.use((linked) => linked.held(e.tool, Option.fromUndefinedOr(e.agentId))))
-            .then(Option.match({ onNone: () => next(e), onSome: () => ({ decision: 'allow' as const }) })),
+        next(e).then((verdict) =>
+            (verdict.decision === 'deny' && verdict.rule !== undefined) || verdict.ceiling === 'deny'
+                ? verdict
+                : current($, live)
+                      .runPromise(
+                          Link.use((linked) => linked.resident(e.tool, Option.fromUndefinedOr(e.agentId))),
+                          { signal: next.signal },
+                      )
+                      .then((resident) => (resident ? { decision: 'allow' as const } : verdict)),
+        ),
     );
     on('tool.call', ($, e, next) =>
-        Predicate.hasProperty(e, 'handle')
-            ? next(e)
-            : current($, live)
-                  .runPromise(Link.use((linked) => linked.handle(e.tool, Option.fromUndefinedOr(e.agentId))).pipe(Effect.timeoutOption(Duration.millis(next.budget.remainingMs)), Effect.map(Option.flatten)), { signal: next.signal })
-                  .then(Option.match({ onNone: () => next(e), onSome: (handle) => next({ ...e, handle }) })),
+        current($, live)
+            .runPromise(
+                Link.use((linked) => linked.handle(e.tool, Option.fromUndefinedOr(e.agentId))),
+                { signal: next.signal },
+            )
+            .then(Option.match({ onNone: () => next(e), onSome: (handle) => next({ ...e, handle }) })),
     );
     on('ui.render', { component: 'AbovePrompt' }, ($, e, next) =>
-        read($, atom({ plugin: 'risman', key: 'waiting' } as const, {})).then((held) => {
-            const rows = Record.values(held).flatMap(Record.values);
-            const { Box, Text } = $.ui.resolve(e);
-            return e.props.hasSurvey || !Array.isReadonlyArrayNonEmpty(rows) ? next(e) : Box({ flexDirection: 'column', children: rows.map((shown) => Text({ wrap: 'truncate-end', children: shown })) });
+        read($, ROWS).then((held) => {
+            const rows = Record.values(held).flatMap(Record.toEntries);
+            const { Box, Button } = $.ui.resolve(e);
+            return e.props.hasSurvey || !Array.isReadonlyArrayNonEmpty(rows) ? next(e) : Box({ flexDirection: 'column', children: rows.map(([press, text]) => Button({ key: press, label: text, onPress: () => $.http.fetch(press, { method: endpoints.press.method }) })) });
         }),
     );
 }

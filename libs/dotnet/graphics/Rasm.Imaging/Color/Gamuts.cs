@@ -11,7 +11,7 @@ namespace Rasm.Imaging.Color;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [ObjectFactory<string>(UseForSerialization = SerializationFrameworks.SystemTextJson)]
-[ValidationError<ImagingFault>]
+[ValidationError<Fault<ImagingReason>>]
 public sealed partial record Gamut : IConvertible<string> {
     private const string PrimariesForm = "primaries";
     private static readonly WhitePoint D65 = Illuminant.D65.GetWhitePoint(Observer.Degree2);
@@ -80,11 +80,11 @@ public sealed partial record Gamut : IConvertible<string> {
             : toSeq(value.Split(':')) switch {
                 var parts => parts.Tail.Traverse(Coordinate).As().Bind(xy => (parts[0], xy.Count) switch {
                     (PrimariesForm, 8) => Of(new Chromaticity(xy[0], xy[1]), new Chromaticity(xy[2], xy[3]), new Chromaticity(xy[4], xy[5]), new WhitePoint(xy[6], xy[7])),
-                    _ => ImagingFault.Of(ImagingReason.UnknownFormat, value),
+                    _ => Fault.Of(ImagingReason.UnknownFormat, value),
                 }),
             };
 
-    public static ImagingFault? Validate(string? value, IFormatProvider? provider, out Gamut? item) => TextValidation.Parsed(value, Read, out item);
+    public static Fault<ImagingReason>? Validate(string? value, IFormatProvider? provider, out Gamut? item) => TextValidation.Parsed(value, Read, out item);
 
     public Matrix4x4 MatrixTo(Gamut target) => Columns(Configuration, ColourSpace.RgbLinear, target.Configuration, ColourSpace.RgbLinear);
 
@@ -97,12 +97,12 @@ public sealed partial record Gamut : IConvertible<string> {
 
     public Fin<Wacton.Unicolour.Temperature> Temperature(Vector3 rgb) =>
         new Unicolour(Configuration, ColourSpace.RgbLinear, rgb.X, rgb.Y, rgb.Z).Temperature switch {
-            var correlated => ImagingFault.Unless(Vector3.Dot(Luminance, rgb) > 0f && correlated.IsValid, ImagingReason.Range, (rgb, correlated)).Map(_ => correlated),
+            var correlated => Fault.Unless(Vector3.Dot(Luminance, rgb) > 0f && correlated.IsValid, ImagingReason.Range, (rgb, correlated)).Map(_ => correlated),
         };
 
     public Fin<Wacton.Unicolour.Temperature> Temperature(PixelFrame frame, Option<Rectangle> region = default) =>
         region.IfNone(frame.Window) switch {
-            var window => frame.Mean(window).ToFin(ImagingFault.Of(ImagingReason.Empty, window)).Bind(mean => Temperature(mean.AsVector3())),
+            var window => frame.Mean(window).ToFin(Fault.Of(ImagingReason.Empty, window)).Bind(mean => Temperature(mean.AsVector3())),
         };
 
     public Gamut Inset(Vector3 inset, Vector3 rotation) {
@@ -124,7 +124,7 @@ public sealed partial record Gamut : IConvertible<string> {
 
     public static Fin<Gamut> Of(Chromaticity red, Chromaticity green, Chromaticity blue, WhitePoint white) =>
         new Gamut(new RgbConfiguration(red, green, blue, white, identity, identity)) switch {
-            var stated => ImagingFault.Unless(float.IsNormal(stated.ToXyz.GetDeterminant()), ImagingReason.Degenerate, (red, green, blue, white))
+            var stated => Fault.Unless(float.IsNormal(stated.ToXyz.GetDeterminant()), ImagingReason.Degenerate, (red, green, blue, white))
                 .Map(_ => Known.Find(stated.Equals).IfNone(stated)),
         };
 
@@ -141,13 +141,13 @@ public sealed partial record Gamut : IConvertible<string> {
     private static Gamut Primaries(Chromaticity red, Chromaticity green, Chromaticity blue, string name, string key) => new(new RgbConfiguration(red, green, blue, D65, identity, identity, name)) { Key = key };
 
     private static Fin<double> Coordinate(string text) =>
-        double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double coordinate) ? coordinate : ImagingFault.Of(ImagingReason.Malformed, text);
+        double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double coordinate) ? coordinate : Fault.Of(ImagingReason.Malformed, text);
 
     private static Vector2 Point(Chromaticity chromaticity) => new((float)chromaticity.X, (float)chromaticity.Y);
 }
 
 [ComplexValueObject]
-[ValidationError<ImagingFault>]
+[ValidationError<Fault<ImagingReason>>]
 public sealed partial class GamutCompression : IFixedFunction {
     public static GamutCompression Reference { get; } = new(new Vector3(0.815f, 0.803f, 0.880f), new Vector3(1.147f, 1.264f, 1.312f), 1.2f);
 
@@ -173,12 +173,12 @@ public sealed partial class GamutCompression : IFixedFunction {
         }
     }
 
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref Vector3 threshold, ref Vector3 limit, ref float power) =>
+    static partial void ValidateFactoryArguments(ref Fault<ImagingReason>? validationError, ref Vector3 threshold, ref Vector3 limit, ref float power) =>
         validationError =
             Vector3.AllWhereAllBitsSet(Vector3.GreaterThanOrEqual(threshold, Vector3.Zero) & Vector3.LessThan(threshold, Vector3.One) & Vector3.GreaterThan(limit, Vector3.One) & Vector3.IsFinite(limit))
             && float.IsFinite(power) && power > 0f
                 ? null
-                : ImagingFault.Of(ImagingReason.Range, (threshold, limit, power));
+                : Fault.Of(ImagingReason.Range, (threshold, limit, power));
 
     private static Vector3 Raised(Vector3 value, float power) => new(float.Pow(value.X, power), float.Pow(value.Y, power), float.Pow(value.Z, power));
 }

@@ -138,7 +138,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 case bpy.types.Library() as library:
                     return spawned((bpy.app.binary_path, bpy.path.abspath(library.filepath)), detached=True).map(lambda _: Done())
                 case None:
-                    return Error(Fault.of(Reason.ABSENT, repr(block), member="library"))
+                    return Error(Fault.of(Reason.ABSENT, block, member="library"))
 
         return _active(call.context).bind(opened)
 
@@ -170,7 +170,7 @@ def file_audit() -> Outcome[None]:
 
     def absent(owner: object, key: str) -> Outcome[None]:
         """Returns absent fault naming owner and key."""
-        return Error(Fault.of(Reason.ABSENT, repr(owner), member=key))
+        return Error(Fault.of(Reason.ABSENT, owner, member=key))
 
     lost: list[Outcome[None]] = []
 

@@ -12,14 +12,14 @@ namespace Rasm.Rhino.Document.Tables;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [ValueObject<string>(SkipIParsable = true)]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StateName {
-    public static Fin<StateName> Validated(string value) => TryCreate(value, out StateName? name, out RhinoFault? fault) ? name : fault;
+    public static Fin<StateName> Validated(string value) => TryCreate(value, out StateName? name, out Fault<RhinoReason>? fault) ? name : fault;
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
-        validationError = value.Length > 0 ? null : new RhinoFault(value, RhinoReason.Invalid);
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref string value) =>
+        validationError = value.Length > 0 ? null : Fault.Of(RhinoReason.Invalid, value);
 }
 
 public sealed record NamedWrite(IO<Unit> Revert, IO<Unit> Release) {
@@ -148,7 +148,7 @@ public abstract partial record NamedChange {
             rename: static (held, rename) =>
                 from found in rename.Entry.Table.Present(held, rename.Entry.Name)
                 from accepted in rename.Entry.Table.Accepted(rename.Name)
-                from free in RhinoFault.Unless(rename.Entry.Table.Find(held, rename.Name).ForAll(taken => taken == found), RhinoReason.Taken, (string)rename.Name)
+                from free in Fault.Unless(rename.Entry.Table.Find(held, rename.Name).ForAll(taken => taken == found), RhinoReason.Taken, (string)rename.Name)
                 select held.Map(entry => entry == found ? entry with { Name = rename.Name } : entry),
             delete: static (held, delete) => delete.Entry.Table.Present(held, delete.Entry.Name).Map(found => held.Filter(entry => entry != found)),
             xform: static (held, xform) =>
@@ -234,11 +234,11 @@ public sealed class NamedTable(string name, IEqualityComparer<string> comparer) 
     internal Fin<Unit> Accepted(StateName entry) =>
         Accepts.Map(accepts => accepts(entry)).IfNone(unit);
 
-    internal Fin<T> Supported<T>(Option<T> operation, [CallerArgumentExpression(nameof(operation))] string call = "") =>
-        operation.ToFin(new RhinoFault((Table: this, Operation: call), RhinoReason.Unsupported));
+    internal Fin<T> Supported<T>(Option<T> operation, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
+        operation.ToFin(Fault.Of(RhinoReason.Unsupported, (this, member, line)));
 
-    internal RhinoFault Missing(string entry) =>
-        new((Table: this, Entry: entry), RhinoReason.Missing);
+    internal Fault<RhinoReason> Missing(string entry) =>
+        Fault.Of(RhinoReason.Missing, (this, entry));
 
     public static IO<Seq<NamedEntry>> Read(RhinoDoc doc, Seq<NamedTable> tables) =>
         tables.TraverseM(table => table.Entries(doc)).As().Map(static entries => entries.Flatten());
@@ -285,6 +285,6 @@ public sealed class NamedTable(string name, IEqualityComparer<string> comparer) 
             select new NamedWrite(NamedWrite.Reverted(written), NamedWrite.Released(written)));
 
     public static Fin<double> Dilation(Transform xform) =>
-        RhinoFault.Unless(xform.DecomposeSimilarity(out _, out double dilation, out _, RhinoMath.SqrtEpsilon) is not TransformSimilarityType.NotSimilarity, RhinoReason.Invalid, xform)
+        Fault.Unless(xform.DecomposeSimilarity(out _, out double dilation, out _, RhinoMath.SqrtEpsilon) is not TransformSimilarityType.NotSimilarity, RhinoReason.Invalid, xform)
             .Map(_ => Math.Abs(dilation));
 }

@@ -145,7 +145,7 @@ public static class Subscriptions {
             from watcher in use(() => new FileSystemWatcher(directory.FullName) { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size, IncludeSubdirectories = subdirectories })
                 | @catch(
                     static error => error.HasException<ArgumentException>() || error.HasException<FileNotFoundException>(),
-                    error => IO.fail<FileSystemWatcher>(new RhinoFault(directory.FullName, RhinoReason.Missing, Inner: error)))
+                    error => IO.fail<FileSystemWatcher>(Fault.Of(RhinoReason.Missing, directory.FullName, inner: error)))
             from changed in Seq(
                     On<FileSystemEventHandler, FileSystemEventArgs>(h => watcher.Changed += h, h => watcher.Changed -= h, static handler => handler.Invoke),
                     On<FileSystemEventHandler, FileSystemEventArgs>(h => watcher.Created += h, h => watcher.Created -= h, static handler => handler.Invoke),
@@ -171,7 +171,7 @@ public static class NamedCallbacks {
     private static extern ref Dictionary<string, EventHandler<NamedParametersEventArgs>> Handlers([UnsafeAccessorType("Rhino.Runtime.HostUtils, RhinoCommon")] object? owner);
 
     public static IO<Unit> Register(string name, Func<NamedParametersEventArgs, IO<Unit>> reply) =>
-        IO.lift(() => RhinoFault.Unless(!Handlers(owner: null).ContainsKey(name), RhinoReason.Taken, name))
+        IO.lift(() => Fault.Unless(!Handlers(owner: null).ContainsKey(name), RhinoReason.Taken, name))
         >> Subscriptions.Inline<NamedParametersEventArgs>(handler => HostUtils.RegisterNamedCallback(name, handler), _ => HostUtils.RemoveNamedCallback(name))
             .Attach(args => reply(args) >> IO.lift(() => args.Set(HandledEntry, value: true)));
 

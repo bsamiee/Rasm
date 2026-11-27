@@ -69,7 +69,7 @@ class RenderSource(msgspec.Struct, frozen=True, kw_only=True):
         try:
             return Ok(Some(msgspec.convert({"focal_length": camera[0] / 1000.0, "f_number": camera[1]}, Optics)))
         except msgspec.ValidationError as error:
-            return Error(Fault.of(Reason.OUTSIDE, f"{type(self).__name__}.camera", error, member=Optics.__name__))
+            return Error(Fault.of(Reason.OUTSIDE, f"{type(self).__name__}.camera", error, member=Optics))
 
 
 class CompletedRender(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -97,13 +97,13 @@ class CompletedRender(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             space=space,
             raw=raw,
             number=number,
-            encoding=space.to_result_with(partial(Fault.of, Reason.ABSENT, str(file.path), member="encoding colorspace")).bind(lambda name: encodings[name]),
-            source_encoding=raw.to_result_with(partial(Fault.of, Reason.ABSENT, str(file.path), member="raw render source")).bind(lambda source: encodings[source.space]),
+            encoding=space.to_result_with(partial(Fault.of, Reason.ABSENT, file.path, member="encoding colorspace")).bind(lambda name: encodings[name]),
+            source_encoding=raw.to_result_with(partial(Fault.of, Reason.ABSENT, file.path, member="raw render source")).bind(lambda source: encodings[source.space]),
         )
 
     def read(self, *, view: Option[str] = NOTHING) -> Outcome[ImageFile]:
         """Reads final pixels in their captured encoding."""
-        return self.space.to_result_with(partial(Fault.of, Reason.ABSENT, str(self.file.path), member="encoding colorspace")).bind(
+        return self.space.to_result_with(partial(Fault.of, Reason.ABSENT, self.file.path, member="encoding colorspace")).bind(
             lambda space: _combined_part(self.file, self.config, partial(_selected_output, preferred=self.raw.bind(lambda raw: option.of_optional(raw.layer))), view).map(
                 lambda file: msgspec.structs.replace(file, colorspace=space)
             )
@@ -111,9 +111,7 @@ class CompletedRender(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def source(self, *, layer: Option[str] = NOTHING, view: Option[str] = NOTHING) -> Outcome[ImageFile]:
         """Reads pre-effects pixels using captured native source selection."""
-        return self.raw.to_result_with(partial(Fault.of, Reason.ABSENT, str(self.file.path), member="raw render source")).bind(
-            lambda raw: source_image(self.file, self.config, raw, layer=layer, view=view)
-        )
+        return self.raw.to_result_with(partial(Fault.of, Reason.ABSENT, self.file.path, member="raw render source")).bind(lambda raw: source_image(self.file, self.config, raw, layer=layer, view=view))
 
 
 class _Frame(msgspec.Struct, frozen=True, kw_only=True):
@@ -147,7 +145,7 @@ class _Frame(msgspec.Struct, frozen=True, kw_only=True):
             raw=Some(RenderSource(space=self.source_space, layer=layer.to_optional(), view=self.view, camera=self.camera)) if raw else NOTHING,
             view=formation,
             number=self.number,
-            encoding=space.to_result_with(partial(Fault.of, Reason.ABSENT, str(file.path), member="encoding colorspace")).bind(lambda name: self.encodings[name]),
+            encoding=space.to_result_with(partial(Fault.of, Reason.ABSENT, file.path, member="encoding colorspace")).bind(lambda name: self.encodings[name]),
             source_encoding=self.encodings[self.source_space],
             codes=codes,
         )
@@ -199,12 +197,12 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
                 selection.callback(setattr, image.render_slots, "active", prior)
                 return (
                     assign(image.render_slots, "active", slot)
-                    .map_error(partial(Fault.of, Refusal.REFUSED, repr(image.render_slots)))
-                    .bind(lambda _: committed(path, lambda stage: catch(image.save_render, exception=RuntimeError)(str(stage), scene=scene).map_error(partial(Fault.of, Refusal.REFUSED, repr(image)))))
+                    .map_error(partial(Fault.of, Refusal.REFUSED, image.render_slots))
+                    .bind(lambda _: committed(path, lambda stage: catch(image.save_render, exception=RuntimeError)(str(stage), scene=scene).map_error(partial(Fault.of, Refusal.REFUSED, image))))
                     .map(lambda _: path)
                 )
 
-        return self.target.to_result_with(partial(Fault.of, Refusal.REQUIRED, repr(scene), member="pre-operator render target slot")).bind(selected)
+        return self.target.to_result_with(partial(Fault.of, Reason.UNMET, scene, member="pre-operator render target slot")).bind(selected)
 
     def saved(self, scene: bpy.types.Scene, path: Path) -> Outcome[Path]:
         """Retains a borrowed native slot or one authoritative multilayer scene receipt."""
@@ -212,12 +210,12 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
         def copied(files: tuple[Written, ...]) -> Outcome[Path]:
             match tuple(file for file in files if file.output is Output.PREVIEW and file.format.layered):
                 case (file,):
-                    return catch(copyfile, exception=OSError)(file.path, path).map(lambda _: path).map_error(partial(Fault.of, Reason.FAILED, str(path)))
+                    return catch(copyfile, exception=OSError)(file.path, path).map(lambda _: path).map_error(partial(Fault.of, Reason.FAILED, path))
                 case found:
-                    return Error(Fault.of(Refusal.REQUIRED, repr(scene), tuple(file.path for file in found), member="one native multilayer render receipt"))
+                    return Error(Fault.of(Reason.UNMET, scene, tuple(file.path for file in found), member="one native multilayer render receipt"))
 
         if self.target.is_none():
-            return self.written.to_result_with(partial(Fault.of, Refusal.REQUIRED, repr(scene), member="pre-operator target or native written receipt")).bind(lambda produced: produced[0].bind(copied))
+            return self.written.to_result_with(partial(Fault.of, Reason.UNMET, scene, member="pre-operator target or native written receipt")).bind(lambda produced: produced[0].bind(copied))
         with OutputFormat(
             media_type="MULTI_LAYER_IMAGE", file_format="OPEN_EXR_MULTILAYER", color_depth="32", exr_codec="ZIP", use_exr_interleave=False, views_format="MULTIVIEW", color_management="FOLLOW_SCENE"
         ).held(scene.render.image_settings) as formatted:
@@ -235,7 +233,7 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
                 case (file,):
                     return read_codes(Path(file.path))
                 case found:
-                    return Error(Fault.of(Refusal.REQUIRED, repr(scene), tuple(file.view for file in found), member="one native camera-view code receipt"))
+                    return Error(Fault.of(Reason.UNMET, scene, tuple(file.view for file in found), member="one native camera-view code receipt"))
 
         def preview(capture: tuple[Snapshot, str]) -> Outcome[Option[npt.NDArray[np.uint8 | np.uint16]]]:
             settings, suffix = capture
@@ -402,7 +400,7 @@ def _origins(identity: Identity) -> Generator[_RenderOrigins]:
         if scene.session_uid in intermediates or (job := service.pending.get(scene.session_uid)) is None or not (captures := tuple(service.consumers)):
             return Ok(None)
         if not (current_thread() is main_thread() or root_in(bpy.types.WindowManager, bpy.context).filter(lambda manager: manager.is_interface_locked).is_some()):
-            service.pending[scene.session_uid] = msgspec.structs.replace(job, frame=Error(Fault.of(Refusal.REQUIRED, repr(scene), member="native interface lock for automatic render capture")))
+            service.pending[scene.session_uid] = msgspec.structs.replace(job, frame=Error(Fault.of(Reason.UNMET, scene, member="native interface lock for automatic render capture")))
             return Ok(None)
         config = deepcopy(PyOpenColorIO.GetCurrentConfig())
         linear = config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName()
@@ -443,7 +441,7 @@ def _origins(identity: Identity) -> Generator[_RenderOrigins]:
                 .filter(lambda held: held in {Depth.UINT8, Depth.UINT16})
                 .map(
                     lambda _: (
-                        Error(Fault.of(Refusal.REQUIRED, repr(scene), member="explicit individual camera-view preview receipt"))
+                        Error(Fault.of(Reason.UNMET, scene, member="explicit individual camera-view preview receipt"))
                         if render.use_multiview and settings.views_format == "INDIVIDUAL"
                         else Snapshot.capture(
                             scene,
@@ -529,7 +527,7 @@ def intermediate(identity: Identity, scene: bpy.types.Scene) -> Generator[None]:
 
 def built(kind: ResultKind) -> Outcome[bpy.types.Image]:
     """Returns Render Result or shared compositor Viewer image, or absent fault before Blender creates it."""
-    return next((Some(image) for image in bpy.data.images if image.type == kind), NOTHING).to_result_with(partial(Fault.of, Reason.ABSENT, type(bpy.data.images).__name__, member=kind))
+    return next((Some(image) for image in bpy.data.images if image.type == kind), NOTHING).to_result_with(partial(Fault.of, Reason.ABSENT, type(bpy.data.images), member=kind))
 
 
 def animation_files(scene: bpy.types.Scene) -> Outcome[tuple[Written, ...]]:
@@ -540,7 +538,7 @@ def animation_files(scene: bpy.types.Scene) -> Outcome[tuple[Written, ...]]:
     return accumulated(
         catch(render.frame_path, exception=RuntimeError)(frame=scene.frame_current, view=view.default_value(""))
         .map(lambda path: (Path(path), view))
-        .map_error(partial(Fault.of, Refusal.REFUSED, repr(render)))
+        .map_error(partial(Fault.of, Refusal.REFUSED, render))
         for view in views
     ).map(lambda paths: Written.scene(scene, paths))
 
@@ -559,7 +557,7 @@ def source_image(file: Multilayer, config: PyOpenColorIO.Config, raw: RenderSour
     return (
         layer
         .or_else_with(lambda: option.of_optional(raw.layer))
-        .to_result_with(partial(Fault.of, Refusal.REQUIRED, str(file.path), member="raw render view layer"))
+        .to_result_with(partial(Fault.of, Reason.UNMET, file.path, member="raw render view layer"))
         .bind(lambda name: _combined_part(file, config, lambda _: Some(name), view))
         .map(lambda image: msgspec.structs.replace(image, colorspace=raw.space))
     )
@@ -607,9 +605,9 @@ def _combined_part(file: Multilayer, config: PyOpenColorIO.Config, selection: Ca
             case (first, *rest):
                 return Error(Fault.of(Refusal.REQUIRED, f"camera view for {owner}.{COMBINED} in {file.path}", tuple(views[found.part] for found in (first, *rest))))
             case _:
-                return Error(Fault.of(Reason.ABSENT, str(file.path), member=f"{owner}.{COMBINED}" + view.map(lambda name: f" ({name})").default_value("")))
+                return Error(Fault.of(Reason.ABSENT, file.path, member=f"{owner}.{COMBINED}" + view.map(lambda name: f" ({name})").default_value("")))
 
-    return selection(owners).to_result_with(partial(Fault.of, Reason.ABSENT, str(file.path), member=COMBINED)).bind(selected)
+    return selection(owners).to_result_with(partial(Fault.of, Reason.ABSENT, file.path, member=COMBINED)).bind(selected)
 
 
 # --- [FINISHING]

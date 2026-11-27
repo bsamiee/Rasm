@@ -6,23 +6,23 @@ namespace Rasm.Rhino.Modeling.Curves;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [ComplexValueObject]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class AscendingParameters {
     public Seq<double> Values { get; }
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref Seq<double> values) =>
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref Seq<double> values) =>
         validationError = values.Count >= 2 && values.Zip(values.Tail).ForAll(static pair => pair.First < pair.Second)
             ? null
-            : new RhinoFault(values, RhinoReason.Outside);
+            : Fault.Of(RhinoReason.Outside, values);
 }
 
 [SmartEnum]
 public sealed partial class CurveMeasure {
     public static readonly CurveMeasure Parameter = new(static (curve, t) => Conversions.Within(curve.Domain, t));
-    public static readonly CurveMeasure Length = new(static (curve, length) => RhinoFault.Unless(curve.LengthParameter(length, out double t), RhinoReason.Outside, length).Map(_ => t));
-    public static readonly CurveMeasure NormalizedLength = new(static (curve, length) => RhinoFault.Unless(curve.NormalizedLengthParameter(length, out double t), RhinoReason.Outside, length).Map(_ => t));
+    public static readonly CurveMeasure Length = new(static (curve, length) => Fault.Unless(curve.LengthParameter(length, out double t), RhinoReason.Outside, length).Map(_ => t));
+    public static readonly CurveMeasure NormalizedLength = new(static (curve, length) => Fault.Unless(curve.NormalizedLengthParameter(length, out double t), RhinoReason.Outside, length).Map(_ => t));
     public static readonly CurveMeasure NurbsForm = new(static (curve, parameter) =>
-        RhinoFault.Unless(curve.GetCurveParameterFromNurbsFormParameter(parameter, out double t), RhinoReason.Outside, parameter).Map(_ => t));
+        Fault.Unless(curve.GetCurveParameterFromNurbsFormParameter(parameter, out double t), RhinoReason.Outside, parameter).Map(_ => t));
 
     [UseDelegateFromConstructor]
     internal partial Fin<double> Resolve(Curve curve, double value);
@@ -72,7 +72,7 @@ public static class CurveEvaluation {
     public static Fin<double> LengthAt(Curve curve, CurveAddress at) =>
         from t in Resolve(curve, at)
         let length = curve.GetLength(new Interval(curve.Domain.T0, t))
-        from measured in RhinoFault.Unless(length > 0d || t == curve.Domain.T0, RhinoReason.Declined, t).Map(_ => length)
+        from measured in Fault.Unless(length > 0d || t == curve.Domain.T0, RhinoReason.Declined, t).Map(_ => length)
         select measured;
 
     // --- [SCANS]
@@ -97,7 +97,7 @@ public static class CurveEvaluation {
     // --- [DEVIATION]
 
     public static Fin<(CurveDeviation Maximum, CurveDeviation Minimum)> Deviation(Tolerances tolerances, Curve curveA, Curve curveB) =>
-        RhinoFault.Unless(
+        Fault.Unless(
                 Curve.GetDistancesBetweenCurves(curveA, curveB, tolerances.Absolute, out double maximum, out double maximumA, out double maximumB, out double minimum, out double minimumA, out double minimumB),
                 RhinoReason.Declined, tolerances.Absolute)
             .Map(_ => (

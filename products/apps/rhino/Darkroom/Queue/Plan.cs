@@ -117,13 +117,13 @@ internal sealed record QueuePlan {
     // --- [PLANS]
 
     public static Fin<QueuePlan> Of(OutputBook book, Option<string> saved, RenderSettings settings, Seq<QueuedEntry> entries) =>
-        from location in (book.Folder.Of(saved), book.Stem.Of(saved), toSeq(book.Targets).Traverse(static target => target.Encodable).As())
+        from location in (book.Folder.Of(saved), book.Stem.Of(saved), toSeq(book.Targets).Traverse(static target => Fault.Unless(target.FileFormat.Depths.Exists(depth => depth == target.ColorDepth), DarkroomReason.Invalid, (target.FileFormat.Key, target.ColorDepth.Key))).As())
             .Apply(static (folder, stem, _) => (Folder: folder, Stem: stem)).As()
         from planned in entries.Map(static (entry, index) => (Entry: entry, Index: index)).Traverse(held =>
                 (held.Entry.View.Traverse(NamePart.Validated).As(), FrameSpan.Of(held.Entry.Sun))
                     .Apply((scope, frames) => new QueueEntry<Unit>(held.Entry, settings, location.Folder, location.Stem, book.Overwrite, frames, book.Names(scope.ToSeq())))
                     .As()
-                    .MapFail(error => new DarkroomFault(held.Entry.Label, DarkroomReason.Invalid, held.Index, error)))
+                    .MapFail(error => Fault.Of(DarkroomReason.Invalid, held.Entry.Label, held.Index, error)))
             .As()
         from unique in Conversions.Unique(planned, static entry => entry.Key)
         select new QueuePlan(book, unique);
@@ -180,12 +180,12 @@ internal sealed record QueueSettings(int Retries, Duration Delay, bool SampleEst
          Preferences.Setting(node, "FlamencoWorkerTag").Read)
             .Apply(static (manager, platform, priority, scripts, tag) => (
                     Located(manager),
-                    WorkerPlatform.TryGet(platform, out WorkerPlatform? worker) ? Fin.Succ(worker) : new DarkroomFault(platform, DarkroomReason.Invalid),
-                    tag.Traverse(static text => Guid.TryParse(text, out Guid id) ? Fin.Succ(id) : new DarkroomFault(text, DarkroomReason.Invalid)).As())
+                    WorkerPlatform.TryGet(platform, out WorkerPlatform? worker) ? Fin.Succ(worker) : Fault.Of(DarkroomReason.Invalid, platform),
+                    tag.Traverse(static text => Guid.TryParse(text, out Guid id) ? Fin.Succ(id) : Fault.Of(DarkroomReason.Invalid, text)).As())
                 .Apply((located, worker, workerTag) => new FlamencoSettings(located, worker, priority, scripts, workerTag))
                 .As())
             .As()
             .Bind(IO.lift);
 
-    private static Fin<Uri> Located(string text) => Uri.TryCreate(text, UriKind.Absolute, out Uri? uri) ? uri : new DarkroomFault(text, DarkroomReason.Invalid);
+    private static Fin<Uri> Located(string text) => Uri.TryCreate(text, UriKind.Absolute, out Uri? uri) ? uri : Fault.Of(DarkroomReason.Invalid, text);
 }

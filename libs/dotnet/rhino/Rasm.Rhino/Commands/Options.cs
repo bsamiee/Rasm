@@ -80,13 +80,13 @@ public static class OptionType {
 
     // --- [REGISTRATION]
 
-    internal static Fin<int> Indexed(int index, [CallerArgumentExpression(nameof(index))] string call = "") =>
-        RhinoFault.Unless(index > 0, RhinoReason.Declined, index, names: call).Map(_ => index);
+    internal static Fin<int> Indexed(int index) =>
+        Fault.Unless(index > 0, RhinoReason.Declined, index).Map(_ => index);
 
     private static IO<AddedOption<TValue>> Held<THolder, TValue>(
-        Func<THolder> create, Func<THolder, int> add, Func<THolder, Fin<TValue>> current, [CallerArgumentExpression(nameof(add))] string call = "") where THolder : class, IDisposable =>
+        Func<THolder> create, Func<THolder, int> add, Func<THolder, Fin<TValue>> current) where THolder : class, IDisposable =>
         from holder in use(create)
-        from index in IO.lift(Indexed(add(holder), call))
+        from index in IO.lift(Indexed(add(holder)))
         select new AddedOption<TValue>(index, _ => IO.lift(() => current(holder)));
 }
 

@@ -141,7 +141,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
                         )
                         .map(PyOpenColorIO.AllocationTransform.getVars)
                         .map(lambda bounds: (bounds[0] - math.log2(GRAY), bounds[1] - math.log2(GRAY)))
-                        .to_result_with(partial(Fault.of, Reason.ABSENT, PyOpenColorIO.ROLE_COMPOSITING_LOG, member=PyOpenColorIO.AllocationTransform.__name__)),
+                        .to_result_with(partial(Fault.of, Reason.ABSENT, PyOpenColorIO.ROLE_COMPOSITING_LOG, member=PyOpenColorIO.AllocationTransform)),
                         accumulated(encoding(identity, scene, config).map(lambda found: found[1]) for scene, _, _ in active),
                     ).bind(
                         lambda parts: accumulated(requested(scene, entries, sizes, parts[0], guide) for (scene, entries, sizes), guide in zip(active, parts[1])).map(

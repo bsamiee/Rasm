@@ -147,7 +147,7 @@ internal sealed class PlugInBody {
     private Unit Commands() =>
         Session.Run(Products.Each(definition.Commands.Map((row, index) =>
             from command in IO.lift(row.Realized)
-            from registered in IO.lift(RhinoFault.Unless(register(command), RhinoReason.Declined, row.EnglishName, index))
+            from registered in IO.lift(Fault.Unless(register(command), RhinoReason.Declined, row.EnglishName, index))
             from history in when(row.History.Exists(static history => history.ReplayOnAttributeChange), IO.lift(() => {
                 command.HistoryReplayOnObjectAttributeChange = true;
             })).As()
@@ -180,7 +180,7 @@ internal static class FileFormats {
     private static FileTypeList AddFileTypes<TOptions>(IterableNE<FileFormat<TOptions>> formats) where TOptions : class =>
         Session.Run(
             from list in IO.lift(static () => new FileTypeList())
-            from added in Products.Each(toSeq(formats).Map((format, index) => IO.lift(() => RhinoFault.Unless(
+            from added in Products.Each(toSeq(formats).Map((format, index) => IO.lift(() => Fault.Unless(
                 list.AddFileType(LocalText.Of(format.Description).Local, format.Extensions.Map(static extension => (string)extension), format.Options.IsSome) >= 0,
                 RhinoReason.Declined,
                 format.Description,
@@ -204,7 +204,7 @@ internal static class FileFormats {
                      string.Equals(LocalText.Of(format.Description).Local, description, StringComparison.Ordinal)
                      && format.Extensions.Any(candidate => candidate == wanted))
                  .Bind(static format => format.Options)
-                 .ToFin(new RhinoFault((description, extension), RhinoReason.Missing))))
+                 .ToFin(Fault.Of(RhinoReason.Missing, (description, extension)))))
              from shown in Documents.With(new DocumentSource.Active(), document => Showing.ShowSemiModal(dialog, document))
              select unit)
                 | @catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit)));

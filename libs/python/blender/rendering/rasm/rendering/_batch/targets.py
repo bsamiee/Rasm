@@ -22,7 +22,7 @@ from scipy.cluster.hierarchy import DisjointSet
 from tenacity import retry_if_result, RetryCallState, Retrying, stop_after_attempt, stop_before_delay, wait_exponential_jitter
 from typing_extensions import TypeForm
 
-from rasm.records import accumulated, Case, committed, Fault, files_copied, Outcome, paired, Reason, RecordFile
+from rasm.records import accumulated, Case, committed, Fault, files_copied, Outcome, paired, Reason, RecordFile, shown
 from rasm.rendering._batch.queue import PackedFile, RENDER_QUEUE_DECODER, RenderFrames, RenderQueue
 from rasm.rendering._batch.supervision import argument, HostCommands, LocalMachine, Program, RunCommand, RunFile, spawned
 
@@ -66,14 +66,14 @@ class Session:
         )
         return (
             catch(attempted, exception=httpx2.RequestError)(self.client.request, method, path, content=data, headers=headers)
-            .map_error(lambda error: Fault.of(Reason.FAILED, str(error.request.url), error))
-            .bind(lambda response: catch(response.raise_for_status, exception=httpx2.HTTPStatusError)().map_error(lambda error: Fault.of(Reason.FAILED, str(error.request.url), error)))
+            .map_error(lambda error: Fault.of(Reason.FAILED, error.request.url, error))
+            .bind(lambda response: catch(response.raise_for_status, exception=httpx2.HTTPStatusError)().map_error(lambda error: Fault.of(Reason.FAILED, error.request.url, error)))
         )
 
     def exchanged[T](self, method: HTTPMethod, path: str, reply: TypeForm[T], body: Option[_Body] = NOTHING) -> Outcome[T]:
         """Sends a request and decodes its JSON reply."""
         return self.sent(method, path, body).bind(
-            lambda response: catch(lambda: msgspec.json.decode(response.content, type=reply), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.FAILED, str(response.request.url)))
+            lambda response: catch(lambda: msgspec.json.decode(response.content, type=reply), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.FAILED, response.request.url))
         )
 
 
@@ -218,7 +218,7 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
             .filter(lambda held: tag in {held.name, held.id})
             .try_head()
             .map(lambda held: held.id)
-            .to_result_with(lambda: Fault.of(Reason.ABSENT, type(self).__name__, member=f"worker tag {tag!r}"))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, type(self), member=f"worker tag {tag!r}"))
         )
 
     def placed(self, session: Session, queue: RenderQueue) -> Outcome[tuple[Mapping[str, str], Option[_JobStorageInfo]]]:
@@ -372,7 +372,7 @@ class Renderon(Case, frozen=True, kw_only=True):
         )
         return (
             accumulated(
-                Error(Fault.of(Reason.OUTSIDE, type(self).__name__, cause, member=member))
+                Error(Fault.of(Reason.OUTSIDE, type(self), cause, member=member))
                 for cause, member in (
                     (tuple(part for part, job in enumerate(queue.jobs) if job.prerequisites), "jobs without prerequisites"),
                     (tuple((part, job.frames) for part, job in enumerate(queue.jobs) if job.frames.start < 0), "nonnegative absolute frames"),
@@ -423,6 +423,10 @@ def _awaited(state: RetryCallState, /) -> float:
         .default_with(lambda _: wait_exponential_jitter()(state))
     )
 
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+shown.register(httpx2.URL, str)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

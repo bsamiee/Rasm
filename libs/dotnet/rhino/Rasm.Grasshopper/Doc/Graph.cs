@@ -199,7 +199,7 @@ public static class ObjectSelections {
         text.Length is 0
             ? Result<int>.Succeed(Selected(document, prior), text)
             : Find(document, text).Map(static member => member.InstanceId) switch {
-                { IsEmpty: true } => Result<int>.Fail(new RhinoFault(text, RhinoReason.Missing).Message, text),
+                { IsEmpty: true } => Result<int>.Fail(Fault.Of(RhinoReason.Missing, text).Message, text),
                 var found => Result<int>.Succeed(Selected(document, toHashSet(found)), text),
             };
 

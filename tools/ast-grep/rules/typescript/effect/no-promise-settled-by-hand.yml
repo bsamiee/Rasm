@@ -28,6 +28,5 @@ rule:
         - has: { field: function, kind: member_expression, has: { field: property, regex: '^(then|catch|finally)$', pattern: $METHOD } }
         - inside: { stopBy: { matches: typescript-function-boundary }, matches: register }
         - has: { field: arguments, has: { matches: typescript-function-boundary, has: { stopBy: { matches: typescript-function-boundary }, matches: settle } } }
-message: '`$METHOD` settles a promise into `$SINK` by hand'
-note: 'Replace `Effect.callback` with `Effect.tryPromise`, or use `Queue.offer` or `Queue.into` inside `Stream.callback`'
+message: '`$METHOD` settles a promise into `$SINK` by hand, replace `Effect.callback` with `Effect.tryPromise`, or use `Queue.offer` or `Queue.into` inside `Stream.callback`'
 labels: { SETTLED: { style: primary } }

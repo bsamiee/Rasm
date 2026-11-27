@@ -28,7 +28,7 @@ public abstract class DefinedLightManager<TSelf> : LightManagerSupport where TSe
     protected DefinedLightManager() => Constructed.Swap(_ => Some(this));
 
     public static IO<DefinedLightManager<TSelf>> Present =>
-        IO.lift(static () => Constructed.Value.ToFin(new RhinoFault(typeof(TSelf).Name, RhinoReason.Missing)));
+        IO.lift(static () => Constructed.Value.ToFin(Fault.Of(RhinoReason.Missing, typeof(TSelf).Name)));
 
     // --- [IDENTITY]
 

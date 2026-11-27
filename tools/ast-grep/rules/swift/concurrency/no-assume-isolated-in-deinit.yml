@@ -12,5 +12,4 @@ rule:
                   - kind: navigation_expression
                     has: { field: suffix, regex: '^\.assumeIsolated$' }
         - inside: { kind: deinit_declaration, stopBy: { kind: 'deinit_declaration, lambda_literal, function_declaration' } }
-message: '`$HOP` asserts actor isolation inside `deinit`'
-note: 'Declare `isolated deinit` and call isolated members directly'
+message: '`$HOP` asserts actor isolation inside `deinit`, declare `isolated deinit` and call isolated members directly'

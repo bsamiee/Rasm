@@ -46,7 +46,7 @@ public sealed class PlansTests {
             .Add(new PlannedDefinition(Metadata("U"), Point3d.Origin, [new PlannedMember.Instance("T", Transform.Identity)]))
             .Strict();
         Error error = await Expect<Error>.FailAsync(RhinoHost.Headless(doc => Plans.Plan(doc, plans, Prune.Keep)));
-        RhinoFault fault = Assert.IsType<RhinoFault>(Assert.Single(error.AsIterable().ToSeq()));
+        Fault<RhinoReason> fault = Assert.IsType<Fault<RhinoReason>>(Assert.Single(error.AsIterable().ToSeq()));
         Assert.Equal(RhinoReason.Repeated, fault.Reason);
         Assert.Equal(ring.Order(StringComparer.Ordinal), Assert.IsType<Seq<string>>(fault.Subject).Order(StringComparer.Ordinal));
     }

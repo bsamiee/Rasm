@@ -81,7 +81,7 @@ public sealed record ValueHistory {
     private static Fin<HashMap<Guid, ValueHistory>> Histories(ArchivableDictionary source) =>
         from rows in ArchivableDictionaries.Children(source)
         from pairs in Products.Each(rows, static (row, index) =>
-            (Guid.TryParseExact(row.Key, "D", out Guid id) ? Fin.Succ(id) : new RhinoFault(row.Key, RhinoReason.Unreadable, index), History(row.Value))
+            (Guid.TryParseExact(row.Key, "D", out Guid id) ? Fin.Succ(id) : Fault.Of(RhinoReason.Unreadable, row.Key, index), History(row.Value))
                 .Apply(static (id, history) => history.Map(held => (id, held))).As())
         select toHashMap(pairs.Somes());
 
@@ -96,7 +96,7 @@ public sealed record ValueHistory {
     private static Fin<Option<Seq<HistoryEntry>>> Entries(ArchivableDictionary source) =>
         from rows in ArchivableDictionaries.Children(source)
         from entries in Products.Each(rows, static (row, index) =>
-            (BigInteger.TryParse(row.Key, NumberStyles.None, CultureInfo.InvariantCulture, out BigInteger serial) ? Fin.Succ(serial) : new RhinoFault(row.Key, RhinoReason.Unreadable, index),
+            (BigInteger.TryParse(row.Key, NumberStyles.None, CultureInfo.InvariantCulture, out BigInteger serial) ? Fin.Succ(serial) : Fault.Of(RhinoReason.Unreadable, row.Key, index),
              ArchivableDictionaries.Required<long>(row.Value, AtKey),
              Nested(row.Value, BeforeKey),
              Nested(row.Value, AfterKey))

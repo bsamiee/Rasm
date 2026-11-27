@@ -122,7 +122,7 @@ class Strips(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         rows = (
             struct_at(context, Strips.active.owner, bpy.types.SequenceEditor)
             .bind(lambda struct: id_data(bpy.types.Scene, struct))
-            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(context.workspace), member=rna(_ACTIVE[1:])))
+            .to_result_with(partial(Fault.of, Reason.ABSENT, context.workspace, member=rna(_ACTIVE[1:])))
             .bind(self.rows.standalone)
         )
         identity.reports.faulted(rows.bind(lambda found: accumulated(operator_button(layout, identity, Placement(self.placing, {"kind": row.kind}), {"text": row.title}) for row in found)))
@@ -133,7 +133,7 @@ class Strips(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             case bpy.types.SequenceEditor(active_strip=bpy.types.Strip() as strip, id_data=bpy.types.Scene() as scene) as editor:
                 target: Outcome[tuple[bpy.types.Scene, bpy.types.SequenceEditor, bpy.types.Strip]] = Ok((scene, editor, strip))
             case _:
-                target = Error(Fault.of(Reason.ABSENT, repr(call.context.workspace), member=rna(_ACTIVE[1:])))
+                target = Error(Fault.of(Reason.ABSENT, call.context.workspace, member=rna(_ACTIVE[1:])))
         offered = self.rows.offering(call.properties.kind)
 
         def built(scene: bpy.types.Scene, editor: bpy.types.SequenceEditor, strip: bpy.types.Strip, effect: CompositorEffect, record: CompositorRecord) -> Outcome[Answer]:
@@ -154,7 +154,7 @@ class Strips(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     called(PyOpenColorIO.GetCurrentConfig, effect.kind)
                     .bind(lambda config: effect.grouped(call.identity, scene, Entry(record=record), config))
                     .bind(lambda group: made(msgspec.structs.replace(group, key=f"{group.key}_{_STRIP}"), call.identity, of=Some(scene)))
-                    .bind(lambda group: catch(held, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(strip))).bind(lambda holder: written(holder, ("node_group",), group)))
+                    .bind(lambda group: catch(held, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, strip)).bind(lambda holder: written(holder, ("node_group",), group)))
                 )
                 return retained(placed, rollback).map(lambda _: Done(notes=(("INFO", f"Added {effect.title} to {strip.name}"),)))
 
@@ -183,7 +183,7 @@ def save_effect(call: Call[Saving]) -> Outcome[Answer]:
             option
             .of_optional(scene.compositor_effects.active)
             .bind(lambda entry: option.of_optional(entry.node_group))
-            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member="active"))
+            .to_result_with(partial(Fault.of, Reason.ABSENT, scene.compositor_effects, member="active"))
         )
     )
     folder = rooted(bpy.types.Preferences, call.context).bind(
@@ -191,7 +191,7 @@ def save_effect(call: Call[Saving]) -> Outcome[Answer]:
             option
             .of_optional(preferences.filepaths.asset_libraries.get(chosen.library))
             .map(lambda row: Path(row.path))
-            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(preferences.filepaths.asset_libraries), member=chosen.library))
+            .to_result_with(partial(Fault.of, Reason.ABSENT, preferences.filepaths.asset_libraries, member=chosen.library))
         )
     )
 

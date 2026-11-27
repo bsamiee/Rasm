@@ -22,7 +22,7 @@ public sealed record ColorRamp {
 
     public static Fin<ColorRamp> Of(ColorGradient gradient) =>
         toSeq(gradient.GetColorStops()) switch {
-            var stops => RhinoFault.Unless(!stops.IsEmpty, RhinoReason.Missing, stops.Count).Map(_ => new ColorRamp(stops, stepped: false)),
+            var stops => Fault.Unless(!stops.IsEmpty, RhinoReason.Missing, stops.Count).Map(_ => new ColorRamp(stops, stepped: false)),
         };
 
     public IO<Unit> Write(ColorGradient gradient) => IO.lift(() => gradient.SetColorStops(Stops));

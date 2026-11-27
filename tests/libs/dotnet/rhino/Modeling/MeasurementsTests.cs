@@ -50,7 +50,7 @@ public sealed class MeasurementsTests {
     public void NegativeDensityFailsAsOutside() =>
         Gen.Int[1, 1000].Sample(static density => {
             using Point point = new(Point3d.Origin);
-            Assert.Equal(RhinoReason.Outside, Expect<RhinoFault>.Failed(MassSubject.Validated(new MassSource.Shape(point), -density * 0.01, [])).Reason);
+            Assert.Equal(RhinoReason.Outside, Expect<Fault<RhinoReason>>.Failed(MassSubject.Validated(new MassSource.Shape(point), -density * 0.01, [])).Reason);
         });
 
     [Theory]
@@ -60,7 +60,7 @@ public sealed class MeasurementsTests {
     [InlineData(double.NegativeInfinity)]
     public void DensityPastZeroOrNotFiniteFailsAsOutside(double density) {
         using Point point = new(Point3d.Origin);
-        Assert.Equal(RhinoReason.Outside, Expect<RhinoFault>.Failed(MassSubject.Validated(new MassSource.Shape(point), density, [])).Reason);
+        Assert.Equal(RhinoReason.Outside, Expect<Fault<RhinoReason>>.Failed(MassSubject.Validated(new MassSource.Shape(point), density, [])).Reason);
     }
 
     // --- [GENERATORS]

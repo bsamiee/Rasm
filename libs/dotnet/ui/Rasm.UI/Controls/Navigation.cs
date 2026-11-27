@@ -112,7 +112,7 @@ public sealed record Steps(Seq<Step> Pages, Key Current, Func<Edit<Key>, IO<Unit
         HashMap<Key, (Step Page, int Index)> indexed = toHashMap(Pages.Map(static (page, index) => (page.Key, (Page: page, Index: index))));
         int reach = int.Min(Pages.TakeWhile(static page => page.Valid.IsSucc).Count + 1, Pages.Count);
         return
-            from at in indexed.Find(Current).Map(static held => held.Index).ToFin(new UIFault(Current, UIReason.Missing))
+            from at in indexed.Find(Current).Map(static held => held.Index).ToFin(Fault.Of(UIReason.Missing, Current))
             let next = Pages.Skip(at + 1).Head
             select (View)new View.Flex(PhysicalAxis.Vertical,
                 Seq(new Tabs(Pages.Map(static page => page.Key), Some(Current), key => indexed[key].Page.Title, Edited) {

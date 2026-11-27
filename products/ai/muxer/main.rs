@@ -145,7 +145,7 @@ struct ServerState {
     calls: usize,
     starts: u32,
     failures: usize,
-    cause: Option<String>,
+    cause: Option<NEVec<rasm_mcp::Cause>>,
     start_cost: Option<Duration>,
     pid: Option<u32>,
     memory: Option<u64>,

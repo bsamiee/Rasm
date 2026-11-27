@@ -23,17 +23,17 @@ public sealed class EditsTests {
                 }))));
             Assert.Equal(toSeq(Enumerable.Range(0, declined.Map(static at => at + 1).IfNone(noneValue: outcomes.Length))), ran.Value);
             Assert.Equal(
-                declined.Map(static at => (RhinoReason.Declined, Some(at))),
-                edited.Match(Succ: static _ => Option<(RhinoReason, Option<int>)>.None, Fail: static error => Assert.IsType<RhinoFault>(error) switch { var fault => Some((fault.Reason, fault.Index)) }));
+                declined.Map(static at => (Some(RhinoReason.Declined), Some(at))),
+                edited.Match(Succ: static _ => Option<(Option<RhinoReason>, Option<int>)>.None, Fail: static error => Assert.IsType<Fault<RhinoReason>>(error) switch { var fault => Some((fault.Reason, fault.Index)) }));
             Assert.True(edited.Map(held => ReferenceEquals(held, line)).IfFail(static _ => true));
         });
 
     [Fact]
-    public async Task DerivedStepFailingWithARhinoFaultKeepsItsReasonAtTheStepPosition() {
+    public async Task DerivedStepFailingWithAFaultKeepsItsReasonAtTheStepPosition() {
         using LineCurve line = new(Point3d.Origin, new Point3d(1, 0, 0));
-        RhinoFault fault = await Expect<RhinoFault>.FailAsync(Edits.Apply(Stages.InPlace<LineCurve>(), line, [
+        Fault<RhinoReason> fault = await Expect<Fault<RhinoReason>>.FailAsync(Edits.Apply(Stages.InPlace<LineCurve>(), line, [
             Steps.Of<LineCurve>(static _ => true),
-            Steps.Derived<LineCurve>(static held => IO.fail<LineCurve>(new RhinoFault(held.GetLength(), RhinoReason.Outside)))]));
+            Steps.Derived<LineCurve>(static held => IO.fail<LineCurve>(Fault.Of(RhinoReason.Outside, held.GetLength())))]));
         Assert.Equal((RhinoReason.Outside, Some(1), (object?)1d), (fault.Reason, fault.Index, fault.Subject));
     }
 
@@ -41,7 +41,7 @@ public sealed class EditsTests {
     public async Task DerivedStepFailingWithAnotherErrorIsDeclinedAtItsPositionWithTheErrorInside() {
         using LineCurve line = new(Point3d.Origin, new Point3d(1, 0, 0));
         Error inner = Error.New(nameof(DerivedStepFailingWithAnotherErrorIsDeclinedAtItsPositionWithTheErrorInside));
-        RhinoFault fault = await Expect<RhinoFault>.FailAsync(Edits.Apply(Stages.InPlace<LineCurve>(), line, [
+        Fault<RhinoReason> fault = await Expect<Fault<RhinoReason>>.FailAsync(Edits.Apply(Stages.InPlace<LineCurve>(), line, [
             Steps.Of<LineCurve>(static _ => true),
             Steps.Of<LineCurve>(static _ => true),
             Steps.Derived<LineCurve>(_ => IO.fail<LineCurve>(inner))]));
@@ -51,7 +51,7 @@ public sealed class EditsTests {
     [Fact]
     public async Task GeometryStageFailsAsInvalidOnAnInvalidResultAndLeavesTheLiveGeometry() {
         using LineCurve line = new(Point3d.Origin, new Point3d(1, 0, 0));
-        RhinoFault fault = await Expect<RhinoFault>.FailAsync(Edits.Apply(Stages.Geometry<LineCurve>(), line, [Steps.Of<LineCurve>(static copy => copy.SetEndPoint(copy.PointAtStart))]));
+        Fault<RhinoReason> fault = await Expect<Fault<RhinoReason>>.FailAsync(Edits.Apply(Stages.Geometry<LineCurve>(), line, [Steps.Of<LineCurve>(static copy => copy.SetEndPoint(copy.PointAtStart))]));
         Assert.Equal((RhinoReason.Invalid, true), (fault.Reason, fault.Inner.IsSome));
         Assert.Equal((true, 1.0), (line.IsValid, line.GetLength()));
     }
@@ -65,12 +65,12 @@ public sealed class EditsTests {
             using Mesh mesh = Mesh.CreateFromBox(new BoundingBox(0, 0, 0, 1, 1, 1), 1, 1, 1);
             GeometryBase geometry = solid ? brep : mesh;
             HashMap<ComponentIndexType, int> counts = solid ? BrepCounts : MeshCounts;
-            Seq<(RhinoReason, Option<int>)> expected = toSeq(components).Map((component, at) => counts.Find(component.ComponentIndexType).Match(
-                Some: count => component.Index >= 0 && component.Index < count ? Option<(RhinoReason, Option<int>)>.None : Some((RhinoReason.Outside, Some(at))),
-                None: () => Some((RhinoReason.Mismatched, Some(at))))).Somes().Strict();
+            Seq<(Option<RhinoReason>, Option<int>)> expected = toSeq(components).Map((component, at) => counts.Find(component.ComponentIndexType).Match(
+                Some: count => component.Index >= 0 && component.Index < count ? Option<(Option<RhinoReason>, Option<int>)>.None : Some((Some(RhinoReason.Outside), Some(at))),
+                None: () => Some((Some(RhinoReason.Mismatched), Some(at))))).Somes().Strict();
             Assert.Equal(
                 expected,
-                geometry.Within(toSeq(components)).Match(Succ: static _ => Seq<(RhinoReason, Option<int>)>(), Fail: static error => error.AsIterable().Map(static each => Assert.IsType<RhinoFault>(each) switch { var fault => (fault.Reason, fault.Index) }).ToSeq().Strict()));
+                geometry.Within(toSeq(components)).Match(Succ: static _ => Seq<(Option<RhinoReason>, Option<int>)>(), Fail: static error => error.AsIterable().Map(static each => Assert.IsType<Fault<RhinoReason>>(each) switch { var fault => (fault.Reason, fault.Index) }).ToSeq().Strict()));
         });
 
     // --- [GENERATORS]

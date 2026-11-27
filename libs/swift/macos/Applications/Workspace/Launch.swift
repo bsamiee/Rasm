@@ -21,10 +21,12 @@ package struct InstanceSnapshot: Encodable, Sendable {
     let language: Locale.Language?
     let usage: Result<ResourceUsage, Errno>?
     let state: InstanceState
+    let listening: Result<[in_port_t], Errno>
 
     package init?(_ instance: Instance, state: InstanceState, language: Locale.Language? = nil, usage: Result<ResourceUsage, Errno>? = nil) {
         guard let url = instance.application.bundleURL?.resolvedDirectory, let identifier = instance.application.bundleIdentifier else { return nil }
         (self.instance, self.identifier, self.url, self.language, self.usage, self.state) = (instance, identifier, url, language, usage, state)
+        listening = state.is(\.running) ? Result { () throws(Errno) -> [in_port_t] in try instance.process.listeningPorts() } : .success([])
     }
 
     package func encode(to encoder: any Encoder) throws {
@@ -42,8 +44,7 @@ package struct InstanceSnapshot: Encodable, Sendable {
         let usageFailure: String? = usage?[case: \.failure]?.description
         try fields.encodeIfPresent(usageFailure, forKey: .usageFailure)
         try fields.encode(state, forKey: .state)
-        let listening = state[case: \.running]?.listening
-        try fields.encode(listening?[case: \.success] ?? [], forKey: .listening)
+        try fields.encode(listening[case: \.success] ?? [], forKey: .listening)
         if case .failure(let error) = listening { try fields.encode(error.description, forKey: .listeningFailure) }
     }
 }

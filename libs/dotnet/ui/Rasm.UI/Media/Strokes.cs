@@ -19,7 +19,7 @@ public abstract partial record PathEffect {
         internal override bool Timed => Drift is not 0f;
 
         public static Fin<Dash> Validated(Seq<float> rhythm) =>
-            UIFault.Unless(rhythm.Count >= 2 && rhythm.Count % 2 is 0 && rhythm.ForAll(static beat => float.IsFinite(beat) && beat >= 0f) && rhythm.Exists(static beat => beat > 0f), UIReason.Range, rhythm)
+            Fault.Unless(rhythm.Count >= 2 && rhythm.Count % 2 is 0 && rhythm.ForAll(static beat => float.IsFinite(beat) && beat >= 0f) && rhythm.Exists(static beat => beat > 0f), UIReason.Range, rhythm)
                 .Map(_ => new Dash(rhythm));
 
         internal override SKPathEffect Effect(float width, float clock) => SKPathEffect.CreateDash([.. Rhythm.Map(beat => beat * width)], Drift * width * clock);
@@ -36,7 +36,7 @@ public abstract partial record PathEffect {
         public float Advance { get; }
 
         public static Fin<Stamp> Validated(Shape.Outlined mark, float advance) =>
-            UIFault.Unless(float.IsFinite(advance) && advance > 0f, UIReason.Range, advance).Map(_ => new Stamp(mark, advance));
+            Fault.Unless(float.IsFinite(advance) && advance > 0f, UIReason.Range, advance).Map(_ => new Stamp(mark, advance));
 
         internal override SKPathEffect Effect(float width, float clock) => SKPathEffect.Create1DPath(Mark.Path, Advance, 0f, SKPath1DPathEffectStyle.Rotate);
     }
@@ -46,7 +46,7 @@ public abstract partial record PathEffect {
 
         public float Radius { get; }
 
-        public static Fin<Corner> Validated(float radius) => UIFault.Unless(float.IsFinite(radius) && radius > 0f, UIReason.Range, radius).Map(_ => new Corner(radius));
+        public static Fin<Corner> Validated(float radius) => Fault.Unless(float.IsFinite(radius) && radius > 0f, UIReason.Range, radius).Map(_ => new Corner(radius));
 
         internal override SKPathEffect Effect(float width, float clock) => SKPathEffect.CreateCorner(Radius);
     }

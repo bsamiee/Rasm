@@ -55,7 +55,7 @@ public sealed class DocumentsTests(Fixtures fixtures) {
         DirectoryInfo folder = await fixtures.TakeAsync(Fixtures.Folder);
         string template = Path.Combine(folder.FullName, "template.txt");
         await File.WriteAllTextAsync(template, nameof(HeadlessTemplateOfAnotherFormatFailsAsUnreadable), TestContext.Current.CancellationToken);
-        Assert.Equal(RhinoReason.Unreadable, (await Expect<RhinoFault>.FailAsync(
+        Assert.Equal(RhinoReason.Unreadable, (await Expect<Fault<RhinoReason>>.FailAsync(
             IO.lift(InputPath.Of(template)).Bind(static path => Documents.With(new DocumentSource.Headless(Some(path)), static doc => IO.pure(doc.RuntimeSerialNumber))))).Reason);
     }
 
@@ -63,7 +63,7 @@ public sealed class DocumentsTests(Fixtures fixtures) {
 
     [Fact]
     public async Task ScriptedRefusesAHeadlessDocumentAsUnsupported() =>
-        Assert.Equal(RhinoReason.Unsupported, (await Expect<RhinoFault>.FailAsync(RhinoHost.Headless(static held => IO.lift(() => Documents.Scripted(held))))).Reason);
+        Assert.Equal(RhinoReason.Unsupported, (await Expect<Fault<RhinoReason>>.FailAsync(RhinoHost.Headless(static held => IO.lift(() => Documents.Scripted(held))))).Reason);
 
     [Fact(Skip = "configuration Headless runs Rhino without views", SkipType = typeof(RhinoHost), SkipUnless = nameof(RhinoHost.Interfaced))]
     public async Task ScriptRunsItsCommandInTheViewedDocumentItNames() {

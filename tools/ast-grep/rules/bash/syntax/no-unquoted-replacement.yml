@@ -13,6 +13,5 @@ rule:
                     has: { matches: bash-string-expansion }
               follows: { regex: '^/$' }
 labels:
-    DATA: { style: primary, message: Unquoted replacement data }
-message: 'Unquoted replacement data `$DATA` treats `&` as matched text under `patsub_replacement`'
-note: Quote replacement data while preserving existing literal quoting
+    DATA: { style: primary }
+message: 'Unquoted replacement data `$DATA` treats `&` as matched text under `patsub_replacement`, quote it and keep existing literal quoting'

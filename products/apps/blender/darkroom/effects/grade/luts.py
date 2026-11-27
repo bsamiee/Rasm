@@ -151,9 +151,7 @@ def _correction(values: Mapping[Key, Value]) -> Outcome[PyOpenColorIO.CDLTransfo
 
 def _named(identity: Identity, operator: Imported, _context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
     """ASC correction rows in file order, each value fixed to its file position."""
-    found = (
-        typed(str, repr(operator), getattr(operator, "filepath", None)).bind(lambda path: reloaded(identity, path, PyOpenColorIO.GetCurrentConfig())).bind(lambda resolved: corrections(Path(resolved)))
-    )
+    found = typed(str, operator, getattr(operator, "filepath", None)).bind(lambda path: reloaded(identity, path, PyOpenColorIO.GetCurrentConfig())).bind(lambda resolved: corrections(Path(resolved)))
     return choices((str(position), name.default_value(str(position + 1)), "", "NONE", position) for rows in found.to_option().to_list() for position, (name, _) in enumerate(rows))
 
 

@@ -79,7 +79,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
 
         def unpacked(references: IDPropertyGroup, data: bytes) -> Outcome[T]:
             reading = msgspec.msgpack.Decoder(self.decoder.type, strict=self.decoder.strict, dec_hook=decoded, ext_hook=partial(extended, references))
-            return catch(reading.decode, exception=msgspec.DecodeError)(data).map_error(partial(Fault.of, Reason.OUTSIDE, request, member=repr(self.decoder.type)))
+            return catch(reading.decode, exception=msgspec.DecodeError)(data).map_error(partial(Fault.of, Reason.OUTSIDE, request, member=self.decoder.type))
 
         def found(held: IDPropertyGroup) -> Outcome[T]:
             return paired(typed(IDPropertyGroup, request, held.get(self.references_key)), typed(bytes, request, held.get(self.data_key))).bind(lambda pair: unpacked(*pair))
@@ -396,7 +396,7 @@ class Attachment(Generic[_G_co]):  # ruff: ignore[non-pep695-generic-class]
     def bound(self, identity: Identity) -> Outcome[Attached[_G_co]]:
         """Binds to registered pointer target."""
         name = identity.identifier(self.key)
-        return Ok(Attached(name=name, owner=self.owner, form=self.form)) if name in self.owner.bl_rna.properties else Error(Fault.of(Reason.ABSENT, self.owner.__name__, member=name))
+        return Ok(Attached(name=name, owner=self.owner, form=self.form)) if name in self.owner.bl_rna.properties else Error(Fault.of(Reason.ABSENT, self.owner, member=name))
 
     def read(self, identity: Identity, host: Host) -> Outcome[_G_co]:
         """Returns host form group through the registered binding."""
@@ -449,12 +449,7 @@ class TextRecord[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
 
     def loaded(self, identity: Identity, attached: Attached[G], manager: bpy.types.WindowManager) -> Outcome[None]:
         """Applies the snapshot of the owned text block, defaults kept when absent."""
-        return (
-            self.ownership
-            .found(identity)
-            .map(lambda text: Snapshot.parsed(repr(text), text.as_string()).bind(lambda snapshot: snapshot.apply(attached.struct(manager)).outcome))
-            .default_value(Ok(None))
-        )
+        return self.ownership.found(identity).map(lambda text: Snapshot.parsed(text, text.as_string()).bind(lambda snapshot: snapshot.apply(attached.struct(manager)).outcome)).default_value(Ok(None))
 
     def saved(self, identity: Identity, attached: Attached[G], manager: bpy.types.WindowManager) -> Outcome[None]:
         """Saves the window manager group snapshot into the owned text block, created on first save."""

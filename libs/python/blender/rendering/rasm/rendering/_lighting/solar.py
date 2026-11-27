@@ -148,7 +148,7 @@ class SolarDay(msgspec.Struct, frozen=True, kw_only=True):
                 ),
             ),
             exception=OverflowError,
-        )().map_error(functools.partial(Fault.of, Reason.FAILED, str(date)))
+        )().map_error(functools.partial(Fault.of, Reason.FAILED, date))
 
 
 class SunPaths(Frozen, frozen=True, kw_only=True, eq=False):

@@ -44,7 +44,7 @@ public static class SolidEdits {
             from inner in IO.lift(() => brep.Within(loops.Map(static loop => new ComponentIndex(ComponentIndexType.BrepLoop, loop))).Bind(held =>
                 Products.Each(held, (loop, element) => brep.Loops[loop.Index].LoopType switch {
                     BrepLoopType.Inner => Fin.Succ(loop),
-                    var type => new RhinoFault((Loop: loop, Type: type), RhinoReason.Mismatched, element),
+                    var type => Fault.Of(RhinoReason.Mismatched, (Loop: loop, Type: type), element),
                 })))
             from removed in Products.Of(() => brep.RemoveHoles(inner, tolerances.Absolute))
             select removed);

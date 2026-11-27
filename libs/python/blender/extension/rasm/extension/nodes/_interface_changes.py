@@ -53,7 +53,7 @@ class Declared(msgspec.Struct, frozen=True, kw_only=True):
 
         def created() -> Outcome[InterfaceItem]:
             interface = interface_of(live.tree)
-            refused = partial(Fault.of, Refusal.REFUSED, repr(interface))
+            refused = partial(Fault.of, Refusal.REFUSED, interface)
 
             def toggled(panel: bpy.types.NodeTreeInterfacePanel, *, value: bool) -> Outcome[None]:
                 return (
@@ -92,7 +92,7 @@ class Placed(msgspec.Struct, frozen=True, kw_only=True):
 
         def moved(live: InterfaceKeys, parent: Option[Key], position: int) -> Outcome[None]:
             return paired(live.item(self.key, bpy.types.NodeTreeInterfaceItem), parent.map(lambda key: live.item(key, bpy.types.NodeTreeInterfacePanel)).default_value(Ok(None))).bind(
-                lambda pair: catch(interface_of(live.tree).move_to_parent, exception=TypeError)(pair[0], pair[1], position).map_error(partial(Fault.of, Refusal.REFUSED, repr(interface_of(live.tree))))
+                lambda pair: catch(interface_of(live.tree).move_to_parent, exception=TypeError)(pair[0], pair[1], position).map_error(partial(Fault.of, Refusal.REFUSED, interface_of(live.tree)))
             )
 
         retyped = self.kind.map(

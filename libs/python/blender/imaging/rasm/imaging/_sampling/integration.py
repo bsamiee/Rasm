@@ -135,7 +135,7 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
 
             return Estimate.of(np.stack([replicated(replicate) for replicate in range(precision.replicates)]), precision)
 
-        return computed().map_error(partial(Fault.of, Reason.FAILED, repr(self)))
+        return computed().map_error(partial(Fault.of, Reason.FAILED, self))
 
     def _placements(self, cells: npt.NDArray[np.int64], values: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """Returns `(discs, 2)` centers, radii, and peak gains of occupied cells and their uniforms at the population's own spacing."""
@@ -192,7 +192,7 @@ def integrated(
         return np.asarray(np.mean(values, axis=0) * volume)
 
     return accumulated(
-        field(lower + width * precision.points(len(lower), replicate)).bind(lambda values: averaged(values).map_error(partial(Fault.of, Reason.FAILED, repr(request))))
+        field(lower + width * precision.points(len(lower), replicate)).bind(lambda values: averaged(values).map_error(partial(Fault.of, Reason.FAILED, request)))
         for replicate in range(precision.replicates)
     ).map(lambda values: Estimate.of(np.stack(values), precision))
 

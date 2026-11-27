@@ -387,7 +387,7 @@ class Registration:
                             .of_seq(cls.__mro__)
                             .choose(lambda base: option.of_optional(_BANDS.get(base)))
                             .try_head()
-                            .to_result_with(partial(Fault.of, Reason.ABSENT, cls.__name__, member="registrable host base"))
+                            .to_result_with(partial(Fault.of, Reason.ABSENT, cls, member="registrable host base"))
                             .map(lambda band: pairs.setdefault((band, cls), False))
                             .map(lambda _: None)
                         )
@@ -415,7 +415,7 @@ class Registration:
             yield Identity.read(self.package).bind(
                 lambda identity: (
                     catch(stack.enter_context, exception=OSError)(identity.reports)
-                    .map_error(partial(Fault.of, Reason.UNWRITABLE, str(identity.folder)))
+                    .map_error(partial(Fault.of, Reason.UNWRITABLE, identity.folder))
                     .bind(lambda _: registered(stack, identity))
                     .map(lambda _: identity)
                 )

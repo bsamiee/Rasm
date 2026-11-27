@@ -157,7 +157,7 @@ def interface_of(tree: bpy.types.NodeTree, /) -> bpy.types.NodeTreeInterface:
 
 def new_group[T: bpy.types.NodeTree](kind: type[T], name: str, /) -> Outcome[T]:
     """Creates empty node group of a tree class, `refused` fault for a class the host refuses."""
-    refused = partial(Fault.of, Refusal.REFUSED, repr(bpy.data.node_groups))
+    refused = partial(Fault.of, Refusal.REFUSED, bpy.data.node_groups)
     match rna_definition(kind).identifier:
         case "GeometryNodeTree" | "CompositorNodeTree" | "ShaderNodeTree" | "TextureNodeTree" as identifier:
             return catch(bpy.data.node_groups.new, exception=TypeError)(name, identifier).map_error(refused).bind(partial(typed, kind, name))
@@ -171,7 +171,7 @@ def tree_of(holder: bpy.types.Material | bpy.types.World | bpy.types.Light) -> O
 def tree_of(holder: bpy.types.ID) -> Outcome[bpy.types.NodeTree]: ...
 def tree_of(holder: bpy.types.ID) -> Outcome[bpy.types.NodeTree]:
     """Returns group itself or embedded tree, `absent` fault for holder without one."""
-    return (Some(holder) if isinstance(holder, bpy.types.NodeTree) else embedded_tree(holder)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(holder), member=bpy.types.NodeTree.__name__))
+    return (Some(holder) if isinstance(holder, bpy.types.NodeTree) else embedded_tree(holder)).to_result_with(lambda: Fault.of(Reason.ABSENT, holder, member=bpy.types.NodeTree))
 
 
 def emptied[T: bpy.types.ID](holder: T) -> Outcome[T]:
@@ -196,7 +196,7 @@ def socket_at(sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, identifier:
         case str():
             address = aliases.get(identifier, identifier)
             found = option.of_optional(next((socket for socket in sockets if socket.identifier == address), None))
-    return found.to_result_with(lambda: Fault.of(Reason.ABSENT, repr(sockets), member=str(identifier)))
+    return found.to_result_with(lambda: Fault.of(Reason.ABSENT, sockets, member=identifier))
 
 
 def created[N: bpy.types.Node](tree: bpy.types.NodeTree, kind: type[N]) -> Outcome[N]:
@@ -214,9 +214,9 @@ def created[N: bpy.types.Node](tree: bpy.types.NodeTree, kind: type[N]) -> Outco
             case _:
                 replaced = made.bl_idname
                 tree.nodes.remove(made)
-                return Error(Fault.of(Reason.OUTSIDE, repr(tree.nodes), replaced, member=identifier))
+                return Error(Fault.of(Reason.OUTSIDE, tree.nodes, replaced, member=identifier))
 
-    return catch(tree.nodes.new, exception=RuntimeError)(identifier).map_error(partial(Fault.of, Refusal.REFUSED, repr(tree.nodes))).bind(narrowed)
+    return catch(tree.nodes.new, exception=RuntimeError)(identifier).map_error(partial(Fault.of, Refusal.REFUSED, tree.nodes)).bind(narrowed)
 
 
 def group_set(node: bpy.types.Node, group: bpy.types.NodeTree) -> Outcome[None]:
@@ -250,12 +250,12 @@ def linked_sockets(
                 return Ok(link)
             case bpy.types.NodeLink():
                 tree.links.remove(link)
-                return Error(Fault.of(Refusal.REFUSED, repr(tree.links), ValueError(f"Link from {source!r} to {target!r} is invalid")))
+                return Error(Fault.of(Refusal.REFUSED, tree.links, ValueError(f"Link from {source!r} to {target!r} is invalid")))
             case None:
-                return Error(Fault.of(Reason.ABSENT, repr(tree.links), member=repr((source, target))))
+                return Error(Fault.of(Reason.ABSENT, tree.links, member=(source, target)))
 
     linked: Outcome[bpy.types.NodeLink | None] = catch(tree.links.new, exception=RuntimeError)(source, target, verify_limits=verify_limits, handle_dynamic_sockets=handle_dynamic_sockets).map_error(
-        partial(Fault.of, Refusal.REFUSED, repr(tree.links))
+        partial(Fault.of, Refusal.REFUSED, tree.links)
     )
     return linked.bind(answered)
 
@@ -273,7 +273,7 @@ def ordered(socket: bpy.types.NodeSocket, desired: tuple[bpy.types.NodeLink, ...
             positions[held], positions[wanted] = position, index
             swaps.append((held, wanted))
     return reduce(
-        lambda done, pair: done.bind(lambda _: catch(pair[0].swap_multi_input_sort_id, exception=RuntimeError)(pair[1]).map_error(partial(Fault.of, Refusal.REFUSED, repr(pair[0])))), swaps, Ok(None)
+        lambda done, pair: done.bind(lambda _: catch(pair[0].swap_multi_input_sort_id, exception=RuntimeError)(pair[1]).map_error(partial(Fault.of, Refusal.REFUSED, pair[0]))), swaps, Ok(None)
     )
 
 
@@ -297,7 +297,7 @@ def group_tree(node: bpy.types.Node, /) -> Option[bpy.types.NodeTree]:
 def active_output(tree: bpy.types.NodeTree) -> Outcome[bpy.types.NodeGroupOutput]:
     """Returns active Group Output node."""
     return option.of_optional(next((node for node in tree.nodes if isinstance(node, bpy.types.NodeGroupOutput) and node.is_active_output), None)).to_result_with(
-        partial(Fault.of, Reason.ABSENT, repr(tree.nodes), member=bpy.types.NodeGroupOutput.__name__)
+        partial(Fault.of, Reason.ABSENT, tree.nodes, member=bpy.types.NodeGroupOutput)
     )
 
 

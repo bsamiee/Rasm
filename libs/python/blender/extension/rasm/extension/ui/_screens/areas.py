@@ -149,10 +149,10 @@ class NodeEditing(msgspec.Struct, frozen=True, kw_only=True):
                     option
                     .of_optional(space.edit_tree)
                     .map(lambda tree: cls(cursor=(cursor.x, cursor.y), tree=tree, active=option.of_optional(tree.nodes.active).filter(lambda node: node.select)))
-                    .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(space), member="edit_tree"))
+                    .to_result_with(lambda: Fault.of(Reason.ABSENT, space, member="edit_tree"))
                 )
             case _:
-                return Error(Fault.of(Reason.ABSENT, repr(context), member="SpaceNodeEditor.WINDOW"))
+                return Error(Fault.of(Reason.ABSENT, context, member="SpaceNodeEditor.WINDOW"))
 
 
 class _Split(msgspec.Struct, frozen=True, kw_only=True):
@@ -182,7 +182,7 @@ class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
     def advanced(self) -> Outcome[Option[Self]]:
         """Applies the next step on the live area, Nothing once every step and the maximization applied."""
         pointer = self.at.area.as_pointer()
-        return Located.found(self.at.window, pointer).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(self.at.window), member=str(pointer))).bind(self.stepped)
+        return Located.found(self.at.window, pointer).to_result_with(lambda: Fault.of(Reason.ABSENT, self.at.window, member=pointer)).bind(self.stepped)
 
     def stepped(self, at: Located) -> Outcome[Option[Self]]:
         """Applies the head step, a retype or split leaving its state as the next step and a nested arrangement merging its reverts once done."""
@@ -208,7 +208,7 @@ class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
                     .run(bpy.ops.screen.area_split, {"direction": "HORIZONTAL" if side in {"TOP", "BOTTOM"} else "VERTICAL", "factor": 1.0 - share if side in {"TOP", "RIGHT"} else share})
                     .bind(
                         lambda _: option.of_optional(next((area for area in window.screen.areas if area.as_pointer() not in before), None)).to_result_with(
-                            partial(Fault.of, Reason.ABSENT, repr(window.screen), member="screen.area_split")
+                            partial(Fault.of, Reason.ABSENT, window.screen, member="screen.area_split")
                         )
                     )
                     .bind(
@@ -256,7 +256,7 @@ def areas(windows: Iterable[bpy.types.Window]) -> tuple[Located, ...]:
 
 def region_in(area: bpy.types.Area, kind: "rna_enums.RegionTypeItems" = "WINDOW") -> Outcome[bpy.types.Region]:
     """Returns the area's first region of a type."""
-    return option.of_optional(next((region for region in area.regions if region.type == kind), None)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(area), member=kind))
+    return option.of_optional(next((region for region in area.regions if region.type == kind), None)).to_result_with(partial(Fault.of, Reason.ABSENT, area, member=kind))
 
 
 def _reached(window: bpy.types.Window, pointer: int, revert: Callable[[Located], Outcome[None]]) -> Outcome[None]:
@@ -278,9 +278,9 @@ def flipped(located: Located, side: _Edge) -> Outcome[None]:
             case aligned if aligned in axis:
                 return located.run(bpy.ops.screen.region_flip, {})
             case aligned:
-                return Error(Fault.of(Reason.OUTSIDE, repr(located.area), aligned, member=", ".join(axis)))
+                return Error(Fault.of(Reason.OUTSIDE, located.area, aligned, member=", ".join(axis)))
 
-    return located.region.to_result_with(partial(Fault.of, Reason.ABSENT, repr(located.area), member="region")).bind(moved)
+    return located.region.to_result_with(partial(Fault.of, Reason.ABSENT, located.area, member="region")).bind(moved)
 
 
 def quadded(located: Located, *, shown: bool) -> Outcome[None]:
@@ -288,7 +288,7 @@ def quadded(located: Located, *, shown: bool) -> Outcome[None]:
     return (
         option
         .of_optional(try_downcast(bpy.types.SpaceView3D, located.area.spaces.active))
-        .to_result_with(partial(Fault.of, Reason.ABSENT, repr(located.area), member=bpy.types.SpaceView3D.__name__))
+        .to_result_with(partial(Fault.of, Reason.ABSENT, located.area, member=bpy.types.SpaceView3D))
         .bind(lambda space: Ok(None) if (len(space.region_quadviews) > 0) == shown else located.run(bpy.ops.screen.region_quadview, {}))
     )
 

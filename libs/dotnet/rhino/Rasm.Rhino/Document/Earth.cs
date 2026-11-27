@@ -16,8 +16,8 @@ public sealed record GeoCoordinate {
     public Angle Longitude { get; }
 
     public static Fin<GeoCoordinate> Validated(Angle latitude, Angle longitude) =>
-        (RhinoFault.Unless(Math.Abs(latitude.Degrees.ToDouble()) <= 90d, RhinoReason.Outside, latitude),
-         RhinoFault.Unless(Math.Abs(longitude.Degrees.ToDouble()) <= 180d, RhinoReason.Outside, longitude))
+        (Fault.Unless(Math.Abs(latitude.Degrees.ToDouble()) <= 90d, RhinoReason.Outside, latitude),
+         Fault.Unless(Math.Abs(longitude.Degrees.ToDouble()) <= 180d, RhinoReason.Outside, longitude))
             .Apply((_, _) => new GeoCoordinate(latitude, longitude))
             .As();
 
@@ -35,7 +35,7 @@ public sealed record Georeference {
 
     public static IO<Georeference> Read(RhinoDoc doc) =>
         (from scratch in use(() => doc.EarthAnchorPoint)
-         from located in IO.lift(RhinoFault.Unless(scratch.EarthLocationIsSet() && scratch.ModelLocationIsSet(), RhinoReason.Missing, scratch.Name))
+         from located in IO.lift(Fault.Unless(scratch.EarthLocationIsSet() && scratch.ModelLocationIsSet(), RhinoReason.Missing, scratch.Name))
          let elevation = scratch.EarthBasepointElevation
          from projective in IO.lift(() => { scratch.EarthBasepointElevation = 0d; })
          from modelToEarth in IO.lift(() => Transform.Translation(0d, 0d, elevation) * scratch.GetModelToEarthTransform(doc.ModelUnits))

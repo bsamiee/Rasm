@@ -158,6 +158,7 @@
         "dependencies": {
           "LanguageExt.Core": "[5.0.0-beta-78, )",
           "NodaTime": "[3.3.7, )",
+          "Rasm.Telemetry.Api": "[0.1.0-alpha.0, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )",
           "UnitsNet": "[6.0.0-pre021, )"
         }
@@ -224,7 +225,8 @@
         "type": "Project",
         "dependencies": {
           "LanguageExt.Core": "[5.0.0-beta-78, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[10.0.15, 11.0.0)"
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.15, 11.0.0)",
+          "Thinktecture.Runtime.Extensions": "[10.6.0, )"
         }
       },
       "CommunityToolkit.HighPerformance": {

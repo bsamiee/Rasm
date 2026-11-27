@@ -350,7 +350,7 @@ def installed(context: bpy.types.Context, theme: _InterfaceTheme, name: str, /) 
                     lambda _: (
                         catch(target.parent.mkdir, exception=OSError)(parents=True, exist_ok=True)
                         .bind(lambda _: catch(_rna_xml.xml_file_write, exception=OSError)(context, str(target), USERPREF_MT_interface_theme_presets.preset_xml_map))
-                        .map_error(partial(Fault.of, Reason.UNWRITABLE, str(target)))
+                        .map_error(partial(Fault.of, Reason.UNWRITABLE, target))
                     )
                 )
             )

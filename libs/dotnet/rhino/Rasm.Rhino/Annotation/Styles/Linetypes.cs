@@ -109,7 +109,7 @@ public static class Linetypes {
 
     public static IO<Unit> Written(Linetype staged, LinetypeDefinition definition) =>
         from present in IO.lift(() => Segments(staged))
-        from patterned in unless(present == definition.Settings.Pattern, IO.lift(() => RhinoFault.Unless(
+        from patterned in unless(present == definition.Settings.Pattern, IO.lift(() => Fault.Unless(
             !definition.Settings.Pattern.IsEmpty && staged.SetSegments(definition.Settings.Pattern.Map(Millimeters)), RhinoReason.Declined, definition.Settings.Pattern))).As()
         from taper in IO.lift(() => definition.Settings.Width.Switch(
             staged,
@@ -135,8 +135,8 @@ public static class Linetypes {
         let shapes = definition.Shapes.ToSeq().Bind(static held => toSeq(held.Items))
         from added in IO.lift(Products.Each(shapes, (shape, index) => shape.Switch(
             (Row: staged, Index: index),
-            fromCurve: static (at, curve) => RhinoFault.Unless(at.Row.AddShape(curve.Curve, Millimeters(curve.Offset)), RhinoReason.Declined, curve.Offset, at.Index),
-            fromText: static (at, text) => RhinoFault.Unless(at.Row.AddShape(text.Text, Millimeters(text.Offset)), RhinoReason.Declined, text.Offset, at.Index))))
+            fromCurve: static (at, curve) => Fault.Unless(at.Row.AddShape(curve.Curve, Millimeters(curve.Offset)), RhinoReason.Declined, curve.Offset, at.Index),
+            fromText: static (at, text) => Fault.Unless(at.Row.AddShape(text.Text, Millimeters(text.Offset)), RhinoReason.Declined, text.Offset, at.Index))))
         from laid in IO.lift(() => definition.Shapes.Iter(placed =>
             (staged.ShapeSpacing, staged.ShapeGap, staged.ShapeLocalOffset) = (
                 Millimeters(placed.Layout.ShapeSpacing), Millimeters(placed.Layout.ShapeGap), new Vector2d(Millimeters(placed.Layout.ShapeLocalOffset.X), Millimeters(placed.Layout.ShapeLocalOffset.Y)))))
@@ -169,7 +169,7 @@ public static class Linetypes {
 
     public static IO<string> Text(Seq<Length> pattern, bool millimeters) =>
         (from scratch in use(static () => new Linetype())
-         from written in IO.lift(RhinoFault.Unless(!pattern.IsEmpty && scratch.SetSegments(pattern.Map(Millimeters)), RhinoReason.Declined, pattern))
+         from written in IO.lift(Fault.Unless(!pattern.IsEmpty && scratch.SetSegments(pattern.Map(Millimeters)), RhinoReason.Declined, pattern))
          select scratch.PatternString(millimeters)).Bracket();
 
     // --- [PREVIEW]
@@ -187,7 +187,7 @@ public static class Linetypes {
          let factor = copy.SegmentCount > 1 && copy.PatternLength > 0d && (Span / copy.PatternLength is < 5d or > 50d) ? 10d / copy.PatternLength : 1d
          from rescaled in IO.lift(Products.Each(toSeq(Range(0, copy.SegmentCount)), (segment, index) => {
              copy.GetSegment(segment, out double length, out bool solid);
-             return RhinoFault.Unless(copy.SetSegment(segment, length * factor, solid), RhinoReason.Declined, length, index);
+             return Fault.Unless(copy.SetSegment(segment, length * factor, solid), RhinoReason.Declined, length, index);
          }))
          let scale = extent > 0d ? 0.6d * Span * pixels.Height / pixels.Width / extent : factor
          select new LinetypePreview(Channel(curve, copy, pixels, scale, 0), Channel(curve, copy, pixels, scale, 1), Channel(curve, copy, pixels, scale, 2))).Bracket();

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Rasm.Rhino.Document.Units;
 
 namespace Rasm.Rhino.Modeling;
@@ -63,8 +64,8 @@ public abstract partial record FilletSection {
                 rational: static (at, _) => Fin.Succ(Brep.FilletSurfaceSettings.CreateRationalArcSettings(at.Radius, at.Tolerance, at.Trim, at.Extend)),
                 nonRational: static (at, section) =>
                     Brep.FilletSurfaceSettings.CreateNonRationalSettings(at.Radius, at.Tolerance, section.Arc.Degree, section.Tangent, section.Inner, at.Trim, at.Extend),
-                nonRationalArcs: static (_, section) => new RhinoFault(section, RhinoReason.Unsupported)),
-            lines: static (_, section) => new RhinoFault(section, RhinoReason.Unsupported),
+                nonRationalArcs: static (_, section) => Fault.Of(RhinoReason.Unsupported, section)),
+            lines: static (_, section) => Fault.Of(RhinoReason.Unsupported, section),
             g2: static (at, _) => Brep.FilletSurfaceSettings.CreateG2BlendSettings(at.Radius, at.Tolerance, at.Trim, at.Extend));
 }
 
@@ -92,9 +93,9 @@ public abstract partial record FilletContact {
                 (Accepted: Brep.CreateFilletSurface(faces.A, faces.UvA, faces.B, faces.UvB, settings, out Brep.FilletSurfaceResults results), Results: (Brep.FilletSurfaceResults?)results)),
             chamfer: static (at, chamfer) => Chained(at.Section is FilletSection.Lines
                     ? Brep.FilletSurfaceSettings.CreateChamferSettings(chamfer.Radius0, chamfer.Radius1, at.Tolerance, at.Trim, at.Extend)
-                    : new RhinoFault(chamfer, RhinoReason.Unsupported), at.Chain).Map(settings =>
+                    : Fault.Of(RhinoReason.Unsupported, chamfer), at.Chain).Map(settings =>
                 (Accepted: Brep.CreateFilletSurface(chamfer.A, chamfer.UvA, chamfer.B, chamfer.UvB, settings, out Brep.FilletSurfaceResults results), Results: (Brep.FilletSurfaceResults?)results)),
-            rail: static (_, rail) => new RhinoFault(rail, RhinoReason.Unsupported),
+            rail: static (_, rail) => Fault.Of(RhinoReason.Unsupported, rail),
             faceCurve: static (at, faceCurve) => Chained(at.Section.Settings(faceCurve.Radius, at.Tolerance, at.Trim, at.Extend), at.Chain).Map(settings =>
                 (Accepted: Brep.CreateFilletSurfaceCurve(faceCurve.Face, faceCurve.Uv, faceCurve.Rail3d, faceCurve.T, settings, out Brep.FilletSurfaceResults results), Results: (Brep.FilletSurfaceResults?)results)));
 
@@ -165,7 +166,7 @@ public static class Fillets {
 
     public static IO<FilletResult> Surface(Tolerances tolerances, FilletContact contact, FilletSection section, bool trim, bool extend, bool tangentChain) =>
         from answered in IO.lift(() => contact.Surface(section, tolerances, trim, extend, tangentChain))
-        from result in Decoded(answered.Accepted, answered.Results?.Fillets, answered.Results?.OutBreps0, answered.Results?.OutBreps1, nameof(Brep.CreateFilletSurface))
+        from result in Decoded(answered.Accepted, answered.Results?.Fillets, answered.Results?.OutBreps0, answered.Results?.OutBreps1)
         select result;
 
     public static IO<FilletResult> Engine(Tolerances tolerances, FilletContact contact, FilletSection section, int railDegree, bool extend, bool trim) =>
@@ -173,7 +174,7 @@ public static class Fillets {
         from answered in IO.lift(() => (Fillets: new List<Brep>(), First: new List<Brep>(), Second: new List<Brep>()) switch {
             var lists => (Accepted: section.Emit(engine, railDegree, extend, lists.Fillets) && (!trim || engine.TrimBreps(extend, lists.First, lists.Second)), Lists: lists),
         })
-        from result in Decoded(answered.Accepted, answered.Lists.Fillets, answered.Lists.First, answered.Lists.Second, nameof(SurfaceFilletBase))
+        from result in Decoded(answered.Accepted, answered.Lists.Fillets, answered.Lists.First, answered.Lists.Second)
         select result;
 
     // --- [RAILS]
@@ -183,10 +184,10 @@ public static class Fillets {
         from answered in IO.lift(() => (
             Accepted: curve.FilletSurfaceToCurve(face, t, uv.X, uv.Y, radius, alignment.AlignToCurve, railDegree, section.Degree, section.Sliders, alignment.BezierSurfaces, tolerances.Absolute, fillets, out double[] fit),
             Fit: fit))
-        from result in Decoded(answered.Accepted, fillets, first: null, second: null, nameof(Curve.FilletSurfaceToCurve))
+        from result in Decoded(answered.Accepted, fillets, first: null, second: null)
         from fit in IO.lift(answered.Fit is [var curveDeviation, var faceDeviation, var faceAngle, var bezierAngle, var bezierCurvature, ..]
             ? Fin.Succ(new SurfaceToCurveFit(curveDeviation, faceDeviation, faceAngle, bezierAngle, bezierCurvature))
-            : new RhinoFault(nameof(Curve.FilletSurfaceToCurve), RhinoReason.Missing))
+            : Fault.Of(RhinoReason.Missing, nameof(Curve.FilletSurfaceToCurve)))
         select (result.Fillets, fit);
 
     public static IO<(FilletResult Products, SurfaceToRailFit Fit)> ToRail(
@@ -196,18 +197,18 @@ public static class Fillets {
             Accepted: rail.FilletSurfaceToRail(faceWithCurve, secondFace, uv.X, uv.Y, railDegree, section.Degree, section.Sliders, bezierSurfaces, extend, splitType, tolerances.Absolute,
                 lists.Fillets, lists.First, lists.Second, out double[] fit),
             Fit: fit))
-        from result in Decoded(answered.Accepted, lists.Fillets, lists.First, lists.Second, nameof(Curve.FilletSurfaceToRail))
+        from result in Decoded(answered.Accepted, lists.Fillets, lists.First, lists.Second)
         from fit in IO.lift(answered.Fit is [var deviation0, var deviation1, var faceAngle0, var faceAngle1, var bezierAngle, var bezierCurvature, ..]
             ? Fin.Succ(new SurfaceToRailFit(deviation0, deviation1, faceAngle0, faceAngle1, bezierAngle, bezierCurvature))
-            : new RhinoFault(nameof(Curve.FilletSurfaceToRail), RhinoReason.Missing))
+            : Fault.Of(RhinoReason.Missing, nameof(Curve.FilletSurfaceToRail)))
         select (result, fit);
 
     // --- [DECODING]
 
-    private static IO<FilletResult> Decoded(bool accepted, IEnumerable<Brep>? fillets, IEnumerable<Brep>? first, IEnumerable<Brep>? second, string member) =>
-        from trimmed0 in Products.Many(() => first ?? [], required: false, member)
-        from trimmed1 in Products.Many(() => second ?? [], required: false, member)
-        from made in Products.Many(() => fillets ?? [], required: false, member)
-        from verdict in Products.Accepted(() => accepted, member)
+    private static IO<FilletResult> Decoded(bool accepted, IEnumerable<Brep>? fillets, IEnumerable<Brep>? first, IEnumerable<Brep>? second, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
+        from trimmed0 in Products.Many(() => first ?? [], required: false, member, line)
+        from trimmed1 in Products.Many(() => second ?? [], required: false, member, line)
+        from made in Products.Many(() => fillets ?? [], required: false, member, line)
+        from verdict in Products.Accepted(() => accepted, member, line)
         select new FilletResult(made, trimmed0, trimmed1);
 }

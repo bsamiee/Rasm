@@ -85,7 +85,7 @@ public sealed partial class Denoiser : IDisposable {
         oidnGetDeviceError(device, out nint message) switch {
             OidnError.None => unit,
             OidnError.Cancelled => Errors.Cancelled,
-            (OidnError.InvalidArgument or OidnError.OutOfMemory or OidnError.UnsupportedHardware) and var error => ImagingFault.Of(ImagingReason.Refused, (error, Marshal.PtrToStringUTF8(message))),
+            (OidnError.InvalidArgument or OidnError.OutOfMemory or OidnError.UnsupportedHardware) and var error => Fault.Of(ImagingReason.Refused, (error, Marshal.PtrToStringUTF8(message))),
             (OidnError.Unknown or OidnError.InvalidOperation) and var error => throw new InvalidOperationException($"{error}: {Marshal.PtrToStringUTF8(message)}"),
         };
 
@@ -122,7 +122,7 @@ public sealed partial class Denoiser : IDisposable {
         select new DenoiseGuides(albedo, normal, Clean: true);
 
     private IO<PixelFrame> Denoised(string type, (string Role, PixelFrame Frame) main, Seq<(string Role, PixelFrame Frame)> guides, Seq<(string Name, bool Value)> parameters, DenoiseQuality quality, Option<IProgress<int>> progress) =>
-        from covered in IO.lift(guides.Map((guide, index) => ImagingFault.Unless(
+        from covered in IO.lift(guides.Map((guide, index) => Fault.Unless(
             guide.Frame.Extent == main.Frame.Extent && guide.Frame.Window.Contains(main.Frame.Window), ImagingReason.Mismatch, (guide.Frame.Window, main.Frame.Window), index)).Traverse(identity).As())
         from token in cancelToken
         from output in IO.lift(() => {

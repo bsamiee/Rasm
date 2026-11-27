@@ -9,14 +9,14 @@ namespace Rasm.Rhino.Persistence;
 [ValueObject<string>(SkipIParsable = true)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class PresetName {
-    public static Fin<PresetName> Validated(string value) => TryCreate(value, out PresetName? name, out RhinoFault? fault) ? name : fault;
+    public static Fin<PresetName> Validated(string value) => TryCreate(value, out PresetName? name, out Fault<RhinoReason>? fault) ? name : fault;
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref string value) =>
         (value, validationError) = value.TrimOrNullify() is { } trimmed && !trimmed.AsSpan().ContainsAny(NamePart.Reserved)
-            ? (trimmed, default(RhinoFault?))
-            : (value, new RhinoFault(value, RhinoReason.Unqualified));
+            ? (trimmed, default(Fault<RhinoReason>?))
+            : (value, Fault.Of(RhinoReason.Unqualified, value));
 }
 
 public sealed record Preset(PresetName Name, Fin<ValueSet> Values) {
@@ -77,21 +77,21 @@ public sealed record PresetBinding(DirectoryInfo Folder, Seq<Preset> Stock, IO<V
     public IO<Preset> Save(PresetName name) => Added(name, Shown);
 
     public IO<Preset> Replace(Preset preset) =>
-        from file in IO.lift(preset.File.ToFin(new RhinoFault(preset.Name, RhinoReason.Missing)))
+        from file in IO.lift(preset.File.ToFin(Fault.Of(RhinoReason.Missing, preset.Name)))
         from values in Shown
         from written in Written(file, values, overwrite: true)
         select preset with { Values = values };
 
     public IO<Preset> Rename(Preset preset, PresetName to) =>
         from shelf in Shelf
-        from file in IO.lift(preset.File.ToFin(new RhinoFault(preset.Name, RhinoReason.Missing)))
-        from free in IO.lift(shelf.Find(to).ForAll(other => other.File.Exists(held => string.Equals(held.FullName, file.FullName, StringComparison.Ordinal))) ? Fin.Succ(unit) : new RhinoFault(to, RhinoReason.Taken))
+        from file in IO.lift(preset.File.ToFin(Fault.Of(RhinoReason.Missing, preset.Name)))
+        from free in IO.lift(shelf.Find(to).ForAll(other => other.File.Exists(held => string.Equals(held.FullName, file.FullName, StringComparison.Ordinal))) ? Fin.Succ(unit) : Fault.Of(RhinoReason.Taken, to))
         let target = Named(to)
         from moved in IO.lift(() => File.Move(file.FullName, target.FullName))
         select preset with { Name = to, File = Some(target) };
 
     public static IO<Unit> Delete(Preset preset) =>
-        from file in IO.lift(preset.File.ToFin(new RhinoFault(preset.Name, RhinoReason.Missing)))
+        from file in IO.lift(preset.File.ToFin(Fault.Of(RhinoReason.Missing, preset.Name)))
         from deleted in IO.lift(file.Delete)
         select deleted;
 
@@ -103,7 +103,7 @@ public sealed record PresetBinding(DirectoryInfo Folder, Seq<Preset> Stock, IO<V
 
     private IO<Preset> Added(PresetName name, IO<ValueSet> read) =>
         from shelf in Shelf
-        from free in IO.lift(shelf.Find(name).IsNone ? Fin.Succ(unit) : new RhinoFault(name, RhinoReason.Taken))
+        from free in IO.lift(shelf.Find(name).IsNone ? Fin.Succ(unit) : Fault.Of(RhinoReason.Taken, name))
         from values in read
         let file = Named(name)
         from written in Written(file, values, overwrite: false)
@@ -129,7 +129,7 @@ public sealed record PresetBinding(DirectoryInfo Folder, Seq<Preset> Stock, IO<V
 
     private static Fin<ValueSet> Read(FileInfo file) =>
         Try.lift(() => File.ReadAllText(file.FullName)).Run()
-            .Bind(text => ValueSet.Read(text).MapFail(cause => new RhinoFault(file.FullName, RhinoReason.Unreadable, Inner: cause)));
+            .Bind(text => ValueSet.Read(text).MapFail(cause => Fault.Of(RhinoReason.Unreadable, file.FullName, inner: cause)));
 
     private static IO<Unit> Written(FileInfo file, ValueSet values, bool overwrite) =>
         IO.lift(OutputPath.Of(file.FullName)).Bind(path => FilePublication.Write(path, values, ValueSetContext.Default.ValueSet, overwrite));

@@ -39,7 +39,7 @@ internal sealed class ObjectBody<TState, TGeometry>(ObjectDefinition<TState, TGe
             Some: static state => state,
             None: () =>
                 from stored in Conversions.Present(owner.Geometry.UserDictionary.TryGetDictionary(definition.Codec.Name, out ArchivableDictionary held), held)
-                    .ToFin(new RhinoFault(definition.Codec.Name, RhinoReason.Missing))
+                    .ToFin(Fault.Of(RhinoReason.Missing, definition.Codec.Name))
                 from record in definition.Codec.FromDictionary(stored)
                 from state in record.Present.ToFin(definition.Codec.Refusal(stored))
                 select decoded.Swap(_ => Some(state)).IfNone(state));
@@ -51,7 +51,7 @@ internal sealed class ObjectBody<TState, TGeometry>(ObjectDefinition<TState, TGe
         }));
 
     private Fin<Unit> Stamped(GeometryBase geometry, TState state) =>
-        definition.Codec.ToDictionary(state).Bind(encoded => RhinoFault.Unless(geometry.UserDictionary.Set(definition.Codec.Name, encoded), RhinoReason.Unwritable, definition.Codec.Name));
+        definition.Codec.ToDictionary(state).Bind(encoded => Fault.Unless(geometry.UserDictionary.Set(definition.Codec.Name, encoded), RhinoReason.Unwritable, definition.Codec.Name));
 
     // --- [DOCUMENTS]
 

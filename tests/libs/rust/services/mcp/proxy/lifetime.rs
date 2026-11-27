@@ -3,9 +3,10 @@ use core::time::Duration;
 use claims::{assert_none, assert_ok, assert_some};
 use futures::future;
 use rasm_mcp_tests::Id;
+use serde_json::json;
 use tokio::time::{self, Instant};
 
-use super::{INITIALIZE, LINE, QUIET, joined, proxy, session};
+use super::{INITIALIZE, LINE, QUIET, exited, joined, proxy, session};
 
 // --- [IDLE]
 
@@ -88,10 +89,11 @@ async fn server_that_answered_a_ping_during_a_call_is_replaced_once_it_answers_n
     let responsive = Vec::from_iter(learned.responsive.iter().map(|key| (key.method.to_string(), key.target.as_deref().map(str::to_owned))));
     assert_eq!(responsive, [("tools/call".to_owned(), Some(r#""hang""#.to_owned()))], "the stored profile names the call the server answered a ping during");
     assert_ok!(time::timeout(Duration::from_secs(61), server.stop.cancelled()).await, "a server that answered a ping during this call and answers none inside the one minute grace is stopped");
-    assert_ok!(server.exit.send("killed".to_owned()));
+    assert_ok!(server.exit.send(exited("killed")));
     let answer = caller.next().await;
     assert_eq!(answer.id, Some(Id::Number(7)), "the call in flight is answered under its own id");
-    assert!(answer.error.message.as_deref().is_some_and(|message| message.contains("stopped answering")), "the error states the cause: {answer:?}");
+    let stated = json!({ "_tag": "Down", "cause": [{ "_tag": "Unresponsive" }, { "_tag": "Exited", "status": "killed", "stderr": [] }], "sent": true, "next": "retry" });
+    assert_eq!((answer.error.code, answer.error.data.as_ref()), (Some(-32603), Some(&stated)), "the error states the cause and that the call reached the server: {answer:?}");
 }
 
 #[tokio::test(start_paused = true)]
@@ -159,7 +161,7 @@ async fn stop_and_drain_pass_a_server_that_stopped_reading() {
     assert_ok!(time::timeout(Duration::from_secs(1), proxy.drain(Duration::from_millis(250))).await, "a drain passes messages queued behind a server that stopped reading");
     let exited = async {
         server.stop.cancelled().await;
-        assert_ok!(server.exit.send("killed".to_owned()));
+        assert_ok!(server.exit.send(exited("killed")));
     };
     assert_ok!(time::timeout(Duration::from_secs(1), future::join(proxy.stop(), exited)).await, "a stop passes messages queued behind a server that stopped reading");
     assert_ok!(actor.await, "the proxy task ends with the stop");

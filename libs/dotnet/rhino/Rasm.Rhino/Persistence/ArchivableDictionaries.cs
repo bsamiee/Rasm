@@ -55,7 +55,7 @@ public sealed record DictionaryCodec<T>(string Name, int Version, Func<T, Fin<Ar
                 None: static () => new StoredRecord<T>.Absent());
 
     public Error Refusal(ArchivableDictionary stored) =>
-        new RhinoFault((Name, Stored: stored.Version, Current: Version), RhinoReason.Unreadable);
+        Fault.Of(RhinoReason.Unreadable, (Name, Stored: stored.Version, Current: Version));
 
     private static StoredRecord<T> Hold(T value) => new StoredRecord<T>.Decoded(value);
 }
@@ -168,7 +168,7 @@ public static class ArchivableDictionaries {
 
     public static Fin<T> Required<T>(ArchivableDictionary source, string key) where T : notnull =>
         from found in Find<T>(source, key)
-        from value in found.ToFin(new RhinoFault(key, RhinoReason.Missing))
+        from value in found.ToFin(Fault.Of(RhinoReason.Missing, key))
         select value;
 
     public static Fin<Seq<(string Key, ArchivableDictionary Value)>> Children(ArchivableDictionary source) =>
@@ -176,8 +176,8 @@ public static class ArchivableDictionaries {
 
     public static Fin<Unit> Set<T>(ArchivableDictionary target, string key, T value) where T : notnull =>
         Setter<T>.Set.Match(
-            Some: set => RhinoFault.Unless(set(target, key, value), RhinoReason.Declined, key),
-            None: () => new RhinoFault(key, RhinoReason.Mismatched));
+            Some: set => Fault.Unless(set(target, key, value), RhinoReason.Declined, key),
+            None: () => Fault.Of(RhinoReason.Mismatched, key));
 
     public static Fin<ArchivableDictionary> Nested(Seq<(string Key, Fin<ArchivableDictionary> Value)> rows) =>
         from target in Fin.Succ(new ArchivableDictionary())
@@ -274,6 +274,6 @@ public static class ArchivableDictionaries {
 
     public static Fin<T> Decoded<T>(string name, Func<T?> read) =>
         Try.lift(read).Run()
-            .MapFail(error => error.HasException<JsonException>() || error.HasException<NotSupportedException>() ? new RhinoFault(name, RhinoReason.Unreadable, Inner: error) : error)
-            .Bind(value => Optional(value).ToFin(new RhinoFault(name, RhinoReason.Missing)));
+            .MapFail(error => error.HasException<JsonException>() || error.HasException<NotSupportedException>() ? Fault.Of(RhinoReason.Unreadable, name, inner: error) : error)
+            .Bind(value => Optional(value).ToFin(Fault.Of(RhinoReason.Missing, name)));
 }

@@ -150,14 +150,14 @@ class Framing(msgspec.Struct, frozen=True, kw_only=True):
         """Validates pixels, folding overscan into resolution within the host's resolution bounds."""
         pixels = self.pixels()
         if any(side < 1 for side in pixels):
-            return Error(Fault.of(Reason.OUTSIDE, type(self).__name__, pixels, member="at least 1 pixel per side"))
+            return Error(Fault.of(Reason.OUTSIDE, type(self), pixels, member="at least 1 pixel per side"))
         if not any(self.padding):
             return Ok((self, pixels))
         return (
             Ok(pixels)
             .filter_with(
                 lambda _: all(RESOLUTION.hard_min <= side <= RESOLUTION.hard_max for side in pixels),
-                lambda _: Fault.of(Reason.OUTSIDE, type(self).__name__, pixels, member=f"{RESOLUTION.hard_min} to {RESOLUTION.hard_max} pixels per side with overscan"),
+                lambda _: Fault.of(Reason.OUTSIDE, type(self), pixels, member=f"{RESOLUTION.hard_min} to {RESOLUTION.hard_max} pixels per side with overscan"),
             )
             .map(lambda _: (msgspec.structs.replace(self, resolution_x=pixels[0], resolution_y=pixels[1], resolution_percentage=100, extent=Whole()), pixels))
         )

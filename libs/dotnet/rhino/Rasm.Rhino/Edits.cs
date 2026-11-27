@@ -4,7 +4,7 @@ namespace Rasm.Rhino;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record Step<T>(Func<T, IO<T>> Run, string Member) where T : class;
+public sealed record Step<T>(Func<T, IO<T>> Run, object Subject) where T : class;
 
 public sealed record Stage<T>(Func<T, IO<T>> Copy, Func<T, T, bool> Unchanged, Func<T, T, IO<T>> Commit) where T : class;
 
@@ -14,21 +14,21 @@ public static class Steps {
 
     // --- [STEPS]
 
-    public static Step<T> Of<T>(Func<T, bool> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
-        new(target => IO.lift(() => call(target) ? Fin.Succ(target) : new RhinoFault(member, RhinoReason.Declined)), member);
+    public static Step<T> Of<T>(Func<T, bool> call, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) where T : class =>
+        new(target => IO.lift(() => call(target) ? Fin.Succ(target) : Fault.Of(RhinoReason.Declined, (member, line))), (member, line));
 
-    public static Step<T> Then<T>(Func<T, T?> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
-        new(target => Products.Of(() => call(target), member), member);
+    public static Step<T> Then<T>(Func<T, T?> call, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) where T : class =>
+        new(target => Products.Of(() => call(target), member, line), (member, line));
 
-    public static Step<T> Derived<T>(Func<T, IO<T>> run, [CallerMemberName] string member = "") where T : class => new(run, member);
+    public static Step<T> Derived<T>(Func<T, IO<T>> run, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) where T : class => new(run, (member, line));
 
-    public static Step<T> Count<T>(Func<T, long> call, Func<long, bool> accepts, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
+    public static Step<T> Count<T>(Func<T, long> call, Func<long, bool> accepts, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) where T : class =>
         new(target => IO.lift(() => call(target) switch {
-            var count => RhinoFault.Unless(accepts(count), RhinoReason.Declined, count, names: member).Map(_ => target),
-        }), member);
+            var count => Fault.Unless(accepts(count), RhinoReason.Declined, count).Map(_ => target),
+        }), (member, line));
 
-    public static Step<T> At<T>(ComponentIndexType kind, Seq<int> indices, Func<T, Seq<int>, bool> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : GeometryBase =>
-        new(target => IO.lift(() => target.Within(kind, indices).Bind(held => call(target, held) ? Fin.Succ(target) : new RhinoFault(member, RhinoReason.Declined))), member);
+    public static Step<T> At<T>(ComponentIndexType kind, Seq<int> indices, Func<T, Seq<int>, bool> call, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) where T : GeometryBase =>
+        new(target => IO.lift(() => target.Within(kind, indices).Bind(held => call(target, held) ? Fin.Succ(target) : Fault.Of(RhinoReason.Declined, (member, line)))), (member, line));
 
     // --- [COMPONENTS]
 
@@ -37,8 +37,8 @@ public static class Steps {
             Products.Each(components, (component, at) => Holds(geometry, component).Match(
                 Some: held => held
                     ? Fin.Succ(component)
-                    : new RhinoFault((Component: component, Geometry: geometry.ObjectType), RhinoReason.Outside, at),
-                None: () => new RhinoFault((Component: component.ComponentIndexType, Geometry: geometry.ObjectType), RhinoReason.Mismatched, at)));
+                    : Fault.Of(RhinoReason.Outside, (Component: component, Geometry: geometry.ObjectType), at),
+                None: () => Fault.Of(RhinoReason.Mismatched, (Component: component.ComponentIndexType, Geometry: geometry.ObjectType), at)));
 
         public Fin<Seq<int>> Within(ComponentIndexType kind, Seq<int> indices) =>
             geometry.Within(indices.Map(index => new ComponentIndex(kind, index))).Map(static held => held.Map(static component => component.Index));
@@ -105,7 +105,7 @@ public static class Stages {
                 from subd in IO.pure(Optional(staged as SubD))
                 from tagged in IO.lift(() => subd.Map(static held => held.UpdateAllTagsAndSectorCoefficients()))
                 from cleared in IO.lift(() => subd.Iter(static held => held.ClearEvaluationCache()))
-                from valid in IO.lift(staged.IsValidWithLog(out string log) ? Fin.Succ(staged) : new RhinoFault(staged.ObjectType, RhinoReason.Invalid, Inner: Error.New(log)))
+                from valid in IO.lift(staged.IsValidWithLog(out string log) ? Fin.Succ(staged) : Fault.Of(RhinoReason.Invalid, staged.ObjectType, inner: Error.New(log)))
                 select valid);
 }
 
@@ -116,12 +116,12 @@ public static class Edits {
     public static IO<T> Apply<T>(Stage<T> stage, T live, Seq<Step<T>> steps) where T : class =>
         from staged in stage.Copy(live)
         from edited in steps.Map(static (step, index) => (Step: step, Index: index)).FoldM(staged, static (current, entry) =>
-            entry.Step.Run(current).Catch(error => IO.fail<T>(Indexed(error, entry.Step.Member, entry.Index)))).As()
+            entry.Step.Run(current).Catch(error => IO.fail<T>(Indexed(error, entry.Step.Subject, entry.Index)))).As()
         from committed in stage.Unchanged(live, edited) ? IO.pure(live) : stage.Commit(live, edited)
         select committed;
 
-    private static RhinoFault Indexed(Error error, string member, int index) =>
-        error.Count is 1 && error.Filter<RhinoFault>().Head is RhinoFault fault
+    private static Fault<RhinoReason> Indexed(Error error, object subject, int index) =>
+        error.Count is 1 && error.Filter<Fault<RhinoReason>>().Head is Fault<RhinoReason> fault
             ? fault with { Index = index }
-            : new RhinoFault(member, RhinoReason.Declined, index, error);
+            : Fault.Of(RhinoReason.Declined, subject, index, error);
 }

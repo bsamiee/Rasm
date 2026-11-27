@@ -257,7 +257,7 @@ public abstract partial record PlotPlane : IInterpolated<PlotPlane> {
 
         private static Fin<Mapped> Bounded(Axis x, Axis y, Action<Span<double>, Span<double>> forward, Action<Span<double>, Span<double>> inverse, Func<AxisRange, AxisRange, SKRect> bounds) =>
             bounds(x.Domain, y.Domain) switch {
-                var world => UIFault.Unless(float.IsFinite(world.Width) && float.IsFinite(world.Height) && world.Width > 0f && world.Height > 0f, UIReason.Range, world)
+                var world => Fault.Unless(float.IsFinite(world.Width) && float.IsFinite(world.Height) && world.Width > 0f && world.Height > 0f, UIReason.Range, world)
                     .Map(_ => new Mapped(x, y, forward, inverse, bounds, world)),
             };
 

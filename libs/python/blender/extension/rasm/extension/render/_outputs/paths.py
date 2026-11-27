@@ -268,7 +268,7 @@ def today() -> datetime.date:
 
 def _frame_file(render: bpy.types.RenderSettings, frame: int, view: Option[bpy.types.SceneRenderView] = NOTHING) -> Outcome[Path]:
     """Returns the native animation file path, with templates, frame, and camera-view suffix resolved."""
-    return catch(render.frame_path, exception=RuntimeError)(frame=frame, view=view.map(lambda held: held.name).default_value("")).map(Path).map_error(partial(Fault.of, Refusal.REFUSED, repr(render)))
+    return catch(render.frame_path, exception=RuntimeError)(frame=frame, view=view.map(lambda held: held.name).default_value("")).map(Path).map_error(partial(Fault.of, Refusal.REFUSED, render))
 
 
 def _path_bytes(text: str, reserve: int = 0) -> str:
@@ -381,11 +381,11 @@ def file_output_path(
             case (path,):
                 return Ok(path)
             case candidates:
-                return Error(Fault.of(Refusal.REQUIRED, repr(node), candidates, member="render mode for distinct still and animation paths"))
+                return Error(Fault.of(Reason.UNMET, node, candidates, member="render mode for distinct still and animation paths"))
 
     return (
         extension(settings)
-        .to_result_with(lambda: Fault.of(Reason.OUTSIDE, repr(settings), settings.file_format, member="still image extension"))
+        .to_result_with(lambda: Fault.of(Reason.OUTSIDE, settings, settings.file_format, member="still image extension"))
         .bind(
             lambda suffix: accumulated(
                 image_path(

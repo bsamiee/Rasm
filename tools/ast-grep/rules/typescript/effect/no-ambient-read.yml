@@ -66,7 +66,6 @@ rule:
                     - inside: { kind: import_statement, stopBy: end, has: { field: source, regex: '^.(node:)?(crypto|os|process).$' } }
         - inside: { kind: program, stopBy: end, matches: { typescript-module-importer: { module: { regex: '^(effect|@effect/[^/]+)(/|$)' } } } }
         - not: { inside: { matches: service-implementation, stopBy: end } }
-message: '`$READ` reads host time or randomness as an ambient value'
-note: 'Read time from `Clock` or `DateTime.now`, randomness from `Random`, and identifiers and bytes from `SecureRandom`, or take the value as a parameter'
+message: '`$READ` reads host time or randomness as an ambient value, read time from `Clock` or `DateTime.now`, randomness from `Random`, and identifiers and bytes from `SecureRandom`, or take the value as a parameter'
 labels:
     READ: { style: primary }

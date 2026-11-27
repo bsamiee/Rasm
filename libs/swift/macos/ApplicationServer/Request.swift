@@ -119,7 +119,7 @@ extension Request {
                 if let text { try Pasteboard.write(text, to: .general) }
                 return try await .value(Pasteboard(.general, reading: content))
             case .watch(let process, let locators):
-                let instance = try Instance(process, matching: predicate)
+                let instance = try await watches.instance(process, matching: matching)
                 let installation = try instance.application.bundleURL.map { url throws(ApplicationFailure) in try Installation(at: url) }
                 let watch = await watches.watch(instance, locators: locators ?? [])
                 if try installation?.scriptable == true {
@@ -136,9 +136,9 @@ extension Request {
                 await watches.release(process)
                 return .value(nil)
             case .model(let process, let scope, let known):
-                return try await .value(watches.watch(Instance(process, matching: predicate)).model(scope, known: known))
+                return try await .value(watches.watch(watches.instance(process, matching: matching)).model(scope, known: known))
             case .intern(let process, let locators):
-                return try await .value(watches.watch(Instance(process, matching: predicate)).intern(locators))
+                return try await .value(watches.watch(watches.instance(process, matching: matching)).intern(locators))
             case .handlers(let document):
                 return try await .value(Installation.handlers(of: document, matching: predicate))
             case .launch(let url, let documents, let arguments, let environment, let new, let opening, let wait):
@@ -157,7 +157,7 @@ extension Request {
                     .map(\.self)
                 )
             case .act(let process, let steps, let record):
-                let instance = try Instance(process, matching: predicate)
+                let instance = try await watches.instance(process, matching: matching)
                 try Session.require("Acting")
                 let watch = await watches.watch(instance)
                 let changeCount: Int = NSPasteboard.general.changeCount
@@ -197,9 +197,9 @@ extension Request {
                     )
                 )
             case .activate(let process):
-                return try await .value(watches.watch(Instance(process, matching: predicate)).forward())
+                return try await .value(watches.watch(watches.instance(process, matching: matching)).forward())
             case .quit(let process, let mode):
-                let instance = try Instance(process, matching: predicate)
+                let instance = try await watches.instance(process, matching: matching)
                 let installation = try [.saving, .discarding].contains(mode) ? instance.application.bundleURL.map { url throws(ApplicationFailure) in try Installation(at: url) } : nil
                 let dictionary: ScriptingDictionary? = if let installation, try installation.scriptable { try await dictionaries.dictionary(of: installation) } else { nil }
                 let watch = await watches.watch(instance)
@@ -213,7 +213,7 @@ extension Request {
             case .dictionary(let url):
                 return try await .value(dictionaries.dictionary(of: Installation(at: url, matching: predicate)))
             case .execute(let process, let arguments):
-                let instance = try Instance(process, matching: predicate)
+                let instance = try await watches.instance(process, matching: matching)
                 guard let url = instance.application.bundleURL else { throw ApplicationFailure(subject: "The instance", reason: .noPath) }
                 let dictionary = try await dictionaries.dictionary(of: Installation(at: url))
                 let (hold, written) = try await FileEvent.written(await watches.watch(instance).documentFiles) { () async throws(ApplicationFailure) in
@@ -226,11 +226,11 @@ extension Request {
                 try hold.released.get()
                 return try .value(ExecuteResult(reply: hold.value.get(), written: EncodedResult(written)))
             case .capture(let process, let source, let longestSide, let marks):
-                let instance = try Instance(process, matching: predicate)
+                let instance = try await watches.instance(process, matching: matching)
                 try Session.require("Capture")
                 return try await .value(watches.watch(instance).capture(source, longestSide: longestSide, marks: marks).map(EncodedResult.init))
             case .record(let process, let source, let longestSide, let frames, let seconds, let movie):
-                let instance = try Instance(process, matching: predicate)
+                let instance = try await watches.instance(process, matching: matching)
                 try Session.require("Recording")
                 let recorded = await watches.watch(instance).record(source, keyFrames: frames, longestSide: longestSide, movie: movie) {
                     (_: @escaping @Sendable (Int) -> Void) async throws(ApplicationFailure) in
@@ -242,7 +242,7 @@ extension Request {
                 let scaled = try image.image(longestSide: longestSide)
                 return try .value(Scaled(png: scaled.png(), width: scaled.width, height: scaled.height))
             case .diagnostics(let application, let folders, let since, let limit, let find):
-                let instance = try application?.instance.map { process throws(ApplicationFailure) in try Instance(process, matching: predicate) }
+                let instance: Instance? = if let process = application?.instance { try await watches.instance(process, matching: matching) } else { nil }
                 let bundle: Bundle? =
                     try instance == nil
                     ? application.map { application throws(ApplicationFailure) in Bundle(url: try Installation(at: application.url, matching: predicate).url) } ?? Bundle.main : nil

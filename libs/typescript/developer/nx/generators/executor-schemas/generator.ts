@@ -1,7 +1,7 @@
 import { formatFiles, getProjects, readJson, type Tree, writeJson } from '@nx/devkit';
 import { loadTsFile, resolveImplementation, type SyncGeneratorResult } from '@nx/devkit/internal';
-import { Array, Cause, Effect, Equal, JsonSchema, Option, Path, Predicate, pipe, Record, Result, Schema, Struct } from 'effect';
-import { run } from '#/inference';
+import { Array, Effect, Equal, JsonSchema, Option, Path, Predicate, pipe, Record, Result, Schema, Struct } from 'effect';
+import { NxError, run } from '#/inference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -31,7 +31,7 @@ const generate = Effect.fnUntraced(function* (tree: Tree) {
         rows.flat(),
         Effect.fnUntraced(function* ({ root, name, collection, executor, at, implementation }) {
             const [file = implementation] = implementation.split('#');
-            const loaded = yield* Effect.try({ try: (): unknown => loadTsFile(resolveImplementation(file, path.join(tree.root, root), name, projects)), catch: (cause) => new Cause.UnknownError(cause, `${name}:${executor} does not load ${implementation}`) });
+            const loaded = yield* Effect.try({ try: (): unknown => loadTsFile(resolveImplementation(file, path.join(tree.root, root), name, projects)), catch: NxError.of({ _tag: 'Unloaded', tool: 'nx' }, path.join(root, file)) });
             return pipe(
                 Option.liftPredicate(loaded, Predicate.isObject),
                 Option.flatMap((module) => Array.findFirst(Object.values(module), Schema.isSchema)),

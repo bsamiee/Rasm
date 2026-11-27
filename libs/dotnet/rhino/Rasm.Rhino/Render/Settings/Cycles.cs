@@ -34,7 +34,7 @@ public static class Cycles {
 
     public static IO<SettingsNode> Node => Installed("RhinoCycles").Map(static id => new SettingsNode(new SettingsRoot.PlugInNode(id)));
 
-    private static IO<Guid> Installed(string name) => IO.lift(() => Conversions.Present(PlugIn.IdFromName(name)).ToFin(new RhinoFault(name, RhinoReason.Missing)));
+    private static IO<Guid> Installed(string name) => IO.lift(() => Conversions.Present(PlugIn.IdFromName(name)).ToFin(Fault.Of(RhinoReason.Missing, name)));
 
     // --- [DOCUMENTS]
 

@@ -43,11 +43,11 @@ public static class Contents {
                 byName: static (state, byName) => Rows(state.Doc, state.Kinds)
                     .Map(rows => rows.Filter(content => string.Equals(content.Name, byName.Name, StringComparison.Ordinal)))
                     .Bind(named => named.Count > 1
-                        ? IO.fail<Option<RenderContent>>(new RhinoFault($"render content name {byName.Name}", RhinoReason.Repeated))
+                        ? IO.fail<Option<RenderContent>>(Fault.Of(RhinoReason.Repeated, $"render content name {byName.Name}"))
                         : IO.pure(named.Head)))
-            .Bind(found => IO.lift(found.ToFin(new RhinoFault($"render content {row}", RhinoReason.Missing))))
+            .Bind(found => IO.lift(found.ToFin(Fault.Of(RhinoReason.Missing, $"render content {row}"))))
         from child in IO.lift(slots.Fold(Fin.Succ(top), static (parent, slot) => parent.Bind(content =>
-            Optional(content.FindChild(slot)).ToFin(new RhinoFault($"slot {slot} of {content.Id}", RhinoReason.Missing)))))
+            Optional(content.FindChild(slot)).ToFin(Fault.Of(RhinoReason.Missing, $"slot {slot} of {content.Id}")))))
         select child;
 
     // --- [LIFECYCLE]
@@ -104,8 +104,8 @@ public static class Contents {
     public static IO<RenderContent> Edit(RenderContent content, RenderContent.ChangeContexts cc, Seq<Step<RenderContent>> steps) =>
         Edits.Apply(Changing(cc), content, steps).Bracket();
 
-    public static Step<RenderContent> Child(Func<RenderContent?> make, string slot, [CallerArgumentExpression(nameof(make))] string member = "") =>
-        new(target => Products.Transfer(make, child => Products.Accepted(() => target.SetChild(child, slot), member)).Map(_ => target), member);
+    public static Step<RenderContent> Child(Func<RenderContent?> make, string slot, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
+        new(target => Products.Transfer(make, child => Products.Accepted(() => target.SetChild(child, slot), member, line), member, line).Map(_ => target), (member, line));
 
     // --- [CHOOSERS]
 

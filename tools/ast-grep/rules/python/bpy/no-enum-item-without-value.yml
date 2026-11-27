@@ -13,5 +13,4 @@ rule:
         has:
             kind: for_in_clause
             matches: { python-attribute-iteration: { target: { kind: identifier, pattern: $I }, attribute: { regex: '^enum_items(_static(_ui)?)?$' } } }
-message: '`$ITEM` drops `$I.value`, and Blender numbers each item by position'
-note: 'Build `(<item>.identifier, <item>.name, <item>.description, <item>.icon, <item>.value)`'
+message: '`$ITEM` drops `$I.value`, and Blender numbers each item by position, build `($I.identifier, $I.name, $I.description, $I.icon, $I.value)`'

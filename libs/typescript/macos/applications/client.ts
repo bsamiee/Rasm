@@ -36,9 +36,10 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
         const discovering = yield* Effect.forkScoped(Stream.runForEach(rest, (value) => SubscriptionRef.set(installations, value)));
         return {
             ...client,
-            runLaunch: Effect.fnUntraced(function* (launch: Omit<Parameters<typeof client.launch>[0], 'wait'>, wait: Option.Option<Duration.Input>) {
+            runLaunch: Effect.fnUntraced(function* <R>(launch: Omit<Parameters<typeof client.launch>[0], 'wait'>, wait: Option.Option<Duration.Input>, launching: (launched: typeof LaunchEvent.cases.launched.Type) => Effect.Effect<void, never, R>) {
                 const { launched, ...outcome } = yield* client.launch({ ...launch, wait: Option.isSome(wait) }).pipe(
                     Stream.interruptWhen(Option.match(wait, { onNone: () => Effect.never, onSome: Effect.sleep })),
+                    Stream.tap(LaunchEvent.matchOrElse({ launched: launching }, () => Effect.void)),
                     Stream.runFold(
                         () => ({
                             launched: Option.none<typeof LaunchEvent.cases.launched.Type>(),

@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, readJsonFile, type TargetConfiguration } from '@nx/devkit';
 import { buildPackageJsonPatterns, findProjectForPath, globWithWorkspaceContext, hashObject, type PackageJson } from '@nx/devkit/internal';
-import { above, type Anchor, aggregated, anchored, below, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, owned, packaged, parsed, type Pass, request, run, tokened, within } from '@rasm/nx/inference';
+import { above, type Anchor, aggregated, anchored, below, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, NxError, owned, packaged, parsed, type Pass, request, run, tokened, within } from '@rasm/nx/inference';
 import { Array, Cause, Effect, Function, Glob, Option, Predicate, Record, Schema } from 'effect';
 import type { Vite } from 'vitest/node';
 import plugin from '#/package.json' with { type: 'json' };
@@ -97,7 +97,7 @@ const read = (anchor: Anchor, file: string, outputPath: string | undefined) => {
     return request(
         Effect.sync(() => new Worker(WORKER, { workerData, env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV } })),
         Surveyed,
-        `${file} does not load as a Vitest config`,
+        NxError.of({ _tag: 'Unloaded', tool: 'vitest' }, file),
     ).pipe(
         Effect.flatMap(
             Surveyed.match({

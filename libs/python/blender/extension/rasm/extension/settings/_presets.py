@@ -81,7 +81,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     def found(self, identity: Identity, stem: str) -> Outcome[T | Path]:
         """Returns stock preset or file of stem."""
         found: Option[T | Path] = option.of_optional(self.listed(identity).get(stem))
-        return found.to_result_with(lambda: Fault.of(Reason.ABSENT, str(self.folder(identity)), member=stem))
+        return found.to_result_with(lambda: Fault.of(Reason.ABSENT, self.folder(identity), member=stem))
 
     def loaded(self, identity: Identity, stem: str) -> Outcome[T]:
         """Returns the validated preset of stem, stock or file."""
@@ -111,7 +111,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             no_clobber_move(source, target)
             return target
 
-        return _named(name).bind(lambda stem: moved(stem).map_error(partial(Fault.of, Reason.UNWRITABLE, str(source))))
+        return _named(name).bind(lambda stem: moved(stem).map_error(partial(Fault.of, Reason.UNWRITABLE, source)))
 
     def imported(self, identity: Identity, source: Path) -> Outcome[Path]:
         """Copies validated file into user folder."""

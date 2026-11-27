@@ -233,7 +233,7 @@ public static class SectionCommands {
         new(new CommandFace("section-reset", "Reset") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.RestoreDefaultsSvg)) },
             new Invoke.Effect(static scope => Historied(scope).Bind(history => scope.Commit(history.Group, history.Group.Defaults)).Map(unit)));
 
-    private static IO<HistoryBinding> Historied(RowScope scope) => IO.lift(() => scope.History.ToFin(new RhinoFault("section value history", RhinoReason.Missing)));
+    private static IO<HistoryBinding> Historied(RowScope scope) => IO.lift(() => scope.History.ToFin(Fault.Of(RhinoReason.Missing, "section value history")));
 
     // --- [VALUES]
 

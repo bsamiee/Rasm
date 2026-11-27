@@ -467,7 +467,7 @@ public abstract partial record Figure : IInterpolated<Figure> {
         public Samples Values { get; }
 
         public static Fin<Field> Validated(int columns, int rows, Samples values) =>
-            UIFault.Unless(columns > 0 && rows > 0 && Math.BigMul(columns, rows) == values.Values.Length, UIReason.Range, (columns, rows, values.Values.Length)).Map(_ => new Field(columns, rows, values));
+            Fault.Unless(columns > 0 && rows > 0 && Math.BigMul(columns, rows) == values.Values.Length, UIReason.Range, (columns, rows, values.Values.Length)).Map(_ => new Field(columns, rows, values));
 
         internal override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) =>
             frame.Plane.Enclose(path, frame, pen, frame.Plane.Spans(PhysicalAxis.Horizontal, None), frame.Plane.Spans(PhysicalAxis.Vertical, None));

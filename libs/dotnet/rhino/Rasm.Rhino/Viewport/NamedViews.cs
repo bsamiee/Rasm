@@ -125,15 +125,15 @@ public static class NamedViews {
     private static Fin<Unit> Restored(NamedViewTable table, int index, RhinoViewport viewport, RestorePacing pacing) =>
         pacing.Switch(
             (Table: table, Index: index, Viewport: viewport),
-            immediate: static (at, _) => RhinoFault.Unless(at.Table.Restore(at.Index, at.Viewport), RhinoReason.Declined, at.Index),
-            matchAspect: static (at, _) => RhinoFault.Unless(!OperatingSystem.IsMacOS() && at.Table.RestoreWithAspectRatio(at.Index, at.Viewport), RhinoReason.Unsupported, at.Index),
+            immediate: static (at, _) => Fault.Unless(at.Table.Restore(at.Index, at.Viewport), RhinoReason.Declined, at.Index),
+            matchAspect: static (at, _) => Fault.Unless(!OperatingSystem.IsMacOS() && at.Table.RestoreWithAspectRatio(at.Index, at.Viewport), RhinoReason.Unsupported, at.Index),
             constantSpeed: static (at, speed) =>
                 from delay in Conversions.Whole(speed.Delay, Duration.FromMilliseconds(1))
-                from restored in RhinoFault.Unless(at.Table.RestoreAnimatedConstantSpeed(at.Index, at.Viewport, speed.UnitsPerFrame, delay), RhinoReason.Declined, at.Index)
+                from restored in Fault.Unless(at.Table.RestoreAnimatedConstantSpeed(at.Index, at.Viewport, speed.UnitsPerFrame, delay), RhinoReason.Declined, at.Index)
                 select restored,
             constantTime: static (at, time) =>
                 from delay in Conversions.Whole(time.Delay, Duration.FromMilliseconds(1))
-                from restored in RhinoFault.Unless(at.Table.RestoreAnimatedConstantTime(at.Index, at.Viewport, time.Frames, delay), RhinoReason.Declined, at.Index)
+                from restored in Fault.Unless(at.Table.RestoreAnimatedConstantTime(at.Index, at.Viewport, time.Frames, delay), RhinoReason.Declined, at.Index)
                 select restored);
 
     // --- [HOLDS]
@@ -179,8 +179,8 @@ public static class NamedViews {
 
     private static Fin<Unit> Transformed(RhinoViewport viewport, Transform xform, double dilation) {
         using ViewportInfo camera = new(viewport);
-        return RhinoFault.Unless(camera.TransformCamera(xform), RhinoReason.Declined, xform)
-            .Bind(_ => RhinoFault.Unless(
+        return Fault.Unless(camera.TransformCamera(xform), RhinoReason.Declined, xform)
+            .Bind(_ => Fault.Unless(
                 camera.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out double far)
                 && camera.SetFrustum(left * dilation, right * dilation, bottom * dilation, top * dilation, near * dilation, far * dilation), RhinoReason.Declined, dilation))
             .Bind(_ => Cameras.Applied(viewport, camera));

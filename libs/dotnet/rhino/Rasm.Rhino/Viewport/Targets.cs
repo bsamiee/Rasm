@@ -57,7 +57,7 @@ public static class Viewports {
     // --- [RESOLUTION]
 
     public static IO<ViewportRef> Resolve(RhinoDoc doc, ViewportTarget target) =>
-        IO.lift(() => Found(doc, target).ToFin(new RhinoFault(target, RhinoReason.Missing))).Bind(static row => use(() => row));
+        IO.lift(() => Found(doc, target).ToFin(Fault.Of(RhinoReason.Missing, target))).Bind(static row => use(() => row));
 
     public static IO<Seq<ViewportRef>> Resolve(RhinoDoc doc, ViewportSet set) =>
         set.Switch(

@@ -40,7 +40,7 @@ public sealed record TableKind<T>(
     public Func<Seq<string>, Fin<Seq<string>>> Arrange { get; init; } = static keys => keys;
 
     public Func<RhinoDoc, Option<T>, string, Fin<Seq<RowEdit<T>>>> Place { get; init; } = static (_, _, key) =>
-        RhinoFault.Unless(ModelComponent.IsValidComponentName(key), RhinoReason.Unqualified, key)
+        Fault.Unless(ModelComponent.IsValidComponentName(key), RhinoReason.Unqualified, key)
             .Map(_ => Seq(Rows.Set<T, string>(static row => row.Name, static (row, name) => row.Name = name, key)));
 
     public Option<Func<RhinoDoc, T, bool>> Purge { get; init; }
@@ -138,12 +138,12 @@ public static class Rows {
                 byId: static (rows, byId) => Optional(rows.Document.Manifest.FindId<T>(byId.Id)),
                 byIndex: static (rows, byIndex) => Optional(rows.Document.Manifest.FindIndex<T>(byIndex.Index)),
                 byName: static Fin<Option<T>> (rows, byName) =>
-                    RhinoFault.Unless(
+                    Fault.Unless(
                             ModelComponent.ModelComponentTypeRequiresUniqueName(rows.ComponentType) && !ModelComponent.ModelComponentTypeIncludesParent(rows.ComponentType),
                             RhinoReason.Unsupported, rows.ComponentType)
                         .Map(_ => Optional(rows.Document.Manifest.FindName<T>(byName.Name, Guid.Empty))))
             .Bind(found => found.Filter(row => includeDeleted || !row.IsDeleted)
-                .ToFin(new RhinoFault((address, table.ComponentType), RhinoReason.Missing))));
+                .ToFin(Fault.Of(RhinoReason.Missing, (address, table.ComponentType)))));
 
     public static IO<int> Index<T>(RhinoDocCommonTable<T> table, Option<ComponentRef<T>> address) where T : ModelComponent =>
         address.Traverse(row => Find(table, row)).As().Map(static found => Conversions.Unset(found.Map(static row => row.Index)));
@@ -159,15 +159,15 @@ public static class Rows {
     // --- [EDITS]
 
     public static RowEdit<T> Set<T, TValue>(
-        Func<T, TValue> read, Action<T, TValue> write, TValue value, [CallerArgumentExpression(nameof(read))] string member = "")
+        Func<T, TValue> read, Action<T, TValue> write, TValue value, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0)
         where T : class =>
         new(new Step<T>(row => IO.lift(() => {
             write(row, value);
             return row;
-        }), member), Some<Func<T, bool>>(row => EqualityComparer<TValue>.Default.Equals(read(row), value)));
+        }), (member, line)), Some<Func<T, bool>>(row => EqualityComparer<TValue>.Default.Equals(read(row), value)));
 
-    public static RowEdit<T> Write<T>(Func<T, IO<Unit>> write, [CallerArgumentExpression(nameof(write))] string member = "") where T : class =>
-        new(new Step<T>(row => write(row).Map(_ => row), member), None);
+    public static RowEdit<T> Write<T>(Func<T, IO<Unit>> write, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) where T : class =>
+        new(new Step<T>(row => write(row).Map(_ => row), (member, line)), None);
 
     public static IO<T> Edit<T>(RhinoDoc doc, TableKind<T> kind, ComponentRef<T> address, Seq<RowEdit<T>> edits) where T : ModelComponent =>
         (from live in Find(kind.Table(doc), address)
@@ -249,14 +249,14 @@ public static class Rows {
 
     public static IO<Unit> Remove<T>(RhinoDoc doc, TableKind<T> kind, T row, Prune prune) where T : ModelComponent =>
         from removal in IO.lift(() => prune == Prune.Purge
-            ? kind.Purge.ToFin(new RhinoFault((nameof(kind.Purge), row.ComponentType), RhinoReason.Unsupported)).Map(purge => purge(doc, row))
+            ? kind.Purge.ToFin(Fault.Of(RhinoReason.Unsupported, (nameof(kind.Purge), row.ComponentType))).Map(purge => purge(doc, row))
             : kind.Table(doc).Delete(row))
-        from gone in IO.lift(RhinoFault.Unless(removal, RhinoReason.Declined, kind.Key(row)))
+        from gone in IO.lift(Fault.Unless(removal, RhinoReason.Declined, kind.Key(row)))
         select unit;
 
     private static IO<Unit> Sorted<T>(RhinoDoc doc, TableKind<T> kind, Seq<string> keys) where T : ModelComponent =>
         from rows in IO.lift(() => kind.Live(doc))
-        from sort in IO.lift(kind.Sort.ToFin(new RhinoFault((nameof(kind.Sort), typeof(T)), RhinoReason.Unsupported)))
+        from sort in IO.lift(kind.Sort.ToFin(Fault.Of(RhinoReason.Unsupported, (nameof(kind.Sort), typeof(T)))))
         let listed = keys.Choose(key => rows.Find(row => !row.IsReference && kind.Names.Equals(kind.Key(row), key)))
         let ids = toHashSet(listed.Map(static row => row.Id))
         from sorted in IO.lift(() => sort(doc, (listed + rows.Filter(row => !ids.Contains(row.Id))).Map(static row => row.Index)))

@@ -38,9 +38,9 @@ internal sealed class OverscanFrame {
     public IO<Unit> Widen(ViewportInfo view) =>
         IO.lift(() => {
             view.FrustumAspect = (double)Frame.Width / Frame.Height;
-            return DarkroomFault.Unless(view.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out double far), DarkroomReason.Invalid, view.Id)
+            return Fault.Unless(view.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out double far), DarkroomReason.Invalid, view.Id)
                 .Bind(_ => ((right - left) * Pad.Width / Frame.Width, (top - bottom) * Pad.Height / Frame.Height) switch {
-                    var (x, y) => DarkroomFault.Unless(view.SetFrustum(left - x, right + x, bottom - y, top + y, near, far), DarkroomReason.Invalid, view.Id),
+                    var (x, y) => Fault.Unless(view.SetFrustum(left - x, right + x, bottom - y, top + y, near, far), DarkroomReason.Invalid, view.Id),
                 });
         });
 

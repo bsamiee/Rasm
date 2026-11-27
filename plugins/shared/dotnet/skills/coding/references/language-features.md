@@ -188,23 +188,22 @@ internal static class Viewports {
 
 ## [07]-[CALLER_INFORMATION]
 
-Labels derive from call text, `[CallerArgumentExpression]` naming an argument and `[CallerMemberName]` its calling member. One private helper's error states which search failed on which value, with no text written at a caller:
+Labels derive from call text, `[CallerArgumentExpression]` naming an argument and `[CallerMemberName]` its calling member, and a fault subject holds typed values alone. One private helper's error states which search failed on which value, with no text written at a caller:
 
 ```csharp
 internal static class Searches {
     public static Fin<double> Crossing(double level, double accuracy) => Root(level, x => (x * x) - level, 0d, double.Max(1d, level), accuracy);
 
     private static Fin<double> Root<T>(
-        T subject, Func<double, double> margin, double lower, double upper, double accuracy,
-        [CallerArgumentExpression(nameof(subject))] string named = "", [CallerMemberName] string search = "") =>
+        T subject, Func<double, double> margin, double lower, double upper, double accuracy, [CallerMemberName] string search = "") =>
         Bisection.TryFindRoot(margin, lower, upper, accuracy, Math.ILogB(upper - lower) - Math.ILogB(double.Epsilon), out double root)
             ? root
-            : new Fault((search, named, subject, lower, upper), Reason.Invalid);
+            : Fault.Of(Reason.Invalid, (search, subject, lower, upper));
 }
 ```
 
 - `[CallerArgumentExpression(nameof(add))]` on a delegate parameter `add` captures whole lambda text (`h => view.Changed += h` labels a host event)
 - Delegates wrapping one host call pass as a method group (`store.Delete`), and the captured text names that member
-- Lambdas with a longer body label their failure by `[CallerMemberName]` and `[CallerLineNumber]`, as the captured text is their whole source
+- Helpers taking a delegate name their failure by `[CallerMemberName]` and `[CallerLineNumber]`, as captured text is the lambda's whole source
 - Keys and captions read their member symbol through `nameof`, `JsonNamingPolicy.KebabCaseLower.ConvertName(nameof(<Item>))` deriving a kebab key
 - Overloads without caller information win resolution, `[OverloadResolutionPriority(-1)]` on them binds source calls to the caller information form

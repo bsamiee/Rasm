@@ -1,7 +1,7 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Array, Deferred, Effect, Fiber, Option, Queue, Record, Ref, Schema, String, Struct, SubscriptionRef } from 'effect';
+import { Array, Effect, Record, Ref, Schema, Struct } from 'effect';
 import { McpProtocol } from 'effect/ai';
-import { ASKED, Called, lines, opened, placed, RAISED, SETTINGS, STATE, STATED, TEXT } from '#/fixtures';
+import { Called, lines, opened, STATE } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -63,86 +63,6 @@ describe('tool calls through the server', () => {
             const issued = yield* called('test_value', { value: 'kept' });
             const refused = yield* called('test_value', { value: 'kept', handle: 'no-such-handle' });
             assert.deepStrictEqual([issued.isError, refused.isError, yield* Ref.get(probe.calls)], [false, true, ['test_value']]);
-        }),
-    );
-
-    it.live(
-        'leads results with the issued handle, the events its handle owns in one sequence with one raised during the call that claims its source, an early return with its pending call, and its finished result once in a later call that waits to settle it',
-        Effect.fnUntraced(function* () {
-            const { probe, called } = yield* opened(PROTOCOL);
-            const text = (name: string, given: Record.ReadonlyRecord<string, unknown> = {}) => Effect.map(called(name, given), (result) => lines(result).join('\n'));
-            const seen = (source: Queue.Queue<string>, handle: string, event: string) =>
-                Queue.offer(source, event).pipe(Effect.andThen(placed(probe, handle, ({ line }) => line.endsWith(event))), Effect.andThen(Effect.map(called('test_simple_text', { handle }), (result) => Array.filter(lines(result), String.startsWith('! ')))));
-            const [owner, other] = [yield* text('test_claim'), yield* text('test_simple_text')];
-            const [claimer, bystander] = [named(owner), named(other)];
-            const owned = yield* seen(probe.owned, claimer, 'owned one');
-            const shared = yield* seen(probe.shared, bystander, 'shared one');
-            yield* SubscriptionRef.set(probe.blocked, true);
-            const early = yield* text('gated_early', { handle: claimer });
-            yield* SubscriptionRef.set(probe.blocked, false);
-            const pending = yield* text('test_simple_text', { handle: claimer });
-            yield* Queue.clear(probe.entered);
-            const running = yield* Effect.forkScoped(text('test_await_running', { handle: claimer }));
-            const entered = yield* Queue.take(probe.entered);
-            const waiting = Option.isNone(yield* Effect.timeoutOption(Fiber.await(running), '100 millis'));
-            yield* probe.release.open;
-            const [finished, after] = [yield* Fiber.join(running), yield* text('test_simple_text', { handle: claimer })];
-            assert.deepStrictEqual(
-                { issued: [ISSUED.test(owner.split('\n')[0] ?? ''), ISSUED.test(other.split('\n')[0] ?? ''), claimer === bystander], bodies: [owner.split('\n').slice(1), other.split('\n').slice(1)], owned, shared, early, pending, entered, waiting, finished, after },
-                {
-                    issued: [true, true, false],
-                    bodies: [
-                        [`! #1 ${RAISED.owned}`, '', 'claimed'],
-                        ['', TEXT],
-                    ],
-                    owned: ['! #3 owned one'],
-                    shared: ['! #4 shared one'],
-                    early: `! #4 shared one\nearly: call 1 gated_early keeps running, its outcome leads a later result\n\n${ASKED}`,
-                    pending: `pending: call 1 gated_early keeps running\n\n${TEXT}`,
-                    entered: 'test_await_running',
-                    waiting: true,
-                    finished: 'finished: call 1 gated_early released\n\nsettled',
-                    after: TEXT,
-                },
-            );
-        }),
-    );
-
-    it.live(
-        'shows an event raised during a call in that call once its handle owns the source as the call ends, never in another call on the handle ending first, and drops no event while unowned ones wait behind a running call',
-        Effect.fnUntraced(function* () {
-            const { probe, called } = yield* opened(PROTOCOL);
-            const text = (name: string, given: Record.ReadonlyRecord<string, unknown> = {}) => Effect.map(called(name, given), lines);
-            const [handle, other] = [named((yield* text('test_simple_text'))[0]), named((yield* text('test_simple_text'))[0])];
-            yield* SubscriptionRef.set(probe.blocked, true);
-            const claiming = yield* Effect.forkScoped(text('test_claim', { handle }));
-            yield* Deferred.await(probe.judged);
-            const beside = yield* text('test_simple_text', { handle });
-            yield* SubscriptionRef.set(probe.blocked, false);
-            const claimed = yield* Fiber.join(claiming);
-            yield* Queue.clear(probe.entered);
-            const gated = yield* Effect.forkScoped(text('gated_write', { handle: other }));
-            yield* Queue.take(probe.entered);
-            yield* Queue.offerAll(
-                probe.owned,
-                Array.makeBy(SETTINGS.limit + 1, (index) => `unowned ${index}`),
-            );
-            yield* placed(probe, handle, ({ line }) => line.endsWith(`unowned ${SETTINGS.limit}`));
-            const latest = Array.some(yield* text('test_simple_text', { handle }), String.endsWith(`unowned ${SETTINGS.limit}`));
-            yield* probe.release.open;
-            assert.deepStrictEqual({ claimed, beside, latest, released: yield* Fiber.join(gated) }, { claimed: [`! #1 ${RAISED.owned}`, '', 'claimed'], beside: [TEXT], latest: true, released: ['released'] });
-        }),
-    );
-
-    it.live(
-        'leads a result with the state line its tool states, then the handle it issues or the events its handle owns, then its body',
-        Effect.fnUntraced(function* () {
-            const { probe, called } = yield* opened(PROTOCOL);
-            const [issued, handle] = [lines(yield* called('test_stated')), named(lines(yield* called('test_simple_text'))[0])];
-            yield* Queue.offer(probe.shared, 'shared one');
-            yield* placed(probe, handle, ({ line }) => line.endsWith('shared one'));
-            const evented = lines(yield* called('test_stated', { handle }));
-            assert.deepStrictEqual({ issued: [issued[0], ISSUED.test(issued[1] ?? ''), ...issued.slice(2)], evented }, { issued: [STATED, true, '', TEXT], evented: [STATED, '! #1 shared one', '', TEXT] });
         }),
     );
 

@@ -120,7 +120,7 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         """Replaces marked block with built one under its name, taken fault when another block holds the name, the built name restored where the host suffixed it."""
 
         def swapped(block: T) -> Outcome[T]:
-            name, prior, refused = held.name, block.name, partial(Fault.of, Refusal.REFUSED, repr(block))
+            name, prior, refused = held.name, block.name, partial(Fault.of, Refusal.REFUSED, block)
             taken: Outcome[T] = Error(Fault.of(Refusal.TAKEN, name, member=collection_name(type(block))))
             held.user_remap(block)
             match released((held,)).bind(lambda _: catch(block.rename, exception=RuntimeError)(name, mode="NEVER").map_error(refused)):
@@ -134,7 +134,7 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         return (
             Mark
             .read(identity, held)
-            .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(held), member=identity.manifest.id))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, held, member=identity.manifest.id))
             .bind(lambda mark: build().bind(lambda block: self.owned(identity, block, of=mark.of, content=mark.content, slot=mark.slot)))
             .bind(swapped)
         )
@@ -239,7 +239,7 @@ def tracked[T](scope: ExitStack, removed: Callable[[T], object], made: Outcome[T
 
 def released(blocks: tuple[bpy.types.ID, ...]) -> Outcome[int]:
     """Removes blocks in one `batch_remove`, returning their count."""
-    return (catch(bpy.data.batch_remove, exception=RuntimeError)(ids=blocks) if blocks else Ok(None)).map(lambda _: len(blocks)).map_error(partial(Fault.of, Refusal.REFUSED, repr(blocks)))
+    return (catch(bpy.data.batch_remove, exception=RuntimeError)(ids=blocks) if blocks else Ok(None)).map(lambda _: len(blocks)).map_error(partial(Fault.of, Refusal.REFUSED, blocks))
 
 
 def _field[V](held: idprop.types.IDPropertyGroup, name: str, kind: TypeForm[V], /) -> Option[V]:

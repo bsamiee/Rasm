@@ -69,9 +69,9 @@ public static class Flattening {
         from kept in Products.Each(slots.Somes().Map(static mark => Products.Of(() => mark)))
         select marks.Zip(slots);
 
-    private static IO<(GeometryBase Flat, Seq<Option<GeometryBase>> Marks)> Marked(Func<List<GeometryBase>, GeometryBase?> squish, [CallerArgumentExpression(nameof(squish))] string call = "") =>
+    private static IO<(GeometryBase Flat, Seq<Option<GeometryBase>> Marks)> Marked(Func<List<GeometryBase>, GeometryBase?> squish, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
         from flatMarks in IO.lift(static () => new List<GeometryBase>())
-        from flat in Products.Of(() => squish(flatMarks), call)
+        from flat in Products.Of(() => squish(flatMarks), member, line)
         let slots = toSeq(flatMarks).Map(static mark => Optional(mark)).Strict()
         from kept in Products.Each(slots.Somes().Map(static mark => Products.Of(() => mark)))
         select (Flat: flat, Marks: slots);

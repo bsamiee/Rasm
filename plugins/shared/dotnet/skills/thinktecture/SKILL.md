@@ -24,15 +24,15 @@ Simple value objects wrap one key member under `[ValueObject<TKey>]`, complex va
 
 ```csharp
 [ValueObject<string>(SkipIComparable = true)]
-[ValidationError<Fault>]
+[ValidationError<Fault<Reason>>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 internal sealed partial class Code {
     public int Length => _value.Length;
 
-    static partial void ValidateFactoryArguments(ref Fault? validationError, ref string value) {
+    static partial void ValidateFactoryArguments(ref Fault<Reason>? validationError, ref string value) {
         string? trimmed = value.TrimOrNullify();
         if (trimmed is not { Length: <= 16 }) {
-            validationError = new Fault(value, Reason.Invalid);
+            validationError = Fault.Of(Reason.Invalid, value);
             return;
         }
         value = trimmed.ToUpperInvariant();
@@ -40,13 +40,13 @@ internal sealed partial class Code {
 }
 
 [ComplexValueObject]
-[ValidationError<Fault>]
+[ValidationError<Fault<Reason>>]
 internal sealed partial class Bounds {
     public decimal Lower { get; }
     public decimal Upper { get; }
 
-    static partial void ValidateFactoryArguments(ref Fault? validationError, ref decimal lower, ref decimal upper) =>
-        validationError = lower <= upper ? null : new Fault(string.Create(CultureInfo.InvariantCulture, $"(lower, upper) = ({lower}, {upper})"), Reason.Invalid);
+    static partial void ValidateFactoryArguments(ref Fault<Reason>? validationError, ref decimal lower, ref decimal upper) =>
+        validationError = lower <= upper ? null : Fault.Of(Reason.Invalid, (lower, upper));
 }
 ```
 
@@ -95,12 +95,12 @@ Trailing parameters after the members are declared by value without a default (0
 
 ```csharp
 [ValueObject<decimal>(MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<Fault>]
+[ValidationError<Fault<Reason>>]
 internal sealed partial class Amount {
     private const int MinorUnit = 2;
 
-    static partial void ValidateFactoryArguments(ref Fault? validationError, ref decimal value, MidpointRounding rounding) =>
-        (validationError, value) = value < 0 ? (new Fault(value.ToString(CultureInfo.InvariantCulture), Reason.Invalid), value) : (null, decimal.Round(value, MinorUnit, rounding));
+    static partial void ValidateFactoryArguments(ref Fault<Reason>? validationError, ref decimal value, MidpointRounding rounding) =>
+        (validationError, value) = value < 0 ? (Fault.Of(Reason.Invalid, value), value) : (null, decimal.Round(value, MinorUnit, rounding));
 
     public static Amount Create(decimal value, MidpointRounding rounding) => CreateCore(value, rounding);
 }
@@ -388,11 +388,11 @@ internal sealed partial class TextOrCount {
 ## [06]-[VALIDATED_RESULTS]
 
 Generated `Validate` returns an error beside an `out` value, `TryCreate` returns `bool`, and `Create` throws. Domain factories returning `Fin` preserve native typed errors, with `Fault` the error record dotnet:coding declares:
-- Types no serializer, binder, `TypeConverter`, or `Parse` reads set `SkipFactoryMethods = true` and drop `[ValidationError<Fault>]` with the hook
+- Types no serializer, binder, `TypeConverter`, or `Parse` reads set `SkipFactoryMethods = true` and drop `[ValidationError<Fault<Reason>>]` with the hook
 - Their `Validated(members)` states the rule once, a numeric range included, as `Fault.Unless(rule, reason, members).Map(_ => new X(members))` over private constructor
 - Members pass as the subject, one value or a tuple, and the message names each with its value, no type writes message text
 - Independent rules join under the tuple `Apply`, a rule per element traverses with its index
-- Types a serializer, binder, `TypeConverter`, or `Parse` reads keep the hook, and `Validated` is `TryCreate(members, out X? x, out Fault? fault) ? x : fault`
+- Types a serializer, binder, `TypeConverter`, or `Parse` reads keep the hook, and `Validated` is `TryCreate(members, out X? x, out Fault<Reason>? fault) ? x : fault`
 - `[ObjectFactory]` converters on a `SkipFactoryMethods` type cost a `Validate` converting `Fin` back and change a complex type's wire shape
 - Generic consumers reach `Validate` through `IObjectFactory<T, TValue, TValidationError>`, retaining its nullable error and value contract
 - Ranges a relative change reaches implement `IMinMaxValue<TSelf>`, the change saturates into `MinValue` and `MaxValue` before `Validated`
@@ -411,14 +411,14 @@ internal sealed partial class Count : IMinMaxValue<Count> {
 }
 
 [ValueObject<string>]
-[ValidationError<Fault>]
+[ValidationError<Fault<Reason>>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 internal sealed partial class Glyphs {
-    public static Fin<Glyphs> Validated(string value) => TryCreate(value, out Glyphs? glyphs, out Fault? fault) ? glyphs : fault;
+    public static Fin<Glyphs> Validated(string value) => TryCreate(value, out Glyphs? glyphs, out Fault<Reason>? fault) ? glyphs : fault;
 
-    static partial void ValidateFactoryArguments(ref Fault? validationError, ref string value) =>
-        validationError = value.Length > 0 && toHashSet(value).Count == value.Length ? null : new Fault(value, Reason.Invalid);
+    static partial void ValidateFactoryArguments(ref Fault<Reason>? validationError, ref string value) =>
+        validationError = value.Length > 0 && toHashSet(value).Count == value.Length ? null : Fault.Of(Reason.Invalid, value);
 }
 
 internal static class Crossings {

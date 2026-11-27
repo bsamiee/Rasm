@@ -65,7 +65,7 @@ def view_cameras(scene: bpy.types.Scene, cameras: tuple[bpy.types.Object, ...]) 
     for layer in scene.view_layers if wanted else ():
         if wanted.issubset(found):
             break
-        match catch(layer.update, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(layer))):
+        match catch(layer.update, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, layer)):
             case Ok(None):
                 for key, item in ((key, item) for item in layer.objects if (key := item.name.encode()) in wanted):
                     found.setdefault(key, item)
@@ -105,7 +105,7 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
             depsgraph.update()
             view = item.evaluated_get(depsgraph).matrix_world.normalized().inverted()
         except (RuntimeError, ValueError) as error:
-            return Error(Fault.of(Refusal.REFUSED, repr(item), error))
+            return Error(Fault.of(Refusal.REFUSED, item, error))
         depths = tuple(-(view @ point).z for point in points)
         span = min(depths), max(depths)
         ortho = Descriptor.of(bpy.types.Camera, ("ortho_scale",), bpy.types.FloatProperty).prop
@@ -122,7 +122,7 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
                 lambda values: Fault.of(Reason.OUTSIDE, f"{item!r} clipping", values, member="native camera clip ranges"),
             ),
             Ok(scale).filter_with(lambda value: not scaled or value <= ortho.hard_max, lambda value: Fault.of(Reason.OUTSIDE, f"{item!r} framing", value, member=ortho.name)),
-        ).bind(lambda _: catch(wrote, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(item))))
+        ).bind(lambda _: catch(wrote, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, item)))
 
     def shifted(camera: bpy.types.Camera, points: tuple[Vector, ...], scale: float, view: Matrix) -> Outcome[None]:
         axis = np.asarray(view, np.float64)[2, :3]
@@ -138,7 +138,7 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
         matrix.translation = location
         return (
             catch(matrix.normalized().inverted, exception=ValueError)()
-            .map_error(partial(Fault.of, Refusal.REFUSED, repr(item)))
+            .map_error(partial(Fault.of, Refusal.REFUSED, item))
             .bind(lambda view: shifted(camera, tuple(Vector(point) for point in points), scale, view))
         )
 
@@ -149,9 +149,7 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
     )
     return paired(typed(bpy.types.Camera, f"{item!r}.data", item.data), points).bind(
         lambda values: (
-            catch(item.camera_fit_coords, exception=RuntimeError)(depsgraph, values[1].ravel().tolist())
-            .map_error(partial(Fault.of, Refusal.REFUSED, repr(item)))
-            .bind(lambda fit: fitted(*values, fit))
+            catch(item.camera_fit_coords, exception=RuntimeError)(depsgraph, values[1].ravel().tolist()).map_error(partial(Fault.of, Refusal.REFUSED, item)).bind(lambda fit: fitted(*values, fit))
         )
     )
 

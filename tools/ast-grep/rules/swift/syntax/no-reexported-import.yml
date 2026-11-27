@@ -6,5 +6,4 @@ rule:
     all:
         - has: { kind: modifiers, has: { kind: attribute, regex: '^@_exported$' } }
         - has: { kind: identifier, pattern: $MODULE }
-message: '`@_exported` re-exports `$MODULE` to every importer of its module'
-note: 'Import the module in each file naming its types, and delete `@_exported`'
+message: '`@_exported` re-exports `$MODULE` to every importer of its module, import `$MODULE` in each file naming its types and delete `@_exported`'

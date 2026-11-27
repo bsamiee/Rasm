@@ -37,4 +37,4 @@ Fix templates own every token the parser would have kept:
 - Evaluation count, order, timing, short-circuiting, and argument binding stay outside the edit unless the correction names them
 - Types, null behavior, collation, and numeric association stay across expression refactors
 - Rules omit `fix` when types, evaluation, binding, or precedence decide the replacement, kinded rewriters over a capture's tokens keep its comments
-- Messages name the violation with its captures, `note` states the required form and deciding contract
+- Messages name the violation with its captures, then the required form after a comma, and rules hold no `note`

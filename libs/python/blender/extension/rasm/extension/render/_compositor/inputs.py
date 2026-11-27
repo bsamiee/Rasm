@@ -251,7 +251,7 @@ class _WorkingSpace(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 def grouped(entry: bpy.types.SceneCompositorEffect) -> Outcome[bpy.types.NodeTree]:
     """Returns the entry's group, absent before one is set."""
-    return option.of_optional(entry.node_group).to_result_with(partial(Fault.of, Reason.ABSENT, repr(entry), member="node_group"))
+    return option.of_optional(entry.node_group).to_result_with(partial(Fault.of, Reason.ABSENT, entry, member="node_group"))
 
 
 def keyed(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[tuple[bpy.types.NodeTree, Mapping[Key, str]]]:
@@ -261,13 +261,13 @@ def keyed(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome
 
 def inputs_of(entry: bpy.types.SceneCompositorEffect) -> Outcome[Native]:
     """Resolves the entry's generated `properties.inputs`, absent without a group."""
-    return struct_at(entry, ("properties", "inputs")).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(entry), member=rna(("properties", "inputs"))))
+    return struct_at(entry, ("properties", "inputs")).to_result_with(lambda: Fault.of(Reason.ABSENT, entry, member=rna(("properties", "inputs"))))
 
 
 def interface_input(entry: bpy.types.SceneCompositorEffect, identifier: str) -> Outcome[Struct]:
     """Resolves live entry input by interface socket identifier."""
     found: Option[Struct] = struct_at(entry, ("properties", "inputs", identifier), bpy.types.bpy_struct)
-    return found.to_result_with(partial(Fault.of, Reason.ABSENT, repr(entry), member=identifier))
+    return found.to_result_with(partial(Fault.of, Reason.ABSENT, entry, member=identifier))
 
 
 def path_key(*path: Step) -> Key:
@@ -336,7 +336,7 @@ def valued(snapshot: Snapshot) -> Mapping[Key, Value]:
 
 def addressed(entry: bpy.types.SceneCompositorEffect, sockets: Mapping[Key, str], key: Key) -> Outcome[Struct]:
     """Resolves the live entry input at an interface item key among the group's addressed socket identifiers."""
-    return option.of_optional(sockets.get(key)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(entry), member=key)).bind(partial(interface_input, entry))
+    return option.of_optional(sockets.get(key)).to_result_with(partial(Fault.of, Reason.ABSENT, entry, member=key)).bind(partial(interface_input, entry))
 
 
 def _under(prefix: Key, key: Key) -> bool:

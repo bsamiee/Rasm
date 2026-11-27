@@ -111,7 +111,7 @@ public static class Motions {
     // --- [POSES]
 
     public static Fin<CameraPose> Interpolated(CameraPose from, CameraPose to, double progress) =>
-        (RhinoFault.Unless(Quaternion.Slerp(Quaternion.Rotation(Plane.WorldXY, from.Frame), Quaternion.Rotation(Plane.WorldXY, to.Frame), progress).GetRotation(out Plane turned),
+        (Fault.Unless(Quaternion.Slerp(Quaternion.Rotation(Plane.WorldXY, from.Frame), Quaternion.Rotation(Plane.WorldXY, to.Frame), progress).GetRotation(out Plane turned),
                     RhinoReason.Invalid, progress)
                 .Map(_ => turned),
             Local(from),
@@ -128,7 +128,7 @@ public static class Motions {
         toSeq(Enumerable.Range(0, int.Max(count, 1))).Traverse(frame => Interpolated(from, to, progress(count > 1 ? frame / (double)(count - 1) : 1d))).As();
 
     private static Fin<Point3d> Local(CameraPose pose) =>
-        RhinoFault.Unless(new Plane(pose.Target, pose.Frame.XAxis, pose.Frame.YAxis).RemapToPlaneSpace(pose.Frame.Origin, out Point3d local), RhinoReason.Invalid, pose.Frame.Origin)
+        Fault.Unless(new Plane(pose.Target, pose.Frame.XAxis, pose.Frame.YAxis).RemapToPlaneSpace(pose.Frame.Origin, out Point3d local), RhinoReason.Invalid, pose.Frame.Origin)
             .Map(_ => local);
 
     private static CameraLens Lens(CameraLens from, CameraLens to, double progress) =>

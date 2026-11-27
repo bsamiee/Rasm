@@ -141,7 +141,7 @@ internal abstract class Outline : IDisposable {
     }
 
     private static Fin<SKPath> Joined(SKPath first, SKPath second, SKPathOp op) =>
-        Optional(first.Op(second, op)).ToFin(new UIFault((op, first.Bounds, second.Bounds), UIReason.Refused));
+        Optional(first.Op(second, op)).ToFin(Fault.Of(UIReason.Refused, (op, first.Bounds, second.Bounds)));
 
     private static SKPath Built(Action<SKPathBuilder> trace) {
         using SKPathBuilder builder = new();

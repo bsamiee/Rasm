@@ -30,7 +30,7 @@ public sealed partial class AxisRange : IInterpolated<AxisRange> {
     public Option<AxisRange> Shifted(float delta) => Validated(From + delta, To + delta).ToOption();
 
     public static Fin<AxisRange> Validated(float from, float to) =>
-        UIFault.Unless(float.IsFinite(from) && float.IsFinite(to) && float.IsFinite(to - from) && from.CompareTo(to) is not 0, UIReason.Range, (from, to)).Map(_ => new AxisRange(from, to));
+        Fault.Unless(float.IsFinite(from) && float.IsFinite(to) && float.IsFinite(to - from) && from.CompareTo(to) is not 0, UIReason.Range, (from, to)).Map(_ => new AxisRange(from, to));
 
     public Option<AxisRange> Toward(AxisRange to, float progress) => Validated(float.Lerp(From, to.From, progress), float.Lerp(To, to.To, progress)).ToOption();
 }
@@ -63,8 +63,8 @@ public abstract partial record Axis : IInterpolated<Axis> {
 
     public Fin<float> Parsed(AxisRange band, string text, CultureInfo culture) =>
         float.TryParse(text, NumberStyles.Float, culture, out float parsed)
-            ? UIFault.Unless(Contains(band, parsed), UIReason.Range, parsed).Map(_ => parsed)
-            : new UIFault(text, UIReason.Unreadable);
+            ? Fault.Unless(Contains(band, parsed), UIReason.Range, parsed).Map(_ => parsed)
+            : Fault.Of(UIReason.Unreadable, text);
 
     internal static int Digits(float step) => int.Max(0, (int)MathF.Ceiling(-MathF.Log10(step)));
 
@@ -182,7 +182,7 @@ public abstract partial record Axis : IInterpolated<Axis> {
 
         public float Base { get; }
 
-        public static Fin<Log> Validated(AxisRange domain, float @base) => UIFault.Unless(domain.Low > 0f && @base > 1f && float.IsFinite(@base), UIReason.Range, (domain, @base)).Map(_ => new Log(domain, @base));
+        public static Fin<Log> Validated(AxisRange domain, float @base) => Fault.Unless(domain.Low > 0f && @base > 1f && float.IsFinite(@base), UIReason.Range, (domain, @base)).Map(_ => new Log(domain, @base));
 
         public override Option<Axis> WithDomain(AxisRange range) => Validated(range, Base).Map(log => (Axis)(log with { Places = Places, Unit = Unit })).ToOption();
 

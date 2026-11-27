@@ -43,7 +43,7 @@ public static class ContentFields {
             (field, state) => path.Set(field.GetValue<string>(), state), state => path.Get(state), file: true);
 
     private static Fin<TDelegate> Adding<TDelegate>(string member) where TDelegate : Delegate {
-        RhinoFault Rejected(Option<Error> inner) => new((typeof(TDelegate), member), RhinoReason.Unsupported, Inner: inner);
+        Fault<RhinoReason> Rejected(Option<Error> inner) => Fault.Of(RhinoReason.Unsupported, (typeof(TDelegate), member), inner: inner);
         return Try.lift(() => Optional(typeof(TDelegate).GetMethod(nameof(Action.Invoke)))
                 .Bind(invoke => Optional(typeof(FieldDictionary).GetMethod(member, [.. invoke.GetParameters().Skip(1).Select(static parameter => parameter.ParameterType)])))
                 .Map(static method => method.CreateDelegate<TDelegate>())).Run()
@@ -57,7 +57,7 @@ public static class ContentFields {
     private static readonly Type VariantType = Type.GetType(VariantName, throwOnError: true) ?? throw new UnreachableException($"{VariantName} resolves or throws");
 
     internal static IO<Option<T>> Unwrapped<T>(Func<object?> read, string name) where T : notnull =>
-        Products.Maybe(read, name).Bind(held => IO.lift(held.Bind(static value => VariantType.IsInstanceOfType(value) ? Optional(AsObject(value)) : Some(value))
+        Products.Maybe(read).Bind(held => IO.lift(held.Bind(static value => VariantType.IsInstanceOfType(value) ? Optional(AsObject(value)) : Some(value))
                 .Traverse(value => Conversions.Cast<T>(value, name)).As()))
             .Bracket();
 

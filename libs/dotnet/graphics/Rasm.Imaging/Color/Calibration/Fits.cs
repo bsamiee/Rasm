@@ -7,7 +7,7 @@ namespace Rasm.Imaging.Color.Calibration;
 // --- [MODELS] --------------------------------------------------------------------------
 
 public sealed record ChartTransform(Matrix4x4 Matrix, float Stops) {
-    public Fin<ChartTransform> Inverse => Matrix4x4.Invert(Matrix, out Matrix4x4 inverse) ? new ChartTransform(inverse, -Stops) : ImagingFault.Of(ImagingReason.NoInverse, Matrix);
+    public Fin<ChartTransform> Inverse => Matrix4x4.Invert(Matrix, out Matrix4x4 inverse) ? new ChartTransform(inverse, -Stops) : Fault.Of(ImagingReason.NoInverse, Matrix);
 }
 
 public sealed record ChartFit {
@@ -20,14 +20,14 @@ public sealed record ChartFit {
     public static Fin<ChartFit> Solve(ChartSamples source, ChartSamples target) {
         Svd<double> fitted = Rows(source).Svd();
         return
-            from solved in (ImagingFault.Unless(source.Chart == target.Chart, ImagingReason.Mismatch, (source.Chart, target.Chart)), ImagingFault.Unless(fitted.Rank is 3, ImagingReason.Degenerate, fitted.Rank))
+            from solved in (Fault.Unless(source.Chart == target.Chart, ImagingReason.Mismatch, (source.Chart, target.Chart)), Fault.Unless(fitted.Rank is 3, ImagingReason.Degenerate, fitted.Rank))
                 .Apply((_, _) => fitted.Solve(Rows(target))).As()
             let decomposed = solved.Svd()
-            from transform in ImagingFault.Unless(decomposed.Rank is 3, ImagingReason.Degenerate, decomposed.Rank).Map(_ => Lowered(solved))
+            from transform in Fault.Unless(decomposed.Rank is 3, ImagingReason.Degenerate, decomposed.Rank).Map(_ => Lowered(solved))
             let neutrals = (Source: Neutral(source), Target: Neutral(target))
             select new ChartFit(new(transform, 0f), decomposed.ConditionNumber, neutrals.Source > 0f && neutrals.Target > 0f
                 ? new ChartTransform(Matrix4x4.CreateScale(neutrals.Source / neutrals.Target) * transform, float.Log2(neutrals.Target / neutrals.Source))
-                : ImagingFault.Of(ImagingReason.Range, neutrals));
+                : Fault.Of(ImagingReason.Range, neutrals));
     }
 
     private static Matrix<double> Rows(ChartSamples samples) => Matrix<double>.Build.Dense(samples.Patches.Count, 3, (row, channel) => samples.Patches[row][channel]);

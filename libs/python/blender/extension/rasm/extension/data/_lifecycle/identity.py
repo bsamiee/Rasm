@@ -111,7 +111,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         manifest = (
             catch(path.read_bytes, exception=OSError)()
             .bind(lambda data: catch(lambda: msgspec.toml.decode(data, type=Manifest), exception=msgspec.DecodeError)())
-            .map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
+            .map_error(partial(Fault.of, Reason.UNREADABLE, path))
         )
         folder = (
             catch(bpy.utils.extension_path_user, exception=ValueError)(package, create=True)

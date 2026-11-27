@@ -75,7 +75,7 @@ const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, matched: re
     const report = yield* spawned(argv, { cwd: workspaceRoot, env: ENVIRONMENT, stdin: Stream.encodeText(Stream.make(matched.join('\n'))) }).pipe(
         Effect.timeoutOrElse({ duration: Duration.seconds(seconds), orElse: () => new Cause.UnknownError(seconds, `${CommandLine.display(argv)} ran past ${seconds} seconds, set NX_DOTNET_PROJECT_GRAPH_TIMEOUT to a higher count of seconds`) }),
         Effect.flatMap(Schema.decodeEffect(Reported)),
-        Effect.catchTag('SchemaError', (error) => new Cause.UnknownError(error, `${CommandLine.display(argv)} printed a report this plugin cannot read, as ${relative(workspaceRoot, ANALYZER)} predates the plugin, ${published(workspaceRoot)}: ${error.message}`)),
+        Effect.catchTag('SchemaError', (error) => new Cause.UnknownError(error, `${CommandLine.display(argv)} printed a report this plugin cannot read, as ${relative(workspaceRoot, ANALYZER)} predates the plugin, ${published(workspaceRoot)}`)),
     );
     const known = new Set(yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.dedupe(report.nodes.flatMap(({ inputs, loaded }) => [...inputs, ...loaded])))));
     return { ...report, nodes: report.nodes.map((node) => ({ ...node, inputs: node.inputs.filter((input) => known.has(input)), loaded: node.loaded.filter((input) => known.has(input)) })) };

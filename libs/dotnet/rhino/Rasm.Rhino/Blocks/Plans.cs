@@ -111,7 +111,7 @@ public static class Plans {
             instance: static (rows, nested) => Optional(rows.Find(nested.Definition)).Map(GeometryBase (found) => new InstanceReferenceGeometry(found.Id, nested.Xform)));
 
     private static IO<(GeometryBase Geometry, ObjectAttributes Attributes)> Owned(RhinoDoc doc, PlannedMember member, int index) =>
-        from geometry in IO.lift(() => Resolved(doc.InstanceDefinitions, member).ToFin(new RhinoFault(nameof(PlannedMember.Instance.Definition), RhinoReason.Missing, index)))
+        from geometry in IO.lift(() => Resolved(doc.InstanceDefinitions, member).ToFin(Fault.Of(RhinoReason.Missing, nameof(PlannedMember.Instance.Definition), index)))
         from created in when(member is PlannedMember.Instance, use(() => geometry).Map(unit)).As()
         from attributes in member.Attributes.Match(Some: IO.pure, None: () => use(doc.CreateDefaultAttributes))
         select (geometry, attributes);

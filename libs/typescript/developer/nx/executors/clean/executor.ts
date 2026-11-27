@@ -42,8 +42,8 @@ const execute = executor(Clean, function* ({ targets, commands, cwd, folders, pa
                 Filter.fromPredicate((at: string) => tracked.has(at)),
             );
             const swept = removable.length === held.length && (Array.isReadonlyArrayNonEmpty(held) || (base === output && (yield* fs.exists(path.join(context.root, base))))) ? [base] : removable;
-            yield* Effect.forEach(kept, (at) => Effect.logInfo(`Kept ${at}, a declared output the workspace tracks as source`), { discard: true });
-            yield* Effect.forEach(swept, (at) => Effect.andThen(fs.remove(path.join(context.root, at), { recursive: true, force: true }), Effect.logInfo(`Removed ${at}`)), { discard: true });
+            yield* Effect.forEach(kept, (at) => Effect.annotateLogs(Effect.logInfo('kept'), { path: at, tracked: true }), { discard: true });
+            yield* Effect.forEach(swept, (at) => Effect.andThen(fs.remove(path.join(context.root, at), { recursive: true, force: true }), Effect.annotateLogs(Effect.logInfo('removed'), { path: at })), { discard: true });
             return [base, ...swept];
         }),
     );
@@ -52,7 +52,7 @@ const execute = executor(Clean, function* ({ targets, commands, cwd, folders, pa
         Array.sort(parents, Order.flip(Order.String)),
         Effect.fnUntraced(function* (parent) {
             const empty = (yield* fs.exists(path.join(context.root, parent))) && (yield* fs.readDirectory(path.join(context.root, parent))).length === 0;
-            yield* empty ? Effect.andThen(fs.remove(path.join(context.root, parent), { recursive: true }), Effect.logInfo(`Removed ${parent}, left empty`)) : Effect.void;
+            yield* empty ? Effect.andThen(fs.remove(path.join(context.root, parent), { recursive: true }), Effect.annotateLogs(Effect.logInfo('removed'), { path: parent, empty: true })) : Effect.void;
         }),
         { discard: true },
     );
@@ -61,14 +61,14 @@ const execute = executor(Clean, function* ({ targets, commands, cwd, folders, pa
         Effect.fnUntraced(function* ([variable, ...segments]) {
             const folder = path.join(yield* Config.String(variable), ...segments);
             const entries = (yield* fs.glob('*', { root: folder, dot: true })).map((entry) => path.join(folder, entry)).filter((entry) => !inside(entry)(workspaceDataDirectory));
-            yield* Effect.forEach(entries, (entry) => Effect.andThen(fs.remove(entry, { recursive: true, force: true }), Effect.logInfo(`Removed ${entry}`)), { discard: true });
+            yield* Effect.forEach(entries, (entry) => Effect.andThen(fs.remove(entry, { recursive: true, force: true }), Effect.annotateLogs(Effect.logInfo('removed'), { path: entry })), { discard: true });
         }),
         { discard: true },
     );
     const matched = yield* Effect.forEach(patterns, (pattern) => fs.glob(pattern, { root: context.root }));
     yield* Effect.forEach(
         matched.flat().filter((at) => !tracked.has(at)),
-        (at) => Effect.andThen(fs.remove(path.join(context.root, at), { recursive: true, force: true }), Effect.logInfo(`Removed ${at}`)),
+        (at) => Effect.andThen(fs.remove(path.join(context.root, at), { recursive: true, force: true }), Effect.annotateLogs(Effect.logInfo('removed'), { path: at })),
         { discard: true },
     );
     return { success: true };

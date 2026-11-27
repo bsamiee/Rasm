@@ -1,8 +1,6 @@
 import { assert, describe, it } from '@effect/vitest';
-import { Event } from '@rasm/applications/instances';
-import { type Entry, follow, lookupEntry, ownsEvent } from '@rasm/applications/workspace';
-import { Handle } from '@rasm/mcp/server';
-import { Context, Effect, MutableRef, Option, Record, Schema, Struct } from 'effect';
+import { type Entry, lookupEntry } from '@rasm/applications/workspace';
+import { Effect, Option, Record, Struct } from 'effect';
 
 const form = (name: string, product: string, identifier: string, folder: string): Entry => ({
     url: new URL(`file:///Applications/${encodeURIComponent(folder)}/${encodeURIComponent(name)}.app/`),
@@ -12,11 +10,6 @@ const form = (name: string, product: string, identifier: string, folder: string)
     aliases: [],
     facts: {},
     claim: Option.none(),
-});
-const asking = (instance: string) => Schema.decodeEffect(Event)({ instance, sequence: 1, at: '2026-11-26T09:30:00Z', change: { _tag: 'asking', container: 3, kind: 'sheet', title: 'Save', text: ['Do you want to save the changes?'], answers: [], default: 4, cancel: 5 } });
-const handleOver = (state: MutableRef.MutableRef<Context.Context<never>>) => ({
-    get: <A>(key: Context.Reference<A>) => Effect.sync(() => Context.get(MutableRef.get(state), key)),
-    set: <A>(key: Context.Reference<A>, value: A) => Effect.asVoid(Effect.sync(() => MutableRef.set(state, Context.add(MutableRef.get(state), key, value)))),
 });
 const NAMED = {
     Illustrator: 'Adobe Illustrator 2027 (Beta)',
@@ -48,14 +41,6 @@ describe('workspace', () => {
         Effect.gen(function* () {
             const [shared, none] = yield* Effect.all([lookupEntry(CATALOG, 'Acrobat').pipe(Effect.flip), lookupEntry(CATALOG, 'Lightroom').pipe(Effect.flip)]);
             assert.deepStrictEqual({ shared: shared.candidates, none: Option.getOrUndefined(none.query) }, { shared: ['Adobe Acrobat', 'Acrobat Distiller'], none: 'Lightroom' });
-        }),
-    );
-    it.effect('owns the save-sheet asking event of an instance close follows though this handle never opened or targeted it', () =>
-        Effect.gen(function* () {
-            const state = MutableRef.make(Context.empty());
-            const [followed, other] = yield* Effect.all([asking('512@1'), asking('513@1')]);
-            yield* Effect.provideService(follow(followed.instance, true), Handle, handleOver(state));
-            assert.deepStrictEqual({ followed: ownsEvent({ event: followed }, MutableRef.get(state)), other: ownsEvent({ event: other }, MutableRef.get(state)) }, { followed: true, other: false });
         }),
     );
 });

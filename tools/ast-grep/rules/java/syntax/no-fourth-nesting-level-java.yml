@@ -53,6 +53,5 @@ rule:
 transform:
     HEAD: { replace: { source: $SCOPE, replace: '(?s)[\t-\r ]*\{?[\t-\r ]*\n.*$', by: '' } }
 labels:
-    SCOPE: { style: primary, message: Fourth nesting level }
-message: '`$HEAD` opens a fourth nesting level'
-note: 'Rebuild nested decisions, loops, or lambdas as a `switch` or a stream pipeline over their inputs'
+    SCOPE: { style: primary }
+message: '`$HEAD` opens a fourth nesting level, rebuild nested decisions, loops, or lambdas as a `switch` or a stream pipeline over their inputs'

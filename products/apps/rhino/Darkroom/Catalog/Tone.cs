@@ -267,5 +267,5 @@ internal static class FormationTables {
         }).ThrowIfFail());
 
     private static Fin<Stream> Embedded(string resource) =>
-        Optional(typeof(FormationTables).Assembly.GetManifestResourceStream(resource)).ToFin(new DarkroomFault(resource, DarkroomReason.Missing));
+        Optional(typeof(FormationTables).Assembly.GetManifestResourceStream(resource)).ToFin(Fault.Of(DarkroomReason.Missing, resource));
 }

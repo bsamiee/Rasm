@@ -23,4 +23,9 @@
     <ItemGroup Label="Quantities">
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
+
+    <ItemGroup Label="Workspace Projects">
+        <ProjectReference Include="../../runtime/Rasm.Telemetry.Api/Rasm.Telemetry.Api.csproj" />
+        <Using Include="Rasm.Telemetry.Api" />
+    </ItemGroup>
 </Project>

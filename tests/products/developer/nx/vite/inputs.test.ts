@@ -166,7 +166,7 @@ describe('resolving the config across graph passes', () => {
     it('refuses a config that throws in build mode, naming the config', async ({ workspace }) => {
         const graphed = workspace.write({ 'apps/web/vite.config.ts': "throw new Error('config refused');\n" }).graph({ createNodes });
 
-        await expect(graphed).rejects.toSatisfy(refused(/^apps\/web\/vite\.config\.ts does not load for vite build/u));
+        await expect(graphed).rejects.toSatisfy(refused(/^apps\/web\/vite\.config\.ts unloaded tool: vite/u));
     });
 
     it("never lets one config's env writes reach another config or the process inferring them", async ({ workspace }) => {

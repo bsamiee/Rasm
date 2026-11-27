@@ -16,7 +16,7 @@ public sealed record GradingRgbm(float Red, float Green, float Blue, float Maste
 
     public Fin<(float Hue, float Strength, float Luma)> ToWheel(Gamut gamut, float hue) =>
         new Unicolour(gamut.Configuration, ColourSpace.RgbLinear, Product.X, Product.Y, Product.Z).ConvertToConfiguration(Configuration.Default).Oklab switch {
-            { L: <= 0d } lab => ImagingFault.Of(ImagingReason.Range, lab.L),
+            { L: <= 0d } lab => Fault.Of(ImagingReason.Range, lab.L),
             var lab => new Vector2((float)(lab.A / lab.L), (float)(lab.B / lab.L)) switch {
                 var chroma => (chroma.Length() < 1e-6f ? hue : (float.Atan2(chroma.Y, chroma.X) + float.Tau) % float.Tau, 2f * chroma.Length(), 3f * float.Log2((float)lab.L)),
             },

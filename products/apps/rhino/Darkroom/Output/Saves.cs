@@ -144,7 +144,7 @@ internal sealed record SaveSource(RenderWindow Rendering, ChainScene Scene, Over
 
     private Fin<PixelFrame> Placed(int width, int height, Func<Rectangle, PixelExtent, PixelFrame> decode) =>
         Region.Map(region => region.Pixels(Frame.Frame)).IfNone(Frame.DataWindow) switch {
-            var window => DarkroomFault.Unless(width == Frame.Padded.Width && height == Frame.Padded.Height, DarkroomReason.Invalid, (width, height))
+            var window => Fault.Unless(width == Frame.Padded.Width && height == Frame.Padded.Height, DarkroomReason.Invalid, (width, height))
                 .Bind(_ => PixelExtent.Validated(window.Width, window.Height))
                 .Map(extent => decode(window, extent)),
         };

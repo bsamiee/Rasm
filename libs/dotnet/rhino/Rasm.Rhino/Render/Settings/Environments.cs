@@ -23,7 +23,7 @@ public static class Environments {
             .Map(static held => held.Map(static found => found.Gain));
 
     public static IO<Unit> SetIntensity(RenderEnvironment lighting, double intensity) =>
-        from texture in IO.lift(() => Optional(lighting.FirstChild).ToFin(new RhinoFault($"child of {lighting.Id}", RhinoReason.Missing)))
+        from texture in IO.lift(() => Optional(lighting.FirstChild).ToFin(Fault.Of(RhinoReason.Missing, $"child of {lighting.Id}")))
         from edited in Contents.Edit(texture, RenderContent.ChangeContexts.Program, [Gained(intensity)])
         select unit;
 
@@ -33,7 +33,7 @@ public static class Environments {
 
     private static Step<RenderContent> Gained(double intensity) =>
         new(texture =>
-            from held in Gain(texture).Bind(found => IO.lift(found.ToFin(new RhinoFault($"gain parameter of {texture.Id}", RhinoReason.Missing))))
+            from held in Gain(texture).Bind(found => IO.lift(found.ToFin(Fault.Of(RhinoReason.Missing, $"gain parameter of {texture.Id}"))))
             from written in ContentFields.SetParameter(texture, held.Parameter, intensity)
             select texture, string.Create(CultureInfo.InvariantCulture, $"gain {intensity}"));
 
@@ -64,7 +64,7 @@ public static class Environments {
                     return content;
                 }),
                 Contents.Child(() => RenderContentType.NewContentFromTypeId(ContentUuids.PhysicalSkyTextureType, doc), slot)])
-            from texture in IO.lift(Optional(created.FindChild(slot)).ToFin(new RhinoFault($"slot {slot} of {created.Id}", RhinoReason.Missing)))
+            from texture in IO.lift(Optional(created.FindChild(slot)).ToFin(Fault.Of(RhinoReason.Missing, $"slot {slot} of {created.Id}")))
             from configured in Contents.Edit(texture, RenderContent.ChangeContexts.Program, [
                 new Step<RenderContent>(sky => ContentFields.SetParameter(sky, "use-document-sun", useDocumentSun).Map(_ => sky), "use-document-sun"),
                 Gained(intensity)])

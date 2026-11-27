@@ -15,7 +15,7 @@ public abstract partial record ArchiveSource {
         internal override IO<ArchiveRead> Open() =>
             IO.lift(Fin<ArchiveRead> () => File3dm.ReadWithLog(Path, Tables, Objects, out string log) is { } model
                 ? new ArchiveRead(model, Conversions.Present(log))
-                : new RhinoFault(Path, RhinoReason.Unreadable, Inner: Error.New(log)));
+                : Fault.Of(RhinoReason.Unreadable, Path, inner: Error.New(log)));
     }
 
     public sealed record Buffered(Arr<byte> Bytes) : ArchiveSource {
@@ -130,10 +130,10 @@ public static class Archives {
             .Traverse(file => OutputPath.Of(Path.Join(folder, Path.GetFileName(file.Filename.Replace('\\', Path.AltDirectorySeparatorChar)))).Map(path => (File: file, Path: path)))
             .As())
         from rows in IO.lift(Conversions.Unique(candidates, static row => (string)row.Path, StringComparer.OrdinalIgnoreCase))
-        from saved in IO.lift(Products.Each(rows, static (row, index) => RhinoFault.Unless(row.File.SaveToFile(row.Path), RhinoReason.Unwritable, (string)row.Path, index)))
+        from saved in IO.lift(Products.Each(rows, static (row, index) => Fault.Unless(row.File.SaveToFile(row.Path), RhinoReason.Unwritable, (string)row.Path, index)))
         select rows.Map(static row => row.Path);
 
     public static IO<StepOutcome> Persist(File3dm archive, OutputPath path, File3dmWriteOptions options) =>
         StepOutcome.Write(path, target => IO.lift(() =>
-            archive.WriteWithLog(target, options, out string log) ? Fin.Succ(unit) : new RhinoFault(target, RhinoReason.Unwritable, Inner: Error.New(log))));
+            archive.WriteWithLog(target, options, out string log) ? Fin.Succ(unit) : Fault.Of(RhinoReason.Unwritable, target, inner: Error.New(log))));
 }

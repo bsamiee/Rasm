@@ -245,15 +245,27 @@ public protocol ModuleError: CustomNSError, LocalizedError {
 
 extension ModuleError {
     public var errorDescription: String? {
-        let held: Mirror.Child? = Mirror(reflecting: reason).children.first
-        let fact: String? =
-            switch held?.value {
-                case let duration as Duration: duration.formatted(.units(width: .narrow))
-                case let error as NSError: error.localizedDescription
-                case let value?: String(describing: value)
-                case nil: nil
+        func fact(_ value: Any) -> String? {
+            let mirror: Mirror = Mirror(reflecting: value)
+            let separator: String? =
+                switch mirror.displayStyle {
+                    case .optional?, .tuple?: " "
+                    case .collection?, .set?, .dictionary?: ", "
+                    default: nil
+                }
+            let parts: [String] = separator == nil ? [] : mirror.children.compactMap { fact($0.value) }
+            return switch (value, separator) {
+                case (let duration as Duration, _): duration.formatted(.units(width: .narrow))
+                case (let error as any ModuleError, _): error.errorDescription
+                case (let error as NSError, _) where type(of: value) is NSError.Type: error.localizedDescription
+                case (_, let separator?): parts.isEmpty ? nil : parts.joined(separator: separator)
+                case (_, nil): String(describing: value)
             }
-        return [subject, held?.label ?? String(describing: reason), fact].compactMap(\.self).joined(separator: " ")
+        }
+        let held: Mirror.Child? = Mirror(reflecting: reason).children.first
+        let label: String = held?.label ?? String(describing: reason)
+        let words: String = label.replacing(/\p{Lu}/) { " " + $0.output.lowercased() }
+        return [subject, words, held.flatMap { fact($0.value) }].compactMap(\.self).joined(separator: " ")
     }
 }
 
@@ -281,18 +293,23 @@ public struct FileFailure: ModuleError, Equatable {
 - `localizedDescription` and a bridged `NSError` read `errorDescription`, and `errorUserInfo` holds the host cause under `NSUnderlyingErrorKey`
 - `Error` refines `Sendable`, every reason fact is `Sendable`, and a cause crosses tasks whole
 - Reason cases name the rule and their own cause, and a case holds a fact only where some of its failures have one
+- Labels print as lowercase words split at each capital, so a label reads as the reason (`notOnConsole` prints `not on console`)
+- Associated values print in order through one formatter, a tuple and a dictionary entry with spaces between their parts
+- Collections, sets, and dictionaries print their formatted elements joined with `, `, and a `nil` or a part formatting to nothing drops out
+- Formatter cases: a `Duration` by `.units`, a nested `ModuleError` by its own `errorDescription`, an `NSError` instance by `localizedDescription`
+- Other values, Swift errors bridging to `NSError` among them, print through `String(describing:)`
 - Guards checking separate rules each throw their own reason, and a reason holding a sentence or a `nil` shared across rules loses which rule failed
-- Lookup refusals state how far the lookup matched and what stood there (`.stale(reached:candidates:)`)
+- Lookup refusals state what stood where the lookup missed (`.notOpen(nearest:)`)
 - Subjects hold the rejected value's identity (a path, a pid, a name its owner states), and each further fact is a reason field
 - No throw site, case arm, or table spells a sentence, and a new fact joins the reason as a field the extension prints
 - Host codes print through the member naming them (`Errno.description`, `GetMacOSStatusErrorString`), and `AXError` and `CGError`, which no host member names, keep one name per code
-- Library errors name what failed and why, and the product owning the tools or commands adds the remedy (`recoverySuggestion` on an app's error)
+- Apps state a remedy through `recoverySuggestion` of their own error
 - Host causes stay whole in the host's thrown type: `Errno` from System, `AXError`, `DecodingError`, and `NSError` for an untyped Foundation throw
 - `NSError` is `Sendable` and `Hashable`, and a reason holding one synthesizes `Equatable` where `any Error` forces a hand `==`
 - Host calls convert at the call, `do` holds the host call alone and its `catch` throws the module error
 - Host calls keep the status they return, as a discarded `AXObserverAddNotification` result leaves a refused registration silent
 - Host statuses classify in one initializer, and its `otherwise: () -> Self` closure makes the extra host read a fall-through case alone needs
-- Host writes into another process prove their effect by reading the value back, the returned status is a fact the read-back weighs (`.unchanged`)
+- Host writes into another process prove their effect by reading the value back, the returned status is a fact the read-back weighs (`.readBack`)
 - Fallbacks answering one failure catch its pattern in one `do throws(E)` (`catch let error where error.reason.is(\.held)`), and the rest propagate
 - Guards, defaults, retries, and `try?` hiding a cause go, and a `Result` field keeps a cause a reader reports
 - `CancellationError` passes through as the cancelled outcome, consumers classify by `reason`, and cleanup a cancelled task must finish runs under `withTaskCancellationShield`

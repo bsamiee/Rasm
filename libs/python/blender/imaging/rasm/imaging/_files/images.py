@@ -187,7 +187,7 @@ class Format(msgspec.Struct, frozen=True, kw_only=True):
             option
             .of_optional(OpenImageIO.ImageOutput.create(str(path)))
             .bind(lambda output: cls.writer(output.format_name()))
-            .to_result_with(lambda: Fault.of(Reason.OUTSIDE, str(path), OpenImageIO.geterror() or path.suffix, member=", ".join(suffix for row in cls.writable() for suffix in row.suffixes)))
+            .to_result_with(lambda: Fault.of(Reason.OUTSIDE, path, OpenImageIO.geterror() or path.suffix, member=", ".join(suffix for row in cls.writable() for suffix in row.suffixes)))
         )
 
     @property
@@ -340,7 +340,7 @@ def read_pixels(path: pathlib.Path, image: OpenImageIO.ImageInput, spec: OpenIma
         option
         .of_optional(image.read_image(subimage, 0, first, last, OpenImageIO.FLOAT))
         .map(lambda span: channels.map(lambda selected: np.take(span, np.subtract(selected, first), axis=-1)).default_value(span))
-        .to_result_with(lambda: Fault.of(Reason.UNREADABLE, str(path), image.geterror()))
+        .to_result_with(lambda: Fault.of(Reason.UNREADABLE, path, image.geterror()))
     )
 
 
@@ -355,7 +355,7 @@ def read_codes(path: pathlib.Path) -> Outcome[Option[npt.NDArray[np.uint8 | np.u
         match formats:
             case (kind, *_) if kind.basetype in {OpenImageIO.UINT8, OpenImageIO.UINT16} and OpenImageIO.TypeDesc.all_types_equal(list(formats)):
                 codes: npt.NDArray[np.uint8 | np.uint16] | None = image.read_image(0, 0, 0, spec.nchannels, kind)
-                return option.of_optional(codes).to_result_with(lambda: Fault.of(Reason.UNREADABLE, str(path), image.geterror())).map(Some)
+                return option.of_optional(codes).to_result_with(lambda: Fault.of(Reason.UNREADABLE, path, image.geterror())).map(Some)
             case _:
                 return Ok(NOTHING)
 
@@ -377,7 +377,7 @@ def opened[T](path: pathlib.Path, use: Callable[[OpenImageIO.ImageInput], Outcom
         option
         .of_optional(OpenImageIO.ImageInput.open(str(path), options.default_with(OpenImageIO.ImageSpec)))
         .map(held)
-        .default_with(lambda: Error(Fault.of(Reason.UNREADABLE, str(path), OpenImageIO.geterror())))
+        .default_with(lambda: Error(Fault.of(Reason.UNREADABLE, path, OpenImageIO.geterror())))
     )
 
 
@@ -387,7 +387,7 @@ def written(path: pathlib.Path, write: Callable[[pathlib.Path], object]) -> Outc
     Returns:
         Path, or `UNWRITABLE` fault for folder creation, encoding, or commit.
     """
-    return committed(path, lambda stage: catch(catch(write, exception=OSError), exception=ValueError)(stage).map_error(functools.partial(Fault.of, Reason.UNWRITABLE, str(path))))
+    return committed(path, lambda stage: catch(catch(write, exception=OSError), exception=ValueError)(stage).map_error(functools.partial(Fault.of, Reason.UNWRITABLE, path)))
 
 
 def emitted(path: pathlib.Path, subimages: Callable[[OpenImageIO.ImageOutput], tuple[Subimage, ...]]) -> Outcome[pathlib.Path]:
@@ -396,7 +396,7 @@ def emitted(path: pathlib.Path, subimages: Callable[[OpenImageIO.ImageOutput], t
     Returns:
         Path, or `UNWRITABLE` fault.
     """
-    refused = functools.partial(Fault.of, Reason.UNWRITABLE, str(path))
+    refused = functools.partial(Fault.of, Reason.UNWRITABLE, path)
 
     def into(stage: str, output: OpenImageIO.ImageOutput) -> Outcome[pathlib.Path]:
         def answered(*, done: bool) -> Outcome[pathlib.Path]:
@@ -436,7 +436,7 @@ def generations(rgb: npt.NDArray[np.uint8], *, quality: int, subsampling: Subsam
     try:
         return Ok(functools.reduce(lambda held, _: imagecodecs.jpeg8_decode(imagecodecs.jpeg8_encode(held, level=quality, subsampling=sampling)), range(count), rgb))
     except (imagecodecs.Jpeg8Error, ValueError) as error:
-        return Error(Fault.of(Reason.FAILED, generations.__name__, error))
+        return Error(Fault.of(Reason.FAILED, generations, error))
 
 
 # --- [COLOR_TAGS]

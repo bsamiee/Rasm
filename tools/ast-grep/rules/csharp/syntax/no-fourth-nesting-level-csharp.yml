@@ -64,8 +64,9 @@ rule:
               matches: body
               stopBy: *declaration
               inside: { matches: level, pattern: $OUTER, not: { matches: within-first } }
+transform:
+    HEAD: { replace: { source: $SCOPE, replace: '(?s)[\t-\r ]*\{?[\t-\r ]*\n.*$', by: '' } }
 labels:
-    SCOPE: { style: primary, message: Fourth nesting level }
+    SCOPE: { style: primary }
     OUTER: { style: secondary, message: First nesting level }
-message: Nesting reaches a fourth level
-note: 'Rebuild nested decisions or loops as one switch expression, query expression, or pipeline over their inputs'
+message: '`$HEAD` opens a fourth nesting level, rebuild nested decisions or loops as one switch expression, query expression, or pipeline over their inputs'

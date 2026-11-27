@@ -309,8 +309,8 @@ public static class DataTypes {
         IO.lift(static () => ignore(GrasshopperIO.IO.RegisterRestorableType(typeof(ValueParameter<T>))));
 
     private static IO<Unit> Keyed<TValue, TKey>(Func<ITypeAssistant<TKey>, TypeAssistant<TValue>> assistant, IO<Unit> conversions) =>
-        from key in IO.lift(static () => Conversions.Required(TypeAssistantServer.Find<TKey>(), call: typeof(TKey).ToString()))
-        from registered in IO.lift(RhinoFault.Unless(TypeAssistantServer.Register(assistant(key)), RhinoReason.Declined, typeof(TValue)))
+        from key in IO.lift(static () => Conversions.Required(TypeAssistantServer.Find<TKey>(), subject: typeof(TKey).ToString()))
+        from registered in IO.lift(Fault.Unless(TypeAssistantServer.Register(assistant(key)), RhinoReason.Declined, typeof(TValue)))
         from converted in conversions
         from restorable in Assistant<TValue>()
         select unit;
@@ -322,6 +322,6 @@ public static class DataTypes {
             (Optional(type.Assembly.GetCustomAttribute<GuidAttribute>()).Bind(static declared => parseGuid(declared.Value))
                 | Optional(Grasshopper2.Framework.PluginServer.FindPluginForObject(type)).Map(static plugin => plugin.Id)
                 | Session.BoundPlugIn.Map(static plugIn => plugIn.Id))
-            .IfNone(() => throw new RhinoFault(type, RhinoReason.Missing).ToException()),
+            .IfNone(() => throw Fault.Of(RhinoReason.Missing, type).ToException()),
             type.ToString());
 }

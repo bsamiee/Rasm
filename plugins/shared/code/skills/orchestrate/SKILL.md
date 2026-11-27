@@ -69,7 +69,7 @@ Conductors read each part's diff whole against every row once it reports, before
 |  [08]   | Architecture | Folders name a field outliving their members, files hold one concept, none sits alone in a folder                |
 |  [09]   | Checks       | Checks over external input and host replies stay, checks proving the program's own shape are gone                |
 |  [10]   | Cleaning     | Removed members leave no mention, comment, dead branch, scratch file, or backup                                  |
-|  [11]   | Output       | Text an agent or person reads is short and exact, names refs, and gives the next call                            |
+|  [11]   | Output       | Emitted text follows the OUTPUT lines of the global instructions                                                 |
 |  [12]   | Tests        | No test that cannot fail on this machine or exceeds the request, a broken test rebuilt or deleted                |
 |  [13]   | Evidence     | Diff matches no failing form of the brief, and each report claim holds its source or a live step                 |
 

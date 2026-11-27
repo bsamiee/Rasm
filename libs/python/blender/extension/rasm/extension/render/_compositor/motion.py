@@ -115,7 +115,7 @@ class ShutterPoses(msgspec.Struct, frozen=True, kw_only=True):
             return accumulated(
                 paired(
                     sources[socket.key],
-                    addressed(entry, identifiers, self.key(side, socket.key)).bind(lambda target: id_path(target).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(target), member="value"))),
+                    addressed(entry, identifiers, self.key(side, socket.key)).bind(lambda target: id_path(target).to_result_with(lambda: Fault.of(Reason.ABSENT, target, member="value"))),
                 ).bind(lambda held: sampled(*held, side))
                 for socket in self.sockets
                 for side in range(2)

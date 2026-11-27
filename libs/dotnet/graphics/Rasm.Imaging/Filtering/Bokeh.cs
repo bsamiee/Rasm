@@ -13,7 +13,7 @@ namespace Rasm.Imaging.Filtering;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [ComplexValueObject]
-[ValidationError<ImagingFault>]
+[ValidationError<Fault<ImagingReason>>]
 public sealed partial class Iris {
     public static Iris Circular { get; } = new(3, 0d, 1d, 0d, 1d);
 
@@ -108,9 +108,9 @@ public sealed partial class Iris {
     private static Vector3 Radii(double radius, double fringe) =>
         new((float)(radius * (1d - double.Max(fringe, 0d))), (float)(radius * (1d - (double.Abs(fringe) / 2d))), (float)(radius * (1d + double.Min(fringe, 0d))));
 
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref int blades, ref double rotation, ref double roundness, ref double obstruction, ref double squeeze) =>
+    static partial void ValidateFactoryArguments(ref Fault<ImagingReason>? validationError, ref int blades, ref double rotation, ref double roundness, ref double obstruction, ref double squeeze) =>
         validationError = blades >= 3 && double.IsFinite(rotation) && roundness is >= 0d and <= 1d && obstruction is >= 0d and <= 1d && double.IsFinite(squeeze) && squeeze > 0d ? null
-            : ImagingFault.Of(ImagingReason.Range, (blades, rotation, roundness, obstruction, squeeze));
+            : Fault.Of(ImagingReason.Range, (blades, rotation, roundness, obstruction, squeeze));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -21,7 +21,7 @@ public sealed partial class StandardOffset : IMinMaxValue<StandardOffset> {
     public double Hours => _value.Seconds / (double)NodaConstants.SecondsPerHour;
 
     public static Fin<StandardOffset> Validated(Offset value) =>
-        RhinoFault.Unless(value >= MinValue._value && value <= MaxValue._value, RhinoReason.Outside, value).Map(_ => new StandardOffset(value));
+        Fault.Unless(value >= MinValue._value && value <= MaxValue._value, RhinoReason.Outside, value).Map(_ => new StandardOffset(value));
 }
 
 [ValueObject<Duration>(SkipFactoryMethods = true)]
@@ -33,7 +33,7 @@ public sealed partial class DaylightSaving : IMinMaxValue<DaylightSaving> {
     public int Minutes => (int)_value.TotalMinutes;
 
     public static Fin<DaylightSaving> Validated(Duration value) =>
-        RhinoFault.Unless(value >= MinValue._value && value <= MaxValue._value, RhinoReason.Outside, value).Map(_ => new DaylightSaving(value));
+        Fault.Unless(value >= MinValue._value && value <= MaxValue._value, RhinoReason.Outside, value).Map(_ => new DaylightSaving(value));
 }
 
 public sealed record SunSite(GeoCoordinate Place, Angle North, StandardOffset Standard, Option<DaylightSaving> Saving) {
@@ -99,7 +99,7 @@ public sealed record SunSite(GeoCoordinate Place, Angle North, StandardOffset St
          select value).Bracket();
 
     internal static Fin<DateTime> Universal(Instant at) =>
-        RhinoFault.Unless(Dated.Contains(at.InUtc().Date), RhinoReason.Outside, at).Map(_ => DateTime.SpecifyKind(at.ToDateTimeUtc(), DateTimeKind.Unspecified));
+        Fault.Unless(Dated.Contains(at.InUtc().Date), RhinoReason.Outside, at).Map(_ => DateTime.SpecifyKind(at.ToDateTimeUtc(), DateTimeKind.Unspecified));
 
     // --- [DAYS]
 
@@ -110,7 +110,7 @@ public sealed record SunSite(GeoCoordinate Place, Angle North, StandardOffset St
     private static readonly DateInterval Dated = new(new LocalDate(1971, 1, 1), new LocalDate(2105, 12, 31));
 
     public Fin<SunDay> Day(LocalDate date) =>
-        from dated in RhinoFault.Unless(Dated.Contains(date), RhinoReason.Outside, date)
+        from dated in Fault.Unless(Dated.Contains(date), RhinoReason.Outside, date)
         let altitude = fun((double hour) => Sun.AltitudeFromValues(
             Place.Latitude.Degrees.ToDouble(), Place.Longitude.Degrees.ToDouble(), Standard.Hours, Minutes, date.ToDateTimeUnspecified(), hour))
         let peak = Enumerable.Range(0, NodaConstants.HoursPerDay + 1).Select(static hour => (double)hour).MaxBy(altitude)
@@ -135,7 +135,7 @@ public sealed record SunSite(GeoCoordinate Place, Angle North, StandardOffset St
     private static Fin<double> Root(Func<double, double> function, double lower, double upper) =>
         Brent.TryFindRoot(function, lower, upper, HourAccuracy, RootIterations, out double root)
             ? root
-            : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"root in [{lower}, {upper}]"), RhinoReason.Missing);
+            : Fault.Of(RhinoReason.Missing, string.Create(CultureInfo.InvariantCulture, $"root in [{lower}, {upper}]"));
 }
 
 public sealed record SunSample(Vector3d Direction, Angle Azimuth, Angle Altitude, Color Color, double JulianDay);
@@ -143,7 +143,7 @@ public sealed record SunSample(Vector3d Direction, Angle Azimuth, Angle Altitude
 public sealed record SunDay(Instant Noon, NodaTime.Interval Daylight, NodaTime.Interval Twilight);
 
 [ComplexValueObject]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class SunWindow {
 
     // --- [STATE]
@@ -173,16 +173,16 @@ public sealed partial class SunWindow {
         Validated(from.At(at), until.At(at), step);
 
     public static Fin<SunWindow> Validated(LocalDateTime start, LocalDateTime end, Period step) =>
-        TryCreate(start, end, step, out SunWindow? window, out RhinoFault? fault) ? window : fault;
+        TryCreate(start, end, step, out SunWindow? window, out Fault<RhinoReason>? fault) ? window : fault;
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref LocalDateTime start, ref LocalDateTime end, ref Period step) =>
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref LocalDateTime start, ref LocalDateTime end, ref Period step) =>
         validationError = Conversions.Rejection(Rule(start, end, step));
 
     private static Fin<Unit> Rule(LocalDateTime start, LocalDateTime end, Period step) =>
-        (RhinoFault.Unless(start <= end, RhinoReason.Invalid, (start, end)),
-         RhinoFault.Unless(step.Years is 0 && step.Months is 0 && (step.HasTimeComponent ? !step.HasDateComponent && start.Date == end.Date : start.TimeOfDay == end.TimeOfDay), RhinoReason.Invalid, step)
+        (Fault.Unless(start <= end, RhinoReason.Invalid, (start, end)),
+         Fault.Unless(step.Years is 0 && step.Months is 0 && (step.HasTimeComponent ? !step.HasDateComponent && start.Date == end.Date : start.TimeOfDay == end.TimeOfDay), RhinoReason.Invalid, step)
              .Bind(_ => Conversions.Whole(step.ToDuration(), step.HasTimeComponent ? Duration.FromMinutes(1) : Duration.FromDays(1)))
-             .Bind(static count => RhinoFault.Unless(count > 0, RhinoReason.Outside, count)))
+             .Bind(static count => Fault.Unless(count > 0, RhinoReason.Outside, count)))
             .Apply(static (_, _) => unit)
             .As();
 

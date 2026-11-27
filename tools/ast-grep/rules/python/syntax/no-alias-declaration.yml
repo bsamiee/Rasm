@@ -71,5 +71,4 @@ rule:
                                 kind: type_alias_statement
                                 stopBy: end
                                 precedes: { stopBy: end, any: [{ kind: class_definition, has: { field: name, pattern: $LATER } }, { kind: decorated_definition, has: { field: definition, has: { field: name, pattern: $LATER } } }] }
-message: '`$ALIAS` is another name for `$TARGET`'
-note: 'Write `<target>` at each use and delete the alias, an instantiation two readers in its module share or its `__all__` exports keeps its name'
+message: '`$ALIAS` is another name for `$TARGET`, write `$TARGET` at each use and delete the alias, an instantiation two readers in its module share or its `__all__` exports keeps its name'

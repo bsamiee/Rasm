@@ -164,7 +164,7 @@ def _named(layer: bpy.types.ViewLayer, entity: CryptomatteKind) -> tuple[tuple[s
 def _located(scene: bpy.types.Scene, matte: Matte, layer: Option[str] = NOTHING) -> Outcome[tuple[bpy.types.ViewLayer, CryptomatteKind]]:
     """Resolves the matte's native namespace, or a routed file's known layer and bare pass name."""
     owner, _, bare = matte.name.rpartition(".")
-    absent = functools.partial(Fault.of, Reason.ABSENT, str(matte.file.path), member=matte.name)
+    absent = functools.partial(Fault.of, Reason.ABSENT, matte.file.path, member=matte.name)
     return (
         layer
         .map(lambda name: layer_of(scene, name))
@@ -211,7 +211,7 @@ def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outco
         return (
             matte.view
             .or_else(file.view)
-            .map(lambda name: option.of_optional(scene.render.views.get(name)).to_result_with(functools.partial(Fault.of, Reason.ABSENT, repr(scene.render.views), member=name)).map(Some))
+            .map(lambda name: option.of_optional(scene.render.views.get(name)).to_result_with(functools.partial(Fault.of, Reason.ABSENT, scene.render.views, member=name)).map(Some))
             .default_value(Ok(NOTHING))
             .bind(lambda view: path.literal(layer.name, Output.MATTE, Some(entity.pass_name), scene.frame_current, suffix=Some(f"{view.map(lambda held: held.file_suffix).default_value('')}.exr")))
             .map(str)
@@ -340,7 +340,7 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
         return f"i{content_hash(owner, member).hex()}"
 
     def missing(name: str) -> Faults:
-        return Fault.of(Reason.ABSENT, repr(live.outputs), member=name)
+        return Fault.of(Reason.ABSENT, live.outputs, member=name)
 
     def sourced(expr: Expr, key: Key, name: str, socket_type: type[bpy.types.NodeSocket], output: Output, dimensions: Option[int] = NOTHING) -> tuple[FileSocket, ...]:
         listed = option.of_optional(rows.get(name))
@@ -357,7 +357,7 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
                 return (
                     option
                     .of_optional(scene.camera)
-                    .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(scene), member="camera"))
+                    .to_result_with(lambda: Fault.of(Reason.ABSENT, scene, member="camera"))
                     .map(lambda held: _turned(read, _NUKE_AXES[VectorSpace.CAMERA] if nuke else (1, 2, 3), Some(held)))
                 )
             case VectorSpace() as space, True:

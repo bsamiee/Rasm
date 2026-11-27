@@ -127,7 +127,7 @@ public static class Gaussian {
     public static Fin<int> Taps(double radius) =>
         double.Ceiling(radius) switch {
             var reach when double.IsFinite(reach) && reach >= 0d && (2d * reach) + 1d <= int.MaxValue => (2 * (int)reach) + 1,
-            _ => ImagingFault.Of(ImagingReason.Range, radius),
+            _ => Fault.Of(ImagingReason.Range, radius),
         };
 
     public static Fin<ImmutableArray<double>> Kernel(double sigma, double norm = 1d) =>

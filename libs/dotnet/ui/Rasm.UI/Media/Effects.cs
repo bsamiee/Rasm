@@ -35,7 +35,7 @@ internal sealed record RuntimeEffect {
 
     internal static Fin<RuntimeEffect> Validated(Compiler compile, string sksl, HashMap<string, ColorValue> colors, HashMap<string, Metric> floats, HashMap<string, Material> children) =>
         compile(sksl, out string errors) switch {
-            null => new UIFault(errors, UIReason.Refused),
+            null => Fault.Of(UIReason.Refused, errors),
             var program => Declared(program, colors, floats, children) switch {
                 Fin<Unit>.Fail refused => Released(program, refused.Error),
                 _ => new RuntimeEffect(program, colors, floats, children),
@@ -52,7 +52,7 @@ internal sealed record RuntimeEffect {
         HashSet<string> bindable = toHashSet(Implicit + stated);
         Seq<string> stray = stated.Filter(name => !program.Uniforms.Contains(name, StringComparer.Ordinal)) + children.Keys.ToSeq().Filter(name => !program.Children.Contains(name, StringComparer.Ordinal));
         Seq<string> unbound = toSeq(program.Uniforms).Filter(name => !bindable.Contains(name)) + toSeq(program.Children).Filter(name => !children.ContainsKey(name));
-        return (UIFault.Unless(stray.IsEmpty, UIReason.Missing, stray), UIFault.Unless(unbound.IsEmpty, UIReason.Missing, unbound), Typed(program, colors, floats))
+        return (Fault.Unless(stray.IsEmpty, UIReason.Missing, stray), Fault.Unless(unbound.IsEmpty, UIReason.Missing, unbound), Typed(program, colors, floats))
             .Apply(static (_, _, _) => unit).As();
     }
 
@@ -61,7 +61,7 @@ internal sealed record RuntimeEffect {
             using SKRuntimeEffectUniforms probed = new(program);
             WriteUniforms(probed, colors.Map(static _ => new SKColorF()), floats.Map(static _ => 0f), SKSize.Empty, 0f, Corners.Square.Clockwise, SKPoint.Empty);
             return unit;
-        }).Run().MapFail(error => new UIFault(toSeq(colors.Keys.Concat(floats.Keys)), UIReason.Refused, Inner: error));
+        }).Run().MapFail(error => Fault.Of(UIReason.Refused, toSeq(colors.Keys.Concat(floats.Keys)), inner: error));
 
     // --- [BINDING]
 
@@ -194,7 +194,7 @@ public abstract partial record Filter {
         public FilterFunction Function { get; }
         public float Amount { get; }
 
-        public static Fin<Css> Validated(FilterFunction function, float amount) => UIFault.Unless(function.Accepts(amount), UIReason.Range, amount).Map(_ => new Css(function, amount));
+        public static Fin<Css> Validated(FilterFunction function, float amount) => Fault.Unless(function.Accepts(amount), UIReason.Range, amount).Map(_ => new Css(function, amount));
 
         internal override Option<SKImageFilter> Built(PaintTarget target, SKImageFilter? input) => Function.Built(Amount, input, target.Space);
     }
@@ -237,7 +237,7 @@ public abstract partial record Filter {
         public float Bias { get; }
 
         public static Fin<Convolve> Validated(SKSizeI size, Seq<float> kernel, float gain, float bias) =>
-            UIFault.Unless(size is { Width: > 0, Height: > 0 } && kernel.Count == Math.BigMul(size.Width, size.Height), UIReason.Range, (size, kernel.Count)).Map(_ => new Convolve(size, kernel, gain, bias));
+            Fault.Unless(size is { Width: > 0, Height: > 0 } && kernel.Count == Math.BigMul(size.Width, size.Height), UIReason.Range, (size, kernel.Count)).Map(_ => new Convolve(size, kernel, gain, bias));
 
         internal override Option<SKImageFilter> Built(PaintTarget target, SKImageFilter? input) =>
             SKImageFilter.CreateMatrixConvolution(Size, [.. Kernel], Gain, Bias, new SKPointI(Size.Width / 2, Size.Height / 2), SKShaderTileMode.Clamp, convolveAlpha: false, input);

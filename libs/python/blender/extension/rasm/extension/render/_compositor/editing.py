@@ -217,9 +217,7 @@ def inserted(
 
         def linked(source: bpy.types.NodeSocket) -> Outcome[None]:
             def socket(sockets: Iterable[bpy.types.NodeSocket]) -> Outcome[bpy.types.NodeSocket]:
-                return (
-                    Block.of_seq(sockets).filter(lambda each: each.enabled and each.type == source.type).try_head().to_result_with(lambda: Fault.of(Reason.ABSENT, repr(sockets), member=source.type))
-                )
+                return Block.of_seq(sockets).filter(lambda each: each.enabled and each.type == source.type).try_head().to_result_with(lambda: Fault.of(Reason.ABSENT, sockets, member=source.type))
 
             links = tuple(link for link in links_of(source) if link.is_valid)
             targets = tuple(dict.fromkeys(endpoints(link)[3] for link in links))

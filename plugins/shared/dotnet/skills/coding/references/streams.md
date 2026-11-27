@@ -64,7 +64,7 @@ internal static class Branches {
 
 ```csharp
 internal static class Failures {
-    public static Fin<decimal> Rate(HashMap<string, decimal> table, string code) => table.Find(code).ToFin(new Fault(code, Reason.Missing));
+    public static Fin<decimal> Rate(HashMap<string, decimal> table, string code) => table.Find(code).ToFin(Fault.Of(Reason.Missing, code));
     public static Source<Fin<decimal>> Outcomes(HashMap<string, decimal> table, Source<string> codes) => codes.Map(code => Rate(table, code));
     public static Source<string> Outputs(HashMap<string, decimal> table, Source<string> codes) =>
         Source.pure("Enter a code").Combine(
@@ -238,7 +238,7 @@ internal static class Registry {
             Some: static process => IO.pure(process),
             None: () =>
                 from found in load(id)
-                from state in IO.lift(found.ToFin(new Fault(id, Reason.Missing)))
+                from state in IO.lift(found.ToFin(Fault.Of(Reason.Missing, id)))
                 from started in EntityProcess.Start(persist, state)
                 from resolved in IO.lift(() => processes.FindOrAdd(id, started))
                 from _ in ReferenceEquals(resolved, started) ? IO.pure(unit) : started.Inbox.Complete()

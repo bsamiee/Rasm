@@ -56,5 +56,4 @@ utils:
                       - has: { field: right, any: [{ matches: dropped }, { kind: parenthesized_expression, has: { stopBy: { not: { kind: parenthesized_expression } }, matches: dropped } }] }
 rule:
     matches: dropping-statement
-message: 'Expression statement discards the value of its selection or iteration'
-note: 'Write statements preserving predicate truth conversion, collection effects, and evaluation order'
+message: 'Expression statement discards the value of its selection or iteration, write statements preserving predicate truth conversion, collection effects, and evaluation order'

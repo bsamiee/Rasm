@@ -41,7 +41,7 @@ class _LutLayout(IntEnum):
         match self:
             case _LutLayout.HALD:
                 if (level := math.isqrt(size)) * level != size:
-                    return Error(Fault.of(Reason.OUTSIDE, str(path), str(size), member="Hald grid sizes that are perfect squares"))
+                    return Error(Fault.of(Reason.OUTSIDE, path, size, member="Hald grid sizes that are perfect squares"))
                 side = level**3
                 pixels = cube.reshape(side, side, 3)
             case _LutLayout.KEYSHOT:
@@ -58,7 +58,7 @@ class _LutLayout(IntEnum):
         """
 
         def decoded(image: ImageFile) -> Outcome[PyOpenColorIO.GroupTransform]:
-            refused = Fault.of(Reason.OUTSIDE, str(path), str(image.pixels.shape), member="Hald and KeyShot cube images")
+            refused = Fault.of(Reason.OUTSIDE, path, image.pixels.shape, member="Hald and KeyShot cube images")
             if (pixels := image.pixels).ndim != 3:
                 return Error(refused)
             height, width, channels = pixels.shape
@@ -73,7 +73,7 @@ class _LutLayout(IntEnum):
                     plane = rgb[::-1].reshape(size, size, size, 3).transpose(1, 0, 2, 3).reshape(size, size * size, 3)
                 case _:
                     return Error(refused)
-            return called(Lattice(size=size).transform, str(path), plane)
+            return called(Lattice(size=size).transform, path, plane)
 
         options = OpenImageIO.ImageSpec()
         options.attribute("oiio:UnassociatedAlpha", 1)
@@ -227,7 +227,7 @@ class LutOutput(msgspec.Struct, frozen=True, kw_only=True):
             return source.write(formatName=self.format.name, config=PyOpenColorIO.Config())
 
         def encoded(path: pathlib.Path, source: PyOpenColorIO.GroupTransform) -> Outcome[tuple[pathlib.Path, str]]:
-            return self.lattice.map(lambda lattice: called(baked, str(path), source, lattice)).default_with(lambda: called(exact, str(path), source)).map(lambda text: (path, text))
+            return self.lattice.map(lambda lattice: called(baked, path, source, lattice)).default_with(lambda: called(exact, path, source)).map(lambda text: (path, text))
 
         return accumulated(starmap(encoded, sources.items())).bind(lambda texts: accumulated(committed(path, text.encode()) for path, text in texts))
 
@@ -239,7 +239,7 @@ class LutOutput(msgspec.Struct, frozen=True, kw_only=True):
 
 def corrections(path: pathlib.Path) -> Outcome[tuple[tuple[Option[str], PyOpenColorIO.CDLTransform], ...]]:
     """Reads every ASC correction of a CC, CCC, or CDL file in file order, each with its ID when named."""
-    return called(PyOpenColorIO.CDLTransform.CreateGroupFromFile, str(path), str(path)).map(
+    return called(PyOpenColorIO.CDLTransform.CreateGroupFromFile, path, str(path)).map(
         lambda group: tuple((Some(correction.getFormatMetadata().getID()).filter(bool), correction) for correction in group if isinstance(correction, PyOpenColorIO.CDLTransform))
     )
 

@@ -222,7 +222,7 @@ def _sited(setup: SunSetup) -> Outcome[tuple[Site, Study]]:
         _Timing.SEASON: (datetime.timedelta(days=setup.days), setup.frames),
     }[_Timing[setup.timing]]
     site = catch(lambda: msgspec.convert({"latitude": setup.latitude, "longitude": setup.longitude, "north": setup.north, "zone": setup.zone}, Site), exception=msgspec.ValidationError)().map_error(
-        lambda error: Fault.of(Reason.OUTSIDE, repr(setup), error, member="a site the time zone database holds")
+        lambda error: Fault.of(Reason.OUTSIDE, setup, error, member="a site the time zone database holds")
     )
     return site.map(lambda held: (held, Study(start=start, step=step, frames=frames)))
 

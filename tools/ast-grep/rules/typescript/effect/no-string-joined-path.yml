@@ -42,7 +42,6 @@ rule:
                     kind: statement_block, program
                     stopBy: { kind: 'statement_block, program' }
                     has: { stopBy: end, matches: joined, pattern: $JOINED }
-message: '`$JOINED` joins a file-system path with a `/` literal'
-note: 'Call `join` from `node:path`, or `path.join` on the yielded `Path.Path` service, which joins with the host separator'
+message: '`$JOINED` joins a file-system path with a `/` literal, call `join` from `node:path` or `path.join` on the yielded `Path.Path` service, which joins with the host separator'
 labels:
     JOINED: { style: primary }

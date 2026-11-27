@@ -342,7 +342,7 @@ def pointed(owner: type[Struct], name: str, definition: bpy.props._PropertyDefer
     with ExitStack() as stack:
         yield (
             Ok(None)
-            .filter_with(lambda _: not (name in rna.properties or name in rna.functions or hasattr(owner, name)), lambda _: Fault.of(Refusal.TAKEN, request, member=owner.__name__))
+            .filter_with(lambda _: not (name in rna.properties or name in rna.functions or hasattr(owner, name)), lambda _: Fault.of(Refusal.TAKEN, request, member=owner))
             .bind(lambda _: catch(setattr, exception=ValueError)(owner, name, _hosted(definition)).map_error(partial(Fault.of, Refusal.REFUSED, request)))
             .map(lambda _: stack.callback(delattr, owner, name))
             .map(lambda _: None)

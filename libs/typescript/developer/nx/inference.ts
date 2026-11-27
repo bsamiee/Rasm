@@ -11,7 +11,7 @@ import { AggregateCreateNodesError, type CreateNodesContext, detectPackageManage
 import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getLockFileName, getNamedInputs, hashFile, hashWithWorkspaceContext, killChildOnHostExit, mergeTargetConfigurations, type PackageJson, PluginCache, parseExecutor, readModulePackageJson, workspaceDataDirectory } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import { run as runProcess } from '@rasm/process';
-import { Array, Cause, Config, ConfigProvider, Context, Effect, Equal, FileSystem, Filter, Formatter, Function, identity, Layer, ManagedRuntime, Match, MutableRef, Option, Path, Predicate, pipe, Record, Result, Schema, Scope, Stream, String, Struct, Tuple, UndefinedOr } from 'effect';
+import { Array, Cause, Config, ConfigProvider, Context, Effect, Equal, FileSystem, Filter, Formatter, Function, identity, Layer, Logger, ManagedRuntime, Match, MutableRef, Option, Path, Predicate, pipe, Record, References, Result, Schema, Scope, Stream, String, Struct, Tuple, UndefinedOr } from 'effect';
 import { type ChildProcess, ChildProcessSpawner } from 'effect/process';
 import collection from '#/executors.json' with { type: 'json' };
 import plugin from '#/package.json' with { type: 'json' };
@@ -43,6 +43,22 @@ const Overrides = Schema.fromJsonString(Schema.Struct({ targets: Schema.optional
 const Named = Schema.fromJsonString(Schema.Struct({ name: Schema.String })).annotate({ description: 'The name field of a package.json' });
 const Words = Schema.String.pipe(Schema.Array, Schema.optionalKey).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' });
 
+// --- [ERRORS] --------------------------------------------------------------------------
+
+class NxError extends Schema.TaggedError<NxError, { readonly brand: unique symbol }>()('NxError', {
+    reason: Schema.TaggedUnion({
+        Failed: { step: Schema.String },
+        Invalid: { code: Schema.String },
+        Unloaded: { tool: Schema.String },
+        Unmatched: { input: Schema.Array(Schema.String), outputs: Schema.Array(Schema.String), tasks: Schema.Array(Schema.String) },
+    }),
+    subject: Schema.String,
+    cause: Schema.optionalKey(Schema.Defect()),
+    message: Schema.String,
+}) {
+    static readonly of = (reason: NxError['reason'], subject: string) => (cause?: unknown) => NxError.make({ reason, subject, ...(cause === undefined ? {} : { cause }), message: [subject, String.noCase(reason._tag), labeled(Struct.omit(reason, ['_tag'])).join(', ')].filter(String.isNonEmpty).join(' ') });
+}
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const Root = Context.Reference<string>('@rasm/nx/Root', { defaultValue: cwd });
@@ -73,13 +89,23 @@ const hosted = Layer.provideMerge(
 const legible = (error: unknown): Error =>
     Match.value(error).pipe(
         Match.when(Match.instanceOf(AggregateCreateNodesError), (aggregate) => new AggregateCreateNodesError(aggregate.errors.map(Tuple.evolve([undefined, legible])), aggregate.partialResults)),
-        Match.when((each: unknown): each is Error => Predicate.isError(each) && Object.hasOwn(each, 'message') && Predicate.isString(each.message) && String.isNonEmpty(each.message), Function.identity<Error>),
+        Match.when(
+            (each: unknown): each is Error => Predicate.isError(each) && Object.hasOwn(each, 'message') && Predicate.isString(each.message) && String.isNonEmpty(each.message),
+            (each) => (Predicate.isError(each.cause) ? new Cause.UnknownError(each, `${each.message}: ${Formatter.format(each.cause)}`) : each),
+        ),
         Match.when(Predicate.isError, (each) => new Cause.UnknownError(each, Predicate.isString(each.message) && String.isNonEmpty(each.message) ? each.message : (each.stack ?? Formatter.format(each)))),
         Match.orElse((each) => new Cause.UnknownError(each, Formatter.format(each))),
     );
 
+const formatted = (value: unknown) => (Predicate.isString(value) ? value : Formatter.format(value));
+
+const labeled = (fields: object): readonly string[] =>
+    Object.entries(fields).flatMap(([label, value]: readonly [string, unknown]) => (value === true ? [String.noCase(label)] : Array.match(Array.ensure(value).filter(Predicate.isTruthy), { onEmpty: Array.empty, onNonEmpty: (items) => [`${String.noCase(label)}: ${items.map(formatted).join(' ')}`] })));
+
+const reported = Logger.withConsoleLog(Logger.make(({ message, cause, fiber }) => [...Array.ensure<unknown>(message).map(formatted), labeled(fiber.getRef(References.CurrentLogAnnotations)).join(', '), ...(cause.reasons.length > 0 ? [Cause.pretty(cause)] : [])].filter(String.isNonEmpty).join(' ')));
+
 const runner = <R>(services: Layer.Layer<R>): Run<R> => {
-    const runtime = ManagedRuntime.make(Layer.merge(services, hosted));
+    const runtime = ManagedRuntime.make(Layer.mergeAll(services, hosted, Logger.layer([reported])));
     return <A, E>(effect: Effect.Effect<A, E, R | NodeServices | Scope.Scope>) => runtime.runPromise(effect.pipe(Effect.mapError(legible), Effect.scoped, Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv())));
 };
 
@@ -109,14 +135,12 @@ const fingerprinted = (folder: string) => Effect.succeed(hashArray([...Array.fro
 
 const spawned = (argv: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => Effect.map(runProcess(argv, options), Struct.get('stdout'));
 
-const request = <S extends Schema.Decoder<unknown>>(start: Effect.Effect<Worker | NodeChildProcess>, reply: S, refusal: string) => {
-    const failed = (cause: unknown) => new Cause.UnknownError(cause, refusal);
-    return Effect.acquireDisposable(start).pipe(
+const request = <S extends Schema.Decoder<unknown>>(start: Effect.Effect<Worker | NodeChildProcess>, reply: S, failed: (cause: unknown) => NxError) =>
+    Effect.acquireDisposable(start).pipe(
         Effect.flatMap((peer) => Effect.raceFirst(Effect.tryPromise({ try: (signal) => once(peer, 'message', { signal }), catch: failed }), Effect.flatMap(Effect.tryPromise({ try: (signal) => once(peer, 'exit', { signal }), catch: failed }), failed))),
         Effect.flatMap(([message]) => Schema.decodeUnknownEffect(reply)(message)),
         Effect.scoped,
     );
-};
 
 const inside = (folder: string) => (file: string) => Option.isSome(hostPath.resolveWithin(folder, hostPath.relative(folder, file)));
 
@@ -280,6 +304,7 @@ export {
     manifested,
     Named,
     namedInput,
+    NxError,
     owned,
     packaged,
     parsed,

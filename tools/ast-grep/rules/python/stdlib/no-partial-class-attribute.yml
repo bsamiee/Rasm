@@ -89,5 +89,4 @@ rule:
                     - inside: { kind: decorated_definition, matches: class-body }
                     - has: { matches: partial-class }
         - pattern: $VALUE
-message: '`$VALUE` as a class attribute binds as a method from Python 3.14 and stays unbound below it'
-note: 'Wrap the partial in `staticmethod` for an unbound call or `enum.member` for an enum member, else write `functools.partialmethod`'
+message: '`$VALUE` as a class attribute binds as a method from Python 3.14 and stays unbound below it, wrap it in `staticmethod` for an unbound call or `enum.member` for an enum member, else write `functools.partialmethod`'

@@ -11,7 +11,7 @@ public static class Fields {
     // --- [LEAVES]
 
     public static Fin<ScalarField.Moved> Solid(Box box) =>
-        from valid in RhinoFault.Unless(box.IsValid, RhinoReason.Invalid, box)
+        from valid in Fault.Unless(box.IsValid, RhinoReason.Invalid, box)
         from extent in Bounds.Validated(new(box.X.Min, box.Y.Min, box.Z.Min), new(box.X.Max, box.Y.Max, box.Z.Max))
         from map in Transform.PlaneToPlane(Plane.WorldXY, box.Plane).ToAffine()
         from moved in ScalarField.Moved.Of(new ScalarField.Box(extent), map, RhinoMath.ZeroTolerance)
@@ -46,7 +46,7 @@ public static class Fields {
         from grid in IO.lift(() =>
             from found in Conversions.Required(box.Map(given => (Box: given, Resolution: resolution))
                 | field.Bounds.Bind(bounds => bounds.Inflated(bounds.ToBoundingBox().Diagonal.MinimumCoordinate / resolution).ToOption()).Map(inflated => (Box: inflated.ToBoundingBox(), Resolution: resolution + 2)))
-            from valid in RhinoFault.Unless(found.Box.IsValid && found.Box.IsDegenerate(0d) is 0, RhinoReason.Invalid, found.Box)
+            from valid in Fault.Unless(found.Box.IsValid && found.Box.IsDegenerate(0d) is 0, RhinoReason.Invalid, found.Box)
             select found)
         from failed in IO.lift(static () => Atom(value: false))
         from mesh in Products.Of(() => Mesh.CreateFromIsosurface(point => {
@@ -54,6 +54,6 @@ public static class Fields {
             if (!double.IsFinite(distance)) _ = failed.Swap(static _ => true);
             return distance;
         }, grid.Box, grid.Resolution, rootFindingSteps))
-        from finite in IO.lift(RhinoFault.Unless(!failed.Value, RhinoReason.Invalid, failed.Value))
+        from finite in IO.lift(Fault.Unless(!failed.Value, RhinoReason.Invalid, failed.Value))
         select mesh;
 }

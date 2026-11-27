@@ -22,7 +22,7 @@ public sealed class TransformsTests {
     [Fact]
     public void ProjectiveTransformFailsAsUnsupported() =>
         Gen.Int[0, 2].Select(Gen.OneOf(Gen.Double[0.01, 1d], Gen.Const(double.NaN), Gen.Const(double.PositiveInfinity), Gen.Const(double.Epsilon))).Sample(static (column, weight) =>
-            Assert.Equal(RhinoReason.Unsupported, Expect<RhinoFault>.Failed(Decomposition.Of(new Transform(1d) { [3, column] = weight }, RhinoMath.ZeroTolerance)).Reason));
+            Assert.Equal(RhinoReason.Unsupported, Expect<Fault<RhinoReason>>.Failed(Decomposition.Of(new Transform(1d) { [3, column] = weight }, RhinoMath.ZeroTolerance)).Reason));
 
     // --- [INTERPOLATION]
 
@@ -91,13 +91,13 @@ public sealed class TransformsTests {
                 Gen.Double[1d + 1e-6, 10d],
                 Gen.OneOf(Gen.Const(double.NaN), Gen.Const(double.PositiveInfinity), Gen.Const(double.NegativeInfinity), Gen.Const(double.BitDecrement(0d)), Gen.Const(double.BitIncrement(1d))))
             .Sample(static t =>
-                Assert.Equal(RhinoReason.Outside, Expect<RhinoFault>.Failed(
+                Assert.Equal(RhinoReason.Outside, Expect<Fault<RhinoReason>>.Failed(
                     Decomposition.Of(Transform.Identity, RhinoMath.ZeroTolerance).ThrowIfFail().Interpolate(Decomposition.Of(Transform.Identity, RhinoMath.ZeroTolerance).ThrowIfFail(), t)).Reason));
 
     [Fact]
     public void InterpolatingAMirrorTowardsARotationFailsAsMismatched() =>
         Mirror.Select(Classified).Sample(static (mirror, rotated) =>
-            Assert.Equal(RhinoReason.Mismatched, Expect<RhinoFault>.Failed(
+            Assert.Equal(RhinoReason.Mismatched, Expect<Fault<RhinoReason>>.Failed(
                 Decomposition.Of(mirror, RhinoMath.ZeroTolerance).ThrowIfFail().Interpolate(Decomposition.Of(rotated.Xform, RhinoMath.ZeroTolerance).ThrowIfFail(), 0.5)).Reason));
 
     // --- [ORIENTATION]

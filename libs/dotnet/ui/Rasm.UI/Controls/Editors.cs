@@ -176,7 +176,7 @@ public sealed record SwatchList(Seq<Unicolour> Colors, Selection Selection, Func
         get {
             Seq<Key> keys = Colors.Map(static (_, index) => (Key)new Key.Ordinal((uint)index)).Strict();
             return new Part.Choice(keys, Selection, Selected).Drawn(Colors.Map(static colour => (View)Swatch.Patch(colour)), static items => new View.Flex(PhysicalAxis.Horizontal, items) { Width = Sizing.Grow.Unit }) with {
-                Lift = new Lift(moved => IO.lift(moved.Head.Bind(key => keys.Position(key)).Bind(index => Colors.At(index)).Map(static colour => (Transfer)new Transfer.Color(colour.ToSKColorF())).ToFin(new UIFault(moved, UIReason.Missing)))),
+                Lift = new Lift(moved => IO.lift(moved.Head.Bind(key => keys.Position(key)).Bind(index => Colors.At(index)).Map(static colour => (Transfer)new Transfer.Color(colour.ToSKColorF())).ToFin(Fault.Of(UIReason.Missing, moved)))),
                 Drop = Edited.Map(edited => Drop.Of<Transfer.Color>((color, target, placement) => edited(Edit.Of(EditPhase.Commit, Inserted(keys, color.Value.ToUnicolour(), target, placement))))),
             };
         }
@@ -232,7 +232,7 @@ public sealed record ColorPicker(Unicolour Value, Func<Edit<Unicolour>, IO<Unit>
 
     private static Fin<Unicolour> Parsed(string text) =>
         Try.lift(() => Optional(Css.FromName(text)).IfNone(() => new Unicolour(text))).Run()
-            .MapFail(error => new UIFault(text, UIReason.Unreadable, Inner: error));
+            .MapFail(error => Fault.Of(UIReason.Unreadable, text, inner: error));
 
     private static Unicolour Colored(double hue, double saturation, double brightness, double alpha) => new(ColourSpace.Hsb, hue, saturation, brightness, alpha);
 

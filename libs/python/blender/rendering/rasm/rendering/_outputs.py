@@ -203,7 +203,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                     numbers={part.key: int(found[part.key]) for part in self.fields if isinstance(part, NumberField)},
                 )
             )
-            .to_result_with(functools.partial(Fault.of, Reason.OUTSIDE, type(self).__name__, text, member=grammar.pattern))
+            .to_result_with(functools.partial(Fault.of, Reason.OUTSIDE, type(self), text, member=grammar.pattern))
         )
 
     def path(self, root: Path, fields: Fields, *, suffix: str | None = None, written: Callable[[Field], Option[str]] = lambda _: NOTHING) -> Outcome[Path]:
@@ -213,7 +213,7 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
             .compose(fields, written)
             .map(lambda text: root.joinpath(text if suffix is None else f"{text}{suffix}"))
             .map(lambda path: (path, path.resolve(), root.resolve()))
-            .filter_with(lambda paths: paths[1].is_relative_to(paths[2]), lambda paths: Fault.of(Reason.OUTSIDE, str(paths[2]), str(paths[1]), member="paths beneath it"))
+            .filter_with(lambda paths: paths[1].is_relative_to(paths[2]), lambda paths: Fault.of(Reason.OUTSIDE, paths[2], paths[1], member="paths beneath it"))
             .map(lambda paths: paths[0])
         )
 

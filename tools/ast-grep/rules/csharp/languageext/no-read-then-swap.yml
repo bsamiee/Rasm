@@ -117,5 +117,4 @@ rule:
 labels:
     READ: { style: primary }
     WRITE: { style: secondary, message: 'Writes the atom an earlier read observed' }
-message: '`$CELL.$READER` is read before a separate `$SWAP` of `$CELL`'
-note: 'Read in one `Swap`; `AtomHashMap` uses `FindOrAdd`, `TryAdd`, or `SwapKey`; `Ref` under `atomicIO` returns before/after pairs'
+message: '`$CELL.$READER` is read before a separate `$SWAP` of `$CELL`, read in one `Swap`, through `FindOrAdd`, `TryAdd`, or `SwapKey` on `AtomHashMap`, and through before and after pairs of `Ref` under `atomicIO`'

@@ -24,7 +24,7 @@ public static class PlugInRegistry {
             Some: static Fin<Guid> (info) => info.Id,
             None: () => PlugIn.LoadPlugIn(path, out Guid loaded) switch {
                 LoadPlugInResult.Success or LoadPlugInResult.SuccessAlreadyLoaded => loaded,
-                var result => new RhinoFault((path, result), RhinoReason.Unreadable),
+                var result => Fault.Of(RhinoReason.Unreadable, (path, result)),
             }));
 
     public static IO<Unit> LoadPlugIns(Seq<Guid> ids) => Products.Each(ids.Map(LoadInstalled)).Map(unit);
@@ -33,7 +33,7 @@ public static class PlugInRegistry {
         from info in Products.Of(() => PlugIn.GetPlugInInfo(id))
         from silent in IO.lift(() => {
             info.IsLoadProtected(out bool loadSilently);
-            return RhinoFault.Unless(loadSilently, RhinoReason.Unavailable, id);
+            return Fault.Unless(loadSilently, RhinoReason.Unavailable, id);
         })
         from loaded in when(!info.IsLoaded, Products.Accepted(() => PlugIn.LoadPlugIn(id))).As()
         select unit;
@@ -47,7 +47,7 @@ public static class PlugInRegistry {
             return held;
         })
         let changed = current != loadSilently
-        from loaded in IO.lift(RhinoFault.Unless(!changed || !info.IsLoaded, RhinoReason.Unavailable, id))
+        from loaded in IO.lift(Fault.Unless(!changed || !info.IsLoaded, RhinoReason.Unavailable, id))
         from written in when(changed, IO.lift(() => PlugIn.SetLoadProtection(id, loadSilently))).As()
         select unit;
 }

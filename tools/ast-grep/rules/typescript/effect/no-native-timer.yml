@@ -55,5 +55,4 @@ rule:
                     - all:
                           - has: { field: name, matches: callback-timer }
                           - inside: { kind: import_statement, stopBy: end, has: { field: source, regex: '^.(node:)?(timers|process).$' } }
-message: '`$NAME` drives host timer outside the effect runtime'
-note: 'Schedule through `Effect.sleep`, `Effect.repeat` with a `Schedule`, or `Effect.yieldNow`, with interruption in place of each clear call'
+message: '`$NAME` drives a host timer outside the effect runtime, schedule through `Effect.sleep`, `Effect.repeat` with a `Schedule`, or `Effect.yieldNow`, with interruption in place of each clear call'

@@ -86,8 +86,8 @@ public static class Morphs {
 
     public static IO<Seq<Plane>> Morph(Tolerances tolerances, Seq<Plane> planes, MorphKind kind, bool quickPreview) =>
         (from morpher in Morpher(kind, tolerances, preserveStructure: false, quickPreview)
-         from space in IO.lift(morpher.Space.ToFin(new RhinoFault(kind, RhinoReason.Unsupported)))
-         from morphed in IO.lift(Products.Each(planes, (plane, index) => RhinoFault.Unless(
+         from space in IO.lift(morpher.Space.ToFin(Fault.Of(RhinoReason.Unsupported, kind)))
+         from morphed in IO.lift(Products.Each(planes, (plane, index) => Fault.Unless(
              space is PointSpaceMorph managed ? managed.Applied(() => managed.Morph(ref plane)) : space.Morph(ref plane), RhinoReason.Declined, plane, index).Map(_ => plane)))
          select morphed).Bracket();
 
@@ -108,8 +108,8 @@ public static class Morphs {
 
     private static IO<Unit> Moved(GeometryBase subject, int index, Func<GeometryBase, bool> apply) =>
         IO.lift(Fin<Unit> () => apply(subject)
-            ? subject.IsValidWithLog(out string log) ? unit : new RhinoFault(subject.ObjectType, RhinoReason.Invalid, index, Error.New(log))
-            : new RhinoFault(subject.ObjectType, RhinoReason.Declined, index));
+            ? subject.IsValidWithLog(out string log) ? unit : Fault.Of(RhinoReason.Invalid, subject.ObjectType, index, Error.New(log))
+            : Fault.Of(RhinoReason.Declined, subject.ObjectType, index));
 
     // --- [MORPHERS]
 
@@ -128,7 +128,7 @@ public static class Morphs {
 
     private static IO<SpaceMorph> Space(MorphKind kind, Tolerances tolerances) =>
         Made(kind, tolerances).Bind(morph => morph.Match(
-            Left: _ => IO.fail<SpaceMorph>(new RhinoFault(kind, RhinoReason.Unsupported)),
+            Left: _ => IO.fail<SpaceMorph>(Fault.Of(RhinoReason.Unsupported, kind)),
             Right: IO.pure));
 
     private static IO<Either<MorphControl, SpaceMorph>> Made(MorphKind kind, Tolerances tolerances) =>
@@ -169,7 +169,7 @@ public static class Morphs {
             along: static (held, of) =>
                 from source in IO.lift(() => new Frames.Along(of.Source, of.Sampling).Stations(held))
                 from target in IO.lift(new Frames.Along(of.Target, new Spacing.Lengths(source.Map(static station => station.Normalized))).Stations(held))
-                from paired in IO.lift(RhinoFault.Unless(source.Count >= 2 && source.Count == target.Count, RhinoReason.Mismatched, (source.Count, target.Count)))
+                from paired in IO.lift(Fault.Unless(source.Count >= 2 && source.Count == target.Count, RhinoReason.Mismatched, (source.Count, target.Count)))
                 let parameters = source.Map(static station => station.Parameter).ToArray()
                 let length = of.Source.Path.GetLength()
                 select Right<MorphControl, SpaceMorph>(new PointSpaceMorph(point => Flowed(of, parameters, length, source, target, point))));
@@ -190,9 +190,9 @@ public static class Morphs {
             },
         };
 
-    private static IO<Either<MorphControl, SpaceMorph>> Hosted<TMorph>(Func<TMorph> create, Func<TMorph, bool> valid, [CallerArgumentExpression(nameof(create))] string call = "")
+    private static IO<Either<MorphControl, SpaceMorph>> Hosted<TMorph>(Func<TMorph> create, Func<TMorph, bool> valid, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0)
         where TMorph : SpaceMorph, IDisposable =>
         from morph in use(create)
-        from accepted in Products.Accepted(() => valid(morph), call)
+        from accepted in Products.Accepted(() => valid(morph), member, line)
         select Right<MorphControl, SpaceMorph>(morph);
 }

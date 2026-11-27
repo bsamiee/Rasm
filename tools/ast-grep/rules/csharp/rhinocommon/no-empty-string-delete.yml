@@ -36,5 +36,4 @@ rule:
                                       - { kind: 'string_literal, verbatim_string_literal', regex: '^@?""$' }
                                       - kind: null_literal
                                       - matches: { csharp-owner-member: { type: { regex: '^(string|String)$' }, member: { regex: '^Empty$' } } }
-message: '`$TABLE.SetString` writes `$VALUE` in place of `Delete`'
-note: 'Call `<table>.Delete(<key>)` or `<table>.Delete(<section>, <entry>)` for an absent value, `SetString` for a present one'
+message: '`$TABLE.SetString` writes `$VALUE` in place of `Delete`, call `$TABLE.Delete(<key>)` or `$TABLE.Delete(<section>, <entry>)` for an absent value and `SetString` for a present one'

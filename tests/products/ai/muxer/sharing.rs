@@ -89,7 +89,7 @@ async fn server_whose_login_shell_cannot_start_in_its_directory_is_refused_with_
     scoped(async |isolated: &Isolated| {
         let account = assert_some!(assert_ok!(User::from_uid(Uid::effective())), "the user running the suite has an account");
         let refused = assert_err!(session(Agent::default(), isolated.relay(&["--directory", "missing"], &[])).await);
-        let named = refusal(&refused).zip(account.shell.as_os_str().to_str()).is_some_and(|(message, shell)| message.contains(shell));
+        let named = refusal(&refused).zip(account.shell.as_os_str().to_str()).is_some_and(|(answer, shell)| answer.message.contains(shell));
         assert!(named, "a server whose directory the login shell cannot start in is refused with the shell and its failure: {refused:?}");
     })
     .await

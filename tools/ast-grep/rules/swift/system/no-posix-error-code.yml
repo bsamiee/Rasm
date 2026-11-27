@@ -17,5 +17,4 @@ rule:
                     - any:
                           - { follows: { regex: '^=$' }, inside: { kind: property_declaration, has: { matches: posix-code-annotation } } }
                           - inside: { kind: 'if_statement, guard_statement', has: { matches: posix-code-annotation } }
-message: '`$SITE` maps a raw code through `POSIXErrorCode`, `nil` for an unnamed code'
-note: 'Build `Errno(rawValue: <code>)` from System and match it by case (`.noSuchFileOrDirectory`)'
+message: '`$SITE` maps a raw code through `POSIXErrorCode`, `nil` for an unnamed code, build `Errno(rawValue: <code>)` from System and match it by case (`.noSuchFileOrDirectory`)'

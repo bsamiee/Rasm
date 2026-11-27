@@ -39,19 +39,19 @@ public abstract partial record Decomposition {
     public sealed record Singular(Vector3d Translation, Transform Linear) : Decomposition;
 
     public static Fin<Decomposition> Of(Transform xform, double tolerance) =>
-        !xform.IsAffine ? new RhinoFault(xform, RhinoReason.Unsupported)
+        !xform.IsAffine ? Fault.Of(RhinoReason.Unsupported, xform)
         : xform.DecomposeRigid(out Vector3d rigidTranslation, out Transform rigidRotation, tolerance) is not TransformRigidType.NotRigid ? new Rigid(rigidTranslation, rigidRotation)
         : xform.DecomposeSimilarity(out Vector3d similarTranslation, out double dilation, out Transform similarRotation, tolerance) is not TransformSimilarityType.NotSimilarity
             ? new Similarity(similarTranslation, dilation, similarRotation)
         : xform.DecomposeAffine(out Vector3d affineTranslation, out Transform affineRotation, out Transform orthogonal, out Vector3d diagonal)
             ? new Affine(affineTranslation, affineRotation, orthogonal, diagonal)
-        : RhinoFault.Unless(xform.DecomposeAffine(out Vector3d translation, out Transform linear), RhinoReason.Declined, xform).Map(Decomposition (_) => new Singular(translation, linear));
+        : Fault.Unless(xform.DecomposeAffine(out Vector3d translation, out Transform linear), RhinoReason.Declined, xform).Map(Decomposition (_) => new Singular(translation, linear));
 
     public Fin<Transform> Interpolate(Decomposition other, double t) =>
-        from ends in (Conversions.Within(new Interval(0d, 1d), t), Polar.ToFin(new RhinoFault(this, RhinoReason.Unsupported)), other.Polar.ToFin(new RhinoFault(other, RhinoReason.Unsupported))).Apply(static (_, start, end) => (Start: start, End: end)).As()
+        from ends in (Conversions.Within(new Interval(0d, 1d), t), Polar.ToFin(Fault.Of(RhinoReason.Unsupported, this)), other.Polar.ToFin(Fault.Of(RhinoReason.Unsupported, other))).Apply(static (_, start, end) => (Start: start, End: end)).As()
         let start = ends.Start
         let end = ends.End
-        from oriented in RhinoFault.Unless(start.Orientation == end.Orientation, RhinoReason.Mismatched, (start.Orientation, end.Orientation))
+        from oriented in Fault.Unless(start.Orientation == end.Orientation, RhinoReason.Mismatched, (start.Orientation, end.Orientation))
         select Transform.Translation(start.Translation + (t * (end.Translation - start.Translation)))
             * Turned(Silk.NET.Maths.Quaternion<double>.Slerp(Turn(start.Rotation), Turn(end.Rotation), t))
             * Transform.Diagonal(start.Orientation, start.Orientation, start.Orientation)
@@ -108,7 +108,7 @@ public static class Transformations {
             Extrusion extrusion => Successor<T>(Products.Of<GeometryBase>(() => extrusion.ToBrep(splitKinkyFaces: false))),
             Surface surface => Successor<T>(Products.Of<GeometryBase>(surface.ToNurbsSurface)),
             Curve curve => Successor<T>(Products.Of<GeometryBase>(curve.ToNurbsCurve)),
-            _ => IO.fail<T>(new RhinoFault(copy.ObjectType, RhinoReason.Unsupported, index)),
+            _ => IO.fail<T>(Fault.Of(RhinoReason.Unsupported, copy.ObjectType, index)),
         });
 
     internal static IO<T> Successor<T>(IO<GeometryBase> successor) where T : GeometryBase =>
@@ -131,7 +131,7 @@ public static class Transformations {
     }
     extension(Transform xform) {
         public Fin<AffineMap> ToAffine() =>
-            RhinoFault.Unless(xform.IsAffine, RhinoReason.Unsupported, xform)
+            Fault.Unless(xform.IsAffine, RhinoReason.Unsupported, xform)
                 .Bind(_ => AffineMap.Validated(new(xform.M00, xform.M10, xform.M20), new(xform.M01, xform.M11, xform.M21), new(xform.M02, xform.M12, xform.M22), new(xform.M03, xform.M13, xform.M23)));
     }
     extension(BoundingBox box) {

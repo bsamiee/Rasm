@@ -246,7 +246,7 @@ public abstract partial record CoordinateMap {
         public static Fin<Field> Wave(
             WaveProfile profile, int count, (ShortSideLength Low, ShortSideLength High) wavelength, (float Low, float High) amplitude, Vector2 amount, float direction, float spread, float shift,
             Option<(Angle Turn, ShortSideLength Radius)> rings, uint field, Vector2 center, Sampling sampling, (WrapMode Across, WrapMode Down) wrap) =>
-            ImagingFault.Unless(count >= 1, ImagingReason.Range, count).Map(_ => {
+            Fault.Unless(count >= 1, ImagingReason.Range, count).Map(_ => {
                 (Matrix3x2 turn, float reach) = rings.Match(Some: static ring => (Matrix3x2.CreateRotation(-(float)ring.Turn.Radians), (float)ring.Radius), None: static () => (Matrix3x2.CreateRotation(-float.Pi / 2f), float.PositiveInfinity));
                 (Vector2 Along, float Length, float Level, float Phase)[] waves = [.. Enumerable.Range(0, count).Select(i =>
                     (CoordinateHash.Uniforms(Vector128<int>.Zero, CoordinateHash.Branch(field, (uint)i)), float.SinCos(direction + (spread * (i - ((count - 1) / 2f)) / int.Max(count - 1, 1)))) switch {
@@ -270,7 +270,7 @@ public abstract partial record CoordinateMap {
             };
 
         public static Fin<Field> Kaleidoscope(int count, float rotation, float zoom, Vector2 center, Sampling sampling, (WrapMode Across, WrapMode Down) wrap) =>
-            ImagingFault.Unless(count >= 1 && float.IsFinite(rotation) && zoom > 0f && float.IsFinite(zoom), ImagingReason.Range, (count, rotation, zoom)).Map(_ => (rotation + (float.Pi / count), float.Tau / count) switch {
+            Fault.Unless(count >= 1 && float.IsFinite(rotation) && zoom > 0f && float.IsFinite(zoom), ImagingReason.Range, (count, rotation, zoom)).Map(_ => (rotation + (float.Pi / count), float.Tau / count) switch {
                 var (axis, period) => new Field(d => float.SinCos(axis - float.Abs(float.Ieee754Remainder(float.Atan2(-d.Y, d.X) - axis, period))) switch {
                     var (sin, cos) => new Vector2(cos, -sin) * d.Length() / zoom,
                 }, center, sampling, wrap),
@@ -307,7 +307,7 @@ public sealed partial class Pose {
     public Pose Partial(float share) => new(Offset * share, Rotation * share, new Vector2(float.Pow(Scale.X, share), float.Pow(Scale.Y, share)), Skew * share, Pivot);
 
     public static Fin<Pose> Validated(Vector2 offset, float rotation, Vector2 scale, Vector2 skew, Vector2 pivot) =>
-        ImagingFault.Unless(Vector2.AllWhereAllBitsSet(Vector2.GreaterThan(scale, Vector2.Zero) & Vector2.LessThan(Vector2.Abs(skew), new Vector2(float.Pi / 2f))), ImagingReason.Range, (scale, skew)).Map(_ => new Pose(offset, rotation, scale, skew, pivot));
+        Fault.Unless(Vector2.AllWhereAllBitsSet(Vector2.GreaterThan(scale, Vector2.Zero) & Vector2.LessThan(Vector2.Abs(skew), new Vector2(float.Pi / 2f))), ImagingReason.Range, (scale, skew)).Map(_ => new Pose(offset, rotation, scale, skew, pivot));
 
     public static Fin<Pose> Shaken(PixelExtent extent, float time, float rate, Vector2 amplitude, float rotation, float zoom, Octaves octaves, uint field) {
         return Validated(amplitude * extent.ShortSide * new Vector2(Channel(0u), Channel(1u)), rotation * Channel(2u), new Vector2(float.Pow(zoom, Channel(3u))), Vector2.Zero, extent.Point(new Vector2(0.5f)));

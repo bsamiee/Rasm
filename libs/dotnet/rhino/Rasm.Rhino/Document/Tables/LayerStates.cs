@@ -130,7 +130,7 @@ public static class LayerStates {
     // --- [IMPORTS]
 
     private static IO<NamedWrite> Import(RhinoDoc doc, InputPath path, Option<Seq<StateName>> names) =>
-        from whole in IO.lift(() => RhinoFault.Unless(names.IsNone, RhinoReason.Unsupported, names))
+        from whole in IO.lift(() => Fault.Unless(names.IsNone, RhinoReason.Unsupported, names))
         from filed in (from headless in use(Products.Of(static () => RhinoDoc.CreateHeadless(file3dmTemplatePath: null)))
                        from imported in IO.lift(() => headless.NamedLayerStates.Import(path))
                        select Conversions.Rows(headless.NamedLayerStates.Names)).Bracket()

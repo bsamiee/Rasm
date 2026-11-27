@@ -52,7 +52,7 @@ describe('release-publish', () => {
 
         await execute({ exports: [{ archive: 'Relay/build/Relay/Relay.xcarchive' }], dryRun: true }, workspace.context(graph, 'Relay', 'nx-release-publish'));
 
-        expect(log).toHaveBeenCalledWith(expect.anything(), 'Would publish the Sparkle feed of Relay.dmg for Relay-v1.0.0 through generate_appcast and cf r2 objects put');
+        expect(log).toHaveBeenCalledWith('Would publish the Sparkle feed of Relay.dmg for Relay-v1.0.0 through generate_appcast and cf r2 objects put');
     });
 
     it('skips the feed of an archive with a zip and no disk image beside it, as pack--ditto writes without notary credentials', async ({ workspace, tagged, log, onTestFinished }) => {
@@ -73,6 +73,6 @@ describe('release-publish', () => {
 
         const published = execute({ exports: [{ archive: 'Relay/build/Relay/Relay.xcarchive' }] }, workspace.context(graph, 'Relay', 'nx-release-publish'));
 
-        await expect(published).rejects.toThrow(`Relay holds no file its dependentTasksOutputFiles input of nx-release-publish matches under [${outputs(graph, 'Relay', 'pack--ditto').join(', ')}]`);
+        await expect(published).rejects.toThrow(`Relay:nx-release-publish unmatched input: **/*, outputs: ${outputs(graph, 'Relay', 'pack--ditto').join(' ')}, tasks: Relay:pack--ditto`);
     });
 });

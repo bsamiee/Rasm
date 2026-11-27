@@ -39,7 +39,7 @@ public sealed partial class FrameQuad {
     }
 
     public static Fin<FrameQuad> Validated(Vector2 topLeft, Vector2 topRight, Vector2 bottomRight, Vector2 bottomLeft) =>
-        ImagingFault.Unless((Turn(bottomLeft, topLeft, topRight), Turn(topLeft, topRight, bottomRight), Turn(topRight, bottomRight, bottomLeft), Turn(bottomRight, bottomLeft, topLeft))
+        Fault.Unless((Turn(bottomLeft, topLeft, topRight), Turn(topLeft, topRight, bottomRight), Turn(topRight, bottomRight, bottomLeft), Turn(bottomRight, bottomLeft, topLeft))
             is ( > 0f, > 0f, > 0f, > 0f) or ( < 0f, < 0f, < 0f, < 0f), ImagingReason.Degenerate, (topLeft, topRight, bottomRight, bottomLeft)).Map(_ => new FrameQuad(topLeft, topRight, bottomRight, bottomLeft));
 
     private static PointF Corner(Vector2 corner) => new(corner.X, corner.Y);

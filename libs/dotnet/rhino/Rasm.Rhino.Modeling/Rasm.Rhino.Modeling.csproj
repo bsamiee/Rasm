@@ -37,6 +37,8 @@
 
     <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../../geometry/Rasm.Geometry/Rasm.Geometry.csproj" />
+        <ProjectReference Include="../../runtime/Rasm.Telemetry.Api/Rasm.Telemetry.Api.csproj" />
         <ProjectReference Include="../Rasm.Rhino/Rasm.Rhino.csproj" />
+        <Using Include="Rasm.Telemetry.Api" />
     </ItemGroup>
 </Project>

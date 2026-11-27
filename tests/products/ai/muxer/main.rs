@@ -7,9 +7,9 @@ use backon::{ConstantBuilder, Retryable as _};
 use claims::{assert_ok, assert_some};
 use mcp_muxer_tests::{Agent, Echo, Isolated, Served, Whoami, call, decoded, text};
 use rasm_testing::{Failure, Fixture as _, Folder};
-use rmcp::RoleClient;
 use rmcp::model::CallToolRequestParams;
 use rmcp::service::{ClientInitializeError, RunningService};
+use rmcp::{ErrorData, RoleClient};
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System, UpdateKind};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -39,10 +39,10 @@ async fn whoami(running: &RunningService<RoleClient, Agent>, name: &str) -> Whoa
     Whoami { pid, directory: process.cwd().map(Path::to_path_buf), value }
 }
 
-fn refusal(refused: &io::Error) -> Option<&str> {
-    fn answered(refused: &ClientInitializeError) -> Option<&str> {
+fn refusal(refused: &io::Error) -> Option<&ErrorData> {
+    fn answered(refused: &ClientInitializeError) -> Option<&ErrorData> {
         match refused {
-            ClientInitializeError::JsonRpcError(answer) => Some(&answer.message),
+            ClientInitializeError::JsonRpcError(answer) => Some(answer),
             ClientInitializeError::LegacyFallbackFailed { discover: _, fallback } => answered(fallback),
             _ => None,
         }

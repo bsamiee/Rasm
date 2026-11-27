@@ -143,12 +143,12 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
 
     public Func<IDataAccess, Fin<T>> Item<T>(Parameter<T> parameter, Option<T> initial = default, Option<(string Category, Color Tint, bool Hidden)> modular = default) where T : notnull {
         (Parameter<T> bound, Func<IDataAccess, Option<Pear<T>>> read) = Read(parameter, Requirement.MustExist, initial, modular);
-        return access => read(access).Bind(static pear => Optional(pear.Item)).ToFin(new RhinoFault(bound.UserName, RhinoReason.Missing));
+        return access => read(access).Bind(static pear => Optional(pear.Item)).ToFin(Fault.Of(RhinoReason.Missing, bound.UserName));
     }
 
     public Func<IDataAccess, Fin<Pear<T>>> Pear<T>(Parameter<T> parameter, Option<T> initial = default, Option<(string Category, Color Tint, bool Hidden)> modular = default) where T : notnull {
         (Parameter<T> bound, Func<IDataAccess, Option<Pear<T>>> read) = Read(parameter, Requirement.MustExist, initial, modular);
-        return access => read(access).ToFin(new RhinoFault(bound.UserName, RhinoReason.Missing));
+        return access => read(access).ToFin(Fault.Of(RhinoReason.Missing, bound.UserName));
     }
 
     public Func<IDataAccess, Fin<Option<T>>> Maybe<T>(Parameter<T> parameter, Option<T> initial = default, Option<(string Category, Color Tint, bool Hidden)> modular = default) where T : notnull {
@@ -160,9 +160,9 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
         (Parameter<int> bound, Func<IDataAccess, Option<Pear<int>>> read) = Read(parameter, Requirement.MustExist, Some(Convert.ToInt32(initial, CultureInfo.InvariantCulture)), modular);
         bound.Presets.AddEnum<TEnum>();
         return access =>
-            from pear in read(access).ToFin(new RhinoFault(bound.UserName, RhinoReason.Missing))
+            from pear in read(access).ToFin(Fault.Of(RhinoReason.Missing, bound.UserName))
             let choice = (TEnum)Enum.ToObject(typeof(TEnum), pear.Item)
-            from defined in RhinoFault.Unless(Enum.IsDefined(choice), RhinoReason.Invalid, choice)
+            from defined in Fault.Unless(Enum.IsDefined(choice), RhinoReason.Invalid, choice)
             select choice;
     }
 
@@ -262,7 +262,7 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
             (var current, { IsEmpty: false }) => Some<BarItem>(Choice(preference, current, face, choices)),
             (var current, _) when typeof(T).IsEnum => Some<BarItem>(Choice(preference, current, face, toSeq(Enum.GetValues(typeof(T)).Cast<T>()))),
             (var current, _) => Typed(preference, current, face)
-                || Session.Run(IO.fail<Option<BarItem>>(new RhinoFault(typeof(T).ToString(), RhinoReason.Declined)), None),
+                || Session.Run(IO.fail<Option<BarItem>>(Fault.Of(RhinoReason.Declined, typeof(T).ToString())), None),
         };
 
     private static DropDown<T> Choice<T>(Preference<T> preference, T current, Nomen face, Seq<T> choices) where T : notnull {

@@ -76,7 +76,7 @@ public static class Preferences {
             select SettingOverloads<T>.Read(settings, key, legacy).IfNone(fallback),
             value =>
                 from settings in Registered(node, key, fallback, rule, hidden)
-                from writable in IO.lift(RhinoFault.Unless(!(settings.TryGetSettingIsReadOnly(key, out bool locked) && locked), RhinoReason.Unwritable, key))
+                from writable in IO.lift(Fault.Unless(!(settings.TryGetSettingIsReadOnly(key, out bool locked) && locked), RhinoReason.Unwritable, key))
                 from written in IO.lift(() => SettingOverloads<T>.Write(settings, key, value))
                 from flushed in when(node.Root is SettingsRoot.ApplicationNode, IO.lift(static () => PlugIn.FlushSettingsSavedQueue())).As()
                 select unit,

@@ -127,7 +127,7 @@ describe('loading the main config across graph passes', () => {
     it('refuses a main config that throws, naming the config', async ({ workspace }) => {
         const graphed = workspace.write({ 'apps/site/.storybook/main.ts': "throw new Error('main refused');\n" }).graph({ createNodes });
 
-        await expect(graphed).rejects.toSatisfy(refused(/^apps\/site\/\.storybook\/main\.ts does not load as a Storybook main config/u));
+        await expect(graphed).rejects.toSatisfy(refused(/^apps\/site\/\.storybook\/main\.ts unloaded tool: storybook/u));
     });
 
     it('reads an edited main config again in the same process', async ({ workspace }) => {

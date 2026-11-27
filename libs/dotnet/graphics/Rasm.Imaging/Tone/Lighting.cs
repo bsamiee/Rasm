@@ -49,7 +49,7 @@ public sealed record PaletteEntry(Vector3 Color, Vector2 Position, float Share) 
                 count += row[x].W > 0f && Vector4.AllWhereAllBitsSet(Vector4.IsFinite(row[x])) ? 1 : 0;
             }
         }
-        return (ImagingFault.Unless(size > 0, ImagingReason.Range, size), ImagingFault.Unless(count > 0, ImagingReason.Empty, window))
+        return (Fault.Unless(size > 0, ImagingReason.Range, size), Fault.Unless(count > 0, ImagingReason.Empty, window))
             .Apply((_, _) => Clustered(kept[..count], int.Min(size, count), gamut)).As();
     }
 

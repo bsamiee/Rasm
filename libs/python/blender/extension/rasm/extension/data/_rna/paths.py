@@ -188,7 +188,7 @@ def addon_preferences(preferences: bpy.types.Preferences, package: str) -> Optio
 
 def preferred[T](preferences: bpy.types.Preferences, package: str, write: Callable[[bpy.types.AddonPreferences], Outcome[T]]) -> Outcome[T]:
     """Writes the package's add-on preferences and marks them dirty on success, a mark the host skips, absent fault for a package holding none."""
-    answer = addon_preferences(preferences, package).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(preferences), member=package)).bind(write)
+    answer = addon_preferences(preferences, package).to_result_with(lambda: Fault.of(Reason.ABSENT, preferences, member=package)).bind(write)
     preferences.is_dirty = preferences.is_dirty or answer.is_ok()
     return answer
 

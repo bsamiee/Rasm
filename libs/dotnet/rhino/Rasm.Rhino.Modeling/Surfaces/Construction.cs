@@ -24,7 +24,7 @@ public sealed partial class SurfaceDirection {
 }
 
 [ComplexValueObject]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class PointGrid {
     public Seq<Point3d> Points { get; }
 
@@ -32,10 +32,10 @@ public sealed partial class PointGrid {
 
     public int VCount => Points.Count / UCount;
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref Seq<Point3d> points, ref int uCount) =>
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref Seq<Point3d> points, ref int uCount) =>
         validationError = uCount >= 2 && points.Count / uCount >= 2 && points.Count % uCount is 0
             ? null
-            : new RhinoFault((Points: points.Count, UCount: uCount), RhinoReason.Outside);
+            : Fault.Of(RhinoReason.Outside, (Points: points.Count, UCount: uCount));
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -46,7 +46,7 @@ public abstract partial record PointSurface {
 }
 
 [ComplexValueObject(SkipToString = true)]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class HermiteGrid {
     public AscendingParameters U { get; }
 
@@ -55,10 +55,10 @@ public sealed partial class HermiteGrid {
     public Seq<(Point3d Point, Vector3d UTangent, Vector3d VTangent, Vector3d Twist)> Stations { get; }
 
     static partial void ValidateFactoryArguments(
-        ref RhinoFault? validationError, ref AscendingParameters u, ref AscendingParameters v, ref Seq<(Point3d Point, Vector3d UTangent, Vector3d VTangent, Vector3d Twist)> stations) =>
+        ref Fault<RhinoReason>? validationError, ref AscendingParameters u, ref AscendingParameters v, ref Seq<(Point3d Point, Vector3d UTangent, Vector3d VTangent, Vector3d Twist)> stations) =>
         validationError = stations.Count == (long)u.Values.Count * v.Values.Count
             ? null
-            : new RhinoFault((Stations: stations.Count, UCount: u.Values.Count, VCount: v.Values.Count), RhinoReason.Outside);
+            : Fault.Of(RhinoReason.Outside, (Stations: stations.Count, UCount: u.Values.Count, VCount: v.Values.Count));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

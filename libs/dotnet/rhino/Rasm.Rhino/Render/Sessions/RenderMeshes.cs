@@ -74,7 +74,7 @@ public abstract class DefinedMeshProvider(string name) : RenderMeshProvider {
 
     protected virtual IO<Option<object>> Parameter(RhinoDoc document, Guid objectId, string name) => IO.pure(Option<object>.None);
 
-    protected virtual IO<Unit> Parametrized(RhinoDoc document, Guid objectId, string name, object value) => IO.fail<Unit>(new RhinoFault($"{Name} parameter {name}", RhinoReason.Unsupported));
+    protected virtual IO<Unit> Parametrized(RhinoDoc document, Guid objectId, string name, object value) => IO.fail<Unit>(Fault.Of(RhinoReason.Unsupported, $"{Name} parameter {name}"));
 
     // --- [REGISTRATION]
 

@@ -71,21 +71,21 @@ public static class Results {
     private static readonly Seq<Result> Precedence = [Result.ExitRhino, Result.Cancel, Result.Nothing, Result.UnknownCommand];
 
     private static readonly FrozenDictionary<RhinoReason, Result> Endings =
-        Precedence.Choose(static result => Ended(result) is Fin<Unit>.Fail(RhinoFault fault) ? Some(KeyValuePair.Create(fault.Reason, result)) : None).ToFrozenDictionary();
+        Precedence.Choose(static result => Ended(result) is Fin<Unit>.Fail(Fault<RhinoReason> fault) ? fault.Reason.Map(reason => KeyValuePair.Create(reason, result)) : None).ToFrozenDictionary();
 
-    public static Fin<Unit> Ended(Result result, [CallerArgumentExpression(nameof(result))] string call = "") =>
+    public static Fin<Unit> Ended(Result result, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
         result switch {
             Result.Success => unit,
             Result.Cancel or Result.CancelModelessDialog => Errors.Cancelled,
-            Result.Nothing => new RhinoFault(call, RhinoReason.Nothing),
-            Result.ExitRhino => new RhinoFault(call, RhinoReason.Exited),
-            Result.UnknownCommand => new RhinoFault(call, RhinoReason.Unknown),
-            _ => new RhinoFault(call, RhinoReason.Declined),
+            Result.Nothing => Fault.Of(RhinoReason.Nothing, (member, line)),
+            Result.ExitRhino => Fault.Of(RhinoReason.Exited, (member, line)),
+            Result.UnknownCommand => Fault.Of(RhinoReason.Unknown, (member, line)),
+            _ => Fault.Of(RhinoReason.Declined, (member, line)),
         };
 
-    public static IO<T> Value<T>(Func<(Result Result, T Value)> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
+    public static IO<T> Value<T>(Func<(Result Result, T Value)> call, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
         IO.lift(() => call() switch {
-            var (result, value) => Ended(result, member).Map(_ => value),
+            var (result, value) => Ended(result, member, line).Map(_ => value),
         });
 
     public static Fin<Result> Of(Fin<Unit> outcome) =>
@@ -99,7 +99,7 @@ public static class Results {
     private static Option<Result> Ending(Error leaf) => Reason(leaf) || Conversions.Present(leaf.Is(Errors.Cancelled), Result.Cancel);
 
     private static Option<Result> Reason(Error leaf) =>
-        leaf.Filter<RhinoFault>().Head is RhinoFault fault && Endings.TryGetValue(fault.Reason, out Result result) ? Some(result) : None;
+        leaf.Filter<Fault<RhinoReason>>().Head is Fault<RhinoReason> fault ? fault.Reason.Bind(static reason => Endings.TryGetValue(reason, out Result result) ? Some(result) : None) : None;
 }
 
 public static class ActiveCommands {

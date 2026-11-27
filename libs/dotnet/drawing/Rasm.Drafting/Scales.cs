@@ -13,15 +13,15 @@ public sealed partial class DrawingScale {
     public Length ToPaper(Length model) => model * _value;
 
     public static Fin<DrawingScale> Validated(QuantityValue ratio) =>
-        DraftingFault.Unless(QuantityValue.IsFinite(ratio) && ratio > QuantityValue.Zero, DraftingReason.ScaleRatio, ratio).Map(_ => new DrawingScale(ratio));
+        Fault.Unless(QuantityValue.IsFinite(ratio) && ratio > QuantityValue.Zero, DraftingReason.ScaleRatio, ratio).Map(_ => new DrawingScale(ratio));
 
     public static Fin<DrawingScale> Parse(string text) =>
         text.Split(':') is [var paper, var model]
             ? (Term(text, paper), Term(text, model)).Apply(static (paper, model) => QuantityValue.FromTerms(paper, model)).As().Bind(Validated)
-            : new DraftingFault(text, DraftingReason.ScaleRatio);
+            : Fault.Of(DraftingReason.ScaleRatio, text);
 
     private static Fin<BigInteger> Term(string text, string term) =>
-        BigInteger.TryParse(term, NumberStyles.None, CultureInfo.InvariantCulture, out BigInteger value) && !value.IsZero ? value : new DraftingFault(text, DraftingReason.ScaleRatio);
+        BigInteger.TryParse(term, NumberStyles.None, CultureInfo.InvariantCulture, out BigInteger value) && !value.IsZero ? value : Fault.Of(DraftingReason.ScaleRatio, text);
 
     public override string ToString() => Terms switch { var (paper, model) => string.Create(CultureInfo.InvariantCulture, $"{paper}:{model}") };
 }
@@ -42,7 +42,7 @@ public sealed record ScaleSeries {
         static _ => Length.FromInches(1), static member => member.ToModel(Length.FromInches(1)));
 
     public static Fin<ScaleSeries> Validated(Seq<DrawingScale> members, Func<DrawingScale, Option<string>> notation) =>
-        DraftingFault.Unless(!members.IsEmpty, DraftingReason.Repeated, members.Count).Map(_ => new ScaleSeries(toSeq(members.Distinct()), notation));
+        Fault.Unless(!members.IsEmpty, DraftingReason.Repeated, members.Count).Map(_ => new ScaleSeries(toSeq(members.Distinct()), notation));
 
     public Option<DrawingScale> Read(string text) =>
         text.Trim() switch { var notation => Members.Find(member => Notation(member).Exists(value => string.Equals(value, notation, StringComparison.OrdinalIgnoreCase))) };

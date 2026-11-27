@@ -13,6 +13,7 @@ use tokio_util::codec::FramedRead;
 
 use super::announced;
 use super::jsonrpc::{Envelope, Line, Lines, Method, decode, identity, refusal};
+use crate::{McpError, Part};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -92,7 +93,7 @@ where
                     }
                 }
                 Either::Right(Some(Ok(Line::Oversized { head, tail }))) => {
-                    let error = ErrorData::invalid_request(format!("request exceeds {} bytes, send less", self.limit), None);
+                    let error = ErrorData::from(McpError::Exceeded { part: Part::Request, limit: self.limit });
                     self.refused(identity(&head, &tail).0.into_iter(), &error).await?;
                     Ok(())
                 }
@@ -105,7 +106,7 @@ where
         }
         let greeting = self.initialize.as_ref().map(|(id, _)| id.clone());
         let lost = Vec::from_iter(self.pending.extract_if(.., |id| Some(id) != greeting.as_ref()));
-        self.refused(lost.into_iter(), &ErrorData::internal_error("connection to the server was lost before it answered; call again", None)).await?;
+        self.refused(lost.into_iter(), &McpError::Lost.into()).await?;
         for line in self.changes.iter().filter(|_| self.initialized.is_some()) {
             self.answers.write_all(line).await?;
         }

@@ -19,14 +19,14 @@ public abstract partial record Alignment {
         (Path: path, At: at),
         freeform: static (of, _) => Minimized(of.Path, of.At),
         frenet: static (of, _) => Products.Each(of.At, (t, index) =>
-            RhinoFault.Unless(of.Path.FrameAt(t, out Plane frame), RhinoReason.Declined, t, index).Map(_ => new Plane(frame.Origin, frame.YAxis, frame.ZAxis))),
+            Fault.Unless(of.Path.FrameAt(t, out Plane frame), RhinoReason.Declined, t, index).Map(_ => new Plane(frame.Origin, frame.YAxis, frame.ZAxis))),
         roadlike: static (of, alignment) => Railed(of.Path, nurbs => nurbs.CreatePlanarRailFrames(of.At, alignment.Up)),
         surface: static (of, alignment) => Products.Each(of.At, (t, index) => of.Path.PointAt(t) switch {
             var point =>
-                from closest in RhinoFault.Unless(alignment.Trim.Face.ClosestPoint(point, out double u, out double v), RhinoReason.Declined, t, index).Map(_ => (U: u, V: v))
+                from closest in Fault.Unless(alignment.Trim.Face.ClosestPoint(point, out double u, out double v), RhinoReason.Declined, t, index).Map(_ => (U: u, V: v))
                 let normal = alignment.Trim.Face.NormalAt(closest.U, closest.V)
                 let side = Vector3d.CrossProduct(of.Path.TangentAt(t), normal)
-                from crossed in RhinoFault.Unless(side.IsValid && !side.IsTiny(), RhinoReason.Invalid, side, index)
+                from crossed in Fault.Unless(side.IsValid && !side.IsTiny(), RhinoReason.Invalid, side, index)
                 select new Plane(point, normal, side),
         }));
 
@@ -52,7 +52,7 @@ public abstract partial record Alignment {
         using NurbsCurve? converted = path is NurbsCurve ? null : path.ToNurbsCurve();
         return from nurbs in Conversions.Required(path as NurbsCurve ?? converted)
                let planes = frames(nurbs)
-               from framed in RhinoFault.Unless(planes.Length > 0, RhinoReason.Declined, planes.Length).Map(_ => toSeq(planes))
+               from framed in Fault.Unless(planes.Length > 0, RhinoReason.Declined, planes.Length).Map(_ => toSeq(planes))
                select framed;
     }
 }
@@ -97,11 +97,11 @@ public abstract partial record Spacing {
                 Conversions.Required(at.Path.DivideEquidistant(equidistant.Chord, out double[] parameters)).Map(_ => toSeq(parameters)),
             lengths: static (at, lengths) =>
                 Conversions.Required(at.Path.NormalizedLengthParameters([.. lengths.Normalized], at.Tolerances.Absolute, at.Tolerances.Relative)).Map(static found => toSeq(found)),
-            parameters: static (at, parameters) => Products.Each(parameters.Values, (t, index) => RhinoFault.Unless(at.Path.Domain.IncludesParameter(t), RhinoReason.Outside, t, index).Map(_ => t)),
+            parameters: static (at, parameters) => Products.Each(parameters.Values, (t, index) => Fault.Unless(at.Path.Domain.IncludesParameter(t), RhinoReason.Outside, t, index).Map(_ => t)),
             inflections: static (at, _) => at.Path.InflectionPoints(out double[] parameters) is null ? Seq<double>() : toSeq(parameters),
             curvatureMaxima: static (at, _) => at.Path.MaxCurvaturePoints(out double[] parameters) is null ? Seq<double>() : toSeq(parameters),
             extremes: static (at, extremes) => toSeq(at.Path.ExtremeParameters(extremes.Direction)) switch {
-                var found => RhinoFault.Unless(!found.IsEmpty || at.Path.IsPeriodic, RhinoReason.Missing, extremes.Direction).Map(_ => found),
+                var found => Fault.Unless(!found.IsEmpty || at.Path.IsPeriodic, RhinoReason.Missing, extremes.Direction).Map(_ => found),
             },
             discontinuities: static (at, discontinuities) => CurveEvaluation.Kinks(at.Tolerances, at.Path, discontinuities.Kind))
         .Map(found => path.GetLength() switch {
@@ -136,7 +136,7 @@ public abstract partial record Law {
 
         public static Fin<Through> Validated(Seq<(double At, double Value)> keys) =>
             toSeq(keys.DistinctBy(static key => key.At).OrderBy(static key => key.At)) switch {
-                var sorted => RhinoFault.Unless(sorted.Count >= 2 && sorted.ForAll(static key => double.IsFinite(key.At) && double.IsFinite(key.Value)), RhinoReason.Outside, sorted.Count)
+                var sorted => Fault.Unless(sorted.Count >= 2 && sorted.ForAll(static key => double.IsFinite(key.At) && double.IsFinite(key.Value)), RhinoReason.Outside, sorted.Count)
                     .Map(_ => new Through(sorted, CubicSpline.InterpolatePchipSorted([.. sorted.Map(static key => key.At)], [.. sorted.Map(static key => key.Value)]))),
             };
     }
@@ -177,7 +177,7 @@ public abstract partial record Frames {
 
         public int Count { get; }
 
-        public static Fin<Linear> Validated(Plane start, Vector3d step, int count) => RhinoFault.Unless(count >= 1, RhinoReason.Outside, count).Map(_ => new Linear(start, step, count));
+        public static Fin<Linear> Validated(Plane start, Vector3d step, int count) => Fault.Unless(count >= 1, RhinoReason.Outside, count).Map(_ => new Linear(start, step, count));
     }
 
     public sealed record Polar : Frames {
@@ -192,7 +192,7 @@ public abstract partial record Frames {
         public double Sweep { get; }
 
         public static Fin<Polar> Validated(Plane start, Line axis, int count, double sweep) =>
-            RhinoFault.Unless(count >= 1 && double.IsFinite(sweep), RhinoReason.Outside, (count, sweep)).Map(_ => new Polar(start, axis, count, sweep));
+            Fault.Unless(count >= 1 && double.IsFinite(sweep), RhinoReason.Outside, (count, sweep)).Map(_ => new Polar(start, axis, count, sweep));
     }
 
     public sealed record Along(Rail Rail, Spacing Spacing) : Frames;
@@ -208,7 +208,7 @@ public abstract partial record Frames {
             linear: static (_, linear) => Indexed(toSeq(Range(0, linear.Count)).Map(at => linear.Start with { Origin = linear.Start.Origin + (linear.Step * at) }).Strict()),
             polar: static (_, polar) => (Math.Abs(polar.Sweep) >= double.Tau - RhinoMath.ZeroTolerance ? polar.Count : polar.Count - 1) switch {
                 var divisions => Products.Each(toSeq(Range(0, polar.Count)), (step, index) => polar.Start switch {
-                    var plane => RhinoFault.Unless(plane.Transform(Transform.Rotation(polar.Sweep * step / Math.Max(divisions, 1), polar.Axis.Direction, polar.Axis.From)), RhinoReason.Declined, step, index)
+                    var plane => Fault.Unless(plane.Transform(Transform.Rotation(polar.Sweep * step / Math.Max(divisions, 1), polar.Axis.Direction, polar.Axis.From)), RhinoReason.Declined, step, index)
                         .Map(_ => plane),
                 }).Map(Indexed),
             },
@@ -217,7 +217,7 @@ public abstract partial record Frames {
                 from frames in along.Rail.Alignment.Frames(along.Rail.Path, at.Map(static row => row.Parameter))
                 select at.Zip(frames, static (row, frame) => new Station(row.Parameter, row.Normalized, frame)).Strict(),
             onSurface: static (_, onSurface) =>
-                Products.Each(onSurface.At, (uv, index) => RhinoFault.Unless(onSurface.Surface.FrameAt(uv.X, uv.Y, out Plane frame), RhinoReason.Declined, uv, index).Map(_ => frame)).Map(Indexed));
+                Products.Each(onSurface.At, (uv, index) => Fault.Unless(onSurface.Surface.FrameAt(uv.X, uv.Y, out Plane frame), RhinoReason.Declined, uv, index).Map(_ => frame)).Map(Indexed));
 
     public Fin<Seq<Plane>> Planes(Tolerances tolerances) => Stations(tolerances).Map(static stations => stations.Map(static station => station.Frame).Strict());
 

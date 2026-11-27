@@ -31,7 +31,7 @@ public static class Points {
         IEnumerable<int[]> found = RTree.PointCloudKNeighbors(cloud, locations, neighbours);
         using IDisposable? search = found as IDisposable;
         Seq<int[]> near = toSeq(found).Strict();
-        return Products.Each(near, (indices, at) => RhinoFault.Unless(Plane.FitPlaneToPoints(indices.Select(index => locations[index]), out Plane plane) is PlaneFitResult.Success, RhinoReason.Declined, indices.Length, at)
+        return Products.Each(near, (indices, at) => Fault.Unless(Plane.FitPlaneToPoints(indices.Select(index => locations[index]), out Plane plane) is PlaneFitResult.Success, RhinoReason.Declined, indices.Length, at)
                 .Map(_ => plane.ZAxis))
             .Map(fitted => Oriented(fitted, near));
     }
@@ -53,12 +53,12 @@ public static class Points {
 
     public static Fin<Circle> TangentCircle(Curve first, CurveAddress nearFirst, Curve second, CurveAddress nearSecond) =>
         from circle in (CurveEvaluation.Resolve(first, nearFirst), CurveEvaluation.Resolve(second, nearSecond)).Apply((t1, t2) => Circle.TryFitCircleTT(first, second, t1, t2)).As()
-        from valid in RhinoFault.Unless(circle.IsValid, RhinoReason.Declined, circle)
+        from valid in Fault.Unless(circle.IsValid, RhinoReason.Declined, circle)
         select circle;
 
     public static Fin<Circle> TangentCircle(Curve first, CurveAddress nearFirst, Curve second, CurveAddress nearSecond, Curve third, CurveAddress nearThird) =>
         from circle in (CurveEvaluation.Resolve(first, nearFirst), CurveEvaluation.Resolve(second, nearSecond), CurveEvaluation.Resolve(third, nearThird))
             .Apply((t1, t2, t3) => Circle.TryFitCircleTTT(first, second, third, t1, t2, t3)).As()
-        from valid in RhinoFault.Unless(circle.IsValid, RhinoReason.Declined, circle)
+        from valid in Fault.Unless(circle.IsValid, RhinoReason.Declined, circle)
         select circle;
 }

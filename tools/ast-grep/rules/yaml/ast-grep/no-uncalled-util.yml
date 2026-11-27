@@ -26,5 +26,4 @@ rule:
                                   - all:
                                         - has: { stopBy: end, kind: alias }
                                         - inside: { stopBy: end, kind: document, has: *call }
-message: Local util `$UTIL` has no `matches` call in its document
-note: Delete the util, or write its rule at its one use and an anchor at the first of several
+message: 'Local util `$UTIL` has no `matches` call in its document, delete the util, or write its rule at its one use and an anchor at the first of several'

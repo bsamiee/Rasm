@@ -34,5 +34,4 @@ rule:
                     matches: { python-unparenthesized: { value: { matches: registering } } }
         - has: { field: arguments, has: { kind: identifier, nthChild: { position: 1, ofRule: { not: { kind: comment } } }, pattern: $CLASS } }
         - inside: { kind: module, stopBy: end, has: { stopBy: end, matches: annotated-class } }
-message: '`$CALLEE($CLASS)` registers `Annotated` property declarations, which Blender skips without an error'
-note: 'Annotate each property with its `bpy.props` call, Blender reads `__annotations__` values as property definitions'
+message: '`$CALLEE($CLASS)` registers `Annotated` property declarations, which Blender skips without an error, annotate each property with its `bpy.props` call, as Blender reads `__annotations__` values as property definitions'

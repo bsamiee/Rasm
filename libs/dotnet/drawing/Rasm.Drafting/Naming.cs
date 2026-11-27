@@ -6,7 +6,7 @@ namespace Rasm.Drafting;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None, EqualityComparisonOperators = OperatorsGeneration.None, ComparisonOperators = OperatorsGeneration.None, SkipIComparable = true)]
-[ValidationError<DraftingFault>]
+[ValidationError<Fault<DraftingReason>>]
 public sealed partial class Discipline {
     public static readonly Discipline General = new("G");
     public static readonly Discipline HazardousMaterials = new("H");
@@ -137,9 +137,9 @@ public sealed record NamingStandard {
     ]);
 
     public static Fin<NamingStandard> Validated(string name, NameLayout layout, Seq<NameField> fields) =>
-        (DraftingFault.Unless(!string.IsNullOrWhiteSpace(name), DraftingReason.Blank, name),
-         DraftingFault.Unless(!fields.IsEmpty && toHashSet(fields.Map(static field => field.Key)).Count == fields.Count && fields.Filter(static field => field.Role == FieldRole.Sequence).Count <= 1, DraftingReason.Repeated, fields.Map(static field => field.Key)),
-         fields.Map(static (field, index) => DraftingFault.Unless(field.MinWidth >= 1 && field.MaxWidth.ForAll(max => max >= field.MinWidth), DraftingReason.NameBroken, (field.MinWidth, field.MaxWidth), index)).Traverse(static held => held).As())
+        (Fault.Unless(!string.IsNullOrWhiteSpace(name), DraftingReason.Blank, name),
+         Fault.Unless(!fields.IsEmpty && toHashSet(fields.Map(static field => field.Key)).Count == fields.Count && fields.Filter(static field => field.Role == FieldRole.Sequence).Count <= 1, DraftingReason.Repeated, fields.Map(static field => field.Key)),
+         fields.Map(static (field, index) => Fault.Unless(field.MinWidth >= 1 && field.MaxWidth.ForAll(max => max >= field.MinWidth), DraftingReason.NameBroken, (field.MinWidth, field.MaxWidth), index)).Traverse(static held => held).As())
             .Apply((_, _, _) => new NamingStandard(name.Trim(), layout, fields)).As();
 }
 
@@ -162,10 +162,10 @@ public sealed partial class StandardName : IComparable<StandardName> {
             .Map(fields => new StandardName(Standard, fields));
 
     public static Fin<StandardName> Validated(NamingStandard standard, HashMap<NameField, string> fields) =>
-        DraftingFault.Unless(Accepts(standard, fields), DraftingReason.NameBroken, fields).Map(_ => new StandardName(standard, fields));
+        Fault.Unless(Accepts(standard, fields), DraftingReason.NameBroken, fields).Map(_ => new StandardName(standard, fields));
 
     public static Fin<StandardName> From(NamingStandard standard, string text) =>
-        standard.Layout.Split(standard.Fields, text).ToFin(new DraftingFault(text, DraftingReason.NameBroken)).Bind(fields => Validated(standard, fields));
+        standard.Layout.Split(standard.Fields, text).ToFin(Fault.Of(DraftingReason.NameBroken, text)).Bind(fields => Validated(standard, fields));
 
     public static Fin<Seq<(TSheet Sheet, StandardName Number)>> Renumber<TSheet>(Seq<(TSheet Sheet, StandardName Number)> ordered, Seq<StandardName> others) {
         Seq<(TSheet Sheet, StandardName Number, (NamingStandard Standard, HashMap<NameField, string> Fields) Series, Option<(NameField Field, string Text, int Value)> Sequence)> rows =
@@ -176,7 +176,7 @@ public sealed partial class StandardName : IComparable<StandardName> {
         Seq<(TSheet Sheet, StandardName Number)> renumbered = rows.Map(row => (row.Sheet, Number: row.Sequence.Map(sequence => new StandardName(row.Number.Standard, row.Number.Fields.SetItem(sequence.Field,
             series[row.Series][sequence.Value].ToString(CultureInfo.InvariantCulture).PadLeft(sequence.Text.Length, '0')))).IfNone(row.Number))).Strict();
         Dictionary<StandardName, int> taken = renumbered.Map(static entry => entry.Number).Concat(in others).CountBy(static number => number).ToDictionary();
-        return renumbered.Map((entry, index) => taken[entry.Number] > 1 ? new DraftingFault(entry.Number.Text, DraftingReason.NumberTaken, index) : Fin.Succ(entry)).Traverse(static held => held).As();
+        return renumbered.Map((entry, index) => taken[entry.Number] > 1 ? Fault.Of(DraftingReason.NumberTaken, entry.Number.Text, index) : Fin.Succ(entry)).Traverse(static held => held).As();
     }
 
     public static Seq<(TSheet Sheet, int Ordinal, int Count)> Positions<TSheet>(Seq<(TSheet Sheet, StandardName Number)> sheets) =>

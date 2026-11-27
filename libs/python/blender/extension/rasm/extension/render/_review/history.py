@@ -121,9 +121,9 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
         """Returns the current explicitly owned history image's file, without associating native render slots with history."""
         return (
             rooted(bpy.types.SpaceImageEditor, context)
-            .bind(lambda space: option.of_optional(space.image).to_result_with(partial(Fault.of, Reason.ABSENT, repr(space.image), member="explicitly opened history render")))
+            .bind(lambda space: option.of_optional(space.image).to_result_with(partial(Fault.of, Reason.ABSENT, space.image, member="explicitly opened history render")))
             .bind(lambda image: RenderHistory.opened(identity, image, PyOpenColorIO.GetCurrentConfig()))
-            .bind(lambda found: found.to_result_with(partial(Fault.of, Reason.ABSENT, repr(context.space_data), member="explicitly opened history render")))
+            .bind(lambda found: found.to_result_with(partial(Fault.of, Reason.ABSENT, context.space_data, member="explicitly opened history render")))
         )
 
     @staticmethod
@@ -149,7 +149,7 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
                 option
                 .of_optional(found[0].origins.get(key.hex()))
                 .bind(lambda origin: option.of_optional(origin[1]))
-                .to_result_with(lambda: Fault.of(Reason.ABSENT, str(RenderHistory.frame(identity, key)), member="recorded raw source"))
+                .to_result_with(lambda: Fault.of(Reason.ABSENT, RenderHistory.frame(identity, key), member="recorded raw source"))
                 .bind(lambda raw: source_image(found[1], config, raw, view=view))
             )
         )
@@ -243,7 +243,7 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
                 name not in {"Date", "RenderTime", "Memory", "Hostname"} and not (name.startswith("cycles.") and name.rpartition(".")[2] in {"total_time", "render_time", "synchronization_time"})
             )
         )
-        space = completed.space.to_result_with(partial(Fault.of, Reason.ABSENT, str(path), member="captured output encoding"))
+        space = completed.space.to_result_with(partial(Fault.of, Reason.ABSENT, path, member="captured output encoding"))
         return paired(content, space, self.held(identity), retention).bind(lambda found: stored(*found)).map(lambda _: NOTHING)
 
     # --- [REGISTRATION]

@@ -22,5 +22,4 @@ rule:
                   stopBy: { kind: *member }
                   not: { kind: *member }
                   precedes: { stopBy: end, matches: located }
-message: '`$CAMERA.ChangeToTwoPointPerspectiveProjection` levels an earlier camera location to target height'
-note: 'Call `SetCameraLocation` or `SetCameraLocations` after the projection change'
+message: '`$CAMERA.ChangeToTwoPointPerspectiveProjection` levels an earlier camera location to target height, call `SetCameraLocation` or `SetCameraLocations` after the projection change'

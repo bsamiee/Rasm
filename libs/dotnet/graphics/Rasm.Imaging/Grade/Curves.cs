@@ -9,7 +9,7 @@ namespace Rasm.Imaging.Grade;
 // --- [MODELS] --------------------------------------------------------------------------
 
 [ComplexValueObject(SkipToString = true)]
-[ValidationError<ImagingFault>]
+[ValidationError<Fault<ImagingReason>>]
 public sealed partial class PointCurve {
     public Seq<Vector2> Points { get; }
 
@@ -26,10 +26,10 @@ public sealed partial class PointCurve {
                 return t => t < first.X ? first.Y + (entry * (t - first.X)) : t > last.X ? last.Y + (exit * (t - last.X)) : (float)spline.Interpolate(t);
             });
 
-    public static Fin<PointCurve> Validated(Seq<Vector2> points) => TryCreate(points, out PointCurve? curve, out ImagingFault? fault) ? curve : fault;
+    public static Fin<PointCurve> Validated(Seq<Vector2> points) => TryCreate(points, out PointCurve? curve, out Fault<ImagingReason>? fault) ? curve : fault;
 
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref Seq<Vector2> points) =>
-        validationError = points.Count >= 2 && points.Zip(points.Tail).ForAll(static pair => pair.First.X < pair.Second.X) ? null : ImagingFault.Of(ImagingReason.Degenerate, points);
+    static partial void ValidateFactoryArguments(ref Fault<ImagingReason>? validationError, ref Seq<Vector2> points) =>
+        validationError = points.Count >= 2 && points.Zip(points.Tail).ForAll(static pair => pair.First.X < pair.Second.X) ? null : Fault.Of(ImagingReason.Degenerate, points);
 
     private static IInterpolation Interpolated(Seq<Vector2> points) =>
         (points.Map(static point => (double)point.X).ToArray(), points.Map(static point => (double)point.Y).ToArray()) switch {
@@ -77,7 +77,7 @@ public sealed partial class HueCurveKind {
 }
 
 [ComplexValueObject]
-[ValidationError<ImagingFault>]
+[ValidationError<Fault<ImagingReason>>]
 public sealed partial class GradingHueCurve {
     public HashMap<HueCurveKind, PointCurve> Curves { get; }
 
@@ -104,6 +104,6 @@ public sealed partial class GradingHueCurve {
         }
     }
 
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref HashMap<HueCurveKind, PointCurve> curves) =>
-        validationError = toSeq(HueCurveKind.Items.Except(curves.Keys)) switch { [] => null, var missing => ImagingFault.Of(ImagingReason.Missing, missing) };
+    static partial void ValidateFactoryArguments(ref Fault<ImagingReason>? validationError, ref HashMap<HueCurveKind, PointCurve> curves) =>
+        validationError = toSeq(HueCurveKind.Items.Except(curves.Keys)) switch { [] => null, var missing => Fault.Of(ImagingReason.Missing, missing) };
 }

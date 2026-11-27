@@ -38,15 +38,15 @@ public abstract partial record PatchOuter {
 }
 
 [ComplexValueObject(SkipToString = true)]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class PatchBoundary {
     public PatchOuter Outer { get; }
     public Seq<Curve> Holes { get; }
 
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref PatchOuter outer, ref Seq<Curve> holes) =>
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref PatchOuter outer, ref Seq<Curve> holes) =>
         validationError = (Closed: outer.Switch(outline: static of => of.Boundary.IsClosed, perimeter: static _ => true), Open: holes.Count(static hole => !hole.IsClosed)) switch {
             (Closed: true, Open: 0) => null,
-            var held => new RhinoFault(held, RhinoReason.Invalid),
+            var held => Fault.Of(RhinoReason.Invalid, held),
         };
 }
 

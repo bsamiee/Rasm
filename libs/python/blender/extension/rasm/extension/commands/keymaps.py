@@ -222,7 +222,7 @@ def resolved(identity: Identity, bindings: Bindings, /) -> Outcome[tuple[Row, ..
             return (
                 option
                 .of_optional(manager.keyconfigs.default)
-                .to_result_with(partial(Fault.of, Reason.ABSENT, repr(manager.keyconfigs), member="default"))
+                .to_result_with(partial(Fault.of, Reason.ABSENT, manager.keyconfigs, member="default"))
                 .bind(lambda default: option.of_optional(bpy.utils.preset_find(default.name, "keyconfig")).to_result_with(partial(Fault.of, Reason.ABSENT, default.name, member="keyconfig preset")))
                 .map(partial(built, manager, inputs))
                 .map(lambda held: doubled(tuple(row(held, chord, placement, placement.resolved(identity)) for chord, placement in bindings)))

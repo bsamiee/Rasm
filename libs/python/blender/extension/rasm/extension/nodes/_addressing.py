@@ -94,7 +94,7 @@ class InterfaceKeys(msgspec.Struct, frozen=True, kw_only=True):
             .of_optional(self.stored.get(key))
             .bind(lambda identifier: option.of_optional(self.live.get(identifier)))
             .bind(lambda each: Some(each) if isinstance(each, kind) else NOTHING)
-            .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(interface_of(self.tree)), member=key))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, interface_of(self.tree), member=key))
         )
 
     def store(self, items: Mapping[Key, str | int], /) -> None:
@@ -129,7 +129,7 @@ class OwnedNodes(msgspec.Struct, frozen=True, kw_only=True):
 
     def node(self, key: Key) -> Outcome[bpy.types.Node]:
         """Owned node at key, `absent` fault naming key when no node holds it."""
-        return option.of_optional(self.nodes.get(key)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(self.interface.tree.nodes), member=key))
+        return option.of_optional(self.nodes.get(key)).to_result_with(lambda: Fault.of(Reason.ABSENT, self.interface.tree.nodes, member=key))
 
     def socket(self, key: Key, address: str | int, *, output: bool) -> Outcome[bpy.types.NodeSocket]:
         """Live socket of the node at key, addressed by item key, item name, identifier, or enabled position."""
@@ -153,7 +153,7 @@ def grouped_value(identity: Identity, tree: bpy.types.NodeTree, node: bpy.types.
     return (
         option
         .of_optional(InterfaceKeys.of(tree, identity).sockets.get(key))
-        .to_result_with(partial(Fault.of, Reason.ABSENT, repr(tree), member=key))
+        .to_result_with(partial(Fault.of, Reason.ABSENT, tree, member=key))
         .bind(lambda found: socket_at(node.inputs, found))
         .bind(lambda held: Descriptor.resolve(held, ("default_value",), bpy.types.Property).map(lambda descriptor: descriptor.read(held)))
     )

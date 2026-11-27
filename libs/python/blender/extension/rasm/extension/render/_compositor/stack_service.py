@@ -115,11 +115,11 @@ class LayerStackService(msgspec.Struct, frozen=True, kw_only=True):
     def head(self, scene: bpy.types.Scene) -> Outcome[tuple[bpy.types.SceneCompositorEffect, bpy.types.NodeTree]]:
         """Returns the first entry holding an owned stack, with that stack."""
         held = Block.of_seq(scene.compositor_effects).choose(lambda entry: stacked_by(self.identity, entry.node_group).map(lambda tree: (entry, tree))).try_head()
-        return held.to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=OWNERSHIP.key))
+        return held.to_result_with(partial(Fault.of, Reason.ABSENT, scene.compositor_effects, member=OWNERSHIP.key))
 
     def named(self, name: str) -> Outcome[bpy.types.NodeTree]:
         """Returns the owned stack of a node group name."""
-        return stacked_by(self.identity, bpy.data.node_groups.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(bpy.data.node_groups), member=name))
+        return stacked_by(self.identity, bpy.data.node_groups.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, bpy.data.node_groups, member=name))
 
     def selected(self, context: bpy.types.Context) -> Outcome[Selection]:
         """Returns head entry, owned stack, record, and screen selection."""
@@ -176,7 +176,7 @@ class LayerStackService(msgspec.Struct, frozen=True, kw_only=True):
 
     def rewritten[V](self, context: bpy.types.Context, held: Selection, kind: type[V], at: Lens, change: Callable[[V], object], active: int) -> Outcome[bool]:
         """Writes the stack with the `kind` value a lens reaches changed, answering whether the stack changed."""
-        return amended(kind, held.record, at, change).to_result_with(partial(Fault.of, Reason.ABSENT, TITLE, member=str(active))).bind(lambda record: self.replaced(context, held, record, active))
+        return amended(kind, held.record, at, change).to_result_with(partial(Fault.of, Reason.ABSENT, TITLE, member=active)).bind(lambda record: self.replaced(context, held, record, active))
 
     def appended(self, context: bpy.types.Context, held: Selection, entry: Entry) -> Outcome[bool]:
         """Appends an effect entry to the active layer, answering whether the stack changed."""
@@ -313,7 +313,7 @@ class LayerStackService(msgspec.Struct, frozen=True, kw_only=True):
                     return (
                         option
                         .of_optional(scene.view_layers.get(name))
-                        .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.view_layers), member=name))
+                        .to_result_with(partial(Fault.of, Reason.ABSENT, scene.view_layers, member=name))
                         .bind(
                             lambda held: called(bpy.ops.scene.view_layer_add_used_lightgroups, {}, override=Some(context.temp_override(scene=scene, view_layer=held))).map(
                                 lambda _: msgspec.structs.replace(layer, source=source.synced(tuple(held.lightgroups.keys())))
@@ -491,7 +491,7 @@ class LayerStackService(msgspec.Struct, frozen=True, kw_only=True):
         with ExitStack() as rollback:
 
             def copied() -> Outcome[bpy.types.CompositorNodeTree]:
-                return typed(bpy.types.CompositorNodeTree, repr(tree), tree.copy()).bind(lambda copy: OWNERSHIP.owned(self.identity, copy, of=Some(scene), scope=Some(rollback)))
+                return typed(bpy.types.CompositorNodeTree, tree, tree.copy()).bind(lambda copy: OWNERSHIP.owned(self.identity, copy, of=Some(scene), scope=Some(rollback)))
 
             def placed(group: bpy.types.NodeTree) -> Outcome[None]:
                 def replaced(held: tuple[bpy.types.SceneCompositorEffect, bpy.types.NodeTree]) -> Outcome[None]:

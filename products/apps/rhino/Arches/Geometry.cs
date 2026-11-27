@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Runtime.CompilerServices;
 using Rasm.Rhino;
 
 namespace Arches;
@@ -15,7 +13,7 @@ internal sealed record ArchSpan {
 
     public static Fin<ArchSpan> Of(Line baseline, Vector3d normal) =>
         new Plane(baseline.From, baseline.Direction, Vector3d.CrossProduct(normal, baseline.Direction)) switch {
-            var frame => ArchFault.Unless(frame.IsValid, ArchReason.Planeless, (baseline, normal)).Map(_ => new ArchSpan(baseline, frame)),
+            var frame => Fault.Unless(frame.IsValid, ArchReason.Planeless, (baseline, normal)).Map(_ => new ArchSpan(baseline, frame)),
         };
 
     public Point3d Apex(double height) => Midpoint + (Frame.YAxis * height);
@@ -24,25 +22,13 @@ internal sealed record ArchSpan {
 // --- [ERRORS] --------------------------------------------------------------------------
 
 [SmartEnum]
-internal sealed partial class ArchReason {
+internal sealed partial class ArchReason : IFaultReason {
     public static readonly ArchReason Planeless = new("baseline and normal spanning no plane");
     public static readonly ArchReason SpanNarrow = new("span has no usable rise ratio");
     public static readonly ArchReason RiseOutside = new("rise outside the span's range");
     public static readonly ArchReason LobesOutside = new("lobe count outside the arch's set");
 
     public string Message { get; }
-}
-
-internal sealed record ArchFault(object? Subject, ArchReason Reason, Option<string> Expression = default) : Expected(Reason.Message, 0) {
-    public object? Subject { get; } = Subject;
-    public ArchReason Reason { get; } = Reason;
-    public Option<string> Expression { get; } = Expression;
-
-    public override string Message =>
-        string.Concat([Reason.Message, ": ", .. Expression.Map(static named => $"{named} = ").ToSeq(), string.Create(CultureInfo.InvariantCulture, $"{Subject}")]);
-
-    public static Fin<Unit> Unless<T>(bool flag, ArchReason reason, T rejected, [CallerArgumentExpression(nameof(rejected))] string? names = null) =>
-        flag ? unit : new ArchFault(rejected, reason, Optional(names));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

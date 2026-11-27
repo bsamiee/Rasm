@@ -29,10 +29,10 @@ internal sealed partial class VideoStandard {
 [ValueObject<int>(
     ConversionToKeyMemberType = ConversionOperatorsGeneration.None, UnsafeConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit, SkipIParsable = true,
     AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<DarkroomFault>]
+[ValidationError<Fault<DarkroomReason>>]
 internal sealed partial class ScanLines {
-    static partial void ValidateFactoryArguments(ref DarkroomFault? validationError, ref int value) =>
-        validationError = value >= 1 ? null : new DarkroomFault(value, DarkroomReason.Invalid, Expression: "lines");
+    static partial void ValidateFactoryArguments(ref Fault<DarkroomReason>? validationError, ref int value) =>
+        validationError = value >= 1 ? null : Fault.Of(DarkroomReason.Invalid, value);
 }
 
 internal sealed record CrtDisplay(

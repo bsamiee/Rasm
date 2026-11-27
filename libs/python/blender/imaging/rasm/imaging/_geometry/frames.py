@@ -128,7 +128,7 @@ class Homography(Frozen, frozen=True, kw_only=True, eq=False):
             case ProjectiveTransform() as found:
                 return Ok(Some(cls(quad=quad, matrix=np.asarray(found.params, dtype=np.float64))))
             case failed:
-                return Error(Fault.of(Reason.OUTSIDE, cls.__name__, (quad.corners, failed), member="corners of a projective quad"))
+                return Error(Fault.of(Reason.OUTSIDE, cls, (quad.corners, failed), member="corners of a projective quad"))
 
     def to_image(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Maps plane samples to image, zero coverage beyond vanishing line."""

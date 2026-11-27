@@ -46,8 +46,8 @@ Each conversion is a method on the source type named for the target, and convert
 
 ```csharp
 internal static class Conversions {
-    public static Fin<int> Required(Option<int> value) => value.ToFin(new Fault("count", Reason.Missing));
-    public static Validation<Error, int> Checked(Option<int> value) => value.ToValidation<Error>(new Fault("count", Reason.Missing));
+    public static Fin<int> Required(Option<int> value) => value.ToFin(Fault.Of(Reason.Missing, "count"));
+    public static Validation<Error, int> Checked(Option<int> value) => value.ToValidation<Error>(Fault.Of(Reason.Missing, "count"));
     public static Either<Error, Quantity> Split(Fin<Quantity> quantity) => quantity.ToEither();
     public static Seq<int> Items(Option<int> value) => value.ToSeq();
     public static Fin<Item> Exit(Validation<Error, Item> form) => form.ToFin();
@@ -106,9 +106,9 @@ Use `dotnet:coding` for error type design.
 ```csharp
 internal static class Classify {
     public static bool Retryable(Error error) => error.Is(Errors.TimedOut) || error.HasException<IOException>();
-    public static bool IsRejection(Error error) => error.HasCode(ErrorCodes.ValidationFailed) || error.IsType<Fault>();
-    public static int Faults(Error error) => error.Filter<Fault>().Count;
-    public static Option<Error> Cause(Error error) => error.Filter<Fault>().Head is Fault fault ? fault.Inner : None;
+    public static bool IsRejection(Error error) => error.HasCode(ErrorCodes.ValidationFailed) || error.IsType<Fault<Reason>>();
+    public static int Faults(Error error) => error.Filter<Fault<Reason>>().Count;
+    public static Option<Error> Cause(Error error) => error.Filter<Fault<Reason>>().Head is Fault<Reason> fault ? fault.Inner : None;
 }
 ```
 
@@ -129,11 +129,11 @@ internal static class Recovery {
     public static Fin<Quantity> ByCode(Fin<Quantity> quantity) => quantity.Catch(ErrorCodes.ValidationFailed, static _ => Zero).As();
     public static Fin<Quantity> ByValue(Fin<Quantity> quantity) => quantity.Catch(Errors.TimedOut, static _ => Zero).As();
     public static IO<string> Read(string path) =>
-        IO.lift(() => File.ReadAllText(path)).Catch(static error => error.HasException<FileNotFoundException>(), error => IO.fail<string>(new Fault(path, Reason.Missing, Inner: error)));
-    public static IO<Item> Cached(IO<Item> load, Item cached) => load | @catch(static error => error.IsType<Fault>(), _ => IO.pure(cached));
+        IO.lift(() => File.ReadAllText(path)).Catch(static error => error.HasException<FileNotFoundException>(), error => IO.fail<string>(Fault.Of(Reason.Missing, path, inner: error)));
+    public static IO<Item> Cached(IO<Item> load, Item cached) => load | @catch(static error => error.IsType<Fault<Reason>>(), _ => IO.pure(cached));
     public static IO<Item> Fallback(IO<Item> primary, IO<Item> secondary) => primary | secondary;
     public static Fin<Quantity> Rebound(Fin<Quantity> quantity) => quantity.BindFail(static error => error.HasCode(ErrorCodes.ValidationFailed) ? Zero : error);
-    public static Fin<Quantity> WithContext(Fin<Quantity> quantity) => quantity.MapFail(static error => new Fault("quantity", Reason.Invalid, Inner: error));
+    public static Fin<Quantity> WithContext(Fin<Quantity> quantity) => quantity.MapFail(static error => Fault.Of(Reason.Invalid, "quantity", inner: error));
     public static int AtHost(Fin<int> result, int failure) => result.IfFail(_ => failure);
 
     private static Fin<Quantity> Zero => Quantity.Validated(0);
@@ -165,7 +165,7 @@ internal static class Guards {
         from _ in unless(int.IsEvenInteger(v), IO.fail<Unit>(Odd(v)))
         select v;
 
-    private static Fault Odd(int value) => new(value.ToString(CultureInfo.InvariantCulture), Reason.Invalid);
+    private static Fault<Reason> Odd(int value) => Fault.Of(Reason.Invalid, value);
 }
 ```
 

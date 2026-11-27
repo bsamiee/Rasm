@@ -103,7 +103,7 @@ class Removed(msgspec.Struct, frozen=True, kw_only=True):
                 answer = catch(keyed.interface.tree.links.remove, exception=RuntimeError)(link)
             case node:
                 answer = catch(keyed.interface.tree.nodes.remove, exception=RuntimeError)(node)
-        return answer.map_error(partial(Fault.of, Refusal.REFUSED, repr(keyed.interface.tree)))
+        return answer.map_error(partial(Fault.of, Refusal.REFUSED, keyed.interface.tree))
 
 
 class Added(msgspec.Struct, frozen=True, kw_only=True):
@@ -170,8 +170,7 @@ class Reordered(msgspec.Struct, frozen=True, kw_only=True):
                 if Mark.read(identity, source).is_some():
                     incoming.setdefault(outlet, deque()).append(link)
             return accumulated(
-                option.of_optional(incoming.get(source)).filter(bool).map(lambda links: links.popleft()).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(target), member=repr(source)))
-                for source in sources
+                option.of_optional(incoming.get(source)).filter(bool).map(lambda links: links.popleft()).to_result_with(lambda: Fault.of(Reason.ABSENT, target, member=source)) for source in sources
             ).bind(lambda desired: ordered(target, desired))
 
         return paired(keyed.socket(self.target.node, self.target.socket, output=False), accumulated(keyed.socket(source.node, source.socket, output=True) for source in self.sources)).bind(

@@ -180,7 +180,7 @@ def _split(master: bpy.types.Object, light: bpy.types.Light, lobes: frozenset[Lo
             Block
             .of_seq(holders)
             .try_head()
-            .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(master), member="users_collection"))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, master, member="users_collection"))
             .bind(lambda home: Snapshot.capture(master.light_linking).bind(lambda links: released(stale).bind(lambda _: accumulated(child(lobe, links, home) for lobe in Lobe if lobe in lobes))))
             .bind(lambda children: hidden.apply(master).outcome.map(lambda _: children)),
             rollback,

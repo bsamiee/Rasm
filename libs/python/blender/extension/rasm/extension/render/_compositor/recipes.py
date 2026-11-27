@@ -110,7 +110,7 @@ def applied(
         restores, prop = accumulated(map(rows.offering, retired)), Descriptor.of(bpy.types.SceneCompositorEffect, ("name",), bpy.types.StringProperty).prop
         names = accumulated(
             Descriptor.validated(prop, name).bind(
-                lambda _: Error(Fault.of(Refusal.TAKEN, name, member=repr(scene.compositor_effects[name]))) if name not in current and name in scene.compositor_effects else Ok(None)
+                lambda _: Error(Fault.of(Refusal.TAKEN, name, member=scene.compositor_effects[name])) if name not in current and name in scene.compositor_effects else Ok(None)
             )
             for name in requested
         )

@@ -5,7 +5,7 @@ use rasm_mcp_tests::Id;
 use serde_json::{Value, json};
 use tokio::time::{self, Instant};
 
-use super::{GRACE, INITIALIZE, LINE, SERVED, declared, joined, proxy};
+use super::{GRACE, INITIALIZE, LINE, SERVED, declared, exited, joined, proxy};
 
 // --- [SUBSCRIPTIONS]
 
@@ -23,9 +23,11 @@ async fn subscriptions_are_restored_after_a_restart_and_released_with_the_last_s
     assert_eq!(second.next().await.id, Some(Id::Number(1)), "a second subscriber of one URI is answered without a second server request");
     server.wire.send(r#"{"jsonrpc":"2.0","method":"notifications/resources/updated","params":{"uri":"file:///a"}}"#).await;
     assert_eq!((first.next().await.method.as_deref(), second.next().await.method.as_deref()), (Some("notifications/resources/updated"), Some("notifications/resources/updated")));
-    assert_ok!(server.exit.send("exit status: 9".to_owned()));
+    assert_ok!(server.exit.send(exited("exit status: 9")));
     first.send(r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#).await;
-    assert!(first.next().await.error.message.as_deref().is_some_and(|message| message.contains("server is down")), "inside the backoff window a call names the cause");
+    let stated = json!({ "_tag": "Down", "cause": [{ "_tag": "Exited", "status": "exit status: 9", "stderr": [] }], "sent": false, "next": "retry" });
+    let refused = first.next().await.error;
+    assert_eq!((refused.code, refused.data), (Some(-32603), Some(stated)), "inside the backoff window a call names the cause");
     time::sleep(Duration::from_secs(1)).await;
     first.send(r#"{"jsonrpc":"2.0","id":3,"method":"tools/list"}"#).await;
     let mut restarted = assert_some!(starts.recv().await);

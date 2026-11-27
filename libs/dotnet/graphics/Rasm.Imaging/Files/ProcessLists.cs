@@ -104,18 +104,18 @@ public sealed partial class LutFormat {
             .Traverse(static correction => CorrectionValues(correction).Map(values =>
                 (Optional(correction.Attribute(Identifier)?.Value), new LutTable.Cdl(CdlStyle.FwdNoClamp, values.Slope, values.Offset, values.Power, values.Saturation))))
             .As()
-        from _ in ImagingFault.Unless(!corrections.IsEmpty, ImagingReason.Missing, CorrectionNode)
+        from _ in Fault.Unless(!corrections.IsEmpty, ImagingReason.Missing, CorrectionNode)
         select corrections;
 
     private static LutFormat ProcessList(string key, bool ctf) =>
         Xml(key,
             document =>
-                from root in document.Root is { Name.LocalName: ProcessListNode } held ? Fin.Succ(held) : ImagingFault.Of(ImagingReason.Malformed, key, document.Root is { } other ? Line(other) : 1)
+                from root in document.Root is { Name.LocalName: ProcessListNode } held ? Fin.Succ(held) : Fault.Of(ImagingReason.Malformed, key, document.Root is { } other ? Line(other) : 1)
                 from steps in toSeq(root.Elements())
                     .Filter(static node => !Flag(node, "bypass"))
                     .Traverse(node => ClfNode.TryGet(node.Name.LocalName, out ClfNode? kind) && (ctf || !kind.Ctf)
                         ? kind.Read.Traverse(read => read(node)).As()
-                        : ImagingFault.Of(ImagingReason.Unsupported, node.Name.LocalName, Line(node)))
+                        : Fault.Of(ImagingReason.Unsupported, node.Name.LocalName, Line(node)))
                     .As()
                 select LutTable.Of(steps.Somes()),
             (table, name) => table.Steps.TraverseM(step => Nodes(step, ctf)).As().Map(nodes =>
@@ -138,7 +138,7 @@ public sealed partial class LutFormat {
 
     private static Fin<XDocument> Loaded(ReadOnlyMemory<byte> bytes) =>
         Try.lift(() => XDocument.Load(bytes.AsStream(), LoadOptions.SetLineInfo)).Run()
-            .MapFail(static error => error.Exception.Case is XmlException xml ? ImagingFault.Of(ImagingReason.Malformed, xml.Message, xml.LineNumber, error) : error);
+            .MapFail(static error => error.Exception.Case is XmlException xml ? Fault.Of(ImagingReason.Malformed, (xml.LineNumber, xml.LinePosition), inner: error) : error);
 
     private static Fin<LutTable> ReadMatrix(XElement node) =>
         from read in (Depths(node), Values<float>(node)).Apply(static (scales, array) => (Scales: scales, Array: array)).As()
@@ -155,14 +155,14 @@ public sealed partial class LutFormat {
             from scales in Depths(node)
             from array in modes.Raw ? Values<ushort>(node).Map(static array => (array.Dimensions, Values: Halves(array.Values))) : Values<float>(node)
             from width in (array.Dimensions is [var entries, 1 or 3] && array.Values.Length == entries * array.Dimensions[1] ? Some(array.Dimensions[1]) : None).ToFin(Malformed(node))
-            from _ in ImagingFault.Unless(Attribute(node, HueAdjust).ForAll(static held => held is HueRestore), ImagingReason.Unsupported, node.Name.LocalName, Line(node))
+            from _ in Fault.Unless(Attribute(node, HueAdjust).ForAll(static held => held is HueRestore), ImagingReason.Unsupported, node.Name.LocalName, Line(node))
             from curve in Curve(Divided(width is 3 ? array.Values : Interleaved(array.Values, array.Values, array.Values), inverted ? scales.In : scales.Out), UnitDomain, modes.Half, Attribute(node, HueAdjust).IsSome)
             from table in inverted ? curve.Inverse() : curve
             from indexed in Indexed(node, scales.In, array.Values.Length / width, table)
             select indexed;
 
         Fin<bool> Enabled(string name) => Attribute(node, name).Match(
-            Some: value => parseBool(value).Filter(identity).ToFin(ImagingFault.Of(ImagingReason.Malformed, (name, value), Line(node))),
+            Some: value => parseBool(value).Filter(identity).ToFin(Fault.Of(ImagingReason.Malformed, (name, value), Line(node))),
             None: static () => false);
     }
 
@@ -186,7 +186,7 @@ public sealed partial class LutFormat {
         let style = Attribute(node, Style)
         let clamps = !style.Exists(static held => held is NoClamp)
         let bounded = (from low in stated.Minimum from high in stated.Maximum select low.In != high.In).IfNone(clamps && stated.Minimum.IsSome != stated.Maximum.IsSome)
-        from _ in ImagingFault.Unless(style.ForAll(static held => held is Clamp or NoClamp) && bounded, ImagingReason.Malformed, ClfNode.Range.Key, Line(node))
+        from _ in Fault.Unless(style.ForAll(static held => held is Clamp or NoClamp) && bounded, ImagingReason.Malformed, ClfNode.Range.Key, Line(node))
         select (LutTable)new LutTable.Range(stated.Minimum, stated.Maximum, clamps);
 
     private static Fin<LutTable> ReadLog(XElement node) =>
@@ -198,7 +198,7 @@ public sealed partial class LutFormat {
         from style in Attribute(node, Style).Bind(static token => ExponentStyle.TryGet(token, out ExponentStyle? style) ? Some(style) : None).ToFin(Malformed(node))
         let monCurve = style.MonCurve
         from channels in ChannelParameters(node, parameters)
-        from _ in ImagingFault.Unless(
+        from _ in Fault.Unless(
             channels.ForAll(held => held.IsEmpty || (held.Find(exponent).Case, held.Find(OffsetValue).Case) switch {
                 (float power, float offset) => monCurve && power is >= 1f and <= 10f && offset is >= 0f and <= 0.9f && (offset is 0f || power > 1f),
                 (float power, null) => !monCurve && power > 0f,
@@ -225,7 +225,7 @@ public sealed partial class LutFormat {
                 Field(correction, SatNode, nameof(LutTable.Cdl.Saturation), Single<float>, 1f))
             .Apply(static (slope, offset, power, saturation) => (Slope: slope, Offset: offset, Power: power, Saturation: saturation))
             .As()
-        from _ in ImagingFault.Unless(
+        from _ in Fault.Unless(
             Vector3.AllWhereAllBitsSet(Vector3.GreaterThanOrEqual(values.Slope, Vector3.Zero) & Vector3.GreaterThan(values.Power, Vector3.Zero)) && values.Saturation >= 0f,
             ImagingReason.Range, values, Line(correction))
         select values;
@@ -263,7 +263,7 @@ public sealed partial class LutFormat {
         }
         let curve = new LogCurve(logBase, Across(channels, static held => held.Find(LogSideSlope).IfNone(1f)), Across(channels, static held => held.Find(LogSideOffset).IfNone(0f)),
             Across(channels, static held => held.Find(LinSideSlope).IfNone(1f)), Across(channels, static held => held.Find(LinSideOffset).IfNone(0f)))
-        from _ in ImagingFault.Unless(
+        from _ in Fault.Unless(
             !Vector3.AnyWhereAllBitsSet(Vector3.Equals(curve.LogSideSlope, Vector3.Zero) | Vector3.Equals(curve.LinSideSlope, Vector3.Zero)) && channels.ForAll(held => held.ContainsKey(LinSideBreak) == camera && (camera || !held.ContainsKey(LinearSlope))),
             ImagingReason.Malformed, LogParams, Line(node))
         select camera
@@ -397,5 +397,5 @@ public sealed partial class LutFormat {
 
     private static int Line(XElement node) => ((IXmlLineInfo)node).LineNumber;
 
-    private static ImagingFault Malformed(XElement node) => ImagingFault.Of(ImagingReason.Malformed, node.Name.LocalName, Line(node));
+    private static Fault<ImagingReason> Malformed(XElement node) => Fault.Of(ImagingReason.Malformed, node.Name.LocalName, Line(node));
 }

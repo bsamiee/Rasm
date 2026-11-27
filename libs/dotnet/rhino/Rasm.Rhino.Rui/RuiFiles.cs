@@ -126,7 +126,7 @@ internal static class RuiFiles {
     private static Fin<Seq<XElement>> Unique(Seq<XElement> elements) =>
         toSeq(elements.GroupBy(static element => element.Attribute("guid")?.Value, StringComparer.Ordinal)).Traverse(static held => held.Distinct<XElement>(XNode.EqualityComparer).ToArray() switch {
             [var only] => (Fin<XElement>)only,
-            var repeated => new RhinoFault(repeated[0].Elements("text").First().Value, RhinoReason.Repeated),
+            var repeated => Fault.Of(RhinoReason.Repeated, repeated[0].Elements("text").First().Value),
         }).As();
 
     // --- [REACH]
@@ -209,7 +209,7 @@ internal static class RuiFiles {
 
     private static Fin<Func<Guid, XElement>> Button(Guid file, Translations text, Command<Macro> command) =>
         Press(command) switch {
-            var (face, pressed) => RhinoFault.Unless(command.Enabled.IsNone && pressed.ForAll(static run => run.Enabled.IsNone && run.Marked.IsNone), RhinoReason.Unsupported, face.Name)
+            var (face, pressed) => Fault.Unless(command.Enabled.IsNone && pressed.ForAll(static run => run.Enabled.IsNone && run.Marked.IsNone), RhinoReason.Unsupported, face.Name)
                 .Map(_ => (Func<Guid, XElement>)(id => new XElement("tool_bar_item",
                     new XAttribute("guid", id),
                     face.Presented.ToSeq().Bind(static display => Seq(new XAttribute("button_display_mode", display.Key), new XAttribute("display_style_from_parent", bool.FalseString))),
@@ -257,7 +257,7 @@ internal static class RuiFiles {
         IDictionary scanned = (IDictionary)ScanEmbeddedResources(owner: null, art.Assembly);
         bool windows = plugIn.GetCustomAttribute<TargetPlatformAttribute>()?.PlatformName.StartsWith("Windows", StringComparison.OrdinalIgnoreCase) is true;
         string drawn = Optional(scanned[art.Id]).Bind(resource => Optional(windows ? WindowsResourceName(resource) : MacResourceName(resource))).IfNone(art.Id);
-        return from light in Svg(art.Assembly, drawn).ToFin(new RhinoFault(art.Id, RhinoReason.Missing))
+        return from light in Svg(art.Assembly, drawn).ToFin(Fault.Of(RhinoReason.Missing, art.Id))
                select new XElement("icon",
                    new XAttribute("guid", IconId(file, art)),
                    new XAttribute("name", art.Id),

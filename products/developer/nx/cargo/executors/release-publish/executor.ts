@@ -29,16 +29,14 @@ const execute = executor(Publish, function* ({ dryRun, cwd: root, package: named
     const registries = Array.fromNullishOr(registry).flatMap((name) => ['--registry', name]);
     const publish = ['cargo', 'publish', ...selected, ...(dry ? ['--dry-run'] : []), '--locked', ...words] as const;
     const credential = registry === undefined ? 'CARGO_REGISTRY_TOKEN' : `CARGO_REGISTRIES_${String.kebabToSnake(registry).toUpperCase()}_TOKEN`;
-    const [tagged, token] = yield* Effect.all([released(context), credentialed(credential)]);
-    const missing = dry ? [] : [...(Option.isNone(tagged) ? [`HEAD holds no tag of ${node.name}, so nx release released no version of it at this commit`] : []), ...(Option.isNone(token) ? [`${credential} is not set`] : [])];
-    const stored = yield* Option.match(
-        Option.filter(tagged, () => !dry && missing.length === 0),
-        { onNone: () => Effect.succeed(false), onSome: ({ extractedVersion }) => Effect.isSuccess(spawned(['cargo', 'info', `${named}@${extractedVersion}`, ...registries], { cwd })) },
+    const [tagged, token] = yield* Effect.all([dry ? Effect.succeedNone : released(context), credentialed(credential)]);
+    const published = yield* Option.match(
+        Option.filter(tagged, () => Option.isSome(token)),
+        { onNone: () => Effect.succeedNone, onSome: ({ extractedVersion }) => Effect.map(Effect.isSuccess(spawned(['cargo', 'info', `${named}@${extractedVersion}`, ...registries], { cwd })), (held) => Option.liftPredicate(extractedVersion, () => held)) },
     );
-    yield* Array.match([...missing, ...(stored ? ['its registry holds the version of the tag at HEAD, as cargo info finds'] : [])], {
-        onEmpty: () => spawned(publish, { cwd, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }),
-        onNonEmpty: (reasons) => Effect.logWarning(`Skipped cargo publish of ${named}: ${reasons.join(', ')}`),
-    });
+    const delivered = spawned(publish, { cwd, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' });
+    const skipped = Effect.annotateLogs(Effect.logWarning('skipped'), { package: named, unset: Option.isNone(token) ? [credential] : [], published: Option.getOrUndefined(published) });
+    yield* dry ? delivered : Option.match(tagged, { onNone: () => Effect.void, onSome: () => (Option.isSome(token) && Option.isNone(published) ? delivered : skipped) });
     return { success: true };
 });
 

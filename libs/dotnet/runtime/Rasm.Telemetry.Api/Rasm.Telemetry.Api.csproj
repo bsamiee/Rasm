@@ -3,13 +3,17 @@
 
     <PropertyGroup Label="Package Metadata">
         <Version>0.1.0-alpha.0</Version>
-        <Description>LanguageExt failures as log records and span status, for libraries that emit through ILogger and ActivitySource</Description>
+        <Description>LanguageExt failures as typed faults, log records, and span status, for libraries that emit through ILogger and ActivitySource</Description>
     </PropertyGroup>
 
     <!-- [ITEMS] ───────────────────────────────────────────────────────────────────── -->
 
     <ItemGroup Label="Functional Programming">
         <PackageReference Include="LanguageExt.Core" />
+    </ItemGroup>
+
+    <ItemGroup Label="Domain Modeling">
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
     </ItemGroup>
 
     <ItemGroup Label="Application Hosting">

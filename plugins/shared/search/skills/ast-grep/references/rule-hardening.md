@@ -4,14 +4,14 @@ Existing rules reach every form one correction covers and keep their coverage, c
 
 ## [01]-[WEAKNESS]
 
-Before editing, compare the forms a rule reports with the correction its `note` requires and name the form each rule misses:
+Before editing, compare the forms a rule reports with the correction its `message` requires and name the form each rule misses:
 
 | [INDEX] | [WEAKNESS]                                                      | [GENERAL_FORM]                                                         |
 | :-----: | :-------------------------------------------------------------- | :--------------------------------------------------------------------- |
 |  [01]   | One overload of a data-first and data-last pair                 | `any:` arm per overload, the shape in a util                           |
 |  [02]   | One position where the shape is produced before its consumption | Match producer when every use takes that correction                    |
 |  [03]   | Name where the rule means every node of a kind                  | `kind` with `field` and `nthChild`, `regex` on the name                |
-|  [04]   | `note` naming the instance's fix                                | Correction as the shape to produce                                     |
+|  [04]   | Required form naming the instance's fix                         | Correction as the shape to produce                                     |
 |  [05]   | Rules with messages that differ by a callee name                | One rule, or each over one shared global util                          |
 |  [06]   | Default `stopBy` where the related node sits levels away        | `stopBy` at the owner kinds, fixed depth through `has` with `field`    |
 |  [07]   | Constraint on list capture or capture bound only in negation    | Guard list members structurally, bind captures before negation         |
@@ -47,8 +47,7 @@ GOOD, every alias of every member, a call owned by the named package alone:
 id: no-sync-read
 language: typescript
 severity: error
-message: $NAME reads synchronously
-note: Read through the promise API
+message: $NAME reads synchronously, read through the promise API
 utils:
     from-fs: {has: {field: source, regex: '^.node:fs.$'}}
     member: {regex: '^(readFileSync|readSync)$'}
@@ -87,9 +86,9 @@ rule:
 Over `import {readFileSync as read, statSync} from 'node:fs'`, `import {readSync} from 'node:fs'`, `import * as fs from 'node:fs'`, and `import {readFileSync as other} from 'other'`:
 
 ```text
-read('a');            read reads synchronously
-readSync(1);          readSync reads synchronously
-fs.readFileSync('b'); fs reads synchronously
+read('a');            read reads synchronously, read through the promise API
+readSync(1);          readSync reads synchronously, read through the promise API
+fs.readFileSync('b'); fs reads synchronously, read through the promise API
 statSync('c');
 other('d');
 fs.statSync('e');

@@ -86,5 +86,4 @@ rule:
               - matches: truth
         - matches: present
         - matches: presence
-message: '`$CALL` collects every match to read or test one'
-note: 'Call `search`, `match`, or `fullmatch` for one `Match` or `None`'
+message: '`$CALL` collects every match to read or test one, call `search`, `match`, or `fullmatch` for one `Match` or `None`'

@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import { type CreateNodes, type CreateNodesContext, createNodesFromFiles, hashArray, normalizePath, type TargetConfiguration } from '@nx/devkit';
 import { getReadyCheckReadyWhen, hashObject, quoteShellArg } from '@nx/devkit/internal';
-import { type Anchor, aggregated, anchored, below, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, owned, packaged, parsed, type Pass, request, run, tokened, within } from '@rasm/nx/inference';
+import { type Anchor, aggregated, anchored, below, EXECUTORS, extended, fingerprinted, inferring, manifested, namedInput, NxError, owned, packaged, parsed, type Pass, request, run, tokened, within } from '@rasm/nx/inference';
 import { Array, Cause, Effect, FileSystem, Option, Predicate, Record, Schema, UndefinedOr } from 'effect';
 import type { parseSync } from 'vite';
 
@@ -42,7 +42,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, o
     const resolved = request(
         Effect.sync(() => new Worker(WORKER, { workerData: { at, outDir } })),
         Resolution,
-        `${file} does not load for vite build`,
+        NxError.of({ _tag: 'Unloaded', tool: 'vite' }, file),
     );
     const [resolution, vite] = yield* Effect.all([resolved, Effect.tryPromise({ try: (): Promise<{ readonly parseSync: typeof parseSync }> => import(pathToFileURL(createRequire(at).resolve('vite')).href), catch: (cause) => new Cause.UnknownError(cause, `${file} resolves no vite`) })], { concurrency: 'unbounded' });
     const loaded = Array.dedupe([file, ...resolution.dependencies.map(local)]).filter(within);

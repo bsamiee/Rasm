@@ -22,5 +22,4 @@ rule:
                     - has: { kind: call_suffix, has: { kind: value_arguments, has: { kind: value_argument, nthChild: { position: 3, ofRule: { kind: value_argument } }, regex: '^(((Darwin|Glibc|Musl)(\.|::))?STD(IN|OUT|ERR)_FILENO|[012])$' } } }
               - has: { nthChild: 1, regex: '^posix_spawn_file_actions_addchdir(_np)?$' }
         - inside: { stopBy: end, matches: configurator }
-message: '`$SITE` restates a swift-subprocess platform option inside `preSpawnProcessConfigurator`'
-note: "Set `processGroupID`, `createSession`, `qualityOfService`, `workingDirectory:`, or a stream's `.fileDescriptor(_:closeAfterSpawningProcess:)`"
+message: "`$SITE` restates a swift-subprocess platform option inside `preSpawnProcessConfigurator`, set `processGroupID`, `createSession`, `qualityOfService`, `workingDirectory:`, or a stream's `.fileDescriptor(_:closeAfterSpawningProcess:)`"

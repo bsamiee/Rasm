@@ -220,9 +220,9 @@ def removed(owner: bpy.types.Scene | tuple[bpy.types.Scene, bpy.types.ViewLayer]
     """Removes a member scene, or a view layer from its scene."""
     match owner:
         case bpy.types.Scene() as scene:
-            return catch(bpy.data.scenes.remove, exception=RuntimeError)(scene).map_error(partial(Fault.of, Refusal.REFUSED, repr(scene)))
+            return catch(bpy.data.scenes.remove, exception=RuntimeError)(scene).map_error(partial(Fault.of, Refusal.REFUSED, scene))
         case (scene, layer):
-            return catch(scene.view_layers.remove, exception=RuntimeError)(layer).map_error(partial(Fault.of, Refusal.REFUSED, repr(layer)))
+            return catch(scene.view_layers.remove, exception=RuntimeError)(layer).map_error(partial(Fault.of, Refusal.REFUSED, layer))
 
 
 def added(members: Members, source: bpy.types.Scene, name: str) -> Outcome[bpy.types.Scene]:
@@ -340,7 +340,7 @@ def render_set_remove(members: Members, call: Call[Empty]) -> Outcome[Answer]:
             case bpy.types.Scene() as scene if scene in OWNERSHIP.serving(members.identity, source):
                 return _dropped(source, (scene,))
             case _:
-                return Error(Fault.of(Reason.ABSENT, repr(call.context.scene), member=OWNERSHIP.key))
+                return Error(Fault.of(Reason.ABSENT, call.context.scene, member=OWNERSHIP.key))
 
     return members.source(call.context).bind(dropped)
 

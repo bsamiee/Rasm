@@ -6,5 +6,4 @@ rule:
     all:
         - matches: python-invariant-index-test
         - has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } }, pattern: $INDEX }
-message: 'Loop rebuilds `$INDEX` per item from a source it leaves unchanged'
-note: 'Bind a set or mapping `<index>` once before the loop and test each item `in <index>`'
+message: 'Loop rebuilds `$INDEX` per item from a source it leaves unchanged, bind a set or mapping `<index>` once before the loop and test each item `in <index>`'

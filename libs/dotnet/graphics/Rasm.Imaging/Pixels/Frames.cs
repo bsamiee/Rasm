@@ -31,16 +31,16 @@ public sealed partial class PixelExtent {
             : bound.Height < Height ? new((int)((((long)Width * bound.Height) + Height - 1) / Height), bound.Height) : this;
 
     public static Fin<PixelExtent> Validated(int width, int height) =>
-        ImagingFault.Unless(width >= 1 && height >= 1 && width <= System.Array.MaxLength / 4 / height, ImagingReason.Range, (width, height)).Map(_ => new PixelExtent(width, height));
+        Fault.Unless(width >= 1 && height >= 1 && width <= System.Array.MaxLength / 4 / height, ImagingReason.Range, (width, height)).Map(_ => new PixelExtent(width, height));
 }
 
 [ValueObject<float>(ConversionToKeyMemberType = ConversionOperatorsGeneration.None, UnsafeConversionToKeyMemberType = ConversionOperatorsGeneration.Implicit, SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<ImagingFault>]
+[ValidationError<Fault<ImagingReason>>]
 public sealed partial class ShortSideLength {
     public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
 
-    static partial void ValidateFactoryArguments(ref ImagingFault? validationError, ref float value) =>
-        validationError = value > 0f && float.IsFinite(value) ? null : ImagingFault.Of(ImagingReason.Range, value);
+    static partial void ValidateFactoryArguments(ref Fault<ImagingReason>? validationError, ref float value) =>
+        validationError = value > 0f && float.IsFinite(value) ? null : Fault.Of(ImagingReason.Range, value);
 }
 
 [SmartEnum<string>]

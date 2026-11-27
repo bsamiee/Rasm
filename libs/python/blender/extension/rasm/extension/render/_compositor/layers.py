@@ -196,7 +196,7 @@ class LayerStack(msgspec.Struct, Generic[_M_co], frozen=True, kw_only=True):  # 
 
     def layer(self, index: int) -> Outcome[StackLayer[_M_co]]:
         """Returns the layer at a bottom-first index, absent past the stack."""
-        return option.of_optional(self.layers[index] if 0 <= index < len(self.layers) else None).to_result_with(partial(Fault.of, Reason.ABSENT, type(self).__name__, member=str(index)))
+        return option.of_optional(self.layers[index] if 0 <= index < len(self.layers) else None).to_result_with(partial(Fault.of, Reason.ABSENT, type(self), member=index))
 
     def edited(self, edit: Edit, target: StackTarget, seeded: Callable[[CompositorRecord], Outcome[CompositorRecord]]) -> Outcome[tuple["LayerStack", int, Order]]:
         """Applies an edit to a target's item, answering the edited stack, the layer it leaves active, and the prior position of each item's values.
@@ -209,7 +209,7 @@ class LayerStack(msgspec.Struct, Generic[_M_co], frozen=True, kw_only=True):  # 
         Returns:
             `Ok` of the edited stack, active layer index, and value order. `Error` of `absent` for a target past its collection and of seed faults.
         """
-        absent = partial(Fault.of, Reason.ABSENT, type(self).__name__, member=repr(target))
+        absent = partial(Fault.of, Reason.ABSENT, type(self), member=target)
         match target:
             case LayerMaskAt(layer=layer, mask=index) | EffectMaskAt(layer=layer, mask=index):
                 return (
@@ -250,7 +250,7 @@ class LayerStack(msgspec.Struct, Generic[_M_co], frozen=True, kw_only=True):  # 
     def masked(self, target: StackTarget, change: int) -> Outcome[Self]:
         """Changes the mask count of the targeted blend by `change`, never below zero, the last mask leaving first."""
         changed = amended(Blend, self, _blend_lens(target), lambda blend: msgspec.structs.replace(blend, masks=max(blend.masks + change, 0)))
-        return changed.to_result_with(partial(Fault.of, Reason.ABSENT, type(self).__name__, member=repr(target)))
+        return changed.to_result_with(partial(Fault.of, Reason.ABSENT, type(self), member=target))
 
 
 class StoredLayer(msgspec.Struct, Generic[_M_co], frozen=True, kw_only=True):  # ruff: ignore[non-pep695-generic-class]

@@ -53,18 +53,18 @@ public static class MeshIntersections {
     public static IO<Seq<Option<MeshClash>>> Clashes(Seq<Mesh> setA, Seq<Mesh> setB, double distance, int maxEvents) =>
         IO.lift(() => toSeq(MeshClash.Search(setA, setB, distance, maxEvents)).Map(static clash => Optional(clash.MeshA).Map(_ => clash)).Strict());
 
-    private static IO<MeshCrossings> Crossed(Func<TextLog, (bool Accepted, Polyline[] Polylines, Polyline[] Overlaps, Mesh? OverlapMesh)> host, [CallerArgumentExpression(nameof(host))] string call = "") =>
+    private static IO<MeshCrossings> Crossed(Func<TextLog, (bool Accepted, Polyline[] Polylines, Polyline[] Overlaps, Mesh? OverlapMesh)> host, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
         from crossed in (from log in use(static () => new TextLog())
                          from answered in IO.lift(() => host(log))
                          select (Answer: answered, Log: log.ToString())).Bracket()
-        from mesh in Products.Maybe(() => crossed.Answer.OverlapMesh, call)
-        from accepted in Products.Accepted(() => crossed.Answer.Accepted, call)
+        from mesh in Products.Maybe(() => crossed.Answer.OverlapMesh, member, line)
+        from accepted in Products.Accepted(() => crossed.Answer.Accepted, member, line)
         select new MeshCrossings(Conversions.Rows(crossed.Answer.Polylines), Conversions.Rows(crossed.Answer.Overlaps), mesh, Conversions.Present(crossed.Log));
 
     // --- [POINTS]
 
-    public static IO<Seq<(Point3d Point, int Index)>> Points(Func<(Point3d[]? Points, int[]? Indices)> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
-        IO.lift(call).Bind(answered => IO.lift(from points in Conversions.Required(answered.Points, call: member)
-                                               from indices in Conversions.Required(answered.Indices, call: member)
+    public static IO<Seq<(Point3d Point, int Index)>> Points(Func<(Point3d[]? Points, int[]? Indices)> call, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
+        IO.lift(call).Bind(answered => IO.lift(from points in Conversions.Required(answered.Points, member: member, line: line)
+                                               from indices in Conversions.Required(answered.Indices, member: member, line: line)
                                                select toSeq(points).Zip(toSeq(indices), static (point, index) => (Point: point, Index: index)).Strict()));
 }

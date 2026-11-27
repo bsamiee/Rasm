@@ -185,7 +185,7 @@ class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict
             case (_, Path() as path) if self.preset.owned(identity, path):
                 return self.current(call.context).bind(partial(self.preset.written, path)).map(lambda _: operators.Done(notes=(("INFO", _reported("Replaced {}", path.stem)),)))
             case (_, _):
-                return Error(Fault.of(Refusal.TAKEN, name, member=str(self.preset.folder(identity))))
+                return Error(Fault.of(Refusal.TAKEN, name, member=self.preset.folder(identity)))
             case None:
                 return self.current(call.context).bind(partial(self.preset.saved, identity, name)).map(lambda path: operators.Done(notes=(("INFO", _reported("Added {}", path.stem)),)))
 
@@ -211,7 +211,7 @@ class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict
         """Renames the saved preset file, a case change of its own name included."""
         identity, name, stem = call.identity, call.properties.name, call.properties.stem
         free = Ok(name).filter_with(
-            lambda held: _claimed(self.preset, identity, held).filter(lambda pair: pair[0] != stem).is_none(), partial(Fault.of, Refusal.TAKEN, name, member=str(self.preset.folder(identity)))
+            lambda held: _claimed(self.preset, identity, held).filter(lambda pair: pair[0] != stem).is_none(), partial(Fault.of, Refusal.TAKEN, name, member=self.preset.folder(identity))
         )
         return paired(_user(self.preset, identity, stem), free).bind(lambda pair: self.preset.renamed(*pair)).map(lambda _: operators.Done())
 
@@ -523,9 +523,7 @@ def _claimed[T: msgspec.Struct](preset: Preset[T], identity: Identity, name: str
 def _user[T: msgspec.Struct](preset: Preset[T], identity: Identity, stem: str) -> Outcome[Path]:
     """Returns the user file of a stem, absent fault for a stock preset."""
     return preset.found(identity, stem).bind(
-        lambda stored: (
-            option.of_optional(try_downcast(Path, stored)).filter(partial(preset.owned, identity)).to_result_with(partial(Fault.of, Reason.ABSENT, str(preset.folder(identity)), member=stem))
-        )
+        lambda stored: option.of_optional(try_downcast(Path, stored)).filter(partial(preset.owned, identity)).to_result_with(partial(Fault.of, Reason.ABSENT, preset.folder(identity), member=stem))
     )
 
 

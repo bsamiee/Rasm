@@ -273,5 +273,4 @@ rule:
                   - matches: catch-variable
                   - matches: exception-element
                   - matches: error-binding
-message: '`$ERROR` is classified by its message text'
-note: 'Classify the error through `IsType<E>()`, `HasException<E>()`, or an `is` pattern, `HasCode(ErrorCodes.<code>)` for a LanguageExt failure'
+message: '`$ERROR` is classified by its message text, classify it through `IsType<E>()`, `HasException<E>()`, or an `is` pattern, `HasCode(ErrorCodes.<code>)` for a LanguageExt failure'

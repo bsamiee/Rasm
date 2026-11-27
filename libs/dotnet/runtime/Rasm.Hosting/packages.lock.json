@@ -278,7 +278,8 @@
         "type": "Project",
         "dependencies": {
           "LanguageExt.Core": "[5.0.0-beta-78, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[10.0.15, 11.0.0)"
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.15, 11.0.0)",
+          "Thinktecture.Runtime.Extensions": "[10.6.0, )"
         }
       },
       "Microsoft.Extensions.AmbientMetadata.Application": {

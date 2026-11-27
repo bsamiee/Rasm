@@ -17,10 +17,10 @@ public sealed record HermiteSpline {
             new CubicBezier(pair[0].Point, pair[0].Point + (pair[0].Out / 3d), pair[1].Point - (pair[1].In / 3d), pair[1].Point))).Strict();
     public Seq<CubicBezier> Spans { get; }
 
-    public static Fin<HermiteSpline> Through(Seq<HermiteStation> stations) => GeometryFault.Unless(stations.Count >= 2, GeometryRule.Count, stations.Count).Map(_ => new HermiteSpline(stations, closed: false));
+    public static Fin<HermiteSpline> Through(Seq<HermiteStation> stations) => Fault.Unless(stations.Count >= 2, GeometryRule.Count, stations.Count).Map(_ => new HermiteSpline(stations, closed: false));
 
     public static Fin<HermiteSpline> Tcb(Seq<Vector3D<double>> points, double tension, double continuity, double bias, bool closed) =>
-        (GeometryFault.Unless(points.Count >= 2, GeometryRule.Count, points.Count), GeometryFault.Unless(double.IsFinite(tension) && double.IsFinite(continuity) && double.IsFinite(bias), GeometryRule.Range, (tension, continuity, bias)))
+        (Fault.Unless(points.Count >= 2, GeometryRule.Count, points.Count), Fault.Unless(double.IsFinite(tension) && double.IsFinite(continuity) && double.IsFinite(bias), GeometryRule.Range, (tension, continuity, bias)))
             .Apply((_, _) => (Before: (1d - tension) * (1d + bias) / 2d, After: (1d - tension) * (1d - bias) / 2d) switch {
                 var lean => new HermiteSpline(toSeq((Seq(closed ? points[^1] : points[0] + (points[0] - points[1])) + points + Seq(closed ? points[0] : points[^1] + (points[^1] - points[^2])))
                     .AsIterable().Window(3, span => (Before: span[1] - span[0], After: span[2] - span[1]) switch {
@@ -31,7 +31,7 @@ public sealed record HermiteSpline {
 
 [ValueObject<double>(SkipFactoryMethods = true)]
 public sealed partial class ConicRho {
-    public static Fin<ConicRho> Validated(double value) => GeometryFault.Unless(value is > 0d and < 1d, GeometryRule.Range, value).Map(_ => new ConicRho(value));
+    public static Fin<ConicRho> Validated(double value) => Fault.Unless(value is > 0d and < 1d, GeometryRule.Range, value).Map(_ => new ConicRho(value));
 }
 
 public sealed record RationalQuadratic {
@@ -44,7 +44,7 @@ public sealed record RationalQuadratic {
     public static RationalQuadratic Rho(Vector3D<double> start, Vector3D<double> apex, Vector3D<double> end, ConicRho rho) => new(start, apex, end, (double)rho / (1d - (double)rho));
 
     public static Fin<RationalQuadratic> Hyperbola(double a, double b, ParameterSpan u) =>
-        GeometryFault.Unless(double.IsFinite(a) && double.IsFinite(b) && a > 0d && b > 0d, GeometryRule.Range, (a, b))
+        Fault.Unless(double.IsFinite(a) && double.IsFinite(b) && a > 0d && b > 0d, GeometryRule.Range, (a, b))
             .Map(_ => double.Cosh(u.Length / 2d) switch { var weight => new RationalQuadratic(Branch(a, b, u.Start), Branch(a, b, (u.Start + u.End) / 2d) / weight, Branch(a, b, u.End), weight) });
 
     private static Vector3D<double> Branch(double a, double b, double t) => new(a * double.Cosh(t), b * double.Sinh(t), 0d);
@@ -62,7 +62,7 @@ public sealed partial class HomogeneousGrid {
     public Matrix<double> W => w.Clone();
 
     public static Fin<HomogeneousGrid> Validated(Matrix<double> x, Matrix<double> y, Matrix<double> z, Matrix<double> w) =>
-        GeometryFault.Unless(x.RowCount >= 2 && x.ColumnCount >= 2 && Seq(y, z, w).ForAll(component => component.RowCount == x.RowCount && component.ColumnCount == x.ColumnCount), GeometryRule.Shape, Seq(x, y, z, w).Map(static grid => (grid.RowCount, grid.ColumnCount)))
+        Fault.Unless(x.RowCount >= 2 && x.ColumnCount >= 2 && Seq(y, z, w).ForAll(component => component.RowCount == x.RowCount && component.ColumnCount == x.ColumnCount), GeometryRule.Shape, Seq(x, y, z, w).Map(static grid => (grid.RowCount, grid.ColumnCount)))
             .Map(_ => new HomogeneousGrid(x.Clone(), y.Clone(), z.Clone(), w.Clone()));
 
     internal HomogeneousGrid Bernstein(ParameterSpan u, ParameterSpan v) =>
@@ -113,6 +113,6 @@ public sealed partial class BezierVolume {
     }
 
     public static Fin<BezierVolume> Validated(int uDegree, int vDegree, int wDegree, Seq<Vector3D<double>> controls) =>
-        (GeometryFault.Unless(uDegree >= 1 && vDegree >= 1 && wDegree >= 1, GeometryRule.Range, (uDegree, vDegree, wDegree)), GeometryFault.Unless(controls.Count == ((Int128)uDegree + 1) * (vDegree + 1L) * (wDegree + 1L), GeometryRule.Count, controls.Count))
+        (Fault.Unless(uDegree >= 1 && vDegree >= 1 && wDegree >= 1, GeometryRule.Range, (uDegree, vDegree, wDegree)), Fault.Unless(controls.Count == ((Int128)uDegree + 1) * (vDegree + 1L) * (wDegree + 1L), GeometryRule.Count, controls.Count))
             .Apply((_, _) => new BezierVolume(uDegree, vDegree, wDegree, LanguageExt.Seq.createRange(controls).Strict())).As();
 }

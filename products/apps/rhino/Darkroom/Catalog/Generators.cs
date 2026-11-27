@@ -17,7 +17,7 @@ internal static class ReferenceFrame {
 // --- [MODELS] --------------------------------------------------------------------------
 
 [ValueObject<Duration>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-[ValidationError<DarkroomFault>]
+[ValidationError<Fault<DarkroomReason>>]
 internal sealed partial class Hold {
     private static readonly Duration Shortest = Duration.FromMilliseconds(1);
     private static readonly Duration Longest = Duration.FromSeconds(8);
@@ -31,9 +31,9 @@ internal sealed partial class Hold {
 
     public Duration Held(Duration clock) => Duration.FromNanoseconds(_value.ToInt128Nanoseconds() * Period(clock));
 
-    static partial void ValidateFactoryArguments(ref DarkroomFault? validationError, ref Duration value) =>
+    static partial void ValidateFactoryArguments(ref Fault<DarkroomReason>? validationError, ref Duration value) =>
         validationError = value >= Shortest && value <= Longest ? null
-            : new DarkroomFault(value, DarkroomReason.Invalid, Expression: "hold");
+            : Fault.Of(DarkroomReason.Invalid, value);
 }
 
 internal sealed record Timing(Duration Clock, float Pace) {

@@ -1,14 +1,20 @@
 """Faults, their reasons, and result accumulation."""
 
 from collections.abc import Iterable
+from datetime import date
 from enum import StrEnum
-from functools import partial
+from functools import partial, singledispatch
+import os
+import reprlib
 from string import Formatter
+import sys
 import traceback
-from typing import overload
+from types import FunctionType
+from typing import Final, overload
 
 from expression import Error, Ok, option, Result, try_downcast
 import msgspec
+import numpy as np
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -28,11 +34,15 @@ class Reason(StrEnum):
     UNWRITABLE = "{subject} is unwritable"
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_BOUNDED: Final = reprlib.Repr(maxstring=sys.maxsize, maxother=sys.maxsize)
+
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Fault(msgspec.Struct, frozen=True, kw_only=True):
-    """Refused or unmet operation, its report text formatted from its reason."""
+    """Refused or unmet operation, its subject and member held as the text they showed when it was built."""
 
     reason: StrEnum
     subject: str
@@ -51,12 +61,25 @@ class Fault(msgspec.Struct, frozen=True, kw_only=True):
         return text if cause is None or any(field == "cause" for _, field, _, _ in Formatter().parse(template)) else f"{text}. {cause}"
 
     @classmethod
-    def of(cls, reason: StrEnum, subject: str, cause: object | None = None, /, *, member: str | None = None) -> Faults:
-        """Returns a one-fault tuple over subject, the refused value or caught error as cause."""
-        return (cls(reason=reason, subject=subject, member=member, cause=cause),)
+    def of(cls, reason: StrEnum, subject: object, cause: object | None = None, /, *, member: object | None = None) -> Faults:
+        """Returns a one-fault tuple over the text subject and member show now, the refused value or caught error as cause."""
+        return (cls(reason=reason, subject=shown(subject), member=None if member is None else shown(member), cause=cause),)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+@singledispatch
+def shown(value: object, /) -> str:
+    """Returns the text of a fault value: each registered kind through its own text, any other value through `reprlib` with its container bounds and no cut of a name or reference."""
+    return _BOUNDED.repr(value)
+
+
+shown.register(str, str.__str__)
+shown.register(os.PathLike, os.fsdecode)
+shown.register(type | FunctionType, lambda value: value.__qualname__)
+shown.register(date, str)
+shown.register(np.ndarray, str)
 
 
 def accumulated[T](results: Iterable[Outcome[T]]) -> Outcome[tuple[T, ...]]:
@@ -90,11 +113,11 @@ def paired(*results: Outcome[object]) -> Outcome[tuple[object, ...]]:
     return accumulated(results)
 
 
-def typed[T](kind: type[T], subject: str, value: object, /) -> Outcome[T]:
+def typed[T](kind: type[T], subject: object, value: object, /) -> Outcome[T]:
     """Returns value narrowed to kind, `OUTSIDE` fault naming the kind and the class found."""
-    return option.of_optional(try_downcast(kind, value)).to_result_with(partial(Fault.of, Reason.OUTSIDE, subject, type(value), member=kind.__name__))
+    return option.of_optional(try_downcast(kind, value)).to_result_with(partial(Fault.of, Reason.OUTSIDE, subject, type(value), member=kind))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Fault", "Faults", "Outcome", "Reason", "accumulated", "paired", "typed"]
+__all__ = ["Fault", "Faults", "Outcome", "Reason", "accumulated", "paired", "shown", "typed"]

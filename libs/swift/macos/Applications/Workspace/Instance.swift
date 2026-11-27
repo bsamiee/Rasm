@@ -2,7 +2,7 @@ package import AppKit
 package import AppleEvents
 import AsyncAlgorithms
 import CasePathsCore
-package import Foundation
+import Foundation
 package import Processes
 import System
 
@@ -18,15 +18,6 @@ extension Instance {
         guard !application.isTerminated else { throw ApplicationFailure(subject: application.name, reason: .system(.noSuchProcess)) }
         do throws(Errno) { process = try ProcessInstance(of: application.processIdentifier) } catch { throw ApplicationFailure(subject: application.name, reason: .system(error)) }
         self.application = application
-    }
-
-    package init(_ process: ProcessInstance, matching predicate: NSPredicate) throws(ApplicationFailure) {
-        guard let application = NSRunningApplication(processIdentifier: process.pid) else { throw ApplicationFailure(subject: "The instance", reason: .absent) }
-        try self.init(application)
-        guard self.process == process else { throw ApplicationFailure(subject: "The instance", reason: .absent) }
-        guard predicate.evaluate(bundleIdentifier: application.bundleIdentifier, displayName: application.localizedName, bundle: application.bundleURL) else {
-            throw ApplicationFailure(subject: application.name, reason: .unclaimed)
-        }
     }
 }
 

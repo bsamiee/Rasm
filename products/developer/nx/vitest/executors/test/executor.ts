@@ -5,7 +5,7 @@ import { dirname, relative, resolve } from 'node:path';
 import process, { env } from 'node:process';
 import { normalizePath } from '@nx/devkit';
 import { type BatchExecutorTaskResult, findProjectForPath, hashObject } from '@nx/devkit/internal';
-import { batched, executor, request } from '@rasm/nx/inference';
+import { batched, executor, NxError, request } from '@rasm/nx/inference';
 import { Array, Cause, Clock, Effect, Exit, Formatter, Option, Predicate, Record, Result, Schema, Stream, Struct } from 'effect';
 import type { CliOptions, parseCLI, TestModule, TestsNotFoundError, Vitest } from 'vitest/node';
 import { loaded, MODE } from '#/plugin';
@@ -109,7 +109,7 @@ const forked = (root: string, group: Array.NonEmptyReadonlyArray<Planned>) => {
         Effect.sync(() => fork(import.meta.filename, { cwd: dirname(resolve(root, config)), env: { ...env, ...MODE, NODE_ENV: env['NODE_ENV'] ?? MODE.NODE_ENV }, serialization: 'advanced' })),
         (child) => Effect.sync(() => child.send({ root, group })),
     );
-    return settled(group, request(started, Settled, `vitest run over ${config} stops before it reports`));
+    return settled(group, request(started, Settled, NxError.of({ _tag: 'Failed', step: 'vitest run' }, config)));
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

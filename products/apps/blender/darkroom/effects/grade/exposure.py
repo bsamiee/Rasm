@@ -137,7 +137,7 @@ def later(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneComp
     ordered = tuple(scene.compositor_effects)
     following = ordered[ordered.index(entry) + 1 :]
     return paired(
-        entry_input(identity, entry, LATER).bind(lambda held: id_path(held).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(held), member="value"))),
+        entry_input(identity, entry, LATER).bind(lambda held: id_path(held).to_result_with(lambda: Fault.of(Reason.ABSENT, held, member="value"))),
         _products(identity, tuple(held for held in exposure.entries(identity, scene) if held in following), frames),
     ).map(lambda pair: (Animation(path=(*pair[0], "value"), source=Keys(points=tuple(zip(frames, map(float, pair[1]))))),))
 

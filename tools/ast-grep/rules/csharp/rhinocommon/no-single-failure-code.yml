@@ -43,5 +43,4 @@ rule:
           all:
               - has: { field: expression, matches: coded }
               - has: { field: pattern, any: [{ kind: constant_pattern, has: { matches: code } }, { kind: negated_pattern, has: { kind: constant_pattern, has: { matches: code } } }] }
-message: '`$MEMBER` result compared with `$CODE` reads the other negative failure code as success'
-note: 'Test `<result> >= 0` for success and `<result> < 0` for failure'
+message: '`$MEMBER` result compared with `$CODE` reads the other negative failure code as success, test `<result> >= 0` for success and `<result> < 0` for failure'

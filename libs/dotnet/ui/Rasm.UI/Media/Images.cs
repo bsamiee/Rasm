@@ -61,7 +61,7 @@ public abstract partial record ImageSource {
             using SKCodec? codec = SKCodec.Create(data);
             return codec is { } read
                 ? new Encoded(data, read)
-                : new UIFault(data.Size, UIReason.Unreadable);
+                : Fault.Of(UIReason.Unreadable, data.Size);
         }
 
         internal static (SKSizeI Shown, SKMatrix Matrix) Oriented(SKEncodedOrigin origin, SKSizeI stored) =>
@@ -106,6 +106,6 @@ public sealed record GlyphSource {
 
     private static Fin<SKData> Read(Assembly assembly, string resource) {
         using Stream? stream = assembly.GetManifestResourceStream(resource);
-        return Optional(stream).ToFin(new UIFault(resource, UIReason.Missing)).Map(static held => SKData.Create(held));
+        return Optional(stream).ToFin(Fault.Of(UIReason.Missing, resource)).Map(static held => SKData.Create(held));
     }
 }

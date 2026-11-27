@@ -21,7 +21,7 @@ public sealed class ZBuffer {
     public IO<Bitmap> Grayscale => Products.Of(capture.GrayscaleDib);
 
     public IO<Seq<(System.Drawing.Point Pixel, float Depth, Point3d World)>> Samples(Seq<System.Drawing.Point> pixels) =>
-        IO.lift(() => Products.Each(pixels, (pixel, index) => RhinoFault.Unless(frame.Contains(pixel), RhinoReason.Outside, pixel, index))
+        IO.lift(() => Products.Each(pixels, (pixel, index) => Fault.Unless(frame.Contains(pixel), RhinoReason.Outside, pixel, index))
             .Map(_ => pixels.Map(pixel => (Pixel: pixel, Depth: capture.ZValueAt(pixel.X, pixel.Y), World: capture.WorldPointAt(pixel.X, pixel.Y))).Strict()));
 
     public static IO<TValue> Capture<TValue>(RhinoViewport viewport, Action<ZBufferCapture> setup, Func<ZBuffer, IO<TValue>> body) =>

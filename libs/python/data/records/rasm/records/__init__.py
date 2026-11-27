@@ -2,7 +2,7 @@
 
 __lazy_modules__ = frozenset({"rasm.records._faults", "rasm.records._fields", "rasm.records._stores", "rasm.records._trees"})
 
-from rasm.records._faults import accumulated, Fault, Faults, Outcome, paired, Reason, typed
+from rasm.records._faults import accumulated, Fault, Faults, Outcome, paired, Reason, shown, typed
 from rasm.records._fields import (
     amended,
     AtLeastOne,
@@ -80,6 +80,7 @@ __all__ = [
     "read",
     "removed",
     "revert",
+    "shown",
     "transfer",
     "typed",
     "words",

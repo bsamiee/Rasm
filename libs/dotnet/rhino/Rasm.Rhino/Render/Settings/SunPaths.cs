@@ -17,7 +17,7 @@ public sealed record SunPaths(Map<LocalTime, Seq<Seq<Point3d>>> Analemmas, SunCo
     // --- [PATHS]
 
     public static IO<SunPaths> Of(SunSite site, int year, Sphere dome) =>
-        from valid in IO.lift(() => RhinoFault.Unless(dome.IsValid, RhinoReason.Invalid, dome))
+        from valid in IO.lift(() => Fault.Unless(dome.IsValid, RhinoReason.Invalid, dome))
         let days = toSeq(new DateInterval(new LocalDate(year, 1, 1), new LocalDate(year, 12, 31)))
         let hours = toSeq(Range(0, NodaConstants.HoursPerDay)).Map(static hour => LocalTime.Midnight.PlusHours(hour))
         from grid in site.Observed(sun => days.Traverse(date => hours.Traverse(hour => SunSite.Universal(date.At(hour).WithOffset((Offset)site.Standard).ToInstant()).Map(utc => {

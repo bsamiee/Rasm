@@ -91,8 +91,8 @@ public abstract partial record ObjectTarget {
 
     // --- [WRITES]
 
-    public IO<Seq<Guid>> Each(RhinoDoc document, Func<RhinoObject, bool> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
-        Objects(document).Bind(found => IO.lift(Products.Each(found, (target, index) => call(target) ? Fin.Succ(target.Id) : new RhinoFault(member, RhinoReason.Declined, index))));
+    public IO<Seq<Guid>> Each(RhinoDoc document, Func<RhinoObject, bool> call, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
+        Objects(document).Bind(found => IO.lift(Products.Each(found, (target, index) => call(target) ? Fin.Succ(target.Id) : Fault.Of(RhinoReason.Declined, (member, line), index))));
 
     // --- [SELECTION]
 
@@ -104,6 +104,6 @@ public abstract partial record ObjectTarget {
         IO.lift(() => selected.Iter(static held =>
             held.Object.Select(on: true, syncHighlight: true, persistentSelect: held.Persistent, ignoreGripsState: true, ignoreLayerLocking: true, ignoreLayerVisibility: true)));
 
-    private static Fin<Seq<RhinoObject>> Located<TKey>(Seq<TKey> keys, Func<TKey, RhinoObject?> find, [CallerArgumentExpression(nameof(find))] string call = "") =>
-        Products.Each(keys, (key, index) => Conversions.Required(find(key), index, call));
+    private static Fin<Seq<RhinoObject>> Located<TKey>(Seq<TKey> keys, Func<TKey, RhinoObject?> find, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
+        Products.Each(keys, (key, index) => Conversions.Required(find(key), index, member: member, line: line));
 }

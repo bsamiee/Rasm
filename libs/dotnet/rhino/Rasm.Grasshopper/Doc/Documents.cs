@@ -27,7 +27,7 @@ public static class Solutions {
              ? IO.lift(() => document.Solution.StartWait(source, mode))
              : IO.liftAsync(() => document.Solution.Start(source, mode))
                  .Catch(static error => error.Is(Errors.Cancelled), _ => IO.fail<Solution>(Cancellation(nameof(SolutionServer.Start), token)))
-         from owned in IO.lift(RhinoFault.Unless(solution.Token == source.Token, RhinoReason.Taken, solution.Id))
+         from owned in IO.lift(Fault.Unless(solution.Token == source.Token, RhinoReason.Taken, solution.Id))
          from finished in IO.lift(Finished(document, solution, faults.Value.Find(solution.Id), token))
          select finished).Bracket();
 
@@ -49,14 +49,14 @@ public static class Solutions {
                where member.State?.RelevantId == solution.Id
                from message in toSeq(member.IterateOverAllMessages())
                where message.Level is MessageLevel.Error
-               select (Error)new RhinoFault($"{Conversions.Present(member.DisplayName).IfNone(member.Nomen.Name)}: {message.Text}", RhinoReason.Unfinished, Inner: Optional(message.Info).Filter(static info => info.Length > 0).Map(static info => Error.New(info))))) switch {
+               select (Error)Fault.Of(RhinoReason.Unfinished, (Conversions.Present(member.DisplayName).IfNone(member.Nomen.Name), message.Text), inner: Optional(message.Info).Filter(static info => info.Length > 0).Map(static info => Error.New(info))))) switch {
                    (SolutionPhase.Cancelled, _) => Cancellation(solution.Id.ToString(), token),
                    (SolutionPhase.Completed, { IsEmpty: true }) => solution,
-                   (var phase, var messages) => new RhinoFault($"solution {solution.Id} in {phase}", RhinoReason.Unfinished, Inner: messages.IsEmpty ? None : Some(Error.Many(messages))),
+                   (var phase, var messages) => Fault.Of(RhinoReason.Unfinished, (solution.Id, phase), inner: messages.IsEmpty ? None : Some(Error.Many(messages))),
                };
 
     private static Error Cancellation(string subject, CancellationToken token) =>
-        token.IsCancellationRequested ? Errors.Cancelled : new RhinoFault(subject, SolutionServer.EnableSolutions ? RhinoReason.Taken : RhinoReason.Declined);
+        token.IsCancellationRequested ? Errors.Cancelled : Fault.Of(SolutionServer.EnableSolutions ? RhinoReason.Taken : RhinoReason.Declined, subject);
 }
 
 public static class DocumentFiles {
@@ -69,12 +69,12 @@ public static class DocumentFiles {
              DocumentIO io = new(document: null, trackFiles, reportErrors: false, retainRoot: false, resolvePlugins);
              return io.Open(path, blocking, found => held.Swap(_ => Some(found))) ? Optional(io.Document) : None;
          })
-         from document in IO.lift((opened | held.Value).ToFin(new RhinoFault(path, RhinoReason.Unreadable)))
+         from document in IO.lift((opened | held.Value).ToFin(Fault.Of(RhinoReason.Unreadable, path)))
          select document)
-        | @catch(static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(), error => IO.fail<Document>(new RhinoFault(path, RhinoReason.Missing, Inner: error)))
+        | @catch(static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(), error => IO.fail<Document>(Fault.Of(RhinoReason.Missing, path, inner: error)))
         | @catch(
             static error => error.HasException<UnauthorizedAccessException>() || error.HasException<SecurityException>() || error.HasException<IOException>() || error.HasException<InvalidDataException>(),
-            error => IO.fail<Document>(new RhinoFault(path, RhinoReason.Unreadable, Inner: error)));
+            error => IO.fail<Document>(Fault.Of(RhinoReason.Unreadable, path, inner: error)));
 
     public static IO<Document> Open(DocumentBag bag, string path) =>
         from roots in IO.lift(() => toSeq(bag.All).Map(static stack => stack.Root).Strict())
@@ -121,7 +121,7 @@ public static class DocumentFiles {
     // --- [RELEASE]
 
     public static IO<Unit> Pop(DocumentBag bag, Document document, bool accept) =>
-        from head in IO.lift(() => RhinoFault.Unless(bag.All.Any(stack => stack.Head == document), RhinoReason.Missing, document))
+        from head in IO.lift(() => Fault.Unless(bag.All.Any(stack => stack.Head == document), RhinoReason.Missing, document))
         from hidden in IO.lift(() => { document.Display.Enabled = false; })
         from popped in IO.lift(() => ignore(bag.Pop(document, accept)))
         select unit;
@@ -134,7 +134,7 @@ public static class DocumentFiles {
          from cluster in DocumentEdits.Add(host, new Cluster { InnerDocument = inner, RelayMessages = true })
          from boundary in IO.lift(Boundary(cluster))
          from fed in IO.lift(inputs.ToSeq()
-             .Traverse(input => boundary.Inputs.Find(input.Key).ToFin(new RhinoFault(input.Key, RhinoReason.Missing)).Map(parameter => (Parameter: parameter, Tree: input.Value)))
+             .Traverse(input => boundary.Inputs.Find(input.Key).ToFin(Fault.Of(RhinoReason.Missing, input.Key)).Map(parameter => (Parameter: parameter, Tree: input.Value)))
              .As())
          from assigned in IO.lift(() => fed.Iter(static input => input.Parameter.PersistentDataWeak = input.Tree))
          from solved in Solutions.Run(host, SolutionMode.Headless)

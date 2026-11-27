@@ -41,7 +41,7 @@ public static class Documents {
                          : RhinoDoc.Open(opened.Path, out bool _))),
                  headless: static headless => headless.Template.Map(static template => (string)template) switch {
                      var template => Owned(IO.lift(() => Conversions.Required(RhinoDoc.CreateHeadless(Conversions.Unset(template))))
-                         .MapFail(error => error.HasException<ArgumentException>() ? new RhinoFault(Conversions.Unset(template), RhinoReason.Unreadable, Inner: error) : error)),
+                         .MapFail(error => error.HasException<ArgumentException>() ? Fault.Of(RhinoReason.Unreadable, Conversions.Unset(template), inner: error) : error)),
                  },
                  archive: static archive => Owned(IO.lift(() => Conversions.Required(RhinoDoc.OpenHeadless(archive.Path, archive.Options.ValueUnsafe())))))
              .OnUiThread().Uninterruptible()
@@ -77,8 +77,8 @@ public static class Documents {
     public static Fin<RhinoDoc> Scripted(RhinoDoc doc) =>
         Conversions.Required(RhinoDoc.FromRuntimeSerialNumber(doc.RuntimeSerialNumber))
             .Bind(static open => (
-                    RhinoFault.Unless(!Command.InCommand() || Command.InScriptRunnerCommand(), RhinoReason.Unavailable, Command.InCommand()),
-                    RhinoFault.Unless(!open.IsHeadless, RhinoReason.Unsupported, open.IsHeadless))
+                    Fault.Unless(!Command.InCommand() || Command.InScriptRunnerCommand(), RhinoReason.Unavailable, Command.InCommand()),
+                    Fault.Unless(!open.IsHeadless, RhinoReason.Unsupported, open.IsHeadless))
                 .Apply((_, _) => open)
                 .As());
 

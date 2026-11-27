@@ -19,10 +19,10 @@ namespace Rasm.Rhino.Viewport.Pages;
 [ValueObject<string>(EqualityComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads, ComparisonOperators = OperatorsGeneration.DefaultWithKeyTypeOverloads)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
-[ValidationError<RhinoFault>]
+[ValidationError<Fault<RhinoReason>>]
 public sealed partial class LayoutName {
-    static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
-        validationError = string.IsNullOrWhiteSpace(value) ? new RhinoFault(value, RhinoReason.Invalid) : null;
+    static partial void ValidateFactoryArguments(ref Fault<RhinoReason>? validationError, ref string value) =>
+        validationError = string.IsNullOrWhiteSpace(value) ? Fault.Of(RhinoReason.Invalid, value) : null;
 }
 
 public sealed record FrameStyle(LineGroup Lines, ComponentRef<Layer> Layer, ComponentRef<DimensionStyle> Lettering);
@@ -98,10 +98,10 @@ public static class Layouts {
 
     public static IO<PageViewGroup> Ensure(RhinoDoc doc, LayoutGroup grouping) =>
         from members in IO.lift(() => (Conversions.Unique(grouping.Members, identity),
-                grouping.Members.Traverse(name => Find(doc, name).ToFin(new RhinoFault(name, RhinoReason.Missing))).As())
+                grouping.Members.Traverse(name => Find(doc, name).ToFin(Fault.Of(RhinoReason.Missing, name))).As())
             .Apply(static (_, pages) => pages).As())
         from row in Rows.Find(doc.PageViewGroups, new ComponentRef<PageViewGroup>.ByName(grouping.Name))
-            | @catch(static error => error.Filter<RhinoFault>().Head is RhinoFault fault && fault.Reason == RhinoReason.Missing, _ => Add(doc, grouping.Name))
+            | @catch(static error => error.Filter<Fault<RhinoReason>>().Head is Fault<RhinoReason> fault && fault.Reason == RhinoReason.Missing, _ => Add(doc, grouping.Name))
         from described in IO.lift(() => grouping.Description.Iter(text => Update(row.Description, text, value => row.Description = value)))
         from left in IO.lift(() => toSeq(row.GetMembers().Except(members)).Iter(member => member.RemoveFromPageViewGroup(row.Index)))
         from placed in IO.lift(() => members.Iter((position, page) => Update(page.PageViewGroupSortIndex(row.Index), position, index => page.SetPageViewGroupSortIndex(row.Index, index))))
@@ -176,7 +176,7 @@ public static class Layouts {
         from placed in unless(present.Exists(mark => string.Equals(mark.Key, name, StringComparison.Ordinal)),
             GeometryPair.WithAttributes(doc.CreateDefaultAttributes, None, attributes => IO.lift(() => {
                 (attributes.LayerIndex, attributes.Space, attributes.ViewportId) = (layer.Index, ActiveSpace.PageSpace, page.MainViewport.Id);
-                return RhinoFault.Unless(attributes.SetUserString(FrameKey, name), RhinoReason.Declined, name)
+                return Fault.Unless(attributes.SetUserString(FrameKey, name), RhinoReason.Declined, name)
                     .Bind(Fin<Guid> (_) => Conversions.Required(Conversions.Present(doc.Objects.AddInstanceObject(definition, Transform.Identity, attributes))));
             })).Map(unit)).As()
         from purged in Products.Each(stale.Map(static mark => mark.Key).Distinct().Map(key => IO.lift(() => Optional(doc.InstanceDefinitions.Find(key))

@@ -99,7 +99,7 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
             """Names the copy and writes declared object mode and scene pin."""
             return (
                 catch(workspace.rename, exception=RuntimeError)(self.name, mode="NEVER")
-                .map_error(partial(Fault.of, Refusal.REFUSED, repr(workspace)))
+                .map_error(partial(Fault.of, Refusal.REFUSED, workspace))
                 .bind(
                     lambda _: accumulated((
                         *(written(workspace, ("object_mode",), mode) for mode in self.mode.to_list()),
@@ -122,7 +122,7 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
                     self.library
                     .map(lambda path: blocks_loaded(path, bpy.types.WorkSpace, (self.source,)).map(lambda blocks: Block.of_seq(blocks).try_head()))
                     .default_with(lambda: Ok(option.of_optional(bpy.data.workspaces.get(self.source)).bind(lambda source: option.of_optional(source.copy()))))
-                    .bind(lambda found: found.to_result_with(partial(Fault.of, Reason.ABSENT, repr(bpy.data.workspaces), member=self.source)))
+                    .bind(lambda found: found.to_result_with(partial(Fault.of, Reason.ABSENT, bpy.data.workspaces, member=self.source)))
                     .bind(copied)
                 )
 

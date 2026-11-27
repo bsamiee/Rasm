@@ -2969,9 +2969,6 @@ importers:
       '@rasm/database':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/data/database
-      '@rasm/mcp':
-        specifier: workspace:*
-        version: link:../../../../../libs/typescript/ai/mcp
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)

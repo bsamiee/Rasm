@@ -185,7 +185,7 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
             np.multiply(lit, reach[..., None], out=lit)
             return np.ascontiguousarray(lit, dtype=np.float32)
 
-        return formed().map_error(partial(Fault.of, Reason.FAILED, repr(self)))
+        return formed().map_error(partial(Fault.of, Reason.FAILED, self))
 
 
 class _Scattered(msgspec.Struct, frozen=True, kw_only=True):

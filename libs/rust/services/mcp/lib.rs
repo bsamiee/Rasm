@@ -1,5 +1,7 @@
 #![feature(error_reporter, lock_value_accessors, nonpoison_mutex, sync_nonpoison)]
-#![cfg_attr(feature = "app", feature(associated_type_defaults, default_field_values, integer_casts))]
+#![cfg_attr(feature = "app", feature(associated_type_defaults, default_field_values))]
+#![cfg_attr(any(feature = "app", feature = "proxy"), feature(integer_casts))]
+#![cfg_attr(feature = "proxy", feature(deref_patterns))]
 
 use core::future::{Ready, ready};
 use core::pin::pin;
@@ -100,10 +102,12 @@ pub use app::{
     resources::{IntoResourceContents, ResourceRouter},
     tools::Elicitation,
 };
-pub use error::{McpError, ToolError};
+pub use error::{McpError, Next, ToolError};
+#[cfg(feature = "proxy")]
+pub use error::{Part, Unrouted};
 #[cfg(feature = "proxy")]
 pub use proxy::{
-    History, IdleTimeout, Key, Lifecycle, Link, Liveness, Phase, Policy, Profile, Proxy, Status,
+    Cause, Exit, History, IdleTimeout, Key, Lifecycle, Link, Liveness, Phase, Policy, Profile, Proxy, Status,
     jsonrpc::{Envelope, Line, Lines, Message, Meta, Method, Params, decode, encoded, identity, refusal},
     pool::{Pool, Store},
     session::{Ended, Resumable},

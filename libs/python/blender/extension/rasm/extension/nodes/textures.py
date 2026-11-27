@@ -107,7 +107,7 @@ class Voronoi(NodeSettings, frozen=True, kw_only=True):
     def color_bounds(self) -> Outcome[tuple[float, float]]:
         """Returns [0, 1] for finite CPU Geometry Nodes colors in 1D with zero detail or roughness in F1, F2, or Smooth F1 with nonpositive smoothing; other settings return a fault."""
         bounded = self.voronoi_dimensions == "1D" and (self.detail == 0.0 or self.roughness == 0.0) and (self.feature in {"F1", "F2"} or (self.feature == "SMOOTH_F1" and self.smoothness <= 0.0))
-        return Ok((0.0, 1.0)) if bounded else Error(Fault.of(Reason.OUTSIDE, type(self).__name__, self, member="finite output bounds"))
+        return Ok((0.0, 1.0)) if bounded else Error(Fault.of(Reason.OUTSIDE, type(self), self, member="finite output bounds"))
 
 
 class Wave(NodeSettings, frozen=True, kw_only=True):
@@ -183,7 +183,7 @@ class MapRange(NodeSettings, frozen=True, kw_only=True):
         try:
             targets = np.asarray((self.to_min, self.to_max), dtype=np.float32)
             if not np.isfinite(targets).all():
-                return Error(Fault.of(Reason.OUTSIDE, type(self).__name__, self, member="finite binary32 targets"))
+                return Error(Fault.of(Reason.OUTSIDE, type(self), self, member="finite binary32 targets"))
             a, b = (rounded(value) for value in targets)
             match self.interpolation_type:
                 case "LINEAR" | "STEPPED" if self.clamp:
@@ -194,11 +194,11 @@ class MapRange(NodeSettings, frozen=True, kw_only=True):
                     product = rounded(delta[:, None] * np.asarray((0.0, factor), dtype=np.float32))
                     span = rounded(a[:, None] + product)
                 case _:
-                    return Error(Fault.of(Reason.OUTSIDE, type(self).__name__, self, member="finite output bounds"))
+                    return Error(Fault.of(Reason.OUTSIDE, type(self), self, member="finite output bounds"))
             low, high = span
             return Ok((float(low), float(high)))
         except FloatingPointError as error:
-            return Error(Fault.of(Reason.FAILED, repr(self), error))
+            return Error(Fault.of(Reason.FAILED, self, error))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

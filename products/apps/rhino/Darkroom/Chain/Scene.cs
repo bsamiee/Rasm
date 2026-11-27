@@ -60,14 +60,14 @@ internal sealed record ChainScene {
             .As();
 
     private static Fin<ViewWindow> Window(ViewportInfo viewport, double meters) =>
-        DarkroomFault.Unless(viewport.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out _), DarkroomReason.Invalid, viewport.Id)
+        Fault.Unless(viewport.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out _), DarkroomReason.Invalid, viewport.Id)
             .Bind(_ => (float)(viewport.IsParallelProjection ? meters : 1d / near) switch {
                 var scale => ViewWindow.Validated(new Vector2((float)(left + right) / 2f, (float)(bottom + top) / 2f) * scale, new Vector2((float)(right - left), (float)(top - bottom)) * scale),
             });
 
     private static Fin<Matrix4x4> Pose(Transform xform, double meters) =>
         (xform with { M03 = xform.M03 * meters, M13 = xform.M13 * meters, M23 = xform.M23 * meters }).ToFloatArray(rowDominant: false) switch {
-            var entries => DarkroomFault.Unless(xform.IsValid && entries.All(float.IsFinite), DarkroomReason.Invalid, xform).Map(_ => MemoryMarshal.Cast<float, Matrix4x4>(entries.AsSpan())[0]),
+            var entries => Fault.Unless(xform.IsValid && entries.All(float.IsFinite), DarkroomReason.Invalid, xform).Map(_ => MemoryMarshal.Cast<float, Matrix4x4>(entries.AsSpan())[0]),
         };
 
     private static Fin<SceneLights> Lit(RhinoDoc doc, Option<Vector3d> sun, double meters) =>
@@ -85,6 +85,6 @@ internal sealed record ChainScene {
         };
 
     private static Fin<Vector3> Numeric(Vector3d vector) =>
-        DarkroomFault.Unless(vector.IsValid && Seq(vector.X, vector.Y, vector.Z).ForAll(static value => double.Abs(value) <= float.MaxValue), DarkroomReason.Invalid, vector)
+        Fault.Unless(vector.IsValid && Seq(vector.X, vector.Y, vector.Z).ForAll(static value => double.Abs(value) <= float.MaxValue), DarkroomReason.Invalid, vector)
             .Map(_ => new Vector3((float)vector.X, (float)vector.Y, (float)vector.Z));
 }

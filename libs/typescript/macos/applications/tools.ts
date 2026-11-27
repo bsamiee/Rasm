@@ -20,7 +20,7 @@ import { Outline } from '#/outline';
 import { Diagnostics, type Pressure } from '#/processes';
 import { type Declaration, Description, type SourceRpcs } from '#/source';
 import { Act } from '#/steps';
-import { describeUsage, type Entry, follow, Proving, Workspace } from '#/workspace';
+import { describeUsage, type Entry, Hold, hold, Indexed, Proving, untarget, Workspace } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -193,7 +193,6 @@ class Interned extends Request.TaggedClass('Interned')<{ readonly instance: Inst
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const Viewed = Context.Reference<Option.Option<Placement>>('@rasm/applications/tools/Viewed', { defaultValue: Option.none });
-const Indexed = Context.Reference<Option.Option<{ readonly instance: InstanceSnapshot['instance']; readonly index: Index }>>('@rasm/applications/tools/Indexed', { defaultValue: Option.none });
 const Clip = Context.Reference<Option.Option<{ readonly seconds: number; readonly frames: number }>>('@rasm/applications/tools/Clip', { defaultValue: Option.none });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -506,7 +505,7 @@ const done = ({ verb, object }: Phrase) => `${VERBS[verb][0]} ${object}`;
 const provingOf =
     (instance: string) =>
     ([{ label }, outcome]: readonly [{ readonly label: Phrase }, Acted['outcomes'][number]]) =>
-        Result.match(outcome, { onFailure: Array.empty, onSuccess: ({ followed }) => Array.fromNullishOr(followed).map((held) => [`${instance} ${held}`, done(label)] as const) });
+        Result.match(outcome, { onFailure: Array.empty, onSuccess: ({ followed }) => Array.fromNullishOr(followed).map((held) => [`${instance} ${held}`, `${VERBS[label.verb][2]} ${label.object}`] as const) });
 const unseen = ({ target, token }: Item) => (target._tag === 'Control' && target.control.frame === undefined && target.container.frame !== undefined ? Option.map(token, (at) => `${at} ${Outline.say.unseen} - act {steps:[{pointer:${JSON.stringify(at)}, button:"none"}]}`) : Option.none());
 const aimOf = (step: object) => Option.filter(Option.firstSomeOf(['pointer' in step ? Option.some(step.pointer) : Option.none(), 'at' in step ? Option.fromUndefinedOr(step.at) : Option.none()]), Predicate.isNumber);
 const describeOutcome = (phrase: Phrase, read: Index) =>
@@ -656,7 +655,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
     readonly toolsOf?: (row: Entry) => Effect.Effect<Declaration, E5, R5>;
 } = {}): Effect.fn.Return<void, never, ApplicationServer | Workspace | InterfaceMaps | Output | McpServer.McpServer | Context.Service.Identifier<typeof Side> | Exclude<R1 | R2 | R3 | R4 | R5, McpSchema.McpRequestContext>> {
     const [server, workspace, maps, side, output] = yield* Effect.all([ApplicationServer, Workspace, InterfaceMaps, Side, Output]);
-    const { catalog, running, changes, session, pressure, target, setTarget, resolve, current, ends } = workspace;
+    const { catalog, running, changes, session, pressure, target, setTarget, resolve, current, ends, awaited } = workspace;
     const routed = yield* Ref.make(Record.empty<string, Record.ReadonlyRecord<string, Description['containers'][number]['locator']>>());
     const linked = (row: Entry) => Effect.flatMap(Effect.fromNullishOr(sourceOf), (from) => from(row));
     const routeOf = (instance: InstanceSnapshot['instance']) =>
@@ -747,7 +746,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             return Predicate.isTupleOf(defaults, 1) ? defaults[0].url.href : yield* new Cause.IllegalArgumentError(refusal);
         });
         const row = yield* Effect.flatMap(UndefinedOr.match(given, { onUndefined: () => handler, onDefined: Effect.succeed }), resolve);
-        const { instance, created, replaced, opened, failed } = yield* server.runLaunch({ url: row.url, documents: urls, ...launch }, Option.map(Option.fromUndefinedOr(wait), Duration.seconds));
+        const { instance, created, replaced, opened, failed } = yield* server.runLaunch({ url: row.url, documents: urls, ...launch }, Option.map(Option.fromUndefinedOr(wait), Duration.seconds), (launched) => hold([Hold.Launching({ instance: launched.instance, name: row.name })]));
         const live = yield* setTarget({ row, instance });
         const front = activate ? Option.some(yield* server.activate({ instance })) : Option.none();
         const [reply, read] = yield* Effect.all([Effect.transposeOption(Option.map(opened, Schema.encodeEffect(Reply))), Effect.result(modelled({ row, live }))]);
@@ -770,7 +769,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             ...failed.map(({ subject, reason, message }) => [`After launch, ${subject} failed, ${reason}`, ...Array.fromNullishOr(message)].join(': ')),
             ...shown,
         ].join('\n');
-    });
+    }, Effect.scoped);
     const close = Effect.fnUntraced(function* (given: string | undefined, { wait, ...quitting }: Pick<Tool.Parameters<typeof TOOLS.applications>, 'mode' | 'wait'>) {
         const [instances, { followed }, chosen, runs] = yield* Effect.all([SubscriptionRef.get(running), target, Effect.transposeOption(Option.map(Option.fromUndefinedOr(given), resolve)), workspace.instancesOf]);
         const found = Option.map(chosen, runs);
@@ -786,8 +785,10 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
         yield* Array.isReadonlyArrayEmpty(quit) ? new Cause.NoSuchElementError(refusal) : Effect.void;
         const home = Option.getOrUndefined(Option.map(chosen, ({ url }) => url.href));
         const bound = UndefinedOr.match(wait, { onUndefined: () => Duration.infinity, onDefined: Duration.seconds });
-        yield* Effect.forEach(quit, (each) => follow(each.instance, true), { discard: true });
+        yield* hold(quit.map(({ instance }) => Hold.Quitting({ instance })));
         const outcomes = yield* Effect.forEach(quit, (each) => Effect.result(Effect.timeoutOption(server.quit({ instance: each.instance, ...quitting }), bound)), { concurrency: 'unbounded' });
+        const gone = new Set(Array.zip(quit, outcomes).flatMap(([each, outcome]) => (outcome.pipe(Result.getSuccess, Option.flatten, Option.exists(InstanceState.isAnyOf(['exited']))) ? [each.instance] : [])));
+        yield* untarget(gone);
         return Array.zipWith(quit, outcomes, (each, outcome) =>
             [
                 [instanceName(each), ...(home === undefined || home === each.url.href ? [] : [`from ${fileURLToPath(each.url)}`])].join(' '),
@@ -804,7 +805,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                 }),
             ].join(' '),
         ).join('\n');
-    });
+    }, Effect.scoped);
     const facets = Effect.fnUntraced(function* ({ row, live, live: { instance } }: Effect.Success<typeof current>, from: Linked, model: Model, payload: { readonly within?: Description['containers'][number]['locator'] }) {
         const [described, tools] = yield* Effect.all([from('describe', payload), toolsOf(row)]);
         const { model: composed, routes } = yield* Description.compose(model, yield* maps.learn(live, Description.fold(described, tools)), (locators) => server.intern({ instance, locators }));
@@ -927,7 +928,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
         return [{ line: `Rendered ${Outline.named(title)}`, image: Option.some({ png, placement: Option.none<Placement>() }) }];
     });
     const run: Scripting<Error, R1 | ApplicationServer> = scripts ?? runScript;
-    yield* Server.registerTool(describeTool(TOOLS.applications, descriptions.applications), ({ action = 'list', application, ...given }) =>
+    yield* Server.registerTool(describeTool(TOOLS.applications, descriptions.applications).annotateMerge(awaited), ({ action = 'list', application, ...given }) =>
         Match.value(action).pipe(
             Match.when('list', () => list(application, given.documents)),
             Match.when('open', () => open(application, Struct.omit(given, ['mode']))),
@@ -959,7 +960,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             );
             yield* attach(taken);
             return taken.map(Struct.get('line')).join('\n');
-        }),
+        }, Effect.scoped),
     );
     yield* Server.registerTool(
         describeTool(TOOLS.inspect, descriptions.inspect),
@@ -1095,7 +1096,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                 ...Option.toArray(Option.map(unloaded, (held) => `${held.in}, rows after ${held.after} not loaded - ${scrolling(held.in)}`)),
                 ...Option.toArray(Option.map(answer, ({ asking, ref }) => `${asking} ${Outline.say.asking}, act {steps:[{at:"${Address.token('action', ref)}"}]} gives it`)),
             ].join('\n');
-        }),
+        }, Effect.scoped),
     );
     yield* Server.registerTool(
         describeTool(TOOLS.act, descriptions.act),
@@ -1218,7 +1219,7 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
             });
             const proving = Array.zip(ready, outcomes).flatMap(provingOf(live.instance));
             const handle = yield* Handle;
-            yield* handle.set(Proving, { ...(yield* handle.get(Proving)), ...Record.fromEntries(proving) });
+            yield* handle.update(Proving, (held) => ({ ...held, ...Record.fromEntries(proving) }));
             yield* ToolCall.use(Struct.get('awaitRunning'));
             return [
                 ...Array.zip(ready, outcomes).map(([entry, outcome], index) => [...(ready.length > 1 ? [`${index + 1}.`] : []), describeOutcome(entry.label, base)(outcome)].join(' ')),
@@ -1231,9 +1232,9 @@ const register = Effect.fnUntraced(function* <E1 extends Error = never, R1 = nev
                 ...Option.toArray(clipboard).map(Result.match({ onFailure: ({ message }) => `The clipboard could not be read: ${message}`, onSuccess: Function.identity })),
                 ...frames.map(Struct.get('line')),
             ].join('\n');
-        }),
+        }, Effect.scoped),
     );
-    yield* Server.registerTool(describeTool(TOOLS.execute_script, descriptions.execute_script).annotateMerge(ends), ({ code }) => Effect.flatMap(current, (aim) => run(aim, code)));
+    yield* Server.registerTool(describeTool(TOOLS.execute_script, descriptions.execute_script).annotateMerge(ends), ({ code }) => Effect.scoped(Effect.flatMap(current, (aim) => run(aim, code))));
     yield* Server.registerTool(
         describeTool(TOOLS.diagnostics, descriptions.diagnostics),
         Effect.fnUntraced(function* ({ application, ...query }) {

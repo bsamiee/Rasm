@@ -222,7 +222,6 @@ class HostError extends Schema.TaggedError<HostError, { readonly brand: unique s
 - Refusal messages name received and accepted kinds and a bound's range solved from the operation's relation
 - Names in text read their owner (a reason's `_tag`, a constructor's `name`, `Struct.keys(X.fields)`, `X.literals`, a tool's `name`), a literal copy drifting
 - Hosts printing `message` alone (Nx without `--verbose`, an MCP `isError` result) take the cause from one boundary printing `Formatter.format(error)` or `Cause.pretty`
-- Library errors name what failed and why, the layer owning tools or commands adds the remedy or next call, and no library names a product
 - Values no package error owns (an entry script's refusal) fail with `new Cause.UnknownError(value, message)`, the message naming the refusal
 - Messages render a field through its module's format member and a schema-typed record through `Schema.encodeResult(Schema.fromJsonString(Schema.toCodecJson(S)))`, never `String`
 - Pure checks return finding lists joined into one error over `Schema.NonEmptyArray(Finding)`, its `raise` static failing on a non-empty list

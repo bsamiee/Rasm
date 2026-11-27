@@ -254,7 +254,7 @@ def _rebuilt[R: Curves | HueCurves](record: R, curves: tuple[Knots, ...]) -> Out
     try:
         return Ok(msgspec.structs.replace(record, curves=curves))
     except ValueError as error:
-        return Error(Fault.of(Reason.OUTSIDE, type(record).__name__, error, member="curves"))
+        return Error(Fault.of(Reason.OUTSIDE, type(record), error, member="curves"))
 
 
 # --- [EDITORS]

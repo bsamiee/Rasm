@@ -137,7 +137,7 @@ def displayed_frame(identity: Identity, scene: bpy.types.Scene, plane: npt.NDArr
     def tagged(view: DisplayView) -> Outcome[ImageFile]:
         return paired(
             converted(config, PyOpenColorIO.ColorSpaceTransform(src=source, dst=PyOpenColorIO.ROLE_SCENE_LINEAR), plane),
-            view.colorspace(config).to_result_with(partial(Fault.of, Reason.ABSENT, repr(config), member=f"{view.display}/{view.view}")),
+            view.colorspace(config).to_result_with(partial(Fault.of, Reason.ABSENT, config, member=f"{view.display}/{view.view}")),
         ).map(lambda found: ImageFile(pixels=found[0], colorspace=found[1].getName()))
 
     return formed_view(identity, scene).bind(lambda held: held.map(tagged).default_with(lambda: viewed(scene).image(config, plane, source)))

@@ -60,11 +60,11 @@ public static class Conversions {
     public static Seq<T> Rows<T>(IEnumerable<T?>? rows) =>
         Optional(rows).ToSeq().Bind(static held => held.AsIterable().Choose(static row => Optional(row)).ToSeq()).Strict();
 
-    public static Fin<Seq<TRow>> Unique<TRow, TKey>(Seq<TRow> rows, Func<TRow, TKey> key, IEqualityComparer<TKey>? comparer = null, [CallerArgumentExpression(nameof(rows))] string call = "")
+    public static Fin<Seq<TRow>> Unique<TRow, TKey>(Seq<TRow> rows, Func<TRow, TKey> key, IEqualityComparer<TKey>? comparer = null)
         where TKey : notnull =>
         toSeq(rows.CountBy(key, comparer))
             .Filter(static counted => counted.Value > 1)
-            .Traverse(counted => Fin.Fail<Unit>(new RhinoFault((counted.Key, Source: call), RhinoReason.Repeated)))
+            .Traverse(static counted => Fin.Fail<Unit>(Fault.Of(RhinoReason.Repeated, counted.Key)))
             .As()
             .Map(_ => rows);
 
@@ -74,49 +74,49 @@ public static class Conversions {
 
     public static Option<LocalDateTime> Present(DateTime? value) => Optional(value).Bind(Present);
 
-    public static Fin<int> Whole(Duration span, Duration step, [CallerArgumentExpression(nameof(span))] string call = "") =>
+    public static Fin<int> Whole(Duration span, Duration step) =>
         step > Duration.Zero && Int128.DivRem(span.ToInt128Nanoseconds(), step.ToInt128Nanoseconds()) is var (count, remainder) && remainder == 0 && count >= 0 && count <= int.MaxValue
             ? (int)count
-            : new RhinoFault(call, RhinoReason.Outside);
+            : Fault.Of(RhinoReason.Outside, (span, step));
 
     // --- [BOUNDS]
 
-    public static Fin<Unit> Within(int index, int itemCount, [CallerArgumentExpression(nameof(index))] string call = "") =>
-        index >= 0 && index < itemCount ? unit : new RhinoFault(call, RhinoReason.Outside, index);
+    public static Fin<Unit> Within(int index, int itemCount) =>
+        index >= 0 && index < itemCount ? unit : Fault.Of(RhinoReason.Outside, itemCount, index);
 
-    public static Fin<double> Within(Interval domain, double parameter, [CallerArgumentExpression(nameof(parameter))] string call = "") =>
-        domain.IncludesParameter(parameter) ? parameter : new RhinoFault(call, RhinoReason.Outside);
+    public static Fin<double> Within(Interval domain, double parameter) =>
+        domain.IncludesParameter(parameter) ? parameter : Fault.Of(RhinoReason.Outside, (domain, parameter));
 
     // --- [TYPES]
 
-    public static Fin<T> Cast<T>(object? value, [CallerArgumentExpression(nameof(value))] string call = "") where T : notnull =>
-        value is T typed ? typed : new RhinoFault(call, RhinoReason.Mismatched);
+    public static Fin<T> Cast<T>(object? value, object? subject = null) where T : notnull =>
+        value is T typed ? typed : Fault.Of(RhinoReason.Mismatched, subject is null ? (value?.GetType(), typeof(T)) : (subject, value?.GetType(), typeof(T)));
 
     // --- [VALUES]
 
     public static Option<T> Present<T>(bool present, T value) => present ? Some(value) : None;
 
-    public static Fin<T> Required<T>(T? value, Option<int> index = default, [CallerArgumentExpression(nameof(value))] string call = "") where T : class =>
-        value is { } held ? held : new RhinoFault(call, RhinoReason.Missing, index);
+    public static Fin<T> Required<T>(T? value, Option<int> index = default, object? subject = null, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) where T : class =>
+        value is { } held ? held : Fault.Of(RhinoReason.Missing, subject ?? (member, line), index);
 
-    public static Fin<T> Required<T>(T? value, Option<int> index = default, [CallerArgumentExpression(nameof(value))] string call = "") where T : struct =>
-        value is { } held ? held : new RhinoFault(call, RhinoReason.Missing, index);
+    public static Fin<T> Required<T>(T? value, Option<int> index = default, object? subject = null, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) where T : struct =>
+        value is { } held ? held : Fault.Of(RhinoReason.Missing, subject ?? (member, line), index);
 
-    public static Fin<T> Required<T>(Option<T> value, Option<int> index = default, [CallerArgumentExpression(nameof(value))] string call = "") =>
-        value.ToFin(new RhinoFault(call, RhinoReason.Missing, index));
+    public static Fin<T> Required<T>(Option<T> value, Option<int> index = default, object? subject = null, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
+        value.ToFin(Fault.Of(RhinoReason.Missing, subject ?? (member, line), index));
 
-    public static Fin<Unit> Unreported(string? report, [CallerArgumentExpression(nameof(report))] string call = "") =>
-        string.IsNullOrEmpty(report) ? unit : new RhinoFault(call, RhinoReason.Declined, Inner: Error.New(report));
+    public static Fin<Unit> Unreported(string? report, [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
+        string.IsNullOrEmpty(report) ? unit : Fault.Of(RhinoReason.Declined, (member, line), inner: Error.New(report));
 
     public static bool Same(Color held, Color wanted) => held.ToArgb() == wanted.ToArgb();
 
     // --- [HOOKS]
 
-    public static RhinoFault? Rejection<T>(Fin<T> result) =>
-        result.Match<RhinoFault?>(Succ: static _ => null, Fail: static error =>
-            error.Filter<RhinoFault>().Head is RhinoFault failure && error.Count is 1 ? failure : new RhinoFault(typeof(T), RhinoReason.Invalid, Inner: error));
+    public static Fault<RhinoReason>? Rejection<T>(Fin<T> result) =>
+        result.Match<Fault<RhinoReason>?>(Succ: static _ => null, Fail: static error =>
+            error.Filter<Fault<RhinoReason>>().Head is Fault<RhinoReason> failure && error.Count is 1 ? failure : Fault.Of(RhinoReason.Invalid, typeof(T), inner: error));
 
-    internal static RhinoFault? Validate<T>(string? value, Func<string, Fin<T>> validated, out T? item) where T : class {
+    internal static Fault<RhinoReason>? Validate<T>(string? value, Func<string, Fin<T>> validated, out T? item) where T : class {
         Fin<Option<T>> parsed = Optional(value).Traverse(validated).As();
         item = parsed.ToOption().Bind(static held => held).ValueUnsafe();
         return Rejection(parsed);

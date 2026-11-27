@@ -139,7 +139,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
         return (
             catch(Capture[Value](owner, stored, selection, owned=owned, inactive=inactive).tree, exception=ReferenceError)()
-            .map_error(partial(Fault.of, Refusal.REFUSED, repr(owner)))
+            .map_error(partial(Fault.of, Refusal.REFUSED, owner))
             .map(lambda tree: cls(struct=rna_definition(owner).identifier, tree=tree))
         )
 
@@ -151,7 +151,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             case self.struct:
                 return applied_tree(owner, self.tree, lambda _, value: value)
             case identifier:
-                return Applied.refused(Fault.of(Reason.OUTSIDE, repr(owner), self.struct, member=identifier))
+                return Applied.refused(Fault.of(Reason.OUTSIDE, owner, self.struct, member=identifier))
 
     def selection(self, owner: Native) -> tuple[Descriptor, ...]:
         """Resolves members and compound roots assigned on owner."""
@@ -202,7 +202,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             return sparse, matching
 
         return accumulated(
-            Ok(snapshot).filter_with(lambda held: held.struct == identifier, lambda held: Fault.of(Reason.OUTSIDE, repr(owner), held.struct, member=identifier)) for snapshot in (self, current)
+            Ok(snapshot).filter_with(lambda held: held.struct == identifier, lambda held: Fault.of(Reason.OUTSIDE, owner, held.struct, member=identifier)) for snapshot in (self, current)
         ).map(lambda _: split())
 
     # --- [TEXT]
@@ -213,7 +213,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         return msgspec.json.encode(self, order="deterministic").decode()
 
     @staticmethod
-    def parsed(subject: str, text: str) -> Outcome["Snapshot"]:
+    def parsed(subject: object, text: str) -> Outcome["Snapshot"]:
         """Returns the snapshot JSON text holds, unreadable fault over subject for text no snapshot wrote."""
         return catch(SNAPSHOT_DECODER.decode, exception=msgspec.DecodeError)(text).map_error(partial(Fault.of, Reason.UNREADABLE, subject))
 
@@ -588,7 +588,7 @@ def applied_tree[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: C
                     return changed(items, path, rows, lambda grown, _: grown.add(), indexed=True).map_error(partial(Fault.of, Refusal.REFUSED, subject)).default_with(Applied.refused)
                 case None, _:
                     present = sum(item is not None for item in items)
-                    return Applied() if present == len(rows) else Applied.refused(Fault.of(Reason.OUTSIDE, subject, str(len(rows)), member=str(present)))
+                    return Applied() if present == len(rows) else Applied.refused(Fault.of(Reason.OUTSIDE, subject, len(rows), member=present))
                 case adding, _:
                     return changed(items, path, rows, adding, indexed=False).map_error(partial(Fault.of, Refusal.REFUSED, subject)).default_with(Applied.refused)
 
@@ -651,7 +651,7 @@ def applied_tree[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: C
             if leading.outcome.is_ok():
                 yield from (located(key, outcomes) for key in tree.roots)
         except ReferenceError as error:
-            reports.append(Applied.refused(Fault.of(Refusal.REFUSED, repr(owner), error)))
+            reports.append(Applied.refused(Fault.of(Refusal.REFUSED, owner, error)))
         else:
             reports.append(Applied.join(outcomes))
 
@@ -671,7 +671,7 @@ def assigned(root: Struct, members: Mapping[RnaPath, Value]) -> Outcome[None]:
         Faults of every refused write and of every path naming no member, accumulated.
     """
     written = Snapshot.of(type(root), members).apply(root)
-    return accumulated((written.outcome, *(Error(Fault.of(Reason.ABSENT, repr(root), member=rna(path))) for path in written.skipped))).map(lambda _: None)
+    return accumulated((written.outcome, *(Error(Fault.of(Reason.ABSENT, root, member=rna(path))) for path in written.skipped))).map(lambda _: None)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

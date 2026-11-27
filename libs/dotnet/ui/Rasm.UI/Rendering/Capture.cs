@@ -28,7 +28,7 @@ public static class Capture {
     public static Fin<SKImage> Image(Host host, StyleSheet sheet, View node, float scale, Shaping shaping, SKImageInfo format) =>
         Mount.Create(host, sheet, node, shaping).Bind(mount => {
             SKImageInfo info = Info(mount.Scene.Layout.Frame.Size, scale, mount.Scene.Extended, format);
-            Fin<SKImage> image = Optional(SKSurface.Create(info, Scaled)).ToFin(new UIFault(info, UIReason.Refused)).Bind(surface => {
+            Fin<SKImage> image = Optional(SKSurface.Create(info, Scaled)).ToFin(Fault.Of(UIReason.Refused, info)).Bind(surface => {
                 using SKSurface owned = surface;
                 owned.Canvas.Scale(scale);
                 return Painted(owned.Canvas, mount, scale, format).Map(_ => owned.Snapshot());

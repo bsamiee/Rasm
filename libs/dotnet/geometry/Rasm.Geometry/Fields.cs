@@ -17,7 +17,7 @@ public sealed record Bounds {
         };
 
     public static Fin<Bounds> Validated(Vector3D<double> min, Vector3D<double> max) =>
-        (GeometryFault.Unless(min.IsFinite && max.IsFinite, GeometryRule.Range, (min, max)), GeometryFault.Unless(min.X <= max.X && min.Y <= max.Y && min.Z <= max.Z, GeometryRule.Order, (min, max)))
+        (Fault.Unless(min.IsFinite && max.IsFinite, GeometryRule.Range, (min, max)), Fault.Unless(min.X <= max.X && min.Y <= max.Y && min.Z <= max.Z, GeometryRule.Order, (min, max)))
             .Apply((_, _) => new Bounds(min, max)).As();
 
     private static Vector3D<double> Each(Vector3D<double> a, Vector3D<double> b, Func<double, double, double> pick) => new(pick(a.X, b.X), pick(a.Y, b.Y), pick(a.Z, b.Z));
@@ -55,7 +55,7 @@ public abstract partial record ScalarField {
         public override double Distance(Vector3D<double> point) => (point - Origin).Dot(Normal);
 
         public static Fin<HalfSpace> Validated(Vector3D<double> origin, Vector3D<double> normal) =>
-            (GeometryFault.Unless(origin.IsFinite, GeometryRule.Range, origin), GeometryFault.Unless(normal.Length() is var length && double.IsFinite(length) && length > 0d, GeometryRule.Degenerate, normal))
+            (Fault.Unless(origin.IsFinite, GeometryRule.Range, origin), Fault.Unless(normal.Length() is var length && double.IsFinite(length) && length > 0d, GeometryRule.Degenerate, normal))
                 .Apply((_, _) => new HalfSpace(origin, normal.Normalize())).As();
     }
 
@@ -67,7 +67,7 @@ public abstract partial record ScalarField {
         public override double Distance(Vector3D<double> point) => (point - Center).Length() - Radius;
 
         public static Fin<Ball> Validated(Vector3D<double> center, double radius) =>
-            (GeometryFault.Unless(center.IsFinite, GeometryRule.Range, center), GeometryFault.Unless(double.IsFinite(radius) && radius > 0d, GeometryRule.Range, radius))
+            (Fault.Unless(center.IsFinite, GeometryRule.Range, center), Fault.Unless(double.IsFinite(radius) && radius > 0d, GeometryRule.Range, radius))
                 .Apply((_, _) => new Ball(center, radius)).As();
     }
 
@@ -94,7 +94,7 @@ public abstract partial record ScalarField {
         public override Option<double> Constant => Value;
         public override double Distance(Vector3D<double> point) => Value;
 
-        public static Fin<Uniform> Validated(double value) => GeometryFault.Unless(double.IsFinite(value), GeometryRule.Range, value).Map(_ => new Uniform(value));
+        public static Fin<Uniform> Validated(double value) => Fault.Unless(double.IsFinite(value), GeometryRule.Range, value).Map(_ => new Uniform(value));
     }
 
     // --- [COMBINATORS]
@@ -111,7 +111,7 @@ public abstract partial record ScalarField {
         public override Option<Bounds> Bounds => from a in A.Bounds from b in B.Bounds from inflated in a.Union(b).Inflated(Radius / 4d).ToOption() select inflated;
         public override double Distance(Vector3D<double> point) => (A.Distance(point), B.Distance(point)) switch { var (a, b) => double.Max(Radius - double.Abs(a - b), 0d) switch { var overlap => double.Min(a, b) - (overlap * overlap / (4d * Radius)) } };
 
-        public static Fin<Blend> Validated(ScalarField a, ScalarField b, double radius) => GeometryFault.Unless(double.IsFinite(radius) && radius > 0d, GeometryRule.Range, radius).Map(_ => new Blend(a, b, radius));
+        public static Fin<Blend> Validated(ScalarField a, ScalarField b, double radius) => Fault.Unless(double.IsFinite(radius) && radius > 0d, GeometryRule.Range, radius).Map(_ => new Blend(a, b, radius));
     }
 
     public sealed record Offset(ScalarField Field, ScalarField Amount) : ScalarField { public override Option<Bounds> Bounds => from amount in Amount.Constant from bounds in Field.Bounds from inflated in bounds.Inflated(double.Max(amount, 0d)).ToOption() select inflated; public override double Distance(Vector3D<double> point) => Field.Distance(point) - Amount.Distance(point); }
@@ -128,6 +128,6 @@ public abstract partial record ScalarField {
         public override double Distance(Vector3D<double> point) => Scale * Field.Distance(Inverse.Apply(point));
 
         public static Fin<Moved> Of(ScalarField field, AffineMap map, double tolerance) =>
-            map.UniformScale(tolerance).ToFin(new GeometryFault(map, GeometryRule.Distortion)).Map(scale => new Moved(field, map, scale));
+            map.UniformScale(tolerance).ToFin(Fault.Of(GeometryRule.Distortion, map)).Map(scale => new Moved(field, map, scale));
     }
 }

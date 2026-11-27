@@ -200,7 +200,7 @@ class Reports(AbstractContextManager["Reports"]):
         Returns:
             Ok, `UNWRITABLE` fault for a log folder refusing creation, the log file closed.
         """
-        return catch(self._opened, exception=OSError)(settings, collector).map_error(functools.partial(Fault.of, Reason.UNWRITABLE, str(self.path)))
+        return catch(self._opened, exception=OSError)(settings, collector).map_error(functools.partial(Fault.of, Reason.UNWRITABLE, self.path))
 
     @contextmanager
     def commanded(self, command: str, /) -> Generator[None]:
@@ -327,7 +327,7 @@ def _level(fault: Fault, /) -> "rna_enums.WmReportItems":
     match fault.reason:
         case Reason.OUTSIDE | Reason.INVALID | Reason.ABSENT | Refusal.TAKEN:
             return "ERROR_INVALID_INPUT"
-        case Refusal.REQUIRED:
+        case Refusal.REQUIRED | Reason.UNMET:
             return "ERROR_INVALID_CONTEXT"
         case _:
             return "ERROR"

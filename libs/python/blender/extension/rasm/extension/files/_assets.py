@@ -111,7 +111,7 @@ class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
         block.asset_mark()
         if block.preview is None:
             block.asset_generate_preview()
-        return option.of_optional(block.asset_data).map(applied).default_with(lambda: Error(Fault.of(Reason.ABSENT, repr(block), member="asset_data")))
+        return option.of_optional(block.asset_data).map(applied).default_with(lambda: Error(Fault.of(Reason.ABSENT, block, member="asset_data")))
 
 
 class UserLibrary(msgspec.Struct, frozen=True, kw_only=True):
@@ -150,8 +150,8 @@ class UserLibrary(msgspec.Struct, frozen=True, kw_only=True):
                     .filter(lambda row: row.extension_id == stamp)
                     .try_head()
                     .map(Ok)
-                    .default_with(lambda: catch(rows.new, exception=RuntimeError)(name=self.title, directory=str(folder), extension_id=stamp).map_error(partial(Fault.of, Refusal.REFUSED, repr(rows))))
-                    .bind(lambda row: option.of_optional(try_downcast(bpy.types.PreferencesAssetLibrary, row)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(rows), member=self.title)))
+                    .default_with(lambda: catch(rows.new, exception=RuntimeError)(name=self.title, directory=str(folder), extension_id=stamp).map_error(partial(Fault.of, Refusal.REFUSED, rows)))
+                    .bind(lambda row: option.of_optional(try_downcast(bpy.types.PreferencesAssetLibrary, row)).to_result_with(lambda: Fault.of(Reason.ABSENT, rows, member=self.title)))
                 )
                 return tracked(lifetime, rows.remove, found)
 
@@ -180,7 +180,7 @@ class _Publishing(msgspec.Struct, frozen=True, kw_only=True):
                     folder_made(self.target.parent)
                     .bind(
                         lambda _: catch(bpy.data.libraries.write, exception=OSError)(str(self.target), set(self.blocks), path_remap="RELATIVE_ALL", fake_user=True).map_error(
-                            partial(Fault.of, Reason.UNWRITABLE, str(self.target))
+                            partial(Fault.of, Reason.UNWRITABLE, self.target)
                         )
                     )
                     .map(lambda _: NOTHING)
@@ -245,8 +245,8 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
             return (
                 _text_called(partial(write, merged, stage, meta))
                 .bind(lambda _: _text_called(partial(_catalog_rows, stage)))
-                .map_error(partial(Fault.of, Reason.UNWRITABLE, str(catalogs)))
-                .filter_with(lambda found: declared <= found[1], lambda found: Fault.of(Reason.UNREADABLE, str(catalogs), sorted(map(":".join, declared - found[1]))))
+                .map_error(partial(Fault.of, Reason.UNWRITABLE, catalogs))
+                .filter_with(lambda found: declared <= found[1], lambda found: Fault.of(Reason.UNREADABLE, catalogs, sorted(map(":".join, declared - found[1]))))
             )
 
         return (committed(catalogs, staged) if added else Ok(catalogs)).map(lambda _: held | added)
@@ -258,7 +258,7 @@ def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[
             .map(lambda _: target)
         )
 
-    return folder_made(folder).bind(lambda _: _text_called(partial(_catalog_rows, catalogs)).map_error(partial(Fault.of, Reason.UNREADABLE, str(catalogs)))).bind(catalogued).bind(marked)
+    return folder_made(folder).bind(lambda _: _text_called(partial(_catalog_rows, catalogs)).map_error(partial(Fault.of, Reason.UNREADABLE, catalogs))).bind(catalogued).bind(marked)
 
 
 # --- [IMPORTS]
@@ -330,13 +330,13 @@ def bundled[T: bpy.types.ID](kind: type[T], name: str) -> Outcome[T]:
     root = Path(folder)
     found = (
         _blends(root)
-        .map_error(partial(Fault.of, Reason.UNREADABLE, str(root)))
+        .map_error(partial(Fault.of, Reason.UNREADABLE, root))
         .bind(
             lambda paths: accumulated(
                 sourced(bpy.data, path, lambda source: (library_listing(source, kind, path), {}), assets_only=True).bind(lambda answer: answer[0]).map(lambda listing: listing[1]) for path in paths
             ).bind(
                 lambda listings: (
-                    Block.of_seq(zip(paths, listings)).filter(lambda pair: name in pair[1]).map(lambda pair: pair[0]).try_head().to_result_with(lambda: Fault.of(Reason.ABSENT, str(root), member=name))
+                    Block.of_seq(zip(paths, listings)).filter(lambda pair: name in pair[1]).map(lambda pair: pair[0]).try_head().to_result_with(lambda: Fault.of(Reason.ABSENT, root, member=name))
                 )
             )
         )

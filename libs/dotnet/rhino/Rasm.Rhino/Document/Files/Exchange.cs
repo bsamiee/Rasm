@@ -18,8 +18,8 @@ public sealed partial class InputPath {
 
     internal static Fin<string> Existing(string path, Func<string, bool> exists) =>
         path switch {
-            _ when !Path.IsPathFullyQualified(path) => new RhinoFault(path, RhinoReason.Unqualified),
-            _ when !exists(path) => new RhinoFault(path, RhinoReason.Missing),
+            _ when !Path.IsPathFullyQualified(path) => Fault.Of(RhinoReason.Unqualified, path),
+            _ when !exists(path) => Fault.Of(RhinoReason.Missing, path),
             _ => path,
         };
 }
@@ -31,7 +31,7 @@ public sealed partial class FolderPath {
     public static Fin<FolderPath> Of(string path) => InputPath.Existing(path, Directory.Exists).Map(static held => new FolderPath(held));
 
     public static Fin<FolderPath> Installed(Assembly assembly) =>
-        Optional(Path.GetDirectoryName(assembly.Location)).ToFin(new RhinoFault(assembly.Location, RhinoReason.Missing)).Bind(Of);
+        Optional(Path.GetDirectoryName(assembly.Location)).ToFin(Fault.Of(RhinoReason.Missing, assembly.Location)).Bind(Of);
 }
 
 [ValueObject<string>(SkipFactoryMethods = true)]
@@ -41,7 +41,7 @@ public sealed partial class OutputPath {
     public string Folder => Path.GetDirectoryName(_value.AsSpan()).ToString();
 
     public static Fin<OutputPath> Of(string path) =>
-        Path.IsPathFullyQualified(path) && !Path.GetFileName(path.AsSpan()).IsEmpty ? new OutputPath(path) : new RhinoFault(path, RhinoReason.Unqualified);
+        Path.IsPathFullyQualified(path) && !Path.GetFileName(path.AsSpan()).IsEmpty ? new OutputPath(path) : Fault.Of(RhinoReason.Unqualified, path);
 }
 
 public sealed record FileTypeRow(Guid PlugInId, string Description, Seq<string> Extensions) {
@@ -102,8 +102,8 @@ public static class Exchange {
 
     public static IO<Committed<Unit>> Import<TOptions>(
         RhinoDoc doc, InputPath path, RedrawPolicy redraw, Func<string, RhinoDoc, TOptions, bool> reader, Func<FileReadOptions, TOptions> options,
-        [CallerArgumentExpression(nameof(reader))] string member = "") =>
-        Recorded(doc, path, redraw, Using(static () => new FileReadOptions { ImportMode = true, BatchMode = true }, fileOptions => Products.Accepted(() => reader(path, doc, options(fileOptions)), member)));
+        [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
+        Recorded(doc, path, redraw, Using(static () => new FileReadOptions { ImportMode = true, BatchMode = true }, fileOptions => Products.Accepted(() => reader(path, doc, options(fileOptions)), member, line)));
 
     public static IO<Committed<Unit>> ReadFile(InputPath path, RedrawPolicy redraw, Action<FileReadOptions> mode) =>
         Documents.With(new DocumentSource.Active(), active => Recorded(active, path, redraw,
@@ -113,11 +113,11 @@ public static class Exchange {
 
     public static IO<Unit> Export<TOptions>(
         RhinoDoc doc, OutputPath path, Func<string, RhinoDoc, TOptions, WriteFileResult> writer, Func<FileWriteOptions, TOptions> options,
-        [CallerArgumentExpression(nameof(writer))] string member = "") =>
+        [CallerMemberName] string member = "", [CallerLineNumber] int line = 0) =>
         Written(doc, path, fileOptions => IO.lift(() => writer(path, doc, options(fileOptions)) switch {
             WriteFileResult.Success => Fin.Succ(unit),
             WriteFileResult.Cancel => Errors.Cancelled,
-            WriteFileResult.Failure => new RhinoFault(member, RhinoReason.Declined),
+            WriteFileResult.Failure => Fault.Of(RhinoReason.Declined, (member, line)),
         }));
 
     public static IO<Unit> WriteFile(RhinoDoc doc, OutputPath path, Action<FileWriteOptions> options) =>
@@ -143,5 +143,5 @@ public static class Exchange {
         use(acquire).Bind(call).Bracket();
 
     private static Fin<Unit> Writable(RhinoDoc doc, string target) =>
-        RhinoFault.Unless(!doc.IsReadOnly || !string.Equals(target, doc.Path, StringComparison.OrdinalIgnoreCase), RhinoReason.Unwritable, target);
+        Fault.Unless(!doc.IsReadOnly || !string.Equals(target, doc.Path, StringComparison.OrdinalIgnoreCase), RhinoReason.Unwritable, target);
 }

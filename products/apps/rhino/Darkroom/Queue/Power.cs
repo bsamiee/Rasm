@@ -54,7 +54,7 @@ internal static partial class SafeNativeMethods {
     internal static Fin<long> PeakResident() {
         Span<long> usage = stackalloc long[18];
         (int status, long peak) = (getrusage(0, usage), usage[4]);
-        return DarkroomFault.Unless(status is 0, DarkroomReason.Failed, Marshal.GetLastPInvokeError()).Map(_ => peak);
+        return Fault.Unless(status is 0, DarkroomReason.Failed, Marshal.GetLastPInvokeError()).Map(_ => peak);
     }
 }
 
@@ -76,10 +76,10 @@ internal static class MachinePower {
     [SupportedOSPlatform("windows")]
     private static IO<T> HeldAwakeOnWindows<T>(IO<T> run) =>
         (from prior in IO.lift(static () => SafeNativeMethods.SetThreadExecutionState(ExecutionState.Continuous | ExecutionState.SystemRequired | ExecutionState.DisplayRequired) switch {
-            var previous => DarkroomFault.Unless(previous is not ExecutionState.None, DarkroomReason.Failed, previous).Map(_ => previous),
+            var previous => Fault.Unless(previous is not ExecutionState.None, DarkroomReason.Failed, previous).Map(_ => previous),
         }).OnUiThread()
          from released in Products.Released(IO.lift(() => SafeNativeMethods.SetThreadExecutionState(prior) switch {
-             var restored => DarkroomFault.Unless(restored is not ExecutionState.None, DarkroomReason.Failed, restored),
+             var restored => Fault.Unless(restored is not ExecutionState.None, DarkroomReason.Failed, restored),
          }).OnUiThread())
          from value in run
          select value).Bracket();
@@ -90,7 +90,7 @@ internal static class MachinePower {
         OperatingSystem.IsWindows()
             ? (from shutdown in use(Started("shutdown", ["/s", "/t", "60"]))
                from exited in IO.liftAsync(environment => shutdown.WaitForExitAsync(environment.Token).ToUnit())
-               from code in IO.lift(DarkroomFault.Unless(shutdown.ExitCode is 0, DarkroomReason.Failed, shutdown.ExitCode))
+               from code in IO.lift(Fault.Unless(shutdown.ExitCode is 0, DarkroomReason.Failed, shutdown.ExitCode))
                select unit).Bracket()
             : use(Started("osascript", ["-e", "delay 60", "-e", """tell application "System Events" to shut down"""])).Map(static _ => unit).Bracket();
 

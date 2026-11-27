@@ -24,7 +24,7 @@ public sealed partial class ViewWindow {
         Matrix3x2.CreateTranslation(-Center) * Matrix3x2.CreateScale(extent.Point(new Vector2(1f, -1f)) / Size) * Matrix3x2.CreateTranslation(0.5f * extent.Point(Vector2.One));
 
     public static Fin<ViewWindow> Validated(Vector2 center, Vector2 size) =>
-        ImagingFault.Unless(Vector2.AllWhereAllBitsSet(Vector2.IsFinite(center)) && size.X > 0f && size.Y > 0f && float.IsFinite(size.X) && float.IsFinite(size.Y), ImagingReason.Range, (center, size))
+        Fault.Unless(Vector2.AllWhereAllBitsSet(Vector2.IsFinite(center)) && size.X > 0f && size.Y > 0f && float.IsFinite(size.X) && float.IsFinite(size.Y), ImagingReason.Range, (center, size))
             .Map(_ => new ViewWindow(center, size));
 }
 
@@ -78,7 +78,7 @@ public sealed partial class LensFocus {
     public double FNumber { get; }
 
     public static Fin<LensFocus> Validated(Length focalLength, Length focusDistance, double fNumber) =>
-        ImagingFault.Unless(focalLength > Length.Zero && focusDistance > focalLength && fNumber > 0d && double.IsFinite(fNumber), ImagingReason.Range, (focalLength, focusDistance, fNumber))
+        Fault.Unless(focalLength > Length.Zero && focusDistance > focalLength && fNumber > 0d && double.IsFinite(fNumber), ImagingReason.Range, (focalLength, focusDistance, fNumber))
             .Map(_ => new LensFocus(focalLength, focusDistance, fNumber));
 }
 

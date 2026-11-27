@@ -129,11 +129,11 @@ public sealed partial class Summary : IInterpolated<Summary> {
     public float Maximum { get; }
 
     public static Fin<Summary> Validated(float minimum, float lower, float median, float upper, float maximum) =>
-        UIFault.Unless(float.IsFinite(minimum) && float.IsFinite(maximum) && minimum <= lower && lower <= median && median <= upper && upper <= maximum, UIReason.Order, (minimum, lower, median, upper, maximum))
+        Fault.Unless(float.IsFinite(minimum) && float.IsFinite(maximum) && minimum <= lower && lower <= median && median <= upper && upper <= maximum, UIReason.Order, (minimum, lower, median, upper, maximum))
             .Map(_ => new Summary(minimum, lower, median, upper, maximum));
 
     public static Fin<Summary> Of(Samples samples) =>
-        samples.Finite.AsIterableNE().ToFin(new UIFault(nameof(samples), UIReason.Missing)).Map(static values => values.FiveNumberSummary() switch {
+        samples.Finite.AsIterableNE().ToFin(Fault.Of(UIReason.Missing, nameof(samples))).Map(static values => values.FiveNumberSummary() switch {
             var five => new Summary(five[0], five[1], five[2], five[3], five[4]),
         });
 

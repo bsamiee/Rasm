@@ -35,7 +35,7 @@ public static class SolidAssembly {
     public static IO<Brep> Build(BrepTopology topology) =>
         (from brep in use(static () => new Brep())
          from declared in IO.lift(Declared(brep, topology))
-         from valid in IO.lift(RhinoFault.Unless(brep.IsValidTopology(out string log), RhinoReason.Invalid, log))
+         from valid in IO.lift(Fault.Unless(brep.IsValidTopology(out string log), RhinoReason.Invalid, log))
          select brep).BracketFail();
 
     private static Fin<Unit> Declared(Brep brep, BrepTopology topology) =>
@@ -80,7 +80,7 @@ public static class SolidAssembly {
                 select (Trim: added, Iso: Some(singular.Iso)));
 
     private static Fin<T> Picked<T>(Seq<T> rows, int index, int at) =>
-        rows.At(index).ToFin(new RhinoFault((Type: typeof(T), Index: index, rows.Count), RhinoReason.Outside, at));
+        rows.At(index).ToFin(Fault.Of(RhinoReason.Outside, (Type: typeof(T), Index: index, rows.Count), at));
 
     private static BrepFace Oriented(BrepFace face, bool reversed) {
         face.OrientationIsReversed = reversed;
@@ -103,6 +103,6 @@ public static class SolidAssembly {
          from pathed in Products.Accepted(() => made.SetPathAndUp(path.From, path.To, up))
          from outer in Products.Accepted(() => made.SetOuterProfile(outerProfile, cap))
          from inner in innerProfiles.TraverseM(profile => Products.Accepted(() => made.AddInnerProfile(profile))).As()
-         from valid in IO.lift(RhinoFault.Unless(made.IsValidWithLog(out string log), RhinoReason.Invalid, log))
+         from valid in IO.lift(Fault.Unless(made.IsValidWithLog(out string log), RhinoReason.Invalid, log))
          select made).BracketFail();
 }

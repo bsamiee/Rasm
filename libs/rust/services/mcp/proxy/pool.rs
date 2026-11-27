@@ -14,7 +14,7 @@ use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 use tracing::Instrument as _;
 
-use super::{History, Link, Phase, Policy, Proxy, Status};
+use super::{Exit, History, Link, Phase, Policy, Proxy, Status};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -46,10 +46,10 @@ where
     pub async fn join<F, A, R, W, C>(&self, key: &K, start: impl FnOnce() -> (Policy, F, tracing::Span)) -> Proxy
     where
         F: FnMut(CancellationToken) -> A + Send + 'static,
-        A: Future<Output = io::Result<Link<R, W, C>>> + Send + 'static,
+        A: Future<Output = Result<Link<R, W, C>, Exit>> + Send + 'static,
         R: AsyncRead + Send + Unpin + 'static,
         W: AsyncWrite + Send + Unpin + 'static,
-        C: Future<Output = String> + Send + 'static,
+        C: Future<Output = Exit> + Send + 'static,
     {
         if let Some(member) = self.members.borrow().get(key) {
             return member.clone();

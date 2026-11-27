@@ -336,9 +336,9 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
             kind, member, _ = _STORED[_COLUMNS[1 if values.ndim == 1 else values.shape[1]]]
             found = option.of_optional(attributes.get(name)).default_with(lambda: attributes.new(name, kind, "POINT"))
             return (
-                catch(found.data.foreach_set, exception=TypeError)(member, values.ravel()).map_error(partial(Fault.of, Refusal.REFUSED, repr(found)))
+                catch(found.data.foreach_set, exception=TypeError)(member, values.ravel()).map_error(partial(Fault.of, Refusal.REFUSED, found))
                 if isinstance(found, _Attribute)
-                else Error(Fault.of(Refusal.REFUSED, repr(found), found.data_type))
+                else Error(Fault.of(Refusal.REFUSED, found, found.data_type))
             )
 
         def column_read(points: bpy.types.PointCloud, name: str, socket_type: type[bpy.types.NodeSocket]) -> Outcome[npt.NDArray[np.float32]]:
@@ -348,27 +348,27 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
             def read(attribute: _Attribute) -> Outcome[npt.NDArray[np.float32]]:
                 return (
                     catch(attribute.data.foreach_get, exception=TypeError)(member, values)
-                    .map_error(partial(Fault.of, Refusal.REFUSED, repr(attribute)))
+                    .map_error(partial(Fault.of, Refusal.REFUSED, attribute))
                     .map(lambda _: values if width == 1 else values.reshape(count, width))
                 )
 
             return (
                 catch(lambda: points.attributes[name], exception=KeyError)()
-                .map_error(partial(Fault.of, Reason.ABSENT, repr(points.attributes), member=name))
-                .bind(lambda found: read(found) if isinstance(found, _Attribute) else Error(Fault.of(Refusal.REFUSED, repr(found), found.data_type)))
+                .map_error(partial(Fault.of, Reason.ABSENT, points.attributes, member=name))
+                .bind(lambda found: read(found) if isinstance(found, _Attribute) else Error(Fault.of(Refusal.REFUSED, found, found.data_type)))
             )
 
         def geometry_read(tree: bpy.types.NodeTree) -> Outcome[tuple[npt.NDArray[np.float32], ...]]:
             return (
-                typed(bpy.types.NodesModifier, repr(holder.modifiers), holder.modifiers.new("Field", "NODES"))
+                typed(bpy.types.NodesModifier, holder.modifiers, holder.modifiers.new("Field", "NODES"))
                 .bind(lambda modifier: written(modifier, ("node_group",), tree))
                 .bind(lambda _: evaluated_depsgraph(scene.view_layers[0]))
-                .bind(lambda depsgraph: catch(holder.evaluated_get(depsgraph).evaluated_geometry, exception=TypeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(holder))))
+                .bind(lambda depsgraph: catch(holder.evaluated_get(depsgraph).evaluated_geometry, exception=TypeError)().map_error(partial(Fault.of, Refusal.REFUSED, holder)))
                 .bind(
                     lambda geometry: (
                         option
                         .of_optional(try_downcast(bpy.types.PointCloud, geometry.pointcloud))
-                        .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(geometry), member="pointcloud"))
+                        .to_result_with(lambda: Fault.of(Reason.ABSENT, geometry, member="pointcloud"))
                         .bind(lambda points: accumulated(column_read(points, name, root.socket_type) for name, root in zip(names, roots)))
                     )
                 )

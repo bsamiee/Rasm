@@ -240,7 +240,7 @@ internal sealed record Panorama(PanoramaProjection Output, Angle Heading, Angle 
         select (PixelPass)new PixelPass.Frame((frame, progress) =>
             from projection in state.Output.Of(rendering)
             from map in CoordinateMap.Reprojection.Panorama(camera, _ => projection, new PanoramaView(state.Heading, state.Elevation, state.Roll), state.Resampling.Sampling, state.Resampling.Edges)
-                .ToFin(new DarkroomFault(nameof(camera.Lens), DarkroomReason.Unrenderable))
+                .ToFin(Fault.Of(DarkroomReason.Unrenderable, nameof(camera.Lens)))
             from applied in map.Apply(frame, progress)
             select applied);
 }

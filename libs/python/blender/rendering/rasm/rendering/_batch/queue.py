@@ -272,9 +272,7 @@ def observed(path: Path) -> Outcome[Option[tuple[Progress, datetime.datetime]]]:
     """Reads progress record with heartbeat moment, `NOTHING` when absent."""
 
     def beaten(progress: Progress) -> Outcome[tuple[Progress, datetime.datetime]]:
-        return (
-            catch(path.stat, exception=OSError)().map(lambda stat: (progress, datetime.datetime.fromtimestamp(stat.st_mtime, datetime.UTC))).map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
-        )
+        return catch(path.stat, exception=OSError)().map(lambda stat: (progress, datetime.datetime.fromtimestamp(stat.st_mtime, datetime.UTC))).map_error(partial(Fault.of, Reason.UNREADABLE, path))
 
     return RecordFile(path=path, decoder=PROGRESS_DECODER).found().bind(lambda found: found.map(lambda progress: beaten(progress).map(Some)).default_value(Ok(NOTHING)))
 

@@ -1,6 +1,6 @@
-use core::iter;
 use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use core::time::Duration;
+use core::{fmt, iter};
 use std::collections::BTreeSet;
 use std::error::Report;
 use std::io;
@@ -11,10 +11,13 @@ use bytes::Bytes;
 use futures::{StreamExt as _, TryFutureExt as _, stream};
 use jiff::{SignedDuration, Timestamp};
 use memchr::memmem::Finder;
+use nonempty_collections::NEVec;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rmcp::model::{ConstString as _, Implementation, InitializeRequestParams, InitializeResultMethod, ServerCapabilities, ServerJsonRpcMessage};
+use rmcp::ErrorData;
+use rmcp::model::{ConstString as _, DiscoverRequestMethod, Implementation, InitializeRequestParams, InitializeResultMethod, ServerCapabilities, ServerJsonRpcMessage};
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
+use serde_with::DefaultOnError;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt as _, BufWriter};
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio_util::codec::FramedRead;
@@ -98,11 +101,14 @@ pub struct Profile {
     pub responsive: BTreeSet<Key>,
 }
 
+#[serde_with::serde_as]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct History {
     pub profile: Option<Profile>,
     pub failures: usize,
-    pub cause: Option<Arc<str>>,
+    #[serde_as(as = "DefaultOnError")]
+    #[serde(default)]
+    pub cause: Option<NEVec<Cause>>,
     pub until: Option<Timestamp>,
 }
 
@@ -113,8 +119,40 @@ pub struct Status {
     pub starts: u32,
     pub failures: usize,
     pub delay: Duration,
-    pub cause: Option<Arc<str>>,
+    pub cause: Option<NEVec<Cause>>,
     pub profile: Option<Arc<Profile>>,
+}
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
+#[error("{status}{}", fmt::from_fn(|formatter| match stderr {
+    [] => Ok(()),
+    [line] => write!(formatter, "\nstderr: {line}"),
+    lines => {
+        formatter.write_str("\nstderr:")?;
+        lines.iter().try_for_each(|line| write!(formatter, "\n  {line}"))
+    }
+}))]
+pub struct Exit {
+    pub status: Box<str>,
+    pub stderr: Vec<Box<str>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, thiserror::Error)]
+#[serde(tag = "_tag")]
+pub enum Cause {
+    #[error("handshake refused{}", fmt::from_fn(|formatter| [(DiscoverRequestMethod::VALUE, discover), (InitializeResultMethod::VALUE, initialize)]
+        .iter()
+        .try_for_each(|(method, answer)| match answer {
+            Some(ErrorData { code, message, data: _ }) => write!(formatter, ", {method}: {} {message}", code.0),
+            None => write!(formatter, ", {method}: no result"),
+        })))]
+    Refused { discover: Option<ErrorData>, initialize: Option<ErrorData> },
+    #[error("unresponsive")]
+    Unresponsive,
+    #[error("{0}")]
+    Exited(Exit),
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -136,10 +174,10 @@ impl Proxy {
     pub fn new<F, A, R, W, C>(policy: Policy, history: History, connect: F) -> (Self, impl Future<Output = ()> + Send)
     where
         F: FnMut(CancellationToken) -> A + Send,
-        A: Future<Output = io::Result<Link<R, W, C>>> + Send,
+        A: Future<Output = Result<Link<R, W, C>, Exit>> + Send,
         R: AsyncRead + Send + Unpin,
         W: AsyncWrite + Send + Unpin,
-        C: Future<Output = String> + Send,
+        C: Future<Output = Exit> + Send,
     {
         let ((events, inbox), (drains, draining), stopping) = (mpsc::channel(policy.queue), mpsc::channel(1), CancellationToken::new());
         let History { profile, failures, cause, until } = history;

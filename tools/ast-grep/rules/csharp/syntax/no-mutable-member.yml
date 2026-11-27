@@ -79,5 +79,4 @@ rule:
               - has: { field: name, pattern: { context: 'class $TYPE;', selector: identifier } }
               - has: { kind: parameter_list, has: { kind: parameter } }
               - not: { has: { kind: modifier, regex: '^readonly$' } }
-message: '`$TYPE` holds a member that changes after construction'
-note: 'Write `init`, `readonly`, or `required` `{ get; init; }`, and implement a host interface setter explicitly'
+message: '`$TYPE` holds a member that changes after construction, write `init`, `readonly`, or `required` `{ get; init; }`, and implement a host interface setter explicitly'

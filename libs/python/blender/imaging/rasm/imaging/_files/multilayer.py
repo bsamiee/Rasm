@@ -112,7 +112,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
                 yield (
                     option
                     .of_optional(image.read_image(index, 0, first, end, kind))
-                    .to_result_with(lambda: Fault.of(Reason.UNREADABLE, str(self.path), image.geterror(), member=str(kind)))
+                    .to_result_with(lambda: Fault.of(Reason.UNREADABLE, self.path, image.geterror()))
                     .map(lambda plane: content_hash(type(self), arrays=(plane,)))
                 )
                 first = end
@@ -152,7 +152,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
         return (
             option
             .of_optional(next((layer for name in names for layer in layers if layer.name == name), None))
-            .to_result_with(lambda: Fault.of(Reason.ABSENT, str(self.path), member=f"{names[-1]} layer"))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, self.path, member=f"{names[-1]} layer"))
             .bind(lambda layer: self.plane(layer, channels))
         )
 
@@ -198,7 +198,7 @@ class Multilayer(msgspec.Struct, frozen=True, kw_only=True):
                 Ok(NOTHING)
                 if display.is_none() and all(names == spec.channelnames for spec, names in zip(specs, renamed))
                 else accumulated(
-                    option.of_optional(image.read_image(index, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: Fault.of(Reason.UNREADABLE, str(path), image.geterror()))
+                    option.of_optional(image.read_image(index, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: Fault.of(Reason.UNREADABLE, path, image.geterror()))
                     for index, spec in enumerate(specs)
                 ).map(lambda arrays: Some(tuple(map(subimage, specs, renamed, arrays))))
             )
@@ -260,7 +260,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
                     ranks[part_views[layer.part]].append(replace(layer, channels=tuple(folded[key] for key in "rgba")))
             return (
                 catch(msgspec.json.Decoder(_Manifest).decode, exception=msgspec.DecodeError)(manifest)
-                .map_error(partial(Fault.of, Reason.UNREADABLE, str(file.path)))
+                .map_error(partial(Fault.of, Reason.UNREADABLE, file.path))
                 .map(lambda entries: MappingProxyType({entity: code & 0x807FFFFF | min(max(code >> 23 & 0xFF, 1), 254) << 23 for entity, digits in entries.items() for code in (int(digits, 16),)}))
                 .map(lambda ids: tuple(cls(name=name, ids=ids, ranks=tuple(ranked), file=views[view]) for view, ranked in ranks.items()))
             )

@@ -27,15 +27,15 @@ public sealed class DocumentsTests(Fixtures fixtures) {
     [Fact]
     public async Task EvaluateOfAnInputTheDefinitionLacksFailsAsMissing() {
         Grasshopper2.Doc.Document document = await fixtures.TakeAsync(Relayed(Seq("x")));
-        RhinoFault fault = await Expect<RhinoFault>.FailAsync(Evaluated(document, "z", Seq(1.0)));
+        Fault<RhinoReason> fault = await Expect<Fault<RhinoReason>>.FailAsync(Evaluated(document, "z", Seq(1.0)));
         Assert.Equal((RhinoReason.Missing, (object?)"z"), (fault.Reason, fault.Subject));
     }
 
     [Fact]
     public async Task EvaluateOfTwoInputsOfOneNameFailsAsRepeated() {
         Grasshopper2.Doc.Document document = await fixtures.TakeAsync(Relayed(Seq("x", "x")));
-        RhinoFault fault = await Expect<RhinoFault>.FailAsync(Evaluated(document, "x", Seq(1.0)));
-        Assert.Equal((RhinoReason.Repeated, "x"), (fault.Reason, fault.Subject is (string name, _) ? name : null));
+        Fault<RhinoReason> fault = await Expect<Fault<RhinoReason>>.FailAsync(Evaluated(document, "x", Seq(1.0)));
+        Assert.Equal((RhinoReason.Repeated, "x"), (fault.Reason, fault.Subject as string));
     }
 
     // --- [FILES]
@@ -46,7 +46,7 @@ public sealed class DocumentsTests(Fixtures fixtures) {
             from placed in Subtraction.Placed([5.0, 9.5], [2.0, 0.25])
             from bytes in DocumentFiles.Store(placed.Document, FileContents.Objects)
             from read in use(DocumentFiles.Read(bytes), static held => IO.lift(held.Close))
-            from copy in IO.lift(Optional(read.Objects.Find(placed.Component.InstanceId) as Subtraction).ToFin(new RhinoFault(placed.Component.InstanceId, RhinoReason.Missing)))
+            from copy in IO.lift(Optional(read.Objects.Find(placed.Component.InstanceId) as Subtraction).ToFin(Fault.Of(RhinoReason.Missing, placed.Component.InstanceId)))
             from solved in Solutions.Run(read, SolutionMode.Headless)
             select Subtraction.Solved(copy)).Bracket()));
 
@@ -57,7 +57,7 @@ public sealed class DocumentsTests(Fixtures fixtures) {
         Grasshopper2.Doc.Document owner = await fixtures.TakeAsync(Inert);
         Grasshopper2.Doc.Document other = await fixtures.TakeAsync(Inert);
         Relay relay = await RhinoHost.RunAsync(DocumentEdits.Add(owner, new Relay()));
-        RhinoFault[] faults = [await Expect<RhinoFault>.FailAsync(DocumentEdits.Add(owner, relay)), await Expect<RhinoFault>.FailAsync(DocumentEdits.Add(other, relay))];
+        Fault<RhinoReason>[] faults = [await Expect<Fault<RhinoReason>>.FailAsync(DocumentEdits.Add(owner, relay)), await Expect<Fault<RhinoReason>>.FailAsync(DocumentEdits.Add(other, relay))];
         Assert.All(faults, static fault => Assert.Equal((RhinoReason.Declined, true), (fault.Reason, fault.Inner.Exists(static inner => inner.HasException<LoggedException>()))));
         Assert.Equal((true, false), await RhinoHost.RunAsync(IO.lift(() => (owner.Objects.Find(relay.InstanceId) is not null, other.Objects.Find(relay.InstanceId) is not null))));
     }

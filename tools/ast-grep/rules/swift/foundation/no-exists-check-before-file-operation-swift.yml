@@ -103,5 +103,4 @@ rule:
           all:
               - has: { kind: where_clause, has: { matches: exists-check } }
               - has: { kind: statements, matches: performs }
-message: '`$CHECK` tests that a file exists or is executable before an operation that reports it missing'
-note: 'Run the operation and match `CocoaError.fileReadNoSuchFile` for a read, `CocoaError.fileNoSuchFile` for a removal, move, or copy, or `Errno.noSuchFileOrDirectory`, `executableNotFound` for a spawn'
+message: '`$CHECK` tests that a file exists or is executable before an operation that reports it missing, run the operation and match `CocoaError.fileReadNoSuchFile` for a read, `CocoaError.fileNoSuchFile` for a removal, move, or copy, and `Errno.noSuchFileOrDirectory` or `executableNotFound` for a spawn'

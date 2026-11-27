@@ -14,5 +14,4 @@ rule:
               - inside: { kind: for_statement, stopBy: { kind: 'for_statement, statements, lambda_literal' }, has: { kind: statements, matches: decoding } }
               - inside: { kind: call_expression, stopBy: { kind: 'statements, lambda_literal' }, has: { kind: call_suffix, has: { kind: lambda_literal, matches: decoding } } }
         - inside: { kind: source_file, stopBy: end, has: { kind: import_declaration, regex: '^import[\t-\r ]+Subprocess$' } }
-message: '`$READ` splits decoded output at U+2028 and U+2029 besides newlines'
-note: 'Pass `separatedBy: .unicodeScalarSequence(["\n"])` for newline-delimited records'
+message: '`$READ` splits decoded output at U+2028 and U+2029 besides newlines, pass `separatedBy: .unicodeScalarSequence(["\n"])` for newline-delimited records'

@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using Rasm.UI.Motion;
 using SkiaSharp;
 
@@ -40,14 +39,14 @@ public sealed partial class Fraction : IInterpolated<Fraction> {
 
     public static Seq<Fraction> Partition(int count) => toSeq(Range(0, count)).Map(index => new Fraction(index / float.Max(count - 1, 1)));
 
-    public static Fin<Fraction> Validated(float value) => UIFault.Unless(value is >= 0f and <= 1f, UIReason.Range, value).Map(_ => new Fraction(value));
+    public static Fin<Fraction> Validated(float value) => Fault.Unless(value is >= 0f and <= 1f, UIReason.Range, value).Map(_ => new Fraction(value));
 }
 
 [ValueObject<float>(SkipFactoryMethods = true, ConstructorAccessModifier = AccessModifier.Internal)]
 public sealed partial class Factor {
     public static Factor Unit { get; } = new(1f);
 
-    public static Fin<Factor> Validated(float value) => UIFault.Unless(float.IsFinite(value) && value > 0f, UIReason.Range, value).Map(_ => new Factor(value));
+    public static Fin<Factor> Validated(float value) => Fault.Unless(float.IsFinite(value) && value > 0f, UIReason.Range, value).Map(_ => new Factor(value));
 }
 
 public sealed record UnitPoint(Fraction X, Fraction Y) {
@@ -67,13 +66,13 @@ public sealed partial class Limits {
 
     public float Clamped(float value) => float.Clamp(value, Min, Max);
 
-    public static Fin<Limits> Validated(float min, float max) => UIFault.Unless(float.IsFinite(min) && min >= 0f && max >= min, UIReason.Order, (min, max)).Map(_ => new Limits(min, max));
+    public static Fin<Limits> Validated(float min, float max) => Fault.Unless(float.IsFinite(min) && min >= 0f && max >= min, UIReason.Order, (min, max)).Map(_ => new Limits(min, max));
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
 [SmartEnum]
-public sealed partial class UIReason {
+public sealed partial class UIReason : IFaultReason {
     public static readonly UIReason Range = new("out of range");
     public static readonly UIReason Order = new("out of order");
     public static readonly UIReason Missing = new("not found");
@@ -83,22 +82,6 @@ public sealed partial class UIReason {
     public static readonly UIReason Refused = new("refused by the renderer");
 
     public string Message { get; }
-}
-
-public sealed record UIFault(object? Subject, UIReason Reason, Option<int> Index = default, Option<Error> Inner = default, Option<string> Expression = default)
-    : Expected(Reason.Message, 0, Inner) {
-    public object? Subject { get; } = Subject;
-    public UIReason Reason { get; } = Reason;
-    public Option<string> Expression { get; } = Expression;
-
-    public override string Message =>
-        string.Concat([
-            Reason.Message, ": ", .. Expression.Map(static named => $"{named} = ").ToSeq(), string.Create(CultureInfo.InvariantCulture, $"{Subject}"),
-            .. Index.Map(static at => string.Create(CultureInfo.InvariantCulture, $" at index {at}")).ToSeq(),
-        ]);
-
-    public static Fin<Unit> Unless<T>(bool flag, UIReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string? names = null) =>
-        flag ? unit : new UIFault(rejected, reason, index, Expression: Optional(names));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

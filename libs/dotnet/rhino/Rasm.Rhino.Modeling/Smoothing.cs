@@ -30,6 +30,6 @@ public sealed record SmoothOptions(double Factor, bool X, bool Y, bool Z, bool F
                     from smoothed in Products.Accepted(() => mesh.Smooth(held, Factor, Iterations, X, Y, Z, FixBoundaries, Frame.System, Frame.Plane))
                     select target,
                 None: () => Products.Accepted(() => mesh.Smooth(Factor, Iterations, X, Y, Z, FixBoundaries, Frame.System, Frame.Plane)).Map(_ => target)),
-            var other => IO.fail<T>(new RhinoFault(other.ObjectType, RhinoReason.Unsupported)),
+            var other => IO.fail<T>(Fault.Of(RhinoReason.Unsupported, other.ObjectType)),
         });
 }

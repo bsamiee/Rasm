@@ -274,8 +274,6 @@ class Fault(msgspec.Struct, frozen=True, kw_only=True):
 - Call sites pass a path, an argument tuple, or a type as it is, a `str`, `repr`, or `shlex.join` around it restating `shown`
 - No call site spells a sentence: a failure a consumer handles apart is a reason member, and a fact it adds is a field its template prints
 - Numbers print through a format spec (`{count:,}`, `{ratio:.2%}`), quantities through `pint`'s `~P`, and durations as their `timedelta`
-- Library faults name what failed and why, and the command or operator layer adds the remedy or next call
-- Text no sink prints (a reason no reader receives, a fault no caller reads) goes
 - `partial(Fault.of, <reason>, <subject>)` serves `map_error` and `filter_with` with the refused value as `cause`, and `to_result_with` with none
 - Consumers classify a fault by its `reason` member or by a class pattern on its `cause`
 - Suppressed or warned conditions become an `Error` or a `Result` holding the degraded value

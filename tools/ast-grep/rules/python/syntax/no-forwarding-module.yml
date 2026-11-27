@@ -25,5 +25,4 @@ rule:
                                 - inside: { kind: aliased_import, field: alias }
                                 - { nthChild: 1, inside: { kind: dotted_name, inside: { kind: import_statement } } }
                                 - inside: { kind: dotted_name, not: { inside: { kind: import_from_statement, field: module_name } }, inside: { kind: import_from_statement } }
-message: '`__all__` exports `$NAME`, a name the module imports'
-note: 'Import each name from its package entry at each consumer, and list names the module defines alone in `__all__`'
+message: '`__all__` exports `$NAME`, a name the module imports, import each name from its package entry at each consumer and list in `__all__` only names the module defines'

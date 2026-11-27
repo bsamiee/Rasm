@@ -26,11 +26,11 @@ public sealed partial class RevisionIndex {
     public int Ordinal { get; }
 
     public static Fin<RevisionIndex> Validated(RevisionAlphabet alphabet, int ordinal) =>
-        DraftingFault.Unless(ordinal >= 1 && ordinal <= alphabet.Count, DraftingReason.RevisionOrdinal, (ordinal, alphabet.Count)).Map(_ => new RevisionIndex(alphabet, ordinal));
+        Fault.Unless(ordinal >= 1 && ordinal <= alphabet.Count, DraftingReason.RevisionOrdinal, (ordinal, alphabet.Count)).Map(_ => new RevisionIndex(alphabet, ordinal));
 
     public static Fin<RevisionIndex> FromLetters(RevisionAlphabet alphabet, string text) =>
         text.ToUpperInvariant() switch {
-            var letters when letters.Length < 1 || letters.Length > alphabet.MaxLetters || letters.AsSpan().ContainsAnyExcept(alphabet.Letters) => new DraftingFault(letters, DraftingReason.RevisionLetters),
+            var letters when letters.Length < 1 || letters.Length > alphabet.MaxLetters || letters.AsSpan().ContainsAnyExcept(alphabet.Letters) => Fault.Of(DraftingReason.RevisionLetters, letters),
             var letters => new RevisionIndex(alphabet, toSeq(letters).Fold(0, (ordinal, letter) => (ordinal * alphabet.Symbols.Length) + alphabet.Symbols.IndexOf(letter, StringComparison.Ordinal) + 1)),
         };
 
@@ -53,7 +53,7 @@ public abstract partial record TitleValue {
 public sealed partial class TitleFormat {
     public static readonly TitleFormat Text = new(static (_, text) => new TitleValue.Text(text));
     public static readonly TitleFormat Revision = new(static (alphabet, text) => RevisionIndex.FromLetters(alphabet, text).Map(static TitleValue (index) => new TitleValue.Revision(index)));
-    public static readonly TitleFormat Date = new(static (_, text) => LocalDatePattern.Iso.Parse(text) is { Success: true } parsed ? new TitleValue.Date(parsed.Value) : new DraftingFault(text, DraftingReason.IssueDate));
+    public static readonly TitleFormat Date = new(static (_, text) => LocalDatePattern.Iso.Parse(text) is { Success: true } parsed ? new TitleValue.Date(parsed.Value) : Fault.Of(DraftingReason.IssueDate, text));
 
     [UseDelegateFromConstructor]
     public partial Fin<TitleValue> Parse(RevisionAlphabet alphabet, string text);
@@ -104,7 +104,7 @@ public abstract partial class TitleField {
 
         public static Fin<Custom> Validated(string name, bool mandatory, TitleFormat format) =>
             name.Trim() switch {
-                var trimmed => (DraftingFault.Unless(trimmed.Length > 0, DraftingReason.Blank, name), DraftingFault.Unless(!Iso7200.TryGet(trimmed, out _), DraftingReason.Repeated, name))
+                var trimmed => (Fault.Unless(trimmed.Length > 0, DraftingReason.Blank, name), Fault.Unless(!Iso7200.TryGet(trimmed, out _), DraftingReason.Repeated, name))
                     .Apply((_, _) => new Custom(trimmed, mandatory, format)).As(),
             };
     }
@@ -116,8 +116,8 @@ public sealed record TitleBlock {
 
     public static Fin<TitleBlock> Validated(Seq<TitleField> fields, RevisionAlphabet alphabet, HashMap<TitleField, string> entries) =>
         (fields.Traverse(field => entries.Find(field).Map(static text => text.Trim()).Filter(static text => text.Length > 0).Match(
-                Some: text => field.Format.Parse(alphabet, text).Map(value => Some((Field: field, Value: value))).MapFail(error => new DraftingFault(field.Name, DraftingReason.TitleInvalid, Inner: error)),
-                None: () => DraftingFault.Unless(!field.Mandatory, DraftingReason.TitleMissing, field.Name).Map(static _ => Option<(TitleField Field, TitleValue Value)>.None))).As(),
-         toSeq(entries.Keys.Except(fields)).Map(static field => field.Name) switch { var unknown => DraftingFault.Unless(unknown.IsEmpty, DraftingReason.TitleUnknown, unknown) })
+                Some: text => field.Format.Parse(alphabet, text).Map(value => Some((Field: field, Value: value))).MapFail(error => Fault.Of(DraftingReason.TitleInvalid, field.Name, inner: error)),
+                None: () => Fault.Unless(!field.Mandatory, DraftingReason.TitleMissing, field.Name).Map(static _ => Option<(TitleField Field, TitleValue Value)>.None))).As(),
+         toSeq(entries.Keys.Except(fields)).Map(static field => field.Name) switch { var unknown => Fault.Unless(unknown.IsEmpty, DraftingReason.TitleUnknown, unknown) })
             .Apply(static (values, _) => new TitleBlock(toHashMap(values.Somes()))).As();
 }

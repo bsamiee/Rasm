@@ -270,7 +270,7 @@ internal sealed class Gpu(nint device, nint queue) : IDisposable {
 
     public Fin<SKSurface> Offscreen(SKImageInfo info, int sampleCount, SKSurfaceProperties properties) =>
         Optional(SKSurface.Create(context, budgeted: true, info, sampleCount, properties))
-            .ToFin(new Fault(string.Create(CultureInfo.InvariantCulture, $"{info.Width}x{info.Height} {info.ColorType} at {sampleCount} samples, {context.GetMaxSurfaceSampleCount(info.ColorType)} supported"), Reason.Refused));
+            .ToFin(Fault.Of(Reason.Refused, (info.Width, info.Height, info.ColorType, sampleCount, Supported: context.GetMaxSurfaceSampleCount(info.ColorType))));
 
     public SKImage Uploaded(SKImage raster) => raster.ToTextureImage(context, mipmapped: true, budgeted: true);
 

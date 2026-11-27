@@ -77,6 +77,29 @@
         "resolved": "10.6.0",
         "contentHash": "aOLMNhuUO8DMYkZntJFMrhvsn91Ai51+9YFhj8cOy9/XAg2iewkdmrjkE9sVXZm+QCzjDnlImhOKZOP1h4un6A=="
       },
+      "rasm.telemetry.api": {
+        "type": "Project",
+        "dependencies": {
+          "LanguageExt.Core": "[5.0.0-beta-78, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.15, 11.0.0)",
+          "Thinktecture.Runtime.Extensions": "[10.6.0, )"
+        }
+      },
+      "Microsoft.Extensions.DependencyInjection.Abstractions": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.15, 11.0.0)",
+        "resolved": "10.0.15",
+        "contentHash": "KczR2nV7ooeimtZxAawPht/FJUHnX+uoWy7y4pba+iaRQBwUM2NwtiqZg+/FpZDHUf2RkkzveGkhMTWDNzmDUA=="
+      },
+      "Microsoft.Extensions.Logging.Abstractions": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.15, 11.0.0)",
+        "resolved": "10.0.15",
+        "contentHash": "s5xzXGWqqlmmThMnQ1rnmL7QLwbluB2JqX9NaK8C9HPuHzN7kfmiddTRbwts5rQssATkh2B18RrofjeUD8g14A==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.15"
+        }
+      },
       "Thinktecture.Runtime.Extensions.SourceGenerator": {
         "type": "CentralTransitive",
         "requested": "[10.6.0, )",

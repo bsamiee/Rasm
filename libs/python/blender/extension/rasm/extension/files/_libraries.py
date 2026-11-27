@@ -116,7 +116,7 @@ def sourced[T](
             setattr(ends[1], name, list(names))
         return ends[1], value, chosen
 
-    unreadable = partial(Fault.of, Reason.UNREADABLE, str(path))
+    unreadable = partial(Fault.of, Reason.UNREADABLE, path)
     with ExitStack() as loading:
 
         @catch(exception=OSError)
@@ -137,10 +137,10 @@ def inspected(path: Path) -> Generator[Outcome[bpy.types.BlendData]]:
 
 def library_listing(source: object, kind: type[bpy.types.ID], path: Path) -> Outcome[tuple[str, tuple[str, ...]]]:
     store = collection_name(kind)
-    absent = partial(Fault.of, Reason.ABSENT, str(path), member=store)
+    absent = partial(Fault.of, Reason.ABSENT, path, member=store)
     if issubclass(kind, bpy.types.Library):
         return Error(absent())
-    return catch(getattr, exception=AttributeError)(source, store).map_error(absent).bind(lambda names: converted_value(names, tuple[str, ...], str(path))).map(lambda names: (store, names))
+    return catch(getattr, exception=AttributeError)(source, store).map_error(absent).bind(lambda names: converted_value(names, tuple[str, ...], path)).map(lambda names: (store, names))
 
 
 def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, ...], **load: bool) -> Outcome[tuple[T, ...]]:
@@ -158,7 +158,7 @@ def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, 
 
     def chosen(source: object) -> tuple[Outcome[tuple[str, tuple[str, ...]]], Mapping[str, Sequence[str]]]:
         found = library_listing(source, kind, path).bind(
-            lambda listing: accumulated(Ok(name).filter_with(listing[1].__contains__, lambda held: Fault.of(Reason.ABSENT, str(path), member=held)) for name in names).map(
+            lambda listing: accumulated(Ok(name).filter_with(listing[1].__contains__, lambda held: Fault.of(Reason.ABSENT, path, member=held)) for name in names).map(
                 lambda selected: (listing[0], selected)
             )
         )
@@ -166,7 +166,7 @@ def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, 
 
     return sourced(bpy.data, path, chosen, **load).bind(
         lambda answer: answer[0].bind(
-            lambda picked: accumulated(Ok(block) if isinstance(block, kind) else Error(Fault.of(Reason.ABSENT, str(path), member=name)) for name, block in zip(picked[1], answer[1][picked[0]]))
+            lambda picked: accumulated(Ok(block) if isinstance(block, kind) else Error(Fault.of(Reason.ABSENT, path, member=name)) for name, block in zip(picked[1], answer[1][picked[0]]))
         )
     )
 
@@ -190,8 +190,8 @@ def override_made(block: bpy.types.ID, make: Callable[[bpy.types.ID], bpy.types.
     """Creates an override through the `ID.override_create` or `ID.override_hierarchy_create` call make states, absent fault for an ID taking none."""
     return (
         catch(make, exception=RuntimeError)(block)
-        .map_error(partial(Fault.of, Refusal.REFUSED, repr(block)))
-        .bind(lambda held: option.of_optional(held).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(block), member="override_library")))
+        .map_error(partial(Fault.of, Refusal.REFUSED, block))
+        .bind(lambda held: option.of_optional(held).to_result_with(lambda: Fault.of(Reason.ABSENT, block, member="override_library")))
     )
 
 
@@ -200,8 +200,8 @@ def _overridden[R](block: bpy.types.ID, call: Callable[[bpy.types.IDOverrideLibr
     return (
         option
         .of_optional(block.override_library)
-        .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(block), member="override_library"))
-        .bind(lambda held: catch(call, exception=RuntimeError)(held).map_error(partial(Fault.of, Refusal.REFUSED, repr(held))))
+        .to_result_with(lambda: Fault.of(Reason.ABSENT, block, member="override_library"))
+        .bind(lambda held: catch(call, exception=RuntimeError)(held).map_error(partial(Fault.of, Refusal.REFUSED, held)))
     )
 
 
@@ -215,7 +215,7 @@ def override_resynced(
     """
     return (
         _overridden(block, lambda held: held.resync(scene=scene, view_layer=view_layer.to_optional(), residual_storage=residual_storage.to_optional(), **flags))
-        .filter_with(bool, lambda _: Fault.of(Reason.ABSENT, repr(block), member="override_library reference"))
+        .filter_with(bool, lambda _: Fault.of(Reason.ABSENT, block, member="override_library reference"))
         .map(lambda _: None)
     )
 

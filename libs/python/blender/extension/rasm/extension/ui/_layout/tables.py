@@ -41,7 +41,7 @@ class SettingsTable(ConditionalRow, frozen=True, kw_only=True):
             editor = Block.of_seq(self.compound).filter(lambda pair: isinstance(setting.prop, bpy.types.PointerProperty) and isinstance(setting.prop.fixed_type, pair[0])).try_head()
             return action.map(lambda extra: (setting, editor.map(lambda pair: partial(_edited, setting, pair[1], extra)).default_with(lambda: partial(_beside, setting, extra))))
 
-        named = option.of_optional(rna_definition(owner_type).name_property).to_result_with(lambda: Fault.of(Reason.ABSENT, owner_type.__name__, member="name_property"))
+        named = option.of_optional(rna_definition(owner_type).name_property).to_result_with(lambda: Fault.of(Reason.ABSENT, owner_type, member="name_property"))
         settings = accumulated(Descriptor.resolve(owner_type, path, bpy.types.Property) for path in self.settings).map(lambda found: tuple(leaf for each in found for leaf in each.leaves(kinds)))
         return paired(named, settings.bind(lambda found: accumulated(map(celled, found)))).map(lambda parts: partial(self.shown, identity, *parts))
 

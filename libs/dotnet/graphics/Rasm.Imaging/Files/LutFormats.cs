@@ -37,7 +37,7 @@ public sealed partial class LutFormat {
         static edge => (int)float.Round(float.Sqrt(edge), MidpointRounding.ToEven) is var level && level * level == edge ? Some(level * level * level) : None,
         static (row, run, runs, edge) => ((row * runs) + run) * edge);
     public static readonly LutFormat KeyShotLookup = Lookup("keyshot-lookup", static edge => Some(edge * edge), static (row, run, _, edge) => (edge * (edge - 1 - row)) + (edge * edge * run));
-    public static readonly LutFormat DirectDrawSurface = new(Dds, $".{Dds}", Volume, static (_, _, _) => ImagingFault.Of(ImagingReason.Unsupported, Dds));
+    public static readonly LutFormat DirectDrawSurface = new(Dds, $".{Dds}", Volume, static (_, _, _) => Fault.Of(ImagingReason.Unsupported, Dds));
 
     private static readonly SearchValues<char> Blanks = SearchValues.Create(" \t\r\n");
 
@@ -70,19 +70,19 @@ public sealed partial class LutFormat {
     public static IO<LutTable> Read(string path) =>
         (from bytes in IO.liftAsync(env => File.ReadAllBytesAsync(path, env.Token))
          from table in IO.lift(toSeq(Items).Filter(format => string.Equals(format.Extension, Path.GetExtension(path), StringComparison.OrdinalIgnoreCase)).Fold(
-             Fin.Fail<LutTable>(ImagingFault.Of(ImagingReason.UnknownFormat, path)),
+             Fin.Fail<LutTable>(Fault.Of(ImagingReason.UnknownFormat, path)),
              (held, format) => held.BindFail(_ => format.Decode(bytes))))
          select table)
             | @catch(
                 static error => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>(),
-                error => IO.fail<LutTable>(ImagingFault.Of(ImagingReason.Unreadable, path, inner: error)));
+                error => IO.fail<LutTable>(Fault.Of(ImagingReason.Unreadable, path, inner: error)));
 
     public static Fin<Lut1D> ParseSpi1d(string text) =>
         from scan in Scan.Of(text, [Version, From, Length, Components, "{", "}"])
         from stated in (scan.Stated(Version, static value => value is "1" ? Some(unit) : None), scan.Stated(From, Interval), scan.Stated(Length, Single<int>), scan.Stated(Components, static value => Single<int>(value).Filter(static width => width is 1 or 3)))
             .Apply(static (_, domain, length, width) => (Domain: domain.IfNone(UnitDomain), Length: length, Width: width))
             .As()
-        from shape in (stated.Length.ToFin(ImagingFault.Of(ImagingReason.Missing, Length)), stated.Width.ToFin(ImagingFault.Of(ImagingReason.Missing, Components)))
+        from shape in (stated.Length.ToFin(Fault.Of(ImagingReason.Missing, Length)), stated.Width.ToFin(Fault.Of(ImagingReason.Missing, Components)))
             .Apply(static (length, width) => (Length: length, Width: width)).As()
         from rows in scan.Table(0, shape.Width, shape.Length)
         from table in Lut1D.From(shape.Width is 3 ? rows : Interleaved(rows.Span, rows.Span, rows.Span), stated.Domain.Low, stated.Domain.High)
@@ -101,10 +101,10 @@ public sealed partial class LutFormat {
 
     private static LutFormat Lookup(string key, Func<int, Option<int>> width, Func<int, int, int, int, int> start) =>
         new(key, ".png",
-            bytes => Try.lift(() => SixLabors.ImageSharp.Image.Load<RgbaVector>(bytes.Span)).Run().MapFail(error => ImagingFault.Of(ImagingReason.Refused, key, inner: error)).Bind(image => {
+            bytes => Try.lift(() => SixLabors.ImageSharp.Image.Load<RgbaVector>(bytes.Span)).Run().MapFail(error => Fault.Of(ImagingReason.Refused, key, inner: error)).Bind(image => {
                 using Image<RgbaVector> owned = image;
                 int edge = (int)double.Round(double.Cbrt((double)owned.Width * owned.Height), MidpointRounding.ToEven);
-                return ImagingFault.Unless(Cubed(edge) == (long)owned.Width * owned.Height && width(edge) == owned.Width, ImagingReason.UnknownFormat, (owned.Width, owned.Height)).Bind(_ => {
+                return Fault.Unless(Cubed(edge) == (long)owned.Width * owned.Height && width(edge) == owned.Width, ImagingReason.UnknownFormat, (owned.Width, owned.Height)).Bind(_ => {
                     float[] samples = GC.AllocateUninitializedArray<float>(3 * owned.Width * owned.Height);
                     owned.ProcessPixelRows(rows => {
                         int runs = rows.Width / edge;
@@ -125,14 +125,14 @@ public sealed partial class LutFormat {
                     .Write(metadata with { Fields = metadata.Fields.AddOrUpdate("Title", name) }, stream)));
 
     private static Fin<Func<Stream, IO<Unit>>> Written<T>(Option<T> content, string key, Func<T, Stream, IO<Unit>> write) =>
-        content.ToFin(ImagingFault.Of(ImagingReason.Unsupported, key)).Map<Func<Stream, IO<Unit>>>(held => stream => write(held, stream));
+        content.ToFin(Fault.Of(ImagingReason.Unsupported, key)).Map<Func<Stream, IO<Unit>>>(held => stream => write(held, stream));
 
     private static Fin<LutTable> ParseCube(string text) =>
         from scan in Scan.Of(text, ["TITLE", Lut1DSize, Lut3DSize, DomainMin, DomainMax, Lut1DInputRange, Lut3DInputRange])
         from stated in (scan.Stated(Lut1DSize, Single<int>), scan.Stated(Lut3DSize, Single<int>), scan.Stated(DomainMin, Triple), scan.Stated(DomainMax, Triple), scan.Stated(Lut1DInputRange, Interval), scan.Stated(Lut3DInputRange, Interval))
             .Apply(static (curve, lattice, low, high, curveRange, latticeRange) => (Curve: curve, Lattice: lattice, Domain: (low.IfNone(Vector3.Zero), high.IfNone(Vector3.One)), CurveRange: curveRange, LatticeRange: latticeRange))
             .As()
-        from _ in ImagingFault.Unless(stated.Curve.IsSome || stated.Lattice.IsSome, ImagingReason.Missing, (Lut1DSize, Lut3DSize))
+        from _ in Fault.Unless(stated.Curve.IsSome || stated.Lattice.IsSome, ImagingReason.Missing, (Lut1DSize, Lut3DSize))
         let length = stated.Curve.IfNone(0)
         from rows in scan.Table(0, 3, length + Cubed(stated.Lattice.IfNone(0)))
         from steps in (stated.Curve.ToSeq().Map(_ => Curve(rows[..(3 * length)], stated.CurveRange.IfNone(stated.Domain)))
@@ -171,7 +171,7 @@ public sealed partial class LutFormat {
     private static Fin<LutTable> ParseSpi3d(string text) =>
         from scan in Scan.Of(text, [SpiLut])
         from size in (scan.Row(0) is [3f, 3f] && scan.Row(1) is [var red, var green, var blue] && red == green && green == blue && float.IsInteger(red) ? Some((int)red) : None)
-            .ToFin(ImagingFault.Of(ImagingReason.Malformed, SpiLut, scan.Line(1)))
+            .ToFin(Fault.Of(ImagingReason.Malformed, SpiLut, scan.Line(1)))
         from _ in scan.Table(2, 6, Cubed(size))
         from samples in Placed(scan, size)
         from table in Lattice(size, samples, UnitDomain)
@@ -183,7 +183,7 @@ public sealed partial class LutFormat {
 
     private static Fin<LutTable> ParseSpiMatrix(string text) =>
         from scan in Scan.Of(text, [])
-        from _ in ImagingFault.Unless(scan.Keywords.IsEmpty && scan.Values.Length is 12, ImagingReason.Malformed, scan.Values.Length)
+        from _ in Fault.Unless(scan.Keywords.IsEmpty && scan.Values.Length is 12, ImagingReason.Malformed, scan.Values.Length)
         let matrix = Homogeneous(scan.Values.AsSpan(), 4)
         select (LutTable)new LutTable.Affine(matrix with { Translation = matrix.Translation / ushort.MaxValue });
 
@@ -193,11 +193,11 @@ public sealed partial class LutFormat {
 
     private static Fin<LutTable> Parse3dl(string text) =>
         from scan in Scan.Of(text, [])
-        from size in (Ramped(scan.Row(0)) ? Some(scan.Row(0).Length) : None).ToFin(ImagingFault.Of(ImagingReason.Malformed, scan.Row(0).Length, scan.Line(0)))
+        from size in (Ramped(scan.Row(0)) ? Some(scan.Row(0).Length) : None).ToFin(Fault.Of(ImagingReason.Malformed, scan.Row(0).Length, scan.Line(0)))
         from rows in scan.Table(1, 3, Cubed(size))
         from levels in toSeq(OutputDepth.Items).Map(static depth => depth.Levels).Somes().Find(held => held.MaxCode >= TensorPrimitives.Max(rows.Span))
-            .ToFin(ImagingFault.Of(ImagingReason.Range, TensorPrimitives.Max(rows.Span)))
-        from _ in ImagingFault.Unless(TensorPrimitives.Min(rows.Span) >= 0f, ImagingReason.Range, TensorPrimitives.Min(rows.Span))
+            .ToFin(Fault.Of(ImagingReason.Range, TensorPrimitives.Max(rows.Span)))
+        from _ in Fault.Unless(TensorPrimitives.Min(rows.Span) >= 0f, ImagingReason.Range, TensorPrimitives.Min(rows.Span))
         from table in Lattice(size, Transposed(rows.Span, size, 1f / levels.MaxCode), UnitDomain)
         select table;
 
@@ -213,11 +213,11 @@ public sealed partial class LutFormat {
     private static Fin<LutTable> ParseCsp(string text) =>
         from scan in Scan.Of(Unmarked(text), [CspLut, Csp1D, Csp3D])
         let cube = scan.Keywords.ContainsKey(Csp3D)
-        from _ in ImagingFault.Unless(scan.Keywords.ContainsKey(CspLut) && scan.Keywords.ContainsKey(Csp1D) != cube, ImagingReason.Malformed, CspLut)
+        from _ in Fault.Unless(scan.Keywords.ContainsKey(CspLut) && scan.Keywords.ContainsKey(Csp1D) != cube, ImagingReason.Malformed, CspLut)
         from shape in (cube
                 ? scan.Row(9) is [var red, var green, var blue] && red == green && green == blue && float.IsInteger(red) ? Some((Edge: (int)red, Count: Cubed((int)red))) : None
                 : scan.Row(9) is [var count] && float.IsInteger(count) ? Some((Edge: 0, Count: (long)count)) : None)
-            .ToFin(ImagingFault.Of(ImagingReason.Malformed, scan.Row(9).Length, scan.Line(9)))
+            .ToFin(Fault.Of(ImagingReason.Malformed, scan.Row(9).Length, scan.Line(9)))
         from parts in (scan.Table(10, 3, shape.Count), Prelut(scan)).Apply(static (rows, prelut) => (Rows: rows, Prelut: prelut)).As()
         from body in cube ? Lattice(shape.Edge, parts.Rows, UnitDomain) : Curve(parts.Rows, UnitDomain)
         select LutTable.Of([.. parts.Prelut.ToSeq(), body]);
@@ -244,7 +244,7 @@ public sealed partial class LutFormat {
     private static Fin<Option<LutTable>> Prelut(Scan scan) =>
         Seq(0, 1, 2).Traverse(channel => (scan.Row(3 * channel) is [var count] && count >= 2f && scan.Row((3 * channel) + 1).Length == (int)count && scan.Row((3 * channel) + 2).Length == (int)count
                 ? Some((Inputs: scan.Row((3 * channel) + 1).ToArray(), Outputs: scan.Row((3 * channel) + 2).ToArray()))
-                : None).ToFin(ImagingFault.Of(ImagingReason.Malformed, channel, scan.Line(3 * channel)))).As()
+                : None).ToFin(Fault.Of(ImagingReason.Malformed, channel, scan.Line(3 * channel)))).As()
             .Bind(static channels => Some(channels).Filter(static held => !held.ForAll(static channel => channel.Inputs.AsSpan().SequenceEqual(channel.Outputs))).Traverse(Splined).As());
 
     private static Fin<LutTable> Splined(Seq<(float[] Inputs, float[] Outputs)> channels) {
@@ -290,7 +290,7 @@ public sealed partial class LutFormat {
             Vector3 index = new(scan.Row(row)[..3]);
             int node = (int)((((index.Z * size) + index.Y) * size) + index.X);
             if (Vector3.Truncate(index) != index || Vector3.AnyWhereAllBitsSet(Vector3.LessThan(index, Vector3.Zero) | Vector3.GreaterThan(index, new Vector3(size - 1))) || filled[node])
-                return ImagingFault.Of(ImagingReason.Malformed, index, scan.Line(row));
+                return Fault.Of(ImagingReason.Malformed, index, scan.Line(row));
             filled[node] = true;
             scan.Row(row)[3..].CopyTo(nodes.GetRowSpan(node));
         }
@@ -326,7 +326,7 @@ public sealed partial class LutFormat {
         (int height, int width, int depth, uint format) = file.Length < header || !file.StartsWith("DDS "u8) || !file[84..].StartsWith("DX10"u8)
             ? (0, 0, 0, 0u)
             : (BinaryPrimitives.ReadInt32LittleEndian(file[12..]), BinaryPrimitives.ReadInt32LittleEndian(file[16..]), BinaryPrimitives.ReadInt32LittleEndian(file[24..]), BinaryPrimitives.ReadUInt32LittleEndian(file[128..]));
-        return ImagingFault.Unless(width > 0 && width == height && width == depth && format is sharedExponent && file.Length >= header + (sizeof(uint) * Cubed(width)), ImagingReason.Unsupported, (file.Length, width, height, depth, format))
+        return Fault.Unless(width > 0 && width == height && width == depth && format is sharedExponent && file.Length >= header + (sizeof(uint) * Cubed(width)), ImagingReason.Unsupported, (file.Length, width, height, depth, format))
             .Bind(_ => {
                 float[] samples = GC.AllocateUninitializedArray<float>(3 * (int)Cubed(width));
                 Span<Vector3> nodes = MemoryMarshal.Cast<float, Vector3>(samples.AsSpan());
@@ -464,7 +464,7 @@ public sealed partial class LutFormat {
                 int split = line.IndexOfAny(Blanks) is var at and >= 0 ? at : line.Length;
                 string word = line[..split].ToString();
                 if ((keywords.IsEmpty ? Some(word) : keywords.Find(known => string.Equals(known, word, StringComparison.OrdinalIgnoreCase))).Filter(key => !stated.ContainsKey(key)).Case is not string key)
-                    return ImagingFault.Of(ImagingReason.Malformed, word, number);
+                    return Fault.Of(ImagingReason.Malformed, word, number);
                 stated = stated.Add(key, (line[split..].Trim().ToString(), number));
             }
             return new Scan(stated, [.. values], toSeq(rows));
@@ -475,13 +475,13 @@ public sealed partial class LutFormat {
         public Option<int> Line(int row) => Rows.At(row).Map(static held => held.Line);
 
         public Fin<Option<T>> Stated<T>(string keyword, Func<string, Option<T>> parse) =>
-            Keywords.Find(keyword).Traverse(held => parse(held.Value).ToFin(ImagingFault.Of(ImagingReason.Malformed, keyword, held.Line))).As();
+            Keywords.Find(keyword).Traverse(held => parse(held.Value).ToFin(Fault.Of(ImagingReason.Malformed, keyword, held.Line))).As();
 
         public Fin<ReadOnlyMemory<float>> Table(int first, int width, long count) =>
             Rows.Count - first != count
-                ? ImagingFault.Of(ImagingReason.Miscounted, (count, Rows.Count - first))
+                ? Fault.Of(ImagingReason.Miscounted, (count, Rows.Count - first))
                 : Rows.Skip(first).Find(row => row.End - row.Start != width).Match(
-                    Some: row => Fin.Fail<ReadOnlyMemory<float>>(ImagingFault.Of(ImagingReason.Malformed, width, row.Line)),
+                    Some: row => Fin.Fail<ReadOnlyMemory<float>>(Fault.Of(ImagingReason.Malformed, width, row.Line)),
                     None: () => Values.AsMemory()[(Values.Length - (int)(width * count))..]);
     }
 }

@@ -64,7 +64,7 @@ public sealed partial class Progress {
 
     public Fraction Fraction => new((float)((double)Done / Total));
 
-    public static Fin<Progress> Validated(long done, long total) => UIFault.Unless(total > 0L && done >= 0L && done <= total, UIReason.Range, (done, total)).Map(_ => new Progress(done, total));
+    public static Fin<Progress> Validated(long done, long total) => Fault.Unless(total > 0L && done >= 0L && done <= total, UIReason.Range, (done, total)).Map(_ => new Progress(done, total));
 
     public static View Meter(Option<Progress> work) =>
         Gauge.Bar(PhysicalAxis.Horizontal, work.Bind(static progress => Gauge.Span(PhysicalAxis.Horizontal, 0f, (float)progress.Fraction, Gauge.Band with { Role = StyleRole.Span })).ToSeq()) with {

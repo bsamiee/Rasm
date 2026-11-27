@@ -114,7 +114,7 @@ class Document(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             info=[psdtags.PsdEmpty(psdtags.PsdKey.SAVING_MERGED_TRANSPARENCY2)],
         )
         tagged = catch(source.tifftag, exception=struct.error)(compression=psdtags.PsdCompressionType.ZIP, maxworkers=tifffile.TIFF.MAXWORKERS).map_error(
-            functools.partial(Fault.of, Reason.UNWRITABLE, str(path))
+            functools.partial(Fault.of, Reason.UNWRITABLE, path)
         )
         return paired(tagged, profile(config, self.colorspace)).bind(
             lambda pair: written(
@@ -183,7 +183,7 @@ class LinearRaw(msgspec.Struct, frozen=True, kw_only=True):
 
         return (
             catch(np.linalg.inv, exception=np.linalg.LinAlgError)(basis)
-            .map_error(functools.partial(Fault.of, Reason.FAILED, str(basis)))
+            .map_error(functools.partial(Fault.of, Reason.FAILED, basis))
             .bind(
                 lambda inverse: written(
                     path,

@@ -212,7 +212,7 @@ def used(scene: bpy.types.Scene) -> tuple[bpy.types.ViewLayer, ...]:
 
 def layer_of(scene: bpy.types.Scene, name: str) -> Outcome[bpy.types.ViewLayer]:
     """Returns the scene's view layer `name`, absent fault naming it."""
-    return catch(lambda: scene.view_layers[name], exception=KeyError)().map_error(lambda cause: Fault.of(Reason.ABSENT, repr(scene.view_layers), cause, member=name))
+    return catch(lambda: scene.view_layers[name], exception=KeyError)().map_error(lambda cause: Fault.of(Reason.ABSENT, scene.view_layers, cause, member=name))
 
 
 def soloed(layer: bpy.types.ViewLayer) -> bool:

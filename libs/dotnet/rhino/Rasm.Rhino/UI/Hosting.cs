@@ -63,7 +63,7 @@ internal sealed class ViewBody {
                      (View: row, enclosing.Document, Frame: frame),
                      applicationStores: static (state, _) => new HistoryScope.ApplicationScope(state.Frame.Registry),
                      documentStores: static (state, held) =>
-                         state.Document.ToFin(new RhinoFault(state.View.Identity.Name, RhinoReason.Unsupported)).Map(doc => (HistoryScope)new HistoryScope.DocumentScope(doc, held.Redraw)))
+                         state.Document.ToFin(Fault.Of(RhinoReason.Unsupported, state.View.Identity.Name)).Map(doc => (HistoryScope)new HistoryScope.DocumentScope(doc, held.Redraw)))
                  .Map(reach => new HistoryBinding(row.Identity.GUID, LocalText.Of(row.Caption).Local, bindings, reach, frame.Limits, frame.Clock)))
             .Traverse(static held => held)
             .As())

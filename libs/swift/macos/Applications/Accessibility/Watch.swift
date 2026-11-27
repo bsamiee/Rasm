@@ -1,6 +1,5 @@
 package import AppKit
 @unsafe @preconcurrency import ApplicationServices
-import AsyncAlgorithms
 import CasePaths
 import CasePathsCore
 import Encoding
@@ -88,6 +87,7 @@ package actor Watch {
     private var observing: RunLoopSource?
     private var postponed: [AXUIElement: Set<String>] = [:]
     private var reordered: Bool = false
+    private var windowsChanged: Bool = false
     private var rows: [InstanceState.Window] = []
     private var driving: Driving = .watched
     private var observations: [NSKeyValueObservation] = []
@@ -116,6 +116,8 @@ package actor Watch {
     private var menuRead: ContinuousClock.Instant?
     private var focused: Int?
     private var activation: (active: Bool, hidden: Bool)
+    private var unanswered: ContinuousClock.Instant?
+    private var sampling: ContinuousClock.Instant?
     private var sequence: Int = 0
     private var state: InstanceState
     private var living: Task<Void, Never>?
@@ -161,7 +163,7 @@ package actor Watch {
             }
         activation = (instance.application.isActive, instance.application.isHidden)
         state = .running(
-            InstanceState.Activity(status: .launching, pendingEventAge: nil, active: instance.application.isActive, windows: [], usage: nil, listening: .success([]), statusItems: nil)
+            InstanceState.Activity(status: .launching, pendingEventAge: nil, active: instance.application.isActive, windows: [], usage: nil, statusItems: nil)
         )
         var serial = ProcessSerialNumber()
         self.serial = unsafe findProcess(instance.process.pid, &serial) ? serial : nil
@@ -179,20 +181,18 @@ package actor Watch {
         let spoken: String? = unsafe AXUIElementCopyAttributeValue(applicationElement, preferredLanguageAttribute as CFString, &stated) == .success ? stated as? String : nil
         language = spoken.map { (spoken: String) -> Locale.Language in Locale.Language(identifier: Locale.canonicalLanguageIdentifier(from: spoken)) } ?? language
         observing = observer[case: \.success].map { observer in RunLoopSource(AXObserverGetRunLoopSource(observer)) }
-        observations = [\NSRunningApplication.isActive, \.isHidden].map { [ticks] property in instance.application.observe(property) { _, _ in ticks.continuation.yield() } }
+        observations = [\NSRunningApplication.isActive, \.isHidden, \.isFinishedLaunching].map { [ticks] property in
+            instance.application.observe(property) { _, _ in ticks.continuation.yield() }
+        }
         rows = InstanceState.Window.all(.optionAll, of: process)[process, default: []]
         register()
         switch observer {
             case .success: beat()
             case .failure(let failure): publish(.failed(failure))
         }
-        let clock = SuspendingClock()
-        let beats = AsyncTimerSequence(interval: messagingTimeout, clock: clock).compactMap { (_: SuspendingClock.Instant) async -> InstanceState? in
-            await self.beat()[case: \.running].map(InstanceState.running)
-        }
         tasks = [
             Task { [ticks] in
-                for await _ in ticks.stream.debounce(for: quiet) { self.beat() }
+                for await _ in ticks.stream { self.beat() }
             },
             Task {
                 for await notice in notices { self.note(notice) }
@@ -202,7 +202,7 @@ package actor Watch {
             },
         ]
         living = Task { [instance] in
-            for await next in instance.lifetime(beats, clock: clock) where !next.is(\.running) { self.publish(next) }
+            for await next in instance.lifetime(clock: SuspendingClock()) { self.publish(next) }
             await self.close()
             await ending()
         }
@@ -217,6 +217,7 @@ package actor Watch {
     func drive() {
         (driving, reordered) = (.owed, true)
         windowTicks.continuation.yield()
+        ticks.continuation.yield()
         let (process, began): (ProcessInstance, Date) = (instance.process, .now)
         tasks.append(Task { for await line in LogEntry.stream(of: .process(process.pid), levels: [.fault]) { self.emit(line.map(InstanceEvent.Change.logged(entry:))) } })
         tasks += DiagnosticReport.directories.map { directory in
@@ -230,6 +231,10 @@ package actor Watch {
     private func note(_ notice: Result<WindowServerConnection.Notice, ApplicationFailure>) {
         switch notice[case: \.success]?.notification {
             case .appUnresponsive, .appResponsive: beat()
+            case .created, .destroyed, .shown, .hidden:
+                windowsChanged = true
+                windowTicks.continuation.yield()
+                ticks.continuation.yield()
             case let notification:
                 reordered = reordered || notification == .reordered
                 windowTicks.continuation.yield()
@@ -272,7 +277,6 @@ package actor Watch {
                         active: activity.active,
                         windows: shown,
                         usage: activity.usage,
-                        listening: activity.listening,
                         statusItems: activity.statusItems,
                     )
                 )
@@ -411,9 +415,17 @@ package actor Watch {
         guard !state.is(\.exited) || next.is(\.exited), next[case: \.failed]?.reason != .system(.noSuchProcess) else { return }
         let (before, after) = (state[case: \.running], next[case: \.running])
         if let after, after.status != before?.status { emit(.status(status: after.status)) }
-        if driving != .watched, after?.status.is(\.unresponsive) == true, before?.status.is(\.unresponsive) != true {
+        if driving != .watched, sampling == nil, after?.status.is(\.unresponsive) == true, before?.status.is(\.unresponsive) != true {
             let process: ProcessInstance = instance.process
-            tasks.append(Task { self.emit(await Result { () async throws(ProcessFailure) -> URL in try await process.sample(for: messagingTimeout) }.map(InstanceEvent.Change.sampled(report:))) })
+            sampling = ContinuousClock.now
+            tasks.append(
+                Task {
+                    let sampled: Result<URL, ProcessFailure> = await Result { () async throws(ProcessFailure) -> URL in try await process.sample(for: messagingTimeout) }
+                    if self.state[case: \.running]?.status.is(\.unresponsive) == true { self.emit(sampled.map(InstanceEvent.Change.sampled(report:))) }
+                    self.sampling = nil
+                    self.beat()
+                }
+            )
         }
         if let ending = next[case: \.exited], state[case: \.exited] != ending { emit(.exited(termination: ending)) }
         state = next
@@ -479,7 +491,9 @@ package actor Watch {
 
     private func read(_ element: AXUIElement, _ attributes: [String]) -> (answer: AXError, element: Element) {
         let id = intern(element)
+        let asked: ContinuousClock.Instant = .now
         let (answer, read) = element.element(id, reading: attributes, interning: intern)
+        unanswered = answer == .cannotComplete ? unanswered ?? asked : nil
         guard read.role == kAXTextAreaRole, let range = read.facts[kAXVisibleCharacterRangeAttribute]?.range, let value = read.facts[kAXValueAttribute]?.text,
             let visible = Range(NSRange(location: range.location, length: range.length), in: value)
         else { return (answer, read) }
@@ -608,7 +622,6 @@ package actor Watch {
     }
 
     private func reconcile(_ marked: [AXUIElement: Set<String>]) throws(ApplicationFailure) {
-        let app = try application()
         register()
         for (element, names) in marked where !names.isDisjoint(with: moving) {
             guard let ref = table[element].flatMap({ id in owners[id] }), let container = open[ref], let frame = read(element, frameAttributes).element.frame else { continue }
@@ -620,10 +633,6 @@ package actor Watch {
             (sent[ref], open[ref]) = (nil, nil)
         }
         for (element, names) in marked where names.contains(kAXMenuOpenedNotification) && !names.contains(kAXMenuClosedNotification) { try track(element) }
-        if let element = app.facts[kAXFocusedUIElementAttribute]?.element, element != focused {
-            focused = element
-            if let control = owners[element], let held = controls[control] { emit(.focused(control: control, kind: held.control.kind)) }
-        }
         let changed: [AXUIElement: Element] = Dictionary(
             uniqueKeysWithValues: marked.compactMap { (entry: (key: AXUIElement, value: Set<String>)) -> (AXUIElement, Element)? in
                 guard entry.value.contains(kAXValueChangedNotification), entry.value.isDisjoint(with: invalidating) else { return nil }
@@ -654,11 +663,18 @@ package actor Watch {
                     ?? read(element, [kAXTopLevelUIElementAttribute]).element.facts[kAXTopLevelUIElementAttribute]?.element
             }
         )
-        let windows: Set<Int> = Set(app.facts[kAXWindowsAttribute]?.elements ?? [])
-        let known: Set<Int> = Set(open.values.filter { container in container.parent == nil && container.kind != .menu }.compactMap { container in located[container.ref] })
-        if windows != known || !touched.isEmpty {
+        let refocused: Bool = marked.values.contains { (names: Set<String>) -> Bool in names.contains(kAXFocusedUIElementChangedNotification) }
+        if windowsChanged || marked.isEmpty || refocused || !rewalked.isEmpty {
+            let app = try application()
+            windowsChanged = false
+            if let element = app.facts[kAXFocusedUIElementAttribute]?.element, element != focused {
+                focused = element
+                if let control = owners[element], let held = controls[control] { emit(.focused(control: control, kind: held.control.kind)) }
+            }
+            let windows: Set<Int> = Set(app.facts[kAXWindowsAttribute]?.elements ?? [])
+            let known: Set<Int> = Set(open.values.filter { container in container.parent == nil && container.kind != .menu }.compactMap { container in located[container.ref] })
             let full: Set<Int> = touched.union(windows.subtracting(known))
-            _ = try merged(try hierarchy(of: app, full: full), full: full)
+            if windows != known || !touched.isEmpty { _ = try merged(try hierarchy(of: app, full: full), full: full) }
         }
         for (element, names) in marked where names.contains(kAXUIElementDestroyedNotification) {
             if let id = table.removeValue(forKey: element) { handles[id] = nil }
@@ -687,8 +703,15 @@ package actor Watch {
             do throws(Errno) { thread = try MainThread(of: instance.process) } catch { throw ApplicationFailure(subject: subject, reason: .system(error)) }
             let pending: Duration? = try serial.flatMap { serial throws(ApplicationFailure) -> Duration? in try pendingEventAge(of: serial) }
             let held: Bool = [.stopped, .traced].contains(thread.state) || pending != nil
-            if pending != nil { postponed = marked }
-            let after: MainThread?
+            let standing: Bool = state[case: \.running]?.status.is(\.unresponsive) == true
+            let inFlight: Duration? = [unanswered, sampling].compactMap(\.self).min().map { (began: ContinuousClock.Instant) -> Duration in began.duration(to: .now) }
+            let stalled: Bool =
+                switch (pending, inFlight) {
+                    case (.none, _): false
+                    case (.some, .none): true
+                    case (.some(let age), .some(let asked)): standing || asked < age
+                }
+            if held { postponed = marked }
             do throws(ApplicationFailure) {
                 if !held, instance.application.activationPolicy != .prohibited || !marked.isEmpty { try reconcile(marked) }
                 let written: AXError? =
@@ -702,34 +725,29 @@ package actor Watch {
                 if let refused, refused.reason.is(\.unanswered) || refused.reason == .system(.noSuchProcess) { throw refused }
                 if written != nil { driving = .answered }
                 if let refused { send(.failure(refused)) }
-                after = nil
             } catch  where error.reason.is(\.unanswered) {
-                do throws(Errno) { after = try MainThread(of: instance.process) } catch { throw ApplicationFailure(subject: subject, reason: .system(error)) }
+                postponed = marked
             }
             let ready: Bool = instance.application.isFinishedLaunching || open.values.contains(where: \.asking)
             let status: InstanceState.Activity.Status =
-                switch (held, after, ready) {
-                    case (true, _, _): .unresponsive(thread: thread.state)
-                    case (false, .some(let after), true): .unresponsive(thread: after.status(since: thread))
-                    case (false, _, false): .launching
-                    case (false, .none, true): .responding
+                switch (stalled, ready) {
+                    case (true, _): .unresponsive(thread: thread.state)
+                    case (false, false): .launching
+                    case (false, true): .responding
                 }
-            let blocked: Bool = status.is(\.unresponsive)
             let began: ResourceUsage? = state[case: \.running]?.usage?[case: \.success]?.start
             let usage: Result<ResourceUsage.Interval, Errno>? =
-                blocked
+                stalled
                 ? Result { () throws(Errno) -> ResourceUsage.Interval in
                     let now = try ResourceUsage(of: instance.process)
                     return now.since(began ?? now)
                 } : nil
-            let listening = Result { () throws(Errno) in try instance.process.listeningPorts() }
             return InstanceState.Activity(
                 status: status,
                 pendingEventAge: pending,
                 active: activation.active,
-                windows: windows(blocking: blocked),
+                windows: windows(blocking: stalled),
                 usage: usage,
-                listening: listening,
                 statusItems: nil,
             )
         }
