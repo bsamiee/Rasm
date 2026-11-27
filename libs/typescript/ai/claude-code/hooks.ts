@@ -76,10 +76,10 @@ const reasonOf = (cause: Cause.Cause<Failure>): Option.Option<string> =>
         Match.when({ _tag: 'PlatformError' }, ({ reason: { module, method, description, _tag } }) => Option.some(`engine refused ${module}.${method}: ${firstLine(description ?? _tag)}`)),
         Match.orElse((error) => Option.some(firstLine(error.message))),
     );
-const shown = (plugin: string, outages: Readonly<Record<string, Outage>>) =>
+const shown = (outages: Readonly<Record<string, Outage>>) =>
     Array.match(Record.toEntries(outages), {
         onEmpty: () => undefined,
-        onNonEmpty: (rows) => `${plugin}: ${rows.map(([kind, { since, reason, unjudged }]) => `${kind} rules off since ${clock.format(since)} · ${reason} · ${(unjudgedCalls[plural.select(unjudged)] ?? unjudgedCalls.other)(counted.format(unjudged))}`).join('; ')}`,
+        onNonEmpty: (rows) => rows.map(([kind, { since, reason, unjudged }]) => `${kind} rules off since ${clock.format(since)} · ${reason} · ${(unjudgedCalls[plural.select(unjudged)] ?? unjudgedCalls.other)(counted.format(unjudged))}`).join('; '),
     });
 const watch = (policy: Policy, busy: Busy, { call, agent }: Action, task: Option.Option.Value<ReturnType<typeof backgroundTask>>) =>
     Session.use((session) => {
@@ -125,13 +125,16 @@ function settle($: EngineInterface, health: Health, kind: Action['_tag'], fault:
     });
     MutableRef.set(health, after);
     if (Option.isSome(fault) || Record.has(held, kind)) {
-        $.ui.status(shown($.plugin.name, after));
+        $.ui.status(shown(after));
     }
 }
 
 function judged($: EngineInterface, health: Health, action: Action, settled: Exit.Exit<Decision, Failure>) {
     return Exit.match(settled, {
-        onSuccess: Function.identity,
+        onSuccess: (decision) => {
+            settle($, health, action._tag, Option.none());
+            return decision;
+        },
         onFailure: (cause) => {
             $.ui.log(`policy did not judge ${action._tag} call ${action.call} and let it run: ${Cause.pretty(cause)}`, { to: 'debug' });
             Option.match(reasonOf(cause), { onNone: Function.constVoid, onSome: (reason) => settle($, health, action._tag, Option.some(reason)) });
