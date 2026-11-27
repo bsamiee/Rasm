@@ -1,7 +1,7 @@
 {
     "name": "@rasm/applications",
     "version": "0.1.0",
-    "description": "Wire contract and Node client of a Mac application server watching installed and running apps, the six MCP tools over it, and the build of the Node server a Mac app embeds as its helper",
+    "description": "Wire contract and Node client of a Mac application server watching installed and running apps, with their catalog, interface map, and plug-in source contract",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -18,20 +18,10 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        "./address": "./address.ts",
         "./contract": "./contract.ts",
-        "./capture": "./capture.ts",
-        "./installations": "./installations.ts",
-        "./instances": "./instances.ts",
-        "./interface": "./interface.ts",
-        "./processes": "./processes.ts",
-        "./steps": "./steps.ts",
         "./interface-map": "./interface-map.ts",
-        "./outline": "./outline.ts",
         "./client": "./client.ts",
         "./source": "./source.ts",
-        "./tools": "./tools.ts",
-        "./vite": "./vite.ts",
         "./workspace": "./workspace.ts",
         "./package.json": "./package.json"
     },
@@ -40,20 +30,10 @@
             "#/*": "./dist/*.js"
         },
         "exports": {
-            "./address": "./dist/address.js",
             "./contract": "./dist/contract.js",
-            "./capture": "./dist/capture.js",
-            "./installations": "./dist/installations.js",
-            "./instances": "./dist/instances.js",
-            "./interface": "./dist/interface.js",
-            "./processes": "./dist/processes.js",
-            "./steps": "./dist/steps.js",
             "./interface-map": "./dist/interface-map.js",
-            "./outline": "./dist/outline.js",
             "./client": "./dist/client.js",
             "./source": "./dist/source.js",
-            "./tools": "./dist/tools.js",
-            "./vite": "./dist/vite.js",
             "./workspace": "./dist/workspace.js",
             "./package.json": "./package.json"
         },
@@ -61,25 +41,18 @@
     },
     "dependencies": {
         "@effect/sql-sqlite-node": "catalog:",
+        "@rasm/current-process": "workspace:*",
         "@rasm/database": "workspace:*",
-        "@rasm/mcp": "workspace:*",
         "@rasm/process": "workspace:*",
         "@rasm/rpc": "workspace:*",
         "@rasm/search": "workspace:*"
     },
     "devDependencies": {
         "@types/node": "catalog:",
-        "effect": "catalog:",
-        "vite": "catalog:"
+        "effect": "catalog:"
     },
     "peerDependencies": {
-        "effect": "catalog:peers",
-        "vite": "catalog:peers"
-    },
-    "peerDependenciesMeta": {
-        "vite": {
-            "optional": true
-        }
+        "effect": "catalog:peers"
     },
     "engines": {
         "node": ">=27"

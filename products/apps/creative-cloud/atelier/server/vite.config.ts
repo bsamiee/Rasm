@@ -2,10 +2,10 @@ import { createRequire, findPackageJSON } from 'node:module';
 import { dirname, join, relative } from 'node:path';
 import process from 'node:process';
 import { layer } from '@effect/platform-node/NodeServices';
-import { singleExecutable } from '@rasm/applications/vite';
 import { inlineScript } from '@rasm/extendscript/vite';
 import { run } from '@rasm/process';
 import { checks } from '@rasm/vite/checks';
+import { singleExecutable } from '@rasm/vite/executable';
 import { Array, Effect, FileSystem, Struct } from 'effect';
 import type { Plugin, Rolldown, UserConfigFnPromise } from 'vite';
 

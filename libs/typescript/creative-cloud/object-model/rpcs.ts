@@ -22,7 +22,7 @@ class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Re
         return `Render ${this.target.leaf}`;
     }
 }
-const WriteResult = Reference.mapFields(Struct.assign({ written: Schema.Array(Schema.String).annotate({ description: 'Member names' }) }));
+const WriteResult = Reference.mapFields(Struct.assign({ written: Schema.Array(Schema.String) }));
 
 // --- [ERRORS] --------------------------------------------------------------------------
 

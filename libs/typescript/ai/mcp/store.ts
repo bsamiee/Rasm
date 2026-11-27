@@ -5,7 +5,7 @@ import { Catalog } from '@rasm/database/catalog';
 import { Column } from '@rasm/database/column';
 import { Relation } from '@rasm/database/relation';
 import { Sqlite } from '@rasm/database/sqlite';
-import { Array, Cause, Context, Effect, Exit, type Fiber, type FiberSet, Function, Layer, Option, RcMap, Record, Redacted, Ref, Result, Schema, Stream, Struct, TxRef, TxSubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Effect, Exit, type Fiber, type FiberSet, Function, Layer, Option, RcMap, Record, Redacted, Ref, Result, Schema, SchemaGetter, Stream, Struct, TxRef, TxSubscriptionRef, UndefinedOr } from 'effect';
 import { McpSchema } from 'effect/ai';
 import { Jwk } from 'effect/jose';
 import { SqlClient } from 'effect/sql';
@@ -23,14 +23,9 @@ interface HandleState {
     readonly rows: typeof Handles.Rows.Type;
     readonly blocks: readonly McpSchema.ContentBlock[];
     readonly calls: number;
+    readonly polls: number;
     readonly answering: number;
-    readonly running: readonly {
-        readonly call: number;
-        readonly tool: string;
-        readonly fiber: Fiber.Fiber<McpSchema.CallToolResult | McpSchema.InputRequired, McpSchema.InternalError>;
-        readonly ends: Stream.Stream<Effect.Effect<string>>;
-        readonly done: TxRef.TxRef<Option.Option<Exit.Exit<McpSchema.CallToolResult | McpSchema.InputRequired, McpSchema.InternalError>>>;
-    }[];
+    readonly running: readonly { readonly call: number; readonly tool: string; readonly fiber: Fiber.Fiber<McpSchema.CallToolResult | McpSchema.InputRequired, McpSchema.InternalError>; readonly ends: Stream.Stream<Effect.Effect<string>> }[];
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -44,21 +39,36 @@ const HandleRecord = Schema.Struct({
     calls: Schema.Int,
     running: Schema.Array(Schema.Struct({ call: Schema.Int, tool: Schema.String })),
 });
+const Standing = Schema.TaggedUnion({ Waiting: { key: Schema.String }, Settled: { key: Schema.String } });
+const Earlier = Schema.Struct({
+    ...Struct.pick(HandleRecord.fields, ['state', 'dropped', 'calls']),
+    entries: Schema.Array(Schema.Struct({ ...Struct.pick(Notice.fields, ['sequence', 'text']), standing: Schema.optionalKey(Standing), delivers: Schema.optionalKey(Schema.Json) })),
+    ended: Schema.Array(Schema.Struct({ ...HandleRecord.fields.running.value.fields, result: McpSchema.CallToolResult })),
+}).pipe(
+    Schema.decodeTo(HandleRecord, {
+        decode: SchemaGetter.transform(({ entries, ended, ...kept }) => {
+            const last = Option.match(Array.last(entries), { onNone: () => 0, onSome: Struct.get('sequence') });
+            const items = Array.reduce(entries, Array.empty<(typeof Handles.Rows.Type)['items'][number]>(), (held, { text, standing }) =>
+                UndefinedOr.match(standing, { onUndefined: () => held, onDefined: (mark) => [...Array.filter(held, (item) => item.key !== mark.key), ...Standing.match({ Waiting: ({ key }) => [{ key, text }], Settled: () => [] })(mark)] }),
+            );
+            return {
+                ...kept,
+                notices: [
+                    ...Array.map(entries, ({ sequence, text, delivers }) => ({ sequence, text, push: delivers !== undefined, wake: false })),
+                    ...Array.map(ended, ({ call, tool, result }) => ({ sequence: last, text: [`finished: call ${call} ${tool}`, ...Array.filterMap(result.content, (block) => (block.type === 'text' ? Result.succeed(block.text) : Result.failVoid))].join(' '), push: true, wake: false })),
+                ],
+                handed: [],
+                rows: { revision: items.length, items },
+                running: [],
+            };
+        }),
+        encode: SchemaGetter.forbiddenEncoding,
+    }),
+);
 const STORED = [...Struct.keys(HandleRecord.fields), 'pending'] as const;
 const tables = {
     servers: Relation.make('servers', { scheme: Schema.String, sequence: Schema.Int, secret: Schema.fromJsonString(Jwk.SecretJwk) }, { key: ['scheme'], withoutRowid: true }),
-    handles: Relation.make(
-        'handles',
-        {
-            handle: Column.Uuid,
-            body: HandleRecord.pipe(
-                Schema.OptionFromNullOr,
-                Schema.catchDecoding((issue) => Effect.as(Effect.logInfo('Handle store dropped a handle this build no longer reads', new Schema.SchemaError(issue)), Option.some(Option.none()))),
-                Schema.fromJsonString,
-            ),
-        },
-        { key: ['handle'], withoutRowid: true, retired: ['touched'] },
-    ),
+    handles: Relation.make('handles', { handle: Column.Uuid, body: Schema.fromJsonString(HandleRecord) }, { key: ['handle'], withoutRowid: true, retired: ['touched'], documents: { body: [Schema.fromJsonString(Earlier)] } }),
 };
 const catalog = Catalog.make({ tables: [tables.servers, tables.handles] });
 
@@ -76,7 +86,7 @@ const callResult = (exit: Exit.Exit<McpSchema.CallToolResult | McpSchema.InputRe
 const encodeHandle = (handle: string, slot: HandleState, registry: Record.ReadonlyRecord<string, (state: Context.Context<never>) => Effect.Effect<Schema.Json>>) =>
     Effect.map(Effect.all(Record.map(registry, Function.apply(slot.state))), (state) => ({
         handle,
-        body: Option.some({ state: { ...slot.pending, ...state }, dropped: slot.dropped, notices: slot.notices, handed: slot.handed, rows: slot.rows, calls: slot.calls, running: Array.map(slot.running, ({ call, tool }) => ({ call, tool })) }),
+        body: { state: { ...slot.pending, ...state }, dropped: slot.dropped, notices: slot.notices, handed: slot.handed, rows: slot.rows, calls: slot.calls, running: Array.map(slot.running, ({ call, tool }) => ({ call, tool })) },
     }));
 
 const openStore = Effect.fnUntraced(function* ({
@@ -103,12 +113,11 @@ const openStore = Effect.fnUntraced(function* ({
     const [servers, stored] = yield* Effect.provideContext(Effect.all([Relation.select(tables.servers, { scheme: [scheme] }), Relation.select(tables.handles, {})]), context);
     const secret = yield* Option.match(Array.head(servers), { onNone: () => Jwk.generateSecret('dir'), onSome: (row) => Effect.succeed(Redacted.make(row.secret)) });
     const counted = Option.match(Array.head(servers), { onNone: () => 0, onSome: Struct.get('sequence') });
-    const [restored, expired] = Array.partition(stored, (row) => Option.match(row.body, { onNone: () => Result.fail(row.handle), onSome: (body) => Result.succeed({ ...row, body }) }));
-    yield* Effect.provideContext(Effect.all([Relation.upsert(tables.servers, [{ scheme, sequence: counted, secret: Redacted.value(secret) }]), Array.match(expired, { onEmpty: () => Effect.void, onNonEmpty: (gone) => Relation.remove(tables.handles, { handle: gone }) })]), context);
+    yield* Effect.provideContext(Relation.upsert(tables.servers, [{ scheme, sequence: counted, secret: Redacted.value(secret) }]), context);
     const sequence = yield* TxRef.make(counted);
     const cut = yield* Effect.forEach(
-        restored,
-        Effect.fnUntraced(function* ({ handle, body }: (typeof restored)[number]) {
+        stored,
+        Effect.fnUntraced(function* ({ handle, body }: (typeof stored)[number]) {
             const { row } = yield* RcMap.get(handles, handle);
             yield* TxSubscriptionRef.update(row, (slot) => ({ ...slot, pending: body.state, dropped: body.dropped, notices: body.notices, handed: body.handed, rows: body.rows, calls: body.calls }));
             return Array.map(body.running, (each) => ({ ...each, row }));

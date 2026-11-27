@@ -1,10 +1,11 @@
 import { homedir } from 'node:os';
-import { Installation } from '@rasm/applications/installations';
-import type { InstanceSnapshot } from '@rasm/applications/instances';
+import { blocking } from '@rasm/application-tools/handle/target';
+import { Installation, type InstanceSnapshot } from '@rasm/applications/contract';
 import { Workspace } from '@rasm/applications/workspace';
 import type { Application } from '@rasm/creative-cloud-desktop/application';
 import { Preferences } from '@rasm/creative-cloud-desktop/tools';
 import { Link } from '@rasm/mcp/link';
+import { ToolCall } from '@rasm/mcp/toolkit';
 import { Upstream } from '@rasm/mcp/upstream';
 import { run } from '@rasm/process';
 import { HOSTS } from '@rasm/uxp/manifest';
@@ -118,28 +119,28 @@ const readStore = (row: Application, entry: NativeServer) =>
 
 const native = Stream.unwrap(
     Effect.gen(function* () {
-        const [rows, { running, blocking }] = yield* Effect.all([RegistryApplications, Workspace]);
+        const [rows, workspace] = yield* Effect.all([RegistryApplications, Workspace]);
         const proxy = ([row, entry]: readonly [Application, NativeServer]) => {
             const { settings, token } = readStore(row, entry);
             const listening = (instances: readonly InstanceSnapshot[]) => Option.map(Array.findFirst(instances, Installation.runs(row)), Struct.get('listening'));
             const port = (held: Option.Option<readonly number[]>, { ports }: Pick<NativeServer, 'ports'>) => Option.flatMap(held, (open) => Array.findFirst(ports, (each) => open.includes(each)));
+            const early = ToolCall.use(({ returnEarly }) => Effect.flatMap(Effect.provideService(blocking(row), Workspace, workspace), returnEarly));
             return Upstream.fromHttp({
                 peer: Link.make({ application: row.url, plugin: 'mcp' }),
                 prefix: entry.prefix,
                 endpoint: Effect.gen(function* () {
-                    const [instances, stated] = yield* Effect.all([SubscriptionRef.get(running), settings]);
+                    const [instances, stated] = yield* Effect.all([SubscriptionRef.get(workspace.running), settings]);
                     const at = yield* Effect.fromOption(port(listening(instances), stated), () => new Cause.NoSuchElementError(`${row.name} listens on none of ${stated.ports.join(', ')}`));
                     const authorization = stated.authenticated ? Option.some(`Bearer ${yield* token}`) : Option.none<string>();
                     return { url: new URL(stated.path, `http://${Host.formatHostPort(Host.hostPortUnsafe(stated.server, at))}`), headers: Record.getSomes({ authorization }) };
                 }),
-                presence: SubscriptionRef.changes(running).pipe(
+                presence: SubscriptionRef.changes(workspace.running).pipe(
                     Stream.map(listening),
                     Stream.changesWith(Option.makeEquivalence(Array.makeEquivalence(Equivalence.Number))),
                     Stream.mapEffect((held) => Effect.map(settings, (stated) => Option.isSome(port(held, stated))).pipe(Effect.catch((error) => Effect.as(Effect.logWarning(`${row.name} MCP server preferences are unreadable`, error), false)))),
                 ),
-                annotations: blocking(row),
                 poll: Duration.minutes(1),
-            });
+            }).pipe(Stream.map(Array.map((each) => new Upstream({ ...each, call: (name, given) => Effect.andThen(early, each.call(name, given)) }))));
         };
         return SubscriptionRef.changes(rows).pipe(
             Stream.map(Array.filterMap((row: Application) => Option.match(Record.get(NATIVE, row.product), { onNone: () => Result.failVoid, onSome: (entry) => Result.succeed([row, entry] as const) }))),

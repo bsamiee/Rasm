@@ -13,8 +13,10 @@
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@rasm/acrobat": "workspace:*",
+        "@rasm/application-tools": "workspace:*",
         "@rasm/applications": "workspace:*",
         "@rasm/creative-cloud-desktop": "workspace:*",
+        "@rasm/current-process": "workspace:*",
         "@rasm/extendscript": "workspace:*",
         "@rasm/illustrator": "workspace:*",
         "@rasm/indesign": "workspace:*",

@@ -11,7 +11,9 @@
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",
+        "@rasm/application-tools": "workspace:*",
         "@rasm/applications": "workspace:*",
+        "@rasm/current-process": "workspace:*",
         "@rasm/mcp": "workspace:*",
         "@rasm/telemetry": "workspace:*",
         "effect": "catalog:"

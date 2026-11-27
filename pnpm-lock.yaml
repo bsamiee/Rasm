@@ -835,6 +835,28 @@ importers:
         specifier: 'catalog:'
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
 
+  libs/typescript/ai/tools/application-tools:
+    dependencies:
+      '@rasm/applications':
+        specifier: workspace:*
+        version: link:../../../macos/applications
+      '@rasm/database':
+        specifier: workspace:*
+        version: link:../../../data/database
+      '@rasm/mcp':
+        specifier: workspace:*
+        version: link:../../mcp
+      '@rasm/search':
+        specifier: workspace:*
+        version: link:../../../data/search
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
+
   libs/typescript/creative-cloud/acrobat: {}
 
   libs/typescript/creative-cloud/aftereffects:
@@ -1278,12 +1300,12 @@ importers:
       '@effect/sql-sqlite-node':
         specifier: 'catalog:'
         version: 4.1.6(effect@4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02))
+      '@rasm/current-process':
+        specifier: workspace:*
+        version: link:../current-process
       '@rasm/database':
         specifier: workspace:*
         version: link:../../data/database
-      '@rasm/mcp':
-        specifier: workspace:*
-        version: link:../../ai/mcp
       '@rasm/process':
         specifier: workspace:*
         version: link:../../system/process
@@ -1300,9 +1322,15 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
-      vite:
+
+  libs/typescript/macos/current-process:
+    devDependencies:
+      '@types/node':
         specifier: 'catalog:'
-        version: 8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+        version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
 
   libs/typescript/messaging/webhooks:
     devDependencies:
@@ -1609,6 +1637,9 @@ importers:
       '@rasm/mark':
         specifier: workspace:*
         version: link:../../graphics/mark
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../system/process
     devDependencies:
       '@types/culori':
         specifier: 'catalog:'
@@ -1732,12 +1763,18 @@ importers:
       '@rasm/acrobat':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/acrobat
+      '@rasm/application-tools':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/ai/tools/application-tools
       '@rasm/applications':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/macos/applications
       '@rasm/creative-cloud-desktop':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/desktop
+      '@rasm/current-process':
+        specifier: workspace:*
+        version: link:../../../../../libs/typescript/macos/current-process
       '@rasm/extendscript':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/extendscript
@@ -2309,9 +2346,15 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.6(effect@4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02))(redis@6.3.1(@opentelemetry/api@1.10.0))
+      '@rasm/application-tools':
+        specifier: workspace:*
+        version: link:../../../../libs/typescript/ai/tools/application-tools
       '@rasm/applications':
         specifier: workspace:*
         version: link:../../../../libs/typescript/macos/applications
+      '@rasm/current-process':
+        specifier: workspace:*
+        version: link:../../../../libs/typescript/macos/current-process
       '@rasm/mcp':
         specifier: workspace:*
         version: link:../../../../libs/typescript/ai/mcp

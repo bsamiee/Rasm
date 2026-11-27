@@ -65,7 +65,7 @@ extension Installation {
         for source in (scriptingDefinitionIsDynamic ? live + statics : statics + live).compactMap(\.self) {
             let read: Result<Data?, AppleEventFailure> = await Result { () async throws(AppleEventFailure) -> Data? in
                 switch source {
-                    case .running(let process): return try await ScriptingDictionary.definition(of: NSAppleEventDescriptor(processIdentifier: process), within: messagingTimeout)
+                    case .running(let process): return try await ScriptingDictionary.definition(of: NSAppleEventDescriptor(processIdentifier: process))
                     case .sdef(let file):
                         let contents: Result<Data?, any Error> = Result { () throws -> Data? in try ifPresent { () throws -> Data in try Data(contentsOf: file) } }
                         let refused: Result<Data?, AppleEventFailure> = contents.mapError { (error: any Error) -> AppleEventFailure in

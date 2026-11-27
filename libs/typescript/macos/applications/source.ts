@@ -1,10 +1,7 @@
-import type { Link } from '@rasm/mcp/link';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Cause, Effect, Exit, Filter, Formatter, Function, HashMap, Match, Option, Predicate, Record, Result, Schema, SchemaTransformation, Stream, Struct, Tuple } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { Failure } from '#/contract';
-import { Container, Control, HostLabel, type Frame, type Model, type Observation, Pointer, Value } from '#/interface';
-import { Act } from '#/steps';
+import { Act, Container, Control, Failure, type Frame, HostLabel, type Model, type Observation, Pointer, Value } from '#/contract';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -20,11 +17,11 @@ interface Facet<E, R> {
     readonly describe: (payload: { readonly within?: FacetControl['locator'] }) => Effect.Effect<Description, E, R>;
     readonly operate: (payload: typeof Operation.Type) => Effect.Effect<void | typeof Act.Route.cases.source.Type, E, R>;
 }
-interface Changes<E, R> {
-    readonly changes: Stream.Stream<typeof Link.Event.Type, E, R>;
+interface Changes<A, E, R> {
+    readonly changes: Stream.Stream<A, E, R>;
 }
-type Source<E, R, EC, RC> = Facet<E, R> & Changes<EC, RC>;
-type Part<E, R, EC, RC> = Facet<E, R> | Changes<EC, RC>;
+type Source<E, R, A, EC, RC> = Facet<E, R> & Changes<A, EC, RC>;
+type Part<E, R, A, EC, RC> = Facet<E, R> | Changes<A, EC, RC>;
 interface Toolbar<E, R, EC, RC> {
     readonly current: Effect.Effect<Tool, E, R>;
     readonly listed?: Effect.Effect<readonly Tool[], E, R>;
@@ -199,9 +196,9 @@ class Description extends Schema.Class<Description, { readonly brand: unique sym
         };
     };
     static readonly merge: {
-        <E2 = never, R2 = never, EC2 = never, RC2 = never>(that: Part<E2, R2, EC2, RC2>): <E1 = never, R1 = never, EC1 = never, RC1 = never>(self: Part<E1, R1, EC1, RC1>) => Source<E1 | E2 | Unmatched, R1 | R2, never, RC1 | RC2>;
-        <E1 = never, R1 = never, EC1 = never, RC1 = never, E2 = never, R2 = never, EC2 = never, RC2 = never>(self: Part<E1, R1, EC1, RC1>, that: Part<E2, R2, EC2, RC2>): Source<E1 | E2 | Unmatched, R1 | R2, never, RC1 | RC2>;
-    } = Function.dual(2, <E1, R1, EC1, RC1, E2, R2, EC2, RC2>(self: Part<E1, R1, EC1, RC1>, that: Part<E2, R2, EC2, RC2>): Source<E1 | E2 | Unmatched, R1 | R2, never, RC1 | RC2> => {
+        <E2 = never, R2 = never, A2 = never, EC2 = never, RC2 = never>(that: Part<E2, R2, A2, EC2, RC2>): <E1 = never, R1 = never, A1 = never, EC1 = never, RC1 = never>(self: Part<E1, R1, A1, EC1, RC1>) => Source<E1 | E2 | Unmatched, R1 | R2, A1 | A2, never, RC1 | RC2>;
+        <E1 = never, R1 = never, A1 = never, EC1 = never, RC1 = never, E2 = never, R2 = never, A2 = never, EC2 = never, RC2 = never>(self: Part<E1, R1, A1, EC1, RC1>, that: Part<E2, R2, A2, EC2, RC2>): Source<E1 | E2 | Unmatched, R1 | R2, A1 | A2, never, RC1 | RC2>;
+    } = Function.dual(2, <E1, R1, A1, EC1, RC1, E2, R2, A2, EC2, RC2>(self: Part<E1, R1, A1, EC1, RC1>, that: Part<E2, R2, A2, EC2, RC2>): Source<E1 | E2 | Unmatched, R1 | R2, A1 | A2, never, RC1 | RC2> => {
         const facets: readonly Facet<E1 | E2, R1 | R2>[] = Array.flatMap([self, that], (part) => ('roots' in part ? [part] : []));
         const owner = Effect.fnUntraced(function* (locator: FacetControl['locator']) {
             const root: FacetControl['locator'] = [Array.headNonEmpty(locator)];
@@ -361,4 +358,4 @@ const SourceRpcs = Object.assign(failing(Failure), { failing });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Declaration, Description, FacetContainer, FacetControl, FacetPointer, type Source, SourceRpcs };
+export { type Declaration, Description, type Facet, FacetContainer, FacetControl, FacetPointer, type Source, SourceRpcs };

@@ -15,10 +15,8 @@ type EventName = Parameters<premierepro['EventManager']['addGlobalEventListener'
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Module = Schema.declare((module: unknown): module is premierepro => Array.every(['Project', 'Exporter', 'EventManager', 'Constants'] satisfies readonly (keyof premierepro)[], (key) => Predicate.hasProperty(module, key))).annotate({
-    description: 'Module object require("premierepro") returns, by the members the plugin calls',
-});
-const Guided = Schema.Struct({ guid: Schema.Unknown }).annotate({ description: 'Sequence keyed by its guid, the Guid its toString spells' });
+const Module = Schema.declare((module: unknown): module is premierepro => Array.every(['Project', 'Exporter', 'EventManager', 'Constants'] satisfies readonly (keyof premierepro)[], (key) => Predicate.hasProperty(module, key)));
+const Guided = Schema.Struct({ guid: Schema.Unknown });
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

@@ -204,12 +204,12 @@ extension Route {
         activation?.setIntegerValueField(compoundSubtypeField, value: Int64(NSEvent.EventSubtype.applicationDeactivated.rawValue))
         let closed: CGError = activation.map { (record: CGEvent) -> CGError in unsafe postEventRecord(&serial, recordPointer(record)) } ?? .success
         let restored: Bool = await withTaskCancellationShield { () async -> Bool in
-            guard let pointer, let resting,
-                await AsyncTimerSequence(interval: frame, clock: clock).prefix(Int(messagingTimeout / frame)).contains(where: { _ in
-                    let at: CGPoint = CGEvent(source: nil)?.location ?? pointer
-                    return hypot(at.x - resting.x, at.y - resting.y) < 1 && !buttons.contains { button in CGEventSource.buttonState(.combinedSessionState, button: button) }
-                })
-            else { return true }
+            guard let pointer, let resting else { return true }
+            let rested: Bool = await AsyncTimerSequence(interval: frame, clock: clock).prefix(Int(messagingTimeout / frame)).contains { _ in
+                let at: CGPoint = CGEvent(source: nil)?.location ?? pointer
+                return hypot(at.x - resting.x, at.y - resting.y) < 1 && !buttons.contains { button in CGEventSource.buttonState(.combinedSessionState, button: button) }
+            }
+            guard rested else { return false }
             source.localEventsSuppressionInterval = 0
             let move: CGEvent? = CGEvent(mouseEventSource: source, mouseType: .mouseMoved, mouseCursorPosition: pointer, mouseButton: .left)
             move?.post(tap: .cghidEventTap)

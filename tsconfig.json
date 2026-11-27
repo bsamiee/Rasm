@@ -301,6 +301,12 @@
         },
         {
             "path": "./libs/typescript/ai/claude-code"
+        },
+        {
+            "path": "./libs/typescript/macos/current-process"
+        },
+        {
+            "path": "./libs/typescript/ai/tools/application-tools"
         }
     ]
 }

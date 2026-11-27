@@ -2,7 +2,7 @@ import { Handles } from '@rasm/mcp/handles';
 import { atom, type EngineInterface, type On, read, type ToolMcpServer, update } from 'claude-code';
 import { Array, Cause, Context, Data, Duration, Effect, Equal, FiberMap, Function, HashMap, HashSet, Layer, Logger, ManagedRuntime, MutableRef, Option, Record, Ref, Result, Schema, Stream, Struct, SubscriptionRef, SynchronizedRef } from 'effect';
 import { HttpStatus } from 'effect/http';
-import { HttpApiClient } from 'effect/http-api';
+import { HttpApiClient, HttpApiError } from 'effect/http-api';
 import { Host, NetAddress } from 'effect/net';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -70,15 +70,14 @@ function link($: EngineInterface) {
                   onSome: (agentId) => request('session.send', () => $.session.send({ to: { agentId }, text })).pipe(Effect.map(({ isDelivered }) => isDelivered)),
               })
             : request('session.append', () => $.session.append({ message: { type: 'user', content: [{ type: 'text', text }] }, ...Record.getSomes({ agentId: agent }) })).pipe(Effect.map(({ deny }) => deny === undefined));
-    const show = ({ handle, urls }: Follower, items: (typeof Handles.Rows.Type)['items']) => {
-        const rows = Record.fromIterableWith(items, ({ key, text }) => [urls.press({ params: { handle, key } }), text]);
-        return request('reading rows', () => read($, ROWS)).pipe(
+    const show = (handle: string, rows: Record.ReadonlyRecord<string, string>) =>
+        request('reading rows', () => read($, ROWS)).pipe(
             Effect.map((shown) => Record.toEntries(Record.difference(rows, shown[handle] ?? {}))),
             Effect.tap(request('setting rows', () => update($, ROWS, (shown) => (Record.isEmptyRecord(rows) ? Record.remove(shown, handle) : Record.set(shown, handle, rows))))),
             Effect.flatMap(Effect.forEach(([press, text]: readonly [string, string]) => request('notifying', () => (Record.has(rows, press) ? $.ui.notify(text, { key: press }) : $.ui.cancelNotify(press))), { discard: true })),
             Effect.catchCause(Effect.logWarning),
+            Effect.uninterruptible,
         );
-    };
     return Layer.effect(
         Link,
         Effect.gen(function* () {
@@ -87,10 +86,16 @@ function link($: EngineInterface) {
                 Ref.make<Record.ReadonlyRecord<string, boolean>>({}),
                 SubscriptionRef.make(HashSet.empty<Option.Option<string>>()),
                 SynchronizedRef.make(HashMap.empty<Binding, Follower>()),
-                FiberMap.make<Binding>(),
+                FiberMap.make<string>(),
             ]);
+            yield* request('reading rows', () => read($, ROWS)).pipe(
+                Effect.flatMap((shown) => Effect.forEach(Record.keys(shown), (handle) => show(handle, {}), { discard: true })),
+                Effect.catchCause(Effect.logWarning),
+            );
+            const forget = (follower: Follower) => SynchronizedRef.update(held, (known) => (Option.exists(HashMap.get(known, follower.binding), (kept) => kept === follower) ? HashMap.remove(known, follower.binding) : known));
             const take = Effect.fnUntraced(function* (follower: Follower, revision: number, polled: typeof Handles.Polled.Type) {
-                yield* Effect.when(show(follower, polled.rows.items), Effect.succeed(polled.rows.revision !== revision));
+                const rows = Record.fromIterableWith(polled.rows.items, ({ key, text }) => [follower.urls.press({ params: { handle: follower.handle, key } }), text]);
+                yield* Effect.when(show(follower.handle, rows), Effect.succeed(polled.rows.revision !== revision));
                 const idle = !HashSet.has(yield* SubscriptionRef.get(busy), follower.binding.agent);
                 yield* Array.last(polled.notices).pipe(
                     Option.filter(() => !idle || polled.notices.some(Struct.get('wake'))),
@@ -115,9 +120,13 @@ function link($: EngineInterface) {
                 );
                 const query = { after: yield* Ref.get(follower.after), rows: revision, idle, wait: Duration.toSeconds(HTTP_FETCH_LIMIT) / 2 };
                 const polled = yield* send('poll', follower.urls.poll({ params: { handle: follower.handle }, query })).pipe(
-                    Effect.tap(({ status }) => Effect.when(SynchronizedRef.update(held, HashMap.remove(follower.binding)), Effect.succeed(status === HttpStatus.fromLiteral('NotFound')))),
+                    Effect.filterOrFail(
+                        ({ status }) => status !== HttpStatus.fromLiteral('NotFound'),
+                        () => HttpApiError.NotFound.make(),
+                    ),
                     Effect.flatMap(Schema.decodeUnknownEffect(Answered)),
-                    Effect.tapError(() => show(follower, [])),
+                    Effect.tapError(() => show(follower.handle, {})),
+                    Effect.tapErrorTag('NotFound', () => forget(follower)),
                     Effect.map(({ text }) => Option.some(text)),
                     Effect.raceFirst(turned),
                 );
@@ -140,7 +149,7 @@ function link($: EngineInterface) {
                 );
                 const { text } = yield* Effect.fromResult(claimed);
                 const follower: Follower = { binding, handle: text.handle, urls, after: yield* Ref.make(0) };
-                yield* FiberMap.run(polls, binding, follow(follower));
+                yield* FiberMap.run(polls, text.handle, follow(follower));
                 return follower;
             });
             const bind = (binding: Binding) =>
@@ -150,14 +159,15 @@ function link($: EngineInterface) {
                         onSome: (follower) => Effect.succeed([follower.handle, known] as const),
                     }),
                 );
-            const resume = (agent: Option.Option<string>) => SynchronizedRef.get(held).pipe(Effect.flatMap((known) => Effect.forEach(HashMap.filter(known, owns(agent)), ([binding, follower]) => FiberMap.run(polls, binding, follow(follower), { onlyIfMissing: true }), { discard: true })));
+            const resume = (agent: Option.Option<string>) => SynchronizedRef.get(held).pipe(Effect.flatMap((known) => Effect.forEach(HashMap.values(HashMap.filter(known, owns(agent))), (follower) => FiberMap.run(polls, follower.handle, follow(follower), { onlyIfMissing: true }), { discard: true })));
             const quit = (owned: (follower: Follower) => boolean) =>
                 SynchronizedRef.getAndUpdate(held, (known) => HashMap.filter(known, (follower) => !owned(follower))).pipe(
                     Effect.flatMap((known) =>
-                        Effect.forEach(HashMap.filter(known, owned), ([binding, follower]) => FiberMap.remove(polls, binding).pipe(Effect.andThen(show(follower, [])), Effect.andThen(send('release', follower.urls.release({ params: { handle: follower.handle } }))), Effect.catchCause(Effect.logWarning)), {
-                            concurrency: 'unbounded',
-                            discard: true,
-                        }),
+                        Effect.forEach(
+                            HashMap.values(HashMap.filter(known, owned)),
+                            (follower) => FiberMap.remove(polls, follower.handle).pipe(Effect.andThen(show(follower.handle, {})), Effect.andThen(send('release', follower.urls.release({ params: { handle: follower.handle } }))), Effect.catchCause(Effect.logWarning)),
+                            { concurrency: 'unbounded', discard: true },
+                        ),
                     ),
                 );
             const reach = Effect.fnUntraced(function* (tool: string, agent: Option.Option<string>) {

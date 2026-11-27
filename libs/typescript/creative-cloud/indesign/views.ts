@@ -14,7 +14,7 @@ type FindChangeKind<Key = keyof indesign.Application> = Key extends `findChange$
 
 // --- [MEMBERS]
 
-class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Extent')(Struct.Record(['top', 'left', 'bottom', 'right'], Schema.Finite), { description: 'Outer stroke bounds in spread points, x 0 at spine or spread center' }) {}
+class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Extent')(Struct.Record(['top', 'left', 'bottom', 'right'], Schema.Finite)) {}
 const FindChangeMode = Object.assign(Schema.Literals(['Text', 'Grep', 'Glyph', 'Object', 'Color', 'Transliterate'] satisfies readonly FindChangeKind[]).annotate({ description: 'Find/change kind, each with its find and change methods and preference objects' }), {
     members: <Kind extends FindChangeKind>(kind: Kind) => ({ find: `find${kind}` as const, change: `change${kind}` as const, preferences: { find: `find${kind}Preferences`, options: `findChange${kind}Options`, change: `change${kind}Preferences` } as const }),
 });
@@ -31,27 +31,27 @@ class Slice extends Schema.Class<Slice, { readonly brand: unique symbol }>('Slic
         return items.slice(this.offset, Option.getOrUndefined(Option.map(this.limit, (limit) => this.offset + limit)));
     }
 }
-class Collection extends Schema.Opaque<Collection>()(Schema.Struct({ type: Schema.String, specifier: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Every-item specifier, absent where the host gives the collection no every-item object (InDesign Panels)' })), length: Schema.Int })) {}
+class Collection extends Schema.Opaque<Collection>()(Schema.Struct({ type: Schema.String, specifier: Schema.OptionFromOptionalKey(Schema.String), length: Schema.Int })) {}
 const Count = Schema.Struct({ length: Schema.Int }).pipe(Schema.decodeTo(Schema.Int, SchemaTransformation.transform({ decode: Struct.get('length'), encode: (length) => ({ length }) })));
 const ParagraphAttributes = {
-    nestedGrepStyles: Schema.Array(Schema.Struct({ grepExpression: Schema.String, appliedCharacterStyle: Reference } satisfies Properties<indesign.NestedGrepStyle>)).annotate({ description: 'In order' }),
+    nestedGrepStyles: Schema.Array(Schema.Struct({ grepExpression: Schema.String, appliedCharacterStyle: Reference } satisfies Properties<indesign.NestedGrepStyle>)),
     nestedStyles: Schema.Array(Schema.Struct({ appliedCharacterStyle: Reference, delimiter: Schema.Json, repetition: Schema.Int, inclusive: Schema.Boolean } satisfies Properties<indesign.NestedStyle>)),
     nestedLineStyles: Schema.Array(Schema.Struct({ appliedCharacterStyle: Reference, lineCount: Schema.Int, repeatLast: Schema.Int } satisfies Properties<indesign.NestedLineStyle>)),
     tabList: Schema.Array(Schema.Struct({ position: Schema.Finite, alignment: Schema.String, leader: Schema.String, alignmentCharacter: Schema.String } satisfies Properties<indesign.TabStop>)),
     bulletsAndNumberingListType: Schema.String,
     numberingLevel: Schema.Int,
-    bulletChar: Schema.Struct({ characterValue: Schema.Int.annotate({ description: 'Code point' }) } satisfies Properties<indesign.Bullet>),
+    bulletChar: Schema.Struct({ characterValue: Schema.Int } satisfies Properties<indesign.Bullet>),
     numberingFormat: Schema.Json,
     settings: Settings,
 } satisfies Properties<indesign.ParagraphStyle | indesign.Text | indesign.TextDefault, 'settings'>;
 class Issue extends Schema.Opaque<Issue>()(
     Schema.Struct({
         label: Schema.String,
-        page: Schema.optionalKey(Schema.String.annotate({ description: 'Page name, PB on the pasteboard' })),
-        info: Schema.optionalKey(Schema.String.annotate({ description: 'Error info the rule states for the issue' })),
+        page: Schema.optionalKey(Schema.String),
+        info: Schema.optionalKey(Schema.String),
         details: Schema.Record(Schema.String, Schema.String),
         rows: Schema.Array(Schema.suspend((): Schema.Codec<Issue> => Issue)),
-    }).annotate({ description: 'Category or rule with issue count, or issue object with problem and fix' }),
+    }),
 ) {}
 
 // --- [VIEWS]
@@ -59,7 +59,7 @@ class Issue extends Schema.Opaque<Issue>()(
 class Layer extends Schema.TaggedClass<Layer, { readonly brand: unique symbol }>()('Layer', {
     index: Schema.Int,
     ...Struct.Record(['visible', 'locked', 'printable', 'ignoreWrap'] satisfies readonly Member<indesign.Layer>[], Schema.Boolean),
-    layerColor: Schema.Json.annotate({ description: 'UIColors member or RGB values' }),
+    layerColor: Schema.Json,
     pageItems: Collection,
 } satisfies Properties<indesign.Layer>) {}
 class Link extends Schema.TaggedClass<Link, { readonly brand: unique symbol }>()('Link', {
@@ -69,28 +69,26 @@ class Link extends Schema.TaggedClass<Link, { readonly brand: unique symbol }>()
     linkType: Schema.String,
     needed: Schema.Boolean,
     edited: Schema.Boolean,
-    size: Schema.Finite.annotate({ description: 'Source file bytes' }),
-    date: Schema.String.annotate({ description: 'Source file modification date' }),
-    parent: Reference.annotate({ description: 'Placed graphic or story' }),
+    size: Schema.Finite,
+    date: Schema.String,
+    parent: Reference,
 } satisfies Properties<indesign.Link>) {}
 class Page extends Schema.TaggedClass<Page, { readonly brand: unique symbol }>()('Page', {
     documentOffset: Schema.Int,
     side: Schema.String,
     extent: Extent,
-    parent: Reference.annotate({ description: 'Spread or parent spread' }),
+    parent: Reference,
     appliedMaster: Schema.OptionFromOptionalKey(Reference),
     appliedSection: Reference,
-    marginPreferences: Schema.Struct({ top: Schema.Finite, bottom: Schema.Finite, left: Schema.Finite, right: Schema.Finite, columnsPositions: Schema.Array(Schema.Finite).annotate({ description: 'Left and right edge of each column from left margin' }) } satisfies Properties<indesign.MarginPreference>).annotate({
-        description: 'Left is the inside margin with facing pages',
-    }),
+    marginPreferences: Schema.Struct({ top: Schema.Finite, bottom: Schema.Finite, left: Schema.Finite, right: Schema.Finite, columnsPositions: Schema.Array(Schema.Finite) } satisfies Properties<indesign.MarginPreference>),
     pageItems: Collection,
-    masterPageItems: Count.annotate({ description: 'Parent page items shown' }),
+    masterPageItems: Count,
 } satisfies Properties<indesign.Page, 'extent'>) {}
 const spreadFields = {
     index: Schema.Int,
     showMasterItems: Schema.Boolean,
-    appliedMaster: Schema.OptionFromOptionalKey(Reference).annotate({ description: 'Applied parent, or base parent of a parent spread' }),
-    pages: Schema.Array(Reference.mapFields(Struct.assign(Struct.pick(Page.fields, ['side', 'extent'])))).annotate({ description: 'In order' }),
+    appliedMaster: Schema.OptionFromOptionalKey(Reference),
+    pages: Schema.Array(Reference.mapFields(Struct.assign(Struct.pick(Page.fields, ['side', 'extent'])))),
     pageItems: Collection,
 } satisfies Properties<indesign.Spread | indesign.MasterSpread>;
 class Spread extends Schema.TaggedClass<Spread, { readonly brand: unique symbol }>()('Spread', { ...spreadFields, allowPageShuffle: Schema.Boolean } satisfies Properties<indesign.Spread>) {}
@@ -98,26 +96,26 @@ class MasterSpread extends Schema.TaggedClass<MasterSpread, { readonly brand: un
 class Story extends Schema.TaggedClass<Story, { readonly brand: unique symbol }>()('Story', {
     length: Schema.Int,
     overflows: Schema.Boolean,
-    overset: Schema.Int.annotate({ description: 'Characters no container shows' }),
+    overset: Schema.Int,
     textContainers: Schema.Array(
         Reference.mapFields(
             Struct.assign({
-                parentPage: Schema.OptionFromOptionalKey(Reference.annotate({ description: 'Absent on pasteboard and for text paths' })),
-                textFramePreferences: Schema.OptionFromOptionalKey(Schema.Struct({ textColumnCount: Schema.Int } satisfies Properties<indesign.TextFramePreference>).annotate({ description: 'Absent for text paths' })),
+                parentPage: Schema.OptionFromOptionalKey(Reference),
+                textFramePreferences: Schema.OptionFromOptionalKey(Schema.Struct({ textColumnCount: Schema.Int } satisfies Properties<indesign.TextFramePreference>)),
                 overflows: Schema.Boolean,
                 characters: Collection,
             } satisfies Properties<indesign.TextFrame>),
         ),
-    ).annotate({ description: 'Text frames and paths in thread order' }),
-    styles: Schema.Array(Schema.String).annotate({ description: 'Applied paragraph style names' }),
+    ),
+    styles: Schema.Array(Schema.String),
 } satisfies Properties<indesign.Story, 'overset' | 'styles'>) {}
 class Text extends Schema.TaggedClass<Text, { readonly brand: unique symbol }>()('Text', {
     parentStory: Reference,
-    contents: Schema.Json.annotate({ description: 'Text or SpecialCharacters member' }),
+    contents: Schema.Json,
     length: Schema.Int,
     appliedParagraphStyle: Reference,
     appliedCharacterStyle: Reference,
-    overrides: Schema.Struct(Struct.Record(['paragraph', 'character'], Schema.Boolean)).annotate({ description: 'Text differs from paragraph or character style' }),
+    overrides: Schema.Struct(Struct.Record(['paragraph', 'character'], Schema.Boolean)),
     textStyleRanges: Collection,
     runs: Schema.Array(
         Reference.mapFields(
@@ -127,60 +125,60 @@ class Text extends Schema.TaggedClass<Text, { readonly brand: unique symbol }>()
                 appliedCharacterStyle: Reference,
                 appliedFont: Reference,
                 pointSize: Schema.Finite,
-                designAxes: Schema.Result(Schema.Array(Schema.Finite), Schema.Defect()).annotate({ description: 'Axis values in fvar order, empty for static faces, refused at some face sizes' }),
-                opentypeFeatures: Schema.Array(Schema.Json).annotate({ description: 'Tag and value pairs' }),
-                kerningValue: Schema.OptionFromOptionalKey(Schema.Finite).annotate({ description: 'Absent under metrics or optical kerning' }),
+                designAxes: Schema.Result(Schema.Array(Schema.Finite), Schema.Defect()),
+                opentypeFeatures: Schema.Array(Schema.Json),
+                kerningValue: Schema.OptionFromOptionalKey(Schema.Finite),
                 appliedConditions: Schema.Array(Reference),
                 rubyFlag: Schema.Boolean,
                 rubyString: Schema.String,
                 settings: Settings,
-                differing: Schema.JsonObject.annotate({ description: 'Attributes differing from character style, else paragraph style' }),
+                differing: Schema.JsonObject,
             } satisfies Properties<indesign.TextStyleRange, 'settings' | 'differing'>),
         ),
-    ).annotate({ description: 'Slice style ranges in order' }),
+    ),
     ...ParagraphAttributes,
 } satisfies Properties<indesign.Text, 'overrides' | 'runs'>) {}
 class Document extends Schema.TaggedClass<Document, { readonly brand: unique symbol }>()('Document', {
     saved: Schema.Boolean,
     modified: Schema.Boolean,
-    fullName: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'File path, absent before first save' })),
+    fullName: Schema.OptionFromOptionalKey(Schema.String),
     windows: Schema.Array(Reference),
-    documentPreferences: Schema.Struct({ intent: Schema.String, facingPages: Schema.Boolean, pageWidth: Schema.Finite, pageHeight: Schema.Finite } satisfies Properties<indesign.DocumentPreference>).annotate({ description: 'Default page size in points' }),
-    viewPreferences: Schema.Struct({ horizontalMeasurementUnits: Schema.String, verticalMeasurementUnits: Schema.String, rulerOrigin: Schema.String } satisfies Properties<indesign.ViewPreference>).annotate({ description: 'Ruler units and origin, results in points' }),
+    documentPreferences: Schema.Struct({ intent: Schema.String, facingPages: Schema.Boolean, pageWidth: Schema.Finite, pageHeight: Schema.Finite } satisfies Properties<indesign.DocumentPreference>),
+    viewPreferences: Schema.Struct({ horizontalMeasurementUnits: Schema.String, verticalMeasurementUnits: Schema.String, rulerOrigin: Schema.String } satisfies Properties<indesign.ViewPreference>),
     pages: Collection,
     spreads: Collection,
     masterSpreads: Schema.Array(Reference.mapFields(Struct.assign({ pages: Collection } satisfies Properties<indesign.MasterSpread>))),
     sections: Schema.Array(Reference.mapFields(Struct.assign({ pageStart: Reference, length: Schema.Int, pageNumberStart: Schema.Int, continueNumbering: Schema.Boolean } satisfies Properties<indesign.Section>))),
     layers: Schema.Array(Reference.mapFields(Struct.assign(Struct.pick(Layer.fields, ['visible', 'locked', 'printable'])))),
     stories: Collection,
-    overset: Schema.Array(Schema.String).annotate({ description: 'Overset story specifiers' }),
-    links: Schema.Record(Schema.String, Schema.Int).annotate({ description: 'Count per LinkStatus member' }),
+    overset: Schema.Array(Schema.String),
+    links: Schema.Record(Schema.String, Schema.Int),
     fonts: Schema.Array(Schema.Struct({ name: Schema.String, status: Schema.String } satisfies Properties<indesign.Font>)),
     swatches: Schema.Array(Reference),
     placeGuns: Schema.Struct({ loaded: Schema.Boolean, pageItems: Collection } satisfies Properties<indesign.PlaceGun>),
-    ...Struct.Record(['allParagraphStyles', 'allCharacterStyles', 'allObjectStyles', 'allTableStyles', 'allCellStyles'] satisfies readonly Member<indesign.Document>[], Count.annotate({ description: 'Count including styles in style groups' })),
+    ...Struct.Record(['allParagraphStyles', 'allCharacterStyles', 'allObjectStyles', 'allTableStyles', 'allCellStyles'] satisfies readonly Member<indesign.Document>[], Count),
     preflightOptions: Schema.Struct({
         ...Struct.Record(['preflightOff', 'preflightIncludeObjectsOnPasteboard', 'preflightIncludeNonprintingObjects'] satisfies readonly Member<indesign.PreflightOption>[], Schema.Boolean),
         ...Struct.Record(['preflightProfilePolicy', 'preflightScope', 'preflightWhichLayers'] satisfies readonly Member<indesign.PreflightOption>[], Schema.String),
         preflightWorkingProfile: Schema.Union([Schema.String, Reference]),
     } satisfies Properties<indesign.PreflightOption>),
-    activeProcess: Schema.OptionFromOptionalKey(Reference).annotate({ description: 'Absent with live preflight off' }),
+    activeProcess: Schema.OptionFromOptionalKey(Reference),
     textDefaults: Schema.Struct(ParagraphAttributes),
 } satisfies Properties<indesign.Document, 'overset'>) {}
 class Application extends Schema.TaggedClass<Application, { readonly brand: unique symbol }>()('Application', {
     version: Schema.String,
     toolBoxTools: Schema.Struct({ currentTool: Schema.String, currentToolName: Schema.String, currentToolHint: Schema.String, tools: Schema.Array(Schema.String) } satisfies Properties<indesign.ToolBox, 'tools'>),
-    panels: Schema.Array(Schema.String).annotate({ description: 'Visible panel names' }),
+    panels: Schema.Array(Schema.String),
     documents: Schema.Array(Reference.mapFields(Struct.assign(Struct.pick(Document.fields, ['saved', 'modified', 'fullName', 'windows'])))),
     current: Schema.OptionFromOptionalKey(
         Schema.Struct({
             document: Schema.String,
-            window: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Absent for a document open without window' })),
+            window: Schema.OptionFromOptionalKey(Schema.String),
             selection: Schema.Array(Reference.mapFields(Struct.assign({ contents: Schema.OptionFromOptionalKey(Schema.Json), parentStory: Schema.OptionFromOptionalKey(Reference), overrides: Schema.OptionFromOptionalKey(Text.fields.overrides) }))),
             overset: Document.fields.overset,
             undo: Schema.Struct({ mode: Schema.String, name: Schema.String, history: Schema.Array(Schema.String) }),
         }),
-    ).annotate({ description: 'Single open document, else document of the active window' }),
+    ),
 } satisfies Properties<indesign.Application, 'current'>) {}
 class Font extends Schema.TaggedClass<Font, { readonly brand: unique symbol }>()(
     'Font',
@@ -188,14 +186,14 @@ class Font extends Schema.TaggedClass<Font, { readonly brand: unique symbol }>()
         Struct.assign({
             fontFamily: Schema.String,
             status: Schema.String,
-            uses: Schema.Array(Schema.String).annotate({ description: 'Current document text and styles set in the face' }),
+            uses: Schema.Array(Schema.String),
             installed: Schema.OptionFromOptionalKey(
                 Schema.Struct({
                     ...Struct.Record(['fontStyleName', 'postscriptName', 'fullName', 'version', 'fontType'] satisfies readonly Member<indesign.Font>[], Schema.String),
-                    location: Schema.String.annotate({ description: 'File path, or label without readable file' }),
-                    styles: Schema.Array(Schema.String).annotate({ description: 'Style names of the family' }),
-                    axes: Schema.OptionFromOptionalKey(Schema.Array(Schema.Struct({ name: Schema.String, value: Schema.Finite })).annotate({ description: 'Instance axes by InDesign name in fvar order, values to 2 decimals' })),
-                    features: Schema.Array(Schema.String).annotate({ description: 'OpenTypeFeature members in GSUB or GPOS' }),
+                    location: Schema.String,
+                    styles: Schema.Array(Schema.String),
+                    axes: Schema.Struct({ name: Schema.String, value: Schema.Finite }).pipe(Schema.Array, Schema.OptionFromOptionalKey),
+                    features: Schema.Array(Schema.String),
                     ...Struct.Record(['allowOutlines', 'allowPDFEmbedding', 'allowEditableEmbedding', 'restrictedPrinting'] satisfies readonly Member<indesign.Font>[], Schema.Boolean),
                 } satisfies Properties<indesign.Font, 'styles' | 'axes' | 'features'>),
             ),
@@ -203,9 +201,9 @@ class Font extends Schema.TaggedClass<Font, { readonly brand: unique symbol }>()
     ),
 ) {}
 const styleFields = {
-    group: Schema.Array(Schema.String).annotate({ description: 'Group names, nearest first' }),
-    basedOn: Schema.Array(Reference).annotate({ description: 'Nearest first, root style excluded' }),
-    differing: Schema.JsonObject.annotate({ description: 'Attributes differing from base or root style' }),
+    group: Schema.Array(Schema.String),
+    basedOn: Schema.Array(Reference),
+    differing: Schema.JsonObject,
 } satisfies Properties<indesign.ParagraphStyle | indesign.CharacterStyle | indesign.ObjectStyle | indesign.TableStyle | indesign.CellStyle, 'group' | 'differing'>;
 class ParagraphStyle extends Schema.TaggedClass<ParagraphStyle, { readonly brand: unique symbol }>()('ParagraphStyle', { ...styleFields, nextStyle: Reference, ...ParagraphAttributes } satisfies Properties<indesign.ParagraphStyle, 'group' | 'differing'>) {}
 class CharacterStyle extends Schema.TaggedClass<CharacterStyle, { readonly brand: unique symbol }>()('CharacterStyle', styleFields) {}
@@ -225,8 +223,8 @@ class MixedInk extends Schema.TaggedClass<MixedInk, { readonly brand: unique sym
 class MixedInkGroup extends Schema.TaggedClass<MixedInkGroup, { readonly brand: unique symbol }>()('MixedInkGroup', swatchFields) {}
 class PreflightProcess extends Schema.TaggedClass<PreflightProcess, { readonly brand: unique symbol }>()('PreflightProcess', {
     targetObject: Reference,
-    appliedProfile: Schema.OptionFromOptionalKey(Reference.annotate({ description: 'Absent for document-embedded profiles' })),
-    aggregatedResults: Schema.Result(Schema.Array(Issue), Schema.Defect()).annotate({ description: 'Issues of finished process, empty without issues, refusal while checking' }),
+    appliedProfile: Schema.OptionFromOptionalKey(Reference),
+    aggregatedResults: Schema.Result(Schema.Array(Issue), Schema.Defect()),
 } satisfies Properties<indesign.PreflightProcess>) {}
 
 // --- [INSPECTION]
@@ -273,8 +271,8 @@ class FindChange extends Schema.Class<FindChange, { readonly brand: unique symbo
     slice: Slice.Every,
 }) {
     static readonly Result = Schema.Struct({
-        count: Schema.Struct({ matches: Schema.Int, changes: Schema.OptionFromOptionalKey(Schema.Int.annotate({ description: 'Absent without change' })) }),
-        matches: Schema.Array(Schema.Struct({ specifier: Schema.String, text: Schema.OptionFromOptionalKey(Schema.String), page: Schema.OptionFromOptionalKey(Schema.String) })).annotate({ description: 'Matches with text before changes, empty for Color' }),
+        count: Schema.Struct({ matches: Schema.Int, changes: Schema.OptionFromOptionalKey(Schema.Int) }),
+        matches: Schema.Array(Schema.Struct({ specifier: Schema.String, text: Schema.OptionFromOptionalKey(Schema.String), page: Schema.OptionFromOptionalKey(Schema.String) })),
     });
 
     get label(): string {

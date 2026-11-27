@@ -2,8 +2,7 @@ import { homedir } from 'node:os';
 import dialogs from '@rasm/acrobat/host?inline';
 import { HostScript as Acrobat } from '@rasm/acrobat/script';
 import { ApplicationServer } from '@rasm/applications/client';
-import type { ScriptingDictionary } from '@rasm/applications/installations';
-import type { InstanceSnapshot, Written } from '@rasm/applications/instances';
+import type { InstanceSnapshot, ScriptingDictionary, Written } from '@rasm/applications/contract';
 import type { Entry } from '@rasm/applications/workspace';
 import { Application } from '@rasm/creative-cloud-desktop/application';
 import { Completion } from '@rasm/extendscript/completion';
@@ -38,7 +37,6 @@ type Route = { readonly _tag: 'Linked' } | { readonly _tag: 'Uxp'; readonly para
 
 const UXP: Record.ReadonlyRecord<string, typeof InDesign> = { [HOSTS.ID.product]: InDesign };
 const EXTENDSCRIPT: Record.ReadonlyRecord<string, typeof Illustrator> = { [HOSTS.AI.product]: Illustrator };
-const DESCRIPTION = `Runs TypeScript function body, return giving its result, in the target application through its newest script engine: a linked plugin, do script uxpscript, Acrobat JavaScript, or ExtendScript; returns its result as JSON, a failure naming the body line; a dialog, an exit, or a hang returns the call at once, its result arriving under finished in a later result. Acrobat bodies reach app, this, event, security, spell, util, and Report, and every object read from them, through stand-ins that answer each dialog the Acrobat JavaScript reference states as dismissed without showing it, or refuse it naming the member and the parameter that avoids it (a dirty closeDoc, execMenuItem SaveAs or Open, a picker whose result has no stated cancel value); code a body hands Acrobat as a string (Function, indirect eval, setTimeOut and action scripts) runs against the real app, whose global binding Acrobat holds non-writable and non-configurable, so its dialogs show. UXP bodies take their host module from require('<host>') (${Declarations.checked.join(', ')}), checked first against its declarations, which refuse a wrong member, type, read-only write, or enumeration value with a link to atelier://object-model/{host}/{name}`;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -103,34 +101,37 @@ const route = Effect.fnUntraced(function* <E, R>(dictionary: (url: URL) => Effec
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const scripts = Effect.fnUntraced(function* (links: { readonly peers: Effect.Effect<readonly Link[]>; readonly call: (holds: (peer: Link) => boolean, subject: string) => Effect.Effect<RpcClient.RpcClient.Flat<RpcGroup.Rpcs<typeof EvaluationRpcs>, RpcClientError.RpcClientError>, Unmatched> }, identifier: string) {
-    const [server, rows, declarations] = yield* Effect.all([ApplicationServer, RegistryApplications, Declarations]);
+    const [server, rows, declarations, files] = yield* Effect.all([ApplicationServer, RegistryApplications, Declarations, Effect.context<FileSystem.FileSystem | Path.Path>()]);
     const dictionaries = yield* Cache.makeWith((href: string) => server.dictionary({ url: new URL(href) }), { capacity: Number.POSITIVE_INFINITY, timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero) });
     const dictionary = (url: URL) => Cache.get(dictionaries, url.href);
     const owned = Schema.is(Schema.TemplateLiteral([`${identifier}.`, Schema.String]));
-    return Effect.fnUntraced(function* ({ row: { url, name }, live }: { readonly row: Entry; readonly live: InstanceSnapshot }, code: string) {
-        const [listed, peers] = yield* Effect.all([SubscriptionRef.get(rows), links.peers]);
-        const row = yield* Effect.fromOption(
-            Array.findFirst(listed, (each) => each.url.href === url.href),
-            () => new Cause.NoSuchElementError(`${name} left the installed Adobe applications`),
-        );
-        const serving = Predicate.and(Link.runsIn(row), Link.serves(EvaluationRpcs));
-        const declared = yield* Option.match(Array.findFirst(peers, serving), { onSome: () => Effect.succeedSome<Route>({ _tag: 'Linked' }), onNone: () => route(dictionary, owned, row) });
-        const found = yield* Effect.fromOption(declared, () => new Cause.NoSuchElementError(`${row.name} declares no script command and links no plugin`));
-        const scriptPlan = plan(found);
-        yield* declarations.check(row, scriptPlan.program(code), openLine);
-        const built = yield* compile(code, scriptPlan);
-        const linked = Effect.flatMap(links.call(serving, `linked plugin of ${row.name}`), (client) => client('evaluate', { code: built.code, label: built.label }));
-        const scripted = Effect.gen(function* () {
-            const { reply, written } = yield* server.execute({ instance: live.instance, arguments: { direct: built.direct, ...built.declared } });
-            const completion = yield* Effect.mapError(Schema.decodeUnknownEffect(Reply)(reply), HostError.refused(`${row.name} script reply`));
-            return { ...(yield* Completion.decode(ResultJson, built.label)(completion)), written };
-        });
-        const unlinked = Effect.fail(HostError.of({ _tag: 'Unavailable' }, `linked Atelier plugin running UXP scripts in ${row.name}`)());
-        const run: Effect.Effect<Effect.Success<typeof linked> & { readonly written?: typeof Written.Type }, HostError | Error> = Match.valueTags(found, { Linked: () => linked, Unlinked: () => unlinked, Uxp: () => scripted, Acrobat: () => scripted, Script: () => scripted });
-        return yield* Effect.catchTag(run, 'HostError', built.relined);
-    });
+    return {
+        describe: `code is a TypeScript function body, return giving its result, run through the newest script engine of the target (a linked plugin, do script uxpscript, Acrobat JavaScript, or ExtendScript), a failure naming the body line. Acrobat bodies reach app, this, event, security, spell, util, Report, and every object read from them through stand-ins that answer each dialog as dismissed without showing it, or refuse it naming the member and the parameter that avoids it (a dirty closeDoc, execMenuItem SaveAs or Open, a picker with no stated cancel value); code a body hands Acrobat as a string (Function, indirect eval, setTimeOut, action scripts) runs against the real app and shows its dialogs. UXP bodies take their host module from require('<host>') (${Declarations.checked.join(', ')}), checked first against its declarations, a wrong member, type, read-only write, or enumeration value refused with a link to atelier://object-model/{host}/{name}`,
+        run: Effect.fnUntraced(function* ({ row: { url, name }, live }: { readonly row: Entry; readonly live: InstanceSnapshot }, code: string) {
+            const [listed, peers] = yield* Effect.all([SubscriptionRef.get(rows), links.peers]);
+            const row = yield* Effect.fromOption(
+                Array.findFirst(listed, (each) => each.url.href === url.href),
+                () => new Cause.NoSuchElementError(`${name} left the installed Adobe applications`),
+            );
+            const serving = Predicate.and(Link.runsIn(row), Link.serves(EvaluationRpcs));
+            const declared = yield* Option.match(Array.findFirst(peers, serving), { onSome: () => Effect.succeedSome<Route>({ _tag: 'Linked' }), onNone: () => route(dictionary, owned, row) });
+            const found = yield* Effect.fromOption(declared, () => new Cause.NoSuchElementError(`${row.name} declares no script command and links no plugin`));
+            const scriptPlan = plan(found);
+            yield* declarations.check(row, scriptPlan.program(code), openLine);
+            const built = yield* compile(code, scriptPlan);
+            const linked = Effect.flatMap(links.call(serving, `linked plugin of ${row.name}`), (client) => client('evaluate', { code: built.code, label: built.label }));
+            const scripted = Effect.gen(function* () {
+                const { reply, written } = yield* server.execute({ instance: live.instance, arguments: { direct: built.direct, ...built.declared } });
+                const completion = yield* Effect.mapError(Schema.decodeUnknownEffect(Reply)(reply), HostError.refused(`${row.name} script reply`));
+                return { ...(yield* Completion.decode(ResultJson, built.label)(completion)), written };
+            });
+            const unlinked = Effect.fail(HostError.of({ _tag: 'Unavailable' }, `linked Atelier plugin running UXP scripts in ${row.name}`)());
+            const run: Effect.Effect<Effect.Success<typeof linked> & { readonly written?: typeof Written.Type }, HostError | Error> = Match.valueTags(found, { Linked: () => linked, Unlinked: () => unlinked, Uxp: () => scripted, Acrobat: () => scripted, Script: () => scripted });
+            return yield* Effect.catchTag(run, 'HostError', built.relined);
+        }, Effect.provideContext(files)),
+    };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { DESCRIPTION, scripts };
+export { scripts };

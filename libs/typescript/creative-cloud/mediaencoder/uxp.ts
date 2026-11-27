@@ -10,23 +10,19 @@ const Module = Schema.Struct({
     WatchFolder: HostObject({ getInstance: Callable, WATCH_FOLDER_ENCODER_STATUS_CHANGED: Schema.String }, Predicate.isFunction),
     ProgressCategoryContainer: HostObject({ getContainer: Callable }, Predicate.isFunction),
     PresetManager: HostObject({ getFormatNameList: Callable, getPresetsForFormat: Callable }, Predicate.isFunction),
-}).annotate({ description: 'Classes require("mediaencoder") holds, by the static members ScriptingAPIManifest.json declares and the plugin reads' });
-const Emitter = HostObject({ subscribeToEvent: Callable, addEventListener: Callable, removeEventListener: Callable }).annotate({
-    description: 'Event source a class getInstance returns: subscribeToEvent from ScriptingAPIManifest.json, the listener pair from AdobeDocs uxp-media-encoder',
 });
-const Container = HostObject({ getAllProgressCategories: Callable }).annotate({ description: 'ProgressCategoryContainer instance getContainer returns' });
-const Formats = Schema.Array(Schema.String).annotate({ description: 'Format names getFormatNameList returns' });
-const Listed = Schema.Array(Schema.Unknown).annotate({ description: 'Array a host list call returns' });
-const Identified = Schema.Struct({ id: Schema.String }).annotate({ description: 'Job group or progress category keyed by its id' });
-const Batched = Schema.Struct({ batchItemID: Schema.String }).annotate({ description: 'Job keyed by its batch item id' });
-const JobGroup = Identified.mapFields(Struct.assign({ getOutputCount: Callable })).annotate({ description: 'RenderJobGroup, one queued source with its outputs' });
-const Job = Batched.mapFields(Struct.assign({ groupID: Schema.String, getGroup: Callable })).annotate({ description: 'RenderJob, one output of a job group' });
-const Category = Identified.mapFields(Struct.assign({ getProgressItems: Callable })).annotate({ description: 'ProgressCategory, the render queue or watch folder progress' });
-const Item = Schema.Struct({ referenceId: Schema.Unknown, getProgressState: Callable }).annotate({ description: 'ProgressItem of a progress category' });
-const Preset = Schema.Struct({ getID: Callable, getFormatName: Callable, getSummaryJSON: Callable }).annotate({ description: 'Preset of a format PresetManager lists' });
-const Payload = Schema.Struct({ jobId: Schema.optionalKey(Schema.String), status: Schema.optionalKey(Schema.Int), isOkToMoveFile: Schema.optionalKey(Schema.Boolean) }).annotate({
-    description: 'Fields of RenderQueueEvent, RenderNextJobEvent, RenderMediaInfoCreatedEvent, RenderQueueEncodeCompleteEvent, and WatchFolderStatusEvent',
-});
+const Emitter = HostObject({ subscribeToEvent: Callable, addEventListener: Callable, removeEventListener: Callable });
+const Container = HostObject({ getAllProgressCategories: Callable });
+const Formats = Schema.Array(Schema.String);
+const Listed = Schema.Array(Schema.Unknown);
+const Identified = Schema.Struct({ id: Schema.String });
+const Batched = Schema.Struct({ batchItemID: Schema.String });
+const JobGroup = Identified.mapFields(Struct.assign({ getOutputCount: Callable }));
+const Job = Batched.mapFields(Struct.assign({ groupID: Schema.String, getGroup: Callable }));
+const Category = Identified.mapFields(Struct.assign({ getProgressItems: Callable }));
+const Item = Schema.Struct({ referenceId: Schema.Unknown, getProgressState: Callable });
+const Preset = Schema.Struct({ getID: Callable, getFormatName: Callable, getSummaryJSON: Callable });
+const Payload = Schema.Struct({ jobId: Schema.optionalKey(Schema.String), status: Schema.optionalKey(Schema.Int), isOkToMoveFile: Schema.optionalKey(Schema.Boolean) });
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

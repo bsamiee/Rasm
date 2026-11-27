@@ -2,7 +2,7 @@ import { pathToFileURL } from 'node:url';
 import { layer as services } from '@effect/platform-node/NodeServices';
 import { SqliteClient } from '@effect/sql-sqlite-node';
 import { assert, describe, it } from '@effect/vitest';
-import { type KeyStep, Observation } from '@rasm/applications/interface';
+import { type KeyStep, Observation } from '@rasm/applications/contract';
 import { InterfaceMap } from '@rasm/applications/interface-map';
 import { Description, FacetControl } from '@rasm/applications/source';
 import { Catalog } from '@rasm/database/catalog';

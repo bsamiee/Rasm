@@ -429,13 +429,7 @@ extension Step {
             case (.press, _) where pressable.count == 1:
                 let inner: Plan = try plan(on: pressable[0], presented: presented)
                 guard case .opening(let opening) = inner.course else { return inner }
-                let answers: [AXError] = [
-                    AXUIElementSetMessagingTimeout(pressable[0], Float(messagingTimeout / 2 / .seconds(1))), AXUIElementPerformAction(pressable[0], opening as CFString),
-                    AXUIElementSetMessagingTimeout(pressable[0], 0),
-                ]
-                if let refused = answers.first(where: { (answer: AXError) -> Bool in ![.success, .cannotComplete].contains(answer) }) {
-                    throw ApplicationFailure(subject: "opening \(pressable[0].name)", reason: .accessibility(refused))
-                }
+                try Watch.press(pressable[0], action: opening)
                 return (inner.window ?? read.element.window, .answered(.change), [])
             case (.press, _) where pressable.count > 1:
                 let candidates: [String] = pressable.map(\.name)
@@ -796,14 +790,7 @@ extension Step {
         let listed = try items(menus)
         let opening: String? = listed.isEmpty && !presented ? action : nil
         if let opening, opening == kAXShowMenuAction || read.element.role.map(pressOpened.contains) == true { return (read.element.window, .opening(action: opening), []) }
-        if let opening {
-            let answers: [AXError] = [
-                AXUIElementSetMessagingTimeout(element, Float(messagingTimeout / 2 / .seconds(1))), AXUIElementPerformAction(element, opening as CFString), AXUIElementSetMessagingTimeout(element, 0),
-            ]
-            if let refused = answers.first(where: { answer in ![.success, .cannotComplete].contains(answer) }) {
-                throw ApplicationFailure(subject: "opening the list", reason: .accessibility(refused))
-            }
-        }
+        if let opening { try Watch.press(element, action: opening) }
         let opened = try opening == nil ? menus : element.menus()
         let shown = try opening == nil ? listed : items(opened)
         guard shown.isEmpty else {

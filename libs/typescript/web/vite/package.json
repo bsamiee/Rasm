@@ -1,7 +1,7 @@
 {
     "name": "@rasm/vite",
     "version": "0.1.0",
-    "description": "Vite plugins and configs for Rasm builds, failing a build on Rolldown warnings that break output, building Chrome extensions from manifest.json, and bundling agent harness plugins from hooks/hooks.json, package.json bin programs, and package.json files",
+    "description": "Vite plugins and configs for Rasm builds, failing a build on Rolldown warnings that break output, building Chrome extensions from manifest.json, bundling agent harness plugins from hooks/hooks.json, package.json bin programs, and package.json files, and building a signed Node single executable from one entry",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -21,6 +21,7 @@
         "./checks": "./checks.ts",
         "./chrome": "./chrome.ts",
         "./claude": "./claude.ts",
+        "./executable": "./executable.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -31,13 +32,15 @@
             "./checks": "./dist/checks.js",
             "./chrome": "./dist/chrome.js",
             "./claude": "./dist/claude.js",
+            "./executable": "./dist/executable.js",
             "./package.json": "./package.json"
         },
         "access": "public"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",
-        "@rasm/mark": "workspace:*"
+        "@rasm/mark": "workspace:*",
+        "@rasm/process": "workspace:*"
     },
     "devDependencies": {
         "@types/culori": "catalog:",

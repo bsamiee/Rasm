@@ -7,13 +7,19 @@
     "include": ["**/*", "package.json"],
     "references": [
         {
-            "path": "../../../../libs/typescript/macos/applications"
+            "path": "../../../../libs/typescript/observability/telemetry"
         },
         {
             "path": "../../../../libs/typescript/ai/mcp"
         },
         {
-            "path": "../../../../libs/typescript/observability/telemetry"
+            "path": "../../../../libs/typescript/macos/current-process"
+        },
+        {
+            "path": "../../../../libs/typescript/macos/applications"
+        },
+        {
+            "path": "../../../../libs/typescript/ai/tools/application-tools"
         },
         {
             "path": "../../../../libs/typescript/web/vite"

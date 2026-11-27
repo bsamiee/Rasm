@@ -10,8 +10,7 @@ class Notice extends Schema.Class<Notice, { readonly brand: unique symbol }>('No
     text: Schema.String,
     push: Schema.Boolean,
     wake: Schema.Boolean,
-    row: Schema.OptionFromOptionalKey(Row),
-    clears: Schema.OptionFromOptionalKey(Row.fields.key),
+    key: Schema.OptionFromOptionalKey(Row.fields.key),
 }) {}
 const Rows = Schema.Struct({ revision: Schema.Int, items: Schema.Array(Row) });
 const Polled = Schema.Struct({ notices: Schema.Array(Notice), rows: Rows });

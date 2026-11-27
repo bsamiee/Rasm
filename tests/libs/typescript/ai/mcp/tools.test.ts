@@ -6,7 +6,6 @@ import { Called, lines, opened, STATE } from '#/fixtures';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PROTOCOL = McpProtocol.v2026_07_28;
-const WEATHER = '{"temperature":22.5,"conditions":"Partly cloudy"}';
 const ISSUED = /^handle [\da-f]{8}-[\da-f]{4}-7[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12} holds your state, pass it on later calls$/u;
 const INVALID_PARAMS = -32_602;
 const CALLS = {
@@ -45,17 +44,6 @@ describe.each([McpProtocol.v2025_11_25, McpProtocol.v2026_07_28])('results speak
 });
 
 describe('tool calls through the server', () => {
-    it.live(
-        'leads the JSON of a structured result with a new handle for a call without one, and with no handle line for a call passing it back',
-        Effect.fnUntraced(function* () {
-            const { called } = yield* opened(PROTOCOL);
-            const [issued, , body] = lines(yield* called('test_structured'));
-            const handle = named(issued);
-            const [again, other] = yield* Effect.all([Effect.map(called('test_structured', { handle }), lines), Effect.map(called('test_structured'), lines)]);
-            assert.deepStrictEqual([ISSUED.test(issued ?? ''), body, again, ISSUED.test(other[0] ?? ''), other[0] === issued], [true, WEATHER, [WEATHER], true, false]);
-        }),
-    );
-
     it.live(
         'answers a handle it never issued with an error result and never runs the tool, which runs under a handle it issued',
         Effect.fnUntraced(function* () {

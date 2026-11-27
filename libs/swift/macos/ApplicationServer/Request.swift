@@ -164,7 +164,6 @@ extension Request {
                 let (hold, written) = try await FileEvent.written(await watch.documentFiles) { () async throws(ApplicationFailure) in
                     try await PermittedFrontList.shared.holding(
                         excluding: { application in application.processIdentifier == process.pid },
-                        for: replyDeadline,
                         { () async in
                             guard let record else {
                                 return (await Result { () async throws(ApplicationFailure) in try await watch.act(steps) }, Result<Recording, ApplicationFailure>?.none)
@@ -205,7 +204,6 @@ extension Request {
                 let watch = await watches.watch(instance)
                 let hold = try await PermittedFrontList.shared.holding(
                     excluding: { application in application.processIdentifier == process.pid },
-                    for: replyDeadline,
                     { () async throws(ApplicationFailure) in try await watch.quit(mode, in: dictionary) },
                 )
                 try hold.released.get()
@@ -219,7 +217,6 @@ extension Request {
                 let (hold, written) = try await FileEvent.written(await watches.watch(instance).documentFiles) { () async throws(ApplicationFailure) in
                     try await PermittedFrontList.shared.holding(
                         excluding: { application in application.processIdentifier == process.pid },
-                        for: replyDeadline,
                         { () async throws(AggregateError<AppleEventFailure>) in try await dictionary.send(nil, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: process.pid)) },
                     )
                 }

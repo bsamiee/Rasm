@@ -1,31 +1,10 @@
-import process from 'node:process';
+import { Program } from '@rasm/current-process';
 import { spawn } from '@rasm/process';
 import { layerProtocolChildProcess } from '@rasm/rpc';
-import { Array, Cause, Context, Deferred, type Duration, Effect, Fiber, Layer, MutableRef, Number, Option, Path, Ref, Sink, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Context, Deferred, Duration, Effect, Fiber, Layer, MutableRef, Number, Option, Path, Ref, Sink, Stream, Struct, SubscriptionRef } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { RpcClient, type RpcClientError, RpcMessage } from 'effect/rpc';
-import { ApplicationRpcs } from '#/contract';
-import { LaunchEvent } from '#/installations';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const kCFStringEncodingUTF8 = 0x08_00_01_00;
-const kCFURLPOSIXPathStyle = 0n;
-const CORE_FOUNDATION = {
-    CFURLCreateFromFileSystemRepresentation: { arguments: ['pointer', 'buffer', 'i64', 'bool'], return: 'pointer' },
-    CFBundleCreate: { arguments: ['pointer', 'pointer'], return: 'pointer' },
-    CFBundleCopyExecutableURL: { arguments: ['pointer'], return: 'pointer' },
-    CFURLCopyAbsoluteURL: { arguments: ['pointer'], return: 'pointer' },
-    CFURLCopyFileSystemPath: { arguments: ['pointer', 'i64'], return: 'pointer' },
-    CFBundleGetValueForInfoDictionaryKey: { arguments: ['pointer', 'pointer'], return: 'pointer' },
-    CFStringCreateWithCString: { arguments: ['pointer', 'string', 'u32'], return: 'pointer' },
-    CFStringGetTypeID: { return: 'u64' },
-    CFGetTypeID: { arguments: ['pointer'], return: 'u64' },
-    CFStringGetLength: { arguments: ['pointer'], return: 'i64' },
-    CFStringGetMaximumSizeForEncoding: { arguments: ['i64', 'u32'], return: 'i64' },
-    CFStringGetCString: { arguments: ['pointer', 'buffer', 'i64', 'u32'], return: 'bool' },
-    CFRelease: { arguments: ['pointer'] },
-} as const;
+import { ApplicationRpcs, LaunchEvent } from '#/contract';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -69,46 +48,10 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
     }),
 }) {
     static readonly fromBundle = Effect.gen(function* () {
-        const [path, started, { dlopen, getRawPointer, toString }] = yield* Effect.all([Path.Path, Deferred.make<ApplicationServer['Service']>(), Effect.promise(() => import('node:ffi'))]);
-        const { functions: cf } = yield* Effect.acquireDisposable(Effect.sync(() => dlopen(null, CORE_FOUNDATION)));
-        const owned = (subject: string, create: () => bigint) =>
-            Effect.acquireRelease(
-                Effect.sync(create).pipe(
-                    Effect.filterOrFail(
-                        (ref) => ref !== 0n,
-                        () => new Cause.NoSuchElementError(subject),
-                    ),
-                ),
-                (ref) => Effect.sync(() => cf.CFRelease(ref)),
-            );
-        const stringType = cf.CFStringGetTypeID();
-        const text = (ref: bigint) =>
-            Option.some(ref).pipe(
-                Option.filter((held) => held !== 0n && cf.CFGetTypeID(held) === stringType),
-                Option.map((held) => new Uint8Array(Number.Number(cf.CFStringGetMaximumSizeForEncoding(cf.CFStringGetLength(held), kCFStringEncodingUTF8)) + 1)),
-                Option.filter((written) => cf.CFStringGetCString(ref, written, BigInt(written.byteLength), kCFStringEncodingUTF8) === 1),
-                Option.flatMap((written) => Option.fromNullOr(toString(getRawPointer(written)))),
-            );
-        const location = path.join(process.execPath, '..', '..', '..');
-        const representation = new TextEncoder().encode(location);
-        const url = yield* owned(`${location} is no file system path`, () => cf.CFURLCreateFromFileSystemRepresentation(null, representation, BigInt(representation.byteLength), 1));
-        const bundle = yield* owned(`${location} is no application bundle`, () => cf.CFBundleCreate(null, url));
-        const info = (key: string) =>
-            owned(`CFString ${key}`, () => cf.CFStringCreateWithCString(null, key, kCFStringEncodingUTF8)).pipe(
-                Effect.map((name) => text(cf.CFBundleGetValueForInfoDictionaryKey(bundle, name))),
-                Effect.flatMap(Effect.fromOption(() => new Cause.NoSuchElementError(`Info.plist of ${location} states no ${key} string`))),
-            );
-        const program = owned(`Info.plist of ${location} names no executable`, () => cf.CFBundleCopyExecutableURL(bundle)).pipe(
-            Effect.flatMap((relative) => owned(`Executable URL of ${location} resolves against no base`, () => cf.CFURLCopyAbsoluteURL(relative))),
-            Effect.flatMap((located) => owned(`Executable of ${location} has no file system path`, () => cf.CFURLCopyFileSystemPath(located, kCFURLPOSIXPathStyle))),
-            Effect.map(text),
-            Effect.flatMap(Effect.fromOption(() => new Cause.NoSuchElementError(`Executable path of ${location} is no string`))),
-            Effect.filterOrFail(path.isAbsolute, (relative) => new Cause.NoSuchElementError(`Executable path ${relative} of ${location} is not absolute`)),
-        );
-        const { identifier, version, executable } = yield* Effect.all({ identifier: info('CFBundleIdentifier'), version: info('CFBundleShortVersionString'), executable: program });
-        const name = path.basename(executable);
-        const served = Effect.fnUntraced(function* (forceKillAfter: Duration.Input) {
-            const [handle, requests, bytes] = yield* Effect.all([spawn([executable], { stderr: 'inherit' }), Effect.sync(() => MutableRef.make(0)), Ref.make(0)]);
+        const [path, started, program] = yield* Effect.all([Path.Path, Deferred.make<ApplicationServer['Service']>(), Program]);
+        const [name, forceKillAfter] = [path.basename(program.executable), Option.getOrElse(program.share, () => Duration.infinity)];
+        const served = Effect.gen(function* () {
+            const [handle, requests, bytes] = yield* Effect.all([spawn([program.executable], { stderr: 'inherit' }), Effect.sync(() => MutableRef.make(0)), Ref.make(0)]);
             const traffic = Effect.all({ requests: Effect.sync(() => MutableRef.get(requests)), bytes: Ref.get(bytes) });
             const stdout = Stream.tap(handle.stdout, (chunk) => Ref.update(bytes, Number.sum(chunk.byteLength)));
             const linked = Effect.addFinalizer(() => Effect.ignore(handle.kill({ forceKillAfter }), { log: 'Error', message: `Stopping ${name} failed` })).pipe(
@@ -118,15 +61,13 @@ class ApplicationServer extends Context.Service<ApplicationServer>()('@rasm/appl
             return Layer.effect(ApplicationServer, linked).pipe(Layer.provide(layerProtocolChildProcess({ stdin: handle.stdin, stdout }, Effect.match(handle.exitCode, { onFailure: ({ message }) => `${name} ended: ${message}`, onSuccess: (code) => `${name} exited with code ${code}` }))));
         });
         return {
-            version,
-            identifier,
-            layer: (forceKillAfter: Duration.Input) => Layer.tap(Layer.unwrap(served(forceKillAfter)), (context) => Deferred.succeed(started, Context.get(context, ApplicationServer))),
+            layer: Layer.tap(Layer.unwrap(served), (context) => Deferred.succeed(started, Context.get(context, ApplicationServer))),
             ended: Deferred.await(started).pipe(
                 Effect.flatMap(({ exitCode }) => exitCode),
                 Effect.flatMap((code) => new Cause.UnknownError(code, `${name} exited ${code}`)),
             ),
         };
-    }).pipe(Effect.scoped);
+    });
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

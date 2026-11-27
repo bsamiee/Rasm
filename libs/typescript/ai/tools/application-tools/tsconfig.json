@@ -1,0 +1,20 @@
+{
+    "extends": "../../../../../tsconfig.base.json",
+    "compilerOptions": {
+        "types": ["node"]
+    },
+    "references": [
+        {
+            "path": "../../../data/search"
+        },
+        {
+            "path": "../../mcp"
+        },
+        {
+            "path": "../../../data/database"
+        },
+        {
+            "path": "../../../macos/applications"
+        }
+    ]
+}

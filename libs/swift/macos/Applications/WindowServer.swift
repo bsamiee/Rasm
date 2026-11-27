@@ -5,7 +5,6 @@ import Dispatch
 import Files
 import Foundation
 import OrderedCollections
-import Results
 import SPI
 import Synchronization
 import System
@@ -144,44 +143,31 @@ package final class PermittedFrontList: Sendable {
 
     package func holding<Value, Failure: Error>(
         excluding target: @escaping @Sendable (NSRunningApplication) -> Bool,
-        for lifetime: Duration,
-        clock: some Clock<Duration> = ContinuousClock(),
         _ body: () async throws(Failure) -> Value,
     ) async throws(ApplicationFailure) -> (value: Result<Value, Failure>, released: Result<Void, ApplicationFailure>) {
         let (front, keyFocus): (pid_t?, pid_t?) = focusedProcesses()
         let holders: [NSRunningApplication] = [front, keyFocus].compactMap { (process: pid_t?) -> NSRunningApplication? in process.flatMap(NSRunningApplication.init(processIdentifier:)) }
         guard !holders.contains(where: target) else { return (await Result { () async throws(Failure) -> Value in try await body() }, .success(())) }
         let (id, watched): (UUID, FileHandle) = try (UUID(), Self.open([.eventOnly]))
-        let waited: Duration = messagingTimeout * 2
-        let span: String = waited.formatted(.units(allowed: [.seconds], width: .wide))
-        let expired = ApplicationFailure(subject: "Another process held the permitted front list lock for \(span)", reason: .system(.wouldBlock))
-        do throws(ApplicationFailure) {
-            try await withTimeout(waited, expired: expired, clock: clock) { () async throws(ApplicationFailure) in
-                for await _ in FileEvent.events(of: watched, eventMask: .funlock) {
-                    let registered: Bool = try self.held.withLock { (held: inout Held?) throws(ApplicationFailure) -> Bool in
-                        if held == nil, let journal = try Self.lock() { held = Held(journal: journal) }
-                        guard held != nil else { return false }
-                        held?.holds[id] = (target, [])
-                        try held?.reconcile()
-                        return true
-                    }
-                    if registered { return }
+        var registered = false
+        for await _ in FileEvent.events(of: watched, eventMask: .funlock) {
+            registered = try held.withLock { (held: inout Held?) throws(ApplicationFailure) -> Bool in
+                if held == nil, let journal = try Self.lock() { held = Held(journal: journal) }
+                guard held != nil else { return false }
+                held?.holds[id] = (target, [])
+                do throws(ApplicationFailure) {
+                    try held?.reconcile()
+                } catch {
+                    _ = release(id, from: &held)
+                    throw error
                 }
-                throw ApplicationFailure(subject: "holding the permitted front list", reason: .cancelled)
+                return true
             }
-        } catch {
-            _ = held.withLock { (held: inout Held?) -> Result<Void, ApplicationFailure> in release(id, from: &held) }
-            throw error
+            if registered { break }
         }
-        return await withTaskGroup(of: Result<Void, ApplicationFailure>.self, returning: (value: Result<Value, Failure>, released: Result<Void, ApplicationFailure>).self) { group in
-            group.addTask {
-                try? await clock.sleep(for: lifetime)
-                return self.held.withLock { (held: inout Held?) -> Result<Void, ApplicationFailure> in self.release(id, from: &held) }
-            }
-            let value: Result<Value, Failure> = await Result { () async throws(Failure) -> Value in try await body() }
-            group.cancelAll()
-            return (value, await group.next() ?? .success(()))
-        }
+        guard registered else { throw ApplicationFailure(subject: "holding the permitted front list", reason: .cancelled) }
+        let value: Result<Value, Failure> = await Result { () async throws(Failure) -> Value in try await body() }
+        return (value, held.withLock { (held: inout Held?) -> Result<Void, ApplicationFailure> in release(id, from: &held) })
     }
 
     func admit(_ process: pid_t) -> Result<Void, ApplicationFailure> {

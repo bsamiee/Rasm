@@ -1,6 +1,7 @@
 import { Kerns, Typeset, TypesettingRpcs } from '@rasm/indesign/typesetting';
 import { Inspection } from '@rasm/indesign/views';
 import { Link } from '@rasm/mcp/link';
+import { Format, Line, Report } from '@rasm/mcp/report';
 import { Server } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search/unmatched';
 import { drawsKashida, TATWEEL } from '@rasm/typography/arabic/kashida';
@@ -13,8 +14,8 @@ import { Justification } from '@rasm/typography/shaping/justification';
 import { ShapedText } from '@rasm/typography/shaping/shaped-text';
 import { expandToWords, Span } from '@rasm/typography/shaping/word';
 import type { Source } from '@rasm/typography/source';
-import { Array, Cause, Context, Effect, FileSystem, Number, Option, Predicate, Record, Schema, Stream, Struct } from 'effect';
-import { Tool } from 'effect/ai';
+import { Array, Cause, Context, Effect, FileSystem, Layer, Number, Option, Predicate, Record, Schema, Stream, Struct } from 'effect';
+import { Tool, Toolkit } from 'effect/ai';
 import type { RpcClient, RpcClientError, RpcGroup } from 'effect/rpc';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -26,18 +27,14 @@ const FONTS = new Intl.ListFormat('en');
 
 const FONT = Schema.String.annotate({ description: 'Application font, PostScript, or full name, family name selects its Regular or first face' });
 const PATH = Schema.String.check(Schema.isStartingWith('/'));
-const Specimen = Schema.Struct({
-    face: Face,
-    shaped: Schema.OptionFromOptionalKey(Schema.Union([ShapedText, Justification]).annotate({ description: 'Em positions, not application composition or document coordinates, justified with width, absent with no text' })),
-    choices: Schema.Array(Face.fields.layout.Choice).annotate({ description: 'aalt, salt and cvNN alternates of each shaped glyph' }),
-});
+const Specimen = Schema.Struct({ face: Face, shaped: Schema.OptionFromOptionalKey(Schema.Union([ShapedText, Justification])), choices: Schema.Array(Face.fields.layout.Choice) });
 const QuranSource = Schema.TaggedUnion({
     Csv: { ayahs: PATH.annotate({ description: 'Ayah CSV path' }), surahs: PATH.annotate({ description: 'Surah CSV path' }), columns: Quran.Columns, riwayah: Quran.fields.riwayah },
     Mushaf: { file: Schema.OptionFromOptionalKey(PATH.annotate({ description: 'Mushaf JSON path of any riwayah, bundled Hafs when absent' })), render: Schema.optionalKey(Quran.Render) },
 }).annotate({ description: 'Caller CSV files, or mushaf JSON from @quran.ws/text' });
-const Tools = {
-    font: Tool.make('font', {
-        description: 'Returns application font with its face, and shapes text in it, justified to width when given',
+const Tools = Toolkit.make(
+    Tool.make('font', {
+        description: 'Returns application font with its face, and shapes text in it at em positions, justified to width when given',
         parameters: Face.Instance.pipe(
             Schema.fieldsAssign({
                 ...ShapedText.Run.fields,
@@ -48,36 +45,41 @@ const Tools = {
             }),
         ),
         success: Inspection.View.cases.Font.mapFields(Struct.assign({ specimen: Schema.OptionFromOptionalKey(Specimen) })),
-    }).annotate(Tool.Readonly, true),
-    kerning: Tool.make('kerning', {
-        description: 'Computes pair kerning and baseline shift from glyph outlines across text, story or frame widened to whole words, writes them in one undo step, and returns a line naming the target and the rows written',
+        failure: Schema.ErrorInstance(),
+    }).annotateMerge(Context.make(Tool.Readonly, true).pipe(Context.add(Tool.Strict, true))),
+    Tool.make('kerning', {
+        description: 'Computes pair kerning and baseline shift from glyph outlines across text, story or frame widened to whole words, and writes them in one undo step',
         parameters: Schema.Struct({
             target: Kerns.fields.target,
             rules: Kerning.pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed(Kerning.make({})))),
             mode: Schema.OptionFromOptionalKey(Schema.Literals(Record.keys(MODES)).annotate({ description: 'kern keeps manual kerning. replace restores metrics kerning across the words, then kerns. restore writes metrics kerning alone. Absent, a whole story kerns and text inside one replaces' })),
         }),
-        success: Schema.String,
-    }),
-    typeset: Tool.make('typeset', {
+        success: Report.schema,
+        failure: Schema.ErrorInstance(),
+    }).annotate(Tool.Strict, true),
+    Tool.make('typeset', {
         description: 'Reads settings of text, story, frame or text defaults, or writes given settings in one undo step, turning off stylistic sets rival to one turned on and refusing kashida in a face with no tatweel advance and no jalt',
         parameters: Schema.Struct(Typeset.fields),
         success: Typeset.Result,
-    }),
-    quran: Tool.make('quran', {
+        failure: Schema.ErrorInstance(),
+    }).annotate(Tool.Strict, true),
+    Tool.make('quran', {
         description: 'Returns the text of the ayahs of a surah or division from CSV files or a mushaf, its basmalah a line before ayah 1, each ayah closed by a number mark the named application font draws and each line by separator',
         parameters: Schema.Struct({ source: QuranSource, selection: Quran.Selection, face: FONT, numberingSystem: Settings.fields.numberingSystem, separator: Schema.String.annotate({ description: 'Text after each line' }) }),
         success: Schema.String,
-    }).annotateMerge(Context.make(Tool.Readonly, true).pipe(Context.add(Tool.OpenWorld, false))),
-    symbols: Tool.make('symbols', {
+        failure: Schema.ErrorInstance(),
+    }).annotateMerge(Context.make(Tool.Readonly, true).pipe(Context.add(Tool.OpenWorld, false), Context.add(Tool.Strict, true))),
+    Tool.make('symbols', {
         description: 'Lists the symbols of a TSV file that the named application font draws, one line per set',
         parameters: Schema.Struct({ file: PATH.annotate({ description: 'Symbol TSV path, one column of hexadecimal code points per set' }), face: FONT }),
-        success: Schema.String,
-    }).annotateMerge(Context.make(Tool.Readonly, true).pipe(Context.add(Tool.OpenWorld, false))),
-};
+        success: Report.schema,
+        failure: Schema.ErrorInstance(),
+    }).annotateMerge(Context.make(Tool.Readonly, true).pipe(Context.add(Tool.OpenWorld, false), Context.add(Tool.Strict, true))),
+);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const specimen = Effect.fnUntraced(function* (data: Source, given: Tool.Parameters<typeof Tools.font>) {
+const specimen = Effect.fnUntraced(function* (data: Source, given: Tool.Parameters<typeof Tools.tools.font>) {
     const face = yield* Face.open(data, Struct.pick(given, Struct.keys(Face.Instance.fields)));
     const settings = yield* Settings.merge(Settings.make({}), Struct.evolve(given.settings, { features: (features = {}) => face.layout.exclusive(features) }));
     const run = Option.map(given.text, (text) => ({ ...Struct.pick(given, Struct.keys(ShapedText.Run.fields)), text }));
@@ -92,7 +94,6 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
     const files = yield* FileSystem.FileSystem;
     const serving = Link.serves(TypesettingRpcs);
     const client = links.call(serving, 'linked application serving typesetting');
-    const visible = Context.make(Server.Visibility, Effect.map(links.peers, Array.some(serving)));
     const readSource = Effect.fnUntraced(function* (name: string, characters: string) {
         const [linked, file] = yield* Effect.all([client, files.makeTempFileScoped({ suffix: '.otf' })]);
         const found = yield* linked('fontSource', { name, text: characters, file });
@@ -107,9 +108,8 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
             const { font, axes } = Array.headNonEmpty(group);
             return Effect.map(openFace(font, [...group.map(Struct.get('text')), extra].join(''), Face.Instance.make({ coordinates: axes })), (face) => ({ font, face, group }));
         });
-    yield* Server.registerTool(
-        Tools.font.annotateMerge(visible),
-        Effect.fnUntraced(function* (given) {
+    const handlers = Tools.toLayer({
+        font: Effect.fnUntraced(function* (given) {
             const [font, source] = yield* Effect.all([
                 Effect.flatMap(client, (linked) => linked('font', { name: given.name })),
                 readSource(
@@ -119,10 +119,7 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
             ]);
             return { ...font, specimen: yield* Effect.transposeOption(Option.map(source, (data) => specimen(data, given))) };
         }),
-    );
-    yield* Server.registerTool(
-        Tools.kerning.annotateMerge(visible),
-        Effect.fnUntraced(function* ({ target, rules, mode }) {
+        kerning: Effect.fnUntraced(function* ({ target, rules, mode }) {
             const linked = yield* client;
             const selection = yield* linked('runs', { target });
             const text = selection.runs.map(Struct.get('text')).join('');
@@ -142,13 +139,15 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
             );
             const kerns = rows.flat();
             const { specifier, written } = yield* linked('kerns', { target: selection.specifier, restore, kerns });
-            const counted = `${written} of ${kerns.length} kerning rows written`;
-            return Option.match(restore, { onNone: () => `${specifier} · ${counted}`, onSome: ({ length }) => `${specifier} · metrics kerning restored across ${length} characters, ${counted}` });
+            return new Report({
+                lines: [
+                    new Line({ head: [specifier] }),
+                    ...Option.toArray(restore).map(({ length }) => new Line({ head: ['restored'], value: `metrics kerning across ${Format.count(length, { one: 'character', other: 'characters' })}` })),
+                    new Line({ head: ['written'], value: `${Format.count(written)} of ${Format.count(kerns.length, { one: 'kerning row', other: 'kerning rows' })}` }),
+                ],
+            });
         }),
-    );
-    yield* Server.registerTool(
-        Tools.typeset.annotateMerge(visible),
-        Effect.fnUntraced(function* ({ target, settings }) {
+        typeset: Effect.fnUntraced(function* ({ target, settings }) {
             const linked = yield* client;
             const elongating = Option.exists(Option.flatMapNullishOr(settings, Struct.get('kashida')), Predicate.not(Predicate.isTagged('None')));
             const featured = Option.isSome(Option.flatMapNullishOr(settings, Struct.get('features')));
@@ -160,25 +159,20 @@ const typography = Effect.fnUntraced(function* (links: { readonly peers: Effect.
             });
             return yield* linked('typeset', { target, settings: Option.map(settings, Struct.evolve({ features: (features = {}) => faces.reduce((exclusive, { face }) => face.layout.exclusive(exclusive), features) })) });
         }),
-    );
-    yield* Server.registerTool(
-        Tools.quran.annotateMerge(visible),
-        Effect.fnUntraced(function* ({ source, selection, face: name, numberingSystem, separator }) {
+        quran: Effect.fnUntraced(function* ({ source, selection, face: name, numberingSystem, separator }) {
             const quran = yield* QuranSource.match(source, {
                 Csv: ({ ayahs, surahs, columns, riwayah }) => Effect.flatMap(Effect.all({ ayahs: files.readFileString(ayahs), surahs: files.readFileString(surahs) }), (csv) => Quran.decode(csv, columns, riwayah)),
                 Mushaf: ({ file, render }) => Effect.flatMap(Effect.transposeOption(Option.map(file, files.readFileString)), (json) => Quran.mushaf(json, render)),
             });
             return yield* Quran.text(quran, separator, (marks) => openFace(name, marks), Settings.make({ numberingSystem }))(selection);
         }),
-    );
-    yield* Server.registerTool(
-        Tools.symbols.annotateMerge(visible),
-        Effect.fnUntraced(function* ({ file, face: name }) {
+        symbols: Effect.fnUntraced(function* ({ file, face: name }) {
             const symbols = yield* Effect.flatMap(files.readFileString(file), Symbols.decode);
             const face = yield* openFace(name, Record.values(symbols.sets).flat().join(''));
-            return Record.collect(symbols.supported(face).sets, (set, characters) => `${set}: ${Array.match(characters, { onEmpty: () => 'none drawn', onNonEmpty: Array.join(' ') })}`).join('\n');
+            return new Report({ lines: Record.collect(symbols.supported(face).sets, (set, characters) => new Line({ head: [set], value: Array.match(characters, { onEmpty: () => 'none drawn', onNonEmpty: Array.join(' ') }) })) });
         }),
-    );
+    });
+    return Layer.provide(Server.toolkit(Tools, { annotations: Context.make(Server.Visibility, Effect.map(links.peers, Array.some(serving))) }), handlers);
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

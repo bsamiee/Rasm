@@ -1,9 +1,9 @@
 import { dial, listen } from '@rasm/rpc';
 import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Context, Duration, Effect, type Layer, Option, Predicate, Record, Ref, Schema, type Stream, Struct } from 'effect';
-import { McpSchema, McpServer, Tool, type Toolkit } from 'effect/ai';
+import { Array, Duration, Effect, type Layer, Option, Predicate, Record, Ref, Schema, type Stream, Struct } from 'effect';
+import { McpSchema, McpServer, type Tool, type Toolkit } from 'effect/ai';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { ToolCall } from '#/toolkit';
+import { registerToolkit, ToolCall } from '#/toolkit';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -46,24 +46,14 @@ class Link extends Schema.Class<Link, { readonly brand: unique symbol }>('Link')
         Link.Rpcs.toLayer(
             Effect.gen(function* () {
                 const [server, registered] = yield* Effect.all([McpServer.McpServer.make, Ref.make<Record.ReadonlyRecord<string, Parameters<McpServer.McpServer['Service']['addTool']>[0]>>({})]);
-                yield* McpServer.registerToolkit(toolkit).pipe(Effect.provideService(McpServer.McpServer, McpServer.McpServer.of({ ...server, addTool: (options) => Ref.update(registered, Record.set(options.tool.name, options)) })));
+                yield* registerToolkit(toolkit).pipe(Effect.provideService(McpServer.McpServer, McpServer.McpServer.of({ ...server, addTool: (options) => Ref.update(registered, Record.set(options.tool.name, options)) })));
                 const rows = yield* Ref.get(registered);
                 return {
                     'tools/list': () => Effect.succeed(McpSchema.ListToolsResult.make({ tools: Record.collect(rows, (_, { tool }) => tool) })),
                     'tools/call': Effect.fnUntraced(function* ({ name, arguments: given, context, _meta }) {
-                        const [{ registration, tool }, blocks] = yield* Effect.all([
-                            Effect.fromOption(Option.all({ registration: Record.get(rows, name), tool: Record.get(toolkit.tools, name) }), () => McpSchema.InvalidParams.make({ message: Unmatched.of({ subject: 'tool', query: Option.some(name), candidates: Record.keys(rows) }).message })),
-                            Ref.make(Array.empty<McpSchema.ContentBlock>()),
-                        ]);
+                        const [registration, blocks] = yield* Effect.all([Effect.fromOption(Record.get(rows, name), () => McpSchema.InvalidParams.make({ message: Unmatched.of({ subject: 'tool', query: Option.some(name), candidates: Record.keys(rows) }).message })), Ref.make(Array.empty<McpSchema.ContentBlock>())]);
                         const result = yield* registration.handle(given).pipe(
-                            Effect.catchTag('InvalidParams', (refused) =>
-                                Effect.matchEffect(Schema.decodeUnknownEffect(Schema.toCodecJson(tool.parametersSchema))(given, { errors: 'all', onExcessProperty: Tool.getStrictMode(tool) === true ? 'error' : 'ignore' }), {
-                                    onFailure: ({ issue }) => ToolCall.invalidParams(issue),
-                                    onSuccess: () => refused,
-                                }),
-                            ),
                             Effect.provideService(McpSchema.McpRequestContext, McpSchema.McpRequestContext.of({ ...context, requestMetadata: _meta })),
-                            Effect.updateContext((request: Context.Context<never>) => Context.merge(registration.services ?? Context.empty(), request)),
                             Effect.provideService(ToolCall, { ...ToolCall.defaultValue(), add: (block) => Ref.update(blocks, Array.append(block)) }),
                             Effect.filterOrFail(Schema.is(McpSchema.CallToolResult), () => McpSchema.InternalError.make({ message: `${name} asked for client input, which a link does not carry` })),
                         );

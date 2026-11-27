@@ -8,20 +8,20 @@ import { Array, Context, Effect, Layer, Option, Predicate, Record, Schema } from
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Class = HostObject({ name: Schema.NonEmptyString }, (value): value is abstract new () => object => Predicate.isFunction(value)).annotate({ description: 'Item class require("aftereffects") holds, by its name' });
-const Identified = Schema.Struct({ id: Schema.Int }).annotate({ description: 'Item or layer keyed by its id' });
-const Placed = Schema.Struct({ containingComp: Identified }).annotate({ description: 'Layer by the composition holding it' });
-const Project = HostObject({ items: Uxp.Collection, itemByID: Callable, layerByID: Callable, toolType: Schema.mutableKey(Schema.Finite) }).annotate({ description: 'Project by its items, 1-based, the lookups by id, and its tool type read and written in place' });
-const Composition = HostObject({ ...Identified.fields, layers: Uxp.Collection, time: Schema.Finite, resolutionFactor: Schema.Tuple([Schema.Int, Schema.Int]), saveFrameToPng: Callable }).annotate({ description: 'Composition by its id, its layers, 1-based, and the members render calls' });
-const Deferred = HostObject({ wait: Callable }).annotate({ description: 'DeferredCall saveFrameToPng returns, settled through wait()' });
+const Class = HostObject({ name: Schema.NonEmptyString }, (value): value is abstract new () => object => Predicate.isFunction(value));
+const Identified = Schema.Struct({ id: Schema.Int });
+const Placed = Schema.Struct({ containingComp: Identified });
+const Project = HostObject({ items: Uxp.Collection, itemByID: Callable, layerByID: Callable, toolType: Schema.mutableKey(Schema.Finite) });
+const Composition = HostObject({ ...Identified.fields, layers: Uxp.Collection, time: Schema.Finite, resolutionFactor: Schema.Tuple([Schema.Int, Schema.Int]), saveFrameToPng: Callable });
+const Deferred = HostObject({ wait: Callable });
 const Application = HostObject({ project: Project, beginSuppressDialogs: Callable, endSuppressDialogs: Callable, beginUndoGroup: Callable, endUndoGroup: Callable });
 const Module = Schema.Struct({
     app: Application,
     CompItem: Class,
     FolderItem: Class,
     FootageItem: Class,
-    ToolType: Schema.Record(Schema.String, Schema.Finite).annotate({ description: 'Tool enumeration, each tool name keying its value' }),
-}).annotate({ description: 'Application instance, item constructors, and tool enumeration require("aftereffects") holds' });
+    ToolType: Schema.Record(Schema.String, Schema.Finite),
+});
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

@@ -4,14 +4,11 @@ import { layer as sqlite } from '@effect/sql-sqlite-node/SqliteClient';
 import { Catalog } from '@rasm/database/catalog';
 import { Relation } from '@rasm/database/relation';
 import { Sqlite } from '@rasm/database/sqlite';
-import { Output } from '@rasm/mcp/cli';
 import { Array, Context, Data, DateTime, Duration, Effect, Equal, Equivalence, FileSystem, Function, HashMap, HashSet, Layer, Option, Order, Predicate, pipe, RcMap, Record, Ref, Result, Schedule, Schema, SchemaGetter, SchemaIssue, Sink, Stream, String, Struct, SubscriptionRef } from 'effect';
 import { SqlClient } from 'effect/sql';
 import { ApplicationServer } from '#/client';
-import { type InstanceSnapshot, InstanceState } from '#/instances';
-import { Build, Condition, Cursor, Frame, Instant, Locator, type Model, Observation, Opener, Shape, Value } from '#/interface';
+import { Act, Build, Condition, Cursor, Frame, type InstanceSnapshot, InstanceState, Instant, Locator, type Model, Observation, Opener, Shape, Value } from '#/contract';
 import { Description, FacetControl } from '#/source';
-import { Act } from '#/steps';
 import { Workspace } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -466,70 +463,70 @@ class InterfaceMaps extends Context.Service<
         readonly sight: (contact: Contact, pointer: Model['pointer']) => Effect.Effect<void, Effect.Error<ReturnType<typeof InterfaceMap.open>>>;
     }
 >()('@rasm/applications/interface-map/InterfaceMaps') {
-    static readonly layer = Layer.effect(
-        InterfaceMaps,
-        Effect.gen(function* () {
-            const [server, { running }, scope, stored] = yield* Effect.all([ApplicationServer, Workspace, Effect.scope, Effect.context<Effect.Services<ReturnType<typeof InterfaceMap.languages>>>()]);
-            const exited = (instance: InstanceSnapshot['instance']) =>
-                SubscriptionRef.changes(running).pipe(
-                    Stream.dropWhile((rows) => !rows.some((row) => row.instance === instance)),
-                    Stream.filter((rows) => rows.every((row) => row.instance !== instance || InstanceState.isAnyOf(['exited'])(row.state))),
-                    Stream.runHead,
-                );
-            const maps = yield* RcMap.make({ lookup: ({ bundle, language }: Key) => InterfaceMap.open(bundle, language) });
-            const driven: RcMap.RcMap<Driven, Opened, Effect.Error<ReturnType<typeof InterfaceMap.open>>> = yield* RcMap.make({
-                lookup: ({ instance, ...key }: Driven) => Effect.tap(RcMap.get(maps, key), () => Effect.forkIn(Effect.andThen(exited(instance), RcMap.invalidate(driven, { instance, ...key })), scope)),
-                idleTimeToLive: Duration.infinity,
-            });
-            const using = <A, E>({ instance, identifier, language }: Contact, use: (opened: Opened) => Effect.Effect<A, E>) =>
-                Effect.scoped(
-                    Effect.flatMap(
-                        Effect.tapError(RcMap.get(driven, { instance, bundle: identifier, language }), () => RcMap.invalidate(driven, { instance, bundle: identifier, language })),
-                        use,
-                    ),
-                );
-            yield* server.observations({}).pipe(
-                Stream.filterMap(({ identifier, ...report }) => (identifier === undefined ? Result.failVoid : Result.succeed({ ...report, identifier }))),
-                Stream.mapEffect(({ observation, ...contact }) =>
-                    Effect.catch(
-                        using(contact, ({ observe }) => observe(observation)),
-                        (error) => Effect.annotateLogs(Effect.logWarning('Interface map fold failed', error), contact),
-                    ),
-                ),
-                Stream.catchCause((cause) => Stream.fromEffectDrain(Effect.logError('Interface map observations ended', cause))),
-                Stream.runDrain,
-                Effect.forkScoped,
-            );
-            return {
-                recall: (contact) => using(contact, Struct.get('present')),
-                learn: (contact, described) => using(contact, ({ learn }) => learn(described)),
-                held: Effect.fnUntraced(
-                    function* (bundle) {
-                        const languages = yield* InterfaceMap.languages(bundle);
-                        const held = yield* Effect.forEach(languages, (language) => Effect.flatMap(RcMap.getOption(maps, { bundle, language }), Option.match({ onNone: Function.constant(InterfaceMap.read(bundle, language)), onSome: Struct.get('present') })));
-                        return Record.fromEntries(Array.zip(languages, held));
-                    },
-                    Effect.scoped,
-                    Effect.provideContext(stored),
-                ),
-                prove: (contact, proofs) => using(contact, ({ prove }) => prove(proofs)),
-                sight: (contact, pointer) => using(contact, ({ sight }) => sight(pointer)),
-            };
-        }),
-    ).pipe(
-        Layer.provide(
-            Layer.unwrap(
-                Effect.gen(function* () {
-                    const [{ state }, files] = yield* Effect.all([Output, FileSystem.FileSystem]);
-                    yield* files.makeDirectory(state, { recursive: true });
-                    return Catalog.layer(
-                        InterfaceMap.catalog,
-                        Sqlite.layer((names) => sqlite({ filename: join(state, 'map.sqlite'), ...names })),
+    static readonly layer = (folder: string) =>
+        Layer.effect(
+            InterfaceMaps,
+            Effect.gen(function* () {
+                const [server, { running }, scope, stored] = yield* Effect.all([ApplicationServer, Workspace, Effect.scope, Effect.context<Effect.Services<ReturnType<typeof InterfaceMap.languages>>>()]);
+                const exited = (instance: InstanceSnapshot['instance']) =>
+                    SubscriptionRef.changes(running).pipe(
+                        Stream.dropWhile((rows) => !rows.some((row) => row.instance === instance)),
+                        Stream.filter((rows) => rows.every((row) => row.instance !== instance || InstanceState.isAnyOf(['exited'])(row.state))),
+                        Stream.runHead,
                     );
-                }),
+                const maps = yield* RcMap.make({ lookup: ({ bundle, language }: Key) => InterfaceMap.open(bundle, language) });
+                const driven: RcMap.RcMap<Driven, Opened, Effect.Error<ReturnType<typeof InterfaceMap.open>>> = yield* RcMap.make({
+                    lookup: ({ instance, ...key }: Driven) => Effect.tap(RcMap.get(maps, key), () => Effect.forkIn(Effect.andThen(exited(instance), RcMap.invalidate(driven, { instance, ...key })), scope)),
+                    idleTimeToLive: Duration.infinity,
+                });
+                const using = <A, E>({ instance, identifier, language }: Contact, use: (opened: Opened) => Effect.Effect<A, E>) =>
+                    Effect.scoped(
+                        Effect.flatMap(
+                            Effect.tapError(RcMap.get(driven, { instance, bundle: identifier, language }), () => RcMap.invalidate(driven, { instance, bundle: identifier, language })),
+                            use,
+                        ),
+                    );
+                yield* server.observations({}).pipe(
+                    Stream.filterMap(({ identifier, ...report }) => (identifier === undefined ? Result.failVoid : Result.succeed({ ...report, identifier }))),
+                    Stream.mapEffect(({ observation, ...contact }) =>
+                        Effect.catch(
+                            using(contact, ({ observe }) => observe(observation)),
+                            (error) => Effect.annotateLogs(Effect.logWarning('Interface map fold failed', error), contact),
+                        ),
+                    ),
+                    Stream.catchCause((cause) => Stream.fromEffectDrain(Effect.logError('Interface map observations ended', cause))),
+                    Stream.runDrain,
+                    Effect.forkScoped,
+                );
+                return {
+                    recall: (contact) => using(contact, Struct.get('present')),
+                    learn: (contact, described) => using(contact, ({ learn }) => learn(described)),
+                    held: Effect.fnUntraced(
+                        function* (bundle) {
+                            const languages = yield* InterfaceMap.languages(bundle);
+                            const held = yield* Effect.forEach(languages, (language) => Effect.flatMap(RcMap.getOption(maps, { bundle, language }), Option.match({ onNone: Function.constant(InterfaceMap.read(bundle, language)), onSome: Struct.get('present') })));
+                            return Record.fromEntries(Array.zip(languages, held));
+                        },
+                        Effect.scoped,
+                        Effect.provideContext(stored),
+                    ),
+                    prove: (contact, proofs) => using(contact, ({ prove }) => prove(proofs)),
+                    sight: (contact, pointer) => using(contact, ({ sight }) => sight(pointer)),
+                };
+            }),
+        ).pipe(
+            Layer.provide(
+                Layer.unwrap(
+                    Effect.as(
+                        Effect.flatMap(FileSystem.FileSystem, (files) => files.makeDirectory(folder, { recursive: true })),
+                        Catalog.layer(
+                            InterfaceMap.catalog,
+                            Sqlite.layer((names) => sqlite({ filename: join(folder, 'map.sqlite'), ...names })),
+                        ),
+                    ),
+                ),
             ),
-        ),
-    );
+        );
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

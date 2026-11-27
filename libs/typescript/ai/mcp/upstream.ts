@@ -7,6 +7,7 @@ import { SecureRandom } from 'effect/crypto';
 import type { HttpClient } from 'effect/http';
 import { Rpc, RpcClientError } from 'effect/rpc';
 import { Link } from '#/link';
+import { Line, Report } from '#/report';
 import { Server } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -117,7 +118,7 @@ class Upstream extends Data.Class<
                 Option.some({
                     push: false,
                     text: Result.match(event, {
-                        onSuccess: ({ name, target, detail }) => [label(peer), name, ...Option.toArray(target), ...Option.toArray(Option.map(detail, (json) => JSON.stringify(json)))].join(' '),
+                        onSuccess: ({ name, target, detail }) => Report.text(new Report({ lines: [new Line({ head: [label(peer), name, ...Option.toArray(target)], rows: Option.match(detail, { onNone: Array.empty, onSome: (held) => Report.of(held).lines }) })] })),
                         onFailure: ({ message }) => `${label(peer)} stopped sending events: ${message}`,
                     }),
                 }),

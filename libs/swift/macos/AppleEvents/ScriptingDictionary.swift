@@ -355,7 +355,7 @@ private struct ScriptTerminology: Decodable {
 extension ScriptingDictionary {
     // --- [DEFINITIONS]
 
-    package static func definition(of target: sending NSAppleEventDescriptor, within deadline: Duration) async throws(AppleEventFailure) -> Data {
+    package static func definition(of target: sending NSAppleEventDescriptor) async throws(AppleEventFailure) -> Data {
         let request = NSAppleEventDescriptor(
             eventClass: AEEventClass(kASAppleScriptSuite),
             eventID: "gsdf".utf8.reduce(0) { code, byte in code << 8 | AEEventID(byte) },
@@ -363,7 +363,7 @@ extension ScriptingDictionary {
             returnID: AEReturnID(kAutoGenerateReturnID),
             transactionID: AETransactionID(kAnyTransactionID),
         )
-        return try await NSAppleEventDescriptor.send(request, within: deadline) { reply in (reply.coerce(toDescriptorType: DescType(typeUTF8Text)) ?? reply).data }
+        return try await NSAppleEventDescriptor.send(request, within: replyDeadline) { reply in (reply.coerce(toDescriptorType: DescType(typeUTF8Text)) ?? reply).data }
     }
 
     @concurrent

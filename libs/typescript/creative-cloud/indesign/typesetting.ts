@@ -37,7 +37,7 @@ class Kerns extends Schema.Class<Kerns, { readonly brand: unique symbol }>('Kern
         description: 'Written at insertion points and their runs, rows at nonzero manual kerning kept',
     }),
 }) {
-    static readonly Result = Reference.mapFields(Struct.assign({ written: Schema.Int.annotate({ description: 'Row count' }) }));
+    static readonly Result = Reference.mapFields(Struct.assign({ written: Schema.Int }));
 
     get label(): string {
         const runs: Readonly<Partial<Record<Intl.LDMLPluralRule, string>>> & { readonly other: string } = { one: 'run', other: 'runs' };
@@ -56,7 +56,7 @@ class Runs extends Schema.Class<Runs, { readonly brand: unique symbol }>('Runs')
     ).annotate({ description: 'Container holding target text or text defaults, with its style ranges' });
 }
 class Typeset extends Schema.Class<Typeset, { readonly brand: unique symbol }>('Typeset')({ target: Adjust.fields.target, settings: Schema.OptionFromOptionalKey(Settings.Partial.check(Schema.isMinProperties(1))) }) {
-    static readonly Result = Settings.annotate({ description: 'Target settings, first run of mixed text' });
+    static readonly Result = Settings;
 
     get label(): string {
         return Option.match(this.settings, { onNone: () => `Read settings of ${this.target}`, onSome: (settings) => `Set ${Struct.keys(settings).join(', ')} of ${this.target}` });

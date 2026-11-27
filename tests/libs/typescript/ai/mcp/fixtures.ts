@@ -4,7 +4,7 @@ import { registerResource, registerResourceTemplate } from '@rasm/mcp/resource';
 import { Server } from '@rasm/mcp/server';
 import { ToolCall } from '@rasm/mcp/toolkit';
 import { Upstream } from '@rasm/mcp/upstream';
-import { Array, Cause, Context, Duration, Effect, Latch, Layer, MutableRef, Option, Predicate, Queue, Record, Ref, Result, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Duration, Effect, Layer, MutableRef, Option, Predicate, Record, Ref, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpProtocol, McpSchema, McpServer, McpTest, Tool, Toolkit } from 'effect/ai';
 import { FetchHttpClient, HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Host } from 'effect/net';
@@ -33,8 +33,6 @@ const FAILURE = 'This tool intentionally returns an error for testing';
 const STEPS = [0, 50, 100] as const;
 const IDS = ['beta', 'opal', 'alpha'] as const;
 const STATE = 'asked once';
-const ASKED = 'a dialog asks';
-const STATED = 'target responding · behind';
 const PATH = '/mcp';
 const UPSTREAM = new URL(PATH, 'http://upstream.test');
 const ENDPOINT = 'http://localhost/';
@@ -63,91 +61,67 @@ const Tools = Toolkit.make(
     Tool.make('secret', { description: 'Refused by the filter', success: Schema.String }),
     Tool.make('test_simple_text', { description: 'Shares a name with a tool of the server', success: Schema.String }),
 );
+const Served = Toolkit.make(
+    Tool.make('test_simple_text', { description: 'Returns simple text', success: Schema.String }).annotate(Tool.Readonly, true).annotate(Server.Instructions, [INSTRUCTIONS.shown]),
+    Tool.make('test_value', { description: 'Returns the value it is given', parameters: Valued, success: Schema.String }).annotate(Tool.Readonly, true).annotate(Tool.Strict, true),
+    Tool.make('test_image_content', { description: 'Returns an image' }).annotate(Tool.Readonly, true),
+    Tool.make('test_embedded_resource', { description: 'Returns an embedded resource' }).annotate(Tool.Readonly, true),
+    Tool.make('test_multiple_content_types', { description: 'Returns text, an image, and an embedded resource' }).annotate(Tool.Readonly, true),
+    Tool.make('test_structured', { description: 'Returns a structured result', success: Weather }).annotate(Tool.Readonly, true),
+    Tool.make('test_error_handling', { description: 'Fails on every call', success: Schema.String, failure: Schema.ErrorInstance() }).annotate(Tool.Readonly, true),
+    Tool.make('test_hidden', { description: 'Hidden from every caller', success: Schema.String }).annotate(Tool.Readonly, true).annotate(Server.Visibility, Effect.succeed(false)).annotate(Server.Instructions, [INSTRUCTIONS.hidden]),
+    Tool.make('test_tool_with_progress', { description: 'Reports progress in three steps', success: Schema.String }).annotate(Tool.Readonly, true),
+    Tool.make('test_input', { description: 'Asks for client input, then answers with the state it sealed', success: Schema.String, failure: Schema.ErrorInstance(), dependencies: [McpSchema.McpRequestContext] }).annotate(Tool.Readonly, true),
+);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Probe extends Context.Service<Probe>()('@rasm/test-mcp/fixtures/Probe', {
     make: Effect.gen(function* () {
-        const [calls, entered, interrupted, release, watched, blocked, versions] = yield* Effect.all([
-            Ref.make<readonly string[]>([]),
-            Queue.unbounded<string>(),
-            Queue.unbounded<string>(),
-            Latch.make(),
-            SubscriptionRef.make('open'),
-            SubscriptionRef.make(false),
-            SubscriptionRef.make<Record.ReadonlyRecord<string, number>>({}),
-        ]);
-        return { calls, entered, interrupted, release, watched, blocked, versions };
+        const [calls, watched, versions] = yield* Effect.all([Ref.make<readonly string[]>([]), SubscriptionRef.make('open'), SubscriptionRef.make<Record.ReadonlyRecord<string, number>>({})]);
+        return { calls, watched, versions };
     }),
 }) {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, release, watched, blocked, versions }: Probe['Service']) {
-    const called = <A, E, R>(name: string, answer: Effect.Effect<A, E, R>) => Ref.update(calls, (held) => [...held, name]).pipe(Effect.andThen(Queue.offer(entered, name)), Effect.andThen(answer));
-    const gated = (name: string) =>
+const served = ({ calls }: Probe['Service']) => {
+    const called = <A, E, R>(name: string, answer: Effect.Effect<A, E, R>) =>
+        Effect.andThen(
+            Ref.update(calls, (held) => [...held, name]),
+            answer,
+        );
+    const image = McpSchema.ImageContent.make({ data: Uint8Array.fromBase64(PNG), mimeType: 'image/png' });
+    const added = (name: string, blocks: readonly McpSchema.ContentBlock[]) =>
         called(
             name,
-            release.await.pipe(
-                Effect.as('released'),
-                Effect.onInterrupt(() => Queue.offer(interrupted, name)),
-            ),
+            ToolCall.use(({ add }) => Effect.forEach(blocks, add, { discard: true })),
         );
-    yield* Server.registerTool(Tool.make('test_simple_text', { description: 'Returns simple text', success: Schema.String }).annotate(Tool.Readonly, true).annotate(Server.Instructions, [INSTRUCTIONS.shown]), () => called('test_simple_text', Effect.succeed(TEXT)));
-    yield* Server.registerTool(Tool.make('test_stated', { description: 'States a state line, then returns simple text', success: Schema.String }).annotate(Tool.Readonly, true), () =>
-        called(
-            'test_stated',
-            Effect.as(
-                ToolCall.use(({ state }) => state(STATED)),
-                TEXT,
+    return Served.toLayer({
+        test_simple_text: () => called('test_simple_text', Effect.succeed(TEXT)),
+        test_value: ({ value }) => called('test_value', Effect.succeed(value)),
+        test_image_content: () => added('test_image_content', [image]),
+        test_embedded_resource: () => added('test_embedded_resource', [McpSchema.EmbeddedResource.make({ resource: McpSchema.TextResourceContents.make({ uri: 'test://embedded-resource', mimeType: 'text/plain', text: EMBEDDED }) })]),
+        test_multiple_content_types: () => added('test_multiple_content_types', [McpSchema.TextContent.make({ text: MIXED.text }), image, McpSchema.EmbeddedResource.make({ resource: McpSchema.TextResourceContents.make({ uri: MIXED.uri, mimeType: 'application/json', text: MIXED.json }) })]),
+        test_structured: () => called('test_structured', Effect.succeed({ temperature: 22.5, conditions: 'Partly cloudy' })),
+        test_error_handling: () => called('test_error_handling', Effect.fail(new Cause.IllegalArgumentError(FAILURE))),
+        test_hidden: () => called('test_hidden', Effect.succeed(TEXT)),
+        test_tool_with_progress: () =>
+            called(
+                'test_tool_with_progress',
+                Stream.fromIterable(STEPS).pipe(
+                    Server.progress((progress) => ({ progress, total: 100 })),
+                    Stream.runDrain,
+                    Effect.as('done'),
+                ),
             ),
-        ),
-    );
-    yield* Server.registerTool(Tool.make('test_value', { description: 'Returns the value it is given', parameters: Valued, success: Schema.String }).annotate(Tool.Readonly, true).annotate(Tool.Strict, true), ({ value }) => called('test_value', Effect.succeed(value)));
-    yield* Server.registerTool(
-        Tool.make('test_image_content', { description: 'Returns an image', success: Schema.Uint8Array }).annotate(Tool.Readonly, true),
-        () => called('test_image_content', Effect.succeed(Uint8Array.fromBase64(PNG))),
-        (data) => [McpSchema.ImageContent.make({ data, mimeType: 'image/png' })],
-    );
-    yield* Server.registerTool(
-        Tool.make('test_embedded_resource', { description: 'Returns an embedded resource', success: Schema.String }).annotate(Tool.Readonly, true),
-        () => called('test_embedded_resource', Effect.succeed(EMBEDDED)),
-        (text) => [McpSchema.EmbeddedResource.make({ resource: McpSchema.TextResourceContents.make({ uri: 'test://embedded-resource', mimeType: 'text/plain', text }) })],
-    );
-    yield* Server.registerTool(
-        Tool.make('test_multiple_content_types', { description: 'Returns text, an image, and an embedded resource', success: Schema.Uint8Array }).annotate(Tool.Readonly, true),
-        () => called('test_multiple_content_types', Effect.succeed(Uint8Array.fromBase64(PNG))),
-        (data) => [McpSchema.TextContent.make({ text: MIXED.text }), McpSchema.ImageContent.make({ data, mimeType: 'image/png' }), McpSchema.EmbeddedResource.make({ resource: McpSchema.TextResourceContents.make({ uri: MIXED.uri, mimeType: 'application/json', text: MIXED.json }) })],
-    );
-    yield* Server.registerTool(Tool.make('test_structured', { description: 'Returns a structured result', success: Weather }).annotate(Tool.Readonly, true), () => called('test_structured', Effect.succeed({ temperature: 22.5, conditions: 'Partly cloudy' })));
-    yield* Server.registerTool(Tool.make('test_error_handling', { description: 'Fails on every call', success: Schema.String }).annotate(Tool.Readonly, true), () => called('test_error_handling', Effect.fail(new Cause.IllegalArgumentError(FAILURE))));
-    yield* Server.registerTool(Tool.make('test_hidden', { description: 'Hidden from every caller', success: Schema.String }).annotate(Tool.Readonly, true).annotate(Server.Visibility, Effect.succeed(false)).annotate(Server.Instructions, [INSTRUCTIONS.hidden]), () => called('test_hidden', Effect.succeed(TEXT)));
-    yield* Server.registerTool(Tool.make('test_tool_with_progress', { description: 'Reports progress in three steps', success: Schema.String }).annotate(Tool.Readonly, true), () =>
-        called(
-            'test_tool_with_progress',
-            Stream.fromIterable(STEPS).pipe(
-                Server.progress((progress) => ({ progress, total: 100 })),
-                Stream.runDrain,
-                Effect.as('done'),
-            ),
-        ),
-    );
-    yield* Server.registerTool(
-        Tool.make('test_input', { description: 'Asks for client input, then answers with the state it sealed', success: Schema.String }).annotate(Tool.Readonly, true),
-        Effect.fnUntraced(function* () {
+        test_input: Effect.fnUntraced(function* () {
             const [{ requestState }, { input }] = yield* Effect.all([McpSchema.McpRequestContext, ToolCall]);
             return yield* called('test_input', UndefinedOr.match(requestState, { onUndefined: () => input(new McpSchema.InputRequired({ requestState: STATE })), onDefined: Effect.succeed }));
         }),
-    );
-    yield* Server.registerTool(Tool.make('gated_write', { description: 'Waits for release, changes state', success: Schema.String }), () => gated('gated_write'));
-    yield* Server.registerTool(
-        Tool.make('gated_early', { description: 'Waits for release, returning early while blocked', success: Schema.String }).annotate(
-            Server.EarlyReturn,
-            Stream.filterMap(SubscriptionRef.changes(blocked), (held) => (held ? Result.succeed(Effect.succeed(ASKED)) : Result.failVoid)),
-        ),
-        () => gated('gated_early'),
-    );
-    yield* Server.registerTool(Tool.make('test_await_running', { description: 'Awaits the calls of its handle that returned early', success: Schema.String }), () => called('test_await_running', Effect.as(ToolCall.use(Struct.get('awaitRunning')), 'settled')));
+    });
+};
+const registered = Effect.fnUntraced(function* ({ watched, versions }: Probe['Service']) {
     yield* registerResource({ name: 'static-text', description: 'A static text resource for testing', mimeType: 'text/plain', schema: Schema.String, changes: Stream.empty, content: Effect.succeed(STATIC) });
     yield* registerResource({ name: 'static-binary', description: 'A static binary resource for testing', mimeType: 'image/png', schema: Schema.Uint8Array, changes: Stream.empty, content: Effect.succeed(Uint8Array.fromBase64(PNG)) });
     yield* registerResource({ name: 'watched-resource', description: 'A resource whose value changes', mimeType: 'text/plain', schema: Schema.String, changes: SubscriptionRef.changes(watched), content: SubscriptionRef.get(watched) });
@@ -161,7 +135,7 @@ const registered = Effect.fnUntraced(function* ({ calls, entered, interrupted, r
     });
 });
 
-const app = (probe: Probe['Service']) => Layer.effectDiscard(registered(probe));
+const app = (probe: Probe['Service']) => Layer.merge(Layer.provide(Server.toolkit(Served), served(probe)), Layer.effectDiscard(registered(probe)));
 
 const registrations = Layer.mergeAll(
     McpServer.toolkit(Tools).pipe(Layer.provide(Tools.toLayer({ echo: ({ value }) => Effect.succeed({ echoed: value }), secret: () => Effect.succeed('secret'), test_simple_text: () => Effect.succeed('upstream') }))),
@@ -206,7 +180,6 @@ const opened = Effect.fnUntraced(function* (protocol: McpProtocol.ProtocolAdapte
     const { probe, layer } = yield* hosted('192.0.2.10:7000');
     const { handler, dispose } = HttpRouter.toWebHandler(layer, { disableLogger: true });
     yield* Effect.addFinalizer(() => Effect.promise(dispose));
-    yield* Effect.addFinalizer(() => probe.release.open);
     const stateless = Predicate.isTagged(protocol.runtime, 'Stateless');
     const post = (body: unknown, { method = 'POST', headers = {} }: Sent = {}) =>
         Effect.flatMap(Effect.orDie(Schema.encodeUnknownEffect(Json)(body)), (text) => Effect.promise(() => handler(new Request(ENDPOINT, { method, headers: { accept: 'application/json, text/event-stream', 'content-type': 'application/json', ...headers }, body: text }))));
@@ -255,7 +228,6 @@ const lines = ({ content }: { readonly content: readonly unknown[] }) => Array.h
 const connected = Effect.fnUntraced(function* <E, R>(beside: Layer.Layer<never, E, R>) {
     const [probe, scheme] = yield* Effect.all([Probe.make, Server.scheme(MANIFEST.name)]);
     const client = yield* McpTest.makeClient(Layer.provide(Layer.mergeAll(app(probe), beside), Server.layer({ ...SETTINGS, scheme }).pipe(Layer.provide([layerAead, layerSecureRandom]), Layer.orDie)), { protocols: [McpProtocol.v2025_11_25] });
-    yield* Effect.addFinalizer(() => probe.release.open);
     return { probe, client };
 });
 

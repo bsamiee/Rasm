@@ -1,4 +1,4 @@
-import { KeyStep } from '@rasm/applications/interface';
+import { KeyStep } from '@rasm/applications/contract';
 import type { Declaration } from '@rasm/applications/source';
 import { readVersionAndDescriptor } from 'ag-psd/dist/descriptor.js';
 import { createReader, readSignature, readUint16 } from 'ag-psd/dist/psdReader.js';

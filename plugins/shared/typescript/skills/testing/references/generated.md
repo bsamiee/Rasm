@@ -7,27 +7,28 @@
 `it.prop` and `it.effect.prop` take a title, inputs, a body, and Vitest options holding `arbitrary: CheckOptions`:
 
 ```ts
-const Generated = {
-    model: Model,
-    copies: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 4 })).annotate({ description: 'Each control repeated in place, so siblings that differ by reference alone occur' }),
-    page: Schema.Int.check(Schema.isBetween({ minimum: 60, maximum: 2400 })).annotate({ description: 'Page in characters, small enough that generated models cut at every level' }),
+const Truth = {
+    conditions: Schema.Array(Condition).check(Schema.isMinLength(1), Schema.isMaxLength(10)),
+    reads: Schema.NonEmptyArray(Read).check(Schema.isMinLength(14), Schema.isMaxLength(24)),
+    owner: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 999 })),
+    draft: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 999 })),
 };
 
 it.effect.prop(
-    'joins the pages each continuation names into the unbounded render',
-    Generated,
-    Effect.fnUntraced(function* ({ model, copies, page }) {
-        const index = Address.index(interned(model, copies), InterfaceMap.empty);
-        const budget = { page, ceiling: page * 2 };
-        const whole = yield* Effect.fromResult(Outline.render(index, { budget: { page: Number.POSITIVE_INFINITY, ceiling: Number.POSITIVE_INFINITY } }));
-        const first = yield* Effect.fromResult(Outline.render(index, { budget }));
-        assert.deepStrictEqual(spliced(index, first, budget, 0), whole, `page of ${page} characters:\n${first.join('\n')}`);
+    'stores no document name or user name',
+    Truth,
+    Effect.fnUntraced(function* (truth) {
+        const world = app(truth);
+        const reads = yield* Effect.forEach(world.readings, (read) => Schema.decodeEffect(Observation)(world.observation(read)));
+        const last = reads.reduce((map, read) => map.fold(read, world.user)[1], InterfaceMap.empty);
+        const written = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(last);
+        assert.notInclude(written, world.user.username);
     }),
-    { arbitrary: { seed: 2026, runs: 200 } },
+    { arbitrary: { seed: 2026, runs: 300 } },
 );
 ```
 
-`outline.test.ts` declares `interned` and `spliced` beside the test, and each input key reaches the body as one field:
+`interface-map.test.ts` declares `Condition`, `Read`, and `app` beside the test, and each input key reaches the body as one field:
 - Inputs are a tuple or record of schemas and arbitraries, joined by `Arbitrary.all` at registration, so an underivable schema fails its file
 - `it.prop` bodies run synchronously and return `boolean` or `void`, a `false` or a throw falsifying, and any other value throws a `TypeError` naming `it.effect.prop`
 - `it.effect.prop` bodies falsify on `false`, a typed failure, a throw, or a defect such as a failed `assert`, each kept as its `Cause`, and an interruption interrupts the test
@@ -133,7 +134,7 @@ Replay: [<0 or 1>,"<seed>",<attempt>,<size>,[<shrink path>],"<ReturnedFalse | Pr
 - Tests holding a token fail before their fix as falsified and after it as `PropertyPassed`, so a token stays out of every commit
 - Tokens address attempts and shrink steps of one arbitrary, so a changed generator or Effect release reads another input
 - Checks with no `seed` draw a master seed from `Random`, which `Math.random` backs, so each run draws new cases and its token records the seed
-- Checks with `seed` draw the same cases on every run (`interface-map.test.ts` and `outline.test.ts` hold `seed: 2026`)
+- Checks with `seed` draw the same cases on every run (`interface-map.test.ts` holds `seed: 2026`)
 - Exhausted checks print `Seed: <seed>` and each unsupported pattern, and that `seed` reproduces the exhausted run
 
 Counterexamples become named example rows:

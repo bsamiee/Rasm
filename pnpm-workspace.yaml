@@ -2,6 +2,7 @@
 
 packages:
     - 'libs/typescript/*/*'
+    - 'libs/typescript/ai/tools/*'
     - 'products/**'
     - 'tests/**'
     - 'plugins/*/*'

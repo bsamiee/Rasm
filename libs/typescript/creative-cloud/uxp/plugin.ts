@@ -32,7 +32,7 @@ const SOURCE = SourceRpcs.failing(Failure);
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Thrown = Schema.Struct({ message: Schema.Unknown });
-const ImageSize = Schema.Struct({ width: Schema.Int, height: Schema.Int }).annotate({ description: 'Image size in pixels' });
+const ImageSize = Schema.Struct({ width: Schema.Int, height: Schema.Int });
 const Callable = Schema.declare((value): value is (...args: readonly unknown[]) => unknown => Predicate.isFunction(value));
 const HostObject = <const Fields extends Schema.Struct.Fields, Kind extends object = object>(fields: Fields, kind?: Predicate.Refinement<object, Kind>) => {
     const members = Schema.Struct(fields);
@@ -50,8 +50,8 @@ const HostObject = <const Fields extends Schema.Struct.Fields, Kind extends obje
 };
 const Entrypoints = Schema.Struct({ setup: Callable });
 const ThemeDocument = Schema.Struct({ theme: HostObject({ getCurrent: Callable, onUpdated: Schema.Struct({ addListener: Callable, removeListener: Callable }) }) });
-const GlobalRequire = Schema.Struct({ require: Callable }).annotate({ description: 'Global require a UXP host resolves its own modules through by name' });
-const HostInfo = Schema.Struct({ applicationPath: Schema.NonEmptyString.annotate({ description: 'Bundle path of the running installation' }) });
+const GlobalRequire = Schema.Struct({ require: Callable });
+const HostInfo = Schema.Struct({ applicationPath: Schema.NonEmptyString });
 const Requests = EvaluationRpcs.merge(RenderRpcs);
 const WebSocketUrl = Schema.URLFromString.check(Schema.makeFilter(({ protocol }) => protocol === 'ws:' || protocol === 'wss:', { description: 'ws: or wss: URL a WebSocket opens' }));
 
@@ -59,13 +59,11 @@ const WebSocketUrl = Schema.URLFromString.check(Schema.makeFilter(({ protocol })
 
 class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: typeof fs }>()('@rasm/uxp/plugin/Uxp') {
     static readonly Entry = Schema.Struct({ isEntry: Schema.Literal(true), url: Schema.Union([Schema.String, Schema.URL]) });
-    static readonly Collection = Schema.Struct({ length: Schema.Int }).annotate({ description: 'Host collection by its element count, its elements read by index' });
-    static readonly Missing = Schema.Literal(-2).annotate({ description: 'Value UXP fs throws for a path it finds no entry at' });
+    static readonly Collection = Schema.Struct({ length: Schema.Int });
+    static readonly Missing = Schema.Literal(-2);
     static readonly Application = Uxp.Entry.mapFields(
         Struct.assign({
-            url: Schema.Union([Schema.URLFromString, Schema.URL])
-                .pipe(Schema.decode({ decode: SchemaGetter.transform((url: URL) => Url.setPathname(url, url.pathname.replace(BUNDLE, '/'))), encode: SchemaGetter.passthrough() }))
-                .annotate({ description: 'Host application bundle URL with trailing slash' }),
+            url: Schema.Union([Schema.URLFromString, Schema.URL]).pipe(Schema.decode({ decode: SchemaGetter.transform((url: URL) => Url.setPathname(url, url.pathname.replace(BUNDLE, '/'))), encode: SchemaGetter.passthrough() })),
         }),
     );
     static readonly layer = (modules: Uxp['Service']) =>
@@ -226,7 +224,7 @@ class Plugin extends Context.Service<Plugin, typeof UxpManifest.Identity.Type>()
         readonly group: RpcGroup.RpcGroup<Rpcs>;
         readonly handlers: Layer.Layer<Rpc.ToHandler<Rpcs> | Tool.HandlersFor<Tools>, EH, RH>;
         readonly toolkit?: Toolkit.Toolkit<Tools>;
-        readonly source: Omit<Source<ES, RS, EC, RC>, 'roots'>;
+        readonly source: Omit<Source<ES, RS, typeof Link.Event.Type, EC, RC>, 'roots'>;
         readonly dialogs: Effect.Effect<unknown, HostError, Scope.Scope | RD>;
     }) => {
         const peer = Cache.makeWith(() => Effect.all({ application, plugin: Plugin.useSync(Struct.get('id')) }), { capacity: 1, timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero) });

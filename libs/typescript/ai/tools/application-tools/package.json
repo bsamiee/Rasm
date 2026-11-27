@@ -1,0 +1,52 @@
+{
+    "name": "@rasm/application-tools",
+    "version": "0.1.0",
+    "description": "Six MCP tools driving Mac applications through an application server, applications, view, inspect, act, execute_script, and diagnostics, with the target, notices, addresses, and outline a handle holds",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/ai/tools/application-tools"
+    },
+    "files": [
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        "./toolkit": "./toolkit.ts",
+        "./handle/target": "./handle/target.ts",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
+        "exports": {
+            "./toolkit": "./dist/toolkit.js",
+            "./handle/target": "./dist/handle/target.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
+    "dependencies": {
+        "@rasm/applications": "workspace:*",
+        "@rasm/database": "workspace:*",
+        "@rasm/mcp": "workspace:*",
+        "@rasm/search": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
+    },
+    "engines": {
+        "node": ">=27"
+    }
+}

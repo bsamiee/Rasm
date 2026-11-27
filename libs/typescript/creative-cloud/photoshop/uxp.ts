@@ -1,5 +1,5 @@
+import type { Act } from '@rasm/applications/contract';
 import { type Description, FacetControl } from '@rasm/applications/source';
-import type { Act } from '@rasm/applications/steps';
 import type { Upstream } from '@rasm/mcp/upstream';
 import { Containment, format } from '@rasm/object-model/host';
 import { HostError } from '@rasm/object-model/model';
@@ -29,32 +29,30 @@ const REJECTIONS = { Cancelled: 2, Unavailable: 9 } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Identified = Schema.Struct({ id: Schema.Int }).annotate({ description: 'Object keyed by its id' });
-const Exportable = Schema.declare((input: unknown) => input instanceof app.Document || input instanceof app.Layer).annotate({ description: 'Document or layer, the objects render exports' });
-const Stored = Schema.declare((input: unknown): input is globalThis.File => Schema.is(Uxp.Entry)(input)).annotate({ description: 'UXP storage file, the DOM File type @types/photoshop names for file parameters' });
-const Closing = Schema.Struct({ registerAutoCloseDocument: Schema.declare((input: unknown): input is (documentID: number) => Promise<void> => Predicate.isFunction(input)) }).annotate({ description: 'hostControl member Photoshop holds and @types/photoshop omits' });
+const Identified = Schema.Struct({ id: Schema.Int });
+const Exportable = Schema.declare((input: unknown) => input instanceof app.Document || input instanceof app.Layer);
+const Stored = Schema.declare((input: unknown): input is globalThis.File => Schema.is(Uxp.Entry)(input));
+const Closing = Schema.Struct({ registerAutoCloseDocument: Schema.declare((input: unknown): input is (documentID: number) => Promise<void> => Predicate.isFunction(input)) });
 const Rejected = Schema.Struct({ number: Schema.Union(Record.collect(REJECTIONS, (tag, code) => Schema.Literal(code).transform(tag))) });
-const Refusal = Schema.Struct({ _obj: Schema.Literal('error'), message: Schema.String, result: Schema.Int }).annotate({ description: 'Error descriptor a refused command replies with' });
-const Hosted = Schema.Struct({ hostName: Schema.NonEmptyString.annotate({ description: 'Application name, the bundle name of the installation' }) });
-const ActionObject = Schema.StructWithRest(Schema.Struct({ _obj: Schema.String }), [Schema.Record(Schema.String, Schema.Unknown)]).annotate({ description: 'Descriptor of an object, its keys the string or character IDs Photoshop names them by' });
-const ToolOptions = Schema.Struct({ currentToolOptions: ActionObject }).annotate({ description: 'Options of the current tool, the application property holding them' });
-const DocumentEvent = Schema.Struct({ documentID: Schema.Int }).annotate({ description: 'Descriptor of a document event' });
-const Enumerated = Schema.Struct({ _enum: Schema.String, _value: Schema.String }).annotate({ description: 'Enumeration value with its type' });
-const Unit = Schema.Struct({ _unit: Schema.String, _value: Schema.Finite }).annotate({ description: 'Number with its unit' });
+const Refusal = Schema.Struct({ _obj: Schema.Literal('error'), message: Schema.String, result: Schema.Int });
+const Hosted = Schema.Struct({ hostName: Schema.NonEmptyString });
+const ActionObject = Schema.StructWithRest(Schema.Struct({ _obj: Schema.String }), [Schema.Record(Schema.String, Schema.Unknown)]);
+const ToolOptions = Schema.Struct({ currentToolOptions: ActionObject });
+const DocumentEvent = Schema.Struct({ documentID: Schema.Int });
+const Enumerated = Schema.Struct({ _enum: Schema.String, _value: Schema.String });
+const Unit = Schema.Struct({ _unit: Schema.String, _value: Schema.Finite });
 const ModalState = Schema.Struct({
-    level: Schema.Int.annotate({ description: 'Depth of the modal state, 0 once it exits' }),
-    kind: Schema.optionalKey(Enumerated.annotate({ description: 'Kind of a tool modal state, as toolModalStateChanged names it' })),
-    title: Schema.optionalKey(Schema.String.annotate({ description: 'Title of a modal dialog, as modalStateChanged names it' })),
-}).annotate({ description: 'Descriptor of toolModalStateChanged or modalStateChanged' });
-const Rectangle = Schema.Struct({ left: Schema.Finite, top: Schema.Finite, right: Schema.Finite, bottom: Schema.Finite }).annotate({ description: 'Left, top, right, and bottom edges' });
-const Bounded = Schema.declare((input: unknown): input is Bounds => Schema.is(Rectangle)(input)).annotate({ description: 'Plain rectangle the Selection members take, as Adobe examples pass, where @types/photoshop types the Bounds class' });
-const View = Schema.Struct({
-    viewInfo: Schema.Struct({ activeView: Schema.Struct({ globalBounds: Rectangle.annotate({ description: 'Active view in screen points from the top left of the main display' }) }) }).annotate({ description: 'Views of the document' }),
-    viewTransform: Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite]).annotate({ description: 'Affine a b c d tx ty from points of the active view, counted from its top left, to document pixels' }),
-}).annotate({ description: 'Document properties placing its active view on the screen' });
-const ActiveTool = Schema.Struct({ key: Schema.String, title: Schema.String, classId: Schema.String }).annotate({
-    description: 'Reply of core.getActiveTool: the key a select of the tool takes, its title, and its class, which Photoshop spells classId where @types/photoshop declares classID',
+    level: Schema.Int,
+    kind: Schema.optionalKey(Enumerated),
+    title: Schema.optionalKey(Schema.String),
 });
+const Rectangle = Schema.Struct({ left: Schema.Finite, top: Schema.Finite, right: Schema.Finite, bottom: Schema.Finite });
+const Bounded = Schema.declare((input: unknown): input is Bounds => Schema.is(Rectangle)(input));
+const View = Schema.Struct({
+    viewInfo: Schema.Struct({ activeView: Schema.Struct({ globalBounds: Rectangle }) }),
+    viewTransform: Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite]),
+});
+const ActiveTool = Schema.Struct({ key: Schema.String, title: Schema.String, classId: Schema.String });
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

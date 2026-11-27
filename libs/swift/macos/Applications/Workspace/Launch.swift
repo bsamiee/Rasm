@@ -106,8 +106,6 @@ extension NSWorkspace {
         let ends = clock.now.advanced(by: deadline)
         let hold = try await PermittedFrontList.shared.holding(
             excluding: { application in installation.runs(application) && !(creates && before.contains(application.processIdentifier)) },
-            for: deadline + messagingTimeout,
-            clock: clock,
             { () async throws(ApplicationFailure) -> (watch: Watch, settled: InstanceState?) in
                 let opened: NSRunningApplication
                 do {

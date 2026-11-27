@@ -8,27 +8,23 @@ import { Array, Context, Effect, Layer, Option, Path, Predicate, Schema, Struct 
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Rect = Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite]).annotate({ description: 'Left, top, right, and bottom in points' });
+const Rect = Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite]);
 const Application = HostObject({
-    name: Schema.NonEmptyString.annotate({ description: 'Bundle name without its extension' }),
-    path: Schema.NonEmptyString.annotate({ description: 'Folder holding the running bundle' }),
+    name: Schema.NonEmptyString,
+    path: Schema.NonEmptyString,
     userInteractionLevel: Schema.String,
     documents: Uxp.Collection,
     getSelectedToolName: Callable,
     selectTool: Callable,
 });
-const Module = Schema.Struct({ app: Application.annotate({ description: 'Application instance require("illustrator") holds as app' }) });
-const Filed = Schema.Struct({ fullName: Schema.Unknown }).annotate({ description: 'Document keyed by its file' });
-const Document = HostObject({ ...Filed.fields, artboards: Uxp.Collection, layers: Uxp.Collection, pageItems: Uxp.Collection, getPageItemFromUuid: Callable, imageCapture: Callable }).annotate({
-    description: 'Document by its file, its collections, its page item lookup by uuid, and the capture render calls',
-});
-const Identified = Schema.Struct({ uuid: Schema.String }).annotate({ description: 'Page item keyed by its uuid' });
-const PageItem = Identified.mapFields(Struct.assign({ parentDocument: Schema.Unknown })).annotate({ description: 'Page item by its uuid and the document holding it, the members every page item class holds' });
-const Bounded = Schema.Struct({ visibleBounds: Rect }).annotate({ description: 'Document or page item by its bounds' });
+const Module = Schema.Struct({ app: Application });
+const Filed = Schema.Struct({ fullName: Schema.Unknown });
+const Document = HostObject({ ...Filed.fields, artboards: Uxp.Collection, layers: Uxp.Collection, pageItems: Uxp.Collection, getPageItemFromUuid: Callable, imageCapture: Callable });
+const Identified = Schema.Struct({ uuid: Schema.String });
+const PageItem = Identified.mapFields(Struct.assign({ parentDocument: Schema.Unknown }));
+const Bounded = Schema.Struct({ visibleBounds: Rect });
 const Artboard = Schema.Struct({ artboardRect: Rect });
-const Globals = Schema.Struct({ UserInteractionLevel: Schema.Struct({ DONTDISPLAYALERTS: Schema.String }), ImageCaptureOptions: Schema.declare((value: unknown): value is new (options: object) => object => Predicate.isFunction(value)) }).annotate({
-    description: 'Enumeration and creatable constructor the Illustrator module sets on globalThis',
-});
+const Globals = Schema.Struct({ UserInteractionLevel: Schema.Struct({ DONTDISPLAYALERTS: Schema.String }), ImageCaptureOptions: Schema.declare((value: unknown): value is new (options: object) => object => Predicate.isFunction(value)) });
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

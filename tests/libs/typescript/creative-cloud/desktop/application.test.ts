@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, describe, it } from '@effect/vitest';
-import { Installation } from '@rasm/applications/installations';
+import { Installation } from '@rasm/applications/contract';
 import { Application, Registry } from '@rasm/creative-cloud-desktop/application';
 import { Effect, FileSystem, Option, Path } from 'effect';
 

@@ -40,14 +40,14 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
         const listed = Option.match(
             Option.map(query, (wanted) => Unmatched.rank(wanted, candidates)),
             {
-                onNone: () => `candidates: ${Unmatched.#listing(candidates, LIMITS.listed)}`,
+                onNone: () => [`candidates: ${Unmatched.#listing(candidates, LIMITS.listed)}`],
                 onSome: Array.match({
-                    onNonEmpty: (ranked) => `nearest: ${Unmatched.#listing(ranked, LIMITS.nearest)}`,
-                    onEmpty: () => (candidates.length > LIMITS.nearest ? `none of ${candidates.length} candidates is near` : `candidates: ${Unmatched.#listing(candidates, LIMITS.nearest)}`),
+                    onNonEmpty: (ranked) => [`nearest: ${Unmatched.#listing(ranked, LIMITS.nearest)}`],
+                    onEmpty: () => (candidates.length > LIMITS.nearest ? [] : [`candidates: ${Unmatched.#listing(candidates, LIMITS.nearest)}`]),
                 }),
             },
         );
-        const message = Array.isReadonlyArrayEmpty(candidates) ? refused : `${refused}, ${listed}`;
+        const message = Array.isReadonlyArrayEmpty(candidates) ? refused : [refused, ...listed].join(', ');
         return Unmatched.make({ subject, query, candidates, message });
     };
     static readonly stated = Schema.Struct(Struct.omit(Unmatched.fields, ['message']))

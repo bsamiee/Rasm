@@ -1,0 +1,38 @@
+{
+    "name": "@rasm/current-process",
+    "version": "0.1.0",
+    "description": "Bundle facts of the running Node program on macOS, its Info.plist identity and executable, its launchd agent's exit time and activated sockets, and its preferences domain as an Effect config provider",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/macos/current-process"
+    },
+    "files": [
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        ".": "./program.ts",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "exports": {
+            ".": "./dist/program.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
+    },
+    "engines": {
+        "node": ">=27"
+    }
+}
