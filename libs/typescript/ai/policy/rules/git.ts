@@ -89,7 +89,6 @@ const git: Table = Record.map<string, ProgramRow, ProgramRow>(
         },
         'git.filter-branch': { program: 'git', path: ['filter-branch'], deny: 'rewrites every commit and drops the history other sessions build on', advice: 'Commit the change forward.' },
         'git.filter-repo': { program: 'git', path: ['filter-repo'], deny: 'rewrites every commit and drops the history other sessions build on', advice: 'Commit the change forward.' },
-        'git.worktree.remove': { program: 'git', path: ['worktree', 'remove'], when: ['-f', '--force'], deny: 'deletes a worktree with its uncommitted edits', advice: 'Commit or move its edits, then run `git worktree remove` without --force.' },
     },
     passHelp,
 );

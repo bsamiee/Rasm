@@ -1,7 +1,7 @@
 import { Action, Decision } from '@rasm/policy/action';
 import type { Policy } from '@rasm/policy/policy';
-import type { EngineInterface, Next, On, ToolCallInput, ToolCallResult, VcsIsolateInput } from 'claude-code';
-import { Array, Cause, Clock, Duration, Effect, Exit, FileSystem, Function, Match, MutableRef, Option, Path, Predicate, Record, Schedule, Schema, SchemaGetter, Struct } from 'effect';
+import type { EngineInterface, Next, On, ToolCallInput, ToolCallResult } from 'claude-code';
+import { Array, Cause, Clock, Duration, Effect, Exit, Function, Match, MutableRef, Option, Path, Predicate, Record, Schedule, Schema, SchemaGetter, Struct } from 'effect';
 import { request, runtime, Session } from '#/platform';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -21,7 +21,6 @@ interface Outage {
 
 const reserve = 500;
 const monitorTimeout = 300_000;
-const vcs = 'inplace';
 const nothingRan = 'The call was refused whole, so none of it ran.';
 const mcpName = /^mcp__(?<server>.+?)__(?<tool>.+)$/su;
 const reserved = ['tool', 'tool_use_id', 'agentId', 'consent', 'requestMeta'] as const;
@@ -141,27 +140,6 @@ function judged($: EngineInterface, health: Health, action: Action, settled: Exi
     });
 }
 
-function isolate($: EngineInterface, e: VcsIsolateInput, next: Next<'vcs.isolate'>, policy: Policy, live: Runtime, health: Health) {
-    const action = Action.cases.Isolate.make({ call: e.name, agent: Option.fromUndefinedOr(e.parentAgentId), from: e.from, worker: Option.fromUndefinedOr(e.agentId), apart: true });
-    return live.runPromise(
-        Effect.flatMap(Effect.exit(Effect.raceFirst(decide(policy, action), deadline(next))), (settled) =>
-            Decision.$match(judged($, health, action, settled), {
-                Deny: ({ reasons }) => Effect.succeed({ deny: reasons.join('\n') }),
-                Rewrite: () =>
-                    Effect.map(
-                        Effect.orElseSucceed(
-                            FileSystem.FileSystem.use((fs) => fs.realPath(e.from)),
-                            () => e.from,
-                        ),
-                        (path) => ({ path, vcs }),
-                    ),
-                Allow: () => request('Engine', 'next', e.name, () => next(e)),
-            }),
-        ),
-        { signal: next.signal },
-    );
-}
-
 function monitor($: EngineInterface, e: ToolCallInput, next: Next<'tool.call'>, command: string, notes: readonly string[]) {
     const { description, timeout } = e;
     const input = { command, description: Predicate.isString(description) ? description : command, timeout_ms: Predicate.isNumber(timeout) ? timeout : monitorTimeout };
@@ -233,11 +211,6 @@ function hooks(on: On, policy: Policy) {
             MutableRef.update(busy, (running) => running && e.agentId !== undefined);
             return next(e);
         }).catch((_, e, next) => next(e));
-    }
-    if (policy.appliesTo('Isolate')) {
-        on('vcs.isolate', ($, e, next) => isolate($, e, next, policy, current($, live), health)).catch((_, e, next) => next(e));
-        on('vcs.status', { vcs }, () => ({ changes: [], unpublished: 0 })).catch(() => ({ changes: [], unpublished: 0 }));
-        on('vcs.release', { vcs }, () => ({ isReleased: true as const })).catch(() => ({ isReleased: true as const }));
     }
     on('tool.call', ($, e, next) =>
         Option.match(

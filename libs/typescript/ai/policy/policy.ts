@@ -60,7 +60,6 @@ class Policy {
             {
                 Shell: (call) => decideShell(call, shell, environment),
                 Task: (task) => Effect.map(decideOther(task), ({ again, ...sum }): Result => ({ ...sum, instead: Option.liftPredicate(Action.cases.Task.make({ ...task, again }), () => Duration.isFinite(again) && Duration.isPositive(again)) })),
-                Isolate: (isolate) => Effect.map(decideOther(isolate), ({ apart, ...sum }): Result => ({ ...sum, instead: Option.liftPredicate(Action.cases.Isolate.make({ ...isolate, apart }), () => apart !== isolate.apart) })),
             },
             (other) => Effect.map(decideOther(other), (sum): Result => ({ ...sum, instead: Option.none() })),
         );

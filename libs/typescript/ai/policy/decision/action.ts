@@ -25,7 +25,6 @@ const Action = Schema.TaggedUnion({
     Fetch: { ...caller, url: Schema.String },
     Mcp: { ...caller, server: Schema.String, tool: Schema.String, input: Schema.Record(Schema.String, Schema.Unknown) },
     Spawn: { ...caller, prompt: Schema.String, model: Schema.Option(Schema.String) },
-    Isolate: { ...caller, from: Schema.String, worker: Schema.Option(Schema.String), apart: Schema.Boolean },
     Task: { ...caller, id: Schema.String, output: Schema.String, resting: Schema.Boolean, again: Schema.Duration },
 });
 const Decision = Data.taggedEnum<Decision>();

@@ -11,7 +11,6 @@ type Table = ConstructorParameters<typeof Policy>[number];
 
 const files = { lines: 'pattern\nPATTERN\nother\n', needle: 'PATTERN\n' };
 const caller = { call: 'call', agent: Option.none<string>() };
-const isolate = { ...caller, _tag: 'Isolate', from: '/repository', apart: true } as const;
 const task = { ...caller, _tag: 'Task', id: 'b1', output: '/tmp/b1.output', again: Duration.infinity } as const;
 const respelled = [
     { name: 'a short flag renamed long inside a cluster keeps the value of the flag beside it', row: { program: 'grep', rename: { '-i': '--ignore-case' } }, asked: 'grep -ie PATTERN lines' },
@@ -52,7 +51,6 @@ const notes: Table = {
 };
 const replaced: Table = { 'git.stash': null, 'git.revert': { program: 'git', path: ['revert'], deny: 'is replaced', advice: 'Read the new row.' } };
 const kinds: Table = {
-    apart: { action: 'Isolate', decide: ({ worker }) => Option.match(worker, { onSome: () => [{ apart: false as const }], onNone: () => [{ deny: 'A second checkout repeats every build.', advice: 'Work in place.' }] }) },
     look: { action: 'Task', decide: ({ resting }) => [{ again: resting ? Duration.minutes(5) : Duration.zero }] },
 };
 
@@ -134,12 +132,9 @@ it.layer(services, { excludeTestServices: true })('policy', (suite) => {
     suite.effect('a row over another kind of act restates it', () =>
         Effect.gen(function* () {
             const policy = new Policy(kinds);
-            const [staying, refused] = [yield* policy.decide({ ...isolate, worker: Option.some('a1') }, environment()), yield* policy.decide({ ...isolate, worker: Option.none() }, environment())];
             const [watched, ended] = [yield* policy.decide({ ...task, resting: true }, environment()), yield* policy.decide({ ...task, resting: false }, environment())];
-            assert.deepStrictEqual(staying, { _tag: 'Rewrite', action: { ...isolate, worker: Option.some('a1'), apart: false }, notes: [], faults: [] });
-            assert.deepStrictEqual(refused, { _tag: 'Deny', reasons: ['A second checkout repeats every build. Work in place.'], notes: [], faults: [] });
             assert.deepStrictEqual(watched, { _tag: 'Rewrite', action: { ...task, resting: true, again: Duration.minutes(5) }, notes: [], faults: [] });
-            assert.deepStrictEqual([ended._tag, policy.appliesTo('Isolate'), policy.appliesTo('Task'), policy.appliesTo('Read')], ['Allow', true, true, false]);
+            assert.deepStrictEqual([ended._tag, policy.appliesTo('Task'), policy.appliesTo('Read')], ['Allow', true, false]);
         }),
     );
 });

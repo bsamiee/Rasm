@@ -1,5 +1,5 @@
 import type { Shell } from '@rasm/shell';
-import { Array, Boolean, Cause, Combiner, Duration, Effect, Equal, type FileSystem, Filter, Match, Option, Ordering, type Path, Predicate, Record, Reducer, Struct } from 'effect';
+import { Array, Cause, Combiner, Duration, Effect, Equal, type FileSystem, Filter, Match, Option, Ordering, type Path, Predicate, Record, Reducer, Struct } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { Action, byRun, type scopes } from '#/decision/action';
 
@@ -33,7 +33,6 @@ interface Ensure {
 type FlagEdit = Ensure | { readonly drop: readonly string[] } | { readonly rename: Readonly<Record<string, string>> };
 interface Stated {
     readonly Shell: Denial | Edit | (Pick<Move, 'run'> & { readonly note: string });
-    readonly Isolate: Denial | { readonly apart: false };
     readonly Task: Pick<typeof Action.cases.Task.Type, 'again'>;
 }
 type Verdict<K extends Kind> = { readonly note: string; readonly once: Note['once'] } | (K extends keyof Stated ? Stated[K] : Denial);
@@ -52,7 +51,7 @@ type ProgramRow = { readonly program: string; readonly aliases?: readonly string
 type ScriptRow = { readonly action: 'Shell'; readonly program?: never } & (Denial | { readonly decide: (script: Script, call: Call) => Verdicts<Verdict<'Shell'>> });
 type ActionRow<K extends NonShell> = { readonly action: K; readonly program?: never } & ((Denial extends Verdict<K> ? Denial : never) | { decide(action: (typeof Action.cases)[K]['Type']): Verdicts<Verdict<K>> });
 type Table = Readonly<Record<string, ProgramRow | ScriptRow | { [K in NonShell]: ActionRow<K> }[NonShell] | null>>;
-interface Tally extends Pick<typeof Action.cases.Task.Type, 'again'>, Pick<typeof Action.cases.Isolate.Type, 'apart'> {
+interface Tally extends Pick<typeof Action.cases.Task.Type, 'again'> {
     readonly reasons: readonly string[];
     readonly notes: readonly Note[];
     readonly faults: readonly string[];
@@ -77,7 +76,6 @@ const tally = Struct.makeReducer<Tally>({
     edits: Array.getReadonlyReducerConcat(),
     move: Reducer.make<Move>((self, that) => Ordering.match(byRun(self.run, that.run), { onLessThan: () => that, onEqual: () => ({ ...self, notes: [...self.notes, ...that.notes] }), onGreaterThan: () => self }), { run: 'foreground', notes: [] }),
     again: Reducer.make(Duration.min, Duration.infinity),
-    apart: Boolean.ReducerAnd,
     drop: Array.getReadonlyReducerConcat(),
     rename: Record.makeReducerUnion(Combiner.last()),
     ensure: Array.getReadonlyReducerConcat(),
