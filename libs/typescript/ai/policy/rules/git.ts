@@ -57,6 +57,9 @@ const git: Table = Record.map<string, ProgramRow, ProgramRow>(
         'git.rm.force': { program: 'git', path: ['rm'], when: ['-f', '--force'], unless: ['--cached', ...dryRunFlags], deny: discardsEdits, advice: 'Delete only files you created, by name, and leave edited files to their sessions.' },
         'git.checkout-index': { program: 'git', path: ['checkout-index'], when: ['-f', '--force', '-a', '--all'], deny: discardsEdits, advice: restoreAdvice },
         'git.update-index': { program: 'git', path: ['update-index'], when: ['--assume-unchanged', '--skip-worktree'], deny: 'hides edits from git status for every session in this checkout', advice: 'Leave the index flags alone.' },
+        'git.worktree.detached': { program: 'git', path: ['worktree', 'add'], when: ['-d', '--detach'], deny: 'creates a worktree no branch holds', advice: 'Name its branch, as a branch takes one worktree that every session, agent, and workflow shares.' },
+        'git.worktree.second': { program: 'git', path: ['worktree', 'add'], when: ['-f', '--force'], deny: 'gives a branch a second worktree', advice: 'Work in the worktree `git worktree list` shows for that branch.' },
+        'git.worktree.remove': { program: 'git', path: ['worktree', 'remove'], when: ['-f', '--force'], deny: 'deletes a worktree with its uncommitted edits', advice: 'Commit or move its edits, then run `git worktree remove` without --force.' },
         'git.branch.delete': {
             program: 'git',
             path: ['branch'],

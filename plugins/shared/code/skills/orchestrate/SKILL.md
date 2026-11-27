@@ -76,11 +76,11 @@ Conductors read each part's diff whole against every row once it reports, before
 ## [05]-[BUILD]
 
 Builds run once every part of a round passes the verdict:
-1. Build in the tree, or in a detached worktree at the last commit holding the parts' files when another session holds uncommitted edits
-2. Fix each diagnostic at its cause in the main tree, copy the fix across, and rebuild until warnings and errors are zero
+1. Build in the tree
+2. Fix each diagnostic at its cause and rebuild until warnings and errors are zero
 3. Run the suites the parts touched, a test leaving a process, window, or file behind fails the build
 4. Run each part's live step and compare its result with the screen or the host's own state
-5. Commit the parts' files by path, leave other sessions' edits uncommitted, and remove the worktree
+5. Commit the parts' files by path and leave other sessions' edits uncommitted
 
 Compiler crashes and checker refusals the build found enter the brief as failing forms with their search pattern before the next round.
 
