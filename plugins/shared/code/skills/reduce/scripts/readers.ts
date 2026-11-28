@@ -220,14 +220,16 @@ const rust = Effect.fnUntraced(function* ({ root, file, declarations }: Target) 
     const blobs = yield* spawned(root, ['git', 'hash-object', '--stdin-paths'], { input: listed });
     const folder = join(root, '.cache', 'rust-analyzer', 'lsif');
     const dump = join(folder, `${hash('sha256', `${version}${blobs}`)}.lsif`);
+    const partial = `${dump}.${process.pid}.partial`;
     const written = Effect.gen(function* () {
-        yield* fs.remove(folder, { recursive: true, force: true });
         yield* fs.makeDirectory(folder, { recursive: true });
         const handle = yield* ChildProcess.make('rust-analyzer', ['lsif', root, '--exclude-vendored-libraries'], { cwd: root });
-        const [, stderr, code] = yield* Effect.all([handle.stdout.pipe(Stream.run(fs.sink(`${dump}.partial`))), handle.stderr.pipe(Stream.decodeText, Stream.mkString), handle.exitCode], { concurrency: 'unbounded' });
+        const [, stderr, code] = yield* Effect.all([handle.stdout.pipe(Stream.run(fs.sink(partial))), handle.stderr.pipe(Stream.decodeText, Stream.mkString), handle.exitCode], { concurrency: 'unbounded' });
         yield* Effect.when(ReadersError.of({ _tag: 'Refused' }, `rust-analyzer lsif exited ${code}: ${stderr.trim().split('\n').at(-1) ?? ''}`)(), Effect.succeed(code !== 0));
-        yield* fs.rename(`${dump}.partial`, dump);
-    }).pipe(Effect.scoped);
+        yield* fs.rename(partial, dump);
+        const stale = (yield* fs.readDirectory(folder)).filter((name) => name.endsWith('.lsif') && join(folder, name) !== dump);
+        yield* Effect.forEach(stale, (name) => fs.remove(join(folder, name), { force: true }), { discard: true });
+    }).pipe(Effect.ensuring(fs.remove(partial, { force: true }).pipe(Effect.ignore)), Effect.scoped);
     yield* Effect.when(
         written,
         Effect.map(fs.exists(dump), (held) => !held),
