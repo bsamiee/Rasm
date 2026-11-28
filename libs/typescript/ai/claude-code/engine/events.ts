@@ -45,19 +45,18 @@ type Onward<N extends StreamingEventName> = ((input: Frozen<Args<N>>) => Channel
 type Hook<N extends EventName, R, F> = (e: Frozen<Args<N>>, next: Proceed<N>) => Effect.Effect<EventResult<N>, F, R>;
 type StreamHook<N extends StreamingEventName, R, F> = (e: Frozen<Args<N>>, next: Onward<N>) => Channel.Channel<Chunk<N>, F, EventResult<N>, unknown, unknown, unknown, R>;
 type Hooks<R, F> = { readonly [N in Hosted]?: Hook<N, R, F> } & { readonly 'turn.step'?: StreamHook<'turn.step', R, F> };
-type AgentSpec = Parameters<EngineInterface['agent']['register']>[0];
-interface Tool<R, F> {
-    readonly spec: Omit<ToolSpec, 'name'>;
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+interface Tool<R, F> extends Omit<ToolSpec, 'name'> {
     readonly run: (e: Frozen<Args<'tool.run'>>, next: Proceed<'tool.run'>) => Effect.Effect<ToolCallResult, F | Schema.SchemaError | PlatformError.PlatformError, R>;
 }
-interface Agent extends Omit<AgentSpec, 'name'> {
+interface Agent extends Omit<Parameters<EngineInterface['agent']['register']>[0], 'name'> {
     readonly isOffered: boolean;
 }
 interface Command<R, F> extends Omit<CommandSpec, 'name'> {
     readonly run: (e: Frozen<Args<'command.run'>>, next: Proceed<'command.run'>) => Effect.Effect<CommandRunResult, F | PlatformError.PlatformError, R>;
 }
-
-// --- [MODELS] --------------------------------------------------------------------------
 
 const Tool = <S extends Schema.Decoder<unknown>, R, F>(
     input: S,
@@ -65,7 +64,7 @@ const Tool = <S extends Schema.Decoder<unknown>, R, F>(
 ): Tool<R | S['DecodingServices'], F> => {
     const { schema, definitions } = Schema.toJsonSchemaDocument(input);
     const decode = Schema.decodeUnknownEffect(input);
-    return { spec: { ...spec, inputSchema: Record.isEmptyRecord(definitions) ? schema : { ...schema, $defs: definitions } }, run: (e, next) => Effect.flatMap(decode(e), (decoded) => run(decoded, e, next)) };
+    return { ...spec, inputSchema: Record.isEmptyRecord(definitions) ? schema : { ...schema, $defs: definitions }, run: (e, next) => Effect.flatMap(decode(e), (decoded) => run(decoded, e, next)) };
 };
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -77,24 +76,23 @@ class Plugin extends Context.Service<
         readonly tools: Record.ReadonlyRecord<string, string>;
         readonly agents: Record.ReadonlyRecord<string, string>;
         readonly commands: Record.ReadonlyRecord<string, string>;
-        readonly blocked: Ref.Ref<HashSet.HashSet<string>>;
+        readonly blocked: Ref.Ref<HashSet.HashSet<readonly [string | undefined, string]>>;
     }
 >()('@rasm/claude-code/engine/events/Plugin') {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const carry = <G extends object>(run: G, next: Pick<Next, Picked>) => Object.defineProperty(Object.assign(run, { budget: next.budget, signal: next.signal, origin: next.origin }), 'budget', { get: () => next.budget });
 const dispatch = <N extends EventName, R, F>(tables: readonly { readonly [K in N]?: Hook<K, R, F> }[], e: Frozen<Args<N>>, next: ((input: Frozen<Args<N>>) => Promise<EventResult<N>>) & Pick<Next<N>, Picked | 'event'>): Effect.Effect<EventResult<N>, PlatformError.PlatformError, R> =>
     Effect.flatMap(Effect.context<R>(), (context) => {
-        const carried = { budget: next.budget, signal: next.signal, origin: next.origin };
-        const beneath: Proceed<N> = Object.assign((input: Frozen<Args<N>>) => call(next.event, 'next', () => next(input)), carried);
         const lower = (failure: F | PlatformError.PlatformError) => (PlatformError.isPlatformError(failure) ? failure : PlatformError.systemError({ _tag: 'Unknown', module: 'hook', method: next.event, description: Formatter.format(failure), cause: failure }));
         const proceed = tables.reduceRight<Proceed<N>>(
             (onward, table) =>
                 Option.match(Option.fromUndefinedOr(table[next.event]), {
                     onNone: () => onward,
-                    onSome: (hook) => Object.assign((input: Frozen<Args<N>>) => hook(input, onward).pipe(Effect.provideContext(context), Effect.mapError(lower)), carried),
+                    onSome: (hook) => carry((input: Frozen<Args<N>>) => hook(input, onward).pipe(Effect.provideContext(context), Effect.mapError(lower)), next),
                 }),
-            beneath,
+            carry((input: Frozen<Args<N>>) => call(next.event, 'next', () => next(input)), next),
         );
         return proceed(e);
     });
@@ -104,16 +102,16 @@ const runHook = <A, E, R, X>(runtime: ManagedRuntime.ManagedRuntime<R, X>, effec
         throw error;
     });
 const reply = (e: Frozen<TurnStepInput>, { answer, toolUses }: Pick<TurnStepResult, 'answer' | 'toolUses'>) => {
-    const first = answer === '' ? 0 : 1;
+    const text = answer === '' ? [] : [{ kind: 'text', index: 0, text: answer } as const];
     const stopReason = Array.isReadonlyArrayNonEmpty(toolUses) ? 'tool_use' : 'end_turn';
     return Channel.fromIterable<Chunk<'turn.step'>, TurnStepResult>({
         *[Symbol.iterator]() {
-            yield* answer === '' ? [] : [{ kind: 'text', index: 0, text: answer } as const];
+            yield* text;
             yield* toolUses.flatMap(
                 ({ name, input }, at) =>
                     [
-                        { kind: 'tool', index: first + at, id: `toolu_${SecureRandom.uuidV4Unsafe().replaceAll('-', '')}`, name },
-                        { kind: 'input', index: first + at, json: JSON.stringify(input) },
+                        { kind: 'tool', index: text.length + at, id: `toolu_${SecureRandom.uuidV7Unsafe().replaceAll('-', '')}`, name },
+                        { kind: 'input', index: text.length + at, json: JSON.stringify(input) },
                     ] as const,
             );
             yield { kind: 'stop', stopReason, usage: null } as const;
@@ -137,13 +135,8 @@ const blockOnce =
             ? next(e)
             : Effect.gen(function* () {
                   const [result, { blocked }] = yield* Effect.all([hook(e, next), Plugin]);
-                  const fresh = yield* Option.match(
-                      Option.map(Option.fromUndefinedOr(result.block), (block) => `${e.agent_id ?? 'main'}\n${block}`),
-                      {
-                          onNone: () => Effect.succeed(true),
-                          onSome: (key) => Ref.modify(blocked, (held) => [!HashSet.has(held, key), HashSet.add(held, key)] as const),
-                      },
-                  );
+                  const { block } = result;
+                  const fresh = block === undefined || (yield* Ref.modify(blocked, (held) => [!HashSet.has(held, [e.agent_id, block]), HashSet.add(held, [e.agent_id, block])] as const));
                   return fresh ? result : yield* next(e);
               });
 const route = <R, F>(tools: Record.ReadonlyRecord<string, Tool<R, F>>, agents: Record.ReadonlyRecord<string, Agent>, commands: Record.ReadonlyRecord<string, Command<R, F>>) => ({
@@ -186,11 +179,8 @@ const registerAll = <A>(event: 'tool.register' | 'agent.register' | 'command.reg
         ),
         Record.fromEntries,
     );
-
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-function stream<N extends StreamingEventName, R, E, F>(e: Frozen<Args<N>>, next: ((input: Frozen<Args<N>>) => HookStream<Chunk<N>, EventResult<N>>) & Pick<StreamNext<N>, Picked | 'event'>, hook: StreamHook<N, R, F>, runtime: ManagedRuntime.ManagedRuntime<R, E>): AsyncGenerator<Chunk<N>, EventResult<N>> {
-    const onward: Onward<N> = Object.assign((input: Frozen<Args<N>>) => Channel.fromAsyncIterable(next(input), (cause) => new Cause.UnknownError(cause, `${next.event} next failed`)), { budget: next.budget, signal: next.signal, origin: next.origin });
+const stream = <N extends StreamingEventName, R, E, F>(e: Frozen<Args<N>>, next: ((input: Frozen<Args<N>>) => HookStream<Chunk<N>, EventResult<N>>) & Pick<StreamNext<N>, Picked | 'event'>, hook: StreamHook<N, R, F>, runtime: ManagedRuntime.ManagedRuntime<R, E>): AsyncGenerator<Chunk<N>, EventResult<N>> => {
+    const onward: Onward<N> = carry((input: Frozen<Args<N>>) => Channel.fromAsyncIterable(next(input), (cause) => new Cause.UnknownError(cause, `${next.event} next failed`)), next);
     const scope = Scope.makeUnsafe();
     const close = Scope.close(scope, Exit.void);
     const pulled = Channel.mapError(hook(e, onward), (error) => new Cause.UnknownError(error, `${next.event} hook failed`));
@@ -210,17 +200,19 @@ function stream<N extends StreamingEventName, R, E, F>(e: Frozen<Args<N>>, next:
         [Symbol.asyncDispose]: () => runtime.runPromise(close),
     };
     return generator;
-}
+};
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 function plugin<R, F>($: EngineInterface, tools: Record.ReadonlyRecord<string, Tool<R, F>>, agents: Record.ReadonlyRecord<string, Agent>, commands: Record.ReadonlyRecord<string, Command<R, F>>) {
     return Layer.effect(
         Plugin,
         Effect.all({
             name: Effect.sync(() => $.plugin.name),
-            tools: registerAll('tool.register', tools, (name, { spec }) => $.tool.register({ ...spec, name }).then(({ tool }) => tool)),
+            tools: registerAll('tool.register', tools, (name, { run: _run, ...spec }) => $.tool.register({ ...spec, name }).then(({ tool }) => tool)),
             agents: registerAll('agent.register', agents, (name, { isOffered: _isOffered, ...spec }) => $.agent.register({ ...spec, name }).then(({ agent }) => agent)),
             commands: registerAll('command.register', commands, (name, { run: _run, ...spec }) => $.command.register({ ...spec, name }).then(({ command }) => command)),
-            blocked: Ref.make(HashSet.empty<string>()),
+            blocked: Ref.make(HashSet.empty<readonly [string | undefined, string]>()),
         }),
     );
 }
