@@ -30,7 +30,7 @@ Host work (Blender, Rhino, Adobe applications) is briefed by application name al
 
 ## [02]-[RUN]
 
-Every `codex` command runs through `mcp__delegate__run`, loaded once with `ToolSearch` `select:mcp__delegate__run`. The tool answers at once with the runner agent's id, the run goes on as a background agent of the calling loop, and its report arrives as that agent's notice:
+Every `codex` command runs through `mcp__delegate__run`, loaded once with `ToolSearch` `select:mcp__delegate__run`:
 
 ```json
 {
@@ -40,10 +40,7 @@ Every `codex` command runs through `mcp__delegate__run`, loaded once with `ToolS
 }
 ```
 
-- Command: one simple command, redirects and `$(...)` inside words included, with no pipeline, list, `&`, or leading assignment
 - Limit: `codex exec` has no time limit of its own, so `limit` ends a hung run, reported `ended at limit`
-- Quiet: a run whose `codex` process uses no CPU and writes none of its own files for 20 minutes ends, reported `ended quiet`
-- Stop: `TaskStop` with the runner's id ends the run and its `codex` process, and the person stops it from the agent list
 - Options: every option precedes `review` and `resume`, and a resumed run inherits none
 - Input: piped stdin joins the prompt as a `<stdin>` block, `</dev/null` keeps it empty
 - Folder: `--cd <dir>` sets the working root, `--skip-git-repo-check` allows one outside a repository
@@ -77,7 +74,7 @@ Rules a review enforces sit under `## Code Review Rules` in the `AGENTS.md` near
 
 ## [04]-[RESULT]
 
-Reports open `run: codex exec, exit <code>, <time>`, or `ended at limit`, `ended quiet`, or `stopped` in place of the exit, then name the model, each file the run wrote with its size, and the last stderr line of a failed run.
+Reports and the files they name decide a run's result:
 
 - Good results have exit `0` and an `-o` file of some size, findings included, and `turn.failed` in the events marks a failed turn
 - Stderr holds connection errors of MCP servers whose application is closed, the `-o` file alone is the verdict

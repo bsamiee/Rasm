@@ -30,7 +30,7 @@ Build and Grind take parallel work and problems this session stalled on. Quick q
 
 ## [02]-[RUN]
 
-Every `agy` command runs through `mcp__delegate__run`, loaded once with `ToolSearch` `select:mcp__delegate__run`. The tool answers at once with the runner agent's id, the run goes on as a background agent of the calling loop, and its report arrives as that agent's notice:
+Every `agy` command runs through `mcp__delegate__run`, loaded once with `ToolSearch` `select:mcp__delegate__run`:
 
 ```json
 {
@@ -40,10 +40,7 @@ Every `agy` command runs through `mcp__delegate__run`, loaded once with `ToolSea
 }
 ```
 
-- Command: one simple command, redirects and `$(...)` inside words included, with no pipeline, list, `&`, or leading assignment
 - Limit: the run ends at `limit`, so it sits above `--print-timeout`, which lets `agy` answer first
-- Quiet: a run whose `agy` process uses no CPU and writes none of its own files for 20 minutes ends, as healthy ones write every few seconds
-- Stop: `TaskStop` with the runner's id ends the run and its `agy` process, and the person stops it from the agent list
 - Folder: run from the folder holding the files, `--add-dir <dir>` adds another with read and write access
 - Skills: runs inside this checkout load its skills, a body past 24,000 bytes is cut, so a build brief names its coding skill file to read
 - Slash: `-p` reads a prompt opening with `/` as a slash command, so a brief opening with a path needs `--disable-slash-commands`
@@ -84,7 +81,7 @@ Slash commands opening a `-p` prompt start a turn without `--disable-slash-comma
 
 ## [04]-[RESULT]
 
-Reports open `run: agy, exit <code>, <time>`, or `ended at limit`, `ended quiet`, or `stopped` in place of the exit, then name the model, each file the run wrote with its size, and a JSON file's top-level fields: scalars as written, long strings and arrays by length.
+Reports and the files they name decide a run's result, and `agy` exits with these codes:
 
 | [INDEX] | [EXIT] | [MEANS]                                                                            |
 | :-----: | :----- | :--------------------------------------------------------------------------------- |

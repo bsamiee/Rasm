@@ -46,7 +46,7 @@ Report what is wrong in those files: behavior that is wrong today, behavior a na
 Change no file and start no agents. Put every listed file you did not read whole in `unread`, and observations that are not findings in `notes`.
 ```
 
-Each share runs through `mcp__delegate__run`, loaded once with `ToolSearch` `select:mcp__delegate__run`, Neon first and Sol or Astra second. Each call answers at once with its runner agent's id, and the run's report arrives as that agent's notice with the answer file's size and its `findings` and `unread` counts:
+Each share runs through `mcp__delegate__run`, loaded once with `ToolSearch` `select:mcp__delegate__run`, Neon first and Sol or Astra second. Each run's report names the answer file's size and its `findings` and `unread` counts:
 
 ```json
 { "command": "agy -p \"$(cat <brief>)\" --disable-slash-commands --model gemini-4-neon --effort xhigh --output-format json --print-timeout 60m --json-schema <schema> --settings '{\"permissions\":{\"deny\":[\"write_file(*)\"]}}' > .artifacts/audit/<run>/answer-<n>-neon.json", "description": "audit <run> share <n> neon", "limit": "70 minutes" }
