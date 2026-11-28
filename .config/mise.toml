@@ -202,6 +202,7 @@ yq                        = "latest"
 "aqua:owenlamont/ryl"          = "latest"
 editorconfig-checker           = "latest"
 "github:BlankSpruce/gersemi"   = "latest"
+"github:Boshen/cargo-shear"    = "latest"
 "github:fonttools/fontspector" = { version = "latest", version_prefix = "fontspector-v" }
 "github:pmd/pmd"               = { version = "latest", version_prefix = "pmd_releases/", version_regex = '^pmd_releases/\d+\.\d+\.\d+(-rc\d+)?$' }
 "github:trailofbits/dylint"    = { matching = "cargo-dylint-", os = ["unix"], version = "latest" }

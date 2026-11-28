@@ -556,6 +556,29 @@ checksum_source = "mise-versions"
 url = "https://github.com/BlankSpruce/gersemi/releases/download/0.29.2/gersemi-windows.exe"
 url_api = "https://api.github.com/repos/BlankSpruce/gersemi/releases/assets/603554690"
 
+[[tools."github:Boshen/cargo-shear"]]
+version = "1.14.1"
+backend = "github:Boshen/cargo-shear"
+specifiers = ["latest"]
+
+[tools."github:Boshen/cargo-shear"."platforms.linux-x64"]
+checksum = "sha256:282df08ba38e7fb2156d4e40bfd70bb9269c9c0563431d7865594ffcd422bb91"
+checksum_source = "mise-versions"
+url = "https://github.com/Boshen/cargo-shear/releases/download/v1.14.1/cargo-shear-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/Boshen/cargo-shear/releases/assets/742156885"
+
+[tools."github:Boshen/cargo-shear"."platforms.macos-arm64"]
+checksum = "sha256:925a8e005a4966ce1e3f63d70743dbc68dd16e3369eea9aa91cfcb3ba61727cf"
+checksum_source = "mise-versions"
+url = "https://github.com/Boshen/cargo-shear/releases/download/v1.14.1/cargo-shear-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/Boshen/cargo-shear/releases/assets/742156822"
+
+[tools."github:Boshen/cargo-shear"."platforms.windows-x64"]
+checksum = "sha256:439a3c203c177b06c538e13cfb7260972738b9e9e8dc6433d4ace416cf40eb36"
+checksum_source = "mise-versions"
+url = "https://github.com/Boshen/cargo-shear/releases/download/v1.14.1/cargo-shear-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/Boshen/cargo-shear/releases/assets/742156865"
+
 [[tools."github:Link-/gh-token"]]
 version = "2.0.10"
 backend = "github:Link-/gh-token"
