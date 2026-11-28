@@ -35,6 +35,7 @@
         "access": "public"
     },
     "dependencies": {
+        "@rasm/report": "workspace:*",
         "@rasm/shell": "workspace:*"
     },
     "devDependencies": {

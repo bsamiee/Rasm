@@ -1,17 +1,18 @@
-import { type Array, Data, Number, Order, Schema } from 'effect';
+import type { Call } from '@rasm/report';
+import { type Array, Data, Number, Option, Order, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Action = typeof Action.Type;
 type Scope = Data.TaggedEnum<{ Session: object; Agent: Pick<Action, 'agent'>; Call: object }>;
 interface Told {
-    readonly notes: readonly string[];
+    readonly notes: readonly Outcome[];
     readonly faults: readonly string[];
 }
 type Decision = Data.TaggedEnum<{
     Allow: Told;
-    Deny: Told & { readonly reasons: Array.NonEmptyReadonlyArray<string> };
-    Rewrite: Told & { readonly action: Action };
+    Deny: Told & { readonly reasons: Array.NonEmptyReadonlyArray<Outcome> };
+    Rewrite: Told & { readonly action: Action; readonly rules: readonly string[] };
 }>;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -27,6 +28,15 @@ const Action = Schema.TaggedUnion({
     Spawn: { ...caller, prompt: Schema.String, model: Schema.Option(Schema.String) },
     Task: { ...caller, id: Schema.String, output: Schema.String, resting: Schema.Boolean, again: Schema.Duration },
 });
+class Outcome extends Data.Class<{
+    readonly rules: Array.NonEmptyReadonlyArray<string>;
+    readonly subject: string;
+    readonly reason: string;
+    readonly values: Readonly<Record<string, string>>;
+    readonly next: Option.Option<Call>;
+}> {
+    static readonly of = (rules: Array.NonEmptyReadonlyArray<string>, { subject, reason, values = {}, next }: Pick<Outcome, 'subject' | 'reason'> & { readonly values?: Outcome['values']; readonly next?: Call }) => new Outcome({ rules, subject, reason, values, next: Option.fromUndefinedOr(next) });
+}
 const Decision = Data.taggedEnum<Decision>();
 const Scope = Data.taggedEnum<Scope>();
 const byRun = Order.mapInput(Number.Order, (run: (typeof Action.cases.Shell.Type)['run']) => Action.cases.Shell.fields.run.literals.indexOf(run));
@@ -38,4 +48,4 @@ const scopes = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Action, byRun, Decision, Scope, scopes };
+export { Action, byRun, Decision, Outcome, Scope, scopes };

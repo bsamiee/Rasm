@@ -827,6 +827,9 @@ importers:
 
   libs/typescript/ai/policy:
     dependencies:
+      '@rasm/report':
+        specifier: workspace:*
+        version: link:../report
       '@rasm/shell':
         specifier: workspace:*
         version: link:../../system/shell

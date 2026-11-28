@@ -1,6 +1,6 @@
 import { Shell } from '@rasm/shell';
 import { Array, Combiner, ConfigProvider, Duration, Effect, Equal, Exit, HashSet, Match, Number, Option, Predicate, Record, Ref, Stream } from 'effect';
-import { Action, byRun, Decision, Scope, scopes } from '#/decision/action';
+import { Action, byRun, Decision, Outcome, Scope, scopes } from '#/decision/action';
 import { type Call, compile, type Compiled, compiled, message, type Requirements, type Table, type Tally, tally } from '#/decision/rule';
 import { git } from '#/rules/git';
 
@@ -8,7 +8,7 @@ import { git } from '#/rules/git';
 
 type Script = Call['script'];
 type Environment = Required<Pick<Parameters<Shell['Service']['read']>[1], 'cwd' | 'dialect'>>;
-type Outcome = Pick<Tally, 'faults' | 'move' | 'notes' | 'reasons'> & { readonly script: Script };
+type Settled = Pick<Tally, 'faults' | 'move' | 'notes' | 'reasons'> & { readonly script: Script; readonly rules: readonly string[] };
 interface Progress extends Pick<Tally, 'faults' | 'move' | 'notes'> {
     readonly trail: Array.NonEmptyReadonlyArray<{ readonly script: Script; readonly by: readonly string[] }>;
     readonly written: Option.Option<Pick<Tally, 'move' | 'notes'>>;
@@ -20,13 +20,14 @@ interface Edits extends Pick<Tally, 'faults'> {
 }
 interface Result extends Pick<Tally, 'faults' | 'notes' | 'reasons'> {
     readonly instead: Option.Option<Action>;
+    readonly rules: readonly string[];
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Policy {
     readonly #compiled: Compiled;
-    readonly #told = Ref.makeUnsafe(HashSet.empty<{ readonly text: string; readonly scope: Scope }>());
+    readonly #told = Ref.makeUnsafe(HashSet.empty<{ readonly outcome: Outcome; readonly scope: Scope }>());
 
     constructor(...tables: Table[]) {
         const rules = Record.filter(Record.makeReducerUnion<string, Table[string]>(Combiner.last()).combineAll([git, ...tables]), Predicate.isNotNull);
@@ -59,25 +60,25 @@ class Policy {
             action,
             {
                 Shell: (call) => decideShell(call, shell, environment),
-                Task: (task) => Effect.map(decideOther(task), ({ again, ...sum }): Result => ({ ...sum, instead: Option.liftPredicate(Action.cases.Task.make({ ...task, again }), () => Duration.isFinite(again) && Duration.isPositive(again)) })),
+                Task: (task) => Effect.map(decideOther(task), ({ watch: { again, rules }, ...sum }): Result => ({ ...sum, rules, instead: Option.liftPredicate(Action.cases.Task.make({ ...task, again }), () => Duration.isFinite(again) && Duration.isPositive(again)) })),
             },
-            (other) => Effect.map(decideOther(other), (sum): Result => ({ ...sum, instead: Option.none() })),
+            (other) => Effect.map(decideOther(other), (sum): Result => ({ ...sum, rules: [], instead: Option.none() })),
         );
-        return Effect.flatMap(decided, ({ reasons, notes, faults, instead }) =>
+        return Effect.flatMap(decided, ({ reasons, notes, faults, instead, rules }) =>
             Effect.map(this.#fresh(action.agent, notes), (fresh) => {
                 const told = { notes: fresh, faults: Array.dedupe(faults) };
                 return Array.match(Array.dedupe(reasons), {
                     onNonEmpty: (given) => Decision.Deny({ ...told, reasons: given }),
-                    onEmpty: () => Option.match(instead, { onNone: () => Decision.Allow(told), onSome: (restated) => Decision.Rewrite({ ...told, action: restated }) }),
+                    onEmpty: () => Option.match(instead, { onNone: () => Decision.Allow(told), onSome: (restated) => Decision.Rewrite({ ...told, action: restated, rules }) }),
                 });
             }),
         );
     }
 
-    #fresh(agent: Action['agent'], notes: Tally['notes']): Effect.Effect<readonly string[]> {
+    #fresh(agent: Action['agent'], notes: Tally['notes']): Effect.Effect<readonly Outcome[]> {
         return Ref.modify(this.#told, (heard) => {
-            const fresh = notes.map(({ text, once }) => ({ text, scope: scopes[once]({ agent }) })).filter((note) => !HashSet.has(heard, note));
-            return [Array.dedupe(fresh.map(({ text }) => text)), HashSet.union(heard, HashSet.fromIterable(fresh.filter(({ scope }) => !Scope.$is('Call')(scope))))] as const;
+            const fresh = notes.map(({ outcome, once }) => ({ outcome, scope: scopes[once]({ agent }) })).filter((note) => !HashSet.has(heard, note));
+            return [Array.dedupe(fresh.map(({ outcome }) => outcome)), HashSet.union(heard, HashSet.fromIterable(fresh.filter(({ scope }) => !Scope.$is('Call')(scope))))] as const;
         });
     }
 }
@@ -100,7 +101,7 @@ const decideShell = Effect.fnUntraced(function* <E, R>(action: Call['action'], r
                 Match.orElse(() => held),
             );
         });
-    const round = Effect.fnUntraced(function* ({ trail, move: reached, notes: told, faults: failed, written: first }: Progress): Effect.fn.Return<readonly [readonly Outcome[], Option.Option<Progress>], Effect.Error<Script['invocations']>, Requirements> {
+    const round = Effect.fnUntraced(function* ({ trail, move: reached, notes: told, faults: failed, written: first }: Progress): Effect.fn.Return<readonly [readonly Settled[], Option.Option<Progress>], Effect.Error<Script['invocations']>, Requirements> {
         const { script } = Array.lastNonEmpty(trail);
         const invocations = (yield* script.invocations).flatMap(({ leaves }) => leaves);
         const sum = tally.combineAll(yield* Effect.forEach(rounds, (decide) => decide({ action, script, invocations, cwd, shell, run: reached.run })));
@@ -111,25 +112,32 @@ const decideShell = Effect.fnUntraced(function* <E, R>(action: Call['action'], r
         const kept = Option.getOrElse(first, () => ({ move: held.move, notes: held.notes }));
         const rewritten = Option.filter(edited.script, ({ source }) => source !== script.source);
         const sources = [...trail.map((seen) => seen.script.source), ...Option.toArray(rewritten).map(({ source }) => source)];
-        const revert = (how: string) => [[{ ...kept, script: Array.headNonEmpty(trail).script, reasons: [], faults: [...held.faults, `${editors.join(', ')}: rewrites ${how}, so the call ran as written.`] }], Option.none()] as const;
+        const revert = (how: string) => [[{ ...kept, script: Array.headNonEmpty(trail).script, reasons: [], rules: [], faults: [...held.faults, `${editors.join(', ')}: rewrites ${how}, so the call ran as written.`] }], Option.none()] as const;
         return Match.value({ denied: Array.isReadonlyArrayNonEmpty(sum.reasons), rewritten: Option.getOrUndefined(rewritten), cycled: new Set(sources).size < sources.length, endless: trail.length >= editors.length * Math.max(1, words) + 2, moved: held.move.run !== reached.run }).pipe(
-            Match.when({ denied: true }, () => [[{ ...held, notes: sum.notes, script, reasons: Array.isReadonlyArrayNonEmpty(before) ? [`${before.join(', ')} rewrote the call to ${script.source}, which is refused:`, ...sum.reasons] : sum.reasons }], Option.none()] as const),
+            Match.when(
+                { denied: true },
+                () => [[{ ...held, notes: sum.notes, script, rules: [], reasons: Array.match(before, { onEmpty: () => sum.reasons, onNonEmpty: (rules) => [Outcome.of(rules, { subject: 'call', reason: 'refused after rewrite', values: { rewrite: script.source } }), ...sum.reasons] }) }], Option.none()] as const,
+            ),
             Match.when({ rewritten: Match.defined, cycled: true }, () => revert(`undo each other (${sources.join(' then ')})`)),
             Match.when({ rewritten: Match.defined, endless: true }, () => revert(`never settle (${trail.length} rounds, the last ${sources.at(-1)})`)),
             Match.when({ rewritten: Match.defined }, ({ rewritten: next }) => [[], Option.some({ ...held, written: Option.some(kept), trail: Array.append(trail, { script: next, by: edited.rules }) })] as const),
             Match.when({ moved: true }, () => [[], Option.some({ ...held, written: Option.some(kept), trail })] as const),
-            Match.orElse(() => [[{ ...held, script, reasons: [] }], Option.none()] as const),
+            Match.orElse(() => [[{ ...held, script, rules: before, reasons: [] }], Option.none()] as const),
         );
     });
-    const { script, move, notes, faults, reasons } = yield* Stream.paginate({ trail: [{ script: written, by: [] }], move: asked, notes: [], faults: [], written: Option.none() }, round).pipe(
-        Stream.runFold(
-            (): Outcome => ({ script: written, move: asked, notes: [], faults: [], reasons: [] }),
-            (_, outcome) => outcome,
-        ),
+    const { script, move, notes, faults, reasons, rules } = yield* Stream.paginate({ trail: [{ script: written, by: [] }], move: asked, notes: [], faults: [], written: Option.none() }, round).pipe(
+        Stream.runLast,
+        Effect.map(Option.getOrElse((): Settled => ({ script: written, move: asked, notes: [], faults: [], reasons: [], rules: [] }))),
         Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnvRecord({ ...dialect.environment })),
     );
     const restated = Action.cases.Shell.make({ ...action, command: script.source, run: move.run });
-    return { reasons, faults, notes: [...notes, ...(Array.isReadonlyArrayNonEmpty(reasons) ? [] : move.notes)], instead: Option.liftPredicate(restated, () => restated.command !== action.command || restated.run !== action.run) } satisfies Result;
+    return {
+        reasons,
+        faults,
+        rules: Array.dedupe([...rules, ...move.notes.flatMap(({ outcome }) => outcome.rules)]),
+        notes: [...notes, ...(Array.isReadonlyArrayNonEmpty(reasons) ? [] : move.notes)],
+        instead: Option.liftPredicate(restated, () => restated.command !== action.command || restated.run !== action.run),
+    } satisfies Result;
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

@@ -1,7 +1,8 @@
+import type { Call as Next } from '@rasm/report';
 import type { Shell } from '@rasm/shell';
 import { Array, Cause, Combiner, Duration, Effect, Equal, type FileSystem, Filter, Match, Option, Ordering, type Path, Predicate, Record, Reducer, Struct } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
-import { Action, byRun, type scopes } from '#/decision/action';
+import { Action, byRun, Outcome, type scopes } from '#/decision/action';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -12,19 +13,30 @@ type Kind = Action['_tag'];
 type NonShell = Exclude<Kind, 'Shell'>;
 type Requirements = Shell | FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner;
 type Verdicts<V> = readonly V[] | Effect.Effect<readonly V[], Cause.YieldableError, Requirements>;
-interface Denial {
+interface Said {
+    readonly subject: string;
+    readonly values?: Outcome['values'];
+    readonly next?: Next;
+}
+interface Denial extends Said {
     readonly deny: string;
-    readonly advice: string;
 }
 interface Edit {
     readonly edit: (editor: Editor, within: (nested: Script) => Editor) => readonly ReturnType<Editor['replace']>[];
 }
-interface Note {
-    readonly text: string;
+interface Note extends Said {
+    readonly note: string;
     readonly once: keyof typeof scopes;
 }
+interface Heard {
+    readonly outcome: Outcome;
+    readonly once: Note['once'];
+}
 interface Move extends Pick<typeof Action.cases.Shell.Type, 'run'> {
-    readonly notes: readonly Note[];
+    readonly notes: readonly Heard[];
+}
+interface Watch extends Pick<typeof Action.cases.Task.Type, 'again'> {
+    readonly rules: readonly string[];
 }
 interface Ensure {
     readonly ensure: Array.NonEmptyReadonlyArray<string>;
@@ -32,10 +44,10 @@ interface Ensure {
 }
 type FlagEdit = Ensure | { readonly drop: readonly string[] } | { readonly rename: Readonly<Record<string, string>> };
 interface Stated {
-    readonly Shell: Denial | Edit | (Pick<Move, 'run'> & { readonly note: string });
+    readonly Shell: Denial | Edit | (Pick<Move, 'run'> & Omit<Note, 'once'>);
     readonly Task: Pick<typeof Action.cases.Task.Type, 'again'>;
 }
-type Verdict<K extends Kind> = { readonly note: string; readonly once: Note['once'] } | (K extends keyof Stated ? Stated[K] : Denial);
+type Verdict<K extends Kind> = Note | (K extends keyof Stated ? Stated[K] : Denial);
 interface Call extends Pick<Move, 'run'> {
     readonly action: typeof Action.cases.Shell.Type;
     readonly script: Script;
@@ -44,19 +56,20 @@ interface Call extends Pick<Move, 'run'> {
     readonly shell: Shell['Service'];
 }
 type ProgramRow = { readonly program: string; readonly aliases?: readonly string[]; readonly path?: readonly string[]; readonly action?: never } & (
-    | (Denial & { readonly when?: readonly string[]; readonly unless?: readonly string[] })
+    | (Omit<Denial, 'subject'> & { readonly when?: readonly string[]; readonly unless?: readonly string[] })
     | FlagEdit
     | { readonly decide: (invocation: Invocation, call: Call) => Verdicts<Verdict<'Shell'> | FlagEdit> }
 );
 type ScriptRow = { readonly action: 'Shell'; readonly program?: never } & (Denial | { readonly decide: (script: Script, call: Call) => Verdicts<Verdict<'Shell'>> });
 type ActionRow<K extends NonShell> = { readonly action: K; readonly program?: never } & ((Denial extends Verdict<K> ? Denial : never) | { decide(action: (typeof Action.cases)[K]['Type']): Verdicts<Verdict<K>> });
 type Table = Readonly<Record<string, ProgramRow | ScriptRow | { [K in NonShell]: ActionRow<K> }[NonShell] | null>>;
-interface Tally extends Pick<typeof Action.cases.Task.Type, 'again'> {
-    readonly reasons: readonly string[];
-    readonly notes: readonly Note[];
+interface Tally {
+    readonly reasons: readonly Outcome[];
+    readonly notes: readonly Heard[];
     readonly faults: readonly string[];
     readonly edits: readonly (Edit & { readonly rule: string })[];
     readonly move: Move;
+    readonly watch: Watch;
     readonly drop: readonly string[];
     readonly rename: Readonly<Record<string, string>>;
     readonly ensure: readonly Ensure[];
@@ -75,7 +88,7 @@ const tally = Struct.makeReducer<Tally>({
     faults: Array.getReadonlyReducerConcat(),
     edits: Array.getReadonlyReducerConcat(),
     move: Reducer.make<Move>((self, that) => Ordering.match(byRun(self.run, that.run), { onLessThan: () => that, onEqual: () => ({ ...self, notes: [...self.notes, ...that.notes] }), onGreaterThan: () => self }), { run: 'foreground', notes: [] }),
-    again: Reducer.make(Duration.min, Duration.infinity),
+    watch: Reducer.make<Watch>((self, that) => Ordering.match(Duration.Order(self.again, that.again), { onLessThan: () => self, onEqual: () => ({ ...self, rules: [...self.rules, ...that.rules] }), onGreaterThan: () => that }), { again: Duration.infinity, rules: [] }),
     drop: Array.getReadonlyReducerConcat(),
     rename: Record.makeReducerUnion(Combiner.last()),
     ensure: Array.getReadonlyReducerConcat(),
@@ -88,9 +101,10 @@ const message = <E>(cause: Cause.Cause<E>) => Cause.prettyErrors(cause).map(Stru
 const hasSpelling = (names: readonly string[]) => (bound: Invocation['flags'][number]) => bound.flag.spellings.some((spelling) => names.includes(spelling));
 const evaluate = (rule: string) => {
     const lift = Match.type<Verdict<Kind> | FlagEdit>().pipe(
-        Match.when({ deny: Match.string }, ({ deny, advice }): Partial<Tally> => ({ reasons: [`${deny} ${advice}`] })),
-        Match.when({ run: Match.string }, ({ run, note }): Partial<Tally> => ({ move: { run, notes: [{ text: `${rule}: ${note}`, once: 'call' }] } })),
-        Match.when({ note: Match.string }, ({ note, once }): Partial<Tally> => ({ notes: [{ text: `${rule}: ${note}`, once }] })),
+        Match.when({ deny: Match.string }, ({ deny, ...said }): Partial<Tally> => ({ reasons: [Outcome.of([rule], { ...said, reason: deny })] })),
+        Match.when({ run: Match.string }, ({ run, note, ...said }): Partial<Tally> => ({ move: { run, notes: [{ outcome: Outcome.of([rule], { ...said, reason: note }), once: 'call' }] } })),
+        Match.when({ note: Match.string }, ({ note, once, ...said }): Partial<Tally> => ({ notes: [{ outcome: Outcome.of([rule], { ...said, reason: note }), once }] })),
+        Match.when({ again: Duration.isDuration }, ({ again }): Partial<Tally> => ({ watch: { again, rules: [rule] } })),
         Match.when({ edit: Predicate.isFunction }, ({ edit }): Partial<Tally> => ({ edits: [{ rule, edit }] })),
         Match.when({ ensure: Match.defined }, (ensure): Partial<Tally> => ({ ensure: [ensure] })),
         Match.orElse((stated): Partial<Tally> => stated),
@@ -164,9 +178,9 @@ const compileProgram = (rule: string, { program, aliases = [], path = [], ...row
     };
     const decide = Match.value(row).pipe(
         Match.when({ decide: Predicate.isFunction }, (given) => given.decide),
-        Match.when({ deny: Match.string }, ({ deny, advice, when = [], unless = [] }) => (invocation: Invocation) => {
+        Match.when({ deny: Match.string }, ({ when = [], unless = [], ...denial }) => (invocation: Invocation) => {
             const flags = Array.dedupe(invocation.flags.filter(hasSpelling(when)).flatMap(({ spelled }) => Option.toArray(spelled.text)));
-            return (Array.isReadonlyArrayEmpty(when) || invocation.has(...when)) && !invocation.has(...unless) ? [{ deny: `${[...Option.toArray(invocation.name), ...(invocation.path.length < path.length ? path : invocation.path), ...flags].join(' ')} ${deny}.`, advice }] : [];
+            return (Array.isReadonlyArrayEmpty(when) || invocation.has(...when)) && !invocation.has(...unless) ? [{ ...denial, subject: [...Option.toArray(invocation.name), ...(invocation.path.length < path.length ? path : invocation.path), ...flags].join(' ') }] : [];
         }),
         Match.orElse((flagEdit) => () => [flagEdit]),
     );
