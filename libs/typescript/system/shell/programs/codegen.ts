@@ -1,3 +1,4 @@
+import { availableParallelism } from 'node:os';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { Array, Effect, FileSystem, Option, Order, Path, Record, Schema } from 'effect';
@@ -25,7 +26,7 @@ runMain(
                     describe(name),
                     Option.map((usage) => ({ name, usage })),
                 ),
-            { concurrency: 8 },
+            { concurrency: availableParallelism() },
         );
         const rows = yield* Effect.forEach(Array.getSomes(described), ({ name, usage }) => Effect.map(Schema.encodeEffect(Row)(usage), (row) => ({ name, usage, size: JSON.stringify({ [name]: row }, undefined, 4).length })));
         const [, placed] = Array.mapAccum(rows, { chunk: 1, size: 0 }, (held, { name, usage, size }) => {
