@@ -316,6 +316,15 @@
         },
         {
             "path": "./plugins/claude/dreamweave"
+        },
+        {
+            "path": "./plugins/claude/delegate"
+        },
+        {
+            "path": "./plugins/claude/sazandeh"
+        },
+        {
+            "path": "./plugins/claude/naqib"
         }
     ]
 }

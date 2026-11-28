@@ -18,5 +18,5 @@ enum Atelier {
 
     // --- [ENTRY]
 
-    static func main() async { await ApplicationServer.main(cachedDefinition: cachedDefinition) }
+    @MainActor static func main() { ApplicationServer.main(cachedDefinition: cachedDefinition) }
 }

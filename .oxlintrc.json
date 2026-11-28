@@ -189,6 +189,12 @@
             }
         },
         {
+            "files": ["**/ai/claude-code/engine/host.ts"], // The engine's validator reads one literal on() per event, each behind the guard keeping an unhooked event off the worker
+            "rules": {
+                "complexity": "off"
+            }
+        },
+        {
             "files": ["**/creative-cloud/*/host.ts"], // Adobe hosts run ES3 (ExtendScript) or ES5 (Acrobat SpiderMonkey 24), swc lowers syntax alone
             "rules": {
                 "complexity": "off",
@@ -214,7 +220,7 @@
         { "files": ["**/worker.ts"], "rules": { "unicorn/require-post-message-target-origin": "off" } }, // Worker `postMessage` takes no `targetOrigin`
         { "files": ["**/*.tsx"], "rules": { "react/rules-of-hooks": "error" } },
         {
-            "files": ["plugins/claude/*/hooks/*.ts", "**/claude-code/**/*.ts"], // Claude Code engine modules, a plugin's hooks module files and the modules of the engine boundary library
+            "files": ["plugins/claude/*/hooks/*.ts", "plugins/claude/*/skills/*/templates/*.ts", "plugins/claude/*/skills/*/scripts/*/hooks/*.js", "**/claude-code/**/*.ts"], // Claude Code engine modules: a plugin's hooks module files, a skill's template and script mods, and the modules of the engine boundary library
             "rules": {
                 "func-style": "off", // `claude plugin validate` takes `register` and every function receiving `$` only as a `function` declaration
                 "node/callback-return": "off", // Hooks await `next`, a `claude-code` continuation

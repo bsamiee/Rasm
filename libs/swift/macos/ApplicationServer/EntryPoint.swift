@@ -15,11 +15,45 @@ import Tracing
 import UnixSignals
 import Updater
 
+// --- [SERVICES] ------------------------------------------------------------------------
+
+@MainActor
+private final class Termination: NSObject, NSApplicationDelegate {
+    private let quit: AsyncStream<Void>.Continuation
+    private var asked: Bool = false
+
+    init(quit: AsyncStream<Void>.Continuation) {
+        self.quit = quit
+        super.init()
+    }
+
+    func applicationShouldTerminate(_: NSApplication) -> NSApplication.TerminateReply {
+        asked = true
+        quit.yield()
+        return .terminateLater
+    }
+
+    func end(_ status: Int32) -> Never {
+        if asked { NSApplication.shared.reply(toApplicationShouldTerminate: true) }
+        exit(status)
+    }
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-package func main(cachedDefinition: @escaping @Sendable (Installation) -> URL? = { _ in nil }) async {
+@MainActor
+package func main(cachedDefinition: @escaping @Sendable (Installation) -> URL? = { _ in nil }) -> Never {
     let serving = Result { () throws(Errno) in try FileDescriptor.standardInput.stat() }.map { stat in [FileType.fifo, .socket].contains(stat.type) } == .success(true)
     let disclaimed = Result { () throws(Errno) in if serving { try disclaimResponsibility() } }
+    let (quits, quit) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+    let termination = Termination(quit: quit)
+    NSApplication.shared.delegate = termination
+    Task { termination.end(await serve(serving: serving, disclaimed: disclaimed, quits: quits, cachedDefinition: cachedDefinition)) }
+    NSApplication.shared.run()
+    exit(EXIT_SUCCESS)
+}
+
+private func serve(serving: Bool, disclaimed: Result<Void, Errno>, quits: AsyncStream<Void>, cachedDefinition: @escaping @Sendable (Installation) -> URL?) async -> Int32 {
     let telemetry = Program.current.telemetry(scopes: [Request.self])
     let logger = Logger(label: String(reflecting: Request.self))
     var context = InstrumentationContext.topLevel
@@ -50,7 +84,6 @@ package func main(cachedDefinition: @escaping @Sendable (Installation) -> URL? =
             try disclaimed.get()
             let claim = try installation.get().claim
             do { try Program.current.require() } catch { logger.notice("Started without every privacy grant", error: error) }
-            NSApplication.loadApplication()
             do { try PermittedFrontList.recover() } catch { logger.error("Permitted front list recovery failed", error: error) }
             let (updater, dictionaries, watches) = (Updater(), ScriptingDictionaries(cachedDefinition: cachedDefinition), Watches())
             defer { extendLifetime(updater) }
@@ -70,9 +103,10 @@ package func main(cachedDefinition: @escaping @Sendable (Installation) -> URL? =
             logger.info("Request serving canceled")
         }
     }
+    let quitting = ClosureService { _ = await quits.cancelOnGracefulShutdown().first { _ in true } }
     let services =
         [ServiceGroupConfiguration.ServiceConfiguration(service: telemetry)] + (serving ? [.init(service: MetricKitReports(to: logger))] : [])
-        + (serving ? [requests, input] : [registration]).map { service in
+        + (serving ? [requests, input, quitting] : [registration, quitting]).map { service in
             ServiceGroupConfiguration.ServiceConfiguration(service: service, successTerminationBehavior: .gracefullyShutdownGroup, failureTerminationBehavior: .gracefullyShutdownGroup)
         }
     do {
@@ -80,8 +114,9 @@ package func main(cachedDefinition: @escaping @Sendable (Installation) -> URL? =
         configuration.maximumGracefulShutdownDuration = try agents.get().compactMap(\.exitTimeOut).min().map { (bound: Duration) -> Duration in bound / 2 }
         let group = ServiceGroup(configuration: configuration)
         try await InstrumentationContext.withValue(context) { try await group.run() }
+        return EXIT_SUCCESS
     } catch {
         logger.critical("Server failed", error: error)
-        exit(EXIT_FAILURE)
+        return EXIT_FAILURE
     }
 }

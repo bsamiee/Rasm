@@ -606,22 +606,45 @@ def _lint(section_order: frozendict[str, int], path: Path) -> tuple[tuple[str, .
     return _LANGUAGES[path.suffix].lint(section_order, path)
 
 
+async def _repository(path: Path, /) -> Path | None:
+    toplevel = await anyio.run_process(["git", "-C", path if await anyio.Path(path).is_dir() else path.parent, "rev-parse", "--show-toplevel"], check=False)
+    return Path(toplevel.stdout.decode().strip()) if toplevel.returncode == 0 else None
+
+
+async def _members(repository: Path | None, paths: tuple[Path, ...], /) -> tuple[tuple[Path, frozendict[str, int]], ...]:
+    match repository:
+        case Path():
+            files = await anyio.run_process([
+                "git",
+                "-C",
+                repository,
+                "ls-files",
+                "-z",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                "--deduplicate",
+                "--",
+                *(path.resolve() for path in paths),
+                ":(exclude,attr:linguist-generated=true)",
+            ])
+            claude_md = repository / "CLAUDE.md"
+            is_sections_table = lambda table, _: (lead_in := table.previous_sibling) is not None and lead_in.type == "paragraph" and lead_in.children[0].content.startswith("[SECTIONS]:")
+            section_order = frozendict(zip(_code_spans(claude_md, "[LABEL]", is_sections_table) if claude_md.is_file() else (), count()))
+            members = (repository / name for name in files.stdout.decode().split("\0") if name)
+            return tuple((member.relative_to(Path.cwd()) if member.is_relative_to(Path.cwd()) else member, section_order) for member in members)
+        case None:
+            return tuple((member, frozendict()) for path in paths for member in (path.rglob("*") if path.is_dir() else (path,)))
+
+
 async def _linted(paths: tuple[Path, ...]) -> list[tuple[Path, tuple[str, ...], tuple[tuple[int, int, str], ...], int]]:
     scope = paths or (Path(),)
-    toplevel = await anyio.run_process(["git", "rev-parse", "--show-toplevel"], check=False)
-    match toplevel.returncode:
-        case 0:
-            files = await anyio.run_process(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate", "--", *scope, ":(exclude,attr:linguist-generated=true)"])
-            claude_md = Path(toplevel.stdout.decode().strip()) / "CLAUDE.md"
-            is_sections_table = lambda table, _: (lead_in := table.previous_sibling) is not None and lead_in.type == "paragraph" and lead_in.children[0].content.startswith("[SECTIONS]:")
-            candidates = [Path(name) for name in files.stdout.decode().split("\0") if name]
-            section_order = frozendict(zip(_code_spans(claude_md, "[LABEL]", is_sections_table) if claude_md.is_file() else (), count()))
-        case _:
-            candidates, section_order = [*(*(path.rglob("*") if path.is_dir() else (path,)) for path in scope)], frozendict()
-    lintable = sorted((path for path in {*candidates} if path.suffix in _LANGUAGES and path.is_file() and not path.is_symlink()), key=lambda path: (path.suffix != ".md", path))
+    repositories = [await _repository(path) for path in scope]
+    orders = frozendict([*await _members(repository, tuple(path for path, held in zip(scope, repositories) if held == repository)) for repository in {*repositories}])
+    lintable = sorted((path for path in orders if path.suffix in _LANGUAGES and path.is_file() and not path.is_symlink()), key=lambda path: (path.suffix != ".md", path))
     deadline = 2 * time.process_time()
-    in_process = [_lint(section_order, path) for path in takewhile(lambda _: time.process_time() < deadline, lintable)]
-    in_workers = await anyio.amap(lambda path: anyio.to_process.run_sync(_lint, section_order, path), lintable[len(in_process) :])
+    in_process = [_lint(orders[path], path) for path in takewhile(lambda _: time.process_time() < deadline, lintable)]
+    in_workers = await anyio.amap(lambda path: anyio.to_process.run_sync(_lint, orders[path], path), lintable[len(in_process) :])
     return [(path, *result) for path, result in zip(lintable, (*in_process, *in_workers))]
 
 

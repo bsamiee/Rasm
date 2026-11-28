@@ -1,5 +1,6 @@
-import type { EngineInterface, On } from 'claude-code';
-import { Array, Cause, Effect, Option, Predicate } from 'effect';
+import type { Part } from '@rasm/claude-code/host';
+import { Skills } from '@rasm/claude-code/skills';
+import { Array, Effect, Option, type PlatformError } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -23,45 +24,30 @@ const cuts = (text: string): readonly Cut[] =>
         const body = text.indexOf('\n\n', heading) + 2;
         return { name: text.slice(heading, text.indexOf('\n', heading)), body, prefix: text.slice(body, at), at };
     });
-
-function whole($: EngineInterface, cut: Cut) {
-    return Effect.map(
-        Effect.promise(() => $.store.get(`skill:${cut.name}`)),
-        (saved) => (Predicate.isString(saved) && saved.length > cut.prefix.length && saved.startsWith(cut.prefix) ? saved : `${cut.prefix}${MARKER}`),
+const whole = (cut: Cut) =>
+    Skills.use((skills) => skills.text(cut.name)).pipe(
+        Effect.catch((error) => Effect.as(Effect.logWarning('skill text unread, cut text kept', error).pipe(Effect.annotateLogs({ skill: cut.name })), Option.none<string>())),
+        Effect.map((saved) =>
+            saved.pipe(
+                Option.filter((full) => full.length > cut.prefix.length && full.startsWith(cut.prefix)),
+                Option.getOrElse(() => `${cut.prefix}${MARKER}`),
+            ),
+        ),
     );
-}
-
-function restored($: EngineInterface, text: string) {
+const restore = (text: string) => {
     const found = cuts(text);
-    return Effect.map(
-        Effect.forEach(found, (cut) => whole($, cut)),
-        (bodies) => found.reduceRight((joined, cut, at) => `${joined.slice(0, cut.body)}${bodies[at] ?? cut.prefix}${joined.slice(cut.at + MARKER.length)}`, text),
-    );
-}
+    return Effect.map(Effect.forEach(found, whole), (bodies) => found.reduceRight((joined, cut, at) => `${joined.slice(0, cut.body)}${bodies[at] ?? cut.prefix}${joined.slice(cut.at + MARKER.length)}`, text));
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function skills(on: On) {
-    on('skill.prompt', ($, e, next) =>
-        Effect.runPromise(
-            Effect.gen(function* () {
-                const result = yield* Effect.promise(() => next(e));
-                yield* Effect.tryPromise({ try: () => $.store.set(`skill:${e.skill}`, result.text), catch: (cause) => new Cause.UnknownError(cause, `store.set skill:${e.skill} failed, so its compaction keeps the engine's cut text`) }).pipe(
-                    Effect.catch((error) => Effect.sync(() => $.ui.log(error.message, { to: 'debug' }))),
-                );
-                return result;
-            }),
-        ),
-    );
-    on('prompt.attachment', { type: 'invoked_skills' }, ($, e, next) =>
-        Effect.runPromise(
-            Effect.gen(function* () {
-                const { text } = yield* Effect.promise(() => next(e));
-                return { text: text === null ? null : yield* restored($, text) };
-            }),
-        ),
-    );
-}
+const skills: Part<Skills, never, PlatformError.PlatformError> = {
+    layer: Skills.layer,
+    hooks: {
+        ...Skills.hooks,
+        'prompt.attachment': (e, next) => (e.type === 'invoked_skills' ? Effect.flatMap(next(e), ({ text }) => Effect.map(text === null ? Effect.succeed(null) : restore(text), (shown) => ({ text: shown }))) : next(e)),
+    },
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

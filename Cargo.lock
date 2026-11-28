@@ -10201,6 +10201,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-lints-tests-stable"
+version = "0.0.0"
+
+[[package]]
 name = "rasm-mcp"
 version = "0.1.0"
 dependencies = [

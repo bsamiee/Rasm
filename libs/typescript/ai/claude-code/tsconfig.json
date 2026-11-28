@@ -11,6 +11,9 @@
             "path": "../report"
         },
         {
+            "path": "../../system/process"
+        },
+        {
             "path": "../policy"
         }
     ]

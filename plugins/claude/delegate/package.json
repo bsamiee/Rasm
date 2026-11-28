@@ -1,0 +1,26 @@
+{
+    "name": "@rasm/delegate",
+    "private": true,
+    "description": "Claude Code hooks that run outside agent commands as background engine agents, each reporting its exit, time, model, and answer files, and list every outside run on the Mac",
+    "files": [
+        "skills/**",
+        "commands/**"
+    ],
+    "type": "module",
+    "devDependencies": {
+        "@rasm/claude-code": "workspace:*",
+        "@rasm/process": "workspace:*",
+        "@rasm/report": "workspace:*",
+        "@rasm/shell": "workspace:*",
+        "@rasm/vite": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "sh-syntax": "catalog:",
+        "vite": "catalog:"
+    },
+    "nx": {
+        "tags": [
+            "host:claude-code"
+        ]
+    }
+}

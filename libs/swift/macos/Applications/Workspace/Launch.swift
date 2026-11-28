@@ -24,7 +24,8 @@ package struct InstanceSnapshot: Encodable, Sendable {
     let listeningPorts: Result<[in_port_t], Errno>
 
     package init?(_ instance: Instance, state: InstanceState, language: Locale.Language? = nil, usage: Result<ResourceUsage, Errno>? = nil) {
-        guard let url = instance.application.bundleURL?.resolvedDirectory, let identifier = instance.application.bundleIdentifier else { return nil }
+        guard let bundle = instance.application.bundleURL, bundle != instance.application.executableURL, let identifier = instance.application.bundleIdentifier else { return nil }
+        let url: URL = bundle.resolvedDirectory
         (self.instance, self.identifier, self.url, self.language, self.usage, self.state) = (instance, identifier, url, language, usage, state)
         listeningPorts = state.is(\.running) ? Result { () throws(Errno) -> [in_port_t] in try instance.process.listeningPorts() } : .success([])
     }
@@ -66,6 +67,9 @@ extension NSWorkspace {
         reporting output: AsyncStream<LaunchEvent>.Continuation,
         clock: some Clock<Duration> & Sendable,
     ) async throws(ApplicationFailure) -> (watch: Watch, settled: InstanceState?) {
+        for document in documents where document.isFileURL {
+            do { _ = try document.checkResourceIsReachable() } catch { throw ApplicationFailure(subject: document.path(percentEncoded: false), reason: .foundation(error as NSError)) }
+        }
         let running = try instances(of: installation.runs)
         if !newInstance, !running.isEmpty, !arguments.isEmpty || !environment.isEmpty { throw ApplicationFailure(subject: installation.name, reason: .alreadyRunning) }
         let before: Set<pid_t> = Set(running.map(\.process.pid))

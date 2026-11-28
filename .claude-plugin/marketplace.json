@@ -82,6 +82,17 @@
             "category": "Coding"
         },
         {
+            "name": "naqib",
+            "source": "./plugins/claude/naqib",
+            "description": "Claude Code hooks that gather the owner's agent work in the terminal, with the way back to each, and open every agent's tmux run as a muted read-only pane in Zellij session agents",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "policy": {
+                "installation": "NOT_AVAILABLE"
+            }
+        },
+        {
             "name": "orchestration",
             "source": "./plugins/codex/orchestration",
             "description": "Codex threads, parallel agents, and reviews across models",
@@ -122,6 +133,17 @@
             "name": "rust",
             "source": "./plugins/shared/rust",
             "category": "Coding"
+        },
+        {
+            "name": "sazandeh",
+            "source": "./plugins/claude/sazandeh",
+            "description": "Skills for building Claude Code mods on @rasm/claude-code: interface placement, composition, templates, and a preview of every surface",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "policy": {
+                "installation": "NOT_AVAILABLE"
+            }
         },
         {
             "name": "search",

@@ -13,7 +13,7 @@ const Install = Schema.Struct({
     __unparsed__: Words,
 }).annotate({
     title: 'Install',
-    description: `Builds a SwiftPM executable product in release, signs a copy staged beside ~/.local/bin/<product>, the per-user folder launchd's PATH holds, under the ${SIGNED.development} identity with the hardened runtime, and swaps it in by one rename`,
+    description: `Builds a SwiftPM executable product in release, signs a copy staged beside ~/.local/bin/<product>, the per-user folder launchd's PATH holds, under the ${SIGNED.development} identity with the hardened runtime, and puts it there by one renamex_np, RENAME_SWAP exchanging it with the executable installed there, or where the volume refuses that rename with ENOTSUP, EINVAL, or EXDEV by two renames moving the installed executable aside first, leaving the path empty between them`,
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -919,15 +919,15 @@ format = "raw"
 
 [tools."http:checker-qual"."platforms.linux-x64"]
 checksum = "sha256:5fcfce0ac50f42b17b7d75023d5afd64211f1bc8ee9a1dea3b4d9e637ae97e9e"
-url = "https://repo1.maven.org/maven2/org/checkerframework/checker-qual/4.4.0/checker-qual-4.4.0.jar"
+url = "https://maven-central.storage-download.googleapis.com/maven2/org/checkerframework/checker-qual/4.4.0/checker-qual-4.4.0.jar"
 
 [tools."http:checker-qual"."platforms.macos-arm64"]
-checksum = "blake3:182bc7921381677d2aa3c9fcf12a0a02f02efbafc5250e15511b5e4e325b663d"
-url = "https://repo1.maven.org/maven2/org/checkerframework/checker-qual/4.4.0/checker-qual-4.4.0.jar"
+checksum = "sha256:5fcfce0ac50f42b17b7d75023d5afd64211f1bc8ee9a1dea3b4d9e637ae97e9e"
+url = "https://maven-central.storage-download.googleapis.com/maven2/org/checkerframework/checker-qual/4.4.0/checker-qual-4.4.0.jar"
 
 [tools."http:checker-qual"."platforms.windows-x64"]
 checksum = "sha256:5fcfce0ac50f42b17b7d75023d5afd64211f1bc8ee9a1dea3b4d9e637ae97e9e"
-url = "https://repo1.maven.org/maven2/org/checkerframework/checker-qual/4.4.0/checker-qual-4.4.0.jar"
+url = "https://maven-central.storage-download.googleapis.com/maven2/org/checkerframework/checker-qual/4.4.0/checker-qual-4.4.0.jar"
 
 [[tools."http:dataflow-errorprone"]]
 version = "3.55.1-eisop1"
@@ -939,15 +939,15 @@ format = "raw"
 
 [tools."http:dataflow-errorprone"."platforms.linux-x64"]
 checksum = "sha256:a1e06a099696be94db112854372c365f68d0297ce6f38e40211973fe7a9c4192"
-url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/3.55.1-eisop1/dataflow-errorprone-3.55.1-eisop1.jar"
+url = "https://maven-central.storage-download.googleapis.com/maven2/io/github/eisop/dataflow-errorprone/3.55.1-eisop1/dataflow-errorprone-3.55.1-eisop1.jar"
 
 [tools."http:dataflow-errorprone"."platforms.macos-arm64"]
 checksum = "sha256:a1e06a099696be94db112854372c365f68d0297ce6f38e40211973fe7a9c4192"
-url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/3.55.1-eisop1/dataflow-errorprone-3.55.1-eisop1.jar"
+url = "https://maven-central.storage-download.googleapis.com/maven2/io/github/eisop/dataflow-errorprone/3.55.1-eisop1/dataflow-errorprone-3.55.1-eisop1.jar"
 
 [tools."http:dataflow-errorprone"."platforms.windows-x64"]
 checksum = "sha256:a1e06a099696be94db112854372c365f68d0297ce6f38e40211973fe7a9c4192"
-url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/3.55.1-eisop1/dataflow-errorprone-3.55.1-eisop1.jar"
+url = "https://maven-central.storage-download.googleapis.com/maven2/io/github/eisop/dataflow-errorprone/3.55.1-eisop1/dataflow-errorprone-3.55.1-eisop1.jar"
 
 [[tools."http:dataflow-nullaway"]]
 version = "4.4.0"
@@ -959,15 +959,15 @@ format = "raw"
 
 [tools."http:dataflow-nullaway"."platforms.linux-x64"]
 checksum = "sha256:b45dd8425499c897933ecdce1c2f9e50c28f9d40a1b9bb2038904c9a4ceeea48"
-url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/4.4.0/dataflow-nullaway-4.4.0.jar"
+url = "https://maven-central.storage-download.googleapis.com/maven2/org/checkerframework/dataflow-nullaway/4.4.0/dataflow-nullaway-4.4.0.jar"
 
 [tools."http:dataflow-nullaway"."platforms.macos-arm64"]
-checksum = "blake3:da24bb2f4bf29277f9abf2eb56f16d39ab5a908dc9b8d1e4cf3b5b63d2600b11"
-url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/4.4.0/dataflow-nullaway-4.4.0.jar"
+checksum = "sha256:b45dd8425499c897933ecdce1c2f9e50c28f9d40a1b9bb2038904c9a4ceeea48"
+url = "https://maven-central.storage-download.googleapis.com/maven2/org/checkerframework/dataflow-nullaway/4.4.0/dataflow-nullaway-4.4.0.jar"
 
 [tools."http:dataflow-nullaway"."platforms.windows-x64"]
 checksum = "sha256:b45dd8425499c897933ecdce1c2f9e50c28f9d40a1b9bb2038904c9a4ceeea48"
-url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/4.4.0/dataflow-nullaway-4.4.0.jar"
+url = "https://maven-central.storage-download.googleapis.com/maven2/org/checkerframework/dataflow-nullaway/4.4.0/dataflow-nullaway-4.4.0.jar"
 
 [[tools."http:docker-cli"]]
 version = "29.10.1"
@@ -992,15 +992,15 @@ format = "raw"
 
 [tools."http:error-prone"."platforms.linux-x64"]
 checksum = "sha256:061d7c4d4207d4f028809a0db7d6e7c9611530bdc5df38d606306c2cdebeb21c"
-url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.53.0/error_prone_core-2.53.0-with-dependencies.jar"
+url = "https://maven-central.storage-download.googleapis.com/maven2/com/google/errorprone/error_prone_core/2.53.0/error_prone_core-2.53.0-with-dependencies.jar"
 
 [tools."http:error-prone"."platforms.macos-arm64"]
 checksum = "sha256:061d7c4d4207d4f028809a0db7d6e7c9611530bdc5df38d606306c2cdebeb21c"
-url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.53.0/error_prone_core-2.53.0-with-dependencies.jar"
+url = "https://maven-central.storage-download.googleapis.com/maven2/com/google/errorprone/error_prone_core/2.53.0/error_prone_core-2.53.0-with-dependencies.jar"
 
 [tools."http:error-prone"."platforms.windows-x64"]
 checksum = "sha256:061d7c4d4207d4f028809a0db7d6e7c9611530bdc5df38d606306c2cdebeb21c"
-url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/2.53.0/error_prone_core-2.53.0-with-dependencies.jar"
+url = "https://maven-central.storage-download.googleapis.com/maven2/com/google/errorprone/error_prone_core/2.53.0/error_prone_core-2.53.0-with-dependencies.jar"
 
 [[tools."http:jspecify"]]
 version = "1.0.1"
@@ -1012,15 +1012,15 @@ format = "raw"
 
 [tools."http:jspecify"."platforms.linux-x64"]
 checksum = "sha256:070d75f261fe4c5b8202508366715f7f2d4660f88c8ef7e6d3575e48c9683b66"
-url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar"
+url = "https://maven-central.storage-download.googleapis.com/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar"
 
 [tools."http:jspecify"."platforms.macos-arm64"]
-checksum = "blake3:5732f094dd0d2d57cb365e5636cea91b36855c57dafe2a5b1b14b4ffcd27ae7f"
-url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar"
+checksum = "sha256:070d75f261fe4c5b8202508366715f7f2d4660f88c8ef7e6d3575e48c9683b66"
+url = "https://maven-central.storage-download.googleapis.com/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar"
 
 [tools."http:jspecify"."platforms.windows-x64"]
 checksum = "sha256:070d75f261fe4c5b8202508366715f7f2d4660f88c8ef7e6d3575e48c9683b66"
-url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar"
+url = "https://maven-central.storage-download.googleapis.com/maven2/org/jspecify/jspecify/1.0.1/jspecify-1.0.1.jar"
 
 [[tools."http:nullaway"]]
 version = "0.14.4"
@@ -1032,15 +1032,15 @@ format = "raw"
 
 [tools."http:nullaway"."platforms.linux-x64"]
 checksum = "sha256:98c2efffc689fe6061b62da5390f6bbd53ddd88445b22d46e8946665669044ed"
-url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/0.14.4/nullaway-0.14.4.jar"
+url = "https://maven-central.storage-download.googleapis.com/maven2/com/uber/nullaway/nullaway/0.14.4/nullaway-0.14.4.jar"
 
 [tools."http:nullaway"."platforms.macos-arm64"]
-checksum = "blake3:c3896f8a2be88753c2739f99d8ec501995eb49d7ad69117b6413ad92616613d8"
-url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/0.14.4/nullaway-0.14.4.jar"
+checksum = "sha256:98c2efffc689fe6061b62da5390f6bbd53ddd88445b22d46e8946665669044ed"
+url = "https://maven-central.storage-download.googleapis.com/maven2/com/uber/nullaway/nullaway/0.14.4/nullaway-0.14.4.jar"
 
 [tools."http:nullaway"."platforms.windows-x64"]
 checksum = "sha256:98c2efffc689fe6061b62da5390f6bbd53ddd88445b22d46e8946665669044ed"
-url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/0.14.4/nullaway-0.14.4.jar"
+url = "https://maven-central.storage-download.googleapis.com/maven2/com/uber/nullaway/nullaway/0.14.4/nullaway-0.14.4.jar"
 
 [[tools."http:rustc-source"]]
 version = "2026-11-23"

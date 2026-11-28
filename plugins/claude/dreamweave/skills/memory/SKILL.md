@@ -137,7 +137,7 @@ Facts from a run or a source end with one mark, and a mark opening a group cover
 - Scope stays at its evidence: one request on one task stays that task's, never a standing preference
 - Cautions name the cause they guard against, so a reader tests whether it still holds
 - Newer evidence replaces a value in place, and `CLAUDE.md` or a loaded skill wins a contradiction until evidence corrects that file
-- Claims disagreeing with no later correction go to the owner through `AskUserQuestion` when found
+- Claims disagreeing with no later correction go to the owner through `sazandeh:ask` when found
 
 ## [07]-[INDEX]
 

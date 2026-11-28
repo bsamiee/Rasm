@@ -1,3 +1,4 @@
+import { Writer } from '@rasm/process/tree';
 import { Call } from '@rasm/report';
 import { Array, Duration, Effect, Function, Match, Option, Path, Result } from 'effect';
 import { Host, NetAddress } from 'effect/net';
@@ -5,11 +6,11 @@ import { execute, type Invocation, rewrite, type Table, type Verdict } from '#/r
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const inert = ['echo', 'printf', ':', 'true'];
-const fixed = [':', 'true', 'false'];
-const exits = ['break', 'exit', 'return'];
-const checkers = ['sleep', 'wait', 'read', 'jq', 'grep', 'rg', 'echo', 'printf', 'test', '[', 'true', ':', 'false', 'date', 'pgrep', 'ps', 'stat', 'ls', 'cat', 'tail', 'head', 'wc', 'curl', 'lsof', 'nc', 'wait4path', 'caffeinate', 'seq', 'continue', ...exits];
-const pollers = ['sleep', 'jq', 'grep', 'rg', 'echo', 'printf', 'test', '[', 'true', ':', 'date', 'read'];
+const INERT = ['echo', 'printf', ':', 'true'];
+const FIXED = [':', 'true', 'false'];
+const EXITS = ['break', 'exit', 'return'];
+const CHECKERS = ['sleep', 'wait', 'read', 'jq', 'grep', 'rg', 'echo', 'printf', 'test', '[', 'true', ':', 'false', 'date', 'pgrep', 'ps', 'stat', 'ls', 'cat', 'tail', 'head', 'wc', 'curl', 'lsof', 'nc', 'wait4path', 'caffeinate', 'seq', 'continue', ...EXITS];
+const POLLERS = ['sleep', 'jq', 'grep', 'rg', 'echo', 'printf', 'test', '[', 'true', ':', 'date', 'read'];
 const printers = ['cat', 'tail', 'head', 'echo', 'printf', 'rg', 'jq', 'ls'];
 const following = ['-f', '-F', '--follow'];
 const endless: ReadonlySet<string> = new Set(['/dev/zero', '/dev/urandom', '/dev/random']);
@@ -62,18 +63,17 @@ const groupLoops = (invocations: readonly Invocation[]) =>
         const tested = inside.filter(({ repeated }) => Option.exists(repeated, ({ start, condition }) => start === loop.start && condition));
         return { loop, inside, tested, body: inside.filter((invocation) => !tested.includes(invocation)), until: loop.source.slice(loop.start).startsWith('until') };
     });
-const spins = ({ tested, until }: ReturnType<typeof groupLoops>[number]) => Array.isReadonlyArrayNonEmpty(tested) && tested.every((invocation) => invocation.runs(...fixed) && invocation.runs('false') === until);
-const probes = ({ tested, until }: ReturnType<typeof groupLoops>[number]) => Array.isReadonlyArrayNonEmpty(tested) && !tested.every((invocation) => invocation.runs(...fixed)) && (until || !tested.some((invocation) => invocation.runs('read')));
+const spins = ({ tested, until }: ReturnType<typeof groupLoops>[number]) => Array.isReadonlyArrayNonEmpty(tested) && tested.every((invocation) => invocation.runs(...FIXED) && invocation.runs('false') === until);
+const probes = ({ tested, until }: ReturnType<typeof groupLoops>[number]) => Array.isReadonlyArrayNonEmpty(tested) && !tested.every((invocation) => invocation.runs(...FIXED)) && (until || !tested.some((invocation) => invocation.runs('read')));
 const print = <E, R>(ran: Effect.Effect<{ readonly stdout: string }, E, R>) =>
     Effect.orElseSucceed(
         Effect.map(ran, ({ stdout }) => stdout),
         () => '',
     );
 const findWriters = Effect.fnUntraced(function* (file: string, cwd: string) {
-    const [open, processes] = yield* Effect.all([print(execute(cwd)(['lsof', '-F', 'pa', '--', file])), print(execute(cwd)(['ps', '-A', '-o', 'pid=,ppid=']))], { concurrency: 'unbounded' });
-    const parents = new Map(processes.split('\n').flatMap((line) => Option.toArray(Option.map(Option.fromNullishOr(/^\s*(?<pid>\d+)\s+(?<parent>\d+)/u.exec(line)?.groups), ({ pid = '', parent = '' }) => [pid, parent] as const))));
-    const holders = new Set(open.split(/^p/mu).flatMap((listing) => (/^a[uw]$/mu.test(listing) ? [listing.split('\n', 1).join('')] : [])));
-    return [...holders].filter((pid) => parents.has(pid) && !holders.has(parents.get(pid) ?? ''));
+    const writers = yield* Writer.of([(yield* Path.Path).resolve(cwd, file)]);
+    const holders = new Set(writers.map(({ pid }) => pid));
+    return Array.dedupe(writers.filter(({ parent }) => !holders.has(parent)).map(({ pid }) => `${pid}`));
 });
 const findRepeat = Effect.fnUntraced(function* (file: string, cwd: string) {
     const lines = (yield* print(execute(cwd)(['tail', '-n', '10', '--', file])))
@@ -93,7 +93,7 @@ const waits: Table = {
         action: 'Shell',
         decide: (_, { invocations }) => {
             const commands = invocations.filter(({ inner }) => inner.length === 0);
-            return commands.some(idles) && commands.every((invocation) => idles(invocation) || invocation.runs(...inert)) ? [{ subject: 'bare timer', deny: 'waits on nothing and wakes you with nothing new', values: notified }] : [];
+            return commands.some(idles) && commands.every((invocation) => idles(invocation) || invocation.runs(...INERT)) ? [{ subject: 'bare timer', deny: 'waits on nothing and wakes you with nothing new', values: notified }] : [];
         },
     },
     'timer.trailing': {
@@ -142,22 +142,22 @@ const waits: Table = {
         action: 'Shell',
         decide: (_, { invocations }) =>
             groupLoops(invocations)
-                .filter((loop) => spins(loop) && loop.body.some((invocation) => !invocation.runs(...fixed, ...inert) && !endsAlone(invocation)) && !loop.inside.some((invocation) => invocation.runs(...exits) || invocation.pipe(deriveWatch, Option.isSome)))
+                .filter((loop) => spins(loop) && loop.body.some((invocation) => !invocation.runs(...FIXED, ...INERT) && !endsAlone(invocation)) && !loop.inside.some((invocation) => invocation.runs(...EXITS) || invocation.pipe(deriveWatch, Option.isSome)))
                 .map(({ tested }) => ({ subject: `loop on ${tested.map(({ label }) => label).join(' ')}`, deny: 'never ends, as nothing changes its condition and no break or exit leaves it', values: { instead: 'wait on a real condition with Monitor `until <check>; do sleep <seconds>; done`' } })),
     },
     'loop.busy': {
         action: 'Shell',
         decide: (_, { invocations }) =>
             groupLoops(invocations)
-                .filter((loop) => probes(loop) && loop.body.every((invocation) => invocation.runs(...inert)) && !loop.inside.some(pauses))
+                .filter((loop) => probes(loop) && loop.body.every((invocation) => invocation.runs(...INERT)) && !loop.inside.some(pauses))
                 .map(({ tested }) => ({ subject: `loop on ${tested.map(({ label }) => label).join(' ')}`, deny: 'checks again at once and spins a core', values: { instead: 'put sleep <seconds> in its body, or wait with Monitor `until <check>; do sleep <seconds>; done`' } })),
     },
     'loop.waiting': {
         action: 'Shell',
         decide: (_, { invocations }) => {
-            const waiting = groupLoops(invocations).filter((loop) => (probes(loop) || loop.inside.some((invocation) => invocation.runs(...exits))) && loop.inside.some(pauses));
+            const waiting = groupLoops(invocations).filter((loop) => (probes(loop) || loop.inside.some((invocation) => invocation.runs(...EXITS))) && loop.inside.some(pauses));
             const placed = invocations.filter(({ within }) => within.length === 0).every((invocation) => waiting.some(({ loop }) => (invocation.start >= loop.start && invocation.end <= loop.end) || (invocation.start >= loop.end && invocation.runs(...printers))));
-            const checking = waiting.every((loop) => loop.inside.every((invocation) => invocation.runs(...checkers) || (invocation.runs('kill') && invocation.has('-0'))));
+            const checking = waiting.every((loop) => loop.inside.every((invocation) => invocation.runs(...CHECKERS) || (invocation.runs('kill') && invocation.has('-0'))));
             return Array.isReadonlyArrayNonEmpty(waiting) ? [placed && checking ? moves.monitored : moves.background] : [];
         },
     },
@@ -176,7 +176,7 @@ const waits: Table = {
         program: 'gh',
         path: ['run', 'view'],
         decide: Effect.fnUntraced(function* (view, { invocations, script, shell }) {
-            const polls = invocations.every((other) => Option.isSome(other.repeated) && other.writes.every(({ text }) => Option.contains(text, '/dev/null')) && (other.runs(...pollers) || other.pipe(deriveWatch, Option.isSome)));
+            const polls = invocations.every((other) => Option.isSome(other.repeated) && other.writes.every(({ text }) => Option.contains(text, '/dev/null')) && (other.runs(...POLLERS) || other.pipe(deriveWatch, Option.isSome)));
             const sole = Option.filter(Array.head(script.syntax.stmts), () => polls && script.syntax.stmts.length === 1);
             const watch = Option.filter(deriveWatch(view), () => Option.isSome(view.repeated));
             const command = yield* Effect.transposeOption(Option.map(Option.all([sole, watch]), ([, argv]) => shell.script(script.dialect)`gh run watch ${argv}`));

@@ -71,7 +71,7 @@ jobs:
                 include:
                     - name: Linux
                       runner: ubuntu-26.04
-                      mise: ci-linux
+                      mise: ci-linux,ci-llvm
                       targets: check,test,build
                       configuration: ci
                       graph: true
@@ -79,19 +79,19 @@ jobs:
                       exclude: tag:technology:rust,tag:os:*,!tag:os:linux,tag:host:rhino,tag:host:browser,tag:host:unreal,tag:host:claude-code
                     - name: Rust check
                       runner: ubuntu-26.04
-                      mise: ci-linux
+                      mise: ci-linux,ci-no-uv
                       targets: check
                       cargo: check
                       exclude: &rust '*,!tag:technology:rust,tag:os:*,!tag:os:linux'
                     - name: Rust test
                       runner: ubuntu-26.04
-                      mise: ci-linux
+                      mise: ci-linux,ci-no-uv
                       targets: test,build
                       cargo: test
                       exclude: *rust
                     - name: Browser
                       runner: ubuntu-26.04
-                      mise: ci-linux
+                      mise: ci-linux,ci-no-uv
                       targets: check,test,build,pack
                       batch: 'false'
                       exclude: '*,!tag:host:browser'
@@ -116,7 +116,6 @@ jobs:
             NX_HEAD: ${{ needs.shas.outputs.head }}
             NX_BATCH_MODE: ${{ matrix.batch }}
             TARGETS: ${{ matrix.targets }}
-            CONFIGURATION: ${{ matrix.configuration }}
             EXCLUDE: ${{ matrix.exclude }}
             APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
         steps:
@@ -125,9 +124,11 @@ jobs:
               with:
                   fetch-depth: 0
                   filter: blob:none
-            - if: ${{ runner.os == 'Linux' }}
+            - if: ${{ runner.os == 'Linux' && !contains(matrix.mise, 'ci-llvm') }}
               background: true
-              run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+              run: &free sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+            - if: ${{ contains(matrix.mise, 'ci-llvm') }}
+              run: *free
             - id: graph
               uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
               with:
@@ -195,7 +196,7 @@ jobs:
                   restore-keys: cargo-${{ matrix.cargo }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml') }}-
             - id: affected
               if: ${{ !cancelled() && steps.codegen.outcome != 'failure' }}
-              run: nx affected --targets="${TARGETS}" ${CONFIGURATION:+--configuration="${CONFIGURATION}"} --exclude="${EXCLUDE}" || { [[ "${RUNNER_OS}" == Windows ]] && printf "missed=true\n" >> "${GITHUB_OUTPUT}"; }
+              run: nx affected --targets="${TARGETS}" ${{ matrix.configuration && format('--configuration={0}', matrix.configuration) || '' }} --exclude="${EXCLUDE}" || { [[ "${RUNNER_OS}" == Windows ]] && printf "missed=true\n" >> "${GITHUB_OUTPUT}"; }
               env:
                   NX_SKIP_NX_CACHE: ${{ inputs.uncached == true || github.event_name == 'push' && steps.state.outputs.cache-hit == 'false' }}
             - if: ${{ steps.affected.outputs.missed == 'true' }}
@@ -204,7 +205,7 @@ jobs:
                   email-address: ${{ secrets.RHINO_EMAIL }}
                   download-url: ${{ env.RHINO_INSTALLER }}
             - if: ${{ steps.affected.outputs.missed == 'true' }}
-              run: nx affected --targets="${TARGETS}" --configuration="${CONFIGURATION}" --exclude="${EXCLUDE}"
+              run: nx affected --targets="${TARGETS}" --configuration=${{ matrix.configuration }} --exclude="${EXCLUDE}"
               env:
                   RHINO_TOKEN: ${{ secrets.RHINO_TOKEN }}
             - wait-all: true

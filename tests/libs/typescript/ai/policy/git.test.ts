@@ -40,10 +40,10 @@ const local = [
 ] as const;
 const remote = [
     { command: 'git push origin main', denied: false },
-    { command: 'git push --repo=origin +main', denied: true },
+    { command: 'git push --repo=origin +main', denied: false },
     { command: 'git push origin :"$B"', denied: true },
     { command: 'git push --delete origin refs/tags/v1', denied: true },
-    { command: 'git push origin +refs/tags/v1', denied: true },
+    { command: 'git push origin +refs/tags/v1', denied: false },
     { command: 'git update-ref --stdin', denied: true },
 ] as const;
 

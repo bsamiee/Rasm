@@ -43,8 +43,8 @@ Lines from one moment often split across rows, and each row runs its own work:
 9. Apply `SKILL.md` `[04]` merge and split to the requests: all needing a sibling's body fold the file into it, no shared situation splits it
 10. Clone with `git clone -q <memory-dir> <scratch>/memory`, write the files and link clauses there, and run `scripts/index.py <scratch>/memory <project-root>`
 11. Read each request against the generated index alone, as a new session sees it: a request no line sends to its file rewrites that description
-12. Print each new file's body, requests, and added link clauses in the reply, then ask one `multiSelect` `AskUserQuestion` without `preview`
-13. Give each memory one option, its stem as label and its description as text, and a second option `None` where one memory stands alone
+12. Print each new file's requests in the reply, then ask through `sazandeh:ask`, previewing each new file's body and each added link clause
+13. Read the answer by `sazandeh:ask`'s answer table, a file the owner declined or reworded in notes staying unwritten
 14. In a session without `AskUserQuestion`, write only on the owner's own request with the bodies in the reply, else reply with the bodies alone
 15. Return to step 10 when the owner changes a description or moves a line, so the check covers what the owner approves
 16. Write the accepted general memory, then its specific memories, with Write, and add the link clauses to existing files with Edit

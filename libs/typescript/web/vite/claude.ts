@@ -1,9 +1,9 @@
 import { Buffer } from 'node:buffer';
 import { glob } from 'node:fs/promises';
-import { basename, dirname, join, posix } from 'node:path';
+import { basename, dirname, join, posix, relative } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { Array, Effect, FileSystem, Option, Record, Schema } from 'effect';
-import type { UserConfig, UserConfigFnPromise } from 'vite';
+import { normalizePath, type UserConfig, type UserConfigFnPromise } from 'vite';
 import { checks } from '#/checks';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -57,8 +57,8 @@ const claude = (directory: string): UserConfigFnPromise =>
             const { types } = yield* Schema.decodeEffect(Plugin)(plugin);
             const found = yield* Effect.promise(() => globalThis.Array.fromAsync(glob(files, { cwd: directory, withFileTypes: true })));
             const copied = yield* Effect.forEach(
-                found.filter((entry) => entry.isFile()).map((entry) => posix.relative(directory, join(entry.parentPath, entry.name))),
-                (fileName) => Effect.map(fs.readFile(join(directory, fileName)), (source) => ({ type: 'asset' as const, fileName, source })),
+                found.filter((entry) => entry.isFile()).map((entry) => join(entry.parentPath, entry.name)),
+                (path) => Effect.map(fs.readFile(path), (source) => ({ type: 'asset' as const, fileName: normalizePath(relative(directory, path)), source })),
             );
             const contract = yield* Effect.forEach(Option.toArray(Option.fromUndefinedOr(types)), (path) => Effect.map(fs.readFileString(join(directory, path)), (source) => [posix.normalize(path), source] as const));
             const names = Array.map(hooks.modules, (module) => posix.join(posix.dirname(module), posix.parse(module).name));

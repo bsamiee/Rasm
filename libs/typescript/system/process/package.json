@@ -1,7 +1,7 @@
 {
     "name": "@rasm/process",
     "version": "0.1.0",
-    "description": "Child process runs over Effect commands, each joining its caller's trace and failing with its exit code and output or at its deadline",
+    "description": "Child process runs over Effect commands, each joining its caller's trace and failing with its exit code and output or at its deadline, and the process tree read from one ps or lsof run: descendants, ancestors, CPU time, and files held for write",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -14,13 +14,21 @@
     ],
     "type": "module",
     "sideEffects": false,
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "exports": {
         ".": "./child-process.ts",
+        "./tree": "./tree.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
+        "imports": {
+            "#/*": "./dist/*.js"
+        },
         "exports": {
             ".": "./dist/child-process.js",
+            "./tree": "./dist/tree.js",
             "./package.json": "./package.json"
         },
         "access": "public"

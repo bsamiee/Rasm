@@ -1,9 +1,9 @@
 name: Tools
-description: Installs the mise tools and project dependencies of one mise environment, restoring cached analyzers on GitHub-hosted runners, and exports mise env
+description: Installs the mise tools and project dependencies of its mise environments, restoring cached analyzers on GitHub-hosted runners, and exports mise env
 
 inputs:
     mise-env:
-        description: Mise environment the job loads, ci-linux on GitHub-hosted Linux runners and ci on every other runner
+        description: Mise environments the job loads, ci-linux on GitHub-hosted Linux runners with ci-llvm on the row running the C++ suite and ci-no-uv where the job reads no root Python environment, and ci on every other runner
         required: true
 
 runs:
@@ -33,6 +33,13 @@ runs:
                   ~/.local/state/mise/deps
               key: msbuild-analyzer-${{ runner.os }}-${{ hashFiles('products/developer/nx/dotnet/analyzer/*.cs', 'products/developer/nx/dotnet/analyzer/*.csproj', 'products/developer/nx/dotnet/analyzer/packages.lock.json', '.config/mise.lock') }}-${{ hashFiles('.config/mise.toml') }}
               restore-keys: msbuild-analyzer-${{ runner.os }}-${{ hashFiles('products/developer/nx/dotnet/analyzer/*.cs', 'products/developer/nx/dotnet/analyzer/*.csproj', 'products/developer/nx/dotnet/analyzer/packages.lock.json', '.config/mise.lock') }}-
+        - id: uv
+          if: ${{ runner.environment == 'github-hosted' && runner.os == 'Linux' }}
+          uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+          with:
+              path: .cache/uv
+              key: uv-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock', 'pixi.lock') }}
+              restore-keys: uv-${{ runner.os }}-${{ runner.arch }}-
         - uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78 # v5.3.0
           with:
               mise_env: ${{ inputs.mise-env }}
@@ -41,4 +48,13 @@ runs:
               bootstrap_args: --only tools
               cache: ${{ runner.environment == 'github-hosted' }}
               cache_save: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-              cache_key: "{{cache_key_prefix}}-{{platform}}-{{mise_env}}-{{bootstrap_hash}}-${{ hashFiles('.config/mise.lock', format('.config/mise.{0}.toml', inputs.mise-env), 'rust-toolchain.toml') }}"
+              cache_key: "{{cache_key_prefix}}-{{platform}}-{{mise_env}}-{{bootstrap_hash}}-${{ hashFiles('.config/mise.lock', '.config/mise.ci*', 'rust-toolchain.toml') }}"
+        - id: built
+          if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.uv.outcome == 'success' && steps.uv.outputs.cache-hit != 'true' && hashFiles('.venv/pyvenv.cfg') != '' }}
+          shell: bash
+          run: uv cache prune --ci
+        - if: ${{ steps.built.outcome == 'success' }}
+          uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+          with:
+              path: .cache/uv
+              key: ${{ steps.uv.outputs.cache-primary-key }}

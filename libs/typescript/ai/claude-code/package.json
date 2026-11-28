@@ -1,7 +1,7 @@
 {
     "name": "@rasm/claude-code",
     "private": true,
-    "description": "Claude Code mods as Effect programs: hooks hosted over platform services and an Engine service built on the engine's own calls, with band rows, notices, and model messages, and policy enforcement over tool calls",
+    "description": "Claude Code mods as Effect programs: hooks, declared tools, agents, and slash commands hosted over platform services and an Engine service built on the engine's own calls, with band rows, notices, model messages, panes, placed rows, tmux run watches, the repository's other local sessions, a store over the plugin store, and policy enforcement composed with a mod's own hooks",
     "type": "module",
     "sideEffects": false,
     "imports": {
@@ -9,7 +9,11 @@
     },
     "exports": {
         "./engine": "./engine/interface.ts",
+        "./events": "./engine/events.ts",
+        "./ledger": "./engine/ledger.ts",
+        "./peers": "./engine/peers.ts",
         "./host": "./engine/host.ts",
+        "./skills": "./engine/skills.ts",
         "./ask": "./ui/ask.ts",
         "./draft": "./prompt/draft.ts",
         "./element": "./ui/element.ts",
@@ -17,11 +21,14 @@
         "./placed": "./ui/placed.ts",
         "./render": "./ui/render.ts",
         "./theme": "./ui/theme.ts",
+        "./watch": "./terminal/watch.ts",
         "./enforcement": "./policy/enforcement.ts",
+        "./session": "./policy/session.ts",
         "./package.json": "./package.json"
     },
     "dependencies": {
         "@rasm/policy": "workspace:*",
+        "@rasm/process": "workspace:*",
         "@rasm/report": "workspace:*",
         "@rasm/shell": "workspace:*",
         "sh-syntax": "catalog:"

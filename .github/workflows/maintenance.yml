@@ -24,7 +24,7 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
             - uses: $/.github/actions/tools
               with:
-                  mise-env: ci-linux
+                  mise-env: ci-linux,ci-no-uv
             - run: nx run rasm:check--cargo-deny-advisories
               env:
                   NX_SKIP_NX_CACHE: 'true'

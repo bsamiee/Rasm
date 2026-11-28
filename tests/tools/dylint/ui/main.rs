@@ -92,7 +92,7 @@ fn every_annotation_meets_one_diagnostic_and_every_diagnostic_one_annotation() -
             _ => None,
         })
         .collect::<BTreeSet<_>>();
-    let fixtures = ["examples", "expansions"]
+    let fixtures = ["examples", "expansions", "stable/examples"]
         .into_iter()
         .flat_map(|folder| WalkDir::new(manifest.join(folder)).sort_by_file_name())
         .filter_ok(|entry| entry.path().extension().is_some_and(|extension| extension == "rs"))
@@ -132,7 +132,7 @@ fn every_annotation_meets_one_diagnostic_and_every_diagnostic_one_annotation() -
         .map(|(path, source)| Ok::<_, Failure>((path.clone(), annotations(path, source)?.into_iter().map(|(_, annotation)| annotation).collect::<Vec<_>>())))
         .collect::<Result<BTreeMap<_, _>, _>>()?;
     let output = Command::new(env!("CARGO"))
-        .args(["dylint", "--all", "-p", env!("CARGO_PKG_NAME"), "--fail-on-no-libraries", "--", "--locked", "--keep-going", "--examples", "--test", "expansions", "--message-format=json"])
+        .args(["dylint", "--all", "-p", "rasm-lints-tests*", "--fail-on-no-libraries", "--", "--locked", "--keep-going", "--examples", "--test", "expansions", "--message-format=json"])
         .stderr(Stdio::inherit())
         .output()
         .map_err(|source| Failure::Io { stage: Stage::Start, source })?;

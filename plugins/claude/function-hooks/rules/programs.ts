@@ -14,11 +14,11 @@ interface Language {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const sedSubstitution = /^s(?<mark>[^\w\s\\]).*\k<mark>.*\k<mark>[gpiI\d]*$/su;
-const systemTemporary = /^(?:\/private)?\/tmp(?=\/(?!claude-))/u;
-const shellSyntax = /[$|&;<>()`]|^\w+=/u;
-const shellWrapper = /^(?:\S*\/)?(?:ba|z|da|k)?sh -c$/u;
-const jsonParse = /\bjson\.loads?\(|\bJSON\.parse\(/u;
+const SED_SUBSTITUTION = /^s(?<mark>[^\w\s\\]).*\k<mark>.*\k<mark>[gpiI\d]*$/su;
+const SYSTEM_TEMPORARY = /^(?:\/private)?\/tmp(?=\/(?!claude-))/u;
+const SHELL_SYNTAX = /[$|&;<>()`]|^\w+=/u;
+const SHELL_WRAPPER = /^(?:\S*\/)?(?:ba|z|da|k)?sh -c$/u;
+const JSON_PARSE = /\bjson\.loads?\(|\bJSON\.parse\(/u;
 const stringLiteral = /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/gu;
 const statuses = ['nx', 'uv', 'dotnet', 'xcodebuild', 'swift', 'npm', 'pnpm', 'cargo', 'curl', 'pytest', 'vitest'];
 const altering: ReadonlySet<string> = new Set(['tied', 'readonly', 'association']);
@@ -81,7 +81,7 @@ const languages = {
     osascript: { aliases: [], idioms: [[/^\s*delay\s+(?<seconds>\d+(?:\.\d+)?)\s*$/u, sleep]] },
 } satisfies Record<string, Language>;
 const codeOf = (invocation: Invocation) => invocation.arguments.collect('code').flatMap(({ words }) => Array.take(words, 1));
-const takesScript = ({ flag, values }: Invocation['flags'][number]) => flag.spellings.includes('-i') && values.some((value) => value.test(/^-/u) || value.test(sedSubstitution));
+const takesScript = ({ flag, values }: Invocation['flags'][number]) => flag.spellings.includes('-i') && values.some((value) => value.test(/^-/u) || value.test(SED_SUBSTITUTION));
 const readsInput = (invocation: Invocation) => {
     const { input, positional, opaque } = invocation.arguments;
     const valued = invocation.flags.some(({ flag }) =>
@@ -120,7 +120,7 @@ const judgeCode = (name: keyof typeof languages) => {
         );
         const written = Option.getOrElse(inline, () => '');
         const command = Array.findFirst(idioms, ([pattern, restate]) => Option.flatMap(Option.fromNullishOr(pattern.exec(Option.match(source, { onNone: () => written, onSome: String.trim }))), ({ groups = {} }) => restate(groups, invocation)));
-        return Match.value({ command: Option.getOrUndefined(command), inPlace: inPlace === true && invocation.has('-i'), json: jsonParse.test(written), effects: effects?.test(written.replaceAll(stringLiteral, '""')) === true }).pipe(
+        return Match.value({ command: Option.getOrUndefined(command), inPlace: inPlace === true && invocation.has('-i'), json: JSON_PARSE.test(written), effects: effects?.test(written.replaceAll(stringLiteral, '""')) === true }).pipe(
             Match.when({ command: Match.defined }, ({ command: words }) => rewrite(invocation, words)),
             Match.when({ inPlace: true }, () => [{ subject: `${name} -i`, deny: 'edits files in place where the hook cannot judge the change', values: { instead: 'edit them with sd where one pattern covers every change, else with your file edit tool' } }]),
             Match.when({ json: true }, () => [{ subject: `${name} inline code`, deny: 'parses JSON', values: { instead: 'read it with jq' } }]),
@@ -288,9 +288,9 @@ const programs: Table = {
     'hyperfine.shell': {
         program: 'hyperfine',
         decide: (hyperfine) => {
-            const shells = hyperfine.flags.filter(({ flag, values }) => flag.spellings.includes('--shell') && values.some((value) => value.test(shellWrapper)));
-            const stray = hyperfine.has('-S', '-N') && hyperfine.operands.length > 1 ? hyperfine.operands.filter(({ word }) => word.test(shellWrapper)).flatMap(({ word }) => Option.toArray(word.node)) : [];
-            const scripted = hyperfine.operands.some(({ word }) => word.test(shellSyntax));
+            const shells = hyperfine.flags.filter(({ flag, values }) => flag.spellings.includes('--shell') && values.some((value) => value.test(SHELL_WRAPPER)));
+            const stray = hyperfine.has('-S', '-N') && hyperfine.operands.length > 1 ? hyperfine.operands.filter(({ word }) => word.test(SHELL_WRAPPER)).flatMap(({ word }) => Option.toArray(word.node)) : [];
+            const scripted = hyperfine.operands.some(({ word }) => word.test(SHELL_SYNTAX));
             return [
                 ...(scripted ? [{ ensure: Array.of('-S'), unless: ['-N', '--shell'] }] : []),
                 ...shells.flatMap(({ spelled, values }) =>
@@ -373,17 +373,17 @@ const programs: Table = {
     'temporary.system': {
         action: 'Shell',
         decide: (script, { invocations }) => {
-            const written = invocations.flatMap(({ writes }) => Array.getSomes(writes.map(({ text }) => text))).filter((path) => systemTemporary.test(path));
+            const written = invocations.flatMap(({ writes }) => Array.getSomes(writes.map(({ text }) => text))).filter((path) => SYSTEM_TEMPORARY.test(path));
             const words = invocations.flatMap((invocation) => invocation.words.flatMap(({ node, text }) => Option.toArray(Option.all([node, text]))));
             const targets = invocations
                 .flatMap(({ node }) => Option.toArray(node))
                 .flatMap(({ redirs }) => redirs.flatMap(({ word }) => Array.fromNullishOr(word)))
                 .flatMap((word) => Option.toArray(Option.map(script.expanded(word), (text) => [word, text] as const)));
-            const moved = Array.dedupeWith([...words, ...targets], ([left], [right]) => left === right).filter(([, text]) => systemTemporary.test(text) && written.some((path) => covers(path, text) || covers(text, path)));
+            const moved = Array.dedupeWith([...words, ...targets], ([left], [right]) => left === right).filter(([, text]) => SYSTEM_TEMPORARY.test(text) && written.some((path) => covers(path, text) || covers(text, path)));
             const folder = Option.map(Record.get(script.dialect.environment, 'TMPDIR'), (given) => given.replace(/\/+$/u, ''));
             return Option.toArray(Option.filter(folder, () => Array.isReadonlyArrayNonEmpty(moved))).flatMap((given) => [
-                { edit: (editor) => moved.map(([word, text]) => editor.replace(word, [text.replace(systemTemporary, given)])) },
-                ...Array.dedupe(moved.map(([, text]) => text)).map((text) => ({ subject: text, note: `became ${text.replace(systemTemporary, given)}, as /tmp is shared by every user; later calls use that path`, once: 'call' as const })),
+                { edit: (editor) => moved.map(([word, text]) => editor.replace(word, [text.replace(SYSTEM_TEMPORARY, given)])) },
+                ...Array.dedupe(moved.map(([, text]) => text)).map((text) => ({ subject: text, note: `became ${text.replace(SYSTEM_TEMPORARY, given)}, as /tmp is shared by every user; later calls use that path`, once: 'call' as const })),
             ]);
         },
     },

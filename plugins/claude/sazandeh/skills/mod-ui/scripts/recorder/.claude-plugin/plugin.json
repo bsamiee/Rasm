@@ -1,0 +1,1 @@
+{ "name": "preview-recorder", "version": "0.1.0", "description": "Records what other plugins draw, call, and send into the debug log, for the mod preview script", "author": { "name": "rasm" } }

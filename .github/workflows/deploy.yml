@@ -55,7 +55,7 @@ jobs:
                   key: nx-${{ runner.os }}-
             - uses: $/.github/actions/tools
               with:
-                  mise-env: ci-linux
+                  mise-env: ci-linux,ci-no-uv
             - id: affected
               if: *pushed
               run: |-

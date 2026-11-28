@@ -484,7 +484,7 @@ package actor Watch {
         controls.merge(model.containers.flatMap { container in container.controls.map { control in (control.ref, (control: control, container: container.ref)) } }) { _, read in read }
         for container in model.containers {
             var list: Int?
-            for control in container.controls where control.row == nil || control.row == control.ref {
+            for control in container.controls where control.parent == nil || control.parent == control.ref {
                 list = control.kind == .row ? list : control.kind == .multi ? control.ref : nil
                 if control.kind == .row, let list { lists[control.ref] = list }
             }
@@ -675,7 +675,7 @@ package actor Watch {
         let changed: [AXUIElement: Element] = Dictionary(
             uniqueKeysWithValues: marked.compactMap { (entry: (key: AXUIElement, value: Set<String>)) -> (AXUIElement, Element)? in
                 guard entry.value.contains(kAXValueChangedNotification), entry.value.isDisjoint(with: invalidating) else { return nil }
-                return (entry.key, read(entry.key, [kAXRoleAttribute, kAXValueAttribute, kAXTopLevelUIElementAttribute]).element)
+                return (entry.key, read(entry.key, [kAXRoleAttribute, kAXValueAttribute, kAXNumberOfCharactersAttribute, kAXTopLevelUIElementAttribute]).element)
             }
         )
         let scrollBars: [AXUIElement: Element] = changed.filter { (entry: (key: AXUIElement, value: Element)) -> Bool in entry.value.role == kAXScrollBarRole }
@@ -688,8 +688,11 @@ package actor Watch {
             restated.insert(element)
             let fact: Fact? = shown.facts[kAXValueAttribute].flatMap { (fact: Fact) -> Fact? in fact.elements.isEmpty ? fact : nil }
             guard fact != held.control.value else { continue }
+            let characters: Int? = held.control.numberOfCharacters.flatMap { _ in shown.facts[kAXNumberOfCharactersAttribute]?.integer }
             controls[ref]?.control.value = fact
+            controls[ref]?.control.numberOfCharacters = characters
             open[held.container]?.controls[index].value = fact
+            open[held.container]?.controls[index].numberOfCharacters = characters
             if let fact { emit(.value(control: ref, kind: held.control.kind, fact: fact)) }
             if let container = open[held.container] { try observe(container, opener: nil) }
         }
@@ -1209,7 +1212,7 @@ package actor Watch {
             _ = try level(of: opener.ref)
         }
         let row: (control: Control, container: Int)? = controls[ref].flatMap { (held: (control: Control, container: Int)) -> (control: Control, container: Int)? in
-            held.control.kind == .row ? held : held.control.row.flatMap { (row: Int) -> (control: Control, container: Int)? in self.controls[row] }
+            held.control.kind == .row ? held : held.control.parent.flatMap { (parent: Int) -> (control: Control, container: Int)? in self.controls[parent] }
         }
         let list: AXUIElement? = row.flatMap { (row: (control: Control, container: Int)) -> Int? in self.lists[row.control.ref] }.flatMap { (list: Int) -> Int? in self.located[list] }
             .flatMap { (id: Int) -> AXUIElement? in self.handles[id] }

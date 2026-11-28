@@ -34,7 +34,6 @@ final class Server<Request: Decodable & Sendable>: Sendable {
     private struct Call: Sendable {
         let task: Task<Void, Never>
         let acks: AsyncStream<Void>.Continuation
-        var streaming = false
 
         func interrupt() {
             acks.finish()
@@ -75,17 +74,13 @@ final class Server<Request: Decodable & Sendable>: Sendable {
         }
     }
 
-    func close(failed: Bool) async {
+    func close() async {
         let calls = state.withLock { state in
             state.closed = true
             return Array(state.running.values)
         }
-        for call in calls where call.streaming || failed { call.interrupt() }
-        await withTaskCancellationHandler {
-            for call in calls { await call.task.value }
-        } onCancel: {
-            for call in calls { call.interrupt() }
-        }
+        for call in calls { call.interrupt() }
+        for call in calls { await call.task.value }
     }
 
     // --- [ANSWERS]
@@ -130,11 +125,7 @@ final class Server<Request: Decodable & Sendable>: Sendable {
         switch outcome {
             case .success(.value(let value)): await send(id, answering: method) { try value.map { value in try encodeResult(id, value) } ?? encodeResult(id, JSONValue.null) }
             case .success(.stream(let chunks)):
-                let streaming = state.withLock { state in
-                    state.running[id]?.streaming = true
-                    return !state.closed
-                }
-                guard streaming else { break }
+                guard !state.withLock({ state in state.closed }) else { break }
                 var acknowledgements = acks.makeAsyncIterator()
                 let interrupted = await chunks.contains { chunk in
                     await send(id, answering: method) { try encodeResult(id, chunk, chunk: true) }
@@ -172,13 +163,14 @@ package func serve<Request: Decodable & Sendable>(
     let server = Server(perform: perform, onDrop: onDrop)
     let ended = await withTaskGroup(of: Result<Void, any Error>.self) { group in
         group.addTask {
-            defer { server.output.finish() }
-            return await Result { () async throws in for await line in server.output { try await write(line) } }
+            await withTaskCancellationShield {
+                defer { server.output.finish() }
+                return await Result { () async throws in for await line in server.output { try await write(line) } }
+            }
         }
         group.addTask {
             let read = await Result { () async throws in for try await line in lines() { server.receive(line) } }
-            let failed: Bool = if case .failure = read { true } else { false }
-            await server.close(failed: failed)
+            await server.close()
             server.output.finish()
             return read
         }

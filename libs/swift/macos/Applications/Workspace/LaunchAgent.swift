@@ -2,6 +2,7 @@ import Encoding
 import Files
 package import Foundation
 import Processes
+import Security
 import System
 import UniformTypeIdentifiers
 
@@ -74,18 +75,45 @@ extension LaunchAgent {
         )
     }
 
+    private var installed: (executable: FilePath, identifier: String?)? {
+        get throws(ApplicationFailure) {
+            let subject: String = program.path(percentEncoded: false)
+            let executable: FilePath?
+            do throws(Errno) {
+                executable = try ifPresent { () throws(Errno) in FilePath(try program.canonical().path(percentEncoded: false)) }
+            } catch {
+                throw ApplicationFailure(subject: subject, reason: .system(error))
+            }
+            guard let executable else { return nil }
+            var (code, information): (SecStaticCode?, CFDictionary?) = (nil, nil)
+            let created: OSStatus = unsafe SecStaticCodeCreateWithPath(URL(filePath: executable.string) as CFURL, [], &code)
+            let read: OSStatus = code.map { (code: SecStaticCode) -> OSStatus in unsafe SecCodeCopySigningInformation(code, [], &information) } ?? created
+            guard read == errSecSuccess else { throw ApplicationFailure(subject: subject, reason: .foundation(NSError(domain: NSOSStatusErrorDomain, code: Int(read)))) }
+            let fields: [CFString: CFTypeRef] = information as? [CFString: CFTypeRef] ?? [:]
+            return (executable, fields[kSecCodeInfoIdentifier] as? String)
+        }
+    }
+
     func instances() throws(ApplicationFailure) -> [ProcessInstance] {
+        guard let identifier = try installed?.identifier else { return [] }
         do throws(Errno) {
-            let executable = try ifPresent { () throws(Errno) in FilePath(try program.canonical().path(percentEncoded: false)) }
-            return try executable.map { executable throws(Errno) in try ProcessInstance.all { path in path == executable } } ?? []
+            return try ProcessInstance.all(signedAs: identifier)
         } catch {
-            throw ApplicationFailure(subject: program.path(percentEncoded: false), reason: .system(error))
+            throw ApplicationFailure(subject: identifier, reason: .system(error))
         }
     }
 
     package func runsInstalledProgram() throws(ApplicationFailure) -> Bool {
-        try instances().map { instance throws(ApplicationFailure) in
-            do throws(ProcessFailure) { return try instance.runsInstalledCode() } catch  where error.reason == .system(.noSuchProcess) { return false } catch {
+        guard let executable = try installed?.executable else { return false }
+        return try instances().map { instance throws(ApplicationFailure) -> Bool in
+            do throws(ProcessFailure) {
+                let running: FilePath
+                do throws(Errno) { running = try instance.executable() } catch { throw ProcessFailure(subject: instance.rawValue, reason: .system(error)) }
+                guard running == executable else { return false }
+                return try instance.runsInstalledCode()
+            } catch  where error.reason == .system(.noSuchProcess) {
+                return false
+            } catch {
                 throw ApplicationFailure(subject: label, reason: .foundation(error as NSError))
             }
         }

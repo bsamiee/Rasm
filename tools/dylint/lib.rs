@@ -538,13 +538,23 @@ mod representation;
 dylint_linting::__maybe_mangle! {
     pub extern "Rust" fn register_lints(session: &rustc_session::Session, store: &mut rustc_lint::LintStore) {
         #[expect(clippy::disallowed_methods, reason = "rustc writes dep-info before a lint pass reads `TyCtxt::env_var_os`, so registration records it, as `dylint_linting` records `DYLINT_TOML`")]
-        let modules = env::var("CARGO_PKG_NAME").map(|package| format!("RASM_MODULE_FILES_{}", package.replace('-', "_"))).map(|variable| (env::var(&variable), variable));
+        let (modules, version) = (
+            env::var("CARGO_PKG_NAME").map(|package| format!("RASM_MODULE_FILES_{}", package.replace('-', "_"))).map(|variable| (env::var(&variable), variable)),
+            env::var("CARGO_PKG_RUST_VERSION"),
+        );
         match modules {
             Ok((Ok(files), variable)) => _ = session.env_depinfo.lock().insert((Symbol::intern(&variable), Some(Symbol::intern(&files)))),
             Ok((Err(VarError::NotPresent), variable)) => _ = session.env_depinfo.lock().insert((Symbol::intern(&variable), None)),
             Err(VarError::NotPresent) => (),
             Ok((Err(VarError::NotUnicode(value)), _)) | Err(VarError::NotUnicode(value)) => _ = session.dcx().err(format!("`{}` is not UTF-8, so Cargo cannot track it", value.display())),
         }
+        let stable = match version {
+            Ok(stated) => {
+                _ = session.env_depinfo.lock().insert((Symbol::intern("CARGO_PKG_RUST_VERSION"), Some(Symbol::intern(&stated))));
+                !stated.is_empty()
+            }
+            Err(VarError::NotPresent | VarError::NotUnicode(_)) => false,
+        };
         let format_args = FormatArgsStorage::default();
         let early = format_args.clone();
         store.register_early_lint_pass(Box::new(move || Box::new(FormatArgsCollector { format_args: FxHashMap::default(), storage: early.clone() })));
@@ -588,7 +598,7 @@ dylint_linting::__maybe_mangle! {
             macros::restriction_in_macro,
             manual::manual_anonymous_impl(Rc::clone(&bodies)),
             manual::manual_bool_toggle,
-            manual::manual_default_field_values,
+            manual::manual_default_field_values(stable),
             manual::manual_deref_pattern,
             manual::manual_drop_guard,
             manual::manual_from_utf8_lossy_owned,

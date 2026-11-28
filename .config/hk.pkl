@@ -152,7 +152,7 @@ steps {
     }
     diagnostic_format = "gcc"
   }
-  for (environment in List(null, "ci", "ci-linux")) {
+  for (environment in List(null, "ci", "ci-linux", "ci-llvm")) {
     [List("mise-lock", environment).filterNonNull().join("-")] {
       glob =
         List(
