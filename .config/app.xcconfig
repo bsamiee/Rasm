@@ -23,6 +23,7 @@ OTHER_LDFLAGS = -Xlinker -fatal_warnings
 // --- [PACKAGING]
 
 ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
+ASSETCATALOG_COMPILER_OPTIMIZATION = space
 GENERATE_INFOPLIST_FILE = YES
 INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.utilities
 INFOPLIST_KEY_NSHumanReadableCopyright = © Bardia Samiee
