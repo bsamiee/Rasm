@@ -14,7 +14,7 @@ Reads go out as parallel calls in one message, each listing alone in the backgro
 - `rclone` remotes -> `rclone about <remote>: --json` for quota and trash, absent on R2 and B2, then one saved listing every later read takes:
 
 ```bash
-rclone lsjson -R --files-only --fast-list --onedrive-delta --hash --no-mimetype --no-modtime <remote>:<path> > <listing>.json
+rclone lsjson -R --files-only --fast-list --hash --no-mimetype --no-modtime <remote>:<path> > <listing>.json
 duckdb -c "select array_to_string(parts[:depth], '/') as folder, sum(Size) as bytes from (select string_split(Path, '/') as parts, Size from read_json('<listing>.json')), range(1, len(parts)) as levels(depth) group by folder having bytes >= <threshold> order by folder"
 duckdb -c "select Size, count(*) as copies, (count(*) - 1) * Size as redundant, list(Path order by Path) as paths from read_json('<listing>.json') where Size > 0 and Hashes is not null group by Hashes, Size having copies > 1 order by redundant desc limit 40"
 ```
