@@ -11,6 +11,7 @@ Dependency declarations come from installed files, usage from Context7, DeepWiki
 - Path: package metadata names repository and commit, Context7 IDs are the repository's `/owner/repo` lowercased, a tag list spells each tag
 - Prose: Context7 descriptions and DeepWiki answers are generated, code quotes come from their Source URL, member names from their declaration
 - Ignore: an ignore file inside the searched tree (`.venv/.gitignore`) hides its files, `--no-ignore` reads them, a listed path needs no flag
+- NuGet: `<packages>` is the folder `dotnet nuget locals global-packages --list` prints, as `NuGet.config` replaces `~/.nuget/packages`
 - Size: `get_file_contents`, `get_package_context`, and DeepWiki `read_wiki_contents` return whole content, `rg` cites a line
 - Index: `search_code` reads default branches in files under 384 KB, `get_repository_tree` finds a path at a tag
 - Quota: `GH_TOKEN`, the GitHub MCP, and every other token of one GitHub account spend one pool, the next call past it answers HTTP 403
@@ -43,7 +44,7 @@ xcrun swift-synthesize-interface -module-name <Module> -sdk "$(xcrun --show-sdk-
 ```
 
 .NET types declaring a member as `.xml` doc ids, ` ``N ` follows a generic method name, without decompiling:
-- Installed version, `<lib>` is `~/.nuget/packages/<id>/<version>/lib/<tfm>`
+- Installed version, `<lib>` is `<packages>/<id>/<version>/lib/<tfm>`
 - Version missing from the packages folder, its nupkg streamed through `tar`, id lowercase
 
 ```bash
@@ -211,7 +212,7 @@ get_package_context {"solutionDirectory": "<main>", "packageName": "<id>", "pack
 Cited README lines of an installed .NET or TypeScript package:
 
 ```bash
-rg -n -A6 '<term>' ~/.nuget/packages/<id>/<version> --glob '*.md'
+rg -n -A6 '<term>' <packages>/<id>/<version> --glob '*.md'
 rg -n --no-ignore -A6 '<term>' <main>/<project>/node_modules/<pkg> --glob '*.md'
 ```
 
@@ -233,7 +234,7 @@ Repository, commit, and tag behind an installed version, then its tree, files, b
 3. Cited lines of a file at the tag, any size
 
 ```bash
-rg -o '<(repository|projectUrl)[^<]*' ~/.nuget/packages/<id>/<version>/<id>.nuspec
+rg -o '<(repository|projectUrl)[^<]*' <packages>/<id>/<version>/<id>.nuspec
 pnpm view <pkg>@<version> repository.url repository.directory gitHead --json
 xh https://pypi.org/pypi/<pkg>/<version>/json | jq -c '.info.project_urls'
 cargo info <crate>@<version> | rg '^repository:'
