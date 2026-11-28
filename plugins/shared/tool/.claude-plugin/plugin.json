@@ -1,6 +1,6 @@
 {
     "name": "tool",
-    "description": "Ghidra analysis, host inspection, disk space analysis and cleaning, and debugging for Python, .NET, C++, and JavaScript. Drive Mac applications through Rasad, and access Raycast, Parallels Desktop, Superhuman Mail and Docs, and Google services",
+    "description": "Ghidra analysis, host inspection, disk space analysis and cleaning, and debugging for Python, .NET, C++, and JavaScript. Drive Mac applications through Rasad and the paired iPhone through devicectl, and access Raycast, Parallels Desktop, Superhuman Mail and Docs, and Google services",
     "author": {
         "name": "Bardia Samiee"
     },
