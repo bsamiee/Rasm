@@ -12,7 +12,7 @@ Scope names what one pass edits:
 | [INDEX] | [SCOPE]      | [RUN]                                                                                     |
 | :-----: | :----------- | :---------------------------------------------------------------------------------------- |
 |  [01]   | File         | One agent reads it whole with every consumer and edits, then adversaries of `[06]` follow |
-|  [02]   | Folder       | One agent per file, conducted by `code:orchestrate`, then adversaries of `[06]` follow    |
+|  [02]   | Folder       | One agent per file, then adversaries of `[06]` follow                                     |
 |  [03]   | Consumer set | Owner file first, each consumer rebuilt in the same change, no old path kept              |
 
 ## [01]-[READING]

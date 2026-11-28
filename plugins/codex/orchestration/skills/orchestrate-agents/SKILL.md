@@ -5,7 +5,7 @@ description: "Use when sending agents tasks in parallel or in stages, covering t
 
 # [ORCHESTRATION_ORCHESTRATE_AGENTS]
 
-Send an agent a bounded task with its own context. Keep decisions and file paths in the parent. Use `code:orchestrate` for briefs, file owners, relays, the ledger, and returned work of agents split by file.
+Send an agent a bounded task with its own context. Keep decisions and file paths in the parent.
 
 ## [01]-[SPLIT]
 
