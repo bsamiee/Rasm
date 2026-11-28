@@ -777,6 +777,9 @@ importers:
       '@rasm/policy':
         specifier: workspace:*
         version: link:../policy
+      '@rasm/report':
+        specifier: workspace:*
+        version: link:../report
       '@rasm/shell':
         specifier: workspace:*
         version: link:../../system/shell

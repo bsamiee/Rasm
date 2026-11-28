@@ -19,6 +19,7 @@
     },
     "dependencies": {
         "@rasm/policy": "workspace:*",
+        "@rasm/report": "workspace:*",
         "@rasm/shell": "workspace:*",
         "sh-syntax": "catalog:"
     },

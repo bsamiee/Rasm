@@ -1,7 +1,8 @@
-import { Action, Decision } from '@rasm/policy/action';
+import { Action, Decision, type Outcome } from '@rasm/policy/action';
 import type { Policy } from '@rasm/policy/policy';
+import { Line, Report } from '@rasm/report';
 import type { Frozen, On, ToolCallInput, ToolCallResult } from 'claude-code';
-import { Cause, Duration, Effect, Match, Option, Path, Predicate, Schedule, Schema, SchemaGetter, Struct } from 'effect';
+import { Cause, Duration, Effect, Match, Option, Path, Predicate, Record, Schedule, Schema, SchemaGetter, Struct } from 'effect';
 import { answer, hosted, type Proceed, recover } from '#/engine/host';
 import { Engine, Notice } from '#/engine/interface';
 import { layer, Session } from '#/policy/session';
@@ -33,6 +34,8 @@ const Background = Schema.Struct({ result: Schema.Struct({ backgroundTaskId: Sch
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const line = ({ subject, reason, values, next }: Outcome) => new Line({ head: [subject], value: reason, facts: Record.collect(values, (label, value) => `${label} ${value}`), ...Option.getOrUndefined(Option.map(next, (call) => ({ call }))) });
+const told = (outcome: Outcome) => Report.text(new Report({ lines: [line(outcome)] }));
 const decide = (policy: Policy, action: Action) =>
     Session.use((session) => session.shell(action.agent)).pipe(
         Effect.flatMap(({ environment, path }) => Effect.provideService(policy.decide(action, environment), Path.Path, path)),
@@ -47,7 +50,7 @@ const watch = Effect.fnUntraced(function* (policy: Policy, { call, agent }: Acti
                     onNone: () => Effect.succeed(Duration.infinity),
                     onSome: (resting) =>
                         decide(policy, Action.cases.Task.make({ ...task, call, agent, resting, again: Duration.infinity })).pipe(
-                            Effect.tap(({ notes }) => Effect.forEach(notes, (text) => engine.deliver(Notice.Message({ text, agent })), { discard: true })),
+                            Effect.tap(({ notes }) => Effect.forEach(notes, (note) => engine.deliver(Notice.Message({ text: told(note), agent })), { discard: true })),
                             Effect.map((decision) => (Decision.$is('Rewrite')(decision) && Action.guards.Task(decision.action) ? decision.action.again : Duration.infinity)),
                         ),
                 }),
@@ -80,7 +83,7 @@ const judge = Effect.fnUntraced(function* (policy: Policy, e: Frozen<ToolCallInp
         Effect.suspend(() => Effect.sleep(Duration.millis(Math.max(0, next.budget.remainingMs - reserve)))).pipe(Effect.repeat({ until: () => next.budget.remainingMs <= reserve }), Effect.andThen(new Cause.TimeoutError('its hook budget ran out before the rules settled'))),
     ).pipe(Effect.catchCause((cause) => Effect.as(Effect.logWarning(`policy did not judge ${action._tag} call ${action.call} and let it run`, cause), Decision.Allow({ notes: [], faults: [] }))));
     const result = yield* Decision.$match(decision, {
-        Deny: ({ reasons }) => Effect.succeed<ToolCallResult>({ deny: [...reasons, 'The call was refused whole, so none of it ran.'].join('\n') }),
+        Deny: ({ reasons }) => Effect.succeed<ToolCallResult>({ deny: Report.text(new Report({ lines: [new Line({ head: ['call refused'], facts: ['none of it ran'] }), ...reasons.map(line)] })) }),
         Allow: () => next(e),
         Rewrite: ({ action: restated }) =>
             Match.value({ from: action, to: restated }).pipe(
@@ -98,7 +101,7 @@ const judge = Effect.fnUntraced(function* (policy: Policy, e: Frozen<ToolCallInp
         Option.flatMap(({ result: { backgroundTaskId: id }, text }) => Option.map(Option.fromNullishOr(new RegExp(String.raw`^[^]*(?<=^|[\s"'\x60(])(?<output>/[^\n"'\x60]*/tasks/${RegExp.escape(id)}\.output)`, 'u').exec(text)?.groups?.['output']), (output) => watch(policy, action, { id, output }))),
         Effect.transposeOption,
     );
-    return result.deny !== undefined || decision.notes.length === 0 ? result : { ...result, context: [...(result.context ?? []), ...decision.notes] };
+    return result.deny !== undefined || decision.notes.length === 0 ? result : { ...result, context: [...(result.context ?? []), ...decision.notes.map(told)] };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -5,10 +5,13 @@
     },
     "references": [
         {
-            "path": "../policy"
+            "path": "../../system/shell"
         },
         {
-            "path": "../../system/shell"
+            "path": "../report"
+        },
+        {
+            "path": "../policy"
         }
     ]
 }
