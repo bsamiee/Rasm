@@ -1,4 +1,5 @@
 import { layerAead, layerSecureRandom } from '@effect/platform-node/NodeCrypto';
+import { layer as fileSystem } from '@effect/platform-node/NodeFileSystem';
 import { Link } from '@rasm/mcp/link';
 import { registerResource, registerResourceTemplate } from '@rasm/mcp/resource';
 import { Server } from '@rasm/mcp/server';
@@ -227,7 +228,7 @@ const lines = ({ content }: { readonly content: readonly unknown[] }) => Array.h
 
 const connected = Effect.fnUntraced(function* <E, R>(beside: Layer.Layer<never, E, R>) {
     const [probe, scheme] = yield* Effect.all([Probe.make, Server.scheme(MANIFEST.name)]);
-    const client = yield* McpTest.makeClient(Layer.provide(Layer.mergeAll(app(probe), beside), Server.layer({ ...SETTINGS, scheme }).pipe(Layer.provide([layerAead, layerSecureRandom]), Layer.orDie)), { protocols: [McpProtocol.v2025_11_25] });
+    const client = yield* McpTest.makeClient(Layer.provide(Layer.mergeAll(app(probe), beside), Server.layer({ ...SETTINGS, scheme }).pipe(Layer.provide([layerAead, layerSecureRandom, fileSystem]), Layer.orDie)), { protocols: [McpProtocol.v2025_11_25] });
     return { probe, client };
 });
 
