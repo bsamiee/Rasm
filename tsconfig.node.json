@@ -5,6 +5,6 @@
         "outDir": ".artifacts/tsc",
         "types": ["node"]
     },
-    "include": ["vitest.config.ts", ".config/stylelint.config.ts"],
+    "include": ["vitest.config.ts", ".config/stylelint.config.ts", "plugins/shared/*/skills/*/scripts/*.ts"],
     "references": [{ "path": "./tests/support/typescript" }]
 }

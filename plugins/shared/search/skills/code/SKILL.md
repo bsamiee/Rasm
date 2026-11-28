@@ -71,13 +71,16 @@ ilspycmd --dump-table Assembly --json <dll> | jq -r '.rows[0] | "\(.Name)/\(.Ver
 ilspycmd -p -o <main>/.cache/ilspy/<Name>/<Version> <dll>
 ```
 
-TypeScript package under `<project>/node_modules/<pkg>` of a project declaring it, `package.json` `exports` naming each entry file:
-1. Exports of one declaration file, `export * as <Module>` names the module file step 2 searches
-2. Declaration with file and line, following overloads and its preceding doc comment read from the file at the line
+TypeScript exports from the native compiler's export list, run from `<main>`, `<project>` the folder whose `package.json` declares the package:
+1. Index: groups with member counts and module summaries, a package name adding its other entry points (`effect/ai`), exit 1 when empty
+2. Group: `<folder>/<group>.tsv` read whole, a row per member with name, kind, `<file>:<start>-<end>` span, and first doc line
+3. Member: its row found by name across groups, then its doc comment, overloads, and declaration read at the span
 
 ```bash
-rg -n '^export ' <main>/<project>/node_modules/<pkg>/<file>.d.ts
-rg -n --no-ignore -A8 '^export (declare )?(abstract )?(const|function|class|interface|type|enum|namespace) <Symbol>\b' <main>/<project>/node_modules/<pkg> --glob '*.d.ts'
+node plugins/shared/search/skills/code/scripts/exports.ts <project> <specifier>
+cat <folder>/<group>.tsv
+rg '^<member>\t' <folder>
+sed -n '<start>,<end>p' <file>
 ```
 
 TypeScript type and enum values of one configuration schema definition:
@@ -86,10 +89,10 @@ TypeScript type and enum values of one configuration schema definition:
 jq -c '(.["$defs"] // .definitions).<Def>' <main>/node_modules/<pkg>/<schema>.json
 ```
 
-TypeScript catalog package no project declares, read its tarball at the catalog release:
+TypeScript catalog package no project declares, its tarball at the catalog release laid out as a `<project>` the export listing reads:
 
 ```bash
-mkdir -p .artifacts/search/<pkg>@<version> && xh -F "$(pnpm view <pkg>@<version> dist.tarball)" | tar -xz --strip-components 1 -C .artifacts/search/<pkg>@<version>
+mkdir -p .artifacts/search/<pkg>@<version>/node_modules/<pkg> && xh -F "$(pnpm view <pkg>@<version> dist.tarball)" | tar -xz --strip-components 1 -C .artifacts/search/<pkg>@<version>/node_modules/<pkg> && echo '{"type": "module"}' > .artifacts/search/<pkg>@<version>/package.json
 ```
 
 Python package in `uv.lock`, `uv run --no-sync --with <pkg> python` resolves one outside the lock:

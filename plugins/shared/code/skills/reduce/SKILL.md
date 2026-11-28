@@ -54,10 +54,10 @@ Sessions run one loop, one pass per unit, until the concern holds no finding:
 2. Rank: units order by certainty of their source, then by lines removed per line read, so a finding an inventory row proves precedes a probe
 3. Pick: first category in list order holding a finding, or the concern given, and its top unit
 4. Map: declarations of that unit alone, as a map of a whole target goes stale at its first commit
-5. Baseline: each entry point reaching the unit run on repository input with its output kept, and counts taken over every file the unit touches
+5. Baseline: counts of every file the unit touches, taken with the reference's count commands
 6. Rebuild: each declaration with every reader and duplicate site in one change, leaving no adapter, alias, or old path
-7. Check: each verify command of the reference, alone in the background, its result read before the next runs
-8. Recount: counts and entry point outputs compared with step 5 under the close rules
+7. Check: the reference's check command, alone in the background
+8. Recount: `git diff --numstat` and counts per file compared with step 5 under the close rules
 9. Commit: files staged by name, subject `refactor(<project>): <imperative naming unit and category>`, no scope across projects
 10. Re-rank: each touched file reread, finished findings struck, exposed findings added, then step 3
 11. Stop: no finding of the concern left, or a decision belongs to the user, asked with each option's cost
@@ -165,7 +165,7 @@ Redundant code repeats another declaration, or adds a fact no host, model, tool,
 - Fallback, catch, or retry hiding a cause -> cause fixed at its source, failure passed on
 - Error variant restating a source's error -> source's error passed through
 
-Removal follows proof: each annotation, schema, or description traced to every sink its value reaches (wire, model tool list, generated file, host registration), and every entry point reaching the code run with each sink's output compared before and after.
+Removal follows a read of every sink an annotation, schema, or description reaches (wire, model tool list, generated file, host registration), and code with a sink reading it stays.
 
 ### [07.4]-[DUPLICATED_LOGIC]
 
@@ -221,22 +221,17 @@ Exports state capability once, under one name:
 
 ## [08]-[CLOSE]
 
-Counts cover every file a pass touches, taken at steps 5 and 8 by the reference's count commands:
-- Lines: logic a reader holds
-- Declarations: internal names, every file-private declaration
-- Exports: external names, every name another module, package, or process can reference
-- Nesting: deepest level of logic per member, and members past the limit
-
-Passes close when every rule holds:
-- Lines and declarations fall across every touched project, nesting deepens nowhere, and every capability stays
-- Exports fall or hold, or rise by an export removing a re-derivation in more than one reader
-- Test targets keep catching every break the suite caught before, proven by fault injection per `code:test`
-- Counts lowered by an erased type, an untyped read, a dropped case, or code moved elsewhere are a regression
+Passes close on their diff: `git diff --numstat` and the reference's count commands per touched file, against the step 5 counts:
+- Internal members: fewer file-private declarations, fields, parameters, and locals
+- Helpers: fewer, each removed by rebuilding its callers and their upstream, never by copying its body into each caller
+- Exports: fewer or held, or one more where it removes a re-derivation in more than one reader
+- Lines: fewer across every touched project
+- Nesting: deeper nowhere
+- Shuffles: no removed form reappearing moved, renamed, wrapped, aliased, or replaced by a constant, string, or new type
 - Failed close -> edits restored with the file edit tool, cause recorded, unit back on the findings list split or re-ranked
 
 Reports per pass, scratch files under `<scratch>/reduce/` deleted once recorded:
 - Subject: target, category, unit, commit
-- Counts: before and after per file in one field order (lines, declarations, exports, nesting)
+- Counts: before and after per file in one field order (lines, internal members, helpers, exports, nesting)
 - Changes: each removed fact with the source stating it now, each kept declaration with its fact and cause
-- Proof: each rule a probe showed with its command, each check with its exit code, each claim left unverified
 - Findings left: each with site and category

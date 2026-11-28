@@ -87,14 +87,11 @@ TypeScript forms of each category, each rebuild holding under its stated conditi
 |  [11]   | Names        | Builder a host validator holds apart from its type  | `make<Service>` function, its service shape derived from it         |
 |  [12]   | Exports      | Reader re-deriving through `ConstructorParameters`  | Type exported once from its declaring module                        |
 
-## [06]-[VERIFY]
+## [06]-[CHECK]
 
-Checks per pass, each command alone in the background, a host project's validator run over its fresh build:
+Check per pass, alone in the background, and a host project's validator over its fresh build:
 
 ```bash
-hk fix <paths> && hk check <paths>
-nx affected -t check --uncommitted
-nx affected -t test --uncommitted
-nx affected -t build --uncommitted
+hk fix <paths> && nx affected -t check --uncommitted
 claude plugin validate .artifacts/vite/<plugin> --json
 ```
