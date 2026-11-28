@@ -1,7 +1,7 @@
 import type { Action } from '@rasm/policy/action';
 import type { Shell as Parser } from '@rasm/shell';
 import type { Frozen, ToolCallInput, ToolCallResult } from 'claude-code';
-import { Array, Context, Data, DateTime, Effect, Exit, HashMap, Layer, Match, Option, Schema, SubscriptionRef } from 'effect';
+import { Context, Data, DateTime, Effect, Exit, HashMap, Layer, Match, Option, Schema, SubscriptionRef } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -59,7 +59,7 @@ const read = (tool: string, answered: Option.Option<ToolCallResult>): Facts =>
                     Match.discriminator('tool')('Bash', ({ result: { backgroundTaskId, gitOperation }, text }): Facts => ({
                         ...(backgroundTaskId === undefined
                             ? {}
-                            : { task: Option.some(backgroundTaskId), output: Option.flatMap(Option.fromUndefinedOr(text), (said) => Option.fromNullishOr(new RegExp(String.raw`^[^]*(?<=^|[\s"'\x60(])(?<output>/[^\n"'\x60]*/tasks/${RegExp.escape(backgroundTaskId)}\.output)`, 'u').exec(said)?.groups?.['output'])) }),
+                            : { task: Option.some(backgroundTaskId), output: Option.flatMapNullishOr(Option.fromUndefinedOr(text), (body) => new RegExp(String.raw`^[^]*(?<=^|[\s"'\x60(])(?<output>/[^\n"'\x60]*/tasks/${RegExp.escape(backgroundTaskId)}\.output)`, 'u').exec(body)?.groups?.['output']) }),
                         ...(gitOperation?.commit === undefined ? {} : { commit: Option.some(gitOperation.commit.sha) }),
                     })),
                     Match.exhaustive,
@@ -67,21 +67,23 @@ const read = (tool: string, answered: Option.Option<ToolCallResult>): Facts =>
         },
     );
 const parse = (invocations: readonly Invocation[]): Facts => ({
-    programs: Array.getSomes(
-        invocations.map((invocation) =>
-            Option.map(
-                invocation.name,
-                (program) =>
-                    new Program({
-                        program,
-                        path: invocation.path,
-                        operands: Array.getSomes(invocation.operands.map(({ word }) => word.text)),
-                        cwd: Match.valueTags(invocation.place, { Local: ({ cwd }) => cwd.text, Remote: () => Option.none() }),
-                    }),
-            ),
+    programs: invocations.flatMap((invocation) =>
+        Option.toArray(invocation.name).map(
+            (program) =>
+                new Program({
+                    program,
+                    path: invocation.path,
+                    operands: invocation.operands.flatMap(({ word }) => Option.toArray(word.text)),
+                    cwd: Match.valueTags(invocation.place, { Local: ({ cwd }) => cwd.text, Remote: () => Option.none() }),
+                }),
         ),
     ),
-    changes: invocations.flatMap(({ writes, deletes }) => [...Array.getSomes(writes.map(({ text }) => text)).map((path) => new Change({ path, removed: false })), ...Array.getSomes(deletes.map(({ text }) => text)).map((path) => new Change({ path, removed: true }))]),
+    changes: invocations
+        .flatMap(({ writes, deletes }) => [
+            { fields: writes, removed: false },
+            { fields: deletes, removed: true },
+        ])
+        .flatMap(({ fields, removed }) => fields.flatMap(({ text }) => Option.toArray(text)).map((path) => new Change({ path, removed }))),
 });
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -120,9 +122,9 @@ class Ledger extends Context.Service<
                     yield* SubscriptionRef.update(state, (held) => ({ ...held, uses: HashMap.set(held.uses, use.call, use) }));
                     return yield* Effect.onExit(run, (exit) => settle(use.call, read(e.tool, Exit.getSuccess(exit))));
                 }),
-                amend: (call, { invocations = [], answered, ...facts }) => {
-                    const [heard, parsed] = [answered === undefined ? {} : read(answered.tool, Option.some(answered.result)), parse(invocations)];
-                    return apply(call, { ...facts, ...heard, ...parsed, changes: [...(heard.changes ?? []), ...(parsed.changes ?? [])] });
+                amend: (call, { invocations, answered, ...facts }) => {
+                    const [answer, parsed]: readonly [Facts, Facts] = [answered === undefined ? {} : read(answered.tool, Option.some(answered.result)), invocations === undefined ? {} : parse(invocations)];
+                    return apply(call, { ...facts, ...answer, ...parsed, changes: [...(answer.changes ?? []), ...(parsed.changes ?? [])] });
                 },
             };
         }),
