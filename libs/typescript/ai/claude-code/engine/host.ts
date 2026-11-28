@@ -1,8 +1,8 @@
-import type { Args, Caught, EngineInterface, EventResult, Frozen, Next, On, RenderElement, RenderInput } from 'claude-code';
+import type { Args, Caught, EngineInterface, EventName, EventResult, Frozen, Next, On, RenderElement, RenderInput, StreamingEventName } from 'claude-code';
 import { Array, Effect, type FileSystem, HashSet, Layer, ManagedRuntime, MutableRef, Option, type Path, type PlatformError, Predicate, PubSub, Record, Ref, Struct, SubscriptionRef } from 'effect';
 import type { KeyValueStore } from 'effect/persistence';
 import type { ChildProcessSpawner } from 'effect/process';
-import { type Agent, route, dispatch, type Hook, type Hooks, type Hosted, plugin, type Plugin, runHook, blockOnce, stream, type Tool } from '#/engine/events';
+import { type Agent, blockOnce, dispatch, type Hook, plugin, type Plugin, route, runHook, stream, type StreamHook, type Tool } from '#/engine/events';
 import { type Engine, engine } from '#/engine/interface';
 import { Ledger } from '#/engine/ledger';
 import { services } from '#/engine/services';
@@ -15,7 +15,10 @@ import { observe, type Theme, theme } from '#/ui/theme';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
+type Hosted = keyof ReturnType<typeof registerHooks>;
 type Provided = Engine | Ledger | Draft | Panes | Placed | Plugin | Theme | FileSystem.FileSystem | KeyValueStore.KeyValueStore | ChildProcessSpawner.ChildProcessSpawner | Path.Path;
+type Table<R, F> = { readonly [N in Exclude<EventName, StreamingEventName>]?: Hook<N, R, F> };
+type Hooks<R, F> = Pick<Table<R, F>, Hosted> & { readonly 'turn.step'?: StreamHook<'turn.step', R, F> };
 interface Part<A, E, F> {
     readonly layer: Layer.Layer<A, E, Provided>;
     readonly hooks: Omit<Hooks<A | Provided, F>, 'turn.step'>;
@@ -30,7 +33,7 @@ interface Mod<A, E, F, S = never> {
 }
 interface Instance<A, E, F, S = never> {
     readonly layer: Layer.Layer<A, E, Provided>;
-    readonly tables: readonly Hooks<A | Provided, F | PlatformError.PlatformError>[];
+    readonly tables: readonly Table<A | Provided, F | PlatformError.PlatformError>[];
     readonly tools: Record.ReadonlyRecord<string, Tool<A | Provided, F>>;
     readonly agents: Record.ReadonlyRecord<string, Agent>;
     readonly live: MutableRef.MutableRef<Option.Option<ManagedRuntime.ManagedRuntime<A | Provided, E | PlatformError.PlatformError>>>;
@@ -61,7 +64,7 @@ function start<A, E, F, S>($: EngineInterface, instance: Instance<A, E, F, S>) {
     });
 }
 
-function answer<A, E, F, S, N extends Hosted>(
+function answer<A, E, F, S, N extends Exclude<EventName, StreamingEventName>>(
     $: EngineInterface,
     instance: Instance<A, E, F, S>,
     e: Frozen<Args<N>>,
@@ -97,6 +100,113 @@ function recover<E, R>($: EngineInterface, e: E, next: ((e: E) => R) & Caught & 
     return next(e);
 }
 
+function registerHooks<A, E, F, S>(on: On, instance: Instance<A, E, F, S>) {
+    const registrations = {
+        'session.start': () => {
+            on('session.start', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'session.end': () => {
+            on('session.end', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'session.compact': () => {
+            on('session.compact', { messages: {} }, ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'session.receive': () => {
+            on('session.receive', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'session.stop': () => {
+            on('session.stop', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'plugin.register': () => {
+            on('plugin.register', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'turn.start': () => {
+            on('turn.start', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'turn.complete': () => {
+            on('turn.complete', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'agent.register': () => {
+            on('agent.register', ($, e, next) => (next.origin.plugin === $.plugin.name ? next(e) : answer($, instance, e, next))).catch(recover);
+        },
+        'agent.offer': () => {
+            on('agent.offer', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'agent.spawn': () => {
+            on('agent.spawn', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'agent.report': () => {
+            on('agent.report', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'tool.describe': () => {
+            on('tool.describe', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'tool.check': () => {
+            on('tool.check', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'tool.call': () => {
+            on('tool.call', ($, e, next) => (next.origin.plugin === $.plugin.name ? next(e) : answer($, instance, e, next))).catch(recover);
+        },
+        'prompt.submit': () => {
+            on('prompt.submit', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'prompt.section': () => {
+            on('prompt.section', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'prompt.context': () => {
+            on('prompt.context', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'prompt.attachment': () => {
+            on('prompt.attachment', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'skill.prompt': () => {
+            on('skill.prompt', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'prompt.fill': () => {
+            on('prompt.fill', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'prompt.paint': () => {
+            on('prompt.paint', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'prompt.suggest': () => {
+            on('prompt.suggest', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'ui.press': () => {
+            on('ui.press', { plugin: '*' }, ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'ui.input': () => {
+            on('ui.input', { plugin: '*' }, ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'ui.select': () => {
+            on('ui.select', { plugin: '*' }, ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'ui.focus': () => {
+            on('ui.focus', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'ui.scroll': () => {
+            on('ui.scroll', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'classic.Stop': () => {
+            on('classic.Stop', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'classic.SubagentStop': () => {
+            on('classic.SubagentStop', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'classic.Notification': () => {
+            on('classic.Notification', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+        'classic.StopFailure': () => {
+            on('classic.StopFailure', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        },
+    };
+    Record.keys(registrations)
+        .filter((event) => instance.tables.some((table) => table[event] !== undefined))
+        .forEach((event) => {
+            registrations[event]();
+        });
+    return registrations;
+}
+
 function host<A, E, F, S = never, const P extends readonly Pick<Part<never, Error, F>, 'layer'>[] = []>(on: On, mod: Mod<A, E, F, S>, ...parts: P & { readonly [K in keyof P]: Part<Layer.Success<P[K]['layer']>, Layer.Error<P[K]['layer']>, F> }) {
     type Served = A | Layer.Success<P[number]['layer']>;
     const shared: readonly Pick<Part<Served, unknown, F>, 'hooks'>[] = parts;
@@ -111,10 +221,7 @@ function host<A, E, F, S = never, const P extends readonly Pick<Part<never, Erro
                 'turn.start': (e, next) => Effect.andThen(SubscriptionRef.update(instance.turns, HashSet.add(Option.fromUndefinedOr(e.agentId))), next(e)),
                 'turn.complete': (e, next) => Effect.andThen(SubscriptionRef.update(instance.turns, HashSet.remove(Option.fromUndefinedOr(e.agentId))), next(e)),
             },
-            ...[mod.hooks, ...shared.map(Struct.get('hooks'))].map((table) => {
-                const { 'classic.Stop': stop, 'classic.SubagentStop': subagentStop } = table;
-                return { ...table, ...(stop === undefined ? {} : { 'classic.Stop': blockOnce(stop) }), ...(subagentStop === undefined ? {} : { 'classic.SubagentStop': blockOnce(subagentStop) }) };
-            }),
+            ...[mod.hooks, ...shared.map(Struct.get('hooks'))].map(Struct.evolve({ 'classic.Stop': (hook) => hook && blockOnce(hook), 'classic.SubagentStop': (hook) => hook && blockOnce(hook) })),
         ],
         tools: mod.tools ?? {},
         agents: mod.agents ?? {},
@@ -127,103 +234,7 @@ function host<A, E, F, S = never, const P extends readonly Pick<Part<never, Erro
     };
     const { matchers, hooks: bodies } = route(instance.tools, instance.agents);
     const { 'turn.step': step } = mod.hooks;
-    const hooked = (event: Hosted) => instance.tables.some((table) => table[event] !== undefined);
-    if (hooked('session.start')) {
-        on('session.start', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('session.end')) {
-        on('session.end', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('session.compact')) {
-        on('session.compact', { messages: {} }, ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('session.receive')) {
-        on('session.receive', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('session.stop')) {
-        on('session.stop', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('plugin.register')) {
-        on('plugin.register', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('turn.start')) {
-        on('turn.start', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('turn.complete')) {
-        on('turn.complete', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('agent.register')) {
-        on('agent.register', ($, e, next) => (next.origin.plugin === $.plugin.name ? next(e) : answer($, instance, e, next))).catch(recover);
-    }
-    if (hooked('agent.offer')) {
-        on('agent.offer', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('agent.spawn')) {
-        on('agent.spawn', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('agent.report')) {
-        on('agent.report', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('tool.describe')) {
-        on('tool.describe', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('tool.check')) {
-        on('tool.check', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('tool.call')) {
-        on('tool.call', ($, e, next) => (next.origin.plugin === $.plugin.name ? next(e) : answer($, instance, e, next))).catch(recover);
-    }
-    if (hooked('prompt.submit')) {
-        on('prompt.submit', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('prompt.section')) {
-        on('prompt.section', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('prompt.context')) {
-        on('prompt.context', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('prompt.attachment')) {
-        on('prompt.attachment', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('skill.prompt')) {
-        on('skill.prompt', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('prompt.fill')) {
-        on('prompt.fill', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('prompt.paint')) {
-        on('prompt.paint', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('prompt.suggest')) {
-        on('prompt.suggest', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('ui.press')) {
-        on('ui.press', { plugin: '*' }, ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('ui.input')) {
-        on('ui.input', { plugin: '*' }, ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('ui.select')) {
-        on('ui.select', { plugin: '*' }, ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('ui.focus')) {
-        on('ui.focus', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('ui.scroll')) {
-        on('ui.scroll', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('classic.Stop')) {
-        on('classic.Stop', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('classic.SubagentStop')) {
-        on('classic.SubagentStop', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('classic.Notification')) {
-        on('classic.Notification', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
-    if (hooked('classic.StopFailure')) {
-        on('classic.StopFailure', ($, e, next) => answer($, instance, e, next)).catch(recover);
-    }
+    registerHooks(on, instance);
     on('theme.*', ($, e, next) => observe($, instance.theme, e, next)).catch(recover);
     if (step !== undefined) {
         on('turn.step', async function* ($, e, next) {
@@ -231,7 +242,7 @@ function host<A, E, F, S = never, const P extends readonly Pick<Part<never, Erro
         });
     }
     if (!Record.isEmptyReadonlyRecord(instance.tools)) {
-        on('tool.run', matchers['tool.run'], ($, e, next) => runHook(start($, instance), dispatch([bodies], e, next), next.signal)).catch(($, e, next) => (next.called ? recover($, e, next) : { deny: `${e.tool} hook failed: ${next.error.kind}` }));
+        on('tool.run', matchers['tool.run'], ($, e, next) => answer($, instance, e, next, [bodies])).catch(($, e, next) => (next.called ? recover($, e, next) : { deny: `${e.tool} hook failed: ${next.error.kind}` }));
     }
     if (!Record.isEmptyReadonlyRecord(instance.agents)) {
         on('agent.offer', matchers['agent.offer'], ($, e, next) => answer($, instance, e, next, [bodies])).catch(($, e, next) => (next.called ? recover($, e, next) : { isOffered: false }));

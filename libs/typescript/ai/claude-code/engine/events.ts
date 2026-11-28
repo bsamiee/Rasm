@@ -1,49 +1,16 @@
 import type { Args, Chunk, EngineInterface, EventName, EventResult, Frozen, HookStream, Next, StreamingEventName, StreamNext, ToolCallResult, ToolSpec, TurnStepInput, TurnStepResult } from 'claude-code';
 import { Array, Cause, Channel, Context, Effect, Exit, Formatter, HashSet, Layer, type ManagedRuntime, Option, PlatformError, Predicate, Pull, Record, Ref, Result, Schema, Scope } from 'effect';
+import { Tool as AiTool } from 'effect/ai';
 import { SecureRandom } from 'effect/crypto';
 import { call } from '#/engine/services';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Hosted =
-    | 'session.start'
-    | 'session.end'
-    | 'session.compact'
-    | 'session.receive'
-    | 'session.stop'
-    | 'plugin.register'
-    | 'turn.start'
-    | 'turn.complete'
-    | 'agent.register'
-    | 'agent.offer'
-    | 'agent.spawn'
-    | 'agent.report'
-    | 'tool.describe'
-    | 'tool.check'
-    | 'tool.call'
-    | 'prompt.submit'
-    | 'prompt.section'
-    | 'prompt.context'
-    | 'prompt.attachment'
-    | 'skill.prompt'
-    | 'prompt.fill'
-    | 'prompt.paint'
-    | 'prompt.suggest'
-    | 'ui.press'
-    | 'ui.input'
-    | 'ui.select'
-    | 'ui.focus'
-    | 'ui.scroll'
-    | 'classic.Stop'
-    | 'classic.SubagentStop'
-    | 'classic.Notification'
-    | 'classic.StopFailure';
 type Picked = 'budget' | 'signal' | 'origin';
 type Proceed<N extends EventName> = ((input: Frozen<Args<N>>) => Effect.Effect<EventResult<N>, PlatformError.PlatformError>) & Pick<Next<N>, Picked>;
 type Onward<N extends StreamingEventName> = ((input: Frozen<Args<N>>) => Channel.Channel<Chunk<N>, Cause.UnknownError, EventResult<N>>) & Pick<StreamNext<N>, Picked>;
 type Hook<N extends EventName, R, F> = (e: Frozen<Args<N>>, next: Proceed<N>) => Effect.Effect<EventResult<N>, F, R>;
 type StreamHook<N extends StreamingEventName, R, F> = (e: Frozen<Args<N>>, next: Onward<N>) => Channel.Channel<Chunk<N>, F, EventResult<N>, unknown, unknown, unknown, R>;
-type Hooks<R, F> = { readonly [N in Hosted]?: Hook<N, R, F> } & { readonly 'turn.step'?: StreamHook<'turn.step', R, F> };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -58,9 +25,8 @@ const Tool = <S extends Schema.Decoder<unknown>, R, F>(
     input: S,
     { run, ...spec }: Omit<ToolSpec, 'name' | 'inputSchema'> & { readonly run: (input: S['Type'], e: Frozen<Args<'tool.run'>>, next: Proceed<'tool.run'>) => Effect.Effect<ToolCallResult, F | PlatformError.PlatformError, R> },
 ): Tool<R | S['DecodingServices'], F> => {
-    const { schema, definitions } = Schema.toJsonSchemaDocument(input);
     const decode = Schema.decodeUnknownEffect(input);
-    return { ...spec, inputSchema: Record.isEmptyRecord(definitions) ? schema : { ...schema, $defs: definitions }, run: (e, next) => Effect.flatMap(decode(e), (decoded) => run(decoded, e, next)) };
+    return { ...spec, inputSchema: AiTool.getJsonSchemaFromSchema(input), run: (e, next) => Effect.flatMap(decode(e), (decoded) => run(decoded, e, next)) };
 };
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -181,7 +147,7 @@ const stream = <N extends StreamingEventName, R, E, F>(e: Frozen<Args<N>>, next:
     );
     const generator: AsyncGenerator<Chunk<N>, EventResult<N>> = {
         next: () => runHook(runtime, read, next.signal),
-        return: (value) => runtime.runPromise(Effect.andThen(close, Effect.promise(() => Promise.resolve(value)).pipe(Effect.map((held): IteratorResult<Chunk<N>, EventResult<N>> => ({ done: true, value: held }))))),
+        return: (value) => Promise.all([runtime.runPromise(close), value]).then(([, held]) => ({ done: true, value: held })),
         throw: (error: unknown) => runtime.runPromise(Effect.andThen(close, Effect.die(error))),
         [Symbol.asyncIterator]: () => generator,
         [Symbol.asyncDispose]: () => runtime.runPromise(close),
@@ -195,14 +161,13 @@ function plugin<R, F>($: EngineInterface, tools: Record.ReadonlyRecord<string, T
     return Layer.effect(
         Plugin,
         Effect.all({
-            name: Effect.sync(() => $.plugin.name),
             tools: registerAll('tool.register', tools, (name, { run: _run, ...spec }) => $.tool.register({ ...spec, name }).then(({ tool }) => tool)),
             agents: registerAll('agent.register', agents, (name, { isOffered: _isOffered, ...spec }) => $.agent.register({ ...spec, name }).then(({ agent }) => agent)),
             blocked: Ref.make(HashSet.empty<readonly [string | undefined, string]>()),
-        }),
+        }).pipe(Effect.map((registered) => ({ ...registered, name: $.plugin.name }))),
     );
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Agent, route, dispatch, type Hook, type Hooks, type Hosted, plugin, Plugin, type Proceed, reply, runHook, type StreamHook, blockOnce, stream, Tool };
+export { type Agent, blockOnce, dispatch, type Hook, plugin, Plugin, type Proceed, reply, route, runHook, stream, type StreamHook, Tool };
