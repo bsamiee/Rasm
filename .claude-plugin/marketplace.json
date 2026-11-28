@@ -52,8 +52,8 @@
             "name": "dreamweave",
             "source": {
                 "source": "archive",
-                "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/dreamweave%400.1.1/dreamweave.zip",
-                "sha256": "1eb9bef4abd9be4333c3f969943d0ac4ccd767b449814bc62814c62d0305d9a4"
+                "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/dreamweave%400.1.2/dreamweave.zip",
+                "sha256": "25f90ca96b7ed5be5bfc0783794d883f7c01371ec3b526225ed235a6bdffdc4d"
             },
             "description": "Claude Code auto-memory system: a skill for writing, editing, and auditing memories, a generated MEMORY.md index with git history, memory pointers on the calls each memory names, and whole skill text after compaction",
             "author": {
@@ -131,8 +131,8 @@
             "name": "sazandeh",
             "source": {
                 "source": "archive",
-                "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/sazandeh%400.1.0/sazandeh.zip",
-                "sha256": "625a2e72a37d26593fd9c5df2864f2814c77ee61d7c2428cb23bfb69879169bb"
+                "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/sazandeh%400.1.1/sazandeh.zip",
+                "sha256": "1270276fee3f475f52328cdba64289a215a7aa2a039d60b0db2a0d01305fe443"
             },
             "description": "Skills for building Claude Code mods on @rasm/claude-code: interface placement, composition, templates, and a preview of every surface",
             "author": {
