@@ -110,14 +110,13 @@ Rust forms of each category, each rebuild holding under its stated condition alo
 |  [26]   | Nesting      | `let` over `Ok` patterns with `else`     | One `match` over the tuple                  | `a3e63536b`                   |
 |  [27]   | Nesting      | Closure in `and_then` in `find_map`      | Outer value in a `let`, `is_some_and`       | `a3e63536b`                   |
 |  [28]   | Nesting      | Arm matching again on a narrowed value   | Arm guard or let chain                      | `rust:coding`                 |
-|  [29]   | Names        | Type and builder sharing a word          | Pair kept                                   | `non_snake_case`              |
+|  [29]   | Names        | Free `fn` building the type it names     | Associated constructor on the type          | `rust:coding`                 |
 |  [30]   | Exports      | `pub use` of a dependency item           | Import from the dependency                  | `reexported_dependency`       |
 |  [31]   | Exports      | `pub mod` beside root `pub use` lists    | One export form per crate                   | Visibility count              |
 |  [32]   | Exports      | `pub` field a cross-field rule spans     | Private field, `derive_more` `#[as_ref]`    | `rust:coding`                 |
 
 Rows hold under these conditions:
 - Row [23] -> a foreign trait a host calls (`rmcp` handler, `LateLintPass`) and a trait alias of bounds stay
-- Row [29] -> `non_camel_case_types` and `non_snake_case` force the case split, so the pair stays
 
 ## [06]-[CHECK]
 
