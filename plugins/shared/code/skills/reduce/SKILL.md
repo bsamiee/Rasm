@@ -150,6 +150,7 @@ Redundant code repeats another declaration, or states a fact no sink receives (a
 - Guard or re-parse over a state its type excludes -> removed, a guard each reader of a wide input repeats becoming one validation at construction
 - Fallback, catch, or retry hiding a cause -> cause fixed at its source, recovery a host or protocol requires (timeout, compensation) kept
 - Error variant restating a source's error -> source's error passed through
+- Attribute, macro, or derive whose generated members no reader reads -> removed with them, as generated members are declarations too
 
 ### [07.2]-[DUPLICATED_LOGIC]
 
