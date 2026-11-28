@@ -888,11 +888,14 @@ package actor Watch {
     }
 
     private func level(of ref: Int) throws(ApplicationFailure) -> Model {
-        guard let item = located[ref], handles[item] != nil, let opener = controls[ref] else { throw stale(ref) }
+        guard let item = located[ref].flatMap({ id in handles[id] }), let opener = controls[ref], let opens = opener.control.opens else { throw stale(ref) }
         var level = Model(sequence: sequence, containers: [], located: [:])
         for _ in 0..<2 where level.containers.first?.controls.isEmpty != false {
-            let (elements, truncated) = try walk([(id: item, reach: .menu, depth: 3)], rows: nil)
-            let menus: [Int] = elements[item]?.facts[kAXChildrenAttribute]?.elements ?? []
+            let children: [Int] = read(item, [kAXChildrenAttribute]).element.facts[kAXChildrenAttribute]?.elements ?? []
+            let menus: [Int] = [
+                children.first { (child: Int) -> Bool in handles[child].map { (handle: AXUIElement) -> Bool in read(handle, [kAXRoleAttribute]).element.role == kAXMenuRole } == true }
+            ].compactMap(\.self)
+            let (elements, truncated) = try walk(menus.map { menu in (id: menu, reach: .menu, depth: 2) }, rows: nil)
             let hierarchy = Hierarchy(
                 elements: Array(elements.values),
                 roots: menus,
@@ -903,7 +906,7 @@ package actor Watch {
                 truncated: truncated,
                 extras: nil,
             )
-            level = Model(hierarchy, sequence: sequence, under: Dictionary(menus.map { menu in (menu, opener.control.locator) }) { first, _ in first }, ref: intern)
+            level = Model(hierarchy, sequence: sequence, under: Dictionary(uniqueKeysWithValues: menus.map { menu in (menu, locators[opens - 1]) }), ref: intern)
         }
         if let held = level.containers.first, !held.controls.isEmpty {
             levels[ref] = held
@@ -944,11 +947,15 @@ package actor Watch {
     // --- [MENUS]
 
     private func track(_ menu: AXUIElement) throws(ApplicationFailure) {
-        let head: Element = read(menu, frameAttributes + [kAXParentAttribute, kAXTopLevelUIElementAttribute]).element
+        let head: Element = read(menu, frameAttributes + [kAXParentAttribute]).element
         guard let frame = head.frame, !frame.isEmpty else { return }
         let row: InstanceState.Window? = rows.filter { row in row.onScreen && row.band == .popUpMenu && row.frame.contains(frame) }
             .min { first, second in first.frame.width * first.frame.height < second.frame.width * second.frame.height }
-        let opener: Int? = [kAXParentAttribute, kAXTopLevelUIElementAttribute].compactMap { attribute in head.facts[attribute]?.element.flatMap { id in owners[id] } }.first
+        let listing: Int? = owners[head.id].flatMap { (ref: Int) -> Int? in numbers[Locator(steps: Array(locators[ref - 1].steps.dropLast()))] }
+        let parent: Int? = head.facts[kAXParentAttribute]?.element.flatMap { (id: Int) -> Int? in owners[id] }
+        let opener: (control: Control, container: Int)? = [listing, parent].compactMap { (ref: Int?) -> (control: Control, container: Int)? in
+            ref.flatMap { (ref: Int) -> (control: Control, container: Int)? in controls[ref] }
+        }.first
         let (elements, truncated) = try walk([(id: head.id, reach: .menu, depth: 2)], rows: nil)
         let shown: [Element] = elements.values.map { (element: Element) -> Element in
             guard element.id == head.id else { return element }
@@ -966,12 +973,12 @@ package actor Watch {
             truncated: truncated,
             extras: nil,
         )
-        let model = Model(hierarchy, sequence: sequence, under: opener.map { ref in [head.id: locators[ref - 1]] } ?? [:], ref: intern)
+        let model = Model(hierarchy, sequence: sequence, under: opener?.control.opens.map { (ref: Int) -> [Int: Locator] in [head.id: locators[ref - 1]] } ?? [:], ref: intern)
         guard let container = model.containers.first(where: { container in container.kind == .menu }), open[container.ref] == nil else { return }
         locate(model)
         open[container.ref] = container
         emit(.opened(container: container.ref, kind: .menu, title: container.title))
-        try observe(container, opener: opener.flatMap { ref in controls[ref] })
+        try observe(container, opener: opener)
     }
 
     nonisolated func presenting<Value>(

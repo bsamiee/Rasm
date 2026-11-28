@@ -622,8 +622,8 @@ extension Model {
         )
         let scopes: [(element: Element, kind: Container.Kind, locator: Locator)] = containers.map { element, kind in
             let chain: [Int] = Swift.sequence(first: element.id) { scope in owners[scope] }.prefix(held.count).reversed()
-            let base: Locator = chain.first.flatMap { root in under[root] } ?? Locator(steps: [])
-            return (element, kind, chain.compactMap { scope in placed[scope] }.reduce(base) { locator, step in locator.appending(step) })
+            let named: Locator? = chain.first.flatMap { root in under[root] }
+            return (element, kind, chain.dropFirst(named == nil ? 0 : 1).compactMap { scope in placed[scope] }.reduce(named ?? Locator(steps: [])) { locator, step in locator.appending(step) })
         }
         let locators: [Int: Locator] = Dictionary(uniqueKeysWithValues: scopes.map { scope in (scope.element.id, scope.locator) })
         let unit = Regex {
@@ -758,8 +758,14 @@ extension Model {
         let masks: [(mask: AXMenuItemModifiers, modifier: Modifier)] = [(.shift, .shift), (.option, .option), (.control, .control), (functionModifier, .function)]
         let built: [(owner: Int, control: Control, located: [(ref: Int, element: Int)])] = addressed.map { owner, element, kind, set, label, locator in
             let menus: [Element] = element.children.compactMap { child in held[child] }
-            let opens: Int? = zip(menus, Locator.Step.distinguish(menus.map { (menu: Element) -> (role: String, keys: [Locator.Step.Key]) in menu.identify(by: menu.label, redacting: withheld) }))
-                .first { (menu: Element, _: Locator.Step) -> Bool in menu.role == kAXMenuRole }.map { (_: Element, keyed: Locator.Step) -> Int in intern(locator.appending(keyed)) }
+            let opened: (ref: Int, element: Int)? = zip(
+                menus,
+                Locator.Step.distinguish(menus.map { (menu: Element) -> (role: String, keys: [Locator.Step.Key]) in menu.identify(by: menu.label, redacting: withheld) }),
+            )
+            .first { (menu: Element, _: Locator.Step) -> Bool in menu.role == kAXMenuRole }.map { (menu: Element, keyed: Locator.Step) -> (ref: Int, element: Int) in
+                (ref: intern(locator.appending(keyed)), element: menu.id)
+            }
+            let opens: Int? = opened?.ref
             let disclosable: Bool = beneath[element.id]?.contains { cell in cell.role == kAXDisclosureTriangleRole } == true
             let role: String = element.role ?? kAXUnknownRole
             let opensMenu: Bool = opens != nil || role == kAXPopUpButtonRole || role == kAXComboBoxRole || role == kAXMenuButtonRole
@@ -857,7 +863,8 @@ extension Model {
                 subrole: element.text(kAXSubroleAttribute),
                 label: label,
                 labels: inputs.isEmpty ? nil : inputs,
-                section: Swift.sequence(first: element.id) { child in parents[child] }.prefix(held.count).lazy.compactMap { scope in sections[scope] }.first,
+                section: Swift.sequence(first: element.id) { child in parents[child] }.prefix(held.count).prefix { scope in scope != parentOf[element.id] }.lazy.compactMap { scope in sections[scope] }
+                    .first,
                 value: value,
                 settable: element.settable[kAXValueAttribute],
                 enabled: element.flag(kAXEnabledAttribute),
@@ -894,7 +901,10 @@ extension Model {
                 required: element.flag(NSAccessibility.Attribute.required.rawValue),
                 current: element.text(kAXARIACurrentAttribute).flatMap(Control.Current.init(rawValue:)),
             )
-            return (owner: owner, control: control, located: [(ref: control.ref, element: element.id)] + zip(optionRefs, listed.map(\.id)).map { ref, member in (ref: ref, element: member) })
+            return (
+                owner: owner, control: control,
+                located: [(ref: control.ref, element: element.id)] + zip(optionRefs, listed.map(\.id)).map { ref, member in (ref: ref, element: member) } + [opened].compactMap(\.self),
+            )
         }
         let controls: [Int: [Control]] = Dictionary(grouping: built, by: \.owner).mapValues { entries in entries.map(\.control) }
         let assembled: [Container] = scopes.map { element, kind, locator in
