@@ -124,8 +124,8 @@
             "category": "Coding"
         },
         {
-            "name": "sazman",
-            "source": "./plugins/claude/sazman",
+            "name": "sazandeh",
+            "source": "./plugins/claude/sazandeh",
             "description": "Skills for building Claude Code mods on @rasm/claude-code: interface placement, composition, templates, and a preview of every surface",
             "author": {
                 "name": "Bardia Samiee"

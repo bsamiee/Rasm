@@ -1,5 +1,5 @@
 {
-    "name": "@rasm/sazman",
+    "name": "@rasm/sazandeh",
     "private": true,
     "description": "Claude Code skills for building mods on @rasm/claude-code, with templates type-checked against the library",
     "files": [

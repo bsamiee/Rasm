@@ -14,7 +14,7 @@ const Fetch = Schema.Struct({ url: Schema.String });
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Asking extends Context.Service<Asking, { readonly url: SubscriptionRef.SubscriptionRef<Option.Option<string>> }>()('@rasm/sazman/skills/mod-ui/templates/ask/Asking') {
+class Asking extends Context.Service<Asking, { readonly url: SubscriptionRef.SubscriptionRef<Option.Option<string>> }>()('@rasm/sazandeh/skills/mod-ui/templates/ask/Asking') {
     static readonly layer = Layer.effect(
         Asking,
         Effect.map(SubscriptionRef.make(Option.none<string>()), (url) => ({ url })),

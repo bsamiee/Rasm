@@ -1794,7 +1794,7 @@ importers:
 
   products/apps/creative-cloud/aftereffects/atelier:
     dependencies:
-  plugins/claude/sazman:
+  plugins/claude/sazandeh:
     devDependencies:
       '@rasm/claude-code':
         specifier: workspace:*

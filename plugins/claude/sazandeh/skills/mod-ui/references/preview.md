@@ -5,7 +5,7 @@
 ## [01]-[MOUNT]
 
 Templates and draft modules become mod bundles in a scratch kit under the plugin's ignored `.cache/`, never committed:
-1. Kit: `plugins/claude/sazman/.cache/mount/<name>/` holding `.claude-plugin/plugin.json` (`name`, `version`, `description`), `hooks/hooks.json` (`{ "modules": ["./register.ts"] }`), `hooks/register.ts` (the module), `package.json` (`name`, `private`, `type: module`), and `vite.config.ts` exporting `defineConfig(claude(import.meta.dirname))` from `@rasm/vite/claude`
+1. Kit: `plugins/claude/sazandeh/.cache/mount/<name>/` holding `.claude-plugin/plugin.json` (`name`, `version`, `description`), `hooks/hooks.json` (`{ "modules": ["./register.ts"] }`), `hooks/register.ts` (the module), `package.json` (`name`, `private`, `type: module`), and `vite.config.ts` exporting `defineConfig(claude(import.meta.dirname))` from `@rasm/vite/claude`
 2. Build: `../../../node_modules/.bin/vite build --outDir dist --emptyOutDir` inside the kit, as the kit resolves `@rasm/claude-code`, `effect`, and `vite` through the plugin's own `node_modules`
 3. Validate: `claude plugin validate <kit>/dist`, whose missing-icon and repository-root warnings change nothing for a local mod
 4. Preview: `uv run --locked --script scripts/preview.py <kit>/dist [--step KIND:VALUE]...`

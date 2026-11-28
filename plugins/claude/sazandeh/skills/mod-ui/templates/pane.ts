@@ -35,7 +35,7 @@ class Held extends Data.Class<{ readonly calls: readonly Call[]; readonly forget
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Calls extends Context.Service<Calls, { readonly held: SubscriptionRef.SubscriptionRef<Held> }>()('@rasm/sazman/skills/mod-ui/templates/pane/Calls') {
+class Calls extends Context.Service<Calls, { readonly held: SubscriptionRef.SubscriptionRef<Held> }>()('@rasm/sazandeh/skills/mod-ui/templates/pane/Calls') {
     static readonly layer = Layer.effect(
         Calls,
         Effect.map(SubscriptionRef.make(new Held({ calls: [], forgets: 'ended', tool: Option.none() })), (held) => ({ held })),

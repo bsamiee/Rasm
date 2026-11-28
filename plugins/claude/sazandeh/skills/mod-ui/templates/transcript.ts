@@ -15,7 +15,7 @@ class Seen extends Data.Class<{ readonly tools: Record.ReadonlyRecord<string, nu
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Calls extends Context.Service<Calls, { readonly seen: SubscriptionRef.SubscriptionRef<Seen> }>()('@rasm/sazman/skills/mod-ui/templates/transcript/Calls') {
+class Calls extends Context.Service<Calls, { readonly seen: SubscriptionRef.SubscriptionRef<Seen> }>()('@rasm/sazandeh/skills/mod-ui/templates/transcript/Calls') {
     static readonly layer = Layer.effect(
         Calls,
         Effect.map(SubscriptionRef.make(new Seen({ tools: {}, turn: { calls: 0, refused: 0 } })), (seen) => ({ seen })),

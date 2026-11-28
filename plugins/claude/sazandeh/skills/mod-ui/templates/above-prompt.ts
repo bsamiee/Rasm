@@ -16,7 +16,7 @@ class Running extends Data.Class<{ readonly key: string; readonly tool: string; 
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Calls extends Context.Service<Calls, { readonly running: SubscriptionRef.SubscriptionRef<readonly Running[]> }>()('@rasm/sazman/skills/mod-ui/templates/above-prompt/Calls') {
+class Calls extends Context.Service<Calls, { readonly running: SubscriptionRef.SubscriptionRef<readonly Running[]> }>()('@rasm/sazandeh/skills/mod-ui/templates/above-prompt/Calls') {
     static readonly layer = Layer.effect(
         Calls,
         Effect.map(SubscriptionRef.make<readonly Running[]>([]), (running) => ({ running })),

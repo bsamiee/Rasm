@@ -3,7 +3,7 @@ name: mod-ui
 description: "Use when building, changing, or reviewing a Claude Code mod's interface on @rasm/claude-code, covering where each site draws, who reads it, how rows, panes, asks, commands, tools, and themes compose, templates, and the preview of every surface"
 ---
 
-# [SAZMAN_MOD_UI]
+# [SAZANDEH_MOD_UI]
 
 Mods are hooks modules the engine loads from a plugin, written as Effect programs on `@rasm/claude-code`: `host(on, { ... })` takes data and Effects, and the library lowers them through the engine's `$`, which a mod never sees. The engine's own `plugin-authoring` skill holds the raw `$` API, its JSX examples, and colors; translate its examples to `Element` values and library services before using one.
 
@@ -145,7 +145,7 @@ Build from the smallest site that carries the fact, and add a site only when the
 9. Check: `nx run @rasm/<project>:check--tsc`, then `nx build @rasm/<project>`, then `scripts/preview.py` on the build with steps reaching every state the mod draws (`references/preview.md`)
 10. Read each surface's trees and the `model` line before claiming a site works there, as the preview paints the terminal alone
 
-Templates compile against the library on every change through `nx run @rasm/sazman:check--tsc`; a template that fails is a library change to answer, never a template to delete.
+Templates compile against the library on every change through `nx run @rasm/sazandeh:check--tsc`; a template that fails is a library change to answer, never a template to delete.
 
 ## [05]-[ASSETS]
 
