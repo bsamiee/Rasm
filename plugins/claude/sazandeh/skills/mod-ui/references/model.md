@@ -7,8 +7,11 @@ Everything a mod draws reaches the person alone, and the model reads only hook a
 `ask(question)` from `@rasm/claude-code/ask` opens the engine's AskUserQuestion dialog and answers the plugin alone:
 - `question` is the dialog's text, `header` its chip of at most 12 characters, `options` a tuple of 2 to 4 `{ label, description?, preview? }`, `multiSelect` optional
 - `Answer` is a tagged enum folded by `Answer.$match`: `Picked` (`labels`, `other`, `notes`), `Other` (typed text alone), `Noted` (notes alone), `Declined`
+- Engines list `Type something.` (answering `Other`) and `Chat about this` (answering `Declined`) under the options
+- Refusals the hook returns draw as `⎿ Error: <deny>` on the call row
 - `Effect.timeoutOption(ask(...), <duration>)` takes the dialog down when its moment passed, as interruption aborts the call
-- `-p` runs have no dialog, and `ask` answers `Declined` there, as for a dismissal
+- `Declined` answers a dismissal, a refused call, and a question answered in chat, and a tool error fails with `badArgument`
+- Hooks fold every arm and the failure, as `templates/ask.ts` refuses the model's call on each
 - Asks run from a hook, a press, or a forked fiber alike, as each calls the engine through `Engine.callTool`; `$.tool.call` of AskUserQuestion is refused
 - Answers reach the model only through a channel the hook then uses: a `deny` naming what the person chose, or `next(e)` running the call
 - `render.AskUserQuestion` decorates the dialog with the evidence (`Box[evidence, next()]`), in at most 12 rows on the terminal and 48 elsewhere
@@ -26,7 +29,7 @@ Everything a mod draws reaches the person alone, and the model reads only hook a
 |  [04]   | `Note`         | Model    | Next request of its loop            | Fact for an agent, busy or idle               |
 |  [05]   | `Message`      | Model    | Starts a turn when idle             | Work an agent must start now                  |
 
-- `Notification` with `text: Option.none()` retracts by key, and a send that finds no channel logs `notification <key> not sent: <reason>`; under Zellij the `auto` channel finds none
+- `Notification` with `text: Option.none()` retracts by key, and a send that finds no channel logs `message="notification not sent"` with `key` and `reason`; under Zellij the `auto` channel finds none
 - `Note` appends a user row the model reads on its loop's next request and the person never sees as typed
 - `Message` to a busy agent becomes a `Note`, to an idle main a submitted prompt, to an idle subagent a `session.send`; delivered means queued, never read
 - Toasts outside fullscreen draw as one notification-bar line, and a shown `holdToasts` pane queues them undrawn

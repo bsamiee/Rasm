@@ -20,14 +20,14 @@ Panes are framed regions the surface places and the mod draws: a `render.Pane` r
 |  [10]   | `closes`          | `Effect<boolean>` deciding whether the person's close goes through                |
 
 - `Panes.open({ id, ...override })` sends the row's fields under what the call names, so a call retitles with `{ id, title }` and the manners stay declared once
-- Ids with no row fail `Panes.open` with `badArgument`, and another plugin's id fails through the engine's refusal
+- Ids with no row fail `Panes.open` with `badArgument` (`no render row, pane <id>`), and another plugin's id fails through the engine's refusal
 - Every open sets `focus`, `closeOnEscape`, `holdToasts`, `rows`, and `columns` anew, so a row's values return on each open
 - `Panes.list` answers this plugin's open panes, placed ones first, from the engine's record, which outlives a module reload
 - `Panes.close({ id })` settles once the pane is gone; the mod's own close raises no `closes` of its own
 
 ## [02]-[PLACEMENT]
 
-`Panes.open` resolves `isPlaced: true` once drawn, or `isPlaced: false` with a `reason`, an open pane waiting undrawn and never a failure:
+`Panes.open` resolves `isPlaced: true` once a surface seats the pane, or `isPlaced: false` with a `reason`, an open pane waiting undrawn and never a failure:
 - Asked opens (a command or prompt the person entered, a Button, Input, or Select they worked) place at any width
 - Unasked opens (a timer, `session.start`, a turn event, a queued prompt) place from 144 columns, 110 for an id the person opened and never closed by hand
 - Fullscreen from 110 columns docks the pane beside the transcript, narrower or main-screen layouts seat it inline above the prompt
@@ -54,13 +54,15 @@ Keys belong to one site at a time, and `focus` is a request the surface refuses 
 - `e.props.isFocused`, `e.props.isPromptCovered`, and `e.props.scroll` (`offset`, `bodyRows`) are read-only, and `scroll` is the engine's window, moved by wheel and keys
 - `Engine.scroll({ in: <id>, to: 'end' | 'start' | { key } })` moves the window, `Engine.focus({ requestId: <id>, key })` moves the ring; keys name keyed elements of this plugin
 - Lists key every row (`Box` or `Button` `key`), so a redraw keeps the focus ring and a scroll finds the row
+- `Panes.open` resolves before the body's first draw, so a scroll to a row right after it is refused until the row draws
+- Openers retry that scroll on a bounded schedule (`templates/above-prompt.ts`), as the refusal reads `no element of its own is drawn under that key`
 - Empty state is one dim line naming what would appear, never an empty frame
 - Frames: the close mark sits on a row of the frame's own, and an inline frame also takes its border rows and the tab row while tabs show
 
 ## [05]-[CLOSING]
 
 `closes` hears the person alone: the close mark, `ctrl+x x`, or Escape under `closeOnEscape`:
-- `false` keeps the pane and hands the keys back, `true` lets it close, a failure logs `Pane <id> close failed` and closes
+- `false` keeps the pane and hands the keys back, `true` lets it close, a failure logs `message="close failed"` with the `pane` id and closes
 - Panes closed by their own plugin (`Panes.close`) or by an unload raise no `closes` row
 - Work a pane started (a poll, a follow) stops in `closes`, as a closed pane's state no longer draws anywhere
 - `holdToasts` belongs to a dialog the person answers and leaves: on a standing pane it hides every plugin's toasts while it shows
@@ -71,5 +73,5 @@ Keys belong to one site at a time, and `focus` is a request the surface refuses 
 - Terminal: every element draws; `Raster` and `Image` in a pane need the terminal's graphics, and tmux or Zellij draw an `Image` as its `alt`
 - Desktop: `Svg` and `Shader` draw, `Raster` and `Image` lower to a fragment (an empty column `Box`)
 - VS Code: `Svg` draws as an image, `Raster` and `Image` lower to a fragment
-- Mobile: `Input` and `Select` draw as an empty `Box` and `Progress` as `Box` and `Text`, so a form keeps a `Text` line naming each chosen value
+- Mobile: `Input` and `Select` draw as an empty column `Box` and `Progress` as `Box` and `Text` (session trees of `templates/pane.ts`), so a form keeps a `Text` line naming each chosen value
 - Redraws fold to 30 a second for a shown pane on the terminal and 10 elsewhere, so the state stream redraws and no timer calls `invalidate`

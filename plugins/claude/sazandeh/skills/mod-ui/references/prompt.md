@@ -17,7 +17,9 @@ Rows and cells around the prompt draw from `render` rows over the one state valu
 
 `Notice.Band` and a render `AbovePrompt` row draw one site, and the render row sits outermost, so its `next()` is the band rows `Notice.Band` delivered:
 - `Notice.Band({ group, rows })` holds label rows keyed by press key, `band.press(key)` answers a press, and `rows: {}` clears a group
-- `Notice.Band` raises one OS notification for each new row key, so it suits asks the person must come back to; a standing row of state is a render row
+- `band.press` runs after the engine's press returns, so an ask it raises outlives the 10 s budget, and a failure logs `<key> press failed`
+- `Notice.Band` raises an OS notification per new row key and retracts it when the row goes, so it suits asks the person returns to
+- Standing rows of state are render rows
 - Render rows draw any element, read the state value, and raise no notification
 
 ## [02]-[STACK]

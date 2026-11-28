@@ -5,7 +5,7 @@ description: "Use when building, changing, or reviewing a Claude Code mod's inte
 
 # [SAZANDEH_MOD_UI]
 
-Mods are hooks modules the engine loads from a plugin, written as Effect programs on `@rasm/claude-code`: `host(on, { ... })` takes data and Effects, and the library lowers them through the engine's `$`, which a mod never sees. The engine's own `plugin-authoring` skill holds the raw `$` API, its JSX examples, and colors; translate its examples to `Element` values and library services before using one.
+Mods are hooks modules the engine loads from a plugin, written as Effect programs on `@rasm/claude-code`: `host(on, mod, ...parts)` takes data and Effects, and the library lowers them through the engine's `$`, which a mod never sees. The engine's own `plugin-authoring` skill holds the raw `$` API, its JSX examples, and colors; translate its examples to `Element` values and library services before using one.
 
 Owner rules bind every mod this skill builds:
 - Every engine call goes through `@rasm/claude-code`, and a mod holds no `$`
@@ -20,12 +20,12 @@ Owner rules bind every mod this skill builds:
 - [03]-[TRANSCRIPT](references/transcript.md): Engine rows of the transcript, slash command output, and placed rows
 - [04]-[MODEL](references/model.md): Asks, notices, and the channels the model reads
 - [05]-[THEMES](references/themes.md): Themes, backdrop scenes, and underlays
-- [06]-[EVENTS](references/events.md): Hooks, budgets, declared tools, agent types, commands, and services
+- [06]-[EVENTS](references/events.md): Hooks, parts, budgets, declared tools, agent types, commands, and services
 - [07]-[PREVIEW](references/preview.md): Building a scratch mount and reading the preview of every surface
 
 [TEMPLATES]:
 - [01]-[PANE](templates/pane.ts): List pane with summary, sections, empty state, and widget glance, and a dialog form, opened by commands
-- [02]-[ABOVE_PROMPT](templates/above-prompt.ts): Band row with `+N` overflow into a pane and a hint tail
+- [02]-[ABOVE_PROMPT](templates/above-prompt.ts): Band row whose press opens a pane scrolled to its row, `+N` overflow, and a hint tail
 - [03]-[ASK](templates/ask.ts): One decision before a tool call, its refusal text, and evidence above the dialog
 - [04]-[TRANSCRIPT](templates/transcript.ts): Call-row line, turn total, fenced report table, and a slash command table
 - [05]-[RUNNER_TOOL](templates/runner-tool.ts): Model-callable tool running the mod's own hidden agent type
@@ -61,20 +61,21 @@ desktop, mobile: Backdrop scene behind the conversation
 desktop: ContextMenu on right-click, Pane as a widget
 ```
 
-Surfaces raise different sites, and a site a surface never raises needs a second home there:
+Surfaces raise different sites, each component's declaration naming where, and a site a surface never raises needs a second home there:
 
 | [INDEX] | [SITE]                                                                             | [RAISED_ON]                  |
 | :-----: | :--------------------------------------------------------------------------------- | :--------------------------- |
-|  [01]   | `AbovePrompt`, `Pane`, `Placed`                                                    | Every surface                |
-|  [02]   | `ToolUse`, `ToolResult`, `ToolGroup`                                               | Every surface                |
-|  [03]   | `UserMessage`, `AssistantMessage`, `CommandOutput`, `AgentRow`                     | Every surface                |
+|  [01]   | `AbovePrompt`, `AbovePromptList`, `Pane`, `Placed`, `AskUserQuestion`              | Every surface                |
+|  [02]   | `ToolUse`, `ToolResult`, `ToolGroup`, `CommandOutput`, `AgentRow`                  | Every surface                |
+|  [03]   | `UserMessage`, `AssistantMessage`                                                  | Every surface                |
 |  [04]   | `PromptHint`                                                                       | Terminal, desktop, mobile    |
 |  [05]   | `Spinner`                                                                          | Terminal, desktop, VS Code   |
-|  [06]   | `BesidePrompt`, `SessionMode`                                                      | Terminal fullscreen, desktop |
-|  [07]   | `CodeBlock`, `TurnDuration`, `ToolProgress`, `Welcome`, `InfoNotice`, `StatusLine` | Terminal                     |
-|  [08]   | `Underlay`                                                                         | Terminal fullscreen          |
-|  [09]   | `ContextMenu`                                                                      | Desktop                      |
-|  [10]   | `Backdrop`                                                                         | Desktop, mobile              |
+|  [06]   | `SessionMode`                                                                      | Terminal, desktop            |
+|  [07]   | `BesidePrompt`, `BesidePromptList`                                                 | Terminal fullscreen, desktop |
+|  [08]   | `CodeBlock`, `TurnDuration`, `ToolProgress`, `Welcome`, `InfoNotice`, `StatusLine` | Terminal                     |
+|  [09]   | `Underlay`, `UnderlayList`                                                         | Terminal fullscreen          |
+|  [10]   | `ContextMenu`                                                                      | Desktop                      |
+|  [11]   | `Backdrop`                                                                         | Desktop, mobile              |
 
 ## [02]-[READERS]
 
@@ -100,27 +101,29 @@ host(on, {
         state,  // one Stream of the state value every row reads
         // one row per RenderComponent, Pane rows keyed by id, Backdrop rows keyed by scene
     },
-});
+}, ...parts); // { layer, hooks } tables a library ships (enforce(policy)), chained after the mod's own
 ```
 
 [STATE]:
 - One service owns a `SubscriptionRef`, hooks and handlers write it, and `render.state` streams it (`ref.pipe(SubscriptionRef.changes)`)
 - Each distinct value redraws every site the plugin draws, band, panes, and rows together, so no row reads services and no timer redraws
-- Before the first value every row passes `next()`, and a stream that ends keeps its last value
+- Before the first value every row passes `next()`, and a stream that ends keeps its last value until the session's runtime ends
 - Rows run pure over `e` and the state value; slow work belongs in a hook that writes the state
 
 [ROWS]:
 - Rows are `(e, state, next) => Effect<Element | RenderElement>`: `next()` passes, `next({ prop })` rewrites, `Effect.map(next(), (row) => Box[row, mine])` decorates, an own tree replaces
+- Render hooks hear only the components the table names, so a component left out costs the engine nothing
 - Engine nodes from `next()` stand once in a tree, as any child
 - Render `AbovePrompt` rows sit outermost, so its `next()` is the band rows `Notice.Band` delivered
 - Components whose props name a plugin (`Placed`, `Backdrop`) draw only the mod's own instances, and per-plugin sites (`AbovePrompt`, `BesidePrompt`, `Pane`, `ContextMenu`, `Underlay`) hear the mod's alone
-- Failed rows log `<component> <requestId> draw failed` and draw `next()`, and rows past their budget are skipped
+- Failed rows log `message="draw failed"` with `component` and `request` annotations and draw `next()`; rows past their budget are skipped, and a row whose dispatch the engine supersedes is interrupted
 
 [ELEMENTS]:
 - `Element<R, F>` is one case per engine element, discriminated by `_tag`, with each surface's props and `children` as one child or a list
 - Handlers (`onPress`, `onSubmit`, `onInput`, `onSelect`, `onLinkPress`) are Effects over `R` failing with `F`: `Element<Panes, PlatformError.PlatformError>`
-- Handler failures log `<key> <handler> failed` to the debug log
-- `Button` takes a `label`, or children of strings and `Text` alone, and always an `onPress`; a Button without one skips the whole hook
+- Handlers run awaited inside the engine's press, input, or select, a failure logging `message="handler failed"` with the event's fields
+- `band.press` alone runs after the engine's press returns
+- `Button` takes a `label`, or children of strings and `Text` alone, and its type requires an `onPress`
 - `key` sits on `Box`, `Button`, `Input`, `Select`, never `Text`, and every list row takes one, so a redraw keeps the ring and a scroll finds it
 - Elements a surface's table lacks draw as a fragment (a column `Box` of its children), never a refusal, as `Raster` off the terminal
 - `Text` `wrap: 'truncate-end'` cuts to the width the layout gives, so no label is cut by hand
@@ -130,6 +133,7 @@ host(on, {
 - Branches of `next()` and an own tree inside `Service.use` or `Effect.flatMap` state the union (`Effect.Effect<Element | RenderElement, F>`) or move into `Effect.gen`
 - Service keys follow the deterministic form `@rasm/<package>/<path>/<Name>`, which the Effect language service checks
 - Nested calls take the pipe form the language service asks for: `held.pipe(SubscriptionRef.changes)`, `held.pipe(form, Effect.succeed)`
+- Log lines are a fixed subject and `Effect.annotateLogs` values (`Effect.logWarning('ask failed', cause).pipe(Effect.annotateLogs({ url }))`), never an interpolated subject
 
 ## [04]-[STEPS]
 
@@ -161,3 +165,5 @@ Templates compile against the library on every change through `nx run @rasm/saza
 |  [06]   | `mk1` to `mk4`   | Whole moments of real sessions with every mod element tagged                  |
 |  [07]   | `ideas-calls`    | Which call for which message, and our plugins' channel rules                  |
 |  [08]   | `ideas-surfaces` | Placement map, model-facing answers, and site ideas for our plugins           |
+
+Figures show the engine's `$` calls by name, as the artifact maps the engine; a mod reaches each through the library service its reference names.

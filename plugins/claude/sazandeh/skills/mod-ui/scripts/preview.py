@@ -78,6 +78,7 @@ _RECORD = re.compile(r"\[preview-recorder\] \$\.ui\.log \(to debug\): PREVIEW (?
 _MODULE = re.compile(r"hooks module (?P<plugin>\S+)@inline (?P<verdict>(?:loaded|failed to load|reloaded).*)", re.DOTALL)
 _STARTED = re.compile(r"session\.start: raised|hooks modules not loaded")
 _LOGGED = re.compile(r"^\$\.ui\.log(?: \(to (?P<to>debug)\))?: ")
+_FAULTED = re.compile(r"\blevel=(?:WARN|ERROR|FATAL)\b| hook failed: ")
 _SITE = re.compile(r"ui\.render\{component=(?P<component>[\w|?]+)(?:, requestId=(?P<request>[^,}]+))?")
 _RAISED = re.compile(r"Raised on (?:every attached surface|the (?P<surfaces>[a-z, ]+?) surfaces? only)\.\s*\*/\s*(?P<component>\w+)\??:")
 _BROKE = re.compile(r"\b(?:skipped|refused|threw|failed|did not load)\b")
@@ -104,7 +105,10 @@ class _Step(msgspec.Struct, frozen=True, tag_field="kind", tag=lambda name: name
 class _Key(_Step, frozen=True): ...
 
 
-class _Type(_Step, frozen=True): ...
+class _Type(_Step, frozen=True):
+    @property
+    def typed(self) -> str:
+        return self.value
 
 
 class _Wait(_Step, frozen=True):
@@ -124,8 +128,22 @@ class _Call(_Step, frozen=True):
         """Refuses an input that is not a JSON object."""
         msgspec.json.decode(self.value.partition(" ")[2], type=dict[str, Any])
 
+    @property
+    def typed(self) -> str:
+        return f"call:{self.value}"
 
-type _Steps = _Key | _Type | _Wait | _Resize | _Call
+
+class _Say(_Step, frozen=True):
+    def __post_init__(self) -> None:
+        """Refuses a text that does not read as a JSON string body."""
+        _spoken(self.value)
+
+    @property
+    def typed(self) -> str:
+        return f"say:{self.value}"
+
+
+type _Steps = _Key | _Type | _Wait | _Resize | _Call | _Say
 type _Cells = tuple[tuple[str, str], ...]
 
 
@@ -390,8 +408,8 @@ class _Tmux:
                     await self.run(f"send-keys -t preview {part}")
                     if part.endswith("Escape"):
                         await self.settle(anyio.current_time(), _QUIET, None, quiet=_ECHO)
-            case _Type(value=text) | _Call(value=text):
-                await self.run(f"send-keys -t preview -l {shlex.quote(text if isinstance(step, _Type) else f'call:{text}')}")
+            case _Type() | _Call() | _Say():
+                await self.run(f"send-keys -t preview -l {shlex.quote(step.typed)}")
                 await self.settle(anyio.current_time(), 2.0, None, quiet=_ECHO)
                 await self.run("send-keys -t preview Enter")
             case _Resize(value=size):
@@ -465,15 +483,22 @@ async def _lined(stream: ByteReceiveStream, /) -> AsyncIterator[str]:
         yield line.decode(errors="replace")
 
 
+def _spoken(text: str, /) -> str:
+    return msgspec.json.decode(f'"{text.replace('"', '\\"')}"', type=str)
+
+
 def _answer(request: dict[str, Any], /) -> bytes:
     messages = request.get("messages") or [{}]
     content = next((message.get("content", "") for message in reversed(messages) if message.get("role") == "user"), "")
     blocks = ({"type": "text", "text": content},) if isinstance(content, str) else tuple(content)
-    asked = next((block["text"] for block in blocks if block.get("type") == "text" and str(block.get("text")).startswith("call:")), None)
-    match asked, request.get("tools"), any(block.get("type") == "tool_result" for block in blocks):
-        case str(), list(), False:
-            tool, _, given = asked.removeprefix("call:").partition(" ")
+    asked = next((str(block["text"]) for block in blocks if block.get("type") == "text" and str(block.get("text")).startswith(("call:", "say:"))), "")
+    kind, _, given = asked.partition(":")
+    match kind, request.get("tools"), any(block.get("type") == "tool_result" for block in blocks):
+        case "call", list(), False:
+            tool, _, given = given.partition(" ")
             block, delta, stop = {"type": "tool_use", "id": f"toolu_preview{len(messages)}", "name": tool, "input": {}}, {"type": "input_json_delta", "partial_json": given}, "tool_use"
+        case "say", list(), False:
+            block, delta, stop = {"type": "text", "text": ""}, {"type": "text_delta", "text": _spoken(given)}, "end_turn"
         case _:
             block, delta, stop = {"type": "text", "text": ""}, {"type": "text_delta", "text": "PREVIEW-REPLY"}, "end_turn"
     events = (
@@ -645,7 +670,8 @@ def _logged(name: str, entry: _Entry, /) -> _Fact | None:
         case _, hit, _ if hit is not None and hit["plugin"] == name:
             return _Fact("load", _cut(hit["verdict"]), fault=hit["verdict"].startswith("failed"))
         case _, _, hit if hit is not None and own != entry.text:
-            return _Fact(f"log {hit['to']}" if hit["to"] else "log", _cut(_MEASURES.sub("", own[hit.end() :])))
+            said = own[hit.end() :]
+            return _Fact(f"log {hit['to']}" if hit["to"] else "log", _cut(_MEASURES.sub("", said)), fault=_FAULTED.search(said) is not None)
         case _, _, _ if own != entry.text:
             return _Fact(_cut(_MEASURES.sub("", own)))
         case _Entry(level="ERROR" | "WARN" as level, text=text), _, _ if re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text) and _RECORD.match(text) is None:
@@ -669,7 +695,7 @@ def _steps(_: object, tokens: Sequence[Token], /) -> tuple[_Steps, ...]:
     try:
         steps: tuple[_Steps, ...] = msgspec.convert([dict(zip(("kind", "value"), token.value.split(":", 1))) for token in tokens], type=tuple[_Steps, ...])
     except (msgspec.ValidationError, msgspec.DecodeError, re.error) as error:
-        raise ValueError(f"step: takes key:KEYS, type:TEXT, wait:REGEX, resize:COLUMNS ROWS, or call:TOOL JSON; {error}") from error
+        raise ValueError(f"step: takes key:KEYS, type:TEXT, wait:REGEX, resize:COLUMNS ROWS, call:TOOL JSON, or say:TEXT; {error}") from error
     return steps
 
 
@@ -865,7 +891,7 @@ async def _remote(plan: _Plan, validation: _Validation, props: dict[str, Any], p
             viewport = {"columns": plan.size[0], "rows": plan.size[1], "isFullscreen": True}
             attached += [(surface, await session.ask({"subtype": "ui_attach", "surface": surface, "client_id": f"preview-{surface}", "viewport": viewport})) for surface in _REMOTE]
             await session.quiet()
-            for text in (step.value if isinstance(step, _Type) else f"call:{step.value}" for step in plan.steps if isinstance(step, _Type | _Call)):
+            for text in (step.typed for step in plan.steps if isinstance(step, _Type | _Call | _Say)):
                 await session.say(text)
                 await session.quiet()
             panes = tuple(dict.fromkeys((*panes, *(pane["id"] for push in session.pushes if push.get("subtype") == "ui_panes" for pane in push.get("panes", ()) if pane.get("plugin") == plan.name))))
@@ -985,7 +1011,7 @@ def preview(
 
     Args:
         bundle: Built plugin folder holding .claude-plugin/plugin.json, as nx build writes it.
-        step: key:KEYS as tmux names them (key:C-x Tab), type:TEXT typed then Enter, call:TOOL JSON typed as a prompt the model answers with that one tool call, wait:REGEX over debug-log lines, or resize:COLUMNS ROWS; each step settles and adds a state.
+        step: key:KEYS as tmux names them (key:C-x Tab), type:TEXT typed then Enter, call:TOOL JSON and say:TEXT typed as prompts the model answers with that tool call or TEXT (a JSON string body), wait:REGEX over debug-log lines, or resize:COLUMNS ROWS; each step settles and adds a state.
         layout: Terminal layouts run, each a session of its own; --empty-layout runs none.
         size: Terminal columns and rows.
         limit: Seconds a step waits for activity and then quiet.

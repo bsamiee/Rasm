@@ -3,12 +3,13 @@ import { Engine } from '@rasm/claude-code/engine';
 import { host } from '@rasm/claude-code/host';
 import { Panes } from '@rasm/claude-code/pane';
 import type { On } from 'claude-code';
-import { Array, Context, Data, Effect, Layer, Option, type PlatformError, Stream, SubscriptionRef } from 'effect';
+import { Array, Context, Data, Duration, Effect, Layer, Option, type PlatformError, Schedule, Stream, SubscriptionRef } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PANE = 'running';
 const BAND = 3;
+const DRAWN = { every: Duration.millis(50), times: 20 } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -29,7 +30,7 @@ const change = (update: (running: readonly Running[]) => readonly Running[]) => 
 const reveal = (key: string) =>
     Effect.andThen(
         Panes.use((panes) => panes.open({ id: PANE })),
-        Engine.use((engine) => engine.scroll({ in: PANE, to: { key } })),
+        Engine.use((engine) => engine.scroll({ in: PANE, to: { key } })).pipe(Effect.retry({ schedule: Schedule.spaced(DRAWN.every), times: DRAWN.times })),
     );
 const button = (call: Running): Element<Panes | Engine, PlatformError.PlatformError> => ({ _tag: 'Button', key: call.key, onPress: () => reveal(call.key), children: { _tag: 'Text', wrap: 'truncate-end', children: call.tool } });
 const line = (call: Running): Element => ({

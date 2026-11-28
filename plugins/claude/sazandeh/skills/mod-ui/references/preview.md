@@ -7,8 +7,22 @@
 Templates and draft modules become mod bundles in a scratch kit under the plugin's ignored `.cache/`, never committed:
 1. Kit: `plugins/claude/sazandeh/.cache/mount/<name>/` holding `.claude-plugin/plugin.json` (`name`, `version`, `description`), `hooks/hooks.json` (`{ "modules": ["./register.ts"] }`), `hooks/register.ts` (the module), `package.json` (`name`, `private`, `type: module`), and `vite.config.ts` exporting `defineConfig(claude(import.meta.dirname))` from `@rasm/vite/claude`
 2. Build: `../../../node_modules/.bin/vite build --outDir dist --emptyOutDir` inside the kit, as the kit resolves `@rasm/claude-code`, `effect`, and `vite` through the plugin's own `node_modules`
-3. Validate: `claude plugin validate <kit>/dist`, whose missing-icon and repository-root warnings change nothing for a local mod
+3. Validate: `claude plugin validate <kit>/dist`, whose `author` warning changes nothing for a local mod
 4. Preview: `uv run --locked --script scripts/preview.py <kit>/dist [--step KIND:VALUE]...`
+
+States reached only past auto mode take a kit `hooks/register.ts` wrapping the template in `template.ts`:
+
+```ts
+import type { On } from 'claude-code';
+import { register as template } from './template';
+
+function register(on: On) {
+    on('tool.check', { tool: 'Bash' }, () => ({ decision: 'allow' }));
+    template(on);
+}
+
+export { register };
+```
 5. Delete the kit once the report is read
 
 Mods of the repository take their Nx build output in place of a kit: `.artifacts/vite/@rasm/<project>` after `nx build @rasm/<project>`.
@@ -22,14 +36,16 @@ Mods of the repository take their Nx build output in place of a kit: `.artifacts
 |  [01]   | `type:<text>`        | Types the text and Enter: a prompt, or `/<command>`                          |
 |  [02]   | `key:<tmux keys>`    | Sends keys (`C-x Tab`, `Enter`, `Down`, `Escape`) through the control client |
 |  [03]   | `call:<tool> <json>` | Has the fake model call the tool with that input on the next turn            |
-|  [04]   | `wait:<regex>`       | Waits for a debug-log line matching the pattern                              |
-|  [05]   | `resize:<c> <r>`     | Resizes the terminal                                                         |
+|  [04]   | `say:<text>`         | Has the fake model reply the text, a JSON string body (`\n`, `\u0060`)       |
+|  [05]   | `wait:<regex>`       | Waits for a debug-log line matching the pattern                              |
+|  [06]   | `resize:<c> <r>`     | Resizes the terminal                                                         |
 
 - Both layouts run by default, at 120x40; `--size 160 40` docks panes and raises `BesidePrompt` in fullscreen, 110 columns being the dock's floor
 - `--limit` bounds each step, and a step under an animation or a dialog reads `unsettled after`
 - `--empty-layout` skips the terminal and runs validate, mount, and session alone, about 5 s
-- Fake model replies answer every request with `PREVIEW-REPLY` and spends no tokens, so a step needing a model's own words is out of reach
-- Auto mode's check gets no usable answer from the fake model, so a call it checks reads `Not run`; read-only calls (`echo`, `cat`) run
+- Fake model replies answer every other request with `PREVIEW-REPLY` and spend no tokens
+- `say:` reaches rows of a reply's own words (`CodeBlock`, `AssistantMessage`), backticks written `\u0060`, as typed ones reached the model unmatched
+- Auto mode's check gets no usable answer from the fake model, so a call it checks reads `Not run`: `echo` runs, while `ping`, `find /`, and `tail -f` need the wrapped kit's `tool.check` allow
 - Plugin names join the work folder's path, and tmux sockets sit there under short names, so long plugin names run
 
 ## [03]-[STAGES]
@@ -53,9 +69,9 @@ Each stage owns one kind of evidence:
 ## [04]-[VERDICT]
 
 Subject lines read `preview <name>: passed|failed, N faults, S s`:
-- Faults are `error:`, `warn:`, `refused`, `fault:`, and `fault press` lines; exit 1 on a validation refusal, a load failure, or any fault, 130 on interrupt
+- Faults are `error:`, `warn:`, `refused`, `fault:`, and `fault press` lines, and `log debug:` lines of the mod holding `level=WARN` or `hook failed:`; exit 1 on a validation refusal, a load failure, or any fault, 130 on interrupt
 - `render hook skipped: returned a Button without an onPress function` is a fault validate passes; the engine then draws its own site
-- `ui.render hook failed: ran out of time` is a row past its budget, `<component> <requestId> draw failed` a row that failed and drew `next()`
+- `ui.render hook failed: ran out of time` is a row past its budget, `message="draw failed"` with `component` and `request` a row that failed and drew `next()`
 - Reports show the screen as drawn, so a command racing its own pane's first render shows rows in either order
 - Out of reach: desktop, VS Code, and mobile paint, images, kitty keys, OS notifications, sound, mouse, and hover, where trees stand for paint
 - Runs leave nothing behind: the next claim of a slot sweeps a killed run's tmux servers and `claude purge` removes its transcripts

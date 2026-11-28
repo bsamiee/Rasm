@@ -18,7 +18,7 @@ Rows answer in one of these forms over `next`, the drawing beneath:
 - Engine nodes from `next()` stand once in a tree, as a child like any element
 - `e.props.isExpanded` true (ctrl+o, `--verbose`) -> answer `next()`, so the person's expanded view stays the engine's
 - Rows run pure over `e` and the state value: a row past the engine's budget is skipped, and a spawn or fetch belongs in a hook that writes the state
-- Failed rows log `<component> <requestId> draw failed` and draw `next()`
+- Failed rows log `message="draw failed"` with `component` and `request` and draw `next()`, and a row whose dispatch the engine supersedes is interrupted
 - Rows of components every plugin shares hear other plugins' calls and text too, and answer `next()` for what is not the mod's
 
 ## [02]-[ROWS]
@@ -39,9 +39,12 @@ Engine rows and what each holds for a mod:
 |  [10]   | `AgentRow`              | Agent list row, label and body                      | Every surface |
 |  [11]   | `Welcome`, `InfoNotice` | Header and its dim notice line                      | Terminal      |
 
+- Fullscreen folds shell, read, and search calls into one `ToolGroup` line (`Ran 1 shell command`), hiding their `ToolUse` decoration
+- Main layouts and remote surfaces draw each call's decoration, and fullscreen once the group expands
 - `ToolUse` on mobile draws the mod's addition as one quiet line, and as a card under the row when the `Box` holding both sets `borderStyle` or `backgroundColor`
 - `CodeBlock` is asked at the opening line (`isClosed` false), where `next()` streams the source and an own tree holds it back, and again at the close
 - `CodeBlock` answers fast, as the reply streams behind it, and a source past 20000 characters is not asked again
+- Fences of a language the mod names (`report`) draw as the mod's tree once `isClosed`, a table of the reply's `label: value` lines
 - `UserMessage` rewrites draw delivered events apart from typed prompts, and the stored message the model reads stays
 - `e.props.onScreen` holds the row's visible range per surface: `null` while drawn outside the viewport, absent on the main screen
 

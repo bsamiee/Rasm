@@ -60,7 +60,7 @@ const row = (call: Call): Drawn => ({
 const list = (held: Held, placement: RenderPropsOf['Pane']['placement']): Drawn =>
     placement === 'widget' || held.calls.length === 0
         ? { _tag: 'Text', dimColor: held.calls.length === 0, children: held.calls.length === 0 ? 'no tool call ran in this session yet' : summary(held) }
-        : { _tag: 'Box', flexDirection: 'column', children: [{ _tag: 'Text', children: summary(held) }, ...held.counts.flatMap(([stance, calls]): readonly Drawn[] => [{ _tag: 'Text', weight: 'semibold', children: `${stance} ${calls.length}` }, ...calls.map(row)])] };
+        : { _tag: 'Box', flexDirection: 'column', children: [{ _tag: 'Text', dimColor: true, children: summary(held) }, ...held.counts.flatMap(([stance, calls]): readonly Drawn[] => [{ _tag: 'Text', weight: 'semibold', children: stance }, ...calls.map(row)])] };
 const form = (held: Held): Drawn => ({
     _tag: 'Box',
     flexDirection: 'column',

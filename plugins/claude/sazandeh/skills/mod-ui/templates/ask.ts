@@ -46,7 +46,7 @@ const decide = (url: string) =>
             }),
         ),
         Effect.ensuring(held(Option.none())),
-        Effect.catch((error) => Effect.as(Effect.logWarning(`ask for ${url} failed`, error), Option.none<string>())),
+        Effect.catch((error) => Effect.as(Effect.logWarning('ask failed', error).pipe(Effect.annotateLogs({ url })), Option.some('the question could not be asked'))),
     );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
