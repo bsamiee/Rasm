@@ -1,5 +1,5 @@
 import { Shell } from '@rasm/shell';
-import { Array, Cache, Config, Context, Duration, Effect, Exit, FiberSet, FileSystem, Glob, Hash, Layer, Option, Order, Path, PlatformError, Record, type Scope } from 'effect';
+import { Array, Cache, Config, Context, Duration, Effect, Exit, FiberSet, FileSystem, Glob, Hash, Layer, Option, Order, Path, PlatformError, Predicate, Record, Redacted, type Scope, Sink, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner, CommandLine } from 'effect/process';
 import 'sh-syntax/vendors/wasm_exec';
 import { getProcessor } from 'sh-syntax/sync';
@@ -23,7 +23,7 @@ class Session extends Context.Service<
             {
                 readonly environment: Effect.Effect<{ readonly dialect: Effect.Success<Probe>; readonly cwd: string }, Effect.Error<Probe> | PlatformError.PlatformError | CommandLine.CommandLineError>;
                 readonly path: Path.Path;
-                readonly exec: (script: Script) => Effect.Effect<ChildProcessSpawner.ChildProcessHandle, PlatformError.PlatformError | CommandLine.CommandLineError, Scope.Scope>;
+                readonly exec: (script: Script) => Effect.Effect<ChildProcessSpawner.ChildProcessHandle, Effect.Error<Script['invocations']> | PlatformError.PlatformError | CommandLine.CommandLineError, Scope.Scope>;
             },
             PlatformError.PlatformError
         >;
@@ -74,6 +74,26 @@ class Session extends Context.Service<
                 return [...[snapshots].filter(Array.isArrayNonEmpty).map((held) => Array.max(held, Order.Struct({ mtime: Option.makeOrder(Order.Date) }))), ...Array.getSomes(launched), ...hooks];
             });
             const dialect = Effect.flatMap(sources, (held) => Cache.get(probes, held));
+            const exec = Effect.fnUntraced(function* (cwd: string, script: Script) {
+                const top = (yield* script.invocations).filter(({ within }) => Array.isReadonlyArrayEmpty(within));
+                yield* Effect.when(PlatformError.badArgument({ module: 'Session', method: 'exec', description: 'unsupported list, pipeline, or background command' }), Effect.succeed(!Predicate.isTupleOf(top, 1) || top.some(({ background }) => background)));
+                const loaded = yield* Effect.flatMap(
+                    sources,
+                    Effect.forEach(({ file }) => Effect.fromResult(CommandLine.join(['.', file]))),
+                );
+                const text = ['echo $$ >&2', ...loaded, `exec ${script.source}`].join('\n');
+                const child = yield* processes.spawn(ChildProcess.make(binary, ['-c', Array.isReadonlyArrayNonEmpty(script.text.redacted) ? Redacted.make(text) : text], { cwd, env: variables, extendEnv: false }));
+                const [first, rest] = yield* Stream.peel(Stream.decodeText(child.stderr), Sink.head());
+                const { pid, said } = yield* Effect.fromOption(
+                    first.pipe(
+                        Option.flatMapNullishOr((piece) => /^(?<pid>\d+)\n(?<said>[^]*)$/u.exec(piece)?.groups),
+                        Option.flatMap((groups) => Option.all({ pid: Record.get(groups, 'pid'), said: Record.get(groups, 'said') })),
+                    ),
+                    () => PlatformError.systemError({ _tag: 'Unknown', module: 'Session', method: 'exec', pathOrDescriptor: binary, description: 'no pid in first stderr piece' }),
+                );
+                const stderr = Stream.encodeText(said === '' ? rest : Stream.concat(Stream.make(said), rest));
+                return ChildProcessSpawner.makeHandle({ ...child, pid: ChildProcessSpawner.ProcessId(Number(pid)), stderr, all: Stream.merge(child.stdout, stderr) });
+            });
             return {
                 shell: Effect.fnUntraced(function* (agent: Option.Option<string>) {
                     const listed = yield* Effect.when(engine.agents, Effect.succeed(Option.isSome(agent)));
@@ -88,11 +108,7 @@ class Session extends Context.Service<
                     return {
                         environment: Effect.map(dialect, (probed) => ({ dialect: probed, cwd })),
                         path: anchored,
-                        exec: (script: Script) =>
-                            sources.pipe(
-                                Effect.flatMap(Effect.forEach(({ file }) => Effect.fromResult(CommandLine.join(['.', file])))),
-                                Effect.flatMap((loaded) => processes.spawn(ChildProcess.make(binary, ['-c', [...loaded, `exec ${script.source}`].join('\n')], { cwd, env: variables, extendEnv: false }))),
-                            ),
+                        exec: (script: Script) => exec(cwd, script),
                     };
                 }),
                 watch: FiberSet.run(yield* FiberSet.make()),
