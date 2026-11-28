@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-invariant-index-test
-language: python
+language: pythonlang
 utils:
     constructor:
         matches: { python-builtin-name: { name: { regex: '^(set|frozenset|list|tuple|dict|sorted)$' } } }

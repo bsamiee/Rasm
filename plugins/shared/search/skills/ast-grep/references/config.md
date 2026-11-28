@@ -48,9 +48,15 @@ File-to-language resolution:
 
 `customLanguages` rows claim their extensions from built-in languages, and a rule naming the built-in language matches none of those files:
 - `libraryPath` takes one path or a map keyed by target triple (`aarch64-apple-darwin`), a triple the map lacks fails the load
-- Native libraries load under `--custom-languages allow` or a `trust` the store records for the config path, default `ignore` warns and parses with built-in languages
-- `trust` refuses a non-interactive terminal, the store is `trusted-configs.json` in ast-grep's user config folder, `AST_GREP_TRUST_DIR` moves it
-- Missing libraries fail every command at exit 79 once custom languages load
+- Native libraries load under `--custom-languages allow` or a trust store listing the canonical config path
+- Default `ignore` warns on stderr, exits 0, and parses with built-in languages
+- No config field or variable sets the policy, `AST_GREP_TRUST_DIR` names the folder holding the store `trusted-configs.json`, a JSON list of config paths
+- `trust` refuses a non-interactive terminal at exit 7, so no CI job or agent shell records trust through it
+- Mise `[env]` sets `AST_GREP_TRUST_DIR` to `.cache/ast-grep`, and `[deps.ast-grep]` writes the checkout's path there on every `mise install`, CI included
+- Callers under mise (shell, hk, Nx, agent Bash calls, CI) load custom languages with no flag
+- Missing libraries then fail every command at exit 79
+- Emptied caches remove the store beside the links, and ast-grep falls back to built-in parsers until `mise install` writes both again
+- Rules name the custom language (`pythonlang`), a rule naming the built-in language reads no file a custom row claims, `--inspect entity` printing `appliedRuleCount=0`
 - TypeScript and C# rows load the npm prebuilds `node_modules/<package>/prebuilds/<platform>/<package>.node`
 - Python, Rust, and Swift rows load `.cache/ast-grep/<language>.so`, which mise rows `http:tree-sitter-<language>` build and link on Unix through `vars.tree_sitter_parser`
 - Grammar extensions `tools/ast-grep/grammars/<language>.js` regenerate the crate's parser before the build, a row without one builds the crate's parser

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: csharp-qualified-name
-language: csharp
+language: csharplang
 arguments: [name, qualifier]
 utils:
     segment:

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: csharp-visible-member
-language: csharp
+language: csharplang
 utils:
     enclosing: { kind: 'class_declaration, enum_declaration, interface_declaration, record_declaration, struct_declaration' }
     public:

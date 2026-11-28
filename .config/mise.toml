@@ -55,6 +55,7 @@ FOUNDRY_OUTPUT_DIR     = "{{ env.ARTIFACTS_DIR }}/foundry"
 
 # --- [CACHES]
 
+AST_GREP_TRUST_DIR             = "{{ env.CACHE_DIR }}/ast-grep"
 CLOUDFLARE_DEV_REGISTRY_PATH   = "{{ env.CACHE_DIR }}/cloudflare/registry"
 FOUNDRY_CACHE_DIR              = "{{ env.CACHE_DIR }}/foundry"
 GHIDRA_JAVA_OPTIONS            = "-Dapplication.cachedir={{ env.CACHE_DIR }}/ghidra/cache -Dapplication.tempdir={{ env.CACHE_DIR }}/ghidra/tmp"
@@ -127,6 +128,11 @@ run     = "dotnet publish -p:RestoreLockedMode=true --output dist"
 sources = ["*.cs", "MsbuildAnalyzer.csproj", "packages.lock.json"]
 
 # --- [WORKSPACE]
+
+[deps.ast-grep]
+outputs = []
+run     = '''node -e "const { mkdirSync, realpathSync, writeFileSync } = require('node:fs'); mkdirSync(process.env.AST_GREP_TRUST_DIR, { recursive: true }); writeFileSync(process.env.AST_GREP_TRUST_DIR + '/trusted-configs.json', JSON.stringify([realpathSync('sgconfig.yml')]))"'''
+sources = []
 
 [deps.playwright]
 depends = ["pnpm"]

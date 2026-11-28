@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-conflicting-import
-language: python
+language: pythonlang
 arguments: [module, name]
 rule:
     all:

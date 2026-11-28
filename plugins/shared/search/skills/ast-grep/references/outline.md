@@ -363,6 +363,7 @@ Catalogs sit in `tools/ast-grep/outline/<lang>.yml` and load as checked in, with
 - TypeScript, Python, C#, Rust, and Swift catalogs own custom languages `tsxlang`, `pythonlang`, `csharplang`, `rustlang`, and `swiftlang`
 - Owned catalogs mark export-list names, `__all__` members, and bare `pub` exported, and list nested types, extension members, and stored properties
 - Other languages outline through bundled extractors alone
+- Owned catalogs load with their custom rows alone, a run ignoring them prints bundled rows at exit 0 (3 of 5 items in one file)
 - `pythonlang` prints `lazy import` and `lazy from` lines as import rows whose signature keeps `lazy`
 - PEP 696 type parameter defaults and PEP 798 unpacked comprehensions still print `ERROR` rows under `pythonlang`
 - Kinds and fields of a built-in language come from `node-types.json` of the grammar crate the ast-grep release pins
