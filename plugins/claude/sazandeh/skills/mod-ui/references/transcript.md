@@ -63,7 +63,7 @@ Slash commands answer the person and the model at once (`templates/transcript.ts
 - `/clear` ends every placed row, and a main-screen `/compact` ends them too; the next place of the id answers a new `requestId`
 - Placed rows stay out of the transcript file and `--resume`, so a fact the model or a later session needs goes through a channel as well
 - `Placed.rows` streams this mod's standing rows by id: `requestId`, `onScreen` per surface, and whether the last terminal draw was fullscreen
-- `raster({ columns, rows }, cell)` builds a `Raster` element's cells, and `Placed.blit({ requestId, key, ...cells })` repaints a mounted raster without a redraw
+- `paint({ key, columns, rows }, cell)` packs a `Raster` element's cells into its props, and `Placed.blit({ requestId, ...paint(props, cell) })` repaints the mounted raster without a redraw
 - Blits of another size are refused (a resize is a redraw), and an `Image` inside tmux or Zellij draws its `alt` and refuses a blit
 - Desktop, VS Code, and mobile lower `Raster` and `Image` to a fragment and refuse a blit, so a picture there is an `Svg`
 - `-p` runs answer `isPlaced: false` with a reason
