@@ -404,6 +404,11 @@ version = "11.2.0.10050"
 backend = "dotnet:ilspycmd"
 specifiers = ["latest"]
 
+[[tools."dotnet:roslyn-language-server"]]
+version = "5.13.0-1.26514.10"
+backend = "dotnet:roslyn-language-server"
+specifiers = ["latest"]
+
 [[tools.duckdb]]
 version = "2.0.1"
 backend = "aqua:duckdb/duckdb"
@@ -1081,11 +1086,6 @@ url = "https://static.rust-lang.org/dist/2026-11-23/rustc-nightly-src.tar.xz"
 checksum = "blake3:d0171e7832f75f26763283f12f3f179c60275572ad21d283daa9f118881ccc22"
 url = "https://static.rust-lang.org/dist/2026-11-23/rustc-nightly-src.tar.xz"
 
-[[tools."http:tree-sitter-rust"]]
-version = "0.24.2"
-backend = "http:tree-sitter-rust"
-specifiers = ["latest"]
-
 [[tools."http:tree-sitter-python"]]
 version = "0.25.0"
 backend = "http:tree-sitter-python"
@@ -1102,6 +1102,11 @@ url = "https://static.crates.io/crates/tree-sitter-python/tree-sitter-python-0.2
 [tools."http:tree-sitter-python"."platforms.macos-arm64"]
 checksum = "sha256:6bf85fd39652e740bf60f46f4cda9492c3a9ad75880575bf14960f775cb74a1c"
 url = "https://static.crates.io/crates/tree-sitter-python/tree-sitter-python-0.25.0.crate"
+
+[[tools."http:tree-sitter-rust"]]
+version = "0.24.2"
+backend = "http:tree-sitter-rust"
+specifiers = ["latest"]
 
 [tools."http:tree-sitter-rust".options]
 format = "tar.gz"
@@ -1131,6 +1136,18 @@ url = "https://static.crates.io/crates/tree-sitter-swift/tree-sitter-swift-0.7.4
 [tools."http:tree-sitter-swift"."platforms.macos-arm64"]
 checksum = "sha256:2688c06564afa397313e0db17d140a73e2c6a47f3884794614246167c9dd5dfd"
 url = "https://static.crates.io/crates/tree-sitter-swift/tree-sitter-swift-0.7.4.crate"
+
+[[tools."http:xcode-build-server"]]
+version = "1.3.0"
+backend = "http:xcode-build-server"
+specifiers = ["latest"]
+
+[tools."http:xcode-build-server".options]
+strip_components = "1"
+
+[tools."http:xcode-build-server"."platforms.macos-arm64"]
+checksum = "blake3:7bed44ef9b47fcb39b2e2ee01a1ce6b2bcdfafb078c8adc392e36363dc561a29"
+url = "https://github.com/SolaWing/xcode-build-server/archive/refs/tags/v1.3.0.tar.gz"
 
 [[tools."http:yak"]]
 version = "0.19.1"
@@ -1523,7 +1540,7 @@ backend = "core:rust"
 specifiers = ["nightly-2026-11-23"]
 
 [tools.rust.options]
-components = "clippy,llvm-tools,rust-analyzer,rust-src,rustc-dev,rustfmt"
+components = "clippy,llvm-tools,rust-analyzer,rust-docs-json,rust-src,rustc-dev,rustfmt"
 profile = "minimal"
 
 [[tools.sd]]

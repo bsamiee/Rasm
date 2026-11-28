@@ -15,6 +15,7 @@ disable_tools = [
     "dotnet:dotnet-stack",
     "dotnet:dotnet-trace",
     "dotnet:ilspycmd",
+    "dotnet:roslyn-language-server",
     "gcloud",
     "github:Link-/gh-token",
     "github:Samsung/netcoredbg",
