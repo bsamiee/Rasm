@@ -9,16 +9,18 @@ import dockerBuild from '@pulumi/docker-build';
 import minio from '@pulumi/minio';
 import { all, type CustomResourceOptions, getProject, type Input, interpolate, jsonStringify, output, secret } from '@pulumi/pulumi';
 import { getDeviceOutput } from '@pulumi/tailscale';
+import { Secret } from '@pulumiverse/doppler';
 import type { deploy } from '@rasm/hosting/deploy';
 import { Identity } from '@rasm/hosting/identity';
 import { containers } from '@rasm/testing/containers';
 import { Array, Data, Duration, Effect, Function, Option, Predicate, Record, String, Struct, UndefinedOr } from 'effect';
-import type { identified } from '#/repository-stack';
+import type { configs, identified } from '#/repository-stack';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Role = Data.TaggedEnum<{
     Cache: { readonly name: string; readonly kept: Duration.Duration; readonly abort: Duration.Duration };
+    Bucket: { readonly name: string; readonly kept: Duration.Duration; readonly abort: Duration.Duration };
     Runner: { readonly instances: Readonly<Record<string, Readonly<Record<string, string>>>> };
     Apps: { readonly owner: string };
     History: { readonly name: string };
@@ -42,6 +44,7 @@ const hosts = {
         tags: ['tag:server'],
         roles: [
             { _tag: 'Cache', name: 'nx-cache', kept: Duration.weeks(1), abort: Duration.days(1) },
+            { _tag: 'Bucket', name: 'cargo', kept: Duration.days(3), abort: Duration.days(1) },
             { _tag: 'Runner', instances: { host: { MemoryMax: '20G' }, container: {}, graph: {} } },
         ],
     },
@@ -189,7 +192,7 @@ const stored = (machine: Machine, rows: Readonly<Record<'RUSTFS_ACCESS_KEY' | 'R
         onNone: () => ({ ips: output(['127.0.0.1']), address: '127.0.0.1' }),
         onSome: () => ({ ips: tailnet(machine).addresses.apply(Array.filter(isIPv4)), address: machine.name }),
     });
-    const route = Option.map(Array.findFirst(machine.roles, Role.$is('Apps')), () => machine.routed('storage', ports.internal));
+    const { address, named, labels } = machine.routed('storage', ports.internal);
     const serving = machine.contained(
         'storage',
         ['CMD', 'curl', '--fail', '--silent', `http://127.0.0.1:${ports.internal}${ports.health}`],
@@ -199,11 +202,11 @@ const stored = (machine: Machine, rows: Readonly<Record<'RUSTFS_ACCESS_KEY' | 'R
             ports: published.ips.apply(Array.map((ip) => ({ internal: ports.internal, external: ports.external, ip }))),
             ulimits: [{ name: 'nofile', soft: 1_048_576, hard: 1_048_576 }],
             mounts: [{ type: 'volume', source: machine.kept('storage'), target: '/data' }],
-            labels: Option.match(route, { onNone: () => [{ label: 'traefik.enable', value: 'false' }], onSome: Struct.get('labels') }),
+            labels,
         },
-        { dependsOn: Option.match(route, { onNone: Array.empty, onSome: ({ named }) => [proxied(machine), ...named] }) },
+        { dependsOn: [proxied(machine), ...named] },
     );
-    return output({ server: serving.urn.apply(() => `${published.address}:${ports.external}`), within: `http://storage:${ports.internal}`, ...Option.getOrUndefined(Option.map(route, ({ address }) => ({ origin: `https://${address}` }))), region: 'us-east-1', user, key });
+    return output({ server: serving.urn.apply(() => `${published.address}:${ports.external}`), within: `http://storage:${ports.internal}`, origin: `https://${address}`, region: 'us-east-1', user, key });
 };
 
 const bucketed = (name: string, storage: ReturnType<typeof stored>, buckets: Effect.Success<ReturnType<typeof deploy.Machine>>['buckets']) => {
@@ -229,7 +232,7 @@ const bucketed = (name: string, storage: ReturnType<typeof stored>, buckets: Eff
         return { arn: made.arn, configured: [new minio.S3BucketLifecycle(bucket, { bucket: made.bucket, rules }, { provider }), ...cors].map(({ id }) => id) };
     });
     const account = new minio.IamServiceAccount(name, { targetUser: storage.user, policy: jsonStringify({ Version: '2012-10-17', Statement: [{ Effect: 'Allow', Action: ['s3:*'], Resource: created.flatMap(({ arn }) => [arn, interpolate`${arn}/*`]) }] }) }, { provider });
-    return { AWS_ENDPOINT_URL_S3: storage.within, AWS_REGION: storage.region, AWS_ACCESS_KEY_ID: all([account.accessKey, ...created.flatMap(({ configured }) => configured)]).apply(([id]) => id), AWS_SECRET_ACCESS_KEY: account.secretKey };
+    return { AWS_ENDPOINT_URL_S3: storage.within, AWS_REGION: storage.region, AWS_ACCESS_KEY_ID: all([account.accessKey, all(created.flatMap(({ configured }) => configured))]).apply(([id]) => id), AWS_SECRET_ACCESS_KEY: account.secretKey };
 };
 
 const cached = (machine: Machine, { name, kept, abort }: Data.TaggedEnum.Value<Role, 'Cache'>, storage: ReturnType<typeof stored>, tokens: Readonly<Record<'SERVICE_ACCESS_TOKEN' | 'READ_ONLY_ACCESS_TOKEN', Input<string>>>) => {
@@ -252,6 +255,12 @@ ENTRYPOINT ["/nx-cache-aws"]
     const envs = Record.collect({ S3_BUCKET_NAME: name, S3_ENDPOINT_URL: scoped.AWS_ENDPOINT_URL_S3, ...scoped, ...tokens }, (variable, value) => interpolate`${variable}=${value}`);
     const serving = machine.contained(name, ['CMD', '/busybox/wget', '--quiet', '--spider', `http://127.0.0.1:${port}${health}`], { image, init: true, envs, labels }, { dependsOn: [proxied(machine), ...named] });
     return { [name]: serving.urn.apply(() => `https://${address}`) };
+};
+
+const exposed = ({ name, kept, abort }: Data.TaggedEnum.Value<Role, 'Bucket'>, storage: ReturnType<typeof stored>, project: string) => {
+    const { AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY } = bucketed(name, storage, { [name]: { kept: false, abort, expire: { '': kept }, cors: [] } });
+    const rows = { RUNS_ON_S3_BUCKET_CACHE: name, RUNS_ON_S3_BUCKET_ENDPOINT: storage.origin, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY };
+    return { [name]: Record.map(rows, (value, row) => new Secret(`${name}-${row}`, { project, config: 'ci' satisfies (typeof configs)[number], name: row, value }).name) };
 };
 
 const synced = (machine: Machine, { name }: Data.TaggedEnum.Value<Role, 'History'>, owner: string, password: Input<string>) => {
@@ -318,7 +327,7 @@ const installed = (rows: Parameters<typeof stored>[1] & Parameters<typeof hosted
 
 const provisioned = (
     host: keyof typeof hosts,
-    { owner, repository, engines }: Effect.Success<typeof identified>,
+    { project, owner, repository, engines }: Effect.Success<typeof identified>,
     rows: Parameters<typeof installed>[0] & Readonly<Record<'EPIC_GHCR_TOKEN' | 'GITHUB_TOKEN' | 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN' | 'NX_SELF_HOSTED_REMOTE_CACHE_READ_TOKEN' | 'ATUIN_PASSWORD', string>>,
 ) =>
     Effect.sync(() => {
@@ -328,6 +337,7 @@ const provisioned = (
         const served = machine.roles.map(
             Role.$match({
                 Cache: (settings): Readonly<Record<string, unknown>> => cached(machine, settings, storage(machine), { SERVICE_ACCESS_TOKEN: secret(rows.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN), READ_ONLY_ACCESS_TOKEN: secret(rows.NX_SELF_HOSTED_REMOTE_CACHE_READ_TOKEN) }),
+                Bucket: (settings) => exposed(settings, storage(machine), project),
                 Apps: (settings) => hosted(machine, settings, storage(machine), rows),
                 History: (settings) => synced(machine, settings, owner, secret(rows.ATUIN_PASSWORD)),
                 Runner: ({ instances }) => {

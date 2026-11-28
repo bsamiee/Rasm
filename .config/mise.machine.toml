@@ -82,6 +82,30 @@ OnCalendar=*-*-* 05:00 America/Chicago
 """
 notify  = ["apt-daily-upgrade.timer"]
 
+[bootstrap.files."/etc/systemd/system/docker-image-prune.service"]
+content = """
+[Unit]
+Description=Remove dangling Docker images, which replaced pulls and rebuilt images leave untagged
+Requires=docker.service
+After=docker.service
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/docker image prune --force
+"""
+notify  = ["docker-image-prune.timer"]
+
+[bootstrap.files."/etc/systemd/system/docker-image-prune.timer"]
+content = """
+[Unit]
+Description=Weekly dangling Docker image prune
+[Timer]
+OnCalendar=Sun *-*-* 04:00 America/Chicago
+Persistent=true
+[Install]
+WantedBy=timers.target
+"""
+notify  = ["docker-image-prune.timer"]
+
 # --- [PACKAGES]
 
 [bootstrap.packages]
@@ -96,15 +120,16 @@ notify  = ["apt-daily-upgrade.timer"]
 # --- [SERVICES]
 
 [bootstrap.services]
-"apt-daily-upgrade.timer" = {}
-dmesg                     = { enabled = false, masked = true, state = "stopped" }
-docker                    = { on_change = "restart" }
-"fstrim.timer"            = { enabled = false, masked = true, state = "stopped" }
-rsyslog                   = { enabled = false, masked = true, state = "stopped" }
-ssh                       = { enabled = false, masked = true, state = "stopped" }
-"ssh.socket"              = { enabled = false, masked = true, state = "stopped" }
-"syslog.socket"           = { enabled = false, masked = true, state = "stopped" }
-systemd-journald          = { enabled = false }
-systemd-logind            = { enabled = false }
-systemd-remount-fs        = {}
-systemd-sysctl            = { enabled = false }
+"apt-daily-upgrade.timer"  = {}
+dmesg                      = { enabled = false, masked = true, state = "stopped" }
+docker                     = { on_change = "restart" }
+"docker-image-prune.timer" = {}
+"fstrim.timer"             = { enabled = false, masked = true, state = "stopped" }
+rsyslog                    = { enabled = false, masked = true, state = "stopped" }
+ssh                        = { enabled = false, masked = true, state = "stopped" }
+"ssh.socket"               = { enabled = false, masked = true, state = "stopped" }
+"syslog.socket"            = { enabled = false, masked = true, state = "stopped" }
+systemd-journald           = { enabled = false }
+systemd-logind             = { enabled = false }
+systemd-remount-fs         = {}
+systemd-sysctl             = { enabled = false }
