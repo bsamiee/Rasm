@@ -1,4 +1,3 @@
-import { Call } from '@rasm/report';
 import { Effect, FileSystem, Option, Path, Record } from 'effect';
 import type { ProgramRow, Table } from '#/decision/rule';
 
@@ -28,11 +27,19 @@ const git: Table = Record.map<string, ProgramRow, ProgramRow>(
         'git.stash': {
             program: 'git',
             path: ['stash'],
-            decide: (invocation) =>
-                ['list', 'show'].includes(invocation.path[1] ?? '')
-                    ? []
-                    : [{ subject: `git ${invocation.path.join(' ')}`, deny: 'hides work other sessions in this checkout may hold', values: { instead: 'leave the work in the tree and commit all of it whole when the phase ends' }, next: new Call({ tool: 'Bash', given: { command: 'git add -A && git commit' } }) }],
+            decide: (invocation) => (['list', 'show'].includes(invocation.path[1] ?? '') ? [] : [{ subject: `git ${invocation.path.join(' ')}`, deny: 'hides work other sessions in this checkout may hold', values: { instead: 'commit and push your own finished paths, and leave the rest of the tree as it stands' } }]),
         },
+        'git.pull.autostash': { program: 'git', path: ['pull'], when: ['--autostash'], deny: 'stashes and restores the uncommitted edits every session in this checkout holds', values: { instead: 'push, and push with --force when origin refuses it' } },
+        'git.rebase.autostash': { program: 'git', path: ['rebase'], when: ['--autostash'], deny: 'stashes and restores the uncommitted edits every session in this checkout holds', values: { instead: 'push, and push with --force when origin refuses it' } },
+        'git.add.all': {
+            program: 'git',
+            path: ['add'],
+            decide: (invocation) =>
+                invocation.has('-A', '--all', '-u', '--update') || invocation.operands.some(({ word }) => ['.', ':/', '*'].includes(Option.getOrElse(word.text, () => '')))
+                    ? [{ subject: 'git add of the whole tree', deny: 'stages uncommitted edits other sessions in this checkout hold', values: { instead: 'stage your own changed paths by name' } }]
+                    : [],
+        },
+        'git.commit.all': { program: 'git', path: ['commit'], when: ['-a', '--all'], deny: 'commits uncommitted edits other sessions in this checkout hold', values: { instead: 'commit your own changed paths by name with git commit -- <paths>' } },
         'git.revert': { program: 'git', path: ['revert'], unless: ['--abort', '--continue', '--quit', '--skip'], deny: 'undoes committed work other sessions in this checkout build on', values: RESTORE },
         'git.restore': { program: 'git', path: ['restore'], decide: (invocation) => (invocation.has('--staged') && !invocation.has('--worktree') ? [] : [{ subject: 'git restore', deny: DISCARDS_EDITS, values: RESTORE }]) },
         'git.checkout.paths': {
@@ -73,17 +80,10 @@ const git: Table = Record.map<string, ProgramRow, ProgramRow>(
         'git.push': {
             program: 'git',
             path: ['push'],
-            decide: (invocation) => {
-                const refs = invocation.operands.map(({ word }) => word.field.prefix);
-                const forced = invocation.has('-f', '--force', '--force-with-lease', '--force-if-includes') || refs.some((ref) => ref.startsWith('+'));
-                const deleted = invocation.has('-d', '--delete', '--mirror', '--prune') || refs.some((ref) => ref.startsWith(':'));
-                return invocation.has(...DRY_RUN_FLAGS)
-                    ? []
-                    : [
-                          ...(forced ? [{ subject: 'git push with force', deny: 'overwrites commits and tags on the remote that other sessions may have pushed', values: { instead: 'pull, integrate their commits, and push without force' } }] : []),
-                          ...(deleted ? [{ subject: 'git push deleting remote refs', deny: 'drops commits and tags other sessions may still need', values: { instead: 'leave remote branches and tags in place' } }] : []),
-                      ];
-            },
+            decide: (invocation) =>
+                !invocation.has(...DRY_RUN_FLAGS) && (invocation.has('-d', '--delete', '--mirror', '--prune') || invocation.operands.some(({ word }) => word.field.prefix.startsWith(':')))
+                    ? [{ subject: 'git push deleting remote refs', deny: 'drops commits and tags other sessions may still need', values: { instead: 'leave remote branches and tags in place' } }]
+                    : [],
         },
         'git.tag.delete': { program: 'git', path: ['tag'], when: ['-d', '--delete'], deny: 'deletes a tag that marks work other sessions and releases point at', values: { instead: 'leave tags in place' } },
         'git.tag.move': { program: 'git', path: ['tag'], when: ['-f', '--force'], unless: ['-d', '--delete'], deny: 'moves a tag that marks work other sessions and releases point at', values: { instead: 'tag under a name no tag holds' } },
