@@ -1,0 +1,11 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-lints-tests-stable"
+edition.workspace = true
+rust-version      = "1.100"
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

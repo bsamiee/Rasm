@@ -5,7 +5,7 @@
 [workspace]
 resolver = "3"
 exclude  = [".cache"]                                                                                                                     # Crates tools unpack under the repository cache folder (uv sdist builds) stay outside this workspace
-members  = ["libs/rust/*/*", "products/ai/muxer", "tests/libs/rust/*/*", "tests/products/ai/muxer", "tests/tools/dylint", "tools/dylint"]
+members  = ["libs/rust/*/*", "products/ai/muxer", "tests/libs/rust/*/*", "tests/products/ai/muxer", "tests/tools/dylint", "tests/tools/dylint/stable", "tools/dylint"]
 
 # --- [IDENTITY]
 

@@ -13,7 +13,7 @@ use rustc_hir::{Body, Expr, ExprField, ExprKind, FnDecl, HirIdSet, ItemKind, Str
 use rustc_infer::infer::TyCtxtInferExt as _;
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::adjustment::{Adjust, PointerCoercion};
-use rustc_middle::ty::{self, TypingEnv};
+use rustc_middle::ty::{self, TyCtxt, TypingEnv};
 use rustc_span::Span;
 use rustc_trait_selection::traits::{Obligation, ObligationCause, ObligationCtxt};
 
@@ -21,7 +21,15 @@ use crate::{associated_trait, expanded_externally, impl_owner};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(MANUAL_DEFAULT_FIELD_VALUES: "hand-written `Default` impls building each field of a local struct from a constant, directly or through a constructor");
+pub(crate) struct Pass {
+    stable: bool,
+}
+
+lint!(Pass; MANUAL_DEFAULT_FIELD_VALUES: "hand-written `Default` impls building each field of a local struct from a constant, directly or through a constructor");
+
+impl Pass {
+    pub(crate) const fn new(_: TyCtxt<'_>, stable: bool) -> Self { Self { stable } }
+}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -76,6 +84,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     Either::Right(field.expr.hir_id)
                 }
             })
+            && (!self.stable || explicit.is_empty() && !cx.tcx.is_const_trait_impl(implementation))
             && explicit.iter().all(|field| is_const_evaluatable(cx.tcx, typeck, field.expr))
             && {
                 let (infcx, param_env) = cx.tcx.infer_ctxt().build_with_typing_env(TypingEnv::non_body_analysis(cx.tcx, definition));
