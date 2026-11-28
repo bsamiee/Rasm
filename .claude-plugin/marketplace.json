@@ -31,7 +31,7 @@
         {
             "name": "delegate",
             "source": "./plugins/claude/delegate",
-            "description": "Claude Code runs of outside agents (codex exec, agy, any one-command CLI agent) as background engine agents reporting their verdict, with skills for Antigravity and Codex runs, path audits, and reviews across models",
+            "description": "Claude Code workflows for Antigravity and Codex runs, path audits, and reviews across models",
             "author": {
                 "name": "Bardia Samiee"
             },
@@ -80,6 +80,17 @@
             "name": "msbuild",
             "source": "./plugins/shared/msbuild",
             "category": "Coding"
+        },
+        {
+            "name": "naqib",
+            "source": "./plugins/claude/naqib",
+            "description": "Claude Code hooks that gather the owner's agent work in the terminal, with the way back to each, and open every agent's tmux run as a muted read-only pane in Zellij session agents",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "policy": {
+                "installation": "NOT_AVAILABLE"
+            }
         },
         {
             "name": "orchestration",

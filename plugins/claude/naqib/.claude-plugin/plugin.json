@@ -1,0 +1,8 @@
+{
+    "name": "naqib",
+    "version": "0.1.0",
+    "description": "Claude Code hooks that gather the owner's agent work in the terminal, with the way back to each, and open every agent's tmux run as a muted read-only pane in Zellij session agents",
+    "author": {
+        "name": "Bardia Samiee"
+    }
+}
