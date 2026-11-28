@@ -1,13 +1,13 @@
-import { Array, Cache, Combiner, Effect, Equal, Option, Record, Schema } from 'effect';
+import { Array, Cache, Combiner, Effect, Equal, Option, Record, Schema, Struct } from 'effect';
 import { ChildProcessSpawner } from 'effect/process';
-import { Chunk, describe, release, Row } from '#/programs/carapace';
+import { Chunk, describe, release } from '#/programs/carapace';
 import { signatures } from '#/programs/signatures';
 import { Usage } from '#/programs/usage';
 import { chunks } from '#/usage/chunks';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const Carried = Chunk.pipe(Schema.toEncoded, Schema.NonEmptyArray);
+const Carried = Chunk.mapFields(Struct.assign({ programs: Schema.Record(Schema.String, Schema.Unknown) })).pipe(Schema.NonEmptyArray);
 const merger = Option.makeReducer(Combiner.make((base: Usage, over: Usage) => base.merge(over)));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -31,7 +31,7 @@ const catalog = Effect.fnUntraced(function* (rows: readonly (typeof Usage.Encode
             function* (program: string) {
                 const exported = yield* Option.match(yield* live, {
                     onSome: ({ completers }) => (Record.has(completers, program) ? describe(program) : Effect.succeedNone),
-                    onNone: () => Array.findFirst(carried, ({ programs }) => Record.get(programs, program)).pipe(Option.map(Schema.decodeEffect(Row)), Effect.transposeOption, Effect.orDie),
+                    onNone: () => Array.findFirst(carried, ({ programs }) => Record.get(programs, program)).pipe(Option.map(Schema.decodeUnknownEffect(Usage)), Effect.transposeOption, Effect.orDie),
                 });
                 return merger.combine(exported, Record.get(named, program));
             },

@@ -50,8 +50,7 @@ const Command: Schema.Codec<Usage, Export> = Schema.Struct({
 );
 const Listing = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Array(Schema.Struct({ group: Schema.String }))));
 const Export = Schema.fromJsonString(Command);
-const Row = Schema.fromJsonString(Usage);
-const Chunk = Schema.Struct({ carapace: Schema.String, groups: Schema.Array(Schema.String), programs: Schema.Record(Schema.String, Row) });
+const Chunk = Schema.Struct({ carapace: Schema.String, groups: Schema.Array(Schema.String), programs: Schema.Record(Schema.String, Usage) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -70,4 +69,4 @@ const describe = (program: string) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Chunk, describe, release, Row };
+export { Chunk, describe, release };
