@@ -1,4 +1,4 @@
-import type { EngineInterface, EventResult, Frozen, PaneCloseArgs, PaneCloseInput, PaneOpenArgs, UiOpenResult, UiPane } from 'claude-code';
+import type { EngineInterface, EventResult, Frozen, Next, PaneCloseArgs, PaneCloseInput, PaneOpenArgs, UiOpenResult, UiPane } from 'claude-code';
 import { Array, Context, Effect, Layer, type ManagedRuntime, Option, PlatformError, Record, Struct } from 'effect';
 import { call } from '#/engine/services';
 import type { Render } from '#/ui/render';
@@ -20,7 +20,7 @@ function panes<S, R, F>($: EngineInterface, rows: NonNullable<Render<S, R, F>['P
     return Layer.succeed(Panes)({
         open: (pane) =>
             Option.match(Record.get(rows, pane.id), {
-                onNone: () => PlatformError.badArgument({ module: 'Panes', method: 'open', description: `pane ${pane.id}, which this mod declares no body for` }),
+                onNone: () => PlatformError.badArgument({ module: 'Panes', method: 'open', description: `pane ${pane.id}, which the mod's render table has no row for` }),
                 onSome: (row) => call('ui.open', pane.id, () => $.ui.open({ ...Struct.omit(row, ['draw', 'closes']), ...pane })),
             }),
         close: (pane) => call('ui.close', pane.id, () => $.ui.close(pane)),
@@ -28,17 +28,21 @@ function panes<S, R, F>($: EngineInterface, rows: NonNullable<Render<S, R, F>['P
     });
 }
 
-function closing<S, R, E, F>($: EngineInterface, rows: NonNullable<Render<S, R, F>['Pane']>, e: Frozen<PaneCloseInput>, next: (e: Frozen<PaneCloseInput>) => Promise<EventResult<'ui.close'>>, runtime: () => ManagedRuntime.ManagedRuntime<R, E>) {
-    const kept: EventResult<'ui.close'> = { value: undefined };
+function closing<S, R, E, F>($: EngineInterface, rows: NonNullable<Render<S, R, F>['Pane']>, e: Frozen<PaneCloseInput>, next: Next<'ui.close'>, runtime: () => ManagedRuntime.ManagedRuntime<R, E>) {
     return Option.match(Option.flatMapNullishOr(Record.get(rows, e.id), Struct.get('closes')), {
         onNone: () => next(e),
         onSome: (closes) =>
-            runtime().runPromise(
-                call('ui.panes', e.id, () => $.ui.panes()).pipe(
-                    Effect.flatMap((held) => (Array.some(held, ({ id }) => id === e.id) ? Effect.catchCause(closes, (cause) => Effect.as(Effect.logWarning(`Pane ${e.id} close failed`, cause), true)) : Effect.succeed(true))),
-                    Effect.flatMap((passes) => (passes ? call('ui.close', e.id, () => next(e)) : Effect.succeed(kept))),
-                ),
-            ),
+            runtime()
+                .runPromise(
+                    call('ui.panes', e.id, () => $.ui.panes()).pipe(
+                        Effect.flatMap((held) => (Array.some(held, ({ id }) => id === e.id) ? Effect.catchCause(closes, (cause) => Effect.as(Effect.logWarning(`Pane ${e.id} close failed`, cause), true)) : Effect.succeed(true))),
+                        Effect.flatMap((passes) => (passes ? call('ui.close', e.id, () => next(e)) : Effect.succeed<EventResult<'ui.close'>>({ value: undefined }))),
+                    ),
+                    { signal: next.signal },
+                )
+                .catch((error: unknown) => {
+                    throw next.signal.aborted ? next.signal.reason : error;
+                }),
     });
 }
 
