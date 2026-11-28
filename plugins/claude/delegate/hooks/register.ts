@@ -6,11 +6,11 @@ import { ProcessTree, Writer } from '@rasm/process/tree';
 import { Format, Line, Report } from '@rasm/report';
 import { Shell } from '@rasm/shell';
 import type { AgentReportResult, Frozen, On, SessionMessage, ToolCallInput, ToolCallResult, TurnStepInput } from 'claude-code';
-import { Array, ByteSize, Cache, type Cause, Channel, Config, Context, Data, DateTime, Duration, Effect, Equal, Exit, Fiber, FileSystem, Layer, Match, Option, Order, Path, Record, Result, Schedule, Schema, Stream, Struct } from 'effect';
+import { Array, ByteSize, Cache, type Cause, Channel, Config, Context, Data, DateTime, Duration, Effect, Equal, Exit, Fiber, FileSystem, Layer, Match, Option, Path, Record, Result, Schedule, Schema, Stream, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Fault = Effect.Error<ReturnType<typeof execute>> | Effect.Error<ReturnType<typeof launch>> | Effect.Error<typeof table> | Cause.UnknownError;
+type Fault = Effect.Error<ReturnType<typeof execute>> | Effect.Error<ReturnType<typeof launch>> | Cause.UnknownError;
 type Ending = Data.TaggedEnum<{ Exited: { readonly code: number; readonly stderr: Option.Option<string> }; Failed: { readonly reason: string }; Limit: object; Quiet: { readonly sample: Sample } }>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -45,11 +45,8 @@ class Command extends Schema.Class<Command, { readonly brand: unique symbol }>('
 }
 
 class Started extends Schema.Class<Started, { readonly brand: unique symbol }>('Started')({
-    agent: Schema.String,
-    claude: Schema.Int,
     pid: Schema.Int,
     command: Command,
-    description: Schema.String,
     start: Schema.DateTimeUtcFromMillis,
 }) {
     static readonly json = Schema.fromJsonString(Started);
@@ -63,8 +60,6 @@ class Runner extends Context.Service<
     Runner,
     {
         readonly runs: string;
-        readonly programs: string;
-        readonly claude: number;
         readonly tool: string;
         readonly agent: string;
         readonly runner: (agent: Option.Option<string>) => Effect.Effect<Option.Option<string>>;
@@ -73,7 +68,7 @@ class Runner extends Context.Service<
     static readonly layer = Layer.effect(
         Runner,
         Effect.gen(function* () {
-            const [engine, path, plugin, { data, claude }] = yield* Effect.all([Engine, Path.Path, Plugin, Config.all({ data: Config.String('CLAUDE_PLUGIN_DATA'), claude: Config.Int('CLAUDE_PID') })]);
+            const [engine, path, plugin, data] = yield* Effect.all([Engine, Path.Path, Plugin, Config.String('CLAUDE_PLUGIN_DATA')]);
             const { tool, agent } = yield* Option.all({ tool: Record.get(plugin.tools, 'run'), agent: Record.get(plugin.agents, 'run') }).pipe(Effect.fromOption, Effect.orDie);
             const types = yield* Cache.makeWith((id: string) => Effect.map(Effect.orElseSucceed(engine.agents, Record.empty), Record.get(id)), {
                 capacity: Number.POSITIVE_INFINITY,
@@ -81,8 +76,6 @@ class Runner extends Context.Service<
             });
             return {
                 runs: path.join(data, 'runs'),
-                programs: path.join(data, 'programs'),
-                claude,
                 tool,
                 agent,
                 runner: (loop: Option.Option<string>) =>
@@ -190,13 +183,7 @@ const execute = Effect.fnUntraced(function* (run: typeof Run.Type, agent: string
     const command = yield* Effect.fromOption(parsed.command);
     const start = yield* DateTime.now;
     const child = yield* parsed.exec(parsed.script);
-    yield* Effect.all(
-        [
-            Effect.flatMap(Schema.encodeEffect(Started.json)(Started.make({ agent, claude: runner.claude, pid: child.pid, command, description: run.description, start })), (text) => fs.writeFileString(path.join(runner.runs, `${agent}.json`), text)),
-            fs.writeFileString(path.join(runner.programs, encodeURIComponent(command.label)), ''),
-        ],
-        { discard: true },
-    );
+    yield* Effect.flatMap(Schema.encodeEffect(Started.json)(Started.make({ pid: child.pid, command, start })), (text) => fs.writeFileString(path.join(runner.runs, `${agent}.json`), text));
     const output = yield* Effect.forkScoped(
         Effect.all(
             [
@@ -258,47 +245,6 @@ const closeRecord = Effect.fnUntraced(function* (agent: string) {
     yield* fs.remove(record, { force: true });
     return Option.map(held, ({ command, pid, start }) => report(new Line({ head: ['run'], value: command.label, facts: ['stopped', Format.duration(DateTime.distance(start, now))], rows: [new Line({ head: ['pid'], value: `${pid}` })] })));
 });
-const table = Effect.gen(function* () {
-    const [fs, path, { runs, programs, claude }, now] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Runner, DateTime.now]);
-    const list = (folder: string) => fs.readDirectory(folder).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(Array.empty<string>())));
-    const [tree, names, known] = yield* Effect.all([ProcessTree.read, list(runs), Effect.map(list(programs), (labels) => new Set(labels.map(decodeURIComponent)))], { concurrency: 'unbounded' });
-    const held = yield* Effect.filterMapEffect(names, (name) => fs.readFileString(path.join(runs, name)).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Started.json)), Effect.result));
-    const [live, dead] = Array.partition(held, (each) => (Option.isSome(tree.subtree(each.pid)) ? Result.succeed(each) : Result.fail(each)));
-    yield* Effect.forEach(dead, ({ agent }) => fs.remove(path.join(runs, `${agent}.json`), { force: true }), { discard: true });
-    const pids = new Set(live.map(Struct.get('pid')));
-    const program = (command: string) => path.basename(command.split(' ', 1).join(''));
-    const session = Option.map(
-        Option.flatMap(tree.subtree(claude), ({ processes }) => Array.head(processes)),
-        ({ command }) => program(command),
-    );
-    const owner = (pid: number) => (pid === claude ? 'this session' : `claude ${pid}`);
-    const found = tree.processes
-        .filter(({ pid }) => !pids.has(pid))
-        .flatMap(({ pid, cpu, command }) => {
-            const words = command.split(' ');
-            const at = words.findIndex((word, index) => known.has([path.basename(word), ...Array.fromNullishOr(words[index + 1])].join(' ')));
-            return at === -1 ? [] : [{ pid, cpu, run: Command.make({ program: path.basename(words[at] ?? ''), words: words.slice(at + 1) }) }];
-        });
-    const rows = [
-        ...Array.sort(
-            live,
-            Order.mapInput(Order.Boolean, ({ claude: pid }: Started) => pid !== claude),
-        ).map(({ claude: pid, command, description, start, pid: run }) => new Line({ head: [owner(pid)], facts: [command.label, ...Option.toArray(command.model), description, Format.duration(DateTime.distance(start, now)), `pid ${run}`] })),
-        ...found.map(
-            ({ pid, cpu, run }) =>
-                new Line({
-                    head: [
-                        Option.match(
-                            tree.ancestor(pid, ({ command }) => Option.contains(session, program(command))),
-                            { onNone: () => 'outside Claude', onSome: ({ pid: at }) => owner(at) },
-                        ),
-                    ],
-                    facts: [run.label, ...Option.toArray(run.model), `cpu ${Format.duration(cpu)}`, `pid ${pid}`],
-                }),
-        ),
-    ];
-    return report(new Line({ head: ['runs on this Mac'], value: Format.count(rows.length), rows }));
-});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -327,13 +273,6 @@ function register(on: On) {
                         : next(e),
                 ),
             'tool.check': (e, next) => Effect.flatMap(Runner, ({ runner, tool }) => (e.tool === tool ? Effect.flatMap(runner(Option.fromUndefinedOr(e.agentId)), (held) => (Option.isSome(held) ? Effect.succeed({ decision: 'allow' as const }) : next(e))) : next(e))),
-        },
-        commands: {
-            runs: {
-                description: 'Every outside agent run on this Mac, with its session, program, model, task, time, and process id',
-                immediate: true,
-                run: () => Effect.map(table, (text) => ({ text, isTextDisplayOnly: true }) as const),
-            },
         },
         tools: {
             run: Tool(Run, {

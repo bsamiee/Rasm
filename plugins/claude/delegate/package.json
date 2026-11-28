@@ -1,7 +1,7 @@
 {
     "name": "@rasm/delegate",
     "private": true,
-    "description": "Claude Code hooks that run outside agent commands as background engine agents, each reporting its exit, time, model, and answer files, and list every outside run on the Mac",
+    "description": "Claude Code hooks that run outside agent commands as background engine agents, each reporting its exit, time, model, and answer files",
     "files": [
         "skills/**"
     ],
