@@ -1,13 +1,12 @@
-import { subscribe } from 'node:diagnostics_channel';
+import { channel } from 'node:diagnostics_channel';
 import { createServer } from 'node:http';
-import { flushCompileCache } from 'node:module';
 import type { ListenOptions } from 'node:net';
 import { join, parse } from 'node:path';
 import process from 'node:process';
 import { layer as addressResolver } from '@effect/platform-node/NodeAddressResolver';
 import { layerAead, layerSecureRandom } from '@effect/platform-node/NodeCrypto';
 import { layer as dns } from '@effect/platform-node/NodeDns';
-import { layerUndici } from '@effect/platform-node/NodeHttpClient';
+import { layerNodeHttpOptions } from '@effect/platform-node/NodeHttpClient';
 import { layerHttpServices, layerServer } from '@effect/platform-node/NodeHttpServer';
 import { Unmatched } from '@rasm/search/unmatched';
 import { layerNodeFromConfig } from '@rasm/telemetry/node';
@@ -98,7 +97,7 @@ const serve = Effect.fnUntraced(function* <E, R, E2, R2, const Declared extends 
                 return yield* result.isError === true ? CliError.UserError.make({ cause: result, userMessage: text }) : Console.log(text);
             },
             Effect.scoped,
-            Effect.provide(layerUndici),
+            Effect.provide(layerNodeHttpOptions({ keepAlive: true })),
         ),
     ).pipe(Command.withDescription('Calls one tool of the running server and prints its result blocks in order, an image or other binary block as the path of a file holding it'));
     const described = Effect.fnUntraced(function* (doc: HelpDoc.HelpDoc) {
@@ -108,7 +107,7 @@ const serve = Effect.fnUntraced(function* <E, R, E2, R2, const Declared extends 
             Effect.flatMap(connect),
             Effect.flatMap((client) => client.listTools()),
             Effect.scoped,
-            Effect.provide(layerUndici),
+            Effect.provide(layerNodeHttpOptions({ keepAlive: true })),
             Effect.option,
         );
         const rows = Option.map(
@@ -155,13 +154,18 @@ const serve = Effect.fnUntraced(function* <E, R, E2, R2, const Declared extends 
                         ),
                 });
                 const servers = Array.map(listening, (listen) => ({ listen, server: createServer() }));
-                subscribe('http.server.response.finish', () => {
+                const finish = channel('http.server.response.finish');
+                const closeIdle = () => {
                     for (const { server } of servers) {
                         if (!server.listening) {
                             server.closeIdleConnections();
                         }
                     }
-                });
+                };
+                yield* Effect.acquireRelease(
+                    Effect.sync(() => finish.subscribe(closeIdle)),
+                    Function.constant(Effect.sync(() => finish.unsubscribe(closeIdle))),
+                );
                 const served = Effect.zipWith(handler, Effect.isSuccess(HttpServerRequest.HttpServerRequest.pipe(Effect.flatMap(Struct.get('text')), Effect.flatMap(Schema.decodeEffect(Subscription)))), (response, subscribed) =>
                     subscribed && response.body._tag === 'Stream' ? HttpServerResponse.setBody(response, HttpBody.stream(Stream.interruptWhen(response.body.stream, Deferred.await(draining)), response.body.contentType, response.body.contentLength)) : response,
                 );
@@ -169,7 +173,6 @@ const serve = Effect.fnUntraced(function* <E, R, E2, R2, const Declared extends 
                     discard: true,
                 });
                 yield* Effect.addFinalizer(() => Effect.asVoid(Deferred.succeed(draining, undefined)));
-                yield* Effect.sync(flushCompileCache);
                 return yield* ending;
             },
             Effect.scoped,

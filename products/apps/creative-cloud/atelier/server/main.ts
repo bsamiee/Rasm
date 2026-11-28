@@ -1,5 +1,5 @@
 import { layerDigest } from '@effect/platform-node/NodeCrypto';
-import { layerUndici } from '@effect/platform-node/NodeHttpClient';
+import { layerNodeHttpOptions } from '@effect/platform-node/NodeHttpClient';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { ApplicationTools } from '@rasm/application-tools/toolkit';
@@ -69,7 +69,7 @@ Effect.gen(function* () {
             settings: [...ApplicationTools.settings, Applications.Registry],
         },
         { address, descriptors, share, provider: preferences },
-        tools(identifier).pipe(Layer.provide(Layer.provideMerge(Declarations.layer, Layer.provideMerge(Catalog.layer(Applications.catalog), Applications.layer))), Layer.provide([layerUndici, layerDigest]), Layer.provideMerge(application)),
+        tools(identifier).pipe(Layer.provide(Layer.provideMerge(Declarations.layer, Layer.provideMerge(Catalog.layer(Applications.catalog), Applications.layer))), Layer.provide([layerNodeHttpOptions({ keepAlive: true }), layerDigest]), Layer.provideMerge(application)),
         ended,
     );
 }).pipe(Effect.provide(Layer.provideMerge(Program.layer, layer)), runMain({ teardown }));
