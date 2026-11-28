@@ -1,5 +1,5 @@
-import type { AgentCallArgs, AgentInfo, AgentStatus, EngineInterface, HttpInit, HttpResponse, InvalidatableEventName, ToolCallResult } from 'claude-code';
-import { Array, Context, Data, Effect, HashSet, Layer, Match, Option, PlatformError, Record, Ref, Semaphore, type Stream, SubscriptionRef } from 'effect';
+import type { AgentCallArgs, AgentInfo, AgentStatus, EngineInterface, HttpInit, HttpResponse, InvalidatableEventName, ToolCallResult, UiFocusArgs, UiScrollArgs } from 'claude-code';
+import { Array, Context, Data, Effect, Formatter, HashSet, Layer, Match, Option, PlatformError, Record, Ref, Semaphore, type Stream, SubscriptionRef } from 'effect';
 import { call } from '#/engine/services';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -26,6 +26,8 @@ class Engine extends Context.Service<
     {
         readonly deliver: (notice: Notice) => Effect.Effect<void, PlatformError.PlatformError>;
         readonly invalidate: (event: InvalidatableEventName) => Effect.Effect<void>;
+        readonly focus: (args: UiFocusArgs) => Effect.Effect<void, PlatformError.PlatformError>;
+        readonly scroll: (args: UiScrollArgs) => Effect.Effect<void, PlatformError.PlatformError>;
         readonly fetch: (url: string, init?: HttpInit) => Effect.Effect<HttpResponse, PlatformError.PlatformError>;
         readonly callTool: (args: AgentCallArgs) => Effect.Effect<ToolCallResult, PlatformError.PlatformError>;
         readonly cwd: Effect.Effect<string, PlatformError.PlatformError>;
@@ -104,6 +106,24 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
                             ),
                     }),
                 invalidate: (event: InvalidatableEventName) => Effect.sync(() => $.ui.invalidate(event)),
+                focus: (args: UiFocusArgs) =>
+                    Effect.asVoid(
+                        call(
+                            'ui.focus',
+                            args.key,
+                            () => $.ui.focus(args),
+                            ({ deny }) => deny,
+                        ),
+                    ),
+                scroll: (args: UiScrollArgs) =>
+                    Effect.asVoid(
+                        call(
+                            'ui.scroll',
+                            args.in ?? Formatter.format(args.to),
+                            () => $.ui.scroll(args),
+                            ({ deny }) => deny,
+                        ),
+                    ),
                 fetch: (url: string, init?: HttpInit) => call('http.fetch', url, () => $.http.fetch(url, init)),
                 callTool: (args: AgentCallArgs) => call('agent.call', args.tool, (signal) => $.agent.call(args, { signal })),
                 cwd: call('session.cwd', 'main', () => $.session.cwd()),

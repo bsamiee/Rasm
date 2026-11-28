@@ -10,6 +10,10 @@
     "exports": {
         "./engine": "./engine/interface.ts",
         "./host": "./engine/host.ts",
+        "./ask": "./ui/ask.ts",
+        "./draft": "./prompt/draft.ts",
+        "./element": "./ui/element.ts",
+        "./theme": "./ui/theme.ts",
         "./enforcement": "./policy/enforcement.ts",
         "./package.json": "./package.json"
     },

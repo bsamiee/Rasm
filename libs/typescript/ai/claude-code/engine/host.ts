@@ -3,11 +3,15 @@ import { Array, Effect, type FileSystem, HashSet, Layer, ManagedRuntime, Mutable
 import type { ChildProcessSpawner } from 'effect/process';
 import { type Engine, engine } from '#/engine/interface';
 import { call, services } from '#/engine/services';
+import { type Draft, draft } from '#/prompt/draft';
+import { type Ask, ask, type Asking, dialog, pending } from '#/ui/ask';
+import { draw } from '#/ui/element';
+import { heard, type Theme, theme } from '#/ui/theme';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Event = 'session.start' | 'session.end' | 'session.compact' | 'turn.start' | 'turn.complete' | 'agent.report' | 'tool.describe' | 'tool.check' | 'tool.call';
-type Provided = Engine | FileSystem.FileSystem | ChildProcessSpawner.ChildProcessSpawner | Path.Path;
+type Event = 'session.start' | 'session.end' | 'session.compact' | 'turn.start' | 'turn.complete' | 'agent.report' | 'tool.describe' | 'tool.check' | 'tool.call' | 'prompt.fill' | 'prompt.paint' | 'prompt.suggest' | 'ui.press' | 'ui.input' | 'ui.select' | 'ui.focus' | 'ui.scroll';
+type Provided = Engine | Ask | Draft | Theme | FileSystem.FileSystem | ChildProcessSpawner.ChildProcessSpawner | Path.Path;
 type Proceed<N extends Event> = ((input: Frozen<Args<N>>) => Effect.Effect<EventResult<N>, PlatformError.PlatformError>) & Pick<Next<N>, 'budget' | 'signal'>;
 type Hook<N extends Event, A, F> = (e: Frozen<Args<N>>, next: Proceed<N>) => Effect.Effect<EventResult<N>, F, A | Provided>;
 interface Mod<A, E, F> {
@@ -18,6 +22,8 @@ interface Mod<A, E, F> {
 interface Instance<A, E, F> extends Pick<Mod<A, E, F>, 'hooks'> {
     readonly live: MutableRef.MutableRef<Option.Option<ManagedRuntime.ManagedRuntime<A | Provided, E | PlatformError.PlatformError>>>;
     readonly turns: SubscriptionRef.SubscriptionRef<HashSet.HashSet<Option.Option<string>>>;
+    readonly asking: MutableRef.MutableRef<Option.Option<Asking>>;
+    readonly theme: Parameters<typeof theme>[1];
     readonly band: Option.Option<NonNullable<Mod<A, E, F>['band']> & { readonly rows: Ref.Ref<Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, string>>> }>;
 }
 
@@ -32,18 +38,20 @@ const held: { readonly [N in Event]?: <A, E, F, X, Y, R>(instance: Instance<A, E
     'turn.start': ({ turns }, { agentId }, answered) => Effect.andThen(SubscriptionRef.update(turns, HashSet.add(Option.fromUndefinedOr(agentId))), answered),
     'turn.complete': ({ turns }, { agentId }, answered) => Effect.andThen(SubscriptionRef.update(turns, HashSet.remove(Option.fromUndefinedOr(agentId))), answered),
 };
-const hosted = <A, E, F>({ hooks, band }: Pick<Mod<A, E, F>, 'hooks' | 'band'>): Instance<A, E, F> => ({
-    hooks,
+const hosted = <A, E, F>(mod: Pick<Mod<A, E, F>, 'hooks' | 'band'>): Instance<A, E, F> => ({
+    hooks: mod.hooks,
     live: MutableRef.make(Option.none()),
     turns: HashSet.empty<Option.Option<string>>().pipe(SubscriptionRef.make, Effect.runSync),
-    band: Option.map(Option.fromUndefinedOr(band), (pressed) => ({ ...pressed, rows: Ref.makeUnsafe({}) })),
+    asking: MutableRef.make(Option.none()),
+    theme: Ref.makeUnsafe(Option.none()),
+    band: Option.map(Option.fromUndefinedOr(mod.band), (pressed) => ({ ...pressed, rows: Ref.makeUnsafe({}) })),
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 function start<A, E, F>($: EngineInterface, instance: Instance<A, E, F>, layer: Mod<A, E, F>['layer']) {
     return Option.getOrElse(MutableRef.get(instance.live), () => {
-        const made = ManagedRuntime.make(Layer.provideMerge(layer, Layer.provideMerge(engine($, instance.turns, Option.map(instance.band, Struct.get('rows'))), services($))));
+        const made = ManagedRuntime.make(Layer.provideMerge(layer, Layer.provideMerge(Layer.mergeAll(engine($, instance.turns, Option.map(instance.band, Struct.get('rows'))), ask($, instance.asking), draft($), theme($, instance.theme)), services($))));
         MutableRef.set(instance.live, Option.some(made));
         made.runPromise(Effect.void).catch(() => {
             MutableRef.compareAndSet(instance.live, Option.some(made), Option.none());
@@ -60,15 +68,14 @@ function answer<A, E, F, N extends Event>($: EngineInterface, instance: Instance
     return start($, instance, layer).runPromise(held[next.event]?.(instance, e, answered) ?? answered, { signal: next.signal });
 }
 
-function draw<A, E, F>($: EngineInterface, instance: Instance<A, E, F>, layer: Mod<A, E, F>['layer'], e: Frozen<RenderInput<'AbovePrompt'>>, next: (e: Frozen<RenderInput<'AbovePrompt'>>) => Promise<RenderElement>) {
-    const { Box, Button } = $.ui.resolve(e);
+function band<A, E, F>($: EngineInterface, instance: Instance<A, E, F>, layer: Mod<A, E, F>['layer'], e: Frozen<RenderInput<'AbovePrompt'>>, next: (e: Frozen<RenderInput<'AbovePrompt'>>) => Promise<RenderElement>) {
     return Option.match(
         Option.filter(instance.band, () => !e.props.hasSurvey),
         {
             onNone: () => next(e),
             onSome: ({ rows, press }) => {
                 const shown = rows.pipe(Ref.getUnsafe, Record.values, Array.flatMap(Record.toEntries));
-                return Array.isReadonlyArrayNonEmpty(shown) ? Box({ flexDirection: 'column', children: shown.map(([key, label]) => Button({ key, label, onPress: () => start($, instance, layer).runPromise(Effect.catchCause(press(key), (cause) => Effect.logWarning(`${label} press failed`, cause))) })) }) : next(e);
+                return Array.isReadonlyArrayNonEmpty(shown) ? draw($, e, { _tag: 'Box', flexDirection: 'column', children: shown.map(([key, label]) => ({ _tag: 'Button', key, label, onPress: () => press(key) })) }, () => start($, instance, layer)) : next(e);
             },
         },
     );
@@ -90,6 +97,8 @@ function host<A, E, F>(on: On, mod: Mod<A, E, F>) {
     on('session.end', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
     on('turn.start', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
     on('turn.complete', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
+    on('theme.*', ($, e, next) => heard($, instance.theme, e, next)).catch(recover);
+    on('tool.call', { tool: 'AskUserQuestion' }, ($, e, next) => dialog($, instance.asking, e, next)).catch(recover);
     if (hooks['session.compact'] !== undefined) {
         on('session.compact', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
     }
@@ -103,10 +112,34 @@ function host<A, E, F>(on: On, mod: Mod<A, E, F>) {
         on('tool.check', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
     }
     if (hooks['tool.call'] !== undefined) {
-        on('tool.call', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
+        on('tool.call', ($, e, next) => (Option.isSome(pending($, instance.asking, e, next)) ? next(e) : answer($, instance, layer, e, next))).catch(recover);
+    }
+    if (hooks['prompt.fill'] !== undefined) {
+        on('prompt.fill', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
+    }
+    if (hooks['prompt.paint'] !== undefined) {
+        on('prompt.paint', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
+    }
+    if (hooks['prompt.suggest'] !== undefined) {
+        on('prompt.suggest', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
+    }
+    if (hooks['ui.press'] !== undefined) {
+        on('ui.press', { plugin: '*' }, ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
+    }
+    if (hooks['ui.input'] !== undefined) {
+        on('ui.input', { plugin: '*' }, ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
+    }
+    if (hooks['ui.select'] !== undefined) {
+        on('ui.select', { plugin: '*' }, ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
+    }
+    if (hooks['ui.focus'] !== undefined) {
+        on('ui.focus', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
+    }
+    if (hooks['ui.scroll'] !== undefined) {
+        on('ui.scroll', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
     }
     if (Option.isSome(instance.band)) {
-        on('ui.render', { component: 'AbovePrompt' }, ($, e, next) => draw($, instance, layer, e, next)).catch(recover);
+        on('ui.render', { component: 'AbovePrompt' }, ($, e, next) => band($, instance, layer, e, next)).catch(recover);
     }
 }
 
