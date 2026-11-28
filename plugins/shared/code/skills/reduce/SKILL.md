@@ -1,292 +1,239 @@
 ---
 name: reduce
-description: "Use when cutting a target's lines, declarations, exports, and nesting in focused passes that rebuild logic on its owners, in any language"
+description: "Use when reducing code in focused passes without losing capability, covering targets, units, source reads, consumer maps, categories, nesting, and counts"
 argument-hint: "<target> [<concern>]"
+arguments: [target, concern]
 ---
 
 # [CODE_REDUCE]
 
-Code grows by addition: each change adds a constant, a wrapper, a helper, or a type, and nothing takes the old form away. Reduction reverses it in passes. Each pass takes one concern over one unit, reads every file and consumer whole, maps who reads each declaration and who does like work without it, rebuilds in place on the owner that already states each fact (a host member, a package member, an upstream value, one shape in the tree), and closes with fewer lines, declarations, exports, and nesting levels and every capability kept. A count that rose names the capability it added, or the pass failed.
+Reduction rebuilds logic until each fact sits once, at the source stating it. Models hold valid states alone, so no invalid state can be built and no guard checks for one; dependent steps bind and independent steps combine; one parameterized form replaces a family differing by a value; every value derives from a host, package, or upstream declaration that states it. Each pass takes one category over one unit, read whole with its readers, duplicates, and sources, and rebuilds in place with no new declaration standing in for the old. Counts prove a pass and never steer it.
 
 [REFERENCES]:
-- [01]-[TYPESCRIPT](references/typescript.md): Skills, packages, inventories, forms, and checks of TypeScript targets
+- [01]-[TYPESCRIPT](references/typescript.md): Skills, sources, catalog, consumers, counts, forms, and checks of TypeScript targets
 
 ## [01]-[TARGET]
 
-`<target>` decides what the first read covers and what one unit holds, `<concern>` names one category of `[07]` for the session:
+Target `$target` sets what the survey reads, and concern `$concern` names one category of the category list:
+- File -> file whole, every importer, and every file it imports
+- Folder -> every file whole, ranked by findings
+- Project -> counts per folder, then each folder whole in rank order
+- Symbol -> declaring file whole and every reference site
+- Suite -> suite whole and code under test whole, a unit being one fixture or helper form across the suite
+- Commit range -> changed, renamed, and deleted paths, each live file whole, a unit being one category the range introduced
+- Empty target -> ask the user, naming candidates from `git status --short` and `git log -5 --stat`
+- Empty concern -> every category in list order, one at a time
+- Target spanning languages -> one sequence per language, and a contract crossing them rebuilt on every side in one pass
+- Language with no reference -> its coding skill, `search:code` for declarations, and its central manifest below
 
-| [INDEX] | [TARGET]          | [FIRST_READ]                                       | [UNIT]                                      |
-| :-----: | :---------------- | :------------------------------------------------- | :------------------------------------------ |
-|  [01]   | File              | File whole, every importer, every file it imports  | One concern across the file and its readers |
-|  [02]   | Folder or project | Every file listed and read, ranked by findings     | One file, or one concern across files       |
-|  [03]   | Symbol            | Declaring file whole, every reference site         | Symbol, its readers, its like work          |
-|  [04]   | Test or suite     | Suite whole, code under test whole                 | One fixture or helper form across the suite |
-|  [05]   | Commit range      | Each changed file whole at its new revision        | One concern the range introduced            |
-|  [06]   | Smell category    | Every match of its detection across the named path | Matches of that category alone              |
+Central manifests list every package a target can adopt, one command per ecosystem (TypeScript, Python per uv root, .NET, Rust, Swift, C++), written to `<scratch>/reduce/catalog.txt` and read whole, .NET `Transitive Pinning` holding pins alone and Swift taking SDK frameworks and repository SPI in place of a catalog:
 
-- Empty arguments -> the owner names a target before any read
-- Targets larger than one unit become an ordered unit list before any edit, run one unit per pass
-- Targets spanning languages run one sequence per language, each with its reference file
-- Languages with no reference file run this sequence with their coding skill and central package manifest
+```bash
+yq '.catalog, .catalogs' pnpm-workspace.yaml
+sed -n '/^\[dependency-groups\]/,/^\[tool/p' <uv-root>/pyproject.toml
+rg -n 'Label=|<PackageVersion Include=' Directory.Packages.props
+sed -n '/^\[workspace.dependencies\]/,/^\[workspace.lints/p' Cargo.toml
+sed -n '/^    dependencies: \[/,/^    \]/p' Package.swift && ls "$(xcrun --show-sdk-path)/System/Library/Frameworks" libs/swift/macos/SPI
+jq -c '.dependencies // []' vcpkg.json
+```
 
 ## [02]-[SKILLS]
 
-Skills load before the first read of code, chosen by what the target holds:
-1. Reference file of each language the target holds, whose skill table names that language's skills
-2. Every coding skill that table matches, each language holding its own set (`typescript:coding` with `typescript:effect`)
-3. Package skills the target's manifest imports (`dotnet:languageext`, `python:msgspec`)
-4. `code:test` and the language testing skill when the target is a test or a pass breaks one
-5. Host skill when target code runs inside a host (`blender:host`, `rhino:host`, `uxp:coding`, `sazandeh:mod-ui`)
-6. `writing:names` and `writing:prose` for every name, message, and description a pass writes
-7. `code:rebuild` as a checklist of removal kinds, its order of work yielding to this sequence
+Skills load before the first read of code, every matching line:
+- Language: skill table of the language reference, else `<language>:coding` with each package skill the target's manifest names
+- Host: skill of the host running the code (`blender:host`, `rhino:host`, `uxp:coding`, `chrome:extensions`)
+- Tests: `code:test` and the language testing skill, when the target is a suite or a pass changes one
+- Text: `writing:names` and `writing:prose`, for each name, message, and description a pass writes
+- Sources: `search:code` for a dependency member at its installed release, `tool:inspect` for a host fact its documentation lacks
+- Memory: index lines matching the target's paths or packages, opened before the first read, each body's forbidden forms joining the map
 
-Memory lines matching the target's paths or packages open before the first read, and each body's banned forms join the map.
+## [03]-[SEQUENCE]
 
-## [03]-[READ]
-
-Reading ends in a statement of purpose per file, and no edit precedes it:
-1. Tree: `git status --short` and `git log -5 --stat`, the live tree with uncommitted edits is the base
-2. Inventory: list each file's declarations and exports with the reference file's inventory steps, counted
-3. Read: each file in scope line by line whole, as an outline, excerpt, or summary standing in for a file misses shapes
-4. Owners: read each package and host member the file calls at its installed version, with the reference file's package steps
-5. History: `git log -S '<literal>'` for each guard, flag, or form whose reason code and readers do not state
-6. Purpose: state per file what it is for, who calls it, how it runs, and each behavior with the member performing it
-
-Facts go to the highest owner stating them:
-
-| [INDEX] | [OWNER]                          | [STATES]                                           |
-| :-----: | :------------------------------- | :------------------------------------------------- |
-|  [01]   | Language and standard library    | Operators, collections, text, numbers, time        |
-|  [02]   | Host API or SDK                  | Names, paths, versions, events, behavior of a host |
-|  [03]   | Package at its installed version | Parsers, codecs, protocols, schemas, layouts       |
-|  [04]   | Upstream value in the tree       | Enumeration, registry, reflection read once        |
-|  [05]   | Declaration in the target        | Fact no owner above states, that removes logic     |
-
-Reading stays inside the target and its consumers, and files outside them join the unit list by name.
-
-## [04]-[MAP]
-
-Each declaration in scope takes one map row before any edit, and the map decides the unit:
-
-| [INDEX] | [COLUMN]    | [RECORDS]                                                                  |
-| :-----: | :---------- | :------------------------------------------------------------------------- |
-|  [01]   | Declaration | Name, kind, exported or file-private, line count                           |
-|  [02]   | Fact        | Fact it states that no owner of `[03]` states                              |
-|  [03]   | Readers     | Each reference site with the members and shape that site reads             |
-|  [04]   | Like work   | Code doing the same work without reading it, found by behavior, never name |
-|  [05]   | Cause       | Reason for its shape: host rule, type relation, history read               |
-
-Readers decide shape:
-- Members no reader touches stay when they state a capability, as a missing reader is never a removal reason
-- Readers that each rebuild one value (a key list, a lookup, an unwrap) show the declaration holds the wrong shape
-- Readers reading one member alone show a declaration wider than its use, narrowed by rebuilding the readers
-
-Like work without a reader is a finding, and its cause is mapped before any merge:
-
-| [INDEX] | [CAUSE]                                      | [ACTION]                                                |
-| :-----: | :------------------------------------------- | :------------------------------------------------------ |
-|  [01]   | Shape too narrow for its second reader       | Widen the one shape, rebuild both readers on it         |
-|  [02]   | Host or checker rule forbids the shared form | Name the rule from its source, keep forms it permits    |
-|  [03]   | Type relation lost by merging                | Keep the declaration holding it, record why             |
-|  [04]   | Duplicate written without a search           | Delete the copy, rebuild its readers on the original    |
-|  [05]   | Upstream shape wrong for every reader        | Rebuild upstream first, then every consumer in one pass |
-
-Causes come from the host, compiler, or checker before a rebuild relies on them:
-- Host checkers decide structure: a plug-in validator following a value only into named function declarations forces a function per site
-- Type checkers decide shape: a generic helper correlating a key with its value type stays, as inlining it fails to compile
-- Inferred types can lose a fact a stated type held: a derived shape keeps one stated type on the value that lost it
-
-## [05]-[UNIT]
-
-Units hold one concern across every site it reaches, at a size one pass finishes with its checks:
-- Concern: one category of `[07]`, one per pass, and findings of another category go to the unit list with their site
-- Size: a unit too small to change a count joins its siblings, a unit reaching past one concern splits
-- Sites: a unit includes every reader and like-work site of what it changes, a declaration with an old reader left is unfinished
-- Design forks with more than one valid shape (one type or fields per feature, a name pattern) go to the owner with each option's cost
-
-Passes run cheapest and widest first, so later passes read code earlier ones already reduced:
-
-| [INDEX] | [PASS]               | [REMOVES]                                                               |
-| :-----: | :------------------- | :---------------------------------------------------------------------- |
-|  [01]   | Junk                 | Code meeting the proof bar of `[08]`                                    |
-|  [02]   | Owners               | Hand-written code a host member, package member, or declaration states  |
-|  [03]   | Private declarations | Forwarders, one-reader helpers, locals restating a value, dead branches |
-|  [04]   | Values               | Loose constants, deciding strings, values a target derives              |
-|  [05]   | Shapes               | Types, schemas, and objects no owner needs, like shapes held apart      |
-|  [06]   | Exports and names    | Exports restating a declaration, case-only name pairs, coined names     |
-|  [07]   | Nesting              | Ragged depth, decisions inside arms, binds over nested calls            |
-|  [08]   | Consumers            | Second shapes of one concept across files, upstream causes              |
-
-Owner passes come early, as one package member often deletes declarations later passes would rebuild, and export passes follow private ones, their readers rebuilt against declarations already reduced.
-
-## [06]-[PASS]
-
-Each pass runs one sequence:
-1. Count: lines, declarations, exports, deepest nesting, and coined names of every file the unit touches
-2. Decide: the rebuild, and the owner each removed fact moves to, with the inventory line proving the owner states it
-3. Probe: one discriminating run where the rebuild depends on a host, checker, or compiler behavior no source settled
-4. Edit: the declaration and every reader and like-work site in one change, no adapter, alias, or old path left
-5. Check: the reference file's verify steps once, over touched projects and every consumer project
-6. Recount: compare with step 1, a count that rose names the capability it added
-7. Commit: one atomic commit per pass, its message naming category and unit
-
-Probes decide before code depends on them:
-- Probes change one variable and restore the tree with the file edit tool after, never with a checkout that drops other edits
-- Probe refusal ends that design: revert it, record the rule it showed, and choose again from the map
-- Repeated failure of one check for one cause ends the pass, and the cause joins the unit list as its own unit
+Sessions run one loop, one pass per unit, until the concern holds no finding:
+1. Survey: count each file of the target with the reference's count commands, read each whole, and write findings to `<scratch>/reduce/findings.md`
+2. Rank: units order by certainty of their source, then by lines removed per line read, so a finding an inventory row proves precedes a probe
+3. Pick: first category in list order holding a finding, or the concern given, and its top unit
+4. Map: declarations of that unit alone, as a map of a whole target goes stale at its first commit
+5. Baseline: each entry point reaching the unit run on repository input with its output kept, and counts taken over every file the unit touches
+6. Rebuild: each declaration with every reader and duplicate site in one change, leaving no adapter, alias, or old path
+7. Check: each verify command of the reference, alone in the background, its result read before the next runs
+8. Recount: counts and entry point outputs compared with step 5 under the close rules
+9. Commit: files staged by name, subject `refactor(<project>): <imperative naming unit and category>`, no scope across projects
+10. Re-rank: each touched file reread, finished findings struck, exposed findings added, then step 3
+11. Stop: no finding of the concern left, or a decision belongs to the user, asked with each option's cost
 
 Failures name their cause before the next edit:
-- Type error after deriving a shape -> state the lost fact on the one value that lost it, the derivation kept
-- Inference failing for a variadic or intersected parameter -> the form that inferred before stays, its type tightened
-- Checker refusal of a rebuilt form -> its rule decides every later site of the same form
-- Compile failure after inlining -> the declaration restored, its reason recorded
+- Check failing after a rebuild -> cause read from its diagnostic, rebuild corrected at that cause
+- One check failing twice for one cause -> pass edits restored with the file edit tool, cause recorded as the next unit
+- Finding of another category -> added to the findings file with its site, fixed in its own pass
+- Delegated units -> one agent per unit, its brief holding the unit's map, and units sharing a declaration or manifest run in turn
 
-## [07]-[CATALOG]
+## [04]-[UNIT]
 
-Categories name a smell, how a read finds it, and the larger problem it signals:
+Units hold one cause and every declaration, reader, and contract that must change to remove it, at a size one whole read keeps in view and one check run proves:
+- Size: one file, or one declaration with every reader and duplicate site; a category spanning more splits by file in rank order
+- Floor: a unit too small to move a count joins its siblings of one category in one file
+- Upstream: a cause sitting upstream moves the unit there, and every consumer is rebuilt in that pass
+- Products: duplicates in more than one product merge into a member of their field's library, never into one product importing another
+- Forks: a design with more than one valid shape (one type against a field per feature) goes to the user with each option's cost
 
-| [INDEX] | [CATEGORY]       | [DETECT]                                                       | [SIGNALS]                             |
-| :-----: | :--------------- | :------------------------------------------------------------- | :------------------------------------ |
-|  [01]   | Junk             | Declaration no path reads, wrapper adding no fact              | Code written for its look             |
-|  [02]   | Loose constants  | Module-level literal read once, or restating a host value      | Value with no owner chosen            |
-|  [03]   | Strings          | Literal compared, switched on, or joined to decide behavior    | Name standing in for a value          |
-|  [04]   | Owned values     | Literal a host, SDK, package, or upstream listing states       | Upstream reflection not used          |
-|  [05]   | Name pairs       | Exports differing in case or suffix alone (`Engine`, `engine`) | One concept split by a constraint     |
-|  [06]   | Coined names     | Word no documentation of the field uses for the thing          | Concept not understood                |
-|  [07]   | Divergent shapes | Like things built, typed, or called differently                | One owner missing, or one shape wrong |
-|  [08]   | Type spread      | Struct, interface, alias, or string type per variant           | Cases no union holds                  |
-|  [09]   | Hand-rolled      | Code doing what a package, host, or standard member does       | Dependency read shallowly             |
-|  [10]   | Copies           | Same logic, or a weaker version, elsewhere in the tree         | Owner not found before writing        |
-|  [11]   | Nesting          | Staircase of indentation deeper than the project limit         | Chain of steps written as a tree      |
-|  [12]   | Guards           | Check, error, or fallback over a state construction excludes   | Type not carrying its proof           |
-|  [13]   | Forwarders       | Helper with one caller, wrapper calling one member unchanged   | Indirection kept for its look         |
+## [05]-[READ]
 
-Rebuilds replace a string or constant with a derivation, never another constant, string, or enum renaming them. Each row is a category, never a pattern to match: the cleanest rebuild of one finding can differ from the last, so each is chosen from the owners `[03]` ranked and the readers `[04]` mapped.
+Facts come from the source defining them: host and protocol facts from their host API or SDK, domain facts from an upstream value in the tree (enumeration, registry, manifest), operations from a language, compiler, or package at its installed release implementing their semantics, and a declaration in the target holds only a fact no source states, where it removes logic.
 
-## [08]-[JUNK]
+Package reads run in order, each ending in a decision row the report cites:
+1. Guide: a package's own agent guide (`AGENTS.md`, `llms.txt`, a docs folder for agents), read whole
+2. Index: module, namespace, or type list with one summary per row, read whole
+3. Groups: every group whose summary names the job's field, read whole, as one search term misses its synonyms
+4. Inventory: every export of each chosen group, written to a file and counted
+5. Member: its declaration read from the doc comment's first line to the declaration's end, at its inventory row
+6. Decision: each hand-written job takes the inventory row of its replacing member, or the groups read with their counts and why none fits
 
-Junk is code stating no fact a reader needs, and it goes whole:
-- Annotations, schemas, and descriptions no host, model, or reader receives (22 schemas removed from one library carried annotations nothing read)
-- Wrappers re-declaring a package type field for field, decodes of fields no consumer reads, types naming a value used once
-- Proof bar: name every entry point reaching the code, run each once, and show no output, type, or behavior changes without it
-- Absent consumers alone never meet the bar: public API, a capability a plan names, and a host entry point stay without readers
-- Unread public members stay as capability and are rebuilt to their owner's shape, never deleted
+- Version -> release the target's project resolves, never a store or cache glob holding more than one
+- Empty search -> index above it reopened, never hand-written code
+- Job no core package covers -> central manifest read whole, then each candidate's declarations and docs
 
-## [09]-[VALUES]
+Reading reaches every reader, duplicate, and source of a unit, each file read whole:
+- Duplicates: code doing a declaration's work without reading it, found by behavior: members it calls, literals it spells, fields it declares, clones
+- Comparison: a duplicate and its declaration both read before choosing which form stays
+- Sources: producer of each value a unit reads (enumeration, registry, manifest, host listing), where its derivation starts
+- History: `git log -S '<literal>' -- <path>` for a guard, flag, or form whose reason no code or reader states
 
-Values come from their owner, and each literal names its owner or goes:
+## [06]-[MAP]
 
-| [INDEX] | [FOUND]                                    | [REBUILD]                                              | [NOT_THIS]                       |
-| :-----: | :----------------------------------------- | :----------------------------------------------------- | :------------------------------- |
-|  [01]   | Constant read once                         | Value inline at its reader                             | Constant moved to another file   |
-|  [02]   | Constants one relation joins               | One value holding the relation (`{ min, max }`)        | Prefix-named constant family     |
-|  [03]   | Literal a host or package declares         | Read from the declaration (manifest, enum, SDK member) | Literal with a comment naming it |
-|  [04]   | Literal per item (header per application)  | Derive each where items are listed                     | Table of literals per item       |
-|  [05]   | String compared to choose behavior         | Logic over the value the string names                  | Enum renaming the strings        |
-|  [06]   | String joined into a path, key, or command | Package builder (path join, URL, argv)                 | Template literal with a helper   |
-|  [07]   | Number with a unit                         | Value of its module (`Duration`, byte size, instant)   | Number with a unit in its name   |
+Each declaration of a unit takes one row in `<scratch>/reduce/map.md` before any edit: name, kind, exported or file-private, and lines; fact it states that no source states; readers with members and shape each reads; duplicates; sources of its values; and cause of its shape, read from a source, compiler, or history.
 
-Derivation runs at the earliest point holding the source: where applications are enumerated, a header for each application derives there, and every downstream literal goes with its table.
+Readers decide shape:
+- Readers each rebuilding one value (a key list, a lookup, an unwrap) show a declaration holding a wrong shape
+- Readers reading one member alone show a shape wider than its use, unless it exposes less authority by design
+- Missing readers are never a removal reason: public API, planned capability, and unread code stating its own fact stay, rebuilt to their source
 
-## [10]-[NAMES]
+Duplicates take an action by their cause, mapped before any merge:
+- Shape too narrow for its second reader -> one shape widened, both readers rebuilt on it
+- Shape too wide, driving readers away -> shape narrowed to its contract, both readers rebuilt
+- Both shapes missing their domain or host form -> both rebuilt toward that form
+- External host or validator rule -> rule named from its source, forms it permits kept
+- Type relation a merge loses -> declaration holding it kept, reason recorded
+- Duplicate written without a search -> copy deleted, its readers rebuilt on the original
+- Duplicate across products -> one general member in their field's library, both products calling it
 
-Names state what a thing is in its field's words, one name per concept:
-- Pairs differing in case or suffix fold into one name, where the language keeps types and values apart a type and its constant share it
-- Pairs a host constraint keeps apart (a builder that must stay a function) take a verb-noun builder, its type derived from it
-- Coined words take the term the field's documentation uses, and every reference, file, and folder follows through language tooling
-- Names restating their module, a mechanism, or a past participle (`tallied`) take a noun for a value and a verb for a function
-- Names a host, wire, or tool resolves stay exact, and the report names the coupling
+Constraints divide by their source:
+- External validators (plug-in validator, store checker, host loader) and compilers bind: one probe records the refusal, and rebuilds stay inside it
+- Repository checkers flagging correct code are rebuilt or deleted in their own pass, never obeyed
+- Probes change one variable against a named hypothesis, run in the real compiler or host, and restore with the file edit tool
+- Refusals show a rule for the construct their diagnostic names, never a ban on the design
 
-## [11]-[SHAPES]
+## [07]-[CATEGORIES]
 
-Like things share one shape, and different shapes for like things signal a missing owner:
+Categories run in list order, internal declarations before exports, each one pass and one concern value. Each rebuild comes from the unit's map, as one finding's rebuild can differ from the last, and no rebuild keeps an old form moved, wrapped, or aliased, or replaces a literal with another constant, string, or enum renaming it.
 
-| [INDEX] | [FOUND]                                  | [REBUILD]                                               | [NOT_THIS]                        |
-| :-----: | :--------------------------------------- | :------------------------------------------------------ | :-------------------------------- |
-|  [01]   | Types for one concept (part and module)  | One type, the narrower form derived from it             | Adapter converting between them   |
-|  [02]   | Struct or interface per variant          | One tagged union, each variant's data as its fields     | Base class with a kind field      |
-|  [03]   | Hand-written type restating code         | Type derived from its owning value or builder           | Duplicate kept in sync by hand    |
-|  [04]   | String type standing for a closed set    | Union or enum the host declares, else one literal union | Constants named after each string |
-|  [05]   | Optional fields set together             | One optional record, or a variant per valid state       | Boolean field beside each         |
-|  [06]   | Reader narrowing a wide shape every time | Shape narrowed at construction                          | Guard repeated per reader         |
+### [07.1]-[PASS_THROUGH]
 
-Divergence points one way or both: compare each shape with its readers and its siblings, and rebuild the wrong one, or both toward a third the field names.
+Indirection adds no fact, and its body or value belongs at its caller:
+- Helper with one caller -> body at its caller
+- Wrapper calling one member unchanged -> direct call to that member
+- Local restating a value or a name -> value at its reader
+- Parameter the callee derives from another -> derivation inside the callee
+- Parameter every caller passes alike -> value folded into the callee
+- Helper holding a type parameter that relates its arguments, a host constraint, a recursion, or a value computed once -> kept
 
-## [12]-[LOGIC]
+### [07.2]-[LITERALS]
 
-Logic calls the member doing the job and states each step once:
+Literals with no source chosen take one, or go:
+- Constant read once -> value inline at its reader
+- Constants one relation joins (a minimum and maximum) -> one value stating that relation
+- Literal a host, package, or manifest states -> read from that declaration
+- Literal per item (a header per application) -> derived at the earliest point listing the items, every downstream literal deleted
+- String compared to choose behavior -> logic over the value it names, a closed set of cases carrying behavior being a tagged union or enum
+- String joined into a path, URL, or command -> builder of its module
+- Number with a unit -> value of its unit's module
+- Parse of human-formatted output -> typed API or structured output
+- Wire or host spelling -> decoded once at its boundary into the host's type
+- Constant more than one reader shares that no source states -> kept, declared in the group of its readers
 
-| [INDEX] | [FOUND]                                      | [REBUILD]                                         | [NOT_THIS]                         |
-| :-----: | :------------------------------------------- | :------------------------------------------------ | :--------------------------------- |
-|  [01]   | Parser, codec, or formatter by hand          | Package, host, or standard member doing it        | Helper wrapping the same hand code |
-|  [02]   | Copy of logic already in the tree            | One owner, every copy's reader rebuilt to call it | Shared helper beside both copies   |
-|  [03]   | Weaker version of an existing capability     | Existing capability extended in its general form  | Third version                      |
-|  [04]   | Members differing by a value, flag, or case  | One member taking that value                      | Member per value                   |
-|  [05]   | Guard over a state the type excludes         | Construction refusing the state, guard removed    | Lowered check level                |
-|  [06]   | Error variant no caller branches on          | Owner's error                                     | Generic error string               |
-|  [07]   | Helper with one caller, forwarder, re-export | Body at its caller, direct call                   | Rename of the helper               |
-|  [08]   | Walk repeated over one input                 | One walk, keyed lookups                           | Cache in front of the second walk  |
+### [07.3]-[REDUNDANT_CODE]
 
-Helpers stay when they carry a fact their caller cannot hold: a generic parameter relating types, a host constraint, or a recursion.
+Redundant code repeats another declaration, or adds a fact no host, model, tool, or reader receives:
+- Declaration repeating another field for field -> readers rebuilt on the original
+- Annotation, schema, or description no sink reads -> removed whole
+- Decode of fields no consumer reads -> decode of read fields alone
+- Guard or re-parse over a state its type excludes -> removed
+- Guard repeated across readers of a wide input -> one validation at construction
+- Fallback, catch, or retry hiding a cause -> cause fixed at its source, failure passed on
+- Error variant restating a source's error -> source's error passed through
 
-Package depth decides the largest reductions:
-- List every member of each dependency the unit imports from its installed source before rebuilding hand code
-- Search members by the job a block does (parse, retry, schedule, diff, encode), as a search by name misses the rest
-- Order rebuilds by lines a member removes, largest first, each its own pass, as large files halve through passes and never through one import
+Removal follows proof: each annotation, schema, or description traced to every sink its value reaches (wire, model tool list, generated file, host registration), and every entry point reaching the code run with each sink's output compared before and after.
 
-## [13]-[NESTING]
+### [07.4]-[DUPLICATED_LOGIC]
 
-Nesting counts levels of logic a reader holds open, in any language, as the project formatter prints them, and data literals, schema declarations, and markup trees count for none:
+Logic a standard library, host, package, or the tree already holds goes to that member, rebuilds ordered by lines removed across the unit, largest first:
+- Parser, codec, retry, or formatter written by hand -> member doing that job
+- Copy of logic in the tree -> one declaration, each copy's readers rebuilt on it
+- Weaker version of an existing capability -> existing capability extended in its general form
+- Members differing by a value, flag, or case -> one member taking that value
+- Member a compiler or generator writes -> attribute, derive, or record form
+- Walk repeated over one input -> one walk with keyed lookups
 
-```text
-step
-    decide
-        step
-            decide
-                step
-        step
-    step
-        decide
-```
+### [07.5]-[TYPES]
 
-Ragged depth is a chain of steps written as a tree, and it flattens by rebuilding the chain in place, each step taking the first form that holds:
+Types follow states listed first, independent facts forming a product, exclusive states a sum, and behavior differing by a parameter one parameterized type:
+- Struct or interface per variant -> one tagged union, each variant's data as its fields
+- Booleans encoding exclusive modes -> one sum over valid states
+- Optional fields set together -> one optional record
+- Interface with one implementation -> concrete type or function value
+- Hand-written type restating a value -> type derived from that value or its builder
+- Types of one concept in more than one form -> one type, a narrower form derived at its reader
+- Reader narrowing a wide shape each time -> shape narrowed at construction
+- Nominal or stated type holding identity, an invariant, a public contract, or a correlation inference loses -> kept
+
+### [07.6]-[NESTING]
+
+Nesting counts levels of logic a reader holds open, in any language, up to the project's limit (3 in CLAUDE.md). Data literals, schema declarations, and markup trees count for none, and logic inside their callbacks counts. Ragged depth, stepping in, back, and in again, is a chain of steps written as a tree and a finding below the limit too. Each level takes the first rebuild that holds:
 1. Name each level by its verb (decode, look up, choose, apply)
-2. Remove steps changing nothing a later step reads: a conversion the next undoes, a check its type guarantees
-3. Replace a level with the package or host member performing it
-4. Restate remaining steps as one flat chain (pipeline, binding chain, statement sequence), one step per line
-5. Turn nested decisions over more than one value into one match over a tuple of them
-6. Move a decision repeated in every caller into its owner's signature, and rebuild each caller
+2. Remove steps changing nothing a later step reads
+3. Replace a level with the member performing it
+4. Restate dependent steps (unwrap inside unwrap, failure handling per step) as one flat chain, and combine independent steps
+5. Turn decisions over more than one value into one tuple match, an inner condition into an arm guard, a loop in a loop into one pipeline
+6. Move a decision every caller repeats into the callee's signature, and rebuild each caller
 
-| [INDEX] | [FOUND]                                    | [REBUILD]                                | [NOT_THIS]                      |
-| :-----: | :----------------------------------------- | :--------------------------------------- | :------------------------------ |
-|  [01]   | Early returns and stacked unwraps          | Binding chain                            | Helper holding the inner level  |
-|  [02]   | Nested conditions over more than one value | Match over a tuple                       | Lines joined, width raised      |
-|  [03]   | Inner condition one arm alone reads        | Arm guard                                | Closure bound to a name         |
-|  [04]   | Acquire, use, release brackets             | Release by the handle's own protocol     | Bracket moved to another file   |
-|  [05]   | Collection built, then walked again        | One pipeline                             | Second loop beside the first    |
-|  [06]   | Same nesting at every caller of one member | Member's signature rebuilt, callers flat | Caller locals routing around it |
+Rebuilds keep evaluation order, errors, cancellation, and resource scope. A body moved to a helper, a closure bound to a name, joined lines, and a raised print width keep their depth.
 
-Same depth across a member's readers signals an upstream shape problem: the owner returns a form every reader unwraps, and its rebuild reaches all readers in one pass.
+### [07.7]-[NAMES]
 
-## [14]-[CLOSE]
+Names state what a thing is in its field's words, one name per concept, and names a host, wire, or tool resolves stay exact:
+- Pair differing in case or affix -> one name, a type and its value sharing it where the language keeps them apart
+- Pair a host constraint keeps apart -> builder named by its verb, its type derived from it
+- Word no field documentation uses -> field term, renamed through language tooling in every reference, file, and folder
+- Name restating its module or mechanism -> noun for a value, verb for a function
+- One-declaration file, folder named by mechanism -> files merged by concept, folder named by concept
+- Product fact inside a library -> product passing it as caller data
 
-Passes close on counts and runs, never on a reading of the diff:
+### [07.8]-[EXPORTS]
 
-| [INDEX] | [COUNT]          | [PASSES_WHEN]                                                    |
-| :-----: | :--------------- | :--------------------------------------------------------------- |
-|  [01]   | Lines            | Fell, or rose by a capability the pass names                     |
-|  [02]   | Declarations     | Fell, each kept one listed with the fact it states               |
-|  [03]   | Exports          | Fell or held, each kept export read by a consumer or a named API |
-|  [04]   | Nesting          | Deepest level fell or held at the language's limit               |
-|  [05]   | Coined names     | None left in touched files                                       |
-|  [06]   | Checks and build | Each touched project and each consumer project passes            |
-|  [07]   | Entry points     | Each entry point ran on repository input with its normal output  |
+Exports state capability once, under one name:
+- Alias, re-export, or forward -> readers on the declaring module
+- Readers re-deriving an unexported type -> type exported once, each re-derivation deleted
+- Type and value of one concept under different names -> one name under one export
+- Export letting readers change module state -> module-private, readers on its operations
 
-Counts kept low by an erased type, an untyped read, or a dropped case are a regression.
+## [08]-[CLOSE]
 
-Report each pass in this form:
-- Subject: one line naming target, unit, and category
-- Counts: before and after per file, rows in one field order
-- Kept: each declaration a rebuild left, with the fact it states and the cause that kept it
-- Rules: each host, checker, or compiler rule a probe showed, with the command that showed it
-- Units left: each finding outside the pass, with its site and category
+Counts cover every file a pass touches, taken at steps 5 and 8 by the reference's count commands:
+- Lines: logic a reader holds
+- Declarations: internal names, every file-private declaration
+- Exports: external names, every name another module, package, or process can reference
+- Nesting: deepest level of logic per member, and members past the limit
+
+Passes close when every rule holds:
+- Lines and declarations fall across every touched project, nesting deepens nowhere, and every capability stays
+- Exports fall or hold, or rise by an export removing a re-derivation in more than one reader
+- Test targets keep catching every break the suite caught before, proven by fault injection per `code:test`
+- Counts lowered by an erased type, an untyped read, a dropped case, or code moved elsewhere are a regression
+- Failed close -> edits restored with the file edit tool, cause recorded, unit back on the findings list split or re-ranked
+
+Reports per pass, scratch files under `<scratch>/reduce/` deleted once recorded:
+- Subject: target, category, unit, commit
+- Counts: before and after per file in one field order (lines, declarations, exports, nesting)
+- Changes: each removed fact with the source stating it now, each kept declaration with its fact and cause
+- Proof: each rule a probe showed with its command, each check with its exit code, each claim left unverified
+- Findings left: each with site and category

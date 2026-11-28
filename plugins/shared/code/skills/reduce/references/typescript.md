@@ -1,94 +1,99 @@
 # [TYPESCRIPT]
 
-TypeScript targets read Effect 4 modules, the platform packages their runtime supplies, and their host's own declarations before a line changes, as most hand-written logic in a TypeScript file restates a member one of them already exports.
+TypeScript targets read Effect, their runtime's platform package, and their host's declarations at the release their project links, `<project>` naming the folder holding the target's `package.json`.
 
 ## [01]-[SKILLS]
 
-Skills load in table order, every matching row:
+| [INDEX] | [TARGET]         | [SKILLS]                                                 | [CONDITION]                                           |
+| :-----: | :--------------- | :------------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | Any TypeScript   | `typescript:coding`, `typescript:effect`                 | `.ts` or `.tsx` file                                  |
+|  [02]   | Tests            | `typescript:testing`                                     | `*.test.ts`, suite under `tests/`                     |
+|  [03]   | Claude Code mod  | `plugin-authoring`, `sazandeh:mod-ui` for drawn UI       | Imports `claude-code`                                 |
+|  [04]   | Adobe UXP plugin | `uxp:coding`                                             | Imports `uxp`, `photoshop`, `indesign`, `premierepro` |
+|  [05]   | Chrome extension | `chrome:extensions`                                      | `manifest.json` holding `manifest_version`            |
+|  [06]   | Browser UI       | `web:css`, `web:react-aria`, `web:web-platform-baseline` | Imports `react-aria-components`, holds `.css`         |
 
-| [INDEX] | [TARGET]            | [SKILLS]                                 | [CONDITION]                                            |
-| :-----: | :------------------ | :--------------------------------------- | :----------------------------------------------------- |
-|  [01]   | Any TypeScript file | `typescript:coding`, `typescript:effect` | Extension `.ts` or `.tsx`                              |
-|  [02]   | Tests               | `typescript:testing`, `code:test`        | `*.test.ts`, a suite under `tests/`, `@effect/vitest`  |
-|  [03]   | Claude Code mod     | `sazandeh:mod-ui`                        | Imports `claude-code` or `@rasm/claude-code/*`         |
-|  [04]   | Adobe UXP plugin    | `uxp:coding`                             | Imports `uxp`, `photoshop`, `indesign`, `premierepro`  |
-|  [05]   | Chrome extension    | `chrome:extensions`                      | Folder holds a `manifest.json` with `manifest_version` |
-|  [06]   | Browser UI          | `web:css`, `web:react-aria`              | Imports `react-aria-components`, or holds `.css` files |
-|  [07]   | Removal checklist   | `code:rebuild`                           | Loaded after the rows above, never first               |
+## [02]-[SOURCES]
 
-## [02]-[PACKAGES]
+Package reads, one command per step:
+1. Version: Effect release the project links, as the store holds older copies beside it, then its agent guide and docs folder read whole
+2. Families: subpath entries (`effect/ai`, `effect/http`, `effect/process`), each listed by step 3 beside `effect`
+3. Inventory: `search:code` export listing of an entry, its index of groups with summaries read whole, then each group file naming the job's field
+4. Platform: `@effect/platform-<runtime>` the project declares, its layers providing files, processes, sockets, and HTTP, listed by step 3
+5. Host: each declaration file the project's tsconfig names, then every sibling file augmenting the same module
+6. Node: built-ins and flags of the pinned Node, before any shell-out or text parse in a Node process
+7. Workspace: each `@rasm/*` specifier the target imports, then its source file resolved from the project
+8. Catalog row with no comment: description of the installed package, else description and keywords from the registry at its catalog version
 
-Core packages, read in order for each target:
-1. Read the installed Effect version, as module members and names differ between 4.x releases and memory holds older forms: `jq -r .version <project>/node_modules/effect/package.json`
-2. List the Effect modules the target imports, each line one module whose members the target can call in place of hand code: `rg -oN "from 'effect(/[a-z-]+)?'" <target> | sort -u`
-3. Inventory each imported module per `[04]` before reading any member, as a member the target never imports is the one most often hand-written: `rg -n "^export (declare )?(const|function|class|interface|type|namespace|enum) \w+" <project>/node_modules/effect/dist/<Module>.d.ts`
-4. Inventory the platform package of the target's runtime, as files, processes, sockets, and HTTP arrive as Effect services there: `rg -n "^export (declare )?(const|function|class|interface|type) \w+" <project>/node_modules/@effect/platform-node/dist/*.d.ts`
-5. Read the host's declarations whole where the target runs inside one, as host members, limits, and refusals sit in its types and doc comments: `rg -n "^\s*(export )?(type|interface|function|const) \w+" .artifacts/vite/@rasm/function-hooks/.claude-plugin/types/claude-code/index.d.ts`
-6. List Node built-ins on the pinned Node before any shell-out or text parse in a Node process, per memory `node-builtins-before-shell-outs`: `node -p "require('node:module').builtinModules.join('\n')"`
-7. Read each workspace package the target imports (`@rasm/*`) whole with its consumers, as a library member often states the fact the target restates: `ast-grep outline <package-folder> --items exports --view expanded`
+```bash
+jq -r .version <project>/node_modules/effect/package.json && fd -d 1 '^(AGENTS\.md|llms.*\.txt|ai-docs)$' <project>/node_modules/effect
+fd -d 1 -t d -E internal . <project>/node_modules/effect/src
+node plugins/shared/search/skills/code/scripts/exports.ts <project> <specifier>
+jq -r '(.dependencies // {}) + (.devDependencies // {}) | keys[] | select(startswith("@effect/platform-"))' <project>/package.json
+jq -c '{files, types: .compilerOptions.types}' <project>/tsconfig*.json && rg -l "^declare module '<module>'" <declarations-folder>
+node -p "require('node:module').builtinModules.join('\n')" && node --help
+rg -oNI "from '(@rasm/[^']+)'" -r '$1' <target> | sort -u && (cd <project> && node --input-type=module -e "console.log(import.meta.resolve(process.argv[1]))" '<specifier>')
+jq -r .description <project>/node_modules/<package>/package.json || pnpm view <package>@<version> description keywords --json
+```
 
-## [03]-[DISCOVERY]
+## [03]-[CONSUMERS]
 
-Packages beyond core come from the pnpm catalog, whose comments state each package's purpose:
-1. List every catalog row with its comment, the candidate set for any capability the target hand-writes: `yq '.catalog | to_entries | .[] | .key + "  " + (.value | line_comment)' pnpm-workspace.yaml`
-2. Match each hand-written job in the target (a parser, a retry, a formatter, a diff, a glob, a cache) against catalog comments by its subject: `yq '.catalog | to_entries | .[] | .key + "  " + (.value | line_comment)' pnpm-workspace.yaml | rg -i '<subject>'`
-3. Read the matched package's declarations per `[04]` and name the member replacing the hand code, or record the package as rejected with the reason
-4. Search the npm registry where the catalog holds no match, through `search:web` and `search:code`, and add a row only after the member is named: `pnpm view <package> version description exports --json`
+Readers and duplicates across `<roots>` (`libs products plugins tools tests`), one command per step:
+1. Projects: every project depending on a file the unit changes
+2. Importers: files importing a module by package specifier, subpath import (`#/<module>`), or relative path
+3. Readers: reference sites of a declaration by name, renamed imports (`import { a as b }`) read at each importer
+4. Duplicates by member or literal: sites spelling a member call, key, header, path, or message the declaration holds
+5. Duplicates by structure: functions with near-identical trees, names of called members kept
 
-## [04]-[INVENTORY]
+```bash
+nx show projects --affected --files=<file>
+rg -l "from '[^']*/<module>(\.ts)?'" -g '*.{ts,tsx}' <roots>
+rg -nw '<Symbol>' -g '*.{ts,tsx}' <roots>
+rg -nF '<member or literal>' -g '*.{ts,tsx}' <roots>
+jscpd --config .config/jscpd.json --similarity 0.6 --min-nodes 60 <target> <roots>
+```
 
-Inventories list every declaration of a module before targeted reads, written to `<scratch>/inventory/<package>.txt` and counted:
-1. Resolve the module's declaration file from the package's export map, its `.d.ts` sitting beside the `.js` it names: `jq -r '.exports["<subpath>"] | if type == "object" then (.types // .default) else . end' <project>/node_modules/<package>/package.json`
-2. List every exported declaration with its line, and every `export *` and `export * as` line naming a module to inventory next: `rg -n "^export (declare )?(const|function|class|abstract class|interface|type|namespace|enum) \w+|^export \* (as \w+ )?from" <file>.d.ts`
-3. Count declarations per kind, the count stated in the report beside the inventory file: `rg -o "^export (declare )?(const|function|class|interface|type|namespace|enum)" <file>.d.ts | sort | uniq -c`
-4. Read one member's signature, overloads, and doc through `search:code`, or the member's block with its doc comment: `rg -n -B12 -A20 "^export declare const <member>\b" <file>.d.ts`
+## [04]-[COUNTS]
 
-Tool limits:
-- `ast-grep outline` lists interfaces and classes of a `.d.ts` and omits `export declare const` members, which hold most Effect API
-- `rg` declaration listing misses re-exports through `export { a as b }` lists, which step 2's `export` lines name for a follow-up read
-- Signatures spanning lines need the step 4 block read, a one-line listing shows the name alone
+Counts per file, one command per step:
+1. Lines: per file, and lines added and removed per file of the uncommitted pass
+2. Declarations: top-level declarations, class and object members uncounted
+3. Exports: names in one-line `export { }` lists (`.oxfmtrc.json` `printWidth`) and inline exports, `export *` counted once
+4. Nesting: callbacks past `.oxlintrc.json` `max-nested-callbacks`, generators of `Effect.gen` and `Effect.fn` included, other levels read per member
+
+```bash
+wc -l <files> && git diff --numstat -- <paths>
+rg -c '^(export )?(declare )?(abstract )?(async )?(const|let|function\*?|class|interface|type|enum|namespace) ' <paths> -g '*.{ts,tsx}'
+rg -o '^export (type )?\{[^}]*\}|^export (declare )?(abstract )?(async )?(const|let|function|class|interface|type|enum|namespace) ' <paths> -g '*.{ts,tsx}' | awk -F: '{ n[$1] += /\{/ ? gsub(/,/, "") + 1 : 1 } END { for (f in n) print n[f], f }'
+oxlint --format json <paths> | jq -r '.diagnostics[] | select(.code == "eslint(max-nested-callbacks)") | [.filename, .labels[0].span.line, .message] | @tsv'
+```
 
 ## [05]-[FORMS]
 
-TypeScript forms of the main skill's categories:
+TypeScript forms of each category, each rebuild holding under its stated condition alone:
 
-| [INDEX] | [SMELL]                                            | [REBUILD]                                               | [MEASURE]     |
-| :-----: | :------------------------------------------------- | :------------------------------------------------------ | :------------ |
-|  [01]   | `Context.Service` shape typed by hand              | `ReturnType<typeof make<Name>>` or its success type     | Signatures    |
-|  [02]   | Names differing in case alone (`Engine`, `engine`) | Verb-noun builder (`makeEngine`), or one name           | Exports       |
-|  [03]   | Interface beside a reducer or schema of one shape  | `typeof X.initialValue`, `typeof X.Type`, one name      | Declarations  |
-|  [04]   | Interface restating a host or package type         | `Pick`, `Omit`, `Parameters`, `ReturnType` of owner     | Declarations  |
-|  [05]   | Literal union restating a host union               | Host type, or `keyof` of the registering record         | Union members |
-|  [06]   | `if`/`else` chain over a discriminant              | `Match.value`, `$match`, `Match.discriminators`         | Branches      |
-|  [07]   | String literal deciding behavior                   | Tagged case, host enum, or owning member                | Literals      |
-|  [08]   | Module `const` read once                           | Inline value, or derivation from its owner              | Constants     |
-|  [09]   | Schema wrapping a type nothing decodes             | Type alone, or owner schema's field                     | Schemas       |
-|  [10]   | Hand-written JSON Schema, retry, glob, or diff     | Member found in `[03]` (`Tool.getJsonSchemaFromSchema`) | Lines         |
-|  [11]   | One-line forwarding function                       | Call at each reader, unless its generic links types     | Functions     |
-|  [12]   | Spread per optional key restating a map            | `Struct.evolve`, which visits only keys present         | Lines         |
-|  [13]   | Name list beside a block of matching calls         | One keyed record of the calls, `keyof` as the list      | Declarations  |
+| [INDEX] | [CATEGORY]   | [FOUND]                                             | [REBUILD]                                                           |
+| :-----: | :----------- | :-------------------------------------------------- | :------------------------------------------------------------------ |
+|  [01]   | Pass-through | Helper whose type parameter ties a key to its value | Helper kept, as inlining loses that link                            |
+|  [02]   | Literals     | Name list beside a block of matching calls          | One keyed record of calls, `keyof typeof` that record as the list   |
+|  [03]   | Redundant    | Interface beside a schema or reducer of one shape   | `typeof X.Type` or `typeof X.initialValue` under one name           |
+|  [04]   | Duplicated   | Hand-written JSON Schema, retry, glob, or diff      | Effect member from the export listing (`Tool`, `Schedule`, `Glob`)  |
+|  [05]   | Duplicated   | Spread per optional key restating a map             | `Struct.evolve`, over own enumerable keys alone                     |
+|  [06]   | Types        | Service shape typed by hand beside its builder      | `ReturnType<typeof <builder>>`, where the builder states a contract |
+|  [07]   | Types        | Derived type inferring one member as `never`        | One stated type on that value, derivation kept                      |
+|  [08]   | Nesting      | `if` chain over a discriminant                      | `Match.discriminatorsExhaustive`, `$match`, or `Match.value`        |
+|  [09]   | Nesting      | Nested `Option.match` or `Effect.flatMap` callbacks | One `pipe` from innermost subject, each step data-last              |
+|  [10]   | Nesting      | Generator at callback limit                         | Curried member, or a statement of an enclosing generator            |
+|  [11]   | Exports      | Reader re-deriving through `ConstructorParameters`  | Type exported once from its declaring module                        |
 
-Host constraints decide forms that look like smells, read them before rebuilding:
-- Claude Code mods: `claude plugin validate` follows `$` only into the module's own `function` declarations, so a `$`-taking builder stays a function
-- Claude Code mods: an `on(...)` registration's value is kept unless `.catch(...)` sits in statement position, `void` and returned thunks fail
-- Generic helpers correlating one type parameter across arguments (`rows<C>` tying `table[component]` to `e`) stay, as inlining loses the link
-- Derived shapes widen or narrow an inferred member (a record key inferred `never`), and one stated type on that value keeps the derivation
+## [06]-[VERIFY]
 
-## [06]-[NESTING]
+Checks per pass, each command alone in the background, a host project's validator run over its fresh build:
 
-Formatter output decides depth: `oxfmt` prints one argument per line once a call holds more than one inline function, and lint rule `max-nested-callbacks` is 3:
-- Nested `Option.match` or `Effect.flatMap` callbacks -> one `pipe` from the innermost subject, each step data-last at one level
-- Callback reading an `Effect.all` tuple -> `yield* Effect.all([...])` in a generator
-- Generator passed to `Effect.gen` at the callback limit -> a generator statement, which adds no level
-- Arms holding effects that branch again -> `Match` over a tuple of subjects, each arm one outcome
-- Depth check, lines past 4 levels at the repository's 4-space indent: `awk -v n=4 '{ match($0, /^ */) } RLENGTH / 4 > n { print FILENAME ":" FNR ": " RLENGTH / 4 }' <file>`
-
-## [07]-[VERIFY]
-
-Proof of each pass, in order, once at the end of the pass:
-1. Format and file checks: `hk fix <paths>`, then `hk check <paths>`
-2. Type check of the edited project and every consumer project: `nx run-many -t check -p <projects>`
-3. Suites covering the edited code: `nx run-many -t test -p <suites>`
-4. Builds of products bundling the edited code: `nx run-many -t build -p <products>`
-5. Host validator where one exists: `claude plugin validate .artifacts/vite/@rasm/<plugin> --json`
-6. Counts before and after per the main skill's measure, each kept declaration listed with the fact it states
+```bash
+hk fix <paths> && hk check <paths>
+nx affected -t check --uncommitted
+nx affected -t test --uncommitted
+nx affected -t build --uncommitted
+claude plugin validate .artifacts/vite/<plugin> --json
+```
