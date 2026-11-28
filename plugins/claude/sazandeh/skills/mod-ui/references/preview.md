@@ -75,7 +75,7 @@ Each stage owns one kind of evidence:
 Subject lines read `preview <name>: passed|failed, N faults, S s`:
 - Faults are `error:`, `warn:`, `refused`, `fault:`, and `fault press` lines, and `log debug:` lines of the mod holding `level=WARN` or `hook failed:`; exit 1 on a validation refusal, a load failure, or any fault, 130 on interrupt
 - `render hook skipped: returned a Button without an onPress function` is a fault validate passes; the engine then draws its own site
-- `ui.render hook failed: ran out of time` is a row past its budget, `message="draw failed"` with `component` and `request` a row that failed and drew `next()`
+- `ui.render hook failed: timeout` is a row past its budget, `message="draw failed"` with `component` and `request` a row that failed and drew `next()`
 - Reports show the screen as drawn, so a command racing its own pane's first render shows rows in either order
 - Out of reach: desktop, VS Code, and mobile paint, images, kitty keys, OS notifications, sound, mouse, and hover, where trees stand for paint
 - Runs leave nothing behind: the next claim of a slot sweeps a killed run's tmux servers and `claude purge` removes its transcripts

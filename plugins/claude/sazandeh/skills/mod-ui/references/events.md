@@ -11,7 +11,7 @@ Hooks, declared tools, agent types, and slash commands share one `host` call and
 - `ui.press`, `ui.input`, and `ui.select` hear every plugin's controls to route or audit them, and a mod's own controls run their element handlers without them
 - `classic.Stop` and `classic.SubagentStop` hooks pass every later stop of a chain once `stop_hook_active`, and a block already made for one agent and text passes on the second try
 - `turn.step` takes a `Channel` of the engine's chunks ending in the step's result, the one streaming event, and `reply(e, { answer, toolUses })` answers a step with no model request
-- Hook failures log `<event>[:<tool>] hook failed: threw|ran out of time[: <message>]` to the debug log and pass the event on, and an Escape-interrupted hook settles with the abort reason, logging nothing
+- Hook failures log `<event>[:<tool>] hook failed: throw|timeout[: <message>]` to the debug log and pass the event on, and an Escape-interrupted hook settles with the abort reason, logging nothing
 
 ## [02]-[PARTS]
 

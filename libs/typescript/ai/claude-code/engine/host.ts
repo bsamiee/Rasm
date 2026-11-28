@@ -77,7 +77,14 @@ function drawBand<A, E, F, S>($: EngineInterface, instance: Instance<A, E, F, S>
     return Option.match(
         instance.band.pipe(
             Option.filter(() => !e.props.hasSurvey),
-            Option.map(({ rows, press }) => rows.pipe(Ref.getUnsafe, Record.values, Array.flatMap(Record.toEntries), Array.map(([key, label]) => ({ _tag: 'Button', key, label, onPress: () => Effect.forkDetach(Effect.catchCause(press(key), (cause) => Effect.logWarning('press failed', cause).pipe(Effect.annotateLogs({ key })))) }) as const))),
+            Option.map(({ rows, press }) =>
+                rows.pipe(
+                    Ref.getUnsafe,
+                    Record.values,
+                    Array.flatMap(Record.toEntries),
+                    Array.map(([key, label]) => ({ _tag: 'Button', key, label, onPress: () => Effect.forkDetach(Effect.catchCause(press(key), (cause) => Effect.logWarning('press failed', cause).pipe(Effect.annotateLogs({ key })))) }) as const),
+                ),
+            ),
             Option.filter((children) => Array.isReadonlyArrayNonEmpty(children)),
         ),
         { onNone: () => next(e), onSome: (children) => draw($, e, { _tag: 'Box', flexDirection: 'column', children }, () => start($, instance)) },
@@ -131,7 +138,7 @@ function host<A, E, F, S = never, const P extends readonly Pick<Part<never, Erro
         on('session.end', ($, e, next) => answer($, instance, e, next)).catch(recover);
     }
     if (hooked('session.compact')) {
-        on('session.compact', ($, e, next) => answer($, instance, e, next)).catch(recover);
+        on('session.compact', { messages: {} }, ($, e, next) => answer($, instance, e, next)).catch(recover);
     }
     if (hooked('session.receive')) {
         on('session.receive', ($, e, next) => answer($, instance, e, next)).catch(recover);
