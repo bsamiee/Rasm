@@ -159,7 +159,7 @@ public static class Glare {
                 staged.Rows((row, _, y) => {
                     ReadOnlySpan<Vector4> layer = light.View.Span.GetRowSpan(y - staged.Origin.Y);
                     for (int x = 0; x < row.Length; x++)
-                        row[x] = new Vector4(row[x].W > 0f ? layer[x].AsVector3() / row[x].W : Vector3.Zero, row[x].W);
+                        row[x] = new Vector4(Vector3.ConditionalSelect(Vector3.GreaterThan(new Vector3(row[x].W), Vector3.Zero), layer[x].AsVector3() / row[x].W, Vector3.Zero), row[x].W);
                 }, report);
                 return unit;
             }).Run()), weight, masks).Match(glare => glare.Run(frame, progress), static () => unit);

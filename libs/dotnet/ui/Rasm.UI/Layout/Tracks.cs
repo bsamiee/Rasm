@@ -53,8 +53,7 @@ internal static partial class Layouts {
             float gap = Gap(layout);
             return Started(layout, Cells.Filter(static cell => cell.Down > 1).Fold(toSeq(Range(0, Count)).Map(line => Line.IfNone(() => tallest.Find(line).IfNone(0f))).Strict(), (lines, cell) =>
                 (Basis(cell.Layout, along, float.PositiveInfinity) - Summed(lines.Skip(cell.Line).Take(cell.Down), gap)) switch {
-                    var deficit when deficit > 0f => lines.Map((extent, line) => line == cell.Line + cell.Down - 1 ? extent + deficit : extent).Strict(),
-                    _ => lines,
+                    var deficit => lines.Map((extent, line) => deficit > 0f && line == cell.Line + cell.Down - 1 ? extent + deficit : extent).Strict(),
                 }));
         }
 

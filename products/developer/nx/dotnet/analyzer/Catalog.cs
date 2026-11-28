@@ -161,16 +161,15 @@ internal static class Catalog {
         using XmlReader reader = XmlReader.Create(new StringReader(text));
         IXmlLineInfo position = (IXmlLineInfo)reader;
         int Offset() => lines[position.LineNumber - 1] + position.LinePosition - 1;
-        IEnumerable<(int Start, int End, string Value)> Edits() {
-            while (reader.Read()) {
-                if (reader.NodeType is not XmlNodeType.Element) continue;
-                (int line, string name) = (position.LineNumber, reader.Name);
-                while (reader.MoveToNextAttribute())
-                    if (spelled.TryGetValue((line, reader.Name, true), out string? value) && reader.ReadAttributeValue()) yield return (Offset(), text.IndexOf(reader.QuoteChar, Offset()), value);
-                reader.MoveToElement();
-                if (spelled.TryGetValue((line, name, false), out string? inner) && reader.Read() && reader.NodeType is XmlNodeType.Text) yield return (Offset(), text.IndexOf('<', Offset()), inner);
-            }
+        Stack<(int Start, int End, string Value)> edits = [];
+        while (reader.Read()) {
+            if (reader.NodeType is not XmlNodeType.Element) continue;
+            (int line, string name) = (position.LineNumber, reader.Name);
+            while (reader.MoveToNextAttribute())
+                if (spelled.TryGetValue((line, reader.Name, true), out string? value) && reader.ReadAttributeValue()) edits.Push((Offset(), text.IndexOf(reader.QuoteChar, Offset()), value));
+            reader.MoveToElement();
+            if (spelled.TryGetValue((line, name, false), out string? inner) && reader.Read() && reader.NodeType is XmlNodeType.Text) edits.Push((Offset(), text.IndexOf('<', Offset()), inner));
         }
-        return Edits().ToArray().Reverse().Aggregate(text, static (held, edit) => string.Concat(held.AsSpan(0, edit.Start), edit.Value, held.AsSpan(edit.End)));
+        return edits.Aggregate(text, static (held, edit) => string.Concat(held.AsSpan(0, edit.Start), edit.Value, held.AsSpan(edit.End)));
     }
 }

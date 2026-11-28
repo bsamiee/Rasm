@@ -82,13 +82,9 @@ internal sealed record LensFlare(
     public static Fin<Option<PixelPass>> Pass(LensFlare state, PassContext context) =>
         state.Source.Pass(context, (point, occlusion) => (frame, progress) =>
             Terms(state, context, point).Bind(terms => terms is [] ? unit
-                : occlusion.Map(occluder => occluder.Visible(point, (float)state.HotspotSize.Pixels(context.Extent))).IfNone(1f) switch {
-                    var visible => state.Layer.Run(DistanceField.Fill(FieldPlacement.Default.Frame(context.Extent), q => {
-                        Vector3 light = Vector3.Zero;
-                        foreach (Func<Vector2, Vector3> term in terms)
-                            light += term(q);
-                        return new Vector4(visible * light, 1f);
-                    }), frame, progress),
+                : (Visible: occlusion.Map(occluder => occluder.Visible(point, (float)state.HotspotSize.Pixels(context.Extent))).IfNone(1f),
+                    Light: terms.Aggregate(new Func<Vector2, Vector3>(static _ => Vector3.Zero), static (sum, term) => q => sum(q) + term(q))) switch {
+                    var lit => state.Layer.Run(DistanceField.Fill(FieldPlacement.Default.Frame(context.Extent), q => new Vector4(lit.Visible * lit.Light(q), 1f)), frame, progress),
                 }));
 
     private static Fin<Func<Vector2, Vector3>[]> Terms(LensFlare state, PassContext context, Vector2 source) {

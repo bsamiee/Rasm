@@ -13,6 +13,7 @@ using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
 using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Advanced;
 using SixLabors.ImageSharp.PixelFormats;
 using TinyEXR;
 
@@ -104,17 +105,15 @@ public sealed partial class LutFormat {
             bytes => Try.lift(() => SixLabors.ImageSharp.Image.Load<RgbaVector>(bytes.Span)).Run().MapFail(error => Fault.Of(ImagingReason.Refused, key, inner: error)).Bind(image => {
                 using Image<RgbaVector> owned = image;
                 int edge = (int)double.Round(double.Cbrt((double)owned.Width * owned.Height), MidpointRounding.ToEven);
-                return Fault.Unless(Cubed(edge) == (long)owned.Width * owned.Height && width(edge) == owned.Width, ImagingReason.UnknownFormat, (owned.Width, owned.Height)).Bind(_ => {
-                    float[] samples = GC.AllocateUninitializedArray<float>(3 * owned.Width * owned.Height);
-                    owned.ProcessPixelRows(rows => {
-                        int runs = rows.Width / edge;
-                        for (int row = 0; row < rows.Height; row++)
-                            for (int run = 0; run < runs; run++)
-                                MemoryMarshal.Cast<RgbaVector, float>(rows.GetRowSpan(row).Slice(run * edge, edge)).AsSpan2D(edge, 4)[.., ..3]
-                                    .CopyTo(samples.AsSpan(3 * start(row, run, runs, edge), 3 * edge).AsSpan2D(edge, 3));
-                    });
-                    return Lattice(edge, samples, UnitDomain);
-                });
+                if (Cubed(edge) != (long)owned.Width * owned.Height || width(edge) != owned.Width)
+                    return Fault.Of(ImagingReason.UnknownFormat, (owned.Width, owned.Height));
+                float[] samples = GC.AllocateUninitializedArray<float>(3 * owned.Width * owned.Height);
+                int runs = owned.Width / edge;
+                for (int row = 0; row < owned.Height; row++)
+                    for (int run = 0; run < runs; run++)
+                        MemoryMarshal.Cast<RgbaVector, float>(owned.DangerousGetPixelRowMemory(row).Span.Slice(run * edge, edge)).AsSpan2D(edge, 4)[.., ..3]
+                            .CopyTo(samples.AsSpan(3 * start(row, run, runs, edge), 3 * edge).AsSpan2D(edge, 3));
+                return Lattice(edge, samples, UnitDomain);
             }),
             (table, name, metadata) => Written(
                 from cube in table.Steps is [LutTable.Cube held] && Coded(held.Lattice) ? Some(held.Lattice) : None

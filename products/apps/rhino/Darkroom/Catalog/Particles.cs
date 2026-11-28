@@ -256,19 +256,18 @@ internal sealed record ParticleField(
             xs.Sort();
             ys.Sort();
             Vector4 total = Vector4.Zero;
-            for (int y = 0; y < count - 1; y++) {
-                for (int x = 0; x < count - 1; x++)
-                    total += xs[x + 1] > xs[x] && ys[y + 1] > ys[y] ? Cell(new RectangleF(xs[x], ys[y], xs[x + 1] - xs[x], ys[y + 1] - ys[y]), active) : Vector4.Zero;
+            for (int cell = 0; cell < (count - 1) * (count - 1); cell++) {
+                (int y, int x) = Math.DivRem(cell, count - 1);
+                total += xs[x + 1] > xs[x] && ys[y + 1] > ys[y] ? Cell(new RectangleF(xs[x], ys[y], xs[x + 1] - xs[x], ys[y + 1] - ys[y]), active) : Vector4.Zero;
             }
             return total;
 
             Vector4 Cell(RectangleF area, ReadOnlySpan<Sample> samples) {
                 Vector4 sum = Vector4.Zero;
-                for (int down = 0; down < integration.Order; down++) {
-                    for (int across = 0; across < integration.Order; across++) {
-                        Vector2 at = new(area.X + (area.Width * (float)integration.GetAbscissa(across)), area.Y + (area.Height * (float)integration.GetAbscissa(down)));
-                        sum += Folded(at, samples) * (float)(area.Width * area.Height * integration.GetWeight(across) * integration.GetWeight(down));
-                    }
+                for (int node = 0; node < integration.Order * integration.Order; node++) {
+                    (int down, int across) = Math.DivRem(node, integration.Order);
+                    Vector2 at = new(area.X + (area.Width * (float)integration.GetAbscissa(across)), area.Y + (area.Height * (float)integration.GetAbscissa(down)));
+                    sum += Folded(at, samples) * (float)(area.Width * area.Height * integration.GetWeight(across) * integration.GetWeight(down));
                 }
                 return sum;
             }

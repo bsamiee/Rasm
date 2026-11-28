@@ -330,28 +330,27 @@ public sealed class EncodedHandoffAnalyzer : DiagnosticAnalyzer {
                     || method.Parameters.Any(parameter => Same(parameter.Type, stream) || parameter.Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Byte }))];
             if (encoders.IsEmpty || decoders.IsEmpty) return;
             ControlFlow flow = ControlFlow.For(start.Compilation);
-            IInvocationOperation? Encoded(IOperation decode, CancellationToken token) {
-                Stack<ControlFlow.Value> pending = new(decode.ChildOperations.OfType<IArgumentOperation>().Select(static argument => ControlFlow.At(argument.Value)));
-                HashSet<ControlFlow.Value> seen = [];
-                HashSet<ISymbol> carriers = [with(SymbolEqualityComparer.Default)];
-                while (pending.Count is > 0) {
-                    token.ThrowIfCancellationRequested();
-                    ControlFlow.Value current = pending.Pop();
-                    if (!seen.Add(current)) continue;
-                    foreach (IOperation part in current.Operation.DescendantsAndSelf()) {
-                        if (part is IInvocationOperation call && Among(call.TargetMethod, encoders)) return call;
-                        if (part is not (ILocalReferenceOperation or IFlowCaptureReferenceOperation)) continue;
-                        if (Variable(part) is { } carrier) carriers.Add(carrier);
-                        foreach (Optional<ControlFlow.Value> definition in flow.Values(current.With(part), token).Where(static definition => definition.HasValue)) pending.Push(definition.Value);
-                    }
-                }
-                return Root(decode).DescendantsAndSelf().OfType<IInvocationOperation>()
-                    .FirstOrDefault(call => Among(call.TargetMethod, encoders) && call.Arguments.Any(argument => Variable(Stripped(argument.Value)) is { } held && carriers.Contains(held)));
-            }
             Report<IOperation>(start, [OperationKind.Invocation, OperationKind.ObjectCreation], (operation, analysis) =>
-                Target(operation) is IMethodSymbol decoder && Among(decoder, decoders) && Encoded(operation, analysis.CancellationToken) is { } encoder
+                Target(operation) is IMethodSymbol decoder && Among(decoder, decoders) && Encoded(operation, encoders, flow, analysis.CancellationToken) is { } encoder
                     ? [Diagnostic.Create(Rule, operation.Syntax.GetLocation(), Label(decoder), Label(encoder.TargetMethod))]
                     : []);
         });
+        static IInvocationOperation? Encoded(IOperation decode, ImmutableArray<IMethodSymbol> encoders, ControlFlow flow, CancellationToken token) {
+            Stack<ControlFlow.Value> pending = new(decode.ChildOperations.OfType<IArgumentOperation>().Select(static argument => ControlFlow.At(argument.Value)));
+            HashSet<ControlFlow.Value> seen = [];
+            HashSet<ISymbol> carriers = [with(SymbolEqualityComparer.Default)];
+            while (pending.Count is > 0) {
+                token.ThrowIfCancellationRequested();
+                ControlFlow.Value current = pending.Pop();
+                if (!seen.Add(current)) continue;
+                ImmutableArray<IOperation> parts = [.. current.Operation.DescendantsAndSelf()];
+                if (parts.OfType<IInvocationOperation>().FirstOrDefault(call => Among(call.TargetMethod, encoders)) is { } encoded) return encoded;
+                ImmutableArray<IOperation> references = [.. parts.Where(static part => part is ILocalReferenceOperation or IFlowCaptureReferenceOperation)];
+                carriers.UnionWith(references.Select(Variable).OfType<ISymbol>());
+                foreach (Optional<ControlFlow.Value> definition in references.SelectMany(part => flow.Values(current.With(part), token)).Where(static definition => definition.HasValue)) pending.Push(definition.Value);
+            }
+            return Root(decode).DescendantsAndSelf().OfType<IInvocationOperation>()
+                .FirstOrDefault(call => Among(call.TargetMethod, encoders) && call.Arguments.Any(argument => Variable(Stripped(argument.Value)) is { } held && carriers.Contains(held)));
+        }
     }
 }

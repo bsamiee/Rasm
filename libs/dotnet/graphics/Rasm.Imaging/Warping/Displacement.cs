@@ -1,6 +1,5 @@
 using System.Numerics;
 using System.Numerics.Tensors;
-using CommunityToolkit.HighPerformance;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Util;
@@ -116,11 +115,10 @@ public static class Refraction {
                 CvInvoke.ExtractChannel(header, level, 2);
                 level.Blur(level, smoothness.Pixels(extent));
                 MapReading.Slope(level, slope, strength * reach * extent.ShortSide / 8d);
-                Span2D<Vector4> drops = header.View<Vector4>();
-                ReadOnlySpan2D<Vector2> bend = slope.View<Vector2>();
-                for (int y = 0; y < drops.Height; y++)
-                    for (int x = 0; x < drops.Width; x++)
-                        drops[y, x] -= new Vector4(bend[y, x], 0f, 0f);
+                Span<Vector4> drops = header.GetSpan<Vector4>();
+                ReadOnlySpan<Vector2> bend = slope.GetSpan<Vector2>();
+                for (int pixel = 0; pixel < drops.Length; pixel++)
+                    drops[pixel] -= new Vector4(bend[pixel], 0f, 0f);
                 return unit;
             });
             Fin<PixelFrame> composed =

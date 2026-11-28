@@ -162,11 +162,13 @@ public static class Video {
                     cells[y, column] = CoordinateHash.Normals(Vector128.Create(frame.Origin.X - reach + column, scan, 0, 0), field);
             }
             CvInvoke.Filter2D(draws, draws, kernel, new System.Drawing.Point(-1, -1), 0d, BorderType.Replicate);
+            using SpanOwner<float> lane = SpanOwner<float>.Allocate(frame.Size.Width);
             foreach ((PixelPlane plane, float level, int channel) in Seq((luma, lumaLevel, 0), (blue, chromaLevel, 1), (red, chromaLevel, 2))) {
                 Span2D<float> target = plane.View.Span;
                 for (int y = 0; y < frame.Size.Height; y++) {
-                    for (int x = 0; x < frame.Size.Width; x++)
-                        target[y, x] += level * cells[y, x + reach][channel];
+                    Span<float> line = target.GetRowSpan(y)[..frame.Size.Width];
+                    MemoryMarshal.Cast<Vector4, float>(cells.GetRowSpan(y).Slice(reach, frame.Size.Width)).AsSpan2D(frame.Size.Width, 4).GetColumn(channel).CopyTo(lane.Span);
+                    TensorPrimitives.MultiplyAdd(lane.Span, level, line, line);
                 }
             }
             return unit;

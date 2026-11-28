@@ -21,16 +21,18 @@ public abstract partial record CurvatureSource {
     public IO<Seq<Option<SurfaceCurvature>>> Sample(Tolerances tolerances) =>
         Switch(
             tolerances,
-            onSurface: static (at, of) => of.Surface is BrepFace face
-                ? Sampled(() => of.At.Map(uv => face.IsPointOnFace(uv.X, uv.Y, at.Absolute) is PointFaceRelation.Exterior ? null : Regular(face, uv)))
-                : IO.lift(() => of.At.Traverse(uv => SurfaceEvaluation.InDomain(of.Surface, uv)).As()).Bind(points => Sampled(() => points.Map(uv => Regular(of.Surface, uv)))),
+            onSurface: static (at, of) =>
+                from points in of.Surface is BrepFace ? IO.pure(of.At) : IO.lift(() => of.At.Traverse(uv => SurfaceEvaluation.InDomain(of.Surface, uv)).As())
+                from sampled in Sampled(() => points.Map(uv => Regular(of.Surface, uv, at.Absolute)))
+                select sampled,
             onSubD: static (_, of) => Sampled(() => of.At.Map(parameter => of.SubD.EvaluateCurvature(parameter, of.Extraordinary, out SurfaceCurvature curvature) ? curvature : null)),
-            onMesh: static (_, of) => IO.lift(() => of.Mesh.HasPrincipalCurvatures).Bind(held => held
-                ? Sampled(() => toSeq(of.Mesh.PrincipalCurvatures))
-                : from approximated in (Approximated(of.Mesh, CurvatureStyle.GaussianCurvature), Approximated(of.Mesh, CurvatureStyle.MeanCurvature))
-                      .Apply(static (gaussian, mean) => (Gaussian: gaussian, Mean: mean)).As()
-                  from sampled in Sampled(() => toSeq(approximated.Gaussian.Zip(approximated.Mean, static (k, h) => double.IsNaN(k) || double.IsNaN(h) ? null : SurfaceCurvature.CreateFromGaussianAndMeanCurvatures(k, -h))))
-                  select sampled));
+            onMesh: static (_, of) => iff(
+                IO.lift(() => of.Mesh.HasPrincipalCurvatures),
+                Sampled(() => toSeq(of.Mesh.PrincipalCurvatures)),
+                from approximated in (Approximated(of.Mesh, CurvatureStyle.GaussianCurvature), Approximated(of.Mesh, CurvatureStyle.MeanCurvature))
+                    .Apply(static (gaussian, mean) => (Gaussian: gaussian, Mean: mean)).As()
+                from sampled in Sampled(() => toSeq(approximated.Gaussian.Zip(approximated.Mean, static (k, h) => double.IsNaN(k) || double.IsNaN(h) ? null : SurfaceCurvature.CreateFromGaussianAndMeanCurvatures(k, -h))))
+                select sampled).As());
 
     private static IO<double[]> Approximated(Mesh mesh, CurvatureStyle style) =>
         IO.lift(() => Fault.Unless(mesh.ComputeCurvatureApproximation((int)style, out double[] values), RhinoReason.Declined, style).Map(_ => values));
@@ -38,8 +40,10 @@ public abstract partial record CurvatureSource {
     private static IO<Seq<Option<SurfaceCurvature>>> Sampled(Func<Seq<SurfaceCurvature?>> samples) =>
         IO.lift(() => samples().Map(static sample => Optional(sample)).Strict());
 
-    private static SurfaceCurvature? Regular(Surface surface, Point2d uv) =>
-        surface.IsAtSingularity(uv.X, uv.Y, exact: false) ? null : surface.CurvatureAt(uv.X, uv.Y);
+    private static SurfaceCurvature? Regular(Surface surface, Point2d uv, double tolerance) =>
+        (surface is BrepFace face && face.IsPointOnFace(uv.X, uv.Y, tolerance) is PointFaceRelation.Exterior) || surface.IsAtSingularity(uv.X, uv.Y, exact: false)
+            ? null
+            : surface.CurvatureAt(uv.X, uv.Y);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

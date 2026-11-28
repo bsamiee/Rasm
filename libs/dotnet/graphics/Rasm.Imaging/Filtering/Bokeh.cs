@@ -174,37 +174,33 @@ public static class Bokeh {
         });
 
     public static PixelPass Gathered(Iris iris, double fringe, Action<PixelFrame, PixelPlane> radii) =>
-        new PixelPass.Frame((frame, progress) => {
-            using Mat source = frame.Premultiplied();
-            PixelPlane field = new(frame.Size);
-            radii(frame, field);
-            using Mat header = field.Header();
-            header.MinMax(out double[] least, out double[] most, out Point[] _, out Point[] _);
-            (double circumradius, double near) = (iris.Circumradius / double.Min(iris.Squeeze, 1d), double.Max(0d, -least[0]));
-            return Gaussian.Taps(double.Max(near, most[0]) * circumradius).Bind(side => {
-                (double Reach, double Edge)[] outlines = [.. from y in Enumerable.Range(0, side) from x in Enumerable.Range(0, side) select iris.Outline(new Vector2((side / 2) - x, (side / 2) - y))];
-                return new PixelPass.Positional((row, _, top) => {
-                    ReadOnlySpan2D<Vector4> light = source.View<Vector4>();
-                    ReadOnlySpan2D<float> radius = field.View.Span;
-                    ReadOnlySpan2D<(double Reach, double Edge)> shapes = new(outlines, side, side);
-                    int y = top - frame.Origin.Y;
-                    for (int x = 0; x < row.Length; x++) {
-                        float own = float.Abs(radius[y, x]);
-                        int reach = (int)double.Ceiling(double.Max(own, near) * circumradius);
-                        (Vector4 sum, Vector4 total) = (Vector4.Zero, Vector4.Zero);
-                        for (int dy = -reach; dy <= reach; dy++) {
-                            for (int dx = -reach; dx <= reach; dx++) {
-                                (int u, int v) = (int.Clamp(x + dx, 0, radius.Width - 1), int.Clamp(y + dy, 0, radius.Height - 1));
-                                Vector4 weights = Tap(iris, fringe, shapes[dy + (side / 2), dx + (side / 2)], float.Abs(float.Min(radius[v, u], own)));
-                                (sum, total) = (sum + (weights * light[v, u]), total + weights);
-                            }
-                        }
-                        row[x] = sum / total;
+        new PixelPass.Frame((frame, progress) => (
+            from source in use(frame.Premultiplied)
+            let field = new PixelPlane(frame.Size)
+            from radiused in IO.lift(() => radii(frame, field))
+            let circumradius = iris.Circumradius / double.Min(iris.Squeeze, 1d)
+            let near = double.Max(0d, -TensorPrimitives.Min<float>(field.Samples))
+            from side in IO.lift(Gaussian.Taps(double.Max(near, TensorPrimitives.Max<float>(field.Samples)) * circumradius))
+            let taps = (from y in Enumerable.Range(0, side) from x in Enumerable.Range(0, side) select (Outline: iris.Outline(new Vector2((side / 2) - x, (side / 2) - y)), Across: x - (side / 2), Down: y - (side / 2))).ToArray()
+            from gathered in IO.lift(new PixelPass.Positional((row, _, top) => {
+                ReadOnlySpan2D<Vector4> light = source.View<Vector4>();
+                ReadOnlySpan2D<float> radius = field.View.Span;
+                ReadOnlySpan2D<((double Reach, double Edge) Outline, int Across, int Down)> window = new(taps, side, side);
+                int y = top - frame.Origin.Y;
+                for (int x = 0; x < row.Length; x++) {
+                    float own = float.Abs(radius[y, x]);
+                    int reach = (int)double.Ceiling(double.Max(own, near) * circumradius);
+                    (Vector4 sum, Vector4 total) = (Vector4.Zero, Vector4.Zero);
+                    foreach (((double Reach, double Edge) outline, int across, int down) in window.Slice((side / 2) - reach, (side / 2) - reach, (2 * reach) + 1, (2 * reach) + 1)) {
+                        (int u, int v) = (int.Clamp(x + across, 0, radius.Width - 1), int.Clamp(y + down, 0, radius.Height - 1));
+                        Vector4 weights = Tap(iris, fringe, outline, float.Abs(float.Min(radius[v, u], own)));
+                        (sum, total) = (sum + (weights * light[v, u]), total + weights);
                     }
-                    PixelFrame.Unassociated(row);
-                }).Run(frame, progress);
-            });
-        });
+                    row[x] = sum / total;
+                }
+                PixelFrame.Unassociated(row);
+            }).Run(frame, progress))
+            select gathered).Bracket().RunSafe());
 
     private static Vector4 Tap(Iris iris, double fringe, (double Reach, double Edge) outline, double radius) =>
         outline.Reach is 0d ? Vector4.One : iris.Weights(outline.Reach, outline.Edge, radius, 1d, fringe);

@@ -291,8 +291,8 @@ public sealed class SingleReaderAnalyzer : DiagnosticAnalyzer {
                     return false;
                 ImmutableHashSet<string> local = [with(StringComparer.Ordinal), .. Bound(site), "value"];
                 bool Kept(IOperation named) =>
-                    Words(member.Name).IsSubsetOf((Naming(named, candidates) is { } name ? Words(name) : [with(StringComparer.Ordinal)]).Union(
-                        value.Syntax.DescendantTokens().Where(static token => token.IsKind(SyntaxKind.IdentifierToken)).SelectMany(static token => Words(token.ValueText))));
+                    Words(member.Name).IsSubsetOf(value.Syntax.DescendantTokens().Where(static token => token.IsKind(SyntaxKind.IdentifierToken)).Select(static token => token.ValueText)
+                        .Prepend(Naming(named, candidates)).OfType<string>().SelectMany(static text => Words(text)));
                 return (member, read) switch {
                     (IFieldSymbol field, _) when Listed(field, value) => Contained(read) && Free(value.Syntax, [with(StringComparer.Ordinal)], local),
                     (IFieldSymbol field, _) => Literal(field, value) && Naming(read, candidates) is { } name && Words(field.Name).IsSubsetOf(Words(name)) && Free(value.Syntax, [with(StringComparer.Ordinal)], local),
@@ -311,14 +311,13 @@ public sealed class SingleReaderAnalyzer : DiagnosticAnalyzer {
                 end.CancellationToken.ThrowIfCancellationRequested();
                 List<ISymbol> path = [];
                 Dictionary<ISymbol, int> positions = [with(SymbolEqualityComparer.Default)];
-                for (ISymbol? next = member; next is not null && !processed.Contains(next); next = Reader(next)) {
-                    if (positions.TryGetValue(next, out int cycle)) {
-                        cyclic.UnionWith(path.Skip(cycle));
-                        break;
-                    }
+                ISymbol? next = member;
+                while (next is not null && !processed.Contains(next) && !positions.ContainsKey(next)) {
                     positions.Add(next, path.Count);
                     path.Add(next);
+                    next = Reader(next);
                 }
+                if (next is not null && positions.TryGetValue(next, out int cycle)) cyclic.UnionWith(path.Skip(cycle));
                 processed.UnionWith(path);
             }
             HashSet<ISymbol> reported = [with(SymbolEqualityComparer.Default)];
@@ -329,29 +328,18 @@ public sealed class SingleReaderAnalyzer : DiagnosticAnalyzer {
                     end.ReportDiagnostic(Diagnostic.Create(Rule, pair.Key.Locations[0], [pair.Value.Read.Syntax.GetLocation()], pair.Key.Name, Named(pair.Value.Reader)));
                 }
             }
-            bool Public(ISymbol source, INamedTypeSymbol owner) {
-                Stack<ISymbol> remaining = new([source]);
-                while (remaining.Count is not 0) {
-                    end.CancellationToken.ThrowIfCancellationRequested();
-                    ISymbol symbol = remaining.Pop();
-                    if (symbol is ITypeParameterSymbol or IDynamicTypeSymbol || SymbolEqualityComparer.Default.Equals(symbol, owner)) continue;
-                    if (symbol is IArrayTypeSymbol array) {
-                        remaining.Push(array.ElementType);
-                        continue;
-                    }
-                    if (symbol is IErrorTypeSymbol || symbol.DeclaredAccessibility is not Accessibility.Public) return false;
-                    if (symbol.ContainingType is { } containing) remaining.Push(containing);
-                    foreach (ITypeSymbol argument in symbol switch {
-                        INamedTypeSymbol type => type.TypeArguments,
-                        IMethodSymbol method => method.TypeArguments,
-                        _ => [],
-                    }) remaining.Push(argument);
-                    if (symbol is IPropertySymbol property) {
-                        if (property.GetMethod is not { } getter) return false;
-                        remaining.Push(getter);
-                    }
-                }
-                return true;
+            bool Public(ISymbol symbol, INamedTypeSymbol owner) {
+                end.CancellationToken.ThrowIfCancellationRequested();
+                return symbol switch {
+                    _ when symbol is ITypeParameterSymbol or IDynamicTypeSymbol || SymbolEqualityComparer.Default.Equals(symbol, owner) => true,
+                    IArrayTypeSymbol array => Public(array.ElementType, owner),
+                    IErrorTypeSymbol or { DeclaredAccessibility: not Accessibility.Public } or IPropertySymbol { GetMethod: null } => false,
+                    { ContainingType: { } containing } when !Public(containing, owner) => false,
+                    INamedTypeSymbol type => type.TypeArguments.All(argument => Public(argument, owner)),
+                    IMethodSymbol method => method.TypeArguments.All(argument => Public(argument, owner)),
+                    IPropertySymbol { GetMethod: { } getter } => Public(getter, owner),
+                    _ => true,
+                };
             }
             IEqualityComparer<IPropertySymbol> properties = SymbolEqualityComparer.Default;
             ILookup<IPropertySymbol, (IPropertyReferenceOperation Read, INamedTypeSymbol Reader)> observed = uses.ToLookup(static held => held.Read.Property.OriginalDefinition, properties);
@@ -368,7 +356,7 @@ public sealed class SingleReaderAnalyzer : DiagnosticAnalyzer {
                                 || (symbol is IMethodSymbol && binding.CandidateReason is CandidateReason.MemberGroup && binding.CandidateSymbols.Contains(symbol, SymbolEqualityComparer.Default)));
                         bool own = SymbolEqualityComparer.Default.Equals(use.Reader, property.ContainingType)
                             && use.Read.Instance is null or IInstanceReferenceOperation { ReferenceKind: InstanceReferenceKind.ContainingTypeInstance };
-                        return (own ? parameters.All(parameter => Bound(parameter.Parameter, parameter.Syntax)) : parameters.IsEmpty) && members.All(member =>
+                        return parameters.All(parameter => own && Bound(parameter.Parameter, parameter.Syntax)) && members.All(member =>
                             end.Compilation.IsSymbolAccessibleWithin(member.Member, use.Reader, member.Instance?.Type)
                             && (member is not IPropertyReferenceOperation getter || (getter.Property.GetMethod is { } method
                                 && end.Compilation.IsSymbolAccessibleWithin(method, use.Reader, getter.Instance?.Type)))
@@ -561,105 +549,86 @@ public sealed class RestatedInstanceAnalyzer : DiagnosticAnalyzer {
         models.Complete((end, available) => {
             Dictionary<IMethodSymbol, bool> transparent = [with(SymbolEqualityComparer.Default)];
             bool Transparent(IMethodSymbol constructor) {
-                Stack<(IMethodSymbol Constructor, bool Expanded)> pending = new([(constructor.OriginalDefinition, false)]);
-                Dictionary<IMethodSymbol, ImmutableArray<IMethodSymbol>> dependencies = [with(SymbolEqualityComparer.Default)];
-                while (pending.Count is not 0) {
-                    end.CancellationToken.ThrowIfCancellationRequested();
-                    (IMethodSymbol held, bool expanded) = pending.Pop();
-                    if (expanded) {
-                        transparent[held] = dependencies[held].All(called => transparent[called]);
-                        continue;
-                    }
-                    if (transparent.ContainsKey(held)) continue;
-                    INamedTypeSymbol type = held.ContainingType;
-                    transparent[held] = type.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType;
-                    if (transparent[held]) continue;
-                    ImmutableArray<IFieldSymbol> fields = [.. type.GetMembers().OfType<IFieldSymbol>().Where(static field => !field.IsStatic)];
-                    if (!ValueBased(type) || held.Parameters.Any(static parameter => parameter.RefKind is not RefKind.None) || fields.Any(static field => !field.IsReadOnly)
-                        || type.GetMembers().OfType<IPropertySymbol>().Any(static property => !property.IsStatic && property.SetMethod is { IsInitOnly: false })) continue;
-                    ImmutableHashSet<ISymbol> automatic = fields.Select(static field => field.AssociatedSymbol).OfType<IPropertySymbol>().ToImmutableHashSet<ISymbol>(SymbolEqualityComparer.Default);
-                    ImmutableArray<SyntaxNode> declarations = [.. held.DeclaringSyntaxReferences.Where(reference => end.Compilation.ContainsSyntaxTree(reference.SyntaxTree))
-                        .Select(reference => reference.GetSyntax(end.CancellationToken))];
-                    ImmutableArray<IOperation> bodies = [.. declarations.Where(declaration => available.ContainsKey(declaration.SyntaxTree))
-                        .Select(declaration => available[declaration.SyntaxTree].GetOperation(declaration, end.CancellationToken)).OfType<IOperation>()];
-                    TypeDeclarationSyntax? primary = declarations.OfType<TypeDeclarationSyntax>().FirstOrDefault(static declaration => declaration.ParameterList is not null);
-                    if (bodies.IsEmpty && primary is null) continue;
-                    IEnumerable<IOperation> operations = bodies.Concat(instanceInitializers.TryGetValue(type, out ConcurrentBag<IOperation>? initialized) ? initialized : []).SelectMany(static root => root.DescendantsAndSelf());
-                    bool Plain(IOperation operation) => operation switch {
-                        IConstructorBodyOperation or IBlockOperation or IExpressionStatementOperation or IArgumentOperation or IFieldInitializerOperation or IPropertyInitializerOperation or ISimpleAssignmentOperation
-                            or IParameterReferenceOperation or IInstanceReferenceOperation or ILiteralOperation or IDefaultValueOperation or IReturnOperation { ReturnedValue: null } => true,
-                        IConversionOperation { OperatorMethod: null } => true,
-                        IInvocationOperation { TargetMethod.MethodKind: MethodKind.Constructor } or IObjectCreationOperation { Constructor: not null, Initializer: null } => true,
-                        IFieldReferenceOperation field => field.Parent is ISimpleAssignmentOperation assignment && assignment.Target == field && field.Field.IsReadOnly && Same(field.Field.ContainingType, type),
-                        IPropertyReferenceOperation property => property.Parent is ISimpleAssignmentOperation assignment && assignment.Target == property && automatic.Contains(property.Property),
-                        _ => false,
-                    };
-                    ImmutableArray<IOperation> parts = [.. operations];
-                    if (!parts.All(Plain)) continue;
-                    IMethodSymbol? parent = bodies.IsEmpty && primary is not null && type.BaseType is { } baseType
-                        ? baseType.InstanceConstructors.FirstOrDefault(static member => member.Parameters.IsEmpty)
-                        : null;
-                    if (bodies.IsEmpty && primary is not null && type.BaseType is not null && parent is null) continue;
-                    ImmutableArray<IMethodSymbol> called = [.. parts.Select(static operation => operation switch {
-                        IInvocationOperation call => call.TargetMethod,
-                        IObjectCreationOperation creation => creation.Constructor,
-                        _ => null,
-                    }).Append(parent).OfType<IMethodSymbol>().Select(static member => member.OriginalDefinition).Distinct<IMethodSymbol>(SymbolEqualityComparer.Default)];
-                    dependencies[held] = called;
-                    pending.Push((held, true));
-                    foreach (IMethodSymbol target in called) pending.Push((target, false));
-                }
-                return transparent[constructor.OriginalDefinition];
+                end.CancellationToken.ThrowIfCancellationRequested();
+                IMethodSymbol held = constructor.OriginalDefinition;
+                if (transparent.TryGetValue(held, out bool known)) return known;
+                INamedTypeSymbol type = held.ContainingType;
+                transparent[held] = type.SpecialType is SpecialType.System_Object or SpecialType.System_ValueType;
+                if (transparent[held]) return true;
+                ImmutableArray<IFieldSymbol> fields = [.. type.GetMembers().OfType<IFieldSymbol>().Where(static field => !field.IsStatic)];
+                if (!ValueBased(type) || held.Parameters.Any(static parameter => parameter.RefKind is not RefKind.None) || fields.Any(static field => !field.IsReadOnly)
+                    || type.GetMembers().OfType<IPropertySymbol>().Any(static property => !property.IsStatic && property.SetMethod is { IsInitOnly: false })) return false;
+                ImmutableHashSet<ISymbol> automatic = fields.Select(static field => field.AssociatedSymbol).OfType<IPropertySymbol>().ToImmutableHashSet<ISymbol>(SymbolEqualityComparer.Default);
+                ImmutableArray<SyntaxNode> declarations = [.. held.DeclaringSyntaxReferences.Where(reference => end.Compilation.ContainsSyntaxTree(reference.SyntaxTree))
+                    .Select(reference => reference.GetSyntax(end.CancellationToken))];
+                ImmutableArray<IOperation> bodies = [.. declarations.Where(declaration => available.ContainsKey(declaration.SyntaxTree))
+                    .Select(declaration => available[declaration.SyntaxTree].GetOperation(declaration, end.CancellationToken)).OfType<IOperation>()];
+                TypeDeclarationSyntax? primary = declarations.OfType<TypeDeclarationSyntax>().FirstOrDefault(static declaration => declaration.ParameterList is not null);
+                if (bodies.IsEmpty && primary is null) return false;
+                ImmutableArray<IOperation> parts = [.. bodies.Concat(instanceInitializers.TryGetValue(type, out ConcurrentBag<IOperation>? initialized) ? initialized : []).SelectMany(static root => root.DescendantsAndSelf())];
+                bool Plain(IOperation operation) =>
+                    operation is IConstructorBodyOperation or IBlockOperation or IExpressionStatementOperation or IArgumentOperation or IFieldInitializerOperation or IPropertyInitializerOperation or ISimpleAssignmentOperation
+                        or IParameterReferenceOperation or IInstanceReferenceOperation or ILiteralOperation or IDefaultValueOperation or IReturnOperation { ReturnedValue: null } or IConversionOperation { OperatorMethod: null }
+                        or IInvocationOperation { TargetMethod.MethodKind: MethodKind.Constructor } or IObjectCreationOperation { Constructor: not null, Initializer: null }
+                    || (operation is IFieldReferenceOperation { Parent: ISimpleAssignmentOperation assignment, Field: { IsReadOnly: true } field } && assignment.Target == operation && Same(field.ContainingType, type))
+                    || (operation is IPropertyReferenceOperation { Parent: ISimpleAssignmentOperation setter, Property: var property } && setter.Target == operation && automatic.Contains(property));
+                if (!parts.All(Plain)) return false;
+                IMethodSymbol? parent = bodies.IsEmpty && primary is not null && type.BaseType is { } baseType
+                    ? baseType.InstanceConstructors.FirstOrDefault(static member => member.Parameters.IsEmpty)
+                    : null;
+                if (bodies.IsEmpty && primary is not null && type.BaseType is not null && parent is null) return false;
+                ImmutableArray<IMethodSymbol> called = [.. parts.Select(static operation => (operation as IInvocationOperation)?.TargetMethod ?? (operation as IObjectCreationOperation)?.Constructor)
+                    .Append(parent).OfType<IMethodSymbol>().Select(static member => member.OriginalDefinition).Distinct<IMethodSymbol>(SymbolEqualityComparer.Default)];
+                foreach (IMethodSymbol target in called.Reverse()) Transparent(target);
+                return transparent[held] = called.All(target => transparent[target]);
             }
-            Dictionary<IOperation, ImmutableArray<(ISymbol Symbol, object? Constant)>?> shapes = [];
+            ImmutableArray<(ISymbol Symbol, object? Constant)>.Builder shape = ImmutableArray.CreateBuilder<(ISymbol Symbol, object? Constant)>();
+            bool Shape(IOperation value, ImmutableDictionary<IParameterSymbol, IOperation> arguments, ImmutableHashSet<ISymbol> seen) {
+                end.CancellationToken.ThrowIfCancellationRequested();
+                switch (value) {
+                    case { ConstantValue: { HasValue: true, Value: decimal number }, Type: { } type }:
+                        shape.AddRange(decimal.GetBits(number).Select<int, (ISymbol Symbol, object? Constant)>(bit => (type, bit)));
+                        return true;
+                    case { ConstantValue: { HasValue: true, Value: float single }, Type: { } type }:
+                        shape.Add((type, BitConverter.DoubleToInt64Bits(single)));
+                        return true;
+                    case { ConstantValue: { HasValue: true, Value: double wide }, Type: { } type }:
+                        shape.Add((type, BitConverter.DoubleToInt64Bits(wide)));
+                        return true;
+                    case { ConstantValue: { HasValue: true, Value: var constant }, Type: { } type }:
+                        shape.Add((type, constant));
+                        return true;
+                    case IConversionOperation { IsImplicit: true, OperatorMethod: null, Operand: var operand }:
+                        return Shape(operand, arguments, seen);
+                    case IParameterReferenceOperation parameter when arguments.TryGetValue(parameter.Parameter, out IOperation? argument):
+                        return Shape(argument, arguments, seen);
+                    case IObjectCreationOperation { Constructor: { } made, Initializer: null, Arguments: { IsEmpty: false } passed } when Transparent(made):
+                        shape.Add((made, passed.Length));
+                        return passed.OrderBy(static item => item.Parameter!.Ordinal).All(item => Shape(item.Value, arguments, seen));
+                    case IInvocationOperation { TargetMethod: { IsStatic: true } method, Arguments: { IsEmpty: false } passed } when !seen.Contains(method) && factories.TryGetValue(method, out IOperation? body):
+                        return Shape(body, arguments.SetItems(passed.Select(static item => new KeyValuePair<IParameterSymbol, IOperation>(item.Parameter!, item.Value))), seen.Add(method));
+                    case IMemberReferenceOperation { Member: { ContainingType: { } holder } member } when initializers.ContainsKey(member) && Marked(holder, smartEnums) is not null:
+                        shape.Add((member, null));
+                        return true;
+                    case IMemberReferenceOperation reference when !seen.Contains(reference.Member) && initializers.TryGetValue(reference.Member, out IOperation? initializer):
+                        return Shape(initializer, arguments, seen.Add(reference.Member));
+                    default:
+                        return false;
+                }
+            }
             ImmutableDictionary<IParameterSymbol, IOperation> unbound = ImmutableDictionary.Create<IParameterSymbol, IOperation>(SymbolEqualityComparer.Default);
             ImmutableHashSet<ISymbol> unseen = ImmutableHashSet.Create<ISymbol>(SymbolEqualityComparer.Default);
-            ImmutableArray<(ISymbol Symbol, object? Constant)>? Shape(IOperation root) {
-                if (shapes.TryGetValue(root, out ImmutableArray<(ISymbol Symbol, object? Constant)>? cached)) return cached;
-                ImmutableArray<(ISymbol Symbol, object? Constant)>.Builder shape = ImmutableArray.CreateBuilder<(ISymbol Symbol, object? Constant)>();
-                Stack<(IOperation Value, ImmutableDictionary<IParameterSymbol, IOperation> Arguments, ImmutableHashSet<ISymbol> Seen)> remaining = new([(root, unbound, unseen)]);
-                while (remaining.Count is not 0) {
-                    end.CancellationToken.ThrowIfCancellationRequested();
-                    (IOperation value, ImmutableDictionary<IParameterSymbol, IOperation> arguments, ImmutableHashSet<ISymbol> seen) = remaining.Pop();
-                    switch (value) {
-                        case { ConstantValue: { HasValue: true, Value: decimal number }, Type: { } type }:
-                            foreach (int bit in decimal.GetBits(number)) shape.Add((type, bit));
-                            break;
-                        case { ConstantValue: { HasValue: true, Value: var constant }, Type: { } type }:
-                            shape.Add((type, constant switch { float single => BitConverter.DoubleToInt64Bits(single), double wide => BitConverter.DoubleToInt64Bits(wide), _ => constant }));
-                            break;
-                        case IConversionOperation { IsImplicit: true, OperatorMethod: null, Operand: var operand }:
-                            remaining.Push((operand, arguments, seen));
-                            break;
-                        case IParameterReferenceOperation parameter when arguments.TryGetValue(parameter.Parameter, out IOperation? argument):
-                            remaining.Push((argument, arguments, seen));
-                            break;
-                        case IObjectCreationOperation { Constructor: { } made, Initializer: null, Arguments: { IsEmpty: false } passed } when Transparent(made):
-                            shape.Add((made, passed.Length));
-                            foreach (IArgumentOperation item in passed.OrderByDescending(static item => item.Parameter!.Ordinal)) remaining.Push((item.Value, arguments, seen));
-                            break;
-                        case IInvocationOperation { TargetMethod: { IsStatic: true } method, Arguments: { IsEmpty: false } passed } when !seen.Contains(method) && factories.TryGetValue(method, out IOperation? body):
-                            remaining.Push((body, arguments.SetItems(passed.Select(static item => new KeyValuePair<IParameterSymbol, IOperation>(item.Parameter!, item.Value))), seen.Add(method)));
-                            break;
-                        case IMemberReferenceOperation { Member: { ContainingType: { } holder } member } when initializers.ContainsKey(member) && Marked(holder, smartEnums) is not null:
-                            shape.Add((member, null));
-                            break;
-                        case IMemberReferenceOperation reference when !seen.Contains(reference.Member) && initializers.TryGetValue(reference.Member, out IOperation? initializer):
-                            remaining.Push((initializer, arguments, seen.Add(reference.Member)));
-                            break;
-                        default:
-                            shapes[root] = null;
-                            return null;
-                    }
-                }
-                return shapes[root] = shape.DrainToImmutable();
+            Dictionary<IOperation, ImmutableArray<(ISymbol Symbol, object? Constant)>?> shapes = [];
+            foreach (IOperation root in initializers.Values.Concat(sites.Select(static held => held.Site)).Distinct()) {
+                shape.Clear();
+                shapes[root] = Shape(root, unbound, unseen) ? shape.DrainToImmutable() : null;
             }
             ILookup<ImmutableArray<(ISymbol Symbol, object? Constant)>, ISymbol> statics = initializers
-                .Select(pair => (Member: pair.Key, Shape: Shape(pair.Value))).Where(static held => held.Shape is not null)
+                .Select(pair => (Member: pair.Key, Shape: shapes[pair.Value])).Where(static held => held.Shape is not null)
                 .OrderBy(static held => held.Member.Locations[0].SourceTree?.FilePath, StringComparer.Ordinal).ThenBy(static held => held.Member.Locations[0].SourceSpan.Start)
                 .ToLookup(static held => held.Shape!.Value, static held => held.Member, new ShapeComparer());
             foreach ((IOperation site, INamedTypeSymbol type, ISymbol owner) in sites)
-                if (Shape(site) is { } shape && statics[shape].FirstOrDefault(member => Same(member.ContainingType, type) && !Same(member, owner)) is { } restated)
+                if (shapes[site] is { } found && statics[found].FirstOrDefault(member => Same(member.ContainingType, type) && !Same(member, owner)) is { } restated)
                     end.ReportDiagnostic(Diagnostic.Create(Rule, site.Syntax.GetLocation(), site.Syntax, $"{type.Name}.{restated.Name}"));
         });
     }
@@ -692,12 +661,14 @@ public sealed class ValueFactoryOverloadAnalyzer : DiagnosticAnalyzer {
                 .GroupBy(static method => method.Name, StringComparer.Ordinal).Select(static named => named.ToImmutableArray()).Where(static named => named.Length > 1)];
             ImmutableHashSet<ISymbol> implementations = sets.IsEmpty ? [] : type.AllInterfaces.SelectMany(static face => face.GetMembers())
                 .Select(type.FindImplementationForInterfaceMember).OfType<ISymbol>().ToImmutableHashSet(SymbolEqualityComparer.Default);
-            foreach (ImmutableArray<IMethodSymbol> set in sets.Select(named => named.RemoveAll(implementations.Contains)).Where(static named => named.Length > 1))
-                foreach (IMethodSymbol value in set)
-                    foreach ((IParameterSymbol held, IParameterSymbol made, IMethodSymbol factory) in Pairs(value, set).Take(1)) {
-                        analysis.CancellationToken.ThrowIfCancellationRequested();
-                        analysis.ReportDiagnostic(Diagnostic.Create(Rule, value.Locations[0], [factory.Locations[0]], Label(value), held.Name, made.Name));
-                    }
+            foreach ((IMethodSymbol value, IParameterSymbol held, IParameterSymbol made, IMethodSymbol factory) in
+                     from set in sets.Select(named => named.RemoveAll(implementations.Contains)).Where(static named => named.Length > 1)
+                     from value in set
+                     from pair in Pairs(value, set).Take(1)
+                     select (value, pair.Held, pair.Made, pair.Factory)) {
+                analysis.CancellationToken.ThrowIfCancellationRequested();
+                analysis.ReportDiagnostic(Diagnostic.Create(Rule, value.Locations[0], [factory.Locations[0]], Label(value), held.Name, made.Name));
+            }
         }, SymbolKind.NamedType);
     }
 

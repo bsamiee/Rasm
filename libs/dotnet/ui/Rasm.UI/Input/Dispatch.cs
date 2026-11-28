@@ -140,16 +140,14 @@ internal static class Dispatch {
 
         // --- [STREAM]
 
-        private Mount Notched(SKPoint at, Gesture notch) =>
-            mount.Sampled(notch, _ => mount.Prioritized(mount.Scene.Hit(at), notch, (next, owner, over) => next.Performed(owner, over, notch), static (next, scroll, scrollers) => next.Slid(scrollers, scroll, latches: false)));
-
         private Mount Streamed(InputEvent input, SKPoint at, Edit<Gesture> edit) =>
             mount.Pointed(Some(at), input.Modifiers).Then(next => next.Streamed(at, edit.Map(gesture => gesture with { Modifiers = input.Modifiers }).As()));
 
         private Mount Streamed(SKPoint at, Edit<Gesture> edit) =>
             edit.Value.Filter(_ => edit.Phase != EditPhase.Cancel).Match(
-                Some: value => edit.Phase == EditPhase.Step ? mount.Notched(at, value) : mount.Sampled(value, increment =>
-                    edit.Phase == EditPhase.Begin ? mount.Unlatched().Then(next => next.Latching(next.Scene.Hit(at), increment))
+                Some: value => mount.Sampled(value, increment =>
+                    edit.Phase == EditPhase.Step ? mount.Prioritized(mount.Scene.Hit(at), increment, (next, owner, over) => next.Performed(owner, over, increment), static (next, scroll, scrollers) => next.Slid(scrollers, scroll, latches: false))
+                    : edit.Phase == EditPhase.Begin ? mount.Unlatched().Then(next => next.Latching(next.Scene.Hit(at), increment))
                     : edit.Phase.Applies ? mount.Continued(increment, static (live, next) => new Reply(live.Track.Released(next), None), static _ => None)
                     : mount.Continued(increment, static (live, next) => live.Track.Moved(next), static scroll => Some(scroll))),
                 None: () => mount.Routing.Capture.IsSome ? mount.Unhandled : mount.Unlatched());

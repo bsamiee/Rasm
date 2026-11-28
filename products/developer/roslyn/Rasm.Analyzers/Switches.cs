@@ -59,17 +59,14 @@ public sealed class CatchAllArmAnalyzer : DiagnosticAnalyzer {
             }.OfType<INamedTypeSymbol>()];
             ConcurrentDictionary<ITypeSymbol, AttributeData?> attributes = new(SymbolEqualityComparer.Default);
             AttributeData? Mark(ITypeSymbol type) => attributes.GetOrAdd(type, held => held.GetAttributes().FirstOrDefault(data => marks.Any(mark => Derives(data.AttributeClass, mark))));
-            INamedTypeSymbol? Owned(ITypeSymbol? type, CancellationToken token) {
-                Stack<ITypeSymbol> pending = new(type is null ? [] : [type]);
-                while (pending.Count is > 0) {
-                    ITypeSymbol current = pending.Pop();
-                    token.ThrowIfCancellationRequested();
-                    if (current is INamedTypeSymbol { IsTupleType: true } tuple)
-                        for (int index = tuple.TupleElements.Length - 1; index >= 0; index--) pending.Push(tuple.TupleElements[index].Type);
-                    else if (current is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable) pending.Push(nullable.TypeArguments[0]);
-                    else if (current is INamedTypeSymbol named && Mark(named) is not null) return named;
-                }
-                return null;
+            INamedTypeSymbol? Owned(ITypeSymbol type, CancellationToken token) {
+                token.ThrowIfCancellationRequested();
+                return type switch {
+                    INamedTypeSymbol { IsTupleType: true } tuple => tuple.TupleElements.Select(element => Owned(element.Type, token)).FirstOrDefault(static owner => owner is not null),
+                    INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable => Owned(nullable.TypeArguments[0], token),
+                    INamedTypeSymbol named when Mark(named) is not null => named,
+                    _ => null,
+                };
             }
             (INamedTypeSymbol Owner, Func<IOperation, bool> Case)? Union(IOperation subject, CancellationToken token) =>
                 Stripped(subject) switch {
@@ -81,22 +78,19 @@ public sealed class CatchAllArmAnalyzer : DiagnosticAnalyzer {
                         when adHoc is not null && Mark(owner) is { AttributeClass: { } union } mark && Derives(union, adHoc)
                             && union.TypeArguments.AddRange(mark.ConstructorArguments.Select(static held => held.Value).OfType<ITypeSymbol>()) is { IsEmpty: false } cases =>
                         (owner, test => test is IPatternOperation { NarrowedType: var narrowed } && cases.Any(held => SymbolEqualityComparer.Default.Equals(held, narrowed))),
-                    _ when Owned(subject.Type, token) is { } owner => (owner, test => test switch {
-                        IPatternOperation { NarrowedType: var narrowed } => !Same(narrowed, owner) && Derives(narrowed, owner),
-                        IFieldReferenceOperation { Field: { IsStatic: true, Type: var item } } => Same(item, owner),
-                        _ => false,
-                    }),
+                    _ when subject.Type is { } type && Owned(type, token) is { } owner => (owner, test =>
+                        (test is IPatternOperation { NarrowedType: var narrowed } && !Same(narrowed, owner) && Derives(narrowed, owner))
+                        || (test is IFieldReferenceOperation { Field: { IsStatic: true, Type: var item } } && Same(item, owner))),
                     _ => null,
                 };
-            static IEnumerable<object?> Constants(IOperation? test, CancellationToken token) {
-                Stack<IOperation> remaining = new(test is null ? [] : [test]);
-                while (remaining.Count is not 0) {
-                    token.ThrowIfCancellationRequested();
-                    IOperation pattern = remaining.Pop();
-                    if (pattern is IConstantPatternOperation { Value.ConstantValue: { HasValue: true } constant }) yield return constant.Value;
-                    foreach (IPatternOperation child in pattern.ChildOperations.OfType<IPatternOperation>()
-                        .Where(static child => child.Parent is IBinaryPatternOperation { OperatorKind: BinaryOperatorKind.Or })) remaining.Push(child);
-                }
+            static IEnumerable<object?> Constants(IOperation test, CancellationToken token) {
+                token.ThrowIfCancellationRequested();
+                IEnumerable<object?> found = test switch {
+                    IConstantPatternOperation { Value.ConstantValue: { HasValue: true } constant } => [constant.Value],
+                    IBinaryPatternOperation { OperatorKind: BinaryOperatorKind.Or } either => Constants(either.RightPattern, token).Concat(Constants(either.LeftPattern, token)),
+                    _ => [],
+                };
+                foreach (object? constant in found) yield return constant;
             }
             INamedTypeSymbol? Exhaustible(ITypeSymbol? type) =>
                 type is INamedTypeSymbol { TypeKind: TypeKind.Enum } subject && Sourced(subject) && (flags is null || Marked(subject, flags) is null) ? subject : null;
@@ -105,46 +99,44 @@ public sealed class CatchAllArmAnalyzer : DiagnosticAnalyzer {
             static string Listed(INamedTypeSymbol subject, ImmutableArray<IFieldSymbol> unnamed) => string.Join(", ", unnamed.Select(member => $"`{subject.Name}.{member.Name}`"));
             IEnumerable<Diagnostic> Enumerated(IOperation operation, ImmutableArray<(IOperation Arm, IOperation? Test, IOperation? Guard)> arms, CancellationToken token) {
                 if (operation is not ISwitchExpressionOperation { Value.Type: var type } || Exhaustible(type) is not { } subject) return [];
-                ImmutableHashSet<object?> named = [.. arms.Where(static arm => arm.Guard is null).SelectMany(arm => Constants(arm.Test, token))];
+                ImmutableHashSet<object?> named = [.. arms.Where(static arm => arm.Guard is null).Select(static arm => arm.Test).OfType<IOperation>().SelectMany(test => Constants(test, token))];
                 ImmutableArray<IFieldSymbol> unnamed = Unnamed(subject, named);
+                DiagnosticDescriptor rule = unnamed.IsEmpty ? Covered : Fallback;
                 return named.IsEmpty ? [] : arms.Where(arm => CatchesAll(arm, token) || (arm is { Guard: null, Test: INegatedPatternOperation { Pattern: var excluded } } && Constants(excluded, token).Any()))
-                    .Select(arm => Diagnostic.Create(unnamed.IsEmpty ? Covered : Fallback, arm.Arm.Syntax.GetLocation(), subject.Name, Listed(subject, unnamed)));
+                    .Select(arm => Diagnostic.Create(rule, arm.Arm.Syntax.GetLocation(), subject.Name, Listed(subject, unnamed)));
             }
             IEnumerable<Diagnostic> Chained(IConditionalOperation top, CancellationToken token) {
                 if (Tested(top.Condition) is not ( { } opened, _) || Exhaustible(opened.Type) is not { } subject) return [];
-                ImmutableArray<object?>? Link(IOperation? operation) =>
-                    operation is IConditionalOperation link && Tested(link.Condition) is ( { } tested, var named)
-                    && SymbolEqualityComparer.Default.Equals(tested.Type, subject) && tested.Syntax.IsEquivalentTo(opened.Syntax) ? named : null;
-                if ((top.Parent is IConditionalOperation outer && outer.WhenFalse == top && Link(outer) is not null)
-                    || (Sibling(top, -1) is IConditionalOperation { WhenFalse: null } previous && Exits(previous.WhenTrue) && Link(previous) is not null)) return [];
+                if ((top.Parent is IConditionalOperation outer && outer.WhenFalse == top && Tested(outer.Condition, opened) is not null)
+                    || (Sibling(top, -1) is IConditionalOperation { WhenFalse: null } previous && Exits(previous.WhenTrue) && Tested(previous.Condition, opened) is not null)) return [];
                 HashSet<object?> named = [];
                 int tests = 0;
                 IOperation? fallback = top;
-                while (fallback is IConditionalOperation link && Link(link) is { } more) {
+                for (; fallback is IConditionalOperation link && Tested(link.Condition, opened) is (_, var more); fallback = link.WhenFalse ?? (Exits(link.WhenTrue) ? Sibling(link, 1) : null)) {
                     token.ThrowIfCancellationRequested();
                     named.UnionWith(more);
                     tests++;
-                    fallback = link.WhenFalse ?? (Exits(link.WhenTrue) ? Sibling(link, 1) : null);
                 }
                 ImmutableArray<IFieldSymbol> unnamed = Unnamed(subject, named);
                 return fallback is null || unnamed.IsEmpty || (tests < 2 && unnamed.Length is not 1) ? []
                     : [Diagnostic.Create(Fallback, fallback.Syntax.GetLocation(), subject.Name, Listed(subject, unnamed))];
             }
             Report<IConditionalOperation>(start, [OperationKind.Conditional], (conditional, analysis) => Chained(conditional, analysis.CancellationToken));
-            Report<IOperation>(start, [OperationKind.SwitchExpression, OperationKind.Switch], (operation, analysis) =>
-                Dispatch(operation) is ( { } subject, var arms)
-                    ? Enumerated(operation, arms, analysis.CancellationToken).Concat(Union(subject, analysis.CancellationToken) is ( { } owner, var names)
-                        && arms.Any(arm => !CatchesAll(arm, analysis.CancellationToken) && ((arm.Test is { } test && test.DescendantsAndSelf().Any(names)) || (arm.Guard is { } guard && guard.DescendantsAndSelf().Any(names))))
-                            ? arms.Where(arm => CatchesAll(arm, analysis.CancellationToken)).Select(arm => Diagnostic.Create(Closed, arm.Arm.Syntax.GetLocation(), owner.Name))
-                            : [])
-                    : []);
+            Report<IOperation>(start, [OperationKind.SwitchExpression, OperationKind.Switch], (operation, analysis) => {
+                if (Dispatch(operation) is not ( { } subject, var arms)) return [];
+                IEnumerable<Diagnostic> enumerated = Enumerated(operation, arms, analysis.CancellationToken);
+                return Union(subject, analysis.CancellationToken) is ( { } owner, var names)
+                    && arms.Any(arm => !CatchesAll(arm, analysis.CancellationToken) && ((arm.Test is { } test && test.DescendantsAndSelf().Any(names)) || (arm.Guard is { } guard && guard.DescendantsAndSelf().Any(names))))
+                    ? enumerated.Concat(arms.Where(arm => CatchesAll(arm, analysis.CancellationToken)).Select(arm => Diagnostic.Create(Closed, arm.Arm.Syntax.GetLocation(), owner.Name)))
+                    : enumerated;
+            });
         });
     }
 
     // --- [BRANCHES]
 
-    private static (IOperation Subject, ImmutableArray<object?> Named)? Tested(IOperation condition) =>
-        Stripped(condition) switch {
+    private static (IOperation Subject, ImmutableArray<object?> Named)? Tested(IOperation condition, IOperation? opened = null) {
+        (IOperation Subject, ImmutableArray<object?> Named)? tested = Stripped(condition) switch {
             IBinaryOperation { OperatorKind: BinaryOperatorKind.Equals } binary => (Stripped(binary.LeftOperand), Stripped(binary.RightOperand)) switch {
                 ( { ConstantValue.HasValue: false } subject, { ConstantValue: { HasValue: true } constant }) => (subject, [constant.Value]),
                 ( { ConstantValue: { HasValue: true } constant }, { ConstantValue.HasValue: false } subject) => (subject, [constant.Value]),
@@ -153,6 +145,8 @@ public sealed class CatchAllArmAnalyzer : DiagnosticAnalyzer {
             IIsPatternOperation { Value: var subject, Pattern: var pattern } when Disjunction(pattern) is { IsEmpty: false } named => (Stripped(subject), named),
             _ => null,
         };
+        return tested is ( { } held, _) && (opened is null || (SymbolEqualityComparer.Default.Equals(held.Type, opened.Type) && held.Syntax.IsEquivalentTo(opened.Syntax))) ? tested : null;
+    }
 
     private static ImmutableArray<object?> Disjunction(IPatternOperation pattern) =>
         pattern switch {

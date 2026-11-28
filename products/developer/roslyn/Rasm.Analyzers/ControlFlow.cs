@@ -38,9 +38,15 @@ internal sealed class ControlFlow {
                 ? new Optional<IOperation>(capture.Value) : Definition(current, symbol), token));
     }
 
-    internal ImmutableArray<Optional<Value>> Values(ISymbol symbol, IOperation at, CancellationToken token) => Find(at, token) is { } scope
-        ? scope.Symbols.GetOrAdd(symbol, static _ => []).GetOrAdd(at, operation => Reached(scope, operation, default, current => Definition(current, symbol), token))
-        : [default];
+    internal ImmutableArray<Optional<Value>> Values(Value read, ImmutableArray<IInvocationOperation> calls, CancellationToken token) {
+        ISymbol? symbol = Variable(read.Operation);
+        ImmutableArray<Optional<Value>> definitions = Values(read, token);
+        for (int index = calls.Length - 1; index >= 0 && symbol is not null && definitions.Any(static definition => !definition.HasValue); index--)
+            definitions = [.. definitions.Where(static definition => definition.HasValue), .. Find(calls[index], token) is { } scope
+                ? scope.Symbols.GetOrAdd(symbol, static _ => []).GetOrAdd(calls[index], operation => Reached(scope, operation, default, current => Definition(current, symbol), token))
+                : [default]];
+        return definitions;
+    }
 
     internal bool Precedes(IOperation first, IOperation last, IOperation within, CancellationToken token) {
         Scope? scope = Find(within, token);
@@ -75,24 +81,33 @@ internal sealed class ControlFlow {
         }
     }
 
-    internal ImmutableArray<ISymbol> Targets(Value value, CancellationToken token) {
-        HashSet<ISymbol> result = [with(SymbolEqualityComparer.Default)];
-        HashSet<Value> visited = [];
-        Queue<Value> pending = new([value]);
-        while (pending.Count > 0) {
+    internal static IEnumerable<T> Trace<TNode, T>(
+        IEnumerable<TNode> seeds, Func<TNode, (IEnumerable<TNode> Next, IEnumerable<T> Found)> step, bool depthFirst, CancellationToken token, IEqualityComparer<TNode>? comparer = null) {
+        HashSet<TNode> visited = [with(comparer)];
+        LinkedList<TNode> pending = new(depthFirst ? seeds.Reverse() : seeds);
+        while (pending.First is { Value: var current }) {
             token.ThrowIfCancellationRequested();
-            Value current = pending.Dequeue();
+            pending.RemoveFirst();
             if (!visited.Add(current)) continue;
-            IMethodSymbol? target = current.Operation switch {
+            (IEnumerable<TNode> next, IEnumerable<T> found) = step(current);
+            foreach (T item in found) yield return item;
+            foreach (TNode child in next)
+                if (depthFirst) pending.AddFirst(child);
+                else pending.AddLast(child);
+        }
+    }
+
+    internal ImmutableArray<ISymbol> Targets(Value value, CancellationToken token) =>
+        [.. Trace<Value, ISymbol>([value], current => {
+            ImmutableArray<Optional<Value>> definitions = current.Operation is ILocalReferenceOperation or IParameterReferenceOperation or IFlowCaptureReferenceOperation
+                ? Values(current, token) : [];
+            ISymbol? target = current.Operation switch {
                 IAnonymousFunctionOperation function => function.Symbol,
                 IFlowAnonymousFunctionOperation function => function.Symbol,
                 IMethodReferenceOperation method => method.Method,
+                IParameterReferenceOperation parameter when definitions.Any(static reached => !reached.HasValue) => parameter.Parameter.OriginalDefinition,
                 _ => null,
             };
-            if (target is not null) result.Add(target);
-            ImmutableArray<Optional<Value>> definitions = current.Operation is ILocalReferenceOperation or IParameterReferenceOperation or IFlowCaptureReferenceOperation
-                ? Values(current, token) : [];
-            if (current.Operation is IParameterReferenceOperation parameter && definitions.Any(static reached => !reached.HasValue)) result.Add(parameter.Parameter.OriginalDefinition);
             IEnumerable<Value> next = current.Operation switch {
                 IConversionOperation { OperatorMethod: null } conversion => [current.With(conversion.Operand)],
                 IDelegateCreationOperation creation => [current.With(creation.Target)],
@@ -106,10 +121,8 @@ internal sealed class ControlFlow {
                     definitions.Where(static reached => reached.HasValue).Select(static reached => reached.Value),
                 _ => [],
             };
-            foreach (Value child in next) pending.Enqueue(child);
-        }
-        return [.. result];
-    }
+            return (next, target is null ? [] : [target]);
+        }, depthFirst: false, token).Distinct(SymbolEqualityComparer.Default)];
 
     internal bool Invoked(IParameterSymbol supplied, Func<IMethodSymbol, IEnumerable<IOperation>> bodies, Func<IParameterSymbol, bool> native, CancellationToken token) {
         IParameterSymbol source = supplied.OriginalDefinition;
@@ -136,19 +149,25 @@ internal sealed class ControlFlow {
                 if (!seen.TryGetValue(body, out List<ImmutableHashSet<IParameterSymbol>>? paths)) seen.Add(body, paths = []);
                 if (paths.Exists(path => path.SetEquals(required))) continue;
                 paths.Add(required);
-                void Follow(IOperation value, ImmutableHashSet<IParameterSymbol> needs) {
-                    foreach (ISymbol target in Targets(At(value), token))
-                        if (SymbolEqualityComparer.Default.Equals(target, parameter)) Require(needs);
-                        else if (target is IMethodSymbol { MethodKind: MethodKind.AnonymousFunction or MethodKind.LocalFunction } callback)
-                            foreach (IOperation nested in bodies(callback)) pending.Enqueue((nested, needs));
-                }
                 ImmutableArray<IInvocationOperation> calls = [.. Operations(body, token).OfType<IInvocationOperation>()];
                 foreach (IOperation nested in calls.Where(static call => call.TargetMethod.MethodKind is MethodKind.LocalFunction).SelectMany(call => bodies(call.TargetMethod)))
                     pending.Enqueue((nested, required));
-                foreach ((IOperation value, ImmutableHashSet<IParameterSymbol> needs) in calls.SelectMany(call => call.Arguments
-                    .Where(static argument => argument.Parameter?.Type.TypeKind is TypeKind.Delegate)
-                    .Select(argument => (argument.Value, required.Add(argument.Parameter!.OriginalDefinition)))
-                    .Concat(call is { TargetMethod.MethodKind: MethodKind.DelegateInvoke, Instance: { } instance } ? [(instance, required)] : []))) Follow(value, needs);
+                ImmutableArray<(ISymbol Target, ImmutableHashSet<IParameterSymbol> Needs)> followed = [..
+                    from call in calls
+                    from handed in call.Arguments
+                        .Where(static argument => argument.Parameter?.Type.TypeKind is TypeKind.Delegate)
+                        .Select(argument => (argument.Value, Needs: required.Add(argument.Parameter!.OriginalDefinition)))
+                        .Concat(call is { TargetMethod.MethodKind: MethodKind.DelegateInvoke, Instance: { } instance } ? [(instance, required)] : [])
+                    from target in Targets(At(handed.Value), token)
+                    select (target, handed.Needs)];
+                foreach (ImmutableHashSet<IParameterSymbol> needs in from step in followed where SymbolEqualityComparer.Default.Equals(step.Target, parameter) select step.Needs)
+                    Require(needs);
+                foreach ((IOperation nested, ImmutableHashSet<IParameterSymbol> needs) in
+                    from step in followed
+                    let callback = step.Target as IMethodSymbol
+                    where callback is { MethodKind: MethodKind.AnonymousFunction or MethodKind.LocalFunction }
+                    from nested in bodies(callback)
+                    select (nested, step.Needs)) pending.Enqueue((nested, needs));
             }
             equations.Add(parameter, [.. routes]);
         }
@@ -176,7 +195,7 @@ internal sealed class ControlFlow {
                 ControlFlowGraph? made = owner switch {
                     ILocalFunctionOperation function => enclosing!.GetLocalFunctionControlFlowGraph(function.Symbol, token),
                     IAnonymousFunctionOperation function => enclosing!.GetAnonymousFunctionControlFlowGraph(
-                        enclosing.Blocks.SelectMany(static block => block.Operations.Concat(block.BranchValue is { } branch ? [branch] : []))
+                        enclosing.Blocks.SelectMany(static block => block.Operations.Append(block.BranchValue).OfType<IOperation>())
                             .SelectMany(static body => body.DescendantsAndSelf()).OfType<IFlowAnonymousFunctionOperation>()
                             .Single(candidate => SymbolEqualityComparer.Default.Equals(candidate.Symbol, function.Symbol)), token),
                     _ => ControlFlowGraph.Create(syntax, owner.SemanticModel!, token),
@@ -253,7 +272,7 @@ internal sealed class ControlFlow {
 
     internal sealed class Scope {
         internal Scope(ControlFlowGraph graph, CancellationToken token) {
-            Events = [.. graph.Blocks.Select(block => ImmutableArray.CreateRange(block.Operations.Concat(block.BranchValue is { } branch ? [branch] : []).SelectMany(value => Operations(value, token))))];
+            Events = [.. graph.Blocks.Select(block => ImmutableArray.CreateRange(block.Operations.Append(block.BranchValue).OfType<IOperation>().SelectMany(value => Operations(value, token))))];
             Positions = Events.SelectMany(static (events, block) => events.Select((value, before) => (value.Syntax.Span, Block: block, Before: before)))
                 .ToLookup(static point => point.Span, static point => (point.Block, point.Before));
             List<(int Block, int? Continuation)> states = [];
@@ -294,8 +313,11 @@ internal sealed class ControlFlow {
                     int current = pending.Dequeue();
                     (int ordinal, int? continuation) = states[current];
                     BasicBlock block = graph.Blocks[ordinal];
-                    foreach (ControlFlowBranch branch in new[] { block.FallThroughSuccessor, block.ConditionalSuccessor }.OfType<ControlFlowBranch>())
-                        if (Next(branch, continuation) is { } next) predecessors[State(next)].Add(current);
+                    foreach ((int Block, int? Continuation) next in
+                        from branch in new[] { block.FallThroughSuccessor, block.ConditionalSuccessor }.OfType<ControlFlowBranch>()
+                        let destination = Next(branch, continuation)
+                        where destination is not null
+                        select destination.Value) predecessors[State(next)].Add(current);
                 }
             }
             State((graph.Blocks[0].Ordinal, default));

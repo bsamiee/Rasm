@@ -16,7 +16,7 @@ utils:
               not: { inside: { kind: if_statement, field: alternative } }
             - kind: conditional_expression
               not: { inside: { kind: conditional_expression, field: alternative, stopBy: { not: { kind: parenthesized_expression } } } }
-    scope: { any: [{ matches: control }, &declaration { kind: 'lambda_expression, anonymous_method_expression, local_function_statement, method_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, accessor_declaration' }] }
+    scope: { any: [{ matches: control }, &closure { kind: 'lambda_expression, anonymous_method_expression, local_function_statement' }, &declaration { kind: 'method_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, accessor_declaration' }] }
     conditioned:
         any:
             - inside: { kind: 'if_statement, while_statement, do_statement, for_statement, conditional_expression', field: condition, stopBy: &scope { matches: scope } }
@@ -27,8 +27,14 @@ utils:
             - nthChild: 1
               inside: { matches: control, kind: switch_expression }
             - inside: { nthChild: 1, inside: { matches: control, kind: switch_expression }, stopBy: *scope }
+    callback:
+        all:
+            - *closure
+            - any:
+                  - has: { kind: block, has: { nthChild: { position: 2, ofRule: { not: { kind: comment } } } } }
+                  - has: { matches: control, stopBy: *closure }
     level:
-        matches: control
+        any: [{ matches: control }, { matches: callback }]
         not: { matches: conditioned }
     body:
         any:
@@ -36,6 +42,7 @@ utils:
             - inside: { matches: level, field: consequence }
             - inside: { matches: level, field: alternative }
             - { kind: switch_expression_arm, inside: { matches: level } }
+            - { kind: block, inside: { kind: anonymous_method_expression, matches: level } }
     within-first:
         any:
             - { matches: body, inside: { matches: level } }
@@ -69,4 +76,4 @@ transform:
 labels:
     SCOPE: { style: primary }
     OUTER: { style: secondary, message: First nesting level }
-message: '`$HEAD` opens a fourth nesting level, rebuild nested decisions or loops as one switch expression, query expression, or pipeline over their inputs'
+message: '`$HEAD` opens a fourth nesting level, rebuild nested decisions, loops, or callbacks as one switch expression, query expression, or pipeline over their inputs'

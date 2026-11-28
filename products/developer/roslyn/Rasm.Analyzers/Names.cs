@@ -44,11 +44,12 @@ public sealed class NamespaceOwnerAnalyzer : DiagnosticAnalyzer {
             bool Exposed(INamedTypeSymbol other) => other.DeclaredAccessibility is Accessibility.Public && !Same(other.ContainingAssembly, own);
             Lazy<ILookup<(string Name, int Arity), INamedTypeSymbol>> available = new(() => {
                 List<INamedTypeSymbol> referenced = [];
-                Stack<INamespaceSymbol> remaining = new(Projects(start.Compilation, start.Options).Select(static source => source.GlobalNamespace));
+                List<INamespaceSymbol> remaining = [.. Projects(start.Compilation, start.Options).Select(static source => source.GlobalNamespace)];
                 while (remaining.Count is not 0) {
-                    INamespaceSymbol space = remaining.Pop();
+                    INamespaceSymbol space = remaining[remaining.Count - 1];
+                    remaining.RemoveAt(remaining.Count - 1);
                     referenced.AddRange(space.GetTypeMembers().Where(Exposed));
-                    foreach (INamespaceSymbol nested in space.GetNamespaceMembers()) remaining.Push(nested);
+                    remaining.AddRange(space.GetNamespaceMembers());
                 }
                 return referenced.ToLookup(static type => (type.Name, type.Arity));
             });
@@ -64,15 +65,11 @@ public sealed class NamespaceOwnerAnalyzer : DiagnosticAnalyzer {
             start.RegisterSymbolStartAction(
                 symbol => {
                     if (symbol.Symbol is not INamedTypeSymbol { ContainingType: null } type || type.Locations.FirstOrDefault(static location => location.IsInSource) is not { } first) return;
-                    ConcurrentBag<INamedTypeSymbol> clashes = [];
+                    ConcurrentBag<ImmutableArray<INamedTypeSymbol>> clashes = [];
                     symbol.RegisterSyntaxNodeAction(
-                        node => {
-                            if (!Same(node.SemanticModel.GetDeclaredSymbol(node.Node, node.CancellationToken), type)) return;
-                            foreach (INamedTypeSymbol found in node.SemanticModel.GetImportScopes(node.Node.SpanStart, node.CancellationToken)
-                                .SelectMany(static scope => scope.Imports).Select(static import => import.NamespaceOrType).OfType<INamespaceSymbol>()
-                                .Distinct<INamespaceSymbol>(SymbolEqualityComparer.Default).SelectMany(space => space.GetTypeMembers(type.Name, type.Arity)).Where(Exposed))
-                                clashes.Add(found);
-                        },
+                        node => clashes.Add([.. node.SemanticModel.GetImportScopes(node.Node.SpanStart, node.CancellationToken)
+                            .SelectMany(static scope => scope.Imports).Select(static import => import.NamespaceOrType).OfType<INamespaceSymbol>()
+                            .Distinct<INamespaceSymbol>(SymbolEqualityComparer.Default).SelectMany(space => space.GetTypeMembers(type.Name, type.Arity)).Where(Exposed)]),
                         SyntaxKind.ClassDeclaration,
                         SyntaxKind.StructDeclaration,
                         SyntaxKind.RecordDeclaration,
@@ -80,12 +77,10 @@ public sealed class NamespaceOwnerAnalyzer : DiagnosticAnalyzer {
                         SyntaxKind.InterfaceDeclaration,
                         SyntaxKind.EnumDeclaration,
                         SyntaxKind.DelegateDeclaration);
-                    symbol.RegisterSymbolEndAction(end => {
-                        if (clashes.Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default)
-                            .OrderBy(static found => found.ContainingAssembly.Identity.ToString(), StringComparer.Ordinal).ThenBy(static found => found.ToDisplayString(), StringComparer.Ordinal)
-                            .Concat(available.Value[(type.Name, type.Arity)]).FirstOrDefault() is { } clash)
-                            end.ReportDiagnostic(Diagnostic.Create(Clash, first, type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat), clash.ToDisplayString()));
-                    });
+                    Report(symbol, _ => clashes.SelectMany(static found => found).Distinct<INamedTypeSymbol>(SymbolEqualityComparer.Default)
+                        .OrderBy(static found => found.ContainingAssembly.Identity.ToString(), StringComparer.Ordinal).ThenBy(static found => found.ToDisplayString(), StringComparer.Ordinal)
+                        .Concat(available.Value[(type.Name, type.Arity)]).Take(1)
+                        .Select(clash => Diagnostic.Create(Clash, first, type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat), clash.ToDisplayString())));
                 },
                 SymbolKind.NamedType);
         });
@@ -192,15 +187,17 @@ public sealed class QualifiedNameAnalyzer : DiagnosticAnalyzer {
                     ImmutableArray<ISymbol> scopes = [.. model.GetImportScopes(node.Node.SpanStart, token).SelectMany(static scope => scope.Imports).Select(static import => import.NamespaceOrType)];
                     if ((owner is INamedTypeSymbol) != Among(owner, scopes) || model.GetSymbolInfo(right, token).Symbol is not { } target || target is INamespaceSymbol) return;
                     bool typed = SyntaxFacts.IsInNamespaceOrTypeContext((ExpressionSyntax)node.Node);
-                    ImmutableArray<ISymbol> visible = [.. model.LookupSymbols(node.Node.SpanStart, name: right.Identifier.ValueText).Where(found => !Same(found, target)
-                        && (!typed || found is INamespaceOrTypeSymbol or IAliasSymbol)
-                        && !(found is IFieldSymbol or IPropertySymbol or ILocalSymbol or IParameterSymbol && Same(found switch {
+                    ImmutableArray<ISymbol> visible = [..
+                        from found in model.LookupSymbols(node.Node.SpanStart, name: right.Identifier.ValueText)
+                        where !Same(found, target) && (!typed || found is INamespaceOrTypeSymbol or IAliasSymbol)
+                        where !Same(found switch {
                             IFieldSymbol field => field.Type,
                             IPropertySymbol property => property.Type,
                             ILocalSymbol local => local.Type,
                             IParameterSymbol parameter => parameter.Type,
                             _ => null,
-                        }, target)))];
+                        }, target)
+                        select found];
                     ILookup<string, SimpleNameSyntax> used = unqualified.GetOrAdd(
                         node.Node.SyntaxTree,
                         tree => tree.GetRoot(token).DescendantNodes().OfType<SimpleNameSyntax>().Where(Looked).ToLookup(static held => held.Identifier.ValueText, StringComparer.Ordinal));
@@ -209,13 +206,10 @@ public sealed class QualifiedNameAnalyzer : DiagnosticAnalyzer {
                             && model.GetSymbolInfo(held, token).Symbol is INamedTypeSymbol { ContainingType: null } bound && !Same(bound, member));
                     if (visible.FirstOrDefault(static found => found is not IAliasSymbol && Sourced(found)) is { } shadowing)
                         node.ReportDiagnostic(Diagnostic.Create(Shadowed, node.Node.GetLocation(), node.Node, shadowing.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat), owner.ToDisplayString()));
-                    else if (visible.IsEmpty && owner is INamespaceSymbol space) {
-                        ImmutableHashSet<string> sourceNames = [with(StringComparer.Ordinal), .. model.LookupSymbols(node.Node.SpanStart).Where(Sourced).Select(static symbol => symbol.Name)];
-                        ConcurrentDictionary<INamespaceSymbol, bool> imports = ambiguous.GetOrAdd(node.Node.SyntaxTree, static _ => new(SymbolEqualityComparer.Default));
-                        if (!space.GetTypeMembers().Any(member => sourceNames.Contains(member.Name))
-                            && !imports.GetOrAdd(space, importedSpace => importedSpace.GetTypeMembers().Any(Ambiguous)))
-                            node.ReportDiagnostic(Diagnostic.Create(Qualified, node.Node.GetLocation(), node.Node, owner.ToDisplayString(), right));
-                    }
+                    else if (visible.IsEmpty && owner is INamespaceSymbol space
+                        && !space.GetTypeMembers().Select(static member => member.Name).Intersect(model.LookupSymbols(node.Node.SpanStart).Where(Sourced).Select(static symbol => symbol.Name), StringComparer.Ordinal).Any()
+                        && !ambiguous.GetOrAdd(node.Node.SyntaxTree, static _ => new(SymbolEqualityComparer.Default)).GetOrAdd(space, importedSpace => importedSpace.GetTypeMembers().Any(Ambiguous)))
+                        node.ReportDiagnostic(Diagnostic.Create(Qualified, node.Node.GetLocation(), node.Node, owner.ToDisplayString(), right));
                 },
                 SyntaxKind.QualifiedName,
                 SyntaxKind.SimpleMemberAccessExpression);

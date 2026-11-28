@@ -147,11 +147,13 @@ public sealed record GrasshopperTheme(string Name) {
     public static Func<PropertyId, Option<Binding>> Tinted(OpenColor.Family neutral, OpenColor.Family accent) =>
         memo(static () => SkinDefinition.Default) switch {
             var host => id => id is var (_, family, _, variant) && family is not (PropertyId.Messaging or PropertyId.Icons) && !variant.HasFlag(PropertyId.Tentative)
-                ? Optional(host.Value[id])
-                    .Filter(static binding => !binding.IsInherited && binding.Kind is PropertyType.Colour)
-                    .Map(_ => host.Value.Resolve(id).ToEto() switch {
-                        var source => Binding.Literal(SkinValue.From(new Color(OpenColor.Approximate(variant.HasFlag(PropertyId.Selected) ? accent : neutral, source), source.A))),
-                    })
+                ? (variant.HasFlag(PropertyId.Selected) ? accent : neutral) switch {
+                    var tint => Optional(host.Value[id])
+                        .Filter(static binding => !binding.IsInherited && binding.Kind is PropertyType.Colour)
+                        .Map(_ => host.Value.Resolve(id).ToEto() switch {
+                            var source => Binding.Literal(SkinValue.From(new Color(OpenColor.Approximate(tint, source), source.A))),
+                        }),
+                }
                 : None,
         };
 }

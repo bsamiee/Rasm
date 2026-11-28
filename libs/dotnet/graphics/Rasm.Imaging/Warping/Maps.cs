@@ -246,21 +246,20 @@ public abstract partial record CoordinateMap {
         public static Fin<Field> Wave(
             WaveProfile profile, int count, (ShortSideLength Low, ShortSideLength High) wavelength, (float Low, float High) amplitude, Vector2 amount, float direction, float spread, float shift,
             Option<(Angle Turn, ShortSideLength Radius)> rings, uint field, Vector2 center, Sampling sampling, (WrapMode Across, WrapMode Down) wrap) =>
-            Fault.Unless(count >= 1, ImagingReason.Range, count).Map(_ => {
-                (Matrix3x2 turn, float reach) = rings.Match(Some: static ring => (Matrix3x2.CreateRotation(-(float)ring.Turn.Radians), (float)ring.Radius), None: static () => (Matrix3x2.CreateRotation(-float.Pi / 2f), float.PositiveInfinity));
-                (Vector2 Along, float Length, float Level, float Phase)[] waves = [.. Enumerable.Range(0, count).Select(i =>
-                    (CoordinateHash.Uniforms(Vector128<int>.Zero, CoordinateHash.Branch(field, (uint)i)), float.SinCos(direction + (spread * (i - ((count - 1) / 2f)) / int.Max(count - 1, 1)))) switch {
-                        var (draw, (sin, cos)) => (new Vector2(cos, -sin), float.Lerp(wavelength.Low, wavelength.High, draw.X), float.Lerp(amplitude.Low, amplitude.High, draw.Y), draw.Z + shift),
-                    })];
-                return new Field(d => {
-                    (float distance, Vector2 sum, Vector2 spoke) = (d.Length(), Vector2.Zero, d == Vector2.Zero ? Vector2.UnitX : Vector2.Normalize(d));
-                    foreach ((Vector2 along, float length, float level, float phase) in waves) {
-                        Vector2 axis = rings.IsSome ? spoke : along;
-                        sum += Vector2.TransformNormal(axis, turn) * level * ((2f * profile.Level((Vector2.Dot(d, axis) / length) + phase)) - 1f);
-                    }
-                    return d + (amount * sum * float.Max(0f, 1f - (distance / reach)) / count);
-                }, center, sampling, wrap);
-            });
+            from _ in Fault.Unless(count >= 1, ImagingReason.Range, count)
+            let polar = rings.Match(Some: static ring => (Turn: Matrix3x2.CreateRotation(-(float)ring.Turn.Radians), Reach: (float)ring.Radius), None: static () => (Turn: Matrix3x2.CreateRotation(-float.Pi / 2f), Reach: float.PositiveInfinity))
+            let waves = Enumerable.Range(0, count).Select(i =>
+                (CoordinateHash.Uniforms(Vector128<int>.Zero, CoordinateHash.Branch(field, (uint)i)), float.SinCos(direction + (spread * (i - ((count - 1) / 2f)) / int.Max(count - 1, 1)))) switch {
+                    var (draw, (sin, cos)) => (Along: new Vector2(cos, -sin), Length: float.Lerp(wavelength.Low, wavelength.High, draw.X), Level: float.Lerp(amplitude.Low, amplitude.High, draw.Y), Phase: draw.Z + shift),
+                }).ToArray()
+            select new Field(d => {
+                (float distance, Vector2 sum, Vector2 spoke) = (d.Length(), Vector2.Zero, d == Vector2.Zero ? Vector2.UnitX : Vector2.Normalize(d));
+                foreach ((Vector2 along, float length, float level, float phase) in waves) {
+                    Vector2 axis = rings.IsSome ? spoke : along;
+                    sum += Vector2.TransformNormal(axis, polar.Turn) * level * ((2f * profile.Level((Vector2.Dot(d, axis) / length) + phase)) - 1f);
+                }
+                return d + (amount * sum * float.Max(0f, 1f - (distance / polar.Reach)) / count);
+            }, center, sampling, wrap);
 
         public static Field Turbulence(Func<Vector4, uint, float> noise, (ShortSideLength Across, ShortSideLength Down) scale, Vector2 amount, float depth, uint field, Vector2 center, Sampling sampling, (WrapMode Across, WrapMode Down) wrap) =>
             (new Vector2(scale.Across, -(float)scale.Down), CoordinateHash.Branch(field, 0u), CoordinateHash.Branch(field, 1u), CoordinateHash.Branch(field, 2u), CoordinateHash.Branch(field, 3u)) switch {

@@ -36,8 +36,10 @@ public static class LocalContrast {
         return new PixelPass.Positional((row, _, y) => {
             ReadOnlySpan<Vector4> deltas = light.View<Vector4>().GetRowSpan(y - frame.Origin.Y);
             ReadOnlySpan<Vector2> steps = rise.View<Vector2>().GetRowSpan(y - frame.Origin.Y);
-            for (int x = 0; x < row.Length; x++)
-                row[x] = row[x].W > 0f ? row[x] - (deltas[x] with { W = 0f } * (float.Max(1f - (scale * float.Max(steps[x].X, steps[x].Y)), 0f) * amount / 6f / row[x].W)) : row[x];
+            for (int x = 0; x < row.Length; x++) {
+                Vector4 sharpened = row[x] - (deltas[x] with { W = 0f } * (float.Max(1f - (scale * float.Max(steps[x].X, steps[x].Y)), 0f) * amount / 6f / row[x].W));
+                row[x] = Vector4.ConditionalSelect(Vector4.GreaterThan(new Vector4(row[x].W), Vector4.Zero), sharpened, row[x]);
+            }
         }).Run(frame, progress);
     });
 
@@ -84,10 +86,12 @@ public static class LocalContrast {
                     (int slice, float upper) = Placed(own[x], (float)low, slices);
                     Vector2 at = new Vector2(x + 0.5f, stored + 0.5f) / pitch;
                     Vector4 graded = Vector4.Lerp(lanes.Slice(slice * down, 0, down, across).Sample(at, edge), lanes.Slice((slice + 1) * down, 0, down, across).Sample(at, edge), upper);
-                    float around = broad.Sample(at, edge) switch { var smooth => smooth.X / smooth.Y };
-                    float centered = float.Lerp(graded.Y > 0f ? graded.X / graded.Y : around, around, 0.6f) - gray;
-                    float gain = float.Exp2(gray + (centered * (centered > 0f ? highlights : shadows)) + ((own[x] - gray - centered) * detail) - own[x]);
-                    row[x] = row[x].W > 0f ? new Vector4(row[x].AsVector3() * gain, row[x].W) : row[x];
+                    Vector4 smooth = broad.Sample(at, edge);
+                    Vector4 local = Vector4.ConditionalSelect(Vector4.GreaterThan(new Vector4(graded.Y), Vector4.Zero), graded, smooth);
+                    float centered = float.Lerp(local.X / local.Y, smooth.X / smooth.Y, 0.6f) - gray;
+                    float slope = Vector2.ConditionalSelect(Vector2.GreaterThan(new Vector2(centered), Vector2.Zero), new Vector2(highlights), new Vector2(shadows)).X;
+                    float gain = float.Exp2(gray + (centered * slope) + ((own[x] - gray - centered) * detail) - own[x]);
+                    row[x] = Vector4.ConditionalSelect(Vector4.GreaterThan(new Vector4(row[x].W), Vector4.Zero), new Vector4(row[x].AsVector3() * gain, row[x].W), row[x]);
                 }
             }).Run(frame, progress);
 
@@ -116,29 +120,29 @@ public static class GrainNoise {
 
     public static Fin<Memory2D<Vector4>> NormalScores(PixelFrame scan, double footprint) {
         (double width, double height) = (double.Ceiling(footprint), double.Ceiling(scan.Size.Height * footprint / scan.Size.Width));
-        return width * height > System.Array.MaxLength
-            ? Fault.Of(ImagingReason.Oversize, (width, height))
-            : Try.lift(() => {
-                int pixels = (int)width * (int)height;
-                using Mat source = scan.Header();
-                using Mat mixed = new();
-                using Mat channel = new();
-                using Mat mean = new(4, 4, DepthType.Cv32F, 1);
-                mean.SetTo([1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 1f / 3f, 1f / 3f, 1f / 3f, 0f]);
-                CvInvoke.Resize(source, channel, new Size((int)width, (int)height), 0d, 0d, footprint < scan.Size.Width ? Inter.Area : Inter.Linear);
-                CvInvoke.Transform(channel, mixed, mean);
-                Vector4[] scores = GC.AllocateUninitializedArray<Vector4>(pixels);
-                Span2D<float> lanes = scores.AsSpan().Cast<Vector4, float>().AsSpan2D(pixels, 4);
-                double[] values = new double[pixels];
-                for (int lane = 0; lane < 4; lane++) {
-                    CvInvoke.ExtractChannel(mixed, channel, lane);
-                    TensorPrimitives.ConvertChecked(channel.GetSpan<float>(), values);
-                    double[] ranks = ArrayStatistics.RanksInplace(values, RankDefinition.Average);
-                    for (int pixel = 0; pixel < pixels; pixel++)
-                        lanes[pixel, lane] = (float)Normal.InvCDF(0d, 1d, (ranks[pixel] - 0.5d) / pixels);
-                }
-                return scores.AsMemory().AsMemory2D((int)height, (int)width);
-            }).Run();
+        return from _ in Fault.Unless(!(width * height > System.Array.MaxLength), ImagingReason.Oversize, (width, height))
+               from ranked in Try.lift(() => {
+                   int pixels = (int)width * (int)height;
+                   using Mat source = scan.Header();
+                   using Mat mixed = new();
+                   using Mat channel = new();
+                   using Mat mean = new(4, 4, DepthType.Cv32F, 1);
+                   mean.SetTo([1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f, 1f / 3f, 1f / 3f, 1f / 3f, 0f]);
+                   CvInvoke.Resize(source, channel, new Size((int)width, (int)height), 0d, 0d, footprint < scan.Size.Width ? Inter.Area : Inter.Linear);
+                   CvInvoke.Transform(channel, mixed, mean);
+                   Vector4[] scores = GC.AllocateUninitializedArray<Vector4>(pixels);
+                   Span2D<float> lanes = scores.AsSpan().Cast<Vector4, float>().AsSpan2D(pixels, 4);
+                   double[] values = new double[pixels];
+                   for (int lane = 0; lane < 4; lane++) {
+                       CvInvoke.ExtractChannel(mixed, channel, lane);
+                       TensorPrimitives.ConvertChecked(channel.GetSpan<float>(), values);
+                       double[] ranks = ArrayStatistics.RanksInplace(values, RankDefinition.Average);
+                       for (int pixel = 0; pixel < pixels; pixel++)
+                           lanes[pixel, lane] = (float)Normal.InvCDF(0d, 1d, (ranks[pixel] - 0.5d) / pixels);
+                   }
+                   return scores.AsMemory().AsMemory2D((int)height, (int)width);
+               }).Run()
+               select ranked;
     }
 
     public static Func<float, float> Bands((float Shadows, float Midtones, float Highlights) weights, float edge, float span, float width, float exposure) {
@@ -223,62 +227,66 @@ public static class Kuwahara {
         return unit;
     });
 
-    public static Fin<Unit> Sectors(PixelFrame frame, double radius, double uniformity, float sharpness, float eccentricity, Option<IProgress<int>> progress = default) =>
-        from bounded in Fault.Unless(double.Ceiling((1d + eccentricity) * radius) + 1d <= int.MaxValue, ImagingReason.Oversize, (radius, eccentricity))
-        from filtered in frame.Filter(source => {
-            (float focus, float overlap, (float sine, float cosine)) = (16f * sharpness * sharpness, 2f / (float)radius, float.SinCos(1.5f * float.Pi / Count));
-            float envelope = (overlap + cosine) / (sine * sine);
-            using Mat copy = source.Clone();
-            using Mat rgb = new(1, 4, DepthType.Cv32F, 1);
-            using Mat horizontal = new();
-            using Mat vertical = new();
-            using Mat product = new();
-            using Mat xx = new();
-            using Mat xy = new();
-            using Mat yy = new();
-            rgb.SetTo([1f, 1f, 1f, 0f]);
-            CvInvoke.Scharr(copy, horizontal, DepthType.Cv32F, 1, 0, 1d / 16d, 0d, BorderType.Replicate);
-            CvInvoke.Scharr(copy, vertical, DepthType.Cv32F, 0, 1, 1d / 16d, 0d, BorderType.Replicate);
-            foreach ((Mat first, Mat second, Mat tensor) in Seq((horizontal, horizontal, xx), (horizontal, vertical, xy), (vertical, vertical, yy))) {
-                CvInvoke.Multiply(first, second, product);
-                CvInvoke.Transform(product, tensor, rgb);
-                tensor.Blur(tensor, uniformity);
-            }
-            return new PixelPass.Positional((row, _, y) => {
-                int stored = y - frame.Origin.Y;
-                ReadOnlySpan2D<Vector4> image = copy.View<Vector4>();
-                ReadOnlySpan<float> dxx = xx.View<float>().GetRowSpan(stored);
-                ReadOnlySpan<float> dxy = xy.View<float>().GetRowSpan(stored);
-                ReadOnlySpan<float> dyy = yy.View<float>().GetRowSpan(stored);
-                Span<Vector4> sums = stackalloc Vector4[Count];
-                Span<Vector4> squares = stackalloc Vector4[Count];
-                Span<float> deviations = stackalloc float[Count];
-                for (int x = 0; x < row.Length; x++) {
-                    (float half, float root) = ((dxx[x] + dyy[x]) / 2f, float.Hypot(dxx[x] - dyy[x], 2f * dxy[x]) / 2f);
-                    (float axisY, float axisX) = float.SinCos(float.Atan2(-2f * dxy[x], dyy[x] - dxx[x]) / 2f);
-                    Vector2 scale = (1f + (eccentricity * (half > 0f ? root / half : 0f))) switch { var stretch => new((float)radius * stretch, (float)radius / stretch) };
-                    (int reachX, int reachY) = ((int)float.Ceiling(float.Hypot(scale.X * axisX, scale.Y * axisY)), (int)float.Ceiling(float.Hypot(scale.X * axisY, scale.Y * axisX)));
-                    Vector4 center = image[stored, x] with { W = 1f };
-                    sums.Fill(center / Count);
-                    squares.Fill(center * center / Count);
-                    for (int j = 0; j <= reachY; j++) {
-                        for (int i = j is 0 ? 1 : -reachX; i <= reachX; i++)
-                            Sampled(sums, squares, image, (x, stored), (i, j), new Vector2(axisX, axisY), scale, (overlap, envelope));
-                    }
-                    Vector4 total = Vector4.Zero;
-                    for (int k = 0; k < Count; k++) {
-                        (squares[k], sums[k]) = (squares[k] / sums[k].W, sums[k] / sums[k].W);
-                        deviations[k] = float.Max(0.02f, Vector3.Sum(Vector3.SquareRoot(Vector3.Max((squares[k] - (sums[k] * sums[k])).AsVector3(), Vector3.Zero))));
-                    }
-                    TensorPrimitives.Divide(TensorPrimitives.Min(deviations), deviations, deviations);
-                    TensorPrimitives.Pow(deviations, focus, deviations);
-                    for (int k = 0; k < Count; k++)
-                        total += sums[k] * deviations[k];
-                    row[x] = new Vector4(total.AsVector3() / TensorPrimitives.Sum(deviations), row[x].W);
-                }
-            }).Run(frame, progress);
-        })
-        select filtered;
+    public static Fin<Unit> Sectors(PixelFrame frame, double radius, double uniformity, float sharpness, float eccentricity, Option<IProgress<int>> progress = default) {
+        (float focus, float overlap, (float sine, float cosine)) = (16f * sharpness * sharpness, 2f / (float)radius, float.SinCos(1.5f * float.Pi / Count));
+        float envelope = (overlap + cosine) / (sine * sine);
+        using Mat copy = new();
+        using Mat xx = new();
+        using Mat xy = new();
+        using Mat yy = new();
+        return from bounded in Fault.Unless(double.Ceiling((1d + eccentricity) * radius) + 1d <= int.MaxValue, ImagingReason.Oversize, (radius, eccentricity))
+               from structured in frame.Filter(source => {
+                   using Mat rgb = new(1, 4, DepthType.Cv32F, 1);
+                   using Mat horizontal = new();
+                   using Mat vertical = new();
+                   using Mat product = new();
+                   source.CopyTo(copy);
+                   rgb.SetTo([1f, 1f, 1f, 0f]);
+                   CvInvoke.Scharr(copy, horizontal, DepthType.Cv32F, 1, 0, 1d / 16d, 0d, BorderType.Replicate);
+                   CvInvoke.Scharr(copy, vertical, DepthType.Cv32F, 0, 1, 1d / 16d, 0d, BorderType.Replicate);
+                   foreach ((Mat first, Mat second, Mat tensor) in Seq((horizontal, horizontal, xx), (horizontal, vertical, xy), (vertical, vertical, yy))) {
+                       CvInvoke.Multiply(first, second, product);
+                       CvInvoke.Transform(product, tensor, rgb);
+                       tensor.Blur(tensor, uniformity);
+                   }
+                   return unit;
+               })
+               from filtered in Try.lift(() => new PixelPass.Positional((row, _, y) => {
+                   int stored = y - frame.Origin.Y;
+                   ReadOnlySpan2D<Vector4> image = copy.View<Vector4>();
+                   ReadOnlySpan<float> dxx = xx.View<float>().GetRowSpan(stored);
+                   ReadOnlySpan<float> dxy = xy.View<float>().GetRowSpan(stored);
+                   ReadOnlySpan<float> dyy = yy.View<float>().GetRowSpan(stored);
+                   Span<Vector4> sums = stackalloc Vector4[Count];
+                   Span<Vector4> squares = stackalloc Vector4[Count];
+                   Span<float> deviations = stackalloc float[Count];
+                   for (int x = 0; x < row.Length; x++) {
+                       (float half, float root) = ((dxx[x] + dyy[x]) / 2f, float.Hypot(dxx[x] - dyy[x], 2f * dxy[x]) / 2f);
+                       (float axisY, float axisX) = float.SinCos(float.Atan2(-2f * dxy[x], dyy[x] - dxx[x]) / 2f);
+                       Vector2 scale = (1f + (eccentricity * (half > 0f ? root / half : 0f))) switch { var stretch => new((float)radius * stretch, (float)radius / stretch) };
+                       (int reachX, int reachY) = ((int)float.Ceiling(float.Hypot(scale.X * axisX, scale.Y * axisY)), (int)float.Ceiling(float.Hypot(scale.X * axisY, scale.Y * axisX)));
+                       int across = (2 * reachX) + 1;
+                       Vector4 center = image[stored, x] with { W = 1f };
+                       sums.Fill(center / Count);
+                       squares.Fill(center * center / Count);
+                       for (int tap = reachX + 1; tap < (reachY + 1) * across; tap++) {
+                           (int j, int i) = int.DivRem(tap, across);
+                           Sampled(sums, squares, image, (x, stored), (i - reachX, j), new Vector2(axisX, axisY), scale, (overlap, envelope));
+                       }
+                       for (int k = 0; k < Count; k++) {
+                           (squares[k], sums[k]) = (squares[k] / sums[k].W, sums[k] / sums[k].W);
+                           deviations[k] = float.Max(0.02f, Vector3.Sum(Vector3.SquareRoot(Vector3.Max((squares[k] - (sums[k] * sums[k])).AsVector3(), Vector3.Zero))));
+                       }
+                       TensorPrimitives.Divide(TensorPrimitives.Min(deviations), deviations, deviations);
+                       TensorPrimitives.Pow(deviations, focus, deviations);
+                       Vector4 total = Vector4.Zero;
+                       for (int k = 0; k < Count; k++)
+                           total += sums[k] * deviations[k];
+                       row[x] = new Vector4(total.AsVector3() / TensorPrimitives.Sum(deviations), row[x].W);
+                   }
+               }).Run(frame, progress)).Run()
+               select filtered;
+    }
 
     private static void Sampled(
         Span<Vector4> sums, Span<Vector4> squares, ReadOnlySpan2D<Vector4> image, (int X, int Y) pixel, (int I, int J) offset, Vector2 axis, Vector2 scale, (float Overlap, float Envelope) shape) {

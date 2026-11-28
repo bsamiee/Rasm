@@ -271,7 +271,10 @@ public abstract record Part {
                 (Viewport: this, Frame: frame, aim.Owner.Layout.Styled(StyleRole.Handle).Metrics),
                 @default: static (held, _) => held.Viewport.Panning(held.Frame, held.Metrics),
                 press: static (held, press) =>
-                    press.Clicks >= 2 ? held.Viewport.Tracking(held.Frame, (start, next) => next is Gesture.Press ? held.Viewport.Cycled(held.Frame, start) : None)
+                    press.Clicks >= 2 ? held.Viewport.Tracking(held.Frame, (start, next) => next.SwitchPartially(
+                        (held.Viewport, held.Frame, Start: start),
+                        @default: static (_, _) => Option<PlotPlane>.None,
+                        press: static (state, _) => state.Viewport.Cycled(state.Frame, state.Start)))
                     : held.Viewport.Boxed ? held.Viewport.Boxing(held.Frame)
                     : held.Viewport.Panning(held.Frame, held.Metrics)).Began(gesture));
 

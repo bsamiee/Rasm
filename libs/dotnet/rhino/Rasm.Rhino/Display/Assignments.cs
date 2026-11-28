@@ -104,9 +104,9 @@ public static class DisplayModeRules {
         toSeq(toHashSet(desired.Keys.Concat(marked.Keys))).Fold(
             (Writes: Seq<(Guid Slot, Option<Guid> Mode)>(), Mark: HashMap<Guid, Guid>()),
             (state, slot) => (Wanted: desired.Find(slot), Current: held(slot)) switch {
-                var (wanted, current) when current.IsNone || current == marked.Find(slot) => wanted.Match(
-                    Some: mode => (current == Some(mode) ? state.Writes : state.Writes.Add((slot, Some(mode))), state.Mark.Add(slot, mode)),
-                    None: () => (current.IsNone ? state.Writes : state.Writes.Add((slot, Option<Guid>.None)), state.Mark)),
+                var (wanted, current) when current.IsNone || current == marked.Find(slot) => (
+                    current == wanted ? state.Writes : state.Writes.Add((slot, wanted)),
+                    wanted.Match(Some: mode => state.Mark.Add(slot, mode), None: () => state.Mark)),
                 _ => state,
             });
 

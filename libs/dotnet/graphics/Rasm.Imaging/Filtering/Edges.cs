@@ -209,28 +209,27 @@ public static class Contours {
     }
 
     public static Fin<Unit> Outlined(PixelFrame frame, PixelFrame depth, Seq<ContourLine> lines, Option<Vector4> paper, BlendingMode mode, Option<IProgress<int>> progress = default) =>
-        frame.Filter(header => {
+        from strokes in Try.lift(() => {
             using Mat range = depth.Header();
             using Mat z = new();
             using Mat unclaimed = new(range.Size, DepthType.Cv8U, 1);
             unclaimed.SetTo(new MCvScalar(byte.MaxValue));
             CvInvoke.ExtractChannel(range, z, 0);
-            (Vector3 Color, float[] Cover)[] strokes = [.. lines.Filter(static line => !line.Sources.IsEmpty).Map(line => Claimed(line, z, unclaimed))];
-            float[] opaque = GC.AllocateUninitializedArray<float>(frame.Size.Width);
-            opaque.AsSpan().Fill(1f);
-            if (paper.ToSpan() is [var ground])
-                header.SetTo(new MCvScalar(ground.X, ground.Y, ground.Z, ground.W));
-            return new PixelPass.Positional((row, _, y) => {
-                using SpanOwner<Vector4> layer = SpanOwner<Vector4>.Allocate(row.Length, AllocationMode.Clear);
-                foreach ((Vector3 color, float[] cover) in strokes) {
-                    ReadOnlySpan<float> covered = cover.AsSpan((y - frame.Origin.Y) * row.Length, row.Length);
-                    for (int x = 0; x < row.Length; x++)
-                        layer.Span[x] += (1f - layer.Span[x].W) * covered[x] * new Vector4(color, 1f);
-                }
-                PixelFrame.Unassociated(layer.Span);
-                mode.Composite(row, layer.Span, opaque);
-            }).Run(frame, progress);
-        });
+            return lines.Filter(static line => !line.Sources.IsEmpty).Map(line => Claimed(line, z, unclaimed)).ToArray();
+        }).Run()
+        from opaque in Try.lift(() => Enumerable.Repeat(1f, frame.Size.Width).ToArray()).Run()
+        from painted in frame.Filter(header => paper.Iter(ground => header.SetTo(new MCvScalar(ground.X, ground.Y, ground.Z, ground.W))))
+        from outlined in Try.lift(() => new PixelPass.Positional((row, _, y) => {
+            using SpanOwner<Vector4> layer = SpanOwner<Vector4>.Allocate(row.Length, AllocationMode.Clear);
+            foreach ((Vector3 color, float[] cover) in strokes) {
+                ReadOnlySpan<float> covered = cover.AsSpan((y - frame.Origin.Y) * row.Length, row.Length);
+                for (int x = 0; x < row.Length; x++)
+                    layer.Span[x] += (1f - layer.Span[x].W) * covered[x] * new Vector4(color, 1f);
+            }
+            PixelFrame.Unassociated(layer.Span);
+            mode.Composite(row, layer.Span, opaque);
+        }).Run(frame, progress)).Run()
+        select outlined;
 
     private static Option<(Vector3 Origin, Vector3 Direction)> Footprint(Projection lens) =>
         lens.Extent.Point(new Vector2(0.5f)) switch {

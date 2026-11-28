@@ -53,15 +53,14 @@ internal sealed record FilmDamage(
     }
 
     private static PixelPass.Positional Composite(Func<int, int, (float Coverage, float Value)>[] marks) => new((row, x, y) => {
-        foreach (Func<int, int, (float Coverage, float Value)> field in marks) {
-            for (int at = 0; at < row.Length; at++) {
-                (float coverage, float value) = field(x + at, y);
-                row[at] = coverage switch {
-                    0f => row[at],
-                    1f => new Vector4(new Vector3(value), row[at].W),
-                    _ => new Vector4((row[at].AsVector3() * (1f - coverage)) + new Vector3(value), row[at].W),
-                };
-            }
+        for (int node = 0; node < marks.Length * row.Length; node++) {
+            (int mark, int at) = Math.DivRem(node, row.Length);
+            (float coverage, float value) = marks[mark](x + at, y);
+            row[at] = coverage switch {
+                0f => row[at],
+                1f => new Vector4(new Vector3(value), row[at].W),
+                _ => new Vector4((row[at].AsVector3() * (1f - coverage)) + new Vector3(value), row[at].W),
+            };
         }
     });
 

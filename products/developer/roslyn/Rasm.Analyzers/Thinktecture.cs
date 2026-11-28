@@ -143,20 +143,16 @@ public sealed class ThrowingFactoryAnalyzer : DiagnosticAnalyzer {
             const string Assigned = "assign `validationError` and return";
             static string Returned(IMethodSymbol method) => $"return `Fin<{method.ContainingType.Name}>` through `Validate`";
             Report<IOperation>(start, [OperationKind.Invocation, OperationKind.MethodReference, OperationKind.Throw, OperationKind.Conversion], (operation, analysis) =>
-                analysis.ContainingSymbol is IMethodSymbol { Name: Hook, IsStatic: true, ContainingType: { } owner } && Marked(owner, validated) is not null
-                    ? operation switch {
-                        IThrowOperation => [Diagnostic.Create(Rule, operation.Syntax.GetLocation(), "throw", Hooked, Assigned)],
-                        IInvocationOperation { TargetMethod: var method } when Raising(method) => [Diagnostic.Create(Rule, operation.Syntax.GetLocation(), Label(method), Hooked, Assigned)],
-                        IConversionOperation { OperatorMethod: { Name: WellKnownMemberNames.ExplicitConversionName } method } when Same(method.ReturnType, method.ContainingType) && Marked(method.ContainingType, validated) is not null =>
-                            [Diagnostic.Create(Rule, operation.Syntax.GetLocation(), $"({method.ContainingType.Name})", Hooked, Assigned)],
-                        _ => [],
-                    }
-                : Enclosing(analysis.ContainingSymbol) is IFieldSymbol { IsStatic: true } or IPropertySymbol { IsStatic: true } ? []
-                : operation switch {
-                    IInvocationOperation invocation when Throwing(invocation.TargetMethod)
+                (operation, analysis.ContainingSymbol is IMethodSymbol { Name: Hook, IsStatic: true, ContainingType: { } owner } && Marked(owner, validated) is not null) switch {
+                    (IThrowOperation, true) => [Diagnostic.Create(Rule, operation.Syntax.GetLocation(), "throw", Hooked, Assigned)],
+                    (IInvocationOperation { TargetMethod: var method }, true) when Raising(method) => [Diagnostic.Create(Rule, operation.Syntax.GetLocation(), Label(method), Hooked, Assigned)],
+                    (IConversionOperation { OperatorMethod: { Name: WellKnownMemberNames.ExplicitConversionName } method }, true) when Same(method.ReturnType, method.ContainingType) && Marked(method.ContainingType, validated) is not null =>
+                        [Diagnostic.Create(Rule, operation.Syntax.GetLocation(), $"({method.ContainingType.Name})", Hooked, Assigned)],
+                    (_, var hooked) when hooked || Enclosing(analysis.ContainingSymbol) is IFieldSymbol { IsStatic: true } or IPropertySymbol { IsStatic: true } => [],
+                    (IInvocationOperation invocation, _) when Throwing(invocation.TargetMethod)
                         && invocation.Arguments.SelectMany(static argument => argument.Value.DescendantsAndSelf()).Select(Variable).FirstOrDefault(static held => held is not (null or ILocalSymbol { HasConstantValue: true })) is { } read =>
                         [Diagnostic.Create(Rule, invocation.Syntax.GetLocation(), Label(invocation.TargetMethod), $"`{read.Name}` from the caller", Returned(invocation.TargetMethod))],
-                    IMethodReferenceOperation group when Throwing(group.Method) && !Inside<INameOfOperation>(group) =>
+                    (IMethodReferenceOperation group, _) when Throwing(group.Method) && !Inside<INameOfOperation>(group) =>
                         [Diagnostic.Create(Rule, group.Syntax.GetLocation(), Label(group.Method), $"`{Passed(group)}` from the caller", Returned(group.Method))],
                     _ => [],
                 });
@@ -216,11 +212,8 @@ public sealed class DataFreeSmartEnumAnalyzer : DiagnosticAnalyzer {
                 node => {
                     ClassDeclarationSyntax declaration = (ClassDeclarationSyntax)node.Node;
                     if (node.SemanticModel.GetDeclaredSymbol(declaration, node.CancellationToken) is not { } type || Form(type) is not (var keyedForm, _)) return;
-                    bool held = declaration.Members.All(member => member switch {
-                        FieldDeclarationSyntax field => Item(field, type, keyedForm, node.SemanticModel, node.CancellationToken),
-                        ConstructorDeclarationSyntax { ParameterList.Parameters.Count: <= 1, ExpressionBody: null, Body: null or { Statements.Count: 0 } } => true,
-                        _ => false,
-                    })
+                    bool held = declaration.Members.All(member => (member is FieldDeclarationSyntax field && Item(field, type, keyedForm, node.SemanticModel, node.CancellationToken))
+                        || member is ConstructorDeclarationSyntax { ParameterList.Parameters.Count: <= 1, ExpressionBody: null, Body: null or { Statements.Count: 0 } })
                         && declaration.AttributeLists.SelectMany(static list => list.Attributes).All(attribute => Among(node.SemanticModel.GetSymbolInfo(attribute, node.CancellationToken).Symbol?.ContainingType, allowed));
                     bool items = declaration.Members.Any(static member => member is FieldDeclarationSyntax);
                     free.AddOrUpdate(type, (held, items), (_, prior) => (prior.Plain && held, prior.Items || items));
@@ -235,9 +228,13 @@ public sealed class DataFreeSmartEnumAnalyzer : DiagnosticAnalyzer {
                 OperationKind.FieldReference);
             start.RegisterCompilationEndAction(end => {
                 Func<ISymbol, bool> hidden = Hidden(end.Compilation);
-                foreach (KeyValuePair<INamedTypeSymbol, (bool Plain, bool Items)> pair in free.Where(static pair => pair.Value is (true, true)))
-                    if (Form(pair.Key) is (var keyedForm, _) && (!keyedForm || (!read.ContainsKey(pair.Key) && hidden(pair.Key))))
-                        end.ReportDiagnostic(Diagnostic.Create(Rule, pair.Key.Locations[0], pair.Key.Name, keyedForm ? "keys items by unread member names" : "holds data-free items"));
+                foreach (Diagnostic found in
+                    from pair in free
+                    where pair.Value is (true, true)
+                    let keyedForm = Form(pair.Key)?.Keyed
+                    where keyedForm is false || (keyedForm is true && !read.ContainsKey(pair.Key) && hidden(pair.Key))
+                    select Diagnostic.Create(Rule, pair.Key.Locations[0], pair.Key.Name, keyedForm is true ? "keys items by unread member names" : "holds data-free items"))
+                    end.ReportDiagnostic(found);
             });
         });
     }
@@ -279,23 +276,21 @@ public sealed class HostPickingUnionAnalyzer : DiagnosticAnalyzer {
                     && call.TargetMethod.OriginalDefinition.Parameters[0].Type is INamedTypeSymbol { DelegateInvokeMethod: not null } ? Lambda(call.Arguments[0].Value) : null);
             bool Picks(IAnonymousFunctionOperation function, INamedTypeSymbol owner, CancellationToken token) {
                 HashSet<IParameterSymbol> held = [with(SymbolEqualityComparer.Default)];
-                bool Read(IOperation value) =>
-                    Stripped(value) switch {
-                        IParameterReferenceOperation reference => held.Contains(reference.Parameter),
-                        IPropertyReferenceOperation { Instance: IParameterReferenceOperation reference } => held.Contains(reference.Parameter) && !Same(reference.Parameter.Type, owner) && Derives(reference.Parameter.Type, owner),
-                        _ => false,
-                    };
-                while (true) {
+                IOperation? value = null;
+                for (IAnonymousFunctionOperation? current = function; current is not null; current = value is null ? null : Thunk(value)) {
                     token.ThrowIfCancellationRequested();
-                    held.UnionWith(function.Symbol.Parameters);
-                    if (Sole(function.Body) is not { } value) return false;
-                    if (Thunk(value) is { } inner) { function = inner; continue; }
-                    return value switch {
-                        IInvocationOperation call => (Target: call.TargetMethod, call.Arguments),
-                        IObjectCreationOperation { Constructor: { } made } creation => (Target: made, creation.Arguments),
-                        _ => default,
-                    } is ( { } target, var arguments) && Hosted(target) && arguments.Where(static argument => argument.ArgumentKind is ArgumentKind.Explicit).All(argument => Read(argument.Value));
+                    held.UnionWith(current.Symbol.Parameters);
+                    value = Sole(current.Body);
                 }
+                return value switch {
+                    IInvocationOperation call => (Target: call.TargetMethod, call.Arguments),
+                    IObjectCreationOperation { Constructor: { } made } creation => (Target: made, creation.Arguments),
+                    _ => default,
+                } is ( { } target, var arguments) && Hosted(target) && arguments
+                    .Where(static argument => argument.ArgumentKind is ArgumentKind.Explicit)
+                    .Select(static argument => Stripped(argument.Value))
+                    .All(read => (read is IParameterReferenceOperation { Parameter: var parameter } && held.Contains(parameter))
+                        || (read is IPropertyReferenceOperation { Instance: IParameterReferenceOperation { Parameter: var instance } } && held.Contains(instance) && !Same(instance.Type, owner) && Derives(instance.Type, owner)));
             }
             ConcurrentDictionary<INamedTypeSymbol, bool> picked = new(SymbolEqualityComparer.Default);
             start.RegisterOperationAction(

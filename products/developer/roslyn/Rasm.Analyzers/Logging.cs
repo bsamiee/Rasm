@@ -37,11 +37,12 @@ public sealed class HandWrittenLogAnalyzer : DiagnosticAnalyzer {
             const string Generated = "a `partial void` method under `[LoggerMessage]`";
             bool Forwards(ISymbol symbol) => Containers(symbol).OfType<INamedTypeSymbol>().Any(type => Faces(type, logger).Any());
             Report<IInvocationOperation>(start, [OperationKind.Invocation], (invocation, analysis) =>
-                members.Any(member => Implements(invocation.TargetMethod, member)) && !Forwards(analysis.ContainingSymbol)
-                    ? [Diagnostic.Create(Rule, Named(invocation), $"ILogger.{invocation.TargetMethod.Name}",
-                        invocation.TargetMethod.ReturnsVoid ? Generated : "a `LoggerMessage.DefineScope` delegate in a static field")]
-                    : Among(invocation.TargetMethod, defines) ? [Diagnostic.Create(Rule, Named(invocation), Label(invocation.TargetMethod), Generated)]
-                    : []);
+                (members.Any(member => Implements(invocation.TargetMethod, member)) && !Forwards(analysis.ContainingSymbol), invocation.TargetMethod) switch {
+                    (true, { ReturnsVoid: true } method) => [Diagnostic.Create(Rule, Named(invocation), $"ILogger.{method.Name}", Generated)],
+                    (true, var method) => [Diagnostic.Create(Rule, Named(invocation), $"ILogger.{method.Name}", "a `LoggerMessage.DefineScope` delegate in a static field")],
+                    (false, var method) when Among(method, defines) => [Diagnostic.Create(Rule, Named(invocation), Label(method), Generated)],
+                    _ => [],
+                });
         });
     }
 }
@@ -83,24 +84,18 @@ public sealed class DoubleReportAnalyzer : DiagnosticAnalyzer {
                 method.ReturnsVoid && (logs.Any(member => Implements(method, member)) || Same(method.ContainingType, extensions));
             bool Crashes(IMethodSymbol method) =>
                 exception is not null && method.ReturnsVoid && method.Parameters.Any(parameter => Derives(parameter.Type, exception)) && Raises(method.ContainingType, exception);
+            (IEnumerable<IMethodSymbol> Next, IEnumerable<(IMethodSymbol Method, bool Reports)> Found) Visited(IMethodSymbol current, Reading reading) =>
+                reports.TryGetValue(current, out bool reported) ? ([], [(current, reported)])
+                : Logs(current) || Marked(current, message) is not null || Crashes(current) ? ([], [(current, true)])
+                : (calls.GetOrAdd(current, held => [
+                    .. Declarations(held, reading).SelectMany(body => ControlFlow.Operations(body, reading.Token)).OfType<IInvocationOperation>()
+                        .SelectMany(call => Calls(call, reading, flow, callbacks)).Select(static target => target.OriginalDefinition),
+                ]), [(current, false)]);
             bool Reports(IMethodSymbol method, Reading reading) {
-                HashSet<IMethodSymbol> seen = [with(SymbolEqualityComparer.Default)];
-                Stack<IMethodSymbol> pending = new([method.OriginalDefinition]);
-                while (pending.Count is > 0) {
-                    IMethodSymbol current = pending.Pop();
-                    reading.Token.ThrowIfCancellationRequested();
-                    if (!seen.Add(current)) continue;
-                    if (reports.TryGetValue(current, out bool reported)) {
-                        if (reported) return true;
-                        continue;
-                    }
-                    if (Logs(current) || Marked(current, message) is not null || Crashes(current)) return true;
-                    foreach (IMethodSymbol called in calls.GetOrAdd(current, held => [
-                        .. Declarations(held, reading).SelectMany(body => ControlFlow.Operations(body, reading.Token)).OfType<IInvocationOperation>()
-                            .SelectMany(call => Calls(call, reading, flow, callbacks)).Select(static target => target.OriginalDefinition),
-                    ])) pending.Push(called);
-                }
-                foreach (IMethodSymbol visited in seen) reports.TryAdd(visited, value: false);
+                IEnumerable<(IMethodSymbol Method, bool Reports)> walk = ControlFlow.Trace<IMethodSymbol, (IMethodSymbol Method, bool Reports)>(
+                    [method.OriginalDefinition], current => Visited(current, reading), depthFirst: true, reading.Token, SymbolEqualityComparer.Default);
+                if (walk.Any(static step => step.Reports)) return true;
+                foreach ((IMethodSymbol visited, _) in walk) reports.TryAdd(visited, value: false);
                 return false;
             }
             IInvocationOperation? Reporter(IOperation tree, Reading reading) =>
@@ -118,7 +113,7 @@ public sealed class DoubleReportAnalyzer : DiagnosticAnalyzer {
                 && Fallback(operation) is ( { } receiver, var handlers)
                 && Reporter(receiver, reading) is { } first
                 && handlers.Select(handler => Reporter(handler, reading)).FirstOrDefault(static again => again is not null) is { } second
-                    ? [Diagnostic.Create(Rule, operation is IInvocationOperation fallback ? Named(fallback) : operation.Syntax.GetLocation(), Label(second), Label(first))]
+                    ? [Diagnostic.Create(Rule, Named(operation), Label(second), Label(first))]
                     : []);
         });
     }

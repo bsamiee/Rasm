@@ -140,12 +140,12 @@ public sealed partial class Relationship {
         Trampoline<Seq<IDocumentObject>> Walked(Seq<Guid> frontier, LanguageExt.HashSet<Guid> seen, int left, Seq<IDocumentObject> reached) =>
             left <= 0 || frontier.IsEmpty
                 ? Trampoline.Pure(reached)
-                : frontier.Bind(id => Next(document, connectivity, id)).Fold((Seen: seen, Found: Seq<IDocumentObject>()), (state, id) =>
-                    state.Seen.Contains(id)
-                        ? state
-                        : Optional(document.Objects.Find(id)).Filter(through).Match(Some: member => (Seen: state.Seen.Add(id), Found: state.Found.Add(member)), None: () => state)) switch {
-                            var step => Trampoline.More(() => Walked(step.Found.Map(static member => member.InstanceId), step.Seen, left - 1, reached + step.Found)),
-                        };
+                : frontier.Bind(id => Next(document, connectivity, id)).Filter(id => !seen.Contains(id)).Distinct()
+                    .Choose(id => Optional(document.Objects.Find(id)).Filter(through)).Strict() switch {
+                        var found => Trampoline.More(() => found.Map(static member => member.InstanceId) switch {
+                            var ids => Walked(ids, seen.AddRange(ids), left - 1, reached + found),
+                        }),
+                    };
     }
 
     private static Seq<Guid> Kin<TKey>(Document document, Guid id, Func<IDocumentObject, Option<TKey>> key) =>

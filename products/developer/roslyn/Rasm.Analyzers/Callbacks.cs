@@ -112,80 +112,50 @@ public sealed class CapturedWriteAnalyzer : DiagnosticAnalyzer {
                 token.ThrowIfCancellationRequested();
                 (IOperation value, ImmutableArray<IInvocationOperation> calls, ImmutableHashSet<IMethodSymbol> seen) = pending.Pop();
                 if (value is IAnonymousFunctionOperation or ILocalFunctionOperation) continue;
-                if (value is IArgumentOperation { Parameter.Type: { } parameter, Parent: IInvocationOperation call } argument
+                IArgumentOperation? delegated = value is IArgumentOperation { Parameter.Type: { } parameter, Parent: IInvocationOperation call } argument
                     && (parameter.TypeKind is TypeKind.Delegate || argument.Value.DescendantsAndSelf().Any(static held => held is IAnonymousFunctionOperation))
-                    && (Combinator(call) || suspended.Contains(Definition(call.TargetMethod)))) {
-                    ImmutableArray<IInvocationOperation> nested = Combinator(call) ? calls.Add(call) : calls;
-                    foreach ((IMethodSymbol target, IBlockOperation body) in
-                        from target in flow.Targets(ControlFlow.At(argument.Value), token).OfType<IMethodSymbol>()
-                        let member = target.OriginalDefinition
-                        where !seen.Contains(member)
-                        let body = functions.TryGetValue(member, out IBlockOperation? found) ? found : null
-                        where body is not null
-                        select (member, body)) pending.Push((body, nested, seen.Add(target)));
-                }
+                    && (Combinator(call) || suspended.Contains(Definition(call.TargetMethod))) ? argument : null;
+                ImmutableArray<IInvocationOperation> nested = delegated is { Parent: IInvocationOperation receiving } && Combinator(receiving) ? calls.Add(receiving) : calls;
+                foreach ((IMethodSymbol target, IBlockOperation body) in
+                    from target in (delegated is null ? [] : flow.Targets(ControlFlow.At(delegated.Value), token)).OfType<IMethodSymbol>()
+                    let member = target.OriginalDefinition
+                    where !seen.Contains(member)
+                    let body = functions.TryGetValue(member, out IBlockOperation? found) ? found : null
+                    where body is not null
+                    select (member, body)) pending.Push((body, nested, seen.Add(target)));
                 if (value is IVariableDeclaratorOperation { Initializer.Value: { } initializer } variable) bindings.Add((variable.Symbol, initializer, calls));
                 if (value is ISimpleAssignmentOperation { Target: ILocalReferenceOperation local } assigned) bindings.Add((local.Local, assigned.Value, calls));
                 ISymbol? symbol = Symbol(value);
-                if (symbol is not null) {
-                    if (Written(value)) writes.Add((value.Parent!, value, calls));
-                    else reads.Add((value, calls));
-                }
-                if (symbol is IRangeVariableSymbol range && ranges.Add(range) && range.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax(token) is { } declaration
-                    && (declaration switch { FromClauseSyntax from => from.Expression, LetClauseSyntax let => let.Expression, _ => null }) is { } expression
-                    && model.GetOperation(expression, token) is { } source) {
-                    if (declaration is LetClauseSyntax && Symbol(Stripped(source)) is not null) aliases.Add(range, source);
-                    QueryExpressionSyntax query = declaration.FirstAncestorOrSelf<QueryExpressionSyntax>()!;
-                    bindings.Add((range, source, [.. calls.TakeWhile(held => !query.Span.Contains(held.Syntax.Span))]));
-                }
+                if (symbol is not null && Written(value)) writes.Add((value.Parent!, value, calls));
+                else if (symbol is not null) reads.Add((value, calls));
                 if (Mutated(value) is { } receiver) writes.Add((value, Stripped(receiver), calls));
                 foreach (IOperation child in value.ChildOperations.Reverse()) pending.Push((child, calls, seen));
+                if (!(symbol is IRangeVariableSymbol range && ranges.Add(range) && range.DeclaringSyntaxReferences.FirstOrDefault()?.GetSyntax(token) is { } declaration
+                    && (declaration switch { FromClauseSyntax from => from.Expression, LetClauseSyntax let => let.Expression, _ => null }) is { } expression
+                    && model.GetOperation(expression, token) is { } source)) continue;
+                if (declaration is LetClauseSyntax && Symbol(Stripped(source)) is not null) aliases.Add(range, source);
+                QueryExpressionSyntax query = declaration.FirstAncestorOrSelf<QueryExpressionSyntax>()!;
+                bindings.Add((range, source, [.. calls.TakeWhile(held => !query.Span.Contains(held.Syntax.Span))]));
             }
             if (writes.TrueForAll(static write => write.Calls.IsEmpty)) return;
-            Dictionary<(IOperation Value, ImmutableArray<IInvocationOperation> Calls), ImmutableHashSet<(SyntaxTree Tree, TextSpan Span)>> origins = [];
-            ImmutableHashSet<(SyntaxTree Tree, TextSpan Span)> Origins(IOperation source, ImmutableArray<IInvocationOperation> calls) {
-                if (origins.TryGetValue((source, calls), out ImmutableHashSet<(SyntaxTree Tree, TextSpan Span)>? cached)) return cached;
-                ImmutableHashSet<(SyntaxTree Tree, TextSpan Span)>.Builder result = ImmutableHashSet.CreateBuilder<(SyntaxTree Tree, TextSpan Span)>();
-                Stack<ControlFlow.Value> held = new([ControlFlow.At(source)]);
-                HashSet<ControlFlow.Value> visited = [];
-                while (held.Count is not 0) {
-                    token.ThrowIfCancellationRequested();
-                    ControlFlow.Value current = held.Pop();
-                    if (!visited.Add(current)) continue;
-                    IOperation value = Stripped(current.Operation);
-                    IOperation? receiver = value switch {
-                        IConversionOperation { OperatorMethod: null, Conversion: { IsIdentity: true } or { IsReference: true } } conversion => conversion.Operand,
-                        IConditionalAccessInstanceOperation conditional => Ancestor<IConditionalAccessOperation>(conditional, access => access.Operation.Syntax == conditional.Syntax)?.Operation,
-                        _ => null,
-                    };
-                    if (receiver is not null) {
-                        held.Push(current.With(receiver));
-                        continue;
-                    }
-                    ISymbol? symbol = Symbol(value);
-                    if (symbol is IFieldSymbol field) {
-                        result.UnionWith(field.DeclaringSyntaxReferences.Select(static declaration => (declaration.SyntaxTree, declaration.Span)));
-                        continue;
-                    }
-                    if (symbol is IRangeVariableSymbol range) {
-                        IOperation? projected = aliases.TryGetValue(range, out IOperation? aliased) ? aliased : null;
-                        if (projected is not null) held.Push(ControlFlow.At(projected));
-                        result.UnionWith((projected is null ? range.DeclaringSyntaxReferences : []).Select(static declaration => (declaration.SyntaxTree, declaration.Span)));
-                        continue;
-                    }
-                    if (value is ILocalReferenceOperation or IParameterReferenceOperation or IFlowCaptureReferenceOperation) {
-                        ImmutableArray<Optional<ControlFlow.Value>> definitions = flow.Values(current.With(value), token);
-                        for (int index = calls.Length - 1; index >= 0 && symbol is not null && definitions.Any(static definition => !definition.HasValue); index--)
-                            definitions = [.. definitions.Where(static definition => definition.HasValue), .. flow.Values(symbol, calls[index], token)];
-                        foreach (Optional<ControlFlow.Value> definition in definitions.Where(static definition => definition.HasValue)) held.Push(definition.Value);
-                        result.UnionWith((definitions.Any(static definition => !definition.HasValue) && symbol is not null ? symbol.DeclaringSyntaxReferences : [])
-                            .Select(static declaration => (declaration.SyntaxTree, declaration.Span)));
-                        continue;
-                    }
-                    result.Add((value.Syntax.SyntaxTree, value.Syntax.Span));
-                }
-                return origins[(source, calls)] = result.ToImmutable();
-            }
+            ConcurrentDictionary<(IOperation Value, ImmutableArray<IInvocationOperation> Calls), ImmutableHashSet<(SyntaxTree Tree, TextSpan Span)>> origins = [];
+            ImmutableHashSet<(SyntaxTree Tree, TextSpan Span)> Origins(IOperation source, ImmutableArray<IInvocationOperation> calls) => origins.GetOrAdd((source, calls), _ => [..
+                ControlFlow.Trace<ControlFlow.Value, (SyntaxTree Tree, TextSpan Span)>([ControlFlow.At(source)], current => Stripped(current.Operation) switch {
+                    var value => (value, Symbol(value)) switch {
+                        (IConversionOperation { OperatorMethod: null, Conversion: { IsIdentity: true } or { IsReference: true } } conversion, _) => ([current.With(conversion.Operand)], []),
+                        (IConditionalAccessInstanceOperation conditional, _) when Ancestor<IConditionalAccessOperation>(conditional, access => access.Operation.Syntax == conditional.Syntax) is { Operation: var receiver } =>
+                            ([current.With(receiver)], []),
+                        (_, IFieldSymbol field) => ([], field.DeclaringSyntaxReferences.Select(static declaration => (declaration.SyntaxTree, declaration.Span))),
+                        (_, IRangeVariableSymbol range) when aliases.TryGetValue(range, out IOperation? aliased) => ([ControlFlow.At(aliased)], []),
+                        (_, IRangeVariableSymbol range) => ([], range.DeclaringSyntaxReferences.Select(static declaration => (declaration.SyntaxTree, declaration.Span))),
+                        (ILocalReferenceOperation or IParameterReferenceOperation, { } symbol) => flow.Values(current.With(value), calls, token) switch {
+                            var definitions => (definitions.Where(static definition => definition.HasValue).Select(static definition => definition.Value),
+                                definitions.Where(static definition => !definition.HasValue).SelectMany(_ => symbol.DeclaringSyntaxReferences).Select(static declaration => (declaration.SyntaxTree, declaration.Span))),
+                        },
+                        (IFlowCaptureReferenceOperation, _) => (flow.Values(current.With(value), token).Where(static definition => definition.HasValue).Select(static definition => definition.Value), []),
+                        _ => ([], [(value.Syntax.SyntaxTree, value.Syntax.Span)]),
+                    },
+                }, depthFirst: true, token)]);
             static bool Captures(ImmutableArray<IInvocationOperation> binding, ImmutableArray<IInvocationOperation> callback) =>
                 binding.Length < callback.Length && binding.SequenceEqual(callback.Take(binding.Length));
             static IOperation Position(IOperation value, ImmutableArray<IInvocationOperation> calls, ImmutableArray<IInvocationOperation> scope) => calls.Length > scope.Length ? calls[scope.Length] : value;
@@ -196,9 +166,11 @@ public sealed class CapturedWriteAnalyzer : DiagnosticAnalyzer {
                     ? model.GetOperation(ranged.DeclaringSyntaxReferences[0].GetSyntax(token).FirstAncestorOrSelf<QueryExpressionSyntax>()!, token)! : value;
                 ImmutableHashSet<(SyntaxTree Tree, TextSpan Span)> values = symbol is IRangeVariableSymbol range && !aliases.ContainsKey(range)
                     ? [.. range.DeclaringSyntaxReferences.Select(static declaration => (declaration.SyntaxTree, declaration.Span))] : Origins(value, scope);
-                ImmutableArray<(IOperation Source, IOperation Value, ImmutableArray<IInvocationOperation> Calls)> captured = [.. writes.Where(write => Captures(scope, write.Calls)
-                    && flow.Precedes(value, Position(write.Source, write.Calls, scope), within, token)
-                    && (Written(write.Value) ? Same(Symbol(write.Value), symbol) : values.Overlaps(Origins(write.Value, write.Calls))))];
+                ImmutableArray<(IOperation Source, IOperation Value, ImmutableArray<IInvocationOperation> Calls)> captured = [..
+                    from write in writes
+                    where Captures(scope, write.Calls) && flow.Precedes(value, Position(write.Source, write.Calls, scope), within, token)
+                        && (Written(write.Value) ? Same(Symbol(write.Value), symbol) : values.Overlaps(Origins(write.Value, write.Calls)))
+                    select write];
                 bool escapes = captured.Any(static write => Written(write.Value)) || reads.Exists(read => !captured.Any(write => write.Value == read.Value) && values.Overlaps(Origins(read.Value, read.Calls))
                     && captured.Any(write => flow.Precedes(Position(write.Source, write.Calls, scope), Position(read.Value, read.Calls, scope), within, token)));
                 if (escapes && reported.Add(symbol)) block.ReportDiagnostic(Diagnostic.Create(Rule, symbol.Locations[0], symbol.Name));

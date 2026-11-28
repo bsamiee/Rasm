@@ -97,6 +97,14 @@ internal static class Semantics {
             },
             kinds);
 
+    internal static void Report(SymbolStartAnalysisContext context, Func<SymbolAnalysisContext, IEnumerable<Diagnostic>> found) =>
+        context.RegisterSymbolEndAction(end => {
+            foreach (Diagnostic diagnostic in found(end)) {
+                end.CancellationToken.ThrowIfCancellationRequested();
+                end.ReportDiagnostic(diagnostic);
+            }
+        });
+
     internal static void Report<T>(CompilationStartAnalysisContext context, ImmutableArray<OperationKind> kinds, DiagnosticDescriptor rule, Func<T, OperationAnalysisContext, bool> found) where T : IOperation =>
         Report<T>(context, kinds, (operation, analysis) => found(operation, analysis) ? [Diagnostic.Create(rule, operation.Syntax.GetLocation(), operation.Syntax)] : []);
 
@@ -113,17 +121,17 @@ internal static class Semantics {
                 if (target is not ITupleOperation tuple) continue;
                 ImmutableArray<IOperation> values = value is not null && Stripped(value) is ITupleOperation supplied ? supplied.Elements : [];
                 for (int index = 0; index < tuple.Elements.Length; index++)
-                    pending.Enqueue((tuple.Elements[index], index < values.Length ? values[index] : null));
+                    pending.Enqueue((tuple.Elements[index], values.ElementAtOrDefault(index)));
             }
             return false;
         }
         Report<IAssignmentOperation>(context, [OperationKind.SimpleAssignment, OperationKind.CompoundAssignment, OperationKind.CoalesceAssignment, OperationKind.DeconstructionAssignment], rule, Found);
     }
 
-    internal static Location Named(IInvocationOperation call) =>
-        call.Syntax is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } syntax
+    internal static Location Named(IOperation operation) =>
+        operation.Syntax is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } syntax
             ? Location.Create(syntax.SyntaxTree, TextSpan.FromBounds(access.Name.SpanStart, syntax.Span.End))
-            : call.Syntax.GetLocation();
+            : operation.Syntax.GetLocation();
 
     // --- [SYMBOLS]
 

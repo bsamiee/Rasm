@@ -164,7 +164,11 @@ internal sealed record AnalogVideo(
                 double distance = point.Y - crest;
                 distance -= double.Floor((distance / extent.Height) + 0.5d) * extent.Height;
                 double band = (extent.Height - point.Y) / switchBand;
-                double head = band is >= 0d and < 1d ? switching * (band < crestShare ? band / crestShare : (1d - band) / (1d - crestShare)) : 0d;
+                double head = band switch {
+                    >= 0d and < crestShare => switching * (band / crestShare),
+                    >= crestShare and < 1d => switching * ((1d - band) / (1d - crestShare)),
+                    _ => 0d,
+                };
                 point.X -= (float)((long.IsEvenInteger(line) ? 0d : interlace) + (jitter * draw) + (wrinkle * double.Max(0d, 1d - (double.Abs(distance) / wrinkleBand))) + head);
             }
         };

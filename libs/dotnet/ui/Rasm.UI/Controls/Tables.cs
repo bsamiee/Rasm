@@ -238,7 +238,7 @@ public sealed record Table<TRow>(Content<Seq<TRow>> Rows, Func<TRow, Key> Keyed,
 
     private Seq<ColumnSort> Cycled(Key key) =>
         Sort.Find(entry => entry.Column == key).Match(
-            Some: entry => entry.Descending ? Sort.Filter(held => held.Column != key) : Sort.Map(held => held.Column == key ? held with { Descending = true } : held),
+            Some: entry => entry.Descending ? Sort.Filter(held => held.Column != key) : Sort.Map(held => held with { Descending = held.Descending || held.Column == key }),
             None: () => Sort.Add(new ColumnSort(key, Descending: false)));
 
     private Seq<Column<TRow>> Reordered(Seq<Key> order) => order.Choose(toHashMap(Columns.Map(static column => (column.Key, column))).Find) + Columns.Filter(static column => column.Hidden);

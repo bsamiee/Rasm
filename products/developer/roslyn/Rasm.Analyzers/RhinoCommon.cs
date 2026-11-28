@@ -294,21 +294,17 @@ public sealed class MacGuardAnalyzer : DiagnosticAnalyzer {
             if (broken.IsEmpty) return;
             bool OnMac(IOperation condition) => Stripped(condition) is IInvocationOperation call && Same(call.TargetMethod, mac);
             bool OffMac(IOperation condition) => Stripped(condition) is IUnaryOperation { OperatorKind: UnaryOperatorKind.Not } negated && OnMac(negated.Operand);
-            bool Shields(IOperation parent, IOperation child) =>
-                parent switch {
+            bool Shielded(IOperation child) =>
+                child.Parent switch {
                     IConditionalOperation branch when branch.WhenFalse == child => OnMac(branch.Condition),
                     IConditionalOperation branch when branch.WhenTrue == child => OffMac(branch.Condition),
                     IBinaryOperation { OperatorKind: BinaryOperatorKind.ConditionalAnd } both when both.RightOperand == child => OffMac(both.LeftOperand),
                     IBinaryOperation { OperatorKind: BinaryOperatorKind.ConditionalOr } either when either.RightOperand == child => OnMac(either.LeftOperand),
                     _ => false,
                 };
-            bool Guarded(IOperation node) {
-                for (IOperation child = node; child.Parent is { } parent; child = parent)
-                    if (Shields(parent, child)) return true;
-                return false;
-            }
             Report<IOperation>(start, [OperationKind.Invocation, OperationKind.MethodReference], (operation, _) =>
-                Target(operation) is { } member && broken.FirstOrDefault(row => Same(member, row.Member)) is { Member: not null } row && !Inside<INameOfOperation>(operation) && !Guarded(operation)
+                Target(operation) is { } member && broken.FirstOrDefault(row => Same(member, row.Member)) is { Member: not null } row && !Inside<INameOfOperation>(operation)
+                && !Shielded(operation) && Ancestor<IOperation>(operation, Shielded) is null
                     ? [Diagnostic.Create(Rule, operation.Syntax.GetLocation(), operation.Syntax, row.Fact, row.Action)]
                     : []);
         });
@@ -388,55 +384,52 @@ public sealed class PageControlAnalyzer : DiagnosticAnalyzer {
                         || (call.TargetMethod.Name is "Open" or "Realize" && Namespaced(compilation, call.TargetMethod, views)) => call.TargetMethod,
                     _ => null,
                 };
-            ConcurrentDictionary<INamedTypeSymbol, ConcurrentDictionary<ISymbol, (IMethodSymbol? Realized, ImmutableArray<IOperation> Operations)>> pages = new(SymbolEqualityComparer.Default);
+            ConcurrentDictionary<INamedTypeSymbol, ConcurrentQueue<(ISymbol Owner, ImmutableArray<IOperation> Roots)>> pages = new(SymbolEqualityComparer.Default);
             start.RegisterSymbolStartAction(
                 symbol => {
                     if (symbol.Symbol is not INamedTypeSymbol type || !Derives(type.BaseType, page)) return;
-                    ConcurrentDictionary<ISymbol, (IMethodSymbol? Realized, ImmutableArray<IOperation> Operations)> bodies = pages.GetOrAdd(type, static _ => new(SymbolEqualityComparer.Default));
-                    symbol.RegisterOperationBlockAction(block => {
-                        foreach (IOperation root in from body in block.OperationBlocks from operation in body.DescendantsAndSelf() where operation == body || operation is IAnonymousFunctionOperation or ILocalFunctionOperation select operation) {
-                            ISymbol owner = (root switch {
-                                IAnonymousFunctionOperation function => function.Symbol,
-                                ILocalFunctionOperation function => function.Symbol,
-                                _ => block.OwningSymbol,
-                            }).OriginalDefinition;
-                            ImmutableArray<IOperation> operations = [.. ControlFlow.Operations(root, block.CancellationToken)];
-                            (IMethodSymbol? Realized, ImmutableArray<IOperation> Operations) read = (operations.Select(Realization).FirstOrDefault(static made => made is not null),
-                                [.. operations.Where(static operation => operation is IPropertyReferenceOperation or IFieldReferenceOperation or IInvocationOperation)]);
-                            bodies.AddOrUpdate(owner, read, (_, prior) => (prior.Realized ?? read.Realized, prior.Operations.AddRange(read.Operations)));
-                        }
-                    });
+                    ConcurrentQueue<(ISymbol Owner, ImmutableArray<IOperation> Roots)> blocks = pages.GetOrAdd(type, static _ => new());
+                    symbol.RegisterOperationBlockAction(block => blocks.Enqueue((block.OwningSymbol, [
+                        .. from body in block.OperationBlocks from operation in body.DescendantsAndSelf() where operation == body || operation is IAnonymousFunctionOperation or ILocalFunctionOperation select operation,
+                    ])));
                 },
                 SymbolKind.NamedType);
+            IEnumerable<ISymbol?> Reads(IOperation operation, ImmutableDictionary<SyntaxTree, SemanticModel> provided, CancellationToken token) =>
+                operation switch {
+                    IPropertyReferenceOperation { Parent: ISimpleAssignmentOperation or ITupleOperation } property when Written(property) => [property.Property.SetMethod],
+                    IPropertyReferenceOperation property when Written(property) => [property.Property.GetMethod, property.Property.SetMethod],
+                    IPropertyReferenceOperation property => [property.Property.GetMethod],
+                    IInvocationOperation call => Calls(call, new Reading(call.SemanticModel!, provided, token), flow, callbacks),
+                    _ => [Target(operation)],
+                };
             models.Complete((end, provided) => {
-                foreach (KeyValuePair<INamedTypeSymbol, ConcurrentDictionary<ISymbol, (IMethodSymbol? Realized, ImmutableArray<IOperation> Operations)>> type in pages) {
-                    Dictionary<ISymbol, (IMethodSymbol? Realized, ImmutableArray<ISymbol> Reads)> bodies = [with(SymbolEqualityComparer.Default)];
-                    foreach (KeyValuePair<ISymbol, (IMethodSymbol? Realized, ImmutableArray<IOperation> Operations)> body in type.Value) {
-                        IEnumerable<ISymbol?> Reads(IOperation operation) => operation switch {
-                            IPropertyReferenceOperation property when Written(property) =>
-                                operation.Parent is ISimpleAssignmentOperation or ITupleOperation ? [property.Property.SetMethod] : [property.Property.GetMethod, property.Property.SetMethod],
-                            IPropertyReferenceOperation property => [property.Property.GetMethod],
-                            IInvocationOperation call => Calls(call, new Reading(call.SemanticModel!, provided, end.CancellationToken), flow, callbacks),
-                            _ => [Target(operation)],
-                        };
-                        bodies.Add(body.Key, (body.Value.Realized, [.. body.Value.Operations.SelectMany(Reads).OfType<ISymbol>()
-                            .Where(member => member is not IEventSymbol && Same(member.ContainingType, type.Key)).Select(static member => member.OriginalDefinition).Distinct(SymbolEqualityComparer.Default)]));
-                    }
-                    IMethodSymbol? Reached(ISymbol member) {
-                        HashSet<ISymbol> seen = [with(SymbolEqualityComparer.Default)];
-                        Queue<ISymbol> pending = new([member]);
-                        while (pending.Count is > 0) {
-                            ISymbol current = pending.Dequeue();
-                            end.CancellationToken.ThrowIfCancellationRequested();
-                            if (!seen.Add(current) || !bodies.TryGetValue(current, out (IMethodSymbol? Realized, ImmutableArray<ISymbol> Reads) held)) continue;
-                            if (held.Realized is { } made) return made;
-                            foreach (ISymbol read in held.Reads) pending.Enqueue(read);
-                        }
-                        return null;
-                    }
-                    foreach (IPropertySymbol property in type.Key.GetMembers().OfType<IPropertySymbol>().Where(property => !Same(property, shown) && Overridden(property).Any(held => Same(held, shown))))
-                        if (property.GetMethod is { } getter && Reached(getter.OriginalDefinition) is { } made) end.ReportDiagnostic(Diagnostic.Create(Rule, property.Locations[0], type.Key.Name, Label(made)));
-                }
+                foreach (Diagnostic diagnostic in
+                         from type in pages
+                         let bodies = (from block in type.Value
+                                       from root in block.Roots
+                                       let operations = ImmutableArray.CreateRange(ControlFlow.Operations(root, end.CancellationToken))
+                                       select (Owner: (root switch {
+                                           IAnonymousFunctionOperation function => function.Symbol,
+                                           ILocalFunctionOperation function => function.Symbol,
+                                           _ => block.Owner,
+                                       }).OriginalDefinition, Realized: operations.Select(Realization).FirstOrDefault(static made => made is not null), Operations: operations))
+                             .GroupBy(static body => body.Owner, SymbolEqualityComparer.Default)
+                             .ToDictionary(static body => body.Key, body => (
+                                 Realized: body.Select(static held => held.Realized).FirstOrDefault(static made => made is not null),
+                                 Reads: ImmutableArray.CreateRange(body.SelectMany(static held => held.Operations)
+                                     .Where(static operation => operation is IPropertyReferenceOperation or IFieldReferenceOperation or IInvocationOperation)
+                                     .SelectMany(operation => Reads(operation, provided, end.CancellationToken)).OfType<ISymbol>()
+                                     .Where(member => member is not IEventSymbol && Same(member.ContainingType, type.Key)).Select(static member => member.OriginalDefinition).Distinct(SymbolEqualityComparer.Default))),
+                                 SymbolEqualityComparer.Default)
+                         from property in type.Key.GetMembers().OfType<IPropertySymbol>()
+                         where !Same(property, shown) && Overridden(property).Any(held => Same(held, shown))
+                         from made in ControlFlow.Trace<ISymbol, IMethodSymbol?>(
+                                 property.GetMethod is { } getter ? [getter.OriginalDefinition] : [],
+                                 current => bodies.TryGetValue(current, out (IMethodSymbol? Realized, ImmutableArray<ISymbol> Reads) held) ? (held.Reads, [held.Realized]) : ([], []),
+                                 depthFirst: false, end.CancellationToken, SymbolEqualityComparer.Default)
+                             .OfType<IMethodSymbol>().Take(1)
+                         select Diagnostic.Create(Rule, property.Locations[0], type.Key.Name, Label(made)))
+                    end.ReportDiagnostic(diagnostic);
             });
         });
     }
@@ -567,7 +560,7 @@ public sealed class DefaultedSettingAnalyzer : DiagnosticAnalyzer {
                         Rule,
                         invocation.Syntax.GetLocation(),
                         method.Name,
-                        $"{source.Syntax}.{tried.Name}{(method.IsGenericMethod ? $"<{string.Join(", ", method.TypeArguments.Select(static argument => argument.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))}>" : "")}({invocation.Arguments.First(static argument => argument.Parameter?.Ordinal is 0).Value.Syntax}, out {method.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)} value)")]
+                        $"{source.Syntax}.{tried.Name}{string.Concat(method.ToDisplayParts(SymbolDisplayFormat.MinimallyQualifiedFormat.WithMemberOptions(SymbolDisplayMemberOptions.None)).SkipWhile(static part => part.Kind is SymbolDisplayPartKind.MethodName))}({invocation.Arguments.First(static argument => argument.Parameter?.Ordinal is 0).Value.Syntax}, out {method.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)} value)")]
                     : []);
         });
     }
@@ -650,18 +643,17 @@ public sealed class NarrowedDuplicateAnalyzer : DiagnosticAnalyzer {
             new SemanticModels(start).Report<IInvocationOperation>([OperationKind.Invocation], (invocation, owner, reading) => {
                 if (!Overridden(invocation.TargetMethod).Any(method => Among(method, duplicates))
                     || invocation is not { Type: INamedTypeSymbol copied, Instance.Type: not null }) return [];
-                (SyntaxNode? site, ISymbol holder, IEnumerable<IOperation> operands) = Consumer(invocation) switch {
-                    IArgumentOperation { Parameter: { } parameter } argument => (argument.Syntax, parameter.ContainingSymbol,
+                (ImmutableArray<SyntaxNode> sites, ISymbol holder, IEnumerable<IOperation> operands) = Consumer(invocation) switch {
+                    IArgumentOperation { Parameter: { } parameter } argument => (ImmutableArray.Create(argument.Syntax), parameter.ContainingSymbol,
                         Declarations(parameter.ContainingSymbol.OriginalDefinition, reading).SelectMany(body => References(parameter.OriginalDefinition, body, reading))),
-                    IVariableInitializerOperation { Parent: IVariableDeclaratorOperation { Symbol: var local } } => (null, owner,
+                    IVariableInitializerOperation { Parent: IVariableDeclaratorOperation { Symbol: var local } } => ([], owner,
                         References(local, invocation, reading).OrderBy(static reference => reference.Syntax.SpanStart).TakeWhile(static reference => !Written(reference))),
-                    _ => (null, owner, [invocation]),
+                    _ => ([], owner, [invocation]),
                 };
-                return operands.Select(operand => Narrowing(operand, copied)).OfType<(SyntaxNode Test, ITypeSymbol Narrowed)>().Select(found => Diagnostic.Create(
-                    Rule,
-                    (site ?? found.Test).GetLocation(),
-                    additionalLocations: site is null ? null : [found.Test.GetLocation()],
-                    messageArgs: [Member(holder).Name, invocation.Syntax, found.Narrowed.Name]));
+                return operands.Select(operand => Narrowing(operand, copied)).OfType<(SyntaxNode Test, ITypeSymbol Narrowed)>().Select(found => {
+                    ImmutableArray<Location> located = [.. sites.Add(found.Test).Select(static node => node.GetLocation())];
+                    return Diagnostic.Create(Rule, located[0], additionalLocations: located.Skip(1), messageArgs: [Member(holder).Name, invocation.Syntax, found.Narrowed.Name]);
+                });
             });
         });
     }

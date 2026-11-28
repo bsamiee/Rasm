@@ -72,9 +72,9 @@ public static class PreferenceRows {
                     (Restore: restore, Write: write, Swap: swap),
                     changed: static (state, held) => held.Applies
                         ? Taken(state.Restore).Bind(_ => state.Write(held.Value))
-                        : atomicIO(() => state.Restore.Value).Bind(prior => prior.IsSome
-                            ? state.Write(held.Value)
-                            : state.Swap(held.Value).Bind(back => atomicIO(() => state.Restore.Value = Some(back))).Map(unit)),
+                        : atomicIO(() => state.Restore.Value).Bind(prior => prior.Match(
+                            Some: _ => state.Write(held.Value),
+                            None: IO<Unit> () => state.Swap(held.Value).Bind(back => atomicIO(() => state.Restore.Value = Some(back))).Map(unit))),
                     cancel: static (state, _) => Taken(state.Restore).Bind(static prior => prior.IfNone(IO.pure(unit)))),
             },
         };

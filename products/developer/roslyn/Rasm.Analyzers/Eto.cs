@@ -123,71 +123,72 @@ public sealed class ContainerDisposeAnalyzer : DiagnosticAnalyzer {
         ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)> truth = empty.Add((control, ControlReach.Type));
         ConcurrentDictionary<(ITypeSymbol Type, ControlReach Reach), ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>> completed = new(comparer);
         ConcurrentDictionary<ITypeSymbol, bool> holdings = new(SymbolEqualityComparer.Default);
+        ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)> Formula(
+            Dictionary<(ITypeSymbol Type, ControlReach Reach), ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>> equations, (ITypeSymbol Type, ControlReach Reach) key) {
+            if (completed.TryGetValue(key, out ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>? solved)) return solved;
+            if (equations.TryGetValue(key, out ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>? current)) return current;
+            equations.Add(key, empty);
+            return empty;
+        }
+        ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)> Evaluate(
+            Dictionary<(ITypeSymbol Type, ControlReach Reach), ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>> equations, ITypeSymbol input, ControlReach reach, CancellationToken token) {
+            ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>.Builder result = empty.ToBuilder();
+            HashSet<(ITypeSymbol Type, ControlReach Reach)> seen = [with(comparer)];
+            Queue<(ITypeSymbol Type, ControlReach Reach)> pending = new([(input, reach)]);
+            while (pending.Count is > 0) {
+                token.ThrowIfCancellationRequested();
+                (ITypeSymbol current, ControlReach mode) = pending.Dequeue();
+                if (!seen.Add((current, mode))) continue;
+                if (mode is ControlReach.Type && Derives(current, control)) return truth;
+                if (mode is ControlReach.Type && current is ITypeParameterSymbol) result.Add((current, mode));
+                if (mode is ControlReach.Type) continue;
+                ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)> formula = Formula(equations, (current.OriginalDefinition, mode));
+                if (formula.Contains((control, ControlReach.Type))) return truth;
+                ImmutableArray<((ITypeSymbol Type, ControlReach Reach) Fact, ITypeSymbol Argument)> bound = [..
+                    from fact in formula
+                    select (fact, fact.Type is ITypeParameterSymbol variable
+                        && Containers(current).OfType<INamedTypeSymbol>().FirstOrDefault(part => Same(part, variable.ContainingSymbol)) is { } owner
+                            ? owner.TypeArguments[variable.Ordinal] : fact.Type)];
+                result.UnionWith(bound.Where(static pair => SymbolEqualityComparer.Default.Equals(pair.Argument, pair.Fact.Type)).Select(static pair => pair.Fact));
+                foreach (((ITypeSymbol Type, ControlReach Reach) fact, ITypeSymbol argument) in bound.Where(static pair => !SymbolEqualityComparer.Default.Equals(pair.Argument, pair.Fact.Type)))
+                    pending.Enqueue((argument, fact.Reach));
+            }
+            return result.ToImmutable();
+        }
         bool Holding(ITypeSymbol type, CancellationToken token) => holdings.GetOrAdd(type, source => {
             Dictionary<(ITypeSymbol Type, ControlReach Reach), ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>> equations = [with(comparer)];
-            ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)> Formula((ITypeSymbol Type, ControlReach Reach) key) {
-                if (completed.TryGetValue(key, out ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>? solved)) return solved;
-                if (equations.TryGetValue(key, out ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>? current)) return current;
-                equations.Add(key, empty);
-                return empty;
-            }
-            ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)> Evaluate(ITypeSymbol input, ControlReach reach) {
-                ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>.Builder result = empty.ToBuilder();
-                HashSet<(ITypeSymbol Type, ControlReach Reach)> seen = [with(comparer)];
-                Queue<(ITypeSymbol Type, ControlReach Reach)> pending = new([(input, reach)]);
-                while (pending.Count is > 0) {
-                    token.ThrowIfCancellationRequested();
-                    (ITypeSymbol current, ControlReach mode) = pending.Dequeue();
-                    if (!seen.Add((current, mode))) continue;
-                    if (mode is ControlReach.Type) {
-                        if (Derives(current, control)) return truth;
-                        if (current is ITypeParameterSymbol) result.Add((current, mode));
-                        continue;
-                    }
-                    ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)> formula = Formula((current.OriginalDefinition, mode));
-                    if (formula.Contains((control, ControlReach.Type))) return truth;
-                    foreach ((ITypeSymbol parameter, ControlReach required) in formula) {
-                        ITypeSymbol argument = parameter is ITypeParameterSymbol variable
-                            && Containers(current).OfType<INamedTypeSymbol>().FirstOrDefault(part => Same(part, variable.ContainingSymbol)) is { } owner
-                                ? owner.TypeArguments[variable.Ordinal] : parameter;
-                        if (SymbolEqualityComparer.Default.Equals(argument, parameter)) result.Add((parameter, required));
-                        else pending.Enqueue((argument, required));
-                    }
-                }
-                return result.ToImmutable();
-            }
-            Evaluate(source, ControlReach.Collection);
+            Evaluate(equations, source, ControlReach.Collection, token);
             bool changed;
             do {
                 token.ThrowIfCancellationRequested();
                 int count = equations.Count;
                 changed = false;
-                foreach ((ITypeSymbol owner, ControlReach mode) in equations.Keys.ToImmutableArray()) {
-                    ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)> result = owner is ITypeParameterSymbol ? empty.Add((owner, mode)) : empty;
-                    result = mode is ControlReach.Collection
-                        ? result.Union(owner.AllInterfaces.Append(owner).OfType<INamedTypeSymbol>()
+                foreach (((ITypeSymbol Type, ControlReach Reach) key, ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)> result) in
+                    from key in equations.Keys.ToImmutableArray()
+                    let free = key.Type is ITypeParameterSymbol ? empty.Add(key) : empty
+                    let result = key.Reach is ControlReach.Collection
+                        ? free.Union(key.Type.AllInterfaces.Append(key.Type).OfType<INamedTypeSymbol>()
                             .Where(static face => face.OriginalDefinition.SpecialType is SpecialType.System_Collections_Generic_IEnumerable_T)
-                            .SelectMany(face => Evaluate(face.TypeArguments[0], ControlReach.Properties)))
-                        : result.Union(Evaluate(owner, ControlReach.Type)).Union(Bases(owner).SelectMany(static type => type.GetMembers()).OfType<IPropertySymbol>()
-                            .SelectMany(property => Evaluate(property.Type, ControlReach.Type).Union(Evaluate(property.Type, ControlReach.Collection))));
-                    if (equations[(owner, mode)].SetEquals(result)) continue;
-                    equations[(owner, mode)] = result;
+                            .SelectMany(face => Evaluate(equations, face.TypeArguments[0], ControlReach.Properties, token)))
+                        : free.Union(Evaluate(equations, key.Type, ControlReach.Type, token)).Union(Bases(key.Type).SelectMany(static type => type.GetMembers()).OfType<IPropertySymbol>()
+                            .SelectMany(property => Evaluate(equations, property.Type, ControlReach.Type, token).Union(Evaluate(equations, property.Type, ControlReach.Collection, token))))
+                    where !equations[key].SetEquals(result)
+                    select (key, result)) {
+                    equations[key] = result;
                     changed = true;
                 }
-                Evaluate(source, ControlReach.Collection);
+                Evaluate(equations, source, ControlReach.Collection, token);
                 changed |= count != equations.Count;
             } while (changed);
             foreach (KeyValuePair<(ITypeSymbol Type, ControlReach Reach), ImmutableHashSet<(ITypeSymbol Type, ControlReach Reach)>> equation in equations) completed.TryAdd(equation.Key, equation.Value);
-            return Evaluate(source, ControlReach.Collection).Contains((control, ControlReach.Type));
+            return Evaluate(equations, source, ControlReach.Collection, token).Contains((control, ControlReach.Type));
         });
-        IEnumerable<IOperation> Initialized(IOperation? initializer, CancellationToken token) =>
-            initializer is IObjectOrCollectionInitializerOperation members
-                ? members.Initializers.SelectMany(member => member switch {
-                    ISimpleAssignmentOperation { Target: IPropertyReferenceOperation property } assignment when Derives(property.Property.Type, control) => [assignment.Value],
-                    IMemberInitializerOperation { InitializedMember: IPropertyReferenceOperation property } nested when Holding(property.Property.Type, token) => [nested.Initializer],
-                    _ => Enumerable.Empty<IOperation>(),
-                })
-                : [];
+        IEnumerable<IOperation> Initialized(IObjectOrCollectionInitializerOperation? initializer, CancellationToken token) =>
+            (initializer?.Initializers ?? []).SelectMany(member => member switch {
+                ISimpleAssignmentOperation { Target: IPropertyReferenceOperation property } assignment when Derives(property.Property.Type, control) => [assignment.Value],
+                IMemberInitializerOperation { InitializedMember: IPropertyReferenceOperation property } nested when Holding(property.Property.Type, token) => [nested.Initializer],
+                _ => Enumerable.Empty<IOperation>(),
+            });
         IEnumerable<IOperation> Created(IOperation? origin, CancellationToken token) =>
             origin is null ? [] : origin.DescendantsAndSelf().OfType<IObjectCreationOperation>().Where(creation => Derives(creation.Type, container)).SelectMany(creation => Initialized(creation.Initializer, token));
         static IEnumerable<IOperation> Paired(IPropertyReferenceOperation property, IDeconstructionAssignmentOperation deconstruction) =>
@@ -288,10 +289,11 @@ public sealed class RetainedTransferAnalyzer : DiagnosticAnalyzer {
                 IOperation value = Stripped(pending.Pop());
                 reading.Token.ThrowIfCancellationRequested();
                 if (value is IInvocationOperation call && Among(call.TargetMethod, lifetimes.Retains)) return Label(call);
-                if (value is ITranslatedQueryOperation { Syntax: QueryExpressionSyntax { Body.SelectOrGroup: SelectClauseSyntax select } }
-                    && reading.For(select.SyntaxTree)?.GetOperation(select.Expression, reading.Token) is { } result) pending.Push(result);
-                else if (Holders.Held(value, reading) is { } bound && seen.Add(bound))
-                    foreach (IOperation origin in Origins(bound, reading)) pending.Push(origin);
+                IEnumerable<IOperation> next = value is ITranslatedQueryOperation { Syntax: QueryExpressionSyntax { Body.SelectOrGroup: SelectClauseSyntax select } }
+                    && reading.For(select.SyntaxTree)?.GetOperation(select.Expression, reading.Token) is { } result ? [result]
+                    : Holders.Held(value, reading) is { } bound && seen.Add(bound) ? Origins(bound, reading)
+                    : [];
+                foreach (IOperation origin in next) pending.Push(origin);
             }
             return null;
         }

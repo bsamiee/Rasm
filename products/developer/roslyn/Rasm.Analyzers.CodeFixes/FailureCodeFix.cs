@@ -27,12 +27,10 @@ public sealed class FailureCodeFix() : DocumentEditorCodeFix(
             InvocationExpressionSyntax recovery = Invoked(Access(TypeExpression(generator, method.ContainingType),
                 SyntaxFactory.GenericName(Identifier(generator, method.Name).Identifier,
                     SyntaxFactory.TypeArgumentList(Punctuation(SyntaxKind.LessThanToken), Separated(types.Select(type => TypeExpression(generator, type))), Punctuation(SyntaxKind.GreaterThanToken)))), []);
-            SeparatedSyntaxList<ArgumentSyntax> arguments = SyntaxFactory.SeparatedList(current.ArgumentList.Arguments.Zip(names, (argument, name) => {
-                IdentifierNameSyntax identifier = Identifier(generator, name);
-                return argument.WithNameColon(argument.NameColon is { } named
-                    ? named.WithName(identifier.WithTriviaFrom(named.Name))
-                    : SyntaxFactory.NameColon(identifier, Punctuation(SyntaxKind.ColonToken)));
-            }), current.ArgumentList.Arguments.GetSeparators());
+            SeparatedSyntaxList<ArgumentSyntax> arguments = SyntaxFactory.SeparatedList(current.ArgumentList.Arguments.Zip(names, (argument, name) =>
+                argument.WithNameColon((argument.NameColon ?? SyntaxFactory.NameColon(Identifier(generator, name), Punctuation(SyntaxKind.ColonToken))) switch {
+                    var colon => colon.WithName(Identifier(generator, name).WithTriviaFrom(colon.Name)),
+                })), current.ArgumentList.Arguments.GetSeparators());
             return current.CopyAnnotationsTo(Parenthesized(SyntaxFactory.BinaryExpression(SyntaxKind.BitwiseOrExpression, source, Punctuation(SyntaxKind.BarToken),
                     recovery.WithArgumentList(current.ArgumentList.WithArguments(arguments)))))
                 .WithAdditionalAnnotations(Simplifier.Annotation, Formatter.Annotation);

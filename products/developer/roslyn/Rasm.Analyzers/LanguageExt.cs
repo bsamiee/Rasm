@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Analyzer.Utilities;
 using Microsoft.CodeAnalysis;
@@ -51,7 +50,7 @@ public sealed class ResultLiftAnalyzer : DiagnosticAnalyzer {
                 .. fin.GetTypeMembers().Where(nested => Derives(nested, fin)),
                 .. validation.GetTypeMembers().Where(nested => Derives(nested, validation)),
             ];
-            (IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion, ExpressionSyntax Value)? Candidate(IOperation operation) {
+            (IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion, ExpressionSyntax Value, SyntaxNode Scope)? Candidate(IOperation operation) {
                 IParameterSymbol? parameter = operation switch {
                     IInvocationOperation { Arguments: { Length: 1 } arguments } call when Among(call.TargetMethod, factories) => arguments[0].Parameter,
                     IObjectCreationOperation { Arguments: { Length: 1 } arguments, Initializer: null, Constructor: { } made } when Among(made.ContainingType, cases) => arguments[0].Parameter,
@@ -64,28 +63,24 @@ public sealed class ResultLiftAnalyzer : DiagnosticAnalyzer {
                     && Unlifted(operation.Syntax) is { } value
                     && operation.SemanticModel?.ClassifyConversion(value, target) is { IsImplicit: true, IsUserDefined: true, MethodSymbol: { Parameters: { Length: 1 } sources } conversion }
                     && SymbolEqualityComparer.Default.Equals(sources[0].Type, parameter.Type)
-                    ? (operation, target, conversion, value)
+                    && !Inferred(operation)
+                    && Scope(operation.Syntax) is { } scope
+                    ? (operation, target, conversion, value, scope)
                     : null;
             }
-            start.RegisterOperationBlockStartAction(block => {
-                ConcurrentDictionary<SyntaxNode, ConcurrentBag<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion, ExpressionSyntax Value)>> candidates = new();
-                block.RegisterOperationAction(analysis => {
-                    if (Candidate(analysis.Operation) is { } candidate && !Inferred(candidate.Lift) && Scope(candidate.Lift.Syntax) is { } root)
-                        candidates.GetOrAdd(root, static _ => []).Add(candidate);
-                }, OperationKind.Invocation, OperationKind.ObjectCreation, OperationKind.Conversion);
-                block.RegisterOperationBlockEndAction(end => {
-                    foreach (KeyValuePair<SyntaxNode, ConcurrentBag<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion, ExpressionSyntax Value)>> scope in candidates) {
-                        end.CancellationToken.ThrowIfCancellationRequested();
-                        SyntaxNode root = scope.Key;
-                        ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion, ExpressionSyntax Value)> lifts = [.. scope.Value.OrderByDescending(static lift => lift.Lift.Syntax.SpanStart).ThenBy(static lift => lift.Lift.Syntax.Span.Length)];
-                        ImmutableArray<(SyntaxNode Site, ISymbol? Symbol)> calls = Calls(lifts[0].Lift.SemanticModel!.GetOperation(root, end.CancellationToken));
-                        ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion, ExpressionSyntax Value)> removed = Holds(root, calls, lifts, end.CancellationToken) ? lifts : lifts.Length is 1 ? [] : lifts.Aggregate(
-                            ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion, ExpressionSyntax Value)>.Empty,
-                            (held, next) => held.Add(next) switch { var proposed => Holds(root, calls, proposed, end.CancellationToken) ? proposed : held });
-                        foreach ((IOperation lift, INamedTypeSymbol target, _, ExpressionSyntax value) in removed)
-                            end.ReportDiagnostic(Diagnostic.Create(Rule, lift.Syntax.GetLocation(), lift.Syntax, value, target.ToDisplayString(Shown)));
-                    }
-                });
+            start.RegisterOperationBlockAction(block => {
+                IEnumerable<Diagnostic> found =
+                    from scope in block.OperationBlocks.SelectMany(static root => root.DescendantsAndSelf())
+                        .Where(static operation => operation.Kind is OperationKind.Invocation or OperationKind.ObjectCreation or OperationKind.Conversion)
+                        .Select(Candidate).OfType<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion, ExpressionSyntax Value, SyntaxNode Scope)>()
+                        .GroupBy(static candidate => candidate.Scope)
+                    let lifts = scope.OrderByDescending(static lift => lift.Lift.Syntax.SpanStart).ThenBy(static lift => lift.Lift.Syntax.Span.Length).ToImmutableArray()
+                    let calls = Calls(lifts[0].Lift.SemanticModel!.GetOperation(scope.Key, block.CancellationToken))
+                    from lift in Removable(scope.Key, calls, lifts, block.CancellationToken) ?? (lifts.Length is 1 ? [] : lifts.Aggregate(
+                        ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion, ExpressionSyntax Value, SyntaxNode Scope)>.Empty,
+                        (held, next) => Removable(scope.Key, calls, held.Add(next), block.CancellationToken) ?? held))
+                    select Diagnostic.Create(Rule, lift.Lift.Syntax.GetLocation(), lift.Lift.Syntax, lift.Value, lift.Target.ToDisplayString(Shown));
+                foreach (Diagnostic diagnostic in found) block.ReportDiagnostic(diagnostic);
             });
         });
     }
@@ -125,7 +120,9 @@ public sealed class ResultLiftAnalyzer : DiagnosticAnalyzer {
                 : null;
     }
 
-    private static bool Holds(SyntaxNode scope, ImmutableArray<(SyntaxNode Site, ISymbol? Symbol)> calls, ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion, ExpressionSyntax Value)> removed, CancellationToken token) {
+    private static ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion, ExpressionSyntax Value, SyntaxNode Scope)>? Removable(
+        SyntaxNode scope, ImmutableArray<(SyntaxNode Site, ISymbol? Symbol)> calls, ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion, ExpressionSyntax Value, SyntaxNode Scope)> removed, CancellationToken token) {
+        token.ThrowIfCancellationRequested();
         SemanticModel model = removed[0].Lift.SemanticModel!;
         ImmutableDictionary<SyntaxNode, SyntaxAnnotation> marked = removed.ToImmutableDictionary(static lift => lift.Lift.Syntax, static _ => new SyntaxAnnotation());
         SyntaxAnnotation outer = new();
@@ -137,14 +134,16 @@ public sealed class ResultLiftAnalyzer : DiagnosticAnalyzer {
             EqualsValueClauseSyntax initializer when model.TryGetSpeculativeSemanticModel(scope.SpanStart, initializer, out SemanticModel? held) => held,
             _ => null,
         };
-        if (speculative is null) return false;
+        if (speculative is null) return null;
         SyntaxNode rebound = speculative.SyntaxTree.GetRoot(token).GetAnnotatedNodes(outer).First();
         return removed.Select(lift => (Lift: lift, Site: (ExpressionSyntax)rebound.GetAnnotatedNodes(marked[lift.Lift.Syntax]).First()))
             .All(held => speculative.GetConversion(held.Site, token) is { IsImplicit: true, IsUserDefined: true, MethodSymbol: var conversion }
                 && SymbolEqualityComparer.Default.Equals(conversion, held.Lift.Conversion)
                 && SymbolEqualityComparer.Default.Equals(speculative.GetTypeInfo(held.Site, token).ConvertedType, held.Lift.Target))
             && calls.Where(call => !marked.ContainsKey(call.Site)).Select(static call => call.Symbol).SequenceEqual(
-                Calls(speculative.GetOperation(rebound, token)).Select(static call => call.Symbol), SymbolEqualityComparer.Default);
+                Calls(speculative.GetOperation(rebound, token)).Select(static call => call.Symbol), SymbolEqualityComparer.Default)
+            ? removed
+            : null;
     }
 
     private static ImmutableArray<(SyntaxNode Site, ISymbol? Symbol)> Calls(IOperation? scope) =>
@@ -192,13 +191,7 @@ public sealed class ErrorTypeTestAnalyzer : DiagnosticAnalyzer {
             ITypeSymbol? Narrowed(IOperation pattern) =>
                 pattern.DescendantsAndSelf().OfType<IPatternOperation>().Where(nested => Same(nested.InputType, error)).Select(static nested => nested.NarrowedType).FirstOrDefault(Case);
             bool Visits(ISymbol member) => Overridden(member).Any(held => Among(held, leaves));
-            bool Iterated(IOperation? source) {
-                while (source is not null && Stripped(source) is IInvocationOperation call) {
-                    if (Visits(call.TargetMethod)) return true;
-                    source = Receiver(call);
-                }
-                return false;
-            }
+            bool Iterated(IOperation? source) => source is not null && Stripped(source) is IInvocationOperation call && (Visits(call.TargetMethod) || Iterated(Receiver(call)));
             bool Leaf(IOperation tested) =>
                 Stripped(tested) switch {
                     IPropertyReferenceOperation reference => Visits(reference.Property),
@@ -261,33 +254,23 @@ public sealed class ValidationRoundTripAnalyzer : DiagnosticAnalyzer {
             IOperation? Source(IOperation operation, INamedTypeSymbol from, INamedTypeSymbol to) =>
                 operation is IInvocationOperation call && Same(call.TargetMethod.ContainingAssembly, fin.ContainingAssembly) && Parameterless(call)
                 && Receiver(call) is { } held && Same(held.Type, from) && Same(call.Type, to) ? Stripped(held) : null;
-            ImmutableArray<IOperation> Hops(IOperation operand, CancellationToken token) {
-                ImmutableArray<IOperation>.Builder hops = ImmutableArray.CreateBuilder<IOperation>();
-                Stack<IOperation> remaining = new([operand]);
-                while (remaining.Count is not 0) {
-                    token.ThrowIfCancellationRequested();
-                    IOperation held = Stripped(remaining.Pop());
-                    if (Source(held, fin, validation) is not null) {
-                        hops.Add(held);
-                        continue;
-                    }
-                    switch (Source(held, kind, validation)) {
-                        case IInvocationOperation apply when Among(apply.TargetMethod, applies) && Receiver(apply) is { } tupled && Stripped(tupled) is ITupleOperation tuple:
-                            foreach (IOperation element in tuple.Elements.Reverse()) remaining.Push(element);
-                            break;
-                        case IInvocationOperation traverse when Among(traverse.TargetMethod, traversals)
-                            && traverse.Arguments.FirstOrDefault(static argument => argument.Parameter!.Type.TypeKind is TypeKind.Delegate)?.Value is { } mapped
-                            && Lambda(mapped) is { } function && Sole(function.Body) is { } returned:
-                            remaining.Push(returned);
-                            break;
-                        default:
-                            return [];
-                    }
-                }
-                return hops.DrainToImmutable();
+            ImmutableArray<IOperation>? Hops(IOperation operand, ImmutableArray<IOperation>? walked, CancellationToken token) {
+                if (walked is not { } hops) return null;
+                token.ThrowIfCancellationRequested();
+                IOperation held = Stripped(operand);
+                return Source(held, fin, validation) is not null ? hops.Add(held)
+                    : Source(held, kind, validation) is not IInvocationOperation lifted ? null
+                    : Among(lifted.TargetMethod, applies) && Receiver(lifted) is { } tupled && Stripped(tupled) is ITupleOperation tuple
+                        ? tuple.Elements.Aggregate(walked, (prior, element) => Hops(element, prior, token))
+                    : Among(lifted.TargetMethod, traversals)
+                        && lifted.Arguments.FirstOrDefault(static argument => argument.Parameter!.Type.TypeKind is TypeKind.Delegate)?.Value is { } mapped
+                        && Lambda(mapped) is { } function && Sole(function.Body) is { } returned
+                        ? Hops(returned, hops, token)
+                    : null;
             }
             Report<IInvocationOperation>(start, [OperationKind.Invocation], (exit, analysis) =>
-                Source(exit, validation, fin) is { } inner && Hops(inner, analysis.CancellationToken) is { IsEmpty: false } hops && (Source(inner, kind, validation) ?? inner) is IInvocationOperation named
+                Source(exit, validation, fin) is { } inner && Hops(inner, ImmutableArray<IOperation>.Empty, analysis.CancellationToken) is { IsEmpty: false } hops
+                && (Source(inner, kind, validation) ?? inner) is IInvocationOperation named
                     ? [Diagnostic.Create(
                         Rule,
                         Named(exit),
@@ -420,13 +403,12 @@ public sealed class OptionHandlerAnalyzer : DiagnosticAnalyzer {
                     IDelegateCreationOperation { Target: IMethodReferenceOperation { Method: { Parameters: { Length: 1 } parameters } method } } when Same(method, identity) => parameters[0].Type,
                     _ => null,
                 };
-            static bool Empty(IOperation value) {
-                while (Stripped(value) is IDelegateCreationOperation { Target: IAnonymousFunctionOperation { Symbol.Parameters.IsEmpty: true } function }) {
-                    if (Sole(function.Body) is not { } returned) return false;
-                    value = returned;
-                }
-                return Stripped(value) is IDefaultValueOperation or { ConstantValue: { HasValue: true, Value: null } };
-            }
+            static bool Empty(IOperation value) =>
+                Stripped(value) switch {
+                    IDelegateCreationOperation { Target: IAnonymousFunctionOperation { Symbol.Parameters.IsEmpty: true } function } => Sole(function.Body) is { } returned && Empty(returned),
+                    IDefaultValueOperation or { ConstantValue: { HasValue: true, Value: null } } => true,
+                    _ => false,
+                };
             bool Nulled(ITypeSymbol element, ITypeSymbol? produced) =>
                 element.IsReferenceType ? SymbolEqualityComparer.Default.Equals(produced, element)
                 : produced is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable && SymbolEqualityComparer.Default.Equals(nullable.TypeArguments[0], element);
@@ -501,7 +483,7 @@ public sealed class RecordLensAnalyzer : DiagnosticAnalyzer {
     private static readonly DiagnosticDescriptor Rule = new(
         "RASM1010",
         "Record property lens written by hand, write `with` at the edit",
-        "`{0}` restates {1} `{2}` of `{3}`, write `{4}` at the edit",
+        "`{0}` restates `{1}` of `{2}`, write `{3}` at the edit",
         Categories.LanguageExt,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
@@ -544,14 +526,13 @@ public sealed class RecordLensAnalyzer : DiagnosticAnalyzer {
                     || Sole(writer.Body) is not { } written || Written(written, writer.Symbol.Parameters[0], setter.Symbol.Parameters[0], analysis.CancellationToken) is not { } wrote || !Enumerable.SequenceEqual(wrote, path, SymbolEqualityComparer.Default) || !path.All(Positional)
                     ? []
                     : [
-                    Diagnostic.Create(
-                        Rule,
-                        call.Syntax.GetLocation(),
-                        $"{call.TargetMethod.ContainingType.ToDisplayString(Shown)}.{call.TargetMethod.Name}",
-                        path.Length is 1 ? "property" : "path",
-                        string.Join(".", path.Select(static property => property.Name)),
-                        getter.Symbol.Parameters[0].Type.ToDisplayString(Shown),
-                        written.Syntax),
+                        Diagnostic.Create(
+                            Rule,
+                            call.Syntax.GetLocation(),
+                            $"{call.TargetMethod.ContainingType.ToDisplayString(Shown)}.{call.TargetMethod.Name}",
+                            string.Join(".", path.Select(static property => property.Name)),
+                            getter.Symbol.Parameters[0].Type.ToDisplayString(Shown),
+                            written.Syntax),
                     ];
             });
         });
@@ -589,17 +570,21 @@ public sealed class LiftedContinuationAnalyzer : DiagnosticAnalyzer {
             bool Valued(ITypeSymbol? type) => type is not null && values.Contains(type.OriginalDefinition, SymbolEqualityComparer.Default);
             bool Held(IOperation? receiver, CancellationToken token) {
                 IOperation? source = receiver is null ? null : Stripped(receiver);
-                if (source is IInvocationOperation narrowed && Among(narrowed.TargetMethod, narrowings) && Parameterless(narrowed)) source = Receiver(narrowed) is { } inner ? Stripped(inner) : null;
+                source = source is not IInvocationOperation narrowed || !Among(narrowed.TargetMethod, narrowings) || !Parameterless(narrowed) ? source
+                    : Receiver(narrowed) is { } inner ? Stripped(inner)
+                    : null;
                 if (source is ILocalReferenceOperation { Local.DeclaringSyntaxReferences: { Length: 1 } declared } local
                     && declared[0].GetSyntax(token) is VariableDeclaratorSyntax { Initializer.Value: var initial }) source = local.SemanticModel?.GetOperation(initial, token);
                 return source is IInvocationOperation { Syntax: InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Name: GenericNameSyntax } } } lifted
                     && Among(lifted.TargetMethod, lifts) && Valued(lifted.TargetMethod.TypeArguments[0]);
             }
             Report<IInvocationOperation>(start, [OperationKind.Invocation], (step, analysis) => {
-                (IOperation? body, ExpressionSyntax? syntax) = step.Arguments is not { Length: 1 } arguments ? (null, null)
-                    : Lambda(arguments[0].Value) is { Symbol.Parameters.IsEmpty: true, Syntax: LambdaExpressionSyntax { ExpressionBody: { } thunked } and not ParenthesizedLambdaExpressionSyntax { ReturnType: not null } } thunk
-                        ? (Among(step.TargetMethod, lifts) ? (Sole(thunk.Body), thunked) : (null, null))
-                    : Among(step.TargetMethod, pures) && arguments[0].Value.Syntax is ExpressionSyntax given ? (Stripped(arguments[0].Value), given)
+                if (step.Arguments is not { Length: 1 } arguments) return [];
+                IAnonymousFunctionOperation? thunk = Lambda(arguments[0].Value) is { Symbol.Parameters.IsEmpty: true, Syntax: LambdaExpressionSyntax { ExpressionBody: not null } and not ParenthesizedLambdaExpressionSyntax { ReturnType: not null } } function
+                    ? function
+                    : null;
+                (IOperation? body, ExpressionSyntax? syntax) = thunk is { Syntax: LambdaExpressionSyntax { ExpressionBody: { } thunked } } && Among(step.TargetMethod, lifts) ? (Sole(thunk.Body), thunked)
+                    : thunk is null && Among(step.TargetMethod, pures) && arguments[0].Value.Syntax is ExpressionSyntax given ? (Stripped(arguments[0].Value), given)
                     : (null, null);
                 if (body is null || syntax is null
                     || Consumer(step) is not IReturnOperation { Parent: IBlockOperation { Parent: IAnonymousFunctionOperation outer } } || Sole(outer.Body) != step
@@ -611,25 +596,25 @@ public sealed class LiftedContinuationAnalyzer : DiagnosticAnalyzer {
                 string shown = syntax.ToString();
                 bool projected = !body.DescendantsAndSelf().Any(static operation => operation is IInvocationOperation or IDynamicInvocationOperation or IAssignmentOperation or IIncrementOrDecrementOperation
                     or IEventAssignmentOperation or IRaiseEventOperation or IDynamicObjectCreationOperation or ITypeParameterObjectCreationOperation or IObjectCreationOperation { Type.IsRecord: false });
-                (string Text, ImmutableDictionary<string, string?> Properties, Location Location)? written = (produced, outer.Syntax, step.Syntax.Parent) switch {
-                    (ITypeParameterSymbol, _, FromClauseSyntax { Type: null, Parent: QueryBodySyntax } clause)
+                (LambdaExpressionSyntax Continuation, ExpressionSyntax Lifted, ExpressionSyntax Receiver, ITypeSymbol Bound, bool Inferred)? mapped = produced is ITypeParameterSymbol && projected
+                    && outer.Syntax is LambdaExpressionSyntax { AsyncKeyword.RawKind: 0, ExpressionBody: { } lifted } continuation and not ParenthesizedLambdaExpressionSyntax { ReturnType: not null }
+                    && Among(bind.TargetMethod, binds) && bind.Syntax is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } && bind.TargetMethod.TypeArguments is { Length: 1 } bound
+                        ? (continuation, lifted, access.Expression, bound[0], SymbolEqualityComparer.Default.Equals(body.Type, bound[0]))
+                        : null;
+                (string Text, ImmutableDictionary<string, string?> Properties, Location Location)? written = (produced, step.Syntax.Parent, mapped, body) switch {
+                    (ITypeParameterSymbol, FromClauseSyntax { Type: null, Parent: QueryBodySyntax } clause, _, _)
                         when projected && !Among(bind.TargetMethod, binds) && SymbolEqualityComparer.Default.Equals(body.Type, step.TargetMethod.TypeArguments[0]) =>
                         ($"let {clause.Identifier.Text} = {shown}", ImmutableDictionary<string, string?>.Empty.Add(nameof(LetClauseSyntax), value: null), step.Syntax.GetLocation()),
-                    (ITypeParameterSymbol, LambdaExpressionSyntax { AsyncKeyword.RawKind: 0, ExpressionBody: { } lifted } continuation, _)
-                        when projected && continuation is not ParenthesizedLambdaExpressionSyntax { ReturnType: not null } && Among(bind.TargetMethod, binds)
-                        && bind.Syntax is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } && bind.TargetMethod.TypeArguments is { Length: 1 } bound =>
-                        (body, SymbolEqualityComparer.Default.Equals(body.Type, bound[0])) switch {
-                            (IParameterReferenceOperation reference, true) when Same(reference.Parameter, parameter) =>
-                                (access.Expression.ToString(), ImmutableDictionary<string, string?>.Empty.Add(nameof(IParameterReferenceOperation), value: null), Named(bind)),
-                            (_, true) =>
-                                ($"{maps[0].Name}({continuation.ToString().Substring(0, lifted.SpanStart - continuation.SpanStart)}{shown})",
-                                    ImmutableDictionary<string, string?>.Empty.Add(nameof(IMethodSymbol), maps[0].Name), Named(bind)),
-                            _ => bound[0].ToMinimalDisplayString(step.SemanticModel!, step.Syntax.SpanStart) switch {
-                                var type => ($"{maps[0].Name}<{type}>({continuation.ToString().Substring(0, lifted.SpanStart - continuation.SpanStart)}{shown})",
-                                    ImmutableDictionary<string, string?>.Empty.Add(nameof(IMethodSymbol), maps[0].Name).Add(nameof(ITypeSymbol), type), Named(bind)),
-                            },
-                        },
-                    (INamedTypeSymbol, _, _) when Valued(produced) && !Held(Receiver(bind), analysis.CancellationToken) =>
+                    (_, _, { Inferred: true } map, IParameterReferenceOperation reference) when Same(reference.Parameter, parameter) =>
+                        (map.Receiver.ToString(), ImmutableDictionary<string, string?>.Empty.Add(nameof(IParameterReferenceOperation), value: null), Named(bind)),
+                    (_, _, { Inferred: true } map, _) =>
+                        ($"{maps[0].Name}({map.Continuation.ToString().Substring(0, map.Lifted.SpanStart - map.Continuation.SpanStart)}{shown})",
+                            ImmutableDictionary<string, string?>.Empty.Add(nameof(IMethodSymbol), maps[0].Name), Named(bind)),
+                    (_, _, { } map, _) => map.Bound.ToMinimalDisplayString(step.SemanticModel!, step.Syntax.SpanStart) switch {
+                        var type => ($"{maps[0].Name}<{type}>({map.Continuation.ToString().Substring(0, map.Lifted.SpanStart - map.Continuation.SpanStart)}{shown})",
+                            ImmutableDictionary<string, string?>.Empty.Add(nameof(IMethodSymbol), maps[0].Name).Add(nameof(ITypeSymbol), type), Named(bind)),
+                    },
+                    (INamedTypeSymbol, _, _, _) when Valued(produced) && !Held(Receiver(bind), analysis.CancellationToken) =>
                         (FormattableString.Invariant($"{((InvocationExpressionSyntax)step.Syntax).Expression}({shown})"), ImmutableDictionary<string, string?>.Empty, step.Syntax.GetLocation()),
                     _ => null,
                 };
@@ -706,36 +691,29 @@ public sealed class CatchPredicateAnalyzer : DiagnosticAnalyzer {
             ];
             ImmutableArray<IMethodSymbol> recoveries = Members(io, "Catch", "IfFail", "Match", "Combine");
             ImmutableArray<IMethodSymbol> narrowed = Members(types.GetOrCreateTypeByMetadataName("LanguageExt.IOExtensions"), "As");
-            bool Evaluated(IOperation source, CancellationToken token) {
-                Stack<ControlFlow.Value> remaining = new([ControlFlow.At(source)]);
-                HashSet<ControlFlow.Value> seen = [];
-                while (remaining.Count is not 0) {
-                    token.ThrowIfCancellationRequested();
-                    ControlFlow.Value current = remaining.Pop();
-                    if (!seen.Add(current)) continue;
-                    IEnumerable<ControlFlow.Value>? next = current.Operation switch {
-                        IParenthesizedOperation grouped => [current.With(grouped.Operand)],
-                        IConversionOperation { OperatorMethod.ContainingType: { } owner } when Same(owner, io) => [],
-                        IConversionOperation { OperatorMethod: null } converted => [current.With(converted.Operand)],
-                        IConditionalOperation { WhenFalse: { } absent } conditional => [current.With(conditional.WhenTrue), current.With(absent)],
-                        ICoalesceOperation coalesced => [current.With(coalesced.Value), current.With(coalesced.WhenNull)],
-                        ISwitchExpressionOperation switched => switched.Arms.Select(arm => current.With(arm.Value)),
-                        ILocalReferenceOperation or IFlowCaptureReferenceOperation when flow.Values(current, token) is var values && values.All(static definition => definition.HasValue) => values.Select(static definition => definition.Value),
-                        IInvocationOperation call when Among(call.TargetMethod, suspended) => [],
-                        IInvocationOperation call when Among(call.TargetMethod, recoveries) => call.Arguments
-                            .Where(argument => argument.Parameter?.OriginalDefinition.Type is INamedTypeSymbol parameter &&
-                                (Same(parameter, io) || (parameter.DelegateInvokeMethod?.ReturnType is INamedTypeSymbol returned &&
-                                    (Same(returned, io) || Same(returned, kind)))))
-                            .Select(argument => Lambda(argument.Value) is { } handler && Sole(handler.Body) is { } returned ? ControlFlow.At(returned) : current.With(argument.Value)),
-                        IInvocationOperation { Instance: { } receiver } call when Same(call.TargetMethod.ContainingType, io) => [current.With(receiver)],
-                        IInvocationOperation { Arguments: { Length: 1 } arguments } call when Among(call.TargetMethod, narrowed) => [current.With(arguments[0].Value)],
-                        _ => null,
-                    };
-                    if (next is null) return true;
-                    foreach (ControlFlow.Value child in next) remaining.Push(child);
-                }
-                return false;
-            }
+            bool Evaluated(IOperation source, CancellationToken token) =>
+                ControlFlow.Trace<ControlFlow.Value, IOperation>([ControlFlow.At(source)], current => current.Operation switch {
+                    IParenthesizedOperation grouped => ([current.With(grouped.Operand)], []),
+                    IConversionOperation { OperatorMethod.ContainingType: { } owner } when Same(owner, io) => ([], []),
+                    IConversionOperation { OperatorMethod: null } converted => ([current.With(converted.Operand)], []),
+                    IConditionalOperation { WhenFalse: { } absent } conditional => ([current.With(conditional.WhenTrue), current.With(absent)], []),
+                    ICoalesceOperation coalesced => ([current.With(coalesced.Value), current.With(coalesced.WhenNull)], []),
+                    ISwitchExpressionOperation switched => (switched.Arms.Select(arm => current.With(arm.Value)), []),
+                    ILocalReferenceOperation or IFlowCaptureReferenceOperation when flow.Values(current, token) is var values && values.All(static definition => definition.HasValue) =>
+                        (values.Select(static definition => definition.Value), []),
+                    IDelegateCreationOperation { Target: IAnonymousFunctionOperation handler } creation
+                        when Consumer(creation) is IArgumentOperation { Parent: IInvocationOperation recovery } && Among(recovery.TargetMethod, recoveries) && Sole(handler.Body) is { } returned =>
+                        ([ControlFlow.At(returned)], []),
+                    IInvocationOperation call when Among(call.TargetMethod, suspended) => ([], []),
+                    IInvocationOperation call when Among(call.TargetMethod, recoveries) => (call.Arguments
+                        .Where(argument => argument.Parameter?.OriginalDefinition.Type is INamedTypeSymbol parameter &&
+                            (Same(parameter, io) || (parameter.DelegateInvokeMethod?.ReturnType is INamedTypeSymbol returned &&
+                                (Same(returned, io) || Same(returned, kind)))))
+                        .Select(argument => current.With(argument.Value)), []),
+                    IInvocationOperation { Instance: { } receiver } call when Same(call.TargetMethod.ContainingType, io) => ([current.With(receiver)], []),
+                    IInvocationOperation { Arguments: { Length: 1 } arguments } call when Among(call.TargetMethod, narrowed) => ([current.With(arguments[0].Value)], []),
+                    _ => ([], [current.Operation]),
+                }, depthFirst: true, token).Any();
             Report<IInvocationOperation>(start, [OperationKind.Invocation], (call, analysis) =>
                 call is { Syntax: InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax }, Instance: { } source }
                 && call.Arguments.FirstOrDefault(argument => Among(argument.Parameter, predicates)) is { } predicate

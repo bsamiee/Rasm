@@ -61,61 +61,42 @@ public sealed class TypeNameTextAnalyzer : DiagnosticAnalyzer {
                     _ => false,
                 }) sources.Add(analysis.Operation);
             }, OperationKind.PropertyReference, OperationKind.Invocation, OperationKind.NameOf);
+            ConcurrentDictionary<ISymbol, ImmutableArray<IOperation>> declarations = new(SymbolEqualityComparer.Default);
+            ConcurrentDictionary<IOperation, ILookup<ISymbol?, IOperation>> references = [];
+            IEnumerable<ControlFlow.Value> Reads(ISymbol symbol, ControlFlow.Value at, ImmutableDictionary<SyntaxTree, SemanticModel> models, CancellationToken token) {
+                ImmutableArray<IOperation> uses = [.. (symbol is IParameterSymbol parameter ? Initializers(parameter.ContainingSymbol, compilation, models, declarations, token) : [Root(at.Operation)])
+                    .SelectMany(root => references.GetOrAdd(root, static held => held.DescendantsAndSelf().Where(static value => value is IParameterReferenceOperation or ILocalReferenceOperation).ToLookup(Variable, SymbolEqualityComparer.Default))[symbol.OriginalDefinition])];
+                bool unchanged = !uses.Any(static used => Written(used) || used.Parent is IVariableInitializerOperation { Parent: IVariableDeclaratorOperation { Symbol.RefKind: not RefKind.None } });
+                return from used in uses
+                       where !Written(used)
+                       from reading in flow.Readings(used, token)
+                       where !reading.Definition.HasValue
+                       ? unchanged || (symbol is IParameterSymbol captured
+                           && (Ancestor<IOperation>(used, static owner => owner is IAnonymousFunctionOperation or ILocalFunctionOperation) is not { } function
+                               || (function is IAnonymousFunctionOperation lambda && Same(lambda.Symbol, captured.ContainingSymbol))
+                               || (function is ILocalFunctionOperation local && Same(local.Symbol, captured.ContainingSymbol))))
+                       : symbol is ILocalSymbol && reading.Definition.Value.Originates(at, token)
+                       select reading.Reference;
+            }
+            IEnumerable<INamedTypeSymbol> Stored(IOperation source, ImmutableDictionary<SyntaxTree, SemanticModel> models, CancellationToken token) =>
+                ControlFlow.Trace<ControlFlow.Value, INamedTypeSymbol?>(flow.Evaluations(source, token), current => Consumer(current.Operation) switch {
+                    IArgumentOperation { Parent: IObjectCreationOperation { Type: INamedTypeSymbol created } } when !Rendered(created) && !Failure(current.Operation) => ([], [created]),
+                    ISimpleAssignmentOperation { Target: IMemberReferenceOperation, Parent: IObjectOrCollectionInitializerOperation { Parent.Type: INamedTypeSymbol created } } when !Rendered(created) && !Failure(current.Operation) => ([], [created]),
+                    IVariableInitializerOperation { Parent: IVariableDeclaratorOperation declarator } => (Reads(declarator.Symbol, current, models, token), []),
+                    ISimpleAssignmentOperation { Target: ILocalReferenceOperation local } => (Reads(local.Local, current, models, token), []),
+                    IArgumentOperation { Parameter: { } parameter, Parent: IInvocationOperation call } when !Failure(current.Operation) && !Rendered(call.TargetMethod.ReturnType) => (Reads(parameter, current.With(call), models, token), []),
+                    IInvocationOperation { TargetMethod.ReducedFrom: { } method } call when call.Instance == current.Operation => (Reads(method.Parameters[0], current.With(call), models, token), []),
+                    IInvocationOperation call when Among(call.TargetMethod, transforms) => ([current.With(call)], []),
+                    IConditionalAccessOperation conditional when conditional.WhenNotNull == current.Operation || (conditional.WhenNotNull is IInvocationOperation call && Among(call.TargetMethod, transforms)) => ([current.With(conditional)], []),
+                    (ICoalesceOperation or IConditionalOperation or IInterpolationOperation or IInterpolatedStringOperation or IBinaryOperation { OperatorKind: BinaryOperatorKind.Add, Type.SpecialType: SpecialType.System_String }) and var parent => ([current.With(parent)], []),
+                    _ => ([], []),
+                }, depthFirst: true, token).OfType<INamedTypeSymbol>();
             semantics.Complete((end, models) => {
-                ConcurrentDictionary<ISymbol, ImmutableArray<IOperation>> declarations = new(SymbolEqualityComparer.Default);
-                ConcurrentDictionary<IOperation, ILookup<ISymbol?, IOperation>> references = [];
-                IEnumerable<ControlFlow.Value> Reads(ISymbol symbol, ControlFlow.Value at, CancellationToken token) {
-                    ImmutableArray<IOperation> uses = [.. (symbol is IParameterSymbol parameter ? Initializers(parameter.ContainingSymbol, end.Compilation, models, declarations, token) : [Root(at.Operation)])
-                        .SelectMany(root => references.GetOrAdd(root, static held => held.DescendantsAndSelf().Where(static value => value is IParameterReferenceOperation or ILocalReferenceOperation).ToLookup(Variable, SymbolEqualityComparer.Default))[symbol.OriginalDefinition])];
-                    bool unchanged = !uses.Any(static used => Written(used) || used.Parent is IVariableInitializerOperation { Parent: IVariableDeclaratorOperation { Symbol.RefKind: not RefKind.None } });
-                    return from used in uses
-                           where !Written(used)
-                           from reading in flow.Readings(used, token)
-                           where !reading.Definition.HasValue
-                           ? unchanged || (symbol is IParameterSymbol captured && (Ancestor<IOperation>(used, static owner => owner is IAnonymousFunctionOperation or ILocalFunctionOperation) switch {
-                               IAnonymousFunctionOperation function => Same(function.Symbol, captured.ContainingSymbol),
-                               ILocalFunctionOperation function => Same(function.Symbol, captured.ContainingSymbol),
-                               _ => true,
-                           }))
-                           : symbol is ILocalSymbol && reading.Definition.Value.Originates(at, token)
-                           select reading.Reference;
-                }
-                INamedTypeSymbol? Stored(IOperation source, CancellationToken token) {
-                    Stack<ControlFlow.Value> pending = new(flow.Evaluations(source, token));
-                    HashSet<ControlFlow.Value> visited = [];
-                    while (pending.Count > 0) {
-                        token.ThrowIfCancellationRequested();
-                        ControlFlow.Value current = pending.Pop();
-                        if (!visited.Add(current)) continue;
-                        IOperation value = current.Operation;
-                        IOperation? parent = Consumer(value);
-                        INamedTypeSymbol? made = parent switch {
-                            IArgumentOperation { Parent: IObjectCreationOperation { Type: INamedTypeSymbol created } } => created,
-                            ISimpleAssignmentOperation { Target: IMemberReferenceOperation, Parent: IObjectOrCollectionInitializerOperation { Parent.Type: INamedTypeSymbol created } } => created,
-                            _ => null,
-                        };
-                        if (made is not null && !Rendered(made) && !Failure(value)) return made;
-                        IEnumerable<ControlFlow.Value> next = parent switch {
-                            IVariableInitializerOperation { Parent: IVariableDeclaratorOperation declarator } => Reads(declarator.Symbol, current, token),
-                            ISimpleAssignmentOperation { Target: ILocalReferenceOperation local } => Reads(local.Local, current, token),
-                            IArgumentOperation { Parameter: { } parameter, Parent: IInvocationOperation call } when !Failure(value) && !Rendered(call.TargetMethod.ReturnType) => Reads(parameter, current.With(call), token),
-                            IInvocationOperation { TargetMethod.ReducedFrom: { } method } call when call.Instance == value => Reads(method.Parameters[0], current.With(call), token),
-                            IInvocationOperation call when Among(call.TargetMethod, transforms) => [current.With(call)],
-                            ICoalesceOperation or IConditionalOperation => [current.With(parent)],
-                            IConditionalAccessOperation conditional when conditional.WhenNotNull == value || (conditional.WhenNotNull is IInvocationOperation call && Among(call.TargetMethod, transforms)) => [current.With(conditional)],
-                            IInterpolationOperation or IInterpolatedStringOperation => [current.With(parent)],
-                            IBinaryOperation { OperatorKind: BinaryOperatorKind.Add, Type.SpecialType: SpecialType.System_String } => [current.With(parent)],
-                            _ => [],
-                        };
-                        foreach (ControlFlow.Value nextValue in next) pending.Push(nextValue);
-                    }
-                    return null;
-                }
-                foreach (IOperation source in sources) {
-                    if (source is INameOfOperation named && named.SemanticModel!.GetSymbolInfo(named.Argument.Syntax, end.CancellationToken).Symbol is not ITypeParameterSymbol) continue;
-                    if (Stored(source, end.CancellationToken) is { } made)
-                        end.ReportDiagnostic(Diagnostic.Create(Rule, source.Syntax.GetLocation(), source.Syntax, made.Name));
-                }
+                foreach (Diagnostic diagnostic in from source in sources
+                                                  where source is not INameOfOperation named || named.SemanticModel!.GetSymbolInfo(named.Argument.Syntax, end.CancellationToken).Symbol is ITypeParameterSymbol
+                                                  from made in Stored(source, models, end.CancellationToken).Take(1)
+                                                  select Diagnostic.Create(Rule, source.Syntax.GetLocation(), source.Syntax, made.Name))
+                    end.ReportDiagnostic(diagnostic);
             });
         });
     }
@@ -238,62 +219,46 @@ public sealed class SentinelAnalyzer : DiagnosticAnalyzer {
                              && !parameter.GetAttributes().Any(attribute => Among(attribute.AttributeClass, callers))))
                     analysis.ReportDiagnostic(Diagnostic.Create(Rule, parameter.Locations.FirstOrDefault(), method.Name, "\"\""));
             }, SymbolKind.Method);
+            ConcurrentDictionary<ISymbol, ImmutableArray<IOperation>> declarations = new(SymbolEqualityComparer.Default);
+            ConcurrentDictionary<IParameterSymbol, ImmutableArray<ISymbol>> members = new(SymbolEqualityComparer.Default);
+            ImmutableArray<IOperation> Operations(ISymbol symbol, ImmutableDictionary<SyntaxTree, SemanticModel> models, CancellationToken token) => TypeNameTextAnalyzer.Initializers(symbol, compilation, models, declarations, token);
+            ImmutableArray<ISymbol> MembersOf(IParameterSymbol parameter, ImmutableDictionary<SyntaxTree, SemanticModel> models, CancellationToken token) =>
+                members.GetOrAdd(parameter.OriginalDefinition, held => [
+                    .. held.ContainingType.GetMembers().Where(member => member is IFieldSymbol or IPropertySymbol && (
+                        member.DeclaringSyntaxReferences.Any(declared => models.TryGetValue(declared.SyntaxTree, out SemanticModel? model)
+                            && Same(model.GetDeclaredSymbol(declared.GetSyntax(token), token), held))
+                        || Operations(member, models, token).Any(initializer => Stripped(initializer) is IParameterReferenceOperation read && Same(read.Parameter, held)))),
+                    .. Operations(held.ContainingSymbol, models, token).SelectMany(static body => body.DescendantsAndSelf()).OfType<ISimpleAssignmentOperation>()
+                        .Where(assignment => assignment.Target is IMemberReferenceOperation && Stripped(assignment.Value) is IParameterReferenceOperation read && Same(read.Parameter, held))
+                        .Select(static assignment => ((IMemberReferenceOperation)assignment.Target).Member),
+                ]);
+            IOperation? Absent(IOperation source, ISymbol? member, ImmutableDictionary<SyntaxTree, SemanticModel> models, CancellationToken token) =>
+                ControlFlow.Trace<ControlFlow.Value, IOperation>([ControlFlow.At(source)], current => Stripped(current.Operation) switch {
+                    var value when (Empty(value) && ((member is IParameterSymbol parameter && MembersOf(parameter, models, token).Any(held => compared.ContainsKey(held.OriginalDefinition)))
+                            || (member is not (null or IParameterSymbol) && compared.ContainsKey(member.OriginalDefinition))))
+                        || (value is IMemberReferenceOperation sentinel && Sentinel(sentinel.Member))
+                        || (value is IDefaultValueOperation or IObjectCreationOperation { Arguments.IsEmpty: true, Initializer: null } && Among(value.Type, missingTypes)) => ([], [value]),
+                    (ILocalReferenceOperation or IFlowCaptureReferenceOperation) and var value => (flow.Values(current.With(value), token)
+                        .Where(static definition => definition.HasValue).Select(static definition => definition.Value), []),
+                    IMemberReferenceOperation { Instance: { } instance } reference => (Operations(reference.Member, models, token).Select(ControlFlow.At).Append(current.With(instance)), []),
+                    IMemberReferenceOperation reference => (Operations(reference.Member, models, token).Select(ControlFlow.At), []),
+                    ICoalesceOperation coalesce => ([current.With(coalesce.WhenNull)], []),
+                    IConditionalOperation { WhenFalse: { } alternative } conditional => ([current.With(conditional.WhenTrue), current.With(alternative)], []),
+                    ISwitchExpressionOperation expression => (expression.Arms.Select(arm => current.With(arm.Value)), []),
+                    IInvocationOperation call => (call.Arguments.Where(argument => Among(argument.Parameter, fallbacks)).Select(argument => current.With(argument.Value)), []),
+                    IDelegateCreationOperation { Target: IAnonymousFunctionOperation function } when current.Operation.Parent is IArgumentOperation argument && Among(argument.Parameter, fallbacks) => ([ControlFlow.At(function.Body)], []),
+                    IBlockOperation body when Sole(body) is { } returned => ([current.With(returned)], []),
+                    _ => ([], []),
+                }, depthFirst: true, token).FirstOrDefault();
             semantics.Complete((end, models) => {
-                ConcurrentDictionary<ISymbol, ImmutableArray<IOperation>> declarations = new(SymbolEqualityComparer.Default);
-                ConcurrentDictionary<IParameterSymbol, ImmutableArray<ISymbol>> members = new(SymbolEqualityComparer.Default);
-                ImmutableArray<IOperation> Operations(ISymbol symbol, CancellationToken token) => TypeNameTextAnalyzer.Initializers(symbol, end.Compilation, models, declarations, token);
-                ImmutableArray<ISymbol> MembersOf(IParameterSymbol parameter, CancellationToken token) =>
-                    members.GetOrAdd(parameter.OriginalDefinition, held => [
-                        .. held.ContainingType.GetMembers().Where(member => member is IFieldSymbol or IPropertySymbol && (
-                            member.DeclaringSyntaxReferences.Any(declared => models.TryGetValue(declared.SyntaxTree, out SemanticModel? model)
-                                && Same(model.GetDeclaredSymbol(declared.GetSyntax(token), token), held))
-                            || Operations(member, token).Any(initializer => Stripped(initializer) is IParameterReferenceOperation read && Same(read.Parameter, held)))),
-                        .. Operations(held.ContainingSymbol, token).SelectMany(static body => body.DescendantsAndSelf()).OfType<ISimpleAssignmentOperation>()
-                            .Where(assignment => assignment.Target is IMemberReferenceOperation && Stripped(assignment.Value) is IParameterReferenceOperation read && Same(read.Parameter, held))
-                            .Select(static assignment => ((IMemberReferenceOperation)assignment.Target).Member),
-                    ]);
-                IOperation? Absent(IOperation source, ISymbol? member, CancellationToken token) {
-                    Stack<ControlFlow.Value> pending = new([ControlFlow.At(source)]);
-                    HashSet<ControlFlow.Value> visited = [];
-                    bool checkedEmpty = member is IParameterSymbol parameter
-                        ? MembersOf(parameter, token).Any(held => compared.ContainsKey(held.OriginalDefinition))
-                        : member is not null && compared.ContainsKey(member.OriginalDefinition);
-                    while (pending.Count > 0) {
-                        token.ThrowIfCancellationRequested();
-                        ControlFlow.Value current = pending.Pop();
-                        if (!visited.Add(current)) continue;
-                        IOperation value = Stripped(current.Operation);
-                        if ((Empty(value) && checkedEmpty) || (value switch {
-                            IMemberReferenceOperation reference => Sentinel(reference.Member),
-                            IDefaultValueOperation or IObjectCreationOperation { Arguments.IsEmpty: true, Initializer: null } => Among(value.Type, missingTypes),
-                            _ => false,
-                        })) return value;
-                        IEnumerable<ControlFlow.Value> next = value switch {
-                            ILocalReferenceOperation or IFlowCaptureReferenceOperation => flow.Values(current.With(value), token)
-                                .Where(static definition => definition.HasValue).Select(static definition => definition.Value),
-                            IMemberReferenceOperation reference => Operations(reference.Member, token).Select(ControlFlow.At)
-                                .Concat(reference.Instance is { } instance ? [current.With(instance)] : []),
-                            ICoalesceOperation coalesce => [current.With(coalesce.WhenNull)],
-                            IConditionalOperation { WhenFalse: { } alternative } conditional => [current.With(conditional.WhenTrue), current.With(alternative)],
-                            ISwitchExpressionOperation expression => expression.Arms.Select(arm => current.With(arm.Value)),
-                            IInvocationOperation call => call.Arguments.Where(argument => Among(argument.Parameter, fallbacks))
-                                .Select(argument => Lambda(argument.Value) is { } function ? ControlFlow.At(function.Body) : current.With(argument.Value)),
-                            IBlockOperation body when Sole(body) is { } returned => [current.With(returned)],
-                            _ => [],
-                        };
-                        foreach (ControlFlow.Value nextValue in next) pending.Push(nextValue);
-                    }
-                    return null;
-                }
-                foreach (IOperation site in records) {
-                    IEnumerable<(IOperation Value, ISymbol? Member)> values =
-                        site.ChildOperations.OfType<IArgumentOperation>().Where(static argument => !argument.IsImplicit).Select(static argument => (argument.Value, (ISymbol?)argument.Parameter))
-                            .Concat(site.ChildOperations.OfType<IObjectOrCollectionInitializerOperation>().SelectMany(static initializer => initializer.Initializers)
-                                .OfType<ISimpleAssignmentOperation>().Where(static assignment => assignment.Target is IMemberReferenceOperation)
-                                .Select(static assignment => (assignment.Value, (ISymbol?)((IMemberReferenceOperation)assignment.Target).Member)));
-                    if (values.Select(value => Absent(value.Value, value.Member, end.CancellationToken)).OfType<IOperation>().FirstOrDefault() is { } absent)
-                        end.ReportDiagnostic(Diagnostic.Create(Rule, site.Syntax.GetLocation(), site.Type!.Name, absent.Syntax));
-                }
+                foreach (Diagnostic diagnostic in from site in records
+                                                  let values = site.ChildOperations.OfType<IArgumentOperation>().Where(static argument => !argument.IsImplicit).Select(static argument => (argument.Value, Member: (ISymbol?)argument.Parameter))
+                                                      .Concat(site.ChildOperations.OfType<IObjectOrCollectionInitializerOperation>().SelectMany(static initializer => initializer.Initializers)
+                                                          .OfType<ISimpleAssignmentOperation>().Where(static assignment => assignment.Target is IMemberReferenceOperation)
+                                                          .Select(static assignment => (assignment.Value, Member: (ISymbol?)((IMemberReferenceOperation)assignment.Target).Member)))
+                                                  from absent in values.Select(value => Absent(value.Value, value.Member, models, end.CancellationToken)).OfType<IOperation>().Take(1)
+                                                  select Diagnostic.Create(Rule, site.Syntax.GetLocation(), site.Type!.Name, absent.Syntax))
+                    end.ReportDiagnostic(diagnostic);
             });
         });
     }

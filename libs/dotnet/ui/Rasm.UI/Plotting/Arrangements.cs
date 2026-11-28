@@ -259,7 +259,12 @@ public static class Arrangements {
                 long low = edge / 2;
                 long high = edge % 2 is 0 ? low + 1 : low + columns + 2;
                 (float from, float to) = (Height((int)(low % (columns + 2)) - 1, (int)(low / (columns + 2)) - 1), Height((int)(high % (columns + 2)) - 1, (int)(high / (columns + 2)) - 1));
-                Vector2 at = Vector2.Lerp(Center(low), Center(high), float.IsFinite(from) ? (float.IsFinite(to) ? (threshold - from) / (to - from) : 0f) : 1f);
+                float along = (float.IsFinite(from), float.IsFinite(to)) switch {
+                    (false, _) => 1f,
+                    (_, false) => 0f,
+                    _ => (threshold - from) / (to - from),
+                };
+                Vector2 at = Vector2.Lerp(Center(low), Center(high), along);
                 return new Coordinate(at.X, at.Y);
             }
             LineMerger merger = new();

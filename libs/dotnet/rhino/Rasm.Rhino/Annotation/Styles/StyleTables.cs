@@ -133,9 +133,8 @@ public static class StyleTables {
         toSeq(graph.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward))
             .Choose(toHashMap(candidates.Map(static candidate => (candidate.Row, candidate))).Find)
             .FoldM(HashSet<ComponentIdentity>(), (removed, candidate) =>
-                graph.OutEdges(candidate.Row).All(edge => removed.Contains(edge.Target))
-                    ? candidate.Delete.Map(deleted => deleted ? removed.Add(candidate.Row) : removed)
-                    : IO.pure(removed))
+                from deleted in graph.OutEdges(candidate.Row).All(edge => removed.Contains(edge.Target)) ? candidate.Delete : IO.pure(value: false)
+                select deleted ? removed.Add(candidate.Row) : removed)
             .As();
 
     // --- [WRITES]

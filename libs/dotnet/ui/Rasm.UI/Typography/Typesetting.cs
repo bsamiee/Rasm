@@ -313,20 +313,18 @@ internal static class Typesetting {
 
         Seq<Typeset.Run> Ranged(int first, int last, int measure) {
             Slice<int> line = context.SubSlice(first - context.Start, last - first);
-            return runs.Filter(run => run.End > first && run.Text.Start < last).Bind(run => {
-                int from = Math.Max(first, run.Text.Start);
-                int to = Math.Min(last, run.End);
-                return to <= measure ? Seq(Fragment(from, to, FontRunKind.Normal))
-                    : from >= measure ? Seq(Fragment(from, to, FontRunKind.TrailingWhitespace))
-                    : Seq(Fragment(from, measure, FontRunKind.Normal), Fragment(measure, to, FontRunKind.TrailingWhitespace));
-
-                Typeset.Run Fragment(int begin, int end, FontRunKind kind) => (kind is FontRunKind.TrailingWhitespace ? source.BaseDirection : run.Direction) switch {
-                    var direction => direction != run.Direction || ((begin == first || begin != run.Text.Start) && unsafeBreaks.Contains(begin))
-                        || ((end == last || end != run.End) && unsafeBreaks.Contains(end)) || !run.HasBoundary(begin) || !run.HasBoundary(end)
-                        ? Shaped(shaping, context.SubSlice(begin - context.Start, end - begin), line, begin - first, run.Style, run.Typeface, direction, culture, kind)
-                        : run.Slice(begin, end, kind),
-                };
-            }).Strict();
+            return (from run in runs
+                    where run.End > first && run.Text.Start < last
+                    let start = Math.Max(first, run.Text.Start)
+                    let stop = Math.Min(last, run.End)
+                    let cut = Math.Clamp(measure, start, stop)
+                    from piece in Seq((Begin: start, End: cut, Kind: FontRunKind.Normal), (Begin: cut, End: stop, Kind: FontRunKind.TrailingWhitespace))
+                    where piece.Begin < piece.End
+                    let direction = piece.Kind is FontRunKind.TrailingWhitespace ? source.BaseDirection : run.Direction
+                    select direction != run.Direction || ((piece.Begin == first || piece.Begin != run.Text.Start) && unsafeBreaks.Contains(piece.Begin))
+                        || ((piece.End == last || piece.End != run.End) && unsafeBreaks.Contains(piece.End)) || !run.HasBoundary(piece.Begin) || !run.HasBoundary(piece.End)
+                        ? Shaped(shaping, context.SubSlice(piece.Begin - context.Start, piece.End - piece.Begin), line, piece.Begin - first, run.Style, run.Typeface, direction, culture, piece.Kind)
+                        : run.Slice(piece.Begin, piece.End, piece.Kind)).Strict();
         }
 
         Seq<Typeset.Run> Elided(Seq<Typeset.Run> entries, Typeset.Run marker, float space, float headShare) {

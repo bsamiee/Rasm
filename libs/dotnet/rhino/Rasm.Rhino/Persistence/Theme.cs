@@ -226,21 +226,18 @@ public sealed record RhinoTheme(string Name) {
                         .Map(against => against with { Dark = against.Dark || at.Dark }),
             }).Filter(bound.ContainsKey));
 
-        Func<ThemeKey, Fin<Unicolour>> basis = key =>
-            live.Find(key).Map(ToUnicolour).ToFin(Fault.Of(RhinoReason.Missing, key));
-
         Func<ThemeKey, HashMap<ThemeKey, Fin<Unicolour>>, Fin<Unicolour>> value = (key, known) =>
-            bound.ContainsKey(key) ? known[key] : basis(key);
+            known.Find(key).IfNone(() => live.Find(key).Map(ToUnicolour).ToFin(Fault.Of(RhinoReason.Missing, key)));
 
         Fin<Unicolour> Resolve(ThemeKey key, HashMap<ThemeKey, Fin<Unicolour>> known) =>
             key is ThemeKey.Paint { Member: var member } && hooked.Contains(member)
                 ? Fault.Of(RhinoReason.Unsupported, member)
                 : bound[key].Switch(
-                    (Key: key, Known: known, Base: basis, Value: value),
+                    (Key: key, Known: known, Value: value),
                     set: static (_, set) => set.Value,
                     inherit: static (state, inherit) => (inherit.Source with { Dark = inherit.Source.Dark || state.Key.Dark }) switch {
                         var source =>
-                            from color in source == state.Key ? state.Base(source) : state.Value(source, state.Known)
+                            from color in state.Value(source, state.Known)
                             let read = fun((ThemeKey against) => state.Value(against with { Dark = against.Dark || state.Key.Dark }, state.Known))
                             from modified in inherit.Modifiers.FoldM(color, (current, modifier) => Modified(current, modifier, read)).As()
                             select modified,

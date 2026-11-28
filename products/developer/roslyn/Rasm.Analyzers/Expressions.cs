@@ -83,36 +83,23 @@ public sealed class TypeParameterTestAnalyzer : DiagnosticAnalyzer {
                 tested is INamedTypeSymbol { TypeKind: TypeKind.Class or TypeKind.Struct, IsAbstract: false } named
                 && (Same(named.ContainingAssembly, own) || sources.Any(source => Same(named.ContainingAssembly, source)));
             static bool External(ISymbol owner) => Overridden(owner).Skip(1).LastOrDefault() is { } origin && !Sourced(origin);
-            ITypeParameterSymbol? Parameter(IOperation source, CancellationToken token) {
-                Queue<ControlFlow.Value> pending = new(flow.Evaluations(source, token));
-                HashSet<ControlFlow.Value> seen = [];
-                ITypeParameterSymbol? origin = null;
-                while (pending.Count is > 0) {
-                    token.ThrowIfCancellationRequested();
-                    ControlFlow.Value current = pending.Dequeue();
-                    if (!seen.Add(current)) continue;
-                    IOperation value = Stripped(current.Operation);
-                    ITypeParameterSymbol? parameter = value switch {
-                        ITypeOfOperation { TypeOperand: ITypeParameterSymbol input } => input,
-                        IInvocationOperation { Instance: { } instance } call when Among(call.TargetMethod, runtime) => Stripped(instance).Type as ITypeParameterSymbol,
-                        _ => null,
-                    };
-                    if (parameter is not null) {
-                        if (origin is not null && !Same(origin, parameter)) return null;
-                        origin = parameter;
-                        continue;
-                    }
-                    ImmutableArray<Optional<ControlFlow.Value>> definitions = value is ILocalReferenceOperation or IParameterReferenceOperation or IFlowCaptureReferenceOperation
-                        ? flow.Values(current.With(value), token) : [];
-                    if (definitions.IsEmpty || definitions.Any(static definition => !definition.HasValue)) return null;
-                    foreach (Optional<ControlFlow.Value> definition in definitions) pending.Enqueue(definition.Value);
-                }
-                return origin;
-            }
+            (IEnumerable<ControlFlow.Value> Next, IEnumerable<ITypeParameterSymbol?> Found) Visited(ControlFlow.Value current, CancellationToken token) =>
+                Stripped(current.Operation) switch {
+                    var value => (value, value is ILocalReferenceOperation or IParameterReferenceOperation or IFlowCaptureReferenceOperation ? flow.Values(current.With(value), token) : []) switch {
+                        (ITypeOfOperation { TypeOperand: ITypeParameterSymbol input }, _) => ([], [input]),
+                        (IInvocationOperation { Instance: { } instance } call, _) when Among(call.TargetMethod, runtime) && Stripped(instance).Type is ITypeParameterSymbol input => ([], [input]),
+                        (_, { IsEmpty: false } definitions) when definitions.All(static definition => definition.HasValue) => (definitions.Select(static definition => definition.Value), []),
+                        _ => ([], [null]),
+                    },
+                };
+            ITypeParameterSymbol? Parameter(IOperation source, CancellationToken token) =>
+                ControlFlow.Trace(flow.Evaluations(source, token), current => Visited(current, token), depthFirst: false, token)
+                    .Distinct<ITypeParameterSymbol?>(SymbolEqualityComparer.Default).Take(2).ToArray() is { Length: 1 } origins ? origins[0] : null;
             static (IOperation Site, ITypeSymbol? Input, ITypeSymbol? Tested)? Test(IOperation operation) =>
                 operation switch {
                     IDeclarationPatternOperation { MatchesNull: true } => null,
-                    IPatternOperation pattern => (pattern.Parent is IIsPatternOperation test ? test : pattern, pattern.InputType, pattern.NarrowedType),
+                    IPatternOperation { Parent: IIsPatternOperation test } pattern => (test, pattern.InputType, pattern.NarrowedType),
+                    IPatternOperation pattern => (pattern, pattern.InputType, pattern.NarrowedType),
                     IIsTypeOperation test => (test, test.ValueOperand.Type, test.TypeOperand),
                     IConversionOperation { IsTryCast: true } cast => (cast, cast.Operand.Type, cast.Type),
                     _ => null,
