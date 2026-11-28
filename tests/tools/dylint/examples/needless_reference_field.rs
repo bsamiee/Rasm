@@ -1,3 +1,5 @@
+#![cfg_attr(dylint_lib = "rasm_lints", allow(single_impl_trait, reason = "this lint fires incidentally here and is exercised by its own fixture"))]
+
 use core::hint::black_box;
 use std::rc::Rc;
 

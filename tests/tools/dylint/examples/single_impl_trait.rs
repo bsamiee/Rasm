@@ -34,6 +34,7 @@ where F: Fn(u32) -> u32
 
 trait Marker {}
 
+//~v single_impl_trait
 trait Shape {
     type Output;
 

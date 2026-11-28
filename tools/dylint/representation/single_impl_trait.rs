@@ -1,3 +1,4 @@
+use core::cell::LazyCell;
 use core::{iter, mem};
 
 use clippy_utils::diagnostics::span_lint_hir_and_then;
@@ -9,7 +10,7 @@ use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_hir::{AmbigArg, Item, ItemKind, Ty, TyKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::print::with_forced_trimmed_paths;
-use rustc_middle::ty::{self, AssocKind, AssocTypeData};
+use rustc_middle::ty;
 use rustc_span::Span;
 
 use crate::{expanded_externally, exported};
@@ -32,7 +33,6 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && !expanded_externally(cx, item.span)
             && !exported(cx, item.owner_id.def_id)
             && !cx.tcx.associated_item_def_ids(item.owner_id).is_empty()
-            && !cx.tcx.associated_items(item.owner_id).in_definition_order().any(|associated| matches!(associated.kind, AssocKind::Type { data: AssocTypeData::Normal(_) }))
         {
             self.traits.push(item.owner_id.def_id);
         }
@@ -53,6 +53,16 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             [single] if tcx.impl_polarity(*single) == ty::ImplPolarity::Positive && !(tcx.generics_of(*single).requires_monomorphization(tcx) && self.objects.contains_key(&declared)) =>
                 Some((declared, *single)),
             [] | [_] | [_, _, ..] => None,
+        });
+        let bounding = LazyCell::new(|| {
+            tcx.hir_crate_items(())
+                .owners()
+                .filter(|&owner| tcx.def_kind(owner).has_generics())
+                .flat_map(|owner| tcx.explicit_clauses_of(owner).clauses.iter().filter_map(|(clause, _)| clause.as_trait_clause()).map(move |bound| (owner.to_def_id(), bound.def_id())))
+                .filter(|&(owner, bounded)| owner != bounded && tcx.opt_parent(owner) != Some(bounded))
+                .unique()
+                .map(|(_, bounded)| bounded)
+                .counts()
         });
         for (declared, single) in singles {
             let implementor = tcx.type_of(single).instantiate_identity().skip_normalization();
@@ -83,6 +93,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                         .fold(diag, |diag, objects| diag.span_note(objects, with_forced_trimmed_paths!(format!("`dyn {name}` always holds `{implementor}`"))))
                         .help(match (local, bound) {
                             (true, _) => with_forced_trimmed_paths!(format!("replace `{name}` with an inherent `impl {implementor}` block")),
+                            (false, Some(bound)) if bounding.get(&declared.to_def_id()).is_some_and(|&sites| sites > 1) =>
+                                format!("replace `{name}` with `trait {name} = {bound};` and its methods with generic functions over it"),
                             (false, Some(bound)) => format!("replace `{name}` with the `{bound}` bound and retain behavior in generic functions"),
                             (false, None) => with_forced_trimmed_paths!(format!("replace `{name}` with functions and constants for `{implementor}`")),
                         });
