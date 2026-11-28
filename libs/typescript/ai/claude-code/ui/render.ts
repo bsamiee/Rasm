@@ -1,5 +1,5 @@
 import type { EngineInterface, Frozen, Next, PaneOpenArgs, RenderComponent, RenderElement, RenderInput, RenderPropsOf, ThemeScene, UiPointerInput } from 'claude-code';
-import { Effect, Layer, type ManagedRuntime, Match, Option, type PlatformError, Predicate, type Record, Ref, Stream } from 'effect';
+import { Effect, Layer, type ManagedRuntime, Match, Option, type PlatformError, Predicate, PubSub, type Record, Ref, Stream } from 'effect';
 import { runHook } from '#/engine/events';
 import { Engine } from '#/engine/interface';
 import { call } from '#/engine/services';
@@ -24,7 +24,7 @@ type Render<S, R, F> = Rows<S, R, F> & {
     readonly Backdrop?: Record.ReadonlyRecord<ThemeScene['scene'], Scene<S, R, F>>;
     readonly Pane?: Record.ReadonlyRecord<PaneOpenArgs['id'], Pane<S, R, F>>;
 };
-type Held<S, R, F> = Option.Option<Render<S, R, F> & { readonly held: Ref.Ref<Option.Option<S>> }>;
+type Held<S, R, F> = Option.Option<Render<S, R, F> & { readonly held: Ref.Ref<Option.Option<S>>; readonly drawn: PubSub.PubSub<string> }>;
 type Drawn<C extends RenderComponent> = ((e: Frozen<RenderInput<C>>) => Promise<RenderElement>) & Pick<Next, 'signal'>;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -79,7 +79,7 @@ function render<S, R, E, F>($: EngineInterface, table: Held<S, R, F>, e: Frozen<
                 Match.value(e).pipe(
                     Match.discriminators('component')({
                         Backdrop: (drawing) => drawRow($, held.Backdrop?.[drawing.props.scene]?.draw, state, drawing, next, runtime),
-                        Pane: (drawing) => drawRow($, held.Pane?.[drawing.requestId]?.draw, state, drawing, next, runtime),
+                        Pane: (drawing) => drawRow($, held.Pane?.[drawing.requestId]?.draw, state, drawing, next, runtime).finally(() => PubSub.publishUnsafe(held.drawn, drawing.requestId)),
                     }),
                     Match.orElse((drawing) => rows($, held, state, drawing.component, drawing, next, runtime)),
                 ),
@@ -108,4 +108,4 @@ function pointer<S, R, E, F>($: EngineInterface, table: Held<S, R, F>, e: Frozen
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { pointer, type Render, render, follow };
+export { follow, type Held, pointer, type Render, render };

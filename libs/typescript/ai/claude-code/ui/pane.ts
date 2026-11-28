@@ -1,15 +1,15 @@
-import type { EngineInterface, EventResult, Frozen, Next, PaneCloseArgs, PaneCloseInput, PaneOpenArgs, UiOpenResult, UiPane } from 'claude-code';
-import { Array, Context, Effect, Layer, type ManagedRuntime, Option, PlatformError, Record, Struct } from 'effect';
+import type { EngineInterface, EventResult, Frozen, Next, PaneCloseArgs, PaneCloseInput, PaneOpenArgs, UiOpenResult, UiPane, UiScrollArgs } from 'claude-code';
+import { Array, Context, Effect, Layer, type ManagedRuntime, Option, PlatformError, PubSub, Record, Struct } from 'effect';
 import { runHook } from '#/engine/events';
 import { call } from '#/engine/services';
-import type { Render } from '#/ui/render';
+import type { Held, Render } from '#/ui/render';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Panes extends Context.Service<
     Panes,
     {
-        readonly open: (pane: PaneOpenArgs) => Effect.Effect<UiOpenResult, PlatformError.PlatformError>;
+        readonly open: (pane: PaneOpenArgs, reveal?: Omit<UiScrollArgs, 'in'>) => Effect.Effect<UiOpenResult, PlatformError.PlatformError>;
         readonly close: (pane: PaneCloseArgs) => Effect.Effect<void, PlatformError.PlatformError>;
         readonly list: Effect.Effect<readonly UiPane[], PlatformError.PlatformError>;
     }
@@ -17,15 +17,32 @@ class Panes extends Context.Service<
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function panes<S, R, F>($: EngineInterface, rows: NonNullable<Render<S, R, F>['Pane']>) {
+function panes<S, R, F>($: EngineInterface, table: Held<S, R, F>) {
+    const list = call('ui.panes', $.plugin.name, () => $.ui.panes());
     return Layer.succeed(Panes)({
-        open: (pane) =>
-            Option.match(Record.get(rows, pane.id), {
-                onNone: () => PlatformError.badArgument({ module: 'Panes', method: 'open', description: `no render row, pane ${pane.id}` }),
-                onSome: (row) => call('ui.open', pane.id, () => $.ui.open({ ...Struct.omit(row, ['draw', 'closes']), ...pane })),
-            }),
+        open: (pane, reveal) =>
+            Option.match(
+                Option.flatMap(table, (held) => Option.map(Option.fromNullishOr(held.Pane?.[pane.id]), (row) => ({ row, drawn: held.drawn }))),
+                {
+                    onNone: () => PlatformError.badArgument({ module: 'Panes', method: 'open', description: `no render row, pane ${pane.id}` }),
+                    onSome: Effect.fnUntraced(function* ({ row, drawn }) {
+                        const open = call('ui.open', pane.id, () => $.ui.open({ ...Struct.omit(row, ['draw', 'closes']), ...pane }));
+                        if (reveal === undefined) {
+                            return yield* open;
+                        }
+                        const placed = Array.some(yield* list, ({ id, isPlaced }) => id === pane.id && isPlaced);
+                        const settled = PubSub.take(yield* PubSub.subscribe(drawn)).pipe(Effect.repeat({ until: (id) => id === pane.id }));
+                        const opened = yield* open;
+                        if (opened.isPlaced) {
+                            yield* Effect.when(Effect.andThen(settled, Effect.sync(() => $.ui.invalidate('ui.render'))).pipe(Effect.andThen(settled)), Effect.succeed(!placed));
+                            yield* call('ui.scroll', pane.id, () => $.ui.scroll({ ...reveal, in: pane.id }), ({ deny }) => deny);
+                        }
+                        return opened;
+                    }, Effect.scoped),
+                },
+            ),
         close: (pane) => call('ui.close', pane.id, () => $.ui.close(pane)),
-        list: call('ui.panes', $.plugin.name, () => $.ui.panes()),
+        list,
     });
 }
 
