@@ -4,14 +4,13 @@ import type { ChildProcessSpawner } from 'effect/process';
 import { type Engine, engine } from '#/engine/interface';
 import { call, services } from '#/engine/services';
 import { type Draft, draft } from '#/prompt/draft';
-import { type Ask, ask, type Asking, dialog, pending } from '#/ui/ask';
 import { draw } from '#/ui/element';
 import { heard, type Theme, theme } from '#/ui/theme';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Event = 'session.start' | 'session.end' | 'session.compact' | 'turn.start' | 'turn.complete' | 'agent.report' | 'tool.describe' | 'tool.check' | 'tool.call' | 'prompt.fill' | 'prompt.paint' | 'prompt.suggest' | 'ui.press' | 'ui.input' | 'ui.select' | 'ui.focus' | 'ui.scroll';
-type Provided = Engine | Ask | Draft | Theme | FileSystem.FileSystem | ChildProcessSpawner.ChildProcessSpawner | Path.Path;
+type Provided = Engine | Draft | Theme | FileSystem.FileSystem | ChildProcessSpawner.ChildProcessSpawner | Path.Path;
 type Proceed<N extends Event> = ((input: Frozen<Args<N>>) => Effect.Effect<EventResult<N>, PlatformError.PlatformError>) & Pick<Next<N>, 'budget' | 'signal'>;
 type Hook<N extends Event, A, F> = (e: Frozen<Args<N>>, next: Proceed<N>) => Effect.Effect<EventResult<N>, F, A | Provided>;
 interface Mod<A, E, F> {
@@ -22,7 +21,6 @@ interface Mod<A, E, F> {
 interface Instance<A, E, F> extends Pick<Mod<A, E, F>, 'hooks'> {
     readonly live: MutableRef.MutableRef<Option.Option<ManagedRuntime.ManagedRuntime<A | Provided, E | PlatformError.PlatformError>>>;
     readonly turns: SubscriptionRef.SubscriptionRef<HashSet.HashSet<Option.Option<string>>>;
-    readonly asking: MutableRef.MutableRef<Option.Option<Asking>>;
     readonly theme: Parameters<typeof theme>[1];
     readonly band: Option.Option<NonNullable<Mod<A, E, F>['band']> & { readonly rows: Ref.Ref<Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, string>>> }>;
 }
@@ -42,7 +40,6 @@ const hosted = <A, E, F>(mod: Pick<Mod<A, E, F>, 'hooks' | 'band'>): Instance<A,
     hooks: mod.hooks,
     live: MutableRef.make(Option.none()),
     turns: HashSet.empty<Option.Option<string>>().pipe(SubscriptionRef.make, Effect.runSync),
-    asking: MutableRef.make(Option.none()),
     theme: Ref.makeUnsafe(Option.none()),
     band: Option.map(Option.fromUndefinedOr(mod.band), (pressed) => ({ ...pressed, rows: Ref.makeUnsafe({}) })),
 });
@@ -51,7 +48,7 @@ const hosted = <A, E, F>(mod: Pick<Mod<A, E, F>, 'hooks' | 'band'>): Instance<A,
 
 function start<A, E, F>($: EngineInterface, instance: Instance<A, E, F>, layer: Mod<A, E, F>['layer']) {
     return Option.getOrElse(MutableRef.get(instance.live), () => {
-        const made = ManagedRuntime.make(Layer.provideMerge(layer, Layer.provideMerge(Layer.mergeAll(engine($, instance.turns, Option.map(instance.band, Struct.get('rows'))), ask($, instance.asking), draft($), theme($, instance.theme)), services($))));
+        const made = ManagedRuntime.make(Layer.provideMerge(layer, Layer.provideMerge(Layer.mergeAll(engine($, instance.turns, Option.map(instance.band, Struct.get('rows'))), draft($), theme($, instance.theme)), services($))));
         MutableRef.set(instance.live, Option.some(made));
         made.runPromise(Effect.void).catch(() => {
             MutableRef.compareAndSet(instance.live, Option.some(made), Option.none());
@@ -98,7 +95,6 @@ function host<A, E, F>(on: On, mod: Mod<A, E, F>) {
     on('turn.start', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
     on('turn.complete', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
     on('theme.*', ($, e, next) => heard($, instance.theme, e, next)).catch(recover);
-    on('tool.call', { tool: 'AskUserQuestion' }, ($, e, next) => dialog($, instance.asking, e, next)).catch(recover);
     if (hooks['session.compact'] !== undefined) {
         on('session.compact', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
     }
@@ -112,7 +108,7 @@ function host<A, E, F>(on: On, mod: Mod<A, E, F>) {
         on('tool.check', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
     }
     if (hooks['tool.call'] !== undefined) {
-        on('tool.call', ($, e, next) => (Option.isSome(pending($, instance.asking, e, next)) ? next(e) : answer($, instance, layer, e, next))).catch(recover);
+        on('tool.call', ($, e, next) => (next.origin.plugin === $.plugin.name ? next(e) : answer($, instance, layer, e, next))).catch(recover);
     }
     if (hooks['prompt.fill'] !== undefined) {
         on('prompt.fill', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);

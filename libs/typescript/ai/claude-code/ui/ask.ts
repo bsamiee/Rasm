@@ -1,5 +1,6 @@
-import type { Args, AskOptions, EngineInterface, Frozen, Next, ToolCallResult } from 'claude-code';
-import { Array, Cause, Context, Data, Effect, Layer, Match, MutableRef, Option, PlatformError, Record, Result, Schema, Semaphore, Struct } from 'effect';
+import type { AskOptions } from 'claude-code';
+import { Array, Data, Effect, Match, Option, PlatformError, Record, Result, Schema, Struct } from 'effect';
+import { Engine } from '#/engine/interface';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -8,10 +9,11 @@ interface Choice<L extends string> {
     readonly description?: string;
     readonly preview?: string;
 }
-type Question<L extends string = string> = Pick<AskOptions, 'header' | 'multiSelect'> & {
-    readonly question: string;
-    readonly options: readonly [Choice<L>, Choice<L>] | readonly [Choice<L>, Choice<L>, Choice<L>] | readonly [Choice<L>, Choice<L>, Choice<L>, Choice<L>];
-};
+type Question<L extends string = string> = Required<Pick<AskOptions, 'header'>> &
+    Pick<AskOptions, 'multiSelect'> & {
+        readonly question: string;
+        readonly options: readonly [Choice<L>, Choice<L>] | readonly [Choice<L>, Choice<L>, Choice<L>] | readonly [Choice<L>, Choice<L>, Choice<L>, Choice<L>];
+    };
 type Answer<L = string> = Data.TaggedEnum<{
     Picked: { readonly labels: Array.NonEmptyReadonlyArray<L>; readonly other: Option.Option<string>; readonly notes: Option.Option<string> };
     Other: { readonly text: string };
@@ -21,10 +23,6 @@ type Answer<L = string> = Data.TaggedEnum<{
 interface Answers extends Data.TaggedEnum.WithGenerics<1> {
     readonly taggedEnum: Answer<this['A']>;
 }
-interface Asking {
-    readonly question: Question;
-    readonly heard: Option.Option<ToolCallResult>;
-}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -33,14 +31,8 @@ const parts = /(?:^|, )(?:"(?<quoted>(?:[^"\\]|\\.)*)"(?=, |$)|(?<bare>(?:(?!, )
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Answer = Data.taggedEnum<Answers>();
-const Rest = Schema.Record(Schema.String, Schema.Unknown);
-const Questions = Schema.Struct({ questions: Schema.Tuple([Schema.StructWithRest(Schema.Struct({ question: Schema.String, options: Schema.Array(Schema.StructWithRest(Schema.Struct({ label: Schema.String }), [Rest])) }), [Rest])]) });
-const Annotations = Schema.Struct({ result: Schema.Struct({ annotations: Schema.Record(Schema.String, Schema.Struct({ notes: Schema.optionalKey(Schema.String) })) }) });
+const Answered = Schema.Struct({ result: Schema.Struct({ answers: Schema.Record(Schema.String, Schema.String), annotations: Schema.Record(Schema.String, Schema.Struct({ notes: Schema.optionalKey(Schema.String) })) }) });
 const Quoted = Schema.fromJsonString(Schema.String);
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
-class Ask extends Context.Service<Ask, <const L extends string>(question: Question<L>) => Effect.Effect<Answer<L>, PlatformError.PlatformError>>()('@rasm/claude-code/ui/ask') {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -57,53 +49,18 @@ const read = <L extends string>({ options, multiSelect }: Question<L>, text: str
     const other = Option.map(Option.filter(Option.some(typed), Array.isReadonlyArrayNonEmpty), Array.join(', '));
     return Array.isReadonlyArrayNonEmpty(picked) ? Answer.Picked({ labels: picked, other, notes }) : Option.match(notes, { onSome: (noted) => Answer.Noted({ notes: noted }), onNone: () => Answer.Other({ text: Option.getOrElse(other, () => text) }) });
 };
-
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-function pending($: EngineInterface, asking: MutableRef.MutableRef<Option.Option<Asking>>, e: Frozen<Args<'tool.call'>>, next: Pick<Next<'tool.call'>, 'origin'>) {
-    return Option.filter(Option.all({ held: MutableRef.get(asking), drawn: Schema.decodeUnknownOption(Questions)(e) }), ({ held, drawn }) => next.origin.plugin === $.plugin.name && drawn.questions[0].question === held.question.question);
-}
-
-function dialog($: EngineInterface, asking: MutableRef.MutableRef<Option.Option<Asking>>, e: Frozen<Args<'tool.call'>>, next: Next<'tool.call'>) {
-    return Option.match(pending($, asking, e, next), {
-        onNone: () => next(e),
-        onSome: ({ held, drawn: { questions } }) => {
-            const choices = Record.fromIterableWith(held.question.options, (choice) => [choice.label, choice]);
-            const [{ options, ...asked }] = questions;
-            return next({ ...e, questions: [{ ...asked, options: options.map((option) => ({ ...option, ...Option.getOrUndefined(Record.get(choices, option.label)) })) }] }).then((result) => {
-                MutableRef.update(
-                    asking,
-                    Option.map((now) => (now === held ? { ...held, heard: Option.some(result) } : now)),
-                );
-                return result;
-            });
-        },
-    });
-}
-
-function ask($: EngineInterface, asking: MutableRef.MutableRef<Option.Option<Asking>>) {
-    const permits = Semaphore.makeUnsafe(1);
-    return Layer.succeed(Ask)(<const L extends string>(question: Question<L>) =>
-        Effect.gen(function* () {
-            yield* Effect.sync(() => MutableRef.set(asking, Option.some<Asking>({ question, heard: Option.none() })));
-            const answered = yield* Effect.result(Effect.tryPromise({ try: () => $.ui.ask(question.question, { options: question.options.map(Struct.get('label')), ...Struct.pick(question, ['header', 'multiSelect']) }), catch: (cause) => new Cause.UnknownError(cause) }));
-            const heard = Option.flatMap(MutableRef.get(asking), Struct.get('heard'));
-            const notes = heard.pipe(
-                Option.flatMap(Schema.decodeUnknownOption(Annotations)),
-                Option.flatMap(({ result }) => Record.get(result.annotations, question.question)),
-                Option.flatMapNullishOr(Struct.get('notes')),
-            );
-            const refusal = { module: 'ui', method: 'ask', pathOrDescriptor: question.question } as const;
-            return yield* Match.value({ heard: Option.getOrUndefined(heard), answered }).pipe(
-                Match.when({ heard: { deny: Match.string } }, ({ heard: { deny } }) => Effect.fail(PlatformError.systemError({ ...refusal, _tag: 'PermissionDenied', description: deny }))),
-                Match.when({ heard: { isError: true } }, () => Effect.succeed(Answer.Declined<L>())),
-                Match.when({ answered: Result.isSuccess }, ({ answered: { success } }) => Effect.succeed(read(question, success, notes))),
-                Match.orElse(({ heard: raised, answered: refused }) => Effect.fail(PlatformError.systemError({ ...refusal, _tag: raised === undefined ? 'NotFound' : 'Unknown', cause: Result.merge(refused) }))),
-            );
-        }).pipe(Effect.ensuring(Effect.sync(() => MutableRef.set(asking, Option.none()))), Semaphore.withPermit(permits)),
+const ask = Effect.fnUntraced(function* <const L extends string>(question: Question<L>) {
+    const engine = yield* Engine;
+    const refusal = { module: 'agent', method: 'call', pathOrDescriptor: question.question } as const;
+    const called = yield* engine.callTool({ tool: 'AskUserQuestion', input: { questions: [{ question: question.question, header: question.header, multiSelect: question.multiSelect ?? false, options: question.options.map((choice) => ({ description: '', ...choice })) }] } });
+    const answered = Option.flatMap(Schema.decodeUnknownOption(Answered)(called), ({ result: { answers, annotations } }) => Option.map(Record.get(answers, question.question), (text) => read(question, text, Option.flatMapNullishOr(Record.get(annotations, question.question), Struct.get('notes')))));
+    return yield* Match.value(called).pipe(
+        Match.when({ deny: Match.string }, ({ deny }) => Effect.fail(PlatformError.systemError({ ...refusal, _tag: 'PermissionDenied', description: deny }))),
+        Match.when({ isError: true }, () => Effect.succeed(Answer.Declined<L>())),
+        Match.orElse(() => Effect.fromOption(answered, () => PlatformError.systemError({ ...refusal, _tag: 'InvalidData', description: 'an AskUserQuestion result holding no answer to the question' }))),
     );
-}
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Answer, Ask, ask, type Asking, dialog, pending, type Question };
+export { Answer, ask, type Question };
