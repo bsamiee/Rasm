@@ -10,8 +10,8 @@ import type { Dialect } from '#/syntax/dialect';
 type Chunk = Data.TaggedEnum<{
     Text: { readonly text: string; readonly quoted: boolean; readonly split: boolean; readonly glob: boolean; readonly secret: boolean };
     Unknown: { readonly origin: Origin; readonly certain: boolean; readonly many: boolean };
-    Break: object;
-    Items: { readonly items: readonly string[] };
+    Break: { readonly split: boolean };
+    Items: { readonly items: readonly string[]; readonly spread: boolean };
     Refusal: Value['refusals'][number];
 }>;
 type Segment = Extract<Chunk, { readonly _tag: 'Text' | 'Unknown' }>;
@@ -226,7 +226,7 @@ const substitute =
         const [next, chunks] = Option.match(Option.fromNullishOr(given ? exp.exp?.word : null), { onNone: (): Evaluated => [scope, []], onSome: ({ parts }) => expandParts(parts, scope, { ...frame, result: true }, true) });
         const read = value.refuse(...chunks.filter(Chunk.$is('Refusal'))).hold(Content.Scalar({ text: '' }));
         const whole = !frame.quoted && splits(frame, exp) ? read.obscure(true) : read.map(() => spell(chunks));
-        return plain ? { value, scope: next, spliced: Option.some(frame.quoted && Array.isReadonlyArrayEmpty(chunks) ? [quote('')] : chunks) } : { value: whole, scope: next, spliced: Option.none() };
+        return plain ? { value, scope: next, spliced: Option.some(Array.isReadonlyArrayEmpty(chunks) ? [given ? Chunk.Text({ text: '', quoted: frame.quoted, split: false, glob: false, secret: false }) : emit('', frame, exp)] : chunks) } : { value: whole, scope: next, spliced: Option.none() };
     };
 const assign: Operator = (exp, { value, scope, spliced }, frame) => {
     const [next, chunks] = Option.match(Option.fromNullishOr(exp.exp?.word), { onNone: (): Evaluated => [scope, []], onSome: (word) => expandWord(word, scope, frame) });
@@ -314,13 +314,13 @@ const render = ({ content, origin: read }: Value, frame: Frame, scope: Scope, ex
             const joined = (write: (text: string) => Chunk) => Option.match(glue, { onNone: () => Chunk.Unknown({ origin: Origin.Variable({ name: 'IFS', origins: HashSet.empty() }), certain: true, many: false }), onSome: (between) => write(items.join(between)) });
             return Match.value({ single: site.single, quoted, spread, empty: Array.isReadonlyArrayEmpty(items) }).pipe(
                 Match.when({ single: true }, () => [joined((text) => emit(text, frame, exp))]),
-                Match.when({ quoted: true, spread: true }, () => [Chunk.Items({ items })]),
-                Match.when({ quoted: true, empty: false }, () => [joined((text) => Chunk.Items({ items: [text] }))]),
+                Match.when({ quoted: true, spread: true }, () => [Chunk.Items({ items, spread })]),
+                Match.when({ quoted: true, empty: false }, () => [joined((text) => Chunk.Items({ items: [text], spread }))]),
                 Match.when({ quoted: true }, () => [joined((text) => emit(text, frame, exp))]),
                 Match.orElse(() =>
                     Array.intersperse(
                         items.map((item): Chunk => emit(item, frame, exp)),
-                        Chunk.Break(),
+                        Chunk.Break({ split: splits(frame, exp) }),
                     ),
                 ),
             );
@@ -487,45 +487,77 @@ const end =
         const kept = nulls || Array.isReadonlyArrayNonEmpty(state.current.segments) ? [state.current] : [];
         return state.started ? { fields: [...state.fields, ...kept], current: blank, started: false, spaced: space, after: space, exact: state.exact && state.current.certain } : { ...state, spaced: state.spaced && space, after: space };
     };
-const delimit = (state: Splitting): Splitting => (state.spaced ? { ...state, spaced: false, after: true } : { ...state, fields: [...state.fields, { ...state.current, certain: true }], current: blank, started: false, after: true });
-const split = (chunks: readonly Chunk[], ifs: Option.Option<string>, dialect: Dialect): { readonly fields: readonly Draft[]; readonly exact: boolean } => {
-    const mark = (state: Splitting): Splitting => (dialect.supports(state.after ? 'nulls' : 'leadingnulls') ? { ...state, current: { ...state.current, certain: true }, started: true, spaced: false, after: false } : state);
+const push = (state: Splitting): Splitting => ({ ...state, fields: [...state.fields, { ...state.current, certain: true }], current: blank, started: false, spaced: false, after: false });
+const delimit = (state: Splitting): Splitting => (state.spaced ? { ...state, spaced: false, after: true } : { ...push(state), after: true });
+const split = (chunks: readonly Chunk[], ifs: Option.Option<string>, dialect: Dialect, trailing: boolean): { readonly fields: readonly Draft[]; readonly exact: boolean } => {
+    const mark =
+        (literal: boolean) =>
+        (state: Splitting): Splitting => {
+            const kept = Match.value({ after: state.after, literal }).pipe(
+                Match.when({ after: false }, () => dialect.supports('leadingnulls')),
+                Match.when({ literal: true }, () => dialect.supports('nulls')),
+                Match.orElse(() => dialect.supports('expandednulls')),
+            );
+            return kept ? { ...state, current: { ...state.current, certain: true }, started: true, spaced: false, after: false } : state;
+        };
     const breaks = Option.map(ifs, (by) => {
         const classes = [true, false].map((whitespace) => Array.fromIterable(by).filter((character) => spaces.includes(character) === whitespace));
         const [white = '', hard = ''] = classes.map((characters) => characters.map(RegExp.escape).join(''));
         return new RegExp(`(?<space>[${white}]+)|(?<delimiter>[${hard}])|[^${white}${hard}]+`, 'gu');
     });
-    const cut = (text: Extract<Chunk, { readonly _tag: 'Text' }>, pattern: RegExp) =>
-        Array.fromIterable(text.text.matchAll(pattern)).map(([piece, space, delimiter]) => {
-            const ended = space === undefined ? delimit : end(true, dialect.supports('leadingnulls'));
-            return space === undefined && delimiter === undefined ? append({ ...text, text: piece }, true, false) : ended;
+    const glue = Option.match(ifs, { onNone: () => Option.some(' '), onSome: (by) => Option.fromUndefinedOr([...by][0]) });
+    const cut = (text: Extract<Chunk, { readonly _tag: 'Text' }>, pattern: RegExp, hard: boolean) =>
+        Array.fromIterable(text.text.matchAll(pattern)).flatMap(([piece, space, delimiter]) =>
+            Match.value({ space, delimiter }).pipe(
+                Match.when({ space: Match.string }, (found) => (hard ? Array.makeBy(found.space.length, () => delimit) : [end(true, dialect.supports('leadingnulls'))])),
+                Match.when({ delimiter: Match.string }, () => [delimit]),
+                Match.orElse(() => [append({ ...text, text: piece }, true, false)]),
+            ),
+        );
+    const read = (chunk: Chunk, at: { readonly literal: boolean; readonly hard: boolean }): readonly ((state: Splitting) => Splitting)[] =>
+        Chunk.$match(chunk, {
+            Break: ({ split: joins }) =>
+                Match.value({ hard: at.hard, glue: Option.getOrUndefined(Option.filter(glue, () => joins && dialect.supports('ifsjoin'))) }).pipe(
+                    Match.when({ hard: true }, () => [delimit]),
+                    Match.when({ glue: Match.string }, (found) => read(Chunk.Text({ text: found.glue, quoted: false, split: true, glob: false, secret: false }), at)),
+                    Match.orElse(() => [end(true, dialect.supports('leadingnulls'))]),
+                ),
+            Items: ({ items, spread }) =>
+                spread && !dialect.supports('listnulls')
+                    ? items.flatMap((item, index) => [...(index === 0 ? [] : [push]), ...(item === '' ? [] : [append(quote(item), true, false)])])
+                    : Array.intersperse(
+                          items.map((item) => append(quote(item), true, false)),
+                          end(false),
+                      ),
+            Refusal: () => [],
+            Unknown: (unknown) => [append(unknown, unknown.certain, unknown.many)],
+            Text: (text) =>
+                Match.value({ split: text.split, empty: text.text === '', breaks: Option.getOrUndefined(breaks) }).pipe(
+                    Match.when({ split: false, empty: true }, () => (text.quoted ? [mark(at.literal)] : [])),
+                    Match.when({ split: false }, () => [append(text, true, false)]),
+                    Match.when({ empty: true }, () => []),
+                    Match.when({ breaks: Match.defined }, (found) => cut(text, found.breaks, at.hard)),
+                    Match.orElse(() => [append(Chunk.Unknown({ origin: Origin.Variable({ name: 'IFS', origins: HashSet.empty() }), certain: false, many: true }), false, true)]),
+                ),
         });
-    const read = Chunk.$match({
-        Break: () => [end(false)],
-        Items: ({ items }) =>
-            Array.intersperse(
-                items.map((item) => append(quote(item), true, false)),
-                end(false),
-            ),
-        Refusal: () => [],
-        Unknown: (unknown) => [append(unknown, unknown.certain, unknown.many)],
-        Text: (text) =>
-            Match.value({ split: text.split, empty: text.text === '', breaks: Option.getOrUndefined(breaks) }).pipe(
-                Match.when({ split: false, empty: true }, () => (text.quoted ? [mark] : [])),
-                Match.when({ split: false }, () => [append(text, true, false)]),
-                Match.when({ empty: true }, () => []),
-                Match.when({ breaks: Match.defined }, (found) => cut(text, found.breaks)),
-                Match.orElse(() => [append(Chunk.Unknown({ origin: Origin.Variable({ name: 'IFS', origins: HashSet.empty() }), certain: false, many: true }), false, true)]),
-            ),
-    });
-    const [, steps] = Array.mapAccum(chunks, false, (open, chunk) => {
+    const [region, steps] = Array.mapAccum(chunks, { open: false, listed: false, hard: false, joined: false }, (held, chunk, at) => {
         const lone = Chunk.$is('Items')(chunk) && chunk.items.length === 1 && chunk.items[0] === '';
         const empty = chunk._tag === 'Refusal' || (chunk._tag === 'Text' && chunk.text === '');
-        const leaked = open && lone && !dialect.supports('adjacentnulls');
-        return [lone || (open && empty), leaked ? [append(Chunk.Unknown({ origin: Origin.Bytes(), certain: true, many: false }), true, false)] : read(chunk)] as const;
+        const regional = chunk._tag === 'Break' || (chunk._tag === 'Text' && chunk.split);
+        const starts = regional && chunk._tag === 'Text' && !held.joined;
+        const hard = regional && (starts ? held.listed && !dialect.supports('listspaces') : held.hard);
+        const leaked = held.open && lone && !dialect.supports('adjacentnulls');
+        const next = {
+            open: lone || (held.open && empty),
+            listed: chunk._tag === 'Items' && chunk.spread ? Array.isReadonlyArrayNonEmpty(chunk.items) : held.listed && !starts,
+            hard,
+            joined: chunk._tag === 'Break',
+        };
+        return [next, leaked ? [append(Chunk.Unknown({ origin: Origin.Bytes(), certain: true, many: false }), true, false)] : read(chunk, { literal: trailing && at === chunks.length - 1, hard })] as const;
     });
     const last = steps.flat().reduce((state, step) => step(state), unsplit);
-    const fields = [...last.fields, ...(last.started ? [last.current] : [])];
+    const pending = !last.started && region.listed && !dialect.supports('listnulls');
+    const fields = [...last.fields, ...(last.started ? [last.current] : []), ...(pending ? [{ ...last.current, certain: true }] : [])];
     const nulled = Array.isReadonlyArrayEmpty(fields) && chunks.every((chunk) => chunk._tag === 'Refusal' || (chunk._tag === 'Text' && chunk.text === '')) && chunks.some((chunk) => chunk._tag === 'Text' && chunk.quoted);
     return { fields: nulled ? [{ ...blank, certain: true }] : fields, exact: last.exact && (!last.started || last.current.certain) };
 };
@@ -545,6 +577,9 @@ const settle = ({ segments }: Draft, { site }: Frame): Field => {
     return new Field({ pieces, matching: Option.map(match, (compile) => compile(Option.map(pattern, Array.join('')))) });
 };
 
+const quotes = (part: WordPart) => (part.type === 'SglQuoted' && !part.dollar && part.value === '') || (part.type === 'DblQuoted' && Array.isReadonlyArrayEmpty(part.parts));
+const positional = (part: WordPart): boolean => (part.type === 'ParamExp' ? part.param?.value === '@' : part.type === 'DblQuoted' && Option.exists(Array.last(part.parts), positional));
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const expand = (word: Word, scope: Scope, dialect: Dialect, at: { readonly braces: Option.Option<Word>; readonly role: Role; readonly secret: (part: WordPart) => boolean }): { readonly expansion: Expansion; readonly scope: Scope } => {
@@ -558,7 +593,8 @@ const expand = (word: Word, scope: Scope, dialect: Dialect, at: { readonly brace
         onSome: (alternatives) => {
             const [next, words] = Array.mapAccum(alternatives, scope, (from, parts) => {
                 const [to, chunks] = expandParts(parts, from, frame, true);
-                const made = site.single ? { fields: [gather(chunks)], exact: true } : split(chunks, separators(to), dialect);
+                const trailing = Option.exists(Array.last(parts), quotes) && !Option.exists(Array.findLast(parts, (part) => !quotes(part)), positional);
+                const made = site.single ? { fields: [gather(chunks)], exact: true } : split(chunks, separators(to), dialect, trailing);
                 return [to, { ...made, fields: kept && Array.isReadonlyArrayEmpty(made.fields) ? [{ ...blank, certain: true }] : made.fields, chunks }] as const;
             });
             const fields = words.flatMap((made) => made.fields.map((draft) => settle(draft, frame)));

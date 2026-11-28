@@ -45,6 +45,10 @@ const features = {
     nulls: [`setopt shwordsplit 2>/dev/null; x=' '; printf '<%s>' a\${x}""`, '<a><>'],
     leadingnulls: [`setopt shwordsplit 2>/dev/null; x=' '; printf '<%s>' ""\${x}a`, '<><a>'],
     adjacentnulls: [`set -- ''; printf %s a"$@""$*"`, 'a'],
+    expandednulls: [`setopt shwordsplit 2>/dev/null; x=' ' y=; printf '<%s>' a\${x}"$y"`, '<a><>'],
+    listnulls: [`set -- a ''; y=; printf '<%s>' "$@"$y`, '<a><>'],
+    listspaces: [`setopt shwordsplit 2>/dev/null; set -- a; x='  '; printf '<%s>' "$@"$x`, '<a>'],
+    ifsjoin: ['setopt shwordsplit 2>/dev/null; IFS=:; set -- a :b; set -- $@; printf %s $#', '3'],
     quotedarithmetic: ['printf %s $(( "1" + 1 ))', '2'],
 } as const;
 const shells = {
