@@ -34,13 +34,13 @@ class Use extends Data.Class<{
     readonly changes: readonly Change[];
 }> {}
 const Answer = Schema.Union([
-    Schema.Struct({ tool: Schema.Literals(['Write', 'Edit']), result: Schema.Struct({ filePath: Schema.String, staged: Schema.optionalKey(Schema.Boolean) }) }),
+    Schema.Struct({ tool: Schema.Literals(['Write', 'Edit']), result: Schema.Struct({ filePath: Schema.String, staged: Schema.optional(Schema.Boolean) }) }),
     Schema.Struct({ tool: Schema.Literal('NotebookEdit'), result: Schema.Struct({ notebook_path: Schema.String }) }),
     Schema.Struct({ tool: Schema.Literal('Monitor'), result: Schema.Struct({ taskId: Schema.String }) }),
     Schema.Struct({
         tool: Schema.Literal('Bash'),
-        text: Schema.optionalKey(Schema.String),
-        result: Schema.Struct({ backgroundTaskId: Schema.optionalKey(Schema.String), gitOperation: Schema.optionalKey(Schema.Struct({ commit: Schema.optionalKey(Schema.Struct({ sha: Schema.String })) })) }),
+        text: Schema.optional(Schema.String),
+        result: Schema.Struct({ backgroundTaskId: Schema.optional(Schema.String), gitOperation: Schema.optional(Schema.Struct({ commit: Schema.optional(Schema.Struct({ sha: Schema.String })) })) }),
     }),
 ]);
 
