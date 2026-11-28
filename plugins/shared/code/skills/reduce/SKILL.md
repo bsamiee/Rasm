@@ -18,6 +18,9 @@ Targets are files, folders, or packages, and every pass leaves them with fewer l
 - [04]-[PYTHON](references/python.md): Skills, sources, mapping, mechanisms, patterns, and checks of Python targets
 - [05]-[SWIFT](references/swift.md): Skills, sources, mapping, mechanisms, patterns, and checks of Swift targets
 
+[TEMPLATES]:
+- [01]-[REFERENCE](templates/reference.md): Sections and order of a language reference
+
 ## [01]-[TARGET]
 
 Target `$target` (first argument, else a path the request names) sets what a session reads, and concern `$concern` (second argument, else empty) names one category by its heading in lowercase (`redundant-code`, `exports`):
