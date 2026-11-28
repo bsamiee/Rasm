@@ -1,33 +1,33 @@
 # [CSHARP]
 
-C# targets hold `.cs` files of projects `Workspace.slnx` lists, `<project>` naming the folder holding a `.csproj`, `<name>` its project name as `nx show projects` prints it, `<paths>` files a pass touches, `<dir>` session scratch folder, and `<roots>` `libs products tests`.
+C# targets hold `.cs` files of projects `Workspace.slnx` lists. Placeholders: `<project>` names project folder holding `.csproj`, `<name>` its project name as `nx show projects` prints it, `<paths>` files each pass touches, `<dir>` session scratch folder, and `<roots>` `libs products tests`.
 
 ## [01]-[SKILLS]
 
 | [INDEX] | [TARGET]         | [SKILLS]                                      | [CONDITION]                                      |
 | :-----: | :--------------- | :-------------------------------------------- | :----------------------------------------------- |
 |  [01]   | Any C#           | `dotnet:coding`, `dotnet:codelens`            | Always                                           |
-|  [02]   | Core packages    | `dotnet:languageext`, `dotnet:thinktecture`   | Always, whatever the target imports              |
+|  [02]   | Core packages    | `dotnet:languageext`, `dotnet:thinktecture`   | Always, whatever target imports                  |
 |  [03]   | Mapping          | `dotnet:mapperly`                             | Members copied between shapes by hand            |
 |  [04]   | Buffers, kernels | `dotnet:memory`                               | Span, buffer, or numeric loop written by hand    |
 |  [05]   | Drawn UI         | `dotnet:ui`                                   | Drawing, text layout, color, or Eto control code |
-|  [06]   | Tests            | `code:test`, `rhino:testing` for Rhino suites | Suite under `tests/`, or a pass changing one     |
+|  [06]   | Tests            | `code:test`, `rhino:testing` for Rhino suites | Suite under `tests/`, or pass changing one       |
 |  [07]   | MSBuild          | `msbuild:antipatterns`, `msbuild:evaluation`  | `.csproj`, `.props`, `.targets`                  |
 |  [08]   | Packages         | `msbuild:packaging`                           | `Directory.Packages.props`, `.slnx`              |
 
-Rhino and Grasshopper code takes these rows alone, its host SDK a core source [02]-[SOURCES] reads. `Directory.Build.targets` adds global usings per `PackageReference` (`LanguageExt.Prelude`, `Thinktecture`, aliases `Duration` and `Length`), so a file's `using` lines never decide a row.
+Rhino and Grasshopper code takes table rows alone. File `using` lines never decide rows, as `Directory.Build.targets` adds global usings per `PackageReference` (`LanguageExt.Prelude`, `Thinktecture`, aliases `Duration` and `Length`).
 
 ## [02]-[SOURCES]
 
-C# targets read their compiler, BCL, LanguageExt, Thinktecture, generator output, and host SDK every session whatever they import, then the central manifest whole, as most hand-rolled C# in this tree restates one of them. Package reads, their commands below in step order:
-1. Language: SDK compiler and language versions, a feature its docs list confirmed by one probe build at the project's framework
-2. Runtime: BCL reference pack at its version in the project's assets file, its XML ids per kind into `<dir>`
+C# targets read their compiler, BCL, LanguageExt, Thinktecture, generator output, and host SDK every session, whatever they import, then central manifest whole, as most hand-rolled C# here restates one of them. Package reads, commands below in step order:
+1. Language: SDK compiler and language versions, features its docs list confirmed by one probe build at project framework
+2. Runtime: BCL reference pack at its version in project assets file, XML ids per kind into `<dir>`
 3. LanguageExt: each `LanguageExt.*` package the assets file resolves, `README.nuget.md` read whole, XML ids per kind, then codelens namespaces
 4. Thinktecture: each `Thinktecture.Runtime.Extensions*` package through step 3's commands, its `README.md` read whole
 5. Generated: generators per project and each output file, source of `Items`, `Get`, `Switch`, `Map`, `Validate`, operators, and logger bodies
-6. Host: RhinoCommon, Eto, and Grasshopper2 XML ids for host code, `ilspycmd` types for `Rhino.UI`, a runtime behavior read through `tool:inspect`
-7. Workspace: references of the target's project, each library read at members a target file restates
-8. Catalog: `Directory.Packages.props` listed whole, each package doing a target's job by hand added to its project and read through step 3
+6. Host: RhinoCommon, Eto, and Grasshopper2 XML ids for host code, `ilspycmd` types for `Rhino.UI`, runtime behavior read through `tool:inspect`
+7. Workspace: target project references, each library read at members target files restate
+8. Catalog: `Directory.Packages.props` listed whole, each package for a job target code does by hand added to its project and read through step 3
 
 ```bash
 dotnet --version && dotnet "$(dirname "$(readlink -f "$(command -v dotnet)")")/sdk/$(dotnet --version)/Roslyn/bincore/csc.dll" -langversion:?
@@ -50,27 +50,27 @@ get_generated_code {"file": "<Namespace>.<Type>.<Facet>.g.cs", "limit": 1}
 get_project_dependencies {"project": "<name>"}
 ```
 
-Reads hold under these conditions:
-- Version: assets row where a project references its package, catalog pin through `yq` where it references none yet
+Reads hold under conditions below:
+- Version: assets row where project references its package, catalog pin through `yq` where it references none yet
 - Store: `NuGet.config` sets `.cache/nuget/packages`, folder names lowercase, BCL pack under `microsoft.netcore.app.ref/<version>/ref/<tfm>`
-- Folders: packages hold one XML file per `lib/<tfm>` or `ref/<tfm>`, newest folder at or below the project's framework deciding
+- Folders: packages hold one XML file per `lib/<tfm>` or `ref/<tfm>`, and newest folder at or below project framework decides
 - Host: RhinoCommon holds `RhinoCommon.xml`, `Eto.xml`, and `Rhino.UI.dll` with no XML, Grasshopper2 `Grasshopper2.xml` and `GrasshopperIO.xml`
-- Generated: output exists in the compilation alone, `get_source_generators` naming paths no disk file holds and `get_generated_code` reading them
-- Facets: each generated file holds one facet of one type (`SmartEnum`, `EqualityComparisonOperators`), a type name alone returning every facet
-- Adoption: codelens inspects referenced assemblies alone, so a catalog package reads once its `PackageReference` joins and `rebuild_solution` runs
+- Generated: output exists in compilation alone, `get_source_generators` names paths no disk file holds, and `get_generated_code` reads them
+- Facets: generated files hold one facet of one type each (`SmartEnum`, `EqualityComparisonOperators`), and type name alone returns every facet
+- Adoption: catalog packages read once their `PackageReference` joins and `rebuild_solution` runs, as codelens inspects referenced assemblies alone
 - Members: one type's declaration, decompiled source, and XML doc ids follow `search:code`
 
 ## [03]-[MAPPING]
 
 Maps list what each file of the target declares at which level and who reads it, one command or call per step, each run once over `<paths>`:
-1. Visibility: declarations per file with their effective level, a `public` member of a non-public type counted `internal`
-2. Name families: type and nested type names differing by an `I` prefix, a plural, or a mechanism suffix, each family read whole before judging it
-3. Constants: non-private `const` and `static readonly` fields other than smart enum items, each traced to its reader and the source that states it
-4. Imports: global usings the project compiles with, as a reader's file shows no `using` for them
+1. Visibility: declarations per file with their effective level, `public` members of non-public types counted `internal`
+2. Name families: type and nested type names differing by `I` prefix, plural, or mechanism suffix, each family read whole before judging it
+3. Constants: non-private `const` and `static readonly` fields other than smart enum items, each traced to its readers and to the source stating it
+4. Imports: global usings the project compiles with, as reader files show no `using` for them
 5. Readers: codelens references by symbol identity, callers, implementors, attribute holders, reflection reads, and members nothing references
 6. Text: sites spelling a member, key, setting name, or message a declaration holds, and mentions across docs, skills, and manifests
 7. Like work: clone pairs touching the target across `<roots>`, ranked by lines times similarity
-8. Nesting: sites at the limit from hk's rule, then members ranked by codelens `maxNesting` and `cognitive`
+8. Nesting: sites at limit hk's rule sets, then members ranked by codelens `maxNesting` and `cognitive`
 
 ```bash
 ast-grep outline <paths> --items structure --view expanded --json=stream | jq -r '.path as $p | .items[] | select(.symbolType != "namespace") | . as $t
@@ -106,121 +106,121 @@ find_unused_symbols {"project": "<name>", "includeInternal": true}
 get_complexity_metrics {"project": "<name>", "metric": "cognitive", "threshold": 0, "limit": 500}
 ```
 
-Commands read by their own rules:
+Command outputs read by their own rules:
 - Visibility: `implied` rows hold enum members, interface members, and explicit interface implementations, positional record parameters staying out
-- Families: plural pair is a collection type beside its element or an operations class beside its type, and only a read of both tells them apart
-- Constants: nested members print as `<Nested>.<Member>`, and a field typed as its own declaring type (smart enum item, union case) stays out
-- Readers: `find_references` takes the fully qualified name `search_symbols` prints, and `isGenerated` rows are a generator's own reads
+- Families: plural pairs are collection types beside their element or operations classes beside their type, and only reading both tells them apart
+- Constants: nested members print as `<Nested>.<Member>`, and fields typed as their own declaring type (smart enum item, union case) stay out
+- Readers: `find_references` takes fully qualified name `search_symbols` prints, and `isGenerated` rows are generators' own reads
 - Kinds: `write` and `readwrite` find mutation, `invocation` and `method_group` calls, `object_creation` construction a factory replaces
-- Unused: `find_unused_symbols` drops generated reads, so smart enum items generated `Items` alone reads print as unused
+- Unused: smart enum items read by generated `Items` alone print as unused, as `find_unused_symbols` drops generated reads
 - Clones: jscpd exits 1 whenever a pair prints, and the ranking reads its report regardless
-- Levels: rule counts `if` (an `else if` chain once), loops, switches, and conditionals, a one-arm `x switch { var y => ... }` binding none
-- Closures: lambda, anonymous method, and local function bodies count a level at 2 or more statements or a control inside
-- Ranking: codelens rows of `<paths>` files order whole reads, `maxNesting` counting a chained conditional as nested where the rule counts one
+- Levels: rule counts `if` (`else if` chain once), loops, switches, and conditionals, one-arm `x switch { var y => ... }` binding none
+- Closures: lambda, anonymous method, and local function bodies count one level when holding 2 or more statements or one control statement
+- Ranking: codelens rows of `<paths>` files order whole reads, `maxNesting` counting chained conditionals as nested where hk's rule counts one level
 
 ## [04]-[MECHANISMS]
 
-C# states behavior on nominal types and lets its compiler and source generators write members from one declaration, so most reductions here replace hand members with a declaration form and narrow each declaration to its readers' level. Root `Directory.Build.props` decides which forms compile: `LangVersion` `preview` over the SDK's compiler, `net10.0` for every project but Roslyn components on `netstandard2.0`, and warnings as errors under `AnalysisLevel` `latest-all`.
+C# states behavior on nominal types, and its compiler and source generators write members from one declaration. Most cuts replace hand-written members with a declaration form and narrow each declaration to its readers' level. Root `Directory.Build.props` decides which forms compile: `LangVersion` `preview` over SDK compiler, `net10.0` for every project but Roslyn components on `netstandard2.0`, and warnings as errors under `AnalysisLevel` `latest-all`.
 
 [DECLARATIONS]:
 - Records: positional `record` declares constructor, `init` properties, value equality, `Deconstruct`, `ToString`, and `with` in one line
 - Equality: records compare members through `EqualityComparer<T>.Default`, `string`, `Seq`, and `HashMap` by content and arrays by reference
-- Copies: `with { }` derives a successor from a record, in place of a constructor call restating every unchanged member
-- Options: `required` and `init` members with defaults replace a constructor parameter per option, the compiler refusing a creation missing one
-- Primary constructors: class parameters replace fields and `this.x = x` lines, a field or property initializer normalizing one parameter once
-- Backing fields: `field` in an accessor replaces a private field beside its property, normalizing in `init` and caching through `??=` on a class
+- Copies: `with { }` copies a record with named members changed, in place of a constructor call restating every unchanged member
+- Options: `required` and `init` members with defaults replace a constructor parameter per option, and compiler refuses initializers missing one
+- Primary constructors: class parameters replace fields and `this.x = x` lines, field or property initializers normalizing one parameter once
+- Backing fields: `field` in accessors replaces a private field beside its property, normalizing in `init` and caching through `??=` on classes
 - Nested names: cases nested in their base read as `Selection.Many` and `Command<TInvoke>.Run`, one name in place of an affix per case
-- Arity: types key by name and arity, so a static class beside a generic type of its name (`Fault`, `Fault<TReason>`) holds factories inferring it
-- Same name: property takes its type's name (`Gamut Gamut`), and a static factory on the type (`X.Of`) replaces an `XFactory` or `CreateX`
+- Arity: static classes beside a generic type of their name (`Fault`, `Fault<TReason>`) hold factories inferring it, as types key by name and arity
+- Same name: properties take their type's name (`Gamut Gamut`), and static factories on their type (`X.Of`) replace `XFactory` or `CreateX`
 
 [GENERATORS]:
-- Partial: `partial` declaration takes members its generator writes (Thinktecture, `[LoggerMessage]`, `[GeneratedRegex]`, `[JsonSerializable]`)
+- Partial: `partial` declarations take members their generator writes (Thinktecture, `[LoggerMessage]`, `[GeneratedRegex]`, `[JsonSerializable]`)
 - Value objects: `[ValueObject<TKey>]` writes factories, equality, comparison, operators, `IParsable`, and key conversions from one key and its rule
-- Composites: `[ComplexValueObject]` writes equality and factories over members, `[IgnoreMember]` and `[MemberEqualityComparer]` picking which compare
+- Composites: `[ComplexValueObject]` writes equality and factories, `[IgnoreMember]` and `[MemberEqualityComparer]` picking which members compare
 - Text forms: `[ObjectFactory<string>]` with one `Validate` and one `ToValue` writes `Parse`, `TryParse`, `IParsable`, and serializer conversions
 - Smart enums: `[SmartEnum]` items holding data and `[UseDelegateFromConstructor]` behavior replace an `enum` and a `switch` per reader
 - Item sets: `Items` lists a set once, and generic code reaches `Items`, `Get`, and `TryGet` of every set through `ISmartEnum<TKey, T, TError>`
 - Unions: `[Union]` abstract partial record with nested `sealed` cases closes a hierarchy under a private constructor and an exhaustive `Switch`
-- Language unions: `union X(A, B)` closes a union over existing types, and a switch expression missing a case fails CS8509
-- Accessors: `[UnsafeAccessor]` externs read a non-public host member by signature, in place of reflection over a name string
+- Language unions: `union X(A, B)` closes a union over existing types, and switch expressions missing a case fail CS8509
+- Accessors: `[UnsafeAccessor]` extern methods read non-public host members by signature, in place of reflection over a name string
 
 [RESULTS]:
 - Absence: `Option<A>` with `Optional` at a nullable boundary replaces `null` returns, `bool Try*(out T)` pairs, and `IsSome` tests before an unwrap
 - Failure: `Fin<A>` with `Fault.Of` and `Fault.Unless` replaces exceptions as outcomes, `(bool, T, string)` tuples, and `default` on failure
-- Accumulation: tuple `Apply` and `Traverse` over `Fin` checks replace hand error lists, `Bind` and `TraverseM` stopping at the first failure
-- Effects: `IO.lift` at a throwing host call replaces a `try` and `catch` block, `use` with `Bracket` replacing `try` and `finally` release
+- Accumulation: tuple `Apply` and `Traverse` over `Fin` checks replace hand-written error lists, `Bind` and `TraverseM` stopping at first failure
+- Effects: `IO.lift` at throwing host calls replaces `try` and `catch` blocks, `use` with `Bracket` replacing `try` and `finally` release
 - Collections: `Seq`, `HashMap`, and `Map` hold structural equality and persistent updates, `toSeq` copying a mutable input once at its boundary
 
 [MEMBERS]:
-- Patterns: switch expressions over type, property, extended property, relational, list, and tuple patterns replace `if` chains, casts, and `is` tests
-- Lists: list patterns bind split parts (`text.Split(':') is [var paper, var model]`), in place of a length test and index reads
+- Patterns: type, property, extended property, relational, list, and tuple patterns in switch expressions replace `if` chains, casts, and `is` tests
+- Lists: list patterns bind split parts (`text.Split(':') is [var paper, var model]`), in place of length tests and index reads
 - Collections: `[.. head, item, .. option.ToSeq()]` builds a target-typed `Seq<T>`, `ImmutableArray<T>`, or span, in place of builders and `Concat`
-- Params: `params ReadOnlySpan<T>` and `params Seq<T>` take a list of items or strategies, in place of an overload per count or an array argument
+- Params: `params ReadOnlySpan<T>` and `params Seq<T>` take lists of items or strategies, in place of an overload per count or array arguments
 - Generic math: one member constrained on `INumber<T>` or `IBinaryInteger<T>` replaces a copy per numeric type, its limits read from `T`
-- Static interface members: `static abstract` and `static virtual` members move a per-type factory or constant onto its type, read as `T.Member`
-- Extension members: `extension(<receiver>)` blocks give a foreign type properties, operators, and members, in place of `GetX(x)` helpers and wrappers
-- Static extensions: block with an unnamed receiver (`extension(Command<Invoke>)`) adds factories read as `Command<Invoke>.Toggle(...)`
+- Static interface members: `static abstract` and `static virtual` members move per-type factories and constants onto their type, read as `T.Member`
+- Extension members: `extension(<receiver>)` blocks give foreign types properties, operators, and members, in place of `GetX(x)` helpers and wrappers
+- Static extensions: blocks with unnamed receiver (`extension(Command<Invoke>)`) add factories read as `Command<Invoke>.Toggle(...)`
 - Caller information: `[CallerArgumentExpression]` and `[CallerMemberName]` derive a label from call text, in place of a caption string per call
 
 [VISIBILITY]:
-- Levels: `public` for API other assemblies read, `internal` for its own, `file` for a type one file reads, `private` for members and nested types
-- Modifiers: `.editorconfig` requires an access modifier on every declaration, so each level reads from its declaration's own text
-- Sealing: CA1852 fails a build on an internal type no type extends and no `sealed` closes, so a pass decides `sealed` on public types
-- Interfaces: explicit interface implementation keeps an interface's members off a type's public members
+- Levels: `public` for API other assemblies read, `internal` for its own, `file` for types one file reads, `private` for members and nested types
+- Modifiers: each level reads from its declaration's own text, as `.editorconfig` requires an access modifier on every declaration
+- Sealing: passes decide `sealed` on public types, as CA1852 fails builds on internal types no type extends and no `sealed` closes
+- Interfaces: explicit interface implementation keeps interface members off a type's public members
 
-Host rules bind where a compiler or generator refuses a form, each proved by one probe build:
+Host rules apply where a compiler or generator refuses a form, each proved by one probe build:
 - Extension blocks compile only inside a top-level, non-generic static class (CS9283), never nested in their concept's type or generic over it
-- `file` applies to types alone (CS0106), a member its own file reads alone staying `private`
-- `union` declarations need `IUnion` and `UnionAttribute` (CS0518, CS0656), which the .NET 11 reference pack holds and .NET 10 lacks
+- `file` applies to types alone (CS0106), and members their own file alone reads stay `private`
+- `union` declarations need `IUnion` and `UnionAttribute` (CS0518, CS0656), held in .NET 11 reference pack and absent from .NET 10
 - Frameworks lacking `IUnion` (Rhino's .NET 10 runtime, `netstandard2.0`) take Thinktecture `[Union]`
-- Primary constructors compile `public`, `protected` on an abstract type, so a type a validating factory gates keeps a private constructor
-- Thinktecture types refuse a primary constructor (TTRESG043), as their generator owns a private one
+- Types a validating factory gates keep a private constructor, as primary constructors compile `public`, `protected` on abstract types
+- Thinktecture types refuse primary constructors (TTRESG043), as their generator owns a private one
 
 ## [05]-[PATTERNS]
 
-Patterns common in C#, each a lead a map confirms before any rebuild, its rebuild holding under the condition beside it:
+C# across the repository repeats patterns below, each a candidate a map confirms before any rebuild:
 
 | [INDEX] | [PATTERN]                 | [LOOK_FOR]                                                 | [REBUILD]                                    |
 | :-----: | :------------------------ | :--------------------------------------------------------- | :------------------------------------------- |
-|  [01]   | Operations beside a type  | `Xs`, `XOps`, `XExtensions`, `XFactory` class over `X`     | Members, static factories, static extensions |
-|  [02]   | Hand equality             | `Equals` and `GetHashCode` over a member tuple or comparer | Record, `[ComplexValueObject]` members       |
-|  [03]   | Repeated guards           | `Fault.Unless` rule over one primitive across types        | One `[ValueObject<T>]` holding the rule      |
-|  [04]   | Hand results              | `bool Try*(out T)`, `null` lookup, `(bool, T)`, `IsSome ?` | `Option`, `Fin`, `Match`, tuple `Apply`      |
-|  [05]   | Hand text forms           | `Parse` beside a `ToString` override on one value type     | `[ObjectFactory<string>]`, `IParsable`       |
+|  [01]   | Operations beside types   | `Xs`, `XOps`, `XExtensions`, `XFactory` class over `X`     | Members, static factories, static extensions |
+|  [02]   | Hand-rolled equality      | `Equals` and `GetHashCode` over member tuple or comparer   | Record, `[ComplexValueObject]` members       |
+|  [03]   | Repeated guards           | `Fault.Unless` rule over one primitive across types        | One `[ValueObject<T>]` holding rule          |
+|  [04]   | Hand-rolled results       | `bool Try*(out T)`, `null` lookup, `(bool, T)`, `IsSome ?` | `Option`, `Fin`, `Match`, tuple `Apply`      |
+|  [05]   | Hand-rolled text forms    | `Parse` beside `ToString` override on one value type       | `[ObjectFactory<string>]`, `IParsable`       |
 |  [06]   | Constructor boilerplate   | Fields set from parameters, field beside its property      | Primary constructor, record, `field`         |
 |  [07]   | Enums with switches       | `enum` or key string branched in many members              | Smart enum items holding data, delegates     |
 |  [08]   | Flags and kind fields     | Exclusive booleans, `is` tests, kind beside payload fields | `[Union]` record, nested `sealed` cases      |
-|  [09]   | Per-type copies           | Overloads differing by numeric type or a per-type value    | Generic member, `static abstract` member     |
+|  [09]   | Per-type copies           | Overloads differing by numeric type or per-type value      | Generic member, `static abstract` member     |
 |  [10]   | Restated copies           | Constructor restating members, `List<T>` filled once       | `with`, collection expression                |
 |  [11]   | Interface per implementer | `IX` with one implementer                                  | `sealed` concrete type, `Func` value         |
-|  [12]   | Visibility past readers   | `public` in a product, `internal` type one file reads      | `internal`, `file`, `private`                |
+|  [12]   | Visibility past readers   | `public` in product code, `internal` type one file reads   | `internal`, `file`, `private`                |
 
-Patterns hold under these conditions:
-- Row [01] -> generic `X<T>` takes a static class `X` inferring `T`, and a foreign `X` takes a static extension block
-- Row [01] -> operation a host calls by name (command, component, handler registration) stays where its registration reads it
-- Row [01] -> extension blocks need a top-level static class, so a pass cuts class count and mechanism names, never the last class
-- Row [02] -> record holding reference identity over a mutable host graph (`ReferenceEquals`, `RuntimeHelpers.GetHashCode`) keeps its override
-- Row [03] -> rule differing per owning type, or a range its owner's other members decide, stays in that owner's `Validated`
-- Row [04] -> host setter taking `null` reads `ValueUnsafe` at its call, and a host `Try*` call converts to `Option` at that call alone
-- Row [05] -> type no parser, serializer, or binder reads keeps `Validated` and its own text member, as `[ObjectFactory]` converts `Fin` back
+Rows hold under conditions below:
+- Row [01] -> generic `X<T>` takes static class `X` inferring `T`, and foreign `X` takes static extension block
+- Row [01] -> operations a host calls by name (command, component, handler registration) stay where their registration reads them
+- Row [01] -> passes cut class count and mechanism names down to one top-level static class, as extension blocks need one
+- Row [02] -> records holding reference identity over mutable host graphs (`ReferenceEquals`, `RuntimeHelpers.GetHashCode`) keep their override
+- Row [03] -> rules differing per owning type, or ranges an owner's other members decide, stay in their owner's `Validated`
+- Row [04] -> host setters taking `null` read `ValueUnsafe` at their call, and host `Try*` calls convert to `Option` at their call alone
+- Row [05] -> types no parser, serializer, or binder reads keep `Validated` and their own text member, as `[ObjectFactory]` converts `Fin` back
 - Row [06] -> Thinktecture types and types a validating factory gates keep their private constructor
-- Row [07] -> fact one consumer owns stays at its `Map`, and an `enum` a host or native API defines stays at that boundary
+- Row [07] -> facts one consumer owns stay at its `Map`, and `enum` types a host or native API defines stay at their boundary
 - Row [09] -> overloads a host registers by reflected signature (Grasshopper 2 `ConversionServer` conversions) stay one per signature
 - Row [10] -> host APIs filling a `List<T>` argument keep each list inside the effect passing it
-- Row [11] -> host seams (Eto handlers, platform files, `PlugIn`), static-abstract constraints (`IBlend`), and type-erasing faces (`ISlot`) stay
-- Row [12] -> type a host loads by reflection (plug-in, command, component) keeps the level its loader reads
+- Row [11] -> host seams (Eto handlers, platform files, `PlugIn`), static-abstract constraints (`IBlend`), and type-erasing interfaces (`ISlot`) stay
+- Row [12] -> types a host loads by reflection (plug-in, command, component) keep the level their loader reads
 
 ## [06]-[CHECK]
 
-Check per pass, each command its own background call, `--files` taking `<paths>` joined by commas:
+Checks run per pass, each command in its own background call, with `--files` taking `<paths>` joined by commas:
 
 ```bash
 hk fix <paths>
 nx affected -t check --files=<paths> --exclude=rasm
 ```
 
-- Scope: root project `rasm` runs repository-wide checks (jscpd, knip, NuGet restore) failing on other work in a shared tree, and a pass excludes it
+- Scope: passes exclude root project `rasm`, as its repository-wide checks (jscpd, knip, NuGet restore) fail on other work in a shared tree
 - Build: `check--dotnet-build` compiles with warnings as errors under every analyzer, the repository's `RASM` rules included
 - Format: `check--dotnet-format` checks style, and codelens `get_diagnostics` runs analyzers with no option values and decides nothing
-- Manifest: `<paths>` holding a `.csproj`, `.props`, `.targets`, or `packages.lock.json` -> same `nx affected` line without `--exclude=rasm`
-- Host: Rhino and Grasshopper plug-ins have no validator, and a host-loaded change proves itself through its `rhino:testing` suite
+- Manifest: `<paths>` holding `.csproj`, `.props`, `.targets`, or `packages.lock.json` -> same `nx affected` line without `--exclude=rasm`
+- Host: Rhino and Grasshopper plug-ins have no validator, and host-loaded changes prove themselves through their `rhino:testing` suite
