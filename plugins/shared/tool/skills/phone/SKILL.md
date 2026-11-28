@@ -18,8 +18,8 @@ xcrun devicectl device info displays -d <udid> -q -j - | jq -c '.result.displays
 ```
 
 - `-q -j -` prints the versioned JSON result alone on stdout, `-j <f>` writes it to a file, human output is unstable across releases
-- `passcodeRequired: true` means locked: taps, typing, element reads, app launches, and URL opens wait for the owner to unlock, an owner step asked once with the reason
-- Locked phones still answer state reads, screenshots, pasteboard, files, logs, and metrics
+- `passcodeRequired: true` means locked: taps, typing, app launches, and URL opens wait for the owner to unlock, an owner step asked once with the reason, and Auto-Lock locks it again after 5 idle minutes
+- Locked phones still answer state reads, screenshots, lock screen captions, pasteboard, files, logs, and metrics
 - `-d` takes the UDID, CoreDevice id, ECID, serial, or name, and never a tailnet DNS name, as CoreDevice discovery stays on the local network
 - `pymobiledevice3` picks the one paired phone itself, as `PYMOBILEDEVICE3_NATIVE=1` in every shell routes it through Apple's `remoted` tunnel
 - Face ID, passkeys, Apple Account passwords, camera, and unlock stay the owner's
@@ -71,7 +71,7 @@ xcrun devicectl device info displays -d <udid> -q -j - | jq -c '.result.displays
 HID coordinates run 0 to 65535 across the screen, `x = round(px * 65535 / W)` and `y = round(py * 65535 / H)`, where `W` and `H` are the size of the image `px` and `py` were read from. Full screenshots match the `displays` bounds, and a downscaled copy keeps the same ratios.
 
 [STEPS]:
-1. Read: screenshot, then `sips -Z 1434 -s format jpeg <f>.png --out <f>.jpg` and Read the JPEG, as the full PNG is 16-bit at the display's native size
+1. Read: `capture screenshot` to `<f>.png`, then `sips -Z 1434 -s format jpeg <f>.png --out <f>.jpg` and Read the JPEG, as the full PNG is 16-bit at the display's native size
 2. Locate: take the target's center in that image, add `list-items` captions to tell lookalike controls apart
 3. Act: one `HID` call, or one `HID session` batch for a known sequence
 4. Verify: screenshot again before the next act, as taps land on what moved during an animation
@@ -81,7 +81,7 @@ HID coordinates run 0 to 65535 across the screen, `x = round(px * 65535 / W)` an
 
 Writes to the owner's phone restore what they changed:
 - Settings, orientation, location, and pasteboard -> read the current value first (`info appearance`, `orientation get`, `pasteboard info` and `paste`), write, then restore and read back
-- `pasteboard copy` replaces every flavor of the current item, so `paste --type <uti> > <f>` saves each flavor `info` lists before a write
+- `pasteboard copy` replaces the whole item and `--file` makes one item per file, so an item `info` lists with more than one flavor comes back as text alone
 - `hid button lock` locks the phone and hands the next step to the owner
 - `settings reset`, `reboot`, `uninstall app`, `rename`, `settings biometrics --disable`, `profile install\|remove`, and `manage unpair` run on the owner's word alone
 
