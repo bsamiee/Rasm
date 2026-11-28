@@ -14,6 +14,7 @@ Reduction rebuilds logic until each fact and operation sits once, at the source 
 - [02]-[RUST](references/rust.md): Skills, sources, consumers, counts, forms, and checks of Rust targets
 - [03]-[CSHARP](references/csharp.md): Skills, survey signals, sources, consumers, forms, and checks of C# targets
 - [04]-[PYTHON](references/python.md): Skills, survey signals, sources, consumers, forms, and checks of Python targets
+- [05]-[SWIFT](references/swift.md): Skills, survey signals, sources, consumers, forms, and checks of Swift targets
 
 ## [01]-[TARGET]
 
