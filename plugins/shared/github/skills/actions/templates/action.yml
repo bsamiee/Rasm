@@ -1,0 +1,35 @@
+name: Setup
+description: Restores dependency state keyed by lock files, installs what the restore lacks, and saves the state on default-branch pushes whose exact key missed
+
+inputs:
+    name:
+        description: Key part naming the job or matrix row whose state this is
+        required: true
+    lock:
+        description: Lock and toolchain file globs, one per line, whose hash keys the state
+        required: true
+    path:
+        description: Folders the state holds, one per line, identical on every runner of one key
+        required: true
+
+outputs:
+    hit:
+        description: True when the exact key restored
+        value: ${{ steps.restore.outputs.cache-hit }}
+
+runs:
+    using: composite
+    steps:
+        - id: restore
+          uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+          with:
+              path: ${{ inputs.path }}
+              key: ${{ inputs.name }}-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles(inputs.lock) }}
+              restore-keys: ${{ inputs.name }}-${{ runner.os }}-${{ runner.arch }}-
+        - shell: bash
+          run: <install>
+        - if: ${{ github.event_name == 'push' && github.ref_name == github.event.repository.default_branch && steps.restore.outputs.cache-hit != 'true' }}
+          uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+          with:
+              path: ${{ inputs.path }}
+              key: ${{ steps.restore.outputs.cache-primary-key }}

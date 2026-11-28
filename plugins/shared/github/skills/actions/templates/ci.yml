@@ -1,0 +1,89 @@
+name: CI
+
+on:
+    pull_request: {}
+    merge_group: {}
+    push:
+        branches: [main]
+    workflow_dispatch:
+        inputs:
+            uncached:
+                description: Runs every task past the task cache, to time cold work
+                type: boolean
+                default: false
+
+concurrency:
+    group: ${{ format('{0}-{1}', github.workflow, case(github.event_name == 'pull_request' && github.run_attempt == 1, github.event.pull_request.number, github.event_name == 'pull_request', github.sha, github.event_name == 'merge_group', github.event.merge_group.head_sha, github.run_id)) }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions: {}
+
+defaults:
+    run:
+        shell: bash
+
+jobs:
+    plan:
+        name: Plan
+        runs-on: ubuntu-slim
+        timeout-minutes: 10
+        permissions:
+            contents: read
+        outputs:
+            base: ${{ steps.base.outputs.sha }}
+            matrix: ${{ steps.plan.outputs.matrix }}
+        steps:
+            - &checkout
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 0
+                  filter: blob:none
+            - id: base
+              run: printf 'sha=%s\n' "${BASE:-$(git rev-parse HEAD^1)}" >> "${GITHUB_OUTPUT}"
+              env:
+                  BASE: ${{ case(github.event_name == 'merge_group', github.event.merge_group.base_sha, github.event_name == 'push', github.event.before, '') }}
+            - id: plan
+              run: printf 'matrix=%s\n' "$(<plan> "${BASE}" | jq --compact-output .)" >> "${GITHUB_OUTPUT}"
+              env:
+                  BASE: ${{ steps.base.outputs.sha }}
+
+    check:
+        name: ${{ matrix.name }}
+        needs: plan
+        if: ${{ needs.plan.outputs.matrix != '[]' }}
+        strategy:
+            fail-fast: false
+            matrix:
+                include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+        runs-on: ${{ matrix.runner }}
+        timeout-minutes: ${{ matrix.timeout }}
+        permissions:
+            contents: read
+        env:
+            BASE: ${{ needs.plan.outputs.base }}
+            UNCACHED: ${{ inputs.uncached == true }}
+        steps:
+            - *checkout
+            - if: ${{ runner.os == 'Linux' && runner.environment == 'github-hosted' }}
+              background: true
+              run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+            - uses: $/.github/actions/setup
+              with:
+                  name: ${{ matrix.name }}
+                  lock: <lock files>
+                  path: <state folders>
+            - wait-all: true
+            - run: <task> "${BASE}"
+
+    ci:
+        name: CI
+        needs: [plan, check]
+        if: ${{ !cancelled() }}
+        runs-on: ubuntu-slim
+        timeout-minutes: 5
+        permissions: {}
+        steps:
+            - run: jq --exit-status 'all(.[]; .result == "success" or .result == "skipped")' <<< "${NEEDS}"
+              env:
+                  NEEDS: ${{ toJSON(needs) }}

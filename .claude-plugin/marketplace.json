@@ -76,6 +76,11 @@
             }
         },
         {
+            "name": "github",
+            "source": "./plugins/shared/github",
+            "category": "Coding"
+        },
+        {
             "name": "media",
             "source": "./plugins/shared/media",
             "category": "Coding"

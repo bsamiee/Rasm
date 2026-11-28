@@ -1,0 +1,12 @@
+{
+    "name": "github",
+    "description": "GitHub Actions workflows, composite actions, reusable workflows, runners, caches, tokens, and releases, with run-history analysis and run diagnosis",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "interface": {
+        "displayName": "GitHub",
+        "shortDescription": "GitHub Actions workflows, runners, caches, and run history",
+        "brandColor": "#090909"
+    }
+}
