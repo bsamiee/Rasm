@@ -171,7 +171,7 @@ const served = Effect.fnUntraced(function* (server: Server, { root, file, text, 
     );
     yield* Effect.raceFirst(settled, exited);
     const found = yield* Effect.forEach(declarations, ({ line, character }) => requested(ReferencesRequest.type, { textDocument: { uri }, position: { line, character }, context: { includeDeclaration: false } }), { concurrency: 'unbounded' });
-    return found.map((locations) => (locations ?? []).map((location): Site => ({ file: fileURLToPath(location.uri), line: location.range.start.line + 1 })));
+    return found.map((locations) => (locations ?? []).map((location): Site => ({ file: new URL(location.uri).protocol === 'file:' ? fileURLToPath(location.uri) : location.uri, line: location.range.start.line + 1 })));
 }, Effect.scoped);
 const located = (file: string, project: Project, position: number) => (reference: NodeHandle) =>
     Option.flatMap(Option.fromUndefinedOr(reference.resolve(project)), (node) => {
