@@ -2,7 +2,6 @@
     "$schema": "../node_modules/knip/schema.json",
     "exclude": ["catalog"],
     "treatConfigHintsAsErrors": true,
-    "ignoreBinaries": ["jscpd", "rustc", "swift", "uv", "zipinfo"],
     "ignoreDependencies": ["@effect/language-service", "@rasm/process", "adobe", "claude-code", "indesign-uxp-types"],
     "ignoreExportsUsedInFile": true,
     "ignoreIssues": {

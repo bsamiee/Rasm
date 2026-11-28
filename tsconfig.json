@@ -307,6 +307,9 @@
         },
         {
             "path": "./libs/typescript/ai/tools/application-tools"
+        },
+        {
+            "path": "./libs/typescript/macos/darwin"
         }
     ]
 }

@@ -940,6 +940,9 @@ debug = "line-tables-only" # Backtraces show file and line with no variable or p
 [profile.dev.package."*"]
 debug = false # Non-member backtrace frames lack file and line
 
+[profile.release]
+strip = "symbols" # Installed binaries drop the symbol table, panics print addresses in place of function names
+
 [profile.dist]
 inherits        = "release" # `cargo dylint` builds lint libraries under unwinding `release`
 panic           = "abort"   # Service manager restarts process after defect panic in place of tokio catching each task panic

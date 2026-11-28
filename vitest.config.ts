@@ -8,7 +8,7 @@ import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
 import { playwright } from '@vitest/browser-playwright';
 import { Duration, Match } from 'effect';
 import { defaultExclude, defineConfig, type TestProjectInlineConfiguration } from 'vitest/config';
-import type { BrowserConfigOptions } from 'vitest/node';
+import type { BrowserConfigOptions, Vite } from 'vitest/node';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -28,6 +28,20 @@ const browser = (name: string): BrowserConfigOptions => ({
     trace: { mode: 'retain-on-failure', tracesDir: join(ARTIFACTS, name, 'traces') },
 });
 
+const bounded: Vite.Plugin = {
+    name: 'process-timeout',
+    configureVitest: ({
+        vitest: {
+            config: { inspector },
+        },
+        project,
+    }) => {
+        if (inspector.enabled !== true && !inspector.openInMainProcess) {
+            project.config.execArgv.push(`--process-timeout=${2 * LIMIT}ms`);
+        }
+    },
+};
+
 const suites = (root: string, { name, devDependencies = {}, peerDependencies = {} }: PackageJson): TestProjectInlineConfiguration[] => {
     const test = { name, testTimeout: LIMIT, hookTimeout: LIMIT, execArgv: ['--disable-warning=ExperimentalWarning'], env: { CI: 'false', ...(('nx' in devDependencies || '@nx/devkit' in devDependencies) && { NX_DAEMON: 'false', NX_WORKSPACE_DATA_DIRECTORY: '.nx/workspace-data' }) } };
     return 'vitest' in peerDependencies
@@ -38,10 +52,10 @@ const suites = (root: string, { name, devDependencies = {}, peerDependencies = {
               ]),
               Match.when({ 'vitest-browser-react': Match.string }, () => [{ root, plugins: [react], test: { ...test, browser: browser(name) } }]),
               Match.when({ '@cloudflare/vitest-plugin': Match.string }, () => [
-                  { root, test: { ...test, name: `${name} node`, exclude: [...defaultExclude, WORKERS] } },
+                  { root, plugins: [bounded], test: { ...test, name: `${name} node`, exclude: [...defaultExclude, WORKERS] } },
                   { root, plugins: [cloudflareTest({ config: true })], test: { ...test, name: `${name} workers`, include: [WORKERS] } },
               ]),
-              Match.when({ vitest: Match.string }, () => [{ root, test }]),
+              Match.when({ vitest: Match.string }, () => [{ root, plugins: [bounded], test }]),
               Match.orElse(() => []),
           );
 };
