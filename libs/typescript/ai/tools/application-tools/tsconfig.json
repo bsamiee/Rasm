@@ -8,6 +8,9 @@
             "path": "../../../data/search"
         },
         {
+            "path": "../../report"
+        },
+        {
             "path": "../../mcp"
         },
         {

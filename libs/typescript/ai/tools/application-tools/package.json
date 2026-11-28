@@ -37,6 +37,7 @@
         "@rasm/applications": "workspace:*",
         "@rasm/database": "workspace:*",
         "@rasm/mcp": "workspace:*",
+        "@rasm/report": "workspace:*",
         "@rasm/search": "workspace:*"
     },
     "devDependencies": {

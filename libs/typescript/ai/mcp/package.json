@@ -19,7 +19,6 @@
     },
     "exports": {
         "./link": "./link.ts",
-        "./report": "./report.ts",
         "./resource": "./resource.ts",
         "./server": "./server.ts",
         "./toolkit": "./toolkit.ts",
@@ -34,7 +33,6 @@
         },
         "exports": {
             "./link": "./dist/link.js",
-            "./report": "./dist/report.js",
             "./resource": "./dist/resource.js",
             "./server": "./dist/server.js",
             "./toolkit": "./dist/toolkit.js",
@@ -50,6 +48,7 @@
         "@effect/sql-sqlite-node": "catalog:",
         "@opentelemetry/semantic-conventions": "catalog:",
         "@rasm/database": "workspace:*",
+        "@rasm/report": "workspace:*",
         "@rasm/rpc": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/telemetry": "workspace:*",

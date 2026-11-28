@@ -19,6 +19,9 @@
             "path": "../../../../../libs/typescript/data/search"
         },
         {
+            "path": "../../../../../libs/typescript/ai/report"
+        },
+        {
             "path": "../../../../../libs/typescript/system/process"
         },
         {
@@ -37,10 +40,10 @@
             "path": "../../../../../libs/typescript/creative-cloud/extendscript"
         },
         {
-            "path": "../../../../../libs/typescript/creative-cloud/desktop"
+            "path": "../../../../../libs/typescript/macos/current-process"
         },
         {
-            "path": "../../../../../libs/typescript/macos/current-process"
+            "path": "../../../../../libs/typescript/creative-cloud/desktop"
         },
         {
             "path": "../../../../../libs/typescript/macos/applications"

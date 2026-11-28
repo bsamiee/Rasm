@@ -310,6 +310,9 @@
         },
         {
             "path": "./libs/typescript/macos/darwin"
+        },
+        {
+            "path": "./libs/typescript/ai/report"
         }
     ]
 }

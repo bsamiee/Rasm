@@ -1,13 +1,13 @@
 import { parse } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import manifest from '@rasm/mcp/package.json' with { type: 'json' };
+import { Line, Report } from '@rasm/report';
 import { Array, Cause, Context, Data, Effect, FiberMap, Function, Match, Option, Pool, Predicate, pipe, Queue, Record, Ref, Result, Schema, Stream, Struct, Tuple } from 'effect';
 import { McpClient, McpClientError, McpProtocol, McpSchema, McpServer } from 'effect/ai';
 import { SecureRandom } from 'effect/crypto';
 import type { HttpClient } from 'effect/http';
 import { Rpc, RpcClientError } from 'effect/rpc';
 import { Link } from '#/link';
-import { Line, Report } from '#/report';
 import { Server } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------

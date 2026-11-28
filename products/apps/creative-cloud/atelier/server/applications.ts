@@ -6,8 +6,8 @@ import { Application, Registry } from '@rasm/creative-cloud-desktop/application'
 import { Preferences, Tools } from '@rasm/creative-cloud-desktop/tools';
 import { setting } from '@rasm/mcp/cli';
 import { Link } from '@rasm/mcp/link';
-import { Line, Report } from '@rasm/mcp/report';
 import { Handle } from '@rasm/mcp/server';
+import { Line, Report } from '@rasm/report';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Context, Effect, FileSystem, Function, flow, Layer, Option, Order, Predicate, Record, Result, Schema, String, Struct, SubscriptionRef } from 'effect';
 import { McpSchema } from 'effect/ai';

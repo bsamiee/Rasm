@@ -1,7 +1,7 @@
+import { Report } from '@rasm/report';
 import { Unmatched } from '@rasm/search/unmatched';
 import { Array, Context, Effect, Formatter, Match, Number, Option, Order, Predicate, Record, Result, Schema, SchemaAST, SchemaIssue, type Stream, Struct, UndefinedOr } from 'effect';
 import { McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
-import { Report } from '#/report';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

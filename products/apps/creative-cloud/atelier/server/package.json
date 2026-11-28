@@ -23,6 +23,7 @@
         "@rasm/mcp": "workspace:*",
         "@rasm/object-model": "workspace:*",
         "@rasm/process": "workspace:*",
+        "@rasm/report": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/telemetry": "workspace:*",
         "@rasm/typography": "workspace:*",

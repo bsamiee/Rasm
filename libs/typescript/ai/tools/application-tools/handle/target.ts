@@ -3,9 +3,9 @@ import { ApplicationServer } from '@rasm/applications/server/client';
 import { ApplicationFailure } from '@rasm/applications/server/failure';
 import { Installation } from '@rasm/applications/server/installation';
 import { Instance } from '@rasm/applications/server/instance';
-import { Call, Format, Line, Report } from '@rasm/mcp/report';
 import { Handle, Server } from '@rasm/mcp/server';
 import { ToolCall } from '@rasm/mcp/toolkit';
+import { Call, Format, Line, Report } from '@rasm/report';
 import { Array, Cause, Context, Data, Effect, Equal, Equivalence, Function, HashSet, Layer, Number, Option, Record, Result, Schema, SchemaGetter, Semaphore, Sink, Stream, String, Struct, SubscriptionRef } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------

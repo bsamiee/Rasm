@@ -1,0 +1,38 @@
+{
+    "name": "@rasm/report",
+    "version": "0.1.0",
+    "description": "Report lines an agent reads: subject lines, labeled facts, rows, and a next call, fitted to a character budget by cutting the latest rows first",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/ai/report"
+    },
+    "files": [
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        ".": "./report.ts",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "exports": {
+            ".": "./dist/report.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
+    },
+    "engines": {
+        "node": ">=27"
+    }
+}
