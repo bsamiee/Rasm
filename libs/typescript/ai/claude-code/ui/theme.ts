@@ -1,5 +1,5 @@
 import type { Args, EngineInterface, Frozen, GlobNext, ThemeResult, ThemeSetArgs } from 'claude-code';
-import { Context, Data, Effect, Layer, Option, PlatformError, Ref, type Scope, Semaphore } from 'effect';
+import { Array, Context, Data, Effect, Layer, Option, PlatformError, Ref, type Scope, Semaphore, Struct, Tuple } from 'effect';
 import { call } from '#/engine/services';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -10,7 +10,7 @@ interface Shown {
 }
 type Standing = Data.TaggedEnum<{
     Set: Shown;
-    Preview: Shown & { readonly restores: Option.Option<Shown> };
+    Preview: { readonly previews: Array.NonEmptyReadonlyArray<Shown>; readonly over: Option.Option<Shown> };
 }>;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -32,41 +32,53 @@ class Theme extends Context.Service<
 
 function heard($: EngineInterface, standing: Ref.Ref<Option.Option<Standing>>, e: Frozen<Args<'theme.set' | 'theme.clear'>>, next: GlobNext<'theme.*'>) {
     const { plugin } = next.origin;
-    return plugin === $.plugin.name
-        ? next(e)
-        : next(e).then((answer) => {
-              Effect.runSync(Effect.when(Ref.set(standing, next.is('theme.set', e) ? Option.some(Standing.Set({ plugin, attributes: e })) : Option.none()), Effect.succeed(answer.deny === undefined)));
-              return answer;
-          });
+    return plugin === $.plugin.name ? next(e) : next(e).then((answer) => (answer.deny === undefined ? Effect.runSync(Effect.as(Ref.set(standing, next.is('theme.set', e) ? Option.some(Standing.Set({ plugin, attributes: e })) : Option.none()), answer)) : answer));
 }
 
 function theme($: EngineInterface, standing: Ref.Ref<Option.Option<Standing>>) {
-    const permits = Semaphore.makeUnsafe(1);
     const plugin = $.plugin.name;
-    const show = (attributes: ThemeSetArgs, held: Standing) => call('theme.set', plugin, () => $.theme.set(attributes)).pipe(Effect.tap(Ref.set(standing, Option.some(held))));
-    const set = (attributes: ThemeSetArgs) => show(attributes, Standing.Set({ plugin, attributes }));
-    const clear = call('theme.clear', plugin, () => $.theme.clear()).pipe(Effect.tap(Ref.set(standing, Option.none())));
-    const open = Effect.fnUntraced(function* (attributes: ThemeSetArgs) {
-        const restores = Option.flatMap(yield* Ref.get(standing), Standing.$match({ Set: Option.some<Shown>, Preview: ({ restores: held }) => held }));
-        const foreign = Option.filter(restores, (held) => held.plugin !== plugin && held.attributes.backdrop?.scene !== undefined);
-        yield* Option.match(foreign, {
-            onNone: () => Effect.void,
-            onSome: (held) => PlatformError.badArgument({ module: 'Theme', method: 'preview', description: `scene ${held.attributes.backdrop?.scene} of ${held.plugin}, which this plugin cannot set again` }),
-        });
-        const held = Standing.Preview({ plugin, attributes, restores });
-        return [yield* show(attributes, held), held] as const;
-    });
+    const locked = Semaphore.withPermit(Semaphore.makeUnsafe(1));
+    const show = (held: Option.Option<Standing>) =>
+        Option.match(held, {
+            onNone: () => call('theme.clear', plugin, () => $.theme.clear()),
+            onSome: (stands) => call('theme.set', plugin, () => $.theme.set(Standing.$match(stands, { Set: Struct.get('attributes'), Preview: ({ previews }) => Array.lastNonEmpty(previews).attributes }))),
+        }).pipe(Effect.tap(Ref.set(standing, held)));
     return Layer.succeed(Theme)({
-        set: (attributes) => Semaphore.withPermit(permits)(set(attributes)),
-        clear: Semaphore.withPermit(permits)(clear),
+        set: (attributes) => Option.some(Standing.Set({ plugin, attributes })).pipe(show, locked),
+        clear: Option.none().pipe(show, locked),
         preview: (attributes) =>
-            Effect.acquireRelease(Semaphore.withPermit(permits)(open(attributes)), ([, held]) =>
-                Ref.get(standing).pipe(
-                    Effect.flatMap((current) => (Option.exists(current, (shown) => shown === held) ? Option.match(held.restores, { onNone: () => clear, onSome: (restored) => set(restored.attributes) }) : Effect.void)),
-                    Semaphore.withPermit(permits),
-                    Effect.catchCause((cause) => Effect.logWarning('theme preview did not restore', cause)),
+            Effect.acquireRelease(
+                locked(
+                    Effect.gen(function* () {
+                        const current = yield* Ref.get(standing);
+                        const over = Option.flatMap(current, Standing.$match({ Set: Option.some<Shown>, Preview: Struct.get('over') }));
+                        yield* Option.match(
+                            Option.filter(over, (held) => held.plugin !== plugin && held.attributes.backdrop?.scene !== undefined),
+                            { onNone: () => Effect.void, onSome: (held) => PlatformError.badArgument({ module: 'Theme', method: 'preview', description: `scene ${held.attributes.backdrop?.scene} of ${held.plugin}, which this plugin cannot set again` }) },
+                        );
+                        const held: Shown = { plugin, attributes };
+                        const previews = Option.match(Option.filter(current, Standing.$is('Preview')), { onNone: () => Array.of(held), onSome: (open) => Array.append(open.previews, held) });
+                        return [yield* show(Option.some(Standing.Preview({ previews, over }))), held] as const;
+                    }),
                 ),
-            ).pipe(Effect.map(([shown]) => shown)),
+                ([, held]) =>
+                    Ref.get(standing).pipe(
+                        Effect.map(Option.filter(Standing.$is('Preview'))),
+                        Effect.map(Option.filter(({ previews }) => previews.includes(held))),
+                        Effect.flatMap(
+                            Option.match({
+                                onNone: () => Effect.void,
+                                onSome: ({ previews, over }) => {
+                                    const left = previews.filter((open) => open !== held);
+                                    const next = Array.isReadonlyArrayNonEmpty(left) ? Option.some(Standing.Preview({ previews: left, over })) : Option.map(over, Standing.Set);
+                                    return Array.lastNonEmpty(previews) === held ? show(next) : Ref.set(standing, next);
+                                },
+                            }),
+                        ),
+                        locked,
+                        Effect.catchCause((cause) => Effect.logWarning('theme preview did not restore', cause)),
+                    ),
+            ).pipe(Effect.map(Tuple.get(0))),
     });
 }
 
