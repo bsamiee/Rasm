@@ -54,18 +54,17 @@ Sessions run one loop, one pass per unit, until the concern holds no finding:
 2. Rank: units order by certainty of their source, then by lines removed per line read, so a finding an inventory row proves precedes a probe
 3. Pick: first category in list order holding a finding, or the concern given, and its top unit
 4. Map: declarations of that unit alone, as a map of a whole target goes stale at its first commit
-5. Baseline: counts of every file the unit touches, taken with the reference's count commands
-6. Rebuild: each declaration with every reader and duplicate site in one change, leaving no adapter, alias, or old path
-7. Check: the reference's check command, alone in the background
-8. Recount: `git diff --numstat` and counts per file compared with step 5 under the close rules
-9. Commit: files staged by name, subject `refactor(<project>): <imperative naming unit and category>`, no scope across projects
-10. Re-rank: each touched file reread, finished findings struck, exposed findings added, then step 3
-11. Stop: no finding of the concern left, or a decision belongs to the user, asked with each option's cost
+5. Rebuild: each declaration with every reader and duplicate site in one change, leaving no adapter, alias, or old path
+6. Check: the reference's check command green, alone in the background
+7. Diff: `git diff` read whole under the close rules, each regression rebuilt before the commit
+8. Commit: files staged by name, subject `refactor(<project>): <imperative naming unit and category>`, no scope across projects
+9. Re-rank: each touched file reread, finished findings struck, exposed findings added, then step 3
+10. Stop: no finding of the concern left, or a decision belongs to the user, asked with each option's cost
 
 Failures name their cause before the next edit:
-- Check failing after a rebuild -> cause read from its diagnostic, rebuild corrected at that cause
-- One check failing twice for one cause -> pass edits restored with the file edit tool, cause recorded as the next unit
-- Finding of another category -> added to the findings file with its site, fixed in its own pass
+- Check failing -> cause read from its diagnostic, rebuild corrected at that cause
+- Same failure twice -> pass edits restored with the file edit tool, the cause taken as its own unit
+- Finding of another category -> added to the findings with its site, fixed in its own pass
 - Delegated units -> one agent per unit, its brief holding the unit's map, and units sharing a declaration or manifest run in turn
 
 ## [04]-[UNIT]
@@ -221,17 +220,11 @@ Exports state capability once, under one name:
 
 ## [08]-[CLOSE]
 
-Passes close on their diff: `git diff --numstat` and the reference's count commands per touched file, against the step 5 counts:
-- Internal members: fewer file-private declarations, fields, parameters, and locals
-- Helpers: fewer, each removed by rebuilding its callers and their upstream, never by copying its body into each caller
-- Exports: fewer or held, or one more where it removes a re-derivation in more than one reader
-- Lines: fewer across every touched project
-- Nesting: deeper nowhere
-- Shuffles: no removed form reappearing moved, renamed, wrapped, aliased, or replaced by a constant, string, or new type
-- Failed close -> edits restored with the file edit tool, cause recorded, unit back on the findings list split or re-ranked
+Passes close when the check is green and the diff, read whole, shows the cut:
+- Lines, internal members, and helpers fewer, a helper removed by rebuilding its callers and their upstream, never by copying its body
+- Exports fewer or held, one more only where it removes a re-derivation in more than one reader
+- Nesting deeper nowhere
+- No removed form reappearing moved, renamed, wrapped, aliased, or replaced by a constant, string, or new type
+- Regression in the diff -> rebuilt in the same pass, never landed for a later one
 
-Reports per pass, scratch files under `<scratch>/reduce/` deleted once recorded:
-- Subject: target, category, unit, commit
-- Counts: before and after per file in one field order (lines, internal members, helpers, exports, nesting)
-- Changes: each removed fact with the source stating it now, each kept declaration with its fact and cause
-- Findings left: each with site and category
+Scratch files under `<scratch>/reduce/` go once the session's last pass commits.
