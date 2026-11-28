@@ -105,6 +105,7 @@ it.layer(Dialects.layer, { excludeTestServices: true })('walk', (suite) => {
 
     suite.effect.each([
         { shell: 'bash', source: 'cd dir && rec -r -o out --out=o2 -- a -b < ../a.txt > log', deletes: ['a', '-b'], writes: ['out', 'o2', 'log'], reads: ['../a.txt'], opaque: false },
+        { shell: 'bash', source: 'cd dir; rec -r -o out a > log', deletes: ['a'], writes: ['out', 'log'], reads: [], opaque: false },
         { shell: 'zsh', source: 'f=c.txt; rec -ro"$f" --o=o2 x y', deletes: ['x', 'y'], writes: ['c.txt', 'o2'], reads: [], opaque: false },
         { shell: 'bash', source: 'rec --unknown z -r w >> log', deletes: ['z', 'w'], writes: ['log'], reads: [], opaque: true },
     ] as const)(
