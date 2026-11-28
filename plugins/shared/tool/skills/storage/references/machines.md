@@ -55,11 +55,11 @@ Running work holds a host, and its cleans wait while any of these reads prints a
 ## [04]-[CASES]
 
 Each item takes its owner's call, and a call with no dry run lists what it removes first:
-- Runner checkouts `actions-work-<label>` -> `gh workflow run maintenance.yml`, watched to its end, as its jobs prune each instance in its queue
+- Runner work folder `actions-runner-<label>/_work` -> stays, as each registration of the runner deletes it before its one job
 - Nx local cache of a checkout -> stays under `nx.json` `maxCacheSize` (`GB` as 1024^3 bytes) by eviction, bytes past it after a job being a fault
 - Cargo build folder of a checkout -> report its size, as no setting bounds it and `clean--cargo` makes each Rust cache miss build from nothing
-- Runner folders `_actions`, `_temp`, `_diag`, `bin.*`, and `externals.*` -> stay, as the runner prunes each itself
-- Dangling images -> `docker image prune -f`, freeing the `docker image ls -f dangling=true` sizes alone, which Maintenance also runs weekly
+- Runner folders `_diag`, `bin.*`, and `externals.*` -> stay, as the runner prunes each itself
+- Dangling images -> `docker image prune -f`, freeing the `docker image ls -f dangling=true` sizes alone, which timer `docker-image-prune` also runs weekly
 - Unused tagged images -> `docker image rm <ref>` for one neither `infra/platform-stack.ts` nor a suite under Rasm `tests/` names
 - Build cache -> `docker builder prune -f --max-used-space <size>`, freeing the `docker buildx du` total past `<size>`, as `RECLAIMABLE` counts records it keeps
 - Containers `buildx_buildkit_*` and their `_state` volumes with no Deploy running -> `docker rm -f` and `docker volume rm` of each
@@ -71,7 +71,7 @@ Each item takes its owner's call, and a call with no dry run lists what it remov
 - Journal -> stays under `SystemMaxUse`, and `journalctl --disk-usage` past it is a journald fault to report
 - Container logs -> stay, as service containers log to the journal and job containers' `local` logs go with each container
 - Core dumps -> stay under `systemd-coredump` limits, `coredumpctl list` naming each
-- `mise` download caches (`~/.cache/mise`, `actions-work-<label>/_tool/mise/cache`) -> `mise cache clear`, and `MISE_CACHE_DIR=<folder> mise cache clear` for the second
+- `mise` download caches (`~/.cache/mise`, `actions-tools-<label>/mise/cache`) -> `mise cache clear`, and `MISE_CACHE_DIR=<folder> mise cache clear` for the second
 - Package cache -> `sudo apt-get clean`, and `apt-get -s autoremove --purge` previews unused packages and kernels before `apt-get autoremove --purge`
 - Actions caches -> stay, as GitHub evicts past the repository limit by last access, and `gh cache delete <key>` removes a retired key
 - Rasm's Colima VM -> `nx run docker:clean--docker` from the Rasm root, and `nx clean -c cache` deletes the VM with its disk
