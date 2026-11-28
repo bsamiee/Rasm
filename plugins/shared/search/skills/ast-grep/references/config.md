@@ -46,9 +46,15 @@ File-to-language resolution:
 - `-l` never forces a parser in path mode, it selects files already resolved to that language, `languageGlobs` or `--stdin` changes the parser
 - Rule languages widen the walk to every host injecting them, through `languageGlobs` hosts as well
 
-`languageGlobs` maps `*.ts`, `*.mts`, `*.cts`, `*.js`, `*.mjs`, `*.cjs`, and `*.jsx` to the built-in `tsx` parser, one `tsx` rule set covering both languages:
-- `-l tsx` reaches those files, `-l ts` and `-l js` miss them
-- `tsx` reads an angle-bracket assertion (`<T>x`) in a `.ts` file as JSX, an `ERROR` that can swallow the lines after it (generated SDKs under `infra/sdks`)
+`customLanguages` rows claim their extensions from built-in languages, and a rule naming the built-in language matches none of those files:
+- `libraryPath` takes one path or a map keyed by target triple (`aarch64-apple-darwin`), a triple the map lacks fails the load
+- Native libraries load under `--custom-languages allow` or a `trust` the store records for the config path, default `ignore` warns and parses with built-in languages
+- `trust` refuses a non-interactive terminal, the store is `trusted-configs.json` in ast-grep's user config folder, `AST_GREP_TRUST_DIR` moves it
+- Missing libraries fail every command at exit 79 once custom languages load
+- TypeScript, Python, and C# rows load the npm prebuilds `node_modules/<package>/prebuilds/<platform>/<package>.node`
+- Rust and Swift rows load `.cache/ast-grep/<language>.so`, which mise rows `http:tree-sitter-rust` and `http:tree-sitter-swift` build and link on Unix
+- Rust builds from `tools/ast-grep/grammars/rust.js` over the crate's grammar, for field defaults, trait aliases, `try bikeshed`, and `gen fn`
+- `tsxlang` reads an angle-bracket assertion (`<T>x`) in a `.ts` file as JSX, an `ERROR` that can swallow the lines after it (generated SDKs under `infra/sdks`)
 
 ## [03]-[YAML]
 
@@ -110,7 +116,7 @@ Entries capture embedded source as `$CONTENT` and name its parser in `injected`,
 - `constraints` filter entries, `utils` qualify them, entries load no `utilDirs` and rules read no entry `utils`
 
 Host resolution:
-- `hostLanguage` compares a file's resolved language, `ts` skips `.tsx` and every file `languageGlobs` maps to `tsx`
+- `hostLanguage` compares a file's resolved language, `ts` skips `.tsx` and every file a custom row claims
 - `ts` and `TypeScript` entries merge on one host
 - Hosts with a string content child capture it (JSON `string_content`), a hidden content token takes an alias first, else `$CONTENT` holds delimiters
 - `hostLanguage: HTML` adds to native extraction, a `style` entry beside `<style>` gives a second CSS document

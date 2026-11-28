@@ -103,20 +103,21 @@ Relations reuse parsed trees, ancestor searches do not parse source again:
 
 ## [05]-[OUTLINE]
 
-Each process pays for every loaded catalog before it reads its input, one 15.4 KB TypeScript file under the repository config spends 525 M instructions and 33 ms:
+Each process pays for every loaded catalog before it reads its input, one 11 KB TypeScript file under the repository config spends 2.2 B instructions and 150 ms:
 
-| [INDEX] | [COST]                                          | [M_INSTRUCTIONS] | [SKIPPED_BY]                  |
-| :-----: | :---------------------------------------------- | :--------------- | :---------------------------- |
-|  [01]   | Java and YAML catalogs, 112 of it deserializing | 227              | Config holding fewer catalogs |
-|  [02]   | Bundled catalog                                 | 156              | `--no-default-outline-rules`  |
-|  [03]   | Walk filter over every catalog's language       | 70               | `-l`, `--stdin`               |
-|  [04]   | `languageInjections`                            | 29               | Config holding fewer rows     |
-|  [05]   | Process start                                   | 26               | Nothing                       |
-|  [06]   | Parse and extract                               | 17               | Nothing                       |
+| [INDEX] | [COST]                                    | [M_INSTRUCTIONS] | [SKIPPED_BY]                  |
+| :-----: | :---------------------------------------- | :--------------- | :---------------------------- |
+|  [01]   | Seven catalogs, 900 of it deserializing   | 1,900            | Config holding fewer catalogs |
+|  [02]   | Bundled catalog                           | 156              | `--no-default-outline-rules`  |
+|  [03]   | Walk filter over every catalog's language | 70               | `-l`, `--stdin`               |
+|  [04]   | `languageInjections`                      | 29               | Config holding fewer rows     |
+|  [05]   | Process start                             | 26               | Nothing                       |
+|  [06]   | Parse and extract                         | 17               | Nothing                       |
 
 Nothing selects catalogs by input, these forms move the cost:
 - One process over every known path pays load once at flat peak memory, a process per file pays it per file
 - Java catalog adds about 140 M instructions (8 ms) per process and about 2 M per further Java file
+- Owned-language catalogs add about 1.7 B (110 ms) per process, and a tree run costs 64 B (500 ms) against 46 B (280 ms) without them
 - Narrowed configs cut a one-file TypeScript run to about half, rows unchanged
 - `--no-default-outline-rules` drops every row of a language with no project catalog
 

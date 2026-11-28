@@ -72,7 +72,7 @@ Config is found from the working directory, never from a target path:
 
 Rows compare by key, a broken file still yields partial rows and a diff reads them as false removals:
 - Consumers key rows by `(symbolType, owner, name)`, a key holds a bag because overloads and owners local to them repeat
-- Catalogs holding parse failure documents (Java, YAML) print a `symbolType` `null` row named `ERROR` for `ERROR` and `MISSING` nodes
+- Repository catalogs print a `symbolType` `null` row named `ERROR` for `ERROR` and `MISSING` nodes
 - Error rows mark their file unknown, its other rows neither removed nor unchanged
 - Error rows print under `--items all` and `structure`, `digest` and `expanded` list one as a private member of an item whose walked body failed
 - Bundled extractors print no error row, rows inside an `ERROR` region of newest syntax go missing and the file reads as complete
@@ -80,7 +80,7 @@ Rows compare by key, a broken file still yields partial rows and a diff reads th
 ## [03]-[LOADING]
 
 Every command loads and compiles before it walks:
-- Bundled catalog, each top-level `outlineRules` file, then each `--outline-rules` file deserialize in full
+- Bundled catalog, each top-level and `customLanguages` `outlineRules` file, then each `--outline-rules` file deserialize in full
 - Documents group by `language` and every group compiles less the documents a flag skips, input paths and `-l` narrow the walk alone
 - Top-level `outlineRules` maps one built-in language name or alias (`yml`) to one file relative to the config directory, read with no CLI flag
 - Other names and list values fail config load with `Cannot parse configuration` at exit 8, a directory fails with `Is a directory`
@@ -88,6 +88,8 @@ Every command loads and compiles before it walks:
 - Project catalogs add rows only for constructs the bundled catalog leaves unclaimed
 - `--no-default-outline-rules` drops every bundled language at once, project documents then claim every node they match
 - Project member documents attach to bundled item ids, a member naming `rust-function` extends a bundled extractor with no replacement
+- `customLanguages` rows take an `outlineRules` file whose documents name the row's language, no bundled document claims a node before them
+- Custom rows reusing a built-in name (`typescript`) print `items: []`, a custom language takes a name of its own
 - Repeated paths compile their documents again and add no rows
 - Missing `outlineRules` files fail every outline command at exit 1, `run` and `scan` never read them, empty documents are skipped
 
@@ -355,10 +357,14 @@ Over `def fn(alpha, beta=1, *rest, gamma: int = 2):` and `def none(): pass`, `--
 
 ## [07]-[CATALOGS]
 
-Java and YAML hold catalogs, `tools/ast-grep/outline/<lang>.yml` loaded as checked in, every other language outlines through bundled extractors alone:
+Catalogs sit in `tools/ast-grep/outline/<lang>.yml` and load as checked in, with no build expanding them:
 - Java catalog adds nested types, record components, and enum members to bundled Java rows
 - YAML has no bundled extractors, its whole outline comes from its catalog
-- Kinds and fields come from `node-types.json` of the grammar crate the ast-grep release pins, never from what current sources hold
+- TypeScript, Python, C#, Rust, and Swift catalogs own custom languages `tsxlang`, `pythonlang`, `csharplang`, `rustlang`, and `swiftlang`
+- Owned catalogs mark export-list names, `__all__` members, and bare `pub` exported, and list nested types, extension members, and stored properties
+- Other languages outline through bundled extractors alone
+- Kinds and fields of a built-in language come from `node-types.json` of the grammar crate the ast-grep release pins
+- Kinds and fields of a custom language come from `src/node-types.json` of the package or build its `libraryPath` loads
 - Every declaration kind a body accepts, supertypes expanded through `subtypes`, holds a document, expression, statement, and text kinds hold none
 - Every catalog covers items, members, nested owners, visibility, signatures, and parse failures, a failed parse never reading as absence
 - Parse failure documents match an `ERROR` holding at no depth a node their rows need, by kind or by the field or owner test making it a row (Bash `command` by `name`)
