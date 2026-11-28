@@ -316,6 +316,9 @@
         },
         {
             "path": "./plugins/claude/dreamweave"
+        },
+        {
+            "path": "./plugins/claude/sazman"
         }
     ]
 }

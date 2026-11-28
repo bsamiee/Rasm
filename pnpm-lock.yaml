@@ -1794,6 +1794,21 @@ importers:
 
   products/apps/creative-cloud/aftereffects/atelier:
     dependencies:
+  plugins/claude/sazman:
+    devDependencies:
+      '@rasm/claude-code':
+        specifier: workspace:*
+        version: link:../../../libs/typescript/ai/claude-code
+      '@rasm/vite':
+        specifier: workspace:*
+        version: link:../../../libs/typescript/web/vite
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
+      vite:
+        specifier: 'catalog:'
+        version: 8.4.0(@types/node@26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735))(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+
       '@rasm/aftereffects':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/creative-cloud/aftereffects

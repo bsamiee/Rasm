@@ -124,6 +124,17 @@
             "category": "Coding"
         },
         {
+            "name": "sazman",
+            "source": "./plugins/claude/sazman",
+            "description": "Skills for building Claude Code mods on @rasm/claude-code: interface placement, composition, templates, and a preview of every surface",
+            "author": {
+                "name": "Bardia Samiee"
+            },
+            "policy": {
+                "installation": "NOT_AVAILABLE"
+            }
+        },
+        {
             "name": "search",
             "source": "./plugins/shared/search",
             "category": "Coding"

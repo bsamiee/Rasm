@@ -3,5 +3,5 @@
     "printWidth": 320,
     "singleQuote": true,
     "sortImports": { "newlinesBetween": false },
-    "ignorePatterns": ["assets/**", ".claude/settings.json", ".config/mise/locks/**", "**/packages*.lock.json", "vcpkg.json", "**/*.md", "**/*.toml", "**/*.xcassets", "**/*.icon"]
+    "ignorePatterns": ["assets/**", "plugins/*/*/skills/*/assets/**", ".claude/settings.json", ".config/mise/locks/**", "**/packages*.lock.json", "vcpkg.json", "**/*.md", "**/*.toml", "**/*.xcassets", "**/*.icon"]
 }
