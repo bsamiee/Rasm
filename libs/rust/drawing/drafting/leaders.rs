@@ -76,6 +76,6 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
     let terminator = &style.leader.terminator;
     let heads = indexed(iter::zip(legs.iter(), &paths).map(|(leg, path)| tipped(terminator, leg.head.unwrap_or(terminator.head), path.segments(), style.tolerance).map_err(NEVec::from)))
         .map(|elements| Graphics { elements, .. });
-    let outline = landing.path_elements(style.tolerance.into_inner()).chain(paths.iter().flat_map(BezPath::iter)).collect::<BezPath>();
+    let outline = landing.path_elements(style.tolerance.get()).chain(paths.iter().flat_map(BezPath::iter)).collect::<BezPath>();
     joined([stroked(outline, &style.pen, None)], [heads, transformed(drawn, Affine::translate((reach, 0.0)))])
 }

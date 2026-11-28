@@ -98,7 +98,7 @@ pub(crate) fn draw(surface: &mut Surface<'_>, elements: &[Element], sheet: Rect,
         }
     }
     let tolerance = drawing.options.tolerance;
-    let outlined = |region: &Region| path(region.path_elements(tolerance.into_inner()));
+    let outlined = |region: &Region| path(region.path_elements(tolerance.get()));
     let mut pending = vec![(None, elements.iter().enumerate())];
     let mut drawn = Validated::Good(());
     while let Some((root, remaining)) = pending.last_mut() {
@@ -153,7 +153,7 @@ pub(crate) fn draw(surface: &mut Surface<'_>, elements: &[Element], sheet: Rect,
             Element::Clip { region, keep, elements: grouped } => {
                 let outline = match keep {
                     Side::Inside => outlined(region),
-                    Side::Outside => path(iter::chain(sheet.path_elements(tolerance.into_inner()), region.path_elements(tolerance.into_inner()))),
+                    Side::Outside => path(iter::chain(sheet.path_elements(tolerance.get()), region.path_elements(tolerance.get()))),
                 };
                 match outline {
                     Some(mask) => {
@@ -193,7 +193,7 @@ fn glyphs(surface: &mut Surface<'_>, run: &GlyphRun, color: &Color, opacity: Opa
         }
     }
     .clone();
-    let size = run.size.into_inner();
+    let size = run.size.get();
     let normalize = |measure: f64| (measure / size).cast::<f32>();
     let positioned = run
         .glyphs

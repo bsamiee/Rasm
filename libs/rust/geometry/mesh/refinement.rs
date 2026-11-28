@@ -3,16 +3,17 @@ use std::borrow::Cow;
 
 use bounded_integer::BoundedU16;
 use manifold_rust::cancel::CancelToken;
+use typed_floats::tf64::StrictlyPositiveFinite;
 
-use crate::{MeshError, Operation, Solid, Tolerance};
+use crate::{MeshError, Operation, Solid};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Refinement {
     Divisions(BoundedU16<2, { u16::MAX }>, Option<Smoothing>),
-    Length(Tolerance, Option<Smoothing>),
-    Tolerance(Tolerance, Smoothing),
+    Length(StrictlyPositiveFinite, Option<Smoothing>),
+    Tolerance(StrictlyPositiveFinite, Smoothing),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -30,8 +31,8 @@ pub fn refine(solid: &Solid, refinement: Refinement, token: Option<&CancelToken>
         Operation::Refine,
         match refinement {
             Refinement::Divisions(count, smoothing) => smoothed(smoothing).refine(i32::from(count.get())),
-            Refinement::Length(length, smoothing) => smoothed(smoothing).refine_to_length(length.into_inner()),
-            Refinement::Tolerance(tolerance, smoothing) => smoothed(Some(smoothing)).refine_to_tolerance(tolerance.into_inner()),
+            Refinement::Length(length, smoothing) => smoothed(smoothing).refine_to_length(length.get()),
+            Refinement::Tolerance(tolerance, smoothing) => smoothed(Some(smoothing)).refine_to_tolerance(tolerance.get()),
         },
         token,
     )

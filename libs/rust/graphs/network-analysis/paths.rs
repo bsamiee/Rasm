@@ -11,8 +11,9 @@ use petgraph::data::{Element, FromElements as _};
 use petgraph::stable_graph::StableGraph;
 use petgraph::visit::{Control, EdgeRef as _, GraphBase, IntoEdgeReferences, IntoEdges, IntoEdgesDirected, Reversed, ReversedEdgeReference, Visitable};
 use rustworkx_core::traversal::{DijkstraEvent, dijkstra_search};
+use typed_floats::tf64::{PositiveFinite, StrictlyPositiveFinite};
 
-use crate::{Failure, Network, NetworkError, Tolerance, Weight, present};
+use crate::{Failure, Network, NetworkError, present};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -36,33 +37,41 @@ pub struct Route<R> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Catchment {
-    pub radius: Option<Weight> = None,
-    pub tolerance: Option<Tolerance> = None,
+    pub radius: Option<PositiveFinite> = None,
+    pub tolerance: Option<StrictlyPositiveFinite> = None,
     pub direction: Direction = Outgoing,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn catchment<G>(graph: G, source: G::NodeId, cost: impl Fn(G::EdgeRef) -> Weight, extent: impl Fn(G::EdgeRef, Weight) -> Weight, catchment: Catchment) -> Result<Tree<G>, Failure<G>>
-where G: Network + IntoEdgesDirected {
+pub fn catchment<G>(
+    graph: G,
+    source: G::NodeId,
+    cost: impl Fn(G::EdgeRef) -> PositiveFinite,
+    extent: impl Fn(G::EdgeRef, PositiveFinite) -> PositiveFinite,
+    catchment: Catchment,
+) -> Result<Tree<G>, Failure<G>>
+where
+    G: Network + IntoEdgesDirected,
+{
     present(graph, [source]).ok().map_err(NetworkError::Refused).map(|_| search(graph, source, cost, extent, catchment))
 }
 
-pub(crate) fn search<G>(graph: G, source: G::NodeId, cost: impl Fn(G::EdgeRef) -> Weight, extent: impl Fn(G::EdgeRef, Weight) -> Weight, catchment: Catchment) -> Tree<G>
+pub(crate) fn search<G>(graph: G, source: G::NodeId, cost: impl Fn(G::EdgeRef) -> PositiveFinite, extent: impl Fn(G::EdgeRef, PositiveFinite) -> PositiveFinite, catchment: Catchment) -> Tree<G>
 where G: Network + IntoEdgesDirected {
     fn settle<H, R>(
         graph: H,
         source: H::NodeId,
         travel: impl Fn(H::EdgeRef) -> R,
-        cost: impl Fn(R) -> Weight,
-        extent: impl Fn(R, Weight) -> Weight,
+        cost: impl Fn(R) -> PositiveFinite,
+        extent: impl Fn(R, PositiveFinite) -> PositiveFinite,
         Catchment { radius, tolerance, direction: _ }: Catchment,
     ) -> IndexMap<H::NodeId, Reached<R>>
     where
         H: IntoEdges + Visitable<NodeId: Hash + Eq>,
         R: Copy,
     {
-        let tolerance = tolerance.map_or_default(Tolerance::into_inner);
+        let tolerance = tolerance.map_or_default(f64::from);
         let leg = Cell::new(None::<(R, f64, f64)>);
         let origin = Reached { distance: 0.0, extent: 0.0, paths: 1.0, predecessors: Vec::new() };
         let mut current = (origin.distance, origin.extent, origin.paths);
@@ -74,8 +83,8 @@ where G: Network + IntoEdgesDirected {
             |edge| {
                 let edge = travel(edge);
                 let spent = cost(edge);
-                leg.set(Some((edge, spent.into_inner(), extent(edge, spent).into_inner())));
-                Ok::<f64, !>(spent.into_inner())
+                leg.set(Some((edge, spent.get(), extent(edge, spent).get())));
+                Ok::<f64, !>(spent.get())
             },
             |event| match event {
                 DijkstraEvent::Discover(node, distance) => {
@@ -96,7 +105,7 @@ where G: Network + IntoEdgesDirected {
                 DijkstraEvent::EdgeRelaxed(_, to, _) | DijkstraEvent::EdgeNotRelaxed(_, to, _) => {
                     let (base, spent, paths) = current;
                     match leg.take().map(|(edge, step, span)| (edge, base + step, spent + span)) {
-                        Some((_, _, spanned)) if radius.is_some_and(|bound| spanned > bound.into_inner()) => Control::Prune,
+                        Some((_, _, spanned)) if radius.is_some_and(|bound| spanned > bound.get()) => Control::Prune,
                         Some((edge, arrival, spanned)) => {
                             frontier.entry(to).or_default().push((edge, arrival, spanned, paths));
                             Control::Continue
@@ -120,20 +129,20 @@ pub fn route<G>(
     graph: G,
     source: G::NodeId,
     goal: impl Fn(G::NodeId) -> bool,
-    cost: impl Fn(G::EdgeRef) -> Weight,
-    estimate: impl Fn(G::NodeId) -> Weight,
+    cost: impl Fn(G::EdgeRef) -> PositiveFinite,
+    estimate: impl Fn(G::NodeId) -> PositiveFinite,
 ) -> Result<Option<Route<G::EdgeRef>>, Failure<G>>
 where
     G: Network + IntoEdges,
 {
     present(graph, [source]).ok().map_err(NetworkError::Refused).map(|_| {
-        astar(graph, source, goal, |edge| cost(edge).into_inner(), |node| estimate(node).into_inner()).and_then(|(distance, nodes)| {
+        astar(graph, source, goal, |edge| cost(edge).get(), |node| estimate(node).get()).and_then(|(distance, nodes)| {
             nodes.array_windows().map(|&[from, to]| graph.edges(from).filter(|edge| edge.target() == to).min_by_key(|&edge| cost(edge))).try_collect::<Vec<_>>().map(|steps| Route { distance, steps })
         })
     })
 }
 
-pub fn segments<G, const D: usize>(graph: G, tangents: impl Fn(G::EdgeRef) -> [Unit<SVector<f64, D>>; 2]) -> Result<StableGraph<G::EdgeId, Weight, G::EdgeType>, Failure<G>>
+pub fn segments<G, const D: usize>(graph: G, tangents: impl Fn(G::EdgeRef) -> [Unit<SVector<f64, D>>; 2]) -> Result<StableGraph<G::EdgeId, PositiveFinite, G::EdgeType>, Failure<G>>
 where G: Network {
     let mut ends = graph
         .edge_references()
@@ -153,7 +162,7 @@ where G: Network {
                     .enumerate()
                     .filter(move |&(other, &(_, departure, _, ahead, _))| behind != ahead && if graph.is_directed() { (arrival, departure) == (Incoming, Outgoing) } else { order < other })
                     .map(move |(_, &(_, _, to, ahead, entering))| {
-                        Weight::try_new((PI - leaving.angle(&*entering)) / FRAC_PI_2).map(|weight| Element::Edge { source: from, target: to, weight }).map_err(|source| NetworkError::Turn {
+                        PositiveFinite::new((PI - leaving.angle(&*entering)) / FRAC_PI_2).map(|weight| Element::Edge { source: from, target: to, weight }).map_err(|source| NetworkError::Turn {
                             edges: [behind, ahead],
                             node,
                             source,

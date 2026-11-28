@@ -6,8 +6,8 @@ use faer::sparse::SparseColMatRef;
 use faer::{ColRef, Mat, MatRef};
 use nalgebra::DVector;
 use nonempty_collections::NEVec;
-use rasm_stats::Tolerance;
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
+use typed_floats::tf64::StrictlyPositiveFinite;
 use validated::Validated;
 
 use crate::{Form, FormError, Input, Network, Node, balance, form, spans};
@@ -32,7 +32,7 @@ pub struct Member {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn equilibrium(network: &Network, members: &[Member], tolerance: Tolerance, steps: NonZero<u32>) -> Result<Form, NEVec<FormError>> {
+pub fn equilibrium(network: &Network, members: &[Member], tolerance: StrictlyPositiveFinite, steps: NonZero<u32>) -> Result<Form, NEVec<FormError>> {
     iter::chain(
         (members.len() != network.edges.len()).then_some(FormError::Shape { input: Input::Members, expected: network.edges.len(), found: members.len() }),
         members.iter().enumerate().filter_map(|(index, &Member { stiffness, rest, response: _ })| {
@@ -67,7 +67,7 @@ pub fn equilibrium(network: &Network, members: &[Member], tolerance: Tolerance, 
         let peak = residual.row_iter().map(|force| force.norm_l2()).try_fold(0.0_f64, |peak, norm| norm.is_finite().then_some(peak.max(norm)));
         match peak {
             None => ControlFlow::Break(Err(FormError::Diverged { step })),
-            Some(peak) if peak <= tolerance.into_inner() => ControlFlow::Break(Ok(form(network, free.as_ref(), spans.as_ref(), densities.as_view(), (residual, reactions)))),
+            Some(peak) if peak <= tolerance.get() => ControlFlow::Break(Ok(form(network, free.as_ref(), spans.as_ref(), densities.as_view(), (residual, reactions)))),
             Some(peak) => ControlFlow::Continue((residual, densities, peak)),
         }
     };

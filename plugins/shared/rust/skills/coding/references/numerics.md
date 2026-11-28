@@ -16,7 +16,7 @@ Integer arithmetic states what happens past its type's range:
 
 Float code takes its order, conversions, and formulas from std and package members:
 - `f64::total_cmp` orders floats nothing stores (`max_by(f64::total_cmp)`, `cmp::minmax_by(a, b, f64::total_cmp)` under `cmp_minmax`)
-- Floats stored as keys are a `nutype` with `validate(finite)` deriving `Eq` and `Ord`, or `NotNan<f64>` where infinities are valid keys
+- Floats stored as keys are a `typed_floats` type implementing `Eq`, `Ord`, and `Hash`, or `NotNan<f64>` where infinities are valid keys
 - `NotNan` arithmetic panics on a NaN result (`inf - inf`), and code computes on `into_inner` values and refuses NaN through `NotNan::new`
 - Floats entering from a boundary (decoded, measured) are refused there when not finite
 - Floats narrow through `cast::<f32>()`, and to integers through `to_int_checked` or `to_int_saturating` (NaN to zero), under `float_conversions`

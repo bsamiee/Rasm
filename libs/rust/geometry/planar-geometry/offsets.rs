@@ -3,15 +3,16 @@ use core::iter;
 use cavalier_contours::polyline::{self, CoincidentSegmentBehavior, PlineOffsetOptions, PlineOrientation, PlineSource as _, TouchingLoopBehavior};
 use cavalier_contours::shape_algorithms::{IndexedPolyline, OffsetLoop, Shape, ShapeOffsetOptions};
 use itertools::Itertools as _;
+use typed_floats::tf64::{NonNaNFinite, StrictlyPositiveFinite};
 
-use crate::{Closure, Distance, PlanarError, Polyline, Region, Tolerance, measured, resulting, surviving};
+use crate::{Closure, PlanarError, Polyline, Region, measured, resulting, surviving};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn parallel(
     polyline: &Polyline<{ Closure::Open }>,
-    distance: Distance,
-    tolerance: Tolerance,
+    distance: NonNaNFinite,
+    tolerance: StrictlyPositiveFinite,
     touching_loop_behavior: TouchingLoopBehavior,
     coincident_segment_behavior: CoincidentSegmentBehavior,
 ) -> Result<Vec<Polyline<{ Closure::Open }>>, PlanarError> {
@@ -21,10 +22,10 @@ pub fn parallel(
         .collect()
 }
 
-pub fn region(region: &Region, distance: Distance, tolerance: Tolerance) -> Result<Region, PlanarError> {
+pub fn region(region: &Region, distance: NonNaNFinite, tolerance: StrictlyPositiveFinite) -> Result<Region, PlanarError> {
     let shape = region.as_ref();
     let Shape { ccw_plines: bodies, cw_plines: holes, plines_index: _ } = shape;
-    let (reach, signed) = (tolerance.into_inner(), distance.into_inner());
+    let (reach, signed) = (tolerance.get(), distance.get());
     let (positive, negative): (Vec<_>, Vec<_>) = iter::chain(bodies, holes)
         .enumerate()
         .flat_map(|(parent, ring)| {
@@ -48,18 +49,18 @@ pub fn region(region: &Region, distance: Distance, tolerance: Tolerance) -> Resu
 
 fn offset(
     outline: &IndexedPolyline<f64>,
-    distance: Distance,
-    tolerance: Tolerance,
+    distance: NonNaNFinite,
+    tolerance: StrictlyPositiveFinite,
     touching_loop_behavior: TouchingLoopBehavior,
     coincident_segment_behavior: CoincidentSegmentBehavior,
 ) -> Vec<polyline::Polyline<f64>> {
     outline.polyline.parallel_offset_opt(
-        distance.into_inner(),
+        distance.get(),
         &PlineOffsetOptions {
             aabb_index: Some(&outline.spatial_index),
             handle_self_intersects: false,
-            pos_equal_eps: tolerance.into_inner(),
-            offset_dist_eps: tolerance.into_inner(),
+            pos_equal_eps: tolerance.get(),
+            offset_dist_eps: tolerance.get(),
             touching_loop_behavior,
             coincident_segment_behavior,
         },

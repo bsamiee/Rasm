@@ -47,9 +47,6 @@ pub enum CurveStyle {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[nutype::nutype(const_fn, validate(finite, greater_or_equal = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd, Into))]
-pub struct Distance(f64);
-
 #[nutype::nutype(validate(predicate = |size| size.is_finite() && size.width >= 0.0 && size.height >= 0.0), derive(Debug, Clone, Copy, PartialEq, Into, AsRef))]
 pub struct Extent(Size);
 

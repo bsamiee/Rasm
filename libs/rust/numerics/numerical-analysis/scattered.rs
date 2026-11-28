@@ -8,10 +8,10 @@ use faer::{MatMut, MatRef, Side};
 use itertools::{Itertools as _, izip};
 use nalgebra::{DMatrix, DMatrixView, DVector, DVectorView, Dyn, MatrixView2xX, Point2, U1, convert};
 use nonempty_collections::NEVec;
-use rasm_stats::Tolerance;
 use rayon::iter::{IndexedParallelIterator as _, ParallelIterator as _};
 use spade::handles::{FixedVertexHandle, VertexHandle};
 use spade::{ConstrainedDelaunayTriangulation, DelaunayTriangulation, FloatTriangulation as _, HasPosition, HierarchyHintGenerator, InsertionError, Triangulation as _};
+use typed_floats::tf64::{PositiveFinite, StrictlyPositiveFinite};
 use validated::Validated;
 
 use crate::{AnalysisError, Breakdown, Input, Observations, Polynomial, Prediction, design, finite, refused_sites};
@@ -24,11 +24,11 @@ pub type Constrained = ConstrainedDelaunayTriangulation<Observation, (), (), (),
 
 pub type Sites<'sites> = MatrixView2xX<'sites, f64, U1, Dyn>;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Interpolant {
     NearestNeighbor,
     NaturalNeighbor,
-    Gradient(Flatness),
+    Gradient(PositiveFinite),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,9 +57,6 @@ impl HasPosition for Observation {
 
     fn position(&self) -> spade::Point2<f64> { spade::mitigate_underflow(<[f64; 2]>::from(self.position).into()) }
 }
-
-#[nutype::nutype(validate(finite, greater_or_equal = 0.0), derive(Debug, Clone, Copy, PartialEq))]
-pub struct Flatness(f64);
 
 #[derive(Debug, Clone)]
 pub struct Kriging {
@@ -148,7 +145,7 @@ pub fn interpolate(triangulation: &Delaunay, sites: Sites<'_>, interpolant: Inte
         |neighbor, position| match interpolant {
             Interpolant::NearestNeighbor => triangulation.nearest_neighbor(position).map(value),
             Interpolant::NaturalNeighbor => neighbor.interpolate(value, position),
-            Interpolant::Gradient(flatness) => neighbor.interpolate_gradient(value, &*slopes, flatness.into_inner(), position),
+            Interpolant::Gradient(flatness) => neighbor.interpolate_gradient(value, &*slopes, flatness.get(), position),
         },
         |value: &f64| value.is_finite(),
     )
@@ -213,7 +210,14 @@ fn solved(factor: &Llt<f64>, mut right: DMatrix<f64>) -> DMatrix<f64> {
     right
 }
 
-pub fn krige(observations: &Observations, kernel: Kernel, lengths: &[Tolerance], variance: Tolerance, noise: Option<Tolerance>, drift: DMatrix<u8>) -> Result<Kriging, NEVec<AnalysisError>> {
+pub fn krige(
+    observations: &Observations,
+    kernel: Kernel,
+    lengths: &[StrictlyPositiveFinite],
+    variance: StrictlyPositiveFinite,
+    noise: Option<StrictlyPositiveFinite>,
+    drift: DMatrix<u8>,
+) -> Result<Kriging, NEVec<AnalysisError>> {
     let Observations { sites, values, weights: observation_weights } = observations;
     let (dimensions, points) = sites.shape();
     let terms = drift.ncols();
@@ -226,9 +230,9 @@ pub fn krige(observations: &Observations, kernel: Kernel, lengths: &[Tolerance],
     .into_iter()
     .collect::<Validated<(), _>>()
     .ok()?;
-    let lengths = DVector::from_iterator(dimensions, lengths.iter().map(|length| length.into_inner()));
-    let variance = variance.into_inner();
-    let nugget = noise.map_or_default(Tolerance::into_inner);
+    let lengths = DVector::from_iterator(dimensions, lengths.iter().map(StrictlyPositiveFinite::get));
+    let variance = variance.get();
+    let nugget = noise.map_or_default(f64::from);
     let mut covariance = DMatrix::<f64>::zeros(points, points);
     covariance.par_column_iter_mut().with_min_len(TASK_EVALUATIONS.div_ceil(points)).enumerate().for_each(|(column, mut entries)| {
         entries.iter_mut().enumerate().skip(column).for_each(|(row, entry)| {

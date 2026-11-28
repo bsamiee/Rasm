@@ -24,6 +24,7 @@ thiserror            = { workspace = true }
 derive_more          = { workspace = true }
 itertools            = { workspace = true }
 nutype               = { workspace = true }
+typed_floats         = { workspace = true, optional = true }
 jiff                 = { workspace = true }
 gauss-quad           = { workspace = true }
 nalgebra             = { workspace = true }
@@ -38,7 +39,7 @@ rasm-site            = { workspace = true }
 
 [features]
 default   = ["proximity"]
-proximity = ["dep:rasm-proximity", "dep:rayon"]
+proximity = ["dep:rasm-proximity", "dep:rayon", "dep:typed_floats"]
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

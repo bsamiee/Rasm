@@ -6,14 +6,15 @@ use kurbo::{Affine, BezPath, ParamCurve as _, ParamCurveArclen as _, PathEl, Poi
 use linesweeper::Error;
 use nonempty_collections::NEVec;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
+use typed_floats::tf64::StrictlyPositiveFinite;
 use validated::Validated;
 
-use crate::{Family, LineworkError, Pattern, Placement, Region, Tolerance};
+use crate::{Family, LineworkError, Pattern, Placement, Region};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn expand<'pattern>(region: &Region, pattern: &'pattern Pattern, placement: Placement, tolerance: Tolerance) -> Result<BezPath, NEVec<LineworkError>> {
-    let accuracy = tolerance.into_inner();
+pub fn expand<'pattern>(region: &Region, pattern: &'pattern Pattern, placement: Placement, tolerance: StrictlyPositiveFinite) -> Result<BezPath, NEVec<LineworkError>> {
+    let accuracy = tolerance.get();
     let (polygons, extent) = (crate::polygons(region, tolerance), region.bounding_box());
     let framed = |(family, descriptor): (usize, &'pattern Family)| {
         let frame = *placement * Affine::rotate(descriptor.angle).then_translate(descriptor.origin.to_vec2());

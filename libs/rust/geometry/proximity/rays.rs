@@ -8,9 +8,10 @@ use parry3d_f64::math::{Pose, Vector};
 use parry3d_f64::query::{self, Ray, RayCast as _, RayIntersection, ShapeCastHit, ShapeCastOptions, ShapeCastStatus, Unsupported};
 use parry3d_f64::shape::{FeatureId, SharedShape, SubShapeId};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator as _};
+use typed_floats::tf64::PositiveFinite;
 use validated::Validated;
 
-use crate::{Assembly, Distance, ProximityError};
+use crate::{Assembly, ProximityError};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -41,7 +42,7 @@ pub struct Obstruction {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn hits<R>(assembly: &Assembly, rays: impl Rays<R>) -> Result<Vec<Option<Hit>>, ProximityError>
-where R: RangeBounds<Distance> + Send {
+where R: RangeBounds<PositiveFinite> + Send {
     cast(
         rays.into_par_iter(),
         |&origin| Some(origin),
@@ -62,7 +63,7 @@ where R: RangeBounds<Distance> + Send {
 }
 
 pub fn occluded<R>(assembly: &Assembly, rays: impl Rays<R>) -> Result<Vec<bool>, ProximityError>
-where R: RangeBounds<Distance> + Send {
+where R: RangeBounds<PositiveFinite> + Send {
     cast(
         rays.into_par_iter(),
         |&origin| Some(origin),
@@ -77,7 +78,7 @@ where R: RangeBounds<Distance> + Send {
 }
 
 pub fn crossings<R>(assembly: &Assembly, rays: impl Rays<R>) -> Result<Vec<Vec<Hit>>, ProximityError>
-where R: RangeBounds<Distance> + Send {
+where R: RangeBounds<PositiveFinite> + Send {
     cast(
         rays.into_par_iter(),
         |&origin| Some(origin),
@@ -95,12 +96,12 @@ where R: RangeBounds<Distance> + Send {
     )
 }
 
-pub fn sweeps<R, B>(assembly: &Assembly, clearance: Distance, bodies: B) -> Result<Vec<Option<Obstruction>>, NEVec<ProximityError>>
+pub fn sweeps<R, B>(assembly: &Assembly, clearance: PositiveFinite, bodies: B) -> Result<Vec<Option<Obstruction>>, NEVec<ProximityError>>
 where
-    R: RangeBounds<Distance> + Send,
+    R: RangeBounds<PositiveFinite> + Send,
     B: IntoParallelIterator<Item = (Isometry3<f64>, SharedShape, Unit<Vector3<f64>>, R), Iter: IndexedParallelIterator>,
 {
-    let clearance = clearance.into_inner();
+    let clearance = clearance.get();
     cast(
         bodies.into_par_iter().enumerate().map(|(body, (pose, shape, direction, interval))| ((body, pose, shape), direction, interval)),
         |(_, pose, _)| pose.rotation.coords.iter().all(|coordinate| coordinate.is_finite()).then(|| Point3::from(pose.translation.vector)),
@@ -157,17 +158,17 @@ fn cast<X, R, T>(
 ) -> Result<Vec<T>, ProximityError>
 where
     X: Send,
-    R: RangeBounds<Distance> + Send,
+    R: RangeBounds<PositiveFinite> + Send,
     T: Default + Send,
 {
     let answers = rays
         .map(|(input, direction, interval)| {
-            let start = match interval.start_bound().map(|start| start.into_inner()) {
+            let start = match interval.start_bound().map(PositiveFinite::get) {
                 Bound::Included(start) => start,
                 Bound::Excluded(start) => start.next_up(),
                 Bound::Unbounded => 0.0,
             };
-            let end = match interval.end_bound().map(|end| end.into_inner()) {
+            let end = match interval.end_bound().map(PositiveFinite::get) {
                 Bound::Included(end) => end.next_up(),
                 Bound::Excluded(end) => end,
                 Bound::Unbounded => f64::INFINITY,

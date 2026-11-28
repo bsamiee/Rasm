@@ -75,7 +75,7 @@ pub struct Legend {
 
 pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement: Placement, legend: &Legend) -> Result<Graphics, NEVec<DraftingError>> {
     let origin = *placement * legend.at;
-    let accuracy = style.tolerance.into_inner();
+    let accuracy = style.tolerance.get();
     let gap = style.gap.into_inner();
     match &legend.layout {
         Layout::Key(Key { entries, swatch, columns }) => {
@@ -135,7 +135,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
 }
 
 pub(crate) fn swatched(typesetter: &mut Typesetter, style: &crate::Style, placement: Placement, sample: &Swatch, rect: Rect) -> Result<Graphics, NEVec<DraftingError>> {
-    let accuracy = style.tolerance.into_inner();
+    let accuracy = style.tolerance.get();
     let single = |element: Element| Graphics { elements: vec![element], .. };
     match sample {
         Swatch::Line { pen, linetype } => {

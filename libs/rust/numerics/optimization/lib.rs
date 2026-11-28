@@ -139,5 +139,5 @@ pub use linear::{Allocation, Coverage, CoverageError, Duals, Integrality, Resour
 #[cfg(feature = "nonlinear")]
 pub use nlopt::Target;
 #[cfg(feature = "nonlinear")]
-pub use nonlinear::{Constraint, Maxtime, MaxtimeError, Objective, Optimizer, Relation, Settings, Stopval, StopvalError, optimize};
+pub use nonlinear::{Constraint, Maxtime, MaxtimeError, Objective, Optimizer, Relation, Settings, optimize};
 pub use pareto::{Rank, rank};

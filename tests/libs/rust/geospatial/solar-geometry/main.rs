@@ -14,11 +14,12 @@ use parry3d_f64::partitioning::BvhBuildStrategy;
 use parry3d_f64::shape::SharedShape;
 use proptest::prelude::ProptestConfig;
 use proptest::test_runner::FileFailurePersistence;
-use rasm_proximity::{Assembly, Distance};
+use rasm_proximity::Assembly;
 use rasm_site::{Elevation, Place, Position};
 use rasm_solar_geometry::{Refraction, Sensor, SkyMeasure, Sun, Transmittance, bin, direction, lapsed, patches, position, sky_view, windows};
 use rstest::rstest;
 use solar_positioning::RefractionCorrection;
+use typed_floats::tf64::PositiveFinite;
 use uom::si::angle::degree;
 use uom::si::f64::{Angle, Length, ThermodynamicTemperature};
 use uom::si::length::meter;
@@ -111,7 +112,7 @@ proptest::proptest! {
 #[case::vertical_sky_component_of_a_window(SkyMeasure::VerticalComponent, Vector3::x(), 3.0_f64.mul_add(PI, 8.0) / (14.0 * PI))]
 fn unobstructed_sensor_sees_its_closed_form_share_of_the_sky(#[case] measure: SkyMeasure, #[case] normal: Vector3<f64>, #[case] share: f64) {
     let open = assert_ok!(Assembly::new(BvhBuildStrategy::default(), []));
-    let offset = assert_ok!(Distance::try_new(1.0e-6));
+    let offset = assert_ok!(PositiveFinite::new(1.0e-6));
     let seen = assert_ok!(sky_view(&open, &HashMap::<usize, Transmittance>::new(), offset, assert_some!(NonZero::new(4)), &facing(normal), measure));
     assert_abs_diff_eq!(seen[0].get::<ratio>(), share, epsilon = 2.0e-3);
 }
@@ -124,7 +125,7 @@ fn sky_through_stacked_sheets_is_the_product_of_their_transmittances(#[case] upp
     let covered = assert_ok!(Assembly::new(BvhBuildStrategy::default(), [sheet(1.0), sheet(2.0)]));
     let translucent: HashMap<usize, Transmittance> =
         HashMap::from_iter(iter::once((0, 0.6)).chain(upper.map(|upper| (1, upper))).map(|(element, passed)| (element, assert_ok!(Transmittance::try_new(passed)))));
-    let offset = assert_ok!(Distance::try_new(1.0e-6));
+    let offset = assert_ok!(PositiveFinite::new(1.0e-6));
     let seen = assert_ok!(sky_view(&covered, &translucent, offset, NonZero::<u8>::MIN, &facing(Vector3::z()), SkyMeasure::ViewFactor));
     assert_abs_diff_eq!(seen[0].get::<ratio>(), share, epsilon = 1.0e-12);
 }

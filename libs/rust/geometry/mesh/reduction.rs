@@ -7,8 +7,9 @@ use nalgebra::Point3;
 use parry3d_f64::bounding_volume::Aabb;
 use parry3d_f64::math::Vector;
 use parry3d_f64::shape::{TriMesh, TriMeshBuilderError};
+use typed_floats::tf64::StrictlyPositiveFinite;
 
-use crate::{MeshError, Operation, Solid, Tolerance};
+use crate::{MeshError, Operation, Solid};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -18,9 +19,9 @@ pub enum Simplifier {
     Sloppy,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Reduction {
-    pub target_error: Option<Tolerance> = None,
+    pub target_error: Option<StrictlyPositiveFinite> = None,
     pub triangles: usize = 0,
     pub simplifier: Simplifier = Simplifier::Topology(SimplifyOptions::empty()),
 }
@@ -57,7 +58,7 @@ pub fn reduce(reduction: Reduction, lock: impl FnMut(usize) -> SimplifyVertex, m
     }
 }
 
-pub fn simplify(solid: &Solid, tolerance: Option<Tolerance>, token: Option<&CancelToken>) -> Result<Option<Solid>, MeshError> {
+pub fn simplify(solid: &Solid, tolerance: Option<StrictlyPositiveFinite>, token: Option<&CancelToken>) -> Result<Option<Solid>, MeshError> {
     Solid::checked(Operation::Simplify, solid.0.simplify(crate::tolerance(tolerance)), token)
 }
 

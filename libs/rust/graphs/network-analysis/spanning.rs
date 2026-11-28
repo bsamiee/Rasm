@@ -7,9 +7,10 @@ use petgraph::data::Element;
 use petgraph::graph::NodeIndex;
 use petgraph::visit::{EdgeRef as _, GraphProp};
 use rustworkx_core::steiner_tree::{SteinerTreeResult, steiner_tree};
+use typed_floats::tf64::PositiveFinite;
 use validated::Validated;
 
-use crate::{Failure, Network, NetworkError, Weight, compact, locate};
+use crate::{Failure, Network, NetworkError, compact, locate};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -27,7 +28,7 @@ where
         .collect()
 }
 
-pub fn steiner<G>(graph: G, terminals: impl IntoIterator<Item: Borrow<G::NodeId>>, cost: impl Fn(G::EdgeRef) -> Weight) -> Result<Option<BTreeSet<G::EdgeId>>, Failure<G>>
+pub fn steiner<G>(graph: G, terminals: impl IntoIterator<Item: Borrow<G::NodeId>>, cost: impl Fn(G::EdgeRef) -> PositiveFinite) -> Result<Option<BTreeSet<G::EdgeId>>, Failure<G>>
 where
     G: Network + GraphProp<EdgeType = Undirected>,
     G::NodeId: Send + Sync,
@@ -35,7 +36,7 @@ where
 {
     let network = compact(graph, |edge| (cost(edge), edge.id()));
     let located = terminals.into_iter().map(|node| locate(&network, *node.borrow())).collect::<Validated<BTreeSet<_>, _>>().ok().map_err(NetworkError::Refused)?;
-    let tree = steiner_tree(&network, &located.into_iter().collect::<Vec<_>>(), |edge| Ok::<f64, !>(edge.weight().0.into_inner())).into_ok();
+    let tree = steiner_tree(&network, &located.into_iter().collect::<Vec<_>>(), |edge| Ok::<f64, !>(edge.weight().0.get())).into_ok();
     Ok(tree.map(|SteinerTreeResult { used_node_indices: _, used_edge_endpoints }| {
         used_edge_endpoints
             .into_iter()

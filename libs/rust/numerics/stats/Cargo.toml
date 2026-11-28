@@ -29,6 +29,7 @@ itertools            = { workspace = true }
 serde                = { workspace = true }
 serde_with           = { workspace = true }
 nutype               = { workspace = true }
+typed_floats         = { workspace = true }
 average              = { workspace = true }
 nalgebra             = { workspace = true }
 num-complex          = { workspace = true }

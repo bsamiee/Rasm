@@ -17,6 +17,7 @@ use nalgebra::{Affine3, Matrix4, Point2, Point3, Scale2};
 use parry3d_f64::math::Vector;
 use parry3d_f64::shape::{TriMesh, TriMeshBuilderError, TriMeshFlags};
 use rayon::iter::{IntoParallelRefMutIterator as _, ParallelIterator as _};
+use typed_floats::tf64::StrictlyPositiveFinite;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -49,15 +50,12 @@ pub enum Defect {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[nutype::nutype(validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
-pub struct Tolerance(f64);
-
 #[nutype::nutype(validate(predicate = |scale| scale.vector.iter().all(|factor| *factor >= 0.0)), derive(Debug, Clone, Copy, PartialEq))]
 pub struct Taper(Scale2<f64>);
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Import<'faces> {
-    pub tolerance: Option<Tolerance> = None,
+    pub tolerance: Option<StrictlyPositiveFinite> = None,
     pub repair: Option<WindingRule> = None,
     pub face_id: Option<&'faces [BoundedU32<0, { i32::MAX.cast_unsigned() }>]> = None,
 }
@@ -205,7 +203,7 @@ where B: From<[f64; N]> {
 
 fn original_id(original_id: i32) -> Option<NonZero<u32>> { NonZero::new(original_id).filter(|id| id.is_positive()).map(NonZero::<i32>::cast_unsigned) }
 
-fn tolerance(tolerance: Option<Tolerance>) -> f64 { tolerance.map_or_default(Tolerance::into_inner) }
+fn tolerance(tolerance: Option<StrictlyPositiveFinite>) -> f64 { tolerance.map_or_default(f64::from) }
 
 fn trimesh(vertices: Vec<Vector>, indices: Vec<u32>, flags: TriMeshFlags, operation: Operation) -> Result<TriMesh, MeshError> {
     TriMesh::new(vertices, indices.into_chunks::<3>())

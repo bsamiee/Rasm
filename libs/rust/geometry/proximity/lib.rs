@@ -20,9 +20,6 @@ const MAX_LEAF_COUNT: usize = 0x3FFF_FFFF;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[nutype::nutype(validate(finite, greater_or_equal = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
-pub struct Distance(f64);
-
 #[derive_where::derive_where(Debug, Clone)]
 #[derive(derive_more::AsRef)]
 pub struct Assembly {
@@ -138,4 +135,4 @@ pub use containment::containing;
 pub use distances::{Projection, project};
 pub use pairs::{Clash, Interference, clashes, separations};
 pub use points::{Cloud, Item, Neighbor, Neighborhood, nearest, neighbors, normals};
-pub use registration::{Fraction, FractionError, Icp, Kernel, Metric, Registration, Target, Weight, WeightError, fit, register};
+pub use registration::{Fraction, FractionError, Icp, Kernel, Metric, Registration, Target, fit, register};

@@ -8,7 +8,8 @@ use itertools::{Itertools as _, izip};
 use nalgebra::{DMatrixView, DVector, convert};
 use ndarray::{Array1, Array2, ArrayD, ArrayRef1, ArrayView, ArrayView1, ArrayView2, Axis, Dimension, IxDyn, Zip, concatenate};
 use nonempty_collections::{NESlice, NEVec};
-use rasm_stats::{Bounds, Tolerance};
+use rasm_stats::Bounds;
+use typed_floats::tf64::StrictlyPositiveFinite;
 use validated::Validated;
 
 use crate::roots::{minimum, real};
@@ -124,7 +125,7 @@ where D: Dimension {
         let bracket = RangeInclusive { start: -reach, last: reach };
         let interval = Bounds::try_new(bracket).map_err(|source| AnalysisError::Root { bracket, source: RootSource::Bounds(source) })?;
         let smoothing = |exponent: f64| (1.0 + exponent.exp()).recip();
-        let tolerance = const { Tolerance::try_new(f64::from(almost::F32_TOLERANCE)).ok().unwrap() };
+        let tolerance = const { StrictlyPositiveFinite::new(f64::from(almost::F32_TOLERANCE)).ok().unwrap() };
         let (exponent, _) = minimum(|exponent| scores(smoothing(exponent)).map(|(score, _)| score), interval, tolerance, hooks)?;
         let smooth = smoothing(exponent);
         let (_, freedom) = scores(smooth)?;

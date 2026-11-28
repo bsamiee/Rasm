@@ -20,8 +20,9 @@ use krilla::tagging::TagTree;
 use kurbo::{Point, Size};
 use nonempty_collections::{IntoNonEmptyIterator, NEVec, NonEmptyIterator as _};
 use pdf_oxide::compliance::{PdfXLevel, validate_pdf_x};
+use rasm_drawing::Visibility;
 use rasm_drawing::pages::{self, Destination, Link, Page};
-use rasm_drawing::{Tolerance, Visibility};
+use typed_floats::tf64::StrictlyPositiveFinite;
 use uom::si::length::point_computer;
 use validated::Validated;
 
@@ -44,7 +45,7 @@ pub struct Options {
     pub attachments: Vec<EmbeddedFile> = Vec::new(),
     pub fonts: Arc<Database>,
     pub resolution: Option<Resolution> = None,
-    pub tolerance: Tolerance,
+    pub tolerance: StrictlyPositiveFinite,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

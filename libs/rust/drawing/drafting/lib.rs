@@ -11,11 +11,10 @@ use kurbo::{Affine, BezPath, Circle, Line, ParamCurve as _, ParamCurveArclen as 
 use linesweeper::{BinaryOp, FillRule};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _, nev};
 use parlance::{FontFamily, FontFeature, ParseFontFamilyError};
-use rasm_drawing::{
-    Anchor, Baseline, Color, Element, FontSize, FontStyle, FontWeight, FontWidth, Linetype, LineworkError, Opacity, OpacityError, Path, Pen, Placement, Region, Tolerance, ToleranceError, Unit, Width,
-    regions, transform,
-};
+use rasm_drawing::{Anchor, Baseline, Color, Element, FontStyle, FontWeight, Linetype, LineworkError, Opacity, OpacityError, Path, Pen, Placement, Region, Unit, Width, regions, transform};
 use skrifa::ScaleError;
+use typed_floats::tf64::StrictlyPositiveFinite;
+use typed_floats::{InvalidNumber, tf32};
 use uom::fmt::DisplayStyle::Abbreviation;
 use uom::si::angle::radian;
 use uom::si::f64::{Angle, Length, LinearNumberDensity};
@@ -118,9 +117,9 @@ pub struct Terminator {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Lettering {
     pub family: FontFamily<'static>,
-    pub size: FontSize,
+    pub size: StrictlyPositiveFinite,
     pub weight: FontWeight = FontWeight::NORMAL,
-    pub width: FontWidth = FontWidth::NORMAL,
+    pub width: tf32::StrictlyPositiveFinite = const { tf32::StrictlyPositiveFinite::new(parlance::FontWidth::NORMAL.ratio()).ok().unwrap() },
     pub style: FontStyle = FontStyle::Normal,
     pub line_height: Option<Width> = None,
     pub features: Vec<FontFeature> = Vec::new(),
@@ -139,7 +138,7 @@ pub struct Style {
     pub leader: leaders::Style,
     pub arrow: Terminator,
     pub unit: Unit,
-    pub tolerance: Tolerance,
+    pub tolerance: StrictlyPositiveFinite,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -208,8 +207,8 @@ pub enum DraftingError {
     Geometry(Geometry),
     #[error("{0} lies outside the linework model")]
     Unsupported(Feature),
-    #[error(transparent)]
-    Tolerance(#[from] ToleranceError),
+    #[error("tolerance leaves its range once scaled")]
+    Tolerance(#[from] InvalidNumber),
     #[error(transparent)]
     Image(#[from] ImageError),
     #[error("raster of {} by {} pixels spans no placeable extent", .0.width, .0.height)]
@@ -282,7 +281,7 @@ fn stroked(shape: BezPath, pen: &Pen, linetype: Option<Linetype>) -> Result<Elem
     Path::try_new(shape).map(|path| Element::Stroke { path, pen: pen.clone(), linetype }).map_err(|error| LineworkError::from(error).into())
 }
 
-fn filled(shape: impl Shape, fill_rule: FillRule, color: Color, opacity: Opacity, tolerance: Tolerance) -> Result<Element, DraftingError> {
+fn filled(shape: impl Shape, fill_rule: FillRule, color: Color, opacity: Opacity, tolerance: StrictlyPositiveFinite) -> Result<Element, DraftingError> {
     Region::new(shape, fill_rule, tolerance).map(|region| Element::Fill { region, color, opacity }).map_err(DraftingError::from)
 }
 
@@ -293,12 +292,12 @@ fn colored(color: AlphaColor<Srgb>) -> Result<(Color, Opacity), DraftingError> {
         .map_err(|(OpacityError::FiniteViolated | OpacityError::GreaterOrEqualViolated | OpacityError::LessOrEqualViolated)| DraftingError::Unsupported(Feature::Opacity))
 }
 
-fn terminated(terminator: &Terminator, head: Head, tip: Point, toward: Vec2, tolerance: Tolerance) -> Result<Element, DraftingError> {
+fn terminated(terminator: &Terminator, head: Head, tip: Point, toward: Vec2, tolerance: StrictlyPositiveFinite) -> Result<Element, DraftingError> {
     (toward.is_finite() && toward != Vec2::ZERO).ok_or(DraftingError::Geometry(Geometry::Coincident))?;
     let basis = oriented(tip, toward);
     let Terminator { size, head: _, pen } = terminator;
     let length = size.into_inner();
-    let accuracy = tolerance.into_inner();
+    let accuracy = tolerance.get();
     let solid = |shape: BezPath| filled(basis * shape, FillRule::NonZero, pen.color.clone(), pen.opacity, tolerance);
     let outlined = |shape: BezPath| stroked(basis * shape, pen, None);
     let disc = || Circle::new(Point::ORIGIN, length * 0.5).to_path(accuracy);
@@ -340,8 +339,8 @@ fn station(measured: &[(PathSeg, f64, f64)], at: f64, accuracy: f64) -> Option<(
     measured.get(measured.partition_point(|&(_, _, to)| to < at)).filter(|_| at >= 0.0).map(|&(segment, from, to)| (segment, segment.inv_arclen((at - from).min(to - from), accuracy)))
 }
 
-fn tipped(terminator: &Terminator, head: Head, segments: impl IntoIterator<Item = PathSeg>, tolerance: Tolerance) -> Result<Element, DraftingError> {
-    let accuracy = tolerance.into_inner();
+fn tipped(terminator: &Terminator, head: Head, segments: impl IntoIterator<Item = PathSeg>, tolerance: StrictlyPositiveFinite) -> Result<Element, DraftingError> {
+    let accuracy = tolerance.get();
     let measured = measured(segments, accuracy);
     let length = measured.last().map_or_default(|&(_, _, to)| to);
     let [tip, base] = [0.0, terminator.size.into_inner().max(accuracy).min(length)].map(|at| station(&measured, at, accuracy).map(|(segment, parameter)| segment.eval(parameter)));
@@ -369,7 +368,7 @@ pub fn bounds(graphics: &Graphics, frame: Affine) -> Rect {
 
 fn graduated<I>(typesetter: &mut Typesetter, style: &Style, basis: Affine, size: Size, ticks: I, (direction, anchor, baseline): (Vec2, Anchor, Baseline)) -> Result<Graphics, NEVec<DraftingError>>
 where I: IntoIterator<Item = (f64, Option<String>)> {
-    let accuracy = style.tolerance.into_inner();
+    let accuracy = style.tolerance.get();
     let gap = style.gap.into_inner();
     let Size { width: length, height: thickness } = size;
     let ticks = ticks.into_iter().collect::<Vec<_>>();
@@ -440,7 +439,7 @@ mod tolerances;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use legends::{Entry, Key, Layout, Legend, Ramp, Swatch};
-pub use marks::{Breakline, Chord, ChordError, Mark};
+pub use marks::{Breakline, Mark};
 pub use sheets::{Fit, Layer, Mention, Reference, Set, Sheet, Usage, Viewport, compose, raster};
 pub use symbols::{Base, Definition, Instance};
 pub use tables::{Cell, Column, Rule, Table};

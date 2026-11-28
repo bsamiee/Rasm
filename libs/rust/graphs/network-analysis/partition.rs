@@ -2,9 +2,10 @@ use std::collections::BTreeMap;
 
 use indexmap::IndexSet;
 use leiden_rs::{GraphDataBuilder, HierarchicalOutput, Leiden, LeidenConfig, LeidenOutput, Partition};
+use typed_floats::tf64::PositiveFinite;
 use validated::Validated;
 
-use crate::{Failure, Network, NetworkError, Weight, compact, locate};
+use crate::{Failure, Network, NetworkError, compact, locate};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -26,19 +27,19 @@ pub enum Trace<N> {
 pub fn communities<G>(
     graph: G,
     initial: &BTreeMap<G::NodeId, usize>,
-    weight: impl Fn(G::EdgeRef) -> Weight,
-    mass: impl Fn(G::NodeId) -> Weight,
+    weight: impl Fn(G::EdgeRef) -> PositiveFinite,
+    mass: impl Fn(G::NodeId) -> PositiveFinite,
     config: LeidenConfig,
 ) -> Result<Communities<G::NodeId>, Failure<G>>
 where
     G: Network,
 {
-    let network = compact(graph, |edge| weight(edge).into_inner());
+    let network = compact(graph, |edge| weight(edge).get());
     initial.keys().map(|&node| locate(&network, node).map(drop)).collect::<Validated<(), _>>().ok().map_err(NetworkError::Refused)?;
     let builder = GraphDataBuilder::new(network.node_count());
     let mut builder = if graph.is_directed() { builder.directed() } else { builder };
     network.raw_edges().iter().try_for_each(|arc| builder.add_edge(arc.source().index(), arc.target().index(), arc.weight).map(drop))?;
-    network.node_weights().enumerate().try_for_each(|(position, &node)| builder.set_node_weight(position, mass(node).into_inner()).map(drop))?;
+    network.node_weights().enumerate().try_for_each(|(position, &node)| builder.set_node_weight(position, mass(node).get()).map(drop))?;
     let data = builder.build()?;
     let mut labels = IndexSet::new();
     let seed = network.node_weights().map(|&node| labels.insert_full(initial.get(&node).copied().ok_or(node)).0).collect::<Vec<_>>();

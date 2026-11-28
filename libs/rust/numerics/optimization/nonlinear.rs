@@ -7,7 +7,8 @@ use itertools::{Either, Itertools as _};
 use nalgebra::DVector;
 use nlopt::{Algorithm, FailState, MObjFn, Nlopt, ObjFn, OptResult, Target};
 use nonempty_collections::NEVec;
-use rasm_stats::{Bounds, Space, Tolerance};
+use rasm_stats::{Bounds, Space};
+use typed_floats::tf64::{NonNaNFinite, StrictlyPositiveFinite};
 use validated::Validated;
 
 use crate::{Input, OptimizeError, Solution};
@@ -28,13 +29,10 @@ pub trait Objective<E> = FnMut(&[f64], Option<&mut [f64]>) -> Result<f64, E>;
 #[nutype::nutype(validate(predicate = |maxtime| !maxtime.is_zero()), derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord))]
 pub struct Maxtime(Duration);
 
-#[nutype::nutype(validate(finite), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
-pub struct Stopval(f64);
-
 #[derive(derive_more::Debug, Clone)]
 pub struct Constraint<'function> {
     pub relation: Relation,
-    pub tolerances: NEVec<Option<Tolerance>>,
+    pub tolerances: NEVec<Option<StrictlyPositiveFinite>>,
     #[debug(skip)]
     pub evaluate: &'function (dyn MObjFn<()> + Sync),
 }
@@ -44,10 +42,10 @@ pub struct Optimizer {
     pub algorithm: Algorithm,
     pub maxeval: BoundedU32<1, { i32::MAX.cast_unsigned() }>,
     pub maxtime: Option<Maxtime> = None,
-    pub ftol_rel: Option<Tolerance> = None,
-    pub ftol_abs: Option<Tolerance> = None,
-    pub xtol_rel: Option<Tolerance> = None,
-    pub xtol_abs: Option<DVector<Tolerance>> = None,
+    pub ftol_rel: Option<StrictlyPositiveFinite> = None,
+    pub ftol_abs: Option<StrictlyPositiveFinite> = None,
+    pub xtol_rel: Option<StrictlyPositiveFinite> = None,
+    pub xtol_abs: Option<DVector<StrictlyPositiveFinite>> = None,
     pub population: Option<NonZero<u16>> = None,
     pub vector_storage: Option<NonZero<u16>> = None,
 }
@@ -57,7 +55,7 @@ pub struct Settings<'problem> {
     pub optimizer: Optimizer,
     pub seed: u32,
     pub local_optimizer: Option<Optimizer> = None,
-    pub stopval: Option<Stopval> = None,
+    pub stopval: Option<NonNaNFinite> = None,
     pub initial_step: Option<DVector<f64>> = None,
     pub constraints: Vec<Constraint<'problem>> = Vec::new(),
 }
@@ -70,13 +68,13 @@ where F: Objective<E> {
     where O: ObjFn<U> {
         let scalars = [
             (optimizer.maxtime.map(|maxtime| maxtime.into_inner().as_secs_f64()), Nlopt::set_maxtime as fn(&mut Nlopt<O, U>, f64) -> OptResult),
-            (optimizer.ftol_rel.map(Tolerance::into_inner), Nlopt::set_ftol_rel),
-            (optimizer.ftol_abs.map(Tolerance::into_inner), Nlopt::set_ftol_abs),
-            (optimizer.xtol_rel.map(Tolerance::into_inner), Nlopt::set_xtol_rel),
+            (optimizer.ftol_rel.map(f64::from), Nlopt::set_ftol_rel),
+            (optimizer.ftol_abs.map(f64::from), Nlopt::set_ftol_abs),
+            (optimizer.xtol_rel.map(f64::from), Nlopt::set_xtol_rel),
         ];
         nlopt.set_maxeval(optimizer.maxeval.get())?;
         scalars.into_iter().try_for_each(|(value, set)| value.map(|value| set(nlopt, value)).transpose().map(drop))?;
-        optimizer.xtol_abs.as_ref().map(|xtol_abs| nlopt.set_xtol_abs(xtol_abs.map(Tolerance::into_inner).as_slice())).transpose()?;
+        optimizer.xtol_abs.as_ref().map(|xtol_abs| nlopt.set_xtol_abs(xtol_abs.map(f64::from).as_slice())).transpose()?;
         optimizer.population.map(|population| nlopt.set_population(NonZero::<usize>::from(population).get())).transpose()?;
         nlopt.set_vector_storage(optimizer.vector_storage.map(|storage| NonZero::<usize>::from(storage).get())).map(drop)
     }
@@ -120,7 +118,7 @@ where F: Objective<E> {
             nlopt.set_lower_bounds(&lower)?;
             nlopt.set_upper_bounds(&upper)?;
             configure(&mut nlopt, &settings.optimizer)?;
-            settings.stopval.map(|stopval| nlopt.set_stopval(stopval.into_inner())).transpose()?;
+            settings.stopval.map(|stopval| nlopt.set_stopval(stopval.get())).transpose()?;
             settings.initial_step.as_ref().map(|initial_step| nlopt.set_initial_step(initial_step.as_slice())).transpose()?;
             if let Some(local) = &settings.local_optimizer {
                 let mut local_optimizer = nlopt.get_local_optimizer(local.algorithm);
@@ -130,7 +128,7 @@ where F: Objective<E> {
         })
         .map_err(|state| Either::Right(OptimizeError::Algorithm { algorithm, state }))?;
         settings.constraints.iter().enumerate().try_for_each(|(constraint, Constraint { relation, tolerances, evaluate })| {
-            let tolerances = tolerances.iter().map(|tolerance| tolerance.map_or_default(Tolerance::into_inner)).collect::<Vec<_>>();
+            let tolerances = tolerances.iter().map(|tolerance| tolerance.map_or_default(f64::from)).collect::<Vec<_>>();
             match relation {
                 Relation::Inequality => nlopt.add_inequality_mconstraint(tolerances.len(), *evaluate, (), &tolerances),
                 Relation::Equality => nlopt.add_equality_mconstraint(tolerances.len(), *evaluate, (), &tolerances),

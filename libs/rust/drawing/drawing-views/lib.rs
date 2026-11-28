@@ -11,11 +11,12 @@ use nalgebra::{Isometry3, Matrix3, Matrix4, Orthographic3, Perspective3, Point3,
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use parry3d_f64::partitioning::BvhBuildStrategy;
 use parry3d_f64::shape::{SharedShape, TopologyError, TriMesh, TriMeshFlags};
-use rasm_drawing::{Class, Deflection, EdgeKind, LineworkError, Tolerance};
+use rasm_drawing::{Class, Deflection, EdgeKind, LineworkError};
 use rasm_mesh::{MeshError, Solid, Source, Trim, export, trim};
 use rasm_proximity::{Assembly, ProximityError};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator as _, ParallelIterator as _};
 use spade::InsertionError;
+use typed_floats::tf64::StrictlyPositiveFinite;
 use validated::Validated;
 
 use crate::visibility::Lines;
@@ -79,7 +80,7 @@ pub struct View {
     scene: Scene,
     lines: Lines,
     crease: Deflection,
-    tolerance: Tolerance,
+    tolerance: StrictlyPositiveFinite,
 }
 
 impl View {
@@ -88,7 +89,7 @@ impl View {
         projection: Projection,
         bodies: impl IntoParallelIterator<Item = Body, Iter: IndexedParallelIterator>,
         crease: Deflection,
-        tolerance: Tolerance,
+        tolerance: StrictlyPositiveFinite,
         token: Option<&CancelToken>,
     ) -> Result<Self, NEVec<ViewsError>> {
         let frame = Frame::new(eye, projection).map_err(NEVec::new)?;
@@ -191,9 +192,9 @@ fn ray(frame: &Frame, ndc: Point) -> (Point3<f64>, Vector3<f64>) {
 
 fn depth(frame: &Frame, point: &Point3<f64>) -> f64 { frame.plane.inverse_transform_point(point).z }
 
-fn outline(frame: &Frame, scene: &Scene, crease: Deflection, tolerance: Tolerance) -> Result<Lines, ViewsError> {
+fn outline(frame: &Frame, scene: &Scene, crease: Deflection, tolerance: StrictlyPositiveFinite) -> Result<Lines, ViewsError> {
     let cuts = |prepared: &Prepared| -> Vec<Feature> {
-        let reach = tolerance.into_inner();
+        let reach = tolerance.get();
         let side = |offset: f64| if offset.abs() <= reach { Ordering::Equal } else { offset.total_cmp(&0.0) };
         prepared
             .mesh

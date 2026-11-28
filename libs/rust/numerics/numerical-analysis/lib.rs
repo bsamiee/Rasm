@@ -11,9 +11,10 @@ use nalgebra::{DMatrix, DMatrixView, DVector, Dim, Matrix, RawStorage, Scalar};
 use ndarray::ShapeError;
 use nonempty_collections::NEVec;
 use num_dual::DualNum;
-use rasm_stats::{BoundsError, Tolerance};
+use rasm_stats::BoundsError;
 use serde::{Deserialize, Serialize};
 use spade::InsertionError;
+use typed_floats::tf64::StrictlyPositiveFinite;
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -69,7 +70,7 @@ pub enum Placement {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const TOLERANCE: Tolerance = Tolerance::try_new(almost::F64_TOLERANCE).ok().unwrap();
+const TOLERANCE: StrictlyPositiveFinite = StrictlyPositiveFinite::new(almost::F64_TOLERANCE).ok().unwrap();
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -233,5 +234,5 @@ mod splines;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use quadrature::{Domain, Exponent, ExponentError, Integral, Settings, Weight, integrate, weighted};
-pub use scattered::{Constrained, Delaunay, Flatness, FlatnessError, Interpolant, Kernel, Kriging, Observation, Sites, barycentric, constrain, gradients, interpolate, krige, predict, triangulate};
+pub use scattered::{Constrained, Delaunay, Interpolant, Kernel, Kriging, Observation, Sites, barycentric, constrain, gradients, interpolate, krige, predict, triangulate};
 pub use splines::{Extrapolation, GridAxis, Method, Reading, Smooth, SmoothError, Spline, SplineAxis, crossings, curve, evaluate, grid};

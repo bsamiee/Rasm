@@ -6,6 +6,7 @@ use kurbo::{Affine, Arc, BezPath, Circle, Line, ParamCurve as _, ParamCurveArcle
 use linesweeper::FillRule;
 use nonempty_collections::NEVec;
 use rasm_drawing::{Anchor, Baseline, Linetype, Path, Pen, Placement, Width};
+use typed_floats::tf64::StrictlyPositiveFinite;
 use uom::si::f64::{Angle, Length};
 
 use crate::notation::{self, Sign};
@@ -17,9 +18,6 @@ use crate::{
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[nutype::nutype(validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
-pub struct Chord(f64);
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Breakline {
     Zigzag { stations: NEVec<f64> },
@@ -30,7 +28,7 @@ pub enum Breakline {
 pub enum Mark {
     Cloud {
         boundary: Path,
-        arc: Chord,
+        arc: StrictlyPositiveFinite,
     },
     Break {
         line: Line,
@@ -78,7 +76,7 @@ pub enum Mark {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement: Placement, mark: &Mark) -> Result<Graphics, NEVec<DraftingError>> {
-    let accuracy = style.tolerance.into_inner();
+    let accuracy = style.tolerance.get();
     let mut beyond = |label: &Label, tip: Point, outward: Vec2| -> Result<Graphics, NEVec<DraftingError>> {
         let set = labelled(typesetter, style, label, Point::ORIGIN, Vec2::new(1.0, 0.0), Anchor::Middle, Baseline::Middle)?;
         let middle = bounds(&set, Affine::IDENTITY).center();
@@ -92,7 +90,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
                 let measured = measured(ring.segments(), accuracy);
                 let perimeter = measured.last().map_or_default(|&(_, _, to)| to);
                 (perimeter > 0.0).ok_or(DraftingError::Geometry(Geometry::Coincident))?;
-                let count = (perimeter / arc.into_inner()).round().max(2.0).to_int_saturating::<u32>();
+                let count = (perimeter / arc.get()).round().max(2.0).to_int_saturating::<u32>();
                 let step = perimeter / f64::from(count);
                 let stations = (0..count)
                     .map(|index| station(&measured, f64::from(index) * step, accuracy).map(|(segment, parameter)| segment.eval(parameter)))
@@ -204,7 +202,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
 }
 
 fn breakline(style: &crate::Style, placement: Placement, line: Line, size: Width, form: &Breakline) -> Result<Graphics, NEVec<DraftingError>> {
-    let accuracy = style.tolerance.into_inner();
+    let accuracy = style.tolerance.get();
     let [start, end] = [line.p0, line.p1].map(|point| *placement * point);
     let length = start.distance(end);
     (length > 0.0).ok_or(DraftingError::Geometry(Geometry::Coincident))?;
@@ -238,7 +236,7 @@ fn breakline(style: &crate::Style, placement: Placement, line: Line, size: Width
 }
 
 fn insulation(style: &crate::Style, path: &BezPath, half: f64) -> Result<Graphics, NEVec<DraftingError>> {
-    let accuracy = style.tolerance.into_inner();
+    let accuracy = style.tolerance.get();
     (half.is_finite() && half >= accuracy).ok_or(DraftingError::Geometry(Geometry::Extent))?;
     let measured = measured(path.segments(), accuracy);
     let length = measured.last().map_or_default(|&(_, _, to)| to);

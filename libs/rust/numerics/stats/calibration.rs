@@ -18,9 +18,10 @@ use rustfft::FftPlanner;
 use serde::Serialize;
 use statrs::distribution::{ContinuousCDF as _, Normal};
 use statrs::statistics::{Data, OrderStatistics as _, RankTieBreaker};
+use typed_floats::tf64::StrictlyPositiveFinite;
 use validated::Validated;
 
-use crate::{Bounds, Moment, Sample, Space, StatsError, Tolerance};
+use crate::{Bounds, Moment, Sample, Space, StatsError};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -262,4 +263,4 @@ pub fn fit(pairs: impl IntoIterator<Item = (f64, f64)>, parameters: u32) -> Resu
 }
 
 #[must_use]
-pub const fn calibrated(fit: Fit, nmbe: Tolerance, cv_rmse: Tolerance) -> bool { fit.nmbe.abs() <= nmbe.into_inner() && fit.cv_rmse <= cv_rmse.into_inner() }
+pub const fn calibrated(fit: Fit, nmbe: StrictlyPositiveFinite, cv_rmse: StrictlyPositiveFinite) -> bool { fit.nmbe.abs() <= nmbe.get() && fit.cv_rmse <= cv_rmse.get() }

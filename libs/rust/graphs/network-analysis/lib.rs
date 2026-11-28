@@ -9,6 +9,7 @@ use nonempty_collections::NEVec;
 use petgraph::data::{Element, FromElements as _};
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::{EdgeRef as _, GraphBase, GraphProp, IntoEdgeReferences, IntoNodeIdentifiers, NodeIndexable, VisitMap as _, Visitable};
+use typed_floats::InvalidNumber;
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -16,14 +17,6 @@ use validated::Validated;
 pub trait Network = IntoNodeIdentifiers + IntoEdgeReferences + NodeIndexable + GraphProp + Visitable + GraphBase<NodeId: Ord + Hash + fmt::Debug, EdgeId: Ord + Hash + fmt::Debug>;
 
 pub type Failure<G> = NetworkError<<G as GraphBase>::NodeId, <G as GraphBase>::EdgeId>;
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-#[nutype::nutype(validate(finite, greater_or_equal = 0.0), derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Into, Serialize, Deserialize))]
-pub struct Weight(f64);
-
-#[nutype::nutype(validate(finite, greater = 0.0), derive(Debug, Display, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Into, Serialize, Deserialize))]
-pub struct Tolerance(f64);
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -46,7 +39,7 @@ where
     #[error("{}", .0.iter().format(", "))]
     Refused(NEVec<Refusal<N>>),
     #[error("turn from edge {:?} into edge {:?} at node {node:?} has an invalid cost", edges[0], edges[1])]
-    Turn { edges: [E; 2], node: N, source: WeightError },
+    Turn { edges: [E; 2], node: N, source: InvalidNumber },
     #[error(
         "power iteration did not converge within {} at {}",
         fmt::from_fn(|formatter| match convergence.max_iter {

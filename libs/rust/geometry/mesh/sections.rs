@@ -8,8 +8,9 @@ use manifold_rust::linalg;
 use nalgebra::{Isometry3, Point2, Point3, Vector3};
 use parry3d_f64::query::{IntersectResult, SplitResult};
 use parry3d_f64::shape::TriMesh;
+use typed_floats::tf64::StrictlyPositiveFinite;
 
-use crate::{MeshError, Operation, Solid, Tolerance};
+use crate::{MeshError, Operation, Solid};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -56,13 +57,13 @@ pub fn contours(solid: &Solid, plane: &Isometry3<f64>, contours: impl IntoIterat
 }
 
 #[must_use]
-pub fn split(mesh: &TriMesh, plane: &Isometry3<f64>, epsilon: Option<Tolerance>) -> SplitResult<TriMesh> {
+pub fn split(mesh: &TriMesh, plane: &Isometry3<f64>, epsilon: Option<StrictlyPositiveFinite>) -> SplitResult<TriMesh> {
     let (normal, bias) = halfspace(plane);
     mesh.local_split(normal, bias, crate::tolerance(epsilon))
 }
 
 #[must_use]
-pub fn segments(mesh: &TriMesh, plane: &Isometry3<f64>, epsilon: Option<Tolerance>) -> Vec<[Point2<f64>; 2]> {
+pub fn segments(mesh: &TriMesh, plane: &Isometry3<f64>, epsilon: Option<StrictlyPositiveFinite>) -> Vec<[Point2<f64>; 2]> {
     let (normal, bias) = halfspace(plane);
     match mesh.intersection_with_local_plane(normal, bias, crate::tolerance(epsilon)) {
         IntersectResult::Intersect(polyline) => polyline.segments().map(|segment| [segment.a, segment.b].map(|vertex| plane.inverse_transform_point(&Point3::from(vertex)).xy())).collect(),

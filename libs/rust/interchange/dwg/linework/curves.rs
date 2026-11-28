@@ -8,7 +8,8 @@ use acadrust::types::{Matrix3, Vector2, Vector3};
 use itertools::Itertools as _;
 use kurbo::{Affine, BezPath, Cap, Circle, Join, Line, ParamCurve, ParamCurveNearest as _, PathEl, PathSeg, Point, Shape as _, Stroke, StrokeOpts, SvgArc, Vec2, flatten, segments, stroke};
 use linesweeper::FillRule;
-use rasm_drawing::{Dashes, LineworkError, Region, Tolerance};
+use rasm_drawing::{Dashes, LineworkError, Region};
+use typed_floats::tf64::StrictlyPositiveFinite;
 
 use crate::{CadError, Refusal, Subject};
 
@@ -20,13 +21,13 @@ pub(super) fn ocs(normal: Vector3, elevation: f64) -> Affine {
     Affine::new([x_x, x_y, y_x, y_y, normal_x * elevation, normal_y * elevation])
 }
 
-pub(crate) fn path(entity: &EntityType, frame: Affine, tolerance: Tolerance) -> Result<Option<BezPath>, Refusal> {
+pub(crate) fn path(entity: &EntityType, frame: Affine, tolerance: StrictlyPositiveFinite) -> Result<Option<BezPath>, Refusal> {
     let splined = |spline: &Spline| -> Result<Option<BezPath>, Refusal> {
         let weights = Some(spline.weights.as_slice()).filter(|weights| spline.flags.rational && !weights.is_empty());
         match (spline.control_points.as_slice(), spline.fit_points.as_slice()) {
             ([], []) => Ok(None),
             ([], [_, ..]) => Err(Refusal::Fitted),
-            (control, _) => nurbs(usize::try_from(spline.degree)?, &control.iter().map(|vertex| frame * point(*vertex)).collect::<Vec<_>>(), weights, &spline.knots, tolerance.into_inner())
+            (control, _) => nurbs(usize::try_from(spline.degree)?, &control.iter().map(|vertex| frame * point(*vertex)).collect::<Vec<_>>(), weights, &spline.knots, tolerance.get())
                 .map(|mut path| {
                     if spline.flags.closed || spline.flags.periodic {
                         path.push(PathEl::ClosePath);
@@ -56,19 +57,19 @@ pub(crate) fn path(entity: &EntityType, frame: Affine, tolerance: Tolerance) -> 
     };
     match entity {
         EntityType::Line(line) => Ok(Some(BezPath::from_vec(vec![PathEl::MoveTo(frame * point(line.start)), PathEl::LineTo(frame * point(line.end))]))),
-        EntityType::Arc(arc) => Ok(Some(framed(frame * ocs(arc.normal, arc.center.z), tolerance.into_inner(), |local| {
+        EntityType::Arc(arc) => Ok(Some(framed(frame * ocs(arc.normal, arc.center.z), tolerance.get(), |local| {
             kurbo::Arc::new(point(arc.center), (arc.radius, arc.radius), arc.start_angle, sweep(arc.start_angle, arc.end_angle), 0.0).path_elements(local).collect()
         }))),
         EntityType::Circle(circle) =>
-            Ok(Some(framed(frame * ocs(circle.normal, circle.center.z), tolerance.into_inner(), |local| Circle::new(point(circle.center), circle.radius).path_elements(local).collect()))),
+            Ok(Some(framed(frame * ocs(circle.normal, circle.center.z), tolerance.get(), |local| Circle::new(point(circle.center), circle.radius).path_elements(local).collect()))),
         EntityType::Ellipse(ellipse) => {
             let (major, minor) = (ellipse.major_axis, ellipse.normal.normalize().cross(&ellipse.major_axis) * ellipse.minor_axis_ratio);
-            Ok(Some(framed(frame * Affine::new([major.x, major.y, minor.x, minor.y, ellipse.center.x, ellipse.center.y]), tolerance.into_inner(), |local| {
+            Ok(Some(framed(frame * Affine::new([major.x, major.y, minor.x, minor.y, ellipse.center.x, ellipse.center.y]), tolerance.get(), |local| {
                 kurbo::Arc::new(Point::ORIGIN, (1.0, 1.0), ellipse.start_parameter, sweep(ellipse.start_parameter, ellipse.end_parameter), 0.0).path_elements(local).collect()
             })))
         }
         EntityType::LwPolyline(_) | EntityType::Polyline2D(_) | EntityType::Polyline(_) | EntityType::Polyline3D(_) =>
-            Ok(lightweight(entity).map(|polyline| framed(frame * ocs(polyline.normal, polyline.elevation), tolerance.into_inner(), |local| chained(&polyline, local)))),
+            Ok(lightweight(entity).map(|polyline| framed(frame * ocs(polyline.normal, polyline.elevation), tolerance.get(), |local| chained(&polyline, local)))),
         EntityType::Spline(spline) => splined(spline),
         EntityType::Helix(helix) => splined(&helix.spline),
         EntityType::Face3D(face) => Ok(Some(edges(face))),
@@ -112,10 +113,10 @@ pub(crate) fn path(entity: &EntityType, frame: Affine, tolerance: Tolerance) -> 
     }
 }
 
-pub(super) fn band(entity: &EntityType, frame: Affine, tolerance: Tolerance) -> Result<Option<Region>, LineworkError> {
+pub(super) fn band(entity: &EntityType, frame: Affine, tolerance: StrictlyPositiveFinite) -> Result<Option<Region>, LineworkError> {
     let Some(polyline) = lightweight(entity) else { return Ok(None) };
     let plane = frame * ocs(polyline.normal, polyline.elevation);
-    let local = tolerance.into_inner() / plane.spectral_norm();
+    let local = tolerance.get() / plane.spectral_norm();
     let widths = spans(&polyline)
         .map(|(from, to)| match (from.start_width, from.end_width) {
             (0.0, 0.0) => (from, to, polyline.constant_width, polyline.constant_width),
@@ -184,9 +185,9 @@ pub(super) fn band(entity: &EntityType, frame: Affine, tolerance: Tolerance) -> 
         .transpose()
 }
 
-pub(super) fn boundary(hatch: &Hatch, frame: Affine, tolerance: Tolerance, subject: &Subject) -> Result<Region, CadError> {
+pub(super) fn boundary(hatch: &Hatch, frame: Affine, tolerance: StrictlyPositiveFinite, subject: &Subject) -> Result<Region, CadError> {
     let plane = frame * ocs(hatch.normal, hatch.elevation);
-    let local = tolerance.into_inner() / plane.spectral_norm();
+    let local = tolerance.get() / plane.spectral_norm();
     let contour = |path: &BoundaryPath| -> Result<BezPath, Refusal> {
         let edges = path
             .edges

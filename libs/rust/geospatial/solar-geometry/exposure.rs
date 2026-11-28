@@ -10,8 +10,9 @@ use nalgebra::{Point3, UnitQuaternion, UnitVector3};
 use ndarray::{Array1, Array2, Axis, ShapeBuilder as _};
 use nonempty_collections::nev;
 use rasm_proximity::rays::{crossings, occluded};
-use rasm_proximity::{Assembly, Distance, ProximityError};
+use rasm_proximity::{Assembly, ProximityError};
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
+use typed_floats::tf64::PositiveFinite;
 use uom::si::f64::{Ratio, Time};
 use uom::si::ratio::ratio;
 use uom::si::solid_angle::steradian;
@@ -42,8 +43,16 @@ pub struct Sensor {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn incidence<S>(assembly: &Assembly, translucent: &HashMap<usize, Transmittance, S>, offset: Distance, sensors: &[Sensor], directions: &[UnitVector3<f64>]) -> Result<Array2<f64>, SolarError>
-where S: BuildHasher + Sync {
+pub fn incidence<S>(
+    assembly: &Assembly,
+    translucent: &HashMap<usize, Transmittance, S>,
+    offset: PositiveFinite,
+    sensors: &[Sensor],
+    directions: &[UnitVector3<f64>],
+) -> Result<Array2<f64>, SolarError>
+where
+    S: BuildHasher + Sync,
+{
     refused(directions.iter().positions(|direction| !finite(direction.as_slice())).map(Input::Direction))?;
     let mut matrix = Array2::zeros((sensors.len(), directions.len()).f());
     matrix.axis_iter_mut(Axis(1)).into_par_iter().zip(directions).try_for_each(|(mut column, &direction)| {
@@ -52,7 +61,7 @@ where S: BuildHasher + Sync {
     Ok(matrix)
 }
 
-pub fn sun_hours<S, I>(assembly: &Assembly, translucent: &HashMap<usize, Transmittance, S>, offset: Distance, sensors: &[Sensor], suns: I) -> Result<Array1<Time>, SolarError>
+pub fn sun_hours<S, I>(assembly: &Assembly, translucent: &HashMap<usize, Transmittance, S>, offset: PositiveFinite, sensors: &[Sensor], suns: I) -> Result<Array1<Time>, SolarError>
 where
     S: BuildHasher + Sync,
     I: IntoIterator<Item: Borrow<(UnitVector3<f64>, Time)>>,
@@ -68,7 +77,7 @@ where
 pub fn sky_view<S>(
     assembly: &Assembly,
     translucent: &HashMap<usize, Transmittance, S>,
-    offset: Distance,
+    offset: PositiveFinite,
     subdivision: NonZero<u8>,
     sensors: &[Sensor],
     measure: SkyMeasure,
@@ -96,7 +105,7 @@ where
 fn accumulated<S>(
     assembly: &Assembly,
     translucent: &HashMap<usize, Transmittance, S>,
-    offset: Distance,
+    offset: PositiveFinite,
     sensors: &[Sensor],
     weights: impl IntoIterator<Item = Result<(UnitVector3<f64>, f64), SolarError>>,
     response: impl Fn(f64) -> f64,
@@ -116,7 +125,7 @@ where
 fn exposed<S>(
     assembly: &Assembly,
     translucent: &HashMap<usize, Transmittance, S>,
-    offset: Distance,
+    offset: PositiveFinite,
     sensors: &[Sensor],
     direction: UnitVector3<f64>,
 ) -> Result<impl Iterator<Item = (f64, f64)>, ProximityError>
@@ -125,7 +134,7 @@ where
 {
     let rays = sensors.par_iter().map(|&Sensor { point, normal }| {
         let reach = if normal.dot(&direction) > 0.0 { (Bound::Unbounded, Bound::Unbounded) } else { (Bound::Included(offset), Bound::Excluded(offset)) };
-        (point + normal.into_inner() * offset.into_inner(), direction, reach)
+        (point + normal.into_inner() * offset.get(), direction, reach)
     });
     let shares = if translucent.is_empty() {
         Either::Left(occluded(assembly, rays)?.into_iter().map(|shaded| f64::from(!shaded)))

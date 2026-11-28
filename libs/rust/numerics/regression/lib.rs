@@ -18,11 +18,12 @@ use nonempty_collections::NEVec;
 use num_dual::{Dual2DVec64, DualDVec64, DualNum, gradient, hessian, jacobian};
 use rasm_numerical_analysis::roots::minimum;
 use rasm_numerical_analysis::{AnalysisError, Input, Observations, Placement, Polynomial, Prediction, RootSource, SearchHooks, design};
-use rasm_stats::{Bounds, Confidence, Space, Tolerance};
+use rasm_stats::{Bounds, Confidence, Space};
 use rayon::iter::{Either, IndexedParallelIterator as _, ParallelIterator as _};
 use serde::{Deserialize, Serialize};
 use statrs::distribution::{ContinuousCDF as _, Normal, StudentsT, StudentsTError};
 use statrs::function::factorial::binomial;
+use typed_floats::tf64::StrictlyPositiveFinite;
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -39,28 +40,28 @@ pub trait Separable: Sync {
     where D: DualNum<Primitive = f64>;
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Regularization {
     Truncated,
-    Tikhonov(Tolerance),
+    Tikhonov(StrictlyPositiveFinite),
     Gcv,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Estimator {
     ReducedChiSquare,
-    Known(Tolerance),
+    Known(StrictlyPositiveFinite),
     Hc3,
     NeweyWest { lags: NonZero<usize> },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Loss {
     Squared,
-    Huber(Tolerance),
-    SoftL1(Tolerance),
-    Cauchy(Tolerance),
-    Arctan(Tolerance),
+    Huber(StrictlyPositiveFinite),
+    SoftL1(StrictlyPositiveFinite),
+    Cauchy(StrictlyPositiveFinite),
+    Arctan(StrictlyPositiveFinite),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -71,13 +72,13 @@ pub enum Band {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Options {
     pub regularization: Regularization = Regularization::Truncated,
     pub loss: Loss = Loss::Squared,
     pub iterations: NonZero<usize> = NonZero::new(25).unwrap(),
     pub steps: NonZero<u64> = NonZero::new(100).unwrap(),
-    pub tolerance: Tolerance = Tolerance::try_new(almost::F64_TOLERANCE).ok().unwrap(),
+    pub tolerance: StrictlyPositiveFinite = StrictlyPositiveFinite::new(almost::F64_TOLERANCE).ok().unwrap(),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -292,7 +293,7 @@ fn estimate(design: &DMatrix<f64>, target: &DMatrix<f64>, regularization: Regula
     let remainder = (target.norm_squared() - projected.norm_squared()).max(0.0);
     let lambda = match (regularization, spectrum.rank.checked_sub(1).and_then(|last| spectrum.singular.get(last).copied())) {
         (Regularization::Truncated, _) | (Regularization::Gcv, None) => Ok(0.0),
-        (Regularization::Tikhonov(lambda), _) => Ok(lambda.into_inner()),
+        (Regularization::Tikhonov(lambda), _) => Ok(lambda.get()),
         (Regularization::Gcv, Some(lowest)) => {
             let points = convert::<usize, f64>(spectrum.left.nrows());
             let energies = projected.row_iter().map(|row| row.norm_squared()).collect::<Vec<_>>();
@@ -302,7 +303,7 @@ fn estimate(design: &DMatrix<f64>, target: &DMatrix<f64>, regularization: Regula
                 Ok(points * (lack + remainder) / (points - trace).max(f64::EPSILON * points).powi(2))
             };
             let bracket = RangeInclusive { start: 2.0_f64.mul_add(lowest.ln(), f64::EPSILON.ln()), last: 2.0 * spectrum.singular.amax().ln() };
-            let tolerance = const { Tolerance::try_new(f64::from(almost::F32_TOLERANCE)).ok().unwrap() };
+            let tolerance = const { StrictlyPositiveFinite::new(f64::from(almost::F32_TOLERANCE)).ok().unwrap() };
             Bounds::try_new(bracket)
                 .map_err(|source| AnalysisError::Root { bracket, source: RootSource::Bounds(source) })
                 .and_then(|interval| minimum(gcv, interval, tolerance, hooks))
@@ -337,10 +338,10 @@ fn estimate(design: &DMatrix<f64>, target: &DMatrix<f64>, regularization: Regula
 fn rho(loss: Loss) -> (&'static (dyn LossFunction<f64> + Sync), f64) {
     match loss {
         Loss::Squared => (&SquaredLoss, 1.0),
-        Loss::Huber(scale) => (&HuberLoss, scale.into_inner()),
-        Loss::SoftL1(scale) => (&SoftL1Loss, scale.into_inner()),
-        Loss::Cauchy(scale) => (&CauchyLoss, scale.into_inner()),
-        Loss::Arctan(scale) => (&ArctanLoss, scale.into_inner()),
+        Loss::Huber(scale) => (&HuberLoss, scale.get()),
+        Loss::SoftL1(scale) => (&SoftL1Loss, scale.get()),
+        Loss::Cauchy(scale) => (&CauchyLoss, scale.get()),
+        Loss::Arctan(scale) => (&ArctanLoss, scale.get()),
     }
 }
 
@@ -359,7 +360,7 @@ fn robust(design: &DMatrix<f64>, target: &DMatrix<f64>, options: Options, hooks:
                 let reweights = DVector::from_iterator(lack.nrows(), lack.row_iter().map(|row| reweight(options.loss, row.norm())));
                 match estimate(&scaled(design, &reweights), &scaled(target, &reweights), options.regularization, None, hooks) {
                     Err(error) => ControlFlow::Break(Err(error)),
-                    Ok(next) if (&next.parameters - &current.parameters).norm() <= options.tolerance.into_inner() * next.parameters.norm() => ControlFlow::Break(Ok(next)),
+                    Ok(next) if (&next.parameters - &current.parameters).norm() <= options.tolerance.get() * next.parameters.norm() => ControlFlow::Break(Ok(next)),
                     Ok(next) => ControlFlow::Continue(next),
                 }
             })
@@ -441,7 +442,7 @@ where T: DualNum<Primitive = f64> {
     terms(exponents, sites, refusals).map(|terms| (&terms * coefficients.map(T::from)).transpose())
 }
 
-fn refused_reading(uncertainty: &Uncertainty, points: usize, weights: Option<&[Tolerance]>) -> [Result<(), RegressionError>; 2] {
+fn refused_reading(uncertainty: &Uncertainty, points: usize, weights: Option<&[StrictlyPositiveFinite]>) -> [Result<(), RegressionError>; 2] {
     let parameters = uncertainty.parameters.len();
     [
         (uncertainty.covariance.shape() == (parameters, parameters)).ok_or(AnalysisError::Shape { input: Input::Covariance, expected: parameters, found: uncertainty.covariance.nrows() }.into()),
@@ -449,9 +450,9 @@ fn refused_reading(uncertainty: &Uncertainty, points: usize, weights: Option<&[T
     ]
 }
 
-fn noises(noise: f64, weights: Option<&[Tolerance]>, points: usize) -> DVector<f64> { DVector::from_fn(points, |point, _| weights.map_or(noise, |weights| noise / weights[point].into_inner())) }
+fn noises(noise: f64, weights: Option<&[StrictlyPositiveFinite]>, points: usize) -> DVector<f64> { DVector::from_fn(points, |point, _| weights.map_or(noise, |weights| noise / weights[point].get())) }
 
-pub fn predict<T>(polynomial: &Polynomial, uncertainty: &Uncertainty, sites: &DMatrix<T>, weights: Option<&[Tolerance]>) -> Result<Prediction<T>, NEVec<RegressionError>>
+pub fn predict<T>(polynomial: &Polynomial, uncertainty: &Uncertainty, sites: &DMatrix<T>, weights: Option<&[StrictlyPositiveFinite]>) -> Result<Prediction<T>, NEVec<RegressionError>>
 where T: DualNum<Primitive = f64> {
     let parameters = polynomial.exponents.ncols();
     let refusals =
@@ -500,7 +501,7 @@ where
     iter::once((starts.nrows() == dimensions).ok_or(AnalysisError::Shape { input: Input::Starts, expected: dimensions, found: starts.nrows() }))
         .chain(
             starts.column_iter().flat_map(|start| {
-                iter::zip(start, space.values()).enumerate().filter(|(_, (at, bounds))| !bounds.contains(at)).map(|(dimension, (&at, _))| Err(AnalysisError::Outside { dimension, at }))
+                iter::zip(start, space.values()).enumerate().filter(|(_, (at, bounds))| !bounds.contains(*at)).map(|(dimension, (&at, _))| Err(AnalysisError::Outside { dimension, at }))
             }),
         )
         .map(|check| check.map_err(RegressionError::from))
@@ -515,7 +516,7 @@ where
             let search = Search { residual, jacobian, lower: lower.clone(), upper: upper.clone() };
             Executor::from_start(
                 RobustLeastSquares::new(search, function).with_scale(scale),
-                TrustRegionReflective::new().with_relative_cost_change_tolerance(options.tolerance.into_inner()),
+                TrustRegionReflective::new().with_relative_cost_change_tolerance(options.tolerance.get()),
                 start.into_owned(),
             )
             .max_iter(options.steps.get())
@@ -530,7 +531,7 @@ where
             })
         })
         .partition_map(Either::from);
-    let resolution = options.tolerance.into_inner();
+    let resolution = options.tolerance.get();
     let near = |left: &Minimum, right: &Minimum| {
         izip!(left.point.iter(), right.point.iter(), space.values()).all(|(first, second, bounds)| (first - second).abs() <= resolution * (bounds.last - bounds.start))
     };
@@ -618,7 +619,7 @@ pub fn propagate<M>(
     uncertainty: &Uncertainty,
     sites: DMatrixView<'_, f64>,
     site_covariance: Option<&DMatrix<f64>>,
-    weights: Option<&[Tolerance]>,
+    weights: Option<&[StrictlyPositiveFinite]>,
 ) -> Result<Prediction<f64>, NEVec<RegressionError>>
 where
     M: Model,
@@ -656,10 +657,10 @@ where
     Ok(Prediction { mean: DVector::from_vec(mean), variance: DVector::from_vec(variance), noise: noises(uncertainty.noise, weights, sites.ncols()), freedom: uncertainty.freedom })
 }
 
-pub fn log_density<'call, M>(model: &'call M, observations: &'call Observations, sigma: Tolerance) -> Result<impl Fn(&[f64], &mut [f64]) -> f64 + Sync + 'call, RegressionError>
+pub fn log_density<'call, M>(model: &'call M, observations: &'call Observations, sigma: StrictlyPositiveFinite) -> Result<impl Fn(&[f64], &mut [f64]) -> f64 + Sync + 'call, RegressionError>
 where M: Model {
     single_response(observations)?;
-    let (scales, precision) = (scales(observations), sigma.into_inner().powi(-2));
+    let (scales, precision) = (scales(observations), sigma.get().powi(-2));
     Ok(move |point: &[f64], slot: &mut [f64]| {
         let (value, slope) = gradient(
             |parameters: DVector<DualDVec64>| residuals(model, observations, &scales, parameters.as_view()).map(|residual| residual.powi(2)).sum::<DualDVec64>(),
@@ -684,7 +685,7 @@ pub fn uncertainty(estimate: &Estimate, estimator: Estimator) -> Result<Vec<Unce
         let reduced = lack.norm_squared() / freedom;
         match estimator {
             Estimator::ReducedChiSquare => Validated::Good((&*gram * reduced, reduced, freedom)),
-            Estimator::Known(sigma) => Validated::Good((&*gram * sigma.into_inner().powi(2), sigma.into_inner().powi(2), f64::INFINITY)),
+            Estimator::Known(sigma) => Validated::Good((&*gram * sigma.get().powi(2), sigma.get().powi(2), f64::INFINITY)),
             Estimator::Hc3 => {
                 let factors = lack.transpose().zip_map(&estimate.leverage, |entry, leverage| entry / (1.0 - leverage));
                 let influence = scored(&factors);

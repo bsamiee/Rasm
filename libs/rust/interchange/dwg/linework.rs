@@ -21,9 +21,11 @@ use linesweeper::FillRule;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use parlance::{FontFamily, FontFamilyName, GenericFamily};
 use rasm_drawing::{
-    Alignment, Dash, DashOffset, DashOffsetError, Dashes, DashesError, Descriptor, Element, Family, FamilyError, Linetype, LineworkError, Opacity, OpacityError, Path, Pattern, Pen, Placement, Region,
-    Side, Target, Tolerance, Visibility, Width, WidthError, cleanup, pages,
+    Alignment, Dash, Dashes, DashesError, Descriptor, Element, Family, FamilyError, Linetype, LineworkError, Opacity, OpacityError, Path, Pattern, Pen, Placement, Region, Side, Target, Visibility,
+    Width, WidthError, cleanup, pages,
 };
+use typed_floats::InvalidNumber;
+use typed_floats::tf64::{NonNaNFinite, StrictlyPositiveFinite};
 use uom::si::f64::{Length, Ratio};
 use uom::si::length::millimeter;
 use uom::si::ratio::{percent, ratio};
@@ -35,7 +37,7 @@ use crate::{CadError, Operation, Refusal, Subject, Unit};
 
 #[derive(Debug, Clone)]
 pub struct Projection {
-    pub tolerance: Tolerance,
+    pub tolerance: StrictlyPositiveFinite,
     pub unit: Option<Unit> = None,
     pub plot_styles: Vec<PlotStyleTable> = Vec::new(),
     pub lineweight: Option<Length> = None,
@@ -44,7 +46,7 @@ pub struct Projection {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Authoring {
-    pub tolerance: Tolerance,
+    pub tolerance: StrictlyPositiveFinite,
     pub unit: Unit = Unit::Millimeters,
     pub version: DxfVersion = DxfVersion::AC1032,
 }
@@ -291,9 +293,9 @@ pub(crate) fn projected(drawing: &mut CadDocument, space: &str, context: &Contex
                 Some(entry) => dashes(entry.elements.iter().map(|element| element.length), document.header.linetype_scale * common.linetype_scale * factor)
                     .map_err(|DashesError::PredicateViolated| Refusal::Linetype)?
                     .map(|(dashes, offset)| {
-                        DashOffset::try_new(offset)
+                        NonNaNFinite::new(offset)
                             .map(|dash_offset| Linetype { dashes, alignment: Alignment::Start { dash_offset }, target })
-                            .map_err(|DashOffsetError::FiniteViolated| Refusal::Linetype)
+                            .map_err(|(InvalidNumber::NaN | InvalidNumber::Zero | InvalidNumber::Negative | InvalidNumber::Positive | InvalidNumber::Infinite)| Refusal::Linetype)
                     })
                     .transpose(),
                 None => Ok(None),
@@ -424,7 +426,7 @@ pub(crate) fn projected(drawing: &mut CadDocument, space: &str, context: &Contex
                     stated if stated < 0.0 => viewed(-stated),
                     _ => viewed(5.0),
                 };
-                let (center, half, mode, local) = (Point::new(marker.location.x, marker.location.y), size / 2.0, header.point_display_mode, tolerance.into_inner() / frame.spectral_norm());
+                let (center, half, mode, local) = (Point::new(marker.location.x, marker.location.y), size / 2.0, header.point_display_mode, tolerance.get() / frame.spectral_norm());
                 let line = |from: Vec2, to: Vec2| [PathEl::MoveTo(center + from), PathEl::LineTo(center + to)];
                 let figure = match mode.rem_euclid(32) {
                     0 => line(Vec2::ZERO, Vec2::ZERO).to_vec(),
@@ -580,7 +582,7 @@ fn entities(
     element: Element,
     layer: &str,
     (frame, unit): (Affine, rasm_drawing::Unit),
-    tolerance: Tolerance,
+    tolerance: StrictlyPositiveFinite,
     subject: &Subject,
 ) -> Result<Vec<EntityType>, NEVec<CadError>> {
     #[stacksafe::stacksafe]
@@ -635,7 +637,7 @@ fn entities(
             let named = linetype
                 .map(|linetype| -> Result<String, NEVec<CadError>> {
                     let offset = match linetype.alignment {
-                        Alignment::Start { dash_offset } => dash_offset.into_inner(),
+                        Alignment::Start { dash_offset } => dash_offset.get(),
                         Alignment::Center | Alignment::Corners { angle: _ } => 0.0,
                     };
                     let scale = frame.determinant().abs().sqrt();

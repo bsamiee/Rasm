@@ -9,9 +9,10 @@ use petgraph::graph::Graph;
 use petgraph::visit::{EdgeRef as _, IntoEdgesDirected};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use rustworkx_core::centrality::{eigenvector_centrality, katz_centrality};
+use typed_floats::tf64::{PositiveFinite, StrictlyPositiveFinite};
 
 use crate::paths::{Catchment, search};
-use crate::{Failure, Network, NetworkError, Tolerance, Weight, compact, present};
+use crate::{Failure, Network, NetworkError, compact, present};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -26,7 +27,7 @@ pub struct Centrality {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Convergence {
     pub max_iter: Option<NonZero<usize>> = None,
-    pub tol: Option<Tolerance> = None,
+    pub tol: Option<StrictlyPositiveFinite> = None,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -34,9 +35,9 @@ pub struct Convergence {
 pub fn geodesic<G>(
     graph: G,
     origins: impl IntoIterator<Item: Borrow<G::NodeId>>,
-    cost: impl Fn(G::EdgeRef) -> Weight + Sync,
-    extent: impl Fn(G::EdgeRef, Weight) -> Weight + Sync,
-    mass: impl Fn(G::NodeId) -> Weight + Sync,
+    cost: impl Fn(G::EdgeRef) -> PositiveFinite + Sync,
+    extent: impl Fn(G::EdgeRef, PositiveFinite) -> PositiveFinite + Sync,
+    mass: impl Fn(G::NodeId) -> PositiveFinite + Sync,
     decay: impl Fn(f64) -> f64 + Sync,
     catchment: Catchment,
 ) -> Result<BTreeMap<G::NodeId, Centrality>, Failure<G>>
@@ -45,7 +46,7 @@ where
     G::NodeId: Send + Sync,
 {
     let origins = present(graph, origins.into_iter().map(|node| *node.borrow())).ok().map_err(NetworkError::Refused)?.into_iter().collect::<BTreeSet<_>>();
-    let held = |node: G::NodeId| mass(node).into_inner();
+    let held = |node: G::NodeId| mass(node).get();
     let counted = |node: G::NodeId| match (graph.is_directed(), origins.contains(&node)) {
         (false, true) => 0.5,
         (true, _) | (false, false) => 1.0,
@@ -79,43 +80,43 @@ where
     Ok(graph.node_identifiers().map(|node| (node, total[graph.to_index(node)])).collect())
 }
 
-pub fn eigenvector<G>(graph: G, weight: impl Fn(G::EdgeRef) -> Weight, direction: Direction, convergence: Convergence) -> Result<BTreeMap<G::NodeId, f64>, Failure<G>>
+pub fn eigenvector<G>(graph: G, weight: impl Fn(G::EdgeRef) -> PositiveFinite, direction: Direction, convergence: Convergence) -> Result<BTreeMap<G::NodeId, f64>, Failure<G>>
 where G: Network {
-    let mut network = compact(graph, |edge| weight(edge).into_inner());
+    let mut network = compact(graph, |edge| weight(edge).get());
     if direction == Outgoing {
         network.reverse();
     }
-    let scores = eigenvector_centrality(&network, |edge| Ok::<f64, !>(*edge.weight()), convergence.max_iter.map(NonZero::get), convergence.tol.map(Tolerance::into_inner)).into_ok();
+    let scores = eigenvector_centrality(&network, |edge| Ok::<f64, !>(*edge.weight()), convergence.max_iter.map(NonZero::get), convergence.tol.map(f64::from)).into_ok();
     scored(&network, scores, convergence)
 }
 
 pub fn katz<G>(
     graph: G,
-    weight: impl Fn(G::EdgeRef) -> Weight,
-    mass: impl Fn(G::NodeId) -> Weight,
-    alpha: Weight,
+    weight: impl Fn(G::EdgeRef) -> PositiveFinite,
+    mass: impl Fn(G::NodeId) -> PositiveFinite,
+    alpha: PositiveFinite,
     direction: Direction,
     convergence: Convergence,
 ) -> Result<BTreeMap<G::NodeId, f64>, Failure<G>>
 where
     G: Network,
 {
-    let mut network = compact(graph, |edge| weight(edge).into_inner());
+    let mut network = compact(graph, |edge| weight(edge).get());
     if direction == Outgoing {
         network.reverse();
     }
-    let masses = network.node_weights().map(|&node| mass(node).into_inner()).collect::<Vec<_>>();
+    let masses = network.node_weights().map(|&node| mass(node).get()).collect::<Vec<_>>();
     let scores = if masses.iter().all(|&held| held == 0.0) {
         Some(vec![0.0; network.node_count()])
     } else {
         katz_centrality(
             &network,
             |edge| Ok::<f64, !>(*edge.weight()),
-            Some(alpha.into_inner()),
+            Some(alpha.get()),
             Some(masses.into_iter().enumerate().collect()),
             None,
             convergence.max_iter.map(NonZero::get),
-            convergence.tol.map(Tolerance::into_inner),
+            convergence.tol.map(f64::from),
         )
         .into_ok()
     };

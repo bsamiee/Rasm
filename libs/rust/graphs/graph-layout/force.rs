@@ -13,20 +13,15 @@ use manatee::{Anchor, BoundsExtras, FcoseRandomPolicy, FcoseRandomSource, Layout
 use nonempty_collections::{NEBTreeMap, NonEmptyIterator as _};
 use petgraph::EdgeType;
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
+use typed_floats::tf64::{PositiveFinite, StrictlyPositiveFinite};
 
-use crate::{CurveStyle, Distance, Drawing, Extent, Hierarchy, Interpolation, LayoutError, Node, ancestors, drawn, hierarchy, is_cluster, linked, nesting, non_cluster, offsets, route, titled};
+use crate::{CurveStyle, Drawing, Extent, Hierarchy, Interpolation, LayoutError, Node, ancestors, drawn, hierarchy, is_cluster, linked, nesting, non_cluster, offsets, route, titled};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[nutype::nutype(validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd, Into))]
-pub struct Length(f64);
-
-#[nutype::nutype(validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd, Into))]
-pub struct Elasticity(f64);
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Start {
-    Spectral { node_separation: Option<Distance> },
+    Spectral { node_separation: Option<PositiveFinite> },
     Centers(NEBTreeMap<NodeIndex, Point>),
 }
 
@@ -36,12 +31,12 @@ pub struct Alignment {
     pub members: Vec<NodeIndex>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Placement {
     pub axis: Axis,
     pub first: NodeIndex,
     pub second: NodeIndex,
-    pub gap: Distance,
+    pub gap: PositiveFinite,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -49,23 +44,23 @@ pub struct Options {
     pub random_policy: FcoseRandomPolicy = FcoseRandomPolicy::seeded(FcoseRandomSource::XorShift64Star, 0),
     pub start: Start = Start::Spectral { node_separation: None },
     pub num_iter: Option<NonZero<usize>> = None,
-    pub default_edge_length: Option<Length> = None,
-    pub compound_padding: Option<Distance> = None,
-    pub control_point_step_size: Distance = Self::STEP_SIZE,
+    pub default_edge_length: Option<StrictlyPositiveFinite> = None,
+    pub compound_padding: Option<PositiveFinite> = None,
+    pub control_point_step_size: PositiveFinite = Self::STEP_SIZE,
     pub relocate_center: Option<Point> = None,
     pub alignment_constraint: Vec<Alignment> = Vec::new(),
     pub relative_placement_constraint: Vec<Placement> = Vec::new(),
 }
 
 impl Options {
-    const STEP_SIZE: Distance = Distance::try_new(40.0).ok().unwrap();
+    const STEP_SIZE: PositiveFinite = PositiveFinite::new(40.0).ok().unwrap();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Edge {
     pub label: Option<Extent> = None,
-    pub ideal_length: Option<Length> = None,
-    pub elasticity: Option<Elasticity> = None,
+    pub ideal_length: Option<StrictlyPositiveFinite> = None,
+    pub elasticity: Option<StrictlyPositiveFinite> = None,
     pub source_anchor: Option<Anchor> = None,
     pub target_anchor: Option<Anchor> = None,
     pub curve_style: CurveStyle = CurveStyle::Straight,
@@ -148,8 +143,8 @@ where
                     source_anchor,
                     target_anchor,
                     curve_style_segments: curve_style.is_segments(),
-                    ideal_length: ideal_length.or(options.default_edge_length).map_or_default(Length::into_inner),
-                    elasticity: elasticity.map_or_default(Elasticity::into_inner),
+                    ideal_length: ideal_length.or(options.default_edge_length).map_or_default(f64::from),
+                    elasticity: elasticity.map_or_default(f64::from),
                 })
             })
             .collect(),
@@ -171,7 +166,7 @@ where
                 Axis::Horizontal => ((Some(preceding), Some(following)), (None, None)),
                 Axis::Vertical => ((None, None), (Some(preceding), Some(following))),
             };
-            Some(IndexedRelativePlacementConstraint { left, right, top, bottom, gap: gap.into_inner() })
+            Some(IndexedRelativePlacementConstraint { left, right, top, bottom, gap: gap.get() })
         })
         .chain(titled(&nodes, &parents, &titles).filter_map(|((cluster, title), (member, extent))| {
             Some(IndexedRelativePlacementConstraint {
@@ -186,14 +181,14 @@ where
     let indexed_opts = IndexedFcoseOptions {
         randomize: matches!(options.start, Start::Spectral { node_separation: _ }),
         node_separation: match &options.start {
-            Start::Spectral { node_separation } => node_separation.map(Distance::into_inner),
+            Start::Spectral { node_separation } => node_separation.map(f64::from),
             Start::Centers(_) => None,
         },
         num_iter: options.num_iter.map(NonZero::get),
-        default_edge_length: options.default_edge_length.map(Length::into_inner),
+        default_edge_length: options.default_edge_length.map(f64::from),
         alignment_constraint: Some(IndexedAlignmentConstraint { horizontal, vertical }),
         relative_placement_constraint,
-        compound_padding: options.compound_padding.map(Distance::into_inner),
+        compound_padding: options.compound_padding.map(f64::from),
         relocate_center: options.relocate_center.map(Into::into),
         ..IndexedFcoseOptions::default()
     };
@@ -208,7 +203,7 @@ where
             .map(|(&(index, _), LayoutRect { left, top, width, height })| (index, (Rect::from_origin_size((left, top), (width, height)), title_frames.get(&index).copied()))),
     )
     .collect::<HashMap<_, _>>();
-    let spread = offsets(options.control_point_step_size.into_inner(), &edges);
+    let spread = offsets(options.control_point_step_size.get(), &edges);
     let end = |member: NodeIndex, anchor: Option<Anchor>| frames.get(&member).zip(nodes.get(&member)).map(|(&(frame, _), &Node { extent: _, parent: _, shape })| (frame, shape, anchor));
     let routes = edges
         .iter()

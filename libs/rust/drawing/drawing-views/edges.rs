@@ -8,8 +8,9 @@ use nalgebra::{Point3, Vector3, Vector4, distance_squared};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use parry3d_f64::math::Vector;
 use parry3d_f64::shape::TopoHalfEdge;
-use rasm_drawing::{Class, Deflection, Edge, EdgeKind, Element, Linetype, Path, Pen, Tolerance, cleanup};
+use rasm_drawing::{Class, Deflection, Edge, EdgeKind, Element, Linetype, Path, Pen, cleanup};
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
+use typed_floats::tf64::StrictlyPositiveFinite;
 use validated::Validated;
 
 use crate::visibility::{Lines, Piece};
@@ -47,7 +48,7 @@ pub fn edges(view: &View) -> Result<Vec<Edge>, NEVec<ViewsError>> {
         .ok()
 }
 
-pub fn strokes(edges: impl IntoIterator<Item = Edge>, styles: &EnumMap<Class, (Pen, Option<Linetype>)>, tolerance: Tolerance) -> Result<Vec<Element>, NEVec<ViewsError>> {
+pub fn strokes(edges: impl IntoIterator<Item = Edge>, styles: &EnumMap<Class, (Pen, Option<Linetype>)>, tolerance: StrictlyPositiveFinite) -> Result<Vec<Element>, NEVec<ViewsError>> {
     let ranked = edges
         .into_iter()
         .sorted_by_key(|edge| (edge.class.visibility, Reverse(edge.class.kind)))

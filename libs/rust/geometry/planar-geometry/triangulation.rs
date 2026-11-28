@@ -7,9 +7,10 @@ use nalgebra::Point2;
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use spade::handles::FixedVertexHandle;
 use spade::{ConstrainedDelaunayTriangulation, RefinementParameters, RefinementResult, Triangulation as _};
+use typed_floats::tf64::StrictlyPositiveFinite;
 use validated::Validated;
 
-use crate::{PlanarError, Region, Tolerance, flattened, position};
+use crate::{PlanarError, Region, flattened, position};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -26,7 +27,7 @@ pub struct Triangulation {
 }
 
 impl Triangulation {
-    pub fn new<I>(region: &Region, sites: I, tolerance: Tolerance, refinement: Option<RefinementParameters<f64>>) -> Result<Self, PlanarError>
+    pub fn new<I>(region: &Region, sites: I, tolerance: StrictlyPositiveFinite, refinement: Option<RefinementParameters<f64>>) -> Result<Self, PlanarError>
     where I: IntoIterator<Item: Borrow<Point2<f64>>> {
         let Shape { ccw_plines: bodies, cw_plines: holes, plines_index: _ } = region.as_ref();
         let loops = iter::chain(bodies, holes).map(|outline| flattened(&outline.polyline, tolerance)).collect::<Result<Vec<_>, _>>()?;

@@ -14,9 +14,10 @@ use nonempty_collections::iter::once;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _, nev};
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _, walk_tree_prefix};
 use stacksafe::StackSafe;
+use typed_floats::tf64::StrictlyPositiveFinite;
 use validated::Validated;
 
-use crate::{Element, Linetype, LineworkError, Path, Pen, Region, Side, Tolerance, regions};
+use crate::{Element, Linetype, LineworkError, Path, Pen, Region, Side, regions};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -42,7 +43,7 @@ enum Event {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 #[stacksafe::stacksafe]
-pub fn clip(elements: impl Into<StackSafe<Vec<Element>>>, region: &Region, keep: Side, tolerance: Tolerance) -> Result<Vec<Element>, NEVec<LineworkError>> {
+pub fn clip(elements: impl Into<StackSafe<Vec<Element>>>, region: &Region, keep: Side, tolerance: StrictlyPositiveFinite) -> Result<Vec<Element>, NEVec<LineworkError>> {
     let elements = elements.into().into_inner();
     let (op, invert) = match keep {
         Side::Inside => (BinaryOp::Intersection, false),
@@ -53,7 +54,7 @@ pub fn clip(elements: impl Into<StackSafe<Vec<Element>>>, region: &Region, keep:
     let clipped = |subpath: &[PathEl]| -> Option<Vec<PathEl>> {
         let lines = MultiLineString::new(crate::flattened(subpath.iter().copied(), tolerance));
         let remaining = polygons.clip(&lines, invert);
-        match (remaining.0.is_empty(), Euclidean.length(&lines) - Euclidean.length(&remaining) <= tolerance.into_inner()) {
+        match (remaining.0.is_empty(), Euclidean.length(&lines) - Euclidean.length(&remaining) <= tolerance.get()) {
             (true, _) => Some(Vec::new()),
             (false, true) => None,
             (false, false) => Some(rebuilt(remaining.iter().flat_map(LineString::lines), tolerance).into_elements()),
@@ -120,7 +121,7 @@ pub fn clip(elements: impl Into<StackSafe<Vec<Element>>>, region: &Region, keep:
 }
 
 #[stacksafe::stacksafe]
-pub fn coincident<K>(elements: Vec<Element>, priority: impl Fn(&Element) -> K + Sync, tolerance: Tolerance) -> Result<Vec<Element>, NEVec<LineworkError>>
+pub fn coincident<K>(elements: Vec<Element>, priority: impl Fn(&Element) -> K + Sync, tolerance: StrictlyPositiveFinite) -> Result<Vec<Element>, NEVec<LineworkError>>
 where K: Ord + Send {
     #[stacksafe::stacksafe]
     fn children<'elements>(roots: &'elements [Element], element: Option<&'elements Element>) -> &'elements [Element] {
@@ -137,7 +138,7 @@ where K: Ord + Send {
             ) => &[],
         }
     }
-    let grid = tolerance.into_inner();
+    let grid = tolerance.get();
     let (lines, ranks): (Vec<_>, Vec<_>) = walk_tree_prefix(None::<&Element>, |element| children(&elements, *element).iter().map(Some))
         .filter_map(|element| match element? {
             element @ Element::Stroke { path, pen: _, linetype: _ } => Some((element, path)),
@@ -244,9 +245,9 @@ where K: Ord + Send {
 }
 
 #[must_use]
-pub fn chain(segments: impl IntoIterator<Item = PathSeg>, tolerance: Tolerance) -> Vec<BezPath> {
+pub fn chain(segments: impl IntoIterator<Item = PathSeg>, tolerance: StrictlyPositiveFinite) -> Vec<BezPath> {
     let segments = segments.into_iter().filter_map(|segment| crate::tangents(&segment).map(|(start, end)| (segment, ((start, end), (-end, -start))))).collect::<Vec<_>>();
-    let radius = tolerance.into_inner();
+    let radius = tolerance.get();
     let vertex = |point: kurbo::Point| Point::from(crate::coord(point));
     let tree = BallTree::new(segments.iter().enumerate().flat_map(|(index, &(segment, (forward, backward)))| {
         [(segment, forward), (segment.reverse(), backward)].map(|(oriented, tangents)| PointWithData::new(vertex(oriented.start()), (index, oriented, tangents)))
@@ -305,10 +306,10 @@ fn flattened(elements: Vec<Element>) -> impl Iterator<Item = Event> {
     }
 }
 
-fn rebuilt(lines: impl IntoIterator<Item = Line<f64>>, tolerance: Tolerance) -> BezPath {
+fn rebuilt(lines: impl IntoIterator<Item = Line<f64>>, tolerance: StrictlyPositiveFinite) -> BezPath {
     chain(lines.into_iter().map(|Line { start, end }| PathSeg::Line(kurbo::Line::new(start.x_y(), end.x_y()))), tolerance)
         .into_iter()
-        .filter(|path| path.perimeter(tolerance.into_inner()) > tolerance.into_inner())
+        .filter(|path| path.perimeter(tolerance.get()) > tolerance.get())
         .flatten()
         .collect()
 }

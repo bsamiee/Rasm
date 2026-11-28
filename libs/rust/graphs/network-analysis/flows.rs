@@ -8,10 +8,11 @@ use petgraph::graphmap::DiGraphMap;
 use petgraph::visit::{Bfs, EdgeCount, EdgeRef as _, GraphProp, IntoEdges, NodeCount, Walker as _};
 use petgraph::{Directed, Undirected};
 use rustworkx_core::max_weight_matching::max_weight_matching;
+use typed_floats::tf64::PositiveFinite;
 use validated::Validated;
 
 use crate::connectivity::Cut;
-use crate::{Failure, Network, NetworkError, Refusal, Weight, compact, locate};
+use crate::{Failure, Network, NetworkError, Refusal, compact, locate};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -35,12 +36,12 @@ pub fn maximum<G>(
     graph: G,
     sources: impl IntoIterator<Item: Borrow<G::NodeId>>,
     sinks: impl IntoIterator<Item: Borrow<G::NodeId>>,
-    capacity: impl Fn(G::EdgeRef) -> Weight,
+    capacity: impl Fn(G::EdgeRef) -> PositiveFinite,
 ) -> Result<Flow<G::NodeId, G::EdgeId>, Failure<G>>
 where
     G: Network,
 {
-    let compacted = compact(graph, |edge| capacity(edge).into_inner());
+    let compacted = compact(graph, |edge| capacity(edge).get());
     let supply = sources.into_iter().map(|node| *node.borrow()).collect::<BTreeSet<_>>();
     let demand = sinks.into_iter().map(|node| *node.borrow()).collect::<BTreeSet<_>>();
     let located = |nodes: &BTreeSet<G::NodeId>| nodes.iter().map(|&node| locate(&compacted, node)).collect::<Validated<Vec<_>, _>>();

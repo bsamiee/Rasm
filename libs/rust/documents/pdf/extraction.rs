@@ -11,7 +11,8 @@ use pdf_oxide::elements::{LineCap, LineJoin, PathContent, PathOperation};
 use pdf_oxide::ocr::{OcrEngine, OcrOutput, OcrSpan};
 use pdf_oxide::{PdfDocument, geometry, layout};
 use rasm_drawing::pages::Layer;
-use rasm_drawing::{Color, Element, LineworkError, MiterLimit, MiterLimitError, Path, Pen, Region, Tolerance, Visibility, Width};
+use rasm_drawing::{Color, Element, LineworkError, MiterLimit, MiterLimitError, Path, Pen, Region, Visibility, Width};
+use typed_floats::tf64::StrictlyPositiveFinite;
 use validated::Validated;
 
 use crate::layers::{self, Group};
@@ -43,7 +44,7 @@ where
         .map_err(PdfError::Refused)
 }
 
-pub fn paths<P>(document: &Document, pages: P, area: Option<Rect>, tolerance: Tolerance) -> Result<Vec<Paths>, PdfError>
+pub fn paths<P>(document: &Document, pages: P, area: Option<Rect>, tolerance: StrictlyPositiveFinite) -> Result<Vec<Paths>, PdfError>
 where P: IntoIterator<Item = usize> {
     let paint = |layout::Color { r, g, b }: layout::Color| Color::Srgb(OpaqueColor::new([r, g, b]));
     let painted = |path: &PathContent, frame: Affine, scale: f64| {

@@ -17,6 +17,7 @@ use itertools::{Either, Itertools as _};
 use nalgebra::{Point2, Reflection2, Similarity2};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use spade::InsertionError;
+use typed_floats::tf64::StrictlyPositiveFinite;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -28,12 +29,6 @@ pub enum Closure {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[nutype::nutype(validate(finite, greater = 0.0), derive(Debug, Display, Clone, Copy, PartialEq, PartialOrd))]
-pub struct Tolerance(f64);
-
-#[nutype::nutype(validate(finite), derive(Debug, Display, Clone, Copy, PartialEq, PartialOrd))]
-pub struct Distance(f64);
-
 #[derive(Debug, Clone, derive_more::AsRef)]
 pub struct Polyline<const CLOSURE: Closure> {
     #[as_ref]
@@ -43,16 +38,16 @@ pub struct Polyline<const CLOSURE: Closure> {
 }
 
 impl<const CLOSURE: Closure> Polyline<CLOSURE> {
-    pub fn new<I>(vertices: I, tolerance: Tolerance) -> Result<Self, PlanarError>
+    pub fn new<I>(vertices: I, tolerance: StrictlyPositiveFinite) -> Result<Self, PlanarError>
     where I: IntoIterator<Item = (Point2<f64>, f64)> {
         indexed(vertices.into_iter().map(|(position, bulge)| PlineVertex::new(position.x, position.y, bulge)), tolerance)
     }
 
-    pub fn from_line_string(line: &LineString<f64>, tolerance: Tolerance) -> Result<Self, PlanarError> { indexed(straight(line), tolerance) }
+    pub fn from_line_string(line: &LineString<f64>, tolerance: StrictlyPositiveFinite) -> Result<Self, PlanarError> { indexed(straight(line), tolerance) }
 
-    pub fn points(&self, tolerance: Tolerance) -> Result<Vec<Point2<f64>>, PlanarError> { flattened(&self.outline.polyline, tolerance).map(|points| points.map(Point2::from).collect()) }
+    pub fn points(&self, tolerance: StrictlyPositiveFinite) -> Result<Vec<Point2<f64>>, PlanarError> { flattened(&self.outline.polyline, tolerance).map(|points| points.map(Point2::from).collect()) }
 
-    pub fn to_line_string(&self, tolerance: Tolerance) -> Result<LineString<f64>, PlanarError> {
+    pub fn to_line_string(&self, tolerance: StrictlyPositiveFinite) -> Result<LineString<f64>, PlanarError> {
         flattened(&self.outline.polyline, tolerance).map(|points| {
             let mut line = points.collect::<LineString<_>>();
             if CLOSURE == Closure::Closed {
@@ -62,7 +57,7 @@ impl<const CLOSURE: Closure> Polyline<CLOSURE> {
         })
     }
 
-    pub fn transformed(&self, placement: &Similarity2<f64>, mirror: Option<&Reflection2<f64>>, tolerance: Tolerance) -> Result<Self, PlanarError> {
+    pub fn transformed(&self, placement: &Similarity2<f64>, mirror: Option<&Reflection2<f64>>, tolerance: StrictlyPositiveFinite) -> Result<Self, PlanarError> {
         indexed(placed(&self.outline.polyline, placement, mirror), tolerance)
     }
 }
@@ -71,7 +66,7 @@ impl<const CLOSURE: Closure> Polyline<CLOSURE> {
 pub struct Region(#[as_ref] Shape<f64>);
 
 impl Region {
-    pub fn new<I, H>(polygons: I, tolerance: Tolerance) -> Result<Self, PlanarError>
+    pub fn new<I, H>(polygons: I, tolerance: StrictlyPositiveFinite) -> Result<Self, PlanarError>
     where
         I: IntoIterator<Item = (Polyline<{ Closure::Closed }>, H)>,
         H: IntoIterator<Item = Polyline<{ Closure::Closed }>>,
@@ -79,7 +74,7 @@ impl Region {
         nested(polygons.into_iter().map(|(exterior, holes)| iter::once(exterior).chain(holes).map(|ring| Ok(ring.outline))).enumerate(), tolerance)
     }
 
-    pub fn from_polygons<I>(polygons: I, tolerance: Tolerance) -> Result<Self, PlanarError>
+    pub fn from_polygons<I>(polygons: I, tolerance: StrictlyPositiveFinite) -> Result<Self, PlanarError>
     where I: IntoIterator<Item: Borrow<Polygon<f64>>> {
         nested(
             polygons.into_iter().enumerate().filter(|(_, polygon)| !(polygon.borrow().exterior().0.is_empty() && polygon.borrow().interiors().is_empty())).map(|(index, polygon)| {
@@ -95,7 +90,7 @@ impl Region {
         rings(&self.0).map(|(body, holes)| (measured(body.clone()), holes.into_iter().map(|hole| measured(hole.clone())).collect())).collect()
     }
 
-    pub fn to_multi_polygon(&self, tolerance: Tolerance) -> Result<MultiPolygon<f64>, PlanarError> {
+    pub fn to_multi_polygon(&self, tolerance: StrictlyPositiveFinite) -> Result<MultiPolygon<f64>, PlanarError> {
         let line = |outline: &IndexedPolyline<f64>| flattened(&outline.polyline, tolerance).map(Iterator::collect::<LineString<_>>);
         rings(&self.0)
             .map(|(body, holes)| line(body).and_then(|exterior| holes.into_iter().map(line).collect::<Result<Vec<_>, _>>().map(|interiors| Polygon::new(exterior, interiors))))
@@ -103,7 +98,7 @@ impl Region {
             .map(MultiPolygon::new)
     }
 
-    pub fn transformed(&self, placement: &Similarity2<f64>, mirror: Option<&Reflection2<f64>>, tolerance: Tolerance) -> Result<Self, PlanarError> {
+    pub fn transformed(&self, placement: &Similarity2<f64>, mirror: Option<&Reflection2<f64>>, tolerance: StrictlyPositiveFinite) -> Result<Self, PlanarError> {
         let Shape { ccw_plines: bodies, cw_plines: holes, plines_index: _ } = &self.0;
         resulting(bodies.iter().map(|body| placed(&body.polyline, placement, mirror)), holes.iter().map(|hole| placed(&hole.polyline, placement, mirror)), tolerance)
     }
@@ -138,7 +133,7 @@ pub enum PlanarError {
     #[error("{}", loops.iter().map(|(index, defect)| fmt::from_fn(move |formatter| write!(formatter, "output loop {index} is {defect}"))).format(", "))]
     Output { loops: NEVec<(usize, Defect)> },
     #[error("arcs cannot be flattened within {tolerance}")]
-    Flattening { tolerance: Tolerance },
+    Flattening { tolerance: StrictlyPositiveFinite },
     #[error("{} constraint segments cross another, first from {} to {}", .segments.len(), .segments.first()[0], .segments.first()[1])]
     Crossing { segments: NEVec<[Point2<f64>; 2]> },
     #[error("{}", sites.iter().map(|(site, source)| fmt::from_fn(move |formatter| write!(formatter, "site {site} is refused as {source}"))).format(", "))]
@@ -150,8 +145,8 @@ pub enum PlanarError {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 #[must_use]
-pub fn winding_number(region: &Region, point: Point2<f64>, tolerance: Tolerance) -> Option<i32> {
-    let (at, reach) = (Vector2::new(point.x, point.y), tolerance.into_inner());
+pub fn winding_number(region: &Region, point: Point2<f64>, tolerance: StrictlyPositiveFinite) -> Option<i32> {
+    let (at, reach) = (Vector2::new(point.x, point.y), tolerance.get());
     let [min_x, min_y, max_x, max_y] = [point.x - reach, point.y - reach, point.x + reach, point.y + reach];
     region
         .0
@@ -170,17 +165,17 @@ pub fn winding_number(region: &Region, point: Point2<f64>, tolerance: Tolerance)
         .sum()
 }
 
-pub fn boolean(left: &Polyline<{ Closure::Closed }>, right: &Polyline<{ Closure::Closed }>, operation: BooleanOp, tolerance: Tolerance) -> Result<Region, PlanarError> {
+pub fn boolean(left: &Polyline<{ Closure::Closed }>, right: &Polyline<{ Closure::Closed }>, operation: BooleanOp, tolerance: StrictlyPositiveFinite) -> Result<Region, PlanarError> {
     let IndexedPolyline { polyline: first, spatial_index } = &left.outline;
     let BooleanResult { pos_plines: bodies, neg_plines: holes, result_info: _ } =
-        first.boolean_opt(&right.outline.polyline, operation, &PlineBooleanOptions { pline1_aabb_index: Some(spatial_index), pos_equal_eps: tolerance.into_inner(), collapsed_area_eps: None });
+        first.boolean_opt(&right.outline.polyline, operation, &PlineBooleanOptions { pline1_aabb_index: Some(spatial_index), pos_equal_eps: tolerance.get(), collapsed_area_eps: None });
     resulting(bodies.iter().map(|body| body.pline.iter_vertexes()), holes.iter().map(|hole| hole.pline.iter_vertexes()), tolerance)
 }
 
-fn checked<const CLOSURE: Closure>(vertices: impl Iterator<Item = PlineVertex<f64>>, tolerance: Tolerance) -> Result<IndexedPolyline<f64>, Defect> {
+fn checked<const CLOSURE: Closure>(vertices: impl Iterator<Item = PlineVertex<f64>>, tolerance: StrictlyPositiveFinite) -> Result<IndexedPolyline<f64>, Defect> {
     let source = polyline::Polyline::from_iter(vertices, CLOSURE == Closure::Closed);
     source.iter_vertexes().position(|vertex| ![vertex.x, vertex.y, vertex.bulge].into_iter().all(f64::is_finite)).map_or(Ok(()), |vertex| Err(Defect::NonFinite { vertex }))?;
-    let distinct = source.remove_repeat_pos(tolerance.into_inner()).unwrap_or(source);
+    let distinct = source.remove_repeat_pos(tolerance.get()).unwrap_or(source);
     (distinct.vertex_count() > 1).ok_or(Defect::Collapsed)?;
     let outline = IndexedPolyline::new(distinct);
     let crossings = || {
@@ -193,7 +188,7 @@ fn checked<const CLOSURE: Closure>(vertices: impl Iterator<Item = PlineVertex<f6
                 }
                 Control::Continue
             },
-            &PlineSelfIntersectOptions { aabb_index: Some(&outline.spatial_index), pos_equal_eps: tolerance.into_inner(), include: SelfIntersectsInclude::All },
+            &PlineSelfIntersectOptions { aabb_index: Some(&outline.spatial_index), pos_equal_eps: tolerance.get(), include: SelfIntersectsInclude::All },
         );
         points.into_iter().map(|point| Point2::new(point.x, point.y)).try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>)
     };
@@ -219,11 +214,11 @@ fn measured<const CLOSURE: Closure>(outline: IndexedPolyline<f64>) -> Polyline<C
     Polyline { outline, lengths: NEVec::from((first, rest)) }
 }
 
-fn indexed<const CLOSURE: Closure>(vertices: impl Iterator<Item = PlineVertex<f64>>, tolerance: Tolerance) -> Result<Polyline<CLOSURE>, PlanarError> {
+fn indexed<const CLOSURE: Closure>(vertices: impl Iterator<Item = PlineVertex<f64>>, tolerance: StrictlyPositiveFinite) -> Result<Polyline<CLOSURE>, PlanarError> {
     checked::<CLOSURE>(vertices, tolerance).map(measured).map_err(|defect| PlanarError::Invalid { defect })
 }
 
-fn surviving<const CLOSURE: Closure>(vertices: impl Iterator<Item = PlineVertex<f64>>, tolerance: Tolerance) -> Result<Option<IndexedPolyline<f64>>, PlanarError> {
+fn surviving<const CLOSURE: Closure>(vertices: impl Iterator<Item = PlineVertex<f64>>, tolerance: StrictlyPositiveFinite) -> Result<Option<IndexedPolyline<f64>>, PlanarError> {
     match checked::<CLOSURE>(vertices, tolerance) {
         Ok(outline) => Ok(Some(outline)),
         Err(Defect::Collapsed) => Ok(None),
@@ -231,8 +226,8 @@ fn surviving<const CLOSURE: Closure>(vertices: impl Iterator<Item = PlineVertex<
     }
 }
 
-fn separated(vertices: &[PlineVertex<f64>], tolerance: Tolerance) -> Result<Vec<IndexedPolyline<f64>>, Defect> {
-    let reach = tolerance.into_inner();
+fn separated(vertices: &[PlineVertex<f64>], tolerance: StrictlyPositiveFinite) -> Result<Vec<IndexedPolyline<f64>>, Defect> {
+    let reach = tolerance.get();
     let pieces = |points: NEVec<Point2<f64>>| {
         let revisited = |vertex: &PlineVertex<f64>| points.iter().any(|point| Vector2::new(point.x, point.y).fuzzy_eq_eps(vertex.pos(), reach));
         let (rest, lobes) = vertices.iter().fold((Vec::new(), Vec::new()), |(mut path, mut lobes), vertex| {
@@ -278,17 +273,17 @@ fn placed<'source>(outline: &'source polyline::Polyline<f64>, placement: &'sourc
     })
 }
 
-fn flattened(polyline: &polyline::Polyline<f64>, tolerance: Tolerance) -> Result<impl ExactSizeIterator<Item = [f64; 2]> + use<>, PlanarError> {
-    polyline.arcs_to_approx_lines(tolerance.into_inner()).map(|lines| lines.vertex_data.into_iter().map(|vertex| [vertex.x, vertex.y])).ok_or(PlanarError::Flattening { tolerance })
+fn flattened(polyline: &polyline::Polyline<f64>, tolerance: StrictlyPositiveFinite) -> Result<impl ExactSizeIterator<Item = [f64; 2]> + use<>, PlanarError> {
+    polyline.arcs_to_approx_lines(tolerance.get()).map(|lines| lines.vertex_data.into_iter().map(|vertex| [vertex.x, vertex.y])).ok_or(PlanarError::Flattening { tolerance })
 }
 
-fn collapsed(outline: &polyline::Polyline<f64>, tolerance: Tolerance) -> bool { 2.0 * outline.area().abs() <= tolerance.into_inner() * outline.path_length() }
+fn collapsed(outline: &polyline::Polyline<f64>, tolerance: StrictlyPositiveFinite) -> bool { 2.0 * outline.area().abs() <= tolerance.get() * outline.path_length() }
 
 fn segment(path: &polyline::Polyline<f64>, index: usize) -> (PlineVertex<f64>, PlineVertex<f64>) { (path.at(index), path.at(path.next_wrapping_index(index))) }
 
 fn boundary(shape: &Shape<f64>, index: usize) -> &IndexedPolyline<f64> { index.checked_sub(shape.ccw_plines.len()).map_or_else(|| &shape.ccw_plines[index], |hole| &shape.cw_plines[hole]) }
 
-fn nested<I, R>(polygons: I, tolerance: Tolerance) -> Result<Region, PlanarError>
+fn nested<I, R>(polygons: I, tolerance: StrictlyPositiveFinite) -> Result<Region, PlanarError>
 where
     I: IntoIterator<Item = (usize, R)>,
     R: IntoIterator<Item = Result<IndexedPolyline<f64>, Defect>>,
@@ -314,7 +309,7 @@ where
     .map_err(|rings| PlanarError::Region { rings })
 }
 
-fn resulting<B, H, V>(bodies: B, holes: H, tolerance: Tolerance) -> Result<Region, PlanarError>
+fn resulting<B, H, V>(bodies: B, holes: H, tolerance: StrictlyPositiveFinite) -> Result<Region, PlanarError>
 where
     B: IntoIterator<Item = V>,
     H: IntoIterator<Item = V>,
@@ -344,7 +339,7 @@ where
     enclosed(kept.into_iter().flatten(), refused, tolerance).map_err(|loops| PlanarError::Output { loops })
 }
 
-fn enclosed<S, L, R>(loops: L, refused: R, tolerance: Tolerance) -> Result<Region, NEVec<(S, Defect)>>
+fn enclosed<S, L, R>(loops: L, refused: R, tolerance: StrictlyPositiveFinite) -> Result<Region, NEVec<(S, Defect)>>
 where
     S: Copy + Ord,
     L: IntoIterator<Item = Either<((S, Option<usize>), IndexedPolyline<f64>), ((S, Option<usize>), IndexedPolyline<f64>)>>,
@@ -354,7 +349,7 @@ where
     let ((body_subjects, bodies), (hole_subjects, holes)): ((Vec<_>, Vec<_>), (Vec<_>, Vec<_>)) = (bodies.into_iter().unzip(), holes.into_iter().unzip());
     let shape = oriented(bodies, holes);
     let subjects = iter::chain(body_subjects, hole_subjects).collect_vec();
-    let (pos_equal_eps, plines_index) = (tolerance.into_inner(), &shape.plines_index);
+    let (pos_equal_eps, plines_index) = (tolerance.get(), &shape.plines_index);
     let remains = |left: &IndexedPolyline<f64>, right: &IndexedPolyline<f64>, operation: BooleanOp| {
         let BooleanResult { pos_plines: kept, neg_plines: carved, result_info: _ } =
             left.polyline.boolean_opt(&right.polyline, operation, &PlineBooleanOptions { pline1_aabb_index: Some(&left.spatial_index), pos_equal_eps, collapsed_area_eps: None });

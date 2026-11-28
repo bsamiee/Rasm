@@ -7,18 +7,17 @@ use itertools::{Either, Itertools as _};
 use nalgebra::{Isometry3, Matrix3, Matrix6, Point3, Rotation3, SVD, Translation3, Unit, UnitQuaternion, Vector3, Vector6};
 use nonempty_collections::{NESlice, NEVec};
 use rayon::iter::{IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
+use typed_floats::InvalidNumber;
+use typed_floats::tf64::{PositiveFinite, StrictlyPositiveFinite};
 
 use crate::distances::{self, Projection};
 use crate::points::{self, Cloud, Neighbor, Neighborhood};
-use crate::{Assembly, Distance, ProximityError, Shortfall};
+use crate::{Assembly, ProximityError, Shortfall};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[nutype::nutype(validate(greater = 0.0, less = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct Fraction(f64);
-
-#[nutype::nutype(validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
-pub struct Weight(f64);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Target<'target> {
@@ -26,23 +25,23 @@ pub enum Target<'target> {
     Assembly(&'target Assembly),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Metric {
     Point,
     Plane(Neighborhood),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kernel {
-    Huber(Distance),
-    Tukey(Distance),
+    Huber(PositiveFinite),
+    Tukey(PositiveFinite),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Icp {
     pub iterations: NonZero<usize>,
     pub tolerance: Fraction,
-    pub max_correspondence_distance: Option<Distance> = None,
+    pub max_correspondence_distance: Option<PositiveFinite> = None,
     pub overlap: Option<Fraction> = None,
     pub kernel: Option<Kernel> = None,
     pub metric: Metric = Metric::Point,
@@ -63,24 +62,24 @@ struct Correspondence<'point> {
     moved: &'point Point3<f64>,
     corresponding: Point3<f64>,
     normal: Option<Unit<Vector3<f64>>>,
-    weight: Weight,
+    weight: StrictlyPositiveFinite,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 #[must_use]
 pub fn fit<I>(pairs: I) -> Option<Isometry3<f64>>
-where I: IntoIterator<Item: Borrow<(Point3<f64>, Point3<f64>, Weight)>, IntoIter: Clone> {
+where I: IntoIterator<Item: Borrow<(Point3<f64>, Point3<f64>, StrictlyPositiveFinite)>, IntoIter: Clone> {
     let pairs = pairs.into_iter();
     let (total, source, target) = pairs.clone().fold((0.0_f64, Vector3::<f64>::zeros(), Vector3::<f64>::zeros()), |(total, source, target), pair| {
         let &(point, corresponding, weight) = pair.borrow();
-        (total + weight.into_inner(), source + point.coords * weight.into_inner(), target + corresponding.coords * weight.into_inner())
+        (total + weight.get(), source + point.coords * weight.get(), target + corresponding.coords * weight.get())
     });
     let (source, target) = (total.is_finite() && total > 0.0).then(|| (source / total, target / total))?;
     let covariance = pairs
         .map(|pair| {
             let &(point, corresponding, weight) = pair.borrow();
-            (point.coords - source) * (corresponding.coords - target).transpose() * weight.into_inner()
+            (point.coords - source) * (corresponding.coords - target).transpose() * weight.get()
         })
         .sum::<Matrix3<f64>>();
     let SVD { u: left, v_t: right, singular_values } = covariance.svd(true, true);
@@ -110,15 +109,15 @@ pub fn register(
         |normal: Option<Unit<Vector3<f64>>>| normal.map_or_else(|| Either::Right([Vector3::x_axis(), Vector3::y_axis(), Vector3::z_axis()].into_iter()), |normal| Either::Left(iter::once(normal)));
     let robust = move |residual: f64| match kernel {
         None => 1.0,
-        Some(Kernel::Huber(scale)) => (scale.into_inner() / residual).min(1.0),
-        Some(Kernel::Tukey(scale)) => (residual / scale.into_inner()).mul_add(-(residual / scale.into_inner()), 1.0).max(0.0).powi(2),
+        Some(Kernel::Huber(scale)) => (scale.get() / residual).min(1.0),
+        Some(Kernel::Tukey(scale)) => (residual / scale.get()).mul_add(-(residual / scale.get()), 1.0).max(0.0).powi(2),
     };
     let planar = move |pose: &Isometry3<f64>, pairs: &[Correspondence<'_>]| {
         let (hessian, gradient) = pairs
             .iter()
             .flat_map(|&Correspondence { point: _, moved, corresponding, normal, weight }| {
                 directions(normal).map(move |direction| {
-                    (Vector6::from_iterator(iter::chain(moved.coords.cross(&direction).iter(), direction.iter()).copied()), (moved - corresponding).dot(&direction), weight.into_inner())
+                    (Vector6::from_iterator(iter::chain(moved.coords.cross(&direction).iter(), direction.iter()).copied()), (moved - corresponding).dot(&direction), weight.get())
                 })
             })
             .fold((Matrix6::<f64>::zeros(), Vector6::<f64>::zeros()), |(hessian, gradient), (row, residual, weight)| (hessian + row * row.transpose() * weight, gradient - row * (residual * weight)));
@@ -166,9 +165,9 @@ pub fn register(
             None => candidates.into_iter(),
             Some(count) => candidates.into_iter().k_smallest_by(count, |left, right| left.4.total_cmp(&right.4)),
         }
-        .filter_map(|(point, moved, corresponding, normal, distance)| match Weight::try_new(robust(distance)) {
+        .filter_map(|(point, moved, corresponding, normal, distance)| match StrictlyPositiveFinite::new(robust(distance)) {
             Ok(weight) => Some(Correspondence { point, moved, corresponding, normal, weight }),
-            Err(WeightError::GreaterViolated | WeightError::FiniteViolated) => None,
+            Err(InvalidNumber::NaN | InvalidNumber::Zero | InvalidNumber::Negative | InvalidNumber::Positive | InvalidNumber::Infinite) => None,
         })
         .collect::<Vec<Correspondence<'_>>>();
         let shortfall = |shortfall| NEVec::new(ProximityError::Unfitted { iteration, shortfall });
@@ -182,7 +181,7 @@ pub fn register(
         })?;
         let [squared, total] = pairs.iter().fold([0.0_f64; 2], |[squared, total], &Correspondence { point, moved: _, corresponding, normal, weight }| {
             let offset = fitted.transform_point(point) - corresponding;
-            [directions(normal).map(|direction| offset.dot(&direction).powi(2)).sum::<f64>().mul_add(weight.into_inner(), squared), total + weight.into_inner()]
+            [directions(normal).map(|direction| offset.dot(&direction).powi(2)).sum::<f64>().mul_add(weight.get(), squared), total + weight.get()]
         });
         Ok(Registration { pose: fitted, rms: (squared / total).sqrt(), matched, iterations: iteration, converged: false })
     };

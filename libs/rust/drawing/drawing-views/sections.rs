@@ -26,7 +26,7 @@ pub fn sections(view: &View) -> Result<Vec<(usize, Region)>, NEVec<ViewsError>> 
                 .filter(|&(_, source)| source.is_none())
                 .map(|(triangle, _)| {
                     let [start, middle, end] = triangle.vertices().map(pictured);
-                    Ok::<_, linesweeper::Error>(Triangle::new(start?, middle?, end?).path_elements(tolerance.into_inner()))
+                    Ok::<_, linesweeper::Error>(Triangle::new(start?, middle?, end?).path_elements(tolerance.get()))
                 })
                 .flatten_ok()
                 .collect::<Result<BezPath, _>>()

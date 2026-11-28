@@ -6,9 +6,10 @@ use parry3d_f64::partitioning::BvhNode;
 use parry3d_f64::query::{self, Contact, PointQuery as _, ShapeDistance, Unsupported};
 use parry3d_f64::shape::{SharedShape, SubShapeId};
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, ParallelIterator as _};
+use typed_floats::tf64::PositiveFinite;
 use validated::Validated;
 
-use crate::{Assembly, Distance, ProximityError};
+use crate::{Assembly, ProximityError};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -31,8 +32,8 @@ pub struct Clash {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn clashes(assembly: &Assembly, other: Option<&Assembly>, clearance: Distance, rule: impl Fn(usize, usize) -> bool + Sync) -> Result<Vec<Clash>, NEVec<ProximityError>> {
-    let prediction = clearance.into_inner();
+pub fn clashes(assembly: &Assembly, other: Option<&Assembly>, clearance: PositiveFinite, rule: impl Fn(usize, usize) -> bool + Sync) -> Result<Vec<Clash>, NEVec<ProximityError>> {
+    let prediction = clearance.get();
     let candidates = other.unwrap_or(assembly);
     let rule = &rule;
     (0..u32::MAX)
@@ -56,7 +57,7 @@ pub fn clashes(assembly: &Assembly, other: Option<&Assembly>, clearance: Distanc
         .ok()
 }
 
-pub fn separations(assembly: &Assembly, other: Option<&Assembly>, max_distance: Option<Distance>, rule: impl Fn(usize, usize) -> bool + Sync) -> Result<Vec<Clash>, NEVec<ProximityError>> {
+pub fn separations(assembly: &Assembly, other: Option<&Assembly>, max_distance: Option<PositiveFinite>, rule: impl Fn(usize, usize) -> bool + Sync) -> Result<Vec<Clash>, NEVec<ProximityError>> {
     let candidates = other.unwrap_or(assembly);
     (0..u32::MAX)
         .into_par_iter()
@@ -66,7 +67,7 @@ pub fn separations(assembly: &Assembly, other: Option<&Assembly>, max_distance: 
             candidates
                 .bvh
                 .find_best(
-                    max_distance.map_or(f64::INFINITY, |bound| bound.into_inner().next_up()),
+                    max_distance.map_or(f64::INFINITY, |bound| bound.get().next_up()),
                     |node, _| node.aabb().add_half_extents(aabb.half_extents()).distance_to_local_point(aabb.center(), true),
                     |partner, _| {
                         let candidate @ (_, candidate_pose, candidate_shape, _) = leaf(candidates, partner).filter(|&(partner, ..)| (other.is_some() || partner != index) && rule(index, partner))?;

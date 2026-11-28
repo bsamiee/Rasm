@@ -4,9 +4,10 @@ use parry3d_f64::math::Vector;
 use parry3d_f64::query::{PointProjection, PointQuery as _};
 use parry3d_f64::shape::SubShapeId;
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
+use typed_floats::tf64::PositiveFinite;
 use validated::Validated;
 
-use crate::{Assembly, Distance, ProximityError};
+use crate::{Assembly, ProximityError};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -20,7 +21,7 @@ pub struct Projection {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn project(assembly: &Assembly, points: &[Point3<f64>], max_distance: Option<Distance>) -> Result<Vec<Option<Projection>>, NEVec<ProximityError>> {
+pub fn project(assembly: &Assembly, points: &[Point3<f64>], max_distance: Option<PositiveFinite>) -> Result<Vec<Option<Projection>>, NEVec<ProximityError>> {
     crate::bounded(points).map_err(NEVec::new)?;
     points
         .par_iter()
@@ -30,7 +31,7 @@ pub fn project(assembly: &Assembly, points: &[Point3<f64>], max_distance: Option
             assembly
                 .bvh
                 .find_best(
-                    max_distance.map_or(f64::INFINITY, |bound| bound.into_inner().next_up()),
+                    max_distance.map_or(f64::INFINITY, |bound| bound.get().next_up()),
                     |node, _| node.aabb().distance_to_local_point(target, true),
                     |leaf, best| {
                         let element @ (_, pose, shape) = assembly.element(leaf)?;

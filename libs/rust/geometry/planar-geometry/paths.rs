@@ -7,8 +7,9 @@ use cavalier_contours::shape_algorithms::IndexedPolyline;
 use cavalier_contours::static_aabb2d_index::Control;
 use itertools::{Either, Itertools as _};
 use nalgebra::{Point2, UnitVector2};
+use typed_floats::tf64::{NonNaNFinite, StrictlyPositiveFinite};
 
-use crate::{Closure, Distance, PlanarError, Polyline, Region, Tolerance, boundary, measured, segment, surviving, winding_number};
+use crate::{Closure, PlanarError, Polyline, Region, boundary, measured, segment, surviving, winding_number};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -29,22 +30,22 @@ pub struct Clearance {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 #[must_use]
-pub fn closest<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, point: Point2<f64>, tolerance: Tolerance) -> Station<1> {
+pub fn closest<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, point: Point2<f64>, tolerance: StrictlyPositiveFinite) -> Station<1> {
     let (index, near, _) = nearest(&polyline.outline, Vector2::new(point.x, point.y), tolerance);
     let (length, tangent) = along(polyline, index, near, tolerance);
     Station { point: Point2::new(near.x, near.y), lengths: [length], tangents: [tangent] }
 }
 
 #[must_use]
-pub fn station<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, length: Distance, tolerance: Tolerance) -> Station<1> {
-    let (index, point, length) = located(polyline, length.into_inner(), tolerance);
+pub fn station<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, length: NonNaNFinite, tolerance: StrictlyPositiveFinite) -> Station<1> {
+    let (index, point, length) = located(polyline, length.get(), tolerance);
     Station { point: Point2::new(point.x, point.y), lengths: [length], tangents: [tangent(segment(&polyline.outline.polyline, index), point)] }
 }
 
 #[must_use]
-pub fn intersections<const LEFT: Closure, const RIGHT: Closure>(left: &Polyline<LEFT>, right: &Polyline<RIGHT>, tolerance: Tolerance) -> Vec<Either<Station<2>, [Station<2>; 2]>> {
+pub fn intersections<const LEFT: Closure, const RIGHT: Closure>(left: &Polyline<LEFT>, right: &Polyline<RIGHT>, tolerance: StrictlyPositiveFinite) -> Vec<Either<Station<2>, [Station<2>; 2]>> {
     let (IndexedPolyline { polyline: first, spatial_index }, second) = (&left.outline, &right.outline.polyline);
-    let reach = tolerance.into_inner();
+    let reach = tolerance.get();
     let station = |point: Vector2<f64>, on_left: usize, on_right: usize| {
         let [(before, ahead), (after, onward)] = [along(left, on_left, point, tolerance), along(right, on_right, point, tolerance)];
         Station { point: Point2::new(point.x, point.y), lengths: [before, after], tangents: [ahead, onward] }
@@ -66,14 +67,14 @@ pub fn intersections<const LEFT: Closure, const RIGHT: Closure>(left: &Polyline<
         .collect()
 }
 
-pub fn slice<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, lengths: [Distance; 2], tolerance: Tolerance) -> Result<Option<Polyline<{ Closure::Open }>>, PlanarError> {
-    sliced(polyline, lengths.map(Distance::into_inner), tolerance)
+pub fn slice<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, lengths: [NonNaNFinite; 2], tolerance: StrictlyPositiveFinite) -> Result<Option<Polyline<{ Closure::Open }>>, PlanarError> {
+    sliced(polyline, lengths.map(f64::from), tolerance)
 }
 
-pub fn pieces<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, region: &Region, tolerance: Tolerance) -> Result<Vec<(Polyline<{ Closure::Open }>, Option<i32>)>, PlanarError> {
+pub fn pieces<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, region: &Region, tolerance: StrictlyPositiveFinite) -> Result<Vec<(Polyline<{ Closure::Open }>, Option<i32>)>, PlanarError> {
     let Polyline { outline: IndexedPolyline { polyline: path, spatial_index }, lengths } = polyline;
     let shape = region.as_ref();
-    let (reach, total) = (tolerance.into_inner(), *lengths.last());
+    let (reach, total) = (tolerance.get(), *lengths.last());
     let cuts = spatial_index
         .bounds()
         .into_iter()
@@ -113,7 +114,7 @@ pub fn pieces<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, region: &Reg
 }
 
 #[must_use]
-pub fn clearance(region: &Region, point: Point2<f64>, tolerance: Tolerance) -> Option<Clearance> {
+pub fn clearance(region: &Region, point: Point2<f64>, tolerance: StrictlyPositiveFinite) -> Option<Clearance> {
     let shape = region.as_ref();
     let at = Vector2::new(point.x, point.y);
     let mut best: Option<(&IndexedPolyline<f64>, usize, Vector2<f64>, f64)> = None;
@@ -139,11 +140,11 @@ pub fn clearance(region: &Region, point: Point2<f64>, tolerance: Tolerance) -> O
     })
 }
 
-fn nearest(outline: &IndexedPolyline<f64>, at: Vector2<f64>, tolerance: Tolerance) -> (usize, Vector2<f64>, f64) {
+fn nearest(outline: &IndexedPolyline<f64>, at: Vector2<f64>, tolerance: StrictlyPositiveFinite) -> (usize, Vector2<f64>, f64) {
     let IndexedPolyline { polyline: path, spatial_index } = outline;
     let projected = |index: usize| {
         let (start, end) = segment(path, index);
-        let near = polyline::seg_closest_point(start, end, at, tolerance.into_inner());
+        let near = polyline::seg_closest_point(start, end, at, tolerance.get());
         (index, near, math::dist_squared(near, at))
     };
     let mut closest = projected(0);
@@ -158,9 +159,9 @@ fn nearest(outline: &IndexedPolyline<f64>, at: Vector2<f64>, tolerance: Toleranc
     closest
 }
 
-fn along<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, index: usize, point: Vector2<f64>, tolerance: Tolerance) -> (f64, UnitVector2<f64>) {
+fn along<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, index: usize, point: Vector2<f64>, tolerance: StrictlyPositiveFinite) -> (f64, UnitVector2<f64>) {
     let (start, end) = segment(&polyline.outline.polyline, index);
-    let SplitResult { updated_start: _, split_vertex } = polyline::seg_split_at_point(start, end, point, tolerance.into_inner());
+    let SplitResult { updated_start: _, split_vertex } = polyline::seg_split_at_point(start, end, point, tolerance.get());
     (polyline.lengths[index] - polyline::seg_length(split_vertex, end), tangent((start, end), point))
 }
 
@@ -169,7 +170,7 @@ fn tangent((start, end): (PlineVertex<f64>, PlineVertex<f64>), point: Vector2<f6
     UnitVector2::new_normalize(nalgebra::Vector2::new(direction.x, direction.y))
 }
 
-fn located<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, length: f64, tolerance: Tolerance) -> (usize, Vector2<f64>, f64) {
+fn located<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, length: f64, tolerance: StrictlyPositiveFinite) -> (usize, Vector2<f64>, f64) {
     let Polyline { outline: IndexedPolyline { polyline: path, spatial_index: _ }, lengths } = polyline;
     let total = *lengths.last();
     let target = match CLOSURE {
@@ -179,15 +180,15 @@ fn located<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, length: f64, to
     let index = lengths.partition_point(|end| *end < target);
     let before = index.checked_sub(1).map_or_default(|previous| lengths[previous]);
     let (start, end) = segment(path, index);
-    let point = PlineViewData::create_on_single_segment(path, index, start, end.pos(), tolerance.into_inner())
+    let point = PlineViewData::create_on_single_segment(path, index, start, end.pos(), tolerance.get())
         .and_then(|view| view.view(path).find_point_at_path_length(target - before).ok())
         .map_or_else(|| end.pos(), |(_, point)| point);
     (index, point, target)
 }
 
-fn sliced<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, [from, to]: [f64; 2], tolerance: Tolerance) -> Result<Option<Polyline<{ Closure::Open }>>, PlanarError> {
+fn sliced<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, [from, to]: [f64; 2], tolerance: StrictlyPositiveFinite) -> Result<Option<Polyline<{ Closure::Open }>>, PlanarError> {
     let path = &polyline.outline.polyline;
-    let (reach, total) = (tolerance.into_inner(), *polyline.lengths.last());
+    let (reach, total) = (tolerance.get(), *polyline.lengths.last());
     let ([start, end], inverted, whole) = match CLOSURE {
         Closure::Open => (cmp::minmax_by(from.clamp(0.0, total), to.clamp(0.0, total), f64::total_cmp), to < from, false),
         Closure::Closed => {

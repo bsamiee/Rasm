@@ -26,7 +26,7 @@ derive_more          = { workspace = true }
 indexmap             = { workspace = true }
 itertools            = { workspace = true }
 serde                = { workspace = true }
-nutype               = { workspace = true }
+typed_floats         = { workspace = true }
 ordered-float        = { workspace = true }
 nalgebra             = { workspace = true }
 leiden-rs            = { workspace = true }

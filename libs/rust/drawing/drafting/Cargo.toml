@@ -27,6 +27,7 @@ enum-map                   = { workspace = true }
 indexmap                   = { workspace = true }
 itertools                  = { workspace = true }
 nutype                     = { workspace = true }
+typed_floats               = { workspace = true }
 rust_decimal               = { workspace = true }
 uom                        = { workspace = true }
 color                      = { workspace = true }

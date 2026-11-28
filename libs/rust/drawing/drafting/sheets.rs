@@ -12,7 +12,8 @@ use kurbo::{Affine, Point, Rect, Shape, Size};
 use linesweeper::BinaryOp;
 use nonempty_collections::{IntoIteratorExt as _, IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use rasm_drawing::pages::{self, Destination, Link, Page};
-use rasm_drawing::{Content, Element, Opacity, Placement, Region, Side, Tolerance, Unit, Visibility, cleanup, regions};
+use rasm_drawing::{Content, Element, Opacity, Placement, Region, Side, Unit, Visibility, cleanup, regions};
+use typed_floats::tf64::StrictlyPositiveFinite;
 use uom::si::f64::LinearNumberDensity;
 use uom::si::ratio::ratio;
 use validated::Validated;
@@ -191,7 +192,7 @@ pub fn compose(typesetter: &mut Typesetter, set: Set) -> Result<Vec<Page>, NEVec
             .map(|masks| -> Result<_, DraftingError> {
                 Ok((
                     regions::boolean(&Region::default(), masks, BinaryOp::Union, style.tolerance)?.transform(Placement::try_new(placement.inverse())?)?,
-                    Tolerance::try_new(style.tolerance.into_inner() / placement.determinant().abs().sqrt())?,
+                    StrictlyPositiveFinite::new(style.tolerance.get() / placement.determinant().abs().sqrt())?,
                 ))
             })
             .transpose()?;

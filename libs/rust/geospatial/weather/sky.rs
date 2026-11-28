@@ -26,9 +26,10 @@ use {
     itertools::Either,
     nalgebra::Vector3,
     ndarray::ArrayView1,
-    rasm_proximity::{Assembly, Distance},
+    rasm_proximity::Assembly,
     rasm_solar_geometry::{Sensor, Transmittance, incidence},
     std::collections::HashMap,
+    typed_floats::tf64::PositiveFinite,
     uom::si::f64::{HeatFluxDensity, Illuminance},
 };
 
@@ -318,7 +319,7 @@ pub fn irradiance<S>(
     north: UnitQuaternion<f64>,
     assembly: &Assembly,
     translucent: &HashMap<usize, Transmittance, S>,
-    offset: Distance,
+    offset: PositiveFinite,
     sensors: &[Sensor],
 ) -> Result<Either<Array2<HeatFluxDensity>, Array2<Illuminance>>, WeatherError>
 where

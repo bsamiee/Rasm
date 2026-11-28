@@ -7,8 +7,9 @@ use kiddo::{Eytzinger, QueryResultItem, SquaredEuclidean};
 use nalgebra::{Matrix3, Point3, SymmetricEigen, Unit, Vector3};
 use nonempty_collections::NESlice;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
+use typed_floats::tf64::PositiveFinite;
 
-use crate::{Distance, ProximityError};
+use crate::ProximityError;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -16,11 +17,11 @@ pub type Neighbor = QueryResultItem<Point3<f64>, usize, f64>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Neighborhood {
     Nearest { max_qty: NonZero<usize> },
-    Within { radius: Distance },
-    NearestWithin { max_qty: NonZero<usize>, radius: Distance },
+    Within { radius: PositiveFinite },
+    NearestWithin { max_qty: NonZero<usize>, radius: PositiveFinite },
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, PartialOrd)]
@@ -60,8 +61,8 @@ pub(crate) fn search(cloud: &Cloud, queries: &[Point3<f64>], neighborhood: Neigh
     let batch = cloud.0.query_batch(bytemuck::cast_slice(queries));
     match neighborhood {
         Neighborhood::Nearest { max_qty } => batch.nearest_n::<SquaredEuclidean<f64>>(max_qty).execute(),
-        Neighborhood::Within { radius } => batch.within::<SquaredEuclidean<f64>>(radius.into_inner().powi(2)).execute(),
-        Neighborhood::NearestWithin { max_qty, radius } => batch.nearest_n::<SquaredEuclidean<f64>>(max_qty).within::<SquaredEuclidean<f64>>(radius.into_inner().powi(2)).execute(),
+        Neighborhood::Within { radius } => batch.within::<SquaredEuclidean<f64>>(radius.get().powi(2)).execute(),
+        Neighborhood::NearestWithin { max_qty, radius } => batch.nearest_n::<SquaredEuclidean<f64>>(max_qty).within::<SquaredEuclidean<f64>>(radius.get().powi(2)).execute(),
     }
     .into_nested_vec()
 }

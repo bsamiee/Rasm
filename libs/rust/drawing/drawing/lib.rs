@@ -15,6 +15,8 @@ use linesweeper::{Error, FillRule};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use parlance::{FontFamily, FontFeature, FontVariation};
 use stacksafe::StackSafe;
+use typed_floats::tf64::{NonNaNFinite, StrictlyPositiveFinite};
+use typed_floats::{InvalidNumber, tf32};
 use uom::si::f64::Length;
 use validated::Validated;
 
@@ -71,9 +73,6 @@ pub enum Dash {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[nutype::nutype(validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
-pub struct Tolerance(f64);
-
 #[nutype::nutype(validate(predicate = |unit: &Length| unit.is_normal() && unit.is_sign_positive()), derive(Debug, Clone, Copy, PartialEq, PartialOrd, Deref))]
 pub struct Unit(Length);
 
@@ -94,21 +93,11 @@ impl Opacity {
     pub const OPAQUE: Self = Self::try_new(1.0_f64).ok().unwrap();
 }
 
-#[nutype::nutype(validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
-pub struct FontSize(f64);
-
 #[nutype::nutype(const_fn, validate(finite, greater_or_equal = 1.0, less_or_equal = 1000.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct FontWeight(f32);
 
 impl FontWeight {
     pub const NORMAL: Self = Self::try_new(parlance::FontWeight::NORMAL.value()).ok().unwrap();
-}
-
-#[nutype::nutype(const_fn, validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
-pub struct FontWidth(f32);
-
-impl FontWidth {
-    pub const NORMAL: Self = Self::try_new(parlance::FontWidth::NORMAL.ratio()).ok().unwrap();
 }
 
 #[nutype::nutype(validate(finite, greater_or_equal = -90.0, less_or_equal = 90.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
@@ -135,13 +124,6 @@ impl From<FontWeight> for parlance::FontWeight {
     fn from(value: FontWeight) -> Self { Self::new(value.into_inner()) }
 }
 
-impl From<FontWidth> for parlance::FontWidth {
-    fn from(value: FontWidth) -> Self { Self::from_ratio(value.into_inner()) }
-}
-
-#[nutype::nutype(validate(finite), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
-pub struct DashOffset(f64);
-
 #[nutype::nutype(validate(finite, greater_or_equal = 0.0, less_or_equal = PI), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct Deflection(f64);
 
@@ -163,7 +145,7 @@ pub struct Dashes(NEVec<f64>);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Alignment {
-    Start { dash_offset: DashOffset },
+    Start { dash_offset: NonNaNFinite },
     Center,
     Corners { angle: Deflection },
 }
@@ -224,14 +206,14 @@ pub struct Pattern {
 pub struct Region(Arc<[Contour]>);
 
 impl Region {
-    pub fn new(shape: impl Shape, fill_rule: FillRule, tolerance: Tolerance) -> Result<Self, LineworkError> {
+    pub fn new(shape: impl Shape, fill_rule: FillRule, tolerance: StrictlyPositiveFinite) -> Result<Self, LineworkError> {
         let closed = shape
-            .into_path(tolerance.into_inner())
+            .into_path(tolerance.get())
             .subpaths()
             .flat_map(|elements| iter::chain(elements.iter().copied(), (!matches!(elements.last(), Some(PathEl::ClosePath))).then_some(PathEl::ClosePath)))
             .collect::<BezPath>();
         finite(&closed)?;
-        Ok(Self(Topology::from_path(&closed, tolerance.into_inner()).map_err(Error::from)?.contours(|&winding| fill_rule.is_inside(winding)).into_contours().collect()))
+        Ok(Self(Topology::from_path(&closed, tolerance.get()).map_err(Error::from)?.contours(|&winding| fill_rule.is_inside(winding)).into_contours().collect()))
     }
 
     #[must_use]
@@ -298,10 +280,10 @@ pub struct Edge {
 pub struct Text {
     pub content: Arc<str>,
     pub family: FontFamily<'static>,
-    pub size: FontSize,
+    pub size: StrictlyPositiveFinite,
     pub placement: Placement,
     pub weight: FontWeight = FontWeight::NORMAL,
-    pub width: FontWidth = FontWidth::NORMAL,
+    pub width: tf32::StrictlyPositiveFinite = const { tf32::StrictlyPositiveFinite::new(parlance::FontWidth::NORMAL.ratio()).ok().unwrap() },
     pub style: FontStyle = FontStyle::Normal,
     pub anchor: Anchor = Anchor::Start,
     pub baseline: Baseline = Baseline::Alphabetic,
@@ -332,7 +314,7 @@ pub struct Glyph {
 pub struct GlyphRun {
     pub font: FontData,
     pub family: Arc<str>,
-    pub size: FontSize,
+    pub size: StrictlyPositiveFinite,
     pub variations: Arc<[FontVariation]>,
     pub glyphs: Vec<Glyph>,
     pub text: Arc<str>,
@@ -486,10 +468,10 @@ fn scaled(Linetype { dashes, alignment, target }: Linetype, scale: f64) -> Valid
     Validated::from(Dashes::try_new(dashes.nonempty_iter().map(|dash| dash * scale).collect()).map_err(|DashesError::PredicateViolated| LineworkError::Scaled(Dash::Array))).map2(
         Validated::from(
             match alignment {
-                Alignment::Start { dash_offset } => DashOffset::try_new(dash_offset.into_inner() * scale).map(|dash_offset| Alignment::Start { dash_offset }),
+                Alignment::Start { dash_offset } => NonNaNFinite::new(dash_offset.get() * scale).map(|dash_offset| Alignment::Start { dash_offset }),
                 Alignment::Center | Alignment::Corners { angle: _ } => Ok(alignment),
             }
-            .map_err(|DashOffsetError::FiniteViolated| LineworkError::Scaled(Dash::Offset)),
+            .map_err(|(InvalidNumber::NaN | InvalidNumber::Zero | InvalidNumber::Negative | InvalidNumber::Positive | InvalidNumber::Infinite)| LineworkError::Scaled(Dash::Offset)),
         ),
         |dashes, alignment| Linetype { dashes, alignment, target },
     )
@@ -515,9 +497,9 @@ fn deflection(incoming: Vec2, outgoing: Vec2) -> f64 { incoming.cross(outgoing).
 
 fn coord(point: Point) -> Coord<f64> { Coord::from(<(f64, f64)>::from(point)) }
 
-fn flattened(elements: impl IntoIterator<Item = PathEl>, tolerance: Tolerance) -> Vec<LineString<f64>> {
+fn flattened(elements: impl IntoIterator<Item = PathEl>, tolerance: StrictlyPositiveFinite) -> Vec<LineString<f64>> {
     let mut lines = Vec::new();
-    flatten(elements, tolerance.into_inner(), |element| match element {
+    flatten(elements, tolerance.get(), |element| match element {
         PathEl::MoveTo(point) => lines.push(LineString::new(vec![coord(point)])),
         PathEl::LineTo(point) | PathEl::QuadTo(_, point) | PathEl::CurveTo(_, _, point) => lines.last_mut().into_iter().for_each(|line| line.0.push(coord(point))),
         PathEl::ClosePath => lines.last_mut().into_iter().for_each(LineString::close),
@@ -525,7 +507,7 @@ fn flattened(elements: impl IntoIterator<Item = PathEl>, tolerance: Tolerance) -
     lines
 }
 
-fn polygons(region: &Region, tolerance: Tolerance) -> MultiPolygon<f64> {
+fn polygons(region: &Region, tolerance: StrictlyPositiveFinite) -> MultiPolygon<f64> {
     let ring = |path: &BezPath| flattened(path.iter(), tolerance).into_iter().flat_map(|line| line.0).collect::<LineString<f64>>();
     let holes = region.0.iter().fold(vec![Vec::new(); region.0.len()], |mut holes, contour| match contour {
         Contour { path, parent: Some(ContourIdx(parent)), outer: false } => {

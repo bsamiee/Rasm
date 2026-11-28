@@ -7,13 +7,14 @@ use kurbo::{BezPath, Line, ParamCurve as _, ParamCurveNearest as _, PathSeg, Poi
 use linesweeper::FillRule;
 use nalgebra::{Point3, Unit, UnitVector3};
 use nonempty_collections::NEVec;
-use rasm_drawing::{Region, Tolerance, Visibility};
+use rasm_drawing::{Region, Visibility};
 use rasm_mesh::Source;
 use rasm_proximity::rays::{self, Hit};
-use rasm_proximity::{Distance, DistanceError};
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 use spade::handles::DirectedEdgeHandle;
 use spade::{CdtEdge, ConstrainedDelaunayTriangulation, HierarchyHintGenerator, Intersection, LineIntersectionIterator, Point2, Triangulation as _, mitigate_underflow};
+use typed_floats::InvalidNumber;
+use typed_floats::tf64::{PositiveFinite, StrictlyPositiveFinite};
 use validated::Validated;
 
 use crate::visibility::{Lines, Piece, window};
@@ -44,13 +45,13 @@ struct Sample {
 
 pub fn faces(view: &View) -> Result<Vec<Face>, NEVec<ViewsError>> { visible(&view.frame, &view.scene, &view.lines, view.tolerance).map(|faces| faces.into_iter().map(|(face, _)| face).collect()) }
 
-pub(crate) fn visible(frame: &Frame, scene: &Scene, lines: &Lines, tolerance: Tolerance) -> Result<Vec<(Face, Point3<f64>)>, NEVec<ViewsError>> {
+pub(crate) fn visible(frame: &Frame, scene: &Scene, lines: &Lines, tolerance: StrictlyPositiveFinite) -> Result<Vec<(Face, Point3<f64>)>, NEVec<ViewsError>> {
     fn bounding(edge: Boundary<'_>) -> bool {
         let owner = |side: Boundary<'_>| side.face().data().map(|Sample { key, point: _, normal: _ }| key);
         owner(edge) != owner(edge.rev())
     }
     fn after(edge: Boundary<'_>) -> Option<Boundary<'_>> { iter::successors(Some(edge.next()), |turn| Some(turn.rev().next())).find(|&turn| bounding(turn)).filter(|next| !next.data().replace(true)) }
-    let reach = tolerance.into_inner();
+    let reach = tolerance.get();
     let corners = window(frame);
     let pitch = reach * FRAC_1_SQRT_2;
     let snapped = |point: Point| mitigate_underflow(Point2::new((point.x / pitch).round() * pitch, (point.y / pitch).round() * pitch));
@@ -93,9 +94,9 @@ pub(crate) fn visible(frame: &Frame, scene: &Scene, lines: &Lines, tolerance: To
         .filter_map(|face| {
             let Point2 { x, y } = face.center();
             let (near, segment) = ray(frame, normalized * Point::new(x, y));
-            match Unit::try_new_and_get(segment, 0.0).map(|(direction, length)| (direction, Distance::try_new(length + reach))) {
+            match Unit::try_new_and_get(segment, 0.0).map(|(direction, length)| (direction, PositiveFinite::new(length + reach))) {
                 Some((direction, Ok(distance))) => Some((face.fix(), (near - direction.scale(reach), direction, ..distance))),
-                None | Some((_, Err(DistanceError::FiniteViolated | DistanceError::GreaterOrEqualViolated))) => None,
+                None | Some((_, Err(InvalidNumber::NaN | InvalidNumber::Zero | InvalidNumber::Negative | InvalidNumber::Positive | InvalidNumber::Infinite))) => None,
             }
         })
         .unzip();

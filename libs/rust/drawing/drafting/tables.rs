@@ -73,7 +73,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
 
     let Table { at, columns, rows: lines, header, rules, height } = table;
     let gap = style.gap.into_inner();
-    let accuracy = style.tolerance.into_inner();
+    let accuracy = style.tolerance.get();
     let origin = *placement * *at;
     let depth = lines.len().get();
     let header = (*header).min(depth);

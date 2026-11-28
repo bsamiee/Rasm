@@ -23,6 +23,7 @@ thiserror            = { workspace = true }
 derive_more          = { workspace = true }
 itertools            = { workspace = true }
 nutype               = { workspace = true }
+typed_floats         = { workspace = true }
 uom                  = { workspace = true }
 dugong               = { workspace = true }
 manatee              = { workspace = true }

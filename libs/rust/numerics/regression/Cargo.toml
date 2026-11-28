@@ -22,6 +22,7 @@ rayon                   = { workspace = true }
 nonempty-collections    = { workspace = true }
 thiserror               = { workspace = true }
 validated               = { workspace = true }
+typed_floats            = { workspace = true }
 itertools               = { workspace = true }
 serde                   = { workspace = true }
 almost                  = { workspace = true }

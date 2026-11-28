@@ -3,14 +3,15 @@ use nalgebra::Point3;
 use parry3d_f64::math::Vector;
 use parry3d_f64::query::PointQuery as _;
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
+use typed_floats::tf64::PositiveFinite;
 
 use crate::distances::{self, Projection};
-use crate::{Assembly, Distance, ProximityError};
+use crate::{Assembly, ProximityError};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn containing(assembly: &Assembly, points: &[Point3<f64>], tolerance: Distance) -> Result<Vec<Vec<Projection>>, ProximityError> {
-    let tolerance = tolerance.into_inner();
+pub fn containing(assembly: &Assembly, points: &[Point3<f64>], tolerance: PositiveFinite) -> Result<Vec<Vec<Projection>>, ProximityError> {
+    let tolerance = tolerance.get();
     crate::bounded(points)?;
     Ok(points
         .par_iter()

@@ -29,7 +29,7 @@ use crate::{Frame, Operation, Prepared, Projection, Scene, View, ViewsError, cli
 
 pub fn shadows(view: &View, sun: UnitVector3<f64>, token: Option<&CancelToken>) -> Result<Vec<Face>, NEVec<ViewsError>> {
     let View { frame, scene, lines, crease, tolerance } = view;
-    let reach = tolerance.into_inner();
+    let reach = tolerance.get();
     let Some(bounds) = scene.bodies.iter().map(|prepared| prepared.mesh.local_aabb()).reduce(|left, right| left.merged(&right)) else {
         return Ok(Vec::new());
     };

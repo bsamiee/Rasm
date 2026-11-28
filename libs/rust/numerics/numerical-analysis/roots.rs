@@ -12,9 +12,10 @@ use nalgebra::{DMatrix, DVector, DVectorView, Point1, convert};
 use nonempty_collections::NEVec;
 use num_complex::Complex;
 use num_dual::{Dual, DualDVec64, DualNum, DualStruct, implicit_derivative, jacobian};
-use rasm_stats::{Bounds, Tolerance};
+use rasm_stats::Bounds;
 use rayon::iter::{IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _, once};
 use rayon::slice::ParallelSlice as _;
+use typed_floats::tf64::StrictlyPositiveFinite;
 use validated::Validated;
 
 use crate::{AnalysisError, Input, RootSource, SearchHooks, TOLERANCE, refused_sites};
@@ -27,9 +28,9 @@ pub struct Root {
     pub error: f64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Newton {
-    pub tolerance: Tolerance = TOLERANCE,
+    pub tolerance: StrictlyPositiveFinite = TOLERANCE,
     pub limit: NonZero<usize> = NonZero::new(50).unwrap(),
 }
 
@@ -53,11 +54,11 @@ fn finite(value: f64, at: f64) -> Result<f64, AnalysisError> { value.is_finite()
 
 fn resolution(bracket: RangeInclusive<f64>) -> f64 { (f64::EPSILON * bracket.start.abs().max(bracket.last.abs())).max(f64::MIN_POSITIVE * f64::EPSILON).next_up() }
 
-pub fn minimum<F>(cost: F, interval: Bounds, tolerance: Tolerance, hooks: SearchHooks<'_>) -> Result<(f64, f64), AnalysisError>
+pub fn minimum<F>(cost: F, interval: Bounds, tolerance: StrictlyPositiveFinite, hooks: SearchHooks<'_>) -> Result<(f64, f64), AnalysisError>
 where F: Fn(f64) -> Result<f64, AnalysisError> {
     let bracket = *interval;
     let problem = Constrained::new(Equation(cost), ConstraintSet::new().with_bounds(BoxBounds::new(Some(interval.start), Some(interval.last))));
-    let search = Brent::new().with_relative_position_tolerance(tolerance.into_inner()).with_absolute_position_tolerance(resolution(bracket));
+    let search = Brent::new().with_relative_position_tolerance(tolerance.get()).with_absolute_position_tolerance(resolution(bracket));
     let executor = hooks.0.cloned().into_iter().fold(basin::Executor::new(problem, search, PointState::new(f64::midpoint(interval.start, interval.last))), basin::Executor::with_cancellation_token);
     hooks
         .1
@@ -78,7 +79,7 @@ where F: Fn(f64) -> Result<f64, AnalysisError> {
         })
 }
 
-pub fn bracketed<F>(function: F, interval: Bounds, steps: NonZero<usize>, tolerance: Option<Tolerance>, hooks: SearchHooks<'_>) -> Result<Vec<f64>, NEVec<AnalysisError>>
+pub fn bracketed<F>(function: F, interval: Bounds, steps: NonZero<usize>, tolerance: Option<StrictlyPositiveFinite>, hooks: SearchHooks<'_>) -> Result<Vec<f64>, NEVec<AnalysisError>>
 where F: Fn(f64) -> f64 + Sync {
     let count = convert::<usize, f64>(steps.get());
     let nodes = (0..steps.get())
@@ -95,7 +96,7 @@ where F: Fn(f64) -> f64 + Sync {
     let solve = |start: f64, last: f64, bound: f64| {
         let bracket = RangeInclusive { start, last };
         let found = Toms748Root::new(start, last)
-            .with_absolute_position_tolerance(tolerance.map_or_else(|| resolution(bracket), Tolerance::into_inner))
+            .with_absolute_position_tolerance(tolerance.map_or_else(|| resolution(bracket), f64::from))
             .solve(|at| finite(function(at), at))
             .map_err(|error| match error {
                 RootError::Evaluation(error) => error,
@@ -198,7 +199,7 @@ where F: Fn(DVector<DualDVec64>) -> DVector<DualDVec64> {
     let finite = |point: &DVector<f64>| refused_sites(point, |coordinate: &f64| coordinate.is_finite()).collect::<Result<(), _>>();
     finite(&start)?;
     let dimensions = start.len();
-    let tolerance = newton.tolerance.into_inner();
+    let tolerance = newton.tolerance.get();
     let evaluate = |point: DVector<DualDVec64>| {
         let values = equations(point);
         (values.len() == dimensions).ok_or(AnalysisError::Shape { input: Input::Equations, expected: dimensions, found: values.len() }).map(|()| values)

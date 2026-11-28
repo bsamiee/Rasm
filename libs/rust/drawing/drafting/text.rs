@@ -14,8 +14,10 @@ use linesweeper::FillRule;
 use nonempty_collections::NEVec;
 use parlance::{FontFamily, FontFamilyName, FontVariation, GenericFamily, Script, Tag};
 use parley::{Alignment, AlignmentOptions, Cluster, FontContext, FontFeatures, Layout, LayoutContext, LineHeight, PositionedLayoutItem, StyleProperty};
-use rasm_drawing::{Anchor, Baseline, Color, Element, FontSize, FontSizeError, Glyph, GlyphRun, Opacity, Placement, Region, Span, Target, Text, Tolerance, Width};
+use rasm_drawing::{Anchor, Baseline, Color, Element, Glyph, GlyphRun, Opacity, Placement, Region, Span, Target, Text, Width};
 use skrifa::{DrawMemory, Font, GlyphId, PathSink, ScaleError, ScalerFont};
+use typed_floats::InvalidNumber;
+use typed_floats::tf64::StrictlyPositiveFinite;
 use uom::ConstZero;
 use uom::si::f64::Angle;
 use validated::Validated;
@@ -36,10 +38,10 @@ pub enum Frame {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Output {
     Glyphs,
-    Outlines(Tolerance),
+    Outlines(StrictlyPositiveFinite),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -180,8 +182,9 @@ impl Typesetter {
 
     pub fn typeset(&mut self, text: &Text) -> Result<Block, NEVec<DraftingError>> {
         let (index, ratio) = em(self, text)?;
-        let size =
-            FontSize::try_new(text.size.into_inner() * ratio).map_err(|(FontSizeError::FiniteViolated | FontSizeError::GreaterViolated)| DraftingError::Face { index, defect: Defect::CapHeight })?;
+        let size = StrictlyPositiveFinite::new(text.size.get() * ratio).map_err(
+            |(InvalidNumber::NaN | InvalidNumber::Zero | InvalidNumber::Negative | InvalidNumber::Positive | InvalidNumber::Infinite)| DraftingError::Face { index, defect: Defect::CapHeight },
+        )?;
         let clustered = |cluster: &Cluster<'_, ()>| {
             let range = cluster.text_range();
             let end = if cluster.is_ligature_start() {
@@ -195,9 +198,9 @@ impl Typesetter {
         let mut builder = context.ranged_builder(fonts, &text.content, 1.0, false);
         builder.push_default(StyleProperty::FontFamily(text.family.clone()));
         let defaults = [
-            Some(StyleProperty::FontSize(size.into_inner().cast::<f32>())),
+            Some(StyleProperty::FontSize(size.get().cast::<f32>())),
             Some(StyleProperty::FontWeight(text.weight.into())),
-            Some(StyleProperty::FontWidth(text.width.into())),
+            Some(StyleProperty::FontWidth(parlance::FontWidth::from_ratio(text.width.get()))),
             Some(StyleProperty::FontStyle(text.style.into())),
             Some(StyleProperty::FontFeatures(FontFeatures::List(Cow::Borrowed(&text.features)))),
             text.line_height.map(|pitch| StyleProperty::LineHeight(LineHeight::Absolute(pitch.into_inner().cast::<f32>()))),
@@ -235,7 +238,7 @@ impl Typesetter {
         let along = if rtl { 1.0 - fraction(text.anchor) } else { fraction(text.anchor) };
         let down = match text.baseline {
             Baseline::Top => 0.0,
-            Baseline::Middle => layout.first_baseline().zip(layout.last_baseline()).map_or_default(|(first, last)| (f64::from(first) - text.size.into_inner()).midpoint(f64::from(last))),
+            Baseline::Middle => layout.first_baseline().zip(layout.last_baseline()).map_or_default(|(first, last)| (f64::from(first) - text.size.get()).midpoint(f64::from(last))),
             Baseline::Alphabetic => layout.first_baseline().map_or_default(f64::from),
             Baseline::Bottom => f64::from(layout.height()),
         };
@@ -288,9 +291,9 @@ impl Typesetter {
 
     #[stacksafe::stacksafe]
     pub fn shape(&mut self, elements: Vec<Element>, output: Output) -> Result<Vec<Element>, NEVec<DraftingError>> {
-        fn outlined(faces: &HashMap<(u64, u32), Face>, run: &GlyphRun, tolerance: Tolerance) -> Result<Region, NEVec<DraftingError>> {
+        fn outlined(faces: &HashMap<(u64, u32), Face>, run: &GlyphRun, tolerance: StrictlyPositiveFinite) -> Result<Region, NEVec<DraftingError>> {
             let font = instance(&registered(faces, &run.font)?.font, &run.variations);
-            let em = run.size.into_inner() / f64::from(font.units_per_em());
+            let em = run.size.get() / f64::from(font.units_per_em());
             let scaler = ScalerFont::unhinted(font, None);
             let mut path = BezPath::new();
             run.glyphs
@@ -350,7 +353,7 @@ pub(crate) fn em(typesetter: &mut Typesetter, text: &Text) -> Result<(u32, f64),
             FontFamilyName::Named(family) => QueryFamily::Named(family),
             FontFamilyName::Generic(generic) => QueryFamily::Generic(*generic),
         }));
-        query.set_attributes(Attributes::new(text.width.into(), text.style.into(), text.weight.into()));
+        query.set_attributes(Attributes::new(parlance::FontWidth::from_ratio(text.width.get()), text.style.into(), text.weight.into()));
         query.first_available_font()
     }
     .ok_or_else(|| DraftingError::Unknown { lookup: Lookup::Family, name: names.iter().join(", ").into() })?;
@@ -418,7 +421,7 @@ pub(crate) fn labelled(typesetter: &mut Typesetter, style: &Style, label: &Label
             )
         }
     };
-    let accuracy = style.tolerance.into_inner();
+    let accuracy = style.tolerance.get();
     let gap = style.gap.into_inner();
     let rect = extent.inflate(gap, gap);
     let framed = |outline: BezPath| (outline.clone(), Some(outline));

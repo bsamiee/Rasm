@@ -6,13 +6,14 @@ use cavalier_contours::shape_algorithms::{IndexedPolyline, Shape};
 use itertools::{Either, Itertools as _, iproduct};
 use nalgebra::{Point2, Vector2};
 use spade::{DelaunayTriangulation, Triangulation as _};
+use typed_floats::tf64::StrictlyPositiveFinite;
 use validated::Validated;
 
-use crate::{Closure, PlanarError, Region, Tolerance, owners, position, resulting, surviving};
+use crate::{Closure, PlanarError, Region, owners, position, resulting, surviving};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn voronoi<I>(sites: I, boundary: &Region, tolerance: Tolerance) -> Result<Vec<Region>, PlanarError>
+pub fn voronoi<I>(sites: I, boundary: &Region, tolerance: StrictlyPositiveFinite) -> Result<Vec<Region>, PlanarError>
 where I: IntoIterator<Item: Borrow<Point2<f64>>> {
     let shape = boundary.as_ref();
     let sites = sites
@@ -45,7 +46,7 @@ where I: IntoIterator<Item: Borrow<Point2<f64>>> {
         });
     let owners = owners(shape);
     let Shape { ccw_plines: bodies, cw_plines: holes, plines_index } = shape;
-    let pos_equal_eps = tolerance.into_inner();
+    let pos_equal_eps = tolerance.get();
     let clip = |source: &IndexedPolyline<f64>, other: &IndexedPolyline<f64>, operation: BooleanOp| {
         let BooleanResult { pos_plines: kept, neg_plines: carved, result_info: _ } =
             source.polyline.boolean_opt(&other.polyline, operation, &PlineBooleanOptions { pline1_aabb_index: Some(&source.spatial_index), pos_equal_eps, collapsed_area_eps: None });

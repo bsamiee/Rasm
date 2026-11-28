@@ -17,7 +17,8 @@ use nonempty_collections::{IntoNonEmptyIterator, NEVec, NonEmptyIterator as _, n
 use num_dual::DualNum;
 use num_traits::Float as _;
 use ordered_float::{FloatIsNan, NotNan};
-use rasm_stats::{Bounds, Tolerance};
+use rasm_stats::Bounds;
+use typed_floats::tf64::StrictlyPositiveFinite;
 use validated::Validated;
 
 use crate::{AnalysisError, Input, TOLERANCE, joined, refused_sites};
@@ -44,11 +45,11 @@ pub enum Weight {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Settings {
     pub degree: NonZero<usize> = NonZero::new(10).unwrap(),
-    pub absolute: Option<Tolerance> = None,
-    pub relative: Tolerance = TOLERANCE,
+    pub absolute: Option<StrictlyPositiveFinite> = None,
+    pub relative: StrictlyPositiveFinite = TOLERANCE,
     pub limit: NonZero<usize> = NonZero::new(50).unwrap(),
 }
 
@@ -121,7 +122,7 @@ where T: DualNum<Primitive = f64> {
 fn converged<T>(estimate: &DVector<T>, error: f64, settings: Settings, norm: &impl Fn(&T) -> f64) -> bool
 where T: DualNum<Primitive = f64> {
     let size = magnitude(estimate, norm);
-    size.is_finite() && error <= settings.absolute.map_or_default(Tolerance::into_inner).max(settings.relative.into_inner() * size)
+    size.is_finite() && error <= settings.absolute.map_or_default(f64::from).max(settings.relative.get() * size)
 }
 
 fn accepted<T>(integral: Integral<T>, settings: Settings, norm: &impl Fn(&T) -> f64) -> Result<Integral<T>, AnalysisError>

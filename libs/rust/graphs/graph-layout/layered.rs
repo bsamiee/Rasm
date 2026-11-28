@@ -9,10 +9,9 @@ use petgraph::EdgeType;
 use petgraph::graph::GraphIndex;
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
 use petgraph::visit::NodeIndexable as _;
+use typed_floats::tf64::PositiveFinite;
 
-use crate::{
-    CurveStyle, Distance, Drawing, Extent, Hierarchy, Interpolation, LayoutError, Node, crossing, drawn, hierarchy, is_cluster, linked, nesting, non_cluster, offsets, outline, path, route, titled,
-};
+use crate::{CurveStyle, Drawing, Extent, Hierarchy, Interpolation, LayoutError, Node, crossing, drawn, hierarchy, is_cluster, linked, nesting, non_cluster, offsets, outline, path, route, titled};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -46,14 +45,14 @@ pub enum Align {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Options {
     pub rankdir: Option<RankDir> = None,
-    pub nodesep: Option<Distance> = None,
-    pub ranksep: Option<Distance> = None,
-    pub edgesep: Option<Distance> = None,
-    pub marginx: Option<Distance> = None,
-    pub marginy: Option<Distance> = None,
+    pub nodesep: Option<PositiveFinite> = None,
+    pub ranksep: Option<PositiveFinite> = None,
+    pub edgesep: Option<PositiveFinite> = None,
+    pub marginx: Option<PositiveFinite> = None,
+    pub marginy: Option<PositiveFinite> = None,
     pub ranker: Option<Ranker> = None,
     pub acyclicer: Option<Acyclicer> = None,
     pub align: Option<Align> = None,
@@ -63,7 +62,7 @@ pub struct Options {
 pub struct Label {
     pub extent: Extent,
     pub labelpos: Option<LabelPos> = None,
-    pub labeloffset: Option<Distance> = None,
+    pub labeloffset: Option<PositiveFinite> = None,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -96,11 +95,11 @@ where
     let defaults = GraphLabel::default();
     layered.set_graph(GraphLabel {
         rankdir: rankdir.unwrap_or(defaults.rankdir),
-        nodesep: nodesep.map_or(defaults.nodesep, Distance::into_inner),
-        ranksep: ranksep.map_or(defaults.ranksep, Distance::into_inner),
-        edgesep: edgesep.map_or(defaults.edgesep, Distance::into_inner),
-        marginx: marginx.map_or(defaults.marginx, Distance::into_inner),
-        marginy: marginy.map_or(defaults.marginy, Distance::into_inner),
+        nodesep: nodesep.map_or(defaults.nodesep, f64::from),
+        ranksep: ranksep.map_or(defaults.ranksep, f64::from),
+        edgesep: edgesep.map_or(defaults.edgesep, f64::from),
+        marginx: marginx.map_or(defaults.marginx, f64::from),
+        marginy: marginy.map_or(defaults.marginy, f64::from),
         align: align.as_ref().map(ToString::to_string),
         ranker: ranker.as_ref().map(ToString::to_string),
         acyclicer: acyclicer.as_ref().map(ToString::to_string),
@@ -127,7 +126,7 @@ where
     }
     let edge_label = |Label { extent, labelpos, labeloffset }: Label| {
         let (Size { width, height }, edge_defaults) = (extent.into_inner(), EdgeLabel::default());
-        EdgeLabel { width, height, labelpos: labelpos.unwrap_or(edge_defaults.labelpos), labeloffset: labeloffset.map_or(edge_defaults.labeloffset, Distance::into_inner), ..edge_defaults }
+        EdgeLabel { width, height, labelpos: labelpos.unwrap_or(edge_defaults.labelpos), labeloffset: labeloffset.map_or(edge_defaults.labeloffset, f64::from), ..edge_defaults }
     };
     for &(index, source, target, Edge { label, minlen, weight, interpolation: _ }) in &ranked {
         layered.set_edge_named(id(non_cluster(source)), id(non_cluster(target)), Some(id(index)), Some(EdgeLabel { minlen, weight: f64::from(weight), ..label.map_or_default(edge_label) }));

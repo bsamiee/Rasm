@@ -13,7 +13,9 @@ use kurbo::{Affine, Point, Rect, Shape as _, Vec2};
 use linesweeper::FillRule;
 use nonempty_collections::NEVec;
 use parlance::{FontFamily, FontFamilyName};
-use rasm_drawing::{Anchor, Baseline, FontSize, FontSizeError, FontStyle, FontWeight, Placement, Region, Span, Tolerance, Width, WidthError};
+use rasm_drawing::{Anchor, Baseline, FontStyle, FontWeight, Placement, Region, Span, Width, WidthError};
+use typed_floats::InvalidNumber;
+use typed_floats::tf64::StrictlyPositiveFinite;
 use validated::Validated;
 
 use super::curves::ocs;
@@ -33,29 +35,29 @@ pub(super) fn lifted(
     styles: &Table<TextStyle>,
     families: &[FontFamilyName<'static>],
     frame: Affine,
-    tolerance: Tolerance,
+    tolerance: StrictlyPositiveFinite,
     subject: &Subject,
 ) -> Result<Lettering, NEVec<CadError>> {
     const fn weighted(bold: bool) -> FontWeight { if bold { const { FontWeight::try_new(parlance::FontWeight::BOLD.value()).ok().unwrap() } } else { FontWeight::NORMAL } }
     const fn slanted(italic: bool) -> FontStyle { if italic { FontStyle::Italic } else { FontStyle::Normal } }
     let refused = |reason| CadError::Refused { subject: subject.clone(), reason };
     let misshapen = |source| CadError::Geometry { subject: subject.clone(), source };
-    let typeface = |style: Option<&TextStyle>, height: f64| -> Result<(FontSize, FontFamily<'static>, FontWeight, FontStyle), CadError> {
+    let typeface = |style: Option<&TextStyle>, height: f64| -> Result<(StrictlyPositiveFinite, FontFamily<'static>, FontWeight, FontStyle), CadError> {
         const ITALIC: i32 = 0x0100_0000;
         const BOLD: i32 = 0x0200_0000;
         let flagged = |bit: i32| style.is_some_and(|style| style.true_type_font_flags & bit != 0);
-        FontSize::try_new(Some(height).filter(|stated| *stated > 0.0).or_else(|| style.map(|style| style.height)).unwrap_or_default())
+        StrictlyPositiveFinite::new(Some(height).filter(|stated| *stated > 0.0).or_else(|| style.map(|style| style.height)).unwrap_or_default())
             .map(|size| {
                 let face = style.map(|style| style.true_type_font.trim()).filter(|face| !face.is_empty()).map(|face| FontFamilyName::Named(Cow::Owned(face.to_owned())));
                 (size, FontFamily::List(iter::chain(face, families.iter().cloned()).collect()), weighted(flagged(BOLD)), slanted(flagged(ITALIC)))
             })
-            .map_err(|(FontSizeError::FiniteViolated | FontSizeError::GreaterViolated)| refused(Refusal::Height))
+            .map_err(|(InvalidNumber::NaN | InvalidNumber::Zero | InvalidNumber::Negative | InvalidNumber::Positive | InvalidNumber::Infinite)| refused(Refusal::Height))
     };
-    let align = |vertical: TextVerticalAlignment, size: FontSize| match vertical {
+    let align = |vertical: TextVerticalAlignment, size: StrictlyPositiveFinite| match vertical {
         TextVerticalAlignment::Baseline => (Baseline::Alphabetic, Affine::IDENTITY),
         TextVerticalAlignment::Bottom => (Baseline::Bottom, Affine::IDENTITY),
         TextVerticalAlignment::Middle => (Baseline::Middle, Affine::IDENTITY),
-        TextVerticalAlignment::Top => (Baseline::Alphabetic, Affine::translate((0.0, -size.into_inner()))),
+        TextVerticalAlignment::Top => (Baseline::Alphabetic, Affine::translate((0.0, -size.get()))),
     };
     let single = |text: &Text| -> Result<rasm_drawing::Text, CadError> {
         let (size, family, weight, style) = typeface(styles.get(&text.style), text.height)?;
@@ -141,7 +143,7 @@ pub(super) fn lifted(
         let background = fill
             .zip(wide.zip(tall))
             .map(|(color, (wide, tall))| {
-                let margin = (mtext.background_scale - 1.0) * size.into_inner();
+                let margin = (mtext.background_scale - 1.0) * size.get();
                 let share = match anchor {
                     Anchor::Start => 0.0,
                     Anchor::Middle => 0.5,
@@ -153,7 +155,7 @@ pub(super) fn lifted(
                     TextVerticalAlignment::Middle => tall / 2.0,
                     TextVerticalAlignment::Bottom => tall,
                 };
-                let mut outline = Rect::new(left - margin, top - tall - margin, left + wide + margin, top + margin).to_path(tolerance.into_inner());
+                let mut outline = Rect::new(left - margin, top - tall - margin, left + wide + margin, top + margin).to_path(tolerance.get());
                 outline.apply_affine(plane);
                 Region::new(outline, FillRule::NonZero, tolerance).map(|region| (region, color))
             })
@@ -163,7 +165,7 @@ pub(super) fn lifted(
             .map4(
                 Validated::from(Placement::try_new(plane * Affine::scale_non_uniform(widening, 1.0) * shift * Affine::FLIP_Y).map_err(misshapen)),
                 Validated::from(Some(mtext.rectangle_width / widening).filter(|advance| *advance > 0.0).map(Width::try_new).transpose().map_err(widthless)),
-                Validated::from(Some(mtext.line_spacing_factor).filter(|factor| *factor > 0.0).map(|factor| Width::try_new(size.into_inner() * factor * 5.0 / 3.0)).transpose().map_err(widthless)),
+                Validated::from(Some(mtext.line_spacing_factor).filter(|factor| *factor > 0.0).map(|factor| Width::try_new(size.get() * factor * 5.0 / 3.0)).transpose().map_err(widthless)),
                 |background, placement, max_advance, line_height| Lettering {
                     text: rasm_drawing::Text { content: content.into(), family, size, placement, weight, style, anchor, baseline, max_advance, line_height, spans, .. },
                     background,
@@ -182,7 +184,7 @@ pub(super) fn written(text: &rasm_drawing::Text, frame: Affine) -> (EntityType, 
     let determinant = local.determinant();
     let (area, mirrored) = (determinant.abs(), determinant.is_sign_negative());
     let (scale, width, slant) = (area / axis.hypot(), axis.hypot2() / area, axis.dot(rise) / area);
-    let size = text.size.into_inner();
+    let size = text.size.get();
     let face = match &text.family {
         FontFamily::Source(source) => FontFamilyName::parse(source).map(FontFamilyName::into_owned),
         FontFamily::Single(name) => Some(name.clone()),

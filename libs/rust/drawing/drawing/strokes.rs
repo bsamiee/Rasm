@@ -3,17 +3,18 @@ use std::borrow::Cow;
 
 use itertools::Itertools as _;
 use kurbo::{BezPath, PathEl, PathSeg, Shape as _, Stroke, StrokeOpts, Vec2, segments, stroke};
+use typed_floats::tf64::StrictlyPositiveFinite;
 
-use crate::{Alignment, Linetype, Pen, Tolerance};
+use crate::{Alignment, Linetype, Pen};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 #[must_use]
-pub fn phases<'path>(path: &'path BezPath, linetype: &Linetype, tolerance: Tolerance) -> Vec<(Cow<'path, [PathEl]>, f64, kurbo::Dashes)> {
+pub fn phases<'path>(path: &'path BezPath, linetype: &Linetype, tolerance: StrictlyPositiveFinite) -> Vec<(Cow<'path, [PathEl]>, f64, kurbo::Dashes)> {
     let pattern = linetype.dashes.iter().copied().collect::<kurbo::Dashes>();
     let first = *linetype.dashes.first();
     let period = linetype.dashes.iter().sum::<f64>();
-    let length = |elements: &[PathEl]| elements.perimeter(tolerance.into_inner() / nalgebra::convert::<usize, f64>(segments(elements.iter().copied()).count()));
+    let length = |elements: &[PathEl]| elements.perimeter(tolerance.get() / nalgebra::convert::<usize, f64>(segments(elements.iter().copied()).count()));
     let fitted = |piece: Cow<'path, [PathEl]>| {
         let length = length(&piece);
         let scale = length / ((length / period).round().max(1.0_f64) * period);
@@ -22,7 +23,7 @@ pub fn phases<'path>(path: &'path BezPath, linetype: &Linetype, tolerance: Toler
     path.subpaths()
         .filter(|elements| segments(elements.iter().copied()).next().is_some())
         .flat_map(|elements| match linetype.alignment {
-            Alignment::Start { dash_offset } => vec![(Cow::Borrowed(elements), dash_offset.into_inner(), pattern.clone())],
+            Alignment::Start { dash_offset } => vec![(Cow::Borrowed(elements), dash_offset.get(), pattern.clone())],
             Alignment::Center => vec![(Cow::Borrowed(elements), first.midpoint(-length(elements)), pattern.clone())],
             Alignment::Corners { angle } => {
                 let corner = |(_, (_, incoming)): &(PathSeg, (Vec2, Vec2)), (_, (outgoing, _)): &(PathSeg, (Vec2, Vec2))| crate::deflection(*incoming, *outgoing) > angle.into_inner();
@@ -41,13 +42,13 @@ pub fn phases<'path>(path: &'path BezPath, linetype: &Linetype, tolerance: Toler
 }
 
 #[must_use]
-pub fn dash(path: &BezPath, linetype: &Linetype, tolerance: Tolerance) -> BezPath { joined(&phases(path, linetype, tolerance), tolerance).collect() }
+pub fn dash(path: &BezPath, linetype: &Linetype, tolerance: StrictlyPositiveFinite) -> BezPath { joined(&phases(path, linetype, tolerance), tolerance).collect() }
 
 #[must_use]
-pub fn outline(path: &BezPath, pen: &Pen, linetype: Option<&Linetype>, tolerance: Tolerance) -> BezPath {
+pub fn outline(path: &BezPath, pen: &Pen, linetype: Option<&Linetype>, tolerance: StrictlyPositiveFinite) -> BezPath {
     let dotted = |pattern: &kurbo::Dashes| {
         let (pairs, _) = pattern.as_chunks::<2>();
-        let dot = pairs.iter().filter_map(|&[on, off]| (on <= 0.0_f64).then_some(off)).reduce(f64::min).map_or_default(|gap| gap.min(tolerance.into_inner()));
+        let dot = pairs.iter().filter_map(|&[on, off]| (on <= 0.0_f64).then_some(off)).reduce(f64::min).map_or_default(|gap| gap.min(tolerance.get()));
         (dot / 2.0_f64, pairs.iter().flat_map(|&[on, off]| if on <= 0.0_f64 { [dot, off - dot] } else { [on, off] }).collect::<kurbo::Dashes>())
     };
     let centerline = linetype.map_or(Cow::Borrowed(path), |linetype| {
@@ -60,20 +61,14 @@ pub fn outline(path: &BezPath, pen: &Pen, linetype: Option<&Linetype>, tolerance
             .collect::<Vec<_>>();
         Cow::Owned(joined(&pieces, tolerance).collect())
     });
-    stroke(
-        centerline.iter(),
-        &Stroke::new(pen.width.into_inner()).with_caps(pen.cap).with_join(pen.join).with_miter_limit(pen.miter_limit.into_inner()),
-        &StrokeOpts::default(),
-        tolerance.into_inner(),
-    )
+    stroke(centerline.iter(), &Stroke::new(pen.width.into_inner()).with_caps(pen.cap).with_join(pen.join).with_miter_limit(pen.miter_limit.into_inner()), &StrokeOpts::default(), tolerance.get())
 }
 
-fn joined(pieces: &[(Cow<'_, [PathEl]>, f64, kurbo::Dashes)], tolerance: Tolerance) -> impl Iterator<Item = PathEl> {
+fn joined(pieces: &[(Cow<'_, [PathEl]>, f64, kurbo::Dashes)], tolerance: StrictlyPositiveFinite) -> impl Iterator<Item = PathEl> {
     let touching = move |left: &[PathEl], right: &[PathEl]| {
-        left.last().and_then(PathEl::end_point).zip(right.first().and_then(PathEl::end_point)).is_some_and(|(end, start)| end.distance(start) <= tolerance.into_inner())
+        left.last().and_then(PathEl::end_point).zip(right.first().and_then(PathEl::end_point)).is_some_and(|(end, start)| end.distance(start) <= tolerance.get())
     };
-    let leaves =
-        move |part: &[PathEl]| part.first().and_then(PathEl::end_point).is_some_and(|start| part.iter().filter_map(PathEl::end_point).any(|point| point.distance(start) > tolerance.into_inner()));
+    let leaves = move |part: &[PathEl]| part.first().and_then(PathEl::end_point).is_some_and(|start| part.iter().filter_map(PathEl::end_point).any(|point| point.distance(start) > tolerance.get()));
     pieces.chunk_by(|(left, _, _), (right, _, _)| left.last().and_then(PathEl::end_point).is_some_and(|end| right.first() == Some(&PathEl::MoveTo(end)))).flat_map(move |group| {
         let mut parts = group
             .iter()

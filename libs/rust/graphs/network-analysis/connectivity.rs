@@ -8,8 +8,9 @@ use petgraph::algo::kosaraju_scc;
 use petgraph::graphmap::UnGraphMap;
 use petgraph::visit::{EdgeRef as _, IntoNeighborsDirected};
 use rustworkx_core::connectivity::{articulation_points, connected_components, stoer_wagner_min_cut};
+use typed_floats::tf64::PositiveFinite;
 
-use crate::{Network, Weight, compact};
+use crate::{Network, compact};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -71,9 +72,9 @@ where G: Network {
 }
 
 #[must_use]
-pub fn min_cut<G>(graph: G, weight: impl Fn(G::EdgeRef) -> Weight) -> Option<Cut<G::NodeId, G::EdgeId>>
+pub fn min_cut<G>(graph: G, weight: impl Fn(G::EdgeRef) -> PositiveFinite) -> Option<Cut<G::NodeId, G::EdgeId>>
 where G: Network {
-    let network = compact(graph, |edge| (OrderedFloat(weight(edge).into_inner()), edge.id())).into_edge_type::<Undirected>();
+    let network = compact(graph, |edge| (OrderedFloat(weight(edge).get()), edge.id())).into_edge_type::<Undirected>();
     let cut = stoer_wagner_min_cut(&network, |edge| Ok::<_, !>(edge.weight().0)).into_ok();
     cut.map(|(OrderedFloat(value), side)| {
         let side = side.into_iter().collect::<BTreeSet<_>>();

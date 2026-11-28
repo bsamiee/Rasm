@@ -9,9 +9,11 @@ use parry3d_f64::math::Vector;
 use parry3d_f64::partitioning::{Bvh, BvhBuildStrategy, BvhNode};
 use parry3d_f64::query::{Ray, RayCast as _};
 use parry3d_f64::shape::Triangle;
-use rasm_drawing::{EdgeKind, Tolerance, Visibility};
-use rasm_proximity::{Assembly, Distance, DistanceError, rays};
+use rasm_drawing::{EdgeKind, Visibility};
+use rasm_proximity::{Assembly, rays};
 use rayon::iter::{Either, IndexedParallelIterator as _, IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
+use typed_floats::InvalidNumber;
+use typed_floats::tf64::{PositiveFinite, StrictlyPositiveFinite};
 
 use crate::{Feature, Frame, Prepared, Scene, ViewsError, clip, depth, picture, ray};
 
@@ -33,8 +35,8 @@ pub(crate) struct Piece {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub(crate) fn lines(frame: &Frame, scene: &Scene, features: Vec<Feature>, tolerance: Tolerance) -> Result<Lines, ViewsError> {
-    let tolerance = tolerance.into_inner();
+pub(crate) fn lines(frame: &Frame, scene: &Scene, features: Vec<Feature>, tolerance: StrictlyPositiveFinite) -> Result<Lines, ViewsError> {
+    let tolerance = tolerance.get();
     let squared = tolerance.powi(2);
     let assembly: &Bvh = Assembly::as_ref(&scene.assembly);
     let cell = |point: Point| (point.to_vec2() / (tolerance * FRAC_1_SQRT_2)).round();
@@ -205,9 +207,9 @@ pub(crate) fn lines(frame: &Frame, scene: &Scene, features: Vec<Feature>, tolera
         })
         .partition_map(|(piece, middle)| {
             let (start, _) = sight(&middle);
-            match Unit::try_new_and_get(middle - start, 0.0).filter(|_| depth(frame, &middle) > tolerance).map(|(direction, length)| (direction, Distance::try_new(length))) {
+            match Unit::try_new_and_get(middle - start, 0.0).filter(|_| depth(frame, &middle) > tolerance).map(|(direction, length)| (direction, PositiveFinite::new(length))) {
                 Some((direction, Ok(reach))) => Either::Right((piece, (start - direction.scale(tolerance), direction, ..reach))),
-                None | Some((_, Err(DistanceError::FiniteViolated | DistanceError::GreaterOrEqualViolated))) => Either::Left(piece),
+                None | Some((_, Err(InvalidNumber::NaN | InvalidNumber::Zero | InvalidNumber::Negative | InvalidNumber::Positive | InvalidNumber::Infinite))) => Either::Left(piece),
             }
         });
     let verdicts = rays::occluded(&scene.assembly, far.par_iter().map(|&(_, cast)| cast))?;

@@ -10,9 +10,11 @@ use linesweeper::{BinaryOp, FillRule};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use parlance::{FontFamily, FontFamilyName, GenericFamily};
 use rasm_drawing::{
-    Alignment, Anchor, Baseline, Color, Content, Dash, DashOffset, DashOffsetError, Dashes, DashesError, Element, FontSize, FontSizeError, FontStyle, FontWeight, FontWeightError, FontWidth, Linetype,
-    LineworkError, MiterLimit, MiterLimitError, Opacity, Path, Pen, Placement, Region, Side, Target, Text, Tolerance, ToleranceError, Unit, Width, WidthError, regions, strokes,
+    Alignment, Anchor, Baseline, Color, Content, Dash, Dashes, DashesError, Element, FontStyle, FontWeight, FontWeightError, Linetype, LineworkError, MiterLimit, MiterLimitError, Opacity, Path, Pen,
+    Placement, Region, Side, Target, Text, Unit, Width, WidthError, regions, strokes,
 };
+use typed_floats::tf64::{NonNaNFinite, StrictlyPositiveFinite};
+use typed_floats::{InvalidNumber, tf32};
 use uom::ConstZero;
 use uom::si::angle::radian;
 use uom::si::f64::{Angle, Length};
@@ -59,8 +61,8 @@ pub struct Definition {
 }
 
 impl Definition {
-    pub fn new(typesetter: &mut Typesetter, svg: &[u8], base: &Base, unit: Unit, tolerance: Tolerance) -> Result<Self, NEVec<DraftingError>> {
-        fn lowered(group: &Group, basis: Affine, tolerance: Tolerance, typesetter: &mut Typesetter) -> Validated<Lowered, DraftingError> {
+    pub fn new(typesetter: &mut Typesetter, svg: &[u8], base: &Base, unit: Unit, tolerance: StrictlyPositiveFinite) -> Result<Self, NEVec<DraftingError>> {
+        fn lowered(group: &Group, basis: Affine, tolerance: StrictlyPositiveFinite, typesetter: &mut Typesetter) -> Validated<Lowered, DraftingError> {
             let basis = basis * affine(group.transform());
             let shaped = |path: &usvg::Path| -> Validated<Vec<Element>, DraftingError> {
                 let local = outline(path);
@@ -158,15 +160,15 @@ impl Definition {
             );
             let em = f64::from(span.font_size().get()) * scale;
             let stretch = match font.stretch() {
-                FontStretch::UltraCondensed => const { FontWidth::try_new(parlance::FontWidth::ULTRA_CONDENSED.ratio()).ok().unwrap() },
-                FontStretch::ExtraCondensed => const { FontWidth::try_new(parlance::FontWidth::EXTRA_CONDENSED.ratio()).ok().unwrap() },
-                FontStretch::Condensed => const { FontWidth::try_new(parlance::FontWidth::CONDENSED.ratio()).ok().unwrap() },
-                FontStretch::SemiCondensed => const { FontWidth::try_new(parlance::FontWidth::SEMI_CONDENSED.ratio()).ok().unwrap() },
-                FontStretch::Normal => FontWidth::NORMAL,
-                FontStretch::SemiExpanded => const { FontWidth::try_new(parlance::FontWidth::SEMI_EXPANDED.ratio()).ok().unwrap() },
-                FontStretch::Expanded => const { FontWidth::try_new(parlance::FontWidth::EXPANDED.ratio()).ok().unwrap() },
-                FontStretch::ExtraExpanded => const { FontWidth::try_new(parlance::FontWidth::EXTRA_EXPANDED.ratio()).ok().unwrap() },
-                FontStretch::UltraExpanded => const { FontWidth::try_new(parlance::FontWidth::ULTRA_EXPANDED.ratio()).ok().unwrap() },
+                FontStretch::UltraCondensed => const { tf32::StrictlyPositiveFinite::new(parlance::FontWidth::ULTRA_CONDENSED.ratio()).ok().unwrap() },
+                FontStretch::ExtraCondensed => const { tf32::StrictlyPositiveFinite::new(parlance::FontWidth::EXTRA_CONDENSED.ratio()).ok().unwrap() },
+                FontStretch::Condensed => const { tf32::StrictlyPositiveFinite::new(parlance::FontWidth::CONDENSED.ratio()).ok().unwrap() },
+                FontStretch::SemiCondensed => const { tf32::StrictlyPositiveFinite::new(parlance::FontWidth::SEMI_CONDENSED.ratio()).ok().unwrap() },
+                FontStretch::Normal => const { tf32::StrictlyPositiveFinite::new(parlance::FontWidth::NORMAL.ratio()).ok().unwrap() },
+                FontStretch::SemiExpanded => const { tf32::StrictlyPositiveFinite::new(parlance::FontWidth::SEMI_EXPANDED.ratio()).ok().unwrap() },
+                FontStretch::Expanded => const { tf32::StrictlyPositiveFinite::new(parlance::FontWidth::EXPANDED.ratio()).ok().unwrap() },
+                FontStretch::ExtraExpanded => const { tf32::StrictlyPositiveFinite::new(parlance::FontWidth::EXTRA_EXPANDED.ratio()).ok().unwrap() },
+                FontStretch::UltraExpanded => const { tf32::StrictlyPositiveFinite::new(parlance::FontWidth::ULTRA_EXPANDED.ratio()).ok().unwrap() },
             };
             let family = FontFamily::List(Cow::Owned(
                 font.families()
@@ -292,7 +294,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
     let factor = basis.determinant().abs().sqrt();
     let scaled = |distance: Width| width(distance.into_inner() * factor, Feature::Font);
     let mut filled_slot = |Slot { lettering, content: authored, basis: local, anchor, baseline, fit }: &Slot, content: Option<&Arc<str>>| -> Result<Graphics, NEVec<DraftingError>> {
-        let label = Validated::from(font_size(lettering.size.into_inner() * factor))
+        let label = Validated::from(font_size(lettering.size.get() * factor))
             .map3(Validated::from(lettering.line_height.map(scaled).transpose()), Validated::from(fit.map(scaled).transpose()), |size, line_height, fit| Label {
                 content: Arc::clone(content.unwrap_or(authored)),
                 lettering: Some(Lettering { size, line_height, ..lettering.clone() }),
@@ -316,7 +318,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
     unknown.map3(validated(placed), set, |(), drawn, texts| [drawn, texts].into_iter().collect()).ok()
 }
 
-fn traced(stroke: &usvg::Stroke, local: &BezPath, basis: Affine, tolerance: Tolerance) -> Validated<Element, DraftingError> {
+fn traced(stroke: &usvg::Stroke, local: &BezPath, basis: Affine, tolerance: StrictlyPositiveFinite) -> Validated<Element, DraftingError> {
     let magnitude = basis.determinant().abs();
     let scale = magnitude.sqrt();
     let major = basis.spectral_norm();
@@ -346,19 +348,24 @@ fn traced(stroke: &usvg::Stroke, local: &BezPath, basis: Affine, tolerance: Tole
             .as_ref()
             .and_then(|(lengths, offset)| lengths.iter().map(|length| length * factor).try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>).map(|scaled| (scaled, offset * factor)))
             .map_or(Validated::Good(None), |(lengths, offset)| {
-                Validated::from(Dashes::try_new(lengths).map_err(|DashesError::PredicateViolated| DraftingError::from(LineworkError::Scaled(Dash::Array))))
-                    .map2(Validated::from(DashOffset::try_new(offset).map_err(|DashOffsetError::FiniteViolated| DraftingError::from(LineworkError::Scaled(Dash::Offset)))), |dashes, dash_offset| {
-                        Some(Linetype { dashes, alignment: Alignment::Start { dash_offset }, target: Target::Drafting })
-                    })
+                Validated::from(Dashes::try_new(lengths).map_err(|DashesError::PredicateViolated| DraftingError::from(LineworkError::Scaled(Dash::Array)))).map2(
+                    Validated::from(NonNaNFinite::new(offset).map_err(|(InvalidNumber::NaN | InvalidNumber::Zero | InvalidNumber::Negative | InvalidNumber::Positive | InvalidNumber::Infinite)| {
+                        DraftingError::from(LineworkError::Scaled(Dash::Offset))
+                    })),
+                    |dashes, dash_offset| Some(Linetype { dashes, alignment: Alignment::Start { dash_offset }, target: Target::Drafting }),
+                )
             })
     };
-    let reach = dashing.as_ref().map_or(line_width * 0.5, |_| local.perimeter(tolerance.into_inner() / major).max(line_width * 0.5));
-    if (major - minor) * reach > tolerance.into_inner() {
+    let reach = dashing.as_ref().map_or(line_width * 0.5, |_| local.perimeter(tolerance.get() / major).max(line_width * 0.5));
+    if (major - minor) * reach > tolerance.get() {
         validated(
             pen(1.0)
                 .map3(
                     linetype(1.0),
-                    Validated::from(Tolerance::try_new(tolerance.into_inner() / major).map_err(|(ToleranceError::FiniteViolated | ToleranceError::GreaterViolated)| unsupported())),
+                    Validated::from(
+                        StrictlyPositiveFinite::new(tolerance.get() / major)
+                            .map_err(|(InvalidNumber::NaN | InvalidNumber::Zero | InvalidNumber::Negative | InvalidNumber::Positive | InvalidNumber::Infinite)| unsupported()),
+                    ),
                     |pen, linetype, accuracy| (pen, linetype, accuracy),
                 )
                 .ok()
@@ -383,8 +390,9 @@ fn width(value: f64, feature: Feature) -> Result<Width, DraftingError> {
     Width::try_new(value).map_err(|(WidthError::FiniteViolated | WidthError::GreaterOrEqualViolated)| DraftingError::Unsupported(feature))
 }
 
-fn font_size(value: f64) -> Result<FontSize, DraftingError> {
-    FontSize::try_new(value).map_err(|(FontSizeError::FiniteViolated | FontSizeError::GreaterViolated)| DraftingError::Unsupported(Feature::Font))
+fn font_size(value: f64) -> Result<StrictlyPositiveFinite, DraftingError> {
+    StrictlyPositiveFinite::new(value)
+        .map_err(|(InvalidNumber::NaN | InvalidNumber::Zero | InvalidNumber::Negative | InvalidNumber::Positive | InvalidNumber::Infinite)| DraftingError::Unsupported(Feature::Font))
 }
 
 fn painted(paint: &Paint, opacity: usvg::Opacity) -> Result<(Color, Opacity), DraftingError> {
@@ -395,8 +403,8 @@ fn painted(paint: &Paint, opacity: usvg::Opacity) -> Result<(Color, Opacity), Dr
     }
 }
 
-fn clipped(clip: Option<&ClipPath>, basis: Affine, tolerance: Tolerance) -> Result<Option<Region>, NEVec<DraftingError>> {
-    fn area(group: &Group, basis: Affine, tolerance: Tolerance) -> Validated<Region, DraftingError> {
+fn clipped(clip: Option<&ClipPath>, basis: Affine, tolerance: StrictlyPositiveFinite) -> Result<Option<Region>, NEVec<DraftingError>> {
+    fn area(group: &Group, basis: Affine, tolerance: StrictlyPositiveFinite) -> Validated<Region, DraftingError> {
         let basis = basis * affine(group.transform());
         let shapes = group
             .children()
@@ -415,7 +423,7 @@ fn clipped(clip: Option<&ClipPath>, basis: Affine, tolerance: Tolerance) -> Resu
     clip.map(|clip_path| bounded(area(clip_path.root(), basis * affine(clip_path.transform()), tolerance), clip_path.clip_path(), basis, tolerance)).transpose()
 }
 
-fn bounded(shape: Validated<Region, DraftingError>, clip: Option<&ClipPath>, basis: Affine, tolerance: Tolerance) -> Result<Region, NEVec<DraftingError>> {
+fn bounded(shape: Validated<Region, DraftingError>, clip: Option<&ClipPath>, basis: Affine, tolerance: StrictlyPositiveFinite) -> Result<Region, NEVec<DraftingError>> {
     shape.map2(validated(clipped(clip, basis, tolerance)), |shape, bound| (shape, bound)).ok().and_then(|(shape, bound)| match bound {
         None => Ok(shape),
         Some(region) => regions::boolean(&region, [&shape], BinaryOp::Intersection, tolerance).map_err(|error| DraftingError::from(error).into()),

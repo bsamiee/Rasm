@@ -24,6 +24,7 @@ derive_more     = { workspace = true }
 itertools       = { workspace = true }
 bounded-integer = { workspace = true }
 nutype          = { workspace = true }
+typed_floats    = { workspace = true }
 nalgebra        = { workspace = true }
 manifold-rust   = { workspace = true }
 meshopt         = { workspace = true }

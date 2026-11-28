@@ -23,7 +23,7 @@ thiserror            = { workspace = true }
 validated            = { workspace = true }
 derive_more          = { workspace = true }
 itertools            = { workspace = true }
-nutype               = { workspace = true }
+typed_floats         = { workspace = true }
 nalgebra             = { workspace = true }
 cavalier_contours    = { workspace = true }
 spade                = { workspace = true }

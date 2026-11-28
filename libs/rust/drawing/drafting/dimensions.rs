@@ -6,7 +6,8 @@ use itertools::{EitherOrBoth, Itertools as _};
 use kurbo::{Affine, Axis, Circle, Line, ParamCurve, PathEl, Point, Shape, Vec2};
 use linesweeper::BinaryOp;
 use nonempty_collections::NEVec;
-use rasm_drawing::{Anchor, Baseline, Element, FontSize, Placement, Region, Side, Width, regions};
+use rasm_drawing::{Anchor, Baseline, Element, Placement, Region, Side, Width, regions};
+use typed_floats::tf64::StrictlyPositiveFinite;
 use uom::marker;
 use uom::si::angle::radian;
 use uom::si::f64::{Angle, Length};
@@ -53,7 +54,7 @@ pub struct Style {
     pub overshoot: Width,
     pub overrun: Option<Width> = None,
     pub substitute: Option<Head> = None,
-    pub stack_size: Option<FontSize> = None,
+    pub stack_size: Option<StrictlyPositiveFinite> = None,
     pub alternate: Option<notation::Linear> = None,
 }
 
@@ -192,7 +193,7 @@ pub(crate) fn draw(shaper: &mut Typesetter, style: &crate::Style, placement: Pla
     }
     fn spanned<C>(typesetter: &mut Typesetter, style: &crate::Style, labels: &[Label], curve: &C, heads: EitherOrBoth<(), ()>, position: Option<Point>) -> Result<Graphics, NEVec<DraftingError>>
     where C: ParamCurve + Shape {
-        let accuracy = style.tolerance.into_inner();
+        let accuracy = style.tolerance.get();
         let settings = &style.dimension;
         let [size, overshoot] = [settings.terminator.size, settings.overshoot].map(Width::into_inner);
         let tangent = |at: f64| {
@@ -264,12 +265,12 @@ pub(crate) fn draw(shaper: &mut Typesetter, style: &crate::Style, placement: Pla
             Extension::Drawn => (reach > gap).then_some(gap / reach),
             Extension::Fixed(length) => (reach > 0.0).then_some(1.0 - (length.into_inner() - overshoot) / reach),
         }?;
-        Some(stroked(Line::new(feature, foot).subsegment(start..overshoot / reach + 1.0).to_path(style.tolerance.into_inner()), &style.pen, None))
+        Some(stroked(Line::new(feature, foot).subsegment(start..overshoot / reach + 1.0).to_path(style.tolerance.get()), &style.pen, None))
     };
     let beside =
         |typesetter: &mut Typesetter, labels: &[Label], at: Point, direction: Vec2| row(typesetter, style, labels, direction).and_then(|strip| placed(style, strip, at, direction, Anchor::Start));
     let linear = |typesetter: &mut Typesetter, Linear { origin, ends, direction, oblique, offset, arrangement, tolerancing }: &Linear| {
-        let accuracy = style.tolerance.into_inner();
+        let accuracy = style.tolerance.get();
         let overshoot = style.dimension.overshoot.into_inner();
         let measuring = direction.map_or_else(|| (*ends.last() - *origin).normalize(), |angle| Vec2::from_angle(angle.get::<radian>()));
         let paper = directed(*placement, measuring).normalize();
@@ -382,7 +383,7 @@ pub(crate) fn draw(shaper: &mut Typesetter, style: &crate::Style, placement: Pla
         }
     };
     let arc_length = |typesetter: &mut Typesetter, ArcLength { arc, offset, tolerancing }: &ArcLength| {
-        let accuracy = style.tolerance.into_inner();
+        let accuracy = style.tolerance.get();
         let center = *placement * arc.center;
         let [start, middle, end] = [arc.start(), arc.eval(0.5), arc.end()].map(|point| *placement * point);
         let radius = center.distance(start) + offset;
