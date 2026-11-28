@@ -9,6 +9,8 @@ arguments: [target, concern]
 
 Reduction rebuilds logic until each fact and operation sits once, at the source stating it: language, standard library, host, package, or upstream declaration. Models hold valid states alone: construction excludes invalid ones, no guard rechecks them, and foreign input is validated once at its boundary. Domain logic stays pure with effects composed at system boundaries, dependent steps bind and independent steps combine, one parameterized form replaces a family differing by a value, and logic walks its input once with keyed lookups. Each pass takes one category over one unit, read whole with its readers, duplicates, and sources, and rebuilds its logic in place.
 
+Targets are files, folders, or packages named for reduction, and every pass leaves them with fewer lines, internal members, and exports: stringly code becomes logic over typed values, loose constants go to their source, low-quality shapes become fewer richer objects, dead and redundant code goes, indirection folds into its callers, and exports narrow to the capability readers need. Language references add each language's mechanisms for those cuts, and a finding needs no row of theirs.
+
 [REFERENCES]:
 - [01]-[TYPESCRIPT](references/typescript.md): Skills, sources, readers, survey signals, forms, and checks of TypeScript and JavaScript targets
 - [02]-[RUST](references/rust.md): Skills, sources, consumers, counts, forms, and checks of Rust targets
@@ -153,7 +155,7 @@ Constraints divide by their source:
 
 ## [07]-[CATEGORIES]
 
-Categories run in list order, most code deleted first, as a later pass deletes code an earlier one would polish. Each category is one concern value with one unit per pass, and a finding belongs to the category naming its cause, other symptoms joining its unit's map. Each rebuild comes from its unit's map, as one finding's rebuild can differ from the last.
+Categories run in list order, most code deleted first, as a later pass deletes code an earlier one would polish. Each category is one concern value with one unit per pass, and a finding belongs to the category naming its cause, other symptoms joining its unit's map. Each rebuild comes from its unit's map, as one finding's rebuild can differ from the last. Each category covers the whole target, and lists below name its forms, never its limit.
 
 ### [07.1]-[REDUNDANT_CODE]
 
@@ -237,8 +239,8 @@ Rebuilds keep evaluation order, short-circuiting, laziness, errors, cancellation
 ### [07.8]-[NAMES]
 
 Names state what a thing is in its field's words, one name per concept, and names a host, wire, or tool resolves stay exact:
-- Pair differing in case or affix and stating one fact -> one name, a type and its value sharing it where the language keeps them apart
-- Pair a host constraint keeps apart -> builder named by its verb, its type derived from it
+- Pair differing in case, affix, or joined word (`makeX`, `XOf`) for one fact -> one name, type and value sharing it where the language allows
+- Pair a host constraint keeps apart, proved by a probe of the host's check -> builder named by its verb, its type derived from it
 - Word no field documentation uses -> field term, renamed through language tooling in every reference, file, folder, and doc
 - Name restating its module or mechanism -> noun for a value, verb for a function
 - One-declaration file, folder named by mechanism -> files merged by concept, folder named by concept

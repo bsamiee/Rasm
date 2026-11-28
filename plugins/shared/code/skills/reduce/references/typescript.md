@@ -91,7 +91,7 @@ knip --config .config/knip.json --workspace <project> --include-entry-exports --
 
 ## [05]-[FORMS]
 
-TypeScript forms of each category, each rebuild holding under its stated condition alone:
+TypeScript mechanisms behind the categories, each rebuild holding under its stated condition alone, and a finding needs no row. Types and values live in separate namespaces, so a type and the value stating it share one name under one export (`Tool`, `Tally`):
 
 | [INDEX] | [CATEGORY] | [FOUND]                                                    | [REBUILD]                                                      |
 | :-----: | :--------- | :--------------------------------------------------------- | :------------------------------------------------------------- |

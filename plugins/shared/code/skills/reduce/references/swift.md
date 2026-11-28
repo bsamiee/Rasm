@@ -130,7 +130,7 @@ Readers hold under these conditions:
 
 ## [05]-[FORMS]
 
-Swift forms of each category that no checker reports, each rebuild holding under its stated condition alone, each source a `swift:coding` rule, a survey, or a past commit:
+Swift mechanisms behind the categories that no checker reports, a finding needing no row, each rebuild holding under its stated condition alone, each source a `swift:coding` rule, a survey, or a past commit:
 
 | [INDEX] | [CATEGORY]   | [FOUND]                                       | [REBUILD]                                      | [SOURCE]           |
 | :-----: | :----------- | :-------------------------------------------- | :--------------------------------------------- | :----------------- |
