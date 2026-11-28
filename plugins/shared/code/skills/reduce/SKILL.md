@@ -126,8 +126,7 @@ Visibility levels narrow without removing capability:
 - Public: package entry or exported API, C# `public`, Rust items the crate root reaches, Swift `public`
 
 Readers resolve by symbol identity, never by file name or text:
-- Script: `node plugins/shared/code/skills/reduce/scripts/readers.ts <file> [<symbol>...]`, site rows in `.artifacts/code/readers/<file>.tsv`
-- C#: roslyn-codelens `find_references` and `find_callers` first, the script as backup
+- C#: roslyn-codelens `find_references` and `find_callers`
 - Text: `rg -nw` for literals, comments, strings, and non-code mentions (docs, skills, manifests) alone
 - Roots: `libs products plugins tools tests infra`, package export maps, subpath imports, and dynamic imports included
 

@@ -101,15 +101,12 @@ Reads hold by root:
 ## [04]-[CONSUMERS]
 
 Readers and leads across `<roots>`, one command per step:
-1. Readers: reader sites by symbol identity from `ty server`, one run from each uv root a reader sits in, as root ty excludes both Blender roots
-2. Importers: files importing each module of the unit, a package entry's importers standing for its private modules' readers
-3. Text: sites ty never reports, spelling a name as a string (`__all__`, `bl_idname`, `bpy.ops.<category>.<name>`, wire tags, entry points, `importlib`)
-4. Duplicates by name: class and `type` names declared in more than one project, each pair read whole before a merge
-5. Mentions: removed or renamed name across the repository with no type filter, docs, skills, and manifests included
-6. Leads: `unread:` declarations step 1 prints for a module run with no symbol, read as leads alone, as a reader can sit in another uv root
+1. Importers: files importing each module of the unit, a package entry's importers standing for its private modules' readers
+2. Text: sites no importer graph reports, spelling a name as a string (`__all__`, `bl_idname`, `bpy.ops.<category>.<name>`, wire tags, entry points, `importlib`)
+3. Duplicates by name: class and `type` names declared in more than one project, each pair read whole before a merge
+4. Mentions: removed or renamed name across the repository with no type filter, docs, skills, and manifests included
 
 ```bash
-(cd <uv-root> && node <main>/plugins/shared/code/skills/reduce/scripts/readers.ts <file> [<symbol>...])
 ruff analyze graph --direction dependents <roots> | jq -r '[.[$ARGS.positional[]][]?] - $ARGS.positional | unique[]' --args <paths>
 rg -nF '<name>' -g '*.py' -g '*.toml' <roots>
 rg -oN --no-heading -r '$1' '^(?:class|type) ([A-Z]\w*)' -g '*.py' <roots> | awk -F: -v roots="$(git ls-files '*pyproject.toml' | xargs -n1 dirname | tr '\n' ' ')" '
@@ -120,8 +117,6 @@ rg -nw '<name>' .
 
 Commands read by their own rules:
 - Roots: `uv tree --invert` of a library's distribution names each root holding it, and a root library (`rasm.records`) takes a run from each Blender root
-- Rows: readers writes rows under `.artifacts/code/readers/` of its working folder, and a file outside that uv root writes them along its `..` path, deleted after the read
-- Entries: a package entry holds `__all__` and imports alone, so readers runs over the private module declaring a name
 - Graph: ruff resolves every uv root and plugin script by module identity, `lazy` imports included
 
 ## [05]-[FORMS]

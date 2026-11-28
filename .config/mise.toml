@@ -277,8 +277,6 @@ pulumi                                      = "latest"
 
 "dotnet:Microsoft.AITools.BinlogMcp"                                         = "latest"
 "dotnet:RoslynCodeLens.Mcp"                                                  = "latest"
-"dotnet:roslyn-language-server"                                              = "latest"
-"http:xcode-build-server"                                                    = { bin = "xcode-build-server", os = ["macos"], strip_components = 1, url = "https://github.com/SolaWing/xcode-build-server/archive/refs/tags/v{{ version }}.tar.gz", version = "latest", version_list_url = "https://api.github.com/repos/SolaWing/xcode-build-server/tags", version_order = "semver", version_regex = '"name":\s*"v(\d+\.\d+\.\d+)"' }
 "npm:@aredotna/cli"                                                          = "latest"
 "npm:@modelcontextprotocol/conformance"                                      = "latest"
 "npm:@tavily/cli"                                                            = { allow_low_downloads = true, os = ["macos"], version = "latest" }

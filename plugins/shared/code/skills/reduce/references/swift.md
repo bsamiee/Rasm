@@ -105,17 +105,12 @@ jq -r --arg p '<Module>' '.graph as $g | $g.dependencies[$p][].target | "\(.)\t\
 ## [04]-[CONSUMERS]
 
 Readers and leads across `<roots>`, one command per step:
-1. Readers: sites by symbol identity from sourcekit-lsp over the Xcode index store, which xcode-build-server serves from the last build
-2. Unindexed: files the script prints as `unindexed` (manifests, analyzer package, suites not built since their last edit) searched by word
-3. Suites: test files reading `internal` members through `@testable import`, which a narrowing to `private` breaks
-4. Text: sites spelling a member call, key, host constant, or message the declaration holds
-5. Mentions: removed or renamed name across the repository with no type filter, docs, skills, and manifests included
-6. Names: top-level type names other than file-private ones declared in more than one module, each pair read whole before a merge
-7. Leads: declarations the script prints as `unread`, as no Swift unused-code tool exists, each checked against step 2's files first
+1. Suites: test files reading `internal` members through `@testable import`, which a narrowing to `private` breaks
+2. Text: sites spelling a member call, key, host constant, or message the declaration holds
+3. Mentions: removed or renamed name across the repository with no type filter, docs, skills, and manifests included
+4. Names: top-level type names other than file-private ones declared in more than one module, each pair read whole before a merge
 
 ```bash
-node plugins/shared/code/skills/reduce/scripts/readers.ts <file> [<symbol>...]
-rg -nw '<name>' <unindexed files>
 rg -l '@testable import <Module>\b' tests
 rg -nF '<member or literal>' -g '*.swift' <roots>
 rg -nw '<name>' .
@@ -123,10 +118,6 @@ rg -oN '^(?:(?:package|public|internal|nonisolated|final|indirect) )*(?:struct|e
     awk -F: 'NR == FNR { r[$0]; next } { for (p in r) if (index($1, p "/") == 1) print p "\t" $2 }' <(rg -oN 'path: "([^"]+)"' -r '$1' Package.swift) - | sort -u |
     awk -F'\t' '{ n[$2]++; g[$2] = g[$2] " " $1 } END { for (k in n) if (n[k] > 1) print k ":" g[k] }'
 ```
-
-Readers hold under these conditions:
-- Build: the script names `nx build Rasm-Package` for a module the last build lacks, and a suite's file gains index units once its target builds
-- Leads: `unread` rows include members synthesized code or a protocol requirement reads (`CodingKeys`, `init(from:)`), never a removal reason
 
 ## [05]-[FORMS]
 

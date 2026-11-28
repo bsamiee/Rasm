@@ -72,8 +72,7 @@
         "tsrs": "catalog:",
         "typescript": "catalog:",
         "vite": "catalog:",
-        "vitest": "catalog:",
-        "vscode-languageserver-protocol": "catalog:"
+        "vitest": "catalog:"
     },
     "nx": {
         "includedScripts": []

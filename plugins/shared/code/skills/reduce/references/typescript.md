@@ -74,14 +74,12 @@ rg -oNI "(?:from |import\()'(@rasm/[^']+)'" -r '$1' -t ts -t js <target> | sort 
 ## [04]-[CONSUMERS]
 
 Readers and leads across `<roots>`, one command per step:
-1. Readers: reader sites by compiler identity across every tracked tsconfig, `.tsx`, `.js`, and cross-project readers included
-2. Importers: tree per export through package specifiers, `#/` subpaths, and renamed imports, with the members each importer reads
-3. Text: sites spelling a member call, key, header, path, or message the declaration holds
-4. Mentions: removed or renamed name across the repository with no type filter, docs, skills, and manifests included
-5. Leads: exports nothing reads, an entry file a host loads by path (`executor.ts`, `server/main.ts`) read as its host's reader first
+1. Importers: tree per export through package specifiers, `#/` subpaths, and renamed imports, with the members each importer reads
+2. Text: sites spelling a member call, key, header, path, or message the declaration holds
+3. Mentions: removed or renamed name across the repository with no type filter, docs, skills, and manifests included
+4. Leads: exports nothing reads, an entry file a host loads by path (`executor.ts`, `server/main.ts`) read as its host's reader first
 
 ```bash
-node plugins/shared/code/skills/reduce/scripts/readers.ts <file> <symbol>
 knip --config .config/knip.json --trace-file <file> --no-progress --no-config-hints
 rg -nF '<member or literal>' -t ts -t js <roots>
 rg -nw '<name>' .

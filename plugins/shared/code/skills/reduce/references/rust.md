@@ -36,15 +36,13 @@ xh -F "https://docs.rs/crate/<crate>/<version>/json" -o <scratch>/reduce/<crate>
 
 Readers and duplicates across `<roots>` (`libs products tools tests`), one command per step:
 1. Projects: every package depending on a file the unit changes, workspace dependents included
-2. Readers: sites by symbol identity from one `rust-analyzer lsif` dump of the workspace per tree, its first build run in the background
-3. Duplicates by member or literal: sites spelling a member call, key, path, or message the declaration holds
-4. Duplicates by structure: function bodies repeated across crates, as `duplicate_body` and `parameterizable_body` compare within one crate
-5. Duplicates by name: type names declared in more than one crate, each pair read whole before a merge
-6. Manifest rows: dependency rows no code of their package reads and files no module tree reaches, catalog rows held for later members dropped
+2. Duplicates by member or literal: sites spelling a member call, key, path, or message the declaration holds
+3. Duplicates by structure: function bodies repeated across crates, as `duplicate_body` and `parameterizable_body` compare within one crate
+4. Duplicates by name: type names declared in more than one crate, each pair read whole before a merge
+5. Manifest rows: dependency rows no code of their package reads and files no module tree reaches, catalog rows held for later members dropped
 
 ```bash
 nx show projects --affected --files=<file>
-node plugins/shared/code/skills/reduce/scripts/readers.ts <file> <symbol>
 rg -nF '<member or literal>' -g '*.rs' <roots>
 jscpd --config .config/jscpd.json --similarity 0.6 --min-nodes 60 --format rust <target> <roots>
 rg -oNI '^pub(\([^)]*\))? (struct|enum|trait|type) (\w+)' -r '$3' -g '*.rs' <roots> | sort | uniq -c | awk '$1 > 1'

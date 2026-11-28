@@ -104,10 +104,9 @@ Reads hold under these conditions:
 Readers and leads across `<roots>`, one command per step:
 1. Readers: codelens references by symbol, the full name from `search_symbols`, `kinds` naming the reads a shape decision needs (`write`, `invocation`, `object_creation`)
 2. Callers and implementors: method call sites, interface implementors, generator attribute holders, and reflection reads
-3. Script: `readers.ts` over the declaring file through `roslyn-language-server`, where codelens stays stale after `rebuild_solution`
-4. Text: sites spelling a member, key, setting name, or message the declaration holds
-5. Mentions: removed or renamed name across the repository with no type filter, docs, skills, and manifests included
-6. Leads: members nothing references, a host-loaded type (`PlugIn`, GH2 `Component`, generated `PlugInEntry`) read as its host's reader first
+3. Text: sites spelling a member, key, setting name, or message the declaration holds
+4. Mentions: removed or renamed name across the repository with no type filter, docs, skills, and manifests included
+5. Leads: members nothing references, a host-loaded type (`PlugIn`, GH2 `Component`, generated `PlugInEntry`) read as its host's reader first
 
 ```text
 search_symbols {"query": "<Name>"}
@@ -120,7 +119,6 @@ find_unused_symbols {"project": "<name>", "includeInternal": true}
 ```
 
 ```bash
-node plugins/shared/code/skills/reduce/scripts/readers.ts <file> <symbol>
 rg -nF '<member or literal>' -g '*.cs' <roots>
 rg -nw '<name>' .
 ```
