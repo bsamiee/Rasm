@@ -172,7 +172,6 @@ catalog:
     '@opentelemetry/instrumentation-aws-sdk': 0.80.0 # Spans for AWS SDK calls, recorded by a registered OpenTelemetry tracer provider
     '@opentelemetry/instrumentation-document-load': 0.70.1
     '@opentelemetry/instrumentation-fetch': 0.301.2
-    '@opentelemetry/instrumentation-host-metrics': 0.8.0
     '@opentelemetry/instrumentation-http': 0.301.2
     '@opentelemetry/instrumentation-pg': 0.78.0
     '@opentelemetry/instrumentation-redis': 0.73.0 # Spans for `redis` commands against Valkey
@@ -604,7 +603,6 @@ catalogs:
         '@opentelemetry/exporter-metrics-otlp-http': ^0.301.0
         '@opentelemetry/exporter-metrics-otlp-proto': ^0.301.0
         '@opentelemetry/instrumentation': ^0.301.0
-        '@opentelemetry/instrumentation-host-metrics': ^0.8.0
         '@opentelemetry/instrumentation-runtime-node': ^0.38.0
         '@opentelemetry/propagator-env-carrier': ^0.301.0
         '@opentelemetry/resources': ^3.0.0

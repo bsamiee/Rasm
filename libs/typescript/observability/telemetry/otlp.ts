@@ -1,3 +1,4 @@
+import type { SourceMap, SourceMapPayload, SourceOrigin } from 'node:module';
 import { SeverityNumber } from '@opentelemetry/api';
 import { ATTR_CODE_FUNCTION_NAME, ATTR_CODE_STACKTRACE, ATTR_EXCEPTION_MESSAGE, ATTR_EXCEPTION_STACKTRACE, ATTR_EXCEPTION_TYPE, ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { Array, Cause, Config, Context, Effect, ErrorReporter, type Fiber, Formatter, Iterable, Layer, Logger, LogLevel, Match, Metric, Option, Predicate, Record, References, Schema, String, Struct, Tracer, UndefinedOr } from 'effect';
@@ -14,6 +15,7 @@ const exporters = Config.all({
     disabled: Config.Boolean('OTEL_SDK_DISABLED').pipe(Config.withDefault(false)),
     names: Config.all(Record.map(SIGNALS, (variable) => Config.Array(Schema.Trim, variable).pipe(Config.withDefault([])))),
 }).pipe(Config.map(({ disabled, names }) => Record.map(names, (named) => (disabled || Array.contains(named, 'none') ? [] : named))));
+const SourceMapJson = Schema.fromJsonString(Schema.declare((value): value is SourceMapPayload => Predicate.hasProperty(value, 'mappings')));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -21,6 +23,25 @@ const severityNumber = Match.type<LogLevel.LogLevel>().pipe(
     Match.whenOr('All', 'None', () => SeverityNumber.UNSPECIFIED),
     Match.orElse((severity) => SeverityNumber[String.toUpperCase(severity)]),
 );
+const sourceMaps = new Map<string, Option.Option<SourceMap>>();
+const located = (stack: string) =>
+    stack.replaceAll(/(?<=\(|at )(?<file>[^()\n]+?):(?<line>\d+):(?<column>\d+)(?=\)|$)/gmu, (location, file: string, line: string, column: string) =>
+        sourceMaps
+            .getOrInsertComputed(file, () =>
+                Option.gen(function* () {
+                    const host = yield* Option.fromNullishOr(globalThis.process);
+                    const fs = host.getBuiltinModule('node:fs');
+                    const path = yield* Option.liftPredicate(URL.parse(file)?.protocol === 'file:' ? new URL(`${file}.map`) : `${file}.map`, fs.existsSync);
+                    const payload = yield* Schema.decodeOption(SourceMapJson)(fs.readFileSync(path, 'utf-8'));
+                    return new (host.getBuiltinModule('node:module').SourceMap)(payload);
+                }),
+            )
+            .pipe(
+                Option.map((map) => map.findOrigin(Number(line), Number(column))),
+                Option.filter((origin): origin is SourceOrigin => Predicate.hasProperty(origin, 'fileName')),
+                Option.match({ onNone: () => location, onSome: ({ fileName, lineNumber, columnNumber }) => `${fileName}:${lineNumber}:${columnNumber}` }),
+            ),
+    );
 const scope = (fiber: Fiber.Fiber<unknown, unknown>) => Option.flatMap(Context.getOption(fiber.context, Tracer.ParentSpan), Match.valueTags({ Span: (span) => Option.some(span.name), ExternalSpan: () => Option.none<string>() }));
 const logRecord = (resource: NonNullable<Parameters<typeof layerOtlp>[0]>) =>
     Logger.make(({ cause, date, fiber, logLevel, message }: Logger.Options<unknown>) => {
@@ -36,8 +57,8 @@ const logRecord = (resource: NonNullable<Parameters<typeof layerOtlp>[0]>) =>
             attributes: {
                 ...fiber.getRef(References.CurrentLogAnnotations),
                 ...Record.fromIterableWith(fiber.getRef(References.CurrentLogSpans), ([label, started]) => [`effect.log_span.${label}`, date.getTime() - started]),
-                ...(Array.isReadonlyArrayNonEmpty(errors) ? { [ATTR_EXCEPTION_TYPE]: errors[0].name, [ATTR_EXCEPTION_MESSAGE]: errors[0].message, [ATTR_EXCEPTION_STACKTRACE]: Array.map(errors, (error) => error.stack ?? error.message).join('\n') } : {}),
-                ...(LogLevel.isGreaterThanOrEqualTo(logLevel, 'Warn') ? UndefinedOr.map(fiber.getRef(References.CurrentStackFrame), (frame) => ({ [ATTR_CODE_FUNCTION_NAME]: frame.name, [ATTR_CODE_STACKTRACE]: frame.stack() })) : {}),
+                ...(Array.isReadonlyArrayNonEmpty(errors) ? { [ATTR_EXCEPTION_TYPE]: errors[0].name, [ATTR_EXCEPTION_MESSAGE]: errors[0].message, [ATTR_EXCEPTION_STACKTRACE]: located(Array.map(errors, (error) => error.stack ?? error.message).join('\n')) } : {}),
+                ...(LogLevel.isGreaterThanOrEqualTo(logLevel, 'Warn') ? UndefinedOr.map(fiber.getRef(References.CurrentStackFrame), (frame) => ({ [ATTR_CODE_FUNCTION_NAME]: frame.name, [ATTR_CODE_STACKTRACE]: UndefinedOr.map(frame.stack(), located) })) : {}),
             },
             resource: { [ATTR_SERVICE_NAME]: resource.serviceName, [ATTR_SERVICE_VERSION]: resource.serviceVersion, ...resource.attributes },
         };

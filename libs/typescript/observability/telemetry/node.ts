@@ -1,7 +1,9 @@
 import { Buffer } from 'node:buffer';
+import { subscribe, unsubscribe } from 'node:diagnostics_channel';
 import { closeSync, constants, fstatSync, mkdirSync, openSync, renameSync, rmSync, type Stats, statSync, writeSync } from 'node:fs';
+import { availableParallelism, type CpuInfo, cpus, freemem, totalmem } from 'node:os';
 import { dirname, join, parse } from 'node:path';
-import { type Histogram, monitorEventLoopDelay, PerformanceObserver, constants as performanceConstants, performance } from 'node:perf_hooks';
+import { type EventLoopUtilization, type Histogram, monitorEventLoopDelay, PerformanceObserver, constants as performanceConstants, performance } from 'node:perf_hooks';
 import process, { type ProcessEventMap } from 'node:process';
 import { getHeapSpaceStatistics, type HeapSpaceInfo } from 'node:v8';
 import { layerGlobal, makeExternalSpan } from '@effect/opentelemetry/OtelTracer';
@@ -10,11 +12,24 @@ import { type DiagLogger, DiagLogLevel, diag, logs, ROOT_CONTEXT, trace } from '
 import { diagLogLevelFromString, getStringFromEnv, W3CTraceContextPropagator } from '@opentelemetry/core';
 import { EnvironmentGetter } from '@opentelemetry/propagator-env-carrier';
 import {
+    ATTR_CPU_LOGICAL_NUMBER,
+    ATTR_CPU_MODE,
+    ATTR_NETWORK_INTERFACE_NAME,
+    ATTR_NETWORK_IO_DIRECTION,
     ATTR_NODEJS_EVENTLOOP_STATE,
+    ATTR_PROCESS_CONTEXT_SWITCH_TYPE,
     ATTR_PROCESS_PID,
+    ATTR_SYSTEM_MEMORY_STATE,
+    ATTR_SYSTEM_PAGING_DIRECTION,
+    ATTR_SYSTEM_PAGING_FAULT_TYPE,
     ATTR_V8JS_GC_TYPE,
     ATTR_V8JS_HEAP_SPACE_NAME,
     ATTR_V8JS_RESOURCE_TYPE,
+    CPU_MODE_VALUE_IDLE,
+    CPU_MODE_VALUE_INTERRUPT,
+    CPU_MODE_VALUE_NICE,
+    CPU_MODE_VALUE_SYSTEM,
+    CPU_MODE_VALUE_USER,
     METRIC_NODEJS_EVENTLOOP_DELAY_MAX,
     METRIC_NODEJS_EVENTLOOP_DELAY_MEAN,
     METRIC_NODEJS_EVENTLOOP_DELAY_MIN,
@@ -24,29 +39,57 @@ import {
     METRIC_NODEJS_EVENTLOOP_DELAY_STDDEV,
     METRIC_NODEJS_EVENTLOOP_TIME,
     METRIC_NODEJS_EVENTLOOP_UTILIZATION,
+    METRIC_PROCESS_CONTEXT_SWITCHES,
+    METRIC_PROCESS_CPU_TIME,
+    METRIC_PROCESS_CPU_UTILIZATION,
     METRIC_PROCESS_MEMORY_USAGE,
+    METRIC_PROCESS_MEMORY_VIRTUAL,
+    METRIC_PROCESS_PAGING_FAULTS,
+    METRIC_PROCESS_THREAD_COUNT,
+    METRIC_PROCESS_UNIX_FILE_DESCRIPTOR_COUNT,
+    METRIC_SYSTEM_CPU_TIME,
+    METRIC_SYSTEM_CPU_UTILIZATION,
+    METRIC_SYSTEM_MEMORY_LIMIT,
+    METRIC_SYSTEM_MEMORY_USAGE,
+    METRIC_SYSTEM_MEMORY_UTILIZATION,
+    METRIC_SYSTEM_NETWORK_ERRORS,
+    METRIC_SYSTEM_NETWORK_IO,
+    METRIC_SYSTEM_NETWORK_PACKET_COUNT,
+    METRIC_SYSTEM_NETWORK_PACKET_DROPPED,
+    METRIC_SYSTEM_PAGING_FAULTS,
+    METRIC_SYSTEM_PAGING_OPERATIONS,
     METRIC_V8JS_GC_DURATION,
     METRIC_V8JS_MEMORY_HEAP_SPACE_AVAILABLE_SIZE,
     METRIC_V8JS_MEMORY_HEAP_SPACE_PHYSICAL_SIZE,
     METRIC_V8JS_MEMORY_HEAP_SPACE_SIZE,
     METRIC_V8JS_MEMORY_HEAP_USED,
     METRIC_V8JS_RESOURCE_ACTIVE,
+    NETWORK_IO_DIRECTION_VALUE_RECEIVE,
+    NETWORK_IO_DIRECTION_VALUE_TRANSMIT,
     NODEJS_EVENTLOOP_STATE_VALUE_ACTIVE,
     NODEJS_EVENTLOOP_STATE_VALUE_IDLE,
+    PROCESS_CONTEXT_SWITCH_TYPE_VALUE_INVOLUNTARY,
+    PROCESS_CONTEXT_SWITCH_TYPE_VALUE_VOLUNTARY,
+    SYSTEM_MEMORY_STATE_VALUE_AVAILABLE,
+    SYSTEM_MEMORY_STATE_VALUE_USED,
+    SYSTEM_PAGING_DIRECTION_VALUE_IN,
+    SYSTEM_PAGING_DIRECTION_VALUE_OUT,
+    SYSTEM_PAGING_FAULT_TYPE_VALUE_MAJOR,
+    SYSTEM_PAGING_FAULT_TYPE_VALUE_MINOR,
     V8JS_GC_TYPE_VALUE_INCREMENTAL,
     V8JS_GC_TYPE_VALUE_MAJOR,
     V8JS_GC_TYPE_VALUE_MINOR,
     V8JS_GC_TYPE_VALUE_WEAKCB,
 } from '@opentelemetry/semantic-conventions/incubating';
-import { Array, Cause, Config, Duration, Effect, ErrorReporter, Exit, Formatter, flow, Layer, Logger, LogLevel, Match, Metric, MutableRef, Option, Order, Predicate, Queue, Record, Ref, References, Result, Runtime, Schema, SchemaGetter, Stream, Struct, UndefinedOr } from 'effect';
+import { Darwin } from '@rasm/darwin';
+import { Array, Cause, Config, Duration, Effect, ErrorReporter, Exit, FileSystem, Formatter, Function, flow, Layer, Logger, LogLevel, Match, Metric, MutableRef, Option, Order, Predicate, Queue, Record, Ref, References, Result, Runtime, Schema, SchemaGetter, Stream, String, Struct, UndefinedOr } from 'effect';
 import envPaths from 'env-paths';
 import { errorReporter, exporters, layerMinimumLogLevels, layerWithoutDefaultLogger, logRecord } from '#/otlp';
 
 // --- [TABLES] --------------------------------------------------------------------------
 
 const DIAGNOSTICS = { error: 'Error', warn: 'Warn', info: 'Info', debug: 'Debug', verbose: 'Trace' } as const satisfies Record<keyof DiagLogger, LogLevel.LogLevel>;
-const LOG_TYPES = { Trace: 0x02, Debug: 0x02, Info: 0x01, Warn: 0x10, Error: 0x10, Fatal: 0x11 } as const satisfies Record<LogLevel.Severity, number>;
-const LOG_ARGUMENT = { header: Uint8Array.of(0x02, 0x01, 0x22, 0x08), format: '\0%{public}s\0' } as const;
+const LOG_TYPES = { Trace: 'debug', Debug: 'debug', Info: 'info', Warn: 'error', Error: 'error', Fatal: 'fault' } as const satisfies Record<LogLevel.Severity, string>;
 const DELAYS = {
     [METRIC_NODEJS_EVENTLOOP_DELAY_MIN]: (histogram: Histogram) => histogram.min,
     [METRIC_NODEJS_EVENTLOOP_DELAY_MAX]: (histogram: Histogram) => histogram.max,
@@ -68,6 +111,23 @@ const GC_TYPES = new Map([
     [performanceConstants.NODE_PERFORMANCE_GC_INCREMENTAL, V8JS_GC_TYPE_VALUE_INCREMENTAL],
     [performanceConstants.NODE_PERFORMANCE_GC_WEAKCB, V8JS_GC_TYPE_VALUE_WEAKCB],
 ]);
+const DURATIONS = Metric.exponentialBoundaries({ start: 1e-4, factor: 10, count: 7 });
+const CPU_MODES = { user: CPU_MODE_VALUE_USER, nice: CPU_MODE_VALUE_NICE, sys: CPU_MODE_VALUE_SYSTEM, idle: CPU_MODE_VALUE_IDLE, irq: CPU_MODE_VALUE_INTERRUPT } as const satisfies Record<keyof CpuInfo['times'], string>;
+const PROCESS_CPU_MODES = { user: CPU_MODE_VALUE_USER, system: CPU_MODE_VALUE_SYSTEM } as const satisfies Record<keyof NodeJS.CpuUsage, string>;
+const DIRECTIONS = { receive: NETWORK_IO_DIRECTION_VALUE_RECEIVE, transmit: NETWORK_IO_DIRECTION_VALUE_TRANSMIT } as const;
+const TRAFFIC = { bytes: METRIC_SYSTEM_NETWORK_IO, packets: METRIC_SYSTEM_NETWORK_PACKET_COUNT, errors: METRIC_SYSTEM_NETWORK_ERRORS, dropped: METRIC_SYSTEM_NETWORK_PACKET_DROPPED } as const;
+const PAGING = {
+    pageins: { [ATTR_SYSTEM_PAGING_DIRECTION]: SYSTEM_PAGING_DIRECTION_VALUE_IN, [ATTR_SYSTEM_PAGING_FAULT_TYPE]: SYSTEM_PAGING_FAULT_TYPE_VALUE_MINOR },
+    pageouts: { [ATTR_SYSTEM_PAGING_DIRECTION]: SYSTEM_PAGING_DIRECTION_VALUE_OUT, [ATTR_SYSTEM_PAGING_FAULT_TYPE]: SYSTEM_PAGING_FAULT_TYPE_VALUE_MINOR },
+    swapins: { [ATTR_SYSTEM_PAGING_DIRECTION]: SYSTEM_PAGING_DIRECTION_VALUE_IN, [ATTR_SYSTEM_PAGING_FAULT_TYPE]: SYSTEM_PAGING_FAULT_TYPE_VALUE_MAJOR },
+    swapouts: { [ATTR_SYSTEM_PAGING_DIRECTION]: SYSTEM_PAGING_DIRECTION_VALUE_OUT, [ATTR_SYSTEM_PAGING_FAULT_TYPE]: SYSTEM_PAGING_FAULT_TYPE_VALUE_MAJOR },
+} as const;
+const FAULTS = { minorPageFault: SYSTEM_PAGING_FAULT_TYPE_VALUE_MINOR, majorPageFault: SYSTEM_PAGING_FAULT_TYPE_VALUE_MAJOR } as const satisfies Partial<Record<keyof NodeJS.ResourceUsage, string>>;
+const SWITCHES = { voluntaryContextSwitches: PROCESS_CONTEXT_SWITCH_TYPE_VALUE_VOLUNTARY, involuntaryContextSwitches: PROCESS_CONTEXT_SWITCH_TYPE_VALUE_INVOLUNTARY } as const satisfies Partial<Record<keyof NodeJS.ResourceUsage, string>>;
+const THREADPOOL = {
+    attribute: 'nodejs.threadpool.work.type',
+    channels: new Map<string | symbol, string>(Array.map(['crypto', 'fs.cp', 'fs.readfile', 'fs.writefile', 'glob', 'histogram.qrde', 'node_api', 'readdir_recursive', 'node_sqlite3.BackupJob', 'zlib'], (type) => [`uv.threadpool.work.${type}`, type])),
+} as const;
 const metricExporters = {
     grpc: Effect.promise(() => import('@opentelemetry/exporter-metrics-otlp-grpc')),
     'http/json': Effect.promise(() => import('@opentelemetry/exporter-metrics-otlp-http')),
@@ -94,6 +154,7 @@ const Level = Schema.Literals(['trace', 'debug', 'info', 'notice', 'warning', 'e
 const Scope = Schema.String.pipe(Schema.decodeTo(Schema.Array(Schema.String), { decode: SchemaGetter.split({ separator: '=' }), encode: SchemaGetter.transform((entry) => entry.join('=')) }), Schema.decodeTo(Schema.Tuple([Schema.Trim, Schema.Trim.pipe(Schema.decodeTo(Level))])));
 const Target = Schema.Literals(['file', 'stderr']);
 const GcEntry = Schema.Struct({ detail: Schema.Struct({ kind: Schema.Int }) });
+const Work = Schema.Struct({ enqueued: Schema.Finite, started: Schema.Finite, ended: Schema.Finite });
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -103,14 +164,13 @@ class TelemetryError extends Schema.TaggedError<TelemetryError, { readonly brand
     cause: Schema.optionalKey(Schema.Defect()),
     message: Schema.String,
 }) {
-    static readonly of = (reason: TelemetryError['reason']['_tag'], subject: string) => (cause?: unknown) => TelemetryError.make({ reason: { _tag: reason }, subject, ...(cause === undefined ? {} : { cause }), message: [`${reason}: ${subject}`, ...(cause === undefined ? [] : [Formatter.format(cause)])].join(': ') });
+    static readonly of = (reason: TelemetryError['reason'], subject: string) => (cause?: unknown) => TelemetryError.make({ reason, subject, ...(cause === undefined ? {} : { cause }), message: [subject, String.toLowerCase(reason._tag), ...Record.values(Struct.omit(reason, ['_tag']))].join(' ') });
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const interrupted = <A, E>(exit: Exit.Exit<A, E>) => Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause);
 const propagator = new W3CTraceContextPropagator();
-const utf8 = new TextEncoder();
 const toRotatingFile = Effect.fnUntraced(function* <Message>(self: Logger.Logger<Message, string>, file: string, { size, age, backups }: typeof Rotation.Type) {
     const writer = yield* Effect.acquireRelease(
         Effect.sync(() => MutableRef.make(Option.none<{ readonly fd: number; readonly ino: number }>())),
@@ -127,14 +187,13 @@ const toRotatingFile = Effect.fnUntraced(function* <Message>(self: Logger.Logger
     const due = (stat: Stats, bytes: number, expiry: number) => stat.size > 0 && (stat.size + bytes > size || stat.birthtimeMs <= expiry);
     const rotate = (stale: number, bytes: number, expiry: number) => {
         closeSync(stale);
-        const locked = open(lock);
-        try {
+        {
+            using held = new DisposableStack();
+            const locked = held.adopt(open(lock), ({ fd }) => closeSync(fd));
             const shifted = due(locked.stat, bytes, expiry) && statSync(file, { throwIfNoEntry: false })?.ino === locked.stat.ino ? Array.makeBy(backups + 1, (step) => backups - step) : [];
             const [kept, expired] = Array.partition(shifted, (index) => (index < backups && (statSync(backup(index), { throwIfNoEntry: false })?.mtimeMs ?? expiry) > expiry ? Result.succeed(index) : Result.fail(index)));
             expired.forEach((index) => rmSync(backup(index), { force: true }));
             kept.forEach((index) => renameSync(backup(index), backup(index + 1)));
-        } finally {
-            closeSync(locked.fd);
         }
         return open(0);
     };
@@ -165,50 +224,23 @@ const toRotatingFile = Effect.fnUntraced(function* <Message>(self: Logger.Logger
         );
     });
 });
-const toUnifiedLog = Effect.fnUntraced(function* (self: ReturnType<typeof logRecord>, subsystem: string) {
-    const { dlopen, getRawPointer, toBuffer } = yield* Effect.tryPromise({ try: () => import('node:ffi'), catch: TelemetryError.of('Unavailable', 'node:ffi') });
-    const {
-        functions: { os_log_create: osLogCreate, os_log_type_enabled: osLogTypeEnabled, _os_log_impl: osLogImpl, _dyld_image_count: dyldImageCount, _dyld_get_image_header: dyldGetImageHeader, getsectiondata },
-    } = yield* Effect.try({
-        try: () =>
-            dlopen(null, {
-                os_log_create: { arguments: ['string', 'string'], return: 'pointer' },
-                os_log_type_enabled: { arguments: ['pointer', 'u8'], return: 'bool' },
-                _os_log_impl: { arguments: ['pointer', 'pointer', 'u8', 'pointer', 'buffer', 'u32'] },
-                _dyld_image_count: { return: 'u32' },
-                _dyld_get_image_header: { arguments: ['u32'], return: 'pointer' },
-                getsectiondata: { arguments: ['pointer', 'string', 'string', 'buffer'], return: 'pointer' },
-            }),
-        catch: TelemetryError.of('Unavailable', 'unified log functions of the process image'),
-    });
-    const length = new BigUint64Array(1);
-    const literal = Buffer.from(LOG_ARGUMENT.format);
-    const { dso, format } = yield* Array.findFirst(Array.makeBy(dyldImageCount(), dyldGetImageHeader), (header) => {
-        const section = getsectiondata(header, '__TEXT', '__oslogstring', length);
-        const at = section === 0n ? -1 : toBuffer(section, Number(length[0]), false).indexOf(literal);
-        return at < 0 ? Option.none() : Option.some({ dso: header, format: section + BigInt(at + 1) });
-    }).pipe(Effect.fromOption(TelemetryError.of('Unavailable', 'a %{public}s format in the __oslogstring section of a loaded image')));
-    const categories = new Map<string, bigint>();
-    const category = (name: string) => categories.getOrInsertComputed(name, (created) => osLogCreate(subsystem, created));
+const toUnifiedLog = Effect.fnUntraced(function* (self: ReturnType<typeof logRecord>, subsystem: string, darwin: Darwin['Service']) {
+    const write = yield* darwin.unifiedLog(subsystem);
+    const text = ({ body, attributes }: ReturnType<typeof self.log>) =>
+        [
+            body,
+            ...Array.sortWith(
+                Object.entries(attributes).filter(([, value]) => value !== undefined),
+                ([key]) => key,
+                Order.String,
+            ).map(([key, value]) => `${key}=${Predicate.isString(value) ? value : Formatter.format(value)}`),
+        ].join(' ');
     return Logger.make((entry: Logger.Options<unknown>) => {
         if (entry.logLevel === 'All' || entry.logLevel === 'None') {
             return;
         }
         const record = self.log(entry);
-        const [log, type] = [category(record.scope ?? subsystem), LOG_TYPES[entry.logLevel]];
-        if (osLogTypeEnabled(log, type) === 0) {
-            return;
-        }
-        const fields = Array.sortWith(
-            Object.entries(record.attributes).filter(([, value]) => value !== undefined),
-            ([key]) => key,
-            Order.String,
-        ).map(([key, value]) => `${key}=${Predicate.isString(value) ? value : Formatter.format(value)}`);
-        const text = utf8.encode(`${[record.body, ...fields].join(' ')}\0`);
-        const argument = Buffer.alloc(LOG_ARGUMENT.header.length + BigUint64Array.BYTES_PER_ELEMENT);
-        argument.set(LOG_ARGUMENT.header);
-        argument.writeBigUInt64LE(getRawPointer(text), LOG_ARGUMENT.header.length);
-        osLogImpl(dso, log, type, format, argument, argument.length);
+        write(record.scope ?? subsystem, LOG_TYPES[entry.logLevel], () => text(record));
     });
 });
 const stderrWarnings = Logger.make((entry: Logger.Options<unknown>) => (LogLevel.isGreaterThanOrEqualTo(entry.logLevel, 'Warn') ? Logger.defaultLogger.log(entry) : undefined));
@@ -224,6 +256,89 @@ const collections = Stream.callback<PerformanceEntry>((queue) =>
         (observer) => Effect.sync(() => observer.disconnect()),
     ),
 );
+const works = Stream.callback<readonly [name: string | symbol, message: unknown]>((queue) => {
+    const offer = (message: unknown, name: string | symbol) => {
+        Queue.offerUnsafe(queue, [name, message]);
+    };
+    return Effect.acquireRelease(
+        Effect.sync(() => THREADPOOL.channels.keys().forEach((name) => subscribe(name, offer))),
+        Function.constant(
+            Effect.sync(() =>
+                THREADPOOL.channels.keys().forEach((name) => {
+                    unsubscribe(name, offer);
+                }),
+            ),
+        ),
+    );
+});
+const devices = (table: string): Effect.Success<Darwin['Service']['interfaces']> =>
+    table.split('\n').flatMap((line) => {
+        const [name = '', counters = ''] = line.split(':');
+        const columns = counters.trim().split(/\s+/u).map(Number);
+        return Predicate.isTupleOf(columns, 16) ? [{ name: name.trim(), traffic: { receive: { bytes: columns[0], packets: columns[1], errors: columns[2], dropped: columns[3] }, transmit: { bytes: columns[8], packets: columns[9], errors: columns[10], dropped: columns[11] } } }] : [];
+    });
+const sampling = (darwin: Option.Option<Darwin['Service']>, files: FileSystem.FileSystem) => {
+    const interfaces = Option.match(darwin, {
+        onNone: () =>
+            files.readFileString('/proc/net/dev').pipe(
+                Effect.map(devices),
+                Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(Array.empty<ReturnType<typeof devices>[number]>())),
+            ),
+        onSome: (image) => image.interfaces,
+    });
+    return Effect.all({
+        interfaces,
+        memory: darwin.pipe(
+            Option.map((image) => image.memory),
+            Effect.transposeOption,
+        ),
+        task: darwin.pipe(
+            Option.map((image) => image.task),
+            Effect.transposeOption,
+        ),
+        runtime: Effect.sync(() => ({ processors: cpus(), cpu: process.cpuUsage(), thread: process.threadCpuUsage(), usage: process.resourceUsage(), limit: totalmem(), free: freemem(), parallelism: availableParallelism() })),
+    });
+};
+const counter =
+    (totals: Map<string, number>) =>
+    <const A extends Readonly<Record<string, string>>>(name: string, attributes: A, total: number) => {
+        const key = [name, ...Record.values(attributes)].join(' ');
+        const before = totals.get(key) ?? 0;
+        const spent = total >= before ? total - before : total;
+        totals.set(key, total);
+        return { attributes, spent, update: Metric.counter(name, { attributes, incremental: true }).pipe(Metric.update(spent)) };
+    };
+const hostMetrics = (counted: ReturnType<typeof counter>, wall: number, { interfaces, memory, task, runtime: { processors, cpu, thread, usage, limit, free, parallelism } }: Effect.Success<ReturnType<typeof sampling>>) => {
+    const used = Option.match(memory, { onNone: () => limit - free, onSome: (statistics) => statistics.used });
+    return [
+        ...processors.flatMap(({ times }, index) => {
+            const modes = Record.collect(CPU_MODES, (field, mode) => counted(METRIC_SYSTEM_CPU_TIME, { [ATTR_CPU_MODE]: mode, [ATTR_CPU_LOGICAL_NUMBER]: `${index}` }, Duration.millis(times[field]).pipe(Duration.toSeconds)));
+            const busy = Math.sumPrecise(modes.map(({ spent }) => spent));
+            return modes.flatMap(({ attributes, spent, update }) => [update, Metric.gauge(METRIC_SYSTEM_CPU_UTILIZATION, { attributes }).pipe(Metric.update(busy === 0 ? 0 : spent / busy))]);
+        }),
+        ...Record.collect(PROCESS_CPU_MODES, (field, mode) => {
+            const { attributes, spent, update } = counted(METRIC_PROCESS_CPU_TIME, { [ATTR_CPU_MODE]: mode }, Duration.micros(BigInt(cpu[field])).pipe(Duration.toSeconds));
+            return [update, Metric.gauge(METRIC_PROCESS_CPU_UTILIZATION, { attributes }).pipe(Metric.update(spent / wall / parallelism)), counted('nodejs.eventloop.cpu.time', attributes, Duration.micros(BigInt(thread[field])).pipe(Duration.toSeconds)).update];
+        }).flat(),
+        Metric.gauge(METRIC_SYSTEM_MEMORY_LIMIT).pipe(Metric.update(limit)),
+        ...Record.collect({ [SYSTEM_MEMORY_STATE_VALUE_USED]: used, [SYSTEM_MEMORY_STATE_VALUE_AVAILABLE]: limit - used }, (state, bytes) => [
+            Metric.gauge(METRIC_SYSTEM_MEMORY_USAGE, { attributes: { [ATTR_SYSTEM_MEMORY_STATE]: state } }).pipe(Metric.update(bytes)),
+            Metric.gauge(METRIC_SYSTEM_MEMORY_UTILIZATION, { attributes: { [ATTR_SYSTEM_MEMORY_STATE]: state } }).pipe(Metric.update(bytes / limit)),
+        ]).flat(),
+        ...Option.toArray(memory).flatMap((statistics) => [counted(METRIC_SYSTEM_PAGING_FAULTS, {}, statistics.faults).update, ...Record.collect(PAGING, (field, attributes) => counted(METRIC_SYSTEM_PAGING_OPERATIONS, attributes, statistics[field]).update)]),
+        ...interfaces.flatMap(({ name, traffic }) => Record.collect(traffic, (direction, counters) => Record.collect(counters, (field, total) => counted(TRAFFIC[field], { [ATTR_NETWORK_INTERFACE_NAME]: name, [ATTR_NETWORK_IO_DIRECTION]: DIRECTIONS[direction] }, total).update)).flat()),
+        ...Record.collect(FAULTS, (field, type) => counted(METRIC_PROCESS_PAGING_FAULTS, { [ATTR_SYSTEM_PAGING_FAULT_TYPE]: type }, usage[field]).update),
+        ...Option.match(task, {
+            onNone: () => Record.collect(SWITCHES, (field, type) => counted(METRIC_PROCESS_CONTEXT_SWITCHES, { [ATTR_PROCESS_CONTEXT_SWITCH_TYPE]: type }, usage[field]).update),
+            onSome: ({ threads, virtual, descriptors, switches }) => [
+                Metric.gauge(METRIC_PROCESS_THREAD_COUNT).pipe(Metric.update(threads)),
+                Metric.gauge(METRIC_PROCESS_MEMORY_VIRTUAL).pipe(Metric.update(virtual)),
+                Metric.gauge(METRIC_PROCESS_UNIX_FILE_DESCRIPTOR_COUNT).pipe(Metric.update(descriptors)),
+                counted(METRIC_PROCESS_CONTEXT_SWITCHES, {}, switches).update,
+            ],
+        }),
+    ];
+};
 const metricReader = Effect.gen(function* () {
     const { protocol, timing } = yield* metricReading;
     const { OTLPMetricExporter } = yield* metricExporters[protocol];
@@ -234,7 +349,6 @@ const metricReader = Effect.gen(function* () {
 const started = Effect.fnUntraced(function* (named: Config.Success<typeof exporters>, resource: Parameters<typeof configToAttributes>[0]) {
     const local = yield* Effect.context<never>();
     const { startNodeSdk } = yield* Effect.promise(() => import('@opentelemetry/sdk-node'));
-    const { HostMetricsInstrumentation } = yield* Effect.promise(() => import('@opentelemetry/instrumentation-host-metrics'));
     const diagnostics = Record.map(DIAGNOSTICS, (severity) => flow(Effect.logWithLevel(severity), Effect.runSyncWith(local)<void, never>));
     const level = diagLogLevelFromString(getStringFromEnv('OTEL_LOG_LEVEL')) ?? DiagLogLevel.WARN;
     const metrics = yield* Match.value(named.metrics).pipe(
@@ -243,15 +357,14 @@ const started = Effect.fnUntraced(function* (named: Config.Success<typeof export
         Match.orElse(() => Effect.succeed({})),
     );
     const options = {
-        logLevel: DiagLogLevel[Math.min(level, DiagLogLevel.WARN)],
+        ...UndefinedOr.match(DiagLogLevel[Math.min(level, DiagLogLevel.WARN)], { onUndefined: () => ({}), onDefined: (logLevel) => ({ logLevel }) }),
         resourceAttributes: configToAttributes(resource),
-        instrumentations: [new HostMetricsInstrumentation({ metricGroups: ['system.cpu', 'system.memory', 'system.network', 'process.cpu'] })],
         ...metrics,
         ...(Array.isReadonlyArrayEmpty(named.traces) ? { spanProcessors: [] } : {}),
         ...(Array.isReadonlyArrayEmpty(named.logs) ? { logRecordProcessors: [] } : {}),
     };
     return yield* Effect.acquireRelease(Effect.sync(() => startNodeSdk(options)).pipe(Effect.tap(() => Effect.sync(() => diag.setLogger(diagnostics, { logLevel: level, suppressOverrideMessage: true })))), (sdk) =>
-        Effect.tryPromise({ try: () => sdk.shutdown(), catch: TelemetryError.of('Unavailable', 'OpenTelemetry SDK shutdown') }).pipe(Effect.ignore({ log: 'Warn' }), Effect.andThen(Effect.sync(() => diag.disable()))),
+        Effect.tryPromise({ try: () => sdk.shutdown(), catch: TelemetryError.of({ _tag: 'Unavailable' }, 'OpenTelemetry SDK shutdown') }).pipe(Effect.ignore({ log: 'Warn' }), Effect.andThen(Effect.sync(() => diag.disable()))),
     );
 });
 
@@ -283,9 +396,16 @@ const layerErrorReported = Effect.addFinalizer((exit) =>
 ).pipe(Layer.effectDiscard);
 const layerRuntimeMetrics = Effect.gen(function* () {
     const interval = yield* Config.Int('OTEL_METRIC_EXPORT_INTERVAL').pipe(Config.withDefault(60_000));
-    const delay = yield* Effect.acquireRelease(Effect.sync(() => monitorEventLoopDelay()).pipe(Effect.tap((histogram) => Effect.sync(() => histogram.enable()))), (histogram) => Effect.sync(() => histogram.disable()));
-    const [loop, resources] = [MutableRef.make(performance.eventLoopUtilization()), MutableRef.make<ReadonlySet<string>>(new Set())];
-    const sample = Effect.suspend(() => {
+    const [reading, delay] = yield* Effect.all([
+        Effect.map(Effect.all([Effect.serviceOption(Darwin), FileSystem.FileSystem]), ([darwin, files]) => sampling(darwin, files)),
+        Effect.sync(monitorEventLoopDelay).pipe(
+            Effect.tap((histogram) => Effect.sync(() => histogram.enable())),
+            Effect.acquireDisposable,
+        ),
+    ]);
+    const [loop, resources, counted] = [MutableRef.make<EventLoopUtilization>({ idle: 0, active: 0, utilization: 0 }), MutableRef.make<ReadonlySet<string>>(new Set()), counter(new Map())];
+    const sample = Effect.gen(function* () {
+        const host = yield* reading;
         const now = performance.eventLoopUtilization();
         const elapsed = performance.eventLoopUtilization(now, MutableRef.getAndSet(loop, now));
         const active = Record.map(
@@ -295,24 +415,48 @@ const layerRuntimeMetrics = Effect.gen(function* () {
         const updates = [
             ...Record.collect(DELAYS, (name, read) => Metric.gauge(name).pipe(Metric.update(Duration.millis(read(delay) / 1e6).pipe(Duration.toSeconds)))),
             Metric.gauge(METRIC_NODEJS_EVENTLOOP_UTILIZATION).pipe(Metric.update(elapsed.utilization)),
-            Metric.counter(METRIC_NODEJS_EVENTLOOP_TIME, { attributes: { [ATTR_NODEJS_EVENTLOOP_STATE]: NODEJS_EVENTLOOP_STATE_VALUE_IDLE } }).pipe(Metric.update(Duration.millis(elapsed.idle).pipe(Duration.toSeconds))),
-            Metric.counter(METRIC_NODEJS_EVENTLOOP_TIME, { attributes: { [ATTR_NODEJS_EVENTLOOP_STATE]: NODEJS_EVENTLOOP_STATE_VALUE_ACTIVE } }).pipe(Metric.update(Duration.millis(elapsed.active).pipe(Duration.toSeconds))),
+            Metric.counter(METRIC_NODEJS_EVENTLOOP_TIME, { attributes: { [ATTR_NODEJS_EVENTLOOP_STATE]: NODEJS_EVENTLOOP_STATE_VALUE_IDLE }, incremental: true }).pipe(Metric.update(Duration.millis(elapsed.idle).pipe(Duration.toSeconds))),
+            Metric.counter(METRIC_NODEJS_EVENTLOOP_TIME, { attributes: { [ATTR_NODEJS_EVENTLOOP_STATE]: NODEJS_EVENTLOOP_STATE_VALUE_ACTIVE }, incremental: true }).pipe(Metric.update(Duration.millis(elapsed.active).pipe(Duration.toSeconds))),
             ...Array.cartesianWith(getHeapSpaceStatistics(), Record.toEntries(HEAP_SPACES), (space, [name, field]) => Metric.gauge(name, { attributes: { [ATTR_V8JS_HEAP_SPACE_NAME]: space.space_name } }).pipe(Metric.update(space[field]))),
             ...MutableRef.updateAndGet(resources, (seen) => seen.union(new Set(Record.keys(active))))
                 .values()
                 .map((type) => Metric.gauge(METRIC_V8JS_RESOURCE_ACTIVE, { attributes: { [ATTR_V8JS_RESOURCE_TYPE]: type } }).pipe(Metric.update(active[type] ?? 0))),
             Metric.gauge(METRIC_PROCESS_MEMORY_USAGE).pipe(Metric.update(process.memoryUsage.rss())),
+            ...hostMetrics(counted, Duration.millis(elapsed.idle + elapsed.active).pipe(Duration.toSeconds), host),
         ];
         delay.reset();
-        return Effect.all(updates, { discard: true });
+        return yield* Effect.all(updates, { discard: true });
     });
-    const duration = Metric.histogram(METRIC_V8JS_GC_DURATION, { boundaries: [0.01, 0.1, 1, 10] });
-    yield* Effect.sleep(interval).pipe(Effect.andThen(sample), Effect.forever, Effect.forkScoped);
+    const [collected, queued, ran] = [Metric.histogram(METRIC_V8JS_GC_DURATION, { boundaries: DURATIONS }), Metric.histogram('nodejs.threadpool.work.queue.duration', { boundaries: DURATIONS }), Metric.histogram('nodejs.threadpool.work.run.duration', { boundaries: DURATIONS })];
+    yield* Effect.sleep(interval).pipe(
+        Effect.andThen(sample),
+        Effect.catch((error) => Effect.logWarning('Runtime metrics sample failed', error)),
+        Effect.forever,
+        Effect.forkScoped,
+    );
     yield* collections.pipe(
         Stream.runForEach((entry) =>
             Schema.decodeUnknownOption(GcEntry)(entry.toJSON()).pipe(
                 Option.flatMap(({ detail }) => Option.fromUndefinedOr(GC_TYPES.get(detail.kind))),
-                Option.match({ onNone: () => Effect.void, onSome: (type) => duration.pipe(Metric.withAttributes({ [ATTR_V8JS_GC_TYPE]: type }), Metric.update(Duration.millis(entry.duration).pipe(Duration.toSeconds))) }),
+                Option.match({ onNone: () => Effect.void, onSome: (type) => collected.pipe(Metric.withAttributes({ [ATTR_V8JS_GC_TYPE]: type }), Metric.update(Duration.millis(entry.duration).pipe(Duration.toSeconds))) }),
+            ),
+        ),
+        Effect.forkScoped,
+    );
+    yield* works.pipe(
+        Stream.runForEach(([name, message]) =>
+            Option.all({ type: Option.fromUndefinedOr(THREADPOOL.channels.get(name)), work: Schema.decodeUnknownOption(Work)(message) }).pipe(
+                Option.match({
+                    onNone: () => Effect.void,
+                    onSome: ({ type, work }) =>
+                        Effect.all(
+                            [
+                                queued.pipe(Metric.withAttributes({ [THREADPOOL.attribute]: type }), Metric.update(Duration.millis(work.started - work.enqueued).pipe(Duration.toSeconds))),
+                                ran.pipe(Metric.withAttributes({ [THREADPOOL.attribute]: type }), Metric.update(Duration.millis(work.ended - work.started).pipe(Duration.toSeconds))),
+                            ],
+                            { discard: true },
+                        ),
+                }),
             ),
         ),
         Effect.forkScoped,
@@ -328,10 +472,19 @@ const layerNode = ({ resource, level, filter, file }: { readonly resource: Param
         reportOnUncaughtException: true,
         ...UndefinedOr.match(file, { onUndefined: () => ({ filename: 'stderr' }), onDefined: ([path]) => ({ directory: dirname(path), filename: `${parse(path).name}.report.json` }) }),
     };
-    const unified = toUnifiedLog(record, resource.serviceName).pipe(
-        Effect.map((logger) => Layer.merge(Logger.layer([logger], { mergeWithExisting: true }), Layer.succeed(References.MinimumLogLevel, 'Trace'))),
-        Effect.catch((error) => Effect.as(Effect.logWarning('Unified log unavailable', error), Layer.empty)),
+    const unified = Effect.serviceOption(Darwin).pipe(
+        Effect.flatMap(
+            Option.match({
+                onNone: () => Effect.succeed(Layer.empty),
+                onSome: (darwin) =>
+                    toUnifiedLog(record, resource.serviceName, darwin).pipe(
+                        Effect.map((logger) => Layer.merge(Logger.layer([logger], { mergeWithExisting: true }), Layer.succeed(References.MinimumLogLevel, 'Trace'))),
+                        Effect.catch((error) => Effect.as(Effect.logWarning('Unified log unavailable', error), Layer.empty)),
+                    ),
+            }),
+        ),
         Layer.unwrap,
+        Layer.provideMerge(Darwin.layer.pipe(Layer.catchTag('DarwinError', (error) => Layer.effectDiscard(Effect.logWarning('Darwin interfaces unavailable', error))))),
     );
     const reporting = Effect.acquireRelease(
         Effect.sync(() => {
