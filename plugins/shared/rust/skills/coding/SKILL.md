@@ -46,7 +46,7 @@ Parameter types state every value a function accepts, and its return type every 
 ### [01.1]-[TOTAL_FUNCTIONS]
 
 Total functions produce a declared output for each declared input, a partial one narrowing its input to a constructed type or widening its output:
-- `fn tier(u32) -> Tier` is incomplete when some counts are invalid, `fn tier(Quantity) -> Tier` holds for every constructible `Quantity`
+- `impl From<u32> for Tier` is incomplete when some counts are invalid, `impl From<Quantity> for Tier` holds for every constructible `Quantity`
 - Empty collections are results, and `Option<Vec<T>>` exists only where a consumer treats no collection and an empty one apart
 - Inputs a dependency asserts on are refused at construction or before its call by a refusal naming the value, never clamped into range
 - Associated constants a generic body needs in range take `const { assert!(<test>, "<invariant>") }`, failing at monomorphization
@@ -65,11 +65,12 @@ pub fn expired(token: &Token, now: Timestamp, leeway: SignedDuration) -> bool { 
 Returned values are one struct literal setting each field, and a step a later step reads is a named `let`, never a chain a reader must unpick:
 
 ```rust
-#[must_use]
-pub fn profile(readings: &[Reading]) -> Profile {
-    let span = readings.iter().map(|reading| reading.at).minmax().into_option();
-    let peak = readings.iter().max_by_key(|reading| reading.celsius).map(|reading| reading.sensor);
-    Profile { count: readings.len(), span, peak }
+impl From<&[Reading]> for Profile {
+    fn from(readings: &[Reading]) -> Self {
+        let span = readings.iter().map(|reading| reading.at).minmax().into_option();
+        let peak = readings.iter().max_by_key(|reading| reading.celsius).map(|reading| reading.sensor);
+        Self { count: readings.len(), span, peak }
+    }
 }
 ```
 
@@ -85,13 +86,15 @@ pub fn profile(readings: &[Reading]) -> Profile {
 Pattern matching keeps recognition, extraction, guards, and results together:
 
 ```rust
-#[must_use]
-pub fn notice(delivery: &Delivery, now: Timestamp, recent: SignedDuration) -> Notice {
-    match delivery {
-        Delivery::Shipped { carrier: _, tracking } => Notice::Track(tracking.clone()),
-        Delivery::Delivered { at } if now.duration_since(*at) < recent => Notice::Arrived,
-        Delivery::Returned { at: _, reason } => Notice::Refund(*reason),
-        Delivery::Pending | Delivery::Delivered { at: _ } => Notice::Quiet,
+impl Notice {
+    #[must_use]
+    pub fn of(delivery: &Delivery, now: Timestamp, recent: SignedDuration) -> Self {
+        match delivery {
+            Delivery::Shipped { carrier: _, tracking } => Self::Track(tracking.clone()),
+            Delivery::Delivered { at } if now.duration_since(*at) < recent => Self::Arrived,
+            Delivery::Returned { at: _, reason } => Self::Refund(*reason),
+            Delivery::Pending | Delivery::Delivered { at: _ } => Self::Quiet,
+        }
     }
 }
 ```

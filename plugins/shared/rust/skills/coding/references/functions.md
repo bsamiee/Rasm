@@ -95,13 +95,14 @@ Factories bind a resource once and return an async closure applying a pure trans
 pub type Depositing<L: Ledger> = impl AsyncFn(Deposit) -> Result<Account, LedgerError>;
 
 #[define_opaque(Depositing)]
-pub fn depositing<L>(ledger: L) -> Depositing<L>
+pub fn bind<L>(ledger: L) -> Depositing<L>
 where L: Ledger {
     async move |command: Deposit| ledger.update(command.account, |account| account.post(command.amount)).await
 }
 ```
 
 `Ledger::update` commits the transition its closure returns in one atomic step, where a load and a save apart lose a concurrent update:
-- `main` binds `depositing(store)` once, and each request borrows the captured ledger
+- `main` calls `bind(store)` once, and each request borrows the captured ledger
 - `#[define_opaque]` under `type_alias_impl_trait` fixes `Depositing<L>` to the returned closure type
+- Opaque aliases take no inherent or trait `impl`, and `bind` stays a free `fn` named by its verb
 - Records hold `deposit: Depositing<Store>` with no box or type parameter

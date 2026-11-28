@@ -49,11 +49,13 @@ pub fn accepted(order: Order, limit: u32) -> Result<Order, NEVec<Refusal>> {
 Bids join a checked price and a checked volume, and a form refusing both reaches its caller with both refusals:
 
 ```rust
-#[must_use]
-pub fn bid(form: &BidForm) -> Validated<Bid, BidError> {
-    let price = Validated::from(Price::try_new(form.price).map_err(BidError::from));
-    let volume = Validated::from(Volume::try_new(form.volume).map_err(BidError::from));
-    price.map2(volume, |price, volume| Bid { unit: form.unit, price, volume })
+impl Bid {
+    #[must_use]
+    pub fn from_form(form: &BidForm) -> Validated<Self, BidError> {
+        let price = Validated::from(Price::try_new(form.price).map_err(BidError::from));
+        let volume = Validated::from(Volume::try_new(form.volume).map_err(BidError::from));
+        price.map2(volume, |price, volume| Self { unit: form.unit, price, volume })
+    }
 }
 ```
 
@@ -87,12 +89,14 @@ pub fn units<'fleet>(fleet: &'fleet Fleet, blocks: &[Block]) -> Validated<Vec<&'
 Steps reading a joined value bind it through `.ok()?`, and later dependent steps bind through `?`:
 
 ```rust
-pub fn placed(headroom: &BTreeMap<UnitId, u32>, form: &BidForm) -> Result<Placed, NEVec<BidError>> {
-    let bid = bid(form).ok()?;
-    let refused = |reason| BidError::Refused { unit: form.unit, reason };
-    let held = headroom.get(&form.unit).ok_or_else(|| refused(Reason::Missing))?;
-    let left = held.checked_sub(bid.volume.into_inner()).ok_or_else(|| refused(Reason::Short))?;
-    Ok(Placed { bid, left })
+impl Placed {
+    pub fn from_form(headroom: &BTreeMap<UnitId, u32>, form: &BidForm) -> Result<Self, NEVec<BidError>> {
+        let bid = Bid::from_form(form).ok()?;
+        let refused = |reason| BidError::Refused { unit: form.unit, reason };
+        let held = headroom.get(&form.unit).ok_or_else(|| refused(Reason::Missing))?;
+        let left = held.checked_sub(bid.volume.into_inner()).ok_or_else(|| refused(Reason::Short))?;
+        Ok(Self { bid, left })
+    }
 }
 ```
 

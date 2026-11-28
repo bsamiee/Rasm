@@ -129,7 +129,7 @@ Independent CPU work runs through the parallel form of its sequential member (`p
 ```rust
 #[must_use]
 pub fn fingerprints(blobs: &[Blob]) -> Validated<Vec<Fingerprint>, StoreError> {
-    blobs.par_iter().map(|blob| fingerprint(blob).map_err(|source| StoreError::Fingerprint { blob: blob.id, source })).collect()
+    blobs.par_iter().map(|blob| Fingerprint::try_from(blob).map_err(|source| StoreError::Fingerprint { blob: blob.id, source })).collect()
 }
 ```
 

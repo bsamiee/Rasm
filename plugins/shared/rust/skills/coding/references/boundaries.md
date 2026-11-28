@@ -218,6 +218,15 @@ pub struct Settings {
     pub timeout: SignedDuration = SignedDuration::from_secs(30),
 }
 
+impl TryFrom<Vec<Table>> for Settings {
+    type Error = serde_path_to_error::Error<toml::de::Error>;
+
+    fn try_from(tables: Vec<Table>) -> Result<Self, Self::Error> {
+        let merged = tables.into_iter().fold(Table::new(), layered);
+        serde_path_to_error::deserialize(merged)
+    }
+}
+
 #[must_use]
 pub fn layered(lower: Table, upper: Table) -> Table {
     upper.into_iter().fold(lower, |mut table, (key, above)| {
@@ -229,15 +238,10 @@ pub fn layered(lower: Table, upper: Table) -> Table {
         table
     })
 }
-
-pub fn settings(tables: Vec<Table>) -> Result<Settings, serde_path_to_error::Error<toml::de::Error>> {
-    let merged = tables.into_iter().fold(Table::new(), layered);
-    serde_path_to_error::deserialize(merged)
-}
 ```
 
 Each file parses through `toml::from_str::<Table>`, and a syntax error names its line and column:
-- `settings` over no file returns each field's default
+- `Settings::try_from(Vec::new())` returns each field's default
 - `timeout = "5m"` decodes through `SignedDuration`'s own format, and `timeout = 5` reports `timeout`
 
 ## [06]-[ENTRY_POINT]
