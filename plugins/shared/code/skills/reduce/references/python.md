@@ -1,54 +1,60 @@
 # [PYTHON]
 
-Python targets hold `.py` and `.pyi` files under each uv root `git ls-files ':!:.config/**' '*uv.lock'` lists and PEP 723 plugin scripts beside their `.py.lock`, `<uv-root>` naming the root holding a target, `<project>` the uv member folder holding its `pyproject.toml`, `<package>` a folder holding `__init__.py`, `<python>` the root interpreter `<uv-root>/.venv/bin/python -I`, `<paths>` files a pass touches, and `<dir>` session scratch folder.
+Python targets hold `.py` and `.pyi` files under each uv root `git ls-files ':!:.config/**' '*uv.lock'` lists and PEP 723 plugin scripts beside their `.py.lock`, `<uv-root>` naming the root holding a target, `<project>` the uv member folder holding its `pyproject.toml`, `<package>` a folder holding `__init__.py`, `<python>` the root interpreter `<uv-root>/.venv/bin/python -I -W ignore`, `<paths>` files a pass touches, and `<dir>` session scratch folder.
 
 ## [01]-[SKILLS]
 
-| [INDEX] | [TARGET]        | [SKILLS]                                               | [CONDITION]                                   |
-| :-----: | :-------------- | :----------------------------------------------------- | :-------------------------------------------- |
-|  [01]   | Any Python      | `python:coding`, `python:expression`, `python:msgspec` | `.py` or `.pyi` file                          |
-|  [02]   | Boundary models | `python:pydantic`                                      | Imports `pydantic` or `pydantic_settings`     |
-|  [03]   | Command line    | `python:cyclopts`                                      | Imports `cyclopts`                            |
-|  [04]   | Telemetry       | `python:telemetry`                                     | Imports `structlog` or `opentelemetry`        |
-|  [05]   | Docstrings      | `python:document`                                      | Pass writing a declaration                    |
-|  [06]   | Blender         | `blender:coding`                                       | Imports `bpy`, file under a Blender uv root   |
-|  [07]   | Blender add-on  | `blender:extensions`, `blender:interface`              | `register`, `Panel`, `Menu`, draw handlers    |
-|  [08]   | Blender output  | `blender:nodes`, `blender:render`                      | `NodeTree`, `RenderSettings`, compositor      |
-|  [09]   | Tests           | `code:test`                                            | Suite under `tests/`, no Python testing skill |
+| [INDEX] | [TARGET]            | [SKILLS]                                               | [CONDITION]                                     |
+| :-----: | :------------------ | :----------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | Any Python          | `python:coding`, `python:expression`, `python:msgspec` | Every session, whatever the target imports      |
+|  [02]   | Boundary validation | `python:pydantic`                                      | Hand checks of untrusted input or settings      |
+|  [03]   | Command line        | `python:cyclopts`                                      | Hand `sys.argv` or `argparse` parsing           |
+|  [04]   | Telemetry           | `python:telemetry`                                     | Hand logging setup, `print` diagnostics, timers |
+|  [05]   | Docstrings          | `python:document`                                      | Pass writing a declaration                      |
+|  [06]   | Blender             | `blender:coding`                                       | Imports `bpy`, file under a Blender uv root     |
+|  [07]   | Blender add-on      | `blender:extensions`, `blender:interface`              | `register`, `Panel`, `Menu`, draw handlers      |
+|  [08]   | Blender output      | `blender:nodes`, `blender:render`                      | `NodeTree`, `RenderSettings`, compositor        |
+|  [09]   | Tests               | `code:test`                                            | Suite under `tests/`, no Python testing skill   |
 
-Members take the forms their `pyproject.toml` `requires-python` lowest bound accepts, so Blender roots and root libraries a Blender root installs (`>=3.13`) take no 3.14 or 3.15 form.
+`python:coding` states anyio forms in its concurrency reference and numpy forms in its numerics reference, both read whole with it. Members take the forms their `pyproject.toml` `requires-python` lowest bound accepts, so Blender roots and root libraries a Blender root installs (`>=3.13`) take no 3.14 or 3.15 form.
 
 ## [02]-[SOURCES]
 
-Python targets read `expression`, `msgspec`, the standard library of their root's interpreter, and Blender's RNA, as most hand-rolled code in this tree restates one of them. Package reads, one command per step:
-1. Version: release each uv root locks, as roots resolve one package apart (`pydantic`, `numpy`), an empty tree meaning the root lacks it
-2. Guide: documentation URL of the installed distribution, read through `search:web`, as wheels hold no agent guide
-3. Index: import names of a distribution, then its public modules
-4. Inventory: `pydoc` of each module step 3 lists into one file under `### <module>` headings, counted by member lines
-5. Member: source of one member, its signature from a `.pyi` stub through `search:code` where a compiled module declares none
-6. Standard library: `builtins`, `functools`, `itertools`, `operator`, `collections`, `enum`, `typing`, then a job's module, through steps 4 and 5
-7. Host: each RNA property and function of `bpy.types` in the installed Blender with enum identifiers, as a Blender root's `bpy` wheel can trail it
-8. Workspace: first-party files the target imports, each read whole
-9. Catalog: Blender root candidates in order of group `blender` (what Blender bundles), member `dependencies`, then a root row with a 3.13 wheel
+Python targets read core packages `expression`, `msgspec`, `anyio`, and `numpy` every session, the standard library of their root's interpreter, and Blender's RNA, as most hand-rolled code in this tree restates one of them. Package reads, one command per step:
+1. Version: release each uv root locks of each core package and candidate, as roots resolve one package apart (`anyio`, `numpy`)
+2. Guide: documentation URL of each distribution, read through `search:web`, as wheels hold no agent guide
+3. `expression`: `pydoc` of every public module read whole, as its results, options, collections, and effects replace hand control flow
+4. `msgspec`: `pydoc` of every public module and each `.pyi` stub, as compiled `_core` states its signatures in stubs alone
+5. `anyio`: `pydoc` of every public module, for tasks, cancellation, streams, subprocesses, and file I/O a coroutine does by hand
+6. `numpy`: `pydoc` of every public module, each module naming the job's field (`numpy.linalg`, `numpy.random`, `numpy.fft`) read whole
+7. Member: source of one member, a compiled member's signature from its `.pyi` stub through `search:code`
+8. Standard library: `builtins`, `functools`, `itertools`, `operator`, `collections`, `enum`, `typing`, then a job's module, through steps 3 and 7
+9. Host: each RNA property and function of `bpy.types` in the installed Blender with enum identifiers, as a Blender root's `bpy` wheel can trail it
+10. Workspace: first-party files the target imports, each read whole
+11. Central manifest: dependency groups of each uv root whole, every session, then each candidate's import names and inventory through step 3
 
 ```bash
-(cd <uv-root> && uv tree --frozen --invert --package <dist> --depth 1)
+for d in expression msgspec anyio numpy <dist>; do (cd <uv-root> && uv tree --frozen --invert --package "$d" --depth 1 | head -1); done
 <python> -c "import sys; from importlib.metadata import metadata; m = metadata(sys.argv[1]); print(m['Version'], *m.get_all('Project-URL') or ())" <dist>
-<python> -c "import sys, re; from importlib.metadata import packages_distributions as p; n = lambda s: re.sub(r'[-_.]+', '-', s).lower(); print(*sorted(m for m, d in p().items() if n(sys.argv[1]) in map(n, d)))" <dist>
-<python> -c "import importlib, pkgutil, sys; root = importlib.import_module(sys.argv[1]); print(root.__name__, *(m.name for m in pkgutil.walk_packages(getattr(root, '__path__', ()), f'{root.__name__}.') if '._' not in m.name), sep='\n')" <module> > <dir>/modules-<module>.txt
-while read -r m; do printf '### %s\n' "$m"; <python> -m pydoc "$m"; done < <dir>/modules-<module>.txt > <dir>/inventory-<module>.txt && rg -c '^    (class )?\w+\(|^ \|  \w+\(' <dir>/inventory-<module>.txt
+<python> -c "import importlib, pkgutil, sys; root = importlib.import_module(sys.argv[1]); print(root.__name__, *(m.name for m in pkgutil.walk_packages(getattr(root, '__path__', ()), f'{root.__name__}.') if not any(p.startswith('_') or p == 'tests' for p in m.name.split('.'))), sep='\n')" expression | while read -r m; do printf '### %s\n' "$m"; <python> -m pydoc "$m"; done > <dir>/inventory-expression.txt && rg -c '^    (class )?\w+\(|^ \|  \w+\(' <dir>/inventory-expression.txt
+<python> -c "import importlib, pkgutil, sys; root = importlib.import_module(sys.argv[1]); print(root.__name__, *(m.name for m in pkgutil.walk_packages(getattr(root, '__path__', ()), f'{root.__name__}.') if not any(p.startswith('_') or p == 'tests' for p in m.name.split('.'))), sep='\n')" msgspec | while read -r m; do printf '### %s\n' "$m"; <python> -m pydoc "$m"; done > <dir>/inventory-msgspec.txt && rg -n '^(class|def) |^    def ' -g '*.pyi' "$(<python> -c 'import msgspec, os; print(os.path.dirname(msgspec.__file__))')"
+<python> -c "import importlib, pkgutil, sys; root = importlib.import_module(sys.argv[1]); print(root.__name__, *(m.name for m in pkgutil.walk_packages(getattr(root, '__path__', ()), f'{root.__name__}.') if not any(p.startswith('_') or p == 'tests' for p in m.name.split('.'))), sep='\n')" anyio | while read -r m; do printf '### %s\n' "$m"; <python> -m pydoc "$m"; done > <dir>/inventory-anyio.txt && rg -c '^    (class )?\w+\(|^ \|  \w+\(' <dir>/inventory-anyio.txt
+<python> -c "import importlib, pkgutil, sys; root = importlib.import_module(sys.argv[1]); print(root.__name__, *(m.name for m in pkgutil.walk_packages(getattr(root, '__path__', ()), f'{root.__name__}.') if not any(p.startswith('_') or p == 'tests' for p in m.name.split('.'))), sep='\n')" numpy | while read -r m; do printf '### %s\n' "$m"; <python> -m pydoc "$m"; done > <dir>/inventory-numpy.txt && rg -c '^### ' <dir>/inventory-numpy.txt
 <python> -m inspect <module>:<qualname>
 <python> -c "import sys; print(*sorted(sys.stdlib_module_names), sep='\n')"
 blender --background --factory-startup --python-exit-code 1 --python-expr "import bpy; print(*(f'{n}\t{kind}\t{m.identifier}\t{\" \".join(i.identifier for i in getattr(m, \"enum_items\", ()))}\t{m.description}' for n in dir(bpy.types) for rna in [getattr(getattr(bpy.types, n), 'bl_rna', None)] if rna for kind, members in (('property', rna.properties), ('function', rna.functions)) for m in members), sep='\n')" | rg '\t(property|function)\t' > <dir>/inventory-bpy.tsv
 ruff analyze graph <target> | jq -r '[.[]] | add | unique[]'
+git ls-files ':!:.config/**' '*uv.lock' && yq -p toml -oy '."dependency-groups"' <uv-root>/pyproject.toml && yq -p toml -oy '.project.dependencies' <project>/pyproject.toml
+<python> -c "import sys, re; from importlib.metadata import packages_distributions as p; n = lambda s: re.sub(r'[-_.]+', '-', s).lower(); print(*sorted(m for m, d in p().items() if n(sys.argv[1]) in map(n, d)))" <dist>
 ```
 
 Reads hold by root:
 - Interpreter: `<python>` reads the release its root installs, as `uv pip list` reads `VIRTUAL_ENV`, which mise points at the root `.venv`
-- Catalog: root `default-groups = "all"` installs every root catalog row, so step 4 reads any root candidate with no install
-- Imports: steps 3, 4, and 6 import each module, and a module whose optional dependency is missing prints its error in the inventory and stays unread
+- Catalog: root `default-groups = "all"` installs every root catalog row, so step 3's command reads any root candidate with no install
+- Blender catalog: Blender root candidates rank group `blender` (what Blender bundles), member `dependencies`, then a root row with a 3.13 wheel
+- Imports: inventories import each module, and a module whose optional dependency is missing prints its error in the inventory and stays unread
 - Members: `<python> -m inspect` reads a class member (`expression.core.option:Some.map`), as a `type` alias holds no members
-- Blender: modules importing `bpy` load inside Blender alone, read through step 7 and the Blender root's `bpy-stubs`, `rna_enums` literals included
+- Blender: modules importing `bpy` load inside Blender alone, read through step 9 and the Blender root's `bpy-stubs`, `rna_enums` literals included
 
 ## [03]-[MAPPING]
 
