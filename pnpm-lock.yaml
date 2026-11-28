@@ -1318,6 +1318,19 @@ importers:
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
 
   libs/typescript/macos/current-process:
+    dependencies:
+      '@rasm/darwin':
+        specifier: workspace:*
+        version: link:../darwin
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
+
+  libs/typescript/macos/darwin:
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

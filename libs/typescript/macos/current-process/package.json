@@ -25,6 +25,9 @@
         },
         "access": "public"
     },
+    "dependencies": {
+        "@rasm/darwin": "workspace:*"
+    },
     "devDependencies": {
         "@types/node": "catalog:",
         "effect": "catalog:"

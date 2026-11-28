@@ -1,0 +1,38 @@
+{
+    "name": "@rasm/darwin",
+    "version": "0.1.0",
+    "description": "Darwin interfaces of the running Node process on macOS through one node:ffi symbol image, reading Core Foundation values, launchd sockets, unified log writes, and network, memory, and task counters",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/macos/darwin"
+    },
+    "files": [
+        "dist/**/*.js",
+        "dist/**/*.d.ts"
+    ],
+    "type": "module",
+    "sideEffects": false,
+    "exports": {
+        ".": "./image.ts",
+        "./package.json": "./package.json"
+    },
+    "publishConfig": {
+        "exports": {
+            ".": "./dist/image.js",
+            "./package.json": "./package.json"
+        },
+        "access": "public"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
+    },
+    "engines": {
+        "node": ">=27"
+    }
+}
