@@ -39,7 +39,7 @@ class Watch extends Context.Service<
                 const listed = Effect.provideService(Pane.list(Option.some(session)), ChildProcessSpawner.ChildProcessSpawner, processes);
                 const folder = yield* Effect.cached(
                     Effect.gen(function* () {
-                        const [uid, tmp] = yield* Effect.all([run(['id', '-u']), run(['printenv', 'TMUX_TMPDIR']).pipe(Effect.catchTag('ExitError', (exited) => (exited.code === 1 ? Effect.succeed({ stdout: '/tmp' }) : exited)))], { concurrency: 'unbounded' });
+                        const [uid, tmp] = yield* Effect.all([run(['id', '-u']), run(['/bin/sh', '-c', 'printf %s "${TMUX_TMPDIR:-/tmp}"'])], { concurrency: 'unbounded' });
                         return path.join(String.trim(tmp.stdout), `tmux-${String.trim(uid.stdout)}`);
                     }).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, processes)),
                 );
