@@ -21,7 +21,7 @@ export default mergeConfig(pluginConfig({ harness: new URL('../../../../../plugi
             enforce: 'pre',
             resolveId: { filter: { id: DECLARED }, handler: () => MOUNTED },
             load: {
-                filter: { id: new RegExp(`^${MOUNTED}$`, 'u') },
+                filter: { id: new RegExp(`^${RegExp.escape(MOUNTED)}$`, 'u') },
                 handler: Effect.fnUntraced(
                     function* () {
                         const open = yield* readTypeScript(Option.none(), join(import.meta.dirname, 'node_modules'));

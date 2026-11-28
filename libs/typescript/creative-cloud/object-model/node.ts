@@ -70,8 +70,19 @@ const HOST: FileSystemCallbacks = {
     fileExists: (path) => statPath(path)?.isFile() ?? serverFS.useOS,
     getAccessibleEntries: (path) =>
         Option.filter(Option.fromUndefinedOr(statPath(path)), (stats) => stats.isDirectory()).pipe(
-            Option.map(() => Array.partition(readdirSync(path), (name) => (statPath(join(path, name))?.isDirectory() === true ? Result.fail(name) : Result.succeed(name)))),
-            Option.match({ onNone: () => serverFS.useOS, onSome: ([files, directories]) => ({ files, directories, symlinks: undefined }) }),
+            Option.map(() =>
+                Array.filterMap(readdirSync(path, { withFileTypes: true }), (entry) => {
+                    const target = entry.isSymbolicLink() ? statPath(join(path, entry.name)) : entry;
+                    return target?.isFile() === true || target?.isDirectory() === true ? Result.succeed({ name: entry.name, directory: target.isDirectory(), link: entry.isSymbolicLink() }) : Result.failVoid;
+                }),
+            ),
+            Option.match({
+                onNone: () => serverFS.useOS,
+                onSome: (entries) => {
+                    const [directories, files] = Array.partition(entries, ({ name, directory }) => (directory ? Result.succeed(name) : Result.fail(name)));
+                    return { files, directories, symlinks: entries.filter(Struct.get('link')).map(Struct.get('name')) };
+                },
+            }),
         ),
     readFile: (path) => (statPath(path)?.isFile() === true ? readFileSync(path, 'utf-8') : serverFS.useOS),
     realpath: serverFS.identity,

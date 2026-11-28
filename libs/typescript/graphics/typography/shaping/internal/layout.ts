@@ -57,7 +57,10 @@ class Layout extends Schema.Class<Layout, { readonly brand: unique symbol }>('La
     });
 
     choices({ glyphs }: ShapedText) {
-        const choosable = Array.fromIterable(this.substitutions.keys()).filter((tag) => CHOOSABLE.test(tag));
+        const choosable = this.substitutions
+            .keys()
+            .filter((tag) => CHOOSABLE.test(tag))
+            .toArray();
         return Array.cartesian(glyphs, choosable).flatMap(([{ glyph, cluster }, tag]) => this.variants(tag, glyph).map((alternate, index) => ({ cluster, glyph: alternate, feature: new Feature(tag, index + 1, cluster, cluster + 1).toString() })));
     }
     covers(tag: string, glyph: number) {

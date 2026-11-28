@@ -70,7 +70,7 @@ export default createConformanceRule<{ readonly clean: string }>({
             ...Array.fromNullishOr(findCycle(graph)).map((cycle) => ({ workspaceViolation: true, message: `Task cycle ${cycle.join(' -> ')}, drop one dependsOn entry of it` })),
             ...Result.try(() => assertTaskGraphDoesNotContainInvalidTargets(graph))
                 .pipe(Result.getFailure, Option.toArray)
-                .map((cause) => ({ workspaceViolation: true, message: Predicate.isError(cause) ? cause.message : Formatter.format(cause) })),
+                .map((cause) => ({ workspaceViolation: true, message: Error.isError(cause) ? cause.message : Formatter.format(cause) })),
             ...Object.values(graph.tasks)
                 .filter(({ id, cache }) => cache && !cleaning.has(id) && reached.has(id))
                 .map(({ id, target }) => ({ sourceProject: target.project, message: `${id} is cached and depends on a ${clean} task, which deletes outputs before every replay, drop that dependsOn entry` })),

@@ -1,7 +1,7 @@
 import { Unmatched } from '@rasm/search/unmatched';
-import { Cause, Deferred, Duration, Effect, Equal, Exit, Function, Latch, Layer, MutableRef, Option, Predicate, Record, Ref, Schedule, Schema, Stream, Struct, SubscriptionRef } from 'effect';
+import { Cause, Deferred, Duration, Effect, Equal, Exit, Function, Latch, Layer, Match, MutableRef, Option, pipe, Predicate, Record, Ref, Result, Schedule, Schema, Stream, Struct, SubscriptionRef } from 'effect';
 import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse, Url, type UrlParams } from 'effect/http';
-import { NetAddress } from 'effect/net';
+import { Host, NetAddress } from 'effect/net';
 import type { ChildProcessSpawner } from 'effect/process';
 import { type Rpc, RpcClient, type RpcClientError, type RpcGroup, RpcSerialization, RpcServer } from 'effect/rpc';
 import { Socket, SocketServer } from 'effect/socket';
@@ -23,6 +23,8 @@ interface Connection<Rpcs extends Rpc.Any, Peer> {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SUPERSEDED = new Socket.CloseEvent(4000, 'Superseded by a newer peer of its key');
+const DEFAULT_PORTS: Record.ReadonlyRecord<string, number> = { 'ws:': 80, 'wss:': 443 };
+const LOCALHOST = Host.domainNameFromStringUnsafe('localhost');
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -65,26 +67,45 @@ const connect = Effect.fnUntraced(
     Effect.exit,
 );
 const dial = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rpcs>, handlers: Layer.Layer<H, EH, RH>, { url, redial, peer }: { readonly url: URL; readonly redial: Duration.Duration; readonly peer: Effect.Effect<UrlParams.Input, E, R> }) => {
-    const server = Effect.map(Effect.context<R | Socket.WebSocketConstructor>(), (services) => ({
-        address: NetAddress.inetAddressUnsafe(NetAddress.ipv4Loopback, Number(url.port)),
-        run: <A, X, Y>(handler: (socket: Socket.Socket) => Effect.Effect<A, X, Y>) =>
-            Stream.fromEffectSchedule(
-                Effect.flatMap(peer, (identity) => connect(Url.setUrlParams(url, identity).href, handler)),
-                Schedule.forever.pipe(
-                    Schedule.setInputType<Exit.Exit<boolean, X | Socket.SocketError>>(),
-                    Schedule.addDelay(({ input }) => Effect.succeed(Option.exists(Exit.findErrorOption(input), (error) => Socket.isSocketError(error) && Schema.is(Socket.SocketOpenError)(error.reason)) ? redial : Duration.zero)),
+    const server = Effect.map(
+        Effect.all([
+            Effect.fromResult(
+                pipe(
+                    url.port === '' ? Record.get(DEFAULT_PORTS, url.protocol) : Option.some(Number(url.port)),
+                    Result.fromOption(() => new NetAddress.NetAddressError({ input: url.href, message: `${url.href} states no port, and ${url.protocol} has no default port` })),
+                    Result.flatMap((port) => Host.hostPortFromString(`${url.hostname}:${port}`)),
+                    Result.flatMap(({ host, port }) =>
+                        Match.value(host).pipe(
+                            Match.when(Equal.equals(LOCALHOST), () => NetAddress.inetAddress(NetAddress.ipv4Loopback, port)),
+                            Match.when(Host.isDomainName, (name) => Result.fail(new NetAddress.NetAddressError({ input: url.href, message: `${url.href} names ${name}, which resolves through DNS alone, and dial holds no resolver` }))),
+                            Match.orElse((literal) => NetAddress.inetAddressFromHostString(Host.formatHost(literal), port)),
+                        ),
+                    ),
                 ),
-            ).pipe(
-                Stream.takeUntil((exit) => Exit.isSuccess(exit) && exit.value),
-                Stream.map((exit) => Option.map(Option.filter(Exit.getCause(exit), Predicate.not(Cause.hasInterruptsOnly)), Cause.pretty)),
-                Stream.changes,
-                Stream.runForEach(Option.match({ onNone: () => Effect.void, onSome: (failure) => Effect.logError(`Link to ${url.href} failed, redialing at once after a close and in ${Duration.format(redial)} after a refusal`, failure) })),
-                Effect.andThen(Effect.logInfo(`Link to ${url.href} ended, a newer peer of its key replaced it`)),
-                Effect.catchCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.interrupt : Effect.logError(`Link to ${url.href} ended, its peer identity failed`, cause))),
-                Effect.andThen(Effect.never),
-                Effect.provideContext(services),
             ),
-    }));
+            Effect.context<R | Socket.WebSocketConstructor>(),
+        ]),
+        ([address, services]) => ({
+            address,
+            run: <A, X, Y>(handler: (socket: Socket.Socket) => Effect.Effect<A, X, Y>) =>
+                Stream.fromEffectSchedule(
+                    Effect.flatMap(peer, (identity) => connect(Url.setUrlParams(url, identity).href, handler)),
+                    Schedule.forever.pipe(
+                        Schedule.setInputType<Exit.Exit<boolean, X | Socket.SocketError>>(),
+                        Schedule.addDelay(({ input }) => Effect.succeed(Option.exists(Exit.findErrorOption(input), (error) => Socket.isSocketError(error) && Schema.is(Socket.SocketOpenError)(error.reason)) ? redial : Duration.zero)),
+                    ),
+                ).pipe(
+                    Stream.takeUntil((exit) => Exit.isSuccess(exit) && exit.value),
+                    Stream.map((exit) => Option.map(Option.filter(Exit.getCause(exit), Predicate.not(Cause.hasInterruptsOnly)), Cause.pretty)),
+                    Stream.changes,
+                    Stream.runForEach(Option.match({ onNone: () => Effect.void, onSome: (failure) => Effect.logError(`Link to ${url.href} failed, redialing at once after a close and in ${Duration.format(redial)} after a refusal`, failure) })),
+                    Effect.andThen(Effect.logInfo(`Link to ${url.href} ended, a newer peer of its key replaced it`)),
+                    Effect.catchCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.interrupt : Effect.logError(`Link to ${url.href} ended, its peer identity failed`, cause))),
+                    Effect.andThen(Effect.never),
+                    Effect.provideContext(services),
+                ),
+        }),
+    );
     return RpcServer.layer(group, { concurrency: 1, disableFatalDefects: true }).pipe(Layer.provide([handlers, RpcServer.layerProtocolSocketServer]), Layer.provide([Layer.effect(SocketServer.SocketServer)(server), RpcSerialization.layerJson]));
 };
 const accept = Effect.fnUntraced(function* <Rpcs extends Rpc.Any, Peer, RD>(group: RpcGroup.RpcGroup<Rpcs>, { peer: codec, key }: ListenOptions<Peer, RD>, links: SubscriptionRef.SubscriptionRef<Record.ReadonlyRecord<string, Connection<Rpcs, Peer>>>, request: HttpServerRequest.HttpServerRequest) {

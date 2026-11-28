@@ -42,11 +42,12 @@ const pluginConfig = (server: { readonly harness: URL; readonly name: string }):
         build: {
             ssr: 'main.ts',
             sourcemap: true,
+            minify: true,
             target: Record.collect(UxpManifest.engine, (browser, version) => `${browser}${version}`),
             rolldownOptions: {
                 platform: 'neutral',
                 transform: { inject: Record.map({ TextDecoder, TextDecoderStream, TextEncoder, TextEncoderStream }, (_, name): [string, string] => [fileURLToPath(import.meta.resolve('@exodus/bytes/encoding-lite.js')), name]) },
-                output: { format: 'cjs', entryFileNames: '[name].js', paths: String.replace(HOST_MODULE, ''), codeSplitting: false, sourcemapExcludeSources: true },
+                output: { format: 'cjs', entryFileNames: '[name].js', paths: String.replace(HOST_MODULE, ''), codeSplitting: false, sourcemapExcludeSources: true, minify: { mangle: false } },
             },
         },
         environments: { ssr: { resolve: { noExternal: true, builtins: [HOST_MODULE], conditions: Array.intersection(defaultServerConditions, defaultClientConditions) } } },

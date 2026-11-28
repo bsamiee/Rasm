@@ -54,7 +54,7 @@ export default createConformanceRule<{ readonly separator: string }>({
                 declared,
                 Array.flatMap(({ name, target, configuration }) => ['', ...Record.keys(configuration.configurations ?? {})].map((named) => ({ name, label: createTaskId(name, target, named), configuration, named }))),
                 Array.map(({ name, label, configuration, named }) => ({ name, label, checked: Result.try((): unknown => combineOptionsForExecutor({}, named, configuration, getExecutorInformation(...parseExecutor(configuration.executor ?? 'nx:run-commands'), tree.root, projects).schema, null, null)) })),
-                Array.filterMap(({ name, label, checked }) => Result.map(Result.flip(checked), (cause) => ({ sourceProject: name, message: `${label} ${Predicate.isError(cause) ? cause.message : Formatter.format(cause)}` }))),
+                Array.filterMap(({ name, label, checked }) => Result.map(Result.flip(checked), (cause) => ({ sourceProject: name, message: `${label} ${Error.isError(cause) ? cause.message : Formatter.format(cause)}` }))),
             ),
             ...entries.filter(({ name, entry }) => !resolves(projectGraph, names, name, entry)).map(({ name, target, entry }) => ({ sourceProject: name, message: `${name}:${target} dependsOn ${JSON.stringify(entry)} names no target, name an existing target or drop the entry` })),
             ...entries.filter(({ depended }) => aggregates.includes(depended)).map(({ name, target, depended }) => ({ sourceProject: name, message: `${name} ${target} depends on ${depended}, which forwards the parameters of the run to its tool targets, depend on ${depended}${separator}* in its place` })),

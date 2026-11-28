@@ -45,10 +45,13 @@ const expandToWords = (text: string, first: number, last: number): readonly [num
         .filter(({ start, end }) => start < last && first < end)
         .reduce<readonly [number, number]>(([from, to], { start, end }) => [Math.min(from, start), Math.max(to, end)], [first, last]);
 const letters = (text: string) =>
-    Array.fromIterable(text.matchAll(LETTERS)).map(({ 0: letter, index: offset }) => {
-        const point = letter.codePointAt(0) ?? 0;
-        return { offset, point, script: Script.forChar(point) };
-    });
+    text
+        .matchAll(LETTERS)
+        .map(({ 0: letter, index: offset }) => {
+            const point = letter.codePointAt(0) ?? 0;
+            return { offset, point, script: Script.forChar(point) };
+        })
+        .toArray();
 const baseDirection = (text: string) => {
     const levels = BIDI.forText(`${text}\u{2029}`, null);
     const rightToLeft: boolean = Bidi.levelIsRtl(levels.levelAt(levels.size - 1));
