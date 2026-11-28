@@ -1,0 +1,26 @@
+# --- [DEPS] -----------------------------------------------------------------------------
+
+[deps]
+disable = ["blender", "darkroom"]
+
+# --- [SETTINGS] -------------------------------------------------------------------------
+
+[settings]
+disable_tools = [
+    "cargo:cargo-edit",
+    "dotnet:Microsoft.AITools.BinlogMcp",
+    "dotnet:RoslynCodeLens.Mcp",
+    "dotnet:dotnet-counters",
+    "dotnet:dotnet-dump",
+    "dotnet:dotnet-stack",
+    "dotnet:dotnet-trace",
+    "dotnet:ilspycmd",
+    "gcloud",
+    "github:Link-/gh-token",
+    "github:Samsung/netcoredbg",
+    "github:llvm/llvm-project",
+    "github:microsoft/vcpkg-tool",
+    "http:rustc-source",
+    "npm:@aredotna/cli",
+    "npm:ctx7",
+]
