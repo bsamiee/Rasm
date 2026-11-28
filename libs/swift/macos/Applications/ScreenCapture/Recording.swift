@@ -139,13 +139,11 @@ final class StreamOutput: NSObject, SCStreamOutput, SCStreamDelegate, SCRecordin
         var waiting: [UUID: AsyncStream<Frame>.Continuation] = [:]
         var began: Bool = false
         var resting: Bool = true
-        var released: Bool = false
         var drawn: UInt64 = 0
     }
 
     let first = AsyncStream<Result<Frame, ApplicationFailure>>.makeStream(bufferingPolicy: .bufferingOldest(1))
     let outcomes = AsyncStream<Result<Void, ApplicationFailure>>.makeStream(bufferingPolicy: .bufferingOldest(1))
-    let ended = AsyncStream<Void>.makeStream()
     let subject: String
     private let area: CGRect
     private let resting: (@Sendable ([CGRect]) -> Void)?
@@ -156,7 +154,7 @@ final class StreamOutput: NSObject, SCStreamOutput, SCStreamDelegate, SCRecordin
     func frames() -> AsyncStream<Frame> {
         let (stream, continuation) = AsyncStream<Frame>.makeStream()
         let id = UUID()
-        continuation.onTermination = { _ in self.release(id) }
+        continuation.onTermination = { _ in self.held.withLock { held in held.waiting[id] = nil } }
         held.withLock { held in
             held.waiting[id] = continuation
             held.resting = false
@@ -167,15 +165,6 @@ final class StreamOutput: NSObject, SCStreamOutput, SCStreamDelegate, SCRecordin
     func disturb() { held.withLock { held in held.resting = false } }
 
     func drew(after instant: UInt64) -> Bool { held.withLock { held in held.drawn > instant } }
-
-    func release(_ waiter: UUID? = nil) {
-        let over: Bool = held.withLock { held in
-            if let waiter { held.waiting[waiter] = nil }
-            held.released = held.released || waiter == nil
-            return held.released && held.waiting.isEmpty
-        }
-        if over { ended.continuation.finish() }
-    }
 
     func finish() {
         let waiting: [UUID: AsyncStream<Frame>.Continuation] = held.withLock { held in exchange(&held.waiting, with: [:]) }
@@ -333,8 +322,6 @@ extension Watch {
                 (output: StreamOutput, _: StreamOutput.Frame, _: (frame: CGRect, windows: [CGWindowID])) async throws(ApplicationFailure) in
                 opening.yield(.success(output))
                 for await _ in call {}
-                output.release()
-                for await _ in output.ended.stream {}
             }
         } catch {
             opening.yield(.failure(error))
