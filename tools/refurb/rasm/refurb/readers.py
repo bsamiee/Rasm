@@ -64,7 +64,7 @@ from rasm.refurb._loops import Traverser
 
 
 class ErrorNameReadersError(RasmError):
-    """Package-internal module function or constant, or private class member, read by one function, method, or statement across the member or by none, a private name another file reads, or a private module's `__all__` name no other file reads.
+    """Package-internal module function or constant, or private class member, read once by one function, method, or statement across the member or by none, a private name another file reads, or a private module's `__all__` name no other file reads.
 
     Bad:
 
@@ -369,10 +369,10 @@ class _Walk(Traverser):
 
 
 def check(node: MypyFile, errors: list[Error], settings: Settings) -> None:
-    """Reports a function one call reads, another candidate one unit reads, a private candidate nothing reads, another module's private name the file imports or reads through that module, and a private module's `__all__` name no other file reads.
+    """Reports a candidate read once, a private candidate nothing reads, another module's private name the file imports or reads through that module, and a private module's `__all__` name no other file reads.
 
     Candidates are module functions, constants, and private class members no base declares, each read under the scope mypy resolves for it: its module, or the class whose body declares a member read through an instance, a class, or `self`.
-    A one-reader candidate is reported while the nesting of its read and the depth of its body sum to 3 or less, a body of more than one returned expression one level deeper as the local function it folds into, and a function or a value each read builds again takes a single read.
+    A one-reader candidate is reported while the nesting of its read and the depth of its body sum to 3 or less, a body of more than one returned expression one level deeper as the local function it folds into, and every candidate takes a single read.
     A name an entry exports, an `__all__` name of a module an entry exports or of a module with no private path part, a class field an annotation declares, and a constant each read builds again with a reader outside import time are no candidates.
     """
     index = _index(tuple(Path(found).resolve() for found in settings.files))
@@ -455,7 +455,7 @@ def check(node: MypyFile, errors: list[Error], settings: Settings) -> None:
             if key not in index.public and not (function and (key in values or key in index.values)) and not (inexact and (key in compared or key in index.compared))
             if (index.loads[module][key[1]] <= len(reads[key]) if key[0] == module else not index.members.get(key[1], frozenset()) - {module})
             for sites in ((*reads[key], *((label, level) for owner, label, level in index.readers.get(key, ()) if owner != module)),)
-            if len(found := frozenset(label for label, _ in sites)) == 1 and (len(sites) == 1 or not (function or rebuilt)) and "" not in found and f"{key[0]}.{key[1]}" not in found
+            if len(sites) == 1 and "" not in (found := frozenset(label for label, _ in sites)) and f"{key[0]}.{key[1]}" not in found
             for reader in found
             if not rebuilt or ":" in reader
             if max(level for _, level in sites) + depths[f"{key[0]}.{key[1]}" if function else f"{module}:{declaration.line}"] <= 3
