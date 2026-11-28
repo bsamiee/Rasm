@@ -12,7 +12,7 @@ interface Row {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const unset = 0x01_00_00_00;
+const UNSET = 0x01_00_00_00;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -29,14 +29,14 @@ class Placed extends Context.Service<
 
 const raster = (props: Omit<RasterProps, 'cells'>, cell: (column: number, row: number) => { readonly glyph: string; readonly foreground?: number; readonly background?: number }): RasterProps => ({
     ...props,
-    cells: new Uint8Array(Uint32Array.from(Array.makeBy(props.columns * props.rows, (index) => cell(index % props.columns, Math.trunc(index / props.columns))).flatMap(({ glyph, foreground = unset, background = unset }) => [glyph.codePointAt(0) ?? 0, foreground, background])).buffer).toBase64(),
+    cells: new Uint8Array(Uint32Array.from(Array.makeBy(props.columns * props.rows, (index) => cell(index % props.columns, Math.trunc(index / props.columns))).flatMap(({ glyph, foreground = UNSET, background = UNSET }) => [glyph.codePointAt(0) ?? 0, foreground, background])).buffer).toBase64(),
 });
-const compacted = (rows: SubscriptionRef.SubscriptionRef<Record.ReadonlyRecord<string, Row>>, e: Frozen<Args<'session.compact'>>, result: EventResult<'session.compact'>) =>
+const prune = (rows: SubscriptionRef.SubscriptionRef<Record.ReadonlyRecord<string, Row>>, e: Frozen<Args<'session.compact'>>, result: EventResult<'session.compact'>) =>
     Effect.when(SubscriptionRef.update(rows, Record.filter(Struct.get('fullscreen'))), Effect.succeed(e.trigger !== 'precompute' && e.agentId === undefined && result.skip === undefined));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function seen($: EngineInterface, rows: SubscriptionRef.SubscriptionRef<Record.ReadonlyRecord<string, Row>>, e: Frozen<RenderInput<'Placed'>>) {
+function record($: EngineInterface, rows: SubscriptionRef.SubscriptionRef<Record.ReadonlyRecord<string, Row>>, e: Frozen<RenderInput<'Placed'>>) {
     const { id, plugin, onScreen } = e.props;
     SubscriptionRef.update(rows, (held) => {
         const kept = Option.filter(Record.get(held, id), (row) => row.requestId === e.requestId);
@@ -62,4 +62,4 @@ function placed($: EngineInterface, rows: SubscriptionRef.SubscriptionRef<Record
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { compacted, Placed, placed, raster, type Row, seen };
+export { prune, Placed, placed, raster, type Row, record };

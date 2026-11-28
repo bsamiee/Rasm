@@ -25,8 +25,8 @@ class Line extends Data.Class<{
 }> {}
 class Report extends Data.Class<{ readonly lines: readonly Line[]; readonly next?: Call; readonly budget?: number }> {
     static readonly page: number = BUDGET.page;
-    static readonly of = (value: unknown): Report => new Report({ lines: stated(value, Option.none()) });
-    static readonly text = (report: Report): string => [...fit(report.lines, report.budget ?? BUDGET.page), ...Array.fromNullishOr(report.next).map((call) => written(new Line({ head: ['next'], value: Format.call(call) })))].join('\n');
+    static readonly of = (value: unknown): Report => new Report({ lines: describe(value, Option.none()) });
+    static readonly text = (report: Report): string => [...fit(report.lines, report.budget ?? BUDGET.page), ...Array.fromNullishOr(report.next).map((call) => writeLine(new Line({ head: ['next'], value: Format.call(call) })))].join('\n');
     static readonly schema: Schema.Codec<Report, string> = Schema.String.pipe(Schema.decodeTo(Schema.instanceOf(Report), { decode: SchemaGetter.forbidden(() => 'report text decodes to no report'), encode: SchemaGetter.transform(Report.text) }));
 }
 
@@ -62,12 +62,12 @@ const Format = {
     list: (items: Iterable<string>) => LIST.format(items),
     call: ({ tool, given }: Call) => `${tool} ${argument(given)}`,
 } as const;
-const written = ({ head, value, facts = [], call, rows }: Line) => {
+const writeLine = ({ head, value, facts = [], call, rows }: Line) => {
     const heading = [head.join(' '), ...Array.fromNullishOr(value)].filter(String.isNonEmpty).join(': ');
     const line = [heading, ...facts].filter(String.isNonEmpty).join(', ');
     return rows === undefined && call !== undefined ? `${line} - ${Format.call(call)}` : line;
 };
-const stated = (value: unknown, label: Option.Option<string>): readonly Line[] => {
+const describe = (value: unknown, label: Option.Option<string>): readonly Line[] => {
     const head = Option.toArray(label);
     const under = (rows: readonly Line[]) => (Array.isReadonlyArrayEmpty(rows) ? [] : Option.match(label, { onNone: () => rows, onSome: (name) => [new Line({ head: [`${name}:`], rows })] }));
     return Match.value(value).pipe(
@@ -78,7 +78,7 @@ const stated = (value: unknown, label: Option.Option<string>): readonly Line[] =
             return Predicate.isTupleOf(lines, 1) ? [new Line({ head, value: lines[0] })] : under(lines.map((line) => new Line({ head: [line] })));
         }),
         Match.when(Predicate.isObjectOrArray, (held) => {
-            const lines = Array.isArray(held) ? held.flatMap((item) => (Predicate.isObject(item) ? row(item) : stated(item, Option.none()))) : Record.collect(held, (key, each) => stated(each, Option.some(String.noCase()(key)))).flat();
+            const lines = Array.isArray(held) ? held.flatMap((item) => (Predicate.isObject(item) ? row(item) : describe(item, Option.none()))) : Record.collect(held, (key, each) => describe(each, Option.some(String.noCase()(key)))).flat();
             const values = lines.flatMap(({ value: text }) => Array.fromNullishOr(text));
             return Array.isArray(held) && lines.every(({ head: parts, rows }) => Array.isReadonlyArrayEmpty(parts) && rows === undefined) ? Array.match(values, { onEmpty: Array.empty, onNonEmpty: (texts) => [new Line({ head, value: Format.list(texts.map(Format.quoted)) })] }) : under(lines);
         }),
@@ -86,7 +86,7 @@ const stated = (value: unknown, label: Option.Option<string>): readonly Line[] =
     );
 };
 const row = (item: unknown): readonly Line[] => {
-    const [flat, nested] = Array.partition(stated(item, Option.none()), (line) => (line.rows === undefined ? Result.succeed(line) : Result.fail(line)));
+    const [flat, nested] = Array.partition(describe(item, Option.none()), (line) => (line.rows === undefined ? Result.succeed(line) : Result.fail(line)));
     const named = flat.map(({ head, value }) => [...head, ...Array.fromNullishOr(value).map(Format.quoted)]);
     return Array.match(named, {
         onEmpty: () => nested,
@@ -116,7 +116,7 @@ const print =
         const indent = INDENT.repeat(depth);
         const { groups, pinned, wanted } = layout(rows, level);
         const [state, chunks] = Array.mapAccum(groups, { start: 0, used, cut: Option.none<number>() }, (spent, group) => {
-            const drawn = group.map((each) => ({ each, own: [written(each)].filter(String.isNonEmpty).map((text) => `${indent}${text.replaceAll('\n', `\n${indent}${INDENT}`)}`) }));
+            const drawn = group.map((each) => ({ each, own: [writeLine(each)].filter(String.isNonEmpty).map((text) => `${indent}${text.replaceAll('\n', `\n${indent}${INDENT}`)}`) }));
             const cost = Number.sumAll(drawn.flatMap(({ own }) => own.map((text) => text.length + 1)));
             const fits = Option.isNone(spent.cut) && spent.start + group.length <= wanted && (spent.start === 0 || spent.used + cost <= budget || (spent.start < pinned && spent.used + cost <= budget * BUDGET.pinned));
             const [total, lines] = Array.mapAccum(fits ? drawn : [], spent.used, (sum, { each, own }) => {
@@ -128,7 +128,7 @@ const print =
         const more = Option.map(state.cut, (at) => {
             const cursor = Option.flatMap(Array.get(rows, at - 1), ({ head }) => Array.head(head));
             const next = Option.map(call, ({ tool, given }) => new Call({ tool, given: Option.match(cursor, { onNone: () => given, onSome: (after) => Record.set(given, AFTER, after) }) }));
-            return `${indent}${written(new Line({ head: ['more'], value: Format.count(rows.length - at), ...Option.getOrUndefined(Option.map(next, (held) => ({ call: held }))) }))}`;
+            return `${indent}${writeLine(new Line({ head: ['more'], value: Format.count(rows.length - at), ...Option.getOrUndefined(Option.map(next, (held) => ({ call: held }))) }))}`;
         });
         return { lines: [...chunks.flat(), ...Option.toArray(more)], used: state.used + Option.match(more, { onNone: () => 0, onSome: (line) => line.length + 1 }) };
     };

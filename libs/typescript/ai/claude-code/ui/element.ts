@@ -15,7 +15,7 @@ type Make = { make(props: object): RenderElement }['make'];
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const run = <R, E, F>(runtime: () => ManagedRuntime.ManagedRuntime<R, E>, e: UiPressArgument | UiInputArgument | UiSelectArgument, handled: Effect.Effect<unknown, F, R>) =>
-    runtime().runPromise(Effect.catchCause(handled, (cause) => Effect.logWarning(`${e.element} failed`, cause).pipe(Effect.annotateLogs(Struct.omit(e, ['element'])))));
+    runtime().runPromise(Effect.catchCause(handled, (cause) => Effect.logWarning('handler failed', cause).pipe(Effect.annotateLogs(Struct.omit(e, ['element'])))));
 const lower = <R, E, F>(table: Partial<Record.ReadonlyRecord<ElementName, Make>>, runtime: () => ManagedRuntime.ManagedRuntime<R, E>, node: Element<R, F>): RenderElement =>
     (table[node._tag] ?? Function.identity<Make>(Fragment))({
         ...Struct.omit(node, ['_tag', 'children']),

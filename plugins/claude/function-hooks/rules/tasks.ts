@@ -12,11 +12,11 @@ type Steps = (typeof Hooks.Type)['steps'];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const daemon = { instead: 'leave it running; nx reset --only-cache empties the cache alone' };
-const launchers: ReadonlySet<string> = new Set(['', 'pnpm exec', 'npx', 'uv run', 'mise exec', 'pixi run', 'npm exec']);
-const launcherPrograms: ReadonlySet<string> = new Set([...launchers].flatMap((launcher) => launcher.split(' ').slice(0, 1).filter(String.isNonEmpty)));
-const boundedPrograms: ReadonlySet<string> = new Set([...launcherPrograms, 'timeout']);
-const plainWord = /^[\w./:@%+=,-]+$/u;
+const DAEMON = { instead: 'leave it running; nx reset --only-cache empties the cache alone' };
+const LAUNCHERS: ReadonlySet<string> = new Set(['', 'pnpm exec', 'npx', 'uv run', 'mise exec', 'pixi run', 'npm exec']);
+const LAUNCHER_PROGRAMS: ReadonlySet<string> = new Set([...LAUNCHERS].flatMap((launcher) => launcher.split(' ').slice(0, 1).filter(String.isNonEmpty)));
+const BOUNDED_PROGRAMS: ReadonlySet<string> = new Set([...LAUNCHER_PROGRAMS, 'timeout']);
+const PLAIN_WORD = /^[\w./:@%+=,-]+$/u;
 const finiteVerbs: ReadonlySet<string> = new Set(['sync', 'sync:check', 'conformance:check']);
 const stackOperations: Readonly<Record<string, { readonly aggregate: string; readonly args: readonly string[]; readonly applies: boolean }>> = {
     up: { aggregate: 'deploy', args: [], applies: true },
@@ -80,7 +80,7 @@ const helpsOf = (row: Row) => {
     const commands = collectLines(row.options);
     const help = Option.filter(
         Option.map(row.help, (command) => command.split(' ')),
-        (words) => Option.isNone(row.configuration) && words.every((word) => plainWord.test(word)),
+        (words) => Option.isNone(row.configuration) && words.every((word) => PLAIN_WORD.test(word)),
     );
     return Option.getOrElse(help, Array.empty<string>).flatMap((program, at, words) => {
         const stated = words.slice(at + 1).filter((word) => !word.startsWith('-'));
@@ -90,7 +90,7 @@ const helpsOf = (row: Row) => {
         });
         const lines = Array.isReadonlyArrayEmpty(found) ? [new Set<string>()] : found;
         const configured = lines.reduce((all, line) => all.union(line), new Set<string>());
-        return launchers.has(words.slice(0, at).join(' ')) ? [{ row, program, stated: stated.join(' '), lines, configured }] : [];
+        return LAUNCHERS.has(words.slice(0, at).join(' ')) ? [{ row, program, stated: stated.join(' '), lines, configured }] : [];
     });
 };
 const listHelps = Function.memoize((rows: Graph['tasks']) => Array.fromIterable(rows.values()).flatMap(helpsOf));
@@ -243,7 +243,7 @@ const tasks: Table = {
             return Match.value({ stops, stmt: Option.getOrUndefined(Option.filter(nx.node, () => later)) }).pipe(
                 Match.when({ stops: false }, () => []),
                 Match.when({ stmt: Match.defined }, ({ stmt }): readonly Verdict[] => [{ edit: (editor) => [editor.remove(stmt)] }, { subject: spoken, note: 'left the call, as every session shares the daemon', once: 'call' as const }]),
-                Match.orElse(() => [{ subject: spoken, deny: 'stops the daemon every session shares', values: daemon }]),
+                Match.orElse(() => [{ subject: spoken, deny: 'stops the daemon every session shares', values: DAEMON }]),
             );
         },
     },
@@ -274,7 +274,7 @@ const tasks: Table = {
     },
     'nx.launcher': {
         program: 'nx',
-        decide: (nx) => (Array.isReadonlyArrayNonEmpty(nx.within) && isLaunchedBy(nx, launcherPrograms) ? nx.pipe(launcherOf, Option.toArray).map((launcher) => ({ edit: (editor) => [editor.remove(launcher)] })) : []),
+        decide: (nx) => (Array.isReadonlyArrayNonEmpty(nx.within) && isLaunchedBy(nx, LAUNCHER_PROGRAMS) ? nx.pipe(launcherOf, Option.toArray).map((launcher) => ({ edit: (editor) => [editor.remove(launcher)] })) : []),
     },
     'nx.quieted': {
         program: 'nx',
@@ -350,7 +350,7 @@ const tasks: Table = {
     'nx.target': {
         action: 'Shell',
         decide: Effect.fnUntraced(function* (_, { invocations, action, cwd }) {
-            const raw = invocations.filter((invocation) => action.run !== 'monitored' && isRaw(invocation, boundedPrograms) && invocation.rest.length === 0 && !Option.exists(invocation.stage, ({ index, count }) => index < count - 1));
+            const raw = invocations.filter((invocation) => action.run !== 'monitored' && isRaw(invocation, BOUNDED_PROGRAMS) && invocation.rest.length === 0 && !Option.exists(invocation.stage, ({ index, count }) => index < count - 1));
             const verdicts = yield* Effect.forEach(
                 raw.map((invocation) => [invocation, cwdOf(invocation, cwd)] as const),
                 ([invocation, folder]) => Effect.flatMap(readGraph(folder), Option.match({ onNone: () => Effect.succeed<readonly Verdict[]>([]), onSome: (graph) => route(invocation, graph, folder) })),
@@ -362,7 +362,7 @@ const tasks: Table = {
         action: 'Shell',
         decide: Effect.fnUntraced(function* (_, { invocations, action, cwd }) {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-            const raw = invocations.filter((invocation) => action.run !== 'monitored' && isRaw(invocation, launcherPrograms) && Option.isNone(invocation.stage));
+            const raw = invocations.filter((invocation) => action.run !== 'monitored' && isRaw(invocation, LAUNCHER_PROGRAMS) && Option.isNone(invocation.stage));
             const root = Array.isReadonlyArrayNonEmpty(raw) ? yield* findUp(cwd, '.git') : Option.none();
             const declared = yield* Option.match(root, { onNone: () => Effect.succeed(''), onSome: (folder) => Effect.orElseSucceed(fs.readFileString(path.join(folder, '.config/hk.pkl')), () => '') });
             const named = raw.filter((invocation) => Option.exists(invocation.name, (name) => declared.includes(`"${name}"`)));

@@ -14,7 +14,7 @@ type Notice = Data.TaggedEnum<{
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const ended = { pending: false, running: false, waiting: false, idle: false, completed: true, failed: true, killed: true } as const satisfies Record<AgentStatus, boolean>;
+const ENDED = { pending: false, running: false, waiting: false, idle: false, completed: true, failed: true, killed: true } as const satisfies Record<AgentStatus, boolean>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -52,7 +52,7 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
             onSome: (body) =>
                 Effect.flatMap(
                     call('ui.notify', key, () => $.ui.notify(body, { key })),
-                    (sent) => (sent.isSent ? Effect.void : Effect.log(`notification ${key} not sent: ${sent.reason}`)),
+                    (sent) => (sent.isSent ? Effect.void : Effect.log('notification not sent').pipe(Effect.annotateLogs({ key, reason: sent.reason }))),
                 ),
         });
     const note = (text: string, agent: Option.Option<string>) =>
@@ -65,7 +65,7 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
             ),
         );
     const show = (group: string, shown: Record.ReadonlyRecord<string, string>) =>
-        Effect.fromOption(band, () => PlatformError.badArgument({ module: 'Engine', method: 'deliver', description: `band rows of ${group}, as this mod draws no band` })).pipe(
+        Effect.fromOption(band, () => PlatformError.badArgument({ module: 'Engine', method: 'deliver', description: `no band, group ${group}` })).pipe(
             Effect.flatMap((rows) => Ref.modify(rows, (held) => [Record.keys(Record.difference(shown, held[group] ?? {})), Record.isEmptyReadonlyRecord(shown) ? Record.remove(held, group) : Record.set(held, group, shown)] as const)),
             Effect.tap(Effect.sync(() => $.ui.invalidate('ui.render'))),
             Effect.flatMap((changed) => Effect.forEach(changed, (key) => notification(key, Record.get(shown, key)), { discard: true })),
@@ -141,7 +141,7 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
                     call('agent.list', 'session', () => $.agent.list()),
                     (listed) =>
                         Record.fromIterableWith(
-                            Array.filter(listed, (info) => !ended[info.status]),
+                            Array.filter(listed, (info) => !ENDED[info.status]),
                             (info) => [info.id, info],
                         ),
                 ),

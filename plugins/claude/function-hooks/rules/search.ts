@@ -4,11 +4,11 @@ import { covers, execute, findUp, type Invocation, patternOf, type ProgramVerdic
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const placeholder = /\{(?:\/{0,2}|\/?\.)\}/u;
-const modules = { inside: /(?:^|\/)node_modules(?:\/|$)/u, exclusion: /^!?(?:\.?\/|\*\*\/)?node_modules(?:\/(?:\*\*?)?)?$/u, path: /^[.*/]*node_modules[*/]*$/u };
-const basicSyntax = /\\\\|\\(?<escaped>[(){}+?|])|(?<plain>^\*|[(){}+?|])/gu;
-const backreference = /\\[1-9]/u;
-const batchable: ReadonlySet<string> = new Set(['du', 'stat', 'ls', 'file', 'wc', 'shasum', 'sha1sum', 'sha256sum', 'sha512sum', 'md5', 'md5sum', 'cksum', 'cat', 'rm', 'touch', 'chmod', 'chown', 'xattr']);
+const PLACEHOLDER = /\{(?:\/{0,2}|\/?\.)\}/u;
+const MODULES = { inside: /(?:^|\/)node_modules(?:\/|$)/u, exclusion: /^!?(?:\.?\/|\*\*\/)?node_modules(?:\/(?:\*\*?)?)?$/u, path: /^[.*/]*node_modules[*/]*$/u };
+const BASIC_SYNTAX = /\\\\|\\(?<escaped>[(){}+?|])|(?<plain>^\*|[(){}+?|])/gu;
+const BACKREFERENCE = /\\[1-9]/u;
+const BATCHABLE: ReadonlySet<string> = new Set(['du', 'stat', 'ls', 'file', 'wc', 'shasum', 'sha1sum', 'sha256sum', 'sha512sum', 'md5', 'md5sum', 'cksum', 'cat', 'rm', 'touch', 'chmod', 'chown', 'xattr']);
 const perResult = 1000;
 const walkers = {
     fd: { execs: ['--exec', '--exec-batch'], nul: ['--print0'], capped: (words: Array.NonEmptyReadonlyArray<string>) => Array.appendAll(words, ['--max-results', `${perResult + 1}`]) },
@@ -25,13 +25,13 @@ const rgOptions = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const translate = (pattern: string) => pattern.replaceAll(basicSyntax, (matched: string, escaped?: string, plain?: string) => escaped ?? (plain === undefined ? matched : `\\${plain}`));
+const translate = (pattern: string) => pattern.replaceAll(BASIC_SYNTAX, (matched: string, escaped?: string, plain?: string) => escaped ?? (plain === undefined ? matched : `\\${plain}`));
 const parseExec = ({ words }: Invocation, { spelled, values }: Invocation['flags'][number], appended: boolean) => {
     const [program = '', ...rest] = values.map(({ text }) => Option.getOrElse(text, () => ''));
-    const holes = rest.filter((word) => placeholder.test(word)).length;
+    const holes = rest.filter((word) => PLACEHOLDER.test(word)).length;
     const trailing = (appended && holes === 0) || (holes === 1 && rest.at(-1) === '{}');
     const terminator = Option.filter(Array.get(words, words.indexOf(Option.getOrElse(Array.last(values), () => spelled)) + 1), (word) => word.spells(';'));
-    return { program, trailing, batches: trailing && batchable.has(program), alone: trailing && rest.length === holes, terminator };
+    return { program, trailing, batches: trailing && BATCHABLE.has(program), alone: trailing && rest.length === holes, terminator };
 };
 const results = Effect.fnUntraced(function* (invocation: Invocation, cwd: string, { execs, nul, capped }: (typeof walkers)[keyof typeof walkers]) {
     const among = (names: readonly string[]) => invocation.flags.filter(({ flag }) => flag.spellings.some((spelling) => names.includes(spelling)));
@@ -53,7 +53,7 @@ const ignores = Effect.fnUntraced(function* (invocation: Invocation, cwd: string
     );
     const { code } = yield* Option.match(judged, { onNone: () => Effect.succeed({ code: 1 }), onSome: ({ root, held }) => execute(root)(['git', 'check-ignore', '--no-index', '--', ...held]) });
     yield* Effect.when(new Cause.UnknownError(code, `git check-ignore exited ${code} on ${real.join(' ')}`), Effect.succeed(code > 1));
-    return { repository, ignored: code === 0 || paths.some((path) => modules.inside.test(path)) };
+    return { repository, ignored: code === 0 || paths.some((path) => MODULES.inside.test(path)) };
 });
 
 // --- [RULES] ---------------------------------------------------------------------------
@@ -123,7 +123,7 @@ const search: Table = {
         aliases: ['gfind'],
         decide: (find, { invocations }) => {
             const piped = invocations.some((next) => next.runs('xargs') && find.feeds(next));
-            const excluded = find.flags.flatMap(({ flag }, at) => (flag.spellings.includes('-not') && Option.exists(Array.get(find.flags, at + 1), (next) => next.flag.spellings.includes('-path') && next.values.every((value) => value.test(modules.path))) ? [at, at + 1] : []));
+            const excluded = find.flags.flatMap(({ flag }, at) => (flag.spellings.includes('-not') && Option.exists(Array.get(find.flags, at + 1), (next) => next.flag.spellings.includes('-path') && next.values.every((value) => value.test(MODULES.path))) ? [at, at + 1] : []));
             const options = Option.all(find.flags.map(({ flag, values }, at) => (excluded.includes(at) ? Option.some<readonly string[]>([]) : Option.map(Option.all([Option.fromUndefinedOr(fdOptions[flag.spellings[0]]), Option.all(values.map(({ text }) => text))]), ([spelling, given]) => [...spelling, ...given]))));
             const folders = Option.filter(Option.all(find.operands.map(({ word }) => word.text)), (given) => given.every((folder) => !/^[-(!]/u.test(folder)));
             const simple = find.inner.length === 0 && !piped && find.values('-name', '-iname').length <= 1;
@@ -148,9 +148,9 @@ const search: Table = {
             const literal = grep.has('--extended-regexp', '--fixed-strings');
             const written = [...grep.operands.filter(({ roles }) => !roles.includes('read')).map(({ word }) => word), ...grep.values('--regexp')];
             const patterns = Option.all(written.map(({ text, node }) => Option.map(text, (basic) => ({ node, basic, extended: literal ? basic : translate(basic) }))));
-            const translatable = Option.filter(patterns, (given) => given.every(({ node, basic, extended }) => !backreference.test(basic) && (basic === extended || Option.isSome(node))));
+            const translatable = Option.filter(patterns, (given) => given.every(({ node, basic, extended }) => !BACKREFERENCE.test(basic) && (basic === extended || Option.isSome(node))));
             const known = grep.only(...rgOptions.dropped, ...rgOptions.kept) && grep.flags.every(({ spelled }) => Option.isSome(spelled.text) || includes.some(([word]) => Option.contains(spelled.node, word)));
-            const scoped = grep.values('--exclude-dir').every((value) => value.test(modules.inside));
+            const scoped = grep.values('--exclude-dir').every((value) => value.test(MODULES.inside));
             const rg = Array.make('rg', ...(grep.has('--exclude-dir') ? [] : ['--no-ignore']), '--hidden');
             return Option.match(
                 Option.filter(Option.all([grep.head, translatable]), () => grep.has('--recursive', '--dereference-recursive') && known && scoped),
@@ -171,7 +171,7 @@ const search: Table = {
         decide: Effect.fnUntraced(function* (invocation, { cwd }) {
             const { repository, ignored } = yield* ignores(invocation, cwd);
             const exclusions = invocation.flags
-                .filter(({ flag, values }) => flag.spellings.some((spelling) => spelling === '--exclude' || spelling === '--glob' || spelling === '--iglob') && values.every((value) => value.test(modules.exclusion)))
+                .filter(({ flag, values }) => flag.spellings.some((spelling) => spelling === '--exclude' || spelling === '--glob' || spelling === '--iglob') && values.every((value) => value.test(MODULES.exclusion)))
                 .flatMap(({ spelled, values }) => {
                     const value = Option.flatMap(Array.last(values), ({ node }) => node);
                     return Option.toArray(Option.orElse<Word | readonly [Word, Word], Word>(Option.all([spelled.node, value]), () => spelled.node));
@@ -186,7 +186,7 @@ const search: Table = {
     'grep.ignored': {
         program: 'grep',
         decide: Effect.fnUntraced(function* (grep, { invocations, cwd }) {
-            const excludes = grep.has('--invert-match') && grep.flags.length === 1 && Option.exists(grep.operand(), (pattern) => modules.exclusion.test(pattern));
+            const excludes = grep.has('--invert-match') && grep.flags.length === 1 && Option.exists(grep.operand(), (pattern) => MODULES.exclusion.test(pattern));
             const producer = Option.filter(
                 Array.findFirst(invocations, (other) => other.runs('fd', 'fdfind', 'rg') && other.feeds(grep)),
                 () => excludes,

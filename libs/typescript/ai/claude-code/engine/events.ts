@@ -85,23 +85,22 @@ const dispatch = <N extends EventName, R, F>(tables: readonly { readonly [K in N
     Effect.flatMap(Effect.context<R>(), (context) => {
         const carried = { budget: next.budget, signal: next.signal, origin: next.origin };
         const beneath: Proceed<N> = Object.assign((input: Frozen<Args<N>>) => call(next.event, 'next', () => next(input)), carried);
-        const lowered = (failure: F | PlatformError.PlatformError) => (PlatformError.isPlatformError(failure) ? failure : PlatformError.systemError({ _tag: 'Unknown', module: 'hook', method: next.event, description: Formatter.format(failure), cause: failure }));
+        const lower = (failure: F | PlatformError.PlatformError) => (PlatformError.isPlatformError(failure) ? failure : PlatformError.systemError({ _tag: 'Unknown', module: 'hook', method: next.event, description: Formatter.format(failure), cause: failure }));
         const proceed = tables.reduceRight<Proceed<N>>(
             (onward, table) =>
                 Option.match(Option.fromUndefinedOr(table[next.event]), {
                     onNone: () => onward,
-                    onSome: (hook) => Object.assign((input: Frozen<Args<N>>) => hook(input, onward).pipe(Effect.provideContext(context), Effect.mapError(lowered)), carried),
+                    onSome: (hook) => Object.assign((input: Frozen<Args<N>>) => hook(input, onward).pipe(Effect.provideContext(context), Effect.mapError(lower)), carried),
                 }),
             beneath,
         );
         return proceed(e);
     });
-const settled =
-    (signal: AbortSignal) =>
-    (error: unknown): never => {
+const runHook = <A, E, R, X>(runtime: ManagedRuntime.ManagedRuntime<R, X>, effect: Effect.Effect<A, E, R>, signal: AbortSignal): Promise<A> =>
+    runtime.runPromise(effect, { signal }).catch((error: unknown) => {
         signal.throwIfAborted();
         throw error;
-    };
+    });
 const reply = (e: Frozen<TurnStepInput>, { answer, toolUses }: Pick<TurnStepResult, 'answer' | 'toolUses'>) => {
     const first = answer === '' ? 0 : 1;
     const stopReason = Array.isReadonlyArrayNonEmpty(toolUses) ? 'tool_use' : 'end_turn';
@@ -120,16 +119,16 @@ const reply = (e: Frozen<TurnStepInput>, { answer, toolUses }: Pick<TurnStepResu
         },
     });
 };
-const owned = <A>(named: Record.ReadonlyRecord<string, string>, declarations: Record.ReadonlyRecord<string, A>, full: string) =>
+const findDeclared = <A>(named: Record.ReadonlyRecord<string, string>, declarations: Record.ReadonlyRecord<string, A>, full: string) =>
     Option.flatMap(
         Record.findFirst(named, (name) => name === full),
         ([key]) => Option.map(Record.get(declarations, key), (declaration) => [key, declaration] as const),
     );
-const said = (cause: Cause.Cause<unknown>) => {
+const explain = (cause: Cause.Cause<unknown>) => {
     const squashed = Cause.squash(cause);
     return Predicate.isError(squashed) ? squashed.message : Formatter.format(squashed);
 };
-const stopping =
+const blockOnce =
     <N extends 'classic.Stop' | 'classic.SubagentStop', R, F>(hook: Hook<N, R, F>): Hook<N, R | Plugin, F | PlatformError.PlatformError> =>
     (e, next) =>
         e.stop_hook_active
@@ -145,7 +144,7 @@ const stopping =
                   );
                   return fresh ? result : yield* next(e);
               });
-const declared = <R, F>(tools: Record.ReadonlyRecord<string, Tool<R, F>>, agents: Record.ReadonlyRecord<string, Agent>, commands: Record.ReadonlyRecord<string, Command<R, F>>) => ({
+const route = <R, F>(tools: Record.ReadonlyRecord<string, Tool<R, F>>, agents: Record.ReadonlyRecord<string, Agent>, commands: Record.ReadonlyRecord<string, Command<R, F>>) => ({
     matchers: {
         'tool.run': { tool: new RegExp(`^mcp__(?:(?!__)[^])+__(?:${Record.keys(tools).map(RegExp.escape).join('|')})$`, 'u') },
         'agent.offer': { agent: new RegExp(`^[^:]+:(?:${Record.keys(agents).map(RegExp.escape).join('|')})$`, 'u') },
@@ -154,33 +153,33 @@ const declared = <R, F>(tools: Record.ReadonlyRecord<string, Tool<R, F>>, agents
     hooks: {
         'tool.run': (e, next) =>
             Plugin.use(({ tools: named }) =>
-                Option.match(owned(named, tools, e.tool), {
+                Option.match(findDeclared(named, tools, e.tool), {
                     onNone: () => next(e),
-                    onSome: ([key, tool]) => Effect.catchCause(tool.run(e, next), (cause) => Effect.as(Effect.logWarning(`tool ${key} failed`, cause), { deny: `${key}: ${said(cause)}` })),
+                    onSome: ([key, tool]) => Effect.catchCause(tool.run(e, next), (cause) => Effect.as(Effect.logWarning('tool failed', cause).pipe(Effect.annotateLogs({ tool: key })), { deny: `${key}: ${explain(cause)}` })),
                 }),
             ),
         'agent.offer': (e, next) =>
             Plugin.use(({ name, agents: named }) =>
-                Option.match(owned(named, agents, e.agent), {
+                Option.match(findDeclared(named, agents, e.agent), {
                     onNone: () => next(e),
                     onSome: ([, { isOffered }]) => (isOffered || next.origin.plugin === name ? next(e) : Effect.succeed({ isOffered: false })),
                 }),
             ),
         'command.run': (e, next) =>
             Plugin.use(({ commands: named }) =>
-                Option.match(owned(named, commands, e.command), {
+                Option.match(findDeclared(named, commands, e.command), {
                     onNone: () => next(e),
-                    onSome: ([key, command]) => Effect.catchCause(command.run(e, next), (cause) => Effect.as(Effect.logWarning(`command ${key} failed`, cause), { text: `${key}: ${said(cause)}`, isTextDisplayOnly: true } as const)),
+                    onSome: ([key, command]) => Effect.catchCause(command.run(e, next), (cause) => Effect.as(Effect.logWarning('command failed', cause).pipe(Effect.annotateLogs({ command: key })), { text: `${key}: ${explain(cause)}`, isTextDisplayOnly: true } as const)),
                 }),
             ),
     } satisfies { readonly [N in 'tool.run' | 'agent.offer' | 'command.run']: Hook<N, R | Plugin, PlatformError.PlatformError> },
 });
-const registered = <A>(event: 'tool.register' | 'agent.register' | 'command.register', declarations: Record.ReadonlyRecord<string, A>, register: (name: string, declaration: A) => Promise<string>) =>
+const registerAll = <A>(event: 'tool.register' | 'agent.register' | 'command.register', declarations: Record.ReadonlyRecord<string, A>, register: (name: string, declaration: A) => Promise<string>) =>
     Effect.map(
         Effect.filterMapEffect(Record.toEntries(declarations), ([key, declaration]) =>
             call(event, key, () => register(key, declaration)).pipe(
                 Effect.map((full) => Result.succeed([key, full] as const)),
-                Effect.catchCause((cause) => Effect.as(Effect.logWarning(`${event} ${key} failed`, cause), Result.failVoid)),
+                Effect.catchCause((cause) => Effect.as(Effect.logWarning('register failed', cause).pipe(Effect.annotateLogs({ event, name: key })), Result.failVoid)),
             ),
         ),
         Record.fromEntries,
@@ -202,7 +201,7 @@ function stream<N extends StreamingEventName, R, E, F>(e: Frozen<Args<N>>, next:
         Effect.onExit((exit) => (Exit.isSuccess(exit) && exit.value.done !== true ? Effect.void : close)),
     );
     const generator: AsyncGenerator<Chunk<N>, EventResult<N>> = {
-        next: () => runtime.runPromise(read, { signal: next.signal }).catch(settled(next.signal)),
+        next: () => runHook(runtime, read, next.signal),
         return: (value) => runtime.runPromise(Effect.andThen(close, Effect.promise(() => Promise.resolve(value)).pipe(Effect.map((held): IteratorResult<Chunk<N>, EventResult<N>> => ({ done: true, value: held }))))),
         throw: (error: unknown) => runtime.runPromise(Effect.andThen(close, Effect.die(error))),
         [Symbol.asyncIterator]: () => generator,
@@ -216,9 +215,9 @@ function plugin<R, F>($: EngineInterface, tools: Record.ReadonlyRecord<string, T
         Plugin,
         Effect.all({
             name: Effect.sync(() => $.plugin.name),
-            tools: registered('tool.register', tools, (name, { spec }) => $.tool.register({ ...spec, name }).then(({ tool }) => tool)),
-            agents: registered('agent.register', agents, (name, { isOffered: _isOffered, ...spec }) => $.agent.register({ ...spec, name }).then(({ agent }) => agent)),
-            commands: registered('command.register', commands, (name, { run: _run, ...spec }) => $.command.register({ ...spec, name }).then(({ command }) => command)),
+            tools: registerAll('tool.register', tools, (name, { spec }) => $.tool.register({ ...spec, name }).then(({ tool }) => tool)),
+            agents: registerAll('agent.register', agents, (name, { isOffered: _isOffered, ...spec }) => $.agent.register({ ...spec, name }).then(({ agent }) => agent)),
+            commands: registerAll('command.register', commands, (name, { run: _run, ...spec }) => $.command.register({ ...spec, name }).then(({ command }) => command)),
             blocked: Ref.make(HashSet.empty<string>()),
         }),
     );
@@ -226,4 +225,4 @@ function plugin<R, F>($: EngineInterface, tools: Record.ReadonlyRecord<string, T
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Agent, type Command, declared, dispatch, type Hook, type Hooks, type Hosted, plugin, Plugin, type Proceed, reply, settled, type StreamHook, stopping, stream, Tool };
+export { type Agent, type Command, route, dispatch, type Hook, type Hooks, type Hosted, plugin, Plugin, type Proceed, reply, runHook, type StreamHook, blockOnce, stream, Tool };

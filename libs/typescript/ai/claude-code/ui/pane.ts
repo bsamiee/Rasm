@@ -1,6 +1,6 @@
 import type { EngineInterface, EventResult, Frozen, Next, PaneCloseArgs, PaneCloseInput, PaneOpenArgs, UiOpenResult, UiPane } from 'claude-code';
 import { Array, Context, Effect, Layer, type ManagedRuntime, Option, PlatformError, Record, Struct } from 'effect';
-import { settled } from '#/engine/events';
+import { runHook } from '#/engine/events';
 import { call } from '#/engine/services';
 import type { Render } from '#/ui/render';
 
@@ -21,7 +21,7 @@ function panes<S, R, F>($: EngineInterface, rows: NonNullable<Render<S, R, F>['P
     return Layer.succeed(Panes)({
         open: (pane) =>
             Option.match(Record.get(rows, pane.id), {
-                onNone: () => PlatformError.badArgument({ module: 'Panes', method: 'open', description: `pane ${pane.id}, which the mod's render table has no row for` }),
+                onNone: () => PlatformError.badArgument({ module: 'Panes', method: 'open', description: `no render row, pane ${pane.id}` }),
                 onSome: (row) => call('ui.open', pane.id, () => $.ui.open({ ...Struct.omit(row, ['draw', 'closes']), ...pane })),
             }),
         close: (pane) => call('ui.close', pane.id, () => $.ui.close(pane)),
@@ -29,22 +29,21 @@ function panes<S, R, F>($: EngineInterface, rows: NonNullable<Render<S, R, F>['P
     });
 }
 
-function closing<S, R, E, F>($: EngineInterface, rows: NonNullable<Render<S, R, F>['Pane']>, e: Frozen<PaneCloseInput>, next: Next<'ui.close'>, runtime: () => ManagedRuntime.ManagedRuntime<R, E>) {
+function closePane<S, R, E, F>($: EngineInterface, rows: NonNullable<Render<S, R, F>['Pane']>, e: Frozen<PaneCloseInput>, next: Next<'ui.close'>, runtime: () => ManagedRuntime.ManagedRuntime<R, E>) {
     return Option.match(Option.flatMapNullishOr(Record.get(rows, e.id), Struct.get('closes')), {
         onNone: () => next(e),
         onSome: (closes) =>
-            runtime()
-                .runPromise(
-                    call('ui.panes', e.id, () => $.ui.panes()).pipe(
-                        Effect.flatMap((held) => (Array.some(held, ({ id }) => id === e.id) ? Effect.catchCause(closes, (cause) => Effect.as(Effect.logWarning(`Pane ${e.id} close failed`, cause), true)) : Effect.succeed(true))),
-                        Effect.flatMap((passes) => (passes ? call('ui.close', e.id, () => next(e)) : Effect.succeed<EventResult<'ui.close'>>({ value: undefined }))),
-                    ),
-                    { signal: next.signal },
-                )
-                .catch(settled(next.signal)),
+            runHook(
+                runtime(),
+                call('ui.panes', e.id, () => $.ui.panes()).pipe(
+                    Effect.flatMap((held) => (Array.some(held, ({ id }) => id === e.id) ? Effect.catchCause(closes, (cause) => Effect.as(Effect.logWarning('close failed', cause).pipe(Effect.annotateLogs({ pane: e.id })), true)) : Effect.succeed(true))),
+                    Effect.flatMap((passes) => (passes ? call('ui.close', e.id, () => next(e)) : Effect.succeed<EventResult<'ui.close'>>({ value: undefined }))),
+                ),
+                next.signal,
+            ),
     });
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { closing, Panes, panes };
+export { closePane, Panes, panes };

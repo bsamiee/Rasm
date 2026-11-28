@@ -2,15 +2,15 @@ import type { Args, Caught, EngineInterface, EventName, EventResult, Frozen, Hoo
 import { Array, Effect, type FileSystem, HashSet, Layer, ManagedRuntime, MutableRef, Option, type Path, type PlatformError, Predicate, Record, Ref, Struct, SubscriptionRef } from 'effect';
 import type { KeyValueStore } from 'effect/persistence';
 import type { ChildProcessSpawner } from 'effect/process';
-import { type Agent, type Command, declared, dispatch, type Hook, type Hooks, type Hosted, plugin, type Plugin, settled, stopping, stream, type Tool } from '#/engine/events';
+import { type Agent, type Command, route, dispatch, type Hook, type Hooks, type Hosted, plugin, type Plugin, runHook, blockOnce, stream, type Tool } from '#/engine/events';
 import { type Engine, engine } from '#/engine/interface';
 import { services } from '#/engine/services';
 import { type Draft, draft } from '#/prompt/draft';
 import { draw } from '#/ui/element';
-import { closing, type Panes, panes } from '#/ui/pane';
-import { compacted, type Placed, placed, type Row, seen } from '#/ui/placed';
-import { pointer, type Render, render, watched } from '#/ui/render';
-import { heard, type Theme, theme } from '#/ui/theme';
+import { closePane, type Panes, panes } from '#/ui/pane';
+import { prune, type Placed, placed, type Row, record } from '#/ui/placed';
+import { pointer, type Render, render, follow } from '#/ui/render';
+import { observe, type Theme, theme } from '#/ui/theme';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -43,21 +43,21 @@ interface Instance<A, E, F, S = never> {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const reasons = { throw: 'threw', timeout: 'ran out of time' } as const satisfies Record<HookFailure['kind'], string>;
+const REASONS = { throw: 'threw', timeout: 'ran out of time' } as const satisfies Record<HookFailure['kind'], string>;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const held: { readonly [N in EventName]?: <A, E, F, S, Y, R>(instance: Instance<A, E, F, S>, e: Frozen<Args<N>>, answered: Effect.Effect<EventResult<N>, Y, R>) => Effect.Effect<EventResult<N>, Y, R> } = {
+const TRACK: { readonly [N in EventName]?: <A, E, F, S, Y, R>(instance: Instance<A, E, F, S>, e: Frozen<Args<N>>, answered: Effect.Effect<EventResult<N>, Y, R>) => Effect.Effect<EventResult<N>, Y, R> } = {
     'session.end': ({ live, turns, placed: rows }, _, answered) =>
         Effect.ensuring(answered, SubscriptionRef.set(turns, HashSet.empty()).pipe(Effect.andThen(SubscriptionRef.set(rows, {})), Effect.andThen(Effect.suspend(() => Option.match(MutableRef.getAndSet(live, Option.none()), { onNone: () => Effect.void, onSome: (made) => made.disposeEffect }))))),
-    'session.compact': ({ placed: rows }, e, answered) => Effect.tap(answered, (result) => compacted(rows, e, result)),
+    'session.compact': ({ placed: rows }, e, answered) => Effect.tap(answered, (result) => prune(rows, e, result)),
     'turn.start': ({ turns }, { agentId }, answered) => Effect.andThen(SubscriptionRef.update(turns, HashSet.add(Option.fromUndefinedOr(agentId))), answered),
     'turn.complete': ({ turns }, { agentId }, answered) => Effect.andThen(SubscriptionRef.update(turns, HashSet.remove(Option.fromUndefinedOr(agentId))), answered),
 };
-const hosted = <A, E, F, S = never>(mod: Pick<Mod<A, E, F, S>, 'hooks' | 'tools' | 'agents' | 'commands' | 'band' | 'render'>, parts: readonly Pick<Part<A, E, F>, 'hooks'>[]): Instance<A, E, F, S> => ({
+const instantiate = <A, E, F, S = never>(mod: Pick<Mod<A, E, F, S>, 'hooks' | 'tools' | 'agents' | 'commands' | 'band' | 'render'>, parts: readonly Pick<Part<A, E, F>, 'hooks'>[]): Instance<A, E, F, S> => ({
     tables: [mod.hooks, ...parts.map(Struct.get('hooks'))].map((table) => {
         const { 'classic.Stop': stop, 'classic.SubagentStop': subagentStop } = table;
-        return { ...table, ...(stop === undefined ? {} : { 'classic.Stop': stopping(stop) }), ...(subagentStop === undefined ? {} : { 'classic.SubagentStop': stopping(subagentStop) }) };
+        return { ...table, ...(stop === undefined ? {} : { 'classic.Stop': blockOnce(stop) }), ...(subagentStop === undefined ? {} : { 'classic.SubagentStop': blockOnce(subagentStop) }) };
     }),
     tools: mod.tools ?? {},
     agents: mod.agents ?? {},
@@ -75,7 +75,7 @@ const hosted = <A, E, F, S = never>(mod: Pick<Mod<A, E, F, S>, 'hooks' | 'tools'
 function start<A, E, F, S>($: EngineInterface, instance: Instance<A, E, F, S>, layer: Mod<A, E, F, S>['layer']) {
     return Option.getOrElse(MutableRef.get(instance.live), () => {
         const made = instance.render.pipe(
-            watched,
+            follow,
             Layer.provideMerge(
                 Layer.provideMerge(
                     layer,
@@ -118,9 +118,7 @@ function answer<A, E, F, S, N extends Hosted>(
     tables: readonly { readonly [K in N]?: Hook<K, A | Provided, F | PlatformError.PlatformError> }[] = instance.tables,
 ) {
     const answered = dispatch(tables, e, next);
-    return start($, instance, layer)
-        .runPromise(held[next.event]?.(instance, e, answered) ?? answered, { signal: next.signal })
-        .catch(settled(next.signal));
+    return runHook(start($, instance, layer), TRACK[next.event]?.(instance, e, answered) ?? answered, next.signal);
 }
 
 function band<A, E, F, S>($: EngineInterface, instance: Instance<A, E, F, S>, layer: Mod<A, E, F, S>['layer'], e: Frozen<RenderInput<'AbovePrompt'>>, next: (e: Frozen<RenderInput<'AbovePrompt'>>) => Promise<RenderElement>) {
@@ -142,7 +140,7 @@ function band<A, E, F, S>($: EngineInterface, instance: Instance<A, E, F, S>, la
 
 function recover<E, R>($: EngineInterface, e: E, next: ((e: E) => R) & Caught & Pick<Next, 'event' | 'signal'>) {
     const subject = [next.event, ...(Predicate.hasProperty(e, 'tool') && Predicate.isString(e.tool) ? [e.tool] : [])].join(':');
-    const line = [`${subject} hook failed`, reasons[next.error.kind], ...Option.toArray(Option.fromUndefinedOr(next.error.message))].join(': ');
+    const line = [`${subject} hook failed`, REASONS[next.error.kind], ...Option.toArray(Option.fromUndefinedOr(next.error.message))].join(': ');
     if (!next.signal.aborted) {
         $.ui.log(line, { to: 'debug' });
     }
@@ -150,16 +148,16 @@ function recover<E, R>($: EngineInterface, e: E, next: ((e: E) => R) & Caught & 
 }
 
 function host<A, E, F, S = never, P = never, Q = never>(on: On, mod: Mod<A, E, F, S>, ...parts: readonly Part<P, Q, F>[]) {
-    const instance = hosted<A | P, E | Q, F, S>(mod, parts);
+    const instance = instantiate<A | P, E | Q, F, S>(mod, parts);
     const layer = Layer.mergeAll(mod.layer, ...parts.map(Struct.get('layer')));
     const hooked = (event: Hosted) => instance.tables.some((table) => table[event] !== undefined);
-    const { matchers, hooks: bodies } = declared(instance.tools, instance.agents, instance.commands);
+    const { matchers, hooks: bodies } = route(instance.tools, instance.agents, instance.commands);
     const { 'turn.step': step } = mod.hooks;
     on('session.start', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
     on('session.end', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
     on('turn.start', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
     on('turn.complete', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
-    on('theme.*', ($, e, next) => heard($, instance.theme, e, next)).catch(recover);
+    on('theme.*', ($, e, next) => observe($, instance.theme, e, next)).catch(recover);
     if (hooked('session.compact') || Option.exists(instance.render, (table) => table.Placed !== undefined)) {
         on('session.compact', ($, e, next) => answer($, instance, layer, e, next)).catch(recover);
     }
@@ -247,11 +245,7 @@ function host<A, E, F, S = never, P = never, Q = never>(on: On, mod: Mod<A, E, F
         });
     }
     if (!Record.isEmptyReadonlyRecord(instance.tools)) {
-        on('tool.run', matchers['tool.run'], ($, e, next) =>
-            start($, instance, layer)
-                .runPromise(dispatch([bodies], e, next), { signal: next.signal })
-                .catch(settled(next.signal)),
-        ).catch((_, e, next) => (next.called ? next(e) : { deny: `${e.tool} hook failed: ${reasons[next.error.kind]}` }));
+        on('tool.run', matchers['tool.run'], ($, e, next) => runHook(start($, instance, layer), dispatch([bodies], e, next), next.signal)).catch((_, e, next) => (next.called ? next(e) : { deny: `${e.tool} hook failed: ${REASONS[next.error.kind]}` }));
     }
     if (!Record.isEmptyReadonlyRecord(instance.agents)) {
         on('agent.offer', matchers['agent.offer'], ($, e, next) => answer($, instance, layer, e, next, [bodies])).catch((_, e, next) => (next.called ? next(e) : { isOffered: false }));
@@ -262,7 +256,7 @@ function host<A, E, F, S = never, P = never, Q = never>(on: On, mod: Mod<A, E, F
     if (Option.isSome(instance.render)) {
         on('ui.render', { component: Struct.keys(Struct.omit(instance.render.value, ['state', 'held'])) }, ($, e, next) => {
             if (e.component === 'Placed') {
-                seen($, instance.placed, e);
+                record($, instance.placed, e);
             }
             return render($, instance.render, e, next, () => start($, instance, layer));
         }).catch(recover);
@@ -272,7 +266,7 @@ function host<A, E, F, S = never, P = never, Q = never>(on: On, mod: Mod<A, E, F
     }
     if (Option.exists(instance.render, (table) => table.Pane !== undefined)) {
         on('ui.close', ($, e, next) =>
-            closing(
+            closePane(
                 $,
                 instance.render.pipe(
                     Option.flatMapNullishOr(Struct.get('Pane')),

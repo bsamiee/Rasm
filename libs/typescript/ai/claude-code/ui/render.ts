@@ -1,6 +1,6 @@
 import type { EngineInterface, Frozen, Next, PaneOpenArgs, RenderComponent, RenderElement, RenderInput, RenderPropsOf, ThemeScene, UiPointerInput } from 'claude-code';
 import { Effect, Layer, type ManagedRuntime, Match, Option, type PlatformError, Predicate, type Record, Ref, Stream } from 'effect';
-import { settled } from '#/engine/events';
+import { runHook } from '#/engine/events';
 import { Engine } from '#/engine/interface';
 import { call } from '#/engine/services';
 import { draw, type Element } from '#/ui/element';
@@ -29,42 +29,41 @@ type Drawn<C extends RenderComponent> = ((e: Frozen<RenderInput<C>>) => Promise<
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const redrawn = Engine.use((engine) => engine.invalidate('ui.render'));
-const watched = <S, R, F>(table: Held<S, R, F>) =>
+const invalidate = Engine.use((engine) => engine.invalidate('ui.render'));
+const follow = <S, R, F>(table: Held<S, R, F>) =>
     Option.match(table, {
         onNone: () => Layer.empty,
         onSome: ({ held, state }) =>
             state.pipe(
                 Stream.changes,
-                Stream.runForEach((value) => Effect.andThen(Ref.set(held, Option.some(value)), redrawn)),
-                Effect.catchCause((cause) => Effect.logWarning('render state failed', cause)),
+                Stream.runForEach((value) => Effect.andThen(Ref.set(held, Option.some(value)), invalidate)),
+                Effect.catchCause((cause) => Effect.logWarning('state failed', cause)),
                 Effect.forkScoped,
-                Effect.andThen(Effect.addFinalizer(() => Effect.andThen(Ref.set(held, Option.none()), redrawn))),
+                Effect.andThen(Effect.addFinalizer(() => Effect.andThen(Ref.set(held, Option.none()), invalidate))),
                 Layer.effectDiscard,
             ),
     });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function drawn<C extends RenderComponent, S, R, E, F>($: EngineInterface, row: Row<C, S, R, F> | undefined, state: S, e: Frozen<RenderInput<C>>, next: Drawn<C>, runtime: () => ManagedRuntime.ManagedRuntime<R, E>) {
+function drawRow<C extends RenderComponent, S, R, E, F>($: EngineInterface, row: Row<C, S, R, F> | undefined, state: S, e: Frozen<RenderInput<C>>, next: Drawn<C>, runtime: () => ManagedRuntime.ManagedRuntime<R, E>) {
     const redraw: Redraw<C> = (rewrite) => call('ui.render', e.requestId, () => next(rewrite === undefined ? e : { ...e, props: { ...e.props, ...rewrite } }));
     return Option.match(Option.fromUndefinedOr(row), {
         onNone: () => next(e),
         onSome: (answer) =>
-            runtime()
-                .runPromise(
-                    answer(e, state, redraw).pipe(
-                        Effect.map((tree) => (Predicate.hasProperty(tree, '_tag') ? draw($, e, tree, runtime) : tree)),
-                        Effect.catchCause((cause) => Effect.andThen(Effect.logWarning(`${e.component} ${e.requestId} draw failed`, cause), redraw())),
-                    ),
-                    { signal: next.signal },
-                )
-                .catch(settled(next.signal)),
+            runHook(
+                runtime(),
+                answer(e, state, redraw).pipe(
+                    Effect.map((tree) => (Predicate.hasProperty(tree, '_tag') ? draw($, e, tree, runtime) : tree)),
+                    Effect.catchCause((cause) => Effect.andThen(Effect.logWarning('draw failed', cause).pipe(Effect.annotateLogs({ component: e.component, request: e.requestId })), redraw())),
+                ),
+                next.signal,
+            ),
     });
 }
 
 function rows<C extends Exclude<RenderComponent, Keyed>, S, R, E, F>($: EngineInterface, table: Rows<S, R, F>, state: S, component: C, e: Frozen<RenderInput<C>>, next: Drawn<C>, runtime: () => ManagedRuntime.ManagedRuntime<R, E>) {
-    return drawn($, table[component], state, e, next, runtime);
+    return drawRow($, table[component], state, e, next, runtime);
 }
 
 function render<S, R, E, F>($: EngineInterface, table: Held<S, R, F>, e: Frozen<RenderInput>, next: Drawn<RenderComponent>, runtime: () => ManagedRuntime.ManagedRuntime<R, E>) {
@@ -79,8 +78,8 @@ function render<S, R, E, F>($: EngineInterface, table: Held<S, R, F>, e: Frozen<
             onSome: ({ held, state }) =>
                 Match.value(e).pipe(
                     Match.discriminators('component')({
-                        Backdrop: (drawing) => drawn($, held.Backdrop?.[drawing.props.scene]?.draw, state, drawing, next, runtime),
-                        Pane: (drawing) => drawn($, held.Pane?.[drawing.requestId]?.draw, state, drawing, next, runtime),
+                        Backdrop: (drawing) => drawRow($, held.Backdrop?.[drawing.props.scene]?.draw, state, drawing, next, runtime),
+                        Pane: (drawing) => drawRow($, held.Pane?.[drawing.requestId]?.draw, state, drawing, next, runtime),
                     }),
                     Match.orElse((drawing) => rows($, held, state, drawing.component, drawing, next, runtime)),
                 ),
@@ -94,20 +93,19 @@ function pointer<S, R, E, F>($: EngineInterface, table: Held<S, R, F>, e: Frozen
         {
             onNone: () => next(e),
             onSome: ({ heard, state }) =>
-                runtime()
-                    .runPromise(
-                        heard(e, state).pipe(
-                            Effect.catchCause((cause) => Effect.logWarning(`Backdrop ${e.scene} pointer failed`, cause)),
-                            Effect.andThen(Effect.sync(() => $.ui.invalidate('ui.render'))),
-                            Effect.andThen(call('ui.pointer', e.scene, () => next(e))),
-                        ),
-                        { signal: next.signal },
-                    )
-                    .catch(settled(next.signal)),
+                runHook(
+                    runtime(),
+                    heard(e, state).pipe(
+                        Effect.catchCause((cause) => Effect.logWarning('pointer failed', cause).pipe(Effect.annotateLogs({ scene: e.scene }))),
+                        Effect.andThen(Effect.sync(() => $.ui.invalidate('ui.render'))),
+                        Effect.andThen(call('ui.pointer', e.scene, () => next(e))),
+                    ),
+                    next.signal,
+                ),
         },
     );
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { pointer, type Render, render, watched };
+export { pointer, type Render, render, follow };

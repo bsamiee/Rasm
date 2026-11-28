@@ -10,11 +10,11 @@ type Denial = Extract<Verdict, { readonly deny: string }>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const alphanumeric = /[\p{L}\p{N}]/u;
-const wildcard = /[*?[]/u;
-const removers = ['rm', 'rimraf', 'trash', 'unlink', 'shred'];
-const walkers = ['find', 'gfind', 'fd', 'fdfind'];
-const recursion = ['-r', '-R', '--recursive'];
+const ALPHANUMERIC = /[\p{L}\p{N}]/u;
+const WILDCARD = /[*?[]/u;
+const REMOVERS = ['rm', 'rimraf', 'trash', 'unlink', 'shred'];
+const WALKERS = ['find', 'gfind', 'fd', 'fdfind'];
+const RECURSION = ['-r', '-R', '--recursive'];
 const nameTests = ['-name', '-iname', '-path', '-ipath', '-regex', '-iregex', '-wholename', '-iwholename'];
 const nullSeparators = ['-print0', '--print0', '-0'];
 const eachPath = { instead: 'name each path you made, in full' };
@@ -30,26 +30,26 @@ const isMktemp = (origin: Origin): boolean =>
         Match.orElse(() => false),
     );
 const isUnderMktemp = ({ pieces: [first, ...rest] }: Field): boolean => {
-    const below = Option.exists(patternOf(rest), (path) => path === '' || (path.startsWith('/') && path.split('/').every((segment) => segment !== '..' && !(segment.startsWith('.') && wildcard.test(segment)))));
+    const below = Option.exists(patternOf(rest), (path) => path === '' || (path.startsWith('/') && path.split('/').every((segment) => segment !== '..' && !(segment.startsWith('.') && WILDCARD.test(segment)))));
     return first?._tag === 'Unknown' && isMktemp(first.origin) && below;
 };
-const sweeps = (walker: Invocation) => (walker.runs('fd', 'fdfind') ? !Option.exists(walker.operand(), (pattern) => alphanumeric.test(pattern)) : !walker.has(...nameTests));
+const sweeps = (walker: Invocation) => (walker.runs('fd', 'fdfind') ? !Option.exists(walker.operand(), (pattern) => ALPHANUMERIC.test(pattern)) : !walker.has(...nameTests));
 const refuse =
     (cwd: string, walker: Option.Option<Invocation>) =>
     (invocation: Invocation): readonly Denial[] => {
         const subject = invocation.label;
-        const [recursive, removes, walks] = [invocation.has(...recursion) || invocation.runs('rimraf', 'trash'), invocation.runs(...removers), invocation.runs(...walkers)];
+        const [recursive, removes, walks] = [invocation.has(...RECURSION) || invocation.runs('rimraf', 'trash'), invocation.runs(...REMOVERS), invocation.runs(...WALKERS)];
         const swept = Option.toArray(Option.filter(walker, sweeps)).flatMap((outer) => roots(outer, cwd).flatMap((root) => (covers(root, cwd) ? [{ subject: `${outer.label} ${root}`, deny: `runs ${subject} on everything under it`, values: { instead: 'add a pattern that selects only what to delete' } }] : [])));
         const args = Option.toArray(invocation.node).flatMap(({ cmd }) => (cmd?.type === 'CallExpr' ? cmd.args.slice(1) : []));
         const emptied = Array.getSomes(args.map(literal)).flatMap((text) => {
-            const cut = text.lastIndexOf('/', text.search(wildcard)) + 1;
+            const cut = text.lastIndexOf('/', text.search(WILDCARD)) + 1;
             const folder = `${cwd}/${text.slice(0, cut)}`.replaceAll(/\/(?:\.\/)+/gu, '/');
-            return recursive && removes && wildcard.test(text) && !alphanumeric.test(text.slice(cut)) && covers(folder, cwd) ? [{ subject: `${subject} ${text}`, deny: `empties the working folder ${cwd}`, values: eachPath }] : [];
+            return recursive && removes && WILDCARD.test(text) && !ALPHANUMERIC.test(text.slice(cut)) && covers(folder, cwd) ? [{ subject: `${subject} ${text}`, deny: `empties the working folder ${cwd}`, values: eachPath }] : [];
         });
         const judge = (field: Field): readonly Denial[] => {
             const unknown = field.pieces.flatMap((piece) => (piece._tag === 'Unknown' ? [piece.origin._tag] : []));
             const folder = Option.getOrElse(field.text, () => field.prefix.slice(0, field.prefix.lastIndexOf('/'))) || '/';
-            const unnamed = Option.isSome(field.text) || !alphanumeric.test(render(field).slice(field.prefix.lastIndexOf('/') + 1));
+            const unnamed = Option.isSome(field.text) || !ALPHANUMERIC.test(render(field).slice(field.prefix.lastIndexOf('/') + 1));
             return Match.value({ fed: unknown.includes('Input'), temporary: isUnderMktemp(field), late: unknown.length > 0, working: unnamed && covers(folder, cwd) }).pipe(
                 Match.when({ fed: true }, () => swept),
                 Match.when({ temporary: true }, () => []),
@@ -72,8 +72,8 @@ const removal: Table = {
         program: 'xargs',
         decide: Effect.fnUntraced(function* (xargs, { invocations, script, shell }) {
             const fs = yield* FileSystem.FileSystem;
-            const remover = Option.filter(Array.head(xargs.inner), (inner) => inner.runs(...removers));
-            const walker = Array.findFirst(invocations, (other) => other.runs(...walkers) && other.feeds(xargs) && Option.exists(other.stage, ({ index }) => index === 0) && other.inner.length === 0);
+            const remover = Option.filter(Array.head(xargs.inner), (inner) => inner.runs(...REMOVERS));
+            const walker = Array.findFirst(invocations, (other) => other.runs(...WALKERS) && other.feeds(xargs) && Option.exists(other.stage, ({ index }) => index === 0) && other.inner.length === 0);
             const [nulls, plain] = [xargs.has('-0', '--null'), xargs.only('-0', '--null', '-r', '--no-run-if-empty')];
             const argv = Option.flatMap(remover, (inner) => inner.argv);
             const list = Option.filter(xargs.stdin._tag === 'File' ? xargs.stdin.path.text : Option.none(), () => plain);
@@ -91,7 +91,7 @@ const removal: Table = {
             const batch = Option.map(argv, (words) => (Option.exists(walker, (found) => found.runs('fd', 'fdfind')) ? Array.make('-X', ...words) : Array.make('-exec', ...words, '{}', '+')));
             const agrees = Option.exists(walker, (found) => found.has(...nullSeparators) === nulls) && Option.exists(xargs.stage, ({ count }) => count === 2);
             const joined = Option.filter(Option.all([walk, batch, Option.flatMap(walker, ({ span }) => span)]), () => plain && agrees);
-            return Match.value({ direct: Option.getOrUndefined(Option.all([direct, xargs.node])), joined: Option.getOrUndefined(Option.all([joined, xargs.node])), recursive: Option.getOrUndefined(Option.filter(remover, (inner) => inner.has(...recursion))) }).pipe(
+            return Match.value({ direct: Option.getOrUndefined(Option.all([direct, xargs.node])), joined: Option.getOrUndefined(Option.all([joined, xargs.node])), recursive: Option.getOrUndefined(Option.filter(remover, (inner) => inner.has(...RECURSION))) }).pipe(
                 Match.when({ direct: Match.defined }, ({ direct: [command, stmt] }): readonly Verdict[] => [{ edit: (editor) => [editor.command(stmt, command)] }]),
                 Match.when({ joined: Match.defined }, ({ joined: [[words, exec, span], stmt] }): readonly Verdict[] => [{ edit: (editor) => [editor.replace(span, Array.appendAll(words, exec)), editor.remove(stmt)] }]),
                 Match.when({ recursive: Match.defined }, ({ recursive: { label } }): readonly Verdict[] => [

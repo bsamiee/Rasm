@@ -30,7 +30,7 @@ class Theme extends Context.Service<
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function heard($: EngineInterface, standing: Ref.Ref<Option.Option<Standing>>, e: Frozen<Args<'theme.set' | 'theme.clear'>>, next: GlobNext<'theme.*'>) {
+function observe($: EngineInterface, standing: Ref.Ref<Option.Option<Standing>>, e: Frozen<Args<'theme.set' | 'theme.clear'>>, next: GlobNext<'theme.*'>) {
     const { plugin } = next.origin;
     return plugin === $.plugin.name ? next(e) : next(e).then((answer) => (answer.deny === undefined ? Effect.runSync(Effect.as(Ref.set(standing, next.is('theme.set', e) ? Option.some(Standing.Set({ plugin, attributes: e })) : Option.none()), answer)) : answer));
 }
@@ -54,7 +54,7 @@ function theme($: EngineInterface, standing: Ref.Ref<Option.Option<Standing>>) {
                         const over = Option.flatMap(current, Standing.$match({ Set: Option.some<Shown>, Preview: Struct.get('over') }));
                         yield* Option.match(
                             Option.filter(over, (held) => held.plugin !== plugin && held.attributes.backdrop?.scene !== undefined),
-                            { onNone: () => Effect.void, onSome: (held) => PlatformError.badArgument({ module: 'Theme', method: 'preview', description: `scene ${held.attributes.backdrop?.scene} of ${held.plugin}, which this plugin cannot set again` }) },
+                            { onNone: () => Effect.void, onSome: (held) => PlatformError.badArgument({ module: 'Theme', method: 'preview', description: `scene held, scene ${held.attributes.backdrop?.scene}, plugin ${held.plugin}` }) },
                         );
                         const held: Shown = { plugin, attributes };
                         const previews = Option.match(Option.filter(current, Standing.$is('Preview')), { onNone: () => Array.of(held), onSome: (open) => Array.append(open.previews, held) });
@@ -76,7 +76,7 @@ function theme($: EngineInterface, standing: Ref.Ref<Option.Option<Standing>>) {
                             }),
                         ),
                         locked,
-                        Effect.catchCause((cause) => Effect.logWarning('theme preview did not restore', cause)),
+                        Effect.catchCause((cause) => Effect.logWarning('preview restore failed', cause)),
                     ),
             ).pipe(Effect.map(Tuple.get(0))),
     });
@@ -84,4 +84,4 @@ function theme($: EngineInterface, standing: Ref.Ref<Option.Option<Standing>>) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { heard, Theme, theme };
+export { observe, Theme, theme };

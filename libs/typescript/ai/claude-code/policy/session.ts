@@ -12,7 +12,7 @@ type Script = Effect.Success<ReturnType<Shell['Service']['read']>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const collator = new Intl.Collator(undefined, { numeric: true });
+const COLLATOR = new Intl.Collator(undefined, { numeric: true });
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -41,7 +41,7 @@ class Session extends Context.Service<
                     binary: Option.orElse(Record.get(variables, 'CLAUDE_CODE_SHELL'), () => Record.get(variables, 'SHELL')),
                     home: Option.orElse(Record.get(variables, 'CLAUDE_CONFIG_DIR'), () => Option.map(Record.get(variables, 'HOME'), (folder) => path.join(folder, '.claude'))),
                 }),
-                () => PlatformError.badArgument({ module: 'Session', method: 'shell', description: 'a process that names no shell or no home' }),
+                () => PlatformError.badArgument({ module: 'Session', method: 'shell', description: 'no shell or no home in the environment' }),
             );
             const dialects = path.join(plugin.data, 'dialect', plugin.pid);
             yield* Effect.addFinalizer(() => Effect.ignore(fs.remove(dialects, { recursive: true, force: true })));
@@ -52,7 +52,7 @@ class Session extends Context.Service<
                 );
             const listing = (folder: string, pattern: string) =>
                 fs.glob(pattern, { root: folder }).pipe(
-                    Effect.flatMap((names) => Effect.forEach(names.toSorted(collator.compare), (name) => stamp(path.join(folder, name)), { concurrency: 'unbounded' })),
+                    Effect.flatMap((names) => Effect.forEach(names.toSorted(COLLATOR.compare), (name) => stamp(path.join(folder, name)), { concurrency: 'unbounded' })),
                     Effect.map(Array.getSomes),
                 );
             const probes = yield* Cache.makeWith(
