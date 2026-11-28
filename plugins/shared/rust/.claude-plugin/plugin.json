@@ -1,12 +1,12 @@
 {
     "name": "rust",
-    "description": "Rust algebraic types, results, traits, and async effects",
+    "description": "Rust algebraic types, results, traits, and async effects, and tests through rstest, proptest, insta, nextest, and cargo-mutants",
     "author": {
         "name": "Bardia Samiee"
     },
     "interface": {
         "displayName": "Rust",
-        "shortDescription": "Rust algebraic types, results, traits, and async effects",
+        "shortDescription": "Rust algebraic types, results, traits, and async effects, and tests through rstest, proptest, insta, nextest, and cargo-mutants",
         "brandColor": "#090909"
     }
 }
