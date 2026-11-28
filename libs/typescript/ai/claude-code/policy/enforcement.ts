@@ -31,6 +31,7 @@ const ToolCall = Schema.Union([
     row({ tool: Schema.TemplateLiteralParser(['mcp__', Schema.String.check(Schema.isPattern(/^(?:(?!__)[^])+$/u)), '__', Schema.String]) })(({ tool: [, server, , tool], ...input }, by) => Action.cases.Mcp.make({ ...by, server, tool, input: Struct.omit(input, [...Struct.keys(caller), 'consent', 'requestMeta']) })),
 ]);
 const Background = Schema.Struct({ result: Schema.Struct({ backgroundTaskId: Schema.String }), text: Schema.String });
+const Printed = Schema.Struct({ ...caller, tool: Schema.String });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -103,6 +104,15 @@ const judge = Effect.fnUntraced(function* (policy: Policy, e: Frozen<ToolCallInp
     );
     return result.deny !== undefined || decision.notes.length === 0 ? result : { ...result, context: [...(result.context ?? []), ...decision.notes.map(told)] };
 });
+const hear = (policy: Policy, e: Frozen<ToolCallInput>, result: ToolCallResult) =>
+    Option.match(Option.all([Schema.decodeOption(Printed)(e), Option.filter(Option.fromUndefinedOr(result.text), () => result.deny === undefined)]), {
+        onNone: () => Effect.succeed(result),
+        onSome: ([{ tool, tool_use_id: call, agentId }, text]) =>
+            decide(policy, Action.cases.Output.make({ call, agent: Option.fromUndefinedOr(agentId), tool, text, readOnly: result.isReadOnly === true })).pipe(
+                Effect.map(({ notes }): ToolCallResult => (result.deny !== undefined || notes.length === 0 ? result : { ...result, context: [...(result.context ?? []), ...notes.map(told)] })),
+                Effect.catchCause((cause) => Effect.as(Effect.logWarning(`policy did not judge the output of ${tool} call ${call}`, cause), result)),
+            ),
+    });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -111,14 +121,16 @@ function enforce(on: On, policy: Policy) {
         hooks: {
             'session.end': (ended, proceed) => Effect.andThen(policy.clear(), proceed(ended)),
             'session.compact': (compacted, proceed) => Effect.tap(proceed(compacted), ({ messages }) => Effect.when(policy.forget(Option.fromUndefinedOr(compacted.agentId)), Effect.succeed(messages !== undefined && compacted.trigger !== 'precompute'))),
-            'tool.call': (called, proceed) =>
-                Option.match(
+            'tool.call': (called, proceed) => {
+                const ran = Option.match(
                     Option.filter(Schema.decodeUnknownOption(ToolCall)(called), ({ _tag }) => policy.appliesTo(_tag)),
                     {
                         onNone: () => proceed(called),
                         onSome: (action) => judge(policy, called, proceed, action),
                     },
-                ),
+                );
+                return policy.appliesTo('Output') ? Effect.flatMap(ran, (result) => hear(policy, called, result)) : ran;
+            },
         },
     });
     on('session.start', ($, e, next) => answer($, instance, layer($), e, next)).catch(recover);
