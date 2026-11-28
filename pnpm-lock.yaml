@@ -1694,6 +1694,9 @@ importers:
       '@rasm/process':
         specifier: workspace:*
         version: link:../../../libs/typescript/system/process
+      '@rasm/report':
+        specifier: workspace:*
+        version: link:../../../libs/typescript/ai/report
       '@rasm/vite':
         specifier: workspace:*
         version: link:../../../libs/typescript/web/vite

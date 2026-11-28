@@ -23,7 +23,7 @@ const stringLiteral = /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/gu;
 const statuses = ['nx', 'uv', 'dotnet', 'xcodebuild', 'swift', 'npm', 'pnpm', 'cargo', 'curl', 'pytest', 'vitest'];
 const altering: ReadonlySet<string> = new Set(['tied', 'readonly', 'association']);
 const rgFlags: Readonly<Record<string, string>> = { i: '--ignore-case', c: '--case-sensitive', w: '--word-regexp', s: '--multiline-dotall' };
-const patchAdvice = 'Set the package option, a newer release, or the consumer tsconfig.';
+const patched = { instead: 'set the package option, a newer release, or the consumer tsconfig' };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -122,9 +122,9 @@ const judgeCode = (name: keyof typeof languages) => {
         const command = Array.findFirst(idioms, ([pattern, restate]) => Option.flatMap(Option.fromNullishOr(pattern.exec(Option.match(source, { onNone: () => written, onSome: String.trim }))), ({ groups = {} }) => restate(groups, invocation)));
         return Match.value({ command: Option.getOrUndefined(command), inPlace: inPlace === true && invocation.has('-i'), json: jsonParse.test(written), effects: effects?.test(written.replaceAll(stringLiteral, '""')) === true }).pipe(
             Match.when({ command: Match.defined }, ({ command: words }) => rewrite(invocation, words)),
-            Match.when({ inPlace: true }, () => [{ deny: `${name} -i edits files in place where the hook cannot judge the change.`, advice: 'Edit them with sd where one pattern covers every change, else with your file edit tool.' }]),
-            Match.when({ json: true }, () => [{ deny: `${name} inline code parses JSON.`, advice: 'Read it with jq.' }]),
-            Match.when({ effects: true }, () => [{ deny: `${name} inline code runs commands or deletes files where the hook cannot judge them.`, advice: 'Run each as its own shell command.' }]),
+            Match.when({ inPlace: true }, () => [{ subject: `${name} -i`, deny: 'edits files in place where the hook cannot judge the change', values: { instead: 'edit them with sd where one pattern covers every change, else with your file edit tool' } }]),
+            Match.when({ json: true }, () => [{ subject: `${name} inline code`, deny: 'parses JSON', values: { instead: 'read it with jq' } }]),
+            Match.when({ effects: true }, () => [{ subject: `${name} inline code`, deny: 'runs commands or deletes files where the hook cannot judge them', values: { instead: 'run each as its own shell command' } }]),
             Match.orElse(() => []),
         );
     });
@@ -141,9 +141,12 @@ const programs: Table = {
                 .filter((invocation) => readsInput(invocation) && invocation.stdin._tag === 'Inherited')
                 .flatMap((invocation) =>
                     Match.value({ span: Option.getOrUndefined(invocation.span), stmt: Option.getOrUndefined(invocation.node), local: invocation.source === script.source, nested: Option.isSome(invocation.stage) || invocation.within.length > 0, alone }).pipe(
-                        Match.when({ span: Match.defined, local: true, nested: true }, ({ span }): readonly Verdict[] => [{ edit: (editor) => [editor.replace(span, [':'])] }, { note: `${invocation.label} read standard input, which this call leaves empty, so it became : and the rest of the call ran.`, once: 'call' }]),
-                        Match.when({ stmt: Match.defined, local: true, nested: false, alone: false }, ({ stmt }): readonly Verdict[] => [{ edit: (editor) => [editor.remove(stmt)] }, { note: `${invocation.label} read standard input, which this call leaves empty, so the call ran without it.`, once: 'call' }]),
-                        Match.orElse((): readonly Verdict[] => [{ deny: `${invocation.label} reads standard input, which this call leaves empty.`, advice: 'Name the file it should read, or pipe or redirect its input.' }]),
+                        Match.when({ span: Match.defined, local: true, nested: true }, ({ span }): readonly Verdict[] => [
+                            { edit: (editor) => [editor.replace(span, [':'])] },
+                            { subject: invocation.label, note: 'read standard input, which this call leaves empty, so it became : and the rest of the call ran', once: 'call' },
+                        ]),
+                        Match.when({ stmt: Match.defined, local: true, nested: false, alone: false }, ({ stmt }): readonly Verdict[] => [{ edit: (editor) => [editor.remove(stmt)] }, { subject: invocation.label, note: 'read standard input, which this call leaves empty, so the call ran without it', once: 'call' }]),
+                        Match.orElse((): readonly Verdict[] => [{ subject: invocation.label, deny: 'reads standard input, which this call leaves empty', values: { instead: 'name the file it should read, or pipe or redirect its input' } }]),
                     ),
                 );
         },
@@ -187,10 +190,10 @@ const programs: Table = {
     },
     'cat.visible': { program: 'cat', rename: { '-A': '-vet' } },
     'curl.fail': { program: 'curl', ensure: ['--fail-with-body'], unless: ['--fail', '--write-out'] },
-    'screencapture.clipboard': { program: 'screencapture', when: ['-c'], deny: "replaces the owner's clipboard", advice: 'Pass a file.' },
+    'screencapture.clipboard': { program: 'screencapture', when: ['-c'], deny: "replaces the owner's clipboard", values: { instead: 'pass a file' } },
     'screencapture.interactive': { program: 'screencapture', drop: ['-i', '-W', '-U', '-P', '-M'] },
-    'pnpm.patch': { program: 'pnpm', path: ['patch'], deny: 'copies a package into the tree', advice: patchAdvice },
-    'pnpm.patch-commit': { program: 'pnpm', path: ['patch-commit'], deny: 'writes a patched package into the tree', advice: patchAdvice },
+    'pnpm.patch': { program: 'pnpm', path: ['patch'], deny: 'copies a package into the tree', values: patched },
+    'pnpm.patch-commit': { program: 'pnpm', path: ['patch-commit'], deny: 'writes a patched package into the tree', values: patched },
     'sdef.launch': {
         program: 'sdef',
         decide: Effect.fnUntraced(function* (sdef, { cwd }) {
@@ -205,8 +208,9 @@ const programs: Table = {
                 }),
             );
             return launching.map((bundle) => ({
-                deny: `sdef ${bundle} launches the application, as its Info.plist names no static OSAScriptingDefinition.`,
-                advice: 'Read the .scriptSuite and .scriptTerminology pair or the aete .rsrc file under Contents/Resources, or the command list execute_script returns for a running instance.',
+                subject: `sdef ${bundle}`,
+                deny: 'launches the application, as its Info.plist names no static OSAScriptingDefinition',
+                values: { instead: 'read the .scriptSuite and .scriptTerminology pair or the aete .rsrc file under Contents/Resources, or the command list execute_script returns for a running instance' },
             }));
         }),
     },
@@ -219,7 +223,7 @@ const programs: Table = {
                 .map(([word, text]) =>
                     Match.value({ multiline: text === '-U' || text === '--multiline', option: /^--?[A-Za-z][\w-]*$/u.test(text) }).pipe(
                         Match.when({ multiline: true }, () => (sd.has('--across') ? { drop: [text] } : { rename: { [text]: '-A' } })),
-                        Match.when({ option: true }, () => ({ deny: `sd ${text} is no sd option.`, advice: 'Pass -- before a pattern that starts with -.' })),
+                        Match.when({ option: true }, () => ({ subject: `sd ${text}`, deny: 'is no sd option', values: { instead: 'pass -- before a pattern that starts with -' } })),
                         Match.orElse((): Verdict => ({ edit: (editor) => [editor.before(word, ['--'])] })),
                     ),
                 ),
@@ -265,7 +269,7 @@ const programs: Table = {
                             : Effect.map(execute(cwd)(['rg', '--no-config', '--quiet', '--text', ...options, ...given, '--regexp', find, '--', ...paths]), ({ code }) => code !== 1),
                 },
             );
-            return matches ? [] : [{ deny: `sd pattern matches nothing in ${paths.join(' ')}.`, advice: 'Read the current text, then match what it holds.' }];
+            return matches ? [] : [{ subject: 'sd pattern', deny: `matches nothing in ${paths.join(' ')}`, values: { instead: 'read the current text, then match what it holds' } }];
         }),
     },
     'jq.file': {
@@ -338,7 +342,7 @@ const programs: Table = {
             const substituted = words.some(({ parts }) => parts.some(({ type }) => type === 'ProcSubst'));
             return Match.value({ written: Option.getOrUndefined(Option.all([written, moved, hyperfine.node])), substituted }).pipe(
                 Match.when({ written: Match.defined }, ({ written: [[prepared, input], { word }, stmt] }): readonly Verdict[] => [{ edit: (editor) => [editor.precede(prepared, '&&', stmt), editor.replace(word, input)] }]),
-                Match.when({ substituted: true }, (): readonly Verdict[] => [{ deny: 'hyperfine --input <(…) is read by the first run alone.', advice: 'Write the input to a file, then pass that file to --input.' }]),
+                Match.when({ substituted: true }, (): readonly Verdict[] => [{ subject: 'hyperfine --input <(…)', deny: 'is read by the first run alone', values: { instead: 'write the input to a file, then pass that file to --input' } }]),
                 Match.orElse(() => []),
             );
         }),
@@ -379,7 +383,7 @@ const programs: Table = {
             const folder = Option.map(Record.get(script.dialect.environment, 'TMPDIR'), (given) => given.replace(/\/+$/u, ''));
             return Option.toArray(Option.filter(folder, () => Array.isReadonlyArrayNonEmpty(moved))).flatMap((given) => [
                 { edit: (editor) => moved.map(([word, text]) => editor.replace(word, [text.replace(systemTemporary, given)])) },
-                ...Array.dedupe(moved.map(([, text]) => text)).map((text) => ({ note: `${text} became ${text.replace(systemTemporary, given)}, as /tmp is shared by every user; later calls use that path.`, once: 'call' as const })),
+                ...Array.dedupe(moved.map(([, text]) => text)).map((text) => ({ subject: text, note: `became ${text.replace(systemTemporary, given)}, as /tmp is shared by every user; later calls use that path`, once: 'call' as const })),
             ]);
         },
     },
@@ -400,7 +404,7 @@ const programs: Table = {
             const assigned = tree.links.keys().flatMap((node) => ((node.type === 'Assign' || node.type === 'WordIter') && node.name !== null ? [node.name.value] : []));
             return Array.dedupe(assigned.filter((name) => /^\p{Ll}/u.test(name)).toArray()).flatMap((name) => {
                 const kind = Option.filter(Option.fromUndefinedOr(dialect.parameters.get(name)), (given) => given.has('special') && !given.isDisjointFrom(altering));
-                return Option.toArray(kind).map((given) => ({ deny: `zsh parameter ${name} is ${[...given].join('-')}, so assigning it changes the shell itself.`, advice: 'Rename the variable.' }));
+                return Option.toArray(kind).map((given) => ({ subject: `zsh parameter ${name}`, deny: `is ${[...given].join('-')}, so assigning it changes the shell itself`, values: { instead: 'rename the variable' } }));
             });
         },
     },

@@ -4,16 +4,19 @@
     "exclude": ["vite.config.ts"],
     "references": [
         {
-            "path": "../../../libs/typescript/system/process"
+            "path": "../../../libs/typescript/ai/report"
         },
         {
-            "path": "../../../libs/typescript/ai/claude-code"
+            "path": "../../../libs/typescript/system/process"
         },
         {
             "path": "../../../libs/typescript/ai/policy"
         },
         {
             "path": "../../../libs/typescript/developer/nx"
+        },
+        {
+            "path": "../../../libs/typescript/ai/claude-code"
         }
     ],
     "nx": {

@@ -11,6 +11,7 @@
         "@rasm/nx": "workspace:*",
         "@rasm/policy": "workspace:*",
         "@rasm/process": "workspace:*",
+        "@rasm/report": "workspace:*",
         "@rasm/vite": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",

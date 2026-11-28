@@ -53,7 +53,7 @@ const ghidra: Table = {
             const unset = yield* Effect.transposeOption(Option.map(Option.liftPredicate(names, Array.isArrayNonEmpty), (set) => shell.script(script.dialect)`unset ${set}`));
             const preceded = Option.all([unset, Option.flatMap(first, ({ node }) => node)]);
             return Option.isSome(first) && (Array.isReadonlyArrayNonEmpty(removed) || Array.isReadonlyArrayNonEmpty(passed) || Option.isSome(preceded))
-                ? [{ edit: (editor) => [...[...removed, ...passed].map((setting) => editor.remove(setting)), ...Option.toArray(preceded).map(([command, stmt]) => editor.precede(command, ';', stmt))] }, { note: `GHIDRA_MAXMEM left the call, as ${headless} sizes its own heap.`, once: 'agent' as const }]
+                ? [{ edit: (editor) => [...[...removed, ...passed].map((setting) => editor.remove(setting)), ...Option.toArray(preceded).map(([command, stmt]) => editor.precede(command, ';', stmt))] }, { subject: 'GHIDRA_MAXMEM', note: `left the call, as ${headless} sizes its own heap`, once: 'agent' as const }]
                 : [];
         }),
     },
@@ -64,7 +64,7 @@ const ghidra: Table = {
             const shared = Option.map(Record.get(script.dialect.environment, 'GHIDRA_PROJECT_DIR'), (folder) => path.resolve(folder));
             const location = Option.all([Option.flatMap(Array.head(run.operands), ({ word }) => word.node), run.operand()]);
             const moved = Option.filter(Option.all([shared, location]), ([folder, [, given]]) => !(run.background && overlaps(invocations)) && path.resolve(cwd, given) !== folder);
-            return Option.toArray(moved).flatMap(([folder, [word, given]]) => [{ edit: (editor) => [editor.replace(word, [folder])] }, { note: `${headless} ${given} became ${folder}, the project folder every session shares.`, once: 'agent' as const }]);
+            return Option.toArray(moved).flatMap(([folder, [word, given]]) => [{ edit: (editor) => [editor.replace(word, [folder])] }, { subject: `${headless} ${given}`, note: `became ${folder}, the project folder every session shares`, once: 'agent' as const }]);
         }),
     },
     'ghidra.logs': {
@@ -105,9 +105,10 @@ const ghidra: Table = {
             return Option.match(Option.all([commands, wait]), {
                 onSome: ([chained, waited]) => [
                     { edit: (editor) => [...runs.flatMap(({ node }) => Option.toArray(node)).map((stmt) => editor.remove(stmt)), editor.command(waited, chained)] },
-                    { note: `${headless} runs in the background on one project became one chain of -import runs, as Ghidra locks a project to one run.`, once: 'agent' as const },
+                    { subject: `${headless} runs in the background on one project`, note: 'became one chain of -import runs, as Ghidra locks a project to one run', once: 'agent' as const },
                 ],
-                onNone: () => (overlaps(invocations) ? [{ deny: `${headless} runs concurrently on one project, and Ghidra locks a project to one run.`, advice: imports ? 'Chain each -import with &&.' : `Send the runs to the project's Serve.java with nc -U "$GHIDRA_PROJECT_DIR/${socket}.sock".` }] : []),
+                onNone: () =>
+                    overlaps(invocations) ? [{ subject: headless, deny: 'runs concurrently on one project, and Ghidra locks a project to one run', values: { instead: imports ? 'chain each -import with &&' : `send the runs to the project's Serve.java with nc -U "$GHIDRA_PROJECT_DIR/${socket}.sock"` } }] : [],
             });
         }),
     },
@@ -123,7 +124,7 @@ const ghidra: Table = {
             const sources = Array.dedupe(Array.getSomes(copy.reads.map(({ text }) => text)));
             const inside = yield* Effect.forEach(sources, listProjects);
             const copied = Array.zipWith(sources, inside, (source, projects) => [...(projectFile.test(source) ? [source] : []), ...projects.map((project) => `${project}.gpr`)]);
-            return Array.dedupe(copied.flat()).map((file) => ({ deny: `${copy.label} copies the Ghidra project ${path.basename(file)}, which a running Ghidra rewrites under its lock.`, advice: "Read it through the project's Serve.java." }));
+            return Array.dedupe(copied.flat()).map((file) => ({ subject: copy.label, deny: `copies the Ghidra project ${path.basename(file)}, which a running Ghidra rewrites under its lock`, values: { instead: "read it through the project's Serve.java" } }));
         }),
     },
     'ghidra.lock': {
@@ -138,7 +139,7 @@ const ghidra: Table = {
             const projects = (yield* Effect.forEach(folders, listProjects)).flat();
             const locks = projects.flatMap((project) => [`${project}.lock`, `${project}.lock~`].map((lock) => ({ project, lock })));
             const deleted = Array.cartesian(locks, removals).filter(([{ lock }, { field, names }]) => Option.contains(field.matches(lock), true) && names.every((name) => Glob.match(name, path.basename(lock))));
-            return Array.dedupeWith(deleted, ([left], [right]) => left.lock === right.lock).map(([{ project, lock }]) => ({ deny: `Deleting ${lock} drops the lock of the Ghidra project ${project}.gpr while a run may hold it.`, advice: `Run lsof -t ${lock} to find the run that holds it.` }));
+            return Array.dedupeWith(deleted, ([left], [right]) => left.lock === right.lock).map(([{ project, lock }]) => ({ subject: `deleting ${lock}`, deny: `drops the lock of the Ghidra project ${project}.gpr while a run may hold it`, values: { instead: `run lsof -t ${lock} to find the run that holds it` } }));
         }),
     },
 };

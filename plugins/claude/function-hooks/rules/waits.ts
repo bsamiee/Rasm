@@ -1,3 +1,4 @@
+import { Call } from '@rasm/report';
 import { Array, Duration, Effect, Function, Match, Option, Path, Result } from 'effect';
 import { Host, NetAddress } from 'effect/net';
 import { execute, type Invocation, rewrite, type Table, type Verdict } from '#/rules/rule';
@@ -16,14 +17,14 @@ const zeroDuration = /^(?:0+(?:\.0*)?|\.0+)[smhd]?$/u;
 const taskOutput = /\/tasks\/(?<id>[^/\s]+)\.output$/u;
 const agentOutput = /\/tasks\/a[0-9a-f]{16}\.output$/u;
 const records = [
-    [agentOutput, "is a running agent's output that the agent reports when it ends", 'SendMessage asks it for status.'],
-    [/\/\.(?:zsh|bash)_history$|\/\.zsh_sessions(?:\/|$)/u, 'is shell history', "atuin search --filter-mode global --search-mode fulltext '<words>' reads it."],
+    [agentOutput, "is a running agent's output that the agent reports when it ends", 'SendMessage asks it for status'],
+    [/\/\.(?:zsh|bash)_history$|\/\.zsh_sessions(?:\/|$)/u, 'is shell history', "atuin search --filter-mode global --search-mode fulltext '<words>' reads it"],
 ] as const;
 const moves = {
-    background: { run: 'background', note: 'This call runs in the background and notifies you when it ends, so never poll it.' },
-    monitored: { run: 'monitored', note: 'This wait ran as a Monitor: each line it prints and its exit reach you as notices and its timeout bounds it, so keep working or end the turn.' },
+    background: { run: 'background', subject: 'call', note: 'runs in the background and notifies you when it ends, so never poll it' },
+    monitored: { run: 'monitored', subject: 'wait', note: 'ran as a Monitor: each line it prints and its exit reach you as notices and its timeout bounds it, so keep working or end the turn' },
 } as const;
-const waitAdvice = 'Background tasks and agents notify when they end, Monitor `until <check>; do sleep 5; done` waits on a condition with timeout_ms as its bound, and a turn with nothing to do ends until a notice arrives.';
+const notified = { instead: 'background tasks and agents notify when they end, Monitor `until <check>; do sleep 5; done` waits on a condition with timeout_ms as its bound, and a turn with nothing to do ends until a notice arrives' };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -35,14 +36,14 @@ const pauses = (invocation: Invocation) => sleeps(invocation) || invocation.runs
 const isReaped = (job: Invocation, invocations: readonly Invocation[]) => invocations.some((other) => other.start >= job.end && (other.runs('wait') || (other.runs('kill') && !other.has('-0'))));
 const isDelimited = (read: Invocation) => read.has('-n', '-N') || read.values('-d').some((value) => value.spells(''));
 const nameTask = (file: string) => taskOutput.exec(file)?.groups?.['id'] ?? file;
-const adviseStream = (file: string) => `Monitor \`tail -n +1 -F ${file} | grep --line-buffered -E '<pattern>'\` streams the lines you wait for.`;
+const adviseStream = (file: string) => `Monitor \`tail -n +1 -F ${file} | grep --line-buffered -E '<pattern>'\` streams the lines you wait for`;
 const listPaths = (invocation: Invocation) => [...Array.getSomes(invocation.reads.map(({ text }) => text)), ...Array.getSomes(invocation.words.map(({ text }) => Option.filter(text, (word) => word.startsWith('/'))))];
 const readNumber = (invocation: Invocation, flag: string) =>
     Option.filter(
         Option.flatMap(Array.head(invocation.values(flag)), ({ text }) => text),
         (text) => Number.isFinite(Number(text)),
     );
-const refuseRecords = (paths: readonly string[]) => records.flatMap(([pattern, fact, advice]) => paths.filter((path) => pattern.test(path)).map((path) => ({ deny: `${path} ${fact}.`, advice })));
+const refuseRecords = (paths: readonly string[]) => records.flatMap(([pattern, fact, instead]) => paths.filter((path) => pattern.test(path)).map((path) => ({ subject: path, deny: fact, values: { instead } })));
 const bracket = ({ node, text }: Invocation['words'][number]): readonly Verdict[] => Option.toArray(Option.all([node, Option.filter(text, (pattern) => /^\w/u.test(pattern))])).map(([word, pattern]) => ({ edit: (editor) => [editor.replace(word, [`[${pattern.slice(0, 1)}]${pattern.slice(1)}`])] }));
 const deriveWatch = (view: Invocation) =>
     Option.map(
@@ -92,7 +93,7 @@ const waits: Table = {
         action: 'Shell',
         decide: (_, { invocations }) => {
             const commands = invocations.filter(({ inner }) => inner.length === 0);
-            return commands.some(idles) && commands.every((invocation) => idles(invocation) || invocation.runs(...inert)) ? [{ deny: 'A bare timer waits on nothing and wakes you with nothing new.', advice: waitAdvice }] : [];
+            return commands.some(idles) && commands.every((invocation) => idles(invocation) || invocation.runs(...inert)) ? [{ subject: 'bare timer', deny: 'waits on nothing and wakes you with nothing new', values: notified }] : [];
         },
     },
     'timer.trailing': {
@@ -115,7 +116,7 @@ const waits: Table = {
         action: 'Shell',
         decide: (_, { invocations }) =>
             Array.isReadonlyArrayNonEmpty(invocations) && invocations.every((invocation) => invocation.runs('echo', 'printf', 'true') && invocation.writes.length === 0 && Option.isSome(invocation.argv))
-                ? [{ deny: 'Call prints literal text and runs nothing.', advice: 'Background tasks and agents notify when they end, so end the turn; a foreground subagent, whose background work ends with its final answer, keeps working instead.' }]
+                ? [{ subject: 'call', deny: 'prints literal text and runs nothing', values: { instead: 'background tasks and agents notify when they end, so end the turn; a foreground subagent, whose background work ends with its final answer, keeps working' } }]
                 : [],
     },
     'job.detached': {
@@ -131,7 +132,7 @@ const waits: Table = {
             const wait = yield* Effect.transposeOption(Option.map(last, () => shell.script(script.dialect)`wait`));
             return Option.toArray(Array.findFirst(listed, (job) => job.background && !isReaped(job, listed))).flatMap((job): readonly Verdict[] =>
                 Option.match(Option.all([last, wait]), {
-                    onNone: () => [{ deny: `${job.label} & outlives the call.`, advice: 'Set run_in_background on the call, or wait for the job in the same script.' }],
+                    onNone: () => [{ subject: `${job.label} &`, deny: 'outlives the call', values: { instead: 'set run_in_background on the call, or wait for the job in the same script' } }],
                     onSome: ([stmt, command]) => [{ edit: (editor) => [editor.follow(stmt, ';', command)] }, moves.background],
                 }),
             );
@@ -142,14 +143,14 @@ const waits: Table = {
         decide: (_, { invocations }) =>
             groupLoops(invocations)
                 .filter((loop) => spins(loop) && loop.body.some((invocation) => !invocation.runs(...fixed, ...inert) && !endsAlone(invocation)) && !loop.inside.some((invocation) => invocation.runs(...exits) || invocation.pipe(deriveWatch, Option.isSome)))
-                .map(({ tested }) => ({ deny: `Loop on ${tested.map(({ label }) => label).join(' ')} never ends, as nothing changes its condition and no break or exit leaves it.`, advice: 'Wait on a real condition with Monitor `until <check>; do sleep <seconds>; done`.' })),
+                .map(({ tested }) => ({ subject: `loop on ${tested.map(({ label }) => label).join(' ')}`, deny: 'never ends, as nothing changes its condition and no break or exit leaves it', values: { instead: 'wait on a real condition with Monitor `until <check>; do sleep <seconds>; done`' } })),
     },
     'loop.busy': {
         action: 'Shell',
         decide: (_, { invocations }) =>
             groupLoops(invocations)
                 .filter((loop) => probes(loop) && loop.body.every((invocation) => invocation.runs(...inert)) && !loop.inside.some(pauses))
-                .map(({ tested }) => ({ deny: `Loop on ${tested.map(({ label }) => label).join(' ')} checks again at once and spins a core.`, advice: 'Put sleep <seconds> in its body, or wait with Monitor `until <check>; do sleep <seconds>; done`.' })),
+                .map(({ tested }) => ({ subject: `loop on ${tested.map(({ label }) => label).join(' ')}`, deny: 'checks again at once and spins a core', values: { instead: 'put sleep <seconds> in its body, or wait with Monitor `until <check>; do sleep <seconds>; done`' } })),
     },
     'loop.waiting': {
         action: 'Shell',
@@ -160,8 +161,8 @@ const waits: Table = {
             return Array.isReadonlyArrayNonEmpty(waiting) ? [placed && checking ? moves.monitored : moves.background] : [];
         },
     },
-    'watch.repaints': { program: 'watch', decide: (watch, { action }) => (action.run === 'monitored' ? [] : [{ deny: `${watch.label} repaints a screen.`, advice: 'Monitor `until <check>; do sleep <seconds>; done` waits on the condition and its exit notifies you.' }]) },
-    'caffeinate.unbounded': { program: 'caffeinate', decide: (caffeinate) => (caffeinate.has('-t', '-w') || caffeinate.inner.length > 0 ? [] : [{ deny: 'caffeinate holds the call open until it is killed.', advice: 'Bound it with -t <seconds> or -w <pid>.' }]) },
+    'watch.repaints': { program: 'watch', decide: (watch, { action }) => (action.run === 'monitored' ? [] : [{ subject: watch.label, deny: 'repaints a screen', values: { instead: 'Monitor `until <check>; do sleep <seconds>; done` waits on the condition and its exit notifies you' } }]) },
+    'caffeinate.unbounded': { program: 'caffeinate', decide: (caffeinate) => (caffeinate.has('-t', '-w') || caffeinate.inner.length > 0 ? [] : [{ subject: 'caffeinate', deny: 'holds the call open until it is killed', values: { instead: 'bound it with -t <seconds> or -w <pid>' } }]) },
     'caffeinate.wrapper': {
         program: 'caffeinate',
         decide: (caffeinate) => {
@@ -170,7 +171,7 @@ const waits: Table = {
             return Option.toArray(Option.all([caffeinate.head, last])).map((prefix) => ({ edit: (editor) => [editor.remove(prefix)] }));
         },
     },
-    'launchctl.submit': { program: 'launchctl', path: ['submit'], deny: 'starts a detached job that outlives the session', advice: 'Use run_in_background and TaskStop.' },
+    'launchctl.submit': { program: 'launchctl', path: ['submit'], deny: 'starts a detached job that outlives the session', values: { instead: 'use run_in_background and TaskStop' } },
     'gh.run.polled': {
         program: 'gh',
         path: ['run', 'view'],
@@ -181,7 +182,7 @@ const waits: Table = {
             const command = yield* Effect.transposeOption(Option.map(Option.all([sole, watch]), ([, argv]) => shell.script(script.dialect)`gh run watch ${argv}`));
             return Option.toArray(watch).flatMap((argv): readonly Verdict[] =>
                 Option.match(Option.all([sole, command]), {
-                    onNone: () => [{ deny: 'gh run view in a loop polls a run.', advice: `Run gh run watch ${argv.join(' ')}, which waits and exits with the run's result.` }],
+                    onNone: () => [{ subject: 'gh run view in a loop', deny: "polls a run, where gh run watch waits and exits with the run's result", next: new Call({ tool: 'Bash', given: { command: ['gh', 'run', 'watch', ...argv].join(' ') } }) }],
                     onSome: ([stmt, watched]) => [{ edit: (editor) => [editor.command(stmt, watched)] }, moves.background],
                 }),
             );
@@ -211,11 +212,12 @@ const waits: Table = {
             const live = yield* Effect.filter(watched || polls ? [] : files, (file) => Effect.map(findWriters(file, cwd), Array.isReadonlyArrayNonEmpty));
             const repeats = yield* Effect.forEach(live, (file) => findRepeat(file, cwd));
             return polls
-                ? files.map((file) => ({ deny: `Call polls the output of task ${nameTask(file)}, which notifies when it ends.`, advice: `End the turn until its notice arrives, or run ${adviseStream(file)}` }))
+                ? files.map((file) => ({ subject: `task ${nameTask(file)}`, deny: 'output polled, though the task notifies when it ends', values: { instead: `end the turn until its notice arrives, or run ${adviseStream(file)}` } }))
                 : Array.zipWith(live, repeats, (file, repeat) => ({
+                      subject: `task ${nameTask(file)}`,
                       note: Option.match(repeat, {
-                          onNone: () => `Task ${nameTask(file)} still runs and notifies when it ends; ${adviseStream(file)}`,
-                          onSome: (line) => `Task ${nameTask(file)} repeats "${line}" and looks stuck: TaskStop ${nameTask(file)}, fix its cause, and rerun it bounded by a count or timeout.`,
+                          onNone: () => `still runs and notifies when it ends; ${adviseStream(file)}`,
+                          onSome: (line) => `repeats "${line}" and looks stuck: TaskStop ${nameTask(file)}, fix its cause, and rerun it bounded by a count or timeout`,
                       }),
                       once: 'call' as const,
                   }));
@@ -228,7 +230,9 @@ const waits: Table = {
             const live = Array.isReadonlyArrayNonEmpty(yield* findWriters(output, folder));
             const repeat = live && resting ? yield* findRepeat(output, folder) : Option.none();
             const stuck = Option.toArray(repeat).map((line) => ({
-                note: `Background task ${id} repeats "${line}", so it looks stuck and its completion notice may never come (${output}): read its last lines, TaskStop ${id} if it hangs or loops, fix the cause, and rerun it bounded by a count or timeout.`,
+                subject: `background task ${id}`,
+                note: `repeats "${line}", so it looks stuck and its completion notice may never come: read its last lines, TaskStop ${id} if it hangs or loops, fix the cause, and rerun it bounded by a count or timeout`,
+                values: { output },
                 once: 'agent' as const,
             }));
             return live ? [{ again: Duration.minutes(5) }, ...stuck] : [];
@@ -263,7 +267,7 @@ const waits: Table = {
         program: 'read',
         decide: (read) => {
             const files = Array.getSomes(read.reads.map(({ text }) => text));
-            return files.some((file) => endless.has(file)) && !isDelimited(read) && !read.has('-t') ? [{ deny: `read < ${files.join(' ')} never returns and spins a core.`, advice: 'Run sleep <seconds> to wait.' }] : [];
+            return files.some((file) => endless.has(file)) && !isDelimited(read) && !read.has('-t') ? [{ subject: `read < ${files.join(' ')}`, deny: 'never returns and spins a core', values: { instead: 'run sleep <seconds> to wait' } }] : [];
         },
     },
     'pgrep.self': { program: 'pgrep', decide: (pgrep) => (pgrep.has('-f', '--full') ? Array.take(pgrep.operands, 1).flatMap(({ word }) => bracket(word)) : []) },

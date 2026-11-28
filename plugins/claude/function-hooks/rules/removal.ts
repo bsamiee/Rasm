@@ -17,7 +17,7 @@ const walkers = ['find', 'gfind', 'fd', 'fdfind'];
 const recursion = ['-r', '-R', '--recursive'];
 const nameTests = ['-name', '-iname', '-path', '-ipath', '-regex', '-iregex', '-wholename', '-iwholename'];
 const nullSeparators = ['-print0', '--print0', '-0'];
-const eachPath = 'Name each path you made, in full.';
+const eachPath = { instead: 'name each path you made, in full' };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -39,12 +39,12 @@ const refuse =
     (invocation: Invocation): readonly Denial[] => {
         const subject = invocation.label;
         const [recursive, removes, walks] = [invocation.has(...recursion) || invocation.runs('rimraf', 'trash'), invocation.runs(...removers), invocation.runs(...walkers)];
-        const swept = Option.toArray(Option.filter(walker, sweeps)).flatMap((outer) => roots(outer, cwd).flatMap((root) => (covers(root, cwd) ? [{ deny: `${outer.label} ${root} runs ${subject} on everything under it.`, advice: 'Add a pattern that selects only what to delete.' }] : [])));
+        const swept = Option.toArray(Option.filter(walker, sweeps)).flatMap((outer) => roots(outer, cwd).flatMap((root) => (covers(root, cwd) ? [{ subject: `${outer.label} ${root}`, deny: `runs ${subject} on everything under it`, values: { instead: 'add a pattern that selects only what to delete' } }] : [])));
         const args = Option.toArray(invocation.node).flatMap(({ cmd }) => (cmd?.type === 'CallExpr' ? cmd.args.slice(1) : []));
         const emptied = Array.getSomes(args.map(literal)).flatMap((text) => {
             const cut = text.lastIndexOf('/', text.search(wildcard)) + 1;
             const folder = `${cwd}/${text.slice(0, cut)}`.replaceAll(/\/(?:\.\/)+/gu, '/');
-            return recursive && removes && wildcard.test(text) && !alphanumeric.test(text.slice(cut)) && covers(folder, cwd) ? [{ deny: `${subject} ${text} empties the working folder ${cwd}.`, advice: eachPath }] : [];
+            return recursive && removes && wildcard.test(text) && !alphanumeric.test(text.slice(cut)) && covers(folder, cwd) ? [{ subject: `${subject} ${text}`, deny: `empties the working folder ${cwd}`, values: eachPath }] : [];
         });
         const judge = (field: Field): readonly Denial[] => {
             const unknown = field.pieces.flatMap((piece) => (piece._tag === 'Unknown' ? [piece.origin._tag] : []));
@@ -53,8 +53,10 @@ const refuse =
             return Match.value({ fed: unknown.includes('Input'), temporary: isUnderMktemp(field), late: unknown.length > 0, working: unnamed && covers(folder, cwd) }).pipe(
                 Match.when({ fed: true }, () => swept),
                 Match.when({ temporary: true }, () => []),
-                Match.when({ late: true }, () => (recursive && covers(folder, cwd) ? [{ deny: `${subject} ${render(field)} deletes a path that expands only when it runs.`, advice: 'Pass the path literally.' }] : [])),
-                Match.when({ working: true }, () => [walks ? { deny: `${subject} ${folder} deletes everything under the working folder.`, advice: 'Add a -name pattern that selects only what to delete.' } : { deny: `${subject} ${folder} ${folder === cwd ? 'is' : 'holds'} the working folder.`, advice: eachPath }]),
+                Match.when({ late: true }, () => (recursive && covers(folder, cwd) ? [{ subject: `${subject} ${render(field)}`, deny: 'deletes a path that expands only when it runs', values: { instead: 'pass the path literally' } }] : [])),
+                Match.when({ working: true }, () => [
+                    walks ? { subject: `${subject} ${folder}`, deny: 'deletes everything under the working folder', values: { instead: 'add a -name pattern that selects only what to delete' } } : { subject: `${subject} ${folder}`, deny: `${folder === cwd ? 'is' : 'holds'} the working folder`, values: eachPath },
+                ]),
                 Match.orElse(() => []),
             );
         };
@@ -92,7 +94,9 @@ const removal: Table = {
             return Match.value({ direct: Option.getOrUndefined(Option.all([direct, xargs.node])), joined: Option.getOrUndefined(Option.all([joined, xargs.node])), recursive: Option.getOrUndefined(Option.filter(remover, (inner) => inner.has(...recursion))) }).pipe(
                 Match.when({ direct: Match.defined }, ({ direct: [command, stmt] }): readonly Verdict[] => [{ edit: (editor) => [editor.command(stmt, command)] }]),
                 Match.when({ joined: Match.defined }, ({ joined: [[words, exec, span], stmt] }): readonly Verdict[] => [{ edit: (editor) => [editor.replace(span, Array.appendAll(words, exec)), editor.remove(stmt)] }]),
-                Match.when({ recursive: Match.defined }, ({ recursive: { label } }): readonly Verdict[] => [{ deny: `xargs ${label} -r deletes paths it reads from standard input, which the hook cannot judge.`, advice: 'Run find <folder> -name <pattern> -exec rm -r {} +, or name each path to rm.' }]),
+                Match.when({ recursive: Match.defined }, ({ recursive: { label } }): readonly Verdict[] => [
+                    { subject: `xargs ${label} -r`, deny: 'deletes paths it reads from standard input, which the hook cannot judge', values: { instead: 'run find <folder> -name <pattern> -exec rm -r {} +, or name each path to rm' } },
+                ]),
                 Match.orElse(() => []),
             );
         }),

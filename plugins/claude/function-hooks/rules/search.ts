@@ -81,9 +81,9 @@ const search: Table = {
                     Match.when({ printed: Match.defined }, ({ printed: [template, flag, last] }): readonly Verdict[] => [{ edit: (editor) => [editor.replace([flag, last], ['--format', template])] }]),
                     Match.when({ batches: true }, () => [{ rename: { '--exec': bound.spelling.startsWith('--') ? '--exec-batch' : '-X' } }]),
                     Match.when({ flood: true }, (): readonly Verdict[] => [
-                        { deny: `fd -x ${program} starts one process per search result, and this search finds more than ${perResult}, a spawn rate that exhausts the kernel's task table.`, advice: 'Pass -X where the command takes many paths, else narrow the search.' },
+                        { subject: `fd -x ${program}`, deny: `starts one process per search result, and this search finds more than ${perResult}, a spawn rate that exhausts the kernel's task table`, values: { instead: 'pass -X where the command takes many paths, else narrow the search' } },
                     ]),
-                    Match.when({ trailing: true }, (): readonly Verdict[] => [{ note: `fd -x ${program} starts one process per search result, where -X passes every path to one run of a command taking many.`, once: 'agent' }]),
+                    Match.when({ trailing: true }, (): readonly Verdict[] => [{ subject: `fd -x ${program}`, note: 'starts one process per search result, where -X passes every path to one run of a command taking many', once: 'agent' }]),
                     Match.orElse(() => []),
                 ),
             );
@@ -110,9 +110,9 @@ const search: Table = {
                 Match.value({ plus: Option.getOrUndefined(plus), each: Option.isSome(terminator), trailing, flood: Option.exists(found, (count) => count > perResult) }).pipe(
                     Match.when({ plus: Match.defined }, ({ plus: word }): readonly Verdict[] => [{ edit: (editor) => [editor.replace(word, ['+'])] }]),
                     Match.when({ each: true, flood: true }, (): readonly Verdict[] => [
-                        { deny: `find -exec ${program} starts one process per result, and this search finds more than ${perResult}, a spawn rate that exhausts the kernel's task table.`, advice: 'End -exec with {} + where the command takes many paths, else narrow the search.' },
+                        { subject: `find -exec ${program}`, deny: `starts one process per result, and this search finds more than ${perResult}, a spawn rate that exhausts the kernel's task table`, values: { instead: 'end -exec with {} + where the command takes many paths, else narrow the search' } },
                     ]),
-                    Match.when({ each: true, trailing: true }, (): readonly Verdict[] => [{ note: `find -exec ${program} starts one process per result, where {} + passes every path to one run of a command taking many.`, once: 'agent' }]),
+                    Match.when({ each: true, trailing: true }, (): readonly Verdict[] => [{ subject: `find -exec ${program}`, note: 'starts one process per result, where {} + passes every path to one run of a command taking many', once: 'agent' }]),
                     Match.orElse(() => []),
                 ),
             );
@@ -203,9 +203,9 @@ const search: Table = {
                 const depths = invocation.values('--max-depth', '-maxdepth').map(({ text }) => Option.match(text, { onNone: () => Number.NaN, onSome: Number }));
                 const shallow = !invocation.runs('du') && Array.isReadonlyArrayNonEmpty(depths) && depths.every((depth) => depth <= 2);
                 const trees = invocation.reads.filter(({ pieces }) => Option.exists(Array.last(pieces), (piece) => piece._tag === 'Wild' && piece.text === '/**')).map(({ prefix }) => prefix.replace(/\/+$/u, '') || '/');
-                return shallow ? [] : trees.filter((folder) => covers(folder, home)).map((folder) => `${invocation.label} walks ${folder}, which holds the whole home folder.`);
+                return shallow ? [] : trees.filter((folder) => covers(folder, home)).map((folder) => `${invocation.label} ${folder}`);
             });
-            return Array.dedupe(walks).map((deny) => ({ deny, advice: 'Pass a project folder, or a depth of 2 at most.' }));
+            return Array.dedupe(walks).map((subject) => ({ subject, deny: 'walks a folder holding the whole home folder', values: { instead: 'pass a project folder, or a depth of 2 at most' } }));
         },
     },
 };

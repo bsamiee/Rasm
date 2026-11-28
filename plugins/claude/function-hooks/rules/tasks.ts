@@ -1,4 +1,5 @@
 import { tasks as projectGraph } from '@rasm/nx/graph';
+import { Call } from '@rasm/report';
 import { Array, Effect, Equal, FileSystem, Function, Match, Option, Path, Predicate, Record, Schema, String } from 'effect';
 import { RedirOperator, type Stmt, type Word } from 'sh-syntax';
 import { covers, execute, findUp, type Invocation, type Script, type Table, type Verdict } from '#/rules/rule';
@@ -11,7 +12,7 @@ type Steps = (typeof Hooks.Type)['steps'];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const daemonAdvice = 'Leave it running; nx reset --only-cache empties the cache alone.';
+const daemon = { instead: 'leave it running; nx reset --only-cache empties the cache alone' };
 const launchers: ReadonlySet<string> = new Set(['', 'pnpm exec', 'npx', 'uv run', 'mise exec', 'pixi run', 'npm exec']);
 const launcherPrograms: ReadonlySet<string> = new Set([...launchers].flatMap((launcher) => launcher.split(' ').slice(0, 1).filter(String.isNonEmpty)));
 const boundedPrograms: ReadonlySet<string> = new Set([...launcherPrograms, 'timeout']);
@@ -165,7 +166,7 @@ const route = Effect.fnUntraced(function* (invocation: Invocation, graph: Graph,
         ([chosen]) => (widened || chosen.length === owners.length) && chosen.every(({ target }) => target === chosen[0].target) && !narrowed && ((chosen.length === 1 && !widened) || Array.isReadonlyArrayEmpty(forwarded)),
     );
     return Match.value({ several: Option.getOrUndefined(Array.findFirst(owned, ([, own]) => own.length > 1)), ready: Option.getOrUndefined(ready) }).pipe(
-        Match.when({ several: Match.defined }, ({ several: [owner, own] }): readonly Verdict[] => [{ deny: `${invocation.label} matches several targets of ${owner}.`, advice: `Run one of: ${own.map((row) => `nx run ${row.project}:${row.target}`).join(', ')}.` }]),
+        Match.when({ several: Match.defined }, ({ several: [owner, own] }): readonly Verdict[] => [{ subject: invocation.label, deny: `matches several targets of ${owner}`, values: { instead: `run one of: ${own.map((row) => `nx run ${row.project}:${row.target}`).join(', ')}` } }]),
         Match.when({ ready: Match.defined }, ({ ready: [chosen, span] }): readonly Verdict[] => [{ edit: (editor) => [editor.replace(span, restate(graph, chosen, forwarded, widened && cwd === graph.root))] }]),
         Match.orElse((): readonly Verdict[] => []),
     );
@@ -231,7 +232,7 @@ const resolveCrates = Effect.fnUntraced(function* (cargo: Invocation, cwd: strin
 // --- [RULES] ---------------------------------------------------------------------------
 
 const tasks: Table = {
-    'nx.publish': { program: 'nx', decide: (nx) => (nx.words.some((word) => word.test(/(?:^|[:,=])nx-release-publish(?:,|$)/u)) ? [{ deny: 'nx-release-publish publishes dependencies for real.', advice: 'Run nx release.' }] : []) },
+    'nx.publish': { program: 'nx', decide: (nx) => (nx.words.some((word) => word.test(/(?:^|[:,=])nx-release-publish(?:,|$)/u)) ? [{ subject: 'nx-release-publish', deny: 'publishes dependencies for real', next: new Call({ tool: 'Bash', given: { command: 'nx release' } }) }] : []) },
     'nx.daemon': {
         program: 'nx',
         decide: (nx, { invocations }) => {
@@ -241,15 +242,15 @@ const tasks: Table = {
             const spoken = Option.match(nx.argv, { onNone: () => `nx ${verb}`, onSome: Array.join(' ') });
             return Match.value({ stops, stmt: Option.getOrUndefined(Option.filter(nx.node, () => later)) }).pipe(
                 Match.when({ stops: false }, () => []),
-                Match.when({ stmt: Match.defined }, ({ stmt }): readonly Verdict[] => [{ edit: (editor) => [editor.remove(stmt)] }, { note: `${spoken} left the call, as every session shares the daemon.`, once: 'call' as const }]),
-                Match.orElse(() => [{ deny: `${spoken} stops the daemon every session shares.`, advice: daemonAdvice }]),
+                Match.when({ stmt: Match.defined }, ({ stmt }): readonly Verdict[] => [{ edit: (editor) => [editor.remove(stmt)] }, { subject: spoken, note: 'left the call, as every session shares the daemon', once: 'call' as const }]),
+                Match.orElse(() => [{ subject: spoken, deny: 'stops the daemon every session shares', values: daemon }]),
             );
         },
     },
     'nx.reset': {
         program: 'nx',
         path: ['reset'],
-        decide: (nx) => (nx.has('--only-workspace-data') || !nx.has('--only-cache', '--only-daemon') ? [{ deny: 'nx reset stops the daemon and deletes the workspace data every session shares.', advice: 'Run nx reset --only-cache.' }] : []),
+        decide: (nx) => (nx.has('--only-workspace-data') || !nx.has('--only-cache', '--only-daemon') ? [{ subject: 'nx reset', deny: 'stops the daemon and deletes the workspace data every session shares', next: new Call({ tool: 'Bash', given: { command: 'nx reset --only-cache' } }) }] : []),
     },
     'nx.skip-sync': {
         program: 'nx',
@@ -259,7 +260,7 @@ const tasks: Table = {
             return Option.toArray(Option.all([sync, stmt])).flatMap(([command, skipped]) => [
                 { drop: ['--skip-sync'] },
                 { edit: (editor) => [editor.precede(command, '&&', skipped)] },
-                { note: '--skip-sync became nx sync before the command, as a skipped sync leaves tsconfig references stale.', once: 'agent' as const },
+                { subject: '--skip-sync', note: 'became nx sync before the command, as a skipped sync leaves tsconfig references stale', once: 'agent' as const },
             ]);
         }),
     },
@@ -298,7 +299,7 @@ const tasks: Table = {
             const finite = prints || finiteVerbs.has(verb) || (Array.isReadonlyArrayNonEmpty(rows) && rows.every(({ continuous }) => !continuous));
             return Option.toArray(Option.filter(launcherOf(nx), () => timed && finite)).flatMap((launcher) => [
                 { edit: (editor) => [editor.remove(launcher)] },
-                { note: 'timeout before nx left the call, as its kill loses unfinished tasks of a run that ends by itself; a foreground call past its timeout moves to the background and notifies, and TaskStop ends a hung run.', once: 'agent' as const },
+                { subject: 'timeout before nx', note: 'left the call, as its kill loses unfinished tasks of a run that ends by itself; a foreground call past its timeout moves to the background and notifies, and TaskStop ends a hung run', once: 'agent' as const },
             ]);
         }),
     },
@@ -318,7 +319,7 @@ const tasks: Table = {
                     Match.value({ tool: Option.getOrUndefined(sole), target: Option.getOrUndefined(target), address: Option.getOrUndefined(address) }).pipe(
                         Match.when({ tool: Match.string, target: Match.defined }, ({ tool, target: word }): readonly Verdict[] => [{ edit: (editor) => [editor.replace(word, [tool])] }]),
                         Match.when({ tool: Match.string, address: Match.defined }, ({ tool, address: span }): readonly Verdict[] => (many ? [] : [{ edit: (editor) => [editor.replace(span, ['run', `${project}:${tool}`])] }])),
-                        Match.orElse((): readonly Verdict[] => [{ deny: `nx ${name} runs ${tools.length} tools, so arguments after -- reach none of them.`, advice: `Pass them to one of: ${tools.map((tool) => `nx run ${project}:${tool}`).join(', ')}.` }]),
+                        Match.orElse((): readonly Verdict[] => [{ subject: `nx ${name}`, deny: `runs ${tools.length} tools, so arguments after -- reach none of them`, values: { instead: `pass them to one of: ${tools.map((tool) => `nx run ${project}:${tool}`).join(', ')}` } }]),
                     ),
             });
         }),
@@ -343,7 +344,7 @@ const tasks: Table = {
             );
             const folded = Option.filter(Option.all([plan, loopOf(script, nx)]), ([{ targets, projects }]) => nx === runs[0] && targets.length * projects.length === items.length);
             const command = yield* Effect.transposeOption(Option.map(folded, ([{ targets, projects }]) => shell.script(script.dialect)`nx run-many -t ${targets.join(',')} -p ${projects.join(',')} ${first.slice(3)}`));
-            return Option.toArray(Option.all([command, folded])).flatMap(([many, [, stmt]]) => [{ edit: (editor) => [editor.command(stmt, many)] }, { note: 'A loop over nx became one nx run-many, which shares the cache and parallelism of one run.', once: 'agent' as const }]);
+            return Option.toArray(Option.all([command, folded])).flatMap(([many, [, stmt]]) => [{ edit: (editor) => [editor.command(stmt, many)] }, { subject: 'loop over nx', note: 'became one nx run-many, which shares the cache and parallelism of one run', once: 'agent' as const }]);
         }),
     },
     'nx.target': {
@@ -387,9 +388,9 @@ const tasks: Table = {
             const known = cargo.only('--check', '-p', '--package', '--all') && cargo.rest.length === 0 && cargo.operands.length <= 1;
             return Match.value({ step: Option.getOrUndefined(step), routed: Option.getOrUndefined(Option.all([step, folders, extentOf(cargo)])) }).pipe(
                 Match.when({ routed: Match.defined }, ({ routed: [[name], crates, span] }): readonly Verdict[] =>
-                    known ? [{ edit: (editor) => [editor.replace(span, Array.make('hk', mode, '--step', name, ...crates))] }] : [{ deny: 'cargo fmt option has no hk form.', advice: `Run hk ${mode} --step ${name} ${crates.join(' ')}.` }],
+                    known ? [{ edit: (editor) => [editor.replace(span, Array.make('hk', mode, '--step', name, ...crates))] }] : [{ subject: 'cargo fmt option', deny: 'has no hk form', next: new Call({ tool: 'Bash', given: { command: ['hk', mode, '--step', name, ...crates].join(' ') } }) }],
                 ),
-                Match.when({ step: Match.defined }, (): readonly Verdict[] => [{ deny: 'cargo fmt resolves no crate here.', advice: 'Pass --package <crate>, or run it in the crate folder.' }]),
+                Match.when({ step: Match.defined }, (): readonly Verdict[] => [{ subject: 'cargo fmt', deny: 'resolves no crate here', values: { instead: 'pass --package <crate>, or run it in the crate folder' } }]),
                 Match.orElse((): readonly Verdict[] => []),
             );
         }),
@@ -417,7 +418,9 @@ const tasks: Table = {
                 const stack = Option.flatMap(Array.head(pulumi.values('--stack')), ({ text }) => text);
                 const words = Array.isReadonlyArrayEmpty(args) && Option.isNone(stack) ? Array.make('nx', aggregate, project) : Array.make('nx', 'run', `${project}:${target}`, ...args, ...Option.toArray(Option.map(stack, (name) => `--stack=${name}`)));
                 const derived = Option.isSome(owner) && pulumi.only(...stackFlags) && (!applies || (pulumi.has('--yes', '-y', '--skip-preview') && Option.isSome(stack)));
-                return derived ? Option.toArray(pulumi.span).map((span) => ({ edit: (editor) => [editor.replace(span, words)] })) : [{ deny: `pulumi ${verb} skips the stack programs Nx builds first.`, advice: `Run ${words.join(' ')}.` }];
+                return derived
+                    ? Option.toArray(pulumi.span).map((span) => ({ edit: (editor) => [editor.replace(span, words)] }))
+                    : [{ subject: `pulumi ${verb}`, deny: 'skips the stack programs Nx builds first', ...Option.match(owner, { onNone: () => ({ values: { instead: `run ${words.join(' ')}` } }), onSome: () => ({ next: new Call({ tool: 'Bash', given: { command: words.join(' ') } }) }) }) }];
             });
         }),
     },
