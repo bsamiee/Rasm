@@ -1,4 +1,4 @@
-import type { AgentCallArgs, AgentInfo, AgentStatus, EngineInterface, HttpInit, HttpResponse, InvalidatableEventName, ToolCallResult, UiFocusArgs, UiScrollArgs } from 'claude-code';
+import type { AgentCallArgs, AgentInfo, AgentLimits, AgentStatus, EngineInterface, HttpInit, HttpResponse, InvalidatableEventName, SessionMessage, ToolCallResult, UiFocusArgs, UiScrollArgs } from 'claude-code';
 import { Array, Context, Data, Effect, Formatter, HashSet, Layer, Match, Option, PlatformError, Record, Ref, Semaphore, type Stream, SubscriptionRef } from 'effect';
 import { call } from '#/engine/services';
 
@@ -34,7 +34,9 @@ class Engine extends Context.Service<
         readonly callTool: (args: AgentCallArgs) => Effect.Effect<ToolCallResult, PlatformError.PlatformError>;
         readonly cwd: Effect.Effect<string, PlatformError.PlatformError>;
         readonly root: Effect.Effect<string, PlatformError.PlatformError>;
-        readonly findAgent: (id: string) => Effect.Effect<Option.Option<AgentInfo>, PlatformError.PlatformError>;
+        readonly agents: Effect.Effect<Record.ReadonlyRecord<string, AgentInfo>, PlatformError.PlatformError>;
+        readonly limits: Effect.Effect<AgentLimits, PlatformError.PlatformError>;
+        readonly messages: (agent: Option.Option<string>) => Effect.Effect<readonly SessionMessage[], PlatformError.PlatformError>;
         readonly isRunning: (agent: Option.Option<string>) => Effect.Effect<boolean>;
         readonly turns: Stream.Stream<HashSet.HashSet<Option.Option<string>>>;
     }
@@ -135,11 +137,22 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
                 callTool: (args: AgentCallArgs) => call('agent.call', args.tool, (signal) => $.agent.call(args, { signal })),
                 cwd: call('session.cwd', 'main', () => $.session.cwd()),
                 root: call('session.root', 'main', () => $.session.root()),
-                findAgent: (id: string) =>
-                    Effect.map(
-                        call('agent.list', id, () => $.agent.list()),
-                        Array.findFirst((info) => info.id === id && !ended[info.status]),
-                    ),
+                agents: Effect.map(
+                    call('agent.list', 'session', () => $.agent.list()),
+                    (listed) =>
+                        Record.fromIterableWith(
+                            Array.filter(listed, (info) => !ended[info.status]),
+                            (info) => [info.id, info],
+                        ),
+                ),
+                limits: call('agent.limits', 'session', () => $.agent.limits()),
+                messages: (agent: Option.Option<string>) =>
+                    call(
+                        'session.messages',
+                        Option.getOrElse(agent, () => 'main'),
+                        () => Option.match(agent, { onNone: () => $.session.messages(), onSome: (agentId) => $.session.messages({ agentId }) }),
+                        (read) => (globalThis.Array.isArray(read) ? undefined : read.deny),
+                    ).pipe(Effect.filterOrElse((read): read is SessionMessage[] => globalThis.Array.isArray(read), Effect.die)),
                 isRunning,
                 turns: SubscriptionRef.changes(turns),
             },

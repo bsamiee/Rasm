@@ -46,7 +46,7 @@ const decide = (policy: Policy, action: Action) =>
 const watch = Effect.fnUntraced(function* (policy: Policy, { call, agent }: Action, task: Pick<typeof Action.cases.Task.Type, 'id' | 'output'>) {
     const [engine, session] = yield* Effect.all([Engine, Session]);
     yield* session.watch(
-        Effect.flatMap(engine.isRunning(agent), (running) => Option.match(agent, { onNone: () => Effect.succeedSome(!running), onSome: (id) => Effect.map(engine.findAgent(id), Option.as(!running)) })).pipe(
+        Effect.flatMap(engine.isRunning(agent), (running) => Option.match(agent, { onNone: () => Effect.succeedSome(!running), onSome: (id) => Effect.map(engine.agents, (live) => Option.as(Record.get(live, id), !running)) })).pipe(
             Effect.flatMap(
                 Option.match({
                     onNone: () => Effect.succeed(Duration.infinity),
