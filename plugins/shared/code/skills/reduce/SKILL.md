@@ -12,6 +12,7 @@ Reduction rebuilds logic until each fact and operation sits once, at the source 
 [REFERENCES]:
 - [01]-[TYPESCRIPT](references/typescript.md): Skills, sources, readers, survey signals, forms, and checks of TypeScript and JavaScript targets
 - [02]-[RUST](references/rust.md): Skills, sources, consumers, counts, forms, and checks of Rust targets
+- [03]-[CSHARP](references/csharp.md): Skills, survey signals, sources, consumers, forms, and checks of C# targets
 
 ## [01]-[TARGET]
 
