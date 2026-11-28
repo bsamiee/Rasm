@@ -40,15 +40,15 @@ Readers and duplicates across `<roots>` (`libs products tools tests`), one comma
 3. Duplicates by member or literal: sites spelling a member call, key, path, or message the declaration holds
 4. Duplicates by structure: function bodies repeated across crates, as `duplicate_body` and `parameterizable_body` compare within one crate
 5. Duplicates by name: type names declared in more than one crate, each pair read whole before a merge
-6. Manifest rows: dependency rows no code of their package reads, `unused_workspace_dependency` rows being catalog rows held for later members
+6. Manifest rows: dependency rows no code of their package reads and files no module tree reaches, catalog rows held for later members dropped
 
 ```bash
 nx show projects --affected --files=<file>
 node plugins/shared/code/skills/reduce/scripts/readers.ts <file> <symbol>
 rg -nF '<member or literal>' -g '*.rs' <roots>
 jscpd --config .config/jscpd.json --similarity 0.6 --min-nodes 60 --format rust <target> <roots>
-rg -oNI '^pub (struct|enum|trait|type) (\w+)' -r '$2' -g '*.rs' <roots> | sort | uniq -c | awk '$1 > 1'
-cargo shear
+rg -oNI '^pub(\([^)]*\))? (struct|enum|trait|type) (\w+)' -r '$3' -g '*.rs' <roots> | sort | uniq -c | awk '$1 > 1'
+cargo shear --locked --format json | jq -r '.findings[] | select(.code != "shear/unused_workspace_dependency") | [.code, (.file // "-"), .message] | @tsv'
 ```
 
 ## [04]-[COUNTS]
@@ -68,13 +68,14 @@ jq -r '.index as $i | .paths as $p
        | {file: .span.filename, level: (.visibility | if type == "string" then . elif .restricted.path == $module then "private" else "restricted" end)}]
     | group_by(.file)[] | "\(.[0].file)\t" + (group_by(.level) | map("\(.[0].level)=\(length)") | join(" "))' <scratch>/reduce/cargo/doc/<crate_name>.json
 mkdir -p <scratch>/reduce/clippy && sd 'excessive-nesting-threshold( *)= *(\d+)' 'excessive-nesting-threshold${1}= <threshold - 1>' < .config/clippy.toml > <scratch>/reduce/clippy/clippy.toml
-CLIPPY_CONF_DIR=<scratch>/reduce/clippy cargo clippy --locked -p <package> --all-targets --all-features --message-format json | jq -r 'select(.message.code.code == "clippy::excessive_nesting") | .message.spans[0] | "\(.file_name):\(.line_start)"' | sort -u
+CLIPPY_CONF_DIR=<scratch>/reduce/clippy cargo clippy --locked -p <package> --no-deps --all-targets --all-features --message-format json -- -D clippy::excessive_nesting | jq -r 'select(.message.code.code == "clippy::excessive_nesting") | .message.spans[0] | "\(.file_name):\(.line_start)"' | sort -u
 ```
 
 Nesting levels follow clippy's block count:
 - Levels: each `{}` block and each `impl`, `trait`, and inline `mod` item, so a method holds one nested block fewer than a free function
 - Uncounted: `match` arms without braces, closures without braces, and combinator chains, each read per member
-- Rerun: the probe reruns clippy for its package, and the next check reruns it once more
+- Scope: `--no-deps` lints the package alone, as a lowered threshold failing a path dependency stops the build first
+- Rerun: the `-D` argument reruns clippy over a package cargo already checked, and the next check reruns it once more
 
 ## [05]-[FORMS]
 
