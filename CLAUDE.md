@@ -37,19 +37,19 @@
 
 [CLI_TOOLING]:
 
-| [INDEX] | [TOOL]      | [GUIDANCE]                                                                                                         |
-| :-----: | :---------- | :----------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `outline`   | `ast-grep outline <paths> --view expanded` runs once over a target's paths, as each process loads every catalog    |
-|  [02]   | `fd`        | `-g` with a wildcard can miss files `-I` finds, so file lists a compiler or checker reads come from `git ls-files` |
-|  [03]   | `rg`        | Literals, comments, and prose, symbol readers coming from a compiler, `-t ts` covering `.mts` and `.cts`           |
-|  [04]   | `jq`/`yq`   | `yq` has no `r` subcommand, `jq` needs `-r` for shell values and `[]?` on optional arrays                          |
-|  [05]   | `sd`        | `-A` matches across lines, `-F` takes fixed strings, `--` precedes an argument opening with `-`                    |
-|  [06]   | `hyperfine` | `-S` runs each command in `sh`, `--metrics time_wall_clock,instructions` counts instructions beside time           |
-|  [07]   | `duckdb`    | `duckdb -c '<sql>'` queries CSV, Parquet, and JSON files in place, `-json` for machine output                      |
-|  [08]   | `xh`        | Exits 4 or 5 on a 4xx or 5xx, `Name:value` sets a header, `k==v` a query, `k=v` a JSON body sent by POST           |
-|  [09]   | `gh`        | `gh run watch <id> --exit-status` waits for a workflow run and exits with its result                               |
-|  [10]   | `mq`        | `mq '.h2' <file.md>` reads Markdown nodes by selector, `.code("<lang>")` code blocks, `-F json` with positions     |
-|  [11]   | `git`       | `git commit -- <paths>` commits those paths alone in a shared index, `git show HEAD:./<path> > <path>` restores    |
+| [INDEX] | [TOOL]      | [GUIDANCE]                                                                                                                |
+| :-----: | :---------- | :------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `outline`   | `ast-grep outline <paths> --view expanded` runs once over a target's paths, as each process loads every catalog           |
+|  [02]   | `fd`        | `-g` with a wildcard can miss files `-I` finds, so file lists a compiler or checker reads come from `git ls-files`        |
+|  [03]   | `rg`        | Literals, comments, and prose, symbol readers coming from a compiler, `-t ts` covering `.mts` and `.cts`                  |
+|  [04]   | `jq`/`yq`   | `yq` has no `r` subcommand, `jq` needs `-r` for shell values and `[]?` on optional arrays                                 |
+|  [05]   | `sd`        | `-A` matches across lines, `-F` takes fixed strings, `--` precedes an argument opening with `-`                           |
+|  [06]   | `hyperfine` | `-S` runs each command in `sh`, `--metrics time_wall_clock,instructions` counts instructions beside time                  |
+|  [07]   | `duckdb`    | `duckdb -c '<sql>'` queries CSV, Parquet, and JSON files in place, `-json` for machine output                             |
+|  [08]   | `xh`        | Exits 4 or 5 on a 4xx or 5xx, `Name:value` sets a header, `k==v` a query, `k=v` a JSON body sent by POST                  |
+|  [09]   | `gh`        | `gh run watch <id> --exit-status` waits for a workflow run and exits with its result                                      |
+|  [10]   | `mq`        | `mq '.h2' <file.md>` reads Markdown nodes by selector, `.code("<lang>")` code blocks, `-F json` with positions            |
+|  [11]   | `git`       | `git diff --cached --stat` lists only your paths before a commit, `git apply --cached` stages your hunks of a shared file |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
