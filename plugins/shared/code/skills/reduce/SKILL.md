@@ -119,7 +119,10 @@ Duplicates take an action by their cause, mapped before any merge:
 
 Constraints divide by their source:
 - External validators (plug-in validator, store checker, host loader) and compilers bind: one probe records the refusal, and rebuilds stay inside it
-- Repository checkers flagging correct code are rebuilt or deleted in their own pass, never obeyed
+- Repository checker flagging improved code -> 2 agents briefed apart read the skill's goal and both forms, each deciding rule or change
+- Rule wrong -> check removed, rule file deleted, or checker rebuilt to flag real defects alone, in its own pass
+- Custom checkers (ruff and refurb rule sets, clippy and dylint lints, ast-grep rules, analyzer configs) take that review every time
+- Published tool's own rule -> its documentation and source read before its configuration changes
 - Probes change one variable against a named hypothesis, run in the real compiler or host, and restore with the file edit tool
 - Refusals show a rule for the construct their diagnostic names, never a ban on the design
 

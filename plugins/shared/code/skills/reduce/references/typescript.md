@@ -23,7 +23,7 @@ Package reads, one command per step:
 5. Host: each declaration file the project's tsconfig names, then every sibling file augmenting the same module
 6. Node: built-ins and flags of the pinned Node, before any shell-out or text parse in a Node process
 7. Workspace: each `@rasm/*` specifier the target imports, then its source file resolved from the project
-8. Catalog row with no comment: description of the installed package, else description and keywords from the registry at its catalog version
+8. Catalog: central manifest read whole, each candidate package read through step 3 before any judgment of its fit
 
 ```bash
 jq -r .version <project>/node_modules/effect/package.json && fd -d 1 '^(AGENTS\.md|llms.*\.txt|ai-docs)$' <project>/node_modules/effect
@@ -33,7 +33,7 @@ jq -r '(.dependencies // {}) + (.devDependencies // {}) | keys[] | select(starts
 jq -c '{files, types: .compilerOptions.types}' <project>/tsconfig*.json && rg -l "^declare module '<module>'" <declarations-folder>
 node -p "require('node:module').builtinModules.join('\n')" && node --help
 rg -oNI "from '(@rasm/[^']+)'" -r '$1' <target> | sort -u && (cd <project> && node --input-type=module -e "console.log(import.meta.resolve(process.argv[1]))" '<specifier>')
-jq -r .description <project>/node_modules/<package>/package.json || pnpm view <package>@<version> description keywords --json
+yq '.catalog, .catalogs' pnpm-workspace.yaml
 ```
 
 ## [03]-[CONSUMERS]
@@ -84,7 +84,8 @@ TypeScript forms of each category, each rebuild holding under its stated conditi
 |  [08]   | Nesting      | `if` chain over a discriminant                      | `Match.discriminatorsExhaustive`, `$match`, or `Match.value`        |
 |  [09]   | Nesting      | Nested `Option.match` or `Effect.flatMap` callbacks | One `pipe` from innermost subject, each step data-last              |
 |  [10]   | Nesting      | Generator at callback limit                         | Curried member, or a statement of an enclosing generator            |
-|  [11]   | Exports      | Reader re-deriving through `ConstructorParameters`  | Type exported once from its declaring module                        |
+|  [11]   | Names        | Builder a host validator holds apart from its type  | `make<Service>` function, its service shape derived from it         |
+|  [12]   | Exports      | Reader re-deriving through `ConstructorParameters`  | Type exported once from its declaring module                        |
 
 ## [06]-[VERIFY]
 
