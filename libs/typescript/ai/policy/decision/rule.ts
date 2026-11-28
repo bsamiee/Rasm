@@ -46,6 +46,7 @@ type FlagEdit = Ensure | { readonly drop: readonly string[] } | { readonly renam
 interface Stated {
     readonly Shell: Denial | Edit | (Pick<Move, 'run'> & Omit<Note, 'once'>);
     readonly Task: Pick<typeof Action.cases.Task.Type, 'again'>;
+    readonly Output: never;
 }
 type Verdict<K extends Kind> = Note | (K extends keyof Stated ? Stated[K] : Denial);
 interface Call extends Pick<Move, 'run'> {

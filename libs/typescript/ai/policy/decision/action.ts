@@ -27,6 +27,7 @@ const Action = Schema.TaggedUnion({
     Mcp: { ...caller, server: Schema.String, tool: Schema.String, input: Schema.Record(Schema.String, Schema.Unknown) },
     Spawn: { ...caller, prompt: Schema.String, model: Schema.Option(Schema.String) },
     Task: { ...caller, id: Schema.String, output: Schema.String, resting: Schema.Boolean, again: Schema.Duration },
+    Output: { ...caller, tool: Schema.String, text: Schema.String, readOnly: Schema.Boolean },
 });
 class Outcome extends Data.Class<{
     readonly rules: Array.NonEmptyReadonlyArray<string>;

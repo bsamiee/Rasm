@@ -1,8 +1,7 @@
 import { Shell } from '@rasm/shell';
-import { Array, Combiner, ConfigProvider, Duration, Effect, Equal, Exit, HashSet, Match, Number, Option, Predicate, Record, Ref, Stream } from 'effect';
+import { Array, Combiner, ConfigProvider, Duration, Effect, Equal, Exit, HashSet, Match, Number, Option, Predicate, Record, Ref, Stream, Struct } from 'effect';
 import { Action, byRun, Decision, Outcome, Scope, scopes } from '#/decision/action';
 import { type Call, compile, type Compiled, compiled, message, type Requirements, type Table, type Tally, tally } from '#/decision/rule';
-import { git } from '#/rules/git';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -27,10 +26,10 @@ interface Result extends Pick<Tally, 'faults' | 'notes' | 'reasons'> {
 
 class Policy {
     readonly #compiled: Compiled;
-    readonly #told = Ref.makeUnsafe(HashSet.empty<{ readonly outcome: Outcome; readonly scope: Scope }>());
+    readonly #told = Ref.makeUnsafe(HashSet.empty<{ readonly said: Omit<Outcome, 'rules'>; readonly scope: Scope }>());
 
     constructor(...tables: Table[]) {
-        const rules = Record.filter(Record.makeReducerUnion<string, Table[string]>(Combiner.last()).combineAll([git, ...tables]), Predicate.isNotNull);
+        const rules = Record.filter(Record.makeReducerUnion<string, Table[string]>(Combiner.last()).combineAll(tables), Predicate.isNotNull);
         this.#compiled = compiled.combineAll(Record.collect(rules, compile));
     }
 
@@ -77,8 +76,9 @@ class Policy {
 
     #fresh(agent: Action['agent'], notes: Tally['notes']): Effect.Effect<readonly Outcome[]> {
         return Ref.modify(this.#told, (heard) => {
-            const fresh = notes.map(({ outcome, once }) => ({ outcome, scope: scopes[once]({ agent }) })).filter((note) => !HashSet.has(heard, note));
-            return [Array.dedupe(fresh.map(({ outcome }) => outcome)), HashSet.union(heard, HashSet.fromIterable(fresh.filter(({ scope }) => !Scope.$is('Call')(scope))))] as const;
+            const keyed = notes.map(({ outcome, once }) => ({ outcome, key: { said: Struct.omit(outcome, ['rules']), scope: scopes[once]({ agent }) } }));
+            const fresh = Array.dedupeWith(keyed, (left, right) => Equal.equals(left.key.said, right.key.said)).filter(({ key }) => !HashSet.has(heard, key));
+            return [fresh.map(({ outcome }) => outcome), HashSet.union(heard, HashSet.fromIterable(fresh.map(({ key }) => key).filter(({ scope }) => !Scope.$is('Call')(scope))))] as const;
         });
     }
 }

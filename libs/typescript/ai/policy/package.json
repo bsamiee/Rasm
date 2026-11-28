@@ -21,6 +21,7 @@
     "exports": {
         "./policy": "./policy.ts",
         "./action": "./decision/action.ts",
+        "./git": "./rules/git.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -30,6 +31,7 @@
         "exports": {
             "./policy": "./dist/policy.js",
             "./action": "./dist/decision/action.js",
+            "./git": "./dist/rules/git.js",
             "./package.json": "./package.json"
         },
         "access": "public"
