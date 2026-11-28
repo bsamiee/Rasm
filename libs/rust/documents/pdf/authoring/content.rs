@@ -17,7 +17,8 @@ use krilla::text::{Font, GlyphId, KrillaGlyph, Tag};
 use krilla_svg::{SurfaceExt as _, SvgSettings};
 use kurbo::{Affine, Cap, Join, PathEl, Rect, Shape as _, Size};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _, nev};
-use rasm_drawing::{Color, Content, Element, GlyphRun, Opacity, Pen, Placement, Region, Side, hatches, strokes};
+use rasm_drawing::{Color, Content, Element, GlyphRun, Pen, Placement, Region, Side, hatches, strokes};
+use strict_num::NormalizedF64;
 use usvg::Tree;
 use validated::Validated;
 
@@ -177,7 +178,7 @@ fn transform(affine: Affine) -> Transform {
     Transform::from_row(xx, xy, yx, yy, tx, ty)
 }
 
-fn glyphs(surface: &mut Surface<'_>, run: &GlyphRun, color: &Color, opacity: Opacity, drawing: &mut Drawing<'_>, leaves: &mut Leaves) -> Result<(), PdfError> {
+fn glyphs(surface: &mut Surface<'_>, run: &GlyphRun, color: &Color, opacity: NormalizedF64, drawing: &mut Drawing<'_>, leaves: &mut Leaves) -> Result<(), PdfError> {
     let font = match drawing.faces.entry(Face {
         id: run.font.data.id(),
         index: run.font.index,
@@ -212,8 +213,8 @@ fn glyphs(surface: &mut Surface<'_>, run: &GlyphRun, color: &Color, opacity: Opa
     Ok(())
 }
 
-fn placed(surface: &mut Surface<'_>, content: &Content, placement: Placement, opacity: Opacity, drawing: &mut Drawing<'_>, leaves: &mut Leaves) -> Result<(), NEVec<PdfError>> {
-    fn enclosed<F>(surface: &mut Surface<'_>, placement: Placement, opacity: Opacity, leaves: &mut Leaves, draw: F)
+fn placed(surface: &mut Surface<'_>, content: &Content, placement: Placement, opacity: NormalizedF64, drawing: &mut Drawing<'_>, leaves: &mut Leaves) -> Result<(), NEVec<PdfError>> {
+    fn enclosed<F>(surface: &mut Surface<'_>, placement: Placement, opacity: NormalizedF64, leaves: &mut Leaves, draw: F)
     where F: FnOnce(&mut Surface<'_>) {
         leaves.graphic(surface);
         surface.push_opacity(normalized(opacity));
@@ -267,7 +268,7 @@ fn placed(surface: &mut Surface<'_>, content: &Content, placement: Placement, op
     Ok(())
 }
 
-fn fill(color: &Color, opacity: Opacity, rule: FillRule) -> Fill { Fill { paint: paint(color), opacity: normalized(opacity), rule } }
+fn fill(color: &Color, opacity: NormalizedF64, rule: FillRule) -> Fill { Fill { paint: paint(color), opacity: normalized(opacity), rule } }
 
 fn paint(color: &Color) -> Paint {
     let cmyk_color = |value: &rasm_drawing::Cmyk| cmyk::Color::new(value.cyan, value.magenta, value.yellow, value.black);
@@ -282,4 +283,4 @@ fn paint(color: &Color) -> Paint {
     }
 }
 
-fn normalized(opacity: Opacity) -> NormalizedF32 { NormalizedF32::new(opacity.into_inner().cast::<f32>()).unwrap_or(NormalizedF32::ONE) }
+fn normalized(opacity: NormalizedF64) -> NormalizedF32 { NormalizedF32::new(opacity.get().cast::<f32>()).unwrap_or(NormalizedF32::ONE) }

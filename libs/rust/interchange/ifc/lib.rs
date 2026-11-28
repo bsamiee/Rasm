@@ -465,12 +465,10 @@ pub enum Fault {
     Underdetermined,
 }
 
-#[derive(Debug, Clone, PartialEq, derive_more::Display)]
+#[derive(Debug, Clone, PartialEq, Eq, derive_more::Display)]
 pub enum Constraint {
     #[display("node name {_0} is empty or holds a slash")]
     Name(Arc<str>),
-    #[display("fraction {_0} lies outside 0 to 1")]
-    Fraction(f32),
 }
 
 #[derive(Debug, thiserror::Error)]

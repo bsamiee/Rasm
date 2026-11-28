@@ -15,6 +15,7 @@ use linesweeper::{Error, FillRule};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use parlance::{FontFamily, FontFeature, FontVariation};
 use stacksafe::StackSafe;
+use strict_num::NormalizedF64;
 use typed_floats::tf64::{NonNaNFinite, StrictlyPositiveFinite};
 use typed_floats::{InvalidNumber, tf32};
 use uom::si::f64::{Length, LinearNumberDensity};
@@ -87,13 +88,6 @@ pub struct MiterLimit(f64);
 
 impl MiterLimit {
     pub const DEFAULT: Self = Self::try_new(4.0_f64).ok().unwrap();
-}
-
-#[nutype::nutype(const_fn, validate(finite, greater_or_equal = 0.0, less_or_equal = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
-pub struct Opacity(f64);
-
-impl Opacity {
-    pub const OPAQUE: Self = Self::try_new(1.0_f64).ok().unwrap();
 }
 
 #[nutype::nutype(const_fn, validate(finite, greater_or_equal = 1.0, less_or_equal = 1000.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
@@ -172,7 +166,7 @@ pub enum Color {
 pub struct Pen {
     pub width: Width,
     pub color: Color,
-    pub opacity: Opacity = Opacity::OPAQUE,
+    pub opacity: NormalizedF64 = NormalizedF64::ONE,
     pub cap: Cap = Cap::Round,
     pub join: Join = Join::Round,
     pub miter_limit: MiterLimit = MiterLimit::DEFAULT,
@@ -342,7 +336,7 @@ pub enum Element {
     Fill {
         region: Region,
         color: Color,
-        opacity: Opacity = Opacity::OPAQUE,
+        opacity: NormalizedF64 = NormalizedF64::ONE,
     },
     Hatch {
         region: Region,
@@ -353,17 +347,17 @@ pub enum Element {
     Text {
         text: Text,
         color: Color,
-        opacity: Opacity = Opacity::OPAQUE,
+        opacity: NormalizedF64 = NormalizedF64::ONE,
     },
     Glyphs {
         run: GlyphRun,
         color: Color,
-        opacity: Opacity = Opacity::OPAQUE,
+        opacity: NormalizedF64 = NormalizedF64::ONE,
     },
     Placed {
         content: Content,
         placement: Placement,
-        opacity: Opacity = Opacity::OPAQUE,
+        opacity: NormalizedF64 = NormalizedF64::ONE,
     },
     Clip {
         region: Region,

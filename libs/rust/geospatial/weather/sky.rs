@@ -27,8 +27,9 @@ use {
     nalgebra::Vector3,
     ndarray::ArrayView1,
     rasm_proximity::Assembly,
-    rasm_solar_geometry::{Sensor, Transmittance, incidence},
+    rasm_solar_geometry::{Sensor, incidence},
     std::collections::HashMap,
+    strict_num::NormalizedF64,
     typed_floats::tf64::PositiveFinite,
     uom::si::f64::{HeatFluxDensity, Illuminance},
 };
@@ -318,7 +319,7 @@ pub fn irradiance<S>(
     matrix: &Matrix,
     north: UnitQuaternion<f64>,
     assembly: &Assembly,
-    translucent: &HashMap<usize, Transmittance, S>,
+    translucent: &HashMap<usize, NormalizedF64, S>,
     offset: PositiveFinite,
     sensors: &[Sensor],
 ) -> Result<Either<Array2<HeatFluxDensity>, Array2<Illuminance>>, WeatherError>

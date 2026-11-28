@@ -26,6 +26,7 @@ derive_more          = { workspace = true }
 itertools            = { workspace = true }
 serde                = { workspace = true }
 nutype               = { workspace = true }
+strict-num           = { workspace = true }
 typed_floats         = { workspace = true }
 ordered-float        = { workspace = true }
 almost               = { workspace = true }

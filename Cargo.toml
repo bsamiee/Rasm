@@ -132,10 +132,11 @@ schemars   = { version = "1.2.3", features = ["jiff02", "uuid1", "indexmap2", "u
 
 # --- [NEWTYPES]
 
-bounded-integer = { version = "0.6.2", features = ["std", "serde1", "schemars1"] }     # Ranged integers with bounds that reach derived schema
-nutype          = { version = "0.8.0", features = ["serde", "regex", "rust_decimal"] } # Validated newtypes with generated error enum per type
-ordered-float   = { version = "5.5.1", features = ["serde"] }                          # NaN-free floats usable as ordered keys
-typed_floats    = { version = "1.0.7", features = ["serde"] }                          # Floats typed by sign and finiteness class, arithmetic returning the strictest class
+bounded-integer = { version = "0.6.2", features = ["std", "serde1", "schemars1"] }      # Ranged integers with bounds that reach derived schema
+nutype          = { version = "0.8.0", features = ["serde", "regex", "rust_decimal"] }  # Validated newtypes with generated error enum per type
+ordered-float   = { version = "5.5.1", features = ["serde"] }                           # NaN-free floats usable as ordered keys
+strict-num      = { version = "0.2.0", default-features = false, features = ["serde"] } # Floats held to the closed unit interval, f32 and f64
+typed_floats    = { version = "1.0.7", features = ["serde"] }                           # Floats typed by sign and finiteness class, arithmetic returning the strictest class
 
 # --- [TIME]
 

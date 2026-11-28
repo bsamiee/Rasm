@@ -16,9 +16,10 @@ use proptest::prelude::ProptestConfig;
 use proptest::test_runner::FileFailurePersistence;
 use rasm_proximity::Assembly;
 use rasm_site::{Elevation, Place, Position};
-use rasm_solar_geometry::{Refraction, Sensor, SkyMeasure, Sun, Transmittance, bin, direction, lapsed, patches, position, sky_view, windows};
+use rasm_solar_geometry::{Refraction, Sensor, SkyMeasure, Sun, bin, direction, lapsed, patches, position, sky_view, windows};
 use rstest::rstest;
 use solar_positioning::RefractionCorrection;
+use strict_num::NormalizedF64;
 use typed_floats::tf64::PositiveFinite;
 use uom::si::angle::degree;
 use uom::si::f64::{Angle, Length, ThermodynamicTemperature};
@@ -113,7 +114,7 @@ proptest::proptest! {
 fn unobstructed_sensor_sees_its_closed_form_share_of_the_sky(#[case] measure: SkyMeasure, #[case] normal: Vector3<f64>, #[case] share: f64) {
     let open = assert_ok!(Assembly::new(BvhBuildStrategy::default(), []));
     let offset = assert_ok!(PositiveFinite::new(1.0e-6));
-    let seen = assert_ok!(sky_view(&open, &HashMap::<usize, Transmittance>::new(), offset, assert_some!(NonZero::new(4)), &facing(normal), measure));
+    let seen = assert_ok!(sky_view(&open, &HashMap::<usize, NormalizedF64>::new(), offset, assert_some!(NonZero::new(4)), &facing(normal), measure));
     assert_abs_diff_eq!(seen[0].get::<ratio>(), share, epsilon = 2.0e-3);
 }
 
@@ -123,8 +124,8 @@ fn unobstructed_sensor_sees_its_closed_form_share_of_the_sky(#[case] measure: Sk
 fn sky_through_stacked_sheets_is_the_product_of_their_transmittances(#[case] upper: Option<f64>, #[case] share: f64) {
     let sheet = |height: f64| (Isometry3::translation(0.0, 0.0, height), SharedShape::cuboid(1.0e4, 1.0e4, 0.01));
     let covered = assert_ok!(Assembly::new(BvhBuildStrategy::default(), [sheet(1.0), sheet(2.0)]));
-    let translucent: HashMap<usize, Transmittance> =
-        HashMap::from_iter(iter::once((0, 0.6)).chain(upper.map(|upper| (1, upper))).map(|(element, passed)| (element, assert_ok!(Transmittance::try_new(passed)))));
+    let translucent: HashMap<usize, NormalizedF64> =
+        HashMap::from_iter(iter::once((0, 0.6)).chain(upper.map(|upper| (1, upper))).map(|(element, passed)| (element, assert_some!(NormalizedF64::new(passed)))));
     let offset = assert_ok!(PositiveFinite::new(1.0e-6));
     let seen = assert_ok!(sky_view(&covered, &translucent, offset, NonZero::<u8>::MIN, &facing(Vector3::z()), SkyMeasure::ViewFactor));
     assert_abs_diff_eq!(seen[0].get::<ratio>(), share, epsilon = 1.0e-12);

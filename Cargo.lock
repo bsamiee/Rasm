@@ -9920,6 +9920,7 @@ dependencies = [
  "rust_decimal",
  "skrifa 0.50.0",
  "stacksafe",
+ "strict-num 0.2.0",
  "thiserror 2.0.21",
  "typed_floats",
  "uom",
@@ -9946,6 +9947,7 @@ dependencies = [
  "parlance",
  "rayon",
  "stacksafe",
+ "strict-num 0.2.0",
  "thiserror 2.0.21",
  "typed_floats",
  "uom",
@@ -9990,6 +9992,7 @@ dependencies = [
  "parlance",
  "rasm-drawing",
  "stacksafe",
+ "strict-num 0.2.0",
  "strum 0.28.0",
  "thiserror 2.0.21",
  "typed_floats",
@@ -10049,6 +10052,7 @@ dependencies = [
  "nutype",
  "petgraph",
  "petgraph-graphml",
+ "strict-num 0.2.0",
  "thiserror 2.0.21",
  "typed_floats",
  "uom",
@@ -10105,6 +10109,7 @@ dependencies = [
  "serde_path_to_error",
  "serde_with",
  "sha2",
+ "strict-num 0.2.0",
  "strum 0.28.0",
  "thiserror 2.0.21",
  "uom",
@@ -10348,6 +10353,7 @@ dependencies = [
  "rayon",
  "serde",
  "spade",
+ "strict-num 0.2.0",
  "thiserror 2.0.21",
  "typed_floats",
  "validated",
@@ -10365,6 +10371,7 @@ dependencies = [
  "rasm-numerical-analysis",
  "rasm-stats",
  "rstest",
+ "strict-num 0.2.0",
 ]
 
 [[package]]
@@ -10423,6 +10430,7 @@ dependencies = [
  "rsa",
  "secrecy",
  "stacksafe",
+ "strict-num 0.2.0",
  "strum 0.28.0",
  "thiserror 2.0.21",
  "tiff",
@@ -10569,12 +10577,12 @@ dependencies = [
  "nalgebra",
  "ndarray 0.17.2",
  "nonempty-collections",
- "nutype",
  "rasm-proximity",
  "rasm-site",
  "rayon",
  "rstar 0.14.0",
  "solar-positioning",
+ "strict-num 0.2.0",
  "thiserror 2.0.21",
  "typed_floats",
  "uom",
@@ -10595,6 +10603,7 @@ dependencies = [
  "rasm-solar-geometry",
  "rstest",
  "solar-positioning",
+ "strict-num 0.2.0",
  "typed_floats",
  "uom",
 ]
@@ -10764,6 +10773,7 @@ dependencies = [
  "serde_with",
  "solar-positioning",
  "statrs",
+ "strict-num 0.2.0",
  "thermalcomfort",
  "thiserror 2.0.21",
  "typed_floats",
@@ -12684,6 +12694,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "strict-num"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "290fd5eab900654f4c270bc1cfaeb0f2c17b6851fa448fc22e1778dec105ac68"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "string-interner"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13208,7 +13227,7 @@ checksum = "edca365c3faccca67d06593c5980fa6c57687de727a03131735bb85f01fdeeb9"
 dependencies = [
  "arrayref",
  "bytemuck",
- "strict-num",
+ "strict-num 0.1.1",
 ]
 
 [[package]]
@@ -14532,7 +14551,7 @@ dependencies = [
  "rustybuzz",
  "simplecss",
  "siphasher",
- "strict-num",
+ "strict-num 0.1.1",
  "svgtypes",
  "tiny-skia-path",
  "ttf-parser",

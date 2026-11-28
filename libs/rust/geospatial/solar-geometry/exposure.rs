@@ -12,6 +12,7 @@ use nonempty_collections::nev;
 use rasm_proximity::rays::{crossings, occluded};
 use rasm_proximity::{Assembly, ProximityError};
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
+use strict_num::NormalizedF64;
 use typed_floats::tf64::PositiveFinite;
 use uom::si::f64::{Ratio, Time};
 use uom::si::ratio::ratio;
@@ -32,9 +33,6 @@ pub enum SkyMeasure {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[nutype::nutype(validate(finite, greater_or_equal = 0.0, less_or_equal = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd, Deref))]
-pub struct Transmittance(f64);
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Sensor {
     pub point: Point3<f64>,
@@ -45,7 +43,7 @@ pub struct Sensor {
 
 pub fn incidence<S>(
     assembly: &Assembly,
-    translucent: &HashMap<usize, Transmittance, S>,
+    translucent: &HashMap<usize, NormalizedF64, S>,
     offset: PositiveFinite,
     sensors: &[Sensor],
     directions: &[UnitVector3<f64>],
@@ -61,7 +59,7 @@ where
     Ok(matrix)
 }
 
-pub fn sun_hours<S, I>(assembly: &Assembly, translucent: &HashMap<usize, Transmittance, S>, offset: PositiveFinite, sensors: &[Sensor], suns: I) -> Result<Array1<Time>, SolarError>
+pub fn sun_hours<S, I>(assembly: &Assembly, translucent: &HashMap<usize, NormalizedF64, S>, offset: PositiveFinite, sensors: &[Sensor], suns: I) -> Result<Array1<Time>, SolarError>
 where
     S: BuildHasher + Sync,
     I: IntoIterator<Item: Borrow<(UnitVector3<f64>, Time)>>,
@@ -76,7 +74,7 @@ where
 
 pub fn sky_view<S>(
     assembly: &Assembly,
-    translucent: &HashMap<usize, Transmittance, S>,
+    translucent: &HashMap<usize, NormalizedF64, S>,
     offset: PositiveFinite,
     subdivision: NonZero<u8>,
     sensors: &[Sensor],
@@ -104,7 +102,7 @@ where
 
 fn accumulated<S>(
     assembly: &Assembly,
-    translucent: &HashMap<usize, Transmittance, S>,
+    translucent: &HashMap<usize, NormalizedF64, S>,
     offset: PositiveFinite,
     sensors: &[Sensor],
     weights: impl IntoIterator<Item = Result<(UnitVector3<f64>, f64), SolarError>>,
@@ -124,7 +122,7 @@ where
 
 fn exposed<S>(
     assembly: &Assembly,
-    translucent: &HashMap<usize, Transmittance, S>,
+    translucent: &HashMap<usize, NormalizedF64, S>,
     offset: PositiveFinite,
     sensors: &[Sensor],
     direction: UnitVector3<f64>,
@@ -139,7 +137,7 @@ where
     let shares = if translucent.is_empty() {
         Either::Left(occluded(assembly, rays)?.into_iter().map(|shaded| f64::from(!shaded)))
     } else {
-        Either::Right(crossings(assembly, rays)?.into_iter().map(|hits| hits.iter().map(|hit| translucent.get(&hit.element).map_or_default(|transmittance| **transmittance)).product::<f64>()))
+        Either::Right(crossings(assembly, rays)?.into_iter().map(|hits| hits.iter().map(|hit| translucent.get(&hit.element).map_or_default(|transmittance| transmittance.get())).product::<f64>()))
     };
     Ok(shares.zip(sensors.iter().map(move |Sensor { point: _, normal }| normal.dot(&direction).max(0.0))))
 }

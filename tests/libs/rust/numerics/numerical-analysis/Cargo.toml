@@ -21,6 +21,7 @@ rasm-numerical-analysis = { workspace = true }
 proptest                = { workspace = true }
 rasm-stats              = { workspace = true }
 rstest                  = { workspace = true }
+strict-num              = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

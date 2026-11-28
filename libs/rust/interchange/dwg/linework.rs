@@ -21,9 +21,10 @@ use linesweeper::FillRule;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use parlance::{FontFamily, FontFamilyName, GenericFamily};
 use rasm_drawing::{
-    Alignment, Dash, Dashes, DashesError, Descriptor, Element, Family, FamilyError, Linetype, LineworkError, Opacity, OpacityError, Path, Pattern, Pen, Placement, PositiveLength, Region, Side,
-    Target, Visibility, Width, WidthError, cleanup, pages,
+    Alignment, Dash, Dashes, DashesError, Descriptor, Element, Family, FamilyError, Linetype, LineworkError, Path, Pattern, Pen, Placement, PositiveLength, Region, Side, Target, Visibility, Width,
+    WidthError, cleanup, pages,
 };
+use strict_num::NormalizedF64;
 use typed_floats::InvalidNumber;
 use typed_floats::tf64::{NonNaNFinite, StrictlyPositiveFinite};
 use uom::si::f64::{Length, Ratio};
@@ -274,9 +275,7 @@ pub(crate) fn projected(drawing: &mut CadDocument, space: &str, context: &Contex
             };
             let width = stated.or_else(|| weight.millimeters()).map(Length::new::<millimeter>).or(projection.lineweight).unwrap_or_else(|| Length::new::<millimeter>(0.25));
             let width = Width::try_new((width / *context.unit).get::<ratio>()).map_err(|(WidthError::FiniteViolated | WidthError::GreaterOrEqualViolated)| Refusal::Unsupported)?;
-            Opacity::try_new(1.0 - transparency.as_percent())
-                .map(|opacity| Pen { width, color: rasm_drawing::Color::Srgb(color), opacity, .. })
-                .map_err(|(OpacityError::FiniteViolated | OpacityError::GreaterOrEqualViolated | OpacityError::LessOrEqualViolated)| Refusal::Unsupported)
+            NormalizedF64::new(1.0 - transparency.as_percent()).map(|opacity| Pen { width, color: rasm_drawing::Color::Srgb(color), opacity, .. }).ok_or(Refusal::Unsupported)
         };
 
         let linetype = |common: &EntityCommon, layer: &Layer| -> Result<Option<Linetype>, Refusal> {
@@ -595,10 +594,10 @@ fn entities(
     }
     let refusing = |reason| NEVec::new(CadError::Refused { subject: subject.clone(), reason });
     let misshapen = |source| NEVec::new(CadError::Geometry { subject: subject.clone(), source });
-    let dxf_color = |color: &rasm_drawing::Color, opacity: Opacity| match color {
+    let dxf_color = |color: &rasm_drawing::Color, opacity: NormalizedF64| match color {
         rasm_drawing::Color::Srgb(srgb) => {
             let Rgba8 { r, g, b, a: _ } = srgb.to_rgba8();
-            Ok((Color::from_rgb(r, g, b), Transparency::from_percent(1.0 - opacity.into_inner())))
+            Ok((Color::from_rgb(r, g, b), Transparency::from_percent(1.0 - opacity.get())))
         }
         rasm_drawing::Color::Cmyk(_) | rasm_drawing::Color::Spot { name: _, tint: _, alternate: _ } => Err(refusing(Refusal::DeviceColor)),
     };
@@ -621,7 +620,7 @@ fn entities(
         }
         entity
     };
-    let mut lettered = |text: &rasm_drawing::Text, color: &rasm_drawing::Color, opacity: Opacity| -> Result<Vec<EntityType>, NEVec<CadError>> {
+    let mut lettered = |text: &rasm_drawing::Text, color: &rasm_drawing::Color, opacity: NormalizedF64| -> Result<Vec<EntityType>, NEVec<CadError>> {
         let (entity, style) = text::written(text, frame);
         let colored = dxf_color(color, opacity)?;
         if !document.text_styles.contains(&style.name) {

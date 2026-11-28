@@ -30,6 +30,7 @@ itertools            = { workspace = true }
 rasn                 = { workspace = true }
 rasn-cms             = { workspace = true }
 nutype               = { workspace = true }
+strict-num           = { workspace = true }
 typed_floats         = { workspace = true }
 jiff                 = { workspace = true }
 xot                  = { workspace = true }

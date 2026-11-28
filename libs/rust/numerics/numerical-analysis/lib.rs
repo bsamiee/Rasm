@@ -235,4 +235,4 @@ mod splines;
 
 pub use quadrature::{Domain, Exponent, ExponentError, Integral, Settings, Weight, integrate, weighted};
 pub use scattered::{Constrained, Delaunay, Interpolant, Kernel, Kriging, Observation, Sites, barycentric, constrain, gradients, interpolate, krige, predict, triangulate};
-pub use splines::{Extrapolation, GridAxis, Method, Reading, Smooth, SmoothError, Spline, SplineAxis, crossings, curve, evaluate, grid};
+pub use splines::{Extrapolation, GridAxis, Method, Reading, Spline, SplineAxis, crossings, curve, evaluate, grid};

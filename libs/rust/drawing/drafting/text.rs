@@ -14,8 +14,9 @@ use linesweeper::FillRule;
 use nonempty_collections::NEVec;
 use parlance::{FontFamily, FontFamilyName, FontVariation, GenericFamily, Script, Tag};
 use parley::{Alignment, AlignmentOptions, Cluster, FontContext, FontFeatures, Layout, LayoutContext, LineHeight, PositionedLayoutItem, StyleProperty};
-use rasm_drawing::{Anchor, Baseline, Color, Element, Glyph, GlyphRun, Opacity, Placement, Region, Span, Target, Text, Width};
+use rasm_drawing::{Anchor, Baseline, Color, Element, Glyph, GlyphRun, Placement, Region, Span, Target, Text, Width};
 use skrifa::{DrawMemory, Font, GlyphId, PathSink, ScaleError, ScalerFont};
+use strict_num::NormalizedF64;
 use typed_floats::InvalidNumber;
 use typed_floats::tf64::StrictlyPositiveFinite;
 use uom::ConstZero;
@@ -319,7 +320,7 @@ impl Typesetter {
             Region::new(path, FillRule::NonZero, tolerance).map_err(|error| DraftingError::from(error).into())
         }
 
-        let painted = |faces: &HashMap<(u64, u32), Face>, run: GlyphRun, color: Color, opacity: Opacity| match output {
+        let painted = |faces: &HashMap<(u64, u32), Face>, run: GlyphRun, color: Color, opacity: NormalizedF64| match output {
             Output::Glyphs => Validated::Good(Element::Glyphs { run, color, opacity }),
             Output::Outlines(tolerance) => validated(outlined(faces, &run, tolerance)).map(|region| Element::Fill { region, color, opacity }),
         };

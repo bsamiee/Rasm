@@ -10,9 +10,10 @@ use linesweeper::{BinaryOp, FillRule};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use parlance::{FontFamily, FontFamilyName, GenericFamily};
 use rasm_drawing::{
-    Alignment, Anchor, Baseline, Color, Content, Dash, Dashes, DashesError, Element, FontStyle, FontWeight, FontWeightError, Linetype, LineworkError, MiterLimit, MiterLimitError, Opacity, Path, Pen,
+    Alignment, Anchor, Baseline, Color, Content, Dash, Dashes, DashesError, Element, FontStyle, FontWeight, FontWeightError, Linetype, LineworkError, MiterLimit, MiterLimitError, Path, Pen,
     Placement, PositiveLength, Region, Side, Target, Text, Width, WidthError, regions, strokes,
 };
+use strict_num::NormalizedF64;
 use typed_floats::tf64::{NonNaNFinite, StrictlyPositiveFinite};
 use typed_floats::{InvalidNumber, tf32};
 use uom::ConstZero;
@@ -395,7 +396,7 @@ fn font_size(value: f64) -> Result<StrictlyPositiveFinite, DraftingError> {
         .map_err(|(InvalidNumber::NaN | InvalidNumber::Zero | InvalidNumber::Negative | InvalidNumber::Positive | InvalidNumber::Infinite)| DraftingError::Unsupported(Feature::Font))
 }
 
-fn painted(paint: &Paint, opacity: usvg::Opacity) -> Result<(Color, Opacity), DraftingError> {
+fn painted(paint: &Paint, opacity: usvg::Opacity) -> Result<(Color, NormalizedF64), DraftingError> {
     match paint {
         Paint::Color(usvg::Color { red, green, blue }) => colored(OpaqueColor::<Srgb>::from_rgb8(*red, *green, *blue).with_alpha(opacity.get())),
         Paint::LinearGradient(_) | Paint::RadialGradient(_) => Err(DraftingError::Unsupported(Feature::Gradient)),

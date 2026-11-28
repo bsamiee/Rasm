@@ -27,6 +27,7 @@ derive_more                = { workspace = true }
 enum-map                   = { workspace = true }
 itertools                  = { workspace = true }
 nutype                     = { workspace = true }
+strict-num                 = { workspace = true }
 typed_floats               = { workspace = true }
 nalgebra                   = { workspace = true }
 geo                        = { workspace = true }

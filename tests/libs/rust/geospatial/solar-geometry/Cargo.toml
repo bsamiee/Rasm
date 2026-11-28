@@ -24,6 +24,7 @@ rasm-site           = { workspace = true }
 rasm-solar-geometry = { workspace = true, features = ["proximity"] }
 rstest              = { workspace = true }
 solar-positioning   = { workspace = true }
+strict-num          = { workspace = true }
 typed_floats        = { workspace = true }
 uom                 = { workspace = true }
 

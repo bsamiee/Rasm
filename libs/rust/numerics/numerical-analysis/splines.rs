@@ -9,6 +9,7 @@ use nalgebra::{DMatrixView, DVector, convert};
 use ndarray::{Array1, Array2, ArrayD, ArrayRef1, ArrayView, ArrayView1, ArrayView2, Axis, Dimension, IxDyn, Zip, concatenate};
 use nonempty_collections::{NESlice, NEVec};
 use rasm_stats::Bounds;
+use strict_num::NormalizedF64;
 use typed_floats::tf64::StrictlyPositiveFinite;
 use validated::Validated;
 
@@ -17,9 +18,9 @@ use crate::{AnalysisError, Input, Observations, Placement, RootSource, SearchHoo
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Method {
-    Smoothing(Option<Smooth>),
+    Smoothing(Option<NormalizedF64>),
     Gcv,
     Monotone,
 }
@@ -40,9 +41,6 @@ pub enum Reading {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-
-#[nutype::nutype(validate(finite, greater_or_equal = 0.0, less_or_equal = 1.0), derive(Debug, Clone, Copy, PartialEq))]
-pub struct Smooth(f64);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GridAxis<'data> {
@@ -175,7 +173,7 @@ where D: Dimension {
         let lanes = moved.to_shape((outer.iter().product::<usize>(), sites.len()))?;
         let (coefficients, smooth, freedom) = match axis.method {
             Method::Smoothing(smooth) =>
-                smoothed(ArrayView1::from(&*sites), weights.as_deref().map(ArrayRef1::view), lanes.view(), smooth.map(Smooth::into_inner)).map(|(coefficients, smooth)| (coefficients, smooth, None))?,
+                smoothed(ArrayView1::from(&*sites), weights.as_deref().map(ArrayRef1::view), lanes.view(), smooth.map(NormalizedF64::get)).map(|(coefficients, smooth)| (coefficients, smooth, None))?,
             Method::Gcv =>
                 cross_validated(ArrayView1::from(&*sites), weights.as_deref().map(ArrayRef1::view), lanes.view()).map(|(coefficients, smooth, freedom)| (coefficients, smooth, Some(freedom)))?,
             Method::Monotone =>

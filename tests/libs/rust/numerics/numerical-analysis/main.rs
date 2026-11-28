@@ -11,9 +11,10 @@ use nalgebra::{DMatrix, DVector, MatrixXx3, Vector3};
 use nonempty_collections::nev;
 use proptest::prelude::ProptestConfig;
 use proptest::test_runner::FileFailurePersistence;
-use rasm_numerical_analysis::{Domain, Exponent, Extrapolation, Method, Observations, Reading, Settings, Smooth, Spline, Weight, crossings, curve, evaluate, integrate, roots, weighted};
+use rasm_numerical_analysis::{Domain, Exponent, Extrapolation, Method, Observations, Reading, Settings, Spline, Weight, crossings, curve, evaluate, integrate, roots, weighted};
 use rasm_stats::Bounds;
 use rstest::rstest;
+use strict_num::NormalizedF64;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -87,7 +88,7 @@ fn read(spline: &Spline, reading: Reading, at: &[f64]) -> Vec<f64> {
 
 #[rstest]
 #[case::weighted_hermite_interpolant(Method::Monotone, [0.0, 1.0, 5.0], [71.0 / 168.0, 223.0 / 84.0], 9.0 / 7.0)]
-#[case::natural_interpolating_spline(Method::Smoothing(Some(assert_ok!(Smooth::try_new(1.0)))), [0.0, 1.0, 0.0], [19.0 / 32.0, 7.0 / 8.0], 0.5)]
+#[case::natural_interpolating_spline(Method::Smoothing(Some(NormalizedF64::ONE)), [0.0, 1.0, 0.0], [19.0 / 32.0, 7.0 / 8.0], 0.5)]
 fn spline_through_three_points_matches_its_hand_worked_midpoints_and_knot_slope(#[case] method: Method, #[case] values: [f64; 3], #[case] middles: [f64; 2], #[case] slope: f64) {
     let spline = spline_through(&[0.0, 1.0, 3.0], &values, method);
     let found = read(&spline, Reading::Value, &[0.5, 2.0]);

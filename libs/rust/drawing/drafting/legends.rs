@@ -9,7 +9,8 @@ use itertools::Itertools as _;
 use kurbo::{Affine, Line, Point, Rect, Shape as _, Size, Vec2};
 use linesweeper::FillRule;
 use nonempty_collections::NEVec;
-use rasm_drawing::{Anchor, Baseline, Color, Element, Linetype, Opacity, Pattern, Pen, Placement, Region, Target};
+use rasm_drawing::{Anchor, Baseline, Color, Element, Linetype, Pattern, Pen, Placement, Region, Target};
+use strict_num::NormalizedF64;
 
 use crate::notation::{self, Decimal, Sign};
 use crate::symbols::{self, Definition, Instance};
@@ -26,7 +27,7 @@ pub enum Swatch {
     },
     Fill {
         color: Color,
-        opacity: Opacity = Opacity::OPAQUE,
+        opacity: NormalizedF64 = NormalizedF64::ONE,
     },
     Hatch {
         pattern: Pattern,

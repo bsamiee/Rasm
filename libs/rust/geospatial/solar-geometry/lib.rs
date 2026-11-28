@@ -157,4 +157,4 @@ pub use dome::{Patch, bin, patches, sector};
 pub use envelope::{Envelope, envelope};
 pub use events::{events, path, sampled, windows};
 #[cfg(feature = "proximity")]
-pub use exposure::{Sensor, SkyMeasure, Transmittance, TransmittanceError, incidence, sky_view, sun_hours};
+pub use exposure::{Sensor, SkyMeasure, incidence, sky_view, sun_hours};

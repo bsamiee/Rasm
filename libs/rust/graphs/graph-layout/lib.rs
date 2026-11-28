@@ -16,6 +16,7 @@ use petgraph::graphmap::DiGraphMap;
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
 use petgraph::visit::{Dfs, EdgeRef as _, IntoEdgeReferences as _, IntoNodeReferences as _, Reversed, Walker as _};
 use petgraph::{Directed, Direction, EdgeType};
+use strict_num::NormalizedF64;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -50,14 +51,11 @@ pub enum CurveStyle {
 #[nutype::nutype(validate(predicate = |size| size.is_finite() && size.width >= 0.0 && size.height >= 0.0), derive(Debug, Clone, Copy, PartialEq, Into, AsRef))]
 pub struct Extent(Size);
 
-#[nutype::nutype(validate(finite, greater_or_equal = 0.0, less_or_equal = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd, Into))]
-pub struct Tension(f64);
-
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Interpolation {
     Linear,
     Basis,
-    Cardinal(Tension),
+    Cardinal(NormalizedF64),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -349,7 +347,7 @@ fn path(interpolation: Interpolation, points: &[Point]) -> BezPath {
             .chain(points.last().copied().map(PathEl::LineTo))
             .collect(),
         (Interpolation::Cardinal(tension), &[first, _, _, ..]) => {
-            let scale = (1.0 - tension.into_inner()) / 6.0;
+            let scale = (1.0 - tension.get()) / 6.0;
             let tangents = iter::once(Vec2::ZERO).chain(points.iter().tuple_windows().map(|(&before, _, &after)| (after - before) * scale)).chain(iter::once(Vec2::ZERO));
             iter::once(PathEl::MoveTo(first))
                 .chain(iter::zip(points.iter().copied(), tangents).tuple_windows().map(|((start, outgoing), (finish, incoming))| PathEl::CurveTo(start + outgoing, finish - incoming, finish)))

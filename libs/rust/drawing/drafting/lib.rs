@@ -11,8 +11,9 @@ use kurbo::{Affine, BezPath, Circle, Line, ParamCurve as _, ParamCurveArclen as 
 use linesweeper::{BinaryOp, FillRule};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _, nev};
 use parlance::{FontFamily, FontFeature, ParseFontFamilyError};
-use rasm_drawing::{Anchor, Baseline, Color, Element, FontStyle, FontWeight, Linetype, LineworkError, Opacity, OpacityError, Path, Pen, Placement, PositiveLength, Region, Width, regions, transform};
+use rasm_drawing::{Anchor, Baseline, Color, Element, FontStyle, FontWeight, Linetype, LineworkError, Path, Pen, Placement, PositiveLength, Region, Width, regions, transform};
 use skrifa::ScaleError;
+use strict_num::NormalizedF64;
 use typed_floats::tf64::StrictlyPositiveFinite;
 use typed_floats::{InvalidNumber, tf32};
 use uom::si::angle::radian;
@@ -122,7 +123,7 @@ pub struct Lettering {
     pub line_height: Option<Width> = None,
     pub features: Vec<FontFeature> = Vec::new(),
     pub color: Color,
-    pub opacity: Opacity = Opacity::OPAQUE,
+    pub opacity: NormalizedF64 = NormalizedF64::ONE,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -277,15 +278,13 @@ fn stroked(shape: BezPath, pen: &Pen, linetype: Option<Linetype>) -> Result<Elem
     Path::try_new(shape).map(|path| Element::Stroke { path, pen: pen.clone(), linetype }).map_err(|error| LineworkError::from(error).into())
 }
 
-fn filled(shape: impl Shape, fill_rule: FillRule, color: Color, opacity: Opacity, tolerance: StrictlyPositiveFinite) -> Result<Element, DraftingError> {
+fn filled(shape: impl Shape, fill_rule: FillRule, color: Color, opacity: NormalizedF64, tolerance: StrictlyPositiveFinite) -> Result<Element, DraftingError> {
     Region::new(shape, fill_rule, tolerance).map(|region| Element::Fill { region, color, opacity }).map_err(DraftingError::from)
 }
 
-fn colored(color: AlphaColor<Srgb>) -> Result<(Color, Opacity), DraftingError> {
+fn colored(color: AlphaColor<Srgb>) -> Result<(Color, NormalizedF64), DraftingError> {
     let (opaque, alpha) = color.split();
-    Opacity::try_new(f64::from(alpha))
-        .map(|opacity| (Color::Srgb(opaque), opacity))
-        .map_err(|(OpacityError::FiniteViolated | OpacityError::GreaterOrEqualViolated | OpacityError::LessOrEqualViolated)| DraftingError::Unsupported(Feature::Opacity))
+    NormalizedF64::new(f64::from(alpha)).map(|opacity| (Color::Srgb(opaque), opacity)).ok_or(DraftingError::Unsupported(Feature::Opacity))
 }
 
 fn terminated(terminator: &Terminator, head: Head, tip: Point, toward: Vec2, tolerance: StrictlyPositiveFinite) -> Result<Element, DraftingError> {

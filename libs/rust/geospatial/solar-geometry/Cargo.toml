@@ -23,7 +23,7 @@ nonempty-collections = { workspace = true }
 thiserror            = { workspace = true }
 derive_more          = { workspace = true }
 itertools            = { workspace = true }
-nutype               = { workspace = true }
+strict-num           = { workspace = true, optional = true }
 typed_floats         = { workspace = true, optional = true }
 jiff                 = { workspace = true }
 gauss-quad           = { workspace = true }
@@ -39,7 +39,7 @@ rasm-site            = { workspace = true }
 
 [features]
 default   = ["proximity"]
-proximity = ["dep:rasm-proximity", "dep:rayon", "dep:typed_floats"]
+proximity = ["dep:rasm-proximity", "dep:rayon", "dep:typed_floats", "dep:strict-num"]
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

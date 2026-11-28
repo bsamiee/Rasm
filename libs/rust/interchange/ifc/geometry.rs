@@ -13,10 +13,11 @@ use pcd_rs::{DataKind, DynReader, DynRecord, Field, Rgb};
 use serde::{Deserialize, Serialize};
 use serde_with::base64::Base64;
 use serde_with::serde_as;
+use strict_num::NormalizedF32;
 use validated::Validated;
 
 use crate::schemas::{Attribute, attribute, encoded};
-use crate::{Composed, Constraint, Fault, IfcError, Model, Path, Value, distinct};
+use crate::{Composed, Fault, IfcError, Model, Path, Value, distinct};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -115,12 +116,6 @@ pub struct TextureInfo {
     pub scale: Option<f32>,
 }
 
-#[nutype::nutype(
-    validate(with = |value: &f32| -> Result<(), IfcError> { (0.0..=1.0).contains(value).ok_or(IfcError::Constrained(Constraint::Fraction(*value))) }, error = IfcError),
-    derive(Debug, Clone, Copy, PartialEq, Deserialize)
-)]
-struct Fraction(f32);
-
 // --- [ATTRIBUTES]
 
 #[derive(Serialize, Deserialize)]
@@ -199,14 +194,14 @@ impl Attribute for PointCloud {
 }
 
 #[derive(Deserialize)]
-struct DiffuseColor([Fraction; 3]);
+struct DiffuseColor([NormalizedF32; 3]);
 
 impl Attribute for DiffuseColor {
     const ID: &'static str = "bsi::ifc::presentation::diffuseColor";
 }
 
 #[derive(Deserialize)]
-struct Opacity(Fraction);
+struct Opacity(NormalizedF32);
 
 impl Attribute for Opacity {
     const ID: &'static str = "bsi::ifc::presentation::opacity";
@@ -356,9 +351,8 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
             )
         });
         let color = attribute::<DiffuseColor>(node).and_then(|diffuse| {
-            attribute::<Opacity>(node).map(|opacity| {
-                diffuse.map(|DiffuseColor(components)| OpaqueColor::<Srgb>::new(components.map(Fraction::into_inner)).with_alpha(opacity.map_or(1.0, |Opacity(alpha)| alpha.into_inner())))
-            })
+            attribute::<Opacity>(node)
+                .map(|opacity| diffuse.map(|DiffuseColor(components)| OpaqueColor::<Srgb>::new(components.map(NormalizedF32::get)).with_alpha(opacity.map_or(1.0, |Opacity(alpha)| alpha.get()))))
         });
         let shown = attribute::<Visibility>(node).map(|record| record.is_none_or(|Visibility { visibility }| matches!(visibility, VisibilityToken::Inherited)));
         Validated::from(local)

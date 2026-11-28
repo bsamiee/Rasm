@@ -22,6 +22,7 @@ rayon                = { workspace = true }
 nonempty-collections = { workspace = true }
 thiserror            = { workspace = true }
 validated            = { workspace = true }
+strict-num           = { workspace = true, optional = true }
 typed_floats         = { workspace = true, optional = true }
 derive_more          = { workspace = true }
 indexmap             = { workspace = true }
@@ -49,7 +50,7 @@ rasm-solar-geometry  = { workspace = true }
 
 [features]
 default   = ["proximity"]
-proximity = ["dep:rasm-proximity", "dep:typed_floats", "rasm-solar-geometry/proximity"]
+proximity = ["dep:rasm-proximity", "dep:typed_floats", "dep:strict-num", "rasm-solar-geometry/proximity"]
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

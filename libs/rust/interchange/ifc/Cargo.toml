@@ -36,6 +36,7 @@ serde_json           = { workspace = true }
 serde_path_to_error  = { workspace = true }
 serde_with           = { workspace = true }
 nutype               = { workspace = true }
+strict-num           = { workspace = true, optional = true }
 jiff                 = { workspace = true }
 uuid                 = { workspace = true, optional = true }
 fs-err               = { workspace = true, optional = true }
@@ -56,7 +57,7 @@ rasm-bcf             = { workspace = true, optional = true }
 [features]
 default  = ["fetch", "geometry", "pcd", "bcf"]
 fetch    = ["dep:reqwest", "dep:bytes", "dep:fs-err"]
-geometry = ["dep:parry3d-f64", "dep:color"]
+geometry = ["dep:parry3d-f64", "dep:color", "dep:strict-num"]
 pcd      = ["geometry", "dep:pcd-rs"]
 bcf      = ["dep:rasm-bcf", "dep:uuid"]
 
