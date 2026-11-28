@@ -1,11 +1,11 @@
 ---
 name: phone
-description: "Use when work reads or drives the owner's paired iPhone from this Mac (screenshots, taps, typing, apps, URLs, pasteboard, settings, location, logs, files, metrics), covering devicectl, pymobiledevice3 touch and typing, lock and owner steps, and Xcode's simulator-only DeviceInteraction tools"
+description: "Use when work reads or drives the owner's paired iPhone from this Mac (screenshots, taps, typing, apps, URLs, pasteboard, settings, location, logs, files, metrics), covering devicectl, Device Hub's mirror driven through Rasad, pymobiledevice3 touch and typing, lock and owner steps, and Xcode's simulator-only DeviceInteraction tools"
 ---
 
 # [TOOL_PHONE]
 
-Mac reads and drives the phone over CoreDevice on the same Wi-Fi or a cable, with nothing installed on the phone and no window on the Mac. `devicectl` runs every job it has a command for, `pymobiledevice3` adds touch, typing, keys, element captions, Media files, live logs, and metrics. Phone settings already on: Developer Mode, Developer > Enable UI Automation, Safari > Advanced > Web Inspector and Remote Automation.
+Mac reads the phone over CoreDevice on the same Wi-Fi or a cable, with nothing installed on the phone. `devicectl` runs every job it has a command for, `pymobiledevice3` adds touch, typing, element captions, Media files, live logs, and metrics, and Rasad drives the phone's mirror in Xcode's Device Hub. Phone settings already on: Developer Mode, Developer > Enable UI Automation, Safari > Advanced > Web Inspector and Remote Automation.
 
 ## [01]-[TARGET]
 
@@ -57,7 +57,7 @@ devicectl device info displays -d <udid> -q -j - | jq -c '.result.displays[0] | 
 
 - `HID drag` scrolls, `HID swipe` moves a pointer with no contact and scrolls nothing
 - `HID session` opens one input stream for a whole batch, where back-to-back single calls each open their own
-- `HID type` sends printable ASCII alone, a newline presses Return, and some composers (ChatGPT) drop or double a character
+- `HID type` turns a newline into Return, and some composers (ChatGPT) drop or double a character
 - `info apps` lists developer apps alone without `--include-all-apps`, Settings is `com.apple.Preferences`
 - `list-items` reads captions of the foreground app with no frames, and fails "no focused element" on Settings and Claude
 - `simulate location` holds until `clear`, `dvt condition set` holds while its process runs
@@ -70,14 +70,26 @@ devicectl device info displays -d <udid> -q -j - | jq -c '.result.displays[0] | 
 
 ## [03]-[TOUCH]
 
-HID coordinates run 0 to 65535 across the screen, `x = round(px * 65535 / W)` and `y = round(py * 65535 / H)`, where `W` and `H` are the size of the image `px` and `py` were read from. Full screenshots match the `displays` bounds, and a downscaled copy keeps the same ratios.
+Taps and typing run through Device Hub's mirror, driven by Rasad (`DeviceHub` in `applications`): a press on the mirror lands on the phone at the same point, and Device Hub passes input only while its window is in front and the Mac's screen is unlocked. Each act takes focus from the owner for its own length alone.
 
 [STEPS]:
-1. Read: `capture screenshot` to `<f>.png`, then `sips -Z 1434 -s format jpeg <f>.png --out <f>.jpg` and Read the JPEG, as the full PNG is 16-bit at the display's native size
-2. Locate: take the target's center in that image, add `list-items` captions to tell lookalike controls apart
-3. Act: one `HID` call, or one `HID session` batch for a known sequence
-4. Verify: screenshot again before the next act, as taps land on what moved during an animation
-5. Unicode text: `pasteboard copy` the text, long-press the field, and tap Paste in the edit menu, in place of `HID type`
+1. Open: `applications` open `DeviceHub` (it opens behind), then press `View Screen` when the window shows no mirror
+2. Read: `view` of the window (`of` its reference) shows the live mirror from its backing store with Device Hub behind, and its pixels are the points `act` takes
+3. Locate: take the target's center in that image, add `list-items` captions to tell lookalike controls apart
+4. Front: `applications` lists the front application, then open `DeviceHub` with `activate: true`
+5. Act: one `act` call holding every step, pointer presses with `hold: 0.15`, Device Hub's `Home` and `Rotate Left` buttons
+6. Type: in the same call, `Capture Keyboard` to on, key steps, then `Capture Keyboard` to off, as Device Hub sends every Mac key to the phone while it is on
+7. Return: open the noted front application with `activate: true` in the next call, then open `DeviceHub` without `activate`, as each open retargets the handle
+8. Verify: `view` the mirror again before the next act, as presses land on what moved during an animation
+
+Mirror cases:
+- Characters outside the Mac keyboard layout (emoji) -> `pasteboard copy` the text, press the field with `hold: 1`, and press Paste
+- Key steps type accented letters the layout holds and a wrong letter for emoji
+- Mirror shows "Error displaying screen contents" -> press its `Close`, then `View Screen`
+- Rasad drops its connection mid-call -> open `DeviceHub` again, set `Capture Keyboard` to off, then return focus, before any other step
+- Holding Escape for 1.2 s also ends keyboard capture
+
+`HID` rows reach the phone with no window and no focus change, and serve taps, ASCII typing, and buttons when Device Hub cannot act (Mac screen locked, mirror erroring): coordinates run 0 to 65535, `x = round(px * 65535 / W)` and `y = round(py * 65535 / H)`, where `W` and `H` are the size of the image `px` and `py` were read from, and `HID type` sends printable ASCII alone.
 
 ## [04]-[CHANGES]
 
