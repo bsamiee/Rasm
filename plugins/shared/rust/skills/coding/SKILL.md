@@ -38,7 +38,6 @@ Parameter types state every value a function accepts, and its return type every 
 - Facts a dependency or the build states come from it (a protocol version from its package's constant, `env!("CARGO_PKG_NAME")`)
 - Strings hold text a reader receives or a wire's fixed token, and a kind, key, or name derives from its owner (a type, a variant, a field)
 - Text no program prints and no host shows goes
-- Inherent methods construct their type or keep its invariant, and other behavior goes in functions
 - Helpers one function reads are closures inside it, or a nested `fn` that is generic, `const`, recursive, or returns a borrow of a parameter
 - Bodies doing more than one job split by job into functions reading their parameters, never into a run of named closures
 - Lints wrong for one site take `#[expect(<lint>, reason = "<fact>")]`, and a lint wrong for a whole crate leaves its manifest with that reason
@@ -151,6 +150,7 @@ pub enum Delivery {
 
 Rules the domain owns become types whose constructor enforces them, and the inner value is reachable only through that constructor:
 - `nutype` declares a validated newtype with its `<Name>Error` enum, or returns the crate error through `validate(with = <fn>, error = <Error>)`
+- Floats whose only rule is a sign and finiteness class take their `typed_floats` type (`tf64::StrictlyPositiveFinite`), and `nutype` holds a rule beyond it
 - Values whose consumers read a derived quantity are a struct holding it, its constructor computing and testing it once
 - Invariants consumers rely on (a sorted list) are a type each operation takes and returns, never a check repeated per use
 - Guarded records expose fields read-only through `derive_more` `#[as_ref]`, and public fields hold values no rule across fields constrains
