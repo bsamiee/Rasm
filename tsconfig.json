@@ -313,6 +313,9 @@
         },
         {
             "path": "./libs/typescript/ai/report"
+        },
+        {
+            "path": "./plugins/claude/dreamweave"
         }
     ]
 }

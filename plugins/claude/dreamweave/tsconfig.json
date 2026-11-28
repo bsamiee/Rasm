@@ -1,4 +1,6 @@
 {
-    "extends": "../../../libs/typescript/ai/claude-code/tsconfig.base.json",
-    "compilerOptions": { "noEmit": true }
+    "extends": "../../../tsconfig.base.json",
+    "compilerOptions": { "noEmit": true },
+    "files": [],
+    "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
 }

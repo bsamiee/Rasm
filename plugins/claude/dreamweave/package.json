@@ -1,0 +1,27 @@
+{
+    "name": "@rasm/dreamweave",
+    "private": true,
+    "description": "Claude Code hooks that keep the auto-memory index, point agents at the memories their calls name, and restore whole skill text after compaction",
+    "files": [
+        "skills/**"
+    ],
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "devDependencies": {
+        "@rasm/claude-code": "workspace:*",
+        "@rasm/policy": "workspace:*",
+        "@rasm/report": "workspace:*",
+        "@rasm/vite": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "sh-syntax": "catalog:",
+        "vite": "catalog:"
+    },
+    "nx": {
+        "tags": [
+            "host:claude-code"
+        ]
+    }
+}

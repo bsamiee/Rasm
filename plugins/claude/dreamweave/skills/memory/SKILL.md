@@ -5,7 +5,7 @@ description: "Use when saving, changing, or auditing a Claude Code auto-memory f
 
 # [DREAMWEAVE_MEMORY]
 
-This skill is loaded. Your next call Reads the reference for the work, before any read, search, or write in the memory folder, and its steps replace your own plan; Read it again after a compaction: a memory that does not exist yet -> `references/create.md`, a change inside one existing memory -> `references/edit.md`, the set or any merge, split, rename, or delete -> `references/evaluate.md`. `MEMORY.md` is generated from each file's `description` after every memory write, so no step writes it, even when it looks stale, and a folder holding none gets it from `scripts/index.py <memory-dir>` before any other step.
+This skill is loaded. Your next call Reads the reference for the work, before any read, search, or write in the memory folder, and its steps replace your own plan; Read it again after a compaction: a memory that does not exist yet -> `references/create.md`, a change inside one existing memory -> `references/edit.md`, the set or any merge, split, rename, or delete -> `references/evaluate.md`. `MEMORY.md` is generated from each file's `description` after every memory write, so no step writes it, even when it looks stale, and a folder holding none gets it from `scripts/index.py <memory-dir> <project-root>` before any other step.
 
 [REFERENCES]:
 - [01]-[CREATE](references/create.md): Saving a new memory file
@@ -13,7 +13,7 @@ This skill is loaded. Your next call Reads the reference for the work, before an
 - [03]-[EVALUATE](references/evaluate.md): Auditing the memory set, and merging, splitting, renaming, or deleting files
 
 [SCRIPTS]:
-- [01]-[INDEX](scripts/index.py): Regenerates `MEMORY.md` and commits the folder when a memory file changes, run by the plugin
+- [01]-[INDEX](scripts/index.py): Regenerates `MEMORY.md`, validates triggers, and commits the folder when a memory file changes, run by the plugin
 
 ## [01]-[RECALL]
 
@@ -28,6 +28,7 @@ Claude Code recalls memory in an index mode or a selector mode, and every file s
 - Caching: each session and its subagents, against the docs, keep their starting index until compaction, `/clear`, or the plugin's refresh (tried 2026-11-26)
 - Other sessions: running sessions keep their own copy, so a rename strands their links until they restart, and renames wait for a quiet pass
 - Outside writers: harness save steps, dream, and extraction write memory without this skill, and the plugin restores the index after each
+- Triggers: subagents load no index, so a memory reaches one through the `triggers` its calls match by `[08]`, and through its brief
 
 ## [02]-[ADMISSION]
 
@@ -144,3 +145,32 @@ Facts from a run or a source end with one mark, and a mark opening a group cover
 - Lines: `- [<stem>](<stem>.md) — <description>` under a `## <field>` heading per first word 2 stems share, one not a rule, the rest first, sorted
 - Budget: the index loads 200 lines or 25KB, headings included, the set stays under 160 lines and 20,000 bytes, and merges free space before trims
 - Validation: a refused file keeps its last good line, or a bare `- [<stem>](<stem>.md)` line, and the plugin reports it back to the session
+- Runs: `scripts/index.py <memory-dir> <project-root>`, the project root resolving relative trigger paths against its tracked files
+
+## [08]-[TRIGGERS]
+
+Frontmatter `triggers` names the calls that bring the memory to the agent making them, main loop and subagents alike, as one line after the call's result: `memory <stem>: <description>` and a `Read` call of the file. Each agent hears a memory once, and again after its compaction, and texts match with case ignored:
+
+| [INDEX] | [FIELD]    | [VALUE]                                               | [MATCHES]                                                   |
+| :-----: | :--------- | :---------------------------------------------------- | :---------------------------------------------------------- |
+|  [01]   | `paths`    | Globs from the project root, or opening `/` or `~/`   | Read, Write, or Edit of a file, or a file a command touches |
+|  [02]   | `programs` | Program word, then subcommand words and flags         | Command running it in a script, pipeline, or `ssh` line     |
+|  [03]   | `tools`    | `name` glob of `mcp__<server>__<tool>`, `input` texts | MCP call with a text in each `input` field                  |
+|  [04]   | `output`   | Texts                                                 | Result holding a text, results of read-only calls skipped   |
+|  [05]   | `refuse`   | `programs` and `tools` rows                           | First matching call, refused until the agent reads the file |
+
+```yaml
+triggers:
+  programs: [rsync]
+  paths: ["~/Library/CloudStorage/**"]
+  refuse:
+    programs: ["rsync --delete"]
+```
+
+Triggers pass these tests, and a trigger failing one goes:
+- Act: names the identifier a call carries when the memory changes that call (program, file, tool, error text), never one most calls share (`libs/**`, `**/*.ts`)
+- Behavior: a memory with no tool, path, or program to key on (briefing, naming, cause-proving) takes none and works through its index line
+- Parser: a rule a command parser checks before the call (a foreground build, a missing flag) is a function-hooks rule, and its memory keeps the cause
+- Refusal: only a first wrong call doing damage a later read cannot undo (`rsync --delete`, an app launch pulling focus) takes `refuse`, as pointers arrive after the call ran
+- Output: text a failing call prints (`fork: retry`), since results of read-only calls (`rg`, `cat`, `Read`) quoting memory and research text never match
+- Validation: `scripts/index.py` refuses a relative glob matching no tracked file, an absolute one whose fixed folder is missing, an unknown key, and a tool outside `mcp__`

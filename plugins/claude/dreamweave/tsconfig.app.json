@@ -1,0 +1,21 @@
+{
+    "extends": "../../../libs/typescript/ai/claude-code/tsconfig.base.json",
+    "compilerOptions": { "noEmit": true },
+    "exclude": ["vite.config.ts"],
+    "references": [
+        {
+            "path": "../../../libs/typescript/ai/report"
+        },
+        {
+            "path": "../../../libs/typescript/ai/policy"
+        },
+        {
+            "path": "../../../libs/typescript/ai/claude-code"
+        }
+    ],
+    "nx": {
+        "sync": {
+            "ignoredDependencies": ["@rasm/vite"]
+        }
+    }
+}

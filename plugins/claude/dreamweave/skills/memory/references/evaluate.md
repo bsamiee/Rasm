@@ -6,7 +6,7 @@ Evaluations judge the memory set as a system and rebuild it from its files' fact
 
 Readings precede every judgment, each from the tool that records it:
 1. Change record: `git -C <memory-dir> log --stat <tag>..`, with `<tag>` from the first command below, or the whole log when no tag exists
-2. Structure: `scripts/index.py <memory-dir>` reports sizes, links, frontmatter, and index budget, and changes nothing in a current folder
+2. Structure: `scripts/index.py <memory-dir> <project-root>` reports sizes, links, frontmatter, triggers, and index budget, and changes nothing in a current folder
 3. Identifiers: the second command lists each backticked identifier more than one file holds, with those files
 4. Bodies: each cluster's files read side by side, as restated facts share no identifier as often as they share one
 5. Lines: each index line read against 3 requests its body answers, as a new session sees the index alone
@@ -28,6 +28,8 @@ Signals point at a cause and its remedy:
 |  [05]   | Mark citing an older build or moved path     | Fact possibly stale                     | Fact rechecked by `SKILL.md` `[06]`          |
 |  [06]   | Identifier shared across files               | One fact stated twice                   | Cluster edge                                 |
 |  [07]   | Fact restated across siblings                | Cross-cutting fact held twice           | Extraction into a general memory             |
+|  [08]   | Body naming a program, tool, or error text   | No call brings the file to an agent     | `triggers` added by `SKILL.md` `[08]`        |
+|  [09]   | Trigger most calls share, or a parsed rule   | Noise, or recall where a check fits     | Trigger cut, or a function-hooks rule        |
 
 Rule files whose index line carries the rule draw sessions to act on the line and never open the body. Reading the file's requests against the body decides the fix:
 - Body answers what the line cannot -> description names that content (cases, scope, `Not:` lines) after the rule
@@ -63,7 +65,7 @@ Rebuilds run raw content before judgment and general memories before specifics, 
 10. General: written first by `SKILL.md` `[03]` and `[04]`, its lead the shared answer most requests need
 11. Specifics: each rebuilt from its own rows with Edit, every shared fact deleted, one link clause placed in the group needing the general
 12. Descriptions: each rewritten by `SKILL.md` `[05]`, a general bounded against its specifics and a specific by the subject its general lacks
-13. Links: bare `Related:` lists replaced by link clauses or deleted, then `scripts/index.py <scratch>/memory` checks each resolves
+13. Links: bare `Related:` lists replaced by link clauses or deleted, then `scripts/index.py <scratch>/memory <project-root>` checks each resolves
 14. Check: reading 5 of `[01]` over every changed file, a request its line misses sending the file back to step 12
 15. Return: `git -C <memory-dir> pull --ff-only --no-tags <scratch>/memory main`
 16. Refusal: a refused pull means another session wrote, so the clone rebases on it, rereads the new commits, and reruns step 14

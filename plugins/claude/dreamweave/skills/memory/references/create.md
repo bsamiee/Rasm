@@ -39,9 +39,9 @@ Lines from one moment often split across rows, and each row runs its own work:
 5. Pick each new file's kind and type by `SKILL.md` `[03]` and its stem by `SKILL.md` `[04]`, as a general or specific name of its field
 6. Write a new general memory first: a lead naming the concern, then the lines true of every subject under it, each marked by `SKILL.md` `[06]`
 7. Write each specific memory with its own subject's lines alone, none of its general memory's, and the link clause `SKILL.md` `[04]` places
-8. Write 3 should-load requests per new file by `SKILL.md` `[05]`, then the description from them
+8. Write 3 should-load requests per new file by `SKILL.md` `[05]`, then the description from them, and `triggers` by `SKILL.md` `[08]` where a call names the subject
 9. Apply `SKILL.md` `[04]` merge and split to the requests: all needing a sibling's body fold the file into it, no shared situation splits it
-10. Clone with `git clone -q <memory-dir> <scratch>/memory`, write the files and link clauses there, and run `scripts/index.py <scratch>/memory`
+10. Clone with `git clone -q <memory-dir> <scratch>/memory`, write the files and link clauses there, and run `scripts/index.py <scratch>/memory <project-root>`
 11. Read each request against the generated index alone, as a new session sees it: a request no line sends to its file rewrites that description
 12. Print each new file's body, requests, and added link clauses in the reply, then ask one `multiSelect` `AskUserQuestion` without `preview`
 13. Give each memory one option, its stem as label and its description as text, and a second option `None` where one memory stands alone
@@ -72,4 +72,4 @@ Created files go wrong in these forms:
 
 ## [05]-[FIRST_WRITE]
 
-Frontmatter holds `name` equal to the stem, a one-line `description`, and `metadata.type`, and the harness adds `node_type`, `originSessionId`, and `modified` on its first write and can requote values.
+Frontmatter holds `name` equal to the stem, a one-line `description`, `metadata.type`, and `triggers` where `SKILL.md` `[08]` gives one, and the harness adds `node_type`, `originSessionId`, and `modified` on its first write and can requote values.

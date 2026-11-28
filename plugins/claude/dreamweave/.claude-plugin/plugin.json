@@ -1,0 +1,8 @@
+{
+    "name": "dreamweave",
+    "version": "0.1.0",
+    "description": "Claude Code auto-memory system: a skill for writing, editing, and auditing memories, a generated MEMORY.md index with git history, memory pointers on the calls each memory names, and whole skill text after compaction",
+    "author": {
+        "name": "Bardia Samiee"
+    }
+}

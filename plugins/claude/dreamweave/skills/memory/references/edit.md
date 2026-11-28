@@ -13,7 +13,7 @@ Requests name the change, and an edit makes that change alone, so a sharpen requ
 |  [03]   | Correct  | Run, source, or owner proves a line wrong     | Line rewritten from that evidence                                |
 |  [04]   | Sharpen  | Rule restated, or its mistake recurring       | One rewritten lead, a `Not:` line on recurrence                  |
 |  [05]   | Refine   | Lead buried, parts missing, pronoun subject   | Lines reordered and rewritten to their kind in `SKILL.md` `[03]` |
-|  [06]   | Rescope  | Evidence widens or narrows where a fact holds | Condition, trigger, or `Holds until:` rewritten                  |
+|  [06]   | Rescope  | Evidence widens or narrows where a fact holds | Condition, `triggers` row, or `Holds until:` rewritten           |
 |  [07]   | Retire   | Fact failing admission or no longer true      | Line deleted with its links and the rows it alone answered       |
 |  [08]   | Relink   | Link bare, broken, or restating its target    | Clause rebuilt by `[04]`                                         |
 
@@ -82,5 +82,6 @@ Link clauses (`SKILL.md` `[04]`) sit beside the line whose fact depends on their
 5. Rewrite in place with Edit, never Write, so harness and plugin metadata survive, keeping the lead first and every fact marked by `SKILL.md` `[06]`
 6. Open `references/evaluate.md` when the file serves disjoint request groups, passes 4096 bytes, or holds a fact its siblings repeat
 7. Rewrite each touched description by `SKILL.md` `[05]` when its lead, scope, or gist changed, or a rule or profile body outgrew its index line
-8. Read 3 requests the changed body answers against its index line alone, rewriting the line by step 7 until each request lands on this file
-9. Fix any refusal the plugin reports back before the work ends
+8. Rewrite its `triggers` by `SKILL.md` `[08]` when the change names a program, path, tool, or error text
+9. Read 3 requests the changed body answers against its index line alone, rewriting the line by step 7 until each request lands on this file
+10. Fix any refusal the plugin reports back before the work ends

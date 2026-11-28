@@ -10,7 +10,8 @@
 
 from collections import Counter
 from functools import cache
-from itertools import groupby
+import glob
+from itertools import groupby, takewhile
 import os
 from pathlib import Path
 import re
@@ -41,10 +42,36 @@ class _Metadata(msgspec.Struct, frozen=True):
     type: Literal["user", "feedback", "project", "reference"]
 
 
+class _Tool(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    name: Annotated[str, msgspec.Meta(pattern=r"^mcp__\S+$")]
+    input: Mapping[str, tuple[Annotated[str, msgspec.Meta(pattern=r"\S")], ...]] = msgspec.field(default_factory=dict)
+
+
+class _Refusal(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    programs: tuple[Annotated[str, msgspec.Meta(pattern=r"^[^\s-]\S*(?: \S+)*$")], ...] = ()
+    tools: tuple[_Tool, ...] = ()
+
+
+class _Triggers(msgspec.Struct, frozen=True, forbid_unknown_fields=True):
+    paths: tuple[Annotated[str, msgspec.Meta(pattern=r"^[^{}\s]+$")], ...] = ()
+    programs: tuple[Annotated[str, msgspec.Meta(pattern=r"^[^\s-]\S*(?: \S+)*$")], ...] = ()
+    tools: tuple[_Tool, ...] = ()
+    output: tuple[Annotated[str, msgspec.Meta(pattern=r"\S")], ...] = ()
+    refuse: _Refusal = msgspec.field(default_factory=_Refusal)
+
+
 class _Frontmatter(msgspec.Struct, frozen=True):
     name: str
     description: Annotated[str, msgspec.Meta(pattern=r"\S")]
     metadata: _Metadata
+    triggers: _Triggers = msgspec.field(default_factory=_Triggers)
+
+
+class _Row(msgspec.Struct, frozen=True):
+    memory: str
+    description: str
+    file: str
+    triggers: _Triggers
 
 
 class _Finding(msgspec.Struct, frozen=True, order=True):
@@ -104,7 +131,18 @@ def _decoded(blocks: list[Token], /) -> _Frontmatter | yaml.YAMLError | msgspec.
             return "is absent"
 
 
-def _entry(stems: frozenset[str], listed: Mapping[str, str], path: Path, /) -> tuple[str, tuple[_Finding, ...], str | None]:
+def _placed(pattern: str, top: Path, /) -> str:
+    return str(Path.home() / pattern.removeprefix("~/")) if pattern.startswith("~/") else pattern if pattern.startswith("/") else str(top / pattern)
+
+
+def _reaches(pattern: str, top: Path, tracked: tuple[str, ...], /) -> bool:
+    if pattern.startswith(("/", "~/")):
+        return Path(*takewhile(lambda part: re.search(r"[*?\[]", part) is None, Path(_placed(pattern, top)).parts)).exists()
+    matcher = re.compile(glob.translate(pattern, recursive=True, include_hidden=True))
+    return any(matcher.match(path) for path in tracked)
+
+
+def _entry(stems: frozenset[str], listed: Mapping[str, str], project: tuple[Path, tuple[str, ...]], path: Path, /) -> tuple[str, tuple[_Finding, ...], str | None, _Row | None]:
     raw = path.read_bytes()
     blocks = _markdown().parse(raw.decode())
     links = (
@@ -116,20 +154,28 @@ def _entry(stems: frozenset[str], listed: Mapping[str, str], path: Path, /) -> t
     )
     budget = (_Finding(path.name, 1, f"file holds {len(raw)} bytes, past the 4096 recall shows", blocking=False),) if len(raw) > 4096 else ()
     match _decoded(blocks):
-        case _Frontmatter(name=name, description=description, metadata=_Metadata(type=kind)):
-            hook = " ".join(description.split())
+        case _Frontmatter(name=name, description=description, metadata=_Metadata(type=kind), triggers=triggers):
+            hook, (top, tracked) = " ".join(description.split()), project
+            unreached = tuple(
+                _Finding(path.name, 1, f"trigger path `{pattern}` reaches no {'path' if pattern.startswith(('/', '~/')) else 'tracked file'}", blocking=True)
+                for pattern in triggers.paths
+                if not _reaches(pattern, top, tracked)
+            )
             checks = (
                 (name != path.stem, f"name `{name}` differs from the file stem"),
                 ("\n" in description.strip(), "description spans more than one line"),
                 (len(hook) > 150, f"description holds {len(hook)} characters, over 150"),
             )
-            return f"- [{path.stem}]({path.name}) — {hook}", (*(_Finding(path.name, 1, message, blocking=True) for failed, message in checks if failed), *links, *budget), kind
+            row = (
+                None if unreached or triggers == _Triggers() else _Row(path.stem, hook, str(path), msgspec.structs.replace(triggers, paths=tuple(_placed(pattern, top) for pattern in triggers.paths)))
+            )
+            return f"- [{path.stem}]({path.name}) — {hook}", (*(_Finding(path.name, 1, message, blocking=True) for failed, message in checks if failed), *unreached, *links, *budget), kind, row
         case yaml.MarkedYAMLError(problem=str(problem), problem_mark=mark) if mark is not None:
             line, reason = mark.line + 2, f"frontmatter YAML {problem}"
         case refused:
             line, reason = 1, f"frontmatter {refused}"
     kept = f"{reason}, so the index {'keeps its earlier line' if path.stem in listed else 'lists it bare'}"
-    return listed.get(path.stem, f"- [{path.stem}]({path.name})"), (_Finding(path.name, line, kept, blocking=True), *links, *budget), None
+    return listed.get(path.stem, f"- [{path.stem}]({path.name})"), (_Finding(path.name, line, kept, blocking=True), *links, *budget), None, None
 
 
 def _measured(text: str, /) -> Iterable[_Finding]:
@@ -147,11 +193,23 @@ def _git(folder: Path, /, *args: str) -> str:
     return subprocess.run(("git", "-C", str(folder), *args), stdout=subprocess.PIPE, check=True, text=True).stdout
 
 
+def _project(root: Path, /) -> tuple[Path, tuple[str, ...]]:
+    found = subprocess.run(("git", "-C", str(root), "rev-parse", "--show-toplevel"), stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False, text=True)
+    top = Path(found.stdout.strip()) if found.returncode == 0 else root
+    return top, tuple(_git(top, "ls-files", "-z").split("\0")[:-1]) if found.returncode == 0 else ()
+
+
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def index(memory: Path, /) -> int:
-    """Validate every memory file, regenerate MEMORY.md from their descriptions, and commit the folder, initializing its repository when it has none; exit 1 on errors in changed files."""
+def index(memory: Path, root: Path, /, *, table: bool) -> int:
+    """Validate every memory file against the project at root, regenerate MEMORY.md from their descriptions, and commit the folder, initializing its repository when it has none; exit 1 on errors in changed files.
+
+    With table, the trigger rows of every file whose triggers validate go to stdout as JSON, and the report to stderr.
+
+    Returns:
+        1 when a changed file holds an error, else 0.
+    """
     if fresh := not (memory / ".git").exists():
         _git(memory, "init", "-q")
         _git(memory, "config", "commit.gpgsign", "false")
@@ -162,9 +220,10 @@ def index(memory: Path, /) -> int:
         previous = ""
     paths = [path for path in memory.glob("[!.]*.md") if path.name != _INDEX]
     (listed, foreign), stems = _listed(previous), frozenset(path.stem for path in paths)
-    read = [(path.stem.partition("-")[0], path.stem, *_entry(stems, listed, path)) for path in paths]
-    shared, specific = Counter(word for word, *_ in read), frozenset(word for word, *_, kind in read if kind not in {None, "feedback", "user"})
-    entries = sorted(((word if shared[word] > 1 and word in specific else "", stem, line, found) for word, stem, line, found, _ in read), key=lambda entry: entry[:2])
+    project = _project(root)
+    read = [(path.stem.partition("-")[0], path.stem, *_entry(stems, listed, project, path)) for path in paths]
+    shared, specific = Counter(word for word, *_ in read), frozenset(word for word, *_, kind, _ in read if kind not in {None, "feedback", "user"})
+    entries = sorted(((word if shared[word] > 1 and word in specific else "", stem, line, found) for word, stem, line, found, _, _ in read), key=lambda entry: entry[:2])
     text = "\n".join((f"## {field}\n" if field else "") + "".join(f"{line}\n" for *_, line, _ in group) for field, group in groupby(entries, key=lambda entry: entry[0]))
     if written := text != previous:
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", dir=memory, prefix=f".{_INDEX}.", delete=False) as staged:
@@ -180,7 +239,9 @@ def index(memory: Path, /) -> int:
     graded = [(finding.blocking and not fresh and finding.path in changed, finding) for finding in sorted((*foreign, *(finding for *_, found in entries for finding in found), *_measured(text)))]
     errors = sum(error for error, _ in graded)
     commit = f"commit {_git(memory, 'rev-parse', '--short', 'HEAD').strip()}" if changed else "nothing to commit"
-    sys.stdout.writelines((
+    if table:
+        sys.stdout.buffer.write(msgspec.json.encode(sorted((row for *_, row in read if row is not None), key=lambda row: row.memory)))
+    (sys.stderr if table else sys.stdout).writelines((
         *(f"{'error' if error else 'warning'}: {finding.path}:{finding.line}: {finding.message}\n" for error, finding in graded),
         f"{errors} errors, {len(graded) - errors} warnings, {_INDEX} {'written' if written else 'unchanged'}, {commit}\n",
     ))
@@ -188,8 +249,8 @@ def index(memory: Path, /) -> int:
 
 
 if __name__ == "__main__":
-    _, folder = sys.argv
+    _, folder, root, *mode = sys.argv
     try:
-        sys.exit(index(Path(folder)))
+        sys.exit(index(Path(folder), Path(root), table=mode == ["--table"]))
     except subprocess.CalledProcessError as error:
         sys.exit(error.returncode)
