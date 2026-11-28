@@ -64,37 +64,27 @@ type ProgramRow = { readonly program: string; readonly aliases?: readonly string
 type ScriptRow = { readonly action: 'Shell'; readonly program?: never } & (Denial | { readonly decide: (script: Script, call: Call) => Verdicts<Verdict<'Shell'>> });
 type ActionRow<K extends NonShell> = { readonly action: K; readonly program?: never } & ((Denial extends Verdict<K> ? Denial : never) | { decide(action: (typeof Action.cases)[K]['Type']): Verdicts<Verdict<K>> });
 type Table = Readonly<Record<string, ProgramRow | ScriptRow | { [K in NonShell]: ActionRow<K> }[NonShell] | null>>;
-interface Tally {
-    readonly reasons: readonly Outcome[];
-    readonly notes: readonly Heard[];
-    readonly faults: readonly string[];
-    readonly edits: readonly (Edit & { readonly rule: string })[];
-    readonly move: Move;
-    readonly watch: Watch;
-    readonly drop: readonly string[];
-    readonly rename: Readonly<Record<string, string>>;
-    readonly ensure: readonly Ensure[];
-}
-interface Compiled {
-    readonly kinds: readonly Kind[];
-    readonly shell: readonly ((call: Call) => Effect.Effect<Tally, never, Requirements>)[];
-    readonly others: readonly ((action: Action) => Effect.Effect<Tally, never, Requirements>)[];
-}
+type Tally = typeof Tally.initialValue;
+type Compiled = typeof Compiled.initialValue;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const tally = Struct.makeReducer<Tally>({
-    reasons: Array.getReadonlyReducerConcat(),
-    notes: Array.getReadonlyReducerConcat(),
-    faults: Array.getReadonlyReducerConcat(),
-    edits: Array.getReadonlyReducerConcat(),
+const Tally = Struct.makeReducer({
+    reasons: Array.getReadonlyReducerConcat<Outcome>(),
+    notes: Array.getReadonlyReducerConcat<Heard>(),
+    faults: Array.getReadonlyReducerConcat<string>(),
+    edits: Array.getReadonlyReducerConcat<Edit & { readonly rule: string }>(),
     move: Reducer.make<Move>((self, that) => Ordering.match(byRun(self.run, that.run), { onLessThan: () => that, onEqual: () => ({ ...self, notes: [...self.notes, ...that.notes] }), onGreaterThan: () => self }), { run: 'foreground', notes: [] }),
     watch: Reducer.make<Watch>((self, that) => Ordering.match(Duration.Order(self.again, that.again), { onLessThan: () => self, onEqual: () => ({ ...self, rules: [...self.rules, ...that.rules] }), onGreaterThan: () => that }), { again: Duration.infinity, rules: [] }),
-    drop: Array.getReadonlyReducerConcat(),
-    rename: Record.makeReducerUnion(Combiner.last()),
-    ensure: Array.getReadonlyReducerConcat(),
+    drop: Array.getReadonlyReducerConcat<string>(),
+    rename: Record.makeReducerUnion<string, string>(Combiner.last()),
+    ensure: Array.getReadonlyReducerConcat<Ensure>(),
 });
-const compiled = Struct.makeReducer<Compiled>({ kinds: Array.getReadonlyReducerConcat(), shell: Array.getReadonlyReducerConcat(), others: Array.getReadonlyReducerConcat() });
+const Compiled = Struct.makeReducer({
+    kinds: Array.getReadonlyReducerConcat<Kind>(),
+    shell: Array.getReadonlyReducerConcat<(call: Call) => Effect.Effect<Tally, never, Requirements>>(),
+    others: Array.getReadonlyReducerConcat<(action: Action) => Effect.Effect<Tally, never, Requirements>>(),
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -115,8 +105,8 @@ const evaluate = (rule: string) => {
             const given = verdicts();
             return Effect.isEffect(given) ? given : Effect.succeed(given);
         }).pipe(
-            Effect.map((given) => tally.combineAll(given.map((verdict) => ({ ...tally.initialValue, ...lift(verdict) })))),
-            Effect.catchCause((cause) => Effect.succeed({ ...tally.initialValue, faults: [`${rule}: failed and judged nothing: ${message(cause)}`] })),
+            Effect.map((given) => Tally.combineAll(given.map((verdict) => ({ ...Tally.initialValue, ...lift(verdict) })))),
+            Effect.catchCause((cause) => Effect.succeed({ ...Tally.initialValue, faults: [`${rule}: failed and judged nothing: ${message(cause)}`] })),
         );
 };
 const flagEdits =
@@ -205,7 +195,7 @@ const compileProgram = (rule: string, { program, aliases = [], path = [], ...row
                         ),
                     ),
             ),
-            tally.combineAll,
+            Tally.combineAll,
         );
 };
 const compileScript = (rule: string, row: ScriptRow): Compiled['shell'][number] => {
@@ -215,7 +205,7 @@ const compileScript = (rule: string, row: ScriptRow): Compiled['shell'][number] 
 const compileAction = <K extends NonShell>(rule: string, row: ActionRow<K>): Compiled['others'][number] => {
     const [is, toTally] = [Action.guards[row.action], evaluate(rule)];
     const decide = 'decide' in row ? (action: (typeof Action.cases)[K]['Type']) => row.decide(action) : () => [row];
-    return (action) => (is(action) ? toTally(() => decide(action)) : Effect.succeed(tally.initialValue));
+    return (action) => (is(action) ? toTally(() => decide(action)) : Effect.succeed(Tally.initialValue));
 };
 const compile = (rule: string, row: NonNullable<Table[string]>): Compiled =>
     Match.value(row).pipe(
@@ -226,4 +216,4 @@ const compile = (rule: string, row: NonNullable<Table[string]>): Compiled =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Call, compile, type Compiled, compiled, type FlagEdit, type Invocation, message, type ProgramRow, type Requirements, type Script, type Table, type Tally, tally, type Verdict };
+export { type Call, compile, Compiled, type FlagEdit, type Invocation, message, type ProgramRow, type Requirements, type Script, type Table, Tally, type Verdict };

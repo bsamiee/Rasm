@@ -1,7 +1,7 @@
 import { Shell } from '@rasm/shell';
 import { Array, Combiner, ConfigProvider, Duration, Effect, Equal, Exit, HashSet, Match, Number, Option, Predicate, Record, Ref, Stream, Struct } from 'effect';
 import { Action, byRun, Decision, Outcome, Scope, scopes } from '#/action';
-import { type Call, compile, type Compiled, compiled, message, type Requirements, type Table, type Tally, tally } from '#/rule';
+import { type Call, Compiled, compile, message, type Requirements, type Table, Tally } from '#/rule';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -30,7 +30,7 @@ class Policy {
 
     constructor(...tables: Table[]) {
         const rules = Record.filter(Record.makeReducerUnion<string, Table[string]>(Combiner.last()).combineAll(tables), Predicate.isNotNull);
-        this.#compiled = compiled.combineAll(Record.collect(rules, compile));
+        this.#compiled = Compiled.combineAll(Record.collect(rules, compile));
     }
 
     appliesTo(kind: Action['_tag']): boolean {
@@ -53,7 +53,7 @@ class Policy {
         const decideOther = (other: Action) =>
             Effect.map(
                 Effect.forEach(others, (decide) => decide(other)),
-                tally.combineAll,
+                Tally.combineAll,
             );
         const decided = Action.matchOrElse(
             action,
@@ -104,7 +104,7 @@ const decideShell = Effect.fnUntraced(function* <E, R>(action: Call['action'], r
     const round = Effect.fnUntraced(function* ({ trail, move: reached, notes: told, faults: failed, written: first }: Progress): Effect.fn.Return<readonly [readonly Settled[], Option.Option<Progress>], Effect.Error<Script['invocations']>, Requirements> {
         const { script } = Array.lastNonEmpty(trail);
         const invocations = (yield* script.invocations).flatMap(({ leaves }) => leaves);
-        const sum = tally.combineAll(yield* Effect.forEach(rounds, (decide) => decide({ action, script, invocations, cwd, shell, run: reached.run })));
+        const sum = Tally.combineAll(yield* Effect.forEach(rounds, (decide) => decide({ action, script, invocations, cwd, shell, run: reached.run })));
         const edited = yield* Effect.reduce(Array.isReadonlyArrayNonEmpty(sum.reasons) ? [] : sum.edits, (): Edits => ({ edits: [], rules: [], script: Option.none(), faults: [] }), apply(script));
         const before = Array.dedupe(trail.flatMap(({ by }) => by));
         const editors = Array.dedupe([...before, ...edited.rules]);
