@@ -25,7 +25,7 @@ Hosts draw the dialog in one layout each, which `CLAUDE_CODE_ENTRYPOINT` names a
 
 | [INDEX] | [LAYOUT] | [HOSTS]                                   | [DRAWS]                                                                   |
 | :-----: | :------- | :---------------------------------------- | :------------------------------------------------------------------------ |
-|  [01]   | Terminal | `cli`                                     | Labels beside a preview box, notes on `n`, script's own-answer row        |
+|  [01]   | Terminal | `cli`                                     | Labels beside a preview box and notes on `n`, else host `Type something.` |
 |  [02]   | Webview  | `claude-vscode`                           | Labels beside a scrolling preview pane, host `Other` row with a text box  |
 |  [03]   | Plain    | Desktop, SDK, and remote hosts, `--plain` | Labels and descriptions, content inside the question text, host typed row |
 
@@ -35,7 +35,7 @@ Terminal facts the script measures and states:
 - Cut bar: lines past the box height wait behind the host's `✂ N lines hidden` bar, and enlarging the pane draws them
 - Previews: Markdown with `ini`, `diff`, and `text` fences highlighted, no background colors, no Mermaid or HTML, at most 2000 units
 - Notes: typed on the focused row, returned after its label, the one free answer a preview question offers
-- Multi-select questions draw no preview and keep the host's `Type something.` row
+- Rows: a question sending no preview, every multi-select included, draws descriptions under labels and the host's `Type something.` row
 - Flow: a lone single-select question submits on Enter, and a call of more questions takes Tab between tabs and ends on a review screen
 - Chat: every dialog draws `Chat about this`, which refuses the call with a clarify note
 
@@ -62,11 +62,17 @@ Specs are YAML sequences of asks, each opened by the key naming its form, its va
 |  [04]   | `review`  | Content to accept, a diff, or a commit range | `header`, `show`, `actions`, `recommended`, `when`                 |
 |  [05]   | `changes` | Files changed in a git tree or commit range  | `paths`, `range`, `into`, `noun`, `keys`, `group`                  |
 
+Forms and counts follow what the owner decides:
+- `decide` holds 2 to 4 options, and 5 or more page behind `More options`
+- `select` serves picks that combine, at most 4 checkboxes per question, more splitting into numbered questions
+- `consent` serves one action against holding off, `review` content the owner accepts or rejects
+- `show` and `facts` go only on content labels and descriptions cannot hold, as a previewed question drops the host's typed row
+
 Fields:
 - `header`: at most 12 characters, unique in the spec, as conditions and results name a question by it
 - `options`: label to `does`, one line on what picking it leads to, or in `decide` to `{does, facts, show}`
 - `facts`: short values every `decide` option holds under the same keys, compared side by side in each preview
-- Labels: at most 25 columns and 11 when recommended, no `, `, none of `Other`, `Write my own answer`, `More or write my own`, `More options`, `Let me pick`
+- Labels: at most 25 columns and 11 when recommended, no `, `, none of `Other`, `More options`, `Let me pick`
 - `recommended`: required on `decide` and `consent`, `null` on a `decide` of the owner's taste, which keeps option order and marks none
 - `review` marks its first action recommended unless `recommended` names another
 - `action` and `safe`: one-entry mappings of label to `does`, `safe` defaulting to `Not yet: Leaves everything as it is`
@@ -116,9 +122,8 @@ Previews put deciding lines first, then content, and every row of one call takes
 - Cuts: a preview over 2000 units keeps its first pieces (blocks, lines, rows, records, hunks) and states `✂ k of n <unit> cut · full: <source>`
 - Height: the script never cuts for height, the host cut bar hides the rest, and the question then names the hidden line count and the route
 - Wide: a mockup or table wider than the box wraps, and the `wide` row asks for shorter lines in that mockup alone
-- Pages: 4 or more options show 3 per page and a `More or write my own` row whose preview is the next option's preview or a listing of the rest
-- Own answer: every terminal preview question ends with `Write my own answer`, whose preview lists the options on other pages
-- Webview and plain layouts page by `More options` and leave free text to the host's typed row
+- Content: a question sends previews only when an option holds `show` or `facts` or the ask holds shared content, else none
+- Pages: 5 or more options show 3 per page and a `More options` row, the last page holding up to 4
 - Plain layout: each question's shared content follows its text, option content follows under `<label>:`, and descriptions carry `facts`
 
 ## [05]-[CHANGES]
@@ -179,16 +184,14 @@ Results join questions with `, `, each `"<q>"="<label>"`, and a terminal preview
 |  [01]   | `"<q>"="<label>"`                                           | Act on the label, ` (Recommended)` included in its text                |
 |  [02]   | ` notes: <text>` after a label                              | Label stands, notes qualify it and win where they conflict             |
 |  [03]   | `(no option selected)` with notes                           | Notes typed unmoved, qualifying the first row unless they name another |
-|  [04]   | `Write my own answer` or `More or write my own` with notes  | Notes are the answer, and an option label typed there picks it         |
-|  [05]   | `Write my own answer` without notes                         | Same spec again                                                        |
-|  [06]   | `More or write my own`, `More options`, `Let me pick`       | Call whose `call` row names that label                                 |
-|  [07]   | Label the question never offered                            | Text typed in the host's row, which is the answer                      |
-|  [08]   | Multi-select `<a>, <b>`                                     | Labels split on `, `, as no label holds one                            |
-|  [09]   | `select` tab absent while another tab of its call answered  | No option picked from that tab                                         |
-|  [10]   | `The user wants to clarify these questions.`                | Prose answer to what the owner asks, and the rest in a new spec        |
-|  [11]   | `To tell you how to proceed, the user said:` and other text | That message followed                                                  |
-|  [12]   | `The user doesn't want to proceed` ending in `STOP`         | Stop and wait                                                          |
-|  [13]   | `did not answer`, `(No answer provided)`, a question absent | Ungated work goes on, consent does nothing, asked again next           |
-|  [14]   | `The user asked for more questions`                         | Follow-up spec before any work                                         |
+|  [04]   | `More options`, `Let me pick`                               | Call whose `call` row names that label                                 |
+|  [05]   | Label the question never offered                            | Text typed in the host's row, which is the answer                      |
+|  [06]   | Multi-select `<a>, <b>`                                     | Labels split on `, `, as no label holds one                            |
+|  [07]   | `select` tab absent while another tab of its call answered  | No option picked from that tab                                         |
+|  [08]   | `The user wants to clarify these questions.`                | Prose answer to what the owner asks, and the rest in a new spec        |
+|  [09]   | `To tell you how to proceed, the user said:` and other text | That message followed                                                  |
+|  [10]   | `The user doesn't want to proceed` ending in `STOP`         | Stop and wait                                                          |
+|  [11]   | `did not answer`, `(No answer provided)`, a question absent | Ungated work goes on, consent does nothing, asked again next           |
+|  [12]   | `The user asked for more questions`                         | Follow-up spec before any work                                         |
 
-Clarify arrives inside the `To tell you how to proceed` form, so row `[10]` is read before row `[11]`.
+Clarify arrives inside the `To tell you how to proceed` form, so row `[08]` is read before row `[09]`.

@@ -36,10 +36,6 @@ class Layout(Enum):
     def previews(self) -> bool:
         return self is not Layout.PLAIN
 
-    @property
-    def own(self) -> bool:
-        return self is Layout.TERMINAL
-
 
 class Unit(Enum):
     BLOCKS = ("blocks", "\n\n")
@@ -47,7 +43,6 @@ class Unit(Enum):
     ROWS = ("rows", "\n")
     RECORDS = ("records", "\n")
     HUNKS = ("hunks", "\n\n")
-    OPTIONS = ("options", "\n")
 
     @property
     def noun(self) -> str:
@@ -156,6 +151,10 @@ class Asked(msgspec.Struct, frozen=True, kw_only=True):
     shared: tuple[Block, ...] = ()
     multiple: bool = False
     at: Loc = ()
+
+    @property
+    def previewed(self) -> bool:
+        return not self.multiple and (bool(self.shared) or any(offer.show or offer.facts for offer in self.offers))
 
 
 # --- [FACTS]
@@ -501,8 +500,7 @@ def _hidden(box: Box, question: str, cards: tuple[str, ...], /, *, multi: bool) 
 
 
 def _drawn(asked: Asked, form: RowForm, box: Box, /, *, multi: bool) -> _Drawn:
-    previewed = box.layout.previews and not asked.multiple
-    owns = tuple(offer.blocks for offer in asked.offers) if previewed else ()
+    owns = tuple(offer.blocks for offer in asked.offers) if box.layout.previews and asked.previewed else ()
     room = PREVIEW_UNITS - max((units(drawn(blocks, form, sum(map(size, blocks)))) + 2 for blocks in owns), default=0)
     shared, shared_cuts = fit(asked.shared, form, room) if box.layout.previews else fit(_plain(asked), RowForm(markdown=False), room)
     fitted = tuple(fit(blocks, form, PREVIEW_UNITS - units(shared) - 2 * bool(shared)) for blocks in owns)

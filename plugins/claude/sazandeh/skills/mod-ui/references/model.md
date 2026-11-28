@@ -8,6 +8,7 @@ Everything a mod draws reaches the person alone, and the model reads only hook a
 - `question` is the dialog's text, `header` its chip of at most 12 characters, `options` a tuple of 2 to 4 `{ label, description?, preview? }`, `multiSelect` optional
 - `Answer` is a tagged enum folded by `Answer.$match`: `Picked` (`labels`, `other`, `notes`), `Other` (typed text alone), `Noted` (notes alone), `Declined`
 - Engines list `Type something.` (answering `Other`) and `Chat about this` (answering `Declined`) under the options
+- Terminal single-select questions holding a `preview` drop `Type something.`, and notes on `n` answer `Picked` or `Noted`
 - Refusals the hook returns draw as `⎿ Error: <deny>` on the call row
 - `Effect.timeoutOption(ask(...), <duration>)` takes the dialog down when its moment passed, as interruption aborts the call
 - `Declined` answers a dismissal, a refused call, and a question answered in chat, and a tool error fails with `badArgument`

@@ -80,11 +80,9 @@ type Span = tuple[str, str | None]
 HEADER_UNITS = 12
 LABEL_CELLS = 30 - len("\N{HEAVY RIGHT-POINTING ANGLE QUOTATION MARK ORNAMENT} 1. ")
 RECOMMENDED = " (Recommended)"
-OWN = "Write my own answer"
-MORE = "More or write my own"
 NEXT = "More options"
 PICK = "Let me pick"
-_RESERVED = frozenset(label.casefold() for label in (OWN, MORE, NEXT, PICK, "Other"))
+_RESERVED = frozenset(label.casefold() for label in (NEXT, PICK, "Other"))
 _HIDDEN = regex.compile(r"[[\p{Cc}\p{Cf}\p{Default_Ignorable_Code_Point}\p{Zl}\p{Zp}\u2800]--[\n\t\u200c-\u200f\u061c\ufe00-\ufe0e\u180b-\u180f]]", regex.V1)
 EMOJI = regex.compile(r"\p{Emoji_Presentation}|\ufe0f")
 _PLAIN_SEGMENT = regex.compile(r"[\w-]+")
@@ -509,9 +507,7 @@ __all__ = [
     "HEADER_UNITS",
     "LABEL_CELLS",
     "MARKDOWN",
-    "MORE",
     "NEXT",
-    "OWN",
     "PICK",
     "RECOMMENDED",
     "Ask",

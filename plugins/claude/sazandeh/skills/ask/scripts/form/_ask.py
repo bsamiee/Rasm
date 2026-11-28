@@ -8,17 +8,16 @@ lazy from collections.abc import Iterable
 
 from expression import Error, Ok
 
-from form._card import Asked, Block, Box, Call, Cut, escaped, Offer, rendered, row_form, Rows, Unit
+from form._card import Asked, Block, Box, Call, Offer, rendered, row_form, Rows
 from form._changes import changed, numbered, Step
 from form._show import content, Shown
-from form._spec import Ask, Asking, Changes, Consent, Content, Decide, Fault, gathered, Git, History, Loc, MORE, NEXT, Outcome, OWN, quoted, Reason, Review, Select
+from form._spec import Ask, Asking, Changes, Consent, Content, Decide, Fault, gathered, Git, History, Loc, NEXT, Outcome, quoted, Reason, Review, Select
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _QUESTIONS = 4
 _OPTIONS = 4
 _PAGE = 3
-_OWN_DOES = "Press n, type the answer, press Enter"
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -26,62 +25,32 @@ _OWN_DOES = "Press n, type the answer, press Enter"
 # --- [PAGES]
 
 
-def _listing(offers: Iterable[Offer], /) -> Cut:
-    return Cut(pieces=tuple(f"- **{escaped(offer.name)}** · {escaped(offer.does)}" for offer in offers), unit=Unit.OPTIONS)
-
-
-def _spans(count: int, box: Box, /) -> tuple[int, ...]:
-    match box.layout.own, count <= _OPTIONS:
-        case True, _:
-            return tuple(len(page) for page in batched(range(count), _PAGE))
-        case False, True:
-            return (count,)
-        case False, False:
-            heads = math.ceil((count - _OPTIONS) / _PAGE)
-            return (*(_PAGE,) * heads, count - _PAGE * heads)
+def _spans(count: int, /) -> tuple[int, ...]:
+    heads = math.ceil(max(0, count - _OPTIONS) / _PAGE)
+    return (*(_PAGE,) * heads, count - _PAGE * heads)
 
 
 def _span(start: int, end: int, /) -> str:
     return f"options {start} to {end}" if end > start else f"option {end}"
 
 
-def _closing(offers: tuple[Offer, ...], start: int, end: int, next_end: int, box: Box, /) -> Offer | None:
-    rest, shown = offers[end:], (*offers[:start], *offers[end:])
-    match box.layout.own, rest:
-        case True, (only,):
-            return Offer(name=MORE, does=f"Enter opens {only.name}, n then Enter sends your own answer", show=only.blocks)
-        case True, (_, *_):
-            return Offer(name=MORE, does=f"Enter opens {_span(end + 1, next_end)}, n then Enter sends your own answer", show=(_listing(rest),))
-        case True, ():
-            return Offer(name=OWN, does=_OWN_DOES, show=(_listing(shown),) if shown else ())
-        case False, (_, *_):
-            return Offer(name=NEXT, does=f"Shows {_span(end + 1, next_end)} of {len(offers)}")
-        case _:
-            return None
-
-
-def _paged(question: str, header: str, offers: tuple[Offer, ...], shared: tuple[Block, ...], at: Loc, box: Box, /) -> tuple[Step, ...]:
-    spans = _spans(len(offers), box)
+def _paged(question: str, header: str, offers: tuple[Offer, ...], shared: tuple[Block, ...], at: Loc, /) -> tuple[Step, ...]:
+    spans = _spans(len(offers))
     ends = tuple(accumulate(spans))
     bounds = tuple(zip((end - span for span, end in zip(spans, ends, strict=True)), ends, (*ends[1:], ends[-1]), strict=True))
-    label = MORE if box.layout.own else NEXT
     return tuple(
         (
             Asked(
                 question=question if not index else f"{question} ({_span(start + 1, end)} of {len(offers)})",
                 header=header,
-                offers=(*offers[start:end], *((closing,) if (closing := _closing(offers, start, end, next_end, box)) is not None else ())),
+                offers=(*offers[start:end], *((Offer(name=NEXT, does=f"Shows {_span(end + 1, next_end)} of {len(offers)}"),) if end < len(offers) else ())),
                 shared=shared,
                 at=at,
             ),
-            (index - 1, label) if index else None,
+            (index - 1, NEXT) if index else None,
         )
         for index, (start, end, next_end) in enumerate(bounds)
     )
-
-
-def _closed(asked: Asked, box: Box, /) -> Asked:
-    return asked if asked.multiple else _paged(asked.question, asked.header, asked.offers, asked.shared, asked.at, box)[0][0]
 
 
 def _checked(question: str, header: str, offers: tuple[Offer, ...], at: Loc, /) -> tuple[Step, ...]:
@@ -121,7 +90,6 @@ def _decided(ask: Decide, at: Loc, box: Box, /) -> Outcome[tuple[Step, ...]]:
             ),
             found[0].blocks,
             at,
-            box,
         )
     )
 
@@ -129,17 +97,17 @@ def _decided(ask: Decide, at: Loc, box: Box, /) -> Outcome[tuple[Step, ...]]:
 def _consented(ask: Consent, at: Loc, box: Box, /) -> Outcome[tuple[Step, ...]]:
     facts = (Rows.of(ask.facts.items()),) if ask.facts else ()
     offers = _ranked(Offer(name=name, does=does, recommended=name == ask.recommended) for name, does in (*ask.action.items(), *ask.safe.items()))
-    return _shown(ask.show, (*at, "show"), box).map(lambda shown: _paged(ask.consent, ask.header, offers, (*facts, *shown.blocks), at, box))
+    return _shown(ask.show, (*at, "show"), box).map(lambda shown: _paged(ask.consent, ask.header, offers, (*facts, *shown.blocks), at))
 
 
-def _reviewing(ask: Review, at: Loc, box: Box, shown: Shown, /) -> tuple[Step, ...]:
+def _reviewing(ask: Review, at: Loc, shown: Shown, /) -> tuple[Step, ...]:
     reverting = ask.choices[1][0] if ask.actions is None and isinstance(ask.show, Git) else None
     offers = _ranked(Offer(name=name, does=does, recommended=name == ask.pick, runs=(shown.reverse,) if name == reverting and shown.reverse is not None else ()) for name, does in ask.choices)
-    return _paged(ask.review, ask.header, offers, shown.blocks, at, box)
+    return _paged(ask.review, ask.header, offers, shown.blocks, at)
 
 
 def _reviewed(ask: Review, at: Loc, box: Box, /) -> Outcome[tuple[Step, ...]]:
-    return content(ask.show, (*at, "show"), box).map(partial(_reviewing, ask, at, box))
+    return content(ask.show, (*at, "show"), box).map(partial(_reviewing, ask, at))
 
 
 # --- [ASKS]
@@ -156,7 +124,7 @@ def _steps(ask: Ask, at: Loc, box: Box, /) -> Outcome[tuple[tuple[Step, ...], tu
         case Review():
             return _reviewed(ask, at, box).map(lambda steps: (steps, ()))
         case _:
-            return changed(ask, at, box).map(lambda parts: (tuple((_closed(asked, box), after) for asked, after in parts[0]), parts[1]))
+            return changed(ask, at, box)
 
 
 def _form(ask: Ask, /) -> str:
