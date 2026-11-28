@@ -4,12 +4,13 @@
 
 ## [01]-[MOUNT]
 
-Templates and draft modules become mod bundles in a scratch kit under the plugin's ignored `.cache/`, never committed:
-1. Kit: `plugins/claude/sazandeh/.cache/mount/<name>/` holding `.claude-plugin/plugin.json` (`name`, `version`, `description`), `hooks/hooks.json` (`{ "modules": ["./register.ts"] }`), `hooks/register.ts` (the module), `package.json` (`name`, `private`, `type: module`), and `vite.config.ts` exporting `defineConfig(claude(import.meta.dirname))` from `@rasm/vite/claude`
-2. Build: `../../../node_modules/.bin/vite build --outDir dist --emptyOutDir` inside the kit, as the kit resolves `@rasm/claude-code`, `effect`, and `vite` through the plugin's own `node_modules`
-3. Validate: `claude plugin validate <kit>/dist`, whose `author` warning changes nothing for a local mod
-4. Preview: `uv run --locked --script scripts/preview.py <kit>/dist [--step KIND:VALUE]...`
-5. Delete the kit once the report is read
+Templates and draft modules become mod bundles in a scratch kit under the repository's ignored `.cache/`, never committed:
+1. Kit: `.cache/mod-preview/<name>/` holding `.claude-plugin/plugin.json` (`name`, `version`, `description`), `hooks/hooks.json` (`{ "modules": ["./register.ts"] }`), `hooks/register.ts` (the module), `package.json` (`name`, `private`, `type: module`), and `vite.config.ts` exporting `defineConfig(claude(import.meta.dirname))` from `@rasm/vite/claude`
+2. Link: `ln -s ../../../plugins/claude/sazandeh/node_modules <kit>/node_modules`, as the plugin's `node_modules` holds `@rasm/claude-code`, `@rasm/vite`, `effect`, and `vite`
+3. Build: `node_modules/.bin/vite build --outDir dist --emptyOutDir` inside the kit
+4. Validate: `claude plugin validate <kit>/dist`, whose `author` warning changes nothing for a local mod
+5. Preview: `uv run --locked --script scripts/preview.py <kit>/dist [--step KIND:VALUE]...`
+6. Delete the kit once the report is read
 
 States reached only past auto mode take a kit `hooks/register.ts` wrapping the template in `template.ts`, one matched allow per tool, as validate refuses an unmatched `tool.check` beside another hook on it in one bundle:
 

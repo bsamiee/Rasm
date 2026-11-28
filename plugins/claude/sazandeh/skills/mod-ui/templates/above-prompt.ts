@@ -1,46 +1,26 @@
 import type { Element } from '@rasm/claude-code/element';
-import { Engine } from '@rasm/claude-code/engine';
 import { host } from '@rasm/claude-code/host';
+import { Ledger, type Use } from '@rasm/claude-code/ledger';
 import { Panes } from '@rasm/claude-code/pane';
 import type { On } from 'claude-code';
-import { Array, Context, Data, Duration, Effect, Layer, Option, type PlatformError, Schedule, Stream, SubscriptionRef } from 'effect';
+import { Array, DateTime, Effect, HashMap, Layer, Option, Order, type PlatformError, Stream, SubscriptionRef } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PANE = 'running';
 const BAND = 3;
-const DRAWN = { every: Duration.millis(50), times: 20 } as const;
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-class Running extends Data.Class<{ readonly key: string; readonly tool: string; readonly agent: Option.Option<string> }> {}
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
-class Calls extends Context.Service<Calls, { readonly running: SubscriptionRef.SubscriptionRef<readonly Running[]> }>()('@rasm/sazandeh/skills/mod-ui/templates/above-prompt/Calls') {
-    static readonly layer = Layer.effect(
-        Calls,
-        Effect.map(SubscriptionRef.make<readonly Running[]>([]), (running) => ({ running })),
-    );
-}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const change = (update: (running: readonly Running[]) => readonly Running[]) => Calls.use(({ running }) => SubscriptionRef.update(running, update));
-const reveal = (key: string) =>
-    Effect.andThen(
-        Panes.use((panes) => panes.open({ id: PANE })),
-        Engine.use((engine) => engine.scroll({ in: PANE, to: { key } })).pipe(Effect.retry({ schedule: Schedule.spaced(DRAWN.every), times: DRAWN.times })),
-    );
-const button = (call: Running): Element<Panes | Engine, PlatformError.PlatformError> => ({ _tag: 'Button', key: call.key, onPress: () => reveal(call.key), children: { _tag: 'Text', wrap: 'truncate-end', children: call.tool } });
-const line = (call: Running): Element => ({
+const button = (use: Use): Element<Panes, PlatformError.PlatformError> => ({ _tag: 'Button', key: use.call, onPress: () => Panes.use((panes) => panes.open({ id: PANE }, { to: { key: use.call } })), children: { _tag: 'Text', wrap: 'truncate-end', children: use.tool } });
+const line = (use: Use): Element => ({
     _tag: 'Box',
-    key: call.key,
+    key: use.call,
     flexDirection: 'row',
     gap: 2,
     children: [
-        { _tag: 'Text', children: call.tool },
-        { _tag: 'Text', dimColor: true, children: Option.getOrElse(call.agent, () => 'main') },
+        { _tag: 'Text', children: use.tool },
+        { _tag: 'Text', dimColor: true, children: Option.getOrElse(use.agent, () => 'main') },
     ],
 });
 
@@ -48,21 +28,20 @@ const line = (call: Running): Element => ({
 
 function register(on: On) {
     host(on, {
-        layer: Calls.layer,
+        layer: Layer.empty,
         hooks: {
-            'tool.call': (e, next) => {
-                const call = new Running({ key: e.tool_use_id, tool: e.tool, agent: Option.fromUndefinedOr(e.agentId) });
-                return Effect.andThen(
-                    change((running) => [...running, call]),
-                    Effect.ensuring(
-                        next(e),
-                        change((running) => running.filter((held) => held.key !== call.key)),
-                    ),
-                );
-            },
+            'tool.call': (e, next) => Ledger.use((ledger) => ledger.track(e, Option.none(), next(e))),
         },
         render: {
-            state: Stream.unwrap(Calls.use(({ running }) => Effect.succeed(running.pipe(SubscriptionRef.changes)))),
+            state: Stream.unwrap(Ledger.use(({ state }) => Effect.succeed(state.pipe(SubscriptionRef.changes)))).pipe(
+                Stream.map(({ uses }) =>
+                    uses.pipe(
+                        HashMap.toValues,
+                        Array.filter((use) => Option.isNone(use.end)),
+                        Array.sort(Order.mapInput(DateTime.Order, (use: Use) => use.start)),
+                    ),
+                ),
+            ),
             AbovePrompt: (e, running, next) =>
                 e.props.hasSurvey || !Array.isReadonlyArrayNonEmpty(running)
                     ? next()
