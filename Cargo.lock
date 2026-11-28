@@ -10701,7 +10701,6 @@ dependencies = [
  "tokio-stream",
  "tracing",
  "tracing-log",
- "tracing-subscriber",
  "tui-logger",
  "validated",
 ]
