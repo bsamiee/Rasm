@@ -1,5 +1,5 @@
-import type { Args, EngineInterface, EventResult, Frozen, OnScreen, RasterProps, RenderInput, RenderSurface, UiBlitArgs, UiPlaceResult } from 'claude-code';
-import { Array, Context, Effect, Function, Layer, Option, type PlatformError, Record, type Stream, Struct, SubscriptionRef } from 'effect';
+import type { Args, EngineInterface, EventResult, Frozen, OnScreen, RasterProps, RenderInput, RenderSurface, UiBlitArgs } from 'claude-code';
+import { Array, Context, Effect, Function, Option, Record, Struct, SubscriptionRef } from 'effect';
 import { call } from '#/engine/services';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -16,14 +16,7 @@ const UNSET = 0x01_00_00_00;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Placed extends Context.Service<
-    Placed,
-    {
-        readonly place: (id: string) => Effect.Effect<UiPlaceResult, PlatformError.PlatformError>;
-        readonly blit: (args: UiBlitArgs) => Effect.Effect<void, PlatformError.PlatformError>;
-        readonly rows: Stream.Stream<Record.ReadonlyRecord<string, Row>>;
-    }
->()('@rasm/claude-code/ui/placed') {}
+class Placed extends Context.Service<Placed, ReturnType<typeof makePlaced>>()('@rasm/claude-code/ui/placed') {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -50,14 +43,14 @@ function record($: EngineInterface, rows: SubscriptionRef.SubscriptionRef<Record
     })).pipe(Effect.when(Effect.succeed(plugin === $.plugin.name)), Effect.runSync);
 }
 
-function placed($: EngineInterface, rows: SubscriptionRef.SubscriptionRef<Record.ReadonlyRecord<string, Row>>) {
-    return Layer.succeed(Placed)({
-        place: (id) => call('ui.place', id, () => $.ui.place({ id })).pipe(Effect.tap(({ requestId }) => (requestId === undefined ? Effect.void : stand(rows, id, requestId)))),
-        blit: (args) => Effect.asVoid(call('ui.blit', args.key, () => $.ui.blit(args), Struct.get('deny'))),
+function makePlaced($: EngineInterface, rows: SubscriptionRef.SubscriptionRef<Record.ReadonlyRecord<string, Row>>) {
+    return {
+        place: (id: string) => call('ui.place', id, () => $.ui.place({ id })).pipe(Effect.tap(({ requestId }) => (requestId === undefined ? Effect.void : stand(rows, id, requestId)))),
+        blit: (args: UiBlitArgs) => Effect.asVoid(call('ui.blit', args.key, () => $.ui.blit(args), Struct.get('deny'))),
         rows: SubscriptionRef.changes(rows),
-    });
+    };
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { paint, Placed, placed, prune, type Row, record };
+export { paint, Placed, makePlaced, prune, type Row, record };

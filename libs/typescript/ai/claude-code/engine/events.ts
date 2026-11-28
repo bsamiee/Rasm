@@ -1,5 +1,5 @@
 import type { Args, Chunk, EngineInterface, EventName, EventResult, Frozen, HookStream, Next, StreamingEventName, StreamNext, ToolCallResult, ToolSpec, TurnStepInput, TurnStepResult } from 'claude-code';
-import { Array, Cause, Channel, Context, Effect, Exit, Formatter, HashSet, Layer, type ManagedRuntime, Option, PlatformError, Predicate, Pull, Record, Ref, Result, Schema, Scope } from 'effect';
+import { Array, Cause, Channel, Context, Effect, Exit, Formatter, HashSet, type ManagedRuntime, Option, PlatformError, Predicate, Pull, Record, Ref, Result, Schema, Scope } from 'effect';
 import { Tool as AiTool } from 'effect/ai';
 import { SecureRandom } from 'effect/crypto';
 import { call } from '#/engine/services';
@@ -31,15 +31,7 @@ const Tool = <S extends Schema.Decoder<unknown>, R, F>(
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Plugin extends Context.Service<
-    Plugin,
-    {
-        readonly name: string;
-        readonly tools: Record.ReadonlyRecord<string, string>;
-        readonly agents: Record.ReadonlyRecord<string, string>;
-        readonly blocked: Ref.Ref<HashSet.HashSet<readonly [string | undefined, string]>>;
-    }
->()('@rasm/claude-code/engine/events/Plugin') {}
+class Plugin extends Context.Service<Plugin, Effect.Success<ReturnType<typeof makePlugin>>>()('@rasm/claude-code/engine/events/Plugin') {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -157,17 +149,14 @@ const stream = <N extends StreamingEventName, R, E, F>(e: Frozen<Args<N>>, next:
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function plugin<R, F>($: EngineInterface, tools: Record.ReadonlyRecord<string, Tool<R, F>>, agents: Record.ReadonlyRecord<string, Agent>) {
-    return Layer.effect(
-        Plugin,
-        Effect.all({
-            tools: registerAll('tool.register', tools, (name, { run: _run, ...spec }) => $.tool.register({ ...spec, name }).then(({ tool }) => tool)),
-            agents: registerAll('agent.register', agents, (name, { isOffered: _isOffered, ...spec }) => $.agent.register({ ...spec, name }).then(({ agent }) => agent)),
-            blocked: Ref.make(HashSet.empty<readonly [string | undefined, string]>()),
-        }).pipe(Effect.map((registered) => ({ ...registered, name: $.plugin.name }))),
-    );
+function makePlugin<R, F>($: EngineInterface, tools: Record.ReadonlyRecord<string, Tool<R, F>>, agents: Record.ReadonlyRecord<string, Agent>) {
+    return Effect.all({
+        tools: registerAll('tool.register', tools, (name, { run: _run, ...spec }) => $.tool.register({ ...spec, name }).then(({ tool }) => tool)),
+        agents: registerAll('agent.register', agents, (name, { isOffered: _isOffered, ...spec }) => $.agent.register({ ...spec, name }).then(({ agent }) => agent)),
+        blocked: Ref.make(HashSet.empty<readonly [string | undefined, string]>()),
+    }).pipe(Effect.map((registered) => ({ ...registered, name: $.plugin.name })));
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Agent, blockOnce, dispatch, type Hook, plugin, Plugin, type Proceed, reply, route, runHook, stream, type StreamHook, Tool };
+export { type Agent, blockOnce, dispatch, type Hook, makePlugin, Plugin, type Proceed, reply, route, runHook, stream, type StreamHook, Tool };

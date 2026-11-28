@@ -2,16 +2,16 @@ import type { Args, Caught, EngineInterface, EventName, EventResult, Frozen, Nex
 import { Array, Effect, type FileSystem, HashSet, Layer, ManagedRuntime, MutableRef, Option, type Path, type PlatformError, Predicate, PubSub, Record, Ref, Struct, SubscriptionRef } from 'effect';
 import type { KeyValueStore } from 'effect/persistence';
 import type { ChildProcessSpawner } from 'effect/process';
-import { type Agent, blockOnce, dispatch, type Hook, plugin, type Plugin, route, runHook, stream, type StreamHook, type Tool } from '#/engine/events';
+import { type Agent, blockOnce, dispatch, type Hook, makePlugin, Plugin, route, runHook, stream, type StreamHook, type Tool } from '#/engine/events';
 import { Engine, makeEngine } from '#/engine/interface';
 import { Ledger } from '#/engine/ledger';
 import { services } from '#/engine/services';
-import { type Draft, draft } from '#/ui/draft';
+import { Draft, makeDraft } from '#/ui/draft';
 import { draw } from '#/ui/element';
-import { closePane, type Panes, panes } from '#/ui/pane';
-import { prune, type Placed, placed, type Row, record } from '#/ui/placed';
+import { closePane, makePanes, Panes } from '#/ui/pane';
+import { makePlaced, Placed, prune, record, type Row } from '#/ui/placed';
 import { follow, type Held, pointer, type Render, render } from '#/ui/render';
-import { observe, type Theme, theme } from '#/ui/theme';
+import { makeTheme, observe, Theme } from '#/ui/theme';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -34,7 +34,7 @@ interface Instance<A, E, F, S = never> {
     readonly agents: Record.ReadonlyRecord<string, Agent>;
     readonly live: MutableRef.MutableRef<Option.Option<ManagedRuntime.ManagedRuntime<A | Provided, E | PlatformError.PlatformError>>>;
     readonly turns: SubscriptionRef.SubscriptionRef<HashSet.HashSet<Option.Option<string>>>;
-    readonly theme: Parameters<typeof theme>[1];
+    readonly theme: Parameters<typeof makeTheme>[1];
     readonly placed: SubscriptionRef.SubscriptionRef<Record.ReadonlyRecord<string, Row>>;
     readonly render: Held<S, A | Provided, F>;
     readonly band: Option.Option<NonNullable<Mod<A, E, F, S>['band']> & { readonly rows: Ref.Ref<Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, string>>> }>;
@@ -47,7 +47,17 @@ function start<A, E, F, S>($: EngineInterface, instance: Instance<A, E, F, S>) {
         const made = instance.render.pipe(
             follow,
             Layer.provideMerge(instance.layer),
-            Layer.provideMerge(Layer.mergeAll(Layer.effect(Engine, makeEngine($, instance.turns, Option.map(instance.band, Struct.get('rows')))), Ledger.layer, draft($), panes($, instance.render), placed($, instance.placed), plugin($, instance.tools, instance.agents), theme($, instance.theme))),
+            Layer.provideMerge(
+                Layer.mergeAll(
+                    Layer.effect(Engine, makeEngine($, instance.turns, Option.map(instance.band, Struct.get('rows')))),
+                    Ledger.layer,
+                    Layer.succeed(Draft)(makeDraft($)),
+                    Layer.succeed(Panes)(makePanes($, instance.render)),
+                    Layer.succeed(Placed)(makePlaced($, instance.placed)),
+                    Layer.effect(Plugin, makePlugin($, instance.tools, instance.agents)),
+                    Layer.succeed(Theme)(makeTheme($, instance.theme)),
+                ),
+            ),
             Layer.provideMerge(services($)),
             ManagedRuntime.make,
         );

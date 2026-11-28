@@ -1,5 +1,5 @@
-import type { Args, EngineInterface, Frozen, GlobNext, ThemeResult, ThemeSetArgs } from 'claude-code';
-import { Array, Context, Data, Effect, Layer, Option, PlatformError, Ref, type Scope, Semaphore, Struct, Tuple } from 'effect';
+import type { Args, EngineInterface, Frozen, GlobNext, ThemeSetArgs } from 'claude-code';
+import { Array, Context, Data, Effect, Option, PlatformError, Ref, Semaphore, Struct, Tuple } from 'effect';
 import { call } from '#/engine/services';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -19,14 +19,7 @@ const Standing = Data.taggedEnum<Standing>();
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Theme extends Context.Service<
-    Theme,
-    {
-        readonly set: (attributes: ThemeSetArgs) => Effect.Effect<ThemeResult, PlatformError.PlatformError>;
-        readonly clear: Effect.Effect<ThemeResult, PlatformError.PlatformError>;
-        readonly preview: (attributes: ThemeSetArgs) => Effect.Effect<ThemeResult, PlatformError.PlatformError, Scope.Scope>;
-    }
->()('@rasm/claude-code/ui/theme') {}
+class Theme extends Context.Service<Theme, ReturnType<typeof makeTheme>>()('@rasm/claude-code/ui/theme') {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -35,7 +28,7 @@ function observe($: EngineInterface, standing: Ref.Ref<Option.Option<Standing>>,
     return plugin === $.plugin.name ? next(e) : next(e).then((answer) => (answer.deny === undefined ? Effect.runSync(Effect.as(Ref.set(standing, next.is('theme.set', e) ? Option.some(Standing.Set({ plugin, attributes: e })) : Option.none()), answer)) : answer));
 }
 
-function theme($: EngineInterface, standing: Ref.Ref<Option.Option<Standing>>) {
+function makeTheme($: EngineInterface, standing: Ref.Ref<Option.Option<Standing>>) {
     const plugin = $.plugin.name;
     const locked = Semaphore.withPermit(Semaphore.makeUnsafe(1));
     const show = (held: Option.Option<Standing>) =>
@@ -43,10 +36,10 @@ function theme($: EngineInterface, standing: Ref.Ref<Option.Option<Standing>>) {
             onNone: () => call('theme.clear', plugin, () => $.theme.clear()),
             onSome: (stands) => call('theme.set', plugin, () => $.theme.set(Standing.$match(stands, { Set: Struct.get('attributes'), Preview: ({ previews }) => Array.lastNonEmpty(previews).attributes }))),
         }).pipe(Effect.tap(Ref.set(standing, held)));
-    return Layer.succeed(Theme)({
-        set: (attributes) => Option.some(Standing.Set({ plugin, attributes })).pipe(show, locked),
+    return {
+        set: (attributes: ThemeSetArgs) => Option.some(Standing.Set({ plugin, attributes })).pipe(show, locked),
         clear: Option.none().pipe(show, locked),
-        preview: (attributes) =>
+        preview: (attributes: ThemeSetArgs) =>
             Effect.acquireRelease(
                 locked(
                     Effect.gen(function* () {
@@ -79,9 +72,9 @@ function theme($: EngineInterface, standing: Ref.Ref<Option.Option<Standing>>) {
                         Effect.catchCause((cause) => Effect.logWarning('preview restore failed', cause)),
                     ),
             ).pipe(Effect.map(Tuple.get(0))),
-    });
+    };
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { observe, Theme, theme };
+export { observe, Theme, makeTheme };

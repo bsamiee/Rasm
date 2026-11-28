@@ -1,26 +1,19 @@
-import type { EngineInterface, EventResult, Frozen, Next, PaneCloseArgs, PaneCloseInput, PaneOpenArgs, UiOpenResult, UiPane, UiScrollArgs } from 'claude-code';
-import { Array, Context, Effect, Layer, type ManagedRuntime, Option, PlatformError, PubSub, Record, Struct } from 'effect';
+import type { EngineInterface, EventResult, Frozen, Next, PaneCloseArgs, PaneCloseInput, PaneOpenArgs, UiScrollArgs } from 'claude-code';
+import { Array, Context, Effect, type ManagedRuntime, Option, PlatformError, PubSub, Record, Struct } from 'effect';
 import { runHook } from '#/engine/events';
 import { call } from '#/engine/services';
 import type { Held, Render } from '#/ui/render';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Panes extends Context.Service<
-    Panes,
-    {
-        readonly open: (pane: PaneOpenArgs, reveal?: Omit<UiScrollArgs, 'in'>) => Effect.Effect<UiOpenResult, PlatformError.PlatformError>;
-        readonly close: (pane: PaneCloseArgs) => Effect.Effect<void, PlatformError.PlatformError>;
-        readonly list: Effect.Effect<readonly UiPane[], PlatformError.PlatformError>;
-    }
->()('@rasm/claude-code/ui/pane/Panes') {}
+class Panes extends Context.Service<Panes, ReturnType<typeof makePanes>>()('@rasm/claude-code/ui/pane/Panes') {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function panes<S, R, F>($: EngineInterface, table: Held<S, R, F>) {
+function makePanes<S, R, F>($: EngineInterface, table: Held<S, R, F>) {
     const list = call('ui.panes', $.plugin.name, () => $.ui.panes());
-    return Layer.succeed(Panes)({
-        open: (pane, reveal) =>
+    return {
+        open: (pane: PaneOpenArgs, reveal?: Omit<UiScrollArgs, 'in'>) =>
             Option.match(
                 Option.flatMap(table, (held) => Option.map(Option.fromNullishOr(held.Pane?.[pane.id]), (row) => ({ row, drawn: held.drawn }))),
                 {
@@ -52,9 +45,9 @@ function panes<S, R, F>($: EngineInterface, table: Held<S, R, F>) {
                     }, Effect.scoped),
                 },
             ),
-        close: (pane) => call('ui.close', pane.id, () => $.ui.close(pane)),
+        close: (pane: PaneCloseArgs) => call('ui.close', pane.id, () => $.ui.close(pane)),
         list,
-    });
+    };
 }
 
 function closePane<S, R, E, F>($: EngineInterface, rows: NonNullable<Render<S, R, F>['Pane']>, e: Frozen<PaneCloseInput>, next: Next<'ui.close'>, runtime: () => ManagedRuntime.ManagedRuntime<R, E>) {
@@ -74,4 +67,4 @@ function closePane<S, R, E, F>($: EngineInterface, rows: NonNullable<Render<S, R
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { closePane, Panes, panes };
+export { closePane, Panes, makePanes };
