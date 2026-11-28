@@ -11,7 +11,7 @@ import { Array, ByteSize, Cache, type Cause, Channel, Config, Context, Data, Dat
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Fault = Effect.Error<ReturnType<typeof execute>> | Effect.Error<ReturnType<typeof launch>> | Effect.Error<typeof table> | Cause.UnknownError;
-type Ending = Data.TaggedEnum<{ Exited: { readonly code: number }; Failed: { readonly reason: string }; Limit: object; Quiet: { readonly sample: Sample } }>;
+type Ending = Data.TaggedEnum<{ Exited: { readonly code: number; readonly stderr: Option.Option<string> }; Failed: { readonly reason: string }; Limit: object; Quiet: { readonly sample: Sample } }>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -31,21 +31,7 @@ const Launched = Schema.Struct({ result: Schema.Struct({ agentId: Schema.String 
 const Fields = Schema.Record(Schema.String, Schema.Json);
 const FieldsJson = Schema.fromJsonString(Fields);
 
-class Started extends Schema.Class<Started, { readonly brand: unique symbol }>('Started')({
-    agent: Schema.String,
-    claude: Schema.Int,
-    pid: Schema.Int,
-    label: Schema.String,
-    model: Schema.optionalKey(Schema.String),
-    description: Schema.String,
-    start: Schema.DateTimeUtcFromMillis,
-}) {
-    static readonly json = Schema.fromJsonString(Started);
-}
-
-class Sample extends Data.Class<{ readonly cpu: Duration.Duration; readonly write: Option.Option<Writer> }> {}
-
-class Command extends Data.Class<{ readonly program: string; readonly words: readonly string[] }> {
+class Command extends Schema.Class<Command, { readonly brand: unique symbol }>('Command')({ program: Schema.String, words: Schema.Array(Schema.String) }) {
     get label(): string {
         return [this.program, ...Array.take(this.words, 1)].join(' ');
     }
@@ -57,6 +43,19 @@ class Command extends Data.Class<{ readonly program: string; readonly words: rea
         );
     }
 }
+
+class Started extends Schema.Class<Started, { readonly brand: unique symbol }>('Started')({
+    agent: Schema.String,
+    claude: Schema.Int,
+    pid: Schema.Int,
+    command: Command,
+    description: Schema.String,
+    start: Schema.DateTimeUtcFromMillis,
+}) {
+    static readonly json = Schema.fromJsonString(Started);
+}
+
+class Sample extends Data.Class<{ readonly cpu: Duration.Duration; readonly write: Option.Option<Writer> }> {}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -104,10 +103,9 @@ class Runner extends Context.Service<
 const report = (line: Line) => Report.text(new Report({ lines: [line] }));
 const refuse = (reason: string, rows: readonly Line[]): ToolCallResult => ({ deny: report(new Line({ head: ['refused'], value: 'run', facts: [reason], rows })) });
 const read = Effect.fnUntraced(function* (command: string, agent: Option.Option<string>) {
-    const [session, shell] = yield* Effect.all([Session, Shell]);
-    const opened = yield* session.shell(agent);
+    const opened = yield* Session.use((session) => session.shell(agent));
     const { dialect, cwd } = yield* opened.environment;
-    const script = yield* shell.read(command, { dialect, cwd });
+    const script = yield* Shell.use((shell) => shell.read(command, { dialect, cwd }));
     const top = (yield* script.invocations).filter(({ within }) => Array.isReadonlyArrayEmpty(within));
     const refused = [
         { reason: 'no command', holds: Array.isReadonlyArrayEmpty(top) },
@@ -118,16 +116,15 @@ const read = Effect.fnUntraced(function* (command: string, agent: Option.Option<
         { reason: 'a program named at run time', holds: top.some(({ name }) => Option.isNone(name)) },
     ].flatMap(({ reason, holds }) => (holds ? [reason] : []));
     const files = Array.dedupe(top.flatMap((invocation) => [...invocation.writes, ...invocation.words.map(Struct.get('field'))].flatMap(({ text }) => Option.toArray(Option.map(text, opened.path.resolve)))));
-    const invoked = Option.flatMap(Array.head(top), (invocation) => Option.map(invocation.name, (program) => new Command({ program, words: Array.getSomes(Array.drop(invocation.words, 1).map(Struct.get('text'))) })));
+    const invoked = Option.flatMap(Array.head(top), (invocation) => Option.map(invocation.name, (program) => Command.make({ program, words: Array.getSomes(Array.drop(invocation.words, 1).map(Struct.get('text'))) })));
     return { script, exec: opened.exec, cwd, refused, files, command: Option.filter(invoked, () => Array.isReadonlyArrayEmpty(refused)) };
 });
 const launch = Effect.fnUntraced(function* (run: typeof Run.Type, e: Frozen<ToolCallInput>) {
     const [engine, { agent: runner }] = yield* Effect.all([Engine, Runner]);
-    const agent = Option.fromUndefinedOr(e.agentId);
-    const [parsed, prompt] = yield* Effect.all([read(run.command, agent), Schema.encodeEffect(Prompt)(run)]);
-    const started = Effect.all([engine.callTool({ tool: 'Agent', input: { subagent_type: runner, prompt, description: run.description }, ...Option.getOrUndefined(Option.map(agent, (agentId) => ({ agentId }))) }), engine.limits, engine.agents]);
-    return yield* Option.match(parsed.command, {
-        onNone: () => Effect.succeed(refuse(parsed.refused.join(', '), [])),
+    const [{ command, refused }, prompt] = yield* Effect.all([read(run.command, Option.fromUndefinedOr(e.agentId)), Schema.encodeEffect(Prompt)(run)]);
+    const started = Effect.all([engine.callTool({ tool: 'Agent', input: { subagent_type: runner, prompt, description: run.description }, ...Struct.pick(e, ['agentId']) }), engine.limits, engine.agents]);
+    return yield* Option.match(command, {
+        onNone: () => Effect.succeed(refuse(refused.join(', '), [])),
         onSome: ({ label }) =>
             Effect.map(started, ([answer, limits, agents]) => {
                 const count = new Line({ head: ['agents'], value: `${Record.size(Record.filter(agents, ({ status }) => status === 'running'))} running`, facts: [`limit ${limits.concurrent}`] });
@@ -163,9 +160,14 @@ const describe = (held: Readonly<Record<string, Schema.Json>>, outer: boolean): 
     ).flat();
 const summarize = (text: string): readonly Line[] =>
     Match.value({ held: Option.getOrUndefined(Schema.decodeOption(FieldsJson)(text)), word: ANSWER.token.exec(text)?.groups?.['word'] }).pipe(
-        Match.when({ held: Match.defined }, ({ held }) => Array.match(describe(held, true), { onEmpty: () => [], onNonEmpty: (all) => [new Line({ head: ['fields'], value: Array.headNonEmpty(all), facts: Array.tailNonEmpty(all) })] })),
+        Match.when({ held: Match.defined }, ({ held }) => Array.match(describe(held, true), { onEmpty: Array.empty, onNonEmpty: (all) => [new Line({ head: ['fields'], value: Array.headNonEmpty(all), facts: Array.tailNonEmpty(all) })] })),
         Match.when({ word: Match.string }, ({ word }) => [new Line({ head: ['text'], value: word })]),
-        Match.orElse(() => [text.split('\n').filter((line) => line.trim() !== '').length].filter((count) => count > 0).map((count) => new Line({ head: ['lines'], value: Format.count(count) }))),
+        Match.orElse(() =>
+            Array.match(
+                text.split('\n').filter((line) => line.trim() !== ''),
+                { onEmpty: Array.empty, onNonEmpty: (lines) => [new Line({ head: ['lines'], value: Format.count(lines.length) })] },
+            ),
+        ),
     );
 const readAnswers = Effect.fnUntraced(function* (files: readonly string[], start: DateTime.Utc, cwd: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
@@ -187,49 +189,46 @@ const execute = Effect.fnUntraced(function* (run: typeof Run.Type, agent: string
     const parsed = yield* read(run.command, Option.some(agent));
     const command = yield* Effect.fromOption(parsed.command);
     const start = yield* DateTime.now;
-    const { ending, stderr } = yield* Effect.scoped(
-        Effect.gen(function* () {
-            const child = yield* parsed.exec(parsed.script);
-            const started = Started.make({ agent, claude: runner.claude, pid: child.pid, label: command.label, ...Option.getOrUndefined(Option.map(command.model, (model) => ({ model }))), description: run.description, start });
-            yield* Effect.all([Effect.flatMap(Schema.encodeEffect(Started.json)(started), (text) => fs.writeFileString(path.join(runner.runs, `${agent}.json`), text)), fs.writeFileString(path.join(runner.programs, encodeURIComponent(command.label)), '')], { discard: true });
-            const output = yield* Effect.forkScoped(
-                Effect.all(
-                    [
-                        Stream.runDrain(child.stdout),
-                        child.stderr.pipe(
-                            Stream.decodeText,
-                            Stream.splitLines,
-                            Stream.filter((line) => line.trim() !== ''),
-                            Stream.runLast,
-                        ),
-                    ],
-                    { concurrency: 'unbounded' },
+    const child = yield* parsed.exec(parsed.script);
+    yield* Effect.all(
+        [
+            Effect.flatMap(Schema.encodeEffect(Started.json)(Started.make({ agent, claude: runner.claude, pid: child.pid, command, description: run.description, start })), (text) => fs.writeFileString(path.join(runner.runs, `${agent}.json`), text)),
+            fs.writeFileString(path.join(runner.programs, encodeURIComponent(command.label)), ''),
+        ],
+        { discard: true },
+    );
+    const output = yield* Effect.forkScoped(
+        Effect.all(
+            [
+                Stream.runDrain(child.stdout),
+                child.stderr.pipe(
+                    Stream.decodeText,
+                    Stream.splitLines,
+                    Stream.filter((line) => line.trim() !== ''),
+                    Stream.runLast,
                 ),
-            );
-            const ended = yield* Effect.raceAll([Effect.match(child.exitCode, { onFailure: ({ message }) => Ending.Failed({ reason: message }), onSuccess: (code) => Ending.Exited({ code }) }), Effect.as(Effect.sleep(run.limit), Ending.Limit()), watchQuiet(child.pid)]);
-            const failed = Ending.$is('Exited')(ended) && ended.code !== 0;
-            return { ending: ended, stderr: failed ? Exit.match(yield* Fiber.await(output), { onFailure: () => Option.none<string>(), onSuccess: ([, last]) => last }) : Option.none<string>() };
-        }),
+            ],
+            { concurrency: 'unbounded' },
+        ),
     );
-    const [end, written] = yield* Effect.all([DateTime.now, Ending.$is('Exited')(ending) ? readAnswers(parsed.files, start, parsed.cwd) : Effect.succeed<readonly Line[]>([])]);
-    const said = Ending.$match(ending, {
-        Exited: ({ code }) => ({ state: `exit ${code}`, rows: [] }),
-        Failed: ({ reason }) => ({ state: 'failed', rows: [new Line({ head: ['reason'], value: reason })] }),
-        Limit: () => ({ state: 'ended at limit', rows: [] }),
-        Quiet: ({ sample: { cpu, write } }) => ({
-            state: 'ended quiet',
-            rows: [new Line({ head: ['cpu'], value: Format.duration(cpu), facts: [`unchanged over ${Format.duration(QUIET.after)}`] }), ...Option.toArray(Option.map(write, ({ path: file, modified }) => new Line({ head: ['last write'], value: Format.instant(modified), facts: [file] })))],
-        }),
+    const exited = child.exitCode.pipe(
+        Effect.flatMap((code) => Effect.map(code === 0 ? Effect.succeedNone : Effect.map(Fiber.join(output), ([, last]) => last), (stderr) => Ending.Exited({ code, stderr }))),
+        Effect.catch(({ message }) => Effect.succeed(Ending.Failed({ reason: message }))),
+    );
+    const ending = yield* Effect.raceAll([exited, Effect.as(Effect.sleep(run.limit), Ending.Limit()), watchQuiet(child.pid)]);
+    const end = yield* DateTime.now;
+    const { state, rows } = yield* Ending.$match(ending, {
+        Exited: ({ code, stderr }) => Effect.map(readAnswers(parsed.files, start, parsed.cwd), (written) => ({ state: `exit ${code}`, rows: [...written, ...Option.toArray(Option.map(stderr, (line) => new Line({ head: ['stderr'], value: line })))] })),
+        Failed: ({ reason }) => Effect.succeed({ state: 'failed', rows: [new Line({ head: ['reason'], value: reason })] }),
+        Limit: () => Effect.succeed({ state: 'ended at limit', rows: [] }),
+        Quiet: ({ sample: { cpu, write } }) =>
+            Effect.succeed({
+                state: 'ended quiet',
+                rows: [new Line({ head: ['cpu'], value: Format.duration(cpu), facts: [`unchanged over ${Format.duration(QUIET.after)}`] }), ...Option.toArray(Option.map(write, ({ path: file, modified }) => new Line({ head: ['last write'], value: Format.instant(modified), facts: [file] })))],
+            }),
     });
-    return report(
-        new Line({
-            head: ['run'],
-            value: command.label,
-            facts: [said.state, Format.duration(DateTime.distance(start, end))],
-            rows: [...Option.toArray(Option.map(command.model, (model) => new Line({ head: ['model'], value: model }))), ...written, ...said.rows, ...Option.toArray(Option.map(stderr, (line) => new Line({ head: ['stderr'], value: line })))],
-        }),
-    );
-});
+    return report(new Line({ head: ['run'], value: command.label, facts: [state, Format.duration(DateTime.distance(start, end))], rows: [...Option.toArray(Option.map(command.model, (model) => new Line({ head: ['model'], value: model }))), ...rows] }));
+}, Effect.scoped);
 const answer = Effect.fnUntraced(function* (e: Frozen<TurnStepInput>, agent: string) {
     const [engine, { tool }] = yield* Effect.all([Engine, Runner]);
     const messages: readonly SessionMessage[] = yield* engine.messages(Option.some(agent));
@@ -247,7 +246,7 @@ const answer = Effect.fnUntraced(function* (e: Frozen<TurnStepInput>, agent: str
                       ),
                       Struct.get('text'),
                   ),
-                  () => 'run: no verdict',
+                  () => report(new Line({ head: ['run'], value: 'no verdict' })),
               ),
               toolUses: [],
           });
@@ -256,8 +255,8 @@ const closeRecord = Effect.fnUntraced(function* (agent: string) {
     const [fs, path, { runs }, now] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Runner, DateTime.now]);
     const record = path.join(runs, `${agent}.json`);
     const held = yield* fs.readFileString(record).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Started.json)), Effect.option);
-    yield* Effect.ignore(fs.remove(record, { force: true }));
-    return Option.map(held, ({ label, pid, start }) => report(new Line({ head: ['run'], value: label, facts: ['stopped', Format.duration(DateTime.distance(start, now))], rows: [new Line({ head: ['pid'], value: `${pid}` })] })));
+    yield* fs.remove(record, { force: true });
+    return Option.map(held, ({ command, pid, start }) => report(new Line({ head: ['run'], value: command.label, facts: ['stopped', Format.duration(DateTime.distance(start, now))], rows: [new Line({ head: ['pid'], value: `${pid}` })] })));
 });
 const table = Effect.gen(function* () {
     const [fs, path, { runs, programs, claude }, now] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Runner, DateTime.now]);
@@ -265,31 +264,38 @@ const table = Effect.gen(function* () {
     const [tree, names, known] = yield* Effect.all([ProcessTree.read, list(runs), Effect.map(list(programs), (labels) => new Set(labels.map(decodeURIComponent)))], { concurrency: 'unbounded' });
     const held = yield* Effect.filterMapEffect(names, (name) => fs.readFileString(path.join(runs, name)).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Started.json)), Effect.result));
     const [live, dead] = Array.partition(held, (each) => (Option.isSome(tree.subtree(each.pid)) ? Result.succeed(each) : Result.fail(each)));
-    yield* Effect.forEach(dead, ({ agent }) => Effect.ignore(fs.remove(path.join(runs, `${agent}.json`), { force: true })), { discard: true });
+    yield* Effect.forEach(dead, ({ agent }) => fs.remove(path.join(runs, `${agent}.json`), { force: true }), { discard: true });
     const pids = new Set(live.map(Struct.get('pid')));
     const program = (command: string) => path.basename(command.split(' ', 1).join(''));
     const session = Option.map(
         Option.flatMap(tree.subtree(claude), ({ processes }) => Array.head(processes)),
         ({ command }) => program(command),
     );
-    const where = (pid: number) =>
-        Option.match(
-            tree.ancestor(pid, ({ command }) => Option.contains(session, program(command))),
-            { onNone: () => 'outside Claude', onSome: ({ pid: found }) => (found === claude ? 'this session' : `claude ${found}`) },
-        );
+    const owner = (pid: number) => (pid === claude ? 'this session' : `claude ${pid}`);
     const found = tree.processes
         .filter(({ pid }) => !pids.has(pid))
         .flatMap(({ pid, cpu, command }) => {
             const words = command.split(' ');
             const at = words.findIndex((word, index) => known.has([path.basename(word), ...Array.fromNullishOr(words[index + 1])].join(' ')));
-            return at === -1 ? [] : [{ pid, cpu, run: new Command({ program: path.basename(words[at] ?? ''), words: words.slice(at + 1) }) }];
+            return at === -1 ? [] : [{ pid, cpu, run: Command.make({ program: path.basename(words[at] ?? ''), words: words.slice(at + 1) }) }];
         });
     const rows = [
         ...Array.sort(
             live,
-            Order.mapInput(Order.Boolean, ({ claude: owner }: Started) => owner !== claude),
-        ).map(({ claude: owner, label, model, description, start, pid }) => new Line({ head: [owner === claude ? 'this session' : `claude ${owner}`], facts: [label, ...Array.fromNullishOr(model), description, Format.duration(DateTime.distance(start, now)), `pid ${pid}`] })),
-        ...found.map(({ pid, cpu, run }) => new Line({ head: [where(pid)], facts: [run.label, ...Option.toArray(run.model), `cpu ${Format.duration(cpu)}`, `pid ${pid}`] })),
+            Order.mapInput(Order.Boolean, ({ claude: pid }: Started) => pid !== claude),
+        ).map(({ claude: pid, command, description, start, pid: run }) => new Line({ head: [owner(pid)], facts: [command.label, ...Option.toArray(command.model), description, Format.duration(DateTime.distance(start, now)), `pid ${run}`] })),
+        ...found.map(
+            ({ pid, cpu, run }) =>
+                new Line({
+                    head: [
+                        Option.match(
+                            tree.ancestor(pid, ({ command }) => Option.contains(session, program(command))),
+                            { onNone: () => 'outside Claude', onSome: ({ pid: at }) => owner(at) },
+                        ),
+                    ],
+                    facts: [run.label, ...Option.toArray(run.model), `cpu ${Format.duration(cpu)}`, `pid ${pid}`],
+                }),
+        ),
     ];
     return report(new Line({ head: ['runs on this Mac'], value: Format.count(rows.length), rows }));
 });
@@ -303,16 +309,12 @@ function register(on: On) {
         layer,
         hooks: {
             'turn.step': (e, next) =>
-                Option.match(Option.fromUndefinedOr(e.agentId), {
-                    onNone: () => next(e),
-                    onSome: (agent) =>
-                        Channel.unwrap(
-                            Effect.flatMap(
-                                Runner.use(({ runner }) => runner(Option.some(agent))),
-                                Option.match({ onNone: () => Effect.succeed(next(e)), onSome: (id) => Effect.map(answer(e, id), (said) => reply(e, said)) }),
-                            ),
-                        ),
-                }),
+                Channel.unwrap(
+                    Effect.flatMap(
+                        Runner.use(({ runner }) => runner(Option.fromUndefinedOr(e.agentId))),
+                        Option.match({ onNone: () => Effect.succeed(next(e)), onSome: (agent) => Effect.map(answer(e, agent), (said) => reply(e, said)) }),
+                    ),
+                ),
             'agent.report': (e, next) =>
                 Effect.flatMap(Runner, ({ agent: runner }) =>
                     e.subagentType === runner
