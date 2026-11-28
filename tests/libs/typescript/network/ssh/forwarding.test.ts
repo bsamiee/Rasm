@@ -16,10 +16,9 @@ const sshd = `127.0.0.1:${served}`;
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const wanted = Schema.decodeEffect(Forward);
-const vacant = Effect.acquireUseRelease(
-    Effect.sync(() => new BoundSocket({ host: '127.0.0.1' })),
-    (socket) => Effect.sync(() => socket.address().port),
-    (socket) => Effect.sync(() => socket.close()),
+const vacant = Effect.acquireDisposable(Effect.sync(() => new BoundSocket({ host: '127.0.0.1' }))).pipe(
+    Effect.map((socket) => socket.address().port),
+    Effect.scoped,
 );
 const greeted = Option.map((text: string) => text.slice(0, banner.length));
 
@@ -57,10 +56,9 @@ it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('forwardin
             const { bind } = yield* Effect.flatMap(Scope.provide(ssh.forward(host, remote), ended), Schema.encodeEffect(Forward));
             const through = { path: path.join(folder, 'through') };
             yield* ssh.forward(host, yield* wanted({ _tag: 'Local', bind: through.path, connect: bind }));
-            const open = yield* held(through);
+            const open = yield* heard(through);
             yield* Scope.close(ended, Exit.void);
-            yield* open.closed;
-            assert.deepStrictEqual([greeted(open.first), Option.contains(greeted(yield* heard(through)), banner)], [Option.some(banner), false]);
+            assert.deepStrictEqual([greeted(open), Option.contains(greeted(yield* heard(through)), banner)], [Option.some(banner), false]);
         }),
     );
 

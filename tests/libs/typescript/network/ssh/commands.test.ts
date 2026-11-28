@@ -1,7 +1,7 @@
 import { hash } from 'node:crypto';
 import { assert, it } from '@effect/vitest';
-import { SshError } from '@rasm/ssh/client';
 import { Forward } from '@rasm/ssh/forward';
+import { SshError } from '@rasm/ssh/host';
 import { Effect, FileSystem, Option, Path, pipe, Schema, Struct } from 'effect';
 import { reasoned, Sshd } from '#/sshd';
 
@@ -26,7 +26,7 @@ it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('commands'
     methods.effect.each([
         { status: 255, env: {}, reported: 'Exit 255' },
         { status: 254, env: { SENT: 'sent' }, reported: 'Exit 254' },
-        { status: 255, env: { SENT: 'sent' }, reported: 'Unreachable' },
+        { status: 255, env: { SENT: 'sent' }, reported: 'Exit 255' },
     ])(
         'reports a command exiting $status, sent with environment $env beside a live shared connection, as $reported',
         Effect.fnUntraced(function* ({ status, env, reported }) {
@@ -55,7 +55,7 @@ it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('commands'
             const [{ ssh }, { dial }, folder] = yield* Effect.all([sshd.client, sshd.port, fs.makeTempDirectoryScoped()]);
             const [host, wanted] = yield* Effect.all([sshd.hosted('silent', dial), Schema.decodeEffect(Forward)({ _tag: 'Local', bind: path.join(folder, 'bound'), connect: '127.0.0.1:22' })]);
             yield* fs.writeFileString(path.join(folder, 'data'), 'data');
-            const calls = { run: ssh.run(host, ['true']), sent: ssh.run(host, ['true'], { env: { SENT: 'sent' } }), copy: ssh.copy(host, path.join(folder, 'data'), '/tmp/data'), forward: ssh.forward(host, wanted) };
+            const calls = { run: ssh.run(host, ['true']), sent: ssh.run(host, ['true'], { env: { SENT: 'sent' } }), copy: ssh.copy(host, 'upload', path.join(folder, 'data'), '/tmp/data'), forward: ssh.forward(host, wanted) };
             assert.strictEqual(yield* reasoned(calls[call]), 'Unreachable');
         }),
     );
@@ -81,7 +81,7 @@ it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('commands'
             yield* fs.makeDirectory(path.join(grown, 'subdir'), { recursive: true });
             yield* Effect.all([fs.writeFile(path.join(grown, 'copy'), files.top), fs.writeFile(path.join(grown, 'subdir', 'copy'), files.nested)]);
             yield* Effect.all([fs.symlink(path.join(grown, 'copy'), path.join(grown, 'copy-sym')), fs.symlink(path.join(grown, 'subdir'), path.join(grown, 'subdir-sym'))]);
-            yield* ssh.copy(host, grown, `${made}/up`);
+            yield* ssh.copy(host, 'upload', grown, `${made}/up`);
             const up = yield* ssh.run(host, ['sh', '-c', `cd ${made}/up && find . -type f | sort | xargs sha256sum`]);
             assert.deepStrictEqual(up.trim().split('\n'), [`${summed.top}  ./copy`, `${summed.top}  ./copy-sym`, `${summed.nested}  ./subdir-sym/copy`, `${summed.nested}  ./subdir/copy`]);
         }),

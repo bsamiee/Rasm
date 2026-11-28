@@ -1,6 +1,6 @@
 import { make as socketServer } from '@effect/platform-node/NodeSocketServer';
 import { assert, it } from '@effect/vitest';
-import { SshError } from '@rasm/ssh/client';
+import { SshError } from '@rasm/ssh/host';
 import { Array, Effect, Exit, FileSystem, Path, Schema, Scope, Struct } from 'effect';
 import { NetAddress } from 'effect/net';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
@@ -36,7 +36,7 @@ it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('login', (
             const [{ ssh }, answering, refusing, quiet] = yield* Effect.all([sshd.client, sshd.port, sshd.port, silent]);
             yield* sshd.listening(answering.inside);
             const dials = { answering: answering.dial, refusing: refusing.dial, silent: quiet };
-            const host = yield* sshd.hosted('dialed', { path: { _tag: 'Direct', preferred: Array.map(preferred, (kind) => ({ ...dials[kind], within: 1000 })) } });
+            const host = yield* sshd.hosted('dialed', { route: { _tag: 'Direct', preferred: Array.map(preferred, (kind) => ({ ...dials[kind], within: 1000 })) } });
             assert.strictEqual(yield* ssh.run(host, listener, { env }), `${{ preferred: answering.inside, stated: served }[taken]}\n`);
         }),
     );
@@ -49,7 +49,7 @@ it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('login', (
             yield* sshd.listening(inside);
             const host = yield* sshd.hosted('portless', {
                 ...dial,
-                path: {
+                route: {
                     _tag: 'Direct',
                     preferred: [
                         { host: dial.host, within: 1000 },
@@ -65,16 +65,16 @@ it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('login', (
         'keeps a shared connection on its dial while it lives, and chooses the dial again for each connection that starts',
         Effect.fnUntraced(function* () {
             const sshd = yield* Sshd;
-            const [{ ssh, asked }, { inside, dial }, answering] = yield* Effect.all([sshd.client, sshd.port, ending]);
-            const host = yield* sshd.hosted('chosen', { path: { _tag: 'Direct', preferred: [{ ...dial, within: 1000 }] } });
+            const [{ ssh, terminated }, { inside, dial }, answering] = yield* Effect.all([sshd.client, sshd.port, ending]);
+            const host = yield* sshd.hosted('chosen', { route: { _tag: 'Direct', preferred: [{ ...dial, within: 1000 }] } });
             yield* Scope.provide(sshd.listening(inside), answering);
             const first = yield* ssh.run(host, listener);
             yield* Scope.close(answering, Exit.void);
             const kept = yield* ssh.run(host, listener);
-            const stated = yield* Effect.andThen(asked(host, 'exit'), ssh.run(host, listener));
+            const stated = yield* Effect.andThen(terminated(host.name), ssh.run(host, listener));
             yield* sshd.listening(inside);
             const held = yield* ssh.run(host, listener);
-            const again = yield* Effect.andThen(asked(host, 'exit'), ssh.run(host, listener));
+            const again = yield* Effect.andThen(terminated(host.name), ssh.run(host, listener));
             assert.deepStrictEqual([first, kept, stated, held, again], [`${inside}\n`, `${inside}\n`, `${served}\n`, `${served}\n`, `${inside}\n`]);
         }),
     );
@@ -86,8 +86,10 @@ it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('login', (
             const [{ ssh }, { inside }] = yield* Effect.all([sshd.client, sshd.port]);
             yield* sshd.listening(inside);
             const hop = { name: 'hop', user: 'root', ...sshd.served.dial, identity: { _tag: 'Key', file: sshd.files.client }, trust: { _tag: 'HostKeys', keys: [sshd.trusted] } };
-            const host = yield* sshd.hosted('jumped', { host: sshd.name, port: inside, path: { _tag: 'Jump', hops: [hop] } });
-            assert.deepStrictEqual(yield* Effect.all([ssh.run(host, listener), ssh.run(host, listener, { env: { SENT: 'sent' } })]), [`${inside}\n`, `${inside}\n`]);
+            const host = yield* sshd.hosted('jumped', { host: sshd.name, port: inside, route: { _tag: 'Jump', hops: [hop] } });
+            const shared = yield* ssh.run(host, listener);
+            const own = yield* ssh.spawn(host, listener, { env: { SENT: 'sent' }, stdin: 'ignore' });
+            assert.deepStrictEqual([shared, yield* printed(own, 'the own connection')], [`${inside}\n`, `${inside}`]);
         }),
     );
 

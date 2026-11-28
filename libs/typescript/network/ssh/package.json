@@ -2,7 +2,7 @@
     "name": "@rasm/ssh",
     "version": "0.1.0",
     "private": true,
-    "description": "Commands, copies, and forwards over OpenSSH hosts by config, with connections shared across processes",
+    "description": "Commands, sockets, two-way copies, and forwards over OpenSSH hosts described in code, each host sharing one master connection across processes",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -19,9 +19,11 @@
         "#/*": "./*.ts"
     },
     "exports": {
+        "./channel": "./channel.ts",
         "./client": "./client.ts",
         "./forward": "./forward.ts",
         "./host": "./host.ts",
+        "./mux": "./mux.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -29,14 +31,17 @@
             "#/*": "./dist/*.js"
         },
         "exports": {
+            "./channel": "./dist/channel.js",
             "./client": "./dist/client.js",
             "./forward": "./dist/forward.js",
             "./host": "./dist/host.js",
+            "./mux": "./dist/mux.js",
             "./package.json": "./package.json"
         },
         "access": "public"
     },
     "dependencies": {
+        "@effect/platform-node": "catalog:",
         "@rasm/process": "workspace:*",
         "ssh-config": "catalog:"
     },

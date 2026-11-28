@@ -1381,6 +1381,9 @@ importers:
 
   libs/typescript/network/ssh:
     dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.6(effect@4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02))(redis@6.3.1(@opentelemetry/api@1.10.0))
       '@rasm/process':
         specifier: workspace:*
         version: link:../../system/process
@@ -3137,6 +3140,9 @@ importers:
       '@rasm/ssh':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/network/ssh
+      '@rasm/testing':
+        specifier: workspace:*
+        version: link:../../../../support/typescript
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.11(patch_hash=595bfe6b8ad61baa8ba6a3d5f8732070cd930e36cac0cbcacba076df0f259735)

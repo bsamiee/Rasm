@@ -1,99 +1,92 @@
+import { make as listen } from '@effect/platform-node/NodeSocketServer';
 import { ExitError, run, spawn } from '@rasm/process';
-import { Array, Boolean, Cache, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Path, Record, Schema, Stream } from 'effect';
-import { type ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { Array, Cache, Context, Duration, Effect, Exit, FileSystem, Layer, Match, Option, Path, Predicate, Record, Result, Schema, Stream, String } from 'effect';
+import { Host as Address, NetAddress } from 'effect/net';
+import { type ChildProcess, ChildProcessSpawner, CommandLine } from 'effect/process';
+import { Socket } from 'effect/socket';
+import { Channel } from '#/channel';
 import { Forward } from '#/forward';
-import { type Host, Line } from '#/host';
+import { type Host, Line, SshError } from '#/host';
+import { Mux } from '#/mux';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const errored = 255;
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class SshError extends Schema.TaggedError<SshError, { readonly brand: unique symbol }>()('SshError', {
-    reason: Schema.TaggedUnion({ Exit: { exit: ExitError }, Unreachable: { stderr: Schema.String }, Refused: { stderr: Schema.String } }),
-    subject: Schema.String,
-    message: Schema.String,
-}) {
-    static readonly of = (reason: SshError['reason'], subject: string) =>
-        SshError.make({
-            reason,
-            subject,
-            message: `${subject} ${SshError.fields.reason.match(reason, {
-                Exit: ({ exit }) => `remote command exited ${exit.code}, read its output: ${exit.stderr}`,
-                Unreachable: ({ stderr }) => `OpenSSH exited ${errored} with no shared connection (no connection, a lost connection, or a command exiting ${errored} on its own connection), check the host, its dials, and its identity: ${stderr}`,
-                Refused: ({ stderr }) => `OpenSSH refused the forward, free its bind end: ${stderr}`,
-            })}`,
-        });
-}
+const transfer = { upload: (local: string, remote: string) => [local, remote] as const, download: (local: string, remote: string) => [remote, local] as const };
+const withheld = { SHELL: undefined };
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
     make: Effect.fnUntraced(function* (folder: string) {
         const [spawner, fs, path, root] = yield* Effect.all([ChildProcessSpawner.ChildProcessSpawner, FileSystem.FileSystem, Path.Path, Schema.decodeEffect(Line)(folder)]);
-        const started = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => Effect.provideService(spawn(words, options), ChildProcessSpawner.ChildProcessSpawner, spawner);
-        const captured = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => Effect.provideService(run(words, options), ChildProcessSpawner.ChildProcessSpawner, spawner);
-        const checked = (host: Host) =>
-            captured(host.request(host.control(path, root), 'check')).pipe(
-                Effect.as(true),
-                Effect.catchTag('ExitError', () => Effect.succeed(false)),
-            );
-        const settled = (host: Host, lived = checked(host)) =>
-            Effect.fnUntraced(function* (exit: ExitError) {
-                const reached = exit.code !== errored || (yield* lived);
-                return yield* SshError.of(reached ? { _tag: 'Exit', exit } : { _tag: 'Unreachable', stderr: exit.stderr }, host.name);
-            });
-        const written = Effect.fnUntraced(function* (host: Host, beside: Readonly<Record<string, string>> = {}) {
-            const files = Record.toEntries({ ...(yield* Effect.fromResult(host.files(path, root))), ...beside });
-            yield* Effect.forEach(Array.dedupe(files.map(([file]) => path.dirname(file))), (home) => fs.makeDirectory(home, { recursive: true, mode: 0o700 }), { discard: true });
-            const staging = yield* fs.makeTempDirectoryScoped({ directory: path.join(root, host.name) });
-            const moved = ([file, text]: readonly [string, string]) => Effect.andThen(fs.writeFileString(path.join(staging, path.basename(file)), text, { mode: 0o600 }), fs.rename(path.join(staging, path.basename(file)), file));
-            return yield* Effect.forEach(files, moved, { concurrency: 'unbounded', discard: true });
-        }, Effect.scoped);
-        const placed = yield* Cache.makeWith(written, { capacity: Number.POSITIVE_INFINITY, timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero) });
+        const local = Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner);
+        const control = (host: Host) => host.control(path, root);
+        const placed = yield* Cache.makeWith(
+            Effect.fnUntraced(function* (host: Host) {
+                const files = Record.toEntries(yield* Effect.fromResult(host.files(path, root)));
+                yield* Effect.forEach(Array.dedupe(files.map(([file]) => path.dirname(file))), (home) => fs.makeDirectory(home, { recursive: true, mode: 0o700 }), { discard: true });
+                yield* Effect.forEach(
+                    files,
+                    Effect.fnUntraced(function* ([file, text]) {
+                        const staged = path.join(yield* fs.makeTempDirectoryScoped({ directory: path.dirname(file) }), path.basename(file));
+                        yield* fs.writeFileString(staged, text, { mode: 0o600 });
+                        yield* fs.rename(staged, file);
+                    }, Effect.scoped),
+                    { concurrency: 'unbounded', discard: true },
+                );
+            }),
+            { capacity: Number.POSITIVE_INFINITY, timeToLive: (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero) },
+        );
         const shared = yield* Cache.makeWith(
             Effect.fnUntraced(function* (host: Host) {
                 yield* Cache.get(placed, host);
-                yield* Effect.fromResult(host.command(path, root, ['true'])).pipe(Effect.flatMap(captured), Effect.catchTag('ExitError', settled(host)), Effect.when(Effect.map(checked(host), Boolean.not)));
+                const starts = yield* Effect.fromResult(Result.all(host.dials.map((options) => host.command(path, root, options, ['exit']))));
+                yield* Effect.firstSuccessOf(starts.map((words) => local(run(words, { within: within(host), env: withheld })))).pipe(
+                    Effect.catchTags({
+                        ExitError: (exit) => SshError.of({ _tag: 'Unreachable', output: Option.liftPredicate(exit.stderr.trim(), String.isNonEmpty) }, host.name)(exit),
+                        TimeoutError: (timeout) => SshError.of({ _tag: 'Unreachable', output: Option.none() }, host.name)(timeout),
+                    }),
+                    Effect.when(Effect.map(Mux.alive(control(host), host.name, within(host)), Option.isNone)),
+                );
             }),
             { capacity: Number.POSITIVE_INFINITY, timeToLive: () => Duration.zero },
         );
-        const called = Effect.fnUntraced(function* (host: Host, remote: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) {
-            const sent = Record.keys(options?.env ?? {});
-            const [opened, lived] = Array.match(sent, { onEmpty: () => [Cache.get(shared, host), checked(host)] as const, onNonEmpty: () => [Cache.get(placed, host), Effect.succeed(false)] as const });
-            yield* opened;
-            return { words: yield* Effect.fromResult(host.command(path, root, remote, sent)), lived };
+        const dial = Effect.fn('Ssh.dial')(function* (host: Host, end: Address.HostPort | NetAddress.UnixPathAddress) {
+            yield* opened(shared, host);
+            return yield* Channel.dial(control(host), host, end);
         });
         return {
-            written,
-            spawn: Effect.fn('Ssh.spawn')(function* (host: Host, remote: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) {
-                return yield* started((yield* called(host, remote, options)).words, options);
+            place: Effect.fn('Ssh.place')(function* (host: Host) {
+                return yield* opened(placed, host);
             }),
-            run: Effect.fn('Ssh.run')(function* (host: Host, remote: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) {
-                const { words, lived } = yield* called(host, remote, options);
-                return yield* captured(words, options).pipe(
-                    Effect.map(({ stdout }) => stdout),
-                    Effect.catchTag('ExitError', settled(host, lived)),
-                );
+            dial,
+            run: Effect.fn('Ssh.run')(function* <E = never, R = never>(host: Host, words: Array.NonEmptyReadonlyArray<CommandLine.Word>, options?: { readonly env?: ChildProcess.CommandOptions['env']; readonly stdin?: Stream.Stream<Uint8Array, E, R> }) {
+                yield* opened(shared, host);
+                const { stdout, stderr, exit } = yield* Channel.exec(control(host), host, words, options);
+                const [out, err, code] = yield* Effect.all([stdout.pipe(Stream.decodeText, Stream.mkString), stderr.pipe(Stream.decodeText, Stream.mkString), exit], { concurrency: 'unbounded' });
+                return code === 0 ? out : yield* SshError.of({ _tag: 'Exit', exit: ExitError.of({ command: CommandLine.display(words, { format: host.shell }), code, stdout: out, stderr: err }) }, host.name)();
+            }, Effect.scoped),
+            spawn: Effect.fn('Ssh.spawn')(function* (host: Host, words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) {
+                const sent = Record.keys(Record.filter(options?.env ?? {}, Predicate.isNotUndefined)).flatMap((name) => ['-o', `SendEnv=${name}`]);
+                const [ready, flags] = Array.isReadonlyArrayNonEmpty(sent) ? ([opened(placed, host), ['-S', 'none', ...sent]] as const) : ([opened(shared, host), []] as const);
+                yield* ready;
+                return yield* local(spawn(yield* Effect.fromResult(host.command(path, root, flags, words)), { ...options, env: { ...options?.env, ...withheld } }));
             }),
-            copy: Effect.fn('Ssh.copy')(function* (host: Host, source: string, target: string) {
-                yield* Cache.get(shared, host);
-                return yield* captured(host.copy(path, root, source, target)).pipe(Effect.catchTag('ExitError', settled(host)), Effect.asVoid);
+            copy: Effect.fn('Ssh.copy')(function* (host: Host, direction: keyof typeof transfer, from: string, to: string, deadline?: Duration.Input) {
+                yield* opened(shared, host);
+                const [source, target] = transfer[direction](path.resolve(from), host.remote(to));
+                yield* local(run(host.copy(path, root, source, target), { within: deadline, env: withheld })).pipe(Effect.catchTag('ExitError', (exit) => SshError.of({ _tag: 'Exit', exit }, host.name)()));
             }),
-            forward: Effect.fn('Ssh.forward')(function* (host: Host, wanted: Parameters<typeof Forward.argv>[0]) {
-                yield* Cache.get(placed, host);
-                const socket = path.join(yield* fs.makeTempDirectoryScoped(), 'control');
-                const holder = yield* started(yield* Effect.fromResult(host.command(path, root, ['sh', '-c', 'echo && exec cat'], [], Option.some(socket))), { stdin: 'pipe' });
-                const refused = holder.stderr.pipe(
-                    Stream.decodeText,
-                    Stream.mkString,
-                    Effect.flatMap((printed) => SshError.of({ _tag: 'Unreachable', stderr: printed }, host.name)),
-                );
-                yield* Effect.filterOrElse(Stream.runHead(holder.stdout), Option.isSome, () => refused);
-                yield* started(['sh', '-c', 'cat > /dev/null; exec "$0" "$@"', ...host.request(socket, 'exit')], { stdin: 'pipe', stdout: 'ignore', stderr: 'ignore' });
-                const { stdout } = yield* captured(host.request(socket, 'forward', ...Forward.argv(wanted))).pipe(Effect.catchTag('ExitError', ({ stderr }) => SshError.of({ _tag: 'Refused', stderr }, host.name)));
-                return yield* Forward.bound(stdout)(wanted);
+            forward: Effect.fn('Ssh.forward')(function* (host: Host, wanted: typeof Forward.Type) {
+                yield* opened(shared, host);
+                if (!Forward.guards.Local(wanted)) {
+                    yield* Mux.proxy(control(host), host.name, within(host));
+                    return yield* Effect.acquireRelease(Mux.forward(control(host), host.name, wanted, within(host)), () => Effect.ignore(Mux.cancel(control(host), host.name, wanted, within(host))));
+                }
+                const [bound, shown] = Match.valueTags(wanted.bind, { HostPort: (at) => [{ host: Address.formatHost(at.host), port: at.port }, Address.formatHostPort(at)] as const, UnixPathAddress: (at) => [{ path: at.path }, NetAddress.formatUnixPath(at)] as const });
+                const server = yield* listen({ ...bound, allowHalfOpen: true }).pipe(Effect.mapError(SshError.of({ _tag: 'Refused', answer: `bind ${shown}` }, host.name)));
+                yield* Effect.forkScoped(server.run((inbound) => carry(inbound, dial(host, wanted.connect))));
+                return wanted;
             }),
         };
     }),
@@ -101,6 +94,33 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
     static readonly layer = (folder: string) => Layer.effect(this, this.make(folder));
 }
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const within = (host: Host) => Option.getOrUndefined(host.timeout);
+const opened = <E>(cache: Cache.Cache<Host, void, E>, host: Host) => Effect.andThen(Effect.annotateCurrentSpan('server.address', host.name), Cache.get(cache, host));
+const carry = Effect.fnUntraced(
+    function* <E, R>(inbound: Socket.Socket, dialed: Effect.Effect<Socket.Socket, E, R>) {
+        const up = yield* Socket.readerBytes(inbound);
+        const outbound = yield* dialed;
+        const down = yield* Socket.readerBytes(outbound);
+        yield* Effect.forEach(
+            [
+                [up, outbound],
+                [down, inbound],
+            ] as const,
+            ([pull, to]) =>
+                to.writer.pipe(
+                    Effect.flatMap((writer) => Effect.forever(Effect.flatMap(pull, writer.writeAll))),
+                    Effect.scoped,
+                    Effect.catchReason('SocketError', 'SocketCloseError', () => Effect.void),
+                ),
+            { concurrency: 'unbounded', discard: true },
+        );
+    },
+    Effect.scoped,
+    Effect.ignore({ log: 'Warn' }),
+);
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Ssh, SshError };
+export { Ssh };

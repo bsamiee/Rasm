@@ -1,8 +1,11 @@
 import { connect, type NetConnectOpts } from 'node:net';
+import { fileURLToPath } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { fromReadable } from '@effect/platform-node/NodeStream';
-import { Ssh, SshError } from '@rasm/ssh/client';
-import { Host } from '@rasm/ssh/host';
+import { Ssh } from '@rasm/ssh/client';
+import { Host, SshError } from '@rasm/ssh/host';
+import { Mux } from '@rasm/ssh/mux';
+import { containers } from '@rasm/testing/containers';
 import { Array, Cause, Context, Deferred, Effect, Fiber, FileSystem, Formatter, Layer, Option, Path, pipe, Queue, Record, Schema, Stream, String } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { GenericContainer, Wait } from 'testcontainers';
@@ -40,7 +43,7 @@ const heard = (options: NetConnectOpts, sent?: Uint8Array) => Effect.scoped(Effe
 const reasoned = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     Effect.match(effect, {
         onSuccess: () => 'reached',
-        onFailure: (error) => (Schema.is(SshError)(error) ? SshError.fields.reason.match(error.reason, { Exit: ({ exit }) => `Exit ${exit.code}`, Unreachable: () => 'Unreachable', Refused: () => 'Refused' }) : Formatter.format(error)),
+        onFailure: (error) => (Schema.is(SshError)(error) ? SshError.fields.reason.matchOrElse(error.reason, { Exit: ({ exit }) => `Exit ${exit.code}` }, ({ _tag }) => _tag) : Formatter.format(error)),
     });
 const printed = (handle: ChildProcessSpawner.ChildProcessHandle, subject: string) =>
     pipe(handle.stdout, Stream.decodeText, Stream.splitLines, Stream.runHead, Effect.flatMap(Effect.fromOption), Effect.raceFirst(Effect.flatMap(handle.exitCode, (code) => Effect.fail(new Cause.UnknownError(code, `${subject} exited ${code} before it printed a line`)))));
@@ -64,11 +67,8 @@ class Sshd extends Context.Service<Sshd>()('@rasm/test-ssh/sshd', {
         const published = (file: string) => Effect.map(fs.readFileString(`${file}.pub`), String.trim);
         const [trusted, signer, authorized] = yield* Effect.all([published(files.server), published(files.authority), published(files.client)]);
         const image = yield* Effect.tryPromise({
-            try: () =>
-                GenericContainer.fromDockerfile(import.meta.dirname)
-                    .withBuildkit()
-                    .build('rasm/test-ssh', { deleteOnExit: false }),
-            catch: (cause) => new Cause.UnknownError(cause, 'rasm/test-ssh image failed to build'),
+            try: () => GenericContainer.fromDockerfile(fileURLToPath(containers.ssh.context)).withBuildkit().build(containers.ssh.image, { deleteOnExit: false }),
+            catch: (cause) => new Cause.UnknownError(cause, `${containers.ssh.image} image failed to build`),
         });
         const defined = image
             .withExposedPorts(served, ...spare)
@@ -98,17 +98,15 @@ class Sshd extends Context.Service<Sshd>()('@rasm/test-ssh/sshd', {
         const listening = (inside: number) => Effect.acquireRelease(executed('/usr/sbin/sshd', '-p', `${inside}`, ...policy), () => ended('pkill', '-KILL', '-f', `^sshd: /usr/sbin/sshd -p ${inside} `));
         const scratch = Effect.acquireRelease(executed('mktemp', '-d').pipe(Effect.map(String.trim)), (made) => ended('rm', '-rf', made));
         const hosted = (name: string, fields: Readonly<Record<string, unknown>> = {}) =>
-            Schema.decodeEffect(Host)({ name, user: 'root', ...mapped(served).dial, identity: { _tag: 'Key', file: files.client }, trust: { _tag: 'HostKeys', keys: [trusted] }, path: { _tag: 'Direct', preferred: [] }, persist: 30_000, ...fields });
+            Schema.decodeEffect(Host)({ name, user: 'root', ...mapped(served).dial, identity: { _tag: 'Key', file: files.client }, trust: { _tag: 'HostKeys', keys: [trusted] }, route: { _tag: 'Direct', preferred: [] }, persist: 30_000, ...fields });
         const client = Effect.gen(function* () {
             const folder = yield* fs.makeTempDirectoryScoped();
             const ssh = yield* Ssh.make(folder);
-            const exited = (name: string) => spawner.exitCode(ChildProcess.make('ssh', ['-F', 'none', '-S', path.join(folder, name, 'control'), '-O', 'exit', name], { stdin: 'ignore', stdout: 'ignore', stderr: 'ignore' }));
-            yield* Effect.addFinalizer(() => Effect.ignore(Effect.flatMap(fs.readDirectory(folder), Effect.forEach(exited, { concurrency: 'unbounded' }))));
-            const asked = (host: Host, ...request: Array.NonEmptyReadonlyArray<string>) => {
-                const words = host.request(host.control(path, folder), ...request);
-                return spawner.string(ChildProcess.make(Array.headNonEmpty(words), Array.tailNonEmpty(words), { stdin: 'ignore' }), { includeStderr: true });
-            };
-            return { ssh, folder, asked };
+            const terminated = (name: string) => Mux.terminate(path.join(folder, name, 'control'), name);
+            yield* Effect.addFinalizer(() => Effect.ignore(Effect.flatMap(fs.readDirectory(folder), Effect.forEach(terminated, { concurrency: 'unbounded' }))));
+            const alive = (host: Host) => Mux.alive(host.control(path, folder), host.name);
+            const stopped = (host: Host) => Mux.stop(host.control(path, folder), host.name);
+            return { ssh, folder, alive, terminated, stopped };
         });
         return { files, trusted, signer, name: container.getHostname(), served: mapped(served), port, listening, scratch, hosted, client };
     }),

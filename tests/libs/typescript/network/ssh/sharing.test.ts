@@ -11,10 +11,6 @@ import { printed, reasoned, Sshd } from '#/sshd';
 const connection = Array.make('sh', '-c', 'echo "$SSH_CONNECTION"');
 const callers = Array.range(1, 8);
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Master = Schema.TemplateLiteralParser(['Master running (pid=', Schema.FiniteFromString, ')']);
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('sharing', (methods) => {
@@ -46,10 +42,10 @@ it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('sharing',
         'fails the command a killed shared connection carried, and runs the concurrent calls after it over one new connection',
         Effect.fnUntraced(function* () {
             const sshd = yield* Sshd;
-            const [{ ssh, asked }, host] = yield* Effect.all([sshd.client, sshd.hosted('killed')]);
+            const [{ ssh, alive }, host] = yield* Effect.all([sshd.client, sshd.hosted('killed')]);
             const running = yield* ssh.spawn(host, ['sh', '-c', 'echo "$SSH_CONNECTION"; exec cat']);
             const before = yield* printed(running, 'the running command');
-            const [, pid] = yield* Effect.flatMap(asked(host, 'check'), (shown) => Schema.decodeUnknownEffect(Master)(shown.trim()));
+            const pid = yield* Effect.flatMap(alive(host), Effect.fromOption);
             yield* Effect.sync(() => process.kill(pid, 'SIGKILL'));
             const code = yield* running.exitCode;
             const after = yield* Effect.forEach(callers, () => ssh.run(host, connection), { concurrency: 'unbounded' });
@@ -61,11 +57,11 @@ it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('sharing',
         'lets a running command finish after a stop request, and runs the next call over a new connection',
         Effect.fnUntraced(function* () {
             const sshd = yield* Sshd;
-            const [{ ssh, asked }, host, made] = yield* Effect.all([sshd.client, sshd.hosted('stopped'), sshd.scratch]);
+            const [{ ssh, stopped }, host, made] = yield* Effect.all([sshd.client, sshd.hosted('stopped'), sshd.scratch]);
             yield* ssh.run(host, ['mkfifo', `${made}/ready`, `${made}/gate`]);
             const running = yield* Effect.forkScoped(ssh.run(host, ['sh', '-c', `echo "$SSH_CONNECTION" > ${made}/ready; cat ${made}/gate; echo finished`]));
             const before = yield* ssh.run(host, ['cat', `${made}/ready`]);
-            yield* asked(host, 'stop');
+            yield* stopped(host);
             const after = yield* ssh.run(host, ['sh', '-c', `echo released > ${made}/gate; echo "$SSH_CONNECTION"`]);
             assert.deepStrictEqual([yield* Fiber.join(running), after === before], ['released\nfinished\n', false]);
         }),
@@ -75,11 +71,11 @@ it.layer(Sshd.layer, { excludeTestServices: true, concurrent: true })('sharing',
         'reports a command whose shared connection an exit request ended as unreachable, and runs the next call over a new connection',
         Effect.fnUntraced(function* () {
             const sshd = yield* Sshd;
-            const [{ ssh, asked }, host, made] = yield* Effect.all([sshd.client, sshd.hosted('exited'), sshd.scratch]);
+            const [{ ssh, terminated }, host, made] = yield* Effect.all([sshd.client, sshd.hosted('exited'), sshd.scratch]);
             yield* ssh.run(host, ['mkfifo', `${made}/ready`, `${made}/gate`]);
             const running = yield* ssh.run(host, ['sh', '-c', `echo "$SSH_CONNECTION" > ${made}/ready; cat ${made}/gate`]).pipe(reasoned, Effect.forkScoped);
             const before = yield* ssh.run(host, ['cat', `${made}/ready`]);
-            yield* asked(host, 'exit');
+            yield* terminated(host.name);
             const ended = yield* Fiber.join(running);
             const after = yield* ssh.run(host, ['sh', '-c', `: <> ${made}/gate; echo "$SSH_CONNECTION"`]);
             assert.deepStrictEqual([ended, after === before], ['Unreachable', false]);
