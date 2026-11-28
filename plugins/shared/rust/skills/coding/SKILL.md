@@ -38,7 +38,7 @@ Parameter types state every value a function accepts, and its return type every 
 - Facts a dependency or the build states come from it (a protocol version from its package's constant, `env!("CARGO_PKG_NAME")`)
 - Strings hold text a reader receives or a wire's fixed token, and a kind, key, or name derives from its owner (a type, a variant, a field)
 - Text no program prints and no host shows goes
-- Inherent methods exist only where they keep their type's invariant, and other behavior goes in functions
+- Inherent methods construct their type or keep its invariant, and other behavior goes in functions
 - Helpers one function reads are closures inside it, or a nested `fn` that is generic, `const`, recursive, or returns a borrow of a parameter
 - Bodies doing more than one job split by job into functions reading their parameters, never into a run of named closures
 - Lints wrong for one site take `#[expect(<lint>, reason = "<fact>")]`, and a lint wrong for a whole crate leaves its manifest with that reason
@@ -46,7 +46,7 @@ Parameter types state every value a function accepts, and its return type every 
 ### [01.1]-[TOTAL_FUNCTIONS]
 
 Total functions produce a declared output for each declared input, a partial one narrowing its input to a constructed type or widening its output:
-- `impl From<u32> for Tier` is incomplete when some counts are invalid, `impl From<Quantity> for Tier` holds for every constructible `Quantity`
+- `Tier` from a `u32` is partial when some counts are invalid, `impl From<Quantity> for Tier` holds for every constructible `Quantity`
 - Empty collections are results, and `Option<Vec<T>>` exists only where a consumer treats no collection and an empty one apart
 - Inputs a dependency asserts on are refused at construction or before its call by a refusal naming the value, never clamped into range
 - Associated constants a generic body needs in range take `const { assert!(<test>, "<invariant>") }`, failing at monomorphization
