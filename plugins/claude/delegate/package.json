@@ -3,8 +3,7 @@
     "private": true,
     "description": "Claude Code hooks that run outside agent commands as background engine agents, each reporting its exit, time, model, and answer files, and list every outside run on the Mac",
     "files": [
-        "skills/**",
-        "commands/**"
+        "skills/**"
     ],
     "type": "module",
     "devDependencies": {

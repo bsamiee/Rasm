@@ -327,7 +327,13 @@ function register(on: On) {
                         : next(e),
                 ),
             'tool.check': (e, next) => Effect.flatMap(Runner, ({ runner, tool }) => (e.tool === tool ? Effect.flatMap(runner(Option.fromUndefinedOr(e.agentId)), (held) => (Option.isSome(held) ? Effect.succeed({ decision: 'allow' as const }) : next(e))) : next(e))),
-            'command.run': (e, next) => Effect.flatMap(Plugin, ({ name }) => (e.command === `${name}:runs` ? Effect.map(table, (text) => ({ text, isTextDisplayOnly: true }) as const) : next(e))),
+        },
+        commands: {
+            runs: {
+                description: 'Every outside agent run on this Mac, with its session, program, model, task, time, and process id',
+                immediate: true,
+                run: () => Effect.map(table, (text) => ({ text, isTextDisplayOnly: true }) as const),
+            },
         },
         tools: {
             run: Tool(Run, {
