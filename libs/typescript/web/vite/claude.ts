@@ -58,8 +58,9 @@ const claude = (directory: string): UserConfigFnPromise =>
                         external: ['claude-code'],
                         output: {
                             entryFileNames: ({ isEntry, name }) => (isEntry ? `${HOOKS}/[name].js` : `${HOOKS}/${posix.basename(name)}-[hash].js`),
-                            minify: { compress: true, mangle: false, codegen: { removeWhitespace: true } },
+                            minify: { compress: false, mangle: false, codegen: { removeWhitespace: true } },
                             preserveModules: true,
+                            topLevelVar: false,
                         },
                     },
                 },

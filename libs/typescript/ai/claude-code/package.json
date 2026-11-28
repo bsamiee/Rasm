@@ -13,6 +13,9 @@
         "./ask": "./ui/ask.ts",
         "./draft": "./prompt/draft.ts",
         "./element": "./ui/element.ts",
+        "./pane": "./ui/pane.ts",
+        "./placed": "./ui/placed.ts",
+        "./render": "./ui/render.ts",
         "./theme": "./ui/theme.ts",
         "./enforcement": "./policy/enforcement.ts",
         "./package.json": "./package.json"
