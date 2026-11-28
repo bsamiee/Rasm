@@ -125,7 +125,12 @@ function answer<A, E, F, S, N extends Event>($: EngineInterface, instance: Insta
     const proceed: Proceed<N> = Object.assign((input: Frozen<Args<N>>) => call(next.event, 'next', () => next(input)), { budget: next.budget, signal: next.signal });
     const hook: Hook<N, A, F | PlatformError.PlatformError> = instance.hooks[next.event] ?? ((input, onward) => onward(input));
     const answered = hook(e, proceed);
-    return start($, instance, layer).runPromise(held[next.event]?.(instance, e, answered) ?? answered, { signal: next.signal });
+    return start($, instance, layer)
+        .runPromise(held[next.event]?.(instance, e, answered) ?? answered, { signal: next.signal })
+        .catch((error: unknown) => {
+            next.signal.throwIfAborted();
+            throw error;
+        });
 }
 
 function band<A, E, F, S>($: EngineInterface, instance: Instance<A, E, F, S>, layer: Mod<A, E, F, S>['layer'], e: Frozen<RenderInput<'AbovePrompt'>>, next: (e: Frozen<RenderInput<'AbovePrompt'>>) => Promise<RenderElement>) {
