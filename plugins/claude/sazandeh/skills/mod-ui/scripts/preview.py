@@ -20,6 +20,7 @@ import subprocess
 import sys
 import time
 from typing import Annotated, Any, override
+from uuid import uuid4
 lazy from collections import Counter
 lazy from collections.abc import AsyncIterator, Iterable, Iterator, Mapping, Sequence
 lazy import shlex
@@ -72,6 +73,7 @@ _TMUX = (
 )
 _FLAGS = ("bold", "dim", "italic", "underline", "reverse", "strike", "blink")
 _FAILED = frozenset({"caught", "expired", "kept", "rejected", "skipped"})
+_REPLY = "PREVIEW-REPLY"
 _ENTRY = re.compile(r'\d{4}-\d\d-\d\dT\S+ \[(?P<level>[A-Z]+)\] (?:(?P<quoted>"(?:[^"\\]|\\.)*")\n?$|(?P<text>.*))', re.DOTALL)
 _START = re.compile(r"\n(?=\d{4}-\d\d-\d\dT)")
 _RECORD = re.compile(r"\[preview-recorder\] \$\.ui\.log \(to debug\): PREVIEW (?P<order>\d+) (?P<more>[01]) (?P<chunk>.*)", re.DOTALL)
@@ -488,19 +490,22 @@ def _spoken(text: str, /) -> str:
 
 
 def _answer(request: dict[str, Any], /) -> bytes:
-    messages = request.get("messages") or [{}]
-    content = next((message.get("content", "") for message in reversed(messages) if message.get("role") == "user"), "")
-    blocks = ({"type": "text", "text": content},) if isinstance(content, str) else tuple(content)
-    asked = next((str(block["text"]) for block in blocks if block.get("type") == "text" and str(block.get("text")).startswith(("call:", "say:"))), "")
-    kind, _, given = asked.partition(":")
-    match kind, request.get("tools"), any(block.get("type") == "tool_result" for block in blocks):
-        case "call", list(), False:
+    blocks = tuple(
+        (message.get("role"), block)
+        for message in request.get("messages") or ()
+        for block in (({"type": "text", "text": message.get("content", "")},) if isinstance(message.get("content"), str) else message.get("content") or ())
+    )
+    asked = tuple(str(block["text"]) for role, block in blocks if role == "user" and block.get("type") == "text" and str(block.get("text")).startswith(("call:", "say:")))
+    answered = sum(1 for role, block in blocks if role == "assistant" and (block.get("type") == "tool_use" or (block.get("type") == "text" and block.get("text") != _REPLY)))
+    kind, _, given = asked[answered].partition(":") if answered < len(asked) else ("", "", "")
+    match kind, request.get("tools"):
+        case "call", list():
             tool, _, given = given.partition(" ")
-            block, delta, stop = {"type": "tool_use", "id": f"toolu_preview{len(messages)}", "name": tool, "input": {}}, {"type": "input_json_delta", "partial_json": given}, "tool_use"
-        case "say", list(), False:
+            block, delta, stop = {"type": "tool_use", "id": f"toolu_preview{uuid4().hex}", "name": tool, "input": {}}, {"type": "input_json_delta", "partial_json": given}, "tool_use"
+        case "say", list():
             block, delta, stop = {"type": "text", "text": ""}, {"type": "text_delta", "text": _spoken(given)}, "end_turn"
         case _:
-            block, delta, stop = {"type": "text", "text": ""}, {"type": "text_delta", "text": "PREVIEW-REPLY"}, "end_turn"
+            block, delta, stop = {"type": "text", "text": ""}, {"type": "text_delta", "text": _REPLY}, "end_turn"
     events = (
         ("message_start", {"message": {"id": "msg_preview", "type": "message", "role": "assistant", "model": "preview", "content": [], "usage": {"input_tokens": 1, "output_tokens": 1}}}),
         ("content_block_start", {"index": 0, "content_block": block}),

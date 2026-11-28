@@ -9,8 +9,9 @@ Templates and draft modules become mod bundles in a scratch kit under the plugin
 2. Build: `../../../node_modules/.bin/vite build --outDir dist --emptyOutDir` inside the kit, as the kit resolves `@rasm/claude-code`, `effect`, and `vite` through the plugin's own `node_modules`
 3. Validate: `claude plugin validate <kit>/dist`, whose `author` warning changes nothing for a local mod
 4. Preview: `uv run --locked --script scripts/preview.py <kit>/dist [--step KIND:VALUE]...`
+5. Delete the kit once the report is read
 
-States reached only past auto mode take a kit `hooks/register.ts` wrapping the template in `template.ts`:
+States reached only past auto mode take a kit `hooks/register.ts` wrapping the template in `template.ts`, one matched allow per tool, as validate refuses an unmatched `tool.check` beside another hook on it in one bundle:
 
 ```ts
 import type { On } from 'claude-code';
@@ -18,12 +19,12 @@ import { register as template } from './template';
 
 function register(on: On) {
     on('tool.check', { tool: 'Bash' }, () => ({ decision: 'allow' }));
+    on('tool.check', { tool: 'Agent' }, () => ({ decision: 'allow' }));
     template(on);
 }
 
 export { register };
 ```
-5. Delete the kit once the report is read
 
 Mods of the repository take their Nx build output in place of a kit: `.artifacts/vite/@rasm/<project>` after `nx build @rasm/<project>`.
 
@@ -43,9 +44,12 @@ Mods of the repository take their Nx build output in place of a kit: `.artifacts
 - Both layouts run by default, at 120x40; `--size 160 40` docks panes and raises `BesidePrompt` in fullscreen, 110 columns being the dock's floor
 - `--limit` bounds each step, and a step under an animation or a dialog reads `unsettled after`
 - `--empty-layout` skips the terminal and runs validate, mount, and session alone, about 5 s
-- Fake model replies answer every other request with `PREVIEW-REPLY` and spend no tokens
+- Fake model replies answer each `call:` and `say:` step once, in step order, and every other request with `PREVIEW-REPLY`, spending no tokens
+- Steps typed while a call runs join that call's result message, and each still gets its own answer
+- Agents read their prompt as a step, so `call:Agent {"prompt":"call:Bash {…}","run_in_background":true}` runs a call inside a background agent; four such steps hold four calls running at once
 - `say:` reaches rows of a reply's own words (`CodeBlock`, `AssistantMessage`), backticks written `\u0060`, as typed ones reached the model unmatched
-- Auto mode's check gets no usable answer from the fake model, so a call it checks reads `Not run`: `echo` runs, while `ping`, `find /`, and `tail -f` need the wrapped kit's `tool.check` allow
+- Auto mode's check gets no usable answer from the fake model, so a call it checks reads `Not run`: `echo` runs, `ping`, `find /`, and `tail -f` take the kit's allow
+- Engines refuse a standalone `sleep`, so a call held running is `ping -c <seconds> 127.0.0.1` under the allow
 - Plugin names join the work folder's path, and tmux sockets sit there under short names, so long plugin names run
 
 ## [03]-[STAGES]
