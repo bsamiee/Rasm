@@ -10,6 +10,7 @@
 - Settings differing by project, platform, or build mode use the tool's own switch (profile, condition, glob, per-OS file), never a script or flag
 - Tasks and sessions delete scratch files written to reach a result (downloads, extractions, captures, conversions) once the result is recorded
 - Tests are written only at the user's request
+- Each change is one atomic commit made as soon as the change is done
 
 ## [01]-[TOOLING]
 

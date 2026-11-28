@@ -1,6 +1,4 @@
-import { readFileSync } from 'node:fs';
 import { isIPv4 } from 'node:net';
-import playwright from '@playwright/test/package.json' with { type: 'json' };
 import aws from '@pulumi/aws';
 import { DnsRecord, getZoneOutput } from '@pulumi/cloudflare';
 import { remote } from '@pulumi/command';
@@ -21,7 +19,7 @@ import type { configs, identified } from '#/repository-stack';
 type Role = Data.TaggedEnum<{
     Cache: { readonly name: string; readonly kept: Duration.Duration; readonly abort: Duration.Duration };
     Bucket: { readonly name: string; readonly kept: Duration.Duration; readonly abort: Duration.Duration };
-    Runner: { readonly instances: Readonly<Record<string, Readonly<Record<string, string>>>> };
+    Runner: { readonly label: string };
     Apps: { readonly owner: string };
     History: { readonly name: string };
 }>;
@@ -45,7 +43,7 @@ const hosts = {
         roles: [
             { _tag: 'Cache', name: 'nx-cache', kept: Duration.weeks(1), abort: Duration.days(1) },
             { _tag: 'Bucket', name: 'cargo', kept: Duration.days(3), abort: Duration.days(1) },
-            { _tag: 'Runner', instances: { host: { MemoryMax: '20G' }, container: {}, graph: {} } },
+            { _tag: 'Runner', label: 'unreal' },
         ],
     },
 } as const satisfies Record.ReadonlyRecord<string, Row>;
@@ -340,68 +338,54 @@ const provisioned = (
                 Bucket: (settings) => exposed(settings, storage(machine), project),
                 Apps: (settings) => hosted(machine, settings, storage(machine), rows),
                 History: (settings) => synced(machine, settings, owner, secret(rows.ATUIN_PASSWORD)),
-                Runner: ({ instances }) => {
+                Runner: ({ label }) => {
                     const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner', drained: Duration.hours(2) } as const;
-                    const browsers = `ghcr.io/${owner}/${repository}/playwright`.toLowerCase();
-                    const [, registered] = Array.mapAccum(Record.toEntries(instances), Option.none<remote.Command>(), (before, [label, limits]) => {
-                        const [folder, work] = [`/home/${runner.user}/actions-runner-${label}`, `/home/${runner.user}/actions-work-${label}`];
-                        const archive = `/tmp/actions-runner-${label}.tar.gz`;
-                        const removed = `token=$(cat); if cd "${folder}" 2>/dev/null; then ./svc.sh stop; systemctl revert "$(cat .service)"; ./svc.sh uninstall; sudo -u ${runner.user} ./config.sh remove --pat "$token"; fi; rm -rf "${folder}"`;
-                        const drain = `#!/bin/bash
-runner="https://api.github.com/repos/${owner}/${repository}/actions/runners/$(jq .agentId "${folder}/.runner")"
-call() { curl -fsS --retry 3 --retry-all-errors -H "Authorization: Bearer $(cat "${folder}/.token")" "$@"; }
-case "$1" in
-start) call -X PUT -d '{"labels":["${label}"]}' "$runner/labels" >/dev/null ;;
-stop)
-    call -X DELETE "$runner/labels" >/dev/null || echo "GitHub kept label ${label}, so the stop waits for the local worker"
-    while busy=$(call "$runner" | jq .busy); [ "$busy" = true ] || { [ -z "$busy" ] && pgrep -f "${folder}/bin/Runner.Worker" >/dev/null; }; do sleep 10; done ;;
-esac`;
-                        const installation = [
-                            removed,
-                            'set -eu',
-                            `install -d -o ${runner.user} -g ${runner.user} "${folder}" "${work}" && cd "${folder}"`,
-                            `curl -fsSL -o "${archive}" https://github.com/actions/runner/releases/download/v${runner.version}/actions-runner-linux-x64-${runner.version}.tar.gz`,
-                            `echo "${runner.sha256}  ${archive}" | sha256sum --check --quiet`,
-                            `sudo -u ${runner.user} tar xzf "${archive}" && rm "${archive}"`,
-                            './bin/installdependencies.sh',
-                            `sudo -u ${runner.user} ./config.sh --unattended --replace --url "https://github.com/${owner}/${repository}" --name "${machine.name}-${label}" --labels "${label}" --work "${work}" --pat "$token"`,
-                            `(umask 077 && printf '%s' "$token" > .token)`,
-                            `install -m 700 /dev/stdin drain <<'EOF'\n${drain}\nEOF`,
-                            `./svc.sh install ${runner.user}`,
-                            `systemctl edit --stdin --drop-in=instance "$(cat .service)" <<'EOF'`,
-                            '[Unit]',
-                            'After=docker.service',
-                            '[Service]',
-                            `ExecStartPre=+${folder}/drain start`,
-                            `ExecStop=+${folder}/drain stop`,
-                            'Restart=on-failure',
-                            'RestartSec=30s',
-                            `TimeoutStopSec=${Duration.toSeconds(runner.drained)}s`,
-                            ...Record.collect(limits, (option, value) => `${option}=${value}`),
-                            'EOF',
-                            './svc.sh start',
-                        ].join('\n');
-                        const connection = { host: machine.name };
-                        const kept = new remote.Command(`${machine.name}-work-${label}`, { connection, delete: `rm -rf "${work}"` });
-                        const instance = new remote.Command(
-                            `${machine.name}-runner-${label}`,
-                            { connection, addPreviousOutputInEnv: false, logging: 'stderr', create: installation, delete: removed, stdin: secret(rows.GITHUB_TOKEN), triggers: [tailnet(machine).nodeId] },
-                            { dependsOn: [...Option.toArray(before), kept], deleteBeforeReplace: true, customTimeouts: Struct.Record(['create', 'update', 'delete'], `${Duration.toMinutes(Duration.sum(runner.drained, Duration.minutes(15)))}m`) },
-                        );
-                        return [Option.some(instance), [label, instance.id] as const];
-                    });
-                    return {
-                        runners: Record.fromEntries(registered),
-                        engines: Array.map(engines, (version) => machine.tagged(`ghcr.io/epicgames/unreal-engine:dev-slim-${version}`, { customTimeouts: { create: '2h', update: '2h' } })),
-                        tests: [...Array.map([containers.postgres, containers.clickhouse, containers.ryuk], (image) => machine.tagged(image)), machine.imaged(containers.ssh.image, readFileSync(new URL('Dockerfile', containers.ssh.context), 'utf-8'))],
-                        browsers: machine.tagged(`${browsers}:${playwright.version}`, {
-                            digest: machine.imaged(
-                                `${browsers}:${playwright.version}`,
-                                `FROM node:slim\nENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright\nRUN apt-get update && apt-get install --yes --no-install-recommends build-essential ca-certificates curl git libicu-dev && rm -rf /var/lib/apt/lists/*\nRUN npx --yes playwright@${playwright.version} install --with-deps chromium && npx --yes playwright@${playwright.version} install-deps firefox && rm -rf /var/lib/apt/lists/* /root/.npm && usermod --home /github/home node\nUSER node\n`,
-                                { registries, labels: { 'org.opencontainers.image.source': `https://github.com/${owner}/${repository}` }, cache: `${browsers}:cache` },
-                            ),
-                        }),
-                    };
+                    const [folder, tools, unit, archive] = [`/home/${runner.user}/actions-runner-${label}`, `/home/${runner.user}/actions-tools-${label}`, `actions.runner.${label}.service`, `/tmp/actions-runner-${label}.tar.gz`];
+                    const removed = `systemctl disable --now ${unit}; rm -rf "/etc/systemd/system/${unit}" "${folder}"; systemctl daemon-reload`;
+                    const register = `#!/bin/bash
+set -euo pipefail
+rm -rf "${folder}/_work"
+curl -fsS -H "Authorization: Bearer $(cat "${folder}/.token")" -d '{"name":"${machine.name}-${label}-'"$(date +%s)"'","runner_group_id":1,"labels":["self-hosted","${label}"]}' https://api.github.com/repos/${owner}/${repository}/actions/runners/generate-jitconfig | jq -r .encoded_jit_config | install -m 600 -o ${runner.user} -g ${runner.user} /dev/stdin "${folder}/.jit"`;
+                    const installation = [
+                        'token=$(cat)',
+                        removed,
+                        'set -eu',
+                        `install -d -o ${runner.user} -g ${runner.user} "${folder}" "${tools}" && cd "${folder}"`,
+                        `curl -fsSL -o "${archive}" https://github.com/actions/runner/releases/download/v${runner.version}/actions-runner-linux-x64-${runner.version}.tar.gz`,
+                        `echo "${runner.sha256}  ${archive}" | sha256sum --check --quiet`,
+                        `sudo -u ${runner.user} tar xzf "${archive}" && rm "${archive}"`,
+                        './bin/installdependencies.sh',
+                        `(umask 077 && printf '%s' "$token" > .token)`,
+                        `install -m 700 /dev/stdin register <<'EOF'\n${register}\nEOF`,
+                        `install -m 644 /dev/stdin "/etc/systemd/system/${unit}" <<'EOF'`,
+                        '[Unit]',
+                        `Description=GitHub Actions runner ${label}, registered for one job at a time`,
+                        'After=docker.service network-online.target',
+                        'Wants=network-online.target',
+                        '[Service]',
+                        `User=${runner.user}`,
+                        `WorkingDirectory=${folder}`,
+                        `Environment=RUNNER_TOOL_CACHE=${tools}`,
+                        `ExecStartPre=+${folder}/register`,
+                        `ExecStart=/bin/bash -c 'exec ./run.sh --jitconfig "$$(cat .jit)"'`,
+                        `ExecStop=/bin/bash -c 'while pgrep -f "^${folder}/bin/Runner.Worker" >/dev/null; do sleep 10; done'`,
+                        'Restart=always',
+                        'RestartSec=5s',
+                        `TimeoutStopSec=${Duration.toSeconds(runner.drained)}s`,
+                        '[Install]',
+                        'WantedBy=multi-user.target',
+                        'EOF',
+                        'systemctl daemon-reload',
+                        `systemctl enable --now ${unit}`,
+                    ].join('\n');
+                    const connection = { host: machine.name };
+                    const kept = new remote.Command(`${machine.name}-tools-${label}`, { connection, delete: `rm -rf "${tools}"` });
+                    const instance = new remote.Command(
+                        `${machine.name}-runner-${label}`,
+                        { connection, addPreviousOutputInEnv: false, logging: 'stderr', create: installation, delete: removed, stdin: secret(rows.GITHUB_TOKEN), triggers: [tailnet(machine).nodeId] },
+                        { dependsOn: [kept], deleteBeforeReplace: true, customTimeouts: Struct.Record(['create', 'update', 'delete'], `${Duration.toMinutes(Duration.sum(runner.drained, Duration.minutes(15)))}m`) },
+                    );
+                    return { [label]: instance.id, engines: Array.map(engines, (version) => machine.tagged(`ghcr.io/epicgames/unreal-engine:dev-slim-${version}`, { customTimeouts: { create: '2h', update: '2h' } })) };
                 },
             }),
         );

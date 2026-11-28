@@ -12,22 +12,14 @@ content = '''
 $nrconf{override_rc}{qr(^actions\.runner\..+\.service$)} = 0;
 '''
 
-[bootstrap.files."/etc/sudoers.d/90-runner"]
-content = """
-runner ALL=(ALL) NOPASSWD:ALL
-"""
-mode    = "0440"
-
 [bootstrap.files."/etc/systemd/system/reboot-when-idle.service"]
 content = """
 [Unit]
-Description=Reboot after updates when all repository workflow runs on the first API page have concluded
+Description=Reboot after updates when no runner of this machine is running a job
 ConditionPathExists=/run/reboot-required
-Wants=network-online.target
-After=network-online.target
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -c 'url=$$(jq -rn "first(inputs.gitHubUrl)" /home/runner/actions-runner-*/.runner) && count=$$(curl -fsS "https://api.github.com/repos/$${url#https://github.com/}/actions/runs?per_page=100" | jq "[.workflow_runs[] | select(.conclusion == null)] | length") && [ "$$count" = 0 ] && exec systemctl reboot; echo "Reboot deferred, unfinished workflow run count is $${count:-unknown}"'
+ExecStart=/bin/bash -c 'pgrep -x Runner.Worker >/dev/null || exec systemctl reboot; echo "Reboot deferred, a Runner.Worker job is running"'
 """
 notify  = ["reboot-when-idle.timer"]
 
@@ -51,21 +43,7 @@ system = true
 # --- [PACKAGES]
 
 [bootstrap.packages]
-"apt:build-essential" = "latest"
-"apt:fontconfig"      = "latest"
-"apt:jq"              = "latest"
-"apt:libgl1"          = "latest"
-"apt:libice6"         = "latest"
-"apt:libsm6"          = "latest"
-"apt:libsqlite3-dev"  = "latest"
-"apt:libxfixes3"      = "latest"
-"apt:libxi6"          = "latest"
-"apt:libxrender1"     = "latest"
-"apt:pkg-config"      = "latest"
-"apt:sqlite3"         = "latest"
-"apt:unzip"           = "latest"
-"apt:zip"             = "latest"
-"apt:zsh"             = "latest"
+"apt:jq" = "latest"
 
 # --- [SERVICES]
 
