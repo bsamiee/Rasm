@@ -4,43 +4,42 @@ C# targets hold `.cs` files of the projects `Workspace.slnx` lists, `<project>` 
 
 ## [01]-[SKILLS]
 
-| [INDEX] | [TARGET]        | [SKILLS]                                      | [CONDITION]                                              |
-| :-----: | :-------------- | :-------------------------------------------- | :------------------------------------------------------- |
-|  [01]   | Any C#          | `dotnet:coding`, `dotnet:codelens`            | `.cs` file of a `Workspace.slnx` project                 |
-|  [02]   | LanguageExt     | `dotnet:languageext`                          | `LanguageExt.Core` in `packages.lock.json`               |
-|  [03]   | Generated types | `dotnet:thinktecture`                         | `[SmartEnum]`, `[ValueObject]`, `[Union]`, `TTRESG`      |
-|  [04]   | Mappers         | `dotnet:mapperly`                             | `[Mapper]`, or a mapping a pass writes                   |
-|  [05]   | Spans, kernels  | `dotnet:memory`                               | `Span<T>`, pooled owners, `TensorPrimitives`             |
-|  [06]   | Drawn UI        | `dotnet:ui`                                   | Imports `SkiaSharp`, `Eto`, `HarfBuzzSharp`, `Unicolour` |
-|  [07]   | Tests           | `code:test`, `rhino:testing` for Rhino suites | `*.Tests.csproj`                                         |
-|  [08]   | MSBuild         | `msbuild:antipatterns`, `msbuild:evaluation`  | `.csproj`, `.props`, `.targets`                          |
-|  [09]   | Packages        | `msbuild:packaging`                           | `Directory.Packages.props`, `.slnx`                      |
+| [INDEX] | [TARGET]         | [SKILLS]                                      | [CONDITION]                                      |
+| :-----: | :--------------- | :-------------------------------------------- | :----------------------------------------------- |
+|  [01]   | Any C#           | `dotnet:coding`, `dotnet:codelens`            | Always                                           |
+|  [02]   | Core packages    | `dotnet:languageext`, `dotnet:thinktecture`   | Always, whatever the target imports              |
+|  [03]   | Mapping          | `dotnet:mapperly`                             | Mapping written by hand, or a `[Mapper]`         |
+|  [04]   | Buffers, kernels | `dotnet:memory`                               | Span, buffer, or numeric loop written by hand    |
+|  [05]   | Drawn UI         | `dotnet:ui`                                   | Drawing, text layout, color, or Eto control code |
+|  [06]   | Tests            | `code:test`, `rhino:testing` for Rhino suites | `*.Tests.csproj`                                 |
+|  [07]   | MSBuild          | `msbuild:antipatterns`, `msbuild:evaluation`  | `.csproj`, `.props`, `.targets`                  |
+|  [08]   | Packages         | `msbuild:packaging`                           | `Directory.Packages.props`, `.slnx`              |
 
-Rhino and Grasshopper code takes these rows alone, its host SDK a package [02]-[SOURCES] reads. `Directory.Build.targets` adds global usings per `PackageReference` (`LanguageExt.Prelude`, `Thinktecture`, aliases `Duration` and `Length`), so a file's `using` lines never decide a row.
+Rhino and Grasshopper code takes these rows alone, its host SDK a core source [02]-[SOURCES] reads. `Directory.Build.targets` adds global usings per `PackageReference` (`LanguageExt.Prelude`, `Thinktecture`, aliases `Duration` and `Length`), so a file's `using` lines never decide a row.
 
 ## [02]-[SOURCES]
 
-C# targets read their compiler, the BCL of their target framework, the packages their lock resolves, generator output, and their host SDK, as most hand-rolled C# in this tree restates one of them. Package reads, one command per step:
+C# targets read their compiler, BCL, LanguageExt, Thinktecture, generator output, and host SDK every session whatever they import, then the central manifest whole, as most hand-rolled C# in this tree restates one of them. Package reads, their commands below in step order:
 1. Language: compiler and language versions of the SDK, a feature its docs list confirmed by one probe build at the project's framework
-2. Version: package version the project's lock resolves, as `Directory.Packages.props` pins and `packages.lock.json` records what compiles
-3. Guide: agent guide or `README.nuget.md` and `README.md` in the package folder, read whole
-4. Index: codelens namespace tree of an assembly the solution references, one namespace's members per call
-5. Inventory: XML documentation ids per kind into `<dir>`, `ilspycmd` types where no XML file ships (`Rhino.UI`)
-6. Runtime: BCL reference pack at the version the project's assets file records, inventoried through step 5
-7. Generated: generators per project and each output file, the source of `Items`, `Get`, `TryGet`, `Switch`, `Map`, `Validate`, and logger bodies
-8. Host: RhinoCommon, Eto, Rhino.UI, and Grasshopper2 through steps 2 and 5, a runtime behavior of the installed Rhino read through `tool:inspect`
-9. Catalog: each `Directory.Packages.props` candidate no project references, downloaded at its pinned version, then steps 3 and 5 over its folder
+2. Runtime: BCL reference pack at the version the project's assets file records, its XML ids per kind into `<dir>`
+3. LanguageExt: `LanguageExt.Core` at the version the lock resolves, `README.nuget.md` read whole, XML ids per kind, then codelens groups
+4. Thinktecture: `Thinktecture.Runtime.Extensions` through step 3's commands, its `README.md` read whole
+5. Generated: generators per project and each output file, the source of `Items`, `Get`, `TryGet`, `Switch`, `Map`, `Validate`, and logger bodies
+6. Host: RhinoCommon, Eto, and Grasshopper2 XML ids for host code, `ilspycmd` types for `Rhino.UI`, a runtime behavior read through `tool:inspect`
+7. Catalog: `Directory.Packages.props` listed whole, each candidate judged by its declarations and docs against a job the target does by hand
+8. Candidate: catalog package no project references, downloaded at its pinned version, its guide and XML ids read through step 3's commands
 
 ```bash
 dotnet --version && dotnet "$(dirname "$(readlink -f "$(command -v dotnet)")")/sdk/$(dotnet --version)/Roslyn/bincore/csc.dll" -langversion:?
+jq -r '.project.frameworks[].downloadDependencies[] | select(.name == "Microsoft.NETCore.App.Ref") | .version | ltrimstr("[") | split(",")[0]' \
+    .artifacts/dotnet/obj/<name>/project.assets.json
 jq -r --arg id '<Id>' '[.dependencies[][$id]?.resolved] | unique[]' <project>/packages.lock.json
+yq -p xml -oy '[.Project.ItemGroup[].PackageVersion[]? | select(."+@Include" == "<Id>") | ."+@Version"][0]' Directory.Packages.props
 fd -d 1 -i '^(agents\.md|llms.*\.txt|readme(\.nuget)?\.md|docs)$' .cache/nuget/packages/<id>/<version>
 fd -e xml . .cache/nuget/packages/<id>/<version>
 rg -o 'name="([TMPFE]):([^"(]+)' -r '$1 $2' <xml> > <dir>/<id>.members.txt && cut -d' ' -f1 <dir>/<id>.members.txt | sort | uniq -c
 ilspycmd -l cisde <dll>
-jq -r '.project.frameworks[].downloadDependencies[] | select(.name == "Microsoft.NETCore.App.Ref") | .version | ltrimstr("[") | split(",")[0]' \
-    .artifacts/dotnet/obj/<name>/project.assets.json
-yq -p xml -oy '[.Project.ItemGroup[].PackageVersion[]? | select(."+@Include" == "<Id>") | ."+@Version"][0]' Directory.Packages.props
+rg -n 'Label=|<PackageVersion (Include|Update)=' Directory.Packages.props
 dotnet package download <Id>@<version> --prerelease --output <dir>/pkg
 ```
 
@@ -52,11 +51,13 @@ get_generated_code {"file": "<Namespace>.<Type>.<Facet>.g.cs", "limit": 1}
 ```
 
 Reads hold under these conditions:
+- Version: lock row where the project references the package, catalog pin through `yq` where it references none yet
 - Store: `NuGet.config` sets `.cache/nuget/packages`, folder names lowercase, the BCL pack under `microsoft.netcore.app.ref/<version>/ref/<tfm>`
-- Folders: host SDKs ship `lib/<tfm>` folders older than the project's framework, so `fd -e xml` names the file in place of a guessed `<tfm>`
+- Folders: packages ship one XML file per `lib/<tfm>` or `ref/<tfm>`, the newest folder at or below the project's framework deciding
+- Host: RhinoCommon holds `RhinoCommon.xml`, `Eto.xml`, and `Rhino.UI.dll` with no XML, Grasshopper2 `Grasshopper2.xml` and `GrasshopperIO.xml`
 - Generated: output exists in the compilation alone, `get_source_generators` naming paths no disk file holds and `get_generated_code` reading them
 - Facets: each generated file is one facet of one type (`SmartEnum`, `EqualityComparisonOperators`), and a type name alone returns every facet whole
-- Unreferenced: codelens inspects referenced assemblies alone, so a catalog candidate reads from its download, a prerelease pin needing `--prerelease`
+- Unreferenced: codelens inspects referenced assemblies alone, so a candidate reads from its download, a prerelease pin needing `--prerelease`
 - Members: one type's declaration, decompiled source, and XML doc ids follow `search:code`
 
 ## [03]-[MAPPING]
