@@ -67,49 +67,83 @@ Commands read by their own rules:
 - Families: a type and its value under one name print once as the target form, and a family across files is one concept split apart or a shared word
 - Clones: jscpd exits 1 whenever a pair prints, and the ranking reads its report regardless
 - Nesting: `nesting.json` holds `{"rules": {"max-nested-callbacks": ["error", {"max": 1}], "max-depth": ["error", {"max": 1}]}}`, exit 1 on a site
-- Limits: `.oxlintrc.json` sets `max-nested-callbacks` to 3 and `max-depth` to its default of 4, counting generators of `Effect.gen` and `Effect.fn` as callbacks
+- Limits: `.oxlintrc.json` sets `max-nested-callbacks` to 3 and `max-depth` to its default of 4, counting `Effect.gen` and `Effect.fn` generators
 
 ## [04]-[MECHANISMS]
 
-TypeScript holds types and values in separate namespaces and derives types from values, so most reductions here remove a declaration by deriving it:
-- One name: a type and the value stating it share one name under one export (`const Tally = Struct.makeReducer(...)` with `type Tally = typeof Tally.initialValue`, `interface Tool` with `const Tool`), readers importing one symbol
-- Derived types: `typeof X.Type` of a schema, `ReturnType` and `Parameters` of a builder, `keyof typeof` of a keyed record, `Pick` and `Omit` over a host declaration, each in place of a hand-written copy
-- Services: `Context.Service<Self>()(id, { make })` infers a service shape from its builder and holds it as `Self.make`, one name for tag, shape, and builder
-- Cases: `Data.taggedEnum` or `Schema.TaggedUnion` for states, folded through `$match`, `match`, or `Match`, in place of flags, string kinds, and `if` chains
-- Records: one `as const` record keyed by case holds every column, `keyof typeof` it as the key type, in place of a name list beside matching calls
-- Exports: one `export { }` list under `[EXPORTS]` names each concept once, module-private by default, a type and its value exported as one name
-- Members: package members found through the export listing (`Struct.evolve`, `Schedule`, `Tool.getJsonSchemaFromSchema`) in place of spreads, loops, and hand codecs
-- Inference: a derived type inferring one member as `never` takes one stated type there, and a helper tying a key to its value type stays
-- Generics: a variadic rest of generic tuples can collapse inference to its constraint, a first parameter typed apart (`mod, ...mods`) keeping it
+TypeScript keeps a value space and a type space, merges declarations of one name, and computes types from values, so most cuts here delete a declaration by deriving it from the one stating its fact. Root `tsconfig.base.json` decides which forms compile: `erasableSyntaxOnly` refuses `enum`, value `namespace`, and parameter properties, and `noUncheckedIndexedAccess` types each read through a `string` key as `V | undefined`.
+
+[NAMES]:
+- Value and type: a `const` and a `type` of one concept share its name (`const Notice = Data.taggedEnum<Notice>()` beside its `type Notice`)
+- Exports: one `export { Notice }` carries the value, the type, and any namespace merged under that name, readers importing one symbol
+- Classes: `Schema.Class`, `Schema.TaggedError`, `Data.Class`, and `Context.Service` classes are type, constructor, and tag in one declaration
+- Statics: a class's statics hold its codecs, tables, builders, and services (`UxpManifest.json`, `InterfaceMap.Store`) under its one name
+- Records: `Schema.Class` or `Schema.Opaque<X>()(struct)` states a record schema and its type, in place of `Schema.Struct` with an alias
+- Unions: unions, literals, and scalars keep `type X = typeof X.Type` beside their schema, as a class over a non-object base fails TS2509
+- Merging: `declare namespace X { type Encoded = ... }` merges types into a `const` or class name, read as `X.Encoded` in place of `XEncoded`
+- Expandos: `Object.assign(value, { members })` puts members on a value no class holds (union schema, function, component)
+
+[DERIVATION]:
+- Schemas: `typeof X.Type` and `typeof X.Encoded` of a schema, and `X['field']` of a class, in place of a hand-written interface
+- Cases: `typeof U.cases.Tag.Type` of a `Schema.TaggedUnion`, as `Extract<typeof U.Type, { _tag: 'Tag' }>` returns `never` for a misspelled tag
+- Builders: `Effect.Success<ReturnType<typeof make>>` and `Effect.Error` of an effectful builder, bare `ReturnType` giving its `Effect`
+- Members: `Parameters<typeof f>[n]`, `Layer.Success` and `Layer.Error` of a layer, `NonNullable<X['k']>` of an optional field
+- Tables: `keyof typeof` a keyed record for its key union, `(typeof X)[K]` for one row, `Struct.keys` and `Record.map` for its key list and columns
+- Literal sets: `Schema.Literals([...])` holds the union (`typeof X.Type`), the list (`X.literals`), and the decoder in one declaration
+- Host types: `Pick`, `Omit`, and indexed access (`Parameters<EngineInterface['agent']['register']>[0]`) over a host or package declaration
+- Manifests: `import plugin from '#/package.json' with { type: 'json' }` types and reads the name, version, or export map a manifest states
+
+[INFERENCE]:
+- `as const` keeps a table's keys, literal values, and tuple lengths, and `satisfies` checks it against a type without widening it
+- `as const satisfies Record<HostUnion, V>` proves every case of the union present and keeps each literal, where `: Record<string, V>` erases the keys
+- `satisfies` over a record of handlers (`{ readonly [N in Events]: Hook<N> }`) types each handler by its key, in place of a stated type per handler
+- `const` type parameters (`<const L extends string>`) infer literal object fields and tuples from an argument, so callers drop `as const`
+- `Data.TaggedEnum.WithGenerics<1>` declares one generic tagged enum (`Answer<L>`), in place of one enum per element type
+- Derived types inferring one member as `never` take one stated type there, and a helper tying a key to its value type stays
+- Variadic rests of generic tuples can collapse inference to their constraint, a first parameter typed apart (`mod, ...mods`) keeping it
+
+[MODULES]:
+- ES modules export nothing by default, so a declaration absent from the file's one `export { }` list under `[EXPORTS]` is file-private
+- Package `exports` in `package.json` decides what other packages reach, a module export no entry lists being package-internal through `#/` imports
+
+[EFFECT]:
+- Services: `Context.Service<Self>()(id, { make })` infers a shape from its builder, holding it as `Self.make` under the tag's name
+- Cases: `Data.taggedEnum` or `Schema.TaggedUnion` for states, folded through `$match`, `match`, or `Match`, in place of flags and string kinds
+- Members: Effect members from the export listing (`Struct.evolve`, `Record.getSomes`, `Schema.OptionFromOptionalKey`) replace spreads and codecs
 
 Host rules bind where a host checks the code, each proved by one probe of its check over a fresh build:
-- Claude Code mods: `claude plugin validate` passes `$` into the module's own `function` declarations alone, refusing `Self.make`, `Layer.succeed`, and stored values
+- Claude Code mods: `claude plugin validate` passes `$` into the module's own top-level `function` declarations alone
+- Refusals: a `$` passed through a member call (`Placed.record($)`, `Self.make($)`), a parameter, a destructured `const`, or a module `let` fails
 - Builders: a service built from `$` keeps a `function` builder named by its verb, its shape derived from it
-- Claude Code hooks: `on(...)` calls take statement position in a block-bodied thunk, as validate refuses `() => on(...).catch(h)` and `() => void on(...)`, and every event name is a literal
+- Hooks: `on(...)` calls take statement position in a block-bodied thunk, as validate refuses `() => on(...).catch(h)` and `() => void on(...)`
+- Event names: every `on(...)` event name is a string literal in the call
 
 ## [05]-[PATTERNS]
 
 Patterns common in this tree's TypeScript, each a lead the map confirms before any rebuild, its rebuild holding under the condition beside it:
 
-| [INDEX] | [PATTERN]                  | [LOOK_FOR]                                                   | [REBUILD]                                    |
-| :-----: | :------------------------- | :----------------------------------------------------------- | :------------------------------------------- |
-|  [01]   | Name families              | `X` beside `x`, `makeX`, `runX`, `Xs`, `XES` in one concept  | One name, type and value sharing it          |
-|  [02]   | Service triads             | Tag class, `make<X>` builder, `ReturnType` shape per service | `Context.Service` `make` option              |
-|  [03]   | Scattered operations       | Free functions exported beside the object they act on        | Members of that object                       |
-|  [04]   | Exported constants         | Upper-case names, file names, keys, limits in an export list | Read from tool, manifest, or host            |
-|  [05]   | Tables restating a source  | Record mapping a host union or package enum to values        | Derived from its source                      |
-|  [06]   | Alias spam                 | Type alias read once, `Pick` or `Omit` renaming a host type  | Type inline or derived at its reader         |
-|  [07]   | Interface beside its value | Interface restating a schema, reducer, or builder result     | `typeof X.Type` or builder type, one name    |
-|  [08]   | Parallel lists             | Name union beside a block of matching calls                  | One keyed record of calls, `keyof typeof` it |
-|  [09]   | Hand-rolled Effect         | Spread per optional key, hand JSON Schema, retry, glob, diff | Effect member from the export listing        |
-|  [10]   | Callback towers            | Nested `Option.match`, `Effect.flatMap`, generator at limit  | One `pipe` from innermost subject, `Match`   |
+| [INDEX] | [PATTERN]           | [LOOK_FOR]                                                     | [REBUILD]                                     |
+| :-----: | :------------------ | :------------------------------------------------------------- | :-------------------------------------------- |
+|  [01]   | Name families       | `X` beside `x`, `makeX`, `runX`, `Xs`, `XES` in one concept    | One name, type and value sharing it           |
+|  [02]   | Service triads      | Tag class, `make<X>` builder, `ReturnType` shape per service   | `Context.Service` `make` option               |
+|  [03]   | Loose operations    | Free functions or tables exported beside their class           | Statics of that class, one export             |
+|  [04]   | Exported constants  | Upper-case names, file names, keys in an export list           | Tool, manifest, host, or class static         |
+|  [05]   | Hand tables         | `: Record<string, V>` table, record restating a union          | Source's values, else `as const satisfies`    |
+|  [06]   | Alias spam          | Alias read once, `Pick` or `Omit` renaming a host type         | Type inline or derived at its reader          |
+|  [07]   | Shape beside value  | Interface or `typeof X.Type` beside a record schema or builder | `Schema.Class`, `Schema.Opaque`, builder type |
+|  [08]   | Hand cases          | Interface per case, `kind` string, `Extract` over a union      | Tagged union, `typeof U.cases.Tag.Type`       |
+|  [09]   | Single-field shapes | Shape `{ readonly held: Ref<S> }` a layer builds as `{ held }` | Field's type as the shape                     |
+|  [10]   | Parallel lists      | Name union beside a block of matching calls                    | One keyed record of calls, `keyof typeof` it  |
+|  [11]   | Hand-rolled Effect  | Spread per optional key, decode then `fromUndefinedOr`         | Effect member from the export listing         |
+|  [12]   | Callback towers     | Nested `Option.match`, `Effect.flatMap`, generator at limit    | One `pipe` from innermost subject, `Match`    |
 
 Patterns hold under these conditions:
 - Row [01] -> a family naming different jobs (`runHook` running effects beside type `Hook`) splits, the joined name taking its own job's word
-- Row [02] -> a builder taking `$` in a Claude Code mod stays a `function` declaration, as the host rule above refuses `Self.make`
-- Row [03] -> an operation a host calls by name (an `on()` handler, a render component) stays a function its registration reads
+- Row [02] -> a builder taking `$` in a Claude Code mod stays a `function` declaration, as validate refuses `Self.make($)`
+- Row [03] -> a function taking `$` stays a top-level `function` declaration, and one a host calls by name stays the function its registration reads
 - Row [04] -> a constant more than one reader shares with no source stating it stays, file-private where one file reads it
-- Row [05] -> `satisfies Record<HostUnion, V>` stays only where no source states the values
+- Row [05] -> a table read by a decoded `string` keeps its `string` key, as `Record.get` refuses a `string` over literal keys
+- Row [09] -> a shape a host or contract spells keeps its fields
 
 ## [06]-[CHECK]
 
