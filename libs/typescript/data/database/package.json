@@ -27,6 +27,7 @@
         "./d1": "./d1.ts",
         "./pg": "./pg.ts",
         "./sqlite": "./sqlite.ts",
+        "./sqlite-node": "./sqlite-node.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -43,6 +44,7 @@
             "./d1": "./dist/d1.js",
             "./pg": "./dist/pg.js",
             "./sqlite": "./dist/sqlite.js",
+            "./sqlite-node": "./dist/sqlite-node.js",
             "./package.json": "./package.json"
         },
         "access": "public"
@@ -56,6 +58,7 @@
         "@effect/sql-clickhouse": "catalog:",
         "@effect/sql-d1": "catalog:",
         "@effect/sql-pg": "catalog:",
+        "@effect/sql-sqlite-node": "catalog:",
         "@types/node": "catalog:",
         "effect": "catalog:"
     },
@@ -63,6 +66,7 @@
         "@effect/sql-clickhouse": "catalog:peers",
         "@effect/sql-d1": "catalog:peers",
         "@effect/sql-pg": "catalog:peers",
+        "@effect/sql-sqlite-node": "catalog:peers",
         "effect": "catalog:peers"
     },
     "peerDependenciesMeta": {
@@ -73,6 +77,9 @@
             "optional": true
         },
         "@effect/sql-pg": {
+            "optional": true
+        },
+        "@effect/sql-sqlite-node": {
             "optional": true
         }
     },

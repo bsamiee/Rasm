@@ -1,13 +1,12 @@
 import { pathToFileURL } from 'node:url';
 import { layer as services } from '@effect/platform-node/NodeServices';
-import { SqliteClient } from '@effect/sql-sqlite-node';
 import { assert, describe, it } from '@effect/vitest';
 import { Description } from '@rasm/applications/description';
 import { InterfaceMap } from '@rasm/applications/map';
 import { Element } from '@rasm/applications/server/element';
 import { ApplicationFailure } from '@rasm/applications/server/failure';
 import { Catalog } from '@rasm/database/catalog';
-import { Sqlite } from '@rasm/database/sqlite';
+import { sqliteNodeEngine } from '@rasm/database/sqlite-node';
 import { Array, DateTime, Effect, FileSystem, Layer, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { SqlClient } from 'effect/sql';
 import { TestConsole } from 'effect/testing';
@@ -67,11 +66,7 @@ const instant = (minute: number) => DateTime.formatIso(DateTime.makeUnsafe(START
 const identified = (index: number) => JSON.stringify([{ key: { identifier: { value: `item${index}` } }, role: 'AXButton' }]);
 const store = Effect.map(
     FileSystem.FileSystem.use((fs) => fs.makeTempFileScoped({ suffix: '.sqlite' })),
-    (filename) =>
-        Catalog.layer(
-            InterfaceMap.catalog,
-            Sqlite.layer((names) => SqliteClient.layer({ filename, ...names })),
-        ),
+    (filename) => Catalog.layer(InterfaceMap.catalog, sqliteNodeEngine({ filename })),
 );
 const newDocument = Effect.forEach(
     [
@@ -419,7 +414,7 @@ describe(InterfaceMap, () => {
             assert.deepStrictEqual(aged, [{ aged: 1 }], 'the dialog row holds its Units label as the earlier bare string');
             assert.deepStrictEqual(stale, new InterfaceMap({ application: written.application, containers: Record.remove(written.containers, DIALOG) }), 'the store reads as it would without the dialog row');
             assert.deepStrictEqual(
-                (yield* TestConsole.logLines).filter((line) => Predicate.isObject(line) && !Predicate.isError(line)),
+                (yield* TestConsole.logLines).filter((line) => Predicate.isObject(line) && !Error.isError(line)),
                 Array.replicate({ bundle: 'com.adobe.InDesign', language: 'en', table: 'containers', locator: DIALOG }, 2),
                 'both opens before the rewrite log one line naming the dropped row by its table and key, the open after it none',
             );

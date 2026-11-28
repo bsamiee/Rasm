@@ -1,5 +1,5 @@
-import { layer } from '@effect/sql-sqlite-node/SqliteClient';
 import type { Installation } from '@rasm/applications/server/installation';
+import { sqliteNodeEngine } from '@rasm/database/sqlite-node';
 import { Array, Context, Effect, FileSystem, Option, Order, Path, Record, Result, Schema, Struct } from 'effect';
 import { SqlClient, SqlSchema } from 'effect/sql';
 
@@ -21,7 +21,7 @@ class Application extends Schema.Class<Application, { readonly brand: unique sym
     static readonly Order: Order.Order<Application> = Order.flip(Order.Struct({ channel: Order.mapInput(Order.Number, (channel: Application['channel']) => Channel.literals.indexOf(channel)), version: Application.VersionOrder, build: Option.makeOrder(Application.VersionOrder) }));
     static readonly fromInstallations = Effect.fnUntraced(function* (offered: readonly Installation[]) {
         const [files, path, registry] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Registry]);
-        const rows = yield* findProducts(undefined).pipe(Effect.provide(layer({ filename: registry, readonly: true })), Effect.when(files.exists(registry)), Effect.map(Option.getOrElse(Array.empty)));
+        const rows = yield* findProducts(undefined).pipe(Effect.provide(sqliteNodeEngine({ filename: registry, readonly: true })), Effect.when(files.exists(registry)), Effect.map(Option.getOrElse(Array.empty)));
         const registered = Record.fromIterableBy(rows, Struct.get('executable'));
         const listed = yield* Effect.filterMapEffect(
             offered,

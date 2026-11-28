@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { dirname, join } from 'node:path';
 import process from 'node:process';
+import { layer as fileSystem } from '@effect/platform-node/NodeFileSystem';
 import { layerConfig } from '@effect/platform-node/NodeHttpServer';
 import { layerNodeFromConfig } from '@rasm/telemetry/node';
 import { Config, ConfigProvider, Effect, Layer, type Record } from 'effect';
@@ -11,7 +12,7 @@ import { hosted, type Routes, type Runtime, type Served } from '#/server/hosted'
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const runtime: Runtime = {
-    sqlite: (variable) => Effect.map(Effect.all([Config.String(variable), Effect.promise(() => import('@effect/sql-sqlite-node')), Effect.promise(() => import('@rasm/database/sqlite'))]), ([filename, { SqliteClient }, { Sqlite }]) => Sqlite.layer((names) => SqliteClient.layer({ filename, ...names }))),
+    sqlite: (variable) => Effect.map(Effect.all([Config.String(variable), Effect.promise(() => import('@rasm/database/sqlite-node'))]), ([filename, { sqliteNodeEngine }]) => Layer.provide(sqliteNodeEngine({ filename }), fileSystem)),
     bucket: (variable) => Effect.map(Effect.all([Config.String(variable), Effect.promise(() => import('@rasm/object-storage/s3'))]), ([bucket, { s3Storage }]) => s3Storage(bucket)),
     postgres: Config.Redacted,
 };
@@ -27,7 +28,7 @@ const serve = <const E extends Record.ReadonlyRecord<string, Binding>, A, Err, R
         ),
     ).pipe(
         Layer.provide([HttpMiddleware.layerTracerDisabledForUrls([App.bundle.readiness]), layerConfig(createServer, { port: Config.Port(App.bundle.portVariable) })]),
-        Layer.provide(layerNodeFromConfig({ resource: { serviceName: app.name }, target: 'stderr' }).pipe(Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv().pipe(ConfigProvider.nested(app.name), ConfigProvider.constantCase, ConfigProvider.orElse(ConfigProvider.fromEnv())))))),
+        Layer.provide(layerNodeFromConfig({ resource: { serviceName: app.name }, target: 'stderr' }).pipe(Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv().pipe(ConfigProvider.nested(app.name), ConfigProvider.constantCase, ConfigProvider.orElse(ConfigProvider.fromEnv())))), Layer.provide(fileSystem))),
         Layer.launch,
     );
 

@@ -5,6 +5,9 @@
     },
     "references": [
         {
+            "path": "../../data/database"
+        },
+        {
             "path": "../../macos/applications"
         }
     ]

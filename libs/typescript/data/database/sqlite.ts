@@ -1,4 +1,4 @@
-import { Array, Effect, Equal, Filter, Formatter, Function, Graph, HashSet, Layer, Match, Option, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
+import { Array, Effect, Equal, Filter, Formatter, Function, Graph, HashSet, Match, Option, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { type SqlClient, SqlSchema, Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
 import type { Kind } from '#/column';
@@ -330,10 +330,6 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             undeclared: { indexes: tables.flatMap(({ undeclared }) => undeclared.map(({ name }) => name)), references: tables.flatMap(({ declared, unstated }) => unstated.map(({ columns, target }) => ({ table: declared.name, columns, target }))) },
         });
     }
-
-    // --- [LAYERS]
-
-    static readonly layer = <A, E, R>(client: (names: Dialect['names']) => Layer.Layer<A | SqlClient.SqlClient, E, R>, names: Dialect['names'] = Engine.names.snake) => Layer.mergeAll(Layer.succeed(Engine, { ...Sqlite, names, plan: Sqlite.plan([]) }), Layer.succeed(Rows, Sqlite), client(names));
 }
 const Observed = Schema.Struct({ observed: Schema.fromJsonString(Sqlite) });
 const Vacuum = Schema.Struct({ incremental: Schema.BooleanFromBit });

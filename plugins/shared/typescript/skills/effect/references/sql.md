@@ -139,9 +139,10 @@ Driver layers provide their driver service and `SqlClient` with their own `React
 |  [03]   | `D1Client` (`d1`)                 | Die, `batch` atomic          | `batch`                                            |
 |  [04]   | `ClickhouseClient` (`clickhouse`) | `BEGIN TRANSACTION`          | `param`, `asCommand`, `insertQuery`, `withQueryId` |
 
-`sql.driver` names the row's driver, and `sql.onDialect` takes the `sqlite` arm on D1 and SQLite alike. Programs owning tables reach a driver through its `@rasm/database` engine layer (`Sqlite.layer`, `d1Engine`, `Pg.layer`, `Clickhouse.layer`), which adds `Engine` and `Rows` and sets `Engine.names.snake` name transforms unless given `Engine.names.verbatim`. Drivers differ by these rules:
+`sql.driver` names the row's driver, and `sql.onDialect` takes the `sqlite` arm on D1 and SQLite alike. Programs owning tables reach a driver through its `@rasm/database` engine layer (`sqliteNodeEngine`, `d1Engine`, `Pg.layer`, `Clickhouse.layer`), which adds `Engine` and `Rows` and sets `Engine.names.snake` name transforms unless given `Engine.names.verbatim`. Drivers differ by these rules:
 - `SqliteClient` serializes one `node:sqlite` connection, turns on WAL unless `disableWAL` or `readonly`, and caches 200 prepared statements
 - `SqliteClient` `busyTimeout` (5 seconds) waits on the write lock and blocks the event loop meanwhile
+- `sqliteNodeEngine` of `@rasm/database/sqlite-node` creates its file's folder through `FileSystem` unless `readonly` or `:memory:`
 - `PgClient` pools through `minConnections`, `maxConnections` (10), `idleTimeout` (60 seconds), `connectionTTL`, and `acquireTimeout`
 - `PgClient` reads `password` as an effect per connection, and takes `prepare: false` behind a transaction-mode pooler
 - `multiplex: true` pipelines statements on a pooled connection while transactions, streams, and listeners reserve one
@@ -159,7 +160,7 @@ Driver layers provide their driver service and `SqlClient` with their own `React
 `Catalog.layer(catalog, engine, migrator)` reconciles the declared relations to the live database before the layer completes, and logs the undeclared indexes and references it leaves in place:
 
 ```ts
-const stored = Catalog.layer(Catalog.make({ tables: [applications, containers] }), Sqlite.layer((names) => SqliteClient.layer({ filename, ...names })));
+const stored = Catalog.layer(Catalog.make({ tables: [applications, containers] }), sqliteNodeEngine({ filename }));
 ```
 
 `applications` and `containers` are `Relation` values and `filename` the store's path. Plans change a live object only as its declaration states, and refuse every other difference with a `ReconcileError` naming table, columns, and reason:

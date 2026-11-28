@@ -1,10 +1,8 @@
-import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { layer as sqlite } from '@effect/sql-sqlite-node/SqliteClient';
 import { Catalog } from '@rasm/database/catalog';
 import { Column } from '@rasm/database/column';
 import { Relation } from '@rasm/database/relation';
-import { Sqlite } from '@rasm/database/sqlite';
+import { sqliteNodeEngine } from '@rasm/database/sqlite-node';
 import { Array, Cause, Context, Effect, Exit, type Fiber, type FiberSet, Function, Layer, Option, RcMap, Record, Redacted, Ref, Result, Schema, SchemaGetter, Stream, Struct, TxRef, TxSubscriptionRef, UndefinedOr } from 'effect';
 import { McpSchema } from 'effect/ai';
 import { Jwk } from 'effect/jose';
@@ -102,14 +100,7 @@ const openStore = Effect.fnUntraced(function* ({
     readonly handles: RcMap.RcMap<string, { readonly id: string; readonly row: TxSubscriptionRef.TxSubscriptionRef<HandleState>; readonly fibers: FiberSet.FiberSet<unknown, unknown> }>;
     readonly persisted: Ref.Ref<Record.ReadonlyRecord<string, (state: Context.Context<never>) => Effect.Effect<Schema.Json>>>;
 }) {
-    const filename = yield* UndefinedOr.match(folder, {
-        onUndefined: () => Effect.succeed(':memory:'),
-        onDefined: (root) => Effect.as(Effect.tryPromise({ try: () => mkdir(root, { recursive: true }), catch: (cause) => new Cause.UnknownError(cause, `State folder ${root} cannot be created`) }), join(root, 'handles.sqlite')),
-    });
-    const context = yield* Catalog.layer(
-        catalog,
-        Sqlite.layer((names) => sqlite({ filename, ...names })),
-    ).pipe(Layer.build);
+    const context = yield* Catalog.layer(catalog, sqliteNodeEngine({ filename: UndefinedOr.match(folder, { onUndefined: () => ':memory:', onDefined: (root) => join(root, 'handles.sqlite') }) })).pipe(Layer.build);
     const [servers, stored] = yield* Effect.provideContext(Effect.all([Relation.select(tables.servers, { scheme: [scheme] }), Relation.select(tables.handles, {})]), context);
     const secret = yield* Option.match(Array.head(servers), { onNone: () => Jwk.generateSecret('dir'), onSome: (row) => Effect.succeed(Redacted.make(row.secret)) });
     const counted = Option.match(Array.head(servers), { onNone: () => 0, onSome: Struct.get('sequence') });

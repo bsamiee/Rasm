@@ -38,8 +38,8 @@
         "access": "public"
     },
     "dependencies": {
-        "@effect/sql-sqlite-node": "catalog:",
         "@rasm/applications": "workspace:*",
+        "@rasm/database": "workspace:*",
         "ag-psd": "catalog:"
     },
     "devDependencies": {

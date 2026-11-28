@@ -1,10 +1,9 @@
 import { type UserInfo, userInfo } from 'node:os';
 import { basename, extname, join } from 'node:path';
-import { layer as sqlite } from '@effect/sql-sqlite-node/SqliteClient';
 import { Catalog } from '@rasm/database/catalog';
 import { Relation } from '@rasm/database/relation';
-import { Sqlite } from '@rasm/database/sqlite';
-import { Array, Context, Data, DateTime, Duration, Effect, Equal, FileSystem, Function, HashMap, HashSet, Layer, Option, Order, Predicate, pipe, RcMap, Record, Result, Stream, String, Struct, SubscriptionRef, SynchronizedRef } from 'effect';
+import { sqliteNodeEngine } from '@rasm/database/sqlite-node';
+import { Array, Context, Data, DateTime, Duration, Effect, Equal, Function, HashMap, HashSet, Layer, Option, Order, Predicate, pipe, RcMap, Record, Result, Stream, String, Struct, SubscriptionRef, SynchronizedRef } from 'effect';
 import { SqlClient } from 'effect/sql';
 import { Description } from '#/description/description';
 import { applications, catalog, containers } from '#/map/record';
@@ -395,19 +394,7 @@ class InterfaceMap extends Data.Class<{ readonly application: (typeof applicatio
                     sight: (instance, pointer) => using(instance, ({ sight }) => sight(pointer)),
                 };
             }),
-        ).pipe(
-            Layer.provide(
-                FileSystem.FileSystem.use((files) => files.makeDirectory(folder, { recursive: true })).pipe(
-                    Effect.as(
-                        Catalog.layer(
-                            InterfaceMap.catalog,
-                            Sqlite.layer((names) => sqlite({ filename: join(folder, 'map.sqlite'), ...names })),
-                        ),
-                    ),
-                    Layer.unwrap,
-                ),
-            ),
-        );
+        ).pipe(Layer.provide(Catalog.layer(InterfaceMap.catalog, sqliteNodeEngine({ filename: join(folder, 'map.sqlite') }))));
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
