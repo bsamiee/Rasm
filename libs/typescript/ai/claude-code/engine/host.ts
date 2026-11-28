@@ -260,11 +260,11 @@ function host<A, E, F, S = never, const M extends readonly Pick<Mod<never, Error
         }).catch(recover);
     }
     if (Option.exists(instance.render, (table) => table.Backdrop !== undefined)) {
-        on('ui.pointer', ($, e, next) => pointer($, instance.render, e, next, () => start($, instance))).catch(recover);
+        on('ui.pointer', ($, e, next) => pointer(instance.render, e, next, () => start($, instance))).catch(recover);
     }
     const paneRows = Option.flatMapNullishOr(instance.render, Struct.get('Pane'));
     if (Option.isSome(paneRows)) {
-        on('ui.close', ($, e, next) => closePane($, paneRows.value, e, next, () => start($, instance))).catch(recover);
+        on('ui.close', ($, e, next) => closePane(paneRows.value, e, next, () => start($, instance))).catch(recover);
     }
     if (Option.isSome(instance.band)) {
         on('ui.render', { component: 'AbovePrompt' }, ($, e, next) => drawBand($, instance, e, next)).catch(recover);

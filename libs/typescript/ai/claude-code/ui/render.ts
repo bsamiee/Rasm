@@ -43,6 +43,23 @@ const follow = <S, R, F>(table: Held<S, R, F>) =>
                 Layer.effectDiscard,
             ),
     });
+const pointer = <S, R, E, F>(table: Held<S, R, F>, e: Frozen<UiPointerInput>, next: Next<'ui.pointer'>, runtime: () => ManagedRuntime.ManagedRuntime<NoInfer<R> | Engine, E>) =>
+    Option.match(
+        Option.flatMap(table, (held) => Option.all({ heard: Option.fromUndefinedOr(held.Backdrop?.[e.scene]?.pointer), state: Ref.getUnsafe(held.held) })),
+        {
+            onNone: () => next(e),
+            onSome: ({ heard, state }) =>
+                runHook(
+                    runtime(),
+                    heard(e, state).pipe(
+                        Effect.catchCause((cause) => Effect.logWarning('pointer failed', cause).pipe(Effect.annotateLogs({ scene: e.scene }))),
+                        Effect.andThen(invalidate),
+                        Effect.andThen(call('ui.pointer', e.scene, () => next(e))),
+                    ),
+                    next.signal,
+                ),
+        },
+    );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -85,25 +102,6 @@ function drawComponent<S, R, E, F>($: EngineInterface, table: Held<S, R, F>, e: 
                             }),
                     }),
                     Match.orElse((drawing) => rows($, held, state, drawing.component, drawing, next, runtime)),
-                ),
-        },
-    );
-}
-
-function pointer<S, R, E, F>($: EngineInterface, table: Held<S, R, F>, e: Frozen<UiPointerInput>, next: Next<'ui.pointer'>, runtime: () => ManagedRuntime.ManagedRuntime<R, E>) {
-    return Option.match(
-        Option.flatMap(table, (held) => Option.all({ heard: Option.fromUndefinedOr(held.Backdrop?.[e.scene]?.pointer), state: Ref.getUnsafe(held.held) })),
-        {
-            onNone: () => next(e),
-            onSome: ({ heard, state }) =>
-                runHook(
-                    runtime(),
-                    heard(e, state).pipe(
-                        Effect.catchCause((cause) => Effect.logWarning('pointer failed', cause).pipe(Effect.annotateLogs({ scene: e.scene }))),
-                        Effect.andThen(Effect.sync(() => $.ui.invalidate('ui.render'))),
-                        Effect.andThen(call('ui.pointer', e.scene, () => next(e))),
-                    ),
-                    next.signal,
                 ),
         },
     );
