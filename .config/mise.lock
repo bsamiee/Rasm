@@ -1058,6 +1058,40 @@ url = "https://static.rust-lang.org/dist/2026-11-23/rustc-nightly-src.tar.xz"
 checksum = "blake3:d0171e7832f75f26763283f12f3f179c60275572ad21d283daa9f118881ccc22"
 url = "https://static.rust-lang.org/dist/2026-11-23/rustc-nightly-src.tar.xz"
 
+[[tools."http:tree-sitter-rust"]]
+version = "0.24.2"
+backend = "http:tree-sitter-rust"
+specifiers = ["latest"]
+
+[tools."http:tree-sitter-rust".options]
+format = "tar.gz"
+strip_components = "1"
+
+[tools."http:tree-sitter-rust"."platforms.linux-x64"]
+checksum = "sha256:439e577dbe07423ec2582ac62c7531120dbfccfa6e5f92406f93dd271a120e45"
+url = "https://static.crates.io/crates/tree-sitter-rust/tree-sitter-rust-0.24.2.crate"
+
+[tools."http:tree-sitter-rust"."platforms.macos-arm64"]
+checksum = "blake3:170dc06c429867fde17d1fcdfe555d01289f9e59ec2dae30e51bb45d1850c583"
+url = "https://static.crates.io/crates/tree-sitter-rust/tree-sitter-rust-0.24.2.crate"
+
+[[tools."http:tree-sitter-swift"]]
+version = "0.7.4"
+backend = "http:tree-sitter-swift"
+specifiers = ["latest"]
+
+[tools."http:tree-sitter-swift".options]
+format = "tar.gz"
+strip_components = "1"
+
+[tools."http:tree-sitter-swift"."platforms.linux-x64"]
+checksum = "sha256:2688c06564afa397313e0db17d140a73e2c6a47f3884794614246167c9dd5dfd"
+url = "https://static.crates.io/crates/tree-sitter-swift/tree-sitter-swift-0.7.4.crate"
+
+[tools."http:tree-sitter-swift"."platforms.macos-arm64"]
+checksum = "sha256:2688c06564afa397313e0db17d140a73e2c6a47f3884794614246167c9dd5dfd"
+url = "https://static.crates.io/crates/tree-sitter-swift/tree-sitter-swift-0.7.4.crate"
+
 [[tools."http:yak"]]
 version = "0.19.1"
 backend = "http:yak"
@@ -1567,6 +1601,28 @@ checksum = "sha256:b6b2d9e6419216aaa0b8e74a5c81c48335cb193d6eb87f50a7d77468bce10
 checksum_source = "mise-versions"
 url = "https://github.com/tombi-toml/tombi/releases/download/v1.11.3/tombi-cli-1.11.3-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/755626450"
+
+[[tools.tree-sitter]]
+version = "0.27.2"
+backend = "aqua:tree-sitter/tree-sitter"
+specifiers = ["latest"]
+
+[tools.tree-sitter."platforms.linux-x64"]
+checksum = "sha256:7ed56d152c52437397b9fcaa43cf341f49933cecc1ca291843f0d347c6e2cb3a"
+checksum_source = "mise-versions"
+url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.2/tree-sitter-linux-x64.gz"
+url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/720450853"
+
+[tools.tree-sitter."platforms.macos-arm64"]
+checksum = "sha256:5a08b66e5713b0c69691611250b2191d07139647a3c6e39ba85954284b634d2d"
+url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.2/tree-sitter-macos-arm64.gz"
+url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/720450878"
+
+[tools.tree-sitter."platforms.windows-x64"]
+checksum = "sha256:230779ee4a729e3044d4a8ed57490b776ea1bac0671d12afbd6f5b4d1878f1d0"
+checksum_source = "mise-versions"
+url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.2/tree-sitter-windows-x64.gz"
+url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/720450892"
 
 [[tools.usvg]]
 version = "0.50.0"

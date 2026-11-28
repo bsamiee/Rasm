@@ -184,7 +184,7 @@
             }
         },
         {
-            "files": ["**/*.config.ts", "**/server/main.ts", "**/version-actions.ts", "**/.storybook/*.{ts,tsx}", "**/conformance/*/rule.ts"],
+            "files": ["**/*.config.ts", "**/server/main.ts", "**/version-actions.ts", "**/.storybook/*.{ts,tsx}", "**/conformance/*/rule.ts", "tools/ast-grep/grammars/*.js"],
             "rules": {
                 "import/no-default-export": "off" // Loaders read default exports
             }
@@ -259,6 +259,12 @@
                 "typescript/no-unsafe-call": "off", // Scripts read untyped host globals (`job`)
                 "typescript/no-unsafe-member-access": "off", // Scripts read untyped host globals (`job`)
                 "typescript/no-unsafe-return": "off" // Scripts read untyped host globals (`job`)
+            }
+        },
+        {
+            "files": ["tools/ast-grep/grammars/*.js"],
+            "rules": {
+                "no-underscore-dangle": "off" // Tree-sitter grammars name hidden rules `_x`
             }
         }
     ]

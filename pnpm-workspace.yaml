@@ -545,6 +545,12 @@ catalog:
     stylelint-use-nesting: 6.0.2
     tsrs: 7.1.0-beta.tsrs5 # Type-aware oxlint backend, its `tsrs-lint` reading the TypeScript libs the native compiler reads
 
+    # --- [GRAMMARS]
+
+    tree-sitter-c-sharp: 0.24.0
+    tree-sitter-python: 0.25.0
+    tree-sitter-typescript: 0.23.2
+
     # --- [VERSIONING]
 
     '@octokit/rest': 22.0.1
@@ -669,6 +675,10 @@ allowBuilds:
     nx: true
     protobufjs: true
     ssh2: false
+    tree-sitter-c-sharp: false
+    tree-sitter-javascript: false
+    tree-sitter-python: false
+    tree-sitter-typescript: false
     workerd: true
 
 # --- [SKILLS] ---------------------------------------------------------------------------

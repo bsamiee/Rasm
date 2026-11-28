@@ -4,11 +4,60 @@
 ruleDirs: [tools/ast-grep/rules]
 utilDirs: [tools/ast-grep/utils]
 noIgnore: [hidden]
-languageGlobs:
-    tsx: ['*.ts', '*.mts', '*.cts', '*.js', '*.mjs', '*.cjs', '*.jsx']
 outlineRules:
     java: tools/ast-grep/outline/java.yml
     yaml: tools/ast-grep/outline/yaml.yml
+
+# --- [LANGUAGES] ------------------------------------------------------------------------
+
+customLanguages:
+    csharplang:
+        libraryPath:
+            aarch64-apple-darwin: node_modules/tree-sitter-c-sharp/prebuilds/darwin-arm64/tree-sitter-c-sharp.node
+            x86_64-apple-darwin: node_modules/tree-sitter-c-sharp/prebuilds/darwin-x64/tree-sitter-c-sharp.node
+            aarch64-unknown-linux-gnu: node_modules/tree-sitter-c-sharp/prebuilds/linux-arm64/tree-sitter-c-sharp.node
+            x86_64-unknown-linux-gnu: node_modules/tree-sitter-c-sharp/prebuilds/linux-x64/tree-sitter-c-sharp.node
+            aarch64-pc-windows-msvc: node_modules/tree-sitter-c-sharp/prebuilds/win32-arm64/tree-sitter-c-sharp.node
+            x86_64-pc-windows-msvc: node_modules/tree-sitter-c-sharp/prebuilds/win32-x64/tree-sitter-c-sharp.node
+        languageSymbol: tree_sitter_c_sharp
+        extensions: [cs]
+        expandoChar: µ
+        outlineRules: tools/ast-grep/outline/csharp.yml
+    pythonlang:
+        libraryPath:
+            aarch64-apple-darwin: node_modules/tree-sitter-python/prebuilds/darwin-arm64/tree-sitter-python.node
+            x86_64-apple-darwin: node_modules/tree-sitter-python/prebuilds/darwin-x64/tree-sitter-python.node
+            aarch64-unknown-linux-gnu: node_modules/tree-sitter-python/prebuilds/linux-arm64/tree-sitter-python.node
+            x86_64-unknown-linux-gnu: node_modules/tree-sitter-python/prebuilds/linux-x64/tree-sitter-python.node
+            aarch64-pc-windows-msvc: node_modules/tree-sitter-python/prebuilds/win32-arm64/tree-sitter-python.node
+            x86_64-pc-windows-msvc: node_modules/tree-sitter-python/prebuilds/win32-x64/tree-sitter-python.node
+        languageSymbol: tree_sitter_python
+        extensions: [py, py3, pyi]
+        expandoChar: µ
+        outlineRules: tools/ast-grep/outline/python.yml
+    rustlang:
+        libraryPath: .cache/ast-grep/rust.so
+        languageSymbol: tree_sitter_rust
+        extensions: [rs]
+        expandoChar: µ
+        outlineRules: tools/ast-grep/outline/rust.yml
+    swiftlang:
+        libraryPath: .cache/ast-grep/swift.so
+        languageSymbol: tree_sitter_swift
+        extensions: [swift, swiftinterface]
+        expandoChar: µ
+        outlineRules: tools/ast-grep/outline/swift.yml
+    tsxlang:
+        libraryPath:
+            aarch64-apple-darwin: node_modules/tree-sitter-typescript/prebuilds/darwin-arm64/tree-sitter-typescript.node
+            x86_64-apple-darwin: node_modules/tree-sitter-typescript/prebuilds/darwin-x64/tree-sitter-typescript.node
+            aarch64-unknown-linux-gnu: node_modules/tree-sitter-typescript/prebuilds/linux-arm64/tree-sitter-typescript.node
+            x86_64-unknown-linux-gnu: node_modules/tree-sitter-typescript/prebuilds/linux-x64/tree-sitter-typescript.node
+            aarch64-pc-windows-msvc: node_modules/tree-sitter-typescript/prebuilds/win32-arm64/tree-sitter-typescript.node
+            x86_64-pc-windows-msvc: node_modules/tree-sitter-typescript/prebuilds/win32-x64/tree-sitter-typescript.node
+        languageSymbol: tree_sitter_tsx
+        extensions: [ts, tsx, mts, cts, js, jsx, mjs, cjs]
+        outlineRules: tools/ast-grep/outline/typescript.yml
 
 # --- [INJECTIONS] -----------------------------------------------------------------------
 
@@ -77,7 +126,7 @@ languageInjections:
       utils:
           text: { kind: string, not: { has: { kind: escape_sequence } }, has: { kind: string_content, pattern: $CONTENT } }
     - hostLanguage: bash
-      injected: python
+      injected: pythonlang
       rule:
           kind: heredoc_body
           pattern: $CONTENT
