@@ -10,7 +10,7 @@ use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 use statrs::distribution::{ContinuousCDF as _, Normal, StudentsT};
 use statrs::statistics::{Data, OrderStatistics as _};
 
-use crate::{Sample, StatsError};
+use crate::{OpenUnitInterval, Sample, StatsError};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -21,19 +21,14 @@ pub enum Interval {
     Bca,
 }
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-#[nutype::nutype(validate(greater = 0.0, less = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
-pub struct Confidence(f64);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn tails(confidence: Confidence) -> [f64; 2] {
+fn tails(confidence: OpenUnitInterval) -> [f64; 2] {
     let level = confidence.into_inner();
     [-level, level].map(|signed| f64::midpoint(1.0, signed))
 }
 
-pub fn interval(moments: &Variance, confidence: Confidence) -> Result<RangeInclusive<f64>, StatsError> {
+pub fn interval(moments: &Variance, confidence: OpenUnitInterval) -> Result<RangeInclusive<f64>, StatsError> {
     let distribution = StudentsT::new(0.0, 1.0, nalgebra::convert::<u64, f64>(moments.len()) - 1.0).map_err(|source| StatsError::Observations { found: moments.len(), source })?;
     let [start, last] = tails(confidence).map(|tail| distribution.inverse_cdf(tail).mul_add(moments.error(), moments.mean()));
     Ok(RangeInclusive { start, last })
@@ -45,7 +40,7 @@ pub fn bootstrap<T, R, F>(
     block: NonZero<usize>,
     resamples: NonZero<usize>,
     method: Interval,
-    confidence: Confidence,
+    confidence: OpenUnitInterval,
     rng: &mut R,
 ) -> Result<RangeInclusive<f64>, StatsError>
 where

@@ -42,6 +42,9 @@ pub enum Sample {
 )]
 pub struct Bounds(RangeInclusive<f64>);
 
+#[nutype::nutype(validate(greater = 0.0, less = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
+pub struct OpenUnitInterval(f64);
+
 // --- [ERRORS] --------------------------------------------------------------------------
 
 #[derive(Debug, thiserror::Error, derive_more::IsVariant)]
@@ -88,7 +91,7 @@ mod sketches;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use calibration::{Convergence, Fit, Trace, calibrate, calibrated, convergence, fit};
-pub use inference::{Confidence, ConfidenceError, Interval, bootstrap, interval};
+pub use inference::{Interval, bootstrap, interval};
 pub use sampling::{Design, Window, WindowError, sample};
 pub use sensitivity::{Effects, Indices, Levels, LevelsError, Morris, Outputs, Saltelli, Sensitivity};
 pub use sketches::Summary;

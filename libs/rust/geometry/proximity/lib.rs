@@ -135,4 +135,4 @@ pub use containment::containing;
 pub use distances::{Projection, project};
 pub use pairs::{Clash, Interference, clashes, separations};
 pub use points::{Cloud, Item, Neighbor, Neighborhood, nearest, neighbors, normals};
-pub use registration::{Fraction, FractionError, Icp, Kernel, Metric, Registration, Target, fit, register};
+pub use registration::{Icp, Kernel, Metric, Registration, Target, fit, register};

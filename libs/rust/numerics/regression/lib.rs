@@ -18,7 +18,7 @@ use nonempty_collections::NEVec;
 use num_dual::{Dual2DVec64, DualDVec64, DualNum, gradient, hessian, jacobian};
 use rasm_numerical_analysis::roots::minimum;
 use rasm_numerical_analysis::{AnalysisError, Input, Observations, Placement, Polynomial, Prediction, RootSource, SearchHooks, design};
-use rasm_stats::{Bounds, Confidence, Space};
+use rasm_stats::{Bounds, OpenUnitInterval, Space};
 use rayon::iter::{Either, IndexedParallelIterator as _, ParallelIterator as _};
 use serde::{Deserialize, Serialize};
 use statrs::distribution::{ContinuousCDF as _, Normal, StudentsT, StudentsTError};
@@ -499,11 +499,9 @@ where
 {
     let dimensions = space.len().get();
     iter::once((starts.nrows() == dimensions).ok_or(AnalysisError::Shape { input: Input::Starts, expected: dimensions, found: starts.nrows() }))
-        .chain(
-            starts.column_iter().flat_map(|start| {
-                iter::zip(start, space.values()).enumerate().filter(|(_, (at, bounds))| !bounds.contains(*at)).map(|(dimension, (&at, _))| Err(AnalysisError::Outside { dimension, at }))
-            }),
-        )
+        .chain(starts.column_iter().flat_map(|start| {
+            iter::zip(start, space.values()).enumerate().filter(|(_, (at, bounds))| !bounds.contains(*at)).map(|(dimension, (&at, _))| Err(AnalysisError::Outside { dimension, at }))
+        }))
         .map(|check| check.map_err(RegressionError::from))
         .collect::<Validated<(), _>>()
         .ok()?;
@@ -750,7 +748,7 @@ pub fn influence(estimate: &Estimate) -> Result<Vec<Influence>, NEVec<Regression
     readings.collect::<Validated<Vec<_>, _>>().ok()
 }
 
-pub fn band(prediction: &Prediction<f64>, level: Confidence, band: Band) -> Result<Vec<RangeInclusive<f64>>, StudentsTError> {
+pub fn band(prediction: &Prediction<f64>, level: OpenUnitInterval, band: Band) -> Result<Vec<RangeInclusive<f64>>, StudentsTError> {
     let probability = f64::midpoint(1.0, level.into_inner());
     let critical = if prediction.freedom.is_infinite() { Normal::standard().inverse_cdf(probability) } else { StudentsT::new(0.0, 1.0, prediction.freedom)?.inverse_cdf(probability) };
     Ok(izip!(prediction.mean.iter(), prediction.variance.iter(), prediction.noise.iter())

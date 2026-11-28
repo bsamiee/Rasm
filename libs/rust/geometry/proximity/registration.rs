@@ -6,6 +6,7 @@ use std::sync::OnceLock;
 use itertools::{Either, Itertools as _};
 use nalgebra::{Isometry3, Matrix3, Matrix6, Point3, Rotation3, SVD, Translation3, Unit, UnitQuaternion, Vector3, Vector6};
 use nonempty_collections::{NESlice, NEVec};
+use rasm_stats::OpenUnitInterval;
 use rayon::iter::{IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
 use typed_floats::InvalidNumber;
 use typed_floats::tf64::{PositiveFinite, StrictlyPositiveFinite};
@@ -15,9 +16,6 @@ use crate::points::{self, Cloud, Neighbor, Neighborhood};
 use crate::{Assembly, ProximityError, Shortfall};
 
 // --- [MODELS] --------------------------------------------------------------------------
-
-#[nutype::nutype(validate(greater = 0.0, less = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
-pub struct Fraction(f64);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Target<'target> {
@@ -40,9 +38,9 @@ pub enum Kernel {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Icp {
     pub iterations: NonZero<usize>,
-    pub tolerance: Fraction,
+    pub tolerance: OpenUnitInterval,
     pub max_correspondence_distance: Option<PositiveFinite> = None,
-    pub overlap: Option<Fraction> = None,
+    pub overlap: Option<OpenUnitInterval> = None,
     pub kernel: Option<Kernel> = None,
     pub metric: Metric = Metric::Point,
 }

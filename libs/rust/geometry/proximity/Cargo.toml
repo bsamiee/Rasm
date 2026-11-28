@@ -25,13 +25,13 @@ validated            = { workspace = true }
 derive-where         = { workspace = true }
 derive_more          = { workspace = true }
 itertools            = { workspace = true }
-nutype               = { workspace = true }
 typed_floats         = { workspace = true }
 bytemuck             = { workspace = true }
 glamx                = { workspace = true }
 nalgebra             = { workspace = true }
 kiddo                = { workspace = true }
 parry3d-f64          = { workspace = true }
+rasm-stats           = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 
