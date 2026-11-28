@@ -1,10 +1,17 @@
 # [OWNERS]
 
-Owner commands list a language's owners whole and rank them by a job's words, `<project>` naming the project folder, `<scratch>` the session scratch folder, and `<job words>` the verb, object, and format of a hand-written job.
+Owner reads run in order, each step deciding what the next reads, `<project>` naming the project folder, `<scratch>` the session scratch folder, and `<job words>` the verb, object, and format of a hand-written job:
+1. Version: the one a project resolves through its own link or lock row, as stale and differently patched copies sit beside it
+2. Patches: local patches of a package, as they change behavior its documentation describes
+3. Guide: a package's own agent guide (`AGENTS.md`, `llms.txt`) read whole, and each `ai-docs/` topic it links for the job
+4. Index: each owner's module, namespace, framework, or catalog section list read whole, as a job's owner sits in modules a target never imports
+5. Search: each job's words searched across every installed declaration of the ecosystem, ranked by package, store copies included for discovery alone
+6. Inventory: each candidate's whole member set written to a file before any member is read by name
+7. Member: one member read from its doc comment's first line to its declaration's end
 
 ## [01]-[TYPESCRIPT]
 
-Owners: Effect and its runtime platform package, Node built-ins on the pinned Node, host declaration files, `@rasm/*` libraries, then pnpm's catalog:
+Owners: Effect and its runtime platform package, built-ins of the runtime consumers bundle into (Node, Bun under Claude Code hooks, UXP), host declaration files, `@rasm/*` libraries, then pnpm's catalog:
 1. Version through a project's own link, as the store holds older and differently patched copies
 2. Local patches with their reasons
 3. Agent guide of a package
@@ -13,7 +20,7 @@ Owners: Effect and its runtime platform package, Node built-ins on the pinned No
 6. Every export of any other package, its declaration files followed through each `export *` and brace list to the file declaring the member
 7. Installed declarations searched by job words, ranked by package
 8. Catalog rows with the group each serves
-9. Node built-ins before any shell-out or text parse
+9. Runtime built-ins before any shell-out or text parse, Node's listed by the last command
 
 ```bash
 jq -r .version <project>/node_modules/<package>/package.json
