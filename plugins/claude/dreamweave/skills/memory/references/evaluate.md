@@ -109,7 +109,7 @@ Sets hold together while each of these stays true after a pass:
 
 ## [07]-[APPROVAL]
 
-Owner decisions go through `AskUserQuestion`, each question explaining its options and offering a free response:
+Owner decisions go through `sazandeh:ask`, which builds each question with its options, previews, and a free response:
 - Plan: clusters, each general's stem and outline, per-file verdicts, and every deletion, merge, and rename
 - Generals: each new general memory before it is written, previewing body, description, and requests
 - Contradictions: choosing between owner statements that disagree
