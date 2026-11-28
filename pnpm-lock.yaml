@@ -539,6 +539,9 @@ importers:
       '@csstools/css-syntax-patches-for-csstree':
         specifier: 'catalog:'
         version: 1.1.17(css-tree@3.2.1)
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.6(effect@4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02))(redis@6.3.1(@opentelemetry/api@1.10.0))
       '@effect/tsgo':
         specifier: 'catalog:'
         version: 0.73.7
@@ -548,9 +551,6 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0(nx@24.1.0(@typescript/typescript6@6.0.2))
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.1.6(effect@4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02))(redis@6.3.1(@opentelemetry/api@1.10.0))
       '@nx/eslint-plugin':
         specifier: 'catalog:'
         version: 24.1.0(@babel/traverse@7.29.14(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(eslint@10.15.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0(@typescript/typescript6@6.0.2))(supports-color@10.2.2)(typescript@7.1.0-dev.20261124.1)
