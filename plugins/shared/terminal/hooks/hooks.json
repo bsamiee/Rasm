@@ -5,14 +5,6 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "[ -n \"$CLAUDE_ENV_FILE\" ] && command -v mise >/dev/null && { grep -qsF 'mise hook-env' \"$CLAUDE_ENV_FILE\" || printf '%s\\n' 'eval \"$(mise hook-env -s bash)\"' >> \"$CLAUDE_ENV_FILE\"; }; true"
-                    }
-                ]
-            },
-            {
-                "hooks": [
-                    {
-                        "type": "command",
                         "command": "zellij-agent-resume claude",
                         "async": true
                     }
