@@ -29,16 +29,16 @@ class TimeSliced extends Scheduler.MixedScheduler {
 
 const engineError = (event: EventName, subject: string) => (cause: unknown) => {
     const [module, ...method] = String.split(event, '.');
-    const said = Predicate.isError(cause) ? cause.message : Formatter.format(cause);
+    const description = Predicate.isError(cause) ? cause.message : Formatter.format(cause);
     return PlatformError.systemError({
-        _tag: Option.fromNullishOr(/ failed(?: to start)?: (?<code>E[A-Z]+)/u.exec(said)?.groups?.['code']).pipe(
+        _tag: Option.fromNullishOr(/ failed(?: to start)?: (?<code>E[A-Z]+)/u.exec(description)?.groups?.['code']).pipe(
             Option.flatMap((code) => Record.get(ERRNO_TAGS, code)),
             Option.getOrElse((): PlatformError.SystemErrorTag => 'Unknown'),
         ),
         module,
         method: method.join('.'),
         pathOrDescriptor: subject,
-        description: said,
+        description,
         cause,
     });
 };
@@ -48,6 +48,7 @@ const call = Effect.fnUntraced(function* <A>(event: EventName, subject: string, 
     const description = refusal(answer);
     return description === undefined ? answer : yield* fail(new Cause.UnknownError(answer, description));
 });
+const refuse = (module: string, method: string, option: string) => PlatformError.badArgument({ module, method, description: `unsupported ${option}` });
 const reveal = (word: CommandLine.Word) => (Redacted.isRedacted(word) ? Redacted.value(word) : word);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -55,21 +56,22 @@ const reveal = (word: CommandLine.Word) => (Redacted.isRedacted(word) ? Redacted
 function services($: EngineInterface) {
     const stat = (path: string, options?: FsStatOptions) => call('fs.stat', path, () => $.fs.stat(path, options));
     const list = (path: string) => call('fs.list', path, () => $.fs.list(path));
-    const storeCall = <A>(method: 'get' | 'set' | 'delete' | 'keys', key: string | undefined, run: () => PromiseLike<A>) =>
+    const storeCall = <A>(method: keyof EngineInterface['store'], key: string | undefined, run: () => PromiseLike<A>) =>
         call(`store.${method}`, key ?? $.plugin.name, run).pipe(Effect.mapError((cause) => new KeyValueStore.KeyValueStoreError({ method, ...(key === undefined ? {} : { key }), message: cause.message, cause })));
     const keys = storeCall('keys', undefined, () => $.store.keys());
+    const remove = (key: string) => storeCall('delete', key, () => $.store.delete(key));
     return Layer.mergeAll(
         Layer.succeed(FileSystem.FileSystem)(
             FileSystem.make(
                 FileSystem.makeNoop({
                     access: (path, options) =>
                         options?.readable === true || options?.writable === true
-                            ? PlatformError.badArgument({ module: 'FileSystem', method: 'access', description: 'unsupported readable or writable check' })
+                            ? refuse('FileSystem', 'access', 'readable or writable check')
                             : call('fs.exists', path, () => $.fs.exists(path)).pipe(
                                   Effect.filterOrFail(Predicate.isTruthy, () => PlatformError.systemError({ _tag: 'NotFound', module: 'FileSystem', method: 'access', pathOrDescriptor: path })),
                                   Effect.asVoid,
                               ),
-                    readDirectory: (path, options) => (options?.recursive === true ? PlatformError.badArgument({ module: 'FileSystem', method: 'readDirectory', description: 'unsupported recursive listing' }) : Effect.map(list(path), (entries) => entries.map(({ name }) => name))),
+                    readDirectory: (path, options) => (options?.recursive === true ? refuse('FileSystem', 'readDirectory', 'recursive listing') : Effect.map(list(path), (entries) => entries.map(({ name }) => name))),
                     readDirectoryEntries: (path) => Effect.map(list(path), (entries) => entries.map(({ name, kind, isLink }) => ({ name, type: isLink ? ('SymbolicLink' as const) : KINDS[kind] }))),
                     readFile: (path) =>
                         stat(path).pipe(
@@ -78,19 +80,15 @@ function services($: EngineInterface) {
                         ),
                     writeFile: (path, data, options) =>
                         (options?.flag ?? 'w') !== 'w' || options?.mode !== undefined
-                            ? PlatformError.badArgument({ module: 'FileSystem', method: 'writeFile', description: 'unsupported flag or mode' })
-                            : Effect.try({ try: () => new TextDecoder('utf-8', { fatal: true }).decode(data), catch: () => PlatformError.badArgument({ module: 'FileSystem', method: 'writeFile', description: 'unsupported non-UTF-8 bytes' }) }).pipe(
-                                  Effect.flatMap((text) => call('fs.write', path, () => $.fs.write(path, text))),
-                              ),
+                            ? refuse('FileSystem', 'writeFile', 'flag or mode')
+                            : Effect.try({ try: () => new TextDecoder('utf-8', { fatal: true }).decode(data), catch: () => refuse('FileSystem', 'writeFile', 'non-UTF-8 bytes') }).pipe(Effect.flatMap((text) => call('fs.write', path, () => $.fs.write(path, text)))),
                     remove: (path, options) =>
-                        Effect.asVoid(
-                            call(
-                                'process.run',
-                                path,
-                                () => $.process.run(['rm', ...(options?.recursive === true ? ['-r'] : []), ...(options?.force === true ? ['-f'] : []), '--', path]),
-                                ({ exitCode, stderr }) => (exitCode === 0 ? undefined : stderr),
-                            ),
-                        ),
+                        call(
+                            'process.run',
+                            path,
+                            () => $.process.run(['rm', ...(options?.recursive === true ? ['-r'] : []), ...(options?.force === true ? ['-f'] : []), '--', path]),
+                            ({ exitCode, stderr }) => (exitCode === 0 ? undefined : stderr),
+                        ).pipe(Effect.asVoid),
                     stat: (path) =>
                         Effect.map(stat(path), ({ kind, mtimeMs, size }) => ({
                             type: KINDS[kind],
@@ -115,27 +113,21 @@ function services($: EngineInterface) {
         Layer.succeed(ChildProcessSpawner.ChildProcessSpawner)(
             ChildProcessSpawner.make(
                 Effect.fnUntraced(function* (command: ChildProcess.Command) {
-                    const { command: program, args, options } = ChildProcess.isStandardCommand(command) ? command : yield* PlatformError.badArgument({ module: 'ChildProcess', method: 'spawn', description: 'unsupported pipeline' });
-                    yield* Effect.when(PlatformError.badArgument({ module: 'ChildProcess', method: 'spawn', description: 'unsupported shell' }), Effect.succeed((options.shell ?? false) !== false));
-                    yield* Effect.when(PlatformError.badArgument({ module: 'ChildProcess', method: 'spawn', description: 'unsupported descriptors past stderr' }), Effect.succeed(options.additionalFds !== undefined));
+                    const { command: program, args, options } = ChildProcess.isStandardCommand(command) ? command : yield* refuse('ChildProcess', 'spawn', 'pipeline');
+                    yield* Effect.when(refuse('ChildProcess', 'spawn', 'shell'), Effect.succeed((options.shell ?? false) !== false));
+                    yield* Effect.when(refuse('ChildProcess', 'spawn', 'descriptors past stderr'), Effect.succeed(options.additionalFds !== undefined));
                     const [input, queues] = yield* Effect.all([
                         Match.value(Predicate.isString(options.stdin) || Stream.isStream(options.stdin) ? options.stdin : (options.stdin?.stream ?? 'pipe')).pipe(
-                            Match.when(Stream.isStream, (stream) =>
-                                stream.pipe(
-                                    Stream.decodeText,
-                                    Stream.mkString,
-                                    Effect.map((text) => ({ input: text })),
-                                ),
-                            ),
+                            Match.when(Stream.isStream, (stream) => Effect.map(stream.pipe(Stream.decodeText, Stream.mkString), (text) => ({ input: text }))),
                             Match.when(Match.is('pipe', 'ignore'), () => Effect.succeed({})),
-                            Match.orElse(() => PlatformError.badArgument({ module: 'ChildProcess', method: 'spawn', description: 'unsupported input inherit or overlapped' })),
+                            Match.orElse(() => refuse('ChildProcess', 'spawn', 'input inherit or overlapped')),
                         ),
                         Effect.all(
                             Record.map({ stdout: options.stdout, stderr: options.stderr }, (output) =>
                                 Match.value(Predicate.isString(output) || Sink.isSink(output) ? output : (output?.stream ?? 'pipe')).pipe(
                                     Match.when('pipe', () => Effect.asSome(Queue.unbounded<string, PlatformError.PlatformError | Cause.Done>())),
                                     Match.when('ignore', () => Effect.succeedNone),
-                                    Match.orElse(() => PlatformError.badArgument({ module: 'ChildProcess', method: 'spawn', description: 'unsupported output inherit, overlapped, or sink' })),
+                                    Match.orElse(() => refuse('ChildProcess', 'spawn', 'output inherit, overlapped, or sink')),
                                 ),
                             ),
                         ),
@@ -161,13 +153,10 @@ function services($: EngineInterface) {
                     const streams = Record.map(queues, (queue) => Option.match(queue, { onNone: () => Stream.empty, onSome: (held) => Stream.encodeText(Stream.fromQueue(held)) }));
                     return ChildProcessSpawner.makeHandle({
                         pid: ChildProcessSpawner.ProcessId(0),
-                        exitCode: Effect.flatMap(
-                            call('process.spawn', program, () => child.result),
-                            (ended) => (ended.code === null ? fail(new Cause.UnknownError(ended, `ended by ${ended.signal}`)) : Effect.succeed(ChildProcessSpawner.ExitCode(ended.code))),
-                        ),
+                        exitCode: call('process.spawn', program, () => child.result).pipe(Effect.flatMap((ended) => (ended.code === null ? fail(new Cause.UnknownError(ended, `ended by ${ended.signal}`)) : Effect.succeed(ChildProcessSpawner.ExitCode(ended.code))))),
                         isRunning: Effect.sync(() => pump.pollUnsafe() === undefined),
                         kill: () => Fiber.interrupt(pump),
-                        stdin: Sink.fail(PlatformError.badArgument({ module: 'ChildProcess', method: 'stdin', description: 'unsupported write after spawn' })),
+                        stdin: Sink.fail(refuse('ChildProcess', 'stdin', 'write after spawn')),
                         ...streams,
                         all: Stream.merge(streams.stdout, streams.stderr),
                         getInputFd: () => Sink.drain,
@@ -185,9 +174,9 @@ function services($: EngineInterface) {
                         (value) => (Predicate.isString(value) ? value : undefined),
                     ),
                 set: (key, value) => storeCall('set', key, () => $.store.set(key, value)),
-                remove: (key) => storeCall('delete', key, () => $.store.delete(key)),
-                clear: Effect.flatMap(keys, (held) => Effect.forEach(held, (key) => storeCall('delete', key, () => $.store.delete(key)), { discard: true })),
-                size: Effect.map(keys, (held) => held.length),
+                remove,
+                clear: Effect.flatMap(keys, Effect.forEach(remove, { discard: true })),
+                size: Effect.map(keys, Array.length),
                 keys,
             }),
         ),
