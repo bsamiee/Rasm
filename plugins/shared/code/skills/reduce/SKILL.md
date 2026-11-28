@@ -11,6 +11,7 @@ Reduction rebuilds logic until each fact sits once, at the source stating it. Mo
 
 [REFERENCES]:
 - [01]-[TYPESCRIPT](references/typescript.md): Skills, sources, catalog, consumers, counts, forms, and checks of TypeScript targets
+- [02]-[RUST](references/rust.md): Skills, sources, consumers, counts, forms, and checks of Rust targets
 
 ## [01]-[TARGET]
 
