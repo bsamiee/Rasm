@@ -1,5 +1,6 @@
 import { assert, it } from '@effect/vitest';
 import { Outcome } from '@rasm/policy/action';
+import { git } from '@rasm/policy/git';
 import { Policy } from '@rasm/policy/policy';
 import { Array, Cause, Deferred, Duration, Effect, Exit, Fiber, MutableRef, Option } from 'effect';
 import { environment, folder, printed, services, shell } from '#/fixtures';
@@ -20,6 +21,7 @@ const respelled = [
 const written = [
     { name: 'a drop takes a flag whose value no reading of the script knows', row: { program: 'grep', drop: ['--exclude-dir'] }, asked: 'grep --exclude-dir="$(cat skip)" -r x .', ran: 'grep -r x .' },
     { name: 'an ensure lands after the subcommand, past a flag value that spells it', row: { program: 'git', path: ['log'], ensure: ['--oneline'] }, asked: 'git -C log log -p', ran: 'git -C log log --oneline -p' },
+    { name: 'an ensure lands once on a statement each pass of a loop reaches', row: { program: 'grep', ensure: ['-i'] }, asked: 'for f in a b; do grep x "$f"; done', ran: 'for f in a b; do grep -i x "$f"; done' },
 ] as const;
 const paths: Table = {
     patch: { program: 'zzpm', path: ['patch'], deny: 'copies a package into the tree', values: { instead: 'set the package option' } },
@@ -115,9 +117,9 @@ it.layer(services, { excludeTestServices: true })('policy', (suite) => {
     );
     suite.effect('a later table replaces a row by name and removes one with null', () =>
         Effect.gen(function* () {
-            const policy = new Policy(replaced);
+            const policy = new Policy(git, replaced);
             const refused = yield* policy.decide(shell('git revert HEAD'), environment());
-            assert.deepStrictEqual([yield* ran(new Policy(), 'git stash'), yield* ran(policy, 'git stash')], [['Deny'], ['Allow']]);
+            assert.deepStrictEqual([yield* ran(new Policy(git), 'git stash'), yield* ran(policy, 'git stash')], [['Deny'], ['Allow']]);
             assert.deepStrictEqual(refused, { _tag: 'Deny', reasons: [Outcome.of(['git.revert'], { subject: 'git revert', reason: 'is replaced', values: { instead: 'read the new row' } })], notes: [], faults: [] });
         }),
     );

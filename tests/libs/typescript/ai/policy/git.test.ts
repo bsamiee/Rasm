@@ -1,4 +1,5 @@
 import { assert, it } from '@effect/vitest';
+import { git } from '@rasm/policy/git';
 import { Policy } from '@rasm/policy/policy';
 import { Effect, Equal, Formatter } from 'effect';
 import { environment, folder, printed, services, shell } from '#/fixtures';
@@ -52,9 +53,9 @@ it.layer(services, { excludeTestServices: true })('git', (suite) => {
     suite.effect.each(local)('%s is refused exactly when git itself loses work in a checkout', (command) =>
         Effect.gen(function* () {
             const cwd = yield* folder({});
-            const [, before, , after, decision] = [yield* printed(prepare, cwd), yield* printed(work, cwd), yield* printed(command, cwd), yield* printed(work, cwd), yield* new Policy().decide(shell(command), environment(cwd))];
+            const [, before, , after, decision] = [yield* printed(prepare, cwd), yield* printed(work, cwd), yield* printed(command, cwd), yield* printed(work, cwd), yield* new Policy(git).decide(shell(command), environment(cwd))];
             assert.strictEqual(decision._tag, Equal.equals(before, after) ? 'Allow' : 'Deny', Formatter.format({ decision, before, after }));
         }).pipe(Effect.scoped),
     );
-    suite.effect.each(remote)('$command', ({ command, denied }) => Effect.map(new Policy().decide(shell(command), environment()), (decision) => assert.strictEqual(decision._tag, denied ? 'Deny' : 'Allow', Formatter.format(decision))));
+    suite.effect.each(remote)('$command', ({ command, denied }) => Effect.map(new Policy(git).decide(shell(command), environment()), (decision) => assert.strictEqual(decision._tag, denied ? 'Deny' : 'Allow', Formatter.format(decision))));
 });
