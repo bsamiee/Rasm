@@ -72,15 +72,33 @@ extension ProcessInstance {
 
     package var hasExited: Bool { Result(catching: { () throws(Errno) in try Self(of: pid) }) != .success(self) }
 
-    package static func all(executing matching: (FilePath) -> Bool) throws(Errno) -> [Self] {
+    private static func listed() throws(Errno) -> [pid_t] {
         let capacity = proc_listallpids(nil, 0)
         guard capacity > 0 else { throw Errno(rawValue: errno) }
         let listed = unsafe [pid_t](unsafeUninitializedCapacity: Int(capacity)) { buffer, count in
             count = Int(max(unsafe proc_listallpids(buffer.baseAddress, Int32(buffer.count * MemoryLayout<pid_t>.size)), 0))
         }
         guard !listed.isEmpty else { throw Errno(rawValue: errno) }
+        return listed
+    }
+
+    package static func all(signedAs identifier: String) throws(Errno) -> [Self] {
+        let user: uid_t = getuid()
+        return try listed().map { pid throws(Errno) -> Self? in
+            do throws(Errno) {
+                let instance = try Self(of: pid)
+                guard try instance.bsdInfo().pbi_uid == user else { return nil }
+                return try instance.signingIdentifier() == identifier ? instance : nil
+            } catch  where [.noSuchProcess, .notPermitted].contains(error) {
+                return nil
+            }
+        }
+        .compactMap(\.self)
+    }
+
+    package static func all(executing matching: (FilePath) -> Bool) throws(Errno) -> [Self] {
         var path = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
-        return try listed.map { pid throws(Errno) -> Self? in
+        return try listed().map { pid throws(Errno) -> Self? in
             guard unsafe proc_pidpath(pid, &path, UInt32(path.count)) > 0, matching(FilePath(platformString: path)) else { return nil }
             do throws(Errno) {
                 let instance = try Self(of: pid)
@@ -120,6 +138,13 @@ extension ProcessInstance {
         _ = try bsdInfo()
         guard read == KERN_SUCCESS else { throw .notPermitted }
         return token
+    }
+
+    package func signingIdentifier() throws(Errno) -> String? {
+        guard let task: SecTask = try SecTaskCreateWithAuditToken(nil, auditToken()) else { throw .noSuchProcess }
+        let identifier: String? = SecTaskCopySigningIdentifier(task, nil) as String?
+        _ = try bsdInfo()
+        return identifier
     }
 
     package func signal(_ signal: Int32) throws(Errno) {
