@@ -25,6 +25,7 @@
 - Use `rhino:host` skill for any work against a live Rhino document, `.3dm` file, or Grasshopper 2 canvas
 - Use `tool:inspect` skill for a vendor host fact its docs lack or contradict, read from installed files, logs, and binaries before any launch
 - Use `code:rebuild` skill whenever code or configuration is written, rebuilt, or judged for quality
+- Use `code:reduce` skill for focused passes cutting a target's lines, declarations, exports, and nesting
 - Use `search:web` skill for any fact outside the repository
 - Use `search:code` skill for any fact regarding an external dependency
 - Use `terminal:history` skill before rerunning, re-deriving, or asking what earlier work ran, printed, found, or settled
