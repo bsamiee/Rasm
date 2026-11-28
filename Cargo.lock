@@ -10152,7 +10152,6 @@ dependencies = [
 name = "rasm-lints"
 version = "0.0.0"
 dependencies = [
- "camino",
  "cargo_metadata",
  "clippy_utils",
  "dunce",

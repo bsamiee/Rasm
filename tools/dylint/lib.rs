@@ -22,10 +22,9 @@ extern crate rustc_type_ir;
 
 use core::cell::{LazyCell, RefCell};
 use core::{iter, mem};
-use std::path::Path;
+use std::env::{self, VarError};
 use std::rc::Rc;
 
-use camino::Utf8Path;
 use clippy_utils::consts::ConstEvalCtxt;
 use clippy_utils::macros::{FormatArgsStorage, macro_backtrace};
 use clippy_utils::paths::{PathNS, lookup_path_str};
@@ -538,11 +537,13 @@ mod representation;
 
 dylint_linting::__maybe_mangle! {
     pub extern "Rust" fn register_lints(session: &rustc_session::Session, store: &mut rustc_lint::LintStore) {
-        if let Some(folder) = session.io.input.opt_path().and_then(Path::parent) {
-            match Utf8Path::from_path(folder) {
-                Some(folder) => session.file_depinfo.lock().extend([Symbol::intern(folder.as_str())]),
-                None => _ = session.dcx().err(format!("`{}` is not UTF-8, so Cargo cannot track the modules in it", folder.display())),
-            }
+        #[expect(clippy::disallowed_methods, reason = "rustc writes dep-info before a lint pass reads `TyCtxt::env_var_os`, so registration records it, as `dylint_linting` records `DYLINT_TOML`")]
+        let modules = env::var("CARGO_PKG_NAME").map(|package| format!("RASM_MODULE_FILES_{}", package.replace('-', "_"))).map(|variable| (env::var(&variable), variable));
+        match modules {
+            Ok((Ok(files), variable)) => _ = session.env_depinfo.lock().insert((Symbol::intern(&variable), Some(Symbol::intern(&files)))),
+            Ok((Err(VarError::NotPresent), variable)) => _ = session.env_depinfo.lock().insert((Symbol::intern(&variable), None)),
+            Err(VarError::NotPresent) => (),
+            Ok((Err(VarError::NotUnicode(value)), _)) | Err(VarError::NotUnicode(value)) => _ = session.dcx().err(format!("`{}` is not UTF-8, so Cargo cannot track it", value.display())),
         }
         let format_args = FormatArgsStorage::default();
         let early = format_args.clone();

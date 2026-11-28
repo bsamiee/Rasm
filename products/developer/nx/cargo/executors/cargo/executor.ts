@@ -1,3 +1,4 @@
+import { hash } from 'node:crypto';
 import { stderr, stdout } from 'node:process';
 import { pathToFileURL } from 'node:url';
 import type { ExecutorContext, Task } from '@nx/devkit';
@@ -45,7 +46,7 @@ const Suited = Schema.Struct({ nextest: Schema.Struct({ crate: Schema.String }) 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const ran = Effect.fnUntraced(
-    function* (cwd: string, args: readonly string[], env: Readonly<Record<string, string>> = {}) {
+    function* (cwd: string, args: readonly string[], env: Readonly<Record<string, string>>) {
         const handle = yield* ChildProcess.make('cargo', args, { cwd, env, extendEnv: true, detached: false, stdin: 'inherit' });
         const [lines, code] = yield* Stream.make([handle.stdout, stdout] as const, [handle.stderr, stderr] as const).pipe(
             Stream.flatMap(
@@ -74,23 +75,25 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { nodes } = context.projectGraph;
     const root = (project: string) => path.resolve(context.root, nodes[project]?.data.root ?? '.');
-    const selected = (at: string, name: string) => ['--package', `${pathToFileURL(path.resolve(context.root, at)).href}#${name}`];
     const options = inputs[Array.headNonEmpty(tasks).id];
+    const chosen = [...tasks.flatMap(({ id, target: { project } }) => Option.toArray(Option.fromUndefinedOr(inputs[id]?.package)).map((name) => ({ at: root(project), name }))), ...(command.packages ?? []).map(({ root: at, name }) => ({ at: path.resolve(context.root, at), name }))];
+    const modules = yield* Effect.forEach(
+        chosen,
+        ({ at, name }) =>
+            fs.readDirectory(at, { recursive: true }).pipe(
+                Effect.map(Array.filter((entry) => path.extname(entry) === '.rs')),
+                Effect.map((files) => [`RASM_MODULE_FILES_${name.replaceAll('-', '_')}`, hash('sha256', files.toSorted().join('\n'))] as const),
+            ),
+        { concurrency: 'unbounded' },
+    ).pipe(Effect.orDie);
     const outputs = tasks.flatMap(({ id }) => inputs[id]?.outputs ?? []);
     yield* Effect.forEach(outputs, (file) => fs.makeDirectory(path.dirname(path.resolve(context.root, file)), { recursive: true }), { discard: true }).pipe(Effect.orDie);
     const [startTime, completed, endTime] = yield* Effect.all([
         Clock.currentTimeMillis,
-        ran(
-            path.resolve(context.root, options?.cwd ?? '.'),
-            [
-                ...command.args,
-                ...tasks.flatMap(({ id, target: { project } }) => Option.toArray(Option.fromUndefinedOr(inputs[id]?.package)).flatMap((name) => selected(root(project), name))),
-                ...(command.packages ?? []).flatMap(({ root: at, name }) => selected(at, name)),
-                ...(command.trailing === undefined ? [] : ['--', ...command.trailing]),
-                ...(options?.__unparsed__ ?? []),
-            ],
-            command.env,
-        ),
+        ran(path.resolve(context.root, options?.cwd ?? '.'), [...command.args, ...chosen.flatMap(({ at, name }) => ['--package', `${pathToFileURL(at).href}#${name}`]), ...(command.trailing === undefined ? [] : ['--', ...command.trailing]), ...(options?.__unparsed__ ?? [])], {
+            ...Record.fromEntries(modules),
+            ...command.env,
+        }),
         Clock.currentTimeMillis,
     ]);
     const messages = completed.stamped.map(Struct.get('message'));

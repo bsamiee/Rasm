@@ -24,7 +24,6 @@ crate-type = ["cdylib"]
 [dependencies]
 strum          = { workspace = true }
 itertools      = { workspace = true }
-camino         = { workspace = true }
 dunce          = { workspace = true }
 fs-err         = { workspace = true }
 cargo_metadata = { workspace = true }
