@@ -24,13 +24,7 @@ customLanguages:
         expandoChar: µ
         outlineRules: tools/ast-grep/outline/csharp.yml
     pythonlang:
-        libraryPath:
-            aarch64-apple-darwin: node_modules/tree-sitter-python/prebuilds/darwin-arm64/tree-sitter-python.node
-            x86_64-apple-darwin: node_modules/tree-sitter-python/prebuilds/darwin-x64/tree-sitter-python.node
-            aarch64-unknown-linux-gnu: node_modules/tree-sitter-python/prebuilds/linux-arm64/tree-sitter-python.node
-            x86_64-unknown-linux-gnu: node_modules/tree-sitter-python/prebuilds/linux-x64/tree-sitter-python.node
-            aarch64-pc-windows-msvc: node_modules/tree-sitter-python/prebuilds/win32-arm64/tree-sitter-python.node
-            x86_64-pc-windows-msvc: node_modules/tree-sitter-python/prebuilds/win32-x64/tree-sitter-python.node
+        libraryPath: .cache/ast-grep/python.so
         languageSymbol: tree_sitter_python
         extensions: [py, py3, pyi]
         expandoChar: µ

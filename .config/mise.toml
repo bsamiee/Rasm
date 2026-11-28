@@ -159,8 +159,9 @@ final = "mise exec -- hk install"
 # --- [VARS] -----------------------------------------------------------------------------
 
 [vars]
-docker_plugin = 'plugins="$${DOCKER_CONFIG:-$$HOME/.docker}/cli-plugins" && mkdir -p "$$plugins" && for bin in "$$MISE_TOOL_INSTALL_PATH"/docker-*; do ln -sf "$$bin" "$$plugins/"; done'
-maven         = "https://maven-central.storage-download.googleapis.com/maven2"
+docker_plugin      = 'plugins="$${DOCKER_CONFIG:-$$HOME/.docker}/cli-plugins" && mkdir -p "$$plugins" && for bin in "$$MISE_TOOL_INSTALL_PATH"/docker-*; do ln -sf "$$bin" "$$plugins/"; done'
+maven              = "https://maven-central.storage-download.googleapis.com/maven2"
+tree_sitter_parser = 'language="$${MISE_TOOL_NAME#http:tree-sitter-}" && extension="$$MISE_CONFIG_ROOT/tools/ast-grep/grammars/$$language.js" && cd "$$MISE_TOOL_INSTALL_PATH" && { { [ -f "$$language.so" ] && ! [ "$$extension" -nt "$$language.so" ]; } || { { ! [ -f "$$extension" ] || tree-sitter generate -o src "$$extension"; } && tree-sitter build -o "$$language.so" .; }; } && mkdir -p "$$MISE_CONFIG_ROOT/.cache/ast-grep" && ln -sf "$$MISE_TOOL_INSTALL_PATH/$$language.so" "$$MISE_CONFIG_ROOT/.cache/ast-grep/$$language.so"'
 
 # --- [TOOL_ALIAS] -----------------------------------------------------------------------
 
@@ -174,20 +175,21 @@ usvg       = "github:linebender/resvg"
 [tools]
 # --- [SHELL]
 
-ast-grep                 = "latest"
-carapace                 = "latest"
-duckdb                   = "latest"
-fd                       = "latest"
-"github:harehare/mq"     = "latest"
-"http:tree-sitter-rust"  = { depends = ["node", "tree-sitter"], format = "tar.gz", os = ["unix"], postinstall = { run = 'grammar="$MISE_CONFIG_ROOT/tools/ast-grep/grammars/rust.js" && cd "$MISE_TOOL_INSTALL_PATH" && { [ "$grammar" -ot rust.so ] || { tree-sitter generate -o src "$grammar" && tree-sitter build -o rust.so .; }; } && mkdir -p "$MISE_CONFIG_ROOT/.cache/ast-grep" && ln -sf "$MISE_TOOL_INSTALL_PATH/rust.so" "$MISE_CONFIG_ROOT/.cache/ast-grep/rust.so"', when = "always" }, strip_components = 1, url = "https://static.crates.io/crates/tree-sitter-rust/tree-sitter-rust-{{ version }}.crate", version = "latest", version_json_path = ".versions[].num", version_list_url = "https://crates.io/api/v1/crates/tree-sitter-rust/versions", version_order = "semver" }
-"http:tree-sitter-swift" = { depends = ["tree-sitter"], format = "tar.gz", os = ["unix"], postinstall = { run = 'cd "$MISE_TOOL_INSTALL_PATH" && { [ -f swift.so ] || tree-sitter build -o swift.so .; } && mkdir -p "$MISE_CONFIG_ROOT/.cache/ast-grep" && ln -sf "$MISE_TOOL_INSTALL_PATH/swift.so" "$MISE_CONFIG_ROOT/.cache/ast-grep/swift.so"', when = "always" }, strip_components = 1, url = "https://static.crates.io/crates/tree-sitter-swift/tree-sitter-swift-{{ version }}.crate", version = "latest", version_json_path = ".versions[].num", version_list_url = "https://crates.io/api/v1/crates/tree-sitter-swift/versions", version_order = "semver" }
-hyperfine                = "latest"
-jq                       = "latest"
-ripgrep                  = "latest"
-sd                       = "latest"
-tree-sitter              = "latest"
-xh                       = "latest"
-yq                       = "latest"
+ast-grep                  = "latest"
+carapace                  = "latest"
+duckdb                    = "latest"
+fd                        = "latest"
+"github:harehare/mq"      = "latest"
+"http:tree-sitter-python" = { depends = ["node", "tree-sitter"], format = "tar.gz", os = ["unix"], postinstall = { run = "{{ vars.tree_sitter_parser }}", when = "always" }, strip_components = 1, url = "https://static.crates.io/crates/tree-sitter-python/tree-sitter-python-{{ version }}.crate", version = "latest", version_json_path = ".versions[].num", version_list_url = "https://crates.io/api/v1/crates/tree-sitter-python/versions", version_order = "semver" }
+"http:tree-sitter-rust"   = { depends = ["node", "tree-sitter"], format = "tar.gz", os = ["unix"], postinstall = { run = "{{ vars.tree_sitter_parser }}", when = "always" }, strip_components = 1, url = "https://static.crates.io/crates/tree-sitter-rust/tree-sitter-rust-{{ version }}.crate", version = "latest", version_json_path = ".versions[].num", version_list_url = "https://crates.io/api/v1/crates/tree-sitter-rust/versions", version_order = "semver" }
+"http:tree-sitter-swift"  = { depends = ["tree-sitter"], format = "tar.gz", os = ["unix"], postinstall = { run = "{{ vars.tree_sitter_parser }}", when = "always" }, strip_components = 1, url = "https://static.crates.io/crates/tree-sitter-swift/tree-sitter-swift-{{ version }}.crate", version = "latest", version_json_path = ".versions[].num", version_list_url = "https://crates.io/api/v1/crates/tree-sitter-swift/versions", version_order = "semver" }
+hyperfine                 = "latest"
+jq                        = "latest"
+ripgrep                   = "latest"
+sd                        = "latest"
+tree-sitter               = "latest"
+xh                        = "latest"
+yq                        = "latest"
 
 # --- [CHECKERS]
 

@@ -51,9 +51,11 @@ File-to-language resolution:
 - Native libraries load under `--custom-languages allow` or a `trust` the store records for the config path, default `ignore` warns and parses with built-in languages
 - `trust` refuses a non-interactive terminal, the store is `trusted-configs.json` in ast-grep's user config folder, `AST_GREP_TRUST_DIR` moves it
 - Missing libraries fail every command at exit 79 once custom languages load
-- TypeScript, Python, and C# rows load the npm prebuilds `node_modules/<package>/prebuilds/<platform>/<package>.node`
-- Rust and Swift rows load `.cache/ast-grep/<language>.so`, which mise rows `http:tree-sitter-rust` and `http:tree-sitter-swift` build and link on Unix
-- Rust builds from `tools/ast-grep/grammars/rust.js` over the crate's grammar, for field defaults, trait aliases, `try bikeshed`, and `gen fn`
+- TypeScript and C# rows load the npm prebuilds `node_modules/<package>/prebuilds/<platform>/<package>.node`
+- Python, Rust, and Swift rows load `.cache/ast-grep/<language>.so`, which mise rows `http:tree-sitter-<language>` build and link on Unix through `vars.tree_sitter_parser`
+- Grammar extensions `tools/ast-grep/grammars/<language>.js` regenerate the crate's parser before the build, a row without one builds the crate's parser
+- Python's extension adds PEP 810 `lazy import` and `lazy from` as an optional leading token of both import kinds, and `lazy` stays an identifier elsewhere
+- Rust's extension adds field defaults, trait aliases, `try bikeshed`, and `gen fn`
 - `tsxlang` reads an angle-bracket assertion (`<T>x`) in a `.ts` file as JSX, an `ERROR` that can swallow the lines after it (generated SDKs under `infra/sdks`)
 
 ## [03]-[YAML]

@@ -1063,6 +1063,23 @@ version = "0.24.2"
 backend = "http:tree-sitter-rust"
 specifiers = ["latest"]
 
+[[tools."http:tree-sitter-python"]]
+version = "0.25.0"
+backend = "http:tree-sitter-python"
+specifiers = ["latest"]
+
+[tools."http:tree-sitter-python".options]
+format = "tar.gz"
+strip_components = "1"
+
+[tools."http:tree-sitter-python"."platforms.linux-x64"]
+checksum = "sha256:6bf85fd39652e740bf60f46f4cda9492c3a9ad75880575bf14960f775cb74a1c"
+url = "https://static.crates.io/crates/tree-sitter-python/tree-sitter-python-0.25.0.crate"
+
+[tools."http:tree-sitter-python"."platforms.macos-arm64"]
+checksum = "sha256:6bf85fd39652e740bf60f46f4cda9492c3a9ad75880575bf14960f775cb74a1c"
+url = "https://static.crates.io/crates/tree-sitter-python/tree-sitter-python-0.25.0.crate"
+
 [tools."http:tree-sitter-rust".options]
 format = "tar.gz"
 strip_components = "1"
