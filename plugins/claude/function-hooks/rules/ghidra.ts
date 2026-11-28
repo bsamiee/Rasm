@@ -1,6 +1,7 @@
+import type { Call, Invocation, Table } from '@rasm/policy/rule';
 import { Array, Effect, FileSystem, Glob, Option, Path, Record } from 'effect';
 import type { Assign, Stmt } from 'sh-syntax';
-import { type Call, findUp, type Invocation, type Table } from '#/rules/rule';
+import { findUp } from '#/rules/rule';
 import { moves } from '#/rules/waits';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

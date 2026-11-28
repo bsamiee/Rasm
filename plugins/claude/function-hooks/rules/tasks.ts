@@ -1,8 +1,9 @@
 import { tasks as projectGraph } from '@rasm/nx/graph';
+import type { Invocation, Script, Table, Verdict } from '@rasm/policy/rule';
 import { Call } from '@rasm/report';
 import { Array, Effect, Equal, FileSystem, Function, Match, Option, Path, Predicate, Record, Schema, String } from 'effect';
 import { RedirOperator, type Stmt, type Word } from 'sh-syntax';
-import { covers, execute, findUp, type Invocation, type Script, type Table, type Verdict } from '#/rules/rule';
+import { covers, execute, findUp } from '#/rules/rule';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -166,9 +167,9 @@ const route = Effect.fnUntraced(function* (invocation: Invocation, graph: Graph,
         ([chosen]) => (widened || chosen.length === owners.length) && chosen.every(({ target }) => target === chosen[0].target) && !narrowed && ((chosen.length === 1 && !widened) || Array.isReadonlyArrayEmpty(forwarded)),
     );
     return Match.value({ several: Option.getOrUndefined(Array.findFirst(owned, ([, own]) => own.length > 1)), ready: Option.getOrUndefined(ready) }).pipe(
-        Match.when({ several: Match.defined }, ({ several: [owner, own] }): readonly Verdict[] => [{ subject: invocation.label, deny: `matches several targets of ${owner}`, values: { instead: `run one of: ${own.map((row) => `nx run ${row.project}:${row.target}`).join(', ')}` } }]),
-        Match.when({ ready: Match.defined }, ({ ready: [chosen, span] }): readonly Verdict[] => [{ edit: (editor) => [editor.replace(span, restate(graph, chosen, forwarded, widened && cwd === graph.root))] }]),
-        Match.orElse((): readonly Verdict[] => []),
+        Match.when({ several: Match.defined }, ({ several: [owner, own] }): readonly Verdict<'Shell'>[] => [{ subject: invocation.label, deny: `matches several targets of ${owner}`, values: { instead: `run one of: ${own.map((row) => `nx run ${row.project}:${row.target}`).join(', ')}` } }]),
+        Match.when({ ready: Match.defined }, ({ ready: [chosen, span] }): readonly Verdict<'Shell'>[] => [{ edit: (editor) => [editor.replace(span, restate(graph, chosen, forwarded, widened && cwd === graph.root))] }]),
+        Match.orElse((): readonly Verdict<'Shell'>[] => []),
     );
 });
 const readSteps = Effect.fnUntraced(function* (root: string) {
@@ -203,7 +204,7 @@ const routeStep = Effect.fnUntraced(function* (invocation: Invocation, steps: St
     const match = Option.filter(Array.head(matches), () => matches.length === 1 && Array.isReadonlyArrayNonEmpty(files));
     const plan = yield* Option.match(match, { onNone: () => Effect.succeed(''), onSome: ({ mode, step }) => Effect.map(execute(cwd)(['hk', mode, '--step', step, '--plan', '--json', ...files]), ({ stdout }) => stdout) });
     const included = Option.exists(Schema.decodeOption(Plan)(plan), ({ steps: planned }) => planned.some(({ status, fileCount }) => status === 'included' && fileCount === files.length));
-    return Option.toArray(Option.filter(Option.all([match, extentOf(invocation)]), () => included)).map(([{ step, mode }, span]): Verdict => ({ edit: (editor) => [editor.replace(span, Array.make('hk', mode, '--step', step, ...files))] }));
+    return Option.toArray(Option.filter(Option.all([match, extentOf(invocation)]), () => included)).map(([{ step, mode }, span]): Verdict<'Shell'> => ({ edit: (editor) => [editor.replace(span, Array.make('hk', mode, '--step', step, ...files))] }));
 });
 const resolveCrates = Effect.fnUntraced(function* (cargo: Invocation, cwd: string) {
     const path = yield* Path.Path;
@@ -242,7 +243,7 @@ const tasks: Table = {
             const spoken = Option.match(nx.argv, { onNone: () => `nx ${verb}`, onSome: Array.join(' ') });
             return Match.value({ stops, stmt: Option.getOrUndefined(Option.filter(nx.node, () => later)) }).pipe(
                 Match.when({ stops: false }, () => []),
-                Match.when({ stmt: Match.defined }, ({ stmt }): readonly Verdict[] => [{ edit: (editor) => [editor.remove(stmt)] }, { subject: spoken, note: 'left the call, as every session shares the daemon', once: 'call' as const }]),
+                Match.when({ stmt: Match.defined }, ({ stmt }): readonly Verdict<'Shell'>[] => [{ edit: (editor) => [editor.remove(stmt)] }, { subject: spoken, note: 'left the call, as every session shares the daemon', once: 'call' as const }]),
                 Match.orElse(() => [{ subject: spoken, deny: 'stops the daemon every session shares', values: DAEMON }]),
             );
         },
@@ -317,9 +318,9 @@ const tasks: Table = {
                 onNone: () => [],
                 onSome: ({ project, target: name }) =>
                     Match.value({ tool: Option.getOrUndefined(sole), target: Option.getOrUndefined(target), address: Option.getOrUndefined(address) }).pipe(
-                        Match.when({ tool: Match.string, target: Match.defined }, ({ tool, target: word }): readonly Verdict[] => [{ edit: (editor) => [editor.replace(word, [tool])] }]),
-                        Match.when({ tool: Match.string, address: Match.defined }, ({ tool, address: span }): readonly Verdict[] => (many ? [] : [{ edit: (editor) => [editor.replace(span, ['run', `${project}:${tool}`])] }])),
-                        Match.orElse((): readonly Verdict[] => [{ subject: `nx ${name}`, deny: `runs ${tools.length} tools, so arguments after -- reach none of them`, values: { instead: `pass them to one of: ${tools.map((tool) => `nx run ${project}:${tool}`).join(', ')}` } }]),
+                        Match.when({ tool: Match.string, target: Match.defined }, ({ tool, target: word }): readonly Verdict<'Shell'>[] => [{ edit: (editor) => [editor.replace(word, [tool])] }]),
+                        Match.when({ tool: Match.string, address: Match.defined }, ({ tool, address: span }): readonly Verdict<'Shell'>[] => (many ? [] : [{ edit: (editor) => [editor.replace(span, ['run', `${project}:${tool}`])] }])),
+                        Match.orElse((): readonly Verdict<'Shell'>[] => [{ subject: `nx ${name}`, deny: `runs ${tools.length} tools, so arguments after -- reach none of them`, values: { instead: `pass them to one of: ${tools.map((tool) => `nx run ${project}:${tool}`).join(', ')}` } }]),
                     ),
             });
         }),
@@ -353,7 +354,7 @@ const tasks: Table = {
             const raw = invocations.filter((invocation) => action.run !== 'monitored' && isRaw(invocation, BOUNDED_PROGRAMS) && invocation.rest.length === 0 && !Option.exists(invocation.stage, ({ index, count }) => index < count - 1));
             const verdicts = yield* Effect.forEach(
                 raw.map((invocation) => [invocation, cwdOf(invocation, cwd)] as const),
-                ([invocation, folder]) => Effect.flatMap(readGraph(folder), Option.match({ onNone: () => Effect.succeed<readonly Verdict[]>([]), onSome: (graph) => route(invocation, graph, folder) })),
+                ([invocation, folder]) => Effect.flatMap(readGraph(folder), Option.match({ onNone: () => Effect.succeed<readonly Verdict<'Shell'>[]>([]), onSome: (graph) => route(invocation, graph, folder) })),
             );
             return verdicts.flat();
         }),
@@ -387,11 +388,11 @@ const tasks: Table = {
             const folders = Option.isSome(step) ? yield* resolveCrates(cargo, cwd) : Option.none();
             const known = cargo.only('--check', '-p', '--package', '--all') && cargo.rest.length === 0 && cargo.operands.length <= 1;
             return Match.value({ step: Option.getOrUndefined(step), routed: Option.getOrUndefined(Option.all([step, folders, extentOf(cargo)])) }).pipe(
-                Match.when({ routed: Match.defined }, ({ routed: [[name], crates, span] }): readonly Verdict[] =>
+                Match.when({ routed: Match.defined }, ({ routed: [[name], crates, span] }): readonly Verdict<'Shell'>[] =>
                     known ? [{ edit: (editor) => [editor.replace(span, Array.make('hk', mode, '--step', name, ...crates))] }] : [{ subject: 'cargo fmt option', deny: 'has no hk form', next: new Call({ tool: 'Bash', given: { command: ['hk', mode, '--step', name, ...crates].join(' ') } }) }],
                 ),
-                Match.when({ step: Match.defined }, (): readonly Verdict[] => [{ subject: 'cargo fmt', deny: 'resolves no crate here', values: { instead: 'pass --package <crate>, or run it in the crate folder' } }]),
-                Match.orElse((): readonly Verdict[] => []),
+                Match.when({ step: Match.defined }, (): readonly Verdict<'Shell'>[] => [{ subject: 'cargo fmt', deny: 'resolves no crate here', values: { instead: 'pass --package <crate>, or run it in the crate folder' } }]),
+                Match.orElse((): readonly Verdict<'Shell'>[] => []),
             );
         }),
     },
@@ -405,7 +406,7 @@ const tasks: Table = {
             );
             const operation = Record.get(stackOperations, verb);
             const graph = Option.isSome(operation) ? yield* readGraph(cwd) : Option.none();
-            return Option.toArray(Option.all([operation, graph])).flatMap(([{ aggregate, args, applies }, found]): readonly Verdict[] => {
+            return Option.toArray(Option.all([operation, graph])).flatMap(([{ aggregate, args, applies }, found]): readonly Verdict<'Shell'>[] => {
                 const target = `${aggregate}--pulumi`;
                 const deployable = Array.dedupe(
                     found.tasks

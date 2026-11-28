@@ -20,8 +20,8 @@
     },
     "exports": {
         "./policy": "./policy.ts",
-        "./action": "./decision/action.ts",
-        "./git": "./rules/git.ts",
+        "./action": "./action.ts",
+        "./rule": "./rule.ts",
         "./package.json": "./package.json"
     },
     "publishConfig": {
@@ -30,8 +30,8 @@
         },
         "exports": {
             "./policy": "./dist/policy.js",
-            "./action": "./dist/decision/action.js",
-            "./git": "./dist/rules/git.js",
+            "./action": "./dist/action.js",
+            "./rule": "./dist/rule.js",
             "./package.json": "./package.json"
         },
         "access": "public"

@@ -22,6 +22,7 @@
         "./nx": "./nx.ts",
         "./path": "./path.ts",
         "./playwright": "./playwright.ts",
+        "./policy": "./policy.ts",
         "./storybook": "./storybook.ts",
         "./storybook-preview": "./storybook-preview.ts",
         "./package.json": "./package.json"
@@ -33,6 +34,7 @@
             "./nx": "./dist/nx.js",
             "./path": "./dist/path.js",
             "./playwright": "./dist/playwright.js",
+            "./policy": "./dist/policy.js",
             "./storybook": "./dist/storybook.js",
             "./storybook-preview": "./dist/storybook-preview.js",
             "./package.json": "./package.json"
@@ -44,13 +46,16 @@
         "@effect/platform-node": "catalog:",
         "@fontsource-variable/google-sans-flex": "catalog:",
         "@rasm/vite": "workspace:*",
-        "@typescript/native": "catalog:"
+        "@typescript/native": "catalog:",
+        "sh-syntax": "catalog:"
     },
     "devDependencies": {
         "@nx/devkit": "catalog:",
         "@playwright/test": "catalog:",
         "@rasm/nx": "workspace:*",
+        "@rasm/policy": "workspace:*",
         "@rasm/process": "workspace:*",
+        "@rasm/shell": "workspace:*",
         "@storybook/addon-a11y": "catalog:",
         "@types/chrome": "catalog:",
         "@types/node": "catalog:",
@@ -65,7 +70,9 @@
         "@nx/devkit": "catalog:peers",
         "@playwright/test": "catalog:peers",
         "@rasm/nx": "workspace:*",
+        "@rasm/policy": "workspace:*",
         "@rasm/process": "workspace:*",
+        "@rasm/shell": "workspace:*",
         "@storybook/addon-a11y": "catalog:peers",
         "@vitejs/plugin-react": "catalog:peers",
         "effect": "catalog:peers",
@@ -84,7 +91,13 @@
         "@rasm/nx": {
             "optional": true
         },
+        "@rasm/policy": {
+            "optional": true
+        },
         "@rasm/process": {
+            "optional": true
+        },
+        "@rasm/shell": {
             "optional": true
         },
         "@storybook/addon-a11y": {

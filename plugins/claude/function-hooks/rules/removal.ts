@@ -1,12 +1,13 @@
+import type { Invocation, Table, Verdict } from '@rasm/policy/rule';
 import { Array, Effect, FileSystem, HashSet, Match, Option, String } from 'effect';
 import type { Word } from 'sh-syntax';
-import { covers, type Invocation, patternOf, roots, type Table, type Verdict } from '#/rules/rule';
+import { covers, patternOf, roots } from '#/rules/rule';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Field = Invocation['deletes'][number];
 type Origin = Extract<Field['pieces'][number], { readonly _tag: 'Unknown' }>['origin'];
-type Denial = Extract<Verdict, { readonly deny: string }>;
+type Denial = Extract<Verdict<'Shell'>, { readonly deny: string }>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -92,9 +93,9 @@ const removal: Table = {
             const agrees = Option.exists(walker, (found) => found.has(...nullSeparators) === nulls) && Option.exists(xargs.stage, ({ count }) => count === 2);
             const joined = Option.filter(Option.all([walk, batch, Option.flatMap(walker, ({ span }) => span)]), () => plain && agrees);
             return Match.value({ direct: Option.getOrUndefined(Option.all([direct, xargs.node])), joined: Option.getOrUndefined(Option.all([joined, xargs.node])), recursive: Option.getOrUndefined(Option.filter(remover, (inner) => inner.has(...RECURSION))) }).pipe(
-                Match.when({ direct: Match.defined }, ({ direct: [command, stmt] }): readonly Verdict[] => [{ edit: (editor) => [editor.command(stmt, command)] }]),
-                Match.when({ joined: Match.defined }, ({ joined: [[words, exec, span], stmt] }): readonly Verdict[] => [{ edit: (editor) => [editor.replace(span, Array.appendAll(words, exec)), editor.remove(stmt)] }]),
-                Match.when({ recursive: Match.defined }, ({ recursive: { label } }): readonly Verdict[] => [
+                Match.when({ direct: Match.defined }, ({ direct: [command, stmt] }): readonly Verdict<'Shell'>[] => [{ edit: (editor) => [editor.command(stmt, command)] }]),
+                Match.when({ joined: Match.defined }, ({ joined: [[words, exec, span], stmt] }): readonly Verdict<'Shell'>[] => [{ edit: (editor) => [editor.replace(span, Array.appendAll(words, exec)), editor.remove(stmt)] }]),
+                Match.when({ recursive: Match.defined }, ({ recursive: { label } }): readonly Verdict<'Shell'>[] => [
                     { subject: `xargs ${label} -r`, deny: 'deletes paths it reads from standard input, which the hook cannot judge', values: { instead: 'run find <folder> -name <pattern> -exec rm -r {} +, or name each path to rm' } },
                 ]),
                 Match.orElse(() => []),

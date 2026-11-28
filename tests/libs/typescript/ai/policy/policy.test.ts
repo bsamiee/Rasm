@@ -1,13 +1,9 @@
 import { assert, it } from '@effect/vitest';
 import { Outcome } from '@rasm/policy/action';
-import { git } from '@rasm/policy/git';
 import { Policy } from '@rasm/policy/policy';
+import type { Table } from '@rasm/policy/rule';
+import { environment, folder, printed, services, shell } from '@rasm/testing/policy';
 import { Array, Cause, Deferred, Duration, Effect, Exit, Fiber, MutableRef, Option } from 'effect';
-import { environment, folder, printed, services, shell } from '#/fixtures';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Table = ConstructorParameters<typeof Policy>[number];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -52,6 +48,7 @@ const notes: Table = {
     first: { program: 'sleep', decide: () => [{ run: 'background', subject: 'sleep', note: 'first' }] },
     second: { program: 'sleep', decide: () => [{ run: 'background', subject: 'sleep', note: 'second' }] },
 };
+const stated: Table = { 'git.stash': { program: 'git', path: ['stash'], deny: 'hides work' }, 'git.revert': { program: 'git', path: ['revert'], deny: 'undoes work' } };
 const replaced: Table = { 'git.stash': null, 'git.revert': { program: 'git', path: ['revert'], deny: 'is replaced', values: { instead: 'read the new row' } } };
 const kinds: Table = {
     look: { action: 'Task', decide: ({ resting }) => [{ again: resting ? Duration.minutes(5) : Duration.zero }] },
@@ -117,9 +114,9 @@ it.layer(services, { excludeTestServices: true })('policy', (suite) => {
     );
     suite.effect('a later table replaces a row by name and removes one with null', () =>
         Effect.gen(function* () {
-            const policy = new Policy(git, replaced);
+            const policy = new Policy(stated, replaced);
             const refused = yield* policy.decide(shell('git revert HEAD'), environment());
-            assert.deepStrictEqual([yield* ran(new Policy(git), 'git stash'), yield* ran(policy, 'git stash')], [['Deny'], ['Allow']]);
+            assert.deepStrictEqual([yield* ran(new Policy(stated), 'git stash'), yield* ran(policy, 'git stash')], [['Deny'], ['Allow']]);
             assert.deepStrictEqual(refused, { _tag: 'Deny', reasons: [Outcome.of(['git.revert'], { subject: 'git revert', reason: 'is replaced', values: { instead: 'read the new row' } })], notes: [], faults: [] });
         }),
     );

@@ -1,5 +1,5 @@
+import type { ProgramRow, Table } from '@rasm/policy/rule';
 import { Effect, FileSystem, Option, Path, Record } from 'effect';
-import type { ProgramRow, Table } from '#/decision/rule';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

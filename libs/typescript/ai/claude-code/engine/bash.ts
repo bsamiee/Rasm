@@ -16,8 +16,8 @@ const COLLATOR = new Intl.Collator(undefined, { numeric: true });
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Session extends Context.Service<
-    Session,
+class Bash extends Context.Service<
+    Bash,
     {
         readonly shell: (agent: Option.Option<string>) => Effect.Effect<
             {
@@ -29,7 +29,7 @@ class Session extends Context.Service<
         >;
         readonly fork: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<Fiber.Fiber<A, E>, never, R>;
     }
->()('@rasm/claude-code/policy/session', {
+>()('@rasm/claude-code/engine/bash', {
     make: Effect.gen(function* () {
         const [engine, shell, fs, processes, path] = yield* Effect.all([Engine, Shell, FileSystem.FileSystem, ChildProcessSpawner.ChildProcessSpawner, Path.Path]);
         const [printed, plugin] = yield* Effect.all([processes.string(ChildProcess.make('env', ['-0'])), Config.all({ data: Config.String('CLAUDE_PLUGIN_DATA'), pid: Config.String('CLAUDE_PID'), id: Config.String('CLAUDE_CODE_SESSION_ID') })], { concurrency: 'unbounded' });
@@ -46,7 +46,7 @@ class Session extends Context.Service<
                 binary: Option.orElse(Record.get(variables, 'CLAUDE_CODE_SHELL'), () => Record.get(variables, 'SHELL')),
                 home: Option.orElse(Record.get(variables, 'CLAUDE_CONFIG_DIR'), () => Option.map(Record.get(variables, 'HOME'), (folder) => path.join(folder, '.claude'))),
             }),
-            () => PlatformError.badArgument({ module: 'Session', method: 'make', description: 'unset variable, names SHELL HOME' }),
+            () => PlatformError.badArgument({ module: 'Bash', method: 'make', description: 'unset variable, names SHELL HOME' }),
         );
         const dialects = path.join(plugin.data, 'dialect', plugin.pid);
         yield* Effect.addFinalizer(() => Effect.ignore(fs.remove(dialects, { recursive: true, force: true })));
@@ -78,7 +78,7 @@ class Session extends Context.Service<
         const exec = (cwd: string) =>
             Effect.fnUntraced(function* (script: Script) {
                 const top = (yield* script.invocations).filter(({ within }) => Array.isReadonlyArrayEmpty(within));
-                yield* Effect.when(PlatformError.badArgument({ module: 'Session', method: 'exec', description: 'unsupported list, pipeline, or background command' }), Effect.succeed(!Predicate.isTupleOf(top, 1) || top.some(({ background }) => background)));
+                yield* Effect.when(PlatformError.badArgument({ module: 'Bash', method: 'exec', description: 'unsupported list, pipeline, or background command' }), Effect.succeed(!Predicate.isTupleOf(top, 1) || top.some(({ background }) => background)));
                 const { source } = yield* probed;
                 const text = ['echo $$ >&2', yield* Effect.fromResult(CommandLine.join(['.', source])), `exec ${script.source}`].join('\n');
                 const child = yield* processes.spawn(ChildProcess.make(binary, ['-c', Array.isReadonlyArrayNonEmpty(script.text.redacted) ? Redacted.make(text) : text], { cwd, env: variables, extendEnv: false }));
@@ -88,7 +88,7 @@ class Session extends Context.Service<
                         Option.flatMapNullishOr((piece) => /^(?<pid>\d+)\n(?<tail>[^]*)$/u.exec(piece)?.groups),
                         Option.flatMap((groups) => Option.all({ pid: Record.get(groups, 'pid'), tail: Record.get(groups, 'tail') })),
                     ),
-                    () => PlatformError.systemError({ _tag: 'Unknown', module: 'Session', method: 'exec', pathOrDescriptor: binary, description: 'no pid, stream stderr' }),
+                    () => PlatformError.systemError({ _tag: 'Unknown', module: 'Bash', method: 'exec', pathOrDescriptor: binary, description: 'no pid, stream stderr' }),
                 );
                 const stderr = Stream.encodeText(Stream.concat(Stream.make(tail), rest));
                 return ChildProcessSpawner.makeHandle({ ...child, pid: ChildProcessSpawner.ProcessId(Number(pid)), stderr, all: Stream.merge(child.stdout, stderr) });
@@ -128,4 +128,4 @@ class Session extends Context.Service<
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Session };
+export { Bash };

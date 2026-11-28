@@ -13,6 +13,12 @@
         },
         {
             "path": "../../../libs/typescript/developer/nx"
+        },
+        {
+            "path": "../../../libs/typescript/ai/policy"
+        },
+        {
+            "path": "../../../libs/typescript/system/shell"
         }
     ]
 }

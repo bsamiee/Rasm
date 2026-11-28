@@ -1,17 +1,6 @@
-import type { Policy } from '@rasm/policy/policy';
+import type { Invocation, Verdict } from '@rasm/policy/rule';
 import { run } from '@rasm/process';
 import { Array, Effect, FileSystem, Function, Option, Path } from 'effect';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Table = ConstructorParameters<typeof Policy>[number];
-type ScriptRow = Extract<Table[string], { readonly action: 'Shell'; readonly decide: unknown }>;
-type Script = Parameters<ScriptRow['decide']>[0];
-type Call = Parameters<ScriptRow['decide']>[1];
-type Invocation = Call['invocations'][number];
-type Verdict = Extract<ReturnType<ScriptRow['decide']>, readonly unknown[]>[number];
-type ProgramVerdict = Extract<ReturnType<Extract<Table[string], { readonly program: string; readonly decide: unknown }>['decide']>, readonly unknown[]>[number];
-type Piece = Invocation['reads'][number]['pieces'][number];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -19,9 +8,9 @@ const covers = (folder: string, path: string) => {
     const base = folder.replace(/\/+$/u, '');
     return base === '' || path === base || path.startsWith(`${base}/`);
 };
-const patternOf = (pieces: readonly Piece[]) => Option.map(Option.all(pieces.map((piece) => (piece._tag === 'Text' || piece._tag === 'Wild' ? Option.some(piece.text) : Option.none()))), Array.join(''));
+const patternOf = (pieces: Invocation['reads'][number]['pieces']) => Option.map(Option.all(pieces.map((piece) => (piece._tag === 'Text' || piece._tag === 'Wild' ? Option.some(piece.text) : Option.none()))), Array.join(''));
 const roots = (walker: Invocation, cwd: string): readonly string[] => Array.match(Array.getSomes(walker.reads.map(({ text }) => text)), { onEmpty: () => [cwd], onNonEmpty: Function.identity });
-const rewrite = (invocation: Invocation, words: Array.NonEmptyReadonlyArray<string>): readonly Verdict[] => Option.toArray(invocation.span).map((span) => ({ edit: (editor) => [editor.replace(span, words)] }));
+const rewrite = (invocation: Invocation, words: Array.NonEmptyReadonlyArray<string>): readonly Verdict<'Shell'>[] => Option.toArray(invocation.span).map((span) => ({ edit: (editor) => [editor.replace(span, words)] }));
 const findUp = Effect.fnUntraced(function* (cwd: string, marker: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const ancestors = Array.unfold(
@@ -34,4 +23,4 @@ const execute = (cwd: string) => (argv: Array.NonEmptyReadonlyArray<string>) => 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Call, covers, execute, findUp, type Invocation, patternOf, type ProgramVerdict, rewrite, roots, type Script, type Table, type Verdict };
+export { covers, execute, findUp, patternOf, rewrite, roots };

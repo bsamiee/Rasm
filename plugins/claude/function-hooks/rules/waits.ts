@@ -1,8 +1,9 @@
+import type { Invocation, Table, Verdict } from '@rasm/policy/rule';
 import { Writer } from '@rasm/process/tree';
 import { Call } from '@rasm/report';
 import { Array, Duration, Effect, Function, Match, Option, Path, Result } from 'effect';
 import { Host, NetAddress } from 'effect/net';
-import { execute, type Invocation, rewrite, type Table, type Verdict } from '#/rules/rule';
+import { execute, rewrite } from '#/rules/rule';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -45,7 +46,7 @@ const readNumber = (invocation: Invocation, flag: string) =>
         (text) => Number.isFinite(Number(text)),
     );
 const refuseRecords = (paths: readonly string[]) => records.flatMap(([pattern, fact, instead]) => paths.filter((path) => pattern.test(path)).map((path) => ({ subject: path, deny: fact, values: { instead } })));
-const bracket = ({ node, text }: Invocation['words'][number]): readonly Verdict[] => Option.toArray(Option.all([node, Option.filter(text, (pattern) => /^\w/u.test(pattern))])).map(([word, pattern]) => ({ edit: (editor) => [editor.replace(word, [`[${pattern.slice(0, 1)}]${pattern.slice(1)}`])] }));
+const bracket = ({ node, text }: Invocation['words'][number]): readonly Verdict<'Shell'>[] => Option.toArray(Option.all([node, Option.filter(text, (pattern) => /^\w/u.test(pattern))])).map(([word, pattern]) => ({ edit: (editor) => [editor.replace(word, [`[${pattern.slice(0, 1)}]${pattern.slice(1)}`])] }));
 const deriveWatch = (view: Invocation) =>
     Option.map(
         Option.filter(
@@ -130,7 +131,7 @@ const waits: Table = {
             const trailing = Array.dropWhile(script.syntax.stmts, ({ background }) => !background);
             const last = Option.filter(Array.last(trailing), () => trailing.length === detached.length && trailing.every(({ background }) => background));
             const wait = yield* Effect.transposeOption(Option.map(last, () => shell.script(script.dialect)`wait`));
-            return Option.toArray(Array.findFirst(listed, (job) => job.background && !isReaped(job, listed))).flatMap((job): readonly Verdict[] =>
+            return Option.toArray(Array.findFirst(listed, (job) => job.background && !isReaped(job, listed))).flatMap((job): readonly Verdict<'Shell'>[] =>
                 Option.match(Option.all([last, wait]), {
                     onNone: () => [{ subject: `${job.label} &`, deny: 'outlives the call', values: { instead: 'set run_in_background on the call, or wait for the job in the same script' } }],
                     onSome: ([stmt, command]) => [{ edit: (editor) => [editor.follow(stmt, ';', command)] }, moves.background],
@@ -180,7 +181,7 @@ const waits: Table = {
             const sole = Option.filter(Array.head(script.syntax.stmts), () => polls && script.syntax.stmts.length === 1);
             const watch = Option.filter(deriveWatch(view), () => Option.isSome(view.repeated));
             const command = yield* Effect.transposeOption(Option.map(Option.all([sole, watch]), ([, argv]) => shell.script(script.dialect)`gh run watch ${argv}`));
-            return Option.toArray(watch).flatMap((argv): readonly Verdict[] =>
+            return Option.toArray(watch).flatMap((argv): readonly Verdict<'Shell'>[] =>
                 Option.match(Option.all([sole, command]), {
                     onNone: () => [{ subject: 'gh run view in a loop', deny: "polls a run, where gh run watch waits and exits with the run's result", next: new Call({ tool: 'Bash', given: { command: ['gh', 'run', 'watch', ...argv].join(' ') } }) }],
                     onSome: ([stmt, watched]) => [{ edit: (editor) => [editor.command(stmt, watched)] }, moves.background],
@@ -249,7 +250,7 @@ const waits: Table = {
             return Match.value({ follows, tasked, live: Array.isReadonlyArrayNonEmpty(writers) }).pipe(
                 Match.when({ follows: false }, () => []),
                 Match.when({ tasked: true, live: false }, () => [{ drop: following }]),
-                Match.when({ tasked: true }, () => [...Option.toArray(Option.all([tail.node, wait])).map(([stmt, command]): Verdict => ({ edit: (editor) => [editor.follow(stmt, '&', command)] })), moves.monitored]),
+                Match.when({ tasked: true }, () => [...Option.toArray(Option.all([tail.node, wait])).map(([stmt, command]): Verdict<'Shell'> => ({ edit: (editor) => [editor.follow(stmt, '&', command)] })), moves.monitored]),
                 Match.orElse(() => [moves.monitored]),
             );
         }),

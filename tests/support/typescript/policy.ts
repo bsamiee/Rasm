@@ -1,5 +1,5 @@
 import { layer as platform } from '@effect/platform-node/NodeServices';
-import type { Policy } from '@rasm/policy/policy';
+import type { Action } from '@rasm/policy/action';
 import { Shell } from '@rasm/shell';
 import { Effect, FileSystem, Layer, Option, Path, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
@@ -7,7 +7,6 @@ import { processor } from 'sh-syntax/sync';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Action = Parameters<Policy['decide']>[0];
 type Probe = ReturnType<Shell['Service']['dialect']>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

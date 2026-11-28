@@ -1,9 +1,9 @@
 import { enforce } from '@rasm/claude-code/enforcement';
 import { host } from '@rasm/claude-code/host';
-import { git } from '@rasm/policy/git';
 import { Policy } from '@rasm/policy/policy';
 import type { On } from 'claude-code';
 import { ghidra } from '#/rules/ghidra';
+import { git } from '#/rules/git';
 import { programs } from '#/rules/programs';
 import { removal } from '#/rules/removal';
 import { search } from '#/rules/search';

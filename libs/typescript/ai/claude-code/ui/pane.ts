@@ -34,8 +34,19 @@ function panes<S, R, F>($: EngineInterface, table: Held<S, R, F>) {
                         const settled = PubSub.take(yield* PubSub.subscribe(drawn)).pipe(Effect.repeat({ until: (id) => id === pane.id }));
                         const opened = yield* open;
                         if (opened.isPlaced) {
-                            yield* Effect.when(Effect.andThen(settled, Effect.sync(() => $.ui.invalidate('ui.render'))).pipe(Effect.andThen(settled)), Effect.succeed(!placed));
-                            yield* call('ui.scroll', pane.id, () => $.ui.scroll({ ...reveal, in: pane.id }), ({ deny }) => deny);
+                            yield* Effect.when(
+                                Effect.andThen(
+                                    settled,
+                                    Effect.sync(() => $.ui.invalidate('ui.render')),
+                                ).pipe(Effect.andThen(settled)),
+                                Effect.succeed(!placed),
+                            );
+                            yield* call(
+                                'ui.scroll',
+                                pane.id,
+                                () => $.ui.scroll({ ...reveal, in: pane.id }),
+                                ({ deny }) => deny,
+                            );
                         }
                         return opened;
                     }, Effect.scoped),

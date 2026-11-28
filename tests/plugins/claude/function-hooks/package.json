@@ -1,0 +1,16 @@
+{
+    "name": "@rasm/test-function-hooks",
+    "private": true,
+    "description": "@rasm/function-hooks suites over its rule tables decided against real git checkouts",
+    "type": "module",
+    "devDependencies": {
+        "@effect/vitest": "catalog:",
+        "@rasm/function-hooks": "workspace:*",
+        "@rasm/policy": "workspace:*",
+        "@rasm/shell": "workspace:*",
+        "@rasm/testing": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vitest": "catalog:"
+    }
+}

@@ -1,7 +1,7 @@
 import { Shell } from '@rasm/shell';
 import { Array, Combiner, ConfigProvider, Duration, Effect, Equal, Exit, HashSet, Match, Number, Option, Predicate, Record, Ref, Stream, Struct } from 'effect';
-import { Action, byRun, Decision, Outcome, Scope, scopes } from '#/decision/action';
-import { type Call, compile, type Compiled, compiled, message, type Requirements, type Table, type Tally, tally } from '#/decision/rule';
+import { Action, byRun, Decision, Outcome, Scope, scopes } from '#/action';
+import { type Call, compile, type Compiled, compiled, message, type Requirements, type Table, type Tally, tally } from '#/rule';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -4,11 +4,11 @@ import { Line, Report } from '@rasm/report';
 import { Shell } from '@rasm/shell';
 import type { Frozen, NextBudget, ToolCallInput, ToolCallResult } from 'claude-code';
 import { Cause, Duration, Effect, HashMap, type Layer, Match, type PlatformError, Option, Path, Predicate, Record, Schedule, Schema, SchemaGetter, Struct, SubscriptionRef } from 'effect';
+import { Bash } from '#/engine/bash';
 import type { Proceed } from '#/engine/events';
 import type { Part } from '#/engine/host';
 import { Engine, Notice } from '#/engine/interface';
 import { Ledger } from '#/engine/ledger';
-import { Session } from '#/policy/session';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -41,7 +41,7 @@ const line = ({ subject, reason, values, next }: Outcome) => new Line({ head: [s
 const report = (outcome: Outcome) => Report.text(new Report({ lines: [line(outcome)] }));
 const attach = (result: ToolCallResult, notes: readonly Outcome[]): ToolCallResult => (result.deny !== undefined || notes.length === 0 ? result : { ...result, context: [...(result.context ?? []), ...notes.map(report)] });
 const decide = (policy: Policy, action: Action, budget: Option.Option<NextBudget>) =>
-    Session.use((session) => session.shell(action.agent)).pipe(
+    Bash.use((bash) => bash.shell(action.agent)).pipe(
         Effect.flatMap(({ environment, path }) => Effect.provideService(policy.decide(action, environment), Path.Path, path)),
         Effect.tap(({ faults }) => Effect.forEach(faults, (fault) => Effect.logWarning('policy fault').pipe(Effect.annotateLogs({ fault })), { discard: true })),
         Effect.raceFirst(
@@ -56,9 +56,9 @@ const decide = (policy: Policy, action: Action, budget: Option.Option<NextBudget
         Effect.annotateLogs({ action: action._tag, call: action.call }),
     );
 const watch = Effect.fnUntraced(function* (policy: Policy, { call, agent }: Action, task: Pick<typeof Action.cases.Task.Type, 'id' | 'output'>) {
-    const [engine, session] = yield* Effect.all([Engine, Session]);
+    const [engine, bash] = yield* Effect.all([Engine, Bash]);
     const listed = Option.match(agent, { onNone: () => Effect.succeed(true), onSome: (id) => Effect.map(engine.agents, Record.has(id)) });
-    yield* session.fork(
+    yield* bash.fork(
         Effect.gen(function* () {
             const [live, running] = yield* Effect.all([listed, engine.isRunning(agent)]);
             const decision = live ? yield* decide(policy, Action.cases.Task.make({ ...task, call, agent, resting: !running, again: Duration.infinity }), Option.none()) : ALLOW;
@@ -115,9 +115,9 @@ const inspect = (policy: Policy, e: Frozen<ToolCallInput>, budget: NextBudget, r
         onSome: (text) => Effect.map(decide(policy, Action.cases.Output.make({ call: e.tool_use_id, agent: Option.fromUndefinedOr(e.agentId), tool: e.tool, text, readOnly: result.isReadOnly === true }), Option.some(budget)), ({ notes }) => attach(result, notes)),
     });
 const trace = Effect.fnUntraced(function* (policy: Policy, action: typeof Action.cases.Shell.Type) {
-    const [ledger, session, shell] = yield* Effect.all([Ledger, Session, Shell]);
+    const [ledger, bash, shell] = yield* Effect.all([Ledger, Bash, Shell]);
     const use = HashMap.get((yield* SubscriptionRef.get(ledger.state)).uses, action.call);
-    const { environment, path } = yield* session.shell(action.agent);
+    const { environment, path } = yield* bash.shell(action.agent);
     yield* Effect.forEach(
         Option.toArray(Option.flatMap(use, Struct.get('ran'))),
         ({ command }) =>
@@ -135,9 +135,9 @@ const trace = Effect.fnUntraced(function* (policy: Policy, action: typeof Action
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function enforce(policy: Policy): Part<Layer.Success<typeof Session.layer>, Layer.Error<typeof Session.layer>, PlatformError.PlatformError> {
+function enforce(policy: Policy): Part<Layer.Success<typeof Bash.layer>, Layer.Error<typeof Bash.layer>, PlatformError.PlatformError> {
     return {
-        layer: Session.layer,
+        layer: Bash.layer,
         hooks: {
             'session.end': (ended, proceed) => Effect.andThen(policy.clear(), proceed(ended)),
             'session.compact': (compacted, proceed) => Effect.tap(proceed(compacted), ({ messages }) => Effect.when(policy.forget(Option.fromUndefinedOr(compacted.agentId)), Effect.succeed(messages !== undefined && compacted.trigger !== 'precompute'))),

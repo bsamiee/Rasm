@@ -1,19 +1,15 @@
 {
     "name": "@rasm/test-policy",
     "private": true,
-    "description": "@rasm/policy suites over real parsed scripts, git command lines, and actions beside shell calls",
+    "description": "@rasm/policy suites over real parsed scripts and actions beside shell calls",
     "type": "module",
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "devDependencies": {
-        "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@rasm/policy": "workspace:*",
         "@rasm/shell": "workspace:*",
+        "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
-        "sh-syntax": "catalog:",
         "vitest": "catalog:"
     }
 }

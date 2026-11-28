@@ -2,7 +2,7 @@ import type { Call as Next } from '@rasm/report';
 import type { Shell } from '@rasm/shell';
 import { Array, Cause, Combiner, Duration, Effect, Equal, type FileSystem, Filter, Match, Option, Ordering, type Path, Predicate, Record, Reducer, Struct } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
-import { Action, byRun, Outcome, type scopes } from '#/decision/action';
+import { Action, byRun, Outcome, type scopes } from '#/action';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -226,4 +226,4 @@ const compile = (rule: string, row: NonNullable<Table[string]>): Compiled =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Call, compile, type Compiled, compiled, message, type ProgramRow, type Requirements, type Table, type Tally, tally };
+export { type Call, compile, type Compiled, compiled, type FlagEdit, type Invocation, message, type ProgramRow, type Requirements, type Script, type Table, type Tally, tally, type Verdict };

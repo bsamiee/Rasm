@@ -1,6 +1,7 @@
+import type { Call, Invocation, Script, Table, Verdict } from '@rasm/policy/rule';
 import { Array, Effect, Equal, FileSystem, Match, Option, Path, Record, String } from 'effect';
 import { RedirOperator } from 'sh-syntax';
-import { type Call, covers, execute, type Invocation, rewrite, type Script, type Table, type Verdict } from '#/rules/rule';
+import { covers, execute, rewrite } from '#/rules/rule';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -141,12 +142,15 @@ const programs: Table = {
                 .filter((invocation) => readsInput(invocation) && invocation.stdin._tag === 'Inherited')
                 .flatMap((invocation) =>
                     Match.value({ span: Option.getOrUndefined(invocation.span), stmt: Option.getOrUndefined(invocation.node), local: invocation.source === script.source, nested: Option.isSome(invocation.stage) || invocation.within.length > 0, alone }).pipe(
-                        Match.when({ span: Match.defined, local: true, nested: true }, ({ span }): readonly Verdict[] => [
+                        Match.when({ span: Match.defined, local: true, nested: true }, ({ span }): readonly Verdict<'Shell'>[] => [
                             { edit: (editor) => [editor.replace(span, [':'])] },
                             { subject: invocation.label, note: 'read standard input, which this call leaves empty, so it became : and the rest of the call ran', once: 'call' },
                         ]),
-                        Match.when({ stmt: Match.defined, local: true, nested: false, alone: false }, ({ stmt }): readonly Verdict[] => [{ edit: (editor) => [editor.remove(stmt)] }, { subject: invocation.label, note: 'read standard input, which this call leaves empty, so the call ran without it', once: 'call' }]),
-                        Match.orElse((): readonly Verdict[] => [{ subject: invocation.label, deny: 'reads standard input, which this call leaves empty', values: { instead: 'name the file it should read, or pipe or redirect its input' } }]),
+                        Match.when({ stmt: Match.defined, local: true, nested: false, alone: false }, ({ stmt }): readonly Verdict<'Shell'>[] => [
+                            { edit: (editor) => [editor.remove(stmt)] },
+                            { subject: invocation.label, note: 'read standard input, which this call leaves empty, so the call ran without it', once: 'call' },
+                        ]),
+                        Match.orElse((): readonly Verdict<'Shell'>[] => [{ subject: invocation.label, deny: 'reads standard input, which this call leaves empty', values: { instead: 'name the file it should read, or pipe or redirect its input' } }]),
                     ),
                 );
         },
@@ -224,7 +228,7 @@ const programs: Table = {
                     Match.value({ multiline: text === '-U' || text === '--multiline', option: /^--?[A-Za-z][\w-]*$/u.test(text) }).pipe(
                         Match.when({ multiline: true }, () => (sd.has('--across') ? { drop: [text] } : { rename: { [text]: '-A' } })),
                         Match.when({ option: true }, () => ({ subject: `sd ${text}`, deny: 'is no sd option', values: { instead: 'pass -- before a pattern that starts with -' } })),
-                        Match.orElse((): Verdict => ({ edit: (editor) => [editor.before(word, ['--'])] })),
+                        Match.orElse((): Verdict<'Shell'> => ({ edit: (editor) => [editor.before(word, ['--'])] })),
                     ),
                 ),
     },
@@ -294,7 +298,7 @@ const programs: Table = {
             return [
                 ...(scripted ? [{ ensure: Array.of('-S'), unless: ['-N', '--shell'] }] : []),
                 ...shells.flatMap(({ spelled, values }) =>
-                    Option.toArray(spelled.node).map((word): Verdict => ({
+                    Option.toArray(spelled.node).map((word): Verdict<'Shell'> => ({
                         edit: (editor) => [
                             Option.match(
                                 Option.flatMap(Array.head(values), ({ node }) => node),
@@ -303,7 +307,7 @@ const programs: Table = {
                         ],
                     })),
                 ),
-                ...stray.map((word): Verdict => ({ edit: (editor) => [editor.remove(word)] })),
+                ...stray.map((word): Verdict<'Shell'> => ({ edit: (editor) => [editor.remove(word)] })),
             ];
         },
     },
@@ -341,8 +345,8 @@ const programs: Table = {
             const words = inputs.flatMap(({ spelled, values }) => [spelled, ...values]).flatMap(({ node }) => Option.toArray(node));
             const substituted = words.some(({ parts }) => parts.some(({ type }) => type === 'ProcSubst'));
             return Match.value({ written: Option.getOrUndefined(Option.all([written, moved, hyperfine.node])), substituted }).pipe(
-                Match.when({ written: Match.defined }, ({ written: [[prepared, input], { word }, stmt] }): readonly Verdict[] => [{ edit: (editor) => [editor.precede(prepared, '&&', stmt), editor.replace(word, input)] }]),
-                Match.when({ substituted: true }, (): readonly Verdict[] => [{ subject: 'hyperfine --input <(…)', deny: 'is read by the first run alone', values: { instead: 'write the input to a file, then pass that file to --input' } }]),
+                Match.when({ written: Match.defined }, ({ written: [[prepared, input], { word }, stmt] }): readonly Verdict<'Shell'>[] => [{ edit: (editor) => [editor.precede(prepared, '&&', stmt), editor.replace(word, input)] }]),
+                Match.when({ substituted: true }, (): readonly Verdict<'Shell'>[] => [{ subject: 'hyperfine --input <(…)', deny: 'is read by the first run alone', values: { instead: 'write the input to a file, then pass that file to --input' } }]),
                 Match.orElse(() => []),
             );
         }),

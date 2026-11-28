@@ -1,7 +1,7 @@
+import { Bash } from '@rasm/claude-code/bash';
 import { Engine } from '@rasm/claude-code/engine';
 import { Plugin, reply, Tool } from '@rasm/claude-code/events';
 import { host } from '@rasm/claude-code/host';
-import { Session } from '@rasm/claude-code/session';
 import { ProcessTree, Writer } from '@rasm/process/tree';
 import { Format, Line, Report } from '@rasm/report';
 import { Shell } from '@rasm/shell';
@@ -96,7 +96,7 @@ class Runner extends Context.Service<
 const report = (line: Line) => Report.text(new Report({ lines: [line] }));
 const refuse = (reason: string, rows: readonly Line[]): ToolCallResult => ({ deny: report(new Line({ head: ['refused'], value: 'run', facts: [reason], rows })) });
 const read = Effect.fnUntraced(function* (command: string, agent: Option.Option<string>) {
-    const opened = yield* Session.use((session) => session.shell(agent));
+    const opened = yield* Bash.use((bash) => bash.shell(agent));
     const { dialect, cwd } = yield* opened.environment;
     const script = yield* Shell.use((shell) => shell.read(command, { dialect, cwd }));
     const top = (yield* script.invocations).filter(({ within }) => Array.isReadonlyArrayEmpty(within));
@@ -248,7 +248,7 @@ const closeRecord = Effect.fnUntraced(function* (agent: string) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const layer = Runner.layer.pipe(Layer.provideMerge(Session.layer));
+const layer = Runner.layer.pipe(Layer.provideMerge(Bash.layer));
 
 function register(on: On) {
     host<Layer.Success<typeof layer>, Layer.Error<typeof layer>, Fault>(on, {

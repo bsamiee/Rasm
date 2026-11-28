@@ -12,7 +12,7 @@ class Draft extends Context.Service<
         readonly paint: (runs: (box: PromptBox) => PromptDecoration[]) => Effect.Effect<PromptPainted, PlatformError.PlatformError>;
         readonly suggest: (args: PromptSuggestArgs) => Effect.Effect<PromptSuggestResult, PlatformError.PlatformError>;
     }
->()('@rasm/claude-code/prompt/draft') {}
+>()('@rasm/claude-code/ui/draft') {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

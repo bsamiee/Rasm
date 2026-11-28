@@ -1,8 +1,8 @@
 import { assert, it } from '@effect/vitest';
-import { git } from '@rasm/policy/git';
+import { git } from '@rasm/function-hooks/rules/git';
 import { Policy } from '@rasm/policy/policy';
+import { environment, folder, printed, services, shell } from '@rasm/testing/policy';
 import { Effect, Equal, Formatter } from 'effect';
-import { environment, folder, printed, services, shell } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

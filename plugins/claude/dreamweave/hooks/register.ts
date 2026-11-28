@@ -1,7 +1,9 @@
 import { enforce } from '@rasm/claude-code/enforcement';
 import { Engine, Notice } from '@rasm/claude-code/engine';
 import { host } from '@rasm/claude-code/host';
+import type { Action } from '@rasm/policy/action';
 import { Policy } from '@rasm/policy/policy';
+import type { Invocation, Table, Verdict } from '@rasm/policy/rule';
 import { Call } from '@rasm/report';
 import type { On } from 'claude-code';
 import { Array, Config, Duration, Effect, Equal, FileSystem, Glob, HashSet, Layer, Match, Option, Path, Predicate, Record, Ref, Schema, Semaphore, Stream } from 'effect';
@@ -10,15 +12,11 @@ import { skills } from '#/hooks/skills';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Table = ConstructorParameters<typeof Policy>[number];
-type Rows = Table[string];
-type Script = Extract<Rows, { readonly action: 'Shell'; readonly decide: unknown }>;
-type Invocation = Parameters<Script['decide']>[1]['invocations'][number];
-type Mcp = Parameters<Extract<Rows, { readonly action: 'Mcp'; readonly decide: unknown }>['decide']>[0];
-type Agent = Mcp['agent'];
+type Mcp = typeof Action.cases.Mcp.Type;
+type Agent = Action['agent'];
 type Memory = ReturnType<typeof compiled>;
 type Opened = HashSet.HashSet<{ readonly agent: Agent; readonly memory: string }>;
-type Said = Extract<ReturnType<Extract<Rows, { readonly action: 'Mcp'; readonly decide: unknown }>['decide']>, readonly unknown[]>[number];
+type Said = Verdict<'Mcp'>;
 type Note = Extract<Said, { readonly note: string }>;
 interface Form {
     readonly program: string;

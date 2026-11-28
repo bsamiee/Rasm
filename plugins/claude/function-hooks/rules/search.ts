@@ -1,6 +1,7 @@
+import type { FlagEdit, Invocation, Table, Verdict } from '@rasm/policy/rule';
 import { Array, Cause, Effect, FileSystem, Match, Option, Record } from 'effect';
 import type { Word } from 'sh-syntax';
-import { covers, execute, findUp, type Invocation, patternOf, type ProgramVerdict, rewrite, roots, type Table, type Verdict } from '#/rules/rule';
+import { covers, execute, findUp, patternOf, rewrite, roots } from '#/rules/rule';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -76,14 +77,14 @@ const search: Table = {
                     return { ...parsed, bound, printed: Option.all([format, bound.spelled.node, end]) };
                 });
             const found = clauses.some(({ printed, batches }) => Option.isNone(printed) && !batches) ? yield* results(fd, cwd, walkers.fd) : Option.none();
-            return clauses.flatMap<ProgramVerdict>(({ program, trailing, batches, bound, printed }) =>
+            return clauses.flatMap<Verdict<'Shell'> | FlagEdit>(({ program, trailing, batches, bound, printed }) =>
                 Match.value({ printed: Option.getOrUndefined(printed), batches, trailing, flood: Option.exists(found, (count) => count > perResult) }).pipe(
-                    Match.when({ printed: Match.defined }, ({ printed: [template, flag, last] }): readonly Verdict[] => [{ edit: (editor) => [editor.replace([flag, last], ['--format', template])] }]),
+                    Match.when({ printed: Match.defined }, ({ printed: [template, flag, last] }): readonly Verdict<'Shell'>[] => [{ edit: (editor) => [editor.replace([flag, last], ['--format', template])] }]),
                     Match.when({ batches: true }, () => [{ rename: { '--exec': bound.spelling.startsWith('--') ? '--exec-batch' : '-X' } }]),
-                    Match.when({ flood: true }, (): readonly Verdict[] => [
+                    Match.when({ flood: true }, (): readonly Verdict<'Shell'>[] => [
                         { subject: `fd -x ${program}`, deny: `starts one process per search result, and this search finds more than ${perResult}, a spawn rate that exhausts the kernel's task table`, values: { instead: 'pass -X where the command takes many paths, else narrow the search' } },
                     ]),
-                    Match.when({ trailing: true }, (): readonly Verdict[] => [{ subject: `fd -x ${program}`, note: 'starts one process per search result, where -X passes every path to one run of a command taking many', once: 'agent' }]),
+                    Match.when({ trailing: true }, (): readonly Verdict<'Shell'>[] => [{ subject: `fd -x ${program}`, note: 'starts one process per search result, where -X passes every path to one run of a command taking many', once: 'agent' }]),
                     Match.orElse(() => []),
                 ),
             );
@@ -108,11 +109,11 @@ const search: Table = {
             const found = clauses.some(({ plus, terminator }) => Option.isNone(plus) && Option.isSome(terminator)) ? yield* results(find, cwd, walkers.find) : Option.none();
             return clauses.flatMap(({ program, trailing, terminator, plus }) =>
                 Match.value({ plus: Option.getOrUndefined(plus), each: Option.isSome(terminator), trailing, flood: Option.exists(found, (count) => count > perResult) }).pipe(
-                    Match.when({ plus: Match.defined }, ({ plus: word }): readonly Verdict[] => [{ edit: (editor) => [editor.replace(word, ['+'])] }]),
-                    Match.when({ each: true, flood: true }, (): readonly Verdict[] => [
+                    Match.when({ plus: Match.defined }, ({ plus: word }): readonly Verdict<'Shell'>[] => [{ edit: (editor) => [editor.replace(word, ['+'])] }]),
+                    Match.when({ each: true, flood: true }, (): readonly Verdict<'Shell'>[] => [
                         { subject: `find -exec ${program}`, deny: `starts one process per result, and this search finds more than ${perResult}, a spawn rate that exhausts the kernel's task table`, values: { instead: 'end -exec with {} + where the command takes many paths, else narrow the search' } },
                     ]),
-                    Match.when({ each: true, trailing: true }, (): readonly Verdict[] => [{ subject: `find -exec ${program}`, note: 'starts one process per result, where {} + passes every path to one run of a command taking many', once: 'agent' }]),
+                    Match.when({ each: true, trailing: true }, (): readonly Verdict<'Shell'>[] => [{ subject: `find -exec ${program}`, note: 'starts one process per result, where {} + passes every path to one run of a command taking many', once: 'agent' }]),
                     Match.orElse(() => []),
                 ),
             );
@@ -178,7 +179,7 @@ const search: Table = {
                 });
             return Match.value({ ignored, redundant: Option.isSome(repository) && Array.isReadonlyArrayNonEmpty(exclusions) }).pipe(
                 Match.when({ ignored: true }, () => [{ ensure: Array.of('--no-ignore') }]),
-                Match.when({ redundant: true }, (): readonly Verdict[] => [{ edit: (editor) => exclusions.map((exclusion) => editor.remove(exclusion)) }]),
+                Match.when({ redundant: true }, (): readonly Verdict<'Shell'>[] => [{ edit: (editor) => exclusions.map((exclusion) => editor.remove(exclusion)) }]),
                 Match.orElse(() => []),
             );
         }),

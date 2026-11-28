@@ -6,6 +6,10 @@
     "imports": {
         "#/*": "./*.ts"
     },
+    "exports": {
+        "./rules/git": "./rules/git.ts",
+        "./package.json": "./package.json"
+    },
     "devDependencies": {
         "@rasm/claude-code": "workspace:*",
         "@rasm/nx": "workspace:*",

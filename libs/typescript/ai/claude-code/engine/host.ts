@@ -6,7 +6,7 @@ import { type Agent, route, dispatch, type Hook, type Hooks, type Hosted, plugin
 import { type Engine, engine } from '#/engine/interface';
 import { Ledger } from '#/engine/ledger';
 import { services } from '#/engine/services';
-import { type Draft, draft } from '#/prompt/draft';
+import { type Draft, draft } from '#/ui/draft';
 import { draw } from '#/ui/element';
 import { closePane, type Panes, panes } from '#/ui/pane';
 import { prune, type Placed, placed, type Row, record } from '#/ui/placed';

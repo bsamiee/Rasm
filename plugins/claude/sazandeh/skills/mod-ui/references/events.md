@@ -58,8 +58,6 @@ Every layer and handler reads the library's services and the platform services b
 - `Panes`, `Placed`, `Theme`, `Draft`: the sites of their references
 - `Plugin`: the plugin's name and the registered names of its tools and agent types
 - `FileSystem`, `Path`, `ChildProcessSpawner`, `KeyValueStore`, `ConfigProvider`: Effect's platform services over the engine's calls, one argument vector per spawn and no shell, each handle's `pid` 0
-- `Session` from `@rasm/claude-code/session`: `shell(agent)` answers the agent's shell dialect, folder, an anchored `Path`, and `exec(script)`
-- `Session.exec` runs one parsed command as the Bash tool's shell would, its handle holding the program's pid, and needs the plugin's `hooks/main.wasm`
-- `Peer.list` from `@rasm/claude-code/peers` lists the repository's other local Claude sessions (`claude agents --json`), the session itself left out, and fails with the listing's exit or decode error
-- `Watch` from `@rasm/claude-code/watch` opens a read-only viewer pane in a named Zellij session for each tmux server a wrapped call starts
+- `Bash` from `@rasm/claude-code/bash`: `shell(agent)` answers the agent's shell dialect, folder, an anchored `Path`, and `exec(script)`
+- `exec` of `Bash.shell` runs one parsed command as the Bash tool's shell would, its handle holding the program's pid, and needs the plugin's `hooks/main.wasm`
 - Service keys follow the deterministic form the Effect language service checks: `@rasm/<package>/<path>/<Name>`

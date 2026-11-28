@@ -79,7 +79,10 @@ function render<S, R, E, F>($: EngineInterface, table: Held<S, R, F>, e: Frozen<
                 Match.value(e).pipe(
                     Match.discriminators('component')({
                         Backdrop: (drawing) => drawRow($, held.Backdrop?.[drawing.props.scene]?.draw, state, drawing, next, runtime),
-                        Pane: (drawing) => drawRow($, held.Pane?.[drawing.requestId]?.draw, state, drawing, next, runtime).finally(() => PubSub.publishUnsafe(held.drawn, drawing.requestId)),
+                        Pane: (drawing) =>
+                            drawRow($, held.Pane?.[drawing.requestId]?.draw, state, drawing, next, runtime).finally(() => {
+                                PubSub.publishUnsafe(held.drawn, drawing.requestId);
+                            }),
                     }),
                     Match.orElse((drawing) => rows($, held, state, drawing.component, drawing, next, runtime)),
                 ),
