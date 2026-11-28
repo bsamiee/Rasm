@@ -296,8 +296,9 @@ Traits state a capability a consumer needs, and dispatch follows what varies and
 - Associated types hold an output the implementor decides, and generic parameters a choice the caller makes
 - Async methods of a public trait or of a trait reaching spawned tasks declare `-> impl Future<Output = T> + Send`, and implementors write `async fn`
 - Bounds name the traits whose members a generic body calls, and bounds repeated across signatures are one trait alias (`trait_alias`)
-- Members restated across traits are one supertrait, and a crate-private trait with one implementor is an inherent `impl`
-- Operations over a foreign type or every type meeting a bound are generic functions, a trait existing for a capability with many implementations
+- Members restated across traits are one supertrait, and a trait with one implementor no caller fills is an inherent `impl` on a crate type
+- Operations on a foreign type are functions generic over the bound they read, a trait existing for many implementations or a contract a caller fills
+- Extension traits are a public `<Trait>Ext: <Trait>` with one blanket impl over `T: <Trait> + ?Sized` and provided methods continuing a caller's chain
 - Text one site renders is a `fmt::from_fn` closure, never a struct holding only a `Display` impl
 
 ### [05.1]-[DERIVES]
