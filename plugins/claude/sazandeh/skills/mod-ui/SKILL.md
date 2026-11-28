@@ -42,23 +42,24 @@ Owner rules bind every mod this skill builds:
 Sites around a fullscreen terminal session; the main screen seats a pane inline above the band and raises no `BesidePrompt` or `Underlay`:
 
 ```text
-┌ transcript ─────────────────────────────────────┬ dock ────────────────┐
-│ Welcome, InfoNotice                     toasts  │ Pane (from 110 cols) │
-│ UserMessage                                     │   tab row: title     │
-│ AssistantMessage, CodeBlock                     │   body: draw         │
-│ ToolUse  ⎿ ToolResult   ToolGroup  ToolProgress │   window: scroll     │
-│ CommandOutput                                   │                      │
-│ TurnDuration                                    │                      │
-│ Placed (row at the transcript's end)            │                      │
-│ Spinner                                         │                      │
-│ AskUserQuestion tree over the engine's dialog   │                      │
-│ AbovePrompt band: one row per plugin       [-]  │                      │
-│ ❯ composer (Draft)                 BesidePrompt │                      │
-│ StatusLine, AgentRow                            │                      │
-│ PromptHint · tail                  SessionMode  │                      │
-└ Underlay beneath the whole window ──────────────┴──────────────────────┘
-desktop, mobile: Backdrop scene behind the conversation
-desktop: ContextMenu on right-click, Pane as a widget
+┌─ transcript ───────────────────────────────────────┬─ dock ─────────────────┐
+│ Welcome, InfoNotice                         toasts │ Pane, from 110 columns │
+│ UserMessage                                        │   tab row: title       │
+│ AssistantMessage, CodeBlock                        │   body: draw           │
+│ ToolUse > ToolResult, ToolGroup, ToolProgress      │   window: scroll       │
+│ CommandOutput                                      │                        │
+│ TurnDuration                                       │                        │
+│ Placed: row at the transcript's end                │                        │
+│ Spinner                                            │                        │
+│ AskUserQuestion: tree over the engine's dialog     │                        │
+├────────────────────────────────────────────────────┤                        │
+│ AbovePrompt band: one row per plugin           [-] │                        │
+│ > composer (Draft)                    BesidePrompt │                        │
+│ StatusLine, AgentRow                               │                        │
+│ PromptHint, tail                       SessionMode │                        │
+└─ Underlay: beneath the whole window ───────────────┴────────────────────────┘
+  desktop, mobile: Backdrop scene behind the conversation
+  desktop: ContextMenu on right-click, Pane as a widget
 ```
 
 Surfaces raise different sites, each component's declaration naming where, and a site a surface never raises needs a second home there:
