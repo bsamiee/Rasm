@@ -13,10 +13,11 @@ use image::{FlatSamples, GenericImage as _, ImageError, Pixel, RgbImage, Rgba, R
 use image_compare::{Algorithm, Similarity};
 use kurbo::Affine;
 use moxcms::{ColorProfile, Layout, RenderingIntent, TransformOptions};
+use rasm_drawing::Resolution;
 use validated::Validated;
 use vello_common::pixmap::unpremultiply_rgba8;
 
-use crate::{Document, OutputIntent, PdfError, Resolution, Subject, page};
+use crate::{Document, OutputIntent, PdfError, Subject, page};
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -29,12 +29,12 @@ use pdf_oxide::editor::{DocumentEditor, EncryptionAlgorithm, EncryptionConfig, S
 use pdf_oxide::encryption::generate_file_id;
 use pdf_oxide::ocr::OcrError;
 use rand::{CryptoRng, RngExt as _};
-use rasm_drawing::{LineworkError, WidthError};
+use rasm_drawing::{LineworkError, Resolution, WidthError};
 use rasn::error::{DecodeError, EncodeError};
 use rasn::types::Enumerated as _;
 use rasn_cms::tsp::PkiStatus;
 use secrecy::{ExposeSecret as _, SecretString};
-use uom::si::f64::{Length, LinearNumberDensity};
+use uom::si::f64::Length;
 use uom::si::length::point_computer;
 use uom::si::ratio::ratio;
 use validated::Validated;
@@ -69,9 +69,6 @@ impl Document {
         .map_err(PdfError::Load)
     }
 }
-
-#[nutype::nutype(validate(predicate = |density: &LinearNumberDensity| density.is_normal() && density.is_sign_positive()), derive(Debug, Clone, Copy, PartialEq, Deref))]
-pub struct Resolution(LinearNumberDensity);
 
 #[derive(Debug, Clone, derive_more::AsRef)]
 pub struct OutputIntent {

@@ -17,7 +17,7 @@ use parlance::{FontFamily, FontFeature, FontVariation};
 use stacksafe::StackSafe;
 use typed_floats::tf64::{NonNaNFinite, StrictlyPositiveFinite};
 use typed_floats::{InvalidNumber, tf32};
-use uom::si::f64::Length;
+use uom::si::f64::{Length, LinearNumberDensity};
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -75,6 +75,9 @@ pub enum Dash {
 
 #[nutype::nutype(validate(predicate = |length: &Length| length.is_normal() && length.is_sign_positive()), derive(Debug, Clone, Copy, PartialEq, PartialOrd, Deref))]
 pub struct PositiveLength(Length);
+
+#[nutype::nutype(validate(predicate = |density: &LinearNumberDensity| density.is_normal() && density.is_sign_positive()), derive(Debug, Clone, Copy, PartialEq, Deref))]
+pub struct Resolution(LinearNumberDensity);
 
 #[nutype::nutype(validate(finite, greater_or_equal = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct Width(f64);

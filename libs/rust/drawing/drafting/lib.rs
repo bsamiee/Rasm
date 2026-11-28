@@ -15,10 +15,8 @@ use rasm_drawing::{Anchor, Baseline, Color, Element, FontStyle, FontWeight, Line
 use skrifa::ScaleError;
 use typed_floats::tf64::StrictlyPositiveFinite;
 use typed_floats::{InvalidNumber, tf32};
-use uom::fmt::DisplayStyle::Abbreviation;
 use uom::si::angle::radian;
-use uom::si::f64::{Angle, Length, LinearNumberDensity};
-use uom::si::linear_number_density::per_millimeter;
+use uom::si::f64::{Angle, Length};
 use uom::si::ratio::ratio;
 use validated::Validated;
 
@@ -213,8 +211,6 @@ pub enum DraftingError {
     Image(#[from] ImageError),
     #[error("raster of {} by {} pixels spans no placeable extent", .0.width, .0.height)]
     Raster(ImageSize),
-    #[error("scan density {} is not a positive normal value", .0.into_format_args(per_millimeter, Abbreviation))]
-    Density(LinearNumberDensity),
     #[error("viewport {name} sits on sheets {} and {}", sheets[0], sheets[1])]
     Duplicate { name: Arc<str>, sheets: [Arc<str>; 2] },
     #[error("{subject}")]

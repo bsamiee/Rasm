@@ -8,6 +8,7 @@ use krilla::Data;
 use krilla::image::{BitsPerComponent, CustomImage, Image, ImageColorspace};
 use kurbo::Size;
 use nonempty_collections::{NEVec, nev};
+use rasm_drawing::Resolution;
 use tiff::decoder::ifd::Value;
 use tiff::decoder::{Decoder, DecodingResult, Limits};
 use tiff::tags::{PlanarConfiguration, ResolutionUnit, Tag};
@@ -17,7 +18,7 @@ use uom::si::length::{centimeter, inch, point_computer};
 use uom::si::ratio::ratio;
 use validated::Validated;
 
-use crate::{PdfError, Refusal, Resolution};
+use crate::{PdfError, Refusal};
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -12,9 +12,8 @@ use kurbo::{Affine, Point, Rect, Shape, Size};
 use linesweeper::BinaryOp;
 use nonempty_collections::{IntoIteratorExt as _, IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use rasm_drawing::pages::{self, Destination, Link, Page};
-use rasm_drawing::{Content, Element, Opacity, Placement, PositiveLength, Region, Side, Visibility, cleanup, regions};
+use rasm_drawing::{Content, Element, Opacity, Placement, PositiveLength, Region, Resolution, Side, Visibility, cleanup, regions};
 use typed_floats::tf64::StrictlyPositiveFinite;
-use uom::si::f64::LinearNumberDensity;
 use uom::si::ratio::ratio;
 use validated::Validated;
 
@@ -114,7 +113,7 @@ impl Set {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Fit {
     Contain(Rect),
-    Density { origin: Point, density: LinearNumberDensity },
+    Density { origin: Point, density: Resolution },
 }
 
 #[derive(Debug, Clone)]
@@ -148,8 +147,7 @@ pub fn raster(bytes: Arc<[u8]>, fit: Fit, unit: PositiveLength, opacity: Opacity
     let extent = match fit {
         Fit::Contain(frame) => frame.abs().inscribed_rect_with_aspect_ratio(across / down),
         Fit::Density { origin, density } => {
-            (density.is_normal() && density.is_sign_positive()).ok_or(DraftingError::Density(density))?;
-            let per = (*unit * density).get::<ratio>();
+            let per = (*unit * *density).get::<ratio>();
             Rect::from_origin_size(origin, (across / per, down / per))
         }
     };
