@@ -27,6 +27,7 @@ import queue
 import shlex
 import shutil
 import stat
+import string
 import struct
 import subprocess
 import sys
@@ -74,10 +75,11 @@ _MOUNTED = 0x3
 _POLICIES = ((3, 0, 1), (2, 0, 1), (5, 0, 1))
 _BUFFER = 1 << 18
 _THREADS = 4
-_FLOOR = 1 << 20
+_FLOOR = "1MiB"
 _PREFIX = 1 << 20
 _TOP = 40
 _UNITS = ("B", "KiB", "MiB", "GiB", "TiB", "PiB")
+_SCALE = frozendict({unit[0]: 1 << 10 * index for index, unit in enumerate(_UNITS)})
 _LIBRARY = "Library"
 _CLONE = ("jdupes", "--dedupe", "--param-order")
 
@@ -172,13 +174,14 @@ class _Clone(msgspec.Struct, frozen=True, gc=False):
 
 class _Tree(msgspec.Struct, frozen=True, gc=False):
     root: str
+    floor: int
     folders: tuple[_Folder, ...]
     totals: frozendict[str, _Usage]
     files: tuple[_File, ...]
     physical: int
 
     @classmethod
-    def of(cls, root: str, folders: tuple[_Folder, ...], /) -> _Tree:
+    def of(cls, root: str, floor: int, folders: tuple[_Folder, ...], /) -> _Tree:
         linked = {item.fileid: item for item in sorted(chain.from_iterable(folder.linked for folder in folders), key=lambda item: item.path, reverse=True)}
         joined = {parent: _Usage.over(group) for parent, group in groupby(sorted(linked.values(), key=_parent), key=_parent)}
         shared = dict(sorted(((clone, value) for folder in folders for clone, value, _, _ in folder.clones), key=lambda pair: pair[1]))
@@ -197,9 +200,10 @@ class _Tree(msgspec.Struct, frozen=True, gc=False):
             totals[folder.path] = sum((totals[path] for path in folder.subfolders), start=folder.usage + added.get(folder.path, _Usage()))
         return cls(
             root=root,
+            floor=floor,
             folders=folders,
             totals=frozendict(totals),
-            files=(*chain.from_iterable(folder.files for folder in folders), *(item for item in linked.values() if item.size >= _FLOOR)),
+            files=(*chain.from_iterable(folder.files for folder in folders), *(item for item in linked.values() if item.size >= floor)),
             physical=totals[root].private + sum(value for clone, value in shared.items() if clone not in whole),
         )
 
@@ -251,6 +255,11 @@ def _replaced(item: _File, /) -> bool:
 def _size(count: int, /) -> str:
     exponent = min(max(count.bit_length() - 1, 0) // 10, len(_UNITS) - 1)
     return f"{count / (1 << 10 * exponent):.1f}{_UNITS[exponent]}"
+
+
+def _bytes(text: str, /) -> int:
+    number = text.rstrip(string.ascii_letters)
+    return int(number) * _SCALE[text[len(number) : len(number) + 1].upper() or "B"]
 
 
 def _date(seconds: int, /) -> str:
@@ -307,7 +316,7 @@ def _entries(descriptor: int, buffer: ctypes.Array[ctypes.c_char], prefix: str, 
         raise OSError(ctypes.get_errno(), os.strerror(ctypes.get_errno()))
 
 
-def _folder(buffer: ctypes.Array[ctypes.c_char], path: str, /) -> _Folder:
+def _folder(floor: int, buffer: ctypes.Array[ctypes.c_char], path: str, /) -> _Folder:
     subfolders: list[str] = []
     single: list[_File] = []
     linked: list[_File] = []
@@ -336,7 +345,7 @@ def _folder(buffer: ctypes.Array[ctypes.c_char], path: str, /) -> _Folder:
         path=path,
         usage=msgspec.structs.replace(_Usage.over(single), empty_folders=int(empty)),
         subfolders=tuple(subfolders),
-        files=tuple(item for item in single if item.size >= _FLOOR),
+        files=tuple(item for item in single if item.size >= floor),
         linked=tuple(linked),
         clones=tuple(
             (item.clone, item.allocated - item.private, item.fileid, item.refcount if item.refcount > 1 and item.flags & _Flag.SHARES_ALL_BLOCKS else 0)
@@ -347,12 +356,12 @@ def _folder(buffer: ctypes.Array[ctypes.c_char], path: str, /) -> _Folder:
     )
 
 
-def _drain(pending: queue.Queue[str | None], /) -> list[_Folder]:
+def _drain(floor: int, pending: queue.Queue[str | None], /) -> list[_Folder]:
     buffer = ctypes.create_string_buffer(_BUFFER)
     folders: list[_Folder] = []
     for path in iter(pending.get, None):
         try:
-            folders.append(folder := _folder(buffer, path))
+            folders.append(folder := _folder(floor, buffer, path))
             for subfolder in folder.subfolders:
                 pending.put(subfolder)
         except BaseException:
@@ -369,11 +378,11 @@ def _close(pending: queue.Queue[str | None], /) -> None:
         pending.put(None)
 
 
-async def _walk(root: str, /) -> _Tree:
+async def _walk(root: str, floor: int, /) -> _Tree:
     pending: queue.Queue[str | None] = queue.Queue()
     pending.put(root)
-    drained, _ = await anyio.gather(anyio.gather(*(anyio.to_thread.run_sync(_drain, pending) for _ in range(_THREADS))), anyio.to_thread.run_sync(_close, pending))
-    return _Tree.of(root, tuple(chain.from_iterable(drained)))
+    drained, _ = await anyio.gather(anyio.gather(*(anyio.to_thread.run_sync(_drain, floor, pending) for _ in range(_THREADS))), anyio.to_thread.run_sync(_close, pending))
+    return _Tree.of(root, floor, tuple(chain.from_iterable(drained)))
 
 
 def _attributes(request: ctypes.Array[ctypes.c_char], row: struct.Struct, path: str, /) -> Option[int]:
@@ -402,7 +411,7 @@ async def _regroup(limiter: anyio.CapacityLimiter, hasher: Callable[[BufferedRea
 
 async def _duplicates(files: Iterable[_File], /) -> _Duplicates:
     limiter = anyio.CapacityLimiter(os.process_cpu_count() or _THREADS)
-    candidates = _group((item for item in files if item.vtype == _Vtype.VREG and item.logical >= _FLOOR and not item.flags & _Flag.DATALESS), lambda item: (item.logical, b""))
+    candidates = _group((item for item in files if item.vtype == _Vtype.VREG and item.logical and not item.flags & _Flag.DATALESS), lambda item: (item.logical, b""))
     heads = await _regroup(limiter, lambda stream: hashlib.sha256(stream.read(_PREFIX)).digest(), candidates)
     whole = await _regroup(limiter, lambda stream: hashlib.file_digest(stream, "sha256").digest(), heads.groups)
     return _Duplicates(groups=tuple(sorted(whole.groups, key=_redundant, reverse=True)), unread=heads.unread + whole.unread)
@@ -463,7 +472,7 @@ def _report(tree: _Tree, seconds: float, used: Option[int], duplicates: _Duplica
             for item in heapq.nlargest(_TOP, tree.files, key=lambda item: item.allocated)
         )
     if groups or unread:
-        yield f"duplicates: {_cut(min(_TOP, len(groups)), len(groups), 'group')}, {_size(sum(map(_redundant, groups)))} redundant, {_size(_FLOOR)} minimum{f', {unread:,} unread' * bool(unread)}"
+        yield f"duplicates: {_cut(min(_TOP, len(groups)), len(groups), 'group')}, {_size(sum(map(_redundant, groups)))} redundant, {_size(tree.floor)} minimum{f', {unread:,} unread' * bool(unread)}"
         yield from (
             line
             for group in groups[:_TOP]
@@ -500,26 +509,26 @@ def _cloning(root: str, clones: tuple[_Clone, ...], unread: int, /) -> Iterator[
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-async def _scan(target: str, /) -> tuple[_Tree, float, _Duplicates]:
+async def _scan(target: str, floor: str, /) -> tuple[_Tree, float, _Duplicates]:
     for policy in _POLICIES:
         _LIBC.setiopolicy_np(*policy)
     root, started = str(await anyio.Path(target).resolve()), time.monotonic()
-    tree = await _walk(root)
+    tree = await _walk(root, _bytes(floor))
     seconds = time.monotonic() - started
     return tree, seconds, await _duplicates(tree.files)
 
 
-async def usage(target: str = "/System/Volumes/Data", /) -> int:
-    """Report the tree at target: totals, refused paths, ranked folders and files, duplicates, and litter; exit 66 when target is unreadable."""
-    tree, seconds, duplicates = await _scan(target)
+async def usage(target: str = "/System/Volumes/Data", floor: str = _FLOOR, /) -> int:
+    """Report the tree at target: totals, refused paths, ranked folders, files and duplicates from floor bytes, and litter; exit 66 when target is unreadable."""
+    tree, seconds, duplicates = await _scan(target, floor)
     used = _attributes(_MOUNT_REQUEST, _MOUNT_ROW, tree.root).filter(lambda status: bool(status & 1)).bind(lambda _: _attributes(_VOLUME_REQUEST, _VOLUME_ROW, tree.root))
     sys.stdout.writelines(f"{line}\n" for line in _report(tree, seconds, used, duplicates))
     return os.EX_NOINPUT if any(refusal.path == tree.root for folder in tree.folders for refusal in folder.refused) else 0
 
 
-async def clone(target: str, /) -> int:
-    """Clone each duplicate group's single-link copies outside hidden, Library, and package folders from one kept file through jdupes; exit with its highest status."""
-    tree, _, duplicates = await _scan(target)
+async def clone(target: str, floor: str = _FLOOR, /) -> int:
+    """Clone single-link copies of each duplicate group from floor bytes, outside hidden, Library, and package folders, from one kept file through jdupes; exit with its highest status."""
+    tree, _, duplicates = await _scan(target, floor)
     folders = frozendict({folder.path: folder for folder in tree.folders})
     clones = tuple([await _clone(folders, tree.root, group) for group in duplicates.groups])
     sys.stdout.writelines(f"{line}\n" for line in _cloning(tree.root, clones, duplicates.unread))
@@ -528,7 +537,7 @@ async def clone(target: str, /) -> int:
 
 if __name__ == "__main__":
     match sys.argv[1:]:
-        case ["clone", target]:
-            sys.exit(anyio.run(clone, target))
+        case ["clone", target, *floor]:
+            sys.exit(anyio.run(clone, target, *floor))
         case arguments:
             sys.exit(anyio.run(usage, *arguments))
