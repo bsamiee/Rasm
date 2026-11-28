@@ -20,9 +20,6 @@
         "infra": {
             "project": ["**/*.ts", "!sdks/**"]
         },
-        "plugins/claude/*": {
-            "entry": ["types/index.d.ts"]
-        },
         "products/apps/creative-cloud/*/atelier": {
             "entry": ["main.ts"]
         },
