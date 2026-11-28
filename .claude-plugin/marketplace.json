@@ -46,8 +46,12 @@
         },
         {
             "name": "dreamweave",
-            "source": "./plugins/claude/dreamweave",
-            "description": "Claude Code auto-memory system: a skill for writing, editing, and auditing memories and a generated MEMORY.md index with git history",
+            "source": {
+                "source": "archive",
+                "url": "https://github.com/bsamiee/Rasm/releases/download/%40rasm/dreamweave%400.1.0/dreamweave.zip",
+                "sha256": "dde0d3b6077e02d6a2aab5f45109948027c5b48c69a68a3f1fcf43acc8fc8e02"
+            },
+            "description": "Claude Code auto-memory system: a skill for writing, editing, and auditing memories, a generated MEMORY.md index with git history, memory pointers on the calls each memory names, and whole skill text after compaction",
             "author": {
                 "name": "Bardia Samiee"
             },
