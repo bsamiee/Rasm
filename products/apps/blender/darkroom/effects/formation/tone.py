@@ -56,6 +56,7 @@ _SCENE_WHITE: Final[InterfacePanel] = InterfacePanel.of(
 )
 _WHITE_STOPS: Final = _SCENE_WHITE.inputs[0]
 _DRAGO_WHITE: Final = float(np.log2(100.0))
+_TONY: Final = "TonyMcMapface Base"
 _TONY_FOLDER: Final = Path("tony-mc-mapface")
 _TONY_CONFIG: Final = Path("OCIO/config.ocio")
 _TONY_FILES: Final = MappingProxyType({
@@ -282,7 +283,7 @@ class Tony(CompositorRecord, frozen=True, kw_only=True):
             .bind(lambda path: ConfigBuild(sources=(path,)).absorbed(shell.config))
         ):
             case Ok(config):
-                stated = config.getColorSpace("TonyMcMapface Base").getTransform(PyOpenColorIO.COLORSPACE_DIR_FROM_REFERENCE)
+                stated = config.getColorSpace(_TONY).getTransform(PyOpenColorIO.COLORSPACE_DIR_FROM_REFERENCE)
             case Error(faults):
                 return Error(faults)
         stages = tuple(
@@ -290,7 +291,7 @@ class Tony(CompositorRecord, frozen=True, kw_only=True):
         )
         low, high = next(stage.getVars() for stage in stages if isinstance(stage, PyOpenColorIO.AllocationTransform))
         encoding = next(stage.getDst() for stage in stages if isinstance(stage, PyOpenColorIO.ColorSpaceTransform))
-        transform = PyOpenColorIO.GroupTransform([PyOpenColorIO.ColorSpaceTransform(src=REC709_SCENE, dst="TonyMcMapface Base"), PyOpenColorIO.ColorSpaceTransform(src=encoding, dst=REC709_SCENE)])
+        transform = PyOpenColorIO.GroupTransform([PyOpenColorIO.ColorSpaceTransform(src=REC709_SCENE, dst=_TONY), PyOpenColorIO.ColorSpaceTransform(src=encoding, dst=REC709_SCENE)])
         return processor(config, transform).bind(
             lambda built: latticed(
                 item_key(Tony),
