@@ -5,7 +5,7 @@ use std::process::Termination;
 use backon::ConstantBuilder;
 use claims::assert_ok;
 use rasm_ipc::{Endpoint, Hello, Limits};
-use rasm_testing::{Failure, Fixture as _, Folder};
+use rasm_testing::{Failure, Folder};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -20,7 +20,7 @@ const fn brief() -> ConstantBuilder { ConstantBuilder::new().with_delay(Duration
 fn hello(body: &str) -> Hello<u64, String> { Hello { protocol: PROTOCOL, build: BUILD, body: body.to_owned() } }
 
 #[cfg(test)]
-async fn scoped<T>(test: impl AsyncFnOnce(Endpoint, &Path) -> T) -> Result<(), Failure<Folder>>
+async fn scoped<T>(test: impl AsyncFnOnce(Endpoint, &Path) -> T) -> Result<(), Failure>
 where T: Termination {
     Folder::scoped(Path::new(env!("CARGO_TARGET_TMPDIR")), async |folder: &Folder| {
         let instance = folder.join("instance");

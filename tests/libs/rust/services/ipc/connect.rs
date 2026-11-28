@@ -8,7 +8,7 @@ use futures::future;
 use interprocess::local_socket::tokio::Stream;
 use interprocess::local_socket::traits::tokio::Listener as _;
 use rasm_ipc::{Endpoint, Instance, IpcError, IpcOperation, Opened, Refusal, accept, attach, connect, reply};
-use rasm_testing::{Failure, Folder};
+use rasm_testing::Failure;
 use tokio::io::AsyncWriteExt as _;
 use tokio::sync::mpsc;
 use tokio_util::task::{AbortOnDropHandle, TaskTracker};
@@ -19,7 +19,7 @@ use crate::{BUILD, LIMITS, PROTOCOL, brief, hello, scoped};
 // --- [ABSENT]
 
 #[tokio::test]
-async fn absent_service_is_no_connection_and_is_started_once() -> Result<(), Failure<Folder>> {
+async fn absent_service_is_no_connection_and_is_started_once() -> Result<(), Failure> {
     scoped(async |endpoint: Endpoint, _: &Path| {
         assert_none!(assert_ok!(attach::<_, _, String>(&endpoint, &hello("nobody"), LIMITS).await), "attaching where no service listens opens nothing");
         let starts = AtomicUsize::new(0);
@@ -37,7 +37,7 @@ async fn absent_service_is_no_connection_and_is_started_once() -> Result<(), Fai
 // --- [REPLACED]
 
 #[tokio::test]
-async fn answer_cut_short_by_a_closing_service_is_asked_again() -> Result<(), Failure<Folder>> {
+async fn answer_cut_short_by_a_closing_service_is_asked_again() -> Result<(), Failure> {
     scoped(async |endpoint: Endpoint, _: &Path| {
         let instance = assert_some!(assert_ok!(Instance::claim(&endpoint, brief()).await));
         let serving = AbortOnDropHandle::new(tokio::spawn(async move {
@@ -56,7 +56,7 @@ async fn answer_cut_short_by_a_closing_service_is_asked_again() -> Result<(), Fa
 }
 
 #[tokio::test]
-async fn refusal_from_a_superseded_service_is_asked_again() -> Result<(), Failure<Folder>> {
+async fn refusal_from_a_superseded_service_is_asked_again() -> Result<(), Failure> {
     scoped(async |endpoint: Endpoint, _: &Path| {
         let instance = assert_some!(assert_ok!(Instance::claim(&endpoint, brief()).await));
         let serving = AbortOnDropHandle::new(tokio::spawn(async move {
@@ -73,7 +73,7 @@ async fn refusal_from_a_superseded_service_is_asked_again() -> Result<(), Failur
 }
 
 #[tokio::test]
-async fn refusal_for_another_protocol_is_not_asked_again() -> Result<(), Failure<Folder>> {
+async fn refusal_for_another_protocol_is_not_asked_again() -> Result<(), Failure> {
     scoped(async |endpoint: Endpoint, _: &Path| {
         let instance = assert_some!(assert_ok!(Instance::claim(&endpoint, brief()).await));
         let _serving = AbortOnDropHandle::new(tokio::spawn(async move {
@@ -87,7 +87,7 @@ async fn refusal_for_another_protocol_is_not_asked_again() -> Result<(), Failure
 }
 
 #[tokio::test]
-async fn service_lost_after_its_start_is_started_again() -> Result<(), Failure<Folder>> {
+async fn service_lost_after_its_start_is_started_again() -> Result<(), Failure> {
     async fn dying(named: Endpoint) -> io::Result<()> {
         let Some(instance) = Instance::claim(&named, brief()).await.map_err(io::Error::other)? else { return Ok(()) };
         let Opened { body: _, reader: _, writer: cut } = accept::<_, u64, String>(instance.listener.accept().await?, PROTOCOL, &BUILD, LIMITS).await.map_err(io::Error::other)?;
@@ -117,7 +117,7 @@ async fn service_lost_after_its_start_is_started_again() -> Result<(), Failure<F
 // --- [RACE]
 
 #[tokio::test(flavor = "multi_thread")]
-async fn racing_first_callers_share_one_service() -> Result<(), Failure<Folder>> {
+async fn racing_first_callers_share_one_service() -> Result<(), Failure> {
     async fn answered(connected: io::Result<Stream>) -> Result<(), IpcError> {
         let Opened { body, reader: _, mut writer } = accept::<_, u64, String>(connected.map_err(|source| IpcError::Io { operation: IpcOperation::Listen, source })?, PROTOCOL, &BUILD, LIMITS).await?;
         reply(&mut writer, Ok::<_, Refusal>(body)).await

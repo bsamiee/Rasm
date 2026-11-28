@@ -2,12 +2,12 @@ use std::path::Path;
 
 use claims::assert_ok;
 use rasm_mcp_tests::{conformed, everything, served};
-use rasm_testing::{Failure, Fixture as _, Folder};
+use rasm_testing::{Failure, Folder};
 use rstest::rstest;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-async fn conforms(scenario: &str, revision: &str) -> Result<(), Failure<Folder>> {
+async fn conforms(scenario: &str, revision: &str) -> Result<(), Failure> {
     Folder::scoped(Path::new(env!("CARGO_TARGET_TMPDIR")), async |folder: &Folder| {
         let (shared, _app) = assert_ok!(everything().await);
         let (url, _stop) = assert_ok!(served(&shared).await);
@@ -57,7 +57,7 @@ async fn revision_2025_11_25(
         "server-session-lifecycle"
     )]
     scenario: &str,
-) -> Result<(), Failure<Folder>> {
+) -> Result<(), Failure> {
     conforms(scenario, "2025-11-25").await
 }
 
@@ -90,6 +90,6 @@ async fn revision_2026_07_28(
         "caching"
     )]
     scenario: &str,
-) -> Result<(), Failure<Folder>> {
+) -> Result<(), Failure> {
     conforms(scenario, "2026-07-28").await
 }

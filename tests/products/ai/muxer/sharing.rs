@@ -11,7 +11,7 @@ use futures::{StreamExt as _, future, stream};
 use mcp_muxer_tests::{Agent, Ask, Isolated, Slow, call, modern, reached, session, spawned, text};
 #[cfg(unix)]
 use nix::unistd::{Uid, User};
-use rasm_testing::{Failure, Folder};
+use rasm_testing::Failure;
 use rmcp::model::{CallToolRequest, ClientRequest};
 use rmcp::service::{ClientLifecycleMode, PeerRequestOptions};
 
@@ -22,7 +22,7 @@ use crate::{HOME, echoed, scoped, servers, settled, whoami};
 // --- [KEYS]
 
 #[tokio::test(flavor = "multi_thread")]
-async fn sessions_share_a_server_only_under_one_key() -> Result<(), Failure<Folder>> {
+async fn sessions_share_a_server_only_under_one_key() -> Result<(), Failure> {
     scoped(async |isolated: &Isolated| {
         let relay = |options: &[&str]| session(Agent::default(), isolated.relay(options, &[]));
         let (first, second) = (assert_ok!(relay(&[]).await), assert_ok!(relay(&[]).await));
@@ -37,7 +37,7 @@ async fn sessions_share_a_server_only_under_one_key() -> Result<(), Failure<Fold
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn racing_first_sessions_all_share_one_server_started_once() -> Result<(), Failure<Folder>> {
+async fn racing_first_sessions_all_share_one_server_started_once() -> Result<(), Failure> {
     const RACE: [(&str, &str); 1] = [("MCP_MUXER_RUNTIME_DIR", "race")];
     scoped(async |isolated: &Isolated| {
         let relay = || {
@@ -57,7 +57,7 @@ async fn racing_first_sessions_all_share_one_server_started_once() -> Result<(),
 
 #[cfg(unix)]
 #[tokio::test(flavor = "multi_thread")]
-async fn server_starts_with_the_account_login_environment_under_declared_values_and_no_other_session_variable() -> Result<(), Failure<Folder>> {
+async fn server_starts_with_the_account_login_environment_under_declared_values_and_no_other_session_variable() -> Result<(), Failure> {
     const SESSION: [(&str, &str); 4] = [("FIXTURE_TAG", "held"), ("TRACEPARENT", "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"), ("SHELL", "/fixture/shell"), ("LOGNAME", "fixture")];
     scoped(async |isolated: &Isolated| {
         let account = assert_some!(assert_ok!(User::from_uid(Uid::effective())), "the user running the suite has an account");
@@ -85,7 +85,7 @@ async fn server_starts_with_the_account_login_environment_under_declared_values_
 
 #[cfg(unix)]
 #[tokio::test(flavor = "multi_thread")]
-async fn server_whose_login_shell_cannot_start_in_its_directory_is_refused_with_the_shell_and_cause() -> Result<(), Failure<Folder>> {
+async fn server_whose_login_shell_cannot_start_in_its_directory_is_refused_with_the_shell_and_cause() -> Result<(), Failure> {
     scoped(async |isolated: &Isolated| {
         let account = assert_some!(assert_ok!(User::from_uid(Uid::effective())), "the user running the suite has an account");
         let refused = assert_err!(session(Agent::default(), isolated.relay(&["--directory", "missing"], &[])).await);
@@ -98,7 +98,7 @@ async fn server_whose_login_shell_cannot_start_in_its_directory_is_refused_with_
 // --- [FOLDERS]
 
 #[tokio::test(flavor = "multi_thread")]
-async fn overridden_folders_hold_the_handshakes_logs_socket_and_lock() -> Result<(), Failure<Folder>> {
+async fn overridden_folders_hold_the_handshakes_logs_socket_and_lock() -> Result<(), Failure> {
     scoped(async |isolated: &Isolated| {
         let running = assert_ok!(session(Agent::default(), isolated.relay(&[], &[])).await);
         assert_eq!(echoed(&running, "stored").await, "stored", "the server answers, so its handshake is stored");
@@ -117,7 +117,7 @@ async fn overridden_folders_hold_the_handshakes_logs_socket_and_lock() -> Result
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn sessions_share_one_server_when_runtime_and_cache_folders_coincide() -> Result<(), Failure<Folder>> {
+async fn sessions_share_one_server_when_runtime_and_cache_folders_coincide() -> Result<(), Failure> {
     scoped(async |isolated: &Isolated| {
         let relay = || {
             let mut command = isolated.relay(&[], &[]);
@@ -135,7 +135,7 @@ async fn sessions_share_one_server_when_runtime_and_cache_folders_coincide() -> 
 // --- [LIFECYCLES]
 
 #[tokio::test(flavor = "multi_thread")]
-async fn sessions_of_either_lifecycle_reach_servers_of_either_lifecycle() -> Result<(), Failure<Folder>> {
+async fn sessions_of_either_lifecycle_reach_servers_of_either_lifecycle() -> Result<(), Failure> {
     scoped(async |isolated: &Isolated| {
         let agent = |marker: &str| Agent { marker: marker.to_owned(), ..Agent::default() };
         for (server, served) in [([].as_slice(), "discover"), (["--speaks", "legacy"].as_slice(), "initialize")] {
@@ -160,7 +160,7 @@ async fn sessions_of_either_lifecycle_reach_servers_of_either_lifecycle() -> Res
 // --- [ROUTING]
 
 #[tokio::test(flavor = "multi_thread")]
-async fn server_requests_progress_and_cancellation_reach_the_calling_session() -> Result<(), Failure<Folder>> {
+async fn server_requests_progress_and_cancellation_reach_the_calling_session() -> Result<(), Failure> {
     scoped(async |isolated: &Isolated| {
         let agent = |marker: &str| Agent { marker: marker.to_owned(), ..Agent::default() };
         let (left, right) = (agent("left"), agent("right"));

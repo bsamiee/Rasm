@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use assert_fs::TempDir;
 use claims::{assert_err, assert_matches, assert_ok, assert_some};
-use rasm_testing::{Failure, Fixture as _, Folder};
+use rasm_testing::{Failure, Folder};
 use rstest::rstest;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -34,8 +34,8 @@ async fn failed_body_has_its_folder_kept_with_its_files(#[case] panics: bool) {
         Err::<(), _>(fmt::Error)
     });
     let kept = match failed.await {
-        Err(Failure::Kept(kept)) => Some(*kept),
-        Ok(()) | Err(Failure::Uncreated(_) | Failure::Undropped(_) | Failure::Unkept(_)) => None,
+        Err(Failure::Kept(kept)) => Some(kept),
+        Ok(()) | Err(Failure::Uncreated(_) | Failure::Undropped(_)) => None,
     };
     let kept = assert_some!(kept, "a failed body keeps its folder");
     assert_eq!(Some(&kept), seen.as_ref(), "the kept path is the folder the body wrote to");

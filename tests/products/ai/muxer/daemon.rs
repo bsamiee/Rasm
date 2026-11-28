@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use claims::{assert_err, assert_ok, assert_some};
 use futures::{StreamExt as _, future, stream};
 use mcp_muxer_tests::{Agent, Down, Isolated, Slow, call, decoded, exited, reached, session, spawned};
-use rasm_testing::{Failure, Folder};
+use rasm_testing::Failure;
 use rmcp::model::{CallToolRequest, ClientRequest, NumberOrString, ProgressNotificationParam, ProgressToken, ProtocolVersion};
 use rmcp::service::{ClientLifecycleMode, PeerRequestOptions};
 use rstest::rstest;
@@ -18,7 +18,7 @@ use crate::{HOME, IDLE, daemon, echoed, refusal, scoped, servers, settled, whoam
 // --- [REFUSAL]
 
 #[tokio::test(flavor = "multi_thread")]
-async fn runtime_folder_past_the_socket_limit_refuses_the_session_with_the_cause() -> Result<(), Failure<Folder>> {
+async fn runtime_folder_past_the_socket_limit_refuses_the_session_with_the_cause() -> Result<(), Failure> {
     scoped(async |isolated: &Isolated| {
         let mut command = isolated.relay(&[], &[]);
         command.env("MCP_MUXER_RUNTIME_DIR", isolated.folder(&"long".repeat(40)));
@@ -31,7 +31,7 @@ async fn runtime_folder_past_the_socket_limit_refuses_the_session_with_the_cause
 // --- [REPLACEMENT]
 
 #[tokio::test(flavor = "multi_thread")]
-async fn relay_survives_daemon_loss() -> Result<(), Failure<Folder>> {
+async fn relay_survives_daemon_loss() -> Result<(), Failure> {
     scoped(async |isolated: &Isolated| {
         let agent = Agent::default();
         let running = assert_ok!(session(agent.clone(), isolated.relay(&[], &[])).await);
@@ -55,7 +55,7 @@ async fn relay_survives_daemon_loss() -> Result<(), Failure<Folder>> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn newer_build_takes_over() -> Result<(), Failure<Folder>> {
+async fn newer_build_takes_over() -> Result<(), Failure> {
     scoped(async |isolated: &Isolated| {
         let installed = isolated.root.join("installed");
         assert_ok!(fs_err::tokio::copy(&isolated.muxer, &installed).await);
@@ -84,7 +84,7 @@ async fn newer_build_takes_over() -> Result<(), Failure<Folder>> {
 // --- [STARTS]
 
 #[tokio::test(flavor = "multi_thread")]
-async fn slow_start_waits_once_then_answers_from_the_stored_handshake() -> Result<(), Failure<Folder>> {
+async fn slow_start_waits_once_then_answers_from_the_stored_handshake() -> Result<(), Failure> {
     const DELAY: Duration = Duration::from_secs(2);
     scoped(async |isolated: &Isolated| {
         let relay = || {
@@ -110,7 +110,7 @@ async fn slow_start_waits_once_then_answers_from_the_stored_handshake() -> Resul
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn failed_start_reports_its_cause_and_backs_off() -> Result<(), Failure<Folder>> {
+async fn failed_start_reports_its_cause_and_backs_off() -> Result<(), Failure> {
     scoped(async |isolated: &Isolated| {
         let relay = |server: &[&str]| {
             let mut command = isolated.relay(&[], server);
@@ -145,7 +145,7 @@ async fn failed_start_reports_its_cause_and_backs_off() -> Result<(), Failure<Fo
 // --- [SHUTDOWN]
 
 #[tokio::test(flavor = "multi_thread")]
-async fn daemon_stops_past_a_server_that_stopped_reading() -> Result<(), Failure<Folder>> {
+async fn daemon_stops_past_a_server_that_stopped_reading() -> Result<(), Failure> {
     scoped(async |isolated: &Isolated| {
         let running = assert_ok!(session(Agent::default(), isolated.relay(&[], &["--speaks", "legacy"])).await);
         let held = assert_some!(daemon(isolated, &[]).await);
@@ -163,7 +163,7 @@ async fn daemon_stops_past_a_server_that_stopped_reading() -> Result<(), Failure
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn server_that_ignores_end_of_input_ends_on_the_terminate_signal_after_its_session_left() -> Result<(), Failure<Folder>> {
+async fn server_that_ignores_end_of_input_ends_on_the_terminate_signal_after_its_session_left() -> Result<(), Failure> {
     scoped(async |isolated: &Isolated| {
         let running = assert_ok!(session(Agent::default(), isolated.relay(&["--per", "session"], &["--linger", "1m"])).await);
         let server = whoami(&running, HOME).await.pid;
@@ -174,7 +174,7 @@ async fn server_that_ignores_end_of_input_ends_on_the_terminate_signal_after_its
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn relay_alone_signalled_stops_its_server() -> Result<(), Failure<Folder>> {
+async fn relay_alone_signalled_stops_its_server() -> Result<(), Failure> {
     scoped(async |isolated: &Isolated| {
         let (running, relay) = assert_ok!(spawned(Agent::default(), isolated.relay(&["--per", "session"], &[]), ClientLifecycleMode::Initialize).await);
         let (server, relay) = (whoami(&running, HOME).await.pid, Pid::from_u32(assert_some!(relay)));
@@ -192,7 +192,7 @@ async fn relay_alone_signalled_stops_its_server() -> Result<(), Failure<Folder>>
 #[case::initialize(ClientLifecycleMode::Initialize)]
 #[case::discover_then_initialize(ClientLifecycleMode::Auto { preferred_versions: vec![ProtocolVersion::LATEST], legacy_version: Some(ProtocolVersion::LATEST_WITH_INITIALIZE) })]
 #[tokio::test(flavor = "multi_thread")]
-async fn program_missing_from_path_is_named_to_the_client_and_starts_once_found(#[case] lifecycle: ClientLifecycleMode) -> Result<(), Failure<Folder>> {
+async fn program_missing_from_path_is_named_to_the_client_and_starts_once_found(#[case] lifecycle: ClientLifecycleMode) -> Result<(), Failure> {
     scoped(async |isolated: &Isolated| {
         let relay = |path: PathBuf| {
             let mut command = isolated.serving(&[], Path::new("mcp-fixture"), &[]);

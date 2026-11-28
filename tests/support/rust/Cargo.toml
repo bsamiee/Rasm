@@ -21,7 +21,6 @@ path = "main.rs"
 
 [dependencies]
 futures      = { workspace = true }
-derive-where = { workspace = true }
 derive_more  = { workspace = true }
 assert_fs    = { workspace = true }
 

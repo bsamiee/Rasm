@@ -5,14 +5,14 @@ use futures::future;
 use interprocess::local_socket::tokio::Stream;
 use interprocess::local_socket::traits::tokio::{Listener as _, Stream as _};
 use rasm_ipc::{Endpoint, Instance, Opened, Refusal, accept, greet, reply};
-use rasm_testing::{Failure, Folder};
+use rasm_testing::Failure;
 
 use crate::{BUILD, LIMITS, PROTOCOL, brief, hello, scoped};
 
 // --- [NAME]
 
 #[tokio::test]
-async fn live_name_is_taken_until_its_listener_drops() -> Result<(), Failure<Folder>> {
+async fn live_name_is_taken_until_its_listener_drops() -> Result<(), Failure> {
     scoped(async |endpoint: Endpoint, _: &Path| {
         let first = assert_some!(assert_ok!(Instance::claim(&endpoint, brief()).await), "a free name is claimed");
         assert_none!(assert_ok!(Instance::claim(&endpoint, brief()).await), "a name with a live listener is taken");
@@ -23,7 +23,7 @@ async fn live_name_is_taken_until_its_listener_drops() -> Result<(), Failure<Fol
 }
 
 #[tokio::test]
-async fn name_left_by_a_dead_owner_is_reclaimed() -> Result<(), Failure<Folder>> {
+async fn name_left_by_a_dead_owner_is_reclaimed() -> Result<(), Failure> {
     scoped(async |endpoint: Endpoint, _: &Path| {
         let mut dead = assert_some!(assert_ok!(Instance::claim(&endpoint, brief()).await));
         dead.listener.do_not_reclaim_name_on_drop();
@@ -44,7 +44,7 @@ async fn name_left_by_a_dead_owner_is_reclaimed() -> Result<(), Failure<Folder>>
 
 #[cfg(unix)]
 #[tokio::test]
-async fn instance_folder_is_created_for_its_owner_alone() -> Result<(), Failure<Folder>> {
+async fn instance_folder_is_created_for_its_owner_alone() -> Result<(), Failure> {
     use std::os::unix::fs::PermissionsExt as _;
     scoped(async |endpoint: Endpoint, folder: &Path| {
         assert_none!(fs_err::tokio::metadata(folder).await.ok(), "the folder does not exist before the claim");
