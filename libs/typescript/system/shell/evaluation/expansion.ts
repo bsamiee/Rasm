@@ -452,13 +452,16 @@ const expandParts = (parts: readonly WordPart[], scope: Scope, frame: Frame, sta
         return [to, [...lead, ...found]] as const;
     });
     const command = Option.filter(head, ({ value }) => !frame.result && !site.single && dialect.options.equals && /^=[^/=]/u.test(value));
-    return Option.match(
-        Option.map(command, ({ value }) => Origin.Command({ name: value.slice(1) })),
-        {
-            onNone: () => [next, chunks.flat()],
-            onSome: (origin) => [scope, [Chunk.Refusal({ origin, certain: false }), Chunk.Unknown({ origin, certain: true, many: false })]],
-        },
-    );
+    return [
+        next,
+        Option.match(
+            Option.map(command, ({ value }) => Origin.Command({ name: value.slice(1) })),
+            {
+                onNone: () => chunks.flat(),
+                onSome: (origin) => [Chunk.Refusal({ origin, certain: false }), Chunk.Unknown({ origin, certain: true, many: false }), ...chunks.slice(1).flat()],
+            },
+        ),
+    ];
 };
 const expandWord = (word: Word, scope: Scope, frame: Frame): Evaluated => expandParts(word.parts, scope, { ...frame, quoted: false, result: false }, true);
 
