@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { basename, dirname, join, posix } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { Array, Effect, FileSystem, Option, Record, Schema } from 'effect';
@@ -7,6 +8,7 @@ import { checks } from '#/checks';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const HOOKS = 'hooks';
+const LIMITS = { module: 1_048_576, wasm: 67_108_864 } as const;
 const NAME = '@rasm/vite/claude';
 const MANIFESTS = { hooks: `${HOOKS}/hooks.json`, plugin: '.claude-plugin/plugin.json' } as const;
 const SHELL = {
@@ -76,12 +78,16 @@ const claude = (directory: string): UserConfigFnPromise =>
                             },
                         },
                         generateBundle(_, bundle) {
-                            const wasm = new Set(
-                                Object.values(bundle)
-                                    .flatMap((file) => (file.type === 'chunk' ? file.moduleIds : []))
-                                    .flatMap((id) => Option.toArray(Schema.decodeUnknownOption(Schema.String)(this.getModuleInfo(id)?.meta[NAME]))),
-                            );
-                            return Effect.runPromiseWith(services)(Effect.forEach(wasm, (path) => Effect.map(fs.readFile(path), (source) => this.emitFile({ type: 'asset', fileName: posix.join(HOOKS, basename(path)), source })), { discard: true }));
+                            const chunks = Object.values(bundle).filter((file) => file.type === 'chunk');
+                            const wasm = new Set(chunks.flatMap(({ moduleIds }) => moduleIds).flatMap((id) => Option.toArray(Schema.decodeUnknownOption(Schema.String)(this.getModuleInfo(id)?.meta[NAME]))));
+                            const assets = Effect.forEach(wasm, (path) => Effect.map(fs.readFile(path), (source) => ({ type: 'asset' as const, fileName: posix.join(HOOKS, basename(path)), source })));
+                            return Effect.runPromiseWith(services)(assets).then((emitted) => {
+                                const over = [...chunks.map(({ fileName, code }) => ({ fileName, bytes: Buffer.byteLength(code), limit: LIMITS.module })), ...emitted.map(({ fileName, source }) => ({ fileName, bytes: source.byteLength, limit: LIMITS.wasm }))].filter(({ bytes, limit }) => bytes > limit);
+                                emitted.forEach((asset) => {
+                                    this.emitFile(asset);
+                                });
+                                return over.length === 0 ? undefined : this.error(['files over the Claude Code read limit', ...over.map(({ fileName, bytes, limit }) => `  ${fileName}: ${bytes} bytes, limit ${limit}`)].join('\n'));
+                            });
                         },
                         writeBundle({ dir }, bundle) {
                             return Effect.runPromiseWith(services)(Effect.flatMap(Effect.fromNullishOr(dir), (out) => settle(out, bundle, manifests)));
