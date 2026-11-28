@@ -1,10 +1,10 @@
 import { Action, Decision } from '@rasm/policy/action';
 import type { Policy } from '@rasm/policy/policy';
 import type { Frozen, On, ToolCallInput, ToolCallResult } from 'claude-code';
-import { Cause, Duration, Effect, Match, Option, Path, Predicate, Schedule, Schema, SchemaGetter, Struct } from 'effect';
-import { host, type Proceed } from '#/engine/host';
+import { Cause, Duration, Effect, type Layer, Match, Option, Path, Predicate, Schedule, Schema, SchemaGetter, Struct } from 'effect';
+import { answer, close, hosted, open, type Proceed, recover, track } from '#/engine/host';
 import { Engine, Notice } from '#/engine/interface';
-import { Session } from '#/policy/session';
+import { layer, Session } from '#/policy/session';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -79,7 +79,7 @@ const judge = Effect.fnUntraced(function* (policy: Policy, e: Frozen<ToolCallInp
         decide(policy, action),
         Effect.suspend(() => Effect.sleep(Duration.millis(Math.max(0, next.budget.remainingMs - reserve)))).pipe(Effect.repeat({ until: () => next.budget.remainingMs <= reserve }), Effect.andThen(new Cause.TimeoutError('its hook budget ran out before the rules settled'))),
     ).pipe(Effect.catchCause((cause) => Effect.as(Effect.logWarning(`policy did not judge ${action._tag} call ${action.call} and let it run`, cause), Decision.Allow({ notes: [], faults: [] }))));
-    const answer = yield* Decision.$match(decision, {
+    const result = yield* Decision.$match(decision, {
         Deny: ({ reasons }) => Effect.succeed<ToolCallResult>({ deny: [...reasons, 'The call was refused whole, so none of it ran.'].join('\n') }),
         Allow: () => next(e),
         Rewrite: ({ action: restated }) =>
@@ -93,32 +93,46 @@ const judge = Effect.fnUntraced(function* (policy: Policy, e: Frozen<ToolCallInp
                 Match.orElse(() => next(e)),
             ),
     });
-    yield* Schema.decodeUnknownOption(Background)(answer).pipe(
+    yield* Schema.decodeUnknownOption(Background)(result).pipe(
         Option.filter(() => policy.appliesTo('Task')),
         Option.flatMap(({ result: { backgroundTaskId: id }, text }) => Option.map(Option.fromNullishOr(new RegExp(String.raw`^[^]*(?<=^|[\s"'\x60(])(?<output>/[^\n"'\x60]*/tasks/${RegExp.escape(id)}\.output)`, 'u').exec(text)?.groups?.['output']), (output) => watch(policy, action, { id, output }))),
         Effect.transposeOption,
     );
-    return answer.deny !== undefined || decision.notes.length === 0 ? answer : { ...answer, context: [...(answer.context ?? []), ...decision.notes] };
+    return result.deny !== undefined || decision.notes.length === 0 ? result : { ...result, context: [...(result.context ?? []), ...decision.notes] };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 function enforce(on: On, policy: Policy) {
-    host(on, {
-        layer: Session.layer,
-        hooks: {
-            'session.end': (e, next) => Effect.andThen(policy.clear(), next(e)),
-            'session.compact': (e, next) => Effect.tap(next(e), ({ messages }) => Effect.when(policy.forget(Option.fromUndefinedOr(e.agentId)), Effect.succeed(messages !== undefined && e.trigger !== 'precompute'))),
-            'tool.call': (e, next) =>
+    const instance = hosted<Layer.Success<ReturnType<typeof layer>>, Layer.Error<ReturnType<typeof layer>>>(Option.none());
+    on('session.start', ($, e, next) => open($, instance, layer($), undefined, e, next)).catch(recover);
+    on('session.end', ($, e, next) => close($, instance, layer($), (ended, proceed) => Effect.andThen(policy.clear(), proceed(ended)), e, next)).catch(recover);
+    on('turn.start', (_, e, next) => {
+        track(instance, e.agentId, true);
+        return next(e);
+    }).catch(recover);
+    on('turn.complete', (_, e, next) => {
+        track(instance, e.agentId, false);
+        return next(e);
+    }).catch(recover);
+    on('session.compact', ($, e, next) => answer($, instance, layer($), (compacted, proceed) => Effect.tap(proceed(compacted), ({ messages }) => Effect.when(policy.forget(Option.fromUndefinedOr(compacted.agentId)), Effect.succeed(messages !== undefined && compacted.trigger !== 'precompute'))), e, next)).catch(recover);
+    on('tool.call', ($, e, next) =>
+        answer(
+            $,
+            instance,
+            layer($),
+            (called, proceed) =>
                 Option.match(
-                    Option.filter(Schema.decodeUnknownOption(ToolCall)(e), ({ _tag }) => policy.appliesTo(_tag)),
+                    Option.filter(Schema.decodeUnknownOption(ToolCall)(called), ({ _tag }) => policy.appliesTo(_tag)),
                     {
-                        onNone: () => next(e),
-                        onSome: (action) => judge(policy, e, next, action),
+                        onNone: () => proceed(called),
+                        onSome: (action) => judge(policy, called, proceed, action),
                     },
                 ),
-        },
-    });
+            e,
+            next,
+        ),
+    ).catch(recover);
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

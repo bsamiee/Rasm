@@ -1,9 +1,11 @@
 import { Shell } from '@rasm/shell';
+import type { EngineInterface } from 'claude-code';
 import { Array, Cache, Config, Context, Duration, Effect, Exit, FiberSet, FileSystem, Glob, Hash, Layer, Option, Order, Path, PlatformError, Record } from 'effect';
 import { ChildProcess, ChildProcessSpawner, CommandLine } from 'effect/process';
 import 'sh-syntax/vendors/wasm_exec';
 import { getProcessor } from 'sh-syntax/sync';
 import { Engine } from '#/engine/interface';
+import { call } from '#/engine/services';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -80,9 +82,16 @@ class Session extends Context.Service<
                 watch: FiberSet.run(yield* FiberSet.make()),
             };
         }),
-    ).pipe(Layer.provideMerge(Layer.effect(Shell, Engine.use((engine) => engine.compile('./main.wasm')).pipe(Effect.flatMap((module) => Shell.make({ processor: getProcessor(module) }))))));
+    );
+}
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+function layer($: EngineInterface) {
+    const shell = call('wasm.compile', './main.wasm', () => $.wasm.compile('./main.wasm')).pipe(Effect.flatMap((module) => Shell.make({ processor: getProcessor(module) })));
+    return Session.layer.pipe(Layer.provideMerge(Layer.effect(Shell, shell)));
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Session };
+export { layer, Session };
