@@ -38,7 +38,8 @@ Target `$target` (first argument, else a path the request names) sets what a ses
 ## [02]-[SKILLS]
 
 Skills load before the first read of code, every matching line:
-- Language: skill table of its language reference, else `<language>:coding` with each package skill the target's manifest names
+- Language: coding skill and core package skills of its language reference, always, whatever the target imports today
+- Packages: skill of each package whose job the target does by hand, imported or not, as the pass adds that package
 - Host: coding skill of the host running code (`blender:coding` with a Blender skill per part it writes, `uxp:coding`, `chrome:extensions`)
 - Tests: `code:test` and language testing skill, for a suite target or a pass changing one
 - Text: `writing:names` and `writing:prose`, for each name, message, and description a pass writes
@@ -49,7 +50,7 @@ Skills load before the first read of code, every matching line:
 
 Sessions run one loop, one pass per unit, notes kept in one session scratch folder:
 1. Read: each target file whole, a statement of purpose per file (what it is for, who reads it, how it runs), findings by category with site
-2. Sources: package and host reads the language reference names for each package and host the target calls, once per session
+2. Sources: core packages, standard library, and host of the language reference, then its central manifest whole, once per session
 3. Pick: first category in list order holding a finding (or `$concern`), then its clearest unit, internal cuts before exports
 4. Map: declarations of that unit alone, with readers, like work, and sources, as a map of a whole target goes stale at its first commit
 5. Rebuild: each declaration with every reader, like-work site, and upstream cause in one change, no adapter, alias, old path, or mention left
@@ -78,7 +79,7 @@ Units hold one cause and every declaration, reader, and contract that must chang
 
 Facts come from their defining source: host and protocol facts from host API or SDK, domain facts from an upstream value in the tree (enumeration, registry, manifest), operations from a language, compiler, or package implementing their semantics at its installed release, and a target declaration holds only a fact no source states, where it removes logic. Reading reaches every reader, like-work site, and source of a unit, each file read whole, never an outline, excerpt, or summary standing in for it.
 
-Package reads run in order, each ending in a decision on the map:
+Each language reference names its core packages, read every session whatever the target imports, as hand-rolled code mostly restates a package no file imports yet. Every session also reads its language's central manifest whole for packages beyond the core, imported or not, each candidate judged by its declarations and docs against the jobs the target does by hand. Package reads run in order, each ending in a decision on the map:
 1. Guide: package's own agent guide (`AGENTS.md`, `llms.txt`, agent docs folder), read whole, else its entry-point index
 2. Index: every entry point and module with member counts and summaries, read whole
 3. Groups: every group with a name or summary naming the job's field read whole, and every group with no summary opened at its members
@@ -89,10 +90,10 @@ Package reads run in order, each ending in a decision on the map:
 Package reads end in a case:
 - Version -> release the target's project resolves, never a store or cache glob holding more than one
 - Empty search -> index above it reopened, never hand-written code
-- Job no core package covers -> central manifest read whole, then each candidate's declarations and docs at its catalog release
+- Candidate from the central manifest -> declarations and docs at its catalog release through steps 2 to 5, never its name or comment alone
 - Adoption -> package added through its owning manifest and catalog row, never reached as a transitive import
 
-Central manifests list every package a target can adopt, one command per ecosystem:
+Central manifests list every package a target can adopt, one command per ecosystem, and Swift with no catalog reads its SDK, Swift modules, and repository SPI:
 
 ```bash
 yq '.catalog, .catalogs' pnpm-workspace.yaml
