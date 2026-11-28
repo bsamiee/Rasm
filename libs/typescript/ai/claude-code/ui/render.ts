@@ -66,7 +66,7 @@ function rows<C extends Exclude<RenderComponent, Keyed>, S, R, E, F>($: EngineIn
     return drawRow($, table[component], state, e, next, runtime);
 }
 
-function render<S, R, E, F>($: EngineInterface, table: Held<S, R, F>, e: Frozen<RenderInput>, next: Drawn<RenderComponent>, runtime: () => ManagedRuntime.ManagedRuntime<R, E>) {
+function drawComponent<S, R, E, F>($: EngineInterface, table: Held<S, R, F>, e: Frozen<RenderInput>, next: Drawn<RenderComponent>, runtime: () => ManagedRuntime.ManagedRuntime<R, E>) {
     runtime();
     return Option.match(
         table.pipe(
@@ -111,4 +111,4 @@ function pointer<S, R, E, F>($: EngineInterface, table: Held<S, R, F>, e: Frozen
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { follow, type Held, pointer, type Render, render };
+export { drawComponent, follow, type Held, pointer, type Render };

@@ -10,7 +10,7 @@ import { Draft, makeDraft } from '#/ui/draft';
 import { draw } from '#/ui/element';
 import { closePane, makePanes, Panes } from '#/ui/pane';
 import { makePlaced, Placed, prune, record, type Row } from '#/ui/placed';
-import { follow, type Held, pointer, type Render, render } from '#/ui/render';
+import { drawComponent, follow, type Held, pointer, type Render } from '#/ui/render';
 import { makeTheme, observe, Theme } from '#/ui/theme';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -256,7 +256,7 @@ function host<A, E, F, S = never, const M extends readonly Pick<Mod<never, Error
             if (e.component === 'Placed') {
                 record($, instance.placed, e);
             }
-            return render($, instance.render, e, next, () => start($, instance));
+            return drawComponent($, instance.render, e, next, () => start($, instance));
         }).catch(recover);
     }
     if (Option.exists(instance.render, (table) => table.Backdrop !== undefined)) {
