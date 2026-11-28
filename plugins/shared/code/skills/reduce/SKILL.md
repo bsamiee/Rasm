@@ -13,10 +13,10 @@ Targets are files, folders, or packages, and every pass leaves them with fewer l
 
 [REFERENCES]:
 - [01]-[TYPESCRIPT](references/typescript.md): Skills, sources, mapping, mechanisms, patterns, and checks of TypeScript and JavaScript targets
-- [02]-[RUST](references/rust.md): Skills, sources, consumers, counts, forms, and checks of Rust targets
-- [03]-[CSHARP](references/csharp.md): Skills, survey signals, sources, consumers, forms, and checks of C# targets
-- [04]-[PYTHON](references/python.md): Skills, survey signals, sources, consumers, forms, and checks of Python targets
-- [05]-[SWIFT](references/swift.md): Skills, survey signals, sources, consumers, forms, and checks of Swift targets
+- [02]-[RUST](references/rust.md): Skills, sources, mapping, mechanisms, patterns, and checks of Rust targets
+- [03]-[CSHARP](references/csharp.md): Skills, sources, mapping, mechanisms, patterns, and checks of C# targets
+- [04]-[PYTHON](references/python.md): Skills, sources, mapping, mechanisms, patterns, and checks of Python targets
+- [05]-[SWIFT](references/swift.md): Skills, sources, mapping, mechanisms, patterns, and checks of Swift targets
 
 ## [01]-[TARGET]
 
