@@ -27,6 +27,11 @@ class Shell extends Context.Service<Shell>()('@rasm/shell/shell', {
                 Effect.map(Option.liftPredicate((body: string) => !body.includes('\0'))),
                 Effect.catch((error) => (error.reason._tag === 'NotFound' ? Effect.fail(new Cause.NoSuchElementError(path)) : Effect.succeedNone)),
             );
+        const directory = (path: string) =>
+            fs.stat(path).pipe(
+                Effect.map(({ type }) => type === 'Directory'),
+                Effect.orElseSucceed(() => false),
+            );
         const parse = (source: string, dialect: Dialect) =>
             Effect.try({
                 try: () => facts.processor(source, { variant: dialect.variant }),
@@ -57,7 +62,7 @@ class Shell extends Context.Service<Shell>()('@rasm/shell/shell', {
             const split = yield* Effect.forEach(braced, (word) => Effect.try({ try: () => facts.processor.splitBraces(word), catch: ShellError.of({ _tag: 'Host' }, dialect.binary) }));
             const braces = new Map(Array.zip(braced, split).flatMap(([word, { word: alternated, changed }]) => (changed ? [[word, alternated] as const] : [])));
             const nested = (source: string, held: Dialect) => assemble(Fragment.of(source), held, { place: script.place, scope: Scope.start({ dialect: held, operands: [], pwd: Option.none() }) });
-            const invocations = yield* Effect.cached(Effect.suspend(() => interpret(script, { parse: nested, programs, probe: (shell, environment) => Cache.get(dialects, { shell, environment }), read })));
+            const invocations = yield* Effect.cached(Effect.suspend(() => interpret(script, { parse: nested, programs, probe: (shell, environment) => Cache.get(dialects, { shell, environment }), read, directory })));
             const script: Script = new Script({ text, dialect, place: start.place, scope: start.scope, tree, braces, invocations });
             return script;
         });

@@ -22,6 +22,7 @@ interface Hosts {
     readonly parse: (source: string, dialect: Script['dialect']) => Effect.Effect<Script, ShellError>;
     readonly probe: (shell: string, environment: Readonly<Record<string, string>>) => Effect.Effect<Option.Option<Script['dialect']>>;
     readonly read: (path: string) => Effect.Effect<Option.Option<string>, Cause.NoSuchElementError>;
+    readonly directory: (path: string) => Effect.Effect<boolean>;
     readonly programs: (program: string) => Effect.Effect<Option.Option<Usage>, ShellError>;
 }
 interface Body {
@@ -365,13 +366,24 @@ const assign =
     (names: (operands: readonly string[]) => readonly string[], binding: Binding) =>
     ({ state, operands }: SimpleCommand) =>
         Option.some(Option.match(operands, { onNone: () => state.havoc(), onSome: (given) => names(given).reduce((held, name) => held.bind(name, binding), state) }));
-const move = ({ state, scope, operands }: SimpleCommand) => {
+const chdir: Transfer = (simple, invocation) => {
+    const { state, scope, operands, context } = simple;
     const named = Option.filter(operands, (given) => !given.some((operand) => operand.startsWith('-')));
     const target = Option.flatMap(named, (given) => Option.orElse(Array.head(given), () => scope.text('HOME')));
     const path = Option.flatMap(target, (directory) => (directory.startsWith('/') ? Option.some(directory) : Option.map(scope.text('PWD'), (base) => `${base}/${directory}`)));
     const moved = Option.map(path, (written) => Option.getOrElse(Field.known(written).resolve(Field.known('/')).text, () => written));
     const pwd = Option.match(moved, { onNone: () => Binding.Unknown({ origins: HashSet.empty() }), onSome: (value) => Binding.Known({ value }) });
-    return Option.some(state.bind('OLDPWD', scope.get('PWD')).bind('PWD', pwd));
+    const present = Option.match(
+        Option.filter(moved, () => Option.isNone(context.remote)),
+        { onNone: () => Effect.succeed(false), onSome: context.walk.directory },
+    );
+    return Effect.map(present, (entered) =>
+        Flow.status(
+            Option.some(state.bind('OLDPWD', scope.get('PWD')).bind('PWD', pwd)),
+            Option.liftPredicate(state, () => !entered),
+            [invocation],
+        ),
+    );
 };
 const shift = ({ state, operands }: SimpleCommand) => {
     const places = Option.filter(
@@ -408,7 +420,7 @@ const transfers: Readonly<Record<string, Transfer>> = {
     continue: leave('continues'),
     return: leave('returns'),
     exit: leave('exits'),
-    cd: end(move, keep),
+    cd: chdir,
     unset: end(
         assign((given) => given.filter((operand) => !operand.startsWith('-')), Binding.Unset()),
         keep,

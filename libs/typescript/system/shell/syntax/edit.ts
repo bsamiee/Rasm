@@ -1,4 +1,4 @@
-import { Array, Match, Option, Redacted, Result } from 'effect';
+import { Array, Equal, Match, Option, Redacted, Result } from 'effect';
 import type { CommandLine } from 'effect/process';
 import type { Assign, BinaryCmd, Lit, Node, Redirect, SglQuoted, Stmt, Word, WordPart } from 'sh-syntax';
 import { unquote } from '#/evaluation/expansion';
@@ -333,7 +333,7 @@ class Editor {
                     }),
                 ),
             );
-            const changes = settled.flat().toSorted((left, right) => left.start - right.start || left.end - right.end);
+            const changes = Array.dedupeWith(settled.flat(), (left, right) => left.start === right.start && left.end === right.end && Equal.equals(left.fragment, right.fragment)).toSorted((left, right) => left.start - right.start || left.end - right.end);
             const overlap = Array.findFirst(Array.window(changes, 2), ([left, right]) => right.start < left.end);
             const disjoint = yield* Option.match(overlap, {
                 onNone: () => Result.succeed(changes),
