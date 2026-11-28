@@ -1,6 +1,6 @@
 # [RUST]
 
-Rust targets read the crates `rust:coding` names, `core`, `alloc`, and `std`, and each dependency at the version the workspace catalog pins, `<package>` naming the Cargo package holding the target and `<crate>` a dependency.
+Rust targets hold `.rs` files of the packages root `Cargo.toml` lists as workspace members, `<package>` naming a package as Cargo prints it (`rasm-stats`), `<crate_name>` its library name as rustdoc names its JSON file (`rasm_stats`), `<crate>` a dependency, `<paths>` files a pass touches, `<dir>` session scratch folder, and `<roots>` `libs products tools tests`.
 
 ## [01]-[SKILLS]
 
@@ -9,117 +9,151 @@ Rust targets read the crates `rust:coding` names, `core`, `alloc`, and `std`, an
 |  [01]   | Any Rust | `rust:coding`  | `.rs` file                                    |
 |  [02]   | Tests    | `rust:testing` | Package under `tests/`, `#[cfg(test)]` module |
 
+Packages take no skill of their own, as `rust:coding` names the crate serving each field and its rules name their forms.
+
 ## [02]-[SOURCES]
 
-Package reads, one command per step:
-1. Version: catalog pin of `<crate>`, as `Cargo.lock` holds more than one version of a crate and a lock search reads the oldest
-2. Inventory: rustdoc JSON of `<crate>@<version>`, a row per public path, trait member, and method, into `<scratch>/reduce/inv-<crate>.tsv`
-3. Re-exports: crates each `use` item of a facade crate (`futures`) names, each listed by step 2
-4. Standard library: `core`, `alloc`, and `std` JSON of the `rust-docs-json` component through step 2, as `std` re-exports `core` and `alloc` items
-5. Compiler: `rustc_*` crates from `.cargo/rustc-source/compiler` and `clippy_utils` through step 2, for `tools/dylint` lints
-6. Uncatalogued lock: catalog row no member declares sits outside `Cargo.lock`, read from docs.rs JSON at its catalog version under docs.rs features
+Rust targets read `core`, `alloc`, `std`, the crates `rust:coding` names, and each dependency at the release `Cargo.lock` resolves, as rustdoc JSON lists every public path, trait member, and inherent method of a crate. Package reads, one command per step:
+1. Version: catalog pin of `<crate>`, named to Cargo as `<crate>@<version>`, as `Cargo.lock` can hold more than one release of a crate
+2. Guide: crate root documentation, read whole, as a Rust crate holds its guide in its root `//!` docs
+3. Index: every module with its item count and first doc line, each module naming the job's field opened at step 4
+4. Inventory: a row per public path, trait member, and inherent method, into `<dir>/inv-<crate>.tsv`
+5. Re-exports: crates each `use` item of a facade crate names (`bon`, `futures`), each read from step 2
+6. Standard library: `core`, `alloc`, and `std` JSON of the `rust-docs-json` component through step 4, as `std` re-exports `core` and `alloc` items
+7. Compiler: `rustc_*` source under `.cargo/rustc-source/compiler` at the pinned nightly's commit, for lints under `tools/dylint`
+8. Workspace: each `rasm-*` dependency through steps 2 to 4 with `--document-private-items`, its folder from its catalog row
+9. Uncatalogued: catalog row no member declares sits outside `Cargo.lock`, read from docs.rs JSON at its catalog version
 
 ```bash
-yq -p toml -oy '.workspace.dependencies."<crate>" | (.version // .)' Cargo.toml
-cargo rustdoc --locked --target-dir <scratch>/reduce/cargo -p <crate>@<version> --lib -- -Zunstable-options --output-format json
+yq -p toml -oy '.workspace.dependencies."<crate>" | (.path // .version // .)' Cargo.toml
+cargo rustdoc --locked --target-dir <dir>/cargo -p <crate>@<version> --lib -- -Zunstable-options --output-format json
+jq -r '.index[.root | tostring].docs // ""' <dir>/cargo/doc/<crate_name>.json
+jq -r '.index as $i | .paths | to_entries[] | select(.value.crate_id == 0 and .value.kind == "module") | ($i[.key] // empty) as $m
+    | "\(.value.path | join("::"))\t\($m.inner.module.items | length)\t\($m.docs // "" | split("\n")[0])"' <dir>/cargo/doc/<crate_name>.json
 jq -r '.index as $i | .paths | to_entries[] | select(.value.crate_id == 0) | ($i[.key].inner | objects) as $inner | (.value.path | join("::")) as $path
     | ([$path, .value.kind, "", ($i[.key].docs // "" | split("\n")[0])],
        ($inner.trait.items[]? | $i[tostring] | [$path, "member", .name, (.docs // "" | split("\n")[0])]),
        (($inner.struct // $inner.enum // $inner.union).impls[]? | $i[tostring] | select(.inner.impl.trait == null and (.inner.impl.is_synthetic | not))
-        | .inner.impl.items[] | $i[tostring] | select(.visibility == "public") | [$path, "method", .name, (.docs // "" | split("\n")[0])])) | @tsv' <json>
-jq -r '.index[] | select(.crate_id == 0 and .inner.use != null) | .inner.use.source' <json> | cut -d: -f1 | sort | uniq -c
+        | .inner.impl.items[] | $i[tostring] | select(.visibility == "public") | [$path, "method", .name, (.docs // "" | split("\n")[0])])) | @tsv' \
+    <dir>/cargo/doc/<crate_name>.json > <dir>/inv-<crate>.tsv
+jq -r '.index[] | select(.crate_id == 0 and .inner.use != null) | .inner.use.source' <dir>/cargo/doc/<crate_name>.json | cut -d: -f1 | sort | uniq -c
 ls "$(rustc --print sysroot)/share/doc/rust/json"
-xh -F "https://docs.rs/crate/<crate>/<version>/json" -o <scratch>/reduce/<crate>.json.zst && zstd -dq <scratch>/reduce/<crate>.json.zst
+rustc -vV | rg -o '^commit-hash: (\w+)' -r '$1' | diff - <(cat .cargo/rustc-source/git-commit-hash; echo) && rg -n 'pub fn <member>' .cargo/rustc-source/compiler/<rustc_crate>
+xh -F "https://docs.rs/crate/<crate>/<version>/json" -o <dir>/<crate>.json.zst && zstd -dqf <dir>/<crate>.json.zst
 ```
 
-## [03]-[CONSUMERS]
+Inventories list items under the features the workspace enables, and an item behind another feature reads from docs.rs JSON, which builds under the crate's docs.rs features.
 
-Readers and duplicates across `<roots>` (`libs products tools tests`), one command per step:
-1. Projects: every package depending on a file the unit changes, workspace dependents included
-2. Duplicates by member or literal: sites spelling a member call, key, path, or message the declaration holds
-3. Duplicates by structure: function bodies repeated across crates, as `duplicate_body` and `parameterizable_body` compare within one crate
-4. Duplicates by name: type names declared in more than one crate, each pair read whole before a merge
-5. Manifest rows: dependency rows no code of their package reads and files no module tree reaches, catalog rows held for later members dropped
+## [03]-[MAPPING]
 
-```bash
-nx show projects --affected --files=<file>
-rg -nF '<member or literal>' -g '*.rs' <roots>
-jscpd --config .config/jscpd.json --similarity 0.6 --min-nodes 60 --format rust <target> <roots>
-rg -oNI '^pub(\([^)]*\))? (struct|enum|trait|type) (\w+)' -r '$3' -g '*.rs' <roots> | sort | uniq -c | awk '$1 > 1'
-cargo shear --locked --format json | jq -r '.findings[] | select(.code != "shear/unused_workspace_dependency") | [.code, (.file // "-"), .message] | @tsv'
-```
-
-## [04]-[COUNTS]
-
-Counts per file, one command per step:
-1. Lines: per file, and lines added and removed per file of the uncommitted pass
-2. Declarations: top-level items by visibility from rustdoc JSON, `private`, `restricted` (`pub(super)`, `pub(in ..)`), `crate`, and `public`
-3. Exports: `public` items of step 2, as `unreachable_pub` denies a `pub` item the crate root never reaches
-4. Nesting: `clippy::excessive_nesting` sites under a scratch `.config/clippy.toml` with its threshold lowered by one, as check denies the limit
+Maps list what each file of the target declares at each visibility level and who reads it, from rustdoc JSON of `<package>` with private items, one command per step:
+1. Levels: items per file at `private`, `restricted` (`pub(super)`, `pub(in ..)`), `crate`, and `public`, the list a pass narrows
+2. Name families: paths differing by case, a builder word, or a suffix (`Fit` beside `fit`), each family read whole before judging it
+3. Constants: `const`, `static`, and associated constants at `public`, each traced to its reader and the source that should state it
+4. Dependents: workspace packages declaring `<package>`, each built to rustdoc JSON with private items
+5. Importers: `use` items of `<package>` and each dependent resolving into `<crate_name>`, by the item id rustc resolved
+6. Text: sites spelling a name in a full path, macro, string, or message, and mentions across docs, skills, and manifests
+7. Like work: clone pairs touching the target across `<roots>`, ranked by lines times similarity
+8. Nesting: blocks past one level below the project limit, from Clippy's block count
+9. Manifest rows: dependency rows no code of their package reads, and files no module tree reaches
 
 ```bash
-wc -l <files> && git diff --numstat -- <paths>
-cargo rustdoc --locked --target-dir <scratch>/reduce/cargo -p <package> --lib -- -Zunstable-options --output-format json --document-private-items
+cargo rustdoc --locked --target-dir <dir>/cargo -p <package> --lib -- -Zunstable-options --output-format json --document-private-items
 jq -r '.index as $i | .paths as $p
     | [$i | to_entries[] | select(.value.crate_id == 0 and .value.inner.module != null) | ("::" + ($p[.key].path[1:] | join("::"))) as $module
        | .value.inner.module.items[] | $i[tostring] | select((.inner | keys[0]) as $k | ($k | IN("impl", "module") | not) and ($k != "use" or .visibility == "public"))
        | {file: .span.filename, level: (.visibility | if type == "string" then . elif .restricted.path == $module then "private" else "restricted" end)}]
-    | group_by(.file)[] | "\(.[0].file)\t" + (group_by(.level) | map("\(.[0].level)=\(length)") | join(" "))' <scratch>/reduce/cargo/doc/<crate_name>.json
-mkdir -p <scratch>/reduce/clippy && sd 'excessive-nesting-threshold( *)= *(\d+)' 'excessive-nesting-threshold${1}= <threshold - 1>' < .config/clippy.toml > <scratch>/reduce/clippy/clippy.toml
-CLIPPY_CONF_DIR=<scratch>/reduce/clippy cargo clippy --locked -p <package> --no-deps --all-targets --all-features --message-format json -- -D clippy::excessive_nesting | jq -r 'select(.message.code.code == "clippy::excessive_nesting") | .message.spans[0] | "\(.file_name):\(.line_start)"' | sort -u
+    | group_by(.file)[] | "\(.[0].file)\t" + (group_by(.level) | map("\(.[0].level)=\(length)") | join(" "))' <dir>/cargo/doc/<crate_name>.json
+jq -r '[.paths[] | select(.crate_id == 0 and (.kind | IN("function", "struct", "enum", "trait", "type_alias", "constant", "static", "macro")))
+    | {name: .path[-1], kind, path: (.path | join("::"))}]
+    | group_by(.name | ascii_downcase | gsub("_"; "") | sub("^(new|make|build|create|to|from|into|run|with)"; "") | sub("(ed|s|of|for|error)$"; ""))[]
+    | select(map(.name) | unique | length > 1) | map("\(.kind) \(.path)") | join("  ")' <dir>/cargo/doc/<crate_name>.json
+jq -r '.index[] | select(.crate_id == 0 and .visibility == "public" and (.inner | has("constant") or has("static") or has("assoc_const")))
+    | "\(.span.filename):\(.span.begin[0])\t\(.name)\t\(.inner | keys[0])"' <dir>/cargo/doc/<crate_name>.json
+cargo metadata --locked --format-version 1 --no-deps | jq -r --arg p <package> '.packages[] | select(any(.dependencies[]; .name == $p)) | .name'
+jq -r --arg c <crate_name> '.paths as $p | (if .index[.root | tostring].name == $c then 0 else (.external_crates | to_entries[] | select(.value.name == $c) | .key | tonumber) end) as $k
+    | .index[] | select(.crate_id == 0 and .inner.use.id != null) | ($p[.inner.use.id | tostring] // empty) as $t | select($t.crate_id == $k)
+    | "\(.span.filename):\(.span.begin[0])\t\($t.path[-1])\t\(.inner.use.name)"' <dir>/cargo/doc/<dependent_crate_name>.json | sort
+rg -nw '<name>' .
+jscpd --config .config/jscpd.json --similarity 0.6 --min-nodes 60 --format rust --reporters json --output <dir>/jscpd <roots>;
+    jq -r --arg t "$PWD/<target>/" '[.duplicates[] | select((.firstFile.name | startswith($t)) or (.secondFile.name | startswith($t)))] | sort_by(-(.lines * .similarity))[]
+    | "\(.lines)\t\(.similarity)\t\(.firstFile.name):\(.firstFile.start)\t\(.secondFile.name):\(.secondFile.start)"' <dir>/jscpd/jscpd-report.json
+mkdir -p <dir>/clippy && sd 'excessive-nesting-threshold( *)= *(\d+)' 'excessive-nesting-threshold${1}= <threshold - 1>' < .config/clippy.toml > <dir>/clippy/clippy.toml
+CLIPPY_CONF_DIR=<dir>/clippy cargo clippy --locked -p <package> --no-deps --all-targets --all-features --message-format json -- -D clippy::excessive_nesting |
+    jq -r 'select(.message.code.code == "clippy::excessive_nesting") | .message.spans[0] | "\(.file_name):\(.line_start)"' | sort -u
+cargo shear --locked --format json | jq -r '.findings[] | select(.code != "shear/unused_workspace_dependency") | [.code, (.file // "-"), .message] | @tsv'
 ```
 
-Nesting levels follow clippy's block count:
-- Levels: each `{}` block and each `impl`, `trait`, and inline `mod` item, so a method holds one nested block fewer than a free function
-- Uncounted: `match` arms without braces, closures without braces, and combinator chains, each read per member
-- Scope: `--no-deps` lints the package alone, as a lowered threshold failing a path dependency stops the build first
-- Rerun: the `-D` argument reruns clippy over a package cargo already checked, and the next check reruns it once more
+Commands read by their own rules:
+- Levels: `private` counts an item its own module reads alone, and `public` one the crate root reaches, as `unreachable_pub` denies every other `pub`
+- Narrowing: `check` after a narrowed item reports a `pub` item the root never reaches (`unreachable_pub`) and an item no code reads (`dead_code`)
+- Generated paths: `nutype` declares its type inside a hidden `__nutype_<Name>__` module, so families and importers read the last path segment
+- Importers: a full path at a call site (`<crate>::<item>(..)`) and a macro body hold no `use` item, which `rg -nw` reads
+- Clones: jscpd exits 1 whenever a pair prints, and the ranking reads its report regardless
+- Nesting levels: each `{}` block and each `impl`, `trait`, and inline `mod` item, so a method holds one nested block fewer than a free function
+- Nesting gaps: `match` arms without braces, closures without braces, and combinator chains count none and are read per member
+- Nesting scope: `--no-deps` lints the package alone, as a lowered threshold failing a path dependency stops the build first
+- Nesting rerun: `-D clippy::excessive_nesting` reruns Clippy over a package Cargo already checked, and the next check reruns it once more
+- Shear: `shear/unused_workspace_dependency` lists catalog rows held for later members, so its rows drop
+- Shear readers: an artifact dependency read through `env!("CARGO_BIN_FILE_<NAME>")` and a lint fixture file outside any module tree read as unused
 
-## [05]-[FORMS]
+## [04]-[MECHANISMS]
 
-Rust forms of each category, each rebuild holding under its stated condition alone, each source the lint `check--dylint` or `check--clippy` reports or the commit of a past pass. The largest cuts replaced a hand-written implementation of a package's trait or math with the package member (`1aa6fe328`), so trait impls of a package trait (`Serializer`, `Visitor`) and hand math beside an autodiff or units type rank first:
+Rust splits names by case (`Fit` a type, `fit` a function, `FIT` a constant), so one concept under one name is a type holding its constructors, constants, conversions, and members as associated items:
+- Associated items: `Fit::new`, `Fit::try_from`, `Fit::LIMIT`, and methods reach readers through one import, in place of `fit` and `FIT_LIMIT`
+- Orphan rule: an inherent `impl` attaches to a local type alone, so behavior over a foreign type is a function or a trait implementation
+- Conversions: `From`, `TryFrom`, `FromStr`, `Display`, and `AsRef` state each conversion once, readers calling `.into()`, `?`, `parse`, and `{}`
+- Literals: a struct with public fields and no cross-field rule takes a literal and struct update (`..base`), in place of a `new` restating fields
+- Defaults: field defaults under `default_field_values` (`retries: u8 = 3`) replace a hand `Default` impl and setters of constant values
+- Derives: `derive_more`, `strum`, `thiserror`, `serde` with `serde_with`, `derive_where`, `nutype`, catalog `bon` and `o2o` write impls
+- Newtypes: `typed_floats` classes, `NormalizedF64`, `NonZero`, `uom` quantities, and jiff spans state numeric rules, `nutype` a rule none states
+- Enums: variants hold their state's data, `strum::EnumDiscriminants` derives the fieldless kind, and `EnumMap` holds one value per kind
+- Visibility: private, `pub(super)`, `pub(crate)`, and `pub` reached from the crate root, the compiler reporting an item wider than its reach
+- Exports: one `pub use` list under `[EXPORTS]` of the crate root names each public item once, its modules private
+- Iterators: `Iterator` and `itertools` adapters, `try_collect`, `partition_result`, set operators, and `gen` blocks hold each walk over a sequence
+- Errors: one `thiserror` enum per crate, `#[from]` fields and `?` converting a source, `#[error(transparent)]` passing a whole foreign error through
+- Platforms: `cfg_select!` chooses the differing expression inside one item, and `#[cfg]` gates an item one platform holds alone
+- Traits: extension traits take the public blanket form (`impl<T: Iterator> IterExt for T`), and trait aliases name a repeated bound list
+- Flat chains: let chains, `let else`, `?` inside `try` blocks, and a tuple `match` with arm guards replace nested `match`, `if let`, and closures
+- Macros: a local `macro_rules!` states one table a derive cannot reach (an enum with its `Display` and `FromStr` from one variant list) once
 
-| [INDEX] | [CATEGORY]   | [FOUND]                                  | [REBUILD]                                   | [SOURCE]                      |
-| :-----: | :----------- | :--------------------------------------- | :------------------------------------------ | :---------------------------- |
-|  [01]   | Pass-through | `fn` passing each parameter on unchanged | Callee at each call site                    | `forwarding_function`         |
-|  [02]   | Pass-through | Crate-private item with one reader       | Body at its reader                          | `single_reader`               |
-|  [03]   | Pass-through | Closure each branch calls with its value | Branches yield an `Option`, tail runs once  | `77e8308f2`                   |
-|  [04]   | Pass-through | Helper restating a package conversion    | Package `From` or `?` at each site          | `030711c27`                   |
-|  [05]   | Literals     | Literal equal to a dependency constant   | Dependency constant, `env!` for Cargo facts | `restated_constant`           |
-|  [06]   | Literals     | Functions mapping variants to constants  | One `match` returning every value           | `variant_constant_functions`  |
-|  [07]   | Literals     | Slice listing every variant              | `strum::VariantArray`                       | `manual_variant_array`        |
-|  [08]   | Literals     | Invented `io::Error` text for absence    | `Option` source, `None` as absence          | `7440db583`                   |
-|  [09]   | Literals     | Map or JSON value read by fixed key      | Struct field per key, serde decode          | `stringly_typed_value`        |
-|  [10]   | Redundant    | Hand `core::error::Error` impl           | `thiserror::Error` derive                   | `manual_error_impl`           |
-|  [11]   | Redundant    | Hand `AsRef` impl on a newtype           | `derive_more` `AsRef`                       | `manual_reference_impl`       |
-|  [12]   | Redundant    | `Default` impl of constant fields        | Field defaults `= <value>`                  | `manual_default_field_values` |
-|  [13]   | Redundant    | `map_err` that `?` applies               | `?`, `#[from]` field                        | `redundant_error_conversion`  |
-|  [14]   | Redundant    | `bool` set from an `Option` being `Some` | `Option` alone                              | `redundant_option_flag`       |
-|  [15]   | Redundant    | Default tested right after `unwrap_or`   | `match` on the `Option`                     | `sentinel_default`            |
-|  [16]   | Duplicated   | Hand `serde::Serializer` of every kind   | `serde_content` `Value`, one `match`        | `1aa6fe328`                   |
-|  [17]   | Duplicated   | Derivatives beside a dual-number type    | Function over `DualNum` operators           | `1aa6fe328`                   |
-|  [18]   | Duplicated   | Bodies differing by a literal or type    | One function taking that parameter          | `parameterizable_body`        |
-|  [19]   | Duplicated   | Newtype or body repeated across crates   | One declaration in the field's library      | `jscpd`, name survey          |
-|  [20]   | Types        | Fieldless catch-all dropping its value   | Variant holding it (`Other(Box<str>)`)      | `199b551ee`                   |
-|  [21]   | Types        | `Option` value beside `Option` error     | `Result`                                    | `option_fields_as_result`     |
-|  [22]   | Types        | Kind enum kept beside a data enum        | `strum::EnumDiscriminants`, `EnumMap`       | `rust:coding`                 |
-|  [23]   | Types        | Crate-private trait, one implementor     | Inherent `impl`, function on foreign type   | `single_impl_trait`           |
-|  [24]   | Types        | One-field struct holding no invariant    | Its field type                              | `needless_struct`             |
-|  [25]   | Types        | Struct holding only a `Display` impl     | `fmt::from_fn` closure                      | `manual_fmt_from_fn`          |
-|  [26]   | Nesting      | `let` over `Ok` patterns with `else`     | One `match` over the tuple                  | `a3e63536b`                   |
-|  [27]   | Nesting      | Closure in `and_then` in `find_map`      | Outer value in a `let`, `is_some_and`       | `a3e63536b`                   |
-|  [28]   | Nesting      | Arm matching again on a narrowed value   | Arm guard or let chain                      | `rust:coding`                 |
-|  [29]   | Names        | Free `fn` building the type it names     | Associated constructor on the type          | `rust:coding`                 |
-|  [30]   | Exports      | `pub use` of a dependency item           | Import from the dependency                  | `reexported_dependency`       |
-|  [31]   | Exports      | `pub mod` beside root `pub use` lists    | One export form per crate                   | Visibility count              |
-|  [32]   | Exports      | `pub` field a cross-field rule spans     | Private field, `derive_more` `#[as_ref]`    | `rust:coding`                 |
+Host and package rules bind where a probe proved them:
+- Nightly: `rust-toolchain.toml` pins a nightly, and a form needing a library or language feature adds it to its crate root's `#![feature]` line
+- Float classes: `typed_floats` `PositiveFinite` refuses -0.0 that `nutype` `greater_or_equal = 0.0` accepts, and `NormalizedF64` accepts -0.0
+- Edge values: -0.0, NaN, subnormals, and infinities are probed against a package class before a newtype's readers move onto it
+- Adoption: `check--cargo-deny` of root project `rasm` refuses a crate whose license `.config/deny.toml` omits, so a candidate passes it first
 
-Rows hold under these conditions:
-- Row [23] -> a foreign trait a host calls (`rmcp` handler, `LateLintPass`) and a trait alias of bounds stay
+## [05]-[PATTERNS]
+
+Patterns common in Rust, each a lead the map confirms before any rebuild, its rebuild holding under the condition beside it:
+
+| [INDEX] | [PATTERN]            | [LOOK_FOR]                                                       | [REBUILD]                                     |
+| :-----: | :------------------- | :--------------------------------------------------------------- | :-------------------------------------------- |
+|  [01]   | Free builders        | `fn fit(..) -> Result<Fit, _>` exported beside `Fit`             | `Fit::new` or `TryFrom`, one export           |
+|  [02]   | Hand trait impls     | `impl Display`, `Error`, `From`, `Default` a derive writes       | Derive, field defaults                        |
+|  [03]   | Restated newtypes    | `nutype` or tuple struct over a float, integer, or range         | `typed_floats`, `strict-num`, `NonZero`       |
+|  [04]   | Cross-crate newtypes | One rule declared under a name per sibling crate                 | One type in the field's library               |
+|  [05]   | Flags beside data    | `bool` or kind field beside `Option` fields one state sets       | Enum variants holding each state's data       |
+|  [06]   | Kind tables          | Fieldless kind enum with a `fn` per column matching it           | `EnumDiscriminants`, one `match`, `EnumMap`   |
+|  [07]   | Side collections     | `let mut` buffer filled in a `for`, index zip, second pass       | Adapters, `partition_result`, `gen` block     |
+|  [08]   | Error restatement    | `String` error, per-call `map_err`, `Box<dyn Error>`, prefixes   | One `thiserror` enum, `#[from]`, `?`          |
+|  [09]   | Platform twins       | Same-named items under `#[cfg(unix)]` and `#[cfg(windows)]`      | One item, `cfg_select!` around what differs   |
+|  [10]   | Private trait spread | Crate-private trait over foreign types, `Ext` trait in a crate   | Functions, std trait, or public blanket `Ext` |
+|  [11]   | Split export forms   | `pub mod` beside root `pub use` lists, `pub use` of a dependency | One root `pub use` list, dependency imported  |
+|  [12]   | Unwrap towers        | `match` in `if let` in `match`, closures in `and_then` chains    | Tuple `match`, let chain, `try` block, `?`    |
+
+Patterns hold under these conditions:
+- Row [01] -> a function returning a foreign type stays a function, as the orphan rule refuses an inherent `impl` on it
+- Row [02] -> an impl computing what no derive states (an encoding, a mapping onto a foreign enum adding a rule) stays
+- Row [03] -> a rule no package class states (-0.0 accepted, a bound of 1, a cross-field relation) keeps `nutype`
+- Row [05] -> a `bool` holding a computed fact no other field depends on stays
+- Row [07] -> a buffer a callback API fills, or one reused across calls, stays
+- Row [09] -> an item one platform holds alone keeps `#[cfg]`
+- Row [10] -> a trait a host or package calls (`LateLintPass`, an `rmcp` handler, solver operator traits) and a trait alias of bounds stay
 
 ## [06]-[CHECK]
 
-Check per pass, each command alone in the background, and the Linux build where the unit holds `cfg` arms, as a macOS check compiles macOS arms alone:
+Check per pass, each command its own background call, `--files` taking `<paths>` joined by commas:
 
 ```bash
 hk fix <paths>
@@ -127,5 +161,8 @@ nx affected -t check --files=<paths> --exclude=rasm
 cargo clippy --locked -p <package> --all-targets --all-features --target x86_64-unknown-linux-gnu
 ```
 
-- Scope: root project `rasm` runs repository-wide checks (knip, tsc, ty, jscpd) that fail on other work in a shared tree, so a pass excludes it
-- Manifest: `<paths>` holding `Cargo.toml` or `Cargo.lock` -> same `nx affected` line without `--exclude=rasm`, as root project `rasm` runs cargo-deny
+- Scope: root project `rasm` runs repository-wide checks that fail on other work in a shared tree, and a pass excludes it
+- Manifest: `<paths>` holding `Cargo.toml` or `Cargo.lock` -> same `nx affected` line without `--exclude=rasm`, as project `rasm` runs `cargo deny`
+- Targets: `check` runs `check--clippy`, `check--dylint`, and `check--rustdoc` of each package a change reaches, dependents included
+- Platform: unit holding `cfg` arms -> Linux line, as a macOS check compiles macOS arms alone
+- Windows: arms compile in CI alone, as this machine holds no `x86_64-pc-windows-msvc` standard library
