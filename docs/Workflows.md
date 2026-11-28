@@ -76,12 +76,15 @@ Composite actions and the mise environments jobs load:
 - Job containers install mise tools in the runner's tool cache, outside the checkout
 - CMake checks uninitialized variables in each file inside the source tree, vcpkg's toolchain file included where mise installs it there
 - Windows jobs install mise tools under `C:/mise`, as `cmd.exe` finds no command once `PATH` passes 8191 characters
-- Hosted Linux jobs load mise environment `ci-linux`, and macOS, Windows, and Unreal jobs load `ci`
+- Hosted Linux rows load mise environment `ci-linux` with a second environment per row, and macOS, Windows, and Unreal jobs load `ci`
 - Environment `ci` sets `enable_tools` to the tools its jobs' steps, Nx tasks, and graph creation run, and skips Python environments and Playwright browsers
 - Environment `ci-linux` sets `disable_tools` to the tools no Linux job runs, as the full Linux set outgrows the free disk, and a new tool row joins Linux jobs by itself
 - Environment `ci-linux` skips the Blender and darkroom environments, as Nx Python targets sync their own environments through `uv run`
 - Mise environments replace each other's arrays, so Linux jobs take an environment of their own in place of rows added to `ci`
-- Environments `ci` and `ci-linux` state no `[tools]` row, as mise installs a row stated there only from a lock of that file, which the repository lacks
+- Environment `ci-llvm` adds LLVM to row `Linux` under tool alias `llvm`, as `disable_tools` matches the configured name and the base row stays disabled
+- Row `Linux` frees disk before its tools install, as LLVM unpacks to about 12 GB, and other rows free it in the background
+- Environment `ci-no-uv` disables mise's uv dependency provider on rows whose tasks read no root Python environment
+- Environments state a `[tools]` row only with a lock of their own file, as a locked install fails on a row its lock lacks
 
 ## [05]-[CACHE]
 

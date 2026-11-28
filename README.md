@@ -146,7 +146,7 @@ mise installs every tool, `[env]` holds process variables, and `[bootstrap]` hol
 - Platform rows sit in the `.config/mise.<os>.toml` mise loads, as only a file limits a row to one OS
 - `.config/mise/locks/` holds the dependency lock mise writes for each npm and PyPI tool row, and a locked install fails without it
 - Checkers a uv or pnpm catalog can hold sit there, never in an npm or PyPI tool row
-- `hk check` runs `mise lock --check` under no profile and under `ci`, as a row its lock lacks fails every locked install
+- `hk check` runs `mise lock --check` under no environment, `ci`, `ci-linux`, and `ci-llvm`, as a row its lock lacks fails every locked install
 - `Doppler` project `rasm` and 1Password `op` hold every secret
 
 ## [05]-[WORKSPACES]
@@ -249,7 +249,8 @@ Products deliver through the same targets in every ecosystem, development builds
 - `nx run-many -t attach -c release` uploads released files to each tag's GitHub release, and stores with no upload API take files by hand
 - `attach` creates a tag's GitHub release where none exists, as `nx release` makes none for hand-made tags or dependents outside `--projects`
 - `nx release publish` sends the same files to each registry or store its ecosystem's publish setting allows, skipping until a credential is set
-- Publish targets authenticate through a registry's trusted publishing where it offers one, else through a `rasm/release` row named as the variable they read
+- `Release` publishes to npm, PyPI, NuGet, and crates.io by trusted publishing alone, elsewhere by a `rasm/release` row named as the variable a target reads
+- Rows `NUGET_API_KEY` and `CARGO_REGISTRY_TOKEN` serve first publishes by hand alone, as crates.io takes a trusted publisher on a published crate
 - Store items take their first upload by hand at the store dashboard, as store APIs publish only to listed items
 - `deploy` applies a project's Pulumi stacks after its dependencies', `-c release` a released version's, `deploy--pulumi --stack=<name>` one stack
 - `dry-run` previews what `deploy` applies over build output on disk and runs no other task, `dry-run--pulumi --stack=<name>` one stack
@@ -259,7 +260,7 @@ Products deliver through the same targets in every ecosystem, development builds
 `infra/` Pulumi programs declare what runs on each machine and how it is reached:
 - Machines take a `hosts` row in `infra/platform-stack.ts` and a `[bootstrap.remote.hosts]` row, and accounts and tailnet addresses stay in services
 - Roles in a `hosts` row decide a machine's services, and a role's OS state sits in the mise environment its bootstrap row loads
-- Stacks declare every container image a machine or CI job runs and build those no registry publishes, and `.github/` holds no Dockerfile or image build
+- Stacks declare every image a machine runs, Unreal job images included, and build those no registry publishes, and `.github/` builds none
 - App `hosting.config.ts` targets name Cloudflare or a machine with role `Apps`, and `nx install @rasm/infra` runs role `Apps` under `rasm.localhost`
 - Container engines run under systemd on machines and, on the owner's Mac, in a Colima VM `DOCKER_HOST` names
 - Project `docker` exists on every machine, and its `install--docker` starts the Colima VM a workspace `COLIMA_HOME` names or confirms systemd's engine answers

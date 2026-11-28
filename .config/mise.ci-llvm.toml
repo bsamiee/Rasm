@@ -1,0 +1,9 @@
+# --- [TOOL_ALIAS] -----------------------------------------------------------------------
+
+[tool_alias]
+llvm = "github:llvm/llvm-project"
+
+# --- [TOOLS] ----------------------------------------------------------------------------
+
+[tools]
+llvm = { bin_path = "bin", matching_regex = '^(clang\+)?(?i:llvm)-\d', os = ["linux"], strip_components = 1, version = "23", version_prefix = "llvmorg-" }

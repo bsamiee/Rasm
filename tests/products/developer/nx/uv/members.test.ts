@@ -51,7 +51,7 @@ const built = async (root: string, cache: FileMapCache | null) => {
 
 describe('files Nx hands the plugin', () => {
     it('hold the locks alone, as a matched file edit is a project configuration change', async ({ workspace }) => {
-        const read = { 'uv.toml': '', '.python-version': '3.13\n', '.python-versions': '3.13\n', 'mypy.ini': '', '.mypy.ini': '', 'setup.cfg': '', 'ty.toml': '', 'pytest.toml': '', '.pytest.toml': '', 'pytest.ini': '', '.pytest.ini': '', 'tox.ini': '' };
+        const read = { 'uv.toml': '', '.python-version': '>=3.13\n', '.python-versions': '>=3.13\n', 'mypy.ini': '', '.mypy.ini': '', 'setup.cfg': '', 'ty.toml': '', 'pytest.toml': '', '.pytest.toml': '', 'pytest.ini': '', '.pytest.ini': '', 'tox.ini': '' };
         const placed = Array.cartesianWith(['', 'proj/library/'], Record.toEntries(read), (folder, [file, content]) => [`${folder}${file}`, content] as const);
         locked(workspace.write({ ...MEMBERS, ...Record.fromEntries(placed) }));
 

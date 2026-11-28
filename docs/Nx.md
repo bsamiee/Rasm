@@ -55,7 +55,7 @@ Task runs and their order:
 
 Remote cache clients and the inputs deciding which machines share a result:
 - Owner's Mac reads Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
-- Owner's Mac and CI jobs share one remote cache, and results serve each machine with matching hash inputs, job `macos` the Mac's Swift and Xcode tasks
+- Owner's Mac and CI jobs share one remote cache, and results serve each machine with matching hash inputs, row `macOS` the Mac's Swift and Xcode tasks
 - .NET targets but format hash `CI`, as MSBuild sets properties under it
 - Vitest targets hash no `CI`, as their executor refuses `.only` and writes no missing snapshot on every machine
 - Vitest targets hash platform, as suites read host shells and file systems, and no Mac result of theirs serves a Linux or Windows job

@@ -24,3 +24,8 @@ disable_tools = [
     "npm:@aredotna/cli",
     "npm:ctx7",
 ]
+
+# --- [TOOLS] ----------------------------------------------------------------------------
+
+[tools]
+"conda:zsh" = { os = ["linux"], version = "latest" }

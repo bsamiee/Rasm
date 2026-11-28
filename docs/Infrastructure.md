@@ -7,7 +7,7 @@ Machines, accounts, and services the `infra/` stacks declare.
 Rules every stack and machine follows:
 - Stacks apply from commits `main` holds, as each `Deploy` trigger checks out a commit of `main`, and a local apply serves a trial alone
 - Secrets are made once and read by the stacks passing them to services, and an apply rotates no secret
-- Stacks write no Doppler row, as a written row reaches `deploy` through its references and starts `Deploy` again
+- Stacks write a Doppler row only where no `deploy` row references it, as a change reaching `deploy` starts `Deploy` again
 - Jobs and machines join services through identity federation or a credential with no expiry, and no credential waits on a renewal by hand
 
 ## [02]-[PLACES]
@@ -32,7 +32,7 @@ Doppler configs and their readers:
 - Rows one config holds and another reads are references there (`${ci.<NAME>}`), which change with their source
 - Row `AUTHELIA_OWNER_PASSWORD_HASH` holds the bcrypt hash of row `AUTHELIA_OWNER_PASSWORD`, the form the sign-in service reads
 - Doppler `deploy` and 1Password hold `<NAME>_ROOT_PASSWORD`, `<NAME>_SSH_PRIVATE_KEY`, and `<NAME>_SSH_PUBLIC_KEY`, and no code reads them
-- Row `DOPPLER_IAC_TOKEN` reaches stacks as `DOPPLER_TOKEN`, and row `GITHUB_TOKEN` authorizes GitHub's provider, deploy webhook, and runners
+- Row `DOPPLER_IAC_TOKEN` reaches stacks as `DOPPLER_TOKEN`, and row `GITHUB_TOKEN` authorizes GitHub's provider, deploy webhook, and runner registrations
 
 ## [04]-[STACKS]
 
@@ -55,9 +55,10 @@ Machines, their roles, and their reinstall:
 - Config files mise loads beside `mise.toml` outside an environment take the lock rows of tools a version file names, and locked installs of Rust then fail
 - Deploy starts for those files and no other mise or Xcode setting, as named input `deployed` names what `deploy--pulumi` reads
 - Role `Cache` runs the Nx cache server with its proxy and object storage
+- Role `Bucket` serves one bucket of the machine's object storage to CI, objects expiring role field `kept` after their write
+- Role `Bucket` writes Doppler `ci` rows `RUNS_ON_S3_BUCKET_CACHE`, `RUNS_ON_S3_BUCKET_ENDPOINT`, and the key of an account scoped to its bucket
 - Role `History` runs the Atuin sync server with its proxy
-- Role `Runner` runs a runner service per instance and pulls and tags an Unreal image per engine release a tracked `.uproject` names
-- Role `Runner` builds and pushes `ghcr.io/<owner>/<repository>/playwright:<version>`, locked Playwright Chromium over `node:slim`
+- Role `Runner` runs one GitHub Actions runner and pulls and tags an Unreal image per engine release a tracked `.uproject` names
 - Role `Apps` runs the proxy, sign-in, and object storage of hosted apps, on one machine per zone, as a zone holds each public name once
 - Hostinger VPS use under 60% of its vCPUs earns CPU credits and use above spends them
 - Hostinger limits a machine with no credits to 30% of its vCPUs until a fifth of its balance returns
@@ -86,15 +87,10 @@ Images stacks build, push, and pull:
 - Docker engines build stack images from inline Dockerfiles with build checks as errors, load local images, and push registry images
 - Builds run in a BuildKit container the build provider creates per client, and previews build no image
 - Docker Engine bounds its build cache by its disk-relative defaults, as deploy builds run on BuildKit builders each deploy removes
-- Playwright images rebuild on a changed Playwright version or Dockerfile alone, and read and write layer cache at tag `cache`
-- Playwright images add `curl`, a C compiler, and ICU, as action `tools` downloads mise, builds cargo tools, and runs `dotnet` inside them
-- Playwright images give user `node` home `/github/home`, the `HOME` Actions sets in job containers, as rustup reports a home differing from its user's
-- Pushed images hold their source label as a manifest annotation, as GHCR links a package by annotation alone and a linked package inherits access
-- Pushed images hold their registry credentials, as a changed `registries` setting replaces the build provider and images ignore a changed password
 - Locally built images lost from their machine stay in stack state until a deploy replaces their `docker-build:Image` resource
 - Pulled images and each built image's `FROM` base take name `<tag>@<digest>` from the registry digest each deploy reads
 - Moved tags replace a pulled image, then its containers, and a moved base rebuilds its image
-- Role `Runner` pulls the Playwright image it built and the test container images `@rasm/testing/containers` names, each tagged as tests name it
+- Machines remove dangling images on a weekly timer `.config/mise.machine.toml` sets, as replaced pulls and rebuilt images leave their old image untagged
 - Machine Docker providers sign in to Docker Hub with rows `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`, as anonymous digest reads and pulls share one hourly allowance per address
 - Docker removes no image name a container uses, its provider pulls no name a machine holds, and stacks pull no image by tag alone
 
@@ -119,12 +115,11 @@ Routes from public names to containers:
 - Apps on a machine get CNAME `<app>.<zone>`, and its sign-in service requires a session on each app's sign-in path alone
 - Proxies strip `Remote-User` and `Remote-Email` from every app request and set both from its sign-in session, and apps read both through `ACCESS`
 - Object storage publishes its port on its machine's tailnet IPv4 alone, `127.0.0.1` on a local install
-- Object storage takes CNAME `storage.<zone>` on machines with role `Apps` alone, as apps hand its public origin to browsers
+- Object storage takes CNAME `storage.<zone>` on each machine running it, as apps hand its public origin to browsers and CI reaches role `Bucket` there
 - `net.ipv4.ip_nonlocal_bind` lets Docker bind a tailnet address before `tailscaled` sets it at boot
 - Docker maps published ports through firewall rules with no userland proxy, as `docker-proxy` accepts connections for a container with no listener
 - Stacks dial object storage by tailnet name, and containers dial it inside their Docker network
 - Stacks and `[bootstrap]` declare no firewall
-- Containers a CI job starts without an address publish on every address
 
 ## [09]-[CACHE_SERVER]
 
@@ -152,23 +147,18 @@ Atuin sync server of role `History`:
 
 ## [11]-[RUNNERS]
 
-GitHub Actions runners of role `Runner`:
-- Role `Runner` field `instances` names each runner service by label with systemd limits its unit's drop-in `instance` sets
-- Systemd limits of instance `container` reach no job, as its jobs run in containers under Docker's cgroups
-- Runner `<machine>-<label>` installs in folder `actions-runner-<label>`, works in folder `actions-work-<label>`, and holds label `<label>` beside default labels
-- Instances `host` and `graph` run jobs on their machine and `container` in a container, one job of each at once
-- Runner services stop by removing their label through GitHub's API and waiting until GitHub reports them idle, as a stop cancels a running job
-- Label removal comes first, as a listener takes the next queued job within seconds of its last one
-- Stops GitHub refuses wait for their instance's `Runner.Worker` to exit, and a job GitHub assigns meanwhile is canceled
-- Runner services restore their label as they start, retry a failed start every 30 seconds, and stop before Docker
+GitHub Actions runner of role `Runner`:
+- Role field `label` names unit `actions.runner.<label>.service`, which takes jobs naming labels `self-hosted` and `<label>`
+- Runners install in folder `actions-runner-<label>` and keep the job tool cache (`RUNNER_TOOL_CACHE`) in folder `actions-tools-<label>`
+- Each unit start runs `register`, which empties the runner's `_work` folder and writes the just-in-time configuration `generate-jitconfig` returns
+- `run.sh --jitconfig` takes one job as runner `<machine>-<label>-<epoch>` and exits, and `Restart=always` registers it again
+- Unit stops wait for the runner's `Runner.Worker` to exit, as a stop cancels a running job
+- Stops wait up to `drained` of the `Runner` arm, the longest self-hosted job timeout, and a runner command's Pulumi timeout adds 15 minutes
+- Runner installs keep `GITHUB_TOKEN` in root-only file `.token` of their folder, which `register` reads
+- Changes to runner version, label, repository, or tailnet node stop the unit, delete it with the runner folder, and install it again
+- Reinstalls keep the tool cache folder, which a changed label or the role's removal deletes
+- Engine images stay on the machine between jobs, as jobs name an image by tag and the weekly prune removes untagged ones alone
 - Runner self-updates wait for a running job and stay on
-- Drains wait up to `drained` of the `Runner` arm, the longest self-hosted job timeout, and a runner command's Pulumi timeout adds 15 minutes
-- Runner installs keep `GITHUB_TOKEN` in root-only file `.token` of their folder, which the drain reads
-- Changes to runner version, limits, repository, or tailnet node stop a runner, then `systemctl revert` deletes its drop-ins and it reinstalls
-- Reinstalls replace folder `actions-runner-<label>` alone and keep the work folder's checkouts, tools, and caches, which only a label leaving `instances` deletes
-- Runner installs register through `config.sh --pat`, which takes a registration token from `GITHUB_TOKEN` at each attempt
-- Runner removals run `config.sh remove --pat` with the token of their last install, and a revoked token leaves an offline registration
-- Runners keep tools, ignored files, and each Unreal image between runs, as jobs name an image by tag and `docker image prune` removes untagged ones
 - `needrestart` leaves `actions.runner.*` services running after a library update
 
 ## [12]-[GOOGLE_CLOUD]
@@ -187,10 +177,9 @@ Google Cloud project `rasm-release`, its identities, and GitHub variables naming
 
 Package updates and reboots of each machine:
 - Machines install Ubuntu `*-updates` and Docker packages daily on a timer `.config/mise.machine.toml` sets
-- Machines reboot once an update requires it, except a machine with role `Runner`, as a reboot stops its jobs and runs reading its cache
+- Machines reboot once an update requires it, except a machine with role `Runner`, as a reboot stops its job
 - Role `Runner` turns off `Automatic-Reboot` in `.config/mise.runner.toml`, and its timer `reboot-when-idle` checks hourly
-- `reboot-when-idle` reboots while `/run/reboot-required` exists and the repository's 100 newest runs hold none without a conclusion
-- `reboot-when-idle` reads the unfiltered run list, as a run filtered by status appears seconds after its creation
-- Reboots stop runner services through their drain
+- `reboot-when-idle` reboots while `/run/reboot-required` exists and no `Runner.Worker` process runs a job
+- Reboots stop the runner unit, which waits out its job
 - Unattended upgrades keep changed conffiles (`--force-confold`), as the Hostinger image changes `cloud.cfg` and a changed or deleted conffile holds its package
 - Reinstalls restore `docker-compose-plugin` and `docker-ce-rootless-extras` as recommendations of Docker's packages, and no code runs either

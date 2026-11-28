@@ -160,6 +160,7 @@ final = "mise exec -- hk install"
 
 [vars]
 docker_plugin = 'plugins="$${DOCKER_CONFIG:-$$HOME/.docker}/cli-plugins" && mkdir -p "$$plugins" && for bin in "$$MISE_TOOL_INSTALL_PATH"/docker-*; do ln -sf "$$bin" "$$plugins/"; done'
+maven         = "https://maven-central.storage-download.googleapis.com/maven2"
 
 # --- [TOOL_ALIAS] -----------------------------------------------------------------------
 
@@ -195,12 +196,12 @@ editorconfig-checker           = "latest"
 "github:trailofbits/dylint"    = { matching = "cargo-dylint-", os = ["unix"], version = "latest" }
 google-java-format             = "latest"
 hk                             = { depends = ["sd"], postinstall = { run = '''{% if os() != "windows" %}sd 'download/v[^/]+/hk@[^#]+#' "download/v$MISE_TOOL_VERSION/hk@$MISE_TOOL_VERSION#" "$MISE_CONFIG_ROOT/.config/hk.pkl"{% endif %}''', when = "always" }, version = "latest" }
-"http:checker-qual"            = { bin = "checker-qual.jar", format = "raw", url = "https://repo1.maven.org/maven2/org/checkerframework/checker-qual/{{ version }}/checker-qual-{{ version }}.jar", version = "latest", version_list_url = "https://repo1.maven.org/maven2/org/checkerframework/checker-qual/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
-"http:dataflow-errorprone"     = { bin = "dataflow-errorprone.jar", format = "raw", url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/{{ version }}/dataflow-errorprone-{{ version }}.jar", version = "latest", version_list_url = "https://repo1.maven.org/maven2/io/github/eisop/dataflow-errorprone/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
-"http:dataflow-nullaway"       = { bin = "dataflow-nullaway.jar", format = "raw", url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/{{ version }}/dataflow-nullaway-{{ version }}.jar", version = "latest", version_list_url = "https://repo1.maven.org/maven2/org/checkerframework/dataflow-nullaway/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
-"http:error-prone"             = { bin = "error-prone.jar", format = "raw", url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/{{ version }}/error_prone_core-{{ version }}-with-dependencies.jar", version = "latest", version_list_url = "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_core/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
-"http:jspecify"                = { bin = "jspecify.jar", format = "raw", url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/{{ version }}/jspecify-{{ version }}.jar", version = "latest", version_list_url = "https://repo1.maven.org/maven2/org/jspecify/jspecify/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
-"http:nullaway"                = { bin = "nullaway.jar", format = "raw", url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/{{ version }}/nullaway-{{ version }}.jar", version = "latest", version_list_url = "https://repo1.maven.org/maven2/com/uber/nullaway/nullaway/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
+"http:checker-qual"            = { bin = "checker-qual.jar", format = "raw", url = "{{ vars.maven }}/org/checkerframework/checker-qual/{{ version }}/checker-qual-{{ version }}.jar", version = "latest", version_list_url = "{{ vars.maven }}/org/checkerframework/checker-qual/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
+"http:dataflow-errorprone"     = { bin = "dataflow-errorprone.jar", format = "raw", url = "{{ vars.maven }}/io/github/eisop/dataflow-errorprone/{{ version }}/dataflow-errorprone-{{ version }}.jar", version = "latest", version_list_url = "{{ vars.maven }}/io/github/eisop/dataflow-errorprone/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
+"http:dataflow-nullaway"       = { bin = "dataflow-nullaway.jar", format = "raw", url = "{{ vars.maven }}/org/checkerframework/dataflow-nullaway/{{ version }}/dataflow-nullaway-{{ version }}.jar", version = "latest", version_list_url = "{{ vars.maven }}/org/checkerframework/dataflow-nullaway/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
+"http:error-prone"             = { bin = "error-prone.jar", format = "raw", url = "{{ vars.maven }}/com/google/errorprone/error_prone_core/{{ version }}/error_prone_core-{{ version }}-with-dependencies.jar", version = "latest", version_list_url = "{{ vars.maven }}/com/google/errorprone/error_prone_core/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
+"http:jspecify"                = { bin = "jspecify.jar", format = "raw", url = "{{ vars.maven }}/org/jspecify/jspecify/{{ version }}/jspecify-{{ version }}.jar", version = "latest", version_list_url = "{{ vars.maven }}/org/jspecify/jspecify/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
+"http:nullaway"                = { bin = "nullaway.jar", format = "raw", url = "{{ vars.maven }}/com/uber/nullaway/nullaway/{{ version }}/nullaway-{{ version }}.jar", version = "latest", version_list_url = "{{ vars.maven }}/com/uber/nullaway/nullaway/maven-metadata.xml", version_regex = "<version>([^<]+)</version>" }
 jactionlint                    = "latest"
 jscpd                          = "latest"
 pkl                            = "latest"
