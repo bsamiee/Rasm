@@ -1,4 +1,4 @@
-import type { AgentCallArgs, AgentInfo, AgentLimits, AgentStatus, EngineInterface, HttpInit, HttpResponse, InvalidatableEventName, SessionMessage, ToolCallResult, UiFocusArgs, UiScrollArgs } from 'claude-code';
+import type { AgentCallArgs, AgentInfo, AgentLimits, AgentStatus, EngineInterface, HttpInit, HttpResponse, InvalidatableEventName, SessionMessage, SessionRepo, ToolCallResult, UiFocusArgs, UiScrollArgs } from 'claude-code';
 import { Array, Context, Data, Effect, Formatter, HashSet, Layer, Match, Option, PlatformError, Record, Ref, Semaphore, type Stream, SubscriptionRef } from 'effect';
 import { call } from '#/engine/services';
 
@@ -34,6 +34,7 @@ class Engine extends Context.Service<
         readonly callTool: (args: AgentCallArgs) => Effect.Effect<ToolCallResult, PlatformError.PlatformError>;
         readonly cwd: Effect.Effect<string, PlatformError.PlatformError>;
         readonly root: Effect.Effect<string, PlatformError.PlatformError>;
+        readonly repo: Effect.Effect<Option.Option<SessionRepo>, PlatformError.PlatformError>;
         readonly agents: Effect.Effect<Record.ReadonlyRecord<string, AgentInfo>, PlatformError.PlatformError>;
         readonly limits: Effect.Effect<AgentLimits, PlatformError.PlatformError>;
         readonly messages: (agent: Option.Option<string>) => Effect.Effect<readonly SessionMessage[], PlatformError.PlatformError>;
@@ -137,6 +138,10 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
                 callTool: (args: AgentCallArgs) => call('agent.call', args.tool, (signal) => $.agent.call(args, { signal })),
                 cwd: call('session.cwd', 'main', () => $.session.cwd()),
                 root: call('session.root', 'main', () => $.session.root()),
+                repo: Effect.map(
+                    call('session.repo', 'main', () => $.session.repo()),
+                    Option.fromNullOr,
+                ),
                 agents: Effect.map(
                     call('agent.list', 'session', () => $.agent.list()),
                     (listed) =>
