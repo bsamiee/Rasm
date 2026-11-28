@@ -44,6 +44,7 @@ const features = {
     transforms: ['x=a; printf %s "${x@Q}"', "'a'"],
     nulls: [`setopt shwordsplit 2>/dev/null; x=' '; printf '<%s>' a\${x}""`, '<a><>'],
     leadingnulls: [`setopt shwordsplit 2>/dev/null; x=' '; printf '<%s>' ""\${x}a`, '<><a>'],
+    adjacentnulls: [`set -- ''; printf %s a"$@""$*"`, 'a'],
     quotedarithmetic: ['printf %s $(( "1" + 1 ))', '2'],
 } as const;
 const shells = {
