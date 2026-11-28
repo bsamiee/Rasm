@@ -79,6 +79,7 @@ const kashidaPlaces = (text: string, rows: Parameters<typeof candidates>[2]) =>
 `words`, `joins`, and `candidates` read the joining positions of Arabic text, and `BY_RANK` orders a place by its rank. `Array.isArrayNonEmpty` narrows each word's places, so `Array.min` returns the best one with no absent case:
 - Native methods state direct `filter`, `every`, `join`, `reduce`, or `Set` relations (`union`, `difference`, `isSupersetOf`), Effect modules others
 - Iterator helpers (`map`, `toArray`, `join`) traverse a `Map`, `Set`, or `matchAll` result, a spread or `Array.fromIterable` restating them
+- Hot paths (per Nx graph node or task) keep array forms until a `bench` run on the pinned Node measures iterator helpers or `Set` methods faster
 - `Record.collect` maps entries to an array and `Record.keys` lists keys, after any `Record.filter`, `Object.entries` pairs restating them
 - `Record.filterMap` maps through a `Result`: `Result.failVoid` drops an entry, `Result.fromOption` enters a lookup, `Schema.decodeResult` validates
 - Dictionaries use `Record.getSomes`, which widens keys; closed optional fields spread `Option.map` field objects through `Option.getOrUndefined`
@@ -86,6 +87,7 @@ const kashidaPlaces = (text: string, rows: Parameters<typeof candidates>[2]) =>
 - `Struct.renameKeys` maps keys to the spelling a host reads, `Struct.evolveKeys` computes them, a destructure rebuilding the object restating both
 - Named reductions (`Number.sumAll`, `BigDecimal.sumAll`, `Array.max`, `Array.groupBy`) state their fold, `Math.sumPrecise` a Node float sum
 - Sequences zip through `Array.zip` in pairs and `Iterator.zip` in larger sets, browser and Adobe host code keeping `Array.zip`
+- `lib` `esnext` declares members the pinned V8 lacks (`Iterator.chunks`, `Promise.allKeyed`), and code calls a member once `node` runs it
 - `reduce` with a seed folds a reduction no member names, `Array.mapAccum(xs, seed, (state, x) => [next, y])` maps under a running state
 - `Array.makeBy` and `Array.range` generate sequences from a length or bounds
 - Relations between neighbors map the adjacent pairs `Array.window(values, 2)` returns, a gap filling from `Array.range` over its pair
@@ -117,6 +119,7 @@ const verdict = Match.value({ command: Option.getOrUndefined(command), inPlace, 
 - Host enums match with an arm per member once decoded
 - Host unions with a discriminant match through `Match.discriminatorsExhaustive(key)(handlers)`, a `'k' in x` or `type !==` branch restating it
 - Refinements come from `Predicate` (`isObject`, `hasProperty`, `isTagged`) composed through `Predicate.and`, `or`, and `not`
+- `Error.isError` refines errors, as `Predicate.isError` tests `instanceof Error` and misses an error from another realm
 - `Predicate.isTagged` inside a `filter` narrows nothing after it, and `filterMap(Filter.tagged(tag))` narrows to the case
 
 ### [03.2]-[RECURSION]
@@ -178,7 +181,7 @@ Forbidden forms take the rebuild in their row, each module imported from `effect
 
 ## [04]-[IMMUTABILITY]
 
-Records a signature names are a class over their schema, `Schema.Opaque` over a struct, array, or tuple for plain data and `Schema.Class` for instances with getters and methods. Data inside the process is `Data.Class` and `Data.taggedEnum` where it carries a name or operations, and a module-private record stays a readonly object `Equal` compares by its keys.
+Records a signature names are a class over their schema, `Schema.Opaque` over a struct, array, or tuple for plain data and `Schema.Class` for instances with getters and methods. Data inside the process is `Data.Class` and `Data.taggedEnum` where it holds a name or operations, and a module-private record stays a readonly object `Equal` compares by its keys.
 
 ## [05]-[RESULTS]
 
@@ -234,14 +237,18 @@ Dependent steps bind and independent ones combine through `Effect.all`:
 - Values stay in one type through a pipeline, an `Option` inside an effect included, and a consumer matches it once at the end
 
 ```ts
-const run = Effect.fn('run')(function* (argv: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) {
-    const handle = yield* spawn(argv, { stdin: 'ignore', ...options, detached: false });
-    const [stdout, stderr, code] = yield* Effect.all([handle.stdout.pipe(Stream.decodeText, Stream.mkString), handle.stderr.pipe(Stream.decodeText, Stream.mkString), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? { stdout, stderr } : yield* ExitError.of({ command: CommandLine.display(argv), code, stdout, stderr });
+const run = Effect.fn('run')(function* (argv: Array.NonEmptyReadonlyArray<string>, { within = Duration.infinity, ...options }: ChildProcess.CommandOptions & { readonly within?: Duration.Input | undefined } = {}) {
+    const command = CommandLine.display(argv);
+    const handle = yield* spawn(argv, { stdin: 'ignore', forceKillAfter: '100 millis', ...options, detached: false });
+    const [stdout, stderr, code] = yield* Effect.all([handle.stdout.pipe(Stream.decodeText, Stream.mkString), handle.stderr.pipe(Stream.decodeText, Stream.mkString), handle.exitCode], { concurrency: 'unbounded' }).pipe(
+        Effect.timeoutOrElse({ duration: within, orElse: () => new Cause.TimeoutError(`${command} ran past ${Duration.format(Duration.fromInputUnsafe(within))}`) }),
+    );
+    const exited = { command, code, stdout, stderr };
+    return code === 0 ? exited : yield* ExitError.of(exited);
 }, Effect.scoped);
 ```
 
-`spawn` starts a `ChildProcess` with trace context in its environment, both pipes drain beside the exit code, and the code selects between the output and an `ExitError` the generator raises. Dependency structure and concurrency bound select a traversal over many effects:
+`spawn` starts a `ChildProcess` with trace context in its environment, both pipes drain beside the exit code under the `within` deadline, and the code selects between the output and an `ExitError` the generator raises. Dependency structure and concurrency bound select a traversal over many effects:
 
 | [INDEX] | [SCENARIO]                   | [TRAVERSAL]                                                | [BEHAVIOR]                               |
 | :-----: | :--------------------------- | :--------------------------------------------------------- | :--------------------------------------- |
@@ -357,6 +364,8 @@ Classes hold their data with operations reading one instance as methods and gett
 - Schemas declare where a boundary decodes or encodes through them, a member schema reached through its owner
 - Libraries return a layer or effect their entry point runs, require platform services, and leave the platform layer and runtime to that entry point
 - Package types pass whole, and consumers read returned host handles and the context a host passes its callback, a re-read from source restating them
+- Built-ins of the pinned Node (`findPackageJSON`, `crypto.hash`, `node:net` `BoundSocket`) replace a package, a shell-out, or a parse of tool output
+- Darwin system calls without a `node:` module go through service `Darwin` of `@rasm/darwin`, one `node:ffi` symbol image, in place of a spawned tool
 - Tool facts come from the tool's own resolution decoded through a schema (`calculateConfigForFile`, `rustc --print`, `jscpd --debug`)
 - Models of a tool's config search, regexes over its human output, and tests of its error wording restate that resolution
 - Host process-global defaults (`GlobalWorkerOptions.workerSrc`) stay unset, each instance taking the value through its constructor option

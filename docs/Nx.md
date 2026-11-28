@@ -24,6 +24,7 @@ Plugin globs, `targetDefaults` rows, and what Nx does with each:
 
 Task hash contents:
 - Input files hash whole, and JSON files alone take a field filter
+- `nx.json`, `.gitignore`, and `tsconfig.base.json` hash into every task, and no setting removes them
 - Each file belongs to the deepest project holding it, and a `{projectRoot}` fileset matches a project's own files alone
 - Plugins name files a tool loads from below a project folder by `{workspaceRoot}`, as no plugin sees projects another plugin infers there
 - Each task hashes its project's root, tags, named inputs, and each target's name, executor, outputs, options, configurations, and parallelism
@@ -54,7 +55,7 @@ Task runs and their order:
 
 Remote cache clients and the inputs deciding which machines share a result:
 - Owner's Mac reads Doppler `dev` through mise `[env]`, and uses its local cache while `dev` holds no row
-- Tasks the owner's Mac runs fill the cache, and CI jobs read them where each hash input matches, job `macos` its Swift and Xcode tasks
+- Owner's Mac and CI jobs share one remote cache, and results serve each machine with matching hash inputs, job `macos` the Mac's Swift and Xcode tasks
 - .NET targets but format hash `CI`, as MSBuild sets properties under it
 - Vitest targets hash no `CI`, as their executor refuses `.only` and writes no missing snapshot on every machine
 - Vitest targets hash platform, as suites read host shells and file systems, and no Mac result of theirs serves a Linux or Windows job

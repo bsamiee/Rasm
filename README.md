@@ -81,8 +81,7 @@ Rasm/
 - State sits in the folder its lifetime matches, inside the folder a cache saves or outside the folder a reinstall replaces
 - Changes start from reading the file and log line their claim cites, as docs and reviews state facts those files contradict
 - `hk check <paths>` and `hk fix <paths>` run `.config/hk.pkl` steps over named paths and its `commit-msg` hook over commit messages
-- Checkers reading only the files or project folder hk names run as hk steps, and checkers reading an environment or the repository as Nx targets
-- Checkers reading given files alone run in hk, tools reading an environment or whole repository as cached Nx targets, and neither calls the other
+- Checkers reading named files or folders run as hk steps, tools reading an environment or repository as cached Nx targets, neither calling the other
 
 ## [03]-[FLOW]
 
@@ -141,14 +140,14 @@ flowchart LR
 mise installs every tool, `[env]` holds process variables, and `[bootstrap]` holds what a machine's OS keeps across boots:
 - `mise bootstrap` configures a machine for the workspace after a clone
 - `mise install` installs every tool and project dependency and sets the rustup default to the pinned toolchain
-- `mise install` runs `cargo clean` in a checkout whose build folder another compiler wrote, read from the `.rustc_info.json` Cargo keeps there
+- `mise install` runs `cargo clean` in a checkout with a build folder another compiler wrote, read from the `.rustc_info.json` Cargo keeps there
 - New compilers rebuild every crate beside the old one's artifacts Cargo keeps, and a new Rust toolchain prunes the old one with its compiler source
 - `.config/mise.toml` `[tools]` rows stay at `latest` where a backend lists releases, and a `version_regex` excludes development builds
 - Platform rows sit in the `.config/mise.<os>.toml` mise loads, as only a file limits a row to one OS
 - `.config/mise/locks/` holds the dependency lock mise writes for each npm and PyPI tool row, and a locked install fails without it
 - Checkers a uv or pnpm catalog can hold sit there, never in an npm or PyPI tool row
 - `hk check` runs `mise lock --check` under no profile and under `ci`, as a row its lock lacks fails every locked install
-- Doppler project `rasm` and 1Password hold every secret, a registry token as a `rasm/release` row named as the variable its publish target reads
+- `Doppler` project `rasm` and 1Password `op` hold every secret
 
 ## [05]-[WORKSPACES]
 
@@ -250,6 +249,7 @@ Products deliver through the same targets in every ecosystem, development builds
 - `nx run-many -t attach -c release` uploads released files to each tag's GitHub release, and stores with no upload API take files by hand
 - `attach` creates a tag's GitHub release where none exists, as `nx release` makes none for hand-made tags or dependents outside `--projects`
 - `nx release publish` sends the same files to each registry or store its ecosystem's publish setting allows, skipping until a credential is set
+- Publish targets authenticate through a registry's trusted publishing where it offers one, else through a `rasm/release` row named as the variable they read
 - Store items take their first upload by hand at the store dashboard, as store APIs publish only to listed items
 - `deploy` applies a project's Pulumi stacks after its dependencies', `-c release` a released version's, `deploy--pulumi --stack=<name>` one stack
 - `dry-run` previews what `deploy` applies over build output on disk and runs no other task, `dry-run--pulumi --stack=<name>` one stack
@@ -264,4 +264,5 @@ Products deliver through the same targets in every ecosystem, development builds
 - Container engines run under systemd on machines and, on the owner's Mac, in a Colima VM `DOCKER_HOST` names
 - Project `docker` exists on every machine, and its `install--docker` starts the Colima VM a workspace `COLIMA_HOME` names or confirms systemd's engine answers
 - Packages requiring an engine client take tag `host:docker`, and their `test--*` and `install--*` tasks depend on `docker:install--docker`
-- Colima keeps its VM in `.cache/colima` under profile `COLIMA_PROFILE`, as Docker contexts take a profile name and a `default` profile elsewhere owns context `colima`, `install--docker` mounts its data disk with online discard, `clean--docker` prunes images and build cache, and `nx clean -c cache` deletes it
+- Colima keeps its VM in `.cache/colima` under profile `COLIMA_PROFILE`, as Docker contexts take a profile name and a `default` profile elsewhere owns context `colima`
+- `install--docker` mounts Colima's data disk with online discard, `clean--docker` prunes images and build cache, and `nx clean -c cache` deletes the VM

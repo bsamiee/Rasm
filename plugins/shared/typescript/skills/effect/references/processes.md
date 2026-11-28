@@ -15,6 +15,12 @@ Work leaving the current fiber selects its form by what runs and what a caller r
 
 Worker threads share their process: `process.chdir` and signal listeners are absent, `process.env` is a copy, and `process.exit` ends the thread alone. Work needing its own working directory, its own signals, process-global state (`process.exitCode`), or a crash boundary runs in a `fork` child, and `NodeWorker.layer` drives a forked child as it drives a thread.
 
+Node flags go where the process or thread needing them starts (its argv, `execArgv`, `sea.json`, a target's `NODE_OPTIONS`):
+- Processes calling an experimental API (`node:ffi`, zlib ZIP, single executables) start with `--disable-warning=ExperimentalWarning`
+- Worker `execArgv` scopes a per-thread flag to its thread and refuses a per-process one (`--process-timeout`)
+- Code running inside a host process (an Nx executor) moves a call needing a flag into a Worker started with it
+- `NODE_OPTIONS` refuses `--process-timeout` and `--config-file`, and `--process-timeout` refuses every inspector
+
 ## [02]-[CHILD_PROCESSES]
 
 `ChildProcess.make` describes a command, and yielding it spawns a process through `ChildProcessSpawner` into a handle the enclosing scope owns. Programs answering through their exit code (`git check-ignore`, `rg`) return it beside their output, and a code outside the answer fails:
@@ -27,7 +33,7 @@ const ignored = Effect.fn('ignored')(function* (cwd: string, paths: readonly str
 }, Effect.scoped);
 ```
 
-Effect holds no member failing on a non-zero exit, and `run` of `@rasm/process` owns that form, reading every pipe and failing with `ExitError` holding command, code, stdout, and stderr. Pipes default to `'pipe'`, a child blocks before exit on a full pipe no fiber reads, and each piped stream is read or set to `'inherit'` or `'ignore'`:
+Effect holds no member failing on a non-zero exit, and `run` of `@rasm/process` reads every pipe and fails with `ExitError` holding command, code, stdout, and stderr, or with `TimeoutError` past its `within` deadline. Pipes default to `'pipe'`, a child blocks before exit on a full pipe no fiber reads, and each piped stream is read or set to `'inherit'` or `'ignore'`:
 - `ChildProcessSpawner` `string`, `lines`, `streamString`, and `streamLines` read stdout, drain stderr, and succeed whatever the exit code
 - `includeStderr: true` interleaves stderr into a `ChildProcessSpawner` read
 - `exitCode` fails with `PlatformError` for a child a signal ended, and a failed `stdin` stream fails it first
@@ -52,7 +58,7 @@ Arguments are spelled once, and `make` parses a template when called:
 
 Release signals the process group a command leads, and each command leads one of its own while `detached` holds its default `true` outside Windows:
 - Scope close sends `killSignal` (`SIGTERM`) to the group, waits for its leader without limit, then up to one second for the group
-- `forceKillAfter` adds `SIGKILL` to scope close
+- `forceKillAfter` adds `SIGKILL` to scope close, and `run` sets it, so a leader ignoring `SIGTERM` holds no deadline open
 - Leaders exiting non-zero signal their group at exit, and a zero exit signals it at scope close, ending descendants a program left running
 - `detached: false` keeps the child in the parent's group: terminal interrupts reach it, release signals it alone, and its descendants outlive it
 - `handle.unref` lets a parent exit first and leaves its child running at scope close, the `Reref` effect it returns restoring both
@@ -82,7 +88,7 @@ const resolved = Effect.fn('resolved')(function* (at: string) {
 - Worker threads receive their input through `workerData` and reply through `parentPort.postMessage`
 - Replies cross structured clone, class instances arriving as plain objects the reply schema decodes
 - `fork` children take the same race, an `Effect.tap` sending their request before `Effect.raceFirst`
-- `fork(entry, { serialization: 'advanced' })` carries what JSON drops (`Uint8Array`, `Map`, `BigInt`)
+- `fork(entry, { serialization: 'advanced' })` sends what JSON drops (`Uint8Array`, `Map`, `BigInt`)
 - `Worker` disposes through `terminate()` and awaits its thread's end, a forked child through `kill()` returning at the signal
 - Steps reading a forked child's exit await `once(child, 'exit')` inside the scope
 

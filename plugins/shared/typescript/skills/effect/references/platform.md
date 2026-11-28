@@ -19,6 +19,7 @@ Paths and patterns come from the package, never from text tests:
 - `path.resolveWithin(root, input)` returns `Option.none()` for input leaving `root` or holding its own root, and follows no symlink
 - `fs.glob(pattern, { root, exclude, dot })` walks depth first with each folder sorted by name, and reads no excluded folder
 - `Glob.make(pattern, { dot })` compiles once for `Glob.match(glob, path)` with no disk read, in place of `node:path` `matchesGlob`
+- Patterns Nx declares (a target's inputs and outputs) match through `matchGlobPaths` of `@nx/devkit/internal`, Nx's own matcher
 - `Glob.escape(text)` matches a name literally, and leading segments equal to their escaped form are a pattern's literal base
 
 Engines with a file API and no Node runtime build `FileSystem` and `Path` from their primitives:

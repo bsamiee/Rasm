@@ -30,7 +30,10 @@ Root `vitest.config.ts` derives its inline projects from the tree:
 - Projects `<name> workers` run `*.workers.test.ts` through `cloudflareTest` over their suite's `cloudflare.config.ts`, `<name> node` other files
 - Suites listing `vitest-browser-react` in `devDependencies` run in browser mode on Playwright Chromium
 - Packages listing `@storybook/addon-vitest` in `devDependencies` add a browser project through `storybookTest`, named by package
-- Suites listing `nx` or `@nx/devkit` in `devDependencies` run with the Nx daemon off, workspace data in `.nx/workspace-data`, and color off
+- Suites listing `nx` or `@nx/devkit` in `devDependencies` run with the Nx daemon off and workspace data in `.nx/workspace-data`
+- Projects take `--disable-warning=ExperimentalWarning` in `execArgv`, and Node projects `--process-timeout` at twice `testTimeout`
+- `--process-timeout` ends a synchronous hang with its stack, where Vitest's timeout timer never fires
+- Runs under Vitest's inspector leave `--process-timeout` off, as Node opens no inspector beside it
 - Projects write browser screenshots and traces beside the resolved `attachmentsDir`, and a lone `@rasm/nx-vitest` target sets it under `outputPath`
 - Target batches write them once beside root `attachmentsDir`, and each project's attachments to its own target's `outputPath`
 - Root `test` keeps the default reporter alone, as no task restores a report written for every suite, and projects inherit its `chaiConfig`

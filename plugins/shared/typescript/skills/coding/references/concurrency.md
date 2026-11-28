@@ -35,7 +35,7 @@ const answer = Effect.fnUntraced(function* <A, E>(calls: FiberSet.FiberSet<A, E>
 
 ## [02]-[STREAMS]
 
-`Stream<A, E, R>` pulls values on demand, and a slow consumer slows its producer. Host listeners with synchronous per-event work (render and write) stay a plain function the host calls. Each source enters through the constructor its shape selects:
+`Stream<A, E, R>` pulls values on demand, and a slow consumer slows its producer. Host listeners with synchronous per-event work (render and write) stay a plain function the host calls, registered through `Effect.acquireRelease` in the reading scope, as a process-global source (`diagnostics_channel`) keeps a handler a rebuilt layer dropped. Each source enters through the constructor its shape selects:
 
 | [INDEX] | [SOURCE]                     | [CONSTRUCTOR]                                                        |
 | :-----: | :--------------------------- | :------------------------------------------------------------------- |

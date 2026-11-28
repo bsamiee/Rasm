@@ -22,8 +22,7 @@ Tests use each module below before a hand form:
 |  [09]   | Chromium                    | `@vitest/browser-playwright`, `vitest-browser-react`, `@playwright/test`, `@axe-core/playwright`       |
 |  [10]   | Firefox                     | `selenium-webdriver`                                                                                   |
 |  [11]   | Workers runtime             | `@cloudflare/vitest-plugin` (`cloudflare:test`, `cloudflare:workers`)                                  |
-|  [12]   | Free ports                  | `get-port`                                                                                             |
-|  [13]   | Shared harnesses            | `@rasm/testing`                                                                                        |
+|  [12]   | Shared harnesses            | `@rasm/testing`                                                                                        |
 
 [REFERENCES]:
 - [01]-[CLIENTS](references/clients.md): In-memory contract clients, servers on an ephemeral port, routed `fetch`, and what each client encodes
@@ -39,9 +38,10 @@ Tests use each module below before a hand form:
 - Root `vitest.config.ts` builds a Vitest project from each workspace manifest naming `vitest`, its dev dependencies choosing the environment
 - Node suites sharing a configuration and options run in one `vitest run` batch, and a browser suite runs alone
 - Words after `--` join `vitest run` (`nx test <project> -- -t '<title>'`)
-- Suites run with `CI=false`, and suites depending on Nx with `NX_DAEMON=false` and color off
+- Suites run with `CI=false`, and suites depending on Nx with `NX_DAEMON=false`
 - `test--vitest` sets `allowOnly: false` and `update: 'none'` unless words after `--` set them, so a `.only` test or a missing snapshot fails
 - `testTimeout` and `hookTimeout` hold 15 minutes as a hang bound alone, so each wait a test makes states its own deadline
+- `vitest run <file> --inspect-brk --no-file-parallelism` at the root waits for a debugger on port 9229, and its workers start without `--process-timeout`
 - `silent: 'passed-only'` prints the console of failing tests, and `truncateThreshold: 0` prints each compared value whole
 - `flakyTest` of `@effect/vitest` and the Vitest `retry` option turn a flaky failure green and stay out of every suite
 
@@ -107,7 +107,7 @@ Async tests await each event they assert and observe absence after its source en
 ## [05]-[FIXTURES]
 
 Tests own what they create under a name no other test uses, released when their scope ends:
-- Files sit under `fs.makeTempDirectoryScoped()` or `mkdtempSync(join(tmpdir(), '<prefix>-'))`, and servers listen on port 0
+- Files sit under `fs.makeTempDirectoryScoped()` in Effect and `mkdtempDisposableSync` outside it, and servers listen on port 0
 - Handles release through `Effect.acquireDisposable` or `Effect.acquireRelease` in the test's scope, and through `onTestFinished` outside Effect
 - Variables `vi.stubEnv` sets reset through `vi.unstubAllEnvs`
 - `test.extend('<name>', { scope }, fn)` declares a fixture returning its value with `onCleanup` releasing it, scope `'test'`, `'file'`, or `'worker'`
@@ -115,13 +115,13 @@ Tests own what they create under a name no other test uses, released when their 
 
 `@rasm/testing` holds harnesses more than one suite reads:
 
-| [INDEX] | [EXPORT]                   | [HOLDS]                                                                             |
-| :-----: | :------------------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `@rasm/testing/nx`         | `Workspace` in a temporary folder, `Workspace.scoped` for an Effect scope, `it` with `workspace` and `fileWorkspace` |
-|  [02]   | `@rasm/testing/http`       | `transport(app)`, an `HttpClient` layer whose `fetch` runs an app in process        |
-|  [03]   | `@rasm/testing/playwright` | `config`, `it` with `axe`, `loaded` with an unpacked extension, `media`, `resource` |
-|  [04]   | `@rasm/testing/errors`     | `refused(pattern)`, a match on an Nx plugin error's nested messages                 |
-|  [05]   | `@rasm/testing/path`       | `windows(actual)`, `node:path` with Windows separators for `vi.mock`                |
+| [INDEX] | [EXPORT]                   | [HOLDS]                                                                                           |
+| :-----: | :------------------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | `@rasm/testing/nx`         | `Workspace`, `Workspace.scoped`, `bounded`, `it` with `workspace`, `fileWorkspace`, and `scratch` |
+|  [02]   | `@rasm/testing/http`       | `transport(app)`, an `HttpClient` layer whose `fetch` runs an app in process                      |
+|  [03]   | `@rasm/testing/playwright` | `config`, `it` with `axe`, `loaded` with an unpacked extension, `media`, `resource`               |
+|  [04]   | `@rasm/testing/errors`     | `refused(pattern)`, a match on an Nx plugin error's nested messages                               |
+|  [05]   | `@rasm/testing/path`       | `windows(actual)`, `node:path` with Windows separators for `vi.mock`                              |
 
 ## [06]-[SUITES]
 

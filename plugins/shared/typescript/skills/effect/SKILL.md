@@ -48,16 +48,18 @@ Families serve one need each, and a need a row excludes takes the family it name
 
 Runtimes supply platform services through layers, and the root provides them once:
 
-| [INDEX] | [RUNTIME]             | [LAYERS]                                                                                             |
-| :-----: | :-------------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | Node process          | `NodeServices.layer`, `NodeHttpServer.layerConfig`, `NodeHttpClient.layerUndici`, `NodeCrypto.layer` |
-|  [02]   | Browser               | `FetchHttpClient.layer`, `layerWebCrypto` per crypto service, `KeyValueStore.layerStorage`           |
-|  [03]   | Fetch handler         | `HttpServer.layerServices`, `FetchHttpClient.layer`, `ConfigProvider.fromUnknown(env)`               |
-|  [04]   | Engine with own calls | `FileSystem.make(FileSystem.makeNoop(...))`, `ChildProcessSpawner.make`, `Path.make`                 |
+| [INDEX] | [RUNTIME]             | [LAYERS]                                                                                               |
+| :-----: | :-------------------- | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | Node process          | `NodeServices.layer`, `NodeHttpServer.layerConfig`, `NodeHttpClient.layerNodeHttp`, `NodeCrypto.layer` |
+|  [02]   | Browser               | `FetchHttpClient.layer`, `layerWebCrypto` per crypto service, `KeyValueStore.layerStorage`             |
+|  [03]   | Fetch handler         | `HttpServer.layerServices`, `FetchHttpClient.layer`, `ConfigProvider.fromUnknown(env)`                 |
+|  [04]   | Engine with own calls | `FileSystem.make(FileSystem.makeNoop(...))`, `ChildProcessSpawner.make`, `Path.make`                   |
 
 - `NodeServices.layer` provides `ChildProcessSpawner`, `FileSystem`, `Path`, `Stdio`, and `Terminal`, the environment a CLI command reads
 - `NodeHttpServer.layerConfig` supplies `HttpPlatform`, `Etag.Generator`, and every `NodeServices` service beside the server
 - `NodeCrypto.layer` provides every `effect/crypto` service, each supplying its own `SecureRandom`, and `NodeServices` holds none
+- `NodeHttpClient.layerNodeHttp` sends through Node's `node:http`, where `layerUndici` adds the undici package to a bundle
+- `layerNodeHttpOptions({ keepAlive: true })` reuses sockets, as its agents close each one after its response by default
 - `HttpServer.layerServices` supplies `HttpPlatform`, `Etag.Generator`, `Path`, and a `FileSystem` holding no files, meeting `HttpApiBuilder.layer` on a fetch handler
 
 Engines that run code with calls of their own and no platform layer (the Claude Code hooks engine) take platform services built over those calls, so libraries reading `FileSystem`, `ChildProcessSpawner`, and `Path` run unchanged:

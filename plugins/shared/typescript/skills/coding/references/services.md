@@ -60,15 +60,14 @@ const access = Config.all({
 `ConfigProvider.ConfigProvider` is a reference defaulting to `fromEnv()`, and a root replacing it states every source in lookup order:
 
 ```ts
-const provider = ConfigProvider.fromEnv().pipe(
-    ConfigProvider.nested(name),
-    ConfigProvider.constantCase,
-    ConfigProvider.orElse(ConfigProvider.fromUnknown(defaults).pipe(ConfigProvider.mapInput(flow(Array.span(Predicate.isString), ([keys, indices]) => [keys.join('.'), ...indices])))),
-    ConfigProvider.orElse(ConfigProvider.fromEnv()),
-);
+const preferences = ConfigProvider.make((path) => {
+    const [keys, indices] = Array.span(path, Predicate.isString);
+    return darwin.preference(identifier, keys.join('.')).pipe(Effect.flatMap((found) => found.pipe(Option.getOrUndefined, ConfigProvider.fromUnknown).load(indices)));
+});
+const provider = ConfigProvider.fromEnv().pipe(ConfigProvider.nested(name), ConfigProvider.constantCase, ConfigProvider.orElse(preferences), ConfigProvider.orElse(ConfigProvider.fromEnv()));
 ```
 
-`name` is the last segment of the app's bundle identifier, and `defaults` the record `defaults export` prints for it, keyed by dotted path. A path reads the environment under the app's name, then the macOS defaults domain, then the environment alone:
+`identifier` is the app's bundle identifier, `name` its last segment, and `darwin.preference` reads one dotted key of its macOS defaults domain through `node:ffi`. A path reads the environment under the app's name, then the defaults domain, then the environment alone:
 - `ConfigProvider.layer(provider)` replaces the provider in a root's last `Layer.provide`, `Effect.provideService` around one program
 - `ConfigProvider.layerAdd(provider)` falls back to a source after the current one, `{ asPrimary: true }` reading it first
 - Host records enter through `fromUnknown` (a Worker's `env` filtered to plain values), files through `fromDotEnv` and `fromDir` (one file per key)
@@ -88,7 +87,8 @@ Layers remove `Scope` from their requirements. Resource lifetime selects where a
 `readTypeScript` starts a compiler process, and `Declarations.make` holds it through row 03: the first page read starts the process, later reads share it, and the layer scope stops it:
 - Host handles implementing `Disposable` or `AsyncDisposable` enter through `Effect.acquireDisposable`, released by their own dispose
 - Handles without a dispose method enter through `Effect.acquireRelease`, its release receiving the `Exit`
-- Host clients with a package-published layer (`NodeHttpClient.layerUndici`) enter through the published layer
+- Synchronous code outside Effect holds handles in `using` bindings or one `DisposableStack`, released in reverse order at block exit
+- Host clients with a package-published layer (`NodeHttpClient.layerNodeHttp`) enter through the published layer
 - Reads a service warms at build fork through `read.pipe(Effect.ignore, Effect.forkScoped)`, layer build continuing and the fork ending with the layer
 - Values a scope owns are read inside it, and a value read after a call is acquired at a longer lifetime
 

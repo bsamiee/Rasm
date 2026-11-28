@@ -85,14 +85,15 @@ Machines, their roles, and their reinstall:
 Images stacks build, push, and pull:
 - Docker engines build stack images from inline Dockerfiles with build checks as errors, load local images, and push registry images
 - Builds run in a BuildKit container the build provider creates per client, and previews build no image
+- Docker Engine bounds its build cache by its disk-relative defaults, as deploy builds run on BuildKit builders each deploy removes
 - Playwright images rebuild on a changed Playwright version or Dockerfile alone, and read and write layer cache at tag `cache`
 - Playwright images add `curl`, a C compiler, and ICU, as action `tools` downloads mise, builds cargo tools, and runs `dotnet` inside them
 - Playwright images give user `node` home `/github/home`, the `HOME` Actions sets in job containers, as rustup reports a home differing from its user's
 - Pushed images hold their source label as a manifest annotation, as GHCR links a package by annotation alone and a linked package inherits access
 - Pushed images hold their registry credentials, as a changed `registries` setting replaces the build provider and images ignore a changed password
 - Locally built images lost from their machine stay in stack state until a deploy replaces their `docker-build:Image` resource
-- Pulled images take name `<tag>@<digest>` from registry digests each deploy reads, and a moved tag replaces its image, then its containers
-- Built images take each `FROM` base as `<tag>@<digest>` from the registry digest each deploy reads, so a moved base rebuilds its image
+- Pulled images and each built image's `FROM` base take name `<tag>@<digest>` from the registry digest each deploy reads
+- Moved tags replace a pulled image, then its containers, and a moved base rebuilds its image
 - Role `Runner` pulls the Playwright image it built and the test container images `@rasm/testing/containers` names, each tagged as tests name it
 - Machine Docker providers sign in to Docker Hub with rows `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`, as anonymous digest reads and pulls share one hourly allowance per address
 - Docker removes no image name a container uses, its provider pulls no name a machine holds, and stacks pull no image by tag alone
@@ -129,7 +130,7 @@ Routes from public names to containers:
 
 Nx cache server of role `Cache`:
 - Nx cache server `nxcite/nx-cache-server` answers at HTTPS name `<name>.<zone>` of role field `name` and takes a read-write and a read-only token
-- Runners reach the server over public HTTPS through its proxy
+- Owner's Mac and every CI job reach one server over public HTTPS through its proxy
 - Doppler `ci` holds server URL and both tokens, `dev` references URL and read-write token, and `deploy` both tokens
 - Cache objects expire role field `kept` after their write with no refresh on read, and an unchanged task runs again once per `kept`
 - Incomplete cache uploads abort role field `abort` after they start, as no upload outlasts a job
@@ -193,4 +194,3 @@ Package updates and reboots of each machine:
 - Reboots stop runner services through their drain
 - Unattended upgrades keep changed conffiles (`--force-confold`), as the Hostinger image changes `cloud.cfg` and a changed or deleted conffile holds its package
 - Reinstalls restore `docker-compose-plugin` and `docker-ce-rootless-extras` as recommendations of Docker's packages, and no code runs either
-- Docker Engine bounds its build cache by its disk-relative defaults, as deploy builds run on BuildKit builders each deploy removes

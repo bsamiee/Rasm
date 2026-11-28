@@ -82,7 +82,7 @@ Schemas state a domain once for the code under test and its generator:
 - `Arbitrary.schema` throws when it cannot compile a schema or find a finite route through a recursive one, and `array` throws `RangeError` on invalid bounds
 
 Draws favor limits, early attempts most:
-- Lengths land on a bound and integers near zero or a bound in 1 draw of `2 + floor(log10(attempt + 1))`
+- Lengths fall on a bound and integers near zero or a bound in 1 draw of `2 + floor(log10(attempt + 1))`
 - Strings draw at that rate from a hostile set (`''`, `'\0'`, `'__proto__'`, `'constructor'`, lone surrogates, `'😀'`) fitting their length bounds
 - Records take a null prototype every `4 × (2 + floor(log10(attempt + 1)))` attempts, and `structuredClone` mapped over a draw gives each record `Object.prototype` (`Plain` in `host.test.ts`)
 - Domains refusing a hostile value filter it at its generator, as `construction.test.ts` drops `'\0'` and ill-formed strings from `unit`
@@ -113,7 +113,7 @@ Shrinking starts at a first failure and inspects up to `maxShrinks` candidates, 
 - Candidates a check, `filter`, or dependent generator rejects spend budget unevaluated, as do candidates failing with the other class
 - Searches return the best input found inside their budget, never a proven minimum
 - Candidates pass every schema check and filter, so each shrunk input is one the generator can draw
-- Arrays drop prefixes and interior blocks inside their length bounds, `all` shrinks one member at a time, and `flatMap` its source first
+- Arrays drop prefixes and inner blocks inside their length bounds, `all` shrinks one member at a time, and `flatMap` its source first
 - Union values from a costlier member try a draw of the cheapest member first
 - Typed errors can change while shrinking, as the runner compares failure classes alone
 - `Arbitrary.schema(S, { shrink })` replaces derived shrinking with a synchronous, deterministic callback whose candidates the schema validates

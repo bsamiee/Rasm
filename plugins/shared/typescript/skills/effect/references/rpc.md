@@ -16,7 +16,7 @@ const ApplicationRpcs = RpcGroup.make(
 `Unmatched` is the lookup package's error, and `Event`, `Pressure`, `ProcessInstance`, and `Act` are schemas of the contract a Swift peer serves:
 - `payload` fields build a `Schema.Struct`, and a spread of a class's `fields` joins its members to the request's own
 - `stream: true` streams `success` and moves `error` into the stream, so a failure ends the subscription and a source whose reads fail and recover streams `Schema.Result` elements
-- `Schema.ErrorInstance()` carries a peer's error as `message`, `name`, and `cause` where no package error names it, beside package errors a caller branches on
+- `Schema.ErrorInstance()` holds a peer's error as `message`, `name`, and `cause` where no package error names it, beside package errors a caller branches on
 - `defect` sets the schema a defect crosses the wire through, `Schema.Defect()` by default, and `primaryKey` on a fields payload makes the payload a class with a `PrimaryKey`
 - `.add`, `.merge`, `.prefix`, and `.omit` extend, join, rename, or narrow a group, and `.middleware(M)` reaches the procedures the group holds when called
 - `group.requests` maps each tag to its `Rpc`, and a peer announces the procedures it serves from `requests.keys()`
@@ -41,7 +41,7 @@ const served = RpcServer.layer(Link, { concurrency: 1, disableFatalDefects: true
 - Handler defects send a `Defect` frame that fails every open call of the connection, streams included, while the server runs those handlers on
 - `disableFatalDefects: true` returns a defect as its own call's exit, the setting for any server holding streams or calls open beside one another
 - Socket protocols acknowledge each stream chunk, the server writing the next after the acknowledgement and the client buffering `streamBufferSize` chunks (16)
-- Ending a stream's consuming scope sends `Interrupt`, which interrupts its handler fiber, so a resource a stream handler acquires lives for one subscription
+- Ending a stream's consuming scope sends `Interrupt`, which interrupts its handler fiber, so a resource a stream handler acquires lasts one subscription
 - `RpcMiddleware.Service` declares server middleware, its `error` schema joining each procedure's errors
 
 ## [03]-[CLIENTS]

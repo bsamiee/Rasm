@@ -27,10 +27,18 @@ Emit and bundle rules:
 - Emitted files keep specifiers `#/<path>` and `#/<path>.tsx`, and published rows `#/*` and `#/*.tsx` send them to `./dist/*.js`
 - Published rows of every other kind serve files at their source path, and `files` lists each one
 - Vite library mode writes no `.d.ts`, and a typed library builds with `tsc`
-- Vite bundles through Rolldown and transforms and minifies through Oxc
+- Vite bundles through Rolldown and transforms and minifies through Oxc, browser builds alone by default
 - Rolldown `checks` emit warnings, and every Vite build includes plugin `checks` of `@rasm/vite/checks`
 - Plugin `checks` fails a build on each warning that marks wrong output, and `PLUGIN_TIMINGS` stays a warning
 - Server and CLI bundles set `noExternal: true`, and the runtime libraries Rolldown inlines sit in `devDependencies`
+- Server, CLI, and plug-in builds minify with `mangle: false`, as stack frames name functions, and browser and Workers builds mangle
+- Workers deploys upload their maps, and Node bundles write a hidden map without sources beside each file
+- `@rasm/telemetry` maps each logged stack frame through `module.SourceMap`, read on the first error
+- `--enable-source-maps` stays off, as it parses the whole map at start and Effect reads stacks at module load
+
+Single executables `@rasm/vite/executable` builds:
+- Generated `main.mjs` enables the compile cache per package under `NODE_COMPILE_CACHE`, else the temp folder, and flushes it after import
+- `strip -x` drops local symbols between `--build-sea` and `codesign`, and the `NODE_SEA` segment survives
 - Targets reading another package's `dist` depend on its build (`^build`)
 
 ## [03]-[PACKAGE_CONTENTS]

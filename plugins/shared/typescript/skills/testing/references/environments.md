@@ -54,7 +54,7 @@ Servers that listen before they serve take the signal they print when serving (`
 
 Ports follow who binds them:
 - Container ports declared through `withExposedPorts(port)` map to a free host port the engine chooses, and tests dial `container.getHost()` at `container.getMappedPort(port)`
-- Programs a test starts that bind a port it names take a free number from `getPort()` of `get-port` (an `ssh -L` bind address, a served product)
+- Programs a test starts that bind a port it names take the port a `node:net` `BoundSocket` binds and closes (an `ssh -L` bind address, a served product)
 - Listeners a test opens listen on port 0 and read the bound port from their address
 - Concurrent tests binding ports inside one container lease them from a fixed exposed range through a `Queue` under `Effect.acquireRelease`, returning each at release
 - Images a suite builds pass `{ deleteOnExit: false }` to `build`, keeping the image cached across runs outside the reaper's session
@@ -126,8 +126,9 @@ Nx plugin and executor suites run against a workspace in a temporary folder from
 | :-----: | :-------------- | :------ | :------------------------------- |
 |  [01]   | `workspace`     | Test    | `onTestFinished` of its test     |
 |  [02]   | `fileWorkspace` | File    | `onCleanup` after the file's end |
+|  [03]   | `scratch`       | Test    | `onCleanup` of its test          |
 
-Fixtures create `realpath(mkdtemp('<tmpdir>/nx-workspace-'))`, `chdir` into it, set Nx's workspace root, and set `NX_DAEMON=false`, restoring each at release. Working folder and workspace root are process-wide, so a file reading either fixture runs its tests in sequence. Files needing one expensive graph for many assertions extend `fileWorkspace` into a file-scoped fixture returning that graph (`nx.extend('fixture', { scope: 'file' }, async ({ fileWorkspace }) => ...)`).
+Workspace fixtures create `realpath(mkdtemp('<tmpdir>/nx-workspace-'))`, `chdir` into it, set Nx's workspace root, and set `NX_DAEMON=false`, restoring each at release. Working folder and workspace root are process-wide, so a file reading either fixture runs its tests in sequence. Files needing one expensive graph for many assertions extend `fileWorkspace` into a file-scoped fixture returning that graph (`nx.extend('fixture', { scope: 'file' }, async ({ fileWorkspace }) => ...)`). `scratch(prefix)` returns a new `mkdtempDisposableSync` folder under the real temp folder.
 
 `Workspace` methods:
 
@@ -141,12 +142,14 @@ Fixtures create `realpath(mkdtemp('<tmpdir>/nx-workspace-'))`, `chdir` into it, 
 |  [06]   | `poll(graph, project, target)`               | Spawns a `command` probe, returning a deadline function over its exit `Option` |
 |  [07]   | `cached(graph, project, target)`             | Lists files on disk matching a target's declared `outputs`                     |
 |  [08]   | `files(...ignored)`, `context(graph, ...)`   | Lists workspace files, builds an `ExecutorContext` for an executor call        |
+|  [09]   | `spawned(file, args, options, set)`          | Returns `bounded` spawn arguments in the workspace under `environment`         |
 
 - `install` takes a `package.json` file URL (`import.meta.resolve('<pkg>/package.json')`), or `[name, url]` to link under another name, as `typescript` links `@typescript/native`
 - `graph` binds options into `createNodes` and `createDependencies` and builds in process with no daemon
 - `poll` returns `(wait) => Promise<Option<code>>`, so a test reads `Option.none()` before a port listens and `Option.some(0)` after
 
 Module functions serve tool runs, remote caches, and graph checks:
+- `bounded(file, args, options)` returns `spawnSync` arguments with the test's remaining time as `timeout`, and a `node` child `--process-timeout` 5 seconds below it
 - `environment(root, set)` returns a child `nx` environment with daemon, TUI, and color off and `node_modules/.bin` first on `PATH`
 - `environment` drops inherited `NX_*`, `VITEST*`, `npm_*`, `NODE_ENV`, `NO_COLOR`, `VIRTUAL_ENV`, and `GITHUB_ACTIONS`, so a child run reads no parent state
 - `pathed(folder, scripts)` writes `#!/bin/sh` scripts and sets `PATH` to that folder alone, so every unscripted tool is missing

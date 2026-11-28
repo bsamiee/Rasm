@@ -99,7 +99,7 @@ Entry points across packages:
 - Node strips types only outside `node_modules`, and a workspace link resolves to its real folder, where sibling source runs as written
 - Each public module takes one entry named after its file (`./contract`, `./arabic/joining`), and consumers import that entry directly
 - `.` exists only in a package with one public module and names that module's file, as consumers then import the package name alone
-- No `index.ts` forwards exports, as CLAUDE.md forbids a re-export, a forward gives each member two import paths, and `tsc` and the Vite dev server load every module a forward names
+- No `index.ts` forwards exports, as CLAUDE.md forbids it, a member gains a second import path, and `tsc` and Vite's dev server load every module it names
 - Entries per runtime or optional dependency family (`./node`, `./browser`) carry an optional peer where they add one
 - Entries callers import alike on every runtime take one key with a condition per runtime resolver (`workerd`), `default` serving Node
 - `"./package.json"` stays exported, as `exports` hides every path it omits from tools reading the manifest
