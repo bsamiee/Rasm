@@ -1,5 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { createNodes } from '@rasm/nx-playwright';
 import { Clean, execute } from '@rasm/nx/executors/clean';
@@ -114,11 +113,10 @@ describe('pack--playwright of config projects whose own outputDir sits under out
 });
 
 describe('clean--playwright', () => {
-    it('keeps the transform cache a passing run wrote under a plain clean and empties it under configuration cache', async ({ workspace, onTestFinished }) => {
-        const cache = mkdtempSync(join(tmpdir(), 'playwright-transform-'));
+    it('keeps the transform cache a passing run wrote under a plain clean and empties it under configuration cache', async ({ workspace, scratch, onTestFinished }) => {
+        const cache = scratch('playwright-transform-');
         onTestFinished(() => {
             vi.unstubAllEnvs();
-            rmSync(cache, { recursive: true, force: true });
         });
         vi.stubEnv('PLAYWRIGHT_TRANSFORM_CACHE_DIR', cache);
         vi.stubEnv('PATH', environment(workspace.root).PATH);

@@ -72,8 +72,8 @@ const ready = Effect.fnUntraced(function* (workspaceRoot: string, matched: reado
 const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, matched: readonly string[]) {
     const argv = ['dotnet', ANALYZER, workspaceRoot] as const;
     const seconds = yield* Timeout;
-    const report = yield* spawned(argv, { cwd: workspaceRoot, env: ENVIRONMENT, stdin: Stream.encodeText(Stream.make(matched.join('\n'))) }).pipe(
-        Effect.timeoutOrElse({ duration: Duration.seconds(seconds), orElse: () => new Cause.UnknownError(seconds, `${CommandLine.display(argv)} ran past ${seconds} seconds, set NX_DOTNET_PROJECT_GRAPH_TIMEOUT to a higher count of seconds`) }),
+    const report = yield* spawned(argv, { cwd: workspaceRoot, env: ENVIRONMENT, stdin: Stream.encodeText(Stream.make(matched.join('\n'))), within: Duration.seconds(seconds) }).pipe(
+        Effect.catchTag('TimeoutError', (error) => new Cause.UnknownError(error, `${error.message}, set NX_DOTNET_PROJECT_GRAPH_TIMEOUT to a higher count of seconds`)),
         Effect.flatMap(Schema.decodeEffect(Reported)),
         Effect.catchTag('SchemaError', (error) => new Cause.UnknownError(error, `${CommandLine.display(argv)} printed a report this plugin cannot read, as ${relative(workspaceRoot, ANALYZER)} predates the plugin, ${published(workspaceRoot)}`)),
     );

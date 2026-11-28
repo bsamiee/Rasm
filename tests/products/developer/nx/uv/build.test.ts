@@ -40,7 +40,7 @@ describe('build--uv', () => {
         { case: 'no plugin options', options: undefined, folder: 'dist/' },
         { case: 'outputPath', options: { outputPath: '.artifacts/uv/{projectName}' }, folder: '.artifacts/uv/my-lib/' },
     ])('writes the sdist and wheel of a member only to the outputs it declares, with $case', async ({ options, folder }, { workspace }) => {
-        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write(MEMBER).root });
+        execFileSync(...workspace.write(MEMBER).spawned('uv', ['lock', '--offline', '--quiet']));
         const graph = await workspace.graph({ createNodes }, options);
         const before = workspace.files('tmp');
 
@@ -58,11 +58,11 @@ describe('build--uv', () => {
     });
 
     it('changes the build hash of a member after an edit to each source file uv packs into its sdist', async ({ workspace }) => {
-        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write(MEMBER).root });
+        execFileSync(...workspace.write(MEMBER).spawned('uv', ['lock', '--offline', '--quiet']));
         const graph = await workspace.graph({ createNodes });
         const sources = workspace.files();
         await workspace.run(graph, 'my-lib', 'build--uv');
-        const packed = execFileSync('tar', ['-tzf', join(workspace.root, 'dist/my_lib-0.1.0.tar.gz')], { encoding: 'utf-8' })
+        const packed = execFileSync(...workspace.spawned('tar', ['-tzf', join(workspace.root, 'dist/my_lib-0.1.0.tar.gz')], { encoding: 'utf-8' }))
             .split('\n')
             .map((entry) => entry.replace('my_lib-0.1.0/', 'proj/my-lib/'))
             .filter((file) => sources.has(file))

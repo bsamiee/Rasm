@@ -31,7 +31,7 @@ const LINKED = {
 
 describe('readDependencies', () => {
     it('reports the members the manifest of a member names, as uv export lists them, and none a project.json alone declares', async ({ workspace }) => {
-        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write(LINKED).root });
+        execFileSync(...workspace.write(LINKED).spawned('uv', ['lock', '--offline', '--quiet']));
         const graph = await workspace.graph({ createNodes });
         const node = graph.nodes['application'];
         assert(node !== undefined, 'application is a node of the graph');
@@ -54,7 +54,7 @@ describe('readDependencies', () => {
 
         const dependencies = await actions.readDependencies(tree, graph);
 
-        const exported = execFileSync('uv', ['export', '--frozen', '--package', 'application', '--no-hashes', '--no-emit-project', '--quiet'], { cwd: workspace.root, encoding: 'utf-8' });
+        const exported = execFileSync(...workspace.spawned('uv', ['export', '--frozen', '--package', 'application', '--no-hashes', '--no-emit-project', '--quiet'], { encoding: 'utf-8' }));
         const editable = exported.split('\n').flatMap((row) => (row.startsWith('-e ') ? [normalize(row.slice('-e '.length))] : []));
         expect([dependencies.map(({ target }) => graph.nodes[target]?.data.root), graph.dependencies['application']?.map(({ target }) => target).toSorted()]).toStrictEqual([editable, ['internal', 'library']]);
         expect(editable).toStrictEqual(['packages/library']);
@@ -69,7 +69,7 @@ describe('readCurrentVersionFromRegistry', () => {
             'released/pyproject.toml': `[project]\nname = "my-lib"\nversion = "1.2.3rc1"\nrequires-python = ">=3.13"\n${BUILT}`,
             'released/src/my_lib/__init__.py': '',
         });
-        execFileSync('uv', ['build', '--wheel', '--quiet', '--out-dir', join(workspace.root, 'nested/proj/wheels')], { cwd: join(workspace.root, 'released') });
+        execFileSync(...workspace.spawned('uv', ['build', '--wheel', '--quiet', '--out-dir', join(workspace.root, 'nested/proj/wheels')], { cwd: join(workspace.root, 'released') }));
         const tree = new FsTree(workspace.root, false);
         const actions = new UvVersionActions(
             { name: 'default', projects: ['my-lib'], projectsRelationship: 'independent', resolvedVersionPlans: false, version: {}, changelog: false, releaseTag: {}, versionPlans: false },
@@ -102,7 +102,7 @@ describe(afterAllProjectsVersioned, () => {
         { case: 'a stale lock', version: '1.1.0', options: { dryRun: false }, changed: ['uv.lock'] },
         { case: 'skipLockFileUpdate', version: '1.1.0', options: { dryRun: false, rootVersionActionsOptions: { skipLockFileUpdate: true } }, changed: [] },
     ])('relocks the uv workspace of each Python project and reports the lock it changed, given $case', async ({ version, options, changed }, { workspace }) => {
-        execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: workspace.write(WORKSPACE).root });
+        execFileSync(...workspace.write(WORKSPACE).spawned('uv', ['lock', '--offline', '--quiet']));
         vi.mocked(readCachedProjectGraph).mockReturnValue(await workspace.graph({ createNodes }));
         const before = readFileSync(join(workspace.root, 'uv.lock'), 'utf-8');
         workspace.write({ 'packages/my-lib/pyproject.toml': WORKSPACE['packages/my-lib/pyproject.toml'].replace('1.0.0', version) });
@@ -110,6 +110,6 @@ describe(afterAllProjectsVersioned, () => {
         const { changedFiles } = await afterAllProjectsVersioned(workspace.root, { verbose: false, ...options });
 
         expect(changedFiles).toStrictEqual(changed);
-        expect([readFileSync(join(workspace.root, 'uv.lock'), 'utf-8') === before, spawnSync('uv', ['lock', '--check', '--offline', '--quiet'], { cwd: workspace.root }).status === 0]).toStrictEqual([changed.length === 0, changed.length > 0]);
+        expect([readFileSync(join(workspace.root, 'uv.lock'), 'utf-8') === before, spawnSync(...workspace.spawned('uv', ['lock', '--check', '--offline', '--quiet'])).status === 0]).toStrictEqual([changed.length === 0, changed.length > 0]);
     });
 });

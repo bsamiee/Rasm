@@ -1,6 +1,6 @@
-import { execFileSync } from 'node:child_process';
 import { globSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { ZipFile } from 'node:zlib';
 import type { ProjectGraph } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-distribution';
 import { execute, Package } from '@rasm/nx-distribution/executors/package';
@@ -34,7 +34,12 @@ const clipper = {
 
 const packed = async (workspace: Workspace, graph: ProjectGraph, project: string, target: string) => execute(await targetOptions(Package, graph, project, target), workspace.context(graph, project, target));
 
-const listed = (workspace: Workspace, archive: string) => execFileSync('unzip', ['-Z1', archive], { cwd: workspace.root, encoding: 'utf-8' }).trim().split('\n').toSorted();
+const listed = (workspace: Workspace, archive: string) => {
+    const opened = ZipFile.openSync(join(workspace.root, archive));
+    const entries = [...opened.keys()].toSorted();
+    opened.closeSync();
+    return entries;
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

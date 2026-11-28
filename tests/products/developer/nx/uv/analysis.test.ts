@@ -30,7 +30,7 @@ const UNLOCKED = { 'proj/added/pyproject.toml': '[project]\nname = "added"\nvers
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const locked = (workspace: Workspace, folder: string) => execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.root, folder) });
+const locked = (workspace: Workspace, folder: string) => execFileSync(...workspace.spawned('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.root, folder) }));
 
 const counted = (workspace: Workspace, name: string) => {
     const log = join(workspace.root, 'tmp', `${name}.log`);

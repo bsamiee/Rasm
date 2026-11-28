@@ -62,7 +62,7 @@ const workspaced = (dev: readonly string[], sourced: readonly string[] = [], tes
     ...LIBRARY,
 });
 
-const locked = (workspace: Workspace, files: Readonly<Record<string, string>>) => execFileSync('uv', ['lock', '--quiet'], { cwd: workspace.write(files).root });
+const locked = (workspace: Workspace, files: Readonly<Record<string, string>>) => execFileSync(...workspace.write(files).spawned('uv', ['lock', '--quiet']));
 
 const hashed = (workspace: Workspace, graph: ProjectGraph, task: string) => {
     const [project = '', target = ''] = task.split(':');
@@ -80,7 +80,7 @@ describe('checker targets', () => {
         { case: 'in a nested folder, below the pytest configuration', folder: 'nested' },
     ])('runs the mypy check and the tests of a member of a uv root $case in one environment per dependency group under environmentPath, each tool cache beside them, and reuses each', async ({ folder }, { workspace, onTestFinished }) => {
         workspace.write({ ...Record.mapKeys({ ...workspaced(['mypy'], [], ['pytest>=8']), ...TESTED }, (file) => posix.join(folder, file)), 'pytest.toml': '[pytest]\n' });
-        execFileSync('uv', ['lock', '--quiet'], { cwd: join(workspace.root, folder) });
+        execFileSync(...workspace.spawned('uv', ['lock', '--quiet'], { cwd: join(workspace.root, folder) }));
         vi.stubEnv('NX_WORKSPACE_ROOT', workspace.root);
         onTestFinished(() => {
             vi.unstubAllEnvs();
@@ -108,7 +108,7 @@ describe('checker targets', () => {
 
     it('checks a uv root that is its only member with mypy and ty in one environment holding every package', async ({ workspace }) => {
         workspace.write({ 'solo/pyproject.toml': `${LIBRARY['proj/library/pyproject.toml']}\n[dependency-groups]\ndev = ["mypy", "ty"]\n`, 'solo/src/library/__init__.py': LIBRARY['proj/library/src/library/__init__.py'] });
-        execFileSync('uv', ['lock', '--quiet'], { cwd: join(workspace.root, 'solo') });
+        execFileSync(...workspace.spawned('uv', ['lock', '--quiet'], { cwd: join(workspace.root, 'solo') }));
         const graph = await workspace.graph(uv, { environmentPath: 'tmp/environments/{projectName}' });
 
         const runs = [await workspace.run(graph, 'library', 'check--mypy'), await workspace.run(graph, 'library', 'check--ty')];
@@ -163,7 +163,7 @@ describe('checker targets', () => {
 
     it('keeps the mypy hash of a member after a .python-version in the member root, whose minor uv run never picks', async ({ workspace }) => {
         locked(workspace, workspaced(['mypy']));
-        const picked = () => execFileSync('uv', ['run', '--no-active', '--quiet', 'python', '-c', 'import sys; print(sys.version_info[:2])'], { cwd: join(workspace.root, 'proj/library'), encoding: 'utf-8' });
+        const picked = () => execFileSync(...workspace.spawned('uv', ['run', '--no-active', '--quiet', 'python', '-c', 'import sys; print(sys.version_info[:2])'], { cwd: join(workspace.root, 'proj/library'), encoding: 'utf-8' }));
         const [before, interpreter] = [await hashed(workspace, await workspace.graph(uv), 'library:check--mypy'), picked()];
 
         const after = await hashed(workspace, await workspace.write({ 'proj/library/.python-version': '3.14\n' }).graph(uv), 'library:check--mypy');

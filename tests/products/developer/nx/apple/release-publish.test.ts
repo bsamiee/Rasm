@@ -30,7 +30,7 @@ const it = workspaced
         return log;
     })
     .extend('tagged', ({ workspace }) => (files: Readonly<Record<string, string>>, tags: readonly string[]) => {
-        const git = (...args: readonly string[]) => execFileSync('git', ['-c', 'user.name=Suite', '-c', 'user.email=suite@example.com', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args], { cwd: workspace.root });
+        const git = (...args: readonly string[]) => execFileSync(...workspace.spawned('git', ['-c', 'user.name=Suite', '-c', 'user.email=suite@example.com', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args]));
         workspace.write(files);
         git('init', '--quiet', '--initial-branch=main');
         git('add', '.');

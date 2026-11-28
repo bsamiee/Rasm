@@ -40,7 +40,7 @@ const it = workspaced
         return log;
     })
     .extend('released', ({ workspace }) => async (files: Readonly<Record<string, string>>, tags: readonly string[], release?: object, lookup = `printf '%s' '${JSON.stringify(HELD)}'`) => {
-        const git = (...args: readonly string[]) => execFileSync('git', ['-c', 'user.name=Suite', '-c', 'user.email=suite@example.com', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args], { cwd: workspace.root });
+        const git = (...args: readonly string[]) => execFileSync(...workspace.spawned('git', ['-c', 'user.name=Suite', '-c', 'user.email=suite@example.com', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args]));
         shimmed(join(workspace.root, '.bin'), { gh: String.raw`[ "$1 $2" = 'api graphql' ] && { ${lookup}; exit; }; printf '%s\n' "$@" > "$(dirname "$0")/../gh.txt"` });
         vi.stubEnv('LIB_SECRET', 'token; touch PWNED');
         vi.stubEnv('BLANK_TOKEN', '');

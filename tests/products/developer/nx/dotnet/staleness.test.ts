@@ -1,11 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
 import { refused } from '@rasm/testing/errors';
-import { pathed } from '@rasm/testing/nx';
+import { pathed, type Workspace } from '@rasm/testing/nx';
 import { describe, expect, type MockInstance, onTestFinished, vi } from 'vitest';
 import { node, report, it as serverless } from '#/analyzer';
 
@@ -39,14 +38,12 @@ const packaged = (files: Readonly<Record<string, string>>) =>
         writeFileSync(join(analyzer, file), text);
     });
 
-const shasum = (...flags: readonly string[]) => spawnSync(SHASUM, ['-a', '256', ...flags], { cwd: join(analyzer, 'analyzer'), encoding: 'utf-8' });
+const shasum = (workspace: Workspace, ...flags: readonly string[]) => spawnSync(...workspace.spawned(SHASUM, ['-a', '256', ...flags], { cwd: join(analyzer, 'analyzer'), encoding: 'utf-8' }));
 
-const reporting = () => {
-    const folder = mkdtempSync(join(tmpdir(), 'dotnet-reporting-'));
+const reporting = (folder: string) => {
     const logged = vi.spyOn(console, 'warn').mockReturnValue(undefined);
     onTestFinished(() => {
         logged.mockRestore();
-        rmSync(folder, { recursive: true });
     });
     pathed(folder, { dotnet: `echo launched >> ${folder}/launches.log\nexec /bin/cat .stub/report.json` });
     return { logged, launches: () => (existsSync(join(folder, 'launches.log')) ? readFileSync(join(folder, 'launches.log'), 'utf-8').trim().split('\n').length : 0) };
@@ -75,8 +72,8 @@ const it = serverless
     });
 
 describe('analyzer build', () => {
-    it('infers no MSBuild project where the analyzer is absent and launches nothing, warning once with the command that builds it', async ({ workspace }) => {
-        const { logged, launches } = reporting();
+    it('infers no MSBuild project where the analyzer is absent and launches nothing, warning once with the command that builds it', async ({ workspace, scratch }) => {
+        const { logged, launches } = reporting(scratch('dotnet-reporting-'));
 
         const graph = await workspace.write({ 'apps/App/App.csproj': LIBRARY, ...REPORT }).graph({ createNodes, createDependencies });
 
@@ -87,13 +84,13 @@ describe('analyzer build', () => {
         { kind: 'a source changed after it was published', edited: { 'analyzer/Catalog.cs': 'namespace MsbuildAnalyzer;\n\ninternal static class Edited;\n' }, removed: [] },
         { kind: 'a source it was published with is gone', edited: {}, removed: ['analyzer/Catalog.cs'] },
         { kind: 'both sources changed after it was published', edited: { 'analyzer/Catalog.cs': 'namespace Edited;\n', 'analyzer/MsbuildAnalyzer.csproj': '<Project />\n' }, removed: [] },
-    ])('refuses the graph naming exactly the sources shasum -c refuses and the command that rebuilds it, as $kind', async ({ edited, removed }, { workspace }) => {
-        reporting();
+    ])('refuses the graph naming exactly the sources shasum -c refuses and the command that rebuilds it, as $kind', async ({ edited, removed }, { workspace, scratch }) => {
+        reporting(scratch('dotnet-reporting-'));
         packaged({ 'analyzer/MsbuildAnalyzer.csproj': LIBRARY, 'analyzer/Catalog.cs': 'namespace MsbuildAnalyzer;\n', 'analyzer/dist/MsbuildAnalyzer.dll': 'built' });
-        packaged({ 'analyzer/dist/MsbuildAnalyzer.sha256': shasum('MsbuildAnalyzer.csproj', 'Catalog.cs').stdout.replaceAll(/^\w+/gmu, (digest) => digest.toUpperCase()) });
+        packaged({ 'analyzer/dist/MsbuildAnalyzer.sha256': shasum(workspace, 'MsbuildAnalyzer.csproj', 'Catalog.cs').stdout.replaceAll(/^\w+/gmu, (digest) => digest.toUpperCase()) });
         packaged(edited);
         removed.forEach((file) => rmSync(join(analyzer, file)));
-        const failed = [...shasum('-c', 'dist/MsbuildAnalyzer.sha256').stdout.matchAll(/^(?<file>.+): FAILED/gmu)].map((match) => `analyzer/${match.groups?.['file']}`);
+        const failed = [...shasum(workspace, '-c', 'dist/MsbuildAnalyzer.sha256').stdout.matchAll(/^(?<file>.+): FAILED/gmu)].map((match) => `analyzer/${match.groups?.['file']}`);
 
         const graph = workspace.write({ 'apps/App/App.csproj': LIBRARY, ...REPORT }).graph({ createNodes, createDependencies });
 
@@ -103,11 +100,11 @@ describe('analyzer build', () => {
     it.for([
         { kind: 'no file its build read changed', appended: [] },
         { kind: 'root MSBuild files its evaluation imports and a source of the Roslyn project it references changed', appended: ['Directory.Build.props', 'Directory.Build.targets', 'roslyn/Rules/Shapes.cs'] },
-    ])('infers the reported projects with no warning after a real dotnet publish of the analyzer, as $kind', async ({ appended }, { workspace }) => {
+    ])('infers the reported projects with no warning after a real dotnet publish of the analyzer, as $kind', async ({ appended }, { workspace, scratch }) => {
         packaged(PUBLISHED);
-        execFileSync('dotnet', ['publish', 'analyzer/MsbuildAnalyzer.csproj', '--output', 'analyzer/dist'], { cwd: analyzer, stdio: 'ignore' });
+        execFileSync(...workspace.spawned('dotnet', ['publish', 'analyzer/MsbuildAnalyzer.csproj', '--output', 'analyzer/dist'], { cwd: analyzer, stdio: 'ignore' }));
         appended.forEach((file) => appendFileSync(join(analyzer, file), '\n'));
-        const { logged } = reporting();
+        const { logged } = reporting(scratch('dotnet-reporting-'));
 
         const graph = await workspace.write({ 'apps/App/App.csproj': LIBRARY, ...REPORT }).graph({ createNodes, createDependencies });
 
@@ -118,11 +115,11 @@ describe('analyzer build', () => {
         { kind: 'a source it compiles changed', appended: 'analyzer/Program.cs' },
         { kind: 'its project file changed', appended: 'analyzer/MsbuildAnalyzer.csproj' },
         { kind: 'its lock file changed', appended: 'analyzer/packages.lock.json' },
-    ])('refuses the graph after a real dotnet publish of the analyzer, naming exactly the changed file and the command that rebuilds it, as $kind', async ({ appended }, { workspace }) => {
+    ])('refuses the graph after a real dotnet publish of the analyzer, naming exactly the changed file and the command that rebuilds it, as $kind', async ({ appended }, { workspace, scratch }) => {
         packaged(PUBLISHED);
-        execFileSync('dotnet', ['publish', 'analyzer/MsbuildAnalyzer.csproj', '--output', 'analyzer/dist'], { cwd: analyzer, stdio: 'ignore' });
+        execFileSync(...workspace.spawned('dotnet', ['publish', 'analyzer/MsbuildAnalyzer.csproj', '--output', 'analyzer/dist'], { cwd: analyzer, stdio: 'ignore' }));
         appendFileSync(join(analyzer, appended), '\n');
-        reporting();
+        reporting(scratch('dotnet-reporting-'));
 
         const graph = workspace.write({ 'apps/App/App.csproj': LIBRARY, ...REPORT }).graph({ createNodes, createDependencies });
 

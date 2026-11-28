@@ -5,6 +5,7 @@ import type { ProjectGraph } from '@nx/devkit';
 import { FsTree, flushChanges } from '@nx/devkit/internal';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
 import DotnetVersionActions from '@rasm/nx-dotnet/release/version-actions';
+import type { Workspace } from '@rasm/testing/nx';
 import type { ReleaseGroupWithName } from 'nx/src/command-line/release/config/filter-release-groups';
 import type { FinalConfigForProject } from 'nx/src/command-line/release/utils/release-graph';
 import { describe, expect, vi } from 'vitest';
@@ -51,7 +52,7 @@ const actions = async (root: string, graph: ProjectGraph) => {
     return { versioned, tree };
 };
 
-const evaluated = (root: string) => execFileSync('dotnet', ['msbuild', 'libs/Lib/Lib.csproj', '-getProperty:Version'], { cwd: root, encoding: 'utf-8' }).trim();
+const evaluated = (workspace: Workspace) => execFileSync(...workspace.spawned('dotnet', ['msbuild', 'libs/Lib/Lib.csproj', '-getProperty:Version'], { encoding: 'utf-8' })).trim();
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -66,7 +67,7 @@ describe('release of a packable project stating its Version', () => {
         const read = (file: string) => readFileSync(join(workspace.root, file), 'utf-8');
         expect({
             tags: graph.nodes['Lib']?.data.tags,
-            version: evaluated(workspace.root),
+            version: evaluated(workspace),
             shipped: [read('libs/Lib/AnalyzerReleases.Shipped.md'), read('libs/Rules/AnalyzerReleases.Shipped.md')],
             unshipped: [read('libs/Lib/AnalyzerReleases.Unshipped.md'), read('libs/Rules/AnalyzerReleases.Unshipped.md')],
         }).toStrictEqual({
@@ -88,7 +89,7 @@ describe('release of a packable project stating its Version', () => {
         flushChanges(workspace.root, tree.listChanges());
 
         const read = (file: string) => readFileSync(join(workspace.root, file), 'utf-8');
-        expect([evaluated(workspace.root), read('libs/Lib/AnalyzerReleases.Shipped.md'), read('libs/Lib/AnalyzerReleases.Unshipped.md')]).toStrictEqual(['1.3.0-alpha.1', FILES['libs/Lib/AnalyzerReleases.Shipped.md'], FILES['libs/Lib/AnalyzerReleases.Unshipped.md']]);
+        expect([evaluated(workspace), read('libs/Lib/AnalyzerReleases.Shipped.md'), read('libs/Lib/AnalyzerReleases.Unshipped.md')]).toStrictEqual(['1.3.0-alpha.1', FILES['libs/Lib/AnalyzerReleases.Shipped.md'], FILES['libs/Lib/AnalyzerReleases.Unshipped.md']]);
     });
 
     it('bumps a prerelease version by its prerelease number where a dependency was bumped', async ({ workspace }) => {

@@ -13,7 +13,7 @@ const NX = fileURLToPath(import.meta.resolve('nx/bin/nx'));
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('readiness of storybook dev', () => {
-    it('starts a task waiting on serve--storybook ready only after Storybook announces its address, with no port named and stdout a pipe', async ({ workspace }) => {
+    it('starts a task waiting on serve--storybook ready only after Storybook announces its address, with no port named and stdout a pipe', async ({ workspace, signal }) => {
         workspace
             .install(
                 import.meta.resolve('nx/package.json'),
@@ -31,7 +31,7 @@ describe('readiness of storybook dev', () => {
                 'apps/site/package.json': '{"name":"site","nx":{"targets":{"after":{"command":"echo dependent-started","dependsOn":[{"target":"serve--storybook","waitFor":"ready"}]}}}}',
                 'apps/site/.storybook/main.ts': "export default { framework: '@storybook/react-vite', stories: ['../src/**/*.stories.tsx'] };\n",
             });
-        const nx = spawn(execPath, [NX, 'run', 'site:after', '--outputStyle=stream'], { cwd: workspace.root, env: environment(workspace.root), stdio: ['ignore', 'pipe', 'ignore'], detached: true });
+        const nx = spawn(execPath, [NX, 'run', 'site:after', '--outputStyle=stream'], { cwd: workspace.root, env: environment(workspace.root), stdio: ['ignore', 'pipe', 'ignore'], detached: true, signal });
         const closed = Promise.all([nx.stdout.toArray(), once(nx, 'close')]);
         const ran = Effect.promise(() => closed).pipe(
             Effect.timeoutOrElse({ duration: '3 minutes', orElse: () => Effect.fail(new Cause.UnknownError(undefined, 'nx run site:after never ended after storybook dev started')) }),

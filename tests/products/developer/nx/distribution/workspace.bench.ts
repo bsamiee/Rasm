@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { env, execPath } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { workspaceRoot } from '@nx/devkit';
+import { bounded } from '@rasm/testing/nx';
 import { Array, Record } from 'effect';
 import { describe, it } from 'vitest';
 
@@ -14,7 +15,7 @@ const RUNS = Array.cartesianWith(LEAVES, Record.toEntries(MODES), (task, [mode, 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const nx = (...args: readonly string[]) => execFileSync(execPath, [NX, ...args], { cwd: workspaceRoot, env: { ...env, NX_DAEMON: 'false' }, stdio: ['ignore', 'pipe', 'pipe'] });
+const nx = (...args: readonly string[]) => execFileSync(...bounded(execPath, [NX, ...args], { cwd: workspaceRoot, env: { ...env, NX_DAEMON: 'false' }, stdio: ['ignore', 'pipe', 'pipe'] }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

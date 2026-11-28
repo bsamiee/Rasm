@@ -95,14 +95,14 @@ const keyed = Effect.fnUntraced(function* (workspaceRoot: string, row: string, l
     );
     const beneath = new Map(Array.zipWith(listed, listings, (at, files) => [at, { files, direct: files.filter((file) => posix.dirname(file) === at) }] as const));
     return Array.zipWith(folders, Array.zip(rows, stamps), ([folder, ...outside], [[config, sources], stamp]) => {
-        const ignored = [...new Set(sources).difference(tracked)];
+        const ignored = [...new Set(sources)].filter((at) => !tracked.has(at));
         return { config, digest: hashArray([row, ...(beneath.get(folder)?.files ?? []), ...outside.flatMap((at) => beneath.get(at)?.direct ?? [])]), stamp: hashArray([stamp, ...ignored.map((at) => hashFile(join(workspaceRoot, at)))]), ignored };
     });
 });
 
 const programmed = Effect.fnUntraced(function* (workspaceRoot: string, compiler: string, row: string, manager: PackageManager, roots: ReadonlySet<string>, files: readonly string[]) {
     const cache = new PluginCache<Resolved & { readonly digest: string; readonly stamp: string }>(join(workspaceDataDirectory, 'typescript.hash'));
-    const [lock, owners, configs] = [getLockFileName(manager), new Map(roots.values().map((root) => [root, root] as const)), files.filter((file) => basename(file) === CONFIG)];
+    const [lock, owners, configs] = [getLockFileName(manager), new Map([...roots].map((root) => [root, root] as const)), files.filter((file) => basename(file) === CONFIG)];
     const known = configs.map((config) => [config, cache.get(config)?.sources ?? []] as const);
     const [held, missed] = Array.partition(yield* keyed(workspaceRoot, row, lock, known), ({ config, digest, stamp, ignored }) => {
         const entry = cache.get(config);

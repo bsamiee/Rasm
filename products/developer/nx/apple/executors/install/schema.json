@@ -31,5 +31,5 @@
     "required": ["package", "product"],
     "additionalProperties": true,
     "title": "Install",
-    "description": "Builds a SwiftPM executable product in release, signs a copy under the Apple Development identity with the hardened runtime, and renames it over ~/.local/bin/<product>, the per-user folder launchd's PATH holds"
+    "description": "Builds a SwiftPM executable product in release, signs a copy staged beside ~/.local/bin/<product>, the per-user folder launchd's PATH holds, under the Apple Development identity with the hardened runtime, and swaps it in by one rename"
 }

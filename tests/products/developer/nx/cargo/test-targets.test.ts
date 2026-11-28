@@ -33,7 +33,7 @@ describe('test tools', () => {
                     '/// ```\n/// std::fs::write(concat!(env!("CARGO_MANIFEST_DIR"), "/doc-ran"), "").unwrap();\n/// assert_eq!(kit::double(2), 4);\n/// ```\npub fn double(value: u32) -> u32 {\n    value * 2\n}\n\n#[test]\nfn broken() {\n    panic!("a unit test, which no documentation run reaches");\n}\n',
             })
             .graph(cargo);
-        execFileSync('cargo', ['generate-lockfile'], { cwd: join(workspace.root, 'rust') });
+        execFileSync(...workspace.spawned('cargo', ['generate-lockfile'], { cwd: join(workspace.root, 'rust') }));
 
         const { success } = await execute(await targetOptions(Cargo, graph, 'kit', 'test--cargo'), workspace.context(graph, 'kit', 'test--cargo'));
 

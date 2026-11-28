@@ -94,7 +94,7 @@ const Settings = Schema.Struct({ buildSettings: Schema.Struct({ SRCROOT: Schema.
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const settings = (root: string, argv: readonly string[]) => Effect.runSync(Schema.decodeEffect(Settings)(execFileSync('xcodebuild', ['-showBuildSettings', '-json', ...argv], { cwd: root, encoding: 'utf-8', env: { ...env, CFFIXED_USER_HOME: root } })));
+const settings = (workspace: Workspace, argv: readonly string[]) => Effect.runSync(Schema.decodeEffect(Settings)(execFileSync(...workspace.spawned('xcodebuild', ['-showBuildSettings', '-json', ...argv], { encoding: 'utf-8' }, { CFFIXED_USER_HOME: workspace.root }))));
 
 const invoked = (action: string) => [['xcodebuild', action, '-workspace', 'Fixture.xcworkspace', '-skipMacroValidation', '-skipPackagePluginValidation', '-onlyUsePackageVersionsFromResolvedFile', '-scheme', 'Fixture-Package', '-destination', `platform=macOS,arch=${machine()},variant=macos`]];
 
@@ -127,7 +127,7 @@ const it = nx.extend('fixture', { scope: 'file' }, async ({ fileWorkspace }, { o
     const graph = await fileWorkspace.write({ ...PACKAGES, ...XCODE, [SHARED]: 'SWIFT_TREAT_WARNINGS_AS_ERRORS = NO\n' }).graph({ createNodes, createDependencies }, { outputPath: 'dist' });
     vi.unstubAllEnvs();
     const fetched = ['packages/remote/Package.resolved', 'packages/remote/.build/workspace-state.json', 'packages/remote/.build/checkouts'].filter((at) => existsSync(join(fileWorkspace.root, at)));
-    const described = await Effect.runPromise(Effect.forEach(['packages/consumer', 'packages/kit'], (folder) => Effect.map(Schema.decodeEffect(Described)(execFileSync('swift', ['package', '--package-path', folder, 'describe', '--type', 'json'], { cwd: fileWorkspace.root, encoding: 'utf-8' })), compiledBy(folder))));
+    const described = await Effect.runPromise(Effect.forEach(['packages/consumer', 'packages/kit'], (folder) => Effect.map(Schema.decodeEffect(Described)(execFileSync(...fileWorkspace.spawned('swift', ['package', '--package-path', folder, 'describe', '--type', 'json'], { encoding: 'utf-8' }))), compiledBy(folder))));
     return { root: fileWorkspace.root, graph, workspace: fileWorkspace, fetched, compiled: described.flat() };
 });
 
@@ -202,9 +202,9 @@ describe('Xcode projects and their shared schemes', () => {
         expect({ technologies: viewer.data.metadata?.technologies?.toSorted(), targets: Array.intersection(['build--swift-build', 'build--xcodebuild'], Record.keys(viewer.data.targets ?? {})) }).toStrictEqual({ technologies: ['swift', 'xcode'], targets: ['build--swift-build', 'build--xcodebuild'] });
     });
 
-    it('hashes each Info.plist and entitlements file xcodebuild resolves for the target in every configuration', ({ fixture: { root, graph } }) => {
+    it('hashes each Info.plist and entitlements file xcodebuild resolves for the target in every configuration', ({ fixture: { root, graph, workspace } }) => {
         const located = ['Debug', 'Release']
-            .flatMap((configuration) => settings(root, ['-project', 'apps/Viewer/Viewer.xcodeproj', '-configuration', configuration]))
+            .flatMap((configuration) => settings(workspace, ['-project', 'apps/Viewer/Viewer.xcodeproj', '-configuration', configuration]))
             .flatMap(({ buildSettings: { SRCROOT, INFOPLIST_FILE, CODE_SIGN_ENTITLEMENTS } }) => [resolve(SRCROOT, INFOPLIST_FILE), resolve(SRCROOT, CODE_SIGN_ENTITLEMENTS)])
             .map((at) => join('{workspaceRoot}', relative(root, realpathSync(at))));
         const hashed = graph.nodes['Viewer']?.data.targets?.['build--xcodebuild']?.inputs?.filter(Predicate.isString) ?? [];
@@ -259,11 +259,11 @@ describe('Xcode projects and their shared schemes', () => {
         expect(after).not.toBe(before);
     });
 
-    it('archives the application its install command installs at /Applications/Viewer.app below its DSTROOT, as xcodebuild resolves that command', async ({ fixture: { root, graph } }) => {
+    it('archives the application its install command installs at /Applications/Viewer.app below its DSTROOT, as xcodebuild resolves that command', async ({ fixture: { graph, workspace } }) => {
         const { runs } = await targetOptions(Run, graph, 'Viewer', 'install--xcodebuild');
         const [tool, ...install] = runs[0] ?? [];
 
-        expect({ invocations: runs.length, tool, landed: settings(root, install).map(({ buildSettings }) => join(sep, relative(buildSettings.DSTROOT, buildSettings.TARGET_BUILD_DIR), buildSettings.WRAPPER_NAME)) }).toStrictEqual({ invocations: 2, tool: 'xcodebuild', landed: ['/Applications/Viewer.app'] });
+        expect({ invocations: runs.length, tool, landed: settings(workspace, install).map(({ buildSettings }) => join(sep, relative(buildSettings.DSTROOT, buildSettings.TARGET_BUILD_DIR), buildSettings.WRAPPER_NAME)) }).toStrictEqual({ invocations: 2, tool: 'xcodebuild', landed: ['/Applications/Viewer.app'] });
     });
 
     it('installs the application through the run executor into the applications folder xcodebuild names, its bundle identifier approved for screen capture in the replayd ledger under the home xcodebuild states', async ({ fixture: { root, graph, workspace }, onTestFinished }) => {
@@ -278,7 +278,7 @@ describe('Xcode projects and their shared schemes', () => {
         const { success } = await execute({ ...inferred, __unparsed__: [`LOCAL_APPS_DIR=${applications}`] }, workspace.context(graph, 'Viewer', 'install--xcodebuild'));
 
         const ledger = join(root, 'Library', 'Group Containers', 'group.com.apple.replayd', 'ScreenCaptureApprovals.plist');
-        const approved = ['kScreenCaptureApprovalLastAlerted', 'kScreenCapturePrivacyHintDate'].map((field) => execFileSync('plutil', ['-extract', `example\\.fixture\\.viewer.${field}`, 'raw', '-o', '-', ledger], { encoding: 'utf-8' }).trim());
+        const approved = ['kScreenCaptureApprovalLastAlerted', 'kScreenCapturePrivacyHintDate'].map((field) => execFileSync(...workspace.spawned('plutil', ['-extract', `example\\.fixture\\.viewer.${field}`, 'raw', '-o', '-', ledger], { encoding: 'utf-8' })).trim());
 
         expect({ success, installed: readdirSync(applications), approved }).toStrictEqual({ success: true, installed: ['Viewer.app'], approved: ['4000-01-01T00:00:00Z', '4000-01-01T00:00:00Z'] });
     });

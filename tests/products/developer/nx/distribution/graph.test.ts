@@ -1,12 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
 import { env, execPath } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { workspaceRoot } from '@nx/devkit';
+import { bounded, it } from '@rasm/testing/nx';
 import { Option, Schema } from 'effect';
-import { describe, expect, it } from 'vitest';
+import { describe, expect } from 'vitest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -43,11 +43,9 @@ const Event = Schema.fromJsonString(Schema.Struct({ kind: Schema.String, what: S
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('warm workspace graph', () => {
-    it('starts no process or thread and writes no file from plugin code once warm', ({ onTestFinished }) => {
-        const folder = mkdtempSync(join(tmpdir(), 'nx-graph-'));
-        onTestFinished(() => rmSync(folder, { recursive: true, force: true }));
-        const trace = join(folder, 'trace.jsonl');
-        const graph = () => execFileSync(execPath, [NX, 'show', 'projects', '--json'], { cwd: workspaceRoot, env: { ...env, ...OWNERS, NX_DAEMON: 'false', NODE_OPTIONS: `--import=${TRACER}`, GRAPH_TRACE: trace }, stdio: ['ignore', 'pipe', 'pipe'] });
+    it('starts no process or thread and writes no file from plugin code once warm', ({ scratch }) => {
+        const trace = join(scratch('nx-graph-'), 'trace.jsonl');
+        const graph = () => execFileSync(...bounded(execPath, [NX, 'show', 'projects', '--json'], { cwd: workspaceRoot, env: { ...env, ...OWNERS, NX_DAEMON: 'false', NODE_OPTIONS: `--import=${TRACER}`, GRAPH_TRACE: trace }, stdio: ['ignore', 'pipe', 'pipe'] }));
         graph();
         writeFileSync(trace, '');
 

@@ -7,7 +7,7 @@ import { type NxJsonConfiguration, readJsonFile } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-distribution';
 import { Package, execute as pack } from '@rasm/nx-distribution/executors/package';
 import { execute as attach } from '@rasm/nx/executors/attach';
-import { environment, shimmed, targetOptions, it as workspaced } from '@rasm/testing/nx';
+import { shimmed, targetOptions, it as workspaced } from '@rasm/testing/nx';
 import { Array, Effect, Option, Predicate, Schema, Struct } from 'effect';
 import { Yaml } from 'effect/encoding';
 import { assert, describe, expect, vi } from 'vitest';
@@ -69,7 +69,7 @@ const it = workspaced
         return log;
     })
     .extend('released', ({ workspace }) => async (files: Readonly<Record<string, string>>, tags: readonly string[]) => {
-        const git = (...args: readonly string[]) => execFileSync('git', ['-c', 'user.name=Suite', '-c', 'user.email=suite@example.com', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args], { cwd: workspace.root });
+        const git = (...args: readonly string[]) => execFileSync(...workspace.spawned('git', ['-c', 'user.name=Suite', '-c', 'user.email=suite@example.com', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args]));
         shimmed(join(workspace.root, '.bin'), { gh: String.raw`[ "$1 $2" = 'api graphql' ] && { printf '%s' '${JSON.stringify(HELD)}'; exit; }; printf '%s\n' "$@" > "$(dirname "$0")/../gh.txt"` });
         workspace.write({ '.gitignore': '.bin\n.artifacts\n*.yak\n*.txt\n', 'nx.json': JSON.stringify({ release: { projects: ['*'], projectsRelationship: 'independent' } }), ...files });
         git('init', '--quiet', '--initial-branch=main');
@@ -103,7 +103,7 @@ describe('nx release publish of the release workflow', () => {
         workspace.install(import.meta.resolve('nx/package.json'));
         await released(built, ['lib@1.0.0']);
 
-        const { status, stderr } = spawnSync('bash', ['-c', step.value.run], { cwd: workspace.root, env: environment(workspace.root, { PROJECTS: 'lib' }), encoding: 'utf-8' });
+        const { status, stderr } = spawnSync(...workspace.spawned('bash', ['-c', step.value.run], { encoding: 'utf-8' }, { PROJECTS: 'lib' }));
 
         expect({ status, stderr }).toMatchObject({ status: 0 });
     });
@@ -119,7 +119,7 @@ describe('nx release changelog of the workspace configuration', () => {
         workspace.install(import.meta.resolve('nx/package.json'));
         const config: NxJsonConfiguration['release'] = { ...Struct.omit(release, ['git']), changelog: { projectChangelogs: { ...Option.getOrUndefined(Option.liftPredicate(release.changelog?.projectChangelogs, Predicate.isObject)), createRelease: false } } };
 
-        execFileSync(execPath, ['--input-type=module', '--eval', RENDER, JSON.stringify(config)], { cwd: workspace.root, env: environment(workspace.root), stdio: 'ignore' });
+        execFileSync(...workspace.spawned(execPath, ['--input-type=module', '--eval', RENDER, JSON.stringify(config)], { stdio: 'ignore' }));
 
         const contents = readFileSync(join(workspace.root, 'changelog.txt'), 'utf-8');
         expect({ fixed: contents.includes('repair the parser'), thanked: contents.includes('Thank You') }).toStrictEqual({ fixed: true, thanked: false });

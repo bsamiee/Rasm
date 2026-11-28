@@ -31,7 +31,7 @@ const kept = (file: string) => file.startsWith('tmp/environments/library/') || (
 
 describe('clean--uv', () => {
     it('keeps what the checkers and tests of a member wrote under plain clean, and removes its environments, tool caches, and __pycache__ folders under configuration cache', async ({ workspace, onTestFinished }) => {
-        execFileSync('uv', ['lock', '--quiet'], { cwd: workspace.write(TESTED).root });
+        execFileSync(...workspace.write(TESTED).spawned('uv', ['lock', '--quiet']));
         vi.stubEnv('NX_WORKSPACE_ROOT', workspace.root);
         vi.stubEnv('PYTHONPYCACHEPREFIX', undefined);
         onTestFinished(() => {

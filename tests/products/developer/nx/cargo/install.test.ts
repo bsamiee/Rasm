@@ -32,12 +32,12 @@ describe('install--cargo', () => {
         });
         shimmed(join(workspace.root, '.install/bin'), {});
         const graph = await workspace.write(crates).graph(cargo);
-        execFileSync('cargo', ['generate-lockfile'], { cwd: workspace.root });
+        execFileSync(...workspace.spawned('cargo', ['generate-lockfile']));
 
         const { success } = await execute(await targetOptions(Cargo, graph, 'cli', 'install--cargo'), workspace.context(graph, 'cli', 'install--cargo'));
 
         expect(success).toBe(true);
-        expect([execFileSync(join(workspace.root, '.install/bin/cli'), { encoding: 'utf-8' }), execFileSync(join(workspace.root, '.install/bin/second'), { encoding: 'utf-8' })]).toStrictEqual(['checked\n', '']);
+        expect([execFileSync(...workspace.spawned(join(workspace.root, '.install/bin/cli'), [], { encoding: 'utf-8' })), execFileSync(...workspace.spawned(join(workspace.root, '.install/bin/second'), [], { encoding: 'utf-8' }))]).toStrictEqual(['checked\n', '']);
     });
 
     it('fails when cargo install fails after its build, a file standing where the bin folder of the install root goes', async ({ workspace, onTestFinished }) => {
@@ -46,7 +46,7 @@ describe('install--cargo', () => {
             vi.unstubAllEnvs();
         });
         const graph = await workspace.write({ ...crates, '.install/bin': '' }).graph(cargo);
-        execFileSync('cargo', ['generate-lockfile'], { cwd: workspace.root });
+        execFileSync(...workspace.spawned('cargo', ['generate-lockfile']));
 
         const { success } = await execute(await targetOptions(Cargo, graph, 'cli', 'install--cargo'), workspace.context(graph, 'cli', 'install--cargo'));
 

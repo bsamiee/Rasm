@@ -148,7 +148,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
             (container) => [container, xcodeParts(options, marker(container.path), container, titled(container), Array.dedupe([...container.inputs.flatMap(tokened), ...configured, ...linkedSources(container)]), built(container.path), packaged, relative(workspaceRoot, workspaceDataDirectory))] as const,
         ),
     );
-    const covered = new Map(owning.entries().flatMap(([swiftPackage, container]) => Array.fromNullishOr(xcode.get(container)).map((part) => [swiftPackage, part] as const)));
+    const covered = new Map([...owning].flatMap(([swiftPackage, container]) => Array.fromNullishOr(xcode.get(container)).map((part) => [swiftPackage, part] as const)));
     const parts: readonly Part[] = [...packages.flatMap((swiftPackage) => packageParts(options, swiftPackage, described, covered)), ...xcode.values()];
     const [settled, conflicts] = Record.partition(Array.groupBy(parts, Struct.get('root')), (group) => (new Set(group.map(Struct.get('name'))).size > 1 ? Result.fail(group) : Result.succeed(group)));
     const merged = Record.collect(settled, (root, group) => {

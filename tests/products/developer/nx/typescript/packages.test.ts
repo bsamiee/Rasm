@@ -35,7 +35,7 @@ describe('package tarballs', () => {
         const { success } = await execute(await targetOptions(Pack, graph, 'lib', `pack--${manager}`), workspace.context(graph, 'lib', `pack--${manager}`));
 
         const written = readdirSync(join(workspace.root, `.artifacts/${manager}/lib`)).map((name) => `.artifacts/${manager}/lib/${name}`);
-        const listed = written.flatMap((tarball) => spawnSync('tar', ['-tzf', join(workspace.root, tarball)], { encoding: 'utf-8' }).stdout.split('\n')).filter((entry) => entry.length > 0);
+        const listed = written.flatMap((tarball) => spawnSync(...workspace.spawned('tar', ['-tzf', join(workspace.root, tarball)], { encoding: 'utf-8' })).stdout.split('\n')).filter((entry) => entry.length > 0);
         expect([success, written.length, listed.toSorted(), [...workspace.cached(graph, 'lib', `pack--${manager}`)]]).toStrictEqual([true, 1, ['package/index.js', 'package/package.json'], written]);
     });
 });

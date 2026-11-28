@@ -61,7 +61,7 @@ describe('cargo batch', () => {
                 'crates/two/src/lib.rs': 'pub fn two() -> u32 {\n    absent_function()\n}\n',
             })
             .graph(cargo);
-        execFileSync('cargo', ['generate-lockfile'], { cwd: workspace.root });
+        execFileSync(...workspace.spawned('cargo', ['generate-lockfile']));
         const { scheduled, inputs } = await planned(graph, 'build--cargo');
 
         const results = await settled(batch(scheduled, inputs, {}, workspace.context(graph, 'app', 'build--cargo')));
@@ -72,7 +72,7 @@ describe('cargo batch', () => {
 
     it('stamps each crate from the start of its command to the last message of its own package, the dependency ending before its dependent', async ({ workspace }) => {
         const graph = await workspace.write(crates).graph(cargo);
-        execFileSync('cargo', ['generate-lockfile'], { cwd: workspace.root });
+        execFileSync(...workspace.spawned('cargo', ['generate-lockfile']));
         const { scheduled, inputs } = await planned(graph, 'build--cargo');
         const before = vi.getRealSystemTime();
 
@@ -88,8 +88,8 @@ describe('cargo batch', () => {
         { case: 'workspace unification', written: { '.cargo/config.toml': UNIFIED }, alone: { 'a:build--cargo': false, 'b:build--cargo': false } },
     ])('decides each crate as cargo builds it alone, where another selected crate turns on a feature of their shared dependency, under $case', async ({ written, alone }, { workspace }) => {
         const graph = await workspace.write({ ...shared, ...written }).graph(cargo);
-        execFileSync('cargo', ['generate-lockfile'], { cwd: workspace.root });
-        const built = Record.fromIterableWith(['a', 'b'], (crate) => [`${crate}:build--cargo`, spawnSync('cargo', ['build', '--package', crate, '--quiet'], { cwd: workspace.root }).status === 0] as const);
+        execFileSync(...workspace.spawned('cargo', ['generate-lockfile']));
+        const built = Record.fromIterableWith(['a', 'b'], (crate) => [`${crate}:build--cargo`, spawnSync(...workspace.spawned('cargo', ['build', '--package', crate, '--quiet'])).status === 0] as const);
         const { scheduled, inputs } = await planned(graph, 'build--cargo', ['a', 'b']);
 
         const results = await settled(batch(scheduled, inputs, {}, workspace.context(graph, 'a', 'build--cargo')));
@@ -104,7 +104,7 @@ describe('nextest batch', () => {
         { case: 'no test at all, though it builds', source: 'pub fn two() -> u32 {\n    2\n}\n', said: 'two: no tests to run\n' },
     ])('fails the crate holding $case and passes the crate whose tests pass', async ({ source, said }, { workspace }) => {
         const graph = await workspace.write({ ...crates, 'crates/two/src/lib.rs': source }).graph(cargo);
-        execFileSync('cargo', ['generate-lockfile'], { cwd: workspace.root });
+        execFileSync(...workspace.spawned('cargo', ['generate-lockfile']));
         const { scheduled, inputs } = await planned(graph, 'test--nextest');
 
         const results = await settled(suites(scheduled, inputs, {}, workspace.context(graph, 'app', 'test--nextest')));
@@ -115,7 +115,7 @@ describe('nextest batch', () => {
 
     it('stamps each crate from the start of its command to the suite event of its own package, which follows the run of its own test', async ({ workspace }) => {
         const graph = await workspace.write({ ...crates, 'crates/two/src/lib.rs': `pub fn two() -> u32 {\n    2\n}\n\n${ran('two_ran')}`, 'crates/app/src/main.rs': `fn main() {\n    println!("{}", two::two());\n}\n\n${ran('app_ran')}` }).graph(cargo);
-        execFileSync('cargo', ['generate-lockfile'], { cwd: workspace.root });
+        execFileSync(...workspace.spawned('cargo', ['generate-lockfile']));
         const { scheduled, inputs } = await planned(graph, 'test--nextest');
         const before = vi.getRealSystemTime();
 

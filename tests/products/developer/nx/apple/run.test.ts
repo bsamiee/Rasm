@@ -1,7 +1,10 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { constants, copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { execPath } from 'node:process';
 import { execute } from '@rasm/nx-apple/executors/run';
-import { it, shimmed } from '@rasm/testing/nx';
+import { it } from '@rasm/testing/nx';
 import { describe, expect, vi } from 'vitest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -13,16 +16,20 @@ const ARCHIVED = 'mkdir -p "$2/Products$0" && printf new > "$2/Products$0/Viewer
 
 describe('run install', () => {
     it.for([
-        { case: 'runs from inside its bundle', running: '/Applications/Viewer.app/Contents/MacOS/Viewer', notices: ['Viewer runs the build it launched from, relaunch it to run this one'] },
-        { case: 'runs from a bundle whose name ends in its name', running: '/Applications/MyViewer.app/Contents/MacOS/Viewer', notices: [] },
-    ])('asks for a relaunch after an install only where the installed application $case', async ({ running, notices }, { workspace, onTestFinished }) => {
-        const log = vi.spyOn(console, 'log').mockReturnValue(undefined);
+        { case: 'runs from inside its bundle', bundle: 'Viewer.app', notices: ['Viewer runs the build it launched from, relaunch it to run this one'] },
+        { case: 'runs from a bundle whose name ends in its name', bundle: 'MyViewer.app', notices: [] },
+    ])('asks for a relaunch after an install only where the installed application $case', async ({ bundle, notices }, { workspace, onTestFinished }) => {
+        const [contents, launched] = [join(workspace.root, 'Applications', 'Viewer.app', 'Contents', 'MacOS'), join(workspace.root, 'Applications', bundle, 'Contents', 'MacOS', 'Viewer')];
+        mkdirSync(join(launched, '..'), { recursive: true });
+        copyFileSync(execPath, launched, constants.COPYFILE_FICLONE);
+        const [log, child] = [vi.spyOn(console, 'log').mockReturnValue(undefined), spawn(launched, ['-e', 'setTimeout(() => {}, 60_000)'], { stdio: 'ignore' })];
         onTestFinished(() => {
+            child.kill();
             log.mockRestore();
         });
-        shimmed(join(workspace.root, 'bin'), { ps: `printf '%s\\n' /sbin/launchd '${running}'` });
+        await once(child, 'spawn');
 
-        const { success } = await execute({ runs: [['true']], applications: ['Viewer.app'] }, workspace.context(EMPTY, 'Viewer', 'install--xcodebuild'));
+        const { success } = await execute({ runs: [['sh', '-c', ARCHIVED, contents]], applications: ['Viewer.app'] }, workspace.context(EMPTY, 'Viewer', 'install--xcodebuild'));
 
         expect({ success, notices: log.mock.calls.map((call) => String(call.at(-1))) }).toStrictEqual({ success: true, notices });
     });

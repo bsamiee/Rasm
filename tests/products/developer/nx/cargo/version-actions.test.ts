@@ -125,7 +125,7 @@ describe('package versions', () => {
 describe('lock refresh', () => {
     it('brings the lock of each project these actions version in line with its manifests, leaving the locks of other version actions alone', async ({ workspace }) => {
         workspace.write({ 'rust-toolchain.toml': readFileSync(join(workspaceRoot, 'rust-toolchain.toml'), 'utf-8'), 'Cargo.toml': '[workspace]\nresolver = "3"\nmembers = ["packages/*"]\n', [MANIFEST]: '[package]\nname = "my-lib"\nversion = "1.0.0"\nedition = "2024"\n', 'packages/my-lib/src/lib.rs': '' });
-        execFileSync('cargo', ['generate-lockfile'], { cwd: workspace.root });
+        execFileSync(...workspace.spawned('cargo', ['generate-lockfile']));
         workspace.write({ [MANIFEST]: '[package]\nname = "my-lib"\nversion = "1.1.0"\nedition = "2024"\n' });
 
         const result = await afterAllProjectsVersioned(workspace.root, { dryRun: false, verbose: false, rootVersionActionsOptions: {} });

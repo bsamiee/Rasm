@@ -4,7 +4,7 @@ import { env, execPath } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import type { ProjectGraph } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-distribution';
-import { environment, it, shimmed, type Workspace, taskGraph } from '@rasm/testing/nx';
+import { it, shimmed, type Workspace, taskGraph } from '@rasm/testing/nx';
 import { Option, Schema } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { createTaskHasher } from 'nx/src/hasher/create-task-hasher';
@@ -105,7 +105,7 @@ describe('affected selection', () => {
     ])('selects only the tasks reading $case, with no project configuration change', ({ file, affected }, { workspace }) => {
         workspace.install(import.meta.resolve('nx/package.json'), import.meta.resolve('@rasm/nx-distribution/package.json')).write(plugged);
 
-        const printed = execFileSync(execPath, [NX, 'affected', '-t', 'build,clean,upgrade', `--files=${file}`, '--explain=stdout'], { cwd: workspace.root, env: environment(workspace.root), encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] });
+        const printed = execFileSync(...workspace.spawned(execPath, [NX, 'affected', '-t', 'build,clean,upgrade', `--files=${file}`, '--explain=stdout'], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'pipe'] }));
 
         expect(Schema.decodeOption(Explained)(printed)).toStrictEqual(Option.some({ affected }));
     });

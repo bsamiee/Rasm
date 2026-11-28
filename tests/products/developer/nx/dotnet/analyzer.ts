@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { it as workspaced, pathed } from '@rasm/testing/nx';
+import { shimmed, it as workspaced } from '@rasm/testing/nx';
 import { Record } from 'effect';
 import { vi } from 'vitest';
 
@@ -58,7 +58,7 @@ const it = workspaced.extend('serverless', { auto: true }, ({}, { onCleanup }) =
 
 const reported = it.extend('analyzer', { auto: true }, ({ workspace }) => {
     const folder = join(workspace.root, '.stub', 'dotnet');
-    pathed(folder, { dotnet: `[ "$1" = --version ] && exec /bin/cat ${folder}/version\nexec /bin/cat ${STUB.report}` });
+    shimmed(folder, { dotnet: `[ "$1" = --version ] && exec /bin/cat ${folder}/version\nexec /bin/cat ${STUB.report}` });
     return { folder };
 });
 

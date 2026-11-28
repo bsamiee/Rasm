@@ -49,7 +49,7 @@ const createNodes: CreateNodes = [
         const members = models.flatMap((model) => model.members);
         const patterns = Array.dedupe(members.flatMap(({ checks }) => checks.flatMap((check) => check.patterns)));
         const listed = yield* Effect.promise(() => multiGlobWithWorkspaceContext(context.workspaceRoot, patterns));
-        const held = new Set(patterns.filter((_, index) => Array.isReadonlyArrayNonEmpty(listed[index] ?? [])));
+        const held = patterns.filter((_, index) => Array.isReadonlyArrayNonEmpty(listed[index] ?? []));
         const [roots, anchor] = [new Set(members.map(({ root }) => root)), anchored(context.workspaceRoot)];
         const stated = yield* Effect.forEach(members, ({ root }) => manifested(context.workspaceRoot, root), { concurrency: 'unbounded' });
         const supplied = yield* Effect.filter(
@@ -66,7 +66,7 @@ const createNodes: CreateNodes = [
                         metadata: { technologies: ['python'] },
                         ...(member.packaged && { tags: ['release'], release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { lock: member.lock } } } }),
                         implicitDependencies: member.linked.filter((root) => roots.has(root)).map((root) => `directory:${root}`),
-                        targets: targets({ ...member, checks: member.checks.filter((check) => !held.isDisjointFrom(new Set(check.patterns))) }, settings, manifest, anchor),
+                        targets: targets({ ...member, checks: member.checks.filter((check) => Array.isReadonlyArrayNonEmpty(Array.intersection(check.patterns, held))) }, settings, manifest, anchor),
                     },
                 },
             },

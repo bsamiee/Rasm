@@ -1,15 +1,9 @@
 import { basename, dirname, join, resolve, sep } from 'node:path';
-import { env, execPath } from 'node:process';
-import { getSystemErrorMessage } from 'node:util';
+import { env } from 'node:process';
+import { installed } from '@rasm/nx/executor';
 import { executor, spawned, Words } from '@rasm/nx/inference';
-import { Array, Config, Effect, FileSystem, Function, Option, PlatformError, Record, Result, Schema } from 'effect';
+import { Array, Config, Effect, FileSystem, Function, Option, Record, Result, Schema } from 'effect';
 import { ChildProcess, ChildProcessSpawner, CommandLine } from 'effect/process';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const RENAME_SWAP = 0x2;
-const SWAP =
-    "const { dlopen, getInt32 } = await import('node:ffi'); const [from, to, flags] = process.argv.slice(1); const { renamex_np: rename, __error: errno } = dlopen(null, { renamex_np: { arguments: ['string', 'string', 'u32'], return: 'i32' }, __error: { return: 'pointer' } }).functions; process.exitCode = rename(from, to, Number(flags)) === 0 ? 0 : getInt32(errno());";
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -18,7 +12,7 @@ class Run extends Schema.Opaque<Run>()(
         runs: Schema.String.pipe(Schema.NonEmptyArray, Schema.Array).annotate({ description: 'Invocations the plugin infers, each a program and its arguments' }),
         applications: Schema.String.pipe(Schema.Array, Schema.optionalKey).annotate({
             description:
-                "Bundle names of the applications the invocations archive, each invocation taking -archivePath <n>.xcarchive in a temporary folder, once every invocation succeeds each bundle under an archive's Products taking its path below / in one renamex_np, swapped with the bundle installed there, so a failed invocation leaves the installed bundle untouched, then each one holding Contents/Library/LaunchAgents launched once more with open -n -g -j -W, behind the user's windows, so its SMAppService registration replaces the agents still running the build it swapped out, and a running executable inside one named in the last line as needing a relaunch",
+                "Bundle names of the applications the invocations archive, each invocation taking -archivePath <n>.xcarchive in a temporary folder, once every invocation succeeds each bundle under an archive's Products copied beside its path below / and swapped with the bundle installed there in one renamex_np, so a failed invocation leaves the installed bundle untouched, then each one holding Contents/Library/LaunchAgents launched once more with open -n -g -j -W, behind the user's windows, so its SMAppService registration replaces the agents still running the build it swapped out, and one whose Contents/MacOS holds the executable a running process launched from named in the last line as needing a relaunch",
         }),
         results: Schema.String.pipe(Schema.Array, Schema.optionalKey).annotate({
             description:
@@ -31,14 +25,6 @@ class Run extends Schema.Opaque<Run>()(
 ) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const install = Effect.fnUntraced(function* (from: string, to: string) {
-    const [fs, spawner] = yield* Effect.all([FileSystem.FileSystem, ChildProcessSpawner.ChildProcessSpawner]);
-    const held = yield* fs.exists(to);
-    yield* fs.makeDirectory(dirname(to), { recursive: true });
-    const code = yield* spawner.exitCode(ChildProcess.make(execPath, ['--disable-warning=ExperimentalWarning', '--input-type=module', '--eval', SWAP, from, to, `${held ? RENAME_SWAP : 0}`], { stdin: 'ignore', stdout: 'inherit', stderr: 'inherit' }));
-    return yield* code === 0 ? Effect.void : PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'install', syscall: 'renamex_np', pathOrDescriptor: to, description: getSystemErrorMessage(-Number(code)) });
-});
 
 const configured = Config.map(Config.withDefault(Config.Int('GIT_CONFIG_COUNT'), 0), (count) => ({ GIT_CONFIG_COUNT: `${count + 1}`, [`GIT_CONFIG_KEY_${count}`]: 'status.branch', [`GIT_CONFIG_VALUE_${count}`]: 'false' }));
 
@@ -77,10 +63,9 @@ const commands = Effect.fnUntraced(function* ({ runs, applications = [], results
             Array.filterMap((entry) => (applications.includes(basename(entry)) ? Result.succeed([join(at, entry), join(sep, ...entry.split(sep).slice(2))] as const) : Result.failVoid)),
         ),
     );
-    yield* Effect.forEach(staged.flat(), ([from, to]) => install(from, to));
+    const running = yield* installed(staged.flat());
     const registering = yield* Effect.filter(staged.flat(), ([, to]) => fs.exists(join(to, 'Contents', 'Library', 'LaunchAgents')));
     yield* Effect.forEach(registering, ([, to]) => spawned(['open', '-n', '-g', '-j', '-W', to], { cwd: root }), { discard: true });
-    const running = !success || dry || applications.length === 0 ? [] : (yield* spawned(['ps', '-Ao', 'comm='], { cwd: root })).split('\n');
     const stale = applications.filter((application) => running.some((executable) => executable.includes(join(sep, application, 'Contents', 'MacOS', sep))));
     yield* stale.length === 0 ? Effect.void : Effect.logInfo(`${stale.map((application) => basename(application, '.app')).join(', ')} runs the build it launched from, relaunch it to run this one`);
     return { success };

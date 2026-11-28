@@ -27,7 +27,7 @@ it.for([
             'apps/App/Views.cs': 'namespace App;\n\npublic static class Views;\n',
         })
         .graph({ createNodes, createDependencies });
-    execFileSync('dotnet', ['restore', 'apps/App/App.csproj'], { cwd: workspace.root, stdio: 'ignore' });
+    execFileSync(...workspace.spawned('dotnet', ['restore', 'apps/App/App.csproj'], { stdio: 'ignore' }));
     const before = workspace.files();
 
     const { success } = await execute(await targetOptions(Build, graph, 'App', 'build--dotnet', 'interface'), workspace.context(graph, 'App', 'build--dotnet', 'interface'));
@@ -51,7 +51,7 @@ it('builds a reference in the configuration it shares with a project whose defau
             'apps/App/Views.cs': 'namespace App;\n\npublic static class Views;\n',
         })
         .graph({ createNodes, createDependencies });
-    execFileSync('dotnet', ['restore', 'apps/App/App.csproj'], { cwd: workspace.root, stdio: 'ignore' });
+    execFileSync(...workspace.spawned('dotnet', ['restore', 'apps/App/App.csproj'], { stdio: 'ignore' }));
     const before = workspace.files();
 
     const { success } = await execute(await targetOptions(Build, graph, 'App', 'build--dotnet', 'staging'), workspace.context(graph, 'App', 'build--dotnet', 'staging'));
@@ -65,7 +65,7 @@ it.for([
     { verb: 'pack', stated: '    <IsPackable>true</IsPackable>\n    <Version>1.2.0</Version>\n', source: 'namespace Tool;\n\npublic static class Marker;\n', target: 'pack--dotnet', written: /^apps\/Tool\/bin\/Debug\/Tool\.1\.2\.0\.nupkg$/u },
 ])('writes what dotnet $verb produces within the outputs $target declares', async ({ stated, source, target, written }, { workspace }) => {
     const graph = await workspace.write({ 'apps/Tool/Tool.csproj': project(stated), 'apps/Tool/Tool.cs': source }).graph({ createNodes, createDependencies });
-    execFileSync('dotnet', ['build', 'apps/Tool/Tool.csproj', '--configuration', 'Debug'], { cwd: workspace.root, stdio: 'ignore' });
+    execFileSync(...workspace.spawned('dotnet', ['build', 'apps/Tool/Tool.csproj', '--configuration', 'Debug'], { stdio: 'ignore' }));
     const before = workspace.files();
 
     const { success } = await execute(await targetOptions(Build, graph, 'Tool', target), workspace.context(graph, 'Tool', target));

@@ -83,7 +83,7 @@ const createDependencies: CreateDependencies = (_, { projects, workspaceRoot }) 
             const names = createProjectRootMappingsFromProjectConfigurations(projects);
             const linked = links.get(workspaceRoot) ?? new Map<string, Member>();
             const named = (at: string | undefined) => Option.flatMapNullishOr(Option.fromUndefinedOr(at), (path) => linked.get(path)?.root).pipe(Option.flatMapNullishOr((root) => names.get(root)));
-            return Array.getSomes(linked.values().flatMap((member) => member.crate.dependencies.map(({ path }) => Option.map(Option.all({ source: Option.fromUndefinedOr(names.get(member.root)), target: named(path) }), Struct.assign({ type: DependencyType.static, sourceFile: member.manifest })))));
+            return Array.getSomes([...linked.values()].flatMap((member) => member.crate.dependencies.map(({ path }) => Option.map(Option.all({ source: Option.fromUndefinedOr(names.get(member.root)), target: named(path) }), Struct.assign({ type: DependencyType.static, sourceFile: member.manifest })))));
         }),
     );
 

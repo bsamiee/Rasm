@@ -54,7 +54,7 @@ class Linked extends Context.Service<Linked, Map<string, Tree['members']>>()(`${
 
 const commands = (text: string) => {
     const [, tokens] = Array.mapAccum(
-        text.matchAll(TOKEN).filter(([token]) => !token.startsWith('#')),
+        [...text.matchAll(TOKEN)].filter(([token]) => !token.startsWith('#')),
         { depth: 0, call: -1 },
         ({ depth, call }, { 0: token, index, groups = {} }) => {
             const opened = depth === 0 && groups['head'] !== undefined;
@@ -180,8 +180,8 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
         ({ from }) => from,
     );
     const registries = Map.groupBy(
-        inputs.filter((file) => posix.basename(file) === REGISTRY.manifest),
-        (manifest) => owner(posix.dirname(manifest)),
+        inputs.filter((file) => posix.basename(file) === REGISTRY.manifest).map((manifest) => ({ folder: posix.dirname(manifest), inputs: [manifest, posix.join(posix.dirname(manifest), REGISTRY.configuration)].filter((at) => matched.has(at)) })),
+        ({ folder }) => owner(folder),
     );
     const members = placed.map(({ name, folder, args }) => ({
         name,
@@ -190,7 +190,7 @@ const resolved = Effect.fnUntraced(function* (workspaceRoot: string, presets: st
         compiled: folder !== root && !args.some(({ value }) => value === 'NONE'),
         packaged: args.some(({ value }) => value === 'VERSION'),
         links: Array.dedupe((linked.get(folder) ?? []).map(({ root: to, file }) => ({ root: to, file }))),
-        registries: (registries.get(folder) ?? []).map((manifest) => ({ folder: posix.dirname(manifest), inputs: Array.fromIterable(new Set([manifest, posix.join(posix.dirname(manifest), REGISTRY.configuration)]).intersection(matched)) })),
+        registries: registries.get(folder) ?? [],
     }));
     return { root, workflows, packages, members, inputs, identifier: normalizePath(relative(workspaceRoot, IDENTIFIER)) };
 });

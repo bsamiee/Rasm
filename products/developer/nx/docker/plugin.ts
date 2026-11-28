@@ -87,7 +87,7 @@ const nodes = inferring(Schema.Struct({}), run, function* (files, _, { workspace
             const { dependencies, devDependencies } = yield* Effect.flatMap(fs.readFileString(join(workspaceRoot, file)), Schema.decodeEffect(Required));
             const named = Record.keys({ ...dependencies, ...devDependencies });
             const reached = Array.getSomes(named.map((name) => Option.liftThrowable(readModulePackageJson)(name, [join(workspaceRoot, posix.dirname(file))])));
-            return !CLIENTS.isDisjointFrom(new Set([...named, ...reached.flatMap(({ packageJson }) => Record.keys(packageJson.dependencies ?? {}))]));
+            return [...named, ...reached.flatMap(({ packageJson }) => Record.keys(packageJson.dependencies ?? {}))].some((name) => CLIENTS.has(name));
         }),
         { concurrency: 'unbounded' },
     );

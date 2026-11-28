@@ -167,7 +167,7 @@ const worker = Effect.fnUntraced(function* (anchor: Anchor, manager: PackageMana
         const { exports } = yield* fs.readFileString(configured).pipe(Effect.flatMap(Schema.decodeEffect(Exported)));
         const cloudflare = yield* Effect.tryPromise({ try: (): Promise<{ readonly loadConfig: typeof loadConfig }> => import(pathToFileURL(join(dirname(configured), exports['.'].import)).href), catch: unresolved });
         const { dependencies } = yield* Effect.tryPromise({ try: () => cloudflare.loadConfig(at), catch: (cause) => new Cause.UnknownError(cause, `${file} does not load as a Cloudflare config`) });
-        return { sources: Array.dedupe([file, ...dependencies.values().map((dependency) => normalizePath(relative(anchor.workspaceRoot, dependency)))]).filter(within) };
+        return { sources: Array.dedupe([file, ...[...dependencies].map((dependency) => normalizePath(relative(anchor.workspaceRoot, dependency)))]).filter(within) };
     });
     const { sources } = yield* recall(file, read);
     const typed = installed('@cloudflare/workers-types', at);

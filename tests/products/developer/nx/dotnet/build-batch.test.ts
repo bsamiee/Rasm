@@ -1,5 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import { batch } from '@rasm/nx-dotnet/executors/build';
@@ -7,7 +6,7 @@ import { batch as checked } from '@rasm/nx-dotnet/executors/check';
 import { batch as formatted } from '@rasm/nx-dotnet/executors/format';
 import { pathed, spanned } from '@rasm/testing/nx';
 import { Record } from 'effect';
-import { describe, expect, onTestFinished, vi } from 'vitest';
+import { describe, expect, vi } from 'vitest';
 import { it } from '#/analyzer';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -100,9 +99,8 @@ describe('check batch', () => {
 });
 
 describe('format batch', () => {
-    it('stamps every project of one dotnet format run with the span of that run, inside the batch', async ({ workspace }) => {
-        const folder = mkdtempSync(join(tmpdir(), 'dotnet-format-'));
-        onTestFinished(() => rmSync(folder, { recursive: true }));
+    it('stamps every project of one dotnet format run with the span of that run, inside the batch', async ({ workspace, scratch }) => {
+        const folder = scratch('dotnet-format-');
         pathed(folder, { dotnet: '/bin/sleep 0.2' });
         const before = vi.getRealSystemTime();
 
@@ -118,9 +116,8 @@ describe('format batch', () => {
 });
 
 describe('batch order', () => {
-    it('runs a batch only after the batches holding the tasks it depends on, in as many runs as the order needs', async ({ workspace }) => {
-        const folder = mkdtempSync(join(tmpdir(), 'dotnet-batches-'));
-        onTestFinished(() => rmSync(folder, { recursive: true }));
+    it('runs a batch only after the batches holding the tasks it depends on, in as many runs as the order needs', async ({ workspace, scratch }) => {
+        const folder = scratch('dotnet-batches-');
         pathed(folder, { dotnet: `[ "$2" = results ] && exec /usr/bin/printf '{}'\n/usr/bin/grep -o 'ProjectReference Include="[^"]*/[a-z]*\\.csproj"' "$2" | /usr/bin/sed 's#.*/\\([a-z]*\\)\\.csproj"#\\1#' | /usr/bin/paste -sd, - >> ${folder}/runs.log` });
 
         await Array.fromAsync(
@@ -135,9 +132,8 @@ describe('batch order', () => {
         expect(readFileSync(join(folder, 'runs.log'), 'utf-8')).toBe('c\nb\na\n');
     });
 
-    it('fails every task of a cycle between batches naming the tasks, and runs nothing', async ({ workspace }) => {
-        const folder = mkdtempSync(join(tmpdir(), 'dotnet-batches-'));
-        onTestFinished(() => rmSync(folder, { recursive: true }));
+    it('fails every task of a cycle between batches naming the tasks, and runs nothing', async ({ workspace, scratch }) => {
+        const folder = scratch('dotnet-batches-');
         pathed(folder, { dotnet: `printf '%s\\n' "$*" >> ${folder}/runs.log` });
 
         const ran = await Array.fromAsync(batch(graphed({ a: ['b'], b: ['a'] }), { 'a:build--dotnet': { project: 'a/a.csproj', command: ['build', '--configuration', 'Debug'] }, 'b:build--dotnet': { project: 'b/b.csproj', command: ['build', '--configuration', 'Release'] } }, {}, context(workspace.root)));

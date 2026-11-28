@@ -41,7 +41,7 @@ const nodes = inferring(Options, run, function* (files, settings, context, cache
     const manifests = new Map(yield* Effect.forEach(Array.dedupe(nested.map(dirname)), (root) => loaded(workspaceRoot, root), { concurrency: 'unbounded' }));
     const programs = yield* programmed(workspaceRoot, Array.headNonEmpty(settings.compilerPackages), row, manager, held, nested);
     const standalone = yield* Effect.findFirst(listed.has(MANIFEST) ? ['src', 'lib'] : [], (at) => FileSystem.FileSystem.use((fs) => fs.exists(join(workspaceRoot, at))));
-    const lints = yield* linted(workspaceRoot, Array.headNonEmpty(settings.compilerPackages), manager, installed('eslint', join(workspaceRoot, MANIFEST)) ? [...held.values().map((root) => ({ root, scope: root })), ...Option.toArray(Option.map(standalone, (scope) => ({ root: '.', scope })))] : [], row);
+    const lints = yield* linted(workspaceRoot, Array.headNonEmpty(settings.compilerPackages), manager, installed('eslint', join(workspaceRoot, MANIFEST)) ? [...[...held].map((root) => ({ root, scope: root })), ...Option.toArray(Option.map(standalone, (scope) => ({ root: '.', scope })))] : [], row);
     const chained = (root: string) => Array.fromOption(Option.flatMap(Option.fromUndefinedOr(programs.get(posix.join(root, CONFIG))), Option.getSuccess)).flatMap(({ chain }) => Array.cartesianWith(['{workspaceRoot}'], chain.filter(Predicate.not(owned(root))), posix.join));
     const read = Effect.fnUntraced(function* (file: string) {
         const root = dirname(file);

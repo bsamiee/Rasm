@@ -1,6 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
 import { env } from 'node:process';
 import type { CreateNodes, ProjectGraph } from '@nx/devkit';
@@ -34,7 +33,7 @@ const TYPESCRIPT = { 'npm:typescript': { type: 'npm', name: 'npm:typescript', da
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const compiled = (workspace: Workspace, folder: string, ...args: readonly string[]) => spawnSync(join(workspace.root, 'node_modules/.bin/tsc'), [...args, '--pretty', 'false'], { cwd: join(workspace.root, folder), encoding: 'utf-8' }).stdout;
+const compiled = (workspace: Workspace, folder: string, ...args: readonly string[]) => spawnSync(...workspace.spawned(join(workspace.root, 'node_modules/.bin/tsc'), [...args, '--pretty', 'false'], { cwd: join(workspace.root, folder), encoding: 'utf-8' })).stdout;
 
 const listed = (workspace: Workspace, folder: string, program: string) =>
     compiled(workspace, folder, '-p', program, '--listFilesOnly')
@@ -118,11 +117,8 @@ describe('check--tsc hashes the files tsc reads', () => {
         expect(['libs/lib/decoy.ts', ...unread].filter((file) => hashed.has(file))).toStrictEqual([]);
     });
 
-    it('hashes a declaration file tsc reads through a gitignored directory link to a folder outside the workspace, and the task hash follows its content', async ({ workspace, onTestFinished }) => {
-        const outside = realpathSync(mkdtempSync(join(tmpdir(), 'nx-outside-')));
-        onTestFinished(() => {
-            rmSync(outside, { recursive: true, force: true });
-        });
+    it('hashes a declaration file tsc reads through a gitignored directory link to a folder outside the workspace, and the task hash follows its content', async ({ workspace, scratch }) => {
+        const outside = scratch('nx-outside-');
         writeFileSync(join(outside, 'outside.d.ts'), "declare module 'outside' {\n    export const value: number;\n}\n");
         workspace.install(typescript).write({
             ...LIB,

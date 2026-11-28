@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { delimiter, join } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ProjectGraph } from '@nx/devkit';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
@@ -86,7 +86,7 @@ describe('task hashes', () => {
         const hashed = hasher(workspace.root, graph, target);
         const resolving = (version: string) => {
             writeFileSync(join(analyzer.folder, 'version'), version);
-            return hashed({ PATH: [analyzer.folder, environment(workspace.root).PATH].join(delimiter) });
+            return hashed({});
         };
 
         const [first, next, again] = [await resolving('10.0.100'), await resolving('11.0.100'), await resolving('10.0.100')];

@@ -1,7 +1,7 @@
 import { basename, dirname, join, posix, relative, resolve } from 'node:path';
 import { normalizePath } from '@nx/devkit';
 import { above, below, inside, runner, Stated, spawned } from '@rasm/nx/inference';
-import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Function, Layer, Option, Predicate, pipe, Record, Result, Schema, String, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Context, Effect, Equivalence, FileSystem, Function, Graph, Layer, Option, Predicate, pipe, Record, Result, Schema, String, UndefinedOr } from 'effect';
 import { Toml } from 'effect/encoding';
 import plugin from '#/package.json' with { type: 'json' };
 
@@ -187,15 +187,14 @@ const resolved = (workspaceRoot: string, { metadata, profile, host, toolchain, c
     const profiles = Record.keys(Record.filter(profile, ({ inherits }) => inherits !== undefined));
     const strategy = (name: string): string => profile[name]?.panic ?? UndefinedOr.map(profile[name]?.inherits, strategy) ?? 'unwind';
     const crates = metadata.packages.map((crate) => ({ crate, root: within(dirname(crate.manifest_path)), manifest: within(crate.manifest_path), versioned: crate.version !== '0.0.0' || crate.publish === null }));
-    const reached = (names: ReadonlySet<string>): ReadonlySet<string> => {
-        const next = names.union(new Set(crates.filter(({ crate }) => names.has(crate.name)).flatMap(({ crate }) => crate.dependencies.filter(({ path: to }) => to !== undefined).map(({ name }) => name))));
-        return next.size === names.size ? names : reached(next);
-    };
+    const positions = new Map(crates.map(({ crate }, index) => [crate.name, index] as const));
+    const edges = crates.flatMap(({ crate }, source) => crate.dependencies.filter(({ path: to }) => to !== undefined).flatMap(({ name }) => Array.fromNullishOr(positions.get(name)).map((target) => ({ source, target, data: undefined }))));
+    const graph = Graph.fromSnapshot({ type: 'directed', nodes: crates.map((data, index) => ({ index, data })), edges: edges.map((edge, index) => ({ ...edge, index })) });
     return {
         root,
-        members: crates.map((member) => {
-            const needed = reached(new Set([member.crate.name]));
-            const reachable = crates.filter((other) => other.crate.name !== member.crate.name && needed.has(other.crate.name));
+        members: crates.map((member, position) => {
+            const needed = new Set(Graph.indices(Graph.dfs(graph, { start: [position] })));
+            const reachable = crates.filter((_, index) => index !== position && needed.has(index));
             return {
                 ...member,
                 packages: reachable.map((other) => ({ root: other.root, name: other.crate.name })),

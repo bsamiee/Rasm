@@ -24,7 +24,7 @@ describe('package', () => {
 
         expect({
             success,
-            zipped: execFileSync('zipinfo', ['-1', join(workspace.root, 'dist/Viewer.zip')], { encoding: 'utf-8' })
+            zipped: execFileSync(...workspace.spawned('zipinfo', ['-1', join(workspace.root, 'dist/Viewer.zip')], { encoding: 'utf-8' }))
                 .split('\n')
                 .filter(Boolean)
                 .toSorted(),

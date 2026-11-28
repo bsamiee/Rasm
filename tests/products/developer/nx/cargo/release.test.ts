@@ -41,7 +41,7 @@ const PUBLISHED = 'publish --package path+file://<root>/rust/crates/app#app --lo
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const it = workspaced.extend('tagged', ({ workspace }) => async (release: object, tags: readonly string[], registry: string) => {
-    const git = (...args: readonly string[]) => execFileSync('git', ['-c', 'user.name=Suite', '-c', 'user.email=suite@example.com', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args], { cwd: workspace.root });
+    const git = (...args: readonly string[]) => execFileSync(...workspace.spawned('git', ['-c', 'user.name=Suite', '-c', 'user.email=suite@example.com', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args]));
     workspace.write({ ...crates, '.gitignore': '.bin\n*.txt\n', 'nx.json': JSON.stringify({ release }) });
     git('init', '--quiet', '--initial-branch=main');
     git('add', '.');
@@ -59,14 +59,14 @@ const it = workspaced.extend('tagged', ({ workspace }) => async (release: object
 describe('pack--cargo', () => {
     it('packs a crate depending on another workspace crate into the archive its outputs name, holding its manifest and sources', async ({ workspace }) => {
         const graph = await workspace.write(crates).graph(cargo);
-        execFileSync('cargo', ['generate-lockfile'], { cwd: join(workspace.root, 'rust') });
+        execFileSync(...workspace.spawned('cargo', ['generate-lockfile'], { cwd: join(workspace.root, 'rust') }));
 
         const { success } = await execute(await targetOptions(Cargo, graph, 'app', 'pack--cargo'), workspace.context(graph, 'app', 'pack--cargo'));
 
         const [archive = ''] = outputs(graph, 'app', 'pack--cargo');
         expect(success).toBe(true);
         expect(
-            execFileSync('tar', ['-tzf', join(workspace.root, archive)], { encoding: 'utf-8' })
+            execFileSync(...workspace.spawned('tar', ['-tzf', join(workspace.root, archive)], { encoding: 'utf-8' }))
                 .split('\n')
                 .filter((entry) => ['app-0.2.0/Cargo.toml', 'app-0.2.0/src/main.rs', 'app-0.2.0/Cargo.lock'].includes(entry))
                 .toSorted(),
@@ -75,9 +75,9 @@ describe('pack--cargo', () => {
 
     it('infers a pack for exactly the versioned crates cargo package accepts, none for a crate whose path dependency publishes nowhere', async ({ workspace }) => {
         const graph = await workspace.write(sealed).graph(cargo);
-        execFileSync('cargo', ['generate-lockfile'], { cwd: join(workspace.root, 'rust') });
+        execFileSync(...workspace.spawned('cargo', ['generate-lockfile'], { cwd: join(workspace.root, 'rust') }));
 
-        const accepted = CLOSURES.filter(([, selected]) => spawnSync('cargo', ['package', ...selected, '--no-verify', '--locked'], { cwd: join(workspace.root, 'rust') }).status === 0).map(([project]) => project);
+        const accepted = CLOSURES.filter(([, selected]) => spawnSync(...workspace.spawned('cargo', ['package', ...selected, '--no-verify', '--locked'], { cwd: join(workspace.root, 'rust') })).status === 0).map(([project]) => project);
         expect(
             Object.keys(graph.nodes)
                 .filter((project) => 'pack--cargo' in (graph.nodes[project]?.data.targets ?? {}))

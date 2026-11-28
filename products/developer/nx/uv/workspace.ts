@@ -64,8 +64,8 @@ class Metadata extends Schema.Opaque<Metadata>()(
 const normalized = (name: string) => name.toLowerCase().replaceAll(/[-_.]+/gu, '-');
 
 const floor = (range: string) => {
-    const stated = range.matchAll(CLAUSES).flatMap(({ groups }) => Array.fromNullishOr(groups?.['version']));
-    const near = stated.flatMap((version) => Array.getSomes([version, inc(version, 'patch'), inc(version, 'minor')].map(Option.fromNullOr))).toArray();
+    const stated = [...range.matchAll(CLAUSES)].flatMap(({ groups }) => Array.fromNullishOr(groups?.['version']));
+    const near = stated.flatMap((version) => Array.getSomes([version, inc(version, 'patch'), inc(version, 'minor')].map(Option.fromNullOr)));
     return UndefinedOr.map(minSatisfying(near, range) ?? undefined, (lowest) => `${major(lowest)}.${minor(lowest)}`);
 };
 
@@ -143,7 +143,7 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, lock: string
                 (): readonly string[] => row.matches,
             );
             const config = Array.findFirst(Array.cartesian(Array.fromNullishOr(row.table), above(member.root)), ([table, folder]) => Option.isSome(drilled(posix.join(folder, MANIFEST), ['tool', table])));
-            return Array.isReadonlyArrayNonEmpty(checked) && installed.values().some(distributed(key))
+            return Array.isReadonlyArrayNonEmpty(checked) && [...installed].some(distributed(key))
                 ? Result.succeed({
                       root: member.root,
                       key,

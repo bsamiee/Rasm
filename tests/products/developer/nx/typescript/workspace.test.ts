@@ -30,7 +30,7 @@ describe('workspace root checks', () => {
         { case: 'the jscpd row of package.json', files: { 'package.json': '{"name":"root","type":"module","workspaces":["libs/*"],"jscpd":{"pattern":"**/*.ts"}}' } },
     ])('hashes for check--jscpd the configuration jscpd itself reads from $case', async ({ files }, { workspace }) => {
         const graph = await workspace.write({ ...ROOT, ...files, 'libs/lib/index.ts': 'export {};' }).graph({ createNodes });
-        const read = /^Using config from (?<config>.+)$/mu.exec(spawnSync('jscpd', ['--debug', '.'], { cwd: workspace.root, encoding: 'utf-8' }).stderr)?.groups?.['config'] ?? '';
+        const read = /^Using config from (?<config>.+)$/mu.exec(spawnSync(...workspace.spawned('jscpd', ['--debug', '.'], { encoding: 'utf-8' })).stderr)?.groups?.['config'] ?? '';
 
         await expect(hashed(graph, workspace.root, 'check--jscpd', 'jscpd')).resolves.toContain(read);
     });

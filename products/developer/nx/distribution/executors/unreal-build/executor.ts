@@ -1,6 +1,7 @@
 import { posix } from 'node:path';
 import { runExecutor } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
+import { installed } from '@rasm/nx/executor';
 import { executor, inside, spawned, Words } from '@rasm/nx/inference';
 import { Array, Cause, Effect, Equivalence, FileSystem, Function, Option, Path, Predicate, pipe, Record, Result, Schema, Stream, String, Struct } from 'effect';
 import { applyEdits, modify } from 'jsonc-parser';
@@ -38,7 +39,7 @@ const Unreal = Schema.Struct({
 }).annotate({
     title: 'Unreal',
     description:
-        "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer, unity builds off, and no precompiled headers for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin with strict includes once per engine on this machine its hosts name, skipping a host whose engine is absent, after each package its descriptor maps to a folder installs there under a .gitignore holding *, runs the automation tests named after it through UnrealEditor-Cmd in each host and reads their result from the exported report, zips the tracked sources with those installed packages and the engine's EngineVersion once per engine after the Fab store checks pass, or copies the package into the Plugins folder of each user project",
+        "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer, unity builds off, and no precompiled headers for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin with strict includes once per engine on this machine its hosts name, skipping a host whose engine is absent, after each package its descriptor maps to a folder installs there under a .gitignore holding *, runs the automation tests named after it through UnrealEditor-Cmd in each host and reads their result from the exported report, zips the tracked sources with those installed packages and the engine's EngineVersion once per engine after the Fab store checks pass, or copies the package into the Plugins folder of each user project, swapped in for the one installed there",
 });
 const Report = Schema.fromJsonString(Schema.Struct({ tests: Schema.NonEmptyArray(Schema.Struct({ fullTestPath: Schema.String, state: Schema.String })) }));
 const Listed = Schema.fromJsonString(Schema.Struct({ FabURL: Schema.optionalKey(Schema.String), Modules: Schema.Array(Schema.Struct({ Name: Schema.String, PlatformAllowList: Schema.String.pipe(Schema.Array, Schema.optionalKey), PlatformDenyList: Schema.String.pipe(Schema.Array, Schema.optionalKey) })) }));
@@ -136,12 +137,6 @@ const execute = executor(Unreal, function* ({ outputPath, descriptor, hosts, dep
         yield* stored(text, tracked, root, sources);
         yield* zipped({ at: stage, names: sources }, placed('pack', `${name}-${version}.zip`));
     }, Effect.scoped);
-    const installed = Effect.fnUntraced(function* (at: string) {
-        const { version, project } = yield* located(at);
-        const target = path.join(path.dirname(project), 'Plugins', name);
-        yield* fs.remove(target, { recursive: true, force: true });
-        yield* fs.copy(placed('build', version, name), target);
-    });
     const compiled = (analysis: readonly string[]) => (editor ? Effect.forEach(loading, (each) => edited(each, analysis, ['build', 'check']), { discard: true }) : Effect.forEach(engines, (each) => Effect.andThen(linked(each), packaged(each)), { discard: true }));
     const packed = Effect.gen(function* () {
         const [text, tracked] = yield* Effect.all([fs.readFileString(absolute(descriptor)), Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [posix.join(posix.dirname(descriptor), '**')])), fs.remove(placed('pack'), { recursive: true, force: true })]);
@@ -153,7 +148,10 @@ const execute = executor(Unreal, function* ({ outputPath, descriptor, hosts, dep
         check: compiled(ANALYSIS),
         test: Effect.forEach(loading, tested, { discard: true }),
         pack: packed,
-        install: Effect.forEach(users, installed, { discard: true }),
+        install: Effect.flatMap(
+            Effect.forEach(users, (at) => Effect.map(located(at), ({ version, project }) => [placed('build', version, name), path.join(path.dirname(project), 'Plugins', name)] as const)),
+            installed,
+        ),
     }[operation];
     return { success: true };
 });

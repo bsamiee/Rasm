@@ -85,7 +85,7 @@ const read = Effect.fnUntraced(function* (entry: string, routed: boolean) {
     });
     return {
         edges,
-        environment: environment.values().filter(Predicate.isString).toArray(),
+        environment: [...environment].filter(Predicate.isString),
         scripts: [...globalSetups, ...globalTeardowns],
         routes: reports.filter(({ routes }) => routes).map(({ name }) => name),
         reported: reports.flatMap(({ written }) => written),

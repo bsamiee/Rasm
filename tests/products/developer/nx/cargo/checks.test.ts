@@ -32,7 +32,7 @@ describe('check--clippy', () => {
         { case: 'an unwind-only library, an abort profile', project: 'kit', files: { 'Cargo.toml': ABORTING, 'crates/kit/src/lib.rs': '#[cfg(panic = "abort")]\ncompile_error!("unwinding required");\n\npub fn one() -> u32 {\n    1\n}\n' }, passed: false },
     ])('reports ($passed) $case', async ({ project, files, passed }, { workspace }) => {
         const graph = await workspace.write({ ...crates, ...files }).graph(cargo);
-        execFileSync('cargo', ['generate-lockfile'], { cwd: workspace.root });
+        execFileSync(...workspace.spawned('cargo', ['generate-lockfile']));
 
         const { success } = await execute(await targetOptions(Cargo, graph, project, 'check--clippy'), workspace.context(graph, project, 'check--clippy'));
 

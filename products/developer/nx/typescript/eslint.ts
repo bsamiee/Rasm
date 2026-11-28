@@ -29,8 +29,8 @@ const imported = Effect.fnUntraced(function* (workspaceRoot: string, compiler: s
         );
     const reached = Effect.fnUntraced(function* ({ pending, seen }: { readonly pending: readonly string[]; readonly seen: ReadonlySet<string> }) {
         const found = yield* Effect.forEach(pending, specified);
-        const next = new Set(Array.filterMap(found.flat(), ([text, from]) => (isRelativePath(text) ? Result.succeed(posix.join(posix.dirname(normalizePath(relative(workspaceRoot, from))), text)) : Result.failVoid))).difference(seen);
-        return [Array.zip(pending, found), Option.liftPredicate({ pending: [...next], seen: seen.union(next) }, () => next.size > 0)] as const;
+        const next = [...new Set(Array.filterMap(found.flat(), ([text, from]) => (isRelativePath(text) ? Result.succeed(posix.join(posix.dirname(normalizePath(relative(workspaceRoot, from))), text)) : Result.failVoid)))].filter((at) => !seen.has(at));
+        return [Array.zip(pending, found), Option.liftPredicate({ pending: next, seen: new Set([...seen, ...next]) }, () => next.length > 0)] as const;
     });
     return yield* Effect.forEach(
         configs,

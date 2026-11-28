@@ -1,13 +1,12 @@
-import { execFileSync, execSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
 import { refused } from '@rasm/testing/errors';
-import { environment, pathed, shimmed } from '@rasm/testing/nx';
+import { pathed, shimmed, type Workspace } from '@rasm/testing/nx';
 import { Array, Option, Predicate } from 'effect';
-import { describe, expect, onTestFinished, vi } from 'vitest';
+import { describe, expect, vi } from 'vitest';
 import { it } from '#/analyzer';
 
 vi.mock(import('@nx/devkit/internal'), async (actual) => ({ ...(await actual()), workspaceDataDirectory: 'tmp/project-graph-cache' }));
@@ -18,20 +17,14 @@ const LIBRARY = '<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <Targ
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const scratch = (prefix: string) => {
-    const folder = mkdtempSync(join(tmpdir(), prefix));
-    onTestFinished(() => rmSync(folder, { recursive: true, force: true }));
-    return folder;
-};
-
-const counted = () => {
-    const [folder, dotnet] = [scratch('dotnet-counted-'), execFileSync('sh', ['-c', 'command -v dotnet'], { encoding: 'utf-8' }).trim()];
+const counted = (workspace: Workspace, folder: string) => {
+    const dotnet = execFileSync(...workspace.spawned('sh', ['-c', 'command -v dotnet'], { encoding: 'utf-8' })).trim();
     mkdirSync(join(folder, 'sdk', '10.0.100'), { recursive: true });
     shimmed(folder, { dotnet: `case "$1" in *MsbuildAnalyzer.dll) echo analyzed >> ${folder}/analyses.log ;; esac\nexec ${dotnet} "$@"` });
     return { folder, analyses: () => (existsSync(join(folder, 'analyses.log')) ? readFileSync(join(folder, 'analyses.log'), 'utf-8').trim().split('\n').length : 0) };
 };
 
-const hashed = (root: string, command: string) => execSync(command, { cwd: root, env: environment(root), encoding: 'utf-8' });
+const hashed = (workspace: Workspace, command: string) => execFileSync(...workspace.spawned('sh', ['-c', command], { encoding: 'utf-8' }));
 
 const referencing = (dll: string) => `<Project Sdk="Microsoft.NET.Sdk">\n  <PropertyGroup>\n    <TargetFramework>net10.0</TargetFramework>\n  </PropertyGroup>\n  <ItemGroup>\n    <Reference Include="Host" HintPath="${dll}" />\n  </ItemGroup>\n</Project>\n`;
 
@@ -40,8 +33,8 @@ const runtime = (inputs: readonly unknown[] = []) => Array.findLast(inputs, (inp
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 describe('analysis cache', () => {
-    it('reuses the analysis while no file the evaluation read changes, and analyzes again once an SDK lands beside the dotnet on PATH', async ({ workspace }) => {
-        const shim = counted();
+    it('reuses the analysis while no file the evaluation read changes, and analyzes again once an SDK lands beside the dotnet on PATH', async ({ workspace, scratch }) => {
+        const shim = counted(workspace, scratch('dotnet-counted-'));
         const read = async () => {
             const { nodes } = await workspace.write({ 'apps/App/App.csproj': LIBRARY }).graph({ createNodes, createDependencies });
             return Object.keys(nodes);
@@ -58,8 +51,8 @@ describe('analysis cache', () => {
     it.for([
         { kind: 'a Directory.Build.props MSBuild probes for', added: 'apps/Directory.Build.props', text: '<Project />\n' },
         { kind: 'an .editorconfig no evaluation probes for', added: 'apps/.editorconfig', text: 'root = false\n' },
-    ])('analyzes again once $kind lands in a folder above the project, and hashes it in build--dotnet', async ({ added, text }, { workspace }) => {
-        const shim = counted();
+    ])('analyzes again once $kind lands in a folder above the project, and hashes it in build--dotnet', async ({ added, text }, { workspace, scratch }) => {
+        const shim = counted(workspace, scratch('dotnet-counted-'));
         const read = async () => {
             const { nodes } = await workspace.write({ 'apps/App/App.csproj': LIBRARY }).graph({ createNodes, createDependencies });
             return nodes['App']?.data.targets?.['build--dotnet']?.inputs ?? [];
@@ -81,8 +74,8 @@ describe('analysis cache', () => {
         expect([before.nodes['App']?.data.tags ?? [], after.nodes['App']?.data.tags ?? []]).toStrictEqual([[], ['edited']]);
     });
 
-    it('keeps no analysis MSBuild failed to evaluate, refusing the graph with its error on every read', async ({ workspace }) => {
-        const shim = counted();
+    it('keeps no analysis MSBuild failed to evaluate, refusing the graph with its error on every read', async ({ workspace, scratch }) => {
+        const shim = counted(workspace, scratch('dotnet-counted-'));
         workspace.write({ 'apps/App/App.csproj': LIBRARY, 'apps/Bad/Bad.csproj': '<Project Sdk="Microsoft.NET.Sdk">\n' });
 
         await expect(workspace.graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/^The project file could not be loaded\. /u));
@@ -105,52 +98,51 @@ describe('files Nx hands the plugin', () => {
 });
 
 describe('files outside the workspace', () => {
-    it('hashes a referenced file outside the workspace by its content, naming no path outside the workspace', async ({ workspace }) => {
+    it('hashes a referenced file outside the workspace by its content, naming no path outside the workspace', async ({ workspace, scratch }) => {
         const dll = join(scratch('dotnet-outside-'), 'Host.dll');
         writeFileSync(dll, 'first');
         const graph = await workspace.write({ 'apps/App/App.csproj': referencing(dll) }).graph({ createNodes, createDependencies });
         const command = Option.getOrThrow(runtime(graph.nodes['App']?.data.targets?.['build--dotnet']?.inputs));
-        const first = hashed(workspace.root, command);
+        const first = hashed(workspace, command);
 
         writeFileSync(dll, 'second');
 
-        expect([first === hashed(workspace.root, command), command.includes(dll)]).toStrictEqual([false, false]);
+        expect([first === hashed(workspace, command), command.includes(dll)]).toStrictEqual([false, false]);
     });
 
-    it('writes the listing its hash reads again on a reused analysis once the listing is gone', async ({ workspace }) => {
+    it('writes the listing its hash reads again on a reused analysis once the listing is gone', async ({ workspace, scratch }) => {
         const dll = join(scratch('dotnet-outside-'), 'Host.dll');
         writeFileSync(dll, 'first');
-        const shim = counted();
+        const shim = counted(workspace, scratch('dotnet-counted-'));
         const graph = await workspace.write({ 'apps/App/App.csproj': referencing(dll) }).graph({ createNodes, createDependencies });
         const command = Option.getOrThrow(runtime(graph.nodes['App']?.data.targets?.['build--dotnet']?.inputs));
-        const first = hashed(workspace.root, command);
+        const first = hashed(workspace, command);
         rmSync(join(workspace.root, 'tmp/project-graph-cache/dotnet-external'), { recursive: true });
 
         await workspace.graph({ createNodes, createDependencies });
 
-        expect([hashed(workspace.root, command), shim.analyses()]).toStrictEqual([first, 1]);
+        expect([hashed(workspace, command), shim.analyses()]).toStrictEqual([first, 1]);
     });
 });
 
 describe('analyzer process', () => {
-    it('infers every project of another ecosystem and no MSBuild project where no folder of PATH holds dotnet, warning once', async ({ workspace }) => {
+    it('infers every project of another ecosystem and no MSBuild project where no folder of PATH holds dotnet, warning once', async ({ workspace, scratch }) => {
         pathed(scratch('dotnet-absent-'), {});
-        const logged = vi.spyOn(console, 'warn').mockReturnValue(undefined);
-        onTestFinished(() => logged.mockRestore());
+        using logged = vi.spyOn(console, 'warn').mockReturnValue(undefined);
 
         const graph = await workspace.write({ 'package.json': JSON.stringify({ name: '@fixture/root', workspaces: ['tools/*'] }), 'tools/web/package.json': JSON.stringify({ name: '@fixture/web' }), 'apps/App/App.csproj': LIBRARY, 'libs/Core/Core.csproj': LIBRARY }).graph({ createNodes, createDependencies });
 
         expect([Object.keys(graph.nodes).toSorted(), logged.mock.calls.filter((call) => call.join(' ').includes('No MSBuild project of the workspace enters the graph')).length]).toStrictEqual([['@fixture/web'], 1]);
     });
 
-    it('refuses an analyzer running past NX_DOTNET_PROJECT_GRAPH_TIMEOUT seconds, naming the variable', async ({ workspace }) => {
+    it('refuses an analyzer running past NX_DOTNET_PROJECT_GRAPH_TIMEOUT seconds, naming the variable', async ({ workspace, scratch }) => {
         vi.stubEnv('NX_DOTNET_PROJECT_GRAPH_TIMEOUT', '1');
         pathed(scratch('dotnet-hanging-'), { dotnet: 'exec /bin/sleep 20' });
 
-        await expect(workspace.write({ 'apps/App/App.csproj': LIBRARY }).graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/ran past 1 seconds, set NX_DOTNET_PROJECT_GRAPH_TIMEOUT to a higher count of seconds$/u));
+        await expect(workspace.write({ 'apps/App/App.csproj': LIBRARY }).graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/ran past 1s, set NX_DOTNET_PROJECT_GRAPH_TIMEOUT to a higher count of seconds$/u));
     });
 
-    it('refuses a report it cannot decode, naming the command that builds the analyzer', async ({ workspace }) => {
+    it('refuses a report it cannot decode, naming the command that builds the analyzer', async ({ workspace, scratch }) => {
         pathed(scratch('dotnet-garbled-'), { dotnet: 'echo Unhandled exception. System.IO.FileNotFoundException' });
 
         await expect(workspace.write({ 'apps/App/App.csproj': LIBRARY }).graph({ createNodes, createDependencies })).rejects.toSatisfy(refused(/printed a report this plugin cannot read, .* dotnet publish \S+\/analyzer\/MsbuildAnalyzer\.csproj --output \S+\/analyzer\/dist builds it: /u));

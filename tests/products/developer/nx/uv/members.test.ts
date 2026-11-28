@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { basename, join, posix } from 'node:path';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { createNodes } from '@rasm/nx-uv';
-import { unaggregated } from '@rasm/testing/nx';
+import { unaggregated, type Workspace } from '@rasm/testing/nx';
 import { Array, Record, Struct } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { LoadedNxPlugin, retrieveProjectConfigurations } from 'nx/src/devkit-internals';
@@ -35,7 +35,7 @@ const WORDS = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const locked = (root: string, folder = '.') => execFileSync('uv', ['lock', '--offline', '--quiet'], { cwd: join(root, folder) });
+const locked = (workspace: Workspace, folder = '.') => execFileSync(...workspace.spawned('uv', ['lock', '--offline', '--quiet'], { cwd: join(workspace.root, folder) }));
 
 const sourced = (folder: string) => ({ 'pyproject.toml': `[project]\nname = "uv-tutorial"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n\n[tool.uv.workspace]\nmembers = ["proj/*"]\n\n[tool.uv.sources]\nwords = { path = "${folder}" }\n` });
 
@@ -53,7 +53,7 @@ describe('files Nx hands the plugin', () => {
     it('hold the locks alone, as a matched file edit is a project configuration change', async ({ workspace }) => {
         const read = { 'uv.toml': '', '.python-version': '3.13\n', '.python-versions': '3.13\n', 'mypy.ini': '', '.mypy.ini': '', 'setup.cfg': '', 'ty.toml': '', 'pytest.toml': '', '.pytest.toml': '', 'pytest.ini': '', '.pytest.ini': '', 'tox.ini': '' };
         const placed = Array.cartesianWith(['', 'proj/library/'], Record.toEntries(read), (folder, [file, content]) => [`${folder}${file}`, content] as const);
-        locked(workspace.write({ ...MEMBERS, ...Record.fromEntries(placed) }).root);
+        locked(workspace.write({ ...MEMBERS, ...Record.fromEntries(placed) }));
 
         const matched = await globWithWorkspaceContext(workspace.root, [createNodes[0]]);
 
@@ -67,7 +67,7 @@ describe('uv roots without a project table', () => {
         { case: 'the Nx workspace root, by the project.json beside it', folder: '.', files: { 'project.json': '{ "name": "named" }' }, name: 'named' },
         { case: 'the Nx workspace root, by the package.json beside it', folder: '.', files: { 'package.json': '{ "name": "packaged" }' }, name: 'packaged' },
     ])('are a project owning the lock check and upgrade, named in $case', async ({ folder, files, name }, { workspace }) => {
-        locked(workspace.write({ ...Record.mapKeys(VIRTUAL, (file) => posix.join(folder, file)), ...files }).root, folder);
+        locked(workspace.write({ ...Record.mapKeys(VIRTUAL, (file) => posix.join(folder, file)), ...files }), folder);
 
         const graph = await workspace.graph({ createNodes });
         const result = await workspace.run(graph, name, 'check--uv');
@@ -76,7 +76,7 @@ describe('uv roots without a project table', () => {
     });
 
     it('are a project named by the folder at an Nx workspace root no other plugin names', async ({ workspace }) => {
-        locked(workspace.write(VIRTUAL).root);
+        locked(workspace.write(VIRTUAL));
 
         const graph = await workspace.graph({ createNodes });
 
@@ -86,7 +86,7 @@ describe('uv roots without a project table', () => {
 
 describe('uv workspace members', () => {
     it('gives each member the delivery targets its manifest allows', async ({ workspace }) => {
-        locked(workspace.write(MEMBERS).root);
+        locked(workspace.write(MEMBERS));
 
         const graph = await workspace.graph({ createNodes });
 
@@ -113,7 +113,7 @@ describe('uv workspace members', () => {
         { case: 'locked manifests', edit: {}, success: true },
         { case: 'a dependency added after locking', edit: { 'nested/proj/proj/library/pyproject.toml': `[project]\nname = "library"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = ["internal"]\n\n[tool.uv.sources]\ninternal = { workspace = true }\n${BUILT}` }, success: false },
     ])('checks the lock of a nested workspace from its own folder, given $case', async ({ edit, success }, { workspace }) => {
-        locked(workspace.write(Record.mapKeys(MEMBERS, (file) => `nested/proj/${file}`)).root, 'nested/proj');
+        locked(workspace.write(Record.mapKeys(MEMBERS, (file) => `nested/proj/${file}`)), 'nested/proj');
         const graph = await workspace.write(edit).graph({ createNodes });
 
         const result = await workspace.run(graph, 'uv-tutorial', 'check--uv');
@@ -127,7 +127,7 @@ describe('uv workspace members', () => {
             workspace.write({
                 ...MEMBERS,
                 'pyproject.toml': '[project]\nname = "uv-tutorial"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = ["library"]\n\n[dependency-groups]\ndev = ["internal"]\n\n[tool.uv.workspace]\nmembers = ["proj/*"]\n\n[tool.uv.sources]\nlibrary = { workspace = true }\ninternal = { workspace = true }\n',
-            }).root,
+            }),
         );
 
         const graph = await workspace.graph({ createNodes });
@@ -136,7 +136,7 @@ describe('uv workspace members', () => {
     });
 
     it('links a member to a dependency a project.json renames', async ({ workspace }) => {
-        locked(workspace.write({ ...MEMBERS, 'proj/library/project.json': '{ "name": "renamed" }' }).root);
+        locked(workspace.write({ ...MEMBERS, 'proj/library/project.json': '{ "name": "renamed" }' }));
 
         const graph = await workspace.graph({ createNodes });
 
@@ -147,11 +147,11 @@ describe('uv workspace members', () => {
         { case: 'gains', before: 'other/words', after: 'vendor/words', edges: [['terms'], ['terms', 'words']] },
         { case: 'loses', before: 'vendor/words', after: 'other/words', edges: [['terms', 'words'], ['terms']] },
     ])('rebuilds over the cached graph the dependency of a member that the source mapping of the root manifest $case', async ({ before, after, edges }, { workspace }) => {
-        locked(workspace.write({ ...WORDS, ...sourced(before) }).root, 'vendor/words');
-        locked(workspace.root);
+        locked(workspace.write({ ...WORDS, ...sourced(before) }), 'vendor/words');
+        locked(workspace);
         const first = await built(workspace.root, null);
 
-        locked(workspace.write(sourced(after)).root);
+        locked(workspace.write(sourced(after)));
         const second = await built(workspace.root, first.projectFileMapCache);
 
         expect([first, second].map(({ projectGraph }) => (projectGraph.dependencies['library'] ?? []).map(Struct.get('target')).toSorted())).toStrictEqual(edges);

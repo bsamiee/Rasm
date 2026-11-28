@@ -100,7 +100,7 @@ describe('task order', () => {
             .install(pathToFileURL(join(workspace.root, 'packages/typed/package.json')).href)
             .graph({ createNodes });
 
-        const resolved = execFileSync(execPath, ['--input-type=module', '--eval', "console.log(import.meta.resolve('typed'))"], { cwd: join(workspace.root, 'packages/conditioned'), encoding: 'utf-8' });
+        const resolved = execFileSync(...workspace.spawned(execPath, ['--input-type=module', '--eval', "console.log(import.meta.resolve('typed'))"], { cwd: join(workspace.root, 'packages/conditioned'), encoding: 'utf-8' }));
         const { dependencies } = taskGraph(graph, ['conditioned'], ['deploy--pulumi']);
 
         expect({ resolved: fileURLToPath(resolved.trim()), built: dependencies['conditioned:deploy--pulumi']?.some(({ id }) => id === 'typed:build--tsc') }).toStrictEqual({ resolved: join(workspace.root, 'packages/typed/index.ts'), built: false });

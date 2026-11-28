@@ -55,7 +55,7 @@ describe('inferred projects', () => {
     it('infers one project per package cargo metadata lists, rooted at the folder of its manifest', async ({ workspace }) => {
         const graph = await workspace.write(crates).graph(cargo);
 
-        const { packages } = await Effect.runPromise(Schema.decodeEffect(Listed)(execFileSync('cargo', ['metadata', '--no-deps', '--format-version', '1'], { cwd: workspace.root, encoding: 'utf-8' })));
+        const { packages } = await Effect.runPromise(Schema.decodeEffect(Listed)(execFileSync(...workspace.spawned('cargo', ['metadata', '--no-deps', '--format-version', '1'], { encoding: 'utf-8' }))));
         expect(
             Object.values(graph.nodes)
                 .map(({ data }) => data.root)
@@ -114,7 +114,7 @@ describe('task hashes', () => {
         onTestFinished(() => {
             vi.unstubAllEnvs();
         });
-        const compiles = () => spawnSync('cargo', ['check', '--package', 'a', '--quiet'], { cwd: workspace.root }).status === 0;
+        const compiles = () => spawnSync(...workspace.spawned('cargo', ['check', '--package', 'a', '--quiet'])).status === 0;
         workspace.write({ ...shared, ...written });
         const compiled = compiles();
         const before = await hashed(workspace, await workspace.graph(cargo), 'a:check--clippy');
@@ -196,7 +196,7 @@ describe('files Nx hands the plugin', () => {
 
         const matched = await globWithWorkspaceContext(workspace.root, [createNodes[0]]);
 
-        const { packages } = await Effect.runPromise(Schema.decodeEffect(Listed)(execFileSync('cargo', ['metadata', '--no-deps', '--format-version', '1'], { cwd: workspace.root, encoding: 'utf-8' })));
+        const { packages } = await Effect.runPromise(Schema.decodeEffect(Listed)(execFileSync(...workspace.spawned('cargo', ['metadata', '--no-deps', '--format-version', '1'], { encoding: 'utf-8' }))));
         expect(matched.toSorted()).toStrictEqual(packages.map(({ manifest_path }) => relative(workspace.root, manifest_path)).toSorted());
     });
 });
@@ -249,7 +249,7 @@ describe('stored readings', () => {
 
     it('reads the workspace again once a Cargo configuration names a build target, no manifest changing', async ({ workspace }) => {
         await workspace.write(crates).graph(cargo);
-        const host = execFileSync('rustc', ['--print', 'host-tuple'], { cwd: workspace.root, encoding: 'utf-8' }).trim();
+        const host = execFileSync(...workspace.spawned('rustc', ['--print', 'host-tuple'], { encoding: 'utf-8' })).trim();
         workspace.write({ '.cargo/config.toml': `[build]\ntarget = "${host}"\n` });
 
         const graph = await workspace.graph(cargo);

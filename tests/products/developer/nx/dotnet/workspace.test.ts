@@ -4,7 +4,7 @@ import { platform } from 'node:process';
 import type { ProjectGraph } from '@nx/devkit';
 import { createDependencies, createNodes } from '@rasm/nx-dotnet';
 import { Build } from '@rasm/nx-dotnet/executors/build';
-import { outputs, unaggregated, unportable } from '@rasm/testing/nx';
+import { outputs, unaggregated, unportable, type Workspace } from '@rasm/testing/nx';
 import { Option, Record, Schema } from 'effect';
 import { describe, expect, vi } from 'vitest';
 import { it as base } from '#/analyzer';
@@ -35,14 +35,16 @@ const Evaluated = Schema.fromJsonString(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const evaluated = (root: string, project: string, configuration: string) =>
+const evaluated = (workspace: Workspace, project: string, configuration: string) =>
     Option.getOrThrow(
-        Schema.decodeOption(Evaluated)(execFileSync('dotnet', ['msbuild', project, `-p:Configuration=${configuration}`, '-getProperty:MSBuildProjectName,PackageId,IsPackable,IsPublishable,IsTestProject,TargetPlatformIdentifier,OutputPath,PublishDir', '-getItem:ProjectReference'], { cwd: root, encoding: 'utf-8' })),
+        Schema.decodeOption(Evaluated)(
+            execFileSync(...workspace.spawned('dotnet', ['msbuild', project, `-p:Configuration=${configuration}`, '-getProperty:MSBuildProjectName,PackageId,IsPackable,IsPublishable,IsTestProject,TargetPlatformIdentifier,OutputPath,PublishDir', '-getItem:ProjectReference'], { encoding: 'utf-8' })),
+        ),
     );
 
-const roles = (root: string, graph: ProjectGraph) =>
+const roles = (workspace: Workspace, graph: ProjectGraph) =>
     PROJECTS.map((project) => {
-        const { Properties: stated, Items: items } = evaluated(root, project, 'Debug');
+        const { Properties: stated, Items: items } = evaluated(workspace, project, 'Debug');
         const name = stated.IsPackable === 'true' ? stated.PackageId : stated.MSBuildProjectName;
         const targets = graph.nodes[name]?.data.targets ?? {};
         return {
@@ -52,7 +54,7 @@ const roles = (root: string, graph: ProjectGraph) =>
                 test: stated.IsTestProject === 'true' && (stated.TargetPlatformIdentifier !== 'Windows' || platform === 'win32'),
                 verb: stated.IsPublishable === 'true' ? 'publish' : 'build',
                 windows: stated.TargetPlatformIdentifier === 'Windows',
-                references: new Set((items.ProjectReference ?? []).map(({ FullPath }) => posix.dirname(relative(root, FullPath)))),
+                references: new Set((items.ProjectReference ?? []).map(({ FullPath }) => posix.dirname(relative(workspace.root, FullPath)))),
             },
             inferred: {
                 name: graph.nodes[name]?.data.name,
@@ -67,26 +69,26 @@ const roles = (root: string, graph: ProjectGraph) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const it = base.extend('analyzed', { scope: 'file' }, async ({ fileWorkspace }) => ({ root: fileWorkspace.root, graph: await fileWorkspace.write(FILES).graph({ createNodes, createDependencies }) }));
+const it = base.extend('analyzed', { scope: 'file' }, async ({ fileWorkspace }) => ({ workspace: fileWorkspace, graph: await fileWorkspace.write(FILES).graph({ createNodes, createDependencies }) }));
 
 describe('MsbuildAnalyzer evaluation of a workspace', () => {
-    it('gives each project the name, targets, tags, and edges MSBuild evaluates it to', ({ analyzed: { root, graph } }) => {
-        const compared = roles(root, graph);
+    it('gives each project the name, targets, tags, and edges MSBuild evaluates it to', ({ analyzed: { workspace, graph } }) => {
+        const compared = roles(workspace, graph);
 
         expect(compared.map(({ inferred }) => inferred)).toStrictEqual(compared.map(({ expected }) => expected));
     });
 
-    it('declares as build--dotnet outputs the output and publish folders MSBuild evaluates for each configuration, leaving the intermediate folder to MSBuild as machine state', ({ analyzed: { root, graph } }) => {
+    it('declares as build--dotnet outputs the output and publish folders MSBuild evaluates for each configuration, leaving the intermediate folder to MSBuild as machine state', ({ analyzed: { workspace, graph } }) => {
         const folders = (configuration: string) => {
-            const { Properties: stated } = evaluated(root, 'apps/Tool/Tool.csproj', configuration);
+            const { Properties: stated } = evaluated(workspace, 'apps/Tool/Tool.csproj', configuration);
             return [stated.OutputPath, stated.PublishDir].map((folder) => posix.join('apps/Tool', folder.replaceAll('\\', '/')).replace(/\/$/u, ''));
         };
 
         expect([new Set(outputs(graph, 'Tool', 'build--dotnet')), new Set(outputs(graph, 'Tool', 'build--dotnet', 'release'))]).toStrictEqual([new Set(folders('Debug')), new Set(folders('Release'))]);
     });
 
-    it('runs every tool target through its verb and states no machine path', ({ analyzed: { graph, root } }) => {
-        expect([unaggregated(graph), unportable(graph), JSON.stringify(graph).includes(root)]).toStrictEqual([[], [], false]);
+    it('runs every tool target through its verb and states no machine path', ({ analyzed: { graph, workspace } }) => {
+        expect([unaggregated(graph), unportable(graph), JSON.stringify(graph).includes(workspace.root)]).toStrictEqual([[], [], false]);
     });
 });
 

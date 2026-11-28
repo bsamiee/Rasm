@@ -55,7 +55,8 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], context: Cr
         Record.getSomes,
     );
     const declared = (name: string) => Record.keys({ ...packages[name]?.manifest.dependencies, ...packages[name]?.manifest.devDependencies });
-    const reached = (names: readonly string[], seen: ReadonlySet<string>): readonly string[] => Array.match(Array.dedupe(names.filter((name) => !seen.has(name) && Record.has(packages, name))), { onEmpty: Array.empty, onNonEmpty: (fresh) => [...fresh, ...reached(fresh.flatMap(declared), seen.union(new Set(fresh)))] });
+    const reached = (names: readonly string[], seen: ReadonlySet<string>): readonly string[] =>
+        Array.match(Array.dedupe(names.filter((name) => !seen.has(name) && Record.has(packages, name))), { onEmpty: Array.empty, onNonEmpty: (fresh) => [...fresh, ...reached(fresh.flatMap(declared), new Set([...seen, ...fresh]))] });
     const imported = Record.map(programs, (_entry, name) => reached(declared(name), new Set([name])));
     const folders = new Set([
         ...Record.values(programs).map(({ entry }) => posix.dirname(entry)),
@@ -72,7 +73,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], context: Cr
     });
     const present = (at: string) => {
         const [head = '', tail = ''] = at.split('*');
-        return at.includes('*') ? tracked.values().some((file) => file.startsWith(head) && file.endsWith(tail)) : tracked.has(at);
+        return at.includes('*') ? [...tracked].some((file) => file.startsWith(head) && file.endsWith(tail)) : tracked.has(at);
     };
     const built = Record.map(imported, (names) => !names.flatMap((name) => exported[name] ?? []).every(present));
     const hosting = Array.getSomes(Record.values(programs).map((host) => Option.map(host.hosts, (at) => [at, host] as const)));

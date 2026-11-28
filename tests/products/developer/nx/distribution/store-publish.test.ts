@@ -49,9 +49,9 @@ const it = workspaced
         });
     })
     .extend('published', ({ workspace }) => async (files: Readonly<Record<string, string>>, archive: readonly [folder: string, name: string, member: string], tags: readonly string[]) => {
-        const git = (...args: readonly string[]) => execFileSync('git', ['-c', 'user.name=Suite', '-c', 'user.email=suite@example.com', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args], { cwd: workspace.root });
+        const git = (...args: readonly string[]) => execFileSync(...workspace.spawned('git', ['-c', 'user.name=Suite', '-c', 'user.email=suite@example.com', '-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args]));
         workspace.write({ '.gitignore': '*.zip\n', 'nx.json': '{ "release": { "projects": ["*"], "projectsRelationship": "independent" } }', ...files });
-        execFileSync('zip', ['--quiet', archive[1], archive[2]], { cwd: `${workspace.root}/${archive[0]}` });
+        execFileSync(...workspace.spawned('zip', ['--quiet', archive[1], archive[2]], { cwd: `${workspace.root}/${archive[0]}` }));
         git('init', '--quiet', '--initial-branch=main');
         git('add', '.');
         git('commit', '--quiet', '--message', 'base');

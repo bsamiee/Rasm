@@ -31,7 +31,7 @@ const PYTHON = {
 describe('@rasm/nx-uv under Windows path separators', () => {
     it('hands Nx posix roots, inputs, outputs, and working folders for nested members and a parent-relative output folder', async ({ workspace }) => {
         ['python', 'other'].forEach((folder) => {
-            execFileSync('uv', ['lock', '--quiet'], { cwd: join(workspace.write(PYTHON).root, folder) });
+            execFileSync(...workspace.write(PYTHON).spawned('uv', ['lock', '--quiet'], { cwd: join(workspace.root, folder) }));
         });
 
         const graph = await workspace.graph(uv, { outputPath: '.artifacts/uv/{projectName}' });

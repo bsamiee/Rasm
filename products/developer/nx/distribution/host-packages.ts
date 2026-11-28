@@ -8,7 +8,7 @@ import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
-import { packaged } from '@rasm/nx/executor';
+import { installed, packaged } from '@rasm/nx/executor';
 import { above, below, PLATFORM, spawned } from '@rasm/nx/inference';
 import { PluginsInfo, HOSTS as UXP } from '@rasm/uxp/manifest';
 import { Array, Cause, Config, Console, Duration, Effect, FileSystem, Glob, Option, Path, pipe, Record, Result, Schedule, Schema, SemVer, Stream, String, Struct, UndefinedOr } from 'effect';
@@ -347,7 +347,7 @@ const HOSTS: readonly Host[] = [
         write: exact,
         build: { executor: 'package', command: 'a zip archive named .ccx', pack: zipped },
         install: {
-            command: "a copy into the per-user UXP plug-in folder in place of its earlier folders and CEP extension, and the plug-in's row in the PluginsInfo registry of a host that reads one",
+            command: "a copy swapped into the per-user UXP plug-in folder, with the plug-in's row swapped into the PluginsInfo registry of a host that reads one, then the removal of its earlier folders and CEP extension",
             platforms: Object.keys(ADOBE),
             unpacked: true,
             run: Effect.fnUntraced(function* (found) {
@@ -359,15 +359,26 @@ const HOSTS: readonly Host[] = [
                 const rows = (yield* Effect.mapError(Schema.decodeEffect(PluginsInfo)(before), (cause) => new Cause.UnknownError(cause, `${registry} holds no plugins array`))).plugins;
                 const held = rows.findIndex(({ pluginId }) => pluginId === id);
                 const row = { ...rows[held], hostMinVersion: host.minVersion, name, path: placed, pluginId: id, status: 'enabled', type: 'uxp', versionString: version };
+                const [target, plugin] = [path.join(external, `${id}_${version}`), yield* fs.makeTempDirectoryScoped()];
                 const earlier = [...folders.filter((folder) => folder.startsWith(`${id}_`)).map((folder) => path.join(external, folder)), ...Array.fromNullishOr(rows[held]?.path).map((at) => at.replace('$localPlugins', path.dirname(external))), path.join(root, 'CEP', 'extensions', id)];
-                yield* Effect.forEach(Array.dedupe(earlier), (at) => fs.remove(at, { recursive: true, force: true }), { discard: true });
                 yield* Effect.forEach(
-                    found.names.map((file) => [path.join(found.at, file), path.join(external, `${id}_${version}`, file)] as const),
+                    found.names.map((file) => [path.join(found.at, file), path.join(plugin, file)] as const),
                     ([from, to]) => Effect.andThen(fs.makeDirectory(path.dirname(to), { recursive: true }), fs.copyFile(from, to)),
                     { discard: true },
                 );
-                yield* UXP[host.app].pluginsInfo ? Effect.andThen(fs.makeDirectory(path.dirname(registry), { recursive: true }), fs.writeFileString(registry, applyEdits(before, modify(before, ['plugins', held === -1 ? rows.length : held], row, {})))) : Effect.void;
-            }),
+                const listed = yield* Effect.forEach(UXP[host.app].pluginsInfo ? [registry] : [], (to) =>
+                    Effect.map(
+                        Effect.tap(fs.makeTempFileScoped(), (file) => fs.writeFileString(file, applyEdits(before, modify(before, ['plugins', held === -1 ? rows.length : held], row, {})))),
+                        (file) => [file, to] as const,
+                    ),
+                );
+                yield* installed([[plugin, target], ...listed]);
+                yield* Effect.forEach(
+                    Array.dedupe(earlier).filter((at) => path.relative(at, target) !== ''),
+                    (at) => fs.remove(at, { recursive: true, force: true }),
+                    { discard: true },
+                );
+            }, Effect.scoped),
         },
     },
     {
