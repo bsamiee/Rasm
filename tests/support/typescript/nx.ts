@@ -1,17 +1,17 @@
 import { Buffer } from 'node:buffer';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, type SpawnSyncOptions, type SpawnSyncOptionsWithBufferEncoding } from 'node:child_process';
 import { once } from 'node:events';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempDisposableSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { constants } from 'node:http2';
 import { tmpdir } from 'node:os';
 import { basename, delimiter, dirname, join, relative } from 'node:path';
-import { chdir, cwd, env } from 'node:process';
+import { chdir, cwd, env, execPath } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { type ExecutorContext, getOutputsForTargetAndConfiguration, type NxPlugin, type ProjectGraph, readJsonFile, readProjectsConfigurationFromProjectGraph } from '@nx/devkit';
 import { below } from '@rasm/nx/inference';
 import { ExitError } from '@rasm/process';
-import { Array, Cause, Duration, Effect, Function, Match, Option, Predicate, Record, Schema, UndefinedOr } from 'effect';
+import { Array, Cause, DateTime, Duration, Effect, Function, Match, Option, Predicate, Record, Schema, UndefinedOr } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { LoadedNxPlugin, resolveNxTokensInOptions, retrieveProjectConfigurations } from 'nx/src/devkit-internals';
 import { runCommands } from 'nx/src/executors/run-commands/run-commands.impl';
@@ -24,7 +24,7 @@ import { createTaskGraph } from 'nx/src/tasks-runner/create-task-graph';
 import { getReadyWhen } from 'nx/src/tasks-runner/readiness/ready-when';
 import { resetWorkspaceContext } from 'nx/src/utils/workspace-context';
 import { setWorkspaceRoot, workspaceRoot } from 'nx/src/utils/workspace-root';
-import { expect, onTestFinished, test, vi } from 'vitest';
+import { expect, onTestFinished, type RunnerTestCase, TestRunner, test, vi } from 'vitest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -33,10 +33,12 @@ interface Asked {
     readonly held: Buffer | undefined;
 }
 
+type Spawned<O> = readonly [file: string, args: readonly string[], options: O];
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const inherited = Record.filter(env, (value, name): value is string => Predicate.isString(value) && !['NX_', 'VITEST', 'npm_'].some((prefix) => name.startsWith(prefix)) && !['NODE_ENV', 'NO_COLOR', 'VIRTUAL_ENV', 'GITHUB_ACTIONS'].includes(name));
 const typescript = ['typescript', import.meta.resolve('@typescript/native/package.json')] as const;
+const REPORTING = Duration.seconds(5);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -59,14 +61,19 @@ const Listening = Schema.Struct({ port: Schema.Int }).annotate({ description: 'T
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const environment = (root: string, set: Record.ReadonlyRecord<string, string> = {}) => ({
-    ...inherited,
-    NX_DAEMON: 'false',
-    NX_TUI: 'false',
-    FORCE_COLOR: '0',
-    PATH: [join(root, 'node_modules/.bin'), ...Option.toArray(Record.get(inherited, 'PATH'))].join(delimiter),
-    ...set,
-});
+const environment = (root: string, set: Record.ReadonlyRecord<string, string> = {}) => {
+    const inherited = Record.filter(env, (value, name): value is string => Predicate.isString(value) && !['NX_', 'VITEST', 'npm_'].some((prefix) => name.startsWith(prefix)) && !['NODE_ENV', 'NO_COLOR', 'VIRTUAL_ENV', 'GITHUB_ACTIONS'].includes(name));
+    return { ...inherited, NX_DAEMON: 'false', NX_TUI: 'false', FORCE_COLOR: '0', PATH: [join(root, 'node_modules/.bin'), ...Option.toArray(Record.get(inherited, 'PATH'))].join(delimiter), ...set };
+};
+
+function bounded(file: string, args: readonly string[]): Spawned<SpawnSyncOptionsWithBufferEncoding>;
+function bounded<O extends SpawnSyncOptions>(file: string, args: readonly string[], options: O): Spawned<O>;
+function bounded(file: string, args: readonly string[], options: SpawnSyncOptions = {}): Spawned<SpawnSyncOptions> {
+    const { timeout, result } = Option.getOrThrowWith(Option.fromUndefinedOr(TestRunner.getCurrentTest<RunnerTestCase | undefined>()), () => new Cause.NoSuchElementError(`${file} spawns outside a test, whose timeout bounds the child`));
+    const now = DateTime.toEpochMillis(DateTime.nowUnsafe());
+    const left = Math.max(1, (result?.startTime ?? now) + timeout - now);
+    return [file, file === execPath ? [`--process-timeout=${Math.max(1, left - Duration.toMillis(REPORTING))}ms`, ...args] : args, { ...options, timeout: left }];
+}
 
 const refusing = (tool: string) => {
     const command = Schema.String.check(Schema.isPattern(new RegExp(`^${RegExp.escape(tool)} `, 'u')));
@@ -269,6 +276,11 @@ class Workspace {
 
     // --- [EXECUTION]
 
+    spawned(file: string, args: readonly string[]): Spawned<SpawnSyncOptionsWithBufferEncoding>;
+    spawned<O extends SpawnSyncOptions>(file: string, args: readonly string[], options: O, set?: Record.ReadonlyRecord<string, string>): Spawned<O>;
+    spawned(file: string, args: readonly string[], options: SpawnSyncOptions = {}, set: Record.ReadonlyRecord<string, string> = {}): Spawned<SpawnSyncOptions> {
+        return bounded(file, args, { cwd: this.root, env: environment(this.root, set), ...options });
+    }
     context(graph: ProjectGraph, projectName: string, targetName: string, configurationName?: string): ExecutorContext {
         return { root: this.root, cwd: this.root, isVerbose: false, projectName, targetName, ...(configurationName === undefined ? {} : { configurationName }), projectGraph: graph, projectsConfigurations: readProjectsConfigurationFromProjectGraph(graph), nxJsonConfiguration: readNxJson(this.root) };
     }
@@ -307,8 +319,15 @@ const opened = (finished: (close: () => void) => void) => {
     return workspace;
 };
 
-const it = test.extend('workspace', ({ onTestFinished: finished }) => opened(finished)).extend('fileWorkspace', { scope: 'file' }, ({}, { onCleanup }) => opened(onCleanup));
+const it = test
+    .extend('workspace', ({ onTestFinished: finished }) => opened(finished))
+    .extend('fileWorkspace', { scope: 'file' }, ({}, { onCleanup }) => opened(onCleanup))
+    .extend('scratch', ({}, { onCleanup }) => {
+        const made = new DisposableStack();
+        onCleanup(() => made.dispose());
+        return (prefix: string) => made.use(mkdtempDisposableSync(join(realpathSync(tmpdir()), prefix))).path;
+    });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { answered, environment, it, listen, outputs, pathed, refusing, remote, shimmed, spanned, targetOptions, taskGraph, typescript, unaggregated, unportable, Workspace };
+export { answered, bounded, environment, it, listen, outputs, pathed, refusing, remote, shimmed, spanned, targetOptions, taskGraph, typescript, unaggregated, unportable, Workspace };
