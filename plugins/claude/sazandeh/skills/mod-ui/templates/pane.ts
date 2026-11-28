@@ -1,8 +1,8 @@
 import type { Element } from '@rasm/claude-code/element';
 import { host } from '@rasm/claude-code/host';
 import { Panes } from '@rasm/claude-code/pane';
-import type { On, PaneOpenArgs, RenderPropsOf } from 'claude-code';
-import { Context, Data, Duration, Effect, Layer, Option, type PlatformError, Predicate, Stream, SubscriptionRef } from 'effect';
+import type { On, RenderPropsOf } from 'claude-code';
+import { Context, Data, Duration, Effect, Layer, Option, type PlatformError, Predicate, Record, Stream, SubscriptionRef } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -45,8 +45,15 @@ class Calls extends Context.Service<Calls, { readonly held: SubscriptionRef.Subs
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const change = (update: (held: Held) => Held) => Calls.use(({ held }) => SubscriptionRef.update(held, update));
+const open = (id: string) => Panes.use((panes) => panes.open({ id }));
 const close = (id: string) => Panes.use((panes) => panes.close({ id }));
 const summary = (held: Held) => held.counts.map(([stance, calls]) => `${calls.length} ${stance}`).join(' · ');
+const band = (held: Held): Drawn => ({
+    _tag: 'Box',
+    flexDirection: 'row',
+    gap: 1,
+    children: [{ _tag: 'Text', dimColor: true, children: summary(held) }, ...Record.values(PANES).map((id): Drawn => ({ _tag: 'Button', key: id, label: id, onPress: () => open(id) }))],
+});
 const row = (call: Call): Drawn => ({
     _tag: 'Box',
     key: call.key,
@@ -90,7 +97,6 @@ const form = (held: Held): Drawn => ({
         },
     ],
 });
-const opened = (pane: PaneOpenArgs) => Panes.use((panes) => Effect.map(panes.open(pane), (answer) => (answer.isPlaced ? {} : { text: `${pane.id}: ${answer.reason}`, isTextDisplayOnly: true as const })));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -107,15 +113,12 @@ function register(on: On) {
                 );
             },
         },
-        commands: {
-            calls: { description: 'Show the tool calls of this session in a pane', immediate: true, run: () => opened({ id: PANES.list, focus: true }) },
-            forget: { description: 'Forget the tool calls of one stance', immediate: true, run: () => opened({ id: PANES.form, focus: true, closeOnEscape: true, holdToasts: true }) },
-        },
         render: {
             state: Stream.unwrap(Calls.use(({ held }) => Effect.succeed(held.pipe(SubscriptionRef.changes)))),
+            AbovePrompt: (e, held, next) => (e.props.hasSurvey || held.calls.length === 0 ? next() : held.pipe(band, Effect.succeed)),
             Pane: {
                 [PANES.list]: { title: 'Calls', columns: 48, rows: 12, closeOnEscape: true, draw: (e, held) => Effect.succeed(list(held, e.props.placement)) },
-                [PANES.form]: { title: 'Forget', rows: 8, draw: (_e, held) => held.pipe(form, Effect.succeed) },
+                [PANES.form]: { title: 'Forget', rows: 8, closeOnEscape: true, holdToasts: true, draw: (_e, held) => held.pipe(form, Effect.succeed) },
             },
         },
     });

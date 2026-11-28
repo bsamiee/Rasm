@@ -655,8 +655,6 @@ def _recorded(record: _Record, name: str, /) -> tuple[_Fact, ...]:
             fact = _Fact(f"close {args['id']}", f"by {args.get('origin', {}).get('kind', name)}")
         case "ui.notify":
             fact = _Fact(event, f"{_cut(args.get('text', ''))}, {_answered(record.answer, 'sent')}")
-        case "command.register":
-            fact = _Fact("command", f"/{args['name']}")
         case "ui.press" | "ui.input" | "ui.select":
             fact = _Fact(f"{event} {args.get('element')}", f"{args.get('component')}, {_answered(record.answer, 'ran')}")
         case "session.append":

@@ -2,7 +2,7 @@ import type { Args, Caught, EngineInterface, EventResult, Frozen, Next, On, Rend
 import { Array, Effect, type FileSystem, HashSet, Layer, ManagedRuntime, MutableRef, Option, type Path, type PlatformError, Predicate, PubSub, Record, Ref, Struct, SubscriptionRef } from 'effect';
 import type { KeyValueStore } from 'effect/persistence';
 import type { ChildProcessSpawner } from 'effect/process';
-import { type Agent, type Command, route, dispatch, type Hook, type Hooks, type Hosted, plugin, type Plugin, runHook, blockOnce, stream, type Tool } from '#/engine/events';
+import { type Agent, route, dispatch, type Hook, type Hooks, type Hosted, plugin, type Plugin, runHook, blockOnce, stream, type Tool } from '#/engine/events';
 import { type Engine, engine } from '#/engine/interface';
 import { Ledger } from '#/engine/ledger';
 import { services } from '#/engine/services';
@@ -25,7 +25,6 @@ interface Mod<A, E, F, S = never> {
     readonly hooks: Hooks<A | Provided, F>;
     readonly tools?: Record.ReadonlyRecord<string, Tool<A | Provided, F>>;
     readonly agents?: Record.ReadonlyRecord<string, Agent>;
-    readonly commands?: Record.ReadonlyRecord<string, Command<A | Provided, F>>;
     readonly band?: { readonly press: (key: string) => Effect.Effect<unknown, F, A | Provided> };
     readonly render?: Render<S, A | Provided, F>;
 }
@@ -34,7 +33,6 @@ interface Instance<A, E, F, S = never> {
     readonly tables: readonly Hooks<A | Provided, F | PlatformError.PlatformError>[];
     readonly tools: Record.ReadonlyRecord<string, Tool<A | Provided, F>>;
     readonly agents: Record.ReadonlyRecord<string, Agent>;
-    readonly commands: Record.ReadonlyRecord<string, Command<A | Provided, F>>;
     readonly live: MutableRef.MutableRef<Option.Option<ManagedRuntime.ManagedRuntime<A | Provided, E | PlatformError.PlatformError>>>;
     readonly turns: SubscriptionRef.SubscriptionRef<HashSet.HashSet<Option.Option<string>>>;
     readonly theme: Parameters<typeof theme>[1];
@@ -50,7 +48,7 @@ function start<A, E, F, S>($: EngineInterface, instance: Instance<A, E, F, S>) {
         const made = instance.render.pipe(
             follow,
             Layer.provideMerge(instance.layer),
-            Layer.provideMerge(Layer.mergeAll(engine($, instance.turns, Option.map(instance.band, Struct.get('rows'))), Ledger.layer, draft($), panes($, instance.render), placed($, instance.placed), plugin($, instance.tools, instance.agents, instance.commands), theme($, instance.theme))),
+            Layer.provideMerge(Layer.mergeAll(engine($, instance.turns, Option.map(instance.band, Struct.get('rows'))), Ledger.layer, draft($), panes($, instance.render), placed($, instance.placed), plugin($, instance.tools, instance.agents), theme($, instance.theme))),
             Layer.provideMerge(services($)),
             ManagedRuntime.make,
         );
@@ -120,7 +118,6 @@ function host<A, E, F, S = never, const P extends readonly Pick<Part<never, Erro
         ],
         tools: mod.tools ?? {},
         agents: mod.agents ?? {},
-        commands: mod.commands ?? {},
         live: MutableRef.make(Option.none()),
         turns: HashSet.empty<Option.Option<string>>().pipe(SubscriptionRef.make, Effect.runSync),
         theme: Ref.makeUnsafe(Option.none()),
@@ -128,7 +125,7 @@ function host<A, E, F, S = never, const P extends readonly Pick<Part<never, Erro
         render: Option.map(Option.fromUndefinedOr(mod.render), (table) => ({ ...table, held: Ref.makeUnsafe(Option.none()), drawn: Effect.runSync(PubSub.unbounded<string>()) })),
         band: Option.map(Option.fromUndefinedOr(mod.band), (pressed) => ({ ...pressed, rows: Ref.makeUnsafe({}) })),
     };
-    const { matchers, hooks: bodies } = route(instance.tools, instance.agents, instance.commands);
+    const { matchers, hooks: bodies } = route(instance.tools, instance.agents);
     const { 'turn.step': step } = mod.hooks;
     const hooked = (event: Hosted) => instance.tables.some((table) => table[event] !== undefined);
     if (hooked('session.start')) {
@@ -175,9 +172,6 @@ function host<A, E, F, S = never, const P extends readonly Pick<Part<never, Erro
     }
     if (hooked('tool.call')) {
         on('tool.call', ($, e, next) => (next.origin.plugin === $.plugin.name ? next(e) : answer($, instance, e, next))).catch(recover);
-    }
-    if (hooked('command.run')) {
-        on('command.run', ($, e, next) => answer($, instance, e, next)).catch(recover);
     }
     if (hooked('prompt.submit')) {
         on('prompt.submit', ($, e, next) => answer($, instance, e, next)).catch(recover);
@@ -241,9 +235,6 @@ function host<A, E, F, S = never, const P extends readonly Pick<Part<never, Erro
     }
     if (!Record.isEmptyReadonlyRecord(instance.agents)) {
         on('agent.offer', matchers['agent.offer'], ($, e, next) => answer($, instance, e, next, [bodies])).catch(($, e, next) => (next.called ? recover($, e, next) : { isOffered: false }));
-    }
-    if (!Record.isEmptyReadonlyRecord(instance.commands)) {
-        on('command.run', matchers['command.run'], ($, e, next) => answer($, instance, e, next, [bodies])).catch(recover);
     }
     if (Option.isSome(instance.render)) {
         on('ui.render', { component: Struct.keys(Struct.omit(instance.render.value, ['state', 'held', 'drawn'])) }, ($, e, next) => {

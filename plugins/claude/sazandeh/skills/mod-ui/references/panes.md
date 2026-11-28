@@ -28,19 +28,17 @@ Panes are framed regions the surface places and the mod draws: a `render.Pane` r
 ## [02]-[PLACEMENT]
 
 `Panes.open` resolves `isPlaced: true` once a surface seats the pane, or `isPlaced: false` with a `reason`, an open pane waiting undrawn and never a failure:
-- Asked opens (a command or prompt the person entered, a Button, Input, or Select they worked) place at any width
+- Asked opens (a prompt the person entered, a Button, Input, or Select they worked) place at any width
 - Unasked opens (a timer, `session.start`, a turn event, a queued prompt) place from 144 columns, 110 for an id the person opened and never closed by hand
 - Fullscreen from 110 columns docks the pane beside the transcript, narrower or main-screen layouts seat it inline above the prompt
 - Desktop seats a `widget` (minimized) form on request, read on `e.props.placement`; VS Code and mobile place panes and report no widget
 - `-p` runs and sessions with no attached surface answer `isPlaced: false` with a reason starting `no-surface`, and an attaching surface draws the pane later
-- Commands opening a pane answer the reason as `{ text, isTextDisplayOnly: true }`, so the person learns why nothing drew (`templates/pane.ts`)
 
 ## [03]-[KEYS]
 
 Keys belong to one site at a time, and `focus` is a request the surface refuses wherever it would take keys from the person:
 - `focus` from a band press is refused, as the band holds the keys; the pane opens unfocused
 - `focus` from a pane Button is refused for the same reason: the pane the person holds keeps the keys
-- `focus` from a command reaches the pane, as the composer is empty once the command runs; template dialogs open from a command
 - `focus` opens from a hook holding a tool call while no surface is attached are refused, so a decision there is an `ask`
 - `ctrl+x tab` moves the keys into the band or a pane, a click on a pane focuses it, and `ctrl+x x` closes a focused pane
 - First Escape in a `closeOnEscape` pane returns the keys, and a second at an idle empty prompt closes it

@@ -1,6 +1,6 @@
 # [TRANSCRIPT_ROWS]
 
-Engine rows of the transcript take render rows that decorate, rewrite, or replace what the engine draws, and placed rows add the mod's own card at a moment. Template `templates/transcript.ts` holds a call-row line, a turn total, a fenced report table, and a slash command's table.
+Engine rows of the transcript take render rows that decorate, rewrite, or replace what the engine draws, and placed rows add the mod's own card at a moment. Template `templates/transcript.ts` holds a call-row line, a turn total, and a fenced report table.
 
 ## [01]-[VERBS]
 
@@ -48,15 +48,7 @@ Engine rows and what each holds for a mod:
 - `UserMessage` rewrites draw delivered events apart from typed prompts, and the stored message the model reads stays
 - `e.props.onScreen` holds the row's visible range per surface: `null` while drawn outside the viewport, absent on the main screen
 
-## [03]-[COMMANDS]
-
-Slash commands answer the person and the model at once (`templates/transcript.ts`):
-- `text` draws as the output row; with `isTextDisplayOnly: true` it stays out of every request
-- `context` holds the facts the model reads, as report lines, never shown
-- `CommandOutput` rows redraw the command's own output as a table, gated on `e.props.command` equal to the name `Plugin.commands` holds
-- Failed commands answer `<key>: <reason>` for the person alone, and the cause goes to the debug log
-
-## [04]-[PLACED]
+## [03]-[PLACED]
 
 `Placed.place(id)` adds one row at the transcript's end, drawn by `render.Placed` and scrolling with the transcript:
 - Placing an id again answers the standing row with the same `requestId`, so a redraw comes from the state stream, never a second place

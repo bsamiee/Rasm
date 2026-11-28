@@ -47,14 +47,11 @@ Hook answers the model reads, each with what the screen shows of it:
 |  [05]   | `prompt.context` blocks        | Nothing                               | Blocks beside the prompt until invalidated |
 |  [06]   | `prompt.section`               | Nothing                               | System prompt section                      |
 |  [07]   | `prompt.attachment`            | No drawn row                          | Engine reminder, rewritten or dropped      |
-|  [08]   | `command.run` `{ text }`       | Output row                            | Its text, unless `isTextDisplayOnly`       |
-|  [09]   | `command.run` `{ context }`    | Nothing                               | Hidden user messages after the output      |
-|  [10]   | `tool.describe`, `agent.offer` | Nothing                               | Tool descriptions, agent listing           |
+|  [08]   | `tool.describe`, `agent.offer` | Nothing                               | Tool descriptions, agent listing           |
 
 - Rewrites of transcript rows (`UserMessage`, `AssistantMessage`, `ToolResult`, `CommandOutput`) change the drawing alone, and the stored row stays what the model reads
 - `context` on a plugin's own `Engine.callTool` answer is dropped, so a tool body passes context it needs on in its own answer
 - `prompt.context` blocks stay until `Engine.invalidate('prompt.context')`, compaction, or `/clear`, and an invalidate asks every hook again, so it runs only when the facts changed
-- Command tables for the person answer `{ text, context, isTextDisplayOnly: true }`: the table draws and stays out of requests, and `context` carries the facts as report lines
 
 ## [04]-[TEXT]
 

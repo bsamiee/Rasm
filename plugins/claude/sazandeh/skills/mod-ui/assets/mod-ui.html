@@ -402,7 +402,6 @@ figcaption a, #readers a { color: var(--fg); text-decoration: underline; text-de
                 <tr><td>Agent type <code>description</code>, <code>agent.offer</code></td><td>Nothing; the agent listing, and <code>isOffered: false</code> refuses the dispatch</td><td>Yes</td></tr>
                 <tr><td><code>skill.prompt</code></td><td>Nothing; the skill text the model reads in place of the computed one</td><td>Yes</td></tr>
                 <tr><td><code>attribution.text</code></td><td>Nothing; the git text the model is to write</td><td>Yes</td></tr>
-                <tr><td><code>command.run</code> <code>{ text, context }</code></td><td>Output row drawn and kept; its text goes into requests unless <code>isTextDisplayOnly</code></td><td>Yes</td></tr>
                 <tr><td><code>$.session.append</code></td><td>A <code>user</code> row is never shown as typed; a <code>system</code> row is shown and never read</td><td>User row on the next request</td></tr>
                 <tr><td><code>$.prompt.submit</code></td><td>The text sent, as a user row once the session is idle</td><td>Yes, starts a turn; read under the plugin's name unless sent <code>asUser</code></td></tr>
                 <tr><td><code>$.session.send</code></td><td>The message queued for the recipient, the plugin named beside the sender</td><td>The recipient, in a turn of its own: delivered means queued, never read, and it may hold the message for its person; the call resolves <code>isDelivered</code> or a <code>reason</code> to the plugin. A <code>session.send</code> hook refusing the model's own SendMessage hands the model <code>reason</code> as the tool result</td></tr>
@@ -4448,7 +4447,7 @@ Save changes to brochure.indd?</span><span class="row dim">isSent false → toas
         <h3>Copy the useful string</h3>
         <div class="meta"><code>$.ui.copy</code> <code>$.ui.selection</code> <span class="chip person">Person</span></div>
         <dl>
-            <dt>Purpose</dt><dd>Press puts a path or command on the clipboard; a command reads the mouse selection</dd>
+            <dt>Purpose</dt><dd>Press puts a path or command on the clipboard or reads the last mouse selection</dd>
             <dt>Content</dt><dd>Task output path, failing command, crash report path</dd>
             <dt>When</dt><dd>Band or pane button beside a failure</dd>
             <dt>Not when</dt><dd><code>selection</code> outside fullscreen or under <code>-p</code>: it answers undefined</dd>
@@ -4463,7 +4462,7 @@ Save changes to brochure.indd?</span><span class="row dim">isSent false → toas
             <dt>Purpose</dt><dd>Switches the main view to one agent, as the tasks list does</dd>
             <dt>Content</dt><dd><code>{ agentId }</code>, <code>{}</code> returns to main</dd>
             <dt>When</dt><dd>Band row for a background agent with a <span class="mono">Show</span> button</dd>
-            <dt>Not when</dt><dd>Outside the person's own press, pick, prompt, or command: refused</dd>
+            <dt>Not when</dt><dd>Outside the person's own press, pick, or prompt: refused</dd>
         </dl>
         <div class="term"><span class="band"><span class="row">rebuild fork · 6 files · <span class="btn">Show</span></span></span><span class="prompt">&gt; ▌</span></div>
     </article>
@@ -4560,7 +4559,7 @@ Save changes to brochure.indd?</span><span class="row dim">isSent false → toas
             <li>Keep one keyed <code>$.ui.notify</code> per open ask, <code>$.ui.cancelNotify</code> on close</li>
             <li>Fall back to <code>$.ui.toast</code> when notify resolves <code>isSent: false</code></li>
             <li>Keep band buttons; add <code>Copy</code> and <code>Show</code> actions through <code>$.ui.copy</code> and <code>$.ui.view</code></li>
-            <li>Offer an apps pane through <code>$.ui.open</code> on the person's command, never unasked below 144 columns</li>
+            <li>Offer an apps pane through <code>$.ui.open</code> on the person's band press, never unasked below 144 columns</li>
             <li>Wake by <code>$.prompt.submit</code> for asks, hangs, crashes, exits alone</li>
         </ul>
     </article>
@@ -4659,7 +4658,7 @@ Save changes to brochure.indd?</span><span class="row dim">isSent false → toas
         <tr><td><code>ToolUse</code></td><td>Call row and its result</td><td>Every surface</td><td>Never</td><td><span class="chip person">person</span></td><td>Show what a hook changed</td></tr>
         <tr><td><code>ToolResult</code></td><td>Result block under standalone row, schema checked</td><td>Every surface</td><td>Never</td><td><span class="chip person">person</span></td><td>Redraw output, stored result kept</td></tr>
         <tr><td><code>ToolGroup</code></td><td>Folded count line, <code>isExpanded</code> unfolds</td><td>Every surface</td><td>Never</td><td><span class="chip person">person</span></td><td>Unfold a run worth reading</td></tr>
-        <tr><td><code>CommandOutput</code></td><td>Slash command output row</td><td>Every surface</td><td>Never</td><td><span class="chip person">person</span></td><td>Plugin command prints a table</td></tr>
+        <tr><td><code>CommandOutput</code></td><td>Slash command output row</td><td>Every surface</td><td>Never</td><td><span class="chip person">person</span></td><td>Redraw output, stored row kept</td></tr>
         <tr><td><code>UserMessage</code></td><td>Prompt, task notice, peer message rows</td><td>Every surface</td><td>Never</td><td><span class="chip person">person</span></td><td>Tell delivered events from typing</td></tr>
         <tr><td><code>AssistantMessage</code></td><td>Reply block or summary row</td><td>Every surface</td><td>Never</td><td><span class="chip person">person</span></td><td>Restyle without touching history</td></tr>
         <tr><td><code>CodeBlock</code></td><td>Top-level fence, asked at open and close</td><td>Terminal</td><td>Never</td><td><span class="chip person">person</span></td><td>Draw a known fence language</td></tr>
@@ -4772,7 +4771,7 @@ Save changes to brochure.indd?</span><span class="row dim">isSent false → toas
     <dl class="lines">
         <div><dt>Purpose</dt><dd>Show a mode the person switched on, beside <code>focus</code></dd></div>
         <div><dt>Content</dt><dd>One short label added to <code>modes</code></dd></div>
-        <div><dt>When</dt><dd>A plugin command turns a mode on (shell rules in report-only); not for faults, which come and go without the person</dd></div>
+        <div><dt>When</dt><dd>A band press turns a mode on (shell rules in report-only); not for faults, which come and go without the person</dd></div>
     </dl>
     <div class="term" aria-hidden="true">
         <div class="sk-row sk-prompt"><span>&gt; </span><span class="dim">focus &amp; <span class="sk-hit">rules report-only</span></span></div>
@@ -4858,22 +4857,6 @@ Save changes to brochure.indd?</span><span class="row dim">isSent false → toas
 </article>
 
 <article class="idea">
-    <h3>Plugin command output, two readers</h3>
-    <div class="meta"><code>on('command.run', …)</code> → <code>CommandOutput</code><span class="chip person">person</span><span class="chip model">model</span></div>
-    <dl class="lines">
-        <div><dt>Purpose</dt><dd>Show the person a table and hand the model the facts</dd></div>
-        <div><dt>Content</dt><dd><code>text</code> for the row, read by the model too; <code>context</code> entries the model reads and the person never sees</dd></div>
-        <div><dt>When</dt><dd>A <code>/risman</code> or <code>/hooks</code> command; <code>isTextDisplayOnly: true</code> keeps the table out of requests where <code>context</code> holds the facts</dd></div>
-    </dl>
-    <div class="term" aria-hidden="true">
-        <div class="sk-line">&gt; /risman</div>
-        <div class="sk-line sk-hit"><span class="coral">InDesign</span>  linked   1 ask</div>
-        <div class="sk-line sk-hit"><span class="blue">Premiere</span>  linked   export 62%</div>
-        <div class="sk-line sk-hit"><span class="dim">Photoshop idle</span></div>
-    </div>
-</article>
-
-<article class="idea">
     <h3>Delivered events look delivered</h3>
     <div class="meta"><code>on('ui.render', { component: 'UserMessage' }, …)</code><span class="chip person">person</span></div>
     <dl class="lines">
@@ -4939,7 +4922,7 @@ Save changes to brochure.indd?</span><span class="row dim">isSent false → toas
     <dl class="lines">
         <div><dt>Purpose</dt><dd>Keep every linked app's events in one scrollable place</dd></div>
         <div><dt>Content</dt><dd>Body per <code>placement</code>: full list for <code>dock</code> and <code>inline</code>, one glance line for desktop <code>widget</code></dd></div>
-        <div><dt>When</dt><dd>The person opens it with a command; not unasked below 144 columns, where it waits undrawn</dd></div>
+        <div><dt>When</dt><dd>The person opens it with a band press; not unasked below 144 columns, where it waits undrawn</dd></div>
     </dl>
     <div class="term" aria-hidden="true">
         <div class="sk-pane sk-hit">
@@ -5125,7 +5108,6 @@ Save changes to brochure.indd?</span><span class="row dim">isSent false → toas
     <li>One fact per line, the action first; no line repeating what the tool output already shows</li>
     <li>Once per agent for teaching notes, once per call for edits; repeated notes cost tokens on every later request</li>
     <li>Invalidate <code>prompt.context</code> only when its facts changed, as the engine then asks every hook again and the first message's blocks change</li>
-    <li>Slash command <code>text</code> reaches requests unless the answer sets <code>isTextDisplayOnly</code>, so tables for the person take that flag and hand facts through <code>context</code></li>
 </ul>
 </section>
 

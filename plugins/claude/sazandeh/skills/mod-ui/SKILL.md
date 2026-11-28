@@ -1,6 +1,6 @@
 ---
 name: mod-ui
-description: "Use when building, changing, or reviewing a Claude Code mod's interface on @rasm/claude-code, covering where each site draws, who reads it, how rows, panes, asks, commands, tools, and themes compose, templates, and the preview of every surface"
+description: "Use when building, changing, or reviewing a Claude Code mod's interface on @rasm/claude-code, covering where each site draws, who reads it, how rows, panes, asks, tools, and themes compose, templates, and the preview of every surface"
 ---
 
 # [SAZANDEH_MOD_UI]
@@ -17,17 +17,17 @@ Owner rules bind every mod this skill builds:
 [REFERENCES]:
 - [01]-[PANES](references/panes.md): Panes and panels, their placement, keys, drawing, and closing
 - [02]-[PROMPT](references/prompt.md): Band rows, cells, footer rows, and the composer around the prompt
-- [03]-[TRANSCRIPT](references/transcript.md): Engine rows of the transcript, slash command output, and placed rows
+- [03]-[TRANSCRIPT](references/transcript.md): Engine rows of the transcript and placed rows
 - [04]-[MODEL](references/model.md): Asks, notices, and the channels the model reads
 - [05]-[THEMES](references/themes.md): Themes, backdrop scenes, and underlays
-- [06]-[EVENTS](references/events.md): Hooks, parts, budgets, declared tools, agent types, commands, and services
+- [06]-[EVENTS](references/events.md): Hooks, parts, budgets, declared tools, agent types, and services
 - [07]-[PREVIEW](references/preview.md): Building a scratch mount and reading the preview of every surface
 
 [TEMPLATES]:
-- [01]-[PANE](templates/pane.ts): List pane with summary, sections, empty state, and widget glance, and a dialog form, opened by commands
+- [01]-[PANE](templates/pane.ts): List pane with summary, sections, empty state, and widget glance, and a dialog form, opened from a band row
 - [02]-[ABOVE_PROMPT](templates/above-prompt.ts): Band row whose press opens a pane scrolled to its row, `+N` overflow, and a hint tail
 - [03]-[ASK](templates/ask.ts): One decision before a tool call, its refusal text, and evidence above the dialog
-- [04]-[TRANSCRIPT](templates/transcript.ts): Call-row line, turn total, fenced report table, and a slash command table
+- [04]-[TRANSCRIPT](templates/transcript.ts): Call-row line, turn total, and fenced report table
 - [05]-[RUNNER_TOOL](templates/runner-tool.ts): Model-callable tool running the mod's own hidden agent type
 
 [SCRIPTS]:
@@ -81,7 +81,7 @@ Surfaces raise different sites, each component's declaration naming where, and a
 
 Every site draws for the person alone, and the model reads a fact only when the mod also writes it to a model channel:
 - Person: render rows, panes, placed rows, the band, toasts, notifications, themes, sounds
-- Model: `tool.call` `deny` and `result`, `context` after a result, `prompt.context` blocks, `prompt.section`, `command.run` text and `context`, `Notice.Note` and `Notice.Message`
+- Model: `tool.call` `deny` and `result`, `context` after a result, `prompt.context` blocks, `prompt.section`, `Notice.Note` and `Notice.Message`
 - Rewrites of transcript rows change the drawing alone, and the stored row stays what the model reads
 - Asks answer the plugin, and the model learns the answer only from what the hook then returns
 
@@ -93,7 +93,6 @@ One `host` call holds every part, and each part composes with the others through
 host(on, {
     layer,      // services the hooks and rows read: the mod's state owner
     hooks,      // engine events: (e, next) => Effect over the services
-    commands,   // slash commands: { description, immediate, run }
     tools,      // model-callable tools: Tool(schema, { description, isDeferred, run })
     agents,     // agent types: definition less name, plus isOffered
     band,       // press(key) answering Notice.Band rows
@@ -142,9 +141,9 @@ Build from the smallest site that carries the fact, and add a site only when the
 2. Start the plugin from `plugins/claude/risman` (`package.json`, `vite.config.ts`, `hooks/hooks.json`, tsconfigs), keeping `@rasm/claude-code`, `@rasm/vite`, `effect`, `vite`, tag `host:claude-code`, and `nx.sync.ignoredDependencies: ["@rasm/vite"]`; `hooks/register.ts` declares `function register(on: On)` calling `host` and ends with `export { register }`
 3. Write the state owner: one service with a `SubscriptionRef` in `layer`, written by the hooks that observe the facts
 4. Draw one row: a decoration of an engine row (`references/transcript.md`, `templates/transcript.ts`) or a band row (`references/prompt.md`, `templates/above-prompt.ts`)
-5. Move a list that outgrows one row into a pane opened by a command or a band press (`references/panes.md`, `templates/pane.ts`)
+5. Move a list that outgrows one row into a pane opened by a band press (`references/panes.md`, `templates/pane.ts`)
 6. Ask a decision only the person holds with `ask`, and send the answer on through the hook's own answer (`references/model.md`, `templates/ask.ts`)
-7. Declare commands, model-callable tools, and agent types the mod serves (`references/events.md`, `templates/runner-tool.ts`)
+7. Declare model-callable tools and agent types the mod serves (`references/events.md`, `templates/runner-tool.ts`)
 8. Set a theme only on the person's ask, previewed before it stays (`references/themes.md`)
 9. Check: `nx run @rasm/<project>:check--tsc`, then `nx build @rasm/<project>`, then `scripts/preview.py` on the build with steps reaching every state the mod draws (`references/preview.md`)
 10. Read each surface's trees and the `model` line before claiming a site works there, as the preview paints the terminal alone

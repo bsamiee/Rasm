@@ -1,4 +1,4 @@
-import type { Args, Chunk, CommandRunResult, CommandSpec, EngineInterface, EventName, EventResult, Frozen, HookStream, Next, StreamingEventName, StreamNext, ToolCallResult, ToolSpec, TurnStepInput, TurnStepResult } from 'claude-code';
+import type { Args, Chunk, EngineInterface, EventName, EventResult, Frozen, HookStream, Next, StreamingEventName, StreamNext, ToolCallResult, ToolSpec, TurnStepInput, TurnStepResult } from 'claude-code';
 import { Array, Cause, Channel, Context, Effect, Exit, Formatter, HashSet, Layer, type ManagedRuntime, Option, PlatformError, Predicate, Pull, Record, Ref, Result, Schema, Scope } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { call } from '#/engine/services';
@@ -21,7 +21,6 @@ type Hosted =
     | 'tool.describe'
     | 'tool.check'
     | 'tool.call'
-    | 'command.run'
     | 'prompt.submit'
     | 'prompt.section'
     | 'prompt.context'
@@ -54,9 +53,6 @@ interface Tool<R, F> extends Omit<ToolSpec, 'name'> {
 interface Agent extends Omit<Parameters<EngineInterface['agent']['register']>[0], 'name'> {
     readonly isOffered: boolean;
 }
-interface Command<R, F> extends Omit<CommandSpec, 'name'> {
-    readonly run: (e: Frozen<Args<'command.run'>>, next: Proceed<'command.run'>) => Effect.Effect<CommandRunResult, F | PlatformError.PlatformError, R>;
-}
 
 const Tool = <S extends Schema.Decoder<unknown>, R, F>(
     input: S,
@@ -75,7 +71,6 @@ class Plugin extends Context.Service<
         readonly name: string;
         readonly tools: Record.ReadonlyRecord<string, string>;
         readonly agents: Record.ReadonlyRecord<string, string>;
-        readonly commands: Record.ReadonlyRecord<string, string>;
         readonly blocked: Ref.Ref<HashSet.HashSet<readonly [string | undefined, string]>>;
     }
 >()('@rasm/claude-code/engine/events/Plugin') {}
@@ -139,11 +134,10 @@ const blockOnce =
                   const fresh = block === undefined || (yield* Ref.modify(blocked, (held) => [!HashSet.has(held, [e.agent_id, block]), HashSet.add(held, [e.agent_id, block])] as const));
                   return fresh ? result : yield* next(e);
               });
-const route = <R, F>(tools: Record.ReadonlyRecord<string, Tool<R, F>>, agents: Record.ReadonlyRecord<string, Agent>, commands: Record.ReadonlyRecord<string, Command<R, F>>) => ({
+const route = <R, F>(tools: Record.ReadonlyRecord<string, Tool<R, F>>, agents: Record.ReadonlyRecord<string, Agent>) => ({
     matchers: {
         'tool.run': { tool: new RegExp(`^mcp__(?:(?!__)[^])+__(?:${Record.keys(tools).map(RegExp.escape).join('|')})$`, 'u') },
         'agent.offer': { agent: new RegExp(`^[^:]+:(?:${Record.keys(agents).map(RegExp.escape).join('|')})$`, 'u') },
-        'command.run': { command: new RegExp(`^(?:${Record.keys(commands).map(RegExp.escape).join('|')})$`, 'u') },
     },
     hooks: {
         'tool.run': (e, next) =>
@@ -160,16 +154,9 @@ const route = <R, F>(tools: Record.ReadonlyRecord<string, Tool<R, F>>, agents: R
                     onSome: ([, { isOffered }]) => (isOffered || next.origin.plugin === name ? next(e) : Effect.succeed({ isOffered: false })),
                 }),
             ),
-        'command.run': (e, next) =>
-            Plugin.use(({ commands: named }) =>
-                Option.match(findDeclared(named, commands, e.command), {
-                    onNone: () => next(e),
-                    onSome: ([key, command]) => Effect.catchCause(command.run(e, next), (cause) => Effect.as(Effect.logWarning('command failed', cause).pipe(Effect.annotateLogs({ command: key })), { text: `${key}: ${explain(cause)}`, isTextDisplayOnly: true } as const)),
-                }),
-            ),
-    } satisfies { readonly [N in 'tool.run' | 'agent.offer' | 'command.run']: Hook<N, R | Plugin, PlatformError.PlatformError> },
+    } satisfies { readonly [N in 'tool.run' | 'agent.offer']: Hook<N, R | Plugin, PlatformError.PlatformError> },
 });
-const registerAll = <A>(event: 'tool.register' | 'agent.register' | 'command.register', declarations: Record.ReadonlyRecord<string, A>, register: (name: string, declaration: A) => Promise<string>) =>
+const registerAll = <A>(event: 'tool.register' | 'agent.register', declarations: Record.ReadonlyRecord<string, A>, register: (name: string, declaration: A) => Promise<string>) =>
     Effect.map(
         Effect.filterMapEffect(Record.toEntries(declarations), ([key, declaration]) =>
             call(event, key, () => register(key, declaration)).pipe(
@@ -204,14 +191,13 @@ const stream = <N extends StreamingEventName, R, E, F>(e: Frozen<Args<N>>, next:
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function plugin<R, F>($: EngineInterface, tools: Record.ReadonlyRecord<string, Tool<R, F>>, agents: Record.ReadonlyRecord<string, Agent>, commands: Record.ReadonlyRecord<string, Command<R, F>>) {
+function plugin<R, F>($: EngineInterface, tools: Record.ReadonlyRecord<string, Tool<R, F>>, agents: Record.ReadonlyRecord<string, Agent>) {
     return Layer.effect(
         Plugin,
         Effect.all({
             name: Effect.sync(() => $.plugin.name),
             tools: registerAll('tool.register', tools, (name, { run: _run, ...spec }) => $.tool.register({ ...spec, name }).then(({ tool }) => tool)),
             agents: registerAll('agent.register', agents, (name, { isOffered: _isOffered, ...spec }) => $.agent.register({ ...spec, name }).then(({ agent }) => agent)),
-            commands: registerAll('command.register', commands, (name, { run: _run, ...spec }) => $.command.register({ ...spec, name }).then(({ command }) => command)),
             blocked: Ref.make(HashSet.empty<readonly [string | undefined, string]>()),
         }),
     );
@@ -219,4 +205,4 @@ function plugin<R, F>($: EngineInterface, tools: Record.ReadonlyRecord<string, T
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Agent, type Command, route, dispatch, type Hook, type Hooks, type Hosted, plugin, Plugin, type Proceed, reply, runHook, type StreamHook, blockOnce, stream, Tool };
+export { type Agent, route, dispatch, type Hook, type Hooks, type Hosted, plugin, Plugin, type Proceed, reply, runHook, type StreamHook, blockOnce, stream, Tool };

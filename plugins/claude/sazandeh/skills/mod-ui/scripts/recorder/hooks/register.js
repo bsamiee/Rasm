@@ -68,7 +68,6 @@ export function register(on) {
     on('ui.open', observed).catch(passed);
     on('ui.close', observed).catch(passed);
     on('ui.place', observed).catch(passed);
-    on('command.register', observed).catch(passed);
     on('theme.set', observed).catch(passed);
     on('audio.play', observed).catch(passed);
     on('audio.speak', observed).catch(passed);

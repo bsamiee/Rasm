@@ -1,6 +1,6 @@
 # [EVENTS_TOOLS_AGENTS]
 
-Hooks, declared tools, agent types, and slash commands share one `host` call and one runtime. Template `templates/runner-tool.ts` holds a model-callable tool that starts the mod's own agent type and follows it to its report.
+Hooks, declared tools, and agent types share one `host` call and one runtime. Template `templates/runner-tool.ts` holds a model-callable tool that starts the mod's own agent type and follows it to its report.
 
 ## [01]-[HOOKS]
 
@@ -50,22 +50,13 @@ Hooks run under engine budgets and inside one shared worker:
 - Auto mode judges a mod's own tool and `Agent` call like the model's, so a `tool.check` hook allows them, or the call reads `Not run`
 - Subagent events reach every hook, the mod's included, so a hook that starts an agent on an event the agent also raises checks `e.agentId`
 
-## [06]-[COMMANDS]
-
-`commands` declares slash commands, each the engine's command spec less `name` plus `run`:
-- Commands run as `/<key>`, and `Plugin.commands` maps each key to the registered name `CommandOutput` rows carry
-- `immediate: true` runs it while a turn streams, so a pane opener answers at once
-- `run` answers `{}` when it drew elsewhere, `{ text }` for an output row, and `{ text, context, isTextDisplayOnly: true }` for a table the model reads as facts alone
-- Failed runs answer `{ text: '<key>: <reason>', isTextDisplayOnly: true }` and log `message="command failed"` with the `command` key
-- Commands are the person's input, so a pane one opens places at any width and takes `focus`
-
-## [07]-[SERVICES]
+## [06]-[SERVICES]
 
 Every layer and handler reads the library's services and the platform services built on the engine:
 - `Engine`: `deliver`, `invalidate`, `focus`, `scroll`, `fetch`, `callTool`, `cwd`, `root`, `repo`, `agents`, `limits`, `messages`, `isRunning`, `turns`
 - `Engine.agents` keys the session's live agents by id, `limits` reads agent bounds, `messages(agent)` a conversation, `repo` the repository
 - `Panes`, `Placed`, `Theme`, `Draft`: the sites of their references
-- `Plugin`: the plugin's name and the registered names of its tools, agent types, and commands
+- `Plugin`: the plugin's name and the registered names of its tools and agent types
 - `FileSystem`, `Path`, `ChildProcessSpawner`, `KeyValueStore`, `ConfigProvider`: Effect's platform services over the engine's calls, one argument vector per spawn and no shell, each handle's `pid` 0
 - `Session` from `@rasm/claude-code/session`: `shell(agent)` answers the agent's shell dialect, folder, an anchored `Path`, and `exec(script)`
 - `Session.exec` runs one parsed command as the Bash tool's shell would, its handle holding the program's pid, and needs the plugin's `hooks/main.wasm`
