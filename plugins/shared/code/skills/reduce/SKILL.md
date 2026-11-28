@@ -33,7 +33,7 @@ Target `$target` (first argument, else a path the request names) sets what a ses
 - Empty target -> `sazandeh:ask` with candidates from `git status --short` and `git log -5 --stat`
 - Empty concern -> every category in list order, one at a time
 - Target spanning languages -> one sequence per language, a contract crossing them rebuilt on every side in one pass
-- Language with no reference -> its coding skill, `search:code` for declarations, and its central manifest below
+- Language with no reference -> its coding skill, `search:code` for declarations, and its central manifest
 
 ## [02]-[SKILLS]
 
@@ -79,7 +79,7 @@ Units hold one cause and every declaration, reader, and contract that must chang
 
 Facts come from their defining source: host and protocol facts from host API or SDK, domain facts from an upstream value in the tree (enumeration, registry, manifest), operations from a language, compiler, or package implementing their semantics at its installed release, and a target declaration holds only a fact no source states, where it removes logic. Reading reaches every reader, like-work site, and source of a unit, each file read whole, never an outline, excerpt, or summary standing in for it.
 
-Each language reference names its core packages, read every session whatever the target imports, as hand-rolled code mostly restates a package no file imports yet. Every session also reads its language's central manifest whole for packages beyond the core, imported or not, each candidate judged by its declarations and docs against the jobs the target does by hand. Package reads run in order, each ending in a decision on the map:
+Packages its language's central manifest lists, imported or not, are read beside the core packages its reference names, and each one fitting a job the target does by hand is used deeply through its API, added to the project where it fits. Package reads run in order, each ending in a decision on the map:
 1. Guide: package's own agent guide (`AGENTS.md`, `llms.txt`, agent docs folder), read whole, else its entry-point index
 2. Index: every entry point and module with member counts and summaries, read whole
 3. Groups: every group with a name or summary naming the job's field read whole, and every group with no summary opened at its members
@@ -90,22 +90,7 @@ Each language reference names its core packages, read every session whatever the
 Package reads end in a case:
 - Version -> release the target's project resolves, never a store or cache glob holding more than one
 - Empty search -> index above it reopened, never hand-written code
-- Candidate from the central manifest -> declarations and docs at its catalog release through steps 2 to 5, never its name or comment alone
 - Adoption -> package added through its owning manifest and catalog row, never reached as a transitive import
-
-Central manifests list every package a target can adopt, one command per ecosystem, and Swift with no catalog reads its SDK, Swift modules, and repository SPI:
-
-```bash
-yq '.catalog, .catalogs' pnpm-workspace.yaml
-git ls-files ':!:.config/**' '*uv.lock' && yq -p toml -oy '."dependency-groups"' <uv-root>/pyproject.toml
-rg -n 'Label=|<PackageVersion (Include|Update)=' Directory.Packages.props
-yq -p toml -oy '.workspace.dependencies' Cargo.toml
-sed -n '/^    dependencies: \[/,/^    \]/p' Package.swift
-ls "$(xcrun --show-sdk-path)/System/Library/Frameworks" "$(xcrun --show-sdk-path)/usr/lib/swift" "$(xcrun --show-sdk-platform-path)/Developer/Library/Frameworks" libs/swift/macos/SPI
-jq '{dependencies, features}' vcpkg.json
-```
-
-Rows of .NET `Transitive Pinning` hold pins alone and `Update` rows versions a host condition selects, and Swift reads SDK frameworks, Swift-only SDK modules (`Synchronization`), platform test frameworks, and repository SPI beside `Package.swift`.
 
 History reads `git log -S '<literal>' -- <path>` for a guard, flag, or form with a reason no code or reader states.
 
