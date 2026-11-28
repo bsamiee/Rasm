@@ -1,3 +1,4 @@
+import { Writer } from '@rasm/process/tree';
 import { Call } from '@rasm/report';
 import { Array, Duration, Effect, Function, Match, Option, Path, Result } from 'effect';
 import { Host, NetAddress } from 'effect/net';
@@ -70,10 +71,9 @@ const print = <E, R>(ran: Effect.Effect<{ readonly stdout: string }, E, R>) =>
         () => '',
     );
 const findWriters = Effect.fnUntraced(function* (file: string, cwd: string) {
-    const [open, processes] = yield* Effect.all([print(execute(cwd)(['lsof', '-F', 'pa', '--', file])), print(execute(cwd)(['ps', '-A', '-o', 'pid=,ppid=']))], { concurrency: 'unbounded' });
-    const parents = new Map(processes.split('\n').flatMap((line) => Option.toArray(Option.map(Option.fromNullishOr(/^\s*(?<pid>\d+)\s+(?<parent>\d+)/u.exec(line)?.groups), ({ pid = '', parent = '' }) => [pid, parent] as const))));
-    const holders = new Set(open.split(/^p/mu).flatMap((listing) => (/^a[uw]$/mu.test(listing) ? [listing.split('\n', 1).join('')] : [])));
-    return [...holders].filter((pid) => parents.has(pid) && !holders.has(parents.get(pid) ?? ''));
+    const writers = yield* Writer.of([(yield* Path.Path).resolve(cwd, file)]);
+    const holders = new Set(writers.map(({ pid }) => pid));
+    return Array.dedupe(writers.filter(({ parent }) => !holders.has(parent)).map(({ pid }) => `${pid}`));
 });
 const findRepeat = Effect.fnUntraced(function* (file: string, cwd: string) {
     const lines = (yield* print(execute(cwd)(['tail', '-n', '10', '--', file])))
