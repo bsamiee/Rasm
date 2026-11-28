@@ -3,7 +3,7 @@ import { Array, Effect, type FileSystem, HashSet, Layer, ManagedRuntime, Mutable
 import type { KeyValueStore } from 'effect/persistence';
 import type { ChildProcessSpawner } from 'effect/process';
 import { type Agent, blockOnce, dispatch, type Hook, plugin, type Plugin, route, runHook, stream, type StreamHook, type Tool } from '#/engine/events';
-import { type Engine, engine } from '#/engine/interface';
+import { Engine, makeEngine } from '#/engine/interface';
 import { Ledger } from '#/engine/ledger';
 import { services } from '#/engine/services';
 import { type Draft, draft } from '#/ui/draft';
@@ -47,7 +47,7 @@ function start<A, E, F, S>($: EngineInterface, instance: Instance<A, E, F, S>) {
         const made = instance.render.pipe(
             follow,
             Layer.provideMerge(instance.layer),
-            Layer.provideMerge(Layer.mergeAll(engine($, instance.turns, Option.map(instance.band, Struct.get('rows'))), Ledger.layer, draft($), panes($, instance.render), placed($, instance.placed), plugin($, instance.tools, instance.agents), theme($, instance.theme))),
+            Layer.provideMerge(Layer.mergeAll(Layer.effect(Engine, makeEngine($, instance.turns, Option.map(instance.band, Struct.get('rows')))), Ledger.layer, draft($), panes($, instance.render), placed($, instance.placed), plugin($, instance.tools, instance.agents), theme($, instance.theme))),
             Layer.provideMerge(services($)),
             ManagedRuntime.make,
         );

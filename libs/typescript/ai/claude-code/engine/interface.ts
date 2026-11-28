@@ -1,5 +1,5 @@
-import type { AgentCallArgs, AgentInfo, AgentLimits, AgentStatus, EngineInterface, HttpInit, HttpResponse, InvalidatableEventName, SessionMessage, SessionRepo, ToolCallResult, UiFocusArgs, UiScrollArgs } from 'claude-code';
-import { Array, ByteSize, Context, Data, Effect, Formatter, HashSet, Layer, Match, Option, PlatformError, Record, Ref, Semaphore, type Stream, Struct, SubscriptionRef } from 'effect';
+import type { AgentCallArgs, AgentInfo, AgentStatus, EngineInterface, HttpInit, InvalidatableEventName, SessionMessage, UiFocusArgs, UiScrollArgs } from 'claude-code';
+import { Array, ByteSize, Context, Data, Effect, Formatter, HashSet, Match, Option, PlatformError, Record, Ref, Semaphore, Struct, SubscriptionRef } from 'effect';
 import { call } from '#/engine/services';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -22,30 +22,11 @@ const Notice = Data.taggedEnum<Notice>();
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Engine extends Context.Service<
-    Engine,
-    {
-        readonly deliver: (notice: Notice) => Effect.Effect<void, PlatformError.PlatformError>;
-        readonly invalidate: (event: InvalidatableEventName) => Effect.Effect<void>;
-        readonly compile: (bytes: Uint8Array) => Effect.Effect<WebAssembly.Module, PlatformError.PlatformError>;
-        readonly focus: (args: UiFocusArgs) => Effect.Effect<void, PlatformError.PlatformError>;
-        readonly scroll: (args: UiScrollArgs) => Effect.Effect<void, PlatformError.PlatformError>;
-        readonly fetch: (url: string, init?: HttpInit) => Effect.Effect<HttpResponse, PlatformError.PlatformError>;
-        readonly callTool: (args: AgentCallArgs) => Effect.Effect<ToolCallResult, PlatformError.PlatformError>;
-        readonly cwd: Effect.Effect<string, PlatformError.PlatformError>;
-        readonly root: Effect.Effect<string, PlatformError.PlatformError>;
-        readonly repo: Effect.Effect<Option.Option<SessionRepo>, PlatformError.PlatformError>;
-        readonly agents: Effect.Effect<Record.ReadonlyRecord<string, AgentInfo>, PlatformError.PlatformError>;
-        readonly limits: Effect.Effect<AgentLimits, PlatformError.PlatformError>;
-        readonly messages: (agent: Option.Option<string>) => Effect.Effect<readonly SessionMessage[], PlatformError.PlatformError>;
-        readonly isRunning: (agent: Option.Option<string>) => Effect.Effect<boolean>;
-        readonly turns: Stream.Stream<HashSet.HashSet<Option.Option<string>>>;
-    }
->()('@rasm/claude-code/engine/interface/Engine') {}
+class Engine extends Context.Service<Engine, Effect.Success<ReturnType<typeof makeEngine>>>()('@rasm/claude-code/engine/interface/Engine') {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashSet.HashSet<Option.Option<string>>>, band: Option.Option<Ref.Ref<Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, string>>>>) {
+function makeEngine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashSet.HashSet<Option.Option<string>>>, band: Option.Option<Ref.Ref<Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, string>>>>) {
     const permits = Semaphore.makeUnsafe(1);
     const notify = (key: string, text: Option.Option<string>) =>
         Option.match(text, {
@@ -74,64 +55,61 @@ function engine($: EngineInterface, turns: SubscriptionRef.SubscriptionRef<HashS
             Effect.uninterruptible,
         );
     const isRunning = (agent: Option.Option<string>) => Effect.map(SubscriptionRef.get(turns), HashSet.has(agent));
-    return Layer.effect(
-        Engine,
-        Effect.as(
-            Effect.addFinalizer(() =>
-                Effect.forEach(Option.toArray(band), Ref.get).pipe(
-                    Effect.flatMap((held) => Effect.forEach(held.flatMap(Record.keys), (group) => show(group, {}), { discard: true })),
-                    Effect.catchCause((cause) => Effect.logWarning('band clear failed', cause)),
-                ),
+    return Effect.as(
+        Effect.addFinalizer(() =>
+            Effect.forEach(Option.toArray(band), Ref.get).pipe(
+                Effect.flatMap((held) => Effect.forEach(held.flatMap(Record.keys), (group) => show(group, {}), { discard: true })),
+                Effect.catchCause((cause) => Effect.logWarning('band clear failed', cause)),
             ),
-            {
-                deliver: (notice: Notice) =>
-                    Notice.$match(notice, {
-                        Toast: ({ text }) => Effect.sync(() => $.ui.toast(text)),
-                        Notification: ({ key, text }) => notify(key, text),
-                        Band: ({ group, rows }) => show(group, rows),
-                        Note: ({ text, agent }) => append(text, agent),
-                        Message: ({ text, agent }) =>
-                            Effect.flatMap(isRunning(agent), (busy) =>
-                                Match.value({ busy, agentId: Option.getOrUndefined(agent) }).pipe(
-                                    Match.when({ busy: true }, () => append(text, agent)),
-                                    Match.when({ agentId: Match.string }, ({ agentId }) => call('session.send', agentId, () => $.session.send({ to: { agentId }, text }), Struct.get('reason'))),
-                                    Match.orElse(() => call('prompt.submit', 'main', () => $.prompt.submit({ text }), Struct.get('drop'))),
-                                    Effect.asVoid,
-                                ),
-                            ),
-                    }),
-                invalidate: (event: InvalidatableEventName) => Effect.sync(() => $.ui.invalidate(event)),
-                compile: (bytes: Uint8Array) => call('wasm.compile', ByteSize.format(ByteSize.bytes(bytes.byteLength)), () => $.wasm.compile(bytes)),
-                focus: (args: UiFocusArgs) => Effect.asVoid(call('ui.focus', args.key, () => $.ui.focus(args), Struct.get('deny'))),
-                scroll: (args: UiScrollArgs) => Effect.asVoid(call('ui.scroll', args.in ?? Formatter.format(args.to), () => $.ui.scroll(args), Struct.get('deny'))),
-                fetch: (url: string, init?: HttpInit) => call('http.fetch', url, () => $.http.fetch(url, init)),
-                callTool: (args: AgentCallArgs) => call('agent.call', args.tool, (signal) => $.agent.call(args, { signal })),
-                cwd: call('session.cwd', 'session', () => $.session.cwd()),
-                root: call('session.root', 'session', () => $.session.root()),
-                repo: call('session.repo', 'session', () => $.session.repo()).pipe(Effect.map(Option.fromNullOr)),
-                agents: Effect.map(
-                    call('agent.list', 'session', () => $.agent.list()),
-                    (listed) =>
-                        Record.fromIterableBy(
-                            listed.values().filter((info) => !ENDED[info.status]),
-                            (info) => info.id,
-                        ),
-                ),
-                limits: call('agent.limits', 'session', () => $.agent.limits()),
-                messages: (agent: Option.Option<string>) =>
-                    call(
-                        'session.messages',
-                        Option.getOrElse(agent, () => 'main'),
-                        () => Option.match(agent, { onNone: () => $.session.messages(), onSome: (agentId) => $.session.messages({ agentId }) }),
-                        (read) => (Array.isArray(read) ? undefined : read.deny),
-                    ).pipe(Effect.filterOrElse((read): read is SessionMessage[] => Array.isArray(read), Effect.die)),
-                isRunning,
-                turns: SubscriptionRef.changes(turns),
-            },
         ),
+        {
+            deliver: (notice: Notice) =>
+                Notice.$match(notice, {
+                    Toast: ({ text }) => Effect.sync(() => $.ui.toast(text)),
+                    Notification: ({ key, text }) => notify(key, text),
+                    Band: ({ group, rows }) => show(group, rows),
+                    Note: ({ text, agent }) => append(text, agent),
+                    Message: ({ text, agent }) =>
+                        Effect.flatMap(isRunning(agent), (busy) =>
+                            Match.value({ busy, agentId: Option.getOrUndefined(agent) }).pipe(
+                                Match.when({ busy: true }, () => append(text, agent)),
+                                Match.when({ agentId: Match.string }, ({ agentId }) => call('session.send', agentId, () => $.session.send({ to: { agentId }, text }), Struct.get('reason'))),
+                                Match.orElse(() => call('prompt.submit', 'main', () => $.prompt.submit({ text }), Struct.get('drop'))),
+                                Effect.asVoid,
+                            ),
+                        ),
+                }),
+            invalidate: (event: InvalidatableEventName) => Effect.sync(() => $.ui.invalidate(event)),
+            compile: (bytes: Uint8Array) => call('wasm.compile', ByteSize.format(ByteSize.bytes(bytes.byteLength)), () => $.wasm.compile(bytes)),
+            focus: (args: UiFocusArgs) => Effect.asVoid(call('ui.focus', args.key, () => $.ui.focus(args), Struct.get('deny'))),
+            scroll: (args: UiScrollArgs) => Effect.asVoid(call('ui.scroll', args.in ?? Formatter.format(args.to), () => $.ui.scroll(args), Struct.get('deny'))),
+            fetch: (url: string, init?: HttpInit) => call('http.fetch', url, () => $.http.fetch(url, init)),
+            callTool: (args: AgentCallArgs) => call('agent.call', args.tool, (signal) => $.agent.call(args, { signal })),
+            cwd: call('session.cwd', 'session', () => $.session.cwd()),
+            root: call('session.root', 'session', () => $.session.root()),
+            repo: call('session.repo', 'session', () => $.session.repo()).pipe(Effect.map(Option.fromNullOr)),
+            agents: Effect.map(
+                call('agent.list', 'session', () => $.agent.list()),
+                (listed): Record.ReadonlyRecord<string, AgentInfo> =>
+                    Record.fromIterableBy(
+                        listed.values().filter((info) => !ENDED[info.status]),
+                        (info) => info.id,
+                    ),
+            ),
+            limits: call('agent.limits', 'session', () => $.agent.limits()),
+            messages: (agent: Option.Option<string>) =>
+                call(
+                    'session.messages',
+                    Option.getOrElse(agent, () => 'main'),
+                    () => Option.match(agent, { onNone: () => $.session.messages(), onSome: (agentId) => $.session.messages({ agentId }) }),
+                    (read) => (Array.isArray(read) ? undefined : read.deny),
+                ).pipe(Effect.filterOrElse((read): read is SessionMessage[] => Array.isArray(read), Effect.die)),
+            isRunning,
+            turns: SubscriptionRef.changes(turns),
+        },
     );
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Engine, engine, Notice };
+export { Engine, makeEngine, Notice };
