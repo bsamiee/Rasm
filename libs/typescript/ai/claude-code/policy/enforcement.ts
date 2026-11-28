@@ -2,7 +2,7 @@ import { Action, Decision, type Outcome } from '@rasm/policy/action';
 import type { Policy } from '@rasm/policy/policy';
 import { Line, Report } from '@rasm/report';
 import { Shell } from '@rasm/shell';
-import type { Frozen, ToolCallInput, ToolCallResult } from 'claude-code';
+import type { Frozen, NextBudget, ToolCallInput, ToolCallResult } from 'claude-code';
 import { Cause, Duration, Effect, HashMap, type Layer, Match, type PlatformError, Option, Path, Predicate, Record, Schedule, Schema, SchemaGetter, Struct, SubscriptionRef } from 'effect';
 import type { Proceed } from '#/engine/events';
 import type { Part } from '#/engine/host';
@@ -13,6 +13,7 @@ import { Session } from '#/policy/session';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const RESERVE = 500;
+const ALLOW = Decision.Allow({ notes: [], faults: [] });
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -33,31 +34,37 @@ const ToolCall = Schema.Union([
     row({ tool: Schema.Literal('Agent'), prompt: Schema.String, model: Schema.optional(Schema.String) })(({ prompt, model }, by) => Action.cases.Spawn.make({ ...by, prompt, model: Option.fromUndefinedOr(model) })),
     row({ tool: Schema.TemplateLiteralParser(['mcp__', Schema.String.check(Schema.isPattern(/^(?:(?!__)[^])+$/u)), '__', Schema.String]) })(({ tool: [, server, , tool], ...input }, by) => Action.cases.Mcp.make({ ...by, server, tool, input: Struct.omit(input, [...Struct.keys(caller), 'consent', 'requestMeta']) })),
 ]);
-const Printed = Schema.Struct({ ...caller, tool: Schema.String });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const line = ({ subject, reason, values, next }: Outcome) => new Line({ head: [subject], value: reason, facts: Record.collect(values, (label, value) => `${label} ${value}`), ...Option.getOrUndefined(Option.map(next, (call) => ({ call }))) });
 const report = (outcome: Outcome) => Report.text(new Report({ lines: [line(outcome)] }));
-const decide = (policy: Policy, action: Action) =>
+const attach = (result: ToolCallResult, notes: readonly Outcome[]): ToolCallResult => (result.deny !== undefined || notes.length === 0 ? result : { ...result, context: [...(result.context ?? []), ...notes.map(report)] });
+const decide = (policy: Policy, action: Action, budget: Option.Option<NextBudget>) =>
     Session.use((session) => session.shell(action.agent)).pipe(
         Effect.flatMap(({ environment, path }) => Effect.provideService(policy.decide(action, environment), Path.Path, path)),
-        Effect.tap(({ faults }) => Effect.forEach(faults, (fault) => Effect.logWarning(fault), { discard: true })),
+        Effect.tap(({ faults }) => Effect.forEach(faults, (fault) => Effect.logWarning('policy fault').pipe(Effect.annotateLogs({ fault })), { discard: true })),
+        Effect.raceFirst(
+            Option.match(budget, {
+                onNone: () => Effect.never,
+                onSome: (held) => Effect.suspend(() => Effect.sleep(Math.max(0, held.remainingMs - RESERVE))).pipe(Effect.repeat({ until: () => held.remainingMs <= RESERVE }), Effect.andThen(new Cause.TimeoutError('hook budget spent'))),
+            }),
+        ),
+        Effect.catchCause((cause) => Effect.as(Effect.logWarning('judge failed', cause), ALLOW)),
+        Effect.when(Effect.succeed(policy.appliesTo(action._tag))),
+        Effect.map(Option.getOrElse(() => ALLOW)),
+        Effect.annotateLogs({ action: action._tag, call: action.call }),
     );
 const watch = Effect.fnUntraced(function* (policy: Policy, { call, agent }: Action, task: Pick<typeof Action.cases.Task.Type, 'id' | 'output'>) {
     const [engine, session] = yield* Effect.all([Engine, Session]);
-    yield* session.watch(
-        Effect.flatMap(engine.isRunning(agent), (running) => Option.match(agent, { onNone: () => Effect.succeedSome(!running), onSome: (id) => Effect.map(engine.agents, (live) => Option.as(Record.get(live, id), !running)) })).pipe(
-            Effect.flatMap(
-                Option.match({
-                    onNone: () => Effect.succeed(Duration.infinity),
-                    onSome: (resting) =>
-                        decide(policy, Action.cases.Task.make({ ...task, call, agent, resting, again: Duration.infinity })).pipe(
-                            Effect.tap(({ notes }) => Effect.forEach(notes, (note) => engine.deliver(Notice.Message({ text: report(note), agent })), { discard: true })),
-                            Effect.map((decision) => (Decision.$is('Rewrite')(decision) && Action.guards.Task(decision.action) ? decision.action.again : Duration.infinity)),
-                        ),
-                }),
-            ),
+    const listed = Option.match(agent, { onNone: () => Effect.succeed(true), onSome: (id) => Effect.map(engine.agents, Record.has(id)) });
+    yield* session.fork(
+        Effect.gen(function* () {
+            const [live, running] = yield* Effect.all([listed, engine.isRunning(agent)]);
+            const decision = live ? yield* decide(policy, Action.cases.Task.make({ ...task, call, agent, resting: !running, again: Duration.infinity }), Option.none()) : ALLOW;
+            yield* Effect.forEach(decision.notes, (note) => engine.deliver(Notice.Message({ text: report(note), agent })), { discard: true });
+            return Decision.$is('Rewrite')(decision) && Action.guards.Task(decision.action) ? decision.action.again : Duration.infinity;
+        }).pipe(
             Effect.repeat({
                 while: Duration.isFinite,
                 schedule: Schedule.forever.pipe(
@@ -65,7 +72,7 @@ const watch = Effect.fnUntraced(function* (policy: Policy, { call, agent }: Acti
                     Schedule.addDelay(({ input }) => Effect.succeed(input)),
                 ),
             }),
-            Effect.catchCause((cause) => Effect.logWarning('task watch stopped', cause).pipe(Effect.annotateLogs({ task: task.id }))),
+            Effect.catchCause((cause) => Effect.logWarning('task watch failed', cause).pipe(Effect.annotateLogs({ task: task.id }))),
         ),
     );
 });
@@ -81,14 +88,12 @@ const monitor = Effect.fnUntraced(function* (e: Frozen<ToolCallInput>, command: 
     );
 });
 const judge = Effect.fnUntraced(function* (policy: Policy, e: Frozen<ToolCallInput>, next: Proceed<'tool.call'>, action: Action) {
-    const decision = yield* Effect.raceFirst(decide(policy, action), Effect.suspend(() => Effect.sleep(Duration.millis(Math.max(0, next.budget.remainingMs - RESERVE)))).pipe(Effect.repeat({ until: () => next.budget.remainingMs <= RESERVE }), Effect.andThen(new Cause.TimeoutError('hook budget spent')))).pipe(
-        Effect.catchCause((cause) => Effect.as(Effect.logWarning('judge failed, call allowed', cause).pipe(Effect.annotateLogs({ action: action._tag, call: action.call })), Decision.Allow({ notes: [], faults: [] }))),
-    );
+    const decision = yield* decide(policy, action, Option.some(next.budget));
     const result: ToolCallResult = yield* Decision.$match(decision, {
         Deny: ({ reasons }) => Effect.succeed<ToolCallResult>({ deny: Report.text(new Report({ lines: [new Line({ head: ['call refused'], facts: ['none of it ran'] }), ...reasons.map(line)] })) }),
         Allow: () => next(e),
         Rewrite: ({ action: restated, rules }) =>
-            Effect.flatMap(
+            Effect.andThen(
                 Ledger.use((ledger) => ledger.amend(action.call, { ran: Option.map(Option.liftPredicate(restated, Action.guards.Shell), Struct.pick(['command', 'run'])), rules })),
                 () =>
                     Match.value({ from: action, to: restated }).pipe(
@@ -102,18 +107,13 @@ const judge = Effect.fnUntraced(function* (policy: Policy, e: Frozen<ToolCallInp
                     ),
             ),
     });
-    return result.deny !== undefined || decision.notes.length === 0 ? result : { ...result, context: [...(result.context ?? []), ...decision.notes.map(report)] };
+    return attach(result, decision.notes);
 });
-const inspect = (policy: Policy, e: Frozen<ToolCallInput>, result: ToolCallResult) =>
-    Option.match(Option.all([Schema.decodeOption(Printed)(e), Option.filter(Option.fromUndefinedOr(result.text), () => result.deny === undefined)]), {
+const inspect = (policy: Policy, e: Frozen<ToolCallInput>, budget: NextBudget, result: ToolCallResult) =>
+    Option.match(Option.fromUndefinedOr(result.text), {
         onNone: () => Effect.succeed(result),
-        onSome: ([{ tool, tool_use_id: call, agentId }, text]) =>
-            decide(policy, Action.cases.Output.make({ call, agent: Option.fromUndefinedOr(agentId), tool, text, readOnly: result.isReadOnly === true })).pipe(
-                Effect.map(({ notes }): ToolCallResult => (result.deny !== undefined || notes.length === 0 ? result : { ...result, context: [...(result.context ?? []), ...notes.map(report)] })),
-                Effect.catchCause((cause) => Effect.as(Effect.logWarning('output judge failed', cause).pipe(Effect.annotateLogs({ tool, call })), result)),
-            ),
+        onSome: (text) => Effect.map(decide(policy, Action.cases.Output.make({ call: e.tool_use_id, agent: Option.fromUndefinedOr(e.agentId), tool: e.tool, text, readOnly: result.isReadOnly === true }), Option.some(budget)), ({ notes }) => attach(result, notes)),
     });
-
 const trace = Effect.fnUntraced(function* (policy: Policy, action: typeof Action.cases.Shell.Type) {
     const [ledger, session, shell] = yield* Effect.all([Ledger, Session, Shell]);
     const use = HashMap.get((yield* SubscriptionRef.get(ledger.state)).uses, action.call);
@@ -126,20 +126,11 @@ const trace = Effect.fnUntraced(function* (policy: Policy, action: typeof Action
                 Effect.flatMap((script) => script.invocations),
                 Effect.flatMap((invocations) => ledger.amend(action.call, { invocations: invocations.flatMap(Struct.get('leaves')) })),
                 Effect.provideService(Path.Path, path),
-                Effect.catchCause((cause) => Effect.logWarning('command unread', cause).pipe(Effect.annotateLogs({ call: action.call }))),
+                Effect.catchCause((cause) => Effect.logWarning('command parse failed', cause).pipe(Effect.annotateLogs({ call: action.call }))),
             ),
         { discard: true },
     );
-    yield* Effect.forEach(
-        Option.toArray(
-            Option.filter(
-                Option.flatMap(use, ({ task, output }) => Option.all({ id: task, output })),
-                () => policy.appliesTo('Task'),
-            ),
-        ),
-        (task) => watch(policy, action, task),
-        { discard: true },
-    );
+    yield* Effect.forEach(Option.toArray(Option.flatMap(use, ({ task, output }) => Option.filter(Option.all({ id: task, output }), () => policy.appliesTo('Task')))), (task) => watch(policy, action, task), { discard: true });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -151,16 +142,10 @@ function enforce(policy: Policy): Part<Layer.Success<typeof Session.layer>, Laye
             'session.end': (ended, proceed) => Effect.andThen(policy.clear(), proceed(ended)),
             'session.compact': (compacted, proceed) => Effect.tap(proceed(compacted), ({ messages }) => Effect.when(policy.forget(Option.fromUndefinedOr(compacted.agentId)), Effect.succeed(messages !== undefined && compacted.trigger !== 'precompute'))),
             'tool.call': Effect.fnUntraced(function* (called: Frozen<ToolCallInput>, proceed: Proceed<'tool.call'>) {
-                const [ledger, action] = [yield* Ledger, Schema.decodeUnknownOption(ToolCall)(called)];
+                const action = Schema.decodeUnknownOption(ToolCall)(called);
                 const shell = Option.filter(action, Action.guards.Shell);
-                const ran = Option.match(
-                    Option.filter(action, ({ _tag }) => policy.appliesTo(_tag)),
-                    {
-                        onNone: () => proceed(called),
-                        onSome: (held) => judge(policy, called, proceed, held),
-                    },
-                );
-                const result = yield* ledger.track(called, Option.map(shell, Struct.pick(['command', 'run'])), policy.appliesTo('Output') ? Effect.flatMap(ran, (answered) => inspect(policy, called, answered)) : ran);
+                const ran = Option.match(action, { onNone: () => proceed(called), onSome: (held) => judge(policy, called, proceed, held) }).pipe(Effect.flatMap((answered) => inspect(policy, called, proceed.budget, answered)));
+                const result = yield* Ledger.use((ledger) => ledger.track(called, Option.map(shell, Struct.pick(['command', 'run'])), ran));
                 yield* Effect.forEach(Option.toArray(Option.filter(shell, () => result.deny === undefined)), (held) => trace(policy, held), { discard: true });
                 return result;
             }),
