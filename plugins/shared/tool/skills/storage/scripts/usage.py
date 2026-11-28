@@ -9,14 +9,14 @@
 # [tool.uv]
 # prerelease = "allow"
 # ///
-"""Walks one APFS tree once and reports where its bytes sit, what deleting frees, duplicates, litter, and refused paths."""
+"""Walks one APFS tree once and reports where its bytes sit, what deleting frees, duplicates, litter, and refused paths, or clones its duplicates."""
 
 from collections import Counter
 import ctypes
 from datetime import datetime
 from enum import CONFORM, IntEnum, IntFlag
 import errno
-from functools import partial
+from functools import cache, partial
 import hashlib
 import heapq
 from itertools import chain, groupby
@@ -25,8 +25,10 @@ import os
 from pathlib import Path
 import queue
 import shlex
+import shutil
 import stat
 import struct
+import subprocess
 import sys
 import time
 lazy from collections.abc import Callable, Iterable, Iterator
@@ -76,6 +78,8 @@ _FLOOR = 1 << 20
 _PREFIX = 1 << 20
 _TOP = 40
 _UNITS = ("B", "KiB", "MiB", "GiB", "TiB", "PiB")
+_LIBRARY = "Library"
+_CLONE = ("jdupes", "--dedupe", "--param-order")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -156,6 +160,16 @@ class _Duplicates(msgspec.Struct, frozen=True, gc=False):
     unread: int = 0
 
 
+class _Clone(msgspec.Struct, frozen=True, gc=False):
+    kept: _File
+    copies: tuple[_File, ...]
+    held: int
+    cloned: int = 0
+    freed: int = 0
+    status: int = 0
+    errors: tuple[str, ...] = ()
+
+
 class _Tree(msgspec.Struct, frozen=True, gc=False):
     root: str
     folders: tuple[_Folder, ...]
@@ -199,12 +213,39 @@ class _Tree(msgspec.Struct, frozen=True, gc=False):
 _LIBC = ctypes.CDLL(None, use_errno=True)
 _LIBC.getattrlistbulk.argtypes = (ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint64)
 _LIBC.getattrlist.argtypes = (ctypes.c_char_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint32)
+_CF = ctypes.CDLL("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")
+_CF.CFURLCreateFromFileSystemRepresentation.argtypes = (ctypes.c_void_p, ctypes.c_char_p, ctypes.c_long, ctypes.c_bool)
+_CF.CFURLCreateFromFileSystemRepresentation.restype = ctypes.c_void_p
+_CF.CFURLCopyResourcePropertyForKey.argtypes = (ctypes.c_void_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p), ctypes.c_void_p)
+_CF.CFURLCopyResourcePropertyForKey.restype = ctypes.c_bool
+_CF.CFRelease.argtypes = (ctypes.c_void_p,)
+_IS_PACKAGE = ctypes.c_void_p.in_dll(_CF, "kCFURLIsPackageKey")
+_TRUE = ctypes.c_void_p.in_dll(_CF, "kCFBooleanTrue")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _parent(item: _File, /) -> str:
     return item.path.rpartition("/")[0] or "/"
+
+
+@cache
+def _package(path: str, /) -> bool:
+    encoded = os.fsencode(path)
+    url = _CF.CFURLCreateFromFileSystemRepresentation(None, encoded, len(encoded), Path(path).is_dir())
+    value = ctypes.c_void_p()
+    read = _CF.CFURLCopyResourcePropertyForKey(url, _IS_PACKAGE, ctypes.byref(value), None)
+    _CF.CFRelease(url)
+    return read and value.value == _TRUE.value
+
+
+def _movable(item: _File, /) -> bool:
+    path = Path(item.path)
+    return item.links == 1 and not any(part.startswith(".") or part == _LIBRARY for part in path.parts) and not any(map(_package, map(str, path.parents)))
+
+
+def _replaced(item: _File, /) -> bool:
+    return catch(os.lstat, exception=OSError)(item.path).map(lambda status: status.st_ino).default_value(item.fileid) != item.fileid
 
 
 def _size(count: int, /) -> str:
@@ -371,6 +412,29 @@ def _redundant(group: tuple[_File, ...], /) -> int:
     return (len({item.clone for item in group}) - 1) * max(item.allocated for item in group)
 
 
+async def _clone(folders: frozendict[str, _Folder], root: str, group: tuple[_File, ...], /) -> _Clone:
+    movable = tuple(filter(_movable, group))
+    kept = next(iter(movable), group[0])
+    copies = tuple(item for item in movable if item.clone != kept.clone)
+    held = len(group) - len(movable) - (kept not in movable)
+    if not copies:
+        return _Clone(kept=kept, copies=copies, held=held)
+    named = {item.path for item in (kept, *copies)}
+    places = tuple(dict.fromkeys(map(_parent, (kept, *copies))))
+    others = (item.path for place in places for item in chain(folders[place].files, folders[place].linked) if item.logical == kept.logical and item.path not in named)
+    before = shutil.disk_usage(root).free
+    run = await anyio.run_process((*_CLONE, f"--ext-filter=size=:{kept.logical}", *(f"--ext-filter=nostr:{path}" for path in others), *places), check=False, stdout=subprocess.DEVNULL)
+    return _Clone(
+        kept=kept,
+        copies=copies,
+        held=held,
+        cloned=sum(map(_replaced, copies)),
+        freed=shutil.disk_usage(root).free - before,
+        status=run.returncode,
+        errors=tuple(str(run.stderr, "utf-8", "surrogateescape").splitlines()),
+    )
+
+
 def _report(tree: _Tree, seconds: float, used: Option[int], duplicates: _Duplicates, /) -> Iterator[str]:
     root, whole, groups, unread = tree.root, tree.totals[tree.root], duplicates.groups, duplicates.unread
     relative = partial(os.path.relpath, start=root)
@@ -417,20 +481,54 @@ def _report(tree: _Tree, seconds: float, used: Option[int], duplicates: _Duplica
         )
 
 
+def _cloning(root: str, clones: tuple[_Clone, ...], unread: int, /) -> Iterator[str]:
+    relative = partial(os.path.relpath, start=root)
+    cloned, copies = sum(item.cloned for item in clones), sum(len(item.copies) for item in clones)
+    yield f"clone: {root}"
+    yield f"  cloned: {_cut(cloned, copies, 'file')}, {_size(sum(item.freed for item in clones))} freed{f', {unread:,} unread' * bool(unread)}"
+    yield from (f"groups: {_cut(min(_TOP, len(clones)), len(clones), 'group')}",) * bool(clones)
+    yield from (
+        line
+        for item in clones[:_TOP]
+        for line in (
+            f"  {_row(relative(item.kept.path), size=_size(item.kept.logical), copies=_count(len(item.copies)), cloned=_count(item.cloned), held=_count(item.held), freed=_size(item.freed) * bool(item.freed), status=_count(item.status))}",
+            *(f"    {error}" for error in item.errors),
+        )
+    )
+
+
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-async def usage(target: str = "/System/Volumes/Data", /) -> int:
-    """Report the tree at target: totals, refused paths, ranked folders and files, duplicates, and litter; exit 66 when target is unreadable."""
+async def _scan(target: str, /) -> tuple[_Tree, float, _Duplicates]:
     for policy in _POLICIES:
         _LIBC.setiopolicy_np(*policy)
     root, started = str(await anyio.Path(target).resolve()), time.monotonic()
     tree = await _walk(root)
     seconds = time.monotonic() - started
-    used = _attributes(_MOUNT_REQUEST, _MOUNT_ROW, root).filter(lambda status: bool(status & 1)).bind(lambda _: _attributes(_VOLUME_REQUEST, _VOLUME_ROW, root))
-    sys.stdout.writelines(f"{line}\n" for line in _report(tree, seconds, used, await _duplicates(tree.files)))
-    return os.EX_NOINPUT if any(refusal.path == root for folder in tree.folders for refusal in folder.refused) else 0
+    return tree, seconds, await _duplicates(tree.files)
+
+
+async def usage(target: str = "/System/Volumes/Data", /) -> int:
+    """Report the tree at target: totals, refused paths, ranked folders and files, duplicates, and litter; exit 66 when target is unreadable."""
+    tree, seconds, duplicates = await _scan(target)
+    used = _attributes(_MOUNT_REQUEST, _MOUNT_ROW, tree.root).filter(lambda status: bool(status & 1)).bind(lambda _: _attributes(_VOLUME_REQUEST, _VOLUME_ROW, tree.root))
+    sys.stdout.writelines(f"{line}\n" for line in _report(tree, seconds, used, duplicates))
+    return os.EX_NOINPUT if any(refusal.path == tree.root for folder in tree.folders for refusal in folder.refused) else 0
+
+
+async def clone(target: str, /) -> int:
+    """Clone each duplicate group's single-link copies outside hidden, Library, and package folders from one kept file through jdupes; exit with its highest status."""
+    tree, _, duplicates = await _scan(target)
+    folders = frozendict({folder.path: folder for folder in tree.folders})
+    clones = tuple([await _clone(folders, tree.root, group) for group in duplicates.groups])
+    sys.stdout.writelines(f"{line}\n" for line in _cloning(tree.root, clones, duplicates.unread))
+    return max((item.status for item in clones), default=0)
 
 
 if __name__ == "__main__":
-    sys.exit(anyio.run(usage, *sys.argv[1:]))
+    match sys.argv[1:]:
+        case ["clone", target]:
+            sys.exit(anyio.run(clone, target))
+        case arguments:
+            sys.exit(anyio.run(usage, *arguments))

@@ -16,7 +16,7 @@ Targets naming a VPS machine or its rclone sftp remote, a Docker engine, a Colim
 - [01]-[MACHINES](references/machines.md): VPS machines with their runners and cache store, and Docker engines with the Mac's Colima VMs
 
 [SCRIPTS]:
-- [01]-[USAGE](scripts/usage.py): Walks a local target once and reports bytes, clones, duplicates, litter, and refused paths, run by [01]
+- [01]-[USAGE](scripts/usage.py): Walks a local target once, reporting bytes, clones, duplicates, and litter by [01] or cloning duplicates by [04]
 
 Volume reads run as Claude Code loads this skill, and first in other harnesses. Purgeable bytes are important-usage capacity minus available capacity, snapshots keep the blocks of deleted files until thinned and the processes `lsof +L1` names until each quits, and `df` available blocks are the baseline of every clean, as `du` counts each clone and misses what a clone keeps:
 
@@ -95,5 +95,5 @@ Cases:
 - Cloud duplicates -> `rclone deletefile <remote>:<path>` per redundant copy of [02], OneDrive holding each in its recycle bin
 - Drive canceled uploads -> deletion only where `gog drive search` matches each by name and size, as one can be the only copy
 - File Provider downloads -> Finder `Remove Download` through Rasad, as deleting a File Provider file deletes it in the cloud
-- Duplicates both paths need -> `cp -cp <kept> <copy>` once the copy has one link and the kept file's mode, owner, flags, ACL, and xattrs
+- Duplicates both paths need -> `uv run --locked --script scripts/usage.py clone <target>`, `jdupes` keeping each copy's metadata
 - Other duplicates, empty files and folders, broken links -> deletion outside `.git`, app libraries and containers, and tool state
