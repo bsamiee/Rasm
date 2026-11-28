@@ -12,7 +12,7 @@ import { buildPackageJsonPatterns, buildPackageJsonWorkspacesMatcher, getLockFil
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import { run as runProcess } from '@rasm/process';
 import { Array, Cause, Config, ConfigProvider, Context, Effect, Equal, FileSystem, Filter, Formatter, Function, identity, Layer, Logger, ManagedRuntime, Match, MutableRef, Option, Path, Predicate, pipe, Record, References, Result, Schema, Scope, Stream, String, Struct, Tuple, UndefinedOr } from 'effect';
-import { type ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { ChildProcessSpawner } from 'effect/process';
 import collection from '#/executors.json' with { type: 'json' };
 import plugin from '#/package.json' with { type: 'json' };
 
@@ -90,10 +90,10 @@ const legible = (error: unknown): Error =>
     Match.value(error).pipe(
         Match.when(Match.instanceOf(AggregateCreateNodesError), (aggregate) => new AggregateCreateNodesError(aggregate.errors.map(Tuple.evolve([undefined, legible])), aggregate.partialResults)),
         Match.when(
-            (each: unknown): each is Error => Predicate.isError(each) && Object.hasOwn(each, 'message') && Predicate.isString(each.message) && String.isNonEmpty(each.message),
-            (each) => Array.match(Array.ensure(each.cause).filter(Predicate.isError), { onEmpty: () => each, onNonEmpty: (causes) => new Cause.UnknownError(each, [each.message, ...causes.map((cause) => Formatter.format(cause))].join(': ')) }),
+            (each: unknown): each is Error => Error.isError(each) && Object.hasOwn(each, 'message') && Predicate.isString(each.message) && String.isNonEmpty(each.message),
+            (each) => Array.match(Array.ensure(each.cause).filter(Error.isError), { onEmpty: () => each, onNonEmpty: (causes) => new Cause.UnknownError(each, [each.message, ...causes.map((cause) => Formatter.format(cause))].join(': ')) }),
         ),
-        Match.when(Predicate.isError, (each) => new Cause.UnknownError(each, Predicate.isString(each.message) && String.isNonEmpty(each.message) ? each.message : (each.stack ?? Formatter.format(each)))),
+        Match.when(Error.isError, (each) => new Cause.UnknownError(each, Predicate.isString(each.message) && String.isNonEmpty(each.message) ? each.message : (each.stack ?? Formatter.format(each)))),
         Match.orElse((each) => new Cause.UnknownError(each, Formatter.format(each))),
     );
 
@@ -133,7 +133,7 @@ const batched = <S extends Schema.Decoder<unknown>, A, E>(options: S, body: (gra
 
 const fingerprinted = (folder: string) => Effect.succeed(hashArray([...Array.fromNullishOr(hashFile(import.meta.filename)), ...Array.flatMap(readdirSync(folder).toSorted(), (name) => Array.fromNullishOr(hashFile(join(folder, name))).flatMap((hash) => [name, hash]))]));
 
-const spawned = (argv: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => Effect.map(runProcess(argv, options), Struct.get('stdout'));
+const spawned = (argv: Array.NonEmptyReadonlyArray<string>, options?: Parameters<typeof runProcess>[1]) => Effect.map(runProcess(argv, options), Struct.get('stdout'));
 
 const request = <S extends Schema.Decoder<unknown>>(start: Effect.Effect<Worker | NodeChildProcess>, reply: S, failed: (cause: unknown) => NxError) =>
     Effect.acquireDisposable(start).pipe(

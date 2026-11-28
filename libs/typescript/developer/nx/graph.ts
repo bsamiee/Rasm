@@ -1,5 +1,6 @@
 import type { ProjectConfiguration, ProjectGraph, ProjectGraphProjectNode, TargetConfiguration, TargetDependencyConfig } from '@nx/devkit';
-import { Array, Cache, Config, Duration, Effect, Exit, FileSystem, Glob, Match, Option, Path, Predicate, Record, Schema, Trie } from 'effect';
+import { Array, Cache, Config, Duration, Effect, Exit, FileSystem, Match, Option, Path, Predicate, Record, Schema, Trie } from 'effect';
+import { minimatch } from 'minimatch';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -74,8 +75,8 @@ const addressed = Effect.fnUntraced(function* (posix: Path.Path, { name, data }:
     const { configurations = {}, outputs = [], dependsOn = [] } = stated;
     const options = { ...stated.options, ...configurations[Option.getOrElse(configuration, () => stated.defaultConfiguration ?? '')] };
     const resolved = Option.all(outputs.map(interpolated(posix, { projectRoot: data.root, projectName: name, project: { ...data, name }, options })));
-    const globs = dependsOn.flatMap((entry) => (Predicate.isString(entry) ? [entry] : Option.toArray(Option.liftPredicate(entry.target, () => (entry.projects === undefined ? entry.dependencies !== true : Array.ensure(entry.projects).includes(name)))))).map((pattern) => Glob.make(pattern));
-    const members = Record.keys(data.targets ?? {}).filter((own) => own !== target && globs.some((glob) => Glob.match(glob, own)));
+    const globs = dependsOn.flatMap((entry) => (Predicate.isString(entry) ? [entry] : Option.toArray(Option.liftPredicate(entry.target, () => (entry.projects === undefined ? entry.dependencies !== true : Array.ensure(entry.projects).includes(name)))))).map((pattern) => minimatch.filter(pattern));
+    const members = Record.keys(data.targets ?? {}).filter((own) => own !== target && globs.some((matches) => matches(own)));
     const runs = yield* Match.value(stated.executor).pipe(
         Match.when('nx:noop', () => Effect.succeed({ _tag: 'Aggregate', members } as const)),
         Match.when('nx:run-commands', () => Effect.map(Schema.decodeEffect(Run)(options), (run) => ({ _tag: 'Commands', cwd: run.cwd ?? '.', lines: run.lines }) as const)),
