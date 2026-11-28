@@ -1,4 +1,4 @@
-import type { Part } from '@rasm/claude-code/host';
+import type { Mod } from '@rasm/claude-code/host';
 import { Skills } from '@rasm/claude-code/skills';
 import { Array, Effect, Option, type PlatformError } from 'effect';
 
@@ -41,7 +41,7 @@ const restore = (text: string) => {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const skills: Part<Skills, never, PlatformError.PlatformError> = {
+const skills: Mod<Skills, never, PlatformError.PlatformError> = {
     layer: Skills.layer,
     hooks: {
         ...Skills.hooks,

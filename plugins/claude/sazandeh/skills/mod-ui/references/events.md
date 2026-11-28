@@ -13,12 +13,13 @@ Hooks, declared tools, and agent types share one `host` call and one runtime. Te
 - `turn.step` takes a `Channel` of the engine's chunks ending in the step's result, the one streaming event, and `reply(e, { answer, toolUses })` answers a step with no model request
 - Hook failures log `<event>[:<tool>] hook failed: throw|timeout[: <message>]` to the debug log and pass the event on, and an Escape-interrupted hook settles with the abort reason, logging nothing
 
-## [02]-[PARTS]
+## [02]-[MODS]
 
-`host(on, mod, ...parts)` chains `{ layer, hooks }` parts a library ships after the mod's own table:
-- Tables chain in order, the mod's outermost, so the mod's `next(e)` reaches each part's hook before the engine
-- Part layers merge with the mod's layer into one runtime, and part hooks take every hosted event but `turn.step`
-- `enforce(policy)` from `@rasm/claude-code/enforcement` is a part: it judges tool calls and their output by a `@rasm/policy` policy, its refusals and notes in report lines
+`host(on, mod, ...mods)` takes one or more mods, a library's (`enforce(policy)`) the same shape as a plugin's own:
+- Tables chain in argument order, the first outermost, so each mod's `next(e)` reaches the next mod's hook before the engine
+- Layers merge into one runtime, and hooks, `turn.step` streams, tools, and agent types merge across mods
+- The first mod alone declares `render` or `band`, and a later mod declaring either fails to type-check
+- `enforce(policy)` from `@rasm/claude-code/enforcement` is a mod: it judges tool calls and their output by a `@rasm/policy` policy, its refusals and notes in report lines
 
 ## [03]-[BUDGETS]
 

@@ -19,10 +19,6 @@ type Hosted = keyof ReturnType<typeof registerHooks>;
 type Provided = Engine | Ledger | Draft | Panes | Placed | Plugin | Theme | FileSystem.FileSystem | KeyValueStore.KeyValueStore | ChildProcessSpawner.ChildProcessSpawner | Path.Path;
 type Table<R, F> = { readonly [N in Exclude<EventName, StreamingEventName>]?: Hook<N, R, F> };
 type Hooks<R, F> = Pick<Table<R, F>, Hosted> & { readonly 'turn.step'?: StreamHook<'turn.step', R, F> };
-interface Part<A, E, F> {
-    readonly layer: Layer.Layer<A, E, Provided>;
-    readonly hooks: Omit<Hooks<A | Provided, F>, 'turn.step'>;
-}
 interface Mod<A, E, F, S = never> {
     readonly layer: Layer.Layer<A, E, Provided>;
     readonly hooks: Hooks<A | Provided, F>;
@@ -207,11 +203,10 @@ function registerHooks<A, E, F, S>(on: On, instance: Instance<A, E, F, S>) {
     return registrations;
 }
 
-function host<A, E, F, S = never, const P extends readonly Pick<Part<never, Error, F>, 'layer'>[] = []>(on: On, mod: Mod<A, E, F, S>, ...parts: P & { readonly [K in keyof P]: Part<Layer.Success<P[K]['layer']>, Layer.Error<P[K]['layer']>, F> }) {
-    type Served = A | Layer.Success<P[number]['layer']>;
-    const shared: readonly Pick<Part<Served, unknown, F>, 'hooks'>[] = parts;
-    const instance: Instance<Served, E | Layer.Error<P[number]['layer']>, F, S> = {
-        layer: Layer.mergeAll(mod.layer, ...parts.map((part): P[number]['layer'] => part.layer)),
+function host<A, E, F, S = never, const M extends readonly Pick<Mod<never, Error, F>, 'layer'>[] = []>(on: On, mod: Mod<A, E, F, S>, ...mods: M & { readonly [K in keyof M]: Omit<Mod<Layer.Success<M[K]['layer']>, Layer.Error<M[K]['layer']>, F>, 'band' | 'render'> }) {
+    const all: readonly Omit<Mod<A | Layer.Success<M[number]['layer']>, unknown, F, S>, 'layer'>[] = [mod, ...mods];
+    const instance: Instance<A | Layer.Success<M[number]['layer']>, E | Layer.Error<M[number]['layer']>, F, S> = {
+        layer: Layer.mergeAll(mod.layer, ...mods.map((each): M[number]['layer'] => each.layer)),
         tables: [
             {
                 'session.start': (e, next) => next(e),
@@ -221,10 +216,10 @@ function host<A, E, F, S = never, const P extends readonly Pick<Part<never, Erro
                 'turn.start': (e, next) => Effect.andThen(SubscriptionRef.update(instance.turns, HashSet.add(Option.fromUndefinedOr(e.agentId))), next(e)),
                 'turn.complete': (e, next) => Effect.andThen(SubscriptionRef.update(instance.turns, HashSet.remove(Option.fromUndefinedOr(e.agentId))), next(e)),
             },
-            ...[mod.hooks, ...shared.map(Struct.get('hooks'))].map(Struct.evolve({ 'classic.Stop': (hook) => hook && blockOnce(hook), 'classic.SubagentStop': (hook) => hook && blockOnce(hook) })),
+            ...all.map(({ hooks }) => Struct.evolve(hooks, { 'classic.Stop': (hook) => hook && blockOnce(hook), 'classic.SubagentStop': (hook) => hook && blockOnce(hook) })),
         ],
-        tools: mod.tools ?? {},
-        agents: mod.agents ?? {},
+        tools: Record.fromEntries(all.flatMap(({ tools = {} }) => Record.toEntries(tools))),
+        agents: Record.fromEntries(all.flatMap(({ agents = {} }) => Record.toEntries(agents))),
         live: MutableRef.make(Option.none()),
         turns: HashSet.empty<Option.Option<string>>().pipe(SubscriptionRef.make, Effect.runSync),
         theme: Ref.makeUnsafe(Option.none()),
@@ -233,14 +228,13 @@ function host<A, E, F, S = never, const P extends readonly Pick<Part<never, Erro
         band: Option.map(Option.fromUndefinedOr(mod.band), (pressed) => ({ ...pressed, rows: Ref.makeUnsafe({}) })),
     };
     const { matchers, hooks: bodies } = route(instance.tools, instance.agents);
-    const { 'turn.step': step } = mod.hooks;
     registerHooks(on, instance);
     on('theme.*', ($, e, next) => observe($, instance.theme, e, next)).catch(recover);
-    if (step !== undefined) {
+    all.flatMap(({ hooks }) => Option.toArray(Option.fromUndefinedOr(hooks['turn.step']))).forEach((step) => {
         on('turn.step', async function* ($, e, next) {
             return yield* stream(e, next, step, start($, instance));
         });
-    }
+    });
     if (!Record.isEmptyReadonlyRecord(instance.tools)) {
         on('tool.run', matchers['tool.run'], ($, e, next) => answer($, instance, e, next, [bodies])).catch(($, e, next) => (next.called ? recover($, e, next) : { deny: `${e.tool} hook failed: ${next.error.kind}` }));
     }
@@ -269,4 +263,4 @@ function host<A, E, F, S = never, const P extends readonly Pick<Part<never, Erro
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { host, type Part };
+export { host, type Mod };

@@ -2,7 +2,7 @@ import type { Args, Frozen } from 'claude-code';
 import { Array, Context, Effect, FileSystem, Formatter, Glob, HashMap, HashSet, Layer, Option, Path, type PlatformError, Predicate, Record, Ref, Result, Schema, SchemaGetter, SchemaIssue } from 'effect';
 import { Yaml } from 'effect/encoding';
 import { KeyValueStore } from 'effect/persistence';
-import type { Part } from '#/engine/host';
+import type { Mod } from '#/engine/host';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -121,7 +121,7 @@ class Skills extends Context.Service<
             text: (name: string) => Effect.map(KeyValueStore.prefix(store, TEXT_PREFIX).get(name), Option.fromUndefinedOr),
         })),
     );
-    static readonly hooks: Part<Skills, never, PlatformError.PlatformError>['hooks'] = {
+    static readonly hooks: Mod<Skills, never, PlatformError.PlatformError>['hooks'] = {
         'session.end': (e, next) =>
             Effect.andThen(
                 Ref.update(Skills.#state, (held) => ({ ...held, loaded: HashMap.empty() })),

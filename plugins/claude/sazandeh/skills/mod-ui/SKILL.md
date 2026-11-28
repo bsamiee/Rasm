@@ -5,7 +5,7 @@ description: "Use when building, changing, or reviewing a Claude Code mod's inte
 
 # [SAZANDEH_MOD_UI]
 
-Mods are hooks modules the engine loads from a plugin, written as Effect programs on `@rasm/claude-code`: `host(on, mod, ...parts)` takes data and Effects, and the library lowers them through the engine's `$`, which a mod never sees. The engine's own `plugin-authoring` skill holds the raw `$` API, its JSX examples, and colors; translate its examples to `Element` values and library services before using one.
+Mods are hooks modules the engine loads from a plugin, written as Effect programs on `@rasm/claude-code`: `host(on, mod, ...mods)` takes data and Effects, and the library lowers them through the engine's `$`, which a mod never sees. The engine's own `plugin-authoring` skill holds the raw `$` API, its JSX examples, and colors; translate its examples to `Element` values and library services before using one.
 
 Owner rules bind every mod this skill builds:
 - Every engine call goes through `@rasm/claude-code`, and a mod holds no `$`
@@ -20,7 +20,7 @@ Owner rules bind every mod this skill builds:
 - [03]-[TRANSCRIPT](references/transcript.md): Engine rows of the transcript and placed rows
 - [04]-[MODEL](references/model.md): Asks, notices, and the channels the model reads
 - [05]-[THEMES](references/themes.md): Themes, backdrop scenes, and underlays
-- [06]-[EVENTS](references/events.md): Hooks, parts, budgets, declared tools, agent types, and services
+- [06]-[EVENTS](references/events.md): Hooks, mods, budgets, declared tools, agent types, and services
 - [07]-[PREVIEW](references/preview.md): Building a scratch mount and reading the preview of every surface
 
 [TEMPLATES]:
@@ -88,7 +88,7 @@ Every site draws for the person alone, and the model reads a fact only when the 
 
 ## [03]-[COMPOSITION]
 
-One `host` call holds every part, and each part composes with the others through one state value and the engine's `next` chain:
+One `host` call holds every mod, and each mod composes with the others through one state value and the engine's `next` chain:
 
 ```ts
 host(on, {
@@ -101,7 +101,7 @@ host(on, {
         state,  // one Stream of the state value every row reads
         // one row per RenderComponent, Pane rows keyed by id, Backdrop rows keyed by scene
     },
-}, ...parts); // { layer, hooks } tables a library ships (enforce(policy)), chained after the mod's own
+}, ...mods); // more mods of the same shape less render and band (enforce(policy)), chained after the first
 ```
 
 [STATE]:

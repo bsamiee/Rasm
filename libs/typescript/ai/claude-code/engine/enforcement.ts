@@ -6,7 +6,7 @@ import type { Frozen, NextBudget, ToolCallInput, ToolCallResult } from 'claude-c
 import { Cause, Duration, Effect, HashMap, type Layer, Match, type PlatformError, Option, Path, Predicate, Record, Schedule, Schema, SchemaGetter, Struct, SubscriptionRef } from 'effect';
 import { Bash } from '#/engine/bash';
 import type { Proceed } from '#/engine/events';
-import type { Part } from '#/engine/host';
+import type { Mod } from '#/engine/host';
 import { Engine, Notice } from '#/engine/interface';
 import { Ledger } from '#/engine/ledger';
 
@@ -135,7 +135,7 @@ const trace = Effect.fnUntraced(function* (policy: Policy, action: typeof Action
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function enforce(policy: Policy): Part<Layer.Success<typeof Bash.layer>, Layer.Error<typeof Bash.layer>, PlatformError.PlatformError> {
+function enforce(policy: Policy): Mod<Layer.Success<typeof Bash.layer>, Layer.Error<typeof Bash.layer>, PlatformError.PlatformError> {
     return {
         layer: Bash.layer,
         hooks: {
