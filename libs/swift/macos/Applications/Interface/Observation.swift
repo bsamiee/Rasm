@@ -40,7 +40,7 @@ struct Observation: Encodable, Sendable {
             opens = control.opens.map(locator)
             separated = control.separated
             alternate = control.alternate.map(locator)
-            parent = control.row.map(locator)
+            parent = control.parent.map(locator)
             positional = control.positional
         }
     }

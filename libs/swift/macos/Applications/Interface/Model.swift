@@ -232,7 +232,7 @@ struct Control: Encodable, Equatable, Sendable {
     let placeholder: String?
     let level: Int?
     let index: Int?
-    let row: Int?
+    let parent: Int?
     let expanded: Bool?
     let actions: [String]?
     let alternateUIVisible: Bool?
@@ -430,9 +430,9 @@ package struct Model: Encodable, Sendable {
         func container(_ held: Container) -> Node {
             let listed: Set<Int> = Set(held.controls.map(\.ref))
             let (inner, top): ([Control], [Control]) = held.controls.reduce(into: ([], [])) { split, each in
-                each.row.map { row in row != each.ref && listed.contains(row) } == true ? split.0.append(each) : split.1.append(each)
+                each.parent.map { parent in parent != each.ref && listed.contains(parent) } == true ? split.0.append(each) : split.1.append(each)
             }
-            let cells: [Int: [Control]] = Dictionary(grouping: inner) { cell in cell.row ?? cell.ref }
+            let cells: [Int: [Control]] = Dictionary(grouping: inner) { cell in cell.parent ?? cell.ref }
             let runs: [(held: Control, rows: [Control])] = top.reduce(into: []) { runs, each in
                 if each.kind == .row, let last = runs.indices.last, runs[last].held.kind == .multi { runs[last].rows.append(each) } else { runs.append((held: each, rows: [])) }
             }
@@ -633,7 +633,7 @@ extension Model {
             CharacterClass(.digit, .whitespace, .anyOf(".,+-")).inverted
         }
         let measured: Set<Int> = Set(hierarchy.elements.compactMap { element in element.text(kAXValueAttribute)?.prefixMatch(of: unit).map { _ in element.id } })
-        let titles: Set<Int> = Set(hierarchy.elements.compactMap { element in element.facts[kAXTitleUIElementAttribute]?.element })
+        let titles: Set<Int> = Set(hierarchy.elements.compactMap { element in element.facts[kAXTitleUIElementAttribute]?.element.flatMap { title in title == parents[element.id] ? nil : title } })
         let truncated: Set<Int> = Set(hierarchy.truncated)
         let sections: [Int: String] = Dictionary(
             held.values.flatMap { (element: Element) -> [Fact] in element.facts[NSAccessibility.Attribute.sections.rawValue]?.list ?? [] }.compactMap { (section: Fact) -> (Int, String)? in
@@ -671,22 +671,24 @@ extension Model {
                 return headers[table]?[index].map { header in (cell.id, header) }
             }
         )
-        let placements: [(element: Element, row: Int?, consumer: Int?, column: String?)] = operable.map { member in
+        let placements: [(element: Element, parent: Int?, consumer: Int?, column: String?)] = operable.map { member in
             let inner: [Int] = lineage[member.id]?.inner ?? []
-            let row: Int? = inner.first { scope in classes[scope] == .row }
+            let parent: Int? = zip([member.id] + inner, inner).lazy.compactMap { (below: Int, scope: Int) -> Int? in
+                classes[scope] == .row ? scope : held[below]?.role == kAXMenuRole ? walked[below].flatMap { (opener: Int) -> Int? in classes[opener] == nil ? nil : opener } : nil
+            }.first
             let consumer: Int? =
                 inner.first { (scope: Int) -> Bool in
                     let role: String? = held[scope]?.role
-                    return classes[scope] == .choice && role != kAXTabGroupRole || role == kAXScrollBarRole || scope == row && classes[member.id] == nil
+                    return classes[scope] == .choice && role != kAXTabGroupRole || role == kAXScrollBarRole || scope == parent && classes[member.id] == nil
                 } ?? tabs[member.id]
-            return (element: member, row: row, consumer: consumer, column: inner.lazy.compactMap { scope in headed[scope] }.first)
+            return (element: member, parent: parent, consumer: consumer, column: inner.lazy.compactMap { scope in headed[scope] }.first)
         }
         let columned: [Int: String] = Dictionary(uniqueKeysWithValues: placements.compactMap { entry in entry.column.map { column in (entry.element.id, column) } })
         let enclosed: [(element: Element, consumer: Int)] = placements.compactMap { entry in entry.consumer.map { consumer in (element: entry.element, consumer: consumer) } }
         let inside: [Int: [Element]] = Dictionary(grouping: enclosed, by: \.consumer).mapValues { pairs in pairs.map(\.element) }
-        let rowed: [(element: Element, row: Int)] = placements.compactMap { entry in entry.row.map { row in (element: entry.element, row: row) } }
-        let cells: [Int: [Element]] = Dictionary(grouping: rowed, by: \.row).mapValues { pairs in pairs.map(\.element) }
-        let rowOf: [Int: Int] = Dictionary(uniqueKeysWithValues: rowed.map { entry in (entry.element.id, entry.row) })
+        let parented: [(element: Element, parent: Int)] = placements.compactMap { entry in entry.parent.map { parent in (element: entry.element, parent: parent) } }
+        let beneath: [Int: [Element]] = Dictionary(grouping: parented, by: \.parent).mapValues { pairs in pairs.map(\.element) }
+        let parentOf: [Int: Int] = Dictionary(uniqueKeysWithValues: parented.map { entry in (entry.element.id, entry.parent) })
         let consumed: Set<Int> = Set(enclosed.map(\.element.id))
         let classified: [(element: Element, kind: Control.Kind)] = operable.compactMap { member in
             consumed.contains(member.id) ? nil : classes[member.id].map { kind in (element: member, kind: kind) }
@@ -710,7 +712,7 @@ extension Model {
                     case (.action, kAXStaticTextRole): [kAXValueAttribute, kAXHelpAttribute]
                     case (.action, _), (.toggle, _), (.choice, _), (.number, _), (.measure, _), (.text, _), (.color, _), (.date, _), (.item, _): [kAXHelpAttribute, kAXRoleDescriptionAttribute]
                 }
-            let cell: Control.Label? = ([element] + (cells[element.id] ?? [])).lazy.compactMap { (shown: Element) -> Control.Label? in
+            let cell: Control.Label? = ([element] + (beneath[element.id] ?? [])).lazy.compactMap { (shown: Element) -> Control.Label? in
                 shown.label ?? shown.caption(in: held) ?? shown.labelled(kAXValueAttribute)
             }.first
             let named: Control.Label? = kind == .label ? nil : element.label ?? caption ?? fallback.lazy.compactMap(element.labelled).first
@@ -758,7 +760,7 @@ extension Model {
             let menus: [Element] = element.children.compactMap { child in held[child] }
             let opens: Int? = zip(menus, Locator.Step.distinguish(menus.map { (menu: Element) -> (role: String, keys: [Locator.Step.Key]) in menu.identify(by: menu.label, redacting: withheld) }))
                 .first { (menu: Element, _: Locator.Step) -> Bool in menu.role == kAXMenuRole }.map { (_: Element, keyed: Locator.Step) -> Int in intern(locator.appending(keyed)) }
-            let disclosable: Bool = cells[element.id]?.contains { cell in cell.role == kAXDisclosureTriangleRole } == true
+            let disclosable: Bool = beneath[element.id]?.contains { cell in cell.role == kAXDisclosureTriangleRole } == true
             let role: String = element.role ?? kAXUnknownRole
             let opensMenu: Bool = opens != nil || role == kAXPopUpButtonRole || role == kAXComboBoxRole || role == kAXMenuButtonRole
             let controlsOther: Bool = element.facts[kAXLinkedUIElementsAttribute]?.elements.isEmpty == false
@@ -875,7 +877,7 @@ extension Model {
                 placeholder: element.text(kAXPlaceholderValueAttribute),
                 level: kind == .row ? element.facts[kAXDisclosureLevelAttribute]?.integer : nil,
                 index: kind == .row ? element.facts[kAXIndexAttribute]?.integer : nil,
-                row: rowOf[element.id].flatMap { row in refs[row] },
+                parent: parentOf[element.id].flatMap { parent in refs[parent] },
                 expanded: expandable ? element.flag(kAXExpandedAttribute) ?? disclosing : nil,
                 actions: actions.isEmpty ? nil : actions,
                 alternateUIVisible: element.actions.contains(kAXShowAlternateUIAction) ? element.flag(kAXAlternateUIVisibleAttribute) : nil,

@@ -484,7 +484,7 @@ package actor Watch {
         controls.merge(model.containers.flatMap { container in container.controls.map { control in (control.ref, (control: control, container: container.ref)) } }) { _, read in read }
         for container in model.containers {
             var list: Int?
-            for control in container.controls where control.row == nil || control.row == control.ref {
+            for control in container.controls where control.parent == nil || control.parent == control.ref {
                 list = control.kind == .row ? list : control.kind == .multi ? control.ref : nil
                 if control.kind == .row, let list { lists[control.ref] = list }
             }
@@ -1212,7 +1212,7 @@ package actor Watch {
             _ = try level(of: opener.ref)
         }
         let row: (control: Control, container: Int)? = controls[ref].flatMap { (held: (control: Control, container: Int)) -> (control: Control, container: Int)? in
-            held.control.kind == .row ? held : held.control.row.flatMap { (row: Int) -> (control: Control, container: Int)? in self.controls[row] }
+            held.control.kind == .row ? held : held.control.parent.flatMap { (parent: Int) -> (control: Control, container: Int)? in self.controls[parent] }
         }
         let list: AXUIElement? = row.flatMap { (row: (control: Control, container: Int)) -> Int? in self.lists[row.control.ref] }.flatMap { (list: Int) -> Int? in self.located[list] }
             .flatMap { (id: Int) -> AXUIElement? in self.handles[id] }
