@@ -2,7 +2,7 @@ import { inspect } from 'node:util';
 import { assert, it } from '@effect/vitest';
 import { Shell } from '@rasm/shell';
 import { Arbitrary, Array, Effect, Formatter, Option, Redactable, Redacted, Schema, Struct } from 'effect';
-import { Dialects, Oracle } from '#/oracle';
+import { charsets, Dialects, Oracle } from '#/oracle';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -27,46 +27,44 @@ const heredocs = [
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 it.layer(Dialects.layer, { excludeTestServices: true })('construction', (suite) => {
-    suite.effect.prop(
-        'carries any value through every portable hole site and heredoc form, and any operands through argv, as exactly their text',
-        [Arbitrary.schema(Schema.Literals(['sh', '/bin/sh', 'bash', 'zsh'])), value, value, Arbitrary.schema(Schema.Boolean), Arbitrary.array(value, { maxLength: 4 }), Arbitrary.schema(Schema.Literals([0, 1, 2, 3])), lined, Arbitrary.array(value, { maxLength: 3 })],
-        Effect.fnUntraced(function* ([shell, held, other, same, list, form, body, operands]) {
-            const [{ script }, oracle, { named }] = yield* Effect.all([Shell, Oracle, Dialects]);
-            const right = same ? held : other;
-            const [built, heredoc] = yield* Effect.all([
-                script(named[shell])`case ${held} in ${right}) v=same;; *) v=apart;; esac; rec "$v" ${held} "<${held}>" '<${held}>' "$(printf %s ${held})" "$(printf %s "<${held}>")" "$(printf %s '<${held}>')" first ${list} last "$0" "$@"`,
-                heredocs[form].build(script(named[shell]), body),
-            ]);
-            const ran = yield* Effect.all([oracle.run(built.argv(...operands, Redacted.make('kept'))), oracle.run(heredoc.argv())], { concurrency: 'unbounded' });
-            assert.deepStrictEqual(
-                ran.flatMap(Struct.get('records')).map(({ args, input }) => [args, input]),
-                [
-                    [[held === right ? 'same' : 'apart', held, `<${held}>`, `<${held}>`, held.replace(/\n+$/u, ''), `<${held}>`, `<${held}>`, 'first', ...list, 'last', yield* oracle.located(shell), ...operands, 'kept'], ''],
-                    [[], `<${body}>\n`],
-                ],
-            );
-        }),
-        runs,
-    );
+    Struct.keys(charsets).forEach((charset) => {
+        suite.effect.prop(
+            `carries any value through every portable hole site and heredoc form, and any operands through argv, as exactly their text, under the ${charset} charset`,
+            [Arbitrary.schema(Schema.Literals(['sh', '/bin/sh', 'bash', 'zsh'])), value, value, Arbitrary.schema(Schema.Boolean), Arbitrary.array(value, { maxLength: 4 }), Arbitrary.schema(Schema.Literals([0, 1, 2, 3])), lined, Arbitrary.array(value, { maxLength: 3 })],
+            Effect.fnUntraced(function* ([shell, held, other, same, list, form, body, operands]) {
+                const [{ script }, oracle, { localized }] = yield* Effect.all([Shell, Oracle, Dialects]);
+                const named = localized[charset];
+                const right = same ? held : other;
+                const [built, heredoc] = yield* Effect.all([
+                    script(named[shell])`case ${held} in ${right}) v=same;; *) v=apart;; esac; rec "$v" ${held} "<${held}>" '<${held}>' "$(printf %s ${held})" "$(printf %s "<${held}>")" "$(printf %s '<${held}>')" first ${list} last "$0" "$@"`,
+                    heredocs[form].build(script(named[shell]), body),
+                ]);
+                const ran = yield* Effect.all([oracle.run(built.argv(...operands, Redacted.make('kept')), charsets[charset]), oracle.run(heredoc.argv(), charsets[charset])], { concurrency: 'unbounded' });
+                assert.deepStrictEqual(ran.flatMap(Struct.get('records')).map(Struct.pick(['args', 'input'])), [
+                    { args: [held === right ? 'same' : 'apart', held, `<${held}>`, `<${held}>`, held.replace(/\n+$/u, ''), `<${held}>`, `<${held}>`, 'first', ...list, 'last', yield* oracle.located(shell), ...operands, 'kept'], input: '' },
+                    { args: [], input: `<${body}>\n` },
+                ]);
+            }),
+            runs,
+        );
 
-    suite.effect.prop(
-        'carries any value through brace alternatives, a here-string, a [[ ]] operand, and an ANSI-C quoted heredoc as exactly its text',
-        [Arbitrary.schema(Schema.Literals(['bash', 'zsh'])), value, value, Arbitrary.schema(Schema.Boolean), posixy, lined],
-        Effect.fnUntraced(function* ([shell, held, other, same, bare, body]) {
-            const [{ script }, oracle, { named }] = yield* Effect.all([Shell, Oracle, Dialects]);
-            const right = same ? held : other;
-            const [built, heredoc] = yield* Effect.all([script(named[shell])`[[ ${held} == ${right} ]] && v=same || v=apart; rec "$v" {x,${held}} {x,${bare}} <<< ${held}`, heredocs[4].build(script(named[shell]), body)]);
-            const ran = yield* Effect.all([oracle.run(built.argv()), oracle.run(heredoc.argv())], { concurrency: 'unbounded' });
-            assert.deepStrictEqual(
-                ran.flatMap(Struct.get('records')).map(({ args, input }) => [args, input]),
-                [
-                    [[held === right ? 'same' : 'apart', 'x', held, 'x', bare], `${held}\n`],
-                    [[], `<${body}>\n`],
-                ],
-            );
-        }),
-        runs,
-    );
+        suite.effect.prop(
+            `carries any value through brace alternatives, a here-string, a [[ ]] operand, and an ANSI-C quoted heredoc as exactly its text, under the ${charset} charset`,
+            [Arbitrary.schema(Schema.Literals(['bash', 'zsh'])), value, value, Arbitrary.schema(Schema.Boolean), posixy, lined],
+            Effect.fnUntraced(function* ([shell, held, other, same, bare, body]) {
+                const [{ script }, oracle, { localized }] = yield* Effect.all([Shell, Oracle, Dialects]);
+                const named = localized[charset];
+                const right = same ? held : other;
+                const [built, heredoc] = yield* Effect.all([script(named[shell])`[[ ${held} == ${right} ]] && v=same || v=apart; rec "$v" {x,${held}} {x,${bare}} <<< ${held}`, heredocs[4].build(script(named[shell]), body)]);
+                const ran = yield* Effect.all([oracle.run(built.argv(), charsets[charset]), oracle.run(heredoc.argv(), charsets[charset])], { concurrency: 'unbounded' });
+                assert.deepStrictEqual(ran.flatMap(Struct.get('records')).map(Struct.pick(['args', 'input'])), [
+                    { args: [held === right ? 'same' : 'apart', 'x', held, 'x', bare], input: `${held}\n` },
+                    { args: [], input: `<${body}>\n` },
+                ]);
+            }),
+            runs,
+        );
+    });
 
     suite.effect.prop(
         'refuses a heredoc hole exactly when a line of its value would end the heredoc or lose the tabs <<- strips',

@@ -2,7 +2,7 @@ import { assert, it } from '@effect/vitest';
 import { Shell } from '@rasm/shell';
 import { Array, Cause, Effect, Option, Path, Result, Schema, Struct } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
-import { Dialects, Oracle } from '#/oracle';
+import { charsets, Dialects, Oracle } from '#/oracle';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -35,15 +35,19 @@ it.layer(Dialects.layer, { excludeTestServices: true })('syntax', (suite) => {
         }),
     );
 
-    suite.effect(
-        'reads a source bash refuses as a syntax error at the UTF-16 offset of its unclosed token, incomplete exactly when bash runs it once completed',
-        Effect.fnUntraced(function* () {
-            const [shell, oracle, { named }] = yield* Effect.all([Shell, Oracle, Dialects]);
+    suite.effect.each(Struct.keys(charsets))(
+        'reads a source bash refuses as a syntax error at the UTF-16 offset of its unclosed token, incomplete exactly when bash runs it once completed, under the %s charset',
+        Effect.fnUntraced(function* (charset) {
+            const [shell, oracle, { localized }] = yield* Effect.all([Shell, Oracle, Dialects]);
             const rows = [
                 { source: 'echo "𝄞" "open', completion: '"', reason: { _tag: 'Syntax', offset: Option.some(10), incomplete: true } },
                 { source: 'echo )', completion: '', reason: { _tag: 'Syntax', offset: Option.some(5), incomplete: false } },
             ] as const;
-            const observed = yield* Effect.forEach(rows, ({ source, completion }) => Effect.all([Effect.map(Effect.flip(shell.read(source, { dialect: named.bash })), Struct.get('reason')), oracle.shell('bash', source), oracle.shell('bash', `${source}${completion}`)]), { concurrency: 'unbounded' });
+            const observed = yield* Effect.forEach(
+                rows,
+                ({ source, completion }) => Effect.all([Effect.map(Effect.flip(shell.read(source, { dialect: localized[charset].bash })), Struct.get('reason')), oracle.shell('bash', source, charsets[charset]), oracle.shell('bash', `${source}${completion}`, charsets[charset])]),
+                { concurrency: 'unbounded' },
+            );
             assert.deepStrictEqual(
                 observed.map(([reason, refused, completed]) => [reason, refused.exit === 0, completed.exit === 0]),
                 rows.map(({ reason }) => [reason, false, reason.incomplete]),

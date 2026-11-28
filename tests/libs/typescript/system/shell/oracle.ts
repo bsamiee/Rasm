@@ -1,6 +1,6 @@
 import { layer as platform } from '@effect/platform-node/NodeServices';
 import { Shell } from '@rasm/shell';
-import { Array, Cause, Config, Context, Effect, FileSystem, Layer, Option, Path, Redacted, Schema } from 'effect';
+import { Array, Cause, Config, Context, Effect, FileSystem, Layer, Option, Path, Record, Redacted, Schema } from 'effect';
 import { ChildProcess, ChildProcessSpawner, type CommandLine } from 'effect/process';
 import { processor } from 'sh-syntax/sync';
 
@@ -9,6 +9,7 @@ import { processor } from 'sh-syntax/sync';
 const recorder = `#!/bin/sh\nt=$(/usr/bin/mktemp) || exit 1\n{ printf '%s\\0' "$#" "$PWD" "\${0##*/}" "$@"; /bin/cat; printf '\\0'; } > "$t"\n/bin/cat "$t" >> "$RECORD"\n/bin/rm -f "$t"\n`;
 const remote = '#!/bin/sh\nshift\nexec /bin/sh -c "$*"\n';
 const fixture = ['a.txt', 'b.txt', '.dot.txt', 'dir/c.txt', 'space name.txt', 'ab'] as const;
+const charsets = { ascii: { LC_ALL: 'C' }, utf8: { LC_ALL: 'C.UTF-8' } } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -82,7 +83,9 @@ class Dialects extends Context.Service<Dialects>()('@rasm/test-shell/oracle/Dial
     make: Effect.gen(function* () {
         const [shell, oracle] = yield* Effect.all([Shell, Oracle]);
         const probed = (program: string, given: Readonly<Record<string, string>> = {}, source?: string) => Effect.flatMap(oracle.located(program), (binary) => shell.dialect({ shell: binary, environment: { ...oracle.environment, ...given }, timeout: '2 minutes', ...(source === undefined ? {} : { source }) }));
-        return { probed, named: yield* Effect.all({ sh: probed('sh'), '/bin/sh': probed('/bin/sh'), bash: probed('bash'), zsh: probed('zsh'), dash: probed('dash') }, { concurrency: 'unbounded' }) };
+        const named = (given: Readonly<Record<string, string>>) => Effect.all({ sh: probed('sh', given), '/bin/sh': probed('/bin/sh', given), bash: probed('bash', given), zsh: probed('zsh', given), dash: probed('dash', given) }, { concurrency: 'unbounded' });
+        const [inherited, localized] = yield* Effect.all([named({}), Effect.all(Record.map(charsets, named), { concurrency: 'unbounded' })], { concurrency: 'unbounded' });
+        return { probed, named: inherited, localized };
     }),
 }) {
     static readonly layer = Layer.provideMerge(Layer.effect(this, this.make), Layer.provideMerge(Layer.effect(Shell, Shell.make({ processor })), Oracle.layer));
@@ -90,4 +93,4 @@ class Dialects extends Context.Service<Dialects>()('@rasm/test-shell/oracle/Dial
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Dialects, Oracle };
+export { charsets, Dialects, Oracle };

@@ -1,8 +1,8 @@
 import { assert, it } from '@effect/vitest';
 import { Shell } from '@rasm/shell';
-import { Arbitrary, Array, Effect, FileSystem, Formatter, Match, Option, Path, Redacted, Schema, Struct } from 'effect';
+import { Arbitrary, Array, Effect, FileSystem, Formatter, Match, Option, Path, Record, Redacted, Schema, Struct } from 'effect';
 import { walk, type Word } from 'sh-syntax';
-import { Dialects, Oracle } from '#/oracle';
+import { charsets, Dialects, Oracle } from '#/oracle';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -82,6 +82,7 @@ const roles = {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const perCharset = (rows: readonly Row[]): readonly Row[] => Array.cartesianWith(rows, Record.values(charsets), (row, locale) => ({ ...row, environment: { ...row.environment, ...locale } }));
 const described = (expansion: Expansion): readonly string[] =>
     Match.valueTags(expansion, {
         Refused: ({ origin }) => [`Refused ${origin._tag}`],
@@ -130,8 +131,10 @@ it.layer(Dialects.layer, { excludeTestServices: true })('expansion', (suite) => 
         { shell: 'bash', word: String.raw`"a\$b\\c\d\"e"`, fields: ['Known'], exact: true },
         { shell: 'bash', word: String.raw`$'\u00410'`, fields: ['Known'], exact: true },
         { shell: '/bin/bash', word: String.raw`$'\u00410'`, fields: ['Known'], exact: true },
-        { shell: 'bash', word: String.raw`$'\x4g\101\cA\e\q\U0001F600'`, fields: ['Known'], exact: true },
-        { shell: 'zsh', word: String.raw`$'\x4g\101\C-a\e\q\U0001F600'`, fields: ['Known'], lacking: { feature: 'wide', fields: ['Refused Bytes'] }, exact: true },
+        ...perCharset([
+            { shell: 'bash', word: String.raw`$'\x4g\101\cA\e\q\U0001F600'`, fields: ['Known'], exact: true },
+            { shell: 'zsh', word: String.raw`$'\x4g\101\C-a\e\q\U0001F600'`, fields: ['Known'], lacking: { feature: 'wide', fields: ['Refused Bytes'] }, exact: true },
+        ]),
         { shell: 'bash', word: String.raw`$'a\0b'c`, fields: ['Known'], exact: true },
         { shell: 'bash', word: String.raw`$'\xff'`, fields: ['…'], exact: true },
         { shell: 'bash', word: '$x', environment: { x: 'a b' }, fields: ['Known', 'Known'], exact: true },
