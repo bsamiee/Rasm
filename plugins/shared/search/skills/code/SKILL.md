@@ -37,10 +37,11 @@ cargo tree --locked --invert <crate> --depth 1
 swift package show-dependencies --format json
 ```
 
-Swift interface of a Clang SDK module (`ApplicationServices`, `CoreFoundation`) at the selected Xcode's SDK:
+Swift interface of an SDK module at the selected Xcode's SDK, Clang (`CoreFoundation`) or Swift (`Observation`), then the Swift overlay of a Clang framework (`AppKit`), which synthesis omits:
 
 ```bash
 xcrun swift-synthesize-interface -module-name <Module> -sdk "$(xcrun --show-sdk-path)" -target "arm64-apple-macos$(xcrun --show-sdk-version)" -include-submodules | rg -n '<Member>'
+fd -e swiftinterface arm64e-apple-macos "$(xcrun --show-sdk-path)/System/Library/Frameworks/<Module>.framework" -X rg -n '<Member>'
 ```
 
 .NET types declaring a member as `.xml` doc ids, ` ``N ` follows a generic method name, without decompiling:
