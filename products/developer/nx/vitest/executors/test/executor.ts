@@ -48,10 +48,11 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
     const { config, attachmentsDir, __unparsed__: words = [] } = Array.headNonEmpty(group).options;
     const entry = resolve(root, config);
     const node = yield* loaded<{ readonly createVitest: (options: CliOptions) => Promise<Vitest>; readonly parseCLI: typeof parseCLI; readonly TestsNotFoundError: typeof TestsNotFoundError }>(config, entry, 'vitest/node');
+    const { filter, options: parsed } = node.parseCLI(['vitest', 'run', ...words]);
     const stated: CliOptions = {
         allowOnly: false,
         update: 'none',
-        ...node.parseCLI(['vitest', 'run', ...words]).options,
+        ...parsed,
         config: entry,
         watch: false,
         project: group.some(({ options }) => options.projects.length === 0) ? [] : Array.dedupe(group.flatMap(({ options }) => options.projects)),
@@ -65,7 +66,7 @@ const tested = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyR
         const held = Option.flatMapNullishOr(owner(project.config.root), (task) => attachments[task]);
         Object.assign(project.config, Option.getOrUndefined(Option.map(held, (at) => ({ attachmentsDir: resolve(root, at) }))));
     });
-    const started = yield* Effect.exit(Effect.tryPromise({ try: () => vitest.start(), catch: (cause) => new Cause.UnknownError(cause, `vitest run over ${config} stops before it reports`) }));
+    const started = yield* Effect.exit(Effect.tryPromise({ try: () => vitest.start(filter), catch: (cause) => new Cause.UnknownError(cause, `vitest run over ${config} stops before it reports`) }));
     const modules = vitest.state.getTestModules();
     const unhandled = vitest.state.getUnhandledErrors().map((error) => ({ said: `unhandled error: ${Formatter.format(error)}`, by: Option.flatMap(Schema.decodeUnknownOption(Traced)(error), ({ VITEST_TEST_PATH }) => owner(VITEST_TEST_PATH)) }));
     const [traced, stray] = Array.partition(unhandled, ({ said, by }) => Option.match(by, { onNone: () => Result.fail(said), onSome: (task) => Result.succeed({ task, said }) }));

@@ -15,6 +15,19 @@ import { getFilesForOutputsBatch } from 'nx/src/native';
 import { createTaskGraph } from 'nx/src/tasks-runner/create-task-graph';
 import { inside, NxError, request, spawned } from '#/inference';
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const errnoTags = new Map<number, PlatformError.SystemErrorTag>([
+    [system.errno.ENOENT, 'NotFound'],
+    [system.errno.EACCES, 'PermissionDenied'],
+    [system.errno.EPERM, 'PermissionDenied'],
+    [system.errno.EEXIST, 'AlreadyExists'],
+    [system.errno.EISDIR, 'BadResource'],
+    [system.errno.ENOTDIR, 'BadResource'],
+    [system.errno.ELOOP, 'BadResource'],
+    [system.errno.EBUSY, 'Busy'],
+]);
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Dry = Schema.Struct({ dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Prints each change and makes none, as NX_DRY_RUN=true does' }) });
@@ -138,7 +151,7 @@ const installed = Effect.fnUntraced(function* <E = never, R = never>(pairs: read
                   Effect.flatMap(({ images: running, refused }) =>
                       refused === null || [system.errno.ENOTSUP, system.errno.EINVAL, system.errno.EXDEV].includes(refused.code)
                           ? Effect.succeed({ images: running, rest: staged.slice(refused?.index ?? staged.length) })
-                          : PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'installed', syscall: refused.syscall, pathOrDescriptor: staged[refused.index]?.to, description: getSystemErrorMessage(-refused.code) }),
+                          : PlatformError.systemError({ _tag: errnoTags.get(refused.code) ?? 'Unknown', module: 'FileSystem', method: 'installed', syscall: refused.syscall, pathOrDescriptor: staged[refused.index]?.to, description: getSystemErrorMessage(-refused.code) }),
                   ),
               );
     yield* Effect.forEach(
