@@ -339,9 +339,6 @@ catalogs:
     fontkit:
       specifier: 3.0.0
       version: 3.0.0
-    get-port:
-      specifier: 7.2.0
-      version: 7.2.0
     harfbuzzjs:
       specifier: 1.6.4
       version: 1.6.4
@@ -3119,9 +3116,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.1.6(patch_hash=625f56b536dba53a24a986807ccb543cf106458a35b7fd69616d5b043f73fd02)
-      get-port:
-        specifier: 'catalog:'
-        version: 7.2.0
       testcontainers:
         specifier: 'catalog:'
         version: 12.2.2(bare-buffer@3.7.3)(supports-color@10.2.2)
@@ -8210,10 +8204,6 @@ packages:
   get-port@5.1.1:
     resolution: {integrity: sha512-g/Q1aTSDOxFpchXC4i8ZWvxA1lnPqx/JHqcpIw0/LX9T8x/GBbi6YnlN5nhaKIFkT8oFsscUKgDJYxfwfS6QsQ==}
     engines: {node: '>=8'}
-
-  get-port@7.2.0:
-    resolution: {integrity: sha512-afP4W205ONCuMoPBqcR6PSXnzX35KTcJygfJfcp+QY+uwm3p20p1YczWXhlICIzGMCxYBQcySEcOgsJcrkyobg==}
-    engines: {node: '>=16'}
 
   get-proto@1.0.1:
     resolution: {integrity: sha512-sTSfBjoXBp89JvIKIefqw7U2CCebsc74kiY6awiGogKtoSGbgjYE/G/+l9sF3MWFPNc9IcoOC4ODfKHfxFmp0g==}
@@ -14273,8 +14263,6 @@ snapshots:
       math-intrinsics: 1.1.0
 
   get-port@5.1.1: {}
-
-  get-port@7.2.0: {}
 
   get-proto@1.0.1:
     dependencies:

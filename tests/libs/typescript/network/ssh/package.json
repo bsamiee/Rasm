@@ -12,7 +12,6 @@
         "@rasm/ssh": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
-        "get-port": "catalog:",
         "testcontainers": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
