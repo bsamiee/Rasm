@@ -150,6 +150,7 @@
         "unicorn/no-array-for-each": "off", // Fix writes a `for...of` loop, CLAUDE.md keeps imperative code at boundaries
         "unicorn/no-array-method-this-argument": "off", // Reads the function of `Effect.forEach` and `Record.map` as `thisArg`
         "unicorn/no-array-reduce": "off", // Fix writes a `for` loop, CLAUDE.md keeps imperative code at boundaries
+        "unicorn/no-array-sort": "off", // Reads Effect's pure data-last `Array.sort(order)` as the mutating `Array#sort`
         "unicorn/no-instanceof-builtins": ["error", { "useErrorIsError": true }],
         "unicorn/no-null": "off", // Host APIs take `null` (`combineOptionsForExecutor`)
         "unicorn/no-useless-undefined": ["error", { "checkArguments": false, "checkArrowFunctionBody": false }],
