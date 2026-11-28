@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import { glob } from 'node:fs/promises';
 import { basename, dirname, join, posix } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { Array, Effect, FileSystem, Option, Record, Schema } from 'effect';
@@ -10,7 +11,7 @@ import { checks } from '#/checks';
 const HOOKS = 'hooks';
 const LIMITS = { module: 1_048_576, wasm: 67_108_864 } as const;
 const NAME = '@rasm/vite/claude';
-const MANIFESTS = { hooks: `${HOOKS}/hooks.json`, plugin: '.claude-plugin/plugin.json' } as const;
+const MANIFESTS = { hooks: `${HOOKS}/hooks.json`, plugin: '.claude-plugin/plugin.json', package: 'package.json' } as const;
 const SHELL = {
     wasm: 'sh-syntax/main.wasm',
     loader: 'sh-syntax/sync',
@@ -27,6 +28,9 @@ const Hooks = Schema.fromJsonString(Schema.StructWithRest(Schema.Struct({ module
 });
 const Plugin = Schema.fromJsonString(Schema.Struct({ types: Schema.optionalKey(Schema.String) })).annotate({
     description: 'The .claude-plugin/plugin.json of a Claude Code plugin, its types contract a declaration file relative to the plugin folder',
+});
+const Package = Schema.fromJsonString(Schema.Struct({ files: Schema.String.pipe(Schema.Array, Schema.optionalKey) })).annotate({
+    description: 'The package.json of a Claude Code plugin, its files globs naming plugin files the bundle copies beside its hooks (skills, agents, scripts)',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -45,8 +49,17 @@ const claude = (directory: string): UserConfigFnPromise =>
     Effect.fnUntraced(
         function* () {
             const [fs, services] = yield* Effect.all([FileSystem.FileSystem, Effect.context<FileSystem.FileSystem>()]);
-            const [hooks, plugin] = yield* Effect.all([Effect.flatMap(fs.readFileString(join(directory, MANIFESTS.hooks)), Schema.decodeEffect(Hooks)), fs.readFileString(join(directory, MANIFESTS.plugin))]);
+            const [hooks, plugin, { files = [] }] = yield* Effect.all([
+                Effect.flatMap(fs.readFileString(join(directory, MANIFESTS.hooks)), Schema.decodeEffect(Hooks)),
+                fs.readFileString(join(directory, MANIFESTS.plugin)),
+                Effect.flatMap(fs.readFileString(join(directory, MANIFESTS.package)), Schema.decodeEffect(Package)),
+            ]);
             const { types } = yield* Schema.decodeEffect(Plugin)(plugin);
+            const found = yield* Effect.promise(() => globalThis.Array.fromAsync(glob(files, { cwd: directory, withFileTypes: true })));
+            const copied = yield* Effect.forEach(
+                found.filter((entry) => entry.isFile()).map((entry) => posix.relative(directory, join(entry.parentPath, entry.name))),
+                (fileName) => Effect.map(fs.readFile(join(directory, fileName)), (source) => ({ type: 'asset' as const, fileName, source })),
+            );
             const contract = yield* Effect.forEach(Option.toArray(Option.fromUndefinedOr(types)), (path) => Effect.map(fs.readFileString(join(directory, path)), (source) => [posix.normalize(path), source] as const));
             const names = Array.map(hooks.modules, (module) => posix.join(posix.dirname(module), posix.parse(module).name));
             const manifests = { [MANIFESTS.hooks]: yield* Schema.encodeEffect(Hooks)({ ...hooks, modules: Array.map(names, (name) => `./${name}.js`) }), [MANIFESTS.plugin]: plugin, ...Record.fromEntries(contract) };
@@ -84,7 +97,7 @@ const claude = (directory: string): UserConfigFnPromise =>
                             const assets = Effect.forEach(wasm, (path) => Effect.map(fs.readFile(path), (source) => ({ type: 'asset' as const, fileName: posix.join(HOOKS, basename(path)), source })));
                             return Effect.runPromiseWith(services)(assets).then((emitted) => {
                                 const over = [...chunks.map(({ fileName, code }) => ({ fileName, bytes: Buffer.byteLength(code), limit: LIMITS.module })), ...emitted.map(({ fileName, source }) => ({ fileName, bytes: source.byteLength, limit: LIMITS.wasm }))].filter(({ bytes, limit }) => bytes > limit);
-                                emitted.forEach((asset) => {
+                                [...emitted, ...copied].forEach((asset) => {
                                     this.emitFile(asset);
                                 });
                                 return over.length === 0 ? undefined : this.error(['files over the Claude Code read limit', ...over.map(({ fileName, bytes, limit }) => `  ${fileName}: ${bytes} bytes, limit ${limit}`)].join('\n'));
