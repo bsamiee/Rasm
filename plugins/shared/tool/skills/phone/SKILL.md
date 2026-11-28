@@ -12,13 +12,14 @@ Mac reads and drives the phone over CoreDevice on the same Wi-Fi or a cable, wit
 Every task opens with one listing and one lock read, and later calls name the phone by the UDID it prints:
 
 ```bash
-xcrun devicectl list devices --filter "Reality = 'physical'" -q -j - | jq -c '.result.devices[] | {name: .deviceProperties.name, udid: .hardwareProperties.udid, tunnel: .connectionProperties.tunnelState}'
-xcrun devicectl device info lockState -d <udid> -q -j - | jq -c .result
-xcrun devicectl device info displays -d <udid> -q -j - | jq -c '.result.displays[0] | {bounds, pointScale}'
+devicectl list devices --filter "Reality = 'physical'" -q -j - | jq -c '.result.devices[] | {name: .deviceProperties.name, udid: .hardwareProperties.udid, tunnel: .connectionProperties.tunnelState}'
+devicectl device info lockState -d <udid> -q -j - | jq -c .result
+devicectl device info displays -d <udid> -q -j - | jq -c '.result.displays[0] | {bounds, pointScale}'
 ```
 
 - `-q -j -` prints the versioned JSON result alone on stdout, `-j <f>` writes it to a file, human output is unstable across releases
-- `passcodeRequired: true` means locked: taps, typing, app launches, and URL opens wait for the owner to unlock, an owner step asked once with the reason, and Auto-Lock locks it again after 5 idle minutes
+- `passcodeRequired: true` means locked: taps, typing, app launches, and URL opens wait for the owner to unlock, asked once with the reason
+- Auto-Lock locks the phone again after 5 idle minutes
 - Locked phones still answer state reads, screenshots, lock screen captions, pasteboard, files, logs, and metrics
 - `-d` takes the UDID, CoreDevice id, ECID, serial, or name, and never a tailnet DNS name, as CoreDevice discovery stays on the local network
 - `pymobiledevice3` picks the one paired phone itself, as `PYMOBILEDEVICE3_NATIVE=1` in every shell routes it through Apple's `remoted` tunnel
@@ -28,30 +29,31 @@ xcrun devicectl device info displays -d <udid> -q -j - | jq -c '.result.displays
 
 `HID` stands for `pymobiledevice3 developer core-device universal-hid-service`:
 
-| [INDEX] | [JOB]           | [COMMAND]                                                                                                       |
-| :-----: | :-------------- | :-------------------------------------------------------------------------------------------------------------- |
-|  [01]   | Screenshot      | `xcrun devicectl device capture screenshot -d <udid> --destination <f>.png`                                     |
-|  [02]   | Tap, scroll     | `HID tap -- <x> <y>`, `HID drag -- <x1> <y1> <x2> <y2>`, `HID multi-tap`, `HID multi-drag`                      |
-|  [03]   | Gesture batch   | `printf 'tap <x> <y>\nsleep 0.5\ndrag <x1> <y1> <x2> <y2>\n' \| HID session`                                    |
-|  [04]   | Type, keys      | `HID type '<ascii>'`, `HID key enter\|backspace\|escape\|tab\|left\|right\|up\|down --count <n>`                |
-|  [05]   | Buttons         | `pymobiledevice3 developer core-device hid button home\|volume-up\|volume-down\|mute\|siri`                     |
-|  [06]   | Captions        | `pymobiledevice3 developer accessibility list-items`                                                            |
-|  [07]   | Apps            | `xcrun devicectl device info apps -d <udid> --include-all-apps -s <name> -q -j -`                               |
-|  [08]   | Launch, quit    | `xcrun devicectl device process launch -d <udid> --terminate-existing <bundle>`, `... terminate --pid <pid>`    |
-|  [09]   | Processes       | `xcrun devicectl device info processes -d <udid> -s <name> -q -j -`                                             |
-|  [10]   | Open a URL      | `xcrun devicectl device process openURL -d <udid> '<url>'`                                                      |
-|  [11]   | Pasteboard      | `printf '%s' '<text>' \| xcrun devicectl device pasteboard copy -d <udid>`, `... paste`, `... info`             |
-|  [12]   | Appearance      | `xcrun devicectl device info appearance`, `... settings appearance -d <udid> --mode dark --text-size <s>`       |
-|  [13]   | Orientation     | `xcrun devicectl device orientation get\|set\|rotate -d <udid>`                                                 |
-|  [14]   | Location        | `xcrun devicectl device simulate location coordinate -d <udid> --latitude <lat> --longitude <lon>`, `... clear` |
-|  [15]   | Media files     | `pymobiledevice3 afc ls\|pull\|push\|rm` under `/` (DCIM, Downloads, Books)                                     |
-|  [16]   | Crash logs      | `xcrun devicectl device info files -d <udid> --domain-type systemCrashLogs`, `... copy from --source <p>`       |
-|  [17]   | Live log        | `timeout <s> pymobiledevice3 syslog live -pn <process> -m <text>`                                               |
-|  [18]   | Log archive     | `sudo log collect --device-udid <udid> --last <n>m --output <f>.logarchive`, then `log show <f>.logarchive`     |
-|  [19]   | Metrics         | `xcrun xctrace record --device <udid> --template 'Activity Monitor' --all-processes --time-limit <n>s`          |
-|  [20]   | Battery         | `pymobiledevice3 diagnostics battery single`                                                                    |
-|  [21]   | Network shaping | `pymobiledevice3 developer dvt condition list`, `... set <profile>` held open, `... clear`                      |
-|  [22]   | Safari pages    | `pymobiledevice3 webinspector opened-tabs`, `... js-shell`, `... cdp`                                           |
+| [INDEX] | [JOB]           | [COMMAND]                                                                                                             |
+| :-----: | :-------------- | :-------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | Screenshot      | `devicectl device capture screenshot -d <udid> --destination <f>.png`                                                 |
+|  [02]   | Tap, scroll     | `HID tap -- <x> <y>`, `HID drag -- <x1> <y1> <x2> <y2>`, `HID multi-tap`, `HID multi-drag`                            |
+|  [03]   | Gesture batch   | `printf 'tap <x> <y>\nsleep 0.5\ndrag <x1> <y1> <x2> <y2>\n' \| HID session`                                          |
+|  [04]   | Type, keys      | `HID type '<ascii>'`, `HID key enter\|backspace\|escape\|tab\|left\|right\|up\|down --count <n>`                      |
+|  [05]   | Buttons         | `pymobiledevice3 developer core-device hid button home\|volume-up\|volume-down\|mute\|siri`                           |
+|  [06]   | Captions        | `pymobiledevice3 developer accessibility list-items`                                                                  |
+|  [07]   | Apps            | `devicectl device info apps -d <udid> --include-all-apps -s <name> -q -j -`                                           |
+|  [08]   | Install         | `devicectl device install app -d <udid> <app>.app`, then `process launch --console` streams its output                |
+|  [09]   | Launch, quit    | `devicectl device process launch -d <udid> --terminate-existing <bundle>`, `... terminate --pid <pid>`                |
+|  [10]   | Processes       | `devicectl device info processes -d <udid> -s <name> -q -j -`                                                         |
+|  [11]   | Open a URL      | `devicectl device process openURL -d <udid> '<url>'`                                                                  |
+|  [12]   | Pasteboard      | `printf '%s' '<text>' \| devicectl device pasteboard copy -d <udid>`, `... paste`, `... info`                         |
+|  [13]   | Appearance      | `devicectl device info appearance -d <udid>`, `... settings appearance -d <udid> --mode dark`                         |
+|  [14]   | Orientation     | `devicectl device orientation get\|set\|rotate -d <udid>`                                                             |
+|  [15]   | Location        | `devicectl device simulate location coordinate -d <udid> --latitude <lat> --longitude <lon>`, `... clear`             |
+|  [16]   | Media files     | `pymobiledevice3 afc ls\|pull\|push\|rm` under `/` (DCIM, Downloads, Books)                                           |
+|  [17]   | Crash logs      | `devicectl device info files -d <udid> --domain-type systemCrashLogs`, `... copy from --source <p> --destination <f>` |
+|  [18]   | Live log        | `timeout <s> pymobiledevice3 syslog live -pn <process> -m <text>`                                                     |
+|  [19]   | Log archive     | `sudo log collect --device-udid <udid> --last <n>m --output <f>.logarchive`, then `log show <f>.logarchive`           |
+|  [20]   | Metrics         | `xcrun xctrace record --device <udid> --template 'Activity Monitor' --all-processes --time-limit <n>s`                |
+|  [21]   | Battery         | `pymobiledevice3 diagnostics battery single`                                                                          |
+|  [22]   | Network shaping | `pymobiledevice3 developer dvt condition list`, `... set <profile>` held open, `... clear`                            |
+|  [23]   | Safari pages    | `pymobiledevice3 webinspector opened-tabs`, `... js-shell`, `... cdp`                                                 |
 
 - `HID drag` scrolls, `HID swipe` moves a pointer with no contact and scrolls nothing
 - `HID session` opens one input stream for a whole batch, where back-to-back single calls each open their own
